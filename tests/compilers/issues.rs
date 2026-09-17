@@ -1508,7 +1508,7 @@ fn static_memory_calls(enable_m0: bool) -> Result<()> {
 
     let temp = tempfile::tempdir()?;
     let mut config = LLVM::new();
-    config.enable_m0(enable_m0);
+    config.enable_m0_pass_param(enable_m0);
     config.callbacks(Some(LLVMCallbacks::new(temp.path().to_owned())?));
 
     let tunables = BaseTunables::new();
