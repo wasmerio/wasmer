@@ -156,7 +156,7 @@ pub trait CompilerConfig {
     }
 
     /// For the LLVM compiler, enable m0 optimization that passes pointer to first memory as a hidden argument.
-    fn enable_m0(&mut self, _enable: bool) {
+    fn enable_m0_pass_param(&mut self, _enable: bool) {
         // By default we do nothing, each backend will need to customize this
         // in case they create an IR that they can verify.
     }

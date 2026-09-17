@@ -420,7 +420,7 @@ impl CompilerConfig for LLVM {
     }
 
     /// For the LLVM compiler, enable m0 optimization that passes pointer to the first memory as a hidden first argument.
-    fn enable_m0(&mut self, enable: bool) {
+    fn enable_m0_pass_param(&mut self, enable: bool) {
         self.enable_m0 = enable;
     }
 
