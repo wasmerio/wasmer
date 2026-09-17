@@ -6,7 +6,10 @@ use crate::{
     config::LLVM,
     error::{err, err_nt},
     object_file::{RkyvCompiledFunction, load_object_file},
-    translator::intrinsics::{Intrinsics, type_to_llvm},
+    translator::{
+        code::enable_m0_optimization,
+        intrinsics::{Intrinsics, type_to_llvm},
+    },
 };
 use inkwell::{
     AddressSpace, DLLStorageClass,
@@ -30,8 +33,7 @@ use wasmer_compiler::{
     },
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType as FuncType, LocalFunctionIndex, MemoryIndex,
-    entity::PrimaryMap,
+    CompileError, FunctionIndex, FunctionType as FuncType, LocalFunctionIndex, entity::PrimaryMap,
 };
 use wasmer_vm::MemoryStyle;
 
@@ -46,13 +48,6 @@ pub struct FuncTrampoline {
 
 const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
 const FUNCTION_SECTION_MACHO: &str = "wasmer_trmpl"; // Needs to be between 1 and 16 chars
-
-fn enable_m0_optimization(compile_info: &CompileModuleInfo) -> bool {
-    compile_info
-        .memory_styles
-        .get(MemoryIndex::from_u32(0))
-        .is_some_and(|memory| matches!(memory, MemoryStyle::Static))
-}
 
 impl FuncTrampoline {
     pub fn new(
@@ -101,7 +96,7 @@ impl FuncTrampoline {
             &self.binary_fmt,
         );
 
-        let m0_is_enabled = enable_m0_optimization(compile_info);
+        let m0_is_enabled = enable_m0_optimization(config, &compile_info.memory_styles);
         let (callee_ty, callee_attrs) =
             self.abi
                 .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, m0_is_enabled)?;
@@ -149,20 +144,10 @@ impl FuncTrampoline {
             callbacks.preopt_ir(function, &compile_info.module.hash_string(), &module);
         }
 
-        let mut passes = vec![];
+        // Always verify the LLVM IR.
+        err!(module.verify());
 
-        if config.enable_verifier {
-            passes.push("verify");
-        }
-
-        passes.push("instcombine");
-        module
-            .run_passes(
-                passes.join(",").as_str(),
-                target_machine,
-                PassBuilderOptions::create(),
-            )
-            .unwrap();
+        err!(module.run_passes("instcombine", target_machine, PassBuilderOptions::create(),));
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(function, &compile_info.module.hash_string(), &module);
@@ -311,20 +296,10 @@ impl FuncTrampoline {
             callbacks.preopt_ir(function, module_hash, &module);
         }
 
-        let mut passes = vec![];
+        // Always verify the LLVM IR.
+        err!(module.verify());
 
-        if config.enable_verifier {
-            passes.push("verify");
-        }
-
-        passes.push("early-cse");
-        module
-            .run_passes(
-                passes.join(",").as_str(),
-                target_machine,
-                PassBuilderOptions::create(),
-            )
-            .unwrap();
+        err!(module.run_passes("early-cse", target_machine, PassBuilderOptions::create(),));
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(function, module_hash, &module);
@@ -511,7 +486,7 @@ impl FuncTrampoline {
         callee_vmctx_ptr.set_name("vmctx");
         args_vec.push(callee_vmctx_ptr.into());
 
-        if enable_m0_optimization(compile_info) {
+        if enable_m0_optimization(config, &compile_info.memory_styles) {
             let wasm_module = &compile_info.module;
             let memory_styles = &compile_info.memory_styles;
             let callee_vmctx_ptr_value = callee_vmctx_ptr.into_pointer_value();

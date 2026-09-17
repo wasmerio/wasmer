@@ -827,6 +827,7 @@ the app:\n"
                 publish_package: !build_remote,
                 dir: self.app_dir_path.clone(),
                 path: path.map(|v| v.to_path_buf()),
+                env_file: None,
                 no_wait: self.no_wait,
                 no_default: false,
                 no_persist_id: false,

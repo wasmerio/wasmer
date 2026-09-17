@@ -88,6 +88,18 @@ pub struct FuncTranslator {
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 
+pub(crate) fn enable_m0_optimization(
+    config: &LLVM,
+    memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
+) -> bool {
+    config.enable_m0
+        // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
+        // the allocated heap is never moved to a different location.
+        && memory_styles
+            .get(MemoryIndex::from_u32(0))
+            .is_some_and(|memory| matches!(memory, MemoryStyle::Static))
+}
+
 impl FuncTranslator {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -147,11 +159,7 @@ impl FuncTranslator {
         let function =
             CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
 
-        // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
-        // the allocated heap is never moved to a different location.
-        let m0_is_enabled = memory_styles
-            .get(MemoryIndex::from_u32(0))
-            .is_some_and(|memory| matches!(memory, MemoryStyle::Static));
+        let m0_is_enabled = enable_m0_optimization(config, memory_styles);
 
         let (function_name, module_name) = if config.experimental_artifact {
             (function.linkage_name(), String::new())
@@ -479,10 +487,7 @@ impl FuncTranslator {
             callbacks.preopt_ir(&function, &wasm_module.hash_string(), &module);
         }
 
-        let mut passes = vec![];
-        if config.enable_verifier {
-            passes.push("verify");
-        }
+        let mut passes = Vec::new();
 
         match opt_style {
             OptimizationStyle::Disabled => {
@@ -522,13 +527,16 @@ impl FuncTranslator {
             }
         }
 
-        module
-            .run_passes(
-                &passes.join(","),
-                target_machine,
-                PassBuilderOptions::create(),
-            )
-            .unwrap();
+        // Always verify the LLVM IR; otherwise, invalid IR could cause a nasty
+        // miscompilation instead of a compilation error. Measurements show that
+        // verification adds approximately 2% to compilation time.
+        err!(module.verify());
+
+        err!(module.run_passes(
+            &passes.join(","),
+            target_machine,
+            PassBuilderOptions::create(),
+        ));
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &wasm_module.hash_string(), &module);
@@ -2166,9 +2174,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
         }
 
-        let needs_switch = self.m0_param.is_some()
-            && !local_func_indices.is_empty()
-            && !foreign_func_indices.is_empty();
+        let needs_switch = !local_func_indices.is_empty() && !foreign_func_indices.is_empty();
 
         if needs_switch {
             let foreign_idx_block = self
@@ -2198,7 +2204,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             self.intrinsics.i32_ty.const_int(v as _, false),
                             foreign_idx_block
                         )))
-                        .collect::<Vec<_>>()
+                        .collect_vec()
                 )
             );
 
@@ -2233,6 +2239,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 rets
             };
+            let local_call_block = self
+                .builder
+                .get_insert_block()
+                .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
             self.builder.position_at_end(foreign_idx_block);
             let (foreign_call_site, foreign_llvm_func_type) = self
@@ -2261,6 +2271,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
                 rets
             };
+            let foreign_call_block = self
+                .builder
+                .get_insert_block()
+                .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
             if is_return_call {
                 return Ok(());
@@ -2269,12 +2283,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             self.builder
                 .position_at_end(cont.expect("non-return call requires cont"));
 
-            for i in 0..foreign_rets.len() {
-                let f_i = foreign_rets[i];
-                let l_i = local_rets[i];
-                let ty = f_i.get_type();
-                let v = err!(self.builder.build_phi(ty, ""));
-                v.add_incoming(&[(&f_i, foreign_idx_block), (&l_i, local_idx_block)]);
+            if foreign_rets.len() != local_rets.len() {
+                return Err(CompileError::Codegen(format!(
+                    "mismatched return counts in indirect call branches: foreign={}, local={}.",
+                    foreign_rets.len(),
+                    local_rets.len()
+                )));
+            }
+
+            for (foreign_ret, local_ret) in foreign_rets.iter().zip(local_rets.iter()) {
+                let v = err!(self.builder.build_phi(foreign_ret.get_type(), ""));
+                v.add_incoming(&[
+                    (foreign_ret, foreign_call_block),
+                    (local_ret, local_call_block),
+                ]);
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {

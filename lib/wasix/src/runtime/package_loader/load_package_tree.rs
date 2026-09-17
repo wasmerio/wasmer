@@ -58,6 +58,7 @@ pub async fn load_package_tree(
     resolution: &Resolution,
     root_is_local_dir: bool,
 ) -> Result<BinaryPackage, Error> {
+    let webc_version = root.version();
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
     containers.insert(resolution.package.root_package.clone(), root.clone());
     let package_ids = containers.keys().cloned().collect();
@@ -75,6 +76,7 @@ pub async fn load_package_tree(
     let loaded = BinaryPackage {
         id: root.clone(),
         package_ids,
+        webc_version,
         when_cached: crate::syscalls::platform_clock_time_get(
             wasmer_wasix_types::wasi::Snapshot0Clockid::Monotonic,
             1_000_000,
@@ -424,11 +426,6 @@ fn filesystem(
         })?;
 
         match container.version() {
-            webc::Version::V1 => {
-                anyhow::bail!(
-                    "the package '{package}' is a webc v1 package, but webc v1 support was removed"
-                );
-            }
             webc::Version::V2 => {
                 if found_v2.is_none() {
                     found_v2 = Some(package.clone());

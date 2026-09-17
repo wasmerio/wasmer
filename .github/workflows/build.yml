@@ -37,7 +37,7 @@ jobs:
   build:
     name: ${{ matrix.build }}
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.build == 'linux-x64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-arm64' || 'aux-pub-trusted-16cpu-arm64') || matrix.os }}
     needs: setup
     strategy:
       fail-fast: false
@@ -99,11 +99,11 @@ jobs:
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
         run: |
-          sudo apt install ninja-build
+          sudo apt-get update -y && sudo apt-get install -y ninja-build
       - name: Install Linux ARM tools
         if: startsWith(matrix.build, 'linux-arm64')
         run: |
-          sudo apt install ninja-build cmake make libzstd1 zstd libzstd-dev
+          sudo apt-get update -y && sudo apt-get install -y ninja-build cmake make libzstd1 zstd libzstd-dev
       - name: Install `ninja` on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
@@ -259,7 +259,7 @@ jobs:
   windows_gnu:
     name: windows-gnu
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -267,7 +267,7 @@ jobs:
       - name: Install Windows-GNU linker
         shell: bash
         run: |
-          sudo apt install -y mingw-w64
+          sudo apt-get update -y && sudo apt-get install -y mingw-w64
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: x86_64-pc-windows-gnu
@@ -327,7 +327,7 @@ jobs:
   linux-riscv64:
     name: linux-riscv64
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:

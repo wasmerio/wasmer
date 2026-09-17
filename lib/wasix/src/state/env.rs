@@ -128,6 +128,7 @@ impl WasiEnvInit {
                 args: std::sync::Mutex::new(self.state.args.lock().unwrap().clone()),
                 envs: std::sync::Mutex::new(self.state.envs.lock().unwrap().deref().clone()),
                 signals: std::sync::Mutex::new(self.state.signals.lock().unwrap().deref().clone()),
+                signal_handler_registered: std::sync::atomic::AtomicBool::new(false),
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
@@ -542,22 +543,9 @@ impl WasiEnv {
             import_object.define("env", "memory", memory);
         }
         let runtime = func_env.data(&store).runtime.clone();
-        let (additional_imports, instantiation_state) = runtime
-            .additional_imports(&module, &mut store)
-            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
-
-        for ((namespace, name), value) in &additional_imports {
-            // Downstream runtime imports must not override WASIX imports.
-            if import_object.exists(&namespace, &name) {
-                tracing::warn!(
-                    "Skipping duplicate additional import {}.{}",
-                    namespace,
-                    name
-                );
-            } else {
-                import_object.define(&namespace, &name, value);
-            }
-        }
+        let instantiation_state = runtime
+            .prepare_imports(&module, &mut store, &mut import_object)
+            .map_err(|err| WasiThreadError::ImportPreparationFailed(Arc::new(err)))?;
 
         let imported_memory = import_object
             .get_export("env", "memory")
@@ -715,7 +703,17 @@ impl WasiEnv {
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
-        if !inner.signal_set {
+        // Ask the process, not just this instance: a spawned thread has its own
+        // WasiModuleInstanceHandles and never sees the main instance's
+        // registration, so `inner.signal_set` alone would apply the default
+        // disposition on sibling threads and terminate a process that does
+        // handle the signal.
+        let handler_registered = inner.signal_set
+            || env
+                .state
+                .signal_handler_registered
+                .load(std::sync::atomic::Ordering::SeqCst);
+        if !handler_registered {
             let signals = env.thread.pop_signals();
             if !signals.is_empty() {
                 for sig in signals {
@@ -753,7 +751,13 @@ impl WasiEnv {
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
         if !inner.signal_set {
-            return Ok(Ok(false));
+            // Process-directed signals are copied into every thread's queue,
+            // but the guest callback belongs only to the instance that
+            // registered it. A sibling instance must discard its copy after
+            // the process-wide registration suppressed the default disposition;
+            // otherwise that copy remains queued forever.
+            let drained = !env.thread.pop_signals().is_empty();
+            return Ok(Ok(drained));
         }
 
         // Check for any signals that we need to trigger

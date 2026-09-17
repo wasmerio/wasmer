@@ -22,7 +22,8 @@
 //! `BuildEnv:{key}={value}` sets an environment variable before building.
 //!
 //! The harness also sets `WASMER_BACKEND` to the engine name (`cranelift`, `v8`,
-//! etc.) before every build so shell scripts can tune compile-time parameters per backend.
+//! etc.) and `WASMER_ARCH` to the host architecture before every build so shell scripts
+//! can tune compile-time parameters per backend and architecture.
 //!
 //! `Env:{key}={value}` sets an environment variable before running.
 //!
@@ -901,6 +902,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         cmd.env(k, v);
     }
     cmd.env("WASMER_BACKEND", config.engine.name());
+    cmd.env("WASMER_ARCH", std::env::consts::ARCH);
     let output = cmd.output()?;
 
     if !output.status.success() {

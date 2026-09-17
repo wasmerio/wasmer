@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-integration-tests-cli"
-version = "7.3.0"
+version = "7.4.0"
 description = "CLI integration tests"
 authors.workspace = true
 repository.workspace = true
@@ -41,7 +41,5 @@ target-lexicon.workspace = true
 dirs.workspace = true
 
 [features]
-default = ["webc_runner"]
-webc_runner = []
 v8 = []
 debug = []

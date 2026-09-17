@@ -213,10 +213,17 @@ impl WasiEnvBuilder {
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
-        self.envs.push((
-            String::from_utf8_lossy(key.as_ref()).to_string(),
-            value.as_ref().to_vec(),
-        ));
+        let key = String::from_utf8_lossy(key.as_ref()).to_string();
+        let value = value.as_ref().to_vec();
+        if let Some((_, existing_value)) = self
+            .envs
+            .iter_mut()
+            .find(|(existing_key, _)| existing_key == &key)
+        {
+            *existing_value = value;
+        } else {
+            self.envs.push((key, value));
+        }
     }
 
     /// Add multiple environment variable pairs.
@@ -1004,6 +1011,7 @@ impl WasiEnvBuilder {
             clock_offset: Default::default(),
             envs: std::sync::Mutex::new(conv_env_vars(self.envs)),
             signals: std::sync::Mutex::new(self.signals.iter().map(|s| (s.sig, s.disp)).collect()),
+            signal_handler_registered: std::sync::atomic::AtomicBool::new(false),
         };
 
         let runtime = self.runtime.unwrap_or_else(|| {
@@ -1298,6 +1306,22 @@ mod test {
         {
             None
         }
+    }
+
+    #[test]
+    fn duplicate_environment_variables_use_the_last_value() {
+        let mut builder = WasiEnvBuilder::new("test");
+        builder.add_env("PORT", "5000");
+        builder.add_env("OTHER", "value");
+        builder.add_env("PORT", "8080");
+
+        assert_eq!(
+            builder.get_env(),
+            [
+                ("PORT".to_owned(), b"8080".to_vec()),
+                ("OTHER".to_owned(), b"value".to_vec()),
+            ]
+        );
     }
 
     #[derive(Debug)]

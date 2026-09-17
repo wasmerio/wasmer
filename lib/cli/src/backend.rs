@@ -145,7 +145,7 @@ pub struct RuntimeOptions {
 
     /// Enable compiler internal verification.
     ///
-    /// Available for Cranelift, LLVM and Singlepass.
+    /// Available for Cranelift (enabled always for LLVM).
     #[clap(long)]
     enable_verifier: bool,
 
@@ -165,6 +165,11 @@ pub struct RuntimeOptions {
     #[cfg(feature = "llvm")]
     #[clap(long, hide = true)]
     _enable_pass_params_opt: bool,
+
+    /// For the LLVM compiler, disable passing the pointer to the first memory as a hidden argument.
+    #[cfg(feature = "llvm")]
+    #[clap(long)]
+    disable_m0_pass_param_opt: bool,
 
     /// Sets the number of threads used to compile the input module(s).
     #[clap(long, alias = "llvm-num-threads")]
@@ -443,9 +448,6 @@ impl RuntimeOptions {
                 if self.enable_experimental_unaligned_memory_accesses {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
-                if self.enable_verifier {
-                    config.enable_verifier();
-                }
                 if self.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
                 }
@@ -502,6 +504,9 @@ impl RuntimeOptions {
                 use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
+                if self.disable_m0_pass_param_opt {
+                    config.enable_m0_pass_param(false);
+                }
                 if !self.disable_non_volatile_memops {
                     config.enable_non_volatile_memops();
                 }
@@ -515,9 +520,6 @@ impl RuntimeOptions {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                     config.verbose_asm(true);
-                }
-                if self.enable_verifier {
-                    config.enable_verifier();
                 }
                 if self.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
@@ -602,9 +604,6 @@ impl BackendType {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
                 let supported_features = config.supported_features_for_target(target);
-                if runtime_opts.enable_verifier {
-                    config.enable_verifier();
-                }
                 if runtime_opts.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
                 }
@@ -676,6 +675,9 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
+                if runtime_opts.disable_m0_pass_param_opt {
+                    config.enable_m0_pass_param(false);
+                }
                 if runtime_opts.experimental_artifact {
                     config.experimental_artifact(true);
                 }
@@ -689,9 +691,6 @@ impl BackendType {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                     config.verbose_asm(true);
-                }
-                if runtime_opts.enable_verifier {
-                    config.enable_verifier();
                 }
                 if runtime_opts.enable_nan_canonicalization {
                     config.canonicalize_nans(true);

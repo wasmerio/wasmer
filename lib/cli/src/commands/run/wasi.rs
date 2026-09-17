@@ -10,6 +10,7 @@ use std::{
 use anyhow::{Context, Result, bail};
 use bytes::Bytes;
 use clap::Parser;
+use indexmap::IndexMap;
 use itertools::Itertools;
 use tokio::runtime::Handle;
 use url::Url;
@@ -99,6 +100,10 @@ pub struct Wasi {
         value_parser=parse_envvar,
     )]
     pub(crate) env_vars: Vec<(String, String)>,
+
+    /// Load environment variables from a dotenv file.
+    #[clap(long = "env-file", name = "PATH")]
+    pub(crate) env_file: Option<PathBuf>,
 
     /// Forward all host env variables to guest
     #[clap(long, env)]
@@ -290,6 +295,23 @@ impl Wasi {
         self.env_vars.push((key.to_string(), value.to_string()));
     }
 
+    pub(crate) fn resolved_env_vars(&self) -> Result<Vec<(String, String)>> {
+        let mut env = IndexMap::new();
+        if let Some(path) = &self.env_file {
+            let entries = dotenvy::from_path_iter(path)
+                .with_context(|| format!("Could not read env file '{}'", path.display()))?;
+            for entry in entries {
+                let (key, value) = entry
+                    .with_context(|| format!("Could not parse env file '{}'", path.display()))?;
+                env.insert(key, value);
+            }
+        }
+        for (key, value) in &self.env_vars {
+            env.insert(key.clone(), value.clone());
+        }
+        Ok(env.into_iter().collect())
+    }
+
     /// Gets the WASI version (if any) for the provided module
     pub fn get_versions(module: &Module) -> Option<BTreeSet<WasiVersion>> {
         // Get the wasi version in non-strict mode, so multiple wasi versions
@@ -352,7 +374,7 @@ impl Wasi {
         let mut builder = WasiEnv::builder(program_name)
             .runtime(Arc::clone(&rt))
             .args(args)
-            .envs(self.env_vars.clone())
+            .envs(self.resolved_env_vars()?)
             .uses(uses)
             .map_commands(map_commands);
 
@@ -830,4 +852,29 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
     tokens.extend(frontend_tokens);
 
     Ok(tokens)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn env_file_is_merged_and_explicit_env_wins() {
+        let temporary = tempfile::tempdir().unwrap();
+        let path = temporary.path().join("runtime.env");
+        std::fs::write(&path, "FROM_FILE=yes\nSHARED=file\n").unwrap();
+        let wasi = Wasi {
+            env_file: Some(path),
+            env_vars: vec![("SHARED".to_owned(), "explicit".to_owned())],
+            ..Default::default()
+        };
+
+        assert_eq!(
+            wasi.resolved_env_vars().unwrap(),
+            [
+                ("FROM_FILE".to_owned(), "yes".to_owned()),
+                ("SHARED".to_owned(), "explicit".to_owned()),
+            ]
+        );
+    }
 }

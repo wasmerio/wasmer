@@ -346,6 +346,14 @@ impl Run {
 
         pb.finish_and_clear();
 
+        if let ExecutableTarget::Package(pkg) = &target
+            && pkg.webc_version == webc::Version::V2
+        {
+            crate::warning!(
+                "WebC v2 is a deprecated format and support for it will be removed in a future release"
+            );
+        }
+
         // push the TTY state so we can restore it after the program finishes
         let tty = runtime.tty().map(|tty| tty.tty_get());
 
@@ -583,7 +591,7 @@ impl Run {
         runner
             .with_args(&self.args)
             .with_injected_packages(packages)
-            .with_envs(self.wasi.env_vars.clone())
+            .with_envs(self.wasi.resolved_env_vars()?)
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
             .with_mapped_directories(mapped_directories)
             .with_home_mapped(is_home_mapped)

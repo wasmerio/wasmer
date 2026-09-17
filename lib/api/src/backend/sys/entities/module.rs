@@ -209,7 +209,7 @@ impl Module {
                 }
             };
 
-            let store_install_guard = StoreContext::ensure_installed(store_ptr);
+            let store_install_guard = StoreContext::install(store_ptr);
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any

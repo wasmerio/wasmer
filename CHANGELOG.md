@@ -6,6 +6,44 @@
 
 ## **Unreleased**
 
+## 7.4.0 - 31/08/2026
+
+This release includes:
+- A WASIX import preparation hook.
+- General N-API improvements, including guest heap growth through the store.
+- A maximum output-size budget for Singlepass.
+- An updated static `MemoryStyle` API, now requiring an 8 GiB memory mapping.
+
+## Added
+
+  - [#6960](https://github.com/wasmerio/wasmer/pull/6960) Add a WASIX import preparation hook
+  - [#6927](https://github.com/wasmerio/wasmer/pull/6927) CI: add dependency cooldown CI job (3 days)
+
+## Changed
+
+  - [#6887](https://github.com/wasmerio/wasmer/pull/6887) feat(api): let host code lend the executing store
+  - [#6888](https://github.com/wasmerio/wasmer/pull/6888) feat(napi): grow the guest heap through the store
+  - [#6953](https://github.com/wasmerio/wasmer/pull/6953) deps(chacha20): update to not yanked version
+  - [#6934](https://github.com/wasmerio/wasmer/pull/6934) tests: sync latest WebAssembly spec tests
+  - [#6923](https://github.com/wasmerio/wasmer/pull/6923) feat!: drop legacy create-exe code
+  - [#6932](https://github.com/wasmerio/wasmer/pull/6932) CI: use LLVM ZST tarballs
+  - [#6908](https://github.com/wasmerio/wasmer/pull/6908) feat(Singlepass)(V2): introduce max_output_size budget system
+  - [#6929](https://github.com/wasmerio/wasmer/pull/6929) CI: skip 2 tests on macOS
+  - [#6925](https://github.com/wasmerio/wasmer/pull/6925) feat(nix): provide shell completions
+  - [#6924](https://github.com/wasmerio/wasmer/pull/6924) docs: Singlepass supports multi-value experimentally
+  - [#6921](https://github.com/wasmerio/wasmer/pull/6921) feat(MemoryStyle::static): adjust API and require mmap of 8GiB (#13)
+  - [#6917](https://github.com/wasmerio/wasmer/pull/6917) deps: update wasm-tools related crates
+  - [#6920](https://github.com/wasmerio/wasmer/pull/6920) deps: bump cranelift to 0.135
+  - [#6919](https://github.com/wasmerio/wasmer/pull/6919) script: rework release-related scripts
+
+## Fixed
+
+  - [#6965](https://github.com/wasmerio/wasmer/pull/6965) fix(LLVM): use correct BBs as PHI inputs in call_indirect
+  - [#6886](https://github.com/wasmerio/wasmer/pull/6886) fix(api): give each call its own store context entry
+  - [#6922](https://github.com/wasmerio/wasmer/pull/6922) fix(nix): install C header from Cargo artifacts
+
+
+
 ## 7.3.0 - 21/08/2026
 
 This release includes:

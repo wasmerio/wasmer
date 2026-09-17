@@ -6,7 +6,3 @@ authors.workspace = true
 repository.workspace = true
 edition.workspace = true
 publish = false
-
-[features]
-default = ["webc_runner"]
-webc_runner = []

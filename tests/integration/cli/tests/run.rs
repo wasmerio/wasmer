@@ -15,7 +15,7 @@ use tempfile::TempDir;
 use wasmer_integration_tests_cli::{
     asset_path,
     fixtures::{self, packages, php, resources},
-    wasmer_command,
+    integration_webc_path, wasmer_command,
 };
 
 static RUST_LOG: Lazy<String> = Lazy::new(|| {
@@ -722,6 +722,21 @@ fn wasi_runner_on_disk_with_dependencies() {
     child
         .join()
         .stderr(contains("incoming request: method=GET uri=/"));
+}
+
+#[test]
+fn webc_v2_emits_a_deprecation_warning() {
+    let webc = integration_webc_path()
+        .join("static-web-server-async-1.0.3-5d739d1a-20b7-4edf-8cf4-44e813f96b25.webc");
+
+    wasmer_command()
+        .arg("run")
+        .arg(webc)
+        .arg("--")
+        .arg("--help")
+        .assert()
+        .success()
+        .stderr(contains("WebC v2 is a deprecated format"));
 }
 
 #[test]
