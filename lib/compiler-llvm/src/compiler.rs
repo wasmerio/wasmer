@@ -31,6 +31,7 @@ use wasmer_compiler::{
     translate_function_buckets,
 };
 use wasmer_types::ExportIndex;
+use wasmer_types::MetadataHeader;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
@@ -210,6 +211,10 @@ impl Compiler for LLVMCompiler {
         // We intentionally use a negative marker to distinguish it from the already
         // existing compiled Artifacts built with M0 enabled!
         // TODO: flip it to EnableM0 in the future
+        const _: () = assert!(
+            MetadataHeader::CURRENT_VERSION == 24,
+            "Rename Component::DisableM0",
+        );
         if !self.config.enable_m0 {
             components.push(Component::DisableM0);
         }
