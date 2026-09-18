@@ -142,7 +142,7 @@ impl BinFactory {
                             .await;
                     }
                     Executable::Script(script) => {
-                        name = prepare_script_execution(&env, &name, script)?;
+                        name = prepare_script_execution(&env, &name, script);
                     }
                 }
             }
@@ -336,54 +336,31 @@ fn parse_shebang(bytes: &[u8]) -> Option<Shebang> {
     })
 }
 
-fn prepare_script_execution(
-    env: &WasiEnv,
-    script_name: &str,
-    script: Shebang,
-) -> Result<String, SpawnError> {
+fn prepare_script_execution(env: &WasiEnv, script_name: &str, script: Shebang) -> String {
     let mut args = env.state.args.lock().unwrap();
-    let (interpreter, new_args) = script_command(script_name, script, &args)?;
+    let (interpreter, new_args) = script_command(script_name, script, &args);
     *args = new_args;
-    Ok(interpreter)
+    interpreter
 }
 
 fn script_command(
     script_name: &str,
     script: Shebang,
     original_args: &[String],
-) -> Result<(String, Vec<String>), SpawnError> {
+) -> (String, Vec<String>) {
     let user_args = original_args.iter().skip(1).cloned();
 
-    // `/usr/bin/env NAME` is the portable shebang used by npm executables.
-    // Resolve NAME through the same package/PATH machinery as a direct exec,
-    // rather than requiring a host `/usr/bin/env` binary in the guest image.
-    let (interpreter, interpreter_args) = if script.interpreter.ends_with("/env") {
-        let argument = script.argument.ok_or(SpawnError::InvalidABI)?;
-        let mut words = argument.split_whitespace();
-        let first = words.next().ok_or(SpawnError::InvalidABI)?;
-        let (interpreter, remaining) = if first == "-S" {
-            let interpreter = words.next().ok_or(SpawnError::InvalidABI)?;
-            (interpreter.to_string(), words.map(str::to_string).collect())
-        } else if first.starts_with('-') {
-            return Err(SpawnError::InvalidABI);
-        } else {
-            (first.to_string(), words.map(str::to_string).collect())
-        };
-        (interpreter, remaining)
-    } else {
-        (
-            script.interpreter,
-            script.argument.into_iter().collect::<Vec<_>>(),
-        )
-    };
-
-    let args = std::iter::once(interpreter.clone())
-        .chain(interpreter_args)
+    // As on Unix, whatever follows the interpreter on the shebang line is a
+    // single argument. `/usr/bin/env` needs no special case: it resolves like
+    // any other interpreter, and the `env` shipped by `wasmer/coreutils` does
+    // its own `-S` splitting.
+    let args = std::iter::once(script.interpreter.clone())
+        .chain(script.argument)
         .chain(std::iter::once(script_name.to_string()))
         .chain(user_args)
         .collect();
 
-    Ok((interpreter, args))
+    (script.interpreter, args)
 }
 
 async fn load_executable_from_filesystem(
@@ -495,26 +472,33 @@ mod tests {
     }
 
     #[test]
-    fn env_shebang_resolves_interpreter_and_preserves_arguments() {
+    fn env_shebang_execs_env_itself() {
         let script = parse_shebang(b"#!/usr/bin/env node\n").unwrap();
         let original = vec!["next".to_string(), "dev".to_string()];
-        let (interpreter, args) =
-            script_command("/workspace/.bin/next", script, &original).unwrap();
+        let (interpreter, args) = script_command("/workspace/.bin/next", script, &original);
 
-        assert_eq!(interpreter, "node");
-        assert_eq!(args, ["node", "/workspace/.bin/next", "dev"]);
+        assert_eq!(interpreter, "/usr/bin/env");
+        assert_eq!(
+            args,
+            ["/usr/bin/env", "node", "/workspace/.bin/next", "dev"]
+        );
     }
 
     #[test]
-    fn env_split_string_preserves_interpreter_arguments() {
+    fn env_split_string_stays_one_argument() {
         let script = parse_shebang(b"#!/usr/bin/env -S node --no-warnings\n").unwrap();
         let original = vec!["tool".to_string(), "input.js".to_string()];
-        let (interpreter, args) = script_command("/workspace/tool", script, &original).unwrap();
+        let (interpreter, args) = script_command("/workspace/tool", script, &original);
 
-        assert_eq!(interpreter, "node");
+        assert_eq!(interpreter, "/usr/bin/env");
         assert_eq!(
             args,
-            ["node", "--no-warnings", "/workspace/tool", "input.js"]
+            [
+                "/usr/bin/env",
+                "-S node --no-warnings",
+                "/workspace/tool",
+                "input.js"
+            ]
         );
     }
 
@@ -522,7 +506,7 @@ mod tests {
     fn direct_shebang_inserts_optional_argument_before_script() {
         let script = parse_shebang(b"#!/bin/bash -e\n").unwrap();
         let original = vec!["script".to_string(), "hello".to_string()];
-        let (interpreter, args) = script_command("/workspace/script", script, &original).unwrap();
+        let (interpreter, args) = script_command("/workspace/script", script, &original);
 
         assert_eq!(interpreter, "/bin/bash");
         assert_eq!(args, ["/bin/bash", "-e", "/workspace/script", "hello"]);
