@@ -206,8 +206,7 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
                                 Err(Errno::Noexec)
                             }
                         }
-                    })
-                    .unwrap()
+                    })?
                 }
             }
         };
