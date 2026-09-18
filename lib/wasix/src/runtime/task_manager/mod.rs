@@ -25,7 +25,10 @@ pub enum SpawnType {
     CreateMemoryOfType(MemoryType),
     AttachMemory(SharedMemory),
     #[debug("NewLinkerInstanceGroup(..)")]
-    NewLinkerInstanceGroup(PreparedInstanceGroupData),
+    NewLinkerInstanceGroup {
+        data: PreparedInstanceGroupData,
+        memory: SharedMemory,
+    },
 }
 
 /// Describes whether a new memory should be created (and, in case, its type) or if it was already
@@ -207,7 +210,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 Ok(Some(mem))
             }
             SpawnType::AttachMemory(mem) => Ok(Some(mem.attach(store))),
-            SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup(..) => Ok(None),
+            SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup { .. } => Ok(None),
         }
     }
 
