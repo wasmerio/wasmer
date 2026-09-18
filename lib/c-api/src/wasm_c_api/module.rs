@@ -10,6 +10,14 @@ pub struct wasm_module_t {
     pub(crate) inner: Module,
 }
 
+/// A compiled module detached from a store and safe to transfer between
+/// threads before obtaining it in another store.
+#[derive(Clone)]
+#[allow(non_camel_case_types)]
+pub struct wasm_shared_module_t {
+    inner: Module,
+}
+
 /// A WebAssembly module contains stateless WebAssembly code that has
 /// already been compiled and can be instantiated multiple times.
 ///
@@ -45,6 +53,35 @@ pub unsafe extern "C" fn wasm_module_new(
 /// See [`wasm_module_new`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>) {}
+
+/// Shares a compiled module so it can be obtained by another store/thread.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wasm_module_share(
+    module: Option<&wasm_module_t>,
+) -> Option<Box<wasm_shared_module_t>> {
+    Some(Box::new(wasm_shared_module_t {
+        inner: module?.inner.clone(),
+    }))
+}
+
+/// Obtains a shared compiled module for a store.
+///
+/// Wasmer modules are engine-owned and cheaply cloneable. The store argument
+/// is retained by the standard C API contract; compatibility is checked when
+/// the module is instantiated.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wasm_module_obtain(
+    store: Option<&mut wasm_store_t>,
+    shared: Option<&wasm_shared_module_t>,
+) -> Option<Box<wasm_module_t>> {
+    store?;
+    Some(Box::new(wasm_module_t {
+        inner: shared?.inner.clone(),
+    }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wasm_shared_module_delete(_module: Option<Box<wasm_shared_module_t>>) {}
 
 /// Validates a new WebAssembly module given the configuration
 /// in the [store][super::store].

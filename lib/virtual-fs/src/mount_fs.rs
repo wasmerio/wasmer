@@ -4,14 +4,17 @@
 
 use crate::*;
 
+#[cfg(not(feature = "js"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     ffi::OsString,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
-    time::{SystemTime, UNIX_EPOCH},
 };
+#[cfg(feature = "js")]
+use web_time::{SystemTime, UNIX_EPOCH};
 
 const MIN_METADATA_TIMESTAMP: u64 = 1_000_000_000; // 1 second in nano seconds
 
