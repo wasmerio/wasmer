@@ -120,6 +120,11 @@ impl BinFactory {
         Box::pin(async move {
             let mut name = name;
             let mut invoked_as = invoked_as;
+            // Held back until the interpreter is known to resolve. On
+            // `proc_exec4`'s non-vfork path this state is shared with a caller
+            // that keeps running when the spawn fails, and a shebang rewrite
+            // adds arguments that were never in its argv.
+            let mut rewritten_args: Option<Vec<String>> = None;
 
             // A shebang is handled by the kernel on Unix. WASIX's binary factory
             // fills that role for virtual filesystems, so resolve scripts here
@@ -136,11 +141,15 @@ impl BinFactory {
                 match executable {
                     Executable::Wasm(bytes) => {
                         let data = HashedModuleData::new(bytes.clone());
+                        commit_script_args(&env, rewritten_args);
                         return spawn_exec_wasm(data, name.as_str(), env, &self.runtime).await;
                     }
                     Executable::BinaryPackage(pkg) => {
                         {
+                            // Resolve the command first: a package without this
+                            // entrypoint is a failed spawn, not a rewrite.
                             let cmd = package_command_by_name(&pkg, name.as_str())?;
+                            commit_script_args(&env, rewritten_args);
                             env.prepare_spawn(cmd);
                         }
 
@@ -149,7 +158,13 @@ impl BinFactory {
                     }
                     Executable::Script(script) => {
                         let script_path = invoked_as.unwrap_or_else(|| name.clone());
-                        name = prepare_script_execution(&env, &script_path, script);
+                        let args = match &rewritten_args {
+                            Some(args) => args.clone(),
+                            None => env.state.args.lock().unwrap().clone(),
+                        };
+                        let (interpreter, args) = script_command(&script_path, script, &args);
+                        rewritten_args = Some(args);
+                        name = interpreter;
                         // The next round resolves the interpreter, which the
                         // shebang line named directly.
                         invoked_as = Some(name.clone());
@@ -384,11 +399,12 @@ fn parse_shebang(bytes: &[u8]) -> ShebangLine {
     })
 }
 
-fn prepare_script_execution(env: &WasiEnv, script_name: &str, script: Shebang) -> String {
-    let mut args = env.state.args.lock().unwrap();
-    let (interpreter, new_args) = script_command(script_name, script, &args);
-    *args = new_args;
-    interpreter
+/// Applies the argv a shebang rewrote, once the executable it named has been
+/// found. Nothing before this point may disturb the caller's argv.
+fn commit_script_args(env: &WasiEnv, args: Option<Vec<String>>) {
+    if let Some(args) = args {
+        *env.state.args.lock().unwrap() = args;
+    }
 }
 
 fn script_command(
@@ -708,6 +724,46 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(executable, Executable::Script(_)));
+    }
+
+    #[tokio::test]
+    async fn a_failed_script_spawn_leaves_the_caller_argv_alone() {
+        // `proc_exec4` shares this state with a caller that keeps running when
+        // the spawn fails, so a shebang naming a missing interpreter must not
+        // leave the caller holding arguments it never had.
+        let backing = virtual_fs::mem_fs::FileSystem::default();
+        backing.create_dir(Path::new("/bin")).unwrap();
+
+        let mut builder = WasiEnvBuilder::new("tool")
+            .args(["one", "two"])
+            .engine(Engine::default())
+            .fs(Arc::new(backing) as Arc<dyn FileSystem + Send + Sync>);
+        builder.preopen_vfs_dirs(["/".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+
+        let mut script = env
+            .state
+            .fs
+            .root_fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/bin/tool"))
+            .unwrap();
+        script
+            .write_all(b"#!/bin/definitely-not-here\n")
+            .await
+            .unwrap();
+
+        let before = env.state.args.lock().unwrap().clone();
+        let result = env
+            .bin_factory
+            .clone()
+            .spawn("/bin/tool".to_string(), None, env.clone())
+            .await;
+
+        assert!(result.is_err(), "the interpreter does not exist");
+        assert_eq!(*env.state.args.lock().unwrap(), before);
     }
 
     #[tokio::test]
