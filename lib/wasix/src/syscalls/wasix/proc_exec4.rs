@@ -83,6 +83,11 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
     search_path: Bool,
     path: Option<&str>,
 ) -> Result<Errno, WasiError> {
+    // A script is handed to its interpreter under the path the caller spelled.
+    // A PATH search is the exception: there the resolved path is what Unix
+    // passes on, so leave this unset and let the lookup supply it.
+    let invoked_as = name.contains('/').then(|| name.clone());
+
     // Convert relative paths into absolute paths
     if search_path == Bool::True && !name.contains('/') {
         let path = if let Some(path) = path {
@@ -191,8 +196,9 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
                     let env = config.take().unwrap();
 
                     let name_inner = name.clone();
+                    let invoked_as_inner = invoked_as.clone();
                     __asyncify_light(ctx.data(), None, async {
-                        let ret = bin_factory.spawn(name_inner, env).await;
+                        let ret = bin_factory.spawn(name_inner, invoked_as_inner, env).await;
                         match ret {
                             Ok(ret) => {
                                 trace!(%child_pid, "spawned sub-process");
@@ -289,7 +295,7 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
                 let env = builder.take().unwrap();
 
                 // Spawn a new process with this current execution environment
-                block_on(bin_factory.spawn(name.clone(), env))
+                block_on(bin_factory.spawn(name.clone(), invoked_as.clone(), env))
             }
         };
 
