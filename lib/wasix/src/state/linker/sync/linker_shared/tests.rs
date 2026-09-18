@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    path::Path,
     sync::mpsc,
     thread,
     time::{Duration, Instant},
@@ -8,7 +9,7 @@ use std::{
 use wasmer::{Global, Memory, MemoryType, Module, Store, Table, TableType, Tag, Type, Value};
 
 use super::*;
-use crate::state::linker::{DylinkInfo, MemoryAllocator};
+use crate::state::linker::{DlModuleSpec, DylinkInfo, MemoryAllocator};
 
 const DEADLINE: Duration = Duration::from_secs(2);
 
@@ -293,6 +294,196 @@ async fn cached_stub_cannot_reenter_guest_after_linker_abort() {
             .get(&mut store),
         Value::I32(1)
     );
+}
+
+fn guest_group(
+    store: &mut Store,
+    shared: &LinkerShared,
+) -> (
+    crate::state::linker::Linker,
+    FunctionEnv<WasiEnv>,
+    wasmer::Instance,
+    wasmer::Function,
+) {
+    use wasmer::{FunctionType, Instance};
+
+    let (barrier, operation) = {
+        let mut state = shared.linker_state.write().unwrap();
+        (
+            state.send_pending_operation_barrier.add_rx(),
+            state.send_pending_operation.add_rx(),
+        )
+    };
+    let mut group = group(store, barrier, operation);
+    let module = Module::new(
+        &*store,
+        r#"(module
+        (import "env" "memory" (memory 1 1 shared))
+        (import "wasix_32v1" "dl_invalid_handle" (func $check (param i32) (result i32)))
+        (export "memory" (memory 0))
+        (global $calls (export "calls") (mut i32) (i32.const 0))
+        (global (export "data") i32 (i32.const 64))
+        (func (export "target") (result i32)
+            (global.set $calls (i32.add (global.get $calls) (i32.const 1)))
+            (global.get $calls))
+        (func (export "_start")
+            (drop (call $check (i32.const 1)))
+            (i32.store (i32.const 8) (i32.const 99))))"#,
+    )
+    .unwrap();
+    let func_env = FunctionEnv::new(store, env(store));
+    let mut imports = crate::import_object_for_all_wasi_versions(&module, store, &func_env);
+    imports.define("env", "memory", group.memory.clone());
+    let instance = Instance::new(store, &module, &imports).unwrap();
+    group.main_instance = Some(instance.clone());
+    let handles = crate::WasiModuleInstanceHandles::new(
+        group.memory.clone(),
+        &*store,
+        instance.clone(),
+        Some(group.indirect_function_table.clone()),
+    );
+    let linker = crate::state::linker::Linker {
+        shared: shared.clone(),
+        instance_group_state: Arc::new(std::sync::Mutex::new(Some(group))),
+    };
+    func_env
+        .as_mut(store)
+        .set_inner(crate::WasiModuleTreeHandles::Dynamic {
+            linker: linker.clone(),
+            main_module_instance_handles: handles,
+        });
+    let stub = linker
+        .instance_group_state
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .generate_stub_function(
+            store,
+            &FunctionType::new([], [Type::I32]),
+            &func_env,
+            crate::state::linker::MAIN_MODULE_HANDLE,
+            "target".into(),
+        );
+    (linker, func_env, instance, stub)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn initializer_exit_poisons_before_replay_without_published_process_status() {
+    // Cover both Instance::new's start function and the later constructor path.
+    for start_function in [false, true] {
+        let mut store = Store::default();
+        let shared = fixture(&store);
+        let (leader, leader_env, leader_instance, _) = guest_group(&mut store, &shared);
+        let (peer, peer_env, peer_instance, cached_stub) = guest_group(&mut store, &shared);
+        assert_eq!(cached_stub.call(&mut store, &[]).unwrap()[0], Value::I32(1));
+        // Prime resolve_export's independent cached-resolution fast path too.
+        peer.resolve_export(&mut peer_env.clone().into_mut(&mut store), None, "data")
+            .unwrap();
+
+        // An ordinary, recoverable loading error must not poison the linker.
+        let ordinary = leader.load_module(
+            DlModuleSpec::Memory {
+                module_name: "not-a-library",
+                bytes: &wasmer::wat2wasm(b"(module)").unwrap(),
+            },
+            &mut leader_env.clone().into_mut(&mut store),
+        );
+        assert!(matches!(ordinary, Err(LinkError::NotDynamicLibrary)));
+        shared.check_active(peer_env.as_ref(&store)).unwrap();
+
+        let initialization = if start_function {
+            "(start $init)"
+        } else {
+            "(export \"__wasm_call_ctors\" (func $init))"
+        };
+        let source = format!(
+            r#"(module
+            (@custom "dylink.0" "\01\04\00\00\00\00")
+            (import "env" "memory" (memory 1 1 shared))
+            (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+            (func $init
+                (i32.store (i32.const 0) (i32.const 1))
+                (call $exit (i32.const 137))
+                (i32.store (i32.const 4) (i32.const 99)))
+            {initialization})"#,
+        );
+        let bytes = wasmer::wat2wasm(source.as_bytes()).unwrap();
+        let load = || DlModuleSpec::Memory {
+            module_name: "exiting-initializer",
+            bytes: &bytes,
+        };
+        let error = leader
+            .load_module(load(), &mut leader_env.clone().into_mut(&mut store))
+            .expect_err("initializer unexpectedly returned");
+        assert_eq!(error.termination_code(), Some(137.into()));
+        assert!(leader_env.as_ref(&store).should_exit().is_none());
+        assert!(peer_env.as_ref(&store).should_exit().is_none());
+        let memory = leader_instance.exports.get_memory("memory").unwrap();
+        assert_eq!(memory.view(&store).read_u8(0).unwrap(), 1);
+        assert_eq!(memory.view(&store).read_u8(4).unwrap(), 0);
+        {
+            let state = shared
+                .linker_state
+                .try_write()
+                .expect("retained write lock");
+            // The failure really followed a shared-state mutation. It must not
+            // make this entry available through load_module_tree's fast path.
+            let handle = state.side_modules_by_name[Path::new("::in-memory::exiting-initializer")];
+            assert_eq!(state.side_modules.contains_key(&handle), !start_function);
+            assert!(!shared.dl_operation_pending_load(Ordering::SeqCst));
+        }
+        assert!(shared.topology_coordinator.try_acquire().is_some());
+
+        assert_aborted(peer.load_module(load(), &mut peer_env.clone().into_mut(&mut store)));
+        for symbol in ["data", "missing"] {
+            let result =
+                peer.resolve_export(&mut peer_env.clone().into_mut(&mut store), None, symbol);
+            assert!(
+                matches!(result, Err(ref error) if error.termination_code() == Some(137.into()))
+            );
+        }
+        let error = cached_stub
+            .call(&mut store, &[])
+            .expect_err("cached stub reused partial state");
+        assert!(matches!(error.downcast_ref::<crate::WasiError>(),
+            Some(crate::WasiError::Exit(code)) if *code == 137.into()));
+        assert_eq!(
+            peer_instance
+                .exports
+                .get_global("calls")
+                .unwrap()
+                .get(&mut store),
+            Value::I32(1)
+        );
+        let error = peer_instance
+            .exports
+            .get_typed_function::<(), ()>(&store, "_start")
+            .unwrap()
+            .call(&mut store)
+            .expect_err("peer guest continued after partial initialization");
+        assert!(matches!(error.downcast_ref::<crate::WasiError>(),
+            Some(crate::WasiError::Exit(code)) if *code == 137.into()));
+        assert_eq!(
+            peer_instance
+                .exports
+                .get_memory("memory")
+                .unwrap()
+                .view(&store)
+                .read_u8(8)
+                .unwrap(),
+            0
+        );
+        assert!(
+            peer.instance_group_state
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .side_instances
+                .is_empty()
+        );
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -1065,14 +1065,16 @@ impl Linker {
         trace!("Loading module tree for requested module");
         let wasi_env = env.as_ref(&store);
         let runtime_path: &[String] = &[];
-        let module_handle = linker_state.load_module_tree(
-            module_spec,
-            &mut link_state,
-            wasi_env,
-            self.shared.cancellation(),
-            runtime_path,          // No runtime path when loading a module via dlopen
-            Option::<&Path>::None, // Empty runtime path means we don't need the module's path either
-        )?;
+        let module_handle = linker_state
+            .load_module_tree(
+                module_spec,
+                &mut link_state,
+                wasi_env,
+                self.shared.cancellation(),
+                runtime_path, // No runtime path when loading a module via dlopen
+                Option::<&Path>::None, // Empty runtime path means we don't need the module's path either
+            )
+            .map_err(|error| self.shared.cancellation().abort_on_exit(error))?;
 
         let new_modules = link_state
             .new_modules
@@ -1082,17 +1084,20 @@ impl Linker {
 
         for handle in &new_modules {
             trace!(?module_handle, "Instantiating module");
-            group_state.instantiate_side_module_from_link_state(
-                &mut linker_state,
-                &mut store,
-                &env,
-                &mut link_state,
-                *handle,
-            )?;
+            group_state
+                .instantiate_side_module_from_link_state(
+                    &mut linker_state,
+                    &mut store,
+                    &env,
+                    &mut link_state,
+                    *handle,
+                )
+                .map_err(|error| self.shared.cancellation().abort_on_exit(error))?;
         }
 
         trace!("Finalizing link");
-        self.finalize_link_operation(group_state_guard, &mut linker_state, &mut store, link_state)?;
+        self.finalize_link_operation(group_state_guard, &mut linker_state, &mut store, link_state)
+            .map_err(|error| self.shared.cancellation().abort_on_exit(error))?;
 
         if !new_modules.is_empty() {
             // The group state is unlocked for stub functions, now lock it again

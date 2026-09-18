@@ -43,6 +43,18 @@ impl LinkerCancellation {
         LinkError::SynchronizationAborted(self.aborted.borrow().unwrap())
     }
 
+    /// Initialization can trap with Exit before process/thread completion is
+    /// published. Its caller must publish this abort while it still owns the
+    /// topology and linker write guards: partially installed modules must never
+    /// become visible to a healthy peer through the already-loaded fast path.
+    /// Ordinary link errors retain their existing recoverable behavior.
+    pub(in crate::state::linker) fn abort_on_exit(&self, error: LinkError) -> LinkError {
+        match error.termination_code() {
+            Some(code) => self.abort(code),
+            None => error,
+        }
+    }
+
     pub(in crate::state::linker) fn check(&self, env: &WasiEnv) -> Result<(), LinkError> {
         if let Some(code) = *self.aborted.borrow() {
             return Err(LinkError::SynchronizationAborted(code));
