@@ -86,7 +86,8 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
     // A script is handed to its interpreter under the path the caller spelled.
     // A PATH search is the exception: there the resolved path is what Unix
     // passes on, so leave this unset and let the lookup supply it.
-    let invoked_as = name.contains('/').then(|| name.clone());
+    let searches_path = search_path == Bool::True && !name.contains('/');
+    let invoked_as = (!searches_path).then(|| name.clone());
 
     // Convert relative paths into absolute paths
     if search_path == Bool::True && !name.contains('/') {
