@@ -176,6 +176,9 @@ pub enum SpawnError {
     /// The file is a script, but its shebang line cannot be used.
     #[error("invalid shebang line in '{path}'")]
     InvalidShebang { path: String },
+    /// A script's shebang chain never reached anything executable.
+    #[error("too many levels of shebang indirection")]
+    ShebangLoop,
     /// Bad handle
     #[error("bad handle")]
     BadHandle,
