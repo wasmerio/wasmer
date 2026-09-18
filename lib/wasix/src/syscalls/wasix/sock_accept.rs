@@ -141,7 +141,7 @@ pub(crate) fn sock_accept_internal(
                 .await
                 .map(|a| (a.0, local_addr, a.1, fd_flags))
         },
-    ));
+    )?);
 
     let kind = Kind::Socket {
         socket: InodeSocket::new(InodeSocketKind::TcpStream {

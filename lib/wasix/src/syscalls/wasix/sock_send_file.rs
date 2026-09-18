@@ -237,7 +237,7 @@ pub(crate) fn sock_send_file_internal(
                     .send(tasks.deref(), &data, Some(write_timeout), true)
                     .await
             },
-        ));
+        )?);
         env = ctx.data();
 
         total_written += bytes_written as u64;

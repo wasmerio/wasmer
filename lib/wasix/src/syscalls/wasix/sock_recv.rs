@@ -162,6 +162,6 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
             }
             Ok(total_read)
         }
-    ));
+    )?);
     Ok(Ok(data))
 }

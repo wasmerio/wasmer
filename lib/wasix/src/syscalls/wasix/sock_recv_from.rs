@@ -92,7 +92,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
                         )
                         .await
                 },
-            ));
+            )?);
 
             if amt > 0 {
                 let buf: &[MaybeUninit<u8>] = &buf[..amt];
@@ -135,7 +135,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
                             (buf, addr)
                         })
                 }
-            ));
+            )?);
 
             let data_len = data.len();
             if data_len > 0 {

@@ -25,6 +25,9 @@ pub mod journal;
 pub mod wasi;
 pub mod wasix;
 
+#[cfg(all(test, feature = "sys-thread", not(target_arch = "wasm32")))]
+mod native_wait_tests;
+
 use bincode::config;
 use bytes::{Buf, BufMut};
 use futures::{
@@ -281,6 +284,7 @@ where
 
     let work = async move {
         tokio::select! {
+            biased;
             // The main work we are doing
             res = work => res,
             // Optional timeout
@@ -353,8 +357,15 @@ where
     // Block on the work
     let mut pinned_work = Box::pin(work);
     let tasks = env.tasks().clone();
+    let exit = env.wait_for_exit();
     let poller = SignalPoller { ctx, pinned_work };
-    block_on_with_timeout(&tasks, timeout, poller)
+    block_on_with_timeout(&tasks, timeout, async move {
+        tokio::select! {
+            biased;
+            exit_code = exit => Err(WasiError::Exit(exit_code)),
+            result = poller => result,
+        }
+    })
 }
 
 /// Future that will be polled by asyncify methods
@@ -509,6 +520,7 @@ where
     let tasks = ctx.data().tasks().clone();
     let work = async move {
         let env = ctx.data();
+        let exit = env.wait_for_exit();
 
         // Create the deep sleeper
         // Deep sleep breaks the linker completely, as it expects other modules to catch the
@@ -528,6 +540,8 @@ where
         };
 
         Ok(tokio::select! {
+            biased;
+            exit_code = exit => return Err(WasiError::Exit(exit_code)),
             // Inner wait with finializer
             res = AsyncifyPoller {
                 ctx: &mut ctx,
@@ -566,24 +580,27 @@ where
     block_on(work)
 }
 
-/// Asyncify takes the current thread and blocks on the async runtime associated with it
-/// thus allowed for asynchronous operations to execute. It has built in functionality
-/// to (optionally) timeout the IO, force exit the process, callback signals and pump
-/// synchronous IO engine
+/// Block on host IO while observing the timeout and execution's terminal status.
+///
+/// Unlike `__asyncify`, this accepts an immutable environment and cannot invoke
+/// guest signal handlers or replay linker operations while callers hold memory
+/// views. Termination still traps out of the syscall and drops the pending IO.
 pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
-    _timeout: Option<Duration>,
+    timeout: Option<Duration>,
     work: Fut,
 ) -> WasiResult<T>
 where
-    T: 'static,
     Fut: Future<Output = Result<T, Errno>>,
 {
-    let snapshot_wait = wait_for_snapshot(env);
-
-    // Block until the work is finished or until we
-    // unload the thread using asyncify
-    Ok(block_on(work))
+    let exit = env.wait_for_exit();
+    block_on_with_timeout(env.tasks(), timeout, async move {
+        tokio::select! {
+            biased;
+            exit_code = exit => Err(WasiError::Exit(exit_code)),
+            result = work => Ok(result),
+        }
+    })
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -598,23 +615,21 @@ impl std::future::Future for InfiniteSleep {
     }
 }
 
-/// Performs an immutable operation on the socket while running in an asynchronous runtime
-/// This has built in signal support
+/// Perform a socket operation, interrupting its wait on thread/process exit.
 pub(crate) fn __sock_asyncify<T, F, Fut>(
     env: &WasiEnv,
     sock: WasiFd,
     rights: Rights,
     actor: F,
-) -> Result<T, Errno>
+) -> WasiResult<T>
 where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
-    let fd_entry = __sock_check_rights(env, sock, rights)?;
+    let fd_entry = wasi_try_ok_ok!(__sock_check_rights(env, sock, rights));
 
-    let mut work = {
+    let work = {
         let inode = fd_entry.inode.clone();
-        let tasks = env.tasks().clone();
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::Socket { socket } => {
@@ -626,14 +641,12 @@ where
                 actor(socket, fd_entry)
             }
             _ => {
-                return Err(Errno::Notsock);
+                return Ok(Err(Errno::Notsock));
             }
         }
     };
 
-    // Block until the work is finished or until we
-    // unload the thread using asyncify
-    block_on(work)
+    __asyncify_light(env, None, work)
 }
 
 pub(crate) fn __sock_check_rights(
@@ -648,43 +661,18 @@ pub(crate) fn __sock_check_rights(
     Ok(fd_entry)
 }
 
-/// Performs mutable work on a socket under an asynchronous runtime with
-/// built in signal processing
+/// Socket wait adapter for call sites that hold a mutable function environment.
 pub(crate) fn __sock_asyncify_mut<T, F, Fut>(
     ctx: &'_ mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
-) -> Result<T, Errno>
+) -> WasiResult<T>
 where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
-    let env = ctx.data();
-    let tasks = env.tasks().clone();
-
-    let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
-
-    let inode = fd_entry.inode.clone();
-    let mut guard = inode.write();
-    match guard.deref_mut() {
-        Kind::Socket { socket } => {
-            // Clone the socket and release the lock
-            let socket = socket.clone();
-            drop(guard);
-
-            // Start the work using the socket
-            let mut work = actor(socket, fd_entry);
-
-            // Otherwise we block on the work and process it
-            // using an asynchronou context
-            block_on(work)
-        }
-        _ => Err(Errno::Notsock),
-    }
+    __sock_asyncify(ctx.data(), sock, rights, actor)
 }
 
 /// Performs an immutable operation on the socket while running in an asynchronous runtime
@@ -767,13 +755,13 @@ pub(crate) fn __sock_upgrade<'a, F, Fut>(
     sock: WasiFd,
     rights: Rights,
     actor: F,
-) -> Result<(), Errno>
+) -> WasiResult<()>
 where
     F: FnOnce(crate::net::socket::InodeSocket, Fdflags) -> Fut,
     Fut: std::future::Future<Output = Result<Option<crate::net::socket::InodeSocket>, Errno>> + 'a,
 {
     let env = ctx.data();
-    let fd_entry = env.state.fs.get_fd(sock)?;
+    let fd_entry = wasi_try_ok_ok!(env.state.fs.get_fd(sock));
     if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         tracing::warn!(
             "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade",
@@ -782,10 +770,9 @@ where
             sock,
             rights
         );
-        return Err(Errno::Access);
+        return Ok(Err(Errno::Access));
     }
 
-    let tasks = env.tasks().clone();
     {
         let inode = fd_entry.inode;
         let mut guard = inode.write();
@@ -798,8 +785,7 @@ where
                 let work = actor(socket, fd_entry.inner.flags);
 
                 // Block on the work and process it
-                let res = block_on(work);
-                let new_socket = res?;
+                let new_socket = wasi_try_ok_ok!(__asyncify_light(env, None, work)?);
 
                 if let Some(mut new_socket) = new_socket {
                     let mut guard = inode.write();
@@ -815,7 +801,7 @@ where
                                 sock,
                                 rights
                             );
-                            return Err(Errno::Notsock);
+                            return Ok(Err(Errno::Notsock));
                         }
                     }
                 }
@@ -828,12 +814,12 @@ where
                     sock,
                     rights
                 );
-                return Err(Errno::Notsock);
+                return Ok(Err(Errno::Notsock));
             }
         }
     }
 
-    Ok(())
+    Ok(Ok(()))
 }
 
 #[must_use]
