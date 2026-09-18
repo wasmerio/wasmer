@@ -1,17 +1,22 @@
 //! Shared Rust ownership with worker-local JavaScript references.
+use crossbeam_skiplist::SkipMap;
 use js_sys::{Array, SharedArrayBuffer, WebAssembly};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     sync::{
-        Arc, LazyLock, Mutex, Weak,
+        Arc, LazyLock, Weak,
         atomic::{AtomicU32, Ordering},
     },
 };
 use wasm_bindgen::{JsCast, JsValue};
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
-static OWNERS: LazyLock<Mutex<HashMap<u32, Weak<Owner>>>> = LazyLock::new(Mutex::default);
+// Registration, collection and message dispatch run concurrently in workers
+// and on the browser's main thread. A contended std::Mutex uses atomic.wait,
+// which traps on the main thread and strands the scheduler. Keep the shared
+// ownership index lock-free; JS references themselves remain worker-local.
+static OWNERS: LazyLock<SkipMap<u32, Weak<Owner>>> = LazyLock::new(SkipMap::new);
 const NAMESPACE_PREFIX: &str = "wasmer-shared-objects-v1-";
 // A routing namespace for task envelopes, not an authentication credential.
 static NAMESPACE: LazyLock<String> = LazyLock::new(|| {
@@ -83,7 +88,7 @@ impl SharedJsHandle {
                 .expect("shared JavaScript handle IDs exhausted");
             let owner = Arc::new(Owner { kind });
             let weak = Arc::downgrade(&owner);
-            OWNERS.lock().unwrap().insert(id, weak.clone());
+            OWNERS.insert(id, weak.clone());
             objects.insert(id, LocalObject { value, owner: weak });
             Self { id, owner }
         })
@@ -122,10 +127,11 @@ impl SharedJsHandle {
 /// or timers. Idle workers can retain expired objects until collection or teardown.
 pub fn collect_shared_objects() {
     OBJECTS.with_borrow_mut(|objects| objects.retain(|_, object| object.owner.strong_count() > 0));
-    OWNERS
-        .lock()
-        .unwrap()
-        .retain(|_, owner| owner.strong_count() > 0);
+    for entry in OWNERS.iter() {
+        if entry.value().strong_count() == 0 {
+            entry.remove();
+        }
+    }
 }
 
 /// Export all live local objects for structured cloning within one trusted runtime.
@@ -149,7 +155,6 @@ pub fn export_shared_objects() -> Array {
 pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
     let mut seen = HashSet::new();
     let mut entries = Vec::new();
-    let owners = OWNERS.lock().unwrap();
     for entry in snapshot.iter() {
         if !Array::is_array(&entry) {
             return Err(JsValue::from_str("invalid shared-object entry"));
@@ -171,7 +176,7 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
         let value = entry.get(1);
         let kind = ObjectKind::of(&value)
             .ok_or_else(|| JsValue::from_str("invalid shared-object type"))?;
-        let owner = owners.get(&id).and_then(Weak::upgrade);
+        let owner = OWNERS.get(&id).and_then(|entry| entry.value().upgrade());
         if let Some(owner) = owner {
             if owner.kind != kind {
                 return Err(JsValue::from_str("shared-object type mismatch"));
@@ -179,7 +184,6 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
             entries.push((id, value, owner));
         }
     }
-    drop(owners);
     collect_shared_objects();
     OBJECTS.with_borrow_mut(|objects| {
         for (id, value, owner) in &entries {
@@ -366,10 +370,10 @@ mod tests {
             .await
             .unwrap();
         assert!(OBJECTS.with_borrow(|objects| objects.contains_key(&id)));
-        assert!(OWNERS.lock().unwrap().get(&id).unwrap().upgrade().is_none());
+        assert!(OWNERS.get(&id).unwrap().value().upgrade().is_none());
         collect_shared_objects();
         assert!(!OBJECTS.with_borrow(|objects| objects.contains_key(&id)));
-        assert!(!OWNERS.lock().unwrap().contains_key(&id));
+        assert!(!OWNERS.contains_key(&id));
     }
 
     #[wasm_bindgen_test]
