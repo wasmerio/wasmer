@@ -81,6 +81,7 @@ crossbeam-channel.workspace = true
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
+crossbeam-skiplist.workspace = true
 wasmer-types = { path = "../types", version = "=7.4.0", default-features = false, features = [
   "std",
 ] }
