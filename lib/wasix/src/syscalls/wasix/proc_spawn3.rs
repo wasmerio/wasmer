@@ -4,6 +4,9 @@ use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 use super::*;
 use crate::{VIRTUAL_ROOT_FD, WasiFs, syscalls::*};
 
+#[cfg(all(test, feature = "sys-thread", not(target_arch = "wasm32")))]
+mod tests;
+
 /// Spawns a new sub-process (posix-spawn style) with proper `WasmPtr<WasmPtr<u8>>` string lists.
 ///
 /// Successor to `proc_spawn2`. `args` and `envs` are pointer arrays of null-terminated
@@ -153,7 +156,7 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
     _prepare_wasi(&mut child_env, Some(args), envs, signals);
 
     for fd_op in fd_ops {
-        wasi_try_ok!(apply_fd_op(&mut child_env, &memory, &fd_op));
+        wasi_try_ok!(apply_fd_op(&mut child_env, &memory, &fd_op)?);
     }
 
     // Create the process and drop the context
@@ -176,7 +179,7 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
             let env = builder.take().unwrap();
 
             // Spawn a new process with this current execution environment
-            block_on(bin_factory.spawn(name.clone(), env)).map(|_| ())
+            block_on(ctx.data().until_exit(bin_factory.spawn(name.clone(), env)))?.map(|_| ())
         }
     };
 
@@ -200,30 +203,32 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
     env: &mut WasiEnv,
     memory: &MemoryView,
     op: &ProcSpawnFdOp<M>,
-) -> Result<(), Errno> {
-    match op.cmd {
+) -> WasiResult<()> {
+    let result = match op.cmd {
         ProcSpawnFdOpName::Close => {
             if let Ok(fd) = env.state.fs.get_fd(op.fd)
                 && !fd.is_stdio
                 && fd.inode.is_preopened
             {
                 trace!("Skipping close FD action for pre-opened FD ({})", op.fd);
-                return Ok(());
+                return Ok(Ok(()));
             }
             env.state.fs.close_fd(op.fd)
         }
         ProcSpawnFdOpName::Dup2 => {
-            let flush_target = env.state.fs.dup2_at(op.src_fd, op.fd)?;
+            let flush_target = wasi_try_ok_ok!(env.state.fs.dup2_at(op.src_fd, op.fd));
             if let Some(file) = flush_target {
-                block_on(WasiFs::flush_file_best_effort(file));
+                block_on(env.until_exit(WasiFs::flush_file_best_effort(file)))?;
             }
             Ok(())
         }
         ProcSpawnFdOpName::Open => {
             let mut name = unsafe {
-                WasmPtr::<u8, M>::new(op.name)
-                    .read_utf8_string(memory, op.name_len)
-                    .map_err(mem_error_to_wasi)?
+                wasi_try_ok_ok!(
+                    WasmPtr::<u8, M>::new(op.name)
+                        .read_utf8_string(memory, op.name_len)
+                        .map_err(mem_error_to_wasi)
+                )
             };
             name = env.state.fs.relative_path_to_absolute(name.to_owned());
             match path_open_internal(
@@ -240,7 +245,7 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
             ) {
                 Err(e) => {
                     tracing::warn!("Failed to open file for posix_spawn: {:?}", e);
-                    Err(Errno::Io)
+                    return Err(e);
                 }
                 Ok(Err(e)) => Err(e),
                 Ok(Ok(_)) => Ok(()),
@@ -248,19 +253,21 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
         }
         ProcSpawnFdOpName::Chdir => {
             let mut path = unsafe {
-                WasmPtr::<u8, M>::new(op.name)
-                    .read_utf8_string(memory, op.name_len)
-                    .map_err(mem_error_to_wasi)?
+                wasi_try_ok_ok!(
+                    WasmPtr::<u8, M>::new(op.name)
+                        .read_utf8_string(memory, op.name_len)
+                        .map_err(mem_error_to_wasi)
+                )
             };
             path = env.state.fs.relative_path_to_absolute(path.to_owned());
             chdir_internal(env, &path)
         }
         ProcSpawnFdOpName::Fchdir => {
-            let fd = env.state.fs.get_fd(op.fd)?;
+            let fd = wasi_try_ok_ok!(env.state.fs.get_fd(op.fd));
             let inode_kind = fd.inode.read();
             match inode_kind.deref() {
                 Kind::Dir { path, .. } => {
-                    let path = path.to_str().ok_or(Errno::Notsup)?;
+                    let path = wasi_try_ok_ok!(path.to_str().ok_or(Errno::Notsup));
                     env.state.fs.set_current_dir(path);
                     Ok(())
                 }
@@ -268,5 +275,6 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
             }
         }
         _ => Err(Errno::Inval),
-    }
+    };
+    Ok(result)
 }

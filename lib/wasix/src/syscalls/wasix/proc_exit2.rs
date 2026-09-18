@@ -28,12 +28,8 @@ pub fn proc_exit2<M: MemorySize>(
     );
 
     // Prepare the child env for teardown by closing its FDs
-    block_on(
-        unsafe { ctx.data().get_memory_and_wasi_state(&ctx, 0) }
-            .1
-            .fs
-            .close_all(),
-    );
+    let env = ctx.data();
+    block_on(env.until_exit(env.state.fs.close_all()))?;
 
     // Restore the WasiEnv to the point when we vforked
     let mut parent_env = vfork.env;

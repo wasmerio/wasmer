@@ -234,17 +234,33 @@ impl VirtualTaskManager for TokioTaskManager {
                         };
 
                         if let Some(pre_run) = pre_run {
-                            pre_run(ctx, store).await;
+                            let exit = ctx.data(store).wait_for_exit();
+                            tokio::select! {
+                                biased;
+                                _ = exit => return None,
+                                () = pre_run(ctx, store) => {},
+                            }
                         }
 
-                        match ctx.data(store).process.forced_exit_code() {
+                        Some(match ctx.data(store).process.forced_exit_code() {
                             Some(exit_code) => Err(exit_code),
                             None => result,
-                        }
+                        })
                     })
                 };
 
-                // Invoke the callback
+                let Some(result) = result else {
+                    // Preparation was cancelled, so the run callback must not
+                    // observe partially prepared state. Drop its captures and
+                    // the environment/store just like the non-triggered path.
+                    return;
+                };
+
+                // This is a cooperative cancellation boundary, not a lock held
+                // across guest execution. A shutdown racing this handoff stays
+                // latched in thread/process status and registered memory. Holding
+                // the shutdown lock across this synchronous callback would stop
+                // force_terminate from waking a callback blocked in guest code.
                 (callbacks.run)(TaskWasmRunProperties {
                     ctx,
                     store,
@@ -270,14 +286,25 @@ impl VirtualTaskManager for TokioTaskManager {
                 };
 
                 if let Some(pre_run) = callbacks.pre_run {
-                    block_on(pre_run(&mut ctx, &mut store));
+                    let exit = ctx.data(&store).wait_for_exit();
+                    let cancelled = block_on(async {
+                        tokio::select! {
+                            biased;
+                            _ = exit => true,
+                            () = pre_run(&mut ctx, &mut store) => false,
+                        }
+                    });
+                    if cancelled {
+                        return;
+                    }
                 }
 
                 if ctx.data(&store).process.forced_exit_code().is_some() {
                     return;
                 }
 
-                // Invoke the callback
+                // See the triggered path above: a late shutdown must remain able
+                // to interrupt the callback, rather than waiting for it to return.
                 (callbacks.run)(TaskWasmRunProperties {
                     ctx,
                     store,

@@ -52,7 +52,7 @@ pub(crate) fn sock_listen_internal(
         sock,
         Rights::SOCK_LISTEN,
         |socket, _| async move { socket.listen(tasks.deref(), net.deref(), backlog).await }
-    ));
+    )?);
 
     Ok(Ok(()))
 }

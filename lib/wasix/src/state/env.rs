@@ -920,6 +920,45 @@ impl WasiEnv {
         None
     }
 
+    /// Wait for this execution context to exit, without changing guest child-wait
+    /// routing. Keep both status subscriptions alive while a host operation is
+    /// pending: signals are consumable and cannot serve as cancellation state.
+    pub(crate) fn wait_for_exit(&self) -> impl Future<Output = ExitCode> + use<> {
+        let thread = self.thread.clone();
+        let process = self.process.finished.clone();
+        async move {
+            let result = tokio::select! {
+                biased;
+                result = thread.join() => result,
+                result = process.await_termination() => result,
+            };
+            result.unwrap_or_else(|err| {
+                tracing::debug!(
+                    error = &*err as &dyn std::error::Error,
+                    "exit runtime error"
+                );
+                Errno::Child.into()
+            })
+        }
+    }
+
+    /// Race a host operation against persistent execution termination without
+    /// consuming signals or converting a forced exit into a recoverable errno.
+    /// The returned future does not borrow the environment.
+    pub(crate) fn until_exit<F: Future>(
+        &self,
+        work: F,
+    ) -> impl Future<Output = Result<F::Output, WasiError>> + use<F> {
+        let exit = self.wait_for_exit();
+        async move {
+            tokio::select! {
+                biased;
+                code = exit => Err(WasiError::Exit(code)),
+                result = work => Ok(result),
+            }
+        }
+    }
+
     /// Accesses the virtual networking implementation
     pub fn net(&self) -> &DynVirtualNetworking {
         self.runtime.networking()

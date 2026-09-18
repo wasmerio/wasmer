@@ -8,6 +8,217 @@ const SHARED_MEMORY_MODULE: &str = r#"(module
     (import "env" "memory" (memory 1 1 shared))
     (export "memory" (memory 0)))"#;
 
+async fn assert_force_terminate_cancels_pending_pre_run(has_trigger: bool) {
+    struct Released(Option<tokio::sync::oneshot::Sender<()>>);
+    impl Drop for Released {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+
+    let manager = TokioTaskManager::new(Handle::current());
+    let store = Store::default();
+    let module = Module::new(&store, SHARED_MEMORY_MODULE).unwrap();
+    let mut runtime = PluggableRuntime::new(Arc::new(manager.clone()));
+    runtime.set_engine(store.engine().clone());
+    let env = WasiEnv::builder("cancel-pending-pre-run")
+        .runtime(Arc::new(runtime))
+        .build()
+        .unwrap();
+    let process = env.process.clone();
+    let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+    let (done_tx, mut done_rx) = tokio::sync::oneshot::channel();
+    let (release_tx, release_rx) = tokio::sync::oneshot::channel::<()>();
+    let released = Released(Some(done_tx));
+    let run_called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let run_called_by_callback = run_called.clone();
+    let mut task = TaskWasm::new(
+        Box::new(move |_props| {
+            let _released = released;
+            run_called_by_callback.store(true, Ordering::SeqCst);
+        }),
+        env,
+        module,
+        false,
+        false,
+    )
+    .with_pre_run(Box::new(move |_, _| {
+        Box::pin(async move {
+            let _ = entered_tx.send(());
+            let _ = release_rx.await;
+        })
+    }));
+    if has_trigger {
+        task = task.with_trigger(Box::new(|| Box::pin(async { Ok(Vec::new().into()) })));
+    }
+    manager.task_wasm(task).unwrap();
+    tokio::time::timeout(Duration::from_secs(2), entered_rx)
+        .await
+        .unwrap()
+        .unwrap();
+    let memory = process.lock().memory.clone().unwrap();
+    process.force_terminate(Errno::Intr.into()).unwrap();
+    let completed = tokio::time::timeout(Duration::from_secs(2), &mut done_rx).await;
+    if completed.is_err() {
+        // Unblock the baseline before reporting its failure.
+        let _ = release_tx.send(());
+        let _ = tokio::time::timeout(Duration::from_secs(2), &mut done_rx).await;
+    }
+    completed
+        .expect("forced exit must release pending pre-run")
+        .unwrap();
+    assert!(
+        !run_called.load(Ordering::SeqCst),
+        "cancelled pre-run invoked its run callback"
+    );
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while process.active_threads() != 0
+            || !matches!(
+                memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
+                Err(AtomicsError::MemoryDropped)
+            )
+        {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .expect("cancelled pre-run retained its environment or memory");
+    assert_eq!(process.active_threads(), 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn force_terminate_cancels_pending_pre_run_without_trigger() {
+    assert_force_terminate_cancels_pending_pre_run(false).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn force_terminate_cancels_pending_pre_run_with_trigger() {
+    assert_force_terminate_cancels_pending_pre_run(true).await;
+}
+
+async fn assert_force_terminate_after_pre_run_dispatch_cannot_park(has_trigger: bool) {
+    let manager = TokioTaskManager::new(Handle::current());
+    let store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+            (import "env" "memory" (memory 1 1 shared))
+            (import "wasi_snapshot_preview1" "fd_read"
+                (func $read (param i32 i32 i32 i32) (result i32)))
+            (export "memory" (memory 0))
+            (data (i32.const 0) "\40\00\00\00\01\00\00\00")
+            (func (export "wait") (result i32)
+                (memory.atomic.wait32
+                    (i32.const 128) (i32.const 0) (i64.const 3000000000)))
+            (func (export "read") (result i32)
+                (call $read (i32.const 0) (i32.const 0) (i32.const 1) (i32.const 16))))"#,
+    )
+    .unwrap();
+    let mut runtime = PluggableRuntime::new(Arc::new(manager.clone()));
+    runtime.set_engine(store.engine().clone());
+    let (cleanup_writer, stdin) = virtual_fs::Pipe::channel();
+    let env = WasiEnv::builder("terminate-after-pre-run-dispatch")
+        .runtime(Arc::new(runtime))
+        .stdin(Box::new(stdin))
+        .build()
+        .unwrap();
+    let process = env.process.clone();
+    let (dispatched_tx, dispatched_rx) = tokio::sync::oneshot::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let (done_tx, mut done_rx) = tokio::sync::oneshot::channel();
+    let mut task = TaskWasm::new(
+        Box::new(move |mut props| {
+            if has_trigger {
+                assert!(props.trigger_result.as_ref().unwrap().is_ok());
+            }
+            // All task-manager checks and pre_run have completed. Deliberately
+            // enter the guest only after force_terminate has returned, modeling
+            // a thread descheduled at the final check-to-dispatch boundary.
+            dispatched_tx.send(()).unwrap();
+            release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            let instance = props.ctx.data(&props.store).try_clone_instance().unwrap();
+            let wait = instance
+                .exports
+                .get_typed_function::<(), i32>(&props.store, "wait")
+                .unwrap();
+            let read = instance
+                .exports
+                .get_typed_function::<(), i32>(&props.store, "read")
+                .unwrap();
+            let atomic_interrupted = wait.call(&mut props.store).is_err();
+            let read_interrupted = matches!(
+                read.call(&mut props.store)
+                    .as_ref()
+                    .err()
+                    .and_then(|error| error.downcast_ref::<crate::WasiError>()),
+                Some(crate::WasiError::Exit(code)) if *code == Errno::Intr.into()
+            );
+            drop(instance);
+            drop(props);
+            let _ = done_tx.send((atomic_interrupted, read_interrupted));
+        }),
+        env,
+        module,
+        false,
+        false,
+    )
+    .with_pre_run(Box::new(|_, _| Box::pin(async {})));
+    if has_trigger {
+        task = task.with_trigger(Box::new(|| Box::pin(async { Ok(Vec::new().into()) })));
+    }
+    manager.task_wasm(task).unwrap();
+    tokio::time::timeout(Duration::from_secs(2), dispatched_rx)
+        .await
+        .unwrap()
+        .unwrap();
+    let memory = process.lock().memory.clone().unwrap();
+    let terminating_process = process.clone();
+    let mut shutdown = tokio::task::spawn_blocking(move || {
+        terminating_process.force_terminate(Errno::Intr.into())
+    });
+    let terminated = tokio::time::timeout(Duration::from_secs(2), &mut shutdown).await;
+    if terminated.is_err() {
+        // A shutdown gate held across callbacks would deadlock this handoff.
+        // Release every wait before reporting that regression.
+        let _ = memory.disable_atomics();
+        drop(cleanup_writer);
+        let _ = release_tx.send(());
+        let _ = tokio::time::timeout(Duration::from_secs(5), shutdown).await;
+        panic!("force_terminate waited for an already-dispatched callback");
+    }
+    terminated.unwrap().unwrap().unwrap();
+    release_tx.send(()).unwrap();
+    let completed = tokio::time::timeout(Duration::from_secs(2), &mut done_rx).await;
+    if completed.is_err() {
+        let _ = memory.disable_atomics();
+        drop(cleanup_writer);
+        let _ = tokio::time::timeout(Duration::from_secs(5), &mut done_rx).await;
+    }
+    assert_eq!(
+        completed
+            .expect("late-dispatched guest lost persistent cancellation")
+            .unwrap(),
+        (true, true)
+    );
+    assert_eq!(process.active_threads(), 0);
+    assert!(matches!(
+        memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
+        Err(AtomicsError::MemoryDropped)
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn force_terminate_after_pre_run_dispatch_without_trigger_cannot_park() {
+    assert_force_terminate_after_pre_run_dispatch_cannot_park(false).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn force_terminate_after_pre_run_dispatch_with_trigger_cannot_park() {
+    assert_force_terminate_after_pre_run_dispatch_cannot_park(true).await;
+}
+
 async fn assert_process_sigkill_reclaims_trigger_task(handler_registered: bool) {
     let manager = TokioTaskManager::new(Handle::current());
     let store = Store::default();

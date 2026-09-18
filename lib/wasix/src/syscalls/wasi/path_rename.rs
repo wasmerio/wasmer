@@ -195,9 +195,14 @@ pub fn path_rename_internal(
                     drop(guard);
                     let state = state;
                     let target_guest_path = target_guest_path.clone();
-                    __asyncify_light(env, None, async move {
-                        state.fs_rename(path_clone, &target_guest_path).await
-                    })?
+                    restore_source_on_cancel(
+                        __asyncify_light(env, None, async move {
+                            state.fs_rename(path_clone, &target_guest_path).await
+                        }),
+                        &source_parent_inode,
+                        &source_entry_name,
+                        &source_entry,
+                    )?
                 };
                 // if the above operation failed we have to revert the previous change and then fail
                 if let Err(e) = result {
@@ -220,9 +225,14 @@ pub fn path_rename_internal(
                 let res = {
                     let state = state;
                     let target_guest_path = target_guest_path.clone();
-                    __asyncify_light(env, None, async move {
-                        state.fs_rename(cloned_path, &target_guest_path).await
-                    })?
+                    restore_source_on_cancel(
+                        __asyncify_light(env, None, async move {
+                            state.fs_rename(cloned_path, &target_guest_path).await
+                        }),
+                        &source_parent_inode,
+                        &source_entry_name,
+                        &source_entry,
+                    )?
                 };
                 if let Err(e) = res {
                     return Ok(e);
@@ -246,7 +256,12 @@ pub fn path_rename_internal(
                     let state = state;
                     let from = source_guest_path.clone();
                     let to = target_guest_path.clone();
-                    __asyncify_light(env, None, async move { state.fs_rename(from, to).await })?
+                    restore_source_on_cancel(
+                        __asyncify_light(env, None, async move { state.fs_rename(from, to).await }),
+                        &source_parent_inode,
+                        &source_entry_name,
+                        &source_entry,
+                    )?
                 };
                 match (res, is_ephemeral) {
                     (Ok(()), _) | (Err(Errno::Noent), true) => {}
@@ -316,6 +331,25 @@ pub fn path_rename_internal(
     Ok(Errno::Success)
 }
 
+// Termination is an outer WASI error, not the filesystem's inner Errno. Restore
+// the removed guest directory entry before propagating it. This does not claim
+// to roll back a filesystem backend mutation that already committed externally.
+fn restore_source_on_cancel<T>(
+    result: WasiResult<T>,
+    parent: &InodeGuard,
+    name: &str,
+    source: &InodeGuard,
+) -> WasiResult<T> {
+    if result.is_err()
+        && let Kind::Dir { entries, .. } = parent.write().deref_mut()
+    {
+        entries
+            .entry(name.to_owned())
+            .or_insert_with(|| source.clone());
+    }
+    result
+}
+
 fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path: &Path) {
     let children;
 
@@ -348,4 +382,68 @@ fn adjust_path(path: &Path, source_dir_path: &Path, target_dir_path: &Path) -> P
     crate::fs::PosixPath::from_path(target_dir_path)
         .join(&relative_path)
         .into_path_buf()
+}
+
+#[cfg(all(test, feature = "sys-thread", not(target_arch = "wasm32")))]
+mod cancellation_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn termination_restores_removed_source_entry_without_overwriting_a_new_one() {
+        let store = wasmer::Store::default();
+        let env = WasiEnv::builder("cancelled-rename")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let fs = &env.state.fs;
+        let inodes = &env.state.inodes;
+        let source = fs.create_inode_with_default_stat(
+            inodes,
+            Kind::Buffer { buffer: vec![1] },
+            false,
+            "source".into(),
+        );
+        let parent = fs.create_inode_with_default_stat(
+            inodes,
+            Kind::Dir {
+                parent: source.downgrade(),
+                path: "/".into(),
+                entries: Default::default(),
+            },
+            false,
+            "/".into(),
+        );
+        env.process.force_terminate(137.into()).unwrap();
+        let result = restore_source_on_cancel(
+            __asyncify_light(&env, None, std::future::pending::<Result<(), Errno>>()),
+            &parent,
+            "source",
+            &source,
+        );
+        assert!(matches!(result, Err(WasiError::Exit(code)) if code == 137.into()));
+        let restored = match parent.read().deref() {
+            Kind::Dir { entries, .. } => entries["source"].ino(),
+            _ => unreachable!(),
+        };
+        assert_eq!(restored, source.ino());
+
+        let replacement = fs.create_inode_with_default_stat(
+            inodes,
+            Kind::Buffer { buffer: vec![2] },
+            false,
+            "source".into(),
+        );
+        if let Kind::Dir { entries, .. } = parent.write().deref_mut() {
+            entries.insert("source".into(), replacement.clone());
+        }
+        let _ = restore_source_on_cancel::<()>(
+            Err(WasiError::Exit(137.into())),
+            &parent,
+            "source",
+            &source,
+        );
+        if let Kind::Dir { entries, .. } = parent.read().deref() {
+            assert_eq!(entries["source"].ino(), replacement.ino());
+        }
+    }
 }

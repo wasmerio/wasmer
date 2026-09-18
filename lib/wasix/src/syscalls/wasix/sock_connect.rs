@@ -91,7 +91,7 @@ pub(crate) fn sock_connect_internal(
                 .await?;
             Ok(connected_socket.or(bound_socket))
         }
-    ));
+    )?);
 
     if nonblocking {
         let status = match __sock_actor(ctx, sock, Rights::empty(), |socket, _| socket.status()) {
