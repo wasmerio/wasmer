@@ -234,7 +234,12 @@ impl VirtualTaskManager for TokioTaskManager {
                         };
 
                         if let Some(pre_run) = pre_run {
-                            pre_run(ctx, store).await;
+                            let exit = ctx.data(store).wait_for_exit();
+                            tokio::select! {
+                                biased;
+                                exit_code = exit => return Err(exit_code),
+                                () = pre_run(ctx, store) => {},
+                            }
                         }
 
                         match ctx.data(store).process.forced_exit_code() {
@@ -270,7 +275,17 @@ impl VirtualTaskManager for TokioTaskManager {
                 };
 
                 if let Some(pre_run) = callbacks.pre_run {
-                    block_on(pre_run(&mut ctx, &mut store));
+                    let exit = ctx.data(&store).wait_for_exit();
+                    let cancelled = block_on(async {
+                        tokio::select! {
+                            biased;
+                            _ = exit => true,
+                            () = pre_run(&mut ctx, &mut store) => false,
+                        }
+                    });
+                    if cancelled {
+                        return;
+                    }
                 }
 
                 if ctx.data(&store).process.forced_exit_code().is_some() {

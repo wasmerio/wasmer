@@ -96,7 +96,7 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
         sock,
         Rights::SOCK_SEND_TO,
         move |mut socket, flags| async move { socket.auto_bind_udp(tasks.deref(), net.deref()).await }
-    ));
+    )?);
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
@@ -175,7 +175,7 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
                     }
                 }
             },
-        ))
+        )?)
     };
     trace!(
         %bytes_written,

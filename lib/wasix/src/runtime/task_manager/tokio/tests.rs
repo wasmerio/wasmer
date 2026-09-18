@@ -8,6 +8,92 @@ const SHARED_MEMORY_MODULE: &str = r#"(module
     (import "env" "memory" (memory 1 1 shared))
     (export "memory" (memory 0)))"#;
 
+async fn assert_force_terminate_cancels_pending_pre_run(has_trigger: bool) {
+    struct Released(Option<tokio::sync::oneshot::Sender<()>>);
+    impl Drop for Released {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+
+    let manager = TokioTaskManager::new(Handle::current());
+    let store = Store::default();
+    let module = Module::new(&store, SHARED_MEMORY_MODULE).unwrap();
+    let mut runtime = PluggableRuntime::new(Arc::new(manager.clone()));
+    runtime.set_engine(store.engine().clone());
+    let env = WasiEnv::builder("cancel-pending-pre-run")
+        .runtime(Arc::new(runtime))
+        .build()
+        .unwrap();
+    let process = env.process.clone();
+    let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+    let (done_tx, mut done_rx) = tokio::sync::oneshot::channel();
+    let (release_tx, release_rx) = tokio::sync::oneshot::channel::<()>();
+    let released = Released(Some(done_tx));
+    let mut task = TaskWasm::new(
+        Box::new(move |props| {
+            let _released = released;
+            assert!(has_trigger, "cancelled pre-run reached guest execution");
+            assert_eq!(props.trigger_result, Some(Err(Errno::Intr.into())));
+            drop(props);
+        }),
+        env,
+        module,
+        false,
+        false,
+    )
+    .with_pre_run(Box::new(move |_, _| {
+        Box::pin(async move {
+            let _ = entered_tx.send(());
+            let _ = release_rx.await;
+        })
+    }));
+    if has_trigger {
+        task = task.with_trigger(Box::new(|| Box::pin(async { Ok(Vec::new().into()) })));
+    }
+    manager.task_wasm(task).unwrap();
+    tokio::time::timeout(Duration::from_secs(2), entered_rx)
+        .await
+        .unwrap()
+        .unwrap();
+    let memory = process.lock().memory.clone().unwrap();
+    process.force_terminate(Errno::Intr.into()).unwrap();
+    let completed = tokio::time::timeout(Duration::from_secs(2), &mut done_rx).await;
+    if completed.is_err() {
+        // Unblock the baseline before reporting its failure.
+        let _ = release_tx.send(());
+        let _ = tokio::time::timeout(Duration::from_secs(2), &mut done_rx).await;
+    }
+    completed
+        .expect("forced exit must release pending pre-run")
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while process.active_threads() != 0
+            || !matches!(
+                memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
+                Err(AtomicsError::MemoryDropped)
+            )
+        {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .expect("cancelled pre-run retained its environment or memory");
+    assert_eq!(process.active_threads(), 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn force_terminate_cancels_pending_pre_run_without_trigger() {
+    assert_force_terminate_cancels_pending_pre_run(false).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn force_terminate_cancels_pending_pre_run_with_trigger() {
+    assert_force_terminate_cancels_pending_pre_run(true).await;
+}
+
 async fn assert_process_sigkill_reclaims_trigger_task(handler_registered: bool) {
     let manager = TokioTaskManager::new(Handle::current());
     let store = Store::default();

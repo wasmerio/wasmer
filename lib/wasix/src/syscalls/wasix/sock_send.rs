@@ -162,7 +162,7 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
                 }
             }
         }
-    ));
+    )?);
     trace!(
         %bytes_written,
     );
