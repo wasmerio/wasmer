@@ -99,6 +99,11 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     let memory = unsafe { ctx.data().memory_view(&ctx) };
 
+    // A script is handed to its interpreter under the path the caller spelled.
+    // A PATH search is the exception: there the resolved path is what Unix
+    // passes on, so leave this unset and let the lookup supply it.
+    let invoked_as = name.contains('/').then(|| name.clone());
+
     // Convert relative paths into absolute paths
     if search_path == Bool::True && !name.contains('/') {
         let path = if let Some(path) = path {
@@ -176,7 +181,7 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
             let env = builder.take().unwrap();
 
             // Spawn a new process with this current execution environment
-            block_on(bin_factory.spawn(name.clone(), env)).map(|_| ())
+            block_on(bin_factory.spawn(name.clone(), invoked_as.clone(), env)).map(|_| ())
         }
     };
 

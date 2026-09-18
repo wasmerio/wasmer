@@ -251,7 +251,7 @@ pub fn proc_spawn_internal(
                 error!("builtin failed - {}", err);
             }
             // Now we actually spawn the process
-            let child_work = bin_factory.spawn(name, builder.take().unwrap());
+            let child_work = bin_factory.spawn(name, None, builder.take().unwrap());
 
             match __asyncify(&mut ctx, None, async move { Ok(child_work.await) })?
                 .map_err(|err| Errno::Unknown)
