@@ -408,9 +408,11 @@ impl LinkerShared {
                 ?error,
                 "Replicated link operation failed; aborting all groups"
             );
-            return Err(self
-                .cancellation
-                .abort(wasmer_wasix_types::wasi::Errno::Noexec.into()));
+            return Err(self.cancellation.abort(
+                error
+                    .termination_code()
+                    .unwrap_or_else(|| wasmer_wasix_types::wasi::Errno::Noexec.into()),
+            ));
         }
 
         trace!("Operation applied, now waiting at second barrier");
