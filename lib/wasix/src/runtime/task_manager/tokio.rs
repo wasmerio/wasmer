@@ -249,7 +249,11 @@ impl VirtualTaskManager for TokioTaskManager {
                     })
                 };
 
-                // Invoke the callback
+                // This is a cooperative cancellation boundary, not a lock held
+                // across guest execution. A shutdown racing this handoff stays
+                // latched in thread/process status and registered memory. Holding
+                // the shutdown lock across this synchronous callback would stop
+                // force_terminate from waking a callback blocked in guest code.
                 (callbacks.run)(TaskWasmRunProperties {
                     ctx,
                     store,
@@ -292,7 +296,8 @@ impl VirtualTaskManager for TokioTaskManager {
                     return;
                 }
 
-                // Invoke the callback
+                // See the triggered path above: a late shutdown must remain able
+                // to interrupt the callback, rather than waiting for it to return.
                 (callbacks.run)(TaskWasmRunProperties {
                     ctx,
                     store,
