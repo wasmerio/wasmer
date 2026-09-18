@@ -125,7 +125,9 @@ async fn follower_termination_aborts_second_epoch() {
         follower_barrier.wait().await;
     });
     entered.recv_timeout(DEADLINE).unwrap();
-    block_on(barrier.wait());
+    tokio::time::timeout(DEADLINE, barrier.wait())
+        .await
+        .expect("the first linker epoch must complete");
     second_rx.recv_timeout(DEADLINE).unwrap();
     process.force_terminate(138.into()).unwrap();
     assert_aborted(worker.finish(), 138.into());
