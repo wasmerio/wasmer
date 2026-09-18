@@ -593,14 +593,7 @@ pub(crate) fn __asyncify_light<T, Fut>(
 where
     Fut: Future<Output = Result<T, Errno>>,
 {
-    let exit = env.wait_for_exit();
-    block_on_with_timeout(env.tasks(), timeout, async move {
-        tokio::select! {
-            biased;
-            exit_code = exit => Err(WasiError::Exit(exit_code)),
-            result = work => Ok(result),
-        }
-    })
+    block_on_with_timeout(env.tasks(), timeout, env.until_exit(work))
 }
 
 // This should be compiled away, it will simply wait forever however its never

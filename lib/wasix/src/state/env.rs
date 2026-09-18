@@ -942,6 +942,23 @@ impl WasiEnv {
         }
     }
 
+    /// Race a host operation against persistent execution termination without
+    /// consuming signals or converting a forced exit into a recoverable errno.
+    /// The returned future does not borrow the environment.
+    pub(crate) fn until_exit<F: Future>(
+        &self,
+        work: F,
+    ) -> impl Future<Output = Result<F::Output, WasiError>> + use<F> {
+        let exit = self.wait_for_exit();
+        async move {
+            tokio::select! {
+                biased;
+                code = exit => Err(WasiError::Exit(code)),
+                result = work => Ok(result),
+            }
+        }
+    }
+
     /// Accesses the virtual networking implementation
     pub fn net(&self) -> &DynVirtualNetworking {
         self.runtime.networking()

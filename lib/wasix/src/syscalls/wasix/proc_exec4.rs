@@ -4,6 +4,9 @@ use wasmer::FromToNativeWasmType;
 use super::*;
 use crate::{VIRTUAL_ROOT_FD, WasiFs, syscalls::*};
 
+#[cfg(all(test, feature = "sys-thread", not(target_arch = "wasm32")))]
+mod tests;
+
 /// Replaces the current process with a new process, with proper `WasmPtr<WasmPtr<u8>>` string lists.
 ///
 /// Successor to `proc_exec3`. `args` and `envs` are pointer arrays of null-terminated
@@ -288,7 +291,7 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
                 let env = builder.take().unwrap();
 
                 // Spawn a new process with this current execution environment
-                block_on(bin_factory.spawn(name.clone(), env))
+                block_on(ctx.data().until_exit(bin_factory.spawn(name.clone(), env)))?
             }
         };
 
