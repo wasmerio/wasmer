@@ -438,16 +438,27 @@ async fn load_executable_from_wasi_fs(
     path: &Path,
     rt: &(dyn Runtime + Send + Sync),
 ) -> Result<Executable, anyhow::Error> {
-    let inode = env
-        .state
-        .fs
-        .get_inode_at_path(
-            &env.state.inodes,
-            VIRTUAL_ROOT_FD,
-            path.to_string_lossy().as_ref(),
-            true,
-        )
-        .map_err(|error| anyhow::anyhow!("Unable to resolve executable: {error}"))?;
+    // Resolving through the inode tree follows symlinks and reaches a file that
+    // only exists in memory, but it sees only what a preopen covers. Without a
+    // matching one the virtual root has nothing to offer, so fall back to
+    // opening the root filesystem, which is where executables were found
+    // before. That fallback does not follow symlinks.
+    let inode = match env.state.fs.get_inode_at_path(
+        &env.state.inodes,
+        VIRTUAL_ROOT_FD,
+        path.to_string_lossy().as_ref(),
+        true,
+    ) {
+        Ok(inode) => inode,
+        Err(error) => {
+            tracing::debug!(
+                %error,
+                path = path.to_string_lossy().as_ref(),
+                "Unable to resolve executable through the preopens",
+            );
+            return load_executable_from_filesystem(env.fs_root(), path, rt).await;
+        }
+    };
 
     let (buffer, backing_path) = {
         let kind = inode.read();
@@ -492,7 +503,7 @@ async fn load_executable_from_buffer(
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::{path::Path, sync::Arc};
 
     use virtual_fs::{AsyncWriteExt, FileSystem};
     use wasmer::Engine;
@@ -501,7 +512,7 @@ mod tests {
         Executable, MAX_SHEBANG_LINE, Shebang, ShebangLine, load_executable_from_wasi_fs,
         parse_shebang, script_command,
     };
-    use crate::WasiEnvBuilder;
+    use crate::{VIRTUAL_ROOT_FD, WasiEnvBuilder};
 
     fn expect_parsed(line: ShebangLine) -> Shebang {
         match line {
@@ -656,6 +667,85 @@ mod tests {
             .unwrap();
 
         let executable = load_executable_from_wasi_fs(&env, Path::new("/bin/next"), env.runtime())
+            .await
+            .unwrap();
+        assert!(matches!(executable, Executable::Script(_)));
+    }
+
+    #[tokio::test]
+    async fn loads_an_executable_outside_every_preopen() {
+        // An embedder that preopens only its own directory still gets to exec
+        // what it wrote elsewhere; the inode tree offers nothing there, since
+        // the root holds preopens alone.
+        let backing = virtual_fs::mem_fs::FileSystem::default();
+        backing.create_dir(Path::new("/app")).unwrap();
+        backing.create_dir(Path::new("/bin")).unwrap();
+
+        let mut builder = WasiEnvBuilder::new("test")
+            .engine(Engine::default())
+            .fs(Arc::new(backing) as Arc<dyn FileSystem + Send + Sync>);
+        builder.preopen_vfs_dirs(["/app".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+        let fs = &env.state.fs.root_fs;
+
+        let mut target = fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/bin/tool"))
+            .unwrap();
+        target.write_all(b"#!/bin/sh\necho hello\n").await.unwrap();
+
+        assert!(
+            env.state
+                .fs
+                .get_inode_at_path(&env.state.inodes, VIRTUAL_ROOT_FD, "/bin/tool", true)
+                .is_err(),
+            "the preopens should not cover this path, or the test proves nothing"
+        );
+
+        let executable = load_executable_from_wasi_fs(&env, Path::new("/bin/tool"), env.runtime())
+            .await
+            .unwrap();
+        assert!(matches!(executable, Executable::Script(_)));
+    }
+
+    #[tokio::test]
+    async fn a_symlink_outside_every_preopen_is_not_followed() {
+        // Documents today's boundary rather than endorsing it: the fallback
+        // opens the root filesystem, which stops at the link itself. Widen this
+        // test if that ever changes.
+        let backing = virtual_fs::mem_fs::FileSystem::default();
+        backing.create_dir(Path::new("/app")).unwrap();
+        backing.create_dir(Path::new("/bin")).unwrap();
+        backing.create_dir(Path::new("/pkg")).unwrap();
+
+        let mut builder = WasiEnvBuilder::new("test")
+            .engine(Engine::default())
+            .fs(Arc::new(backing) as Arc<dyn FileSystem + Send + Sync>);
+        builder.preopen_vfs_dirs(["/app".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+        let fs = &env.state.fs.root_fs;
+
+        let mut target = fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/pkg/tool"))
+            .unwrap();
+        target.write_all(b"#!/bin/sh\necho hello\n").await.unwrap();
+        fs.create_symlink(Path::new("../pkg/tool"), Path::new("/bin/tool"))
+            .unwrap();
+
+        assert!(
+            load_executable_from_wasi_fs(&env, Path::new("/bin/tool"), env.runtime())
+                .await
+                .is_err()
+        );
+
+        // The file the link points at is reachable directly, so only the
+        // symlink hop is what fails.
+        let executable = load_executable_from_wasi_fs(&env, Path::new("/pkg/tool"), env.runtime())
             .await
             .unwrap();
         assert!(matches!(executable, Executable::Script(_)));
