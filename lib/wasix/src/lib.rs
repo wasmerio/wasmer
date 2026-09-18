@@ -173,6 +173,9 @@ pub enum SpawnError {
     /// Invalid ABI
     #[error("Wasmer process has an invalid ABI")]
     InvalidABI,
+    /// The file is a script, but its shebang line cannot be used.
+    #[error("invalid shebang line in '{path}'")]
+    InvalidShebang { path: String },
     /// Bad handle
     #[error("bad handle")]
     BadHandle,

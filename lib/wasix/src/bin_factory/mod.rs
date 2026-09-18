@@ -127,7 +127,7 @@ impl BinFactory {
             for _ in 0..MAX_SHEBANG_DEPTH {
                 let (resolved_name, executable) = self
                     .get_executable_for_spawn(name.as_str(), &env)
-                    .await
+                    .await?
                     .ok_or_else(|| SpawnError::BinaryNotFound {
                         binary: name.clone(),
                     })?;
@@ -234,17 +234,15 @@ impl BinFactory {
         &self,
         name: &str,
         env: &WasiEnv,
-    ) -> Option<(String, Executable)> {
+    ) -> Result<Option<(String, Executable)>, SpawnError> {
         if name.contains('/') {
             let name = if name.starts_with('/') {
                 name.to_string()
             } else {
                 env.state.fs.relative_path_to_absolute(name.to_string())
             };
-            return self
-                .get_executable_from_wasi_fs(&name, env)
-                .await
-                .map(|executable| (name, executable));
+            let executable = self.get_executable_from_wasi_fs(&name, env).await?;
+            return Ok(executable.map(|executable| (name, executable)));
         }
 
         for directory in executable_search_path(env) {
@@ -258,17 +256,21 @@ impl BinFactory {
             } else {
                 env.state.fs.relative_path_to_absolute(path)
             };
-            if let Some(executable) = self.get_executable_from_wasi_fs(&path, env).await {
-                return Some((path, executable));
+            if let Some(executable) = self.get_executable_from_wasi_fs(&path, env).await? {
+                return Ok(Some((path, executable)));
             }
         }
 
-        None
+        Ok(None)
     }
 
-    async fn get_executable_from_wasi_fs(&self, path: &str, env: &WasiEnv) -> Option<Executable> {
+    async fn get_executable_from_wasi_fs(
+        &self,
+        path: &str,
+        env: &WasiEnv,
+    ) -> Result<Option<Executable>, SpawnError> {
         if let Some(binary) = self.local.read().unwrap().get(path).cloned().flatten() {
-            return Some(Executable::BinaryPackage(binary));
+            return Ok(Some(Executable::BinaryPackage(binary)));
         }
 
         match load_executable_from_wasi_fs(env, Path::new(path), self.runtime()).await {
@@ -279,11 +281,18 @@ impl BinFactory {
                         .unwrap()
                         .insert(path.to_string(), Some(package.clone()));
                 }
-                Some(executable)
+                Ok(Some(executable))
+            }
+            // A script whose shebang cannot be used is not a missing file, and
+            // continuing the PATH walk would report the wrong error.
+            Err(error) if error.downcast_ref::<MalformedShebang>().is_some() => {
+                Err(SpawnError::InvalidShebang {
+                    path: path.to_string(),
+                })
             }
             Err(error) => {
                 tracing::debug!(path, error = &*error, "Unable to load executable");
-                None
+                Ok(None)
             }
         }
     }
@@ -315,32 +324,61 @@ pub enum Executable {
 
 const MAX_SHEBANG_DEPTH: usize = 4;
 
+/// Linux reads the shebang out of a buffer of `BINPRM_BUF_SIZE` bytes and
+/// refuses to exec an interpreter path that the buffer truncated.
+const MAX_SHEBANG_LINE: usize = 256;
+
 #[derive(Debug)]
 pub struct Shebang {
     interpreter: String,
     argument: Option<String>,
 }
 
-fn parse_shebang(bytes: &[u8]) -> Option<Shebang> {
-    let line = bytes.strip_prefix(b"#!")?;
-    let line_end = line
-        .iter()
-        .position(|byte| *byte == b'\n')
-        .unwrap_or(line.len());
-    let line = std::str::from_utf8(&line[..line_end])
-        .ok()?
-        .trim_end_matches('\r')
-        .trim();
+/// A file that starts with `#!` is a script and nothing else: Linux commits to
+/// the script handler on those two bytes and never falls back to another
+/// format. A line this runtime cannot use is therefore ENOEXEC, not something
+/// to hand to the Wasm compiler.
+#[derive(Debug, thiserror::Error)]
+#[error("the shebang line cannot be used")]
+struct MalformedShebang;
+
+enum ShebangLine {
+    Absent,
+    Malformed,
+    Parsed(Shebang),
+}
+
+fn parse_shebang(bytes: &[u8]) -> ShebangLine {
+    if !bytes.starts_with(b"#!") {
+        return ShebangLine::Absent;
+    }
+
+    let window = &bytes[..bytes.len().min(MAX_SHEBANG_LINE)];
+    let line = match window.iter().position(|byte| *byte == b'\n') {
+        Some(end) => &window[..end],
+        // Without a newline the line ends where the file does, so anything
+        // reaching the end of the window is truncated.
+        None if bytes.len() < MAX_SHEBANG_LINE => window,
+        None => return ShebangLine::Malformed,
+    };
+
+    // WASIX resolves paths as UTF-8 strings. Linux takes them as bytes, so a
+    // path this runtime cannot represent is reported rather than ignored.
+    let Ok(line) = std::str::from_utf8(&line[2..]) else {
+        return ShebangLine::Malformed;
+    };
+    let line = line.trim_end_matches('\r').trim();
+
     let (interpreter, argument) = line
         .split_once(char::is_whitespace)
         .map(|(interpreter, argument)| (interpreter, Some(argument.trim().to_string())))
         .unwrap_or((line, None));
 
     if interpreter.is_empty() {
-        return None;
+        return ShebangLine::Malformed;
     }
 
-    Some(Shebang {
+    ShebangLine::Parsed(Shebang {
         interpreter: interpreter.to_string(),
         argument: argument.filter(|argument| !argument.is_empty()),
     })
@@ -445,10 +483,10 @@ async fn load_executable_from_buffer(
         }
     }
 
-    if let Some(script) = parse_shebang(buffer.as_slice()) {
-        Ok(Executable::Script(script))
-    } else {
-        Ok(Executable::Wasm(buffer))
+    match parse_shebang(buffer.as_slice()) {
+        ShebangLine::Parsed(script) => Ok(Executable::Script(script)),
+        ShebangLine::Malformed => Err(MalformedShebang.into()),
+        ShebangLine::Absent => Ok(Executable::Wasm(buffer)),
     }
 }
 
@@ -459,33 +497,94 @@ mod tests {
     use virtual_fs::{AsyncWriteExt, FileSystem};
     use wasmer::Engine;
 
-    use super::{Executable, load_executable_from_wasi_fs, parse_shebang, script_command};
+    use super::{
+        Executable, MAX_SHEBANG_LINE, Shebang, ShebangLine, load_executable_from_wasi_fs,
+        parse_shebang, script_command,
+    };
     use crate::WasiEnvBuilder;
+
+    fn expect_parsed(line: ShebangLine) -> Shebang {
+        match line {
+            ShebangLine::Parsed(script) => script,
+            ShebangLine::Absent => panic!("expected a shebang"),
+            ShebangLine::Malformed => panic!("expected a usable shebang"),
+        }
+    }
 
     #[test]
     fn parses_env_shebang() {
-        let script = parse_shebang(b"#!/usr/bin/env node\nconsole.log('hello')\n").unwrap();
+        let script = expect_parsed(parse_shebang(
+            b"#!/usr/bin/env node\nconsole.log('hello')\n",
+        ));
         assert_eq!(script.interpreter, "/usr/bin/env");
         assert_eq!(script.argument.as_deref(), Some("node"));
     }
 
     #[test]
     fn parses_direct_shebang_with_crlf() {
-        let script = parse_shebang(b"#!/bin/bash -e\r\necho hello\r\n").unwrap();
+        let script = expect_parsed(parse_shebang(b"#!/bin/bash -e\r\necho hello\r\n"));
         assert_eq!(script.interpreter, "/bin/bash");
         assert_eq!(script.argument.as_deref(), Some("-e"));
     }
 
     #[test]
     fn ignores_regular_files() {
-        assert!(parse_shebang(b"console.log('hello')\n").is_none());
+        assert!(matches!(
+            parse_shebang(b"console.log('hello')\n"),
+            ShebangLine::Absent
+        ));
+    }
+
+    #[test]
+    fn a_line_longer_than_the_kernel_buffer_is_rejected() {
+        // Linux fits the whole line, `#!` and newline included, in
+        // BINPRM_BUF_SIZE and refuses to exec a path the buffer truncated.
+        let fits = format!("#!/{}\n", "y".repeat(MAX_SHEBANG_LINE - 4));
+        assert_eq!(fits.len(), MAX_SHEBANG_LINE);
+        assert!(matches!(
+            parse_shebang(fits.as_bytes()),
+            ShebangLine::Parsed(_)
+        ));
+
+        let one_too_long = format!("#!/{}\n", "y".repeat(MAX_SHEBANG_LINE - 3));
+        assert_eq!(one_too_long.len(), MAX_SHEBANG_LINE + 1);
+        assert!(matches!(
+            parse_shebang(one_too_long.as_bytes()),
+            ShebangLine::Malformed
+        ));
+    }
+
+    #[test]
+    fn a_short_line_needs_no_newline() {
+        let Shebang {
+            interpreter,
+            argument,
+        } = expect_parsed(parse_shebang(b"#!/bin/echo hi"));
+        assert_eq!(interpreter, "/bin/echo");
+        assert_eq!(argument.as_deref(), Some("hi"));
+    }
+
+    #[test]
+    fn a_non_utf8_interpreter_is_rejected_rather_than_compiled() {
+        // Linux runs this: paths there are bytes. WASIX resolves paths as
+        // UTF-8, so the honest answer is ENOEXEC, never a Wasm compile error.
+        assert!(matches!(
+            parse_shebang(b"#!/usr/bin/int\xff\xfebad\n"),
+            ShebangLine::Malformed
+        ));
+    }
+
+    #[test]
+    fn an_empty_interpreter_is_rejected() {
+        assert!(matches!(parse_shebang(b"#!\n"), ShebangLine::Malformed));
+        assert!(matches!(parse_shebang(b"#!   \n"), ShebangLine::Malformed));
     }
 
     #[test]
     fn script_keeps_the_path_the_caller_spelled() {
         // execv("./tool", ...) on Linux hands the interpreter "./tool", not the
         // path the kernel resolved it to.
-        let script = parse_shebang(b"#!/bin/interp\n").unwrap();
+        let script = expect_parsed(parse_shebang(b"#!/bin/interp\n"));
         let original = vec!["./tool".to_string(), "arg".to_string()];
         let (interpreter, args) = script_command("./tool", script, &original);
 
@@ -495,7 +594,7 @@ mod tests {
 
     #[test]
     fn env_shebang_execs_env_itself() {
-        let script = parse_shebang(b"#!/usr/bin/env node\n").unwrap();
+        let script = expect_parsed(parse_shebang(b"#!/usr/bin/env node\n"));
         let original = vec!["next".to_string(), "dev".to_string()];
         let (interpreter, args) = script_command("/workspace/.bin/next", script, &original);
 
@@ -508,7 +607,7 @@ mod tests {
 
     #[test]
     fn env_split_string_stays_one_argument() {
-        let script = parse_shebang(b"#!/usr/bin/env -S node --no-warnings\n").unwrap();
+        let script = expect_parsed(parse_shebang(b"#!/usr/bin/env -S node --no-warnings\n"));
         let original = vec!["tool".to_string(), "input.js".to_string()];
         let (interpreter, args) = script_command("/workspace/tool", script, &original);
 
@@ -526,7 +625,7 @@ mod tests {
 
     #[test]
     fn direct_shebang_inserts_optional_argument_before_script() {
-        let script = parse_shebang(b"#!/bin/bash -e\n").unwrap();
+        let script = expect_parsed(parse_shebang(b"#!/bin/bash -e\n"));
         let original = vec!["script".to_string(), "hello".to_string()];
         let (interpreter, args) = script_command("/workspace/script", script, &original);
 
