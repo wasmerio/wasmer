@@ -1,280 +1,376 @@
 <div align="center">
-  <a href="https://wasmer.io" target="_blank">
+  <a href="https://wasmer.io">
     <picture>
-      <source srcset="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo-white.png"  media="(prefers-color-scheme: dark)">
-      <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-white.svg">
+      <img width="300" src="./assets/logo.svg" alt="Wasmer">
     </picture>
   </a>
 
+  <h3>Lightweight sandboxes for your apps and AI agents</h3>
+
   <p>
-     <a href="https://github.com/wasmerio/wasmer/releases">
-      <img src="https://shields.io/github/v/tag/wasmerio/wasmer" alt="Github release">
+    <a href="#run-your-first-sandbox">Run with the CLI</a> ·
+    <a href="#wasmer-sdk">Embed with the SDK</a> ·
+    <a href="https://wasmer.sh">Try in your browser</a>
+  </p>
+
+  <p>
+    <a href="https://github.com/wasmerio/wasmer/releases">
+      <img src="https://img.shields.io/github/v/release/wasmerio/wasmer" alt="CLI release">
     </a>
-    <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+    <a href="./LICENSE">
+      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="MIT license">
     </a>
-    <a href="https://docs.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">
+    <a href="https://github.com/wasmerio/wasmer-sdk">
+      <img src="https://img.shields.io/badge/SDK-sandboxes-6f42c1" alt="Wasmer Sandbox SDK">
     </a>
     <a href="https://discord.gg/rWkMNStrEW">
-      <img src="https://img.shields.io/discord/1110300506942881873?label=Wasmer&logo=discord&logoColor=white" alt="Wasmer on Discord">
+      <img src="https://img.shields.io/discord/1110300506942881873?label=Discord&logo=discord&logoColor=white" alt="Wasmer on Discord">
     </a>
-    <a href="https://x.com/wasmerio">
-      <img src="https://img.shields.io/twitter/follow/wasmerio" alt="Wasmer on X">
-    </a>  
   </p>
 </div>
 
-<br /> 
+**Wasmer runs real software in lightweight WebAssembly sandboxes.** Run Python,
+JavaScript, Bash, and more from your terminal, or create sandboxes inside your
+application with the [Wasmer SDK](https://github.com/wasmerio/wasmer-sdk).
+Build code playgrounds, AI agent tools, automation, and services with the
+languages you already use.
 
-Wasmer is a _blazing fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables incredibly
-_lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ and your browser.
+- **Lightweight isolation.** WebAssembly sandboxes run without booting a virtual machine or a guest operating system.
+- **Embedded in your app.** Create and control sandboxes from JavaScript, Python, Rust, or Swift, with no separate sandbox server.
+- **Real software, ready to run.** Combine interpreters and tools from the [Wasmer registry](https://wasmer.io/explore) in one sandbox.
+- **Explicit capabilities.** Choose which files, environment variables, and network access to give each sandbox.
+- **Local or in the browser.** Run on your own machine, build sandboxes into a browser app, or deploy applications to [Wasmer Edge](https://wasmer.io/products/edge).
 
-- **Secure** by default. No file, network, or environment access, unless explicitly enabled.
-- **Pluggable**. supports [**WASIX**](https://wasix.org/), [WASI](https://github.com/WebAssembly/WASI) out of the box.
-- **Incredibly Fast**. Run WebAssembly at near-native speeds.
-- **Embeddable** [anywhere via Wasmer SDKs](https://github.com/wasmerio/wasmer/#wasmer-sdk)
+## Run your first sandbox
 
-### Install Wasmer
+Install the CLI on macOS or Linux:
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
 
 <details>
-  <summary>Other installation options (Powershell, Brew, Cargo, ...)</summary>
-  
-  _Wasmer can be installed from various package managers. Choose the one that fits best for your environment:_
-  
-  * Powershell (Windows)
-    ```powershell
-    iwr https://win.wasmer.io -useb | iex
-    ```
+<summary>Windows and other installation options</summary>
 
-- <a href="https://formulae.brew.sh/formula/wasmer">Homebrew</a> (macOS, Linux)
+**Windows (PowerShell)**
 
-  ```sh
-  brew install wasmer
-  ```
+```powershell
+iwr https://win.wasmer.io -useb | iex
+```
 
-- <a href="https://github.com/ScoopInstaller/Main/blob/master/bucket/wasmer.json">Scoop</a> (Windows)
+**Homebrew (macOS / Linux)**
 
-  ```sh
-  scoop install wasmer
-  ```
+```sh
+brew install wasmer
+```
 
-- <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a> (Windows)
-
-  ```sh
-  choco install wasmer
-  ```
-
-- <a href="https://crates.io/crates/cargo-binstall/">Cargo binstall</a>
-
-  ```sh
-  cargo binstall wasmer-cli
-  ```
-
-- <a href="https://crates.io/crates/wasmer-cli/">Cargo</a>
-
-  _Note: All the available
-  features are described in the [`wasmer-cli`
-  crate docs](https://github.com/wasmerio/wasmer/tree/main/lib/cli/README.md)_
-
-  ```sh
-  cargo install wasmer-cli
-  ```
-
-> Looking for more installation options? See [the `wasmer-install`
-> repository](https://github.com/wasmerio/wasmer-install) to learn
-> more!
+See the [installation guide](https://docs.wasmer.io/install/) for more options.
 
 </details>
 
-> Note: You can also try Wasmer online in [wasmer.sh](https://wasmer.sh/)
+Run Python in a sandbox:
 
-### Quickstart
-
-> [!Tip]  
-> As part of our commitment to open source, we want to reward all GitHub users. In addition to the free tier, you can get up to $200 in [Wasmer Edge](https://wasmer.io/products/edge) credits for your open-source contributions - [Claim here](https://github.com/wasmerio/wasmer/discussions/5560).
-
-You can start by running
-[Cowsay](https://wasmer.io/syrusakbary/cowsay):
-
-```bash
-$ wasmer run cowsay "hello world"
- _____________
-< hello world >
- -------------
-        \   ^__^
-         \  (oo)\_______
-            (__)\       )\/\
-               ||----w |
-                ||     ||
+```sh
+wasmer run python/python -- -c "print('Hello from Wasmer')"
 ```
 
-> There are many more available packages, such as [`wasmer/python`](https://wasmer.io/wasmer/python) or [`quickjs`](https://wasmer.io/saghul/quickjs). [Create your own package](https://docs.wasmer.io/registry/get-started), or explore packages from the community: https://wasmer.io/explore
+```text
+Hello from Wasmer
+```
 
-#### Here is what you can do next:
+Or try a shell command and Cowsay:
 
-- [Run a package](https://docs.wasmer.io/runtime/get-started)
-- [Publish a package](https://docs.wasmer.io/registry/get-started)
-- [Deploy your website](https://docs.wasmer.io/edge/get-started)
-- [Read more about Wasmer](https://wasmer.io/posts)
+```sh
+wasmer run wasmer/bash -- -c "echo 'Hello from Wasmer'"
+wasmer run syrusakbary/cowsay -- "Hello from Wasmer"
+```
+
+Wasmer downloads the package and caches it for future runs. Use `--` to separate
+Wasmer options from the arguments passed to your program. To work with local
+files, grant access to a directory with `--volume`; enable host networking with
+`--net` when your program needs it. See the
+[CLI guide](https://docs.wasmer.io/runtime/cli/) for details.
+
+**No installation needed:** open [wasmer.sh](https://wasmer.sh) to try a sandbox
+in your browser.
 
 ## Wasmer SDK
 
-You can use the Wasmer runtime **embedded in different
-languages** with the Wasmer SDK:
+Create sandboxes directly in your application with
+[`wasmer-sdk`](https://github.com/wasmerio/wasmer-sdk). Choose the software to run,
+add your files, and execute a command. Each sandbox has a workspace that you can
+reuse across commands.
 
-|                  | Language                             | Package                               | Documentation          |
-| ---------------- | ------------------------------------ | ------------------------------------- | ---------------------- |
-| ![Rust logo]     | [**Rust**][Rust integration]         | [`wasmer` Rust crate]                 | [Learn][rust docs]     |
-| ![C logo]        | [**C**][C integration]               | [`wasm.h` header]                     | [Learn][c docs]        |
-| ![C++ logo]      | [**C++**][C integration]             | [`wasm.hh` header]                    | [Learn][c docs]        |
-| ![C# logo]       | [**C#**][C# integration]             | [`WasmerSharp` NuGet package]         | [Learn][c# docs]       |
-| ![D logo]        | [**D**][D integration]               | [`wasmer` Dub package]                | [Learn][d docs]        |
-| ![Zig logo]      | [**Zig**][Zig integration]           | [`wasmer` Zig package]                | [Learn][zig docs]      |
-| ![Python logo]   | [**Python**][Python integration]     | [`wasmer` PyPI package]               | [Learn][python docs]   |
-| ![JS logo]       | [**Javascript**][JS integration]     | [`@wasmerio` NPM packages]            | [Learn][js docs]       |
-| ![Go logo]       | [**Go**][Go integration]             | [`wasmer` Go package]                 | [Learn][go docs]       |
-| ![PHP logo]      | [**PHP**][PHP integration]           | [`wasm` PECL package]                 | [Learn][php docs]      |
-| ![Ruby logo]     | [**Ruby**][Ruby integration]         | [`wasmer` Ruby Gem]                   | [Learn][ruby docs]     |
-| ![Java logo]     | [**Java**][Java integration]         | [`wasmer/wasmer-jni` Bintray package] | [Learn][java docs]     |
-| ![R logo]        | [**R**][R integration]               | _no published package_                | [Learn][r docs]        |
-| ![R logo]        | [**R**][R integration_1]               | _no published package_              | [Learn][r docs_1]      |
-| ![Postgres logo] | [**Postgres**][Postgres integration] | _no published package_                | [Learn][postgres docs] |
-| ![Swift logo]    | [**Swift**][Swift integration]       | _no published package_                |                        |
-| ![Dart logo]     | [**Dart**][Dart integration]         | [`wasm` pub package]                  |                        |
-| ![Crystal logo]  | [**Crystal**][Crystal integration]   | _no published package_                | [Learn][crystal docs]  |
-| ![Lisp logo]     | [**Lisp**][Lisp integration]         | _no published package_                |                        |
-| ![Julia logo]    | [**Julia**][Julia integration]       | _no published package_                |                        |
-| ![VLang logo]    | [**V**][vlang integration]           | _no published package_                |                        |
-| ![Ocaml logo]    | [**OCaml**][OCaml integration]       | [`wasmer` OCaml package]              |                        |
+### Install the SDK
 
-[👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
+**JavaScript / TypeScript** (Node.js 20 or newer):
 
-[rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
-[rust integration]: https://github.com/wasmerio/wasmer/tree/main/lib/api
-[`wasmer` rust crate]: https://crates.io/crates/wasmer/
-[rust docs]: https://docs.rs/wasmer/
-[c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
-[c integration]: https://github.com/wasmerio/wasmer/tree/main/lib/c-api
-[`wasm.h` header]: https://github.com/wasmerio/wasmer/blob/main/lib/c-api/tests/wasm-c-api/include/wasm.h
-[c docs]: https://docs.rs/wasmer-c-api/*/wasmer/wasm_c_api/index.html
-[c++ logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/cpp.svg
-[`wasm.hh` header]: https://github.com/wasmerio/wasmer/blob/main/lib/c-api/tests/wasm-c-api/include/wasm.hh
-[c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg
-[c# integration]: https://github.com/migueldeicaza/WasmerSharp
-[`wasmersharp` nuget package]: https://www.nuget.org/packages/WasmerSharp/
-[c# docs]: https://migueldeicaza.github.io/WasmerSharp/
-[d logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/d.svg
-[d integration]: https://github.com/chances/wasmer-d
-[`wasmer` Dub package]: https://code.dlang.org/packages/wasmer
-[d docs]: https://chances.github.io/wasmer-d
-[python logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/python.svg
-[python integration]: https://github.com/wasmerio/wasmer-python
-[`wasmer` pypi package]: https://pypi.org/project/wasmer/
-[python docs]: https://wasmerio.github.io/wasmer-python/api/wasmer
-[go logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/go.svg
-[go integration]: https://github.com/wasmerio/wasmer-go
-[`wasmer` go package]: https://pkg.go.dev/github.com/wasmerio/wasmer-go/wasmer
-[go docs]: https://pkg.go.dev/github.com/wasmerio/wasmer-go/wasmer?tab=doc
-[php logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/php.svg
-[php integration]: https://github.com/wasmerio/wasmer-php
-[`wasm` pecl package]: https://pecl.php.net/package/wasm
-[php docs]: https://wasmerio.github.io/wasmer-php/
-[js logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/js.svg
-[js integration]: https://github.com/wasmerio/wasmer-js
-[`@wasmerio` npm packages]: https://www.npmjs.com/org/wasmer
-[js docs]: https://docs.wasmer.io/sdk/wasmer-js
-[ruby logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ruby.svg
-[ruby integration]: https://github.com/wasmerio/wasmer-ruby
-[`wasmer` ruby gem]: https://rubygems.org/gems/wasmer
-[ruby docs]: https://wasmerio.github.io/wasmer-ruby/wasmer_ruby/index.html
-[java logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/java.svg
-[java integration]: https://github.com/wasmerio/wasmer-java
-[`wasmer/wasmer-jni` bintray package]: https://bintray.com/wasmer/wasmer-jni/wasmer-jni
-[java docs]: https://github.com/wasmerio/wasmer-java/#api-of-the-wasmer-library
-[elixir logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/elixir.svg
-[elixir integration]: https://github.com/tessi/wasmex
-[elixir docs]: https://hexdocs.pm/wasmex/api-reference.html
-[`wasmex` hex package]: https://hex.pm/packages/wasmex
-[r logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/r.svg
-[r integration]: https://github.com/dirkschumacher/wasmr
-[r docs]: https://github.com/dirkschumacher/wasmr#example
-[r integration_1]: https://sounkou-bioinfo.r-universe.dev/wasmer
-[r docs_1]: https://sounkou-bioinfo.r-universe.dev/wasmer/doc/manual.html
-[postgres logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/postgres.svg
-[postgres integration]: https://github.com/wasmerio/wasmer-postgres
-[postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
-[swift logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/swift.svg
-[swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
-[zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-mark.svg
-[zig integration]: https://github.com/Afirium/wasmer-zig-api
-[`wasmer` Zig package]: https://github.com/Afirium/wasmer-zig-api/releases/
-[zig docs]: https://wasmer-zig-api.crappy.systems/
-[dart logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/dart.svg
-[dart integration]: https://github.com/dart-lang/wasm
-[`wasm` pub package]: https://pub.dev/packages/wasm
-[lisp logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/lisp.svg
-[lisp integration]: https://github.com/helmutkian/cl-wasm-runtime
-[crystal logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/crystal.svg
-[crystal integration]: https://github.com/naqvis/wasmer-crystal
-[crystal docs]: https://naqvis.github.io/wasmer-crystal/
-[julia logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/julia.svg
-[julia integration]: https://github.com/Pangoraw/Wasmer.jl
-[vlang logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/vlang.svg
-[vlang integration]: https://github.com/vlang/wasmer
-[OCaml logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ocaml.svg
-[OCaml integration]: https://github.com/wasmerio/wasmer-ocaml
-[`wasmer` OCaml package]: https://opam.ocaml.org/packages/wasmer/
+```sh
+npm install @wasmer/sdk
+```
 
-## Develop
+<details>
+<summary>Rust</summary>
 
-We have different guides to help you develop Wasmer:
+The Rust SDK currently uses a source dependency. Clone
+[`wasmerio/wasmer-sdk`](https://github.com/wasmerio/wasmer-sdk), then point your
+application at its `rust` directory:
 
-* [Build Wasmer from Source](./docs/BUILD.md)
-* [Testing](./docs/TEST.md)
-* [Security advisory](./docs/SECURITY.md)
+```toml
+[dependencies]
+wasmer-sdk = { path = "../wasmer-sdk/rust" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+Follow the [Rust setup guide](https://github.com/wasmerio/wasmer-sdk/tree/main/rust)
+for the required toolchain and workspace patches. Crates.io publishing is
+currently disabled.
+
+</details>
+
+<details>
+<summary>Python</summary>
+
+```sh
+python -m pip install wasmer-sdk
+```
+
+The SDK's Python wheels support macOS and Linux on Intel and ARM64.
+See the [Python guide](https://github.com/wasmerio/wasmer-sdk/tree/main/python).
+
+</details>
+
+<details>
+<summary>Swift</summary>
+
+Add the package to your `Package.swift` dependencies:
+
+```swift
+.package(
+    url: "https://github.com/wasmerio/wasmer-sdk.git",
+    revision: "wasmer-sdk-swift-v0.2.1"
+)
+```
+
+Then add the product to your target's dependencies:
+
+```swift
+.product(name: "WasmerSDK", package: "wasmer-sdk")
+```
+
+This release provides prebuilt macOS binaries. See the
+[Swift setup guide](https://github.com/wasmerio/wasmer-sdk/tree/main/swift)
+for platform support and Xcode setup.
+
+</details>
+
+### Run code in a sandbox
+
+**JavaScript / TypeScript**
+
+Save this as `sandbox.mjs`:
+
+```javascript
+import { Wasmer } from "@wasmer/sdk/node";
+
+const wasmer = new Wasmer();
+try {
+  const sandbox = await wasmer.sandboxes.create({
+    packages: ["python/python@=3.13.20"],
+    files: { "hello.py": "print('Hello from Wasmer')" },
+  });
+
+  const output = await sandbox
+    .command("python", ["/workspace/hello.py"])
+    .run();
+
+  console.log(output.text());
+} finally {
+  await wasmer.close();
+}
+```
+
+Run it with `node sandbox.mjs`. Python executes inside the sandbox; you don't
+need Python installed on the host. See the
+[JavaScript guide](https://github.com/wasmerio/wasmer-sdk/tree/main/js).
+
+<details>
+<summary>Rust example</summary>
+
+```rust
+use wasmer_sdk::{Result, Wasmer};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let wasmer = Wasmer::new()?;
+    let sandbox = wasmer
+        .sandboxes()
+        .create()
+        .package("python/python@=3.13.20")
+        .file("hello.py", b"print('Hello from Wasmer')".to_vec())
+        .await?;
+
+    let output = sandbox
+        .command("python")
+        .arg("/workspace/hello.py")
+        .run()
+        .await?;
+
+    println!("{}", output.text()?);
+    sandbox.close().await?;
+    Ok(())
+}
+```
+
+See the [Rust guide](https://github.com/wasmerio/wasmer-sdk/tree/main/rust)
+for workspace setup and more examples.
+
+</details>
+
+<details>
+<summary>Python example</summary>
+
+Save this as `sandbox.py`:
+
+```python
+import asyncio
+
+from wasmer_sdk import Wasmer
 
 
-## Contribute
+async def main():
+    async with Wasmer() as wasmer:
+        async with await wasmer.sandboxes.create(
+            packages=["python/python@=3.13.20"],
+            files={"hello.py": "print('Hello from Wasmer')"},
+        ) as sandbox:
+            output = await sandbox.command(
+                "python", ["/workspace/hello.py"]
+            ).run()
+            print(output.text())
 
-We appreciate your help! 💜
 
-We recommend reading the following guide on how to contribute into a complex project successfully:
-https://mitchellh.com/writing/contributing-to-complex-projects
+asyncio.run(main())
+```
 
-Check our docs on how to [build Wasmer from
-source](./docs/BUILD.md) or [test your changes](https://docs.wasmer.io/developers/testing).
+Run it with `python sandbox.py`. See the
+[Python guide](https://github.com/wasmerio/wasmer-sdk/tree/main/python).
 
-<!-- ## Bounties
+</details>
 
-For some issues we offer paid bounties. You'll get paid automatically as soon as your PR solving the issue is merged!
+<details>
+<summary>Swift example</summary>
 
-<a href="https://console.algora.io/org/wasmerio/bounties?status=open">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://console.algora.io/api/og/wasmerio/bounties.png?p=0&status=open&theme=dark">
-    <img alt="Bounties of wasmerio" src="https://console.algora.io/api/og/wasmerio/bounties.png?p=0&status=open&theme=light">
-  </picture>
-</a> -->
+```swift
+import Foundation
+import WasmerSDK
+
+let wasmer = try Wasmer()
+let sandbox = try await wasmer.sandboxes.create(
+    packages: ["python/python@=3.13.20"],
+    files: ["hello.py": Data("print('Hello from Wasmer')".utf8)]
+)
+do {
+    let output = try await sandbox
+        .command("python", ["/workspace/hello.py"])
+        .run()
+    print(try output.text())
+} catch {
+    try? await sandbox.close()
+    try? await wasmer.close()
+    throw error
+}
+try await sandbox.close()
+try await wasmer.close()
+```
+
+See the [Swift guide](https://github.com/wasmerio/wasmer-sdk/tree/main/swift)
+for embedding in a macOS app and more examples.
+
+</details>
+
+<details>
+<summary>JavaScript in the browser</summary>
+
+Use the same JavaScript sandbox API with the `@wasmer/sdk/browser` import.
+Execution happens in the browser. Your page needs cross-origin isolation
+(`Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp`) for worker-backed execution.
+Follow the [browser setup guide](https://github.com/wasmerio/wasmer-sdk/tree/main/js#browser)
+or explore [wasmer.sh](https://wasmer.sh).
+
+</details>
+
+### Go further
+
+The SDK gives you commands, live processes, files, and networking through one
+sandbox API:
+
+- **Run a command:** `sandbox.command(...).run()` captures output and checks for an unsuccessful exit.
+- **Keep a process running:** `sandbox.command(...).spawn()` gives you streams, exit status, and control over its lifetime.
+- **Work with files:** read and write the sandbox's workspace through `sandbox.fs`.
+- **Combine tools:** pass multiple packages when creating a sandbox, such as Python, Bash, and PHP.
+- **Run services:** grant networking explicitly and use `sandbox.ports` to wait for guest services.
+
+The SDK is currently **alpha**. See the language guides for platform support and
+capabilities, and the [SDK examples](https://github.com/wasmerio/wasmer-sdk#what-can-you-run)
+for Python scripts, an Edge.js HTTP server, PostgreSQL, and multiple tools sharing
+one sandbox.
+
+## Software you can run
+
+Start with packages from the registry:
+
+| Software | Package |
+| --- | --- |
+| Python | [`python/python`](https://wasmer.io/python/python) |
+| JavaScript / Node.js-compatible apps | [`wasmer/edgejs`](https://wasmer.io/wasmer/edgejs) |
+| Bash | [`wasmer/bash`](https://wasmer.io/wasmer/bash) |
+| PHP | [`php/php`](https://wasmer.io/php/php) |
+| PostgreSQL | [`wasmer/pglite`](https://wasmer.io/wasmer/pglite) |
+| SQLite | [`sqlite/sqlite`](https://wasmer.io/sqlite/sqlite) |
+| FFmpeg | [`wasmer/ffmpeg`](https://wasmer.io/wasmer/ffmpeg) |
+
+[Explore more packages](https://wasmer.io/explore),
+[package your own software](https://docs.wasmer.io/registry/get-started/), or
+[deploy an application to Wasmer Edge](https://docs.wasmer.io/edge/get-started/).
+
+## Develop and contribute
+
+This repository contains the Wasmer runtime and CLI that power the sandbox
+experience. The sandbox SDKs live in
+[`wasmerio/wasmer-sdk`](https://github.com/wasmerio/wasmer-sdk).
+For lower-level WebAssembly embedding, see the [Rust API](https://docs.rs/wasmer/)
+and [C API](./lib/c-api). [WASIX](https://wasix.org) supplies the system interfaces
+used by sandboxed applications.
+
+- [Build Wasmer from source](./docs/BUILD.md)
+- [Test your changes](./docs/TEST.md)
+- [Report a security issue](./docs/SECURITY.md)
+- [Open an issue](https://github.com/wasmerio/wasmer/issues)
+
+Contributions are welcome. For guidance on getting started, read
+[Contributing to Complex Projects](https://mitchellh.com/writing/contributing-to-complex-projects).
+Wasmer is [MIT licensed](./LICENSE).
 
 ## Community
 
-Wasmer has an amazing community of developers and contributors. Welcome, please join us! 👋
+Get help, share what you're building, and meet other Wasmer users:
 
-- [Wasmer Community Discord](https://discord.gg/rWkMNStrEW)
-- [Wasmer on Twitter](https://twitter.com/wasmerio)
-- [Wasmer on LinkedIn](https://www.linkedin.com/company/wasmerio)
+[Discord](https://discord.gg/rWkMNStrEW) ·
+[X](https://x.com/wasmerio) ·
+[LinkedIn](https://www.linkedin.com/company/wasmerio) ·
+[Blog](https://wasmer.io/posts)
 
---------
+<details>
+<summary>Community translations (may describe an earlier version)</summary>
 
-> _README also in:
-> [🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/main/docs/cn/README.md) •
-> [🇩🇪 Deutsch-German](https://github.com/wasmerio/wasmer/blob/main/docs/de/README.md) •
-> [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/main/docs/es/README.md) •
-> [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/main/docs/fr/README.md) •
-> [🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/main/docs/ja/README.md) •
-> [🇰🇷 한국어 -Korean](https://github.com/wasmerio/wasmer/blob/main/docs/ko/README.md)_.
+[中文](./docs/cn/README.md) ·
+[Deutsch](./docs/de/README.md) ·
+[Español](./docs/es/README.md) ·
+[Français](./docs/fr/README.md) ·
+[日本語](./docs/ja/README.md) ·
+[한국어](./docs/ko/README.md)
 
+</details>
