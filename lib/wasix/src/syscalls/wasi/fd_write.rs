@@ -381,26 +381,27 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                 break;
                             }
                             let chunk_len = chunk.len();
-                            // Only the first chunk may wait. A later one that
-                            // would block stops the loop instead, so the count
-                            // is the one a single unbounded send returned
-                            // rather than a wait the guest never asked for.
                             let local_sent = match socket
-                                .send(
-                                    tasks.deref(),
-                                    chunk.as_ref(),
-                                    Some(timeout),
-                                    nonblocking || sent > 0,
-                                )
+                                .send(tasks.deref(), chunk.as_ref(), Some(timeout), nonblocking)
                                 .await
                             {
                                 Ok(local_sent) => local_sent,
+                                // Report the progress already made, as a write
+                                // that fails part way through does.
                                 Err(_) if sent > 0 => break,
                                 Err(err) => return Err(err),
                             };
                             sent += local_sent;
+
                             if local_sent != chunk_len {
-                                break;
+                                // A blocking write runs to completion on Unix,
+                                // waiting for room rather than reporting a
+                                // short count, so keep pushing the remainder.
+                                // A non-blocking one reports what it managed.
+                                // `local_sent == 0` would not make progress.
+                                if nonblocking || local_sent == 0 {
+                                    break;
+                                }
                             }
                         }
                         Ok(sent)
