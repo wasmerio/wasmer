@@ -30,17 +30,13 @@
   </p>
 </div>
 
-**Wasmer runs real software in lightweight WebAssembly sandboxes.** Run Python,
-JavaScript, Bash, and more from your terminal, or create sandboxes inside your
-application with the [Wasmer SDK](https://github.com/wasmerio/wasmer-sdk).
-Build code playgrounds, AI agent tools, automation, and services with the
-languages you already use.
+Wasmer runs your apps in *fast*, *secure*, and *lightweight sandboxes*: locally,
+in the cloud, or in your browser.
 
-- **Lightweight isolation.** WebAssembly sandboxes run without booting a virtual machine or a guest operating system.
-- **Embedded in your app.** Create and control sandboxes from JavaScript, Python, Rust, or Swift, with no separate sandbox server.
-- **Real software, ready to run.** Combine interpreters and tools from the [Wasmer registry](https://wasmer.io/explore) in one sandbox.
-- **Explicit capabilities.** Choose which files, environment variables, and network access to give each sandbox.
-- **Local or in the browser.** Run on your own machine, build sandboxes into a browser app, or deploy applications to [Wasmer Edge](https://wasmer.io/products/edge).
+- **Secure** by default. You control file, network, and environment access.
+- **Lightweight**. Fast startup with a small memory footprint.
+- **Ready to run**. Python, JavaScript, Bash, and more from the [registry](https://wasmer.io/explore).
+- **Embeddable**. Add sandboxes to your app with the [Wasmer SDK](#wasmer-sdk).
 
 ## Run your first sandbox
 
@@ -97,10 +93,8 @@ in your browser.
 
 ## Wasmer SDK
 
-Create sandboxes directly in your application with
-[`wasmer-sdk`](https://github.com/wasmerio/wasmer-sdk). Choose the software to run,
-add your files, and execute a command. Each sandbox has a workspace that you can
-reuse across commands.
+Create a sandbox, choose your tools, and run code directly in your app with the
+[Wasmer SDK](https://github.com/wasmerio/wasmer-sdk).
 
 ### Install the SDK
 
@@ -175,20 +169,15 @@ Save this as `sandbox.mjs`:
 import { Wasmer } from "@wasmer/sdk/node";
 
 const wasmer = new Wasmer();
-try {
-  const sandbox = await wasmer.sandboxes.create({
-    packages: ["python/python@=3.13.20"],
-    files: { "hello.py": "print('Hello from Wasmer')" },
-  });
+const sandbox = await wasmer.sandboxes.create({
+  packages: ["python/python@=3.13.20"],
+});
 
-  const output = await sandbox
-    .command("python", ["/workspace/hello.py"])
-    .run();
+const output = await sandbox
+  .command("python", ["-c", "print('Hello from Wasmer')"])
+  .run();
 
-  console.log(output.text());
-} finally {
-  await wasmer.close();
-}
+console.log(output.text());
 ```
 
 Run it with `node sandbox.mjs`. Python executes inside the sandbox; you don't
@@ -208,17 +197,15 @@ async fn main() -> Result<()> {
         .sandboxes()
         .create()
         .package("python/python@=3.13.20")
-        .file("hello.py", b"print('Hello from Wasmer')".to_vec())
         .await?;
 
     let output = sandbox
         .command("python")
-        .arg("/workspace/hello.py")
+        .args(["-c", "print('Hello from Wasmer')"])
         .run()
         .await?;
 
     println!("{}", output.text()?);
-    sandbox.close().await?;
     Ok(())
 }
 ```
@@ -240,15 +227,14 @@ from wasmer_sdk import Wasmer
 
 
 async def main():
-    async with Wasmer() as wasmer:
-        async with await wasmer.sandboxes.create(
-            packages=["python/python@=3.13.20"],
-            files={"hello.py": "print('Hello from Wasmer')"},
-        ) as sandbox:
-            output = await sandbox.command(
-                "python", ["/workspace/hello.py"]
-            ).run()
-            print(output.text())
+    wasmer = Wasmer()
+    sandbox = await wasmer.sandboxes.create(
+        packages=["python/python@=3.13.20"],
+    )
+    output = await sandbox.command(
+        "python", ["-c", "print('Hello from Wasmer')"]
+    ).run()
+    print(output.text())
 
 
 asyncio.run(main())
@@ -263,26 +249,16 @@ Run it with `python sandbox.py`. See the
 <summary>Swift example</summary>
 
 ```swift
-import Foundation
 import WasmerSDK
 
 let wasmer = try Wasmer()
 let sandbox = try await wasmer.sandboxes.create(
-    packages: ["python/python@=3.13.20"],
-    files: ["hello.py": Data("print('Hello from Wasmer')".utf8)]
+    packages: ["python/python@=3.13.20"]
 )
-do {
-    let output = try await sandbox
-        .command("python", ["/workspace/hello.py"])
-        .run()
-    print(try output.text())
-} catch {
-    try? await sandbox.close()
-    try? await wasmer.close()
-    throw error
-}
-try await sandbox.close()
-try await wasmer.close()
+let output = try await sandbox
+    .command("python", ["-c", "print('Hello from Wasmer')"])
+    .run()
+print(try output.text())
 ```
 
 See the [Swift guide](https://github.com/wasmerio/wasmer-sdk/tree/main/swift)
@@ -304,14 +280,13 @@ or explore [wasmer.sh](https://wasmer.sh).
 
 ### Go further
 
-The SDK gives you commands, live processes, files, and networking through one
-sandbox API:
+Build more with the sandbox API:
 
-- **Run a command:** `sandbox.command(...).run()` captures output and checks for an unsuccessful exit.
-- **Keep a process running:** `sandbox.command(...).spawn()` gives you streams, exit status, and control over its lifetime.
-- **Work with files:** read and write the sandbox's workspace through `sandbox.fs`.
-- **Combine tools:** pass multiple packages when creating a sandbox, such as Python, Bash, and PHP.
-- **Run services:** grant networking explicitly and use `sandbox.ports` to wait for guest services.
+- **Commands**. Run code and capture output.
+- **Processes**. Stream output and manage long-running tasks.
+- **Files**. Read and write the sandbox workspace.
+- **Tools**. Combine languages and packages in one sandbox.
+- **Services**. Run servers with explicit network access.
 
 The SDK is currently **alpha**. See the language guides for platform support and
 capabilities, and the [SDK examples](https://github.com/wasmerio/wasmer-sdk#what-can-you-run)
@@ -342,8 +317,7 @@ This repository contains the Wasmer runtime and CLI that power the sandbox
 experience. The sandbox SDKs live in
 [`wasmerio/wasmer-sdk`](https://github.com/wasmerio/wasmer-sdk).
 For lower-level WebAssembly embedding, see the [Rust API](https://docs.rs/wasmer/)
-and [C API](./lib/c-api). [WASIX](https://wasix.org) supplies the system interfaces
-used by sandboxed applications.
+and [C API](./lib/c-api).
 
 - [Build Wasmer from source](./docs/BUILD.md)
 - [Test your changes](./docs/TEST.md)
