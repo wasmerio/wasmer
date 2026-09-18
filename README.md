@@ -185,37 +185,6 @@ need Python installed on the host. See the
 [JavaScript guide](https://github.com/wasmerio/wasmer-sdk/tree/main/js).
 
 <details>
-<summary>Rust example</summary>
-
-```rust
-use wasmer_sdk::{Result, Wasmer};
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let wasmer = Wasmer::new()?;
-    let sandbox = wasmer
-        .sandboxes()
-        .create()
-        .package("python/python@=3.13.20")
-        .await?;
-
-    let output = sandbox
-        .command("python")
-        .args(["-c", "print('Hello from Wasmer')"])
-        .run()
-        .await?;
-
-    println!("{}", output.text()?);
-    Ok(())
-}
-```
-
-See the [Rust guide](https://github.com/wasmerio/wasmer-sdk/tree/main/rust)
-for workspace setup and more examples.
-
-</details>
-
-<details>
 <summary>Python example</summary>
 
 Save this as `sandbox.py`:
@@ -275,6 +244,37 @@ Execution happens in the browser. Your page needs cross-origin isolation
 `Cross-Origin-Embedder-Policy: require-corp`) for worker-backed execution.
 Follow the [browser setup guide](https://github.com/wasmerio/wasmer-sdk/tree/main/js#browser)
 or explore [wasmer.sh](https://wasmer.sh).
+
+</details>
+
+<details>
+<summary>Rust example</summary>
+
+```rust
+use wasmer_sdk::{Result, Wasmer};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let wasmer = Wasmer::new()?;
+    let sandbox = wasmer
+        .sandboxes()
+        .create()
+        .package("python/python@=3.13.20")
+        .await?;
+
+    let output = sandbox
+        .command("python")
+        .args(["-c", "print('Hello from Wasmer')"])
+        .run()
+        .await?;
+
+    println!("{}", output.text()?);
+    Ok(())
+}
+```
+
+See the [Rust guide](https://github.com/wasmerio/wasmer-sdk/tree/main/rust)
+for workspace setup and more examples.
 
 </details>
 
