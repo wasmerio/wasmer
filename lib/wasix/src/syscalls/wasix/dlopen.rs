@@ -53,6 +53,11 @@ pub fn dlopen<M: MemorySize>(
         ld_library_path: ld_library_path.as_slice(),
     };
     let module_handle = linker.load_module(location, &mut ctx);
+    if let Err(error) = &module_handle
+        && let Some(code) = error.termination_code()
+    {
+        return Err(WasiError::Exit(code));
+    }
 
     // Reborrow to keep rust happy
     let (env, mut store) = ctx.data_and_store_mut();

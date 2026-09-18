@@ -9,21 +9,26 @@
 use std::{
     ops::Deref,
     sync::{
-        Arc, Barrier, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
         atomic::{AtomicBool, Ordering},
     },
 };
 
+use tokio::sync::Barrier;
 use tracing::trace;
 use wasmer::{AsStoreMut, FunctionEnv, FunctionEnvMut};
 
-use crate::{WasiEnv, WasiProcess, WasiThreadId};
+use crate::WasiEnv;
 
 use super::super::{InstanceGroupState, LinkError, LinkerState};
 use super::{
     DlOperation, LinkerStateWriteBackoff,
+    cancellation::LinkerCancellation,
     topology_lock::{TopologyCoordinator, TopologyToken},
 };
+
+#[cfg(all(test, feature = "sys-thread", not(target_arch = "wasm32")))]
+mod tests;
 
 /// Shared linkage and synchronization primitives for every [`super::super::Linker`] handle.
 ///
@@ -41,17 +46,30 @@ pub(in crate::state::linker) struct LinkerShared {
     /// Set during [`LinkerShared::synchronize_link_operation`] so syscall paths / cooperative writers
     /// can enter [`LinkerShared::do_pending_link_operations_internal`].
     dl_operation_pending: Arc<AtomicBool>,
+    cancellation: LinkerCancellation,
 }
 
 impl LinkerShared {
     /// Wraps freshly constructed [`LinkerState`] for the owning process/module tree (initially only
     /// the main [`super::super::Linker::new`] path).
-    pub(in crate::state::linker) fn new(linker_state: LinkerState) -> Self {
+    pub(in crate::state::linker) fn new(
+        linker_state: LinkerState,
+        cancellation: LinkerCancellation,
+    ) -> Self {
         Self {
             linker_state: Arc::new(RwLock::new(linker_state)),
             topology_coordinator: TopologyCoordinator::new(),
             dl_operation_pending: Arc::new(AtomicBool::new(false)),
+            cancellation,
         }
+    }
+
+    pub(in crate::state::linker) fn check_active(&self, env: &WasiEnv) -> Result<(), LinkError> {
+        self.cancellation.check(env)
+    }
+
+    pub(in crate::state::linker) fn cancellation(&self) -> &LinkerCancellation {
+        &self.cancellation
     }
 
     /// Panics unless both DL buses have exactly one receiver — validates main-group bootstrap before
@@ -121,8 +139,12 @@ impl LinkerShared {
     ) -> Result<RwLockWriteGuard<'_, LinkerState>, LinkError> {
         let mut linker_write_backoff = LinkerStateWriteBackoff::new();
         loop {
+            self.check_active(ctx.data())?;
             match self.linker_state.try_write() {
-                Ok(guard) => return Ok(guard),
+                Ok(guard) => {
+                    self.check_active(ctx.data())?;
+                    return Ok(guard);
+                }
                 Err(std::sync::TryLockError::WouldBlock) => {
                     linker_write_backoff.backoff();
                     let env = ctx.as_ref();
@@ -130,7 +152,9 @@ impl LinkerShared {
                     self.do_pending_link_operations_internal(group_state, &mut store, &env)?;
                 }
                 Err(std::sync::TryLockError::Poisoned(_)) => {
-                    panic!("The linker state's lock is poisoned");
+                    return Err(self
+                        .cancellation
+                        .abort(wasmer_wasix_types::wasi::Errno::Noexec.into()));
                 }
             }
         }
@@ -153,7 +177,9 @@ impl LinkerShared {
     ) -> Result<TopologyToken, LinkError> {
         let mut backoff = LinkerStateWriteBackoff::new();
         loop {
+            self.check_active(env.as_ref(store))?;
             if let Some(t) = self.topology_coordinator.try_acquire() {
+                self.check_active(env.as_ref(store))?;
                 return Ok(t);
             }
             backoff.backoff();
@@ -161,21 +187,58 @@ impl LinkerShared {
         }
     }
 
-    /// Blocking [`RwLock`] write once a [`TopologyToken`] is already held (spawn finalization —
+    /// Cancellation-aware [`RwLock`] write once a [`TopologyToken`] is already held (spawn finalization —
     /// e.g. [`super::super::Linker::create_instance_group`]).
     ///
     /// Returns `(token, guard)` — drop the **`guard`** before **`token`** to avoid extending the write
     /// critical section beyond topology decisions.
-    pub(in crate::state::linker) fn write_linker_state_blocking_holding_topology(
+    pub(in crate::state::linker) fn write_linker_state_holding_topology(
         &self,
         topology: TopologyToken,
-    ) -> (TopologyToken, RwLockWriteGuard<'_, LinkerState>) {
-        let linker_state_write_guard = self.linker_state.write().unwrap();
-        (topology, linker_state_write_guard)
+        env: &WasiEnv,
+    ) -> Result<(TopologyToken, RwLockWriteGuard<'_, LinkerState>), LinkError> {
+        let mut backoff = LinkerStateWriteBackoff::new();
+        loop {
+            self.check_active(env)?;
+            match self.linker_state.try_write() {
+                Ok(guard) => {
+                    self.check_active(env)?;
+                    return Ok((topology, guard));
+                }
+                Err(std::sync::TryLockError::WouldBlock) => backoff.backoff(),
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err(self
+                        .cancellation
+                        .abort(wasmer_wasix_types::wasi::Errno::Noexec.into()));
+                }
+            }
+        }
     }
 
-    /// Acquires topology (see [`Self::acquire_topology_token`]), then takes a blocking write lock via
-    /// [`Self::write_linker_state_blocking_holding_topology`].
+    fn read_linker_state(
+        &self,
+        env: &WasiEnv,
+    ) -> Result<RwLockReadGuard<'_, LinkerState>, LinkError> {
+        let mut backoff = LinkerStateWriteBackoff::new();
+        loop {
+            self.check_active(env)?;
+            match self.linker_state.try_read() {
+                Ok(guard) => {
+                    self.check_active(env)?;
+                    return Ok(guard);
+                }
+                Err(std::sync::TryLockError::WouldBlock) => backoff.backoff(),
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err(self
+                        .cancellation
+                        .abort(wasmer_wasix_types::wasi::Errno::Noexec.into()));
+                }
+            }
+        }
+    }
+
+    /// Acquires topology (see [`Self::acquire_topology_token`]), then takes a cancellation-aware write lock via
+    /// [`Self::write_linker_state_holding_topology`].
     ///
     /// Use this for paths that mutate [`LinkerState`] under the topology coordinator’s single-writer
     /// umbrella when the lease was **not** already taken elsewhere.
@@ -187,7 +250,7 @@ impl LinkerShared {
         let env = ctx.as_ref();
         let mut store = ctx.as_store_mut();
         let token = self.acquire_topology_token(group_state, &mut store, &env)?;
-        Ok(self.write_linker_state_blocking_holding_topology(token))
+        self.write_linker_state_holding_topology(token, ctx.data())
     }
 
     /// Broadcasts [`DlOperation`] `op` to every instance-group receiver then waits for replay.
@@ -197,8 +260,8 @@ impl LinkerShared {
     /// * `topology` must already belong to **this** instigating flow and was leased **before**
     ///   exclusive access to buses / tables was acquired.
     /// * `linker_state_write_lock` guards bus broadcast invariants (`try_broadcast` must succeed).
-    /// * Recoverable semantic failures are surfaced by callers; panics here are always fatal —
-    ///   bus capacity misuse or missed rendezvous implies we cannot reconcile groups.
+    /// * Cancellation, failed replay, or bus misuse permanently aborts this linker;
+    ///   partially replicated topology cannot safely be reconciled or reused.
     /// * Drops `topology` when done (`num_groups <= 1`) or after the follower completion barrier.
     pub(in crate::state::linker) fn synchronize_link_operation(
         &self,
@@ -206,19 +269,24 @@ impl LinkerShared {
         op: DlOperation,
         mut linker_state_write_lock: RwLockWriteGuard<'_, LinkerState>,
         group_state: &mut InstanceGroupState,
-        wasi_process: &WasiProcess,
-        self_thread_id: WasiThreadId,
-    ) {
+        env: &WasiEnv,
+    ) -> Result<(), LinkError> {
+        self.check_active(env)?;
         trace!(?op, "Synchronizing link operation");
 
         let num_groups = linker_state_write_lock.send_pending_operation.rx_count();
 
         if num_groups <= 1 {
             trace!("No other living instance groups, nothing to do");
+            drop(linker_state_write_lock);
             drop(topology);
-            return;
+            return Ok(());
         }
 
+        // Tokio barriers are not cancellation-safe by themselves. An aborted
+        // wait permanently closes this linker, so neither epoch can be reused.
+        // Arm before publishing anything: every early exit must wake peers.
+        let replay = self.cancellation.guard();
         let barrier = Arc::new(Barrier::new(num_groups));
         // Single-flight barrier envelope (bus depth is one intentionally).
         if linker_state_write_lock
@@ -226,23 +294,27 @@ impl LinkerShared {
             .try_broadcast(barrier.clone())
             .is_err()
         {
-            panic!("Internal error: more than one synchronized link operation active")
+            return Err(self
+                .cancellation
+                .abort(wasmer_wasix_types::wasi::Errno::Noexec.into()));
         }
 
         // Wake followers so syscall paths re-enter cooperative DL helpers promptly.
         self.dl_operation_pending.store(true, Ordering::SeqCst);
 
         trace!("Signalling wasix threads to wake up");
-        for thread in wasi_process
+        for thread in env
+            .process
             .all_threads()
             .into_iter()
-            .filter(|tid| *tid != self_thread_id)
+            .filter(|tid| *tid != env.tid())
         {
-            wasi_process.signal_thread(&thread, wasmer_wasix_types::wasi::Signal::Sigwakeup);
+            env.process
+                .signal_thread(&thread, wasmer_wasix_types::wasi::Signal::Sigwakeup);
         }
 
         trace!(%num_groups, "Waiting at barrier");
-        barrier.wait();
+        self.cancellation.wait(env, barrier.wait())?;
 
         trace!("All threads now processing dl op");
 
@@ -255,28 +327,34 @@ impl LinkerShared {
             .try_broadcast(op.clone())
             .is_err()
         {
-            panic!("Internal error: more than one synchronized link operation active")
+            return Err(self
+                .cancellation
+                .abort(wasmer_wasix_types::wasi::Errno::Noexec.into()));
         }
 
         // Downgrade to shared read while followers apply (`apply_dl_operation`); no topology writer
         // should race between the barrier epochs.
         trace!("Unlocking linker state");
         drop(linker_state_write_lock);
-        let linker_state_read_lock = self.linker_state.read().unwrap();
+        let linker_state_read_lock = self.read_linker_state(env)?;
 
         // Drain local bus copies — frees mailbox capacity before the follower epoch completes.
-        _ = group_state.recv_pending_operation_barrier.recv().unwrap();
-        _ = group_state.recv_pending_operation.recv().unwrap();
+        self.cancellation
+            .recv(env, &mut group_state.recv_pending_operation_barrier)?;
+        self.cancellation
+            .recv(env, &mut group_state.recv_pending_operation)?;
 
         // Second rendezvous guarantees everyone finished before another writer can preempt read-only
         // application (see linker `sync` module discussion).
         trace!("Waiting for other threads to finish processing the dl op");
-        barrier.wait();
+        self.cancellation.wait(env, barrier.wait())?;
 
         drop(linker_state_read_lock);
         drop(topology);
+        replay.complete();
 
         trace!("Synchronization complete");
+        Ok(())
     }
 
     /// Peek at the cooperative-DL handshake flag `dl_operation_pending` with arbitrary memory
@@ -295,44 +373,56 @@ impl LinkerShared {
     /// Intended for callers that already skipped the idle fast path (cheap load of
     /// `dl_operation_pending`) yet still need deterministic rendezvous semantics.
     ///
-    /// # Panics
-    ///
-    /// Missing receivers / malformed bus state panic — those are irrecoverable and indicate we lost
-    /// synchronization with subscribers.
+    /// Missing senders or failed replay abort the entire linker; they cannot be
+    /// treated as a recoverable guest errno after some stores have been changed.
     pub(in crate::state::linker) fn do_pending_link_operations_internal(
         &self,
         group_state: &mut InstanceGroupState,
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<WasiEnv>,
     ) -> Result<(), LinkError> {
+        self.check_active(env.as_ref(store))?;
         if !self.dl_operation_pending.load(Ordering::SeqCst) {
             return Ok(());
         }
 
         trace!("Pending link operation discovered, will process");
 
-        let barrier = group_state.recv_pending_operation_barrier.recv().expect(
-            "Failed to receive barrier while a DL operation was \
-            in progress; this condition can't be recovered from",
-        );
-        barrier.wait();
+        let replay = self.cancellation.guard();
+        let barrier = self.cancellation.recv(
+            env.as_ref(store),
+            &mut group_state.recv_pending_operation_barrier,
+        )?;
+        self.cancellation.wait(env.as_ref(store), barrier.wait())?;
 
         trace!("Past the barrier, now processing operation");
 
         // Barrier epoch complete — instigator downgraded writer→reader earlier, so follower reads OK.
-        let op = group_state.recv_pending_operation.recv().unwrap();
-        let linker_state = self.linker_state.read().unwrap();
+        let op = self
+            .cancellation
+            .recv(env.as_ref(store), &mut group_state.recv_pending_operation)?;
+        let linker_state = self.read_linker_state(env.as_ref(store))?;
 
-        let result = group_state.apply_dl_operation(linker_state.deref(), op, store, env);
+        if let Err(error) = group_state.apply_dl_operation(linker_state.deref(), op, store, env) {
+            tracing::warn!(
+                ?error,
+                "Replicated link operation failed; aborting all groups"
+            );
+            return Err(self
+                .cancellation
+                .abort(wasmer_wasix_types::wasi::Errno::Noexec.into()));
+        }
 
         trace!("Operation applied, now waiting at second barrier");
 
         // Rendezvous again so nobody leaves while others still mutate stores / tables concurrently.
-        barrier.wait();
+        self.cancellation.wait(env.as_ref(store), barrier.wait())?;
         drop(linker_state);
+
+        replay.complete();
 
         trace!("Pending link operation applied successfully");
 
-        result
+        Ok(())
     }
 }

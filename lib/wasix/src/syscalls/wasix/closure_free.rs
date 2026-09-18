@@ -19,6 +19,9 @@ pub fn closure_free(
 
     let free_result = linker.free_closure_index(&mut ctx, closure);
     if let Err(e) = free_result {
+        if let Some(code) = e.termination_code() {
+            return Err(WasiError::Exit(code));
+        }
         // Should never happen
         panic!("Failed to free closure index: {e}");
     }
