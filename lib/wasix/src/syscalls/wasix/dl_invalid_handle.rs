@@ -26,10 +26,13 @@ pub fn dl_invalid_handle(
         return Ok(Errno::Noexec);
     };
 
-    let is_valid = linker
-        .clone()
-        .is_handle_valid(handle, &mut ctx)
-        .unwrap_or(false);
+    let result = linker.clone().is_handle_valid(handle, &mut ctx);
+    if let Err(error) = &result
+        && let Some(code) = error.termination_code()
+    {
+        return Err(WasiError::Exit(code));
+    }
+    let is_valid = result.unwrap_or(false);
 
     Ok(if is_valid {
         Errno::Success

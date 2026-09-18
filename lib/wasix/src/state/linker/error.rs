@@ -8,6 +8,9 @@ use super::ModuleHandle;
 
 #[derive(thiserror::Error, Debug)]
 pub enum LinkError {
+    #[error("Dynamic-link synchronization aborted with exit code {0}")]
+    SynchronizationAborted(wasmer_wasix_types::wasi::ExitCode),
+
     #[error("Cannot access linker through a dead instance group")]
     InstanceGroupIsDead,
 
@@ -85,6 +88,15 @@ pub enum LinkError {
     MissingTlsBaseExport(String, ModuleHandle),
 }
 
+impl LinkError {
+    pub(crate) fn termination_code(&self) -> Option<wasmer_wasix_types::wasi::ExitCode> {
+        match self {
+            Self::SynchronizationAborted(code) => Some(*code),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum LocateModuleError {
     Single(FsError),
@@ -130,4 +142,13 @@ pub enum ResolveError {
 
     #[error("Module must export its __tls_base for exported TLS symbols to be resolved correctly")]
     NoTlsBaseGlobalExport,
+}
+
+impl ResolveError {
+    pub(crate) fn termination_code(&self) -> Option<wasmer_wasix_types::wasi::ExitCode> {
+        match self {
+            Self::PendingDlOperationFailed(error) => error.termination_code(),
+            _ => None,
+        }
+    }
 }

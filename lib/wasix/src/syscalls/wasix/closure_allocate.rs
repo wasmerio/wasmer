@@ -21,6 +21,9 @@ pub fn closure_allocate<M: MemorySize>(
     let function_id = match linker.allocate_closure_index(&mut ctx) {
         Ok(f) => f,
         Err(e) => {
+            if let Some(code) = e.termination_code() {
+                return Err(WasiError::Exit(code));
+            }
             // Should never happen
             error!("Failed to allocate closure index: {e}");
             return Ok(Errno::Fault);
