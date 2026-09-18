@@ -2,17 +2,18 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
-    sync::{Arc, Barrier},
+    sync::Arc,
 };
 
+use tokio::sync::Barrier;
+
 use tracing::trace;
-use virtual_mio::block_on;
 use wasmer::{
     AsStoreMut, AsStoreRef, Engine, Extern, ExternType, ImportType, Memory, MemoryError, Module,
     Type,
 };
 
-use crate::{Runtime, runtime::module_cache::HashedModuleData};
+use crate::{WasiEnv, runtime::module_cache::HashedModuleData};
 
 use super::{
     DlModule, DlModuleSpec, DlOperation, DylinkInfo, INVALID_MODULE_HANDLE, InProgressLinkState,
@@ -23,7 +24,7 @@ use super::{
 
 use super::{get_integer_global_type_from_import, locate_module, parse_dylink0_section};
 
-use crate::state::WasiState;
+use super::sync::LinkerCancellation;
 
 // There is only one LinkerState for all instance groups
 pub(super) struct LinkerState {
@@ -329,11 +330,12 @@ impl LinkerState {
         &mut self,
         module_spec: DlModuleSpec,
         link_state: &mut InProgressLinkState,
-        runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
-        wasi_state: &WasiState,
+        env: &WasiEnv,
+        cancellation: &LinkerCancellation,
         runtime_path: &[impl AsRef<str>],
         calling_module_path: Option<impl AsRef<Path>>,
     ) -> Result<ModuleHandle, LinkError> {
+        cancellation.check(env)?;
         let module_name = match module_spec {
             DlModuleSpec::FileSystem { module_spec, .. } => Cow::Borrowed(module_spec),
             DlModuleSpec::Memory { module_name, .. } => {
@@ -356,13 +358,16 @@ impl LinkerState {
                 module_spec,
                 ld_library_path,
             } => {
-                let (full_path, bytes) = block_on(locate_module(
-                    module_spec,
-                    ld_library_path,
-                    runtime_path,
-                    calling_module_path,
-                    &wasi_state.fs,
-                ))?;
+                let (full_path, bytes) = cancellation.wait(
+                    env,
+                    locate_module(
+                        module_spec,
+                        ld_library_path,
+                        runtime_path,
+                        calling_module_path,
+                        &env.state.fs,
+                    ),
+                )??;
                 // TODO: this can be optimized by detecting early if the module is already
                 // pending without loading its bytes
                 if link_state.pending_module_paths.contains(&full_path) {
@@ -382,7 +387,11 @@ impl LinkerState {
             DlModuleSpec::Memory { bytes, .. } => (HashedModuleData::new(bytes), None),
         };
 
-        let module = runtime.load_hashed_module_sync(module_data, Some(&self.engine))?;
+        let module = cancellation.wait(
+            env,
+            env.runtime
+                .load_hashed_module(module_data, Some(&self.engine)),
+        )??;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
@@ -408,8 +417,8 @@ impl LinkerState {
                         ld_library_path,
                     },
                     link_state,
-                    runtime,
-                    wasi_state,
+                    env,
+                    cancellation,
                     // RUNPATH, on which WASM_DYLINK_RUNTIME_PATH is based, is *not* applied
                     // recursively, so we discard the runtime_path parameter and
                     // only take the one from the module's dylink.0 section

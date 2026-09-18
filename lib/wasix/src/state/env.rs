@@ -717,6 +717,9 @@ impl WasiEnv {
             && let Err(e) = linker.do_pending_link_operations(ctx, fast)
         {
             tracing::warn!(err = ?e, "Failed to process pending link operations");
+            if let Some(code) = e.termination_code() {
+                return Err(WasiError::Exit(code));
+            }
             return Err(WasiError::Exit(Errno::Noexec.into()));
         }
         Ok(())

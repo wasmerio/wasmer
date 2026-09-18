@@ -41,6 +41,11 @@ pub fn dlsym<M: MemorySize>(
         Some(ModuleHandle::from(handle))
     };
     let symbol = linker.resolve_export(&mut ctx, handle, &symbol);
+    if let Err(error) = &symbol
+        && let Some(code) = error.termination_code()
+    {
+        return Err(WasiError::Exit(code));
+    }
 
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };

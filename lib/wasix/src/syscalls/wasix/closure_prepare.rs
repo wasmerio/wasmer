@@ -383,6 +383,9 @@ pub fn closure_prepare<M: MemorySize>(
     let module_handle = match linker.load_module(wasm_loader, &mut ctx) {
         Ok(m) => m,
         Err(e) => {
+            if let Some(code) = e.termination_code() {
+                return Err(WasiError::Exit(code));
+            }
             // Should never happen
             panic!("Failed to load newly built in-memory module: {e}");
         }

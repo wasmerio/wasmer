@@ -338,6 +338,7 @@ impl Linker {
         stack_size: u64,
         ld_library_path: &[&Path],
     ) -> Result<(Self, LinkedMainModule), LinkError> {
+        let cancellation = LinkerCancellation::new();
         let dylink_section = parse_dylink0_section(main_module)?;
 
         trace!(?dylink_section, "Loading main module");
@@ -492,8 +493,8 @@ impl Linker {
                     ld_library_path,
                 },
                 &mut link_state,
-                &wasi_env.runtime,
-                &wasi_env.state,
+                wasi_env,
+                &cancellation,
                 runtime_path.as_ref(),
                 // HACK: The main module doesn't have to exist in the virtual FS at all; e.g.
                 // if one runs `wasmer ../module.wasm --volume .`, we won't have access to the
@@ -522,7 +523,7 @@ impl Linker {
         }
 
         let linker = Self {
-            shared: LinkerShared::new(linker_state),
+            shared: LinkerShared::new(linker_state, cancellation),
             instance_group_state: Arc::new(Mutex::new(Some(instance_group))),
         };
 
@@ -654,6 +655,7 @@ impl Linker {
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         fast: bool,
     ) -> Result<(), LinkError> {
+        self.shared.check_active(ctx.data())?;
         if !self.shared.dl_operation_pending_load(if fast {
             Ordering::Relaxed
         } else {
@@ -685,8 +687,8 @@ impl Linker {
             expected_table_length,
         } = prepared_instance_group_data;
 
-        let (topology_hold, mut ls_write) =
-            linker_shared.write_linker_state_blocking_holding_topology(topology_token);
+        let (topology_hold, mut ls_write) = linker_shared
+            .write_linker_state_holding_topology(topology_token, func_env.env.as_ref(store))?;
 
         let main_module = ls_write.main_module.clone();
 
@@ -879,9 +881,9 @@ impl Linker {
                 // We need to do this even if the results of an incoming dl op will be thrown away;
                 // this is because the instigating group will have counted us and we need to hit the
                 // barrier twice to unblock everybody else.
-                let linker_state = self.shared.write_linker_state(group_state, ctx)?;
+                let linker_state = self.shared.write_linker_state(group_state, ctx);
                 guard.take();
-                drop(linker_state);
+                drop(linker_state?);
 
                 trace!("Instance group shut down");
 
@@ -959,9 +961,8 @@ impl Linker {
             },
             linker_state,
             group_state,
-            &ctx.data().process,
-            ctx.data().tid(),
-        );
+            ctx.data(),
+        )?;
 
         Ok(function_index)
     }
@@ -1010,6 +1011,7 @@ impl Linker {
         function_id: u32,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<bool, LinkError> {
+        self.shared.check_active(ctx.data())?;
         // If we can get a read lock on the linker state, do it
         if let Ok(linker_state) = self.shared.try_read_linker_state() {
             return Ok(linker_state
@@ -1063,14 +1065,16 @@ impl Linker {
         trace!("Loading module tree for requested module");
         let wasi_env = env.as_ref(&store);
         let runtime_path: &[String] = &[];
-        let module_handle = linker_state.load_module_tree(
-            module_spec,
-            &mut link_state,
-            &wasi_env.runtime,
-            &wasi_env.state,
-            runtime_path,          // No runtime path when loading a module via dlopen
-            Option::<&Path>::None, // Empty runtime path means we don't need the module's path either
-        )?;
+        let module_handle = linker_state
+            .load_module_tree(
+                module_spec,
+                &mut link_state,
+                wasi_env,
+                self.shared.cancellation(),
+                runtime_path, // No runtime path when loading a module via dlopen
+                Option::<&Path>::None, // Empty runtime path means we don't need the module's path either
+            )
+            .map_err(|error| self.shared.cancellation().abort_on_exit(error))?;
 
         let new_modules = link_state
             .new_modules
@@ -1080,17 +1084,20 @@ impl Linker {
 
         for handle in &new_modules {
             trace!(?module_handle, "Instantiating module");
-            group_state.instantiate_side_module_from_link_state(
-                &mut linker_state,
-                &mut store,
-                &env,
-                &mut link_state,
-                *handle,
-            )?;
+            group_state
+                .instantiate_side_module_from_link_state(
+                    &mut linker_state,
+                    &mut store,
+                    &env,
+                    &mut link_state,
+                    *handle,
+                )
+                .map_err(|error| self.shared.cancellation().abort_on_exit(error))?;
         }
 
         trace!("Finalizing link");
-        self.finalize_link_operation(group_state_guard, &mut linker_state, &mut store, link_state)?;
+        self.finalize_link_operation(group_state_guard, &mut linker_state, &mut store, link_state)
+            .map_err(|error| self.shared.cancellation().abort_on_exit(error))?;
 
         if !new_modules.is_empty() {
             // The group state is unlocked for stub functions, now lock it again
@@ -1106,9 +1113,8 @@ impl Linker {
                 DlOperation::LoadModules(new_modules),
                 linker_state,
                 group_state,
-                &ctx.data().process,
-                ctx.data().tid(),
-            );
+                ctx.data(),
+            )?;
         }
 
         // FIXME: If we fail at an intermediate step, we should reset the linker's state, a la:
@@ -1205,6 +1211,7 @@ impl Linker {
         module_handle: Option<ModuleHandle>,
         symbol: &str,
     ) -> Result<ResolvedExport, ResolveError> {
+        self.shared.check_active(ctx.data())?;
         trace!(?module_handle, symbol, "Resolving symbol");
 
         let resolution_key = SymbolResolutionKey::Requested {
@@ -1307,9 +1314,8 @@ impl Linker {
                     },
                     linker_state,
                     group_state,
-                    &ctx.data().process,
-                    ctx.data().tid(),
-                );
+                    ctx.data(),
+                )?;
 
                 Ok(ResolvedExport::Function {
                     func_ptr: func_ptr as u64,
@@ -1323,6 +1329,7 @@ impl Linker {
         handle: ModuleHandle,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<bool, LinkError> {
+        self.shared.check_active(ctx.data())?;
         // If we can get a read lock on the linker state, do it
         if let Ok(linker_state) = self.shared.try_read_linker_state() {
             return Ok(linker_state.side_modules.contains_key(&handle));
