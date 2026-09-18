@@ -107,9 +107,23 @@ impl ThreadConditions {
         expected: ExpectedValue,
         timeout: Option<Duration>,
     ) -> Result<u32, WaiterError> {
+        // The hook is optimized away outside tests. It lets the regression test
+        // deterministically close the memory after the fast check below.
+        unsafe { self.do_wait_with_registration_hook(dst, expected, timeout, || {}) }
+    }
+
+    unsafe fn do_wait_with_registration_hook(
+        &mut self,
+        dst: NotifyLocation,
+        expected: ExpectedValue,
+        timeout: Option<Duration>,
+        before_registration: impl FnOnce(),
+    ) -> Result<u32, WaiterError> {
         if self.inner.closed.load(std::sync::atomic::Ordering::Acquire) {
             return Err(WaiterError::AtomicsDisabled);
         }
+
+        before_registration();
 
         if self.inner.map.len() as u64 >= 1u64 << 32 {
             return Err(WaiterError::TooManyWaiters);
@@ -152,7 +166,13 @@ impl ThreadConditions {
             },
         };
 
-        let ret = if should_sleep {
+        // Closing and walking the map can finish between the fast check and
+        // insertion above. Recheck under the address mutex: either shutdown
+        // already happened, or its notifier must acquire this mutex after the
+        // condvar has atomically registered the waiter and released the lock.
+        let ret = if self.inner.closed.load(Ordering::Acquire) {
+            Err(WaiterError::AtomicsDisabled)
+        } else if should_sleep {
             *mutex_guard += 1;
 
             let ret = if let Some(timeout) = timeout {
@@ -170,12 +190,12 @@ impl ThreadConditions {
             *mutex_guard -= 1;
 
             if self.inner.closed.load(Ordering::Acquire) {
-                return Err(WaiterError::AtomicsDisabled);
+                Err(WaiterError::AtomicsDisabled)
+            } else {
+                Ok(ret)
             }
-
-            ret
         } else {
-            1 // value mismatch
+            Ok(1) // value mismatch
         };
 
         {
@@ -199,7 +219,7 @@ impl ThreadConditions {
             }
         }
 
-        Ok(ret)
+        ret
     }
 
     /// Notify waiters from the wait list
@@ -272,6 +292,76 @@ impl ThreadConditionsHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn disable_atomics_between_initial_check_and_registration() {
+        let conditions = ThreadConditions::new();
+        let mut waiter = conditions.clone();
+        let closer = conditions.clone();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let result = unsafe {
+                waiter.do_wait_with_registration_hook(
+                    NotifyLocation {
+                        address: 0,
+                        memory_base: std::ptr::null_mut(),
+                    },
+                    ExpectedValue::None,
+                    Some(Duration::from_secs(5)),
+                    || closer.disable_atomics(),
+                )
+            };
+            done_tx.send(result).unwrap();
+        });
+
+        let result = done_rx.recv_timeout(Duration::from_secs(2));
+        // Release a regressed waiter before failing, so this test cannot strand
+        // a native worker. Its map registration is visible by this point.
+        if result.is_err() {
+            conditions.wake_all_atomic_waiters();
+        }
+        worker.join().unwrap();
+        assert!(matches!(result.unwrap(), Err(WaiterError::AtomicsDisabled)));
+        assert!(conditions.inner.map.is_empty());
+    }
+
+    #[test]
+    fn disable_atomics_wakes_and_removes_registered_waiter() {
+        let conditions = ThreadConditions::new();
+        let mut waiter = conditions.clone();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let result = unsafe {
+                waiter.do_wait(
+                    NotifyLocation {
+                        address: 0,
+                        memory_base: std::ptr::null_mut(),
+                    },
+                    ExpectedValue::None,
+                    Some(Duration::from_secs(5)),
+                )
+            };
+            done_tx.send(result).unwrap();
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        loop {
+            if conditions
+                .inner
+                .map
+                .get(&0)
+                .is_some_and(|entry| *entry.0.lock() == 1)
+            {
+                break;
+            }
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        conditions.disable_atomics();
+        let result = done_rx.recv_timeout(Duration::from_secs(2));
+        worker.join().unwrap();
+        assert!(matches!(result.unwrap(), Err(WaiterError::AtomicsDisabled)));
+        assert!(conditions.inner.map.is_empty());
+    }
 
     #[test]
     fn threadconditions_notify_nowaiters() {
