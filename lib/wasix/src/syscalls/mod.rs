@@ -1606,7 +1606,14 @@ pub(crate) fn _prepare_wasi(
 pub(crate) fn conv_spawn_err_to_errno(err: &SpawnError) -> Errno {
     match err {
         SpawnError::AccessDenied => Errno::Access,
-        SpawnError::Unsupported | SpawnError::InvalidShebang { .. } => Errno::Noexec,
+        // A file that exists but holds nothing this runtime can execute is
+        // ENOEXEC, as a file that is neither ELF nor a script is on Unix.
+        SpawnError::Unsupported
+        | SpawnError::InvalidShebang { .. }
+        | SpawnError::CompileError { .. }
+        | SpawnError::InvalidWasmer
+        | SpawnError::ModuleLoad { .. } => Errno::Noexec,
+        SpawnError::ShebangLoop => Errno::Loop,
         _ if err.is_not_found() => Errno::Noent,
         _ => Errno::Inval,
     }

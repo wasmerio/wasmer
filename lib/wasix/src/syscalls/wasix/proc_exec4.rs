@@ -210,7 +210,7 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
 
                                 debug!(%child_pid, "process failed with (err={})", err_exit_code);
 
-                                Err(Errno::Noexec)
+                                Err(conv_spawn_err_to_errno(&err))
                             }
                         }
                     })
@@ -331,7 +331,7 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
                     "failed to execve as the process could not be spawned (fork)[0] - {}",
                     err
                 );
-                Ok(Errno::Noexec)
+                Ok(conv_spawn_err_to_errno(&err))
             }
         }
     }
