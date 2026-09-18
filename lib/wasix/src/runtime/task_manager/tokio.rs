@@ -237,16 +237,23 @@ impl VirtualTaskManager for TokioTaskManager {
                             let exit = ctx.data(store).wait_for_exit();
                             tokio::select! {
                                 biased;
-                                exit_code = exit => return Err(exit_code),
+                                _ = exit => return None,
                                 () = pre_run(ctx, store) => {},
                             }
                         }
 
-                        match ctx.data(store).process.forced_exit_code() {
+                        Some(match ctx.data(store).process.forced_exit_code() {
                             Some(exit_code) => Err(exit_code),
                             None => result,
-                        }
+                        })
                     })
+                };
+
+                let Some(result) = result else {
+                    // Preparation was cancelled, so the run callback must not
+                    // observe partially prepared state. Drop its captures and
+                    // the environment/store just like the non-triggered path.
+                    return;
                 };
 
                 // This is a cooperative cancellation boundary, not a lock held

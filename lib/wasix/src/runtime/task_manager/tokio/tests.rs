@@ -32,12 +32,12 @@ async fn assert_force_terminate_cancels_pending_pre_run(has_trigger: bool) {
     let (done_tx, mut done_rx) = tokio::sync::oneshot::channel();
     let (release_tx, release_rx) = tokio::sync::oneshot::channel::<()>();
     let released = Released(Some(done_tx));
+    let run_called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let run_called_by_callback = run_called.clone();
     let mut task = TaskWasm::new(
-        Box::new(move |props| {
+        Box::new(move |_props| {
             let _released = released;
-            assert!(has_trigger, "cancelled pre-run reached guest execution");
-            assert_eq!(props.trigger_result, Some(Err(Errno::Intr.into())));
-            drop(props);
+            run_called_by_callback.store(true, Ordering::SeqCst);
         }),
         env,
         module,
@@ -69,6 +69,10 @@ async fn assert_force_terminate_cancels_pending_pre_run(has_trigger: bool) {
     completed
         .expect("forced exit must release pending pre-run")
         .unwrap();
+    assert!(
+        !run_called.load(Ordering::SeqCst),
+        "cancelled pre-run invoked its run callback"
+    );
     tokio::time::timeout(Duration::from_secs(2), async {
         while process.active_threads() != 0
             || !matches!(
