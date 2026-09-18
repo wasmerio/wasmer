@@ -27,6 +27,31 @@ fn assert_aborted<T>(result: Result<T, LinkError>, expected: ExitCode) {
     }
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn inner_loader_exit_publishes_abort_without_process_completion() {
+    let cancellation = LinkerCancellation::new();
+    let peer = env();
+    let ordinary =
+        cancellation.abort_on_exit(LinkError::SpawnError(crate::SpawnError::Unsupported));
+    assert!(matches!(
+        ordinary,
+        LinkError::SpawnError(crate::SpawnError::Unsupported)
+    ));
+    cancellation.check(&peer).unwrap();
+
+    let error = cancellation.abort_on_exit(LinkError::SpawnError(crate::SpawnError::Runtime(
+        crate::WasiRuntimeError::Wasi(crate::WasiError::Exit(137.into())),
+    )));
+    assert_aborted::<()>(Err(error), 137.into());
+    assert!(peer.should_exit().is_none());
+    assert_aborted(cancellation.check(&peer), 137.into());
+    let later = cancellation.abort_on_exit(LinkError::InitFunctionFailed(
+        "ctor".into(),
+        wasmer::RuntimeError::user(Box::new(crate::WasiError::Exit(138.into()))),
+    ));
+    assert_aborted::<()>(Err(later), 137.into());
+}
+
 struct Worker {
     done: mpsc::Receiver<Result<(), LinkError>>,
     release: oneshot::Sender<()>,

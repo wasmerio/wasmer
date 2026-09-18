@@ -92,6 +92,7 @@ impl LinkError {
     pub(crate) fn termination_code(&self) -> Option<wasmer_wasix_types::wasi::ExitCode> {
         match self {
             Self::SynchronizationAborted(code) => Some(*code),
+            Self::SpawnError(SpawnError::Runtime(error)) => error.as_exit_code(),
             Self::InitFunctionFailed(_, error)
             | Self::GlobalUpdateFailed(_, error)
             | Self::TableAllocationError(error)
@@ -189,6 +190,12 @@ mod tests {
             LinkError::InitFunctionFailed("init".into(), runtime_error()),
             LinkError::InstantiationError(InstantiationError::Start(runtime_error())),
             LinkError::RuntimeHookError(anyhow::Error::new(runtime_error()).context("hook failed")),
+            LinkError::SpawnError(SpawnError::Runtime(crate::WasiRuntimeError::Wasi(
+                crate::WasiError::Exit(137.into()),
+            ))),
+            LinkError::SpawnError(SpawnError::Runtime(crate::WasiRuntimeError::Runtime(
+                runtime_error(),
+            ))),
         ] {
             assert_eq!(error.termination_code(), Some(137.into()));
             assert_eq!(
