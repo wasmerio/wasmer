@@ -5,6 +5,7 @@ use crate::{
 use futures::{
     TryFutureExt,
     channel::oneshot::{self, Sender},
+    future::{AbortHandle, Abortable},
 };
 use std::{
     collections::BTreeMap,
@@ -39,6 +40,30 @@ struct ContextSwitchingEnvironmentInner {
     next_available_context_id: AtomicU64,
     /// Spawns contexts on the worker-local executor supplied by the task manager.
     spawner: LocalTaskSpawner,
+    /// Entry-point tasks can await inert JSPI promises after store teardown.
+    /// Dropping their unblockers alone cannot complete those outer futures.
+    context_tasks: RwLock<BTreeMap<u64, AbortHandle>>,
+}
+
+impl Drop for ContextSwitchingEnvironmentInner {
+    fn drop(&mut self) {
+        for task in self.context_tasks.get_mut().unwrap().values() {
+            task.abort();
+        }
+    }
+}
+
+struct ContextTaskRegistration {
+    environment: Weak<ContextSwitchingEnvironmentInner>,
+    id: u64,
+}
+
+impl Drop for ContextTaskRegistration {
+    fn drop(&mut self) {
+        if let Some(environment) = self.environment.upgrade() {
+            environment.context_tasks.write().unwrap().remove(&self.id);
+        }
+    }
 }
 
 /// Errors that can occur during a context switch
@@ -96,6 +121,7 @@ impl ContextSwitchingEnvironment {
                 current_context_id: AtomicU64::new(MAIN_CONTEXT_ID),
                 next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
                 spawner,
+                context_tasks: RwLock::new(BTreeMap::new()),
             }),
         }
     }
@@ -447,7 +473,23 @@ impl ContextSwitchingEnvironment {
 
         // Queue the future onto the worker-local executor.
         tracing::trace!("Spawning context {new_context_id} onto the worker-local executor");
-        let spawn_result = self.inner.spawner.spawn(context_future);
+        let (abort, registration) = AbortHandle::new_pair();
+        self.inner
+            .context_tasks
+            .write()
+            .unwrap()
+            .insert(new_context_id, abort);
+        let task = ContextTaskRegistration {
+            environment: Arc::downgrade(&self.inner),
+            id: new_context_id,
+        };
+        let spawn_result = self.inner.spawner.spawn(async move {
+            let _task = task;
+            // Teardown must release the Rust call even when a cancelled JSPI
+            // continuation deliberately never resolves or rejects. Dropping
+            // the call does not resume its abandoned JavaScript guest stack.
+            let _ = Abortable::new(context_future, registration).await;
+        });
 
         match spawn_result {
             Ok(()) => new_context_id,
@@ -464,5 +506,87 @@ impl ContextSwitchingEnvironment {
                 panic!("Failed to create context because the local task executor rejected the task")
             }
         }
+    }
+}
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+    use crate::runtime::task_manager::WasmTaskFuture;
+    use std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+        task::Context,
+    };
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    thread_local! {
+        static TASKS: RefCell<Vec<WasmTaskFuture>> = RefCell::default();
+    }
+
+    struct Dropped(Rc<Cell<bool>>);
+    impl Drop for Dropped {
+        fn drop(&mut self) {
+            self.0.set(true);
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn teardown_releases_a_context_waiting_on_an_abandoned_guest_promise() {
+        let environment = ContextSwitchingEnvironment::new(LocalTaskSpawner::new(|task| {
+            TASKS.with_borrow_mut(|tasks| tasks.push(task));
+            Ok(())
+        }));
+        let dropped = Rc::new(Cell::new(false));
+        let guard = Dropped(dropped.clone());
+        let id = environment.create_context(async move {
+            let _guard = guard;
+            futures::future::pending::<Result<(), RuntimeError>>().await
+        });
+        environment
+            .inner
+            .unblockers
+            .write()
+            .unwrap()
+            .remove(&id)
+            .unwrap()
+            .send(Ok(()))
+            .unwrap();
+        let mut task = TASKS.with_borrow_mut(|tasks| tasks.pop().unwrap());
+        let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+        assert!(task.as_mut().poll(&mut cx).is_pending());
+        assert!(!dropped.get());
+        drop(environment);
+        assert!(
+            task.as_mut().poll(&mut cx).is_ready(),
+            "context task outlived its environment"
+        );
+        assert!(
+            dropped.get(),
+            "suspended entrypoint retained its Rust state"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn completed_contexts_remove_their_cancellation_registration() {
+        let environment = ContextSwitchingEnvironment::new(LocalTaskSpawner::new(|task| {
+            TASKS.with_borrow_mut(|tasks| tasks.push(task));
+            Ok(())
+        }));
+        let id = environment
+            .create_context(async { Err(RuntimeError::user(Box::new(ContextCanceled(())))) });
+        environment
+            .inner
+            .unblockers
+            .write()
+            .unwrap()
+            .remove(&id)
+            .unwrap()
+            .send(Ok(()))
+            .unwrap();
+        let mut task = TASKS.with_borrow_mut(|tasks| tasks.pop().unwrap());
+        let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+        assert!(task.as_mut().poll(&mut cx).is_ready());
+        assert!(environment.inner.context_tasks.read().unwrap().is_empty());
     }
 }
