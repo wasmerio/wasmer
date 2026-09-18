@@ -172,7 +172,7 @@ impl BinFactory {
                 }
             }
 
-            Err(SpawnError::InvalidABI)
+            Err(SpawnError::ShebangLoop)
         })
     }
 
@@ -337,7 +337,10 @@ pub enum Executable {
     Script(Shebang),
 }
 
-const MAX_SHEBANG_DEPTH: usize = 4;
+/// Executables a single spawn may walk through: five nested scripts and the
+/// thing the last one names. Linux runs a chain of five and answers `ELOOP` at
+/// six, whatever the last one names.
+const MAX_SHEBANG_DEPTH: usize = 6;
 
 /// Linux reads the shebang out of a buffer of `BINPRM_BUF_SIZE` bytes and
 /// refuses to exec an interpreter path that the buffer truncated.
@@ -523,12 +526,13 @@ mod tests {
 
     use virtual_fs::{AsyncWriteExt, FileSystem};
     use wasmer::Engine;
+    use wasmer_wasix_types::wasi::Errno;
 
     use super::{
         Executable, MAX_SHEBANG_LINE, Shebang, ShebangLine, load_executable_from_wasi_fs,
         parse_shebang, script_command,
     };
-    use crate::{VIRTUAL_ROOT_FD, WasiEnvBuilder};
+    use crate::{SpawnError, VIRTUAL_ROOT_FD, WasiEnvBuilder};
 
     fn expect_parsed(line: ShebangLine) -> Shebang {
         match line {
@@ -764,6 +768,47 @@ mod tests {
 
         assert!(result.is_err(), "the interpreter does not exist");
         assert_eq!(*env.state.args.lock().unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn a_shebang_cycle_reports_a_loop() {
+        // Linux answers ELOOP for a cycle and for a chain too deep to walk,
+        // rather than the EINVAL a bad ABI would get.
+        let backing = virtual_fs::mem_fs::FileSystem::default();
+        backing.create_dir(Path::new("/bin")).unwrap();
+
+        let mut builder = WasiEnvBuilder::new("tool")
+            .engine(Engine::default())
+            .fs(Arc::new(backing) as Arc<dyn FileSystem + Send + Sync>);
+        builder.preopen_vfs_dirs(["/".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+
+        for (name, target) in [("a", "/bin/b"), ("b", "/bin/a")] {
+            let mut file = env
+                .state
+                .fs
+                .root_fs
+                .new_open_options()
+                .create(true)
+                .write(true)
+                .open(Path::new(&format!("/bin/{name}")))
+                .unwrap();
+            file.write_all(format!("#!{target}\n").as_bytes())
+                .await
+                .unwrap();
+        }
+
+        let result = env
+            .bin_factory
+            .clone()
+            .spawn("/bin/a".to_string(), None, env.clone())
+            .await;
+
+        assert!(matches!(result, Err(SpawnError::ShebangLoop)));
+        assert_eq!(
+            crate::syscalls::conv_spawn_err_to_errno(&SpawnError::ShebangLoop),
+            Errno::Loop
+        );
     }
 
     #[tokio::test]
