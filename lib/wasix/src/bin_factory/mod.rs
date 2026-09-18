@@ -107,13 +107,19 @@ impl BinFactory {
             })
     }
 
+    /// `invoked_as` is the path the guest spelled, for a script that must be
+    /// handed to its interpreter under that name rather than the path it
+    /// resolved to. `None` selects the resolved path, which is what a PATH
+    /// search produces on Unix.
     pub fn spawn<'a>(
         &'a self,
         name: String,
+        invoked_as: Option<String>,
         env: WasiEnv,
     ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
         Box::pin(async move {
             let mut name = name;
+            let mut invoked_as = invoked_as;
 
             // A shebang is handled by the kernel on Unix. WASIX's binary factory
             // fills that role for virtual filesystems, so resolve scripts here
@@ -142,7 +148,11 @@ impl BinFactory {
                             .await;
                     }
                     Executable::Script(script) => {
-                        name = prepare_script_execution(&env, &name, script);
+                        let script_path = invoked_as.unwrap_or_else(|| name.clone());
+                        name = prepare_script_execution(&env, &script_path, script);
+                        // The next round resolves the interpreter, which the
+                        // shebang line named directly.
+                        invoked_as = Some(name.clone());
                     }
                 }
             }
@@ -469,6 +479,18 @@ mod tests {
     #[test]
     fn ignores_regular_files() {
         assert!(parse_shebang(b"console.log('hello')\n").is_none());
+    }
+
+    #[test]
+    fn script_keeps_the_path_the_caller_spelled() {
+        // execv("./tool", ...) on Linux hands the interpreter "./tool", not the
+        // path the kernel resolved it to.
+        let script = parse_shebang(b"#!/bin/interp\n").unwrap();
+        let original = vec!["./tool".to_string(), "arg".to_string()];
+        let (interpreter, args) = script_command("./tool", script, &original);
+
+        assert_eq!(interpreter, "/bin/interp");
+        assert_eq!(args, ["/bin/interp", "./tool", "arg"]);
     }
 
     #[test]
