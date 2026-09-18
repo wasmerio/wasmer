@@ -92,8 +92,32 @@ impl LinkError {
     pub(crate) fn termination_code(&self) -> Option<wasmer_wasix_types::wasi::ExitCode> {
         match self {
             Self::SynchronizationAborted(code) => Some(*code),
+            Self::InitFunctionFailed(_, error)
+            | Self::GlobalUpdateFailed(_, error)
+            | Self::TableAllocationError(error)
+            | Self::InstantiationError(InstantiationError::Start(error)) => {
+                runtime_exit_code(error)
+            }
+            Self::InitializationError(error) | Self::RuntimeHookError(error) => {
+                if let Some(crate::WasiError::Exit(code)) = error.downcast_ref::<crate::WasiError>()
+                {
+                    Some(*code)
+                } else {
+                    error
+                        .downcast_ref::<RuntimeError>()
+                        .and_then(runtime_exit_code)
+                }
+            }
+            Self::UnresolvedGlobal(_, _, error) => error.termination_code(),
             _ => None,
         }
+    }
+}
+
+fn runtime_exit_code(error: &RuntimeError) -> Option<wasmer_wasix_types::wasi::ExitCode> {
+    match error.downcast_ref::<crate::WasiError>() {
+        Some(crate::WasiError::Exit(code)) => Some(*code),
+        _ => None,
     }
 }
 
@@ -148,7 +172,34 @@ impl ResolveError {
     pub(crate) fn termination_code(&self) -> Option<wasmer_wasix_types::wasi::ExitCode> {
         match self {
             Self::PendingDlOperationFailed(error) => error.termination_code(),
+            Self::TableAllocationError(error) => runtime_exit_code(error),
             _ => None,
         }
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wrapped_guest_exit_remains_fatal_without_published_process_status() {
+        let runtime_error = || RuntimeError::user(Box::new(crate::WasiError::Exit(137.into())));
+        for error in [
+            LinkError::InitFunctionFailed("init".into(), runtime_error()),
+            LinkError::InstantiationError(InstantiationError::Start(runtime_error())),
+            LinkError::RuntimeHookError(anyhow::Error::new(runtime_error()).context("hook failed")),
+        ] {
+            assert_eq!(error.termination_code(), Some(137.into()));
+            assert_eq!(
+                ResolveError::PendingDlOperationFailed(error).termination_code(),
+                Some(137.into())
+            );
+        }
+        assert_eq!(
+            LinkError::InitFunctionFailed("init".into(), RuntimeError::new("ordinary error"))
+                .termination_code(),
+            None
+        );
     }
 }
