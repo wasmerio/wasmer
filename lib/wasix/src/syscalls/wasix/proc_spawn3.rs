@@ -126,6 +126,14 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
         *name = ctx.data().state.fs.relative_path_to_absolute(name.clone());
     }
 
+    // A caller that turned the PATH search off named a file, so resolve it
+    // against the current directory. Left relative, a name without a slash
+    // reaches the binary factory looking exactly like something to search the
+    // PATH for, and `script` would run `/bin/script`.
+    if search_path == Bool::False && !name.starts_with('/') {
+        *name = ctx.data().state.fs.relative_path_to_absolute(name.clone());
+    }
+
     Span::current().record("full_path", name.as_str());
 
     // Fork the environment which will copy all the open file handlers
