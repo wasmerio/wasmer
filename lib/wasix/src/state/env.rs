@@ -299,10 +299,11 @@ impl WasiEnv {
     /// Returns true if this WASM process will need and try to use
     /// asyncify while its running which normally means.
     pub fn will_use_asyncify(&self) -> bool {
-        self.inner()
-            .static_module_instance_handles()
-            .map(|handles| self.enable_deep_sleep || handles.has_stack_checkpoint)
-            .unwrap_or(false)
+        let inner = self.inner();
+        let handles = inner.main_module_instance_handles();
+        self.enable_deep_sleep
+            || handles.has_stack_checkpoint
+            || handles.asyncify_start_unwind.is_some()
     }
 
     /// Re-initializes this environment so that it can be executed again
