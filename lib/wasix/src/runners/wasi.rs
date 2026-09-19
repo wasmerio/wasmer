@@ -296,6 +296,30 @@ impl WasiRunner {
         runtime_or_engine: RuntimeOrEngine,
         root_fs: Option<crate::fs::WasiFsRoot>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
+        self.prepare_webc_env_with_process_observer(
+            program_name,
+            wasi,
+            pkg_or_hash,
+            runtime_or_engine,
+            root_fs,
+            |_| {},
+        )
+    }
+
+    /// Prepare a WebC environment while exposing its process before filesystem
+    /// assembly can perform blocking host work.
+    pub fn prepare_webc_env_with_process_observer<F>(
+        &self,
+        program_name: &str,
+        wasi: &Wasi,
+        pkg_or_hash: PackageOrHash,
+        runtime_or_engine: RuntimeOrEngine,
+        root_fs: Option<crate::fs::WasiFsRoot>,
+        observer: F,
+    ) -> Result<WasiEnvBuilder, anyhow::Error>
+    where
+        F: FnOnce(&crate::WasiProcess),
+    {
         let mut builder = WasiEnvBuilder::new(program_name);
 
         match runtime_or_engine {
@@ -332,6 +356,12 @@ impl WasiRunner {
         if let Some(cwd) = &wasi.cwd {
             builder.set_current_dir(cwd);
         }
+
+        // Process limits must match the capabilities that common preparation
+        // installs below. Establish lifecycle ownership before that preparation
+        // enters filesystem mount/preopen code.
+        *builder.capabilities_mut() = self.wasi.capabilities.clone();
+        builder.ensure_process_with_observer(observer)?;
 
         self.wasi
             .prepare_webc_env(&mut builder, container_mounts, wasi, root_fs)?;

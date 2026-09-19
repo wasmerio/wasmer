@@ -1112,22 +1112,22 @@ impl WasiEnvBuilder {
         self.build_with_process_observer(|_| {})
     }
 
-    /// Build an environment and expose its process before environment setup can
-    /// perform blocking host work.
+    /// Ensure the process exists and expose it to the embedder.
     ///
-    /// Embedders can use this hook to attach their lifecycle cancellation to
-    /// the process. The observer runs after the process is registered with the
-    /// control plane and before builder filesystem setup and dependency
-    /// injection.
+    /// This may be called before filesystem preparation. A later [`Self::build`]
+    /// reuses the same process and control plane.
     #[allow(clippy::result_large_err)]
-    pub fn build_with_process_observer<F>(
-        mut self,
-        observer: F,
-    ) -> Result<WasiEnv, WasiRuntimeError>
+    pub fn ensure_process_with_observer<F>(&mut self, observer: F) -> Result<(), WasiRuntimeError>
     where
         F: FnOnce(&crate::WasiProcess),
     {
+        if let Some(process) = &self.process {
+            observer(process);
+            return Ok(());
+        }
+
         let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
+        self.module_hash = Some(module_hash);
         let plane_config = ControlPlaneConfig {
             max_task_count: self.capabilities.threading.max_threads,
             enable_asynchronous_threading: self
@@ -1144,6 +1144,28 @@ impl WasiEnvBuilder {
         observer(&process);
         self.control_plane = Some(control_plane);
         self.process = Some(process);
+        Ok(())
+    }
+
+    /// Build an environment and expose its process before environment setup can
+    /// perform blocking host work.
+    ///
+    /// Embedders can use this hook to attach their lifecycle cancellation to
+    /// the process. The observer runs after the process is registered with the
+    /// control plane and before builder filesystem setup and dependency
+    /// injection.
+    #[allow(clippy::result_large_err)]
+    pub fn build_with_process_observer<F>(
+        mut self,
+        observer: F,
+    ) -> Result<WasiEnv, WasiRuntimeError>
+    where
+        F: FnOnce(&crate::WasiProcess),
+    {
+        self.ensure_process_with_observer(observer)?;
+        let module_hash = self
+            .module_hash
+            .expect("process preparation always assigns a module hash");
         let init = self.build_init()?;
         WasiEnv::from_init(init, module_hash)
     }
@@ -1325,13 +1347,18 @@ impl PreopenDirBuilder {
 mod test {
     use super::*;
     use crate::{
-        SpawnError,
+        PluggableRuntime, SpawnError,
         os::{
             command::{BuiltinCommand, VirtualCommand},
             task::{OwnedTaskStatus, TaskJoinHandle},
         },
+        runtime::{
+            resolver::{PackageSummary, QueryError, Source},
+            task_manager::tokio::TokioTaskManager,
+        },
     };
     use wasmer::FunctionEnvMut;
+    use wasmer_config::package::PackageSource;
     use wasmer_wasix_types::wasi::Errno;
 
     fn enter_tokio_runtime() -> Option<tokio::runtime::Runtime> {
@@ -1368,7 +1395,8 @@ mod test {
 
     #[test]
     fn process_observer_can_cancel_before_environment_setup() {
-        let _runtime = enter_tokio_runtime();
+        let runtime = enter_tokio_runtime();
+        let _runtime_guard = runtime.as_ref().map(|runtime| runtime.enter());
         let observed = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let observed_during_fs_setup = observed.clone();
 
@@ -1392,6 +1420,72 @@ mod test {
             Err(error) => error,
         };
         assert_eq!(error.as_exit_code(), Some(Errno::Intr.into()));
+    }
+
+    #[derive(Debug)]
+    struct PendingSource {
+        entered: std::sync::Mutex<Option<std::sync::mpsc::Sender<()>>>,
+        dropped: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    #[async_trait::async_trait]
+    impl Source for PendingSource {
+        async fn query(&self, _package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
+            struct MarkDropped(Arc<std::sync::atomic::AtomicBool>);
+            impl Drop for MarkDropped {
+                fn drop(&mut self) {
+                    self.0.store(true, std::sync::atomic::Ordering::Release);
+                }
+            }
+
+            let _mark_dropped = MarkDropped(self.dropped.clone());
+            if let Some(entered) = self.entered.lock().unwrap().take() {
+                let _ = entered.send(());
+            }
+            std::future::pending().await
+        }
+    }
+
+    #[test]
+    fn forced_exit_cancels_pending_dependency_resolution() {
+        let tokio_runtime = enter_tokio_runtime();
+        let _runtime_guard = tokio_runtime.as_ref().map(|runtime| runtime.enter());
+        let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+        let dropped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut runtime = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
+        runtime.set_source(PendingSource {
+            entered: std::sync::Mutex::new(Some(entered_tx)),
+            dropped: dropped.clone(),
+        });
+        let env = WasiEnvBuilder::new("pending-dependency")
+            .runtime(Arc::new(runtime))
+            .build()
+            .unwrap();
+        let process = env.process.clone();
+        let (result_tx, result_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let exit = env
+                .uses_until_exit(["wasmer/pending@1".to_string()])
+                .expect_err("pending resolution should end with forced process exit")
+                .as_exit_code();
+            let _ = result_tx.send(exit);
+        });
+
+        entered_rx
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .expect("dependency query was not polled");
+        process.force_terminate(Errno::Intr.into()).unwrap();
+        assert_eq!(
+            result_rx
+                .recv_timeout(std::time::Duration::from_secs(2))
+                .expect("forced exit did not cancel dependency resolution"),
+            Some(Errno::Intr.into())
+        );
+        worker.join().unwrap();
+        assert!(
+            dropped.load(std::sync::atomic::Ordering::Acquire),
+            "cancelled dependency future was retained"
+        );
     }
 
     #[derive(Debug)]
