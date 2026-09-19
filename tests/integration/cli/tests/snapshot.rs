@@ -66,6 +66,14 @@ fn is_false(b: &bool) -> bool {
 static WEBC_PYTHON: &[u8] =
     include_bytes!("../../../../wasmer-test-files/examples/python--python@3.13.5.webc");
 
+fn python_package_id() -> String {
+    use sha2::{Digest, Sha256};
+
+    // This fixture has no package name in its manifest. Resolve its content
+    // hash so the shell runs the included WEBC, not a registry Python release.
+    format!("sha256:{}", hex::encode(Sha256::digest(WEBC_PYTHON)))
+}
+
 impl std::fmt::Debug for TestSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TestSpec")
@@ -1073,11 +1081,12 @@ fn test_snapshot_dash_echo_to_cat() {
 #[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_dash_python() {
+    let package = python_package_id();
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_package("wasmer/python@3.13.5", WEBC_PYTHON)
-        .stdin_str("wasmer run wasmer/python -- -c 'print(10)'")
+        .include_static_package(&package, WEBC_PYTHON)
+        .stdin_str(format!("wasmer run {package} -- -c 'print(10)'"))
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/dash.wasm"
         ));
@@ -1178,11 +1187,12 @@ fn test_snapshot_bash_pipe() {
 #[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_bash_python() {
+    let package = python_package_id();
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_package("wasmer/python@3.13.5", WEBC_PYTHON)
-        .stdin_str("wasmer run wasmer/python -- -c 'print(10)'\n")
+        .include_static_package(&package, WEBC_PYTHON)
+        .stdin_str(format!("wasmer run {package} -- -c 'print(10)'\n"))
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/bash.wasm"
         ));
