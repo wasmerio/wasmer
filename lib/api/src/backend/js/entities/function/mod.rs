@@ -11,7 +11,7 @@ use js_sys::{Array, Function as JsFunction};
 use js_sys::{Promise, Reflect};
 use wasm_bindgen::{JsCast, prelude::*};
 #[cfg(feature = "experimental-async")]
-use wasm_bindgen_futures::{JsFuture, future_to_promise};
+use wasm_bindgen_futures::future_to_promise;
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
@@ -562,7 +562,10 @@ impl Function {
                 .map_err(RuntimeError::from)?;
             drop(store_context);
 
-            let result = JsFuture::from(promise).await.map_err(RuntimeError::from)?;
+            let result = jspi::PromiseFuture::new(promise)
+                .map_err(RuntimeError::from)?
+                .await
+                .map_err(RuntimeError::from)?;
             let mut write_lock = store.write_lock().await;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),

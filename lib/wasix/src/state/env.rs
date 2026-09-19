@@ -1320,11 +1320,11 @@ impl WasiEnv {
             }
         }
 
-        // A thread exit must not terminate the process. Only the main thread
-        // owns process cleanup and the process-wide exit status.
-        if self.thread.is_main()
-            && let Some(process_exit_code) = process_exit_code
-        {
+        // None means a normal thread return/thread_exit. Some is a process
+        // exit (proc_exit or a fatal trap), including when raised by a worker.
+        // Ignoring a worker's process exit leaves the main thread waiting on
+        // a pthread_join/futex that can never complete.
+        if let Some(process_exit_code) = process_exit_code {
             let process = self.process.clone();
             let disable_fs_cleanup = self.disable_fs_cleanup;
             let pid = self.pid();
