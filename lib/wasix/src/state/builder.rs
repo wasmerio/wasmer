@@ -1111,10 +1111,7 @@ impl WasiEnvBuilder {
     /// the process. The observer runs after the process is registered with the
     /// control plane and before dependency injection or mapped-command setup.
     #[allow(clippy::result_large_err)]
-    pub fn build_with_process_observer<F>(
-        self,
-        observer: F,
-    ) -> Result<WasiEnv, WasiRuntimeError>
+    pub fn build_with_process_observer<F>(self, observer: F) -> Result<WasiEnv, WasiRuntimeError>
     where
         F: FnOnce(&crate::WasiProcess),
     {

@@ -1365,8 +1365,7 @@ impl WasiEnv {
 
             let path = format!("/bin/{command}");
             let path = Path::new(path.as_str());
-            if let Err(err) =
-                write_readonly_buffer_to_fs(&self.state.fs.root_fs, path, &file).await
+            if let Err(err) = write_readonly_buffer_to_fs(&self.state.fs.root_fs, path, &file).await
             {
                 tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
@@ -1374,8 +1373,7 @@ impl WasiEnv {
 
             let path = format!("/usr/bin/{command}");
             let path = Path::new(path.as_str());
-            if let Err(err) =
-                write_readonly_buffer_to_fs(&self.state.fs.root_fs, path, &file).await
+            if let Err(err) = write_readonly_buffer_to_fs(&self.state.fs.root_fs, path, &file).await
             {
                 tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
