@@ -1,5 +1,5 @@
 use super::*;
-use crate::fs::FlushPoller;
+use crate::fs::ShutdownPoller;
 use crate::syscalls::*;
 
 /// ### `fd_renumber()`
@@ -41,14 +41,14 @@ pub(crate) fn fd_renumber_internal(
     let env = ctx.data();
     let (_, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
-    let flush_target = match state.fs.dup2_at(from, to) {
+    let shutdown_target = match state.fs.dup2_at(from, to) {
         Err(errno) => return Ok(errno),
-        Ok(flush_target) => flush_target,
+        Ok(shutdown_target) => shutdown_target,
     };
 
-    // Best-effort flush of the replaced entry; result depends only on map updates.
-    if let Some(file) = flush_target {
-        let _ = __asyncify_light(env, None, FlushPoller { file })?;
+    // Best-effort drain of a replaced final handle; result depends only on map updates.
+    if let Some(file) = shutdown_target {
+        let _ = __asyncify_light(env, None, ShutdownPoller { file })?;
     }
 
     Ok(Errno::Success)

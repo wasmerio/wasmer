@@ -313,8 +313,13 @@ impl WasiEnv {
         if !self.disable_fs_cleanup {
             // First we clear any open files as the descriptors would
             // otherwise clash
-            if let Ok(mut map) = self.state.fs.fd_map.write() {
-                map.clear();
+            let shutdown_targets = if let Ok(mut map) = self.state.fs.fd_map.write() {
+                map.clear()
+            } else {
+                Vec::new()
+            };
+            for file in shutdown_targets {
+                block_on(crate::fs::WasiFs::shutdown_file_best_effort(file));
             }
             self.state.fs.preopen_fds.write().unwrap().clear();
             *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
