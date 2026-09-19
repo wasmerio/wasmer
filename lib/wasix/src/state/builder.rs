@@ -17,7 +17,7 @@ use wasmer_config::package::PackageId;
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, DynReadableJournal, SnapshotTrigger};
 use crate::{
-    Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
+    Runtime, WasiEnv, WasiFunctionEnv, WasiProcess, WasiRuntimeError, WasiThreadError,
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
@@ -87,6 +87,11 @@ pub struct WasiEnvBuilder {
     pub(super) builtin_commands: Vec<(String, Arc<dyn VirtualCommand + Send + Sync + 'static>)>,
 
     pub(super) capabilities: Capabilities,
+
+    // Populated by `build_with_process_observer` so the lifecycle root exists
+    // before filesystem and environment preparation begins.
+    control_plane: Option<WasiControlPlane>,
+    process: Option<WasiProcess>,
 
     #[cfg(feature = "journal")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
@@ -1069,7 +1074,10 @@ impl WasiEnvBuilder {
             enable_asynchronous_threading: capabilities.threading.enable_asynchronous_threading,
             enable_exponential_cpu_backoff: capabilities.threading.enable_exponential_cpu_backoff,
         };
-        let control_plane = WasiControlPlane::new(plane_config);
+        let control_plane = self
+            .control_plane
+            .take()
+            .unwrap_or_else(|| WasiControlPlane::new(plane_config));
 
         let init = WasiEnvInit {
             state,
@@ -1080,7 +1088,7 @@ impl WasiEnvBuilder {
             bin_factory,
             capabilities,
             memory_ty: None,
-            process: None,
+            process: self.process.take(),
             thread: None,
             #[cfg(feature = "journal")]
             call_initialize: self.read_only_journals.is_empty()
@@ -1109,20 +1117,34 @@ impl WasiEnvBuilder {
     ///
     /// Embedders can use this hook to attach their lifecycle cancellation to
     /// the process. The observer runs after the process is registered with the
-    /// control plane and before dependency injection or mapped-command setup.
+    /// control plane and before builder filesystem setup and dependency
+    /// injection.
     #[allow(clippy::result_large_err)]
-    pub fn build_with_process_observer<F>(self, observer: F) -> Result<WasiEnv, WasiRuntimeError>
+    pub fn build_with_process_observer<F>(
+        mut self,
+        observer: F,
+    ) -> Result<WasiEnv, WasiRuntimeError>
     where
         F: FnOnce(&crate::WasiProcess),
     {
         let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
-        let mut init = self.build_init()?;
-        let process = match init.process.take() {
-            Some(process) => process,
-            None => init.control_plane.new_process(module_hash)?,
+        let plane_config = ControlPlaneConfig {
+            max_task_count: self.capabilities.threading.max_threads,
+            enable_asynchronous_threading: self
+                .capabilities
+                .threading
+                .enable_asynchronous_threading,
+            enable_exponential_cpu_backoff: self
+                .capabilities
+                .threading
+                .enable_exponential_cpu_backoff,
         };
+        let control_plane = WasiControlPlane::new(plane_config);
+        let process = control_plane.new_process(module_hash)?;
         observer(&process);
-        init.process = Some(process);
+        self.control_plane = Some(control_plane);
+        self.process = Some(process);
+        let init = self.build_init()?;
         WasiEnv::from_init(init, module_hash)
     }
 
@@ -1347,12 +1369,22 @@ mod test {
     #[test]
     fn process_observer_can_cancel_before_environment_setup() {
         let _runtime = enter_tokio_runtime();
-        let observed = std::sync::atomic::AtomicBool::new(false);
+        let observed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let observed_during_fs_setup = observed.clone();
 
-        let result = WasiEnvBuilder::new("test").build_with_process_observer(|process| {
-            observed.store(true, std::sync::atomic::Ordering::Release);
-            process.force_terminate(Errno::Intr.into()).unwrap();
-        });
+        let result = WasiEnvBuilder::new("test")
+            .engine(wasmer::Store::default().engine().clone())
+            .setup_fs(Box::new(move |_, _| {
+                assert!(observed_during_fs_setup.load(std::sync::atomic::Ordering::Acquire));
+                Ok(())
+            }))
+            .build_with_process_observer({
+                let observed = observed.clone();
+                move |process| {
+                    observed.store(true, std::sync::atomic::Ordering::Release);
+                    process.force_terminate(Errno::Intr.into()).unwrap();
+                }
+            });
 
         assert!(observed.load(std::sync::atomic::Ordering::Acquire));
         let error = match result {

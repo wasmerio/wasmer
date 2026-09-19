@@ -429,7 +429,15 @@ impl WasiEnv {
         let thread = if let Some(t) = init.thread {
             t
         } else {
-            process.new_thread(layout.clone(), ThreadStartType::MainThread)?
+            match process.new_thread(layout.clone(), ThreadStartType::MainThread) {
+                Ok(thread) => thread,
+                Err(error) => {
+                    if let Some(code) = process.forced_exit_code() {
+                        return Err(WasiError::Exit(code).into());
+                    }
+                    return Err(error.into());
+                }
+            }
         };
 
         let mut env = Self {
