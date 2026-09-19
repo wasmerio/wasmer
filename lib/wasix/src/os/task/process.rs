@@ -86,10 +86,28 @@ impl std::fmt::Debug for WasiProcessId {
 
 pub type LockableWasiProcessInner = Arc<(Mutex<WasiProcessInner>, Condvar)>;
 
-/// Represents a process running within the compute state
-/// TODO: fields should be private and only accessed via methods.
+/// Represents a process running within the compute state.
+///
+/// This is a cheap, cloneable handle to a [`WasiProcessData`]. Every clone shares
+/// the same underlying state, and when the *last* handle goes away the process
+/// de-registers itself from the [`super::control_plane::WasiControlPlane`] - see
+/// [`WasiProcessData::drop`].
 #[derive(Debug, Clone)]
-pub struct WasiProcess {
+pub struct WasiProcess(pub(crate) Arc<WasiProcessData>);
+
+impl std::ops::Deref for WasiProcess {
+    type Target = WasiProcessData;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// The state backing a [`WasiProcess`]. Not constructed directly; go through
+/// [`WasiProcess::new`] (or, to get a registered process, `WasiControlPlane::new_process`).
+/// TODO: fields should be private and only accessed via methods.
+#[derive(Debug)]
+pub struct WasiProcessData {
     /// Unique ID of this process
     pub(crate) pid: WasiProcessId,
     /// Hash of the module that this process is using
@@ -111,6 +129,14 @@ pub struct WasiProcess {
     /// the exponential backoff of CPU is halted (as in CPU
     /// is allowed to run freely)
     pub(crate) cpu_run_tokens: Arc<AtomicU32>,
+}
+
+impl Drop for WasiProcessData {
+    fn drop(&mut self) {
+        if let Some(plane) = self.compute.upgrade() {
+            plane.deregister_process(self.pid);
+        }
+    }
 }
 
 /// Represents a freeze of all threads to perform some action
@@ -463,7 +489,7 @@ impl WasiProcess {
             }
         }
 
-        WasiProcess {
+        WasiProcess(Arc::new(WasiProcessData {
             pid,
             module_hash,
             parent: None,
@@ -475,7 +501,7 @@ impl WasiProcess {
             ),
             waiting,
             cpu_run_tokens: Arc::new(AtomicU32::new(0)),
-        }
+        }))
     }
 
     /// Tries to start the cleanup process, returns true if this is the first
@@ -488,10 +514,6 @@ impl WasiProcess {
             guard.cleanup_started = true;
             true
         }
-    }
-
-    pub(super) fn set_pid(&mut self, pid: WasiProcessId) {
-        self.pid = pid;
     }
 
     /// Gets the process ID of this process

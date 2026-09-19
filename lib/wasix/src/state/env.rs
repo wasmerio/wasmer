@@ -253,6 +253,12 @@ impl WasiEnv {
     }
 
     /// Forking the WasiState is used when either fork or vfork is called
+    /// Releases any thread handles this environment holds on behalf of `pid`.
+    pub(crate) fn release_child_handles(&mut self, pid: WasiProcessId) {
+        self.owned_handles
+            .retain(|handle| handle.as_thread().pid() != pid);
+    }
+
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
         let process = self.control_plane.new_process(self.process.module_hash)?;
         let handle = process.new_thread(self.layout.clone(), ThreadStartType::MainThread)?;
@@ -1365,5 +1371,63 @@ impl WasiEnv {
                 self.state.args.lock().unwrap()[0] = exec_name;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::WasiEnvBuilder;
+
+    fn test_env() -> WasiEnv {
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(wasmer::Engine::default())
+            .build_init()
+            .expect("failed to build WasiEnvInit");
+        WasiEnv::from_init(init, ModuleHash::random()).expect("failed to build WasiEnv")
+    }
+
+    #[test]
+    fn parent_owned_handles_pin_terminated_child() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let _guard = runtime.handle().clone().enter();
+
+        let mut parent = test_env();
+        let plane = parent.control_plane.clone();
+
+        let (child_env, child_handle) = parent.fork().expect("fork failed");
+        let child_pid = child_env.process.pid();
+        let child_inner = Arc::downgrade(&child_env.process.inner);
+        let child_data = Arc::downgrade(&child_env.process.0);
+
+        parent.owned_handles.push(child_handle);
+
+        drop(child_env);
+
+        assert!(
+            child_data.upgrade().is_none(),
+            "child WasiProcessData still alive"
+        );
+        assert!(
+            plane.get_process(child_pid).is_none(),
+            "terminated child still reachable via get_process"
+        );
+
+        // Still pinned: the parent holds the child's main-thread handle until it reaps.
+        // Releasing it earlier would mark the thread finished while it may still run.
+        assert!(
+            child_inner.upgrade().is_some(),
+            "child released before being reaped - the handle is a liveness token"
+        );
+
+        // Reaping the child (what `proc_join` does on ExitNormal) releases it.
+        parent.release_child_handles(child_pid);
+        assert!(
+            child_inner.upgrade().is_none(),
+            "child WasiProcessInner still pinned after reaping - owned_handles leak"
+        );
     }
 }
