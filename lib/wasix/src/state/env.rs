@@ -414,6 +414,9 @@ impl WasiEnv {
         } else {
             init.control_plane.new_process(module_hash)?
         };
+        if let Some(code) = process.forced_exit_code() {
+            return Err(WasiError::Exit(code).into());
+        }
 
         #[cfg(feature = "journal")]
         {
@@ -460,11 +463,11 @@ impl WasiEnv {
 
         // TODO: should not be here - should be callers responsibility!
         for pkg in &init.webc_dependencies {
-            env.use_package(pkg)?;
+            block_on(env.until_exit(env.use_package_async(pkg)))??;
         }
 
         #[cfg(feature = "sys")]
-        env.map_commands(init.mapped_commands.clone())?;
+        block_on(env.until_exit(env.map_commands_async(init.mapped_commands.clone())))??;
 
         Ok(env)
     }
@@ -948,7 +951,7 @@ impl WasiEnv {
     /// Race a host operation against persistent execution termination without
     /// consuming signals or converting a forced exit into a recoverable errno.
     /// The returned future does not borrow the environment.
-    pub(crate) fn until_exit<F: Future>(
+    pub fn until_exit<F: Future>(
         &self,
         work: F,
     ) -> impl Future<Output = Result<F::Output, WasiError>> + use<F> {
@@ -1296,8 +1299,47 @@ impl WasiEnv {
         Ok(())
     }
 
+    /// Load packages while observing forced process termination.
+    ///
+    /// Unlike [`Self::uses`], this returns [`WasiRuntimeError`] so a forced
+    /// process exit is preserved as an execution outcome rather than being
+    /// flattened into an environment-initialization error.
+    pub fn uses_until_exit<I>(&self, uses: I) -> Result<(), WasiRuntimeError>
+    where
+        I: IntoIterator<Item = String>,
+    {
+        block_on(async {
+            let rt = self.runtime();
+            for package_name in uses {
+                let specifier = package_name.parse::<PackageSource>().map_err(|e| {
+                    WasiStateCreationError::WasiIncludePackageError(format!(
+                        "package_name={package_name}, {e}",
+                    ))
+                })?;
+                let pkg = self
+                    .until_exit(BinaryPackage::from_registry(&specifier, rt))
+                    .await?
+                    .map_err(|e| {
+                        WasiStateCreationError::WasiIncludePackageError(format!(
+                            "package_name={package_name}, {e}",
+                        ))
+                    })?;
+                self.until_exit(self.use_package_async(&pkg)).await??;
+            }
+            Ok(())
+        })
+    }
+
     #[cfg(feature = "sys")]
     pub fn map_commands(
+        &self,
+        map_commands: std::collections::HashMap<String, std::path::PathBuf>,
+    ) -> Result<(), WasiStateCreationError> {
+        block_on(self.map_commands_async(map_commands))
+    }
+
+    #[cfg(feature = "sys")]
+    async fn map_commands_async(
         &self,
         map_commands: std::collections::HashMap<String, std::path::PathBuf>,
     ) -> Result<(), WasiStateCreationError> {
@@ -1323,22 +1365,18 @@ impl WasiEnv {
 
             let path = format!("/bin/{command}");
             let path = Path::new(path.as_str());
-            if let Err(err) = block_on(write_readonly_buffer_to_fs(
-                &self.state.fs.root_fs,
-                path,
-                &file,
-            )) {
+            if let Err(err) =
+                write_readonly_buffer_to_fs(&self.state.fs.root_fs, path, &file).await
+            {
                 tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
             }
 
             let path = format!("/usr/bin/{command}");
             let path = Path::new(path.as_str());
-            if let Err(err) = block_on(write_readonly_buffer_to_fs(
-                &self.state.fs.root_fs,
-                path,
-                &file,
-            )) {
+            if let Err(err) =
+                write_readonly_buffer_to_fs(&self.state.fs.root_fs, path, &file).await
+            {
                 tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
             }

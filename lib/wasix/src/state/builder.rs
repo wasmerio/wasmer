@@ -1101,8 +1101,31 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
+        self.build_with_process_observer(|_| {})
+    }
+
+    /// Build an environment and expose its process before environment setup can
+    /// perform blocking host work.
+    ///
+    /// Embedders can use this hook to attach their lifecycle cancellation to
+    /// the process. The observer runs after the process is registered with the
+    /// control plane and before dependency injection or mapped-command setup.
+    #[allow(clippy::result_large_err)]
+    pub fn build_with_process_observer<F>(
+        self,
+        observer: F,
+    ) -> Result<WasiEnv, WasiRuntimeError>
+    where
+        F: FnOnce(&crate::WasiProcess),
+    {
         let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
-        let init = self.build_init()?;
+        let mut init = self.build_init()?;
+        let process = match init.process.take() {
+            Some(process) => process,
+            None => init.control_plane.new_process(module_hash)?,
+        };
+        observer(&process);
+        init.process = Some(process);
         WasiEnv::from_init(init, module_hash)
     }
 
@@ -1322,6 +1345,24 @@ mod test {
                 ("OTHER".to_owned(), b"value".to_vec()),
             ]
         );
+    }
+
+    #[test]
+    fn process_observer_can_cancel_before_environment_setup() {
+        let _runtime = enter_tokio_runtime();
+        let observed = std::sync::atomic::AtomicBool::new(false);
+
+        let result = WasiEnvBuilder::new("test").build_with_process_observer(|process| {
+            observed.store(true, std::sync::atomic::Ordering::Release);
+            process.force_terminate(Errno::Intr.into()).unwrap();
+        });
+
+        assert!(observed.load(std::sync::atomic::Ordering::Acquire));
+        let error = match result {
+            Ok(_) => panic!("cancelled environment setup unexpectedly succeeded"),
+            Err(error) => error,
+        };
+        assert_eq!(error.as_exit_code(), Some(Errno::Intr.into()));
     }
 
     #[derive(Debug)]
