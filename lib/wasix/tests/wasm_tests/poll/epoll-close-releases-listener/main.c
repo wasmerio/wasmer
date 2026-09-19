@@ -1,6 +1,6 @@
 //#ExpectedStdout: 0
-#include <assert.h>
 #include <arpa/inet.h>
+#include <assert.h>
 #include <stdio.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -12,10 +12,10 @@ int main(void) {
   for (int round = 0; round < 3; round++) {
     int listener = socket(AF_INET, SOCK_STREAM, 0);
     assert(listener >= 0);
-    assert(bind(listener, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    assert(bind(listener, (struct sockaddr*)&addr, sizeof(addr)) == 0);
     assert(listen(listener, 1) == 0);
     socklen_t addr_len = sizeof(addr);
-    assert(getsockname(listener, (struct sockaddr *)&addr, &addr_len) == 0);
+    assert(getsockname(listener, (struct sockaddr*)&addr, &addr_len) == 0);
     int epoll_fd = epoll_create1(0);
     assert(epoll_fd >= 0);
     struct epoll_event event = {.events = EPOLLIN, .data.fd = listener};
