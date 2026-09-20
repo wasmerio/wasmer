@@ -111,6 +111,15 @@ impl BinFactory {
     /// handed to its interpreter under that name rather than the path it
     /// resolved to. `None` selects the resolved path, which is what a PATH
     /// search produces on Unix.
+    ///
+    /// Every name here is looked up on the filesystem, builtin commands
+    /// included. A caller reaches those through [`Self::try_built_in`] before
+    /// it gets here, and only for the name it started with, so a shebang
+    /// naming a builtin interpreter (`#!/bin/sh` where `sh` is registered
+    /// rather than a file on disk) fails with
+    /// [`SpawnError::BinaryNotFound`]. Running that interpreter needs the
+    /// parent context `try_built_in` takes, which a spawn already under way
+    /// does not hold.
     pub fn spawn<'a>(
         &'a self,
         name: String,
@@ -128,7 +137,9 @@ impl BinFactory {
 
             // A shebang is handled by the kernel on Unix. WASIX's binary factory
             // fills that role for virtual filesystems, so resolve scripts here
-            // before trying to compile their bytes as WebAssembly.
+            // before trying to compile their bytes as WebAssembly. Each round
+            // is a filesystem lookup: see this method's docs for why a builtin
+            // interpreter is out of reach.
             for _ in 0..MAX_SHEBANG_DEPTH {
                 let (resolved_name, executable) = self
                     .get_executable_for_spawn(name.as_str(), &env)
