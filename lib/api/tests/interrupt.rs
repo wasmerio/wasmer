@@ -13,8 +13,8 @@ use std::{
 
 use anyhow::Result;
 use wasmer::{
-    AsStoreMut, Exception, Function, FunctionEnv, Instance, Module, RuntimeError, Store, Tag,
-    imports,
+    AsStoreMut, Exception, Function, FunctionEnv, Instance, Memory, MemoryLocation, MemoryType,
+    Module, RuntimeError, Store, Tag, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -49,6 +49,182 @@ fn test_interrupt_hot_loop() -> Result<()> {
 #[test]
 fn test_interrupt_memory_wait() -> Result<()> {
     test_interruptible(INFINITE_ATOMIC_WAIT_WAT)
+}
+
+#[test]
+fn non_interrupt_lib_trap_keeps_guest_trace() -> Result<()> {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (memory 1 1 shared)
+          (func (export "trap")
+            i32.const 1
+            i32.const 0
+            i64.const 0
+            memory.atomic.wait32
+            drop))"#,
+    )?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let trap = instance
+        .exports
+        .get_typed_function::<(), ()>(&store, "trap")?
+        .call(&mut store)
+        .unwrap_err();
+    assert!(!trap.trace().is_empty());
+    assert_eq!(trap.to_trap(), Some(TrapCode::UnalignedAtomic));
+    Ok(())
+}
+
+#[test]
+fn concurrent_atomic_disable_and_store_interrupt_do_not_strand_runtime_locks() -> Result<()> {
+    const ITERATIONS: usize = 32;
+    const WAT: &str = r#"
+        (module
+          (import "test" "started" (func $started))
+          (memory (export "memory") 1 1 shared)
+          (func (export "wait")
+            call $started
+            i32.const 0
+            i32.const 0
+            i64.const -1
+            memory.atomic.wait32
+            drop))"#;
+
+    for _ in 0..ITERATIONS {
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (control_tx, control_rx) = std::sync::mpsc::channel();
+        let (result_tx, result_rx) = std::sync::mpsc::channel();
+        let worker = thread::spawn(move || {
+            let result = (|| -> Result<Result<(), RuntimeError>> {
+                let mut store = Store::default();
+                let interrupter = store.interrupter();
+                let module = Module::new(&store, WAT)?;
+                let started_tx = Mutex::new(Some(started_tx));
+                let started = Function::new_typed(&mut store, move || {
+                    started_tx.lock().unwrap().take().unwrap().send(()).unwrap();
+                });
+                let instance = Instance::new(
+                    &mut store,
+                    &module,
+                    &imports! { "test" => { "started" => started } },
+                )?;
+                let memory = instance
+                    .exports
+                    .get_memory("memory")?
+                    .as_shared(&store)
+                    .unwrap();
+                let wait = instance
+                    .exports
+                    .get_typed_function::<(), ()>(&store, "wait")?;
+                control_tx.send((interrupter, memory)).unwrap();
+                Ok(wait.call(&mut store))
+            })();
+            result_tx.send(result).unwrap();
+        });
+
+        let (interrupter, memory) = control_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let race = Arc::new(Barrier::new(2));
+        let disable = thread::spawn({
+            let race = race.clone();
+            move || {
+                race.wait();
+                memory.disable_atomics().unwrap();
+            }
+        });
+        race.wait();
+        interrupter.interrupt();
+        disable.join().unwrap();
+
+        let result = result_rx.recv_timeout(Duration::from_secs(5)).unwrap()?;
+        worker.join().unwrap();
+        let result = result.unwrap_err();
+        assert_eq!(result.to_trap(), Some(TrapCode::HostInterrupt));
+    }
+
+    // Module registration takes FRAME_INFO's write side. Reaching this point
+    // repeatedly proves that no interrupted backtrace retained its global lock.
+    let store = Store::default();
+    Module::new(&store, INFINITE_LOOP_WAT)?;
+    Ok(())
+}
+
+#[test]
+fn interrupting_one_store_does_not_notify_another_atomic_waiter() -> Result<()> {
+    const WAT: &str = r#"
+        (module
+          (import "test" "started" (func $started))
+          (import "test" "memory" (memory 1 1 shared))
+          (func (export "wait")
+            call $started
+            i32.const 0
+            i32.const 0
+            i64.const -1
+            memory.atomic.wait32
+            drop))"#;
+
+    let mut owner = Store::default();
+    let memory = Memory::new(&mut owner, MemoryType::new(1, Some(1), true))?
+        .as_shared(&owner)
+        .unwrap();
+
+    let spawn_waiter = |memory: wasmer::SharedMemory| {
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (control_tx, control_rx) = std::sync::mpsc::channel();
+        let (result_tx, result_rx) = std::sync::mpsc::channel();
+        let worker = thread::spawn(move || {
+            let result = (|| -> Result<Result<(), RuntimeError>> {
+                let mut store = Store::default();
+                let interrupter = store.interrupter();
+                let module = Module::new(&store, WAT)?;
+                let attached = memory.attach(&mut store);
+                let started_tx = Mutex::new(Some(started_tx));
+                let started = Function::new_typed(&mut store, move || {
+                    started_tx.lock().unwrap().take().unwrap().send(()).unwrap();
+                });
+                let instance = Instance::new(
+                    &mut store,
+                    &module,
+                    &imports! { "test" => { "started" => started, "memory" => attached } },
+                )?;
+                let wait = instance
+                    .exports
+                    .get_typed_function::<(), ()>(&store, "wait")?;
+                control_tx.send(interrupter).unwrap();
+                Ok(wait.call(&mut store))
+            })();
+            result_tx.send(result).unwrap();
+        });
+        (started_rx, control_rx, result_rx, worker)
+    };
+
+    let (started_a, control_a, result_a, worker_a) = spawn_waiter(memory.clone());
+    let (started_b, _control_b, result_b, worker_b) = spawn_waiter(memory.clone());
+    let interrupter_a = control_a.recv_timeout(Duration::from_secs(5)).unwrap();
+    started_a.recv_timeout(Duration::from_secs(5)).unwrap();
+    started_b.recv_timeout(Duration::from_secs(5)).unwrap();
+
+    interrupter_a.interrupt();
+    let interrupted = result_a.recv_timeout(Duration::from_secs(5)).unwrap()?;
+    assert_eq!(
+        interrupted.unwrap_err().to_trap(),
+        Some(TrapCode::HostInterrupt)
+    );
+    assert!(result_b.recv_timeout(Duration::from_millis(100)).is_err());
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        if memory.notify(MemoryLocation::new_32(0), 1)? == 1 {
+            break;
+        }
+        assert!(std::time::Instant::now() < deadline);
+        thread::yield_now();
+    }
+    result_b.recv_timeout(Duration::from_secs(5)).unwrap()??;
+    worker_a.join().unwrap();
+    worker_b.join().unwrap();
+    Ok(())
 }
 
 // TODO: update/fix this as we implement more of the feature

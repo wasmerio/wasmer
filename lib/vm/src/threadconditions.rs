@@ -1,15 +1,19 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use dashmap::DashMap;
 use fnv::FnvBuildHasher;
 use parking_lot::{Condvar, Mutex};
 use thiserror::Error;
+use wasmer_types::StoreId;
+
+#[cfg(feature = "experimental-host-interrupt")]
+use crate::interrupt_registry::{self, InterruptWaitWaker};
 
 /// Error that can occur during wait/notify calls.
 // Non-exhaustive to allow for future variants without breaking changes!
@@ -22,6 +26,41 @@ pub enum WaiterError {
     TooManyWaiters,
     /// Atomic operations are disabled.
     AtomicsDisabled,
+    /// The store executing this wait was interrupted by its host.
+    Interrupted,
+}
+
+const WAITER_WAITING: u8 = 0;
+const WAITER_NOTIFIED: u8 = 1;
+#[cfg(feature = "experimental-host-interrupt")]
+const WAITER_INTERRUPTED: u8 = 2;
+
+#[derive(Debug, Default)]
+struct AtomicWaiter {
+    condvar: Condvar,
+    outcome: AtomicU8,
+}
+
+#[derive(Debug, Default)]
+struct WaitState {
+    waiters: Vec<Arc<AtomicWaiter>>,
+}
+
+#[cfg(feature = "experimental-host-interrupt")]
+struct AtomicWaitInterruptWaker {
+    state: Arc<Mutex<WaitState>>,
+    waiter: Arc<AtomicWaiter>,
+}
+
+#[cfg(feature = "experimental-host-interrupt")]
+impl InterruptWaitWaker for AtomicWaitInterruptWaker {
+    fn wake(&self) {
+        self.waiter
+            .outcome
+            .store(WAITER_INTERRUPTED, Ordering::Release);
+        let _guard = self.state.lock();
+        self.waiter.condvar.notify_one();
+    }
 }
 
 impl std::fmt::Display for WaiterError {
@@ -62,7 +101,7 @@ struct NotifyMap {
     // know when there are no more waiters so we can clean up the map entry.
     // note that using a Weak here would be insufficient since it can't
     // clean up the map entries for us, only the mutexes/condvars.
-    map: DashMap<u32, Arc<(Mutex<u32>, Condvar)>, FnvBuildHasher>,
+    map: DashMap<u32, Arc<Mutex<WaitState>>, FnvBuildHasher>,
 }
 
 /// HashMap of Waiters for the Thread/Notify opcodes
@@ -109,7 +148,36 @@ impl ThreadConditions {
     ) -> Result<u32, WaiterError> {
         // The hook is optimized away outside tests. It lets the regression test
         // deterministically close the memory after the fast check below.
-        unsafe { self.do_wait_with_registration_hook(dst, expected, timeout, || {}) }
+        unsafe { self.do_wait_with_registration_hook(dst, expected, timeout, None, || {}, || {}) }
+    }
+
+    /// Wait while participating in a running store invocation.
+    ///
+    /// A store interrupt wakes this wait cooperatively so the native
+    /// synchronization can run on the host stack without abandoning Rust lock
+    /// guards from the signal handler.
+    ///
+    /// # Safety
+    ///
+    /// The destination must satisfy the same validity and alignment
+    /// requirements as [`Self::do_wait`].
+    pub unsafe fn do_wait_interruptible(
+        &mut self,
+        dst: NotifyLocation,
+        expected: ExpectedValue,
+        timeout: Option<Duration>,
+        store_id: StoreId,
+    ) -> Result<u32, WaiterError> {
+        unsafe {
+            self.do_wait_with_registration_hook(
+                dst,
+                expected,
+                timeout,
+                Some(store_id),
+                || {},
+                || {},
+            )
+        }
     }
 
     unsafe fn do_wait_with_registration_hook(
@@ -117,7 +185,9 @@ impl ThreadConditions {
         dst: NotifyLocation,
         expected: ExpectedValue,
         timeout: Option<Duration>,
+        _store_id: Option<StoreId>,
         before_registration: impl FnOnce(),
+        after_interrupt_registration: impl FnOnce(),
     ) -> Result<u32, WaiterError> {
         if self.inner.closed.load(std::sync::atomic::Ordering::Acquire) {
             return Err(WaiterError::AtomicsDisabled);
@@ -137,7 +207,7 @@ impl ThreadConditions {
 
         // Step 2: lock the mutex while still holding the map lock, so nobody
         // can delete the map key or make a new Arc
-        let mut mutex_guard = arc.0.lock();
+        let mut mutex_guard = arc.lock();
 
         // Step 3: unlock the map key, we don't need it anymore.
         drop(ref_mut);
@@ -166,37 +236,89 @@ impl ThreadConditions {
             },
         };
 
+        // Register while holding the address mutex. An interrupt either sees
+        // the registration and wakes after condvar wait atomically releases
+        // this mutex, or marks the store interrupted before registration and
+        // makes us skip the wait. This closes the usual lost-wakeup window.
+        let waiter = Arc::new(AtomicWaiter::default());
+        if should_sleep {
+            mutex_guard.waiters.push(waiter.clone());
+        }
+        #[cfg(feature = "experimental-host-interrupt")]
+        let mut interrupted_before_wait = false;
+        #[cfg(feature = "experimental-host-interrupt")]
+        let interrupt_guard = if should_sleep {
+            _store_id.and_then(|store_id| {
+                let guard = interrupt_registry::register_wait(
+                    store_id,
+                    Arc::new(AtomicWaitInterruptWaker {
+                        state: arc.clone(),
+                        waiter: waiter.clone(),
+                    }),
+                );
+                interrupted_before_wait = guard.is_none();
+                guard
+            })
+        } else {
+            None
+        };
+        #[cfg(not(feature = "experimental-host-interrupt"))]
+        let interrupted_before_wait = false;
+        #[cfg(not(feature = "experimental-host-interrupt"))]
+        let interrupt_guard: Option<()> = None;
+
+        after_interrupt_registration();
+
         // Closing and walking the map can finish between the fast check and
         // insertion above. Recheck under the address mutex: either shutdown
         // already happened, or its notifier must acquire this mutex after the
         // condvar has atomically registered the waiter and released the lock.
-        let ret = if self.inner.closed.load(Ordering::Acquire) {
+        let ret = if interrupted_before_wait {
+            Err(WaiterError::Interrupted)
+        } else if self.inner.closed.load(Ordering::Acquire) {
             Err(WaiterError::AtomicsDisabled)
         } else if should_sleep {
-            *mutex_guard += 1;
+            let deadline = timeout.and_then(|timeout| Instant::now().checked_add(timeout));
+            loop {
+                #[cfg(feature = "experimental-host-interrupt")]
+                let interrupted = waiter.outcome.load(Ordering::Acquire) == WAITER_INTERRUPTED
+                    || _store_id.is_some_and(interrupt_registry::is_interrupted);
+                #[cfg(not(feature = "experimental-host-interrupt"))]
+                let interrupted = false;
 
-            let ret = if let Some(timeout) = timeout {
-                let timeout = arc.1.wait_for(&mut mutex_guard, timeout);
-                if timeout.timed_out() {
-                    2 // timeout
-                } else {
-                    0 // notified
+                if interrupted {
+                    break Err(WaiterError::Interrupted);
                 }
-            } else {
-                arc.1.wait(&mut mutex_guard);
-                0
-            };
+                if self.inner.closed.load(Ordering::Acquire) {
+                    break Err(WaiterError::AtomicsDisabled);
+                }
+                if waiter.outcome.load(Ordering::Acquire) == WAITER_NOTIFIED {
+                    break Ok(0);
+                }
 
-            *mutex_guard -= 1;
-
-            if self.inner.closed.load(Ordering::Acquire) {
-                Err(WaiterError::AtomicsDisabled)
-            } else {
-                Ok(ret)
+                if let Some(deadline) = deadline {
+                    if Instant::now() >= deadline {
+                        break Ok(2);
+                    }
+                    waiter.condvar.wait_until(&mut mutex_guard, deadline);
+                } else {
+                    waiter.condvar.wait(&mut mutex_guard);
+                }
             }
         } else {
             Ok(1) // value mismatch
         };
+
+        #[cfg(feature = "experimental-host-interrupt")]
+        drop(interrupt_guard);
+        #[cfg(not(feature = "experimental-host-interrupt"))]
+        let _ = interrupt_guard;
+
+        if should_sleep {
+            mutex_guard
+                .waiters
+                .retain(|registered| !Arc::ptr_eq(registered, &waiter));
+        }
 
         {
             // Note we use two sets of locks; one for the map itself, and one per
@@ -210,9 +332,9 @@ impl ThreadConditions {
             if let dashmap::Entry::Occupied(occupied) = entry {
                 // ... then lock the mutex.
                 let arc = occupied.get().clone();
-                let mutex_guard = arc.0.lock();
+                let mutex_guard = arc.lock();
 
-                if *mutex_guard == 0 {
+                if mutex_guard.waiters.is_empty() {
                     // No more waiters, remove the map entry.
                     occupied.remove();
                 }
@@ -226,26 +348,50 @@ impl ThreadConditions {
     pub fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
         let mut count_token = 0u32;
         if let Some(v) = self.inner.map.get(&dst) {
-            let mutex_guard = v.0.lock();
-            for _ in 0..count {
-                if !v.1.notify_one() {
+            let state = v.lock();
+            for waiter in &state.waiters {
+                if count_token == count {
                     break;
                 }
-                count_token += 1;
+                if waiter
+                    .outcome
+                    .compare_exchange(
+                        WAITER_WAITING,
+                        WAITER_NOTIFIED,
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                    )
+                    .is_ok()
+                {
+                    waiter.condvar.notify_one();
+                    count_token += 1;
+                }
             }
-            drop(mutex_guard);
         }
         count_token
     }
 
-    /// Wake all the waiters, *without* marking them as notified.
+    /// Wake all waiters and let them resume as notified.
     ///
-    /// Useful on shutdown to resume execution in all waiters.
+    /// Shutdown marks the conditions closed before calling this, so shutdown
+    /// waiters still return [`WaiterError::AtomicsDisabled`].
     pub fn wake_all_atomic_waiters(&self) {
         for item in self.inner.map.iter_mut() {
-            let arc = item.value();
-            let _mutex_guard = arc.0.lock();
-            arc.1.notify_all();
+            let state = item.value().lock();
+            for waiter in &state.waiters {
+                if waiter
+                    .outcome
+                    .compare_exchange(
+                        WAITER_WAITING,
+                        WAITER_NOTIFIED,
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                    )
+                    .is_ok()
+                {
+                    waiter.condvar.notify_one();
+                }
+            }
         }
     }
 
@@ -308,7 +454,9 @@ mod tests {
                     },
                     ExpectedValue::None,
                     Some(Duration::from_secs(5)),
+                    None,
                     || closer.disable_atomics(),
+                    || {},
                 )
             };
             done_tx.send(result).unwrap();
@@ -323,6 +471,49 @@ mod tests {
         worker.join().unwrap();
         assert!(matches!(result.unwrap(), Err(WaiterError::AtomicsDisabled)));
         assert!(conditions.inner.map.is_empty());
+    }
+
+    #[cfg(feature = "experimental-host-interrupt")]
+    #[test]
+    fn store_interrupt_after_wait_registration_cannot_be_lost_before_park() {
+        crate::init_traps();
+        let mut conditions = ThreadConditions::new();
+        let store_id = StoreId::default();
+        let (registered_tx, registered_rx) = std::sync::mpsc::channel();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let _install = crate::interrupt_registry::install(store_id).unwrap();
+            let result = unsafe {
+                conditions.do_wait_with_registration_hook(
+                    NotifyLocation {
+                        address: 0,
+                        memory_base: std::ptr::null_mut(),
+                    },
+                    ExpectedValue::None,
+                    None,
+                    Some(store_id),
+                    || {},
+                    || {
+                        registered_tx.send(()).unwrap();
+                        while !crate::interrupt_registry::is_interrupted(store_id) {
+                            std::thread::yield_now();
+                        }
+                    },
+                )
+            };
+            done_tx.send(result).unwrap();
+        });
+
+        registered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        let interrupt = std::thread::spawn(move || {
+            crate::interrupt_registry::interrupt(store_id).unwrap();
+        });
+        assert!(matches!(
+            done_rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            Err(WaiterError::Interrupted)
+        ));
+        interrupt.join().unwrap();
+        worker.join().unwrap();
     }
 
     #[test]
@@ -349,7 +540,7 @@ mod tests {
                 .inner
                 .map
                 .get(&0)
-                .is_some_and(|entry| *entry.0.lock() == 1)
+                .is_some_and(|entry| entry.lock().waiters.len() == 1)
             {
                 break;
             }
@@ -368,6 +559,158 @@ mod tests {
         let mut conditions = ThreadConditions::new();
         let ret = conditions.do_notify(0, 1);
         assert_eq!(ret, 0);
+    }
+
+    #[test]
+    fn notification_cannot_be_consumed_by_a_late_waiter() {
+        fn spawn(
+            mut conditions: ThreadConditions,
+        ) -> (
+            std::sync::mpsc::Receiver<Result<u32, WaiterError>>,
+            std::thread::JoinHandle<()>,
+        ) {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let worker = std::thread::spawn(move || {
+                let result = unsafe {
+                    conditions.do_wait(
+                        NotifyLocation {
+                            address: 0,
+                            memory_base: std::ptr::null_mut(),
+                        },
+                        ExpectedValue::None,
+                        None,
+                    )
+                };
+                tx.send(result).unwrap();
+            });
+            (rx, worker)
+        }
+
+        let mut conditions = ThreadConditions::new();
+        let (first_rx, first) = spawn(conditions.clone());
+        while conditions
+            .inner
+            .map
+            .get(&0)
+            .is_none_or(|state| state.lock().waiters.len() != 1)
+        {
+            std::thread::yield_now();
+        }
+        assert_eq!(conditions.do_notify(0, 1), 1);
+
+        let (late_rx, late) = spawn(conditions.clone());
+        assert_eq!(
+            first_rx
+                .recv_timeout(Duration::from_secs(2))
+                .unwrap()
+                .unwrap(),
+            0
+        );
+        assert!(late_rx.recv_timeout(Duration::from_millis(50)).is_err());
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while conditions.do_notify(0, 1) == 0 {
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert_eq!(
+            late_rx
+                .recv_timeout(Duration::from_secs(2))
+                .unwrap()
+                .unwrap(),
+            0
+        );
+        first.join().unwrap();
+        late.join().unwrap();
+    }
+
+    #[cfg(feature = "experimental-host-interrupt")]
+    #[test]
+    fn targeted_interrupt_does_not_consume_another_waiters_notification() {
+        let conditions = ThreadConditions::new();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let mut workers = Vec::new();
+        for _ in 0..2 {
+            let mut waiter = conditions.clone();
+            let done_tx = done_tx.clone();
+            workers.push(std::thread::spawn(move || {
+                let result = unsafe {
+                    waiter.do_wait(
+                        NotifyLocation {
+                            address: 0,
+                            memory_base: std::ptr::null_mut(),
+                        },
+                        ExpectedValue::None,
+                        None,
+                    )
+                };
+                done_tx.send(result).unwrap();
+            }));
+        }
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let (state, interrupted_waiter) = loop {
+            if let Some(state) = conditions.inner.map.get(&0) {
+                let guard = state.lock();
+                if guard.waiters.len() == 2 {
+                    let state = Arc::clone(state.value());
+                    let waiter = guard.waiters[0].clone();
+                    drop(guard);
+                    break (state, waiter);
+                }
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        };
+        InterruptWaitWaker::wake(&AtomicWaitInterruptWaker {
+            state,
+            waiter: interrupted_waiter,
+        });
+        let mut notifier = conditions.clone();
+        assert_eq!(notifier.do_notify(0, 1), 1);
+
+        let first = done_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        let second = done_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(
+            matches!(&first, Err(WaiterError::Interrupted))
+                || matches!(&second, Err(WaiterError::Interrupted))
+        );
+        assert!(matches!(&first, Ok(0)) || matches!(&second, Ok(0)));
+        for worker in workers {
+            worker.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn overflowing_timeout_is_treated_as_unbounded() {
+        let mut conditions = ThreadConditions::new();
+        let mut waiter = conditions.clone();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let result = unsafe {
+                waiter.do_wait(
+                    NotifyLocation {
+                        address: 0,
+                        memory_base: std::ptr::null_mut(),
+                    },
+                    ExpectedValue::None,
+                    Some(Duration::MAX),
+                )
+            };
+            done_tx.send(result).unwrap();
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while conditions.do_notify(0, 1) == 0 {
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert_eq!(
+            done_rx
+                .recv_timeout(Duration::from_secs(2))
+                .unwrap()
+                .unwrap(),
+            0
+        );
+        worker.join().unwrap();
     }
 
     #[test]

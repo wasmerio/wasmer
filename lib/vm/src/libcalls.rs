@@ -730,14 +730,18 @@ pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u
 /// The vmctx pointer must be dereferenceable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn wasmer_vm_alloc_exception(vmctx: *mut VMContext, tag: u32) -> u32 {
-    let instance = unsafe { (*vmctx).instance_mut() };
-    let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
-    let exn = VMExceptionObj::new_zeroed(
-        instance.context(),
-        InternalStoreHandle::from_index(unique_tag as usize).unwrap(),
-    );
-    let exnref = InternalStoreHandle::new(instance.context_mut(), exn);
-    exnref.index() as u32
+    unsafe {
+        on_host_stack(|| {
+            let instance = (*vmctx).instance_mut();
+            let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
+            let exn = VMExceptionObj::new_zeroed(
+                instance.context(),
+                InternalStoreHandle::from_index(unique_tag as usize).unwrap(),
+            );
+            let exnref = InternalStoreHandle::new(instance.context_mut(), exn);
+            exnref.index() as u32
+        })
+    }
 }
 
 /// Given a VMContext and an exnref (handle to an exception within the store),
@@ -789,12 +793,12 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait32(
     timeout: i64,
 ) -> u32 {
     unsafe {
-        let result = {
+        let result = on_host_stack(|| {
             let instance = (*vmctx).instance_mut();
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
             instance.local_memory_wait32(memory_index, dst, val, timeout)
-        };
+        });
         if let Err(trap) = result {
             raise_lib_trap(trap);
         }
@@ -816,12 +820,12 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait32(
     timeout: i64,
 ) -> u32 {
     unsafe {
-        let result = {
+        let result = on_host_stack(|| {
             let instance = (*vmctx).instance_mut();
             let memory_index = MemoryIndex::from_u32(memory_index);
 
             instance.imported_memory_wait32(memory_index, dst, val, timeout)
-        };
+        });
         if let Err(trap) = result {
             raise_lib_trap(trap);
         }
@@ -843,12 +847,12 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait64(
     timeout: i64,
 ) -> u32 {
     unsafe {
-        let result = {
+        let result = on_host_stack(|| {
             let instance = (*vmctx).instance_mut();
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
             instance.local_memory_wait64(memory_index, dst, val, timeout)
-        };
+        });
         if let Err(trap) = result {
             raise_lib_trap(trap);
         }
@@ -870,12 +874,12 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait64(
     timeout: i64,
 ) -> u32 {
     unsafe {
-        let result = {
+        let result = on_host_stack(|| {
             let instance = (*vmctx).instance_mut();
             let memory_index = MemoryIndex::from_u32(memory_index);
 
             instance.imported_memory_wait64(memory_index, dst, val, timeout)
-        };
+        });
         if let Err(trap) = result {
             raise_lib_trap(trap);
         }
@@ -896,12 +900,12 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
     cnt: u32,
 ) -> u32 {
     unsafe {
-        let result = {
+        let result = on_host_stack(|| {
             let instance = (*vmctx).instance_mut();
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
             instance.local_memory_notify(memory_index, dst, cnt)
-        };
+        });
         if let Err(trap) = result {
             raise_lib_trap(trap);
         }
@@ -922,12 +926,12 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
     cnt: u32,
 ) -> u32 {
     unsafe {
-        let result = {
+        let result = on_host_stack(|| {
             let instance = (*vmctx).instance_mut();
             let memory_index = MemoryIndex::from_u32(memory_index);
 
             instance.imported_memory_notify(memory_index, dst, cnt)
-        };
+        });
         if let Err(trap) = result {
             raise_lib_trap(trap);
         }

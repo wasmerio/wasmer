@@ -63,7 +63,7 @@ macro_rules! impl_native_traits {
                 let interrupt_guard = match interrupt_registry::install(store_id) {
                     Ok(x) => x,
                     Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                        return Err(Trap::lib(TrapCode::HostInterrupt).into());
+                        return Err(Trap::host_interrupt().into());
                     }
                 };
 
@@ -200,7 +200,7 @@ macro_rules! impl_native_traits {
                 let interrupt_guard = match interrupt_registry::install(store_id) {
                     Ok(x) => x,
                     Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                        return Err(Trap::lib(TrapCode::HostInterrupt).into());
+                        return Err(Trap::host_interrupt().into());
                     }
                 };
 

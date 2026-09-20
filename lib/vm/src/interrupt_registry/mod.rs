@@ -7,6 +7,8 @@
 
 // TODO: Windows support
 
+use std::sync::Arc;
+
 use thiserror::Error;
 use wasmer_types::StoreId;
 
@@ -38,6 +40,27 @@ pub enum InterruptError {
     OtherInterruptInProgress,
     #[error("Failed to send interrupt signal due to OS error: {0}")]
     FailedToSendSignal(&'static str),
+}
+
+/// Wakes native work that has temporarily moved off the Wasm stack.
+///
+/// Store interrupts normally redirect the Wasm coroutine from the signal
+/// handler. Native waits cannot be redirected safely because doing so would
+/// skip Rust destructors and leave any held locks permanently acquired.
+pub(crate) trait InterruptWaitWaker: Send + Sync {
+    fn wake(&self);
+}
+
+/// Removes a native interrupt waiter when the wait completes.
+pub(crate) struct InterruptWaitGuard {
+    store_id: StoreId,
+    waker: Arc<dyn InterruptWaitWaker>,
+}
+
+impl Drop for InterruptWaitGuard {
+    fn drop(&mut self) {
+        unregister_wait(self.store_id, &self.waker);
+    }
 }
 
 /// Uninstalls interrupt state when dropped

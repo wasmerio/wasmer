@@ -519,7 +519,7 @@ impl Function {
             let interrupt_guard = match interrupt_registry::install(store_id) {
                 Ok(x) => x,
                 Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                    return Err(Trap::lib(TrapCode::HostInterrupt).into());
+                    return Err(Trap::host_interrupt().into());
                 }
             };
 
@@ -871,7 +871,7 @@ where
                 let mut store = store_wrapper.as_mut().unwrap();
                 #[cfg(feature = "experimental-host-interrupt")]
                 if interrupt_registry::is_interrupted(store.objects.id()) {
-                    raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
+                    raise_lib_trap(Trap::host_interrupt())
                 }
             },
             Ok(InvocationResult::Exception(exception)) => unsafe {
@@ -883,7 +883,7 @@ where
                 let mut store = store_wrapper.as_mut().unwrap();
                 #[cfg(feature = "experimental-host-interrupt")]
                 if interrupt_registry::is_interrupted(store.objects.id()) {
-                    raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
+                    raise_lib_trap(Trap::host_interrupt())
                 }
                 wasmer_vm::libcalls::throw(
                     store.objects.as_sys(),
@@ -998,7 +998,7 @@ macro_rules! impl_host_function {
                         let mut store = store_wrapper.as_mut().unwrap();
                         #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
+                            raise_lib_trap(Trap::host_interrupt())
                         }
                         return result.into_c_struct(store);
                     },
@@ -1011,7 +1011,7 @@ macro_rules! impl_host_function {
                         let mut store = store_wrapper.as_mut().unwrap();
                         #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
+                            raise_lib_trap(Trap::host_interrupt())
                         }
                         wasmer_vm::libcalls::throw(
                             store.objects.as_sys(),
@@ -1102,7 +1102,7 @@ macro_rules! impl_host_function {
                         let mut store = store_wrapper.as_mut().unwrap();
                         #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
+                            raise_lib_trap(Trap::host_interrupt())
                         }
                         return result.into_c_struct(store);
                     },
@@ -1115,7 +1115,7 @@ macro_rules! impl_host_function {
                         let mut store = store_wrapper.as_mut().unwrap();
                         #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
+                            raise_lib_trap(Trap::host_interrupt())
                         }
                         wasmer_vm::libcalls::throw(
                             store.objects.as_sys(),

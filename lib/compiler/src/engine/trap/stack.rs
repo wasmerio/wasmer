@@ -10,6 +10,23 @@ use wasmer_vm::Trap;
 
 /// Given a `Trap`, this function returns the Wasm trace and the trap code.
 pub fn get_trace_and_trapcode(trap: &Trap) -> (Vec<FrameInfo>, Option<TrapCode>) {
+    // Host interrupts are synthetic control-plane events. They deliberately
+    // carry no backtrace and, crucially, must not wait on FRAME_INFO: module
+    // registration may be occurring concurrently while shutdown is draining
+    // guests.
+    if matches!(
+        trap,
+        Trap::Lib {
+            trap_code: TrapCode::HostInterrupt,
+            ..
+        } | Trap::Wasm {
+            signal_trap: Some(TrapCode::HostInterrupt),
+            ..
+        }
+    ) {
+        return (Vec::new(), Some(TrapCode::HostInterrupt));
+    }
+
     #[cfg(unix)]
     // If the exit is called, we can't access the back-trace information any longer (#5877)
     if EXIT_CALLED.load(Ordering::SeqCst) {
@@ -88,4 +105,30 @@ fn wasm_trace(
         })
         .filter_map(|pc| info.lookup_frame_info(pc))
         .collect::<Vec<_>>()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn host_interrupt_does_not_read_the_frame_registry() {
+        // Holding the write side here makes the invariant deterministic: a
+        // HostInterrupt must be classified before touching FRAME_INFO or this
+        // call would self-deadlock. Interrupts are synthetic control-plane
+        // events and intentionally have no guest trace.
+        let _frame_registry = FRAME_INFO.write().unwrap();
+        let (trace, code) = get_trace_and_trapcode(&Trap::host_interrupt());
+        assert!(trace.is_empty());
+        assert_eq!(code, Some(TrapCode::HostInterrupt));
+
+        let signal_interrupt = Trap::wasm(
+            0,
+            Backtrace::from(Vec::new()),
+            Some(TrapCode::HostInterrupt),
+        );
+        let (trace, code) = get_trace_and_trapcode(&signal_interrupt);
+        assert!(trace.is_empty());
+        assert_eq!(code, Some(TrapCode::HostInterrupt));
+    }
 }

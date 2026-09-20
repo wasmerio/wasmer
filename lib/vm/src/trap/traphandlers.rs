@@ -1037,7 +1037,10 @@ impl<T> TrapHandlerContextInner<T> {
             // read invalid memory addresses.
             //
             // See: https://github.com/rust-lang/backtrace-rs/pull/357
-            let backtrace = if signal_trap == Some(TrapCode::StackOverflow) {
+            let backtrace = if matches!(
+                signal_trap,
+                Some(TrapCode::StackOverflow | TrapCode::HostInterrupt)
+            ) {
                 Backtrace::from(vec![])
             } else {
                 Backtrace::new_unresolved()

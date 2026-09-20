@@ -6,6 +6,37 @@ use wasmer_types::TrapCode;
 
 use crate::{StoreObjects, VMExceptionRef};
 
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+fn without_host_interrupt<F: FnOnce() -> T, T>(f: F) -> T {
+    struct RestoreSignalMask(libc::sigset_t);
+
+    impl Drop for RestoreSignalMask {
+        fn drop(&mut self) {
+            let result =
+                unsafe { libc::pthread_sigmask(libc::SIG_SETMASK, &self.0, std::ptr::null_mut()) };
+            debug_assert_eq!(result, 0);
+        }
+    }
+
+    let restore = unsafe {
+        let mut blocked = std::mem::zeroed();
+        let mut previous = std::mem::zeroed();
+        libc::sigemptyset(&mut blocked);
+        libc::sigaddset(&mut blocked, libc::SIGUSR1);
+        let result = libc::pthread_sigmask(libc::SIG_BLOCK, &blocked, &mut previous);
+        assert_eq!(result, 0, "failed to defer the host-interrupt signal");
+        RestoreSignalMask(previous)
+    };
+    let result = f();
+    drop(restore);
+    result
+}
+
+#[cfg(not(all(unix, feature = "experimental-host-interrupt")))]
+fn without_host_interrupt<F: FnOnce() -> T, T>(f: F) -> T {
+    f()
+}
+
 /// Stores trace message with backtrace.
 #[derive(Debug)]
 pub enum Trap {
@@ -84,10 +115,27 @@ impl Trap {
     ///
     /// Internally saves a backtrace when constructed.
     pub fn lib(trap_code: TrapCode) -> Self {
-        let backtrace = Backtrace::new_unresolved();
+        // Trap construction can be reached from a libcall while the Wasm
+        // coroutine is active. Capturing a backtrace takes process-global
+        // locks, so defer SIGUSR1 until those lock guards have been dropped.
+        // Staying on the Wasm stack preserves the guest frames in the trace.
+        let backtrace = without_host_interrupt(Backtrace::new_unresolved);
         Self::Lib {
             trap_code,
             backtrace,
+        }
+    }
+
+    /// Construct a synthetic host-interrupt trap.
+    ///
+    /// An interrupt is control-plane state rather than a guest fault. Capturing
+    /// a native backtrace here is both unnecessary and unsafe: this constructor
+    /// can race the signal-based interrupt path while another backtrace owns
+    /// process-global unwinder locks.
+    pub fn host_interrupt() -> Self {
+        Self::Lib {
+            trap_code: TrapCode::HostInterrupt,
+            backtrace: Backtrace::from(Vec::new()),
         }
     }
 
@@ -168,6 +216,24 @@ impl fmt::Display for Trap {
             Self::OOM { .. } => write!(f, "Wasmer VM out of memory"),
             Self::UncaughtException { .. } => write!(f, "Uncaught wasm exception"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn host_interrupt_does_not_capture_a_native_backtrace() {
+        let Trap::Lib {
+            trap_code,
+            backtrace,
+        } = Trap::host_interrupt()
+        else {
+            unreachable!()
+        };
+        assert_eq!(trap_code, TrapCode::HostInterrupt);
+        assert!(backtrace.frames().is_empty());
     }
 }
 
