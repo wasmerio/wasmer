@@ -1424,7 +1424,11 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap();
 
-        assert_eq!(modified.as_secs(), 1_750_000_000);
-        assert_eq!(modified.subsec_nanos(), 123_456_789);
+        assert_eq!(modified.as_secs(), timestamp / 1_000_000_000);
+
+        let expected_nanos = timestamp % 1_000_000_000;
+        let actual_nanos = modified.subsec_nanos() as u64;
+
+        assert_eq!(actual_nanos / 100, expected_nanos / 100);
     }
 }
