@@ -24,6 +24,9 @@ env:
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
   S3_CACHE_VERSION: "3"
+  # Job containers do not inherit the runner pod env; keep equal to the aux pod value.
+  RUNS_ON_S3_BUCKET_CACHE: gha-cache-ci-aux-eu-west-3-public
+  RUNS_ON_AWS_REGION: eu-west-3
   DEV_BACKEND_CIUSER_TOKEN: ${{ secrets.DEV_BACKEND_CIUSER_TOKEN }}
 jobs:
   setup:
@@ -92,20 +95,16 @@ jobs:
           curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin $HOME/.local/bin/taplo
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
+        uses: runs-on/cache@v5
         with:
-          path: |
-            ~/.cargo/*
+          path: &cargo-cache-paths |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
             ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-lint-linux-x64
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-
       - run: make lint
         env:
           ENABLE_CRANELIFT: "1"
@@ -171,20 +170,12 @@ jobs:
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
+        uses: runs-on/cache@v5
         with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-js
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-js-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-js-
       - name: make test-js
         run: |
           make test-js
@@ -252,6 +243,14 @@ jobs:
         shell: bash
         run: rm /usr/bin/link.exe
         if: startsWith(matrix.metadata.build, 'windows-')
+      - name: Cache
+        if: startsWith(runner.name, 'aux-')
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.build-what.key }}-api-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.build-what.key }}-api-${{ matrix.metadata.build }}-
       - name: Lint ${{ matrix.build-what.key }}
         run: ${{ matrix.build-what.lint-cmd }}
       - name: Test V8 API
@@ -307,6 +306,13 @@ jobs:
           echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Cache
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-build-docs-rs-linux-x64-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-build-docs-rs-linux-x64-
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
   build_linux_riscv64:
@@ -335,6 +341,13 @@ jobs:
       #  with:
       #    toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
       #    target: riscv64gc-unknown-linux-gnu
+      - name: Cache
+        uses: runs-on/cache@v5
+        with:
+          path: ./target/*
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-linux-riscv64-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-linux-riscv64-
       - name: Build cross image
         run: |
           docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
@@ -544,10 +557,18 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
+        if: startsWith(runner.name, 'aux-')
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}-
+      - name: Cache (R2, non-aux runners)
+        if: ${{ !startsWith(runner.name, 'aux-') }}
         uses: whywaita/actions-cache-s3@v2
         with:
-          path: |
+          path: &r2-cache-paths |
             ~/.cargo/*
             ./target/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}
@@ -803,12 +824,18 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
+        if: startsWith(runner.name, 'aux-')
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-
+      - name: Cache (R2, non-aux runners)
+        if: ${{ !startsWith(runner.name, 'aux-') }}
         uses: whywaita/actions-cache-s3@v2
         with:
-          path: |
-            ~/.cargo/*
-            ./target/*
+          path: *r2-cache-paths
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
