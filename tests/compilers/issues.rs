@@ -1851,3 +1851,67 @@ fn table_mismatch_types(mut config: crate::Config) -> Result<()> {
 
     Ok(())
 }
+
+#[compiler_test(issues)]
+fn fixed_funcref_table_external_mutations(config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let owner = Module::new(
+        &store,
+        r#"(module
+            (type $ret (func (result i32)))
+            (table (export "table") 2 2 funcref)
+            (func $original (result i32) i32.const 1)
+            (elem (i32.const 0) $original $original)
+            (func (export "call") (param i32) (result i32)
+                local.get 0 call_indirect (type $ret)))"#,
+    )?;
+    let owner = Instance::new(&mut store, &owner, &imports! {})?;
+    let table = owner.exports.get_table("table")?.clone();
+    let call: TypedFunction<i32, i32> = owner.exports.get_typed_function(&store, "call")?;
+    assert_eq!(call.call(&mut store, 0)?, 1);
+
+    let replacement = Function::new_typed(&mut store, || 2i32);
+    table.set(&mut store, 0, Value::FuncRef(Some(replacement)))?;
+    assert_eq!(call.call(&mut store, 0)?, 2);
+    Table::copy(&mut store, &table, 1, &table, 0, 1)?;
+    assert_eq!(call.call(&mut store, 1)?, 2);
+    table.set(&mut store, 0, Value::FuncRef(None))?;
+    assert!(call.call(&mut store, 0).is_err());
+
+    let mutator = Module::new(
+        &store,
+        r#"(module
+            (import "env" "table" (table 2 2 funcref))
+            (func $replacement (result i32) i32.const 3)
+            (elem (i32.const 0) $replacement)
+            (elem $passive func $replacement)
+            (func (export "set")
+                i32.const 0 ref.func $replacement table.set 0)
+            (func (export "fill")
+                i32.const 0 ref.func $replacement i32.const 2 table.fill 0)
+            (func (export "copy")
+                i32.const 0 i32.const 1 i32.const 1 table.copy 0 0)
+            (func (export "init")
+                i32.const 0 i32.const 0 i32.const 1 table.init $passive))"#,
+    )?;
+    let mutator = Instance::new(
+        &mut store,
+        &mutator,
+        &imports! { "env" => { "table" => table.clone() } },
+    )?;
+    // Active element initialization through an import updates the owner's cache too.
+    assert_eq!(call.call(&mut store, 0)?, 3);
+    for operation in ["set", "fill", "copy", "init"] {
+        table.set(&mut store, 0, Value::FuncRef(None))?;
+        assert!(call.call(&mut store, 0).is_err());
+        let mutate: TypedFunction<(), ()> =
+            mutator.exports.get_typed_function(&store, operation)?;
+        mutate.call(&mut store)?;
+        assert_eq!(call.call(&mut store, 0)?, 3, "{operation}");
+    }
+    Ok(())
+}

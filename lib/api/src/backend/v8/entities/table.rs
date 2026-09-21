@@ -187,7 +187,9 @@ impl Table {
         _src_index: u32,
         _len: u32,
     ) -> Result<(), RuntimeError> {
-        unimplemented!("Copying tables is currently not implemented!")
+        Err(RuntimeError::new(
+            "Could Copying tables is currently not implemented",
+        ))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTable) -> Self {
