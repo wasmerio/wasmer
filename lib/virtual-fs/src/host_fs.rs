@@ -445,8 +445,14 @@ impl VirtualFile for File {
     }
 
     fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
-        let atime = atime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
-        let mtime = mtime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+        let to_filetime = |t: u64| {
+            let secs = (t / 1_000_000_000) as i64;
+            let nanos = (t % 1_000_000_000) as u32;
+            filetime::FileTime::from_unix_time(secs, nanos)
+        };
+
+        let atime = atime.map(to_filetime);
+        let mtime = mtime.map(to_filetime);
 
         filetime::set_file_handle_times(&self.inner_std, atime, mtime)
             .map_err(|_| crate::FsError::IOError)
@@ -1386,5 +1392,39 @@ mod tests {
         if let Some(s) = readdir.next() {
             panic!("next: {s:?}");
         }
+    }
+
+    #[tokio::test]
+    async fn test_set_times() {
+        use std::time::UNIX_EPOCH;
+
+        let temp = TempDir::new().unwrap();
+        let file_path = temp.path().join("foo.txt");
+
+        std::fs::write(&file_path, b"").unwrap();
+
+        let fs = FileSystem::new(Handle::current(), temp.path()).unwrap();
+
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .open(Path::new("/foo.txt"))
+            .unwrap();
+
+        let timestamp = 1_750_000_000_123_456_789u64;
+
+        file.set_times(Some(timestamp), Some(timestamp)).unwrap();
+
+        let metadata = std::fs::metadata(&file_path).unwrap();
+
+        let modified = metadata
+            .modified()
+            .unwrap()
+            .duration_since(UNIX_EPOCH)
+            .unwrap();
+
+        assert_eq!(modified.as_secs(), 1_750_000_000);
+        assert_eq!(modified.subsec_nanos(), 123_456_789);
     }
 }
