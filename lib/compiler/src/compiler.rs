@@ -458,13 +458,15 @@ fn emit_wasmer_meta_object(
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         crate::WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
-        SectionKind::Other,
+        SectionKind::ReadOnlyData,
     );
     obj.append_section_data(section_id, compile_info_blob, 8);
-    obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_type: elf::SHT_PROGBITS,
-        sh_flags: elf::SHF_GNU_RETAIN,
-    };
+    if obj.format() == object::BinaryFormat::Elf {
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_type: elf::SHT_PROGBITS,
+            sh_flags: elf::SHF_GNU_RETAIN,
+        };
+    }
 
     // Emit zero sentinel for the .eh_frame section.
     let section_id = obj.add_section(
@@ -478,12 +480,14 @@ fn emit_wasmer_meta_object(
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
-        SectionKind::Other,
+        SectionKind::ReadOnlyDataWithRel,
     );
-    obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_type: elf::SHT_PROGBITS,
-        sh_flags: elf::SHF_GNU_RETAIN,
-    };
+    if obj.format() == object::BinaryFormat::Elf {
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_type: elf::SHT_PROGBITS,
+            sh_flags: elf::SHF_GNU_RETAIN,
+        };
+    }
     let pointer_size = target
         .triple()
         .pointer_width()
@@ -547,12 +551,14 @@ fn emit_wasmer_meta_object(
     let trap_fn_offsets_section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
-        SectionKind::Other,
+        SectionKind::ReadOnlyDataWithRel,
     );
-    obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
-        sh_type: elf::SHT_PROGBITS,
-        sh_flags: elf::SHF_GNU_RETAIN,
-    };
+    if obj.format() == object::BinaryFormat::Elf {
+        obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
+            sh_type: elf::SHT_PROGBITS,
+            sh_flags: elf::SHF_GNU_RETAIN,
+        };
+    }
     for traps_name in (0..compiled_objects.object_files.len())
         .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
     {
@@ -717,13 +723,15 @@ pub fn emit_metadata_and_link(
         let fs = InMemoryFileSystem::default();
         let mut link_args = vec![
             "ld".to_string(),
+            "-flavor".to_string(),
+            "darwin".to_string(),
             // Allow resolution of the public symbols directly without PLT entries!
-            "-Bsymbolic".to_string(),
-            "-shared".to_string(),
-            "-z".to_string(),
-            "now".to_string(),
-            "-z".to_string(),
-            "relro".to_string(),
+            // "-Bsymbolic".to_string(),
+            // "-shared".to_string(),
+            // "-z".to_string(),
+            // "now".to_string(),
+            // "-z".to_string(),
+            // "relro".to_string(),
             "-o".to_string(),
             WASMER_IMAGE_FILENAME.to_string(),
         ];
