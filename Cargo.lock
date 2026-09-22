@@ -7853,6 +7853,7 @@ dependencies = [
  "itertools 0.15.0",
  "loupe",
  "more-asserts",
+ "num_enum",
  "rkyv",
  "serde",
  "serde_bytes",

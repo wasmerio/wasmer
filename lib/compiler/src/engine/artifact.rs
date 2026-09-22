@@ -1939,8 +1939,7 @@ impl TrapReader {
             .map(|record| {
                 let code_offset = u32::from_le_bytes(record[..WORD_SIZE].try_into().ok()?);
                 let code = u32::from_le_bytes(record[WORD_SIZE..].try_into().ok()?);
-                // SAFETY: the trap sections is emitted by us
-                let trap_code = unsafe { std::mem::transmute::<u32, TrapCode>(code) };
+                let trap_code = TrapCode::try_from(code).ok()?;
                 Some(TrapInformation {
                     code_offset,
                     trap_code,
