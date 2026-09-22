@@ -10,7 +10,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasmer-package.workspace = true
+wasmer-package = { workspace = true, features = ["execution", "webc-v3"] }
 virtual-mio = { path = "../virtual-io", version = "0.704.0", default-features = false }
 dashmap.workspace = true
 derive_more.workspace = true
@@ -59,7 +59,7 @@ host-fs = [
   "tokio/io-std",
   "tokio/rt",
 ]
-webc-fs = ["webc"]
+webc-fs = ["webc", "webc/v3"]
 # Deprecated feature (a compile-time warning reported if used).
 enable-serde = []
 static-fs = []

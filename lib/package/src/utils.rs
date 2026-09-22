@@ -3,16 +3,22 @@
     reason = "WasmerPackageError is large, but not often used"
 )]
 
-use bytes::{Buf, Bytes};
+#[cfg(feature = "authoring")]
+use bytes::Buf;
+use bytes::Bytes;
+#[cfg(feature = "authoring")]
+use std::io::{BufRead, BufReader};
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Read, Seek},
+    io::{Read, Seek},
     path::Path,
 };
 use wasmer_types::Features;
 use webc::{Container, ContainerError, Version};
 
-use crate::package::{Package, WasmerPackageError};
+use crate::WasmerPackageError;
+#[cfg(feature = "authoring")]
+use crate::package::Package;
 
 /// Check if something looks like a `*.tar.gz` file.
 fn is_tarball(mut file: impl Read + Seek) -> bool {
@@ -35,7 +41,13 @@ pub fn from_disk(path: impl AsRef<Path>) -> Result<Container, WasmerPackageError
     let path = path.as_ref();
 
     if path.is_dir() {
+        #[cfg(feature = "authoring")]
         return parse_dir(path);
+        #[cfg(not(feature = "authoring"))]
+        return Err(ContainerError::FeatureNotEnabled {
+            feature: "authoring",
+        }
+        .into());
     }
 
     let mut f = File::open(path).map_err(|error| ContainerError::Open {
@@ -44,7 +56,13 @@ pub fn from_disk(path: impl AsRef<Path>) -> Result<Container, WasmerPackageError
     })?;
 
     if is_tarball(&mut f) {
+        #[cfg(feature = "authoring")]
         return parse_tarball(BufReader::new(f));
+        #[cfg(not(feature = "authoring"))]
+        return Err(ContainerError::FeatureNotEnabled {
+            feature: "authoring",
+        }
+        .into());
     }
 
     match webc::detect(&mut f) {
@@ -75,7 +93,13 @@ pub fn from_bytes(bytes: impl Into<Bytes>) -> Result<Container, WasmerPackageErr
     let bytes: Bytes = bytes.into();
 
     if is_tarball(std::io::Cursor::new(&bytes)) {
+        #[cfg(feature = "authoring")]
         return parse_tarball(bytes.reader());
+        #[cfg(not(feature = "authoring"))]
+        return Err(ContainerError::FeatureNotEnabled {
+            feature: "authoring",
+        }
+        .into());
     }
 
     let version = webc::detect(bytes.as_ref())?;
@@ -83,12 +107,14 @@ pub fn from_bytes(bytes: impl Into<Bytes>) -> Result<Container, WasmerPackageErr
 }
 
 #[allow(clippy::result_large_err)]
+#[cfg(feature = "authoring")]
 fn parse_tarball(reader: impl BufRead) -> Result<Container, WasmerPackageError> {
     let pkg = Package::from_tarball(reader)?;
     Ok(Container::new(pkg))
 }
 
 #[allow(clippy::result_large_err)]
+#[cfg(feature = "authoring")]
 fn parse_dir(path: &Path) -> Result<Container, WasmerPackageError> {
     let wasmer_toml = path.join("wasmer.toml");
     let pkg = Package::from_manifest(wasmer_toml)?;
@@ -96,6 +122,7 @@ fn parse_dir(path: &Path) -> Result<Container, WasmerPackageError> {
 }
 
 #[allow(clippy::result_large_err)]
+#[cfg(feature = "webc-v2")]
 fn parse_v2_mmap(f: File) -> Result<Container, ContainerError> {
     // Note: OwnedReader::from_file() will automatically try to
     // use a memory-mapped file when possible.
@@ -104,11 +131,24 @@ fn parse_v2_mmap(f: File) -> Result<Container, ContainerError> {
 }
 
 #[allow(clippy::result_large_err)]
+#[cfg(not(feature = "webc-v2"))]
+fn parse_v2_mmap(_f: File) -> Result<Container, ContainerError> {
+    Err(ContainerError::FeatureNotEnabled { feature: "v2" })
+}
+
+#[allow(clippy::result_large_err)]
+#[cfg(feature = "webc-v3")]
 fn parse_v3_mmap(f: File) -> Result<Container, ContainerError> {
     // Note: OwnedReader::from_file() will automatically try to
     // use a memory-mapped file when possible.
     let webc = webc::v3::read::OwnedReader::from_file(f)?;
     Ok(Container::new(webc))
+}
+
+#[allow(clippy::result_large_err)]
+#[cfg(not(feature = "webc-v3"))]
+fn parse_v3_mmap(_f: File) -> Result<Container, ContainerError> {
+    Err(ContainerError::FeatureNotEnabled { feature: "v3" })
 }
 
 /// Convert a `Features` object to a list of WebAssembly feature strings
@@ -216,4 +256,34 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
     }
 
     features
+}
+
+#[cfg(all(test, not(feature = "webc-v1"), not(feature = "webc-v2")))]
+mod modern_webc_tests {
+    use super::from_bytes;
+
+    #[test]
+    fn rejects_legacy_versions() {
+        assert!(from_bytes(b"\0webc001".to_vec()).is_err());
+        assert!(from_bytes(b"\0webc002".to_vec()).is_err());
+    }
+}
+
+#[cfg(all(test, feature = "execution", not(feature = "authoring")))]
+mod execution_only_tests {
+    use webc::ContainerError;
+
+    use super::from_bytes;
+    use crate::WasmerPackageError;
+
+    #[test]
+    fn rejects_authoring_formats() {
+        let error = from_bytes(vec![0x1f, 0x8b]).unwrap_err();
+        assert!(matches!(
+            error,
+            WasmerPackageError::ContainerError(ContainerError::FeatureNotEnabled {
+                feature: "authoring"
+            })
+        ));
+    }
 }
