@@ -821,9 +821,11 @@ impl Artifact {
         module_info: &ModuleInfo,
         path: &Path,
     ) -> Result<AllocatedArtifact, DeserializeError> {
+        use std::sync::Mutex;
+
         let file = File::open(path)?;
         let fd = file.as_raw_fd();
-        let debug_file = Arc::new(file.try_clone()?);
+        let debug_file = file.try_clone()?;
         let cache = ReadCache::new(BufReader::new(file));
         let image = object::File::parse(&cache)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
@@ -842,7 +844,7 @@ impl Artifact {
             module_info,
             &image,
             base,
-            DebugInfoSource::File(debug_file),
+            DebugInfoSource::File(Arc::new(Mutex::new(debug_file))),
         )
     }
 
@@ -1888,6 +1890,7 @@ impl TrapReader {
                 Self::lookup_in_image(&image, local_index, rel_pos)
             }
             DebugInfoSource::File(file) => {
+                let file = file.lock().unwrap();
                 let cache = ReadCache::new(BufReader::new(file.try_clone().ok()?));
                 let image = object::File::parse(&cache).ok()?;
                 Self::lookup_in_image(&image, local_index, rel_pos)
