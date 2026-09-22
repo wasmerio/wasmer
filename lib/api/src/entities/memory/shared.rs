@@ -8,8 +8,9 @@ use crate::{
     vm::VMSharedMemory,
 };
 
-/// A shared memory instance that can be shared across multiple stores and threads,
-/// not attached to any specific store.
+/// A detached handle to shared linear memory, attachable to multiple stores and threads.
+///
+/// This type never represents non-shared linear memory or an owned byte snapshot.
 pub struct SharedMemory {
     memory: VMSharedMemory,
     ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
