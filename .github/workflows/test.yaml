@@ -16,10 +16,6 @@ concurrency:
   cancel-in-progress: true
 env:
   RUST_BACKTRACE: 1
-  # Sparse will be enabled by dtolnay/rust-toolchain when installing nightly
-  # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
-  # can override that behaviour
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"

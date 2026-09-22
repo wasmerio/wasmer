@@ -1,7 +1,6 @@
 name: Builds
 env:
   RUST_BACKTRACE: 1
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
 on:
   push:
     branches:
