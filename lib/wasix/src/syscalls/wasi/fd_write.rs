@@ -124,6 +124,18 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
     Buffer(Cow<'a, [u8]>),
 }
 
+/// Cap on how much of a `writev` one coalescing buffer holds. The guest
+/// declares the iovec lengths and nothing has validated the matching pointers
+/// yet, so the buffer is sized by this rather than by what the guest claims.
+/// It also keeps a coalesced write clear of the 8 MiB frame limit that
+/// `LengthDelimitedCodec` imposes on remote virtual-net sockets.
+pub(crate) const MAX_STREAM_COALESCE: usize = 1024 * 1024;
+
+const _: () = assert!(MAX_STREAM_COALESCE < 8 * 1024 * 1024);
+/// A datagram is refused past `MAX_SOCKET_PAYLOAD`, so it never reaches the
+/// bounded gather that streams use.
+const _: () = assert!(MAX_SOCKET_PAYLOAD < MAX_STREAM_COALESCE);
+
 impl<'a, M: MemorySize> FdWriteSource<'a, M> {
     pub(crate) fn coalesce(
         &self,
@@ -144,7 +156,10 @@ impl<'a, M: MemorySize> FdWriteSource<'a, M> {
                     return Err(Errno::Msgsize);
                 }
 
-                let mut coalesced = Vec::with_capacity(total_len);
+                let mut coalesced = Vec::new();
+                coalesced
+                    .try_reserve_exact(total_len)
+                    .map_err(|_| Errno::Nomem)?;
 
                 for iov in iovs_arr.iter() {
                     let buf = WasmPtr::<u8, M>::new(iov.buf)
@@ -162,6 +177,63 @@ impl<'a, M: MemorySize> FdWriteSource<'a, M> {
                     return Err(Errno::Msgsize);
                 }
                 Ok(cow.clone())
+            }
+        }
+    }
+
+    /// Gathers at most `limit` bytes starting `skip` bytes into the iovecs,
+    /// treating them as one stream. Unlike [`Self::coalesce`] this never sizes
+    /// an allocation by a guest-declared length, so a caller can walk a large
+    /// `writev` in bounded steps instead of refusing it.
+    pub(crate) fn coalesce_from(
+        &self,
+        memory: &MemoryView,
+        skip: usize,
+        limit: usize,
+    ) -> Result<Cow<'a, [u8]>, Errno> {
+        match self {
+            FdWriteSource::Iovs { iovs, iovs_len } => {
+                let iovs_arr = iovs.slice(memory, *iovs_len).map_err(mem_error_to_wasi)?;
+                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+
+                let mut coalesced: Vec<u8> = Vec::new();
+                let mut consumed = 0usize;
+
+                for iov in iovs_arr.iter() {
+                    let room = limit - coalesced.len();
+                    if room == 0 {
+                        break;
+                    }
+
+                    let iov_start = consumed;
+                    let len = iov.buf_len.into() as usize;
+                    consumed = consumed.checked_add(len).ok_or(Errno::Msgsize)?;
+                    if consumed <= skip {
+                        continue;
+                    }
+
+                    let buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let buf = buf.as_ref();
+
+                    let start = skip.saturating_sub(iov_start);
+                    if start >= buf.len() {
+                        continue;
+                    }
+                    let take = room.min(buf.len() - start);
+                    coalesced.try_reserve(take).map_err(|_| Errno::Nomem)?;
+                    coalesced.extend_from_slice(&buf[start..start + take]);
+                }
+
+                Ok(Cow::Owned(coalesced))
+            }
+            FdWriteSource::Buffer(cow) => {
+                let start = skip.min(cow.len());
+                let end = start.saturating_add(limit).min(cow.len());
+                Ok(Cow::Owned(cow[start..end].to_vec()))
             }
         }
     }
@@ -286,6 +358,10 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     let res = __asyncify_light(env, None, async {
                         let mut sent = 0usize;
 
+                        // VirtualConnectedSocket exposes one contiguous send operation. Preserve
+                        // writev's single-operation ordering by coalescing guest iovecs before
+                        // crossing that boundary; issuing one send per iovec lets the peer react
+                        // between logically adjacent protocol frames.
                         if socket.is_dgram() {
                             let data = data.coalesce(&memory, MAX_SOCKET_PAYLOAD)?;
                             sent += socket
@@ -294,40 +370,38 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             return Ok(sent);
                         }
 
-                        match &data {
-                            FdWriteSource::Iovs { iovs, iovs_len } => {
-                                let iovs_arr =
-                                    iovs.slice(&memory, *iovs_len).map_err(mem_error_to_wasi)?;
-                                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-                                for iovs in iovs_arr.iter() {
-                                    let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                                        .slice(&memory, iovs.buf_len)
-                                        .map_err(mem_error_to_wasi)?
-                                        .access()
-                                        .map_err(mem_error_to_wasi)?;
-                                    let local_sent = match socket
-                                        .send(
-                                            tasks.deref(),
-                                            buf.as_ref(),
-                                            Some(timeout),
-                                            nonblocking,
-                                        )
-                                        .await
-                                    {
-                                        Ok(sent) => sent,
-                                        Err(_) if sent > 0 => break,
-                                        Err(err) => return Err(err),
-                                    };
-                                    sent += local_sent;
-                                    if local_sent != buf.len() {
-                                        break;
-                                    }
-                                }
+                        // One send per chunk keeps writev's ordering for
+                        // anything that fits in a chunk, while the bound keeps
+                        // a guest-declared length from sizing the buffer. The
+                        // loop leaves the returned count to the socket, as a
+                        // single unbounded send did.
+                        loop {
+                            let chunk = data.coalesce_from(&memory, sent, MAX_STREAM_COALESCE)?;
+                            if chunk.is_empty() {
+                                break;
                             }
-                            FdWriteSource::Buffer(data) => {
-                                sent += socket
-                                    .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
-                                    .await?;
+                            let chunk_len = chunk.len();
+                            let local_sent = match socket
+                                .send(tasks.deref(), chunk.as_ref(), Some(timeout), nonblocking)
+                                .await
+                            {
+                                Ok(local_sent) => local_sent,
+                                // Report the progress already made, as a write
+                                // that fails part way through does.
+                                Err(_) if sent > 0 => break,
+                                Err(err) => return Err(err),
+                            };
+                            sent += local_sent;
+
+                            if local_sent != chunk_len {
+                                // A blocking write runs to completion on Unix,
+                                // waiting for room rather than reporting a
+                                // short count, so keep pushing the remainder.
+                                // A non-blocking one reports what it managed.
+                                // `local_sent == 0` would not make progress.
+                                if nonblocking || local_sent == 0 {
+                                    break;
+                                }
                             }
                         }
                         Ok(sent)
@@ -611,4 +685,123 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     };
 
     Ok(Ok(bytes_written))
+}
+
+#[cfg(all(test, feature = "sys"))]
+mod tests {
+    use wasmer::{Memory, MemoryType, Store, WasmPtr};
+    use wasmer_wasix_types::wasi::Errno;
+
+    use super::{FdWriteSource, MAX_STREAM_COALESCE};
+
+    struct Guest {
+        store: Store,
+        memory: Memory,
+    }
+
+    impl Guest {
+        fn new() -> Self {
+            let mut store = Store::default();
+            let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();
+            Self { store, memory }
+        }
+
+        /// Lays `payloads` out in guest memory, then writes an iovec array
+        /// describing them. Each declared length is the payload length unless a
+        /// test is lying about it.
+        fn write_iovs(&mut self, payloads: &[&[u8]], claimed: Option<u32>) -> (u32, u32) {
+            let view = self.memory.view(&self.store);
+            let iovs_at = 8u32;
+            let mut data_at = iovs_at + (payloads.len() as u32 * 8);
+
+            for (i, payload) in payloads.iter().enumerate() {
+                view.write(data_at as u64, payload).unwrap();
+                let entry = iovs_at + (i as u32 * 8);
+                view.write(entry as u64, &data_at.to_le_bytes()).unwrap();
+                let len = claimed.unwrap_or(payload.len() as u32);
+                view.write(entry as u64 + 4, &len.to_le_bytes()).unwrap();
+                data_at += payload.len() as u32;
+            }
+
+            (iovs_at, payloads.len() as u32)
+        }
+
+        fn source(&self, iovs_at: u32, iovs_len: u32) -> FdWriteSource<'_, wasmer::Memory32> {
+            FdWriteSource::Iovs {
+                iovs: WasmPtr::new(iovs_at),
+                iovs_len,
+            }
+        }
+    }
+
+    #[test]
+    fn a_bounded_gather_walks_the_whole_writev() {
+        let mut guest = Guest::new();
+        let (iovs_at, iovs_len) = guest.write_iovs(&[b"abcd", b"efgh", b"ijkl"], None);
+        let view = guest.memory.view(&guest.store);
+        let source = guest.source(iovs_at, iovs_len);
+
+        // Chunks smaller than the total let a caller walk it in steps, so the
+        // bound never shortens the write the guest asked for.
+        let mut seen = Vec::new();
+        let mut skip = 0;
+        loop {
+            let chunk = source.coalesce_from(&view, skip, 5).unwrap();
+            if chunk.is_empty() {
+                break;
+            }
+            assert!(chunk.len() <= 5);
+            skip += chunk.len();
+            seen.extend_from_slice(&chunk);
+        }
+        assert_eq!(seen, b"abcdefghijkl");
+    }
+
+    #[test]
+    fn a_bounded_gather_starts_mid_iovec() {
+        let mut guest = Guest::new();
+        let (iovs_at, iovs_len) = guest.write_iovs(&[b"abcd", b"efgh"], None);
+        let view = guest.memory.view(&guest.store);
+        let source = guest.source(iovs_at, iovs_len);
+
+        assert_eq!(&*source.coalesce_from(&view, 2, 4).unwrap(), b"cdef");
+        assert_eq!(&*source.coalesce_from(&view, 8, 4).unwrap(), b"");
+    }
+
+    #[test]
+    fn a_lying_iovec_length_cannot_size_the_host_allocation() {
+        // A guest owning one page can still claim 4 GiB. `coalesce` sizes its
+        // buffer by that claim, which is why the stream path gathers in bounded
+        // steps instead: a chunk never exceeds the limit, whatever is claimed.
+        let mut guest = Guest::new();
+        let (iovs_at, iovs_len) = guest.write_iovs(&[b"abcd"], Some(u32::MAX));
+        let view = guest.memory.view(&guest.store);
+        let source = guest.source(iovs_at, iovs_len);
+
+        // The declared length outruns the page, so the read is caught; what
+        // matters is that nothing reserved 4 GiB to find that out.
+        assert_eq!(
+            source
+                .coalesce_from(&view, 0, MAX_STREAM_COALESCE)
+                .unwrap_err(),
+            Errno::Memviolation
+        );
+
+        // A truthful but oversized claim is gathered a chunk at a time.
+        let (iovs_at, iovs_len) = guest.write_iovs(&[b"abcd"], None);
+        let view = guest.memory.view(&guest.store);
+        let source = guest.source(iovs_at, iovs_len);
+        assert_eq!(source.coalesce_from(&view, 0, 2).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn a_datagram_is_refused_rather_than_split() {
+        let mut guest = Guest::new();
+        let (iovs_at, iovs_len) = guest.write_iovs(&[b"abcd", b"efgh"], None);
+        let view = guest.memory.view(&guest.store);
+        let source = guest.source(iovs_at, iovs_len);
+
+        assert_eq!(source.coalesce(&view, 4).unwrap_err(), Errno::Msgsize);
+        assert_eq!(&*source.coalesce(&view, 8).unwrap(), b"abcdefgh");
+    }
 }
