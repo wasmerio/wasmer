@@ -16,10 +16,6 @@ concurrency:
   cancel-in-progress: true
 env:
   RUST_BACKTRACE: 1
-  # Sparse will be enabled by dtolnay/rust-toolchain when installing nightly
-  # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
-  # can override that behaviour
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
@@ -508,12 +504,15 @@ jobs:
           rustup target add x86_64-pc-windows-gnu
       - name: Install Windows 10 SDK with xwin
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           mkdir -p /tmp/xwin
           mkdir -p /tmp/xwindownload
           mkdir -p /tmp/xwincache
-          git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
+          git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
+            clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
           cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
           /tmp/xwin/target/release/xwin \
             --accept-license \
