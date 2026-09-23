@@ -179,13 +179,18 @@ async fn fetch(
     let HttpRequest {
         url,
         method,
-        headers,
+        mut headers,
         body,
         options: HttpRequestOptions {
             gzip: _,
             cors_proxy,
         },
     } = request;
+
+    // Let Fetch supply the browser's User-Agent. An explicit value triggers a
+    // CORS preflight in Firefox/WebKit, unlike Chromium which drops it. Package
+    // CDNs may allow cross-origin GETs without supporting those preflights.
+    headers.remove(http::header::USER_AGENT);
 
     let mut opts = RequestInit::new();
     opts.set_signal(Some(&controller.0.signal()));
