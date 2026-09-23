@@ -163,6 +163,7 @@ mod tests {
                 filesystem: Vec::new(),
             },
             dist: DistributionInfo {
+                webc_size: None,
                 webc: "https://example.com/ns/pkg/0.0.1".parse().unwrap(),
                 webc_sha256: WebcHash([0u8; 32]),
             },

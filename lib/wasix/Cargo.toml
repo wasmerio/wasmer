@@ -120,6 +120,10 @@ web-sys = { workspace = true, features = [
   "WorkerGlobalScope",
   "RequestMode",
   "Response",
+  "ReadableStream",
+  "ReadableStreamDefaultReader",
+  "AbortController",
+  "AbortSignal",
   "Headers",
 ], optional = true }
 hyper-util = { workspace = true, features = [
@@ -143,13 +147,13 @@ itertools.workspace = true
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true
 default-features = false
-features = ["rustls", "json", "stream", "socks", "blocking"]
+features = ["rustls", "json", "stream", "socks", "blocking", "gzip", "zstd"]
 optional = true
 
 [target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies.reqwest]
 workspace = true
 default-features = false
-features = ["native-tls", "json", "stream", "socks", "blocking"]
+features = ["native-tls", "json", "stream", "socks", "blocking", "gzip", "zstd"]
 optional = true
 
 [target.'cfg(unix)'.dependencies]

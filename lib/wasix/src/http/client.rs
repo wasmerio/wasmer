@@ -174,7 +174,21 @@ impl std::fmt::Debug for HttpResponse {
 pub trait HttpClient: std::fmt::Debug {
     // TODO: use custom error type!
     fn request(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>>;
+
+    /// Stream decoded-body byte counts without changing the buffered response
+    /// contract. Custom clients may omit intermediate updates.
+    fn request_with_progress(
+        &self,
+        request: HttpRequest,
+        _progress: HttpDownloadObserver,
+    ) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
+        self.request(request)
+    }
 }
+
+/// Received decoded bytes, a compatible total, and whether the host package
+/// transport served a cache hit (which contributes zero network bytes).
+pub type HttpDownloadObserver = Arc<dyn Fn(u64, Option<u64>, bool) + Send + Sync>;
 
 impl<D, C> HttpClient for D
 where
@@ -184,6 +198,14 @@ where
     fn request(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
         let client = &**self;
         client.request(request)
+    }
+
+    fn request_with_progress(
+        &self,
+        request: HttpRequest,
+        progress: HttpDownloadObserver,
+    ) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
+        (**self).request_with_progress(request, progress)
     }
 }
 

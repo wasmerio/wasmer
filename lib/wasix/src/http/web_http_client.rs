@@ -9,7 +9,7 @@ use web_sys::{RequestInit, RequestMode, Window, WorkerGlobalScope};
 
 use crate::{
     VirtualTaskManager, WasiThreadError,
-    http::{HttpClient, HttpRequest, HttpRequestOptions, HttpResponse},
+    http::{HttpClient, HttpDownloadObserver, HttpRequest, HttpRequestOptions, HttpResponse},
     utils::web::js_error,
 };
 
@@ -88,26 +88,42 @@ impl WebHttpClient {
     fn spawn_js(
         &self,
         request: HttpRequest,
+        progress: Option<HttpDownloadObserver>,
     ) -> Result<oneshot::Receiver<Result<HttpResponse, Error>>, WasiThreadError> {
         let (sender, receiver) = oneshot::channel();
 
-        fn spawn_fetch(request: HttpRequest, sender: oneshot::Sender<Result<HttpResponse, Error>>) {
+        fn spawn_fetch(
+            request: HttpRequest,
+            mut sender: oneshot::Sender<Result<HttpResponse, Error>>,
+            progress: Option<HttpDownloadObserver>,
+        ) {
             wasm_bindgen_futures::spawn_local(async move {
-                let result = fetch(request).await;
-                let _ = sender.send(result);
+                // Dropping the receiver cancels the local fetch future, whose
+                // AbortController also aborts any pending response body read.
+                let result = {
+                    let fetch = Box::pin(fetch(request, progress));
+                    let cancelled = Box::pin(sender.cancellation());
+                    match futures::future::select(fetch, cancelled).await {
+                        futures::future::Either::Left((result, _)) => Some(result),
+                        futures::future::Either::Right(_) => None,
+                    }
+                };
+                if let Some(result) = result {
+                    let _ = sender.send(result);
+                }
             });
         }
 
         match self.tasks.as_deref() {
             Some(tasks) => {
-                tasks.task_shared(Box::new(|| {
+                tasks.task_shared(Box::new(move || {
                     Box::pin(async move {
-                        spawn_fetch(request, sender);
+                        spawn_fetch(request, sender, progress);
                     })
                 }))?;
             }
             None => {
-                spawn_fetch(request, sender);
+                spawn_fetch(request, sender, progress);
             }
         }
 
@@ -116,6 +132,20 @@ impl WebHttpClient {
 }
 
 impl HttpClient for WebHttpClient {
+    fn request_with_progress(
+        &self,
+        mut request: HttpRequest,
+        progress: HttpDownloadObserver,
+    ) -> BoxFuture<'_, Result<HttpResponse, Error>> {
+        for (name, value) in &self.default_headers {
+            if !request.headers.contains_key(name) {
+                request.headers.insert(name, value.clone());
+            }
+        }
+        let receiver = self.spawn_js(request, Some(progress));
+        Box::pin(async move { receiver?.await.map_err(Error::new)? })
+    }
+
     fn request(&self, mut request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, Error>> {
         for (name, value) in &self.default_headers {
             if !request.headers.contains_key(name) {
@@ -123,7 +153,7 @@ impl HttpClient for WebHttpClient {
             }
         }
 
-        let receiver = self.spawn_js(request);
+        let receiver = self.spawn_js(request, None);
 
         Box::pin(async move {
             match receiver?.await {
@@ -135,7 +165,17 @@ impl HttpClient for WebHttpClient {
 }
 
 /// Send a `fetch()` request using the browser APIs.
-async fn fetch(request: HttpRequest) -> Result<HttpResponse, Error> {
+async fn fetch(
+    request: HttpRequest,
+    progress: Option<HttpDownloadObserver>,
+) -> Result<HttpResponse, Error> {
+    struct AbortOnDrop(web_sys::AbortController);
+    impl Drop for AbortOnDrop {
+        fn drop(&mut self) {
+            self.0.abort();
+        }
+    }
+    let controller = AbortOnDrop(web_sys::AbortController::new().map_err(js_error)?);
     let HttpRequest {
         url,
         method,
@@ -148,6 +188,7 @@ async fn fetch(request: HttpRequest) -> Result<HttpResponse, Error> {
     } = request;
 
     let mut opts = RequestInit::new();
+    opts.set_signal(Some(&controller.0.signal()));
     opts.method(method.as_str());
     opts.mode(RequestMode::Cors);
 
@@ -210,13 +251,56 @@ async fn fetch(request: HttpRequest) -> Result<HttpResponse, Error> {
     };
 
     let response = resp_value.dyn_ref().unwrap();
-    read_response(response).await
+    read_response(response, progress).await
 }
 
-async fn read_response(response: &web_sys::Response) -> Result<HttpResponse, anyhow::Error> {
+async fn read_response(
+    response: &web_sys::Response,
+    progress: Option<HttpDownloadObserver>,
+) -> Result<HttpResponse, anyhow::Error> {
     let status = http::StatusCode::from_u16(response.status())?;
     let headers = headers(response.headers()).context("Unable to read the headers")?;
-    let body = get_response_data(response).await?;
+    // The iOS loopback package transport owns a verified disk cache. It marks
+    // cache hits so local delivery is not misreported as a network download.
+    let cached = headers
+        .get("x-wasmer-package-cache")
+        .is_some_and(|v| v == "hit");
+    let body = if let Some(progress) = progress {
+        if let Some(body) = response.body() {
+            let reader: web_sys::ReadableStreamDefaultReader = body.get_reader().unchecked_into();
+            // Cross-origin responses can hide Content-Encoding. The registry's
+            // decoded size is supplied by the package loader; do not assume a
+            // visible Content-Length describes Fetch's decoded chunks.
+            let mut bytes = Vec::new();
+            loop {
+                let next = JsFuture::from(reader.read()).await.map_err(js_error)?;
+                if js_sys::Reflect::get(&next, &"done".into())
+                    .map_err(js_error)?
+                    .as_bool()
+                    == Some(true)
+                {
+                    break;
+                }
+                let chunk = js_sys::Uint8Array::new(
+                    &js_sys::Reflect::get(&next, &"value".into()).map_err(js_error)?,
+                );
+                let start = bytes.len();
+                bytes.resize(start + chunk.length() as usize, 0);
+                chunk.copy_to(&mut bytes[start..]);
+                progress(
+                    if cached { 0 } else { bytes.len() as u64 },
+                    cached.then_some(0),
+                    cached,
+                );
+            }
+            reader.release_lock();
+            bytes
+        } else {
+            get_response_data(response).await?
+        }
+    } else {
+        get_response_data(response).await?
+    };
 
     Ok(HttpResponse {
         body: Some(body),

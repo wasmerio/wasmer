@@ -397,23 +397,26 @@ fn decode_summary(
                 pirita_sha256_hash: v2_pirita_sha256_hash,
                 pirita_download_url: v2_pirita_download_url,
                 webc_manifest: v2_manifest,
+                webc_size: v2_size,
             },
         v3:
             WebQueryGetPackageVersionDistribution {
                 pirita_sha256_hash: v3_pirita_sha256_hash,
                 pirita_download_url: v3_pirita_download_url,
                 webc_manifest: v3_manifest,
+                webc_size: v3_size,
             },
         ..
     } = pkg_version;
 
-    let (version, pirita_sha256_hash, pirita_download_url, manifest) =
+    let (version, pirita_sha256_hash, pirita_download_url, manifest, webc_size) =
         if preferred_webc_version == webc::Version::V3 {
             (
                 webc::Version::V3,
                 v3_pirita_sha256_hash,
                 v3_pirita_download_url,
                 v3_manifest,
+                v3_size,
             )
         } else {
             (
@@ -421,6 +424,7 @@ fn decode_summary(
                 v2_pirita_sha256_hash,
                 v2_pirita_download_url,
                 v2_manifest,
+                v2_size,
             )
         };
 
@@ -443,7 +447,11 @@ fn decode_summary(
 
     Ok(PackageSummary {
         pkg: PackageInfo::from_manifest(id, &manifest, version)?,
-        dist: DistributionInfo { webc, webc_sha256 },
+        dist: DistributionInfo {
+            webc_size,
+            webc,
+            webc_sha256,
+        },
     })
 }
 
@@ -635,11 +643,13 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
             piritaDownloadUrl
             piritaSha256Hash
             webcManifest
+            webcSize
           }
           v3: distribution(version: V3) {
             piritaDownloadUrl
             piritaSha256Hash
             webcManifest
+            webcSize
           }
         }
     }
@@ -690,6 +700,7 @@ impl PackageWebc {
         Ok(PackageSummary {
             pkg: info,
             dist: DistributionInfo {
+                webc_size: None,
                 webc: self.webc_url,
                 // TODO: replace with different hash type?
                 webc_sha256: WebcHash(hash.as_sha256().context("invalid hash")?.0),
@@ -753,6 +764,8 @@ impl From<WebCVersion> for webc::Version {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WebQueryGetPackageVersionDistribution {
+    #[serde(rename = "webcSize", default)]
+    pub webc_size: Option<u64>,
     #[serde(rename = "piritaDownloadUrl")]
     pub pirita_download_url: Option<Url>,
     #[serde(rename = "piritaSha256Hash")]
@@ -781,7 +794,7 @@ mod tests {
     //      -d '@wasmer_pack_cli_request.json' > wasmer_pack_cli_response.json
     const WASMER_PACK_CLI_REQUEST: &[u8] = br#"
     {
-        "query":"{\n    getPackage(name: \"wasmer/wasmer-pack-cli\") {\n        packageName\n        namespace\n        versions {\n          version\n          isArchived\n          v2: distribution(version: V2) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n          v3: distribution(version: V3) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n        }\n    }\n    info {\n        defaultFrontend\n    }\n}"
+        "query":"{\n    getPackage(name: \"wasmer/wasmer-pack-cli\") {\n        packageName\n        namespace\n        versions {\n          version\n          isArchived\n          v2: distribution(version: V2) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n            webcSize\n          }\n          v3: distribution(version: V3) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n            webcSize\n          }\n        }\n    }\n    info {\n        defaultFrontend\n    }\n}"
     }
     "#;
     const WASMER_PACK_CLI_RESPONSE: &[u8] = br#"
@@ -969,7 +982,7 @@ mod tests {
                     entrypoint: Some("wasmer-pack".to_string()),
                     filesystem: vec![],
                 },
-                dist: DistributionInfo {
+                dist: DistributionInfo { webc_size: None,
                     webc: "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc"
                         .parse()
                         .unwrap(),
