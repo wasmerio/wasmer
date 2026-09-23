@@ -136,14 +136,17 @@ See the [Python guide](https://github.com/wasmerio/wasmer-sdk/tree/main/python).
 </details>
 
 <details>
-<summary>Swift</summary>
+<summary>Swift (iOS and macOS)</summary>
+
+Use Swift 6 or newer. The SDK supports macOS 12+ and iOS 27+; iOS apps require
+Xcode 27 or newer.
 
 Add the package to your `Package.swift` dependencies:
 
 ```swift
 .package(
     url: "https://github.com/wasmerio/wasmer-sdk.git",
-    revision: "wasmer-sdk-swift-v0.2.1"
+    revision: "wasmer-sdk-swift-v0.4.0"
 )
 ```
 
@@ -153,9 +156,26 @@ Then add the product to your target's dependencies:
 .product(name: "WasmerSDK", package: "wasmer-sdk")
 ```
 
-This release provides prebuilt macOS binaries. See the
-[Swift setup guide](https://github.com/wasmerio/wasmer-sdk/tree/main/swift)
-for platform support and Xcode setup.
+In Xcode, you can instead add the repository URL, select
+`wasmer-sdk-swift-v0.4.0` as a revision, and choose the **WasmerSDK** product.
+SwiftPM downloads the prebuilt macOS binaries and iOS runtime resources.
+
+For iOS, set the deployment target to **iOS 27.0** and allow local networking
+in your app's `Info.plist`:
+
+```xml
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+</dict>
+```
+
+Both platforms use `import WasmerSDK` and the same API. On iOS, the SDK manages
+a hidden `WKWebView`; your app does not need to display one. See the
+[Swift guide](https://github.com/wasmerio/wasmer-sdk/tree/main/swift) and
+[iOS setup guide](https://github.com/wasmerio/wasmer-sdk/tree/main/swift/WasmerWKSDK#add-to-an-app)
+for more details.
 
 </details>
 
@@ -215,7 +235,9 @@ Run it with `python sandbox.py`. See the
 </details>
 
 <details>
-<summary>Swift example</summary>
+<summary>Swift example (iOS and macOS)</summary>
+
+Use this code in an `async throws` context:
 
 ```swift
 import WasmerSDK
@@ -224,14 +246,14 @@ let wasmer = try Wasmer()
 let sandbox = try await wasmer.sandboxes.create(
     packages: ["python/python@=3.13.20"]
 )
-let output = try await sandbox
-    .command("python", ["-c", "print('Hello from Wasmer')"])
-    .run()
+let output = try await sandbox.command(
+    "python", ["-c", "print('Hello from Swift!')"]
+).run(timeout: 30)
 print(try output.text())
 ```
 
 See the [Swift guide](https://github.com/wasmerio/wasmer-sdk/tree/main/swift)
-for embedding in a macOS app and more examples.
+for embedding in an iOS or macOS app and more examples.
 
 </details>
 
