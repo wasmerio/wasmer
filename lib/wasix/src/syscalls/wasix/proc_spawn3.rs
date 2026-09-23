@@ -213,7 +213,7 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
             env.state.fs.close_fd(op.fd)
         }
         ProcSpawnFdOpName::Dup2 => {
-            let flush_target = env.state.fs.dup2_at(op.src_fd, op.fd)?;
+            let flush_target = env.state.fs.dup2_for_spawn(op.src_fd, op.fd)?;
             if let Some(file) = flush_target {
                 block_on(WasiFs::flush_file_best_effort(file));
             }
@@ -268,5 +268,68 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
             }
         }
         _ => Err(Errno::Inval),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::WasiEnvBuilder;
+    use wasmer::{Memory, Memory32, Memory64, MemoryType, Store};
+
+    fn dup2_op<M: MemorySize>(source: WasiFd, target: WasiFd) -> ProcSpawnFdOp<M> {
+        ProcSpawnFdOp {
+            cmd: ProcSpawnFdOpName::Dup2,
+            fd: target,
+            src_fd: source,
+            name: Default::default(),
+            name_len: Default::default(),
+            dirflags: 0,
+            oflags: Oflags::empty(),
+            fs_rights_base: Rights::empty(),
+            fs_rights_inheriting: Rights::empty(),
+            fdflags: Fdflags::empty(),
+            fdflagsext: Fdflagsext::empty(),
+        }
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_identity_clears_cloexec() {
+        check_spawn_dup2_identity::<Memory32>();
+        check_spawn_dup2_identity::<Memory64>();
+    }
+
+    fn check_spawn_dup2_identity<M: MemorySize>() {
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
+        let view = memory.view(&store);
+        let mut env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        env.state
+            .fs
+            .fd_map
+            .write()
+            .unwrap()
+            .get_mut(0)
+            .unwrap()
+            .fd_flags = Fdflagsext::CLOEXEC;
+
+        assert_eq!(
+            apply_fd_op(&mut env, &view, &dup2_op::<M>(99, 99)),
+            Err(Errno::Badf)
+        );
+        apply_fd_op(&mut env, &view, &dup2_op::<M>(0, 0)).unwrap();
+
+        assert!(
+            !env.state
+                .fs
+                .get_fd(0)
+                .unwrap()
+                .inner
+                .fd_flags
+                .contains(Fdflagsext::CLOEXEC)
+        );
     }
 }
