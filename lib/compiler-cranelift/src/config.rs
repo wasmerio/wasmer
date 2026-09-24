@@ -13,7 +13,8 @@ use std::{
 use std::{num::NonZero, path::PathBuf};
 use target_lexicon::{OperatingSystem, Vendor};
 use wasmer_compiler::{
-    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
+    Compiler, CompilerConfig, DEFAULT_MAX_TABLE_ELEMENTS, Debugger, Engine, EngineBuilder,
+    ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
 use wasmer_types::{
@@ -117,6 +118,7 @@ pub struct Cranelift {
     pub(crate) debugger: Option<Debugger>,
     pub(crate) enable_pic: bool,
     pub(crate) experimental_artifact: bool,
+    pub(crate) max_table_elements: u32,
     pub(crate) opt_level: CraneliftOptLevel,
     /// The number of threads to use for compilation.
     pub num_threads: NonZero<usize>,
@@ -136,6 +138,7 @@ impl Cranelift {
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
             experimental_artifact: false,
+            max_table_elements: DEFAULT_MAX_TABLE_ELEMENTS,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
             middlewares: vec![],
             enable_perfmap: false,
@@ -147,6 +150,12 @@ impl Cranelift {
     /// Enable the experimental artifact format.
     pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
         self.experimental_artifact = enable;
+        self
+    }
+
+    /// Set the maximum total number of elements allowed in local fixed-size tables.
+    pub fn max_table_elements(&mut self, max_table_elements: u32) -> &mut Self {
+        self.max_table_elements = max_table_elements;
         self
     }
 
@@ -309,6 +318,10 @@ impl Cranelift {
 impl CompilerConfig for Cranelift {
     fn experimental_artifact(&mut self, enable: bool) {
         self.experimental_artifact = enable;
+    }
+
+    fn max_table_elements(&mut self, max_table_elements: u32) {
+        self.max_table_elements = max_table_elements;
     }
 
     fn enable_pic(&mut self) {

@@ -87,13 +87,13 @@ pub struct AllocatedArtifact {
     /// Precomputed `VMOffsets` for this artifact's module, cloned by
     /// `Artifact::instantiate` instead of recomputing on every call.
     ///
-    /// Safe to cache because `VMOffsets::new(pointer_size, module_info)`
+    /// Safe to cache because `VMOffsets::try_new(pointer_size, module_info)`
     /// is deterministic, `module_info` is immutable after compile (the
     /// only mutable field `name` is not a `VMOffsets` input), and the
     /// host's pointer size is a runtime constant.
     ///
     /// Built once in `from_parts` and in the deserialization path
-    /// (`deserialize_object_native`); `VMOffsets::new` was ~9% of
+    /// (`deserialize_object_native`); `VMOffsets::try_new` was ~9% of
     /// `Instance::new` time on profile traces of a per-request wasm
     /// host calling `Module::instantiate` in a tight loop.
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
@@ -217,6 +217,7 @@ impl Artifact {
         )
         .map_err(|e| match e {
             DeserializeError::Compiler(c) => c,
+            DeserializeError::Generic(c) => CompileError::Resource(c),
 
             // `from_parts` only ever returns `CompileError`s when an
             // `ArtifactBuildVariant::Plain` is passed in. Other cases
@@ -726,7 +727,8 @@ impl Artifact {
                 finished_dynamic_function_trampolines.into_boxed_slice();
             let signatures = signatures.into_boxed_slice();
 
-            let vm_offsets = VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info);
+            let vm_offsets = VMOffsets::try_new(std::mem::size_of::<usize>() as u8, module_info)
+                .map_err(DeserializeError::Generic)?;
 
             AllocatedArtifact {
                 frame_info_registered: false,
@@ -971,7 +973,8 @@ impl Artifact {
             .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>()
             .into_boxed_slice();
 
-        let vm_offsets = VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info);
+        let vm_offsets = VMOffsets::try_new(std::mem::size_of::<usize>() as u8, module_info)
+            .map_err(DeserializeError::Generic)?;
 
         Ok(AllocatedArtifact {
             frame_info_registered: false,
@@ -1421,6 +1424,14 @@ impl Artifact {
                 .create_globals(context, &module, &global_definition_locations)
                 .map_err(InstantiationError::Link)?
                 .into_boxed_slice();
+            let initial_table_elements = module
+                .tables
+                .values()
+                .skip(module.num_imported_tables)
+                .fold(0u32, |total, ty| total.saturating_add(ty.minimum));
+            let table_allocation_room = tunables
+                .max_table_elements()
+                .saturating_sub(initial_table_elements);
 
             let handle = VMInstance::new(
                 allocator,
@@ -1430,6 +1441,7 @@ impl Artifact {
                 self.finished_function_call_trampolines().clone(),
                 finished_memories,
                 finished_tables,
+                table_allocation_room,
                 finished_globals,
                 tags,
                 imports,
@@ -1834,10 +1846,11 @@ impl Artifact {
             // Variant is built first so its module_info is available for
             // the cached VMOffsets before it is moved into Self.
             let artifact_variant = ArtifactBuildVariant::Plain(artifact);
-            let vm_offsets = VMOffsets::new(
+            let vm_offsets = VMOffsets::try_new(
                 std::mem::size_of::<usize>() as u8,
                 artifact_variant.module_info(),
-            );
+            )
+            .map_err(DeserializeError::Generic)?;
 
             Ok(Self {
                 id: Default::default(),

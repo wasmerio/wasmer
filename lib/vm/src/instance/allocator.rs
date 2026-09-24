@@ -71,20 +71,23 @@ impl InstanceAllocator {
     #[allow(clippy::type_complexity)]
     pub fn new(
         module: &ModuleInfo,
-    ) -> (
-        Self,
-        Vec<NonNull<VMMemoryDefinition>>,
-        Vec<NonNull<VMTableDefinition>>,
-        Vec<NonNull<VMGlobalDefinition>>,
-    ) {
-        let offsets = VMOffsets::new(mem::size_of::<usize>() as u8, module);
-        Self::new_with_offsets(offsets, module)
+    ) -> Result<
+        (
+            Self,
+            Vec<NonNull<VMMemoryDefinition>>,
+            Vec<NonNull<VMTableDefinition>>,
+            Vec<NonNull<VMGlobalDefinition>>,
+        ),
+        String,
+    > {
+        let offsets = VMOffsets::try_new(mem::size_of::<usize>() as u8, module)?;
+        Ok(Self::new_with_offsets(offsets, module))
     }
 
     /// Same as [`InstanceAllocator::new`], but accepts pre-computed
     /// [`VMOffsets`] instead of computing them from the module.
     ///
-    /// `VMOffsets::new(pointer_size, module)` is deterministic given
+    /// `VMOffsets::try_new(pointer_size, module)` is deterministic given
     /// `(pointer_size, module)`, and the `pointer_size` is fixed to
     /// `size_of::<usize>()` on the host. Callers that instantiate the
     /// same module repeatedly (per-request wasm hosts: cloud workers,
@@ -94,7 +97,7 @@ impl InstanceAllocator {
     ///
     /// # Caller contract
     ///
-    /// `offsets` MUST equal `VMOffsets::new(size_of::<usize>() as u8, module)`
+    /// `offsets` MUST equal `VMOffsets::try_new(size_of::<usize>() as u8, module)`
     /// for the same `module`. Passing offsets computed for a different
     /// module, or with a different pointer size, will produce an
     /// incorrectly sized allocation and undefined behavior. Callers that
@@ -299,23 +302,23 @@ mod tests {
     use super::*;
     use wasmer_types::ModuleInfo;
 
-    /// `VMOffsets::new` is deterministic for a given `(pointer_size, module)`.
+    /// `VMOffsets::try_new` is deterministic for a given `(pointer_size, module)`.
     /// The whole VMOffsets-caching optimization assumes this; verify it as
-    /// the test that would catch any future change to `VMOffsets::new` that
+    /// the test that would catch any future change to `VMOffsets::try_new` that
     /// introduced non-determinism (e.g. an internal HashMap iteration).
     #[test]
     fn vmoffsets_new_is_deterministic_on_empty_module() {
         let module = ModuleInfo::default();
         let ps = mem::size_of::<usize>() as u8;
-        let a = VMOffsets::new(ps, &module);
-        let b = VMOffsets::new(ps, &module);
+        let a = VMOffsets::try_new(ps, &module).unwrap();
+        let b = VMOffsets::try_new(ps, &module).unwrap();
 
         // Use Debug repr for comparison, VMOffsets doesn't impl `PartialEq`
         // upstream, but its layout is constant for a given input so the
         // textual debug form is a sufficient identity check.
         let a_dbg = format!("{a:?}");
         let b_dbg = format!("{b:?}");
-        assert_eq!(a_dbg, b_dbg, "VMOffsets::new must be deterministic");
+        assert_eq!(a_dbg, b_dbg, "VMOffsets::try_new must be deterministic");
     }
 
     /// `InstanceAllocator::new_with_offsets` and `InstanceAllocator::new`
@@ -332,8 +335,8 @@ mod tests {
         let module = ModuleInfo::default();
         let ps = mem::size_of::<usize>() as u8;
 
-        let (a, _, _, _) = InstanceAllocator::new(&module);
-        let cached = VMOffsets::new(ps, &module);
+        let (a, _, _, _) = InstanceAllocator::new(&module).unwrap();
+        let cached = VMOffsets::try_new(ps, &module).unwrap();
         let (b, _, _, _) = InstanceAllocator::new_with_offsets(cached, &module);
 
         assert_eq!(
@@ -364,12 +367,12 @@ mod tests {
         let module = ModuleInfo::default();
         let ps = mem::size_of::<usize>() as u8;
         let expected_size = {
-            let (a, _, _, _) = InstanceAllocator::new(&module);
+            let (a, _, _, _) = InstanceAllocator::new(&module).unwrap();
             a.instance_layout.size()
         };
 
         for _ in 0..1024 {
-            let cached = VMOffsets::new(ps, &module);
+            let cached = VMOffsets::try_new(ps, &module).unwrap();
             let (b, _, _, _) = InstanceAllocator::new_with_offsets(cached, &module);
             assert_eq!(b.instance_layout.size(), expected_size);
         }

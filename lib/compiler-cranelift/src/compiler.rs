@@ -113,6 +113,10 @@ impl CraneliftCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        wasmer_compiler::validate_module_fixed_table_size(
+            &compile_info.module,
+            self.config.max_table_elements,
+        )?;
         let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let isa = self
             .config()
@@ -211,7 +215,7 @@ impl CraneliftCompiler {
                 signature_hashes,
                 memory_styles,
                 table_styles,
-            );
+            )?;
             context.func.name = match get_function_name(&mut context.func, func_index) {
                 ExternalName::User(nameref) => {
                     if context.func.params.user_named_funcs().is_valid(nameref) {

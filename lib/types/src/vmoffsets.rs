@@ -8,7 +8,7 @@
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, TableIndex, WasmError, WasmResult, entity::EntityRef,
+    ModuleInfo, TableIndex, TableType, WasmError, WasmResult, entity::EntityRef,
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -244,14 +244,27 @@ pub struct VMOffsets {
 }
 
 impl VMOffsets {
-    /// Return a new `VMOffsets` instance, for a given pointer size.
+    #[deprecated(note = "Use try_new function instead")]
+    /// Return a new `VMOffsets` instance, for a given pointer size
+    /// (panics if the VM offsets cannot be properly created).
     pub fn new(pointer_size: u8, module: &ModuleInfo) -> Self {
+        Self::try_new(pointer_size, module).unwrap()
+    }
+
+    /// Return a new `VMOffsets` instance, for a given pointer size.
+    pub fn try_new(pointer_size: u8, module: &ModuleInfo) -> Result<Self, String> {
         let mut local_fixed_funcref_table_offsets =
             vec![None; module.tables.len() - module.num_imported_tables];
         let mut size_of_local_fixed_funcref_tables: u32 = 0;
         // TODO: ensure it matches size_of::<VMCallerCheckedAnyfunc>
         let size_of_vmcaller_checked_anyfunc = 4 * u32::from(pointer_size);
 
+        let fixed_table_err = |table: &TableType| {
+            format!(
+                "cannot allocate fixed Table with {} elements",
+                table.minimum,
+            )
+        };
         for (table_index, table) in module.tables.iter() {
             if let Some(local_table_index) = module.local_table_index(table_index)
                 && table.is_fixed_funcref_table()
@@ -263,9 +276,9 @@ impl VMOffsets {
                         table
                             .minimum
                             .checked_mul(size_of_vmcaller_checked_anyfunc)
-                            .unwrap(),
+                            .ok_or_else(|| fixed_table_err(table))?,
                     )
-                    .unwrap();
+                    .ok_or_else(|| fixed_table_err(table))?;
             }
         }
 
@@ -297,8 +310,8 @@ impl VMOffsets {
             vmctx_stack_limit_initial_begin: 0,
             size_of_vmctx: 0,
         };
-        ret.precompute();
-        ret
+        ret.precompute()?;
+        Ok(ret)
     }
 
     /// Return a new `VMOffsets` instance, for a given pointer size
@@ -351,62 +364,65 @@ impl VMOffsets {
         self.num_local_globals
     }
 
-    fn precompute(&mut self) {
+    fn precompute(&mut self) -> Result<(), &'static str> {
+        const ERR_MESSAGE: &str = "precompute exceeds u32 type";
+
         /// Offset base by num_items items of size item_size, panicking on overflow
-        fn offset_by(base: u32, num_items: u32, item_size: u32) -> u32 {
-            base.checked_add(num_items.checked_mul(item_size).unwrap())
-                .unwrap()
+        fn offset_by(base: u32, num_items: u32, item_size: u32) -> Result<u32, &'static str> {
+            base.checked_add(num_items.checked_mul(item_size).ok_or(ERR_MESSAGE)?)
+                .ok_or(ERR_MESSAGE)
         }
         // Offset base by num_items items of size item_size, panicking on overflow
         // Also, will align the value on pointer size boundary,
         // to avoid misalignment issue
         let pointer_size = self.pointer_size as u32;
-        let offset_by_aligned = |base: u32, num_items: u32, item_size: u32| -> u32 {
-            align(
-                base.checked_add(num_items.checked_mul(item_size).unwrap())
-                    .unwrap(),
-                pointer_size,
-            )
-        };
+        let offset_by_aligned =
+            |base: u32, num_items: u32, item_size: u32| -> Result<u32, &'static str> {
+                Ok(align(
+                    base.checked_add(num_items.checked_mul(item_size).ok_or(ERR_MESSAGE)?)
+                        .ok_or(ERR_MESSAGE)?,
+                    pointer_size,
+                ))
+            };
 
         self.vmctx_imported_functions_begin = 0;
         self.vmctx_imported_tables_begin = offset_by_aligned(
             self.vmctx_imported_functions_begin,
             self.num_imported_functions,
             u32::from(self.size_of_vmfunction_import()),
-        );
+        )?;
         self.vmctx_imported_memories_begin = offset_by_aligned(
             self.vmctx_imported_tables_begin,
             self.num_imported_tables,
             u32::from(self.size_of_vmtable_import()),
-        );
+        )?;
 
         self.vmctx_tag_ids_begin = offset_by_aligned(
             self.vmctx_imported_memories_begin,
             self.num_imported_memories,
             u32::from(self.size_of_vmmemory_import()),
-        );
+        )?;
 
         self.vmctx_imported_globals_begin = offset_by_aligned(
             self.vmctx_tag_ids_begin,
             self.num_tag_ids,
             u32::from(self.size_of_vmshared_tag_index()),
-        );
+        )?;
 
         self.vmctx_tables_begin = offset_by_aligned(
             self.vmctx_imported_globals_begin,
             self.num_imported_globals,
             u32::from(self.size_of_vmglobal_import()),
-        );
+        )?;
         self.vmctx_fixed_funcref_tables_begin = offset_by_aligned(
             self.vmctx_tables_begin,
             self.num_local_tables,
             u32::from(self.size_of_vmtable_definition()),
-        );
+        )?;
         self.vmctx_memories_begin = align(
             self.vmctx_fixed_funcref_tables_begin
                 .checked_add(self.size_of_local_fixed_funcref_tables)
-                .unwrap(),
+                .ok_or(ERR_MESSAGE)?,
             pointer_size,
         );
         self.vmctx_globals_begin = align(
@@ -414,31 +430,39 @@ impl VMOffsets {
                 self.vmctx_memories_begin,
                 self.num_local_memories,
                 u32::from(self.size_of_vmmemory_definition()),
-            ),
+            )?,
             16,
         );
         self.vmctx_builtin_functions_begin = offset_by(
             self.vmctx_globals_begin,
             self.num_local_globals,
             u32::from(self.size_of_vmglobal_local()),
-        );
+        )?;
         self.vmctx_trap_handler_begin = offset_by(
             self.vmctx_builtin_functions_begin,
             VMBuiltinFunctionIndex::builtin_functions_total_number(),
             u32::from(self.pointer_size),
-        );
+        )?;
         self.vmctx_gas_limiter_pointer = offset_by(
             self.vmctx_trap_handler_begin,
             1,
             u32::from(self.pointer_size),
-        );
+        )?;
         self.vmctx_stack_limit_begin = offset_by(
             self.vmctx_gas_limiter_pointer,
             1,
             u32::from(self.pointer_size),
-        );
-        self.vmctx_stack_limit_initial_begin = self.vmctx_stack_limit_begin.checked_add(4).unwrap();
-        self.size_of_vmctx = self.vmctx_stack_limit_begin.checked_add(4).unwrap();
+        )?;
+        self.vmctx_stack_limit_initial_begin = self
+            .vmctx_stack_limit_begin
+            .checked_add(4)
+            .ok_or(ERR_MESSAGE)?;
+        self.size_of_vmctx = self
+            .vmctx_stack_limit_begin
+            .checked_add(4)
+            .ok_or(ERR_MESSAGE)?;
+
+        Ok(())
     }
 }
 

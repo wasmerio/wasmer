@@ -1468,11 +1468,29 @@ fn table_huge(config: crate::Config) -> Result<()> {
         return Ok(());
     }
 
+    // It's fine to create all these table per se, the failure will occur during instantiation.
     let mut store = config.store();
-    let module = Module::new(&store, "(module (table 10000000 funcref))")?;
-    let result = Instance::new(&mut store, &module, &imports! {});
+    Module::new(&store, "(module (table 10000000 funcref))")?;
 
-    assert!(result.unwrap_err().to_string().contains("Table minimum"));
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, Some(10_000_000)),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 10_000_000, None),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 10_000_000, Some(10_000_000)),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+
     Ok(())
 }
 

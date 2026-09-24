@@ -1460,8 +1460,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         abi: &'a LLVMAbi,
         pointer_width: u8,
         m0: Option<PointerValue<'ctx>>,
-    ) -> CtxType<'ctx, 'a> {
-        CtxType {
+    ) -> Result<CtxType<'ctx, 'a>, CompileError> {
+        Ok(CtxType {
             m0,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
 
@@ -1475,8 +1475,9 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cached_functions: HashMap::new(),
             cached_memory_op: HashMap::new(),
 
-            offsets: VMOffsets::new(pointer_width, wasm_module),
-        }
+            offsets: VMOffsets::try_new(pointer_width, wasm_module)
+                .map_err(CompileError::Resource)?,
+        })
     }
 
     pub fn basic(&self) -> BasicValueEnum<'ctx> {

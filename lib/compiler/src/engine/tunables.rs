@@ -1,4 +1,4 @@
-use crate::engine::error::LinkError;
+use crate::{DEFAULT_MAX_TABLE_ELEMENTS, engine::error::LinkError};
 use std::ptr::NonNull;
 use wasmer_types::{
     FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
@@ -12,6 +12,12 @@ use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 /// An engine delegates the creation of memories, tables, and globals
 /// to a foreign implementor of this trait.
 pub trait Tunables {
+    /// Maximum total number of elements allowed across all of the module's local tables.
+    /// Cap the default total local table size at ~32 MiB (each table element occupies 4 x pointers).
+    fn max_table_elements(&self) -> u32 {
+        DEFAULT_MAX_TABLE_ELEMENTS
+    }
+
     /// Construct a `MemoryStyle` for the provided `MemoryType`
     fn memory_style(&self, memory: &MemoryType) -> MemoryStyle;
 
@@ -119,25 +125,34 @@ pub trait Tunables {
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         table_definition_locations: &[NonNull<VMTableDefinition>],
     ) -> Result<PrimaryMap<LocalTableIndex, InternalStoreHandle<VMTable>>, LinkError> {
-        unsafe {
-            let num_imports = module.num_imported_tables;
-            let mut tables: PrimaryMap<LocalTableIndex, _> =
-                PrimaryMap::with_capacity(module.tables.len() - num_imports);
-            for ((ti, ty), tdl) in module
-                .tables
-                .iter()
-                .skip(num_imports)
-                .zip(table_definition_locations)
-            {
-                let style = &table_styles[ti];
-                tables.push(InternalStoreHandle::new(
-                    context,
-                    self.create_vm_table(ty, style, *tdl)
-                        .map_err(LinkError::Resource)?,
-                ));
-            }
-            Ok(tables)
+        let max_table_elements = self.max_table_elements();
+        let total_table_elements = module
+            .tables
+            .values()
+            .skip(module.num_imported_tables)
+            .fold(0u32, |total, ty| total.saturating_add(ty.minimum));
+        if total_table_elements > max_table_elements {
+            return Err(LinkError::Resource(format!(
+                "Total table ({total_table_elements}) is larger than maximum allowed size ({max_table_elements})!",
+            )));
         }
+
+        let num_imports = module.num_imported_tables;
+        let mut tables: PrimaryMap<LocalTableIndex, _> =
+            PrimaryMap::with_capacity(module.tables.len() - num_imports);
+        for ((ti, ty), tdl) in module
+            .tables
+            .iter()
+            .skip(num_imports)
+            .zip(table_definition_locations)
+        {
+            let style = &table_styles[ti];
+            tables.push(InternalStoreHandle::new(context, unsafe {
+                self.create_vm_table(ty, style, *tdl)
+                    .map_err(LinkError::Resource)?
+            }));
+        }
+        Ok(tables)
     }
 
     /// Allocate memory for just the globals of the current module,
@@ -251,6 +266,10 @@ impl Tunables for BaseTunables {
 }
 
 impl Tunables for Box<dyn Tunables + Send + Sync> {
+    fn max_table_elements(&self) -> u32 {
+        self.as_ref().max_table_elements()
+    }
+
     fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
         self.as_ref().memory_style(memory)
     }
@@ -297,6 +316,10 @@ impl Tunables for Box<dyn Tunables + Send + Sync> {
 }
 
 impl Tunables for std::sync::Arc<dyn Tunables + Send + Sync> {
+    fn max_table_elements(&self) -> u32 {
+        self.as_ref().max_table_elements()
+    }
+
     fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
         self.as_ref().memory_style(memory)
     }

@@ -152,3 +152,4 @@ v8                  wasmer::table_grow_max_elements
 #6571
 v8                  spec::global
 v8                  spec::table_grow
+v8                  wasmer::table_huge
