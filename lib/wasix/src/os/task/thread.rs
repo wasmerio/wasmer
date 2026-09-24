@@ -614,6 +614,8 @@ impl std::ops::Deref for WasiThreadHandle {
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum WasiThreadError {
+    #[error("The process has been forcibly terminated with exit code {0}")]
+    ProcessTerminated(ExitCode),
     #[error("Multithreading is not supported")]
     Unsupported,
     #[error("The method named is not an exported function")]
@@ -643,6 +645,7 @@ pub enum WasiThreadError {
 impl From<WasiThreadError> for Errno {
     fn from(a: WasiThreadError) -> Errno {
         match a {
+            WasiThreadError::ProcessTerminated(_) => Errno::Canceled,
             WasiThreadError::Unsupported => Errno::Notsup,
             WasiThreadError::MethodNotFound => Errno::Inval,
             WasiThreadError::MemoryCreateFailed(_) => Errno::Nomem,

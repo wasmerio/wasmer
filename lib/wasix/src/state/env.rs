@@ -254,8 +254,17 @@ impl WasiEnv {
 
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
-        let process = self.control_plane.new_process(self.process.module_hash)?;
-        let handle = process.new_thread(self.layout.clone(), ThreadStartType::MainThread)?;
+        let process = self.process.new_child(self.process.module_hash)?;
+        let handle = match process.new_thread(self.layout.clone(), ThreadStartType::MainThread) {
+            Ok(handle) => handle,
+            Err(err) => {
+                // Registration precedes execution so shutdown cannot miss the
+                // child. If creating its main thread fails, there is no child
+                // execution to reap.
+                process.force_terminate_local(Errno::Canceled.into());
+                return Err(err);
+            }
+        };
 
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
@@ -471,6 +480,9 @@ impl WasiEnv {
         call_initialize: bool,
         linker_instance_group_data: Option<PreparedInstanceGroupData>,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
+        if let Some(exit_code) = self.process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
         let pid = self.process.pid();
 
         let mut store = store.as_store_mut();
@@ -554,6 +566,18 @@ impl WasiEnv {
                 _ => None,
             });
 
+        // A Wasm start function can already block on atomics during
+        // Instance::new, before initialize_handles_and_layout is reached.
+        if let Some(memory) = imported_memory
+            .as_ref()
+            .and_then(|memory| memory.as_shared(&store))
+        {
+            func_env.data(&store).process.register_memory(memory);
+        }
+        if let Some(exit_code) = func_env.data(&store).process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
+
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {
             Ok(a) => a,
@@ -630,6 +654,10 @@ impl WasiEnv {
             return Err(WasiThreadError::ExportError(err));
         }
 
+        if let Some(exit_code) = func_env.data(&store).process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
+
         // If this module exports an _initialize function, run that first.
         if call_initialize && let Ok(initialize) = instance.exports.get_function("_initialize") {
             let initialize_result = initialize.call(&mut store, &[]);
@@ -696,9 +724,16 @@ impl WasiEnv {
 
     /// Processes any signals that are batched up or any forced exit codes
     pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
+        // Forced completion takes precedence over queued signals. In particular,
+        // process SIGKILL uses a host-only wakeup that must not be drained and
+        // ignored by instances without their own guest signal callback.
+        let env = ctx.data();
+        if let Some(forced_exit) = env.should_exit() {
+            return Err(WasiError::Exit(forced_exit));
+        }
+
         // If a signal handler has never been set then we need to handle signals
         // differently
-        let env = ctx.data();
         let env_inner = env
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
@@ -713,8 +748,9 @@ impl WasiEnv {
                 .state
                 .signal_handler_registered
                 .load(std::sync::atomic::Ordering::SeqCst);
-        if !handler_registered {
+        let processed = if !handler_registered {
             let signals = env.thread.pop_signals();
+            let processed = !signals.is_empty();
             if !signals.is_empty() {
                 for sig in signals {
                     if sig == Signal::Sigint
@@ -729,16 +765,20 @@ impl WasiEnv {
                         tracing::trace!(pid=%env.pid(), ?sig, "Signal ignored");
                     }
                 }
-                return Ok(Ok(true));
             }
-        }
+            Ok(processed)
+        } else {
+            Self::process_signals(ctx)?
+        };
 
-        // Check for forced exit
-        if let Some(forced_exit) = env.should_exit() {
+        // Close the race between the first status check and signal draining.
+        // SIGKILL publishes completion before it queues Sigwakeup, so either
+        // this check observes it or the wake remains pending for the next pass.
+        if let Some(forced_exit) = ctx.data().should_exit() {
             return Err(WasiError::Exit(forced_exit));
         }
 
-        Self::process_signals(ctx)
+        Ok(processed)
     }
 
     /// Processes any signals that are batched up

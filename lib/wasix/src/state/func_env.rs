@@ -45,6 +45,9 @@ impl WasiFunctionEnv {
         call_initialize: bool,
         linker_instance_group_data: Option<PreparedInstanceGroupData>,
     ) -> Result<(Self, Store), WasiThreadError> {
+        if let Some(exit_code) = env.process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
         // Create a new store and put the memory object in it
         // (but only if it has imported memory)
         let (memory, store): (Option<wasmer::Memory>, Option<wasmer::Store>) = match spawn_type {
@@ -81,6 +84,10 @@ impl WasiFunctionEnv {
             call_initialize,
             linker_instance_group_data,
         )?;
+
+        if let Some(exit_code) = ctx.data(&store).process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
 
         // FIXME: shouldn't this happen _before_ instantiating, so the startup code in the instance
         // has access to the globals?
