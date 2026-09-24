@@ -189,17 +189,18 @@ impl SocketBuffer {
             }
             return Err(NetworkError::WouldBlock);
         }
-        if data.len() > available {
-            if all_or_nothing {
-                if let Some(waker) = waker {
-                    state.add_waker(waker)
-                }
-                return Err(NetworkError::WouldBlock);
+        if data.len() > available && all_or_nothing {
+            if let Some(waker) = waker {
+                state.add_waker(waker)
             }
-            let amt = state.buffer.enqueue_slice(&data[..available]);
-            return Ok(amt);
+            return Err(NetworkError::WouldBlock);
         }
-        let amt = state.buffer.enqueue_slice(data);
+        // A partial write makes bytes readable too. It must take the same
+        // notification path as a full write, or a sleeping reader never drains
+        // the buffer and both ends can remain blocked indefinitely.
+        let amt = state
+            .buffer
+            .enqueue_slice(&data[..data.len().min(available)]);
 
         if let Some(handler) = state.push_handler.as_mut() {
             handler.push_interest(InterestType::Readable);
@@ -680,5 +681,48 @@ impl TcpSocketHalf {
             addr_peer: tx.addr_peer,
             ttl: tx.ttl,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::task::Wake;
+
+    #[derive(Default)]
+    struct WakeCount(AtomicUsize);
+    impl Wake for WakeCount {
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn partial_send_wakes_a_reader_waiting_on_readiness() {
+        let addr = "127.0.0.1:5432".parse().unwrap();
+        let (mut writer, mut reader) = TcpSocketHalf::channel(4, addr, addr);
+        let wake = Arc::new(WakeCount::default());
+        let waker = Waker::from(wake.clone());
+        let mut cx = Context::from_waker(&waker);
+        assert!(reader.poll_read_ready(&mut cx).is_pending());
+        assert_eq!(writer.try_send(b"abcdefgh").unwrap(), 4);
+        assert!(wake.0.load(Ordering::SeqCst) > 0);
+        assert!(matches!(
+            reader.poll_read_ready(&mut cx),
+            Poll::Ready(Ok(4))
+        ));
+    }
+
+    #[test]
+    fn partial_send_notifies_the_socket_interest_handler() {
+        let addr = "127.0.0.1:5432".parse().unwrap();
+        let (mut writer, mut reader) = TcpSocketHalf::channel(4, addr, addr);
+        let wake = Arc::new(WakeCount::default());
+        let waker = Waker::from(wake.clone());
+        reader.set_handler((&waker).into()).unwrap();
+        let before = wake.0.load(Ordering::SeqCst);
+        assert_eq!(writer.try_send(b"abcdefgh").unwrap(), 4);
+        assert!(wake.0.load(Ordering::SeqCst) > before);
     }
 }
