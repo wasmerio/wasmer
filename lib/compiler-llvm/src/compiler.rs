@@ -647,6 +647,7 @@ impl Compiler for LLVMCompiler {
         }
     }
 
+    /// Add suggested optimizations to this compiler.
     fn with_opts(
         &mut self,
         _suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,

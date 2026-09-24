@@ -204,17 +204,11 @@ pub trait Compiler: Send + std::fmt::Debug {
     }
 
     /// Add suggested optimizations to this compiler.
-    ///
-    /// # Note
-    ///
-    /// Not every compiler supports every optimization. This function may fail (i.e. not set the
-    /// suggested optimizations) silently if the underlying compiler does not support one or
-    /// more optimizations.
+    #[deprecated(note = "User compilation options are currently unused")]
     fn with_opts(
         &mut self,
-        suggested_compiler_opts: &UserCompilerOptimizations,
+        _suggested_compiler_opts: &UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
-        _ = suggested_compiler_opts;
         Ok(())
     }
 
