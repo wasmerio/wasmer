@@ -35,7 +35,7 @@ pub type DwarfReader = gimli::EndianArcSlice<gimli::RunTimeEndian>;
 pub(crate) enum DebugInfoSource {
     Bytes(Arc<[u8]>),
     // CAVEAT: The debug info parsing and trap resolution can happen simultaneously and the opened
-    // files will share e.g. seeked position. Thus Mutex is used.
+    // files will share e.g. seek position. Thus Mutex is used.
     File(Arc<Mutex<File>>),
 }
 
