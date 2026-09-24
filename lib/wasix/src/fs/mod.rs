@@ -72,12 +72,20 @@ pub(crate) struct FlushPoller {
     pub(crate) file: VirtualFileLock,
 }
 
-/// Result of removing an fd under `fd_map.write()`, with an optional flush target
-/// captured before `drop_one_handle` may clear the inode handle.
+/// Drives the close-time drain for the final descriptor that references an
+/// open file description. Unlike [`FlushPoller`], this is not a durability
+/// operation: `poll_shutdown` lets buffered/asynchronous backends finish their
+/// writes without turning every close into `fsync`/`fdatasync`.
+pub(crate) struct ShutdownPoller {
+    pub(crate) file: VirtualFileLock,
+}
+
+/// Result of removing an fd under `fd_map.write()`, with an optional shutdown
+/// target returned by the atomic final-handle transition.
 pub(crate) struct CloseFdOutcome {
     pub skipped_preopen: bool,
     pub removed: bool,
-    pub flush_target: Option<VirtualFileLock>,
+    pub shutdown_target: Option<VirtualFileLock>,
 }
 
 impl CloseFdOutcome {
@@ -85,7 +93,7 @@ impl CloseFdOutcome {
         Self {
             skipped_preopen: false,
             removed: false,
-            flush_target: None,
+            shutdown_target: None,
         }
     }
 }
@@ -97,6 +105,17 @@ impl Future for FlushPoller {
         let mut file = self.file.write().unwrap();
         Pin::new(file.as_mut())
             .poll_flush(cx)
+            .map_err(|_| Errno::Io)
+    }
+}
+
+impl Future for ShutdownPoller {
+    type Output = Result<(), Errno>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut file = self.file.write().unwrap();
+        Pin::new(file.as_mut())
+            .poll_shutdown(cx)
             .map_err(|_| Errno::Io)
     }
 }
@@ -177,8 +196,140 @@ pub struct InodeGuard {
     // number of FDs referencing this InodeGuard. We need that number
     // so we can know when to drop the file handle, which should result
     // in the backing file (which may be a host file) getting closed.
-    open_handles: Arc<AtomicI32>,
+    open_handles: Arc<OpenHandleState>,
 }
+
+// Positive values are live descriptor counts. These negative sentinels make
+// the final count transition and ownership of the inode resource linearizable
+// without putting the inode lock on ordinary acquire/drop paths.
+const HANDLE_FINALIZING: i32 = -1;
+const HANDLE_OWNED: i32 = -2;
+const HANDLE_CLOSED: i32 = -3;
+
+#[derive(Debug)]
+struct OpenHandleState {
+    state: AtomicI32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HandleAcquire {
+    Acquired(i32),
+    NeedsLockedActivation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HandleDrop {
+    NonFinal(i32),
+    Finalizing,
+    Invalid,
+}
+
+impl OpenHandleState {
+    fn new() -> Self {
+        // READY=0 is reserved for a newly created inode, or for an inode whose
+        // kind retains everything needed to create a future descriptor.
+        Self {
+            state: AtomicI32::new(0),
+        }
+    }
+
+    fn count(&self) -> u32 {
+        match self.state.load(Ordering::Acquire) {
+            count if count >= 0 => count as u32,
+            HANDLE_FINALIZING | HANDLE_OWNED | HANDLE_CLOSED => 0,
+            _ => panic!("InodeGuard handle state is corrupt"),
+        }
+    }
+
+    /// Acquires a descriptor reference without touching the inode lock on the
+    /// normal path. FINALIZING can still be rescued until a finalizer changes
+    /// it to OWNED under the inode write lock.
+    fn try_acquire(&self) -> HandleAcquire {
+        let mut current = self.state.load(Ordering::Acquire);
+        loop {
+            let next = match current {
+                HANDLE_FINALIZING => 1,
+                HANDLE_OWNED | HANDLE_CLOSED => return HandleAcquire::NeedsLockedActivation,
+                i32::MAX => panic!("InodeGuard handle count overflow"),
+                count if count >= 0 => count + 1,
+                _ => panic!("InodeGuard handle state is corrupt"),
+            };
+
+            match self.state.compare_exchange_weak(
+                current,
+                next,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return HandleAcquire::Acquired(next),
+                Err(observed) => current = observed,
+            }
+        }
+    }
+
+    fn begin_drop(&self) -> HandleDrop {
+        let mut current = self.state.load(Ordering::Acquire);
+        loop {
+            let (next, outcome) = match current {
+                count if count > 1 => (count - 1, HandleDrop::NonFinal(count - 1)),
+                1 => (HANDLE_FINALIZING, HandleDrop::Finalizing),
+                _ => return HandleDrop::Invalid,
+            };
+
+            match self.state.compare_exchange_weak(
+                current,
+                next,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return outcome,
+                Err(observed) => current = observed,
+            }
+        }
+    }
+
+    /// Called only while holding the inode write lock. A concurrent acquire
+    /// can rescue FINALIZING, but it cannot cross OWNED.
+    fn try_own_final(&self) -> bool {
+        self.state
+            .compare_exchange(
+                HANDLE_FINALIZING,
+                HANDLE_OWNED,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            )
+            .is_ok()
+    }
+
+    /// Reactivates an inode only after the caller, under the inode write lock,
+    /// has verified that its kind still retains a usable resource or installed
+    /// a replacement file handle.
+    fn activate_closed_locked(&self) -> i32 {
+        self.state
+            .compare_exchange(HANDLE_CLOSED, 1, Ordering::AcqRel, Ordering::Acquire)
+            .map(|_| 1)
+            .unwrap_or_else(|state| {
+                panic!("closed InodeGuard activation raced with handle state {state}")
+            })
+    }
+
+    /// Completes final ownership while the inode write lock is still held.
+    fn finish_final(&self, resource_is_terminal: bool) {
+        let next = if resource_is_terminal {
+            HANDLE_CLOSED
+        } else {
+            0
+        };
+        self.state
+            .compare_exchange(HANDLE_OWNED, next, Ordering::AcqRel, Ordering::Acquire)
+            .unwrap_or_else(|state| panic!("final InodeGuard ownership was lost to state {state}"));
+    }
+
+    fn raw(&self) -> i32 {
+        self.state.load(Ordering::Acquire)
+    }
+}
+
 impl InodeGuard {
     pub fn ino(&self) -> Inode {
         self.ino
@@ -197,59 +348,134 @@ impl InodeGuard {
     }
 
     pub fn handle_count(&self) -> u32 {
-        self.open_handles.load(Ordering::SeqCst) as u32
+        self.open_handles.count()
     }
 
     pub fn acquire_handle(&self) {
-        let prev_handles = self.open_handles.fetch_add(1, Ordering::SeqCst);
-        trace!(ino = %self.ino.0, new_count = %(prev_handles + 1), "acquiring handle for InodeGuard");
+        match self.open_handles.try_acquire() {
+            HandleAcquire::Acquired(new_count) => {
+                trace!(ino = %self.ino.0, %new_count, "acquiring handle for InodeGuard");
+            }
+            HandleAcquire::NeedsLockedActivation => {
+                // Ordinary insertion cannot attach a stale descriptor to a
+                // resource already owned by final close, or to a later reopen
+                // of that inode. Only the explicit locked path-open API may
+                // reactivate CLOSED after installing a replacement handle.
+                panic!("ordinary handle acquisition requires locked reactivation")
+            }
+        }
     }
 
-    pub fn drop_one_handle(&self) {
-        let prev_handles = self.open_handles.fetch_sub(1, Ordering::SeqCst);
+    /// Acquires a descriptor reference while the caller already holds this
+    /// inode's write lock. This exists for path-open's handle installation,
+    /// where recursively taking the same `RwLock` would deadlock.
+    pub(crate) fn acquire_handle_locked(&self, guard: &std::sync::RwLockWriteGuard<'_, Kind>) {
+        let new_count = match self.open_handles.try_acquire() {
+            HandleAcquire::Acquired(new_count) => new_count,
+            HandleAcquire::NeedsLockedActivation => {
+                match self.open_handles.raw() {
+                    HANDLE_CLOSED => {}
+                    HANDLE_OWNED => {
+                        // The final owner must hold this same write lock, so
+                        // observing OWNED here means the wrong inode guard was
+                        // supplied or the state is corrupt.
+                        panic!("owned InodeGuard observed while holding its inode lock");
+                    }
+                    state => panic!("unexpected locked InodeGuard handle state {state}"),
+                }
 
-        trace!(ino = %self.ino.0, %prev_handles, "dropping handle for InodeGuard");
+                match guard.deref() {
+                    Kind::File {
+                        handle: Some(_), ..
+                    } => {}
+                    Kind::File { handle: None, .. } => {
+                        panic!("cannot reactivate a closed file before installing its handle")
+                    }
+                    Kind::PipeRx { .. }
+                    | Kind::PipeTx { .. }
+                    | Kind::Socket { .. }
+                    | Kind::DuplexPipe { .. }
+                    | Kind::Epoll { .. }
+                    | Kind::EventNotifications { .. } => {
+                        panic!("cannot reactivate a terminal inode resource")
+                    }
+                    Kind::Dir { .. }
+                    | Kind::Root { .. }
+                    | Kind::Symlink { .. }
+                    | Kind::Buffer { .. } => {
+                        panic!("resource-retaining inode unexpectedly entered CLOSED")
+                    }
+                }
 
-        // If this wasn't the last handle, nothing else to do...
-        if prev_handles > 1 {
-            return;
+                self.open_handles.activate_closed_locked()
+            }
+        };
+
+        if new_count <= 0 {
+            panic!("InodeGuard handle count is corrupt");
+        }
+        trace!(ino = %self.ino.0, %new_count, "acquiring handle for InodeGuard");
+    }
+
+    /// Drops one descriptor reference and returns the file only when this was
+    /// the final reference to the shared open-file description.
+    pub fn drop_one_handle(&self) -> Option<VirtualFileLock> {
+        match self.open_handles.begin_drop() {
+            HandleDrop::NonFinal(new_count) => {
+                trace!(ino = %self.ino.0, %new_count, "dropping non-final handle for InodeGuard");
+                return None;
+            }
+            HandleDrop::Invalid => {
+                // Preserve the existing fail-stop behavior: poison the inode
+                // lock before reporting a corrupt descriptor count.
+                let _guard = self.inner.write();
+                panic!("InodeGuard handle dropped too many times");
+            }
+            HandleDrop::Finalizing => {}
         }
 
-        // ... otherwise, drop the VirtualFile reference
+        // Only the candidate final transition takes the inode lock. An acquire
+        // that changes FINALIZING back to OPEN(1) wins before ownership; once
+        // this changes to OWNED, the handle can no longer be resurrected.
         let mut guard = self.inner.write();
-
-        // Must have at least one open handle before we can drop.
-        // This check happens after `inner` is locked so we can
-        // poison the lock and keep people from using this (possibly
-        // corrupt) InodeGuard.
-        if prev_handles != 1 {
-            panic!("InodeGuard handle dropped too many times");
-        }
-
-        // Re-check the open handles to account for race conditions
-        if self.open_handles.load(Ordering::SeqCst) != 0 {
-            return;
+        if !self.open_handles.try_own_final() {
+            trace!(ino = %self.ino.0, "final handle drop was rescued before ownership");
+            return None;
         }
 
         let ino = self.ino.0;
         trace!(%ino, "InodeGuard has no more open handles");
 
-        match guard.deref_mut() {
+        let (shutdown_target, resource_is_terminal) = match guard.deref_mut() {
             Kind::File { handle, .. } if handle.is_some() => {
                 let file_ref_count = Arc::strong_count(handle.as_ref().unwrap());
                 trace!(%file_ref_count, %ino, "dropping file handle");
-                drop(handle.take().unwrap());
+                (Some(handle.take().unwrap()), true)
             }
             Kind::PipeRx { rx } => {
                 trace!(%ino, "closing pipe rx");
                 rx.close();
+                (None, true)
             }
             Kind::PipeTx { tx } => {
                 trace!(%ino, "closing pipe tx");
                 tx.close();
+                (None, true)
             }
-            _ => (),
-        }
+            // A file whose handle is already absent is terminal too.
+            Kind::File { .. } => (None, true),
+            Kind::Socket { .. }
+            | Kind::DuplexPipe { .. }
+            | Kind::Epoll { .. }
+            | Kind::EventNotifications { .. } => (None, true),
+            // These inode kinds retain all state needed by a future open.
+            Kind::Dir { .. } | Kind::Root { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => {
+                (None, false)
+            }
+        };
+
+        self.open_handles.finish_final(resource_is_terminal);
+        shutdown_target
     }
 }
 impl std::ops::Deref for InodeGuard {
@@ -262,10 +488,9 @@ impl std::ops::Deref for InodeGuard {
 #[derive(Debug, Clone)]
 pub struct InodeWeakGuard {
     ino: Inode,
-    // Needed for when we want to upgrade back. We don't exactly
-    // care too much when the AtomicI32 is dropped, so this is
-    // a strong reference to keep things simple.
-    open_handles: Arc<AtomicI32>,
+    // Needed for when we want to upgrade back. We keep the descriptor state
+    // strongly referenced independently of the inode's weak reference.
+    open_handles: Arc<OpenHandleState>,
     inner: Weak<InodeVal>,
 }
 impl InodeWeakGuard {
@@ -346,7 +571,7 @@ impl WasiInodes {
             guard.lookup.retain(|_, v| Weak::strong_count(v) > 0);
         }
 
-        let open_handles = Arc::new(AtomicI32::new(0));
+        let open_handles = Arc::new(OpenHandleState::new());
 
         InodeGuard {
             ino,
@@ -716,7 +941,7 @@ impl WasiFs {
 
     /// Closes all file descriptors marked CLOEXEC (except stdio and preopens).
     pub async fn close_cloexec_fds(&self) {
-        let flush_targets = {
+        let shutdown_targets = {
             let mut fd_map = self.fd_map.write().unwrap();
             let to_close: Vec<WasiFd> = fd_map
                 .iter()
@@ -732,49 +957,44 @@ impl WasiFs {
                     }
                 })
                 .collect();
-            let mut flush_targets = Vec::new();
+            let mut shutdown_targets = Vec::new();
             for fd in to_close {
                 let outcome = Self::close_fd_locked(&mut fd_map, fd);
-                if let Some(target) = outcome.flush_target {
-                    flush_targets.push(target);
+                if let Some(target) = outcome.shutdown_target {
+                    shutdown_targets.push(target);
                 }
             }
-            flush_targets
+            shutdown_targets
         };
 
-        for file in flush_targets {
-            Self::flush_file_best_effort(file).await;
+        for file in shutdown_targets {
+            Self::shutdown_file_best_effort(file).await;
         }
     }
 
-    /// Closes all file descriptors, flushing captured handles after dropping the map lock.
+    /// Closes all file descriptors, draining final handles after dropping the map lock.
     pub async fn close_all(&self) {
-        let flush_targets = {
+        let shutdown_targets = {
             let mut fd_map = self.fd_map.write().unwrap();
             let mut fds: HashSet<WasiFd> = fd_map.keys().collect();
             fds.insert(__WASI_STDOUT_FILENO);
             fds.insert(__WASI_STDERR_FILENO);
 
-            let mut flush_targets = Vec::new();
+            let mut shutdown_targets = Vec::new();
             for fd in fds {
                 let outcome = Self::close_fd_locked(&mut fd_map, fd);
-                if let Some(target) = outcome.flush_target {
-                    flush_targets.push(target);
+                if let Some(target) = outcome.shutdown_target {
+                    shutdown_targets.push(target);
                 }
             }
 
             // Preopens skipped by close_fd_locked remain until clear().
-            for (_fd, fd_ref) in fd_map.iter().collect::<Vec<_>>() {
-                if let Some(target) = Self::file_flush_target(&fd_ref.inode) {
-                    flush_targets.push(target);
-                }
-            }
-            fd_map.clear();
-            flush_targets
+            shutdown_targets.extend(fd_map.clear());
+            shutdown_targets
         };
 
-        for file in flush_targets {
-            Self::flush_file_best_effort(file).await;
+        for file in shutdown_targets {
+            Self::shutdown_file_best_effort(file).await;
         }
     }
 
@@ -2049,6 +2269,36 @@ impl WasiFs {
         idx: Option<WasiFd>,
         exclusive: bool,
     ) -> Result<WasiFd, Errno> {
+        let (fd, shutdown_target) = Self::insert_fd_locked_and_capture_shutdown(
+            fd_map,
+            rights,
+            rights_inheriting,
+            fs_flags,
+            fd_flags,
+            open_flags,
+            inode,
+            idx,
+            exclusive,
+        )?;
+        assert!(
+            shutdown_target.is_none(),
+            "replacement insertion must drain its returned shutdown target"
+        );
+        Ok(fd)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn insert_fd_locked_and_capture_shutdown(
+        fd_map: &mut FdList,
+        rights: Rights,
+        rights_inheriting: Rights,
+        fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
+        open_flags: u16,
+        inode: InodeGuard,
+        idx: Option<WasiFd>,
+        exclusive: bool,
+    ) -> Result<(WasiFd, Option<VirtualFileLock>), Errno> {
         let fd = Self::make_fd(
             rights,
             rights_inheriting,
@@ -2064,13 +2314,61 @@ impl WasiFs {
                 if idx > MAX_FD {
                     return Err(Errno::Badf);
                 }
-                if fd_map.insert(exclusive, idx, fd) {
-                    Ok(idx)
+                let outcome = fd_map.insert(exclusive, idx, fd);
+                if outcome.inserted {
+                    Ok((idx, outcome.shutdown_target))
                 } else {
                     Err(Errno::Exist)
                 }
             }
-            None => Ok(fd_map.insert_first_free(fd)),
+            None => Ok((fd_map.insert_first_free(fd), None)),
+        }
+    }
+
+    /// Inserts an fd while path-open already holds this inode's write guard.
+    /// The reference count increment is performed under that existing guard,
+    /// avoiding both a recursive-lock deadlock and a gap in which a close in a
+    /// forked fd map could take the newly installed file handle.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn insert_fd_locked_with_inode_guard(
+        fd_map: &mut FdList,
+        rights: Rights,
+        rights_inheriting: Rights,
+        fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
+        open_flags: u16,
+        inode: InodeGuard,
+        idx: Option<WasiFd>,
+        inode_guard: &std::sync::RwLockWriteGuard<'_, Kind>,
+    ) -> Result<WasiFd, Errno> {
+        if let Some(idx) = idx {
+            if idx > MAX_FD {
+                return Err(Errno::Badf);
+            }
+            if fd_map.get(idx).is_some() {
+                return Err(Errno::Exist);
+            }
+        }
+
+        inode.acquire_handle_locked(inode_guard);
+        let fd = Self::make_fd(
+            rights,
+            rights_inheriting,
+            fs_flags,
+            fd_flags,
+            open_flags,
+            inode,
+            idx,
+        );
+
+        match idx {
+            Some(idx) => {
+                if !fd_map.insert_preacquired(idx, fd) {
+                    unreachable!("fd slot changed while fd_map write lock was held");
+                }
+                Ok(idx)
+            }
+            None => Ok(fd_map.insert_first_free_preacquired(fd)),
         }
     }
 
@@ -2149,9 +2447,9 @@ impl WasiFs {
 
     /// POSIX dup2: copy `src` onto exact slot `dst`, replacing any existing entry.
     ///
-    /// Holds `fd_map.write()` for the full remove+insert. Returns a flush target for
-    /// the replaced `dst` entry (if any), captured while the lock is held and before
-    /// `remove` calls `drop_one_handle`, which may clear the inode's file handle.
+    /// Holds `fd_map.write()` for the full remove+insert. Returns a shutdown target
+    /// only when replacing `dst` drops the final descriptor for its open-file
+    /// description.
     pub(crate) fn dup2_at(
         &self,
         src: WasiFd,
@@ -2161,7 +2459,7 @@ impl WasiFs {
             return Err(Errno::Badf);
         }
 
-        let flush_target = {
+        let shutdown_target = {
             let mut fd_map = self.fd_map.write().unwrap();
 
             let fd_entry = fd_map.get(src).ok_or(Errno::Badf)?;
@@ -2194,20 +2492,18 @@ impl WasiFs {
                 ..*fd_entry
             };
 
-            let flush_target = fd_map
-                .get(dst)
-                .and_then(|fd| Self::file_flush_target(&fd.inode));
+            let shutdown_target = fd_map
+                .remove(dst)
+                .and_then(|removed| removed.shutdown_target);
 
-            fd_map.remove(dst);
-
-            if !fd_map.insert(true, dst, new_fd_entry) {
+            if !fd_map.insert(true, dst, new_fd_entry).inserted {
                 panic!("Internal error: expected FD {dst} to be free after remove in dup2_at");
             }
 
-            flush_target
+            shutdown_target
         };
 
-        Ok(flush_target)
+        Ok(shutdown_target)
     }
 
     pub fn create_fd(
@@ -2267,18 +2563,24 @@ impl WasiFs {
         idx: Option<WasiFd>,
         exclusive: bool,
     ) -> Result<WasiFd, Errno> {
-        let mut fd_map = self.fd_map.write().unwrap();
-        Self::insert_fd_locked(
-            &mut fd_map,
-            rights,
-            rights_inheriting,
-            fs_flags,
-            fd_flags,
-            open_flags,
-            inode,
-            idx,
-            exclusive,
-        )
+        let (fd, shutdown_target) = {
+            let mut fd_map = self.fd_map.write().unwrap();
+            Self::insert_fd_locked_and_capture_shutdown(
+                &mut fd_map,
+                rights,
+                rights_inheriting,
+                fs_flags,
+                fd_flags,
+                open_flags,
+                inode,
+                idx,
+                exclusive,
+            )?
+        };
+        if let Some(file) = shutdown_target {
+            virtual_mio::block_on(Self::shutdown_file_best_effort(file));
+        }
+        Ok(fd)
     }
 
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
@@ -2589,23 +2891,30 @@ impl WasiFs {
                 kind: RwLock::new(kind),
             })
         };
-        self.fd_map.write().unwrap().insert(
-            false,
-            raw_fd,
-            Fd {
-                inner: FdInner {
-                    rights,
-                    rights_inheriting: Rights::empty(),
-                    flags: fd_flags,
-                    offset: Arc::new(AtomicU64::new(0)),
-                    fd_flags: Fdflagsext::empty(),
+        let outcome = {
+            let mut fd_map = self.fd_map.write().unwrap();
+            fd_map.insert(
+                false,
+                raw_fd,
+                Fd {
+                    inner: FdInner {
+                        rights,
+                        rights_inheriting: Rights::empty(),
+                        flags: fd_flags,
+                        offset: Arc::new(AtomicU64::new(0)),
+                        fd_flags: Fdflagsext::empty(),
+                    },
+                    // since we're not calling open on this, we don't need open flags
+                    open_flags: 0,
+                    inode,
+                    is_stdio: true,
                 },
-                // since we're not calling open on this, we don't need open flags
-                open_flags: 0,
-                inode,
-                is_stdio: true,
-            },
-        );
+            )
+        };
+        debug_assert!(outcome.inserted);
+        if let Some(file) = outcome.shutdown_target {
+            virtual_mio::block_on(Self::shutdown_file_best_effort(file));
+        }
     }
 
     pub fn get_stat_for_kind(&self, kind: &Kind) -> Result<Filestat, Errno> {
@@ -2668,11 +2977,11 @@ impl WasiFs {
         })
     }
 
-    /// Closes an open FD under `fd_map.write()`, capturing a file handle for
-    /// post-close flush while the map lock is held.
+    /// Closes an open FD under `fd_map.write()`, returning the file handle only
+    /// for the atomic final-descriptor transition.
     ///
-    /// Lock order: `fd_map` write, then inode read (never the reverse).
-    pub(crate) fn close_fd_and_capture_flush(&self, fd: WasiFd) -> CloseFdOutcome {
+    /// Lock order: `fd_map` write, then inode write (never the reverse).
+    pub(crate) fn close_fd_and_capture_shutdown(&self, fd: WasiFd) -> CloseFdOutcome {
         let mut fd_map = self.fd_map.write().unwrap();
         Self::close_fd_locked(&mut fd_map, fd)
     }
@@ -2688,14 +2997,14 @@ impl WasiFs {
             return CloseFdOutcome {
                 skipped_preopen: true,
                 removed: false,
-                flush_target: None,
+                shutdown_target: None,
             };
         }
 
-        let flush_target = Self::file_flush_target(&fd_ref.inode);
-
-        match fd_map.remove(fd) {
-            Some(fd_ref) => {
+        let shutdown_target = match fd_map.remove(fd) {
+            Some(removed) => {
+                let shutdown_target = removed.shutdown_target;
+                let fd_ref = removed.fd;
                 let inode = fd_ref.inode.ino().as_u64();
                 let ref_cnt = fd_ref.inode.ref_cnt();
                 if ref_cnt == 1 {
@@ -2703,22 +3012,23 @@ impl WasiFs {
                 } else {
                     trace!(%fd, %inode, %ref_cnt, "weakening file descriptor");
                 }
+                shutdown_target
             }
             None => {
                 trace!(%fd, "closing file descriptor failed - {}", Errno::Badf);
                 return CloseFdOutcome::not_found();
             }
-        }
+        };
 
         CloseFdOutcome {
             skipped_preopen: false,
             removed: true,
-            flush_target,
+            shutdown_target,
         }
     }
 
-    pub(crate) async fn flush_file_best_effort(file: VirtualFileLock) {
-        let result = FlushPoller { file }.await;
+    pub(crate) async fn shutdown_file_best_effort(file: VirtualFileLock) {
+        let result = ShutdownPoller { file }.await;
         match result {
             Ok(())
             | Err(Errno::Isdir)
@@ -2726,23 +3036,16 @@ impl WasiFs {
             | Err(Errno::Access)
             // EINVAL is returned by e.g. pipe-backed stdio and is safe to ignore.
             | Err(Errno::Inval) => {}
-            Err(err) => trace!("flush during bulk close failed - {}", err),
-        }
-    }
-
-    fn file_flush_target(inode: &InodeGuard) -> Option<VirtualFileLock> {
-        let guard = inode.read();
-        match guard.deref() {
-            Kind::File {
-                handle: Some(file), ..
-            } => Some(file.clone()),
-            _ => None,
+            Err(err) => trace!("shutdown during bulk close failed - {}", err),
         }
     }
 
     /// Closes an open FD, handling all details such as FD being preopen
     pub(crate) fn close_fd(&self, fd: WasiFd) -> Result<(), Errno> {
-        let _ = self.close_fd_and_capture_flush(fd);
+        let outcome = self.close_fd_and_capture_shutdown(fd);
+        if let Some(file) = outcome.shutdown_target {
+            virtual_mio::block_on(Self::shutdown_file_best_effort(file));
+        }
         Ok(())
     }
 }
