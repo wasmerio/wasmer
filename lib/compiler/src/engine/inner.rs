@@ -351,24 +351,11 @@ impl Engine {
     }
 
     /// Add suggested optimizations to this engine.
-    ///
-    /// # Note
-    ///
-    /// Not every backend supports every optimization. This function may fail (i.e. not set the
-    /// suggested optimizations) silently if the underlying engine backend does not support one or
-    /// more optimizations.
+    #[deprecated(note = "User compilation options are currently unused")]
     pub fn with_opts(
         &mut self,
         _suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
-        #[cfg(feature = "compiler")]
-        {
-            let mut i = self.inner_mut();
-            if let Some(ref mut c) = i.compiler {
-                c.with_opts(_suggested_opts)?;
-            }
-        }
-
         Ok(())
     }
 }
