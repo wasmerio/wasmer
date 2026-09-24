@@ -53,6 +53,10 @@ impl ArtifactBuild {
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
+        Self::has_rkyv_header(bytes) || bytes.starts_with(&object::elf::ELFMAG)
+    }
+
+    pub(crate) fn has_rkyv_header(bytes: &[u8]) -> bool {
         bytes.starts_with(Self::MAGIC_HEADER)
     }
 
