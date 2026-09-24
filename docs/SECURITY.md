@@ -11,8 +11,9 @@ The table below summarizes which versions are still supported, and which aren't.
 | 2.x | ❌ |
 | 3.x | ❌ |
 | 4.x | ❌ |
-| 5.x | ✅ |
-| 6.x | ⏰ |
+| 5.x | ❌ |
+| 6.x | ✅ |
+| 7.x | ✅ |
 
 ## Reporting a Vulnerability
 
