@@ -7499,7 +7499,7 @@ dependencies = [
  "wasmer-config",
  "wasmer-napi",
  "wasmer-package",
- "wasmer-sdk",
+ "wasmer-package-sdk",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
@@ -7782,7 +7782,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-sdk"
+name = "wasmer-package-sdk"
 version = "7.4.0"
 dependencies = [
  "anyhow",
