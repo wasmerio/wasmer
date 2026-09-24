@@ -54,7 +54,7 @@ members = [
   "lib/napi",
   "lib/sys-utils",
   "lib/types",
-  "lib/sdk",
+  "lib/package-sdk",
   "lib/virtual-io",
   "lib/virtual-fs",
   "lib/virtual-net",
@@ -88,7 +88,7 @@ version = "7.4.0"
 wasmer-package = { version = "0.704.0", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
-wasmer-sdk = { path = "./lib/sdk" }
+wasmer-package-sdk = { path = "./lib/package-sdk" }
 
 # Wasmer-owned crates
 webc = { version = "=12.0.1", default-features = false, features = [

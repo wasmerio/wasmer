@@ -1,6 +1,6 @@
 [package]
-name = "wasmer-sdk"
-description = "The Wasmer SDK - provides Wasmer and Wasmer Edge related functionality."
+name = "wasmer-package-sdk"
+description = "The Wasmer Package SDK - provides Wasmer and Wasmer Edge related functionality."
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
