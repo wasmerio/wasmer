@@ -28,6 +28,7 @@ pub struct WasiRunner {
     stdin: Option<ArcBoxFile>,
     stdout: Option<ArcBoxFile>,
     stderr: Option<ArcBoxFile>,
+    stdio_is_terminal: Option<bool>,
 }
 
 pub enum PackageOrHash<'a> {
@@ -252,6 +253,13 @@ impl WasiRunner {
         self
     }
 
+    /// Force what stdin, stdout and stderr report about being connected to a
+    /// terminal, instead of letting the handles behind them decide.
+    pub fn with_stdio_is_terminal(&mut self, is_terminal: bool) -> &mut Self {
+        self.stdio_is_terminal = Some(is_terminal);
+        self
+    }
+
     fn ensure_tokio_runtime() -> Option<tokio::runtime::Runtime> {
         #[cfg(feature = "sys-thread")]
         {
@@ -345,6 +353,7 @@ impl WasiRunner {
         if let Some(stderr) = &self.stderr {
             builder.set_stderr(Box::new(stderr.clone()));
         }
+        builder.set_stdio_is_terminal(self.stdio_is_terminal);
 
         Ok(builder)
     }

@@ -148,6 +148,10 @@ impl VirtualFile for TraceFile {
         self.file.unlink()
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        self.file.is_terminal()
+    }
+
     #[tracing::instrument(level = "trace", skip_all, fields(path=%self.path.display()))]
     fn poll_read_ready(
         mut self: Pin<&mut Self>,

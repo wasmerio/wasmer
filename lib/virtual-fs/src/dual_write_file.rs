@@ -54,6 +54,10 @@ impl VirtualFile for DualWriteFile {
         self.inner.unlink()
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        self.inner.is_terminal()
+    }
+
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Pin::new(self.inner.as_mut()).poll_read_ready(cx)
     }

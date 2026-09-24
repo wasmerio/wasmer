@@ -318,6 +318,34 @@ impl VirtualFile for FileHandle {
         }
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        let fs = match self.filesystem.inner.read() {
+            Ok(a) => a,
+            Err(_) => {
+                return None;
+            }
+        };
+
+        let inode = fs.storage.get(self.inode);
+        match inode {
+            Some(Node::CustomFile(node)) => {
+                let file = node.file.lock().unwrap();
+                file.is_terminal()
+            }
+            // Only answered from an already-open handle. Unlike
+            // `get_special_fd`, this deliberately does not lazily open the
+            // backing file: `None` means "no opinion", which is a correct and
+            // free answer, and a predicate should not allocate a descriptor or
+            // touch the backing store to produce it.
+            Some(Node::ArcFile(_)) => self
+                .arc_file
+                .as_ref()
+                .and_then(|file| file.as_ref().ok())
+                .and_then(|file| file.is_terminal()),
+            _ => None,
+        }
+    }
+
     fn copy_reference(
         &mut self,
         src: Box<dyn VirtualFile + Send + Sync + 'static>,
