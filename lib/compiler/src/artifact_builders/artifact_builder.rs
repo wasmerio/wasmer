@@ -53,7 +53,7 @@ impl ArtifactBuild {
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
-        bytes.starts_with(Self::MAGIC_HEADER)
+        bytes.starts_with(Self::MAGIC_HEADER) || bytes.starts_with(&object::elf::ELFMAG)
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
