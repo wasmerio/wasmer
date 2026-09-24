@@ -346,7 +346,7 @@ impl Artifact {
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
         unsafe {
-            if !ArtifactBuild::is_deserializable(bytes.as_ref()) {
+            if !ArtifactBuild::has_rkyv_header(bytes.as_ref()) {
                 if let Some(artifact) = Self::deserialize_elf(engine, bytes.as_ref())? {
                     return Ok(artifact);
                 }
@@ -397,7 +397,7 @@ impl Artifact {
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
         unsafe {
-            if !ArtifactBuild::is_deserializable(bytes.as_ref()) {
+            if !ArtifactBuild::has_rkyv_header(bytes.as_ref()) {
                 if let Some(artifact) = Self::deserialize_elf(engine, bytes.as_ref())? {
                     return Ok(artifact);
                 }
