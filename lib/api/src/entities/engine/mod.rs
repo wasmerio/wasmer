@@ -217,7 +217,7 @@ impl Engine {
     #[deprecated(note = "User compilation options are currently unused")]
     pub fn with_opts(
         &mut self,
-        suggested_opts: &UserCompilerOptimizations,
+        _suggested_opts: &UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
         Ok(())
     }
