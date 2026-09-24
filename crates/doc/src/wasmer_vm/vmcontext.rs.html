@@ -88,7 +88,7 @@
 <a href=#88 id=88 data-nosnippet>88</a>    <span class="attr">#[test]
 <a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">fn </span>check_vmfunction_import_offsets() {
 <a href=#90 id=90 data-nosnippet>90</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#92 id=92 data-nosnippet>92</a>        <span class="macro">assert_eq!</span>(
 <a href=#93 id=93 data-nosnippet>93</a>            size_of::&lt;VMFunctionImport&gt;(),
 <a href=#94 id=94 data-nosnippet>94</a>            usize::from(offsets.size_of_vmfunction_import())
@@ -151,7 +151,7 @@
 <a href=#151 id=151 data-nosnippet>151</a>    <span class="attr">#[test]
 <a href=#152 id=152 data-nosnippet>152</a>    </span><span class="kw">fn </span>check_vmdynamicfunction_import_context_offsets() {
 <a href=#153 id=153 data-nosnippet>153</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#154 id=154 data-nosnippet>154</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#154 id=154 data-nosnippet>154</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#155 id=155 data-nosnippet>155</a>        <span class="macro">assert_eq!</span>(
 <a href=#156 id=156 data-nosnippet>156</a>            size_of::&lt;VMDynamicFunctionContext&lt;usize&gt;&gt;(),
 <a href=#157 id=157 data-nosnippet>157</a>            usize::from(offsets.size_of_vmdynamicfunction_import_context())
@@ -210,7 +210,7 @@
 <a href=#210 id=210 data-nosnippet>210</a>    <span class="attr">#[test]
 <a href=#211 id=211 data-nosnippet>211</a>    </span><span class="kw">fn </span>check_vmtable_import_offsets() {
 <a href=#212 id=212 data-nosnippet>212</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#213 id=213 data-nosnippet>213</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#213 id=213 data-nosnippet>213</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#214 id=214 data-nosnippet>214</a>        <span class="macro">assert_eq!</span>(
 <a href=#215 id=215 data-nosnippet>215</a>            size_of::&lt;VMTableImport&gt;(),
 <a href=#216 id=216 data-nosnippet>216</a>            usize::from(offsets.size_of_vmtable_import())
@@ -245,7 +245,7 @@
 <a href=#245 id=245 data-nosnippet>245</a>    <span class="attr">#[test]
 <a href=#246 id=246 data-nosnippet>246</a>    </span><span class="kw">fn </span>check_vmmemory_import_offsets() {
 <a href=#247 id=247 data-nosnippet>247</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#249 id=249 data-nosnippet>249</a>        <span class="macro">assert_eq!</span>(
 <a href=#250 id=250 data-nosnippet>250</a>            size_of::&lt;VMMemoryImport&gt;(),
 <a href=#251 id=251 data-nosnippet>251</a>            usize::from(offsets.size_of_vmmemory_import())
@@ -296,7 +296,7 @@
 <a href=#296 id=296 data-nosnippet>296</a>    <span class="attr">#[test]
 <a href=#297 id=297 data-nosnippet>297</a>    </span><span class="kw">fn </span>check_vmglobal_import_offsets() {
 <a href=#298 id=298 data-nosnippet>298</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#300 id=300 data-nosnippet>300</a>        <span class="macro">assert_eq!</span>(
 <a href=#301 id=301 data-nosnippet>301</a>            size_of::&lt;VMGlobalImport&gt;(),
 <a href=#302 id=302 data-nosnippet>302</a>            usize::from(offsets.size_of_vmglobal_import())
@@ -508,7 +508,7 @@
 <a href=#508 id=508 data-nosnippet>508</a>    <span class="attr">#[test]
 <a href=#509 id=509 data-nosnippet>509</a>    </span><span class="kw">fn </span>check_vmtable_definition_offsets() {
 <a href=#510 id=510 data-nosnippet>510</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#511 id=511 data-nosnippet>511</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#511 id=511 data-nosnippet>511</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#512 id=512 data-nosnippet>512</a>        <span class="macro">assert_eq!</span>(
 <a href=#513 id=513 data-nosnippet>513</a>            size_of::&lt;VMTableDefinition&gt;(),
 <a href=#514 id=514 data-nosnippet>514</a>            usize::from(offsets.size_of_vmtable_definition())
@@ -556,7 +556,7 @@
 <a href=#556 id=556 data-nosnippet>556</a>    <span class="attr">#[test]
 <a href=#557 id=557 data-nosnippet>557</a>    </span><span class="kw">fn </span>check_vmglobal_definition_offsets() {
 <a href=#558 id=558 data-nosnippet>558</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#559 id=559 data-nosnippet>559</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#559 id=559 data-nosnippet>559</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#560 id=560 data-nosnippet>560</a>        <span class="macro">assert_eq!</span>(
 <a href=#561 id=561 data-nosnippet>561</a>            size_of::&lt;VMGlobalDefinition&gt;(),
 <a href=#562 id=562 data-nosnippet>562</a>            usize::from(offsets.size_of_vmglobal_local())
@@ -566,7 +566,7 @@
 <a href=#566 id=566 data-nosnippet>566</a>    <span class="attr">#[test]
 <a href=#567 id=567 data-nosnippet>567</a>    </span><span class="kw">fn </span>check_vmglobal_begins_aligned() {
 <a href=#568 id=568 data-nosnippet>568</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#569 id=569 data-nosnippet>569</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#569 id=569 data-nosnippet>569</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#570 id=570 data-nosnippet>570</a>        <span class="macro">assert_eq!</span>(offsets.vmctx_globals_begin() % <span class="number">16</span>, <span class="number">0</span>);
 <a href=#571 id=571 data-nosnippet>571</a>    }
 <a href=#572 id=572 data-nosnippet>572</a>}
@@ -683,7 +683,7 @@
 <a href=#683 id=683 data-nosnippet>683</a>    <span class="attr">#[test]
 <a href=#684 id=684 data-nosnippet>684</a>    </span><span class="kw">fn </span>check_vmcaller_checked_anyfunc_offsets() {
 <a href=#685 id=685 data-nosnippet>685</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#686 id=686 data-nosnippet>686</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#686 id=686 data-nosnippet>686</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#687 id=687 data-nosnippet>687</a>        <span class="macro">assert_eq!</span>(
 <a href=#688 id=688 data-nosnippet>688</a>            size_of::&lt;VMCallerCheckedAnyfunc&gt;(),
 <a href=#689 id=689 data-nosnippet>689</a>            usize::from(offsets.size_of_vmcaller_checked_anyfunc())
@@ -878,7 +878,7 @@
 <a href=#878 id=878 data-nosnippet>878</a>    <span class="attr">#[test]
 <a href=#879 id=879 data-nosnippet>879</a>    </span><span class="kw">fn </span>check_vmmemory_definition_offsets() {
 <a href=#880 id=880 data-nosnippet>880</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#881 id=881 data-nosnippet>881</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#881 id=881 data-nosnippet>881</a>        <span class="kw">let </span>offsets = VMOffsets::try_new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module).unwrap();
 <a href=#882 id=882 data-nosnippet>882</a>        <span class="macro">assert_eq!</span>(
 <a href=#883 id=883 data-nosnippet>883</a>            size_of::&lt;VMMemoryDefinition&gt;(),
 <a href=#884 id=884 data-nosnippet>884</a>            usize::from(offsets.size_of_vmmemory_definition())
