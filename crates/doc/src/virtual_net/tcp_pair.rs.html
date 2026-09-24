@@ -173,7 +173,7 @@
 <a href=#173 id=173 data-nosnippet>173</a>
 <a href=#174 id=174 data-nosnippet>174</a>    <span class="kw">pub fn </span>try_send(
 <a href=#175 id=175 data-nosnippet>175</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#176 id=176 data-nosnippet>176</a>        data: <span class="kw-2">&amp;</span>[u8],
+<a href=#176 id=176 data-nosnippet>176</a>        <span class="kw-2">mut </span>data: <span class="kw-2">&amp;</span>[u8],
 <a href=#177 id=177 data-nosnippet>177</a>        all_or_nothing: bool,
 <a href=#178 id=178 data-nosnippet>178</a>        waker: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Waker&gt;,
 <a href=#179 id=179 data-nosnippet>179</a>    ) -&gt; <span class="kw">crate</span>::Result&lt;usize&gt; {
@@ -196,8 +196,8 @@
 <a href=#196 id=196 data-nosnippet>196</a>                }
 <a href=#197 id=197 data-nosnippet>197</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::WouldBlock);
 <a href=#198 id=198 data-nosnippet>198</a>            }
-<a href=#199 id=199 data-nosnippet>199</a>            <span class="kw">let </span>amt = state.buffer.enqueue_slice(<span class="kw-2">&amp;</span>data[..available]);
-<a href=#200 id=200 data-nosnippet>200</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(amt);
+<a href=#199 id=199 data-nosnippet>199</a>            <span class="comment">// Partial writes must also notify readers below.
+<a href=#200 id=200 data-nosnippet>200</a>            </span>data = <span class="kw-2">&amp;</span>data[..available];
 <a href=#201 id=201 data-nosnippet>201</a>        }
 <a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">let </span>amt = state.buffer.enqueue_slice(data);
 <a href=#203 id=203 data-nosnippet>203</a>
@@ -682,4 +682,47 @@
 <a href=#682 id=682 data-nosnippet>682</a>        }
 <a href=#683 id=683 data-nosnippet>683</a>    }
 <a href=#684 id=684 data-nosnippet>684</a>}
+<a href=#685 id=685 data-nosnippet>685</a>
+<a href=#686 id=686 data-nosnippet>686</a><span class="attr">#[cfg(test)]
+<a href=#687 id=687 data-nosnippet>687</a></span><span class="kw">mod </span>tests {
+<a href=#688 id=688 data-nosnippet>688</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#689 id=689 data-nosnippet>689</a>    <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering};
+<a href=#690 id=690 data-nosnippet>690</a>    <span class="kw">use </span>std::task::Wake;
+<a href=#691 id=691 data-nosnippet>691</a>
+<a href=#692 id=692 data-nosnippet>692</a>    <span class="attr">#[derive(Default)]
+<a href=#693 id=693 data-nosnippet>693</a>    </span><span class="kw">struct </span>WakeCount(AtomicUsize);
+<a href=#694 id=694 data-nosnippet>694</a>    <span class="kw">impl </span>Wake <span class="kw">for </span>WakeCount {
+<a href=#695 id=695 data-nosnippet>695</a>        <span class="kw">fn </span>wake(<span class="self">self</span>: Arc&lt;<span class="self">Self</span>&gt;) {
+<a href=#696 id=696 data-nosnippet>696</a>            <span class="self">self</span>.<span class="number">0</span>.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
+<a href=#697 id=697 data-nosnippet>697</a>        }
+<a href=#698 id=698 data-nosnippet>698</a>    }
+<a href=#699 id=699 data-nosnippet>699</a>
+<a href=#700 id=700 data-nosnippet>700</a>    <span class="attr">#[test]
+<a href=#701 id=701 data-nosnippet>701</a>    </span><span class="kw">fn </span>partial_send_wakes_a_reader_waiting_on_readiness() {
+<a href=#702 id=702 data-nosnippet>702</a>        <span class="kw">let </span>addr = <span class="string">"127.0.0.1:5432"</span>.parse().unwrap();
+<a href=#703 id=703 data-nosnippet>703</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>writer, <span class="kw-2">mut </span>reader) = TcpSocketHalf::channel(<span class="number">4</span>, addr, addr);
+<a href=#704 id=704 data-nosnippet>704</a>        <span class="kw">let </span>wake = Arc::new(WakeCount::default());
+<a href=#705 id=705 data-nosnippet>705</a>        <span class="kw">let </span>waker = Waker::from(wake.clone());
+<a href=#706 id=706 data-nosnippet>706</a>        <span class="kw">let </span><span class="kw-2">mut </span>cx = Context::from_waker(<span class="kw-2">&amp;</span>waker);
+<a href=#707 id=707 data-nosnippet>707</a>        <span class="macro">assert!</span>(reader.poll_read_ready(<span class="kw-2">&amp;mut </span>cx).is_pending());
+<a href=#708 id=708 data-nosnippet>708</a>        <span class="macro">assert_eq!</span>(writer.try_send(<span class="string">b"abcdefgh"</span>).unwrap(), <span class="number">4</span>);
+<a href=#709 id=709 data-nosnippet>709</a>        <span class="macro">assert!</span>(wake.<span class="number">0</span>.load(Ordering::SeqCst) &gt; <span class="number">0</span>);
+<a href=#710 id=710 data-nosnippet>710</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+<a href=#711 id=711 data-nosnippet>711</a>            reader.poll_read_ready(<span class="kw-2">&amp;mut </span>cx),
+<a href=#712 id=712 data-nosnippet>712</a>            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">4</span>))
+<a href=#713 id=713 data-nosnippet>713</a>        ));
+<a href=#714 id=714 data-nosnippet>714</a>    }
+<a href=#715 id=715 data-nosnippet>715</a>
+<a href=#716 id=716 data-nosnippet>716</a>    <span class="attr">#[test]
+<a href=#717 id=717 data-nosnippet>717</a>    </span><span class="kw">fn </span>partial_send_notifies_the_socket_interest_handler() {
+<a href=#718 id=718 data-nosnippet>718</a>        <span class="kw">let </span>addr = <span class="string">"127.0.0.1:5432"</span>.parse().unwrap();
+<a href=#719 id=719 data-nosnippet>719</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>writer, <span class="kw-2">mut </span>reader) = TcpSocketHalf::channel(<span class="number">4</span>, addr, addr);
+<a href=#720 id=720 data-nosnippet>720</a>        <span class="kw">let </span>wake = Arc::new(WakeCount::default());
+<a href=#721 id=721 data-nosnippet>721</a>        <span class="kw">let </span>waker = Waker::from(wake.clone());
+<a href=#722 id=722 data-nosnippet>722</a>        reader.set_handler((<span class="kw-2">&amp;</span>waker).into()).unwrap();
+<a href=#723 id=723 data-nosnippet>723</a>        <span class="kw">let </span>before = wake.<span class="number">0</span>.load(Ordering::SeqCst);
+<a href=#724 id=724 data-nosnippet>724</a>        <span class="macro">assert_eq!</span>(writer.try_send(<span class="string">b"abcdefgh"</span>).unwrap(), <span class="number">4</span>);
+<a href=#725 id=725 data-nosnippet>725</a>        <span class="macro">assert!</span>(wake.<span class="number">0</span>.load(Ordering::SeqCst) &gt; before);
+<a href=#726 id=726 data-nosnippet>726</a>    }
+<a href=#727 id=727 data-nosnippet>727</a>}
 </code></pre></div></section></main></body></html>
