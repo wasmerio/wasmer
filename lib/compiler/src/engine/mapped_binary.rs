@@ -388,12 +388,10 @@ impl MemoryMappedBinary {
                         },
                     )
                 ) {
-                    unsafe {
-                        ptr::write_unaligned(
-                            base.add(offset as usize) as *mut usize,
-                            (base as usize).wrapping_add(relocation.addend() as usize),
-                        );
-                    }
+                    map.write_relocation(
+                        offset,
+                        (base as usize).wrapping_add(relocation.addend() as usize),
+                    )?;
                     continue;
                 }
 
@@ -408,48 +406,65 @@ impl MemoryMappedBinary {
                     ));
                 };
 
-                let apply_absolute_relocation = || unsafe {
-                    ptr::write_unaligned(
-                        base.add(offset as usize) as *mut usize,
+                let apply_absolute_relocation = || {
+                    map.write_relocation(
+                        offset,
                         function_pointer(libcall).wrapping_add(relocation.addend() as usize),
-                    );
+                    )
                 };
                 match (architecture, relocation.kind(), rel_flags) {
-                    (_, object::RelocationKind::Absolute, _) => apply_absolute_relocation(),
+                    (_, object::RelocationKind::Absolute, _) => apply_absolute_relocation()?,
                     (
                         object::Architecture::X86_64,
                         object::RelocationKind::Unknown,
                         object::RelocationFlags::Elf {
                             r_type: elf::R_X86_64_GLOB_DAT | elf::R_X86_64_JUMP_SLOT,
                         },
-                    ) => apply_absolute_relocation(),
+                    ) => apply_absolute_relocation()?,
                     (
                         object::Architecture::Aarch64,
                         object::RelocationKind::Unknown,
                         object::RelocationFlags::Elf {
                             r_type: elf::R_AARCH64_GLOB_DAT | elf::R_AARCH64_JUMP_SLOT,
                         },
-                    ) => apply_absolute_relocation(),
+                    ) => apply_absolute_relocation()?,
                     (
                         object::Architecture::Riscv64,
                         object::RelocationKind::Unknown,
                         object::RelocationFlags::Elf {
                             r_type: elf::R_RISCV_64 | elf::R_RISCV_JUMP_SLOT,
                         },
-                    ) => apply_absolute_relocation(),
+                    ) => apply_absolute_relocation()?,
                     (
                         object::Architecture::LoongArch64,
                         object::RelocationKind::Unknown,
                         object::RelocationFlags::Elf {
                             r_type: elf::R_LARCH_64 | elf::R_LARCH_JUMP_SLOT,
                         },
-                    ) => apply_absolute_relocation(),
+                    ) => apply_absolute_relocation()?,
                     kind => return Err(format!("unsupported dynamic relocation kind {kind:?}")),
                 }
             }
         }
 
         Ok(map)
+    }
+
+    fn write_relocation(&self, offset: u64, value: usize) -> Result<(), String> {
+        let err = "Dynamic relocation exceeds allocated range".to_string();
+        let offset = usize::try_from(offset).map_err(|_| err.clone())?;
+        let end = offset
+            .checked_add(size_of::<usize>())
+            .ok_or_else(|| err.clone())?;
+        if end > self.size {
+            return Err(err);
+        }
+
+        // TODO: Replace this raw pointer write with a safer write operation.
+        unsafe {
+            ptr::write_unaligned(self.base.cast::<u8>().add(offset).cast::<usize>(), value);
+        }
+        Ok(())
     }
 
     fn new_mmap(size: usize) -> Result<Self, String> {
@@ -503,6 +518,10 @@ impl MemoryMappedBinary {
         address: u64,
         size: u64,
     ) -> Result<(), String> {
+        if address.saturating_add(size) > self.size as u64 {
+            return Err("EH frame section exceeds allocated range".to_string());
+        }
+
         let eh_frame = unsafe {
             slice::from_raw_parts(self.base.cast::<u8>().add(address as usize), size as usize)
         };
