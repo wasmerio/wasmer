@@ -265,13 +265,13 @@ mod tests {
 
     use super::*;
 
-    const COREUTILS_16: &[u8] = include_bytes!(concat!(
+    const COREUTILS_24: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+        "/../../wasmer-test-files/integration/webc/wasmer--coreutils@1.0.24.webc"
     ));
-    const COREUTILS_11: &[u8] = include_bytes!(concat!(
+    const COREUTILS_25: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../wasmer-test-files/integration/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc"
+        "/../../wasmer-test-files/integration/webc/wasmer--coreutils@1.0.25.webc"
     ));
 
     fn registry(files: &[(&str, &[u8])]) -> TempDir {
@@ -307,9 +307,9 @@ mod tests {
 
     #[test]
     fn named_query_ids_come_from_the_layout() {
-        // COREUTILS_16's manifest is "sharrattj/coreutils@1.0.16"; the layout
-        // must win, proving resolution keys off the path, not the artifact.
-        let temp = registry(&[("acme/cutils/9.9.9.webc", COREUTILS_16)]);
+        // COREUTILS_25's manifest is "wasmer/coreutils@1.0.25"; the layout must
+        // win, proving resolution keys off the path, not the artifact.
+        let temp = registry(&[("acme/cutils/9.9.9.webc", COREUTILS_25)]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
 
         let summaries = query(&source, &"acme/cutils".parse().unwrap()).unwrap();
@@ -325,7 +325,7 @@ mod tests {
         // 0.1.0 is garbage; a constraint that rules it out never reads it.
         let temp = registry(&[
             ("acme/cutils/0.1.0.webc", b"not a webc".as_slice()),
-            ("acme/cutils/9.9.9.webc", COREUTILS_16),
+            ("acme/cutils/9.9.9.webc", COREUTILS_25),
         ]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
 
@@ -342,37 +342,37 @@ mod tests {
     #[test]
     fn version_constraints_filter_the_listing() {
         let temp = registry(&[
-            ("sharrattj/coreutils/1.0.11.webc", COREUTILS_11),
-            ("sharrattj/coreutils/1.0.16.webc", COREUTILS_16),
+            ("wasmer/coreutils/1.0.24.webc", COREUTILS_24),
+            ("wasmer/coreutils/1.0.25.webc", COREUTILS_25),
         ]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
 
-        let all = query(&source, &"sharrattj/coreutils".parse().unwrap()).unwrap();
+        let all = query(&source, &"wasmer/coreutils".parse().unwrap()).unwrap();
         assert_eq!(
             all.iter().map(|s| s.pkg.id.clone()).collect::<Vec<_>>(),
             [
-                named("sharrattj/coreutils", "1.0.11"),
-                named("sharrattj/coreutils", "1.0.16"),
+                named("wasmer/coreutils", "1.0.24"),
+                named("wasmer/coreutils", "1.0.25"),
             ]
         );
 
-        let pinned = query(&source, &"sharrattj/coreutils@^1.0.16".parse().unwrap()).unwrap();
+        let pinned = query(&source, &"wasmer/coreutils@^1.0.25".parse().unwrap()).unwrap();
         assert_eq!(pinned.len(), 1);
-        assert_eq!(pinned[0].pkg.id, named("sharrattj/coreutils", "1.0.16"));
+        assert_eq!(pinned[0].pkg.id, named("wasmer/coreutils", "1.0.25"));
 
         assert!(matches!(
-            query(&source, &"sharrattj/unknown".parse().unwrap()),
+            query(&source, &"wasmer/unknown".parse().unwrap()),
             Err(QueryError::NotFound { .. })
         ));
         assert!(matches!(
-            query(&source, &"sharrattj/coreutils@^2".parse().unwrap()),
+            query(&source, &"wasmer/coreutils@^2".parse().unwrap()),
             Err(QueryError::NoMatches { .. })
         ));
     }
 
     #[test]
     fn unnamespaced_packages_sit_one_level_up() {
-        let temp = registry(&[("cutils/1.0.0.webc", COREUTILS_16)]);
+        let temp = registry(&[("cutils/1.0.0.webc", COREUTILS_25)]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
 
         let summaries = query(&source, &"cutils".parse().unwrap()).unwrap();
@@ -382,12 +382,12 @@ mod tests {
 
     #[test]
     fn sha256_sidecar_is_verified() {
-        let temp = registry(&[("acme/cutils/9.9.9.webc", COREUTILS_16)]);
+        let temp = registry(&[("acme/cutils/9.9.9.webc", COREUTILS_25)]);
         let sidecar = temp.path().join("acme/cutils/9.9.9.sha256");
         let source = LocalRegistrySource::new(temp.path()).unwrap();
         let pkg: PackageSource = "acme/cutils".parse().unwrap();
 
-        std::fs::write(&sidecar, WebcHash::sha256(COREUTILS_16).as_hex()).unwrap();
+        std::fs::write(&sidecar, WebcHash::sha256(COREUTILS_25).as_hex()).unwrap();
         assert!(query(&source, &pkg).is_ok());
 
         std::fs::write(&sidecar, "deadbeef").unwrap();
@@ -400,14 +400,14 @@ mod tests {
     #[test]
     fn hash_queries_walk_the_tree() {
         let temp = registry(&[
-            ("acme/cutils/9.9.9.webc", COREUTILS_16),
-            ("other/pkg/1.0.0.webc", COREUTILS_11),
+            ("acme/cutils/9.9.9.webc", COREUTILS_25),
+            ("other/pkg/1.0.0.webc", COREUTILS_24),
         ]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
         let hash = |bytes| PackageHash::from_sha256_bytes(WebcHash::sha256(bytes).as_bytes());
         let by_hash = |hash| PackageSource::Ident(PackageIdent::Hash(hash));
 
-        let summaries = query(&source, &by_hash(hash(COREUTILS_16))).unwrap();
+        let summaries = query(&source, &by_hash(hash(COREUTILS_25))).unwrap();
         assert_eq!(summaries[0].pkg.id, named("acme/cutils", "9.9.9"));
 
         assert!(matches!(

@@ -48,7 +48,6 @@ pub fn from_disk(path: impl AsRef<Path>) -> Result<Container, WasmerPackageError
     }
 
     match webc::detect(&mut f) {
-        Ok(Version::V1) => parse_v1_mmap(f).map_err(Into::into),
         Ok(Version::V2) => parse_v2_mmap(f).map_err(Into::into),
         Ok(Version::V3) => parse_v3_mmap(f).map_err(Into::into),
         Ok(other) => {
@@ -94,15 +93,6 @@ fn parse_dir(path: &Path) -> Result<Container, WasmerPackageError> {
     let wasmer_toml = path.join("wasmer.toml");
     let pkg = Package::from_manifest(wasmer_toml)?;
     Ok(Container::new(pkg))
-}
-
-#[allow(clippy::result_large_err)]
-fn parse_v1_mmap(f: File) -> Result<Container, ContainerError> {
-    // We need to explicitly use WebcMmap to get a memory-mapped
-    // parser
-    let options = webc::v1::ParseOptions::default();
-    let webc = webc::v1::WebCMmap::from_file(f, &options)?;
-    Ok(Container::new(webc))
 }
 
 #[allow(clippy::result_large_err)]

@@ -80,7 +80,7 @@ edition = "2024"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.95"
+rust-version = "1.96"
 version = "7.4.2"
 
 [workspace.dependencies]
@@ -91,7 +91,10 @@ wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
-webc = "=12.0.1"
+webc = { version = "=12.0.1", default-features = false, features = [
+  "v2",
+  "v3",
+] }
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
@@ -107,7 +110,7 @@ backtrace = "0.3"
 base64 = "0.23.0"
 bincode = "=2.0.1"
 bindgen = { version = "0.72.1", default-features = false }
-bitflags = "2.11.0"
+bitflags = "2.13.2"
 blake3 = "1.0"
 build-deps = "0.1.4"
 bus = "2.4.1"
@@ -134,9 +137,9 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.135.0", default-features = false }
-cranelift-entity = { version = "=0.135.0", default-features = false }
-cranelift-frontend = { version = "=0.135.0", default-features = false }
+cranelift-codegen = { version = "=0.136.0", default-features = false }
+cranelift-entity = { version = "=0.136.0", default-features = false }
+cranelift-frontend = { version = "=0.136.0", default-features = false }
 crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
@@ -146,7 +149,7 @@ dashmap = "6.1.0"
 derive_builder = "0.20.2"
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
 dialoguer = "0.12.0"
-dirs = "6.0.0"
+dirs = "7.0.0"
 dotenvy = "0.15.7"
 dunce = "1.0.4"
 dynasm = "5.0.0"
@@ -158,7 +161,7 @@ field-offset = "0.3.3"
 filetime = "0.2.18"
 fixedbitset = "0.5.7"
 flate2 = "1.0.34"
-zstd = "0.13.2"
+zstd = "0.14.0"
 fnv = "1.0.3"
 fs_extra = { version = "1.3.0" }
 futures = "0.3.30"
@@ -201,7 +204,7 @@ log = "0.4.22"
 lz4_flex = "0.14.0"
 lzma-rs = "0.3.0"
 mac_address = "1.1.5"
-mach2 = "0.6.0"
+mach2 = "0.7.0"
 macho-unwind-info = "0.5.0"
 md5 = "0.8.0"
 memmap2 = { version = "0.9.9" }
@@ -243,7 +246,7 @@ symbolic-demangle = { version = "13", default-features = false, features = [
   "msvc",
 ] }
 rustc_version = "0.4"
-rusty_pool = "0.7.0"
+rusty_pool = "1.0.0"
 rustversion = "1.0"
 saffron = "0.1.0"
 schemars = "1.1.0"
@@ -258,12 +261,12 @@ serde_derive = "1"
 serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
 serde_yaml = { version = "0.9.34" }
-yaml-edit = { version = "0.2", default-features = false }
+yaml-edit = { version = "0.3", default-features = false }
 serial_test = { version = "4.0.1", default-features = false }
 sha2 = "0.11.0"
 slab = "0.4"
 smallvec = "1.6"
-smoltcp = { version = "0.13.0", default-features = false }
+smoltcp = { version = "0.14.0", default-features = false }
 socket2 = { version = "0.6.1", features = ["all"] }
 strum = { version = "0.28", features = ["derive"] }
 syn = { version = "3", default-features = false }
@@ -292,7 +295,7 @@ trybuild = "1.0.11"
 typetag = "0.2.21"
 uniffi = "0.32.0"
 unix_mode = "0.1.3"
-ureq = "3.3.0"
+ureq = "3.4.2"
 url = "2.5"
 urlencoding = "2"
 uuid = { version = "1", default-features = false }
@@ -308,18 +311,18 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.257.1", default-features = false, features = [
+wasm-encoder = { version = "0.259.0", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.257.1"
-wasmparser = { version = "0.257.1", default-features = false, features = [
+wasm-smith = "0.259.0"
+wasmparser = { version = "0.259.0", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.257.1"
-wast = "257.0.0"
-wat = "1.256.0"
+wasmprinter = "0.259.0"
+wast = "259.0.0"
+wat = "1.258.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"

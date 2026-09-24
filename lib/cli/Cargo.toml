@@ -210,7 +210,6 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 once_cell.workspace = true
 indicatif.workspace = true
 opener.workspace = true
-normpath.workspace = true
 hyper = { workspace = true, features = ["server"] }
 hyper-util = { workspace = true, features = [
   "tokio",
