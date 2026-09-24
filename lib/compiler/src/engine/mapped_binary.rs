@@ -74,7 +74,8 @@ impl DebugInfo {
             let elf_data = match self.elf_data.as_ref()? {
                 DebugInfoSource::Bytes(data) => data.clone(),
                 DebugInfoSource::File(file) => {
-                    let mut file = file.lock().unwrap().try_clone().ok()?;
+                    let guard = file.lock().unwrap();
+                    let mut file = guard.try_clone().ok()?;
                     use std::io::{Read as _, Seek as _};
                     file.rewind().ok()?;
                     let mut data = Vec::new();
@@ -451,13 +452,11 @@ impl MemoryMappedBinary {
     }
 
     fn write_relocation(&self, offset: u64, value: usize) -> Result<(), String> {
-        let err = "Dynamic relocation exceeds allocated range".to_string();
-        let offset = usize::try_from(offset).map_err(|_| err.clone())?;
-        let end = offset
-            .checked_add(size_of::<usize>())
-            .ok_or_else(|| err.clone())?;
+        let err = || "Dynamic relocation exceeds allocated range".to_string();
+        let offset = usize::try_from(offset).map_err(|_| err())?;
+        let end = offset.checked_add(size_of::<usize>()).ok_or_else(err)?;
         if end > self.size {
-            return Err(err);
+            return Err(err());
         }
 
         // TODO: Replace this raw pointer write with a safer write operation.
