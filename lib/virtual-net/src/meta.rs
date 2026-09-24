@@ -251,6 +251,14 @@ pub enum RequestType {
     /// Tells this interface that it will unsubscribe to a
     /// particular multicast address. This applies to IPv6 addresses
     LeaveMulticastV6 { multiaddr: Ipv6Addr, iface: u32 },
+    /// Binds a UDP socket with explicit IPv6-only behavior.
+    BindUdpV2 {
+        socket_id: SocketId,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -347,4 +355,136 @@ pub enum MessageResponse {
     Closed {
         socket_id: SocketId,
     },
+}
+
+#[cfg(all(test, feature = "remote"))]
+mod wire_tests {
+    use std::pin::Pin;
+
+    use bytes::BytesMut;
+    use tokio_serde::{Deserializer, Serializer, formats::SymmetricalBincode};
+
+    use super::*;
+
+    fn legacy_bind_udp_request() -> MessageRequest {
+        MessageRequest::Interface {
+            req: RequestType::BindUdp {
+                socket_id: 0x0102_0304_0506_0708_u64.into(),
+                addr: "[2001:db8::1234]:4242".parse().unwrap(),
+                reuse_port: true,
+                reuse_addr: false,
+            },
+            req_id: Some(0x1112_1314_1516_1718),
+        }
+    }
+
+    fn frame(payload: &[u8]) -> Vec<u8> {
+        let mut frame = Vec::with_capacity(4 + payload.len());
+        frame.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+        frame.extend_from_slice(payload);
+        frame
+    }
+
+    async fn assert_server_accepts_legacy_frame(frame: &[u8], format: FrameSerializationFormat) {
+        use std::sync::{Arc, Mutex};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        #[derive(Debug, Default)]
+        struct RecordingNetworking(Mutex<Vec<(SocketAddr, bool, bool, bool)>>);
+
+        #[async_trait::async_trait]
+        impl crate::VirtualNetworking for RecordingNetworking {
+            async fn bind_udp(
+                &self,
+                addr: SocketAddr,
+                only_v6: bool,
+                reuse_port: bool,
+                reuse_addr: bool,
+            ) -> crate::Result<Box<dyn crate::VirtualUdpSocket + Sync>> {
+                self.0
+                    .lock()
+                    .unwrap()
+                    .push((addr, only_v6, reuse_port, reuse_addr));
+                Err(NetworkError::Unsupported)
+            }
+        }
+
+        let networking = Arc::new(RecordingNetworking::default());
+        let (mut peer, transport) = tokio::io::duplex(1024);
+        let (rx, tx) = tokio::io::split(transport);
+        let (_server, driver) =
+            crate::RemoteNetworkingServer::new_from_async_io(tx, rx, format, networking.clone());
+        let driver = tokio::spawn(driver);
+        peer.write_all(frame).await.unwrap();
+        let response_length = tokio::time::timeout(Duration::from_secs(2), peer.read_u32())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(response_length > 0);
+        assert_eq!(
+            networking.0.lock().unwrap().as_slice(),
+            &[("[2001:db8::1234]:4242".parse().unwrap(), false, true, false)],
+        );
+        driver.abort();
+    }
+
+    fn assert_legacy_bind_udp(request: MessageRequest) {
+        let MessageRequest::Interface {
+            req:
+                RequestType::BindUdp {
+                    socket_id,
+                    addr,
+                    reuse_port,
+                    reuse_addr,
+                },
+            req_id,
+        } = request
+        else {
+            panic!("expected legacy BindUdp interface request");
+        };
+        assert_eq!(socket_id, 0x0102_0304_0506_0708_u64.into());
+        assert_eq!(addr, "[2001:db8::1234]:4242".parse::<SocketAddr>().unwrap());
+        assert!(reuse_port);
+        assert!(!reuse_addr);
+        assert_eq!(req_id, Some(0x1112_1314_1516_1718));
+    }
+
+    #[tokio::test]
+    async fn legacy_bind_udp_bincode_frame_is_stable() {
+        const FRAME: &[u8] = &[
+            0, 0, 0, 43, 0, 17, 253, 8, 7, 6, 5, 4, 3, 2, 1, 1, 32, 1, 13, 184, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 18, 52, 251, 146, 16, 1, 0, 1, 253, 24, 23, 22, 21, 20, 19, 18, 17,
+        ];
+        let request = legacy_bind_udp_request();
+        let mut bincode = SymmetricalBincode::<MessageRequest>::default();
+        let bytes = Pin::new(&mut bincode).serialize(&request).unwrap();
+        assert_eq!(frame(&bytes), FRAME);
+
+        let payload = BytesMut::from(&FRAME[4..]);
+        let decoded = Pin::new(&mut bincode).deserialize(&payload).unwrap();
+        assert_legacy_bind_udp(decoded);
+        assert_server_accepts_legacy_frame(FRAME, FrameSerializationFormat::Bincode).await;
+    }
+
+    #[cfg(feature = "messagepack")]
+    #[tokio::test]
+    async fn legacy_bind_udp_messagepack_frame_is_stable() {
+        use tokio_serde::formats::SymmetricalMessagePack;
+
+        const FRAME: &[u8] = &[
+            0, 0, 0, 70, 129, 169, 73, 110, 116, 101, 114, 102, 97, 99, 101, 146, 129, 167, 66,
+            105, 110, 100, 85, 100, 112, 148, 207, 1, 2, 3, 4, 5, 6, 7, 8, 129, 162, 86, 54, 146,
+            220, 0, 16, 32, 1, 13, 204, 184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 52, 205, 16, 146,
+            195, 194, 207, 17, 18, 19, 20, 21, 22, 23, 24,
+        ];
+        let request = legacy_bind_udp_request();
+        let mut messagepack = SymmetricalMessagePack::<MessageRequest>::default();
+        let bytes = Pin::new(&mut messagepack).serialize(&request).unwrap();
+        assert_eq!(frame(&bytes), FRAME);
+
+        let payload = BytesMut::from(&FRAME[4..]);
+        let decoded = Pin::new(&mut messagepack).deserialize(&payload).unwrap();
+        assert_legacy_bind_udp(decoded);
+        assert_server_accepts_legacy_frame(FRAME, FrameSerializationFormat::MessagePack).await;
+    }
 }

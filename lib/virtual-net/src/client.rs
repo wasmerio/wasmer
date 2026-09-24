@@ -798,6 +798,7 @@ impl VirtualNetworking for RemoteNetworkingClient {
     async fn bind_udp(
         &self,
         addr: SocketAddr,
+        only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
@@ -806,16 +807,23 @@ impl VirtualNetworking for RemoteNetworkingClient {
             .socket_seed
             .fetch_add(1, Ordering::SeqCst)
             .into();
-        match self
-            .common
-            .io_iface(RequestType::BindUdp {
+        let request = if only_v6 {
+            RequestType::BindUdpV2 {
+                socket_id,
+                addr,
+                only_v6,
+                reuse_port,
+                reuse_addr,
+            }
+        } else {
+            RequestType::BindUdp {
                 socket_id,
                 addr,
                 reuse_port,
                 reuse_addr,
-            })
-            .await
-        {
+            }
+        };
+        match self.common.io_iface(request).await {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
             ResponseType::Socket(socket_id) => Ok(Box::new(self.new_socket(socket_id))),

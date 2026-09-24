@@ -275,10 +275,11 @@ impl VirtualNetworking for AskingNetworking {
     async fn bind_udp(
         &self,
         addr: SocketAddr,
+        only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
-        call!(self, bind_udp, addr, reuse_port, reuse_addr);
+        call!(self, bind_udp, addr, only_v6, reuse_port, reuse_addr);
     }
 
     /// Creates a socket that can be used to send and receive ICMP packets
@@ -304,5 +305,51 @@ impl VirtualNetworking for AskingNetworking {
         dns_server: Option<IpAddr>,
     ) -> Result<Vec<IpAddr>> {
         call!(self, resolve, host, port, dns_server);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use super::*;
+
+    #[derive(Debug, Default)]
+    struct RecordingNetworking {
+        udp_binds: Mutex<Vec<(SocketAddr, bool, bool, bool)>>,
+    }
+
+    #[async_trait::async_trait]
+    impl VirtualNetworking for RecordingNetworking {
+        async fn bind_udp(
+            &self,
+            addr: SocketAddr,
+            only_v6: bool,
+            reuse_port: bool,
+            reuse_addr: bool,
+        ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+            self.udp_binds
+                .lock()
+                .unwrap()
+                .push((addr, only_v6, reuse_port, reuse_addr));
+            Err(NetworkError::Unsupported)
+        }
+    }
+
+    #[tokio::test]
+    async fn network_capability_gate_preserves_udp_v6only() {
+        let capable = Arc::new(RecordingNetworking::default());
+        let networking = AskingNetworking::new(PathBuf::new(), capable.clone());
+        networking.enable.set(Ok(true)).unwrap();
+        let addr = "[::]:41005".parse().unwrap();
+
+        assert!(matches!(
+            networking.bind_udp(addr, true, false, true).await,
+            Err(NetworkError::Unsupported)
+        ));
+        assert_eq!(
+            capable.udp_binds.lock().unwrap().as_slice(),
+            &[(addr, true, false, true)]
+        );
     }
 }
