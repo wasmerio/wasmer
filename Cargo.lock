@@ -651,7 +651,7 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "serde_json",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -847,7 +847,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
 dependencies = [
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1587,7 +1587,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10d60334b3b2e7c9d91ef8150abfb6fa4c1c39ebbcf4a81c2e346aad939fee3e"
 dependencies = [
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -2387,7 +2387,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tungstenite 0.28.0",
 ]
 
@@ -2920,7 +2920,7 @@ dependencies = [
  "inkwell_internals",
  "libc",
  "llvm-sys",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -3077,7 +3077,7 @@ dependencies = [
  "jni-sys",
  "log",
  "simd_cesu8",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "walkdir",
  "windows-link",
 ]
@@ -3478,15 +3478,6 @@ dependencies = [
 
 [[package]]
 name = "mach2"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d640282b302c0bb0a2a8e0233ead9035e3bed871f0b7e81fe4a1ec829765db44"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "mach2"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0d28e293f2b8c9d2b2d1c0193bd3c1cbdc0d2cf396888dc01162f7cf9d6c3f3"
@@ -3497,14 +3488,14 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb4bdc8b0ce69932332cf76d24af69c3a155242af95c226b2ab6c2e371ed1149"
 dependencies = [
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "zerocopy",
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "macro-wasmer-engine-test"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4501,7 +4492,7 @@ dependencies = [
  "rustc-hash 2.1.3",
  "rustls",
  "socket2",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "web-time",
@@ -4524,7 +4515,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tinyvec",
  "tracing",
  "web-time",
@@ -4682,7 +4673,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60dc65c0ff1a7ae1294b0c67b9f14baf70b644404010370171787bfac1038fc0"
 dependencies = [
  "libredox",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -4763,13 +4754,13 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "region"
-version = "4.0.0"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "430988f137a23121407b362bf10b09df302ed5092ffeb9af90a549edcc849115"
+checksum = "9bc10200af9f8297cb52df7e0e1db8d9ad3e8782981d69b25eedf858f5455ca2"
 dependencies = [
  "bitflags 2.13.2",
  "libc",
- "mach2 0.4.3",
+ "mach2",
  "windows-sys 0.61.2",
 ]
 
@@ -5842,11 +5833,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.20"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
+checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
 dependencies = [
- "thiserror-impl 2.0.20",
+ "thiserror-impl 2.0.21",
 ]
 
 [[package]]
@@ -5862,9 +5853,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.20"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
+checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6390,7 +6381,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "sha1 0.10.7",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "utf-8",
 ]
 
@@ -6407,7 +6398,7 @@ dependencies = [
  "log",
  "rand 0.10.3",
  "sha1 0.11.0",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -6511,9 +6502,9 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "uniffi"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edf78ecfb9bb8d7c4f8da11e8eb2ab6304e8ec0adb3ab32d8fc77c21a5bb0b86"
+checksum = "76407f5f396a2c949a069eff4a9fca9ce462410eb872bffef4c2b7b89804a77a"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -6526,9 +6517,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdea7c4574723928bef87dfc04b203d96321d0bf34ab295a56379e633be579f3"
+checksum = "3df3ced8f0eda3de99f6d50820e8628f443da8e4f447f477d1403ceba29dacbd"
 dependencies = [
  "anyhow",
  "askama",
@@ -6552,9 +6543,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfe2d9769b6c0c15d7c7832d53eaa595c683bb80a30512614a67268ce16132f9"
+checksum = "925be5c36297fff0d416fa2f03585ace718b6e6c635466754128d00f0862d5f1"
 dependencies = [
  "anyhow",
  "camino",
@@ -6563,9 +6554,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_core"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8b1c62ee415b805f063c82e8ef6bbcaa1b87f8eed360cf217537b7724e05601"
+checksum = "f7530ae8efeaaa488622865966763fe0294832779fff80508c36d69c6a874a6a"
 dependencies = [
  "anyhow",
  "bytes",
@@ -6575,9 +6566,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_internal_macros"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c79d4a3129d6c2c15e367d3954886a0533dd3e85d445ce4d93379f62c6949d7b"
+checksum = "0f4bad017164375d99450d70495014810d15a84ba9da6ed14b9628b1424223ba"
 dependencies = [
  "anyhow",
  "indexmap",
@@ -6588,9 +6579,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_macros"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f6a9826a83f1140b2ec67c7944f562e1ef616e6eaf40e76247adccbd5b8a091"
+checksum = "5b855a58da153739ce6e863f6e296edc3716a093768c4d3d957f17f5e4317c60"
 dependencies = [
  "camino",
  "fs-err",
@@ -6605,9 +6596,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_meta"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf233eb014b595e8997c98df4ac6863b486a4ac6d54bd00230c7700753d7ef13"
+checksum = "af0c88664a9cb9559856f5a250283c9708923b303170e2e5c7db8f4ad65e9459"
 dependencies = [
  "anyhow",
  "siphasher",
@@ -6617,9 +6608,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_pipeline"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55179706fbb6e7a23e729780d2c6165e6afe1ce725fa63754bcf217b440afc04"
+checksum = "d00f5c044b4a3dca0b1226c92ddaeea626f337470e22180dd182160c87a06b0b"
 dependencies = [
  "anyhow",
  "heck 0.5.0",
@@ -6630,9 +6621,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_udl"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "421a9add7a19c5a264a2aba760514125ef3840a8b246ec88237fc91e3f2f79b1"
+checksum = "55dfd9c778d6b39cb5acd541d9ff63431974035d2bad83c897b766a6ee3152ac"
 dependencies = [
  "anyhow",
  "textwrap",
@@ -6795,7 +6786,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6814,7 +6805,7 @@ dependencies = [
  "shared-buffer",
  "slab",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "tracing-test",
@@ -6826,7 +6817,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6835,13 +6826,13 @@ dependencies = [
  "parking",
  "serde",
  "socket2",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tracing",
 ]
 
 [[package]]
 name = "virtual-net"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6864,7 +6855,7 @@ dependencies = [
  "serial_test",
  "smoltcp",
  "socket2",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tokio",
  "tokio-serde",
  "tokio-tungstenite 0.28.0",
@@ -6955,13 +6946,13 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "async-trait",
  "bitflags 2.13.2",
  "once_cell",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tracing",
  "wai-bindgen-wasmer-impl",
  "wasmer",
@@ -7217,7 +7208,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -7244,7 +7235,7 @@ dependencies = [
  "tar",
  "target-lexicon 0.13.5",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "ureq 3.4.2",
@@ -7268,7 +7259,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-argus"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7293,7 +7284,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-backend-api"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -7338,7 +7329,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "cbindgen",
@@ -7347,7 +7338,7 @@ dependencies = [
  "inline-c",
  "libc",
  "paste",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -7366,7 +7357,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-imports"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "tokio",
@@ -7378,7 +7369,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "cc",
  "regex",
@@ -7388,7 +7379,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "blake3",
  "clap",
@@ -7399,14 +7390,14 @@ dependencies = [
  "hex",
  "rand 0.10.3",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "wasmer",
  "wasmer-compiler-singlepass",
 ]
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "cc",
  "regex",
@@ -7416,7 +7407,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.2",
@@ -7474,7 +7465,7 @@ dependencies = [
  "tar",
  "target-lexicon 0.13.5",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "time",
  "tokio",
  "tokio-tungstenite 0.28.0",
@@ -7511,7 +7502,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "addr2line 0.27.1",
  "backtrace",
@@ -7543,7 +7534,7 @@ dependencies = [
  "strum",
  "target-lexicon 0.13.5",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.259.0",
@@ -7553,7 +7544,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -7577,7 +7568,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "byteorder",
  "cc",
@@ -7603,7 +7594,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -7626,7 +7617,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7642,14 +7633,14 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "toml 1.1.6+spec-1.1.0",
  "url",
 ]
 
 [[package]]
 name = "wasmer-derive"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error2",
@@ -7661,7 +7652,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.2",
@@ -7686,11 +7677,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "7.4.0"
+version = "7.4.2"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7706,7 +7697,7 @@ dependencies = [
  "serde_json",
  "shared-buffer",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tracing",
  "tracing-test",
  "virtual-fs",
@@ -7718,7 +7709,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -7727,7 +7718,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-napi"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "cc",
@@ -7753,7 +7744,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7772,7 +7763,7 @@ dependencies = [
  "shared-buffer",
  "tar",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "toml 1.1.6+spec-1.1.0",
  "ureq 3.4.2",
  "url",
@@ -7783,7 +7774,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sdk"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7797,7 +7788,7 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tokio",
  "toml 1.1.6+spec-1.1.0",
  "tracing",
@@ -7811,9 +7802,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tokio",
  "uniffi",
  "virtual-fs",
@@ -7825,7 +7816,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "libc",
  "region",
@@ -7839,7 +7830,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "bytecheck",
  "crc32fast",
@@ -7857,13 +7848,13 @@ dependencies = [
  "serde_bytes",
  "sha2",
  "target-lexicon 0.13.5",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "wasmparser 0.259.0",
 ]
 
 [[package]]
 name = "wasmer-vm"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "backtrace",
  "bytesize",
@@ -7879,14 +7870,14 @@ dependencies = [
  "libc",
  "libunwind",
  "loupe",
- "mach2 0.7.0",
+ "mach2",
  "more-asserts",
  "parking_lot",
  "region",
  "rustversion",
  "scopeguard",
  "serde",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tracing",
  "wasmer-types",
  "windows-sys 0.61.2",
@@ -7894,7 +7885,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "assert-panic",
@@ -7954,7 +7945,7 @@ dependencies = [
  "tempfile",
  "terminal_size",
  "termios",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tokio",
  "tokio-stream",
  "toml 1.1.6+spec-1.1.0",
@@ -7994,7 +7985,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.704.0"
+version = "0.704.2"
 dependencies = [
  "anyhow",
  "bitflags 2.13.2",
@@ -8016,18 +8007,18 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "serde",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "wasmer",
  "wast",
 ]
 
 [[package]]
 name = "wasmer-workspace"
-version = "7.4.0"
+version = "7.4.2"
 dependencies = [
  "anyhow",
  "build-deps",
@@ -8193,7 +8184,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "shared-buffer",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "url",
 ]
 
@@ -8524,18 +8515,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.57"
+version = "0.8.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d35102a9f36d089ccae9e4c6802bc118be4487b80aaffc0ab4e0cf5ce92d2873"
+checksum = "c17e8fafad82b542ff3717217ecdc736231b59e387768c9630123b4ce4d2db44"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.57"
+version = "0.8.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "146c01f5ab44258da43cf276c74a2763db2ff3969c9c652c3f2de07041d0b2bc"
+checksum = "595f56e044df4f46a0c9a626f65c3d99eb8488f7e8a8baa12dd76326d9710bf2"
 dependencies = [
  "proc-macro2",
  "quote",
