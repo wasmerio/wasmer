@@ -490,7 +490,8 @@ impl FuncTrampoline {
             let wasm_module = &compile_info.module;
             let memory_styles = &compile_info.memory_styles;
             let callee_vmctx_ptr_value = callee_vmctx_ptr.into_pointer_value();
-            let offsets = wasmer_vm::VMOffsets::new(8, wasm_module);
+            let offsets =
+                wasmer_vm::VMOffsets::try_new(8, wasm_module).map_err(CompileError::Resource)?;
 
             // load mem
             let memory_index = wasmer_types::MemoryIndex::from_u32(0);

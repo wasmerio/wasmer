@@ -14,7 +14,8 @@ use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::misc::{CompiledKind, function_kind_to_filename};
 use wasmer_compiler::{
-    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
+    Compiler, CompilerConfig, DEFAULT_MAX_TABLE_ELEMENTS, Debugger, Engine, EngineBuilder,
+    ModuleMiddleware,
 };
 use wasmer_types::{
     Features,
@@ -119,6 +120,7 @@ pub struct LLVM {
     pub(crate) opt_level: LLVMOptLevel,
     pub(crate) is_pic: bool,
     pub(crate) experimental_artifact: bool,
+    pub(crate) max_table_elements: u32,
     pub(crate) callbacks: Option<LLVMCallbacks>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -148,6 +150,7 @@ impl LLVM {
             opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
             experimental_artifact: false,
+            max_table_elements: DEFAULT_MAX_TABLE_ELEMENTS,
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
@@ -160,6 +163,12 @@ impl LLVM {
         self.experimental_artifact = enable;
         // We will link a shared library and so PIC must be enabled.
         self.is_pic = enable;
+        self
+    }
+
+    /// Set the maximum total number of elements allowed in local fixed-size tables.
+    pub fn max_table_elements(&mut self, max_table_elements: u32) -> &mut Self {
+        self.max_table_elements = max_table_elements;
         self
     }
 
@@ -386,6 +395,10 @@ impl LLVM {
 impl CompilerConfig for LLVM {
     fn experimental_artifact(&mut self, enable: bool) {
         LLVM::experimental_artifact(self, enable);
+    }
+
+    fn max_table_elements(&mut self, max_table_elements: u32) {
+        self.max_table_elements = max_table_elements;
     }
 
     /// Emit code suitable for dlopen.

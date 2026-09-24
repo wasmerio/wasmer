@@ -103,6 +103,9 @@ pub trait CompilerConfig {
     /// Enable the experimental artifact format.
     fn experimental_artifact(&mut self, _enable: bool) {}
 
+    /// Set the maximum total number of elements allowed in local fixed-size tables.
+    fn max_table_elements(&mut self, _max_table_elements: u32) {}
+
     /// Enable Position Independent Code (PIC).
     ///
     /// This is required for shared object generation (Native Engine),
@@ -785,4 +788,26 @@ pub fn emit_metadata_and_link(
         }
         Ok(image)
     })
+}
+
+/// Check that the total number of elements in local fixed-size function-reference
+/// tables does not exceed `max_table_elements`.
+pub fn validate_module_fixed_table_size(
+    module: &wasmer_types::ModuleInfo,
+    max_table_elements: u32,
+) -> Result<(), CompileError> {
+    let total_table_elements = module
+        .tables
+        .values()
+        .skip(module.num_imported_tables)
+        .filter(|table| table.is_fixed_funcref_table())
+        .fold(0u32, |total, table| total.saturating_add(table.minimum));
+
+    if total_table_elements > max_table_elements {
+        return Err(CompileError::Resource(format!(
+            "Total fixed table size ({total_table_elements}) is larger than maximum allowed size ({max_table_elements})!"
+        )));
+    }
+
+    Ok(())
 }

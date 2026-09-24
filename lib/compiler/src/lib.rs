@@ -43,7 +43,7 @@ pub use crate::compiler::{
     ArtifactFormat, CompiledFunction, CompiledObjects, Compiler, CompilerConfig, Debugger,
     DeterministicIdComponent, FuncTranslator, FunctionBucket, WASM_LARGE_FUNCTION_THRESHOLD,
     WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets, emit_metadata_and_link,
-    translate_function_buckets,
+    translate_function_buckets, validate_module_fixed_table_size,
 };
 
 #[cfg(feature = "compiler")]
