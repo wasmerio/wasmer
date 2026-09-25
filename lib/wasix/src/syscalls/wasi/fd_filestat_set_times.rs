@@ -1,5 +1,3 @@
-use std::borrow::BorrowMut;
-
 use super::*;
 use crate::syscalls::*;
 
@@ -47,10 +45,8 @@ pub(crate) fn fd_filestat_set_times_internal(
     st_mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let state = ctx.data().get_wasi_state();
     let fd_entry = state.fs.get_fd(fd)?;
-
     if !fd_entry
         .inner
         .rights
@@ -58,47 +54,6 @@ pub(crate) fn fd_filestat_set_times_internal(
     {
         return Err(Errno::Access);
     }
-
-    if (fst_flags.contains(Fstflags::SET_ATIM) && fst_flags.contains(Fstflags::SET_ATIM_NOW))
-        || (fst_flags.contains(Fstflags::SET_MTIM) && fst_flags.contains(Fstflags::SET_MTIM_NOW))
-    {
-        return Err(Errno::Inval);
-    }
-
-    let inode = fd_entry.inode;
-
-    let mut atime = None;
-    let mut mtime = None;
-
-    if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
-        let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {
-            st_atim
-        } else {
-            get_current_time_in_nanos()?
-        };
-        inode.stat.write().unwrap().st_atim = time_to_set;
-        atime = Some(time_to_set);
-    }
-
-    if fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
-        let time_to_set = if fst_flags.contains(Fstflags::SET_MTIM) {
-            st_mtim
-        } else {
-            get_current_time_in_nanos()?
-        };
-        inode.stat.write().unwrap().st_mtim = time_to_set;
-        mtime = Some(time_to_set);
-    }
-
-    if let Kind::File {
-        handle: Some(handle),
-        ..
-    } = inode.kind.write().unwrap().deref()
-    {
-        let mut handle = handle.write().unwrap();
-
-        handle.set_times(atime, mtime);
-    }
-
-    Ok(())
+    let (atime, mtime) = timestamp_updates(st_atim, st_mtim, fst_flags)?;
+    state.fs.set_times_for_inode(&fd_entry.inode, atime, mtime)
 }

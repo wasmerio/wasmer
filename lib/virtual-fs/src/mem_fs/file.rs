@@ -75,6 +75,14 @@ impl FileHandle {
         }
     }
 
+    pub(super) fn with_arc_file(
+        mut self,
+        arc_file: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    ) -> Self {
+        self.arc_file = arc_file.map(Ok);
+        self
+    }
+
     fn lazy_load_arc_file_mut(&mut self) -> Result<&mut dyn VirtualFile> {
         if self.arc_file.is_none() {
             let fs = match self.filesystem.inner.read() {
@@ -117,6 +125,9 @@ impl FileHandle {
 
 impl VirtualFile for FileHandle {
     fn last_accessed(&self) -> u64 {
+        if let Some(Ok(file)) = &self.arc_file {
+            return file.last_accessed();
+        }
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,
             _ => return 0,
@@ -130,6 +141,9 @@ impl VirtualFile for FileHandle {
     }
 
     fn last_modified(&self) -> u64 {
+        if let Some(Ok(file)) = &self.arc_file {
+            return file.last_modified();
+        }
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,
             _ => return 0,
@@ -143,6 +157,9 @@ impl VirtualFile for FileHandle {
     }
 
     fn created_time(&self) -> u64 {
+        if let Some(Ok(file)) = &self.arc_file {
+            return file.created_time();
+        }
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,
             _ => return 0,
@@ -165,6 +182,10 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         if let Some(node) = inode {
+            if matches!(node, Node::ArcFile(_)) {
+                drop(fs);
+                return self.lazy_load_arc_file_mut()?.set_times(atime, mtime);
+            }
             if let Some(atime) = atime {
                 node.metadata_mut().accessed = atime;
             }
