@@ -137,6 +137,7 @@ impl InstanceGroupState {
         ];
 
         let module = pending_module.module.clone();
+        let module_data = pending_module.module_data.clone();
         let dylink_info = pending_module.dylink_info.clone();
 
         trace!(?module_handle, "Resolving symbols");
@@ -172,7 +173,7 @@ impl InstanceGroupState {
         );
 
         let dl_module = DlModule {
-            module,
+            module_data,
             dylink_info,
             memory_base,
             table_base,
@@ -219,7 +220,11 @@ impl InstanceGroupState {
             .get(&module_handle)
             .expect("Internal error: module not loaded into linker");
 
-        let mut imports = import_object_for_all_wasi_versions(&dl_module.module, store, env);
+        let runtime = env.as_ref(store).runtime();
+        let module = runtime
+            .load_hashed_module_sync(dl_module.module_data.clone(), Some(&linker_state.engine))?;
+
+        let mut imports = import_object_for_all_wasi_versions(&module, store, env);
 
         let well_known_imports = [
             ("env", "__memory_base", dl_module.memory_base),
@@ -231,20 +236,15 @@ impl InstanceGroupState {
             module_handle,
             linker_state,
             store,
-            &dl_module.module,
+            &module,
             &mut imports,
             env,
             &well_known_imports,
             pending_resolutions,
         )?;
 
-        let instance = instantiate_with_runtime_hooks(
-            env,
-            store,
-            &dl_module.module,
-            &mut imports,
-            &self.memory,
-        )?;
+        let instance =
+            instantiate_with_runtime_hooks(env, store, &module, &mut imports, &self.memory)?;
 
         Ok(PreparedSideFromLinker {
             module_handle,
