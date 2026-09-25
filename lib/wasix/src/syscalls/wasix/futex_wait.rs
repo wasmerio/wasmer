@@ -22,13 +22,29 @@ impl Future for FutexPoller {
             Some(f) => f,
             None => return Poll::Ready(true),
         };
-        let waker = match futex.wakers.get_mut(&self.poller_idx) {
-            Some(w) => w,
-            None => return Poll::Ready(true),
-        };
+        // If our slot is gone then `futex_wake` already claimed us and we are
+        // woken. Checked before `pending_wakes` so an already-woken poller cannot
+        // swallow a token meant for a waiter that is still asleep.
+        if !futex.wakers.contains_key(&self.poller_idx) {
+            return Poll::Ready(true);
+        }
+        // A wake that arrived while we were still mid-registration left a
+        // pending token; consume it and report woken instead of sleeping
+        // through it.
+        if futex.pending_wakes > 0 {
+            futex.pending_wakes -= 1;
+            futex.wakers.remove(&self.poller_idx);
+            // An unclaimed token must not outlive the waiters it was meant for.
+            if futex.wakers.is_empty() {
+                guard.futexes.remove(&self.futex_idx);
+            }
+            return Poll::Ready(true);
+        }
 
         // Register the waker
-        waker.replace(cx.waker().clone());
+        if let Some(waker) = futex.wakers.get_mut(&self.poller_idx) {
+            waker.replace(cx.waker().clone());
+        }
 
         // Check for timeout
         drop(guard);
