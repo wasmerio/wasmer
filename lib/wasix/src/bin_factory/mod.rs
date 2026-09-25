@@ -92,6 +92,16 @@ impl BinFactory {
         cache.insert(name.to_string(), Some(binary.clone()));
     }
 
+    pub(crate) fn has_registered_command(&self, name: &str) -> bool {
+        self.commands.exists(name)
+            || self
+                .local
+                .read()
+                .unwrap()
+                .get(name)
+                .is_some_and(Option::is_some)
+    }
+
     #[allow(clippy::await_holding_lock)]
     pub async fn get_binary(
         &self,

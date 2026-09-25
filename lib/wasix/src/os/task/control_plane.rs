@@ -167,6 +167,11 @@ impl WasiControlPlane {
             .get(&pid)
             .cloned()
     }
+
+    /// Roll back registration when a spawn fails before parent publication.
+    pub(crate) fn unregister_failed_spawn(&self, pid: WasiProcessId) {
+        self.state.mutable.write().unwrap().processes.remove(&pid);
+    }
 }
 
 impl MutableState {
