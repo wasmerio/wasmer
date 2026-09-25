@@ -79,6 +79,17 @@ where
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
+    fn set_times(
+        &self,
+        path: &std::path::Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> crate::Result<()> {
+        self.0.set_times(path, atime, mtime, follow_symlinks)
+    }
+
+    #[tracing::instrument(level = "trace", skip(self), err)]
     fn remove_file(&self, path: &std::path::Path) -> crate::Result<()> {
         self.0.remove_file(path)
     }

@@ -705,6 +705,31 @@ impl FileSystem for MountFileSystem {
         }
     }
 
+    fn set_times(
+        &self,
+        path: &Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> Result<()> {
+        let path = self.prepare_path(path)?;
+        if let Some(node) = self.exact_node(&path) {
+            if let Some(fs) = node.fs {
+                return fs.set_times(&node.source_path, atime, mtime, follow_symlinks);
+            }
+            // Synthetic mount ancestors have no mutable backing metadata.
+            return Err(FsError::Unsupported);
+        }
+        match self.resolve_mount(path) {
+            Some(resolved) => {
+                resolved
+                    .fs
+                    .set_times(&resolved.delegated_path, atime, mtime, follow_symlinks)
+            }
+            None => Err(FsError::EntryNotFound),
+        }
+    }
+
     fn remove_file(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
