@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use anyhow::Context;
-
 use super::*;
 use crate::syscalls::*;
 
@@ -341,10 +339,11 @@ fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path
 fn adjust_path(path: &Path, source_dir_path: &Path, target_dir_path: &Path) -> PathBuf {
     let path = crate::fs::PosixPath::from_path(path);
     let source_dir_path = crate::fs::PosixPath::from_path(source_dir_path);
-    let relative_path = path
-        .strip_prefix(&source_dir_path)
-        .with_context(|| format!("Expected path {path:?} to be a subpath of {source_dir_path:?}"))
-        .expect("Fatal filesystem error");
+    let Some(relative_path) = path.strip_prefix(&source_dir_path) else {
+        // A directory tree can contain an inode also referenced by a hard link
+        // outside the moved tree. Keep that alias's cached path unchanged.
+        return PathBuf::from(path.as_str());
+    };
     crate::fs::PosixPath::from_path(target_dir_path)
         .join(&relative_path)
         .into_path_buf()

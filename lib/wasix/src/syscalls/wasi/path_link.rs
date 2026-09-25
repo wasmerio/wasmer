@@ -175,18 +175,20 @@ pub(crate) fn path_link_internal(
                     .fs
                     .create_inode(inodes, kind, false, new_entry_name.clone())
                 {
-                    Ok(inode) => inode,
+                    Ok(inode) => {
+                        // Keep distinct cached paths for the two directory
+                        // entries, but expose the shared host inode identity.
+                        // Programs like git verify this after link(2) to
+                        // catch TOCTOU swaps.
+                        inode.stat.write().unwrap().st_ino =
+                            source_inode.stat.read().unwrap().st_ino;
+                        inode
+                    }
                     Err(err) => {
                         let _ = state.fs.root_fs.remove_file(&target_path);
                         return Err(err);
                     }
                 }
-            }
-            Err(virtual_fs::FsError::Unsupported) => {
-                // Some virtual filesystems cannot materialize hard links in
-                // their backing store. Preserve the old WASIX behavior there
-                // by linking the target directory entry to the same inode.
-                source_inode.clone()
             }
             Err(err) => return Err(fs_error_into_wasi_err(err)),
         }
