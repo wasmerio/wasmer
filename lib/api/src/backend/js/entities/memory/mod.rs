@@ -42,6 +42,14 @@ unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
 
 impl Memory {
+    /// Returns the JavaScript backing buffer for this WebAssembly memory.
+    ///
+    /// Host integrations can use this to create zero-copy typed-array views
+    /// over shared guest memory.
+    pub fn js_buffer(&self) -> wasm_bindgen::JsValue {
+        self.handle.memory.buffer()
+    }
+
     pub fn new(store: &mut impl AsStoreMut, mut ty: MemoryType) -> Result<Self, MemoryError> {
         if ty.shared
             && let Some(maximum) = ty.maximum

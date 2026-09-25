@@ -130,7 +130,7 @@ impl Function {
             };
             let callback_store = async_store.store();
             let js_env = JsAsyncFunctionEnvMut {
-                store: async_store,
+                store: async_store.downgrade(),
                 func_env: raw_env.clone(),
             };
             let env_mut =
