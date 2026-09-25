@@ -225,6 +225,13 @@ pub fn path_rename_internal(
                     })?
                 };
                 if let Err(e) = res {
+                    // The source entry was removed before touching the backing
+                    // filesystem. Restore it when the host rename fails.
+                    drop(guard);
+                    let mut guard = source_parent_inode.write();
+                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                        entries.insert(source_entry_name, source_entry);
+                    }
                     return Ok(e);
                 }
                 {
@@ -286,24 +293,19 @@ pub fn path_rename_internal(
 
     let source_size = source_entry.stat.read().unwrap().st_size;
 
-    if need_create {
-        let mut guard = target_parent_inode.write();
-        if let Kind::Dir { entries, .. } = guard.deref_mut() {
-            let result = entries.insert(target_entry_name.clone(), source_entry);
-            assert!(
-                result.is_none(),
-                "fatal error: race condition on filesystem detected or internal logic error"
-            );
-        }
+    let mut guard = target_parent_inode.write();
+    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+        let replaced = entries.insert(target_entry_name.clone(), source_entry.clone());
+        assert_eq!(
+            replaced.is_none(),
+            need_create,
+            "fatal error: race condition on filesystem detected or internal logic error"
+        );
     }
+    drop(guard);
 
-    // The target entry is created, one way or the other
-    let target_inode = state
-        .fs
-        .get_inode_at_path(inodes, target_fd, target_path, true)
-        .expect("Expected target inode to exist, and it's too late to safely fail");
-    *target_inode.name.write().unwrap() = target_entry_name.into();
-    target_inode.stat.write().unwrap().st_size = source_size;
+    *source_entry.name.write().unwrap() = target_entry_name.into();
+    source_entry.stat.write().unwrap().st_size = source_size;
 
     // If the rename replaced an existing destination entry, clear any stale
     // ephemeral symlink mapping for that path.
