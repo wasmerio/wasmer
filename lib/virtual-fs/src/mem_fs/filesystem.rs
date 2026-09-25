@@ -612,17 +612,20 @@ impl crate::FileSystem for FileSystem {
                         let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
                         if let Some((position, inode_of_file)) = inode_dest {
-                            // Remove the file from the storage.
+                            // Unlink the replaced file, keeping its storage alive
+                            // while handles to it are still open.
                             match inode_of_file {
                                 InodeResolution::Found(inode_of_file) => {
-                                    fs.storage.remove(inode_of_file);
+                                    fs.unlink_file_inode(
+                                        inode_of_to_parent,
+                                        position,
+                                        inode_of_file,
+                                    )?;
                                 }
                                 InodeResolution::Redirect(..) => {
                                     return Err(FsError::InvalidInput);
                                 }
                             }
-
-                            fs.remove_child_from_node(inode_of_to_parent, position)?;
                         }
 
                         // Update the file name, and update the modified time.
@@ -1653,6 +1656,66 @@ mod test_filesystem {
                 "`hello2.txt` has been renamed to `world2.txt`",
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_rename_over_open_file_keeps_the_open_handle() {
+        use tokio::io::AsyncWriteExt;
+
+        let fs = FileSystem::default();
+
+        for (path, contents) in [("/target.txt", b"old"), ("/source.txt", b"new")] {
+            let mut file = fs
+                .new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path!(path))
+                .unwrap();
+            file.write_all(contents).await.unwrap();
+        }
+
+        let mut replaced = fs
+            .new_open_options()
+            .read(true)
+            .open(path!("/target.txt"))
+            .unwrap();
+
+        fs.rename(path!("/source.txt"), path!("/target.txt"))
+            .await
+            .unwrap();
+
+        // A new file must not take over the replaced file's storage slot.
+        let mut other = fs
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(path!("/other.txt"))
+            .unwrap();
+        other.write_all(b"other").await.unwrap();
+
+        let mut contents = String::new();
+        replaced.read_to_string(&mut contents).await.unwrap();
+        assert_eq!(
+            contents, "old",
+            "the open handle still reads the replaced file"
+        );
+
+        let mut contents = String::new();
+        fs.new_open_options()
+            .read(true)
+            .open(path!("/target.txt"))
+            .unwrap()
+            .read_to_string(&mut contents)
+            .await
+            .unwrap();
+        assert_eq!(contents, "new", "the path now names the renamed file");
+
+        drop(replaced);
+        assert_eq!(
+            fs.inner.read().unwrap().storage.len(),
+            3,
+            "storage drops the replaced file once its last handle closes"
+        );
     }
 
     #[tokio::test]
