@@ -148,6 +148,7 @@ pub(crate) fn sock_send_file_internal(
                                             Some(read_timeout),
                                             false,
                                             false,
+                                            false,
                                         )
                                         .await
                                         .map(|amt| {
@@ -234,7 +235,7 @@ pub(crate) fn sock_send_file_internal(
                     .flatten()
                     .unwrap_or(Duration::from_secs(30));
                 socket
-                    .send(tasks.deref(), &data, Some(write_timeout), true)
+                    .send(tasks.deref(), &data, Some(write_timeout), true, false)
                     .await
             },
         ));

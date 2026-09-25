@@ -115,6 +115,7 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
     let memory = unsafe { env.memory_view(ctx) };
     let peek = (ri_flags & __WASI_SOCK_RECV_INPUT_PEEK) != 0;
     let nonblocking_flag = (ri_flags & __WASI_SOCK_RECV_INPUT_DONT_WAIT) != 0;
+    let oob = (ri_flags & __WASI_SOCK_RECV_INPUT_OOB) != 0;
     let data = wasi_try_ok_ok!(__sock_asyncify(
         env,
         sock,
@@ -148,6 +149,7 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
                         Some(timeout),
                         nonblocking,
                         peek,
+                        oob,
                     )
                     .await
                 {

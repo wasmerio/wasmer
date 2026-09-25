@@ -270,6 +270,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                         Some(timeout),
                                         nonblocking,
                                         false,
+                                        false,
                                     )
                                     .await?;
                                 total_read += local_read;

@@ -289,7 +289,13 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                         if socket.is_dgram() {
                             let data = data.coalesce(&memory, MAX_SOCKET_PAYLOAD)?;
                             sent += socket
-                                .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
+                                .send(
+                                    tasks.deref(),
+                                    data.as_ref(),
+                                    Some(timeout),
+                                    nonblocking,
+                                    false,
+                                )
                                 .await?;
                             return Ok(sent);
                         }
@@ -311,6 +317,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                             buf.as_ref(),
                                             Some(timeout),
                                             nonblocking,
+                                            false,
                                         )
                                         .await
                                     {
@@ -326,7 +333,13 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             }
                             FdWriteSource::Buffer(data) => {
                                 sent += socket
-                                    .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
+                                    .send(
+                                        tasks.deref(),
+                                        data.as_ref(),
+                                        Some(timeout),
+                                        nonblocking,
+                                        false,
+                                    )
                                     .await?;
                             }
                         }

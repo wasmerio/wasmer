@@ -87,6 +87,9 @@ impl From<Snapshot0Subscription> for Subscription {
                 Eventtype::FdWrite => SubscriptionUnion {
                     fd_readwrite: unsafe { other.u.fd_readwrite },
                 },
+                Eventtype::FdExcept => SubscriptionUnion {
+                    fd_readwrite: unsafe { other.u.fd_readwrite },
+                },
                 Eventtype::Unknown => SubscriptionUnion {
                     fd_readwrite: SubscriptionFsReadwrite {
                         file_descriptor: u32::MAX,

@@ -72,20 +72,42 @@ pub enum HandlerGuardState {
     WakerMap(InterestGuard, InterestWakerMap),
 }
 
+/// The full set of interests we register sources with. Includes priority
+/// (EPOLLPRI, e.g. TCP out-of-band data) on platforms that support it.
+pub fn all_interests() -> mio::Interest {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        mio::Interest::READABLE | mio::Interest::WRITABLE | mio::Interest::PRIORITY
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    {
+        mio::Interest::READABLE | mio::Interest::WRITABLE
+    }
+}
+
 pub fn state_as_waker_map<'a>(
     state: &'a mut HandlerGuardState,
     selector: &'_ Arc<Selector>,
     source: &'_ mut dyn mio::event::Source,
 ) -> io::Result<&'a mut InterestWakerMap> {
+    state_as_waker_map_with_interests(
+        state,
+        selector,
+        source,
+        mio::Interest::READABLE | mio::Interest::WRITABLE,
+    )
+}
+
+pub fn state_as_waker_map_with_interests<'a>(
+    state: &'a mut HandlerGuardState,
+    selector: &'_ Arc<Selector>,
+    source: &'_ mut dyn mio::event::Source,
+    interests: mio::Interest,
+) -> io::Result<&'a mut InterestWakerMap> {
     if !matches!(state, HandlerGuardState::WakerMap(_, _)) {
         let waker_map = InterestWakerMap::default();
         *state = HandlerGuardState::WakerMap(
-            InterestGuard::new(
-                selector,
-                Box::new(waker_map.clone()),
-                source,
-                mio::Interest::READABLE | mio::Interest::WRITABLE,
-            )?,
+            InterestGuard::new(selector, Box::new(waker_map.clone()), source, interests)?,
             waker_map,
         );
     }

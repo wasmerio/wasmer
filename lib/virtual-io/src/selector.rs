@@ -50,6 +50,7 @@ impl SelectorModification {
                         InterestType::Writable,
                         InterestType::Closed,
                         InterestType::Error,
+                        InterestType::Priority,
                     ];
                     for interest in interests {
                         if last.has_interest(interest) && !handler.has_interest(interest) {
@@ -276,6 +277,10 @@ impl Selector {
                 if event.is_error() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Error, "host epoll");
                     handler.push_interest(InterestType::Error);
+                }
+                if event.is_priority() {
+                    tracing::trace!(token = ?token, interest = ?InterestType::Priority, "host epoll");
+                    handler.push_interest(InterestType::Priority);
                 }
             }
         }

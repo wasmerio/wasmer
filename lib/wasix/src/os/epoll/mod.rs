@@ -65,6 +65,7 @@ const READABLE_BIT: u8 = 1 << 0;
 const WRITABLE_BIT: u8 = 1 << 1;
 const HUP_BIT: u8 = 1 << 2;
 const ERR_BIT: u8 = 1 << 3;
+const PRI_BIT: u8 = 1 << 4;
 
 static EPOLL_ENQUEUE_ATTEMPTS: AtomicU64 = AtomicU64::new(0);
 static EPOLL_ENQUEUE_DEDUPE_HITS: AtomicU64 = AtomicU64::new(0);
@@ -389,6 +390,8 @@ pub(crate) fn epoll_type_to_pending_bit(readiness: EpollType) -> Option<u8> {
         Some(HUP_BIT)
     } else if readiness == EpollType::EPOLLERR {
         Some(ERR_BIT)
+    } else if readiness == EpollType::EPOLLPRI {
+        Some(PRI_BIT)
     } else {
         None
     }
@@ -401,6 +404,7 @@ fn interest_to_pending_bit(interest: InterestType) -> u8 {
         InterestType::Writable => WRITABLE_BIT,
         InterestType::Closed => HUP_BIT,
         InterestType::Error => ERR_BIT,
+        InterestType::Priority => PRI_BIT,
     }
 }
 
@@ -418,6 +422,12 @@ fn pending_bits_to_event(bits: u8, mask: EpollType) -> EpollType {
         && mask.contains(EpollType::EPOLLOUT)
     {
         event |= EpollType::EPOLLOUT;
+    }
+    if let Some(bit) = epoll_type_to_pending_bit(EpollType::EPOLLPRI)
+        && (bits & bit) != 0
+        && mask.contains(EpollType::EPOLLPRI)
+    {
+        event |= EpollType::EPOLLPRI;
     }
     if let Some(bit) = epoll_type_to_pending_bit(EpollType::EPOLLHUP)
         && (bits & bit) != 0
@@ -596,6 +606,9 @@ pub(crate) fn register_epoll_handler(
     if event.events().contains(EpollType::EPOLLIN) {
         type_ = Eventtype::FdRead;
         peb = peb.add(PollEvent::PollIn);
+    }
+    if event.events().contains(EpollType::EPOLLPRI) {
+        peb = peb.add(PollEvent::PollPri);
     }
     // EPOLLERR/EPOLLHUP are always delivered by epoll regardless of requested mask.
     peb = peb.add(PollEvent::PollError);

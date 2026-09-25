@@ -23,6 +23,8 @@ pub enum PollEvent {
     PollHangUp = 8,
     /// Invalid request. ignored as input
     PollInvalid = 16,
+    /// Exceptional condition pending (e.g. TCP out-of-band data)
+    PollPri = 32,
 }
 
 impl PollEvent {
@@ -33,6 +35,7 @@ impl PollEvent {
             4 => PollEvent::PollError,
             8 => PollEvent::PollHangUp,
             16 => PollEvent::PollInvalid,
+            32 => PollEvent::PollPri,
             _ => return None,
         })
     }

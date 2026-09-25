@@ -163,6 +163,7 @@ impl Future for InodeValFilePollGuardJoin {
         let waker = cx.waker();
         let mut has_read = false;
         let mut has_write = false;
+        let mut has_pri = false;
         let mut has_close = false;
         let mut has_hangup = false;
 
@@ -174,6 +175,9 @@ impl Future for InodeValFilePollGuardJoin {
                 }
                 PollEvent::PollOut => {
                     has_write = true;
+                }
+                PollEvent::PollPri => {
+                    has_pri = true;
                 }
                 PollEvent::PollHangUp => {
                     has_hangup = true;
@@ -383,6 +387,54 @@ impl Future for InodeValFilePollGuardJoin {
                 }
                 Poll::Pending => {}
             };
+        }
+        if has_pri {
+            // Only sockets have a notion of exceptional/priority conditions
+            // (e.g. TCP out-of-band data); everything else is never in an
+            // exceptional state.
+            let poll_result = match &mut self.mode {
+                InodeValFilePollGuardMode::Socket { inner } => {
+                    let mut guard = inner.protected.write().unwrap();
+                    guard.poll_pri_ready(cx)
+                }
+                _ => Poll::Pending,
+            };
+            if let Poll::Ready(bytes_available) = poll_result {
+                let mut error = Errno::Success;
+                let bytes_available = match bytes_available {
+                    Ok(a) => a,
+                    Err(e) => {
+                        error = map_io_err(e);
+                        0
+                    }
+                };
+                let inner = match self.subscription.type_ {
+                    Eventtype::FdRead | Eventtype::FdWrite | Eventtype::FdExcept => {
+                        Some(EventResultType::Fd(EventFdReadwrite {
+                            nbytes: bytes_available as u64,
+                            flags: Eventrwflags::empty(),
+                        }))
+                    }
+                    Eventtype::Clock => Some(EventResultType::Clock(0)),
+                    _ => None,
+                };
+                if let Some(inner) = inner {
+                    ret.push((
+                        EventResult {
+                            userdata: self.subscription.userdata,
+                            error,
+                            type_: self.subscription.type_,
+                            inner,
+                        },
+                        if error == Errno::Success {
+                            EpollType::EPOLLPRI
+                        } else {
+                            EpollType::EPOLLERR
+                        },
+                    ))
+                    .ok();
+                }
+            }
         }
         if !ret.is_empty() {
             return Poll::Ready(ret);

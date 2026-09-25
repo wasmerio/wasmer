@@ -277,6 +277,12 @@ where
                 *peb |= (PollEvent::PollOut as PollEventSet);
                 file_descriptor
             }
+            Eventtype::FdExcept => {
+                let file_descriptor = unsafe { s.data.fd_readwrite.file_descriptor };
+                *fd = Some(file_descriptor);
+                *peb |= (PollEvent::PollPri as PollEventSet);
+                file_descriptor
+            }
             Eventtype::Clock => {
                 let clock_info = unsafe { s.data.clock };
                 if clock_info.clock_id == Clockid::Realtime

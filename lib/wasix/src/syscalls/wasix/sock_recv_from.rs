@@ -53,6 +53,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     let peek = (ri_flags & __WASI_SOCK_RECV_INPUT_PEEK) != 0;
     let nonblocking_flag = (ri_flags & __WASI_SOCK_RECV_INPUT_DONT_WAIT) != 0;
+    let oob = (ri_flags & __WASI_SOCK_RECV_INPUT_OOB) != 0;
 
     let mut env = ctx.data();
     // Check rights first to preserve error precedence
@@ -89,6 +90,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
                             Some(timeout),
                             nonblocking,
                             peek,
+                            oob,
                         )
                         .await
                 },
@@ -125,6 +127,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
                             Some(timeout),
                             nonblocking,
                             peek,
+                            oob,
                         )
                         .await
                         .map(|(amt, addr)| {
