@@ -1472,6 +1472,23 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         }
     }));
 
+    let test_name = "path/mounted-directory-metadata";
+    let mut config = Config::new(
+        PrimarySource::CSourceFile("main.c".to_owned()),
+        tests_dir.join(test_name),
+        tests_build_root.clone(),
+        test_name.to_owned(),
+    );
+    config.config_name = "legacy".to_owned();
+    config.default_mapped_directories = false;
+    tests.push(libtest_mimic::Trial::ignorable_test(
+        config.full_test_name(),
+        move || {
+            run_legacy_mounted_directory_metadata(config)
+                .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+        },
+    ));
+
     for entry in WalkDir::new(&tests_dir)
         .into_iter()
         .filter_map(Result::ok)
@@ -1594,6 +1611,51 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn run_legacy_mounted_directory_metadata(config: Config) -> Result<libtest_mimic::Completion> {
+    if cfg!(target_os = "windows") {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "WASIXCC toolchain does not cover Windows yet",
+        ));
+    }
+
+    let wasm = run_build_script(&config)?;
+    let run_dir = config.build_path();
+    let backing: Arc<dyn FileSystem + Send + Sync> = Arc::new(mem_fs::FileSystem::default());
+    copy_host_tree_to_virtual_fs(
+        &*backing,
+        &config.test_src_dir.join("mapped"),
+        Path::new("/"),
+    )?;
+    let front = mem_fs::FileSystem::default();
+    front.mount_directory_entries(Path::new("/"), &backing, Path::new("/"))?;
+    let front: Arc<dyn FileSystem + Send + Sync> = Arc::new(front);
+
+    let result = runner::run_wasm_with_runner_config(
+        &wasm,
+        &run_dir,
+        config.engine,
+        config.program_name.as_deref(),
+        config.default_mapped_directories,
+        move |runner| {
+            runner.with_mount("/mounted".to_owned(), front);
+            Ok(())
+        },
+    )?;
+
+    ensure!(
+        result.exit_code == 0,
+        "legacy mounted-directory metadata exited with {}\n{}",
+        result.exit_code,
+        runner::format_captured_output(&result),
+    );
+    ensure!(
+        result.stdout == b"mounted directory metadata ok\n",
+        "unexpected legacy mounted-directory output\n{}",
+        runner::format_captured_output(&result),
+    );
+    Ok(libtest_mimic::Completion::Completed)
 }
 
 fn run_dynamic_runtime_hook_smoke(
