@@ -20,7 +20,8 @@ pub use trap::{Trap, UnwindReason};
 pub use traphandlers::install_unwinder;
 pub use traphandlers::{
     MAX_STACK_SIZE, TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_stack_size,
-    on_host_stack, raise_lib_trap, raise_user_trap, set_stack_size,
+    is_on_wasm_stack, on_host_stack, raise_lib_trap, raise_user_trap, set_stack_size,
+    wasm_stack_limit,
 };
 pub use traphandlers::{init_traps, resume_panic};
 pub use wasmer_types::TrapCode;
