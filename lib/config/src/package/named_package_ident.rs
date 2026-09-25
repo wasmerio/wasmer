@@ -8,6 +8,9 @@ use super::{NamedPackageId, PackageParseError};
 pub enum Tag {
     Named(String),
     VersionReq(semver::VersionReq),
+    /// A fully specified version pinned to a rebuild by its `+wasix.N` build
+    /// metadata (`1.2.3+wasix.2`), matched exactly including the build metadata.
+    ExactBuild(semver::Version),
 }
 
 impl Tag {
@@ -33,6 +36,7 @@ impl std::fmt::Display for Tag {
         match self {
             Tag::Named(n) => n.fmt(f),
             Tag::VersionReq(v) => v.fmt(f),
+            Tag::ExactBuild(v) => v.fmt(f),
         }
     }
 }
@@ -42,26 +46,32 @@ impl std::str::FromStr for Tag {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "latest" {
-            Ok(Self::VersionReq(semver::VersionReq::STAR))
-        } else {
-            match semver::VersionReq::from_str(s) {
-                Ok(v) => {
-                    // A successful `VersionReq` parse silently drops any build metadata: a
-                    // `Comparator` has no build field and matching ignores it, so `1.2.3+rel.1`
-                    // would behave as `^1.2.3`. Within this arm a `+` can only be dropped build
-                    // metadata, so reject it.
-                    if s.contains('+') {
-                        return Err(PackageParseError::new(
-                            s,
-                            "build metadata (`+...`) is not supported in a version requirement: \
-                             it is ignored when matching versions and cannot select a specific \
-                             build, so pin an exact version or a package hash instead",
-                        ));
-                    }
-                    Ok(Self::VersionReq(v))
+            return Ok(Self::VersionReq(semver::VersionReq::STAR));
+        }
+        // A fully specified version carrying build metadata (`1.2.3+wasix.2`)
+        // pins a specific rebuild. A `VersionReq` can't express it (a
+        // `Comparator` has no build field and matching ignores it), so match the
+        // exact version instead.
+        if let Ok(version) = semver::Version::from_str(s)
+            && !version.build.is_empty()
+        {
+            return Ok(Self::ExactBuild(version));
+        }
+        match semver::VersionReq::from_str(s) {
+            Ok(v) => {
+                // Any remaining `+` is build metadata on something that isn't a
+                // plain version (e.g. a range), where it is silently dropped, so
+                // reject it rather than mislead.
+                if s.contains('+') {
+                    return Err(PackageParseError::new(
+                        s,
+                        "build metadata (`+...`) is only valid on a fully specified version \
+                         (e.g. `1.2.3+wasix.2`) that pins an exact rebuild",
+                    ));
                 }
-                Err(_) => Ok(Self::Named(s.to_string())),
+                Ok(Self::VersionReq(v))
             }
+            Err(_) => Ok(Self::Named(s.to_string())),
         }
     }
 }
@@ -119,14 +129,45 @@ impl NamedPackageIdent {
     pub fn version_opt(&self) -> Option<&VersionReq> {
         match &self.tag {
             Some(Tag::VersionReq(v)) => Some(v),
-            Some(Tag::Named(_)) | None => None,
+            Some(Tag::Named(_)) | Some(Tag::ExactBuild(_)) | None => None,
         }
     }
 
     pub fn version_or_default(&self) -> VersionReq {
         match &self.tag {
             Some(Tag::VersionReq(v)) => v.clone(),
+            // `VersionReq` can't carry build metadata, so an exact-build pin
+            // falls back to its core version here; exact resolution goes through
+            // `matches_version`.
+            Some(Tag::ExactBuild(v)) => {
+                let mut core = v.clone();
+                core.build = semver::BuildMetadata::EMPTY;
+                VersionReq::from_str(&format!("={core}")).unwrap_or(semver::VersionReq::STAR)
+            }
             Some(Tag::Named(_)) | None => semver::VersionReq::STAR,
+        }
+    }
+
+    /// The version string that addresses this ident in a registry URL or query.
+    /// A range renders as its requirement (`^1.2.3`, `=1.2.3`, `*`); an
+    /// exact-build pin renders as the full version including its build metadata
+    /// (`1.2.3+wasix.2`), which a `VersionReq` would otherwise drop.
+    pub fn version_string(&self) -> String {
+        match &self.tag {
+            Some(Tag::ExactBuild(v)) => v.to_string(),
+            _ => self.version_or_default().to_string(),
+        }
+    }
+
+    /// Whether `version` satisfies this ident's tag. A version-req tag matches by
+    /// SemVer range (build metadata ignored); an exact-build tag matches only
+    /// that exact version, build metadata included; a name tag or no tag matches
+    /// any version.
+    pub fn matches_version(&self, version: &semver::Version) -> bool {
+        match &self.tag {
+            Some(Tag::VersionReq(req)) => req.matches(version),
+            Some(Tag::ExactBuild(v)) => version == v,
+            Some(Tag::Named(_)) | None => true,
         }
     }
 
@@ -198,6 +239,7 @@ impl NamedPackageIdent {
                 match tag {
                     Tag::Named(n) => n == &id.version.to_string(),
                     Tag::VersionReq(v) => v.matches(&id.version),
+                    Tag::ExactBuild(v) => id.version == *v,
                 }
             } else {
                 true
@@ -453,36 +495,40 @@ mod tests {
     }
 
     #[test]
-    fn test_reject_build_metadata_in_version_req() {
-        // Build metadata silently drops out of a `VersionReq`, so it must be rejected.
-        assert!(
-            Tag::from_str("1.2.3+rel.1").is_err(),
-            "build metadata must be rejected in a version requirement"
+    fn build_metadata_pins_an_exact_build() {
+        // A fully specified version with build metadata pins that exact rebuild.
+        assert_eq!(
+            Tag::from_str("1.2.3+wasix.2").unwrap(),
+            Tag::ExactBuild(semver::Version::from_str("1.2.3+wasix.2").unwrap()),
         );
-        assert!(
-            NamedPackageIdent::from_str("ns/name@1.2.3+rel.1").is_err(),
-            "a package ident with build metadata in its version must be rejected"
+        assert_eq!(
+            NamedPackageIdent::from_str("ns/name@1.2.3+wasix.2")
+                .unwrap()
+                .tag,
+            Some(Tag::ExactBuild(
+                semver::Version::from_str("1.2.3+wasix.2").unwrap()
+            )),
         );
 
-        // A plain version requirement (no build metadata) still parses.
+        // A bare version is a caret range, not an exact build.
         assert_eq!(
             NamedPackageIdent::from_str("ns/name@1.2.3").unwrap().tag,
             Some(Tag::VersionReq(VersionReq::from_str("1.2.3").unwrap())),
         );
 
-        // A `+` in a string that is not a valid version requirement still parses as a named tag.
-        assert_eq!(
-            Tag::from_str("my+tag").unwrap(),
-            Tag::Named("my+tag".to_string()),
-        );
-
-        // The rejection also surfaces through `PackageSource`, with the specific
-        // message rather than a generic "invalid package ident" error.
-        let err = crate::package::PackageSource::from_str("ns/name@1.2.3+rel.1")
-            .expect_err("build metadata must be rejected via PackageSource too");
+        // Build metadata on a range (not a plain version) is rejected, since a
+        // `VersionReq` would silently drop it.
+        let err = crate::package::PackageSource::from_str("ns/name@^1.2.3+build")
+            .expect_err("build metadata on a range must be rejected");
         assert!(
             err.to_string().contains("build metadata"),
             "user-facing error should explain the build metadata problem, got: {err}"
+        );
+
+        // A `+` in a string that is not a valid version still parses as a named tag.
+        assert_eq!(
+            Tag::from_str("my+tag").unwrap(),
+            Tag::Named("my+tag".to_string()),
         );
     }
 

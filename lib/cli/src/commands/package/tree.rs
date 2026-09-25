@@ -38,7 +38,7 @@ impl AsyncCliCommand for PackageTree {
         let root_summary = source.latest(&package).await.map_err(|error| {
             wasmer_wasix::runtime::resolver::ResolveError::Registry {
                 package: package.clone(),
-                error,
+                error: Box::new(error),
             }
         })?;
         let root_id = root_summary.package_id();
@@ -179,6 +179,7 @@ fn is_fixed_to_resolved(specified: &PackageSource, resolved_id: &PackageId) -> b
             match &specified.tag {
                 Some(Tag::Named(tag)) => tag == &resolved.version.to_string(),
                 Some(Tag::VersionReq(req)) => version_req_is_exact(req, &resolved.version),
+                Some(Tag::ExactBuild(v)) => &resolved.version == v,
                 None => false,
             }
         }

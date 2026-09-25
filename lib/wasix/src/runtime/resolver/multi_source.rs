@@ -53,11 +53,32 @@ impl MultiSource {
     }
 }
 
+/// Keep whichever skipped error explains the overall failure better, so a bare
+/// `NotFound` from one source cannot mask another source's all-matches-yanked
+/// `NoMatches`.
+fn keep_most_informative(slot: &mut Option<QueryError>, error: QueryError) {
+    fn rank(error: &QueryError) -> u8 {
+        match error {
+            QueryError::Unsupported { .. } => 0,
+            QueryError::NotFound { .. } => 1,
+            QueryError::NoMatches {
+                yanked_versions, ..
+            } => 2 + u8::from(!yanked_versions.is_empty()),
+            _ => 4,
+        }
+    }
+
+    if slot.as_ref().is_none_or(|kept| rank(kept) < rank(&error)) {
+        *slot = Some(error);
+    }
+}
+
 #[async_trait::async_trait]
 impl Source for MultiSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
         let mut output = Vec::<PackageSummary>::new();
+        let mut skipped_error: Option<QueryError> = None;
 
         for source in &self.sources {
             match source.query(package).await {
@@ -72,19 +93,22 @@ impl Source for MultiSource {
                         return Ok(summaries);
                     }
                 }
-                Err(QueryError::Unsupported { .. })
+                Err(error @ QueryError::Unsupported { .. })
                     if self.strategy.continue_if_unsupported || self.strategy.merge_results =>
                 {
+                    keep_most_informative(&mut skipped_error, error);
                     continue;
                 }
-                Err(QueryError::NotFound { .. })
+                Err(error @ QueryError::NotFound { .. })
                     if self.strategy.continue_if_not_found || self.strategy.merge_results =>
                 {
+                    keep_most_informative(&mut skipped_error, error);
                     continue;
                 }
-                Err(QueryError::NoMatches { .. })
+                Err(error @ QueryError::NoMatches { .. })
                     if self.strategy.continue_if_no_matches || self.strategy.merge_results =>
                 {
+                    keep_most_informative(&mut skipped_error, error);
                     continue;
                 }
                 // Generic errors do not respect the `merge_results` strategy
@@ -99,9 +123,9 @@ impl Source for MultiSource {
 
             Ok(output)
         } else {
-            Err(QueryError::NotFound {
+            Err(skipped_error.unwrap_or_else(|| QueryError::NotFound {
                 query: package.clone(),
-            })
+            }))
         }
     }
 }
@@ -186,5 +210,41 @@ mod tests {
         assert_eq!(summaries.len(), 2);
         assert_eq!(summaries[0].pkg.id, id1);
         assert_eq!(summaries[1].pkg.id, id2);
+    }
+
+    #[derive(Debug)]
+    struct FixedErrorSource(QueryError);
+
+    #[async_trait::async_trait]
+    impl Source for FixedErrorSource {
+        async fn query(&self, _: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
+            Err(self.0.clone())
+        }
+    }
+
+    /// A source that only skipped yanked versions must win over one that never
+    /// had the package, so the user learns why nothing matched.
+    #[tokio::test]
+    async fn all_yanked_no_matches_is_not_masked_by_not_found() {
+        let package: PackageSource = "ns/pkg@^1".parse().unwrap();
+
+        let mut multi = MultiSource::new();
+        multi.add_source(FixedErrorSource(QueryError::NotFound {
+            query: package.clone(),
+        }));
+        multi.add_source(FixedErrorSource(QueryError::NoMatches {
+            query: package.clone(),
+            yanked_versions: vec!["1.2.3".parse().unwrap()],
+        }));
+
+        let err = multi.query(&package).await.unwrap_err();
+        let QueryError::NoMatches {
+            yanked_versions, ..
+        } = err
+        else {
+            panic!("expected NoMatches, got {err:?}");
+        };
+        assert_eq!(yanked_versions.len(), 1);
+        assert_eq!(yanked_versions[0].to_string(), "1.2.3");
     }
 }

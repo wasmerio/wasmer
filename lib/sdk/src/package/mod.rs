@@ -2,3 +2,4 @@
 
 pub mod publish;
 pub mod search;
+pub mod yank;
