@@ -140,6 +140,11 @@ impl VirtualFile for TraceFile {
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()), err)]
+    fn metadata(&self) -> crate::Result<crate::Metadata> {
+        self.file.metadata()
+    }
+
+    #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()), err)]
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         self.file.set_len(new_size)
     }

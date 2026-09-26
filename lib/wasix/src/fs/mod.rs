@@ -1102,7 +1102,7 @@ impl WasiFs {
             Kind::File { handle, .. } => {
                 if let Some(h) = handle {
                     let h = h.read().unwrap();
-                    let new_size = h.size();
+                    let new_size = h.metadata().map_err(fs_error_into_wasi_err)?.len;
                     drop(h);
                     drop(guard);
 
@@ -2612,14 +2612,18 @@ impl WasiFs {
         let md = match kind {
             Kind::File { handle, path, .. } => match handle {
                 Some(wf) => {
-                    let wf = wf.read().unwrap();
+                    let md = wf
+                        .read()
+                        .unwrap()
+                        .metadata()
+                        .map_err(fs_error_into_wasi_err)?;
                     return Ok(Filestat {
                         st_filetype: Filetype::RegularFile,
                         st_ino: Inode::from_path(path.to_string_lossy().as_ref()).as_u64(),
-                        st_size: wf.size(),
-                        st_atim: wf.last_accessed(),
-                        st_mtim: wf.last_modified(),
-                        st_ctim: wf.created_time(),
+                        st_size: md.len(),
+                        st_atim: md.accessed(),
+                        st_mtim: md.modified(),
+                        st_ctim: md.created(),
 
                         ..Filestat::default()
                     });
@@ -2889,6 +2893,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::WriteZero => Errno::Nospc,
         FsError::DirectoryNotEmpty => Errno::Notempty,
         FsError::StorageFull => Errno::Overflow,
+        FsError::StaleFileHandle => Errno::Stale,
         FsError::Lock | FsError::UnknownError => Errno::Io,
         FsError::Unsupported => Errno::Notsup,
     }
@@ -3580,5 +3585,116 @@ mod tests {
             wasi_fs.remove_symlink_file(Path::new("/missing")),
             Errno::Noent
         );
+    }
+
+    /// A file whose backing storage went away, like a host file on a network
+    /// mount that now fails every syscall with ESTALE.
+    #[derive(Debug)]
+    struct StaleFile;
+
+    fn stale_err() -> std::io::Error {
+        std::io::ErrorKind::StaleNetworkFileHandle.into()
+    }
+
+    impl tokio::io::AsyncRead for StaleFile {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Err(stale_err()))
+        }
+    }
+
+    impl tokio::io::AsyncWrite for StaleFile {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            Poll::Ready(Err(stale_err()))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Err(stale_err()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Err(stale_err()))
+        }
+    }
+
+    impl tokio::io::AsyncSeek for StaleFile {
+        fn start_seek(self: Pin<&mut Self>, _position: std::io::SeekFrom) -> std::io::Result<()> {
+            Err(stale_err())
+        }
+
+        fn poll_complete(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::io::Result<u64>> {
+            Poll::Ready(Err(stale_err()))
+        }
+    }
+
+    impl VirtualFile for StaleFile {
+        fn last_accessed(&self) -> u64 {
+            0
+        }
+
+        fn last_modified(&self) -> u64 {
+            0
+        }
+
+        fn created_time(&self) -> u64 {
+            0
+        }
+
+        fn size(&self) -> u64 {
+            0
+        }
+
+        fn metadata(&self) -> virtual_fs::Result<virtual_fs::Metadata> {
+            Err(stale_err().into())
+        }
+
+        fn set_len(&mut self, _new_size: u64) -> virtual_fs::Result<()> {
+            Err(stale_err().into())
+        }
+
+        fn unlink(&mut self) -> virtual_fs::Result<()> {
+            Err(stale_err().into())
+        }
+
+        fn poll_read_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::io::Result<usize>> {
+            Poll::Ready(Err(stale_err()))
+        }
+
+        fn poll_write_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::io::Result<usize>> {
+            Poll::Ready(Err(stale_err()))
+        }
+    }
+
+    #[tokio::test]
+    async fn get_stat_for_kind_reports_stale_file_handle() {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
+
+        let kind = Kind::File {
+            handle: Some(Arc::new(RwLock::new(Box::new(StaleFile)))),
+            path: PathBuf::from("/stale.txt"),
+            fd: None,
+        };
+
+        assert_eq!(wasi_fs.get_stat_for_kind(&kind).unwrap_err(), Errno::Stale);
+        assert_eq!(Errno::from(stale_err()), Errno::Stale);
     }
 }
