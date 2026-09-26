@@ -335,6 +335,10 @@ fn headers(headers: web_sys::Headers) -> Result<http::HeaderMap, anyhow::Error> 
         header_map.insert(key, value);
     }
 
+    // Fetch already decoded the body, but retains the wire encoding/length
+    // headers. Do not pass those on to consumers that would decode it again.
+    header_map.remove(http::header::CONTENT_ENCODING);
+    header_map.remove(http::header::CONTENT_LENGTH);
     Ok(header_map)
 }
 
@@ -395,6 +399,26 @@ fn call_fetch(request: &web_sys::Request) -> JsFuture {
 mod tests {
     use super::*;
     use crate::runtime::resolver::BackendSource;
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn decoded_fetch_headers_do_not_describe_compressed_bytes() {
+        for encoding in ["gzip", "br", "zstd", "gzip, zstd"] {
+            let wire_headers = web_sys::Headers::new().unwrap();
+            wire_headers.set("content-encoding", encoding).unwrap();
+            wire_headers.set("content-length", "123").unwrap();
+            wire_headers
+                .set("content-type", "application/webc")
+                .unwrap();
+            let decoded = headers(wire_headers).unwrap();
+            assert!(!decoded.contains_key(http::header::CONTENT_ENCODING));
+            assert!(!decoded.contains_key(http::header::CONTENT_LENGTH));
+            assert_eq!(decoded[http::header::CONTENT_TYPE], "application/webc");
+        }
+        // CORS can hide Content-Encoding while exposing Content-Length.
+        let wire_headers = web_sys::Headers::new().unwrap();
+        wire_headers.set("content-length", "123").unwrap();
+        assert!(headers(wire_headers).unwrap().is_empty());
+    }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
     async fn query_the_wasmer_registry_graphql_endpoint() {
