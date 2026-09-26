@@ -300,14 +300,19 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
 
                 let thread = env.thread.clone();
 
-                // The poller will wait for the process to actually finish
-                let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
-                    process
-                        .wait_finished()
-                        .await
-                        .unwrap_or_else(|_| Errno::Child.into())
-                        .to_native()
-                })?;
+                // Wait without delivering signals to the replaced image. The
+                // new image shares this thread and owns signal handling now.
+                let res = __asyncify_with_deep_sleep_ext::<M, _, _>(
+                    ctx,
+                    async move {
+                        process
+                            .wait_finished()
+                            .await
+                            .unwrap_or_else(|_| Errno::Child.into())
+                            .to_native()
+                    },
+                    false,
+                )?;
                 match res {
                     AsyncifyAction::Finish(mut ctx, result) => {
                         // When we arrive here the process should already be terminated
