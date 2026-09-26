@@ -27,7 +27,7 @@ use std::{
     path::{Path, PathBuf},
     pin::Pin,
     sync::{
-        Arc, Mutex, RwLock, Weak,
+        Arc, Mutex, MutexGuard, PoisonError, RwLock, Weak,
         atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
     },
     task::{Context, Poll},
@@ -182,6 +182,14 @@ pub struct InodeGuard {
 impl InodeGuard {
     pub fn ino(&self) -> Inode {
         self.ino
+    }
+
+    /// Whether both guards refer to the same inode.
+    ///
+    /// Unlike comparing [`InodeGuard::ino`], which is derived from the path
+    /// an inode was created for, this is true only for the same inode.
+    pub(crate) fn is_same_inode(&self, other: &InodeGuard) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
     }
 
     pub fn downgrade(&self) -> InodeWeakGuard {
@@ -575,6 +583,9 @@ pub struct WasiFs {
     pub root_inode: InodeGuard,
     pub has_unioned: Mutex<HashSet<PackageId>>,
     ephemeral_symlinks: Arc<RwLock<HashMap<PathBuf, EphemeralSymlinkEntry>>>,
+    /// See [`WasiFs::lock_namespace`]. Shared with forked processes, which
+    /// share the inode cache.
+    namespace_lock: Arc<Mutex<()>>,
 
     // TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -609,6 +620,21 @@ impl WasiFs {
 
     pub fn set_is_wasix(&self, is_wasix: bool) {
         self.is_wasix.store(is_wasix, Ordering::SeqCst);
+    }
+
+    /// Serializes renames and unlinks within this filesystem tree.
+    ///
+    /// Both change the backing filesystem first and the cached directory
+    /// entries afterwards. Without this lock, two renames onto the same name
+    /// could update the cache in the opposite order of their backing renames,
+    /// and an unlink could remove a file that a concurrent rename had just
+    /// moved into place, leaving the cache out of sync with the backing
+    /// filesystem.
+    pub(crate) fn lock_namespace(&self) -> MutexGuard<'_, ()> {
+        // The lock guards no data, so a poisoned lock is still usable.
+        self.namespace_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     pub(crate) fn register_ephemeral_symlink(
@@ -709,6 +735,7 @@ impl WasiFs {
             root_inode: self.root_inode.clone(),
             has_unioned: Mutex::new(self.has_unioned.lock().unwrap().clone()),
             ephemeral_symlinks: self.ephemeral_symlinks.clone(),
+            namespace_lock: self.namespace_lock.clone(),
             init_preopens: self.init_preopens.clone(),
             init_vfs_preopens: self.init_vfs_preopens.clone(),
         }
@@ -869,6 +896,7 @@ impl WasiFs {
             root_inode,
             has_unioned: Mutex::new(HashSet::new()),
             ephemeral_symlinks: Arc::new(RwLock::new(HashMap::new())),
+            namespace_lock: Default::default(),
             init_preopens: Default::default(),
             init_vfs_preopens: Default::default(),
         };
