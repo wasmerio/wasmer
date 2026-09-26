@@ -1839,8 +1839,9 @@ impl WasiFs {
     }
 
     pub fn fdstat(&self, fd: WasiFd) -> Result<Fdstat, Errno> {
+        let entry = self.get_fd(fd)?;
         match fd {
-            __WASI_STDIN_FILENO => {
+            __WASI_STDIN_FILENO if entry.is_stdio => {
                 return Ok(Fdstat {
                     fs_filetype: Filetype::CharacterDevice,
                     fs_flags: Fdflags::empty(),
@@ -1848,7 +1849,7 @@ impl WasiFs {
                     fs_rights_inheriting: Rights::empty(),
                 });
             }
-            __WASI_STDOUT_FILENO => {
+            __WASI_STDOUT_FILENO if entry.is_stdio => {
                 return Ok(Fdstat {
                     fs_filetype: Filetype::CharacterDevice,
                     fs_flags: Fdflags::APPEND,
@@ -1856,7 +1857,7 @@ impl WasiFs {
                     fs_rights_inheriting: Rights::empty(),
                 });
             }
-            __WASI_STDERR_FILENO => {
+            __WASI_STDERR_FILENO if entry.is_stdio => {
                 return Ok(Fdstat {
                     fs_filetype: Filetype::CharacterDevice,
                     fs_flags: Fdflags::APPEND,
@@ -1875,7 +1876,7 @@ impl WasiFs {
             }
             _ => (),
         }
-        let fd = self.get_fd(fd)?;
+        let fd = entry;
 
         let guard = fd.inode.read();
         let deref = guard.deref();
