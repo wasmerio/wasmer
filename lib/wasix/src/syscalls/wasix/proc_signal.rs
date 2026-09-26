@@ -18,7 +18,7 @@ pub fn proc_signal(
         let pid: WasiProcessId = pid.into();
         ctx.data().control_plane.get_process(pid)
     };
-    if let Some(process) = process {
+    let result = if let Some(process) = process {
         let threads = process.all_threads();
         process.signal_process(sig);
         if sig == Signal::Sigkill {
@@ -34,9 +34,12 @@ pub fn proc_signal(
                 }
             }
         }
-    }
+        Errno::Success
+    } else {
+        Errno::Srch
+    };
 
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    Ok(Errno::Success)
+    Ok(result)
 }
