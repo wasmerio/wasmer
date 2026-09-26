@@ -98,6 +98,14 @@ pub(crate) fn path_link_internal(
         old_path,
         old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
+    // Like link(2), refuse to link a directory. A cached alias of a directory
+    // inside itself would make the inode tree cyclic.
+    if matches!(
+        source_inode.read().deref(),
+        Kind::Dir { .. } | Kind::Root { .. }
+    ) {
+        return Err(Errno::Perm);
+    }
     let target_path_arg = std::path::PathBuf::from(new_path);
     let (target_parent_inode, new_entry_name) =
         state

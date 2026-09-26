@@ -1,3 +1,5 @@
+use std::collections::hash_map::Entry;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -55,6 +57,9 @@ pub(crate) fn path_unlink_file_internal(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
+    // Held until the cache update below is done.
+    let _namespace_guard = wasi_try_ok!(__asyncify_light(env, None, state.fs.lock_namespace())?);
+
     let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
     let (parent_inode, child_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
@@ -67,44 +72,49 @@ pub(crate) fn path_unlink_file_internal(
         match guard.deref() {
             Kind::Dir { path, .. } => path.join(&child_name),
             Kind::Root { .. } => return Ok(Errno::Access),
-            _ => unreachable!(
-                "Internal logic error in wasi::path_unlink_file, parent is not a directory"
-            ),
+            _ => return Ok(Errno::Notdir),
         }
     };
 
     let removed_inode = {
         let mut guard = parent_inode.write();
-        let entry = match guard.deref_mut() {
-            Kind::Dir { entries, .. } => entries.remove(&child_name),
+        let entries = match guard.deref_mut() {
+            Kind::Dir { entries, .. } => entries,
             Kind::Root { .. } => return Ok(Errno::Access),
-            _ => unreachable!(
-                "Internal logic error in wasi::path_unlink_file, parent is not a directory"
-            ),
+            _ => return Ok(Errno::Notdir),
         };
-        let Some(removed_inode) = entry else {
-            drop(guard);
-
-            let inode_is_symlink = matches!(inode.read().deref(), Kind::Symlink { .. });
-            if !inode_is_symlink {
-                tracing::warn!(
-                    "wasi::path_unlink_file: path resolution returned inode {:?} for {:?}, but parent directory had no matching entry",
-                    inode.ino(),
-                    child_name
-                );
-                return Ok(Errno::Noent);
+        // The cached entry is not necessarily `inode`: a concurrent lookup
+        // may have replaced it with another inode for the same file. Unlink
+        // whatever the name refers to now.
+        match entries.entry(child_name.clone()) {
+            Entry::Occupied(entry) => {
+                if matches!(
+                    entry.get().read().deref(),
+                    Kind::Dir { .. } | Kind::Root { .. }
+                ) {
+                    return Ok(Errno::Isdir);
+                }
+                Some(entry.remove())
             }
-            return Ok(state.fs.remove_symlink_file(host_adjusted_path.as_path()));
-        };
-        // TODO: make this a debug assert in the future
-        assert!(inode.ino() == removed_inode.ino());
-        debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
-        removed_inode
+            Entry::Vacant(_) => None,
+        }
+    };
+    let Some(removed_inode) = removed_inode else {
+        let inode_is_symlink = matches!(inode.read().deref(), Kind::Symlink { .. });
+        if !inode_is_symlink {
+            tracing::warn!(
+                "wasi::path_unlink_file: path resolution returned inode {:?} for {:?}, but parent directory had no matching entry",
+                inode.ino(),
+                child_name
+            );
+            return Ok(Errno::Noent);
+        }
+        return Ok(state.fs.remove_symlink_file(host_adjusted_path.as_path()));
     };
 
     let st_nlink = {
         let mut guard = removed_inode.stat.write().unwrap();
-        guard.st_nlink -= 1;
+        guard.st_nlink = guard.st_nlink.saturating_sub(1);
         guard.st_nlink
     };
     if st_nlink == 0 {
