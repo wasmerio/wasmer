@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <wasi/api.h>
 
@@ -26,6 +27,19 @@ int main(void) {
   if (result == 0) {
     assert(!tty.stdin_tty && !tty.stdout_tty && !tty.stderr_tty);
   }
+  int pair[2];
+  assert(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0);
+  assert(dup2(pair[1], STDOUT_FILENO) == STDOUT_FILENO);
+  int type = 0;
+  socklen_t length = sizeof(type);
+  assert(getsockopt(STDOUT_FILENO, SOL_SOCKET, SO_TYPE, &type, &length) == 0);
+  assert(type == SOCK_STREAM);
+  assert(!isatty(STDOUT_FILENO));
+  assert(write(STDOUT_FILENO, "x", 1) == 1);
+  char byte;
+  assert(read(pair[0], &byte, 1) == 1 && byte == 'x');
+  close(pair[0]);
+  close(pair[1]);
   for (int fd = 0; fd < 3; fd++) {
     assert(dup2(saved[fd], fd) == fd);
     close(saved[fd]);
