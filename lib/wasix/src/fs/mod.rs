@@ -1885,6 +1885,7 @@ impl WasiFs {
                 Kind::File { .. } => Filetype::RegularFile,
                 Kind::Dir { .. } => Filetype::Directory,
                 Kind::Symlink { .. } => Filetype::SymbolicLink,
+                Kind::DuplexPipe { .. } => Filetype::SocketStream,
                 Kind::Socket { socket } => match &socket.inner.protected.read().unwrap().kind {
                     InodeSocketKind::TcpStream { .. } => Filetype::SocketStream,
                     InodeSocketKind::Raw { .. } => Filetype::SocketRaw,
