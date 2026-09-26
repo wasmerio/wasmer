@@ -1143,46 +1143,36 @@ impl WasiEnv {
             let _ = root_fs.create_dir(Path::new("/usr/bin"));
 
             for command in &pkg.commands {
-                let path = format!("/bin/{}", command.name());
-                let path2 = format!("/usr/bin/{}", command.name());
-                let path = Path::new(path.as_str());
-                let path2 = Path::new(path2.as_str());
-
                 let atom = command.atom();
-
-                if let Err(err) = write_readonly_buffer_to_fs(root_fs, path, &atom).await {
-                    tracing::debug!(
-                        "failed to add package [{}] command [{}] - {}",
-                        pkg.id,
-                        command.name(),
-                        err
-                    );
-                    continue;
-                }
-                if let Err(err) = write_readonly_buffer_to_fs(root_fs, path2, &atom).await {
-                    tracing::debug!(
-                        "failed to add package [{}] command [{}] - {}",
-                        pkg.id,
-                        command.name(),
-                        err
-                    );
-                    continue;
-                }
-
                 let mut package = pkg.clone();
                 package.entrypoint_cmd = Some(command.name().to_string());
                 let package_arc = Arc::new(package);
-                self.bin_factory
-                    .set_binary(path.to_string_lossy().as_ref(), &package_arc);
-                self.bin_factory
-                    .set_binary(path2.to_string_lossy().as_ref(), &package_arc);
 
-                tracing::debug!(
-                    package=%pkg.id,
-                    command_name=command.name(),
-                    path=%path.display(),
-                    "Injected a command into the filesystem",
-                );
+                for directory in ["/bin", "/usr/bin"] {
+                    let path = format!("{directory}/{}", command.name());
+                    if let Err(err) =
+                        write_readonly_buffer_to_fs(root_fs, Path::new(&path), &atom).await
+                    {
+                        tracing::debug!(
+                            package=%pkg.id,
+                            command_name=command.name(),
+                            path,
+                            error=%err,
+                            "Failed to inject a command into the filesystem",
+                        );
+                        continue;
+                    }
+
+                    // Keep metadata for each installed path even if another
+                    // alias cannot be written (for example, below a mount).
+                    self.bin_factory.set_binary(&path, &package_arc);
+                    tracing::debug!(
+                        package=%pkg.id,
+                        command_name=command.name(),
+                        path,
+                        "Injected a command into the filesystem",
+                    );
+                }
             }
         }
 
@@ -1364,6 +1354,91 @@ impl WasiEnv {
             if let Some(exec_name) = exec_name {
                 self.state.args.lock().unwrap()[0] = exec_name;
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use once_cell::sync::OnceCell;
+    use shared_buffer::OwnedBuffer;
+    use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
+    use wasmer::Engine;
+    use wasmer_config::package::PackageId;
+
+    #[tokio::test]
+    async fn command_alias_registration_is_independent() {
+        let id = PackageId::new_named("test/command-args", "1.0.0".parse().unwrap());
+        let command = BinaryPackageCommand::new(
+            "pi".to_string(),
+            serde_json::from_value(serde_json::json!({
+                "runner": "wasi",
+                "annotations": { "wasi": {
+                    "atom": "pi", "main-args": ["/opt/pi/cli.js"]
+                } }
+            }))
+            .unwrap(),
+            OwnedBuffer::from(b"\0asm\x01\0\0\0".to_vec()),
+            ModuleHash::random(),
+            None,
+            id.clone(),
+            id.clone(),
+        );
+        let package = BinaryPackage {
+            id,
+            package_ids: vec![],
+            webc_version: webc::Version::V3,
+            when_cached: None,
+            entrypoint_cmd: Some("pi".to_string()),
+            hash: OnceCell::new(),
+            package_mounts: None,
+            commands: vec![command],
+            uses: vec![],
+            file_system_memory_footprint: 0,
+            additional_host_mapped_directories: vec![],
+        };
+
+        for (mount, available, unavailable) in [
+            ("/usr/local/ssl", "/bin/pi", "/usr/bin/pi"),
+            ("/bin/data", "/usr/bin/pi", "/bin/pi"),
+        ] {
+            let env = WasiEnvBuilder::new("pi")
+                .arg("--provider")
+                .arg("openai")
+                .engine(Engine::default())
+                .fs(
+                    Arc::new(RootFileSystemBuilder::default().build_tmp_ext(&["/bin"]))
+                        as Arc<dyn FileSystem + Send + Sync>,
+                )
+                .build()
+                .unwrap();
+            let fs = &env.state.fs.root_fs;
+            // A nested mount supplies a virtual parent, but does not create
+            // that parent in the writable root used for command installation.
+            fs.root()
+                .mount(Path::new(mount), Arc::new(TmpFileSystem::new()))
+                .unwrap();
+
+            env.use_package_async(&package).await.unwrap();
+            assert!(fs.metadata(Path::new(available)).unwrap().is_file());
+            assert!(fs.metadata(Path::new(unavailable)).is_err());
+            let installed = env
+                .bin_factory
+                .get_binary(available, None)
+                .await
+                .expect("a successfully installed alias must retain its package metadata");
+            assert!(
+                env.bin_factory
+                    .get_binary(unavailable, None)
+                    .await
+                    .is_none()
+            );
+            env.prepare_spawn(installed.get_command("pi").unwrap());
+            assert_eq!(
+                *env.state.args.lock().unwrap(),
+                ["pi", "/opt/pi/cli.js", "--provider", "openai"]
+            );
         }
     }
 }
