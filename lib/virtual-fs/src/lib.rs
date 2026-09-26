@@ -363,6 +363,25 @@ pub trait VirtualFile:
     /// the size of the file in bytes
     fn size(&self) -> u64;
 
+    /// Returns the metadata of the open file.
+    ///
+    /// Unlike [`Self::last_accessed`], [`Self::last_modified`],
+    /// [`Self::created_time`] and [`Self::size`], this reports failures of the
+    /// backing storage (e.g. a stale NFS handle) instead of hiding them, so
+    /// prefer it wherever the result is surfaced to a guest.
+    ///
+    /// Files backed by fallible storage should override this. Wrappers must
+    /// forward it to the wrapped file, otherwise its errors are lost.
+    fn metadata(&self) -> Result<Metadata> {
+        Ok(Metadata {
+            ft: FileType::new_file(),
+            accessed: self.last_accessed(),
+            created: self.created_time(),
+            modified: self.last_modified(),
+            len: self.size(),
+        })
+    }
+
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
     fn set_len(&mut self, new_size: u64) -> Result<()>;
@@ -551,6 +570,10 @@ pub enum FsError {
     DirectoryNotEmpty,
     #[error("storage full")]
     StorageFull,
+    /// The file handle refers to a file that no longer exists on the backing
+    /// (network) filesystem (ESTALE)
+    #[error("stale file handle")]
+    StaleFileHandle,
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
@@ -579,6 +602,7 @@ impl From<io::Error> for FsError {
             io::ErrorKind::UnexpectedEof => FsError::UnexpectedEof,
             io::ErrorKind::WouldBlock => FsError::WouldBlock,
             io::ErrorKind::WriteZero => FsError::WriteZero,
+            io::ErrorKind::StaleNetworkFileHandle => FsError::StaleFileHandle,
             // NOTE: Add this once the "io_error_more" Rust feature is stabilized
             // io::ErrorKind::StorageFull => FsError::StorageFull,
             io::ErrorKind::Other => FsError::IOError,
@@ -617,6 +641,7 @@ impl From<FsError> for io::Error {
             FsError::DirectoryNotEmpty => io::ErrorKind::Other,
             FsError::UnknownError => io::ErrorKind::Other,
             FsError::StorageFull => io::ErrorKind::Other,
+            FsError::StaleFileHandle => io::ErrorKind::StaleNetworkFileHandle,
             FsError::Unsupported => io::ErrorKind::Unsupported,
             // NOTE: Add this once the "io_error_more" Rust feature is stabilized
             // FsError::StorageFull => io::ErrorKind::StorageFull,

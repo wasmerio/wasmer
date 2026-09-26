@@ -335,6 +335,7 @@ impl From<Errno> for std::io::ErrorKind {
             Errno::Perm => ErrorKind::PermissionDenied,
             Errno::Pipe => ErrorKind::BrokenPipe,
             Errno::Timedout => ErrorKind::TimedOut,
+            Errno::Stale => ErrorKind::StaleNetworkFileHandle,
             _ => ErrorKind::Other,
         }
     }
@@ -370,6 +371,7 @@ impl From<std::io::Error> for Errno {
             ErrorKind::Other => Errno::Io,
             ErrorKind::UnexpectedEof => Errno::Io,
             ErrorKind::Unsupported => Errno::Notsup,
+            ErrorKind::StaleNetworkFileHandle => Errno::Stale,
             _ => Errno::Io,
         }
     }
