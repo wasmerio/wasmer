@@ -57,7 +57,8 @@ pub(crate) fn path_unlink_file_internal(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let _namespace_guard = state.fs.lock_namespace();
+    // Held until the cache update below is done.
+    let _namespace_guard = wasi_try_ok!(__asyncify_light(env, None, state.fs.lock_namespace())?);
 
     let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
     let (parent_inode, child_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(

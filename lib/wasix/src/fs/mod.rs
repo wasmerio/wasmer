@@ -27,7 +27,7 @@ use std::{
     path::{Path, PathBuf},
     pin::Pin,
     sync::{
-        Arc, Mutex, MutexGuard, PoisonError, RwLock, Weak,
+        Arc, Mutex, RwLock, Weak,
         atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
     },
     task::{Context, Poll},
@@ -585,7 +585,7 @@ pub struct WasiFs {
     ephemeral_symlinks: Arc<RwLock<HashMap<PathBuf, EphemeralSymlinkEntry>>>,
     /// See [`WasiFs::lock_namespace`]. Shared with forked processes, which
     /// share the inode cache.
-    namespace_lock: Arc<Mutex<()>>,
+    namespace_lock: Arc<tokio::sync::Mutex<()>>,
 
     // TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -625,16 +625,24 @@ impl WasiFs {
     /// Serializes renames and unlinks within this filesystem tree.
     ///
     /// Both change the backing filesystem first and the cached directory
-    /// entries afterwards. Without this lock, two renames onto the same name
-    /// could update the cache in the opposite order of their backing renames,
-    /// and an unlink could remove a file that a concurrent rename had just
-    /// moved into place, leaving the cache out of sync with the backing
-    /// filesystem.
-    pub(crate) fn lock_namespace(&self) -> MutexGuard<'_, ()> {
-        // The lock guards no data, so a poisoned lock is still usable.
-        self.namespace_lock
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
+    /// entries afterwards, and the guard must be held across both steps.
+    /// Otherwise two renames onto the same name could update the cache in the
+    /// opposite order of their backing renames, and an unlink could remove a
+    /// file that a concurrent rename had just moved into place, leaving the
+    /// cache out of sync with the backing filesystem. Lookups do not take the
+    /// lock: the entries they insert have no open handle and are replaced
+    /// harmlessly.
+    ///
+    /// This is an async mutex, so callers wait for it inside
+    /// `__asyncify_light`: a thread waiting for a slow rename in another
+    /// thread or process can be cancelled like any other blocking syscall
+    /// wait.
+    pub(crate) fn lock_namespace(
+        &self,
+    ) -> impl Future<Output = Result<tokio::sync::OwnedMutexGuard<()>, Errno>> + Send + 'static
+    {
+        let lock = self.namespace_lock.clone();
+        async move { Ok(lock.lock_owned().await) }
     }
 
     pub(crate) fn register_ephemeral_symlink(

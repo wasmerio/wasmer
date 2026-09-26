@@ -90,7 +90,8 @@ fn rename_at(
         }
     }
 
-    let _namespace_guard = state.fs.lock_namespace();
+    // Held until the cache update below is done.
+    let _namespace_guard = wasi_try_ok!(__asyncify_light(env, None, state.fs.lock_namespace())?);
 
     // This also loads the source into the cache if needed. The last component
     // is not followed: renaming a symlink moves the link itself.
