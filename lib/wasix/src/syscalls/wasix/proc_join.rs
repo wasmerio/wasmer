@@ -1,5 +1,6 @@
 use std::task::Waker;
 
+use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use wasmer::FromToNativeWasmType;
 use wasmer_wasix_types::wasi::{JoinFlags, JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid};
@@ -10,6 +11,7 @@ use crate::{WasiProcess, syscalls::*};
 #[derive(Serialize, Deserialize)]
 enum JoinStatusResult {
     Nothing,
+    StillRunning,
     ExitNormal(WasiProcessId, ExitCode),
     Err(Errno),
 }
@@ -47,8 +49,18 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
             let mut ret = Errno::Success;
 
             let view = unsafe { ctx.data().memory_view(&ctx) };
+            if matches!(status, JoinStatusResult::StillRunning) {
+                // libc checks the PID tag before the status; None means ECHILD.
+                wasi_try_mem_ok!(pid_ptr.write(
+                    &view,
+                    OptionPid {
+                        tag: OptionTag::Some,
+                        pid: 0,
+                    }
+                ));
+            }
             let status = match status {
-                JoinStatusResult::Nothing => JoinStatus {
+                JoinStatusResult::Nothing | JoinStatusResult::StillRunning => JoinStatus {
                     tag: JoinStatusType::Nothing,
                     u: JoinStatusUnion { nothing: 0 },
                 },
@@ -121,7 +133,14 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
             // We wait for any process to exit (if it takes too long
             // then we go into a deep sleep)
             let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
-                let child_exit = process.join_any_child().await;
+                let child_exit = if flags.contains(JoinFlags::NON_BLOCKING) {
+                    match process.join_any_child().now_or_never() {
+                        Some(result) => result,
+                        None => return JoinStatusResult::StillRunning,
+                    }
+                } else {
+                    process.join_any_child().await
+                };
                 match child_exit {
                     Ok(Some((pid, exit_code))) => {
                         tracing::trace!(%pid, %exit_code, "triggered child join");
