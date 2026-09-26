@@ -215,16 +215,13 @@ impl InodeGuard {
             return;
         }
 
-        // ... otherwise, drop the VirtualFile reference
-        let mut guard = self.inner.write();
-
         // Must have at least one open handle before we can drop.
-        // This check happens after `inner` is locked so we can
-        // poison the lock and keep people from using this (possibly
-        // corrupt) InodeGuard.
         if prev_handles != 1 {
             panic!("InodeGuard handle dropped too many times");
         }
+
+        // ... otherwise, drop the VirtualFile reference
+        let mut guard = self.inner.write();
 
         // Re-check the open handles to account for race conditions
         if self.open_handles.load(Ordering::SeqCst) != 0 {
@@ -1022,7 +1019,7 @@ impl WasiFs {
                     .map_err(fs_error_from_wasi_err)?;
 
                 {
-                    let mut guard = inode.kind.write().unwrap();
+                    let mut guard = inode.write();
                     match guard.deref_mut() {
                         Kind::File { fd, .. } => {
                             *fd = Some(real_fd);
