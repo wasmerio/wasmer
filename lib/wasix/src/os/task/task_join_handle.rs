@@ -205,6 +205,81 @@ impl TaskJoinHandle {
         });
     }
 
+    /// Relay OS-directed `SIGTERM`/`SIGHUP` into the guest's signal machinery.
+    ///
+    /// The relay is conditional because nothing else enforces a default action:
+    /// `Thread::signal` only queues, and `process_signals_and_exit` ignores a
+    /// queued `SIGTERM` outright when the guest never registered a handler. So
+    /// an unconditional relay would replace "installing a handler kills the
+    /// host" with "SIGTERM can never kill the host" -- a worse bug. Until
+    /// `callback_signal` has run, the handler installed here is removed again
+    /// and the signal re-raised, which leaves the shell-visible status exactly
+    /// as it was before this function existed.
+    ///
+    /// The gate is per-process rather than per-signal, because the guest's
+    /// disposition table lives in guest memory and `callback_signal` only tells
+    /// the host that `__wasm_signal` exists. wasix-libc registers it during
+    /// startup for every `crt1-command` module (libc-top-half/musl/src/signal/
+    /// sigaction.c:486-489, called from libc-bottom-half/crt/crt1-command.c:42),
+    /// so on such a module the re-raise branch is never reached -- measured: an
+    /// external `SIGTERM` to a probe that installed no disposition exits `27`
+    /// where the unrelayed runtime exited `143`, i.e. `128+SIGTERM`, the shell's
+    /// own notation for the default action killing the process. `27` is
+    /// `Self::Intr` (lib/wasi-types/src/wasi/bindings.rs:2820), so the status is
+    /// the WASI signal-exit code; which layer converts an unhandled relayed
+    /// signal into it is not settled by that measurement, and it is not musl's
+    /// printed default action -- the string `terminate_handler` writes never
+    /// appears in the guest log of such a run. What is settled is that once the
+    /// callback is registered the guest owns the disposition, and a module that
+    /// installs one for `SIGTERM` gets a handler call instead of either status
+    /// (verified end to end against a `pgrust` postmaster).
+    #[cfg(all(unix, feature = "ctrlc"))]
+    pub fn install_os_signal_relay(
+        &self,
+        handler_registered: Arc<dyn Fn() -> bool + Send + Sync + 'static>,
+    ) {
+        use tokio::signal::unix::{signal, SignalKind};
+        use wasmer::FromToNativeWasmType;
+        use wasmer_wasix_types::wasi::Signal;
+
+        for (kind, sig, signum) in [
+            (SignalKind::terminate(), Signal::Sigterm, libc::SIGTERM),
+            (SignalKind::hangup(), Signal::Sighup, libc::SIGHUP),
+        ] {
+            let signal_handler = self.signal_handler.clone();
+            let handler_registered = handler_registered.clone();
+            let num = sig.to_native() as u8;
+            tokio::spawn(async move {
+                // `SignalKind` is only a descriptor; subscribing is the fallible step,
+                // and it has to happen inside the task that owns the stream.
+                let mut stream = match signal(kind) {
+                    Ok(stream) => stream,
+                    Err(err) => {
+                        tracing::error!("failed to install signal relay for {num}: {err}");
+                        return;
+                    }
+                };
+                while stream.recv().await.is_some() {
+                    if !handler_registered() {
+                        // SAFETY: SIG_DFL plus re-raise is the documented way to
+                        // terminate with the default disposition from inside a
+                        // handler; no guest or runtime state is touched.
+                        unsafe {
+                            libc::signal(signum, libc::SIG_DFL);
+                            libc::raise(signum);
+                        }
+                        tracing::debug!(signum, "no guest signal handler, default action re-raised");
+                        return;
+                    }
+                    match signal_handler.signal(num) {
+                        Ok(()) => tracing::debug!(signum, "relayed host signal to guest"),
+                        Err(err) => tracing::error!("failed to process signal - {err}"),
+                    }
+                }
+            });
+        }
+    }
+
     /// Wait until the task finishes.
     pub async fn wait_finished(&mut self) -> Result<ExitCode, Arc<WasiRuntimeError>> {
         loop {
