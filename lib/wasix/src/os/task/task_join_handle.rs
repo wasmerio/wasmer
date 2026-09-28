@@ -238,7 +238,7 @@ impl TaskJoinHandle {
         &self,
         handler_registered: Arc<dyn Fn() -> bool + Send + Sync + 'static>,
     ) {
-        use tokio::signal::unix::{signal, SignalKind};
+        use tokio::signal::unix::{SignalKind, signal};
         use wasmer::FromToNativeWasmType;
         use wasmer_wasix_types::wasi::Signal;
 
@@ -268,7 +268,10 @@ impl TaskJoinHandle {
                             libc::signal(signum, libc::SIG_DFL);
                             libc::raise(signum);
                         }
-                        tracing::debug!(signum, "no guest signal handler, default action re-raised");
+                        tracing::debug!(
+                            signum,
+                            "no guest signal handler, default action re-raised"
+                        );
                         return;
                     }
                     match signal_handler.signal(num) {
