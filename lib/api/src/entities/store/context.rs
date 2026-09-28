@@ -855,4 +855,64 @@ mod borrow_provenance {
         drop(wrapper);
         drop(install);
     }
+
+    /// [`FunctionEnvMut::data_and_store_mut`] hands out `&mut T` and a
+    /// [`StoreMut`] at once, laundered through a raw pointer because the borrow
+    /// checker would reject the pair. Its comment argues this is safe since
+    /// function environments live in a `Vec` of their own, "not really directly
+    /// accessible with the `StoreMut`" — but the `StoreMut` reaches that same
+    /// `Vec` through `objects_mut`, so anything the caller invokes through the
+    /// store half can hand out a second `&mut T` for the same environment.
+    ///
+    /// Which is what a host function does when it calls back into the guest
+    /// while holding both halves. `wasix`'s `call_dynamic` is exactly this
+    /// shape: it takes the pair, calls an arbitrary guest function through the
+    /// store half, and then uses the data half again afterwards.
+    ///
+    /// Nothing about this needs an async store or a suspension — it is a plain
+    /// nested synchronous call.
+    ///
+    /// ```text
+    /// cargo +nightly miri test -p wasmer --features sys --lib borrow_provenance
+    /// ```
+    #[test]
+    fn a_nested_call_keeps_the_data_half_of_data_and_store_mut_usable() {
+        let mut store = Store::default();
+        let id = store.id();
+        let env = crate::FunctionEnv::new(&mut store, 0u32);
+
+        // --- the embedder's Function::call(&mut store)
+        let mut caller = store.as_store_mut();
+        let install = unsafe { StoreContext::install(caller.as_store_mut().inner as *mut _) };
+
+        // --- the import trampoline, handing the host function its store
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let mut shim = wrapper.as_mut();
+        let mut env_mut = env.clone().into_mut(&mut shim);
+
+        // --- the host function takes both halves at once
+        let (data, mut store_mut) = env_mut.data_and_store_mut();
+        *data += 1;
+
+        {
+            // --- and calls back into the guest through the store half
+            let inner_install =
+                unsafe { StoreContext::install(store_mut.as_store_mut().inner as *mut _) };
+            let pause = unsafe { StoreContext::pause(id) };
+
+            // --- an import reached by that call touches the same environment,
+            //     which is what any WASIX syscall does
+            let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
+            let mut inner_shim = inner_wrapper.as_mut();
+            *env.as_mut(&mut inner_shim) += 1;
+            drop(inner_wrapper);
+
+            drop(pause);
+            drop(inner_install);
+        }
+
+        // --- and goes on using the data half it held throughout
+        *data += 1;
+        assert_eq!(*data, 3);
+    }
 }
