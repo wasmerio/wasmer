@@ -59,15 +59,50 @@ enum StoreContextEntry {
     Sync(*mut StoreInner),
 
     #[cfg(feature = "experimental-async")]
-    Async(LocalRwLockWriteGuard<Box<StoreInner>>),
+    Async {
+        guard: LocalRwLockWriteGuard<Box<StoreInner>>,
+        /// Where `guard`'s store sits, taken once while nothing else could be
+        /// borrowing it, so the identity checks below can compare addresses
+        /// without deriving a borrow of their own. Deriving one would make a
+        /// sibling of the borrow a paused frame is still holding, and creating
+        /// it would invalidate that frame's.
+        addr: *mut StoreInner,
+    },
 }
 
 impl StoreContextEntry {
-    fn as_ptr(&self) -> *mut StoreInner {
+    /// Takes the store's address while the guard has just arrived and no other
+    /// borrow of it can be outstanding.
+    #[cfg(feature = "experimental-async")]
+    fn new_async(mut guard: LocalRwLockWriteGuard<Box<StoreInner>>) -> Self {
+        let addr = &mut **guard as *mut _;
+        Self::Async { guard, addr }
+    }
+
+    /// The store this entry addresses, as a pointer every caller here goes on
+    /// to write through.
+    ///
+    /// An async entry owns its store through a write guard, and the pointer has
+    /// to be derived by `DerefMut`. Taken through `&self` the `Box` deref is a
+    /// shared one, so what came back carried read-only provenance over the
+    /// `StoreInner` and the `&mut` [`StorePtrWrapper::as_mut`] builds from it
+    /// was undefined behaviour — see `borrow_provenance`'s
+    /// `an_async_context_hands_out_a_writable_borrow`.
+    fn as_ptr(&mut self) -> *mut StoreInner {
         match self {
             Self::Sync(ptr) => *ptr,
             #[cfg(feature = "experimental-async")]
-            Self::Async(guard) => &***guard as *const _ as *mut _,
+            Self::Async { guard, .. } => &mut ***guard as *mut _,
+        }
+    }
+
+    /// Where this entry's store sits, read without borrowing the store. Only
+    /// good for identity checks; write through [`Self::as_ptr`].
+    fn store_addr(&self) -> *mut StoreInner {
+        match self {
+            Self::Sync(ptr) => *ptr,
+            #[cfg(feature = "experimental-async")]
+            Self::Async { addr, .. } => *addr,
         }
     }
 }
@@ -195,7 +230,7 @@ impl StoreContext {
         guard: LocalRwLockWriteGuard<Box<StoreInner>>,
     ) -> ForcedStoreInstallGuard {
         let store_id = guard.objects.id();
-        Self::push(store_id, StoreContextEntry::Async(guard));
+        Self::push(store_id, StoreContextEntry::new_async(guard));
         ForcedStoreInstallGuard { store_id }
     }
 
@@ -212,7 +247,7 @@ impl StoreContext {
             match unsafe { top.entry.get().as_ref().unwrap() } {
                 StoreContextEntry::Sync(_) => false,
                 #[cfg(feature = "experimental-async")]
-                StoreContextEntry::Async(_) => true,
+                StoreContextEntry::Async { .. } => true,
             }
         })
     }
@@ -252,8 +287,16 @@ impl StoreContext {
             !Self::is_active(store_id)
                 || STORE_CONTEXT_STACK.with(|cell| {
                     let stack = cell.borrow();
-                    let active =
-                        unsafe { stack.last().unwrap().entry.get().as_ref().unwrap().as_ptr() };
+                    let active = unsafe {
+                        stack
+                            .last()
+                            .unwrap()
+                            .entry
+                            .get()
+                            .as_ref()
+                            .unwrap()
+                            .store_addr()
+                    };
                     active == store_ptr
                 }),
             "Store context pointer mismatch"
@@ -299,7 +342,7 @@ impl StoreContext {
             };
             StorePtrPauseGuard {
                 store_id: id,
-                ptr: unsafe { top.entry.get().as_ref().unwrap().as_ptr() },
+                ptr: unsafe { top.entry.get().as_ref().unwrap().store_addr() },
                 ref_count_decremented,
             }
         })
@@ -394,7 +437,7 @@ impl StoreContext {
             }
             top.borrow_count += 1;
             match unsafe { top.entry.get().as_mut().unwrap() } {
-                StoreContextEntry::Async(guard) => {
+                StoreContextEntry::Async { guard, .. } => {
                     GetStoreAsyncGuardResult::Ok(StoreAsyncGuardWrapper {
                         guard: guard as *mut _,
                     })
@@ -591,7 +634,7 @@ impl Drop for StorePtrPauseGuard {
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, self.store_id, "Mismatched store context access");
             assert_eq!(
-                unsafe { top.entry.get().as_ref().unwrap() }.as_ptr(),
+                unsafe { top.entry.get().as_ref().unwrap() }.store_addr(),
                 self.ptr,
                 "Mismatched store context access"
             );
@@ -697,6 +740,55 @@ mod borrow_provenance {
 
         // The lender goes back to the borrow it held throughout.
         let _ = shim.objects_mut().id();
+
+        drop(wrapper);
+        drop(install);
+    }
+
+    /// An async context hands out a borrow the `get_current` family then writes
+    /// through, which is the one path [`StoreContextEntry::as_ptr`] cannot
+    /// serve: taken through `&self`, its `Box` deref is a shared one, so the
+    /// pointer it returns carries read-only provenance over the `StoreInner`.
+    ///
+    /// This is the flow a typed async host function takes on the `js` backend
+    /// (`backend/js/entities/function/mod.rs`, where the closure installed by
+    /// `new_with_env_async` calls `get_current` to convert its arguments) and
+    /// the one `sys` takes in `async_runtime`'s `AsyncCallStoreMut` via
+    /// `get_current_transient`. Both then write through what they get back.
+    ///
+    /// Like its siblings this passes natively; Miri is the point:
+    ///
+    /// ```text
+    /// error: Undefined Behavior: trying to retag from <..> for Unique
+    ///        permission, but that tag only grants SharedReadOnly permission
+    ///        for this location
+    ///   --> lib/api/src/entities/store/context.rs   &***guard as *const _ as *mut _
+    /// ```
+    ///
+    /// Run it with:
+    ///
+    /// ```text
+    /// cargo +nightly miri test -p wasmer --features sys,experimental-async \
+    ///     --lib borrow_provenance
+    /// ```
+    #[test]
+    #[cfg(feature = "experimental-async")]
+    fn an_async_context_hands_out_a_writable_borrow() {
+        let store = Store::default();
+        let id = store.id();
+        let store_async = store.into_async();
+
+        // What `Function::call_async` installs before entering the guest: the
+        // context owns the store through this write guard.
+        let guard = store_async
+            .inner
+            .try_write()
+            .expect("a fresh store is unlocked");
+        let install = StoreContext::install_async(guard);
+
+        // What an imported function's trampoline does to get its store back.
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let _ = wrapper.as_mut().objects_mut().id();
 
         drop(wrapper);
         drop(install);
