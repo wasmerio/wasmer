@@ -319,3 +319,114 @@ fn nested_async_in_sync() -> Result<()> {
 
     Ok(())
 }
+
+/// The invariant behind [`Function::call_async`]: once the guest has been
+/// entered asynchronously, every frame it reaches can still get at the async
+/// context — a synchronous import included, and one that re-enters the guest and
+/// suspends inside that nested call.
+///
+/// ```text
+/// call_async -> sync import -> Function::call -> async import -> await point
+/// ```
+///
+/// `nested_async_in_sync` covers the mechanics of that chain; this pins the
+/// property the chain depends on, which is that the async context stays
+/// reachable from the synchronous frame in the middle of it. Anything that
+/// shadows the store's async entry while the nested call runs breaks this.
+#[test]
+#[cfg_attr(
+    all(feature = "v8-default", not(feature = "sys-default")),
+    ignore = "async functions are not supported by the default v8 backend"
+)]
+fn async_context_stays_reachable_through_a_sync_import() -> Result<()> {
+    const WAT: &str = r#"
+    (module
+        (import "env" "sync" (func $sync (result i32)))
+        (import "env" "async" (func $async (result i32)))
+        (func (export "entry") (result i32)
+            call $sync
+        )
+        (func (export "inner_async") (result i32)
+            call $async
+        )
+    )
+    "#;
+    let wasm = wat::parse_str(WAT).expect("valid WAT module");
+
+    let mut store = Store::default();
+    let module = Module::new(&store, wasm)?;
+
+    struct Env {
+        inner_async: RefCell<Option<TypedFunction<(), i32>>>,
+        sync_import_saw_async_context: Option<bool>,
+    }
+    let env = FunctionEnv::new(
+        &mut store,
+        Env {
+            inner_async: RefCell::new(None),
+            sync_import_saw_async_context: None,
+        },
+    );
+
+    let sync = Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Env>| {
+        // The frame in the middle of the chain: synchronous, and still inside
+        // the async call that entered the guest.
+        let reachable = env.as_store_async().is_some();
+        let (data, mut store) = env.data_and_store_mut();
+        data.sync_import_saw_async_context = Some(reachable);
+        let inner_async = data
+            .inner_async
+            .borrow()
+            .as_ref()
+            .expect("inner_async function to be set")
+            .clone();
+        inner_async
+            .call(&mut store)
+            .expect("inner async call to succeed")
+    });
+
+    let async_ = Function::new_typed_async(&mut store, async || {
+        tokio::task::yield_now().await;
+        42
+    });
+
+    let imports = imports! {
+        "env" => {
+            "sync" => sync,
+            "async" => async_,
+        }
+    };
+
+    let instance = Instance::new(&mut store, &module, &imports)?;
+
+    let inner_async = instance
+        .exports
+        .get_typed_function::<(), i32>(&store, "inner_async")
+        .unwrap();
+    env.as_mut(&mut store)
+        .inner_async
+        .borrow_mut()
+        .replace(inner_async);
+
+    let entry = instance
+        .exports
+        .get_typed_function::<(), i32>(&store, "entry")?;
+    let store_async = store.into_async();
+    let result = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(entry.call_async(&store_async))?;
+
+    assert_eq!(result, 42);
+
+    let store = store_async.read();
+    assert_eq!(
+        env.as_ref(&store).sync_import_saw_async_context,
+        Some(true),
+        "a synchronous import running inside Function::call_async must still \
+         reach the async context"
+    );
+
+    Ok(())
+}

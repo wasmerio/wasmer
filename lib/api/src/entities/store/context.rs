@@ -793,4 +793,66 @@ mod borrow_provenance {
         drop(wrapper);
         drop(install);
     }
+
+    /// The nesting in [`Self::nested_call_keeps_the_outer_borrow_usable`], but
+    /// rooted at an async entry: a *synchronous* import reached during an async
+    /// guest call re-enters the guest, and goes on using its own store
+    /// afterwards.
+    ///
+    /// [`StoreContext::install`] installs nothing for a store an async context
+    /// already holds, so the inner acquisition re-derives from the same write
+    /// guard rather than nesting under the caller's borrow — which makes the two
+    /// siblings, and creating the inner one invalidates the outer.
+    ///
+    /// This is not hypothetical and not specific to one backend: it is the flow
+    /// `nested_async_in_sync` in `tests/jspi_async.rs` already exercises on
+    /// `sys`, where the sync trampoline in `backend/sys/entities/function/mod.rs`
+    /// holds the `StorePtrWrapper` it acquired across the host function it hands
+    /// the borrow to. The async host-function paths escape it only because they
+    /// each drop their borrow before user code runs; the sync trampoline cannot,
+    /// since handing the borrow over is its whole job.
+    ///
+    /// ```text
+    /// cargo +nightly miri test -p wasmer --features sys,experimental-async \\
+    ///     --lib borrow_provenance
+    /// ```
+    #[test]
+    #[cfg(feature = "experimental-async")]
+    fn a_nested_acquisition_under_an_async_context_keeps_the_outer_borrow_usable() {
+        let store = Store::default();
+        let id = store.id();
+        let store_async = store.into_async();
+
+        let guard = store_async
+            .inner
+            .try_write()
+            .expect("a fresh store is unlocked");
+        let install = StoreContext::install_async(guard);
+
+        // --- the import trampoline, handing the host function its store
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let mut shim = wrapper.as_mut();
+        let _ = shim.objects_mut().id();
+
+        {
+            // --- the host function calls back into the guest
+            let inner_install =
+                unsafe { StoreContext::install(shim.as_store_mut().inner as *mut _) };
+            let pause = unsafe { StoreContext::pause(id) };
+
+            // --- the inner import trampoline
+            let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
+            let _ = inner_wrapper.as_mut().objects_mut().id();
+            drop(inner_wrapper);
+
+            drop(pause);
+            drop(inner_install);
+        }
+
+        // --- and goes on using the borrow it held throughout
+        let _ = shim.objects_mut().id();
+
+        drop(wrapper);
+        drop(install);
+    }
 }
