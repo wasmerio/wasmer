@@ -10,8 +10,16 @@ use crate::{WasiProcess, syscalls::*};
 #[derive(Serialize, Deserialize)]
 enum JoinStatusResult {
     Nothing,
+    // Historical deep-sleep snapshots can contain this after an any-child
+    // wait already removed the child. Keep its old already-claimed meaning.
     ExitNormal(WasiProcessId, ExitCode),
     Err(Errno),
+    /// `join_any_child` atomically removed this child from the reap list.
+    /// Append new variants to preserve existing serialized discriminants.
+    ExitNormalClaimed(WasiProcessId, ExitCode),
+    PollAny,
+    PollPid(WasiProcessId),
+    ExitNormalPid(WasiProcessId, ExitCode),
 }
 
 /// ### `proc_join()`
@@ -48,6 +56,19 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
         move |ctx: FunctionEnvMut<'_, WasiEnv>, status: JoinStatusResult| {
             let mut ret = Errno::Success;
             let mut reaped_pid = None;
+            let parent = ctx.data().process.clone();
+            // Hold the child-list lock through the guest writes and removal.
+            // Concurrent PID-specific and any-child waiters must never both
+            // publish the same exit status. A blocking any-child wait already
+            // claims its child inside join_any_child before returning here.
+            let mut claim_guard = matches!(
+                &status,
+                JoinStatusResult::ExitNormal(..)
+                    | JoinStatusResult::ExitNormalPid(..)
+                    | JoinStatusResult::PollAny
+                    | JoinStatusResult::PollPid(..)
+            )
+            .then(|| parent.lock());
 
             let view = unsafe { ctx.data().memory_view(&ctx) };
             let status = match status {
@@ -55,7 +76,87 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                     tag: JoinStatusType::Nothing,
                     u: JoinStatusUnion { nothing: 0 },
                 },
-                JoinStatusResult::ExitNormal(pid, exit_code) => {
+                JoinStatusResult::PollAny => {
+                    let inner = claim_guard.as_ref().unwrap();
+                    if inner.children.is_empty() {
+                        ret = Errno::Child;
+                        JoinStatus {
+                            tag: JoinStatusType::Nothing,
+                            u: JoinStatusUnion { nothing: 0 },
+                        }
+                    } else if let Some((pid, exit_code)) = inner.children.iter().find_map(|child| {
+                        child.try_join().map(|status| {
+                            let exit_code = status.unwrap_or_else(|err| {
+                                err.as_exit_code().unwrap_or_else(|| Errno::Canceled.into())
+                            });
+                            (child.pid(), exit_code)
+                        })
+                    }) {
+                        reaped_pid = Some(pid);
+                        JoinStatus {
+                            tag: JoinStatusType::ExitNormal,
+                            u: JoinStatusUnion {
+                                exit_normal: exit_code.into(),
+                            },
+                        }
+                    } else {
+                        JoinStatus {
+                            tag: JoinStatusType::Nothing,
+                            u: JoinStatusUnion { nothing: 0 },
+                        }
+                    }
+                }
+                JoinStatusResult::PollPid(pid) => {
+                    let inner = claim_guard.as_ref().unwrap();
+                    match inner.children.iter().find(|child| child.pid == pid) {
+                        None => {
+                            ret = Errno::Child;
+                            JoinStatus {
+                                tag: JoinStatusType::Nothing,
+                                u: JoinStatusUnion { nothing: 0 },
+                            }
+                        }
+                        Some(child) => match child.try_join() {
+                            None => JoinStatus {
+                                tag: JoinStatusType::Nothing,
+                                u: JoinStatusUnion { nothing: 0 },
+                            },
+                            Some(status) => {
+                                reaped_pid = Some(pid);
+                                JoinStatus {
+                                    tag: JoinStatusType::ExitNormal,
+                                    u: JoinStatusUnion {
+                                        exit_normal: status
+                                            .unwrap_or_else(|_| Errno::Child.into())
+                                            .into(),
+                                    },
+                                }
+                            }
+                        },
+                    }
+                }
+                JoinStatusResult::ExitNormalPid(pid, exit_code) => {
+                    if claim_guard
+                        .as_ref()
+                        .is_some_and(|inner| inner.children.iter().any(|child| child.pid == pid))
+                    {
+                        reaped_pid = Some(pid);
+                        JoinStatus {
+                            tag: JoinStatusType::ExitNormal,
+                            u: JoinStatusUnion {
+                                exit_normal: exit_code.into(),
+                            },
+                        }
+                    } else {
+                        ret = Errno::Child;
+                        JoinStatus {
+                            tag: JoinStatusType::Nothing,
+                            u: JoinStatusUnion { nothing: 0 },
+                        }
+                    }
+                }
+                JoinStatusResult::ExitNormal(pid, exit_code)
+                | JoinStatusResult::ExitNormalClaimed(pid, exit_code) => {
                     reaped_pid = Some(pid);
                     JoinStatus {
                         tag: JoinStatusType::ExitNormal,
@@ -81,13 +182,12 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                         pid: pid.raw() as Pid,
                     }
                 ));
-                // Reap only after a completed status was written. A pending
-                // nonblocking poll must leave the child available to wait on.
-                ctx.data()
-                    .process
-                    .lock()
-                    .children
-                    .retain(|child| child.pid != pid);
+                // Reap only after both outputs were written. A pending poll
+                // leaves the child available; a blocking any-child wait
+                // already claimed its result inside join_any_child.
+                if let Some(inner) = claim_guard.as_mut() {
+                    inner.children.retain(|child| child.pid != pid);
+                }
             }
             Ok(ret)
         }
@@ -131,22 +231,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     let pid = match option_pid {
         None => {
             if flags.contains(JoinFlags::NON_BLOCKING) {
-                let children = ctx.data().process.lock().children.clone();
-                if children.is_empty() {
-                    return ret_result(ctx, JoinStatusResult::Err(Errno::Child));
-                }
-                for child in children {
-                    if let Some(status) = child.try_join() {
-                        let exit_code = status.unwrap_or_else(|err| {
-                            err.as_exit_code().unwrap_or_else(|| Errno::Canceled.into())
-                        });
-                        return ret_result(
-                            ctx,
-                            JoinStatusResult::ExitNormal(child.pid(), exit_code),
-                        );
-                    }
-                }
-                return ret_result(ctx, JoinStatusResult::Nothing);
+                return ret_result(ctx, JoinStatusResult::PollAny);
             }
             let mut process = ctx.data_mut().process.clone();
 
@@ -158,7 +243,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                     Ok(Some((pid, exit_code))) => {
                         tracing::trace!(%pid, %exit_code, "triggered child join");
                         trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
-                        JoinStatusResult::ExitNormal(pid, exit_code)
+                        JoinStatusResult::ExitNormalClaimed(pid, exit_code)
                     }
                     Ok(None) => {
                         tracing::trace!("triggered child join (no child)");
@@ -180,6 +265,9 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
 
     // Otherwise we wait for the specific PID
     let pid: WasiProcessId = pid.into();
+    if flags.contains(JoinFlags::NON_BLOCKING) {
+        return ret_result(ctx, JoinStatusResult::PollPid(pid));
+    }
 
     // Keep the child registered while a nonblocking wait reports Nothing.
     // It is removed by ret_result only when an exit status is available.
@@ -194,25 +282,17 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     };
 
     if let Some(process) = process {
-        if flags.contains(JoinFlags::NON_BLOCKING) {
-            if let Some(status) = process.try_join() {
-                let exit_code = status.unwrap_or_else(|_| Errno::Child.into());
-                ret_result(ctx, JoinStatusResult::ExitNormal(pid, exit_code))
-            } else {
-                ret_result(ctx, JoinStatusResult::Nothing)
-            }
-        } else {
-            // Wait for the process to finish
-            let process2 = process.clone();
-            let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
-                let exit_code = process.join().await.unwrap_or_else(|_| Errno::Child.into());
-                tracing::trace!(%exit_code, "triggered child join");
-                JoinStatusResult::ExitNormal(pid, exit_code)
-            })?;
-            match res {
-                AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
-                AsyncifyAction::Unwind => Ok(Errno::Success),
-            }
+        // Wait for the process to finish. Claiming its exit happens inside
+        // ret_result, under the same child-list lock used by nonblocking and
+        // any-child waiters.
+        let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
+            let exit_code = process.join().await.unwrap_or_else(|_| Errno::Child.into());
+            tracing::trace!(%exit_code, "triggered child join");
+            JoinStatusResult::ExitNormalPid(pid, exit_code)
+        })?;
+        match res {
+            AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
+            AsyncifyAction::Unwind => Ok(Errno::Success),
         }
     } else {
         trace!(ret_id = pid.raw(), "status=no-child");
@@ -226,6 +306,106 @@ mod tests {
     use crate::WasiEnv;
     use wasmer::{Module, Store};
     use wasmer_types::ModuleHash;
+
+    #[tokio::test]
+    async fn join_children_and_any_child_cannot_both_reap_the_same_exit() {
+        let mut store = Store::default();
+        let module = Module::new(
+            &store,
+            r#"(module
+                (import "env" "memory" (memory 1 1 shared))
+                (export "memory" (memory 0)))"#,
+        )
+        .unwrap();
+        let (_, env) = WasiEnv::builder("mixed-child-waits")
+            .engine(store.engine().clone())
+            .instantiate(module, &mut store)
+            .unwrap();
+        let parent = env.data(&store).process.clone();
+        let (child_env, child_handle) = env.data(&store).fork().unwrap();
+        let child = child_env.process.clone();
+        parent.lock().children.push(child);
+
+        let mut all_parent = parent.clone();
+        let mut any_parent = parent.clone();
+        let mut all = Box::pin(all_parent.join_children());
+        let mut any = Box::pin(any_parent.join_any_child());
+        assert!(matches!(
+            futures::poll!(all.as_mut()),
+            std::task::Poll::Pending
+        ));
+        assert!(matches!(
+            futures::poll!(any.as_mut()),
+            std::task::Poll::Pending
+        ));
+
+        child_handle.set_status_finished(Ok(ExitCode::from(23)));
+        // Let the any-child waiter claim first. The bulk waiter must not
+        // report the same already-reaped child from its earlier snapshot.
+        let any = any.await;
+        let all = all.await;
+        let all_claimed = all.is_some();
+        let any_claimed = matches!(any, Ok(Some(_)));
+        assert_ne!(all_claimed, any_claimed, "exactly one waiter owns the exit");
+        if !any_claimed {
+            assert!(matches!(any, Err(Errno::Child)));
+        }
+        assert!(parent.lock().children.is_empty());
+    }
+
+    #[tokio::test]
+    async fn simultaneous_waits_can_reap_one_child_only_once() {
+        let mut store = Store::default();
+        let module = Module::new(
+            &store,
+            r#"(module
+                (import "env" "memory" (memory 1 1 shared))
+                (export "memory" (memory 0)))"#,
+        )
+        .unwrap();
+        let (_, env) = WasiEnv::builder("concurrent-child-waits")
+            .engine(store.engine().clone())
+            .instantiate(module, &mut store)
+            .unwrap();
+        let parent = env.data(&store).process.clone();
+        let (child_env, child_handle) = env.data(&store).fork().unwrap();
+        let child = child_env.process.clone();
+        parent.lock().children.push(child.clone());
+
+        let mut first_parent = parent.clone();
+        let mut second_parent = parent.clone();
+        let mut first = Box::pin(first_parent.join_any_child());
+        let mut second = Box::pin(second_parent.join_any_child());
+        assert!(matches!(
+            futures::poll!(first.as_mut()),
+            std::task::Poll::Pending
+        ));
+        assert!(matches!(
+            futures::poll!(second.as_mut()),
+            std::task::Poll::Pending
+        ));
+
+        child_handle.set_status_finished(Ok(ExitCode::from(23)));
+        let (first, second) = futures::join!(first, second);
+        let results = [first, second];
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| matches!(result, Ok(Some(_))))
+                .count(),
+            1,
+            "only one waiter may claim the completed child"
+        );
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| matches!(result, Err(Errno::Child)))
+                .count(),
+            1,
+            "the other waiter must observe an already-reaped child"
+        );
+        assert!(parent.lock().children.is_empty());
+    }
 
     #[tokio::test]
     async fn nonblocking_join_preserves_pending_child_and_reaps_on_exit() {
