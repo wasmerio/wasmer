@@ -48,6 +48,11 @@
 //! 50,416-50,576 kB peak resident, over three consecutive runs. Growing to
 //! 32_896 pages reserves the address range; only the handful of pages the probe
 //! writes become resident.
+//!
+//! The `make test-js` job builds `--tests` for `wasm32-unknown-unknown` with
+//! `--no-default-features`, where tokio's multi-thread runtime does not exist,
+//! so the whole target is skipped there.
+#![cfg(not(target_arch = "wasm32"))]
 
 use std::path::Path;
 use std::sync::Arc;
