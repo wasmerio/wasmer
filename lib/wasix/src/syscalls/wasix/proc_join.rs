@@ -356,6 +356,7 @@ mod tests {
         ));
 
         child_handle.set_status_finished(Ok(ExitCode::from(23)));
+        // Bad outputs must not consume an exit that is ready to be reaped.
         // Let the any-child waiter claim first. The bulk waiter must not
         // report the same already-reaped child from its earlier snapshot.
         let any = any.await;
@@ -439,6 +440,10 @@ mod tests {
                         (else (i32.store8 (i32.const 0) (i32.const 1))
                               (i32.store (i32.const 4) (local.get $pid))))
                     (call $proc_join (i32.const 0) (i32.const 1) (i32.const 16)))
+                (func (export "join_child_blocking") (param $pid i32) (result i32)
+                    (i32.store8 (i32.const 0) (i32.const 1))
+                    (i32.store (i32.const 4) (local.get $pid))
+                    (call $proc_join (i32.const 0) (i32.const 0) (i32.const 16)))
                 (func (export "poll_bad_pid") (result i32)
                     (call $proc_join (i32.const 65536) (i32.const 1) (i32.const 16)))
                 (func (export "poll_bad_status") (param $pid i32) (result i32)
@@ -461,6 +466,10 @@ mod tests {
         let poll = instance
             .exports
             .get_typed_function::<i32, i32>(&store, "poll")
+            .unwrap();
+        let join_blocking = instance
+            .exports
+            .get_typed_function::<i32, i32>(&store, "join_child_blocking")
             .unwrap();
         let pid_tag = instance
             .exports
@@ -511,6 +520,25 @@ mod tests {
 
         child_handle.set_status_finished(Ok(ExitCode::from(23)));
         assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "poll_bad_pid")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            Errno::Memviolation as i32
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<i32, i32>(&store, "poll_bad_status")
+                .unwrap()
+                .call(&mut store, child.pid().raw() as i32)
+                .unwrap(),
+            Errno::Memviolation as i32
+        );
+        assert_eq!(parent.lock().children.len(), 1);
+        assert_eq!(
             poll.call(&mut store, child.pid().raw() as i32).unwrap(),
             Errno::Success as i32
         );
@@ -542,5 +570,51 @@ mod tests {
         );
         assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::None as i32);
         assert_eq!(poll.call(&mut store, 0).unwrap(), Errno::Child as i32);
+
+        // Exercise both claim orders through the blocking PID-specific syscall
+        // and the any-child poll. Only the first syscall may report the exit.
+        let (second_env, second_handle) = env.data(&store).fork().unwrap();
+        let second = second_env.process.clone();
+        parent.lock().children.push(second.clone());
+        second_handle.set_status_finished(Ok(ExitCode::from(19)));
+        assert_eq!(
+            join_blocking
+                .call(&mut store, second.pid().raw() as i32)
+                .unwrap(),
+            Errno::Success as i32
+        );
+        assert_eq!(
+            joined_pid.call(&mut store).unwrap(),
+            second.pid().raw() as i32
+        );
+        assert_eq!(
+            status_tag.call(&mut store).unwrap(),
+            JoinStatusType::ExitNormal as i32
+        );
+        assert!(parent.lock().children.is_empty());
+        assert_eq!(poll.call(&mut store, 0).unwrap(), Errno::Child as i32);
+        assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::None as i32);
+
+        let (third_env, third_handle) = env.data(&store).fork().unwrap();
+        let third = third_env.process.clone();
+        parent.lock().children.push(third.clone());
+        third_handle.set_status_finished(Ok(ExitCode::from(17)));
+        assert_eq!(poll.call(&mut store, 0).unwrap(), Errno::Success as i32);
+        assert_eq!(
+            joined_pid.call(&mut store).unwrap(),
+            third.pid().raw() as i32
+        );
+        assert_eq!(
+            status_tag.call(&mut store).unwrap(),
+            JoinStatusType::ExitNormal as i32
+        );
+        assert!(parent.lock().children.is_empty());
+        assert_eq!(
+            join_blocking
+                .call(&mut store, third.pid().raw() as i32)
+                .unwrap(),
+            Errno::Child as i32
+        );
+        assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::None as i32);
     }
 }
