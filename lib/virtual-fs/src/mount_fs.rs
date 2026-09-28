@@ -590,6 +590,27 @@ impl FileSystem for MountFileSystem {
         }
     }
 
+    fn sync_dir(&self, path: &Path) -> Result<()> {
+        let path = self.prepare_path(path)?;
+
+        if path.as_os_str().is_empty() {
+            // The mount table root itself is virtual and has no backing store.
+            return Ok(());
+        }
+
+        if let Some(node) = self.exact_node(&path) {
+            return match node.fs {
+                Some(fs) => fs.sync_dir(Path::new("/")),
+                None => Ok(()),
+            };
+        }
+
+        match self.resolve_mount(path) {
+            Some(resolved) => resolved.fs.sync_dir(&resolved.delegated_path),
+            None => Err(FsError::EntryNotFound),
+        }
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
@@ -1236,6 +1257,57 @@ mod tests {
             .unwrap();
 
         assert_eq!(fs.metadata(Path::new("../foo")), Err(FsError::InvalidInput));
+    }
+
+    /// `sync_dir` has three routing cases in this filesystem and they are not
+    /// interchangeable: the mount table's own root, a path that *is* an exact
+    /// mount point (which must be delegated as that filesystem's `/`), and a
+    /// path below a mount (which must be delegated with the mount prefix
+    /// stripped).
+    ///
+    /// The negative assertion is the load-bearing one. Mounted filesystems are
+    /// reached through `Arc<dyn FileSystem>`, and `impl<D: Deref<Target = F>>
+    /// FileSystem for D` in `lib.rs` wins method resolution over auto-deref - so
+    /// a `sync_dir` the blanket impl forgets to forward falls back to the
+    /// trait's no-op default and every directory flush below a mount reports
+    /// success without touching the host. Measured: with that forward missing,
+    /// this test returned `Ok(())` for a deleted host directory while the same
+    /// host filesystem called concretely returned `EntryNotFound`.
+    #[cfg(feature = "host-fs")]
+    #[tokio::test]
+    async fn test_sync_dir_routes_to_the_mounted_filesystem() {
+        use crate::host_fs;
+
+        let temp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(temp.path().join("data")).unwrap();
+        let host = host_fs::FileSystem::new(tokio::runtime::Handle::current(), temp.path())
+            .expect("host filesystem over the temp dir");
+
+        let fs = MountFileSystem::new();
+        fs.mount(Path::new("/"), Arc::new(mem_fs::FileSystem::default()))
+            .unwrap();
+        fs.mount(
+            Path::new("/host"),
+            Arc::new(host) as Arc<dyn FileSystemTrait + Send + Sync>,
+        )
+        .unwrap();
+
+        // Below a mount: delegated to the host filesystem as "/data".
+        assert_eq!(fs.sync_dir(Path::new("/host/data")), Ok(()));
+        // An exact mount point: delegated as the mounted filesystem's root.
+        assert_eq!(fs.sync_dir(Path::new("/host")), Ok(()));
+        // The mount table itself is virtual - nothing to flush, and reporting
+        // an error here would fail a guest whose root is only mounts.
+        assert_eq!(fs.sync_dir(Path::new("/")), Ok(()));
+        // A memory mount has no backing store either.
+        assert_eq!(fs.sync_dir(Path::new("/memory-only")), Ok(()));
+
+        std::fs::remove_dir(temp.path().join("data")).unwrap();
+        assert_eq!(
+            fs.sync_dir(Path::new("/host/data")),
+            Err(FsError::EntryNotFound),
+            "the host mount must be the one answering"
+        );
     }
 
     #[tokio::test]

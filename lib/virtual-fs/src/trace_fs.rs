@@ -54,6 +54,10 @@ where
         self.0.create_dir(path)
     }
 
+    fn sync_dir(&self, path: &std::path::Path) -> crate::Result<()> {
+        self.0.sync_dir(path)
+    }
+
     #[tracing::instrument(level = "trace", skip(self), err)]
     fn remove_dir(&self, path: &std::path::Path) -> crate::Result<()> {
         self.0.remove_dir(path)
