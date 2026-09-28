@@ -125,11 +125,17 @@ pub(crate) struct StoreContext {
 
 pub(crate) struct StorePtrWrapper {
     store_ptr: *mut StoreInner,
+    /// The store `store_ptr` addresses. Kept so [`Drop`] needs no borrow: by
+    /// then any later acquisition on the same entry has invalidated this
+    /// pointer, and deriving from it to read the id is undefined behaviour.
+    id: StoreId,
 }
 
 #[cfg(feature = "experimental-async")]
 pub(crate) struct StoreAsyncGuardWrapper {
     pub(crate) guard: *mut LocalRwLockWriteGuard<Box<StoreInner>>,
+    /// See [`StorePtrWrapper::id`].
+    id: StoreId,
 }
 
 pub(crate) struct StorePtrPauseGuard {
@@ -367,6 +373,7 @@ impl StoreContext {
             top.borrow_count += 1;
             Some(StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                id: top.id,
             })
         })
     }
@@ -389,6 +396,7 @@ impl StoreContext {
             top.borrow_count += 1;
             StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                id,
             }
         })
     }
@@ -420,6 +428,7 @@ impl StoreContext {
             top.borrow_count += 1;
             Some(StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                id,
             })
         })
     }
@@ -440,10 +449,14 @@ impl StoreContext {
                 StoreContextEntry::Async { guard, .. } => {
                     GetStoreAsyncGuardResult::Ok(StoreAsyncGuardWrapper {
                         guard: guard as *mut _,
+                        id,
                     })
                 }
                 StoreContextEntry::Sync(ptr) => {
-                    GetStoreAsyncGuardResult::NotAsync(StorePtrWrapper { store_ptr: *ptr })
+                    GetStoreAsyncGuardResult::NotAsync(StorePtrWrapper {
+                        store_ptr: *ptr,
+                        id,
+                    })
                 }
             }
         })
@@ -519,6 +532,7 @@ impl Clone for StorePtrWrapper {
             top.borrow_count += 1;
             Self {
                 store_ptr: self.store_ptr,
+                id: self.id,
             }
         })
     }
@@ -529,7 +543,7 @@ impl Drop for StorePtrWrapper {
         if std::thread::panicking() {
             return;
         }
-        let id = self.as_mut().objects_mut().id();
+        let id = self.id;
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack
@@ -547,7 +561,7 @@ impl Drop for StoreAsyncGuardWrapper {
         if std::thread::panicking() {
             return;
         }
-        let id = unsafe { self.guard.as_ref().unwrap().objects.id() };
+        let id = self.id;
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack
@@ -794,33 +808,35 @@ mod borrow_provenance {
         drop(install);
     }
 
-    /// The nesting in [`Self::nested_call_keeps_the_outer_borrow_usable`], but
-    /// rooted at an async entry: a *synchronous* import reached during an async
-    /// guest call re-enters the guest, and goes on using its own store
-    /// afterwards.
+    /// The nesting in [`Self::nested_call_keeps_the_outer_borrow_usable`] rooted
+    /// at an async entry: a synchronous import reached during an async guest
+    /// call re-enters the guest, and uses its environment again afterwards.
     ///
     /// [`StoreContext::install`] installs nothing for a store an async context
-    /// already holds, so the inner acquisition re-derives from the same write
-    /// guard rather than nesting under the caller's borrow — which makes the two
-    /// siblings, and creating the inner one invalidates the outer.
+    /// already holds, so an inner acquisition re-derives from the same write
+    /// guard rather than nesting under the caller's. If the trampoline held the
+    /// borrow it acquired, the two would be siblings and the inner one would
+    /// invalidate the outer — and worse, the nested call can suspend, at which
+    /// point the runtime releases the store and whoever takes it next
+    /// invalidates the outer borrow anyway.
     ///
-    /// This is not hypothetical and not specific to one backend: it is the flow
-    /// `nested_async_in_sync` in `tests/jspi_async.rs` already exercises on
-    /// `sys`, where the sync trampoline in `backend/sys/entities/function/mod.rs`
-    /// holds the `StorePtrWrapper` it acquired across the host function it hands
-    /// the borrow to. The async host-function paths escape it only because they
-    /// each drop their borrow before user code runs; the sync trampoline cannot,
-    /// since handing the borrow over is its whole job.
+    /// So the trampoline holds no borrow: it keeps the entry borrowed with a
+    /// [`StorePtrWrapper`] and hands the host function an environment that
+    /// re-derives per access. This replays that flow; it fails if the
+    /// environment goes back to holding a `StoreMut`.
     ///
     /// ```text
-    /// cargo +nightly miri test -p wasmer --features sys,experimental-async \\
+    /// cargo +nightly miri test -p wasmer --features sys,experimental-async \
     ///     --lib borrow_provenance
     /// ```
+    // Reaches for the `sys` environment directly, since that is the backend
+    // whose trampolines this replays.
     #[test]
-    #[cfg(feature = "experimental-async")]
-    fn a_nested_acquisition_under_an_async_context_keeps_the_outer_borrow_usable() {
-        let store = Store::default();
+    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    fn a_nested_call_under_an_async_context_keeps_the_environment_usable() {
+        let mut store = Store::default();
         let id = store.id();
+        let env = crate::FunctionEnv::new(&mut store, 0u32);
         let store_async = store.into_async();
 
         let guard = store_async
@@ -829,30 +845,38 @@ mod borrow_provenance {
             .expect("a fresh store is unlocked");
         let install = StoreContext::install_async(guard);
 
-        // --- the import trampoline, handing the host function its store
-        let mut wrapper = unsafe { StoreContext::get_current(id) };
-        let mut shim = wrapper.as_mut();
-        let _ = shim.objects_mut().id();
+        // --- the import trampoline: the entry stays borrowed for as long as the
+        //     host function runs, but no `StoreMut` is held.
+        let _wrapper = unsafe { StoreContext::get_current(id) };
+        let mut env_mut = unsafe {
+            crate::backend::sys::entities::function::env::FunctionEnvMut::from_context(
+                id,
+                env.clone().into_sys(),
+            )
+        };
+        *env_mut.data_mut() += 1;
 
         {
             // --- the host function calls back into the guest
             let inner_install =
-                unsafe { StoreContext::install(shim.as_store_mut().inner as *mut _) };
+                unsafe { StoreContext::install(env_mut.as_store_mut().inner as *mut _) };
             let pause = unsafe { StoreContext::pause(id) };
 
-            // --- the inner import trampoline
+            // --- an import reached by that call touches the same environment
             let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
-            let _ = inner_wrapper.as_mut().objects_mut().id();
+            let mut inner_shim = inner_wrapper.as_mut();
+            *env.as_mut(&mut inner_shim) += 1;
             drop(inner_wrapper);
 
             drop(pause);
             drop(inner_install);
         }
 
-        // --- and goes on using the borrow it held throughout
-        let _ = shim.objects_mut().id();
+        // --- and goes on using its environment
+        *env_mut.data_mut() += 1;
+        assert_eq!(*env_mut.data(), 3);
 
-        drop(wrapper);
+        drop(_wrapper);
         drop(install);
     }
 
