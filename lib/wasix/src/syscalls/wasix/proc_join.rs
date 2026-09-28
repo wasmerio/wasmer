@@ -42,6 +42,165 @@ pub fn proc_join<M: MemorySize + 'static>(
     proc_join_internal(ctx, pid_ptr, flags, status_ptr)
 }
 
+// Shared by normal completion and deep-sleep rewind.
+fn complete_proc_join<M: MemorySize + 'static>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    pid_ptr: WasmPtr<OptionPid, M>,
+    status_ptr: WasmPtr<JoinStatus, M>,
+    status: JoinStatusResult,
+) -> Result<Errno, WasiError> {
+    let mut ret = Errno::Success;
+    let mut reaped_pid = None;
+    let mut pending_poll = false;
+    let parent = ctx.data().process.clone();
+    // Hold the child-list lock through the guest writes and removal.
+    // Concurrent PID-specific and any-child waiters must never both
+    // publish the same exit status. A blocking any-child wait already
+    // claims its child inside join_any_child before returning here.
+    let mut claim_guard = matches!(
+        &status,
+        JoinStatusResult::ExitNormal(..)
+            | JoinStatusResult::ExitNormalPid(..)
+            | JoinStatusResult::PollAny
+            | JoinStatusResult::PollPid(..)
+    )
+    .then(|| parent.lock());
+
+    let view = unsafe { ctx.data().memory_view(&ctx) };
+    let status = match status {
+        JoinStatusResult::Nothing => JoinStatus {
+            tag: JoinStatusType::Nothing,
+            u: JoinStatusUnion { nothing: 0 },
+        },
+        JoinStatusResult::PollAny => {
+            let inner = claim_guard.as_ref().unwrap();
+            if inner.children.is_empty() {
+                ret = Errno::Child;
+                JoinStatus {
+                    tag: JoinStatusType::Nothing,
+                    u: JoinStatusUnion { nothing: 0 },
+                }
+            } else if let Some((pid, exit_code)) = inner.children.iter().find_map(|child| {
+                child.try_join().map(|status| {
+                    let exit_code = status.unwrap_or_else(|err| {
+                        err.as_exit_code().unwrap_or_else(|| Errno::Canceled.into())
+                    });
+                    (child.pid(), exit_code)
+                })
+            }) {
+                reaped_pid = Some(pid);
+                JoinStatus {
+                    tag: JoinStatusType::ExitNormal,
+                    u: JoinStatusUnion {
+                        exit_normal: exit_code.into(),
+                    },
+                }
+            } else {
+                pending_poll = true;
+                JoinStatus {
+                    tag: JoinStatusType::Nothing,
+                    u: JoinStatusUnion { nothing: 0 },
+                }
+            }
+        }
+        JoinStatusResult::PollPid(pid) => {
+            let inner = claim_guard.as_ref().unwrap();
+            match inner.children.iter().find(|child| child.pid == pid) {
+                None => {
+                    ret = Errno::Child;
+                    JoinStatus {
+                        tag: JoinStatusType::Nothing,
+                        u: JoinStatusUnion { nothing: 0 },
+                    }
+                }
+                Some(child) => match child.try_join() {
+                    None => {
+                        pending_poll = true;
+                        JoinStatus {
+                            tag: JoinStatusType::Nothing,
+                            u: JoinStatusUnion { nothing: 0 },
+                        }
+                    }
+                    Some(status) => {
+                        reaped_pid = Some(pid);
+                        JoinStatus {
+                            tag: JoinStatusType::ExitNormal,
+                            u: JoinStatusUnion {
+                                exit_normal: status.unwrap_or_else(|_| Errno::Child.into()).into(),
+                            },
+                        }
+                    }
+                },
+            }
+        }
+        JoinStatusResult::ExitNormalPid(pid, exit_code) => {
+            if claim_guard
+                .as_ref()
+                .is_some_and(|inner| inner.children.iter().any(|child| child.pid == pid))
+            {
+                reaped_pid = Some(pid);
+                JoinStatus {
+                    tag: JoinStatusType::ExitNormal,
+                    u: JoinStatusUnion {
+                        exit_normal: exit_code.into(),
+                    },
+                }
+            } else {
+                ret = Errno::Child;
+                JoinStatus {
+                    tag: JoinStatusType::Nothing,
+                    u: JoinStatusUnion { nothing: 0 },
+                }
+            }
+        }
+        JoinStatusResult::ExitNormal(pid, exit_code)
+        | JoinStatusResult::ExitNormalClaimed(pid, exit_code) => {
+            reaped_pid = Some(pid);
+            JoinStatus {
+                tag: JoinStatusType::ExitNormal,
+                u: JoinStatusUnion {
+                    exit_normal: exit_code.into(),
+                },
+            }
+        }
+        JoinStatusResult::Err(err) => {
+            ret = err;
+            JoinStatus {
+                tag: JoinStatusType::Nothing,
+                u: JoinStatusUnion { nothing: 0 },
+            }
+        }
+    };
+    wasi_try_mem_ok!(status_ptr.write(&view, status));
+    if pending_poll {
+        // Older libc needs Some(0) to reach its WNOHANG pending path.
+        // Nothing lets corrected libc recognize the same state.
+        wasi_try_mem_ok!(pid_ptr.write(
+            &view,
+            OptionPid {
+                tag: OptionTag::Some,
+                pid: 0,
+            }
+        ));
+    }
+    if let Some(pid) = reaped_pid {
+        wasi_try_mem_ok!(pid_ptr.write(
+            &view,
+            OptionPid {
+                tag: OptionTag::Some,
+                pid: pid.raw() as Pid,
+            }
+        ));
+        // Reap only after both outputs were written. A pending poll
+        // leaves the child available; a blocking any-child wait
+        // already claimed its result inside join_any_child.
+        if let Some(inner) = claim_guard.as_mut() {
+            inner.children.retain(|child| child.pid != pid);
+        }
+    }
+    Ok(ret)
+}
+
 pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,
@@ -50,169 +209,10 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
 ) -> Result<Errno, WasiError> {
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
-    // This lambda will look at what we wrote in the status variable
-    // and use this to determine the return code sent back to the caller
-    let ret_result = {
-        move |ctx: FunctionEnvMut<'_, WasiEnv>, status: JoinStatusResult| {
-            let mut ret = Errno::Success;
-            let mut reaped_pid = None;
-            let mut pending_poll = false;
-            let parent = ctx.data().process.clone();
-            // Hold the child-list lock through the guest writes and removal.
-            // Concurrent PID-specific and any-child waiters must never both
-            // publish the same exit status. A blocking any-child wait already
-            // claims its child inside join_any_child before returning here.
-            let mut claim_guard = matches!(
-                &status,
-                JoinStatusResult::ExitNormal(..)
-                    | JoinStatusResult::ExitNormalPid(..)
-                    | JoinStatusResult::PollAny
-                    | JoinStatusResult::PollPid(..)
-            )
-            .then(|| parent.lock());
-
-            let view = unsafe { ctx.data().memory_view(&ctx) };
-            let status = match status {
-                JoinStatusResult::Nothing => JoinStatus {
-                    tag: JoinStatusType::Nothing,
-                    u: JoinStatusUnion { nothing: 0 },
-                },
-                JoinStatusResult::PollAny => {
-                    let inner = claim_guard.as_ref().unwrap();
-                    if inner.children.is_empty() {
-                        ret = Errno::Child;
-                        JoinStatus {
-                            tag: JoinStatusType::Nothing,
-                            u: JoinStatusUnion { nothing: 0 },
-                        }
-                    } else if let Some((pid, exit_code)) = inner.children.iter().find_map(|child| {
-                        child.try_join().map(|status| {
-                            let exit_code = status.unwrap_or_else(|err| {
-                                err.as_exit_code().unwrap_or_else(|| Errno::Canceled.into())
-                            });
-                            (child.pid(), exit_code)
-                        })
-                    }) {
-                        reaped_pid = Some(pid);
-                        JoinStatus {
-                            tag: JoinStatusType::ExitNormal,
-                            u: JoinStatusUnion {
-                                exit_normal: exit_code.into(),
-                            },
-                        }
-                    } else {
-                        pending_poll = true;
-                        JoinStatus {
-                            tag: JoinStatusType::Nothing,
-                            u: JoinStatusUnion { nothing: 0 },
-                        }
-                    }
-                }
-                JoinStatusResult::PollPid(pid) => {
-                    let inner = claim_guard.as_ref().unwrap();
-                    match inner.children.iter().find(|child| child.pid == pid) {
-                        None => {
-                            ret = Errno::Child;
-                            JoinStatus {
-                                tag: JoinStatusType::Nothing,
-                                u: JoinStatusUnion { nothing: 0 },
-                            }
-                        }
-                        Some(child) => match child.try_join() {
-                            None => {
-                                pending_poll = true;
-                                JoinStatus {
-                                    tag: JoinStatusType::Nothing,
-                                    u: JoinStatusUnion { nothing: 0 },
-                                }
-                            }
-                            Some(status) => {
-                                reaped_pid = Some(pid);
-                                JoinStatus {
-                                    tag: JoinStatusType::ExitNormal,
-                                    u: JoinStatusUnion {
-                                        exit_normal: status
-                                            .unwrap_or_else(|_| Errno::Child.into())
-                                            .into(),
-                                    },
-                                }
-                            }
-                        },
-                    }
-                }
-                JoinStatusResult::ExitNormalPid(pid, exit_code) => {
-                    if claim_guard
-                        .as_ref()
-                        .is_some_and(|inner| inner.children.iter().any(|child| child.pid == pid))
-                    {
-                        reaped_pid = Some(pid);
-                        JoinStatus {
-                            tag: JoinStatusType::ExitNormal,
-                            u: JoinStatusUnion {
-                                exit_normal: exit_code.into(),
-                            },
-                        }
-                    } else {
-                        ret = Errno::Child;
-                        JoinStatus {
-                            tag: JoinStatusType::Nothing,
-                            u: JoinStatusUnion { nothing: 0 },
-                        }
-                    }
-                }
-                JoinStatusResult::ExitNormal(pid, exit_code)
-                | JoinStatusResult::ExitNormalClaimed(pid, exit_code) => {
-                    reaped_pid = Some(pid);
-                    JoinStatus {
-                        tag: JoinStatusType::ExitNormal,
-                        u: JoinStatusUnion {
-                            exit_normal: exit_code.into(),
-                        },
-                    }
-                }
-                JoinStatusResult::Err(err) => {
-                    ret = err;
-                    JoinStatus {
-                        tag: JoinStatusType::Nothing,
-                        u: JoinStatusUnion { nothing: 0 },
-                    }
-                }
-            };
-            wasi_try_mem_ok!(status_ptr.write(&view, status));
-            if pending_poll {
-                // Older libc needs Some(0) to reach its WNOHANG pending path.
-                // Nothing lets corrected libc recognize the same state.
-                wasi_try_mem_ok!(pid_ptr.write(
-                    &view,
-                    OptionPid {
-                        tag: OptionTag::Some,
-                        pid: 0,
-                    }
-                ));
-            }
-            if let Some(pid) = reaped_pid {
-                wasi_try_mem_ok!(pid_ptr.write(
-                    &view,
-                    OptionPid {
-                        tag: OptionTag::Some,
-                        pid: pid.raw() as Pid,
-                    }
-                ));
-                // Reap only after both outputs were written. A pending poll
-                // leaves the child available; a blocking any-child wait
-                // already claimed its result inside join_any_child.
-                if let Some(inner) = claim_guard.as_mut() {
-                    inner.children.retain(|child| child.pid != pid);
-                }
-            }
-            Ok(ret)
-        }
-    };
-
     // If we were just restored the stack then we were woken after a deep sleep
     // and the return values are already set
     if let Some(status) = unsafe { handle_rewind::<M, _>(&mut ctx) } {
-        let ret = ret_result(ctx, status);
+        let ret = complete_proc_join(ctx, pid_ptr, status_ptr, status);
         tracing::trace!("rewound join ret={:?}", ret);
         return ret;
     }
@@ -247,7 +247,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     let pid = match option_pid {
         None => {
             if flags.contains(JoinFlags::NON_BLOCKING) {
-                return ret_result(ctx, JoinStatusResult::PollAny);
+                return complete_proc_join(ctx, pid_ptr, status_ptr, JoinStatusResult::PollAny);
             }
             let mut process = ctx.data_mut().process.clone();
 
@@ -272,7 +272,9 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                 }
             })?;
             return match res {
-                AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
+                AsyncifyAction::Finish(ctx, result) => {
+                    complete_proc_join(ctx, pid_ptr, status_ptr, result)
+                }
                 AsyncifyAction::Unwind => Ok(Errno::Success),
             };
         }
@@ -282,11 +284,11 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     // Otherwise we wait for the specific PID
     let pid: WasiProcessId = pid.into();
     if flags.contains(JoinFlags::NON_BLOCKING) {
-        return ret_result(ctx, JoinStatusResult::PollPid(pid));
+        return complete_proc_join(ctx, pid_ptr, status_ptr, JoinStatusResult::PollPid(pid));
     }
 
     // Keep the child registered while a nonblocking wait reports Nothing.
-    // It is removed by ret_result only when an exit status is available.
+    // It is removed by complete_proc_join only when an exit status is available.
     let process = {
         let inner = ctx.data().process.lock();
         inner
@@ -299,7 +301,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
 
     if let Some(process) = process {
         // Wait for the process to finish. Claiming its exit happens inside
-        // ret_result, under the same child-list lock used by nonblocking and
+        // complete_proc_join, under the same child-list lock used by nonblocking and
         // any-child waiters.
         let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
             let exit_code = process.join().await.unwrap_or_else(|_| Errno::Child.into());
@@ -307,12 +309,19 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
             JoinStatusResult::ExitNormalPid(pid, exit_code)
         })?;
         match res {
-            AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
+            AsyncifyAction::Finish(ctx, result) => {
+                complete_proc_join(ctx, pid_ptr, status_ptr, result)
+            }
             AsyncifyAction::Unwind => Ok(Errno::Success),
         }
     } else {
         trace!(ret_id = pid.raw(), "status=no-child");
-        ret_result(ctx, JoinStatusResult::Err(Errno::Child))
+        complete_proc_join(
+            ctx,
+            pid_ptr,
+            status_ptr,
+            JoinStatusResult::Err(Errno::Child),
+        )
     }
 }
 
@@ -356,7 +365,6 @@ mod tests {
         ));
 
         child_handle.set_status_finished(Ok(ExitCode::from(23)));
-        // Bad outputs must not consume an exit that is ready to be reaped.
         // Let the any-child waiter claim first. The bulk waiter must not
         // report the same already-reaped child from its earlier snapshot.
         let any = any.await;
@@ -519,6 +527,7 @@ mod tests {
         assert_eq!(parent.lock().children.len(), 1);
 
         child_handle.set_status_finished(Ok(ExitCode::from(23)));
+        // Bad outputs must not consume an exit that is ready to be reaped.
         assert_eq!(
             instance
                 .exports
@@ -616,5 +625,122 @@ mod tests {
             Errno::Child as i32
         );
         assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::None as i32);
+    }
+
+    #[tokio::test]
+    async fn stale_pid_completion_loses_after_any_child_poll_reaps() {
+        let mut store = Store::default();
+        let module = Module::new(
+            &store,
+            r#"(module
+                (import "env" "memory" (memory 1 1 shared))
+                (import "wasix_32v1" "proc_join"
+                    (func $proc_join (param i32 i32 i32) (result i32)))
+                (export "memory" (memory 0))
+                (func (export "poll_any") (result i32)
+                    (i32.store8 (i32.const 32) (i32.const 0))
+                    (call $proc_join (i32.const 32) (i32.const 1) (i32.const 48)))
+                (func (export "prepare_wait_output")
+                    (i32.store8 (i32.const 0) (i32.const 0))
+                    (i32.store (i32.const 4) (i32.const 0))
+                    (i32.store8 (i32.const 16) (i32.const 1)))
+                (func (export "wait_pid_tag") (result i32) (i32.load8_u (i32.const 0)))
+                (func (export "wait_pid") (result i32) (i32.load (i32.const 4)))
+                (func (export "wait_status_tag") (result i32) (i32.load8_u (i32.const 16)))
+                (func (export "poll_pid_tag") (result i32) (i32.load8_u (i32.const 32)))
+                (func (export "poll_status_tag") (result i32) (i32.load8_u (i32.const 48))))"#,
+        )
+        .unwrap();
+        let (instance, env) = WasiEnv::builder("stale-pid-join")
+            .engine(store.engine().clone())
+            .instantiate(module, &mut store)
+            .unwrap();
+        let parent = env.data(&store).process.clone();
+        let (child_env, child_handle) = env.data(&store).fork().unwrap();
+        let child = child_env.process.clone();
+        parent.lock().children.push(child.clone());
+
+        // Retain the result a blocked PID waiter would deliver after waking.
+        let mut wait = Box::pin(child.join());
+        assert!(matches!(
+            futures::poll!(wait.as_mut()),
+            std::task::Poll::Pending
+        ));
+        child_handle.set_status_finished(Ok(ExitCode::from(23)));
+        let completion = JoinStatusResult::ExitNormalPid(child.pid(), wait.await.unwrap());
+
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "poll_any")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            Errno::Success as i32
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "poll_pid_tag")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            OptionTag::Some as i32
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "poll_status_tag")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            JoinStatusType::ExitNormal as i32
+        );
+        assert!(parent.lock().children.is_empty());
+
+        instance
+            .exports
+            .get_typed_function::<(), ()>(&store, "prepare_wait_output")
+            .unwrap()
+            .call(&mut store)
+            .unwrap();
+        assert_eq!(
+            complete_proc_join::<Memory32>(
+                env.env.clone().into_mut(&mut store),
+                WasmPtr::new(0),
+                WasmPtr::new(16),
+                completion,
+            )
+            .unwrap(),
+            Errno::Child
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "wait_pid_tag")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            OptionTag::None as i32
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "wait_pid")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "wait_status_tag")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            JoinStatusType::Nothing as i32
+        );
+        assert!(parent.lock().children.is_empty());
     }
 }
