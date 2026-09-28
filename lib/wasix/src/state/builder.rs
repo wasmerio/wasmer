@@ -1346,18 +1346,23 @@ impl PreopenDirBuilder {
 #[cfg(test)]
 mod test {
     use super::*;
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
     use crate::{
-        PluggableRuntime, SpawnError,
-        os::{
-            command::{BuiltinCommand, VirtualCommand},
-            task::{OwnedTaskStatus, TaskJoinHandle},
-        },
+        PluggableRuntime,
         runtime::{
             resolver::{PackageSummary, QueryError, Source},
             task_manager::tokio::TokioTaskManager,
         },
     };
+    use crate::{
+        SpawnError,
+        os::{
+            command::{BuiltinCommand, VirtualCommand},
+            task::{OwnedTaskStatus, TaskJoinHandle},
+        },
+    };
     use wasmer::FunctionEnvMut;
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
     use wasmer_config::package::PackageSource;
     use wasmer_wasix_types::wasi::Errno;
 
@@ -1422,12 +1427,14 @@ mod test {
         assert_eq!(error.as_exit_code(), Some(Errno::Intr.into()));
     }
 
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
     #[derive(Debug)]
     struct PendingSource {
         entered: std::sync::Mutex<Option<std::sync::mpsc::Sender<()>>>,
         dropped: Arc<std::sync::atomic::AtomicBool>,
     }
 
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
     #[async_trait::async_trait]
     impl Source for PendingSource {
         async fn query(&self, _package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
@@ -1446,6 +1453,7 @@ mod test {
         }
     }
 
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
     #[test]
     fn forced_exit_cancels_pending_dependency_resolution() {
         let tokio_runtime = enter_tokio_runtime();
