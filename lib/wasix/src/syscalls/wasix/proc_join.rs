@@ -15,7 +15,9 @@ enum JoinStatusResult {
 }
 
 /// ### `proc_join()`
-/// Joins the child process, blocking this one until the other finishes
+/// Joins a waitable child process, blocking this one until the child finishes.
+/// A PID that is not on this parent's reap list returns `Errno::Child`,
+/// including one that was already reaped.
 ///
 /// ## Parameters
 ///
@@ -181,7 +183,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
 
     // Keep the child registered while a nonblocking wait reports Nothing.
     // It is removed by ret_result only when an exit status is available.
-    let mut process = {
+    let process = {
         let inner = ctx.data().process.lock();
         inner
             .children
@@ -190,12 +192,6 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
             .map(Clone::clone)
             .next()
     };
-
-    // Otherwise it could be the case that we are waiting for a process
-    // that is not a child of this process but may still be running
-    if process.is_none() {
-        process = ctx.data().control_plane.get_process(pid);
-    }
 
     if let Some(process) = process {
         if flags.contains(JoinFlags::NON_BLOCKING) {
@@ -229,6 +225,7 @@ mod tests {
     use super::*;
     use crate::WasiEnv;
     use wasmer::{Module, Store};
+    use wasmer_types::ModuleHash;
 
     #[tokio::test]
     async fn nonblocking_join_preserves_pending_child_and_reaps_on_exit() {
@@ -295,6 +292,23 @@ mod tests {
             JoinStatusType::ExitNormal as i32
         );
         assert!(parent.lock().children.is_empty());
+        assert_eq!(
+            poll.call(&mut store, child.pid().raw() as i32).unwrap(),
+            Errno::Child as i32
+        );
+        assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::None as i32);
+
+        // Other processes in the control plane are not waitable children.
+        let unrelated = env
+            .data(&store)
+            .control_plane
+            .new_process(ModuleHash::random())
+            .unwrap();
+        assert_eq!(
+            poll.call(&mut store, unrelated.pid().raw() as i32).unwrap(),
+            Errno::Child as i32
+        );
+        assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::None as i32);
         assert_eq!(poll.call(&mut store, 0).unwrap(), Errno::Child as i32);
     }
 }
