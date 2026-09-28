@@ -38,6 +38,11 @@
 //!
 //! Like `tests/stdio.rs` these need an engine with a compiler backend:
 //! `cargo test -p wasmer-wasix --features wasmer/cranelift --test epoll_prune_on_close`.
+//!
+//! The `make test-js` job builds `--tests` for `wasm32-unknown-unknown` with
+//! `--no-default-features`, where tokio's multi-thread runtime does not exist,
+//! so the whole target is skipped there.
+#![cfg(not(target_arch = "wasm32"))]
 
 use std::path::Path;
 use std::sync::Arc;

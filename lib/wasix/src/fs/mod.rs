@@ -616,10 +616,6 @@ impl FileSystem for WasiFsRoot {
         self.root.create_dir(path)
     }
 
-    fn sync_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.root.sync_dir(path)
-    }
-
     fn create_symlink(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
         self.root.create_symlink(source, target)
     }
@@ -3276,80 +3272,6 @@ mod tests {
         };
 
         assert_eq!(path, std::path::Path::new("/work"));
-    }
-
-    /// `fd_sync` on a directory hands `Kind::Dir.path` to `root_fs.sync_dir`, so
-    /// that call has to travel the whole chain down to the mounted host
-    /// filesystem: `WasiFsRoot` -> `MountFileSystem` -> host `FileSystem`.
-    ///
-    /// The second half is the part that actually proves it. A wrapper that
-    /// forgets to forward the method silently inherits the trait's no-op
-    /// default, which is indistinguishable from a successful flush by return
-    /// value alone - so the host directory is removed and the same call must
-    /// now report `EntryNotFound`.
-    #[cfg(feature = "host-fs")]
-    #[tokio::test]
-    async fn sync_dir_of_a_mounted_directory_reaches_the_host_filesystem() {
-        let root_dir = tempdir().unwrap();
-        let data_dir = root_dir.path().join("data");
-        std::fs::create_dir_all(&data_dir).unwrap();
-
-        let host_fs = virtual_fs::host_fs::FileSystem::new(
-            tokio::runtime::Handle::current(),
-            root_dir.path(),
-        )
-        .unwrap();
-        let mount_fs = virtual_fs::MountFileSystem::new();
-        mount_fs
-            .mount(
-                Path::new("/"),
-                Arc::new(RootFileSystemBuilder::default().build_tmp()),
-            )
-            .unwrap();
-        mount_fs
-            .mount(
-                Path::new("/host"),
-                Arc::new(host_fs) as Arc<dyn FileSystem + Send + Sync>,
-            )
-            .unwrap();
-
-        let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::from_mount_fs(mount_fs);
-        let wasi_fs =
-            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
-
-        // Resolve the directory the way the syscall layer does, and flush it at
-        // the path the inode actually carries.
-        let dir_inode = wasi_fs
-            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/data", true)
-            .unwrap();
-        let dir_path = {
-            let guard = dir_inode.read();
-            let Kind::Dir { path, .. } = guard.deref() else {
-                panic!("expected /host/data to resolve to a directory");
-            };
-            path.clone()
-        };
-
-        wasi_fs
-            .root_fs
-            .sync_dir(&dir_path)
-            .expect("flushing a directory that exists on the host");
-
-        std::fs::remove_dir(&data_dir).unwrap();
-        assert_eq!(
-            wasi_fs.root_fs.sync_dir(&dir_path).err(),
-            Some(virtual_fs::FsError::EntryNotFound),
-            "the flush must be observably tied to the host directory"
-        );
-
-        // A directory that only exists in the synthesized memory root has no
-        // backing store; failing there would abort a guest's durability
-        // protocol for nothing, so it must stay a success.
-        wasi_fs
-            .root_fs
-            .sync_dir(Path::new("/"))
-            .expect("flushing the memory root is a no-op, not an error");
     }
 
     #[tokio::test]
