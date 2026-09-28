@@ -138,6 +138,11 @@ impl EpollJoinGuard {
     fn new(fd_guard: InodeValFilePollGuard) -> Self {
         Self { fd_guard }
     }
+
+    /// Whether this guard pins the same inode object that `target` names.
+    fn targets(&self, target: usize) -> bool {
+        self.fd_guard.target == target
+    }
 }
 
 impl Drop for EpollJoinGuard {
@@ -272,6 +277,60 @@ impl EpollState {
         Ok(())
     }
 
+    /// Drops the interest-list entry that a closing descriptor created, the way
+    /// Linux's `close()` runs `ep_remove` on every epoll instance watching the fd.
+    ///
+    /// Without it the entry's join guard keeps its `Arc<InodeSocketInner>` alive
+    /// after the guest has released the last handle on the inode, so the socket
+    /// object - and with it the host descriptor it owns - is never dropped.
+    ///
+    /// `target` is the `Arc<InodeVal>` identity of the object being closed. The
+    /// map is keyed by fd *number*, which guests recycle, so an entry left by an
+    /// earlier owner of that number must not be taken for the current one.
+    ///
+    /// Returns 1 when an entry was detached.
+    pub(crate) fn prune_closed(&self, fd: WasiFd, target: usize) -> usize {
+        let Some(sub) = self.subscription(fd) else {
+            return 0;
+        };
+        if !sub.pins_target(target) {
+            return 0;
+        }
+        let mut subscriptions = self.subscriptions.lock().unwrap();
+        // Re-check against the live entry: a concurrent EPOLL_CTL_MOD may have
+        // replaced it, and that replacement describes a descriptor still in use.
+        match subscriptions.get(&fd) {
+            Some(current) if Arc::ptr_eq(current, &sub) => {
+                subscriptions.remove(&fd);
+            }
+            _ => return 0,
+        }
+        drop(subscriptions);
+        sub.detach_joins();
+        1
+    }
+
+    /// Empties the interest list, as Linux does when an epoll descriptor itself is
+    /// closed. Watched descriptors may outlive the instance, so this is the only
+    /// thing that releases their guards.
+    pub(crate) fn close_all(&self) -> usize {
+        let subscriptions = {
+            let mut subscriptions = self.subscriptions.lock().unwrap();
+            std::mem::take(&mut *subscriptions)
+        };
+        let count = subscriptions.len();
+        // Detached explicitly rather than by dropping the map: a subscription is
+        // also reachable from the `EpollHandler` installed inside the watched
+        // object, so removing it from this list does not by itself drop it - and
+        // that unreachable-but-alive pin is the leak this exists to clear. Each
+        // detach takes the watched object's write lock, so the map lock is gone
+        // before this loop runs.
+        for sub in subscriptions.values() {
+            sub.detach_joins();
+        }
+        count
+    }
+
     pub(crate) fn rollback_registration(&self, fd: WasiFd, previous: Option<Arc<EpollSubState>>) {
         self.restore_subscription(fd, previous);
     }
@@ -337,6 +396,16 @@ impl EpollSubState {
     /// Detaches and drops all registered handlers for this subscription.
     pub fn detach_joins(&self) {
         self.joins.lock().unwrap().clear();
+    }
+
+    /// Whether a guard here pins the inode object that `target` names. A
+    /// subscription with no guards holds nothing, so it never matches.
+    fn pins_target(&self, target: usize) -> bool {
+        self.joins
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|join| join.targets(target))
     }
 
     fn generation(&self) -> u64 {
@@ -930,6 +999,7 @@ mod tests {
             mode: InodeValFilePollGuardMode::PipeTx {
                 tx: Arc::new(RwLock::new(Box::new(tx))),
             },
+            target: 0,
         }));
 
         let leaked_ref = sub.clone();
@@ -938,5 +1008,94 @@ mod tests {
         epoll_state.apply_del(55).unwrap();
 
         assert_eq!(leaked_ref.joins.lock().unwrap().len(), 0);
+    }
+
+    /// A guard that pins an object, tagged with the inode identity the caller names.
+    /// The pipe write end stands in for the watched object because dropping its guard
+    /// is deliberately inert: these tests observe the subscription, not a pipe.
+    fn test_join_guard(fd: WasiFd, target: usize) -> EpollJoinGuard {
+        let (tx, _rx) = Pipe::new().split();
+        EpollJoinGuard::new(InodeValFilePollGuard {
+            fd,
+            peb: PollEventBuilder::new().build(),
+            subscription: Subscription {
+                userdata: 0,
+                type_: Eventtype::FdRead,
+                data: SubscriptionUnion {
+                    fd_readwrite: SubscriptionFsReadwrite {
+                        file_descriptor: fd,
+                    },
+                },
+            },
+            mode: InodeValFilePollGuardMode::PipeTx {
+                tx: Arc::new(RwLock::new(Box::new(tx))),
+            },
+            target,
+        })
+    }
+
+    fn test_subscription(fd: WasiFd, target: usize) -> Arc<EpollSubState> {
+        let event = test_epoll_event_ctl(fd);
+        let sub = Arc::new(EpollSubState::new(EpollFd::from_event_ctl(fd, &event), 1));
+        sub.add_join(test_join_guard(fd, target));
+        sub
+    }
+
+    #[test]
+    fn prune_closed_detaches_the_closing_descriptors_subscription() {
+        let epoll_state = Arc::new(EpollState::new());
+        let sub = test_subscription(61, 0x1234);
+        epoll_state.insert_subscription(61, sub.clone());
+
+        assert_eq!(epoll_state.prune_closed(61, 0x9999), 0);
+        assert_eq!(epoll_state.prune_closed(61, 0x1234), 1);
+
+        assert!(
+            sub.joins.lock().unwrap().is_empty(),
+            "closing the watched descriptor must release the guard pinning it"
+        );
+        assert!(
+            epoll_state.subscriptions.lock().unwrap().is_empty(),
+            "a pruned number must be free for the next EPOLL_CTL_ADD"
+        );
+    }
+
+    #[test]
+    fn prune_closed_leaves_a_number_that_now_names_another_object() {
+        let epoll_state = Arc::new(EpollState::new());
+        let sub = test_subscription(62, 0xAAAA);
+        epoll_state.insert_subscription(62, sub.clone());
+
+        // An earlier owner of fd 62 closed after this one registered: that close
+        // may not disarm a descriptor still in use.
+        assert_eq!(epoll_state.prune_closed(62, 0xBBBB), 0);
+        assert_eq!(sub.joins.lock().unwrap().len(), 1);
+        assert!(epoll_state.subscription(62).is_some());
+    }
+
+    #[test]
+    fn prune_closed_leaves_a_subscription_that_pins_nothing() {
+        let epoll_state = Arc::new(EpollState::new());
+        let event = test_epoll_event_ctl(63);
+        let sub = Arc::new(EpollSubState::new(EpollFd::from_event_ctl(63, &event), 1));
+        epoll_state.insert_subscription(63, sub.clone());
+
+        assert_eq!(epoll_state.prune_closed(63, 0x1234), 0);
+        assert!(epoll_state.subscription(63).is_some());
+    }
+
+    #[test]
+    fn close_all_detaches_every_subscription_of_a_closed_instance() {
+        let epoll_state = Arc::new(EpollState::new());
+        let first = test_subscription(70, 0x1);
+        let second = test_subscription(71, 0x2);
+        epoll_state.insert_subscription(70, first.clone());
+        epoll_state.insert_subscription(71, second.clone());
+
+        assert_eq!(epoll_state.close_all(), 2);
+
+        assert!(first.joins.lock().unwrap().is_empty());
+        assert!(second.joins.lock().unwrap().is_empty());
+        assert!(epoll_state.subscriptions.lock().unwrap().is_empty());
     }
 }

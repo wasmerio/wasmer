@@ -35,6 +35,7 @@ use std::{
 
 use crate::{
     net::socket::InodeSocketKind,
+    os::epoll::EpollState,
     state::{Stderr, Stdin, Stdout},
 };
 use futures::{Future, future::BoxFuture};
@@ -86,6 +87,91 @@ impl CloseFdOutcome {
             skipped_preopen: false,
             removed: false,
             flush_target: None,
+        }
+    }
+}
+
+/// Interest-list work gathered while `fd_map` is write-locked and applied after it
+/// is released.
+///
+/// Linux removes a descriptor from every epoll interest list that names it when the
+/// descriptor is closed (`ep_remove`, driven from `close()`), and empties an interest
+/// list when the epoll descriptor itself is closed. WASIX does neither: the lists are
+/// keyed by fd number and only `EPOLL_CTL_DEL` prunes them, so a subscription outlives
+/// the object it watches. Its join guard then keeps that object's inner `Arc` alive,
+/// which for a socket means the `LocalTcpStream` owning the host descriptor is never
+/// dropped - the guest has released its last handle, the peer never sees a FIN, and the
+/// number stays claimed in the list so the next `EPOLL_CTL_ADD` of that recycled number
+/// answers `EEXIST`.
+#[derive(Default)]
+pub(crate) struct EpollInterestWork {
+    /// Each descriptor being released that an interest list can name, with the
+    /// identity of the inode behind it. Interest lists survive a descriptor's close
+    /// only as a number, so a stale entry for an earlier owner of that number must
+    /// not be pruned on the new owner's behalf.
+    watched: Vec<(WasiFd, usize)>,
+    /// Every live epoll instance, resolved once, for the watchers above.
+    watchers: Vec<Arc<EpollState>>,
+    watchers_collected: bool,
+    /// Epoll instances being closed themselves; their whole list goes with them.
+    closing: Vec<Arc<EpollState>>,
+}
+
+impl EpollInterestWork {
+    /// Notes that `fd` is about to close. Cheap for the kinds an interest list cannot
+    /// hold, which is most closes: registering a file or a pipe's write end yields no
+    /// guard at all.
+    pub(crate) fn note_closing(&mut self, fd_map: &FdList, fd: WasiFd) {
+        let Some(closing) = fd_map.get(fd) else {
+            return;
+        };
+        let target = closing.inode.target_identity();
+        let is_watched = match closing.inode.read().deref() {
+            Kind::Epoll { state } => {
+                self.closing.push(state.clone());
+                return;
+            }
+            Kind::Socket { .. }
+            | Kind::PipeRx { .. }
+            | Kind::DuplexPipe { .. }
+            | Kind::EventNotifications { .. } => true,
+            _ => false,
+        };
+        if is_watched {
+            self.watched.push((fd, target));
+        }
+    }
+
+    /// Resolves the epoll instances to sweep. A no-op unless something prunable was
+    /// noted, so a batch of closes pays for one walk of the table.
+    pub(crate) fn note_watchers(&mut self, fd_map: &FdList) {
+        if self.watched.is_empty() || self.watchers_collected {
+            return;
+        }
+        self.watchers_collected = true;
+        for (_, fd_ref) in fd_map.iter() {
+            if let Kind::Epoll { state } = fd_ref.inode.read().deref() {
+                self.watchers.push(state.clone());
+            }
+        }
+    }
+
+    /// Runs the sweep. Must not be called with `fd_map` locked: detaching a guard
+    /// takes the watched object's write lock while the interest-list lock is held
+    /// nowhere in this path, and the epoll syscalls lock in the opposite order.
+    pub(crate) fn apply(self) {
+        for state in &self.closing {
+            let detached = state.close_all();
+            if detached > 0 {
+                trace!(%detached, "closing epoll instance detached its interest list");
+            }
+        }
+        for (fd, target) in &self.watched {
+            for state in &self.watchers {
+                if state.prune_closed(*fd, *target) > 0 {
+                    trace!(%fd, "closing descriptor pruned from an epoll interest list");
+                }
+            }
         }
     }
 }
@@ -194,6 +280,13 @@ impl InodeGuard {
 
     pub fn ref_cnt(&self) -> usize {
         Arc::strong_count(&self.inner)
+    }
+
+    /// Identity of the inode object behind this guard, stable for as long as any
+    /// guard on it lives. Used to tell an fd's current owner from an earlier one
+    /// that shared the same recycled number.
+    pub(crate) fn target_identity(&self) -> usize {
+        Arc::as_ptr(&self.inner) as usize
     }
 
     pub fn handle_count(&self) -> u32 {
@@ -523,6 +616,10 @@ impl FileSystem for WasiFsRoot {
         self.root.create_dir(path)
     }
 
+    fn sync_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.root.sync_dir(path)
+    }
+
     fn create_symlink(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
         self.root.create_symlink(source, target)
     }
@@ -716,7 +813,7 @@ impl WasiFs {
 
     /// Closes all file descriptors marked CLOEXEC (except stdio and preopens).
     pub async fn close_cloexec_fds(&self) {
-        let flush_targets = {
+        let (flush_targets, interest) = {
             let mut fd_map = self.fd_map.write().unwrap();
             let to_close: Vec<WasiFd> = fd_map
                 .iter()
@@ -733,15 +830,19 @@ impl WasiFs {
                 })
                 .collect();
             let mut flush_targets = Vec::new();
+            let mut interest = EpollInterestWork::default();
             for fd in to_close {
+                interest.note_closing(&fd_map, fd);
                 let outcome = Self::close_fd_locked(&mut fd_map, fd);
                 if let Some(target) = outcome.flush_target {
                     flush_targets.push(target);
                 }
             }
-            flush_targets
+            interest.note_watchers(&fd_map);
+            (flush_targets, interest)
         };
 
+        interest.apply();
         for file in flush_targets {
             Self::flush_file_best_effort(file).await;
         }
@@ -749,14 +850,16 @@ impl WasiFs {
 
     /// Closes all file descriptors, flushing captured handles after dropping the map lock.
     pub async fn close_all(&self) {
-        let flush_targets = {
+        let (flush_targets, interest) = {
             let mut fd_map = self.fd_map.write().unwrap();
             let mut fds: HashSet<WasiFd> = fd_map.keys().collect();
             fds.insert(__WASI_STDOUT_FILENO);
             fds.insert(__WASI_STDERR_FILENO);
 
             let mut flush_targets = Vec::new();
+            let mut interest = EpollInterestWork::default();
             for fd in fds {
+                interest.note_closing(&fd_map, fd);
                 let outcome = Self::close_fd_locked(&mut fd_map, fd);
                 if let Some(target) = outcome.flush_target {
                     flush_targets.push(target);
@@ -769,10 +872,12 @@ impl WasiFs {
                     flush_targets.push(target);
                 }
             }
+            interest.note_watchers(&fd_map);
             fd_map.clear();
-            flush_targets
+            (flush_targets, interest)
         };
 
+        interest.apply();
         for file in flush_targets {
             Self::flush_file_best_effort(file).await;
         }
@@ -2674,10 +2779,21 @@ impl WasiFs {
     /// Lock order: `fd_map` write, then inode read (never the reverse).
     pub(crate) fn close_fd_and_capture_flush(&self, fd: WasiFd) -> CloseFdOutcome {
         let mut fd_map = self.fd_map.write().unwrap();
-        Self::close_fd_locked(&mut fd_map, fd)
+        let mut interest = EpollInterestWork::default();
+        interest.note_closing(&fd_map, fd);
+        interest.note_watchers(&fd_map);
+        let outcome = Self::close_fd_locked(&mut fd_map, fd);
+        drop(fd_map);
+        interest.apply();
+        outcome
     }
 
     /// Closes an open FD in an already write-locked fd map.
+    ///
+    /// Callers that hold the map lock for a batch of closes must run
+    /// [`EpollInterestWork::apply`] once the lock is released: detaching an
+    /// interest-list guard takes the watched object's write lock, and the epoll
+    /// paths already reach `fd_map.read()` from inside their own lists.
     fn close_fd_locked(fd_map: &mut FdList, fd: WasiFd) -> CloseFdOutcome {
         let Some(fd_ref) = fd_map.get(fd) else {
             trace!(%fd, "closing file descriptor failed - {}", Errno::Badf);
@@ -3160,6 +3276,80 @@ mod tests {
         };
 
         assert_eq!(path, std::path::Path::new("/work"));
+    }
+
+    /// `fd_sync` on a directory hands `Kind::Dir.path` to `root_fs.sync_dir`, so
+    /// that call has to travel the whole chain down to the mounted host
+    /// filesystem: `WasiFsRoot` -> `MountFileSystem` -> host `FileSystem`.
+    ///
+    /// The second half is the part that actually proves it. A wrapper that
+    /// forgets to forward the method silently inherits the trait's no-op
+    /// default, which is indistinguishable from a successful flush by return
+    /// value alone - so the host directory is removed and the same call must
+    /// now report `EntryNotFound`.
+    #[cfg(feature = "host-fs")]
+    #[tokio::test]
+    async fn sync_dir_of_a_mounted_directory_reaches_the_host_filesystem() {
+        let root_dir = tempdir().unwrap();
+        let data_dir = root_dir.path().join("data");
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let host_fs = virtual_fs::host_fs::FileSystem::new(
+            tokio::runtime::Handle::current(),
+            root_dir.path(),
+        )
+        .unwrap();
+        let mount_fs = virtual_fs::MountFileSystem::new();
+        mount_fs
+            .mount(
+                Path::new("/"),
+                Arc::new(RootFileSystemBuilder::default().build_tmp()),
+            )
+            .unwrap();
+        mount_fs
+            .mount(
+                Path::new("/host"),
+                Arc::new(host_fs) as Arc<dyn FileSystem + Send + Sync>,
+            )
+            .unwrap();
+
+        let inodes = WasiInodes::new();
+        let fs_backing = WasiFsRoot::from_mount_fs(mount_fs);
+        let wasi_fs =
+            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
+
+        // Resolve the directory the way the syscall layer does, and flush it at
+        // the path the inode actually carries.
+        let dir_inode = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/data", true)
+            .unwrap();
+        let dir_path = {
+            let guard = dir_inode.read();
+            let Kind::Dir { path, .. } = guard.deref() else {
+                panic!("expected /host/data to resolve to a directory");
+            };
+            path.clone()
+        };
+
+        wasi_fs
+            .root_fs
+            .sync_dir(&dir_path)
+            .expect("flushing a directory that exists on the host");
+
+        std::fs::remove_dir(&data_dir).unwrap();
+        assert_eq!(
+            wasi_fs.root_fs.sync_dir(&dir_path).err(),
+            Some(virtual_fs::FsError::EntryNotFound),
+            "the flush must be observably tied to the host directory"
+        );
+
+        // A directory that only exists in the synthesized memory root has no
+        // backing store; failing there would abort a guest's durability
+        // protocol for nothing, so it must stay a success.
+        wasi_fs
+            .root_fs
+            .sync_dir(Path::new("/"))
+            .expect("flushing the memory root is a no-op, not an error");
     }
 
     #[tokio::test]
