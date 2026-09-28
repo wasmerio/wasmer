@@ -8,6 +8,13 @@ const SHARED_MEMORY_MODULE: &str = r#"(module
     (import "env" "memory" (memory 1 1 shared))
     (export "memory" (memory 0)))"#;
 
+#[cfg(all(feature = "sys", not(windows)))]
+fn native_store() -> Store {
+    Store::new(wasmer::sys::EngineBuilder::new(
+        wasmer::sys::Cranelift::default(),
+    ))
+}
+
 async fn assert_force_terminate_cancels_pending_pre_run(has_trigger: bool) {
     struct Released(Option<tokio::sync::oneshot::Sender<()>>);
     impl Drop for Released {
@@ -59,6 +66,11 @@ async fn assert_force_terminate_cancels_pending_pre_run(has_trigger: bool) {
         .unwrap()
         .unwrap();
     let memory = process.lock().memory.clone().unwrap();
+    let has_atomic_ops = match memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)) {
+        Ok(_) => true,
+        Err(AtomicsError::Unimplemented) => false,
+        other => panic!("unexpected shared-memory wait result before shutdown: {other:?}"),
+    };
     process.force_terminate(Errno::Intr.into()).unwrap();
     let completed = tokio::time::timeout(Duration::from_secs(2), &mut done_rx).await;
     if completed.is_err() {
@@ -75,10 +87,11 @@ async fn assert_force_terminate_cancels_pending_pre_run(has_trigger: bool) {
     );
     tokio::time::timeout(Duration::from_secs(2), async {
         while process.active_threads() != 0
-            || !matches!(
-                memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
-                Err(AtomicsError::MemoryDropped)
-            )
+            || (has_atomic_ops
+                && !matches!(
+                    memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
+                    Err(AtomicsError::MemoryDropped)
+                ))
         {
             tokio::time::sleep(Duration::from_millis(1)).await;
         }
@@ -98,9 +111,12 @@ async fn force_terminate_cancels_pending_pre_run_with_trigger() {
     assert_force_terminate_cancels_pending_pre_run(true).await;
 }
 
+// This regression requires the sys backend's interruptible guest atomic wait.
+// V8's detached shared memory exposes no host atomic-wait operations.
+#[cfg(all(feature = "sys", not(windows)))]
 async fn assert_force_terminate_after_pre_run_dispatch_cannot_park(has_trigger: bool) {
     let manager = TokioTaskManager::new(Handle::current());
-    let store = Store::default();
+    let store = native_store();
     let module = Module::new(
         &store,
         r#"(module
@@ -209,11 +225,13 @@ async fn assert_force_terminate_after_pre_run_dispatch_cannot_park(has_trigger: 
     ));
 }
 
+#[cfg(all(feature = "sys", not(windows)))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn force_terminate_after_pre_run_dispatch_without_trigger_cannot_park() {
     assert_force_terminate_after_pre_run_dispatch_cannot_park(false).await;
 }
 
+#[cfg(all(feature = "sys", not(windows)))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn force_terminate_after_pre_run_dispatch_with_trigger_cannot_park() {
     assert_force_terminate_after_pre_run_dispatch_cannot_park(true).await;
@@ -265,13 +283,23 @@ async fn assert_process_sigkill_reclaims_trigger_task(handler_registered: bool) 
         .memory
         .clone()
         .expect("task memory must be registered before its trigger starts");
-    let waiter_memory = memory.clone();
-    let (waiter_ready_tx, waiter_ready_rx) = tokio::sync::oneshot::channel();
-    let waiter = tokio::task::spawn_blocking(move || {
-        waiter_ready_tx.send(()).unwrap();
-        waiter_memory.wait(MemoryLocation::new_32(0), None)
-    });
-    waiter_ready_rx.await.unwrap();
+    let has_atomic_ops = match memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)) {
+        Ok(_) => true,
+        Err(AtomicsError::Unimplemented) => false,
+        other => panic!("unexpected shared-memory wait result before SIGKILL: {other:?}"),
+    };
+    let waiter = if has_atomic_ops {
+        let waiter_memory = memory.clone();
+        let (waiter_ready_tx, waiter_ready_rx) = tokio::sync::oneshot::channel();
+        let waiter = tokio::task::spawn_blocking(move || {
+            waiter_ready_tx.send(()).unwrap();
+            waiter_memory.wait(MemoryLocation::new_32(0), None)
+        });
+        waiter_ready_rx.await.unwrap();
+        Some(waiter)
+    } else {
+        None
+    };
 
     process.signal_process(Signal::Sigkill);
 
@@ -283,15 +311,19 @@ async fn assert_process_sigkill_reclaims_trigger_task(handler_registered: bool) 
             .unwrap_err(),
         Errno::Intr.into()
     );
-    assert!(matches!(
-        waiter.await.unwrap(),
-        Err(AtomicsError::AtomicsDisabled | AtomicsError::MemoryDropped)
-    ));
+    if let Some(waiter) = waiter {
+        assert!(matches!(
+            waiter.await.unwrap(),
+            Err(AtomicsError::AtomicsDisabled | AtomicsError::MemoryDropped)
+        ));
+    }
     assert_eq!(process.try_join().unwrap().unwrap(), Errno::Intr.into());
-    assert!(matches!(
-        memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
-        Err(AtomicsError::MemoryDropped)
-    ));
+    if has_atomic_ops {
+        assert!(matches!(
+            memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
+            Err(AtomicsError::MemoryDropped)
+        ));
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -304,6 +336,7 @@ async fn process_sigkill_reclaims_trigger_task_without_signal_handler() {
     assert_process_sigkill_reclaims_trigger_task(false).await;
 }
 
+#[cfg(all(feature = "sys", not(windows)))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn process_sigkill_interrupts_guest_atomic_wait() {
     let manager = TokioTaskManager::new(Handle::current());
@@ -311,7 +344,7 @@ async fn process_sigkill_interrupts_guest_atomic_wait() {
     let (done_tx, done_rx) = tokio::sync::oneshot::channel();
 
     tokio::task::spawn_blocking(move || {
-        let mut store = Store::default();
+        let mut store = native_store();
         let module = Module::new(
             &store,
             r#"(module
@@ -492,6 +525,11 @@ mod force_termination {
             .await
             .unwrap()
             .unwrap();
+        let has_atomic_ops = match memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)) {
+            Ok(_) => true,
+            Err(wasmer::AtomicsError::Unimplemented) => false,
+            other => panic!("unexpected shared-memory wait result before shutdown: {other:?}"),
+        };
         process.force_terminate(ExitCode::from(137)).unwrap();
         release_tx.send(()).unwrap();
         assert!(matches!(
@@ -502,10 +540,12 @@ mod force_termination {
             Err(WasiThreadError::ProcessTerminated(code)) if code == ExitCode::from(137)
         ));
         assert_eq!(process.try_join().unwrap().unwrap(), ExitCode::from(137));
-        assert!(matches!(
-            memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
-            Err(wasmer::AtomicsError::MemoryDropped)
-        ));
+        if has_atomic_ops {
+            assert!(matches!(
+                memory.wait(MemoryLocation::new_32(0), Some(Duration::ZERO)),
+                Err(wasmer::AtomicsError::MemoryDropped)
+            ));
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -518,10 +558,11 @@ mod force_termination {
         force_terminate_during_environment_creation(true).await;
     }
 
+    #[cfg(all(feature = "sys", not(windows)))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn force_terminate_reclaims_repeated_synchronous_guest_tasks() {
         let manager = TokioTaskManager::new(Handle::current());
-        let store = Store::default();
+        let store = native_store();
         let module = Module::new(
             &store,
             r#"(module
@@ -607,10 +648,11 @@ mod force_termination {
         }
     }
 
+    #[cfg(all(feature = "sys", not(windows)))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn force_terminate_interrupts_atomic_wait_in_wasm_start_function() {
         let manager = TokioTaskManager::new(Handle::current());
-        let store = Store::default();
+        let store = native_store();
         let module = Module::new(
             &store,
             r#"(module

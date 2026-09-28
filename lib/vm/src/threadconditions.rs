@@ -473,7 +473,8 @@ mod tests {
         assert!(conditions.inner.map.is_empty());
     }
 
-    #[cfg(feature = "experimental-host-interrupt")]
+    // The interrupt registry has no OS signal implementation on Windows.
+    #[cfg(all(feature = "experimental-host-interrupt", unix))]
     #[test]
     fn store_interrupt_after_wait_registration_cannot_be_lost_before_park() {
         crate::init_traps();

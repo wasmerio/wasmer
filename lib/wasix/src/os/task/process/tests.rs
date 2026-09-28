@@ -211,7 +211,17 @@ fn force_terminate_closes_every_registration_gate_before_waking_tasks() {
 #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
 mod native {
     use super::*;
-    use wasmer::{AtomicsError, Memory, MemoryLocation, MemoryType, Store};
+    use wasmer::Store;
+    use wasmer::{AtomicsError, MemoryLocation};
+    #[cfg(all(feature = "sys", not(windows)))]
+    use wasmer::{Memory, MemoryType};
+
+    #[cfg(all(feature = "sys", not(windows)))]
+    fn native_store() -> Store {
+        Store::new(wasmer::sys::EngineBuilder::new(
+            wasmer::sys::Cranelift::default(),
+        ))
+    }
 
     #[tokio::test]
     async fn force_terminate_rejects_vfork_child_without_disabling_parent_memory() {
@@ -250,21 +260,26 @@ mod native {
             .unwrap()
             .as_shared(&store)
             .unwrap();
-        assert!(
-            memory
-                .wait(MemoryLocation::new_32(32), Some(Duration::ZERO))
-                .is_ok()
-        );
+        let has_atomic_ops = match memory.wait(MemoryLocation::new_32(32), Some(Duration::ZERO)) {
+            Ok(_) => true,
+            Err(AtomicsError::Unimplemented) => false,
+            other => panic!("unexpected shared-memory wait result before shutdown: {other:?}"),
+        };
         assert!(parent.try_join().is_none());
         assert!(child.try_join().is_none());
         parent.force_terminate(ExitCode::from(137)).unwrap();
-        assert!(matches!(
-            memory.wait(MemoryLocation::new_32(32), Some(Duration::ZERO)),
-            Err(AtomicsError::AtomicsDisabled)
-        ));
+        if has_atomic_ops {
+            assert!(matches!(
+                memory.wait(MemoryLocation::new_32(32), Some(Duration::ZERO)),
+                Err(AtomicsError::AtomicsDisabled)
+            ));
+        }
         assert_eq!(child.try_join().unwrap().unwrap(), ExitCode::from(137));
     }
 
+    // These regressions require the sys backend's host atomic-wait ops.
+    // The V8 default backend exposes no SharedMemoryOps.
+    #[cfg(all(feature = "sys", not(windows)))]
     #[tokio::test]
     async fn force_terminate_wakes_parent_atomics_while_joining_a_child() {
         let plane = WasiControlPlane::default();
@@ -274,7 +289,7 @@ mod native {
         let main = thread(&root, true);
         let sibling = thread(&root, false);
         let child_main = thread(&child, true);
-        let mut store = Store::default();
+        let mut store = native_store();
         let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), true))
             .unwrap()
             .as_shared(&store)
@@ -307,6 +322,7 @@ mod native {
         }
     }
 
+    #[cfg(all(feature = "sys", not(windows)))]
     #[test]
     fn force_terminate_disables_late_and_replacement_memories_without_retaining_them() {
         let plane = WasiControlPlane::default();
@@ -314,7 +330,7 @@ mod native {
         process.force_terminate(ExitCode::from(137)).unwrap();
         for _ in 0..8 {
             let ops = {
-                let mut store = Store::default();
+                let mut store = native_store();
                 let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), true))
                     .unwrap()
                     .as_shared(&store)
