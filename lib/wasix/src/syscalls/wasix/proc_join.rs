@@ -56,6 +56,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
         move |ctx: FunctionEnvMut<'_, WasiEnv>, status: JoinStatusResult| {
             let mut ret = Errno::Success;
             let mut reaped_pid = None;
+            let mut pending_poll = false;
             let parent = ctx.data().process.clone();
             // Hold the child-list lock through the guest writes and removal.
             // Concurrent PID-specific and any-child waiters must never both
@@ -100,6 +101,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                             },
                         }
                     } else {
+                        pending_poll = true;
                         JoinStatus {
                             tag: JoinStatusType::Nothing,
                             u: JoinStatusUnion { nothing: 0 },
@@ -117,10 +119,13 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                             }
                         }
                         Some(child) => match child.try_join() {
-                            None => JoinStatus {
-                                tag: JoinStatusType::Nothing,
-                                u: JoinStatusUnion { nothing: 0 },
-                            },
+                            None => {
+                                pending_poll = true;
+                                JoinStatus {
+                                    tag: JoinStatusType::Nothing,
+                                    u: JoinStatusUnion { nothing: 0 },
+                                }
+                            }
                             Some(status) => {
                                 reaped_pid = Some(pid);
                                 JoinStatus {
@@ -174,6 +179,17 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                 }
             };
             wasi_try_mem_ok!(status_ptr.write(&view, status));
+            if pending_poll {
+                // Older libc needs Some(0) to reach its WNOHANG pending path.
+                // Nothing lets corrected libc recognize the same state.
+                wasi_try_mem_ok!(pid_ptr.write(
+                    &view,
+                    OptionPid {
+                        tag: OptionTag::Some,
+                        pid: 0,
+                    }
+                ));
+            }
             if let Some(pid) = reaped_pid {
                 wasi_try_mem_ok!(pid_ptr.write(
                     &view,
@@ -423,7 +439,14 @@ mod tests {
                         (else (i32.store8 (i32.const 0) (i32.const 1))
                               (i32.store (i32.const 4) (local.get $pid))))
                     (call $proc_join (i32.const 0) (i32.const 1) (i32.const 16)))
+                (func (export "poll_bad_pid") (result i32)
+                    (call $proc_join (i32.const 65536) (i32.const 1) (i32.const 16)))
+                (func (export "poll_bad_status") (param $pid i32) (result i32)
+                    (i32.store8 (i32.const 0) (i32.const 1))
+                    (i32.store (i32.const 4) (local.get $pid))
+                    (call $proc_join (i32.const 0) (i32.const 1) (i32.const 65536)))
                 (func (export "pid_tag") (result i32) (i32.load8_u (i32.const 0)))
+                (func (export "joined_pid") (result i32) (i32.load (i32.const 4)))
                 (func (export "status_tag") (result i32) (i32.load8_u (i32.const 16))))"#,
         )
         .unwrap();
@@ -443,6 +466,10 @@ mod tests {
             .exports
             .get_typed_function::<(), i32>(&store, "pid_tag")
             .unwrap();
+        let joined_pid = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "joined_pid")
+            .unwrap();
         let status_tag = instance
             .exports
             .get_typed_function::<(), i32>(&store, "status_tag")
@@ -453,7 +480,8 @@ mod tests {
                 poll.call(&mut store, requested_pid).unwrap(),
                 Errno::Success as i32
             );
-            assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::None as i32);
+            assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::Some as i32);
+            assert_eq!(joined_pid.call(&mut store).unwrap(), 0);
             assert_eq!(
                 status_tag.call(&mut store).unwrap(),
                 JoinStatusType::Nothing as i32
@@ -461,12 +489,36 @@ mod tests {
             assert_eq!(parent.lock().children.len(), 1);
         }
 
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "poll_bad_pid")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            Errno::Memviolation as i32
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<i32, i32>(&store, "poll_bad_status")
+                .unwrap()
+                .call(&mut store, child.pid().raw() as i32)
+                .unwrap(),
+            Errno::Memviolation as i32
+        );
+        assert_eq!(parent.lock().children.len(), 1);
+
         child_handle.set_status_finished(Ok(ExitCode::from(23)));
         assert_eq!(
             poll.call(&mut store, child.pid().raw() as i32).unwrap(),
             Errno::Success as i32
         );
         assert_eq!(pid_tag.call(&mut store).unwrap(), OptionTag::Some as i32);
+        assert_eq!(
+            joined_pid.call(&mut store).unwrap(),
+            child.pid().raw() as i32
+        );
         assert_eq!(
             status_tag.call(&mut store).unwrap(),
             JoinStatusType::ExitNormal as i32
