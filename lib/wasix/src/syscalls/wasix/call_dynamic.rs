@@ -147,10 +147,19 @@ pub fn call_dynamic<M: MemorySize>(
         return Ok(Errno::Inval);
     }
 
+    // Call through `ctx` rather than the store half above, so neither half of
+    // `data_and_store_mut` spans the call. That pair is laundered past the
+    // borrow checker, and this calls an arbitrary indirect-table function —
+    // every syscall it makes reborrows this same environment, which invalidates
+    // the halves taken before it.
     let result_values = function
-        .call(&mut store, values_buffer.as_slice())
+        .call(&mut ctx, values_buffer.as_slice())
         .map_err(crate::flatten_runtime_error)?;
 
+    // So the environment is taken again here, and immutably: `memory_view`
+    // needs only `&self`, which leaves no laundering to do.
+    let env = ctx.data();
+    let store = ctx.as_store_ref();
     let memory = unsafe { env.memory_view(&store) };
     let mut current_results_offset: u64 = results.offset().into();
     let max_results_offset = current_results_offset + results_len.into();
