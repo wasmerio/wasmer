@@ -99,7 +99,7 @@ static LLVM_OPT_PASSES: OnceLock<[String; 2]> = OnceLock::new();
 
 fn llvm_opt_passes() -> &'static [String; 2] {
     LLVM_OPT_PASSES.get_or_init(|| {
-        // Update the LLVM_OPT_Ox_PASSES contants based on the release!
+        // Update the LLVM_OPT_Ox_PASSES constants based on the release!
         debug_assert_eq!(get_llvm_version().0, 22);
 
         [LLVM_OPT_O0_PASSES, LLVM_OPT_O1_PASSES].map(|passes| {
