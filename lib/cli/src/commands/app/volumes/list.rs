@@ -24,14 +24,14 @@ impl AsyncCliCommand for CmdAppVolumesList {
         let client = self.env.client()?;
 
         let (_ident, app) = self.ident.load_app(&client).await?;
-        let volumes =
-            wasmer_backend_api::query::get_app_volumes(&client, &app.owner.global_name, &app.name)
-                .await?;
+        let volumes = super::list_volumes(&client, &app.owner.global_name, &app.name).await?;
 
         if volumes.is_empty() {
             eprintln!("App {} has no volumes!", app.name);
         } else {
-            println!("{}", self.fmt.format.render(volumes.as_slice()));
+            let items: Vec<super::VolumeListItem> =
+                volumes.iter().map(super::VolumeListItem::from).collect();
+            println!("{}", self.fmt.format.render(items.as_slice()));
         }
 
         Ok(())

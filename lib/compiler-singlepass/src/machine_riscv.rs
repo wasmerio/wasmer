@@ -1,6 +1,7 @@
 //! RISC-V machine scaffolding.
 
 use dynasmrt::{DynasmError, VecAssembler, riscv::RiscvRelocation};
+use fixedbitset::FixedBitSet;
 #[cfg(feature = "unwind")]
 use gimli::{RiscV, write::CallFrameInstruction};
 
@@ -15,7 +16,8 @@ use wasmer_compiler::{
     wasmparser::MemArg,
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode,
+    TrapInformation, VMOffsets,
     target::{CallingConvention, Target},
 };
 
@@ -73,8 +75,9 @@ impl DerefMut for AssemblerRiscv {
 /// The RISC-V machine state and code emitter.
 pub struct MachineRiscv {
     assembler: AssemblerRiscv,
-    used_gprs: u32,
-    used_fprs: u32,
+    allow_unaligned_memory_accesses: bool,
+    used_gprs: FixedBitSet,
+    used_fprs: FixedBitSet,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     /// Ordered by increasing InstructionAddressMap::srcloc.
@@ -89,12 +92,16 @@ const SCRATCH_REG: GPR = GPR::X28;
 
 impl MachineRiscv {
     /// Creates a new RISC-V machine for code generation.
-    pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
+    pub fn new(
+        target: Option<Target>,
+        allow_unaligned_memory_accesses: bool,
+    ) -> Result<Self, CompileError> {
         // TODO: for now always require FPU
         Ok(MachineRiscv {
             assembler: AssemblerRiscv::new(0, target)?,
-            used_gprs: 0,
-            used_fprs: 0,
+            allow_unaligned_memory_accesses,
+            used_gprs: FixedBitSet::with_capacity(32),
+            used_fprs: FixedBitSet::with_capacity(32),
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
@@ -103,26 +110,26 @@ impl MachineRiscv {
     }
 
     fn used_gprs_contains(&self, r: &GPR) -> bool {
-        self.used_gprs & (1 << r.into_index()) != 0
+        self.used_gprs.contains(r.into_index())
     }
     fn used_gprs_insert(&mut self, r: GPR) {
-        self.used_gprs |= 1 << r.into_index();
+        self.used_gprs.insert(r.into_index());
     }
     fn used_gprs_remove(&mut self, r: &GPR) -> bool {
         let ret = self.used_gprs_contains(r);
-        self.used_gprs &= !(1 << r.into_index());
+        self.used_gprs.set(r.into_index(), false);
         ret
     }
 
     fn used_fp_contains(&self, r: &FPR) -> bool {
-        self.used_fprs & (1 << r.into_index()) != 0
+        self.used_fprs.contains(r.into_index())
     }
     fn used_fprs_insert(&mut self, r: FPR) {
-        self.used_fprs |= 1 << r.into_index();
+        self.used_fprs.insert(r.into_index());
     }
     fn used_fprs_remove(&mut self, r: &FPR) -> bool {
         let ret = self.used_fp_contains(r);
-        self.used_fprs &= !(1 << r.into_index());
+        self.used_fprs.set(r.into_index(), false);
         ret
     }
 
@@ -1104,6 +1111,10 @@ impl MachineRiscv {
         dst: Location,
         src: GPR,
     ) -> Result<(), CompileError> {
+        if !self.allow_unaligned_memory_accesses {
+            return self.emit_relaxed_load(sz, signed, dst, Location::Memory(src, 0));
+        }
+
         if let Size::S8 = sz {
             return self.emit_relaxed_load(sz, signed, dst, Location::Memory(src, 0));
         }
@@ -1212,6 +1223,10 @@ impl MachineRiscv {
         src: Location,
         dst: GPR,
     ) -> Result<(), CompileError> {
+        if !self.allow_unaligned_memory_accesses {
+            return self.emit_relaxed_store(sz, src, Location::Memory(dst, 0));
+        }
+
         if let Size::S8 = sz {
             // `emit_relaxed_store` uses wrong order of src and dst.
             // The `src` parameter of `emit_relaxed_store` actually stores
@@ -1593,7 +1608,7 @@ impl MachineRiscv {
             self.assembler.emit_swap_fscr(old_fcsr)?;
             self.assembler
                 .emit_fcvt(signed, size_in, src, size_out, dest)?;
-            self.trap_float_convertion_errors(size_in, src, old_fcsr, &mut gprs)?;
+            self.trap_float_conversion_errors(size_in, src, old_fcsr, &mut gprs)?;
             self.release_gpr(old_fcsr);
         }
 
@@ -1665,7 +1680,7 @@ impl MachineRiscv {
         Ok(())
     }
 
-    fn trap_float_convertion_errors(
+    fn trap_float_conversion_errors(
         &mut self,
         sz: Size,
         f: Location,
@@ -1897,13 +1912,18 @@ impl ImmType {
 impl Machine for MachineRiscv {
     type GPR = GPR;
     type SIMD = FPR;
+
+    const STACK_ALIGNMENT: usize = 16;
+
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
+
     fn get_vmctx_reg(&self) -> Self::GPR {
         // Must be a callee-save register.
         GPR::X27
     }
+
     fn pick_gpr(&self) -> Option<Self::GPR> {
         use GPR::*;
         // Ignore X28 as we use it as a scratch register
@@ -1916,7 +1936,6 @@ impl Machine for MachineRiscv {
         None
     }
 
-    // Picks an unused general purpose register for internal temporary use.
     fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
         // Reserve a few registers for the first locals of a function!
@@ -1933,16 +1952,18 @@ impl Machine for MachineRiscv {
 
     fn get_used_gprs(&self) -> Vec<Self::GPR> {
         GPR::iterator()
-            .filter(|x| self.used_gprs & (1 << x.into_index()) != 0)
+            .filter(|x| self.used_gprs.contains(x.into_index()))
             .cloned()
             .collect()
     }
+
     fn get_used_simd(&self) -> Vec<Self::SIMD> {
         FPR::iterator()
-            .filter(|x| self.used_fprs & (1 << x.into_index()) != 0)
+            .filter(|x| self.used_fprs.contains(x.into_index()))
             .cloned()
             .collect()
     }
+
     fn acquire_temp_gpr(&mut self) -> Option<Self::GPR> {
         let gpr = self.pick_temp_gpr();
         if let Some(x) = gpr {
@@ -1950,29 +1971,35 @@ impl Machine for MachineRiscv {
         }
         gpr
     }
+
     fn release_gpr(&mut self, gpr: Self::GPR) {
         assert!(self.used_gprs_remove(&gpr));
     }
+
     fn reserve_unused_temp_gpr(&mut self, gpr: Self::GPR) -> Self::GPR {
         assert!(!self.used_gprs_contains(&gpr));
         self.used_gprs_insert(gpr);
         gpr
     }
+
     fn reserve_gpr(&mut self, gpr: Self::GPR) {
         self.used_gprs_insert(gpr);
     }
+
     fn push_used_gpr(&mut self, used_gprs: &[Self::GPR]) -> Result<usize, CompileError> {
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r))?;
         }
         Ok(used_gprs.len() * 16)
     }
+
     fn pop_used_gpr(&mut self, used_gprs: &[Self::GPR]) -> Result<(), CompileError> {
         for r in used_gprs.iter().rev() {
             self.emit_pop(Size::S64, Location::GPR(*r))?;
         }
         Ok(())
     }
+
     fn pick_simd(&self) -> Option<Self::SIMD> {
         use FPR::*;
         static REGS: &[FPR] = &[F0, F1, F2, F3, F4, F5, F6, F7];
@@ -1984,7 +2011,6 @@ impl Machine for MachineRiscv {
         None
     }
 
-    // Picks an unused FP register for internal temporary use.
     fn pick_temp_simd(&self) -> Option<FPR> {
         use FPR::*;
         static REGS: &[FPR] = &[F28, F29, F31];
@@ -2003,9 +2029,11 @@ impl Machine for MachineRiscv {
         }
         fpr
     }
+
     fn reserve_simd(&mut self, fpr: Self::SIMD) {
         self.used_fprs_insert(fpr);
     }
+
     fn release_simd(&mut self, fpr: Self::SIMD) {
         assert!(self.used_fprs_remove(&fpr));
     }
@@ -2023,6 +2051,7 @@ impl Machine for MachineRiscv {
         }
         Ok(stack_adjust as usize)
     }
+
     fn pop_used_simd(&mut self, used_neons: &[Self::SIMD]) -> Result<(), CompileError> {
         for (i, r) in used_neons.iter().enumerate() {
             self.assembler.emit_ld(
@@ -2041,16 +2070,6 @@ impl Machine for MachineRiscv {
         )
     }
 
-    // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
-    fn round_stack_adjust(&self, value: usize) -> usize {
-        if value & 0xf != 0 {
-            ((value >> 4) + 1) << 4
-        } else {
-            value
-        }
-    }
-
-    /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32) {
         self.src_loc = offset;
     }
@@ -2061,17 +2080,19 @@ impl Machine for MachineRiscv {
         }
         self.mark_instruction_address_end(begin);
     }
+
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
         self.mark_instruction_address_end(offset);
     }
-    /// Marks the instruction as trappable with trap code `code`. return "begin" offset
+
     fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
         offset
     }
+
     fn mark_instruction_address_end(&mut self, begin: usize) {
         self.instructions_address_map.push(InstructionAddressMap {
             srcloc: SourceLoc::new(self.src_loc),
@@ -2079,7 +2100,7 @@ impl Machine for MachineRiscv {
             code_len: self.assembler.get_offset().0 - begin,
         });
     }
-    /// Insert a StackOverflow (at offset 0)
+
     fn insert_stackoverflow(&mut self) {
         let offset = 0;
         self.trap_table
@@ -2088,7 +2109,6 @@ impl Machine for MachineRiscv {
         self.mark_instruction_address_end(offset);
     }
 
-    /// Get all current TrapInformation
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
         self.trap_table
             .offset_to_code
@@ -2104,9 +2124,11 @@ impl Machine for MachineRiscv {
     fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
         self.instructions_address_map.clone()
     }
+
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         Location::Memory(GPR::Fp, -stack_offset)
     }
+
     fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         let delta = if ImmType::Bits12Subtraction.compatible_imm(delta_stack_offset as _) {
             Location::Imm64(delta_stack_offset as _)
@@ -2122,6 +2144,7 @@ impl Machine for MachineRiscv {
             Location::GPR(GPR::Sp),
         )
     }
+
     fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         let delta = if ImmType::Bits12.compatible_imm(delta_stack_offset as _) {
             Location::Imm64(delta_stack_offset as _)
@@ -2137,13 +2160,15 @@ impl Machine for MachineRiscv {
             Location::GPR(GPR::Sp),
         )
     }
+
     fn zero_location(&mut self, size: Size, location: Location) -> Result<(), CompileError> {
         self.move_location(size, Location::GPR(GPR::XZero), location)
     }
+
     fn local_pointer(&self) -> Self::GPR {
         GPR::Fp
     }
-    // push a value on the stack for a native call
+
     fn move_location_for_native(
         &mut self,
         _size: Size,
@@ -2166,7 +2191,6 @@ impl Machine for MachineRiscv {
         idx > 9
     }
 
-    // Determine a local's location.
     fn get_local_location(&self, idx: usize, callee_saved_regs_size: usize) -> Location {
         // Use callee-saved registers for the first locals.
         match idx {
@@ -2184,7 +2208,6 @@ impl Machine for MachineRiscv {
         }
     }
 
-    // Move a local to the stack
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
         self.move_location(
             Size::S64,
@@ -2205,12 +2228,8 @@ impl Machine for MachineRiscv {
         }
         Ok(())
     }
-    fn list_to_save(&self, _calling_convention: CallingConvention) -> Vec<Location> {
-        vec![]
-    }
 
-    /// Get registers for first N function call parameters.
-    fn get_param_registers(&self, _calling_convention: CallingConvention) -> &'static [Self::GPR] {
+    fn get_param_registers(&self) -> &'static [Self::GPR] {
         &[
             GPR::X10,
             GPR::X11,
@@ -2228,9 +2247,9 @@ impl Machine for MachineRiscv {
         idx: usize,
         _sz: Size,
         stack_args: &mut usize,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Location {
-        let register_params: &[GPR] = self.get_param_registers(calling_convention);
+        let register_params: &[GPR] = self.get_param_registers();
         if let Some(reg) = register_params.get(idx) {
             Location::GPR(*reg)
         } else {
@@ -2239,44 +2258,59 @@ impl Machine for MachineRiscv {
             loc
         }
     }
-    // Get call param location, MUST be called in order!
+
     fn get_call_param_location(
         &self,
         return_slots: usize,
         idx: usize,
         _sz: Size,
         stack_args: &mut usize,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Location {
         let return_values_memory_size =
             8 * return_slots.saturating_sub(RISCV_RETURN_VALUE_REGISTERS.len()) as i32;
-        self.get_param_registers(calling_convention)
-            .get(idx)
-            .map_or_else(
-                || {
-                    let loc = Location::Memory(
-                        GPR::Fp,
-                        16 + return_values_memory_size + *stack_args as i32,
-                    );
-                    *stack_args += 8;
-                    loc
-                },
-                |reg| Location::GPR(*reg),
-            )
+        self.get_param_registers().get(idx).map_or_else(
+            || {
+                let loc =
+                    Location::Memory(GPR::Fp, 16 + return_values_memory_size + *stack_args as i32);
+                *stack_args += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
     }
-    fn get_simple_param_location(
-        &self,
-        idx: usize,
-        calling_convention: CallingConvention,
-    ) -> Self::GPR {
-        self.get_param_registers(calling_convention)[idx]
+
+    fn get_simple_param_location(&self, idx: usize) -> Self::GPR {
+        self.get_param_registers()[idx]
+    }
+
+    fn adjust_gpr_param_location(
+        &mut self,
+        register: Self::GPR,
+        size: Size,
+    ) -> Result<(), CompileError> {
+        // https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/rv64.html
+        // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
+        // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
+        // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
+        match size {
+            Size::S64 => Ok(()),
+            Size::S32 => self.assembler.emit_extend(
+                Size::S32,
+                true,
+                Location::GPR(register),
+                Location::GPR(register),
+            ),
+            Size::S8 | Size::S16 => {
+                codegen_error!("singlepass adjust_gpr_param_location unreachable")
+            }
+        }
     }
 
     fn get_return_value_location(
         &self,
         idx: usize,
         stack_location: &mut usize,
-        _calling_convention: CallingConvention,
     ) -> AbstractLocation<Self::GPR, Self::SIMD> {
         RISCV_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
@@ -2291,7 +2325,6 @@ impl Machine for MachineRiscv {
     fn get_call_return_value_location(
         &self,
         idx: usize,
-        _calling_convention: CallingConvention,
     ) -> AbstractLocation<Self::GPR, Self::SIMD> {
         RISCV_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
@@ -2304,7 +2337,6 @@ impl Machine for MachineRiscv {
         )
     }
 
-    // move a location to another
     fn move_location(
         &mut self,
         size: Size,
@@ -2364,7 +2396,6 @@ impl Machine for MachineRiscv {
         }
     }
 
-    // move a location to another
     fn move_location_extend(
         &mut self,
         size_val: Size,
@@ -2409,7 +2440,6 @@ impl Machine for MachineRiscv {
         Ok(())
     }
 
-    // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
         init_stack_loc_cnt: u64,
@@ -2482,7 +2512,6 @@ impl Machine for MachineRiscv {
         Ok(())
     }
 
-    // Restore save_area
     fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError> {
         self.assembler.emit_sub(
             Size::S64,
@@ -2492,10 +2521,10 @@ impl Machine for MachineRiscv {
         )
     }
 
-    // Pop a location
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.emit_pop(Size::S64, location)
     }
+
     fn assembler_finalize(
         self,
         assembly_comments: HashMap<usize, AssemblyComment>,
@@ -2507,9 +2536,11 @@ impl Machine for MachineRiscv {
             assembly_comments,
         })
     }
+
     fn get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
+
     fn finalize_function(&mut self) -> Result<(), CompileError> {
         self.assembler.finalize_function()?;
         Ok(())
@@ -2573,10 +2604,12 @@ impl Machine for MachineRiscv {
 
         Ok(())
     }
+
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::X10), Location::SIMD(FPR::F10))
     }
+
     fn canonicalize_nan(
         &mut self,
         sz: Size,
@@ -2584,7 +2617,7 @@ impl Machine for MachineRiscv {
         output: Location,
     ) -> Result<(), CompileError> {
         let mut temps = vec![];
-        // use FMAX (input, intput) => output to automaticaly normalize the NaN
+        // use FMAX (input, input) => output to automatically normalize the NaN
         match (sz, input, output) {
             (Size::S32, Location::SIMD(_), Location::SIMD(_)) => {
                 self.assembler.emit_fmax(sz, input, input, output)?;
@@ -2618,33 +2651,41 @@ impl Machine for MachineRiscv {
         }
         Ok(())
     }
+
     fn emit_illegal_op(&mut self, trap: TrapCode) -> Result<(), CompileError> {
         let offset = self.assembler.get_offset().0;
         self.assembler.emit_udf(trap as u8)?;
         self.mark_instruction_address_end(offset);
         Ok(())
     }
+
     fn get_label(&mut self) -> Label {
         self.assembler.new_dynamic_label()
     }
+
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
+
     fn get_gpr_for_call(&self) -> Self::GPR {
         GPR::X1
     }
+
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError> {
         self.assembler.emit_call_register(register)
     }
+
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
     }
+
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
         _location: Location,
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass arch_emit_indirect_call_with_trampoline unimplemented")
     }
+
     fn emit_call_location(&mut self, location: Location) -> Result<(), CompileError> {
         let mut temps = vec![];
         let loc = self.location_to_reg(
@@ -2664,9 +2705,11 @@ impl Machine for MachineRiscv {
         }
         Ok(())
     }
+
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_brk()
     }
+
     fn location_add(
         &mut self,
         size: Size,
@@ -2686,6 +2729,7 @@ impl Machine for MachineRiscv {
         }
         Ok(())
     }
+
     fn location_cmp(
         &mut self,
         _size: Size,
@@ -2694,6 +2738,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass location_cmp not implemented")
     }
+
     fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -2702,6 +2747,7 @@ impl Machine for MachineRiscv {
         self.release_gpr(tmp);
         Ok(())
     }
+
     fn jmp_on_condition(
         &mut self,
         cond: UnsignedCondition,
@@ -2741,7 +2787,6 @@ impl Machine for MachineRiscv {
         Ok(())
     }
 
-    // jmp table
     fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) -> Result<(), CompileError> {
         let tmp1 = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -2777,16 +2822,19 @@ impl Machine for MachineRiscv {
         // nothing to do on RISC-V
         Ok(())
     }
+
     fn emit_ret(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_ret()
     }
+
     fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         self.assembler.emit_push(size, loc)
     }
+
     fn emit_pop(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         self.assembler.emit_pop(size, loc)
     }
-    // relaxed binop based...
+
     fn emit_relaxed_mov(
         &mut self,
         sz: Size,
@@ -2795,6 +2843,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(Assembler::emit_mov, sz, src, dst)
     }
+
     fn emit_relaxed_cmp(
         &mut self,
         _sz: Size,
@@ -2803,9 +2852,11 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         todo!();
     }
+
     fn emit_memory_fence(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_rwfence()
     }
+
     fn emit_relaxed_sign_extension(
         &mut self,
         sz_src: Size,
@@ -2850,6 +2901,7 @@ impl Machine for MachineRiscv {
 
         Ok(())
     }
+
     fn emit_imul_imm32(
         &mut self,
         size: Size,
@@ -2870,6 +2922,7 @@ impl Machine for MachineRiscv {
         self.release_gpr(tmp);
         Ok(())
     }
+
     fn emit_binop_add32(
         &mut self,
         loc_a: Location,
@@ -2885,6 +2938,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12,
         )
     }
+
     fn emit_binop_sub32(
         &mut self,
         loc_a: Location,
@@ -2900,6 +2954,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12Subtraction,
         )
     }
+
     fn emit_binop_mul32(
         &mut self,
         loc_a: Location,
@@ -2915,6 +2970,7 @@ impl Machine for MachineRiscv {
             ImmType::None,
         )
     }
+
     fn emit_binop_udiv32(
         &mut self,
         loc_a: Location,
@@ -2944,6 +3000,7 @@ impl Machine for MachineRiscv {
         }
         Ok(offset)
     }
+
     fn emit_binop_sdiv32(
         &mut self,
         loc_a: Location,
@@ -2991,6 +3048,7 @@ impl Machine for MachineRiscv {
         }
         Ok(offset)
     }
+
     fn emit_binop_urem32(
         &mut self,
         loc_a: Location,
@@ -3020,6 +3078,7 @@ impl Machine for MachineRiscv {
         }
         Ok(offset)
     }
+
     fn emit_binop_srem32(
         &mut self,
         loc_a: Location,
@@ -3049,6 +3108,7 @@ impl Machine for MachineRiscv {
         }
         Ok(offset)
     }
+
     fn emit_binop_and32(
         &mut self,
         loc_a: Location,
@@ -3064,6 +3124,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12,
         )
     }
+
     fn emit_binop_or32(
         &mut self,
         loc_a: Location,
@@ -3079,6 +3140,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12,
         )
     }
+
     fn emit_binop_xor32(
         &mut self,
         loc_a: Location,
@@ -3094,6 +3156,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12,
         )
     }
+
     fn i32_cmp_ge_s(
         &mut self,
         loc_a: Location,
@@ -3102,6 +3165,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Ge, loc_a, loc_b, ret, true)
     }
+
     fn i32_cmp_gt_s(
         &mut self,
         loc_a: Location,
@@ -3110,6 +3174,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Gt, loc_a, loc_b, ret, true)
     }
+
     fn i32_cmp_le_s(
         &mut self,
         loc_a: Location,
@@ -3118,6 +3183,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Le, loc_a, loc_b, ret, true)
     }
+
     fn i32_cmp_lt_s(
         &mut self,
         loc_a: Location,
@@ -3126,6 +3192,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Lt, loc_a, loc_b, ret, true)
     }
+
     fn i32_cmp_ge_u(
         &mut self,
         loc_a: Location,
@@ -3134,6 +3201,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Geu, loc_a, loc_b, ret, false)
     }
+
     fn i32_cmp_gt_u(
         &mut self,
         loc_a: Location,
@@ -3142,6 +3210,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Gtu, loc_a, loc_b, ret, false)
     }
+
     fn i32_cmp_le_u(
         &mut self,
         loc_a: Location,
@@ -3150,6 +3219,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Leu, loc_a, loc_b, ret, false)
     }
+
     fn i32_cmp_lt_u(
         &mut self,
         loc_a: Location,
@@ -3158,6 +3228,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Ltu, loc_a, loc_b, ret, false)
     }
+
     fn i32_cmp_ne(
         &mut self,
         loc_a: Location,
@@ -3166,6 +3237,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Ne, loc_a, loc_b, ret, true)
     }
+
     fn i32_cmp_eq(
         &mut self,
         loc_a: Location,
@@ -3174,15 +3246,19 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Eq, loc_a, loc_b, ret, true)
     }
+
     fn i32_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_clz(Size::S32, loc, ret)
     }
+
     fn i32_ctz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_ctz(Size::S32, loc, ret)
     }
+
     fn i32_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_popcnt(Size::S32, loc, ret)
     }
+
     fn i32_shl(
         &mut self,
         loc_a: Location,
@@ -3198,6 +3274,7 @@ impl Machine for MachineRiscv {
             ImmType::Shift32,
         )
     }
+
     fn i32_shr(
         &mut self,
         loc_a: Location,
@@ -3213,6 +3290,7 @@ impl Machine for MachineRiscv {
             ImmType::Shift32,
         )
     }
+
     fn i32_sar(
         &mut self,
         loc_a: Location,
@@ -3228,6 +3306,7 @@ impl Machine for MachineRiscv {
             ImmType::Shift32,
         )
     }
+
     fn i32_rol(
         &mut self,
         loc_a: Location,
@@ -3236,6 +3315,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_rol(Size::S32, loc_a, loc_b, ret, ImmType::Shift32)
     }
+
     fn i32_ror(
         &mut self,
         loc_a: Location,
@@ -3244,6 +3324,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_ror(Size::S32, loc_a, loc_b, ret, ImmType::Shift32)
     }
+
     fn i32_load(
         &mut self,
         addr: Location,
@@ -3267,6 +3348,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S32, true, ret, addr),
         )
     }
+
     fn i32_load_8u(
         &mut self,
         addr: Location,
@@ -3290,6 +3372,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S8, false, ret, addr),
         )
     }
+
     fn i32_load_8s(
         &mut self,
         addr: Location,
@@ -3313,6 +3396,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S8, true, ret, addr),
         )
     }
+
     fn i32_load_16u(
         &mut self,
         addr: Location,
@@ -3336,6 +3420,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S16, false, ret, addr),
         )
     }
+
     fn i32_load_16s(
         &mut self,
         addr: Location,
@@ -3359,6 +3444,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S16, true, ret, addr),
         )
     }
+
     fn i32_atomic_load(
         &mut self,
         addr: Location,
@@ -3382,6 +3468,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_load(Size::S32, true, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn i32_atomic_load_8u(
         &mut self,
         addr: Location,
@@ -3402,9 +3489,10 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S8, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_relaxed_load(Size::S8, false, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn i32_atomic_load_16u(
         &mut self,
         addr: Location,
@@ -3425,9 +3513,10 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S16, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_relaxed_load(Size::S16, false, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn i32_save(
         &mut self,
         value: Location,
@@ -3451,6 +3540,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_store(Size::S32, value, addr),
         )
     }
+
     fn i32_save_8(
         &mut self,
         value: Location,
@@ -3474,6 +3564,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_store(Size::S8, value, addr),
         )
     }
+
     fn i32_save_16(
         &mut self,
         value: Location,
@@ -3497,6 +3588,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_store(Size::S16, value, addr),
         )
     }
+
     fn i32_atomic_save(
         &mut self,
         value: Location,
@@ -3521,6 +3613,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_rwfence()
     }
+
     fn i32_atomic_save_8(
         &mut self,
         value: Location,
@@ -3545,6 +3638,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_rwfence()
     }
+
     fn i32_atomic_save_16(
         &mut self,
         value: Location,
@@ -3569,6 +3663,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_rwfence()
     }
+
     fn i32_atomic_add(
         &mut self,
         loc: Location,
@@ -3595,6 +3690,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_add_8u(
         &mut self,
         loc: Location,
@@ -3621,6 +3717,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_add_16u(
         &mut self,
         loc: Location,
@@ -3647,6 +3744,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_sub(
         &mut self,
         loc: Location,
@@ -3673,6 +3771,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_sub_8u(
         &mut self,
         loc: Location,
@@ -3699,6 +3798,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_sub_16u(
         &mut self,
         loc: Location,
@@ -3725,6 +3825,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_and(
         &mut self,
         loc: Location,
@@ -3751,6 +3852,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_and_8u(
         &mut self,
         loc: Location,
@@ -3777,6 +3879,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_and_16u(
         &mut self,
         loc: Location,
@@ -3803,6 +3906,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_or(
         &mut self,
         loc: Location,
@@ -3829,6 +3933,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_or_8u(
         &mut self,
         loc: Location,
@@ -3855,6 +3960,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_or_16u(
         &mut self,
         loc: Location,
@@ -3881,6 +3987,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_xor(
         &mut self,
         loc: Location,
@@ -3907,6 +4014,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_xor_8u(
         &mut self,
         loc: Location,
@@ -3933,6 +4041,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_xor_16u(
         &mut self,
         loc: Location,
@@ -3959,6 +4068,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_xchg(
         &mut self,
         loc: Location,
@@ -3985,6 +4095,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_xchg_8u(
         &mut self,
         loc: Location,
@@ -4011,6 +4122,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_xchg_16u(
         &mut self,
         loc: Location,
@@ -4037,6 +4149,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i32_atomic_cmpxchg(
         &mut self,
         new: Location,
@@ -4062,6 +4175,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S32, ret, addr, new, cmp),
         )
     }
+
     fn i32_atomic_cmpxchg_8u(
         &mut self,
         new: Location,
@@ -4087,6 +4201,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S8, ret, addr, new, cmp),
         )
     }
+
     fn i32_atomic_cmpxchg_16u(
         &mut self,
         new: Location,
@@ -4112,9 +4227,9 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S16, ret, addr, new, cmp),
         )
     }
+
     fn emit_call_with_reloc(
         &mut self,
-        _calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
     ) -> Result<Vec<Relocation>, CompileError> {
         let mut relocations = vec![];
@@ -4130,6 +4245,7 @@ impl Machine for MachineRiscv {
         });
         Ok(relocations)
     }
+
     fn emit_binop_add64(
         &mut self,
         loc_a: Location,
@@ -4145,6 +4261,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12,
         )
     }
+
     fn emit_binop_sub64(
         &mut self,
         loc_a: Location,
@@ -4160,6 +4277,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12Subtraction,
         )
     }
+
     fn emit_binop_mul64(
         &mut self,
         loc_a: Location,
@@ -4175,6 +4293,7 @@ impl Machine for MachineRiscv {
             ImmType::None,
         )
     }
+
     fn emit_binop_udiv64(
         &mut self,
         loc_a: Location,
@@ -4204,6 +4323,7 @@ impl Machine for MachineRiscv {
         }
         Ok(offset)
     }
+
     fn emit_binop_sdiv64(
         &mut self,
         loc_a: Location,
@@ -4252,6 +4372,7 @@ impl Machine for MachineRiscv {
         }
         Ok(offset)
     }
+
     fn emit_binop_urem64(
         &mut self,
         loc_a: Location,
@@ -4281,6 +4402,7 @@ impl Machine for MachineRiscv {
         }
         Ok(offset)
     }
+
     fn emit_binop_srem64(
         &mut self,
         loc_a: Location,
@@ -4310,6 +4432,7 @@ impl Machine for MachineRiscv {
         }
         Ok(offset)
     }
+
     fn emit_binop_and64(
         &mut self,
         loc_a: Location,
@@ -4325,6 +4448,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12,
         )
     }
+
     fn emit_binop_or64(
         &mut self,
         loc_a: Location,
@@ -4340,6 +4464,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12,
         )
     }
+
     fn emit_binop_xor64(
         &mut self,
         loc_a: Location,
@@ -4355,6 +4480,7 @@ impl Machine for MachineRiscv {
             ImmType::Bits12,
         )
     }
+
     fn i64_cmp_ge_s(
         &mut self,
         loc_a: Location,
@@ -4363,6 +4489,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Ge, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_gt_s(
         &mut self,
         loc_a: Location,
@@ -4371,6 +4498,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Gt, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_le_s(
         &mut self,
         loc_a: Location,
@@ -4379,6 +4507,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Le, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_lt_s(
         &mut self,
         loc_a: Location,
@@ -4387,6 +4516,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Lt, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_ge_u(
         &mut self,
         loc_a: Location,
@@ -4395,6 +4525,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Geu, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_gt_u(
         &mut self,
         loc_a: Location,
@@ -4403,6 +4534,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Gtu, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_le_u(
         &mut self,
         loc_a: Location,
@@ -4411,6 +4543,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Leu, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_lt_u(
         &mut self,
         loc_a: Location,
@@ -4419,6 +4552,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Ltu, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_ne(
         &mut self,
         loc_a: Location,
@@ -4427,6 +4561,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Ne, loc_a, loc_b, ret)
     }
+
     fn i64_cmp_eq(
         &mut self,
         loc_a: Location,
@@ -4435,15 +4570,19 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Eq, loc_a, loc_b, ret)
     }
+
     fn i64_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_clz(Size::S64, loc, ret)
     }
+
     fn i64_ctz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_ctz(Size::S64, loc, ret)
     }
+
     fn i64_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_popcnt(Size::S64, loc, ret)
     }
+
     fn i64_shl(
         &mut self,
         loc_a: Location,
@@ -4459,6 +4598,7 @@ impl Machine for MachineRiscv {
             ImmType::Shift64,
         )
     }
+
     fn i64_shr(
         &mut self,
         loc_a: Location,
@@ -4474,6 +4614,7 @@ impl Machine for MachineRiscv {
             ImmType::Shift64,
         )
     }
+
     fn i64_sar(
         &mut self,
         loc_a: Location,
@@ -4489,6 +4630,7 @@ impl Machine for MachineRiscv {
             ImmType::Shift64,
         )
     }
+
     fn i64_rol(
         &mut self,
         loc_a: Location,
@@ -4497,6 +4639,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_rol(Size::S64, loc_a, loc_b, ret, ImmType::Shift64)
     }
+
     fn i64_ror(
         &mut self,
         loc_a: Location,
@@ -4505,6 +4648,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_ror(Size::S64, loc_a, loc_b, ret, ImmType::Shift64)
     }
+
     fn i64_load(
         &mut self,
         addr: Location,
@@ -4528,6 +4672,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S64, true, ret, addr),
         )
     }
+
     fn i64_load_8u(
         &mut self,
         addr: Location,
@@ -4551,6 +4696,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S8, false, ret, addr),
         )
     }
+
     fn i64_load_8s(
         &mut self,
         addr: Location,
@@ -4574,6 +4720,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S8, true, ret, addr),
         )
     }
+
     fn i64_load_32u(
         &mut self,
         addr: Location,
@@ -4597,6 +4744,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S32, false, ret, addr),
         )
     }
+
     fn i64_load_32s(
         &mut self,
         addr: Location,
@@ -4620,6 +4768,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S32, true, ret, addr),
         )
     }
+
     fn i64_load_16u(
         &mut self,
         addr: Location,
@@ -4643,6 +4792,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S16, false, ret, addr),
         )
     }
+
     fn i64_load_16s(
         &mut self,
         addr: Location,
@@ -4666,6 +4816,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_load(Size::S16, true, ret, addr),
         )
     }
+
     fn i64_atomic_load(
         &mut self,
         addr: Location,
@@ -4689,6 +4840,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_load(Size::S64, true, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn i64_atomic_load_8u(
         &mut self,
         addr: Location,
@@ -4712,6 +4864,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_load(Size::S8, false, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn i64_atomic_load_16u(
         &mut self,
         addr: Location,
@@ -4735,6 +4888,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_load(Size::S16, false, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn i64_atomic_load_32u(
         &mut self,
         addr: Location,
@@ -4758,6 +4912,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_load(Size::S32, false, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn i64_save(
         &mut self,
         value: Location,
@@ -4781,6 +4936,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_store(Size::S64, value, addr),
         )
     }
+
     fn i64_save_8(
         &mut self,
         value: Location,
@@ -4804,6 +4960,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_store(Size::S8, value, addr),
         )
     }
+
     fn i64_save_16(
         &mut self,
         value: Location,
@@ -4827,6 +4984,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_store(Size::S16, value, addr),
         )
     }
+
     fn i64_save_32(
         &mut self,
         value: Location,
@@ -4850,6 +5008,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_maybe_unaligned_store(Size::S32, value, addr),
         )
     }
+
     fn i64_atomic_save(
         &mut self,
         value: Location,
@@ -4874,6 +5033,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_rwfence()
     }
+
     fn i64_atomic_save_8(
         &mut self,
         value: Location,
@@ -4898,6 +5058,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_rwfence()
     }
+
     fn i64_atomic_save_16(
         &mut self,
         value: Location,
@@ -4922,6 +5083,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_rwfence()
     }
+
     fn i64_atomic_save_32(
         &mut self,
         value: Location,
@@ -4946,6 +5108,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_rwfence()
     }
+
     fn i64_atomic_add(
         &mut self,
         loc: Location,
@@ -4972,6 +5135,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_add_8u(
         &mut self,
         loc: Location,
@@ -4998,6 +5162,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_add_16u(
         &mut self,
         loc: Location,
@@ -5024,6 +5189,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_add_32u(
         &mut self,
         loc: Location,
@@ -5050,6 +5216,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_sub(
         &mut self,
         loc: Location,
@@ -5076,6 +5243,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_sub_8u(
         &mut self,
         loc: Location,
@@ -5102,6 +5270,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_sub_16u(
         &mut self,
         loc: Location,
@@ -5128,6 +5297,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_sub_32u(
         &mut self,
         loc: Location,
@@ -5154,6 +5324,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_and(
         &mut self,
         loc: Location,
@@ -5180,6 +5351,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_and_8u(
         &mut self,
         loc: Location,
@@ -5206,6 +5378,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_and_16u(
         &mut self,
         loc: Location,
@@ -5232,6 +5405,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_and_32u(
         &mut self,
         loc: Location,
@@ -5258,6 +5432,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_or(
         &mut self,
         loc: Location,
@@ -5284,6 +5459,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_or_8u(
         &mut self,
         loc: Location,
@@ -5310,6 +5486,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_or_16u(
         &mut self,
         loc: Location,
@@ -5336,6 +5513,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_or_32u(
         &mut self,
         loc: Location,
@@ -5362,6 +5540,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_xor(
         &mut self,
         loc: Location,
@@ -5388,6 +5567,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_xor_8u(
         &mut self,
         loc: Location,
@@ -5414,6 +5594,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_xor_16u(
         &mut self,
         loc: Location,
@@ -5440,6 +5621,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_xor_32u(
         &mut self,
         loc: Location,
@@ -5466,6 +5648,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_xchg(
         &mut self,
         loc: Location,
@@ -5492,6 +5675,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_xchg_8u(
         &mut self,
         loc: Location,
@@ -5518,6 +5702,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_xchg_16u(
         &mut self,
         loc: Location,
@@ -5544,6 +5729,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_xchg_32u(
         &mut self,
         loc: Location,
@@ -5570,6 +5756,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn i64_atomic_cmpxchg(
         &mut self,
         new: Location,
@@ -5595,6 +5782,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S64, ret, addr, new, cmp),
         )
     }
+
     fn i64_atomic_cmpxchg_8u(
         &mut self,
         new: Location,
@@ -5620,6 +5808,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S8, ret, addr, new, cmp),
         )
     }
+
     fn i64_atomic_cmpxchg_16u(
         &mut self,
         new: Location,
@@ -5645,6 +5834,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S16, ret, addr, new, cmp),
         )
     }
+
     fn i64_atomic_cmpxchg_32u(
         &mut self,
         new: Location,
@@ -5670,6 +5860,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S32, ret, addr, new, cmp),
         )
     }
+
     fn f32_load(
         &mut self,
         addr: Location,
@@ -5693,6 +5884,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_load(Size::S32, false, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn f32_save(
         &mut self,
         value: Location,
@@ -5723,6 +5915,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn f64_load(
         &mut self,
         addr: Location,
@@ -5746,6 +5939,7 @@ impl Machine for MachineRiscv {
             |this, addr| this.emit_relaxed_load(Size::S64, false, ret, Location::Memory(addr, 0)),
         )
     }
+
     fn f64_save(
         &mut self,
         value: Location,
@@ -5776,6 +5970,7 @@ impl Machine for MachineRiscv {
             },
         )
     }
+
     fn convert_f64_i64(
         &mut self,
         loc: Location,
@@ -5784,6 +5979,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.convert_int_to_float(loc, Size::S64, ret, Size::S64, signed)
     }
+
     fn convert_f64_i32(
         &mut self,
         loc: Location,
@@ -5792,6 +5988,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.convert_int_to_float(loc, Size::S32, ret, Size::S64, signed)
     }
+
     fn convert_f32_i64(
         &mut self,
         loc: Location,
@@ -5800,6 +5997,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.convert_int_to_float(loc, Size::S64, ret, Size::S32, signed)
     }
+
     fn convert_f32_i32(
         &mut self,
         loc: Location,
@@ -5808,6 +6006,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.convert_int_to_float(loc, Size::S32, ret, Size::S32, signed)
     }
+
     fn convert_i64_f64(
         &mut self,
         loc: Location,
@@ -5817,6 +6016,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.convert_float_to_int(loc, Size::S64, ret, Size::S64, signed, sat)
     }
+
     fn convert_i32_f64(
         &mut self,
         loc: Location,
@@ -5826,6 +6026,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.convert_float_to_int(loc, Size::S64, ret, Size::S32, signed, sat)
     }
+
     fn convert_i64_f32(
         &mut self,
         loc: Location,
@@ -5835,6 +6036,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.convert_float_to_int(loc, Size::S32, ret, Size::S64, signed, sat)
     }
+
     fn convert_i32_f32(
         &mut self,
         loc: Location,
@@ -5844,15 +6046,19 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.convert_float_to_int(loc, Size::S32, ret, Size::S32, signed, sat)
     }
+
     fn convert_f64_f32(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.convert_float_to_float(loc, Size::S32, ret, Size::S64)
     }
+
     fn convert_f32_f64(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.convert_float_to_float(loc, Size::S64, ret, Size::S32)
     }
+
     fn f64_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_binop_fp(Assembler::emit_fneg, Size::S64, loc, ret, true)
     }
+
     fn f64_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5876,6 +6082,7 @@ impl Machine for MachineRiscv {
         self.release_gpr(mask);
         Ok(())
     }
+
     fn emit_i64_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CompileError> {
         let mask = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -5907,21 +6114,27 @@ impl Machine for MachineRiscv {
             Location::GPR(tmp1),
         )
     }
+
     fn f64_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_binop_fp(Assembler::emit_fsqrt, Size::S64, loc, ret, true)
     }
+
     fn f64_trunc(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rtz, Size::S64, loc, ret)
     }
+
     fn f64_ceil(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rup, Size::S64, loc, ret)
     }
+
     fn f64_floor(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rdn, Size::S64, loc, ret)
     }
+
     fn f64_nearest(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rne, Size::S64, loc, ret)
     }
+
     fn f64_cmp_ge(
         &mut self,
         loc_a: Location,
@@ -5930,6 +6143,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Ge, Size::S64, loc_a, loc_b, ret)
     }
+
     fn f64_cmp_gt(
         &mut self,
         loc_a: Location,
@@ -5938,6 +6152,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Gt, Size::S64, loc_a, loc_b, ret)
     }
+
     fn f64_cmp_le(
         &mut self,
         loc_a: Location,
@@ -5946,6 +6161,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Le, Size::S64, loc_a, loc_b, ret)
     }
+
     fn f64_cmp_lt(
         &mut self,
         loc_a: Location,
@@ -5954,6 +6170,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Lt, Size::S64, loc_a, loc_b, ret)
     }
+
     fn f64_cmp_ne(
         &mut self,
         loc_a: Location,
@@ -5962,6 +6179,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Ne, Size::S64, loc_a, loc_b, ret)
     }
+
     fn f64_cmp_eq(
         &mut self,
         loc_a: Location,
@@ -5970,6 +6188,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Eq, Size::S64, loc_a, loc_b, ret)
     }
+
     fn f64_min(
         &mut self,
         loc_a: Location,
@@ -5986,6 +6205,7 @@ impl Machine for MachineRiscv {
             true,
         )
     }
+
     fn f64_max(
         &mut self,
         loc_a: Location,
@@ -6002,6 +6222,7 @@ impl Machine for MachineRiscv {
             true,
         )
     }
+
     fn f64_add(
         &mut self,
         loc_a: Location,
@@ -6018,6 +6239,7 @@ impl Machine for MachineRiscv {
             false,
         )
     }
+
     fn f64_sub(
         &mut self,
         loc_a: Location,
@@ -6034,6 +6256,7 @@ impl Machine for MachineRiscv {
             false,
         )
     }
+
     fn f64_mul(
         &mut self,
         loc_a: Location,
@@ -6050,6 +6273,7 @@ impl Machine for MachineRiscv {
             false,
         )
     }
+
     fn f64_div(
         &mut self,
         loc_a: Location,
@@ -6066,9 +6290,11 @@ impl Machine for MachineRiscv {
             false,
         )
     }
+
     fn f32_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_binop_fp(Assembler::emit_fneg, Size::S32, loc, ret, true)
     }
+
     fn f32_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -6092,6 +6318,7 @@ impl Machine for MachineRiscv {
         self.release_gpr(mask);
         Ok(())
     }
+
     fn emit_i32_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CompileError> {
         let mask = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -6123,21 +6350,27 @@ impl Machine for MachineRiscv {
             Location::GPR(tmp1),
         )
     }
+
     fn f32_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_binop_fp(Assembler::emit_fsqrt, Size::S32, loc, ret, true)
     }
+
     fn f32_trunc(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rtz, Size::S32, loc, ret)
     }
+
     fn f32_ceil(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rup, Size::S32, loc, ret)
     }
+
     fn f32_floor(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rdn, Size::S32, loc, ret)
     }
+
     fn f32_nearest(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rne, Size::S32, loc, ret)
     }
+
     fn f32_cmp_ge(
         &mut self,
         loc_a: Location,
@@ -6146,6 +6379,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Ge, Size::S32, loc_a, loc_b, ret)
     }
+
     fn f32_cmp_gt(
         &mut self,
         loc_a: Location,
@@ -6154,6 +6388,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Gt, Size::S32, loc_a, loc_b, ret)
     }
+
     fn f32_cmp_le(
         &mut self,
         loc_a: Location,
@@ -6162,6 +6397,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Le, Size::S32, loc_a, loc_b, ret)
     }
+
     fn f32_cmp_lt(
         &mut self,
         loc_a: Location,
@@ -6170,6 +6406,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Lt, Size::S32, loc_a, loc_b, ret)
     }
+
     fn f32_cmp_ne(
         &mut self,
         loc_a: Location,
@@ -6178,6 +6415,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Ne, Size::S32, loc_a, loc_b, ret)
     }
+
     fn f32_cmp_eq(
         &mut self,
         loc_a: Location,
@@ -6186,6 +6424,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_fcmp(Condition::Eq, Size::S32, loc_a, loc_b, ret)
     }
+
     fn f32_min(
         &mut self,
         loc_a: Location,
@@ -6202,6 +6441,7 @@ impl Machine for MachineRiscv {
             true,
         )
     }
+
     fn f32_max(
         &mut self,
         loc_a: Location,
@@ -6218,6 +6458,7 @@ impl Machine for MachineRiscv {
             true,
         )
     }
+
     fn f32_add(
         &mut self,
         loc_a: Location,
@@ -6234,6 +6475,7 @@ impl Machine for MachineRiscv {
             false,
         )
     }
+
     fn f32_sub(
         &mut self,
         loc_a: Location,
@@ -6250,6 +6492,7 @@ impl Machine for MachineRiscv {
             false,
         )
     }
+
     fn f32_mul(
         &mut self,
         loc_a: Location,
@@ -6266,6 +6509,7 @@ impl Machine for MachineRiscv {
             false,
         )
     }
+
     fn f32_div(
         &mut self,
         loc_a: Location,
@@ -6282,31 +6526,44 @@ impl Machine for MachineRiscv {
             false,
         )
     }
+
     fn gen_std_trampoline(
         &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_trampoline_riscv(sig, calling_convention)
+        gen_std_trampoline_riscv(sig, calling_convention, progress_callback)
     }
+
     fn gen_std_dynamic_import_trampoline(
         &self,
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         _calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_dynamic_import_trampoline_riscv(vmoffsets, sig)
+        gen_std_dynamic_import_trampoline_riscv(vmoffsets, sig, progress_callback)
     }
     // Singlepass calls import functions through a trampoline.
+
     fn gen_import_call_trampoline(
         &self,
         vmoffsets: &VMOffsets,
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<CustomSection, CompileError> {
-        gen_import_call_trampoline_riscv(vmoffsets, index, sig, calling_convention)
+        gen_import_call_trampoline_riscv(
+            vmoffsets,
+            index,
+            sig,
+            calling_convention,
+            progress_callback,
+        )
     }
+
     #[cfg(feature = "unwind")]
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
         let mut instructions = vec![];
@@ -6348,9 +6605,11 @@ impl Machine for MachineRiscv {
         })
     }
     #[cfg(not(feature = "unwind"))]
+
     fn gen_dwarf_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
         None
     }
+
     fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         None
     }

@@ -12,6 +12,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
+    state::PreparedInstanceGroupData,
     syscalls::platform_clock_time_get,
 };
 use futures::future::BoxFuture;
@@ -42,6 +43,32 @@ use webc::metadata::annotations::Wasi;
 
 pub use super::handles::*;
 use super::{Linker, WasiState, context_switching::ContextSwitchingEnvironment, conv_env_vars};
+
+async fn write_readonly_buffer_to_fs(
+    fs: &WasiFsRoot,
+    path: &Path,
+    contents: &shared_buffer::OwnedBuffer,
+) -> Result<(), FsError> {
+    if let Some(parent) = path.parent() {
+        virtual_fs::create_dir_all(fs, parent)?;
+    }
+
+    if let Some(root_fs) = fs.writable_root() {
+        return root_fs
+            .new_open_options_ext()
+            .insert_ro_file(path, contents.clone());
+    }
+
+    let mut file = fs
+        .new_open_options()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(path)?;
+    file.copy_from_owned_buffer(contents)
+        .await
+        .map_err(virtual_fs::FsError::from)
+}
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -101,6 +128,7 @@ impl WasiEnvInit {
                 args: std::sync::Mutex::new(self.state.args.lock().unwrap().clone()),
                 envs: std::sync::Mutex::new(self.state.envs.lock().unwrap().deref().clone()),
                 signals: std::sync::Mutex::new(self.state.signals.lock().unwrap().deref().clone()),
+                signal_handler_registered: std::sync::atomic::AtomicBool::new(false),
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
@@ -441,7 +469,7 @@ impl WasiEnv {
         memory: Option<Memory>,
         update_layout: bool,
         call_initialize: bool,
-        parent_linker_and_ctx: Option<(Linker, &mut FunctionEnvMut<WasiEnv>)>,
+        linker_instance_group_data: Option<PreparedInstanceGroupData>,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
         let pid = self.process.pid();
 
@@ -451,8 +479,10 @@ impl WasiEnv {
 
         let is_dl = super::linker::is_dynamically_linked(&module);
         if is_dl {
-            let linker = match parent_linker_and_ctx {
-                Some((linker, ctx)) => linker.create_instance_group(ctx, &mut store, &mut func_env),
+            let linker = match linker_instance_group_data {
+                Some(instance_group_data) => {
+                    Linker::create_instance_group(instance_group_data, &mut store, &mut func_env)
+                }
                 None => {
                     // FIXME: should we be storing envs as raw byte arrays?
                     let ld_library_path_owned;
@@ -513,22 +543,9 @@ impl WasiEnv {
             import_object.define("env", "memory", memory);
         }
         let runtime = func_env.data(&store).runtime.clone();
-        let additional_imports = runtime
-            .additional_imports(&module, &mut store)
-            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
-
-        for ((namespace, name), value) in &additional_imports {
-            // Downstream runtime imports must not override WASIX imports.
-            if import_object.exists(&namespace, &name) {
-                tracing::warn!(
-                    "Skipping duplicate additional import {}.{}",
-                    namespace,
-                    name
-                );
-            } else {
-                import_object.define(&namespace, &name, value);
-            }
-        }
+        let instantiation_state = runtime
+            .prepare_imports(&module, &mut store, &mut import_object)
+            .map_err(|err| WasiThreadError::ImportPreparationFailed(Arc::new(err)))?;
 
         let imported_memory = import_object
             .get_export("env", "memory")
@@ -554,8 +571,14 @@ impl WasiEnv {
         };
 
         runtime
-            .configure_new_instance(&module, &mut store, &instance, imported_memory.as_ref())
-            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
+            .configure_new_instance(
+                &module,
+                &mut store,
+                &instance,
+                imported_memory.as_ref(),
+                instantiation_state,
+            )
+            .map_err(|err| WasiThreadError::InstanceConfigurationFailed(Arc::new(err)))?;
 
         let handles = match imported_memory {
             Some(memory) => WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
@@ -671,7 +694,7 @@ impl WasiEnv {
         Ok(())
     }
 
-    /// Porcesses any signals that are batched up or any forced exit codes
+    /// Processes any signals that are batched up or any forced exit codes
     pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
@@ -680,7 +703,17 @@ impl WasiEnv {
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
-        if !inner.signal_set {
+        // Ask the process, not just this instance: a spawned thread has its own
+        // WasiModuleInstanceHandles and never sees the main instance's
+        // registration, so `inner.signal_set` alone would apply the default
+        // disposition on sibling threads and terminate a process that does
+        // handle the signal.
+        let handler_registered = inner.signal_set
+            || env
+                .state
+                .signal_handler_registered
+                .load(std::sync::atomic::Ordering::SeqCst);
+        if !handler_registered {
             let signals = env.thread.pop_signals();
             if !signals.is_empty() {
                 for sig in signals {
@@ -708,7 +741,7 @@ impl WasiEnv {
         Self::process_signals(ctx)
     }
 
-    /// Porcesses any signals that are batched up
+    /// Processes any signals that are batched up
     pub(crate) fn process_signals(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
@@ -718,7 +751,13 @@ impl WasiEnv {
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
         if !inner.signal_set {
-            return Ok(Ok(false));
+            // Process-directed signals are copied into every thread's queue,
+            // but the guest callback belongs only to the instance that
+            // registered it. A sibling instance must discard its copy after
+            // the process-wide registration suppressed the default disposition;
+            // otherwise that copy remains queued forever.
+            let drained = !env.thread.pop_signals().is_empty();
+            return Ok(Ok(drained));
         }
 
         // Check for any signals that we need to trigger
@@ -1061,6 +1100,10 @@ impl WasiEnv {
         (state, inodes)
     }
 
+    pub(crate) fn get_wasi_state(&self) -> &WasiState {
+        self.state.deref()
+    }
+
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
         block_on(self.use_package_async(pkg))
     }
@@ -1071,11 +1114,11 @@ impl WasiEnv {
     /// The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
     /// `/bin/command`.
     ///
-    /// This will also merge the command's filesystem
-    /// ([`BinaryPackage::webc_fs`][pkg-fs]) into the current filesystem.
+    /// This will also merge the package's mount manifest
+    /// ([`BinaryPackage::package_mounts`][pkg-fs]) into the current filesystem.
     ///
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
-    /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
+    /// [pkg-fs]: crate::bin_factory::BinaryPackage::package_mounts
     pub async fn use_package_async(
         &self,
         pkg: &BinaryPackage,
@@ -1083,12 +1126,12 @@ impl WasiEnv {
         tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
-        // We first need to merge the filesystem in the package into the
-        // main file system, if it has not been merged already.
+        // We first need to merge the package mounts into the main
+        // filesystem, if they have not been merged already.
         if let Err(e) = self.state.fs.conditional_union(pkg).await {
             tracing::warn!(
                 error = &e as &dyn std::error::Error,
-                "Unable to merge the package's filesystem into the main one",
+                "Unable to merge the package mounts into the main filesystem",
             );
         }
 
@@ -1107,75 +1150,23 @@ impl WasiEnv {
 
                 let atom = command.atom();
 
-                match root_fs {
-                    WasiFsRoot::Sandbox(root_fs) => {
-                        if let Err(err) = root_fs
-                            .new_open_options_ext()
-                            .insert_ro_file(path, atom.clone())
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                    }
-                    WasiFsRoot::Overlay(ofs) => {
-                        let root_fs = ofs.primary();
-
-                        if let Err(err) = root_fs
-                            .new_open_options_ext()
-                            .insert_ro_file(path, atom.clone())
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
-                        {
-                            tracing::debug!(
-                                "failed to add package [{}] command [{}] - {}",
-                                pkg.id,
-                                command.name(),
-                                err
-                            );
-                            continue;
-                        }
-                    }
-                    WasiFsRoot::Backing(fs) => {
-                        // FIXME: we're counting on the fs being a mem_fs here. Otherwise, memory
-                        // usage will be very high.
-                        let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
-                            tracing::warn!(
-                                error = &e as &dyn std::error::Error,
-                                "Unable to copy file reference",
-                            );
-                        }
-                        let mut f = fs.new_open_options().create(true).write(true).open(path2)?;
-                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
-                            tracing::warn!(
-                                error = &e as &dyn std::error::Error,
-                                "Unable to copy file reference",
-                            );
-                        }
-                    }
+                if let Err(err) = write_readonly_buffer_to_fs(root_fs, path, &atom).await {
+                    tracing::debug!(
+                        "failed to add package [{}] command [{}] - {}",
+                        pkg.id,
+                        command.name(),
+                        err
+                    );
+                    continue;
+                }
+                if let Err(err) = write_readonly_buffer_to_fs(root_fs, path2, &atom).await {
+                    tracing::debug!(
+                        "failed to add package [{}] command [{}] - {}",
+                        pkg.id,
+                        command.name(),
+                        err
+                    );
+                    continue;
                 }
 
                 let mut package = pkg.clone();
@@ -1248,31 +1239,25 @@ impl WasiEnv {
             })?;
             let file = OwnedBuffer::from(file);
 
-            if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
-                let _ = root_fs.create_dir(Path::new("/bin"));
-                let _ = root_fs.create_dir(Path::new("/usr"));
-                let _ = root_fs.create_dir(Path::new("/usr/bin"));
+            let path = format!("/bin/{command}");
+            let path = Path::new(path.as_str());
+            if let Err(err) = block_on(write_readonly_buffer_to_fs(
+                &self.state.fs.root_fs,
+                path,
+                &file,
+            )) {
+                tracing::debug!("failed to add atom command [{}] - {}", command, err);
+                continue;
+            }
 
-                let path = format!("/bin/{command}");
-                let path = Path::new(path.as_str());
-                if let Err(err) = root_fs
-                    .new_open_options_ext()
-                    .insert_ro_file(path, file.clone())
-                {
-                    tracing::debug!("failed to add atom command [{}] - {}", command, err);
-                    continue;
-                }
-                let path = format!("/usr/bin/{command}");
-                let path = Path::new(path.as_str());
-                if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, file) {
-                    tracing::debug!("failed to add atom command [{}] - {}", command, err);
-                    continue;
-                }
-            } else {
-                tracing::debug!(
-                    "failed to add atom command [{}] to the root file system as it is not sandboxed",
-                    command
-                );
+            let path = format!("/usr/bin/{command}");
+            let path = Path::new(path.as_str());
+            if let Err(err) = block_on(write_readonly_buffer_to_fs(
+                &self.state.fs.root_fs,
+                path,
+                &file,
+            )) {
+                tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
             }
         }
@@ -1315,25 +1300,27 @@ impl WasiEnv {
             let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
             let state = self.state.clone();
             Box::pin(async move {
-                if !disable_fs_cleanup {
-                    tracing::trace!(pid = %pid, "cleaning up open file handles");
+                if process.try_start_cleanup() {
+                    if !disable_fs_cleanup {
+                        tracing::trace!(pid = %pid, "cleaning up open file handles");
 
-                    // Perform the clean operation using the asynchronous runtime
-                    tokio::select! {
-                        _ = timeout => {
-                            tracing::debug!(
-                                "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
-                            );
-                        },
-                        _ = state.fs.close_all() => { }
+                        // Perform the clean operation using the asynchronous runtime
+                        tokio::select! {
+                            _ = timeout => {
+                                tracing::debug!(
+                                    "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
+                                );
+                            },
+                            _ = state.fs.close_all() => { }
+                        }
                     }
 
-                    // Now send a signal that the thread is terminated
+                    // Record the real exit code before broadcasting Sigquit.
+                    // Otherwise a pending Sigquit can win the status race and
+                    // make waiters observe a successful exit.
+                    process.terminate(process_exit_code);
                     process.signal_process(Signal::Sigquit);
                 }
-
-                // Terminate the process
-                process.terminate(process_exit_code);
             })
         } else {
             Box::pin(async {})

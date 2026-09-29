@@ -11,14 +11,6 @@ pub enum BackendTrap {
     /// The trap from the `sys` runtime.
     Sys(crate::backend::sys::vm::Trap),
 
-    #[cfg(feature = "wamr")]
-    /// The trap from the `wamr` runtime.
-    Wamr(crate::backend::wamr::vm::Trap),
-
-    #[cfg(feature = "wasmi")]
-    /// The trap from the `wasmi` runtime.
-    Wasmi(crate::backend::wasmi::vm::Trap),
-
     #[cfg(feature = "v8")]
     /// The trap from the `v8` runtime.
     V8(crate::backend::v8::vm::Trap),
@@ -26,10 +18,6 @@ pub enum BackendTrap {
     #[cfg(feature = "js")]
     /// The trap from the `js` runtime.
     Js(crate::backend::js::vm::Trap),
-
-    #[cfg(feature = "jsc")]
-    /// The trap from the `jsc` runtime.
-    Jsc(crate::backend::jsc::vm::Trap),
 }
 
 impl BackendTrap {
@@ -41,15 +29,6 @@ impl BackendTrap {
         {
             return crate::backend::sys::vm::Trap::user(err).into();
         }
-        #[cfg(feature = "wamr")]
-        {
-            return crate::backend::wamr::vm::Trap::user(err).into();
-        }
-
-        #[cfg(feature = "wasmi")]
-        {
-            return crate::backend::wasmi::vm::Trap::user(err).into();
-        }
 
         #[cfg(feature = "v8")]
         {
@@ -58,10 +37,6 @@ impl BackendTrap {
         #[cfg(feature = "js")]
         {
             return crate::backend::js::vm::Trap::user(err).into();
-        }
-        #[cfg(feature = "jsc")]
-        {
-            return crate::backend::jsc::vm::Trap::user(err).into();
         }
 
         panic!("No runtime enabled!")
@@ -106,14 +81,6 @@ impl BackendTrap {
             Self::Sys(s) => s
                 .to_exception_ref()
                 .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Sys(e))),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s
-                .to_exception_ref()
-                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Wamr(e))),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(s) => s
-                .to_exception_ref()
-                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Wasmi(e))),
             #[cfg(feature = "v8")]
             Self::V8(s) => s
                 .to_exception_ref()
@@ -122,10 +89,6 @@ impl BackendTrap {
             Self::Js(s) => s
                 .to_exception_ref()
                 .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Js(e))),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s
-                .to_exception_ref()
-                .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Jsc(e))),
         }
     }
 }

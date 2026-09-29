@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeSet, HashMap},
+    ffi::OsString,
     path::{Path, PathBuf},
     str::FromStr,
     sync::{Arc, mpsc::Sender},
@@ -9,10 +10,14 @@ use std::{
 use anyhow::{Context, Result, bail};
 use bytes::Bytes;
 use clap::Parser;
+use indexmap::IndexMap;
 use itertools::Itertools;
 use tokio::runtime::Handle;
 use url::Url;
-use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
+use virtual_fs::{
+    ArcFileSystem, DeviceFile, FileSystem, MountFileSystem, OverlayFileSystem,
+    RootFileSystemBuilder,
+};
 use virtual_net::ruleset::Ruleset;
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_config::package::PackageSource as PackageSpecifier;
@@ -24,18 +29,19 @@ use wasmer_wasix::{
     WasiVersion,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    default_fs_backing, get_wasi_versions,
+    get_wasi_versions,
     http::HttpClient,
     journal::{CompactingLogFileJournal, DynJournal, DynReadableJournal},
     os::{TtyBridge, tty_sys::SysTty},
     rewind_ext,
     runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
-    runners::{MappedCommand, MappedDirectory},
+    runners::{MappedCommand, MappedDirectory, MountedDirectory},
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{
-            BackendSource, FileSystemSource, InMemorySource, MultiSource, Source, WebSource,
+            BackendSource, FileSystemSource, InMemorySource, LocalRegistrySource, MultiSource,
+            Source, WebSource,
         },
         task_manager::{
             VirtualTaskManagerExt,
@@ -48,15 +54,16 @@ use wasmer_wasix::{
 
 use crate::{
     config::{UserRegistry, WasmerEnv},
-    utils::{parse_envvar, parse_mapdir, parse_volume},
+    utils::{
+        WAPM_SOURCE_CACHE_TIMEOUT, parse_envvar, parse_mapdir, parse_volume,
+        registry_query_cache_dir,
+    },
 };
 
 use super::{
     CliPackageSource, ExecutableTarget,
     capabilities::{self, PkgCapabilityCache},
 };
-
-const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
@@ -94,6 +101,10 @@ pub struct Wasi {
     )]
     pub(crate) env_vars: Vec<(String, String)>,
 
+    /// Load environment variables from a dotenv file.
+    #[clap(long = "env-file", name = "PATH")]
+    pub(crate) env_file: Option<PathBuf>,
+
     /// Forward all host env variables to guest
     #[clap(long, env)]
     pub(crate) forward_host_env: bool,
@@ -102,10 +113,18 @@ pub struct Wasi {
     #[clap(long = "use", name = "USE")]
     pub(crate) uses: Vec<String>,
 
-    /// List of webc packages that are explicitly included for execution
-    /// Note: these packages will be used instead of those in the registry
+    /// Webc packages that are explicitly included for execution, taking
+    /// precedence over the registry ones: either a `*.webc` file, or a
+    /// directory laid out `<namespace>/<name>/<version>.webc` and queried on
+    /// demand like a registry. Resolves named dependencies from local files,
+    /// offline.
     #[clap(long = "include-webc", name = "WEBC")]
     pub(super) include_webcs: Vec<PathBuf>,
+
+    /// Resolve only from local sources (`--include-webc`, filesystem paths), never
+    /// the registry. Needed offline, where a registry query would fail resolution.
+    #[clap(long = "offline")]
+    pub(super) offline: bool,
 
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
@@ -256,11 +275,11 @@ pub struct RunProperties {
     pub args: Vec<String>,
 }
 
-fn endpoint_to_folder(url: &Url) -> String {
-    url.to_string()
-        .replace("registry.wasmer.io", "wasmer.io")
-        .replace("registry.wasmer.wtf", "wasmer.wtf")
-        .replace(|c| "/:?&=#%\\".contains(c), "_")
+/// Environment variables are arbitrary byte strings on unix, but `Wasi` stores
+/// them as `String`, so reject the ones that cannot be represented.
+fn utf8_env_part(part: OsString) -> Result<String> {
+    part.into_string()
+        .map_err(|part| anyhow::anyhow!("environment variable is not valid UTF-8: {part:?}"))
 }
 
 #[allow(dead_code)]
@@ -274,6 +293,23 @@ impl Wasi {
 
     pub fn set_env(&mut self, key: &str, value: &str) {
         self.env_vars.push((key.to_string(), value.to_string()));
+    }
+
+    pub(crate) fn resolved_env_vars(&self) -> Result<Vec<(String, String)>> {
+        let mut env = IndexMap::new();
+        if let Some(path) = &self.env_file {
+            let entries = dotenvy::from_path_iter(path)
+                .with_context(|| format!("Could not read env file '{}'", path.display()))?;
+            for entry in entries {
+                let (key, value) = entry
+                    .with_context(|| format!("Could not parse env file '{}'", path.display()))?;
+                env.insert(key, value);
+            }
+        }
+        for (key, value) in &self.env_vars {
+            env.insert(key.clone(), value.clone());
+        }
+        Ok(env.into_iter().collect())
     }
 
     /// Gets the WASI version (if any) for the provided module
@@ -338,30 +374,38 @@ impl Wasi {
         let mut builder = WasiEnv::builder(program_name)
             .runtime(Arc::clone(&rt))
             .args(args)
-            .envs(self.env_vars.clone())
+            .envs(self.resolved_env_vars()?)
             .uses(uses)
             .map_commands(map_commands);
 
         let mut builder = {
-            // If we preopen anything from the host then shallow copy it over
-            let root_fs = RootFileSystemBuilder::new()
+            let mount_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
                 .build();
+            let (have_current_dir, mapped_dirs) = self.build_mapped_directories(false)?;
+            let mut root_layers: Vec<Arc<dyn FileSystem + Send + Sync>> = Vec::new();
 
-            let (have_current_dir, mut mapped_dirs) = self.build_mapped_directories(false)?;
-            if !mapped_dirs.is_empty() {
-                // TODO: should we expose the common ancestor instead of root?
-                let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(PassthruFileSystem::new_arc(default_fs_backing()));
-                for MappedDirectory { host, guest } in self.all_volumes() {
-                    let host = if !host.is_absolute() {
-                        Path::new("/").join(host)
-                    } else {
-                        host
-                    };
-                    root_fs.mount(guest.into(), &fs_backing, host)?;
+            for mapped in mapped_dirs {
+                let MountedDirectory { guest, fs } = MountedDirectory::from(mapped);
+                if guest == "/" {
+                    root_layers.push(fs);
+                } else {
+                    mount_fs.mount(&guest, Arc::new(fs))?;
                 }
             }
+
+            if !root_layers.is_empty() {
+                let existing_root = mount_fs
+                    .filesystem_at(Path::new("/"))
+                    .expect("root fs builder should always mount /");
+                mount_fs.set_mount(
+                    Path::new("/"),
+                    Arc::new(OverlayFileSystem::new(
+                        ArcFileSystem::new(existing_root),
+                        root_layers,
+                    )),
+                )?;
+            };
 
             if let Some(cwd) = self.cwd.as_ref() {
                 if !cwd.starts_with("/") {
@@ -372,15 +416,25 @@ impl Wasi {
 
             // Open the root of the new filesystem
             builder = builder
-                .sandbox_fs(root_fs)
+                .mount_fs(mount_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap();
 
-            if have_current_dir {
-                builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+            let dot_path = if have_current_dir {
+                PathBuf::from(MAPPED_CURRENT_DIR_DEFAULT_PATH)
             } else {
-                builder.map_dir(".", "/")?
-            }
+                PathBuf::from("/")
+            };
+
+            builder.add_preopen_build(|p| {
+                p.directory(&dot_path)
+                    .alias(".")
+                    .read(true)
+                    .write(true)
+                    .create(true)
+            })?;
+
+            builder
         };
 
         *builder.capabilities_mut() = self.capabilities();
@@ -658,7 +712,9 @@ impl Wasi {
             .unwrap_or_else(|| PathBuf::from("."));
         Ok(Self {
             deny_multiple_wasi_versions: true,
-            env_vars: std::env::vars().collect(),
+            env_vars: std::env::vars_os()
+                .map(|(name, value)| Ok((utf8_env_part(name)?, utf8_env_part(value)?)))
+                .collect::<Result<_>>()?,
             volumes: vec![MappedDirectory {
                 host: dir.clone(),
                 guest: dir
@@ -694,35 +750,42 @@ impl Wasi {
     ) -> Result<MultiSource> {
         let mut source = MultiSource::default();
 
-        // Note: This should be first so our "preloaded" sources get a chance to
-        // override the main registry.
+        // Local packages go first so they override the registry. A directory
+        // is served on demand as a local registry; a single file is loaded
+        // eagerly under its manifest id.
         let mut preloaded = InMemorySource::new();
         for path in &self.include_webcs {
-            preloaded
-                .add_webc(path)
-                .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
+            if path.is_dir() {
+                source.add_source(LocalRegistrySource::new(path)?);
+            } else {
+                preloaded
+                    .add_webc(path)
+                    .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
+            }
         }
         source.add_source(preloaded);
 
-        let graphql_endpoint = self.graphql_endpoint(env)?;
-        let cache_dir = env
-            .cache_dir()
-            .join("queries")
-            .join(endpoint_to_folder(&graphql_endpoint));
-        let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
-            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
-            .with_preferred_webc_version(preferred_webc_version);
-        if let Some(token) = env
-            .config()?
-            .registry
-            .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
-        {
-            wapm_source = wapm_source.with_auth_token(token);
-        }
-        source.add_source(wapm_source);
+        // Drop the registry/web sources offline. Their network errors bubble out
+        // of the merging MultiSource and abort resolution even when a local
+        // source already matched.
+        if !self.offline {
+            let graphql_endpoint = self.graphql_endpoint(env)?;
+            let cache_dir = registry_query_cache_dir(env.cache_dir(), &graphql_endpoint);
+            let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
+                .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
+                .with_preferred_webc_version(preferred_webc_version);
+            if let Some(token) = env
+                .config()?
+                .registry
+                .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
+            {
+                wapm_source = wapm_source.with_auth_token(token);
+            }
+            source.add_source(wapm_source);
 
-        let cache_dir = env.cache_dir().join("downloads");
-        source.add_source(WebSource::new(cache_dir, client));
+            let cache_dir = env.cache_dir().join("downloads");
+            source.add_source(WebSource::new(cache_dir, client));
+        }
 
         source.add_source(FileSystemSource::default());
 
@@ -789,4 +852,29 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
     tokens.extend(frontend_tokens);
 
     Ok(tokens)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn env_file_is_merged_and_explicit_env_wins() {
+        let temporary = tempfile::tempdir().unwrap();
+        let path = temporary.path().join("runtime.env");
+        std::fs::write(&path, "FROM_FILE=yes\nSHARED=file\n").unwrap();
+        let wasi = Wasi {
+            env_file: Some(path),
+            env_vars: vec![("SHARED".to_owned(), "explicit".to_owned())],
+            ..Default::default()
+        };
+
+        assert_eq!(
+            wasi.resolved_env_vars().unwrap(),
+            [
+                ("FROM_FILE".to_owned(), "yes".to_owned()),
+                ("SHARED".to_owned(), "explicit".to_owned()),
+            ]
+        );
+    }
 }

@@ -22,7 +22,7 @@ use the `Box<T>` type to represent an owned pointer. `Box<T>` drops
 its content when it's dropped.
 
 However, vectors (such as `wasm_name_t`) are a special case: for those, `own`
-means that the ownership of contents of the vector are transfered, not the
+means that the ownership of contents of the vector are transferred, not the
 allocation of the vector type itself. Hence these are represented using
 `&mut T` instead.
 
@@ -48,7 +48,7 @@ is owned by the caller.
 
 A constant pointer can be interpreted in C as an immutable
 pointer. Without the [`own`] annotation, it means the ownership is not
-transfered anywhere (see [the Ownerships Section][#ownerships]).
+transferred anywhere (see [the Ownerships Section][#ownerships]).
 
 ### Rust Pattern
 

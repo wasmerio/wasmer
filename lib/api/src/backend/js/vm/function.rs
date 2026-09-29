@@ -1,8 +1,34 @@
 use std::any::Any;
 
 use crate::js::utils::js_handle::JsHandle;
-use js_sys::Function as JsFunction;
-use wasmer_types::{FunctionType, RawValue};
+use js_sys::{Array, Function as JsFunction, Reflect, Symbol};
+use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::{FunctionType, RawValue, Type};
+
+fn type_key() -> Symbol {
+    Symbol::for_("wasmer.function-type")
+}
+
+fn encode_types(types: &[Type]) -> Array {
+    Array::from_iter(types.iter().map(|ty| JsValue::from_f64(*ty as u8 as f64)))
+}
+
+fn decode_types(types: &Array) -> Option<Vec<Type>> {
+    types
+        .iter()
+        .map(|value| match value.as_f64()? as u8 {
+            value if value == Type::I32 as u8 => Some(Type::I32),
+            value if value == Type::I64 as u8 => Some(Type::I64),
+            value if value == Type::F32 as u8 => Some(Type::F32),
+            value if value == Type::F64 as u8 => Some(Type::F64),
+            value if value == Type::V128 as u8 => Some(Type::V128),
+            value if value == Type::ExternRef as u8 => Some(Type::ExternRef),
+            value if value == Type::FuncRef as u8 => Some(Type::FuncRef),
+            value if value == Type::ExceptionRef as u8 => Some(Type::ExceptionRef),
+            _ => None,
+        })
+        .collect()
+}
 
 /// The VM Function type
 #[derive(Clone, Eq)]
@@ -16,10 +42,32 @@ unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
     pub(crate) fn new(function: JsFunction, ty: FunctionType) -> Self {
+        Self::annotate_type(&function, &ty);
         Self {
             function: JsHandle::new(function),
             ty,
         }
+    }
+
+    pub(crate) fn annotate_type(function: &JsFunction, ty: &FunctionType) {
+        let encoded = Array::of2(
+            &encode_types(ty.params()).into(),
+            &encode_types(ty.results()).into(),
+        );
+        let _ = Reflect::set(function, type_key().as_ref(), &encoded);
+    }
+
+    pub(crate) fn type_from_js(function: &JsFunction) -> Option<FunctionType> {
+        let encoded = Reflect::get(function, type_key().as_ref())
+            .ok()?
+            .dyn_into::<Array>()
+            .ok()?;
+        let params = encoded.get(0).dyn_into::<Array>().ok()?;
+        let results = encoded.get(1).dyn_into::<Array>().ok()?;
+        Some(FunctionType::new(
+            decode_types(&params)?,
+            decode_types(&results)?,
+        ))
     }
 }
 

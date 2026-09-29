@@ -381,7 +381,9 @@ where
             return Poll::Ready(Ok(res));
         }
 
-        WasiEnv::do_pending_link_operations(self.ctx, false);
+        if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
+            return Poll::Ready(Err(err));
+        }
 
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
@@ -417,6 +419,10 @@ where
                     } else {
                         // Re-subscribe so we get woken up for further signals as well
                         self.ctx.data().thread.signals_subscribe(cx.waker());
+                        // Retry after Sigwakeup drain: dl ops may have started after the check above.
+                        if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
+                            return Poll::Ready(Err(err));
+                        }
                         Poll::Pending
                     }
                 }
@@ -604,10 +610,7 @@ where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
-    let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
+    let fd_entry = __sock_check_rights(env, sock, rights)?;
 
     let mut work = {
         let inode = fd_entry.inode.clone();
@@ -631,6 +634,18 @@ where
     // Block until the work is finished or until we
     // unload the thread using asyncify
     block_on(work)
+}
+
+pub(crate) fn __sock_check_rights(
+    env: &WasiEnv,
+    sock: WasiFd,
+    rights: Rights,
+) -> Result<Fd, Errno> {
+    let fd_entry = env.state.fs.get_fd(sock)?;
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+        return Err(Errno::Access);
+    }
+    Ok(fd_entry)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -849,6 +864,59 @@ pub(crate) fn write_buffer_array<M: MemorySize>(
     }
 
     Errno::Success
+}
+
+pub(crate) fn read_string_array<M: MemorySize>(
+    memory: &MemoryView,
+    ptrs: WasmPtr<WasmPtr<u8, M>, M>,
+    count: M::Offset,
+) -> Result<Vec<String>, Errno> {
+    if ptrs.is_null() || count == M::ZERO {
+        return Ok(vec![]);
+    }
+
+    let ptr_slice = ptrs.slice(memory, count).map_err(mem_error_to_wasi)?;
+    let capacity = from_offset::<M>(count)?;
+    let mut result = Vec::with_capacity(capacity);
+    for ptr in ptr_slice.access().map_err(mem_error_to_wasi)?.iter() {
+        let s = ptr
+            .read_utf8_string_with_nul(memory)
+            .map_err(mem_error_to_wasi)?;
+        result.push(s);
+    }
+    Ok(result)
+}
+
+pub(crate) fn parse_env_entries(envs: Vec<String>) -> Result<Vec<(String, String)>, Errno> {
+    envs.into_iter()
+        .map(|env| {
+            let (key, value) = env.split_once('=').ok_or(Errno::Inval)?;
+            Ok((key.to_string(), value.to_string()))
+        })
+        .collect()
+}
+
+pub(crate) fn parse_delimited_string_list(s: &str) -> Vec<String> {
+    s.split(&['\n', '\r'])
+        .map(|a| a.to_string())
+        .filter(|a| !a.is_empty())
+        .collect()
+}
+
+pub(crate) fn parse_delimited_exec_args(s: &str) -> Vec<String> {
+    s.trim_end_matches(['\r', '\n'])
+        .lines()
+        .map(str::to_owned)
+        .collect()
+}
+
+pub(crate) fn parse_delimited_env_list(s: &str) -> Result<Vec<(String, String)>, Errno> {
+    let envs = s
+        .split(&['\n', '\r'])
+        .map(|a| a.to_string())
+        .filter(|a| !a.is_empty())
+        .collect::<Vec<_>>();
+    parse_env_entries(envs)
 }
 
 pub(crate) fn get_current_time_in_nanos() -> Result<Timestamp, Errno> {

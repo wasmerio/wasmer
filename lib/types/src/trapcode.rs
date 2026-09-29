@@ -14,7 +14,17 @@ use thiserror::Error;
 ///
 /// All trap instructions have an explicit trap code.
 #[derive(
-    Clone, Copy, PartialEq, Eq, Debug, Hash, Error, RkyvSerialize, RkyvDeserialize, Archive,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    Hash,
+    Error,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    num_enum::TryFromPrimitive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -73,6 +83,9 @@ pub enum TrapCode {
 
     /// Another host thread requested interruption of running WASM.
     HostInterrupt = 14,
+
+    /// A table modification operation for a read-only table.
+    ReadonlyTableModified = 15,
 }
 
 impl TrapCode {
@@ -96,6 +109,7 @@ impl TrapCode {
                 "async imported function yielded when not called via `Function::call_async`"
             }
             Self::HostInterrupt => "interrupted by host",
+            Self::ReadonlyTableModified => "read-only table modified",
         }
     }
 }
@@ -118,6 +132,7 @@ impl Display for TrapCode {
             Self::UninitializedExnRef => "uninitialized_exnref",
             Self::YieldOutsideAsyncContext => "yield_outside_async_context",
             Self::HostInterrupt => "host_interrupt",
+            Self::ReadonlyTableModified => "readonly_table_modified",
         };
         f.write_str(identifier)
     }

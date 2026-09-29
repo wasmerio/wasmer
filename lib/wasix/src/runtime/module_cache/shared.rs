@@ -4,15 +4,30 @@ use wasmer::{Engine, Module};
 use crate::runtime::module_cache::{CacheError, ModuleCache};
 use wasmer_types::ModuleHash;
 
-/// A [`ModuleCache`] based on a <code>[DashMap]<[ModuleHash], [Module]></code>.
+/// A [`ModuleCache`] based on a <code>[DashMap]</code> keyed by module hash, engine ID, and format.
 #[derive(Debug, Default, Clone)]
 pub struct SharedCache {
-    modules: DashMap<(ModuleHash, String), Module>,
+    modules: DashMap<SharedCacheKey, Module>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct SharedCacheKey {
+    module_hash: ModuleHash,
+    deterministic_id: String,
+    artifact_format: String,
 }
 
 impl SharedCache {
     pub fn new() -> SharedCache {
         SharedCache::default()
+    }
+
+    fn cache_key(key: ModuleHash, engine: &Engine) -> SharedCacheKey {
+        SharedCacheKey {
+            module_hash: key,
+            deterministic_id: engine.deterministic_id(),
+            artifact_format: engine.artifact_format(),
+        }
     }
 }
 
@@ -20,7 +35,7 @@ impl SharedCache {
 impl ModuleCache for SharedCache {
     #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
-        let key = (key, engine.deterministic_id());
+        let key = Self::cache_key(key, engine);
 
         match self.modules.get(&key) {
             Some(m) => {
@@ -33,7 +48,7 @@ impl ModuleCache for SharedCache {
     }
 
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
-        let key = (key, engine.deterministic_id().to_string());
+        let key = Self::cache_key(key, engine);
         Ok(self.modules.contains_key(&key))
     }
 
@@ -44,7 +59,7 @@ impl ModuleCache for SharedCache {
         engine: &Engine,
         module: &Module,
     ) -> Result<(), CacheError> {
-        let key = (key, engine.deterministic_id().to_string());
+        let key = Self::cache_key(key, engine);
         self.modules.insert(key, module.clone());
 
         Ok(())

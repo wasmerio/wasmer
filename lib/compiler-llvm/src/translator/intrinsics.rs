@@ -4,7 +4,7 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
-use crate::abi::Abi;
+use crate::abi::LLVMAbi;
 use crate::error::err;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
@@ -24,12 +24,12 @@ use inkwell::{
     },
 };
 use std::collections::{HashMap, hash_map::Entry};
+use std::num::NonZero;
 use target_lexicon::{Architecture, Triple};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
-    LocalTableIndex, MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex,
-    TableIndex, Type,
+    LocalTableIndex, MemoryIndex, ModuleInfo as WasmerCompilerModule, Mutability, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
@@ -179,6 +179,7 @@ pub struct Intrinsics<'ctx> {
     pub readonly: Attribute,
     pub stack_probe: Attribute,
     pub uwtable: Attribute,
+    pub nounwind: Attribute,
     pub frame_pointer: Attribute,
     // Stack probe function used on Windows MSVC
     pub chkstk: FunctionValue<'ctx>,
@@ -252,7 +253,6 @@ pub struct Intrinsics<'ctx> {
     pub func_ref: FunctionValue<'ctx>,
     pub elem_drop: FunctionValue<'ctx>,
     pub memory_copy: FunctionValue<'ctx>,
-    pub imported_memory_copy: FunctionValue<'ctx>,
     pub memory_fill: FunctionValue<'ctx>,
     pub imported_memory_fill: FunctionValue<'ctx>,
     pub memory_size_ty: FunctionType<'ctx>,
@@ -312,8 +312,12 @@ impl<'ctx> Intrinsics<'ctx> {
         let is_riscv64 = matches!(target_triple.architecture, Architecture::Riscv64(..));
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
-        let i2_ty = context.custom_width_int_type(2);
-        let i4_ty = context.custom_width_int_type(4);
+        let i2_ty = context
+            .custom_width_int_type(NonZero::new(2).unwrap())
+            .unwrap();
+        let i4_ty = context
+            .custom_width_int_type(NonZero::new(4).unwrap())
+            .unwrap();
         let i8_ty = context.i8_type();
         let i16_ty = context.i16_type();
         let i32_ty = context.i32_type();
@@ -386,12 +390,13 @@ impl<'ctx> Intrinsics<'ctx> {
         let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
         let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
-        let sigindex_ty = i32_ty;
-
+        // Keep the LLVM view of `VMCallerCheckedAnyfunc` ABI-compatible with the runtime
+        // layout. `call_indirect` only reads the first three fields, but GEP indexing over
+        // fixed funcref tables still depends on the full element stride.
         let anyfunc_ty = context.struct_type(
             &[
                 i8_ptr_ty_basic,
-                sigindex_ty.into(),
+                i32_ty.into(),
                 ctx_ptr_ty_basic,
                 ptr_ty.into(),
             ],
@@ -864,6 +869,8 @@ impl<'ctx> Intrinsics<'ctx> {
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
             uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id("uwtable"), 1),
+            nounwind: context
+                .create_enum_attribute(Attribute::get_named_enum_kind_id("nounwind"), 1),
             frame_pointer: context.create_string_attribute("frame-pointer", "non-leaf"),
             chkstk: add_function_with_attrs("__chkstk", void_ty.fn_type(&[], false), None),
             void_ty,
@@ -1088,19 +1095,6 @@ impl<'ctx> Intrinsics<'ctx> {
                     &[
                         ctx_ptr_ty_basic_md,
                         i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                    ],
-                    false,
-                ),
-                None,
-            ),
-            imported_memory_copy: add_function_with_attrs(
-                "wasmer_vm_imported_memory32_copy",
-                void_ty.fn_type(
-                    &[
-                        ctx_ptr_ty_basic_md,
                         i32_ty_basic_md,
                         i32_ty_basic_md,
                         i32_ty_basic_md,
@@ -1447,11 +1441,10 @@ pub struct CtxType<'ctx, 'a> {
 
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
-    abi: &'a dyn Abi,
+    abi: &'a LLVMAbi,
 
     cached_memories: HashMap<MemoryIndex, MemoryCache<'ctx>>,
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
-    cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
     cached_functions: HashMap<FunctionIndex, FunctionCache<'ctx>>,
     cached_memory_op: HashMap<(MemoryIndex, MemoryOp), PointerValue<'ctx>>,
@@ -1464,11 +1457,11 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         wasm_module: &'a WasmerCompilerModule,
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
-        abi: &'a dyn Abi,
+        abi: &'a LLVMAbi,
         pointer_width: u8,
         m0: Option<PointerValue<'ctx>>,
-    ) -> CtxType<'ctx, 'a> {
-        CtxType {
+    ) -> Result<CtxType<'ctx, 'a>, CompileError> {
+        Ok(CtxType {
             m0,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
 
@@ -1478,13 +1471,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
             cached_memories: HashMap::new(),
             cached_tables: HashMap::new(),
-            cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
             cached_functions: HashMap::new(),
             cached_memory_op: HashMap::new(),
 
-            offsets: VMOffsets::new(pointer_width, wasm_module),
-        }
+            offsets: VMOffsets::try_new(pointer_width, wasm_module)
+                .map_err(CompileError::Resource)?,
+        })
     }
 
     pub fn basic(&self) -> BasicValueEnum<'ctx> {
@@ -1783,55 +1776,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         let ptr =
             unsafe { err!(builder.build_gep(intrinsics.i8_ty, self.ctx_ptr_value, &[offset], "")) };
         Ok(err!(builder.build_bit_cast(ptr, intrinsics.ptr_ty, "")).into_pointer_value())
-    }
-
-    pub fn dynamic_sigindex(
-        &mut self,
-        index: SignatureIndex,
-        intrinsics: &Intrinsics<'ctx>,
-        module: &Module<'ctx>,
-    ) -> Result<IntValue<'ctx>, CompileError> {
-        let (cached_sigindices, ctx_ptr_value, cache_builder, offsets) = (
-            &mut self.cached_sigindices,
-            self.ctx_ptr_value,
-            &self.cache_builder,
-            &self.offsets,
-        );
-
-        match cached_sigindices.entry(index) {
-            Entry::Occupied(entry) => Ok(*entry.get()),
-            Entry::Vacant(entry) => {
-                let byte_offset = intrinsics
-                    .i64_ty
-                    .const_int(offsets.vmctx_vmshared_signature_id(index).into(), false);
-
-                let sigindex_ptr = unsafe {
-                    err!(cache_builder.build_gep(
-                        intrinsics.i8_ty,
-                        ctx_ptr_value,
-                        &[byte_offset],
-                        "dynamic_sigindex",
-                    ))
-                };
-
-                let sigindex_ptr =
-                    err!(cache_builder.build_bit_cast(sigindex_ptr, intrinsics.ptr_ty, ""))
-                        .into_pointer_value();
-
-                let sigindex =
-                    err!(cache_builder.build_load(intrinsics.i32_ty, sigindex_ptr, "sigindex"))
-                        .into_int_value();
-                tbaa_label(
-                    module,
-                    intrinsics,
-                    format!("sigindex {}", index.as_u32()),
-                    sigindex.as_instruction_value().unwrap(),
-                );
-
-                entry.insert(sigindex);
-                Ok(sigindex)
-            }
-        }
     }
 
     pub fn global(

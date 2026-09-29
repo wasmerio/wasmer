@@ -2,6 +2,8 @@ use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::{self, InstBuilder, condcodes::IntCC, immediates::Imm64};
 use cranelift_frontend::FunctionBuilder;
 
+use crate::translator::{MemoryAliasRegion, materialize_global_value, set_memflags_alias_region};
+
 /// Size of a WebAssembly table, in elements.
 #[derive(Clone, Debug)]
 pub enum TableSize {
@@ -23,7 +25,7 @@ impl TableSize {
     pub fn bound(&self, mut pos: FuncCursor, index_ty: ir::Type) -> ir::Value {
         match *self {
             Self::Static { bound } => pos.ins().iconst(index_ty, Imm64::new(i64::from(bound))),
-            Self::Dynamic { bound_gv } => pos.ins().global_value(index_ty, bound_gv),
+            Self::Dynamic { bound_gv } => materialize_global_value(&mut pos, index_ty, bound_gv),
         }
     }
 }
@@ -56,7 +58,7 @@ impl TableData {
         mut index: ir::Value,
         addr_ty: ir::Type,
         enable_table_access_spectre_mitigation: bool,
-    ) -> (ir::Value, ir::MemFlags) {
+    ) -> (ir::Value, ir::MemFlagsData) {
         let index_ty = pos.func.dfg.value_type(index);
 
         // Start with the bounds check. Trap if `index + 1 > bound`.
@@ -77,9 +79,9 @@ impl TableData {
         }
 
         // Add the table base address base
-        let mut base = pos.ins().global_value(addr_ty, self.base_gv);
+        let mut base = materialize_global_value(&mut pos.cursor(), addr_ty, self.base_gv);
         if self.base_offset != 0 {
-            base = pos.ins().iadd_imm(base, i64::from(self.base_offset));
+            base = pos.ins().iadd_imm_s(base, i64::from(self.base_offset));
         }
 
         let element_size = self.element_size;
@@ -87,16 +89,15 @@ impl TableData {
             index
         } else if element_size.is_power_of_two() {
             pos.ins()
-                .ishl_imm(index, i64::from(element_size.trailing_zeros()))
+                .ishl_imm_u(index, i64::from(element_size.trailing_zeros()))
         } else {
-            pos.ins().imul_imm(index, element_size as i64)
+            pos.ins().imul_imm_u(index, element_size as i64)
         };
 
         let element_addr = pos.ins().iadd(base, offset);
 
-        let base_flags = ir::MemFlags::new()
-            .with_aligned()
-            .with_alias_region(Some(ir::AliasRegion::Table));
+        let mut base_flags = ir::MemFlagsData::new().with_aligned();
+        set_memflags_alias_region(pos.func, &mut base_flags, MemoryAliasRegion::Table);
         if enable_table_access_spectre_mitigation {
             // Short-circuit the computed table element address to a null pointer
             // when out-of-bounds. The consumer of this address will trap when

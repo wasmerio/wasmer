@@ -1,7 +1,7 @@
 [package]
 name = "wasmer-compiler"
 description = "Base compiler abstraction for Wasmer WebAssembly runtime"
-categories = ["wasm", "no-std"]
+categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler"]
 readme = "README.md"
 authors.workspace = true
@@ -12,25 +12,27 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+[build-dependencies]
+cc.workspace = true
+
 [dependencies]
-wasmer-types = { path = "../types", version = "=7.1.0", default-features = false }
+wasmer-types = { path = "../types", version = "=7.4.2", default-features = false }
 wasmparser = { workspace = true, default-features = false, optional = true }
 enumset.workspace = true
-hashbrown = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
 serde_bytes = { workspace = true, optional = true }
 smallvec.workspace = true
+strum = { workspace = true, optional = true }
 loupe = { workspace = true, optional = true, features = [
-	"indexmap",
-	"enable-indexmap",
+  "indexmap",
+  "enable-indexmap",
 ] }
 
 backtrace.workspace = true
 memmap2.workspace = true
 more-asserts.workspace = true
 
-cfg-if.workspace = true
 leb128.workspace = true
 enum-iterator.workspace = true
 
@@ -40,13 +42,17 @@ rkyv.workspace = true
 shared-buffer.workspace = true
 libc.workspace = true
 target-lexicon.workspace = true
-object = { workspace = true, features = ["write"] }
+object.workspace = true
+addr2line.workspace = true
+gimli.workspace = true
 itertools.workspace = true
 tempfile.workspace = true
 rangemap.workspace = true
+phf = { workspace = true, features = ["macros"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-vm = { path = "../vm", version = "=7.1.0" }
+libwild.workspace = true
+wasmer-vm = { path = "../vm", version = "=7.4.2" }
 region.workspace = true
 which.workspace = true
 rayon.workspace = true
@@ -54,7 +60,7 @@ crossbeam-channel.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true, features = [
-	"Win32_System_Diagnostics_Debug",
+  "Win32_System_Diagnostics_Debug",
 ] }
 
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
@@ -66,24 +72,27 @@ default = ["std"]
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
-compiler = ["translator"]
+compiler = ["translator", "dep:strum"]
 wasmer-artifact-load = []
 wasmer-artifact-create = []
 static-artifact-load = []
 static-artifact-create = ["translator", "compiler"]
-std = ["wasmer-types/std"]
-core = ["hashbrown", "wasmer-types/core"]
+# Keep for backward compatibility.
+std = []
+core = []
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
 artifact-size = ["dep:loupe"]
+# Signal-free trap-handler backend; see wasmer-vm's baremetal feature for details.
+baremetal = ["wasmer-vm/baremetal"]
 
 [badges]
 maintenance = { status = "experimental" }
 
 [package.metadata.docs.rs]
 features = [
-	"static-artifact-create",
-	"static-artifact-load",
-	"wasmer-artifact-create",
-	"wasmer-artifact-load",
+  "static-artifact-create",
+  "static-artifact-load",
+  "wasmer-artifact-create",
+  "wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]

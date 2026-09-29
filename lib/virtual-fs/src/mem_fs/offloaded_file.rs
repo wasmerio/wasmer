@@ -174,10 +174,8 @@ impl OffloadedFile {
             ));
         }
 
-        // In this implementation, it's an error to seek beyond the
-        // end of the buffer.
         let next_cursor = next_cursor.try_into().map_err(to_err)?;
-        *cursor = cmp::min(self.len(), next_cursor);
+        *cursor = next_cursor;
         Ok(*cursor)
     }
 
@@ -396,10 +394,11 @@ impl OffloadedFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io;
 
     #[test]
     #[tracing_test::traced_test]
-    pub fn test_offload_file() -> anyhow::Result<()> {
+    pub fn test_offload_file() -> io::Result<()> {
         let buffer = OwnedBuffer::from_bytes(std::iter::repeat_n(12u8, 100).collect::<Vec<_>>());
         let test_data2 = buffer.clone();
 

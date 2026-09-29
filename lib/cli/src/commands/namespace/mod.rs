@@ -7,6 +7,7 @@ use crate::commands::AsyncCliCommand;
 /// Manage namespaces.
 #[derive(clap::Subcommand, Debug)]
 pub enum CmdNamespace {
+    Create(create::CmdNamespaceCreate),
     Get(get::CmdNamespaceGet),
     List(list::CmdNamespaceList),
 }
@@ -17,6 +18,7 @@ impl AsyncCliCommand for CmdNamespace {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         match self {
+            CmdNamespace::Create(cmd) => cmd.run_async().await,
             CmdNamespace::List(cmd) => cmd.run_async().await,
             CmdNamespace::Get(cmd) => cmd.run_async().await,
         }

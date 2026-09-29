@@ -25,7 +25,7 @@ pub use wasmer_types::MetadataHeader;
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[allow(missing_docs)]
 #[rkyv(derive(Debug))]
-pub struct SerializableCompilation {
+pub struct RkyvSerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
     pub function_frame_info: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
@@ -42,7 +42,7 @@ pub struct SerializableCompilation {
     pub libcall_trampoline_len: u32,
 }
 
-impl SerializableCompilation {
+impl RkyvSerializableCompilation {
     /// Serialize a Compilation into bytes
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
@@ -53,6 +53,15 @@ impl SerializableCompilation {
     }
 }
 
+#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[allow(missing_docs)]
+#[rkyv(derive(Debug))]
+pub enum SerializableCompilation {
+    Rkyv(RkyvSerializableCompilation),
+    Elf(Vec<u8>),
+}
+
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -61,9 +70,9 @@ impl SerializableCompilation {
 pub struct SerializableModule {
     /// The main serializable compilation object
     pub compilation: SerializableCompilation,
-    /// Compilation informations
+    /// Compilation information
     pub compile_info: CompileModuleInfo,
-    /// Datas initializers
+    /// Data initializers
     pub data_initializers: Box<[OwnedDataInitializer]>,
     /// CPU Feature flags for this compilation
     pub cpu_features: u64,

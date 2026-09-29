@@ -209,7 +209,7 @@ impl Module {
                 }
             };
 
-            let store_install_guard = StoreContext::ensure_installed(store_ptr);
+            let store_install_guard = StoreContext::install(store_ptr);
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
@@ -285,6 +285,23 @@ impl crate::Module {
         match self.0 {
             BackendModule::Sys(ref mut s) => s,
             _ => panic!("Not a `sys` module!"),
+        }
+    }
+
+    /// Returns the compiled [`Artifact`] backing this module, or `None` if this
+    /// is not a `sys`-backend module.
+    ///
+    /// # Security
+    ///
+    /// The artifact exposes host-process memory addresses (e.g. via
+    /// [`Artifact::finished_function_extents`]). These are not stable across
+    /// runs and must not be forwarded to untrusted parties, as they reveal
+    /// ASLR layout information.
+    pub fn sys_artifact(&self) -> Option<&Artifact> {
+        match self.0 {
+            BackendModule::Sys(ref s) => Some(&s.artifact),
+            #[allow(unreachable_patterns)]
+            _ => None,
         }
     }
 }

@@ -97,6 +97,14 @@ pub enum RequestType {
         reuse_port: bool,
         reuse_addr: bool,
     },
+    /// Binds a TCP socket without immediately listening or connecting.
+    BindTcp {
+        socket_id: SocketId,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    },
     /// Opens a UDP socket that listens on a specific IP and Port combination
     /// Multiple servers (processes or threads) can bind to the same port if they each set
     /// the reuse-port and-or reuse-addr flags
@@ -123,12 +131,16 @@ pub enum RequestType {
     },
     /// Closes the socket
     Close,
+    /// Converts a bound TCP socket into a listening socket.
+    ListenBound,
+    /// Converts a bound TCP socket into a connected TCP stream.
+    ConnectBound { peer: SocketAddr },
     /// Begins the process of accepting a socket and returns it later
     BeginAccept(SocketId),
     /// Returns the local address of this TCP listener
     GetAddrLocal,
     /// Returns the address (IP and Port) of the peer socket that this
-    /// is conencted to
+    /// is connected to
     GetAddrPeer,
     /// Sets how many network hops the packets are permitted for new connections
     SetTtl(u32),
@@ -152,7 +164,7 @@ pub enum RequestType {
     /// will receive all packets even if they are not destined for the
     /// local interface
     GetPromiscuous,
-    /// Sets the receive buffer size which acts as a trottle for how
+    /// Sets the receive buffer size which acts as a throttle for how
     /// much data is buffered on this side of the pipe
     SetRecvBufSize(u64),
     /// Size of the receive buffer that holds all data that has not

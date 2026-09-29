@@ -160,15 +160,19 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     /// Creates a new `WasmSlice` starting at the given offset in memory and
     /// with the given number of elements.
     ///
-    /// Returns a `MemoryAccessError` if the slice length overflows.
+    /// Returns a `MemoryAccessError` if the slice length overflows or extends
+    /// beyond the linear memory.
     #[inline]
     pub fn new(view: &'a MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
         let total_len = len
             .checked_mul(mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
-        offset
+        let end = offset
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
+        if end > view.data_size() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
         Ok(Self {
             buffer: view.buffer(),
             offset,
@@ -205,6 +209,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     #[inline]
     pub fn is_empty(self) -> bool {
         self.len == 0
+    }
+
+    /// Returns `true` if accessing this slice requires an owned host buffer.
+    #[inline]
+    pub fn is_owned(self) -> bool {
+        self.buffer.is_owned()
     }
 
     /// Get a `WasmRef` to an element in the slice.

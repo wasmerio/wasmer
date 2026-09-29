@@ -6,14 +6,14 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
+use super::trap::UnwindReason;
+use crate::Trap;
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
 use crate::interrupt_registry;
-use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
 use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
-use corosensei::stack::DefaultStack;
+use corosensei::stack::{DefaultStack, Stack};
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
 use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
 use scopeguard::defer;
@@ -29,6 +29,15 @@ use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
 use std::sync::{LazyLock, Once};
 use wasmer_types::TrapCode;
 
+/// Convenience extension for [`Stack`] that exposes the total mapped size.
+trait StackExt: Stack {
+    /// Returns the total size of the stack mapping (including guard page).
+    fn size(&self) -> usize {
+        self.base().get() - self.limit().get()
+    }
+}
+impl<T: Stack> StackExt for T {}
+
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub struct VMConfig {
@@ -38,7 +47,7 @@ pub struct VMConfig {
 
 // TrapInformation can be stored in the "Undefined Instruction" itself.
 // On x86_64, 0xC? select a "Register" for the Mod R/M part of "ud1" (so with no other bytes after)
-// On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
+// On Arm64, the udf allows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 static MAGIC: u8 = 0xc0;
 
 static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(ByteSize::mib(1).as_u64() as usize);
@@ -48,7 +57,7 @@ static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(ByteSize::mib(1).as_u6
 pub const MAX_STACK_SIZE: usize = ByteSize::mib(100).as_u64() as usize;
 
 // Current definition of `ucontext_t` in the `libc` crate is incorrect
-// on aarch64-apple-drawin so it's defined here with a more accurate definition.
+// on aarch64-apple-drawing so it's defined here with a more accurate definition.
 #[repr(C)]
 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
 #[allow(non_camel_case_types)]
@@ -79,30 +88,94 @@ pub fn get_stack_size() -> usize {
 }
 
 /// Pool of pre-allocated coroutine stacks to avoid repeated mmap syscalls.
+/// Acts as the cross-thread overflow store; per-thread reuse is served by
+/// `TLS_STACK` to keep the hot path atomic-free.
 static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
     LazyLock::new(crossbeam_queue::SegQueue::new);
+
+/// Per-thread cache holding a single ready-to-use coroutine stack. The hot
+/// path of `on_wasm_stack` pops from here without touching the global
+/// `STACK_POOL`'s atomics; only the first call on a thread or re-entrant
+/// nested calls fall back to the pool.
+///
+/// On thread exit the held stack (if any) is pushed to `STACK_POOL` so memory
+/// cycles correctly across thread lifetimes (no mmap leaks).
+struct StackCache(Cell<Option<DefaultStack>>);
+
+impl Drop for StackCache {
+    fn drop(&mut self) {
+        if let Some(stack) = self.0.take() {
+            STACK_POOL.push(stack);
+        }
+    }
+}
+
+thread_local! {
+    static TLS_STACK: StackCache = const { StackCache(Cell::new(None)) };
+}
+
+/// Acquire a coroutine stack large enough for `min_size`. Prefers the
+/// thread-local cache (no atomics), falls back to the global `STACK_POOL`,
+/// then allocates a fresh stack.
+fn acquire_stack(min_size: usize) -> DefaultStack {
+    // Fast path: thread-local cache. Steady-state per-thread reuse never
+    // touches the SegQueue.
+    if let Some(stack) = TLS_STACK.with(|cache| cache.0.take()) {
+        if stack.size() >= min_size {
+            return stack;
+        }
+        // Undersized — discard (mirrors the existing `STACK_POOL.pop().filter(...)`
+        // behavior of not holding undersized stacks in rotation).
+        drop(stack);
+    }
+    // Cross-thread overflow pool. Single pop, single filter — same semantics
+    // as the pre-TLS implementation.
+    STACK_POOL
+        .pop()
+        .filter(|s| s.size() >= min_size)
+        .unwrap_or_else(|| DefaultStack::new(min_size).unwrap())
+}
+
+/// Release a coroutine stack. Prefers the thread-local slot if empty (no
+/// atomics); otherwise pushes to the global `STACK_POOL` so the stack is
+/// still reusable by other threads.
+fn release_stack(stack: DefaultStack) {
+    let displaced = TLS_STACK.with(|cache| cache.0.replace(Some(stack)));
+    if let Some(displaced) = displaced {
+        STACK_POOL.push(displaced);
+    }
+}
 
 /// Drains the coroutine stack pool at the moment it runs.
 ///
 /// This is intended to be called before retrying with a larger stack size so
 /// that the pool does not keep serving cached undersized stacks.
 ///
-/// Note that `STACK_POOL` is a global, concurrently used queue. Other threads
-/// may push stacks back into the pool (for example, when their Wasm execution
-/// finishes) while or after this function is running. As a result, this
-/// function provides only a best-effort drain of the pool: there is no
-/// guarantee that no undersized stacks exist immediately after it returns
-/// unless the caller ensures, via external synchronization, that no other
-/// Wasm executions can return stacks to the pool while this function runs.
+/// Note that `STACK_POOL` is a global, concurrently used queue and that each
+/// thread also keeps a private cached stack in TLS. Other threads may push
+/// stacks back into the pool (for example, when their Wasm execution
+/// finishes) while or after this function is running, and TLS-cached stacks
+/// on other threads are not touched. As a result, this function provides
+/// only a best-effort drain: there is no guarantee that no undersized stacks
+/// exist immediately after it returns unless the caller ensures, via external
+/// synchronization, that no other Wasm executions can return stacks to the
+/// pool while this function runs. The current thread's TLS-cached stack is
+/// drained as part of this call.
 pub fn drain_stack_pool() {
+    // Drain the calling thread's TLS slot first (best-effort across threads
+    // still applies — other threads' caches aren't touched).
+    if let Some(stack) = TLS_STACK.with(|cache| cache.0.take()) {
+        drop(stack);
+    }
     while STACK_POOL.pop().is_some() {}
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(unix)] {
+cfg_select! {
+    unix => {
         /// Function which may handle custom signals while processing traps.
         pub type TrapHandlerFn<'a> = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool + Send + Sync + 'a;
-    } else if #[cfg(target_os = "windows")] {
+    }
+    target_os = "windows" => {
         /// Function which may handle custom signals while processing traps.
         pub type TrapHandlerFn<'a> = dyn Fn(*mut windows_sys::Win32::System::Diagnostics::Debug::EXCEPTION_POINTERS) -> bool + Send + Sync + 'a;
     }
@@ -179,8 +252,8 @@ unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
     }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(unix)] {
+cfg_select! {
+    unix => {
         static mut PREV_SIGSEGV: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGBUS: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGILL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
@@ -368,61 +441,73 @@ cfg_if::cfg_if! {
 
         unsafe fn get_pc_sp(context: &ucontext_t) -> (usize, usize) {
             let (pc, sp);
-            cfg_if::cfg_if! {
-                if #[cfg(all(
+            cfg_select! {
+                all(
                     any(target_os = "linux", target_os = "android"),
                     target_arch = "x86_64",
-                ))] {
+                ) => {
                     pc = context.uc_mcontext.gregs[libc::REG_RIP as usize] as usize;
                     sp = context.uc_mcontext.gregs[libc::REG_RSP as usize] as usize;
-                } else if #[cfg(all(
+                }
+                all(
                     any(target_os = "linux", target_os = "android"),
                     target_arch = "x86",
-                ))] {
+                ) => {
                     pc = context.uc_mcontext.gregs[libc::REG_EIP as usize] as usize;
                     sp = context.uc_mcontext.gregs[libc::REG_ESP as usize] as usize;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
+                }
+                all(target_os = "freebsd", target_arch = "x86") => {
                     pc = context.uc_mcontext.mc_eip as usize;
                     sp = context.uc_mcontext.mc_esp as usize;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
+                }
+                all(target_os = "freebsd", target_arch = "x86_64") => {
                     pc = context.uc_mcontext.mc_rip as usize;
                     sp = context.uc_mcontext.mc_rsp as usize;
-                } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
+                }
+                all(target_vendor = "apple", target_arch = "x86_64") => {
                     let mcontext = unsafe { &*context.uc_mcontext };
                     pc = mcontext.__ss.__rip as usize;
                     sp = mcontext.__ss.__rsp as usize;
-                } else if #[cfg(all(
+                }
+                all(
                         any(target_os = "linux", target_os = "android"),
                         target_arch = "aarch64",
-                    ))] {
+                    ) => {
                     pc = context.uc_mcontext.pc as usize;
                     sp = context.uc_mcontext.sp as usize;
-                } else if #[cfg(all(
+                }
+                all(
                     any(target_os = "linux", target_os = "android"),
                     target_arch = "arm",
-                ))] {
+                ) => {
                     pc = context.uc_mcontext.arm_pc as usize;
                     sp = context.uc_mcontext.arm_sp as usize;
-                } else if #[cfg(all(
+                }
+                all(
                     any(target_os = "linux", target_os = "android"),
                     any(target_arch = "riscv64", target_arch = "riscv32"),
-                ))] {
+                ) => {
                     pc = context.uc_mcontext.__gregs[libc::REG_PC] as usize;
                     sp = context.uc_mcontext.__gregs[libc::REG_SP] as usize;
-                } else if #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))] {
+                }
+                all(target_vendor = "apple", target_arch = "aarch64") => {
                     let mcontext = unsafe { &*context.uc_mcontext };
                     pc = mcontext.__ss.__pc as usize;
                     sp = mcontext.__ss.__sp as usize;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
+                }
+                all(target_os = "freebsd", target_arch = "aarch64") => {
                     pc = context.uc_mcontext.mc_gpregs.gp_elr as usize;
                     sp = context.uc_mcontext.mc_gpregs.gp_sp as usize;
-                } else if #[cfg(all(target_os = "linux", target_arch = "loongarch64"))] {
+                }
+                all(target_os = "linux", target_arch = "loongarch64") => {
                     pc = context.uc_mcontext.__gregs[1] as usize;
                     sp = context.uc_mcontext.__gregs[3] as usize;
-                } else if #[cfg(all(target_os = "linux", target_arch = "powerpc64"))] {
+                }
+                all(target_os = "linux", target_arch = "powerpc64") => {
                     pc = (*context.uc_mcontext.regs).nip as usize;
                     sp = (*context.uc_mcontext.regs).gpr[1] as usize;
-                } else {
+                }
+                _ => {
                     compile_error!("Unsupported platform");
                 }
             };
@@ -430,28 +515,30 @@ cfg_if::cfg_if! {
         }
 
         unsafe fn update_context(context: &mut ucontext_t, regs: TrapHandlerRegs) {
-            cfg_if::cfg_if! {
-                if #[cfg(all(
+            cfg_select! {
+                all(
                         any(target_os = "linux", target_os = "android"),
                         target_arch = "x86_64",
-                    ))] {
+                    ) => {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.uc_mcontext.gregs[libc::REG_RIP as usize] = rip as i64;
                     context.uc_mcontext.gregs[libc::REG_RSP as usize] = rsp as i64;
                     context.uc_mcontext.gregs[libc::REG_RBP as usize] = rbp as i64;
                     context.uc_mcontext.gregs[libc::REG_RDI as usize] = rdi as i64;
                     context.uc_mcontext.gregs[libc::REG_RSI as usize] = rsi as i64;
-                } else if #[cfg(all(
+                }
+                all(
                     any(target_os = "linux", target_os = "android"),
                     target_arch = "x86",
-                ))] {
+                ) => {
                     let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
                     context.uc_mcontext.gregs[libc::REG_EIP as usize] = eip as i32;
                     context.uc_mcontext.gregs[libc::REG_ESP as usize] = esp as i32;
                     context.uc_mcontext.gregs[libc::REG_EBP as usize] = ebp as i32;
                     context.uc_mcontext.gregs[libc::REG_ECX as usize] = ecx as i32;
                     context.uc_mcontext.gregs[libc::REG_EDX as usize] = edx as i32;
-                } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
+                }
+                all(target_vendor = "apple", target_arch = "x86_64") => {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     let mcontext = unsafe { &mut *context.uc_mcontext };
                     mcontext.__ss.__rip = rip;
@@ -459,24 +546,27 @@ cfg_if::cfg_if! {
                     mcontext.__ss.__rbp = rbp;
                     mcontext.__ss.__rdi = rdi;
                     mcontext.__ss.__rsi = rsi;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
+                }
+                all(target_os = "freebsd", target_arch = "x86") => {
                     let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
                     context.uc_mcontext.mc_eip = eip as libc::register_t;
                     context.uc_mcontext.mc_esp = esp as libc::register_t;
                     context.uc_mcontext.mc_ebp = ebp as libc::register_t;
                     context.uc_mcontext.mc_ecx = ecx as libc::register_t;
                     context.uc_mcontext.mc_edx = edx as libc::register_t;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
+                }
+                all(target_os = "freebsd", target_arch = "x86_64") => {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.uc_mcontext.mc_rip = rip as libc::register_t;
                     context.uc_mcontext.mc_rsp = rsp as libc::register_t;
                     context.uc_mcontext.mc_rbp = rbp as libc::register_t;
                     context.uc_mcontext.mc_rdi = rdi as libc::register_t;
                     context.uc_mcontext.mc_rsi = rsi as libc::register_t;
-                } else if #[cfg(all(
+                }
+                all(
                         any(target_os = "linux", target_os = "android"),
                         target_arch = "aarch64",
-                    ))] {
+                    ) => {
                     let TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
                     context.uc_mcontext.pc = pc;
                     context.uc_mcontext.sp = sp;
@@ -484,10 +574,11 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.regs[1] = x1;
                     context.uc_mcontext.regs[29] = x29;
                     context.uc_mcontext.regs[30] = lr;
-                } else if #[cfg(all(
+                }
+                all(
                         any(target_os = "linux", target_os = "android"),
                         target_arch = "arm",
-                    ))] {
+                    ) => {
                     let TrapHandlerRegs {
                         pc,
                         r0,
@@ -516,10 +607,11 @@ cfg_if::cfg_if! {
                     } else {
                         context.uc_mcontext.arm_cpsr &= !0x200;
                     }
-                } else if #[cfg(all(
+                }
+                all(
                     any(target_os = "linux", target_os = "android"),
                     any(target_arch = "riscv64", target_arch = "riscv32"),
-                ))] {
+                ) => {
                     let TrapHandlerRegs { pc, ra, sp, a0, a1, s0 } = regs;
                     context.uc_mcontext.__gregs[libc::REG_PC] = pc as libc::c_ulong;
                     context.uc_mcontext.__gregs[libc::REG_RA] = ra as libc::c_ulong;
@@ -527,7 +619,8 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.__gregs[libc::REG_A0] = a0 as libc::c_ulong;
                     context.uc_mcontext.__gregs[libc::REG_A0 + 1] = a1 as libc::c_ulong;
                     context.uc_mcontext.__gregs[libc::REG_S0] = s0 as libc::c_ulong;
-                } else if #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))] {
+                }
+                all(target_vendor = "apple", target_arch = "aarch64") => {
                     let TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
                     let mcontext = unsafe { &mut *context.uc_mcontext };
                     mcontext.__ss.__pc = pc;
@@ -536,7 +629,8 @@ cfg_if::cfg_if! {
                     mcontext.__ss.__x[1] = x1;
                     mcontext.__ss.__fp = x29;
                     mcontext.__ss.__lr = lr;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
+                }
+                all(target_os = "freebsd", target_arch = "aarch64") => {
                     let TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
                     context.uc_mcontext.mc_gpregs.gp_elr = pc as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_sp = sp as libc::register_t;
@@ -544,7 +638,8 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.mc_gpregs.gp_x[1] = x1 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[29] = x29 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_lr = lr as libc::register_t;
-                } else if #[cfg(all(target_os = "linux", target_arch = "loongarch64"))] {
+                }
+                all(target_os = "linux", target_arch = "loongarch64") => {
                     let TrapHandlerRegs { pc, sp, a0, a1, fp, ra } = regs;
                     context.uc_mcontext.__pc = pc;
                     context.uc_mcontext.__gregs[1] = ra;
@@ -552,7 +647,8 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.__gregs[4] = a0;
                     context.uc_mcontext.__gregs[5] = a1;
                     context.uc_mcontext.__gregs[22] = fp;
-                } else if #[cfg(all(target_os = "linux", target_arch = "powerpc64"))] {
+                }
+                all(target_os = "linux", target_arch = "powerpc64") => {
                     let TrapHandlerRegs { pc, sp, r3, r4, r31, lr } = regs;
                     (*context.uc_mcontext.regs).nip = pc;
                     (*context.uc_mcontext.regs).gpr[1] = sp;
@@ -560,12 +656,14 @@ cfg_if::cfg_if! {
                     (*context.uc_mcontext.regs).gpr[4] = r4;
                     (*context.uc_mcontext.regs).gpr[31] = r31;
                     (*context.uc_mcontext.regs).link = lr;
-                } else {
+                }
+                _ => {
                     compile_error!("Unsupported platform");
                 }
             };
         }
-    } else if #[cfg(target_os = "windows")] {
+    }
+    target_os = "windows" => {
         use windows_sys::Win32::System::Diagnostics::Debug::{
             AddVectoredExceptionHandler,
             CONTEXT,
@@ -659,14 +757,16 @@ cfg_if::cfg_if! {
 
         unsafe fn get_pc_sp(context: &CONTEXT) -> (usize, usize) {
             let (pc, sp);
-            cfg_if::cfg_if! {
-                if #[cfg(target_arch = "x86_64")] {
+            cfg_select! {
+                target_arch = "x86_64" => {
                     pc = context.Rip as usize;
                     sp = context.Rsp as usize;
-                } else if #[cfg(target_arch = "x86")] {
+                }
+                target_arch = "x86" => {
                     pc = context.Eip as usize;
                     sp = context.Esp as usize;
-                } else {
+                }
+                _ => {
                     compile_error!("Unsupported platform");
                 }
             };
@@ -674,22 +774,24 @@ cfg_if::cfg_if! {
         }
 
         unsafe fn update_context(context: &mut CONTEXT, regs: TrapHandlerRegs) {
-            cfg_if::cfg_if! {
-                if #[cfg(target_arch = "x86_64")] {
+            cfg_select! {
+                target_arch = "x86_64" => {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.Rip = rip;
                     context.Rsp = rsp;
                     context.Rbp = rbp;
                     context.Rdi = rdi;
                     context.Rsi = rsi;
-                } else if #[cfg(target_arch = "x86")] {
+                }
+                target_arch = "x86" => {
                     let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
                     context.Eip = eip;
                     context.Esp = esp;
                     context.Ebp = ebp;
                     context.Ecx = ecx;
                     context.Edx = edx;
-                } else {
+                }
+                _ => {
                     compile_error!("Unsupported platform");
                 }
             };
@@ -706,6 +808,13 @@ cfg_if::cfg_if! {
 /// WebAssembly. Currently in wasmer's integration this function is called on
 /// creation of a `Store`.
 pub fn init_traps() {
+    // Miri cannot call `sigaction`/`sigemptyset`, and nothing under Miri
+    // executes compiled Wasm, so there is no trap for a handler to catch.
+    // Without this, building a `Store` at all is out of reach there, and the
+    // store-context tests that need one cannot run.
+    if cfg!(miri) {
+        return;
+    }
     static INIT: Once = Once::new();
     INIT.call_once(|| unsafe {
         platform_init();
@@ -753,43 +862,6 @@ pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
 /// stack. They will be skipped and not executed.
 pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
     unsafe { unwind_with(UnwindReason::Panic(payload)) }
-}
-
-/// Call the wasm function pointed to by `callee`.
-///
-/// * `vmctx` - the callee vmctx argument
-/// * `caller_vmctx` - the caller vmctx argument
-/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
-///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
-///   `values_vec` argument.
-/// * `callee` - the third argument to the `trampoline` function
-/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
-///   which the outgoing return values will be written.
-///
-/// # Safety
-///
-/// Wildly unsafe because it calls raw function pointers and reads/writes raw
-/// function pointers.
-pub unsafe fn wasmer_call_trampoline(
-    trap_handler: Option<*const TrapHandlerFn<'static>>,
-    config: &VMConfig,
-    vmctx: VMFunctionContext,
-    trampoline: VMTrampoline,
-    callee: *const VMFunctionBody,
-    values_vec: *mut u8,
-) -> Result<(), Trap> {
-    unsafe {
-        catch_traps(trap_handler, config, move || {
-            mem::transmute::<
-                unsafe extern "C" fn(
-                    *mut VMContext,
-                    *const VMFunctionBody,
-                    *mut wasmer_types::RawValue,
-                ),
-                extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
-            >(trampoline)(vmctx, callee, values_vec);
-        })
-    }
 }
 
 /// Catches any wasm traps that happen within the execution of `closure`,
@@ -961,7 +1033,7 @@ impl<T> TrapHandlerContextInner<T> {
 
             // Don't try to generate a backtrace for stack overflows: unwinding
             // information is often not precise enough to properly describe what is
-            // happenning during a function prologue, which can lead the unwinder to
+            // happening during a function prologue, which can lead the unwinder to
             // read invalid memory addresses.
             //
             // See: https://github.com/rust-lang/backtrace-rs/pull/357
@@ -987,36 +1059,6 @@ impl<T> TrapHandlerContextInner<T> {
     }
 }
 
-enum UnwindReason {
-    /// A panic caused by the host
-    Panic(Box<dyn Any + Send>),
-    /// A custom error triggered by the user
-    UserTrap(Box<dyn Error + Send + Sync>),
-    /// A Trap triggered by a wasm libcall
-    LibTrap(Trap),
-    /// A trap caused by the Wasm generated code
-    WasmTrap {
-        backtrace: Backtrace,
-        pc: usize,
-        signal_trap: Option<TrapCode>,
-    },
-}
-
-impl UnwindReason {
-    fn into_trap(self) -> Trap {
-        match self {
-            Self::UserTrap(data) => Trap::User(data),
-            Self::LibTrap(trap) => trap,
-            Self::WasmTrap {
-                backtrace,
-                pc,
-                signal_trap,
-            } => Trap::wasm(pc, backtrace, signal_trap),
-            Self::Panic(panic) => std::panic::resume_unwind(panic),
-        }
-    }
-}
-
 unsafe fn unwind_with(reason: UnwindReason) -> ! {
     unsafe {
         let yielder = YIELDER
@@ -1038,17 +1080,14 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
-    // Reuse a cached stack from the module-level STACK_POOL when available,
-    // otherwise allocate a new one.
-    // Note: the pool does not track stack sizes — a pooled stack may be
-    // smaller than `stack_size` if the default was raised between calls.
-    // Callers that need a guaranteed size must drain the pool first via
-    // `drain_stack_pool()` after updating the default with `set_stack_size()`
-    // and before relying on the new value returned by `get_stack_size()`.
-    let stack = STACK_POOL
-        .pop()
-        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
+    // Reuse a cached stack — TLS first (atomic-free hot path), then the
+    // cross-thread overflow pool, then allocate fresh. Size mismatches
+    // (e.g. after `drain_stack_pool()` + a stack-size change) are filtered
+    // inside `acquire_stack`. `base() - limit()` is the full mmap region
+    // (including guard page), which is always >= the requested size for
+    // stacks allocated with that size.
+    let stack = acquire_stack(stack_size);
+    let mut stack = scopeguard::guard(stack, release_stack);
 
     // Create a coroutine with a new stack to run the function on.
     let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
@@ -1083,7 +1122,7 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
 }
 
 /// When executing on the Wasm stack, temporarily switch back to the host stack
-/// to perform an operation that should not be constrainted by the Wasm stack
+/// to perform an operation that should not be constrained by the Wasm stack
 /// limits.
 ///
 /// This is particularly important since the usage of the Wasm stack is under
@@ -1349,5 +1388,764 @@ mod tests {
             STACK_POOL.pop().is_none(),
             "after drain, pool must be empty so a fresh stack is allocated at the new size"
         );
+    }
+
+    /// `on_wasm_stack` discards undersized stacks from the pool and allocates
+    /// a fresh one instead of blindly reusing whatever the pool returns.
+    #[test]
+    fn on_wasm_stack_discards_undersized_stack() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // Push an undersized stack into the pool.
+        let small_size = ByteSize::kib(500).as_u64() as usize;
+        let small_stack = DefaultStack::new(small_size).unwrap();
+        STACK_POOL.push(small_stack);
+
+        // Request a larger stack via on_wasm_stack.
+        let big_size = ByteSize::mib(1).as_u64() as usize;
+        let result = on_wasm_stack(big_size, None, || 42);
+
+        assert_eq!(result.expect("on_wasm_stack should succeed"), 42);
+        // The undersized stack was discarded; the correctly-sized stack
+        // allocated for the call now lives in the TLS cache (the hot path).
+        // It will end up in the global pool only on thread exit or eviction.
+        let returned = TLS_STACK
+            .with(|cache| cache.0.take())
+            .or_else(|| STACK_POOL.pop())
+            .expect("stack should have been returned to TLS cache or pool");
+        assert!(
+            returned.size() >= big_size,
+            "returned stack must be at least as large as the requested size"
+        );
+
+        // Ensure no residual TLS state leaks into other tests sharing the
+        // runner thread. `take()` above already cleared the slot, but be
+        // explicit so future edits cannot drop this guarantee silently.
+        clear_tls_stack();
+    }
+
+    /// After a wasm call, the freshly-used stack stays in the thread-local
+    /// cache so subsequent calls on the same thread reuse it without touching
+    /// the global SegQueue.
+    #[test]
+    fn tls_stack_caches_after_first_call() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+
+        // First call: TLS + pool both empty → allocate fresh; stack ends in TLS.
+        assert!(on_wasm_stack(size, None, || ()).is_ok());
+        assert!(
+            STACK_POOL.is_empty(),
+            "pool should still be empty after a TLS-served call"
+        );
+
+        // Verify TLS holds a stack, then put it back.
+        let cached_present = TLS_STACK.with(|cache| {
+            let taken = cache.0.take();
+            let present = taken.is_some();
+            cache.0.set(taken);
+            present
+        });
+        assert!(cached_present, "TLS slot should hold the post-call stack");
+
+        // Second call should consume from TLS; pool stays empty.
+        assert!(on_wasm_stack(size, None, || ()).is_ok());
+        assert!(
+            STACK_POOL.is_empty(),
+            "second call must not push to the global pool"
+        );
+        let still_cached = TLS_STACK.with(|cache| {
+            let taken = cache.0.take();
+            let present = taken.is_some();
+            cache.0.set(taken);
+            present
+        });
+        assert!(
+            still_cached,
+            "TLS slot should still hold a stack after the second call"
+        );
+
+        // Cleanup: clear TLS so we don't leak into other tests. The cached
+        // stack here is dropped rather than returned to the pool; the next
+        // test starts with `drain_stack_pool()` anyway, so there is no
+        // observable difference.
+        clear_tls_stack();
+    }
+
+    /// On thread exit, the TLS cache's `Drop` impl returns the held stack to
+    /// the global pool so memory cycles correctly across thread lifetimes.
+    #[test]
+    fn tls_stack_returns_to_pool_on_thread_exit() {
+        // GLOBAL_STATE is the test-suite mutex used to serialize tests that
+        // touch shared global state (STACK_POOL, the configured stack size).
+        // The spawned worker thread does NOT touch GLOBAL_STATE — it only
+        // calls `on_wasm_stack`, which takes neither this mutex nor any
+        // other lock that could contend with us.
+        //
+        // Even so, holding the guard across `handle.join()` is unnecessary:
+        // the only thing that needs to be serialized against other tests is
+        // the assertion on `STACK_POOL.pop()` AFTER the join. We release the
+        // guard before joining so future edits to `on_wasm_stack` that
+        // happen to touch this lock can't introduce a hard-to-debug
+        // deadlock here.
+        let lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        drop(lock);
+
+        let handle = std::thread::spawn(move || {
+            assert!(on_wasm_stack(size, None, || ()).is_ok());
+        });
+        handle.join().unwrap();
+
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        // The spawned thread's TLS cache was dropped on join; the stack must
+        // have made it back to the global pool.
+        let returned = STACK_POOL
+            .pop()
+            .expect("thread exit should return TLS-cached stack to the global pool");
+        assert!(returned.size() >= size);
+    }
+
+    // -----------------------------------------------------------------
+    // Test helpers
+    // -----------------------------------------------------------------
+
+    /// Clears the current thread's TLS slot so tests don't see state from
+    /// previous tests (they share the same thread under cargo test's
+    /// per-test serialization via `GLOBAL_STATE`).
+    fn clear_tls_stack() {
+        TLS_STACK.with(|cache| cache.0.set(None));
+    }
+
+    /// `base().get() - limit().get()` (i.e. `Stack::size`) is constant per
+    /// `DefaultStack` instance, but `base().get()` itself uniquely identifies
+    /// the mmap allocation. We use it as a cheap identity check to see which
+    /// stack was returned by acquire/release.
+    fn stack_id(stack: &DefaultStack) -> usize {
+        stack.base().get()
+    }
+
+    // -----------------------------------------------------------------
+    // acquire_stack mechanics
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn acquire_allocates_fresh_when_tls_and_pool_empty() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let stack = acquire_stack(size);
+        assert!(
+            stack.size() >= size,
+            "freshly allocated stack must satisfy min_size"
+        );
+
+        drop(stack);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn acquire_prefers_tls_over_pool() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let tls_stack = DefaultStack::new(size).unwrap();
+        let tls_id = stack_id(&tls_stack);
+        TLS_STACK.with(|cache| cache.0.set(Some(tls_stack)));
+
+        let pool_stack = DefaultStack::new(size).unwrap();
+        let pool_id = stack_id(&pool_stack);
+        STACK_POOL.push(pool_stack);
+
+        let got = acquire_stack(size);
+        assert_eq!(stack_id(&got), tls_id, "acquire must prefer TLS over pool");
+        assert_ne!(stack_id(&got), pool_id);
+
+        drop(got);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn acquire_uses_pool_when_tls_empty() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let pool_stack = DefaultStack::new(size).unwrap();
+        let pool_id = stack_id(&pool_stack);
+        STACK_POOL.push(pool_stack);
+
+        let got = acquire_stack(size);
+        assert_eq!(
+            stack_id(&got),
+            pool_id,
+            "acquire must consume from pool when TLS is empty"
+        );
+        assert!(
+            STACK_POOL.is_empty(),
+            "pool stack must be removed when used"
+        );
+
+        drop(got);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn acquire_discards_undersized_tls_then_allocates() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let small_size = ByteSize::kib(512).as_u64() as usize;
+        let undersized = DefaultStack::new(small_size).unwrap();
+        TLS_STACK.with(|cache| cache.0.set(Some(undersized)));
+
+        let big_size = ByteSize::mib(2).as_u64() as usize;
+        let got = acquire_stack(big_size);
+
+        // The acquired stack must be at least the requested size. We do NOT
+        // compare base addresses: the OS can reuse a freshly munmap'd
+        // virtual address for the next mmap, so pointer identity is not a
+        // reliable "is this a different stack" check across a drop+alloc.
+        // The meaningful semantic is that the undersized stack was taken
+        // out of rotation (TLS empty, not silently pushed to the pool) and
+        // the returned stack is sized correctly.
+        assert!(
+            got.size() >= big_size,
+            "acquired stack must satisfy big_size"
+        );
+        let tls_empty = TLS_STACK.with(|cache| {
+            let s = cache.0.take();
+            let empty = s.is_none();
+            cache.0.set(s);
+            empty
+        });
+        assert!(
+            tls_empty,
+            "undersized TLS stack must have been taken and discarded"
+        );
+        assert!(
+            STACK_POOL.is_empty(),
+            "undersized TLS stack must be discarded, not pushed to the pool",
+        );
+
+        drop(got);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn acquire_discards_undersized_pool_then_allocates() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let small_size = ByteSize::kib(512).as_u64() as usize;
+        let undersized = DefaultStack::new(small_size).unwrap();
+        STACK_POOL.push(undersized);
+
+        let big_size = ByteSize::mib(2).as_u64() as usize;
+        let got = acquire_stack(big_size);
+
+        // Same caveat as the TLS variant: mmap may reuse the virtual
+        // address of the dropped undersized stack for the new big stack,
+        // so we verify the semantic outcome — the pool was drained of the
+        // undersized entry and the returned stack is sized correctly.
+        assert!(
+            got.size() >= big_size,
+            "acquired stack must satisfy big_size"
+        );
+        assert!(
+            STACK_POOL.is_empty(),
+            "undersized pool stack must have been popped, filtered out and dropped",
+        );
+
+        drop(got);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // release_stack mechanics
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn release_into_empty_tls_caches_there() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let stack = DefaultStack::new(size).unwrap();
+        let id = stack_id(&stack);
+        release_stack(stack);
+
+        let in_tls = TLS_STACK
+            .with(|cache| cache.0.take())
+            .expect("release into empty TLS should leave the stack in TLS");
+        assert_eq!(stack_id(&in_tls), id);
+        assert!(
+            STACK_POOL.is_empty(),
+            "pool must not be touched when TLS is empty"
+        );
+
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn release_into_occupied_tls_displaces_older_to_pool() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let older = DefaultStack::new(size).unwrap();
+        let older_id = stack_id(&older);
+        TLS_STACK.with(|cache| cache.0.set(Some(older)));
+
+        let newer = DefaultStack::new(size).unwrap();
+        let newer_id = stack_id(&newer);
+        release_stack(newer);
+
+        let in_tls = TLS_STACK
+            .with(|cache| cache.0.take())
+            .expect("TLS should hold the newly-released stack");
+        assert_eq!(
+            stack_id(&in_tls),
+            newer_id,
+            "newer stack must displace into TLS"
+        );
+
+        let displaced = STACK_POOL
+            .pop()
+            .expect("older stack should have been pushed to global pool");
+        assert_eq!(
+            stack_id(&displaced),
+            older_id,
+            "displaced stack must be the older one"
+        );
+
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // drain_stack_pool extended semantics
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn drain_stack_pool_clears_calling_thread_tls_slot() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let stack = DefaultStack::new(get_stack_size()).unwrap();
+        TLS_STACK.with(|cache| cache.0.set(Some(stack)));
+
+        drain_stack_pool();
+
+        let tls_empty = TLS_STACK.with(|cache| cache.0.take().is_none());
+        assert!(
+            tls_empty,
+            "drain_stack_pool must also clear current thread's TLS slot"
+        );
+        assert!(STACK_POOL.is_empty());
+    }
+
+    // -----------------------------------------------------------------
+    // on_wasm_stack functional behavior
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn on_wasm_stack_passes_closure_value_back() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r = on_wasm_stack(get_stack_size(), None, || 12345u32);
+        assert_eq!(r.ok(), Some(12345));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn on_wasm_stack_passes_owning_result_back() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // Use a heap-allocated value to verify the move-out path: the
+        // closure produces a `Vec<u8>` that must travel from the coroutine
+        // stack back to the host.
+        let r = on_wasm_stack(get_stack_size(), None, || vec![0u8, 1, 2, 3, 4]);
+        assert_eq!(r.ok(), Some(vec![0u8, 1, 2, 3, 4]));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn many_calls_do_not_grow_global_pool() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // With TLS caching, repeated single-threaded calls must keep
+        // reusing the same TLS stack and never push to the global pool.
+        for _ in 0..1000 {
+            assert!(on_wasm_stack(get_stack_size(), None, || ()).is_ok());
+        }
+        assert!(
+            STACK_POOL.is_empty(),
+            "1000 sequential calls should not grow the global pool (TLS handles reuse)"
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // Trap and unwind paths
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn raise_user_trap_yields_err() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || unsafe {
+            raise_user_trap(Box::new(io::Error::other("user trap from test")));
+        });
+        assert!(r.is_err(), "raise_user_trap must produce Err");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn raise_lib_trap_yields_err() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || unsafe {
+            raise_lib_trap(Trap::lib(TrapCode::IntegerDivisionByZero));
+        });
+        assert!(r.is_err(), "raise_lib_trap must produce Err");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn resume_panic_yields_err_without_unwinding() {
+        // `resume_panic` packages the payload as `UnwindReason::Panic`. The
+        // host-side panic resumption lives in `UnwindReason::into_trap`,
+        // which we do NOT call here — `on_wasm_stack` itself just returns
+        // the Err, so the test does not actually panic.
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || unsafe {
+            resume_panic(Box::new("panic payload from test"));
+        });
+        assert!(
+            r.is_err(),
+            "resume_panic must surface as Err to on_wasm_stack"
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn trap_does_not_corrupt_subsequent_calls() {
+        // After a trap, the per-call coroutine is force-reset and dropped.
+        // The TLS stack cache and global pool must remain in a usable state
+        // so that subsequent calls succeed.
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let trapped: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || unsafe {
+            raise_user_trap(Box::new(io::Error::other("first call traps")));
+        });
+        assert!(trapped.is_err());
+
+        // Subsequent normal call must still succeed.
+        let ok = on_wasm_stack(get_stack_size(), None, || 7u32);
+        assert_eq!(ok.ok(), Some(7), "calls after a trap must still work");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // on_host_stack
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn on_host_stack_outside_coroutine_runs_inline() {
+        // `on_host_stack` outside any wasm coroutine just runs `f()` directly
+        // (no stack switch); this asserts the no-yielder branch still works.
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let n = on_host_stack(|| 99i32);
+        assert_eq!(n, 99);
+    }
+
+    #[test]
+    fn on_host_stack_inside_wasm_switches_and_returns() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r = on_wasm_stack(get_stack_size(), None, || on_host_stack(|| 88i32));
+        assert_eq!(r.ok(), Some(88));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // Re-entrancy
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn reentrant_call_returns_value() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let outer = on_wasm_stack(get_stack_size(), None, || {
+            on_wasm_stack(get_stack_size(), None, || 42i32).expect("inner must succeed")
+        });
+        assert_eq!(outer.ok(), Some(42));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn reentrant_calls_run_to_completion_under_pool_pressure() {
+        // The outer call's stack is held by its scopeguard for the duration
+        // of the call; the inner call must therefore pop a separate stack
+        // from the pool (or allocate one). With a pre-populated pool the
+        // inner call should consume that stack; either way the nested call
+        // chain must complete without deadlocking or panicking from
+        // corosensei.
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering as O};
+
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // Pre-populate the pool with one stack so the inner call can grab
+        // it instead of allocating.
+        let pre = DefaultStack::new(get_stack_size()).unwrap();
+        STACK_POOL.push(pre);
+
+        let inner_completed = Arc::new(AtomicUsize::new(0));
+        let inner_completed_outer = inner_completed.clone();
+        let _ = on_wasm_stack(get_stack_size(), None, move || {
+            let inner_completed = inner_completed_outer.clone();
+            let inner = on_wasm_stack(get_stack_size(), None, move || {
+                inner_completed.fetch_add(1, O::Relaxed);
+            });
+            assert!(inner.is_ok(), "inner re-entrant call must succeed");
+        });
+        assert_eq!(
+            inner_completed.load(O::Relaxed),
+            1,
+            "inner closure must have executed exactly once",
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn reentrant_inner_trap_does_not_kill_outer() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let outer = on_wasm_stack(get_stack_size(), None, || {
+            let inner: Result<i32, UnwindReason> =
+                on_wasm_stack(get_stack_size(), None, || unsafe {
+                    raise_user_trap(Box::new(io::Error::other("inner trap")));
+                });
+            // Outer observes inner's Err and recovers.
+            match inner {
+                Err(_) => 1234i32,
+                Ok(_) => panic!("inner should have trapped"),
+            }
+        });
+        assert_eq!(
+            outer.ok(),
+            Some(1234),
+            "outer must recover after inner trap and run to completion"
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn reentrant_with_on_host_stack_in_between() {
+        // Outer wasm → on_host_stack → inner wasm. This exercises the
+        // YIELDER save/restore in `unwind_with` / `on_host_stack` against
+        // a re-entrant boundary.
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r = on_wasm_stack(get_stack_size(), None, || {
+            on_host_stack(|| {
+                on_wasm_stack(get_stack_size(), None, || 5i32).expect("nested inner must succeed")
+            })
+        });
+        assert_eq!(r.ok(), Some(5));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // Concurrency
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn many_threads_in_parallel_all_succeed() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering as O};
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        const THREADS: usize = 8;
+        const CALLS_PER_THREAD: usize = 200;
+
+        let handles: Vec<_> = (0..THREADS)
+            .map(|_| {
+                let counter = counter.clone();
+                std::thread::spawn(move || {
+                    let size = get_stack_size();
+                    for _ in 0..CALLS_PER_THREAD {
+                        if on_wasm_stack(size, None, || 1u32).ok() == Some(1) {
+                            counter.fetch_add(1, O::Relaxed);
+                        }
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        assert_eq!(counter.load(O::Relaxed), THREADS * CALLS_PER_THREAD);
+        // Pool should now hold at most `THREADS` stacks (one per thread that
+        // exited). Each thread also drops its TLS slot on exit, which pushes
+        // the stack to the pool.
+        let mut pooled = 0usize;
+        while STACK_POOL.pop().is_some() {
+            pooled += 1;
+        }
+        assert!(
+            pooled <= THREADS,
+            "pool should hold at most one stack per terminated thread (got {pooled} for {THREADS} threads)"
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // Stack size dynamics
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn growing_request_discards_smaller_tls_stack() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // First call at a small size populates TLS with a small stack.
+        let small = ByteSize::mib(1).as_u64() as usize;
+        set_stack_size(small);
+        assert!(on_wasm_stack(small, None, || ()).is_ok());
+
+        let cached_size = TLS_STACK.with(|cache| {
+            let s = cache.0.take();
+            let sz = s.as_ref().map_or(0, |s| s.size());
+            cache.0.set(s);
+            sz
+        });
+        assert!(
+            cached_size >= small,
+            "TLS should hold the small-sized stack"
+        );
+
+        // Now request a larger stack. acquire_stack should discard the TLS
+        // entry and either pop a big-enough one from pool or allocate.
+        let big = ByteSize::mib(4).as_u64() as usize;
+        set_stack_size(big);
+        assert!(on_wasm_stack(big, None, || ()).is_ok());
+
+        // The TLS slot should now hold a stack that's big enough.
+        let cached_size = TLS_STACK.with(|cache| {
+            let s = cache.0.take();
+            let sz = s.as_ref().map_or(0, |s| s.size());
+            cache.0.set(s);
+            sz
+        });
+        assert!(
+            cached_size >= big,
+            "TLS should hold the bigger stack after size bump"
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
     }
 }

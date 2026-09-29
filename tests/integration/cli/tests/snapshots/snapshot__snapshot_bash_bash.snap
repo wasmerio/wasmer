@@ -1,21 +1,15 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1196
 expression: snapshot
 ---
 {
   "spec": {
     "name": "snapshot::test_snapshot_bash_bash",
     "use_packages": [
-      "sharrattj/bash"
+      "wasmer/bash"
     ],
-    "include_webcs": [
-      {
-        "name": "sharrattj/bash@1.0.12"
-      },
-      {
-        "name": "sharrattj/coreutils@1.0.11"
-      }
-    ],
+    "include_webcs": [],
     "cli_args": [],
     "stdin_hash": "eb83da76ee5fbab28288ecf6385c69db",
     "enable_threads": true,
@@ -24,7 +18,7 @@ expression: snapshot
   "result": {
     "Success": {
       "stdout": "hi\nhi2\n",
-      "stderr": "test.wasm-5.1# bash-5.1# bash-5.1# exit\ntest.wasm-5.1# test.wasm-5.1# exit\n",
+      "stderr": "test.wasm-5.1# bash-dist# bash-dist# exit\ntest.wasm-5.1# test.wasm-5.1# exit\n",
       "exit_code": 0
     }
   }

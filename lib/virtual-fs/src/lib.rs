@@ -1,5 +1,14 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(feature = "enable-serde")]
+const _: () = {
+    #[deprecated(
+        note = "The `enable-serde` feature is deprecated and will be removed in the next major release of Wasmer."
+    )]
+    fn __enable_serde_deprecated() {}
+    let _ = __enable_serde_deprecated;
+};
+
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
@@ -29,12 +38,12 @@ pub mod empty_fs;
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
 pub mod mem_fs;
+pub mod mount_fs;
 pub mod null_file;
 pub mod passthru_fs;
 pub mod random_file;
 pub mod special_file;
 pub mod tmp_fs;
-pub mod union_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
 mod filesystems;
@@ -42,8 +51,6 @@ pub(crate) mod ops;
 mod overlay_fs;
 pub mod pipe;
 mod static_file;
-#[cfg(feature = "static-fs")]
-pub mod static_fs;
 mod trace_fs;
 #[cfg(feature = "webc-fs")]
 mod webc_volume_fs;
@@ -60,6 +67,7 @@ pub use cow_file::*;
 pub use dual_write_file::*;
 pub use empty_fs::*;
 pub use filesystems::FileSystems;
+pub use mount_fs::*;
 pub use null_file::*;
 pub use overlay_fs::OverlayFileSystem;
 pub use passthru_fs::*;
@@ -68,7 +76,6 @@ pub use special_file::*;
 pub use static_file::StaticFile;
 pub use tmp_fs::*;
 pub use trace_fs::TraceFileSystem;
-pub use union_fs::*;
 #[cfg(feature = "webc-fs")]
 pub use webc_volume_fs::WebcVolumeFileSystem;
 pub use zero_file::*;
@@ -81,7 +88,7 @@ pub use tokio::io::{AsyncRead, AsyncReadExt};
 pub use tokio::io::{AsyncSeek, AsyncSeekExt};
 pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-pub trait ClonableVirtualFile: VirtualFile + Clone {}
+pub trait CloneableVirtualFile: VirtualFile + Clone {}
 
 pub use ops::{copy_reference, copy_reference_ext, create_dir_all, walk};
 
@@ -89,6 +96,12 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
+    fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
+    fn hard_link(&self, _source: &Path, _target: &Path) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
     fn remove_dir(&self, path: &Path) -> Result<()>;
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
@@ -99,9 +112,6 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions<'_>;
-
-    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>)
-    -> Result<()>;
 }
 
 impl dyn FileSystem + 'static {
@@ -133,6 +143,10 @@ where
         (**self).create_dir(path)
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        (**self).create_symlink(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         (**self).remove_dir(path)
     }
@@ -155,15 +169,6 @@ where
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         (**self).new_open_options()
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        (**self).mount(name, path, fs)
     }
 }
 
@@ -337,7 +342,6 @@ impl<'a> OpenOptions<'a> {
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
-//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 pub trait VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
@@ -363,7 +367,11 @@ pub trait VirtualFile:
     /// the extra bytes will be allocated and zeroed
     fn set_len(&mut self, new_size: u64) -> Result<()>;
 
-    /// Request deletion of the file
+    /// Remove the file from the filesystem namespace.
+    ///
+    /// Existing open handles may continue to operate after this call.
+    /// Backends may defer final storage reclamation until the last open
+    /// handle is dropped.
     fn unlink(&mut self) -> Result<()>;
 
     /// Indicates if the file is opened or closed. This function must not block

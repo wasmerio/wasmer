@@ -1,10 +1,10 @@
-use crate::lib::std::convert::TryFrom;
-use crate::lib::std::fmt;
-use crate::lib::std::ops::{Add, Sub};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::convert::TryInto;
+use std::fmt;
+use std::ops::{Add, Sub};
 use thiserror::Error;
 
 /// WebAssembly page sizes are fixed to be 64KiB.
@@ -51,6 +51,18 @@ impl Pages {
     /// Calculate number of bytes from pages.
     pub fn bytes(self) -> Bytes {
         self.into()
+    }
+
+    /// Calculate the number of pages needed to hold the given number of bytes,
+    /// rounding up to include any partial page,
+    /// returning `None` if overflow occurred.
+    pub fn from_bytes_rounded_up(bytes: u64) -> Option<Self> {
+        let pages = bytes.div_ceil(WASM_PAGE_SIZE as u64);
+        if pages <= (WASM_MAX_PAGES as u64) {
+            Some(Self(pages as u32))
+        } else {
+            None
+        }
     }
 }
 

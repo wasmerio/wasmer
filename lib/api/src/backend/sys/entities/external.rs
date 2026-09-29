@@ -62,4 +62,10 @@ impl ExternRef {
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
+
+    /// Whether two [`ExternRef`]s point to the same underlying extern object.
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        self.handle.store_id() == other.handle.store_id()
+            && self.handle.internal_handle() == other.handle.internal_handle()
+    }
 }

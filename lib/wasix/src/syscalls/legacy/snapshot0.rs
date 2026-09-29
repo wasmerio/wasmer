@@ -13,7 +13,7 @@ use crate::{
     os::task::thread::WasiThread,
     state::{PollEventBuilder, PollEventSet},
     syscalls::types,
-    syscalls::{self, handle_rewind},
+    syscalls::{self, handle_rewind, to_offset},
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` for old Snapshot0
@@ -73,9 +73,20 @@ pub fn poll_oneoff<M: MemorySize>(
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 
-    let mut subscriptions = Vec::new();
-    let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
+    wasi_try_ok!(syscalls::validate_poll_subscriptions_count(
+        env,
+        nsubscriptions as usize,
+    ));
+    let nsubscriptions_offset = wasi_try_ok!(to_offset::<Memory32>(nsubscriptions as usize));
+
+    let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset));
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
+    let mut subscriptions = Vec::new();
+    wasi_try_ok!(
+        subscriptions
+            .try_reserve_exact(in_origs.len())
+            .map_err(|_| Errno::Nomem)
+    );
     for in_orig in in_origs {
         subscriptions.push((
             None,
@@ -91,7 +102,7 @@ pub fn poll_oneoff<M: MemorySize>(
 
         // Process all the events that were triggered
         let mut events_seen: u32 = 0;
-        let event_array = wasi_try_mem!(out_.slice(&memory, nsubscriptions));
+        let event_array = wasi_try_mem!(out_.slice(&memory, nsubscriptions_offset));
         for event in triggered_events {
             let event = Snapshot0Event {
                 userdata: event.userdata,

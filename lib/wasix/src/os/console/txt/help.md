@@ -13,7 +13,7 @@ Including:
 - Fully multi-threaded.
 - Support for basic bash commands.
 
-## coreutil commands:
+## coreutils commands:
 
     arch, base32, base64, basename, cat, cksum, comm, cp, csplit, cut,
     date, dircolors, dirname, echo, env, expand, factor, false, fmt, fold,

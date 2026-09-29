@@ -25,7 +25,7 @@ use webc::Container;
 
 /// Special wasix runtime implementation for the CLI.
 ///
-/// Wraps an undelrying runtime and adds progress monitoring for package
+/// Wraps an underlying runtime and adds progress monitoring for package
 /// compilation.
 #[derive(Debug)]
 pub struct MonitoringRuntime<R> {
@@ -97,8 +97,17 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         &self,
         module: &Module,
         store: &mut wasmer::StoreMut,
-    ) -> anyhow::Result<wasmer::Imports> {
+    ) -> anyhow::Result<(wasmer::Imports, wasmer_wasix::runtime::InstantiationState)> {
         self.runtime.additional_imports(module, store)
+    }
+
+    fn prepare_imports(
+        &self,
+        module: &Module,
+        store: &mut wasmer::StoreMut,
+        imports: &mut wasmer::Imports,
+    ) -> anyhow::Result<wasmer_wasix::runtime::InstantiationState> {
+        self.runtime.prepare_imports(module, store, imports)
     }
 
     fn configure_new_instance(
@@ -107,9 +116,10 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         store: &mut wasmer::StoreMut,
         instance: &wasmer::Instance,
         imported_memory: Option<&wasmer::Memory>,
+        state: wasmer_wasix::runtime::InstantiationState,
     ) -> anyhow::Result<()> {
         self.runtime
-            .configure_new_instance(module, store, instance, imported_memory)
+            .configure_new_instance(module, store, instance, imported_memory, state)
     }
 
     #[cfg(feature = "journal")]

@@ -5,7 +5,7 @@ pub use crate::{
 };
 use crate::{
     codegen_error, common_decl::Size, location::Location as AbstractLocation,
-    machine_arm64::ARM64_RETURN_VALUE_REGISTERS,
+    machine_arm64::ARM64_RETURN_VALUE_REGISTERS, output_reporter::ChunkedOutputReporter,
 };
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
@@ -17,7 +17,8 @@ use wasmer_compiler::types::{
     section::{CustomSection, CustomSectionProtection, SectionBody},
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, Type, VMOffsets, target::CallingConvention,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
+    target::CallingConvention, vmctx_offset,
 };
 
 type Assembler = VecAssembler<Aarch64Relocation>;
@@ -513,17 +514,7 @@ impl EmitterARM64 for Assembler {
         4 // relative jump, not full 32bits capable
     }
 
-    fn finalize_function(&mut self) {
-        dynasm!(
-            self
-            ; const_neg_one_32:
-            ; .i32 -1
-            ; const_zero_32:
-            ; .i32 0
-            ; const_pos_one_32:
-            ; .i32 1
-        );
-    }
+    fn finalize_function(&mut self) {}
 
     fn emit_str(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
         match (sz, reg, addr) {
@@ -2816,8 +2807,10 @@ impl EmitterARM64 for Assembler {
 pub fn gen_std_trampoline_arm64(
     sig: &FunctionType,
     calling_convention: CallingConvention,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
     let fptr = GPR::X27;
     let args = GPR::X28;
@@ -2902,6 +2895,7 @@ pub fn gen_std_trampoline_arm64(
                 }
             }
         }
+        output_reporter.check(a.offset().0)?;
     }
 
     dynasm!(a  ; blr X(fptr));
@@ -2926,6 +2920,7 @@ pub fn gen_std_trampoline_arm64(
             Location::GPR(src),
             Location::Memory(args, (i * 16) as _),
         )?;
+        output_reporter.check(a.offset().0)?;
     }
 
     // Restore stack.
@@ -2944,6 +2939,7 @@ pub fn gen_std_trampoline_arm64(
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
+    output_reporter.finish(body.len())?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -2954,8 +2950,10 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     vmoffsets: &VMOffsets,
     sig: &FunctionType,
     calling_convention: CallingConvention,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
     // Save LR and X26, as scratch register
@@ -3035,6 +3033,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
                 Location::GPR(GPR::XzrSp),                       // XZR here
                 Location::Memory(GPR::XzrSp, (i * 16 + 8) as _), // XSP here
             )?;
+            output_reporter.check(a.offset().0)?;
         }
     }
 
@@ -3099,6 +3098,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
+    output_reporter.finish(body.len())?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -3110,8 +3110,10 @@ pub fn gen_import_call_trampoline_arm64(
     index: FunctionIndex,
     sig: &FunctionType,
     calling_convention: CallingConvention,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<CustomSection, CompileError> {
     let mut a = Assembler::new(0);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
     // Singlepass internally treats all arguments as integers
     // For the standard System V calling convention requires
@@ -3174,6 +3176,7 @@ pub fn gen_import_call_trampoline_arm64(
                         }
                     };
                     param_locations.push(loc);
+                    output_reporter.check(a.offset().0)?;
                 }
 
                 // Copy arguments.
@@ -3197,10 +3200,12 @@ pub fn gen_import_call_trampoline_arm64(
                                 ),
                             )?;
                             caller_stack_offset += 8;
+                            output_reporter.check(a.offset().0)?;
                             continue;
                         }
                     };
                     a.emit_ldr(Size::S64, targ, prev_loc)?;
+                    output_reporter.check(a.offset().0)?;
                 }
 
                 // Restore stack pointer.
@@ -3230,7 +3235,7 @@ pub fn gen_import_call_trampoline_arm64(
     // from Ctx and jumps to it.
 
     let offset = vmoffsets.vmctx_vmfunction_import(index);
-    // for ldr, offset needs to be a multiple of 8, wich often is not
+    // for ldr, offset needs to be a multiple of 8, which often is not
     // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
     let offset =
         if (offset > 0) && ((offset < 0xF8) || (offset < 0x7FF8 && offset.is_multiple_of(8))) {
@@ -3245,32 +3250,35 @@ pub fn gen_import_call_trampoline_arm64(
             )?;
             0
         };
+    let ptr_arg_offset = vmctx_offset(offset)?;
+    let vmctx_arg_offset = vmctx_offset(offset.saturating_add(8))?;
+
     #[allow(clippy::match_single_binding)]
     match calling_convention {
         _ => {
-            if offset.is_multiple_of(8) {
+            if (ptr_arg_offset as u32).is_multiple_of(8) {
                 a.emit_ldr(
                     Size::S64,
                     Location::GPR(GPR::X16),
-                    Location::Memory(GPR::X0, offset as i32), // function pointer
+                    Location::Memory(GPR::X0, ptr_arg_offset), // function pointer
                 )?;
                 a.emit_ldr(
                     Size::S64,
                     Location::GPR(GPR::X0),
-                    Location::Memory(GPR::X0, offset as i32 + 8), // target vmctx
+                    Location::Memory(GPR::X0, vmctx_arg_offset), // target vmctx
                 )?;
             } else {
                 a.emit_ldur(
                     Size::S64,
                     Location::GPR(GPR::X16),
                     GPR::X0,
-                    offset as i32, // function pointer
+                    ptr_arg_offset, // function pointer
                 )?;
                 a.emit_ldur(
                     Size::S64,
                     Location::GPR(GPR::X0),
                     GPR::X0,
-                    offset as i32 + 8, // target vmctx
+                    vmctx_arg_offset, // target vmctx
                 )?;
             }
         }
@@ -3279,6 +3287,7 @@ pub fn gen_import_call_trampoline_arm64(
 
     let mut contents = a.finalize().unwrap();
     contents.shrink_to_fit();
+    output_reporter.finish(contents.len())?;
     let section_body = SectionBody::new_with_vec(contents);
 
     Ok(CustomSection {

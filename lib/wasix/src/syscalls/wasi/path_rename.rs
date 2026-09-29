@@ -65,6 +65,8 @@ pub fn path_rename_internal(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
+    let mut moved_ephemeral_symlink = false;
+
     {
         let source_fd = wasi_try_ok!(state.fs.get_fd(source_fd));
         if !source_fd.inner.rights.contains(Rights::PATH_RENAME_SOURCE) {
@@ -77,11 +79,12 @@ pub fn path_rename_internal(
     }
 
     // this is to be sure the source file is fetched from the filesystem if needed
-    wasi_try_ok!(
-        state
-            .fs
-            .get_inode_at_path(inodes, source_fd, source_path, true)
-    );
+    let source_inode = wasi_try_ok!(state.fs.get_inode_at_path(
+        inodes,
+        source_fd,
+        source_path,
+        true
+    ));
     // Create the destination inode if the file exists.
     let _ = state
         .fs
@@ -98,10 +101,12 @@ pub fn path_rename_internal(
         Path::new(target_path),
         true
     ));
-    let host_adjusted_source_path = {
+    let source_guest_path = {
         let guard = source_parent_inode.read();
         match guard.deref() {
-            Kind::Dir { path, .. } => path.join(&source_entry_name),
+            Kind::Dir { path, .. } => crate::fs::PosixPath::from_path(path)
+                .join(&crate::fs::PosixPath::new(&source_entry_name))
+                .into_path_buf(),
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
             | Kind::PipeTx { .. }
@@ -116,14 +121,16 @@ pub fn path_rename_internal(
         }
     };
     let mut need_create = true;
-    let host_adjusted_target_path = {
+    let target_guest_path = {
         let guard = target_parent_inode.read();
         match guard.deref() {
             Kind::Dir { entries, path, .. } => {
                 if entries.contains_key(&target_entry_name) {
                     need_create = false;
                 }
-                path.join(&target_entry_name)
+                crate::fs::PosixPath::from_path(path)
+                    .join(&crate::fs::PosixPath::new(&target_entry_name))
+                    .into_path_buf()
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
@@ -138,6 +145,24 @@ pub fn path_rename_internal(
             }
         }
     };
+
+    if source_parent_inode.ino() == target_parent_inode.ino()
+        && source_entry_name == target_entry_name
+    {
+        return Ok(Errno::Success);
+    }
+
+    let source_is_dir = {
+        let guard = source_inode.read();
+        matches!(guard.deref(), Kind::Dir { .. })
+    };
+    if source_is_dir
+        && crate::fs::PosixPath::from_path(&target_guest_path)
+            .strip_prefix(&crate::fs::PosixPath::from_path(&source_guest_path))
+            .is_some()
+    {
+        return Ok(Errno::Inval);
+    }
 
     let source_entry = {
         let mut guard = source_parent_inode.write();
@@ -169,11 +194,9 @@ pub fn path_rename_internal(
                     let path_clone = path.clone();
                     drop(guard);
                     let state = state;
-                    let host_adjusted_target_path = host_adjusted_target_path.clone();
+                    let target_guest_path = target_guest_path.clone();
                     __asyncify_light(env, None, async move {
-                        state
-                            .fs_rename(path_clone, &host_adjusted_target_path)
-                            .await
+                        state.fs_rename(path_clone, &target_guest_path).await
                     })?
                 };
                 // if the above operation failed we have to revert the previous change and then fail
@@ -186,7 +209,7 @@ pub fn path_rename_internal(
                 } else {
                     let mut guard = source_entry.write();
                     if let Kind::File { path, .. } = guard.deref_mut() {
-                        *path = host_adjusted_target_path.clone();
+                        *path = target_guest_path.clone();
                     } else {
                         unreachable!()
                     }
@@ -196,11 +219,9 @@ pub fn path_rename_internal(
                 let cloned_path = path.clone();
                 let res = {
                     let state = state;
-                    let host_adjusted_target_path = host_adjusted_target_path.clone();
+                    let target_guest_path = target_guest_path.clone();
                     __asyncify_light(env, None, async move {
-                        state
-                            .fs_rename(cloned_path, &host_adjusted_target_path)
-                            .await
+                        state.fs_rename(cloned_path, &target_guest_path).await
                     })?
                 };
                 if let Err(e) = res {
@@ -209,22 +230,22 @@ pub fn path_rename_internal(
                 {
                     let source_dir_path = path.clone();
                     drop(guard);
-                    rename_inode_tree(&source_entry, &source_dir_path, &host_adjusted_target_path);
+                    rename_inode_tree(&source_entry, &source_dir_path, &target_guest_path);
                 }
             }
             Kind::Symlink {
-                base_po_dir,
                 path_to_symlink,
                 relative_path,
+                ..
             } => {
                 let is_ephemeral = state
                     .fs
-                    .ephemeral_symlink_at(host_adjusted_source_path.as_path())
+                    .ephemeral_symlink_at(source_guest_path.as_path())
                     .is_some();
                 let res = {
                     let state = state;
-                    let from = host_adjusted_source_path.clone();
-                    let to = host_adjusted_target_path.clone();
+                    let from = source_guest_path.clone();
+                    let to = target_guest_path.clone();
                     __asyncify_light(env, None, async move { state.fs_rename(from, to).await })?
                 };
                 match (res, is_ephemeral) {
@@ -238,20 +259,18 @@ pub fn path_rename_internal(
                     }
                 }
 
-                let (new_base_po_dir, new_path_to_symlink) =
-                    wasi_try_ok!(state.fs.path_into_pre_open_and_relative_path_owned(
-                        host_adjusted_target_path.as_path()
-                    ));
-                *base_po_dir = new_base_po_dir;
+                let new_path_to_symlink = state
+                    .fs
+                    .rebase_symlink_location(target_guest_path.as_path());
                 *path_to_symlink = new_path_to_symlink.clone();
                 if is_ephemeral {
                     state.fs.move_ephemeral_symlink(
-                        host_adjusted_source_path.as_path(),
-                        host_adjusted_target_path.as_path(),
-                        new_base_po_dir,
+                        source_guest_path.as_path(),
+                        target_guest_path.as_path(),
                         new_path_to_symlink,
                         relative_path.clone(),
                     );
+                    moved_ephemeral_symlink = true;
                 }
             }
             Kind::Buffer { .. }
@@ -288,9 +307,11 @@ pub fn path_rename_internal(
 
     // If the rename replaced an existing destination entry, clear any stale
     // ephemeral symlink mapping for that path.
-    state
-        .fs
-        .unregister_ephemeral_symlink(host_adjusted_target_path.as_path());
+    if !moved_ephemeral_symlink {
+        state
+            .fs
+            .unregister_ephemeral_symlink(target_guest_path.as_path());
+    }
 
     Ok(Errno::Success)
 }
@@ -318,9 +339,13 @@ fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path
 }
 
 fn adjust_path(path: &Path, source_dir_path: &Path, target_dir_path: &Path) -> PathBuf {
+    let path = crate::fs::PosixPath::from_path(path);
+    let source_dir_path = crate::fs::PosixPath::from_path(source_dir_path);
     let relative_path = path
-        .strip_prefix(source_dir_path)
+        .strip_prefix(&source_dir_path)
         .with_context(|| format!("Expected path {path:?} to be a subpath of {source_dir_path:?}"))
         .expect("Fatal filesystem error");
-    target_dir_path.join(relative_path)
+    crate::fs::PosixPath::from_path(target_dir_path)
+        .join(&relative_path)
+        .into_path_buf()
 }

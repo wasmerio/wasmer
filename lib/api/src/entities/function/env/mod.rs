@@ -61,12 +61,12 @@ impl<T> FunctionEnv<T> {
 pub struct FunctionEnvMut<'a, T: 'a>(pub(crate) BackendFunctionEnvMut<'a, T>);
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {
-    /// Returns a reference to the host state in this function environement.
+    /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         self.0.data()
     }
 
-    /// Returns a mutable- reference to the host state in this function environement.
+    /// Returns a mutable- reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         self.0.data_mut()
     }

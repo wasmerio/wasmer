@@ -1,4 +1,4 @@
-use crate::{Pages, ValueType};
+use crate::{Pages, ValueType, WASM_PAGE_SIZE};
 use core::ops::SubAssign;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -23,25 +23,31 @@ pub enum MemoryStyle {
         offset_guard_size: u64,
     },
     /// Address space is allocated up front.
-    Static {
-        /// The number of mapped and unmapped pages.
-        bound: Pages,
-        /// Our chosen offset-guard size.
-        ///
-        /// It represents the size in bytes of extra guard pages after the end
-        /// to optimize loads and stores with constant offsets.
-        offset_guard_size: u64,
-    },
+    ///
+    /// Static memories reserve 8 GiB (plus one extra page) of virtual address space at runtime:
+    /// the 4 GiB wasm32 address space plus a 4 GiB offset guard. This lets generated
+    /// code omit bounds checks while still relying on protected virtual memory
+    /// to trap out-of-bounds accesses.
+    Static,
 }
 
 impl MemoryStyle {
-    /// Returns the offset-guard size
+    /// Static memory reserves the wasm32 address space up front.
+    pub const fn static_bound() -> Pages {
+        Pages::max_value()
+    }
+
+    /// Static memory reserves an additional 4 GiB offset guard
+    /// (plus one extra page as one can access up to 16B at the effective address).
+    pub const fn static_offset_guard_size() -> u64 {
+        0x1_0000_0000 + WASM_PAGE_SIZE as u64
+    }
+
+    /// Returns the offset-guard size.
     pub fn offset_guard_size(&self) -> u64 {
         match self {
             Self::Dynamic { offset_guard_size } => *offset_guard_size,
-            Self::Static {
-                offset_guard_size, ..
-            } => *offset_guard_size,
+            Self::Static => Self::static_offset_guard_size(),
         }
     }
 }

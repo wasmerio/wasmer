@@ -5,8 +5,8 @@
 #![allow(missing_docs)]
 
 use crate::indexes::{FunctionIndex, MemoryIndex, TableIndex};
-use crate::lib::std::boxed::Box;
 use crate::types::InitExpr;
+use std::boxed::Box;
 
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]

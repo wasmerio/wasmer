@@ -39,7 +39,7 @@ pub struct Binfmt {
 }
 
 // Quick safety check:
-// This folder isn't world writeable (or else its sticky bit is set), and neither are its parents.
+// This folder isn't world writable (or else its sticky bit is set), and neither are its parents.
 //
 // If somebody mounted /tmp wrong, this might result in a TOCTOU problem.
 fn seccheck(path: &Path) -> Result<()> {
@@ -51,7 +51,7 @@ fn seccheck(path: &Path) -> Result<()> {
     use unix_mode::*;
     anyhow::ensure!(
         !is_allowed(Accessor::Other, Access::Write, m.mode()) || is_sticky(m.mode()),
-        "{} is world writeable and not sticky ({m:?})",
+        "{} is world writable and not sticky ({m:?})",
         path.to_string_lossy()
     );
     Ok(())
@@ -64,7 +64,7 @@ impl Binfmt {
     /// execute [Binfmt]
     pub fn execute(&self) -> Result<()> {
         if !self.binfmt_misc.exists() {
-            panic!("{} does not exist", self.binfmt_misc.to_string_lossy());
+            bail!("{} does not exist", self.binfmt_misc.to_string_lossy());
         }
         let temp_dir;
         let specs = match self.action {
@@ -160,5 +160,27 @@ impl Binfmt {
                 .collect::<Result<Vec<_>>>()?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_binfmt_mount_returns_error() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let missing = tempdir.path().join("missing-binfmt-misc");
+        let cmd = Binfmt {
+            binfmt_misc: missing.clone(),
+            action: Action::Register,
+        };
+
+        let error = cmd.execute().unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!("{} does not exist", missing.display())
+        );
     }
 }

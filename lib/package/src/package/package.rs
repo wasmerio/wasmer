@@ -710,9 +710,8 @@ fn unpack_archive(
     mut archive: Archive<impl std::io::Read>,
     dest: &Path,
 ) -> Result<(), std::io::Error> {
-    cfg_if::cfg_if! {
-        if #[cfg(all(target_family = "wasm", target_os = "wasi"))]
-        {
+    cfg_select! {
+        all(target_family = "wasm", target_os = "wasi") => {
             // A naive version of unpack() that should be good enough for WASI
             // https://github.com/alexcrichton/tar-rs/blob/c77f47cb1b4b47fc4404a170d9d91cb42cc762ea/src/archive.rs#L216-L247
             for entry in archive.entries()? {
@@ -740,8 +739,8 @@ fn unpack_archive(
                 }
             }
             Ok(())
-
-        } else {
+        }
+        _ => {
             archive.unpack(dest)
         }
     }
@@ -892,8 +891,8 @@ mod tests {
         let coreutils = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
-            .join("tests")
-            .join("old-tar-gz")
+            .join("wasmer-test-files")
+            .join("legacy")
             .join("coreutils-1.0.11.tar.gz");
         assert!(coreutils.exists());
 
@@ -945,8 +944,8 @@ mod tests {
         let tarball = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
-            .join("tests")
-            .join("old-tar-gz")
+            .join("wasmer-test-files")
+            .join("legacy")
             .join("cowsay-0.3.0.tar.gz");
 
         let pkg = Package::from_tarball_file(tarball).unwrap();
@@ -1116,6 +1115,65 @@ mod tests {
             empty_volume.read_dir("/").unwrap().len(),
             0,
             "Directories should be included, even if empty"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn serialize_package_with_symlinks() {
+        let temp = TempDir::new().unwrap();
+        let wasmer_toml = r#"
+                [package]
+                name = "some/package"
+                version = "0.0.0"
+                description = "Test package"
+
+                [fs]
+                "/assets" = "assets"
+            "#;
+        let manifest = temp.path().join("wasmer.toml");
+        std::fs::write(&manifest, wasmer_toml).unwrap();
+
+        let assets = temp.path().join("assets");
+        std::fs::create_dir(&assets).unwrap();
+        let target = assets.join("target.txt");
+        let target_dir = assets.join("target-dir");
+
+        std::fs::write(&target, "target").unwrap();
+        std::fs::create_dir(&target_dir).unwrap();
+        std::os::unix::fs::symlink("target.txt", assets.join("file-link")).unwrap();
+        std::os::unix::fs::symlink("target-dir", assets.join("dir-link")).unwrap();
+        std::os::unix::fs::symlink("subdir/../target.txt", assets.join("nested-link")).unwrap();
+        std::os::unix::fs::symlink("missing.txt", assets.join("broken-link")).unwrap();
+
+        let package = Package::from_manifest(manifest).unwrap();
+        let webc = from_bytes(package.serialize().unwrap()).unwrap();
+        let volume = webc.get_volume("/assets").unwrap();
+
+        assert!(volume.read_file("/file-link").is_none());
+        assert_eq!(
+            volume.read_link("/file-link").unwrap().0,
+            "target.txt".to_string()
+        );
+        assert_eq!(
+            volume.read_link("/dir-link").unwrap().0,
+            "target-dir".to_string()
+        );
+        assert_eq!(
+            volume.read_link("/nested-link").unwrap().0,
+            "subdir/../target.txt".to_string()
+        );
+        assert_eq!(
+            volume.read_link("/broken-link").unwrap().0,
+            "missing.txt".to_string()
+        );
+        assert!(volume.metadata("/broken-link").unwrap().is_symlink());
+        assert!(
+            volume
+                .read_dir("/")
+                .unwrap()
+                .iter()
+                .any(|(name, _, meta)| name.as_str() == "file-link" && meta.is_symlink())
         );
     }
 

@@ -154,7 +154,7 @@ Expected:
 (A4) r=10003
 ```
 
-## Yet another longjmp implemenation
+## Yet another longjmp implementation
 
 This one is initiated from `rust` code and thus has the risk of leaking memory but uses different interfaces
 
@@ -299,7 +299,7 @@ Uses `posix_spawn` to launch a sub-process and wait on it to exit
 
 ```sh
 cd ../../cli
-cargo run --features compiler,cranelift,debug -- --enable-threads --use sharrattj/coreutils ../wasix/tests/example
+cargo run --features compiler,cranelift,debug -- --enable-threads --use wasmer/coreutils ../wasix/tests/example
 -spawn.wasm
 ```
 

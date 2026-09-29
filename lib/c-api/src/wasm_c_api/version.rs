@@ -44,31 +44,25 @@ pub unsafe extern "C" fn wasmer_version() -> *const c_char {
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
 /// #
 /// int main() {
-///     // Get and print the version components.
+///     // Get and check the version components.
 ///     uint8_t version_major = wasmer_version_major();
 ///     uint8_t version_minor = wasmer_version_minor();
 ///     uint8_t version_patch = wasmer_version_patch();
 ///
-///     printf("%d.%d.%d", version_major, version_minor, version_patch);
+///     assert(version_major == WASMER_VERSION_MAJOR);
+///     assert(version_minor == WASMER_VERSION_MINOR);
+///     assert(version_patch == WASMER_VERSION_PATCH);
 ///
 ///     return 0;
 /// }
 /// #    })
-/// #    .success()
-/// #    .stdout(
-/// #         format!(
-/// #             "{}.{}.{}",
-/// #             env!("CARGO_PKG_VERSION_MAJOR"),
-/// #             env!("CARGO_PKG_VERSION_MINOR"),
-/// #             env!("CARGO_PKG_VERSION_PATCH")
-/// #         )
-/// #     );
+/// #    .success();
 /// # }
 /// ```
 #[unsafe(no_mangle)]
@@ -102,15 +96,16 @@ pub unsafe extern "C" fn wasmer_version_patch() -> u8 {
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
+/// # #include <string.h>
 /// #
 /// int main() {
-///     // Get and print the pre version.
+///     // Get and check the pre version.
 ///     const char* version_pre = wasmer_version_pre();
-///     printf("%s", version_pre);
+///     assert(strcmp(version_pre, WASMER_VERSION_PRE) == 0);
 ///
 ///     // No need to free the string. It's statically allocated on
 ///     // the Rust side.
@@ -118,8 +113,7 @@ pub unsafe extern "C" fn wasmer_version_patch() -> u8 {
 ///     return 0;
 /// }
 /// #    })
-/// #    .success()
-/// #    .stdout(env!("CARGO_PKG_VERSION_PRE"));
+/// #    .success();
 /// # }
 /// ```
 #[unsafe(no_mangle)]

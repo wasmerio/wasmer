@@ -1,6 +1,6 @@
 use assert_cmd::prelude::OutputAssertExt;
 use std::path::Path;
-use wasmer_integration_tests_cli::get_wasmer_path;
+use wasmer_integration_tests_cli::wasmer_command;
 
 fn project_root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -33,7 +33,7 @@ fn wasmer_deploy_fails_no_app_name() -> anyhow::Result<()> {
 
     let app_dir = app_dir.join("php");
 
-    let mut cmd = std::process::Command::new(get_wasmer_path());
+    let mut cmd = wasmer_command();
     cmd.arg("deploy")
         .arg("--non-interactive")
         .arg("-vvvvvv")
@@ -80,7 +80,7 @@ fn wasmer_deploy_fails_no_owner() -> anyhow::Result<()> {
 
     let app_dir = app_dir.join("php");
 
-    let mut cmd = std::process::Command::new(get_wasmer_path());
+    let mut cmd = wasmer_command();
     cmd.arg("deploy")
         .arg("--non-interactive")
         .arg("-vvvvvv")

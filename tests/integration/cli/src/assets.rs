@@ -1,11 +1,36 @@
 use std::path::PathBuf;
 use std::{env, path::Path};
 
-pub fn c_asset_path() -> &'static Path {
-    Path::new(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../lib/c-api/examples/assets/"
-    ))
+pub fn test_files_path() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("wasmer-test-files")
+}
+
+pub fn c_asset_path() -> PathBuf {
+    test_files_path().join("examples")
+}
+
+pub fn integration_wasm_path() -> PathBuf {
+    test_files_path().join("integration/wasm")
+}
+
+pub fn integration_wasm_c_api_path() -> PathBuf {
+    test_files_path().join("integration/wasm-c-api")
+}
+
+pub fn integration_webc_path() -> PathBuf {
+    test_files_path().join("integration/webc")
+}
+
+pub fn compilers_path() -> PathBuf {
+    test_files_path().join("compilers")
+}
+
+pub fn legacy_asset_path() -> PathBuf {
+    test_files_path().join("legacy")
 }
 
 pub fn asset_path() -> &'static Path {
@@ -48,29 +73,6 @@ pub fn wasmer_target_path_2() -> &'static Path {
 }
 
 /* env var TARGET is set by tests/integration/cli/build.rs on compile-time */
-
-pub const LIBWASMER_FILENAME: &str = {
-    if cfg!(windows) {
-        "wasmer.lib"
-    } else {
-        "libwasmer.a"
-    }
-};
-
-/// Get the path to the `libwasmer.a` static library.
-pub fn get_libwasmer_path() -> PathBuf {
-    let mut ret = env::var("WASMER_TEST_LIBWASMER_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| wasmer_target_path().join(LIBWASMER_FILENAME));
-
-    if !ret.exists() {
-        ret = wasmer_target_path_2().join(LIBWASMER_FILENAME);
-    }
-    if !ret.exists() {
-        panic!("Could not find libwasmer path! {ret:?}");
-    }
-    ret
-}
 
 /// Get the path to the `wasmer` executable to be used in this test.
 pub fn get_wasmer_path() -> PathBuf {

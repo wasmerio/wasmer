@@ -2,7 +2,7 @@ use super::error::ObjectError;
 use crate::{
     serialize::MetadataHeader,
     types::{
-        function::Compilation,
+        function::RkyvCompilation,
         relocation::{RelocationKind as Reloc, RelocationTarget},
         section::{CustomSectionProtection, SectionIndex},
         symbols::{ModuleMetadata, Symbol, SymbolRegistry},
@@ -51,7 +51,6 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object<'static>, ObjectE
         Architecture::X86_64 => object::Architecture::X86_64,
         Architecture::Aarch64(_) => object::Architecture::Aarch64,
         Architecture::Riscv64(_) => object::Architecture::Riscv64,
-        Architecture::Riscv32(_) => object::Architecture::Riscv32,
         Architecture::LoongArch64 => object::Architecture::LoongArch64,
         architecture => {
             return Err(ObjectError::UnsupportedArchitecture(format!(
@@ -72,7 +71,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object<'static>, ObjectE
     if let Architecture::Riscv64(_) = triple.architecture {
         object.flags = FileFlags::Elf {
             e_flags: elf::EF_RISCV_FLOAT_ABI_DOUBLE,
-            os_abi: 2,
+            os_abi: elf::OsAbi(2),
             abi_version: 0,
         };
     }
@@ -122,13 +121,13 @@ pub fn emit_data(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, function::{Compilation} };
+/// # use wasmer_compiler::types::{symbols::SymbolRegistry, function::RkyvCompilation};
 /// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, ObjectMetadataBuilder, get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
 /// #     triple: &Triple,
-/// #     compilation: Compilation,
+/// #     compilation: RkyvCompilation,
 /// #     builder: ObjectMetadataBuilder,
 /// #     symbol_registry: impl SymbolRegistry,
 /// # ) -> Result<(), ObjectError> {
@@ -139,7 +138,7 @@ pub fn emit_data(
 /// ```
 pub fn emit_compilation(
     obj: &mut Object,
-    compilation: Compilation,
+    compilation: RkyvCompilation,
     symbol_registry: &impl SymbolRegistry,
     triple: &Triple,
     relocs_builder: &ObjectMetadataBuilder,
@@ -492,7 +491,7 @@ pub fn emit_compilation(
 
                     let libcall_fn_name = libcall_fn_name.as_bytes();
 
-                    // We add the symols lazily as we see them
+                    // We add the symbols lazily as we see them
                     let target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
                         obj.add_symbol(ObjSymbol {
                             name: libcall_fn_name.to_vec(),
@@ -609,8 +608,8 @@ pub fn emit_serialized(
 /// an object. In addition, it also relies on information from ModuleInfo
 /// to build a table of function pointers, trmampolines and dynamic function
 /// trampoline pointers. ObjectMetadataBuilder takes care of setting up
-/// relocations, so a linker can automatically fill in actuall addesses of
-/// all relavant functions. There is no need to piece the information together
+/// relocations, so a linker can automatically fill in actual addresses of
+/// all relevant functions. There is no need to piece the information together
 /// in the glue C file.
 pub struct ObjectMetadataBuilder {
     placeholder_data: Vec<u8>,
@@ -659,7 +658,7 @@ impl ObjectMetadataBuilder {
 
         aself
             .placeholder_data
-            .extend_from_slice(&aself.serialize_value(aself.num_function_pointers));
+            .extend_from_slice(&aself.serialize_value(aself.num_function_pointers)?);
         aself.placeholder_data.extend_from_slice(&vec![
             0u8;
             (aself.pointer_bytes() * aself.num_function_pointers)
@@ -667,14 +666,14 @@ impl ObjectMetadataBuilder {
         ]);
         aself
             .placeholder_data
-            .extend_from_slice(&aself.serialize_value(aself.num_trampolines));
+            .extend_from_slice(&aself.serialize_value(aself.num_trampolines)?);
         aself.placeholder_data.extend_from_slice(&vec![
             0u8;
             (aself.pointer_bytes() * aself.num_trampolines)
                 as usize
         ]);
         aself.placeholder_data.extend_from_slice(
-            &aself.serialize_value(aself.num_dynamic_function_trampoline_pointers),
+            &aself.serialize_value(aself.num_dynamic_function_trampoline_pointers)?,
         );
         aself.placeholder_data.extend_from_slice(&vec![
             0u8;
@@ -790,14 +789,15 @@ impl ObjectMetadataBuilder {
             + self.pointer_bytes()
     }
 
-    fn serialize_value(&self, value: u64) -> Vec<u8> {
+    fn serialize_value(&self, value: u64) -> Result<Vec<u8>, ObjectError> {
         match (self.endianness, self.pointer_width) {
-            (Endianness::Little, PointerWidth::U16) => (value as u16).to_le_bytes().to_vec(),
-            (Endianness::Big, PointerWidth::U16) => (value as u16).to_be_bytes().to_vec(),
-            (Endianness::Little, PointerWidth::U32) => (value as u32).to_le_bytes().to_vec(),
-            (Endianness::Big, PointerWidth::U32) => (value as u32).to_be_bytes().to_vec(),
-            (Endianness::Little, PointerWidth::U64) => value.to_le_bytes().to_vec(),
-            (Endianness::Big, PointerWidth::U64) => value.to_be_bytes().to_vec(),
+            (Endianness::Little, PointerWidth::U64) => Ok(value.to_le_bytes().to_vec()),
+            (Endianness::Big, PointerWidth::U64) => Ok(value.to_be_bytes().to_vec()),
+            (_, PointerWidth::U16 | PointerWidth::U32) => {
+                Err(ObjectError::UnsupportedArchitecture(
+                    "only 64-bit targets are supported".to_string(),
+                ))
+            }
         }
     }
 }

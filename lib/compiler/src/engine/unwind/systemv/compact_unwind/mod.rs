@@ -158,6 +158,7 @@ impl CompactUnwindManager {
     const NUM_RECORDS_PER_SECOND_LEVEL_PAGE: usize = (Self::SECOND_LEVEL_PAGE_SIZE
         - Self::SECOND_LEVEL_PAGE_HEADER_SIZE)
         / Self::SECOND_LEVEL_PAGE_ENTRY_SIZE;
+    const UNWIND_HAS_LSDA: u32 = 0x4000_0000;
 
     /// Analyze a `__compact_unwind` section, adding its entries to the manager.
     pub unsafe fn read_compact_unwind_section(
@@ -200,27 +201,30 @@ impl CompactUnwindManager {
             return Ok(());
         }
 
-        let mut info = libc::Dl_info {
-            dli_fname: core::ptr::null(),
-            dli_fbase: core::ptr::null_mut(),
-            dli_sname: core::ptr::null(),
-            dli_saddr: core::ptr::null_mut(),
-        };
+        let personality = self.maybe_eh_personality_addr_in_got.ok_or_else(|| {
+            CompileError::Codegen("Personality function does not appear in GOT table!".into())
+        })?;
 
-        unsafe {
-            /* xxx: Must find a better way to find a dso_base */
-            if let Some(personality) = self.personalities.first() {
-                _ = libc::dladdr(*personality as *const _, &mut info as *mut _);
-            }
-
-            if info.dli_fbase.is_null() {
-                _ = libc::dladdr(
-                    wasmer_vm::libcalls::wasmer_eh_personality as *const _,
-                    &mut info as *mut _,
-                );
+        // Compact-unwind addresses are unsigned 32-bit offsets from the base
+        // returned by our dynamic-unwind callback. A JIT's code, LSDA data,
+        // and personality GOT slot may be mapped on either side of Wasmer's
+        // dylib, so that dylib's Mach-O base is not a valid common base.
+        let mut start = personality;
+        let mut end = personality;
+        for entry in &self.compact_unwind_entries {
+            start = start.min(entry.function_addr);
+            end = end.max(entry.function_addr.saturating_add(entry.length as usize));
+            if entry.lsda_addr != 0 {
+                start = start.min(entry.lsda_addr);
+                end = end.max(entry.lsda_addr);
             }
         }
-        self.dso_base = info.dli_fbase as usize;
+        if end.saturating_sub(start) > u32::MAX as usize {
+            return Err(CompileError::Codegen(
+                "compact-unwind addresses exceed the 32-bit image-relative range".into(),
+            ));
+        }
+        self.dso_base = start;
 
         self.write_unwind_info()?;
 
@@ -268,6 +272,7 @@ impl CompactUnwindManager {
             }
 
             if entry.lsda_addr != 0 {
+                entry.compact_encoding |= Self::UNWIND_HAS_LSDA;
                 self.num_lsdas += 1;
             }
         }
@@ -277,8 +282,7 @@ impl CompactUnwindManager {
             .len()
             .div_ceil(Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE);
 
-        self.compact_unwind_entries
-            .sort_by(|l, r| l.function_addr.cmp(&r.function_addr));
+        self.compact_unwind_entries.sort_by_key(|l| l.function_addr);
 
         let unwind_info_section_len = Self::UNWIND_INFO_SECTION_HEADER_SIZE
             + (self.personalities.len() * Self::PERSONALITY_ENTRY_SIZE)
@@ -409,7 +413,14 @@ impl CompactUnwindManager {
                         "Personality function does not appear in GOT table!".into(),
                     ));
                 };
-            let delta = (personality_pointer - self.dso_base) as u32;
+            let delta = personality_pointer
+                .checked_sub(self.dso_base)
+                .and_then(|delta| u32::try_from(delta).ok())
+                .ok_or_else(|| {
+                    CompileError::Codegen(
+                        "compact-unwind personality is outside the image-relative range".into(),
+                    )
+                })?;
 
             self.write(delta)?;
         }

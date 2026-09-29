@@ -156,7 +156,7 @@ impl CmdAppSecretsUpdate {
             anyhow::bail!("Secret creation failed!")
         } else {
             if !self.quiet {
-                eprintln!("Succesfully updated secret(s):");
+                eprintln!("Successfully updated secret(s):");
                 for secret in &secrets {
                     eprintln!("{}", secret.name.bold());
                 }

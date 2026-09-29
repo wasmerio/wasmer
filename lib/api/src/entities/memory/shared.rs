@@ -1,21 +1,27 @@
-use wasmer_types::MemoryError;
+use std::sync::Arc;
 
 use crate::{
-    Memory,
+    AsStoreMut, Memory,
     error::AtomicsError,
     location::{MemoryLocation, SharedMemoryOps},
+    vm::VMMemory,
+    vm::VMSharedMemory,
 };
 
-/// A handle that exposes operations only relevant for shared memories.
-///
-/// Enables interaction independent from the [`crate::Store`], and thus allows calling
-/// some methods an instane is running.
-///
-/// **NOTE**: Not all methods are supported by all backends.
-#[derive(Clone)]
+/// A shared memory instance that can be shared across multiple stores and threads,
+/// not attached to any specific store.
 pub struct SharedMemory {
-    memory: Memory,
-    ops: std::sync::Arc<dyn SharedMemoryOps + Send + Sync>,
+    memory: VMSharedMemory,
+    ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
+}
+
+/// Shared memory operations that do not hold the underlying memory alive.
+///
+/// This handle is intended for operations, such as waking atomic waiters, that
+/// may be attempted after the original memory owner has started shutting down.
+#[derive(Clone)]
+pub struct MemoryOps {
+    ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
 }
 
 impl std::fmt::Debug for SharedMemory {
@@ -24,24 +30,62 @@ impl std::fmt::Debug for SharedMemory {
     }
 }
 
+impl std::fmt::Debug for MemoryOps {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoryOps").finish()
+    }
+}
+
+impl Clone for SharedMemory {
+    fn clone(&self) -> Self {
+        Self {
+            memory: self.memory.clone(),
+            ops: self.ops.clone(),
+        }
+    }
+}
+
 impl SharedMemory {
-    /// Get the underlying memory.
-    pub fn memory(&self) -> &Memory {
-        &self.memory
+    /// Create a new shared memory.
+    pub(crate) fn new(memory: VMSharedMemory) -> Self {
+        Self { memory, ops: None }
     }
 
-    /// Create a new handle from ops.
-    #[allow(unused)]
-    pub(crate) fn new(memory: Memory, ops: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
+    /// Create a new shared memory with memory operations.
+    pub(crate) fn new_with_ops(
+        memory: VMSharedMemory,
+        ops: Arc<dyn SharedMemoryOps + Send + Sync>,
+    ) -> Self {
         Self {
             memory,
-            ops: std::sync::Arc::new(ops),
+            ops: Some(ops),
         }
+    }
+
+    /// Attach this shared memory to the provided store.
+    pub fn attach(self, store: &mut impl AsStoreMut) -> Memory {
+        let memory = self.memory.into_vm_memory(store);
+        Memory::new_from_existing(store, memory)
+    }
+
+    /// Create an operations handle that does not keep the underlying memory alive.
+    pub fn ops(&self) -> MemoryOps {
+        MemoryOps {
+            ops: self.ops.clone(),
+        }
+    }
+
+    #[inline]
+    fn shared_ops(&self) -> Result<&(dyn SharedMemoryOps + Send + Sync), AtomicsError> {
+        self.ops
+            .as_ref()
+            .map(|ops| ops.as_ref())
+            .ok_or(AtomicsError::Unimplemented)
     }
 
     /// Notify up to `count` waiters waiting for the memory location.
     pub fn notify(&self, location: MemoryLocation, count: u32) -> Result<u32, AtomicsError> {
-        self.ops.notify(location, count)
+        self.shared_ops()?.notify(location, count)
     }
 
     /// Wait for the memory location to be notified.
@@ -50,7 +94,7 @@ impl SharedMemory {
         location: MemoryLocation,
         timeout: Option<std::time::Duration>,
     ) -> Result<u32, AtomicsError> {
-        self.ops.wait(location, timeout)
+        self.shared_ops()?.wait(location, timeout)
     }
 
     /// Disable atomics for this memory.
@@ -62,8 +106,8 @@ impl SharedMemory {
     ///
     /// NOTE: this operation might not be supported by all memory implementations.
     /// In that case, this function will return an error.
-    pub fn disable_atomics(&self) -> Result<(), MemoryError> {
-        self.ops.disable_atomics()
+    pub fn disable_atomics(&self) -> Result<(), AtomicsError> {
+        self.shared_ops()?.disable_atomics()
     }
 
     /// Wake up all atomic waiters.
@@ -72,7 +116,62 @@ impl SharedMemory {
     ///
     /// NOTE: this operation might not be supported by all memory implementations.
     /// In that case, this function will return an error.
-    pub fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
-        self.ops.wake_all_atomic_waiters()
+    pub fn wake_all_atomic_waiters(&self) -> Result<(), AtomicsError> {
+        self.shared_ops()?.wake_all_atomic_waiters()
+    }
+}
+
+impl MemoryOps {
+    #[inline]
+    fn shared_ops(&self) -> Result<&(dyn SharedMemoryOps + Send + Sync), AtomicsError> {
+        self.ops
+            .as_ref()
+            .map(|ops| ops.as_ref())
+            .ok_or(AtomicsError::Unimplemented)
+    }
+
+    /// Notify up to `count` waiters waiting for the memory location.
+    pub fn notify(&self, location: MemoryLocation, count: u32) -> Result<u32, AtomicsError> {
+        self.shared_ops()?.notify(location, count)
+    }
+
+    /// Wait for the memory location to be notified.
+    pub fn wait(
+        &self,
+        location: MemoryLocation,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<u32, AtomicsError> {
+        self.shared_ops()?.wait(location, timeout)
+    }
+
+    /// Disable atomics for this memory if it is still alive.
+    ///
+    /// All subsequent atomic wait calls will produce a trap.
+    pub fn disable_atomics(&self) -> Result<(), AtomicsError> {
+        self.shared_ops()?.disable_atomics()
+    }
+
+    /// Wake up all atomic waiters if the memory is still alive.
+    pub fn wake_all_atomic_waiters(&self) -> Result<(), AtomicsError> {
+        self.shared_ops()?.wake_all_atomic_waiters()
+    }
+}
+
+impl From<SharedMemory> for MemoryOps {
+    fn from(memory: SharedMemory) -> Self {
+        memory.ops()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    pub fn ensure_shared_memory_handles_are_send_and_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<super::SharedMemory>();
+        assert_sync::<super::SharedMemory>();
+        assert_send::<super::MemoryOps>();
+        assert_sync::<super::MemoryOps>();
     }
 }

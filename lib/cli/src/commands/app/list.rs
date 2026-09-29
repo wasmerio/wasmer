@@ -105,7 +105,7 @@ impl AsyncCliCommand for CmdAppList {
                         break 'list;
                     }
 
-                    println!("uknown response: {rsp}");
+                    println!("unknown response: {rsp}");
                 }
             }
 

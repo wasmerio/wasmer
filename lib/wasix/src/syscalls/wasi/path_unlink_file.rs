@@ -56,7 +56,7 @@ pub(crate) fn path_unlink_file_internal(
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
-    let (parent_inode, childs_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
+    let (parent_inode, child_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
         std::path::Path::new(path),
@@ -65,7 +65,7 @@ pub(crate) fn path_unlink_file_internal(
     let host_adjusted_path = {
         let guard = parent_inode.read();
         match guard.deref() {
-            Kind::Dir { path, .. } => path.join(&childs_name),
+            Kind::Dir { path, .. } => path.join(&child_name),
             Kind::Root { .. } => return Ok(Errno::Access),
             _ => unreachable!(
                 "Internal logic error in wasi::path_unlink_file, parent is not a directory"
@@ -75,19 +75,31 @@ pub(crate) fn path_unlink_file_internal(
 
     let removed_inode = {
         let mut guard = parent_inode.write();
-        match guard.deref_mut() {
-            Kind::Dir { entries, .. } => {
-                let removed_inode = wasi_try_ok!(entries.remove(&childs_name).ok_or(Errno::Inval));
-                // TODO: make this a debug assert in the future
-                assert!(inode.ino() == removed_inode.ino());
-                debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
-                removed_inode
-            }
+        let entry = match guard.deref_mut() {
+            Kind::Dir { entries, .. } => entries.remove(&child_name),
             Kind::Root { .. } => return Ok(Errno::Access),
             _ => unreachable!(
                 "Internal logic error in wasi::path_unlink_file, parent is not a directory"
             ),
-        }
+        };
+        let Some(removed_inode) = entry else {
+            drop(guard);
+
+            let inode_is_symlink = matches!(inode.read().deref(), Kind::Symlink { .. });
+            if !inode_is_symlink {
+                tracing::warn!(
+                    "wasi::path_unlink_file: path resolution returned inode {:?} for {:?}, but parent directory had no matching entry",
+                    inode.ino(),
+                    child_name
+                );
+                return Ok(Errno::Noent);
+            }
+            return Ok(state.fs.remove_symlink_file(host_adjusted_path.as_path()));
+        };
+        // TODO: make this a debug assert in the future
+        assert!(inode.ino() == removed_inode.ino());
+        debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
+        removed_inode
     };
 
     let st_nlink = {
@@ -114,18 +126,11 @@ pub(crate) fn path_unlink_file_internal(
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(Errno::Isdir),
                 Kind::Symlink { .. } => {
-                    match state.fs_remove_file(host_adjusted_path.as_path()) {
-                        Ok(()) => {}
-                        Err(Errno::Noent)
-                            if state
-                                .fs
-                                .ephemeral_symlink_at(host_adjusted_path.as_path())
-                                .is_some() => {}
-                        Err(err) => return Ok(err),
+                    drop(guard);
+                    let errno = state.fs.remove_symlink_file(host_adjusted_path.as_path());
+                    if errno != Errno::Success {
+                        return Ok(errno);
                     }
-                    state
-                        .fs
-                        .unregister_ephemeral_symlink(host_adjusted_path.as_path());
                 }
                 _ => unimplemented!("wasi::path_unlink_file for Buffer"),
             }

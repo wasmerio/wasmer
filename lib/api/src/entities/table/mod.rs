@@ -62,7 +62,7 @@ impl Table {
         self.0.size(store)
     }
 
-    /// Grows the size of the `Table` by `delta`, initializating
+    /// Grows the size of the `Table` by `delta`, initializing
     /// the elements with the provided `init` value.
     ///
     /// It returns the previous size of the `Table` in case is able
@@ -125,11 +125,6 @@ impl<'a> Exportable<'a> for Table {
 mod test {
     /// Check the example from <https://github.com/wasmerio/wasmer/issues/3197>.
     #[test]
-    #[cfg_attr(
-        feature = "wamr",
-        ignore = "wamr does not support direct calls to grow table"
-    )]
-    #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support funcrefs")]
     #[cfg_attr(
         feature = "v8",
         ignore = "growing tables in v8 is not currently supported"

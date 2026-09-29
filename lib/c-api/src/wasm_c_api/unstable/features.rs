@@ -5,7 +5,7 @@
 //! # Example
 //!
 //! ```rust
-//! # use wasmer_inline_c::assert_c;
+//! # use inline_c::assert_c;
 //! # fn main() {
 //! #    (assert_c! {
 //! # #include "tests/wasmer.h"
@@ -204,6 +204,9 @@ pub extern "C" fn wasmer_features_bulk_memory(
 /// This feature gates functions and blocks returning multiple values in a
 /// module, for example.
 ///
+/// Singlepass support for multi-value is experimental and does not include
+/// integration with host functions returning multiple values.
+///
 /// This is `true` by default.
 ///
 /// [proposal]: https://github.com/webassembly/multi-value
@@ -302,7 +305,7 @@ pub extern "C" fn wasmer_features_module_linking(
 /// This feature adds the ability to use multiple memories within a
 /// single Wasm module.
 ///
-/// This is `false` by default.
+/// This is `true` by default.
 ///
 /// [proposal]: https://github.com/WebAssembly/multi-memory
 ///

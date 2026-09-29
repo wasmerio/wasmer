@@ -46,7 +46,7 @@
 //     let theme = ColorfulTheme::default();
 //     Select::with_theme(&theme)
 //         .with_prompt("What type of package do you want to create?")
-//         .items(&["Basic pacakge", "Static website"])
+//         .items(&["Basic package", "Static website"])
 //         .interact()
 //         .map(|idx| match idx {
 //             0 => PackageType::Regular,

@@ -29,6 +29,7 @@ use std::task::{Context, Poll};
 pub(super) struct FileHandle {
     inode: Inode,
     filesystem: FileSystem,
+    lifecycle: Arc<FileLifecycle>,
     readable: bool,
     writable: bool,
     append_mode: bool,
@@ -38,9 +39,11 @@ pub(super) struct FileHandle {
 
 impl Clone for FileHandle {
     fn clone(&self) -> Self {
+        self.lifecycle.opened();
         Self {
             inode: self.inode,
             filesystem: self.filesystem.clone(),
+            lifecycle: self.lifecycle.clone(),
             readable: self.readable,
             writable: self.writable,
             append_mode: self.append_mode,
@@ -51,9 +54,10 @@ impl Clone for FileHandle {
 }
 
 impl FileHandle {
-    pub(super) fn new(
+    pub(super) fn new_opened(
         inode: Inode,
         filesystem: FileSystem,
+        lifecycle: Arc<FileLifecycle>,
         readable: bool,
         writable: bool,
         append_mode: bool,
@@ -62,6 +66,7 @@ impl FileHandle {
         Self {
             inode,
             filesystem,
+            lifecycle,
             readable,
             writable,
             append_mode,
@@ -99,6 +104,14 @@ impl FileHandle {
             .as_mut()
             .map_err(|err| *err)?
             .as_mut())
+    }
+
+    fn write_cursor(&self, file_size: u64) -> u64 {
+        if self.append_mode {
+            file_size
+        } else {
+            self.cursor
+        }
     }
 }
 
@@ -224,6 +237,8 @@ impl VirtualFile for FileHandle {
             _ => return Err(FsError::NotAFile),
         }
 
+        // Update current cursor position if file got truncated
+        self.cursor = self.cursor.min(new_size);
         Ok(())
     }
 
@@ -264,12 +279,7 @@ impl VirtualFile for FileHandle {
         {
             // Write lock.
             let mut fs = filesystem.inner.write().map_err(|_| FsError::Lock)?;
-
-            // Remove the file from the storage.
-            fs.storage.remove(inode_of_file);
-
-            // Remove the child from the parent directory.
-            fs.remove_child_from_node(inode_of_parent, position)?;
+            fs.unlink_file_inode(inode_of_parent, position, inode_of_file)?;
         }
 
         Ok(())
@@ -334,6 +344,7 @@ impl VirtualFile for FileHandle {
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
                         metadata,
+                        lifecycle: inode.file_lifecycle().cloned().unwrap_or_else(Arc::default),
                     });
                     Ok(())
                 }
@@ -366,6 +377,7 @@ impl VirtualFile for FileHandle {
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: ReadOnlyFile { buffer: src },
                         metadata,
+                        lifecycle: inode.file_lifecycle().cloned().unwrap_or_else(Arc::default),
                     });
                     Ok(())
                 }
@@ -431,11 +443,11 @@ impl VirtualFile for FileHandle {
     }
 
     fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        if !self.readable {
+        if !self.writable {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 format!(
-                    "the file (inode `{}) doesn't have the `read` permission",
+                    "the file (inode `{}) doesn't have the `write` permission",
                     self.inode
                 ),
             )));
@@ -455,14 +467,14 @@ impl VirtualFile for FileHandle {
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
-                file.poll_read_ready(cx)
+                file.poll_write_ready(cx)
             }
             Some(Node::ArcFile(_)) => {
                 drop(fs);
                 match self.lazy_load_arc_file_mut() {
                     Ok(file) => {
                         let file = Pin::new(file);
-                        file.poll_read_ready(cx)
+                        file.poll_write_ready(cx)
                     }
                     Err(_) => Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::NotFound,
@@ -526,9 +538,13 @@ impl VirtualFile for FileHandle {
 
 #[cfg(test)]
 mod test_virtual_file {
-    use crate::{FileSystem as FS, mem_fs::*};
+    use crate::{BufferFile, FileSystem as FS, FsError, mem_fs::*};
+    use std::io;
+    use std::pin::Pin;
+    use std::task::{Context, Poll, Waker};
     use std::thread::sleep;
     use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     macro_rules! path {
         ($path:expr) => {
@@ -641,10 +657,13 @@ mod test_virtual_file {
 
         let mut file = fs
             .new_open_options()
+            .read(true)
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
             .expect("failed to create a new file");
+
+        file.write_all(b"foo").await.expect("write before unlink");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -676,14 +695,34 @@ mod test_virtual_file {
         }
 
         assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+        assert!(
+            matches!(
+                fs.new_open_options().read(true).open(path!("/foo.txt")),
+                Err(FsError::EntryNotFound)
+            ),
+            "the path disappears immediately after unlink",
+        );
+
+        file.write_all(b"bar")
+            .await
+            .expect("write after unlink should still work");
+        file.seek(io::SeekFrom::Start(0))
+            .await
+            .expect("rewind after unlink");
+
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)
+            .await
+            .expect("read after unlink should still work");
+        assert_eq!(contents, "foobar");
 
         {
             let fs_inner = fs.inner.read().unwrap();
 
             assert_eq!(
                 fs_inner.storage.len(),
-                1,
-                "storage no longer has the new file"
+                2,
+                "storage keeps the unlinked file alive while a handle is open"
             );
             assert!(
                 matches!(
@@ -698,6 +737,116 @@ mod test_virtual_file {
                 "`/` is empty",
             );
         }
+
+        drop(file);
+
+        let fs_inner = fs.inner.read().unwrap();
+        assert_eq!(
+            fs_inner.storage.len(),
+            1,
+            "storage drops the unlinked file after the last handle closes"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unlink_with_multiple_handles() {
+        let fs = FileSystem::default();
+
+        let mut first = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to create a new file");
+        first.write_all(b"foo").await.expect("seed contents");
+
+        let mut second = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to open the same file a second time");
+
+        assert_eq!(first.unlink(), Ok(()), "unlinking through the first handle");
+
+        second
+            .seek(io::SeekFrom::End(0))
+            .await
+            .expect("seek to end after unlink");
+        second
+            .write_all(b"bar")
+            .await
+            .expect("second handle stays writable after unlink");
+
+        drop(first);
+
+        {
+            let fs_inner = fs.inner.read().unwrap();
+            assert_eq!(
+                fs_inner.storage.len(),
+                2,
+                "the inode stays alive until the last open handle is dropped"
+            );
+        }
+
+        second
+            .seek(io::SeekFrom::Start(0))
+            .await
+            .expect("rewind second handle");
+        let mut contents = String::new();
+        second
+            .read_to_string(&mut contents)
+            .await
+            .expect("read through surviving handle");
+        assert_eq!(contents, "foobar");
+
+        drop(second);
+
+        let fs_inner = fs.inner.read().unwrap();
+        assert_eq!(
+            fs_inner.storage.len(),
+            1,
+            "the inode is reclaimed after the last handle closes"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_poll_write_ready_for_write_only_file() {
+        let fs = FileSystem::default();
+        let mut file = fs
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to create a new file");
+        let waker = Waker::noop();
+        let mut cx = Context::from_waker(waker);
+
+        assert!(matches!(
+            Pin::new(file.as_mut()).poll_write_ready(&mut cx),
+            Poll::Ready(Ok(8192))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_poll_write_ready_for_custom_device_file() {
+        let fs = FileSystem::default();
+        fs.insert_device_file(path!("/dev").to_path_buf(), Box::<BufferFile>::default())
+            .expect("failed to insert a device file");
+
+        let mut file = fs
+            .new_open_options()
+            .write(true)
+            .open(path!("/dev"))
+            .expect("failed to open device file");
+        let waker = Waker::noop();
+        let mut cx = Context::from_waker(waker);
+
+        assert!(matches!(
+            Pin::new(file.as_mut()).poll_write_ready(&mut cx),
+            Poll::Ready(Ok(8192))
+        ));
     }
 }
 
@@ -807,10 +956,6 @@ impl AsyncRead for FileHandle {
 
 impl AsyncSeek for FileHandle {
     fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
-        if self.append_mode {
-            return Ok(());
-        }
-
         let mut cursor = self.cursor;
         let ret = {
             let mut fs = self
@@ -866,24 +1011,6 @@ impl AsyncSeek for FileHandle {
     }
 
     fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        // In `append` mode, it's not possible to seek in the file. In
-        // [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html),
-        // the `O_APPEND` option describes this behavior well:
-        //
-        // > Before each write(2), the file offset is positioned at
-        // > the end of the file, as if with lseek(2).  The
-        // > modification of the file offset and the write operation
-        // > are performed as a single atomic step.
-        // >
-        // > O_APPEND may lead to corrupted files on NFS filesystems
-        // > if more than one process appends data to a file at once.
-        // > This is because NFS does not support appending to a file,
-        // > so the client kernel has to simulate it, which can't be
-        // > done without a race condition.
-        if self.append_mode {
-            return Poll::Ready(Ok(0));
-        }
-
         let mut fs = self
             .filesystem
             .inner
@@ -937,7 +1064,7 @@ impl AsyncWrite for FileHandle {
             )));
         }
 
-        let mut cursor = self.cursor;
+        let mut cursor;
         let bytes_written = {
             let mut fs = self
                 .filesystem
@@ -948,25 +1075,29 @@ impl AsyncWrite for FileHandle {
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
+                    cursor = self.write_cursor(node.file.len() as u64);
                     let bytes_written = node.file.write(buf, &mut cursor)?;
                     node.metadata.len = node.file.len().try_into().unwrap();
                     bytes_written
                 }
                 Some(Node::OffloadedFile(node)) => {
+                    cursor = self.write_cursor(node.file.len());
                     let bytes_written = node.file.write(OffloadWrite::Buffer(buf), &mut cursor)?;
                     node.metadata.len = node.file.len();
                     bytes_written
                 }
                 Some(Node::ReadOnlyFile(node)) => {
+                    cursor = self.write_cursor(node.file.len() as u64);
                     let bytes_written = node.file.write(buf, &mut cursor)?;
                     node.metadata.len = node.file.len().try_into().unwrap();
                     bytes_written
                 }
                 Some(Node::CustomFile(node)) => {
                     let mut guard = node.file.lock().unwrap();
+                    cursor = self.write_cursor(guard.size());
 
                     let file = Pin::new(guard.as_mut());
-                    if let Err(err) = file.start_seek(io::SeekFrom::Start(self.cursor)) {
+                    if let Err(err) = file.start_seek(io::SeekFrom::Start(cursor)) {
                         return Poll::Ready(Err(err));
                     }
 
@@ -1026,6 +1157,7 @@ impl AsyncWrite for FileHandle {
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
+                    cursor = self.write_cursor(node.file.len() as u64);
                     let buf = bufs
                         .iter()
                         .find(|b| !b.is_empty())
@@ -1035,6 +1167,7 @@ impl AsyncWrite for FileHandle {
                     Poll::Ready(Ok(bytes_written))
                 }
                 Some(Node::OffloadedFile(node)) => {
+                    cursor = self.write_cursor(node.file.len());
                     let buf = bufs
                         .iter()
                         .find(|b| !b.is_empty())
@@ -1044,6 +1177,7 @@ impl AsyncWrite for FileHandle {
                     Poll::Ready(Ok(bytes_written))
                 }
                 Some(Node::ReadOnlyFile(node)) => {
+                    cursor = self.write_cursor(node.file.len() as u64);
                     let buf = bufs
                         .iter()
                         .find(|b| !b.is_empty())
@@ -1183,6 +1317,7 @@ impl AsyncWrite for FileHandle {
 
 #[cfg(test)]
 mod test_read_write_seek {
+    use shared_buffer::OwnedBuffer;
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     use crate::{FileSystem as FS, mem_fs::*};
@@ -1464,6 +1599,39 @@ mod test_read_write_seek {
             "failing to read an exact buffer",
         );
     }
+
+    #[tokio::test]
+    async fn test_readonly_file_seek_and_reading_at_eof_returns_zero() {
+        let fs = FileSystem::default();
+        fs.insert_ro_file(path!("/foo.txt"), OwnedBuffer::from_static(b"foo"))
+            .expect("failed to insert readonly file");
+
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to open readonly file");
+
+        assert!(
+            matches!(file.seek(io::SeekFrom::End(0)).await, Ok(3)),
+            "seeking to EOF",
+        );
+
+        let mut buf = [0; 8];
+        assert!(
+            matches!(file.read(&mut buf).await, Ok(0)),
+            "reading at EOF should return zero bytes",
+        );
+
+        assert!(
+            matches!(file.seek(io::SeekFrom::Start(10)).await, Ok(10)),
+            "seeking past EOF",
+        );
+        assert!(
+            matches!(file.read(&mut buf).await, Ok(0)),
+            "reading past EOF should return zero bytes",
+        );
+    }
 }
 
 impl fmt::Debug for FileHandle {
@@ -1474,6 +1642,34 @@ impl fmt::Debug for FileHandle {
             .field("readable", &self.readable)
             .field("writable", &self.writable)
             .finish()
+    }
+}
+
+impl Drop for FileHandle {
+    fn drop(&mut self) {
+        let remaining = self.lifecycle.closed();
+        if remaining != 0 || !self.lifecycle.is_unlinked() {
+            return;
+        }
+
+        let Ok(mut fs) = self.filesystem.inner.write() else {
+            return;
+        };
+
+        let Some(node) = fs.storage.get(self.inode) else {
+            return;
+        };
+
+        let Some(lifecycle) = node.file_lifecycle() else {
+            return;
+        };
+
+        if Arc::ptr_eq(lifecycle, &self.lifecycle)
+            && lifecycle.is_unlinked()
+            && lifecycle.open_handle_count() == 0
+        {
+            fs.storage.remove(self.inode);
+        }
     }
 }
 
@@ -1503,6 +1699,12 @@ impl File {
 impl File {
     pub fn read(&self, buf: &mut [u8], cursor: &mut u64) -> io::Result<usize> {
         let cur_pos = *cursor as usize;
+
+        // POSIX regular files return EOF, not an error, when reading at or beyond EOF.
+        if cur_pos >= self.buffer.len() {
+            return Ok(0);
+        }
+
         let max_to_read = cmp::min(self.buffer.len() - cur_pos, buf.len());
         let data_to_copy = &self.buffer[cur_pos..][..max_to_read];
 
@@ -1544,10 +1746,8 @@ impl File {
             ));
         }
 
-        // In this implementation, it's an error to seek beyond the
-        // end of the buffer.
         let next_cursor = next_cursor.try_into().map_err(to_err)?;
-        *cursor = cmp::min(self.buffer.len() as u64, next_cursor);
+        *cursor = next_cursor;
 
         let cursor = *cursor;
         Ok(cursor)
@@ -1557,15 +1757,23 @@ impl File {
 impl File {
     pub fn write(&mut self, buf: &[u8], cursor: &mut u64) -> io::Result<usize> {
         let position = *cursor as usize;
+        let end = position
+            .checked_add(buf.len())
+            .ok_or(io::ErrorKind::InvalidInput)?;
 
-        if position + buf.len() > self.buffer.len() {
+        if position > self.buffer.len() {
+            // Materialize the sparse gap with zeroes in this contiguous in-memory buffer.
+            self.buffer.resize(position, 0)?;
+        }
+
+        if end > self.buffer.len() {
             // Writing past the end of the current buffer, must reallocate
-            let len_after_end = (position + buf.len()) - self.buffer.len();
+            let len_after_end = end - self.buffer.len();
             let let_to_end = buf.len() - len_after_end;
-            self.buffer[position..position + let_to_end].copy_from_slice(&buf[0..let_to_end]);
+            self.buffer[position..end - len_after_end].copy_from_slice(&buf[0..let_to_end]);
             self.buffer.extend_from_slice(&buf[let_to_end..buf.len()])?;
         } else {
-            self.buffer[position..position + buf.len()].copy_from_slice(buf);
+            self.buffer[position..end].copy_from_slice(buf);
         }
 
         *cursor += buf.len() as u64;
@@ -1597,6 +1805,11 @@ impl ReadOnlyFile {
 impl ReadOnlyFile {
     pub fn read(&self, buf: &mut [u8], cursor: &mut u64) -> io::Result<usize> {
         let cur_pos = *cursor as usize;
+
+        if cur_pos >= self.buffer.len() {
+            return Ok(0);
+        }
+
         let max_to_read = cmp::min(self.buffer.len() - cur_pos, buf.len());
         let data_to_copy = &self.buffer[cur_pos..][..max_to_read];
 
@@ -1611,11 +1824,28 @@ impl ReadOnlyFile {
 }
 
 impl ReadOnlyFile {
-    pub fn seek(&self, _position: io::SeekFrom, _cursor: &mut u64) -> io::Result<u64> {
-        Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            "file is read-only",
-        ))
+    pub fn seek(&self, position: io::SeekFrom, cursor: &mut u64) -> io::Result<u64> {
+        let to_err = |_| io::ErrorKind::InvalidInput;
+
+        let next_cursor: i64 = match position {
+            io::SeekFrom::Start(offset) => offset.try_into().map_err(to_err)?,
+            io::SeekFrom::End(offset) => {
+                TryInto::<i64>::try_into(self.buffer.len()).map_err(to_err)? + offset
+            }
+            io::SeekFrom::Current(offset) => {
+                TryInto::<i64>::try_into(*cursor).map_err(to_err)? + offset
+            }
+        };
+
+        if next_cursor < 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "seeking before the byte 0",
+            ));
+        }
+
+        *cursor = next_cursor.try_into().map_err(to_err)?;
+        Ok(*cursor)
     }
 }
 

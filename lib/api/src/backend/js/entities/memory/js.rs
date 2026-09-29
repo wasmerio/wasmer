@@ -14,7 +14,7 @@ extern "C" {
     #[wasm_bindgen(method, getter, js_name = buffer, js_namespace = WebAssembly)]
     pub fn buffer(this: &JSMemory) -> JsValue;
 
-    /// The `grow()` protoype method of the `Memory` object increases the
+    /// The `grow()` prototype method of the `Memory` object increases the
     /// size of the memory instance by a specified number of WebAssembly
     /// pages.
     ///

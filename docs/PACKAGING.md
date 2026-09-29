@@ -3,6 +3,9 @@
 * Wasmer is written in Rust. To build Wasmer, where possible, do not
   directly invoke `cargo`, but use the supplied `Makefile`
 
+* For packaging purposes, use the provided `wasmer-full-source.tar.gz`,
+  which includes all required submodules.
+
 * Wasmer provides several compilers and the `Makefile` autodetects
   when compilers can be compiled and/or installed. Set the environment
   variables `ENABLE_{CRANELIFT,LLVM,SINGLEPASS}=1` to force compiler
@@ -36,9 +39,7 @@
   `wasmer --version -v` by omitting the verbose `commit-date:` line,
   which is useful for distribution packaging.
 
-* If you split the package into several subpackages, beware that the
-  `create-exe` command of the `wasmer` CLI requires `libwasmer.a` to
-  be installed at `$WASMER_INSTALL_PREFIX/lib/libwasmer.a`. Suggestions for splitting:
+* If you split the package into several subpackages:
 
   * The `wasmer-headless` CLI contains a subset of the `wasmer`'s functionalities
     and should only be packaged when splitting — it must be built

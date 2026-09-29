@@ -10,13 +10,8 @@ mod compile;
 mod config;
 mod connect;
 mod container;
-#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-mod create_exe;
-#[cfg(feature = "static-artifact-create")]
-mod create_obj;
+mod cron;
 pub(crate) mod domain;
-#[cfg(feature = "static-artifact-create")]
-mod gen_c_header;
 mod gen_completions;
 mod gen_manpage;
 mod init;
@@ -40,13 +35,8 @@ pub use binfmt::*;
 use clap::{CommandFactory, Parser};
 #[cfg(feature = "compiler")]
 pub use compile::*;
-#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
-#[cfg(feature = "static-artifact-create")]
-#[allow(unused_imports)]
-pub use {create_obj::*, gen_c_header::*};
 
 #[cfg(feature = "journal")]
 pub use self::journal::*;
@@ -180,11 +170,6 @@ impl WasmerCmd {
             Some(Cmd::Validate(validate)) => validate.execute(),
             #[cfg(feature = "compiler")]
             Some(Cmd::Compile(compile)) => compile.execute(),
-            // CreateExe and CreateObj commands are temporarily disabled
-            // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-            // Some(Cmd::CreateExe(create_exe)) => create_exe.run(),
-            // #[cfg(feature = "static-artifact-create")]
-            // Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
             Some(Cmd::Config(config)) => config.run(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.run(),
@@ -197,13 +182,14 @@ impl WasmerCmd {
                 Package::Tag(cmd) => cmd.run(),
                 Package::Push(cmd) => cmd.run(),
                 Package::Publish(cmd) => cmd.run().map(|_| ()),
+                Package::Tree(cmd) => cmd.run(),
                 Package::Unpack(cmd) => cmd.execute(),
+                Package::Search(cmd) => cmd.run(),
+                Package::Get(cmd) => cmd.run(),
             },
             Some(Cmd::Container(cmd)) => match cmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
             },
-            #[cfg(feature = "static-artifact-create")]
-            Some(Cmd::GenCHeader(gen_heder)) => gen_heder.execute(),
             #[cfg(feature = "wast")]
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
@@ -214,6 +200,7 @@ impl WasmerCmd {
             // Deploy commands.
             Some(Cmd::Deploy(c)) => c.run(),
             Some(Cmd::App(apps)) => apps.run(),
+            Some(Cmd::Cron(cron)) => cron.run(),
             #[cfg(feature = "journal")]
             Some(Cmd::Journal(journal)) => journal.run(),
             Some(Cmd::Ssh(ssh)) => ssh.run(),
@@ -357,78 +344,6 @@ enum Cmd {
     #[cfg(feature = "compiler")]
     Compile(Compile),
 
-    // Compile a WebAssembly binary into a native executable
-    //
-    // To use, you need to set the `WASMER_DIR` environment variable
-    // to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
-    // should include a `lib`, `include` and `bin` subdirectories. To create an executable
-    // you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
-    // header files and libraries.
-    //
-    // Example usage:
-    //
-    // ```text
-    // $ # in two lines:
-    // $ export WASMER_DIR=/home/user/.wasmer/
-    // $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
-    // $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
-    // $ file qjs.exe
-    // qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
-    // ```
-    //
-    // ## Cross-compilation
-    //
-    // Accepted target triple values must follow the
-    // ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
-    //
-    // The recommended targets we try to support are:
-    //
-    // - "x86_64-linux-gnu"
-    // - "aarch64-linux-gnu"
-    // - "x86_64-apple-darwin"
-    // - "arm64-apple-darwin"
-    // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-    // #[clap(name = "create-exe", verbatim_doc_comment)]
-    // CreateExe(CreateExe),
-    /// Compile a WebAssembly binary into an object file
-    ///
-    /// To use, you need to set the `WASMER_DIR` environment variable to the location of your
-    /// Wasmer installation. This will probably be `~/.wasmer`. It should include a `lib`,
-    /// `include` and `bin` subdirectories. To create an object you will need `libwasmer`, so by
-    /// setting `WASMER_DIR` the CLI knows where to look for header files and libraries.
-    ///
-    /// Example usage:
-    ///
-    /// ```text
-    /// $ # in two lines:
-    /// $ export WASMER_DIR=/home/user/.wasmer/
-    /// $ wasmer create-obj qjs.wasm --object-format symbols -o qjs.obj # or in one line:
-    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm --object-format symbols -o qjs.obj
-    /// $ file qjs.obj
-    /// qjs.obj: ELF 64-bit LSB relocatable, x86-64 ...
-    /// ```
-    ///
-    /// ## Cross-compilation
-    ///
-    /// Accepted target triple values must follow the
-    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
-    ///
-    /// The recommended targets we try to support are:
-    ///
-    /// - "x86_64-linux-gnu"
-    /// - "aarch64-linux-gnu"
-    /// - "x86_64-apple-darwin"
-    /// - "arm64-apple-darwin"
-    // #[cfg(feature = "static-artifact-create")]
-    // #[structopt(name = "create-obj", verbatim_doc_comment)]
-    // CreateObj(CreateObj),
-
-    ///
-    /// Generate the C static_defs.h header file for the input .wasm module
-    ///
-    #[cfg(feature = "static-artifact-create")]
-    GenCHeader(GenCHeader),
-
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
     Config(Config),
@@ -481,6 +396,10 @@ enum Cmd {
     #[clap(subcommand, alias = "apps")]
     App(crate::commands::app::CmdApp),
 
+    /// Manage cron jobs for Wasmer Edge apps
+    #[clap(subcommand)]
+    Cron(crate::commands::cron::CmdCron),
+
     /// Run commands/packages on Wasmer Edge in an interactive shell session
     Ssh(crate::commands::ssh::CmdSsh),
 
@@ -502,15 +421,16 @@ enum Cmd {
 }
 
 fn is_binfmt_interpreter() -> bool {
-    cfg_if::cfg_if! {
-        if #[cfg(target_os = "linux")] {
+    cfg_select! {
+        target_os = "linux" => {
             // Note: we'll be invoked by the kernel as Binfmt::FILENAME
             let binary_path = match std::env::args_os().next() {
                 Some(path) => std::path::PathBuf::from(path),
                 None => return false,
             };
             binary_path.file_name().and_then(|f| f.to_str()) == Some(Binfmt::FILENAME)
-        } else {
+        }
+        _ => {
             false
         }
     }
@@ -560,12 +480,6 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
     if cfg!(feature = "llvm") {
         runtimes.push("LLVM");
-    }
-    if cfg!(feature = "wamr") {
-        runtimes.push("WAMR");
-    }
-    if cfg!(feature = "wasmi") {
-        runtimes.push("Wasmi");
     }
     if cfg!(feature = "v8") {
         runtimes.push("V8");

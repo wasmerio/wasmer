@@ -59,21 +59,15 @@ macro_rules! entity_impl {
     ($entity:ident, $display_prefix:expr) => {
         entity_impl!($entity);
 
-        impl $crate::lib::std::fmt::Display for $entity {
-            fn fmt(
-                &self,
-                f: &mut $crate::lib::std::fmt::Formatter,
-            ) -> $crate::lib::std::fmt::Result {
+        impl ::core::fmt::Display for $entity {
+            fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
                 write!(f, concat!($display_prefix, "{}"), self.0)
             }
         }
 
-        impl $crate::lib::std::fmt::Debug for $entity {
-            fn fmt(
-                &self,
-                f: &mut $crate::lib::std::fmt::Formatter,
-            ) -> $crate::lib::std::fmt::Result {
-                (self as &dyn $crate::lib::std::fmt::Display).fmt(f)
+        impl ::core::fmt::Debug for $entity {
+            fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                (self as &dyn ::core::fmt::Display).fmt(f)
             }
         }
     };

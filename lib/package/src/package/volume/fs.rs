@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Debug,
-    fs::File,
+    fs::{self, File},
     io::Read,
     path::{Path, PathBuf},
 };
@@ -13,7 +13,7 @@ use webc::{
     AbstractVolume, Metadata, PathSegment, PathSegments, Timestamps, ToPathSegments, sanitize_path,
     v3::{
         self,
-        write::{DirEntry, Directory, FileEntry},
+        write::{DirEntry, Directory, FileEntry, SymlinkEntry},
     },
 };
 
@@ -106,8 +106,8 @@ impl FsVolume {
             .collect();
 
         for path in &dirs {
-            // Perform a basic sanity check to make sure the directories exist.
-            let _ = std::fs::metadata(path).with_context(|| {
+            // Perform a basic sanity check without following symlinks.
+            let _ = std::fs::symlink_metadata(path).with_context(|| {
                 format!("Unable to get the metadata for \"{}\"", path.display())
             })?;
         }
@@ -213,6 +213,10 @@ impl FsVolume {
     /// Read a file from the volume.
     pub fn read_file(&self, path: &PathSegments) -> Option<OwnedBuffer> {
         let path = self.resolve(path)?;
+        if !path.symlink_metadata().ok()?.is_file() {
+            return None;
+        }
+
         let mut f = File::open(path).ok()?;
 
         // First we try to mmap it
@@ -233,6 +237,9 @@ impl FsVolume {
         path: &PathSegments,
     ) -> Option<Vec<(PathSegment, Option<[u8; 32]>, Metadata)>> {
         let resolved = self.resolve(path)?;
+        if !resolved.symlink_metadata().ok()?.is_dir() {
+            return None;
+        }
 
         let mut walker_builder = self.walker_factory.create_walk_builder(&resolved);
         walker_builder.max_depth(Some(1));
@@ -268,11 +275,19 @@ impl FsVolume {
     /// Get the metadata for a particular item.
     pub fn metadata(&self, path: &PathSegments) -> Option<Metadata> {
         let path = self.resolve(path)?;
-        let meta = path.metadata().ok()?;
+        let meta = path.symlink_metadata().ok()?;
 
-        let timestamps = Timestamps::from_metadata(&meta).unwrap();
+        let timestamps = Timestamps::from_metadata(&meta).ok()?;
 
-        if meta.is_dir() {
+        if meta.file_type().is_symlink() {
+            let target = fs::read_link(&path).ok()?;
+            let target = target.to_str()?;
+
+            Some(Metadata::Symlink {
+                target_length: target.len(),
+                timestamps: Some(timestamps),
+            })
+        } else if meta.is_dir() {
             Some(Metadata::Dir {
                 timestamps: Some(timestamps),
             })
@@ -291,20 +306,35 @@ impl FsVolume {
             let mut root = Directory::default();
 
             for file_path in self.metadata_files.iter() {
-                if !file_path.exists() || !file_path.is_file() {
-                    if strictness.is_strict() {
+                let meta = match file_path.symlink_metadata() {
+                    Ok(meta) => meta,
+                    Err(_) if strictness.is_strict() => {
                         anyhow::bail!("{} does not exist", file_path.display());
                     }
+                    Err(_) => {
+                        // ignore missing metadata
+                        continue;
+                    }
+                };
 
-                    // ignore missing metadata
+                if !meta.is_file() && !meta.file_type().is_symlink() {
+                    if strictness.is_strict() {
+                        anyhow::bail!("{} is not a file", file_path.display());
+                    }
+
                     continue;
                 }
+
                 let path = file_path.strip_prefix(&self.base_dir)?;
                 let path = PathBuf::from("/").join(path);
                 let segments = path.to_path_segments()?;
                 let segments: Vec<_> = segments.iter().collect();
 
-                let file_entry = DirEntry::File(FileEntry::from_path(file_path)?);
+                let file_entry = if meta.file_type().is_symlink() {
+                    DirEntry::Symlink(SymlinkEntry::from_path(file_path)?)
+                } else {
+                    DirEntry::File(FileEntry::from_path(file_path)?)
+                };
 
                 let mut curr_dir = &mut root;
                 for (index, segment) in segments.iter().enumerate() {
@@ -353,6 +383,16 @@ impl AbstractVolume for FsVolume {
     fn metadata(&self, path: &PathSegments) -> Option<Metadata> {
         self.metadata(path)
     }
+
+    fn read_link(&self, path: &PathSegments) -> Option<(String, Option<[u8; 32]>)> {
+        let path = self.resolve(path)?;
+        if !path.symlink_metadata().ok()?.file_type().is_symlink() {
+            return None;
+        }
+
+        let target = fs::read_link(path).ok()?;
+        Some((target.to_str()?.to_owned(), None))
+    }
 }
 
 impl WasmerPackageVolume for FsVolume {
@@ -382,7 +422,24 @@ fn directory_tree(
     let mut root = Directory::default();
 
     for path in paths {
-        if path.is_file() {
+        let meta = path.symlink_metadata().map_err(|e| {
+            Error::from(e).context(format!(
+                "Unable to add \"{}\" to the directory tree",
+                path.display()
+            ))
+        })?;
+        let file_type = meta.file_type();
+
+        if file_type.is_symlink() {
+            let dir_entry =
+                v3::write::DirEntry::Symlink(v3::write::SymlinkEntry::from_path(&path)?);
+            let path = path.strip_prefix(base_dir)?;
+            let path_segment = PathSegment::try_from(path.as_os_str())?;
+
+            if root.children.insert(path_segment, dir_entry).is_some() {
+                println!("Warning: {path:?} already exists. Overriding the old entry");
+            }
+        } else if file_type.is_file() {
             let dir_entry = v3::write::DirEntry::File(v3::write::FileEntry::from_path(&path)?);
             let path = path.strip_prefix(base_dir)?;
             let path_segment = PathSegment::try_from(path.as_os_str())?;
@@ -531,6 +588,75 @@ mod tests {
             String::from_utf8(volume.read_file(&man_page).unwrap().into()).unwrap(),
             "man page"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fs_volume_preserves_symlinks() {
+        let temp = TempDir::new().unwrap();
+        let target_file = temp.path().join("target.txt");
+        let target_dir = temp.path().join("target-dir");
+
+        std::fs::write(&target_file, "target").unwrap();
+        std::fs::create_dir(&target_dir).unwrap();
+        std::os::unix::fs::symlink("target.txt", temp.path().join("file-link")).unwrap();
+        std::os::unix::fs::symlink("target-dir", temp.path().join("dir-link")).unwrap();
+        std::os::unix::fs::symlink("subdir/../target.txt", temp.path().join("nested-link"))
+            .unwrap();
+        std::os::unix::fs::symlink("missing.txt", temp.path().join("broken-link")).unwrap();
+
+        let volume = FsVolume::new(
+            "/assets".to_string(),
+            temp.path().to_path_buf(),
+            BTreeSet::new(),
+            BTreeSet::from([temp.path().to_path_buf()]),
+            crate::package::include_everything_walker(),
+        );
+
+        let file_link: PathSegments = "/file-link".parse().unwrap();
+        let file_link_meta = volume.metadata(&file_link).unwrap();
+        assert!(file_link_meta.is_symlink());
+        assert_eq!(
+            match file_link_meta {
+                Metadata::Symlink { target_length, .. } => target_length,
+                _ => unreachable!(),
+            },
+            "target.txt".len()
+        );
+        assert_eq!(
+            volume.read_link(&file_link).unwrap().0,
+            "target.txt".to_string()
+        );
+        assert!(volume.read_file(&file_link).is_none());
+
+        let broken_link: PathSegments = "/broken-link".parse().unwrap();
+        let broken_link_meta = volume.metadata(&broken_link).unwrap();
+        assert!(broken_link_meta.is_symlink());
+        assert_eq!(
+            volume.read_link(&broken_link).unwrap().0,
+            "missing.txt".to_string()
+        );
+
+        let nested_link: PathSegments = "/nested-link".parse().unwrap();
+        assert_eq!(
+            volume.read_link(&nested_link).unwrap().0,
+            "subdir/../target.txt".to_string()
+        );
+
+        let entries = volume.read_dir(&PathSegments::ROOT).unwrap();
+        assert!(
+            entries
+                .iter()
+                .any(|(name, _, meta)| name.as_str() == "broken-link" && meta.is_symlink())
+        );
+
+        let dir = volume.as_directory_tree(Strictness::Strict).unwrap();
+        for link in ["broken-link", "dir-link", "file-link", "nested-link"] {
+            assert!(matches!(
+                dir.children.get(&PathSegment::parse(link).unwrap()),
+                Some(v3::write::DirEntry::Symlink(_))
+            ));
+        }
     }
 
     #[test]

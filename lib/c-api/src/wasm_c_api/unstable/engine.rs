@@ -12,7 +12,7 @@ use super::{
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -69,19 +69,13 @@ pub extern "C" fn wasmer_is_backend_available(backend: wasmer_backend_t) -> bool
         wasmer_backend_t::SINGLEPASS => cfg!(feature = "singlepass"),
         wasmer_backend_t::HEADLESS => cfg!(feature = "sys"),
         wasmer_backend_t::V8 => cfg!(feature = "v8"),
-        wasmer_backend_t::WASMI => cfg!(feature = "wasmi"),
-        wasmer_backend_t::WAMR => cfg!(feature = "wamr"),
-        wasmer_backend_t::JSC => cfg!(feature = "jsc"),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(target_os = "windows"))]
     use inline_c::assert_c;
     use std::env::{remove_var, set_var};
-    #[cfg(target_os = "windows")]
-    use wasmer_inline_c::assert_c;
 
     #[test]
     fn test_wasmer_is_headless() {

@@ -7,7 +7,7 @@ use std::task::{Context, Poll};
 
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
-use crate::{ClonableVirtualFile, VirtualFile};
+use crate::{CloneableVirtualFile, VirtualFile};
 
 #[derive(Debug, Clone, Default)]
 pub struct NullFile {}
@@ -84,4 +84,4 @@ impl VirtualFile for NullFile {
     }
 }
 
-impl ClonableVirtualFile for NullFile {}
+impl CloneableVirtualFile for NullFile {}

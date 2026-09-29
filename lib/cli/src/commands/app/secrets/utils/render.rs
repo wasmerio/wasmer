@@ -10,7 +10,7 @@ impl CliRender for Secret {
         let mut table = Table::new();
         let Secret { name, value }: &Secret = self;
 
-        table.load_preset(comfy_table::presets::NOTHING);
+        table.load_style(comfy_table::presets::NOTHING);
         table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
         let value = sanitize_value(value);
@@ -29,7 +29,7 @@ impl CliRender for Secret {
             return String::new();
         }
         let mut table = Table::new();
-        table.load_preset(comfy_table::presets::NOTHING);
+        table.load_style(comfy_table::presets::NOTHING);
         table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
         table.set_header(vec![
@@ -70,7 +70,7 @@ impl CliRender for BackendSecretWrapper {
             return String::new();
         }
         let mut table = Table::new();
-        table.load_preset(comfy_table::presets::NOTHING);
+        table.load_style(comfy_table::presets::NOTHING);
         table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
         table.set_header(vec![

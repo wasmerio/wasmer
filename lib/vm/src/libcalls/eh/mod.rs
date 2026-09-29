@@ -4,8 +4,8 @@ use crate::{InternalStoreHandle, VMContext, VMExceptionObj};
 
 mod dwarf;
 
-cfg_if::cfg_if! {
-    if #[cfg(any(target_env = "msvc", target_family = "wasm"))] {
+cfg_select! {
+    any(target_env = "msvc", target_family = "wasm") => {
         /// The implementation of Wasmer's personality function.
         ///
         /// # Safety
@@ -45,14 +45,16 @@ cfg_if::cfg_if! {
         pub unsafe fn delete_exception(_exception: *mut std::ffi::c_void) {
             panic!()
         }
-    } else if #[cfg(any(
+    }
+    any(
         all(target_family = "windows", target_env = "gnu"),
         target_family = "unix",
-    ))] {
+    ) => {
         // gcc-like eh-personality mechanisms.
         mod gcc;
         pub use gcc::*;
-    } else {
+    }
+    _ => {
         // Targets that don't support unwinding.
         // - os=none ("bare metal" targets)
         // - os=uefi

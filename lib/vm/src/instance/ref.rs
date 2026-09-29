@@ -20,7 +20,7 @@ struct InstanceInner {
     instance_layout: Layout,
 
     /// The `Instance` itself. It must be the last field of
-    /// `InstanceRef` since `Instance` is dyamically-sized.
+    /// `InstanceRef` since `Instance` is dynamically-sized.
     ///
     /// `Instance` must not be dropped manually by Rust, because it's
     /// allocated manually with `alloc` and a specific layout (Rust
@@ -50,7 +50,7 @@ impl InstanceInner {
     #[inline]
     pub(crate) fn as_ref(&self) -> &Instance {
         // SAFETY: The pointer is properly aligned, it is
-        // “dereferencable”, it points to an initialized memory of
+        // “dereferenceable”, it points to an initialized memory of
         // `Instance`, and the reference has the lifetime `'a`.
         unsafe { self.instance.as_ref() }
     }

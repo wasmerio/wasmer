@@ -22,3 +22,9 @@ Wasmer provides multiple documentations. Here are some pointers:
 * [OS distro packaging
   notes](https://github.com/wasmerio/wasmer/blob/main/docs/PACKAGING.md)
   contains notes about how to package Wasmer for OS distributions.
+
+For contributors, one document per concern:
+[CONTRIBUTING.md](./CONTRIBUTING.md), [ARCHITECTURE.md](./ARCHITECTURE.md),
+[BUILD.md](./BUILD.md), [TEST.md](./TEST.md),
+[SECURITY.md](./SECURITY.md). The root [AGENTS.md](../AGENTS.md) indexes
+them for coding agents and covers debugging the runtime.

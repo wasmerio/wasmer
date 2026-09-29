@@ -17,10 +17,10 @@ fn get_module(store: &Store) -> Result<Module> {
     // functions, do not remove the call_indirect instruction
     let wat = r#"
         (type (func))
-        (import "host" "0" (func $host_func_0 (type 0)))
-        (import "host" "1" (func (param i32) (result i32)))
-        (import "host" "2" (func (param i32) (param i64)))
-        (import "host" "3" (func (param i32 i64 i32 f32 f64)))
+        (import "host" "f0" (func $host_func_0 (type 0)))
+        (import "host" "f1" (func (param i32) (result i32)))
+        (import "host" "f2" (func (param i32) (param i64)))
+        (import "host" "f3" (func (param i32 i64 i32 f32 f64)))
         (memory $mem 1)
         (export "memory" (memory $mem))
 
@@ -59,22 +59,22 @@ fn dynamic_function(config: crate::Config) -> Result<()> {
     static HITS: AtomicUsize = AtomicUsize::new(0);
     let imports = imports! {
         "host" => {
-            "0" => Function::new(&mut store, FunctionType::new(vec![], vec![]), |_values| {
+            "f0" => Function::new(&mut store, FunctionType::new(vec![], vec![]), |_values| {
                     assert_eq!(HITS.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-            "1" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32], vec![ValueType::I32]), |values| {
+            "f1" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32], vec![ValueType::I32]), |values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-            "2" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32, ValueType::I64], vec![]), |values| {
+            "f2" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32, ValueType::I64], vec![]), |values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-            "3" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32, ValueType::I64, ValueType::I32, ValueType::F32, ValueType::F64], vec![]), |values| {
+            "f3" => Function::new(&mut store, FunctionType::new(vec![ValueType::I32, ValueType::I64, ValueType::I32, ValueType::F32, ValueType::F64], vec![]), |values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));
@@ -169,10 +169,10 @@ fn dynamic_function_with_env(config: crate::Config) -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "0" => f0,
-                "1" => f1,
-                "2" => f2,
-                "3" => f3,
+                "f0" => f0,
+                "f1" => f1,
+                "f2" => f2,
+                "f3" => f3,
             },
         },
     )?;
@@ -213,10 +213,10 @@ fn static_function(config: crate::Config) -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "0" => f0,
-                "1" => f1,
-                "2" => f2,
-                "3" => f3,
+                "f0" => f0,
+                "f1" => f1,
+                "f2" => f2,
+                "f3" => f3,
             },
         },
     )?;
@@ -257,10 +257,10 @@ fn static_function_with_results(config: crate::Config) -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "0" => f0,
-                "1" => f1,
-                "2" => f2,
-                "3" => f3,
+                "f0" => f0,
+                "f1" => f1,
+                "f2" => f2,
+                "f3" => f3,
             },
         },
     )?;
@@ -323,10 +323,10 @@ fn static_function_with_env(config: crate::Config) -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "0" => f0,
-                "1" => f1,
-                "2" => f2,
-                "3" => f3,
+                "f0" => f0,
+                "f1" => f1,
+                "f2" => f2,
+                "f3" => f3,
             },
         },
     )?;
@@ -338,7 +338,7 @@ fn static_function_with_env(config: crate::Config) -> Result<()> {
 fn static_function_that_fails(config: crate::Config) -> Result<()> {
     let mut store = config.store();
     let wat = r#"
-        (import "host" "0" (func))
+        (import "host" "f0" (func))
 
         (func $foo
             call 0
@@ -355,7 +355,7 @@ fn static_function_that_fails(config: crate::Config) -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "0" => f0,
+                "f0" => f0,
             },
         },
     );

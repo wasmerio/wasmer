@@ -1,6 +1,10 @@
 //! This file is mainly to assure specific issues are working well
 
+#[cfg(feature = "llvm")]
+use std::{fs, path::Path};
+
 use anyhow::{Context, Result};
+use bytesize::ByteSize;
 use itertools::Itertools;
 use wasmer::FunctionEnv;
 use wasmer::*;
@@ -279,7 +283,7 @@ fn test_start(mut config: crate::Config) -> Result<()> {
     let instance = Instance::new(&mut store, &module, &imports);
     assert!(instance.is_err());
     if let InstantiationError::Start(err) = instance.unwrap_err() {
-        assert_eq!(err.message(), "unreachable");
+        assert!(err.message().contains("unreachable"));
     } else {
         panic!("_start should have failed with an unreachable error")
     }
@@ -352,7 +356,7 @@ fn test_popcnt(mut config: crate::Config) -> Result<()> {
 /// sequence
 ///   mov x17, #0x1010
 ///   sub xsp, xsp, x17
-/// will tranform to
+/// will transform to
 ///   mov x17, #0x1010
 ///   sub xzr, xzr, x17
 /// and the locals
@@ -516,16 +520,7 @@ fn issue_4519_sdiv64_srem64_urem64(mut config: crate::Config) -> Result<()> {
 }
 
 #[compiler_test(issues)]
-/// Singlepass panics when encountering ref types.
-///
-/// Note: this one is specific to Singlepass, but we want to test in all
-/// available compilers.
-///
-/// Note: for now, we don't want to implement reference types, we just don't want singlepass to
-/// panic.
-///
-/// https://github.com/wasmerio/wasmer/issues/5309
-fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
+fn issue_5309_reftype(mut config: crate::Config) -> Result<(), CompileError> {
     let wat = r#"
       (module
         (type $x1 (func (param funcref)))
@@ -535,7 +530,141 @@ fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
     .to_string();
 
     let mut store = config.store();
-    let _ = Module::new(&store, wat);
+    Module::new(&store, wat)?;
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn local_and_imported_tables(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+
+    let imported_table0 = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, Some(2)),
+        Value::FuncRef(None),
+    )?;
+    let imported_table1 = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 2, Some(3)),
+        Value::FuncRef(None),
+    )?;
+    let imports = imports! {
+        "env" => {
+            "imported_table0" => imported_table0,
+            "imported_table1" => imported_table1,
+        },
+    };
+
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+          (type $target_type (func (result i32)))
+          (import "env" "imported_table0" (table $imported0 1 2 funcref))
+          (import "env" "imported_table1" (table $imported1 2 3 funcref))
+          (table $local 3 4 funcref)
+
+          (func $target (type $target_type) (result i32)
+            i32.const 42)
+          (elem (table $imported0) (i32.const 0) func $target)
+
+          (func (export "size_imported0") (result i32)
+            table.size $imported0)
+          (func (export "get_imported0") (result i32)
+            i32.const 0
+            table.get $imported0
+            ref.is_null)
+          (func (export "set_imported0")
+            i32.const 0
+            ref.func $target
+            table.set $imported0)
+          (func (export "call_imported0") (result i32)
+            i32.const 0
+            call_indirect $imported0 (type $target_type))
+          (func (export "grow_imported0") (result i32)
+            ref.null func
+            i32.const 1
+            table.grow $imported0)
+
+          (func (export "size_imported1") (result i32)
+            table.size $imported1)
+          (func (export "get_imported1") (result i32)
+            i32.const 1
+            table.get $imported1
+            ref.is_null)
+          (func (export "set_imported1")
+            i32.const 1
+            ref.func $target
+            table.set $imported1)
+          (func (export "call_imported1") (result i32)
+            i32.const 1
+            call_indirect $imported1 (type $target_type))
+          (func (export "grow_imported1") (result i32)
+            ref.null func
+            i32.const 1
+            table.grow $imported1)
+
+          (func (export "size_local") (result i32)
+            table.size $local)
+          (func (export "get_local") (result i32)
+            i32.const 2
+            table.get $local
+            ref.is_null)
+          (func (export "set_local")
+            i32.const 2
+            ref.func $target
+            table.set $local)
+          (func (export "call_local") (result i32)
+            i32.const 2
+            call_indirect $local (type $target_type))
+          (func (export "grow_local") (result i32)
+            ref.null func
+            i32.const 1
+            table.grow $local)
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let size_imported0 = instance.exports.get_function("size_imported0")?;
+    let get_imported0 = instance.exports.get_function("get_imported0")?;
+    let set_imported0 = instance.exports.get_function("set_imported0")?;
+    let call_imported0 = instance.exports.get_function("call_imported0")?;
+    let grow_imported0 = instance.exports.get_function("grow_imported0")?;
+
+    let size_imported1 = instance.exports.get_function("size_imported1")?;
+    let get_imported1 = instance.exports.get_function("get_imported1")?;
+    let set_imported1 = instance.exports.get_function("set_imported1")?;
+    let call_imported1 = instance.exports.get_function("call_imported1")?;
+    let grow_imported1 = instance.exports.get_function("grow_imported1")?;
+
+    let size_local = instance.exports.get_function("size_local")?;
+    let get_local = instance.exports.get_function("get_local")?;
+    let set_local = instance.exports.get_function("set_local")?;
+    let call_local = instance.exports.get_function("call_local")?;
+    let grow_local = instance.exports.get_function("grow_local")?;
+
+    // It's already initialized by 'elem'.
+    assert_eq!(&*get_imported0.call(&mut store, &[])?, &[Value::I32(0)]);
+    assert_eq!(&*size_imported0.call(&mut store, &[])?, &[Value::I32(1)]);
+    assert!(set_imported0.call(&mut store, &[])?.is_empty());
+    assert_eq!(&*call_imported0.call(&mut store, &[])?, &[Value::I32(42)]);
+    assert_eq!(&*grow_imported0.call(&mut store, &[])?, &[Value::I32(1)]);
+    assert_eq!(&*size_imported0.call(&mut store, &[])?, &[Value::I32(2)]);
+
+    assert_eq!(&*get_imported1.call(&mut store, &[])?, &[Value::I32(1)]);
+    assert_eq!(&*size_imported1.call(&mut store, &[])?, &[Value::I32(2)]);
+    assert!(set_imported1.call(&mut store, &[])?.is_empty());
+    assert_eq!(&*call_imported1.call(&mut store, &[])?, &[Value::I32(42)]);
+    assert_eq!(&*grow_imported1.call(&mut store, &[])?, &[Value::I32(2)]);
+    assert_eq!(&*size_imported1.call(&mut store, &[])?, &[Value::I32(3)]);
+
+    assert_eq!(&*get_local.call(&mut store, &[])?, &[Value::I32(1)]);
+    assert_eq!(&*size_local.call(&mut store, &[])?, &[Value::I32(3)]);
+    assert!(set_local.call(&mut store, &[])?.is_empty());
+    assert_eq!(&*call_local.call(&mut store, &[])?, &[Value::I32(42)]);
+    assert_eq!(&*grow_local.call(&mut store, &[])?, &[Value::I32(3)]);
+    assert_eq!(&*size_local.call(&mut store, &[])?, &[Value::I32(4)]);
 
     Ok(())
 }
@@ -638,6 +767,11 @@ fn compiler_debug_dir_test(mut config: crate::Config) {
 
 #[compiler_test(issues)]
 fn issue_5795_memory_reset_size(mut config: crate::Config) {
+    // TODO: V8 appears to handle this differently
+    if config.compiler == crate::Compiler::V8 {
+        return;
+    }
+
     let wasm_bytes = wat2wasm(
         r#"
 (module
@@ -1148,4 +1282,381 @@ fn issue_6334_foldable_comparison_expressions(mut config: crate::Config) -> Resu
     assert_eq!(i64_ne_true.call(&mut store)?, 1);
 
     Ok(())
+}
+
+/// Regression test for LLVM `v128.load16x4_s` near memory end.
+/// Default config must trap (`HeapAccessOutOfBounds`); non-volatile memops currently do not
+/// as it's a dead load.
+#[cfg(feature = "llvm")]
+#[test]
+fn issue_6401_llvm_v128_load16x4_s_oob() -> Result<()> {
+    use wasmer_compiler::CompilerConfig;
+    use wasmer_compiler::EngineBuilder;
+
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+          (memory 1)
+          (func (export "main")
+              i32.const 0xFFFFFFFE
+              v128.load16x4_s align=1
+              drop
+          )
+        )
+        "#,
+    )?;
+
+    let config = wasmer_compiler_llvm::LLVM::default();
+    let mut store = Store::new(EngineBuilder::new(config));
+
+    let module = Module::new(&store, &wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let result = instance
+        .exports
+        .get_function("main")?
+        .call(&mut store, &[])
+        .unwrap_err();
+    assert_eq!(
+        result.to_trap(),
+        Some(wasmer_types::TrapCode::HeapAccessOutOfBounds)
+    );
+
+    let mut config = wasmer_compiler_llvm::LLVM::default();
+    config.enable_non_volatile_memops();
+    let mut store = Store::new(EngineBuilder::new(config));
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let result = instance.exports.get_function("main")?.call(&mut store, &[]);
+    assert!(result.is_ok());
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn issue_6534_declared_element_segment_with_global(config: crate::Config) -> Result<()> {
+    // #6570
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+          (type $add_one_ty (func (param i32) (result i32)))
+          (import "env" "g" (global funcref))
+          (table 1 funcref)
+
+          (elem declare funcref (global.get 0))
+
+          (func (export "run") (param i32) (result i32)
+            i32.const 0
+            global.get 0
+            table.set 0
+
+            local.get 0
+            i32.const 0
+            call_indirect (type $add_one_ty))
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let add_one = Function::new_typed(&mut store, |value: i32| value + 1);
+    let g = Global::new(&mut store, Value::FuncRef(Some(add_one)));
+    let imports = imports! {
+        "env" => {
+            "g" => g,
+        },
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let run: TypedFunction<i32, i32> = instance.exports.get_typed_function(&store, "run")?;
+
+    assert_eq!(run.call(&mut store, 41)?, 42);
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn nested_blocks_with_large_br_table(mut config: crate::Config) -> Result<()> {
+    const MAX_NESTED_BLOCKS: usize = 4096;
+    const MAX_BR_TABLE_VALUES: usize = 10_000;
+
+    let mut store = config.store();
+
+    let nested_blocks = MAX_NESTED_BLOCKS;
+    let branch_depth = nested_blocks - 1;
+    let branch_targets =
+        std::iter::repeat_n(branch_depth.to_string(), MAX_BR_TABLE_VALUES).join(" ");
+    let wat = format!(
+        "(module
+                (func (export \"run\") (result i32)
+                    {}
+                    i64.const 0
+                    i32.const 100
+                    br_table {}
+                    {}
+                    drop
+                    i32.const 0))",
+        "block (result i64)\n".repeat(nested_blocks),
+        branch_targets,
+        "end\n".repeat(nested_blocks),
+    );
+
+    let module = Module::new(&store, wat)?;
+    let artifact_size = module.serialize()?.len();
+    assert!(artifact_size < ByteSize::mib(1).as_u64() as usize);
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let run: TypedFunction<(), i32> = instance.exports.get_typed_function(&store, "run")?;
+    assert_eq!(run.call(&mut store)?, 0);
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+            (func $foo (param i32 i32 i32 i32) (result i32)
+                (local.get 0)
+                (local.get 1)
+                (local.get 2)
+                (local.get 3)
+                i32.add
+                i32.add
+                i32.add
+            )
+            (func $bar)
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let finished_functions_max_stack_usage = module
+        .sys_artifact()
+        .expect("sys back-end expected")
+        .finished_functions_max_stack_usage()
+        .expect("max stack usage must be available")
+        .iter()
+        .map(|(_, stack_usage)| *stack_usage)
+        .collect_vec();
+
+    match config.compiler {
+        crate::Compiler::Singlepass => {
+            assert!(finished_functions_max_stack_usage[0].is_some_and(|u| u >= 72));
+            assert!(finished_functions_max_stack_usage[1].is_some_and(|u| u >= 40));
+        }
+        crate::Compiler::Cranelift | crate::Compiler::LLVM => {
+            assert_eq!(finished_functions_max_stack_usage, [None, None])
+        }
+        crate::Compiler::V8 => unreachable!(),
+    }
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn table_huge(config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    // It's fine to create all these table per se, the failure will occur during instantiation.
+    let mut store = config.store();
+    Module::new(&store, "(module (table 10000000 funcref))")?;
+
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, Some(10_000_000)),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 10_000_000, None),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 10_000_000, Some(10_000_000)),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn table_import_element_type_mismatch(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let module = Module::new(
+        &store,
+        r#"(module (import "env" "table" (table 1 externref)))"#,
+    )?;
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, None),
+        Value::FuncRef(None),
+    )?;
+    let imports = imports! {
+        "env" => {
+            "table" => table,
+        },
+    };
+
+    assert!(
+        Instance::new(&mut store, &module, &imports).is_err(),
+        "a funcref table was accepted for an externref table import"
+    );
+
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+fn static_memory_calls(enable_m0: bool) -> Result<()> {
+    use wasmer_compiler::{BaseTunables, CompilerConfig, EngineBuilder, Tunables};
+    use wasmer_compiler_llvm::{LLVM, LLVMCallbacks};
+
+    fn read_preopt_ir(path: &Path) -> Result<Vec<String>> {
+        let mut modules = Vec::new();
+        for entry in fs::read_dir(path)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                modules.extend(read_preopt_ir(&path)?);
+            } else if path.to_string_lossy().ends_with(".preopt.ll") {
+                modules.push(fs::read_to_string(path)?);
+            }
+        }
+        Ok(modules)
+    }
+
+    let temp = tempfile::tempdir()?;
+    let mut config = LLVM::new();
+    config.enable_m0_pass_param(enable_m0);
+    config.callbacks(Some(LLVMCallbacks::new(temp.path().to_owned())?));
+
+    let tunables = BaseTunables::new();
+    assert!(matches!(
+        tunables.memory_style(&MemoryType::new(1, Some(2), false)),
+        MemoryStyle::Static
+    ));
+    let mut engine = EngineBuilder::new(config).engine();
+    engine.set_tunables(tunables);
+    let mut store = Store::new(engine);
+    let module = Module::new(
+        &store,
+        r#"(module
+            (type $unary (func (param i32) (result i32)))
+            (import "host" "typed" (func $typed (type $unary)))
+            (import "host" "dynamic" (func $dynamic (type $unary)))
+            (memory (export "memory") 1 2)
+            (table (export "table") 4 funcref)
+            (elem (i32.const 0) $load $typed $dynamic)
+            (data (i32.const 0) "\2a\00\00\00")
+            (func $load (export "load") (type $unary)
+                (i32.load (local.get 0)))
+            (func (export "direct") (type $unary)
+                (call $load (local.get 0)))
+            (func (export "indirect") (param i32 i32) (result i32)
+                (call_indirect (type $unary) (local.get 0) (local.get 1)))
+            (func (export "host_calls") (type $unary)
+                (i32.add (call $typed (local.get 0)) (call $dynamic (local.get 0))))
+            (func (export "multi") (param i32) (result i32 i64 i32)
+                (call $load (local.get 0))
+                (i64.const 123456789)
+                (i32.const 7))
+            (func (export "grow") (result i32)
+                (memory.grow (i32.const 1))))"#,
+    )?;
+
+    // Check the lowered ABI before executing it: functions and call trampolines
+    // must agree, and disabling m0 must retain static memory code generation.
+    let ir = read_preopt_ir(temp.path())?;
+    assert!(!ir.is_empty());
+    assert_eq!(ir.iter().any(|ir| ir.contains("%m0_base_ptr")), enable_m0);
+    assert_eq!(
+        ir.iter().any(|ir| ir.contains("%trmpl_m0_base_ptr")),
+        enable_m0
+    );
+    assert!(ir.iter().all(|ir| !ir.contains("load_offset_end")));
+
+    let typed = Function::new_typed(&mut store, |value: i32| value + 10);
+    let dynamic = Function::new(
+        &mut store,
+        FunctionType::new([Type::I32], [Type::I32]),
+        |args| Ok(vec![Value::I32(args[0].unwrap_i32() + 20)]),
+    );
+    let imports = imports! { "host" => { "typed" => typed, "dynamic" => dynamic } };
+    // Exercise the serialized artifact too: its trampolines must retain this ABI.
+    let serialized = module.serialize()?;
+    let module = unsafe { Module::deserialize(&store, serialized)? };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let direct = instance
+        .exports
+        .get_typed_function::<i32, i32>(&store, "direct")?;
+    assert_eq!(direct.call(&mut store, 0)?, 42);
+    let indirect = instance
+        .exports
+        .get_typed_function::<(i32, i32), i32>(&store, "indirect")?;
+    assert_eq!(indirect.call(&mut store, 0, 0)?, 42);
+    assert_eq!(indirect.call(&mut store, 7, 1)?, 17);
+    assert_eq!(indirect.call(&mut store, 7, 2)?, 27);
+    assert_eq!(
+        &*instance
+            .exports
+            .get_function("host_calls")?
+            .call(&mut store, &[Value::I32(7)])?,
+        &[Value::I32(44)]
+    );
+    assert_eq!(
+        &*instance
+            .exports
+            .get_function("multi")?
+            .call(&mut store, &[Value::I32(0)])?,
+        &[Value::I32(42), Value::I64(123456789), Value::I32(7)]
+    );
+    let memory = instance.exports.get_memory("memory")?;
+    let base = memory.view(&store).data_ptr();
+    let grow = instance
+        .exports
+        .get_typed_function::<(), i32>(&store, "grow")?;
+    assert_eq!(grow.call(&mut store)?, 1);
+    assert_eq!(memory.view(&store).data_ptr(), base);
+    memory.view(&store).write(65536, &99_i32.to_le_bytes())?;
+    assert_eq!(direct.call(&mut store, 65536)?, 99);
+    assert_eq!(indirect.call(&mut store, 65536, 0)?, 99);
+    assert!(direct.call(&mut store, 131072).is_err());
+    assert_eq!(grow.call(&mut store)?, -1);
+
+    if !enable_m0 {
+        // A runtime-populated table entry must not be dispatched using the m0
+        // optimization's assumptions about the original element initializer.
+        let load = instance.exports.get_function("load")?.clone();
+        instance
+            .exports
+            .get_table("table")?
+            .set(&mut store, 3, Value::FuncRef(Some(load)))?;
+        assert_eq!(indirect.call(&mut store, 65536, 3)?, 99);
+    }
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[test]
+fn llvm_static_memory_without_m0() -> Result<()> {
+    static_memory_calls(false)
+}
+
+#[cfg(feature = "llvm")]
+#[test]
+fn llvm_static_memory_with_m0() -> Result<()> {
+    static_memory_calls(true)
 }

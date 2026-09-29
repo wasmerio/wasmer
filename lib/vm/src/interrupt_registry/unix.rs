@@ -1,5 +1,3 @@
-#![cfg(unix)]
-
 use std::{
     cell::UnsafeCell,
     ffi::CStr,
@@ -94,6 +92,7 @@ pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError>
         // TODO: isn't there a way to get this without reaching for libc APIs?
         // Since stores can't be sent across threads once they start executing code,
         // we don't need to update this value for recursive calls.
+        #[allow(trivial_numeric_casts)]
         let pthread = unsafe { libc::pthread_self() as usize };
 
         StoreInterruptState {
@@ -130,11 +129,7 @@ pub(super) fn uninstall(store_id: StoreId) {
         match borrow.active_stores.pop_if(|x| *x == store_id) {
             Some(_) => {
                 borrow.current_active_store.store(
-                    borrow
-                        .active_stores
-                        .last()
-                        .map(|x| x.as_raw().get())
-                        .unwrap_or(0),
+                    borrow.active_stores.last().map_or(0, |x| x.as_raw().get()),
                     Ordering::Release,
                 );
                 borrow.active_stores.contains(&store_id)
@@ -169,7 +164,7 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
     };
     let store_state = store_state.get_mut();
 
-    if let Err(_) = store_state
+    if store_state
         .thread_current_signal_target_store
         .compare_exchange(
             0,
@@ -177,6 +172,7 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
             Ordering::SeqCst,
             Ordering::SeqCst,
         )
+        .is_err()
     {
         return Err(InterruptError::OtherInterruptInProgress);
     }
@@ -184,8 +180,9 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
     store_state.interrupted = true;
 
     unsafe {
-        if libc::pthread_kill(store_state.pthread as libc::pthread_t, libc::SIGUSR1) != 0 {
-            let errno = *libc::__errno_location();
+        #[allow(trivial_numeric_casts)]
+        let errno = libc::pthread_kill(store_state.pthread as libc::pthread_t, libc::SIGUSR1);
+        if errno != 0 {
             let error_str = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
             return Err(InterruptError::FailedToSendSignal(error_str));
         }
@@ -211,12 +208,16 @@ pub(crate) fn on_interrupted() -> bool {
             current_signal_target_store, 0,
             "current_signal_target_store should be set before signalling the WASM thread"
         );
-        if let Err(_) = state.current_signal_target_store.compare_exchange(
-            current_signal_target_store,
-            0,
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-        ) {
+        if state
+            .current_signal_target_store
+            .compare_exchange(
+                current_signal_target_store,
+                0,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            )
+            .is_err()
+        {
             unreachable!("current_signal_target_store isn't changed unless it's zero");
         }
 

@@ -1,7 +1,6 @@
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory,
-    Module, Store,
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
 };
 use wasmer_wasix_types::{wasi::ExitCode, wasix::WasiMemoryLayout};
 
@@ -13,11 +12,9 @@ use crate::{
     RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiModuleInstanceHandles,
     WasiRuntimeError, WasiThreadError,
     runtime::task_manager::SpawnMemoryTypeOrStore,
-    state::WasiModuleTreeHandles,
+    state::{PreparedInstanceGroupData, WasiModuleTreeHandles},
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
 };
-
-use super::Linker;
 
 /// The default stack size for WASIX - the number itself is the default that compilers
 /// have used in the past when compiling WASM apps.
@@ -46,7 +43,7 @@ impl WasiFunctionEnv {
         spawn_type: SpawnMemoryTypeOrStore,
         update_layout: bool,
         call_initialize: bool,
-        parent_linker_and_ctx: Option<(Linker, &mut FunctionEnvMut<WasiEnv>)>,
+        linker_instance_group_data: Option<PreparedInstanceGroupData>,
     ) -> Result<(Self, Store), WasiThreadError> {
         // Create a new store and put the memory object in it
         // (but only if it has imported memory)
@@ -71,7 +68,7 @@ impl WasiFunctionEnv {
                 })?;
                 (Some(mem), Some(store))
             }
-            SpawnMemoryTypeOrStore::StoreAndMemory(s, m) => (m, Some(s)),
+            SpawnMemoryTypeOrStore::StoreAndMemory(s, m) => (Some(m), Some(s)),
         };
 
         let mut store = store.unwrap_or_else(|| env.runtime().new_store());
@@ -82,7 +79,7 @@ impl WasiFunctionEnv {
             memory,
             update_layout,
             call_initialize,
-            parent_linker_and_ctx,
+            linker_instance_group_data,
         )?;
 
         // FIXME: shouldn't this happen _before_ instantiating, so the startup code in the instance
@@ -174,6 +171,7 @@ impl WasiFunctionEnv {
         let new_inner = handles;
 
         let main_module_handles = new_inner.main_module_instance_handles();
+        let shared_memory = main_module_handles.memory().as_shared(store);
         let stack_pointer = main_module_handles.stack_pointer.clone();
         let data_end = main_module_handles.data_end.clone();
         let stack_low = main_module_handles.stack_low.clone();
@@ -181,6 +179,9 @@ impl WasiFunctionEnv {
         let tls_base = main_module_handles.tls_base.clone();
 
         let env = self.data_mut(store);
+        if let Some(shared_memory) = shared_memory {
+            env.process.register_memory(shared_memory);
+        }
         env.set_inner(new_inner);
 
         env.state.fs.set_is_wasix(is_wasix_module);

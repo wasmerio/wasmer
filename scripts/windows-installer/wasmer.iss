@@ -1,6 +1,6 @@
 [Setup]
 AppName=Wasmer
-AppVersion=7.1.0
+AppVersion=7.4.2
 DefaultDirName={pf}\Wasmer
 DefaultGroupName=Wasmer
 Compression=lzma2
@@ -9,8 +9,8 @@ OutputDir=.\
 DisableProgramGroupPage=yes
 ChangesEnvironment=yes
 OutputBaseFilename=WasmerInstaller
-WizardImageFile=media\wizard_logo_2.bmp
-WizardSmallImageFile=media\wizard_logo_small.bmp
+WizardImageFile=media\wizard_logo_2.png
+WizardSmallImageFile=media\wizard_logo_small.png
 SetupIconFile=media\wizard_logo.ico
 DisableWelcomePage=no
 
@@ -22,7 +22,6 @@ Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_CACHE_DI
 
 [Files]
 Source: "..\..\package\bin\*"; DestDir: "{app}\bin"
-Source: "..\..\package\include\*"; DestDir: "{app}\include"
 Source: "..\..\package\lib\*"; DestDir: "{app}\lib"
 Source: "..\..\package\LICENSE"; DestDir: "{app}"
 Source: "..\..\package\ATTRIBUTIONS"; DestDir: "{app}"
@@ -90,6 +89,6 @@ begin
     if CurUninstallStep = usPostUninstall
     then begin 
     EnvRemovePath(ExpandConstant('{app}') +'\bin');
-    EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
+    EnvRemovePath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
     end
 end;

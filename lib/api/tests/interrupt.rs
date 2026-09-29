@@ -4,7 +4,7 @@
 
 use std::{
     sync::{
-        Arc, Barrier,
+        Arc, Barrier, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     thread,
@@ -43,34 +43,37 @@ const INFINITE_ATOMIC_WAIT_WAT: &str = r#"
 
 #[test]
 fn test_interrupt_hot_loop() -> Result<()> {
-    test_interruptable(INFINITE_LOOP_WAT)
+    test_interruptible(INFINITE_LOOP_WAT)
 }
 
 #[test]
 fn test_interrupt_memory_wait() -> Result<()> {
-    test_interruptable(INFINITE_ATOMIC_WAIT_WAT)
+    test_interruptible(INFINITE_ATOMIC_WAIT_WAT)
 }
 
 // TODO: update/fix this as we implement more of the feature
-fn test_interruptable(wat: &str) -> Result<()> {
-    let wasm = wat::parse_str(wat)?;
-
-    let mut store = Store::default();
-    let interrupter = store.interrupter();
-    let module = Module::new(&store, &wasm)?;
-    let imports = imports! {};
-    let instance = Instance::new(&mut store, &module, &imports)?;
-    let f = instance
-        .exports
-        .get_typed_function::<(), ()>(&store, "infinite")?;
-
+fn test_interruptible(wat: &'static str) -> Result<()> {
     let barrier = Arc::new(Barrier::new(2));
+    let interrupter_slot = Arc::new(Mutex::new(None));
 
     let worker = thread::spawn({
         let barrier = barrier.clone();
+        let interrupter_slot = interrupter_slot.clone();
         move || {
+            let wasm = wat::parse_str(wat)?;
+
+            let mut store = Store::default();
+            let interrupter = store.interrupter();
+            interrupter_slot.lock().unwrap().replace(interrupter);
+            let module = Module::new(&store, &wasm)?;
+            let imports = imports! {};
+            let instance = Instance::new(&mut store, &module, &imports)?;
+            let f = instance
+                .exports
+                .get_typed_function::<(), ()>(&store, "infinite")?;
+
             barrier.wait();
-            f.call(&mut store)
+            anyhow::Ok(f.call(&mut store))
         }
     });
 
@@ -78,8 +81,13 @@ fn test_interruptable(wat: &str) -> Result<()> {
     // Make absolutely sure the function is running WASM when we raise the signal
     thread::sleep(Duration::from_millis(500));
 
-    interrupter.interrupt();
-    let result = worker.join().unwrap().unwrap_err();
+    interrupter_slot
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .interrupt();
+    let result = worker.join().unwrap().unwrap().unwrap_err();
     assert_eq!(result.to_trap().unwrap(), TrapCode::HostInterrupt);
 
     Ok(())
@@ -87,28 +95,31 @@ fn test_interruptable(wat: &str) -> Result<()> {
 
 #[test]
 fn correct_store_is_interrupted_only() -> Result<()> {
-    let wasm = wat::parse_str(INFINITE_LOOP_WAT)?;
-
-    let mut store = Store::default();
-    let interrupter = store.interrupter();
-    let module = Module::new(&store, &wasm)?;
-    let imports = imports! {};
-    let instance = Instance::new(&mut store, &module, &imports)?;
-    let f = instance
-        .exports
-        .get_typed_function::<(), ()>(&store, "infinite")?;
-
     let barrier = Arc::new(Barrier::new(2));
     let finished = Arc::new(AtomicBool::new(false));
+    let interrupter_slot = Arc::new(Mutex::new(None));
 
     let worker = thread::spawn({
         let barrier = barrier.clone();
         let finished = finished.clone();
+        let interrupter_slot = interrupter_slot.clone();
         move || {
+            let wasm = wat::parse_str(INFINITE_LOOP_WAT)?;
+
+            let mut store = Store::default();
+            let interrupter = store.interrupter();
+            interrupter_slot.lock().unwrap().replace(interrupter);
+            let module = Module::new(&store, &wasm)?;
+            let imports = imports! {};
+            let instance = Instance::new(&mut store, &module, &imports)?;
+            let f = instance
+                .exports
+                .get_typed_function::<(), ()>(&store, "infinite")?;
+
             barrier.wait();
             let res = f.call(&mut store);
             finished.store(true, Ordering::SeqCst);
-            res
+            anyhow::Ok(res)
         }
     });
 
@@ -124,11 +135,16 @@ fn correct_store_is_interrupted_only() -> Result<()> {
     // Joining at this point will deadlock, wait for some time instead...
     thread::sleep(Duration::from_millis(500));
     // ... and make sure the code wasn't interrupted by checking the atomic
-    assert_eq!(finished.load(Ordering::SeqCst), false);
+    assert!(!finished.load(Ordering::SeqCst));
 
-    interrupter.interrupt();
-    let result = worker.join().unwrap().unwrap_err();
-    assert_eq!(finished.load(Ordering::SeqCst), true);
+    interrupter_slot
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .interrupt();
+    let result = worker.join().unwrap().unwrap().unwrap_err();
+    assert!(finished.load(Ordering::SeqCst));
     assert_eq!(result.to_trap().unwrap(), TrapCode::HostInterrupt);
 
     Ok(())
@@ -171,41 +187,18 @@ fn imported_functions_are_interrupted_if_exception_is_thrown() -> Result<()> {
             let mut store = env.as_store_mut();
             let tag = Tag::new(&mut store, []);
             let exc = Exception::new(&mut store, &tag, &[]);
-            return Result::<(), _>::Err(RuntimeError::exception(&mut store, exc));
+            Result::<(), _>::Err(RuntimeError::exception(&store, exc))
         })
     })
 }
 
-fn test_imported_function_interrupt(
-    build_imported_function: impl FnOnce(&mut Store, crossbeam_channel::Receiver<()>) -> Function,
-) -> Result<()> {
-    let wasm = wat::parse_str(
-        r#"
-        (module
-          (import "env" "f" (func $f))
-          (func (export "infinite")
-            call $f
-          )
-        )"#,
-    )?;
-
-    let mut store = Store::default();
-    let interrupter = store.interrupter();
-    let module = Module::new(&store, &wasm)?;
-
+fn test_imported_function_interrupt<F>(build_imported_function: F) -> Result<()>
+where
+    F: (FnOnce(&mut Store, crossbeam_channel::Receiver<()>) -> Function) + Send + Sync + 'static,
+{
     // std::mpsc receivers are not Sync, so we need something else here
     let (tx, rx) = crossbeam_channel::bounded(1);
-    let f = build_imported_function(&mut store, rx);
-    let imports = imports! {
-        "env" => {
-            "f" => f
-        }
-    };
-
-    let instance = Instance::new(&mut store, &module, &imports)?;
-    let f = instance
-        .exports
-        .get_typed_function::<(), ()>(&store, "infinite")?;
+    let interrupter_slot = Arc::new(Mutex::new(None));
 
     let barrier = Arc::new(Barrier::new(2));
     let finished = Arc::new(AtomicBool::new(false));
@@ -213,11 +206,40 @@ fn test_imported_function_interrupt(
     let worker = thread::spawn({
         let barrier = barrier.clone();
         let finished = finished.clone();
+        let interrupter_slot = interrupter_slot.clone();
         move || {
+            let wasm = wat::parse_str(
+                r#"
+                (module
+                  (import "env" "f" (func $f))
+                  (func (export "infinite")
+                    call $f
+                  )
+                )"#,
+            )?;
+
+            let mut store = Store::default();
+            let interrupter = store.interrupter();
+            interrupter_slot.lock().unwrap().replace(interrupter);
+            let module = Module::new(&store, &wasm)?;
+
+            let f = build_imported_function(&mut store, rx);
+            let imports = imports! {
+                "env" => {
+                    "f" => f
+                }
+            };
+
+            let instance = Instance::new(&mut store, &module, &imports)?;
+            let f = instance
+                .exports
+                .get_typed_function::<(), ()>(&store, "infinite")?;
+
             barrier.wait();
             let res = f.call(&mut store);
             finished.store(true, Ordering::SeqCst);
-            res
+
+            anyhow::Ok(res)
         }
     });
 
@@ -225,20 +247,25 @@ fn test_imported_function_interrupt(
     // Make absolutely sure the function is waiting on the channel when we raise the signal
     thread::sleep(Duration::from_millis(500));
 
-    interrupter.interrupt();
+    interrupter_slot
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .interrupt();
     thread::sleep(Duration::from_millis(100));
 
     // At this point, we're still waiting in the imported function, which can *not* be
     // interrupted.
-    assert_eq!(finished.load(Ordering::SeqCst), false);
+    assert!(!finished.load(Ordering::SeqCst));
 
     // Now send a message to the channel. This should unblock the imported function,
     // which will return control to the WASM code. Since the store was already interrupted,
     // this should result in the correct trap being raised.
     tx.send(()).unwrap();
 
-    let result = worker.join().unwrap().unwrap_err();
-    assert_eq!(finished.load(Ordering::SeqCst), true);
+    let result = worker.join().unwrap().unwrap().unwrap_err();
+    assert!(finished.load(Ordering::SeqCst));
     assert_eq!(result.to_trap().unwrap(), TrapCode::HostInterrupt);
 
     Ok(())

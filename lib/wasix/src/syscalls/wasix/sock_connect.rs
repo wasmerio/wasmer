@@ -48,6 +48,18 @@ pub fn sock_connect<M: MemorySize>(
     Ok(Errno::Success)
 }
 
+fn nonblocking_connect_result(status: crate::net::socket::WasiSocketStatus) -> Result<(), Errno> {
+    match status {
+        // This is called immediately after initiating a nonblocking connect.
+        // A failure observed here is asynchronous and must remain available
+        // via SO_ERROR, so report EINPROGRESS rather than consume it.
+        crate::net::socket::WasiSocketStatus::Opening
+        | crate::net::socket::WasiSocketStatus::Closed
+        | crate::net::socket::WasiSocketStatus::Failed => Err(Errno::Inprogress),
+        crate::net::socket::WasiSocketStatus::Opened => Ok(()),
+    }
+}
+
 pub(crate) fn sock_connect_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -56,17 +68,19 @@ pub(crate) fn sock_connect_internal(
     let env = ctx.data();
     let net = env.net().clone();
     let tasks = ctx.data().tasks().clone();
+    let nonblocking = match env.state.fs.get_fd(sock) {
+        Ok(fd_entry) => fd_entry.inner.flags.contains(Fdflags::NONBLOCK),
+        Err(err) => return Ok(Err(err)),
+    };
     wasi_try_ok_ok!(__sock_upgrade(
         ctx,
         sock,
         Rights::SOCK_CONNECT,
         move |mut socket, flags| async move {
             // Auto-bind UDP
-            socket = socket
-                .auto_bind_udp(tasks.deref(), net.deref())
-                .await?
-                .unwrap_or(socket);
-            socket
+            let bound_socket = socket.auto_bind_udp(tasks.deref(), net.deref()).await?;
+            socket = bound_socket.clone().unwrap_or(socket);
+            let connected_socket = socket
                 .connect(
                     tasks.deref(),
                     net.deref(),
@@ -74,9 +88,42 @@ pub(crate) fn sock_connect_internal(
                     None,
                     flags.contains(Fdflags::NONBLOCK),
                 )
-                .await
+                .await?;
+            Ok(connected_socket.or(bound_socket))
         }
     ));
 
+    if nonblocking {
+        let status = match __sock_actor(ctx, sock, Rights::empty(), |socket, _| socket.status()) {
+            Ok(status) => status,
+            Err(err) => return Ok(Err(err)),
+        };
+        return Ok(nonblocking_connect_result(status));
+    }
+
     Ok(Ok(()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::nonblocking_connect_result;
+    use crate::net::socket::WasiSocketStatus;
+    use wasmer_wasix_types::wasi::Errno;
+
+    #[test]
+    fn nonblocking_connect_result_maps_socket_states() {
+        assert_eq!(
+            nonblocking_connect_result(WasiSocketStatus::Opening),
+            Err(Errno::Inprogress)
+        );
+        assert_eq!(nonblocking_connect_result(WasiSocketStatus::Opened), Ok(()));
+        assert_eq!(
+            nonblocking_connect_result(WasiSocketStatus::Failed),
+            Err(Errno::Inprogress)
+        );
+        assert_eq!(
+            nonblocking_connect_result(WasiSocketStatus::Closed),
+            Err(Errno::Inprogress)
+        );
+    }
 }

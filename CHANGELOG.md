@@ -6,6 +6,439 @@
 
 ## **Unreleased**
 
+## 7.4.2 - 15/09/2026
+
+This release includes:
+- reliably detect libunwind
+
+## 7.4.1 - 08/09/2026
+
+This release includes:
+- env file support added to deploy command
+## 7.4.0 - 31/08/2026
+
+This release includes:
+- A WASIX import preparation hook.
+- General N-API improvements, including guest heap growth through the store.
+- A maximum output-size budget for Singlepass.
+- An updated static `MemoryStyle` API, now requiring an 8 GiB memory mapping.
+
+## Added
+
+  - [#6960](https://github.com/wasmerio/wasmer/pull/6960) Add a WASIX import preparation hook
+  - [#6927](https://github.com/wasmerio/wasmer/pull/6927) CI: add dependency cooldown CI job (3 days)
+
+## Changed
+
+  - [#6887](https://github.com/wasmerio/wasmer/pull/6887) feat(api): let host code lend the executing store
+  - [#6888](https://github.com/wasmerio/wasmer/pull/6888) feat(napi): grow the guest heap through the store
+  - [#6953](https://github.com/wasmerio/wasmer/pull/6953) deps(chacha20): update to not yanked version
+  - [#6934](https://github.com/wasmerio/wasmer/pull/6934) tests: sync latest WebAssembly spec tests
+  - [#6923](https://github.com/wasmerio/wasmer/pull/6923) feat!: drop legacy create-exe code
+  - [#6932](https://github.com/wasmerio/wasmer/pull/6932) CI: use LLVM ZST tarballs
+  - [#6908](https://github.com/wasmerio/wasmer/pull/6908) feat(Singlepass)(V2): introduce max_output_size budget system
+  - [#6929](https://github.com/wasmerio/wasmer/pull/6929) CI: skip 2 tests on macOS
+  - [#6925](https://github.com/wasmerio/wasmer/pull/6925) feat(nix): provide shell completions
+  - [#6924](https://github.com/wasmerio/wasmer/pull/6924) docs: Singlepass supports multi-value experimentally
+  - [#6921](https://github.com/wasmerio/wasmer/pull/6921) feat(MemoryStyle::static): adjust API and require mmap of 8GiB (#13)
+  - [#6917](https://github.com/wasmerio/wasmer/pull/6917) deps: update wasm-tools related crates
+  - [#6920](https://github.com/wasmerio/wasmer/pull/6920) deps: bump cranelift to 0.135
+  - [#6919](https://github.com/wasmerio/wasmer/pull/6919) script: rework release-related scripts
+
+## Fixed
+
+  - [#6965](https://github.com/wasmerio/wasmer/pull/6965) fix(LLVM): use correct BBs as PHI inputs in call_indirect
+  - [#6886](https://github.com/wasmerio/wasmer/pull/6886) fix(api): give each call its own store context entry
+  - [#6922](https://github.com/wasmerio/wasmer/pull/6922) fix(nix): install C header from Cargo artifacts
+
+
+
+## 7.3.0 - 21/08/2026
+
+This release includes:
+- Async JavaScript API with JSPI support.
+- Experimental artifact format across LLVM, Cranelift, and Singlepass on all Linux targets, including GDB/LLDB profiling support.
+- Full multi-memory support across all compiler backends.
+- Multi-value host functions for Cranelift and LLVM.
+- New CLI capabilities for cronjobs, app CDN cache management, and offline dependency resolution.
+- C API support for externref and funcref.
+- Page-granular mmap support through the updated WASIX libc.
+- Windows support has been removed from the Sys compiler backends, including Singlepass.
+- LLVM support for the RV32 target has been removed.
+
+## Fixed
+
+## Changed
+
+  - [#6903](https://github.com/wasmerio/wasmer/pull/6903) feat!(CLI): disable gen-c-header
+
+
+
+## 7.3.0-rc.1 - 21/08/2026
+
+## Added
+
+  - [#6771](https://github.com/wasmerio/wasmer/pull/6771) Add app CDN cache CLI commands
+  - [#6878](https://github.com/wasmerio/wasmer/pull/6878) fix(CI): address 2 build errors on macOS
+  - [#6843](https://github.com/wasmerio/wasmer/pull/6843) Add async JavaScript API and JSPI support
+  - [#6879](https://github.com/wasmerio/wasmer/pull/6879) fix(security): add missing bounds check for static linear
+  - [#6862](https://github.com/wasmerio/wasmer/pull/6862) fix(memory.atomic): offset, add boundary and alignment checks
+  - [#6849](https://github.com/wasmerio/wasmer/pull/6849) feat(experimental-artifact): add --profiler gdb/lldb
+  - [#6812](https://github.com/wasmerio/wasmer/pull/6812) feat(Singlepass,Cranelift): add experiment Artifact format support
+  - [#6790](https://github.com/wasmerio/wasmer/pull/6790) feat(LLVM): add experimental Artifact format
+  - [#6801](https://github.com/wasmerio/wasmer/pull/6801) feat: add CLI support for offline dependency resolution
+  - [#6671](https://github.com/wasmerio/wasmer/pull/6671) Add `CoroutineStoreGuard` for safe store context management across yield points
+  - [#6772](https://github.com/wasmerio/wasmer/pull/6772) Bump wasix-libc to v2026-07-03.1 (page-granular mmap) and add mmap emulation tests
+  - [#6672](https://github.com/wasmerio/wasmer/pull/6672) Add two variants of the `sqrt` libcall
+
+## Changed
+
+  - [#6915](https://github.com/wasmerio/wasmer/pull/6915) deps: update webc package
+  - [#6912](https://github.com/wasmerio/wasmer/pull/6912) script: release submodules from a dedicated 'wasmer-release' branch
+  - [#6906](https://github.com/wasmerio/wasmer/pull/6906) CI(integration): always use Cranelift compiler
+  - [#6896](https://github.com/wasmerio/wasmer/pull/6896) feat: directly fetch cronjob invocations by ID & bump schema
+  - [#6881](https://github.com/wasmerio/wasmer/pull/6881) test(Singlepass): test many stack slots released
+  - [#6898](https://github.com/wasmerio/wasmer/pull/6898) feat!(Singlepass): drop Windows support and simplify
+  - [#6882](https://github.com/wasmerio/wasmer/pull/6882) deps: update to latest SemVer-breaking version
+  - [#6876](https://github.com/wasmerio/wasmer/pull/6876) feat!: drop unused and broken no-std support
+  - [#6866](https://github.com/wasmerio/wasmer/pull/6866) feat(experimental-artifact): replace Cargo feature with a config option
+  - [#6860](https://github.com/wasmerio/wasmer/pull/6860) deps(inkwell): port to latest release
+  - [#6826](https://github.com/wasmerio/wasmer/pull/6826) feat!: drop Windows support for Sys (Compilers) back-end
+  - [#6841](https://github.com/wasmerio/wasmer/pull/6841) feat(experimental-artifact): support all Linux targets
+  - [#6855](https://github.com/wasmerio/wasmer/pull/6855) deps: bump MSRV to 1.95
+  - [#6856](https://github.com/wasmerio/wasmer/pull/6856) deps(comfy-table): port to latest release
+  - [#6848](https://github.com/wasmerio/wasmer/pull/6848) feat: port to vanilla Wild and use in-memory FS
+  - [#6839](https://github.com/wasmerio/wasmer/pull/6839) deps: update to latest SemVer-breaking version
+  - [#6838](https://github.com/wasmerio/wasmer/pull/6838) test(wasix): cover POSIX signal semantics (SA_SIGINFO, SA_RESETHAND, signal masks)
+  - [#6840](https://github.com/wasmerio/wasmer/pull/6840) chore: do not cast from integer to pointer and back
+  - [#6831](https://github.com/wasmerio/wasmer/pull/6831) feat(LLVM,Cranelift,Singlepass): fully support multi-memory WA proposal
+  - [#6832](https://github.com/wasmerio/wasmer/pull/6832) chore: simplify assumptions about `PointerWidth`
+  - [#6828](https://github.com/wasmerio/wasmer/pull/6828) feat!(rv32): drop LLVM target
+  - [#6827](https://github.com/wasmerio/wasmer/pull/6827) test: sync SPEC test submodule
+  - [#6816](https://github.com/wasmerio/wasmer/pull/6816) feat(Cranelift,LLVM): fully support multi-value for host functions
+  - [#6817](https://github.com/wasmerio/wasmer/pull/6817) deps: update crates that need major version bump
+  - [#6813](https://github.com/wasmerio/wasmer/pull/6813) deps(Cranelift): update to 0.134.2
+  - [#6814](https://github.com/wasmerio/wasmer/pull/6814) chore: merge 7.2.1 release version update
+  - [#6806](https://github.com/wasmerio/wasmer/pull/6806) chore: properly communicate usage of BUSL license
+  - [#6791](https://github.com/wasmerio/wasmer/pull/6791) feat(c-api): implement externref/funcref reference surface
+  - [#6739](https://github.com/wasmerio/wasmer/pull/6739) feat: cronjobs CLI support
+  - [#6782](https://github.com/wasmerio/wasmer/pull/6782) Remove dependency on `memoffset`
+  - [#6751](https://github.com/wasmerio/wasmer/pull/6751) feat(cli): preserve yaml formatting in edits
+  - [#6781](https://github.com/wasmerio/wasmer/pull/6781) Update crossbeam-epoch to 0.9.20
+
+## Fixed
+
+  - [#6904](https://github.com/wasmerio/wasmer/pull/6904) fix(VMOffsets): handle gracefully u32 -> i32 casting
+  - [#6905](https://github.com/wasmerio/wasmer/pull/6905) fix(tests): reflect recent Nix-based python package changes
+  - [#6895](https://github.com/wasmerio/wasmer/pull/6895) fix(Singlepass): simplify stack rounding logic
+  - [#6894](https://github.com/wasmerio/wasmer/pull/6894) test: fix `cargo-nextest` installation
+  - [#6880](https://github.com/wasmerio/wasmer/pull/6880) fix(Singlepass): drop wrong constant folding for emit comparison on x86_64
+  - [#6871](https://github.com/wasmerio/wasmer/pull/6871) fix(deterministic_id): include all code-sensitive config flags
+  - [#6698](https://github.com/wasmerio/wasmer/pull/6698) feat(wasix): build wasm_tests Rust fixtures with cargo-wasix
+  - [#6875](https://github.com/wasmerio/wasmer/pull/6875) fix(wasix): complete built-in subprocesses and support version flags
+  - [#6863](https://github.com/wasmerio/wasmer/pull/6863) fix(wasix): preserve CR and LF in noncanonical tty mode
+  - [#6872](https://github.com/wasmerio/wasmer/pull/6872) fix(wasix): don't inherit a dependency's entrypoint over the root's own commands
+  - [#6858](https://github.com/wasmerio/wasmer/pull/6858) fix(wasix): preserve nonblocking connect errors
+  - [#6853](https://github.com/wasmerio/wasmer/pull/6853) fix: memory32_atomic_check miss off-by-width bounds check
+  - [#6842](https://github.com/wasmerio/wasmer/pull/6842) fix: parse plan-based perish reason
+  - [#6834](https://github.com/wasmerio/wasmer/pull/6834) Macos unwind fixes (debug and release builds)
+  - [#6836](https://github.com/wasmerio/wasmer/pull/6836) fix(Singlepass,Cranelift,LLVM): properly support multiple local/imported tables
+  - [#6837](https://github.com/wasmerio/wasmer/pull/6837) fix: don't panic when forwarding a non-UTF-8 host environment
+  - [#6804](https://github.com/wasmerio/wasmer/pull/6804) refactor(wasix): thread per-instantiation state through runtime hooks (fixes WAX-600 cross-store panic)
+  - [#6818](https://github.com/wasmerio/wasmer/pull/6818) fix(wasix): make package resolution semver-compliant
+  - [#6815](https://github.com/wasmerio/wasmer/pull/6815) fix(config): loudly reject build metadata in version requirements
+  - [#6810](https://github.com/wasmerio/wasmer/pull/6810) fix(virtual-io): retry selector poll on EINTR in release builds
+  - [#6807](https://github.com/wasmerio/wasmer/pull/6807) fix(c-api): skip hostref test for the V8 backend
+  - [#6792](https://github.com/wasmerio/wasmer/pull/6792) fix(virtual-fs): follow symlinks in webc volumes
+  - [#6805](https://github.com/wasmerio/wasmer/pull/6805) fix(cli): skip yaml-edit if it emits invalid yaml
+  - [#6788](https://github.com/wasmerio/wasmer/pull/6788) fix(cli): migrate app volume commands to per-volume S3 credentials
+  - [#6767](https://github.com/wasmerio/wasmer/pull/6767) fix(wasix): pass through EFD_NONBLOCK
+  - [#6784](https://github.com/wasmerio/wasmer/pull/6784) fix(wasix): report SocketStream filetype for socketpair fds
+  - [#6757](https://github.com/wasmerio/wasmer/pull/6757) fix: allow seek on readonly mem_fs files
+  - [#6639](https://github.com/wasmerio/wasmer/pull/6639) fix: Prevent memory leak for subprocesses
+  - [#6776](https://github.com/wasmerio/wasmer/pull/6776) fix(vm): share module passive data across instances instead of deep-copying
+  - [#6605](https://github.com/wasmerio/wasmer/pull/6605) fix(wasix): allow unlinking symlinks discovered on the backing FS
+
+
+
+## 7.2.1 - 23/07/2026
+
+## Added
+
+  - [#6791](https://github.com/wasmerio/wasmer/pull/6791) feat(c-api): implement externref/funcref reference surface
+
+## 7.2.0 - 30/06/2026
+
+## Added
+
+  - [#6761](https://github.com/wasmerio/wasmer/pull/6761) Added wasm-c-api-imports
+  - [#6734](https://github.com/wasmerio/wasmer/pull/6734) cli: add namespace create command
+  - [#6755](https://github.com/wasmerio/wasmer/pull/6755) fix: address 3 CVEs
+  - [#6617](https://github.com/wasmerio/wasmer/pull/6617) Improve dependency unification + add 'package tree' command
+
+## Changed
+
+  - [#6762](https://github.com/wasmerio/wasmer/pull/6762) deps: RUSTSEC-2026-0190 (update anyhow)
+  - [#6752](https://github.com/wasmerio/wasmer/pull/6752) Wasm c api wasix
+  - [#6747](https://github.com/wasmerio/wasmer/pull/6747) Wasm c api exports as imports
+  - [#6754](https://github.com/wasmerio/wasmer/pull/6754) Document libpolly installation in LLVM setup instructions
+
+## Fixed
+
+
+
+
+## 7.2.0-rc.1 - 24/06/2026
+
+## Added
+
+  - [#6716](https://github.com/wasmerio/wasmer/pull/6716) feat(cli): add package show
+  - [#6712](https://github.com/wasmerio/wasmer/pull/6712) feat(Cranelift): add support for EH on Mach-O
+  - [#6726](https://github.com/wasmerio/wasmer/pull/6726) Added test for setsockopt()
+  - [#6725](https://github.com/wasmerio/wasmer/pull/6725) Added test create nonblocking socket
+  - [#6724](https://github.com/wasmerio/wasmer/pull/6724) Added loopback reverse lookup test
+  - [#6715](https://github.com/wasmerio/wasmer/pull/6715) feat(cli,sdk,backend-api): add package search
+  - [#6700](https://github.com/wasmerio/wasmer/pull/6700) chore: address cargo warnings + adjust .vscode/settings.json
+  - [#6686](https://github.com/wasmerio/wasmer/pull/6686) Add proc_spawn3 and proc_exec4, avoiding the \n delimited argv and envp from older syscalls
+  - [#6672](https://github.com/wasmerio/wasmer/pull/6672) Add two variants of the `sqrt` libcall
+  - [#6665](https://github.com/wasmerio/wasmer/pull/6665) chore: address build/clippy warnings
+  - [#6664](https://github.com/wasmerio/wasmer/pull/6664) test(wasix): add getaddrinfo AF_INET family filtering regression test
+
+## Changed
+
+  - [#6741](https://github.com/wasmerio/wasmer/pull/6741) UDP Datagram Receive, Readiness, and Backlog
+  - [#6738](https://github.com/wasmerio/wasmer/pull/6738) Connected udp peer state
+  - [#6718](https://github.com/wasmerio/wasmer/pull/6718) Last socket error
+  - [#6735](https://github.com/wasmerio/wasmer/pull/6735) deps: update to latest SemVer-breaking versions
+  - [#6736](https://github.com/wasmerio/wasmer/pull/6736) test: enable 3 more WASIX tests
+  - [#6707](https://github.com/wasmerio/wasmer/pull/6707) CI: skip linux-musl for PRs
+  - [#6696](https://github.com/wasmerio/wasmer/pull/6696) feat(Singlepass): track maximum stack usage for functions
+  - [#6695](https://github.com/wasmerio/wasmer/pull/6695) chore: shorten test names
+  - [#6703](https://github.com/wasmerio/wasmer/pull/6703) chore(V8): small clean-up
+  - [#6683](https://github.com/wasmerio/wasmer/pull/6683) feat(vm): baremetal trap-handler backend
+  - [#6648](https://github.com/wasmerio/wasmer/pull/6648) test(wasix): port wasi-wast tests to wasm harness
+  - [#6701](https://github.com/wasmerio/wasmer/pull/6701) ci: pin wasix-libc sysroot and verify it stays current
+  - [#6677](https://github.com/wasmerio/wasmer/pull/6677) feat(WASIX): compatibility testing with older wasix-libc
+  - [#6678](https://github.com/wasmerio/wasmer/pull/6678) deps: allow unmaintained proc-macro-error2 crate
+  - [#6673](https://github.com/wasmerio/wasmer/pull/6673) CI: enable V8 for Wasmer builds
+  - [#6667](https://github.com/wasmerio/wasmer/pull/6667) Make proper atomic loads from the guest's memory in the atomics libcalls
+  - [#6666](https://github.com/wasmerio/wasmer/pull/6666) Align DummyUnwindRegistry with the UnwindRegistry interface
+  - [#6649](https://github.com/wasmerio/wasmer/pull/6649) perf(compiler): cache VMOffsets on AllocatedArtifact
+  - [#6650](https://github.com/wasmerio/wasmer/pull/6650) perf(types): chunked thread-local StoreId allocator
+  - [#6658](https://github.com/wasmerio/wasmer/pull/6658) feat(V8): enable some WASIX tests on Windows
+  - [#6640](https://github.com/wasmerio/wasmer/pull/6640) perf(vm): thread-local cache for on_wasm_stack coroutine stacks
+  - [#6645](https://github.com/wasmerio/wasmer/pull/6645) tests: run WASI FYI with Singlepass as well
+
+## Fixed
+
+  - [#6717](https://github.com/wasmerio/wasmer/pull/6717) fix(wasix-tests): stop parsing exit codes from error strings
+  - [#6742](https://github.com/wasmerio/wasmer/pull/6742) fix(wasix): return partial success from stream socket writev
+  - [#6743](https://github.com/wasmerio/wasmer/pull/6743) fix(RUSTSEC-2026-0186): update memmap2 crate
+  - [#6578](https://github.com/wasmerio/wasmer/pull/6578) fix(wasix): Fix behaviour of eventfd polling to match POSIX
+  - [#6689](https://github.com/wasmerio/wasmer/pull/6689) fix: `enable-serde` feature (deprecate usage in wasix, virtual-fs)
+  - [#6706](https://github.com/wasmerio/wasmer/pull/6706) fix(WASIX): fix flakiness of `poll_oneoff`
+  - [#6714](https://github.com/wasmerio/wasmer/pull/6714) fix(LLVM): NaN canonicalization - SSA dominance
+  - [#6709](https://github.com/wasmerio/wasmer/pull/6709) docs: fix stale build instructions for Cranelift and LLVM
+  - [#6682](https://github.com/wasmerio/wasmer/pull/6682) fix(NAPI): correct embedding of V8 on Windows
+  - [#6705](https://github.com/wasmerio/wasmer/pull/6705) fix(wasix): Child exit code race on cleanup
+  - [#6697](https://github.com/wasmerio/wasmer/pull/6697) fix(macos): test-capi-v8
+  - [#6704](https://github.com/wasmerio/wasmer/pull/6704) Fix a possible linker deadlock scenario where one thread going to…
+  - [#6693](https://github.com/wasmerio/wasmer/pull/6693) fix(virtual-fs): remove anyhow from offloaded file test
+  - [#6687](https://github.com/wasmerio/wasmer/pull/6687) fix err_buf_len underflow in write_dl_error
+  - [#6684](https://github.com/wasmerio/wasmer/pull/6684) fix(cli): missing progress bar
+  - [#6676](https://github.com/wasmerio/wasmer/pull/6676) fix(Artifact): move new enum values to the end
+  - [#6674](https://github.com/wasmerio/wasmer/pull/6674) fix(wasix): initialize WasiEnv before side-module TLS init on spawn
+  - [#6675](https://github.com/wasmerio/wasmer/pull/6675) fix(cli): return an error when binfmt_misc is missing
+  - [#6478](https://github.com/wasmerio/wasmer/pull/6478) Fix sockets not getting an ephemeral port between bind() and listen()
+  - [#6668](https://github.com/wasmerio/wasmer/pull/6668) fix: focused unlink test & move unlink-fd-write-after-unlink
+  - [#6663](https://github.com/wasmerio/wasmer/pull/6663) fix(llvm): recognise soft-float libcalls when cross-compiling to RISC-V
+  - [#6660](https://github.com/wasmerio/wasmer/pull/6660) fix(cargo): publish
+  - [#6467](https://github.com/wasmerio/wasmer/pull/6467) Fix FDs becoming invalid once their file is unlinked
+
+
+
+## 7.2.0-alpha.3 - 01/06/2026
+
+## Added
+
+  - [#6604](https://github.com/wasmerio/wasmer/pull/6604) Add soft-float libcall support for LLVM backend on hardware-FP-less targets
+  - [#6603](https://github.com/wasmerio/wasmer/pull/6603) Add `Artifact::finished_function_extents()` to expose compiled function body locations
+  - [#6621](https://github.com/wasmerio/wasmer/pull/6621) fix(V8): address various limitations
+  - [#6614](https://github.com/wasmerio/wasmer/pull/6614) Add regression test for ERRORCHECK mutexes becoming immediately NOTRE…
+  - [#6629](https://github.com/wasmerio/wasmer/pull/6629) chore: address clippy warnings
+  - [#6620](https://github.com/wasmerio/wasmer/pull/6620) tests(WASIX): add support for V8
+  - [#6596](https://github.com/wasmerio/wasmer/pull/6596) Add new `Memory` APIs in preparation for `!Send` stores
+  - [#6577](https://github.com/wasmerio/wasmer/pull/6577) fix(wasix): add missing return
+  - [#6388](https://github.com/wasmerio/wasmer/pull/6388) feat(Singlepass, Cranelift): add `--enable-experimental-unaligned-memory-accesses`
+  - [#6561](https://github.com/wasmerio/wasmer/pull/6561) ci: add typos spell-check workflow for user-facing content (#6481)
+  - [#6558](https://github.com/wasmerio/wasmer/pull/6558) test: added regression test for lock timeout - futex_wait
+  - [#6586](https://github.com/wasmerio/wasmer/pull/6586) chore: address clippy and build warnings
+  - [#6580](https://github.com/wasmerio/wasmer/pull/6580) docs(wasix): add warning about CC env var
+  - [#6573](https://github.com/wasmerio/wasmer/pull/6573) ci: add parent jobs that succeed only if all childs are green
+
+## Changed
+
+  - [#6653](https://github.com/wasmerio/wasmer/pull/6653) Symlinks webc
+  - [#6647](https://github.com/wasmerio/wasmer/pull/6647) Refactor duplicated logic to `function_extents()` helper
+  - [#6643](https://github.com/wasmerio/wasmer/pull/6643) ci(alpine): install build-base so rustc can link host build scripts
+  - [#6625](https://github.com/wasmerio/wasmer/pull/6625) test(wasix): port wasi-fyi suite to wasm harness
+  - [#6632](https://github.com/wasmerio/wasmer/pull/6632) chore: unify registry setting for the CLI int. tests (and enable them)
+  - [#6622](https://github.com/wasmerio/wasmer/pull/6622) Enable WASIX tests on macOS LLVM
+  - [#6631](https://github.com/wasmerio/wasmer/pull/6631) chore: bump openssl
+  - [#6630](https://github.com/wasmerio/wasmer/pull/6630) chore: bump crates with new SemVer releases
+  - [#6619](https://github.com/wasmerio/wasmer/pull/6619) tests(WASIX): do not hide unrecognized Errors
+  - [#6623](https://github.com/wasmerio/wasmer/pull/6623) test: temporarily disable CLI integration tests
+  - [#6609](https://github.com/wasmerio/wasmer/pull/6609) tests(spec): include V8 Engine
+  - [#6613](https://github.com/wasmerio/wasmer/pull/6613) re-enable auto discovery of WASIX integration tests, clean up the tes…
+  - [#6615](https://github.com/wasmerio/wasmer/pull/6615) chore(wasix): Remove faultily ported process test
+  - [#6601](https://github.com/wasmerio/wasmer/pull/6601) Cache downloaded v8 artifact during builds of wasmer with the V8 feature enabled
+  - [#6602](https://github.com/wasmerio/wasmer/pull/6602) tests(wasm_tests): port build.env and update README.md
+  - [#6599](https://github.com/wasmerio/wasmer/pull/6599) tests: port WASIX tests to libtest-mimic (part 2)
+  - [#6594](https://github.com/wasmerio/wasmer/pull/6594) tests: port WASIX tests to libtest-mimic
+  - [#6581](https://github.com/wasmerio/wasmer/pull/6581) feat(nix): refactor and update Nix flake
+  - [#6589](https://github.com/wasmerio/wasmer/pull/6589) CI: disable 2 more flaky tests
+  - [#6588](https://github.com/wasmerio/wasmer/pull/6588) CI: start using taplo for TOML files formatting
+  - [#6544](https://github.com/wasmerio/wasmer/pull/6544) tests(V8): shareable memory with V8, bump V8 release
+  - [#6572](https://github.com/wasmerio/wasmer/pull/6572) build(deps): bump openssl from 0.10.78 to 0.10.79
+  - [#6552](https://github.com/wasmerio/wasmer/pull/6552) Migrate old shell-based wasix tests to the new format in wasmer-wasix
+  - [#6565](https://github.com/wasmerio/wasmer/pull/6565) CI: simplify and unify job names
+  - [#6567](https://github.com/wasmerio/wasmer/pull/6567) ci: disable flaky tests
+  - [#6554](https://github.com/wasmerio/wasmer/pull/6554) wasm bindgen update to the latest
+  - [#6531](https://github.com/wasmerio/wasmer/pull/6531) Rework how the wasix-wasm tests work
+  - [#6527](https://github.com/wasmerio/wasmer/pull/6527) chore: bump crates
+  - [#6523](https://github.com/wasmerio/wasmer/pull/6523) Disable EH tests on Windows
+  - [#6510](https://github.com/wasmerio/wasmer/pull/6510) docs: fetch lib/napi submodule in BUILD.md
+
+## Fixed
+
+  - [#6652](https://github.com/wasmerio/wasmer/pull/6652) fix(virtual-fs): correct mem_fs poll_write_ready behavior
+  - [#6626](https://github.com/wasmerio/wasmer/pull/6626) Fix WASIX symlink resolution for path components
+  - [#6644](https://github.com/wasmerio/wasmer/pull/6644) fix(V8): use proper new memory sharing mechanism (take 2)
+  - [#6627](https://github.com/wasmerio/wasmer/pull/6627) fix: advance static WebC file cursors on read
+  - [#6593](https://github.com/wasmerio/wasmer/pull/6593) chore: fix duplicated words in wasix and vm doc comments
+  - [#6642](https://github.com/wasmerio/wasmer/pull/6642) Fix FS race resulting in None handle, take 2
+  - [#6633](https://github.com/wasmerio/wasmer/pull/6633) fix(wasix): Don't log error on HostInterrupt as it's expected behaviour
+  - [#6628](https://github.com/wasmerio/wasmer/pull/6628) fix(RawValue): From - always initialize all bits
+  - [#6579](https://github.com/wasmerio/wasmer/pull/6579) fix(wasix): handle pipe-backed stdio in flush, fd_sync, and poll
+  - [#6587](https://github.com/wasmerio/wasmer/pull/6587) Fix/wasix spawn store on final thread
+  - [#6536](https://github.com/wasmerio/wasmer/pull/6536) fix(wasix): Interrupt atomic waiters on signals
+  - [#6608](https://github.com/wasmerio/wasmer/pull/6608) fix(wasix): Fix EPOLL to deliver multiple events per FD at the same time to avoid race conditions
+  - [#6598](https://github.com/wasmerio/wasmer/pull/6598) Fix `isize` overflow in `AArch64` PC-relative relocation range assertions
+  - [#6591](https://github.com/wasmerio/wasmer/pull/6591) chore: fix taplo format of the new .typos.toml file
+  - [#6583](https://github.com/wasmerio/wasmer/pull/6583) fix(wasix): Fix race conditions in {fd,path}_filestat_get
+  - [#6563](https://github.com/wasmerio/wasmer/pull/6563) fix: wasmer-cli - panic when command name shadows dependency entry
+  - [#6541](https://github.com/wasmerio/wasmer/pull/6541) fix(v8): passing the InnerTrap::User through the v8 backend
+  - [#6556](https://github.com/wasmerio/wasmer/pull/6556) fix(LLVM): properly handling `ref.is_null` for exnref types
+  - [#6557](https://github.com/wasmerio/wasmer/pull/6557) fix(elem declare): do not instantiate a declarative element
+  - [#6562](https://github.com/wasmerio/wasmer/pull/6562) fix(wasix): path_rename panics when renaming a directory into its child
+  - [#6547](https://github.com/wasmerio/wasmer/pull/6547) Fix append + Seek and support of writing beyond EOF
+  - [#6550](https://github.com/wasmerio/wasmer/pull/6550) fix(wasix): Guard WASIX fd operations against huge fd targets
+  - [#6548](https://github.com/wasmerio/wasmer/pull/6548) fix(wasix): Fix WASIX rename of path to itself
+  - [#6545](https://github.com/wasmerio/wasmer/pull/6545) Fix mem-fs cursor after truncating open file
+  - [#6528](https://github.com/wasmerio/wasmer/pull/6528) wasix: fix WASIX exit code on sigabrt
+  - [#6517](https://github.com/wasmerio/wasmer/pull/6517) fix(wasix): honor socket connect_timeout in TCP connect
+  - [#6526](https://github.com/wasmerio/wasmer/pull/6526) fix(macOS): use --llvm for EH integration tests
+  - [#6520](https://github.com/wasmerio/wasmer/pull/6520) Fix files opened in read-only mode being writable
+  - [#6466](https://github.com/wasmerio/wasmer/pull/6466) wasix: fix proc_exec3 path semantics and migrate proc_exec3 tests
+
+
+
+## 7.2.0-alpha.2 - 24/04/2026
+
+## Added
+
+  - [#6498](https://github.com/wasmerio/wasmer/pull/6498) build: Add wasixcc dependency to nix flake devshell
+  - [#6416](https://github.com/wasmerio/wasmer/pull/6416) fix(LLVM): add --disable-non-volatile-memops and use it consistently
+  - [#6452](https://github.com/wasmerio/wasmer/pull/6452) tests(wasix): Add call_dynamic/context POSIX tests
+  - [#6476](https://github.com/wasmerio/wasmer/pull/6476) deps: address RUSTSEC-2026-0099
+  - [#6458](https://github.com/wasmerio/wasmer/pull/6458) Fix: Windows uninstaller re-adds package bin path to PATH
+  - [#6432](https://github.com/wasmerio/wasmer/pull/6432) fix(SRE-1412): Add first-class support for bugtopia
+
+## Changed
+
+  - [#6506](https://github.com/wasmerio/wasmer/pull/6506) feat: drop x86_64-darwin target
+  - [#6503](https://github.com/wasmerio/wasmer/pull/6503) ci: disable borked macOS test
+  - [#6486](https://github.com/wasmerio/wasmer/pull/6486) Stop handing out zero timestamps for mount points from mountfs
+  - [#6495](https://github.com/wasmerio/wasmer/pull/6495) ci: use wasmer packages instead of sharrattj + enable more tests
+  - [#6500](https://github.com/wasmerio/wasmer/pull/6500) feat: drop WAMR and Wasmi support
+  - [#6492](https://github.com/wasmerio/wasmer/pull/6492) chore: drop `Universal` from naming
+  - [#6490](https://github.com/wasmerio/wasmer/pull/6490) chore: bump crates
+  - [#6463](https://github.com/wasmerio/wasmer/pull/6463) wasix: migrate proc_exec POSIX tests to wasm_tests
+  - [#6454](https://github.com/wasmerio/wasmer/pull/6454) test(wasix): migrate poll and sched_yield POSIX tests to the wasm_tests harness
+  - [#6453](https://github.com/wasmerio/wasmer/pull/6453) tests(wasix): migrate fd_dup2, fd_fdflags_*, fd_tell tests
+  - [#6483](https://github.com/wasmerio/wasmer/pull/6483) build: Switch nix flake to nixpkgs-unstable for llvm 22
+  - [#6469](https://github.com/wasmerio/wasmer/pull/6469) Remove build-scripts dependency
+  - [#6391](https://github.com/wasmerio/wasmer/pull/6391) Go from UnionFS to MountFS, which properly supports nested mounts and eliminate mounting from all other filesystems
+  - [#6300](https://github.com/wasmerio/wasmer/pull/6300) deps(LLVM): bump to 22.1
+
+## Fixed
+
+  - [#6507](https://github.com/wasmerio/wasmer/pull/6507) Fix test_rejects_host_absolute_paths_inside_root on mac
+  - [#6497](https://github.com/wasmerio/wasmer/pull/6497) chore: fix cargo clippy issues
+  - [#6464](https://github.com/wasmerio/wasmer/pull/6464) fix(wasix): return ENOTDIR for create under non-directory path
+  - [#6455](https://github.com/wasmerio/wasmer/pull/6455) fix(wasix): Handle sendto() on connected TCP sockets
+  - [#6451](https://github.com/wasmerio/wasmer/pull/6451) fix(wasix): Return error when close_fd encountered an error
+  - [#6460](https://github.com/wasmerio/wasmer/pull/6460) Fix: Module loading panics on non-UTF-8 file paths
+  - [#6487](https://github.com/wasmerio/wasmer/pull/6487) fix(virtual-fs): Use non zero default mtime/access time/creation time
+  - [#6461](https://github.com/wasmerio/wasmer/pull/6461) Fix: WASI WAST runner ignores asserted exit codes
+  - [#6462](https://github.com/wasmerio/wasmer/pull/6462) Fix: Argus test runners record elapsed time backwards
+  - [#6471](https://github.com/wasmerio/wasmer/pull/6471) fix(virtual-fs): preserve backing entries for synthetic parent mounts
+  - [#6468](https://github.com/wasmerio/wasmer/pull/6468) fix(wasix): Make connect nonblocking when requested and implement real socket::status
+  - [#6456](https://github.com/wasmerio/wasmer/pull/6456) fix(deps): Update rand to fix RUSTSEC-2026-0097
+
+
+
+## 7.2.0-alpha.1 - 09/04/2026
+
+## Added
+
+  - [#6371](https://github.com/wasmerio/wasmer/pull/6371) chore: disable flaky test, address clippy warning
+  - [#1591](https://github.com/wasmerio/wasmer/pull/1591) Add release workflow
+  - [#6373](https://github.com/wasmerio/wasmer/pull/6373) feat(runtime): Add cache eviction method to BuiltinPackageLoader
+
+## Changed
+
+  - [#6075](https://github.com/wasmerio/wasmer/pull/6075) Experimental support for interruptable wasm computation
+  - [#6389](https://github.com/wasmerio/wasmer/pull/6389) feat(Singlepass): correct wasmer_vm_x function types, use RISC-V calling conv
+  - [#6415](https://github.com/wasmerio/wasmer/pull/6415) test: recover tests under threads proposal
+  - [#6394](https://github.com/wasmerio/wasmer/pull/6394) chore: split 12K LOC function translate_operator
+  - [#6361](https://github.com/wasmerio/wasmer/pull/6361) ci: start using yamlfmt
+  - [#6369](https://github.com/wasmerio/wasmer/pull/6369) deps: update dependencies
+  - [#6379](https://github.com/wasmerio/wasmer/pull/6379) ci: unify job name nomenclature
+  - [#6390](https://github.com/wasmerio/wasmer/pull/6390) chore(Singlepass): smaller refactoring changes
+  - [#1645](https://github.com/wasmerio/wasmer/pull/1645) Remove install script from wasmer repo
+  - [#6386](https://github.com/wasmerio/wasmer/pull/6386) build: drop dependency on homebrew
+  - [#6385](https://github.com/wasmerio/wasmer/pull/6385) chore(Cranelift): drop FuncEnvironment trait
+  - [#6383](https://github.com/wasmerio/wasmer/pull/6383) ci: include full source tarball
+  - [#6363](https://github.com/wasmerio/wasmer/pull/6363) chore: use Linux/macOS newline style
+  - [#6375](https://github.com/wasmerio/wasmer/pull/6375) build: move binary blobs to a separate git repository
+  - [#1622](https://github.com/wasmerio/wasmer/pull/1622) Prepare for 1.0.0-alpha3 release
+  - [#6377](https://github.com/wasmerio/wasmer/pull/6377) size-check pooled stacks on pop to prevent undersized reuse
+  - [#6380](https://github.com/wasmerio/wasmer/pull/6380) feat(runtime): Allow disabling automatic in-memory cache in BuiltinPackageLoader
+  - [#6293](https://github.com/wasmerio/wasmer/pull/6293) feat: use hash-based signature checks for indirect calls
+  - [#6372](https://github.com/wasmerio/wasmer/pull/6372) ci: use latest wasixcc job action
+  - [#6374](https://github.com/wasmerio/wasmer/pull/6374) Expose stack pool drain and stack size getters
+  - [#6348](https://github.com/wasmerio/wasmer/pull/6348) feat(Cranelift): use call to wasmer_vm_raise_trap for Unreachable
+  - [#6295](https://github.com/wasmerio/wasmer/pull/6295) Simplify and generalize runtime macros
+  - [#6356](https://github.com/wasmerio/wasmer/pull/6356) chore: replace rustc-demangle with symbolic-demangle
+  - [#6137](https://github.com/wasmerio/wasmer/pull/6137) chore: use WASMER_REPRODUCIBLE_BUILD for reproducible builds
+  - [#6290](https://github.com/wasmerio/wasmer/pull/6290) feat: embed local `Globals` and funcref `Table` in `VMContext` (v2)
+  - [#6342](https://github.com/wasmerio/wasmer/pull/6342) chore: lint C and C++ source files by clang-format
+  - [#6332](https://github.com/wasmerio/wasmer/pull/6332) deps: bump Cranelift to 0.130.0
+
+## Fixed
+
+  - [#6365](https://github.com/wasmerio/wasmer/pull/6365) ci: make napi-v8 opt-in + fix header file installation
+  - [#6413](https://github.com/wasmerio/wasmer/pull/6413) fix(Wasmi): keep one Engine for all Stores/Instances
+  - [#6393](https://github.com/wasmerio/wasmer/pull/6393) fix(WAMR): do not call from_raw_parts for null pointer
+  - [#6370](https://github.com/wasmerio/wasmer/pull/6370) feat: readonly fixed funcref Table
+  - [#6376](https://github.com/wasmerio/wasmer/pull/6376) Fix Global borrow conflicts, middleware lifetimes, and error routing
+  - [#6382](https://github.com/wasmerio/wasmer/pull/6382) fix(c-api): use Option types for nullable C-API parameters (v2)
+  - [#6378](https://github.com/wasmerio/wasmer/pull/6378) fix(macOS): port the code to macOS
+  - [#6362](https://github.com/wasmerio/wasmer/pull/6362) ci: fix clang-format for NAPI
+
+
+
 ## 7.1.0 - 27/03/2026
 
 This release includes:

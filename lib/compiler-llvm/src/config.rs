@@ -13,7 +13,10 @@ use std::sync::Arc;
 use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::misc::{CompiledKind, function_kind_to_filename};
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_compiler::{
+    Compiler, CompilerConfig, DEFAULT_MAX_TABLE_ELEMENTS, Debugger, Engine, EngineBuilder,
+    ModuleMiddleware,
+};
 use wasmer_types::{
     Features,
     target::{Architecture, OperatingSystem, Target, Triple},
@@ -23,7 +26,7 @@ use wasmer_types::{
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 
 /// The InkWell MemoryBuffer type
-pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
+pub type InkwellMemoryBuffer<'a> = inkwell::memory_buffer::MemoryBuffer<'a>;
 
 /// Callbacks to the different LLVM compilation phases.
 #[derive(Debug, Clone)]
@@ -36,6 +39,11 @@ impl LLVMCallbacks {
         // Create the debug dir in case it doesn't exist
         std::fs::create_dir_all(&debug_dir)?;
         Ok(Self { debug_dir })
+    }
+
+    /// Returns the debug directory used to dump compilation artifacts.
+    pub fn debug_dir(&self) -> &PathBuf {
+        &self.debug_dir
     }
 
     fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
@@ -105,10 +113,14 @@ impl LLVMCallbacks {
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_non_volatile_memops: bool,
-    pub(crate) enable_verifier: bool,
+    pub(crate) enable_readonly_funcref_table: bool,
+    pub(crate) enable_m0: bool,
     pub(crate) enable_perfmap: bool,
+    pub(crate) debugger: Option<Debugger>,
     pub(crate) opt_level: LLVMOptLevel,
-    is_pic: bool,
+    pub(crate) is_pic: bool,
+    pub(crate) experimental_artifact: bool,
+    pub(crate) max_table_elements: u32,
     pub(crate) callbacks: Option<LLVMCallbacks>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -131,15 +143,33 @@ impl LLVM {
         Self {
             enable_nan_canonicalization: false,
             enable_non_volatile_memops: false,
-            enable_verifier: false,
+            enable_readonly_funcref_table: false,
+            enable_m0: true,
             enable_perfmap: false,
+            debugger: None,
             opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
+            experimental_artifact: false,
+            max_table_elements: DEFAULT_MAX_TABLE_ELEMENTS,
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
+    }
+
+    /// Enable the experimental artifact format.
+    pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
+        self.experimental_artifact = enable;
+        // We will link a shared library and so PIC must be enabled.
+        self.is_pic = enable;
+        self
+    }
+
+    /// Set the maximum total number of elements allowed in local fixed-size tables.
+    pub fn max_table_elements(&mut self, max_table_elements: u32) -> &mut Self {
+        self.max_table_elements = max_table_elements;
+        self
     }
 
     /// The optimization levels when optimizing the IR.
@@ -158,6 +188,10 @@ impl LLVM {
         self
     }
 
+    /// Compiler IR verification is always enabled for LLVM.
+    #[deprecated(note = "LLVM compiler IR verification is always enabled")]
+    pub fn enable_verifier(&mut self) {}
+
     /// Callbacks that will triggered in the different compilation
     /// phases in LLVM.
     pub fn callbacks(&mut self, callbacks: Option<LLVMCallbacks>) -> &mut Self {
@@ -169,6 +203,13 @@ impl LLVM {
     /// (but are not 100% SPEC compliant).
     pub fn non_volatile_memops(&mut self, enable_non_volatile_memops: bool) -> &mut Self {
         self.enable_non_volatile_memops = enable_non_volatile_memops;
+        self
+    }
+
+    /// Enables treating eligible funcref tables as read-only so the backend can
+    /// place them in read-only data.
+    pub fn readonly_funcref_table(&mut self, enable_readonly_funcref_table: bool) -> &mut Self {
+        self.enable_readonly_funcref_table = enable_readonly_funcref_table;
         self
     }
 
@@ -288,16 +329,14 @@ impl LLVM {
                 info: true,
                 machine_code: true,
             }),
-            Architecture::Riscv64(_) | Architecture::Riscv32(_) => {
-                InkwellTarget::initialize_riscv(&InitializationConfig {
-                    asm_parser: true,
-                    asm_printer: true,
-                    base: true,
-                    disassembler: true,
-                    info: true,
-                    machine_code: true,
-                })
-            }
+            Architecture::Riscv64(_) => InkwellTarget::initialize_riscv(&InitializationConfig {
+                asm_parser: true,
+                asm_printer: true,
+                base: true,
+                disassembler: true,
+                info: true,
+                machine_code: true,
+            }),
             Architecture::LoongArch64 => {
                 InkwellTarget::initialize_loongarch(&InitializationConfig {
                     asm_parser: true,
@@ -324,13 +363,11 @@ impl LLVM {
         let mut llvm_target_machine_options = TargetMachineOptions::new()
             .set_cpu(match triple.architecture {
                 Architecture::Riscv64(_) => "generic-rv64",
-                Architecture::Riscv32(_) => "generic-rv32",
                 Architecture::LoongArch64 => "generic-la64",
                 _ => "generic",
             })
             .set_features(match triple.architecture {
                 Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
-                Architecture::Riscv32(_) => "+m,+a,+c,+d,+f",
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
@@ -341,9 +378,7 @@ impl LLVM {
             })
             .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
             .set_code_model(match triple.architecture {
-                Architecture::LoongArch64 | Architecture::Riscv64(_) | Architecture::Riscv32(_) => {
-                    CodeModel::Medium
-                }
+                Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
                 _ => self.code_model(self.target_binary_format(target)),
             });
         if let Architecture::Riscv64(_) = triple.architecture {
@@ -358,6 +393,14 @@ impl LLVM {
 }
 
 impl CompilerConfig for LLVM {
+    fn experimental_artifact(&mut self, enable: bool) {
+        LLVM::experimental_artifact(self, enable);
+    }
+
+    fn max_table_elements(&mut self, max_table_elements: u32) {
+        self.max_table_elements = max_table_elements;
+    }
+
     /// Emit code suitable for dlopen.
     fn enable_pic(&mut self) {
         // TODO: although we can emit PIC, the object file parser does not yet
@@ -369,9 +412,8 @@ impl CompilerConfig for LLVM {
         self.enable_perfmap = true
     }
 
-    /// Whether to verify compiler IR.
-    fn enable_verifier(&mut self) {
-        self.enable_verifier = true;
+    fn enable_debugger(&mut self, debugger: Debugger) {
+        self.debugger = Some(debugger)
     }
 
     /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
@@ -380,8 +422,19 @@ impl CompilerConfig for LLVM {
         self.enable_non_volatile_memops = true;
     }
 
+    /// Enables treating eligible funcref tables as read-only so the backend can
+    /// place them in read-only data.
+    fn enable_readonly_funcref_table(&mut self) {
+        self.enable_readonly_funcref_table = true;
+    }
+
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
+    }
+
+    /// For the LLVM compiler, enable m0 optimization that passes pointer to the first memory as a hidden first argument.
+    fn enable_m0_pass_param(&mut self, enable: bool) {
+        self.enable_m0 = enable;
     }
 
     /// Transform it into the compiler.

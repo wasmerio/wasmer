@@ -1,0 +1,9 @@
+---
+source: tests/integration/cli/tests/package/get.rs
+expression: "String::from_utf8_lossy(&output.stdout)"
+---
+Name:         wasmer/cli
+Version:      0.1.3
+Description:  CLI platform - a wrapper package with many common tools, useful for interactive environments.
+Entrypoint:   bash
+URL:          https://wasmer.io/wasmer/cli@0.1.3

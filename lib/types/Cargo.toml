@@ -1,7 +1,7 @@
 [package]
 name = "wasmer-types"
 description = "Wasmer Common Types"
-categories = ["wasm", "no-std", "data-structures"]
+categories = ["wasm", "data-structures"]
 keywords = ["wasm", "webassembly", "types"]
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
@@ -20,13 +20,16 @@ more-asserts.workspace = true
 indexmap.workspace = true
 rkyv.workspace = true
 enum-iterator.workspace = true
-target-lexicon = { workspace = true}
+num_enum.workspace = true
+target-lexicon = { workspace = true }
 enumset.workspace = true
 bytecheck.workspace = true
 sha2.workspace = true
 hex.workspace = true
 loupe = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
+itertools.workspace = true
+crc32fast.workspace = true
 
 # `rand` uses `getrandom` transitively, and to be able to
 # compile the project for `js`, we need to enable this feature
@@ -35,7 +38,11 @@ workspace = true
 features = ["wasm_js"]
 
 [dev-dependencies]
-memoffset.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "store_id_alloc"
+harness = false
 
 [features]
 default = ["std"]

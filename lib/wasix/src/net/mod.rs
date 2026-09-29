@@ -18,6 +18,8 @@ use wasmer_wasix_types::{
 
 pub mod socket;
 
+pub use virtual_net::MAX_SOCKET_PAYLOAD;
+
 #[allow(dead_code)]
 pub(crate) fn read_ip<M: MemorySize>(
     memory: &MemoryView,
@@ -387,16 +389,20 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
         NetworkError::Interrupted => Errno::Intr,
         NetworkError::InvalidData => Errno::Io,
         NetworkError::InvalidInput => Errno::Inval,
+        NetworkError::MessageSize => Errno::Msgsize,
         NetworkError::NotConnected => Errno::Notconn,
         NetworkError::NoDevice => Errno::Nodev,
         NetworkError::PermissionDenied => Errno::Perm,
         NetworkError::TimedOut => Errno::Timedout,
         NetworkError::UnexpectedEof => Errno::Proto,
         NetworkError::WouldBlock => Errno::Again,
+        NetworkError::NetworkUnreachable => Errno::Netunreach,
+        NetworkError::HostUnreachable => Errno::Hostunreach,
         NetworkError::WriteZero => Errno::Nospc,
         NetworkError::TooManyOpenFiles => Errno::Mfile,
         NetworkError::InsufficientMemory => Errno::Nomem,
         NetworkError::Unsupported => Errno::Notsup,
         NetworkError::UnknownError => Errno::Io,
+        _ => Errno::Io,
     }
 }

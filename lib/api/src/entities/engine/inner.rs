@@ -26,6 +26,13 @@ impl BackendEngine {
         })
     }
 
+    /// Returns the format used for artifacts produced by this engine.
+    pub fn artifact_format(&self) -> String {
+        match_rt!(on self  => s {
+            s.artifact_format()
+        })
+    }
+
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
     /// Deserializes a WebAssembly module which was previously serialized with
     /// `Module::serialize`,
@@ -139,16 +146,6 @@ impl Default for BackendEngine {
             return Self::Sys(crate::backend::sys::entities::engine::default_engine());
         }
 
-        #[cfg(feature = "wamr-default")]
-        {
-            return Self::Wamr(crate::backend::wamr::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "wasmi-default")]
-        {
-            return Self::Wasmi(crate::backend::wasmi::entities::engine::default_engine());
-        }
-
         #[cfg(feature = "v8-default")]
         {
             return Self::V8(crate::backend::v8::entities::engine::default_engine());
@@ -159,24 +156,9 @@ impl Default for BackendEngine {
             return Self::Js(crate::backend::js::entities::engine::default_engine());
         }
 
-        #[cfg(feature = "jsc-default")]
-        {
-            return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
-        }
-
         #[cfg(feature = "sys")]
         {
             return Self::Sys(crate::backend::sys::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "wamr")]
-        {
-            return Self::Wamr(crate::backend::wamr::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "wasmi")]
-        {
-            return Self::Wasmi(crate::backend::wasmi::entities::engine::default_engine());
         }
 
         #[cfg(feature = "v8")]
@@ -187,11 +169,6 @@ impl Default for BackendEngine {
         #[cfg(feature = "js")]
         {
             return Self::Js(crate::backend::js::entities::engine::default_engine());
-        }
-
-        #[cfg(feature = "jsc")]
-        {
-            return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
         }
 
         panic!("No runtime enabled!")

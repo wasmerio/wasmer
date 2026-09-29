@@ -45,7 +45,21 @@ impl std::str::FromStr for Tag {
             Ok(Self::VersionReq(semver::VersionReq::STAR))
         } else {
             match semver::VersionReq::from_str(s) {
-                Ok(v) => Ok(Self::VersionReq(v)),
+                Ok(v) => {
+                    // A successful `VersionReq` parse silently drops any build metadata: a
+                    // `Comparator` has no build field and matching ignores it, so `1.2.3+rel.1`
+                    // would behave as `^1.2.3`. Within this arm a `+` can only be dropped build
+                    // metadata, so reject it.
+                    if s.contains('+') {
+                        return Err(PackageParseError::new(
+                            s,
+                            "build metadata (`+...`) is not supported in a version requirement: \
+                             it is ignored when matching versions and cannot select a specific \
+                             build, so pin an exact version or a package hash instead",
+                        ));
+                    }
+                    Ok(Self::VersionReq(v))
+                }
                 Err(_) => Ok(Self::Named(s.to_string())),
             }
         }
@@ -435,6 +449,40 @@ mod tests {
         assert_eq!(
             NamedPackageIdent::from_str(""),
             Err(PackageParseError::new("", "package name is required"))
+        );
+    }
+
+    #[test]
+    fn test_reject_build_metadata_in_version_req() {
+        // Build metadata silently drops out of a `VersionReq`, so it must be rejected.
+        assert!(
+            Tag::from_str("1.2.3+rel.1").is_err(),
+            "build metadata must be rejected in a version requirement"
+        );
+        assert!(
+            NamedPackageIdent::from_str("ns/name@1.2.3+rel.1").is_err(),
+            "a package ident with build metadata in its version must be rejected"
+        );
+
+        // A plain version requirement (no build metadata) still parses.
+        assert_eq!(
+            NamedPackageIdent::from_str("ns/name@1.2.3").unwrap().tag,
+            Some(Tag::VersionReq(VersionReq::from_str("1.2.3").unwrap())),
+        );
+
+        // A `+` in a string that is not a valid version requirement still parses as a named tag.
+        assert_eq!(
+            Tag::from_str("my+tag").unwrap(),
+            Tag::Named("my+tag".to_string()),
+        );
+
+        // The rejection also surfaces through `PackageSource`, with the specific
+        // message rather than a generic "invalid package ident" error.
+        let err = crate::package::PackageSource::from_str("ns/name@1.2.3+rel.1")
+            .expect_err("build metadata must be rejected via PackageSource too");
+        assert!(
+            err.to_string().contains("build metadata"),
+            "user-facing error should explain the build metadata problem, got: {err}"
         );
     }
 

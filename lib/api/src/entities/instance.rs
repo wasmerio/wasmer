@@ -62,19 +62,6 @@ impl Instance {
                 let (i, e) = crate::backend::sys::instance::Instance::new(store, module, imports)?;
                 (crate::BackendInstance::Sys(i), e)
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => {
-                let (i, e) = crate::backend::wamr::instance::Instance::new(store, module, imports)?;
-
-                (crate::BackendInstance::Wamr(i), e)
-            }
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => {
-                let (i, e) =
-                    crate::backend::wasmi::instance::Instance::new(store, module, imports)?;
-
-                (crate::BackendInstance::Wasmi(i), e)
-            }
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => {
                 let (i, e) = crate::backend::v8::instance::Instance::new(store, module, imports)?;
@@ -84,11 +71,6 @@ impl Instance {
             crate::BackendStore::Js(_) => {
                 let (i, e) = crate::backend::js::instance::Instance::new(store, module, imports)?;
                 (crate::BackendInstance::Js(i), e)
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
-                let (i, e) = crate::backend::jsc::instance::Instance::new(store, module, imports)?;
-                (crate::BackendInstance::Jsc(i), e)
             }
         };
 
@@ -122,21 +104,6 @@ impl Instance {
                     crate::backend::sys::instance::Instance::new_by_index(store, module, externs)?;
                 (crate::BackendInstance::Sys(i), e)
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => {
-                let (i, e) =
-                    crate::backend::wamr::instance::Instance::new_by_index(store, module, externs)?;
-
-                (crate::BackendInstance::Wamr(i), e)
-            }
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => {
-                let (i, e) = crate::backend::wasmi::instance::Instance::new_by_index(
-                    store, module, externs,
-                )?;
-
-                (crate::BackendInstance::Wasmi(i), e)
-            }
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => {
                 let (i, e) =
@@ -148,12 +115,6 @@ impl Instance {
                 let (i, e) =
                     crate::backend::js::instance::Instance::new_by_index(store, module, externs)?;
                 (crate::BackendInstance::Js(i), e)
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
-                let (i, e) =
-                    crate::backend::jsc::instance::Instance::new_by_index(store, module, externs)?;
-                (crate::BackendInstance::Jsc(i), e)
             }
         };
 

@@ -44,6 +44,13 @@ pub fn fd_event_internal(
         inner: Arc::new(NotificationInner::new(initial_val, is_semaphore)),
     };
 
+    // Forward EFD_NONBLOCK (== O_NONBLOCK == Fdflags::NONBLOCK) onto the fd.
+    let fs_flags = if flags & EVENT_FD_FLAGS_NONBLOCK != 0 {
+        Fdflags::NONBLOCK
+    } else {
+        Fdflags::empty()
+    };
+
     let inode =
         state
             .fs
@@ -55,25 +62,12 @@ pub fn fd_event_internal(
     let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
         state
             .fs
-            .with_fd(
-                rights,
-                rights,
-                Fdflags::empty(),
-                Fdflagsext::empty(),
-                0,
-                inode,
-                fd,
-            )
+            .with_fd(rights, rights, fs_flags, Fdflagsext::empty(), 0, inode, fd)
             .map(|_| fd)
     } else {
-        state.fs.create_fd(
-            rights,
-            rights,
-            Fdflags::empty(),
-            Fdflagsext::empty(),
-            0,
-            inode,
-        )
+        state
+            .fs
+            .create_fd(rights, rights, fs_flags, Fdflagsext::empty(), 0, inode)
     });
 
     Ok(Ok(fd))

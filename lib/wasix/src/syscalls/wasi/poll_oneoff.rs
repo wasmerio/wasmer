@@ -3,11 +3,25 @@ use wasmer_wasix_types::wasi::{Subclockflags, SubscriptionClock, Userdata};
 
 use super::*;
 use crate::{
-    WasiInodes,
     fs::{InodeValFilePollGuard, InodeValFilePollGuardJoin},
     state::PollEventSet,
     syscalls::*,
 };
+
+pub(crate) fn validate_poll_subscriptions_count(
+    env: &WasiEnv,
+    nsubscriptions: usize,
+) -> Result<(), Errno> {
+    if nsubscriptions == 0 {
+        return Err(Errno::Inval);
+    }
+    if let Some(max) = env.capabilities.polling.max_poll_subscriptions
+        && nsubscriptions > max
+    {
+        return Err(Errno::Toobig);
+    }
+    Ok(())
+}
 
 /// An event that occurred.
 #[derive(Serialize, Deserialize)]
@@ -49,7 +63,7 @@ impl EventResult {
 /// - `const __wasi_subscription_t *in`
 ///     The events to subscribe to
 /// - `__wasi_event_t *out`
-///     The events that have occured
+///     The events that have occurred
 /// - `u32 nsubscriptions`
 ///     The number of subscriptions and the number of events
 ///
@@ -66,20 +80,28 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    // An empty subscription list would otherwise block forever in the poll loop.
-    if nsubscriptions == M::ZERO {
-        return Ok(Errno::Inval);
-    }
+    let Ok::<usize, _>(nsubscriptions_usize) = nsubscriptions.try_into() else {
+        return Ok(Errno::Toobig);
+    };
+    wasi_try_ok!(validate_poll_subscriptions_count(
+        ctx.data(),
+        nsubscriptions_usize
+    ));
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
-
     ctx.data_mut().poll_seed += 1;
+
     let mut env = ctx.data();
     let mut memory = unsafe { env.memory_view(&ctx) };
 
     let subscription_array = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
-    let mut subscriptions = Vec::with_capacity(subscription_array.len() as usize);
+    let mut subscriptions = Vec::new();
+    wasi_try_ok!(
+        subscriptions
+            .try_reserve_exact(subscription_array.len() as usize)
+            .map_err(|_| Errno::Nomem)
+    );
     for n in 0..subscription_array.len() {
         let n = (n + env.poll_seed) % subscription_array.len();
         let sub = subscription_array.index(n);
@@ -175,40 +197,22 @@ pub(crate) fn poll_fd_guard(
     fd: WasiFd,
     s: Subscription,
 ) -> Result<InodeValFilePollGuard, Errno> {
-    Ok(match fd {
-        __WASI_STDERR_FILENO => WasiInodes::stderr(&state.fs.fd_map)
-            .map(|g| g.into_poll_guard(fd, peb, s))
-            .map_err(fs_error_into_wasi_err)?,
-        __WASI_STDOUT_FILENO => WasiInodes::stdout(&state.fs.fd_map)
-            .map(|g| g.into_poll_guard(fd, peb, s))
-            .map_err(fs_error_into_wasi_err)?,
-        _ => {
-            let fd_entry = state.fs.get_fd(fd)?;
-            let requires_access = match s.type_ {
-                Eventtype::FdRead => Rights::FD_READ,
-                Eventtype::FdWrite => Rights::FD_WRITE,
-                _ => Rights::empty(),
-            };
+    let fd_entry = state.fs.get_fd(fd)?;
+    let requires_access = match s.type_ {
+        Eventtype::FdRead => Rights::FD_READ,
+        Eventtype::FdWrite => Rights::FD_WRITE,
+        _ => Rights::empty(),
+    };
 
-            if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
-                && fd_entry.inner.rights.contains(requires_access))
-            {
-                return Err(Errno::Access);
-            }
-            let inode = fd_entry.inode;
+    if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
+        && fd_entry.inner.rights.contains(requires_access))
+    {
+        return Err(Errno::Access);
+    }
+    let inode = fd_entry.inode;
 
-            {
-                let guard = inode.read();
-                if let Some(guard) =
-                    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
-                {
-                    guard
-                } else {
-                    return Err(Errno::Badf);
-                }
-            }
-        }
-    })
+    let guard = inode.read();
+    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref()).ok_or(Errno::Badf)
 }
 
 /// ### `poll_oneoff()`
@@ -218,7 +222,7 @@ pub(crate) fn poll_fd_guard(
 /// - `const __wasi_subscription_t *in`
 ///   The events to subscribe to
 /// - `__wasi_event_t *out`
-///   The events that have occured
+///   The events that have occurred
 /// - `u32 nsubscriptions`
 ///   The number of subscriptions and the number of events
 ///
@@ -234,10 +238,11 @@ where
     After: FnOnce(&FunctionEnvMut<'a, WasiEnv>, Vec<Event>) -> Errno,
 {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    let subs_len = subs.len();
+    wasi_try_ok!(validate_poll_subscriptions_count(ctx.data(), subs_len));
 
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
-    let subs_len = subs.len();
 
     // Determine if we are in silent polling mode
     let mut env = ctx.data();
@@ -432,6 +437,7 @@ where
     // Build the trigger using the timeout
     let trigger = async move {
         tokio::select! {
+            biased;
             res = batch => res,
             _ = timeout => Err(Errno::Timedout)
         }

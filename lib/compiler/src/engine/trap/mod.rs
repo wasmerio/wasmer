@@ -1,5 +1,6 @@
 mod frame_info;
 mod stack;
+pub(crate) use frame_info::register_with_source as register_frame_info_source;
 pub use frame_info::{
     CompiledFunctionFrameInfoVariant, FRAME_INFO, FrameInfosVariant, FunctionExtent,
     GlobalFrameInfoRegistration, register as register_frame_info,

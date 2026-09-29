@@ -30,7 +30,7 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    spawn_union_fs(&env, &binary).await?;
+    import_package_mounts(&env, &binary).await?;
 
     let cmd = package_command_by_name(&binary, name)?;
     let input = ModuleInput::Command(Cow::Borrowed(cmd));
@@ -103,17 +103,20 @@ pub async fn spawn_load_module(
     }
 }
 
-pub async fn spawn_union_fs(env: &WasiEnv, binary: &BinaryPackage) -> Result<(), SpawnError> {
-    // If the file system has not already been union'ed then do so
+pub async fn import_package_mounts(
+    env: &WasiEnv,
+    binary: &BinaryPackage,
+) -> Result<(), SpawnError> {
+    // If the package mounts have not already been imported then do so.
     env.state
         .fs
         .conditional_union(binary)
         .await
         .map_err(|err| {
-            tracing::warn!("failed to union file system - {err}");
+            tracing::warn!("failed to import package mounts - {err}");
             SpawnError::FileSystemError(crate::ExtendedFsError::with_msg(
                 err,
-                "could not union filesystems",
+                "could not import package mounts",
             ))
         })?;
     tracing::debug!("{:?}", env.state.fs);
@@ -140,8 +143,9 @@ pub fn spawn_exec_module(
             .task_wasm(
                 TaskWasm::new(Box::new(run_exec), env, module, true, true).with_pre_run(Box::new(
                     |ctx, store| {
+                        let wasi_state = ctx.data(store).state.clone();
                         Box::pin(async move {
-                            ctx.data(store).state.fs.close_cloexec_fds().await;
+                            wasi_state.fs.close_cloexec_fds().await;
                         })
                     },
                 )),
@@ -377,8 +381,16 @@ fn call_module(
             Some(s) => s,
             None => {
                 let err_display = err.display(&mut store);
-                error!("{err_display}");
-                eprintln!("{err_display}");
+                if matches!(
+                    err,
+                    WasiRuntimeError::Runtime(runtime_err)
+                        if runtime_err.clone().to_trap() == Some(wasmer_types::TrapCode::HostInterrupt)
+                ) {
+                    debug!("{err_display}");
+                } else {
+                    error!("{err_display}");
+                    eprintln!("{err_display}");
+                }
                 Errno::Noexec.into()
             }
         }

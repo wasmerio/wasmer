@@ -1,10 +1,10 @@
-use macro_wasmer_universal_test::universal_test;
+use macro_wasmer_engine_test::engine_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
 
 use wasmer::*;
 
-#[universal_test]
+#[engine_test]
 fn exports_work_after_multiple_instances_have_been_freed() -> Result<(), String> {
     let mut store = Store::default();
     let module = Module::new(
@@ -48,11 +48,7 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<(), String>
     Ok(())
 }
 
-#[universal_test]
-#[cfg_attr(
-    feature = "wamr",
-    ignore = "wamr does not support function calls without an instance"
-)]
+#[engine_test]
 fn unit_native_function_env() -> Result<(), String> {
     let mut store = Store::default();
 

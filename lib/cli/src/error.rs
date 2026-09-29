@@ -1,9 +1,9 @@
-//! Implements `PretyError` to print pretty errors in the CLI (when they happen)
+//! Implements `PrettyError` to print pretty errors in the CLI (when they happen)
 
 use anyhow::{Chain, Error};
 use colored::*;
 use std::fmt::{self, Debug, Write};
-#[cfg(not(any(feature = "jsc", feature = "wamr", feature = "wasmi", feature = "v8")))]
+#[cfg(not(feature = "v8"))]
 use wasmer::RuntimeError;
 
 /// A `PrettyError` for printing `anyhow::Error` nicely.
@@ -27,7 +27,7 @@ macro_rules! warning {
     })
 }
 
-#[cfg(not(any(feature = "jsc", feature = "wamr", feature = "wasmi", feature = "v8")))]
+#[cfg(not(feature = "v8"))]
 impl PrettyError {
     /// Process a `Result` printing any errors and exiting
     /// the process after
@@ -39,7 +39,7 @@ impl PrettyError {
                 let trapcode = runtime.map(|e| e.clone().to_trap());
                 eprintln!("{:?}", PrettyError { error });
                 // we don't use process:abort() here to avoid message from rust
-                // that could interfer with testing tools
+                // that could interfere with testing tools
                 // but still exit with the expected error code
                 match trapcode {
                     #[cfg(target_os = "windows")]
@@ -53,7 +53,7 @@ impl PrettyError {
     }
 }
 
-#[cfg(any(feature = "jsc", feature = "wamr", feature = "wasmi", feature = "v8"))]
+#[cfg(feature = "v8")]
 impl PrettyError {
     /// Process a `Result` printing any errors and exiting
     /// the process after
@@ -63,7 +63,7 @@ impl PrettyError {
             Err(error) => {
                 eprintln!("{:?}", PrettyError { error });
                 // we don't use process:abort() here to avoid message from rust
-                // that could interfer with testing tools
+                // that could interfere with testing tools
                 // but still exit with the expected error code
                 1
             }

@@ -1,6 +1,6 @@
 use std::{collections::HashSet, time::Duration};
 
-use anyhow::{Context, bail};
+use anyhow::{Context, bail, ensure};
 use cynic::{MutationBuilder, QueryBuilder};
 use futures::StreamExt;
 use merge_streams::MergeStreams;
@@ -16,18 +16,85 @@ use crate::{
     types::{self, *},
 };
 
-/// Rotate the s3 secrets tied to an app given its id.
-pub async fn rotate_s3_secrets(
-    client: &WasmerClient,
-    app_id: types::Id,
-) -> Result<(), anyhow::Error> {
-    client
-        .run_graphql_strict(types::RotateS3SecretsForApp::build(
-            RotateS3SecretsForAppVariables { id: app_id },
-        ))
-        .await?;
+pub const CRON_JOB_PAGE_SIZE: i32 = 100;
 
-    Ok(())
+/// Prefix required by direct cron job invocation lookups.
+pub const CRON_JOB_INVOCATION_ID_PREFIX: &str = "croninv_";
+
+/// Retrieve the persistent `AppVolume` nodes of an app, including their S3
+/// state and (for S3-enabled volumes) credentials.
+///
+/// Unlike [`get_app_volumes`], which returns the active version's volume
+/// descriptors (`AppVersionVolume`, keyed by the user-chosen name), this returns
+/// the persistent `DeployApp.volumes` nodes with the ids required to rotate S3
+/// credentials or toggle the S3 endpoint per volume.
+pub async fn get_deploy_app_volumes(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+) -> Result<Vec<types::AppVolume>, anyhow::Error> {
+    let mut vars = types::GetDeployAppVolumesVars {
+        owner: owner.into(),
+        name: name.into(),
+        after: None,
+    };
+
+    let mut volumes = Vec::new();
+    loop {
+        let connection = client
+            .run_graphql_strict(types::GetDeployAppVolumes::build(vars.clone()))
+            .await?
+            .get_deploy_app
+            .context("app not found")?
+            .volumes;
+
+        volumes.extend(connection.edges.into_iter().map(|edge| edge.node));
+
+        match connection
+            .page_info
+            .end_cursor
+            .filter(|_| connection.page_info.has_next_page)
+        {
+            Some(after) => vars.after = Some(after),
+            None => break,
+        }
+    }
+
+    Ok(volumes)
+}
+
+/// Rotate the S3 credentials of a single app volume, identified by its
+/// `AppVolume` id.
+pub async fn rotate_s3_credentials(
+    client: &WasmerClient,
+    volume_id: types::Id,
+) -> Result<types::RotateS3CredentialsPayload, anyhow::Error> {
+    let payload = client
+        .run_graphql_strict(types::RotateS3Credentials::build(
+            RotateS3CredentialsVariables { id: volume_id },
+        ))
+        .await?
+        .rotate_s3_credentials;
+
+    Ok(payload)
+}
+
+/// Enable or disable the S3 endpoint of a single app volume, identified by its
+/// `AppVolume` id.
+pub async fn update_volume_s3_enabled(
+    client: &WasmerClient,
+    volume_id: types::Id,
+    s3_enabled: bool,
+) -> Result<types::UpdateVolumePayload, anyhow::Error> {
+    let payload = client
+        .run_graphql_strict(types::UpdateVolume::build(types::UpdateVolumeVariables {
+            id: volume_id,
+            s3_enabled: Some(s3_enabled),
+        }))
+        .await?
+        .update_volume;
+
+    Ok(payload)
 }
 
 pub async fn viewer_can_deploy_to_namespace(
@@ -288,6 +355,264 @@ pub async fn get_app_databases(
     Ok(dbs)
 }
 
+/// Retrieve cron jobs for an app.
+pub async fn get_app_cron_jobs(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+) -> Result<Vec<types::CronJob>, anyhow::Error> {
+    let owner = owner.into();
+    let name = name.into();
+    let mut after = None;
+    let mut cron_jobs = Vec::new();
+
+    loop {
+        let vars = types::GetAppCronJobsVars {
+            owner: owner.clone(),
+            name: name.clone(),
+            after,
+            first: Some(CRON_JOB_PAGE_SIZE),
+        };
+        let res = client
+            .run_graphql_strict(types::GetAppCronJobs::build(vars))
+            .await?;
+
+        let app = res.get_deploy_app.context("app not found")?;
+        let con = app.cron_jobs;
+        let page_info = con.page_info;
+        cron_jobs.extend(con.edges.into_iter().flatten().flat_map(|edge| edge.node));
+
+        if !page_info.has_next_page {
+            break;
+        }
+        after = Some(page_info.end_cursor.context("cron jobs cursor missing")?);
+    }
+
+    Ok(cron_jobs)
+}
+
+/// Enable or disable a cron job.
+pub async fn toggle_cron_job(
+    client: &WasmerClient,
+    cron_job_id: impl Into<String>,
+    enabled: bool,
+) -> Result<types::CronJob, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::ToggleCronJob::build(types::ToggleCronJobVars {
+            cron_job_id: types::Id::from(cron_job_id),
+            enabled,
+        }))
+        .await?;
+
+    Ok(res
+        .toggle_cron_job
+        .context("backend did not return toggled cron job")?
+        .cron_job)
+}
+
+pub async fn get_cron_job_by_id(
+    client: &WasmerClient,
+    cron_job_id: impl Into<String>,
+) -> Result<types::CronJob, anyhow::Error> {
+    let cron_job_id = cron_job_id.into();
+    let res = client
+        .run_graphql_strict(types::GetCronJobById::build(types::GetCronJobByIdVars {
+            id: types::Id::from(cron_job_id.clone()),
+        }))
+        .await?;
+
+    res.cron_job
+        .and_then(types::NodeCronJob::into_cron_job)
+        .with_context(|| format!("cron job '{cron_job_id}' not found"))
+}
+
+/// Retrieve one page of invocations for a cron job. The cron job can be referenced by id or name.
+#[allow(clippy::too_many_arguments)]
+pub async fn get_cron_job_invocations_page(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+    cron_job: impl AsRef<str>,
+    invocation_after: Option<String>,
+    invocation_first: Option<i32>,
+    start: Option<OffsetDateTime>,
+    end: Option<OffsetDateTime>,
+) -> Result<
+    (
+        types::CronJobWithInvocations,
+        Paginated<types::CronJobInvocation>,
+    ),
+    anyhow::Error,
+> {
+    let cron_job = cron_job.as_ref();
+    let owner = owner.into();
+    let name = name.into();
+    let (start, end) = default_cron_invocation_window(start, end)?;
+    let start = types::DateTime::try_from(start)?;
+    let end = types::DateTime::try_from(end)?;
+    let mut cron_after = None;
+
+    loop {
+        let vars = types::GetCronJobInvocationsVars {
+            owner: owner.clone(),
+            name: name.clone(),
+            cron_after: cron_after.clone(),
+            cron_first: Some(CRON_JOB_PAGE_SIZE),
+            invocation_start: Some(start.clone()),
+            invocation_end: Some(end.clone()),
+            invocation_after: invocation_after.clone(),
+            invocation_first,
+        };
+        let res = client
+            .run_graphql_strict(types::GetCronJobInvocations::build(vars))
+            .await?;
+
+        let app = res.get_deploy_app.context("app not found")?;
+        let con = app.cron_jobs;
+        let page_info = con.page_info;
+        if let Some(cron) = con
+            .nodes
+            .into_iter()
+            .find(|node| node.id.inner() == cron_job || node.name == cron_job)
+        {
+            let invocations = cron.invocations.nodes.clone();
+            let next_cursor = cron
+                .invocations
+                .page_info
+                .has_next_page
+                .then(|| cron.invocations.page_info.end_cursor.clone())
+                .flatten();
+
+            return Ok((
+                cron,
+                Paginated {
+                    items: invocations,
+                    next_cursor,
+                },
+            ));
+        }
+
+        if !page_info.has_next_page {
+            break;
+        }
+        cron_after = Some(page_info.end_cursor.context("cron jobs cursor missing")?);
+    }
+
+    bail!("cron job '{cron_job}' not found")
+}
+
+/// Retrieve one page of invocations for a cron job referenced by id.
+pub async fn get_cron_job_invocations_page_by_id(
+    client: &WasmerClient,
+    cron_job_id: impl Into<String>,
+    invocation_after: Option<String>,
+    invocation_first: Option<i32>,
+    start: Option<OffsetDateTime>,
+    end: Option<OffsetDateTime>,
+) -> Result<
+    (
+        types::CronJobWithInvocationsById,
+        Paginated<types::CronJobInvocation>,
+    ),
+    anyhow::Error,
+> {
+    let cron_job_id = cron_job_id.into();
+    let (start, end) = default_cron_invocation_window(start, end)?;
+
+    let res = client
+        .run_graphql_strict(types::GetCronJobInvocationsById::build(
+            types::GetCronJobInvocationsByIdVars {
+                id: types::Id::from(cron_job_id.clone()),
+                invocation_start: Some(types::DateTime::try_from(start)?),
+                invocation_end: Some(types::DateTime::try_from(end)?),
+                invocation_after,
+                invocation_first,
+            },
+        ))
+        .await?;
+
+    let cron = res
+        .cron_job
+        .and_then(types::NodeCronJobWithInvocations::into_cron_job)
+        .with_context(|| format!("cron job '{cron_job_id}' not found"))?;
+    let invocations = cron.invocations.nodes.clone();
+    let next_cursor = cron
+        .invocations
+        .page_info
+        .has_next_page
+        .then(|| cron.invocations.page_info.end_cursor.clone())
+        .flatten();
+
+    Ok((
+        cron,
+        Paginated {
+            items: invocations,
+            next_cursor,
+        },
+    ))
+}
+
+/// Retrieve the logs of one cron job invocation, referenced by its own id.
+///
+/// This resolves the invocation directly, so it needs neither the owning cron
+/// job nor a time window.
+pub async fn get_cron_job_invocation_logs_by_invocation_id(
+    client: &WasmerClient,
+    invocation_id: impl Into<String>,
+    log_first: Option<i32>,
+) -> Result<Vec<types::CronJobLog>, anyhow::Error> {
+    let invocation_id = invocation_id.into();
+    ensure!(
+        invocation_id.starts_with(CRON_JOB_INVOCATION_ID_PREFIX),
+        "invalid cron job invocation id '{invocation_id}': expected an id starting with '{CRON_JOB_INVOCATION_ID_PREFIX}'"
+    );
+
+    let res = client
+        .run_graphql_strict(types::GetCronJobInvocationLogsByInvocationId::build(
+            types::GetCronJobInvocationLogsByInvocationIdVars {
+                id: types::Id::from(invocation_id.clone()),
+                log_first,
+            },
+        ))
+        .await?;
+
+    // The backend answers null for an invocation the caller may not see just as
+    // it does for one that does not exist, so both land on the same message.
+    let invocation = res.get_cron_job_invocation.with_context(|| {
+        format!("cron job invocation '{invocation_id}' not found or not accessible")
+    })?;
+
+    Ok(logs_from_connection(invocation.logs))
+}
+
+fn default_cron_invocation_window(
+    start: Option<OffsetDateTime>,
+    end: Option<OffsetDateTime>,
+) -> Result<(OffsetDateTime, OffsetDateTime), anyhow::Error> {
+    let (start, end) = match (start, end) {
+        (Some(start), Some(end)) => (start, end),
+        (Some(start), None) => (start, OffsetDateTime::now_utc()),
+        (None, Some(end)) => (end - time::Duration::days(31), end),
+        (None, None) => {
+            let end = OffsetDateTime::now_utc();
+            (end - time::Duration::days(31), end)
+        }
+    };
+    if start > end {
+        bail!("invocation start must not be after end");
+    }
+    Ok((start, end))
+}
+
+fn logs_from_connection(connection: types::CronJobLogConnection) -> Vec<types::CronJobLog> {
+    connection
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|edge| edge.node)
+        .collect()
+}
+
 /// Load the S3 credentials.
 ///
 /// S3 can be used to get access to an apps volumes.
@@ -297,7 +622,7 @@ pub async fn get_app_s3_credentials(
 ) -> Result<types::S3Credentials, anyhow::Error> {
     let app_id = app_id.into();
 
-    // Firt load the app to get the s3 url.
+    // First load the app to get the s3 url.
     let app1 = get_app_by_id(client, app_id.clone()).await?;
 
     let vars = types::GetDeployAppVars {
@@ -1717,6 +2042,31 @@ pub async fn get_package(
         .map(|x| x.get_package)
 }
 
+/// Retrieve the published version numbers of a package, if it exists.
+///
+/// Returns `None` when the package does not exist in the registry, and an
+/// (possibly empty) list of version strings otherwise.
+pub async fn get_package_version_numbers(
+    client: &WasmerClient,
+    name: String,
+) -> Result<Option<Vec<String>>, anyhow::Error> {
+    let package = client
+        .run_graphql_strict(types::GetPackageVersionNumbers::build(
+            types::GetPackageVars { name },
+        ))
+        .await?
+        .get_package;
+
+    Ok(package.map(|p| {
+        p.versions
+            .unwrap_or_default()
+            .into_iter()
+            .flatten()
+            .map(|v| v.version)
+            .collect()
+    }))
+}
+
 /// Retrieve a package version by its name.
 pub async fn get_package_version(
     client: &WasmerClient,
@@ -1740,6 +2090,69 @@ pub async fn get_package_versions(
         .run_graphql(types::GetAllPackageVersions::build(vars))
         .await?;
     Ok(res.all_package_versions)
+}
+
+/// Search the registry for packages matching `query`, optionally constrained by
+/// `filter` (e.g. by owner, curated status, downloads).
+///
+/// Returns a single page of matching package versions; pass `first`/`after` for
+/// pagination. Use [`fetch_all_matching_packages`] to stream every page.
+pub async fn search_packages(
+    client: &WasmerClient,
+    query: impl Into<String>,
+    filter: Option<types::PackagesFilter>,
+    first: Option<i32>,
+    after: Option<String>,
+) -> Result<types::Paginated<types::SearchPackageVersion>, anyhow::Error> {
+    let con = client
+        .run_graphql_strict(types::SearchPackages::build(types::SearchPackagesVars {
+            query: query.into(),
+            packages: filter,
+            first,
+            after,
+        }))
+        .await?
+        .search;
+
+    let items = con
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|edge| edge.node)
+        .filter_map(types::SearchResult::into_package_version)
+        .collect();
+
+    let next_cursor = con
+        .page_info
+        .end_cursor
+        .filter(|_| con.page_info.has_next_page);
+
+    Ok(types::Paginated { items, next_cursor })
+}
+
+/// Stream every package matching `query`/`filter`, fetching `page_size` results
+/// per request until the registry is exhausted.
+pub fn fetch_all_matching_packages(
+    client: &WasmerClient,
+    query: impl Into<String>,
+    filter: Option<types::PackagesFilter>,
+    page_size: i32,
+) -> impl futures::Stream<Item = Result<Vec<types::SearchPackageVersion>, anyhow::Error>> + '_ {
+    let query = query.into();
+    futures::stream::try_unfold(Some(None), move |state| {
+        let query = query.clone();
+        let filter = filter.clone();
+        async move {
+            let Some(after) = state else {
+                return Ok(None);
+            };
+
+            let page = search_packages(client, query, filter, Some(page_size), after).await?;
+            let next_state = page.next_cursor.map(Some);
+
+            Ok::<_, anyhow::Error>(Some((page.items, next_state)))
+        }
+    })
 }
 
 /// Retrieve a package release by hash.
@@ -2251,6 +2664,52 @@ pub async fn purge_cache_for_app_version(
         .context("backend did not return data")?;
 
     Ok(())
+}
+
+pub async fn configure_app_cdn_cache(
+    client: &WasmerClient,
+    vars: types::ConfigureAppCdnCacheVars,
+) -> Result<types::AppCdnCacheMutationPayload, anyhow::Error> {
+    client
+        .run_graphql_strict(types::ConfigureAppCdnCache::build(vars))
+        .await
+        .map(|x| x.configure_app_cdn_cache)
+}
+
+pub async fn purge_app_cdn_cache(
+    client: &WasmerClient,
+    vars: types::PurgeAppCdnCacheVars,
+) -> Result<types::AppCdnCacheMutationPayload, anyhow::Error> {
+    client
+        .run_graphql_strict(types::PurgeAppCdnCache::build(vars))
+        .await
+        .map(|x| x.purge_app_cdn_cache)
+}
+
+pub async fn app_cdn_cache_status(
+    client: &WasmerClient,
+    vars: types::GetAppCdnCacheStatusVars,
+) -> Result<types::AppCdnCacheStatus, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppCdnCacheStatus::build(vars))
+        .await?
+        .app
+        .context("app not found")?
+        .into_app()
+        .context("invalid node type returned")
+}
+
+pub async fn app_cdn_cache_metrics(
+    client: &WasmerClient,
+    vars: types::GetAppCdnCacheMetricsVars,
+) -> Result<types::AppCdnCacheMetrics, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppCdnCacheMetrics::build(vars))
+        .await?
+        .app
+        .context("app not found")?
+        .into_app()
+        .context("invalid node type returned")
 }
 
 /// Convert a [`OffsetDateTime`] to a unix timestamp that the WAPM backend

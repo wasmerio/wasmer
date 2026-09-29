@@ -1,14 +1,10 @@
-use macro_wasmer_universal_test::universal_test;
+use macro_wasmer_engine_test::engine_test;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::wasm_bindgen_test;
 
 use wasmer::*;
 
-#[universal_test]
-#[cfg_attr(
-    feature = "wamr",
-    ignore = "wamr does not support globals without an instance"
-)]
+#[engine_test]
 fn data_and_store_mut() -> Result<(), String> {
     let mut store = Store::default();
     let global_mut = Global::new_mut(&mut store, Value::I32(10));

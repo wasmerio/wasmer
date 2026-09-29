@@ -1,6 +1,6 @@
 //! Shared helpers for reporting compilation progress across the different backends.
 
-use crate::lib::std::{
+use std::{
     borrow::Cow,
     sync::{
         Arc,

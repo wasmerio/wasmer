@@ -10,4 +10,4 @@ anyhow.workspace = true
 target-lexicon.workspace = true
 
 [features]
-test-universal = []
+test-engine = []

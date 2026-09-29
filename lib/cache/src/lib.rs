@@ -16,6 +16,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod cache;
+#[cfg(feature = "filesystem")]
 mod filesystem;
 mod hash;
 
@@ -24,5 +25,5 @@ pub use crate::cache::Cache;
 pub use crate::filesystem::FileSystemCache;
 pub use crate::hash::Hash;
 
-// We re-export those for convinience of users
+// We re-export those for convenience of users
 pub use wasmer::{DeserializeError, SerializeError};

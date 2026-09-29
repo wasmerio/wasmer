@@ -13,14 +13,12 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-memoffset.workspace = true
 dashmap.workspace = true
-wasmer-types = { path = "../types", version = "=7.1.0" }
+wasmer-types = { path = "../types", version = "=7.4.2" }
 libc.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
 more-asserts.workspace = true
-cfg-if.workspace = true
 backtrace.workspace = true
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 enum-iterator.workspace = true
@@ -45,10 +43,10 @@ mach2.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true, features = [
-	"Win32_System_Diagnostics_Debug",
-	"Win32_System_Threading",
-	"Win32_System_Kernel",
-	"Win32_System_Memory",
+  "Win32_System_Diagnostics_Debug",
+  "Win32_System_Threading",
+  "Win32_System_Kernel",
+  "Win32_System_Memory",
 ] }
 
 [build-dependencies]
@@ -65,6 +63,12 @@ artifact-size = ["dep:loupe", "wasmer-types/artifact-size"]
 sanitizer = ["corosensei/sanitizer"]
 
 experimental-host-interrupt = []
+
+# Compile the signal-free trap-handler backend instead of the OS signal-based one.
+# Enable when targeting platforms that lack OS signal infrastructure (ZK virtual
+# machines, embedded RTOSes, …) but still provide a Rust std environment.
+# This does NOT imply no_std support.
+baremetal = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

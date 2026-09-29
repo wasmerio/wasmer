@@ -1,5 +1,6 @@
 //! Edge app commands.
 
+pub mod cdn;
 pub mod create;
 pub mod database;
 pub mod delete;
@@ -29,6 +30,8 @@ pub enum CmdApp {
     Info(info::CmdAppInfo),
     List(list::CmdAppList),
     Logs(logs::CmdAppLogs),
+    #[clap(subcommand)]
+    Cdn(cdn::CmdAppCdn),
     PurgeCache(purge_cache::CmdAppPurgeCache),
     Delete(delete::CmdAppDelete),
     #[clap(subcommand)]
@@ -65,6 +68,7 @@ impl AsyncCliCommand for CmdApp {
             }
             Self::List(cmd) => cmd.run_async().await,
             Self::Logs(cmd) => cmd.run_async().await,
+            Self::Cdn(cmd) => cmd.run_async().await,
             Self::Delete(cmd) => cmd.run_async().await,
             Self::Version(cmd) => cmd.run_async().await,
             Self::Deploy(cmd) => cmd.run_async().await,

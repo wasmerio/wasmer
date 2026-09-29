@@ -35,6 +35,7 @@ pub struct WasmerEnv {
 impl WasmerEnv {
     const APP_DOMAIN_PROD: &'static str = "wasmer.app";
     const APP_DOMAIN_DEV: &'static str = "wasmer.dev";
+    const APP_DOMAIN_BUGT: &'static str = "wasmerfun.app";
 
     pub fn new(
         wasmer_dir: PathBuf,
@@ -115,7 +116,7 @@ impl WasmerEnv {
     /// Retrieve the specified token.
     ///
     /// NOTE: In contrast to [`Self::token`], this will not fall back to loading
-    /// the token from the confg file.
+    /// the token from the config file.
     #[allow(unused)]
     pub fn get_token_opt(&self) -> Option<&str> {
         self.token.as_deref()
@@ -147,6 +148,8 @@ impl WasmerEnv {
             Ok(Self::APP_DOMAIN_PROD.to_string())
         } else if domain.ends_with("wasmer.wtf") {
             Ok(Self::APP_DOMAIN_DEV.to_string())
+        } else if domain.ends_with("wasmer.fun") {
+            Ok(Self::APP_DOMAIN_BUGT.to_string())
         } else {
             anyhow::bail!(
                 "could not determine app domain for backend url '{domain}': unknown backend"
@@ -296,6 +299,18 @@ mod tests {
             };
 
             assert_eq!(env.app_domain().unwrap(), "wasmer.dev");
+        }
+
+        // Bugtopia
+        {
+            let env = WasmerEnv {
+                wasmer_dir: PathBuf::from("/tmp"),
+                registry: Some(UserRegistry::from("https://registry.wasmer.fun/graphql")),
+                cache_dir: PathBuf::from("/tmp/cache"),
+                token: None,
+            };
+
+            assert_eq!(env.app_domain().unwrap(), "wasmerfun.app");
         }
     }
 

@@ -10,13 +10,11 @@ use crate::VMExternRef;
 use crate::VMFuncRef;
 use crate::store::MaybeInstanceOwned;
 use crate::vmcontext::VMTableDefinition;
-use bytesize::ByteSize;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
-use wasmer_types::TableStyle;
-use wasmer_types::{TableType, TrapCode, Type as ValType};
+use wasmer_types::{TableStyle, TableType, TrapCode, Type as ValType};
 
 /// A reference stored in a table. Can be either an externref or a funcref.
 #[derive(Debug, Clone)]
@@ -68,8 +66,6 @@ impl Default for TableElement {
         Self::FuncRef(None)
     }
 }
-
-const TABLE_MAX_SIZE: usize = ByteSize::mib(128).as_u64() as usize;
 
 /// A table instance.
 #[derive(Debug)]
@@ -135,19 +131,6 @@ impl VMTable {
                     table.minimum, max
                 ));
             }
-            if table.minimum as usize > TABLE_MAX_SIZE {
-                return Err(format!(
-                    "Table minimum ({}) is larger than maximum allowed size ({TABLE_MAX_SIZE})!",
-                    table.minimum
-                ));
-            }
-            if let Some(max) = table.maximum
-                && max as usize > TABLE_MAX_SIZE
-            {
-                return Err(format!(
-                    "Table maximum ({max}) is larger than maximum allowed size ({TABLE_MAX_SIZE})!",
-                ));
-            }
             let table_minimum = usize::try_from(table.minimum)
                 .map_err(|_| "Table minimum is bigger than usize".to_string())?;
             let mut vec = vec![RawTableElement::default(); table_minimum];
@@ -207,6 +190,10 @@ impl VMTable {
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
     pub fn grow(&mut self, delta: u32, init_value: TableElement) -> Option<u32> {
+        if self.table.readonly {
+            // Cannot grow a readonly fixed table.
+            return None;
+        }
         let size = self.size();
         let new_len = size.checked_add(delta)?;
         if self.maximum.is_some_and(|max| new_len > max) {
@@ -248,6 +235,18 @@ impl VMTable {
     ///
     /// Returns an error if the index is out of bounds.
     pub fn set(&mut self, index: u32, reference: TableElement) -> Result<(), Trap> {
+        self.set_with_construction(index, reference, false)
+    }
+
+    pub(crate) fn set_with_construction(
+        &mut self,
+        index: u32,
+        reference: TableElement,
+        in_construction: bool,
+    ) -> Result<(), Trap> {
+        if !in_construction && self.table.readonly {
+            return Err(Trap::lib(TrapCode::ReadonlyTableModified));
+        }
         match self.vec.get_mut(index as usize) {
             Some(slot) => {
                 match (self.table.ty, reference) {
@@ -288,6 +287,10 @@ impl VMTable {
         src_index: u32,
         len: u32,
     ) -> Result<(), Trap> {
+        if self.table.readonly {
+            return Err(Trap::lib(TrapCode::ReadonlyTableModified));
+        }
+
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-copy
 
         if src_index
@@ -336,6 +339,10 @@ impl VMTable {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy_within(&mut self, dst_index: u32, src_index: u32, len: u32) -> Result<(), Trap> {
+        if self.table.readonly {
+            return Err(Trap::lib(TrapCode::ReadonlyTableModified));
+        }
+
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-copy
 
         if src_index.checked_add(len).is_none_or(|n| n > self.size()) {
@@ -364,5 +371,19 @@ impl VMTable {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TableElement, VMTable};
+    use wasmer_types::{TableStyle, TableType, Type};
+
+    #[test]
+    fn readonly_table_rejects_grow() {
+        let mut ty = TableType::new(Type::FuncRef, 0, Some(0));
+        ty.readonly = true;
+        let mut table = VMTable::new(&ty, &TableStyle::CallerChecksSignature).unwrap();
+        assert_eq!(table.grow(0, TableElement::FuncRef(None)), None);
     }
 }

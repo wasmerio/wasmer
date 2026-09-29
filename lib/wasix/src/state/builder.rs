@@ -8,7 +8,9 @@ use std::{
 
 use rand::RngExt;
 use thiserror::Error;
-use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
+use virtual_fs::{
+    ArcFile, FileSystem, FsError, MountFileSystem, RootFileSystemBuilder, VirtualFile,
+};
 use wasmer::{AsStoreMut, Engine, Instance, Module};
 use wasmer_config::package::PackageId;
 
@@ -84,7 +86,7 @@ pub struct WasiEnvBuilder {
     /// List of builtin commands to register in the WASI instance.
     pub(super) builtin_commands: Vec<(String, Arc<dyn VirtualCommand + Send + Sync + 'static>)>,
 
-    pub(super) capabilites: Capabilities,
+    pub(super) capabilities: Capabilities,
 
     #[cfg(feature = "journal")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
@@ -180,7 +182,7 @@ impl WasiEnvBuilder {
     }
 
     /// Attaches a ctrl-c handler which will send signals to the
-    /// process rather than immediately termiante it
+    /// process rather than immediately terminate it
     #[cfg(feature = "ctrlc")]
     pub fn attach_ctrl_c(mut self) -> Self {
         self.attach_ctrl_c = true;
@@ -211,10 +213,17 @@ impl WasiEnvBuilder {
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
-        self.envs.push((
-            String::from_utf8_lossy(key.as_ref()).to_string(),
-            value.as_ref().to_vec(),
-        ));
+        let key = String::from_utf8_lossy(key.as_ref()).to_string();
+        let value = value.as_ref().to_vec();
+        if let Some((_, existing_value)) = self
+            .envs
+            .iter_mut()
+            .find(|(existing_key, _)| existing_key == &key)
+        {
+            *existing_value = value;
+        } else {
+            self.envs.push((key, value));
+        }
     }
 
     /// Add multiple environment variable pairs.
@@ -668,7 +677,7 @@ impl WasiEnvBuilder {
         Ok(())
     }
 
-    /// Preopen directorys with a different names exposed to the WASI.
+    /// Preopen directories with a different names exposed to the WASI.
     pub fn map_dirs<I, P>(mut self, mapped_dirs: I) -> Result<Self, WasiStateCreationError>
     where
         I: IntoIterator<Item = (String, P)>,
@@ -768,7 +777,16 @@ impl WasiEnvBuilder {
     }
 
     pub fn set_fs(&mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) {
-        self.fs = Some(WasiFsRoot::Backing(fs.into()));
+        self.fs = Some(WasiFsRoot::from_filesystem(fs.into()));
+    }
+
+    pub fn mount_fs(mut self, fs: MountFileSystem) -> Self {
+        self.set_mount_fs(fs);
+        self
+    }
+
+    pub fn set_mount_fs(&mut self, fs: MountFileSystem) {
+        self.fs = Some(WasiFsRoot::from_mount_fs(fs));
     }
 
     pub(crate) fn set_fs_root(&mut self, fs: WasiFsRoot) {
@@ -776,10 +794,8 @@ impl WasiEnvBuilder {
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
-    ///
-    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-    pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
-        self.fs = Some(WasiFsRoot::Sandbox(fs));
+    pub fn sandbox_fs(mut self, fs: MountFileSystem) -> Self {
+        self.fs = Some(WasiFsRoot::from_mount_fs(fs));
         self
     }
 
@@ -819,11 +835,11 @@ impl WasiEnvBuilder {
     }
 
     pub fn capabilities_mut(&mut self) -> &mut Capabilities {
-        &mut self.capabilites
+        &mut self.capabilities
     }
 
     pub fn set_capabilities(&mut self, capabilities: Capabilities) {
-        self.capabilites = capabilities;
+        self.capabilities = capabilities;
     }
 
     #[cfg(feature = "journal")]
@@ -852,7 +868,7 @@ impl WasiEnvBuilder {
     ///
     /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
     /// Use [`WasiEnvBuilder::build`] or [`WasiEnvBuilder::instantiate`] instead
-    /// to ensure proper invokation of WASI modules.
+    /// to ensure proper invocation of WASI modules.
     pub fn build_init(mut self) -> Result<WasiEnvInit, WasiStateCreationError> {
         for arg in self.args.iter() {
             for b in arg.as_bytes().iter() {
@@ -908,10 +924,9 @@ impl WasiEnvBuilder {
             .take()
             .unwrap_or_else(|| Box::new(ArcFile::new(Box::<super::Stdin>::default())));
 
-        let fs_backing = self
-            .fs
-            .take()
-            .unwrap_or_else(|| WasiFsRoot::Sandbox(TmpFileSystem::new()));
+        let fs_backing = self.fs.take().unwrap_or_else(|| {
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()))
+        });
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {
@@ -935,13 +950,19 @@ impl WasiEnvBuilder {
             }
         }
 
+        let resolved_preopens = self.preopens.clone();
+
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let inodes = crate::state::WasiInodes::new();
         let wasi_fs = {
             // self.preopens are checked in [`PreopenDirBuilder::build`]
-            let mut wasi_fs =
-                WasiFs::new_with_preopen(&inodes, &self.preopens, &self.vfs_preopens, fs_backing)
-                    .map_err(WasiStateCreationError::WasiFsCreationError)?;
+            let mut wasi_fs = WasiFs::new_with_preopen(
+                &inodes,
+                &resolved_preopens,
+                &self.vfs_preopens,
+                fs_backing,
+            )
+            .map_err(WasiStateCreationError::WasiFsCreationError)?;
 
             // set up the file system, overriding base files and calling the setup function
             wasi_fs
@@ -990,6 +1011,7 @@ impl WasiEnvBuilder {
             clock_offset: Default::default(),
             envs: std::sync::Mutex::new(conv_env_vars(self.envs)),
             signals: std::sync::Mutex::new(self.signals.iter().map(|s| (s.sig, s.disp)).collect()),
+            signal_handler_registered: std::sync::atomic::AtomicBool::new(false),
         };
 
         let runtime = self.runtime.unwrap_or_else(|| {
@@ -1040,7 +1062,7 @@ impl WasiEnvBuilder {
             bin_factory.register_builtin_command_with_path_shared(command, path);
         }
 
-        let capabilities = self.capabilites;
+        let capabilities = self.capabilities;
 
         let plane_config = ControlPlaneConfig {
             max_task_count: capabilities.threading.max_threads,
@@ -1284,6 +1306,22 @@ mod test {
         {
             None
         }
+    }
+
+    #[test]
+    fn duplicate_environment_variables_use_the_last_value() {
+        let mut builder = WasiEnvBuilder::new("test");
+        builder.add_env("PORT", "5000");
+        builder.add_env("OTHER", "value");
+        builder.add_env("PORT", "8080");
+
+        assert_eq!(
+            builder.get_env(),
+            [
+                ("PORT".to_owned(), b"8080".to_vec()),
+                ("OTHER".to_owned(), b"value".to_vec()),
+            ]
+        );
     }
 
     #[derive(Debug)]

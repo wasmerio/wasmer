@@ -31,8 +31,6 @@ use std::{
     time::Duration,
 };
 
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasix_types::wasi::{
     Disposition, Errno, Fd as WasiFd, Rights, Signal, Snapshot0Clockid,
@@ -115,7 +113,6 @@ impl WasiBusState {
 
 /// Stores the state of the futexes
 #[derive(Debug, Default)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiFutexState {
     pub poller_seed: u64,
     pub futexes: HashMap<u64, WasiFutex>,
@@ -128,7 +125,6 @@ pub(crate) struct WasiFutexState {
 ///   other, concurrently running programs.  Data such as the contents
 ///   of directories are lazily loaded.
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiState {
     pub secret: [u8; 32],
 
@@ -139,6 +135,15 @@ pub(crate) struct WasiState {
     pub args: Mutex<Vec<String>>,
     pub envs: Mutex<Vec<Vec<u8>>>,
     pub signals: Mutex<HashMap<Signal, Disposition>>,
+    /// Whether this *process* has registered a signal handler callback.
+    ///
+    /// `WasiModuleInstanceHandles::signal_set` only records whether the
+    /// instance doing the asking registered one, and every spawned thread gets
+    /// its own instance. Signals are delivered to all of a process's threads,
+    /// so a per-instance flag makes sibling threads believe the program handles
+    /// no signals and apply the runtime's default disposition -- terminating a
+    /// process that does in fact have a handler installed.
+    pub signal_handler_registered: std::sync::atomic::AtomicBool,
 
     // TODO: should not be here, since this requires active work to resolve.
     // State should only hold active runtime state that can be reproducibly re-created.
@@ -210,18 +215,6 @@ impl WasiState {
         self.fs.root_fs.new_open_options()
     }
 
-    /// Turn the WasiState into bytes
-    #[cfg(feature = "enable-serde")]
-    pub fn freeze(&self) -> Option<Vec<u8>> {
-        bincode::serialize(self).ok()
-    }
-
-    /// Get a WasiState from bytes
-    #[cfg(feature = "enable-serde")]
-    pub fn unfreeze(bytes: &[u8]) -> Option<Self> {
-        bincode::deserialize(bytes).ok()
-    }
-
     /// Get the `VirtualFile` object at stdout
     pub fn stdout(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.std_dev_get(__WASI_STDOUT_FILENO)
@@ -262,6 +255,8 @@ impl WasiState {
             args: Mutex::new(self.args.lock().unwrap().clone()),
             envs: Mutex::new(self.envs.lock().unwrap().clone()),
             signals: Mutex::new(self.signals.lock().unwrap().clone()),
+            // A forked process re-registers from its own instance.
+            signal_handler_registered: std::sync::atomic::AtomicBool::new(false),
             preopen: self.preopen.clone(),
         }
     }

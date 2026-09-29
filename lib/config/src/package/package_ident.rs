@@ -58,10 +58,9 @@ impl std::str::FromStr for PackageIdent {
         } else {
             match NamedPackageIdent::from_str(s) {
                 Ok(named) => Ok(Self::Named(named)),
-                _ => Err(PackageParseError::new(
-                    s,
-                    "invalid package ident: expected a hash or a valid named package identifier",
-                )),
+                // Surface the specific named-ident parse error rather than a generic message:
+                // the value was not a hash, so the named-ident failure is the actionable reason.
+                Err(e) => Err(e),
             }
         }
     }

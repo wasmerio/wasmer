@@ -3,7 +3,7 @@ use crate::commands::AsyncCliCommand;
 pub mod list;
 mod utils;
 
-/// Informations about available Edge regioins.
+/// Information about available Edge regioins.
 #[derive(Debug, clap::Parser)]
 pub enum CmdAppRegions {
     List(list::CmdAppRegionsList),

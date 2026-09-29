@@ -8,7 +8,7 @@
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, entity::EntityRef,
+    ModuleInfo, TableIndex, TableType, WasmError, WasmResult, entity::EntityRef,
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -47,138 +47,134 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_elem_drop_index() -> Self {
         Self(6)
     }
-    /// Returns an index for wasm's `memory.copy` for locally defined memories.
+    /// Returns an index for wasm's `memory.copy`.
     pub const fn get_memory_copy_index() -> Self {
         Self(7)
     }
-    /// Returns an index for wasm's `memory.copy` for imported memories.
-    pub const fn get_imported_memory_copy_index() -> Self {
-        Self(8)
-    }
     /// Returns an index for wasm's `memory.fill` for locally defined memories.
     pub const fn get_memory_fill_index() -> Self {
-        Self(9)
+        Self(8)
     }
     /// Returns an index for wasm's `memory.fill` for imported memories.
     pub const fn get_imported_memory_fill_index() -> Self {
-        Self(10)
+        Self(9)
     }
     /// Returns an index for wasm's `memory.init` instruction.
     pub const fn get_memory_init_index() -> Self {
-        Self(11)
+        Self(10)
     }
     /// Returns an index for wasm's `data.drop` instruction.
     pub const fn get_data_drop_index() -> Self {
-        Self(12)
+        Self(11)
     }
     /// Returns an index for wasm's `raise_trap` instruction.
     pub const fn get_raise_trap_index() -> Self {
-        Self(13)
+        Self(12)
     }
     /// Returns an index for wasm's `table.size` instruction for local tables.
     pub const fn get_table_size_index() -> Self {
-        Self(14)
+        Self(13)
     }
     /// Returns an index for wasm's `table.size` instruction for imported tables.
     pub const fn get_imported_table_size_index() -> Self {
-        Self(15)
+        Self(14)
     }
     /// Returns an index for wasm's `table.grow` instruction for local tables.
     pub const fn get_table_grow_index() -> Self {
-        Self(16)
+        Self(15)
     }
     /// Returns an index for wasm's `table.grow` instruction for imported tables.
     pub const fn get_imported_table_grow_index() -> Self {
-        Self(17)
+        Self(16)
     }
     /// Returns an index for wasm's `table.get` instruction for local tables.
     pub const fn get_table_get_index() -> Self {
-        Self(18)
+        Self(17)
     }
     /// Returns an index for wasm's `table.get` instruction for imported tables.
     pub const fn get_imported_table_get_index() -> Self {
-        Self(19)
+        Self(18)
     }
     /// Returns an index for wasm's `table.set` instruction for local tables.
     pub const fn get_table_set_index() -> Self {
-        Self(20)
+        Self(19)
     }
     /// Returns an index for wasm's `table.set` instruction for imported tables.
     pub const fn get_imported_table_set_index() -> Self {
-        Self(21)
+        Self(20)
     }
     /// Returns an index for wasm's `func.ref` instruction.
     pub const fn get_func_ref_index() -> Self {
-        Self(22)
+        Self(21)
     }
     /// Returns an index for wasm's `table.fill` instruction for local tables.
     pub const fn get_table_fill_index() -> Self {
-        Self(23)
+        Self(22)
     }
     /// Returns an index for wasm's local `memory.atomic.wait32` builtin function.
     pub const fn get_memory_atomic_wait32_index() -> Self {
-        Self(24)
+        Self(23)
     }
     /// Returns an index for wasm's imported `memory.atomic.wait32` builtin function.
     pub const fn get_imported_memory_atomic_wait32_index() -> Self {
-        Self(25)
+        Self(24)
     }
     /// Returns an index for wasm's local `memory.atomic.wait64` builtin function.
     pub const fn get_memory_atomic_wait64_index() -> Self {
-        Self(26)
+        Self(25)
     }
     /// Returns an index for wasm's imported `memory.atomic.wait64` builtin function.
     pub const fn get_imported_memory_atomic_wait64_index() -> Self {
-        Self(27)
+        Self(26)
     }
     /// Returns an index for wasm's local `memory.atomic.notify` builtin function.
     pub const fn get_memory_atomic_notify_index() -> Self {
-        Self(28)
+        Self(27)
     }
 
     /// Returns an index for wasm's imported `memory.atomic.notify` builtin function.
     pub const fn get_imported_memory_atomic_notify_index() -> Self {
-        Self(29)
+        Self(28)
     }
 
     /// Returns an index for wasm's imported `debug_usize` builtin function.
     pub const fn get_imported_debug_usize_index() -> Self {
-        Self(30)
+        Self(29)
     }
 
     /// Returns an index for wasm's imported `debug_str` builtin function.
     pub const fn get_imported_debug_str_index() -> Self {
-        Self(31)
+        Self(30)
     }
 
     /// Returns an index for wasm's imported `wasmer_eh_personality2` builtin function.
     pub const fn get_imported_personality2_index() -> Self {
-        Self(32)
+        Self(31)
     }
 
     /// Returns an index for wasm's imported `alloc_exception` builtin function.
     pub const fn get_imported_alloc_exception_index() -> Self {
-        Self(33)
+        Self(32)
     }
 
     /// Returns an index for wasm's imported `throw` builtin function.
     pub const fn get_imported_throw_index() -> Self {
-        Self(34)
+        Self(33)
     }
 
     /// Returns an index for wasm's imported `read_exnref` builtin function.
     pub const fn get_imported_read_exnref_index() -> Self {
-        Self(35)
+        Self(34)
     }
 
     /// Returns an index for wasm's imported `exception_into_exnref` builtin function.
     pub const fn get_imported_exception_into_exnref_index() -> Self {
-        Self(36)
+        Self(35)
     }
 
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        37
+        36
     }
 
     /// Return the index as an u32 number.
@@ -208,8 +204,6 @@ const fn align(offset: u32, width: u32) -> u32 {
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
     pointer_size: u8,
-    /// The number of signature declarations in the module.
-    num_signature_ids: u32,
     /// The number of imported functions in the module.
     num_imported_functions: u32,
     /// The number of imported tables in the module.
@@ -232,7 +226,6 @@ pub struct VMOffsets {
     /// Total size in bytes of all inline fixed `funcref` table storage in `VMContext`.
     size_of_local_fixed_funcref_tables: u32,
 
-    vmctx_signature_ids_begin: u32,
     vmctx_imported_functions_begin: u32,
     vmctx_imported_tables_begin: u32,
     vmctx_imported_memories_begin: u32,
@@ -251,14 +244,27 @@ pub struct VMOffsets {
 }
 
 impl VMOffsets {
-    /// Return a new `VMOffsets` instance, for a given pointer size.
+    #[deprecated(note = "Use try_new function instead")]
+    /// Return a new `VMOffsets` instance, for a given pointer size
+    /// (panics if the VM offsets cannot be properly created).
     pub fn new(pointer_size: u8, module: &ModuleInfo) -> Self {
+        Self::try_new(pointer_size, module).unwrap()
+    }
+
+    /// Return a new `VMOffsets` instance, for a given pointer size.
+    pub fn try_new(pointer_size: u8, module: &ModuleInfo) -> Result<Self, String> {
         let mut local_fixed_funcref_table_offsets =
             vec![None; module.tables.len() - module.num_imported_tables];
         let mut size_of_local_fixed_funcref_tables: u32 = 0;
         // TODO: ensure it matches size_of::<VMCallerCheckedAnyfunc>
         let size_of_vmcaller_checked_anyfunc = 4 * u32::from(pointer_size);
 
+        let fixed_table_err = |table: &TableType| {
+            format!(
+                "cannot allocate fixed Table with {} elements",
+                table.minimum,
+            )
+        };
         for (table_index, table) in module.tables.iter() {
             if let Some(local_table_index) = module.local_table_index(table_index)
                 && table.is_fixed_funcref_table()
@@ -270,15 +276,14 @@ impl VMOffsets {
                         table
                             .minimum
                             .checked_mul(size_of_vmcaller_checked_anyfunc)
-                            .unwrap(),
+                            .ok_or_else(|| fixed_table_err(table))?,
                     )
-                    .unwrap();
+                    .ok_or_else(|| fixed_table_err(table))?;
             }
         }
 
         let mut ret = Self {
             pointer_size,
-            num_signature_ids: cast_to_u32(module.signatures.len()),
             num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
@@ -289,7 +294,6 @@ impl VMOffsets {
             num_local_globals: cast_to_u32(module.globals.len()),
             local_fixed_funcref_table_offsets,
             size_of_local_fixed_funcref_tables,
-            vmctx_signature_ids_begin: 0,
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
@@ -306,8 +310,8 @@ impl VMOffsets {
             vmctx_stack_limit_initial_begin: 0,
             size_of_vmctx: 0,
         };
-        ret.precompute();
-        ret
+        ret.precompute()?;
+        Ok(ret)
     }
 
     /// Return a new `VMOffsets` instance, for a given pointer size
@@ -317,7 +321,6 @@ impl VMOffsets {
     pub fn new_for_trampolines(pointer_size: u8) -> Self {
         Self {
             pointer_size,
-            num_signature_ids: 0,
             num_imported_functions: 0,
             num_imported_tables: 0,
             num_imported_memories: 0,
@@ -328,7 +331,6 @@ impl VMOffsets {
             num_local_globals: 0,
             local_fixed_funcref_table_offsets: Vec::new(),
             size_of_local_fixed_funcref_tables: 0,
-            vmctx_signature_ids_begin: 0,
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
@@ -362,67 +364,65 @@ impl VMOffsets {
         self.num_local_globals
     }
 
-    fn precompute(&mut self) {
+    fn precompute(&mut self) -> Result<(), &'static str> {
+        const ERR_MESSAGE: &str = "precompute exceeds u32 type";
+
         /// Offset base by num_items items of size item_size, panicking on overflow
-        fn offset_by(base: u32, num_items: u32, item_size: u32) -> u32 {
-            base.checked_add(num_items.checked_mul(item_size).unwrap())
-                .unwrap()
+        fn offset_by(base: u32, num_items: u32, item_size: u32) -> Result<u32, &'static str> {
+            base.checked_add(num_items.checked_mul(item_size).ok_or(ERR_MESSAGE)?)
+                .ok_or(ERR_MESSAGE)
         }
         // Offset base by num_items items of size item_size, panicking on overflow
         // Also, will align the value on pointer size boundary,
-        // to avoid misalignement issue
+        // to avoid misalignment issue
         let pointer_size = self.pointer_size as u32;
-        let offset_by_aligned = |base: u32, num_items: u32, item_size: u32| -> u32 {
-            align(
-                base.checked_add(num_items.checked_mul(item_size).unwrap())
-                    .unwrap(),
-                pointer_size,
-            )
-        };
+        let offset_by_aligned =
+            |base: u32, num_items: u32, item_size: u32| -> Result<u32, &'static str> {
+                Ok(align(
+                    base.checked_add(num_items.checked_mul(item_size).ok_or(ERR_MESSAGE)?)
+                        .ok_or(ERR_MESSAGE)?,
+                    pointer_size,
+                ))
+            };
 
-        self.vmctx_signature_ids_begin = 0;
-        self.vmctx_imported_functions_begin = offset_by_aligned(
-            self.vmctx_signature_ids_begin,
-            self.num_signature_ids,
-            u32::from(self.size_of_vmshared_signature_index()),
-        );
+        self.vmctx_imported_functions_begin = 0;
         self.vmctx_imported_tables_begin = offset_by_aligned(
             self.vmctx_imported_functions_begin,
             self.num_imported_functions,
             u32::from(self.size_of_vmfunction_import()),
-        );
+        )?;
         self.vmctx_imported_memories_begin = offset_by_aligned(
             self.vmctx_imported_tables_begin,
             self.num_imported_tables,
             u32::from(self.size_of_vmtable_import()),
-        );
+        )?;
 
         self.vmctx_tag_ids_begin = offset_by_aligned(
             self.vmctx_imported_memories_begin,
             self.num_imported_memories,
             u32::from(self.size_of_vmmemory_import()),
-        );
+        )?;
 
         self.vmctx_imported_globals_begin = offset_by_aligned(
             self.vmctx_tag_ids_begin,
             self.num_tag_ids,
             u32::from(self.size_of_vmshared_tag_index()),
-        );
+        )?;
 
         self.vmctx_tables_begin = offset_by_aligned(
             self.vmctx_imported_globals_begin,
             self.num_imported_globals,
             u32::from(self.size_of_vmglobal_import()),
-        );
+        )?;
         self.vmctx_fixed_funcref_tables_begin = offset_by_aligned(
             self.vmctx_tables_begin,
             self.num_local_tables,
             u32::from(self.size_of_vmtable_definition()),
-        );
+        )?;
         self.vmctx_memories_begin = align(
             self.vmctx_fixed_funcref_tables_begin
                 .checked_add(self.size_of_local_fixed_funcref_tables)
-                .unwrap(),
+                .ok_or(ERR_MESSAGE)?,
             pointer_size,
         );
         self.vmctx_globals_begin = align(
@@ -430,31 +430,39 @@ impl VMOffsets {
                 self.vmctx_memories_begin,
                 self.num_local_memories,
                 u32::from(self.size_of_vmmemory_definition()),
-            ),
+            )?,
             16,
         );
         self.vmctx_builtin_functions_begin = offset_by(
             self.vmctx_globals_begin,
             self.num_local_globals,
             u32::from(self.size_of_vmglobal_local()),
-        );
+        )?;
         self.vmctx_trap_handler_begin = offset_by(
             self.vmctx_builtin_functions_begin,
             VMBuiltinFunctionIndex::builtin_functions_total_number(),
             u32::from(self.pointer_size),
-        );
+        )?;
         self.vmctx_gas_limiter_pointer = offset_by(
             self.vmctx_trap_handler_begin,
             1,
             u32::from(self.pointer_size),
-        );
+        )?;
         self.vmctx_stack_limit_begin = offset_by(
             self.vmctx_gas_limiter_pointer,
             1,
             u32::from(self.pointer_size),
-        );
-        self.vmctx_stack_limit_initial_begin = self.vmctx_stack_limit_begin.checked_add(4).unwrap();
-        self.size_of_vmctx = self.vmctx_stack_limit_begin.checked_add(4).unwrap();
+        )?;
+        self.vmctx_stack_limit_initial_begin = self
+            .vmctx_stack_limit_begin
+            .checked_add(4)
+            .ok_or(ERR_MESSAGE)?;
+        self.size_of_vmctx = self
+            .vmctx_stack_limit_begin
+            .checked_add(4)
+            .ok_or(ERR_MESSAGE)?;
+
+        Ok(())
     }
 }
 
@@ -639,14 +647,6 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for `VMSharedSignatureIndex`.
-impl VMOffsets {
-    /// Return the size of `VMSharedSignatureIndex`.
-    pub const fn size_of_vmshared_signature_index(&self) -> u8 {
-        4
-    }
-}
-
 /// Offsets for `VMCallerCheckedAnyfunc`.
 impl VMOffsets {
     /// The offset of the `func_ptr` field.
@@ -655,9 +655,9 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `type_index` field.
+    /// The offset of the `VMSignatureHash` field.
     #[allow(clippy::identity_op)]
-    pub const fn vmcaller_checked_anyfunc_type_index(&self) -> u8 {
+    pub const fn vmcaller_checked_anyfunc_signature_hash(&self) -> u8 {
         1 * self.pointer_size
     }
 
@@ -700,13 +700,16 @@ impl VMOffsets {
     }
 }
 
+/// Convert a `VMContext` offset to the signed displacement used by compilers.
+pub fn vmctx_offset(offset: u32) -> WasmResult<i32> {
+    i32::try_from(offset)
+        .map_err(|_| WasmError::Generic(format!("VMContext offset {offset} exceeds i32::MAX")))
+}
+
+// TODO: make a breaking change where the return type will be `i32` instead!
+
 /// Offsets for `VMContext`.
 impl VMOffsets {
-    /// The offset of the `signature_ids` array.
-    pub fn vmctx_signature_ids_begin(&self) -> u32 {
-        self.vmctx_signature_ids_begin
-    }
-
     /// The offset of the `tables` array.
     #[allow(clippy::erasing_op)]
     pub fn vmctx_imported_functions_begin(&self) -> u32 {
@@ -762,13 +765,6 @@ impl VMOffsets {
     /// Return the size of the `VMContext` allocation.
     pub fn size_of_vmctx(&self) -> u32 {
         self.size_of_vmctx
-    }
-
-    /// Return the offset to `VMSharedSignatureIndex` index `index`.
-    pub fn vmctx_vmshared_signature_id(&self, index: SignatureIndex) -> u32 {
-        assert_lt!(index.as_u32(), self.num_signature_ids);
-        self.vmctx_signature_ids_begin
-            + index.as_u32() * u32::from(self.size_of_vmshared_signature_index())
     }
 
     /// Return the offset to `VMFunctionImport` index `index`.
@@ -888,22 +884,6 @@ impl VMOffsets {
     /// Remember updating precompute upon changes
     pub fn vmctx_builtin_function(&self, index: VMBuiltinFunctionIndex) -> u32 {
         self.vmctx_builtin_functions_begin + index.index() * u32::from(self.pointer_size)
-    }
-}
-
-/// Target specific type for shared signature index.
-#[derive(Debug, Copy, Clone)]
-pub struct TargetSharedSignatureIndex(u32);
-
-impl TargetSharedSignatureIndex {
-    /// Constructs `TargetSharedSignatureIndex`.
-    pub const fn new(value: u32) -> Self {
-        Self(value)
-    }
-
-    /// Returns index value.
-    pub const fn index(self) -> u32 {
-        self.0
     }
 }
 

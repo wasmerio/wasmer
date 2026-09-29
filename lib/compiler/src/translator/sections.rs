@@ -179,6 +179,7 @@ pub fn parse_import_section<'data>(
                         ty: wpreftype_to_type(tab.element_type)?,
                         minimum: tab.initial as u32,
                         maximum: tab.maximum.map(|v| v as u32),
+                        readonly: false,
                     },
                     module_name,
                     field_name,
@@ -225,6 +226,7 @@ pub fn parse_table_section(
             ty: wpreftype_to_type(table.ty.element_type).unwrap(),
             minimum: table.ty.initial as u32,
             maximum: table.ty.maximum.map(|v| v as u32),
+            readonly: false,
         })?;
     }
 
@@ -491,18 +493,19 @@ pub fn parse_element_section(
             range: _,
         } = elem.map_err(from_binaryreadererror_wasmerror)?;
 
-        let segments = read_elems(&items)?;
         match kind {
             ElementKind::Active {
                 table_index,
                 offset_expr,
             } => {
+                let segments = read_elems(&items)?;
                 let table_index = TableIndex::from_u32(table_index.unwrap_or(0));
                 let offset_expr =
                     parse_serialized_init_expr(&offset_expr, "element section", &environ.module)?;
                 environ.declare_table_initializers(table_index, offset_expr, segments)?
             }
             ElementKind::Passive => {
+                let segments = read_elems(&items)?;
                 let index = ElemIndex::from_u32(index as u32);
                 environ.declare_passive_element(index, segments)?;
             }

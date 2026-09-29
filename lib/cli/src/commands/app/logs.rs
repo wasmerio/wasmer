@@ -257,7 +257,7 @@ impl CliRender for Log {
     fn render_list_table(items: &[Self]) -> String {
         let mut table = Table::new();
         // table.set_header(vec!["Timestamp".to_string(), "Message".to_string()]);
-        table.load_preset(comfy_table::presets::NOTHING);
+        table.load_style(comfy_table::presets::NOTHING);
         table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
         for item in items {

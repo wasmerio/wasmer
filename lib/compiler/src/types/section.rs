@@ -12,10 +12,10 @@
 //! it can be patched later by the engine (native or JIT).
 
 use super::relocation::{ArchivedRelocation, Relocation, RelocationLike};
-use crate::lib::std::vec::Vec;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use std::vec::Vec;
 use wasmer_types::entity_impl;
 
 /// Index type of a Section defined inside a WebAssembly `Compilation`.

@@ -16,6 +16,7 @@ macro_rules! gen_rt_ty {
             $(#[$meta])*
             #[derive(derive_more::Unwrap)]
             #[unwrap(owned, ref, ref_mut)]
+            #[allow(clippy::large_enum_variant)]
             $vis enum $id $(<$($lt,)* $($param,)*>)? {
                 #[cfg(feature = "sys")]
                 /// The implementation from the `sys` backend.
@@ -25,21 +26,9 @@ macro_rules! gen_rt_ty {
                 /// The implementation from the `v8` backend.
                 V8(crate::backend::v8::$path),
 
-                #[cfg(feature = "wamr")]
-                /// The implementation from the `wamr` backend.
-                Wamr(crate::backend::wamr::$path),
-
-                #[cfg(feature = "wasmi")]
-                /// The implementation from the `wasmi` backend.
-                Wasmi(crate::backend::wasmi::$path),
-
                 #[cfg(feature = "js")]
                 /// The implementation from the `js` backend.
                 Js(crate::backend::js::$path),
-
-                #[cfg(feature = "jsc")]
-                /// The implementation from the `jsc` backend.
-                Jsc(crate::backend::jsc::$path),
             }
         }
     };
@@ -52,16 +41,10 @@ macro_rules! match_rt {
         match $self {
             #[cfg(feature = "sys")]
             Self::Sys($var) => $stmt,
-            #[cfg(feature = "wamr")]
-            Self::Wamr($var) => $stmt,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi($var) => $stmt,
             #[cfg(feature = "v8")]
             Self::V8($var) => $stmt,
             #[cfg(feature = "js")]
             Self::Js($var) => $stmt,
-            #[cfg(feature = "jsc")]
-            Self::Jsc($var) => $stmt,
         }
     };
 
@@ -69,16 +52,10 @@ macro_rules! match_rt {
         match $self {
             #[cfg(feature = "sys")]
             Self::Sys($var) => $stmt,
-            #[cfg(feature = "wamr")]
-            Self::Wamr($var) => $stmt,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi($var) => $stmt,
             #[cfg(feature = "v8")]
             Self::V8($var) => $stmt,
             #[cfg(feature = "js")]
             Self::Js($var) => $stmt,
-            #[cfg(feature = "jsc")]
-            Self::Jsc($var) => $stmt,
         }
     };
 }

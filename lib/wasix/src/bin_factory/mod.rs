@@ -20,8 +20,8 @@ mod exec;
 pub use self::{
     binary_package::*,
     exec::{
-        package_command_by_name, run_exec, spawn_exec, spawn_exec_module, spawn_exec_wasm,
-        spawn_load_module, spawn_union_fs,
+        import_package_mounts, package_command_by_name, run_exec, spawn_exec, spawn_exec_module,
+        spawn_exec_wasm, spawn_load_module,
     },
 };
 use crate::{
@@ -170,7 +170,7 @@ impl BinFactory {
         {
             let cache = self.local.read().unwrap();
             if let Some(data) = cache.get(&name) {
-                data.clone().map(Executable::BinaryPackage);
+                return data.clone().map(Executable::BinaryPackage);
             }
         }
 

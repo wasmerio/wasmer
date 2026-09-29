@@ -460,6 +460,10 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        self.create_symlink(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         let (inode_of_parent, position, inode_of_directory) = {
             // Read lock.
@@ -657,24 +661,7 @@ impl crate::FileSystem for FileSystem {
                 }
 
                 // Rename across file systems; we need to do a create and a delete
-                _ => {
-                    let mut from_file = self.new_open_options().read(true).open(from)?;
-                    let mut to_file = self
-                        .new_open_options()
-                        .create_new(true)
-                        .write(true)
-                        .open(to)?;
-                    tokio::io::copy(from_file.as_mut(), to_file.as_mut()).await?;
-                    if let Err(error) = self.remove_file(from) {
-                        tracing::warn!(
-                            ?from,
-                            ?to,
-                            ?error,
-                            "Failed to remove file after cross-FS rename"
-                        );
-                    }
-                    Ok(())
-                }
+                _ => crate::ops::move_across_filesystems(self, self, from, to).await,
             }
         })
     }
@@ -759,12 +746,7 @@ impl crate::FileSystem for FileSystem {
         {
             // Write lock.
             let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
-
-            // Remove the file from the storage.
-            fs.storage.remove(inode_of_file);
-
-            // Remove the child from the parent directory.
-            fs.remove_child_from_node(inode_of_parent, position)?;
+            fs.unlink_file_inode(inode_of_parent, position, inode_of_file)?;
         }
 
         Ok(())
@@ -772,16 +754,6 @@ impl crate::FileSystem for FileSystem {
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
-    }
-
-    fn mount(
-        &self,
-        _name: String,
-        path: &Path,
-        fs: Box<dyn crate::FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        let fs: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(fs);
-        self.mount(path.to_owned(), &fs, PathBuf::from("/"))
     }
 }
 
@@ -820,6 +792,31 @@ impl InodeResolution {
 }
 
 impl FileSystemInner {
+    pub(super) fn unlink_file_inode(
+        &mut self,
+        inode_of_parent: Inode,
+        position: usize,
+        inode_of_file: Inode,
+    ) -> Result<()> {
+        let remove_storage = match self.storage.get(inode_of_file) {
+            Some(node) => {
+                if let Some(lifecycle) = node.file_lifecycle() {
+                    lifecycle.mark_unlinked();
+                    lifecycle.open_handle_count() == 0
+                } else {
+                    true
+                }
+            }
+            None => return Err(FsError::EntryNotFound),
+        };
+
+        if remove_storage {
+            self.storage.remove(inode_of_file);
+        }
+
+        self.remove_child_from_node(inode_of_parent, position)
+    }
+
     /// Get the inode associated to a path if it exists.
     pub(super) fn inode_of(&self, path: &Path) -> Result<InodeResolution> {
         // SAFETY: The root node always exists, so it's safe to unwrap here.
@@ -1738,14 +1735,15 @@ mod test_filesystem {
     async fn test_remove_file() {
         let fs = FileSystem::default();
 
-        assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(path!("/foo.txt"))
-                .is_ok(),
-            "creating a new file",
-        );
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo.txt"))
+            .expect("creating a new file");
+        use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+        file.write_all(b"foo").await.expect("write before remove");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -1785,7 +1783,11 @@ mod test_filesystem {
         {
             let fs_inner = fs.inner.read().unwrap();
 
-            assert_eq!(fs_inner.storage.len(), 1, "storage no longer has the file");
+            assert_eq!(
+                fs_inner.storage.len(),
+                2,
+                "storage keeps the unlinked file alive while a handle is open"
+            );
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
@@ -1799,6 +1801,35 @@ mod test_filesystem {
                 "`/` is empty",
             );
         }
+
+        assert!(
+            matches!(
+                fs.new_open_options().read(true).open(path!("/foo.txt")),
+                Err(FsError::EntryNotFound)
+            ),
+            "the removed path can no longer be reopened",
+        );
+
+        file.write_all(b"bar")
+            .await
+            .expect("write after remove_file should still work");
+        file.seek(std::io::SeekFrom::Start(0))
+            .await
+            .expect("rewind after remove_file");
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)
+            .await
+            .expect("read after remove_file should still work");
+        assert_eq!(contents, "foobar");
+
+        drop(file);
+
+        let fs_inner = fs.inner.read().unwrap();
+        assert_eq!(
+            fs_inner.storage.len(),
+            1,
+            "storage drops the file once the last open handle closes"
+        );
 
         assert_eq!(
             fs.remove_file(path!("/foo.txt")),

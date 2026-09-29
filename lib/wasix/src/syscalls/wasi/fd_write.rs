@@ -6,7 +6,7 @@ use crate::{
     journal::{JournalEffector, JournalEntry},
     utils::map_snapshot_err,
 };
-use crate::{net::socket::TimeType, syscalls::*};
+use crate::{net::MAX_SOCKET_PAYLOAD, net::socket::TimeType, syscalls::*};
 
 /// ### `fd_write()`
 /// Write data to the file descriptor
@@ -122,6 +122,49 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
         iovs_len: M::Offset,
     },
     Buffer(Cow<'a, [u8]>),
+}
+
+impl<'a, M: MemorySize> FdWriteSource<'a, M> {
+    pub(crate) fn coalesce(
+        &self,
+        memory: &MemoryView,
+        max_len: usize,
+    ) -> Result<Cow<'a, [u8]>, Errno> {
+        match self {
+            FdWriteSource::Iovs { iovs, iovs_len } => {
+                let iovs_arr = iovs.slice(memory, *iovs_len).map_err(mem_error_to_wasi)?;
+                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+
+                let mut total_len = 0usize;
+                for iov in iovs_arr.iter() {
+                    let len = iov.buf_len.into() as usize;
+                    total_len = total_len.checked_add(len).ok_or(Errno::Msgsize)?;
+                }
+                if total_len > max_len {
+                    return Err(Errno::Msgsize);
+                }
+
+                let mut coalesced = Vec::with_capacity(total_len);
+
+                for iov in iovs_arr.iter() {
+                    let buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    coalesced.extend_from_slice(buf.as_ref());
+                }
+
+                Ok(Cow::Owned(coalesced))
+            }
+            FdWriteSource::Buffer(cow) => {
+                if cow.len() > max_len {
+                    return Err(Errno::Msgsize);
+                }
+                Ok(cow.clone())
+            }
+        }
+    }
 }
 
 #[allow(clippy::await_holding_lock)]
@@ -243,6 +286,14 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     let res = __asyncify_light(env, None, async {
                         let mut sent = 0usize;
 
+                        if socket.is_dgram() {
+                            let data = data.coalesce(&memory, MAX_SOCKET_PAYLOAD)?;
+                            sent += socket
+                                .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
+                                .await?;
+                            return Ok(sent);
+                        }
+
                         match &data {
                             FdWriteSource::Iovs { iovs, iovs_len } => {
                                 let iovs_arr =
@@ -254,14 +305,19 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?
                                         .access()
                                         .map_err(mem_error_to_wasi)?;
-                                    let local_sent = socket
+                                    let local_sent = match socket
                                         .send(
                                             tasks.deref(),
                                             buf.as_ref(),
                                             Some(timeout),
                                             nonblocking,
                                         )
-                                        .await?;
+                                        .await
+                                    {
+                                        Ok(sent) => sent,
+                                        Err(_) if sent > 0 => break,
+                                        Err(err) => return Err(err),
+                                    };
                                     sent += local_sent;
                                     if local_sent != buf.len() {
                                         break;

@@ -162,7 +162,7 @@ impl CmdAppSecretsCreate {
             anyhow::bail!("Secret creation failed!")
         } else {
             if !self.quiet {
-                eprintln!("Succesfully created secret(s):");
+                eprintln!("Successfully created secret(s):");
                 for secret in &secrets {
                     eprintln!("{}", secret.name.bold());
                 }

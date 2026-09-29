@@ -40,10 +40,6 @@ pub fn download_and_compile_small(c: &mut BenchmarkGroup<'_, WallTime>) {
         "singlepass"
     } else if cfg!(feature = "v8") {
         "v8"
-    } else if cfg!(feature = "wamr") {
-        "wamr"
-    } else if cfg!(feature = "wasmi") {
-        "wasmi"
     } else {
         panic!("Unrecognized backend!")
     };
@@ -71,10 +67,6 @@ pub fn download_and_compile_medium(c: &mut BenchmarkGroup<'_, WallTime>) {
         "singlepass"
     } else if cfg!(feature = "v8") {
         "v8"
-    } else if cfg!(feature = "wamr") {
-        "wamr"
-    } else if cfg!(feature = "wasmi") {
-        "wasmi"
     } else {
         panic!("Unrecognized backend!")
     };
@@ -100,10 +92,6 @@ pub fn download_and_compile_large(c: &mut BenchmarkGroup<'_, WallTime>) {
         "singlepass"
     } else if cfg!(feature = "v8") {
         "v8"
-    } else if cfg!(feature = "wamr") {
-        "wamr"
-    } else if cfg!(feature = "wasmi") {
-        "wasmi"
     } else {
         panic!("Unrecognized backend!")
     };

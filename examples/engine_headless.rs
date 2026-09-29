@@ -8,7 +8,7 @@
 //! What problem does it solve, and what does it mean?
 //!
 //! Once a Wasm module is compiled into executable code and stored
-//! somewhere (e.g. in memory with the Universal engine), the module
+//! somewhere (e.g. in memory with the engine), the module
 //! can be instantiated and executed. But imagine for a second the
 //! following scenario:
 //!
@@ -92,8 +92,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Second step, deserialize the compiled Wasm module, and execute
     // it, for example with Wasmer without a compiler.
     {
-        println!("Creating headless Universal engine...");
-        // We create a headless Universal engine.
+        println!("Creating headless engine...");
+        // We create a headless engine.
         let engine = EngineBuilder::headless();
         let mut store = Store::new(engine);
 

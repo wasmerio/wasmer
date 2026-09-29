@@ -1,462 +1,1671 @@
-mod basic_tests;
-mod context_switching;
-mod dynamic_library_tests;
-mod edge_case_tests;
-mod exception_tests;
-mod exit_tests;
-mod fd_tests;
-mod ffi_tests;
-mod libc_tests;
-mod lifecycle_tests;
-mod longjmp_tests;
-mod path_tests;
-mod poll_tests;
-mod reflection_tests;
-mod semaphore_tests;
-mod shared_library_tests;
-mod socket_tests;
-mod threadlocal_tests;
+//! Tests that build and run various WASIX test programs.
+//!
+//! Primary test files can contain directives that define one or more configurations
+//! for a WASM test. Each configuration represents a distinct test run, with its
+//! own arguments, environment setup, expected exit status, and output/file checks.
+//!
+//! Directives use `//#Directive: Args` in C/C++/Rust sources and
+//! `##Directive: Args` in shell sources and `Cargo.toml` comments.
+//!
+//! Supported directives:
+//!
+//! `Config:{name}[:{inherits}]` starts a runnable configuration. When `inherits`
+//! is present, the new configuration copies the named earlier configuration first.
+//!
+//! `AbstractConfig:{name}[:{inherits}]` starts a configuration that can be inherited
+//! from but is not run directly.
+//!
+//! `AbstractConfigFile:{relative_path}` applies directives from a shared fixture file.
+//!
+//! `Args:{args}` sets whitespace-separated command-line arguments.
+//!
+//! `BuildEnv:{key}={value}` sets an environment variable before building.
+//!
+//! The harness also sets `WASMER_BACKEND` to the engine name (`cranelift`, `v8`,
+//! etc.) and `WASMER_ARCH` to the host architecture before every build so shell scripts
+//! can tune compile-time parameters per backend and architecture.
+//!
+//! `Env:{key}={value}` sets an environment variable before running.
+//!
+//! `ExpectedStdout:{line}` appends one expected stdout line.
+//! Can be used multiple times and all expected lines must match the trimmed stdout exactly.
+//!
+//! `ExpectedStderr:{line}` appends one expected stderr line.
+//! Can be used multiple times and all expected lines must match the trimmed stderr exactly.
+//!
+//! `ExpectedStdoutFile:{relative_path}` appends expected stdout lines from a fixture file.
+//!
+//! `ExpectedStderrFile:{relative_path}` appends expected stderr lines from a fixture file.
+//!
+//! `MustFail:{bool}` requires a non-zero exit code when true.
+//!
+//! `ExpectedExitCode:{code}` sets the expected numeric exit code.
+//!
+//! `Ignored:{reason}` marks the configuration as ignored with the given reason.
+//!
+//! `SkipEngine:{engine}:{reason}` marks the configuration as ignored for
+//! a given engine (LLVM, Cranelift, V8, Singlepass).
+//!
+//! `Toolchains:{list}` selects which Rust toolchains build a single-file Rust
+//! fixture: `wasix` (cargo-wasix; runs on every engine except Singlepass) and
+//! `wasip1` (rustc with the wasm32-wasip1 target; runs on every engine).
+//! Defaults to `wasix,wasip1` for single-file Rust fixtures.
+//!
+//! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
+//!
+//! `IgnoreMacOS:{bool}` ignores the configuration on macOS hosts when true.
+//!
+//! `MinimalLibc:{version}` ignores the configuration when the selected sysroot
+//! version is older than the given minimal libc version.
+//!
+//! `MappedDirectory:{host}:{guest}` maps a host directory into the guest. Relative
+//!  host paths are resolved from the test source directory; `$temp` creates a fresh
+//!  temporary host directory.
+//!
+//! `CurrentDirectory:{guest_path}` sets the guest current working directory.
+//!
+//! `PrefilledFile:{relative_path}:{contents}` writes a file before the test runs.
+//!
+//! `ExpectedFile:{relative_path}:{contents}` checks a file after the test runs.
+//!
+//! `Stdin:{contents}` writes stdin bytes to the test program.
+//!
+//! `StdinFile:{relative_path}` writes a fixture file to the test program's stdin.
+//!
+//! `ProgramName:{name}` overrides argv[0].
+//!
+//! `DefaultMappedDirectories:{bool}` controls the harness default directory mappings.
+//!
+//! `FileSystems:{kind}` selects the filesystem backend. Supported values are
+//! `host`, `inmemory`, `tmp`, `passthrumemory`, `union`, `root`, comma-separated
+//! lists of those values, and `all`.
 
-use std::borrow::Cow;
-use std::io::Write;
+use anyhow::{Context, Result, anyhow, ensure};
+use itertools::Itertools;
+use std::collections::HashMap;
+use std::fs::{self, File, create_dir_all, read_dir, remove_dir_all};
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 use std::process::Command;
-use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
-use wasmer_wasix::VirtualFile as VirtualFileTrait;
-use wasmer_wasix::runners::MappedDirectory;
-use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
-use wasmer_wasix::runtime::module_cache::{HashedModuleData, ModuleCache};
-use wasmer_wasix::virtual_fs::{AsyncRead, AsyncSeek, AsyncWrite};
+use std::str::FromStr;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
+use strum::IntoEnumIterator;
 
-/// A virtual file that captures all writes to an in-memory buffer.
-/// This is used to capture stdout/stderr during test execution.
-#[derive(Debug)]
-struct CaptureFile {
-    buffer: Arc<Mutex<Vec<u8>>>,
+use anyhow::bail;
+use libtest_mimic::Trial;
+use walkdir::WalkDir;
+use wasmer_wasix::runtime::task_manager::block_on;
+use wasmer_wasix::virtual_fs::{
+    AsyncWriteExt, FileSystem, MountFileSystem, PassthruFileSystem, RootFileSystemBuilder,
+    StaticFile, TmpFileSystem, create_dir_all as create_virtual_dir_all, mem_fs,
+};
+
+mod error;
+mod runner;
+
+const TESTED_LIBC_VERSIONS: &[Option<&str>] = &[None, Some("v2026-05-12.1")];
+
+/// Whether the WASIX Rust toolchain is published for this host: we don't
+/// provide it for every platform yet. Only the `cargo wasix` variants of the
+/// Rust fixtures are gated on it; their `wasm32-wasip1` counterparts build
+/// everywhere. Windows is left out on purpose, since `wasixcc` does not cover
+/// it either.
+const WASIX_RUST_TOOLCHAIN_AVAILABLE: bool = cfg!(any(
+    all(
+        target_os = "linux",
+        target_env = "gnu",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ),
+    all(target_os = "macos", target_arch = "aarch64"),
+));
+
+fn should_emit_colour() -> bool {
+    std::io::stdout().is_terminal()
+        || std::env::var("CARGO_TERM_COLOR").as_deref() == Ok("always")
+        || std::env::var("NEXTEST").is_ok()
 }
 
-impl CaptureFile {
-    fn new(buffer: Arc<Mutex<Vec<u8>>>) -> Self {
-        Self { buffer }
+fn main() -> Result<std::process::ExitCode> {
+    let mut args = libtest_mimic::Arguments::from_args();
+    if should_emit_colour() {
+        args.color = Some(libtest_mimic::ColorSetting::Always);
     }
+    let mut tests = Vec::new();
+    collect_tests(&mut tests)?;
+    Ok(libtest_mimic::run(&args, tests).exit_code())
 }
 
-impl VirtualFileTrait for CaptureFile {
-    fn last_accessed(&self) -> u64 {
-        0
-    }
-
-    fn last_modified(&self) -> u64 {
-        0
-    }
-
-    fn created_time(&self) -> u64 {
-        0
-    }
-
-    fn size(&self) -> u64 {
-        self.buffer.lock().unwrap().len() as u64
-    }
-
-    fn set_len(&mut self, _new_size: u64) -> Result<(), wasmer_wasix::FsError> {
-        Err(wasmer_wasix::FsError::PermissionDenied)
-    }
-
-    fn unlink(&mut self) -> Result<(), wasmer_wasix::FsError> {
-        Ok(())
-    }
-
-    fn is_open(&self) -> bool {
-        true
-    }
-
-    fn get_special_fd(&self) -> Option<u32> {
-        None
-    }
-
-    fn poll_read_ready(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-    ) -> Poll<std::io::Result<usize>> {
-        Poll::Ready(Ok(0))
-    }
-
-    fn poll_write_ready(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-    ) -> Poll<std::io::Result<usize>> {
-        Poll::Ready(Ok(8192))
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum HostMappedLocation {
+    TemporaryFolder,
+    HostPath(String),
 }
 
-impl AsyncRead for CaptureFile {
-    fn poll_read(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        _buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        Poll::Ready(Ok(()))
-    }
-}
-
-impl AsyncWrite for CaptureFile {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
-        Poll::Ready(self.write(buf))
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        Poll::Ready(Ok(()))
-    }
-}
-
-impl AsyncSeek for CaptureFile {
-    fn start_seek(self: Pin<&mut Self>, _position: std::io::SeekFrom) -> std::io::Result<()> {
-        Ok(())
-    }
-
-    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<u64>> {
-        Poll::Ready(Ok(0))
-    }
-}
-
-impl std::io::Read for CaptureFile {
-    fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-        Ok(0)
-    }
-}
-
-impl std::io::Write for CaptureFile {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut buffer = self.buffer.lock().unwrap();
-        buffer.extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl std::io::Seek for CaptureFile {
-    fn seek(&mut self, _pos: std::io::SeekFrom) -> std::io::Result<u64> {
-        Ok(0)
-    }
-}
-
-fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
-    if let Ok(sysroot) = std::env::var("WASIXCC_SYSROOT") {
-        if !Path::new(&sysroot).exists() {
-            anyhow::bail!("WASIXCC_SYSROOT is set but does not exist: {}", sysroot);
+impl HostMappedLocation {
+    fn new(path: &str) -> Self {
+        if path == "$temp" {
+            Self::TemporaryFolder
+        } else {
+            Self::HostPath(path.to_owned())
         }
-        return Ok(sysroot);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MappedDirectory {
+    host: HostMappedLocation,
+    guest: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
+pub enum Engine {
+    #[cfg(not(target_os = "windows"))]
+    Cranelift,
+    #[cfg(feature = "llvm")]
+    LLVM,
+    #[cfg(feature = "singlepass")]
+    Singlepass,
+    #[cfg(feature = "v8")]
+    V8,
+}
+
+/// Which Rust toolchain builds a Rust fixture. The WASIX toolchain emits
+/// exception-handling opcodes, so its output cannot run on Singlepass; the
+/// plain `wasm32-wasip1` rustup target can, and is available on every host
+/// platform.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
+enum RustToolchain {
+    Wasix,
+    Wasip1,
+}
+
+/// Whether `engine` can run wasm produced by a WASIX toolchain (cargo-wasix
+/// for Rust fixtures, wasixcc for the rest). Singlepass lacks exception
+/// handling, which that output relies on.
+fn engine_runs_wasix_output(engine: Engine) -> bool {
+    #[cfg(feature = "singlepass")]
+    let is_singlepass = engine == Engine::Singlepass;
+    #[cfg(not(feature = "singlepass"))]
+    let is_singlepass = {
+        let _ = engine;
+        false
+    };
+    !is_singlepass
+}
+
+impl RustToolchain {
+    /// Engines that can run this toolchain's output. wasip1-built wasm runs on
+    /// every engine; WASIX-built wasm cannot run on Singlepass.
+    fn supports_engine(self, engine: Engine) -> bool {
+        match self {
+            Self::Wasix => engine_runs_wasix_output(engine),
+            Self::Wasip1 => true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter, strum::EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
+enum FileSystemKind {
+    Host,
+    InMemory,
+    Tmp,
+    PassthruMemory,
+    Union,
+    Root,
+}
+
+impl Engine {
+    pub fn name(self) -> &'static str {
+        match self {
+            #[cfg(not(target_os = "windows"))]
+            Self::Cranelift => "cranelift",
+            #[cfg(feature = "llvm")]
+            Self::LLVM => "llvm",
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass => "singlepass",
+            #[cfg(feature = "v8")]
+            Self::V8 => "v8",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Config {
+    /// The directory containing the test sources.
+    source: PrimarySource,
+    test_src_dir: PathBuf,
+    tests_build_root: PathBuf,
+
+    test_name: String,
+    config_name: String,
+    engine: Engine,
+    rust_toolchain: RustToolchain,
+    rust_toolchains: Option<Vec<RustToolchain>>,
+    selected_file_system: FileSystemKind,
+    file_systems: Option<Vec<FileSystemKind>>,
+    is_abstract: bool,
+
+    nonzero_exit_code: bool,
+    expected_exit_code: i32,
+    expected_stdout: Vec<String>,
+    expected_stderr: Vec<String>,
+    arguments: Vec<String>,
+    build_env: Vec<(String, String)>,
+    env: Vec<(String, String)>,
+    stdin: Option<Vec<u8>>,
+    ignored: Option<String>,
+    skipped_engines: Vec<(Engine, String)>,
+    unix_only: bool,
+    ignore_macos: bool,
+    mapped_directories: Vec<MappedDirectory>,
+    current_directory: Option<String>,
+    prefilled_files: Vec<(PathBuf, String)>,
+    expected_files: Vec<(PathBuf, String)>,
+    program_name: Option<String>,
+    default_mapped_directories: bool,
+    minimal_libc: Option<String>,
+    // Used for configuration display name purpose.
+    sysroot_version: Option<&'static str>,
+}
+
+impl Config {
+    fn new(
+        source: PrimarySource,
+        test_src_dir: PathBuf,
+        tests_build_root: PathBuf,
+        test_name: String,
+    ) -> Self {
+        Self {
+            source,
+            test_src_dir,
+            tests_build_root,
+            test_name,
+            config_name: "default".to_owned(),
+            #[cfg(target_os = "windows")]
+            engine: Engine::V8,
+            #[cfg(not(target_os = "windows"))]
+            engine: Engine::Cranelift,
+            rust_toolchain: RustToolchain::Wasix,
+            rust_toolchains: None,
+            file_systems: None,
+            selected_file_system: FileSystemKind::Host,
+            is_abstract: false,
+            arguments: Vec::new(),
+            build_env: Vec::new(),
+            env: Vec::new(),
+            nonzero_exit_code: false,
+            expected_exit_code: 0,
+            expected_stdout: Vec::new(),
+            expected_stderr: Vec::new(),
+            stdin: None,
+            ignored: None,
+            skipped_engines: Vec::new(),
+            unix_only: false,
+            ignore_macos: false,
+            mapped_directories: Vec::new(),
+            current_directory: None,
+            prefilled_files: Vec::new(),
+            expected_files: Vec::new(),
+            program_name: None,
+            default_mapped_directories: true,
+            minimal_libc: None,
+            sysroot_version: None,
+        }
     }
 
-    if let Ok(sysroot) = std::env::var("WASIXCC_PYTHON_SYSROOT") {
-        if !Path::new(&sysroot).exists() {
-            anyhow::bail!(
-                "WASIXCC_PYTHON_SYSROOT is set but does not exist: {}",
-                sysroot
+    fn build_path(&self) -> PathBuf {
+        self.tests_build_root.join(self.full_test_name())
+    }
+
+    fn full_test_name(&self) -> String {
+        let mut parts = vec!["wasm".to_owned(), self.test_name.clone()];
+        if !self.source.is_default() {
+            parts.push(self.source.config_name());
+        }
+        parts.push(self.config_name.clone());
+        if self.selected_file_system != FileSystemKind::Host {
+            parts.push(self.selected_file_system.to_string());
+        }
+        if let Some(sysroot_version) = &self.sysroot_version {
+            parts.push(sysroot_version.to_string());
+        }
+        if self.rust_toolchain != RustToolchain::Wasix {
+            parts.push(self.rust_toolchain.to_string());
+        }
+        parts.push(self.engine.to_string());
+        parts.join("/")
+    }
+
+    fn set_sysroot(&mut self, sysroot_version: &'static str) -> Result<()> {
+        let sysroot_path = dirs::home_dir()
+            .ok_or_else(|| anyhow!("cannot expand home dir"))?
+            .join(format!(".wasixcc/sysroot-{sysroot_version}"));
+        ensure!(
+            sysroot_path.exists(),
+            "Missing sysroot, install with: `WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-{sysroot_version} wasixccenv download-sysroot {sysroot_version}`"
+        );
+
+        self.sysroot_version = Some(sysroot_version);
+        self.build_env.push((
+            "WASIXCC_SYSROOT_PREFIX".to_owned(),
+            sysroot_path
+                .to_str()
+                .expect("valid path expected")
+                .to_string(),
+        ));
+        Ok(())
+    }
+}
+
+fn parse_configs(default_config: &Config) -> Result<Vec<Config>> {
+    let src_filename = default_config
+        .test_src_dir
+        .join(default_config.source.filename());
+    let source = std::fs::read_to_string(&src_filename)
+        .with_context(|| format!("Failed to read {}", src_filename.display()))?;
+
+    let mut configs = Vec::new();
+    let mut config_name_to_index = HashMap::new();
+    let mut config = default_config.clone();
+    let mut build_env = Vec::new();
+
+    for (i, line) in source.lines().enumerate() {
+        if let Some(rest) = default_config.source.parse_directive_line(line) {
+            process_directive(
+                rest,
+                &mut build_env,
+                &mut config,
+                default_config,
+                &mut config_name_to_index,
+                &mut configs,
+            )
+            .with_context(|| {
+                format!(
+                    "Failed to process test directive {}:{}",
+                    src_filename.display(),
+                    i + 1
+                )
+            })?;
+        }
+    }
+
+    configs.push(config);
+
+    for config in &mut configs {
+        config.build_env = build_env.clone();
+    }
+
+    configs.retain(|c| !c.is_abstract);
+
+    if configs.is_empty() {
+        bail!("Missing non-abstract Config");
+    }
+
+    Ok(configs)
+}
+
+fn process_directive(
+    rest: &str,
+    build_env: &mut Vec<(String, String)>,
+    config: &mut Config,
+    default_config: &Config,
+    config_name_to_index: &mut HashMap<String, usize>,
+    configs: &mut Vec<Config>,
+) -> Result<()> {
+    let (directive, arg) = rest.split_once(':').context("Missing arg")?;
+    let arg = arg.trim();
+    match directive {
+        "Config" | "AbstractConfig" => {
+            if config != default_config {
+                let index = configs.len();
+                config_name_to_index.insert(config.config_name.clone(), index);
+                configs.push(config.clone());
+            }
+
+            let name = if let Some((name, inherit)) = arg.split_once(':') {
+                let inherit_index = config_name_to_index.get(inherit).ok_or_else(|| {
+                    anyhow!("Config `{name}` inherits from unknown config named `{inherit}`")
+                })?;
+
+                *config = configs[*inherit_index].clone();
+                name
+            } else {
+                *config = default_config.clone();
+                arg
+            };
+            config.is_abstract = directive == "AbstractConfig";
+            if config_name_to_index.contains_key(name) {
+                bail!("Duplicate config `{name}`");
+            }
+            name.clone_into(&mut config.config_name);
+        }
+        "AbstractConfigFile" => {
+            let path = config
+                .test_src_dir
+                .join(parse_relative_path(arg, "AbstractConfigFile")?);
+            process_directive_file(
+                &path,
+                build_env,
+                config,
+                default_config,
+                config_name_to_index,
+                configs,
+            )?;
+        }
+        "Args" => {
+            config.arguments = arg
+                .split(' ')
+                .map(str::to_owned)
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
+        "ExpectedStdout" => {
+            config.expected_stdout.push(arg.to_owned());
+        }
+        "ExpectedStderr" => {
+            config.expected_stderr.push(arg.to_owned());
+        }
+        "ExpectedStdoutFile" => {
+            config.expected_stdout.extend(read_expected_lines(
+                &config.test_src_dir,
+                arg,
+                "ExpectedStdoutFile",
+            )?);
+        }
+        "ExpectedStderrFile" => {
+            config.expected_stderr.extend(read_expected_lines(
+                &config.test_src_dir,
+                arg,
+                "ExpectedStderrFile",
+            )?);
+        }
+        "BuildEnv" => {
+            let (key, value) = arg
+                .split_once('=')
+                .ok_or_else(|| anyhow!("missing equals separator for BuildEnv"))?;
+            let key = key.trim();
+            ensure!(!key.is_empty(), "BuildEnv key must not be empty");
+            build_env.push((key.to_owned(), value.trim().to_owned()));
+        }
+        "Env" => {
+            let (key, value) = arg
+                .split_once('=')
+                .ok_or_else(|| anyhow!("missing equals separator for Env"))?;
+            let key = key.trim();
+            ensure!(!key.is_empty(), "Env key must not be empty");
+            config.env.push((key.to_owned(), value.trim().to_owned()));
+        }
+        "MustFail" => {
+            config.nonzero_exit_code = arg.parse::<bool>()?;
+        }
+        "ExpectedExitCode" => {
+            config.expected_exit_code = arg.parse::<i32>()?;
+        }
+        "Ignored" => config.ignored = Some(arg.to_owned()),
+        "SkipEngine" => {
+            let (engine, reason) = arg
+                .split_once(':')
+                .ok_or_else(|| anyhow!("missing colon separator for SkipEngine"))?;
+            if let Some(engine) = match engine.to_lowercase().as_str() {
+                "llvm" => {
+                    #[cfg(feature = "llvm")]
+                    {
+                        Some(Engine::LLVM)
+                    }
+                    #[cfg(not(feature = "llvm"))]
+                    {
+                        None
+                    }
+                }
+                "cranelift" => {
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        Some(Engine::Cranelift)
+                    }
+                    #[cfg(target_os = "windows")]
+                    {
+                        None
+                    }
+                }
+                "v8" => {
+                    #[cfg(feature = "v8")]
+                    {
+                        Some(Engine::V8)
+                    }
+                    #[cfg(not(feature = "v8"))]
+                    {
+                        None
+                    }
+                }
+                "singlepass" => {
+                    #[cfg(feature = "singlepass")]
+                    {
+                        Some(Engine::Singlepass)
+                    }
+                    #[cfg(not(feature = "singlepass"))]
+                    {
+                        None
+                    }
+                }
+                _ => bail!("unsupported engine: '{engine}'"),
+            } {
+                config.skipped_engines.push((engine, reason.to_owned()));
+            }
+        }
+        "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
+        "IgnoreMacOS" => config.ignore_macos = arg.parse::<bool>()?,
+        "MinimalLibc" => {
+            ensure!(!arg.is_empty(), "MinimalLibc version must not be empty");
+            config.minimal_libc = Some(arg.to_owned());
+        }
+        "MappedDirectory" => {
+            let (host, guest) = arg
+                .split_once(':')
+                .ok_or_else(|| anyhow!("missing colon separator for MappedDirectory"))?;
+            config.mapped_directories.push(MappedDirectory {
+                host: HostMappedLocation::new(host),
+                guest: guest.to_owned(),
+            });
+        }
+        "CurrentDirectory" => {
+            config.current_directory = Some(arg.to_owned());
+        }
+        "PrefilledFile" => {
+            let (path, file_content) = arg
+                .split_once(':')
+                .ok_or_else(|| anyhow!("missing colon separator for PrefilledFile"))?;
+            let path = PathBuf::from(path);
+            ensure!(
+                path.is_relative(),
+                "PrefilledFile must be relative: {path:?}"
             );
+            config.prefilled_files.push((path, file_content.to_owned()));
         }
-        return Ok(sysroot);
-    }
-
-    // Try to find a build-scripts style sysroot in common locations
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-
-    // A wasix-clang sysroot should
-    let sysroot = format!("{home}/.wasix-clang/wasix-sysroot");
-    if Path::new(&sysroot).exists() {
-        return Ok(sysroot);
-    }
-
-    let sysroot = format!("{home}/.build-scripts/pkgs");
-    if Path::new(&sysroot).exists() {
-        return Ok(sysroot);
-    }
-
-    if let Ok(output) = Command::new("wasixccenv")
-        .arg("-sPIC=1")
-        .arg("print-sysroot")
-        .output()
-        && output.status.success()
-    {
-        let sysroot = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !sysroot.is_empty() {
-            if !Path::new(&sysroot).exists() {
-                anyhow::bail!(
-                    "`wasixccenv print-sysroot` returned a path that does not exist: {}",
-                    sysroot
+        "ExpectedFile" => {
+            let (path, file_content) = arg
+                .split_once(':')
+                .ok_or_else(|| anyhow!("missing colon separator for ExpectedFile"))?;
+            let path = PathBuf::from(path);
+            ensure!(
+                path.is_relative(),
+                "ExpectedFile must be relative: {path:?}"
+            );
+            config.expected_files.push((path, file_content.to_owned()));
+        }
+        "Stdin" => {
+            config.stdin = Some(arg.as_bytes().to_vec());
+        }
+        "StdinFile" => {
+            config.stdin = Some(read_fixture_bytes(&config.test_src_dir, arg, "StdinFile")?);
+        }
+        "ProgramName" => {
+            config.program_name = Some(arg.to_owned());
+        }
+        "DefaultMappedDirectories" => {
+            config.default_mapped_directories = arg.parse::<bool>()?;
+        }
+        "Toolchains" => {
+            let rust_toolchains = arg
+                .split(',')
+                .map(|toolchain| {
+                    toolchain
+                        .trim()
+                        .parse::<RustToolchain>()
+                        .map_err(|_| anyhow!("unsupported toolchain: '{toolchain}'"))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            ensure!(
+                !rust_toolchains.is_empty(),
+                "at least one toolchain must be selected"
+            );
+            if rust_toolchains.contains(&RustToolchain::Wasip1) {
+                ensure!(
+                    matches!(config.source, PrimarySource::RustSourceFile(_)),
+                    "the wasip1 toolchain is only supported for single-file Rust fixtures"
                 );
             }
-            return Ok(sysroot);
+            config.rust_toolchains = Some(rust_toolchains);
         }
+        "FileSystems" => {
+            config.file_systems = Some(if arg == "all" {
+                FileSystemKind::iter().collect()
+            } else {
+                let file_systems = arg
+                    .split(',')
+                    .map(|kind| {
+                        kind.trim()
+                            .parse::<FileSystemKind>()
+                            .map_err(|_| anyhow!("unsupported filesystem: '{kind}'"))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                ensure!(
+                    !file_systems.is_empty(),
+                    "at least one file system must be selected"
+                );
+                file_systems
+            });
+        }
+        other => bail!("Unknown directive '{other}'"),
     }
-
-    anyhow::bail!(
-        "Could not find a sysroot compatible with the wasix tests. Use the following command to download a compatible sysroot from build-scripts into the correct location:\ncurl -sSfL https://raw.githubusercontent.com/wasix-org/build-scripts/refs/heads/main/assemble-pkgs.sh | bash -s -- -i wasix-libc -i libcxx -i compiler-rt -i libffi -o ~/.build-scripts/pkgs"
-    );
+    Ok(())
 }
 
-/// Run a build.sh script for a test directory.
-///
-/// This function locates the test directory based on the test file path,
-/// runs the build.sh script within that directory using wasixcc/wasix++,
-/// and returns the path to the compiled WASM binary.
-///
-/// # Arguments
-/// * `file` - The test file path (typically `file!()`)
-/// * `test_dir` - The test directory name relative to the test file's directory
-///
-/// # Returns
-/// The path to the compiled `main` binary
-pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::Error> {
-    let input_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/wasm_tests")
-        .join(PathBuf::from(
-            file.split('/')
-                .next_back()
-                .expect("The test file name cannot be empty")
-                .trim_end_matches(".rs"),
-        ));
+fn normalize_libc_version(version: &str) -> &str {
+    version.trim().strip_prefix('v').unwrap_or(version.trim())
+}
 
-    let test_path = input_dir.join(test_dir);
-    let build_script = test_path.join("build.sh");
+fn minimal_libc_skip_reason(config: &Config) -> Result<Option<String>> {
+    let Some(minimal_libc) = &config.minimal_libc else {
+        return Ok(None);
+    };
+    let Some(sysroot_version) = config.sysroot_version else {
+        return Ok(None);
+    };
 
-    // Use wasixcc environment variables if available, otherwise use defaults
-    let sysroot = find_compatible_sysroot()?;
+    let is_supported = version_compare::compare_to(
+        normalize_libc_version(sysroot_version),
+        normalize_libc_version(minimal_libc),
+        version_compare::Cmp::Ge,
+    )
+    .map_err(|_| anyhow!("cannot parse version strings: {sysroot_version}, {minimal_libc}"))?;
+    Ok(if is_supported {
+        None
+    } else {
+        Some(format!(
+            "selected libc version {sysroot_version} is older than required {minimal_libc}"
+        ))
+    })
+}
 
-    let compiler_flags = std::env::var("WASIXCC_COMPILER_FLAGS")
-        .unwrap_or_else(|_| format!(
-            "-fPIC:-Wl,-L{}/usr/local/lib/wasm32-wasi:-I{}/usr/local/include:-iwithsysroot:/usr/local/include/c++/v1",
-            sysroot, sysroot
-        ));
+fn process_directive_file(
+    path: &Path,
+    build_env: &mut Vec<(String, String)>,
+    config: &mut Config,
+    default_config: &Config,
+    config_name_to_index: &mut HashMap<String, usize>,
+    configs: &mut Vec<Config>,
+) -> Result<()> {
+    let contents = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read {}", path.display()))?;
+    for (i, line) in contents.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        process_directive(
+            line,
+            build_env,
+            config,
+            default_config,
+            config_name_to_index,
+            configs,
+        )
+        .with_context(|| {
+            format!(
+                "Failed to process test directive {}:{}",
+                path.display(),
+                i + 1
+            )
+        })?;
+    }
+    Ok(())
+}
 
-    let output = Command::new("bash")
-        .arg(&build_script)
-        .current_dir(&test_path)
-        .env("CC", "wasixcc")
-        .env("CXX", "wasix++")
-        .env("WASIXCC_SYSROOT", &sysroot)
-        .env("WASIXCC_COMPILER_FLAGS", &compiler_flags)
-        .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes")
-        .output()?;
+fn parse_relative_path(arg: &str, directive: &str) -> Result<PathBuf> {
+    let path = PathBuf::from(arg);
+    ensure!(path.is_relative(), "{directive} must be relative: {path:?}");
+    Ok(path)
+}
+
+fn read_expected_lines(test_src_dir: &Path, arg: &str, directive: &str) -> Result<Vec<String>> {
+    let path = parse_relative_path(arg, directive)?;
+    let contents = std::fs::read_to_string(test_src_dir.join(&path))
+        .with_context(|| format!("failed to read {directive} {}", path.display()))?;
+    Ok(contents.trim().lines().map(str::to_owned).collect())
+}
+
+fn read_fixture_bytes(test_src_dir: &Path, arg: &str, directive: &str) -> Result<Vec<u8>> {
+    let path = parse_relative_path(arg, directive)?;
+    std::fs::read(test_src_dir.join(&path))
+        .with_context(|| format!("failed to read {directive} {}", path.display()))
+}
+
+fn parse_cargo_toml_directive_line(line: &str) -> Option<&str> {
+    let rest = line.trim().strip_prefix("##")?.trim();
+    rest.split_once(':').map(|_| rest)
+}
+
+const CARGO_WASIX_ARTIFACT_DIR: &str = "target/wasm32-wasmer-wasi/debug";
+
+fn rustc_command(toolchain: Option<&str>) -> Command {
+    if let Some(toolchain) = toolchain {
+        // rustc +version multiplexing is unsupported on Windows, use the documented approach:
+        // https://rust-lang.github.io/rustup/concepts/toolchains.html#custom-toolchains
+        let mut cmd = Command::new("rustup");
+        cmd.arg("run").arg(toolchain).arg("rustc");
+        cmd
+    } else {
+        Command::new("rustc")
+    }
+}
+
+fn rustc_wasip1_build_command(build_dir: &Path, source_filename: &str) -> Result<Command> {
+    let primary_source = build_dir.join(source_filename);
+    let source = std::fs::read_to_string(&primary_source)
+        .with_context(|| format!("Failed to read {}", primary_source.display()))?;
+    let mut cmd = rustc_command(source.contains("#![feature(").then_some("nightly"));
+    cmd.arg("--target=wasm32-wasip1")
+        .arg("-o")
+        .arg("main")
+        .arg(&primary_source)
+        .current_dir(build_dir);
+    Ok(cmd)
+}
+
+fn cargo_wasix_build_command(build_dir: &Path) -> Command {
+    let mut cmd = Command::new("cargo");
+    cmd.arg("wasix")
+        .arg("build")
+        .current_dir(build_dir)
+        // Ensure deterministic output location regardless of the caller environment.
+        .env("CARGO_TARGET_DIR", build_dir.join("target"));
+    cmd
+}
+
+fn write_ephemeral_cargo_toml(build_dir: &Path, source_filename: &str) -> Result<()> {
+    let manifest = format!(
+        r#"[package]
+name = "main"
+version = "0.0.0"
+# 2021 rather than 2024 so fixtures ported from the old direct-rustc build
+# (which used edition 2015) can keep their non-unsafe extern blocks.
+edition = "2021"
+
+[[bin]]
+name = "main"
+path = "{source_filename}"
+
+[workspace]
+"#
+    );
+    fs::write(build_dir.join("Cargo.toml"), manifest)
+        .with_context(|| format!("failed to write {}", build_dir.join("Cargo.toml").display()))
+}
+
+fn cargo_bin_name_from_manifest(manifest_path: &Path) -> Result<String> {
+    let contents = fs::read_to_string(manifest_path)
+        .with_context(|| format!("failed to read {}", manifest_path.display()))?;
+    let manifest: toml::Value = toml::from_str(&contents).context("failed to parse Cargo.toml")?;
+
+    if let Some(bins) = manifest.get("bin").and_then(|bins| bins.as_array()) {
+        ensure!(
+            bins.len() == 1,
+            "expected exactly one [[bin]] in {}",
+            manifest_path.display()
+        );
+        return Ok(bins[0]
+            .get("name")
+            .and_then(|name| name.as_str())
+            .context("[[bin]] is missing name")?
+            .to_owned());
+    }
+
+    manifest
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(|name| name.as_str())
+        .context("missing package.name")
+        .map(str::to_owned)
+}
+
+fn copy_cargo_wasix_artifact(build_dir: &Path, bin_name: &str) -> Result<PathBuf> {
+    let wasm = build_dir
+        .join(CARGO_WASIX_ARTIFACT_DIR)
+        .join(format!("{bin_name}.wasm"));
+    let main_path = build_dir.join("main");
+    fs::copy(&wasm, &main_path).with_context(|| {
+        format!(
+            "failed to copy {} to {}",
+            wasm.display(),
+            main_path.display()
+        )
+    })?;
+    Ok(main_path)
+}
+
+fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
+    // First, copy the test source directory to the 'build' subfolder that will
+    // be unique for each configuration of a test.
+    let build_test_path = config.build_path();
+    if build_test_path.exists() {
+        remove_dir_all(&build_test_path)?;
+    }
+    create_dir_all(&build_test_path)?;
+
+    copy_test_tree(&config.test_src_dir, &build_test_path).with_context(|| {
+        format!(
+            "cannot copy {} to the temporary directory {}",
+            config.test_src_dir.display(),
+            build_test_path.display(),
+        )
+    })?;
+
+    let mut cmd = match &config.source {
+        PrimarySource::BashScript(filename) => {
+            let mut cmd = Command::new("bash");
+            cmd.arg(build_test_path.join(filename))
+                .current_dir(&build_test_path)
+                .env("CC", "wasixcc")
+                .env("CXX", "wasix++")
+                .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
+            cmd
+        }
+        PrimarySource::CSourceFile(filename) | PrimarySource::CppSourceFile(filename) => {
+            let primary_source = build_test_path.join(filename);
+            let compiler = match &config.source {
+                PrimarySource::CSourceFile(_) => {
+                    std::env::var("CC").unwrap_or_else(|_| "wasixcc".to_string())
+                }
+                PrimarySource::CppSourceFile(_) => {
+                    std::env::var("CXX").unwrap_or_else(|_| "wasix++".to_string())
+                }
+                PrimarySource::BashScript(_) => unreachable!("handled above"),
+                PrimarySource::RustSourceFile(_) | PrimarySource::CargoProject => {
+                    unreachable!("handled below")
+                }
+            };
+            let mut cmd = Command::new(&compiler);
+            cmd.arg(&primary_source)
+                .arg("-o")
+                .arg("main")
+                .current_dir(&build_test_path)
+                .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
+            cmd
+        }
+        PrimarySource::RustSourceFile(filename) => match config.rust_toolchain {
+            RustToolchain::Wasix => {
+                write_ephemeral_cargo_toml(&build_test_path, filename)?;
+                cargo_wasix_build_command(&build_test_path)
+            }
+            RustToolchain::Wasip1 => rustc_wasip1_build_command(&build_test_path, filename)?,
+        },
+        PrimarySource::CargoProject => cargo_wasix_build_command(&build_test_path),
+    };
+
+    for (k, v) in &config.build_env {
+        cmd.env(k, v);
+    }
+    cmd.env("WASMER_BACKEND", config.engine.name());
+    cmd.env("WASMER_ARCH", std::env::consts::ARCH);
+    let output = cmd.output()?;
 
     if !output.status.success() {
         eprintln!("Build stdout: {}", String::from_utf8_lossy(&output.stdout));
         eprintln!("Build stderr: {}", String::from_utf8_lossy(&output.stderr));
-        anyhow::bail!("Build script failed");
+        anyhow::bail!("Build failed for {}", build_test_path.display());
     }
 
-    Ok(test_path.join("main"))
-}
-
-/// Create a tokio runtime for async operations.
-/// This is a helper to avoid duplicating runtime creation code.
-fn create_runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("Failed to create tokio runtime")
-}
-
-/// Get the cache directory for compiled WASM modules.
-/// Follows the same precedence as the Wasmer CLI:
-/// 1. WASMER_CACHE_DIR environment variable
-/// 2. WASMER_DIR/cache/compiled
-/// 3. ~/.wasmer/cache/compiled
-/// 4. temp_dir/wasmer/cache/compiled (fallback)
-fn get_cache_dir() -> PathBuf {
-    if let Ok(dir_str) = std::env::var("WASMER_CACHE_DIR") {
-        PathBuf::from(dir_str).join("compiled")
-    } else if let Ok(dir_str) = std::env::var("WASMER_DIR") {
-        PathBuf::from(dir_str).join("cache").join("compiled")
-    } else if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home)
-            .join(".wasmer")
-            .join("cache")
-            .join("compiled")
-    } else {
-        // Fallback to temp directory if no home is available
-        std::env::temp_dir()
-            .join("wasmer")
-            .join("cache")
-            .join("compiled")
-    }
-}
-
-fn create_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
-    #[cfg(target_os = "macos")]
-    {
-        use wasmer::{sys::EngineBuilder, sys::Target};
-
-        // On macOS, the default Cranelift backend has limited support for the features
-        // required by these tests, especially exception handling. Use the slower LLVM
-        // backend instead so the WASIX test suite can run reliably on macOS.
-        let target = Target::default();
-        let features = wasmer_types::Features::detect_from_wasm(wasm_bytes).unwrap_or_else(|_| {
-            wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::LLVM, &target)
-        });
-
-        let compiler = wasmer::sys::LLVM::default();
-
-        return EngineBuilder::new(compiler)
-            .set_features(Some(features))
-            .set_target(Some(target))
-            .engine()
-            .into();
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = wasm_bytes;
-        wasmer::Engine::default()
-    }
-}
-
-/// Result from running a WASM program, including captured output and exit status
-pub struct WasmRunResult {
-    #[allow(dead_code)]
-    pub stdout: Vec<u8>,
-    #[allow(dead_code)]
-    pub stderr: Vec<u8>,
-    #[allow(dead_code)]
-    pub exit_code: Option<i32>,
-}
-
-/// Run a compiled WASM file using WasiRunner and return output buffers and exit status
-///
-/// This function uses the same caching mechanism as the Wasmer CLI:
-/// - In-memory cache (SharedCache) for fast repeated loads within the same process
-/// - Filesystem cache as a fallback for persistence across test runs
-/// - Cache directory follows the same precedence as the CLI:
-///   1. WASMER_CACHE_DIR environment variable
-///   2. WASMER_DIR/cache/compiled
-///   3. ~/.wasmer/cache/compiled
-///   4. temp_dir/wasmer/cache/compiled (fallback)
-///
-/// The caching significantly improves test performance by avoiding recompilation
-/// of the same WASM modules across multiple test runs.
-pub fn run_wasm_with_result(
-    wasm_path: &PathBuf,
-    dir: &Path,
-) -> Result<WasmRunResult, anyhow::Error> {
-    // Load the compiled WASM module
-    let wasm_bytes = std::fs::read(wasm_path)?;
-    let engine = create_engine_for_wasm(&wasm_bytes);
-    let module_data = HashedModuleData::new(wasm_bytes);
-    let hash = *module_data.hash();
-
-    // Create buffers to capture stdout and stderr
-    let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
-    let stderr_buffer = Arc::new(Mutex::new(Vec::new()));
-
-    let stdout_capture = Box::new(CaptureFile::new(stdout_buffer.clone()));
-    let stderr_capture = Box::new(CaptureFile::new(stderr_buffer.clone()));
-
-    let rt = create_runtime();
-
-    let result = rt.block_on(async {
-        // Set up module cache with in-memory + filesystem fallback (same as CLI)
-        let cache_dir = get_cache_dir();
-        std::fs::create_dir_all(&cache_dir).ok();
-
-        let rt_handle = wasmer_wasix::runtime::task_manager::tokio::RuntimeOrHandle::Handle(
-            tokio::runtime::Handle::current(),
-        );
-        let tokio_task_manager =
-            Arc::new(wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager::new(rt_handle));
-        let module_cache = wasmer_wasix::runtime::module_cache::SharedCache::default()
-            .with_fallback(wasmer_wasix::runtime::module_cache::FileSystemCache::new(
-                cache_dir,
-                tokio_task_manager,
-            ));
-
-        let arc_cache = Arc::new(module_cache);
-
-        let module = wasmer_wasix::runtime::load_module(
-            &engine,
-            &arc_cache,
-            wasmer_wasix::runtime::ModuleInput::Hashed(Cow::Borrowed(&module_data)),
-            None,
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))?;
-
-        tokio::task::block_in_place(move || {
-            // Run the WASM module using WasiRunner
-            let mut runner = WasiRunner::new();
-            runner
-                .with_mapped_directories([MappedDirectory {
-                    guest: dir.to_string_lossy().to_string(),
-                    host: dir.to_path_buf(),
-                }])
-                .with_mapped_directories([MappedDirectory {
-                    guest: "/lib".to_string(),
-                    host: dir.to_path_buf(),
-                }])
-                .with_current_dir(dir.to_string_lossy().to_string())
-                .with_stdout(stdout_capture)
-                .with_stderr(stderr_capture);
-            runner.run_wasm(
-                RuntimeOrEngine::Engine(engine),
-                wasm_path.to_string_lossy().as_ref(),
-                module,
-                hash,
-            )
-        })
-    });
-
-    // Extract the captured output
-    let stdout = stdout_buffer.lock().unwrap().clone();
-    let stderr = stderr_buffer.lock().unwrap().clone();
-
-    // Extract exit code from result
-    let exit_code = match &result {
-        Ok(_) => Some(0),
-        Err(e) => {
-            // Try to extract exit code from error message
-            let error_msg = e.to_string();
-            if let Some(code_str) = error_msg.split("ExitCode::").nth(1) {
-                if let Some(code) = code_str.split_whitespace().next() {
-                    code.parse::<i32>().ok()
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+    let main_path = match (&config.source, config.rust_toolchain) {
+        (PrimarySource::RustSourceFile(_), RustToolchain::Wasix) => {
+            copy_cargo_wasix_artifact(&build_test_path, "main")?
         }
+        (PrimarySource::CargoProject, _) => {
+            let bin_name = cargo_bin_name_from_manifest(&build_test_path.join("Cargo.toml"))?;
+            copy_cargo_wasix_artifact(&build_test_path, &bin_name)?
+        }
+        (PrimarySource::RustSourceFile(_), RustToolchain::Wasip1)
+        | (
+            PrimarySource::BashScript(_)
+            | PrimarySource::CSourceFile(_)
+            | PrimarySource::CppSourceFile(_),
+            _,
+        ) => build_test_path.join("main"),
     };
 
-    Ok(WasmRunResult {
-        stdout,
-        stderr,
-        exit_code,
-    })
+    Ok(main_path)
 }
 
-/// Run a compiled WASM file using WasiRunner
-#[allow(unused)]
-pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
-    let result = run_wasm_with_result(wasm_path, dir)?;
+struct CopyHostTreeActions<CreateDirectory, CopyFile, CopyLink> {
+    create_directory: CreateDirectory,
+    copy_file: CopyFile,
+    copy_link: CopyLink,
+}
 
-    // If exit code is non-zero, return an error
-    if let Some(code) = result.exit_code
-        && code != 0
-    {
-        anyhow::bail!("WASI exited with code: {}", code);
+fn copy_host_tree<CreateDirectory, CopyFile, CopyLink>(
+    from: &Path,
+    to: &Path,
+    mut actions: CopyHostTreeActions<CreateDirectory, CopyFile, CopyLink>,
+) -> Result<()>
+where
+    CreateDirectory: FnMut(&Path) -> Result<()>,
+    CopyFile: FnMut(&Path, &Path) -> Result<()>,
+    CopyLink: FnMut(&Path, &Path) -> Result<()>,
+{
+    (actions.create_directory)(to)?;
+
+    for entry in WalkDir::new(from).min_depth(1).follow_links(false) {
+        let entry = entry.with_context(|| anyhow!("cannot get dir entry"))?;
+        let relative = entry.path().strip_prefix(from).with_context(|| {
+            anyhow!(
+                "cannot strip prefix: {} from {}",
+                from.display(),
+                entry.path().display()
+            )
+        })?;
+        let target = to.join(relative);
+        let file_type = entry.file_type();
+
+        if file_type.is_dir() {
+            (actions.create_directory)(&target)?;
+        } else {
+            if let Some(parent) = target.parent() {
+                (actions.create_directory)(parent)?;
+            }
+            if file_type.is_file() {
+                (actions.copy_file)(entry.path(), &target)?;
+            } else if file_type.is_symlink() {
+                (actions.copy_link)(entry.path(), &target)?;
+            }
+        }
     }
 
     Ok(())
+}
+
+fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
+    copy_host_tree(
+        from,
+        to,
+        CopyHostTreeActions {
+            create_directory: |path: &Path| {
+                create_dir_all(path).with_context(|| format!("failed to create {}", path.display()))
+            },
+            copy_file: |source: &Path, target: &Path| {
+                fs::copy(source, target).with_context(|| {
+                    format!(
+                        "failed to copy {} to {}",
+                        source.display(),
+                        target.display()
+                    )
+                })?;
+                Ok(())
+            },
+            copy_link: |source: &Path, target: &Path| {
+                copy_symlink(source, target)
+                    .with_context(|| format!("cannot copy symlink: {}", source.display()))
+            },
+        },
+    )
+}
+
+#[cfg(unix)]
+fn copy_symlink(from: &Path, to: &Path) -> Result<()> {
+    std::os::unix::fs::symlink(fs::read_link(from)?, to)?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn copy_symlink(_from: &Path, _to: &Path) -> Result<()> {
+    // Avoid treating this as an error because symlink support is not guaranteed
+    // on Windows.
+    Ok(())
+}
+
+fn copy_host_tree_to_virtual_fs(
+    fs: &(dyn FileSystem + Send + Sync),
+    host_root: &Path,
+    guest_root: &Path,
+) -> Result<()> {
+    copy_host_tree(
+        host_root,
+        guest_root,
+        CopyHostTreeActions {
+            create_directory: |path: &Path| {
+                create_virtual_dir_all(fs, path).with_context(|| {
+                    format!(
+                        "failed to create mapped directory {} in virtual filesystem",
+                        path.display()
+                    )
+                })
+            },
+            copy_file: |source: &Path, target: &Path| {
+                let bytes = fs::read(source).with_context(|| {
+                    format!("failed to read mapped fixture {}", source.display())
+                })?;
+                let mut file = fs
+                    .new_open_options()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(target)
+                    .with_context(|| {
+                        format!(
+                            "failed to open mapped fixture {} in virtual filesystem",
+                            target.display()
+                        )
+                    })?;
+                block_on(async {
+                    file.write_all(&bytes).await.with_context(|| {
+                        format!("failed to write mapped fixture {}", target.display())
+                    })
+                })
+            },
+            copy_link: |source: &Path, target: &Path| {
+                let link_target = fs::read_link(source).with_context(|| {
+                    format!("failed to read symlink fixture {}", source.display())
+                })?;
+                fs.create_symlink(&link_target, target).with_context(|| {
+                    format!(
+                        "failed to create symlink fixture {} in virtual filesystem",
+                        target.display()
+                    )
+                })
+            },
+        },
+    )
+}
+
+fn create_filesystem(kind: FileSystemKind) -> Arc<dyn FileSystem + Send + Sync> {
+    match kind {
+        FileSystemKind::Host => unreachable!("host filesystem uses host directory mappings"),
+        FileSystemKind::InMemory => Arc::<mem_fs::FileSystem>::default(),
+        FileSystemKind::Tmp => Arc::new(TmpFileSystem::new()),
+        FileSystemKind::PassthruMemory => {
+            let fs = Arc::<mem_fs::FileSystem>::default();
+            Arc::new(PassthruFileSystem::new_arc(fs))
+        }
+        FileSystemKind::Union => {
+            let root = MountFileSystem::new();
+            root.mount(Path::new("/"), Arc::new(TmpFileSystem::new()))
+                .expect("mounting the root fs on an empty mount fs should succeed");
+            Arc::new(root)
+        }
+        FileSystemKind::Root => Arc::new(
+            RootFileSystemBuilder::new()
+                // Fixture-backed tests assert mapped root listings exactly.
+                .default_root_dirs(false)
+                .build(),
+        ),
+    }
+}
+
+fn create_empty_dir_in_virtual_fs(fs: &(dyn FileSystem + Send + Sync), guest: &Path) -> Result<()> {
+    create_virtual_dir_all(fs, guest).with_context(|| {
+        format!(
+            "failed to create empty mapped directory {} in virtual filesystem",
+            guest.display()
+        )
+    })
+}
+
+fn configure_mapped_directories(
+    runner: &mut wasmer_wasix::runners::wasi::WasiRunner,
+    config: &Config,
+    extra_temporary_folders: &mut Vec<tempfile::TempDir>,
+) -> Result<()> {
+    let file_system = config.selected_file_system;
+    if config.mapped_directories.is_empty() {
+        if file_system != FileSystemKind::Host {
+            runner.with_mount("/".to_owned(), create_filesystem(file_system));
+        }
+        return Ok(());
+    }
+
+    let mut host_mapped_directories = Vec::new();
+    let mut filesystem_by_host_path: HashMap<PathBuf, Arc<dyn FileSystem + Send + Sync>> =
+        HashMap::new();
+
+    for directory in &config.mapped_directories {
+        if file_system == FileSystemKind::Host {
+            let host = match &directory.host {
+                HostMappedLocation::HostPath(host) => {
+                    let host = PathBuf::from(host);
+                    if host.is_absolute() {
+                        host
+                    } else {
+                        config.build_path().join(host)
+                    }
+                }
+                HostMappedLocation::TemporaryFolder => {
+                    let temp = tempfile::tempdir().expect("temporary directory must exist");
+                    let host = temp.path().to_path_buf();
+                    extra_temporary_folders.push(temp);
+                    host
+                }
+            };
+            host_mapped_directories.push(wasmer_wasix::runners::MappedDirectory {
+                host,
+                guest: directory.guest.clone(),
+            });
+        } else {
+            let fs = match &directory.host {
+                HostMappedLocation::HostPath(host) => {
+                    let host = PathBuf::from(host);
+                    ensure!(
+                        !host.is_absolute(),
+                        "{} filesystem does not support absolute host mapping {}",
+                        file_system,
+                        host.display()
+                    );
+                    let host = config.build_path().join(host);
+                    if let Some(fs) = filesystem_by_host_path.get(&host) {
+                        fs.clone()
+                    } else {
+                        let fs = create_filesystem(file_system);
+                        copy_host_tree_to_virtual_fs(&*fs, &host, Path::new("/"))?;
+                        filesystem_by_host_path.insert(host, fs.clone());
+                        fs
+                    }
+                }
+                HostMappedLocation::TemporaryFolder => {
+                    let fs = create_filesystem(file_system);
+                    create_empty_dir_in_virtual_fs(&*fs, Path::new("/"))?;
+                    fs
+                }
+            };
+            runner.with_mount(directory.guest.clone(), fs);
+        }
+    }
+
+    if file_system == FileSystemKind::Host {
+        runner.with_mapped_directories(host_mapped_directories);
+    }
+
+    Ok(())
+}
+
+fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
+    if let Some(reason) = &config.ignored {
+        return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
+    }
+    if !cfg!(unix) && config.unix_only {
+        return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
+    }
+    if cfg!(target_os = "macos") && config.ignore_macos {
+        return Ok(libtest_mimic::Completion::ignored_with("Ignored on macOS"));
+    }
+    if let Some((_, reason)) = config
+        .skipped_engines
+        .iter()
+        .find(|(engine, _)| *engine == config.engine)
+    {
+        return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
+    }
+    if let Some(reason) = minimal_libc_skip_reason(&config)? {
+        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
+
+    let wasm = run_build_script(&config)?;
+    let run_dir = &config.build_path();
+    for (path, file_content) in &config.prefilled_files {
+        File::create(run_dir.join(path))?.write_all(file_content.as_bytes())?;
+    }
+
+    let stdin = config.stdin.clone();
+
+    let mut extra_temporary_folders = Vec::new();
+    let result = runner::run_wasm_with_runner_config(
+        &wasm,
+        run_dir,
+        config.engine,
+        config.program_name.as_deref(),
+        config.default_mapped_directories,
+        |runner| {
+            if !config.arguments.is_empty() {
+                runner.with_args(config.arguments.iter().cloned());
+            }
+
+            if !config.env.is_empty() {
+                runner.with_envs(config.env.iter().cloned());
+            }
+
+            if let Some(stdin) = stdin {
+                runner.with_stdin(Box::new(StaticFile::new(stdin)));
+            }
+
+            configure_mapped_directories(runner, &config, &mut extra_temporary_folders)?;
+            if let Some(current_directory) = &config.current_directory {
+                runner.with_current_dir(current_directory.clone());
+            }
+            Ok(())
+        },
+    )?;
+
+    if config.nonzero_exit_code {
+        ensure!(
+            result.exit_code != 0,
+            "{} expected non-zero exit code\n{}",
+            config.test_name,
+            runner::format_captured_output(&result),
+        );
+    } else if result.exit_code != config.expected_exit_code {
+        bail!(
+            "{} expected exit code {}, got {:?}\n{}",
+            config.test_name,
+            config.expected_exit_code,
+            result.exit_code,
+            runner::format_captured_output(&result),
+        );
+    }
+
+    if !config.expected_stdout.is_empty() {
+        let stdout = String::from_utf8_lossy(&result.stdout);
+        let result_lines: Vec<_> = stdout.trim().lines().collect();
+        let expected_lines = config
+            .expected_stdout
+            .iter()
+            .map(String::as_str)
+            .collect_vec();
+        if result_lines != expected_lines {
+            bail!(
+                "{} expected stdout `{:?}`, got `{:?}`\n{}",
+                config.test_name,
+                config.expected_stdout,
+                result_lines,
+                runner::format_captured_output(&result),
+            )
+        }
+    }
+
+    if !config.expected_stderr.is_empty() {
+        let stderr = String::from_utf8_lossy(&result.stderr);
+        let result_lines: Vec<_> = stderr.trim().lines().collect();
+        let expected_lines = config
+            .expected_stderr
+            .iter()
+            .map(String::as_str)
+            .collect_vec();
+        if result_lines != expected_lines {
+            bail!(
+                "{} expected stderr `{:?}`, got `{:?}`\n{}",
+                config.test_name,
+                config.expected_stderr,
+                result_lines,
+                runner::format_captured_output(&result),
+            )
+        }
+    }
+
+    for (path, expected_content) in config.expected_files {
+        let content = std::fs::read_to_string(run_dir.join(&path))
+            .with_context(|| format!("{} failed to read {}", config.test_name, path.display()))?;
+        ensure!(
+            content == expected_content,
+            "{} expected file {} to contain `{:?}`, got `{:?}`\n{}",
+            config.test_name,
+            path.display(),
+            expected_content,
+            content,
+            runner::format_captured_output(&result),
+        );
+    }
+
+    Ok(libtest_mimic::Completion::Completed)
+}
+
+const PRIMARY_SOURCE_FILES: &[&str] = &["main.c", "main.cpp", "build.sh", "Cargo.toml"];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PrimarySource {
+    CSourceFile(String),
+    CppSourceFile(String),
+    RustSourceFile(String),
+    CargoProject,
+    BashScript(String),
+}
+
+impl PrimarySource {
+    fn config_name(&self) -> String {
+        match self {
+            Self::CSourceFile(filename) | Self::CppSourceFile(filename)
+                if matches!(filename.as_str(), "main.c" | "main.cpp") =>
+            {
+                "default".to_owned()
+            }
+            Self::CSourceFile(filename)
+            | Self::CppSourceFile(filename)
+            | Self::RustSourceFile(filename) => Path::new(filename)
+                .file_stem()
+                .expect("source file should have a stem")
+                .to_string_lossy()
+                .to_string(),
+            Self::BashScript(path) => {
+                if path == "build.sh" {
+                    "default".to_owned()
+                } else {
+                    path.split_once(".")
+                        .expect(".sh extension expected")
+                        .0
+                        .to_string()
+                }
+            }
+            Self::CargoProject => "default".to_owned(),
+        }
+    }
+
+    fn filename(&self) -> String {
+        match self {
+            Self::CSourceFile(filename)
+            | Self::CppSourceFile(filename)
+            | Self::RustSourceFile(filename) => filename.clone(),
+            Self::BashScript(filename) => filename.clone(),
+            Self::CargoProject => "Cargo.toml".to_owned(),
+        }
+    }
+
+    fn is_default(&self) -> bool {
+        match self {
+            Self::CSourceFile(filename) | Self::CppSourceFile(filename) => {
+                matches!(filename.as_str(), "main.c" | "main.cpp")
+            }
+            Self::RustSourceFile(_) => false,
+            Self::BashScript(filename) => filename == "build.sh",
+            Self::CargoProject => true,
+        }
+    }
+
+    fn is_rust(&self) -> bool {
+        matches!(self, Self::RustSourceFile(_) | Self::CargoProject)
+    }
+
+    fn parse_directive_line<'a>(&self, line: &'a str) -> Option<&'a str> {
+        match self {
+            Self::CargoProject => parse_cargo_toml_directive_line(line),
+            Self::BashScript(_) => line.trim().strip_prefix("##"),
+            Self::CSourceFile(_) | Self::CppSourceFile(_) | Self::RustSourceFile(_) => {
+                line.trim().strip_prefix("//#")
+            }
+        }
+    }
+}
+
+fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
+    let shell_sources = read_dir(test_src_dir)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("sh"))
+        .map(|path| {
+            PrimarySource::BashScript(
+                path.file_name()
+                    .expect("valid filename")
+                    .to_string_lossy()
+                    .to_string(),
+            )
+        })
+        .collect_vec();
+    if !shell_sources.is_empty() {
+        return Ok(shell_sources);
+    }
+
+    if test_src_dir.join("Cargo.toml").is_file() {
+        return Ok(vec![PrimarySource::CargoProject]);
+    }
+
+    for file in ["main.c", "main.cpp"] {
+        let path = test_src_dir.join(file);
+        if path.exists() {
+            return Ok(vec![match file {
+                "main.c" => PrimarySource::CSourceFile(file.to_string()),
+                "main.cpp" => PrimarySource::CppSourceFile(file.to_string()),
+                _ => unreachable!("primary source file list is fixed"),
+            }]);
+        }
+    }
+
+    // Multiple Rust source files in one fixture directory are independent tests.
+    let rust_sources = read_dir(test_src_dir)?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_ok_and(|file_type| file_type.is_file()))
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("rs"))
+        .sorted()
+        .map(|path| {
+            PrimarySource::RustSourceFile(
+                path.file_name()
+                    .expect("valid filename")
+                    .to_string_lossy()
+                    .to_string(),
+            )
+        })
+        .collect_vec();
+    if !rust_sources.is_empty() {
+        return Ok(rust_sources);
+    }
+
+    bail!(
+        "{} must contain {}",
+        test_src_dir.display(),
+        "build.sh, Cargo.toml, main.c, main.cpp, or *.rs"
+    );
+}
+
+fn has_primary_source_file(path: &Path) -> bool {
+    std::fs::read_dir(path)
+        .expect("valid directory entry")
+        .filter_map(Result::ok)
+        .any(|entry| {
+            let filename = entry.file_name();
+            let filename = filename.to_str().expect("filename must be valid");
+            PRIMARY_SOURCE_FILES.contains(&filename)
+                || (entry.file_type().is_ok_and(|file_type| file_type.is_file())
+                    && entry.path().extension().and_then(|ext| ext.to_str()) == Some("rs"))
+        })
+}
+
+fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
+    let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
+    let tests_build_root = tests_dir.join("build");
+
+    tests.push(libtest_mimic::Trial::test("wasm/dynamic_runtime_hooks", {
+        let tests_dir = tests_dir.clone();
+        let tests_build_root = tests_build_root.clone();
+        move || {
+            run_dynamic_runtime_hook_smoke(&tests_dir, &tests_build_root)
+                .map(|_| ())
+                .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+        }
+    }));
+
+    for entry in WalkDir::new(&tests_dir)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.path() != tests_dir)
+        .filter(|e| e.path().strip_prefix(&tests_build_root).is_err())
+        .filter(|e| e.file_type().is_dir())
+        .filter(|e| has_primary_source_file(e.path()))
+    {
+        let relative_test_path = entry.path().strip_prefix(&tests_dir)?;
+
+        let test_name = relative_test_path.display().to_string();
+        let primary_sources = identify_primary_sources(entry.path())?;
+
+        #[allow(unused_mut)]
+        let mut supported_engines = Vec::new();
+        #[cfg(not(target_os = "windows"))]
+        supported_engines.push(Engine::Cranelift);
+        #[cfg(feature = "llvm")]
+        supported_engines.push(Engine::LLVM);
+        #[cfg(feature = "singlepass")]
+        supported_engines.push(Engine::Singlepass);
+        #[cfg(feature = "v8")]
+        supported_engines.push(Engine::V8);
+
+        let default_file_systems = vec![FileSystemKind::Host];
+        for primary_source in primary_sources {
+            // Single-file Rust fixtures historically built with wasm32-wasip1;
+            // keep that variant alongside the cargo-wasix one, since it is the
+            // only one Singlepass can run. Every other source has no toolchain
+            // axis: it is built by wasixcc, or by cargo-wasix for Cargo
+            // projects, whose output behaves like the WASIX toolchain's.
+            let default_rust_toolchains = match &primary_source {
+                PrimarySource::RustSourceFile(_) => {
+                    vec![RustToolchain::Wasix, RustToolchain::Wasip1]
+                }
+                _ => vec![RustToolchain::Wasix],
+            };
+
+            let configs = parse_configs(&Config::new(
+                primary_source,
+                entry.path().to_path_buf(),
+                tests_build_root.clone(),
+                test_name.clone(),
+            ))?;
+
+            for config in configs {
+                for file_system in config
+                    .file_systems
+                    .as_ref()
+                    .unwrap_or(&default_file_systems)
+                {
+                    for engine in &supported_engines {
+                        // WASIXCC toolchain does not cover Windows yet.
+                        if cfg!(target_os = "windows")
+                            && !matches!(config.source, PrimarySource::RustSourceFile(..))
+                        {
+                            continue;
+                        }
+
+                        for sysroot in TESTED_LIBC_VERSIONS {
+                            // For performance reasons, run the wasix-libc compatibility tests
+                            // only with the Cranelift compiler.
+                            if sysroot.is_some() {
+                                #[cfg(target_os = "windows")]
+                                continue;
+                                #[cfg(not(target_os = "windows"))]
+                                if *engine != Engine::Cranelift {
+                                    continue;
+                                }
+                            }
+
+                            for rust_toolchain in config
+                                .rust_toolchains
+                                .as_ref()
+                                .unwrap_or(&default_rust_toolchains)
+                            {
+                                if !rust_toolchain.supports_engine(*engine) {
+                                    continue;
+                                }
+
+                                // wasip1 builds go through rustc and never see
+                                // the wasix-libc sysroot, so the compatibility
+                                // variants would just duplicate the default one.
+                                if sysroot.is_some() && *rust_toolchain == RustToolchain::Wasip1 {
+                                    continue;
+                                }
+
+                                // We don't publish the WASIX Rust toolchain for
+                                // every platform yet; the wasip1 variants build
+                                // anywhere.
+                                if config.source.is_rust()
+                                    && *rust_toolchain == RustToolchain::Wasix
+                                    && !WASIX_RUST_TOOLCHAIN_AVAILABLE
+                                {
+                                    continue;
+                                }
+
+                                let mut config = config.clone();
+                                config.engine = *engine;
+                                config.rust_toolchain = *rust_toolchain;
+                                config.selected_file_system = *file_system;
+                                if let Some(sysroot_version) = sysroot {
+                                    config.set_sysroot(sysroot_version)?;
+                                }
+
+                                tests.push(libtest_mimic::Trial::ignorable_test(
+                                    config.full_test_name(),
+                                    move || {
+                                        run_integration_test(config).map_err(|e| {
+                                            libtest_mimic::Failed::from(format!("{e:?}"))
+                                        })
+                                    },
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn run_dynamic_runtime_hook_smoke(
+    tests_dir: &Path,
+    tests_build_root: &Path,
+) -> Result<libtest_mimic::Completion> {
+    if cfg!(target_os = "windows") {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "WASIXCC toolchain does not cover Windows yet",
+        ));
+    }
+
+    let source_dir = tests_dir.join("dynamic_library/simple-dynamic-lib");
+    let config = Config::new(
+        PrimarySource::BashScript("build.sh".to_owned()),
+        source_dir,
+        tests_build_root.to_path_buf(),
+        "dynamic_runtime_hooks".to_owned(),
+    );
+    let wasm = run_build_script(&config)?;
+    let run_dir = config.build_path();
+
+    let additional_import_calls = Arc::new(AtomicUsize::new(0));
+    let instance_setup_calls = Arc::new(AtomicUsize::new(0));
+    let setup_with_imported_memory = Arc::new(AtomicUsize::new(0));
+
+    let result = runner::run_wasm_with_runner_and_runtime_config(
+        &wasm,
+        &run_dir,
+        config.engine,
+        config.program_name.as_deref(),
+        config.default_mapped_directories,
+        |_| Ok(()),
+        {
+            let additional_import_calls = additional_import_calls.clone();
+            let instance_setup_calls = instance_setup_calls.clone();
+            let setup_with_imported_memory = setup_with_imported_memory.clone();
+            move |runtime| {
+                runtime.with_additional_imports(move |_module, _store| {
+                    additional_import_calls.fetch_add(1, Ordering::SeqCst);
+                    Ok(wasmer::Imports::new())
+                });
+                runtime.with_instance_setup(move |_module, _store, _instance, imported_memory| {
+                    instance_setup_calls.fetch_add(1, Ordering::SeqCst);
+                    if imported_memory.is_some() {
+                        setup_with_imported_memory.fetch_add(1, Ordering::SeqCst);
+                    }
+                    Ok(())
+                });
+                Ok(())
+            }
+        },
+    )?;
+
+    ensure!(
+        result.exit_code == 0,
+        "dynamic runtime hook smoke exited with {}\n{}",
+        result.exit_code,
+        runner::format_captured_output(&result),
+    );
+    ensure!(
+        additional_import_calls.load(Ordering::SeqCst) >= 2,
+        "expected runtime additional_imports for main and side modules"
+    );
+    ensure!(
+        instance_setup_calls.load(Ordering::SeqCst) >= 2,
+        "expected runtime instance setup for main and side modules"
+    );
+    ensure!(
+        setup_with_imported_memory.load(Ordering::SeqCst) >= 2,
+        "expected imported memory for dynamic main and side modules"
+    );
+
+    Ok(libtest_mimic::Completion::Completed)
 }

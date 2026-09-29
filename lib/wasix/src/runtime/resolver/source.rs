@@ -5,7 +5,7 @@ use std::{
 
 use wasmer_config::package::{PackageIdent, PackageSource};
 
-use crate::runtime::resolver::PackageSummary;
+use crate::runtime::resolver::{PackageSummary, utils::cmp_version_precedence};
 
 /// Something that packages can be downloaded from.
 #[async_trait::async_trait]
@@ -34,7 +34,7 @@ pub trait Source: Sync + Debug {
                     let left_version = left.pkg.id.as_named().map(|x| &x.version);
                     let right_version = right.pkg.id.as_named().map(|x| &x.version);
 
-                    left_version.cmp(&right_version)
+                    cmp_version_precedence(left_version, right_version)
                 })
                 .ok_or(QueryError::NoMatches {
                     query: pkg.clone(),

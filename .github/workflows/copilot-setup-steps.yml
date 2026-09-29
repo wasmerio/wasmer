@@ -1,52 +1,48 @@
 name: "Copilot Setup Steps"
-
 on:
   workflow_dispatch:
   push:
     paths:
+      - .github/ci-constants.env
       - .github/workflows/copilot-setup-steps.yml
   pull_request:
     paths:
+      - .github/ci-constants.env
       - .github/workflows/copilot-setup-steps.yml
-
 env:
   RUST_BACKTRACE: 1
-
 jobs:
   # The job MUST be called `copilot-setup-steps`
   copilot-setup-steps:
     runs-on: ubuntu-22.04
-
     permissions:
       contents: read
-
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: true
+      - name: Load CI constants
+        run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
       - name: Set up libstdc++ on Linux
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install -y --reinstall g++
           sudo apt-get install -y creduce
-
       - name: Read rust version
         id: read_rust_version
         run: |
           rust_toolchain=$(grep channel rust-toolchain.toml | cut -f2 -d'"')
           echo "MSRV=$rust_toolchain" >> $GITHUB_ENV
           echo "MSRV=$rust_toolchain" >> $GITHUB_OUTPUT
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.read_rust_version.outputs.MSRV }}
           target: x86_64-unknown-linux-gnu
           components: rustc,cargo,rust-std,rust-src,clippy,rustfmt,rust-analyzer,rust-docs
-
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: runs-on/cache@v5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -58,37 +54,39 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
             ${{ runner.os }}-cargo-
-
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
-
       - name: Install LLVM
         shell: bash
         run: |
           cd $HOME
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf ${{ env.LLVM_URL }} -L -o llvm.tar.xz
           LLVM_DIR=$HOME/.llvm
           mkdir ${LLVM_DIR}
-          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar --zstd -xvf - --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_211_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           cd -
         env:
-          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz
-
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst
       - name: Install wasixcc
         uses: wasix-org/wasixcc@v0.4.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          sysroot-tag: v2026-02-16.1
           version: v0.4.3
-
+          sysroot-tag: ${{ env.WASIX_LIBC_SYSROOT_TAG }}
+      - name: Install older wasix-libc for compatibility testing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
+      - name: Install cargo-wasix
+        uses: wasix-org/cargo-wasix@main
+        with:
+          toolchain-version: ${{ env.WASIX_RUST_TOOLCHAIN_TAG }}
       - name: Install wasm-tools
         run: |
           cargo install --locked wasm-tools
-
       - name: Ensure the setup works
         shell: bash
         run: |
@@ -100,6 +98,8 @@ jobs:
           wasm-tools --version
           # Check wasixcc is installed
           wasixcc --version
+          # Check cargo-wasix is installed
+          cargo wasix --version
           # Check wasm-opt is available
           wasm-opt --version
           # Check that the repo exists
@@ -115,9 +115,9 @@ jobs:
           # Check that creduce is installed
           creduce --version
 
-      # For debugging the setup locally, you can uncomment this step and run
-      # `act -P ubuntu-22.04=catthehacker/ubuntu:full-22.04 -W ./.github/workflows/copilot-setup-steps.yml`
-      # - name: Setup upterm session
-      #   uses: owenthereal/action-upterm@v1
-      #   with:
-      #     limit-access-to-users: zebreus
+# For debugging the setup locally, you can uncomment this step and run
+# `act -P ubuntu-22.04=catthehacker/ubuntu:full-22.04 -W ./.github/workflows/copilot-setup-steps.yml`
+# - name: Setup upterm session
+#   uses: owenthereal/action-upterm@v1
+#   with:
+#     limit-access-to-users: zebreus

@@ -138,7 +138,7 @@ impl WasiProcess {
         self.cpu_run_tokens.fetch_add(1, Ordering::SeqCst);
 
         let mut inner = self.inner.0.lock().unwrap();
-        for (_, waker) in inner.backoff.cpu_backoff_wakers.iter() {
+        for waker in inner.backoff.cpu_backoff_wakers.values() {
             waker.wake_by_ref();
         }
         inner.backoff.cpu_backoff_wakers.clear();

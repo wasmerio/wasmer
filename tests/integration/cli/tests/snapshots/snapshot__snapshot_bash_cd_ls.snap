@@ -1,5 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1161
 expression: snapshot
 ---
 {
@@ -16,7 +17,7 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "arch\nbase32\nbase64\nbaseenc\nbasename\nbash\ncat\nchcon\nchgrp\nchmod\nchown\nchroot\ncksum\ncomm\ncp\ncsplit\ncut\ndate\ndd\ndf\ndircolors\ndirname\ndu\necho\nenv\nexpand\nexpr\nfactor\nfalse\nfmt\nfold\ngroups\nhashsum\nhead\nhostid\nhostname\nid\ninstall\njoin\nkill\nlink\nln\nlogname\nls\nmkdir\nmkfifo\nmknod\nmktemp\nmore\nmv\nnice\nnl\nnohup\nnproc\nnumfmt\nod\npaste\npathchk\npinky\npr\nprintenv\nprintf\nptx\npwd\nreadlink\nrealpath\nrelpath\nrm\nrmdir\nruncon\nseq\nsh\nshred\nshuf\nsleep\nsort\nsplit\nstat\nstdbuf\nsum\nsync\ntac\ntail\ntee\ntest\ntimeout\ntouch\ntr\ntrue\ntruncate\ntsort\ntty\nuname\nunexpand\nuniq\nunlink\nuptime\nusers\nwasmer\nwc\nwho\nwhoami\nyes\n",
+      "stdout": "'['\t     csplit\t fmt\t  nl\t     realpath\t sort\t    uname\n arch\t     cut\t fold\t  nohup\t     rm\t\t split\t    unexpand\n b2sum\t     date\t head\t  nproc\t     rmdir\t sum\t    uniq\n base32\t     dd\t\t hostid\t  numfmt     seq\t tac\t    unlink\n base64\t     dir\t join\t  od\t     sh\t\t tail\t    vdir\n basename    dircolors\t link\t  paste\t     sha1sum\t tee\t    wasmer\n basenc\t     dirname\t ln\t  pathchk    sha224sum\t test\t    wc\n bash\t     echo\t ls\t  pr\t     sha256sum\t touch\t    yes\n cat\t     env\t md5sum\t  printenv   sha384sum\t tr\n cksum\t     expand\t mkdir\t  printf     sha512sum\t true\n comm\t     expr\t mktemp\t  ptx\t     shred\t truncate\n coreutils   factor\t mv\t  pwd\t     shuf\t tsort\n cp\t     false\t nice\t  readlink   sleep\t tty\n",
       "stderr": "test.wasm-5.1# test.wasm-5.1# test.wasm-5.1# exit\n",
       "exit_code": 0
     }

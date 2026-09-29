@@ -1,20 +1,20 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 use super::state::ModuleTranslationState;
-use crate::lib::std::string::ToString;
-use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
 use crate::wasmparser::{Operator, ValType};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
+use std::string::ToString;
+use std::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use wasmer_types::FunctionType;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex, InitExpr,
-    LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
-    TableInitializer, TableType,
+    LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureHash, SignatureIndex,
+    TableIndex, TableInitializer, TableType,
 };
 use wasmer_types::{TagIndex, WasmResult};
 
@@ -25,7 +25,7 @@ pub struct FunctionBodyData<'a> {
     pub data: &'a [u8],
 
     /// Body offset relative to the module file.
-    pub module_offset: usize,
+    pub module_offset: u64,
 }
 
 /// Trait for iterating over the operators of a Wasm Function
@@ -89,6 +89,7 @@ impl<'data> ModuleEnvironment<'data> {
     pub fn translate(mut self, data: &'data [u8]) -> WasmResult<Self> {
         assert!(self.module_translation_state.is_none());
         let module_translation_state = translate_module(data, &mut self)?;
+        self.module.validate_signature_hashes()?;
         self.module_translation_state = Some(module_translation_state);
 
         Ok(self)
@@ -126,7 +127,9 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
         // TODO: Deduplicate signatures.
+        let signature_hash = SignatureHash::new(sig.signature_hash());
         self.module.signatures.push(sig);
+        self.module.signature_hashes.push(signature_hash);
         Ok(())
     }
 
@@ -408,7 +411,7 @@ impl<'data> ModuleEnvironment<'data> {
         &mut self,
         _module_translation_state: &ModuleTranslationState,
         body_bytes: &'data [u8],
-        body_offset: usize,
+        body_offset: u64,
     ) -> WasmResult<()> {
         self.function_body_inputs.push(FunctionBodyData {
             data: body_bytes,
@@ -439,9 +442,9 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn reserve_passive_data(&mut self, count: u32) -> WasmResult<()> {
-        let count = usize::try_from(count).unwrap();
-        self.module.passive_data.reserve(count);
+    pub(crate) fn reserve_passive_data(&mut self, _count: u32) -> WasmResult<()> {
+        // `passive_data` is a `BTreeMap`, which does not require reserving
+        // capacity before insertion.
         Ok(())
     }
 
@@ -450,7 +453,7 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        let old = self.module.passive_data.insert(data_index, Box::from(data));
+        let old = self.module.passive_data.insert(data_index, Arc::from(data));
         debug_assert!(
             old.is_none(),
             "a module can't have duplicate indices, this would be a wasmer-compiler bug"

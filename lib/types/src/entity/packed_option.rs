@@ -10,8 +10,8 @@
 //! This module provides a `PackedOption<T>` for types that have a reserved value that can be used
 //! to represent `None`.
 
-use crate::lib::std::fmt;
-use crate::lib::std::mem;
+use std::fmt;
+use std::mem;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

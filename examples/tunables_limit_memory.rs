@@ -6,7 +6,7 @@ use wasmer::{
     Engine, Instance, Memory, MemoryError, MemoryStyle, MemoryType, Module, Pages, Store,
     TableStyle, TableType, imports,
     sys::{
-        BaseTunables, NativeEngineExt, Target, Tunables,
+        BaseTunables, NativeEngineExt, Tunables,
         vm::{VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition},
     },
     wat2wasm,
@@ -144,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let compiler = Cranelift::default();
 
     // Here is where the fun begins
-    let base = BaseTunables::for_target(&Target::default());
+    let base = BaseTunables::new();
     let tunables = LimitingTunables::new(base, Pages(24));
     let mut engine: Engine = compiler.into();
     engine.set_tunables(tunables);

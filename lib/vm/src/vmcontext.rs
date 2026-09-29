@@ -15,7 +15,7 @@ use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use wasmer_types::RawValue;
 
 /// Union representing the first parameter passed when calling a function.
@@ -80,7 +80,7 @@ pub struct VMFunctionImport {
 #[cfg(test)]
 mod test_vmfunction_import {
     use super::VMFunctionImport;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
     use wasmer_types::VMOffsets;
@@ -88,7 +88,7 @@ mod test_vmfunction_import {
     #[test]
     fn check_vmfunction_import_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMFunctionImport>(),
             usize::from(offsets.size_of_vmfunction_import())
@@ -144,14 +144,14 @@ impl<T: Sized + Clone + Send + Sync> Clone for VMDynamicFunctionContext<T> {
 mod test_vmdynamicfunction_import_context {
     use super::VMDynamicFunctionContext;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmdynamicfunction_import_context_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMDynamicFunctionContext<usize>>(),
             usize::from(offsets.size_of_vmdynamicfunction_import_context())
@@ -203,14 +203,14 @@ pub struct VMTableImport {
 mod test_vmtable_import {
     use super::VMTableImport;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmtable_import_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMTableImport>(),
             usize::from(offsets.size_of_vmtable_import())
@@ -238,14 +238,14 @@ pub struct VMMemoryImport {
 mod test_vmmemory_import {
     use super::VMMemoryImport;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmmemory_import_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMMemoryImport>(),
             usize::from(offsets.size_of_vmmemory_import())
@@ -289,14 +289,14 @@ unsafe impl Sync for VMGlobalImport {}
 mod test_vmglobal_import {
     use super::VMGlobalImport;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmglobal_import_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMGlobalImport>(),
             usize::from(offsets.size_of_vmglobal_import())
@@ -319,7 +319,8 @@ mod test_vmglobal_import {
 /// The memory is not copied atomically and is not synchronized: it's the
 /// caller's responsibility to synchronize.
 pub(crate) unsafe fn memory_copy(
-    mem: &VMMemoryDefinition,
+    dst_mem: &VMMemoryDefinition,
+    src_mem: &VMMemoryDefinition,
     dst: u32,
     src: u32,
     len: u32,
@@ -328,10 +329,10 @@ pub(crate) unsafe fn memory_copy(
         // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
         if src
             .checked_add(len)
-            .is_none_or(|n| usize::try_from(n).unwrap() > mem.current_length)
+            .is_none_or(|n| usize::try_from(n).unwrap() > src_mem.current_length)
             || dst
                 .checked_add(len)
-                .is_none_or(|m| usize::try_from(m).unwrap() > mem.current_length)
+                .is_none_or(|m| usize::try_from(m).unwrap() > dst_mem.current_length)
         {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
@@ -341,8 +342,8 @@ pub(crate) unsafe fn memory_copy(
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
-        let dst = mem.base.add(dst);
-        let src = mem.base.add(src);
+        let dst = dst_mem.base.add(dst);
+        let src = src_mem.base.add(src);
         ptr::copy(src, dst, len as usize);
 
         Ok(())
@@ -385,6 +386,27 @@ pub(crate) unsafe fn memory_fill(
     }
 }
 
+/// Check the bounds and alignment of a `memory.atomic.notify` address.
+///
+/// # Errors
+///
+/// Returns a `Trap` error if the memory range is out of bounds or not 32-bit aligned.
+pub(crate) fn memory32_atomic_check_notify(mem: &VMMemoryDefinition, dst: u32) -> Result<(), Trap> {
+    const TYPE_SIZE: usize = size_of::<u32>();
+    let dst = usize::try_from(dst).unwrap();
+    if dst
+        .checked_add(TYPE_SIZE)
+        .is_none_or(|end| end > mem.current_length)
+    {
+        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+    }
+
+    if !dst.is_multiple_of(TYPE_SIZE) {
+        return Err(Trap::lib(TrapCode::UnalignedAtomic));
+    }
+    Ok(())
+}
+
 /// Perform the `memory32.atomic.check32` operation for the memory. Return 0 if same, 1 if different
 ///
 /// # Errors
@@ -399,20 +421,26 @@ pub(crate) unsafe fn memory32_atomic_check32(
     val: u32,
 ) -> Result<u32, Trap> {
     unsafe {
-        if usize::try_from(dst).unwrap() > mem.current_length {
+        const TYPE_SIZE: usize = size_of::<u32>();
+        let dst = usize::try_from(dst).unwrap();
+        if dst
+            .checked_add(TYPE_SIZE)
+            .is_none_or(|end| end > mem.current_length)
+        {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
 
-        let dst = isize::try_from(dst).unwrap();
-        if dst & 0b11 != 0 {
+        if !dst.is_multiple_of(TYPE_SIZE) {
             return Err(Trap::lib(TrapCode::UnalignedAtomic));
         }
+        let Ok(dst) = isize::try_from(dst) else {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        };
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
         let dst = mem.base.offset(dst) as *mut u32;
-        let atomic_dst = AtomicPtr::new(dst);
-        let read_val = *atomic_dst.load(Ordering::Acquire);
+        let read_val = AtomicU32::from_ptr(dst).load(Ordering::Acquire);
         let ret = if read_val == val { 0 } else { 1 };
         Ok(ret)
     }
@@ -432,20 +460,26 @@ pub(crate) unsafe fn memory32_atomic_check64(
     val: u64,
 ) -> Result<u32, Trap> {
     unsafe {
-        if usize::try_from(dst).unwrap() > mem.current_length {
+        const TYPE_SIZE: usize = size_of::<u64>();
+        let dst = usize::try_from(dst).unwrap();
+        if dst
+            .checked_add(TYPE_SIZE)
+            .is_none_or(|end| end > mem.current_length)
+        {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
 
-        let dst = isize::try_from(dst).unwrap();
-        if dst & 0b111 != 0 {
+        if !dst.is_multiple_of(TYPE_SIZE) {
             return Err(Trap::lib(TrapCode::UnalignedAtomic));
         }
+        let Ok(dst) = isize::try_from(dst) else {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        };
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
         let dst = mem.base.offset(dst) as *mut u64;
-        let atomic_dst = AtomicPtr::new(dst);
-        let read_val = *atomic_dst.load(Ordering::Acquire);
+        let read_val = AtomicU64::from_ptr(dst).load(Ordering::Acquire);
         let ret = if read_val == val { 0 } else { 1 };
         Ok(ret)
     }
@@ -467,14 +501,14 @@ pub struct VMTableDefinition {
 mod test_vmtable_definition {
     use super::VMTableDefinition;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmtable_definition_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMTableDefinition>(),
             usize::from(offsets.size_of_vmtable_definition())
@@ -522,7 +556,7 @@ mod test_vmglobal_definition {
     #[test]
     fn check_vmglobal_definition_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMGlobalDefinition>(),
             usize::from(offsets.size_of_vmglobal_local())
@@ -532,7 +566,7 @@ mod test_vmglobal_definition {
     #[test]
     fn check_vmglobal_begins_aligned() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(offsets.vmctx_globals_begin() % 16, 0);
     }
 }
@@ -569,43 +603,12 @@ impl VMSharedTagIndex {
 #[repr(C)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
-pub struct VMSharedSignatureIndex(u32);
+pub struct VMSignatureHash(u32);
 
-#[cfg(test)]
-mod test_vmshared_signature_index {
-    use super::VMSharedSignatureIndex;
-    use std::mem::size_of;
-    use wasmer_types::{ModuleInfo, TargetSharedSignatureIndex, VMOffsets};
-
-    #[test]
-    fn check_vmshared_signature_index() {
-        let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
-        assert_eq!(
-            size_of::<VMSharedSignatureIndex>(),
-            usize::from(offsets.size_of_vmshared_signature_index())
-        );
-    }
-
-    #[test]
-    fn check_target_shared_signature_index() {
-        assert_eq!(
-            size_of::<VMSharedSignatureIndex>(),
-            size_of::<TargetSharedSignatureIndex>()
-        );
-    }
-}
-
-impl VMSharedSignatureIndex {
-    /// Create a new `VMSharedSignatureIndex`.
+impl VMSignatureHash {
+    /// Create a new `VMSignatureHash`.
     pub fn new(value: u32) -> Self {
         Self(value)
-    }
-}
-
-impl Default for VMSharedSignatureIndex {
-    fn default() -> Self {
-        Self::new(u32::MAX)
     }
 }
 
@@ -618,7 +621,7 @@ pub struct VMCallerCheckedAnyfunc {
     /// Function body.
     pub func_ptr: *const VMFunctionBody,
     /// Function signature id.
-    pub type_index: VMSharedSignatureIndex,
+    pub type_signature_hash: VMSignatureHash,
     /// Function `VMContext` or host env.
     pub vmctx: VMFunctionContext,
     /// Address of the function call trampoline to invoke this function using
@@ -640,7 +643,7 @@ impl VMCallerCheckedAnyfunc {
     pub fn null() -> Self {
         Self {
             func_ptr: ptr::null(),
-            type_index: VMSharedSignatureIndex::default(),
+            type_signature_hash: VMSignatureHash(0),
             vmctx: VMFunctionContext {
                 host_env: ptr::null_mut(),
             },
@@ -652,7 +655,7 @@ impl VMCallerCheckedAnyfunc {
 impl PartialEq for VMCallerCheckedAnyfunc {
     fn eq(&self, other: &Self) -> bool {
         self.func_ptr == other.func_ptr
-            && self.type_index == other.type_index
+            && self.type_signature_hash == other.type_signature_hash
             && self.vmctx == other.vmctx
             && ptr::fn_addr_eq(self.call_trampoline, other.call_trampoline)
     }
@@ -663,7 +666,7 @@ impl Eq for VMCallerCheckedAnyfunc {}
 impl Hash for VMCallerCheckedAnyfunc {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.func_ptr.hash(state);
-        self.type_index.hash(state);
+        self.type_signature_hash.hash(state);
         self.vmctx.hash(state);
         ptr::hash(self.call_trampoline as *const (), state);
     }
@@ -673,14 +676,14 @@ impl Hash for VMCallerCheckedAnyfunc {
 mod test_vmcaller_checked_anyfunc {
     use super::VMCallerCheckedAnyfunc;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmcaller_checked_anyfunc_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMCallerCheckedAnyfunc>(),
             usize::from(offsets.size_of_vmcaller_checked_anyfunc())
@@ -690,8 +693,8 @@ mod test_vmcaller_checked_anyfunc {
             usize::from(offsets.vmcaller_checked_anyfunc_func_ptr())
         );
         assert_eq!(
-            offset_of!(VMCallerCheckedAnyfunc, type_index),
-            usize::from(offsets.vmcaller_checked_anyfunc_type_index())
+            offset_of!(VMCallerCheckedAnyfunc, type_signature_hash),
+            usize::from(offsets.vmcaller_checked_anyfunc_signature_hash())
         );
         assert_eq!(
             offset_of!(VMCallerCheckedAnyfunc, vmctx),
@@ -717,46 +720,44 @@ impl VMBuiltinFunctionsArray {
 
         let mut ptrs = [0; Self::len()];
 
-        ptrs[VMBuiltinFunctionIndex::get_memory32_grow_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_memory32_grow_index().index() as usize] =
             wasmer_vm_memory32_grow as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_grow_index().index() as *const ()
-            as usize] = wasmer_vm_imported_memory32_grow as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory32_size_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_grow_index().index() as usize] =
+            wasmer_vm_imported_memory32_grow as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory32_size_index().index() as usize] =
             wasmer_vm_memory32_size as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_size_index().index() as *const ()
-            as usize] = wasmer_vm_imported_memory32_size as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_copy_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_size_index().index() as usize] =
+            wasmer_vm_imported_memory32_size as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_copy_index().index() as usize] =
             wasmer_vm_table_copy as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_init_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_table_init_index().index() as usize] =
             wasmer_vm_table_init as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as usize] =
             wasmer_vm_elem_drop as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as usize] =
             wasmer_vm_memory32_copy as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() as *const ()
-            as usize] = wasmer_vm_imported_memory32_copy as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as usize] =
             wasmer_vm_memory32_fill as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as *const ()
-            as usize] = wasmer_vm_imported_memory32_fill as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as usize] =
+            wasmer_vm_imported_memory32_fill as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() as usize] =
             wasmer_vm_memory32_init as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as usize] =
             wasmer_vm_data_drop as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as usize] =
             wasmer_vm_raise_trap as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() as usize] =
             wasmer_vm_table_size as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() as *const ()
-            as usize] = wasmer_vm_imported_table_size as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() as usize] =
+            wasmer_vm_imported_table_size as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() as usize] =
             wasmer_vm_table_grow as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() as *const ()
-            as usize] = wasmer_vm_imported_table_grow as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_get_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() as usize] =
+            wasmer_vm_imported_table_grow as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_get_index().index() as usize] =
             wasmer_vm_table_get as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_get_index().index() as *const ()
-            as usize] = wasmer_vm_imported_table_get as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_get_index().index() as usize] =
+            wasmer_vm_imported_table_get as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_table_set_index().index() as usize] =
             wasmer_vm_table_set as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_table_set_index().index() as usize] =
@@ -870,14 +871,14 @@ unsafe impl Sync for VMMemoryDefinition {}
 mod test_vmmemory_definition {
     use super::VMMemoryDefinition;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmmemory_definition_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMMemoryDefinition>(),
             usize::from(offsets.size_of_vmmemory_definition())

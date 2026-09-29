@@ -1,11 +1,11 @@
 use crate::indexes::{FunctionIndex, GlobalIndex};
-use crate::lib::std::borrow::ToOwned;
-use crate::lib::std::boxed::Box;
-use crate::lib::std::fmt;
-use crate::lib::std::format;
-use crate::lib::std::string::{String, ToString};
-use crate::lib::std::vec::Vec;
 use crate::units::Pages;
+use std::borrow::ToOwned;
+use std::boxed::Box;
+use std::fmt;
+use std::format;
+use std::string::{String, ToString};
+use std::vec::Vec;
 
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -54,6 +54,19 @@ impl Type {
     /// Returns true if `Type` matches either of the reference types.
     pub fn is_ref(self) -> bool {
         matches!(self, Self::ExternRef | Self::FuncRef | Self::ExceptionRef)
+    }
+
+    /// Returns the size of this type in bits.
+    ///
+    /// `pointer_width` is the size of a native pointer in bits and determines
+    /// the size of `ExternRef` and `FuncRef`.
+    pub const fn bit_size(self, pointer_width: usize) -> usize {
+        match self {
+            Self::I32 | Self::F32 | Self::ExceptionRef => 32,
+            Self::I64 | Self::F64 => 64,
+            Self::ExternRef | Self::FuncRef => pointer_width,
+            Self::V128 => 128,
+        }
     }
 }
 
@@ -120,8 +133,9 @@ impl From<&[u8]> for V128 {
 ///
 /// This list can be found in [`ImportType`] or [`ExportType`], so these types
 /// can either be imported or exported.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[rkyv(derive(Debug))]
 pub enum ExternType {
     /// This external type is the type of a WebAssembly function.
     Function(FunctionType),
@@ -148,13 +162,6 @@ fn is_global_compatible(exported: GlobalType, imported: GlobalType) -> bool {
     exported_ty == imported_ty && imported_mutability == exported_mutability
 }
 
-fn is_table_element_type_compatible(exported_type: Type, imported_type: Type) -> bool {
-    match exported_type {
-        Type::FuncRef => true,
-        _ => imported_type == exported_type,
-    }
-}
-
 fn is_table_compatible(
     exported: &TableType,
     imported: &TableType,
@@ -164,14 +171,16 @@ fn is_table_compatible(
         ty: exported_ty,
         minimum: exported_minimum,
         maximum: exported_maximum,
+        ..
     } = exported;
     let TableType {
         ty: imported_ty,
         minimum: imported_minimum,
         maximum: imported_maximum,
+        ..
     } = imported;
 
-    is_table_element_type_compatible(*exported_ty, *imported_ty)
+    exported_ty == imported_ty
         && *imported_minimum <= imported_runtime_size.unwrap_or(*exported_minimum)
         && (imported_maximum.is_none()
             || (!exported_maximum.is_none()
@@ -252,7 +261,7 @@ impl ExternType {
 /// in a Wasm module or exposed to Wasm by the host.
 ///
 /// WebAssembly functions can have 0 or more parameters and results.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
@@ -285,6 +294,17 @@ impl FunctionType {
     /// Return types.
     pub fn results(&self) -> &[Type] {
         &self.results
+    }
+
+    /// Returns a stable 32-bit signature hash derived from the Wasm value types.
+    pub fn signature_hash(&self) -> u32 {
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(&self.results.len().to_le_bytes());
+        hasher.update(&self.params.len().to_le_bytes());
+        for ty in self.results.iter().chain(self.params.iter()) {
+            hasher.update(&[*ty as u8]);
+        }
+        hasher.finalize()
     }
 }
 
@@ -603,6 +623,8 @@ pub struct TableType {
     pub minimum: u32,
     /// The maximum number of elements in the table.
     pub maximum: Option<u32>,
+    /// Whether the table is known to be immutable at runtime.
+    pub readonly: bool,
 }
 
 impl TableType {
@@ -613,6 +635,7 @@ impl TableType {
             ty,
             minimum,
             maximum,
+            readonly: false,
         }
     }
 
@@ -686,7 +709,7 @@ impl fmt::Display for MemoryType {
 /// API. Each `ImportType` describes an import into the wasm module
 /// with the module/name that it's imported from as well as the type
 /// of item that's being imported.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ImportType<T = ExternType> {
     module: String,
@@ -733,7 +756,7 @@ impl<T> ImportType<T> {
 /// The `<T>` refefers to `ExternType`, however it can also refer to use
 /// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
 /// use.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ExportType<T = ExternType> {
     name: String,
@@ -792,5 +815,22 @@ mod tests {
         let ty: FunctionType = NINE_V128_TO_NINE_I32.into();
         assert_eq!(ty.params().len(), 9);
         assert_eq!(ty.results().len(), 9);
+    }
+
+    #[test]
+    fn signature_hash_is_stable() {
+        let ty: FunctionType = ([Type::I32, Type::F64], [Type::ExternRef]).into();
+        assert_eq!(ty.signature_hash(), ty.signature_hash());
+    }
+
+    #[test]
+    fn signature_hash_distinguishes() {
+        let left: FunctionType = ([Type::I32], [Type::I64]).into();
+        let right: FunctionType = ([Type::I64], [Type::I32]).into();
+        assert_ne!(left.signature_hash(), right.signature_hash());
+
+        let left: FunctionType = ([], [Type::I32, Type::I64]).into();
+        let right: FunctionType = ([Type::I32], [Type::I64]).into();
+        assert_ne!(left.signature_hash(), right.signature_hash());
     }
 }

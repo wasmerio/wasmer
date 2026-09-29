@@ -226,8 +226,8 @@ impl Selector {
         loop {
             // Wait for an event to trigger
             if let Err(e) = poll.poll(&mut events, None) {
-                // This can happen when a debugger is attached
-                #[cfg(debug_assertions)]
+                // This can happen when a debugger is attached, or more generally
+                // whenever a signal interrupts the underlying wait syscall.
                 if e.kind() == std::io::ErrorKind::Interrupted {
                     continue;
                 }

@@ -54,6 +54,9 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
                 }
             }
             Kind::Root { .. } | Kind::Dir { .. } => return Ok(Errno::Isdir),
+            // Linux fsync(2) returns EINVAL for fds "bound to a special file
+            // (e.g., a pipe, FIFO, or socket) which does not support
+            // synchronization.", mirror that behaviour
             Kind::Buffer { .. }
             | Kind::Symlink { .. }
             | Kind::Socket { .. }

@@ -18,7 +18,7 @@ use wasmer::*;
 use wasmer_types::{Features, target::Target};
 
 #[cfg(feature = "compiler")]
-use wasmer_compiler::CompilerConfig;
+use wasmer_compiler::{CompilerConfig, Debugger};
 
 use wasmer::Engine;
 
@@ -42,7 +42,8 @@ pub struct WasmFeatures {
     #[clap(long = "enable-reference-types")]
     pub reference_types: bool,
 
-    /// Enable support for the multi value proposal.
+    /// Enable support for the multi-value proposal. Singlepass support for multi-value is
+    /// experimental and does not include integration with host functions returning multiple values.
     #[clap(long = "enable-multi-value")]
     pub multi_value: bool,
 
@@ -58,9 +59,9 @@ pub struct WasmFeatures {
     #[clap(long = "enable-module-linking")]
     pub module_linking: bool,
 
-    /// Enable support for the multi memory proposal.
+    /// Deprecated, multi memory is enabled by default.
     #[clap(long = "enable-multi-memory")]
-    pub multi_memory: bool,
+    pub _multi_memory: bool,
 
     /// Enable support for the memory64 proposal.
     #[clap(long = "enable-memory64")]
@@ -98,11 +99,7 @@ pub struct RuntimeOptions {
         #[cfg(feature = "v8")]
         "v8", 
         #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
+        "cranelift",         
     ]))]
     singlepass: bool,
 
@@ -115,10 +112,6 @@ pub struct RuntimeOptions {
         "v8", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     cranelift: bool,
 
@@ -131,10 +124,6 @@ pub struct RuntimeOptions {
         "v8", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     llvm: bool,
 
@@ -147,48 +136,16 @@ pub struct RuntimeOptions {
         "llvm", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     v8: bool,
 
-    /// Use the WAMR runtime.
-    #[cfg(feature = "wamr")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
-        #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "llvm")]
-        "llvm", 
-        #[cfg(feature = "singlepass")]
-        "singlepass", 
-        #[cfg(feature = "v8")]
-        "v8", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
-    ]))]
-    wamr: bool,
-
-    /// Use the Wasmi runtime.
-    #[cfg(feature = "wasmi")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
-        #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "llvm")]
-        "llvm", 
-        #[cfg(feature = "singlepass")]
-        "singlepass", 
-        #[cfg(feature = "v8")]
-        "v8", 
-        #[cfg(feature = "wamr")]
-        "wamr"
-    ]))]
-    wasmi: bool,
+    /// Use the experimental artifact format.
+    #[clap(long = "experimental-artifact")]
+    experimental_artifact: bool,
 
     /// Enable compiler internal verification.
     ///
-    /// Available for Cranelift, LLVM and Singlepass.
+    /// Available for Cranelift (enabled always for LLVM).
     #[clap(long)]
     enable_verifier: bool,
 
@@ -209,6 +166,11 @@ pub struct RuntimeOptions {
     #[clap(long, hide = true)]
     _enable_pass_params_opt: bool,
 
+    /// For the LLVM compiler, disable passing the pointer to the first memory as a hidden argument.
+    #[cfg(feature = "llvm")]
+    #[clap(long)]
+    disable_m0_pass_param_opt: bool,
+
     /// Sets the number of threads used to compile the input module(s).
     #[clap(long, alias = "llvm-num-threads")]
     compiler_threads: Option<NonZero<usize>>,
@@ -218,6 +180,20 @@ pub struct RuntimeOptions {
     #[clap(long = "enable-nan-canonicalization")]
     enable_nan_canonicalization: bool,
 
+    /// Disable LLVM non-volatile memory operations.
+    ///
+    /// Available for LLVM.
+    #[cfg(feature = "llvm")]
+    #[clap(long = "disable-non-volatile-memops")]
+    disable_non_volatile_memops: bool,
+
+    /// Allow unaligned memory accesses.
+    ///
+    /// This feature is experimental and currently supports only Cranelift scalar types
+    /// and Singlepass on RISC-V for integral types.
+    #[clap(long = "enable-experimental-unaligned-memory-accesses")]
+    enable_experimental_unaligned_memory_accesses: bool,
+
     #[clap(flatten)]
     features: WasmFeatures,
 }
@@ -226,6 +202,10 @@ pub struct RuntimeOptions {
 pub enum Profiler {
     /// Perfmap-based profilers.
     Perfmap,
+    /// GDB command file.
+    Gdb,
+    /// LLDB command file.
+    Lldb,
 }
 
 impl FromStr for Profiler {
@@ -234,12 +214,32 @@ impl FromStr for Profiler {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "perfmap" => Ok(Self::Perfmap),
+            "gdb" => Ok(Self::Gdb),
+            "lldb" => Ok(Self::Lldb),
             _ => Err(anyhow::anyhow!("Unrecognized profiler: {s}")),
         }
     }
 }
 
 impl RuntimeOptions {
+    fn validate_profiler(&self) -> Result<()> {
+        if self.experimental_artifact && !cfg!(target_os = "linux") {
+            bail!("--experimental-artifact is only supported on Linux");
+        }
+        if !self.experimental_artifact {
+            match self.profiler {
+                Some(Profiler::Gdb) => {
+                    bail!("The gdb profiler requires --experimental-artifact")
+                }
+                Some(Profiler::Lldb) => {
+                    bail!("The lldb profiler requires --experimental-artifact")
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     pub fn get_available_backends(&self) -> Result<Vec<BackendType>> {
         // If a specific backend is explicitly requested, use it
         #[cfg(feature = "cranelift")]
@@ -263,24 +263,10 @@ impl RuntimeOptions {
             }
         }
 
-        #[cfg(feature = "wamr")]
-        {
-            if self.wamr {
-                return Ok(vec![BackendType::Wamr]);
-            }
-        }
-
         #[cfg(feature = "v8")]
         {
             if self.v8 {
                 return Ok(vec![BackendType::V8]);
-            }
-        }
-
-        #[cfg(feature = "wasmi")]
-        {
-            if self.wasmi {
-                return Ok(vec![BackendType::Wasmi]);
             }
         }
 
@@ -421,9 +407,6 @@ impl RuntimeOptions {
         if self.features.module_linking {
             features.module_linking(true);
         }
-        if self.features.multi_memory {
-            features.multi_memory(true);
-        }
         if self.features.memory64 {
             features.memory64(true);
         }
@@ -456,13 +439,14 @@ impl RuntimeOptions {
         &self,
         rt: &BackendType,
     ) -> Result<Box<dyn CompilerConfig>> {
+        self.validate_profiler()?;
         let compiler_config: Box<dyn CompilerConfig> = match rt {
             BackendType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
             BackendType::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
-                if self.enable_verifier {
-                    config.enable_verifier();
+                if self.enable_experimental_unaligned_memory_accesses {
+                    config.allow_experimental_unaligned_memory_accesses(true);
                 }
                 if self.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
@@ -470,6 +454,8 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
@@ -486,6 +472,9 @@ impl RuntimeOptions {
             #[cfg(feature = "cranelift")]
             BackendType::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                if self.enable_experimental_unaligned_memory_accesses {
+                    config.allow_experimental_unaligned_memory_accesses(true);
+                }
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
@@ -495,6 +484,8 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
@@ -513,7 +504,13 @@ impl RuntimeOptions {
                 use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
-                config.enable_non_volatile_memops();
+                if self.disable_m0_pass_param_opt {
+                    config.enable_m0_pass_param(false);
+                }
+                if !self.disable_non_volatile_memops {
+                    config.enable_non_volatile_memops();
+                }
+                config.enable_readonly_funcref_table();
 
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
@@ -524,21 +521,20 @@ impl RuntimeOptions {
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                     config.verbose_asm(true);
                 }
-                if self.enable_verifier {
-                    config.enable_verifier();
-                }
                 if self.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
                 }
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
 
                 Box::new(config)
             }
-            BackendType::V8 | BackendType::Wamr | BackendType::Wasmi => unreachable!(),
+            BackendType::V8 => unreachable!(),
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
                 bail!("The `{compiler}` compiler is not included in this binary.")
@@ -546,7 +542,13 @@ impl RuntimeOptions {
         };
 
         #[allow(unreachable_code)]
-        Ok(compiler_config)
+        {
+            let mut compiler_config = compiler_config;
+            if self.experimental_artifact {
+                compiler_config.experimental_artifact(true);
+            }
+            Ok(compiler_config)
+        }
     }
 }
 
@@ -566,12 +568,6 @@ pub enum BackendType {
     /// V8 runtime
     V8,
 
-    /// Wamr runtime
-    Wamr,
-
-    /// Wasmi runtime
-    Wasmi,
-
     /// Headless compiler
     #[allow(dead_code)]
     Headless,
@@ -589,10 +585,6 @@ impl BackendType {
             Self::Singlepass,
             #[cfg(feature = "v8")]
             Self::V8,
-            #[cfg(feature = "wamr")]
-            Self::Wamr,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi,
         ]
     }
 
@@ -600,20 +592,26 @@ impl BackendType {
     /// We enable every feature the engine supports, since the same engine may later be used
     /// with a module that requires more features than the one used during engine detection.
     pub fn get_engine(&self, target: &Target, runtime_opts: &RuntimeOptions) -> Result<Engine> {
+        runtime_opts.validate_profiler()?;
         match self {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
-                let supported_features = config.supported_features_for_target(target);
-                if runtime_opts.enable_verifier {
-                    config.enable_verifier();
+                if runtime_opts.experimental_artifact {
+                    config.experimental_artifact(true);
                 }
+                if runtime_opts.enable_experimental_unaligned_memory_accesses {
+                    config.allow_experimental_unaligned_memory_accesses(true);
+                }
+                let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
                 }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
@@ -635,6 +633,12 @@ impl BackendType {
             #[cfg(feature = "cranelift")]
             Self::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                if runtime_opts.experimental_artifact {
+                    config.experimental_artifact(true);
+                }
+                if runtime_opts.enable_experimental_unaligned_memory_accesses {
+                    config.allow_experimental_unaligned_memory_accesses(true);
+                }
                 let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
@@ -645,6 +649,8 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
@@ -669,16 +675,22 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
-                config.enable_non_volatile_memops();
+                if runtime_opts.disable_m0_pass_param_opt {
+                    config.enable_m0_pass_param(false);
+                }
+                if runtime_opts.experimental_artifact {
+                    config.experimental_artifact(true);
+                }
+                if !runtime_opts.disable_non_volatile_memops {
+                    config.enable_non_volatile_memops();
+                }
+                config.enable_readonly_funcref_table();
 
                 let supported_features = config.supported_features_for_target(target);
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                     config.verbose_asm(true);
-                }
-                if runtime_opts.enable_verifier {
-                    config.enable_verifier();
                 }
                 if runtime_opts.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
@@ -691,6 +703,8 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
 
@@ -703,10 +717,6 @@ impl BackendType {
             }
             #[cfg(feature = "v8")]
             Self::V8 => Ok(wasmer::v8::V8::new().into()),
-            #[cfg(feature = "wamr")]
-            Self::Wamr => Ok(wasmer::wamr::Wamr::new().into()),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi => Ok(wasmer::wasmi::Wasmi::new().into()),
             Self::Headless => bail!("Headless is not a valid runtime to instantiate directly"),
             #[allow(unreachable_patterns)]
             _ => bail!("Unsupported backend type"),
@@ -726,10 +736,6 @@ impl BackendType {
             Self::LLVM => wasmer::BackendKind::LLVM,
             #[cfg(feature = "v8")]
             Self::V8 => wasmer::BackendKind::V8,
-            #[cfg(feature = "wamr")]
-            Self::Wamr => wasmer::BackendKind::Wamr,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi => wasmer::BackendKind::Wasmi,
             Self::Headless => return false, // Headless can't compile
             #[allow(unreachable_patterns)]
             _ => return false,
@@ -758,10 +764,6 @@ impl From<&BackendType> for wasmer::BackendKind {
             BackendType::LLVM => wasmer::BackendKind::LLVM,
             #[cfg(feature = "v8")]
             BackendType::V8 => wasmer::BackendKind::V8,
-            #[cfg(feature = "wamr")]
-            BackendType::Wamr => wasmer::BackendKind::Wamr,
-            #[cfg(feature = "wasmi")]
-            BackendType::Wasmi => wasmer::BackendKind::Wasmi,
             _ => {
                 #[cfg(feature = "sys")]
                 {
@@ -786,8 +788,6 @@ impl std::fmt::Display for BackendType {
                 Self::Cranelift => "cranelift",
                 Self::LLVM => "llvm",
                 Self::V8 => "v8",
-                Self::Wamr => "wamr",
-                Self::Wasmi => "wasmi",
                 Self::Headless => "headless",
             }
         )

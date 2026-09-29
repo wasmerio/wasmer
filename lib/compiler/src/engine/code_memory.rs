@@ -100,7 +100,7 @@ impl CodeMemory {
 
         // 2. Allocate the pages. Mark them all read-write.
 
-        self.mmap = Mmap::with_at_least(total_len)?;
+        self.mmap = Mmap::with_at_least(total_len, false)?;
 
         // 3. Determine where the pointers to each function, executable section
         // or data section are. Copy the functions. Collect the addresses of each and return them.
@@ -230,7 +230,7 @@ impl CodeMemory {
         unsafe { &mut *body_ptr }
     }
 
-    /// Register the frame info, so it's free when the mememory gets freed
+    /// Register the frame info, so it's free when the memory gets freed
     pub fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
         self.frame_info_registration = Some(frame_info);
     }

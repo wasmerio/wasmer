@@ -5,14 +5,17 @@
 //! `wasmer::Module`.
 
 use crate::entity::{EntityRef, PrimaryMap};
+use crate::indexes::SignatureHash;
 use crate::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex, MemoryIndex, MemoryType,
     ModuleHash, SignatureIndex, TableIndex, TableInitializer, TableType, TagIndex, TagType,
+    WasmError, WasmResult,
 };
 
 use indexmap::IndexMap;
+use itertools::Itertools;
 use rkyv::rancor::{Fallible, Source, Trace};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -21,6 +24,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
@@ -32,7 +36,7 @@ pub struct ModuleId {
 
 impl ModuleId {
     pub fn id(&self) -> String {
-        format!("{}", &self.id)
+        format!("{}", self.id)
     }
 }
 
@@ -142,7 +146,13 @@ pub struct ModuleInfo {
     pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
 
     /// WebAssembly passive data segments.
-    pub passive_data: HashMap<DataIndex, Box<[u8]>>,
+    ///
+    /// Stored as `Arc<[u8]>` so that every instance created from this module can
+    /// share the same immutable segment bytes (a cheap refcount bump) instead of
+    /// deep-copying them. `memory.init` only ever reads these bytes, and
+    /// `data.drop` is tracked per-instance, so there is no reason to clone them
+    /// per instance.
+    pub passive_data: BTreeMap<DataIndex, Arc<[u8]>>,
 
     /// WebAssembly global initializers.
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
@@ -152,6 +162,9 @@ pub struct ModuleInfo {
 
     /// WebAssembly function signatures.
     pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
+
+    /// WebAssembly function signature hashes.
+    pub signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
 
     /// WebAssembly functions (imported and local).
     pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
@@ -201,10 +214,11 @@ pub struct ArchivableModuleInfo {
     start_function: Option<FunctionIndex>,
     table_initializers: Vec<TableInitializer>,
     passive_elements: BTreeMap<ElemIndex, Box<[FunctionIndex]>>,
-    passive_data: BTreeMap<DataIndex, Box<[u8]>>,
+    passive_data: BTreeMap<DataIndex, Arc<[u8]>>,
     global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
     function_names: BTreeMap<FunctionIndex, String>,
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
+    signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
     functions: PrimaryMap<FunctionIndex, SignatureIndex>,
     tables: PrimaryMap<TableIndex, TableType>,
     memories: PrimaryMap<MemoryIndex, MemoryType>,
@@ -229,10 +243,11 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it.passive_data.into_iter().collect(),
+            passive_data: it.passive_data,
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
+            signature_hashes: it.signature_hashes,
             functions: it.functions,
             tables: it.tables,
             memories: it.memories,
@@ -260,10 +275,11 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it.passive_data.into_iter().collect(),
+            passive_data: it.passive_data,
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
+            signature_hashes: it.signature_hashes,
             functions: it.functions,
             tables: it.tables,
             memories: it.memories,
@@ -295,8 +311,8 @@ impl Archive for ModuleInfo {
     }
 }
 
-impl<S: rkyv::ser::Allocator + rkyv::ser::Writer + Fallible + ?Sized> RkyvSerialize<S>
-    for ModuleInfo
+impl<S: rkyv::ser::Allocator + rkyv::ser::Writer + rkyv::ser::Sharing + Fallible + ?Sized>
+    RkyvSerialize<S> for ModuleInfo
 where
     <S as Fallible>::Error: rkyv::rancor::Source + rkyv::rancor::Trace,
 {
@@ -305,7 +321,8 @@ where
     }
 }
 
-impl<D: Fallible + ?Sized> RkyvDeserialize<ModuleInfo, D> for ArchivedArchivableModuleInfo
+impl<D: rkyv::de::Pooling + Fallible + ?Sized> RkyvDeserialize<ModuleInfo, D>
+    for ArchivedArchivableModuleInfo
 where
     D::Error: Source + Trace,
 {
@@ -328,6 +345,7 @@ impl PartialEq for ModuleInfo {
             && self.global_initializers == other.global_initializers
             && self.function_names == other.function_names
             && self.signatures == other.signatures
+            && self.signature_hashes == other.signature_hashes
             && self.functions == other.functions
             && self.tables == other.tables
             && self.memories == other.memories
@@ -359,6 +377,23 @@ impl ModuleInfo {
     /// Returns the module hash as String if available
     pub fn hash_string(&self) -> Option<String> {
         self.hash.map(|m| m.to_string())
+    }
+
+    /// Validates invariants for the precomputed signature hashes.
+    pub fn validate_signature_hashes(&self) -> WasmResult<()> {
+        // TODO: the signatures are not distinct, thus we cannot just validate signature_hashes.
+        if self
+            .signatures
+            .iter()
+            .map(|(_, signature)| signature)
+            .unique()
+            .map(|signature| signature.signature_hash())
+            .all_unique()
+        {
+            Ok(())
+        } else {
+            Err(WasmError::Generic("signature hash collision".to_string()))
+        }
     }
 
     /// Get the given passive element, if it exists.
@@ -488,6 +523,11 @@ impl ModuleInfo {
     /// Test whether the given function index is for an imported function.
     pub fn is_imported_function(&self, index: FunctionIndex) -> bool {
         index.index() < self.num_imported_functions
+    }
+
+    /// Get number of local functions.
+    pub fn local_func_count(&self) -> usize {
+        self.functions.len() - self.num_imported_functions
     }
 
     /// Convert a `LocalTableIndex` into a `TableIndex`.

@@ -1,5 +1,8 @@
 //! Windows x64 ABI unwind information.
 
+#[cfg(feature = "enable-serde")]
+use serde_derive::{Deserialize, Serialize};
+
 use crate::{
     location::Reg,
     unwind::{UnwindOps, UnwindRegister},
@@ -44,6 +47,7 @@ impl<'a> Writer<'a> {
 /// Note: the Cranelift x86 ISA RU enum matches the Windows unwind GPR encoding values.
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) enum UnwindCode {
     PushRegister {
         instruction_offset: u8,
@@ -189,13 +193,13 @@ impl UnwindInfo {
     pub fn emit_size(&self) -> usize {
         let node_count = self.node_count();
 
-        // Calculation of the size requires no SEH handler or chained info
+        // Calculation of the size requires no SHE handler or chained info
         assert!(self.flags == 0);
 
         // Size of fixed part of UNWIND_INFO is 4 bytes
         // Then comes the UNWIND_CODE nodes (2 bytes each)
         // Then comes 2 bytes of padding for the unwind codes if necessary
-        // Next would come the SEH data, but we assert above that the function doesn't have SEH data
+        // Next would come the SHE data, but we assert above that the function doesn't have SHE data
 
         4 + (node_count * 2) + if (node_count & 1) == 1 { 2 } else { 0 }
     }

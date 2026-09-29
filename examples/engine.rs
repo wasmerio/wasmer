@@ -1,13 +1,13 @@
 //! Defining an engine in Wasmer is one of the fundamental steps.
 //!
 //! This example illustrates how to use the `wasmer_compiler`,
-//! aka the Universal engine. An engine applies roughly 2 steps:
+//! aka the Engine. An engine applies roughly 2 steps:
 //!
 //!   1. It compiles the Wasm module bytes to executable code, through
 //!      the intervention of a compiler,
 //!   2. It stores the executable code somewhere.
 //!
-//! In the particular context of the Universal engine, the executable
+//! In the particular context of the Engine, the executable
 //! code is stored in memory.
 //!
 //! You can run the example directly by executing in Wasmer root:
@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compile the Wasm module into executable code.
     let compiler_config = Cranelift::default();
 
-    println!("Creating Universal engine...");
+    println!("Creating engine...");
     // Define the engine that will drive everything.
     //
     // In this case, the engine is `wasmer_compiler` which roughly
@@ -85,6 +85,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_engine_universal() -> Result<(), Box<dyn std::error::Error>> {
+fn test_engine() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }

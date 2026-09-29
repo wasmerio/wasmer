@@ -18,6 +18,11 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(target_os = "windows")]
+compile_error!(
+    "The Cranelift compiler backend is not supported on Windows. Use the V8 backend instead."
+);
+
 #[cfg(not(feature = "std"))]
 #[macro_use]
 extern crate alloc as std;
@@ -36,6 +41,7 @@ use std::collections::{
     hash_map::Entry::{Occupied, Vacant},
 };
 
+mod abi;
 mod address_map;
 mod compiler;
 mod config;
@@ -44,6 +50,7 @@ mod debug;
 mod dwarf;
 #[cfg(feature = "unwind")]
 mod eh;
+mod elf;
 mod func_environ;
 mod heap;
 mod table;

@@ -1,13 +1,13 @@
 ---
 source: crates/webc/src/wasmer_package/manifest.rs
-description: "\n            [package]\n            name = \"sharrattj/bash\"\n            version = \"1.0.17\"\n            description = \"Bash is a modern POSIX-compliant implementation of /bin/sh.\"\n            license = \"GNU\"\n            wasmer-extra-flags = \"--enable-threads --enable-bulk-memory\"\n\n            [dependencies]\n            \"sharrattj/coreutils\" = \"1.0.16\"\n\n            [[module]]\n            name = \"bash\"\n            source = \"bash.wasm\"\n            abi = \"wasi\"\n\n            [[command]]\n            name = \"bash\"\n            module = \"bash\"\n            runner = \"wasi@unstable_\"\n        "
+description: "\n            [package]\n            name = \"wasmer/bash\"\n            version = \"1.0.17\"\n            description = \"Bash is a modern POSIX-compliant implementation of /bin/sh.\"\n            license = \"GNU\"\n            wasmer-extra-flags = \"--enable-threads --enable-bulk-memory\"\n\n            [dependencies]\n            \"wasmer/coreutils\" = \"1.0.16\"\n\n            [[module]]\n            name = \"bash\"\n            source = \"bash.wasm\"\n            abi = \"wasi\"\n\n            [[command]]\n            name = \"bash\"\n            module = \"bash\"\n            runner = \"wasi@unstable_\"\n        "
 expression: "&transformed"
 ---
 use:
   wasmer/coreutils: wasmer/coreutils@^1.0.19
 package:
   wapm:
-    name: sharrattj/bash
+    name: wasmer/bash
     version: 1.0.17
     description: Bash is a modern POSIX-compliant implementation of /bin/sh.
     license: GNU

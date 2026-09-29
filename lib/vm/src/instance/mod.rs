@@ -16,15 +16,16 @@ use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMSharedTagIndex, VMTableDefinition, VMTableImport,
-    VMTrampoline, memory_copy, memory_fill, memory32_atomic_check32, memory32_atomic_check64,
+    VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
+    VMTrampoline, memory_copy, memory_fill, memory32_atomic_check_notify, memory32_atomic_check32,
+    memory32_atomic_check64,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
 pub use allocator::InstanceAllocator;
+use core::mem::offset_of;
 use itertools::Itertools;
-use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::Layout;
 use std::cell::RefCell;
@@ -67,6 +68,9 @@ pub(crate) struct Instance {
     /// WebAssembly table data.
     tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
 
+    /// Number of local table elements that may still be allocated by this instance.
+    table_allocation_room: u32,
+
     /// WebAssembly global data.
     globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
 
@@ -83,9 +87,15 @@ pub(crate) struct Instance {
     /// entries get removed.
     passive_elements: RefCell<HashMap<ElemIndex, Box<[Option<VMFuncRef>]>>>,
 
-    /// Passive data segments from our module. As `data.drop`s happen, entries
-    /// get removed. A missing entry is considered equivalent to an empty slice.
-    passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
+    /// Per-instance view of the module's passive data segments.
+    ///
+    /// A `None` entry (dropped) or a missing entry is treated as an empty slice.
+    ///
+    /// The bytes are shared with the module via `Arc` (no per-instance copy).
+    /// `data.drop` replaces an entry's value with `None` to mark the segment
+    /// unusable for subsequent `memory.init` on this instance, without
+    /// affecting the shared module bytes or any other instance.
+    passive_data: RefCell<HashMap<DataIndex, Option<Arc<[u8]>>>>,
 
     /// Mapping of function indices to their func ref backing data. `VMFuncRef`s
     /// will point to elements here for functions defined by this instance.
@@ -139,11 +149,6 @@ impl Instance {
     /// Offsets in the `vmctx` region.
     fn offsets(&self) -> &VMOffsets {
         &self.offsets
-    }
-
-    /// Return a pointer to the `VMSharedSignatureIndex`s.
-    fn signature_ids_ptr(&self) -> *mut VMSharedSignatureIndex {
-        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_signature_ids_begin()) }
     }
 
     /// Return the indexed `VMFunctionImport`.
@@ -270,7 +275,6 @@ impl Instance {
         }
     }
 
-    #[allow(dead_code)]
     /// Get a locally defined or imported memory.
     fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
         if let Some(local_index) = self.module.local_memory_index(index) {
@@ -423,7 +427,7 @@ impl Instance {
         unsafe {
             // Even though we already know the type of the function we need to call, in certain
             // specific cases trampoline prepare callee arguments for specific optimizations, such
-            // as passing g0 and m0_base_ptr as paramters.
+            // as passing g0 and m0_base_ptr as parameters.
             wasmer_call_trampoline(
                 trap_handler,
                 config,
@@ -445,7 +449,7 @@ impl Instance {
     pub(crate) fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
         let begin: *const VMTableDefinition = self.tables_ptr() as *const _;
         let end: *const VMTableDefinition = table;
-        // TODO: Use `offset_from` once it stablizes.
+        // TODO: Use `offset_from` once it stabilizes.
         let index = LocalTableIndex::new(
             (end as usize - begin as usize) / mem::size_of::<VMTableDefinition>(),
         );
@@ -457,7 +461,7 @@ impl Instance {
     pub(crate) fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
         let begin: *const VMMemoryDefinition = self.memories_ptr() as *const _;
         let end: *const VMMemoryDefinition = memory;
-        // TODO: Use `offset_from` once it stablizes.
+        // TODO: Use `offset_from` once it stabilizes.
         let index = LocalMemoryIndex::new(
             (end as usize - begin as usize) / mem::size_of::<VMMemoryDefinition>(),
         );
@@ -554,11 +558,18 @@ impl Instance {
         delta: u32,
         init_value: TableElement,
     ) -> Option<u32> {
+        if delta > self.table_allocation_room {
+            return None;
+        }
         let table = *self
             .tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()));
-        table.get_mut(self.context_mut()).grow(delta, init_value)
+        let result = table.get_mut(self.context_mut()).grow(delta, init_value);
+        if result.is_some() {
+            self.table_allocation_room -= delta;
+        }
+        result
     }
 
     /// Grow table by the specified amount of elements.
@@ -777,38 +788,24 @@ impl Instance {
         // dropping a non-passive element is a no-op (not a trap).
     }
 
-    /// Do a `memory.copy` for a locally defined memory.
+    /// Perform a `memory.copy` between two memories.
     ///
     /// # Errors
     ///
-    /// Returns a `Trap` error when the source or destination ranges are out of
+    /// Returns a `Trap` error when the source or destination range is out of
     /// bounds.
-    pub(crate) fn local_memory_copy(
+    pub(crate) fn memory_copy(
         &self,
-        memory_index: LocalMemoryIndex,
+        dst_memory_index: MemoryIndex,
+        src_memory_index: MemoryIndex,
         dst: u32,
         src: u32,
         len: u32,
     ) -> Result<(), Trap> {
-        // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
-
-        let memory = self.memory(memory_index);
-        // The following memory copy is not synchronized and is not atomic:
-        unsafe { memory_copy(&memory, dst, src, len) }
-    }
-
-    /// Perform a `memory.copy` on an imported memory.
-    pub(crate) fn imported_memory_copy(
-        &self,
-        memory_index: MemoryIndex,
-        dst: u32,
-        src: u32,
-        len: u32,
-    ) -> Result<(), Trap> {
-        let import = self.imported_memory(memory_index);
-        let memory = unsafe { import.definition.as_ref() };
-        // The following memory copy is not synchronized and is not atomic:
-        unsafe { memory_copy(memory, dst, src, len) }
+        let dst_memory = self.get_memory(dst_memory_index);
+        let src_memory = self.get_memory(src_memory_index);
+        // The following memory copy is not synchronized and is not atomic.
+        unsafe { memory_copy(&dst_memory, &src_memory, dst, src, len) }
     }
 
     /// Perform the `memory.fill` operation on a locally defined memory.
@@ -865,7 +862,13 @@ impl Instance {
 
         let memory = self.get_vmmemory(memory_index);
         let passive_data = self.passive_data.borrow();
-        let data = passive_data.get(&data_index).map_or(&[][..], |d| &**d);
+        // A missing entry (never existed) or a dropped one (`None`) both behave
+        // as a zero-length segment, so an in-bounds `memory.init` of non-zero
+        // length traps below.
+        let data = passive_data
+            .get(&data_index)
+            .and_then(|d| d.as_deref())
+            .unwrap_or(&[]);
 
         let current_length = unsafe { memory.vmmemory().as_ref().current_length };
         if src.checked_add(len).is_none_or(|n| n as usize > data.len())
@@ -882,7 +885,11 @@ impl Instance {
     /// Drop the given data segment, truncating its length to zero.
     pub(crate) fn data_drop(&self, data_index: DataIndex) {
         let mut passive_data = self.passive_data.borrow_mut();
-        passive_data.remove(&data_index);
+        // Release this instance's reference to the shared bytes and mark the
+        // segment unusable. Other instances (and the module) are unaffected.
+        if let Some(slot) = passive_data.get_mut(&data_index) {
+            *slot = None;
+        }
     }
 
     /// Get a table by index regardless of whether it is locally-defined or an
@@ -936,11 +943,7 @@ impl Instance {
         };
         match unsafe { memory.do_wait(dst, expected, timeout) } {
             Ok(count) => Ok(count),
-            Err(_err) => {
-                // ret is None if there is more than 2^32 waiter in queue or some other error
-                // TODO: why THIS specific trap code tho? -.-
-                Err(Trap::lib(TrapCode::TableAccessOutOfBounds))
-            }
+            Err(_err) => Err(Trap::lib(TrapCode::HostInterrupt)),
         }
     }
 
@@ -1065,6 +1068,8 @@ impl Instance {
         dst: u32,
         count: u32,
     ) -> Result<u32, Trap> {
+        let memory = self.memory(memory_index);
+        memory32_atomic_check_notify(&memory, dst)?;
         let memory = self.get_local_vmmemory_mut(memory_index);
         Ok(memory.do_notify(dst, count))
     }
@@ -1076,6 +1081,9 @@ impl Instance {
         dst: u32,
         count: u32,
     ) -> Result<u32, Trap> {
+        let import = self.imported_memory(memory_index);
+        let memory = unsafe { import.definition.as_ref() };
+        memory32_atomic_check_notify(memory, dst)?;
         let memory = self.get_vmmemory_mut(memory_index);
         Ok(memory.do_notify(dst, count))
     }
@@ -1104,7 +1112,7 @@ pub struct VMInstance {
 
 /// VMInstance are created with an InstanceAllocator
 /// and it will "consume" the memory
-/// So the Drop here actualy free it (else it would be leaked)
+/// So the Drop here actually free it (else it would be leaked)
 impl Drop for VMInstance {
     fn drop(&mut self) {
         let instance_ptr = self.instance.as_ptr();
@@ -1149,10 +1157,11 @@ impl VMInstance {
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
         finished_memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
         finished_tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
+        table_allocation_room: u32,
         finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
         tags: BoxedSlice<TagIndex, InternalStoreHandle<VMTag>>,
         imports: Imports,
-        vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+        vmshared_signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, Trap> {
         unsafe {
             let vmctx_tags = tags
@@ -1160,12 +1169,13 @@ impl VMInstance {
                 .map(|m: &InternalStoreHandle<VMTag>| VMSharedTagIndex::new(m.index() as u32))
                 .collect::<PrimaryMap<TagIndex, VMSharedTagIndex>>()
                 .into_boxed_slice();
+            // Share the module's passive data bytes via `Arc` (refcount bump)
+            // rather than deep-copying them into every instance.
             let passive_data = RefCell::new(
                 module
                     .passive_data
-                    .clone()
-                    .into_iter()
-                    .map(|(idx, bytes)| (idx, Arc::from(bytes)))
+                    .iter()
+                    .map(|(&idx, bytes)| (idx, Some(Arc::clone(bytes))))
                     .collect::<HashMap<_, _>>(),
             );
 
@@ -1181,6 +1191,7 @@ impl VMInstance {
                     offsets,
                     memories: finished_memories,
                     tables: finished_tables,
+                    table_allocation_room,
                     tags,
                     globals: finished_globals,
                     functions: finished_functions,
@@ -1220,11 +1231,6 @@ impl VMInstance {
                 vmctx_tags.values().as_slice().as_ptr(),
                 instance.shared_tags_ptr(),
                 vmctx_tags.len(),
-            );
-            ptr::copy(
-                vmshared_signatures.values().as_slice().as_ptr(),
-                instance.signature_ids_ptr(),
-                vmshared_signatures.len(),
             );
             ptr::copy(
                 imports.functions.values().as_slice().as_ptr(),
@@ -1607,18 +1613,20 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
             for (i, func_idx) in init.elements.iter().enumerate() {
                 let anyfunc = instance.func_ref(*func_idx);
                 table
-                    .set(
+                    .set_with_construction(
                         u32::try_from(start + i).unwrap(),
                         TableElement::FuncRef(anyfunc),
+                        true,
                     )
                     .unwrap();
             }
         } else {
             for i in 0..init.elements.len() {
                 table
-                    .set(
+                    .set_with_construction(
                         u32::try_from(start + i).unwrap(),
                         TableElement::ExternRef(None),
+                        true,
                     )
                     .unwrap();
             }
@@ -1736,7 +1744,7 @@ fn build_funcrefs(
     ctx: &StoreObjects,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSignatureHash>,
     function_call_trampolines: &BoxedSlice<SignatureIndex, VMTrampoline>,
     vmctx_ptr: *mut VMContext,
 ) -> (
@@ -1756,11 +1764,11 @@ fn build_funcrefs(
     for (local_index, func_ptr) in finished_functions.iter() {
         let index = module_info.func_index(local_index);
         let sig_index = module_info.functions[index];
-        let type_index = vmshared_signatures[sig_index];
+        let type_signature_hash = vmshared_signatures[sig_index];
         let call_trampoline = function_call_trampolines[sig_index];
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr: func_ptr.0,
-            type_index,
+            type_signature_hash,
             vmctx: VMFunctionContext { vmctx: vmctx_ptr },
             call_trampoline,
         };

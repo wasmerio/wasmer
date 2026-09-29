@@ -42,6 +42,13 @@ pub fn callback_signal<M: MemorySize>(
         inner.signal = funct;
         inner.signal_set = true;
     }
+    // Record it for the whole process: signals are delivered to every thread,
+    // and the sibling threads have their own instances that never see the
+    // registration above.
+    ctx.data()
+        .state
+        .signal_handler_registered
+        .store(true, std::sync::atomic::Ordering::SeqCst);
 
     WasiEnv::do_pending_operations(&mut ctx)?;
 

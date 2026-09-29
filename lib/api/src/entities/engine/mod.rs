@@ -69,6 +69,11 @@ impl Engine {
         self.be.deterministic_id()
     }
 
+    /// Returns the format used for artifacts produced by this engine.
+    pub fn artifact_format(&self) -> String {
+        self.be.artifact_format()
+    }
+
     /// Returns the unique id of this engine.
     pub fn id(&self) -> EngineId {
         EngineId(self.id)
@@ -95,25 +100,10 @@ impl Engine {
                 // Get V8-specific features
                 crate::backend::v8::engine::Engine::default_features()
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendKind::Wamr => {
-                // Get WAMR-specific features
-                crate::backend::wamr::engine::Engine::default_features()
-            }
-            #[cfg(feature = "wasmi")]
-            crate::BackendKind::Wasmi => {
-                // Get WASMI-specific features
-                crate::backend::wasmi::engine::Engine::default_features()
-            }
             #[cfg(feature = "js")]
             crate::BackendKind::Js => {
                 // Get JS-specific features
                 crate::backend::js::engine::Engine::default_features()
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendKind::Jsc => {
-                // Get JSC-specific features
-                crate::backend::jsc::engine::Engine::default_features()
             }
             // Default case
             _ => Features::default(),
@@ -143,25 +133,10 @@ impl Engine {
                 // Get V8-specific features
                 crate::backend::v8::engine::Engine::supported_features()
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendKind::Wamr => {
-                // Get WAMR-specific features
-                crate::backend::wamr::engine::Engine::supported_features()
-            }
-            #[cfg(feature = "wasmi")]
-            crate::BackendKind::Wasmi => {
-                // Get WASMI-specific features
-                crate::backend::wasmi::engine::Engine::supported_features()
-            }
             #[cfg(feature = "js")]
             crate::BackendKind::Js => {
                 // Get JS-specific features
                 crate::backend::js::engine::Engine::supported_features()
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendKind::Jsc => {
-                // Get JSC-specific features
-                crate::backend::jsc::engine::Engine::supported_features()
             }
             // Default case
             _ => Features::default(),
@@ -239,21 +214,12 @@ impl Engine {
     }
 
     /// Add suggested optimizations to this engine.
-    ///
-    /// # Note
-    ///
-    /// Not every backend supports every optimization. This function may fail (i.e. not set the
-    /// suggested optimizations) silently if the underlying engine backend does not support one or
-    /// more optimizations.
+    #[deprecated(note = "User compilation options are currently unused")]
     pub fn with_opts(
         &mut self,
-        suggested_opts: &UserCompilerOptimizations,
+        _suggested_opts: &UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
-        match self.be {
-            #[cfg(feature = "sys")]
-            BackendEngine::Sys(ref mut e) => e.with_opts(suggested_opts),
-            _ => Ok(()),
-        }
+        Ok(())
     }
 
     #[cfg(feature = "experimental-async")]
@@ -261,7 +227,9 @@ impl Engine {
     pub fn supports_async(&self) -> bool {
         match self.be {
             #[cfg(feature = "sys")]
-            BackendEngine::Sys(ref e) => true,
+            BackendEngine::Sys(_) => true,
+            #[cfg(feature = "js")]
+            BackendEngine::Js(_) => crate::backend::js::jspi::is_supported(),
             _ => false,
         }
     }

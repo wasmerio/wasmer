@@ -1,0 +1,8 @@
+---
+source: tests/integration/cli/tests/package/search.rs
+expression: normalized
+---
+{
+  "stderr": "",
+  "stdout": "No packages found.\n"
+}

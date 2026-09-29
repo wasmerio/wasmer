@@ -215,7 +215,7 @@ impl ContextSwitchingEnvironment {
         // which could happen in applications that use contexts during setup, but not during main execution.
         // We don't do immediate destruction because that would make this more complex, as it is essentially
         // identical to switching to the target context
-        // TODO: Implement immediate destruction if the above becoms an issue
+        // TODO: Implement immediate destruction if the above becomes an issue
         self.inner
             .unblockers
             .write()
@@ -474,7 +474,7 @@ impl ContextSwitchingEnvironment {
                 // This case could happen if the executor is being shut down while it is still polling a future (this one).
                 // Which shouldn't be able with a single-threaded executor, as the shutdown would have to
                 // be initiated from within a future running on that executor.
-                // I the current WASIX context switching implemenation should not be able to produce this case,
+                // I the current WASIX context switching implementation should not be able to produce this case,
                 // but maybe it will be possible in future implementations. If someone manages to produce this case,
                 // they should open an issue so we can discuss how to handle this case properly.
                 // If this case is reachable we could return the same error as when no context-switching environment is present,

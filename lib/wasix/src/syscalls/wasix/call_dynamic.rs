@@ -74,7 +74,7 @@ fn read_value(
 /// This function can be used to call functions whose types are not known at
 /// compile time of the caller. It is the callers responsibility to ensure
 /// that the passed parameters and results match the signature of the function
-/// beeing called.
+/// being called.
 ///
 /// ### Format of the values and results buffer
 ///

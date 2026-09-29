@@ -1,5 +1,5 @@
-use gimli::write::{Address, EndianVec, Result, Writer};
-use gimli::{RunTimeEndian, SectionId, constants};
+use cranelift_codegen::gimli::write::{Address, EndianVec, Result, Writer};
+use cranelift_codegen::gimli::{RunTimeEndian, SectionId, constants};
 use std::collections::HashMap;
 use wasmer_compiler::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},

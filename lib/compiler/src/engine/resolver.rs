@@ -157,19 +157,21 @@ pub fn resolve_imports(
                 let m = handle.get(context);
                 match import_index {
                     ImportIndex::Memory(index) => {
-                        // Sanity-check: Ensure that the imported memory has at least
-                        // guard-page protections the importing module expects it to have.
+                        // Ensure that the imported memory has the allocation guarantees
+                        // assumed by the importing module's generated code.
                         let export_memory_style = m.style();
                         let import_memory_style = &memory_styles[*index];
-                        if let (
-                            MemoryStyle::Static { bound, .. },
-                            MemoryStyle::Static {
-                                bound: import_bound,
-                                ..
-                            },
-                        ) = (export_memory_style, &import_memory_style)
+                        if matches!(import_memory_style, MemoryStyle::Static)
+                            && !matches!(export_memory_style, MemoryStyle::Static)
                         {
-                            assert_ge!(bound, *import_bound);
+                            return Err(LinkError::Import(
+                                import_key.module.to_string(),
+                                import_key.field.to_string(),
+                                ImportError::MemoryError(
+                                    "a static memory import cannot use a dynamic allocation"
+                                        .to_string(),
+                                ),
+                            ));
                         }
                         assert_ge!(
                             export_memory_style.offset_guard_size(),

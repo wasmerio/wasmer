@@ -66,16 +66,17 @@ pub fn fd_readdir<M: MemorySize>(
                         })
                         .collect::<Result<Vec<(String, Filetype, u64)>, _>>()
                 );
-                entry_vec.extend(entries.iter().filter(|(_, inode)| inode.is_preopened).map(
-                    |(name, inode)| {
-                        let stat = inode.stat.read().unwrap();
-                        (
-                            inode.name.read().unwrap().to_string(),
-                            stat.st_filetype,
-                            stat.st_ino,
-                        )
-                    },
-                ));
+                let entry_names: std::collections::HashSet<_> =
+                    entry_vec.iter().map(|(name, _, _)| name.clone()).collect();
+                entry_vec.extend(
+                    entries
+                        .iter()
+                        .filter(|(name, _)| !entry_names.contains(*name))
+                        .map(|(name, inode)| {
+                            let stat = inode.stat.read().unwrap();
+                            (name.clone(), stat.st_filetype, stat.st_ino)
+                        }),
+                );
                 // adding . and .. special folders
                 // TODO: inode
                 entry_vec.push((".".to_string(), Filetype::Directory, 0));

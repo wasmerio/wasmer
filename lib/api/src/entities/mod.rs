@@ -2,7 +2,7 @@
 //! various WebAssembly entities such as [`Value`], [`Module`] and [`Store`]. It also describes
 //! entities related to the runtime, such as [`Engine`].
 //!
-//! For more informations, refer to the [WebAssembly specification] and the [Wasmer Runtime
+//! For more information, refer to the [WebAssembly specification] and the [Wasmer Runtime
 //! documentation].
 //!
 //! [WebAssembly specification]: https://webassembly.github.io/spec/core/

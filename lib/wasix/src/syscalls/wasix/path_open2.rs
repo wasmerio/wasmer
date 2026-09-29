@@ -1,5 +1,6 @@
 use super::*;
 use crate::VIRTUAL_ROOT_FD;
+use crate::fs::{FdList, WasiFs};
 use crate::syscalls::*;
 
 /// ### `path_open()`
@@ -113,6 +114,47 @@ pub fn path_open2<M: MemorySize>(
     Ok(Errno::Success)
 }
 
+/// Open or create a filesystem object in the WASIX POSIX guest namespace.
+///
+/// This function sits on top of `WasiFs::get_inode_at_path()`, so it must
+/// preserve that resolver's guest-path contract: raw syscall paths are POSIX
+/// paths where `/` is the only separator, absolute paths start from
+/// `VIRTUAL_ROOT_FD`, and intermediate symlinks are always resolved. Host paths
+/// only enter after an inode has been resolved to a backing `Kind::Dir` or
+/// `Kind::File`.
+///
+/// `dirflags` control lookup, not file-open mode. In particular,
+/// `__WASI_LOOKUP_SYMLINK_FOLLOW` decides whether the final component may be
+/// followed if it is a symlink. This matches the usual `openat`/`O_NOFOLLOW`
+/// shape: a symlink in the middle of the path is still traversed, but a final
+/// symlink with lookup-follow disabled is not opened as a symlink object. WASIX
+/// has no "open the symlink itself as a file" mode here, so a terminal symlink
+/// with no follow returns `Errno::Loop`. With lookup-follow enabled, the symlink
+/// target is resolved and `path_open_internal` restarts against that target.
+///
+/// `o_flags` and `fs_flags` apply after lookup. They decide whether the target
+/// must already exist, whether a missing final component should be created,
+/// whether the opened object must be a directory, and whether the backing file
+/// should be truncated or appended. POSIX trailing-slash semantics still matter
+/// at this layer: opening `file/` is `Errno::Notdir`, and creating `new_file/`
+/// is rejected before the backing opener can normalize the slash away.
+///
+/// The create path resolves only the parent with the requested symlink policy,
+/// then appends the new final component under that resolved parent. That keeps
+/// creation through symlinked directories working while still letting the final
+/// component be genuinely new. If the backing filesystem reports
+/// `AlreadyExists` after the resolver reported `Noent`, this may indicate that a
+/// symlink escaped the sandbox, so the error is mapped to `Errno::Perm`.
+///
+/// File inodes are also the cache boundary for open handles. The resolver may
+/// materialize a `Kind::File` with no handle, and this function opens the
+/// backing file when a descriptor is requested. Regular file handles are shared
+/// per inode when possible, and reopened with stronger rights when a later open
+/// requires write/create/truncate access that the existing handle may not have.
+///
+/// The outer `Result` reports runtime faults such as memory or trap-style WASI
+/// errors. The inner `Result<WasiFd, Errno>` is the syscall result that should
+/// be returned to the guest.
 pub(crate) fn path_open_internal(
     env: &WasiEnv,
     dirfd: WasiFd,
@@ -125,6 +167,56 @@ pub(crate) fn path_open_internal(
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
+    path_open_internal_with_symlink_depth(
+        env,
+        dirfd,
+        dirflags,
+        path,
+        o_flags,
+        fs_rights_base,
+        fs_rights_inheriting,
+        fs_flags,
+        fd_flags,
+        with_fd,
+        0,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn path_open_internal_with_symlink_depth(
+    env: &WasiEnv,
+    dirfd: WasiFd,
+    dirflags: LookupFlags,
+    path: &str,
+    o_flags: Oflags,
+    fs_rights_base: Rights,
+    fs_rights_inheriting: Rights,
+    fs_flags: Fdflags,
+    fd_flags: Fdflagsext,
+    with_fd: Option<WasiFd>,
+    symlink_depth: u32,
+) -> Result<Result<WasiFd, Errno>, WasiError> {
+    fn implied_fd_rights(has_read_access: bool, has_write_access: bool) -> Rights {
+        let mut rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
+
+        if has_read_access {
+            rights |= Rights::FD_READ | Rights::FD_FILESTAT_GET;
+        }
+
+        if has_write_access {
+            rights |= Rights::FD_DATASYNC
+                | Rights::FD_FDSTAT_SET_FLAGS
+                | Rights::FD_WRITE
+                | Rights::FD_SYNC
+                | Rights::FD_ALLOCATE
+                | Rights::FD_FILESTAT_GET
+                | Rights::FD_FILESTAT_SET_SIZE
+                | Rights::FD_FILESTAT_SET_TIMES;
+        }
+
+        rights
+    }
+
     let state = env.state.deref();
     let inodes = &state.inodes;
     let follow_symlinks = dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0;
@@ -153,9 +245,18 @@ pub(crate) fn path_open_internal(
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
     //              TODO: look into this; file a bug report if this is a bug
     //
-    // Maximum rights: should be the working dir rights
-    // Minimum rights: whatever rights are provided
-    let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
+    let has_read_access = fs_rights_base.contains(Rights::FD_READ);
+    let has_write_access = fs_rights_base.contains(Rights::FD_WRITE)
+        || fs_flags.contains(Fdflags::APPEND)
+        || o_flags.contains(Oflags::TRUNC)
+        || o_flags.contains(Oflags::CREATE);
+    let requested_base_rights =
+        fs_rights_base | implied_fd_rights(has_read_access, has_write_access);
+
+    // Maximum rights: whatever the parent fd may delegate
+    // Minimum rights: whatever rights the caller requested or the open mode implies
+    let adjusted_rights = requested_base_rights & working_dir_rights_inheriting;
+    let adjusted_rights_inheriting = fs_rights_inheriting & working_dir_rights_inheriting;
     let mut open_options = state.fs_new_open_options();
 
     let target_rights = match maybe_inode {
@@ -174,7 +275,7 @@ pub(crate) fn path_open_internal(
             };
 
             virtual_fs::OpenOptionsConfig {
-                read: fs_rights_base.contains(Rights::FD_READ),
+                read: adjusted_rights.contains(Rights::FD_READ),
                 write: write_permission,
                 create_new: create_permission && o_flags.contains(Oflags::EXCL),
                 create: create_permission,
@@ -184,8 +285,8 @@ pub(crate) fn path_open_internal(
         }
         Err(_) => virtual_fs::OpenOptionsConfig {
             append: fs_flags.contains(Fdflags::APPEND),
-            write: fs_rights_base.contains(Rights::FD_WRITE),
-            read: fs_rights_base.contains(Rights::FD_READ),
+            write: adjusted_rights.contains(Rights::FD_WRITE),
+            read: adjusted_rights.contains(Rights::FD_READ),
             create_new: o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::EXCL),
             create: o_flags.contains(Oflags::CREATE),
             truncate: o_flags.contains(Oflags::TRUNC),
@@ -207,127 +308,243 @@ pub(crate) fn path_open_internal(
 
     open_options.options(minimum_rights.clone());
 
+    // Regular files share a single inode-level handle across all WASIX file
+    // descriptors, so prefer opening that shared handle with duplex access.
+    // That lets a later read-only fd keep working after an earlier write-only
+    // open (and vice versa). If the backing filesystem denies duplex access,
+    // fall back to the narrower requested mode.
+    let open_shared_file_handle =
+        |path: &std::path::Path,
+         requested_config: virtual_fs::OpenOptionsConfig,
+         shared_config: virtual_fs::OpenOptionsConfig|
+         -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, Errno> {
+            let mut open_options = state.fs_new_open_options();
+            open_options.options(shared_config.clone());
+            match open_options.open(path) {
+                Ok(handle) => Ok(handle),
+                Err(FsError::PermissionDenied)
+                    if shared_config.read != requested_config.read
+                        || shared_config.write != requested_config.write =>
+                {
+                    let mut open_options = state.fs_new_open_options();
+                    open_options.options(requested_config);
+                    open_options.open(path).map_err(fs_error_into_wasi_err)
+                }
+                Err(err) => Err(fs_error_into_wasi_err(err)),
+            }
+        };
+
     let orig_path = path;
 
-    let inode = if let Ok(inode) = maybe_inode {
-        // Happy path, we found the file we're trying to open
-        let processing_inode = inode.clone();
-        let mut guard = processing_inode.write();
-
-        let deref_mut = guard.deref_mut();
-
-        if o_flags.contains(Oflags::EXCL) && o_flags.contains(Oflags::CREATE) {
-            return Ok(Err(Errno::Exist));
-        }
-
-        match deref_mut {
-            Kind::File {
-                handle, path, fd, ..
-            } => {
-                if let Some(special_fd) = fd {
-                    // short circuit if we're dealing with a special file
-                    assert!(handle.is_some());
-                    return Ok(Ok(*special_fd));
-                }
-                if o_flags.contains(Oflags::DIRECTORY) || orig_path.ends_with('/') {
-                    return Ok(Err(Errno::Notdir));
-                }
-
-                let open_options = open_options
-                    .write(minimum_rights.write)
-                    .create(minimum_rights.create)
-                    .append(false)
-                    .truncate(minimum_rights.truncate);
-
-                if minimum_rights.read {
-                    open_flags |= Fd::READ;
-                }
-                if minimum_rights.write {
-                    open_flags |= Fd::WRITE;
-                }
-                if minimum_rights.create {
-                    open_flags |= Fd::CREATE;
-                }
-                if minimum_rights.truncate {
-                    open_flags |= Fd::TRUNCATE;
-                }
-                // Keep a stable shared handle per inode whenever possible, but reopen it
-                // when this open requires stronger rights than the existing handle may have.
-                let requires_stronger_handle =
-                    minimum_rights.write || minimum_rights.truncate || minimum_rights.create;
-                if handle.is_none() {
-                    *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
-                        open_options.open(&path).map_err(fs_error_into_wasi_err)
-                    ))));
-                } else if requires_stronger_handle {
-                    let mut file = handle.as_ref().unwrap().write().unwrap();
-                    *file =
-                        wasi_try_ok_ok!(open_options.open(&path).map_err(fs_error_into_wasi_err));
-                }
-
-                if let Some(handle) = handle {
-                    let handle = handle.read().unwrap();
-                    if let Some(fd) = handle.get_special_fd() {
-                        // We clone the file descriptor so that when its closed
-                        // nothing bad happens
-                        let dup_fd = wasi_try_ok_ok!(state.fs.clone_fd(fd));
-                        trace!(
-                            %dup_fd
-                        );
-
-                        // some special files will return a constant FD rather than
-                        // actually open the file (/dev/stdin, /dev/stdout, /dev/stderr)
-                        return Ok(Ok(dup_fd));
-                    }
-                }
-            }
-            Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
-            Kind::Root { .. } => {
-                if !o_flags.contains(Oflags::DIRECTORY) {
-                    return Ok(Err(Errno::Isdir));
-                }
-            }
-            Kind::Dir { .. } => {
-                if fs_rights_base.contains(Rights::FD_WRITE) {
-                    return Ok(Err(Errno::Isdir));
-                }
-            }
-            Kind::Socket { .. }
-            | Kind::PipeTx { .. }
-            | Kind::PipeRx { .. }
-            | Kind::DuplexPipe { .. }
-            | Kind::EventNotifications { .. }
-            | Kind::Epoll { .. } => {}
-            Kind::Symlink {
-                base_po_dir,
+    if let Ok(inode) = maybe_inode {
+        // Phase A: path resolution only — symlink follow recurses without committing.
+        {
+            let guard = inode.read();
+            if let Kind::Symlink {
+                symlink_kind,
                 path_to_symlink,
                 relative_path,
-            } => {
-                // Resolve the symlink via the existing path traversal logic and restart
-                // path_open with lookup-follow semantics for this resolved path.
-                let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
-                    (VIRTUAL_ROOT_FD, relative_path.clone())
-                } else {
-                    let mut resolved_path = path_to_symlink.clone();
-                    resolved_path.pop();
-                    resolved_path.push(relative_path);
-                    (*base_po_dir, resolved_path)
+            } = guard.deref()
+            {
+                if !follow_symlinks {
+                    return Ok(Err(Errno::Loop));
+                }
+
+                let (resolved_base_fd, resolved_path) = match state.fs.resolve_symlink_target_path(
+                    *symlink_kind,
+                    path_to_symlink,
+                    relative_path,
+                ) {
+                    Ok(resolved) => resolved,
+                    Err(err) => return Ok(Err(err)),
                 };
-                return path_open_internal(
+                let next_symlink_depth = symlink_depth + 1;
+                if next_symlink_depth > MAX_SYMLINKS {
+                    return Ok(Err(Errno::Loop));
+                }
+                let resolved_path = crate::fs::PosixPath::from_path(&resolved_path)
+                    .as_str()
+                    .to_owned();
+                drop(guard);
+                return path_open_internal_with_symlink_depth(
                     env,
                     resolved_base_fd,
                     __WASI_LOOKUP_SYMLINK_FOLLOW,
-                    &resolved_path.to_string_lossy(),
+                    &resolved_path,
                     o_flags,
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
                     fd_flags,
                     with_fd,
+                    next_symlink_depth,
                 );
             }
         }
-        inode
+
+        if o_flags.contains(Oflags::EXCL) && o_flags.contains(Oflags::CREATE) {
+            return Ok(Err(Errno::Exist));
+        }
+
+        // Open-mode inputs derived from syscall args only (no inode-state decisions).
+        let file_requested_config = open_options
+            .write(minimum_rights.write)
+            .create(minimum_rights.create)
+            .append(false)
+            .truncate(minimum_rights.truncate)
+            .get_config();
+        let file_shared_config = virtual_fs::OpenOptionsConfig {
+            read: true,
+            write: true,
+            ..file_requested_config.clone()
+        };
+        let requires_stronger_handle =
+            minimum_rights.write || minimum_rights.truncate || minimum_rights.create;
+        let mut file_open_flags = open_flags;
+        if minimum_rights.read {
+            file_open_flags |= Fd::READ;
+        }
+        if minimum_rights.write {
+            file_open_flags |= Fd::WRITE;
+        }
+        if minimum_rights.create {
+            file_open_flags |= Fd::CREATE;
+        }
+        if minimum_rights.truncate {
+            file_open_flags |= Fd::TRUNCATE;
+        }
+
+        // Phase B: fd_map first; every inode-dependent decision under lock. For regular
+        // files keep inode write through insert_fd so handle install and acquire_handle()
+        // cannot interleave with close on this inode.
+        let mut fd_map = state.fs.fd_map.write().unwrap();
+        let mut guard = inode.write();
+        let out_fd = match guard.deref_mut() {
+            Kind::File {
+                handle,
+                path,
+                fd: Some(special_fd),
+                ..
+            } => {
+                assert!(handle.is_some());
+                *special_fd
+            }
+            Kind::File {
+                handle,
+                path,
+                fd: None,
+                ..
+            } => {
+                if o_flags.contains(Oflags::DIRECTORY) || orig_path.ends_with('/') {
+                    return Ok(Err(Errno::Notdir));
+                }
+
+                // Install or refresh the shared inode handle before checking for special
+                // stdio paths (/dev/stdin, /dev/stdout, /dev/stderr). DeviceFile stubs
+                // only report get_special_fd() once the backing open has run.
+                if handle.is_none() || requires_stronger_handle {
+                    let file = wasi_try_ok_ok!(open_shared_file_handle(
+                        path.as_path(),
+                        file_requested_config.clone(),
+                        file_shared_config.clone(),
+                    ));
+                    if handle.is_none() {
+                        *handle = Some(Arc::new(std::sync::RwLock::new(file)));
+                    } else {
+                        let mut existing = handle.as_ref().unwrap().write().unwrap();
+                        *existing = file;
+                    }
+                }
+
+                if let Some(file_handle) = handle.as_ref()
+                    && let Some(special_fd) = {
+                        let file = file_handle.read().unwrap();
+                        file.get_special_fd()
+                    }
+                {
+                    drop(guard);
+                    let dup_fd = wasi_try_ok_ok!(WasiFs::clone_fd_locked(
+                        &state.fs,
+                        &mut fd_map,
+                        special_fd,
+                        0,
+                        None,
+                    ));
+                    trace!(%dup_fd);
+                    return Ok(Ok(dup_fd));
+                }
+
+                let out_fd = wasi_try_ok_ok!(insert_fd_locked(
+                    &mut fd_map,
+                    state,
+                    adjusted_rights,
+                    adjusted_rights_inheriting,
+                    fs_flags,
+                    fd_flags,
+                    file_open_flags,
+                    inode.clone(),
+                    with_fd,
+                ));
+                drop(guard);
+                out_fd
+            }
+            Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
+            Kind::Root { .. } => {
+                if !o_flags.contains(Oflags::DIRECTORY) {
+                    return Ok(Err(Errno::Isdir));
+                }
+                drop(guard);
+                wasi_try_ok_ok!(insert_fd_locked(
+                    &mut fd_map,
+                    state,
+                    adjusted_rights,
+                    adjusted_rights_inheriting,
+                    fs_flags,
+                    fd_flags,
+                    open_flags,
+                    inode,
+                    with_fd,
+                ))
+            }
+            Kind::Dir { .. } => {
+                if fs_rights_base.contains(Rights::FD_WRITE) {
+                    return Ok(Err(Errno::Isdir));
+                }
+                drop(guard);
+                wasi_try_ok_ok!(insert_fd_locked(
+                    &mut fd_map,
+                    state,
+                    adjusted_rights,
+                    adjusted_rights_inheriting,
+                    fs_flags,
+                    fd_flags,
+                    open_flags,
+                    inode,
+                    with_fd,
+                ))
+            }
+            Kind::Socket { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
+            | Kind::DuplexPipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => {
+                drop(guard);
+                wasi_try_ok_ok!(insert_fd_locked(
+                    &mut fd_map,
+                    state,
+                    adjusted_rights,
+                    adjusted_rights_inheriting,
+                    fs_flags,
+                    fd_flags,
+                    open_flags,
+                    inode,
+                    with_fd,
+                ))
+            }
+            Kind::Symlink { .. } => return Ok(Err(Errno::Loop)),
+        };
+        Ok(Ok(out_fd))
     } else {
         // less-happy path, we have to try to create the file
         if o_flags.contains(Oflags::CREATE) {
@@ -338,6 +555,68 @@ pub(crate) fn path_open_internal(
             // Trailing slash matters. But the underlying opener normalizes it away later.
             if path.ends_with('/') {
                 return Ok(Err(Errno::Isdir));
+            }
+
+            // The follow-style lookup above may have failed because the final
+            // component is a symlink whose target does not exist yet. POSIX
+            // create opens should follow that final symlink and create the
+            // target, while O_EXCL still treats the symlink itself as an
+            // existing path.
+            if follow_symlinks {
+                let final_symlink_target_lookup =
+                    state
+                        .fs
+                        .get_inode_at_path(inodes, effective_dirfd, path, false);
+                let final_symlink_target = match final_symlink_target_lookup {
+                    Ok(inode) => {
+                        let guard = inode.read();
+                        match guard.deref() {
+                            Kind::Symlink {
+                                symlink_kind,
+                                path_to_symlink,
+                                relative_path,
+                            } => {
+                                match state.fs.resolve_symlink_target_path(
+                                    *symlink_kind,
+                                    path_to_symlink,
+                                    relative_path,
+                                ) {
+                                    Ok(resolved) => Some(resolved),
+                                    Err(err) => return Ok(Err(err)),
+                                }
+                            }
+                            _ => None,
+                        }
+                    }
+                    Err(_) => None,
+                };
+
+                if let Some((resolved_base_fd, resolved_path)) = final_symlink_target {
+                    if o_flags.contains(Oflags::EXCL) {
+                        return Ok(Err(Errno::Exist));
+                    }
+
+                    let resolved_path = crate::fs::PosixPath::from_path(&resolved_path)
+                        .as_str()
+                        .to_owned();
+                    let next_symlink_depth = symlink_depth + 1;
+                    if next_symlink_depth > MAX_SYMLINKS {
+                        return Ok(Err(Errno::Loop));
+                    }
+                    return path_open_internal_with_symlink_depth(
+                        env,
+                        resolved_base_fd,
+                        __WASI_LOOKUP_SYMLINK_FOLLOW,
+                        &resolved_path,
+                        o_flags,
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                        fs_flags,
+                        fd_flags,
+                        with_fd,
+                        next_symlink_depth,
+                    );
+                }
             }
 
             // strip end file name
@@ -352,55 +631,53 @@ pub(crate) fn path_open_internal(
             let new_file_host_path = {
                 let guard = parent_inode.read();
                 match guard.deref() {
-                    Kind::Dir { path, .. } => {
-                        let mut new_path = path.clone();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
-                    Kind::Root { .. } => {
-                        let mut new_path = std::path::PathBuf::new();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
-                    _ => return Ok(Err(Errno::Inval)),
+                    Kind::Dir { path, .. } => crate::fs::PosixPath::from_path(path)
+                        .join(&crate::fs::PosixPath::new(&new_entity_name))
+                        .into_path_buf(),
+                    Kind::Root { .. } => return Ok(Err(Errno::Perm)),
+                    _ => return Ok(Err(Errno::Notdir)),
                 }
             };
-            // once we got the data we need from the parent, we lookup the host file
-            // todo: extra check that opening with write access is okay
-            let handle = {
-                // We set create_new because the path already didn't resolve to an existing file,
-                // so it must be created.
-                let open_options = open_options
-                    .read(minimum_rights.read)
-                    .append(minimum_rights.append)
-                    .write(minimum_rights.write)
-                    .create_new(true);
+            // Host create, inode wiring, and fd insert run under one fd_map write lock so
+            // no other thread can observe the inode (or clear its handle) without a map entry.
+            let mut fd_map = state.fs.fd_map.write().unwrap();
 
-                if minimum_rights.read {
-                    open_flags |= Fd::READ;
-                }
-                if minimum_rights.write {
-                    open_flags |= Fd::WRITE;
-                }
-                if minimum_rights.create_new {
-                    open_flags |= Fd::CREATE;
-                }
-                if minimum_rights.truncate {
-                    open_flags |= Fd::TRUNCATE;
-                }
+            let requested_config = open_options
+                .read(minimum_rights.read)
+                .append(minimum_rights.append)
+                .write(minimum_rights.write)
+                .create_new(true)
+                .get_config();
+            let shared_config = virtual_fs::OpenOptionsConfig {
+                read: true,
+                write: true,
+                ..requested_config.clone()
+            };
 
-                match open_options.open(&new_file_host_path) {
-                    Ok(handle) => Some(handle),
-                    Err(err) => {
-                        // Even though the file does not exist, it still failed to create with
-                        // `AlreadyExists` error.  This can happen if the path resolves to a
-                        // symlink that points outside the FS sandbox.
-                        if err == FsError::AlreadyExists {
-                            return Ok(Err(Errno::Perm));
-                        }
+            if minimum_rights.read {
+                open_flags |= Fd::READ;
+            }
+            if minimum_rights.write {
+                open_flags |= Fd::WRITE;
+            }
+            if minimum_rights.create_new {
+                open_flags |= Fd::CREATE;
+            }
+            if minimum_rights.truncate {
+                open_flags |= Fd::TRUNCATE;
+            }
 
-                        return Ok(Err(fs_error_into_wasi_err(err)));
+            let handle = match open_shared_file_handle(
+                new_file_host_path.as_path(),
+                requested_config,
+                shared_config,
+            ) {
+                Ok(handle) => Some(handle),
+                Err(err) => {
+                    if err == Errno::Exist {
+                        return Ok(Err(Errno::Perm));
                     }
+                    return Ok(Err(err));
                 }
             };
 
@@ -424,37 +701,45 @@ pub(crate) fn path_open_internal(
                 }
             }
 
-            new_inode
-        } else {
-            return Ok(Err(maybe_inode.unwrap_err()));
-        }
-    };
-
-    // TODO: check and reduce these
-    // TODO: ensure a mutable fd to root can never be opened
-    let out_fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
-        state
-            .fs
-            .with_fd(
+            Ok(Ok(wasi_try_ok_ok!(insert_fd_locked(
+                &mut fd_map,
+                state,
                 adjusted_rights,
-                fs_rights_inheriting,
+                adjusted_rights_inheriting,
                 fs_flags,
                 fd_flags,
                 open_flags,
-                inode,
-                fd,
-            )
-            .map(|_| fd)
-    } else {
-        state.fs.create_fd(
-            adjusted_rights,
-            fs_rights_inheriting,
-            fs_flags,
-            fd_flags,
-            open_flags,
-            inode,
-        )
-    });
+                new_inode,
+                with_fd,
+            ))))
+        } else {
+            Ok(Err(maybe_inode.unwrap_err()))
+        }
+    }
+}
 
-    Ok(Ok(out_fd))
+fn insert_fd_locked(
+    fd_map: &mut FdList,
+    _state: &WasiState,
+    adjusted_rights: Rights,
+    adjusted_rights_inheriting: Rights,
+    fs_flags: Fdflags,
+    fd_flags: Fdflagsext,
+    open_flags: u16,
+    inode: InodeGuard,
+    with_fd: Option<WasiFd>,
+) -> Result<WasiFd, Errno> {
+    // TODO: check and reduce these
+    // TODO: ensure a mutable fd to root can never be opened
+    WasiFs::insert_fd_locked(
+        fd_map,
+        adjusted_rights,
+        adjusted_rights_inheriting,
+        fs_flags,
+        fd_flags,
+        open_flags,
+        inode,
+        with_fd,
+        with_fd.is_some(),
+    )
 }

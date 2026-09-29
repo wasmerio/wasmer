@@ -315,7 +315,9 @@ impl WasiThread {
     /// just return that earlier set exit code
     pub fn set_or_get_exit_code_for_signal(&self, sig: Signal) -> ExitCode {
         let default_exitcode: ExitCode = match sig {
-            Signal::Sigquit | Signal::Sigabrt => Errno::Success.into(),
+            Signal::Sigquit => Errno::Success.into(),
+            // Match the POSIX shell convention for signal termination.
+            Signal::Sigabrt => ExitCode::from(128 + sig as i32),
             Signal::Sigpipe => Errno::Pipe.into(),
             _ => Errno::Intr.into(),
         };
@@ -539,11 +541,8 @@ impl WasiThread {
                     snapshot.store_data.clone(),
                 ));
             }
-            if let Some(next) = pstack.next.as_ref() {
-                pstack = next.deref();
-            } else {
-                return None;
-            }
+            let next = pstack.next.as_ref()?;
+            pstack = next.deref();
         }
     }
 
@@ -625,6 +624,10 @@ pub enum WasiThreadError {
     ExportError(ExportError),
     #[error("Failed to create additional imports - {0}")]
     AdditionalImportCreationFailed(Arc<anyhow::Error>),
+    #[error("Failed to prepare imports - {0}")]
+    ImportPreparationFailed(Arc<anyhow::Error>),
+    #[error("Failed to configure the new instance - {0}")]
+    InstanceConfigurationFailed(Arc<anyhow::Error>),
     #[error("Linker error: {0}")]
     LinkError(Arc<LinkError>),
     #[error("Failed to create the instance - {0}")]
@@ -645,6 +648,8 @@ impl From<WasiThreadError> for Errno {
             WasiThreadError::MemoryCreateFailed(_) => Errno::Nomem,
             WasiThreadError::ExportError(_) => Errno::Noexec,
             WasiThreadError::AdditionalImportCreationFailed(_) => Errno::Noexec,
+            WasiThreadError::ImportPreparationFailed(_) => Errno::Noexec,
+            WasiThreadError::InstanceConfigurationFailed(_) => Errno::Noexec,
             WasiThreadError::LinkError(_) => Errno::Noexec,
             WasiThreadError::InstanceCreateFailed(_) => Errno::Noexec,
             WasiThreadError::InitFailed(_) => Errno::Noexec,

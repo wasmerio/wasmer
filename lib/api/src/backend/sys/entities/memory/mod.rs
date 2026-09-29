@@ -4,14 +4,17 @@ use std::{
     marker::PhantomData,
     mem::{self, MaybeUninit},
     slice,
+    sync::Arc,
 };
 
 use tracing::warn;
 use wasmer_types::{MemoryType, Pages};
-use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, ThreadConditionsHandle, VMMemory};
+use wasmer_vm::{
+    LinearMemory, MemoryError, StoreHandle, ThreadConditionsHandle, VMMemory as SysVMMemory,
+};
 
 use crate::{
-    BackendMemory, MemoryAccessError,
+    BackendMemory, MemoryAccessError, SharedMemory,
     backend::sys::entities::{engine::NativeEngineExt, memory::MemoryView},
     entities::store::{AsStoreMut, AsStoreRef},
     location::{MemoryLocation, SharedMemoryOps},
@@ -27,7 +30,7 @@ use super::store::Store;
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 /// A WebAssembly `memory` in the `sys` runtime.
 pub struct Memory {
-    pub(crate) handle: StoreHandle<VMMemory>,
+    pub(crate) handle: StoreHandle<SysVMMemory>,
 }
 
 impl Memory {
@@ -42,7 +45,7 @@ impl Memory {
         })
     }
 
-    pub(crate) fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
+    pub(crate) fn new_from_existing(new_store: &mut impl AsStoreMut, memory: SysVMMemory) -> Self {
         let handle = StoreHandle::new(new_store.objects_mut().as_sys_mut(), memory);
         Self::from_vm_extern(new_store, VMExternMemory::Sys(handle.internal_handle()))
     }
@@ -105,34 +108,35 @@ impl Memory {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    /// Cloning memory will create another reference to the same memory that
-    /// can be put into a new store
-    pub(crate) fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+    pub(crate) fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        if self.ty(store).shared {
+            let mem = self.handle.get(store.as_store_ref().objects().as_sys());
+            let copied = mem.copy()?;
+            let ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>> = copied
+                .thread_conditions()
+                .map(|conditions| Arc::new(conditions.downgrade()) as Arc<_>);
+            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied)).as_shared()?;
+
+            Ok(match ops {
+                Some(ops) => SharedMemory::new_with_ops(memory, ops),
+                None => SharedMemory::new(memory),
+            })
+        } else {
+            Err(MemoryError::MemoryNotShared)
+        }
+    }
+
+    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         let mem = self.handle.get(store.as_store_ref().objects().as_sys());
+        let conds = mem
+            .thread_conditions()
+            .ok_or(MemoryError::MemoryNotShared)?
+            .downgrade();
         let cloned = mem.try_clone()?;
-        Ok(cloned.into())
-    }
 
-    /// Copying the memory will actually copy all the bytes in the memory to
-    /// a identical byte copy of the original that can be put into a new store
-    pub(crate) fn try_copy(
-        &self,
-        store: &impl AsStoreRef,
-    ) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let mut mem = self.try_clone(store)?;
-        mem.copy()
-    }
-
-    pub(crate) fn as_shared(
-        &self,
-        store: &impl AsStoreRef,
-    ) -> Option<crate::memory::shared::SharedMemory> {
-        let mem = self.handle.get(store.as_store_ref().objects().as_sys());
-        let conds = mem.thread_conditions()?.downgrade();
-
-        Some(crate::memory::shared::SharedMemory::new(
-            crate::Memory(BackendMemory::Sys(self.clone())),
-            conds,
+        Ok(SharedMemory::new_with_ops(
+            crate::vm::VMMemory::Sys(cloned).as_shared()?,
+            Arc::new(conds),
         ))
     }
 
@@ -146,7 +150,7 @@ impl SharedMemoryOps for ThreadConditionsHandle {
     fn notify(&self, dst: MemoryLocation, count: u32) -> Result<u32, crate::AtomicsError> {
         let count = self
             .upgrade()
-            .ok_or(crate::AtomicsError::Unimplemented)?
+            .ok_or(crate::AtomicsError::MemoryDropped)?
             .do_notify(dst.address, count);
         Ok(count)
     }
@@ -159,7 +163,7 @@ impl SharedMemoryOps for ThreadConditionsHandle {
         // Safety: `ExpectedValue::None` has no safety requirements.
         unsafe {
             self.upgrade()
-                .ok_or(crate::AtomicsError::Unimplemented)?
+                .ok_or(crate::AtomicsError::MemoryDropped)?
                 .do_wait(
                     wasmer_vm::NotifyLocation {
                         memory_base: std::ptr::null_mut(),
@@ -177,16 +181,16 @@ impl SharedMemoryOps for ThreadConditionsHandle {
         }
     }
 
-    fn disable_atomics(&self) -> Result<(), MemoryError> {
+    fn disable_atomics(&self) -> Result<(), crate::AtomicsError> {
         self.upgrade()
-            .ok_or_else(|| MemoryError::Generic("memory was dropped".to_string()))?
+            .ok_or(crate::AtomicsError::MemoryDropped)?
             .disable_atomics();
         Ok(())
     }
 
-    fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+    fn wake_all_atomic_waiters(&self) -> Result<(), crate::AtomicsError> {
         self.upgrade()
-            .ok_or_else(|| MemoryError::Generic("memory was dropped".to_string()))?
+            .ok_or(crate::AtomicsError::MemoryDropped)?
             .wake_all_atomic_waiters();
         Ok(())
     }

@@ -22,7 +22,7 @@ pub struct Features {
     pub simd: bool,
     /// Bulk Memory proposal should be enabled
     pub bulk_memory: bool,
-    /// Multi Value proposal should be enabled
+    /// Multi-value proposal should be enabled
     pub multi_value: bool,
     /// Tail call proposal should be enabled
     pub tail_call: bool,
@@ -57,7 +57,8 @@ impl Features {
             multi_value: true,
             tail_call: false,
             module_linking: false,
-            multi_memory: false,
+            // Multi-memory should be on by default
+            multi_memory: true,
             memory64: false,
             exceptions: false,
             relaxed_simd: false,
@@ -210,6 +211,9 @@ impl Features {
     /// This feature gates functions and blocks returning multiple values in a
     /// module, for example.
     ///
+    /// Singlepass support for multi-value is experimental and does not include
+    /// integration with host functions returning multiple values.
+    ///
     /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/webassembly/multi-value
@@ -266,7 +270,7 @@ impl Features {
     /// This feature adds the ability to use multiple memories within a
     /// single Wasm module.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/WebAssembly/multi-memory
     pub fn multi_memory(&mut self, enable: bool) -> &mut Self {
@@ -547,7 +551,7 @@ mod test_features {
                 multi_value: true,
                 tail_call: false,
                 module_linking: false,
-                multi_memory: false,
+                multi_memory: true,
                 memory64: false,
                 exceptions: false,
                 relaxed_simd: false,

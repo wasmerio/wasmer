@@ -152,4 +152,17 @@ impl<'a> MemoryView<'a> {
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
         self.0.copy_to_memory(amount, &new_memory.0)
     }
+
+    /// Copies a range directly to another memory view.
+    #[doc(hidden)]
+    pub fn copy_range_to_memory(
+        &self,
+        source_offset: u64,
+        target_offset: u64,
+        amount: u64,
+        new_memory: &Self,
+    ) -> Result<(), MemoryAccessError> {
+        self.0
+            .copy_range_to_memory(source_offset, target_offset, amount, &new_memory.0)
+    }
 }

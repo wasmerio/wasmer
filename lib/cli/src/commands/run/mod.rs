@@ -51,13 +51,10 @@ use wasmer_wasix::{
     journal::CompactingLogFileJournal,
     runners::{
         MappedCommand, MappedDirectory, Runner,
-        dcgi::{DcgiInstanceFactory, DcgiRunner},
-        dproxy::DProxyRunner,
         wasi::{RuntimeOrEngine, WasiRunner},
-        wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
     },
     runtime::{
-        OverriddenRuntime,
+        ModuleInput, OverriddenRuntime,
         module_cache::{CacheError, HashedModuleData},
         package_loader::PackageLoader,
         resolver::QueryError,
@@ -90,8 +87,6 @@ pub struct Run {
     rt: RuntimeOptions,
     #[clap(flatten)]
     wasi: crate::commands::run::Wasi,
-    #[clap(flatten)]
-    wcgi: WcgiOptions,
     /// Set the default stack size (default is 1048576)
     #[clap(long = "stack-size")]
     stack_size: Option<usize>,
@@ -139,14 +134,7 @@ impl Run {
 
         let hooks = wasmer_napi::NapiCtx::default().runtime_hooks();
         Ok(Arc::new(
-            OverriddenRuntime::new(runtime)
-                .with_additional_imports({
-                    let hooks = hooks.clone();
-                    move |module, store| hooks.additional_imports(module, store)
-                })
-                .with_instance_setup(move |module, store, instance, imported_memory| {
-                    hooks.configure_instance(module, store, instance, imported_memory)
-                }),
+            OverriddenRuntime::new(runtime).with_instantiation_hook(hooks),
         ))
     }
 
@@ -171,6 +159,51 @@ impl Run {
 
     #[cfg(not(feature = "napi-v8"))]
     fn configure_wasi_runner_for_napi(&self, _module: &Module, _runner: &mut WasiRunner) {}
+
+    #[cfg(feature = "wasm-c-api")]
+    fn module_uses_wasm_c_api(module: &Module) -> bool {
+        wasmer_c_api_imports::module_wasm_c_api_version_used(module).is_some()
+    }
+
+    #[cfg(feature = "wasm-c-api")]
+    fn maybe_wrap_runtime_with_wasm_c_api(
+        &self,
+        module: &Module,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
+        maybe_wrap_runtime_with_wasm_c_api(module, runtime)
+    }
+
+    #[cfg(not(feature = "wasm-c-api"))]
+    fn maybe_wrap_runtime_with_wasm_c_api(
+        &self,
+        _module: &Module,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
+        Ok(runtime)
+    }
+
+    fn maybe_wrap_runtime_for_module(
+        &self,
+        module: &Module,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
+        let runtime = self.maybe_wrap_runtime_with_napi(module, runtime)?;
+        self.maybe_wrap_runtime_with_wasm_c_api(module, runtime)
+    }
+
+    #[cfg(any(feature = "napi-v8", feature = "wasm-c-api"))]
+    fn resolve_wasi_command_module(
+        &self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Module, Error> {
+        let cmd = pkg.get_command(command_name).with_context(|| {
+            format!("Unable to get metadata for the \"{command_name}\" command")
+        })?;
+        Ok(runtime.resolve_module_sync(ModuleInput::Command(Cow::Borrowed(cmd)), None, None)?)
+    }
 
     pub fn execute(self, output: Output) -> ! {
         let result = self.execute_inner(output);
@@ -276,8 +309,10 @@ impl Run {
         tracing::info!("Executing on backend {engine_kind:?}");
 
         #[cfg(feature = "sys")]
-        if engine.is_sys() && self.stack_size.is_some() {
-            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        if engine.is_sys()
+            && let Some(stack_size) = self.stack_size
+        {
+            wasmer_vm::set_stack_size(stack_size);
         }
 
         let engine = engine.clone();
@@ -310,6 +345,14 @@ impl Run {
         }
 
         pb.finish_and_clear();
+
+        if let ExecutableTarget::Package(pkg) = &target
+            && pkg.webc_version == webc::Version::V2
+        {
+            crate::warning!(
+                "WebC v2 is a deprecated format and support for it will be removed in a future release"
+            );
+        }
 
         // push the TTY state so we can restore it after the program finishes
         let tty = runtime.tty().map(|tty| tty.tty_get());
@@ -429,13 +472,7 @@ impl Run {
 
         let uses = self.load_injected_packages(&runtime)?;
 
-        if DcgiRunner::can_run_command(cmd.metadata())? {
-            self.run_dcgi(id, pkg, uses, runtime)
-        } else if DProxyRunner::can_run_command(cmd.metadata())? {
-            self.run_dproxy(id, pkg, runtime)
-        } else if WcgiRunner::can_run_command(cmd.metadata())? {
-            self.run_wcgi(id, pkg, uses, runtime)
-        } else if WasiRunner::can_run_command(cmd.metadata())? {
+        if WasiRunner::can_run_command(cmd.metadata())? {
             self.run_wasi(id, pkg, uses, runtime)
         } else {
             bail!(
@@ -481,16 +518,15 @@ impl Run {
     ) -> Result<(), Error> {
         #[cfg(feature = "napi-v8")]
         let (module, runtime) = {
-            let cmd = pkg.get_command(command_name).with_context(|| {
-                format!("Unable to get metadata for the \"{command_name}\" command")
-            })?;
-            let module = runtime.resolve_module_sync(
-                wasmer_wasix::runtime::ModuleInput::Command(Cow::Borrowed(cmd)),
-                None,
-                None,
-            )?;
-            let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime)?;
+            let module = self.resolve_wasi_command_module(command_name, pkg, &runtime)?;
+            let runtime = self.maybe_wrap_runtime_for_module(&module, runtime)?;
             (module, runtime)
+        };
+
+        #[cfg(all(not(feature = "napi-v8"), feature = "wasm-c-api"))]
+        let runtime = {
+            let module = self.resolve_wasi_command_module(command_name, pkg, &runtime)?;
+            self.maybe_wrap_runtime_for_module(&module, runtime)?
         };
 
         // Assume webcs are always WASIX
@@ -498,90 +534,6 @@ impl Run {
         #[cfg(feature = "napi-v8")]
         self.configure_wasi_runner_for_napi(&module, &mut runner);
         Runner::run_command(&mut runner, command_name, pkg, runtime)
-    }
-
-    fn run_wcgi(
-        &self,
-        command_name: &str,
-        pkg: &BinaryPackage,
-        uses: Vec<BinaryPackage>,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(NoOpWcgiCallbacks);
-        self.config_wcgi(runner.config(), uses)?;
-        runner.run_command(command_name, pkg, runtime)
-    }
-
-    fn config_wcgi(
-        &self,
-        config: &mut wcgi::Config,
-        uses: Vec<BinaryPackage>,
-    ) -> Result<(), Error> {
-        config
-            .args(self.args.clone())
-            .addr(self.wcgi.addr)
-            .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.all_volumes())
-            .callbacks(Callbacks::new(self.wcgi.addr))
-            .inject_packages(uses);
-        *config.capabilities() = self.wasi.capabilities();
-        if self.wasi.forward_host_env {
-            config.forward_host_env();
-        }
-
-        #[cfg(feature = "journal")]
-        {
-            for trigger in self.wasi.snapshot_on.iter().cloned() {
-                config.add_snapshot_trigger(trigger);
-            }
-            if self.wasi.snapshot_on.is_empty() && !self.wasi.writable_journals.is_empty() {
-                config.add_default_snapshot_triggers();
-            }
-            if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.writable_journals.is_empty() {
-                    return Err(anyhow::format_err!(
-                        "If you specify a snapshot interval then you must also specify a writable journal file"
-                    ));
-                }
-                config.with_snapshot_interval(Duration::from_millis(period));
-            }
-            if self.wasi.stop_after_snapshot {
-                config.with_stop_running_after_snapshot(true);
-            }
-            let (r, w) = self.wasi.build_journals()?;
-            for journal in r {
-                config.add_read_only_journal(journal);
-            }
-            for journal in w {
-                config.add_writable_journal(journal);
-            }
-        }
-
-        Ok(())
-    }
-
-    fn run_dcgi(
-        &self,
-        command_name: &str,
-        pkg: &BinaryPackage,
-        uses: Vec<BinaryPackage>,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let factory = DcgiInstanceFactory::new();
-        let mut runner = wasmer_wasix::runners::dcgi::DcgiRunner::new(factory);
-        self.config_wcgi(runner.config().inner(), uses);
-        runner.run_command(command_name, pkg, runtime)
-    }
-
-    fn run_dproxy(
-        &self,
-        command_name: &str,
-        pkg: &BinaryPackage,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let mut inner = self.build_wasi_runner(&runtime, true)?;
-        let mut runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, pkg);
-        runner.run_command(command_name, pkg, runtime)
     }
 
     #[tracing::instrument(skip_all)]
@@ -639,7 +591,7 @@ impl Run {
         runner
             .with_args(&self.args)
             .with_injected_packages(packages)
-            .with_envs(self.wasi.env_vars.clone())
+            .with_envs(self.wasi.resolved_env_vars()?)
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
             .with_mapped_directories(mapped_directories)
             .with_home_mapped(is_home_mapped)
@@ -698,7 +650,7 @@ impl Run {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
-        let runtime = self.maybe_wrap_runtime_with_napi(&module, runtime)?;
+        let runtime = self.maybe_wrap_runtime_for_module(&module, runtime)?;
 
         let mut runner =
             self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
@@ -743,6 +695,27 @@ impl Run {
             );
         }
     }
+}
+
+#[cfg(feature = "wasm-c-api")]
+fn maybe_wrap_runtime_with_wasm_c_api(
+    module: &Module,
+    runtime: Arc<dyn Runtime + Send + Sync>,
+) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
+    if !Run::module_uses_wasm_c_api(module) {
+        return Ok(runtime);
+    }
+
+    let runtime_for_resolver = runtime.clone();
+    let hooks =
+        wasmer_c_api_imports::WasmCapiRuntimeHooks::new().with_resolve_module_sync(move |bytes| {
+            runtime_for_resolver
+                .resolve_module_sync(ModuleInput::Bytes(Cow::Owned(bytes)), None, None)
+                .context("failed to resolve Wasm C API module")
+        });
+    Ok(Arc::new(
+        OverriddenRuntime::new(runtime).with_instantiation_hook(hooks),
+    ))
 }
 
 fn invoke_function(
@@ -824,52 +797,6 @@ fn generate_coredump(err: &Error, source_name: String, coredump_path: &Path) -> 
     Ok(())
 }
 
-#[derive(Debug, Clone, Parser)]
-pub(crate) struct WcgiOptions {
-    /// The address to serve on.
-    #[clap(long, short, env, default_value_t = ([127, 0, 0, 1], 8000).into())]
-    pub(crate) addr: SocketAddr,
-}
-
-impl Default for WcgiOptions {
-    fn default() -> Self {
-        Self {
-            addr: ([127, 0, 0, 1], 8000).into(),
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Callbacks {
-    stderr: Mutex<LineWriter<std::io::Stderr>>,
-    addr: SocketAddr,
-}
-
-impl Callbacks {
-    fn new(addr: SocketAddr) -> Self {
-        Callbacks {
-            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
-            addr,
-        }
-    }
-}
-
-impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
-    fn started(&self, _abort: AbortHandle) {
-        println!("WCGI Server running at http://{}/", self.addr);
-    }
-
-    fn on_stderr(&self, raw_message: &[u8]) {
-        if let Ok(mut stderr) = self.stderr.lock() {
-            // If the WCGI runner printed any log messages we want to make sure
-            // they get propagated to the user. Line buffering is important here
-            // because it helps prevent the output from becoming a complete
-            // mess.
-            let _ = stderr.write_all(raw_message);
-        }
-    }
-}
-
 /// Exit the current process, using the WASI exit code if the error contains
 /// one.
 fn exit_with_wasi_exit_code(result: Result<(), Error>) -> ! {
@@ -904,4 +831,97 @@ fn get_exit_code(
     }
 
     None
+}
+
+#[cfg(all(test, feature = "wasm-c-api"))]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use wasmer_wasix::{
+        PluggableRuntime, WasiError, runtime::task_manager::tokio::TokioTaskManager,
+    };
+
+    fn wasm_c_api_guest() -> Vec<u8> {
+        wat2wasm(
+            br#"(module
+                (import "wasi_snapshot_preview1" "proc_exit" (func $proc_exit (param i32)))
+                (import "wasm_c_api_v0" "wasm_engine_new" (func $wasm_engine_new (result i32)))
+                (import "wasm_c_api_v0" "wasm_store_new" (func $wasm_store_new (param i32) (result i32)))
+                (import "wasm_c_api_v0" "wasm_module_validate" (func $wasm_module_validate (param i32 i32) (result i32)))
+                (import "wasm_c_api_v0" "wasm_module_new" (func $wasm_module_new (param i32 i32) (result i32)))
+
+                (memory (export "memory") 1)
+                (data (i32.const 16) "\08\00\00\00\20\00\00\00")
+                (data (i32.const 32) "\00asm\01\00\00\00")
+
+                (func (export "_start")
+                    (local $engine i32)
+                    (local $store i32)
+                    (local $module i32)
+
+                    (local.set $engine (call $wasm_engine_new))
+                    (if (i32.eqz (local.get $engine))
+                        (then (call $proc_exit (i32.const 10))))
+
+                    (local.set $store (call $wasm_store_new (local.get $engine)))
+                    (if (i32.eqz (local.get $store))
+                        (then (call $proc_exit (i32.const 11))))
+
+                    (if (i32.eqz (call $wasm_module_validate (local.get $store) (i32.const 16)))
+                        (then (call $proc_exit (i32.const 12))))
+
+                    (local.set $module (call $wasm_module_new (local.get $store) (i32.const 16)))
+                    (if (i32.eqz (local.get $module))
+                        (then (call $proc_exit (i32.const 13))))
+                )
+            )"#,
+        )
+        .expect("guest wat parses")
+        .into_owned()
+    }
+
+    #[test]
+    fn cli_wasm_c_api_runtime_wrapper_runs_wasix_guest() {
+        let wasm = wasm_c_api_guest();
+        let store = Store::default();
+        let module = Module::new(&store, &wasm).expect("guest module compiles");
+        assert!(Run::module_uses_wasm_c_api(&module));
+
+        let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("tokio runtime starts");
+        let _guard = tokio_runtime.enter();
+        let mut base_runtime = PluggableRuntime::new(Arc::new(TokioTaskManager::new(
+            tokio_runtime.handle().clone(),
+        )));
+        base_runtime.set_engine(store.engine().clone());
+
+        let runtime = maybe_wrap_runtime_with_wasm_c_api(&module, Arc::new(base_runtime))
+            .expect("runtime wrapper is installed");
+        let mut import_store = runtime.new_store();
+        let mut import_store_mut = import_store.as_store_mut();
+        let (imports, _state) = runtime
+            .additional_imports(&module, &mut import_store_mut)
+            .expect("wasm c api imports are created");
+        assert!(imports.exists("wasm_c_api_v0", "wasm_engine_new"));
+
+        let result = WasiRunner::new().run_wasm(
+            RuntimeOrEngine::Runtime(runtime),
+            "wasm-c-api-cli-smoke",
+            module,
+            ModuleHash::new(&wasm),
+        );
+
+        match result {
+            Ok(()) => {}
+            Err(err) => {
+                if let Some(WasiError::Exit(code)) = err.downcast_ref::<WasiError>() {
+                    panic!("guest exited with status {code}");
+                }
+                panic!("guest failed: {err:?}");
+            }
+        }
+    }
 }

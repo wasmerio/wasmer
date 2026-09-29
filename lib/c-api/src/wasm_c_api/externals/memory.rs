@@ -1,3 +1,5 @@
+use crate::error::update_last_error;
+
 use super::super::types::wasm_memorytype_t;
 use super::{super::store::wasm_store_t, wasm_extern_t};
 use wasmer_api::{Extern, Memory, Pages};
@@ -63,28 +65,44 @@ pub unsafe extern "C" fn wasm_memory_type(
 
 // get a raw pointer into bytes
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_memory_data(memory: &mut wasm_memory_t) -> *mut u8 {
+pub unsafe extern "C" fn wasm_memory_data(memory: Option<&mut wasm_memory_t>) -> *mut u8 {
+    let Some(memory) = memory else {
+        update_last_error("memory pointer is null");
+        return std::ptr::null_mut();
+    };
     let store_ref = unsafe { memory.extern_.store.store() };
     memory.extern_.memory().view(&store_ref).data_ptr()
 }
 
 // size in bytes
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_memory_data_size(memory: &wasm_memory_t) -> usize {
+pub unsafe extern "C" fn wasm_memory_data_size(memory: Option<&wasm_memory_t>) -> usize {
+    let Some(memory) = memory else {
+        update_last_error("memory pointer is null");
+        return 0;
+    };
     let store_ref = unsafe { memory.extern_.store.store() };
     memory.extern_.memory().view(&store_ref).size().bytes().0
 }
 
 // size in pages
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_memory_size(memory: &wasm_memory_t) -> u32 {
+pub unsafe extern "C" fn wasm_memory_size(memory: Option<&wasm_memory_t>) -> u32 {
+    let Some(memory) = memory else {
+        update_last_error("memory pointer is null");
+        return 0;
+    };
     let store_ref = unsafe { memory.extern_.store.store() };
     memory.extern_.memory().view(&store_ref).size().0 as _
 }
 
 // delta is in pages
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_memory_grow(memory: &mut wasm_memory_t, delta: u32) -> bool {
+pub unsafe extern "C" fn wasm_memory_grow(memory: Option<&mut wasm_memory_t>, delta: u32) -> bool {
+    let Some(memory) = memory else {
+        update_last_error("memory pointer is null");
+        return false;
+    };
     let wasm_memory = memory.extern_.memory();
     let mut store_mut = unsafe { memory.extern_.store.store_mut() };
     wasm_memory.grow(&mut store_mut, Pages(delta)).is_ok()

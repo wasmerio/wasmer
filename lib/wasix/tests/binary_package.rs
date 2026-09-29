@@ -46,14 +46,15 @@ impl PackageLoader for InMemoryPackageLoader {
 }
 
 fn task_manager() -> Arc<dyn VirtualTaskManager + Send + Sync> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "sys-thread")] {
+    cfg_select! {
+        feature = "sys-thread" => {
             Arc::new(
                 wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager::new(
                     tokio::runtime::Handle::current(),
                 ),
             )
-        } else {
+        }
+        _ => {
             unimplemented!("Unable to get the task manager")
         }
     }

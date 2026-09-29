@@ -1,4 +1,5 @@
-use crate::{DeserializeError, lib::std::mem};
+use crate::DeserializeError;
+use std::mem;
 
 /// Metadata header which holds an ABI version and the length of the remaining
 /// metadata.
@@ -13,7 +14,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    pub const CURRENT_VERSION: u32 = 18;
+    pub const CURRENT_VERSION: u32 = 24;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";

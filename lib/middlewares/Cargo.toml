@@ -13,19 +13,26 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=7.1.0", default-features = false, features = [
-	"compiler",
-	"wasmparser",
-	"headless"
+wasmer = { path = "../api", version = "=7.4.2", default-features = false, features = [
+  "compiler",
+  "wasmparser",
+  "headless",
 ] }
-wasmer-types = { path = "../types", version = "=7.1.0" }
-wasmer-vm = { path = "../vm", version = "=7.1.0" }
+wasmer-types = { path = "../types", version = "=7.4.2" }
+wasmer-vm = { path = "../vm", version = "=7.4.2" }
 
-[dev-dependencies]
-wasmer = { path = "../api", version = "=7.1.0", features = [
-	"compiler",
-	"singlepass",
-	"wasmparser",
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.4.2", default-features = false, features = [
+  "compiler",
+  "cranelift",
+  "wat",
+] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.4.2", default-features = false, features = [
+  "compiler",
+  "v8",
+  "wasmparser",
 ] }
 
 [badges]

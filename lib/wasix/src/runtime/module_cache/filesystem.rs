@@ -28,10 +28,12 @@ impl FileSystemCache {
         &self.cache_dir
     }
 
-    fn path(&self, key: ModuleHash, deterministic_id: &str) -> PathBuf {
+    fn path(&self, key: ModuleHash, deterministic_id: &str, artifact_format: &str) -> PathBuf {
         let artifact_version = wasmer_types::MetadataHeader::CURRENT_VERSION;
         self.cache_dir
-            .join(format!("{deterministic_id}-v{artifact_version}"))
+            .join(format!(
+                "{deterministic_id}-{artifact_format}-v{artifact_version}"
+            ))
             .join(key.to_string())
             .with_extension("bin")
     }
@@ -42,10 +44,11 @@ impl FileSystemCache {
 /// A tokio reactor must be available
 #[tracing::instrument(level = "debug", skip_all, fields(? path))]
 async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError> {
-    let bytes = read_file(&path).await?;
-    let deserialized = tokio::task::spawn_blocking(move || deserialize(&bytes, &engine))
-        .await
-        .unwrap();
+    let artifact_path = path.clone();
+    let deserialized =
+        tokio::task::spawn_blocking(move || deserialize_file(&artifact_path, &engine))
+            .await
+            .unwrap();
     match deserialized {
         Ok(m) => {
             tracing::debug!("Cache hit!");
@@ -130,7 +133,7 @@ async fn tokio_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
 impl ModuleCache for FileSystemCache {
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
-        let path = self.path(key, &engine.deterministic_id());
+        let path = self.path(key, &engine.deterministic_id(), &engine.artifact_format());
         let engine = engine.clone();
 
         // Use the bundled tokio runtime instead of the given async runtime
@@ -143,7 +146,7 @@ impl ModuleCache for FileSystemCache {
     }
 
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
-        let path = self.path(key, &engine.deterministic_id());
+        let path = self.path(key, &engine.deterministic_id(), &engine.artifact_format());
 
         // Use the bundled tokio runtime instead of the given async runtime
         // This is necessary because this function can also be called with a futures_executor
@@ -161,7 +164,7 @@ impl ModuleCache for FileSystemCache {
         engine: &Engine,
         module: &Module,
     ) -> Result<(), CacheError> {
-        let path = self.path(key, &engine.deterministic_id());
+        let path = self.path(key, &engine.deterministic_id(), &engine.artifact_format());
         let module = module.clone();
 
         // Use the bundled tokio runtime instead of the given async runtime
@@ -174,18 +177,7 @@ impl ModuleCache for FileSystemCache {
     }
 }
 
-async fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
-    match tokio::fs::read(path).await {
-        Ok(bytes) => Ok(bytes),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(CacheError::NotFound),
-        Err(error) => Err(CacheError::FileRead {
-            path: path.to_path_buf(),
-            error,
-        }),
-    }
-}
-
-fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
+fn deserialize_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> {
     // We used to compress our compiled modules using LZW encoding in the past.
     // This was removed because it has a negative impact on startup times for
     // "wasmer run", so all new compiled modules should be saved directly to
@@ -201,18 +193,18 @@ fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
     // - ModuleCache::save(): 2.4s, 72MB binary
     // - ModuleCache::load(): 822ms
 
-    match unsafe { Module::deserialize(engine, bytes) } {
-        // The happy case
+    match unsafe { Module::deserialize_from_file(engine, path) } {
+        // The happy case. ELF artifacts are memory mapped directly from the cache file.
         Ok(m) => Ok(m),
-        Err(wasmer::DeserializeError::Incompatible(_)) => {
-            let bytes = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8)
-                .decode(bytes)
-                .map_err(CacheError::other)?;
-
-            let m = unsafe { Module::deserialize(engine, bytes)? };
-
-            Ok(m)
+        Err(wasmer::DeserializeError::Io(error))
+            if error.kind() == std::io::ErrorKind::NotFound =>
+        {
+            Err(CacheError::NotFound)
         }
+        Err(wasmer::DeserializeError::Io(error)) => Err(CacheError::FileRead {
+            path: path.to_path_buf(),
+            error,
+        }),
         Err(e) => Err(CacheError::Deserialize(e)),
     }
 }
@@ -245,7 +237,7 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         let key = ModuleHash::from_bytes([0; _]);
-        let expected_path = cache.path(key, &engine.deterministic_id());
+        let expected_path = cache.path(key, &engine.deterministic_id(), &engine.artifact_format());
 
         cache.save(key, &engine, &module).await.unwrap();
 
@@ -286,34 +278,10 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::from_bytes([0; _]);
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let expected_path = cache.path(key, &engine.deterministic_id());
+        let expected_path = cache.path(key, &engine.deterministic_id(), &engine.artifact_format());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
         std::fs::write(&expected_path, &serialized).unwrap();
-
-        let module = cache.load(key, &engine).await.unwrap();
-
-        let exports: Vec<_> = module
-            .exports()
-            .map(|export| export.name().to_string())
-            .collect();
-        assert_eq!(exports, ["add"]);
-    }
-
-    /// For backwards compatibility, make sure we can still work with LZW
-    /// compressed modules.
-    #[tokio::test]
-    async fn can_still_load_lzw_compressed_binaries() {
-        let temp = TempDir::new().unwrap();
-        let engine = Engine::default();
-        let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::from_bytes([0; _]);
-        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let expected_path = cache.path(key, &engine.deterministic_id());
-        std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
-        let serialized = module.serialize().unwrap();
-        let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
-        std::fs::write(&expected_path, encoder.encode(&serialized).unwrap()).unwrap();
 
         let module = cache.load(key, &engine).await.unwrap();
 
