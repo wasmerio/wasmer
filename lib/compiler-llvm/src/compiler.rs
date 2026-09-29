@@ -255,6 +255,10 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        wasmer_compiler::validate_module_fixed_table_size(
+            &compile_info.module,
+            self.config.max_table_elements,
+        )?;
         let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let binary_format = self.config.target_binary_format(target);
 
@@ -647,6 +651,7 @@ impl Compiler for LLVMCompiler {
         }
     }
 
+    /// Add suggested optimizations to this compiler.
     fn with_opts(
         &mut self,
         _suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,

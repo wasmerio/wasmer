@@ -6,6 +6,15 @@
 
 ## **Unreleased**
 
+## 7.4.2 - 15/09/2026
+
+This release includes:
+- reliably detect libunwind
+
+## 7.4.1 - 08/09/2026
+
+This release includes:
+- env file support added to deploy command
 ## 7.4.0 - 31/08/2026
 
 This release includes:

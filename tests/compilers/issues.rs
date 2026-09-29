@@ -1463,6 +1463,38 @@ fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
 }
 
 #[compiler_test(issues)]
+fn table_huge(config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    // It's fine to create all these table per se, the failure will occur during instantiation.
+    let mut store = config.store();
+    Module::new(&store, "(module (table 10000000 funcref))")?;
+
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, Some(10_000_000)),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 10_000_000, None),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 10_000_000, Some(10_000_000)),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
 fn table_import_element_type_mismatch(mut config: crate::Config) -> Result<()> {
     let mut store = config.store();
     let module = Module::new(

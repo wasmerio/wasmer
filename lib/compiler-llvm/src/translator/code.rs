@@ -185,7 +185,8 @@ impl FuncTranslator {
             .get(wasm_module.functions[func_index])
             .unwrap();
 
-        let offsets = VMOffsets::new(self.pointer_width, wasm_module);
+        let offsets =
+            VMOffsets::try_new(self.pointer_width, wasm_module).map_err(CompileError::Resource)?;
         let intrinsics = Intrinsics::declare(
             &module,
             &self.ctx,
@@ -423,7 +424,7 @@ impl FuncTranslator {
                 &self.abi,
                 self.pointer_width,
                 m0_param,
-            ),
+            )?,
             unreachable_depth: 0,
             memory_styles,
             _table_styles,

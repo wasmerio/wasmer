@@ -74,6 +74,10 @@ impl SinglepassCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        wasmer_compiler::validate_module_fixed_table_size(
+            &compile_info.module,
+            self.config.max_table_elements,
+        )?;
         let arch = target.triple().architecture;
         match arch {
             Architecture::X86_64 => {}
@@ -143,7 +147,8 @@ impl SinglepassCompiler {
 
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
-        let vmoffsets = VMOffsets::new(8, &compile_info.module);
+        let vmoffsets =
+            VMOffsets::try_new(8, &compile_info.module).map_err(CompileError::Resource)?;
         let module = &compile_info.module;
         let import_trampolines = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
