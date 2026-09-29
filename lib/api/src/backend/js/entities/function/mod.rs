@@ -140,6 +140,11 @@ impl Function {
             let args = args.clone();
             let func = Rc::clone(&func);
 
+            // This runs synchronously on the guest's stack, and returning a
+            // promise below is what suspends it. Release the store here so
+            // other calls can run while this one is suspended.
+            drop(jspi::take_context(store_id));
+
             future_to_promise(async move {
                 let mut write_lock = callback_store.write_lock().await;
                 let values = parameter_types
@@ -153,7 +158,16 @@ impl Function {
                 let future = func(env_mut, &values);
                 drop(store_context);
 
-                let results = future.await.map_err(JsValue::from)?;
+                let results = future.await;
+
+                // Resolving the promise below resumes the guest, so reinstall
+                // its context first. This also reacquires the write lock, which
+                // is what serialises the resumption against any other call that
+                // ran while this one was suspended.
+                let write_lock = callback_store.write_lock().await;
+                jspi::park_context(store_id, StoreContext::install_async(write_lock.inner));
+
+                let results = results.map_err(JsValue::from)?;
                 match result_types.len() {
                     0 => Ok(JsValue::UNDEFINED),
                     1 => Ok(wasmer_value_to_js(&results[0])),
@@ -522,6 +536,7 @@ impl Function {
         let store = store.store();
         Box::pin(async move {
             let _active_store = jspi::install_store(store.store());
+            let store_id = store.store_id();
             let function_type = function.handle.ty.clone();
             let write_lock = store.write_lock().await;
             let arguments = Array::new_with_length(params.len() as u32);
@@ -529,16 +544,26 @@ impl Function {
                 arguments.set(index as u32, param.as_jsvalue(&write_lock));
             }
 
+            // Park the context before entering the guest: `Reflect::apply`
+            // returns at the guest's first suspension, so a guard on this frame
+            // would cover only the first span. Everything the guest ran after
+            // resuming would have no context installed and no lock held.
             let store_context = StoreContext::install_async(write_lock.inner);
+            jspi::park_context(store_id, store_context);
             let promising = jspi::promising(&function.handle.function)
                 .map_err(RuntimeError::from)?;
             let promise = Reflect::apply(&promising, &JsValue::NULL, &arguments)
                 .map_err(RuntimeError::from)?
                 .dyn_into::<Promise>()
                 .map_err(RuntimeError::from)?;
-            drop(store_context);
 
             let result = JsFuture::from(promise).await.map_err(RuntimeError::from)?;
+
+            // The guest is finished. Whatever is parked now was installed by
+            // the last import to complete, or is still ours if it never
+            // suspended; either way it has to go before the store can be
+            // locked again.
+            drop(jspi::take_context(store_id));
             let mut write_lock = store.write_lock().await;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),
