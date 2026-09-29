@@ -6,7 +6,7 @@ use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;
 use std::convert::TryInto;
 use std::fs;
-use std::io::{self, Seek};
+use std::io::{self, IsTerminal, Seek};
 use std::path::{Component, Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -468,6 +468,10 @@ impl VirtualFile for File {
         None
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        Some(self.inner_std.is_terminal())
+    }
+
     fn poll_read_ready(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let cursor = match self.inner_std.stream_position() {
             Ok(a) => a,
@@ -614,6 +618,10 @@ impl VirtualFile for Stdout {
 
     fn get_special_fd(&self) -> Option<u32> {
         Some(1)
+    }
+
+    fn is_terminal(&self) -> Option<bool> {
+        Some(io::stdout().is_terminal())
     }
 
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -790,6 +798,10 @@ impl VirtualFile for Stderr {
         Some(2)
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        Some(io::stderr().is_terminal())
+    }
+
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))
     }
@@ -904,6 +916,10 @@ impl VirtualFile for Stdin {
     }
     fn get_special_fd(&self) -> Option<u32> {
         Some(0)
+    }
+
+    fn is_terminal(&self) -> Option<bool> {
+        Some(io::stdin().is_terminal())
     }
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         {

@@ -29,6 +29,12 @@ pub struct Pipe {
     send: PipeTx,
     /// Receive side of the pipe
     recv: PipeRx,
+    /// What this pipe claims about being a terminal, for embedders that know
+    /// what is on the other end. `None` -- the default -- means "no opinion",
+    /// which WASIX still reports to guests as a character device.
+    ///
+    /// Not preserved across [`Pipe::split`] / [`Pipe::combine`].
+    is_terminal: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -169,7 +175,24 @@ impl Pipe {
                 rx_end: Arc::downgrade(&recv),
             },
             recv: PipeRx { rx: Some(recv) },
+            is_terminal: None,
         }
+    }
+
+    /// Declare whether this pipe is driving an interactive terminal.
+    ///
+    /// Use this when the embedder knows what sits on the other end -- an
+    /// emulated terminal that renders to a web page, say, or a capture buffer
+    /// that definitely is not one.
+    pub fn with_terminal(mut self, is_terminal: bool) -> Self {
+        self.is_terminal = Some(is_terminal);
+        self
+    }
+
+    /// See [`Pipe::with_terminal`]. `None` restores the default of having no
+    /// opinion on the matter.
+    pub fn set_terminal(&mut self, is_terminal: Option<bool>) {
+        self.is_terminal = is_terminal;
     }
 
     pub fn channel() -> (Pipe, Pipe) {
@@ -186,7 +209,11 @@ impl Pipe {
     }
 
     pub fn combine(tx: PipeTx, rx: PipeRx) -> Self {
-        Self { send: tx, recv: rx }
+        Self {
+            send: tx,
+            recv: rx,
+            is_terminal: None,
+        }
     }
 
     pub fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
@@ -522,6 +549,10 @@ impl VirtualFile for Pipe {
             .as_ref()
             .map(|a| !a.is_closed())
             .unwrap_or_else(|| false)
+    }
+
+    fn is_terminal(&self) -> Option<bool> {
+        self.is_terminal
     }
 
     /// Polls the file for when there is data to be read

@@ -237,6 +237,15 @@ impl VirtualFile for CopyOnWriteFile {
         }
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        match &self.state {
+            CowState::ReadOnly(inner) => inner.is_terminal(),
+            // Mid-copy the source is owned by the future; once copied we are
+            // backed by an in-memory buffer, which has no opinion either way.
+            CowState::Copying { .. } | CowState::Copied(_) => None,
+        }
+    }
+
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         match self.state {
             CowState::ReadOnly(_) => {
