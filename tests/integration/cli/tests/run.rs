@@ -502,6 +502,32 @@ fn run_no_start_wasm_report_error() {
     assert.stderr(contains("The module doesn't export a \"_start\" function"));
 }
 
+#[test]
+fn run_invoke_reports_unsupported_funcref_result() {
+    let wat = r#"
+        (module
+            (table 1 funcref)
+            (func $target)
+            (elem (i32.const 0) func $target)
+            (func (export "return_funcref") (result funcref)
+                (table.get (i32.const 0))))
+    "#;
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("funcref-result.wat");
+    std::fs::write(&module_file, wat).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .arg("--invoke")
+        .arg("return_funcref")
+        .assert()
+        .failure()
+        .stderr(contains(
+            "Function result type FuncRef is not supported by --invoke",
+        ));
+}
+
 #[cfg(feature = "v8")]
 #[test]
 fn run_v8_wasi_proc_exit_zero_is_success() {
