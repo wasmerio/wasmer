@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import shutil
 from benchmark_configs import WASMER_CONFIGS
 
+RUSTC_VERSION = "+1.90"
 RUSTC_PEFT_PATH = Path(
     "/home/marxin/Programming/rustc-perf/collector/runtime-benchmarks"
 )
@@ -17,9 +18,9 @@ CACHE_DIR = Path("/home/marxin/.wasmer/cache")
 ITERATIONS = 10
 WASM_BUILD_CONFIGS = {
     "default": {},
-    "simd128+wide-arithmetic": {
-        "RUSTFLAGS": "-Ctarget-feature=+simd128,+relaxed-simd,+wide-arithmetic"
-    },
+    # "simd128+wide-arithmetic": {
+    #     "RUSTFLAGS": "-Ctarget-feature=+simd128,+relaxed-simd,+wide-arithmetic"
+    # },
 }
 
 
@@ -85,7 +86,7 @@ for benchmark_dir in benchmark_dirs:
     if benchmark_dir.is_dir() and (benchmark_dir / "Cargo.toml").exists():
         print(benchmark_dir)
         data = subprocess.check_output(
-            f"cargo r -r -- run --iterations={ITERATIONS}",
+            f"cargo {RUSTC_VERSION} r -r -- run --iterations={ITERATIONS}",
             shell=True,
             cwd=benchmark_dir,
         )
@@ -101,7 +102,7 @@ for build_config_name, wasm_build_env in WASM_BUILD_CONFIGS.items():
         build_env = os.environ.copy()
         build_env.update(wasm_build_env)
         subprocess.check_output(
-            "cargo b -r --target=wasm32-wasip1",
+            f"cargo {RUSTC_VERSION} b -r --target=wasm32-wasip1",
             shell=True,
             cwd=benchmark_dir,
             env=build_env,

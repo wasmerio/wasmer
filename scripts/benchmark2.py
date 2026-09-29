@@ -29,7 +29,7 @@ def run_timed_one(cmd):
 
 def run_timed(cmd):
     shutil.rmtree(CACHE_DIR, ignore_errors=True)
-    return statistics.geometric_mean([run_timed_one(cmd) for _ in range(10)])
+    return statistics.geometric_mean([run_timed_one(cmd) for _ in range(3)])
 
 
 def wasmer_cmd(bin, engine_args, module, args):
@@ -67,14 +67,14 @@ python_wasmer_times = {
         wasmer_cmd(
             wasmer_binary,
             wasmer_args.split(),
-            "python/python@=3.13.3",
+            "python/python",
             f"pystone.py {PYSTONE_ITERATIONS}",
         )
     )
     for (label, wasmer_binary, wasmer_args) in WASMER_CONFIGS
 }
 python_native = run_timed(
-    native_cmd(f"python3.13 {BENCH_ROOT}/pystone.py {PYSTONE_ITERATIONS}")
+    native_cmd(f"python3 {BENCH_ROOT}/pystone.py {PYSTONE_ITERATIONS}")
 )
 
 benchmarks = ["php-benchmark", "pystone"]
