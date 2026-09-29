@@ -145,6 +145,42 @@ impl Function {
             // other calls can run while this one is suspended, but remember
             // which call this guest belongs to: if that call is dropped while
             // we are suspended, its guest must never be resumed.
+            //
+            // Releasing is only safe when this store's entry is the active one.
+            // `ForcedStoreInstallGuard` removes an entry by popping the top of
+            // the thread's context stack, so releasing an entry that is *not*
+            // on top would silently discard somebody else's. See the panic
+            // below for when that can happen and why it is unsupported here.
+            assert!(
+                StoreContext::is_active(store_id),
+                "another store's context is active on this thread, so this \
+                 guest cannot suspend.\n\
+                 \n\
+                 This happens when two `Function::call_async` calls on \
+                 *different* stores are driven concurrently on one thread: \
+                 nothing serialises them, because each store has its own lock, \
+                 so their entries interleave on the context stack and a \
+                 suspension would pop the wrong one.\n\
+                 \n\
+                 The `sys` backend does not have this problem. There, the \
+                 install and the uninstall both happen inside one \
+                 `AsyncCallFuture::poll`, bracketing `coroutine.resume()`, so \
+                 nothing can interleave between them and entries always nest. \
+                 Under JSPI the guest resumes inside a JS job with no Rust \
+                 frame to hold a guard, so the context is installed across a \
+                 span this backend does not control, and the uninstall happens \
+                 in whichever import suspends the guest — arbitrarily later, \
+                 by which time another store may be on top.\n\
+                 \n\
+                 Supporting it would mean removing entries by identity rather \
+                 than by popping, which is sound here — on JS at most one \
+                 entry exists per store, so anything above belongs to a \
+                 different store and derives from that store's own guard — but \
+                 it changes shared code that `sys` also relies on. WASIX runs \
+                 on a single store, so this is unsupported rather than fixed. \
+                 If you need it, interleave calls on one store, or drive calls \
+                 on different stores so they do not overlap."
+            );
             let parked = jspi::take_context(store_id);
             let alive = parked.as_ref().map(|parked| parked.alive.clone());
             drop(parked);

@@ -430,3 +430,60 @@ fn async_context_stays_reachable_through_a_sync_import() -> Result<()> {
 
     Ok(())
 }
+
+/// Two `call_async` futures on *different* stores, driven concurrently on one
+/// thread. Nothing serialises them — each store has its own lock — so their
+/// store-context entries can interleave on this thread's context stack, and
+/// suspending one must not disturb the other's entry.
+#[test]
+#[cfg_attr(
+    all(feature = "v8-default", not(feature = "sys-default")),
+    ignore = "async functions are not supported by the default v8 backend"
+)]
+fn two_calls_on_different_stores_interleave() -> Result<()> {
+    const WAT: &str = r#"
+    (module
+        (import "env" "step" (func $step (result i32)))
+        (func (export "run") (result i32)
+            call $step
+            drop
+            call $step))
+    "#;
+    let wasm = wat::parse_str(WAT).expect("valid WAT module");
+
+    fn build(wasm: &[u8]) -> Result<(StoreAsync, TypedFunction<(), i32>)> {
+        let mut store = Store::default();
+        let module = Module::new(&store, wasm)?;
+        let step = Function::new_typed_async(&mut store, async || {
+            tokio::task::yield_now().await;
+            7
+        });
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "env" => { "step" => step } },
+        )?;
+        let run = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "run")?;
+        Ok((store.into_async(), run))
+    }
+
+    let (first_store, first) = build(&wasm)?;
+    let (second_store, second) = build(&wasm)?;
+
+    let (a, b) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            futures::join!(
+                first.call_async(&first_store),
+                second.call_async(&second_store)
+            )
+        });
+
+    assert_eq!(a?, 7);
+    assert_eq!(b?, 7);
+    Ok(())
+}
