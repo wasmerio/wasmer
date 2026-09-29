@@ -325,7 +325,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "sys-thread", not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
     use crate::WasiEnv;
