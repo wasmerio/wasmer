@@ -140,6 +140,8 @@ impl Mmap {
                 return Err(io::Error::last_os_error().to_string());
             }
 
+            advise_huge_pages(ptr, mapping_size);
+
             Self {
                 ptr: ptr as usize,
                 total_size: mapping_size,
@@ -161,6 +163,8 @@ impl Mmap {
             if ptr as isize == -1_isize {
                 return Err(io::Error::last_os_error().to_string());
             }
+
+            advise_huge_pages(ptr, mapping_size);
 
             let mut result = Self {
                 ptr: ptr as usize,
@@ -368,6 +372,19 @@ impl Mmap {
             .copy_from_slice(self.as_slice_arbitary(copy_size));
         Ok(new)
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn advise_huge_pages(ptr: *mut libc::c_void, len: usize) {
+    #[cfg(target_os = "linux")]
+    unsafe {
+        // This is only a hint; allocation must still succeed if huge pages are unavailable.
+        let _ = libc::madvise(ptr, len, libc::MADV_HUGEPAGE);
+    }
+
+    // The system call is unavailable on macOS system.
+    #[cfg(not(target_os = "linux"))]
+    let _ = (ptr, len);
 }
 
 impl Drop for Mmap {
