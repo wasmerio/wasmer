@@ -142,8 +142,12 @@ impl Function {
 
             // This runs synchronously on the guest's stack, and returning a
             // promise below is what suspends it. Release the store here so
-            // other calls can run while this one is suspended.
-            drop(jspi::take_context(store_id));
+            // other calls can run while this one is suspended, but remember
+            // which call this guest belongs to: if that call is dropped while
+            // we are suspended, its guest must never be resumed.
+            let parked = jspi::take_context(store_id);
+            let alive = parked.as_ref().map(|parked| parked.alive.clone());
+            drop(parked);
 
             future_to_promise(async move {
                 let mut write_lock = callback_store.write_lock().await;
@@ -158,14 +162,43 @@ impl Function {
                 let future = func(env_mut, &values);
                 drop(store_context);
 
-                let results = future.await;
+                // A suspended import outlives the call that started it if that
+                // call's future is dropped — WASIX cancels a context this way.
+                // Stop driving host code as soon as that happens: it holds
+                // pointers into an environment nobody is running any more.
+                let mut future = std::pin::pin!(future);
+                let results = std::future::poll_fn(|cx| {
+                    if alive.as_ref().and_then(std::rc::Weak::upgrade).is_none() {
+                        return std::task::Poll::Ready(None);
+                    }
+                    future.as_mut().poll(cx).map(Some)
+                })
+                .await;
+
+                let Some(alive) = alive.filter(|alive| alive.strong_count() > 0) else {
+                    // The call was abandoned. Resolving *or* rejecting this
+                    // import would resume the guest — a rejection runs its
+                    // exception handlers — so do neither: hand back a promise
+                    // that never settles, leaving the suspended stack inert for
+                    // the host to collect.
+                    return Ok(Promise::new(&mut |_, _| {}).into());
+                };
+                let Some(results) = results else {
+                    return Ok(Promise::new(&mut |_, _| {}).into());
+                };
 
                 // Resolving the promise below resumes the guest, so reinstall
                 // its context first. This also reacquires the write lock, which
                 // is what serialises the resumption against any other call that
                 // ran while this one was suspended.
                 let write_lock = callback_store.write_lock().await;
-                jspi::park_context(store_id, StoreContext::install_async(write_lock.inner));
+                jspi::park_context(
+                    store_id,
+                    jspi::ParkedCall {
+                        guard: StoreContext::install_async(write_lock.inner),
+                        alive,
+                    },
+                );
 
                 let results = results.map_err(JsValue::from)?;
                 match result_types.len() {
@@ -548,8 +581,17 @@ impl Function {
             // returns at the guest's first suspension, so a guard on this frame
             // would cover only the first span. Everything the guest ran after
             // resuming would have no context installed and no lock held.
+            // Dropping this future drops `call_alive`, which is how a
+            // suspended import learns its call was cancelled.
+            let call_alive = std::rc::Rc::new(());
             let store_context = StoreContext::install_async(write_lock.inner);
-            jspi::park_context(store_id, store_context);
+            jspi::park_context(
+                store_id,
+                jspi::ParkedCall {
+                    guard: store_context,
+                    alive: std::rc::Rc::downgrade(&call_alive),
+                },
+            );
             let promising = jspi::promising(&function.handle.function)
                 .map_err(RuntimeError::from)?;
             let promise = Reflect::apply(&promising, &JsValue::NULL, &arguments)

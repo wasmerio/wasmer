@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, rc::Weak};
 
 use crate::{AsStoreAsync, ForcedStoreInstallGuard, StoreAsync};
 use js_sys::{Function, Reflect};
@@ -21,7 +21,23 @@ struct ActiveStore {
     /// Holding the guard holds the store's write lock, so parking it is also
     /// what keeps other tasks off the store while guest code runs, and taking
     /// it out at a suspension is what lets them in.
-    installed: Option<ForcedStoreInstallGuard>,
+    installed: Option<ParkedCall>,
+}
+
+/// The state of the call whose guest is currently running on this store.
+///
+/// Only one call can be parked at a time, because holding `guard` holds the
+/// store's write lock: a second call cannot install its own context until the
+/// first has suspended and released.
+pub(crate) struct ParkedCall {
+    /// Uninstalls the context and releases the store when dropped.
+    pub(crate) guard: ForcedStoreInstallGuard,
+
+    /// Alive while the `Function::call_async` future that started this call is
+    /// alive. Once it is gone the guest must never be resumed — not even to
+    /// throw, since a rejection runs the guest's own exception handlers, which
+    /// is guest code running under a call that no longer exists.
+    pub(crate) alive: Weak<()>,
 }
 
 thread_local! {
@@ -83,19 +99,19 @@ pub(crate) fn install_store(store: StoreAsync) -> ActiveStoreGuard {
 ///
 /// Dropped immediately if the call has already finished, which uninstalls the
 /// context and releases the store, as it would have done anyway.
-pub(crate) fn park_context(id: StoreId, guard: ForcedStoreInstallGuard) {
+pub(crate) fn park_context(id: StoreId, parked: ParkedCall) {
     ACTIVE_STORES.with(|stores| {
         let mut stores = stores.borrow_mut();
         match stores.get_mut(&id) {
-            Some(active) => active.installed = Some(guard),
-            None => drop(guard),
+            Some(active) => active.installed = Some(parked),
+            None => drop(parked),
         }
     });
 }
 
 /// Takes back the parked context, if there is one. Dropping the result
 /// uninstalls the context and releases the store's write lock.
-pub(crate) fn take_context(id: StoreId) -> Option<ForcedStoreInstallGuard> {
+pub(crate) fn take_context(id: StoreId) -> Option<ParkedCall> {
     ACTIVE_STORES.with(|stores| stores.borrow_mut().get_mut(&id)?.installed.take())
 }
 
