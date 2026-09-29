@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MmapType"],"fn":["_assert"],"struct":["Mmap"]};
+window.SIDEBAR_ITEMS = {"enum":["MmapType"],"fn":["_assert","advise_huge_pages"],"struct":["Mmap"]};
