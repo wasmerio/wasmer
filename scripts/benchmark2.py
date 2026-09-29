@@ -29,7 +29,7 @@ def run_timed_one(cmd):
 
 def run_timed(cmd):
     shutil.rmtree(CACHE_DIR, ignore_errors=True)
-    return statistics.geometric_mean([run_timed_one(cmd) for _ in range(3)])
+    return statistics.geometric_mean([run_timed_one(cmd) for _ in range(10)])
 
 
 def wasmer_cmd(bin, engine_args, module, args):

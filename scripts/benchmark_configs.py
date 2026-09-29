@@ -2,6 +2,7 @@
 WASMER_CONFIGS = (
     # ("Wasmer 7 LLVM (w/ pass-params)", "wasmer-7", "-l --enable-pass-params-opt"),
     ("Wasmer LLVM 7.4", "wasmer", "-l"),
+    ("Wasmer LLVM (main -O2)", "wasmer-next2", "-l"),
     ("Wasmer LLVM (main)", "wasmer-next", "-l"),
     (
         "Wasmer LLVM (main, w/o m0-opt)",
