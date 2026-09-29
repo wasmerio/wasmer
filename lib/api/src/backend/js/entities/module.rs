@@ -313,8 +313,17 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        let instance = WebAssembly::Instance::new(&self.local_module(), &imports_object)
-            .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
+        // Instantiation runs the module's start function, which can call
+        // imports, so their trampolines need the store installed here too.
+        //
+        // Safety: as in `Function::call`.
+        let instance = {
+            let _store_install_guard = unsafe {
+                crate::StoreContext::install(store.as_store_mut().inner as *mut _)
+            };
+            WebAssembly::Instance::new(&self.local_module(), &imports_object)
+                .map_err(|e: JsValue| -> RuntimeError { e.into() })?
+        };
         #[cfg(feature = "wasm-types-polyfill")]
         self.annotate_table_functions(store, imports, &instance);
         Ok(instance)

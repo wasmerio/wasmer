@@ -67,6 +67,17 @@ macro_rules! impl_native_traits {
                 let params_list: Vec<_> = unsafe {
                     vec![ $( (<$x::Native as NativeWasmType>::WASM_TYPE, $x.to_native().into_raw(store) ) ),* ]
                 };
+                // As in `Function::call`: install this borrow as the store
+                // executing on the thread, so an import's trampoline can
+                // acquire it from the context. This is a separate entry point
+                // from `Function::call`, and imports reached through it need
+                // the same installed context.
+                //
+                // Safety: `store` outlives the guard, and the guest cannot
+                // reach it except through the context.
+                let store_install_guard = unsafe {
+                    crate::StoreContext::install(store.as_store_mut().inner as *mut _)
+                };
                 let results = {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
@@ -98,6 +109,7 @@ macro_rules! impl_native_traits {
                     }
                     r?
                 };
+                drop(store_install_guard);
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
                 match Rets::size() {

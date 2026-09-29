@@ -17,8 +17,8 @@ use wasmer_types::{FunctionType, RawValue};
 use crate::{
     AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
     FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind, IntoResult,
-    NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
-    WithoutEnv,
+    NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreContext, StoreMut, Value, WasmTypeList,
+    WithEnv, WithoutEnv,
     js::{
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
@@ -27,7 +27,7 @@ use crate::{
 };
 #[cfg(feature = "experimental-async")]
 use crate::{
-    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync, StoreContext,
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync,
     entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
     js::{function::env::AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, jspi},
 };
@@ -391,52 +391,93 @@ impl Function {
         let mut store = store.as_store_mut();
         let function_type = ty.into();
         let func_ty = function_type.clone();
-        let raw_store = store.as_raw() as *mut u8;
+        // The store id, not a pointer: the closure below runs on a later call,
+        // by which time a pointer captured here names a borrow that has long
+        // ended. It acquires the executing store from the thread's context
+        // instead — installed by `Function::call`, or by `call_async` for a
+        // guest running under JSPI.
+        let store_id = store.objects_mut().id();
         let raw_env = env.clone();
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| {
-                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
-                    })
-                    .collect::<Vec<_>>();
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                // Keeps the entry borrowed, and so installed, for as long as
+                // the host function runs; the borrow itself lives no longer
+                // than argument conversion.
+                let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                let wasm_arguments = {
+                    let mut store = store_wrapper.as_mut();
+                    function_type
+                        .params()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, param)| {
+                            js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                        })
+                        .collect::<Vec<_>>()
+                };
+                let env: FunctionEnvMut<T> = unsafe {
+                    crate::js::function::env::FunctionEnvMut::from_context(
+                        store_id,
+                        raw_env.clone().into_js(),
+                    )
+                }
+                .into();
                 let _results = func(env, &wasm_arguments)?;
                 Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| {
-                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
-                    })
-                    .collect::<Vec<_>>();
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                // Keeps the entry borrowed, and so installed, for as long as
+                // the host function runs; the borrow itself lives no longer
+                // than argument conversion.
+                let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                let wasm_arguments = {
+                    let mut store = store_wrapper.as_mut();
+                    function_type
+                        .params()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, param)| {
+                            js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                        })
+                        .collect::<Vec<_>>()
+                };
+                let env: FunctionEnvMut<T> = unsafe {
+                    crate::js::function::env::FunctionEnvMut::from_context(
+                        store_id,
+                        raw_env.clone().into_js(),
+                    )
+                }
+                .into();
                 let results = func(env, &wasm_arguments)?;
                 Ok(wasmer_value_to_js(&results[0]))
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| {
-                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
-                    })
-                    .collect::<Vec<_>>();
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                // Keeps the entry borrowed, and so installed, for as long as
+                // the host function runs; the borrow itself lives no longer
+                // than argument conversion.
+                let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                let wasm_arguments = {
+                    let mut store = store_wrapper.as_mut();
+                    function_type
+                        .params()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, param)| {
+                            js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                        })
+                        .collect::<Vec<_>>()
+                };
+                let env: FunctionEnvMut<T> = unsafe {
+                    crate::js::function::env::FunctionEnvMut::from_context(
+                        store_id,
+                        raw_env.clone().into_js(),
+                    )
+                }
+                .into();
                 let results = func(env, &wasm_arguments)?;
                 Ok(wasmer_array_to_js_array(&results))
             })
@@ -458,7 +499,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let store = store.as_store_mut();
+        let mut store = store.as_store_mut();
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
@@ -471,7 +512,7 @@ impl Function {
 
         let binded_func = func.bind1(
             &JsValue::UNDEFINED,
-            &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+            &JsValue::from_f64(store.objects_mut().id().as_raw().get() as f64),
         );
         let ty = function.ty();
         let vm_function = VMFunction::new(binded_func.unchecked_into::<JsFunction>(), ty);
@@ -490,7 +531,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let store = store.as_store_mut();
+        let mut store = store.as_store_mut();
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
@@ -503,7 +544,7 @@ impl Function {
 
         let binded_func = func.bind2(
             &JsValue::UNDEFINED,
-            &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+            &JsValue::from_f64(store.objects_mut().id().as_raw().get() as f64),
             &JsValue::from_f64(env.as_js().handle.internal_handle().index() as f64),
         );
         let ty = function.ty();
@@ -544,6 +585,20 @@ impl Function {
             arr.set(i as u32, js_value);
         }
 
+        // Install this borrow as the store executing on the thread, so an
+        // import's trampoline can acquire it from the context instead of
+        // resurrecting a pointer captured when the import was created. Mirrors
+        // `Function::call` on the `sys` backend.
+        //
+        // Safety: `store_ptr` comes from `store`, which outlives the guard, and
+        // the guest cannot reach it except through the context.
+        //
+        // This installs nothing while an async context already holds the store —
+        // see `StoreContext::install` — which is correct: the async entry *is*
+        // the store, and trampolines acquire from it.
+        let store_install_guard =
+            unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
+
         let result = {
             let mut r;
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
@@ -572,6 +627,7 @@ impl Function {
             }
             r?
         };
+        drop(store_install_guard);
 
         let result_types = self.handle.ty.results();
         match result_types.len() {
@@ -839,7 +895,14 @@ macro_rules! impl_host_function {
             {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                 let func: &Func = unsafe { &*(&() as *const () as *const Func) };
-                let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                // `store_ptr` is the store's id, not a pointer: this runs on a
+                // later call than the one that created the function, so the
+                // executing store comes from the thread's context.
+                let store_id = wasmer_types::StoreId::from_raw(
+                    std::num::NonZeroUsize::new(store_ptr).expect("a store id is never zero"),
+                );
+                let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                let mut store = store_wrapper.as_mut();
 
                 let result = panic::catch_unwind(AssertUnwindSafe(|| {
                     func($(
@@ -881,8 +944,18 @@ macro_rules! impl_host_function {
                 T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
-                let mut store2 = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                // See the no-env wrapper above: `store_ptr` is the store id.
+                //
+                // This used to build *two* overlapping `StoreMut`s from the
+                // same pointer and use them interleaved, which invalidated the
+                // first. One acquisition serves both now: the arguments are
+                // converted through it, and the environment reaches the store
+                // through the context rather than holding a borrow.
+                let store_id = wasmer_types::StoreId::from_raw(
+                    std::num::NonZeroUsize::new(store_ptr).expect("a store id is never zero"),
+                );
+                let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                let mut store = store_wrapper.as_mut();
 
                 let result = {
                     // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
@@ -891,11 +964,16 @@ macro_rules! impl_host_function {
                         let handle: crate::backend::js::store::StoreHandle<crate::backend::js::vm::VMFunctionEnvironment> =
                           unsafe {
                               crate::backend::js::store::StoreHandle::from_internal(
-                                  store2.objects_mut().id(),
+                                  store_id,
                                   crate::backend::js::store::InternalStoreHandle::from_index(handle_index).unwrap(),
                               )
                           };
-                        let env: crate::backend::js::function::env::FunctionEnvMut<T> = crate::backend::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
+                        let env: crate::backend::js::function::env::FunctionEnvMut<T> = unsafe {
+                            crate::backend::js::function::env::FunctionEnvMut::from_context(
+                                store_id,
+                                crate::backend::js::function::env::FunctionEnv::from_handle(handle),
+                            )
+                        };
                         func(BackendFunctionEnvMut::Js(env).into(), $(
                             {
                                 let native = unsafe { NativeWasmTypeInto::from_abi(&mut store, $x) };
