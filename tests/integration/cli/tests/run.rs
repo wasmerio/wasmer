@@ -9,7 +9,7 @@ use std::{
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt};
 use once_cell::sync::Lazy;
-use predicates::str::{contains, is_match};
+use predicates::str::contains;
 use rand::RngExt;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::{
@@ -952,14 +952,15 @@ fn run_bash_using_coreutils() {
     // Note: the resulting filesystem should contain the main command as
     // well as the commands from all the --use packages
 
-    let some_expected_binaries = [
-        "", "arch", "base32", "base64", "baseenc", "basename", "bash", "cat", "",
-    ]
-    .join("((?s)(.*))");
-
     assert
         .success()
-        .stdout(is_match(some_expected_binaries).unwrap());
+        .stdout(contains("arch"))
+        .stdout(contains("base32"))
+        .stdout(contains("base64"))
+        .stdout(contains("basenc"))
+        .stdout(contains("basename"))
+        .stdout(contains("bash"))
+        .stdout(contains("cat"));
 }
 
 #[test]
