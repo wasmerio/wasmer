@@ -50,10 +50,16 @@ impl Mmap {
     }
 
     /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
-    pub fn with_at_least(size: usize) -> Result<Self, String> {
+    pub fn with_at_least(size: usize, hint_huge_pages: bool) -> Result<Self, String> {
         let page_size = region::page::size();
         let rounded_size = size.next_multiple_of(page_size);
-        Self::accessible_reserved(rounded_size, rounded_size, None, MmapType::Private)
+        Self::accessible_reserved(
+            rounded_size,
+            rounded_size,
+            None,
+            MmapType::Private,
+            hint_huge_pages,
+        )
     }
 
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
@@ -65,6 +71,7 @@ impl Mmap {
         mapping_size: usize,
         mut backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
+        hint_huge_pages: bool,
     ) -> Result<Self, String> {
         use std::os::fd::IntoRawFd;
 
@@ -140,7 +147,9 @@ impl Mmap {
                 return Err(io::Error::last_os_error().to_string());
             }
 
-            advise_huge_pages(ptr, mapping_size);
+            if hint_huge_pages {
+                advise_huge_pages(ptr, mapping_size);
+            }
 
             Self {
                 ptr: ptr as usize,
@@ -164,7 +173,9 @@ impl Mmap {
                 return Err(io::Error::last_os_error().to_string());
             }
 
-            advise_huge_pages(ptr, mapping_size);
+            if hint_huge_pages {
+                advise_huge_pages(ptr, mapping_size);
+            }
 
             let mut result = Self {
                 ptr: ptr as usize,
@@ -191,6 +202,7 @@ impl Mmap {
         mapping_size: usize,
         _backing_file: Option<std::path::PathBuf>,
         _memory_type: MmapType,
+        _hint_huge_pages: bool,
     ) -> Result<Self, String> {
         use windows_sys::Win32::System::Memory::{
             MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE, VirtualAlloc,
@@ -367,7 +379,7 @@ impl Mmap {
         }
 
         let mut new =
-            Self::accessible_reserved(copy_size, self.total_size, None, MmapType::Private)?;
+            Self::accessible_reserved(copy_size, self.total_size, None, MmapType::Private, true)?;
         new.as_mut_slice_arbitrary(copy_size)
             .copy_from_slice(self.as_slice_arbitary(copy_size));
         Ok(new)
