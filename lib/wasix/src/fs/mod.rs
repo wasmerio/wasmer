@@ -19,6 +19,7 @@ mod fd_list;
 mod inode_guard;
 mod notification;
 mod path_posix;
+mod stale_close;
 
 use std::{
     borrow::Cow,
@@ -586,6 +587,16 @@ pub struct WasiFs {
     pub(crate) init_preopens: Vec<PreopenedDir>,
     // The virtual file system preopens when this was initialized
     pub(crate) init_vfs_preopens: Vec<String>,
+
+    /// Process-unique identity of this descriptor table (see [`stale_close`]).
+    id: u64,
+}
+
+/// Source of [`WasiFs::id`] values.
+static NEXT_FS_ID: AtomicU64 = AtomicU64::new(1);
+
+fn next_fs_id() -> u64 {
+    NEXT_FS_ID.fetch_add(1, Ordering::Relaxed)
 }
 
 impl WasiFs {
@@ -711,6 +722,7 @@ impl WasiFs {
             ephemeral_symlinks: self.ephemeral_symlinks.clone(),
             init_preopens: self.init_preopens.clone(),
             init_vfs_preopens: self.init_vfs_preopens.clone(),
+            id: next_fs_id(),
         }
     }
 
@@ -871,6 +883,7 @@ impl WasiFs {
             ephemeral_symlinks: Arc::new(RwLock::new(HashMap::new())),
             init_preopens: Default::default(),
             init_vfs_preopens: Default::default(),
+            id: next_fs_id(),
         };
         wasi_fs.create_stdin(inodes);
         wasi_fs.create_stdout(inodes);
@@ -2677,6 +2690,45 @@ impl WasiFs {
         Self::close_fd_locked(&mut fd_map, fd)
     }
 
+    /// Closes an open FD on behalf of guest thread `tid`, like
+    /// [`Self::close_fd_and_capture_flush`], but refuses a stale double close.
+    ///
+    /// If the calling thread's previous descriptor operation was closing this very
+    /// number and the number has been re-allocated since (necessarily by another
+    /// thread), the close is a duplicate of the previous one and must not destroy
+    /// the other thread's descriptor: it reports "not open" (`EBADF`), which is
+    /// what the duplicate close would have observed without the reuse. The
+    /// duplicate is refused exactly once: the record is forgotten afterwards, so
+    /// a later close of the number by this thread (which may by then own it
+    /// legitimately) proceeds normally. See [`stale_close`] for the exact
+    /// conditions.
+    pub(crate) fn close_fd_from_guest(&self, fd: WasiFd, tid: u32) -> CloseFdOutcome {
+        let mut fd_map = self.fd_map.write().unwrap();
+        let generation = fd_map.generation(fd);
+
+        if let Some(last) = stale_close::last_closed()
+            && last.fs_id == self.id
+            && last.tid == tid
+            && last.fd == fd
+            && generation.is_some_and(|generation| generation != last.generation)
+        {
+            trace!(
+                %fd,
+                %tid,
+                "ignoring repeated close of a file descriptor that was re-allocated in between"
+            );
+            stale_close::forget();
+            return CloseFdOutcome::not_found();
+        }
+
+        let outcome = Self::close_fd_locked(&mut fd_map, fd);
+        match (outcome.removed, generation) {
+            (true, Some(generation)) => stale_close::record_close(self.id, tid, fd, generation),
+            _ => stale_close::forget(),
+        }
+        outcome
+    }
+
     /// Closes an open FD in an already write-locked fd map.
     fn close_fd_locked(fd_map: &mut FdList, fd: WasiFd) -> CloseFdOutcome {
         let Some(fd_ref) = fd_map.get(fd) else {
@@ -3580,5 +3632,171 @@ mod tests {
             wasi_fs.remove_symlink_file(Path::new("/missing")),
             Errno::Noent
         );
+    }
+
+    /// Helpers for the stale double-close tests: a table plus a way to allocate
+    /// plain (non-preopened) descriptors on the current or on another thread.
+    struct StaleCloseFixture {
+        inodes: WasiInodes,
+        fs: WasiFs,
+    }
+
+    impl StaleCloseFixture {
+        fn new() -> Self {
+            // The guard state is per host thread; start every test from a clean slate.
+            stale_close::forget();
+            let inodes = WasiInodes::new();
+            let fs_backing =
+                WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+            let fs =
+                WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
+            Self { inodes, fs }
+        }
+
+        fn alloc(&self) -> WasiFd {
+            let inode = self.fs.create_inode_with_default_stat(
+                &self.inodes,
+                Kind::Buffer { buffer: vec![] },
+                false,
+                "buffer".into(),
+            );
+            self.fs
+                .create_fd(
+                    ALL_RIGHTS,
+                    ALL_RIGHTS,
+                    Fdflags::empty(),
+                    Fdflagsext::empty(),
+                    0,
+                    inode,
+                )
+                .unwrap()
+        }
+
+        /// Allocates on another host thread, i.e. as another guest thread would.
+        fn alloc_on_other_thread(&self) -> WasiFd {
+            std::thread::scope(|scope| scope.spawn(|| self.alloc()).join().unwrap())
+        }
+    }
+
+    const TID: u32 = 7;
+
+    #[tokio::test]
+    async fn stale_double_close_does_not_close_a_reused_descriptor() {
+        let f = StaleCloseFixture::new();
+        let a = f.alloc();
+        assert!(f.fs.close_fd_from_guest(a, TID).removed);
+
+        // Another thread receives the same (lowest free) number.
+        let b = f.alloc_on_other_thread();
+        assert_eq!(b, a);
+
+        // The duplicate close reports EBADF and leaves `b` open.
+        let outcome = f.fs.close_fd_from_guest(a, TID);
+        assert!(!outcome.removed);
+        assert!(!outcome.skipped_preopen);
+        assert!(f.fs.fd_map.read().unwrap().generation(b).is_some());
+
+        // The duplicate is refused exactly once; the record is gone afterwards.
+        assert_eq!(stale_close::last_closed(), None);
+    }
+
+    #[tokio::test]
+    async fn refusal_is_bounded_to_one_close() {
+        // A thread closes N twice; another thread gets N in between (refused
+        // once). If the descriptor is later handed back to the first thread and
+        // closed there without any lookup (e.g. a file object dropped on the
+        // thread that just double-closed a socket), that close must succeed.
+        let f = StaleCloseFixture::new();
+        let a = f.alloc();
+        assert!(f.fs.close_fd_from_guest(a, TID).removed);
+        let b = f.alloc_on_other_thread();
+        assert_eq!(b, a);
+        assert!(!f.fs.close_fd_from_guest(a, TID).removed);
+
+        assert!(f.fs.close_fd_from_guest(b, TID).removed);
+        assert!(f.fs.get_fd(b).is_err());
+    }
+
+    #[tokio::test]
+    async fn double_close_after_own_reallocation_is_a_normal_close() {
+        let f = StaleCloseFixture::new();
+        let a = f.alloc();
+        assert!(f.fs.close_fd_from_guest(a, TID).removed);
+        let b = f.alloc();
+        assert_eq!(b, a);
+        assert!(f.fs.close_fd_from_guest(b, TID).removed);
+        assert!(f.fs.get_fd(b).is_err());
+    }
+
+    #[tokio::test]
+    async fn double_close_after_using_the_reused_descriptor_is_a_normal_close() {
+        let f = StaleCloseFixture::new();
+        let a = f.alloc();
+        assert!(f.fs.close_fd_from_guest(a, TID).removed);
+        let b = f.alloc_on_other_thread();
+        assert_eq!(b, a);
+
+        // Any lookup of the number counts as the thread having taken it over.
+        assert!(f.fs.get_fd(b).is_ok());
+        assert!(f.fs.close_fd_from_guest(b, TID).removed);
+        assert!(f.fs.get_fd(b).is_err());
+    }
+
+    #[tokio::test]
+    async fn double_close_after_allocating_another_descriptor_is_a_normal_close() {
+        let f = StaleCloseFixture::new();
+        let a = f.alloc();
+        assert!(f.fs.close_fd_from_guest(a, TID).removed);
+        let b = f.alloc_on_other_thread();
+        assert_eq!(b, a);
+
+        // Allocating anything forgets the previous close as well.
+        let c = f.alloc();
+        assert_ne!(c, b);
+        assert!(f.fs.close_fd_from_guest(b, TID).removed);
+        assert!(f.fs.get_fd(b).is_err());
+        assert!(f.fs.close_fd_from_guest(c, TID).removed);
+    }
+
+    #[tokio::test]
+    async fn reused_descriptor_closed_by_another_guest_thread_is_a_normal_close() {
+        let f = StaleCloseFixture::new();
+        let a = f.alloc();
+        assert!(f.fs.close_fd_from_guest(a, TID).removed);
+        let b = f.alloc_on_other_thread();
+        assert_eq!(b, a);
+
+        // The record is per guest thread.
+        assert!(f.fs.close_fd_from_guest(b, TID + 1).removed);
+        assert!(f.fs.get_fd(b).is_err());
+    }
+
+    #[tokio::test]
+    async fn plain_double_close_reports_not_open_and_forgets() {
+        let f = StaleCloseFixture::new();
+        let a = f.alloc();
+        assert!(f.fs.close_fd_from_guest(a, TID).removed);
+        assert!(!f.fs.close_fd_from_guest(a, TID).removed);
+        assert_eq!(stale_close::last_closed(), None);
+
+        // The number can be handed out and closed again afterwards.
+        let b = f.alloc_on_other_thread();
+        assert_eq!(b, a);
+        assert!(f.fs.close_fd_from_guest(b, TID).removed);
+    }
+
+    #[tokio::test]
+    async fn stale_close_guard_is_scoped_to_the_descriptor_table() {
+        let f = StaleCloseFixture::new();
+        let g = StaleCloseFixture::new();
+        let a = f.alloc();
+        assert!(f.fs.close_fd_from_guest(a, TID).removed);
+
+        // A different table (another process) with the same number is unaffected,
+        // even though this thread neither allocated nor looked anything up.
+        let b = g.alloc_on_other_thread();
+        assert_eq!(b, a);
+        assert!(g.fs.close_fd_from_guest(b, TID).removed);
+        assert_eq!(stale_close::last_closed().map(|c| c.fs_id), Some(g.fs.id));
     }
 }
