@@ -1,6 +1,9 @@
 #![cfg(all(feature = "experimental-async", not(target_arch = "wasm32")))]
 
-use std::{cell::RefCell, sync::OnceLock};
+use std::{
+    cell::RefCell,
+    sync::{Arc, Mutex, OnceLock},
+};
 
 use anyhow::Result;
 use futures::future;
@@ -485,5 +488,138 @@ fn two_calls_on_different_stores_interleave() -> Result<()> {
 
     assert_eq!(a?, 7);
     assert_eq!(b?, 7);
+    Ok(())
+}
+
+/// The chain a suspendable dynamic call needs: an *async* import that re-enters
+/// the guest with [`TypedFunction::call_async`], and a suspension inside that
+/// nested call.
+///
+/// ```text
+/// call_async -> async import -> call_async -> async import -> await point
+/// ```
+///
+/// [`nested_async_in_sync`] covers the same chain with a synchronous import in
+/// the middle, which is what WASIX's dynamic-call and lazy-binding trampolines
+/// do today. That shape cannot suspend under JSPI: V8 refuses to suspend past
+/// the host frame ("trying to suspend JS frames") because the nearest
+/// `WebAssembly.promising` boundary sits *below* it. Making the middle import
+/// async puts a boundary above that frame, which is legal — so this is the shape
+/// those trampolines have to take on the JS backend, and `sys` has to keep
+/// working in it too.
+#[test]
+#[cfg_attr(
+    all(feature = "v8-default", not(feature = "sys-default")),
+    ignore = "async functions are not supported by the default v8 backend"
+)]
+fn nested_async_in_async() -> Result<()> {
+    const WAT: &str = r#"
+    (module
+        (import "env" "reenter" (func $reenter (result i32)))
+        (import "env" "suspend" (func $suspend (result i32)))
+        (func (export "entry") (result i32)
+            call $reenter)
+        (func (export "inner") (result i32)
+            call $suspend))
+    "#;
+    let wasm = wat::parse_str(WAT).expect("valid WAT module");
+
+    let mut store = Store::default();
+    let module = Module::new(&store, wasm)?;
+
+    type Order = Arc<Mutex<Vec<&'static str>>>;
+    struct Env {
+        inner: RefCell<Option<TypedFunction<(), i32>>>,
+        order: Order,
+    }
+
+    let order: Order = Arc::default();
+    let env = FunctionEnv::new(
+        &mut store,
+        Env {
+            inner: RefCell::new(None),
+            order: Arc::clone(&order),
+        },
+    );
+
+    let reenter = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async move |env: AsyncFunctionEnvMut<Env>| {
+            // The read handle holds the store lock, so it has to be released
+            // before the nested call, which takes that lock for itself.
+            let (order, inner) = {
+                let handle = env.read().await;
+                let data = handle.data();
+                (
+                    Arc::clone(&data.order),
+                    data.inner
+                        .borrow()
+                        .clone()
+                        .expect("inner function to be set"),
+                )
+            };
+            order.lock().unwrap().push("reenter:enter");
+            // The store must be reachable *as an async store* from inside an
+            // async import, or the nested call cannot be made at all.
+            let store = env.as_store_async();
+            let result = inner
+                .call_async(&store)
+                .await
+                .expect("nested async call to succeed");
+            order.lock().unwrap().push("reenter:leave");
+            result
+        },
+    );
+
+    let suspend = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async move |env: AsyncFunctionEnvMut<Env>| {
+            let order = Arc::clone(&env.read().await.data().order);
+            order.lock().unwrap().push("suspend:before");
+            tokio::task::yield_now().await;
+            order.lock().unwrap().push("suspend:after");
+            42
+        },
+    );
+
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! {
+            "env" => {
+                "reenter" => reenter,
+                "suspend" => suspend,
+            }
+        },
+    )?;
+
+    let inner = instance
+        .exports
+        .get_typed_function::<(), i32>(&store, "inner")?;
+    env.as_mut(&mut store).inner.borrow_mut().replace(inner);
+
+    let entry = instance
+        .exports
+        .get_typed_function::<(), i32>(&store, "entry")?;
+    let result = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(entry.call_async(&store.into_async()))?;
+
+    assert_eq!(result, 42);
+    assert_eq!(
+        *order.lock().unwrap(),
+        vec![
+            "reenter:enter",
+            "suspend:before",
+            "suspend:after",
+            "reenter:leave"
+        ],
+        "the nested call must finish before the outer import returns"
+    );
+
     Ok(())
 }

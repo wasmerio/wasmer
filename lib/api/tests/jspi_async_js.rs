@@ -1,13 +1,18 @@
 #![cfg(all(feature = "experimental-async", feature = "js", target_arch = "wasm32"))]
 
+use std::{
+    cell::RefCell,
+    sync::{Arc, Mutex},
+};
+
 use futures::FutureExt;
 use js_sys::Promise;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
 use wasmer::{
-    AsStoreAsync, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module, Store,
-    TypedFunction, imports,
+    AsStoreAsync, AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType,
+    Instance, Module, Store, TypedFunction, imports,
 };
 
 #[wasm_bindgen_test]
@@ -173,5 +178,128 @@ async fn a_dropped_call_async_future_stops_the_guest() {
         env.as_ref(&lock).observe_calls,
         0,
         "a dropped call_async future must not go on running guest code"
+    );
+}
+
+/// The chain a suspendable dynamic call needs on this backend: an *async* import
+/// that re-enters the guest with [`TypedFunction::call_async`], and a suspension
+/// inside that nested call.
+///
+/// ```text
+/// call_async -> async import -> call_async -> async import -> await point
+/// ```
+///
+/// WASIX's dynamic-call and lazy-binding trampolines use a *synchronous* import
+/// in the middle, which JSPI cannot carry: V8 refuses to suspend past the host
+/// frame ("trying to suspend JS frames") because the nearest
+/// `WebAssembly.promising` boundary sits below it. Making the middle import
+/// async puts a boundary above that frame. The suspension is then legal to V8,
+/// so what is left is whether this backend's own bookkeeping nests — the parked
+/// context, the store lock and the borrow count all have to survive one
+/// `call_async` running inside another.
+#[wasm_bindgen_test]
+async fn a_nested_call_async_can_suspend() {
+    const WAT: &str = r#"
+    (module
+      (import "host" "reenter" (func $reenter (result i32)))
+      (import "host" "suspend" (func $suspend (result i32)))
+      (func (export "entry") (result i32)
+        call $reenter)
+      (func (export "inner") (result i32)
+        call $suspend))
+    "#;
+
+    let mut store = Store::default();
+    let module = Module::new(&store, WAT).unwrap();
+
+    struct Env {
+        inner: RefCell<Option<TypedFunction<(), i32>>>,
+        order: Arc<Mutex<Vec<&'static str>>>,
+    }
+
+    let order: Arc<Mutex<Vec<&'static str>>> = Arc::default();
+    let env = FunctionEnv::new(
+        &mut store,
+        Env {
+            inner: RefCell::new(None),
+            order: Arc::clone(&order),
+        },
+    );
+
+    let reenter = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async move |env: AsyncFunctionEnvMut<Env>| {
+            // The read handle holds the store lock, so it has to be released
+            // before the nested call, which takes that lock for itself.
+            let (order, inner) = {
+                let handle = env.read().await;
+                let data = handle.data();
+                (
+                    Arc::clone(&data.order),
+                    data.inner
+                        .borrow()
+                        .clone()
+                        .expect("inner function to be set"),
+                )
+            };
+            order.lock().unwrap().push("reenter:enter");
+            let store = env.as_store_async();
+            let result = inner
+                .call_async(&store)
+                .await
+                .expect("nested async call to succeed");
+            order.lock().unwrap().push("reenter:leave");
+            result
+        },
+    );
+
+    let suspend = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async move |env: AsyncFunctionEnvMut<Env>| {
+            let order = Arc::clone(&env.read().await.data().order);
+            order.lock().unwrap().push("suspend:before");
+            JsFuture::from(next_macrotask()).await.unwrap();
+            order.lock().unwrap().push("suspend:after");
+            42
+        },
+    );
+
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! {
+            "host" => {
+                "reenter" => reenter,
+                "suspend" => suspend,
+            }
+        },
+    )
+    .unwrap();
+
+    let inner: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "inner")
+        .unwrap();
+    env.as_mut(&mut store).inner.borrow_mut().replace(inner);
+
+    let entry: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "entry")
+        .unwrap();
+
+    let result = entry.call_async(&store.into_async()).await.unwrap();
+
+    assert_eq!(result, 42);
+    assert_eq!(
+        *order.lock().unwrap(),
+        vec![
+            "reenter:enter",
+            "suspend:before",
+            "suspend:after",
+            "reenter:leave"
+        ],
+        "the nested call must finish before the outer import returns"
     );
 }
