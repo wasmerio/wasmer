@@ -1,9 +1,9 @@
-use std::sync::{Mutex, TryLockError};
+use std::sync::{Arc, Mutex, TryLockError};
 
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, Extern, ExternType, Function, FunctionEnv, FunctionEnvMut, FunctionType,
-    ImportType, Imports, Module, RuntimeError, Type, Value,
+    AsStoreMut, AsStoreRef, AsyncFunctionEnvMut, Extern, ExternType, Function, FunctionEnv,
+    FunctionEnvMut, FunctionType, ImportType, Imports, Module, RuntimeError, Type, Value,
 };
 
 use crate::{WasiEnv, WasiError, flatten_runtime_error};
@@ -530,160 +530,66 @@ impl InstanceGroupState {
         trace!(?requesting_module, name, "Generating stub function");
 
         let ty = ty.clone();
-        let resolved: Mutex<Option<Option<Function>>> = Mutex::new(None);
 
+        // A stub re-enters the guest, so on the JS backend it has the same
+        // problem as the `call_dynamic` syscall: a synchronous host frame here
+        // means V8 will not let anything below it suspend. Re-entering with
+        // `call_async` from an async import puts a `WebAssembly.promising`
+        // boundary above this frame instead. `sys` keeps the cheaper synchronous
+        // path, which every other import uses.
+        #[cfg(feature = "js")]
+        let prefers_async_reentry = {
+            let engine = store.as_store_ref().engine().clone();
+            engine.supports_async() && engine.is_js()
+        };
+        #[cfg(not(feature = "js"))]
+        let prefers_async_reentry = false;
+
+        if prefers_async_reentry {
+            let resolved: Arc<Mutex<Option<Option<Function>>>> = Arc::default();
+            let name = Arc::new(name);
+            let ty_for_call = ty.clone();
+            return Function::new_with_env_async(
+                store,
+                env,
+                ty,
+                move |env: AsyncFunctionEnvMut<WasiEnv>, params: &[Value]| {
+                    // The future outlives this call, so it has to own everything
+                    // it touches; `params` is only borrowed for the call itself.
+                    let resolved = Arc::clone(&resolved);
+                    let name = Arc::clone(&name);
+                    let ty = ty_for_call.clone();
+                    let params = params.to_vec();
+                    async move {
+                        // The write handle holds the store lock, which the nested
+                        // call takes for itself, so resolution is scoped.
+                        let func = {
+                            let mut write_lock = env.write().await;
+                            resolve_stub_target(
+                                &mut write_lock.as_function_env_mut(),
+                                &resolved,
+                                requesting_module,
+                                &name,
+                                &ty,
+                            )?
+                        };
+                        let store = env.as_store_async();
+                        func.call_async(&store, params)
+                            .await
+                            .map(|ret| ret.into())
+                            .map_err(flatten_runtime_error)
+                    }
+                },
+            );
+        }
+
+        let resolved: Mutex<Option<Option<Function>>> = Mutex::new(None);
         Function::new_with_env(
             store,
             env,
             ty.clone(),
             move |mut env: FunctionEnvMut<'_, WasiEnv>, params: &[Value]| {
-                let mk_error = || {
-                    RuntimeError::user(Box::new(WasiError::DlSymbolResolutionFailed(name.clone())))
-                };
-
-                let mut resolved_guard = resolved.lock().unwrap();
-                let func = match *resolved_guard {
-                    None => {
-                        trace!(?requesting_module, name, "Resolving stub function");
-
-                        let (data, store) = env.data_and_store_mut();
-                        let env_inner = data.inner();
-                        // Safe to unwrap since we already know we're doing DL
-                        let linker = env_inner.linker().unwrap();
-
-                        // Best-effort lock only: stubs can run during cross-module init while
-                        // another group holds the linker write lock. Cooperative write would block
-                        // here; if we can't lock, we resolve but skip recording for other groups.
-                        let linker_state = match linker.shared.try_write_linker_state() {
-                            Ok(guard) => {
-                                trace!(
-                                    ?requesting_module,
-                                    name, "Locked linker state successfully"
-                                );
-                                Some(guard)
-                            }
-                            Err(TryLockError::WouldBlock) => {
-                                trace!(?requesting_module, name, "Failed to lock linker state");
-                                None
-                            }
-                            Err(TryLockError::Poisoned(_)) => {
-                                *resolved_guard = Some(None);
-                                return Err(mk_error());
-                            }
-                        };
-
-                        let group_guard = linker.instance_group_state.lock().unwrap();
-                        let Some(group_state) = group_guard.as_ref() else {
-                            trace!(?requesting_module, name, "Instance group is already dead");
-                            *resolved_guard = Some(None);
-                            return Err(mk_error());
-                        };
-
-                        let resolution_key =
-                            SymbolResolutionKey::Needed(NeededSymbolResolutionKey {
-                                module_handle: requesting_module,
-                                import_module: "env".to_owned(),
-                                import_name: name.clone(),
-                            });
-
-                        match linker_state
-                            .as_ref()
-                            .and_then(|l| l.symbol_resolution_records.get(&resolution_key))
-                        {
-                            Some(SymbolResolutionResult::Function {
-                                resolved_from,
-                                ty: resolved_ty,
-                            }) => {
-                                trace!(
-                                    ?requesting_module,
-                                    name, "Function was already resolved in the linker"
-                                );
-
-                                if ty != *resolved_ty {
-                                    *resolved_guard = Some(None);
-                                    return Err(mk_error());
-                                }
-
-                                let func = group_state
-                                    .instance(*resolved_from)
-                                    .exports
-                                    .get_function(&name)
-                                    .unwrap()
-                                    .clone();
-                                *resolved_guard = Some(Some(func.clone()));
-                                func
-                            }
-                            Some(SymbolResolutionResult::StubFunction(_)) | None => {
-                                trace!(?requesting_module, name, "Resolving function");
-
-                                let Some((resolved_from, export)) =
-                                    group_state.resolve_exported_symbol(name.as_str())
-                                else {
-                                    trace!(?requesting_module, name, "Failed to resolve symbol");
-                                    *resolved_guard = Some(None);
-                                    return Err(mk_error());
-                                };
-                                let Extern::Function(func) = export else {
-                                    trace!(
-                                        ?requesting_module,
-                                        name,
-                                        ?resolved_from,
-                                        "Resolved symbol is not a function"
-                                    );
-                                    *resolved_guard = Some(None);
-                                    return Err(mk_error());
-                                };
-                                if func.ty(&store) != ty {
-                                    trace!(
-                                        ?requesting_module,
-                                        name,
-                                        ?resolved_from,
-                                        "Resolved function has bad type"
-                                    );
-                                    *resolved_guard = Some(None);
-                                    return Err(mk_error());
-                                }
-
-                                trace!(
-                                    ?requesting_module,
-                                    name,
-                                    ?resolved_from,
-                                    "Function resolved successfully"
-                                );
-
-                                // Only store the result if we can also put it in the linker's
-                                // resolution records for other groups to find.
-                                if let Some(mut linker_state) = linker_state {
-                                    trace!(
-                                        ?requesting_module,
-                                        name,
-                                        ?resolved_from,
-                                        "Updating linker state with this resolution"
-                                    );
-
-                                    *resolved_guard = Some(Some(func.clone()));
-                                    linker_state.symbol_resolution_records.insert(
-                                        resolution_key,
-                                        SymbolResolutionResult::Function {
-                                            ty: func.ty(&store),
-                                            resolved_from,
-                                        },
-                                    );
-                                }
-
-                                func.clone()
-                            }
-                            Some(resolution) => panic!(
-                                "Internal error: resolution record for symbol \
-                                {name} indicates non-function resolution {resolution:?}"
-                            ),
-                        }
-                    }
-                    Some(None) => return Err(mk_error()),
-                    Some(Some(ref func)) => func.clone(),
-                };
-                drop(resolved_guard);
-
+                let func = resolve_stub_target(&mut env, &resolved, requesting_module, &name, &ty)?;
                 let mut store = env.as_store_mut();
                 func.call(&mut store, params)
                     .map(|ret| ret.into())
@@ -691,4 +597,161 @@ impl InstanceGroupState {
             },
         )
     }
+}
+
+/// Resolve the function a lazy-binding stub stands for, caching the answer.
+///
+/// Extracted so the synchronous and asynchronous stubs can share it; see
+/// `generate_stub_function` for why there are two.
+fn resolve_stub_target(
+    env: &mut FunctionEnvMut<'_, WasiEnv>,
+    resolved: &Mutex<Option<Option<Function>>>,
+    requesting_module: ModuleHandle,
+    name: &str,
+    ty: &FunctionType,
+) -> Result<Function, RuntimeError> {
+    let name = name.to_owned();
+    let ty = ty.clone();
+    let mk_error =
+        || RuntimeError::user(Box::new(WasiError::DlSymbolResolutionFailed(name.clone())));
+
+    let mut resolved_guard = resolved.lock().unwrap();
+    let func = match *resolved_guard {
+        None => {
+            trace!(?requesting_module, name, "Resolving stub function");
+
+            let (data, store) = env.data_and_store_mut();
+            let env_inner = data.inner();
+            // Safe to unwrap since we already know we're doing DL
+            let linker = env_inner.linker().unwrap();
+
+            // Best-effort lock only: stubs can run during cross-module init while
+            // another group holds the linker write lock. Cooperative write would block
+            // here; if we can't lock, we resolve but skip recording for other groups.
+            let linker_state = match linker.shared.try_write_linker_state() {
+                Ok(guard) => {
+                    trace!(?requesting_module, name, "Locked linker state successfully");
+                    Some(guard)
+                }
+                Err(TryLockError::WouldBlock) => {
+                    trace!(?requesting_module, name, "Failed to lock linker state");
+                    None
+                }
+                Err(TryLockError::Poisoned(_)) => {
+                    *resolved_guard = Some(None);
+                    return Err(mk_error());
+                }
+            };
+
+            let group_guard = linker.instance_group_state.lock().unwrap();
+            let Some(group_state) = group_guard.as_ref() else {
+                trace!(?requesting_module, name, "Instance group is already dead");
+                *resolved_guard = Some(None);
+                return Err(mk_error());
+            };
+
+            let resolution_key = SymbolResolutionKey::Needed(NeededSymbolResolutionKey {
+                module_handle: requesting_module,
+                import_module: "env".to_owned(),
+                import_name: name.clone(),
+            });
+
+            match linker_state
+                .as_ref()
+                .and_then(|l| l.symbol_resolution_records.get(&resolution_key))
+            {
+                Some(SymbolResolutionResult::Function {
+                    resolved_from,
+                    ty: resolved_ty,
+                }) => {
+                    trace!(
+                        ?requesting_module,
+                        name, "Function was already resolved in the linker"
+                    );
+
+                    if ty != *resolved_ty {
+                        *resolved_guard = Some(None);
+                        return Err(mk_error());
+                    }
+
+                    let func = group_state
+                        .instance(*resolved_from)
+                        .exports
+                        .get_function(&name)
+                        .unwrap()
+                        .clone();
+                    *resolved_guard = Some(Some(func.clone()));
+                    func
+                }
+                Some(SymbolResolutionResult::StubFunction(_)) | None => {
+                    trace!(?requesting_module, name, "Resolving function");
+
+                    let Some((resolved_from, export)) =
+                        group_state.resolve_exported_symbol(name.as_str())
+                    else {
+                        trace!(?requesting_module, name, "Failed to resolve symbol");
+                        *resolved_guard = Some(None);
+                        return Err(mk_error());
+                    };
+                    let Extern::Function(func) = export else {
+                        trace!(
+                            ?requesting_module,
+                            name,
+                            ?resolved_from,
+                            "Resolved symbol is not a function"
+                        );
+                        *resolved_guard = Some(None);
+                        return Err(mk_error());
+                    };
+                    if func.ty(&store) != ty {
+                        trace!(
+                            ?requesting_module,
+                            name,
+                            ?resolved_from,
+                            "Resolved function has bad type"
+                        );
+                        *resolved_guard = Some(None);
+                        return Err(mk_error());
+                    }
+
+                    trace!(
+                        ?requesting_module,
+                        name,
+                        ?resolved_from,
+                        "Function resolved successfully"
+                    );
+
+                    // Only store the result if we can also put it in the linker's
+                    // resolution records for other groups to find.
+                    if let Some(mut linker_state) = linker_state {
+                        trace!(
+                            ?requesting_module,
+                            name,
+                            ?resolved_from,
+                            "Updating linker state with this resolution"
+                        );
+
+                        *resolved_guard = Some(Some(func.clone()));
+                        linker_state.symbol_resolution_records.insert(
+                            resolution_key,
+                            SymbolResolutionResult::Function {
+                                ty: func.ty(&store),
+                                resolved_from,
+                            },
+                        );
+                    }
+
+                    func.clone()
+                }
+                Some(resolution) => panic!(
+                    "Internal error: resolution record for symbol \
+                    {name} indicates non-function resolution {resolution:?}"
+                ),
+            }
+        }
+        Some(None) => return Err(mk_error()),
+        Some(Some(ref func)) => func.clone(),
+    };
+    drop(resolved_guard);
+    Ok(func)
 }

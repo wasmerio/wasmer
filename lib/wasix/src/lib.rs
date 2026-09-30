@@ -516,12 +516,21 @@ fn wasi_snapshot_preview1_exports(
 
 fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     let engine_supports_async = store.as_store_ref().engine().supports_async();
+    // Re-entering the guest from a *synchronous* host frame is what blocks a
+    // suspension under a dynamic call on the JS backend: V8 will not suspend
+    // past that frame. `sys` has no such restriction and its synchronous path is
+    // both cheaper and the one every other syscall uses, so only JS switches.
+    #[cfg(feature = "js")]
+    let engine_prefers_async_reentry =
+        engine_supports_async && store.as_store_ref().engine().is_js();
+    #[cfg(not(feature = "js"))]
+    let engine_prefers_async_reentry = false;
 
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory32>),
         "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get::<Memory32>),
-        "call_dynamic" => Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory32>),
+        "call_dynamic" => if engine_prefers_async_reentry { Function::new_typed_with_env_async(&mut store, env, call_dynamic_async::<Memory32>) } else { Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory32>) },
         "reflect_signature" => Function::new_typed_with_env(&mut store, env, reflect_signature::<Memory32>),
         "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get::<Memory32>),
         "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get::<Memory32>),
@@ -665,12 +674,21 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
 
 fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     let engine_supports_async = store.as_store_ref().engine().supports_async();
+    // Re-entering the guest from a *synchronous* host frame is what blocks a
+    // suspension under a dynamic call on the JS backend: V8 will not suspend
+    // past that frame. `sys` has no such restriction and its synchronous path is
+    // both cheaper and the one every other syscall uses, so only JS switches.
+    #[cfg(feature = "js")]
+    let engine_prefers_async_reentry =
+        engine_supports_async && store.as_store_ref().engine().is_js();
+    #[cfg(not(feature = "js"))]
+    let engine_prefers_async_reentry = false;
 
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory64>),
         "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get::<Memory64>),
-        "call_dynamic" => Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory64>),
+        "call_dynamic" => if engine_prefers_async_reentry { Function::new_typed_with_env_async(&mut store, env, call_dynamic_async::<Memory64>) } else { Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory64>) },
         "reflect_signature" => Function::new_typed_with_env(&mut store, env, reflect_signature::<Memory64>),
         "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get::<Memory64>),
         "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get::<Memory64>),
