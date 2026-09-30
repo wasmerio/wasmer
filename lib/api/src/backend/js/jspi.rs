@@ -1,7 +1,14 @@
-use std::{cell::RefCell, collections::HashMap, rc::Weak};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    future::Future,
+    pin::Pin,
+    rc::{Rc, Weak},
+    task::{Context, Poll},
+};
 
 use crate::{AsStoreAsync, ForcedStoreInstallGuard, StoreAsync};
-use js_sys::{Function, Reflect};
+use js_sys::{Function, Promise, Reflect};
 use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
 use wasmer_types::StoreId;
 
@@ -33,11 +40,99 @@ pub(crate) struct ParkedCall {
     /// Uninstalls the context and releases the store when dropped.
     pub(crate) guard: ForcedStoreInstallGuard,
 
-    /// Alive while the `Function::call_async` future that started this call is
-    /// alive. Once it is gone the guest must never be resumed — not even to
-    /// throw, since a rejection runs the guest's own exception handlers, which
-    /// is guest code running under a call that no longer exists.
-    pub(crate) alive: Weak<()>,
+    /// The call that is running this guest, if it is still alive. Once it is
+    /// gone the guest must never be resumed — not even to throw, since a
+    /// rejection runs the guest's own exception handlers, which is guest code
+    /// running under a call that no longer exists.
+    ///
+    /// Weak on purpose: the strong reference lives in the
+    /// `Function::call_async` future, and the futures this holds capture a
+    /// `Weak` back, so a strong one here would be a cycle that never frees.
+    pub(crate) call: Weak<CallState>,
+}
+
+/// What an async import's host future reports: how to settle the suspended
+/// guest's promise, or `None` to leave it unsettled and the guest inert.
+type ImportOutcome = Option<Result<JsValue, JsValue>>;
+
+/// An async import whose guest is suspended, waiting for the host to finish.
+struct PendingImport {
+    future: Pin<Box<dyn Future<Output = ImportOutcome>>>,
+    /// The suspended guest's `(resolve, reject)`. Dropping these without
+    /// calling either leaves the guest suspended for good, which is how an
+    /// abandoned call is left inert.
+    settle: Option<(Function, Function)>,
+}
+
+/// Everything a single `Function::call_async` owns while its guest runs.
+///
+/// The async imports that guest reaches are *owned here* rather than spawned:
+/// `sys` polls a host future from the call's own `AsyncCallFuture::poll`, so
+/// whoever drives the call drives the imports, and dropping the call drops them.
+/// Handing them to `wasm_bindgen_futures` instead would detach them onto an
+/// executor the caller never chose and that nothing can cancel — which also
+/// strands the store clones those futures hold, so a WASIX context teardown
+/// could never reclaim the store.
+#[derive(Default)]
+pub(crate) struct CallState {
+    pending: RefCell<Vec<PendingImport>>,
+
+    /// The waker of whoever drives this call.
+    ///
+    /// A guest suspends on an import from a JS job, not from inside a poll, so
+    /// the push has to reach the call's future itself: nothing else will. `sys`
+    /// has no equivalent because there a host future is first polled in the same
+    /// `AsyncCallFuture::poll` that resumed the guest.
+    waker: RefCell<Option<std::task::Waker>>,
+}
+
+impl CallState {
+    /// Suspends the guest on a fresh promise and takes ownership of `future`,
+    /// which settles that promise once [`Self::drive`] sees it finish.
+    pub(crate) fn suspend_guest_on<F>(&self, future: F) -> Promise
+    where
+        F: Future<Output = ImportOutcome> + 'static,
+    {
+        let mut settle = None;
+        let promise = Promise::new(&mut |resolve, reject| settle = Some((resolve, reject)));
+        self.pending.borrow_mut().push(PendingImport {
+            future: Box::pin(future),
+            settle,
+        });
+        // Nothing has polled this future yet, so it has registered no waker of
+        // its own; without this the call would never look at it again.
+        if let Some(waker) = self.waker.borrow().as_ref() {
+            waker.wake_by_ref();
+        }
+        promise
+    }
+
+    /// Polls every async import this call is waiting on, resuming the guest for
+    /// each one that finished. Called from the call's own future, so `cx` is the
+    /// caller's waker and no other executor is involved.
+    pub(crate) fn drive(&self, cx: &mut Context<'_>) {
+        self.waker.borrow_mut().replace(cx.waker().clone());
+
+        // The borrow is released around each poll: polling an import can re-enter
+        // the guest synchronously, and that guest can suspend on an import of its
+        // own.
+        let mut unfinished = Vec::new();
+        while let Some(mut import) = self.pending.borrow_mut().pop() {
+            match import.future.as_mut().poll(cx) {
+                Poll::Pending => unfinished.push(import),
+                Poll::Ready(outcome) => {
+                    if let (Some((resolve, reject)), Some(result)) = (import.settle.take(), outcome)
+                    {
+                        let _ = match result {
+                            Ok(value) => resolve.call1(&JsValue::UNDEFINED, &value),
+                            Err(error) => reject.call1(&JsValue::UNDEFINED, &error),
+                        };
+                    }
+                }
+            }
+        }
+        self.pending.borrow_mut().append(&mut unfinished);
+    }
 }
 
 thread_local! {

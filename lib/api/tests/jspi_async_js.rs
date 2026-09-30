@@ -181,6 +181,35 @@ async fn a_dropped_call_async_future_stops_the_guest() {
     );
 }
 
+/// A cancelled call must not strand the store.
+///
+/// The async imports a guest suspends on hold store clones. While they were
+/// handed to `wasm_bindgen_futures`, nothing owned them: an abandoned suspension
+/// kept its clones for the life of the page, so `StoreAsync::into_store` could
+/// never reclaim the store — which is how WASIX tears a context down, and it
+/// panicked instead. Owning them in the call fixes that, and this is the
+/// difference being pinned.
+#[wasm_bindgen_test]
+async fn a_dropped_call_async_future_releases_the_store() {
+    let mut store = Store::default();
+    let (instance, _env) = suspend_then_observe(&mut store);
+    let run: TypedFunction<(), ()> = instance.exports.get_typed_function(&store, "run").unwrap();
+
+    let store_async = store.into_async();
+    assert!(
+        run.call_async(&store_async).now_or_never().is_none(),
+        "the guest should have suspended in the async import"
+    );
+    JsFuture::from(next_macrotask()).await.unwrap();
+
+    drop(run);
+    drop(instance);
+    assert!(
+        store_async.into_store().is_ok(),
+        "a dropped call_async future must leave no clone of the store behind"
+    );
+}
+
 /// The chain a suspendable dynamic call needs on this backend: an *async* import
 /// that re-enters the guest with [`TypedFunction::call_async`], and a suspension
 /// inside that nested call.

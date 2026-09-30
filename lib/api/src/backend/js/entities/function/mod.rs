@@ -11,7 +11,7 @@ use js_sys::{Array, Function as JsFunction};
 use js_sys::{Promise, Reflect};
 use wasm_bindgen::{JsCast, prelude::*};
 #[cfg(feature = "experimental-async")]
-use wasm_bindgen_futures::{JsFuture, future_to_promise};
+use wasm_bindgen_futures::JsFuture;
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
@@ -182,10 +182,16 @@ impl Function {
                  on different stores so they do not overlap."
             );
             let parked = jspi::take_context(store_id);
-            let alive = parked.as_ref().map(|parked| parked.alive.clone());
+            let alive = parked.as_ref().map(|parked| parked.call.clone());
             drop(parked);
 
-            future_to_promise(async move {
+            // Owned by the call whose guest suspends here, never spawned: see
+            // `jspi::CallState`. With no live call nothing owns the future and
+            // nothing could be resumed, so leave the guest inert.
+            let Some(state) = alive.as_ref().and_then(std::rc::Weak::upgrade) else {
+                return Promise::new(&mut |_, _| {});
+            };
+            state.suspend_guest_on(async move {
                 let mut write_lock = callback_store.write_lock().await;
                 let values = parameter_types
                     .iter()
@@ -214,14 +220,13 @@ impl Function {
                 let Some(alive) = alive.filter(|alive| alive.strong_count() > 0) else {
                     // The call was abandoned. Resolving *or* rejecting this
                     // import would resume the guest — a rejection runs its
-                    // exception handlers — so do neither: hand back a promise
-                    // that never settles, leaving the suspended stack inert for
-                    // the host to collect.
-                    return Ok(Promise::new(&mut |_, _| {}).into());
+                    // exception handlers — so do neither: an unsettled promise
+                    // leaves the suspended stack inert.
+                    return None;
                 };
-                let Some(results) = results else {
-                    return Ok(Promise::new(&mut |_, _| {}).into());
-                };
+                // `None` here is the same cancellation as above, seen by the
+                // poll loop instead of the guard.
+                let results = results?;
 
                 // Resolving the promise below resumes the guest, so reinstall
                 // its context first. This also reacquires the write lock, which
@@ -232,16 +237,18 @@ impl Function {
                     store_id,
                     jspi::ParkedCall {
                         guard: StoreContext::install_async(write_lock.inner),
-                        alive,
+                        call: alive,
                     },
                 );
 
-                let results = results.map_err(JsValue::from)?;
-                match result_types.len() {
-                    0 => Ok(JsValue::UNDEFINED),
-                    1 => Ok(wasmer_value_to_js(&results[0])),
-                    _ => Ok(wasmer_array_to_js_array(&results).into()),
-                }
+                Some(match results {
+                    Err(error) => Err(JsValue::from(error)),
+                    Ok(results) => Ok(match result_types.len() {
+                        0 => JsValue::UNDEFINED,
+                        1 => wasmer_value_to_js(&results[0]),
+                        _ => wasmer_array_to_js_array(&results).into(),
+                    }),
+                })
             })
         }) as Box<dyn FnMut(&Array) -> Promise>)
         .into_js_value();
@@ -673,15 +680,17 @@ impl Function {
             // returns at the guest's first suspension, so a guard on this frame
             // would cover only the first span. Everything the guest ran after
             // resuming would have no context installed and no lock held.
-            // Dropping this future drops `call_alive`, which is how a
-            // suspended import learns its call was cancelled.
-            let call_alive = std::rc::Rc::new(());
+            //
+            // The `CallState` owns every async import this guest suspends on, so
+            // they are driven by whoever drives this future and dropped with it —
+            // which is also how a suspended import learns its call was cancelled.
+            let call = std::rc::Rc::new(jspi::CallState::default());
             let store_context = StoreContext::install_async(write_lock.inner);
             jspi::park_context(
                 store_id,
                 jspi::ParkedCall {
                     guard: store_context,
-                    alive: std::rc::Rc::downgrade(&call_alive),
+                    call: std::rc::Rc::downgrade(&call),
                 },
             );
             let promising = jspi::promising(&function.handle.function)
@@ -691,7 +700,15 @@ impl Function {
                 .dyn_into::<Promise>()
                 .map_err(RuntimeError::from)?;
 
-            let result = JsFuture::from(promise).await.map_err(RuntimeError::from)?;
+            let mut guest = std::pin::pin!(JsFuture::from(promise));
+            let result = std::future::poll_fn(|cx| {
+                // Before the guest, so an import that has already finished
+                // resumes it rather than waiting a further poll.
+                call.drive(cx);
+                guest.as_mut().poll(cx)
+            })
+            .await
+            .map_err(RuntimeError::from)?;
 
             // The guest is finished. Whatever is parked now was installed by
             // the last import to complete, or is still ours if it never
