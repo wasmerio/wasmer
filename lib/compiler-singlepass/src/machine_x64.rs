@@ -3732,6 +3732,14 @@ impl Machine for MachineX86_64 {
                 )
             },
         )?;
+        // The atomic instruction only fills up low byte, so we must explicitly zero extend it!
+        self.move_location_extend(
+            Size::S8,
+            false,
+            Location::GPR(value),
+            Size::S32,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S32, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -3856,6 +3864,14 @@ impl Machine for MachineX86_64 {
                     Location::Memory(addr, 0),
                 )
             },
+        )?;
+        // The atomic instruction only fills up low byte, so we must explicitly zero extend it!
+        self.move_location_extend(
+            Size::S8,
+            false,
+            Location::GPR(value),
+            Size::S32,
+            Location::GPR(value),
         )?;
         self.move_location(Size::S32, Location::GPR(value), ret)?;
         self.release_gpr(value);

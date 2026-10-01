@@ -1965,7 +1965,6 @@ impl Machine for MachineRiscv {
         if let Some(x) = gpr {
             self.used_gprs_insert(x);
         }
-        assert!(gpr.is_some());
         gpr
     }
 
