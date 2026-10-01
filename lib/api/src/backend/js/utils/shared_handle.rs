@@ -17,11 +17,10 @@ static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 // which traps on the main thread and strands the scheduler. Keep the shared
 // ownership index lock-free; JS references themselves remain worker-local.
 static OWNERS: LazyLock<SkipMap<u32, Weak<Owner>>> = LazyLock::new(SkipMap::new);
-const NAMESPACE_PREFIX: &str = "wasmer-shared-objects-v1-";
 // A routing namespace for task envelopes, not an authentication credential.
 static NAMESPACE: LazyLock<String> = LazyLock::new(|| {
     format!(
-        "{NAMESPACE_PREFIX}{}-{}-{}",
+        "wasmer-shared-objects-v1-{}-{}-{}",
         js_sys::Date::now(),
         js_sys::Math::random(),
         js_sys::Math::random()
@@ -259,7 +258,8 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
 ///
 /// Post this envelope, then import it with receive_shared_object_message before
 /// accessing the task. No per-connection state is retained: retries and new workers
-/// use the same full-snapshot protocol. Plain lifecycle messages need no envelope.
+/// use the same full-snapshot protocol. Plain lifecycle messages need no envelope
+/// but must not be arrays (see [`receive_shared_object_message`]).
 ///
 /// This is a trusted-pool protocol, not per-task capability isolation. It guarantees
 /// availability of the attached objects at dispatch, not modules published later
@@ -279,30 +279,25 @@ pub fn prepare_shared_object_message(payload: JsValue) -> JsValue {
 }
 
 /// Import a transport envelope and return its application payload.
-/// Messages that are not shared-object envelopes (3-element arrays tagged with
-/// the shared-object namespace) pass through unchanged. An envelope from another
-/// runtime, or with a malformed snapshot, is an error and its payload is dropped.
+///
+/// Non-array messages pass through unchanged. Every array is treated as an
+/// envelope and must carry this runtime's namespace and a well-formed snapshot;
+/// otherwise it is rejected before the payload is returned, so a task payload
+/// holding raw pointers is never decoded from a foreign or malformed message.
+/// Hosts must therefore not use arrays for plain (non-envelope) messages.
 ///
 /// # Safety
 /// The envelope must be produced by this runtime's prepare_shared_object_message on the
 /// same trusted worker connection; see import_shared_objects.
 pub unsafe fn receive_shared_object_message(message: JsValue) -> Result<JsValue, JsValue> {
-    let Some(envelope) = message
-        .dyn_ref::<Array>()
-        .filter(|envelope| envelope.length() == 3)
-    else {
+    if !Array::is_array(&message) {
         return Ok(message);
-    };
-    let Some(namespace) = envelope
-        .get(0)
-        .as_string()
-        .filter(|namespace| namespace.starts_with(NAMESPACE_PREFIX))
-    else {
-        return Ok(message);
-    };
-    if namespace != *NAMESPACE {
+    }
+    let envelope: Array = message.unchecked_into();
+    if envelope.length() != 3 || envelope.get(0).as_string().as_deref() != Some(NAMESPACE.as_str())
+    {
         return Err(JsValue::from_str(
-            "shared-object envelope belongs to another runtime",
+            "invalid shared-object envelope or runtime namespace",
         ));
     }
     let objects = envelope.get(2);
@@ -444,13 +439,12 @@ mod tests {
             "payload"
         );
         let foreign = Array::from(&message);
-        foreign.set(
-            0,
-            JsValue::from_str(&format!("{NAMESPACE_PREFIX}another-runtime")),
-        );
+        foreign.set(0, JsValue::from_str("another-runtime"));
         assert!(unsafe { receive_shared_object_message(foreign.into()) }.is_err());
-        // Application arrays, e.g. [cmd, arg, extra], are not envelopes.
-        let plain = Array::of3(&"cmd".into(), &"arg".into(), &"extra".into());
+        // Any array is an envelope; non-envelope arrays are rejected, not passed on.
+        let tuple = Array::of2(&"cmd".into(), &"arg".into());
+        assert!(unsafe { receive_shared_object_message(tuple.into()) }.is_err());
+        let plain = js_sys::Object::new();
         let received = unsafe { receive_shared_object_message(plain.clone().into()) }.unwrap();
         assert_eq!(received, JsValue::from(plain));
     }
