@@ -1401,9 +1401,13 @@ mod tests {
             additional_host_mapped_directories: vec![],
         };
 
+        // A mount below a command directory (`/usr/local/ssl`) must not stop
+        // installation; a mount *at* one hides that alias, which must then
+        // stay unregistered without affecting the other alias.
         for (mount, available, unavailable) in [
-            ("/usr/local/ssl", "/bin/pi", "/usr/bin/pi"),
-            ("/bin/data", "/usr/bin/pi", "/bin/pi"),
+            ("/usr/local/ssl", &["/bin/pi", "/usr/bin/pi"][..], &[][..]),
+            ("/usr/bin", &["/bin/pi"][..], &["/usr/bin/pi"][..]),
+            ("/bin", &["/usr/bin/pi"][..], &["/bin/pi"][..]),
         ] {
             let env = WasiEnvBuilder::new("pi")
                 .arg("--provider")
@@ -1416,27 +1420,30 @@ mod tests {
                 .build()
                 .unwrap();
             let fs = &env.state.fs.root_fs;
-            // A nested mount supplies a virtual parent, but does not create
-            // that parent in the writable root used for command installation.
             fs.root()
                 .mount(Path::new(mount), Arc::new(TmpFileSystem::new()))
                 .unwrap();
 
             env.use_package_async(&package).await.unwrap();
-            assert!(fs.metadata(Path::new(available)).unwrap().is_file());
-            assert!(fs.metadata(Path::new(unavailable)).is_err());
-            let installed = env
-                .bin_factory
-                .get_binary(available, None)
-                .await
-                .expect("a successfully installed alias must retain its package metadata");
-            assert!(
-                env.bin_factory
-                    .get_binary(unavailable, None)
-                    .await
-                    .is_none()
-            );
-            env.prepare_spawn(installed.get_command("pi").unwrap());
+            for path in unavailable {
+                assert!(fs.metadata(Path::new(path)).is_err(), "{path}");
+                assert!(
+                    env.bin_factory.get_binary(path, None).await.is_none(),
+                    "{path}"
+                );
+            }
+            let mut installed = Vec::new();
+            for path in available {
+                assert!(fs.metadata(Path::new(path)).unwrap().is_file(), "{path}");
+                installed.push(
+                    env.bin_factory
+                        .get_binary(path, None)
+                        .await
+                        .expect("a successfully installed alias must retain its package metadata"),
+                );
+            }
+            // `prepare_spawn` mutates the env's args, so apply it only once.
+            env.prepare_spawn(installed[0].get_command("pi").unwrap());
             assert_eq!(
                 *env.state.args.lock().unwrap(),
                 ["pi", "/opt/pi/cli.js", "--provider", "openai"]
