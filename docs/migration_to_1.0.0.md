@@ -8,8 +8,8 @@ to make migrating to the new API as simple as possible.
 
 - [Rationale for changes in 1.0.0](#rationale-for-changes-in-100)
 - [How to use Wasmer 1.0.0](#how-to-use-wasmer-100)
-  - [Installing Wasmer CLI](#installing-wamser-cli)
-  - [Using Wasmer 1.0.0](#using-wamser-100)
+  - [Installing Wasmer CLI](#installing-wasmer-cli)
+  - [Using Wasmer 1.0.0](#using-wasmer-100)
 - [Project structure](#project-structure)
 - [Differences](#differences)
   - [Instantiating modules](#instantiating-modules)

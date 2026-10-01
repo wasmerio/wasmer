@@ -6,6 +6,67 @@
 
 ## **Unreleased**
 
+## 7.5.0-rc.2 - 01/10/2026
+
+## Added
+
+
+## Changed
+
+  - [#7027](https://github.com/wasmerio/wasmer/pull/7027) rename `wasmer-sdk` to `wasmer-package-sdk` crate
+
+## Fixed
+
+
+
+
+## 7.5.0-rc.1 - 30/09/2026
+
+## Added
+
+  - [#7023](https://github.com/wasmerio/wasmer/pull/7023) docs(readme): add Swift iOS setup and concise example
+  - [#7004](https://github.com/wasmerio/wasmer/pull/7004) feat(LLVM): add toggle to switch off M0 optimization
+  - [#6978](https://github.com/wasmerio/wasmer/pull/6978) feat(cli): add env file support to deploy
+  - [#6891](https://github.com/wasmerio/wasmer/pull/6891) docs(agents): Add AGENTS.md
+  - [#6970](https://github.com/wasmerio/wasmer/pull/6970) test: add MemoryStyle::Dynamic into testing matrix
+
+## Changed
+
+  - [#7055](https://github.com/wasmerio/wasmer/pull/7055) feat: hint MADV_HUGEPAGE for LinearMemory memory mapping
+  - [#7026](https://github.com/wasmerio/wasmer/pull/7026) feat!(with_opts): deprecate unused API
+  - [#7028](https://github.com/wasmerio/wasmer/pull/7028) Sync from `7.4` branch
+  - [#7021](https://github.com/wasmerio/wasmer/pull/7021) chore(deps): bump Cranelift to 0.136 + bump MSRV
+  - [#7012](https://github.com/wasmerio/wasmer/pull/7012) chore: bump crates with new SemVer releases
+  - [#7019](https://github.com/wasmerio/wasmer/pull/7019) feat: Replace gh cache with s3 backed alternative
+  - [#7013](https://github.com/wasmerio/wasmer/pull/7013) docs: refocus README on Wasmer sandboxes and SDKs
+  - [#7017](https://github.com/wasmerio/wasmer/pull/7017) ci: bump the pinned WASIX rust toolchain to v2026-09-18.1
+  - [#6955](https://github.com/wasmerio/wasmer/pull/6955) chore: simplify table element checking
+  - [#6966](https://github.com/wasmerio/wasmer/pull/6966) feat(LLVM): always verify emitted LLVM IR
+  - [#6954](https://github.com/wasmerio/wasmer/pull/6954) CI(Singlepass): drop obsolete comment about reftypes
+  - [#7009](https://github.com/wasmerio/wasmer/pull/7009) feat: cronjob config extended & reusable by the backend
+  - [#6933](https://github.com/wasmerio/wasmer/pull/6933) deps: update to latest SemVer-breaking version
+  - [#7007](https://github.com/wasmerio/wasmer/pull/7007) chore(deps): update rustls due to RUSTSEC-2026-0285
+  - [#6976](https://github.com/wasmerio/wasmer/pull/6976) feat(wasi): support env files and deduplicate variables
+  - [#6981](https://github.com/wasmerio/wasmer/pull/6981) feat(CICD): Upgrade wasmer runtime pipelines to use AWS ARC runners
+  - [#6971](https://github.com/wasmerio/wasmer/pull/6971) tests(aarch64): reduce iterations for dl-spawn-tls-init-under-contention
+  - [#6969](https://github.com/wasmerio/wasmer/pull/6969) feat(WebC): deprecate version 2
+  - [#6968](https://github.com/wasmerio/wasmer/pull/6968) feat!(WebC): drop support for V1
+
+## Fixed
+
+  - [#7053](https://github.com/wasmerio/wasmer/pull/7053) fix(LLVM): skip some passes for default<O0,O1> opt levels
+  - [#7060](https://github.com/wasmerio/wasmer/pull/7060) docs: fix "wamser" typos in migration guide anchors
+  - [#7054](https://github.com/wasmerio/wasmer/pull/7054) fix(integration-tests): update expected output with new coreutils
+  - [#7029](https://github.com/wasmerio/wasmer/pull/7029) feat(Artifact): improve and fix issues
+  - [#7025](https://github.com/wasmerio/wasmer/pull/7025) fix(virtual-net): wake readers after partial TCP writes
+  - [#7030](https://github.com/wasmerio/wasmer/pull/7030) fix: cherry pick 2 commits from internal repository
+  - [#7022](https://github.com/wasmerio/wasmer/pull/7022) fix(qa): Reduce risk of rate limits from GH in CI
+  - [#6945](https://github.com/wasmerio/wasmer/pull/6945) fix(LLVM): fix missing canonicalization leading to error
+  - [#7010](https://github.com/wasmerio/wasmer/pull/7010) fix(compiler): reliably detect libunwind by using weak symbol
+  - [#7008](https://github.com/wasmerio/wasmer/pull/7008) fix(int-tests): use latest Python package
+
+
+
 ## 7.4.2 - 15/09/2026
 
 This release includes:

@@ -14,7 +14,17 @@ use thiserror::Error;
 ///
 /// All trap instructions have an explicit trap code.
 #[derive(
-    Clone, Copy, PartialEq, Eq, Debug, Hash, Error, RkyvSerialize, RkyvDeserialize, Archive,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    Hash,
+    Error,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    num_enum::TryFromPrimitive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
