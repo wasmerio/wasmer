@@ -21,4 +21,7 @@ int main(void) {
          __WASI_ERRNO_SRCH);
   assert(__wasi_proc_signal(INT32_MAX, __WASI_SIGNAL_NONE) ==
          __WASI_ERRNO_SRCH);
+
+  // PID 0 addresses the caller's own process group, which always exists.
+  assert(__wasi_proc_signal(0, __WASI_SIGNAL_NONE) == __WASI_ERRNO_SUCCESS);
 }
