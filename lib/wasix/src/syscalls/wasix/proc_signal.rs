@@ -14,11 +14,12 @@ pub fn proc_signal(
     pid: Pid,
     sig: Signal,
 ) -> Result<Errno, WasiError> {
-    let process = {
-        let pid: WasiProcessId = pid.into();
-        ctx.data().control_plane.get_process(pid)
-    };
-    let result = if let Some(process) = process {
+    // A non-positive PID addresses a process group or every process, as in
+    // kill(2). WASIX has no process groups, and the caller's own group always
+    // exists, so these stay a no-op rather than reporting ESRCH.
+    let result = if (pid as i32) <= 0 {
+        Errno::Success
+    } else if let Some(process) = ctx.data().control_plane.get_process(pid.into()) {
         process.signal_process(sig);
         Errno::Success
     } else {
