@@ -473,9 +473,9 @@ impl MachineRiscv {
                         )?;
                         self.assembler
                             .emit_reserved_sd(Size::S32, tmp, aligned_addr, tmp)?;
-                        // TODO: explain
+                        // The following 2 register don't have a liveness intersection, reuse it.
                         let tmp2 = addr;
-                        
+
                         self.assembler
                             .emit_on_true_label(Location::GPR(tmp), label_retry, tmp2)?;
 
@@ -628,10 +628,8 @@ impl MachineRiscv {
                 self.assembler.emit_mov(size, Location::GPR(value), dst)?;
             }
             Size::S8 | Size::S16 => {
-                let value = self.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-                })?;
-                temps.push(value);
+                // We're tight with the number of available registers.
+                let value = SCRATCH_REG;
                 let tmp = self.acquire_temp_gpr().ok_or_else(|| {
                     CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
@@ -644,10 +642,6 @@ impl MachineRiscv {
                     CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 temps.push(bit_mask);
-                let cond = self.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-                })?;
-                temps.push(cond);
 
                 // before the loop
                 self.assembler.emit_and(
@@ -713,6 +707,9 @@ impl MachineRiscv {
                     Location::GPR(bit_mask),
                     Location::GPR(tmp),
                 )?;
+
+                // The following 2 register don't have a liveness intersection, reuse it.
+                let cond = tmp;
 
                 self.assembler.emit_cmp(
                     Condition::Eq,
