@@ -10,7 +10,7 @@ use super::{
         CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache, tbaa_label, type_to_llvm,
     },
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
-    state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
+    state::{ControlFrame, ExtraInfo, IfElseState, PhiLocation, State, TagCatchInfo},
 };
 use crate::{
     compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle, object_file::CompiledFunction,
@@ -2874,11 +2874,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let phis = if frame.is_loop() {
-                    frame.loop_body_phis()
-                } else {
-                    frame.phis()
-                };
+                let phis = frame.phis(PhiLocation::LoopHeader);
 
                 let len = phis.len();
                 let values = self.state.peekn_extra(len)?;
@@ -2908,11 +2904,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let phis = if frame.is_loop() {
-                    frame.loop_body_phis()
-                } else {
-                    frame.phis()
-                };
+                let phis = frame.phis(PhiLocation::LoopHeader);
 
                 let param_stack = self.state.peekn_extra(phis.len())?;
                 let param_stack = param_stack
@@ -2949,11 +2941,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 let default_frame = self.state.frame_at_depth(targets.default())?;
 
-                let phis = if default_frame.is_loop() {
-                    default_frame.loop_body_phis()
-                } else {
-                    default_frame.phis()
-                };
+                let phis = default_frame.phis(PhiLocation::LoopHeader);
                 let args = self.state.peekn(phis.len())?;
 
                 for (phi, value) in phis.iter().zip(args.iter()) {
@@ -2973,11 +2961,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         };
                         let case_index_literal =
                             self.context.i32_type().const_int(case_index as u64, false);
-                        let phis = if frame.is_loop() {
-                            frame.loop_body_phis()
-                        } else {
-                            frame.phis()
-                        };
+                        let phis = frame.phis(PhiLocation::LoopHeader);
                         for (phi, value) in phis.iter().zip(args.iter()) {
                             phi.add_incoming(&[(value, current_block)]);
                         }
@@ -3097,7 +3081,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         CompileError::Codegen("not currently in a block".to_string())
                     })?;
 
-                    for phi in frame.phis().to_vec().iter().rev() {
+                    for phi in frame.phis(PhiLocation::LoopExit).to_vec().iter().rev() {
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info)?;
                         phi.add_incoming(&[(&value, current_block)])
@@ -3139,7 +3123,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 if self.state.reachable {
-                    for phi in frame.phis().iter().rev() {
+                    for phi in frame.phis(PhiLocation::LoopExit).iter().rev() {
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info)?;
                         phi.add_incoming(&[(&value, current_block)]);
@@ -3156,7 +3140,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ..
                 } = &frame
                 {
-                    for (phi, else_phi) in frame.phis().iter().zip(else_phis.iter()) {
+                    for (phi, else_phi) in frame
+                        .phis(PhiLocation::LoopExit)
+                        .iter()
+                        .zip(else_phis.iter())
+                    {
                         phi.add_incoming(&[(&else_phi.as_basic_value(), *if_else)]);
                     }
                     self.builder.position_at_end(*if_else);
@@ -3171,7 +3159,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.reachable = true;
 
                 // Push each phi value to the value stack.
-                for phi in frame.phis() {
+                for phi in frame.phis(PhiLocation::LoopExit) {
                     if phi.count_incoming() != 0 {
                         self.state.push1(phi.as_basic_value());
                     } else {
@@ -3195,7 +3183,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let frame = self.state.outermost_frame()?;
-                for phi in frame.phis().to_vec().iter().rev() {
+                for phi in frame.phis(PhiLocation::LoopExit).to_vec().iter().rev() {
                     let (arg, info) = self.state.pop1_extra()?;
                     let arg = self.apply_pending_canonicalization(arg, info)?;
                     phi.add_incoming(&[(&arg, current_block)]);
@@ -11969,7 +11957,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                                 let frame = self.state.frame_at_depth(*label)?;
 
-                                for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                                for (phi, value) in frame
+                                    .phis(PhiLocation::LoopHeader)
+                                    .iter()
+                                    .zip(values.iter())
+                                {
                                     phi.add_incoming(&[(value, b)])
                                 }
 
@@ -12034,7 +12026,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                                 let frame = self.state.frame_at_depth(*label)?;
 
-                                for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                                for (phi, value) in frame
+                                    .phis(PhiLocation::LoopHeader)
+                                    .iter()
+                                    .zip(values.iter())
+                                {
                                     phi.add_incoming(&[(value, b)])
                                 }
 
@@ -12056,7 +12052,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                                 let frame = self.state.frame_at_depth(*label)?;
 
-                                let phis = frame.phis();
+                                let phis = frame.phis(PhiLocation::LoopHeader);
 
                                 assert_eq!(phis.len(), 1);
                                 phis[0].add_incoming(&[(&exnref_phi.as_basic_value(), b)]);
