@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "filesystem"), allow(unused))]
 use crate::cache::Cache;
 use crate::hash::Hash;
-use std::fs::{File, create_dir_all};
+use std::fs::create_dir_all;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use wasmer::{AsEngineRef, DeserializeError, Module, SerializeError};
@@ -119,10 +119,14 @@ impl Cache for FileSystemCache {
             key.to_string()
         };
         let path = self.path.join(filename);
-        let mut file = File::create(path)?;
-
         let buffer = module.serialize()?;
+        // Deserialization maps cache files. Truncating an existing entry while
+        // another thread reads that mapping can deliver SIGBUS to the host.
+        // Write a complete sibling inode and atomically replace the path so
+        // readers with an open handle continue to see the old complete entry.
+        let mut file = tempfile::NamedTempFile::new_in(&self.path)?;
         file.write_all(&buffer)?;
+        file.persist(path).map_err(|error| error.error)?;
 
         Ok(())
     }
@@ -131,6 +135,7 @@ impl Cache for FileSystemCache {
 #[cfg(all(test, feature = "filesystem"))]
 mod tests {
     use super::*;
+    use std::io::Read;
 
     #[test]
     fn test_fs_cache() {
@@ -140,15 +145,39 @@ mod tests {
 
         let engine = wasmer::Engine::default();
 
-        let bytes = include_bytes!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../wasmer-test-files/wasix/envvar.wasm"
-        ));
+        let bytes = b"\0asm\x01\0\0\0";
 
         let module = Module::from_binary(&engine, bytes).unwrap();
         let key = Hash::generate(bytes);
 
         cache.store(key, &module).unwrap();
         let _restored = unsafe { cache.load(&engine, key).unwrap() };
+    }
+
+    #[test]
+    fn replacing_cache_entry_does_not_truncate_open_reader() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut cache = FileSystemCache::new(dir.path()).unwrap();
+        let engine = wasmer::Engine::default();
+        let bytes = b"\0asm\x01\0\0\0";
+        let module = Module::from_binary(&engine, bytes).unwrap();
+        let other_bytes = b"\0asm\x01\0\0\0\x01\x04\x01\x60\0\0\x03\x02\x01\0\x07\x05\x01\x01f\0\0\x0a\x04\x01\x02\0\x0b";
+        let other_module = Module::from_binary(&engine, other_bytes).unwrap();
+        let key = Hash::generate(bytes);
+        cache.store(key, &module).unwrap();
+
+        let path = dir.path().join(key.to_string());
+        let original_contents = std::fs::read(&path).unwrap();
+        let mut reader = std::fs::File::open(&path).unwrap();
+        // A cache key is merely a caller-provided value: replacement must
+        // preserve readers of the old inode even when the new artifact differs.
+        cache.store(key, &other_module).unwrap();
+
+        let mut old_contents = Vec::new();
+        reader.read_to_end(&mut old_contents).unwrap();
+        assert_eq!(old_contents, original_contents);
+        assert_ne!(std::fs::read(&path).unwrap(), original_contents);
+        let restored = unsafe { cache.load(&engine, key).unwrap() };
+        assert_eq!(restored.exports().count(), 1);
     }
 }

@@ -17,6 +17,7 @@ wasmer = { path = "../api", version = "=7.5.0", default-features = false }
 hex.workspace = true
 thiserror.workspace = true
 blake3.workspace = true
+tempfile.workspace = true
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = false }
@@ -24,7 +25,6 @@ clap = { workspace = true, default-features = true }
 clap_builder.workspace = true
 clap_derive.workspace = true
 clap_lex.workspace = true
-tempfile.workspace = true
 rand.workspace = true
 
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]

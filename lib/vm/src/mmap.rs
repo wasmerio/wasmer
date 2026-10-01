@@ -67,11 +67,32 @@ impl Mmap {
     /// must be native page-size multiples.
     #[cfg(not(target_os = "windows"))]
     pub fn accessible_reserved(
+        accessible_size: usize,
+        mapping_size: usize,
+        backing_file: Option<std::path::PathBuf>,
+        memory_type: MmapType,
+        hint_huge_pages: bool,
+    ) -> Result<Self, String> {
+        Self::accessible_reserved_with_limit(
+            accessible_size,
+            mapping_size,
+            backing_file,
+            memory_type,
+            hint_huge_pages,
+            usize::MAX,
+        )
+    }
+
+    /// Like `accessible_reserved`, but reject an enlarged file-backed mapping
+    /// before allocation if its final accessible length exceeds this cap.
+    #[cfg(not(target_os = "windows"))]
+    pub fn accessible_reserved_with_limit(
         mut accessible_size: usize,
         mapping_size: usize,
         mut backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
         hint_huge_pages: bool,
+        max_accessible_bytes: usize,
     ) -> Result<Self, String> {
         use std::os::fd::IntoRawFd;
 
@@ -79,6 +100,10 @@ impl Mmap {
         assert_le!(accessible_size, mapping_size);
         assert_eq!(mapping_size & (page_size - 1), 0);
         assert_eq!(accessible_size & (page_size - 1), 0);
+
+        if accessible_size > max_accessible_bytes {
+            return Err("accessible memory exceeds the configured limit".into());
+        }
 
         // Mmap may return EINVAL if the size is zero, so just
         // special-case that.
@@ -118,6 +143,9 @@ impl Mmap {
             }
 
             accessible_size = accessible_size.min(mapping_size);
+            if accessible_size > max_accessible_bytes {
+                return Err("file-backed accessible memory exceeds the configured limit".into());
+            }
             memory_fd = file.into_raw_fd();
         }
 
@@ -200,9 +228,30 @@ impl Mmap {
     pub fn accessible_reserved(
         accessible_size: usize,
         mapping_size: usize,
+        backing_file: Option<std::path::PathBuf>,
+        memory_type: MmapType,
+        hint_huge_pages: bool,
+    ) -> Result<Self, String> {
+        Self::accessible_reserved_with_limit(
+            accessible_size,
+            mapping_size,
+            backing_file,
+            memory_type,
+            hint_huge_pages,
+            usize::MAX,
+        )
+    }
+
+    /// Like `accessible_reserved`, but reject an oversized accessible region
+    /// before calling `VirtualAlloc`.
+    #[cfg(target_os = "windows")]
+    pub fn accessible_reserved_with_limit(
+        accessible_size: usize,
+        mapping_size: usize,
         _backing_file: Option<std::path::PathBuf>,
         _memory_type: MmapType,
         _hint_huge_pages: bool,
+        max_accessible_bytes: usize,
     ) -> Result<Self, String> {
         use windows_sys::Win32::System::Memory::{
             MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE, VirtualAlloc,
@@ -212,6 +261,10 @@ impl Mmap {
         assert_le!(accessible_size, mapping_size);
         assert_eq!(mapping_size & (page_size - 1), 0);
         assert_eq!(accessible_size & (page_size - 1), 0);
+
+        if accessible_size > max_accessible_bytes {
+            return Err("accessible memory exceeds the configured limit".into());
+        }
 
         // VirtualAlloc may return ERROR_INVALID_PARAMETER if the size is zero,
         // so just special-case that.
@@ -432,4 +485,40 @@ impl Drop for Mmap {
 fn _assert() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<Mmap>();
+}
+
+#[cfg(all(test, not(target_os = "windows")))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_restoration_cannot_raise_accessible_bytes_past_cap() {
+        let page = region::page::size();
+        let path = std::env::temp_dir().join(format!(
+            "wasmer-mmap-limit-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let file = std::fs::File::create(&path).unwrap();
+        file.set_len((page * 2) as u64).unwrap();
+        drop(file);
+
+        let result = Mmap::accessible_reserved_with_limit(
+            page,
+            page * 4,
+            Some(path.clone()),
+            MmapType::Private,
+            false,
+            page,
+        );
+        assert!(result.is_err(), "restored file exceeds reserved quota");
+
+        let mut sidecar = path.clone();
+        sidecar.set_extension("accessible");
+        std::fs::remove_file(sidecar).unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
 }
