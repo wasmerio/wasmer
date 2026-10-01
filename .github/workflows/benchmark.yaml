@@ -34,7 +34,7 @@ jobs:
         # the workspace dir to be saved/restored incorrectly.
         run: echo "CARGO_HOME=$(pwd)/.cargo_home" >> $GITHUB_ENV
       - name: Cache
-        uses: actions/cache@master
+        uses: runs-on/cache@v5
         with:
           # Note: crates from the git repo always get rebuilt
           # so we cache only those subdirectories of target/{debug|release} that

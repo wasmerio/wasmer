@@ -9,13 +9,13 @@ use std::{
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt};
 use once_cell::sync::Lazy;
-use predicates::str::{contains, is_match};
+use predicates::str::contains;
 use rand::RngExt;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::{
     asset_path,
     fixtures::{self, packages, php, resources},
-    wasmer_command,
+    integration_webc_path, wasmer_command,
 };
 
 static RUST_LOG: Lazy<String> = Lazy::new(|| {
@@ -502,6 +502,32 @@ fn run_no_start_wasm_report_error() {
     assert.stderr(contains("The module doesn't export a \"_start\" function"));
 }
 
+#[test]
+fn run_invoke_reports_unsupported_funcref_result() {
+    let wat = r#"
+        (module
+            (table 1 funcref)
+            (func $target)
+            (elem (i32.const 0) func $target)
+            (func (export "return_funcref") (result funcref)
+                (table.get (i32.const 0))))
+    "#;
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("funcref-result.wat");
+    std::fs::write(&module_file, wat).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .arg("--invoke")
+        .arg("return_funcref")
+        .assert()
+        .failure()
+        .stderr(contains(
+            "Function result type FuncRef is not supported by --invoke",
+        ));
+}
+
 #[cfg(feature = "v8")]
 #[test]
 fn run_v8_wasi_proc_exit_zero_is_success() {
@@ -725,6 +751,21 @@ fn wasi_runner_on_disk_with_dependencies() {
 }
 
 #[test]
+fn webc_v2_emits_a_deprecation_warning() {
+    let webc = integration_webc_path()
+        .join("static-web-server-async-1.0.3-5d739d1a-20b7-4edf-8cf4-44e813f96b25.webc");
+
+    wasmer_command()
+        .arg("run")
+        .arg(webc)
+        .arg("--")
+        .arg("--help")
+        .assert()
+        .success()
+        .stderr(contains("WebC v2 is a deprecated format"));
+}
+
+#[test]
 fn webc_files_on_disk_with_multiple_commands_require_an_entrypoint_flag() {
     let assert = wasmer_command()
         .arg("run")
@@ -937,14 +978,15 @@ fn run_bash_using_coreutils() {
     // Note: the resulting filesystem should contain the main command as
     // well as the commands from all the --use packages
 
-    let some_expected_binaries = [
-        "", "arch", "base32", "base64", "baseenc", "basename", "bash", "cat", "",
-    ]
-    .join("((?s)(.*))");
-
     assert
         .success()
-        .stdout(is_match(some_expected_binaries).unwrap());
+        .stdout(contains("arch"))
+        .stdout(contains("base32"))
+        .stdout(contains("base64"))
+        .stdout(contains("basenc"))
+        .stdout(contains("basename"))
+        .stdout(contains("bash"))
+        .stdout(contains("cat"));
 }
 
 #[test]

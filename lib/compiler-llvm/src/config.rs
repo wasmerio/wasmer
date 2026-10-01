@@ -14,7 +14,8 @@ use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::misc::{CompiledKind, function_kind_to_filename};
 use wasmer_compiler::{
-    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
+    Compiler, CompilerConfig, DEFAULT_MAX_TABLE_ELEMENTS, Debugger, Engine, EngineBuilder,
+    ModuleMiddleware,
 };
 use wasmer_types::{
     Features,
@@ -113,12 +114,13 @@ pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_non_volatile_memops: bool,
     pub(crate) enable_readonly_funcref_table: bool,
-    pub(crate) enable_verifier: bool,
+    pub(crate) enable_m0: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) debugger: Option<Debugger>,
     pub(crate) opt_level: LLVMOptLevel,
     pub(crate) is_pic: bool,
     pub(crate) experimental_artifact: bool,
+    pub(crate) max_table_elements: u32,
     pub(crate) callbacks: Option<LLVMCallbacks>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -142,12 +144,13 @@ impl LLVM {
             enable_nan_canonicalization: false,
             enable_non_volatile_memops: false,
             enable_readonly_funcref_table: false,
-            enable_verifier: false,
+            enable_m0: true,
             enable_perfmap: false,
             debugger: None,
             opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
             experimental_artifact: false,
+            max_table_elements: DEFAULT_MAX_TABLE_ELEMENTS,
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
@@ -160,6 +163,12 @@ impl LLVM {
         self.experimental_artifact = enable;
         // We will link a shared library and so PIC must be enabled.
         self.is_pic = enable;
+        self
+    }
+
+    /// Set the maximum total number of elements allowed in local fixed-size tables.
+    pub fn max_table_elements(&mut self, max_table_elements: u32) -> &mut Self {
+        self.max_table_elements = max_table_elements;
         self
     }
 
@@ -178,6 +187,10 @@ impl LLVM {
         self.verbose_asm = verbose_asm;
         self
     }
+
+    /// Compiler IR verification is always enabled for LLVM.
+    #[deprecated(note = "LLVM compiler IR verification is always enabled")]
+    pub fn enable_verifier(&mut self) {}
 
     /// Callbacks that will triggered in the different compilation
     /// phases in LLVM.
@@ -384,6 +397,10 @@ impl CompilerConfig for LLVM {
         LLVM::experimental_artifact(self, enable);
     }
 
+    fn max_table_elements(&mut self, max_table_elements: u32) {
+        self.max_table_elements = max_table_elements;
+    }
+
     /// Emit code suitable for dlopen.
     fn enable_pic(&mut self) {
         // TODO: although we can emit PIC, the object file parser does not yet
@@ -397,11 +414,6 @@ impl CompilerConfig for LLVM {
 
     fn enable_debugger(&mut self, debugger: Debugger) {
         self.debugger = Some(debugger)
-    }
-
-    /// Whether to verify compiler IR.
-    fn enable_verifier(&mut self) {
-        self.enable_verifier = true;
     }
 
     /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
@@ -418,6 +430,11 @@ impl CompilerConfig for LLVM {
 
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
+    }
+
+    /// For the LLVM compiler, enable m0 optimization that passes pointer to the first memory as a hidden first argument.
+    fn enable_m0_pass_param(&mut self, enable: bool) {
+        self.enable_m0 = enable;
     }
 
     /// Transform it into the compiler.

@@ -112,10 +112,14 @@ mod tests {
     fn test_cmd_package_extract() {
         let dir = tempfile::tempdir().unwrap();
 
-        let package_path = std::env::var("CARGO_MANIFEST_DIR").map(PathBuf::from).unwrap()
-            .parent().unwrap()
-            .parent().unwrap()
-            .join("wasmer-test-files/integration/webc/hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc");
+        let package_path = std::env::var("CARGO_MANIFEST_DIR")
+            .map(PathBuf::from)
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("wasmer-test-files/integration/webc/wasmer--bash@1.0.25.webc");
 
         assert!(package_path.is_file());
 
@@ -145,7 +149,7 @@ mod tests {
         assert_eq!(
             items,
             vec![
-                "atom".to_string(),
+                "bash".to_string(),
                 "manifest.json".to_string(),
                 "metadata".to_string(),
             ]

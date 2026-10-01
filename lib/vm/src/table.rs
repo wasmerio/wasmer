@@ -10,13 +10,11 @@ use crate::VMExternRef;
 use crate::VMFuncRef;
 use crate::store::MaybeInstanceOwned;
 use crate::vmcontext::VMTableDefinition;
-use bytesize::ByteSize;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
-use wasmer_types::TableStyle;
-use wasmer_types::{TableType, TrapCode, Type as ValType};
+use wasmer_types::{TableStyle, TableType, TrapCode, Type as ValType};
 
 /// A reference stored in a table. Can be either an externref or a funcref.
 #[derive(Debug, Clone)]
@@ -68,8 +66,6 @@ impl Default for TableElement {
         Self::FuncRef(None)
     }
 }
-
-const TABLE_MAX_SIZE: usize = ByteSize::mib(128).as_u64() as usize;
 
 /// A table instance.
 #[derive(Debug)]
@@ -133,19 +129,6 @@ impl VMTable {
                 return Err(format!(
                     "Table minimum ({}) is larger than maximum ({})!",
                     table.minimum, max
-                ));
-            }
-            if table.minimum as usize > TABLE_MAX_SIZE {
-                return Err(format!(
-                    "Table minimum ({}) is larger than maximum allowed size ({TABLE_MAX_SIZE})!",
-                    table.minimum
-                ));
-            }
-            if let Some(max) = table.maximum
-                && max as usize > TABLE_MAX_SIZE
-            {
-                return Err(format!(
-                    "Table maximum ({max}) is larger than maximum allowed size ({TABLE_MAX_SIZE})!",
                 ));
             }
             let table_minimum = usize::try_from(table.minimum)

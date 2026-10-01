@@ -388,11 +388,11 @@ mod tests {
 
     const PYTHON: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../wasmer-test-files/examples/python-0.1.0.wasmer"
+        "/../../wasmer-test-files/examples/python--python@3.13.5.webc"
     ));
     const COREUTILS: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+        "/../../wasmer-test-files/integration/webc/wasmer--coreutils@1.0.25.webc"
     ));
     const DUMMY_URL: &str = "http://my-registry.io/some/package";
     const DUMMY_URL_HASH: &str = "4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D";
@@ -473,7 +473,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.id.as_named().unwrap().full_name, "python");
+        assert_eq!(summaries[0].dist.webc.as_str(), DUMMY_URL);
         // But we should have also cached the file and etag
         let path = temp.path().join(DUMMY_URL_HASH);
         assert!(path.exists());
@@ -506,7 +506,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.id.as_named().unwrap().full_name, "python");
+        assert_eq!(summaries[0].dist.webc.as_str(), DUMMY_URL);
         // And no requests were sent
         assert_eq!(client.requests.lock().unwrap().len(), 0);
     }
@@ -536,7 +536,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.id.as_named().unwrap().full_name, "python");
+        assert_eq!(summaries[0].dist.webc.as_str(), DUMMY_URL);
         // And one request was sent
         assert_eq!(client.requests.lock().unwrap().len(), 1);
         // The etag file wasn't written
@@ -575,10 +575,7 @@ mod tests {
 
         // Instead of Python (the originally cached item), we should get coreutils
         assert_eq!(summaries.len(), 1);
-        assert_eq!(
-            summaries[0].pkg.id.as_named().unwrap().full_name,
-            "sharrattj/coreutils"
-        );
+        assert_eq!(std::fs::read(&path).unwrap(), COREUTILS);
         // both a HEAD and GET request were sent
         let requests = client.requests.lock().unwrap();
         assert_eq!(requests.len(), 2);

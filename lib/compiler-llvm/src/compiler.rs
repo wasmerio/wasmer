@@ -31,6 +31,7 @@ use wasmer_compiler::{
     translate_function_buckets,
 };
 use wasmer_types::ExportIndex;
+use wasmer_types::MetadataHeader;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
@@ -207,6 +208,16 @@ impl Compiler for LLVMCompiler {
         if self.config.enable_readonly_funcref_table {
             components.push(Component::ReadonlyFuncrefTable);
         }
+        // We intentionally use a negative marker to distinguish it from the already
+        // existing compiled Artifacts built with M0 enabled!
+        // TODO: flip it to EnableM0 in the future
+        const _: () = assert!(
+            MetadataHeader::CURRENT_VERSION == 24,
+            "Rename Component::DisableM0",
+        );
+        if !self.config.enable_m0 {
+            components.push(Component::DisableM0);
+        }
 
         components
             .into_iter()
@@ -244,6 +255,10 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        wasmer_compiler::validate_module_fixed_table_size(
+            &compile_info.module,
+            self.config.max_table_elements,
+        )?;
         let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let binary_format = self.config.target_binary_format(target);
 
@@ -636,6 +651,7 @@ impl Compiler for LLVMCompiler {
         }
     }
 
+    /// Add suggested optimizations to this compiler.
     fn with_opts(
         &mut self,
         _suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,

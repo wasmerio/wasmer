@@ -88,7 +88,7 @@ mod test_vmfunction_import {
     #[test]
     fn check_vmfunction_import_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMFunctionImport>(),
             usize::from(offsets.size_of_vmfunction_import())
@@ -151,7 +151,7 @@ mod test_vmdynamicfunction_import_context {
     #[test]
     fn check_vmdynamicfunction_import_context_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMDynamicFunctionContext<usize>>(),
             usize::from(offsets.size_of_vmdynamicfunction_import_context())
@@ -210,7 +210,7 @@ mod test_vmtable_import {
     #[test]
     fn check_vmtable_import_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMTableImport>(),
             usize::from(offsets.size_of_vmtable_import())
@@ -245,7 +245,7 @@ mod test_vmmemory_import {
     #[test]
     fn check_vmmemory_import_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMMemoryImport>(),
             usize::from(offsets.size_of_vmmemory_import())
@@ -296,7 +296,7 @@ mod test_vmglobal_import {
     #[test]
     fn check_vmglobal_import_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMGlobalImport>(),
             usize::from(offsets.size_of_vmglobal_import())
@@ -508,7 +508,7 @@ mod test_vmtable_definition {
     #[test]
     fn check_vmtable_definition_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMTableDefinition>(),
             usize::from(offsets.size_of_vmtable_definition())
@@ -556,7 +556,7 @@ mod test_vmglobal_definition {
     #[test]
     fn check_vmglobal_definition_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMGlobalDefinition>(),
             usize::from(offsets.size_of_vmglobal_local())
@@ -566,7 +566,7 @@ mod test_vmglobal_definition {
     #[test]
     fn check_vmglobal_begins_aligned() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(offsets.vmctx_globals_begin() % 16, 0);
     }
 }
@@ -683,7 +683,7 @@ mod test_vmcaller_checked_anyfunc {
     #[test]
     fn check_vmcaller_checked_anyfunc_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMCallerCheckedAnyfunc>(),
             usize::from(offsets.size_of_vmcaller_checked_anyfunc())
@@ -878,7 +878,7 @@ mod test_vmmemory_definition {
     #[test]
     fn check_vmmemory_definition_offsets() {
         let module = ModuleInfo::new();
-        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        let offsets = VMOffsets::try_new(size_of::<*mut u8>() as u8, &module).unwrap();
         assert_eq!(
             size_of::<VMMemoryDefinition>(),
             usize::from(offsets.size_of_vmmemory_definition())
