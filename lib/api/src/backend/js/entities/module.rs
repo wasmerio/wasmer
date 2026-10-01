@@ -47,6 +47,10 @@ pub struct Module {
     name: Option<String>,
     #[cfg(feature = "wasm-types-polyfill")]
     info: ModuleInfo,
+    // `info` was parsed from this module's bytes, so it lists the same imports and
+    // exports, in the same order, as the `WebAssembly.Module`.
+    #[cfg(feature = "wasm-types-polyfill")]
+    parsed: bool,
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
@@ -97,8 +101,11 @@ impl From<Module> for JsValue {
 impl Module {
     /// This worker's `WebAssembly.Module`.
     ///
+    /// Only instantiation, `custom_sections` and conversion to a JS value need it;
+    /// `imports`/`exports` use the parsed module info when available.
+    ///
     /// Hosts must deliver modules (`receive_shared_object_message`) before a worker
-    /// touches them. A module created elsewhere and not yet delivered is recompiled
+    /// needs them. A module created elsewhere and not yet delivered is recompiled
     /// synchronously from retained bytes, which browsers may refuse on the main
     /// thread for large modules; the accessors built on this are infallible, so an
     /// undeliverable module panics rather than returning an error.
@@ -216,6 +223,8 @@ impl Module {
             name,
             #[cfg(feature = "wasm-types-polyfill")]
             info: module_info,
+            #[cfg(feature = "wasm-types-polyfill")]
+            parsed: true,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: Some(binary),
         }
@@ -447,7 +456,30 @@ impl Module {
         //     .unwrap_or(false)
     }
 
+    /// Metadata accessors answer from the parsed module info when it exists, so they
+    /// never need this worker's `WebAssembly.Module` (and never trigger the
+    /// fallback compile, e.g. on the browser main thread while spawning a task).
+    #[cfg(feature = "wasm-types-polyfill")]
+    fn parsed_info(&self) -> Option<&ModuleInfo> {
+        self.parsed.then_some(&self.info)
+    }
+    #[cfg(not(feature = "wasm-types-polyfill"))]
+    fn parsed_info(&self) -> Option<&ModuleInfo> {
+        None
+    }
+
     pub fn imports<'a>(&'a self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + 'a>> {
+        if let Some(info) = self.parsed_info() {
+            let len = info.imports.len();
+            let hints = self.type_hints.as_ref().map(|hints| &hints.imports);
+            let iter = info.imports().enumerate().map(move |(i, import)| {
+                match hints.and_then(|hints| hints.get(i)) {
+                    Some(ty) => ImportType::new(import.module(), import.name(), ty.clone()),
+                    None => import,
+                }
+            });
+            return ImportsIterator::new(Box::new(iter), len);
+        }
         let imports = WebAssembly::Module::imports(&self.local_module());
         let iter = imports
             .iter()
@@ -548,6 +580,17 @@ impl Module {
     }
 
     pub fn exports<'a>(&'a self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + 'a>> {
+        if let Some(info) = self.parsed_info() {
+            let len = info.exports.len();
+            let hints = self.type_hints.as_ref().map(|hints| &hints.exports);
+            let iter = info.exports().enumerate().map(move |(i, export)| {
+                match hints.and_then(|hints| hints.get(i)) {
+                    Some(ty) => ExportType::new(export.name(), ty.clone()),
+                    None => export,
+                }
+            });
+            return ExportsIterator::new(Box::new(iter), len);
+        }
         let exports = WebAssembly::Module::exports(&self.local_module());
         let iter = exports
             .iter()
@@ -641,6 +684,8 @@ impl From<WebAssembly::Module> for Module {
             type_hints: None,
             #[cfg(feature = "wasm-types-polyfill")]
             info: ModuleInfo::default(),
+            #[cfg(feature = "wasm-types-polyfill")]
+            parsed: false,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: None,
         }
@@ -692,5 +737,42 @@ impl crate::Module {
             BackendModule::Js(s) => s,
             _ => panic!("Not a `js` module!"),
         }
+    }
+}
+
+#[cfg(all(test, feature = "wasm-types-polyfill", feature = "wat"))]
+mod tests {
+    use crate::js::utils::shared_handle::{forget_local_objects, shared_object_stats};
+    use crate::{ExternType, Module, Store};
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn metadata_does_not_need_the_local_js_module() {
+        let store = Store::default();
+        let module = Module::new(
+            &store,
+            r#"(module
+                (import "env" "memory" (memory 1 16 shared))
+                (import "env" "f" (func (param i32) (result i64)))
+                (func (export "g"))
+                (global (export "h") i32 (i32.const 0)))"#,
+        )
+        .unwrap();
+        // As in a worker that has not received this module yet.
+        forget_local_objects();
+        let (_, fallbacks) = shared_object_stats();
+
+        let imports = module.imports().collect::<Vec<_>>();
+        assert_eq!(imports.len(), 2);
+        assert_eq!((imports[0].module(), imports[0].name()), ("env", "memory"));
+        let ExternType::Memory(memory) = imports[0].ty() else {
+            panic!("expected a memory import");
+        };
+        assert!(memory.shared);
+        assert_eq!(memory.maximum.map(|pages| pages.0), Some(16));
+        assert!(matches!(imports[1].ty(), ExternType::Function(f) if f.params().len() == 1));
+        let exports = module.exports().map(|e| e.name().to_owned()).collect::<Vec<_>>();
+        assert_eq!(exports, ["g", "h"]);
+        assert_eq!(shared_object_stats().1, fallbacks);
     }
 }
