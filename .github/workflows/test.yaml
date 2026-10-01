@@ -16,19 +16,18 @@ concurrency:
   cancel-in-progress: true
 env:
   RUST_BACKTRACE: 1
-  # Sparse will be enabled by dtolnay/rust-toolchain when installing nightly
-  # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
-  # can override that behaviour
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
   S3_CACHE_VERSION: "3"
+  # Job containers do not inherit the runner pod env; keep equal to the aux pod value.
+  RUNS_ON_S3_BUCKET_CACHE: gha-cache-ci-aux-eu-west-3-public
+  RUNS_ON_AWS_REGION: eu-west-3
   DEV_BACKEND_CIUSER_TOKEN: ${{ secrets.DEV_BACKEND_CIUSER_TOKEN }}
 jobs:
   setup:
     name: Set up
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     outputs:
       VERSION: ${{ steps.setup.outputs.VERSION }}
       DOING_RELEASE: ${{ steps.setup.outputs.DOING_RELEASE }}
@@ -57,7 +56,7 @@ jobs:
         run: cargo +nightly update
   lint:
     name: Code lint
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -73,35 +72,35 @@ jobs:
       - name: Install libtinfo
         shell: bash
         run: |
-          sudo apt install -y libtinfo6
+          sudo apt-get update -y && sudo apt-get install -y libtinfo6
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26.0"
           cache: false
       - run: go install github.com/google/yamlfmt/cmd/yamlfmt@v0.21.0
       - name: Install LLVM (Linux)
+        # $HOME instead of /opt: not root-writable on hardened ARC runners
         run: |
-          mkdir -p /opt/llvm-22
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst -L -o - | tar --zstd -xf - --strip-components=1 -C /opt/llvm-22
-          echo '/opt/llvm-22/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_221_PREFIX=/opt/llvm-22' >> $GITHUB_ENV
+          mkdir -p $HOME/llvm-22
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst -L -o - | tar --zstd -xf - --strip-components=1 -C $HOME/llvm-22
+          echo "$HOME/llvm-22/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_221_PREFIX=$HOME/llvm-22" >> $GITHUB_ENV
       - name: Install taplo
-        run: curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
+        run: |
+          mkdir -p $HOME/.local/bin
+          curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin $HOME/.local/bin/taplo
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
+        uses: runs-on/cache@v5
         with:
-          path: |
-            ~/.cargo/*
+          path: &cargo-cache-paths |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
             ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-lint-linux-x64
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-
       - run: make lint
         env:
           ENABLE_CRANELIFT: "1"
@@ -138,7 +137,7 @@ jobs:
           fi
   cargo_deny:
     name: cargo-deny
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -148,7 +147,7 @@ jobs:
           log-level: error
   test_nodejs:
     name: NodeJS
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -167,20 +166,12 @@ jobs:
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
+        uses: runs-on/cache@v5
         with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-js
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-js-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-js-
       - name: make test-js
         run: |
           make test-js
@@ -190,7 +181,7 @@ jobs:
         #     make test-js-core
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
-    runs-on: ${{ matrix.metadata.os }}
+    runs-on: ${{ matrix.metadata.build == 'linux-x64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.metadata.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -248,6 +239,14 @@ jobs:
         shell: bash
         run: rm /usr/bin/link.exe
         if: startsWith(matrix.metadata.build, 'windows-')
+      - name: Cache
+        if: startsWith(runner.name, 'aux-')
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.build-what.key }}-api-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.build-what.key }}-api-${{ matrix.metadata.build }}-
       - name: Lint ${{ matrix.build-what.key }}
         run: ${{ matrix.build-what.lint-cmd }}
       - name: Test V8 API
@@ -278,7 +277,7 @@ jobs:
         run: cargo +nightly miri test -p wasmer --features sys --lib borrow_provenance
   test_build_docs_rs:
     name: Build docs.rs
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -291,7 +290,7 @@ jobs:
       - name: Install `ninja` on Ubuntu
         shell: bash
         run: |
-          sudo apt-get install ninja-build -y
+          sudo apt-get update -y && sudo apt-get install -y ninja-build
       - name: Install LLVM 22
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
@@ -303,11 +302,18 @@ jobs:
           echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Cache
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-build-docs-rs-linux-x64-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-build-docs-rs-linux-x64-
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
   build_linux_riscv64:
     name: ${{ matrix.build-what.name }} - linux-riscv64
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     strategy:
       fail-fast: false
       matrix:
@@ -331,6 +337,13 @@ jobs:
       #  with:
       #    toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
       #    target: riscv64gc-unknown-linux-gnu
+      - name: Cache
+        uses: runs-on/cache@v5
+        with:
+          path: ./target/*
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-linux-riscv64-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-linux-riscv64-
       - name: Build cross image
         run: |
           docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
@@ -366,7 +379,7 @@ jobs:
           retention-days: 2
   build:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
-    runs-on: ${{ matrix.metadata.os }}
+    runs-on: ${{ (matrix.metadata.build == 'linux-x64' || matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu') && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.metadata.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-arm64' || 'aux-pub-trusted-16cpu-arm64') || matrix.metadata.os }}
     needs: setup
     strategy:
       fail-fast: false
@@ -455,7 +468,8 @@ jobs:
         if: matrix.metadata.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6 libtinfo5
+          # libtinfo6: libtinfo5 does not exist on ubuntu >= 24.04 (ARC image)
+          sudo apt-get install -y --allow-downgrades libstdc++6 libtinfo6
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
@@ -482,7 +496,7 @@ jobs:
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
         run: |
-          sudo apt install -y mingw-w64
+          sudo apt-get update -y && sudo apt-get install -y mingw-w64
       - name: Install Windows-GNU target
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
@@ -490,12 +504,15 @@ jobs:
           rustup target add x86_64-pc-windows-gnu
       - name: Install Windows 10 SDK with xwin
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           mkdir -p /tmp/xwin
           mkdir -p /tmp/xwindownload
           mkdir -p /tmp/xwincache
-          git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
+          git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
+            clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
           cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
           /tmp/xwin/target/release/xwin \
             --accept-license \
@@ -539,10 +556,18 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
+        if: startsWith(runner.name, 'aux-')
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}-
+      - name: Cache (R2, non-aux runners)
+        if: ${{ !startsWith(runner.name, 'aux-') }}
         uses: whywaita/actions-cache-s3@v2
         with:
-          path: |
+          path: &r2-cache-paths |
             ~/.cargo/*
             ./target/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}
@@ -618,7 +643,7 @@ jobs:
           retention-days: 2
   test:
     name: ${{ matrix.stage.description }} - ${{ matrix.metadata.build }}
-    runs-on: ${{ matrix.metadata.os }}
+    runs-on: ${{ (matrix.metadata.build == 'linux-x64' || matrix.metadata.build == 'linux-musl') && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.metadata.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-arm64' || 'aux-pub-trusted-16cpu-arm64') || matrix.metadata.os }}
     needs: setup
     strategy:
       fail-fast: false
@@ -798,12 +823,18 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
+        if: startsWith(runner.name, 'aux-')
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-
+      - name: Cache (R2, non-aux runners)
+        if: ${{ !startsWith(runner.name, 'aux-') }}
         uses: whywaita/actions-cache-s3@v2
         with:
-          path: |
-            ~/.cargo/*
-            ./target/*
+          path: *r2-cache-paths
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -821,7 +852,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
   ci_success:
     name: Tests CI
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     needs:
       - setup
       - lint

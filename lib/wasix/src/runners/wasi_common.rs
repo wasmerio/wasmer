@@ -544,9 +544,12 @@ mod tests {
     #[tokio::test]
     async fn mix_env_vars_from_the_webc_and_user() {
         let args = CommonWasiOptions {
-            env: vec![("EXTRA".to_string(), "envs".to_string())]
-                .into_iter()
-                .collect(),
+            env: vec![
+                ("EXTRA".to_string(), "envs".to_string()),
+                ("HARD_CODED".to_string(), "user-override".to_string()),
+            ]
+            .into_iter()
+            .collect(),
             ..Default::default()
         };
         let mut builder = WasiEnvBuilder::new("python");
@@ -559,7 +562,7 @@ mod tests {
         assert_eq!(
             builder.get_env(),
             [
-                ("HARD_CODED".to_string(), b"env-vars".to_vec()),
+                ("HARD_CODED".to_string(), b"user-override".to_vec()),
                 ("EXTRA".to_string(), b"envs".to_vec()),
             ]
         );

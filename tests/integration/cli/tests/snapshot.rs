@@ -1076,8 +1076,8 @@ fn test_snapshot_dash_python() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_package("wasmer/python@3.13.5", WEBC_PYTHON)
-        .stdin_str("wasmer run wasmer/python -- -c 'print(10)'")
+        .include_static_package("python/python@3.13.5", WEBC_PYTHON)
+        .stdin_str("wasmer run python/python -- -c 'print(10)'")
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/dash.wasm"
         ));
@@ -1181,8 +1181,8 @@ fn test_snapshot_bash_python() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_package("wasmer/python@3.13.5", WEBC_PYTHON)
-        .stdin_str("wasmer run wasmer/python -- -c 'print(10)'\n")
+        .include_static_package("python/python@3.13.5", WEBC_PYTHON)
+        .stdin_str("wasmer run python/python -- -c 'print(10)'\n")
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/bash.wasm"
         ));

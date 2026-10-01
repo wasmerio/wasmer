@@ -12,7 +12,8 @@ use std::{
 };
 use target_lexicon::Architecture;
 use wasmer_compiler::{
-    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
+    Compiler, CompilerConfig, DEFAULT_MAX_TABLE_ELEMENTS, Debugger, Engine, EngineBuilder,
+    ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
 use wasmer_types::{
@@ -84,6 +85,7 @@ pub struct Singlepass {
     pub(crate) allow_experimental_unaligned_memory_accesses: bool,
     pub(crate) debugger: Option<Debugger>,
     pub(crate) experimental_artifact: bool,
+    pub(crate) max_table_elements: u32,
 
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -103,6 +105,7 @@ impl Singlepass {
             allow_experimental_unaligned_memory_accesses: false,
             debugger: None,
             experimental_artifact: false,
+            max_table_elements: DEFAULT_MAX_TABLE_ELEMENTS,
             middlewares: vec![],
             callbacks: None,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
@@ -117,6 +120,12 @@ impl Singlepass {
 
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// Set the maximum total number of elements allowed in local fixed-size tables.
+    pub fn max_table_elements(&mut self, max_table_elements: u32) -> &mut Self {
+        self.max_table_elements = max_table_elements;
         self
     }
 
@@ -148,6 +157,10 @@ impl Singlepass {
 impl CompilerConfig for Singlepass {
     fn experimental_artifact(&mut self, enable: bool) {
         self.experimental_artifact = enable;
+    }
+
+    fn max_table_elements(&mut self, max_table_elements: u32) {
+        self.max_table_elements = max_table_elements;
     }
 
     fn enable_pic(&mut self) {
