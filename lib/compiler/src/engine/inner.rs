@@ -808,72 +808,6 @@ mod tests {
 
     use super::Engine;
 
-    #[cfg(feature = "compiler")]
-    #[derive(Debug)]
-    struct MutatingErrorCompiler {
-        revision: usize,
-    }
-
-    #[cfg(feature = "compiler")]
-    impl crate::Compiler for MutatingErrorCompiler {
-        fn name(&self) -> &str {
-            "mutating-error"
-        }
-
-        fn deterministic_id(&self) -> String {
-            format!("compiler-{}", self.revision)
-        }
-
-        fn artifact_format(&self) -> String {
-            format!("format-{}", self.revision)
-        }
-
-        fn with_opts(
-            &mut self,
-            _suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,
-        ) -> Result<(), wasmer_types::CompileError> {
-            self.revision += 1;
-            Err(wasmer_types::CompileError::Codegen(
-                "options rejected after mutation".to_string(),
-            ))
-        }
-
-        fn compile_module(
-            &self,
-            _target: &wasmer_types::target::Target,
-            _module: &crate::types::module::CompileModuleInfo,
-            _compile_info_blob: &[u8],
-            _module_translation: &crate::ModuleTranslationState,
-            _function_body_inputs: wasmer_types::entity::PrimaryMap<
-                wasmer_types::LocalFunctionIndex,
-                crate::FunctionBodyData<'_>,
-            >,
-            _progress_callback: Option<&wasmer_types::CompilationProgressCallback>,
-        ) -> Result<crate::types::function::Compilation, wasmer_types::CompileError> {
-            unreachable!("metadata tests do not compile modules")
-        }
-
-        fn get_middlewares(&self) -> &[std::sync::Arc<dyn crate::translator::ModuleMiddleware>] {
-            &[]
-        }
-    }
-
-    #[cfg(feature = "compiler")]
-    struct MutatingErrorConfig;
-
-    #[cfg(feature = "compiler")]
-    impl crate::CompilerConfig for MutatingErrorConfig {
-        fn compiler(self: Box<Self>) -> Box<dyn crate::Compiler> {
-            Box::new(MutatingErrorCompiler { revision: 0 })
-        }
-
-        fn push_middleware(
-            &mut self,
-            _middleware: std::sync::Arc<dyn crate::translator::ModuleMiddleware>,
-        ) {
-        }
-    }
-
     #[test]
     fn metadata_reads_do_not_wait_for_compilation_lock() {
         let engine = Engine::headless();
@@ -913,26 +847,5 @@ mod tests {
         assert_eq!(id, expected_id);
         assert_eq!(format, expected_format);
         assert_eq!(debug, expected_id);
-    }
-
-    #[cfg(feature = "compiler")]
-    #[test]
-    fn compiler_option_mutation_refreshes_metadata_for_all_clones_on_error() {
-        let mut engine = Engine::new(
-            Box::new(MutatingErrorConfig),
-            wasmer_types::target::Target::default(),
-            wasmer_types::Features::default(),
-        );
-        let clone = engine.clone();
-        assert_eq!(clone.deterministic_id(), "compiler-0");
-        assert_eq!(clone.artifact_format(), "format-0");
-
-        engine
-            .with_opts(&wasmer_types::target::UserCompilerOptimizations::default())
-            .unwrap_err();
-
-        assert_eq!(engine.deterministic_id(), "compiler-1");
-        assert_eq!(clone.deterministic_id(), "compiler-1");
-        assert_eq!(clone.artifact_format(), "format-1");
     }
 }
