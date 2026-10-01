@@ -95,11 +95,19 @@ impl From<Module> for JsValue {
 }
 
 impl Module {
+    /// This worker's `WebAssembly.Module`.
+    ///
+    /// Hosts must deliver modules (`receive_shared_object_message`) before a worker
+    /// touches them. A module created elsewhere and not yet delivered is recompiled
+    /// synchronously from retained bytes, which browsers may refuse on the main
+    /// thread for large modules; the accessors built on this are infallible, so an
+    /// undeliverable module panics rather than returning an error.
     fn local_module(&self) -> WebAssembly::Module {
         if let Some(module) = self.module.get() {
             return module;
         }
         // A running sibling can observe dlopen before receiving postMessage.
+        // The fallback uses the same compile path as `from_binary_unchecked`.
         #[cfg(feature = "js-serializable-module")]
         if let Some(bytes) = &self.raw_bytes {
             let bytes = Uint8Array::from(bytes.as_ref());
