@@ -12,10 +12,11 @@ use wasm_bindgen::{JsCast, JsValue};
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 static OWNERS: LazyLock<Mutex<HashMap<u32, Weak<Owner>>>> = LazyLock::new(Mutex::default);
+const NAMESPACE_PREFIX: &str = "wasmer-shared-objects-v1-";
 // A routing namespace for task envelopes, not an authentication credential.
 static NAMESPACE: LazyLock<String> = LazyLock::new(|| {
     format!(
-        "wasmer-shared-objects-v1-{}-{}-{}",
+        "{NAMESPACE_PREFIX}{}-{}-{}",
         js_sys::Date::now(),
         js_sys::Math::random(),
         js_sys::Math::random()
@@ -148,6 +149,7 @@ pub fn export_shared_objects() -> Array {
 pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
     let mut seen = HashSet::new();
     let mut entries = Vec::new();
+    let owners = OWNERS.lock().unwrap();
     for entry in snapshot.iter() {
         if !Array::is_array(&entry) {
             return Err(JsValue::from_str("invalid shared-object entry"));
@@ -169,7 +171,7 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
         let value = entry.get(1);
         let kind = ObjectKind::of(&value)
             .ok_or_else(|| JsValue::from_str("invalid shared-object type"))?;
-        let owner = OWNERS.lock().unwrap().get(&id).and_then(Weak::upgrade);
+        let owner = owners.get(&id).and_then(Weak::upgrade);
         if let Some(owner) = owner {
             if owner.kind != kind {
                 return Err(JsValue::from_str("shared-object type mismatch"));
@@ -177,6 +179,7 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
             entries.push((id, value, owner));
         }
     }
+    drop(owners);
     collect_shared_objects();
     OBJECTS.with_borrow_mut(|objects| {
         for (id, value, owner) in &entries {
@@ -213,20 +216,28 @@ pub fn prepare_shared_object_message(payload: JsValue) -> JsValue {
 }
 
 /// Import a transport envelope and return its application payload.
-/// Plain non-array lifecycle messages pass through unchanged.
+/// Messages that are not shared-object envelopes pass through unchanged.
 ///
 /// # Safety
 /// The envelope must be produced by this runtime's prepare_shared_object_message on the
 /// same trusted worker connection; see import_shared_objects.
 pub unsafe fn receive_shared_object_message(message: JsValue) -> Result<JsValue, JsValue> {
-    if !Array::is_array(&message) {
+    let Some(envelope) = message
+        .dyn_ref::<Array>()
+        .filter(|envelope| envelope.length() == 3)
+    else {
         return Ok(message);
-    }
-    let envelope: Array = message.unchecked_into();
-    if envelope.length() != 3 || envelope.get(0).as_string().as_deref() != Some(NAMESPACE.as_str())
-    {
+    };
+    let Some(namespace) = envelope
+        .get(0)
+        .as_string()
+        .filter(|namespace| namespace.starts_with(NAMESPACE_PREFIX))
+    else {
+        return Ok(message);
+    };
+    if namespace != *NAMESPACE {
         return Err(JsValue::from_str(
-            "invalid shared-object envelope or runtime namespace",
+            "shared-object envelope belongs to another runtime",
         ));
     }
     let objects = envelope.get(2);
@@ -335,8 +346,15 @@ mod tests {
             "payload"
         );
         let foreign = Array::from(&message);
-        foreign.set(0, JsValue::from_str("another-runtime"));
+        foreign.set(
+            0,
+            JsValue::from_str(&format!("{NAMESPACE_PREFIX}another-runtime")),
+        );
         assert!(unsafe { receive_shared_object_message(foreign.into()) }.is_err());
+        // Application arrays, e.g. [cmd, arg, extra], are not envelopes.
+        let plain = Array::of3(&"cmd".into(), &"arg".into(), &"extra".into());
+        let received = unsafe { receive_shared_object_message(plain.clone().into()) }.unwrap();
+        assert_eq!(received, JsValue::from(plain));
     }
 
     #[wasm_bindgen_test]
