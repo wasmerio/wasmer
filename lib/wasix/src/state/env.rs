@@ -1112,7 +1112,9 @@ impl WasiEnv {
     /// instance.
     ///
     /// The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
-    /// `/bin/command`.
+    /// `/bin/<command>` and `/usr/bin/<command>`. Each path is registered with
+    /// the package independently, so a failure to write one does not affect
+    /// the other.
     ///
     /// This will also merge the package's mount manifest
     /// ([`BinaryPackage::package_mounts`][pkg-fs]) into the current filesystem.
