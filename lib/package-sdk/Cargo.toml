@@ -1,6 +1,6 @@
 [package]
-name = "wasmer-sdk"
-description = "The Wasmer SDK - provides Wasmer and Wasmer Edge related functionality."
+name = "wasmer-package-sdk"
+description = "The Wasmer Package SDK - provides Wasmer and Wasmer Edge related functionality."
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -11,9 +11,9 @@ version.workspace = true
 readme = "README.md"
 
 [dependencies]
-wasmer-backend-api = { path = "../backend-api", version = "=0.704.2" }
-wasmer-config = { path = "../config", version = "=0.704.2" }
-wasmer-package = { path = "../package", version = "=0.704.2" }
+wasmer-backend-api = { path = "../backend-api", version = "=0.705.0-rc.2" }
+wasmer-config = { path = "../config", version = "=0.705.0-rc.2" }
+wasmer-package = { path = "../package", version = "=0.705.0-rc.2" }
 
 reqwest = { workspace = true, default-features = false, features = [
   "json",

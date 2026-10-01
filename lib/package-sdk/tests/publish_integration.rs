@@ -8,7 +8,9 @@ use url::Url;
 
 use wasmer_backend_api::WasmerClient;
 
-use wasmer_sdk::package::publish::{PublishOptions, PublishWait, publish_package_directory};
+use wasmer_package_sdk::package::publish::{
+    PublishOptions, PublishWait, publish_package_directory,
+};
 
 /// Integration test for the package publishing logic.
 #[tokio::test]
