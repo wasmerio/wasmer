@@ -302,6 +302,12 @@ pub unsafe fn receive_shared_object_message(message: JsValue) -> Result<JsValue,
     Ok(envelope.get(1))
 }
 
+/// Simulate a worker that has not received any objects.
+#[cfg(test)]
+pub(crate) fn forget_local_objects() {
+    OBJECTS.with_borrow_mut(HashMap::clear);
+}
+
 /// Diagnostic counters without performing collection.
 #[doc(hidden)]
 pub fn shared_object_stats() -> (usize, u32) {

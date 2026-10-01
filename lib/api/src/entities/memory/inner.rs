@@ -184,7 +184,8 @@ impl BackendMemory {
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
         self.copy(store)
-            .map(|new_memory| new_memory.attach(new_store).0)
+            .and_then(|new_memory| new_memory.try_attach(new_store))
+            .map(|new_memory| new_memory.0)
     }
 
     #[inline]
@@ -242,7 +243,8 @@ impl BackendMemory {
 
         self.as_shared(store)
             .ok_or_else(shared_memory_detach_error)
-            .map(|new_memory| new_memory.attach(new_store).0)
+            .and_then(|new_memory| new_memory.try_attach(new_store))
+            .map(|new_memory| new_memory.0)
     }
 
     /// Get a [`SharedMemory`].
