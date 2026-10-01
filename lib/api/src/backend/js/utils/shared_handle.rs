@@ -2,7 +2,7 @@
 use crossbeam_skiplist::SkipMap;
 use js_sys::{Array, SharedArrayBuffer, WebAssembly};
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
     sync::{
         Arc, LazyLock, Weak,
@@ -53,10 +53,41 @@ struct LocalObject {
     // Rust ownership is invisible to JS GC, so a live handle needs a strong JS root.
     value: JsValue,
     owner: Weak<Owner>,
+    // Recompiled locally; a delivered object replaces it.
+    fallback: bool,
 }
 thread_local! {
     static OBJECTS: RefCell<HashMap<u32, LocalObject>> = RefCell::default();
+    // Reverse index (JS object identity -> ID) so registration needn't scan OBJECTS.
+    static IDS: js_sys::Map = js_sys::Map::new();
+    // Registration collects only once the registry has doubled, keeping it amortized O(1).
+    static COLLECT_AT: Cell<usize> = const { Cell::new(MIN_COLLECT_AT) };
     static FALLBACKS: RefCell<u32> = const { RefCell::new(0) };
+}
+const MIN_COLLECT_AT: usize = 64;
+
+fn insert_local(objects: &mut HashMap<u32, LocalObject>, id: u32, object: LocalObject) {
+    IDS.with(|ids| {
+        ids.set(&object.value, &JsValue::from(id));
+        if let Some(old) = objects.insert(id, object) {
+            forget_id(ids, id, &old.value);
+        }
+    });
+}
+
+fn forget_id(ids: &js_sys::Map, id: u32, value: &JsValue) {
+    if ids.get(value).as_f64() == Some(f64::from(id)) {
+        ids.delete(value);
+    }
+}
+
+fn registered_id(
+    objects: &HashMap<u32, LocalObject>,
+    value: &JsValue,
+) -> Option<(u32, Arc<Owner>)> {
+    let id = IDS.with(|ids| ids.get(value)).as_f64()? as u32;
+    let object = objects.get(&id).filter(|object| object.value == *value)?;
+    Some((id, object.owner.upgrade()?))
 }
 
 #[derive(Clone, Debug)]
@@ -72,16 +103,14 @@ impl PartialEq for SharedJsHandle {
 impl Eq for SharedJsHandle {}
 impl SharedJsHandle {
     pub fn new(value: impl Into<JsValue>) -> Self {
-        collect_shared_objects();
+        if OBJECTS.with_borrow(HashMap::len) >= COLLECT_AT.get() {
+            collect_shared_objects();
+        }
         let value = value.into();
         let kind = ObjectKind::of(&value).expect("only modules and shared memories can be shared");
         OBJECTS.with_borrow_mut(|objects| {
-            for (&id, object) in objects.iter() {
-                if object.value == value
-                    && let Some(owner) = object.owner.upgrade()
-                {
-                    return Self { id, owner };
-                }
+            if let Some((id, owner)) = registered_id(objects, &value) {
+                return Self { id, owner };
             }
             let id = NEXT_ID
                 .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
@@ -89,7 +118,12 @@ impl SharedJsHandle {
             let owner = Arc::new(Owner { kind });
             let weak = Arc::downgrade(&owner);
             OWNERS.insert(id, weak.clone());
-            objects.insert(id, LocalObject { value, owner: weak });
+            let object = LocalObject {
+                value,
+                owner: weak,
+                fallback: false,
+            };
+            insert_local(objects, id, object);
             Self { id, owner }
         })
     }
@@ -108,13 +142,12 @@ impl SharedJsHandle {
         let value = value.into();
         assert_eq!(ObjectKind::of(&value), Some(self.owner.kind));
         OBJECTS.with_borrow_mut(|objects| {
-            objects.insert(
-                self.id,
-                LocalObject {
-                    value,
-                    owner: Arc::downgrade(&self.owner),
-                },
-            );
+            let object = LocalObject {
+                value,
+                owner: Arc::downgrade(&self.owner),
+                fallback: true,
+            };
+            insert_local(objects, self.id, object);
         });
         FALLBACKS.with_borrow_mut(|count| *count += 1);
     }
@@ -122,11 +155,23 @@ impl SharedJsHandle {
 
 /// Release dead references in this worker and expired entries in the owner index.
 ///
-/// Collection is opportunistic: registration and snapshot boundaries call this;
+/// Collection is opportunistic: snapshot boundaries call this, registration calls it
+/// once the local registry has doubled since the last collection, and
 /// hosts may also call it at task boundaries. There are no background notifications
 /// or timers. Idle workers can retain expired objects until collection or teardown.
 pub fn collect_shared_objects() {
-    OBJECTS.with_borrow_mut(|objects| objects.retain(|_, object| object.owner.strong_count() > 0));
+    OBJECTS.with_borrow_mut(|objects| {
+        IDS.with(|ids| {
+            objects.retain(|&id, object| {
+                let live = object.owner.strong_count() > 0;
+                if !live {
+                    forget_id(ids, id, &object.value);
+                }
+                live
+            })
+        });
+        COLLECT_AT.set(MIN_COLLECT_AT.max(objects.len() * 2));
+    });
     for entry in OWNERS.iter() {
         if entry.value().strong_count() == 0 {
             entry.remove();
@@ -186,11 +231,16 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
     }
     collect_shared_objects();
     OBJECTS.with_borrow_mut(|objects| {
-        for (id, value, owner) in &entries {
-            objects.entry(*id).or_insert_with(|| LocalObject {
-                value: value.clone(),
-                owner: Arc::downgrade(owner),
-            });
+        for (id, value, owner) in entries {
+            if objects.get(&id).is_some_and(|object| !object.fallback) {
+                continue;
+            }
+            let object = LocalObject {
+                value,
+                owner: Arc::downgrade(&owner),
+                fallback: false,
+            };
+            insert_local(objects, id, object);
         }
     });
     Ok(())
@@ -287,6 +337,33 @@ mod tests {
         drop(handle);
         let message = Array::from(&prepare_shared_object_message(JsValue::UNDEFINED));
         assert_eq!(Array::from(&message.get(2)).length(), 0);
+    }
+
+    #[wasm_bindgen_test]
+    fn delivered_objects_replace_local_fallbacks_only() {
+        let handle = module_handle();
+        let original: JsValue = handle.get::<WebAssembly::Module>().unwrap().into();
+        let snapshot = export_shared_objects();
+        let recompiled = WebAssembly::Module::new(
+            &js_sys::Uint8Array::from(b"\0asm\x01\0\0\0".as_slice()).into(),
+        )
+        .unwrap();
+        handle.install(recompiled.clone());
+        unsafe { import_shared_objects(&snapshot) }.unwrap();
+        assert_eq!(
+            JsValue::from(handle.get::<WebAssembly::Module>().unwrap()),
+            original
+        );
+        // A delivered object is authoritative and is not replaced again.
+        let other = Array::of1(&Array::of2(&handle.id.into(), &recompiled));
+        unsafe { import_shared_objects(&other) }.unwrap();
+        assert_eq!(
+            JsValue::from(handle.get::<WebAssembly::Module>().unwrap()),
+            original
+        );
+        // The identity index follows the replacement.
+        assert_ne!(SharedJsHandle::new(recompiled).id, handle.id);
+        assert_eq!(SharedJsHandle::new(original).id, handle.id);
     }
 
     #[wasm_bindgen_test]
