@@ -334,6 +334,7 @@ impl WasiRunner {
 
     /// Prepare a WebC environment, exposing its process before an embedder
     /// configuration hook and filesystem assembly can perform blocking work.
+    #[allow(clippy::too_many_arguments)] // Extends the existing builder entry point with two hooks.
     pub fn prepare_webc_env_with_process_observer_and_configure<F, C>(
         &mut self,
         program_name: &str,
