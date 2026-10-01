@@ -623,3 +623,132 @@ fn nested_async_in_async() -> Result<()> {
 
     Ok(())
 }
+
+/// [`wasmer::FunctionEnvHandle`] is how a callback registered with a foreign
+/// runtime reaches its environment again, long after the call that registered it
+/// returned. These pin the three outcomes it can have.
+///
+/// The handle holds its store weakly and is `!Send`, which matches `StoreAsync`
+/// itself — an async store is single-threaded by construction — so the test
+/// stashes it in a thread-local rather than in the environment.
+mod function_env_handle {
+    use super::*;
+    use std::cell::RefCell;
+
+    thread_local! {
+        static HANDLE: RefCell<Option<wasmer::FunctionEnvHandle<()>>> =
+            const { RefCell::new(None) };
+    }
+
+    fn handle() -> wasmer::FunctionEnvHandle<()> {
+        HANDLE
+            .with(|slot| slot.borrow().clone())
+            .expect("the guest registered a handle")
+    }
+
+    const WAT: &str = r#"
+    (module
+        (import "env" "register" (func $register))
+        (import "env" "suspend" (func $suspend))
+        (func (export "run")
+            call $register
+            call $suspend))
+    "#;
+
+    fn build() -> Result<(StoreAsync, TypedFunction<(), ()>)> {
+        let wasm = wat::parse_str(WAT).expect("valid WAT module");
+        let mut store = Store::default();
+        let module = Module::new(&store, wasm)?;
+        let env = FunctionEnv::new(&mut store, ());
+
+        let register =
+            Function::new_typed_with_env(&mut store, &env, move |env: FunctionEnvMut<()>| {
+                let handle = env
+                    .handle()
+                    .expect("a handle, since this call came through call_async");
+
+                // A guest is running and this frame is holding its store, so
+                // nothing may hand out a second way to reach it. Refusing is the
+                // whole point: granting it would be two live `StoreMut`s.
+                assert!(
+                    handle.try_write().is_none(),
+                    "a handle must not hand out a store that is in use"
+                );
+                assert!(handle.is_alive(), "...but the store is alive, not gone");
+
+                HANDLE.with(|slot| *slot.borrow_mut() = Some(handle));
+            });
+
+        let suspend = Function::new_typed_async(&mut store, async || {
+            // The case that matters: a suspended guest has released its store, so
+            // a callback arriving now gets exclusive access to it. This is where
+            // a foreign runtime's callbacks actually land, because the guest
+            // reaches its event loop by suspending into it.
+            {
+                let handle = handle();
+                let mut guard = handle
+                    .try_write()
+                    .expect("a suspended guest must release its store");
+                let _env_mut = guard.as_function_env_mut();
+            }
+            tokio::task::yield_now().await;
+            // Still true after an await point.
+            assert!(handle().try_write().is_some());
+        });
+
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "env" => { "register" => register, "suspend" => suspend } },
+        )?;
+        let run = instance
+            .exports
+            .get_typed_function::<(), ()>(&store, "run")?;
+        Ok((store.into_async(), run))
+    }
+
+    /// The reachable case, and the refusal that guards it.
+    #[test]
+    #[cfg_attr(
+        all(feature = "v8-default", not(feature = "sys-default")),
+        ignore = "async functions are not supported by the default v8 backend"
+    )]
+    fn a_handle_reaches_its_store_while_the_guest_is_suspended() -> Result<()> {
+        let (store, call) = build()?;
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(call.call_async(&store))?;
+        Ok(())
+    }
+
+    /// Once the store is an owned `Store` again the handle is dead for good — and
+    /// says so rather than panicking, which is what lets a holder drop its
+    /// registration instead of queueing work that can never run.
+    #[test]
+    #[cfg_attr(
+        all(feature = "v8-default", not(feature = "sys-default")),
+        ignore = "async functions are not supported by the default v8 backend"
+    )]
+    fn a_handle_outliving_its_store_reports_it_rather_than_panicking() -> Result<()> {
+        let (store, call) = build()?;
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(call.call_async(&store))?;
+
+        let handle = handle();
+        assert!(handle.is_alive(), "the store is still async here");
+
+        let Ok(store) = store.into_store() else {
+            panic!("no outstanding store clones");
+        };
+        drop(store);
+
+        assert!(!handle.is_alive());
+        assert!(handle.try_write().is_none());
+        Ok(())
+    }
+}
