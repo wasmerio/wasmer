@@ -3771,6 +3771,14 @@ impl Machine for MachineX86_64 {
                 )
             },
         )?;
+        // The atomic instruction only fills up low byte, so we must explicitly zero extend it!
+        self.move_location_extend(
+            Size::S16,
+            false,
+            Location::GPR(value),
+            Size::S32,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S32, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -3887,6 +3895,14 @@ impl Machine for MachineX86_64 {
                     Location::Memory(addr, 0),
                 )
             },
+        )?;
+        // The atomic instruction only fills the low byte, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S16,
+            false,
+            Location::GPR(value),
+            Size::S32,
+            Location::GPR(value),
         )?;
         self.move_location(Size::S32, Location::GPR(value), ret)?;
         self.release_gpr(value);
@@ -4249,6 +4265,14 @@ impl Machine for MachineX86_64 {
                     .emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
             },
         )?;
+        // The atomic instruction only fills the low byte, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S8,
+            false,
+            Location::GPR(value),
+            Size::S32,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S32, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -4285,6 +4309,14 @@ impl Machine for MachineX86_64 {
                 this.assembler
                     .emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
             },
+        )?;
+        // The atomic instruction only fills the low word, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S16,
+            false,
+            Location::GPR(value),
+            Size::S32,
+            Location::GPR(value),
         )?;
         self.move_location(Size::S32, Location::GPR(value), ret)?;
         self.release_gpr(value);
@@ -4390,8 +4422,14 @@ impl Machine for MachineX86_64 {
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )?;
-                this.assembler
-                    .emit_movzx(Size::S8, Location::GPR(compare), Size::S32, ret)
+                this.move_location_extend(
+                    Size::S8,
+                    false,
+                    Location::GPR(compare),
+                    Size::S32,
+                    Location::GPR(compare),
+                )?;
+                this.move_location(Size::S32, Location::GPR(compare), ret)
             },
         )?;
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
@@ -4444,8 +4482,14 @@ impl Machine for MachineX86_64 {
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )?;
-                this.assembler
-                    .emit_movzx(Size::S16, Location::GPR(compare), Size::S32, ret)
+                this.move_location_extend(
+                    Size::S16,
+                    false,
+                    Location::GPR(compare),
+                    Size::S32,
+                    Location::GPR(compare),
+                )?;
+                this.move_location(Size::S32, Location::GPR(compare), ret)
             },
         )?;
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
@@ -5614,6 +5658,14 @@ impl Machine for MachineX86_64 {
                 )
             },
         )?;
+        // The atomic instruction only fills the low byte, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S8,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -5653,6 +5705,14 @@ impl Machine for MachineX86_64 {
                 )
             },
         )?;
+        // The atomic instruction only fills the low word, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S16,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -5691,6 +5751,14 @@ impl Machine for MachineX86_64 {
                     Location::Memory(addr, 0),
                 )
             },
+        )?;
+        // Explicitly zero-extend the narrow atomic result to the i64 result type.
+        self.move_location_extend(
+            Size::S32,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
         )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
@@ -5770,6 +5838,14 @@ impl Machine for MachineX86_64 {
                 )
             },
         )?;
+        // The atomic instruction only fills the low byte, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S8,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -5809,6 +5885,14 @@ impl Machine for MachineX86_64 {
                 )
             },
         )?;
+        // The atomic instruction only fills the low word, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S16,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -5847,6 +5931,14 @@ impl Machine for MachineX86_64 {
                     Location::Memory(addr, 0),
                 )
             },
+        )?;
+        // Explicitly zero-extend the narrow atomic result to the i64 result type.
+        self.move_location_extend(
+            Size::S32,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
         )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
@@ -6297,6 +6389,14 @@ impl Machine for MachineX86_64 {
                     .emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
             },
         )?;
+        // The atomic instruction only fills the low byte, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S8,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -6334,6 +6434,14 @@ impl Machine for MachineX86_64 {
                     .emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
             },
         )?;
+        // The atomic instruction only fills the low word, so explicitly zero-extend it.
+        self.move_location_extend(
+            Size::S16,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
+        )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
         Ok(())
@@ -6370,6 +6478,14 @@ impl Machine for MachineX86_64 {
                 this.assembler
                     .emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
             },
+        )?;
+        // Explicitly zero-extend the narrow atomic result to the i64 result type.
+        self.move_location_extend(
+            Size::S32,
+            false,
+            Location::GPR(value),
+            Size::S64,
+            Location::GPR(value),
         )?;
         self.move_location(Size::S64, Location::GPR(value), ret)?;
         self.release_gpr(value);
@@ -6475,8 +6591,14 @@ impl Machine for MachineX86_64 {
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )?;
-                this.assembler
-                    .emit_movzx(Size::S8, Location::GPR(compare), Size::S64, ret)
+                this.move_location_extend(
+                    Size::S8,
+                    false,
+                    Location::GPR(compare),
+                    Size::S64,
+                    Location::GPR(compare),
+                )?;
+                this.move_location(Size::S64, Location::GPR(compare), ret)
             },
         )?;
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
@@ -6529,8 +6651,14 @@ impl Machine for MachineX86_64 {
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )?;
-                this.assembler
-                    .emit_movzx(Size::S16, Location::GPR(compare), Size::S64, ret)
+                this.move_location_extend(
+                    Size::S16,
+                    false,
+                    Location::GPR(compare),
+                    Size::S64,
+                    Location::GPR(compare),
+                )?;
+                this.move_location(Size::S64, Location::GPR(compare), ret)
             },
         )?;
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
@@ -6583,8 +6711,14 @@ impl Machine for MachineX86_64 {
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )?;
-                this.assembler
-                    .emit_mov(Size::S32, Location::GPR(compare), ret)
+                this.move_location_extend(
+                    Size::S32,
+                    false,
+                    Location::GPR(compare),
+                    Size::S64,
+                    Location::GPR(compare),
+                )?;
+                this.move_location(Size::S64, Location::GPR(compare), ret)
             },
         )?;
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
