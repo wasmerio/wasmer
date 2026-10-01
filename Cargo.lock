@@ -3496,7 +3496,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-engine-test"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6798,7 +6798,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6829,7 +6829,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6844,7 +6844,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6958,7 +6958,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7221,7 +7221,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -7272,7 +7272,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-argus"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7297,7 +7297,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-backend-api"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -7342,7 +7342,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "cbindgen",
@@ -7370,7 +7370,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-imports"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "tokio",
@@ -7382,7 +7382,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "cc",
  "regex",
@@ -7392,7 +7392,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "blake3",
  "clap",
@@ -7410,7 +7410,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "cc",
  "regex",
@@ -7420,7 +7420,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.2",
@@ -7515,7 +7515,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "addr2line 0.27.1",
  "backtrace",
@@ -7557,7 +7557,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -7581,7 +7581,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -7607,7 +7607,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -7630,7 +7630,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7653,7 +7653,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error2",
@@ -7665,7 +7665,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.2",
@@ -7690,11 +7690,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7722,7 +7722,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -7731,7 +7731,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-napi"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "cc",
@@ -7757,7 +7757,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7787,7 +7787,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package-sdk"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7815,7 +7815,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "thiserror 2.0.21",
  "tokio",
@@ -7829,7 +7829,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "libc",
  "region",
@@ -7843,7 +7843,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "bytecheck",
  "crc32fast",
@@ -7868,7 +7868,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "backtrace",
  "bytesize",
@@ -7899,7 +7899,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "assert-panic",
@@ -7999,7 +7999,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.705.0-rc.2"
+version = "0.705.0"
 dependencies = [
  "anyhow",
  "bitflags 2.13.2",
@@ -8021,7 +8021,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -8032,7 +8032,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "7.5.0-rc.2"
+version = "7.5.0"
 dependencies = [
  "anyhow",
  "build-deps",
