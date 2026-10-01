@@ -6,6 +6,20 @@
 
 ## **Unreleased**
 
+## 7.5.0-rc.2 - 01/10/2026
+
+## Added
+
+
+## Changed
+
+  - [#7027](https://github.com/wasmerio/wasmer/pull/7027) rename `wasmer-sdk` to `wasmer-package-sdk` crate
+
+## Fixed
+
+
+
+
 ## 7.5.0-rc.1 - 30/09/2026
 
 ## Added
