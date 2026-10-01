@@ -1,14 +1,53 @@
 use std::sync::Mutex;
 use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
-use futures::{Future, future::BoxFuture};
+use futures::{
+    Future,
+    executor::{LocalPool, LocalSpawner},
+    future::BoxFuture,
+    task::LocalSpawnExt,
+};
 use tokio::runtime::{Handle, Runtime};
 use virtual_mio::block_on;
 
 use crate::runtime::{SpawnType, task_manager::TaskWasmCallbacks};
 use crate::{WasiFunctionEnv, os::task::thread::WasiThreadError};
 
-use super::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
+use super::{
+    LocalTaskSpawnError, LocalTaskSpawner, SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties,
+    VirtualTaskManager,
+};
+
+/// The executor this task manager gives a WebAssembly task.
+///
+/// A task gets a thread of its own here, so a local pool it blocks on is the
+/// right executor; a host with one thread and an event loop supplies a different
+/// one. That choice is the whole reason `LocalTaskSpawner` is passed in rather
+/// than created by WASIX.
+struct WorkerLocalSpawner(LocalSpawner);
+
+// SAFETY: `LocalTaskSpawner::spawn` compares the current thread against the one
+// it was built on before calling through, so this is only ever touched on its
+// owning worker.
+unsafe impl Send for WorkerLocalSpawner {}
+// SAFETY: see the `Send` implementation above.
+unsafe impl Sync for WorkerLocalSpawner {}
+
+impl WorkerLocalSpawner {
+    fn spawn(&self, future: super::WasmTaskFuture) -> Result<(), LocalTaskSpawnError> {
+        self.0
+            .spawn_local(future)
+            .map_err(|error| match error.is_shutdown() {
+                true => LocalTaskSpawnError::ShutDown,
+                false => LocalTaskSpawnError::Spawn,
+            })
+    }
+}
+
+fn local_task_spawner(pool: &LocalPool) -> LocalTaskSpawner {
+    let spawner = WorkerLocalSpawner(pool.spawner());
+    LocalTaskSpawner::new(move |future| spawner.spawn(future))
+}
 
 #[derive(Debug, Clone)]
 pub enum RuntimeOrHandle {
@@ -236,13 +275,17 @@ impl VirtualTaskManager for TokioTaskManager {
                     })
                 };
 
-                // Invoke the callback
-                (callbacks.run)(TaskWasmRunProperties {
+                // Drive the task, and any worker-local futures it spawns, on this
+                // worker's own executor.
+                let mut local_pool = LocalPool::new();
+                let local_tasks = local_task_spawner(&local_pool);
+                local_pool.run_until((callbacks.run)(TaskWasmRunProperties {
                     ctx,
                     store,
+                    local_tasks,
                     trigger_result: Some(result),
                     recycle: callbacks.recycle,
-                });
+                }));
             });
         } else {
             tracing::trace!("spawning task_wasm in blocking thread");
@@ -265,13 +308,17 @@ impl VirtualTaskManager for TokioTaskManager {
                     block_on(pre_run(&mut ctx, &mut store));
                 }
 
-                // Invoke the callback
-                (callbacks.run)(TaskWasmRunProperties {
+                // Drive the task, and any worker-local futures it spawns, on this
+                // worker's own executor.
+                let mut local_pool = LocalPool::new();
+                let local_tasks = local_task_spawner(&local_pool);
+                local_pool.run_until((callbacks.run)(TaskWasmRunProperties {
                     ctx,
                     store,
+                    local_tasks,
                     trigger_result: None,
                     recycle: callbacks.recycle,
-                });
+                }));
             });
         }
 

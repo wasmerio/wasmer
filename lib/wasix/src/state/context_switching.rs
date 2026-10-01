@@ -1,12 +1,11 @@
 use crate::{
     WasiError, WasiFunctionEnv,
-    utils::thread_local_executor::{
-        ThreadLocalExecutor, ThreadLocalSpawner, ThreadLocalSpawnerError,
-    },
+    runtime::task_manager::{LocalTaskSpawnError, LocalTaskSpawner},
 };
 use futures::{
     TryFutureExt,
     channel::oneshot::{self, Sender},
+    future::{AbortHandle, Abortable},
 };
 use std::{
     collections::BTreeMap,
@@ -39,9 +38,62 @@ struct ContextSwitchingEnvironmentInner {
     current_context_id: AtomicU64,
     /// The next available context ID
     next_available_context_id: AtomicU64,
-    /// This spawner can be used to spawn tasks onto the thread-local executor
-    /// associated with this context-switching environment
-    spawner: ThreadLocalSpawner,
+    /// Spawns contexts on the worker-local executor supplied by the task manager.
+    spawner: LocalTaskSpawner,
+    /// Every live context, so teardown can cancel them.
+    ///
+    /// Dropping a context's unblocker is not enough to finish it: an entrypoint
+    /// task can be parked on a JSPI promise that will never settle, and such a
+    /// future only goes away if something aborts it. Until every one is gone
+    /// their store clones are outstanding, and the async store cannot be turned
+    /// back into an owned `Store`.
+    context_tasks: RwLock<BTreeMap<u64, ContextTask>>,
+}
+
+#[derive(Debug)]
+struct ContextTask {
+    abort: AbortHandle,
+    completed: oneshot::Receiver<()>,
+}
+
+impl ContextSwitchingEnvironmentInner {
+    /// Cancels every context and waits for it to release its store clones.
+    async fn shutdown(&self) {
+        let tasks = std::mem::take(&mut *self.context_tasks.write().unwrap());
+        for task in tasks.values() {
+            task.abort.abort();
+        }
+        for task in tasks.into_values() {
+            let _ = task.completed.await;
+        }
+    }
+}
+
+impl Drop for ContextSwitchingEnvironmentInner {
+    fn drop(&mut self) {
+        for task in self.context_tasks.get_mut().unwrap().values() {
+            task.abort.abort();
+        }
+    }
+}
+
+/// Removes a context from the environment and reports its completion, whichever
+/// way its task ended.
+struct ContextTaskRegistration {
+    environment: Weak<ContextSwitchingEnvironmentInner>,
+    id: u64,
+    completed: Option<Sender<()>>,
+}
+
+impl Drop for ContextTaskRegistration {
+    fn drop(&mut self) {
+        if let Some(environment) = self.environment.upgrade() {
+            environment.context_tasks.write().unwrap().remove(&self.id);
+        }
+        if let Some(completed) = self.completed.take() {
+            let _ = completed.send(());
+        }
+    }
 }
 
 /// Errors that can occur during a context switch
@@ -92,25 +144,27 @@ impl Drop for ContextCanceled {
 pub struct ContextEntrypointReturned(u64);
 
 impl ContextSwitchingEnvironment {
-    fn new(spawner: ThreadLocalSpawner) -> Self {
+    fn new(spawner: LocalTaskSpawner) -> Self {
         Self {
             inner: Arc::new(ContextSwitchingEnvironmentInner {
                 unblockers: RwLock::new(BTreeMap::new()),
                 current_context_id: AtomicU64::new(MAIN_CONTEXT_ID),
                 next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
                 spawner,
+                context_tasks: RwLock::new(BTreeMap::new()),
             }),
         }
     }
 
     /// Run the main context function in a context-switching environment
     ///
-    /// This call blocks until the entrypoint returns or traps
-    pub(crate) fn run_main_context(
+    /// This call yields until the entrypoint returns or traps.
+    pub(crate) async fn run_main_context(
         ctx: &WasiFunctionEnv,
         mut store: Store,
         entrypoint: wasmer::Function,
         params: Vec<wasmer::Value>,
+        local_tasks: LocalTaskSpawner,
     ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
         if !ctx
             .data(&store)
@@ -133,17 +187,28 @@ impl ContextSwitchingEnvironment {
             );
         }
 
-        // Do a normal call and dont install the context switching env, if the engine does not support async
-        let engine_supports_async = store.engine().supports_async();
-        if !engine_supports_async {
+        // JSPI and Asyncify are alternative suspension mechanisms *on the JS
+        // backend*, where a guest instrumented to unwind its own stack uses
+        // Asyncify and must not be entered through JSPI as well. Native async
+        // calls run Asyncify guests perfectly well, fork and vfork included, so
+        // this exclusion is deliberately not applied there.
+        //
+        // The predicate is `will_use_asyncify`, which answers for *statically*
+        // linked modules only. Asking the main module of a dynamically linked
+        // tree instead would claim Asyncify for guests that cannot run it — every
+        // WASIX build imports `stack_checkpoint` whether or not it is
+        // instrumented — and so would cost them the JSPI entry they do need.
+        let supports_async = store.engine().supports_async();
+        #[cfg(feature = "js")]
+        let supports_async =
+            supports_async && !(store.engine().is_js() && ctx.data(&store).will_use_asyncify());
+        if !supports_async {
             let result = entrypoint.call(&mut store, &params);
             return (store, result);
         }
 
-        // Create a new executor
-        let mut local_executor = ThreadLocalExecutor::new();
-
-        let this = Self::new(local_executor.spawner());
+        let this = Self::new(local_tasks);
+        let context_tasks = Arc::downgrade(&this.inner);
 
         // Add the context-switching environment to the WasiEnv
         let previous = ctx
@@ -154,7 +219,7 @@ impl ContextSwitchingEnvironment {
 
         // Turn the store into an async store and run the entrypoint
         let store_async = store.into_async();
-        let result = local_executor.run_until(entrypoint.call_async(&store_async, params));
+        let result = entrypoint.call_async(&store_async, params).await;
 
         // Process if this was terminated by a context entrypoint returning
         let result = match &result {
@@ -173,8 +238,14 @@ impl ContextSwitchingEnvironment {
         };
         tracing::trace!("Main context finished execution and returned {result:?}");
 
-        // Drop the executor to ensure all references to the StoreAsync are gone and convert back to a normal store
-        drop(local_executor);
+        // Cancel every remaining context and wait for it to let go of the store.
+        // An entrypoint task can be parked on a JSPI promise that will never
+        // settle, so dropping its unblocker does not finish it; only aborting
+        // does, and until all of them are gone their store clones keep the async
+        // store shared.
+        if let Some(environment) = context_tasks.upgrade() {
+            environment.shutdown().await;
+        }
         let mut store = store_async.into_store().ok().unwrap();
 
         // Remove the context-switching environment from the WasiEnv
@@ -464,13 +535,35 @@ impl ContextSwitchingEnvironment {
                 .expect("Failed to send error to main context, this should not happen");
         };
 
-        // Queue the future onto the thread-local executor
-        tracing::trace!("Spawning context {new_context_id} onto the thread-local executor");
-        let spawn_result = self.inner.spawner.spawn_local(context_future);
+        // Make the task abortable and register it, so teardown can cancel a
+        // context parked on a promise that will never settle and then wait for it
+        // to release its store clones.
+        let (abort, abort_registration) = AbortHandle::new_pair();
+        let (completed, wait_for_completion) = oneshot::channel();
+        let registration = ContextTaskRegistration {
+            environment: Arc::downgrade(&self.inner),
+            id: new_context_id,
+            completed: Some(completed),
+        };
+        let context_future = async move {
+            let _registration = registration;
+            let _ = Abortable::new(context_future, abort_registration).await;
+        };
+        self.inner.context_tasks.write().unwrap().insert(
+            new_context_id,
+            ContextTask {
+                abort,
+                completed: wait_for_completion,
+            },
+        );
+
+        // Queue the future onto the worker-local executor
+        tracing::trace!("Spawning context {new_context_id} onto the worker-local executor");
+        let spawn_result = self.inner.spawner.spawn(context_future);
 
         match spawn_result {
             Ok(()) => new_context_id,
-            Err(ThreadLocalSpawnerError::LocalPoolShutDown) => {
+            Err(LocalTaskSpawnError::ShutDown) => {
                 // This case could happen if the executor is being shut down while it is still polling a future (this one).
                 // Which shouldn't be able with a single-threaded executor, as the shutdown would have to
                 // be initiated from within a future running on that executor.
@@ -482,13 +575,13 @@ impl ContextSwitchingEnvironment {
                     "Failed to spawn context {new_context_id} because the local executor has been shut down. Please open an issue and let me know how you produced this error.",
                 );
             }
-            Err(ThreadLocalSpawnerError::NotOnTheCorrectThread { expected, found }) => {
+            Err(LocalTaskSpawnError::WrongThread { expected, found }) => {
                 // This should never happen and is a bug in WASIX, so we panic here
                 panic!(
-                    "Failed to create context because the thread local spawner lives on {expected:?} but you are on {found:?}"
+                    "Failed to create context because the worker-local spawner lives on {expected:?} but you are on {found:?}"
                 )
             }
-            Err(ThreadLocalSpawnerError::SpawnError) => {
+            Err(LocalTaskSpawnError::Spawn) => {
                 panic!("Failed to spawn context {new_context_id}, this should not happen");
             }
         }

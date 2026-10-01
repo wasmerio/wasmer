@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex, TryLockError};
 
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, AsyncFunctionEnvMut, Extern, ExternType, Function, FunctionEnv,
-    FunctionEnvMut, FunctionType, ImportType, Imports, Module, RuntimeError, Type, Value,
+    AsStoreMut, AsyncFunctionEnvMut, Extern, ExternType, Function, FunctionEnv, FunctionEnvMut,
+    FunctionType, ImportType, Imports, Module, RuntimeError, Type, Value,
 };
 
 use crate::{WasiEnv, WasiError, flatten_runtime_error};
