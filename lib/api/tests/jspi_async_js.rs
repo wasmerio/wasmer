@@ -7,6 +7,7 @@ use std::{
 
 use futures::FutureExt;
 use js_sys::Promise;
+use std::future::Future;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;

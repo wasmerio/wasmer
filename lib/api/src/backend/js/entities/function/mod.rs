@@ -10,8 +10,6 @@ use js_sys::{Array, Function as JsFunction};
 #[cfg(feature = "experimental-async")]
 use js_sys::{Promise, Reflect};
 use wasm_bindgen::{JsCast, prelude::*};
-#[cfg(feature = "experimental-async")]
-use wasm_bindgen_futures::JsFuture;
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
@@ -700,7 +698,11 @@ impl Function {
                 .dyn_into::<Promise>()
                 .map_err(RuntimeError::from)?;
 
-            let mut guest = std::pin::pin!(JsFuture::from(promise));
+            // Not `JsFuture`: a cancelled call leaves its guest suspended on a
+            // promise that never settles, and `JsFuture`'s callbacks would hold
+            // that call's waker for the life of the page. See `jspi::PromiseFuture`.
+            let mut guest =
+                std::pin::pin!(jspi::PromiseFuture::new(promise).map_err(RuntimeError::from)?);
             let result = std::future::poll_fn(|cx| {
                 // Before the guest, so an import that has already finished
                 // resumes it rather than waiting a further poll.

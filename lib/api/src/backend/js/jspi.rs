@@ -4,12 +4,15 @@ use std::{
     future::Future,
     pin::Pin,
     rc::{Rc, Weak},
-    task::{Context, Poll},
+    task::{Context, Poll, Waker},
 };
 
 use crate::{AsStoreAsync, ForcedStoreInstallGuard, StoreAsync};
 use js_sys::{Function, Promise, Reflect};
-use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
+use wasm_bindgen::{
+    JsCast, JsValue,
+    prelude::{Closure, wasm_bindgen},
+};
 use wasmer_types::StoreId;
 
 struct ActiveStore {
@@ -54,6 +57,71 @@ pub(crate) struct ParkedCall {
 /// What an async import's host future reports: how to settle the suspended
 /// guest's promise, or `None` to leave it unsettled and the guest inert.
 type ImportOutcome = Option<Result<JsValue, JsValue>>;
+
+#[derive(Default)]
+struct PromiseState {
+    result: Option<Result<JsValue, JsValue>>,
+    waker: Option<Waker>,
+}
+
+/// A future over a JS promise which lets go of its waker when dropped.
+///
+/// `JsFuture` cannot be used for a guest's promise. Its settle callbacks hold a
+/// *strong* reference to the state holding the waker, and JavaScript owns those
+/// callbacks for as long as the promise is alive — so a promise that never
+/// settles keeps them, and the waker, forever. Cancelling a call deliberately
+/// leaves its guest's JS stack suspended on exactly such a promise, which would
+/// make every cancellation leak.
+///
+/// Holding only `Weak` references inverts that: dropping this future releases the
+/// state immediately, and a callback that fires afterwards finds nothing to wake
+/// and does nothing.
+pub(crate) struct PromiseFuture(Rc<RefCell<PromiseState>>);
+
+impl PromiseFuture {
+    pub(crate) fn new(promise: Promise) -> Result<Self, JsValue> {
+        let state = Rc::new(RefCell::new(PromiseState::default()));
+        let resolve = Self::callback(Rc::downgrade(&state), true);
+        let reject = Self::callback(Rc::downgrade(&state), false);
+        // `then` rather than `Promise::then`, which would need the closures to
+        // outlive this call; these are handed to JavaScript to own and collect.
+        let then: Function = Reflect::get(&promise, &"then".into())?.dyn_into()?;
+        let _ = then.call2(&promise, &resolve, &reject)?;
+        Ok(Self(state))
+    }
+
+    fn callback(state: Weak<RefCell<PromiseState>>, resolved: bool) -> JsValue {
+        Closure::wrap(Box::new(move |value: JsValue| {
+            let Some(state) = state.upgrade() else {
+                return;
+            };
+            let waker = {
+                let mut state = state.borrow_mut();
+                state.result = Some(if resolved { Ok(value) } else { Err(value) });
+                state.waker.take()
+            };
+            if let Some(waker) = waker {
+                waker.wake();
+            }
+        }) as Box<dyn FnMut(JsValue)>)
+        .into_js_value()
+    }
+}
+
+impl Future for PromiseFuture {
+    type Output = Result<JsValue, JsValue>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut state = self.0.borrow_mut();
+        match state.result.take() {
+            Some(result) => Poll::Ready(result),
+            None => {
+                state.waker = Some(cx.waker().clone());
+                Poll::Pending
+            }
+        }
+    }
+}
 
 /// An async import whose guest is suspended, waiting for the host to finish.
 struct PendingImport {
@@ -226,5 +294,69 @@ impl Drop for ActiveStoreGuard {
                 stores.remove(&self.id);
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    use futures::task::{ArcWake, waker};
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    use super::*;
+
+    /// Counts the live wakers of its kind.
+    struct CountedWaker(Arc<AtomicUsize>);
+
+    impl Drop for CountedWaker {
+        fn drop(&mut self) {
+            self.0.fetch_sub(1, Ordering::SeqCst);
+        }
+    }
+
+    impl ArcWake for CountedWaker {
+        fn wake_by_ref(_: &Arc<Self>) {}
+    }
+
+    /// The reason this type exists instead of `JsFuture`: a cancelled call leaves
+    /// its guest suspended on a promise that never settles, and JavaScript holds
+    /// the callbacks attached to it for as long as the promise lives. Holding the
+    /// waker strongly from there would leak it — and a `Waker` keeps its whole
+    /// task alive — on every cancellation.
+    #[wasm_bindgen_test]
+    fn dropping_a_promise_future_releases_its_waker() {
+        let never_settles = Promise::new(&mut |_, _| {});
+
+        let alive = Arc::new(AtomicUsize::new(1));
+        let counted = Arc::new(CountedWaker(Arc::clone(&alive)));
+        let waker = waker(Arc::clone(&counted));
+        drop(counted);
+
+        {
+            let mut future = std::pin::pin!(PromiseFuture::new(never_settles).unwrap());
+            assert!(
+                future
+                    .as_mut()
+                    .poll(&mut Context::from_waker(&waker))
+                    .is_pending(),
+                "a promise that never settles cannot be ready"
+            );
+            assert_eq!(
+                alive.load(Ordering::SeqCst),
+                1,
+                "the future holds the waker while it is alive"
+            );
+        }
+        drop(waker);
+
+        assert_eq!(
+            alive.load(Ordering::SeqCst),
+            0,
+            "the waker outlived the future that registered it"
+        );
     }
 }
