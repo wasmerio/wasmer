@@ -14,6 +14,84 @@ fn thread(process: &WasiProcess, main: bool) -> WasiThreadHandle {
         .unwrap()
 }
 
+#[tokio::test]
+async fn simultaneous_any_child_waits_reap_one_exit_once() {
+    let plane = WasiControlPlane::default();
+    let root = plane.new_process(ModuleHash::random()).unwrap();
+    let child = root.new_child(ModuleHash::random()).unwrap();
+    root.lock().children.push(child.clone());
+    let child_thread = thread(&child, true);
+
+    let mut first_parent = root.clone();
+    let mut second_parent = root.clone();
+    let mut first = Box::pin(first_parent.join_any_child());
+    let mut second = Box::pin(second_parent.join_any_child());
+    assert!(matches!(
+        futures::poll!(first.as_mut()),
+        std::task::Poll::Pending
+    ));
+    assert!(matches!(
+        futures::poll!(second.as_mut()),
+        std::task::Poll::Pending
+    ));
+
+    child_thread.set_status_finished(Ok(ExitCode::from(23)));
+    let (first, second) = futures::join!(first, second);
+    let results = [first, second];
+    assert_eq!(
+        results
+            .iter()
+            .filter(|result| matches!(result, Ok(Some(_))))
+            .count(),
+        1,
+        "only one waiter may claim the child's exit"
+    );
+    assert_eq!(
+        results
+            .iter()
+            .filter(|result| matches!(result, Err(Errno::Child)))
+            .count(),
+        1,
+        "the second waiter must see that the child was reaped"
+    );
+    assert!(root.lock().children.is_empty());
+}
+
+#[tokio::test]
+async fn join_children_and_any_child_cannot_both_reap_the_same_exit() {
+    let plane = WasiControlPlane::default();
+    let root = plane.new_process(ModuleHash::random()).unwrap();
+    let child = root.new_child(ModuleHash::random()).unwrap();
+    root.lock().children.push(child.clone());
+    let child_thread = thread(&child, true);
+
+    let mut all_parent = root.clone();
+    let mut any_parent = root.clone();
+    let mut all = Box::pin(all_parent.join_children());
+    let mut any = Box::pin(any_parent.join_any_child());
+    assert!(matches!(
+        futures::poll!(all.as_mut()),
+        std::task::Poll::Pending
+    ));
+    assert!(matches!(
+        futures::poll!(any.as_mut()),
+        std::task::Poll::Pending
+    ));
+
+    child_thread.set_status_finished(Ok(ExitCode::from(23)));
+    // Let the any-child waiter claim first. The bulk waiter must not
+    // report the same already-reaped child from its earlier snapshot.
+    let any = any.await;
+    let all = all.await;
+    let all_claimed = all.is_some();
+    let any_claimed = matches!(any, Ok(Some(_)));
+    assert_ne!(all_claimed, any_claimed, "exactly one waiter owns the exit");
+    if !any_claimed {
+        assert!(matches!(any, Err(Errno::Child)));
+    }
+    assert!(root.lock().children.is_empty());
+}
+
 #[test]
 fn force_terminate_includes_reaped_descendants_but_not_other_roots() {
     let plane = WasiControlPlane::default();
@@ -351,7 +429,7 @@ mod native {
     }
 
     #[tokio::test]
-    async fn force_terminate_reaches_live_child_detached_by_specific_proc_join() {
+    async fn nonblocking_proc_join_keeps_live_child_waitable_and_force_terminable() {
         let mut store = Store::default();
         let module = wasmer::Module::new(
             &store,
@@ -363,7 +441,13 @@ mod native {
                 (func (export "join_child") (param $pid i32) (result i32)
                     (i32.store8 (i32.const 0) (i32.const 1))
                     (i32.store (i32.const 4) (local.get $pid))
-                    (call $proc_join (i32.const 0) (i32.const 1) (i32.const 16))))"#,
+                    (call $proc_join (i32.const 0) (i32.const 1) (i32.const 16)))
+                (func (export "joined_pid_tag") (result i32)
+                    (i32.load8_u (i32.const 0)))
+                (func (export "joined_pid") (result i32)
+                    (i32.load (i32.const 4)))
+                (func (export "join_status_tag") (result i32)
+                    (i32.load8_u (i32.const 16))))"#,
         )
         .unwrap();
         let (instance, env) = WasiEnv::builder("force-terminate-proc-join")
@@ -384,9 +468,281 @@ mod native {
                 .unwrap(),
             Errno::Success as i32
         );
-        assert!(parent.lock().children.is_empty());
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "joined_pid_tag")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::Some as i32
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "joined_pid")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "join_status_tag")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            wasmer_wasix_types::wasi::JoinStatusType::Nothing as i32
+        );
+        assert_eq!(parent.lock().children.len(), 1);
         assert!(child.try_join().is_none());
         parent.force_terminate(ExitCode::from(137)).unwrap();
         assert_eq!(child.try_join().unwrap().unwrap(), ExitCode::from(137));
+    }
+
+    #[tokio::test]
+    async fn nonblocking_proc_join_reaps_only_after_child_exit() {
+        let mut store = Store::default();
+        let module = wasmer::Module::new(
+            &store,
+            r#"(module
+                (import "env" "memory" (memory 1 1 shared))
+                (import "wasix_32v1" "proc_join"
+                    (func $proc_join (param i32 i32 i32) (result i32)))
+                (export "memory" (memory 0))
+                (func (export "join_child") (param $pid i32) (result i32)
+                    (i32.store8 (i32.const 0) (i32.const 1))
+                    (i32.store (i32.const 4) (local.get $pid))
+                    (call $proc_join (i32.const 0) (i32.const 1) (i32.const 16)))
+                (func (export "join_child_blocking") (param $pid i32) (result i32)
+                    (i32.store8 (i32.const 0) (i32.const 1))
+                    (i32.store (i32.const 4) (local.get $pid))
+                    (call $proc_join (i32.const 0) (i32.const 0) (i32.const 16)))
+                (func (export "join_any") (result i32)
+                    (i32.store8 (i32.const 0) (i32.const 0))
+                    (call $proc_join (i32.const 0) (i32.const 1) (i32.const 16)))
+                (func (export "join_bad_pid") (result i32)
+                    (call $proc_join (i32.const 65536) (i32.const 1) (i32.const 16)))
+                (func (export "join_bad_status") (param $pid i32) (result i32)
+                    (i32.store8 (i32.const 0) (i32.const 1))
+                    (i32.store (i32.const 4) (local.get $pid))
+                    (call $proc_join (i32.const 0) (i32.const 1) (i32.const 65536)))
+                (func (export "joined_pid_tag") (result i32)
+                    (i32.load8_u (i32.const 0)))
+                (func (export "joined_pid") (result i32)
+                    (i32.load (i32.const 4)))
+                (func (export "join_status_tag") (result i32)
+                    (i32.load8_u (i32.const 16)))
+                (func (export "join_exit_code") (result i32)
+                    (i32.load16_u (i32.const 18))))"#,
+        )
+        .unwrap();
+        let (instance, env) = WasiEnv::builder("nonblocking-proc-join")
+            .engine(store.engine().clone())
+            .instantiate(module, &mut store)
+            .unwrap();
+        let parent = env.data(&store).process.clone();
+        let (child_env, child_handle) = env.data(&store).fork().unwrap();
+        let child = child_env.process.clone();
+        parent.lock().children.push(child.clone());
+        let join = instance
+            .exports
+            .get_typed_function::<i32, i32>(&store, "join_child")
+            .unwrap();
+        let join_blocking = instance
+            .exports
+            .get_typed_function::<i32, i32>(&store, "join_child_blocking")
+            .unwrap();
+        let join_any = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "join_any")
+            .unwrap();
+        let pid_tag = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "joined_pid_tag")
+            .unwrap();
+        let joined_pid = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "joined_pid")
+            .unwrap();
+        let status_tag = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "join_status_tag")
+            .unwrap();
+        let exit_code = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "join_exit_code")
+            .unwrap();
+
+        assert_eq!(
+            join.call(&mut store, child.pid().raw() as i32).unwrap(),
+            Errno::Success as i32
+        );
+        assert_eq!(
+            pid_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::Some as i32
+        );
+        assert_eq!(joined_pid.call(&mut store).unwrap(), 0);
+        assert_eq!(
+            status_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::JoinStatusType::Nothing as i32
+        );
+        assert_eq!(parent.lock().children.len(), 1);
+        assert_eq!(join_any.call(&mut store).unwrap(), Errno::Success as i32);
+        assert_eq!(
+            pid_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::Some as i32
+        );
+        assert_eq!(joined_pid.call(&mut store).unwrap(), 0);
+        assert_eq!(parent.lock().children.len(), 1);
+
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "join_bad_pid")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            Errno::Memviolation as i32
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<i32, i32>(&store, "join_bad_status")
+                .unwrap()
+                .call(&mut store, child.pid().raw() as i32)
+                .unwrap(),
+            Errno::Memviolation as i32
+        );
+        assert_eq!(parent.lock().children.len(), 1);
+
+        // A process in the same control plane is not necessarily our child.
+        // Only children on this parent's reap list may be joined.
+        let unrelated = env
+            .data(&store)
+            .control_plane
+            .new_process(ModuleHash::random())
+            .unwrap();
+        assert_eq!(
+            join.call(&mut store, unrelated.pid().raw() as i32).unwrap(),
+            Errno::Child as i32
+        );
+        assert_eq!(
+            pid_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::None as i32
+        );
+
+        child_handle.set_status_finished(Ok(ExitCode::from(23)));
+        // Bad outputs must not consume an exit that is ready to be reaped.
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "join_bad_pid")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            Errno::Memviolation as i32
+        );
+        assert_eq!(
+            instance
+                .exports
+                .get_typed_function::<i32, i32>(&store, "join_bad_status")
+                .unwrap()
+                .call(&mut store, child.pid().raw() as i32)
+                .unwrap(),
+            Errno::Memviolation as i32
+        );
+        assert_eq!(parent.lock().children.len(), 1);
+        assert_eq!(
+            join.call(&mut store, child.pid().raw() as i32).unwrap(),
+            Errno::Success as i32
+        );
+        assert_eq!(
+            pid_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::Some as i32
+        );
+        assert_eq!(
+            status_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::JoinStatusType::ExitNormal as i32
+        );
+        assert_eq!(exit_code.call(&mut store).unwrap(), 23);
+        assert_eq!(
+            joined_pid.call(&mut store).unwrap(),
+            child.pid().raw() as i32
+        );
+        assert!(parent.lock().children.is_empty());
+        assert_eq!(
+            join.call(&mut store, child.pid().raw() as i32).unwrap(),
+            Errno::Child as i32
+        );
+        assert_eq!(
+            pid_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::None as i32
+        );
+        assert_eq!(join_any.call(&mut store).unwrap(), Errno::Child as i32);
+
+        // Exercise both claim orders through the blocking PID-specific syscall
+        // and the any-child poll. Only the first syscall may report the exit.
+        let (second_env, second_handle) = env.data(&store).fork().unwrap();
+        let second = second_env.process.clone();
+        parent.lock().children.push(second.clone());
+        second_handle.set_status_finished(Ok(ExitCode::from(19)));
+        assert_eq!(
+            join_blocking
+                .call(&mut store, second.pid().raw() as i32)
+                .unwrap(),
+            Errno::Success as i32
+        );
+        assert_eq!(
+            joined_pid.call(&mut store).unwrap(),
+            second.pid().raw() as i32
+        );
+        assert_eq!(
+            status_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::JoinStatusType::ExitNormal as i32
+        );
+        assert_eq!(exit_code.call(&mut store).unwrap(), 19);
+        assert!(parent.lock().children.is_empty());
+        assert_eq!(join_any.call(&mut store).unwrap(), Errno::Child as i32);
+        assert_eq!(
+            pid_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::None as i32
+        );
+
+        let (third_env, third_handle) = env.data(&store).fork().unwrap();
+        let third = third_env.process.clone();
+        parent.lock().children.push(third.clone());
+        third_handle.set_status_finished(Ok(ExitCode::from(17)));
+        assert_eq!(join_any.call(&mut store).unwrap(), Errno::Success as i32);
+        assert_eq!(
+            joined_pid.call(&mut store).unwrap(),
+            third.pid().raw() as i32
+        );
+        assert_eq!(
+            status_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::JoinStatusType::ExitNormal as i32
+        );
+        assert_eq!(exit_code.call(&mut store).unwrap(), 17);
+        assert!(parent.lock().children.is_empty());
+        assert_eq!(
+            join_blocking
+                .call(&mut store, third.pid().raw() as i32)
+                .unwrap(),
+            Errno::Child as i32
+        );
+        assert_eq!(
+            pid_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::None as i32
+        );
+
+        assert_eq!(
+            join.call(&mut store, i32::MAX).unwrap(),
+            Errno::Child as i32
+        );
+        assert_eq!(
+            pid_tag.call(&mut store).unwrap(),
+            wasmer_wasix_types::wasi::OptionTag::None as i32
+        );
     }
 }

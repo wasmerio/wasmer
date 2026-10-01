@@ -225,7 +225,7 @@ impl VMOwnedMemory {
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
-        unsafe { Self::new_internal(memory, style, None, None, MmapType::Private) }
+        unsafe { Self::new_internal(memory, style, None, None, MmapType::Private, usize::MAX) }
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
@@ -240,7 +240,29 @@ impl VMOwnedMemory {
         backing_file: std::path::PathBuf,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
-        unsafe { Self::new_internal(memory, style, None, Some(backing_file), memory_type) }
+        Self::new_with_file_limited(memory, style, backing_file, memory_type, usize::MAX)
+    }
+
+    /// Create file-backed memory only if the final accessible length, after
+    /// reading any restoration metadata, fits `max_accessible_bytes`. The cap
+    /// is checked before the mapping is allocated.
+    pub fn new_with_file_limited(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        backing_file: std::path::PathBuf,
+        memory_type: MmapType,
+        max_accessible_bytes: usize,
+    ) -> Result<Self, MemoryError> {
+        unsafe {
+            Self::new_internal(
+                memory,
+                style,
+                None,
+                Some(backing_file),
+                memory_type,
+                max_accessible_bytes,
+            )
+        }
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -262,6 +284,7 @@ impl VMOwnedMemory {
                 Some(vm_memory_location),
                 None,
                 MmapType::Private,
+                usize::MAX,
             )
         }
     }
@@ -283,12 +306,38 @@ impl VMOwnedMemory {
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
         unsafe {
+            Self::from_definition_with_file_limited(
+                memory,
+                style,
+                vm_memory_location,
+                backing_file,
+                memory_type,
+                usize::MAX,
+            )
+        }
+    }
+
+    /// Like `from_definition_with_file`, with a pre-allocation cap on the
+    /// final accessible length of the restored mapping.
+    ///
+    /// # Safety
+    /// `vm_memory_location` must point to a valid VM memory definition.
+    pub unsafe fn from_definition_with_file_limited(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+        backing_file: Option<std::path::PathBuf>,
+        memory_type: MmapType,
+        max_accessible_bytes: usize,
+    ) -> Result<Self, MemoryError> {
+        unsafe {
             Self::new_internal(
                 memory,
                 style,
                 Some(vm_memory_location),
                 backing_file,
                 memory_type,
+                max_accessible_bytes,
             )
         }
     }
@@ -300,6 +349,7 @@ impl VMOwnedMemory {
         vm_memory_location: Option<NonNull<VMMemoryDefinition>>,
         backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
+        max_accessible_bytes: usize,
     ) -> Result<Self, MemoryError> {
         unsafe {
             if memory.minimum > Pages::max_value() {
@@ -343,12 +393,13 @@ impl VMOwnedMemory {
             let mapped_pages = memory.minimum;
             let mapped_bytes = mapped_pages.bytes();
 
-            let mut alloc = Mmap::accessible_reserved(
+            let mut alloc = Mmap::accessible_reserved_with_limit(
                 mapped_bytes.0,
                 request_bytes,
                 backing_file,
                 memory_type,
                 true,
+                max_accessible_bytes,
             )
             .map_err(MemoryError::Region)?;
 
@@ -499,7 +550,26 @@ impl VMSharedMemory {
         backing_file: std::path::PathBuf,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
-        Ok(VMOwnedMemory::new_with_file(memory, style, backing_file, memory_type)?.to_shared())
+        Self::new_with_file_limited(memory, style, backing_file, memory_type, usize::MAX)
+    }
+
+    /// File-backed shared memory with a hard pre-allocation cap on its final
+    /// accessible length, including restoration metadata.
+    pub fn new_with_file_limited(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        backing_file: std::path::PathBuf,
+        memory_type: MmapType,
+        max_accessible_bytes: usize,
+    ) -> Result<Self, MemoryError> {
+        Ok(VMOwnedMemory::new_with_file_limited(
+            memory,
+            style,
+            backing_file,
+            memory_type,
+            max_accessible_bytes,
+        )?
+        .to_shared())
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -536,12 +606,38 @@ impl VMSharedMemory {
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
         unsafe {
-            Ok(VMOwnedMemory::from_definition_with_file(
+            Self::from_definition_with_file_limited(
                 memory,
                 style,
                 vm_memory_location,
                 backing_file,
                 memory_type,
+                usize::MAX,
+            )
+        }
+    }
+
+    /// Like `from_definition_with_file`, but checks restored accessible bytes
+    /// against a hard cap before mapping them.
+    ///
+    /// # Safety
+    /// `vm_memory_location` must point to a valid VM memory definition.
+    pub unsafe fn from_definition_with_file_limited(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+        backing_file: Option<std::path::PathBuf>,
+        memory_type: MmapType,
+        max_accessible_bytes: usize,
+    ) -> Result<Self, MemoryError> {
+        unsafe {
+            Ok(VMOwnedMemory::from_definition_with_file_limited(
+                memory,
+                style,
+                vm_memory_location,
+                backing_file,
+                memory_type,
+                max_accessible_bytes,
             )?
             .to_shared())
         }

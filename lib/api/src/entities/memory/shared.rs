@@ -11,8 +11,16 @@ use crate::{
 /// A shared memory instance that can be shared across multiple stores and threads,
 /// not attached to any specific store.
 pub struct SharedMemory {
-    memory: VMSharedMemory,
+    memory: SharedMemoryBacking,
     ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
+}
+
+enum SharedMemoryBacking {
+    Vm(VMSharedMemory),
+    /// Preserve custom linear-memory implementations (including metering) when
+    /// a sys memory is detached and later attached to another store.
+    #[cfg(feature = "sys")]
+    Sys(wasmer_vm::VMMemory),
 }
 
 /// Shared memory operations that do not hold the underlying memory alive.
@@ -39,7 +47,15 @@ impl std::fmt::Debug for MemoryOps {
 impl Clone for SharedMemory {
     fn clone(&self) -> Self {
         Self {
-            memory: self.memory.clone(),
+            memory: match &self.memory {
+                SharedMemoryBacking::Vm(memory) => SharedMemoryBacking::Vm(memory.clone()),
+                #[cfg(feature = "sys")]
+                SharedMemoryBacking::Sys(memory) => SharedMemoryBacking::Sys(
+                    memory
+                        .try_clone()
+                        .expect("shared sys memory must be cloneable"),
+                ),
+            },
             ops: self.ops.clone(),
         }
     }
@@ -48,7 +64,10 @@ impl Clone for SharedMemory {
 impl SharedMemory {
     /// Create a new shared memory.
     pub(crate) fn new(memory: VMSharedMemory) -> Self {
-        Self { memory, ops: None }
+        Self {
+            memory: SharedMemoryBacking::Vm(memory),
+            ops: None,
+        }
     }
 
     /// Create a new shared memory with memory operations.
@@ -57,14 +76,29 @@ impl SharedMemory {
         ops: Arc<dyn SharedMemoryOps + Send + Sync>,
     ) -> Self {
         Self {
-            memory,
+            memory: SharedMemoryBacking::Vm(memory),
             ops: Some(ops),
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    pub(crate) fn new_sys(
+        memory: wasmer_vm::VMMemory,
+        ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
+    ) -> Self {
+        Self {
+            memory: SharedMemoryBacking::Sys(memory),
+            ops,
         }
     }
 
     /// Attach this shared memory to the provided store.
     pub fn attach(self, store: &mut impl AsStoreMut) -> Memory {
-        let memory = self.memory.into_vm_memory(store);
+        let memory = match self.memory {
+            SharedMemoryBacking::Vm(memory) => memory.into_vm_memory(store),
+            #[cfg(feature = "sys")]
+            SharedMemoryBacking::Sys(memory) => VMMemory::Sys(memory),
+        };
         Memory::new_from_existing(store, memory)
     }
 
