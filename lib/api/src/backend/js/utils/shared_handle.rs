@@ -180,6 +180,14 @@ pub fn collect_shared_objects() {
 }
 
 /// Export all live local objects for structured cloning within one trusted runtime.
+///
+/// The snapshot holds every live module and shared memory known to this worker,
+/// whichever WASIX process in the pool owns it, not only what the task needs.
+/// Receivers keep each object rooted until its last Rust owner drops and they next
+/// collect, so idle workers may retain objects, including shared memories of
+/// exited processes. Cost per message is linear in the number of live objects:
+/// structured cloning a `WebAssembly.Module` between workers of one agent cluster
+/// shares its compiled code, and no wasm bytes are sent.
 pub fn export_shared_objects() -> Array {
     collect_shared_objects();
     OBJECTS.with_borrow(|objects| {
@@ -247,6 +255,7 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
 }
 
 /// Wrap a task payload with all live local modules and shared memories.
+/// See [`export_shared_objects`] for what the snapshot holds and costs.
 ///
 /// Post this envelope, then import it with receive_shared_object_message before
 /// accessing the task. No per-connection state is retained: retries and new workers
@@ -270,7 +279,9 @@ pub fn prepare_shared_object_message(payload: JsValue) -> JsValue {
 }
 
 /// Import a transport envelope and return its application payload.
-/// Messages that are not shared-object envelopes pass through unchanged.
+/// Messages that are not shared-object envelopes (3-element arrays tagged with
+/// the shared-object namespace) pass through unchanged. An envelope from another
+/// runtime, or with a malformed snapshot, is an error and its payload is dropped.
 ///
 /// # Safety
 /// The envelope must be produced by this runtime's prepare_shared_object_message on the
