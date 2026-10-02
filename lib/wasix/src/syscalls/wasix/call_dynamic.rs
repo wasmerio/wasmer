@@ -259,6 +259,13 @@ pub async fn call_dynamic_async<M: MemorySize>(
 ) -> Result<Errno, RuntimeError> {
     let strict = matches!(strict, Bool::True);
 
+    // Nothing holds the store here, and this is an async import, so a signal
+    // handler dispatched now may suspend. `process_signals` leaves them queued on
+    // JS precisely so they land here instead of inside a synchronous syscall.
+    if let Err(e) = WasiEnv::dispatch_pending_signals_async(&ctx).await {
+        return Err(RuntimeError::user(e.into()));
+    }
+
     // Each lock is released before the next await: the nested call takes the
     // store for itself, and holding one across it would deadlock.
     let prepared = {

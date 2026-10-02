@@ -796,6 +796,23 @@ impl WasiEnv {
             return Ok(Ok(drained));
         }
 
+        // Dispatching the handler re-enters the guest, and on the JS backend a
+        // guest reached from a synchronous host frame cannot suspend: JSPI makes
+        // `Reflect::apply` return at the suspension and the frame unwinds. A
+        // handler suspends whenever it touches an async import, which here
+        // includes `call_dynamic` — so for a guest that reaches it, dispatching
+        // from a syscall is not representable.
+        //
+        // Leave such signals queued on the thread instead. They are dispatched by
+        // [`Self::dispatch_pending_signals_async`], which the async syscalls call
+        // from a point where nothing holds the store and the handler may suspend
+        // freely. Nothing is lost: the queue is the thread's own, and the guest
+        // reaches those syscalls constantly.
+        #[cfg(feature = "js")]
+        if ctx.as_store_ref().engine().is_js() && inner.signal.as_ref().is_some() {
+            return Ok(Ok(false));
+        }
+
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
         let ret = if inner.signal.as_ref().is_some() {
@@ -806,6 +823,64 @@ impl WasiEnv {
         };
 
         Ok(Ok(ret))
+    }
+
+    /// Dispatches signals that [`Self::process_signals`] left queued on the JS
+    /// backend, from a caller that can await.
+    ///
+    /// Call this only where nothing holds the store: the handler re-enters the
+    /// guest with `call_async`, so it may suspend, and it needs the store free to
+    /// do so. The async syscalls are the places that qualify — a guest reaches
+    /// them often enough that the queue does not accumulate.
+    ///
+    /// Reached only from the asynchronous syscall flavours, which are registered
+    /// on the JS backend alone — so on other backends this is never called and
+    /// `process_signals` keeps dispatching inline.
+    pub(crate) async fn dispatch_pending_signals_async(
+        env: &wasmer::AsyncFunctionEnvMut<Self>,
+    ) -> Result<(), WasiError> {
+        let (handler, signals) = {
+            let lock = env.read().await;
+            let data = lock.data();
+            let Some(inner) = data.try_inner() else {
+                return Ok(());
+            };
+            let handler = inner.main_module_instance_handles().signal.clone();
+            match handler {
+                // Nothing registered, so `process_signals` never deferred any.
+                None => return Ok(()),
+                Some(handler) => (handler, data.thread.pop_signals()),
+            }
+        };
+
+        if signals.is_empty() {
+            return Ok(());
+        }
+
+        // The store must be free before the handler runs; the read lock above is
+        // scoped so that it is.
+        let store = env.as_store_async();
+        for signal in signals {
+            // Host-side only, as in the synchronous path.
+            if matches!(signal, Signal::Sigwakeup) {
+                continue;
+            }
+            tracing::trace!(?signal, "dispatching deferred signal via handler");
+            if let Err(err) = handler.call_async(&store, signal as i32).await {
+                match err.downcast::<WasiError>() {
+                    Ok(wasi_err) => return Err(wasi_err),
+                    Err(runtime_err) => {
+                        if signal != Signal::Sigkill {
+                            tracing::warn!(
+                                runtime_err = &runtime_err as &dyn std::error::Error,
+                                "deferred signal handler runtime error",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn process_signals_internal(

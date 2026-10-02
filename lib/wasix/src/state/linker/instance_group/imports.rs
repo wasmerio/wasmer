@@ -561,6 +561,11 @@ impl InstanceGroupState {
                     let ty = ty_for_call.clone();
                     let params = params.to_vec();
                     async move {
+                        // Nothing holds the store yet, so a deferred signal
+                        // handler may suspend; see `process_signals`.
+                        crate::WasiEnv::dispatch_pending_signals_async(&env)
+                            .await
+                            .map_err(|e| RuntimeError::user(e.into()))?;
                         // The write handle holds the store lock, which the nested
                         // call takes for itself, so resolution is scoped.
                         let func = {
