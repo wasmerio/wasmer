@@ -659,6 +659,8 @@ jobs:
             make: "check-compilers-only-std"
           - description: "VM (baremetal)"
             make: "check-baremetal"
+          - description: "Package (feature sets)"
+            make: "check-package-features"
           - description: "Wasmer-cli"
             make: "test-wasmer-cli"
           - description: "Examples"
