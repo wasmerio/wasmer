@@ -20,10 +20,7 @@ harness = false
 required-features = ["sys-thread"]
 
 [dependencies]
-wasmer-package = { workspace = true, default-features = false, features = [
-  "execution",
-  "webc-v3",
-] }
+wasmer-package = { workspace = true, features = ["execution"] }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.705.0", features = [
   "enable-serde",
 ] }
@@ -45,7 +42,7 @@ http.workspace = true
 dashmap.workspace = true
 fnv.workspace = true
 base64.workspace = true
-webc = { workspace = true, features = ["v3"] }
+webc.workspace = true
 serde_yaml.workspace = true
 rkyv.workspace = true
 shared-buffer.workspace = true
@@ -241,10 +238,6 @@ sys = [
   # We must ensure at least one compiler backend (or `headless`) is enabled for `wasmer/sys`.
   "wasmer/headless",
   "memory64",
-  "wasmer-package/webc-v1",
-  "wasmer-package/webc-v2",
-  "webc/v1",
-  "webc/v2",
 ]
 package-authoring = ["wasmer-package/authoring"]
 sys-default = ["sys"]
@@ -276,7 +269,7 @@ js = [
   "wasmer/js-serializable-module",
 ]
 js-default = ["js"]
-test-js = ["js", "wasmer/wat", "webc/v2"]
+test-js = ["js", "wasmer/wat"]
 
 host-vnet = ["virtual-net/host-net"]
 host-threads = []
