@@ -150,7 +150,9 @@ impl VirtualTaskManager for TokioTaskManager {
                 SpawnType::CreateMemoryOfType(t) => (SpawnMemoryTypeOrStore::Type(t), None),
                 SpawnType::AttachMemory(mem) => {
                     let mut store = task.env.runtime().new_store();
-                    let memory = mem.attach(&mut store);
+                    let memory = mem
+                        .try_attach(&mut store)
+                        .map_err(WasiThreadError::MemoryCreateFailed)?;
                     (SpawnMemoryTypeOrStore::StoreAndMemory(store, memory), None)
                 }
             };
