@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["write_readonly_buffer_to_fs"],"struct":["WasiEnv","WasiEnvInit"]};
+window.SIDEBAR_ITEMS = {"fn":["add_command_env_defaults","write_readonly_buffer_to_fs"],"struct":["WasiEnv","WasiEnvInit"]};

@@ -1606,13 +1606,20 @@
 <a href=#1606 id=1606 data-nosnippet>1606</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_errno(err: <span class="kw-2">&amp;</span>SpawnError) -&gt; Errno {
 <a href=#1607 id=1607 data-nosnippet>1607</a>    <span class="kw">match </span>err {
 <a href=#1608 id=1608 data-nosnippet>1608</a>        SpawnError::AccessDenied =&gt; Errno::Access,
-<a href=#1609 id=1609 data-nosnippet>1609</a>        SpawnError::Unsupported =&gt; Errno::Noexec,
-<a href=#1610 id=1610 data-nosnippet>1610</a>        <span class="kw">_ if </span>err.is_not_found() =&gt; Errno::Noent,
-<a href=#1611 id=1611 data-nosnippet>1611</a>        <span class="kw">_ </span>=&gt; Errno::Inval,
-<a href=#1612 id=1612 data-nosnippet>1612</a>    }
-<a href=#1613 id=1613 data-nosnippet>1613</a>}
-<a href=#1614 id=1614 data-nosnippet>1614</a>
-<a href=#1615 id=1615 data-nosnippet>1615</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_exit_code(err: <span class="kw-2">&amp;</span>SpawnError) -&gt; ExitCode {
-<a href=#1616 id=1616 data-nosnippet>1616</a>    conv_spawn_err_to_errno(err).into()
-<a href=#1617 id=1617 data-nosnippet>1617</a>}
+<a href=#1609 id=1609 data-nosnippet>1609</a>        <span class="comment">// A file that exists but holds nothing this runtime can execute is
+<a href=#1610 id=1610 data-nosnippet>1610</a>        // ENOEXEC, as a file that is neither ELF nor a script is on Unix.
+<a href=#1611 id=1611 data-nosnippet>1611</a>        </span>SpawnError::Unsupported
+<a href=#1612 id=1612 data-nosnippet>1612</a>        | SpawnError::InvalidShebang { .. }
+<a href=#1613 id=1613 data-nosnippet>1613</a>        | SpawnError::CompileError { .. }
+<a href=#1614 id=1614 data-nosnippet>1614</a>        | SpawnError::InvalidWasmer
+<a href=#1615 id=1615 data-nosnippet>1615</a>        | SpawnError::ModuleLoad { .. } =&gt; Errno::Noexec,
+<a href=#1616 id=1616 data-nosnippet>1616</a>        SpawnError::ShebangLoop =&gt; Errno::Loop,
+<a href=#1617 id=1617 data-nosnippet>1617</a>        <span class="kw">_ if </span>err.is_not_found() =&gt; Errno::Noent,
+<a href=#1618 id=1618 data-nosnippet>1618</a>        <span class="kw">_ </span>=&gt; Errno::Inval,
+<a href=#1619 id=1619 data-nosnippet>1619</a>    }
+<a href=#1620 id=1620 data-nosnippet>1620</a>}
+<a href=#1621 id=1621 data-nosnippet>1621</a>
+<a href=#1622 id=1622 data-nosnippet>1622</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_exit_code(err: <span class="kw-2">&amp;</span>SpawnError) -&gt; ExitCode {
+<a href=#1623 id=1623 data-nosnippet>1623</a>    conv_spawn_err_to_errno(err).into()
+<a href=#1624 id=1624 data-nosnippet>1624</a>}
 </code></pre></div></section></main></body></html>

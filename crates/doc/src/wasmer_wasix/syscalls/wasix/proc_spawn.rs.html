@@ -251,7 +251,7 @@
 <a href=#251 id=251 data-nosnippet>251</a>                <span class="macro">error!</span>(<span class="string">"builtin failed - {}"</span>, err);
 <a href=#252 id=252 data-nosnippet>252</a>            }
 <a href=#253 id=253 data-nosnippet>253</a>            <span class="comment">// Now we actually spawn the process
-<a href=#254 id=254 data-nosnippet>254</a>            </span><span class="kw">let </span>child_work = bin_factory.spawn(name, builder.take().unwrap());
+<a href=#254 id=254 data-nosnippet>254</a>            </span><span class="kw">let </span>child_work = bin_factory.spawn(name, <span class="prelude-val">None</span>, builder.take().unwrap());
 <a href=#255 id=255 data-nosnippet>255</a>
 <a href=#256 id=256 data-nosnippet>256</a>            <span class="kw">match </span>__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(child_work.<span class="kw">await</span>) })<span class="question-mark">?
 <a href=#257 id=257 data-nosnippet>257</a>                </span>.map_err(|err| Errno::Unknown)

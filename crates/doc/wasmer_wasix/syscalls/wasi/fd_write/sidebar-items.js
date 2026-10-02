@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["FdWriteSource"],"fn":["fd_pwrite","fd_write","fd_write_internal"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_STREAM_COALESCE"],"enum":["FdWriteSource"],"fn":["fd_pwrite","fd_write","fd_write_internal"]};
