@@ -1,7 +1,6 @@
 name: Builds
 env:
   RUST_BACKTRACE: 1
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
 on:
   push:
     branches:
@@ -161,12 +160,15 @@ jobs:
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
         if: startsWith(matrix.os, 'macos')
-      - uses: actions/cache@v4
+      - uses: runs-on/cache@v5
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
           key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
+          restore-keys: |
+            ${{ matrix.build }}-${{ matrix.target }}-cargo-
       - name: Setup Rust target
         run: |
           mkdir -p .cargo
@@ -276,12 +278,15 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-gnu
       - name: Install Windows 10 SDK with xwin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           mkdir -p /tmp/xwin
           mkdir -p /tmp/xwindownload
           mkdir -p /tmp/xwincache
-          git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
+          git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
+            clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
           cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
           /tmp/xwin/target/release/xwin \
             --accept-license \
@@ -302,6 +307,16 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
+      - uses: runs-on/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            ./target/*
+          key: windows-gnu-x86_64-pc-windows-gnu-cargo-${{ hashFiles('Cargo.lock') }}-v1
+          restore-keys: |
+            windows-gnu-x86_64-pc-windows-gnu-cargo-
       - name: Build & Package C API headless without LLVM
         shell: bash
         run: |
@@ -335,6 +350,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: riscv64gc-unknown-linux-gnu
+      - uses: runs-on/cache@v5
+        with:
+          path: |
+            ./target/*
+          key: linux-riscv64-riscv64gc-unknown-linux-gnu-target-${{ hashFiles('Cargo.lock') }}-v1
+          restore-keys: |
+            linux-riscv64-riscv64gc-unknown-linux-gnu-target-
       - name: Build cross image
         run: |
           docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/

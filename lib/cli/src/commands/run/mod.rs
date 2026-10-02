@@ -733,6 +733,10 @@ fn invoke_function(
         "Function expected {required_arguments} arguments, but received {provided_arguments}"
     );
 
+    if let Some(result_type) = func_ty.results().iter().find(|ty| ty.is_ref()) {
+        bail!("Function result type {result_type} is not supported by --invoke");
+    }
+
     let invoke_args = args
         .iter()
         .zip(func_ty.params().iter())

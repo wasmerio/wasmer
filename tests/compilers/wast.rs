@@ -123,6 +123,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Unsupported feature: unsupported init expr in element section",
         "Insufficient resources: Table minimum",
         "Insufficient resources: Table maximum",
+        "Insufficient resources: Total table",
         // V8-specific
         "Validation error: only numeric types are supported in function signatures: Unsupported ref type:",
         "Validation error: Unsupported ref type:",

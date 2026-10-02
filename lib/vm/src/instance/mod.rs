@@ -68,6 +68,9 @@ pub(crate) struct Instance {
     /// WebAssembly table data.
     tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
 
+    /// Number of local table elements that may still be allocated by this instance.
+    table_allocation_room: u32,
+
     /// WebAssembly global data.
     globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
 
@@ -555,11 +558,18 @@ impl Instance {
         delta: u32,
         init_value: TableElement,
     ) -> Option<u32> {
+        if delta > self.table_allocation_room {
+            return None;
+        }
         let table = *self
             .tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()));
-        table.get_mut(self.context_mut()).grow(delta, init_value)
+        let result = table.get_mut(self.context_mut()).grow(delta, init_value);
+        if result.is_some() {
+            self.table_allocation_room -= delta;
+        }
+        result
     }
 
     /// Grow table by the specified amount of elements.
@@ -1147,6 +1157,7 @@ impl VMInstance {
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
         finished_memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
         finished_tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
+        table_allocation_room: u32,
         finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
         tags: BoxedSlice<TagIndex, InternalStoreHandle<VMTag>>,
         imports: Imports,
@@ -1180,6 +1191,7 @@ impl VMInstance {
                     offsets,
                     memories: finished_memories,
                     tables: finished_tables,
+                    table_allocation_room,
                     tags,
                     globals: finished_globals,
                     functions: finished_functions,
