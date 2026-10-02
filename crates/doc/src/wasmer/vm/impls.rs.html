@@ -61,7 +61,7 @@
 <a href=#61 id=61 data-nosnippet>61</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
 <a href=#62 id=62 data-nosnippet>62</a>            </span><span class="self">Self</span>::V8(s) =&gt; s.as_shared().map(VMSharedMemory::V8),
 <a href=#63 id=63 data-nosnippet>63</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#64 id=64 data-nosnippet>64</a>            </span><span class="self">Self</span>::Js(s) =&gt; s.try_clone().map(VMSharedMemory::Js),
+<a href=#64 id=64 data-nosnippet>64</a>            </span><span class="self">Self</span>::Js(s) =&gt; s.try_clone()<span class="question-mark">?</span>.try_into().map(VMSharedMemory::Js),
 <a href=#65 id=65 data-nosnippet>65</a>        }
 <a href=#66 id=66 data-nosnippet>66</a>    }
 <a href=#67 id=67 data-nosnippet>67</a>}
@@ -75,15 +75,15 @@
 <a href=#75 id=75 data-nosnippet>75</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
 <a href=#76 id=76 data-nosnippet>76</a>            </span><span class="self">Self</span>::V8(s) =&gt; <span class="self">Self</span>::V8(s.clone()),
 <a href=#77 id=77 data-nosnippet>77</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#78 id=78 data-nosnippet>78</a>            </span><span class="self">Self</span>::Js(s) =&gt; <span class="self">Self</span>::Js(
-<a href=#79 id=79 data-nosnippet>79</a>                s.try_clone()
-<a href=#80 id=80 data-nosnippet>80</a>                    .expect(<span class="string">"cloning JavaScript shared memory should not fail"</span>),
-<a href=#81 id=81 data-nosnippet>81</a>            ),
-<a href=#82 id=82 data-nosnippet>82</a>        }
-<a href=#83 id=83 data-nosnippet>83</a>    }
-<a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>into_vm_memory(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; VMMemory {
-<a href=#86 id=86 data-nosnippet>86</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#78 id=78 data-nosnippet>78</a>            </span><span class="self">Self</span>::Js(s) =&gt; <span class="self">Self</span>::Js(s.clone()),
+<a href=#79 id=79 data-nosnippet>79</a>        }
+<a href=#80 id=80 data-nosnippet>80</a>    }
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_into_vm_memory(
+<a href=#83 id=83 data-nosnippet>83</a>        <span class="self">self</span>,
+<a href=#84 id=84 data-nosnippet>84</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#85 id=85 data-nosnippet>85</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, wasmer_types::MemoryError&gt; {
+<a href=#86 id=86 data-nosnippet>86</a>        <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="self">self </span>{
 <a href=#87 id=87 data-nosnippet>87</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 <a href=#88 id=88 data-nosnippet>88</a>            </span><span class="self">Self</span>::Sys(s) =&gt; VMMemory::Sys(s.into()),
 <a href=#89 id=89 data-nosnippet>89</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
@@ -92,8 +92,8 @@
 <a href=#92 id=92 data-nosnippet>92</a>                VMMemory::V8(s.into_vm_memory(store.inner.store.as_v8_mut()))
 <a href=#93 id=93 data-nosnippet>93</a>            }
 <a href=#94 id=94 data-nosnippet>94</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#95 id=95 data-nosnippet>95</a>            </span><span class="self">Self</span>::Js(s) =&gt; VMMemory::Js(s),
-<a href=#96 id=96 data-nosnippet>96</a>        }
+<a href=#95 id=95 data-nosnippet>95</a>            </span><span class="self">Self</span>::Js(s) =&gt; VMMemory::Js(s.try_attach()<span class="question-mark">?</span>),
+<a href=#96 id=96 data-nosnippet>96</a>        })
 <a href=#97 id=97 data-nosnippet>97</a>    }
 <a href=#98 id=98 data-nosnippet>98</a>}
 <a href=#99 id=99 data-nosnippet>99</a>

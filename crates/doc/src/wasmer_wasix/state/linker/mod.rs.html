@@ -692,7 +692,7 @@
 <a href=#692 id=692 data-nosnippet>692</a>
 <a href=#693 id=693 data-nosnippet>693</a>        <span class="kw">let </span><span class="kw-2">mut </span>imports = import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>main_module, store, <span class="kw-2">&amp;</span>func_env.env);
 <a href=#694 id=694 data-nosnippet>694</a>
-<a href=#695 id=695 data-nosnippet>695</a>        <span class="kw">let </span>memory = memory.attach(store);
+<a href=#695 id=695 data-nosnippet>695</a>        <span class="kw">let </span>memory = memory.try_attach(store)<span class="question-mark">?</span>;
 <a href=#696 id=696 data-nosnippet>696</a>
 <a href=#697 id=697 data-nosnippet>697</a>        <span class="kw">let </span>indirect_function_table = create_indirect_function_table(
 <a href=#698 id=698 data-nosnippet>698</a>            store,

@@ -161,79 +161,82 @@
 <a href=#161 id=161 data-nosnippet>161</a>        <span class="self">self</span>.<span class="number">0</span>.reset(store)
 <a href=#162 id=162 data-nosnippet>162</a>    }
 <a href=#163 id=163 data-nosnippet>163</a>
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="doccomment">/// Attempts to duplicate this memory in a new store with a byte-for-byte copy
-<a href=#165 id=165 data-nosnippet>165</a>    ///
-<a href=#166 id=166 data-nosnippet>166</a>    /// Since Wasmer 8.0, this function can no longer be used for stores
-<a href=#167 id=167 data-nosnippet>167</a>    /// in different threads; for that, use `copy`, and then `attach`
-<a href=#168 id=168 data-nosnippet>168</a>    /// on the thread owning the other `Store`.
-<a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">pub fn </span>copy_to_store(
-<a href=#170 id=170 data-nosnippet>170</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#171 id=171 data-nosnippet>171</a>        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
-<a href=#172 id=172 data-nosnippet>172</a>        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#173 id=173 data-nosnippet>173</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
-<a href=#174 id=174 data-nosnippet>174</a>        <span class="self">self</span>.copy(store).map(|memory| memory.attach(new_store))
-<a href=#175 id=175 data-nosnippet>175</a>    }
-<a href=#176 id=176 data-nosnippet>176</a>
-<a href=#177 id=177 data-nosnippet>177</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, vm_extern: VMExternMemory) -&gt; <span class="self">Self </span>{
-<a href=#178 id=178 data-nosnippet>178</a>        <span class="self">Self</span>(BackendMemory::from_vm_extern(store, vm_extern))
-<a href=#179 id=179 data-nosnippet>179</a>    }
-<a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a>    <span class="doccomment">/// Checks whether this `Memory` can be used with the given context.
-<a href=#182 id=182 data-nosnippet>182</a>    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
-<a href=#183 id=183 data-nosnippet>183</a>        <span class="self">self</span>.<span class="number">0</span>.is_from_store(store)
-<a href=#184 id=184 data-nosnippet>184</a>    }
-<a href=#185 id=185 data-nosnippet>185</a>
-<a href=#186 id=186 data-nosnippet>186</a>    <span class="doccomment">/// Attempts to create a detached copied memory handle that can later be
-<a href=#187 id=187 data-nosnippet>187</a>    /// attached to a different store.
-<a href=#188 id=188 data-nosnippet>188</a>    ///
-<a href=#189 id=189 data-nosnippet>189</a>    /// If the memory is shared, this returns a shared handle. Otherwise, it
-<a href=#190 id=190 data-nosnippet>190</a>    /// creates an independent byte-for-byte copy.
-<a href=#191 id=191 data-nosnippet>191</a>    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;SharedMemory, MemoryError&gt; {
-<a href=#192 id=192 data-nosnippet>192</a>        <span class="self">self</span>.<span class="number">0</span>.copy(store)
-<a href=#193 id=193 data-nosnippet>193</a>    }
-<a href=#194 id=194 data-nosnippet>194</a>
-<a href=#195 id=195 data-nosnippet>195</a>    <span class="doccomment">/// Attempts to clone this memory (if its cloneable) in a new store
-<a href=#196 id=196 data-nosnippet>196</a>    /// (cloned memory will be shared between those that clone it)
-<a href=#197 id=197 data-nosnippet>197</a>    ///
-<a href=#198 id=198 data-nosnippet>198</a>    /// Since Wasmer 8.0, this function can no longer be used for stores
-<a href=#199 id=199 data-nosnippet>199</a>    /// in different threads; for that, use `as_shared`, and then `attach`
-<a href=#200 id=200 data-nosnippet>200</a>    /// on the thread owning the other `Store`.
-<a href=#201 id=201 data-nosnippet>201</a>    </span><span class="kw">pub fn </span>share_in_store(
-<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#203 id=203 data-nosnippet>203</a>        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
-<a href=#204 id=204 data-nosnippet>204</a>        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#205 id=205 data-nosnippet>205</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
-<a href=#206 id=206 data-nosnippet>206</a>        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
-<a href=#207 id=207 data-nosnippet>207</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::MemoryNotShared);
-<a href=#208 id=208 data-nosnippet>208</a>        }
-<a href=#209 id=209 data-nosnippet>209</a>
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="self">self</span>.as_shared(store)
-<a href=#211 id=211 data-nosnippet>211</a>            .ok_or_else(shared_memory_detach_error)
-<a href=#212 id=212 data-nosnippet>212</a>            .map(|memory| memory.attach(new_store))
-<a href=#213 id=213 data-nosnippet>213</a>    }
-<a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a>    <span class="doccomment">/// Get a [`SharedMemory`].
-<a href=#216 id=216 data-nosnippet>216</a>    ///
-<a href=#217 id=217 data-nosnippet>217</a>    /// Only returns `Some(_)` if the memory is shared, and if the target
-<a href=#218 id=218 data-nosnippet>218</a>    /// backend supports shared memory operations.
+<a href=#164 id=164 data-nosnippet>164</a>    <span class="doccomment">/// Attempts to duplicate shared memory in a new store with a byte-for-byte copy.
+<a href=#165 id=165 data-nosnippet>165</a>    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory.
+<a href=#166 id=166 data-nosnippet>166</a>    ///
+<a href=#167 id=167 data-nosnippet>167</a>    /// Since Wasmer 8.0, this function can no longer be used for stores
+<a href=#168 id=168 data-nosnippet>168</a>    /// in different threads; for that, use `copy`, and then `attach`
+<a href=#169 id=169 data-nosnippet>169</a>    /// on the thread owning the other `Store`.
+<a href=#170 id=170 data-nosnippet>170</a>    </span><span class="kw">pub fn </span>copy_to_store(
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#172 id=172 data-nosnippet>172</a>        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+<a href=#173 id=173 data-nosnippet>173</a>        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#174 id=174 data-nosnippet>174</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+<a href=#175 id=175 data-nosnippet>175</a>        <span class="self">self</span>.copy(store)
+<a href=#176 id=176 data-nosnippet>176</a>            .and_then(|memory| memory.try_attach(new_store))
+<a href=#177 id=177 data-nosnippet>177</a>    }
+<a href=#178 id=178 data-nosnippet>178</a>
+<a href=#179 id=179 data-nosnippet>179</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, vm_extern: VMExternMemory) -&gt; <span class="self">Self </span>{
+<a href=#180 id=180 data-nosnippet>180</a>        <span class="self">Self</span>(BackendMemory::from_vm_extern(store, vm_extern))
+<a href=#181 id=181 data-nosnippet>181</a>    }
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a>    <span class="doccomment">/// Checks whether this `Memory` can be used with the given context.
+<a href=#184 id=184 data-nosnippet>184</a>    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+<a href=#185 id=185 data-nosnippet>185</a>        <span class="self">self</span>.<span class="number">0</span>.is_from_store(store)
+<a href=#186 id=186 data-nosnippet>186</a>    }
+<a href=#187 id=187 data-nosnippet>187</a>
+<a href=#188 id=188 data-nosnippet>188</a>    <span class="doccomment">/// Attempts to create an independent copy of shared memory, detached from
+<a href=#189 id=189 data-nosnippet>189</a>    /// its store, that can later be attached to a different store.
+<a href=#190 id=190 data-nosnippet>190</a>    ///
+<a href=#191 id=191 data-nosnippet>191</a>    /// The copy is shared memory, but does not alias the source memory.
+<a href=#192 id=192 data-nosnippet>192</a>    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory on every
+<a href=#193 id=193 data-nosnippet>193</a>    /// backend; in particular WASIX `proc_fork` requires shared memory.
+<a href=#194 id=194 data-nosnippet>194</a>    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;SharedMemory, MemoryError&gt; {
+<a href=#195 id=195 data-nosnippet>195</a>        <span class="self">self</span>.<span class="number">0</span>.copy(store)
+<a href=#196 id=196 data-nosnippet>196</a>    }
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a>    <span class="doccomment">/// Attempts to clone this memory (if its cloneable) in a new store
+<a href=#199 id=199 data-nosnippet>199</a>    /// (cloned memory will be shared between those that clone it)
+<a href=#200 id=200 data-nosnippet>200</a>    ///
+<a href=#201 id=201 data-nosnippet>201</a>    /// Since Wasmer 8.0, this function can no longer be used for stores
+<a href=#202 id=202 data-nosnippet>202</a>    /// in different threads; for that, use `as_shared`, and then `attach`
+<a href=#203 id=203 data-nosnippet>203</a>    /// on the thread owning the other `Store`.
+<a href=#204 id=204 data-nosnippet>204</a>    </span><span class="kw">pub fn </span>share_in_store(
+<a href=#205 id=205 data-nosnippet>205</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#206 id=206 data-nosnippet>206</a>        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+<a href=#207 id=207 data-nosnippet>207</a>        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#208 id=208 data-nosnippet>208</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+<a href=#209 id=209 data-nosnippet>209</a>        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
+<a href=#210 id=210 data-nosnippet>210</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::MemoryNotShared);
+<a href=#211 id=211 data-nosnippet>211</a>        }
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a>        <span class="self">self</span>.as_shared(store)
+<a href=#214 id=214 data-nosnippet>214</a>            .ok_or_else(shared_memory_detach_error)
+<a href=#215 id=215 data-nosnippet>215</a>            .and_then(|memory| memory.try_attach(new_store))
+<a href=#216 id=216 data-nosnippet>216</a>    }
+<a href=#217 id=217 data-nosnippet>217</a>
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// Get a [`SharedMemory`].
 <a href=#219 id=219 data-nosnippet>219</a>    ///
-<a href=#220 id=220 data-nosnippet>220</a>    /// See [`SharedMemory`] and its methods for more information.
-<a href=#221 id=221 data-nosnippet>221</a>    </span><span class="kw">pub fn </span>as_shared(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;SharedMemory&gt; {
-<a href=#222 id=222 data-nosnippet>222</a>        <span class="self">self</span>.<span class="number">0</span>.as_shared(store)
-<a href=#223 id=223 data-nosnippet>223</a>    }
-<a href=#224 id=224 data-nosnippet>224</a>
-<a href=#225 id=225 data-nosnippet>225</a>    <span class="doccomment">/// Create a [`VMExtern`] from self.
-<a href=#226 id=226 data-nosnippet>226</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vm_extern(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExtern {
-<a href=#227 id=227 data-nosnippet>227</a>        <span class="self">self</span>.<span class="number">0</span>.to_vm_extern()
-<a href=#228 id=228 data-nosnippet>228</a>    }
-<a href=#229 id=229 data-nosnippet>229</a>}
-<a href=#230 id=230 data-nosnippet>230</a>
-<a href=#231 id=231 data-nosnippet>231</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Exportable&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>Memory {
-<a href=#232 id=232 data-nosnippet>232</a>    <span class="kw">fn </span>get_self_from_extern(_extern: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Extern) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>, ExportError&gt; {
-<a href=#233 id=233 data-nosnippet>233</a>        <span class="kw">match </span>_extern {
-<a href=#234 id=234 data-nosnippet>234</a>            Extern::Memory(memory) =&gt; <span class="prelude-val">Ok</span>(memory),
-<a href=#235 id=235 data-nosnippet>235</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ExportError::IncompatibleType),
-<a href=#236 id=236 data-nosnippet>236</a>        }
-<a href=#237 id=237 data-nosnippet>237</a>    }
-<a href=#238 id=238 data-nosnippet>238</a>}
+<a href=#220 id=220 data-nosnippet>220</a>    /// Only returns `Some(_)` if the memory is shared, and if the target
+<a href=#221 id=221 data-nosnippet>221</a>    /// backend supports shared memory operations.
+<a href=#222 id=222 data-nosnippet>222</a>    ///
+<a href=#223 id=223 data-nosnippet>223</a>    /// See [`SharedMemory`] and its methods for more information.
+<a href=#224 id=224 data-nosnippet>224</a>    </span><span class="kw">pub fn </span>as_shared(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;SharedMemory&gt; {
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="self">self</span>.<span class="number">0</span>.as_shared(store)
+<a href=#226 id=226 data-nosnippet>226</a>    }
+<a href=#227 id=227 data-nosnippet>227</a>
+<a href=#228 id=228 data-nosnippet>228</a>    <span class="doccomment">/// Create a [`VMExtern`] from self.
+<a href=#229 id=229 data-nosnippet>229</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vm_extern(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExtern {
+<a href=#230 id=230 data-nosnippet>230</a>        <span class="self">self</span>.<span class="number">0</span>.to_vm_extern()
+<a href=#231 id=231 data-nosnippet>231</a>    }
+<a href=#232 id=232 data-nosnippet>232</a>}
+<a href=#233 id=233 data-nosnippet>233</a>
+<a href=#234 id=234 data-nosnippet>234</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Exportable&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>Memory {
+<a href=#235 id=235 data-nosnippet>235</a>    <span class="kw">fn </span>get_self_from_extern(_extern: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Extern) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>, ExportError&gt; {
+<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">match </span>_extern {
+<a href=#237 id=237 data-nosnippet>237</a>            Extern::Memory(memory) =&gt; <span class="prelude-val">Ok</span>(memory),
+<a href=#238 id=238 data-nosnippet>238</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ExportError::IncompatibleType),
+<a href=#239 id=239 data-nosnippet>239</a>        }
+<a href=#240 id=240 data-nosnippet>240</a>    }
+<a href=#241 id=241 data-nosnippet>241</a>}
 </code></pre></div></section></main></body></html>
