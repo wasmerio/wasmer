@@ -17,38 +17,68 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-static int child_verify(int cloexec_fd, int inherited_fd) {
-  if (fcntl(cloexec_fd, F_GETFD) != -1 || errno != EBADF) {
-    fprintf(stderr, "child: SOCK_CLOEXEC fd %d survived exec\n", cloexec_fd);
-    return 1;
+static int fd_flags(int fd) {
+  int flags = fcntl(fd, F_GETFD);
+  assert(flags != -1);
+  return flags;
+}
+
+static int status_flags(int fd) {
+  int flags = fcntl(fd, F_GETFL);
+  assert(flags != -1);
+  return flags;
+}
+
+static int child_verify(char** fds) {
+  for (int i = 0; i < 2; i++) {
+    int fd = atoi(fds[i]);
+    if (fcntl(fd, F_GETFD) != -1 || errno != EBADF) {
+      fprintf(stderr, "child: SOCK_CLOEXEC fd %d survived exec\n", fd);
+      return 1;
+    }
   }
-  if (fcntl(inherited_fd, F_GETFD) == -1) {
-    fprintf(stderr, "child: inherited fd %d is not open (errno=%d)\n",
-            inherited_fd, errno);
-    return 1;
+  for (int i = 2; i < 4; i++) {
+    int fd = atoi(fds[i]);
+    if (fcntl(fd, F_GETFD) == -1) {
+      fprintf(stderr, "child: inherited fd %d is not open (errno=%d)\n", fd,
+              errno);
+      return 1;
+    }
   }
   return 0;
 }
 
 static void test_flags_applied(int sv[2]) {
   for (int i = 0; i < 2; i++) {
-    assert((fcntl(sv[i], F_GETFD) & FD_CLOEXEC) != 0);
-    assert((fcntl(sv[i], F_GETFL) & O_NONBLOCK) != 0);
+    assert((fd_flags(sv[i]) & FD_CLOEXEC) != 0);
+    assert((status_flags(sv[i]) & O_NONBLOCK) != 0);
+  }
+}
+
+static void test_nonblocking_read(int sv[2]) {
+  // The pair is empty, so a nonblocking read must fail instead of waiting.
+  char buf;
+  for (int i = 0; i < 2; i++) {
+    errno = 0;
+    assert(read(sv[i], &buf, 1) == -1);
+    assert(errno == EAGAIN || errno == EWOULDBLOCK);
   }
 }
 
 static void test_no_flags(int plain[2]) {
   for (int i = 0; i < 2; i++) {
-    assert((fcntl(plain[i], F_GETFD) & FD_CLOEXEC) == 0);
-    assert((fcntl(plain[i], F_GETFL) & O_NONBLOCK) == 0);
+    assert((fd_flags(plain[i]) & FD_CLOEXEC) == 0);
+    assert((status_flags(plain[i]) & O_NONBLOCK) == 0);
   }
 }
 
-static void test_cloexec_across_exec(int cloexec_fd, int inherited_fd) {
-  char a[16], b[16];
-  snprintf(a, sizeof a, "%d", cloexec_fd);
-  snprintf(b, sizeof b, "%d", inherited_fd);
-  char* spawn_argv[] = {"main", "verify", a, b, NULL};
+static void test_cloexec_across_exec(int sv[2], int plain[2]) {
+  char fds[4][16];
+  snprintf(fds[0], sizeof fds[0], "%d", sv[0]);
+  snprintf(fds[1], sizeof fds[1], "%d", sv[1]);
+  snprintf(fds[2], sizeof fds[2], "%d", plain[0]);
+  snprintf(fds[3], sizeof fds[3], "%d", plain[1]);
+  char* spawn_argv[] = {"main", "verify", fds[0], fds[1], fds[2], fds[3], NULL};
 
   pid_t pid = 0;
   assert(posix_spawn(&pid, "./main", NULL, NULL, spawn_argv, NULL) == 0);
@@ -60,8 +90,8 @@ static void test_cloexec_across_exec(int cloexec_fd, int inherited_fd) {
 }
 
 int main(int argc, char** argv) {
-  if (argc == 4 && strcmp(argv[1], "verify") == 0) {
-    return child_verify(atoi(argv[2]), atoi(argv[3]));
+  if (argc == 6 && strcmp(argv[1], "verify") == 0) {
+    return child_verify(&argv[2]);
   }
 
   int sv[2];
@@ -71,8 +101,9 @@ int main(int argc, char** argv) {
   assert(socketpair(AF_UNIX, SOCK_STREAM, 0, plain) == 0);
 
   test_flags_applied(sv);
+  test_nonblocking_read(sv);
   test_no_flags(plain);
-  test_cloexec_across_exec(sv[0], plain[0]);
+  test_cloexec_across_exec(sv, plain);
 
   for (int i = 0; i < 2; i++) {
     assert(close(sv[i]) == 0);
