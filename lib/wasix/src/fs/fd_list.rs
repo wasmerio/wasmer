@@ -331,6 +331,7 @@ mod tests {
                 rights_inheriting: Rights::empty(),
                 flags: Fdflags::from_bits_preserve(n),
                 fd_flags: Fdflagsext::empty(),
+                readdir_snapshot: Arc::new(RwLock::new(None)),
             },
         }
     }

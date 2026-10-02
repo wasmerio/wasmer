@@ -37,9 +37,19 @@ pub fn fd_readdir<M: MemorySize>(
     let working_dir = wasi_try_ok!(state.fs.get_fd(fd));
     let mut buf_idx = 0usize;
 
-    let entries: Vec<(String, Filetype, u64)> = {
+    // Cookies index a stable snapshot for the lifetime of this directory
+    // stream. Rebuilding the sorted list for every call makes deletions shift
+    // later entries below the caller's cookie, so recursive removal skips them.
+    let cached_entries = if cookie == 0 {
+        None
+    } else {
+        working_dir.inner.readdir_snapshot.read().unwrap().clone()
+    };
+    let entries: Vec<(String, Filetype, u64)> = if let Some(entries) = cached_entries {
+        entries
+    } else {
         let guard = working_dir.inode.read();
-        match guard.deref() {
+        let entries = match guard.deref() {
             Kind::Dir { path, entries, .. } => {
                 trace!("reading dir {:?}", path);
                 // TODO: refactor this code
@@ -115,7 +125,9 @@ pub fn fd_readdir<M: MemorySize>(
             | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Ok(Errno::Notdir),
-        }
+        };
+        *working_dir.inner.readdir_snapshot.write().unwrap() = Some(entries.clone());
+        entries
     };
 
     for (cur_cookie, (entry_path_str, wasi_file_type, ino)) in
