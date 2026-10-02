@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["convert","package","utils"]};
+window.SIDEBAR_ITEMS = {"enum":["AuthoringError","WasmerPackageError"],"mod":["convert","error","package","utils"]};
