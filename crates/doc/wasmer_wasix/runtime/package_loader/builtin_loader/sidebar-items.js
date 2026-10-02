@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CacheValidationMode","HashIntegrityValidationMode"],"struct":["BuiltinPackageLoader","FileSystemCache","ImageHashMismatchError","InMemoryCache"]};
+window.SIDEBAR_ITEMS = {"enum":["CacheValidationMode","HashIntegrityValidationMode"],"struct":["BuiltinPackageLoader","FileSystemCache","ImageHashMismatchError","InMemoryCache"],"trait":["PackageCache"]};
