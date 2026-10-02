@@ -204,7 +204,7 @@ impl Module {
                 Ok(x) => x,
                 Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
                     return Err(InstantiationError::Start(
-                        Trap::lib(TrapCode::HostInterrupt).into(),
+                        Trap::host_interrupt().into(),
                     ));
                 }
             };

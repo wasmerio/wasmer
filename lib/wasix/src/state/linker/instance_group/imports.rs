@@ -517,7 +517,7 @@ impl InstanceGroupState {
         Ok(false)
     }
 
-    fn generate_stub_function(
+    pub(in crate::state::linker) fn generate_stub_function(
         &self,
         store: &mut impl AsStoreMut,
         ty: &FunctionType,
@@ -540,6 +540,22 @@ impl InstanceGroupState {
                 let mk_error = || {
                     RuntimeError::user(Box::new(WasiError::DlSymbolResolutionFailed(name.clone())))
                 };
+
+                // Cached resolutions must not bypass a permanently aborted
+                // replay and jump back into partially replicated guest state.
+                env.data()
+                    .inner()
+                    .linker()
+                    .unwrap()
+                    .shared
+                    .check_active(env.data())
+                    .map_err(|error| {
+                        RuntimeError::user(Box::new(WasiError::Exit(
+                            error
+                                .termination_code()
+                                .unwrap_or_else(|| wasmer_wasix_types::wasi::Errno::Noexec.into()),
+                        )))
+                    })?;
 
                 let mut resolved_guard = resolved.lock().unwrap();
                 let func = match *resolved_guard {

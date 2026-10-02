@@ -21,7 +21,7 @@ use std::ptr::NonNull;
 use std::slice;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
+use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, StoreId, WASM_PAGE_SIZE};
 
 // The memory mapped area
 #[derive(Debug)]
@@ -638,6 +638,23 @@ impl LinearMemory for VMSharedMemory {
         unsafe { self.conditions.do_wait(dst, expected, timeout) }
     }
 
+    unsafe fn do_wait_interruptible(
+        &mut self,
+        dst: u32,
+        expected: ExpectedValue,
+        timeout: Option<Duration>,
+        store_id: StoreId,
+    ) -> Result<u32, WaiterError> {
+        let dst = NotifyLocation {
+            address: dst,
+            memory_base: self.mmap.read().unwrap().alloc.as_ptr() as *mut _,
+        };
+        unsafe {
+            self.conditions
+                .do_wait_interruptible(dst, expected, timeout, store_id)
+        }
+    }
+
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
         self.conditions.do_notify(dst, count)
@@ -738,6 +755,19 @@ impl LinearMemory for VMMemory {
         timeout: Option<Duration>,
     ) -> Result<u32, WaiterError> {
         unsafe { self.0.do_wait(dst, expected, timeout) }
+    }
+
+    unsafe fn do_wait_interruptible(
+        &mut self,
+        dst: u32,
+        expected: ExpectedValue,
+        timeout: Option<Duration>,
+        store_id: StoreId,
+    ) -> Result<u32, WaiterError> {
+        unsafe {
+            self.0
+                .do_wait_interruptible(dst, expected, timeout, store_id)
+        }
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified
@@ -913,6 +943,23 @@ where
         _timeout: Option<Duration>,
     ) -> Result<u32, WaiterError> {
         Err(WaiterError::Unimplemented)
+    }
+
+    /// Like [`Self::do_wait`], but cooperatively wakes if the running store is
+    /// interrupted. Implementations without native waiting can use the default.
+    ///
+    /// # Safety
+    ///
+    /// The destination must satisfy the same validity and alignment
+    /// requirements as [`Self::do_wait`].
+    unsafe fn do_wait_interruptible(
+        &mut self,
+        dst: u32,
+        expected: ExpectedValue,
+        timeout: Option<Duration>,
+        _store_id: StoreId,
+    ) -> Result<u32, WaiterError> {
+        unsafe { self.do_wait(dst, expected, timeout) }
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified

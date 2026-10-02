@@ -935,15 +935,20 @@ impl Instance {
         dst: u32,
         expected: ExpectedValue,
         timeout: i64,
+        _store_id: wasmer_types::StoreId,
     ) -> Result<u32, Trap> {
         let timeout = if timeout < 0 {
             None
         } else {
             Some(std::time::Duration::from_nanos(timeout as u64))
         };
-        match unsafe { memory.do_wait(dst, expected, timeout) } {
+        #[cfg(feature = "experimental-host-interrupt")]
+        let result = unsafe { memory.do_wait_interruptible(dst, expected, timeout, _store_id) };
+        #[cfg(not(feature = "experimental-host-interrupt"))]
+        let result = unsafe { memory.do_wait(dst, expected, timeout) };
+        match result {
             Ok(count) => Ok(count),
-            Err(_err) => Err(Trap::lib(TrapCode::HostInterrupt)),
+            Err(_err) => Err(Trap::host_interrupt()),
         }
     }
 
@@ -955,6 +960,7 @@ impl Instance {
         val: u32,
         timeout: i64,
     ) -> Result<u32, Trap> {
+        let store_id = self.context().id();
         let memory = self.memory(memory_index);
         //if ! memory.shared {
         // We should trap according to spec, but official test rely on not trapping...
@@ -967,7 +973,9 @@ impl Instance {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
                 // Safety: we have already checked alignment and bounds in memory32_atomic_check32
-                ret = unsafe { Self::memory_wait(memory, dst, ExpectedValue::U32(val), timeout)? };
+                ret = unsafe {
+                    Self::memory_wait(memory, dst, ExpectedValue::U32(val), timeout, store_id)?
+                };
             }
             Ok(ret)
         } else {
@@ -983,6 +991,7 @@ impl Instance {
         val: u32,
         timeout: i64,
     ) -> Result<u32, Trap> {
+        let store_id = self.context().id();
         let import = self.imported_memory(memory_index);
         let memory = unsafe { import.definition.as_ref() };
         //if ! memory.shared {
@@ -996,7 +1005,9 @@ impl Instance {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
                 // Safety: we have already checked alignment and bounds in memory32_atomic_check32
-                ret = unsafe { Self::memory_wait(memory, dst, ExpectedValue::U32(val), timeout)? };
+                ret = unsafe {
+                    Self::memory_wait(memory, dst, ExpectedValue::U32(val), timeout, store_id)?
+                };
             }
             Ok(ret)
         } else {
@@ -1012,6 +1023,7 @@ impl Instance {
         val: u64,
         timeout: i64,
     ) -> Result<u32, Trap> {
+        let store_id = self.context().id();
         let memory = self.memory(memory_index);
         //if ! memory.shared {
         // We should trap according to spec, but official test rely on not trapping...
@@ -1024,7 +1036,9 @@ impl Instance {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
                 // Safety: we have already checked alignment and bounds in memory32_atomic_check64
-                ret = unsafe { Self::memory_wait(memory, dst, ExpectedValue::U64(val), timeout)? };
+                ret = unsafe {
+                    Self::memory_wait(memory, dst, ExpectedValue::U64(val), timeout, store_id)?
+                };
             }
             Ok(ret)
         } else {
@@ -1040,6 +1054,7 @@ impl Instance {
         val: u64,
         timeout: i64,
     ) -> Result<u32, Trap> {
+        let store_id = self.context().id();
         let import = self.imported_memory(memory_index);
         let memory = unsafe { import.definition.as_ref() };
         //if ! memory.shared {
@@ -1053,7 +1068,9 @@ impl Instance {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
                 // Safety: we have already checked alignment and bounds in memory32_atomic_check64
-                ret = unsafe { Self::memory_wait(memory, dst, ExpectedValue::U64(val), timeout)? };
+                ret = unsafe {
+                    Self::memory_wait(memory, dst, ExpectedValue::U64(val), timeout, store_id)?
+                };
             }
             Ok(ret)
         } else {

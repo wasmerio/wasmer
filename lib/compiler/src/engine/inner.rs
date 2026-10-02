@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use crate::engine::builder::EngineBuilder;
 #[cfg(feature = "compiler")]
@@ -47,10 +47,41 @@ use wasmer_vm::{
     VMTrampoline,
 };
 
+#[derive(Debug)]
+struct EngineMetadata {
+    deterministic_id: String,
+    artifact_format: String,
+}
+
+impl EngineMetadata {
+    #[cfg(feature = "compiler")]
+    fn from_compiler(compiler: Option<&dyn Compiler>, fallback: &str) -> Self {
+        match compiler {
+            Some(compiler) => Self {
+                deterministic_id: compiler.deterministic_id(),
+                artifact_format: compiler.artifact_format(),
+            },
+            None => Self {
+                deterministic_id: fallback.to_string(),
+                artifact_format: fallback.to_string(),
+            },
+        }
+    }
+
+    #[cfg(not(feature = "compiler"))]
+    fn headless(fallback: &str) -> Self {
+        Self {
+            deterministic_id: fallback.to_string(),
+            artifact_format: fallback.to_string(),
+        }
+    }
+}
+
 /// A WebAssembly Engine.
 #[derive(Clone)]
 pub struct Engine {
     inner: Arc<Mutex<EngineInner>>,
+    metadata: Arc<RwLock<EngineMetadata>>,
     /// The target for the compiler
     target: Arc<Target>,
     engine_id: EngineId,
@@ -71,6 +102,7 @@ impl Engine {
         let tunables = BaseTunables::new();
         let compiler = compiler_config.compiler();
         let name = format!("engine-{}", compiler.name());
+        let metadata = EngineMetadata::from_compiler(Some(compiler.as_ref()), &name);
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
                 compiler: Some(compiler),
@@ -82,6 +114,7 @@ impl Engine {
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
+            metadata: Arc::new(RwLock::new(metadata)),
             target: Arc::new(target),
             engine_id: EngineId::default(),
             #[cfg(not(target_arch = "wasm32"))]
@@ -97,34 +130,12 @@ impl Engine {
 
     /// Returns the deterministic id of this engine
     pub fn deterministic_id(&self) -> String {
-        #[cfg(feature = "compiler")]
-        {
-            let i = self.inner();
-            if let Some(ref c) = i.compiler {
-                return c.deterministic_id();
-            } else {
-                return self.name.clone();
-            }
-        }
-
-        #[allow(unreachable_code)]
-        {
-            self.name.to_string()
-        }
+        self.metadata.read().unwrap().deterministic_id.clone()
     }
 
     /// Returns the format used for artifacts produced by this engine.
     pub fn artifact_format(&self) -> String {
-        #[cfg(feature = "compiler")]
-        {
-            let i = self.inner();
-            if let Some(ref c) = i.compiler {
-                return c.artifact_format();
-            }
-        }
-
-        #[allow(unreachable_code)]
-        self.name.to_string()
+        self.metadata.read().unwrap().artifact_format.clone()
     }
 
     /// Create a headless `Engine`
@@ -142,6 +153,7 @@ impl Engine {
     /// they just take already processed Modules (via `Module::serialize`).
     pub fn headless() -> Self {
         let target = Target::default();
+        let name = "engine-headless".to_string();
         #[cfg(not(target_arch = "wasm32"))]
         let tunables = BaseTunables::new();
         Self {
@@ -157,11 +169,21 @@ impl Engine {
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
+            metadata: Arc::new(RwLock::new({
+                #[cfg(feature = "compiler")]
+                {
+                    EngineMetadata::from_compiler(None, &name)
+                }
+                #[cfg(not(feature = "compiler"))]
+                {
+                    EngineMetadata::headless(&name)
+                }
+            })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
-            name: "engine-headless".to_string(),
+            name,
         }
     }
 
@@ -777,5 +799,53 @@ impl Default for EngineId {
         Self {
             id: NEXT_ID.fetch_add(1, SeqCst),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{sync::mpsc, time::Duration};
+
+    use super::Engine;
+
+    #[test]
+    fn metadata_reads_do_not_wait_for_compilation_lock() {
+        let engine = Engine::headless();
+        let expected_id = engine.deterministic_id();
+        let expected_format = engine.artifact_format();
+
+        let compilation_engine = engine.clone();
+        let (locked_tx, locked_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let compilation = std::thread::spawn(move || {
+            // Artifact compilation holds this lock while translating and compiling Wasm.
+            let _inner = compilation_engine.inner_mut();
+            locked_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+        });
+        locked_rx.recv().unwrap();
+
+        let reader_engine = engine.clone();
+        let (result_tx, result_rx) = mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            result_tx
+                .send((
+                    reader_engine.deterministic_id(),
+                    reader_engine.artifact_format(),
+                    format!("{reader_engine:?}"),
+                ))
+                .unwrap();
+        });
+
+        let result = result_rx.recv_timeout(Duration::from_secs(1));
+        release_tx.send(()).unwrap();
+        compilation.join().unwrap();
+        reader.join().unwrap();
+
+        let (id, format, debug) =
+            result.expect("engine metadata reads must not contend with compilation");
+        assert_eq!(id, expected_id);
+        assert_eq!(format, expected_format);
+        assert_eq!(debug, expected_id);
     }
 }

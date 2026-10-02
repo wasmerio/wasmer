@@ -44,18 +44,28 @@
 //! Use instead:
 //!
 //! - [`LinkerShared::write_linker_state`] — `try_write` loop + [`LinkerStateWriteBackoff`] + pending-DL draining.
-//! - [`LinkerShared::write_linker_state_with_topology`] — topology lease + draining + blocking write when
+//! - [`LinkerShared::write_linker_state_with_topology`] — topology lease + draining + cancellation-aware write when
 //!   topology must be serialized before grabbing [`LinkerState`].
-//! - [`LinkerShared::write_linker_state_blocking_holding_topology`] — blocking write only while already
+//! - [`LinkerShared::write_linker_state_holding_topology`] — cancellation-aware write only while already
 //!   holding [`TopologyToken`], after topology was leased on another thread/step.
 //!
 //! Narrow exceptions (e.g. one-off bootstrap in [`super::Linker::new`] before other groups exist)
 //! belong in tightly scoped code and should still avoid contending paths that overlap DL sync.
+//!
+//! # Cancellation
+//!
+//! Both barrier epochs, mailbox receives, and cooperative lock retries observe
+//! persistent execution termination and a shared, sticky abort. Cancelling any
+//! participant closes the entire linker: partially replicated tables must never
+//! be reused. In particular, a Tokio barrier waiter may only be dropped after
+//! publishing that abort; Tokio barriers alone are not cancellation-safe.
 
 pub(super) mod topology_lock;
 
+mod cancellation;
 mod linker_shared;
 
+pub(in crate::state::linker) use cancellation::LinkerCancellation;
 pub(in crate::state::linker) use linker_shared::LinkerShared;
 pub(crate) use topology_lock::TopologyToken;
 

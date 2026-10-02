@@ -17,7 +17,7 @@ use wasmer_config::package::PackageId;
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, DynReadableJournal, SnapshotTrigger};
 use crate::{
-    Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
+    Runtime, WasiEnv, WasiFunctionEnv, WasiProcess, WasiRuntimeError, WasiThreadError,
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
@@ -87,6 +87,11 @@ pub struct WasiEnvBuilder {
     pub(super) builtin_commands: Vec<(String, Arc<dyn VirtualCommand + Send + Sync + 'static>)>,
 
     pub(super) capabilities: Capabilities,
+
+    // Populated by `build_with_process_observer` so the lifecycle root exists
+    // before filesystem and environment preparation begins.
+    control_plane: Option<WasiControlPlane>,
+    process: Option<WasiProcess>,
 
     #[cfg(feature = "journal")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
@@ -1069,7 +1074,10 @@ impl WasiEnvBuilder {
             enable_asynchronous_threading: capabilities.threading.enable_asynchronous_threading,
             enable_exponential_cpu_backoff: capabilities.threading.enable_exponential_cpu_backoff,
         };
-        let control_plane = WasiControlPlane::new(plane_config);
+        let control_plane = self
+            .control_plane
+            .take()
+            .unwrap_or_else(|| WasiControlPlane::new(plane_config));
 
         let init = WasiEnvInit {
             state,
@@ -1080,7 +1088,7 @@ impl WasiEnvBuilder {
             bin_factory,
             capabilities,
             memory_ty: None,
-            process: None,
+            process: self.process.take(),
             thread: None,
             #[cfg(feature = "journal")]
             call_initialize: self.read_only_journals.is_empty()
@@ -1101,7 +1109,63 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
+        self.build_with_process_observer(|_| {})
+    }
+
+    /// Ensure the process exists and expose it to the embedder.
+    ///
+    /// This may be called before filesystem preparation. A later [`Self::build`]
+    /// reuses the same process and control plane.
+    #[allow(clippy::result_large_err)]
+    pub fn ensure_process_with_observer<F>(&mut self, observer: F) -> Result<(), WasiRuntimeError>
+    where
+        F: FnOnce(&crate::WasiProcess),
+    {
+        if let Some(process) = &self.process {
+            observer(process);
+            return Ok(());
+        }
+
         let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
+        self.module_hash = Some(module_hash);
+        let plane_config = ControlPlaneConfig {
+            max_task_count: self.capabilities.threading.max_threads,
+            enable_asynchronous_threading: self
+                .capabilities
+                .threading
+                .enable_asynchronous_threading,
+            enable_exponential_cpu_backoff: self
+                .capabilities
+                .threading
+                .enable_exponential_cpu_backoff,
+        };
+        let control_plane = WasiControlPlane::new(plane_config);
+        let process = control_plane.new_process(module_hash)?;
+        observer(&process);
+        self.control_plane = Some(control_plane);
+        self.process = Some(process);
+        Ok(())
+    }
+
+    /// Build an environment and expose its process before environment setup can
+    /// perform blocking host work.
+    ///
+    /// Embedders can use this hook to attach their lifecycle cancellation to
+    /// the process. The observer runs after the process is registered with the
+    /// control plane and before builder filesystem setup and dependency
+    /// injection.
+    #[allow(clippy::result_large_err)]
+    pub fn build_with_process_observer<F>(
+        mut self,
+        observer: F,
+    ) -> Result<WasiEnv, WasiRuntimeError>
+    where
+        F: FnOnce(&crate::WasiProcess),
+    {
+        self.ensure_process_with_observer(observer)?;
+        let module_hash = self
+            .module_hash
+            .expect("process preparation always assigns a module hash");
         let init = self.build_init()?;
         WasiEnv::from_init(init, module_hash)
     }
@@ -1282,6 +1346,14 @@ impl PreopenDirBuilder {
 #[cfg(test)]
 mod test {
     use super::*;
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
+    use crate::{
+        PluggableRuntime,
+        runtime::{
+            resolver::{PackageSummary, QueryError, Source},
+            task_manager::tokio::TokioTaskManager,
+        },
+    };
     use crate::{
         SpawnError,
         os::{
@@ -1290,6 +1362,8 @@ mod test {
         },
     };
     use wasmer::FunctionEnvMut;
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
+    use wasmer_config::package::PackageSource;
     use wasmer_wasix_types::wasi::Errno;
 
     fn enter_tokio_runtime() -> Option<tokio::runtime::Runtime> {
@@ -1321,6 +1395,104 @@ mod test {
                 ("PORT".to_owned(), b"8080".to_vec()),
                 ("OTHER".to_owned(), b"value".to_vec()),
             ]
+        );
+    }
+
+    #[test]
+    fn process_observer_can_cancel_before_environment_setup() {
+        let runtime = enter_tokio_runtime();
+        let _runtime_guard = runtime.as_ref().map(|runtime| runtime.enter());
+        let observed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let observed_during_fs_setup = observed.clone();
+
+        let result = WasiEnvBuilder::new("test")
+            .engine(wasmer::Store::default().engine().clone())
+            .setup_fs(Box::new(move |_, _| {
+                assert!(observed_during_fs_setup.load(std::sync::atomic::Ordering::Acquire));
+                Ok(())
+            }))
+            .build_with_process_observer({
+                let observed = observed.clone();
+                move |process| {
+                    observed.store(true, std::sync::atomic::Ordering::Release);
+                    process.force_terminate(Errno::Intr.into()).unwrap();
+                }
+            });
+
+        assert!(observed.load(std::sync::atomic::Ordering::Acquire));
+        let error = match result {
+            Ok(_) => panic!("cancelled environment setup unexpectedly succeeded"),
+            Err(error) => error,
+        };
+        assert_eq!(error.as_exit_code(), Some(Errno::Intr.into()));
+    }
+
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
+    #[derive(Debug)]
+    struct PendingSource {
+        entered: std::sync::Mutex<Option<std::sync::mpsc::Sender<()>>>,
+        dropped: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
+    #[async_trait::async_trait]
+    impl Source for PendingSource {
+        async fn query(&self, _package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
+            struct MarkDropped(Arc<std::sync::atomic::AtomicBool>);
+            impl Drop for MarkDropped {
+                fn drop(&mut self) {
+                    self.0.store(true, std::sync::atomic::Ordering::Release);
+                }
+            }
+
+            let _mark_dropped = MarkDropped(self.dropped.clone());
+            if let Some(entered) = self.entered.lock().unwrap().take() {
+                let _ = entered.send(());
+            }
+            std::future::pending().await
+        }
+    }
+
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
+    #[test]
+    fn forced_exit_cancels_pending_dependency_resolution() {
+        let tokio_runtime = enter_tokio_runtime();
+        let _runtime_guard = tokio_runtime.as_ref().map(|runtime| runtime.enter());
+        let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+        let dropped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut runtime = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
+        runtime.set_source(PendingSource {
+            entered: std::sync::Mutex::new(Some(entered_tx)),
+            dropped: dropped.clone(),
+        });
+        let env = WasiEnvBuilder::new("pending-dependency")
+            .runtime(Arc::new(runtime))
+            .build()
+            .unwrap();
+        let process = env.process.clone();
+        let (result_tx, result_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let exit = env
+                .uses_until_exit(["wasmer/pending@1".to_string()])
+                .expect_err("pending resolution should end with forced process exit")
+                .as_exit_code();
+            let _ = result_tx.send(exit);
+        });
+
+        entered_rx
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .expect("dependency query was not polled");
+        process.force_terminate(Errno::Intr.into()).unwrap();
+        assert_eq!(
+            result_rx
+                .recv_timeout(std::time::Duration::from_secs(2))
+                .expect("forced exit did not cancel dependency resolution"),
+            Some(Errno::Intr.into())
+        );
+        worker.join().unwrap();
+        assert!(
+            dropped.load(std::sync::atomic::Ordering::Acquire),
+            "cancelled dependency future was retained"
         );
     }
 

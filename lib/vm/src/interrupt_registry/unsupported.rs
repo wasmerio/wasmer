@@ -1,6 +1,23 @@
 use wasmer_types::StoreId;
 
+use std::sync::Arc;
+
 use super::*;
+
+/// Selects the process-wide signal used to interrupt running WASM code.
+///
+/// On unsupported platforms this is a no-op.
+pub fn set_interrupt_signal(_signal: InterruptSignal) -> Result<(), SetInterruptSignalError> {
+    Ok(())
+}
+
+/// Returns the signal currently selected for interrupting WASM code.
+///
+/// On unsupported platforms no signal is ever used, so this always reports
+/// the default.
+pub fn interrupt_signal() -> InterruptSignal {
+    DEFAULT_INTERRUPT_SIGNAL
+}
 
 /// Install interrupt state for the given store.
 ///
@@ -24,3 +41,12 @@ pub fn interrupt(_store_id: StoreId) -> Result<(), InterruptError> {
 pub fn is_interrupted(_store_id: StoreId) -> bool {
     false
 }
+
+pub(crate) fn register_wait(
+    store_id: StoreId,
+    waker: Arc<dyn InterruptWaitWaker>,
+) -> Option<InterruptWaitGuard> {
+    Some(InterruptWaitGuard { store_id, waker })
+}
+
+pub(super) fn unregister_wait(_store_id: StoreId, _waker: &Arc<dyn InterruptWaitWaker>) {}

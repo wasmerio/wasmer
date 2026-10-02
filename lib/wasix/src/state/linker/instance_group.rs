@@ -1,7 +1,6 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Barrier},
-};
+use std::{collections::HashMap, sync::Arc};
+
+use tokio::sync::Barrier;
 
 use tracing::trace;
 use wasmer::{AsStoreMut, FunctionEnv, Global, Instance, Memory, Table, Tag};

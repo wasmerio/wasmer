@@ -254,8 +254,17 @@ impl WasiEnv {
 
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
-        let process = self.control_plane.new_process(self.process.module_hash)?;
-        let handle = process.new_thread(self.layout.clone(), ThreadStartType::MainThread)?;
+        let process = self.process.new_child(self.process.module_hash)?;
+        let handle = match process.new_thread(self.layout.clone(), ThreadStartType::MainThread) {
+            Ok(handle) => handle,
+            Err(err) => {
+                // Registration precedes execution so shutdown cannot miss the
+                // child. If creating its main thread fails, there is no child
+                // execution to reap.
+                process.force_terminate_local(Errno::Canceled.into());
+                return Err(err);
+            }
+        };
 
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
@@ -405,6 +414,9 @@ impl WasiEnv {
         } else {
             init.control_plane.new_process(module_hash)?
         };
+        if let Some(code) = process.forced_exit_code() {
+            return Err(WasiError::Exit(code).into());
+        }
 
         #[cfg(feature = "journal")]
         {
@@ -417,7 +429,15 @@ impl WasiEnv {
         let thread = if let Some(t) = init.thread {
             t
         } else {
-            process.new_thread(layout.clone(), ThreadStartType::MainThread)?
+            match process.new_thread(layout.clone(), ThreadStartType::MainThread) {
+                Ok(thread) => thread,
+                Err(error) => {
+                    if let Some(code) = process.forced_exit_code() {
+                        return Err(WasiError::Exit(code).into());
+                    }
+                    return Err(error.into());
+                }
+            }
         };
 
         let mut env = Self {
@@ -451,11 +471,11 @@ impl WasiEnv {
 
         // TODO: should not be here - should be callers responsibility!
         for pkg in &init.webc_dependencies {
-            env.use_package(pkg)?;
+            block_on(env.until_exit(env.use_package_async(pkg)))??;
         }
 
         #[cfg(feature = "sys")]
-        env.map_commands(init.mapped_commands.clone())?;
+        block_on(env.until_exit(env.map_commands_async(init.mapped_commands.clone())))??;
 
         Ok(env)
     }
@@ -471,6 +491,9 @@ impl WasiEnv {
         call_initialize: bool,
         linker_instance_group_data: Option<PreparedInstanceGroupData>,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
+        if let Some(exit_code) = self.process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
         let pid = self.process.pid();
 
         let mut store = store.as_store_mut();
@@ -554,6 +577,18 @@ impl WasiEnv {
                 _ => None,
             });
 
+        // A Wasm start function can already block on atomics during
+        // Instance::new, before initialize_handles_and_layout is reached.
+        if let Some(memory) = imported_memory
+            .as_ref()
+            .and_then(|memory| memory.as_shared(&store))
+        {
+            func_env.data(&store).process.register_memory(memory);
+        }
+        if let Some(exit_code) = func_env.data(&store).process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
+
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {
             Ok(a) => a,
@@ -630,6 +665,10 @@ impl WasiEnv {
             return Err(WasiThreadError::ExportError(err));
         }
 
+        if let Some(exit_code) = func_env.data(&store).process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
+
         // If this module exports an _initialize function, run that first.
         if call_initialize && let Ok(initialize) = instance.exports.get_function("_initialize") {
             let initialize_result = initialize.call(&mut store, &[]);
@@ -689,6 +728,9 @@ impl WasiEnv {
             && let Err(e) = linker.do_pending_link_operations(ctx, fast)
         {
             tracing::warn!(err = ?e, "Failed to process pending link operations");
+            if let Some(code) = e.termination_code() {
+                return Err(WasiError::Exit(code));
+            }
             return Err(WasiError::Exit(Errno::Noexec.into()));
         }
         Ok(())
@@ -696,9 +738,16 @@ impl WasiEnv {
 
     /// Processes any signals that are batched up or any forced exit codes
     pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
+        // Forced completion takes precedence over queued signals. In particular,
+        // process SIGKILL uses a host-only wakeup that must not be drained and
+        // ignored by instances without their own guest signal callback.
+        let env = ctx.data();
+        if let Some(forced_exit) = env.should_exit() {
+            return Err(WasiError::Exit(forced_exit));
+        }
+
         // If a signal handler has never been set then we need to handle signals
         // differently
-        let env = ctx.data();
         let env_inner = env
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
@@ -713,8 +762,9 @@ impl WasiEnv {
                 .state
                 .signal_handler_registered
                 .load(std::sync::atomic::Ordering::SeqCst);
-        if !handler_registered {
+        let processed = if !handler_registered {
             let signals = env.thread.pop_signals();
+            let processed = !signals.is_empty();
             if !signals.is_empty() {
                 for sig in signals {
                     if sig == Signal::Sigint
@@ -729,16 +779,20 @@ impl WasiEnv {
                         tracing::trace!(pid=%env.pid(), ?sig, "Signal ignored");
                     }
                 }
-                return Ok(Ok(true));
             }
-        }
+            Ok(processed)
+        } else {
+            Self::process_signals(ctx)?
+        };
 
-        // Check for forced exit
-        if let Some(forced_exit) = env.should_exit() {
+        // Close the race between the first status check and signal draining.
+        // SIGKILL publishes completion before it queues Sigwakeup, so either
+        // this check observes it or the wake remains pending for the next pass.
+        if let Some(forced_exit) = ctx.data().should_exit() {
             return Err(WasiError::Exit(forced_exit));
         }
 
-        Self::process_signals(ctx)
+        Ok(processed)
     }
 
     /// Processes any signals that are batched up
@@ -878,6 +932,45 @@ impl WasiEnv {
             }));
         }
         None
+    }
+
+    /// Wait for this execution context to exit, without changing guest child-wait
+    /// routing. Keep both status subscriptions alive while a host operation is
+    /// pending: signals are consumable and cannot serve as cancellation state.
+    pub(crate) fn wait_for_exit(&self) -> impl Future<Output = ExitCode> + use<> {
+        let thread = self.thread.clone();
+        let process = self.process.finished.clone();
+        async move {
+            let result = tokio::select! {
+                biased;
+                result = thread.join() => result,
+                result = process.await_termination() => result,
+            };
+            result.unwrap_or_else(|err| {
+                tracing::debug!(
+                    error = &*err as &dyn std::error::Error,
+                    "exit runtime error"
+                );
+                Errno::Child.into()
+            })
+        }
+    }
+
+    /// Race a host operation against persistent execution termination without
+    /// consuming signals or converting a forced exit into a recoverable errno.
+    /// The returned future does not borrow the environment.
+    pub fn until_exit<F: Future>(
+        &self,
+        work: F,
+    ) -> impl Future<Output = Result<F::Output, WasiError>> + use<F> {
+        let exit = self.wait_for_exit();
+        async move {
+            tokio::select! {
+                biased;
+                code = exit => Err(WasiError::Exit(code)),
+                result = work => Ok(result),
+            }
+        }
     }
 
     /// Accesses the virtual networking implementation
@@ -1206,8 +1299,47 @@ impl WasiEnv {
         Ok(())
     }
 
+    /// Load packages while observing forced process termination.
+    ///
+    /// Unlike [`Self::uses`], this returns [`WasiRuntimeError`] so a forced
+    /// process exit is preserved as an execution outcome rather than being
+    /// flattened into an environment-initialization error.
+    pub fn uses_until_exit<I>(&self, uses: I) -> Result<(), WasiRuntimeError>
+    where
+        I: IntoIterator<Item = String>,
+    {
+        block_on(async {
+            let rt = self.runtime();
+            for package_name in uses {
+                let specifier = package_name.parse::<PackageSource>().map_err(|e| {
+                    WasiStateCreationError::WasiIncludePackageError(format!(
+                        "package_name={package_name}, {e}",
+                    ))
+                })?;
+                let pkg = self
+                    .until_exit(BinaryPackage::from_registry(&specifier, rt))
+                    .await?
+                    .map_err(|e| {
+                        WasiStateCreationError::WasiIncludePackageError(format!(
+                            "package_name={package_name}, {e}",
+                        ))
+                    })?;
+                self.until_exit(self.use_package_async(&pkg)).await??;
+            }
+            Ok(())
+        })
+    }
+
     #[cfg(feature = "sys")]
     pub fn map_commands(
+        &self,
+        map_commands: std::collections::HashMap<String, std::path::PathBuf>,
+    ) -> Result<(), WasiStateCreationError> {
+        block_on(self.map_commands_async(map_commands))
+    }
+
+    #[cfg(feature = "sys")]
+    async fn map_commands_async(
         &self,
         map_commands: std::collections::HashMap<String, std::path::PathBuf>,
     ) -> Result<(), WasiStateCreationError> {
@@ -1233,22 +1365,16 @@ impl WasiEnv {
 
             let path = format!("/bin/{command}");
             let path = Path::new(path.as_str());
-            if let Err(err) = block_on(write_readonly_buffer_to_fs(
-                &self.state.fs.root_fs,
-                path,
-                &file,
-            )) {
+            if let Err(err) = write_readonly_buffer_to_fs(&self.state.fs.root_fs, path, &file).await
+            {
                 tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
             }
 
             let path = format!("/usr/bin/{command}");
             let path = Path::new(path.as_str());
-            if let Err(err) = block_on(write_readonly_buffer_to_fs(
-                &self.state.fs.root_fs,
-                path,
-                &file,
-            )) {
+            if let Err(err) = write_readonly_buffer_to_fs(&self.state.fs.root_fs, path, &file).await
+            {
                 tracing::debug!("failed to add atom command [{}] - {}", command, err);
                 continue;
             }
