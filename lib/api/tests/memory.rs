@@ -1,7 +1,10 @@
+use macro_wasmer_engine_test::engine_test;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
+#[cfg(feature = "js")]
+use wasm_bindgen_test::*;
 use wasmer::{Instance, Memory, MemoryLocation, MemoryType, Module, Store, imports};
 
 #[test]
@@ -103,6 +106,23 @@ fn test_shared_memory_copy_is_independent() {
     let mut buf = [0; 6];
     copied.view(&copy_store).read(0, &mut buf).unwrap();
     assert_eq!(&buf, b"before");
+}
+
+#[engine_test]
+fn test_non_shared_memory_copy_is_rejected() -> Result<(), String> {
+    let mut store = Store::default();
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(2), false)).unwrap();
+    assert!(matches!(
+        memory.copy(&store),
+        Err(wasmer::MemoryError::MemoryNotShared)
+    ));
+    assert!(memory.as_shared(&store).is_none());
+    let mut other_store = Store::default();
+    assert!(matches!(
+        memory.copy_to_store(&store, &mut other_store),
+        Err(wasmer::MemoryError::MemoryNotShared)
+    ));
+    Ok(())
 }
 
 /// See https://github.com/wasmerio/wasmer/issues/5444
