@@ -78,8 +78,7 @@ static void test_cloexec_across_exec(int sv[2], int plain[2]) {
   snprintf(fds[1], sizeof fds[1], "%d", sv[1]);
   snprintf(fds[2], sizeof fds[2], "%d", plain[0]);
   snprintf(fds[3], sizeof fds[3], "%d", plain[1]);
-  char* spawn_argv[] = {"main", "verify", fds[0], fds[1], fds[2], fds[3],
-                        NULL};
+  char* spawn_argv[] = {"main", "verify", fds[0], fds[1], fds[2], fds[3], NULL};
 
   pid_t pid = 0;
   assert(posix_spawn(&pid, "./main", NULL, NULL, spawn_argv, NULL) == 0);
