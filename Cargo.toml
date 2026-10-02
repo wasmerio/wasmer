@@ -85,7 +85,7 @@ version = "7.5.0"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.705.0", path = "lib/package" }
+wasmer-package = { version = "0.705.0", path = "lib/package", default-features = false }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-package-sdk = { path = "./lib/package-sdk" }

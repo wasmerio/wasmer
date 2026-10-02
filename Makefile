@@ -618,6 +618,11 @@ check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
 check-baremetal:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/vm/Cargo.toml --features baremetal --locked
+# wasmer-package splits into `execution` and `authoring`; each must build on its own.
+check-package-features:
+	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/package/Cargo.toml --all-targets --no-default-features --features=execution --locked && \
+	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/package/Cargo.toml --all-targets --no-default-features --features=authoring --locked && \
+	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/package/Cargo.toml --all-targets --locked
 test-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-fs/Cargo.toml --release --locked && \
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(test_compiler_features) --release --locked
@@ -630,7 +635,7 @@ test-capi-integration-tests:
 
 test: test-all test-examples
 
-test-packages: test-all check-compilers-only-std check-baremetal test-wasmer-cli
+test-packages: test-all check-compilers-only-std check-baremetal check-package-features test-wasmer-cli
 
 
 test-v8: test-v8-api
