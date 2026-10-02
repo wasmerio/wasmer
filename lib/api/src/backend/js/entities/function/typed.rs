@@ -90,12 +90,20 @@ macro_rules! impl_native_traits {
                                     .map(|(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
                             )
                         };
-                        r = self
-                            .func
-                            .as_js()
-                            .handle
-                            .function
-                            .apply(&JsValue::UNDEFINED, &args_array);
+                        r = {
+                            // Lend the store to the guest, as `Function::call`
+                            // does: a frame that reached here holding a borrow
+                            // would otherwise stop a suspending guest from
+                            // releasing its context.
+                            let store_id = store.as_store_ref().objects().id();
+                            let _pause_guard =
+                                unsafe { crate::StoreContext::pause(store_id) };
+                            self.func
+                                .as_js()
+                                .handle
+                                .function
+                                .apply(&JsValue::UNDEFINED, &args_array)
+                        };
                         let store_mut = store.as_store_mut();
                         if let Some(callback) = store_mut.inner.on_called.take() {
                             match callback(store_mut) {

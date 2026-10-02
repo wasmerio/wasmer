@@ -604,15 +604,33 @@ impl Function {
         let store_install_guard =
             unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
 
+        let store_id = store.as_store_ref().objects().id();
+
         let result = {
             let mut r;
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
-                r = js_sys::Reflect::apply(
-                    &self.handle.function,
-                    &wasm_bindgen::JsValue::NULL,
-                    &arr,
-                );
+                r = {
+                    // Lend the store to the guest for the duration of the call,
+                    // exactly as `sys` does around its trampoline.
+                    //
+                    // Without this, a frame that reached here while holding a
+                    // borrow — a syscall delivering a signal to a guest handler,
+                    // say — keeps that borrow counted while the guest runs, and a
+                    // guest that then suspends cannot release its context. The
+                    // caller must not use a `StoreMut` across this; nothing here
+                    // does, and the trampolines re-acquire afterwards.
+                    //
+                    // Safety: `&mut self` on the store makes the paused borrow
+                    // unreachable for every frame on this thread until the guard
+                    // is dropped.
+                    let _pause_guard = unsafe { StoreContext::pause(store_id) };
+                    js_sys::Reflect::apply(
+                        &self.handle.function,
+                        &wasm_bindgen::JsValue::NULL,
+                        &arr,
+                    )
+                };
                 let store_mut = store.as_store_mut();
                 if let Some(callback) = store_mut.inner.on_called.take() {
                     match callback(store_mut) {
@@ -920,6 +938,12 @@ macro_rules! impl_host_function {
                 let store_id = wasmer_types::StoreId::from_raw(
                     std::num::NonZeroUsize::new(store_ptr).expect("a store id is never zero"),
                 );
+                // Scoped: the host function below may re-enter the guest, and a
+                // guest that suspends needs the store lent onwards — which
+                // `Function::call` does by pausing this borrow. A `StoreMut` held
+                // across that would be left with a dead tag, so the arguments are
+                // converted through this acquisition and the results through a
+                // fresh one. `sys` does the same, with `get_current_transient`.
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
                 let mut store = store_wrapper.as_mut();
 
@@ -934,6 +958,10 @@ macro_rules! impl_host_function {
 
                 match result {
                     Ok(Ok(result)) => {
+                        // Re-acquired rather than reused: see the acquisition above.
+                        drop(store_wrapper);
+                        let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                        let mut store = store_wrapper.as_mut();
                         let c_struct = unsafe { result.into_c_struct(&mut store) };
                         return c_struct;
                     },
@@ -973,6 +1001,12 @@ macro_rules! impl_host_function {
                 let store_id = wasmer_types::StoreId::from_raw(
                     std::num::NonZeroUsize::new(store_ptr).expect("a store id is never zero"),
                 );
+                // Scoped: the host function below may re-enter the guest, and a
+                // guest that suspends needs the store lent onwards — which
+                // `Function::call` does by pausing this borrow. A `StoreMut` held
+                // across that would be left with a dead tag, so the arguments are
+                // converted through this acquisition and the results through a
+                // fresh one. `sys` does the same, with `get_current_transient`.
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
                 let mut store = store_wrapper.as_mut();
 
@@ -1004,6 +1038,10 @@ macro_rules! impl_host_function {
 
                 match result {
                     Ok(Ok(result)) => {
+                        // Re-acquired rather than reused: see the acquisition above.
+                        drop(store_wrapper);
+                        let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                        let mut store = store_wrapper.as_mut();
                         let c_struct = unsafe { result.into_c_struct(&mut store) };
                         return c_struct;
                     },
