@@ -1,4 +1,5 @@
 //#ExpectedStdout: fcntl F_SETFD test passed
+//#MinimalLibc: v2026-10-02.1
 
 // fcntl(F_SETFD) must both set and clear FD_CLOEXEC; the libc used to treat
 // every F_SETFD as a request to set it.

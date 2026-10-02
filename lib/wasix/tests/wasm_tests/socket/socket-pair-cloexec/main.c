@@ -1,4 +1,5 @@
 //#ExpectedStdout: socketpair flags test passed
+//#MinimalLibc: v2026-10-02.1
 
 // socketpair() must honor SOCK_CLOEXEC and SOCK_NONBLOCK like socket() does,
 // and a SOCK_CLOEXEC end must be closed across exec. libuv creates duplex
