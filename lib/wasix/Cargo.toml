@@ -63,6 +63,7 @@ chrono = { workspace = true, default-features = false, features = [
   "clock",
 ], optional = true }
 bytes.workspace = true
+web-time.workspace = true
 anyhow.workspace = true
 sha2.workspace = true
 waker-fn.workspace = true
