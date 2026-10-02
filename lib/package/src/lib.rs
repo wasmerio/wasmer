@@ -4,6 +4,8 @@ mod macros;
 
 mod error;
 
+#[cfg(feature = "authoring")]
+pub use error::AuthoringError;
 pub use error::WasmerPackageError;
 
 #[cfg(feature = "authoring")]

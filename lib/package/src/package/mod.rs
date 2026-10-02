@@ -11,7 +11,7 @@ pub use self::{
     strictness::Strictness,
     volume::{WasmerPackageVolume, fs::*, in_memory::*},
 };
-pub use crate::WasmerPackageError;
+pub use crate::{AuthoringError, WasmerPackageError};
 
 #[cfg(test)]
 mod tests {
