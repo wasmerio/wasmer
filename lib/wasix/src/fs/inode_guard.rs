@@ -38,6 +38,11 @@ pub struct InodeValFilePollGuard {
     pub(crate) peb: PollEventSet,
     pub(crate) subscription: Subscription,
     pub(crate) mode: InodeValFilePollGuardMode,
+    /// `Arc::as_ptr` of the watched `InodeVal`, taken when this guard was built.
+    /// The interest lists are keyed by fd *number*, which the guest recycles, so
+    /// a close may only prune a subscription whose guard points at the very
+    /// object being closed. See `EpollState::prune_closed`.
+    pub(crate) target: usize,
 }
 
 impl InodeValFilePollGuard {
@@ -46,6 +51,7 @@ impl InodeValFilePollGuard {
         peb: PollEventSet,
         subscription: Subscription,
         guard: &Kind,
+        target: usize,
     ) -> Option<Self> {
         let mode = match guard {
             Kind::EventNotifications { inner, .. } => {
@@ -76,6 +82,7 @@ impl InodeValFilePollGuard {
             mode,
             peb,
             subscription,
+            target,
         })
     }
 }
