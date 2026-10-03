@@ -5,7 +5,7 @@
 use std::{
     sync::{
         Arc, Barrier, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     thread,
     time::Duration,
@@ -16,6 +16,7 @@ use wasmer::{
     AsStoreMut, Exception, Function, FunctionEnv, Instance, Module, RuntimeError, Store, Tag,
     imports,
 };
+use wasmer_types::StoreId;
 use wasmer_vm::TrapCode;
 
 const INFINITE_LOOP_WAT: &str = r#"
@@ -267,6 +268,77 @@ where
     let result = worker.join().unwrap().unwrap().unwrap_err();
     assert!(finished.load(Ordering::SeqCst));
     assert_eq!(result.to_trap().unwrap(), TrapCode::HostInterrupt);
+
+    Ok(())
+}
+
+const HOST_CALL_LOOP_WAT: &str = r#"
+    (module
+      (import "env" "f" (func $f))
+      (func (export "run")
+        loop
+          call $f
+          br 0
+        end
+      )
+    )"#;
+
+/// Interrupts `store_id` once per round, after a pseudo-random delay, so the
+/// interrupts land all over the guest's host-call loop. Bump `round` before
+/// each call and set `stop` when done.
+fn spawn_round_interrupter(
+    store_id: StoreId,
+    round: Arc<AtomicUsize>,
+    stop: Arc<AtomicBool>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut interrupted_round = 0;
+        let mut rng = 0x9e37_79b9_u32;
+        while !stop.load(Ordering::Relaxed) {
+            let current = round.load(Ordering::Acquire);
+            if current == interrupted_round {
+                std::hint::spin_loop();
+                continue;
+            }
+            rng ^= rng << 13;
+            rng ^= rng >> 17;
+            rng ^= rng << 5;
+            for _ in 0..rng % 1024 {
+                std::hint::spin_loop();
+            }
+            // Fails while the call has not started yet; try again then.
+            if wasmer_vm::interrupt_registry::interrupt(store_id).is_ok() {
+                interrupted_round = current;
+            }
+        }
+    })
+}
+
+// An interrupt that lands while a host function's trampoline is back on the
+// Wasm stack must not abandon anything the trampoline holds there: a leaked
+// store-context borrow made the next call on the thread panic, and abort.
+#[test]
+fn interrupt_during_host_function_return() -> Result<()> {
+    let wasm = wat::parse_str(HOST_CALL_LOOP_WAT)?;
+    let mut store = Store::default();
+    let module = Module::new(&store, &wasm)?;
+    let f = Function::new_typed(&mut store, || {});
+    let imports = imports! { "env" => { "f" => f } };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let run = instance
+        .exports
+        .get_typed_function::<(), ()>(&store, "run")?;
+
+    let round = Arc::new(AtomicUsize::new(0));
+    let stop = Arc::new(AtomicBool::new(false));
+    let interrupter = spawn_round_interrupter(store.id(), round.clone(), stop.clone());
+    for i in 1..=100_000 {
+        round.store(i, Ordering::Release);
+        let err = run.call(&mut store).unwrap_err();
+        assert_eq!(err.to_trap(), Some(TrapCode::HostInterrupt));
+    }
+    stop.store(true, Ordering::Relaxed);
+    interrupter.join().unwrap();
 
     Ok(())
 }

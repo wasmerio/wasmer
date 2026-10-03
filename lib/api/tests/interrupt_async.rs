@@ -7,7 +7,10 @@
 // TODO: tests for recursive function calls across different stores
 
 use std::{
-    sync::{Arc, Barrier, Mutex, atomic::AtomicU32},
+    sync::{
+        Arc, Barrier, Mutex,
+        atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
+    },
     task::{Context, Poll},
     thread,
     time::Duration,
@@ -145,6 +148,73 @@ fn all_futures_from_store_are_interrupted() -> Result<()> {
             TrapCode::HostInterrupt
         );
     }
+
+    Ok(())
+}
+
+// The async flavour of `interrupt_during_host_function_return` in
+// `interrupt.rs`, which is how WASIX runs guests: the store context belongs to
+// `AsyncCallFuture` here, and a leaked borrow made its guard panic during
+// unwinding, aborting the process.
+#[test]
+fn async_interrupt_during_host_function_return() -> Result<()> {
+    let wasm = wat::parse_str(
+        r#"
+        (module
+          (import "env" "f" (func $f))
+          (func (export "run")
+            loop
+              call $f
+              br 0
+            end
+          )
+        )"#,
+    )?;
+    let mut store = Store::default();
+    let module = Module::new(&store, &wasm)?;
+    let f = Function::new_typed(&mut store, || {});
+    let imports = imports! { "env" => { "f" => f } };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let run = instance
+        .exports
+        .get_typed_function::<(), ()>(&store, "run")?;
+
+    let store_id = store.id();
+    let store_async = store.into_async();
+    let round = Arc::new(AtomicUsize::new(0));
+    let stop = Arc::new(AtomicBool::new(false));
+    // Interrupts once per round, after a pseudo-random delay.
+    let interrupter = thread::spawn({
+        let round = round.clone();
+        let stop = stop.clone();
+        move || {
+            let mut interrupted_round = 0;
+            let mut rng = 0x9e37_79b9_u32;
+            while !stop.load(Ordering::Relaxed) {
+                let current = round.load(Ordering::Acquire);
+                if current == interrupted_round {
+                    std::hint::spin_loop();
+                    continue;
+                }
+                rng ^= rng << 13;
+                rng ^= rng >> 17;
+                rng ^= rng << 5;
+                for _ in 0..rng % 1024 {
+                    std::hint::spin_loop();
+                }
+                if wasmer_vm::interrupt_registry::interrupt(store_id).is_ok() {
+                    interrupted_round = current;
+                }
+            }
+        }
+    });
+    for i in 1..=100_000 {
+        round.store(i, Ordering::Release);
+        let err = futures::executor::block_on(run.call_async(&store_async)).unwrap_err();
+        assert_eq!(err.to_trap(), Some(TrapCode::HostInterrupt));
+    }
+    stop.store(true, Ordering::Relaxed);
+    interrupter.join().unwrap();
 
     Ok(())
 }
