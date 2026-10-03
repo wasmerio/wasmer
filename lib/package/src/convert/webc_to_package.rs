@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Component, Path};
 
 use wasmer_config::package::ModuleReference;
 
@@ -6,9 +6,40 @@ use webc::Container;
 
 use super::ConversionError;
 
+/// Returns true if interpreting `name` as a path relative to a root directory
+/// would resolve to a location outside of that root (i.e. it contains enough
+/// `..` components to climb above the root).
+fn escapes_root(name: &str) -> bool {
+    let mut depth: i32 = 0;
+    for component in Path::new(name).components() {
+        match component {
+            Component::ParentDir => {
+                depth -= 1;
+                if depth < 0 {
+                    return true;
+                }
+            }
+            Component::Normal(_) => depth += 1,
+            // RootDir / CurDir / Prefix don't change the depth.
+            _ => {}
+        }
+    }
+    false
+}
+
 /// Convert a webc image into a directory with a wasmer.toml file that can
 /// be used for generating a new package.
-pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), ConversionError> {
+///
+/// Volume and atom names are taken verbatim from the (untrusted) webc. If one
+/// of them would resolve outside `target_dir` (for example a volume named
+/// `../x`), the conversion fails unless `allow_escape` is set. The names are
+/// otherwise written as-is so that the result stays consistent with the
+/// generated wasmer.toml.
+pub fn webc_to_package_dir(
+    webc: &Container,
+    target_dir: &Path,
+    allow_escape: bool,
+) -> Result<(), ConversionError> {
     let mut pkg_manifest = wasmer_config::package::Manifest::new_empty();
 
     let manifest = webc.manifest();
@@ -90,6 +121,13 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
                 ))
             })?;
 
+            if !allow_escape && escapes_root(&mapping.volume_name) {
+                return Err(ConversionError::msg(format!(
+                    "volume name '{}' would extract outside the output directory; \
+                     pass --allow-escape to allow this",
+                    mapping.volume_name
+                )));
+            }
             let volume_path = target_dir.join(mapping.volume_name.trim_start_matches('/'));
 
             std::fs::create_dir_all(&volume_path).map_err(|err| {
@@ -139,7 +177,13 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
             )
         })?;
         for (atom_name, data) in atoms {
-            let atom_path = module_dir.join(&atom_name);
+            if !allow_escape && escapes_root(&atom_name) {
+                return Err(ConversionError::msg(format!(
+                    "atom name '{atom_name}' would be written outside the output directory; \
+                     pass --allow-escape to allow this"
+                )));
+            }
+            let atom_path = module_dir.join(atom_name.trim_start_matches('/'));
 
             std::fs::write(&atom_path, &data).map_err(|err| {
                 ConversionError::with_cause(
@@ -230,6 +274,88 @@ mod tests {
 
     use super::*;
 
+    // A hostile webc can name a volume "../something". By default extracting it
+    // must fail rather than silently write outside the output directory, but the
+    // escape can be opted into explicitly.
+    #[test]
+    fn webc_to_package_dir_rejects_volume_name_traversal() {
+        use std::collections::BTreeMap;
+
+        use webc::{
+            PathSegment,
+            metadata::{
+                Manifest,
+                annotations::{FileSystemMapping, FileSystemMappings},
+            },
+            v3::{
+                ChecksumAlgorithm, SignatureAlgorithm, Timestamps,
+                write::{DirEntry, Directory, FileEntry, Writer},
+            },
+        };
+
+        let escaping_name = "../escaped";
+
+        let build_container = || {
+            let mut manifest = Manifest::default();
+            let mappings = FileSystemMappings(vec![FileSystemMapping {
+                from: None,
+                volume_name: escaping_name.to_string(),
+                host_path: None,
+                mount_path: "/data".to_string(),
+            }]);
+            manifest.package.insert(
+                FileSystemMappings::KEY.to_string(),
+                ciborium::Value::serialized(&mappings).unwrap(),
+            );
+
+            let mut children: BTreeMap<PathSegment, DirEntry> = BTreeMap::new();
+            children.insert(
+                "secret".parse().unwrap(),
+                DirEntry::File(FileEntry::owned(b"PWNED".to_vec(), Timestamps::default())),
+            );
+            let volume = Directory::new(children, Timestamps::default());
+
+            let mut writer = Writer::new(ChecksumAlgorithm::Sha256)
+                .write_manifest(&manifest)
+                .unwrap()
+                .write_atoms(BTreeMap::new())
+                .unwrap();
+            writer.write_volume(escaping_name, volume).unwrap();
+            let bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+            from_bytes(bytes).unwrap()
+        };
+
+        // Default: the escaping volume is rejected and nothing is written to a
+        // sibling of the output directory.
+        {
+            let tmpdir = tempfile::tempdir().unwrap();
+            let root = tmpdir.path();
+            let target_dir = root.join("out");
+            create_dir_all(&target_dir).unwrap();
+
+            let err = webc_to_package_dir(&build_container(), &target_dir, false).unwrap_err();
+            assert!(
+                err.to_string().contains("output directory"),
+                "unexpected error: {err}"
+            );
+            assert!(
+                !root.join("escaped").join("secret").exists(),
+                "volume escaped the output directory"
+            );
+        }
+
+        // With allow_escape the original (escaping) behavior is preserved.
+        {
+            let tmpdir = tempfile::tempdir().unwrap();
+            let root = tmpdir.path();
+            let target_dir = root.join("out");
+            create_dir_all(&target_dir).unwrap();
+
+            webc_to_package_dir(&build_container(), &target_dir, true).unwrap();
+            assert!(root.join("escaped").join("secret").exists());
+        }
+    }
+
     // Build a webc from a package directory, and then restore the directory
     // from the webc.
     #[test]
@@ -284,7 +410,7 @@ main-args = ["/mounted/script.py"]
         };
 
         let dir_output = dir.join("output");
-        webc_to_package_dir(&webc, &dir_output).unwrap();
+        webc_to_package_dir(&webc, &dir_output, false).unwrap();
 
         assert_eq!(
             std::fs::read_to_string(dir_output.join("public/index.html")).unwrap(),
