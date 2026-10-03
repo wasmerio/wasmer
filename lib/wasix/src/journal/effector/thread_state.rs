@@ -38,7 +38,7 @@ impl JournalEffector {
     /// dedicated to this thread. After that it will spawn a WASM thread and
     // continue the thread where it left off, which may even mean it goes
     // straight back to sleep.
-    pub fn apply_thread_state<M: MemorySize>(
+    pub fn apply_thread_state<M: MemorySize + 'static>(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         tid: WasiThreadId,
         memory_stack: Bytes,
