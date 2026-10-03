@@ -1,8 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    AsStoreMut, AsStoreRef, LocalRwLock, LocalRwLockReadGuard, LocalRwLockWriteGuard, Store,
-    StoreContext, StoreInner, StoreMut, StorePtrWrapper, StoreRef,
+    AsStoreMut, AsStoreRef, LocalRwLock, LocalRwLockReadGuard, LocalRwLockWeak,
+    LocalRwLockWriteGuard, Store, StoreContext, StoreInner, StoreMut, StorePtrWrapper, StoreRef,
 };
 
 use wasmer_types::StoreId;
@@ -13,6 +13,12 @@ pub struct StoreAsync {
     pub(crate) id: StoreId,
     // We use a box inside the RW lock because the StoreInner shouldn't be moved
     pub(crate) inner: LocalRwLock<Box<StoreInner>>,
+}
+
+#[derive(Clone)]
+pub(crate) struct WeakStoreAsync {
+    id: StoreId,
+    inner: LocalRwLockWeak<Box<StoreInner>>,
 }
 
 impl StoreAsync {
@@ -27,6 +33,13 @@ impl StoreAsync {
                 }),
             }),
             _ => None,
+        }
+    }
+
+    pub(crate) fn downgrade(&self) -> WeakStoreAsync {
+        WeakStoreAsync {
+            id: self.id,
+            inner: self.inner.downgrade(),
         }
     }
 
@@ -65,6 +78,19 @@ impl StoreAsync {
 
         let store_guard = self.inner.try_write().expect("StoreAsync is locked");
         StoreAsyncWriteLock { inner: store_guard }
+    }
+}
+
+impl WeakStoreAsync {
+    pub(crate) fn id(&self) -> StoreId {
+        self.id
+    }
+
+    pub(crate) fn upgrade(&self) -> Option<StoreAsync> {
+        Some(StoreAsync {
+            id: self.id,
+            inner: self.inner.upgrade()?,
+        })
     }
 }
 
@@ -138,6 +164,12 @@ impl StoreAsyncWriteLock {
     pub(crate) async fn acquire(store: &StoreAsync) -> Self {
         let store_guard = store.inner.write().await;
         Self { inner: store_guard }
+    }
+
+    pub(crate) fn try_acquire(store: &StoreAsync) -> Option<Self> {
+        Some(Self {
+            inner: store.inner.try_write()?,
+        })
     }
 }
 
