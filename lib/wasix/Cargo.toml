@@ -241,6 +241,7 @@ sys = [
   "wasmer/demangle",
   # We must ensure at least one compiler backend (or `headless`) is enabled for `wasmer/sys`.
   "wasmer/headless",
+  "memory64",
   "webc/v1",
   "webc/v2",
 ]
@@ -253,6 +254,9 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+
+# Enables the `wasix_64v1` ABI and its 64-bit syscall implementations.
+memory64 = []
 
 singlepass = ["wasmer/singlepass"]
 v8 = ["wasmer/v8"]
