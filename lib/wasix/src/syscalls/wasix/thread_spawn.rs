@@ -70,7 +70,7 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
         let stack_size: u64 = start.stack_size.into();
         let guard_size: u64 = start.guard_size.into();
         let tls_base: u64 = start.tls_base.into();
-        let stack_lower = stack_upper - stack_size;
+        let stack_lower = stack_upper.checked_sub(stack_size).ok_or(Errno::Inval)?;
 
         WasiMemoryLayout {
             stack_upper,
@@ -111,6 +111,52 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
     Ok(thread_id)
 }
 
+/// Largest thread ID that may be handed to `wasi_thread_start`.
+///
+/// The wasi-threads spec restricts TIDs to `[1, 2^29)`: the sign bit is used
+/// by `thread-spawn` to report errors, and libc implementations reserve the
+/// next bits in their lock words (musl stores the owner TID in the low 30
+/// bits and uses `0x3fffffff` as a sentinel).
+const MAX_THREAD_ID: u32 = (1 << 29) - 1;
+
+/// Arguments for the guest's `wasi_thread_start(tid: i32, start_arg: i32)`.
+///
+/// They are validated when the thread is spawned so that a bad value is
+/// reported to the caller as an errno instead of failing in the new thread.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ThreadStartArgs {
+    tid: i32,
+    start_arg: i32,
+}
+
+impl ThreadStartArgs {
+    fn new(tid: WasiThreadId, start_ptr: u64) -> Result<Self, Errno> {
+        let tid = tid.raw();
+        if !(1..=MAX_THREAD_ID).contains(&tid) {
+            tracing::warn!(
+                tid,
+                "thread ID is outside the range allowed by wasi-threads"
+            );
+            return Err(Errno::Again);
+        }
+        let start_arg = wasm32_ptr_to_i32_arg(start_ptr).inspect_err(|_| {
+            tracing::warn!(
+                start_ptr,
+                "thread start pointer does not fit into the i32 argument of wasi_thread_start"
+            );
+        })?;
+
+        Ok(Self {
+            tid: tid.cast_signed(),
+            start_arg,
+        })
+    }
+
+    fn to_values(self) -> Vec<Value> {
+        vec![Value::I32(self.tid), Value::I32(self.start_arg)]
+    }
+}
+
 pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     thread_handle: Arc<WasiThreadHandle>,
@@ -118,6 +164,8 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     start_ptr_offset: M::Offset,
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> Result<(), Errno> {
+    let start_args = ThreadStartArgs::new(thread_handle.id(), start_ptr_offset.into())?;
+
     // We extract the memory which will be passed to the thread
     let func_env = ctx.as_ref();
     let mut store = ctx.as_store_mut();
@@ -151,7 +199,7 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
         let thread_handle = thread_handle;
         move |ctx: WasiFunctionEnv, mut store: Store| {
             // Call the thread
-            call_module::<M>(ctx, store, start_ptr_offset, thread_handle, rewind_state)
+            call_module::<M>(ctx, store, start_args, thread_handle, rewind_state)
         }
     };
 
@@ -194,33 +242,27 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 }
 
 // This function calls into the module
-fn call_module_internal<M: MemorySize>(
+fn call_module_internal(
     ctx: &WasiFunctionEnv,
     mut store: Store,
-    start_ptr_offset: M::Offset,
+    start_args: ThreadStartArgs,
 ) -> (Store, Result<Option<ExitCode>, DeepSleepWork>) {
-    // Note: we ensure both unwraps can happen before getting to this point
-    let spawn = ctx
+    // The spawning thread checked that the module exports `wasi_thread_start`,
+    // and this thread runs an instance of the same module.
+    let Some(spawn) = ctx
         .data(&store)
         .inner()
         .main_module_instance_handles()
         .thread_spawn
         .clone()
-        .unwrap();
-    let tid = ctx.data(&store).tid();
+    else {
+        error!("thread failed - the program does not export a `wasi_thread_start` function");
+        return (store, Ok(Some(Errno::Notcapable.into())));
+    };
 
     let spawn: Function = spawn.into();
-    let tid_i32 = tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap();
-    let start_pointer_i32 = start_ptr_offset
-        .try_into()
-        .map_err(|_| Errno::Overflow)
-        .unwrap();
-    let (mut store, thread_result) = ContextSwitchingEnvironment::run_main_context(
-        ctx,
-        store,
-        spawn,
-        vec![Value::I32(tid_i32), Value::I32(start_pointer_i32)],
-    );
+    let (mut store, thread_result) =
+        ContextSwitchingEnvironment::run_main_context(ctx, store, spawn, start_args.to_values());
     let thread_result = thread_result.map(|_| ());
 
     trace!("callback finished (ret={:?})", thread_result);
@@ -297,7 +339,7 @@ fn handle_thread_result(
 fn call_module<M: MemorySize>(
     mut ctx: WasiFunctionEnv,
     mut store: Store,
-    start_ptr_offset: M::Offset,
+    start_args: ThreadStartArgs,
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) {
@@ -320,7 +362,7 @@ fn call_module<M: MemorySize>(
     }
 
     // Now invoke the module
-    let (mut store, ret) = call_module_internal::<M>(&ctx, store, start_ptr_offset);
+    let (mut store, ret) = call_module_internal(&ctx, store, start_args);
 
     // If it went to deep sleep then we need to handle that
     if let Err(deep) = ret {
@@ -333,7 +375,7 @@ fn call_module<M: MemorySize>(
                 call_module::<M>(
                     ctx,
                     store,
-                    start_ptr_offset,
+                    start_args,
                     thread_handle,
                     Some((rewind, RewindResultType::RewindWithResult(trigger_res))),
                 );
@@ -357,4 +399,48 @@ fn call_module<M: MemorySize>(
     }
 
     drop(thread_handle);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TID: u32 = 2;
+
+    fn start_args(tid: u32, start_ptr: u64) -> Result<ThreadStartArgs, Errno> {
+        ThreadStartArgs::new(WasiThreadId::from(tid), start_ptr)
+    }
+
+    #[test]
+    fn start_args_keep_bits_of_pointers_above_2gib() {
+        let args = start_args(TID, 0x8000_0000).unwrap();
+        assert_eq!(args.start_arg, i32::MIN);
+        assert_eq!(args.start_arg.cast_unsigned(), 0x8000_0000);
+
+        let args = start_args(TID, u32::MAX.into()).unwrap();
+        assert_eq!(args.start_arg, -1);
+
+        let args = start_args(TID, 0x7fff_fff0).unwrap();
+        assert_eq!(args.start_arg, 0x7fff_fff0);
+    }
+
+    #[test]
+    fn start_args_reject_pointers_wider_than_32_bits() {
+        assert_eq!(start_args(TID, 1 << 32), Err(Errno::Overflow));
+        assert_eq!(start_args(TID, u64::MAX), Err(Errno::Overflow));
+    }
+
+    #[test]
+    fn start_args_enforce_wasi_threads_tid_range() {
+        let args = start_args(MAX_THREAD_ID, 0).unwrap();
+        assert_eq!(args.tid, 0x1fff_ffff);
+
+        for tid in [0, MAX_THREAD_ID + 1, i32::MAX.cast_unsigned(), u32::MAX] {
+            assert_eq!(
+                start_args(tid, 0),
+                Err(Errno::Again),
+                "tid {tid:#x} must be rejected"
+            );
+        }
+    }
 }
