@@ -670,12 +670,17 @@ impl crate::FileSystem for FileSystem {
         // Read lock.
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
         match guard.inode_of(path)? {
-            InodeResolution::Found(inode) => Ok(guard
-                .storage
-                .get(inode)
-                .ok_or(FsError::UnknownError)?
-                .metadata()
-                .clone()),
+            InodeResolution::Found(inode) => {
+                match guard.storage.get(inode).ok_or(FsError::UnknownError)? {
+                    Node::ArcDirectory(ArcDirectoryNode { fs, path, .. })
+                    | Node::ArcFile(ArcFileNode { fs, path, .. }) => {
+                        let (fs, path) = (fs.clone(), path.clone());
+                        drop(guard);
+                        fs.metadata(&path)
+                    }
+                    node => Ok(node.metadata().clone()),
+                }
+            }
             InodeResolution::Redirect(fs, path) => {
                 drop(guard);
                 fs.metadata(path.as_path())
@@ -687,17 +692,70 @@ impl crate::FileSystem for FileSystem {
         // Read lock.
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
         match guard.inode_of(path)? {
-            InodeResolution::Found(inode) => Ok(guard
-                .storage
-                .get(inode)
-                .ok_or(FsError::UnknownError)?
-                .metadata()
-                .clone()),
+            InodeResolution::Found(inode) => {
+                match guard.storage.get(inode).ok_or(FsError::UnknownError)? {
+                    Node::ArcDirectory(ArcDirectoryNode { fs, path, .. })
+                    | Node::ArcFile(ArcFileNode { fs, path, .. }) => {
+                        let (fs, path) = (fs.clone(), path.clone());
+                        drop(guard);
+                        fs.symlink_metadata(&path)
+                    }
+                    node => Ok(node.metadata().clone()),
+                }
+            }
             InodeResolution::Redirect(fs, path) => {
                 drop(guard);
                 fs.symlink_metadata(path.as_path())
             }
         }
+    }
+
+    fn set_times(
+        &self,
+        path: &Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> Result<()> {
+        let mut path = path.to_path_buf();
+        for _ in 0..40 {
+            let mut guard = self.inner.write().map_err(|_| FsError::Lock)?;
+            let inode = match guard.inode_of(&path)? {
+                InodeResolution::Found(inode) => inode,
+                InodeResolution::Redirect(fs, path) => {
+                    drop(guard);
+                    return fs.set_times(&path, atime, mtime, follow_symlinks);
+                }
+            };
+            let node = guard.storage.get_mut(inode).ok_or(FsError::EntryNotFound)?;
+            match node {
+                Node::ArcDirectory(ArcDirectoryNode { fs, path, .. })
+                | Node::ArcFile(ArcFileNode { fs, path, .. }) => {
+                    let (fs, path) = (fs.clone(), path.clone());
+                    drop(guard);
+                    return fs.set_times(&path, atime, mtime, follow_symlinks);
+                }
+                Node::Symlink(SymlinkNode { target, .. }) if follow_symlinks => {
+                    path = if target.is_absolute() {
+                        target.clone()
+                    } else {
+                        path.parent().ok_or(FsError::InvalidInput)?.join(&*target)
+                    };
+                    path = guard.canonicalize_without_inode(&path)?;
+                    continue;
+                }
+                _ => {}
+            }
+            let metadata = node.metadata_mut();
+            if let Some(atime) = atime {
+                metadata.accessed = atime;
+            }
+            if let Some(mtime) = mtime {
+                metadata.modified = mtime;
+            }
+            return Ok(());
+        }
+        Err(FsError::InvalidInput)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
