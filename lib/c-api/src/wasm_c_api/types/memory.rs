@@ -48,10 +48,7 @@ impl wasm_memorytype_t {
     }
 }
 
-wasm_declare_boxed_vec!(memorytype);
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
+pub(crate) fn memory_type_from_limits(limits: &wasm_limits_t, shared: bool) -> MemoryType {
     let min_pages = Pages(limits.min as _);
     let max_pages = if limits.max == LIMITS_MAX_SENTINEL {
         None
@@ -59,9 +56,35 @@ pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm
         Some(Pages(limits.max as _))
     };
 
-    Box::new(wasm_memorytype_t::new(MemoryType::new(
-        min_pages, max_pages, false,
+    MemoryType::new(min_pages, max_pages, shared)
+}
+
+wasm_declare_boxed_vec!(memorytype);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
+    Box::new(wasm_memorytype_t::new(memory_type_from_limits(
+        limits, false,
     )))
+}
+
+/// Creates a shared memory type.
+///
+/// This extends the WebAssembly C API without changing the ABI of
+/// [`wasm_limits_t`], which does not carry a shared-memory flag.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wasm_shared_memorytype_new(
+    limits: &wasm_limits_t,
+) -> Box<wasm_memorytype_t> {
+    Box::new(wasm_memorytype_t::new(memory_type_from_limits(
+        limits, true,
+    )))
+}
+
+/// Returns whether a memory type describes shared memory.
+#[unsafe(no_mangle)]
+pub extern "C" fn wasm_memorytype_is_shared(memory_type: &wasm_memorytype_t) -> bool {
+    memory_type.inner().memory_type.shared
 }
 
 #[unsafe(no_mangle)]
@@ -80,4 +103,31 @@ const LIMITS_MAX_SENTINEL: u32 = u32::MAX;
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memorytype_limits(memory_type: &wasm_memorytype_t) -> &wasm_limits_t {
     &memory_type.inner().limits
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_memorytype_preserves_limits() {
+        let limits = wasm_limits_t { min: 1, max: 2 };
+        let shared = unsafe { wasm_shared_memorytype_new(&limits) };
+
+        assert!(wasm_memorytype_is_shared(&shared));
+        assert_eq!(shared.inner().memory_type.minimum, Pages(1));
+        assert_eq!(shared.inner().memory_type.maximum, Some(Pages(2)));
+    }
+
+    #[test]
+    fn standard_memorytype_is_not_shared() {
+        let limits = wasm_limits_t {
+            min: 0,
+            max: LIMITS_MAX_SENTINEL,
+        };
+        let memory_type = unsafe { wasm_memorytype_new(&limits) };
+
+        assert!(!wasm_memorytype_is_shared(&memory_type));
+        assert_eq!(memory_type.inner().memory_type.maximum, None);
+    }
 }

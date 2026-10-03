@@ -1,13 +1,13 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
-use crate::{
-    StoreMut,
-    js::{store::StoreHandle, vm::VMFunctionEnvironment},
-    store::{AsStoreMut, AsStoreRef, StoreRef},
-};
 #[cfg(feature = "experimental-async")]
 use crate::{
-    AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock,
+    AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock, WeakStoreAsync,
+};
+use crate::{
+    StoreContext, StoreMut,
+    js::{store::StoreHandle, vm::VMFunctionEnvironment},
+    store::{AsStoreMut, AsStoreRef, StoreRef},
 };
 #[cfg(feature = "experimental-async")]
 use wasmer_types::StoreId;
@@ -157,6 +157,15 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
         self.store_mut.as_store_async()
     }
+
+    #[cfg(feature = "experimental-async")]
+    pub fn as_async_mut(&self) -> Option<AsyncFunctionEnvMut<T>> {
+        let store = StoreAsync::from_context(self.store_mut.as_store_ref().objects().id())?;
+        Some(AsyncFunctionEnvMut {
+            store: store.downgrade(),
+            func_env: self.func_env.clone(),
+        })
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
@@ -219,7 +228,7 @@ impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
 
 #[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvMut<T> {
-    pub(crate) store: StoreAsync,
+    pub(crate) store: WeakStoreAsync,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
@@ -239,10 +248,7 @@ pub struct AsyncFunctionEnvHandleMut<T> {
 impl<T> Clone for AsyncFunctionEnvMut<T> {
     fn clone(&self) -> Self {
         Self {
-            store: StoreAsync {
-                id: self.store.id,
-                inner: self.store.inner.clone(),
-            },
+            store: self.store.clone(),
             func_env: self.func_env.clone(),
         }
     }
@@ -254,7 +260,10 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.store.inner.try_read() {
+        let Some(store) = self.store.upgrade() else {
+            return write!(f, "AsyncFunctionEnvMut {{ <STORE DROPPED> }}");
+        };
+        match store.inner.try_read() {
             Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
             None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
         }
@@ -264,21 +273,51 @@ where
 #[cfg(feature = "experimental-async")]
 impl<T: 'static> AsyncFunctionEnvMut<T> {
     pub(crate) fn store_id(&self) -> StoreId {
-        self.store.id
+        self.store.id()
     }
 
     pub async fn read(&self) -> AsyncFunctionEnvHandle<T> {
+        let store = self
+            .store
+            .upgrade()
+            .expect("async function store was dropped");
         AsyncFunctionEnvHandle {
-            read_lock: self.store.read_lock().await,
+            read_lock: store.read_lock().await,
             func_env: self.func_env.clone(),
         }
     }
 
     pub async fn write(&self) -> AsyncFunctionEnvHandleMut<T> {
+        let store = self
+            .store
+            .upgrade()
+            .expect("async function store was dropped");
         AsyncFunctionEnvHandleMut {
-            write_lock: self.store.write_lock().await,
+            write_lock: store.write_lock().await,
             func_env: self.func_env.clone(),
         }
+    }
+
+    pub fn try_write(&self) -> Option<AsyncFunctionEnvHandleMut<T>> {
+        let store = self.store.upgrade()?;
+        Some(AsyncFunctionEnvHandleMut {
+            write_lock: StoreAsyncWriteLock::try_acquire(&store)?,
+            func_env: self.func_env.clone(),
+        })
+    }
+
+    /// Uses the Store context already installed on the current JSPI stack.
+    /// This permits synchronous callbacks to re-enter the guest without
+    /// attempting to acquire the async Store lock a second time.
+    pub fn with_current_mut<R>(
+        &self,
+        f: impl FnOnce(FunctionEnvMut<'_, T>) -> R,
+    ) -> Option<R> {
+        let mut store_wrapper = unsafe { StoreContext::try_get_current(self.store_id()) }?;
+        Some(f(FunctionEnvMut {
+            store_mut: store_wrapper.as_mut(),
+            func_env: self.func_env.clone(),
+        }))
     }
 
     pub fn as_ref(&self) -> FunctionEnv<T> {
@@ -290,10 +329,9 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
-        StoreAsync {
-            id: self.store.id,
-            inner: self.store.inner.clone(),
-        }
+        self.store
+            .upgrade()
+            .expect("async function store was dropped")
     }
 }
 

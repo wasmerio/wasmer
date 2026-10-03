@@ -29,6 +29,7 @@ impl FileSystemSource {
         let summary = PackageSummary {
             pkg,
             dist: DistributionInfo {
+                webc_size: None,
                 webc: url,
                 webc_sha256,
             },

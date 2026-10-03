@@ -550,6 +550,16 @@ impl FileSystem for WasiFsRoot {
         self.root.symlink_metadata(path)
     }
 
+    fn set_times(
+        &self,
+        path: &Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> virtual_fs::Result<()> {
+        self.root.set_times(path, atime, mtime, follow_symlinks)
+    }
+
     fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
         self.root.remove_file(path)
     }
@@ -1839,8 +1849,9 @@ impl WasiFs {
     }
 
     pub fn fdstat(&self, fd: WasiFd) -> Result<Fdstat, Errno> {
+        let entry = self.get_fd(fd)?;
         match fd {
-            __WASI_STDIN_FILENO => {
+            __WASI_STDIN_FILENO if entry.is_stdio => {
                 return Ok(Fdstat {
                     fs_filetype: Filetype::CharacterDevice,
                     fs_flags: Fdflags::empty(),
@@ -1848,7 +1859,7 @@ impl WasiFs {
                     fs_rights_inheriting: Rights::empty(),
                 });
             }
-            __WASI_STDOUT_FILENO => {
+            __WASI_STDOUT_FILENO if entry.is_stdio => {
                 return Ok(Fdstat {
                     fs_filetype: Filetype::CharacterDevice,
                     fs_flags: Fdflags::APPEND,
@@ -1856,7 +1867,7 @@ impl WasiFs {
                     fs_rights_inheriting: Rights::empty(),
                 });
             }
-            __WASI_STDERR_FILENO => {
+            __WASI_STDERR_FILENO if entry.is_stdio => {
                 return Ok(Fdstat {
                     fs_filetype: Filetype::CharacterDevice,
                     fs_flags: Fdflags::APPEND,
@@ -1875,7 +1886,7 @@ impl WasiFs {
             }
             _ => (),
         }
-        let fd = self.get_fd(fd)?;
+        let fd = entry;
 
         let guard = fd.inode.read();
         let deref = guard.deref();
@@ -1884,6 +1895,7 @@ impl WasiFs {
                 Kind::File { .. } => Filetype::RegularFile,
                 Kind::Dir { .. } => Filetype::Directory,
                 Kind::Symlink { .. } => Filetype::SymbolicLink,
+                Kind::DuplexPipe { .. } => Filetype::SocketStream,
                 Kind::Socket { socket } => match &socket.inner.protected.read().unwrap().kind {
                     InodeSocketKind::TcpStream { .. } => Filetype::SocketStream,
                     InodeSocketKind::Raw { .. } => Filetype::SocketRaw,
@@ -2612,6 +2624,86 @@ impl WasiFs {
         );
     }
 
+    /// Persist timestamp changes in the shared filesystem, then refresh the
+    /// inode cache. Updating only `InodeVal::stat` loses changes on path stat or
+    /// when another process resolves the same file/directory.
+    pub(crate) fn set_times_for_inode(
+        &self,
+        inode: &InodeGuard,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+    ) -> Result<(), Errno> {
+        let kind = inode.read();
+        match &*kind {
+            Kind::File {
+                handle: Some(handle),
+                ..
+            } => {
+                handle
+                    .write()
+                    .unwrap()
+                    .set_times(atime, mtime)
+                    .map_err(fs_error_into_wasi_err)?;
+            }
+            Kind::File { path, .. } | Kind::Dir { path, .. } => {
+                self.root_fs
+                    .set_times(path, atime, mtime, true)
+                    .map_err(fs_error_into_wasi_err)?;
+            }
+            Kind::Root { .. } => {
+                self.root_fs
+                    .set_times(Path::new("/"), atime, mtime, true)
+                    .map_err(fs_error_into_wasi_err)?;
+            }
+            Kind::Symlink {
+                path_to_symlink, ..
+            } => {
+                let path = PosixPath::new("/")
+                    .join(&PosixPath::from_path(path_to_symlink))
+                    .into_path_buf();
+                self.root_fs
+                    .set_times(&path, atime, mtime, false)
+                    .map_err(fs_error_into_wasi_err)?;
+            }
+            _ => return Err(Errno::Notsup),
+        }
+        let mut stat = inode.stat.write().unwrap();
+        if let Some(atime) = atime {
+            stat.st_atim = atime;
+        }
+        if let Some(mtime) = mtime {
+            stat.st_mtim = mtime;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn stat_for_inode(&self, inode: &InodeGuard) -> Result<Filestat, Errno> {
+        let kind = inode.read();
+        let mut stat = *inode.stat.read().unwrap();
+        stat.st_ino = inode.ino().as_u64();
+        // Synthetic descriptors have no backing metadata. File/directory
+        // descriptors must reflect changes made through paths and other processes.
+        if matches!(
+            &*kind,
+            Kind::File { .. } | Kind::Dir { .. } | Kind::Root { .. } | Kind::Symlink { .. }
+        ) {
+            let current = self.get_stat_for_kind(&kind)?;
+            if stat.st_filetype == Filetype::Unknown
+                || matches!(
+                    &*kind,
+                    Kind::Dir { .. } | Kind::Root { .. } | Kind::Symlink { .. }
+                )
+            {
+                stat.st_filetype = current.st_filetype;
+            }
+            stat.st_size = current.st_size;
+            stat.st_atim = current.st_atim;
+            stat.st_mtim = current.st_mtim;
+            stat.st_ctim = current.st_ctim;
+        }
+        Ok(stat)
+    }
+
     pub fn get_stat_for_kind(&self, kind: &Kind) -> Result<Filestat, Errno> {
         let md = match kind {
             Kind::File { handle, path, .. } => match handle {
@@ -2636,6 +2728,10 @@ impl WasiFs {
             Kind::Dir { path, .. } => self
                 .root_fs
                 .metadata(path)
+                .map_err(fs_error_into_wasi_err)?,
+            Kind::Root { .. } => self
+                .root_fs
+                .metadata(Path::new("/"))
                 .map_err(fs_error_into_wasi_err)?,
             Kind::Symlink {
                 path_to_symlink,

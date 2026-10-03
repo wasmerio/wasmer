@@ -369,6 +369,7 @@ where
 {
     ctx: &'b mut FunctionEnvMut<'c, WasiEnv>,
     work: &'a mut Pin<Box<Fut>>,
+    poll_guest: bool,
 }
 impl<T, Fut> Future for AsyncifyPoller<'_, '_, '_, T, Fut>
 where
@@ -379,6 +380,12 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if let Poll::Ready(res) = self.work.as_mut().poll(cx) {
             return Poll::Ready(Ok(res));
+        }
+
+        // exec has replaced this image. Only the new image may consume the
+        // shared thread's signals or service its dynamic linker.
+        if !self.poll_guest {
+            return Poll::Pending;
         }
 
         if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
@@ -489,8 +496,20 @@ pub(crate) fn maybe_backoff<M: MemorySize>(
 /// and instead process it on a shared task
 ///
 pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, T, Fut>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    work: Fut,
+) -> Result<AsyncifyAction<'_, T>, WasiError>
+where
+    T: serde::Serialize + serde::de::DeserializeOwned,
+    Fut: Future<Output = T> + Send + Sync + 'static,
+{
+    __asyncify_with_deep_sleep_ext::<M, T, Fut>(ctx, work, true)
+}
+
+pub(crate) fn __asyncify_with_deep_sleep_ext<M: MemorySize, T, Fut>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     work: Fut,
+    poll_guest: bool,
 ) -> Result<AsyncifyAction<'_, T>, WasiError>
 where
     T: serde::Serialize + serde::de::DeserializeOwned,
@@ -532,6 +551,7 @@ where
             res = AsyncifyPoller {
                 ctx: &mut ctx,
                 work: &mut trigger,
+                poll_guest,
             } => {
                 let result = res?;
                 AsyncifyAction::Finish(ctx, result)

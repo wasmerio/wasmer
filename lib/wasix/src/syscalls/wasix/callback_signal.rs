@@ -37,7 +37,13 @@ pub fn callback_signal<M: MemorySize>(
     Span::current().record("funct_is_some", funct.is_some());
 
     {
-        let mut env_inner = ctx.data_mut().inner_mut();
+        // Signal registration can be re-entered by a guest callback while
+        // another syscall holds the instance handles. In that case the
+        // callback is already active, so leave the existing registration in
+        // place instead of panicking on a nested RefCell borrow.
+        let Some(mut env_inner) = ctx.data_mut().try_inner_mut() else {
+            return Ok(());
+        };
         let inner = env_inner.main_module_instance_handles_mut();
         inner.signal = funct;
         inner.signal_set = true;

@@ -202,6 +202,7 @@ impl BinaryPackage {
         let root_id = root.id.clone();
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
+        rt.package_loader().resolved(None, &resolution);
         let mut pkg = rt
             .package_loader()
             .load_package_tree(&container, &resolution, true)
@@ -251,6 +252,7 @@ impl BinaryPackage {
         let root_id = root.id.clone();
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
+        rt.package_loader().resolved(None, &resolution);
         let pkg = rt
             .package_loader()
             .load_package_tree(container, &resolution, false)
@@ -275,12 +277,18 @@ impl BinaryPackage {
                     package: specifier.clone(),
                     error,
                 })?;
-        let root = runtime.package_loader().load(&root_summary).await?;
+        let loader = runtime.package_loader();
         let id = root_summary.package_id();
-
-        let resolution = crate::runtime::resolver::resolve(&id, &root_summary.pkg, &source)
-            .await
-            .context("Dependency resolution failed")?;
+        // Discover the complete download plan while acquiring the root image.
+        // Observers can then report a meaningful aggregate total during download.
+        let resolve = async {
+            let resolution = crate::runtime::resolver::resolve(&id, &root_summary.pkg, &source)
+                .await
+                .context("Dependency resolution failed")?;
+            loader.resolved(Some(&root_summary), &resolution);
+            Ok::<_, anyhow::Error>(resolution)
+        };
+        let (root, resolution) = futures::try_join!(loader.load(&root_summary), resolve)?;
         let pkg = runtime
             .package_loader()
             .load_package_tree(&root, &resolution, false)

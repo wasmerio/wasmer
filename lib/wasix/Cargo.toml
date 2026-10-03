@@ -42,7 +42,7 @@ http.workspace = true
 dashmap.workspace = true
 fnv.workspace = true
 base64.workspace = true
-webc.workspace = true
+webc = { workspace = true, features = ["v3"] }
 serde_yaml.workspace = true
 rkyv.workspace = true
 shared-buffer.workspace = true
@@ -117,6 +117,10 @@ web-sys = { workspace = true, features = [
   "WorkerGlobalScope",
   "RequestMode",
   "Response",
+  "ReadableStream",
+  "ReadableStreamDefaultReader",
+  "AbortController",
+  "AbortSignal",
   "Headers",
 ], optional = true }
 hyper-util = { workspace = true, features = [
@@ -140,13 +144,13 @@ itertools.workspace = true
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true
 default-features = false
-features = ["rustls", "json", "stream", "socks", "blocking"]
+features = ["rustls", "json", "stream", "socks", "blocking", "gzip", "zstd"]
 optional = true
 
 [target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies.reqwest]
 workspace = true
 default-features = false
-features = ["native-tls", "json", "stream", "socks", "blocking"]
+features = ["native-tls", "json", "stream", "socks", "blocking", "gzip", "zstd"]
 optional = true
 
 [target.'cfg(unix)'.dependencies]
@@ -237,6 +241,9 @@ sys = [
   "wasmer/demangle",
   # We must ensure at least one compiler backend (or `headless`) is enabled for `wasmer/sys`.
   "wasmer/headless",
+  "memory64",
+  "webc/v1",
+  "webc/v2",
 ]
 package-authoring = ["wasmer-package/authoring"]
 sys-default = ["sys"]
@@ -247,6 +254,9 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+
+# Enables the `wasix_64v1` ABI and its 64-bit syscall implementations.
+memory64 = []
 
 singlepass = ["wasmer/singlepass"]
 v8 = ["wasmer/v8"]
@@ -265,7 +275,7 @@ js = [
   "wasmer/js-serializable-module",
 ]
 js-default = ["js"]
-test-js = ["js", "wasmer/wat"]
+test-js = ["js", "wasmer/wat", "package-authoring", "webc/v2"]
 
 host-vnet = ["virtual-net/host-net"]
 host-threads = []
