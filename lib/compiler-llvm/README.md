@@ -23,21 +23,21 @@ to native speeds.
 ## Requirements
 
 The LLVM compiler requires a valid installation of LLVM in your system.
-It currently requires **LLVM 22**.
+It currently requires **LLVM 23.1**.
 
 
 You can install LLVM easily on your Debian-like system via this command:
 
 ```bash
 wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
-sudo bash /tmp/llvm.sh 22
-sudo apt install libpolly-22-dev
+sudo bash /tmp/llvm.sh 23
+sudo apt install libpolly-23-dev
 ```
 
 Or in macOS:
 
 ```bash
-brew install llvm@22
+brew install llvm@23
 ```
 
 Or via any of the [pre-built binaries that LLVM offers][llvm-pre-built].
