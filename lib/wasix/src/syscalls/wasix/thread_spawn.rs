@@ -86,6 +86,32 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
         layout
     );
 
+    // `wasi_thread_start` takes its two arguments as `i32` (see
+    // `handles::thread_spawn`), but an i32 at the wasm level carries the guest's *whole*
+    // unsigned 32-bit address space: the libc shim puts its second argument straight into
+    // `i32.load` (`wasix-libc .../wasm32/wasi_thread_start.s`), and wasmer's own
+    // offset/native pair for a 32-bit memory reinterprets the bits instead of range-checking
+    // them (`Memory32::offset_to_native` is `offset as i32`, lib/types/src/memory.rs:123).
+    // So an offset at or above the 2 GiB *sign* mark is perfectly representable and must be
+    // passed through. Refusing it is what made a guest with a heap above 2 GiB unable to spawn
+    // any further thread: pgrust reserves ~16 MiB of linear memory per backend, so its
+    // backend count stopped at the first allocation that crossed 2 GiB (measured: the guest
+    // log's `could not fork new process for connection: Resource temporarily unavailable`
+    // appears at `start_ptr` 2186337540, just above 2^31). What genuinely cannot be handed to
+    // the new instance is an offset no i32 can carry at all - past the 4 GiB that a memory64
+    // guest would have to fold into this ABI - and that is rejected here, before any
+    // host-side state exists for a thread that cannot run, so the caller still gets an errno:
+    // wasix-libc maps any `wasi_thread_spawn` failure to `EAGAIN`, letting `pthread_create`
+    // release the stack it reserved and report the failure the way a fork failure is reported.
+    let start_pointer_u32: Result<u32, _> = start_ptr_offset.try_into();
+    if start_pointer_u32.is_err() {
+        warn!(
+            start_ptr = ?start_ptr_offset,
+            "thread failed - the start pointer cannot be carried by the i32 of the wasi-threads ABI"
+        );
+        return Err(Errno::Overflow);
+    }
+
     // Create the handle that represents this thread
     let thread_start = ThreadStartType::ThreadSpawn {
         start_ptr: start_ptr_offset.into(),
@@ -211,8 +237,13 @@ fn call_module_internal<M: MemorySize>(
 
     let spawn: Function = spawn.into();
     let tid_i32 = tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap();
-    let start_pointer_i32 = start_ptr_offset
-        .try_into()
+    // Narrow to the address space the ABI can actually express first, then reinterpret those
+    // bits as the `i32` the callback is typed with - do not range-check against `i32::MAX`,
+    // which would refuse the upper half of the guest's own address space. See the matching
+    // note in `thread_spawn_internal_from_wasi`.
+    let start_pointer_u32: Result<u32, _> = start_ptr_offset.try_into();
+    let start_pointer_i32 = start_pointer_u32
+        .map(|offset| offset as i32)
         .map_err(|_| Errno::Overflow)
         .unwrap();
     let (mut store, thread_result) = ContextSwitchingEnvironment::run_main_context(
