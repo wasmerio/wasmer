@@ -43,7 +43,7 @@
 
 use std::{
     borrow::BorrowMut,
-    cell::{RefCell, UnsafeCell},
+    cell::{RefCell, RefMut, UnsafeCell},
     mem::MaybeUninit,
     ptr::NonNull,
 };
@@ -516,13 +516,30 @@ impl Drop for StoreAsyncGuardWrapper {
     }
 }
 
+/// Borrows the context stack from an install guard's `Drop`.
+///
+/// While unwinding, a stack that is still borrowed is left alone: it can only
+/// be borrowed if a destructor was skipped, and panicking again here would
+/// turn the panic already in flight into an abort.
+fn borrow_stack_in_drop(
+    cell: &RefCell<Vec<StoreContext>>,
+) -> Option<RefMut<'_, Vec<StoreContext>>> {
+    if std::thread::panicking() {
+        cell.try_borrow_mut().ok()
+    } else {
+        Some(cell.borrow_mut())
+    }
+}
+
 impl Drop for StoreInstallGuard {
     fn drop(&mut self) {
         let Some(store_id) = self.store_id else {
             return;
         };
         STORE_CONTEXT_STACK.with(|cell| {
-            let mut stack = cell.borrow_mut();
+            let Some(mut stack) = borrow_stack_in_drop(cell) else {
+                return;
+            };
             match (stack.pop(), std::thread::panicking()) {
                 (Some(top), false) => {
                     assert_eq!(top.id, store_id, "Mismatched store context uninstall");
@@ -552,7 +569,9 @@ impl Drop for StoreInstallGuard {
 impl Drop for ForcedStoreInstallGuard {
     fn drop(&mut self) {
         STORE_CONTEXT_STACK.with(|cell| {
-            let mut stack = cell.borrow_mut();
+            let Some(mut stack) = borrow_stack_in_drop(cell) else {
+                return;
+            };
             match (stack.pop(), std::thread::panicking()) {
                 (Some(top), false) => {
                     assert_eq!(top.id, self.store_id, "Mismatched store context uninstall");

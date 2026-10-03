@@ -721,6 +721,85 @@ where
     }
 }
 
+/// What a host function's trampoline does once it is back on the Wasm stack.
+enum HostCallExit<R, E> {
+    Return(R),
+    Throw {
+        objects: *const wasmer_vm::StoreObjects,
+        exnref: u32,
+    },
+    #[cfg(feature = "experimental-host-interrupt")]
+    Interrupted(Trap),
+    Trap(Box<E>),
+    YieldOutsideAsyncContext,
+}
+
+/// Finishes a host call while still on the host stack.
+///
+/// A host interrupt that lands on the Wasm stack abandons it on the spot,
+/// destructors and all, so a store-context borrow or a lock held there is
+/// never released. Everything that touches the store context or the
+/// interrupt registry happens here instead, where the interrupt is never
+/// acted upon; only [`HostCallExit::leave`] runs on the Wasm stack.
+///
+/// `finish` turns a successful result into the trampoline's return value.
+///
+/// # Safety
+/// Must be called from a host function trampoline for `store_id`, after any
+/// borrow of the store context taken for the call itself was dropped.
+unsafe fn finish_host_call<T, R, E>(
+    store_id: StoreId,
+    result: InvocationResult<T, E>,
+    finish: impl FnOnce(&mut StoreInner, T) -> R,
+) -> HostCallExit<R, E> {
+    #[cfg(feature = "experimental-host-interrupt")]
+    if matches!(
+        result,
+        InvocationResult::Success(_) | InvocationResult::Exception(_)
+    ) && interrupt_registry::is_interrupted(store_id)
+    {
+        // Built here rather than in `leave`: capturing the trap's backtrace
+        // allocates and takes the unwinder's locks.
+        return HostCallExit::Interrupted(Trap::lib(TrapCode::HostInterrupt));
+    }
+    // Safety: the pointer is not used past this function, except for the
+    // `StoreObjects` that `throw` reads before anything can change the store
+    // context.
+    let store = || unsafe { &mut *StoreContext::get_current_transient(store_id) };
+    match result {
+        InvocationResult::Success(value) => HostCallExit::Return(finish(store(), value)),
+        InvocationResult::Exception(exception) => HostCallExit::Throw {
+            objects: store().objects.as_sys(),
+            exnref: exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
+        },
+        InvocationResult::Trap(trap) => HostCallExit::Trap(trap),
+        InvocationResult::YieldOutsideAsyncContext => HostCallExit::YieldOutsideAsyncContext,
+    }
+}
+
+impl<R, E: Error + Send + Sync + 'static> HostCallExit<R, E> {
+    /// Leaves the host function's trampoline. This is the part of the exit
+    /// that runs on the Wasm stack; see [`finish_host_call`].
+    ///
+    /// # Safety
+    /// Must be called on the Wasm stack, by the trampoline the exit was
+    /// produced for.
+    unsafe fn leave(self) -> R {
+        unsafe {
+            match self {
+                Self::Return(value) => value,
+                Self::Throw { objects, exnref } => wasmer_vm::libcalls::throw(&*objects, exnref),
+                #[cfg(feature = "experimental-host-interrupt")]
+                Self::Interrupted(trap) => raise_lib_trap(trap),
+                Self::Trap(trap) => raise_user_trap(trap),
+                Self::YieldOutsideAsyncContext => {
+                    raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
+                }
+            }
+        }
+    }
+}
+
 fn write_dynamic_results(
     store_id: StoreId,
     func_ty: &FunctionType,
@@ -834,27 +913,32 @@ where
         values_vec: *mut RawValue,
     ) {
         let result = on_host_stack(|| {
-            panic::catch_unwind(AssertUnwindSafe(|| match (this.ctx.func)(values_vec) {
-                HostCallOutcome::Ready { func_ty, result } => to_invocation_result(
-                    finalize_dynamic_call(this.ctx.store_id, func_ty, values_vec, result),
-                ),
-                #[cfg(feature = "experimental-async")]
-                HostCallOutcome::Future { func_ty, future } => {
-                    let awaited = block_on_host_future(future);
-                    let result = match awaited {
-                        Ok(value) => Ok(value),
-                        Err(AsyncRuntimeError::RuntimeError(e)) => Err(e),
-                        Err(AsyncRuntimeError::YieldOutsideAsyncContext) => {
-                            return InvocationResult::YieldOutsideAsyncContext;
+            panic::catch_unwind(AssertUnwindSafe(|| {
+                let result = 'outcome: {
+                    match (this.ctx.func)(values_vec) {
+                        HostCallOutcome::Ready { func_ty, result } => to_invocation_result(
+                            finalize_dynamic_call(this.ctx.store_id, func_ty, values_vec, result),
+                        ),
+                        #[cfg(feature = "experimental-async")]
+                        HostCallOutcome::Future { func_ty, future } => {
+                            let awaited = block_on_host_future(future);
+                            let result = match awaited {
+                                Ok(value) => Ok(value),
+                                Err(AsyncRuntimeError::RuntimeError(e)) => Err(e),
+                                Err(AsyncRuntimeError::YieldOutsideAsyncContext) => {
+                                    break 'outcome InvocationResult::YieldOutsideAsyncContext;
+                                }
+                            };
+                            to_invocation_result(finalize_dynamic_call(
+                                this.ctx.store_id,
+                                func_ty,
+                                values_vec,
+                                result,
+                            ))
                         }
-                    };
-                    to_invocation_result(finalize_dynamic_call(
-                        this.ctx.store_id,
-                        func_ty,
-                        values_vec,
-                        result,
-                    ))
-                }
+                    }
+                };
+                unsafe { finish_host_call(this.ctx.store_id, result, |_, ()| ()) }
             }))
         });
 
@@ -862,38 +946,7 @@ where
         // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
         // See: https://github.com/wasmerio/wasmer/pull/5700
         match result {
-            Ok(InvocationResult::Success(())) => unsafe {
-                // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                // away from the WASM stack at any time.
-                // Safety: The pointer is only used for the duration of the call to
-                // `get_current_transient`.
-                let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
-                let mut store = store_wrapper.as_mut().unwrap();
-                #[cfg(feature = "experimental-host-interrupt")]
-                if interrupt_registry::is_interrupted(store.objects.id()) {
-                    raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                }
-            },
-            Ok(InvocationResult::Exception(exception)) => unsafe {
-                // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                // away from the WASM stack at any time.
-                // Safety: The pointer is only used for the duration of the call to `throw` and
-                // `is_interrupted`.
-                let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
-                let mut store = store_wrapper.as_mut().unwrap();
-                #[cfg(feature = "experimental-host-interrupt")]
-                if interrupt_registry::is_interrupted(store.objects.id()) {
-                    raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                }
-                wasmer_vm::libcalls::throw(
-                    store.objects.as_sys(),
-                    exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
-                )
-            },
-            Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
-            Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
-                raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
-            },
+            Ok(exit) => unsafe { exit.leave() },
             Err(panic) => unsafe { resume_panic(panic) },
         }
     }
@@ -974,14 +1027,19 @@ macro_rules! impl_host_function {
             {
                 let result = on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
-                        let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
-                        let mut store = store_wrapper.as_mut();
-                        $(
-                            let $x = unsafe {
-                                FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
-                            };
-                        )*
-                        to_invocation_result((env.func)($($x),* ).into_result())
+                        let result = {
+                            let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
+                            let mut store = store_wrapper.as_mut();
+                            $(
+                                let $x = unsafe {
+                                    FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
+                                };
+                            )*
+                            to_invocation_result((env.func)($($x),* ).into_result())
+                        };
+                        unsafe {
+                            finish_host_call(env.store_id, result, |store, rets| rets.into_c_struct(store))
+                        }
                     }))
                 });
 
@@ -989,39 +1047,7 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(InvocationResult::Success(result)) => unsafe {
-                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                        // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to
-                        // `into_c_struct` and `get_current_transient`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
-                        return result.into_c_struct(store);
-                    },
-                    Ok(InvocationResult::Exception(exception)) => unsafe {
-                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                        // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to `throw` and
-                        // `is_interrupted`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
-                        wasmer_vm::libcalls::throw(
-                            store.objects.as_sys(),
-                            exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
-                        )
-                    }
-                    Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
-                    Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
-                        raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
-                    },
+                    Ok(exit) => unsafe { exit.leave() },
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
@@ -1074,18 +1100,23 @@ macro_rules! impl_host_function {
             {
                 let result = wasmer_vm::on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
-                        let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
-                        let mut store = store_wrapper.as_mut();
-                        $(
-                            let $x = unsafe {
-                                FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
-                            };
-                        )*
-                        let f_env = crate::backend::sys::function::env::FunctionEnvMut {
-                            store_mut: store,
-                            func_env: env.env.as_sys().clone(),
-                        }.into();
-                        to_invocation_result((env.func)(f_env, $($x),* ).into_result())
+                        let result = {
+                            let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
+                            let mut store = store_wrapper.as_mut();
+                            $(
+                                let $x = unsafe {
+                                    FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
+                                };
+                            )*
+                            let f_env = crate::backend::sys::function::env::FunctionEnvMut {
+                                store_mut: store,
+                                func_env: env.env.as_sys().clone(),
+                            }.into();
+                            to_invocation_result((env.func)(f_env, $($x),* ).into_result())
+                        };
+                        unsafe {
+                            finish_host_call(env.store_id, result, |store, rets| rets.into_c_struct(store))
+                        }
                     }))
                 });
 
@@ -1093,39 +1124,7 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(InvocationResult::Success(result)) => unsafe {
-                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                        // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to
-                        // `into_c_struct` and `get_current_transient`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
-                        return result.into_c_struct(store);
-                    },
-                    Ok(InvocationResult::Exception(exception)) => unsafe {
-                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                        // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to `throw` and
-                        // `is_interrupted`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
-                        wasmer_vm::libcalls::throw(
-                            store.objects.as_sys(),
-                            exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
-                        )
-                    }
-                    Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
-                    Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
-                        raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
-                    },
+                    Ok(exit) => unsafe { exit.leave() },
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
