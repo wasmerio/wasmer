@@ -10,7 +10,7 @@ use crate::syscalls::*;
 #[instrument(level = "trace", skip_all, fields(sig), ret)]
 pub fn proc_raise(mut ctx: FunctionEnvMut<'_, WasiEnv>, sig: Signal) -> Result<Errno, WasiError> {
     let env = ctx.data();
-    env.process.signal_process(sig);
+    env.process.signal_thread(&env.thread.tid(), sig);
 
     WasiEnv::do_pending_operations(&mut ctx)?;
 
