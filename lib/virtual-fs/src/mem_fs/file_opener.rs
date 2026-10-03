@@ -1,4 +1,4 @@
-use super::filesystem::InodeResolution;
+use super::filesystem::{FileSystemInner, InodeResolution};
 use super::*;
 use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use shared_buffer::OwnedBuffer;
@@ -289,7 +289,17 @@ impl FileSystem {
     ) -> Result<(InodeResolution, Option<InodeResolution>, OsString)> {
         // Read lock.
         let fs = self.inner.read().map_err(|_| FsError::Lock)?;
+        fs.resolve_file_in_parent(path)
+    }
+}
 
+impl FileSystemInner {
+    /// Resolves the parent directory of `path`, and the file named by its
+    /// last component if it exists.
+    fn resolve_file_in_parent(
+        &self,
+        path: &Path,
+    ) -> Result<(InodeResolution, Option<InodeResolution>, OsString)> {
         // Check the path has a parent.
         let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
 
@@ -300,7 +310,7 @@ impl FileSystem {
             .to_os_string();
 
         // Find the parent inode.
-        let inode_of_parent = match fs.inode_of_parent(parent_of_path)? {
+        let inode_of_parent = match self.inode_of_parent(parent_of_path)? {
             InodeResolution::Found(a) => a,
             InodeResolution::Redirect(fs, parent_path) => {
                 return Ok((
@@ -312,7 +322,7 @@ impl FileSystem {
         };
 
         // Find the inode of the file if it exists.
-        let maybe_inode_of_file = fs
+        let maybe_inode_of_file = self
             .as_parent_get_position_and_inode_of_file(inode_of_parent, &name_of_file)?
             .map(|(_nth, inode)| inode);
 
@@ -356,13 +366,19 @@ impl crate::FileOpener for FileSystem {
             write = false;
         }
 
-        let (inode_of_parent, maybe_inode_of_file, name_of_file) = self.insert_inode(path)?;
+        // The write lock is held from the lookup until the file is opened or
+        // created, so a concurrent operation cannot remove the resolved inode
+        // (and let an unrelated file reuse it) or create the same name twice.
+        let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+        let (inode_of_parent, maybe_inode_of_file, name_of_file) =
+            fs.resolve_file_in_parent(path)?;
 
         let inode_of_parent = match inode_of_parent {
             InodeResolution::Found(a) => a,
-            InodeResolution::Redirect(fs, mut parent_path) => {
+            InodeResolution::Redirect(redirect_fs, mut parent_path) => {
+                drop(fs);
                 parent_path.push(name_of_file);
-                return fs
+                return redirect_fs
                     .new_open_options()
                     .options(conf.clone())
                     .open(parent_path);
@@ -370,8 +386,12 @@ impl crate::FileOpener for FileSystem {
         };
         let maybe_inode_of_file = match maybe_inode_of_file {
             Some(InodeResolution::Found(inode)) => Some(inode),
-            Some(InodeResolution::Redirect(fs, path)) => {
-                return fs.new_open_options().options(conf.clone()).open(path);
+            Some(InodeResolution::Redirect(redirect_fs, path)) => {
+                drop(fs);
+                return redirect_fs
+                    .new_open_options()
+                    .options(conf.clone())
+                    .open(path);
             }
             None => None,
         };
@@ -384,9 +404,6 @@ impl crate::FileOpener for FileSystem {
 
             // The file already exists; it's OK.
             Some(inode_of_file) => {
-                // Write lock.
-                let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
-
                 let handle_lifecycle = match fs.storage.get_mut(inode_of_file) {
                     Some(Node::File(FileNode {
                         metadata,
@@ -486,9 +503,6 @@ impl crate::FileOpener for FileSystem {
             // 1. `create_new` is used with `write` or `append`,
             // 2. `create` is used with `write` or `append`.
             None if (create_new || create) && (create_new || write || append) => {
-                // Write lock.
-                let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
-
                 let handle_lifecycle: Arc<FileLifecycle> = Arc::default();
                 let metadata = {
                     let time = time();
@@ -548,6 +562,7 @@ impl crate::FileOpener for FileSystem {
 
             None => return Err(FsError::EntryNotFound),
         };
+        drop(fs);
 
         #[cfg(test)]
         test_file_opener::run_open_before_handle_hook();
