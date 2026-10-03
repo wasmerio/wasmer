@@ -47,6 +47,7 @@ features = ["proto-ipv4", "std", "alloc"]
 tokio = { workspace = true, default-features = false, features = [
   "macros",
   "rt-multi-thread",
+  "time",
 ] }
 tracing-test.workspace = true
 serial_test.workspace = true

@@ -1,7 +1,10 @@
 #![allow(unused)]
 use std::{
-    net::{Ipv4Addr, SocketAddrV4},
-    sync::atomic::{AtomicU16, Ordering},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddrV4},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU16, Ordering},
+    },
 };
 
 use tracing_test::traced_test;
@@ -16,8 +19,75 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use super::*;
 
+#[cfg(feature = "host-net")]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_udp_only_v6_controls_ipv4_co_bind() {
+    let net = LocalNetworking::new();
+    for only_v6 in [true, false] {
+        let ipv4 = net
+            .bind_udp(
+                SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+                only_v6,
+                false,
+                false,
+            )
+            .await
+            .unwrap();
+        assert!(ipv4.addr_local().unwrap().is_ipv4());
+    }
+    let ipv6 = net
+        .bind_udp(
+            SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)),
+            true,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    let port = ipv6.addr_local().unwrap().port();
+    let ipv4 = net
+        .bind_udp(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    drop((ipv4, ipv6));
+
+    let dual_stack = net
+        .bind_udp(
+            SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    let port = dual_stack.addr_local().unwrap().port();
+    assert!(matches!(
+        net.bind_udp(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
+            false,
+            false,
+            false,
+        )
+        .await,
+        Err(NetworkError::AddressInUse)
+    ));
+}
+
 #[cfg(feature = "remote")]
 async fn setup_mpsc() -> (RemoteNetworkingClient, RemoteNetworkingServer) {
+    setup_mpsc_with_networking(Arc::new(LocalNetworking::new())).await
+}
+
+#[cfg(feature = "remote")]
+async fn setup_mpsc_with_networking(
+    networking: Arc<dyn VirtualNetworking + Send + Sync>,
+) -> (RemoteNetworkingClient, RemoteNetworkingServer) {
     tracing::info!("building MPSC channels");
     let (tx1, rx1) = tokio::sync::mpsc::channel(100);
     let (tx2, rx2) = tokio::sync::mpsc::channel(100);
@@ -28,12 +98,8 @@ async fn setup_mpsc() -> (RemoteNetworkingClient, RemoteNetworkingServer) {
     tracing::info!("spawning driver for remote client");
     tokio::task::spawn(client_driver);
 
-    tracing::info!("create local networking provider");
-    let local_networking = LocalNetworking::new();
-
     tracing::info!("constructing remote server (mpsc)");
-    let (server, server_driver) =
-        RemoteNetworkingServer::new_from_mpsc(tx2, rx1, Arc::new(local_networking));
+    let (server, server_driver) = RemoteNetworkingServer::new_from_mpsc(tx2, rx1, networking);
 
     tracing::info!("spawning driver for remote server");
     tokio::task::spawn(server_driver);
@@ -46,6 +112,15 @@ async fn setup_pipe(
     buf_size: usize,
     format: FrameSerializationFormat,
 ) -> (RemoteNetworkingClient, RemoteNetworkingServer) {
+    setup_pipe_with_networking(buf_size, format, Arc::new(LocalNetworking::new())).await
+}
+
+#[cfg(feature = "remote")]
+async fn setup_pipe_with_networking(
+    buf_size: usize,
+    format: FrameSerializationFormat,
+    networking: Arc<dyn VirtualNetworking + Send + Sync>,
+) -> (RemoteNetworkingClient, RemoteNetworkingServer) {
     tracing::info!("building duplex streams");
     let (tx1, rx1) = tokio::io::duplex(buf_size);
     let (tx2, rx2) = tokio::io::duplex(buf_size);
@@ -56,17 +131,265 @@ async fn setup_pipe(
     tracing::info!("spawning driver for remote client");
     tokio::task::spawn(client_driver);
 
-    tracing::info!("create local networking provider");
-    let local_networking = LocalNetworking::new();
-
     tracing::info!("constructing remote server (mpsc)");
     let (server, server_driver) =
-        RemoteNetworkingServer::new_from_async_io(tx2, rx1, format, Arc::new(local_networking));
+        RemoteNetworkingServer::new_from_async_io(tx2, rx1, format, networking);
 
     tracing::info!("spawning driver for remote server");
     tokio::task::spawn(server_driver);
 
     (client, server)
+}
+
+#[cfg(feature = "remote")]
+#[derive(Debug, Default)]
+struct RecordingUdpNetworking {
+    binds: Mutex<Vec<(SocketAddr, bool, bool, bool)>>,
+}
+
+#[cfg(feature = "remote")]
+#[async_trait::async_trait]
+impl VirtualNetworking for RecordingUdpNetworking {
+    async fn bind_udp(
+        &self,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        self.binds
+            .lock()
+            .unwrap()
+            .push((addr, only_v6, reuse_port, reuse_addr));
+        Err(NetworkError::Unsupported)
+    }
+}
+
+#[cfg(feature = "remote")]
+async fn test_remote_udp_v6only(
+    client: RemoteNetworkingClient,
+    server: RemoteNetworkingServer,
+    networking: Arc<RecordingUdpNetworking>,
+) {
+    let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 41003));
+    for only_v6 in [true, false] {
+        assert!(matches!(
+            tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                client.bind_udp(addr, only_v6, !only_v6, only_v6),
+            )
+            .await
+            .unwrap(),
+            Err(NetworkError::Unsupported)
+        ));
+        assert_eq!(server.socket_count_for_test(), 0);
+    }
+    assert_eq!(
+        networking.binds.lock().unwrap().as_slice(),
+        &[(addr, true, false, true), (addr, false, true, false)]
+    );
+}
+
+#[cfg(all(feature = "remote", feature = "host-net"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_remote_udp_success_preserves_ipv6_binding() {
+    let (client, _server) = setup_pipe(1024, FrameSerializationFormat::Bincode).await;
+    for only_v6 in [true, false] {
+        let socket = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            client.bind_udp("[::]:0".parse().unwrap(), only_v6, false, false),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let (socket, port) = tokio::task::spawn_blocking(move || {
+            let port = socket.addr_local().unwrap().port();
+            (socket, port)
+        })
+        .await
+        .unwrap();
+        let ipv4 = LocalNetworking::new()
+            .bind_udp(
+                SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
+                false,
+                false,
+                false,
+            )
+            .await;
+        if only_v6 {
+            assert!(ipv4.is_ok());
+        } else {
+            assert!(matches!(ipv4, Err(NetworkError::AddressInUse)));
+        }
+        drop(socket);
+    }
+}
+
+#[cfg(all(feature = "remote", feature = "tokio-tungstenite"))]
+#[tokio::test]
+async fn test_remote_udp_websocket_uses_legacy_bincode() {
+    use crate::meta::{MessageRequest, MessageResponse, RequestType, ResponseType};
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::{
+        MaybeTlsStream, WebSocketStream,
+        tungstenite::{Message, protocol::Role},
+    };
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let (connection, accepted) = tokio::join!(
+        tokio::net::TcpStream::connect(listener.local_addr().unwrap()),
+        listener.accept(),
+    );
+    let transport = WebSocketStream::from_raw_socket(
+        MaybeTlsStream::Plain(connection.unwrap()),
+        Role::Client,
+        None,
+    )
+    .await;
+    let mut peer = WebSocketStream::from_raw_socket(accepted.unwrap().0, Role::Server, None).await;
+    let (tx, rx) = transport.split();
+    let (client, driver) =
+        RemoteNetworkingClient::new_from_tokio_ws_io(tx, rx, FrameSerializationFormat::Bincode);
+    let driver = tokio::spawn(driver);
+    let exchange = async {
+        for only_v6 in [false, true] {
+            let bind = client.bind_udp(
+                "[2001:db8::1234]:4242".parse().unwrap(),
+                only_v6,
+                true,
+                false,
+            );
+            let respond = async {
+                let Message::Binary(bytes) = peer.next().await.unwrap().unwrap() else {
+                    panic!("expected binary WebSocket frame");
+                };
+                if !only_v6 {
+                    const LEGACY_FRAME: &[u8] = &[
+                        0, 0, 0, 0, 17, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 32, 1, 13,
+                        184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 52, 146, 16, 1, 0, 1, 1, 0, 0, 0, 0,
+                        0, 0, 0,
+                    ];
+                    assert_eq!(bytes.as_ref(), LEGACY_FRAME);
+                }
+                let (request, consumed): (MessageRequest, _) =
+                    bincode::serde::decode_from_slice(&bytes, bincode::config::legacy()).unwrap();
+                assert_eq!(consumed, bytes.len());
+                let MessageRequest::Interface {
+                    req,
+                    req_id: Some(req_id),
+                } = request
+                else {
+                    panic!("expected interface request");
+                };
+                match req {
+                    RequestType::BindUdp { .. } => assert!(!only_v6),
+                    RequestType::BindUdpV2 { only_v6: true, .. } => assert!(only_v6),
+                    other => panic!("unexpected UDP request: {other:?}"),
+                }
+                let response = MessageResponse::ResponseToRequest {
+                    req_id,
+                    res: ResponseType::Err(NetworkError::Unsupported),
+                };
+                let bytes =
+                    bincode::serde::encode_to_vec(response, bincode::config::legacy()).unwrap();
+                peer.send(Message::Binary(bytes.into())).await.unwrap();
+            };
+            let (result, ()) = tokio::join!(bind, respond);
+            assert!(matches!(result, Err(NetworkError::Unsupported)));
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(2), exchange)
+        .await
+        .unwrap();
+    driver.abort();
+}
+
+#[cfg(feature = "remote")]
+#[tokio::test]
+async fn test_remote_udp_v6only_with_mpsc() {
+    let networking = Arc::new(RecordingUdpNetworking::default());
+    let (client, server) = setup_mpsc_with_networking(networking.clone()).await;
+    test_remote_udp_v6only(client, server, networking).await;
+}
+
+#[cfg(feature = "remote")]
+#[tokio::test]
+async fn test_remote_udp_v6only_with_bincode() {
+    let networking = Arc::new(RecordingUdpNetworking::default());
+    let (client, server) =
+        setup_pipe_with_networking(1024, FrameSerializationFormat::Bincode, networking.clone())
+            .await;
+    test_remote_udp_v6only(client, server, networking).await;
+}
+
+#[cfg(all(feature = "remote", feature = "json"))]
+#[tokio::test]
+async fn test_remote_udp_v6only_with_json() {
+    let networking = Arc::new(RecordingUdpNetworking::default());
+    let (client, server) =
+        setup_pipe_with_networking(1024, FrameSerializationFormat::Json, networking.clone()).await;
+    test_remote_udp_v6only(client, server, networking).await;
+}
+
+#[cfg(all(feature = "remote", feature = "messagepack"))]
+#[tokio::test]
+async fn test_remote_udp_v6only_with_messagepack() {
+    let networking = Arc::new(RecordingUdpNetworking::default());
+    let (client, server) = setup_pipe_with_networking(
+        1024,
+        FrameSerializationFormat::MessagePack,
+        networking.clone(),
+    )
+    .await;
+    test_remote_udp_v6only(client, server, networking).await;
+}
+
+#[cfg(all(feature = "remote", feature = "cbor"))]
+#[tokio::test]
+async fn test_remote_udp_v6only_with_cbor() {
+    let networking = Arc::new(RecordingUdpNetworking::default());
+    let (client, server) =
+        setup_pipe_with_networking(1024, FrameSerializationFormat::Cbor, networking.clone()).await;
+    test_remote_udp_v6only(client, server, networking).await;
+}
+
+#[cfg(feature = "remote")]
+#[tokio::test]
+async fn test_remote_udp_dual_stack_uses_legacy_request() {
+    use crate::meta::{MessageRequest, MessageResponse, RequestType, ResponseType};
+
+    let (request_tx, mut request_rx) = tokio::sync::mpsc::channel(1);
+    let (response_tx, response_rx) = tokio::sync::mpsc::channel(1);
+    let (client, driver) = RemoteNetworkingClient::new_from_mpsc(request_tx, response_rx);
+    tokio::spawn(driver);
+
+    let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 41004));
+    let request = tokio::spawn(async move { client.bind_udp(addr, false, true, false).await });
+    let MessageRequest::Interface {
+        req:
+            RequestType::BindUdp {
+                socket_id,
+                addr: request_addr,
+                reuse_port,
+                reuse_addr,
+            },
+        req_id: Some(req_id),
+    } = request_rx.recv().await.unwrap()
+    else {
+        panic!("dual-stack UDP bind did not use the legacy request");
+    };
+    assert_eq!(request_addr, addr);
+    assert!(reuse_port);
+    assert!(!reuse_addr);
+
+    response_tx
+        .send(MessageResponse::ResponseToRequest {
+            req_id,
+            res: ResponseType::Socket(socket_id),
+        })
+        .await
+        .unwrap();
+    assert!(request.await.unwrap().is_ok());
 }
 
 #[cfg(feature = "remote")]
