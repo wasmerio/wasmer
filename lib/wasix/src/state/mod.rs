@@ -76,6 +76,13 @@ impl FileOpener for WasiStateOpener {
 #[derive(Debug, Default)]
 pub struct WasiFutex {
     pub(crate) wakers: BTreeMap<u64, Option<Waker>>,
+    /// Wakes that arrived while every registered waiter was still
+    /// mid-registration (slot reserved but `Waker` not yet installed by the
+    /// first poll). A waiter's first poll consumes one so a wake landing in the
+    /// registration gap is not lost (see `futex_wake`). Only ever non-zero while
+    /// `wakers` is non-empty: a token outlives neither its waiters nor this
+    /// futex, which is what keeps it from accumulating.
+    pub(crate) pending_wakes: u64,
 }
 
 /// Structure that holds the state of BUS calls to this process and from
