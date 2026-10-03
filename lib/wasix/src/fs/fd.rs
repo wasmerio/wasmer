@@ -40,6 +40,29 @@ pub struct FdInner {
 }
 
 impl Fd {
+    fn is_stdio_device(&self) -> bool {
+        matches!(
+            *self.inode.read(),
+            Kind::File {
+                fd: Some(0..=2),
+                ..
+            }
+        )
+    }
+
+    pub(crate) fn is_preopened(&self) -> bool {
+        // Device aliases share a preopened inode but are not preopens themselves.
+        self.inode.is_preopened && (self.is_stdio || !self.is_stdio_device())
+    }
+
+    pub(crate) fn is_protected_preopen(&self) -> bool {
+        !self.is_stdio && self.is_preopened()
+    }
+
+    pub(crate) fn uses_stream_io(&self) -> bool {
+        self.is_stdio || self.is_stdio_device()
+    }
+
     /// This [`Fd`] can be used with read system calls.
     pub const READ: u16 = 1;
     /// This [`Fd`] can be used with write system calls.
