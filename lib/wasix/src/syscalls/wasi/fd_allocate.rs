@@ -55,7 +55,9 @@ pub(crate) fn fd_allocate_internal(
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
                     let mut handle = handle.write().unwrap();
-                    current_size = handle.size();
+                    // A failed stat must not be mistaken for an empty file,
+                    // or the set_len below would truncate it.
+                    current_size = handle.metadata().map_err(fs_error_into_wasi_err)?.len;
                     if new_size > current_size {
                         handle.set_len(new_size).map_err(fs_error_into_wasi_err)?;
                         current_size = new_size;

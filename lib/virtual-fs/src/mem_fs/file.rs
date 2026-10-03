@@ -333,10 +333,7 @@ impl VirtualFile for FileHandle {
                             file: true,
                             ..Default::default()
                         },
-                        accessed: src.last_accessed(),
-                        created: src.created_time(),
-                        modified: src.last_modified(),
-                        len: src.size(),
+                        ..src.metadata()?
                     };
 
                     *inode = Node::CustomFile(CustomFileNode {

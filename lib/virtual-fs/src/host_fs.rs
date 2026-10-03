@@ -11,7 +11,7 @@ use std::path::{Component, Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::UNIX_EPOCH;
 use tokio::fs as tfs;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 use tokio::runtime::Handle;
@@ -349,17 +349,18 @@ impl crate::FileOpener for FileSystem {
             .append(append)
             .truncate(conf.truncate())
             .open(&path)
-            .map_err(Into::into)
-            .map(|file| {
-                Box::new(File::new(
+            .and_then(|file| {
+                File::try_new(
                     self.handle.clone(),
                     file,
                     path.to_owned(),
                     read,
                     write,
                     append,
-                )) as Box<dyn VirtualFile + Send + Sync + 'static>
+                )
             })
+            .map(|file| Box::new(file) as Box<dyn VirtualFile + Send + Sync + 'static>)
+            .map_err(Into::into)
     }
 }
 
@@ -378,6 +379,12 @@ impl File {
     const APPEND: u16 = 4;
 
     /// creates a new host file from a `std::fs::File` and a path
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file handle can not be duplicated, e.g. because the
+    /// process ran out of file descriptors. Use [`File::try_new`] to handle
+    /// that case.
     pub fn new(
         handle: Handle,
         file: fs::File,
@@ -386,6 +393,20 @@ impl File {
         write: bool,
         append: bool,
     ) -> Self {
+        Self::try_new(handle, file, host_path, read, write, append)
+            .expect("failed to duplicate host file handle")
+    }
+
+    /// creates a new host file from a `std::fs::File` and a path, failing if
+    /// the file handle can not be duplicated
+    pub fn try_new(
+        handle: Handle,
+        file: fs::File,
+        host_path: PathBuf,
+        read: bool,
+        write: bool,
+        append: bool,
+    ) -> io::Result<Self> {
         let mut _flags = 0;
 
         if read {
@@ -400,48 +421,44 @@ impl File {
             _flags |= Self::APPEND;
         }
 
-        let async_file = tfs::File::from_std(file.try_clone().unwrap());
-        Self {
+        let async_file = tfs::File::from_std(file.try_clone()?);
+        Ok(Self {
             handle,
             inner_std: file,
             inner: async_file,
             host_path,
-        }
+        })
     }
 
-    fn metadata(&self) -> std::fs::Metadata {
-        // FIXME: no unwrap!
-        self.inner_std.metadata().unwrap()
+    /// Metadata for the infallible [`VirtualFile`] accessors.
+    ///
+    /// The host can fail `fstat` at any time (e.g. ESTALE on network storage),
+    /// which must not crash the runtime. Callers that need to surface the
+    /// error use [`VirtualFile::metadata`] instead.
+    fn metadata_or_default(&self) -> Metadata {
+        VirtualFile::metadata(self).unwrap_or_else(|error| {
+            tracing::debug!(
+                host_path = %self.host_path.display(),
+                %error,
+                "failed to read host file metadata",
+            );
+            Metadata::default()
+        })
     }
 }
 
 #[async_trait::async_trait]
 impl VirtualFile for File {
     fn last_accessed(&self) -> u64 {
-        self.metadata()
-            .accessed()
-            .ok()
-            .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
-            .map(|ct| ct.as_nanos() as u64)
-            .unwrap_or(0)
+        self.metadata_or_default().accessed
     }
 
     fn last_modified(&self) -> u64 {
-        self.metadata()
-            .modified()
-            .ok()
-            .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
-            .map(|ct| ct.as_nanos() as u64)
-            .unwrap_or(0)
+        self.metadata_or_default().modified
     }
 
     fn created_time(&self) -> u64 {
-        self.metadata()
-            .created()
-            .ok()
-            .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
-            .map(|ct| ct.as_nanos() as u64)
-            .unwrap_or(0)
+        self.metadata_or_default().created
     }
 
     fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
@@ -453,7 +470,14 @@ impl VirtualFile for File {
     }
 
     fn size(&self) -> u64 {
-        self.metadata().len()
+        self.metadata_or_default().len
+    }
+
+    fn metadata(&self) -> Result<Metadata> {
+        self.inner_std
+            .metadata()
+            .and_then(TryInto::try_into)
+            .map_err(Into::into)
     }
 
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
@@ -946,7 +970,8 @@ mod tests {
 
     use super::FileSystem;
     use crate::FileSystem as FileSystemTrait;
-    use crate::FsError;
+    use crate::{FsError, VirtualFile};
+    use std::io;
     use std::path::Path;
 
     #[tokio::test]
@@ -1386,5 +1411,90 @@ mod tests {
         if let Some(s) = readdir.next() {
             panic!("next: {s:?}");
         }
+    }
+
+    /// Swaps the std handle of a host [`super::File`] for an fd that can never
+    /// be open, so `fstat` fails (EBADF) like it does with ESTALE or EIO on
+    /// network storage. Restores the real handle on drop.
+    #[cfg(unix)]
+    struct FailingFstat<'a> {
+        file: &'a mut super::File,
+        original: Option<std::fs::File>,
+    }
+
+    #[cfg(unix)]
+    impl<'a> FailingFstat<'a> {
+        fn new(file: &'a mut super::File) -> Self {
+            use std::os::fd::FromRawFd;
+            // Above the kernel's fd limit, so no file can ever be open there.
+            // SAFETY: the bogus handle is only used for fstat and never closed.
+            let bogus = unsafe { std::fs::File::from_raw_fd(i32::MAX) };
+            let original = std::mem::replace(&mut file.inner_std, bogus);
+            Self {
+                file,
+                original: Some(original),
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for FailingFstat<'_> {
+        fn drop(&mut self) {
+            if let Some(original) = self.original.take() {
+                std::mem::forget(std::mem::replace(&mut self.file.inner_std, original));
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    fn open_host_file(temp: &TempDir, contents: &[u8]) -> super::File {
+        let path = temp.path().join("file.txt");
+        std::fs::write(&path, contents).unwrap();
+        let file = std::fs::File::open(&path).unwrap();
+        super::File::try_new(Handle::current(), file, path, true, false, false).unwrap()
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_file_accessors_do_not_panic_when_fstat_fails() {
+        let temp = TempDir::new().unwrap();
+        let mut file = open_host_file(&temp, b"hello");
+
+        let broken = FailingFstat::new(&mut file);
+        assert_eq!(broken.file.size(), 0);
+        assert_eq!(broken.file.last_accessed(), 0);
+        assert_eq!(broken.file.last_modified(), 0);
+        assert_eq!(broken.file.created_time(), 0);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_file_metadata_reports_fstat_failure() {
+        let temp = TempDir::new().unwrap();
+        let mut file = open_host_file(&temp, b"hello");
+
+        let metadata = VirtualFile::metadata(&file).unwrap();
+        assert!(metadata.is_file());
+        assert_eq!(metadata.len(), 5);
+        assert_ne!(metadata.modified(), 0);
+
+        let broken = FailingFstat::new(&mut file);
+        assert!(VirtualFile::metadata(&*broken.file).is_err());
+    }
+
+    #[test]
+    fn test_stale_file_handle_error_mapping() {
+        let stale = io::Error::from(io::ErrorKind::StaleNetworkFileHandle);
+        assert_eq!(FsError::from(stale), FsError::StaleFileHandle);
+        assert_eq!(
+            io::Error::from(FsError::StaleFileHandle).kind(),
+            io::ErrorKind::StaleNetworkFileHandle
+        );
+
+        #[cfg(unix)]
+        assert_eq!(
+            FsError::from(io::Error::from_raw_os_error(libc::ESTALE)),
+            FsError::StaleFileHandle
+        );
     }
 }
