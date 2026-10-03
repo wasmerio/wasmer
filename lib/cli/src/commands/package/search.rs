@@ -1,7 +1,7 @@
 //! Search for packages in the registry.
 
 use wasmer_backend_api::types::{DateTime, SearchPackageVersion};
-use wasmer_sdk::package::search::{
+use wasmer_package_sdk::package::search::{
     CountComparison, CountFilter, PackageOrderBy, PackagesFilter, SearchOptions, SearchOrderSort,
     SearchPublishDate,
 };
@@ -229,7 +229,7 @@ impl AsyncCliCommand for PackageSearch {
             ..Default::default()
         };
 
-        let results = wasmer_sdk::package::search::search_packages(
+        let results = wasmer_package_sdk::package::search::search_packages(
             &client,
             SearchOptions {
                 query: self.query,

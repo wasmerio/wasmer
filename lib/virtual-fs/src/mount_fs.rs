@@ -315,6 +315,49 @@ impl MountFileSystem {
         best
     }
 
+    /// Creates, in the nearest enclosing mount, the directories that are only
+    /// visible because a deeper mount sits below them (e.g. `/usr` for a mount
+    /// at `/usr/local/ssl`). Without this, such a directory stats as a
+    /// directory but nothing can be created inside it. Best-effort: errors are
+    /// left for the caller's own operation to report.
+    fn back_synthetic_dirs(&self, components: &[OsString]) {
+        let mut pending = Vec::new();
+        {
+            let root = self.root.read().unwrap();
+            let mut node = &*root;
+            let mut mount = Self::mounted(node);
+            let mut mount_depth = 0;
+
+            for (index, component) in components.iter().enumerate() {
+                let Some(child) = node.children.get(component) else {
+                    break;
+                };
+                node = child;
+
+                if let Some(child_mount) = Self::mounted(node) {
+                    mount = Some(child_mount);
+                    mount_depth = index + 1;
+                    pending.clear();
+                } else if let Some(mount) = &mount {
+                    let relative = Self::absolute_path(&components[mount_depth..=index]);
+                    let relative = relative.strip_prefix("/").unwrap_or(Path::new(""));
+                    pending.push((mount.fs.clone(), mount.source_path.join(relative)));
+                }
+            }
+        }
+
+        for (fs, path) in pending {
+            let _ = fs.create_dir(&path);
+        }
+    }
+
+    fn back_synthetic_parents(&self, path: &Path) {
+        let components = Self::path_components(path);
+        if let Some((_, parents)) = components.split_last() {
+            self.back_synthetic_dirs(parents);
+        }
+    }
+
     fn rebase_entries(entries: &mut ReadDir, source_prefix: &Path, target_prefix: &Path) {
         for entry in &mut entries.data {
             let suffix = entry.path.strip_prefix(source_prefix).unwrap_or_else(|_| {
@@ -525,10 +568,12 @@ impl FileSystem for MountFileSystem {
                     Err(error) => Err(error),
                 }
             } else {
+                self.back_synthetic_dirs(&Self::path_components(&path));
                 Ok(())
             };
         }
 
+        self.back_synthetic_parents(&path);
         match self.resolve_mount(path) {
             Some(resolved) => {
                 let result = resolved.fs.create_dir(&resolved.delegated_path);
@@ -784,6 +829,9 @@ impl FileOpener for MountFileSystem {
             return Err(FsError::NotAFile);
         }
 
+        if conf.create || conf.create_new {
+            self.back_synthetic_parents(&path);
+        }
         match self.resolve_mount(path) {
             Some(resolved) => resolved
                 .fs
@@ -1694,6 +1742,37 @@ mod tests {
 
         let entries = read_dir_names(&fs, "/foo");
         assert_eq!(entries, vec!["bar".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_synthetic_parent_accepts_new_entries() {
+        let fs = MountFileSystem::new();
+        let root = Arc::new(mem_fs::FileSystem::default());
+        fs.mount(Path::new("/"), root.clone()).unwrap();
+        fs.mount(
+            Path::new("/usr/local/ssl"),
+            Arc::new(mem_fs::FileSystem::default()),
+        )
+        .unwrap();
+
+        // `/usr` and `/usr/local` exist only because of the nested mount.
+        fs.new_open_options()
+            .write(true)
+            .create(true)
+            .open(Path::new("/usr/x"))
+            .unwrap();
+        assert_eq!(fs.create_dir(Path::new("/usr/local")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/usr/local/bin")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/usr/bin")), Ok(()));
+
+        assert!(root.metadata(Path::new("/usr/x")).unwrap().is_file());
+        assert!(root.metadata(Path::new("/usr/local/bin")).unwrap().is_dir());
+        let mut entries = read_dir_names(&fs, "/usr");
+        entries.sort();
+        assert_eq!(entries, ["bin", "local", "x"]);
+        let mut entries = read_dir_names(&fs, "/usr/local");
+        entries.sort();
+        assert_eq!(entries, ["bin", "ssl"]);
     }
 
     #[tokio::test]

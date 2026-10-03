@@ -591,7 +591,7 @@ impl Run {
         runner
             .with_args(&self.args)
             .with_injected_packages(packages)
-            .with_envs(self.wasi.env_vars.clone())
+            .with_envs(self.wasi.resolved_env_vars()?)
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
             .with_mapped_directories(mapped_directories)
             .with_home_mapped(is_home_mapped)
@@ -732,6 +732,10 @@ fn invoke_function(
         required_arguments == provided_arguments,
         "Function expected {required_arguments} arguments, but received {provided_arguments}"
     );
+
+    if let Some(result_type) = func_ty.results().iter().find(|ty| ty.is_ref()) {
+        bail!("Function result type {result_type} is not supported by --invoke");
+    }
 
     let invoke_args = args
         .iter()

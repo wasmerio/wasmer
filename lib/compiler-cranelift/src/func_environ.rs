@@ -27,9 +27,9 @@ use target_lexicon::Architecture;
 use wasmer_compiler::abi::ReturnAbi;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo,
-    SignatureHash, SignatureIndex, TableIndex, TableStyle, TagIndex, Type as WasmerType,
-    VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
+    CompileError, FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
+    ModuleInfo, SignatureHash, SignatureIndex, TableIndex, TableStyle, TagIndex,
+    Type as WasmerType, VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
     entity::{EntityRef, PrimaryMap, SecondaryMap},
     vmctx_offset,
 };
@@ -207,8 +207,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         signature_hashes: &'module_environment PrimaryMap<SignatureIndex, SignatureHash>,
         memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, CompileError> {
+        Ok(Self {
             target_config,
             architecture,
             return_types: Vec::new(),
@@ -243,11 +243,12 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             read_exception_sig: None,
             read_exnref_sig: None,
             exception_type_layouts: HashMap::new(),
-            offsets: VMOffsets::new(target_config.pointer_bytes(), module),
+            offsets: VMOffsets::try_new(target_config.pointer_bytes(), module)
+                .map_err(CompileError::Resource)?,
             memory_styles,
             tables: Default::default(),
             table_styles,
-        }
+        })
     }
 
     pub(crate) fn target_config(&self) -> TargetFrontendConfig {
@@ -1169,9 +1170,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             WasmerType::F32 => ir::types::F32,
             WasmerType::F64 => ir::types::F64,
             WasmerType::V128 => ir::types::I8X16,
-            WasmerType::FuncRef | WasmerType::ExternRef | WasmerType::ExceptionRef => {
-                self.reference_type()
-            }
+            WasmerType::FuncRef | WasmerType::ExternRef => self.reference_type(),
+            WasmerType::ExceptionRef => EXN_REF_TYPE,
         })
     }
 
@@ -1661,9 +1661,8 @@ impl FuncEnvironment<'_> {
                 WasmerType::F32 => ir::types::F32,
                 WasmerType::F64 => ir::types::F64,
                 WasmerType::V128 => ir::types::I8X16,
-                WasmerType::FuncRef | WasmerType::ExternRef | WasmerType::ExceptionRef => {
-                    self.reference_type()
-                }
+                WasmerType::FuncRef | WasmerType::ExternRef => self.reference_type(),
+                WasmerType::ExceptionRef => EXN_REF_TYPE,
             },
         })
     }

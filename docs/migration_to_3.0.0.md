@@ -7,8 +7,8 @@ and provide examples to make migrating to the new API as simple as possible.
 
 - [Rationale for changes in 3.0.0](#rationale-for-changes-in-300)
 - [How to use Wasmer 3.0.0](#how-to-use-wasmer-300)
-  - [Installing Wasmer CLI](#installing-wamser-cli)
-  - [Using Wasmer 3.0.0](#using-wamser-300)
+  - [Installing Wasmer CLI](#installing-wasmer-cli)
+  - [Using Wasmer 3.0.0](#using-wasmer-300)
 - [Project structure](#project-structure)
 - [Differences](#differences)
   - [Managing imports](#managing-imports)

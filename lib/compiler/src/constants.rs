@@ -42,6 +42,9 @@ pub const CANONICAL_NAN_F32: u32 = 0x7fc00000;
 /// Canonical NaN value for f64 type
 pub const CANONICAL_NAN_F64: u64 = 0x7ff8000000000000;
 
+/// Default maximum total number of elements allowed across a module's local tables.
+pub const DEFAULT_MAX_TABLE_ELEMENTS: u32 = 1_000_000;
+
 /// Name of the section used for serialization of the ModuleInfo.
 pub const WASMER_MODULE_INFO_SECTION_NAME: &[u8] = b".w.module_info";
 /// Name of the section used for serialization of the function offsets in a built image.

@@ -107,21 +107,43 @@ impl BinFactory {
             })
     }
 
+    /// `invoked_as` is the path the guest spelled, for a script that must be
+    /// handed to its interpreter under that name rather than the path it
+    /// resolved to. `None` selects the resolved path, which is what a PATH
+    /// search produces on Unix.
+    ///
+    /// Every name here is looked up on the filesystem, builtin commands
+    /// included. A caller reaches those through [`Self::try_built_in`] before
+    /// it gets here, and only for the name it started with, so a shebang
+    /// naming a builtin interpreter (`#!/bin/sh` where `sh` is registered
+    /// rather than a file on disk) fails with
+    /// [`SpawnError::BinaryNotFound`]. Running that interpreter needs the
+    /// parent context `try_built_in` takes, which a spawn already under way
+    /// does not hold.
     pub fn spawn<'a>(
         &'a self,
         name: String,
+        invoked_as: Option<String>,
         env: WasiEnv,
     ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
         Box::pin(async move {
             let mut name = name;
+            let mut invoked_as = invoked_as;
+            // Held back until the interpreter is known to resolve. On
+            // `proc_exec4`'s non-vfork path this state is shared with a caller
+            // that keeps running when the spawn fails, and a shebang rewrite
+            // adds arguments that were never in its argv.
+            let mut rewritten_args: Option<Vec<String>> = None;
 
             // A shebang is handled by the kernel on Unix. WASIX's binary factory
             // fills that role for virtual filesystems, so resolve scripts here
-            // before trying to compile their bytes as WebAssembly.
+            // before trying to compile their bytes as WebAssembly. Each round
+            // is a filesystem lookup: see this method's docs for why a builtin
+            // interpreter is out of reach.
             for _ in 0..MAX_SHEBANG_DEPTH {
                 let (resolved_name, executable) = self
                     .get_executable_for_spawn(name.as_str(), &env)
-                    .await
+                    .await?
                     .ok_or_else(|| SpawnError::BinaryNotFound {
                         binary: name.clone(),
                     })?;
@@ -130,11 +152,15 @@ impl BinFactory {
                 match executable {
                     Executable::Wasm(bytes) => {
                         let data = HashedModuleData::new(bytes.clone());
+                        commit_script_args(&env, rewritten_args);
                         return spawn_exec_wasm(data, name.as_str(), env, &self.runtime).await;
                     }
                     Executable::BinaryPackage(pkg) => {
                         {
+                            // Resolve the command first: a package without this
+                            // entrypoint is a failed spawn, not a rewrite.
                             let cmd = package_command_by_name(&pkg, name.as_str())?;
+                            commit_script_args(&env, rewritten_args);
                             env.prepare_spawn(cmd);
                         }
 
@@ -142,12 +168,22 @@ impl BinFactory {
                             .await;
                     }
                     Executable::Script(script) => {
-                        name = prepare_script_execution(&env, &name, script)?;
+                        let script_path = invoked_as.unwrap_or_else(|| name.clone());
+                        let args = match &rewritten_args {
+                            Some(args) => args.clone(),
+                            None => env.state.args.lock().unwrap().clone(),
+                        };
+                        let (interpreter, args) = script_command(&script_path, script, &args);
+                        rewritten_args = Some(args);
+                        name = interpreter;
+                        // The next round resolves the interpreter, which the
+                        // shebang line named directly.
+                        invoked_as = Some(name.clone());
                     }
                 }
             }
 
-            Err(SpawnError::InvalidABI)
+            Err(SpawnError::ShebangLoop)
         })
     }
 
@@ -224,17 +260,15 @@ impl BinFactory {
         &self,
         name: &str,
         env: &WasiEnv,
-    ) -> Option<(String, Executable)> {
+    ) -> Result<Option<(String, Executable)>, SpawnError> {
         if name.contains('/') {
             let name = if name.starts_with('/') {
                 name.to_string()
             } else {
                 env.state.fs.relative_path_to_absolute(name.to_string())
             };
-            return self
-                .get_executable_from_wasi_fs(&name, env)
-                .await
-                .map(|executable| (name, executable));
+            let executable = self.get_executable_from_wasi_fs(&name, env).await?;
+            return Ok(executable.map(|executable| (name, executable)));
         }
 
         for directory in executable_search_path(env) {
@@ -248,17 +282,21 @@ impl BinFactory {
             } else {
                 env.state.fs.relative_path_to_absolute(path)
             };
-            if let Some(executable) = self.get_executable_from_wasi_fs(&path, env).await {
-                return Some((path, executable));
+            if let Some(executable) = self.get_executable_from_wasi_fs(&path, env).await? {
+                return Ok(Some((path, executable)));
             }
         }
 
-        None
+        Ok(None)
     }
 
-    async fn get_executable_from_wasi_fs(&self, path: &str, env: &WasiEnv) -> Option<Executable> {
+    async fn get_executable_from_wasi_fs(
+        &self,
+        path: &str,
+        env: &WasiEnv,
+    ) -> Result<Option<Executable>, SpawnError> {
         if let Some(binary) = self.local.read().unwrap().get(path).cloned().flatten() {
-            return Some(Executable::BinaryPackage(binary));
+            return Ok(Some(Executable::BinaryPackage(binary)));
         }
 
         match load_executable_from_wasi_fs(env, Path::new(path), self.runtime()).await {
@@ -269,11 +307,18 @@ impl BinFactory {
                         .unwrap()
                         .insert(path.to_string(), Some(package.clone()));
                 }
-                Some(executable)
+                Ok(Some(executable))
+            }
+            // A script whose shebang cannot be used is not a missing file, and
+            // continuing the PATH walk would report the wrong error.
+            Err(error) if error.downcast_ref::<MalformedShebang>().is_some() => {
+                Err(SpawnError::InvalidShebang {
+                    path: path.to_string(),
+                })
             }
             Err(error) => {
                 tracing::debug!(path, error = &*error, "Unable to load executable");
-                None
+                Ok(None)
             }
         }
     }
@@ -303,7 +348,14 @@ pub enum Executable {
     Script(Shebang),
 }
 
-const MAX_SHEBANG_DEPTH: usize = 4;
+/// Executables a single spawn may walk through: five nested scripts and the
+/// thing the last one names. Linux runs a chain of five and answers `ELOOP` at
+/// six, whatever the last one names.
+const MAX_SHEBANG_DEPTH: usize = 6;
+
+/// Linux reads the shebang out of a buffer of `BINPRM_BUF_SIZE` bytes and
+/// refuses to exec an interpreter path that the buffer truncated.
+const MAX_SHEBANG_LINE: usize = 256;
 
 #[derive(Debug)]
 pub struct Shebang {
@@ -311,79 +363,82 @@ pub struct Shebang {
     argument: Option<String>,
 }
 
-fn parse_shebang(bytes: &[u8]) -> Option<Shebang> {
-    let line = bytes.strip_prefix(b"#!")?;
-    let line_end = line
-        .iter()
-        .position(|byte| *byte == b'\n')
-        .unwrap_or(line.len());
-    let line = std::str::from_utf8(&line[..line_end])
-        .ok()?
-        .trim_end_matches('\r')
-        .trim();
+/// A file that starts with `#!` is a script and nothing else: Linux commits to
+/// the script handler on those two bytes and never falls back to another
+/// format. A line this runtime cannot use is therefore ENOEXEC, not something
+/// to hand to the Wasm compiler.
+#[derive(Debug, thiserror::Error)]
+#[error("the shebang line cannot be used")]
+struct MalformedShebang;
+
+enum ShebangLine {
+    Absent,
+    Malformed,
+    Parsed(Shebang),
+}
+
+fn parse_shebang(bytes: &[u8]) -> ShebangLine {
+    if !bytes.starts_with(b"#!") {
+        return ShebangLine::Absent;
+    }
+
+    let window = &bytes[..bytes.len().min(MAX_SHEBANG_LINE)];
+    let line = match window.iter().position(|byte| *byte == b'\n') {
+        Some(end) => &window[..end],
+        // Without a newline the line ends where the file does, so anything
+        // reaching the end of the window is truncated.
+        None if bytes.len() < MAX_SHEBANG_LINE => window,
+        None => return ShebangLine::Malformed,
+    };
+
+    // WASIX resolves paths as UTF-8 strings. Linux takes them as bytes, so a
+    // path this runtime cannot represent is reported rather than ignored.
+    let Ok(line) = std::str::from_utf8(&line[2..]) else {
+        return ShebangLine::Malformed;
+    };
+    let line = line.trim_end_matches('\r').trim();
+
     let (interpreter, argument) = line
         .split_once(char::is_whitespace)
         .map(|(interpreter, argument)| (interpreter, Some(argument.trim().to_string())))
         .unwrap_or((line, None));
 
     if interpreter.is_empty() {
-        return None;
+        return ShebangLine::Malformed;
     }
 
-    Some(Shebang {
+    ShebangLine::Parsed(Shebang {
         interpreter: interpreter.to_string(),
         argument: argument.filter(|argument| !argument.is_empty()),
     })
 }
 
-fn prepare_script_execution(
-    env: &WasiEnv,
-    script_name: &str,
-    script: Shebang,
-) -> Result<String, SpawnError> {
-    let mut args = env.state.args.lock().unwrap();
-    let (interpreter, new_args) = script_command(script_name, script, &args)?;
-    *args = new_args;
-    Ok(interpreter)
+/// Applies the argv a shebang rewrote, once the executable it named has been
+/// found. Nothing before this point may disturb the caller's argv.
+fn commit_script_args(env: &WasiEnv, args: Option<Vec<String>>) {
+    if let Some(args) = args {
+        *env.state.args.lock().unwrap() = args;
+    }
 }
 
 fn script_command(
     script_name: &str,
     script: Shebang,
     original_args: &[String],
-) -> Result<(String, Vec<String>), SpawnError> {
+) -> (String, Vec<String>) {
     let user_args = original_args.iter().skip(1).cloned();
 
-    // `/usr/bin/env NAME` is the portable shebang used by npm executables.
-    // Resolve NAME through the same package/PATH machinery as a direct exec,
-    // rather than requiring a host `/usr/bin/env` binary in the guest image.
-    let (interpreter, interpreter_args) = if script.interpreter.ends_with("/env") {
-        let argument = script.argument.ok_or(SpawnError::InvalidABI)?;
-        let mut words = argument.split_whitespace();
-        let first = words.next().ok_or(SpawnError::InvalidABI)?;
-        let (interpreter, remaining) = if first == "-S" {
-            let interpreter = words.next().ok_or(SpawnError::InvalidABI)?;
-            (interpreter.to_string(), words.map(str::to_string).collect())
-        } else if first.starts_with('-') {
-            return Err(SpawnError::InvalidABI);
-        } else {
-            (first.to_string(), words.map(str::to_string).collect())
-        };
-        (interpreter, remaining)
-    } else {
-        (
-            script.interpreter,
-            script.argument.into_iter().collect::<Vec<_>>(),
-        )
-    };
-
-    let args = std::iter::once(interpreter.clone())
-        .chain(interpreter_args)
+    // As on Unix, whatever follows the interpreter on the shebang line is a
+    // single argument. `/usr/bin/env` needs no special case: it resolves like
+    // any other interpreter, and the `env` shipped by `wasmer/coreutils` does
+    // its own `-S` splitting.
+    let args = std::iter::once(script.interpreter.clone())
+        .chain(script.argument)
         .chain(std::iter::once(script_name.to_string()))
         .chain(user_args)
         .collect();
 
-    Ok((interpreter, args))
+    (script.interpreter, args)
 }
 
 async fn load_executable_from_filesystem(
@@ -413,16 +468,27 @@ async fn load_executable_from_wasi_fs(
     path: &Path,
     rt: &(dyn Runtime + Send + Sync),
 ) -> Result<Executable, anyhow::Error> {
-    let inode = env
-        .state
-        .fs
-        .get_inode_at_path(
-            &env.state.inodes,
-            VIRTUAL_ROOT_FD,
-            path.to_string_lossy().as_ref(),
-            true,
-        )
-        .map_err(|error| anyhow::anyhow!("Unable to resolve executable: {error}"))?;
+    // Resolving through the inode tree follows symlinks and reaches a file that
+    // only exists in memory, but it sees only what a preopen covers. Without a
+    // matching one the virtual root has nothing to offer, so fall back to
+    // opening the root filesystem, which is where executables were found
+    // before. That fallback does not follow symlinks.
+    let inode = match env.state.fs.get_inode_at_path(
+        &env.state.inodes,
+        VIRTUAL_ROOT_FD,
+        path.to_string_lossy().as_ref(),
+        true,
+    ) {
+        Ok(inode) => inode,
+        Err(error) => {
+            tracing::debug!(
+                %error,
+                path = path.to_string_lossy().as_ref(),
+                "Unable to resolve executable through the preopens",
+            );
+            return load_executable_from_filesystem(env.fs_root(), path, rt).await;
+        }
+    };
 
     let (buffer, backing_path) = {
         let kind = inode.read();
@@ -458,71 +524,152 @@ async fn load_executable_from_buffer(
         }
     }
 
-    if let Some(script) = parse_shebang(buffer.as_slice()) {
-        Ok(Executable::Script(script))
-    } else {
-        Ok(Executable::Wasm(buffer))
+    match parse_shebang(buffer.as_slice()) {
+        ShebangLine::Parsed(script) => Ok(Executable::Script(script)),
+        ShebangLine::Malformed => Err(MalformedShebang.into()),
+        ShebangLine::Absent => Ok(Executable::Wasm(buffer)),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::{path::Path, sync::Arc};
 
     use virtual_fs::{AsyncWriteExt, FileSystem};
     use wasmer::Engine;
+    use wasmer_wasix_types::wasi::Errno;
 
-    use super::{Executable, load_executable_from_wasi_fs, parse_shebang, script_command};
-    use crate::WasiEnvBuilder;
+    use super::{
+        Executable, MAX_SHEBANG_LINE, Shebang, ShebangLine, load_executable_from_wasi_fs,
+        parse_shebang, script_command,
+    };
+    use crate::{SpawnError, VIRTUAL_ROOT_FD, WasiEnvBuilder};
+
+    fn expect_parsed(line: ShebangLine) -> Shebang {
+        match line {
+            ShebangLine::Parsed(script) => script,
+            ShebangLine::Absent => panic!("expected a shebang"),
+            ShebangLine::Malformed => panic!("expected a usable shebang"),
+        }
+    }
 
     #[test]
     fn parses_env_shebang() {
-        let script = parse_shebang(b"#!/usr/bin/env node\nconsole.log('hello')\n").unwrap();
+        let script = expect_parsed(parse_shebang(
+            b"#!/usr/bin/env node\nconsole.log('hello')\n",
+        ));
         assert_eq!(script.interpreter, "/usr/bin/env");
         assert_eq!(script.argument.as_deref(), Some("node"));
     }
 
     #[test]
     fn parses_direct_shebang_with_crlf() {
-        let script = parse_shebang(b"#!/bin/bash -e\r\necho hello\r\n").unwrap();
+        let script = expect_parsed(parse_shebang(b"#!/bin/bash -e\r\necho hello\r\n"));
         assert_eq!(script.interpreter, "/bin/bash");
         assert_eq!(script.argument.as_deref(), Some("-e"));
     }
 
     #[test]
     fn ignores_regular_files() {
-        assert!(parse_shebang(b"console.log('hello')\n").is_none());
+        assert!(matches!(
+            parse_shebang(b"console.log('hello')\n"),
+            ShebangLine::Absent
+        ));
     }
 
     #[test]
-    fn env_shebang_resolves_interpreter_and_preserves_arguments() {
-        let script = parse_shebang(b"#!/usr/bin/env node\n").unwrap();
+    fn a_line_longer_than_the_kernel_buffer_is_rejected() {
+        // Linux fits the whole line, `#!` and newline included, in
+        // BINPRM_BUF_SIZE and refuses to exec a path the buffer truncated.
+        let fits = format!("#!/{}\n", "y".repeat(MAX_SHEBANG_LINE - 4));
+        assert_eq!(fits.len(), MAX_SHEBANG_LINE);
+        assert!(matches!(
+            parse_shebang(fits.as_bytes()),
+            ShebangLine::Parsed(_)
+        ));
+
+        let one_too_long = format!("#!/{}\n", "y".repeat(MAX_SHEBANG_LINE - 3));
+        assert_eq!(one_too_long.len(), MAX_SHEBANG_LINE + 1);
+        assert!(matches!(
+            parse_shebang(one_too_long.as_bytes()),
+            ShebangLine::Malformed
+        ));
+    }
+
+    #[test]
+    fn a_short_line_needs_no_newline() {
+        let Shebang {
+            interpreter,
+            argument,
+        } = expect_parsed(parse_shebang(b"#!/bin/echo hi"));
+        assert_eq!(interpreter, "/bin/echo");
+        assert_eq!(argument.as_deref(), Some("hi"));
+    }
+
+    #[test]
+    fn a_non_utf8_interpreter_is_rejected_rather_than_compiled() {
+        // Linux runs this: paths there are bytes. WASIX resolves paths as
+        // UTF-8, so the honest answer is ENOEXEC, never a Wasm compile error.
+        assert!(matches!(
+            parse_shebang(b"#!/usr/bin/int\xff\xfebad\n"),
+            ShebangLine::Malformed
+        ));
+    }
+
+    #[test]
+    fn an_empty_interpreter_is_rejected() {
+        assert!(matches!(parse_shebang(b"#!\n"), ShebangLine::Malformed));
+        assert!(matches!(parse_shebang(b"#!   \n"), ShebangLine::Malformed));
+    }
+
+    #[test]
+    fn script_keeps_the_path_the_caller_spelled() {
+        // execv("./tool", ...) on Linux hands the interpreter "./tool", not the
+        // path the kernel resolved it to.
+        let script = expect_parsed(parse_shebang(b"#!/bin/interp\n"));
+        let original = vec!["./tool".to_string(), "arg".to_string()];
+        let (interpreter, args) = script_command("./tool", script, &original);
+
+        assert_eq!(interpreter, "/bin/interp");
+        assert_eq!(args, ["/bin/interp", "./tool", "arg"]);
+    }
+
+    #[test]
+    fn env_shebang_execs_env_itself() {
+        let script = expect_parsed(parse_shebang(b"#!/usr/bin/env node\n"));
         let original = vec!["next".to_string(), "dev".to_string()];
-        let (interpreter, args) =
-            script_command("/workspace/.bin/next", script, &original).unwrap();
+        let (interpreter, args) = script_command("/workspace/.bin/next", script, &original);
 
-        assert_eq!(interpreter, "node");
-        assert_eq!(args, ["node", "/workspace/.bin/next", "dev"]);
-    }
-
-    #[test]
-    fn env_split_string_preserves_interpreter_arguments() {
-        let script = parse_shebang(b"#!/usr/bin/env -S node --no-warnings\n").unwrap();
-        let original = vec!["tool".to_string(), "input.js".to_string()];
-        let (interpreter, args) = script_command("/workspace/tool", script, &original).unwrap();
-
-        assert_eq!(interpreter, "node");
+        assert_eq!(interpreter, "/usr/bin/env");
         assert_eq!(
             args,
-            ["node", "--no-warnings", "/workspace/tool", "input.js"]
+            ["/usr/bin/env", "node", "/workspace/.bin/next", "dev"]
+        );
+    }
+
+    #[test]
+    fn env_split_string_stays_one_argument() {
+        let script = expect_parsed(parse_shebang(b"#!/usr/bin/env -S node --no-warnings\n"));
+        let original = vec!["tool".to_string(), "input.js".to_string()];
+        let (interpreter, args) = script_command("/workspace/tool", script, &original);
+
+        assert_eq!(interpreter, "/usr/bin/env");
+        assert_eq!(
+            args,
+            [
+                "/usr/bin/env",
+                "-S node --no-warnings",
+                "/workspace/tool",
+                "input.js"
+            ]
         );
     }
 
     #[test]
     fn direct_shebang_inserts_optional_argument_before_script() {
-        let script = parse_shebang(b"#!/bin/bash -e\n").unwrap();
+        let script = expect_parsed(parse_shebang(b"#!/bin/bash -e\n"));
         let original = vec!["script".to_string(), "hello".to_string()];
-        let (interpreter, args) = script_command("/workspace/script", script, &original).unwrap();
+        let (interpreter, args) = script_command("/workspace/script", script, &original);
 
         assert_eq!(interpreter, "/bin/bash");
         assert_eq!(args, ["/bin/bash", "-e", "/workspace/script", "hello"]);
@@ -551,6 +698,166 @@ mod tests {
             .unwrap();
 
         let executable = load_executable_from_wasi_fs(&env, Path::new("/bin/next"), env.runtime())
+            .await
+            .unwrap();
+        assert!(matches!(executable, Executable::Script(_)));
+    }
+
+    #[tokio::test]
+    async fn loads_an_executable_outside_every_preopen() {
+        // An embedder that preopens only its own directory still gets to exec
+        // what it wrote elsewhere; the inode tree offers nothing there, since
+        // the root holds preopens alone.
+        let backing = virtual_fs::mem_fs::FileSystem::default();
+        backing.create_dir(Path::new("/app")).unwrap();
+        backing.create_dir(Path::new("/bin")).unwrap();
+
+        let mut builder = WasiEnvBuilder::new("test")
+            .engine(Engine::default())
+            .fs(Arc::new(backing) as Arc<dyn FileSystem + Send + Sync>);
+        builder.preopen_vfs_dirs(["/app".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+        let fs = &env.state.fs.root_fs;
+
+        let mut target = fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/bin/tool"))
+            .unwrap();
+        target.write_all(b"#!/bin/sh\necho hello\n").await.unwrap();
+
+        assert!(
+            env.state
+                .fs
+                .get_inode_at_path(&env.state.inodes, VIRTUAL_ROOT_FD, "/bin/tool", true)
+                .is_err(),
+            "the preopens should not cover this path, or the test proves nothing"
+        );
+
+        let executable = load_executable_from_wasi_fs(&env, Path::new("/bin/tool"), env.runtime())
+            .await
+            .unwrap();
+        assert!(matches!(executable, Executable::Script(_)));
+    }
+
+    #[tokio::test]
+    async fn a_failed_script_spawn_leaves_the_caller_argv_alone() {
+        // `proc_exec4` shares this state with a caller that keeps running when
+        // the spawn fails, so a shebang naming a missing interpreter must not
+        // leave the caller holding arguments it never had.
+        let backing = virtual_fs::mem_fs::FileSystem::default();
+        backing.create_dir(Path::new("/bin")).unwrap();
+
+        let mut builder = WasiEnvBuilder::new("tool")
+            .args(["one", "two"])
+            .engine(Engine::default())
+            .fs(Arc::new(backing) as Arc<dyn FileSystem + Send + Sync>);
+        builder.preopen_vfs_dirs(["/".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+
+        let mut script = env
+            .state
+            .fs
+            .root_fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/bin/tool"))
+            .unwrap();
+        script
+            .write_all(b"#!/bin/definitely-not-here\n")
+            .await
+            .unwrap();
+
+        let before = env.state.args.lock().unwrap().clone();
+        let result = env
+            .bin_factory
+            .clone()
+            .spawn("/bin/tool".to_string(), None, env.clone())
+            .await;
+
+        assert!(result.is_err(), "the interpreter does not exist");
+        assert_eq!(*env.state.args.lock().unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn a_shebang_cycle_reports_a_loop() {
+        // Linux answers ELOOP for a cycle and for a chain too deep to walk,
+        // rather than the EINVAL a bad ABI would get.
+        let backing = virtual_fs::mem_fs::FileSystem::default();
+        backing.create_dir(Path::new("/bin")).unwrap();
+
+        let mut builder = WasiEnvBuilder::new("tool")
+            .engine(Engine::default())
+            .fs(Arc::new(backing) as Arc<dyn FileSystem + Send + Sync>);
+        builder.preopen_vfs_dirs(["/".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+
+        for (name, target) in [("a", "/bin/b"), ("b", "/bin/a")] {
+            let mut file = env
+                .state
+                .fs
+                .root_fs
+                .new_open_options()
+                .create(true)
+                .write(true)
+                .open(Path::new(&format!("/bin/{name}")))
+                .unwrap();
+            file.write_all(format!("#!{target}\n").as_bytes())
+                .await
+                .unwrap();
+        }
+
+        let result = env
+            .bin_factory
+            .clone()
+            .spawn("/bin/a".to_string(), None, env.clone())
+            .await;
+
+        assert!(matches!(result, Err(SpawnError::ShebangLoop)));
+        assert_eq!(
+            crate::syscalls::conv_spawn_err_to_errno(&SpawnError::ShebangLoop),
+            Errno::Loop
+        );
+    }
+
+    #[tokio::test]
+    async fn a_symlink_outside_every_preopen_is_not_followed() {
+        // Documents today's boundary rather than endorsing it: the fallback
+        // opens the root filesystem, which stops at the link itself. Widen this
+        // test if that ever changes.
+        let backing = virtual_fs::mem_fs::FileSystem::default();
+        backing.create_dir(Path::new("/app")).unwrap();
+        backing.create_dir(Path::new("/bin")).unwrap();
+        backing.create_dir(Path::new("/pkg")).unwrap();
+
+        let mut builder = WasiEnvBuilder::new("test")
+            .engine(Engine::default())
+            .fs(Arc::new(backing) as Arc<dyn FileSystem + Send + Sync>);
+        builder.preopen_vfs_dirs(["/app".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+        let fs = &env.state.fs.root_fs;
+
+        let mut target = fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/pkg/tool"))
+            .unwrap();
+        target.write_all(b"#!/bin/sh\necho hello\n").await.unwrap();
+        fs.create_symlink(Path::new("../pkg/tool"), Path::new("/bin/tool"))
+            .unwrap();
+
+        assert!(
+            load_executable_from_wasi_fs(&env, Path::new("/bin/tool"), env.runtime())
+                .await
+                .is_err()
+        );
+
+        // The file the link points at is reachable directly, so only the
+        // symlink hop is what fails.
+        let executable = load_executable_from_wasi_fs(&env, Path::new("/pkg/tool"), env.runtime())
             .await
             .unwrap();
         assert!(matches!(executable, Executable::Script(_)));

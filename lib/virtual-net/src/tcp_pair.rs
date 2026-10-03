@@ -173,7 +173,7 @@ impl SocketBuffer {
 
     pub fn try_send(
         &self,
-        data: &[u8],
+        mut data: &[u8],
         all_or_nothing: bool,
         waker: Option<&Waker>,
     ) -> crate::Result<usize> {
@@ -189,18 +189,17 @@ impl SocketBuffer {
             }
             return Err(NetworkError::WouldBlock);
         }
-        if data.len() > available && all_or_nothing {
-            if let Some(waker) = waker {
-                state.add_waker(waker)
+        if data.len() > available {
+            if all_or_nothing {
+                if let Some(waker) = waker {
+                    state.add_waker(waker)
+                }
+                return Err(NetworkError::WouldBlock);
             }
-            return Err(NetworkError::WouldBlock);
+            // Partial writes must also notify readers below.
+            data = &data[..available];
         }
-        // A partial write makes bytes readable too. It must take the same
-        // notification path as a full write, or a sleeping reader never drains
-        // the buffer and both ends can remain blocked indefinitely.
-        let amt = state
-            .buffer
-            .enqueue_slice(&data[..data.len().min(available)]);
+        let amt = state.buffer.enqueue_slice(data);
 
         if let Some(handler) = state.push_handler.as_mut() {
             handler.push_interest(InterestType::Readable);

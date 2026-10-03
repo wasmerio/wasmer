@@ -116,24 +116,34 @@ impl TryFrom<VMMemory> for VMSharedMemory {
 
     fn try_from(memory: VMMemory) -> Result<Self, Self::Error> {
         if !memory.ty.shared
-            || !memory.memory.buffer().is_instance_of::<js_sys::SharedArrayBuffer>()
+            || !memory
+                .memory
+                .buffer()
+                .is_instance_of::<js_sys::SharedArrayBuffer>()
         {
             return Err(MemoryError::MemoryNotShared);
         }
         Ok(Self {
-            memory: crate::js::utils::shared_handle::SharedJsHandle::new(memory.memory.into_inner()),
+            memory: crate::js::utils::shared_handle::SharedJsHandle::new(
+                memory.memory.into_inner(),
+            ),
             ty: memory.ty,
         })
     }
 }
 impl VMSharedMemory {
-    pub fn attach(self) -> VMMemory {
-        let memory = self.memory.get().expect(
-            "shared memory is unavailable in this worker: deliver it with \
-             wasmer::js::prepare_shared_object_message and call receive_shared_object_message \
-             before attaching it (or use export_shared_objects/import_shared_objects)",
-        );
-        VMMemory::new(memory, self.ty)
+    /// Fails if the memory was never delivered to the current worker.
+    pub fn try_attach(self) -> Result<VMMemory, MemoryError> {
+        let memory = self.memory.get().ok_or_else(|| {
+            MemoryError::Generic(
+                "shared memory is unavailable in this worker: deliver it with \
+                 wasmer::js::prepare_shared_object_message and call \
+                 receive_shared_object_message before attaching it (or use \
+                 export_shared_objects/import_shared_objects)"
+                    .into(),
+            )
+        })?;
+        Ok(VMMemory::new(memory, self.ty))
     }
 }
 
@@ -148,7 +158,10 @@ mod tests {
         let mut store = Store::default();
         let ty = MemoryType::new(1, Some(4), false);
         let source = Memory::new(&mut store, ty).unwrap();
-        assert!(matches!(source.copy(&store), Err(MemoryError::MemoryNotShared)));
+        assert!(matches!(
+            source.copy(&store),
+            Err(MemoryError::MemoryNotShared)
+        ));
         assert!(source.as_shared(&store).is_none());
         let js = crate::js::memory::Memory::js_memory_from_type(&ty).unwrap();
         let vm = VMMemory::new(js.clone(), ty);
@@ -161,6 +174,18 @@ mod tests {
         assert!(matches!(
             VMSharedMemory::try_from(mislabeled),
             Err(MemoryError::MemoryNotShared)
+        ));
+    }
+
+    #[wasm_bindgen_test]
+    fn undelivered_shared_memory_fails_to_attach() {
+        let mut store = Store::default();
+        let source = Memory::new(&mut store, MemoryType::new(1, Some(4), true)).unwrap();
+        let shared = source.as_shared(&store).unwrap();
+        crate::js::utils::shared_handle::forget_local_objects();
+        assert!(matches!(
+            shared.try_attach(&mut store),
+            Err(MemoryError::Generic(_))
         ));
     }
 

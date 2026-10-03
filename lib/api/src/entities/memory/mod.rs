@@ -172,7 +172,8 @@ impl Memory {
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        self.copy(store).map(|memory| memory.attach(new_store))
+        self.copy(store)
+            .and_then(|memory| memory.try_attach(new_store))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
@@ -188,7 +189,8 @@ impl Memory {
     /// its store, that can later be attached to a different store.
     ///
     /// The copy is shared memory, but does not alias the source memory.
-    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory.
+    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory on every
+    /// backend; in particular WASIX `proc_fork` requires shared memory.
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         self.0.copy(store)
     }
@@ -210,7 +212,7 @@ impl Memory {
 
         self.as_shared(store)
             .ok_or_else(shared_memory_detach_error)
-            .map(|memory| memory.attach(new_store))
+            .and_then(|memory| memory.try_attach(new_store))
     }
 
     /// Get a [`SharedMemory`].

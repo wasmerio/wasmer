@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-package"
-version = "0.704.0"
+version = "0.705.0"
 description = "Packaging related types and functions for Wasmer"
 
 authors.workspace = true
@@ -14,8 +14,8 @@ rust-version.workspace = true
 
 [dependencies]
 webc.workspace = true
-wasmer-config = { version = "0.704.0", path = "../config", optional = true }
-wasmer-types = { version = "7.4.0", path = "../types", optional = true, features = [
+wasmer-config = { version = "0.705.0", path = "../config", optional = true }
+wasmer-types = { version = "7.5.0", path = "../types", optional = true, features = [
   "detect-wasm-features",
 ] }
 toml = { workspace = true, optional = true }
@@ -26,7 +26,6 @@ serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
 thiserror.workspace = true
-cfg-if = { workspace = true, optional = true }
 ciborium = { workspace = true, optional = true }
 semver = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
@@ -47,12 +46,11 @@ ureq.workspace = true
 hexdump.workspace = true
 
 [features]
-default = ["execution", "authoring", "webc-v3"]
+default = ["execution", "authoring"]
 execution = ["dep:bytes", "dep:wasmer-types"]
 authoring = [
   "execution",
   "dep:anyhow",
-  "dep:cfg-if",
   "dep:ciborium",
   "dep:flate2",
   "dep:ignore",
@@ -67,6 +65,3 @@ authoring = [
   "dep:url",
   "dep:wasmer-config",
 ]
-webc-v1 = ["webc/v1"]
-webc-v2 = ["webc/v2"]
-webc-v3 = ["webc/v3"]

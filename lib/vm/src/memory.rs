@@ -106,7 +106,7 @@ impl WasmMmap {
                     })?;
 
             let mut new_mmap =
-                Mmap::accessible_reserved(new_bytes, request_bytes, None, MmapType::Private)
+                Mmap::accessible_reserved(new_bytes, request_bytes, None, MmapType::Private, true)
                     .map_err(MemoryError::Region)?;
 
             let copy_len = self.alloc.len() - conf.offset_guard_size;
@@ -343,9 +343,14 @@ impl VMOwnedMemory {
             let mapped_pages = memory.minimum;
             let mapped_bytes = mapped_pages.bytes();
 
-            let mut alloc =
-                Mmap::accessible_reserved(mapped_bytes.0, request_bytes, backing_file, memory_type)
-                    .map_err(MemoryError::Region)?;
+            let mut alloc = Mmap::accessible_reserved(
+                mapped_bytes.0,
+                request_bytes,
+                backing_file,
+                memory_type,
+                true,
+            )
+            .map_err(MemoryError::Region)?;
 
             let base_ptr = alloc.as_mut_ptr();
             let mem_length = memory

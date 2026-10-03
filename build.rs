@@ -28,6 +28,8 @@ fn main() -> anyhow::Result<()> {
             .expect("CARGO_CFG_TARGET_ENV must be provided by cargo")
     );
 
+    println!("cargo:rerun-if-changed=tests/ignores.txt");
+
     // As rerun-if-changed doesn't support globs, we use another crate
     // to check changes in directories.
     build_deps::rerun_if_changed_paths("tests/wast/spec/proposals/*").expect("Can't get directory");

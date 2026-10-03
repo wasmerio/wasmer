@@ -7,9 +7,10 @@ export WASIXCC_PIC=1
 
 NUM_SIDES=8
 
-case "${WASMER_BACKEND}" in
-  v8)
+case "${WASMER_BACKEND}:${WASMER_ARCH}" in
+  v8:*|*:aarch64)
     # V8 retains more per-spawn state; keep contention but avoid JS heap OOM.
+    # Running on an aarch64 platform can take a significant amount of time.
     SPAWN_BATCH=16
     SPAWN_ROUNDS=24
     ;;

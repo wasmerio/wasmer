@@ -122,7 +122,6 @@ fn parse_dir(path: &Path) -> Result<Container, WasmerPackageError> {
 }
 
 #[allow(clippy::result_large_err)]
-#[cfg(feature = "webc-v2")]
 fn parse_v2_mmap(f: File) -> Result<Container, ContainerError> {
     // Note: OwnedReader::from_file() will automatically try to
     // use a memory-mapped file when possible.
@@ -131,24 +130,11 @@ fn parse_v2_mmap(f: File) -> Result<Container, ContainerError> {
 }
 
 #[allow(clippy::result_large_err)]
-#[cfg(not(feature = "webc-v2"))]
-fn parse_v2_mmap(_f: File) -> Result<Container, ContainerError> {
-    Err(ContainerError::FeatureNotEnabled { feature: "v2" })
-}
-
-#[allow(clippy::result_large_err)]
-#[cfg(feature = "webc-v3")]
 fn parse_v3_mmap(f: File) -> Result<Container, ContainerError> {
     // Note: OwnedReader::from_file() will automatically try to
     // use a memory-mapped file when possible.
     let webc = webc::v3::read::OwnedReader::from_file(f)?;
     Ok(Container::new(webc))
-}
-
-#[allow(clippy::result_large_err)]
-#[cfg(not(feature = "webc-v3"))]
-fn parse_v3_mmap(_f: File) -> Result<Container, ContainerError> {
-    Err(ContainerError::FeatureNotEnabled { feature: "v3" })
 }
 
 /// Convert a `Features` object to a list of WebAssembly feature strings
@@ -256,17 +242,6 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
     }
 
     features
-}
-
-#[cfg(all(test, not(feature = "webc-v1"), not(feature = "webc-v2")))]
-mod modern_webc_tests {
-    use super::from_bytes;
-
-    #[test]
-    fn rejects_legacy_versions() {
-        assert!(from_bytes(b"\0webc001".to_vec()).is_err());
-        assert!(from_bytes(b"\0webc002".to_vec()).is_err());
-    }
 }
 
 #[cfg(all(test, feature = "execution", not(feature = "authoring")))]

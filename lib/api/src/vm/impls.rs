@@ -79,8 +79,11 @@ impl VMSharedMemory {
         }
     }
 
-    pub(crate) fn into_vm_memory(self, store: &mut impl AsStoreMut) -> VMMemory {
-        match self {
+    pub(crate) fn try_into_vm_memory(
+        self,
+        store: &mut impl AsStoreMut,
+    ) -> Result<VMMemory, wasmer_types::MemoryError> {
+        Ok(match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => VMMemory::Sys(s.into()),
             #[cfg(feature = "v8")]
@@ -89,8 +92,8 @@ impl VMSharedMemory {
                 VMMemory::V8(s.into_vm_memory(store.inner.store.as_v8_mut()))
             }
             #[cfg(feature = "js")]
-            Self::Js(s) => VMMemory::Js(s.attach()),
-        }
+            Self::Js(s) => VMMemory::Js(s.try_attach()?),
+        })
     }
 }
 
