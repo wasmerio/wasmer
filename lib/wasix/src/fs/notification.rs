@@ -111,9 +111,14 @@ impl NotificationInner {
         state.counter = 0;
     }
 
-    pub fn set_interest_handler(&self, handler: Box<dyn InterestHandler>) {
+    // Returns the replaced handler; the caller drops it after releasing its
+    // locks (see PipeRx::set_interest_handler).
+    pub fn set_interest_handler(
+        &self,
+        handler: Box<dyn InterestHandler>,
+    ) -> Option<Box<dyn InterestHandler>> {
         let mut state = self.state.lock().unwrap();
-        state.interest_handler.replace(handler);
+        state.interest_handler.replace(handler)
     }
 
     pub fn remove_interest_handler(&self) -> Option<Box<dyn InterestHandler>> {
