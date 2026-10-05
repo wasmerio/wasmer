@@ -3235,6 +3235,7 @@ checksum = "0c6639b70a7ce854b79c70d7e83f16b5dc0137cc914f3d7d03803b513ecc67ac"
 [[package]]
 name = "libwild"
 version = "0.10.0"
+source = "git+https://github.com/wild-linker/wild.git?branch=main#4f86ad0f9cebf0f31ce7a89ef6afddb76e0db467"
 dependencies = [
  "anyhow",
  "atomic-take",
@@ -3308,6 +3309,7 @@ dependencies = [
 [[package]]
 name = "linker-layout"
 version = "0.10.0"
+source = "git+https://github.com/wild-linker/wild.git?branch=main#4f86ad0f9cebf0f31ce7a89ef6afddb76e0db467"
 dependencies = [
  "anyhow",
  "postcard",
@@ -3317,6 +3319,7 @@ dependencies = [
 [[package]]
 name = "linker-trace"
 version = "0.10.0"
+source = "git+https://github.com/wild-linker/wild.git?branch=main#4f86ad0f9cebf0f31ce7a89ef6afddb76e0db467"
 dependencies = [
  "anyhow",
  "postcard",
@@ -3326,6 +3329,7 @@ dependencies = [
 [[package]]
 name = "linker-utils"
 version = "0.10.0"
+source = "git+https://github.com/wild-linker/wild.git?branch=main#4f86ad0f9cebf0f31ce7a89ef6afddb76e0db467"
 dependencies = [
  "anyhow",
  "leb128",
