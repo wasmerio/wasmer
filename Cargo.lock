@@ -5384,9 +5384,9 @@ dependencies = [
 
 [[package]]
 name = "sharded-offset-map"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b71ad2c1fdc235dc70668aff10a50040624596781d443a3389b1203d18e6b7"
+checksum = "d39ce062cd707cdf07301f39c6bef3a58c75ca2d1139998edc75e7bff54248c6"
 dependencies = [
  "sharded-vec-writer",
 ]
@@ -5697,7 +5697,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

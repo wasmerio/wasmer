@@ -202,7 +202,8 @@ impl FuncTranslator {
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
-        let debug_info = if config.experimental_artifact {
+        // Temporarily disable debug-info emission, including for experimental artifacts.
+        let debug_info = if false {
             let source_location = self.source_map.first_in_function(function_body);
             let debug_metadata_version = self
                 .ctx

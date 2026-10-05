@@ -559,38 +559,38 @@ fn emit_wasmer_meta_object(
             sh_flags: elf::SHF_GNU_RETAIN,
         };
     }
-    for traps_name in (0..compiled_objects.object_files.len())
-        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
-    {
-        let offset =
-            obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
-        let symbol_id = obj.add_symbol(ObjSymbol {
-            name: traps_name.as_bytes().into(),
-            value: 0,
-            size: 0,
-            kind: SymbolKind::Data,
-            scope: SymbolScope::Linkage,
-            weak: true,
-            section: SymbolSection::Undefined,
-            flags: SymbolFlags::None,
-        });
-        obj.add_relocation(
-            trap_fn_offsets_section_id,
-            Relocation {
-                offset,
-                flags: RelocationFlags::Generic {
-                    kind: RelocationKind::Absolute,
-                    encoding: RelocationEncoding::Generic,
-                    size: pointer_bits,
-                },
-                symbol: symbol_id,
-                addend: 0,
-            },
-        )
-        .map_err(|e| {
-            format!("failed to add function trap offset relocation for {traps_name}: {e}")
-        })?;
-    }
+    // for traps_name in (0..compiled_objects.object_files.len())
+    //     .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
+    // {
+    //     let offset =
+    //         obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
+    //     let symbol_id = obj.add_symbol(ObjSymbol {
+    //         name: traps_name.as_bytes().into(),
+    //         value: 0,
+    //         size: 0,
+    //         kind: SymbolKind::Data,
+    //         scope: SymbolScope::Linkage,
+    //         weak: true,
+    //         section: SymbolSection::Undefined,
+    //         flags: SymbolFlags::None,
+    //     });
+    //     obj.add_relocation(
+    //         trap_fn_offsets_section_id,
+    //         Relocation {
+    //             offset,
+    //             flags: RelocationFlags::Generic {
+    //                 kind: RelocationKind::Absolute,
+    //                 encoding: RelocationEncoding::Generic,
+    //                 size: pointer_bits,
+    //             },
+    //             symbol: symbol_id,
+    //             addend: 0,
+    //         },
+    //     )
+    //     .map_err(|e| {
+    //         format!("failed to add function trap offset relocation for {traps_name}: {e}")
+    //     })?;
+    // }
 
     obj.write()
         .map_err(|e| format!("failed to serialize Wasmer meta object: {e}"))
@@ -701,6 +701,17 @@ impl FileSystem for InMemoryFileSystem {
 
 const WASMER_IMAGE_FILENAME: &str = "wasmer-image.so";
 const WASMER_META_FILENAME: &str = "__wasmer_meta.o";
+const WASMER_LIBRARY_FILENAME: &str = "libwasmer.dylib";
+const WASMER_LIBRARY_TBD: &str = r#"--- !tapi-tbd
+ tbd-version: 4
+ targets: [  arm64e-macos ]
+ install-name: 'libwasmer.dylib'
+ current-version: 1
+ exports:
+   - targets: [ arm64e-macos ]
+     symbols: [ _wasmer_vm_alloc_exception, _wasmer_vm_read_exnref, _wasmer_vm_throw, _wasmer_eh_personality2, _wasmer_vm_exception_into_exnref, ___gxx_personality_v0 ]
+...
+"#;
 
 /// Emits Wasmer metadata sections and links backend-generated object buffers into a shared object.
 pub fn emit_metadata_and_link(
@@ -753,11 +764,16 @@ pub fn emit_metadata_and_link(
                 link_args.push(path.display().to_string());
             }
             files.insert(PathBuf::from(WASMER_META_FILENAME), Arc::new(meta_object));
+            files.insert(
+                PathBuf::from(WASMER_LIBRARY_FILENAME),
+                Arc::new(WASMER_LIBRARY_TBD.as_bytes().to_vec()),
+            );
         }
         // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
         // records. Linkers concatenate input sections in object order, and a
         // leading terminator makes frame registration see an empty table.
         link_args.push(WASMER_META_FILENAME.to_string());
+        link_args.push(WASMER_LIBRARY_FILENAME.to_string());
 
         let mut wild_args = Args::new(|| link_args.iter().map(String::as_str)).map_err(|e| {
             CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}"))
