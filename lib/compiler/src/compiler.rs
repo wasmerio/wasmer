@@ -23,7 +23,9 @@ use itertools::Itertools;
 use libwild::{
     Args, FileSystem, FileType, InputFileData, Linker, OutputFileData, OutputOptions, error,
 };
-use object::write::{Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
+use object::write::{
+    Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
+};
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
     SymbolKind, SymbolScope, elf,
@@ -452,6 +454,22 @@ fn emit_wasmer_meta_object(
     let mut obj = get_object_for_target(target.triple())
         .map_err(|e| format!("failed to create Wasmer meta object: {e}"))?;
 
+    if obj.format() == object::BinaryFormat::MachO {
+        let section_id = obj.section_id(StandardSection::Text);
+        // Mach-O links require an entry symbol, but Wasmer never calls it.
+        obj.add_symbol(ObjSymbol {
+            // Mach-O mangling adds the leading underscore.
+            name: b"main".to_vec(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Text,
+            scope: SymbolScope::Linkage,
+            weak: true,
+            section: SymbolSection::Section(section_id),
+            flags: SymbolFlags::None,
+        });
+    }
+
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         crate::WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
@@ -722,6 +740,13 @@ pub fn emit_metadata_and_link(
     pool.install(|| {
         let meta_object = emit_wasmer_meta_object(target, compile_info_blob, &compiled_objects)
             .map_err(CompileError::Codegen)?;
+        if let Some(debug_dir) = debug_dir.as_mut() {
+            if let Some(ref hash) = module_hash {
+                debug_dir.push(hash);
+            }
+            std::fs::create_dir_all(&debug_dir).ok();
+            let _ = std::fs::write(debug_dir.join(WASMER_META_FILENAME), &meta_object);
+        }
         let CompiledObjects {
             object_files,
             import_trampoline_object_files,
@@ -796,13 +821,8 @@ pub fn emit_metadata_and_link(
 
         // If compiler-debug-dir is set, copy the final linked .so image
         // into the module_hash subfolder.
-        if let Some(debug_dir) = debug_dir.as_mut() {
-            if let Some(ref hash) = module_hash {
-                debug_dir.push(hash);
-            }
-            std::fs::create_dir_all(&debug_dir).ok();
-            debug_dir.push(WASMER_IMAGE_FILENAME);
-            let _ = std::fs::write(debug_dir, &image);
+        if let Some(debug_dir) = debug_dir.as_ref() {
+            let _ = std::fs::write(debug_dir.join(WASMER_IMAGE_FILENAME), &image);
         }
         Ok(image)
     })
