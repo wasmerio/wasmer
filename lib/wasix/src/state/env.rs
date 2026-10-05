@@ -7,10 +7,13 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
-    os::task::{
-        control_plane::ControlPlaneError,
-        process::{WasiProcess, WasiProcessId},
-        thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
+    os::{
+        TtyBridge,
+        task::{
+            control_plane::ControlPlaneError,
+            process::{WasiProcess, WasiProcessId},
+            thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
+        },
     },
     state::PreparedInstanceGroupData,
     syscalls::platform_clock_time_get,
@@ -18,7 +21,7 @@ use crate::{
 use futures::future::BoxFuture;
 use rand::RngExt;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ops::Deref,
     path::{Path, PathBuf},
     str,
@@ -42,7 +45,28 @@ use wasmer_wasix_types::{
 use webc::metadata::annotations::Wasi;
 
 pub use super::handles::*;
-use super::{Linker, WasiState, context_switching::ContextSwitchingEnvironment, conv_env_vars};
+use super::{Linker, WasiState, context_switching::ContextSwitchingEnvironment};
+
+fn add_command_env_defaults(environment: &mut Vec<Vec<u8>>, defaults: Vec<String>) {
+    let mut names = environment
+        .iter()
+        .filter_map(|entry| {
+            entry
+                .iter()
+                .position(|byte| *byte == b'=')
+                .map(|separator| entry[..separator].to_vec())
+        })
+        .collect::<HashSet<_>>();
+
+    for default in defaults {
+        let Some((key, value)) = default.split_once('=') else {
+            continue;
+        };
+        if names.insert(key.as_bytes().to_vec()) {
+            environment.push([key.as_bytes(), b"=", value.as_bytes()].concat());
+        }
+    }
+}
 
 async fn write_readonly_buffer_to_fs(
     fs: &WasiFsRoot,
@@ -75,6 +99,7 @@ async fn write_readonly_buffer_to_fs(
 pub struct WasiEnvInit {
     pub(crate) state: WasiState,
     pub runtime: Arc<dyn Runtime + Send + Sync>,
+    pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     pub webc_dependencies: Vec<BinaryPackage>,
     pub mapped_commands: HashMap<String, PathBuf>,
     pub bin_factory: BinFactory,
@@ -132,6 +157,7 @@ impl WasiEnvInit {
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
+            tty: self.tty.clone(),
             webc_dependencies: self.webc_dependencies.clone(),
             mapped_commands: self.mapped_commands.clone(),
             bin_factory: self.bin_factory.clone(),
@@ -175,6 +201,8 @@ pub struct WasiEnv {
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn Runtime + Send + Sync + 'static>,
+    /// Terminal state scoped to this process tree, overriding the runtime default.
+    pub tty: Option<Arc<dyn TtyBridge + Send + Sync + 'static>>,
 
     pub capabilities: Capabilities,
 
@@ -234,6 +262,7 @@ impl Clone for WasiEnv {
             inner: Default::default(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
+            tty: self.tty.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
@@ -276,6 +305,7 @@ impl WasiEnv {
             inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
+            tty: self.tty.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
@@ -442,6 +472,7 @@ impl WasiEnv {
                 .threading
                 .enable_exponential_cpu_backoff,
             runtime: init.runtime,
+            tty: init.tty,
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
@@ -649,6 +680,11 @@ impl WasiEnv {
     /// Returns a copy of the current runtime implementation for this environment
     pub fn runtime(&self) -> &(dyn Runtime + Send + Sync) {
         self.runtime.deref()
+    }
+
+    /// Returns the process-tree terminal, falling back to the runtime default.
+    pub fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
+        self.tty.as_deref().or_else(|| self.runtime.tty())
     }
 
     /// Returns a copy of the current tasks implementation for this environment
@@ -1112,7 +1148,9 @@ impl WasiEnv {
     /// instance.
     ///
     /// The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
-    /// `/bin/command`.
+    /// `/bin/<command>` and `/usr/bin/<command>`. Each path is registered with
+    /// the package independently, so a failure to write one does not affect
+    /// the other.
     ///
     /// This will also merge the package's mount manifest
     /// ([`BinaryPackage::package_mounts`][pkg-fs]) into the current filesystem.
@@ -1143,46 +1181,36 @@ impl WasiEnv {
             let _ = root_fs.create_dir(Path::new("/usr/bin"));
 
             for command in &pkg.commands {
-                let path = format!("/bin/{}", command.name());
-                let path2 = format!("/usr/bin/{}", command.name());
-                let path = Path::new(path.as_str());
-                let path2 = Path::new(path2.as_str());
-
                 let atom = command.atom();
-
-                if let Err(err) = write_readonly_buffer_to_fs(root_fs, path, &atom).await {
-                    tracing::debug!(
-                        "failed to add package [{}] command [{}] - {}",
-                        pkg.id,
-                        command.name(),
-                        err
-                    );
-                    continue;
-                }
-                if let Err(err) = write_readonly_buffer_to_fs(root_fs, path2, &atom).await {
-                    tracing::debug!(
-                        "failed to add package [{}] command [{}] - {}",
-                        pkg.id,
-                        command.name(),
-                        err
-                    );
-                    continue;
-                }
-
                 let mut package = pkg.clone();
                 package.entrypoint_cmd = Some(command.name().to_string());
                 let package_arc = Arc::new(package);
-                self.bin_factory
-                    .set_binary(path.to_string_lossy().as_ref(), &package_arc);
-                self.bin_factory
-                    .set_binary(path2.to_string_lossy().as_ref(), &package_arc);
 
-                tracing::debug!(
-                    package=%pkg.id,
-                    command_name=command.name(),
-                    path=%path.display(),
-                    "Injected a command into the filesystem",
-                );
+                for directory in ["/bin", "/usr/bin"] {
+                    let path = format!("{directory}/{}", command.name());
+                    if let Err(err) =
+                        write_readonly_buffer_to_fs(root_fs, Path::new(&path), &atom).await
+                    {
+                        tracing::debug!(
+                            package=%pkg.id,
+                            command_name=command.name(),
+                            path,
+                            error=%err,
+                            "Failed to inject a command into the filesystem",
+                        );
+                        continue;
+                    }
+
+                    // Keep metadata for each installed path even if another
+                    // alias cannot be written (for example, below a mount).
+                    self.bin_factory.set_binary(&path, &package_arc);
+                    tracing::debug!(
+                        package=%pkg.id,
+                        command_name=command.name(),
+                        path,
+                        "Injected a command into the filesystem",
+                    );
+                }
             }
         }
 
@@ -1336,22 +1364,7 @@ impl WasiEnv {
         })) = cmd.metadata().wasi()
         {
             if let Some(env_vars) = env_vars {
-                let env_vars = env_vars
-                    .into_iter()
-                    .map(|env_var| {
-                        let (k, v) = env_var.split_once('=').unwrap();
-
-                        (k.to_string(), v.as_bytes().to_vec())
-                    })
-                    .collect::<Vec<_>>();
-
-                let env_vars = conv_env_vars(env_vars);
-
-                self.state
-                    .envs
-                    .lock()
-                    .unwrap()
-                    .extend_from_slice(env_vars.as_slice());
+                add_command_env_defaults(&mut self.state.envs.lock().unwrap(), env_vars);
             }
 
             if let Some(main_args) = main_args {
@@ -1365,5 +1378,120 @@ impl WasiEnv {
                 self.state.args.lock().unwrap()[0] = exec_name;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use once_cell::sync::OnceCell;
+    use shared_buffer::OwnedBuffer;
+    use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
+    use wasmer::Engine;
+    use wasmer_config::package::PackageId;
+
+    #[tokio::test]
+    async fn command_alias_registration_is_independent() {
+        let id = PackageId::new_named("test/command-args", "1.0.0".parse().unwrap());
+        let command = BinaryPackageCommand::new(
+            "pi".to_string(),
+            serde_json::from_value(serde_json::json!({
+                "runner": "wasi",
+                "annotations": { "wasi": {
+                    "atom": "pi", "main-args": ["/opt/pi/cli.js"]
+                } }
+            }))
+            .unwrap(),
+            OwnedBuffer::from(b"\0asm\x01\0\0\0".to_vec()),
+            ModuleHash::random(),
+            None,
+            id.clone(),
+            id.clone(),
+        );
+        let package = BinaryPackage {
+            id,
+            package_ids: vec![],
+            webc_version: webc::Version::V3,
+            when_cached: None,
+            entrypoint_cmd: Some("pi".to_string()),
+            hash: OnceCell::new(),
+            package_mounts: None,
+            commands: vec![command],
+            uses: vec![],
+            file_system_memory_footprint: 0,
+            additional_host_mapped_directories: vec![],
+        };
+
+        // A mount below a command directory (`/usr/local/ssl`) must not stop
+        // installation; a mount *at* one hides that alias, which must then
+        // stay unregistered without affecting the other alias.
+        for (mount, available, unavailable) in [
+            ("/usr/local/ssl", &["/bin/pi", "/usr/bin/pi"][..], &[][..]),
+            ("/usr/bin", &["/bin/pi"][..], &["/usr/bin/pi"][..]),
+            ("/bin", &["/usr/bin/pi"][..], &["/bin/pi"][..]),
+        ] {
+            let env = WasiEnvBuilder::new("pi")
+                .arg("--provider")
+                .arg("openai")
+                .engine(Engine::default())
+                .fs(
+                    Arc::new(RootFileSystemBuilder::default().build_tmp_ext(&["/bin"]))
+                        as Arc<dyn FileSystem + Send + Sync>,
+                )
+                .build()
+                .unwrap();
+            let fs = &env.state.fs.root_fs;
+            fs.root()
+                .mount(Path::new(mount), Arc::new(TmpFileSystem::new()))
+                .unwrap();
+
+            env.use_package_async(&package).await.unwrap();
+            for path in unavailable {
+                assert!(fs.metadata(Path::new(path)).is_err(), "{path}");
+                assert!(
+                    env.bin_factory.get_binary(path, None).await.is_none(),
+                    "{path}"
+                );
+            }
+            let mut installed = Vec::new();
+            for path in available {
+                assert!(fs.metadata(Path::new(path)).unwrap().is_file(), "{path}");
+                installed.push(
+                    env.bin_factory
+                        .get_binary(path, None)
+                        .await
+                        .expect("a successfully installed alias must retain its package metadata"),
+                );
+            }
+            // `prepare_spawn` mutates the env's args, so apply it only once.
+            env.prepare_spawn(installed[0].get_command("pi").unwrap());
+            assert_eq!(
+                *env.state.args.lock().unwrap(),
+                ["pi", "/opt/pi/cli.js", "--provider", "openai"]
+            );
+        }
+    }
+
+    #[test]
+    fn spawned_command_environment_is_default_only() {
+        let mut environment = vec![b"HOME=/workspace".to_vec(), b"PATH=/bin".to_vec()];
+
+        add_command_env_defaults(
+            &mut environment,
+            vec![
+                "HOME=/package".to_owned(),
+                "PREFIX=/".to_owned(),
+                "PREFIX=/duplicate".to_owned(),
+            ],
+        );
+
+        assert_eq!(
+            environment,
+            vec![
+                b"HOME=/workspace".to_vec(),
+                b"PATH=/bin".to_vec(),
+                b"PREFIX=/".to_vec(),
+            ]
+        );
     }
 }

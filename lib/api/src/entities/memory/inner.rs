@@ -170,7 +170,8 @@ impl BackendMemory {
         })
     }
 
-    /// Attempts to duplicate this memory in a new store with a byte-for-byte copy
+    /// Attempts to duplicate shared memory in a new store with a byte-for-byte copy.
+    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory.
     #[inline]
     #[deprecated(
         since = "8.0.0",
@@ -183,7 +184,8 @@ impl BackendMemory {
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
         self.copy(store)
-            .map(|new_memory| new_memory.attach(new_store).0)
+            .and_then(|new_memory| new_memory.try_attach(new_store))
+            .map(|new_memory| new_memory.0)
     }
 
     #[inline]
@@ -212,8 +214,9 @@ impl BackendMemory {
         })
     }
 
-    /// Attempts to create a detached copied memory handle that can later be
-    /// attached to a different store.
+    /// Attempts to create an independent copy of shared memory, detached from
+    /// its store, that can later be attached to a different store.
+    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory.
     #[inline]
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         match_rt!(on self => s {
@@ -240,7 +243,8 @@ impl BackendMemory {
 
         self.as_shared(store)
             .ok_or_else(shared_memory_detach_error)
-            .map(|new_memory| new_memory.attach(new_store).0)
+            .and_then(|new_memory| new_memory.try_attach(new_store))
+            .map(|new_memory| new_memory.0)
     }
 
     /// Get a [`SharedMemory`].

@@ -161,7 +161,8 @@ impl Memory {
         self.0.reset(store)
     }
 
-    /// Attempts to duplicate this memory in a new store with a byte-for-byte copy
+    /// Attempts to duplicate shared memory in a new store with a byte-for-byte copy.
+    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory.
     ///
     /// Since Wasmer 8.0, this function can no longer be used for stores
     /// in different threads; for that, use `copy`, and then `attach`
@@ -171,7 +172,8 @@ impl Memory {
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        self.copy(store).map(|memory| memory.attach(new_store))
+        self.copy(store)
+            .and_then(|memory| memory.try_attach(new_store))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
@@ -183,11 +185,12 @@ impl Memory {
         self.0.is_from_store(store)
     }
 
-    /// Attempts to create a detached copied memory handle that can later be
-    /// attached to a different store.
+    /// Attempts to create an independent copy of shared memory, detached from
+    /// its store, that can later be attached to a different store.
     ///
-    /// If the memory is shared, this returns a shared handle. Otherwise, it
-    /// creates an independent byte-for-byte copy.
+    /// The copy is shared memory, but does not alias the source memory.
+    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory on every
+    /// backend; in particular WASIX `proc_fork` requires shared memory.
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         self.0.copy(store)
     }
@@ -209,7 +212,7 @@ impl Memory {
 
         self.as_shared(store)
             .ok_or_else(shared_memory_detach_error)
-            .map(|memory| memory.attach(new_store))
+            .and_then(|memory| memory.try_attach(new_store))
     }
 
     /// Get a [`SharedMemory`].

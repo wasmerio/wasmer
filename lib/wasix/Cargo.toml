@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.704.2"
+version = "0.705.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -20,23 +20,23 @@ harness = false
 required-features = ["sys-thread"]
 
 [dependencies]
-wasmer-package.workspace = true
-wasmer-wasix-types = { path = "../wasi-types", version = "0.704.2", features = [
+wasmer-package = { workspace = true, features = ["execution"] }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.705.0", features = [
   "enable-serde",
 ] }
-wasmer-types = { path = "../types", version = "=7.4.2", default-features = false }
-wasmer = { path = "../api", version = "=7.4.2", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=7.5.0", default-features = false }
+wasmer = { path = "../api", version = "=7.5.0", default-features = false, features = [
   "experimental-async",
 ] }
-virtual-mio = { path = "../virtual-io", version = "0.704.2", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.704.2", default-features = false, features = [
+virtual-mio = { path = "../virtual-io", version = "0.705.0", default-features = false }
+virtual-fs = { path = "../virtual-fs", version = "0.705.0", default-features = false, features = [
   "webc-fs",
 ] }
-virtual-net = { path = "../virtual-net", version = "0.704.2", default-features = false, features = [
+virtual-net = { path = "../virtual-net", version = "0.705.0", default-features = false, features = [
   "rkyv",
 ] }
-wasmer-journal = { path = "../journal", version = "0.704.2", default-features = false }
-wasmer-config = { version = "0.704.2", path = "../config" }
+wasmer-journal = { path = "../journal", version = "0.705.0", default-features = false }
+wasmer-config = { version = "0.705.0", path = "../config" }
 
 http.workspace = true
 dashmap.workspace = true
@@ -63,6 +63,7 @@ chrono = { workspace = true, default-features = false, features = [
   "clock",
 ], optional = true }
 bytes.workspace = true
+web-time.workspace = true
 anyhow.workspace = true
 sha2.workspace = true
 waker-fn.workspace = true
@@ -164,7 +165,7 @@ terminal_size.workspace = true
 zstd.workspace = true
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=7.4.2", default-features = false, features = [
+wasmer = { path = "../api", version = "=7.5.0", default-features = false, features = [
   "wat",
   "js-serializable-module",
 ] }
@@ -190,14 +191,14 @@ wasm-bindgen-test.workspace = true
 tracing-wasm.workspace = true
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dev-dependencies]
-wasmer = { path = "../api", version = "=7.4.2", default-features = false, features = [
+wasmer = { path = "../api", version = "=7.5.0", default-features = false, features = [
   "wat",
   "js-serializable-module",
   "cranelift",
 ] }
 
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dev-dependencies]
-wasmer = { path = "../api", version = "=7.4.2", default-features = false, features = [
+wasmer = { path = "../api", version = "=7.5.0", default-features = false, features = [
   "wat",
   "js-serializable-module",
   "v8",
@@ -217,6 +218,7 @@ ctrlc = ["tokio/signal"]
 # the minimal sys implementation
 sys-minimal = ["wasmer/sys", "sys-thread", "tokio/fs"]
 sys = [
+  "package-authoring",
   "webc/mmap",
   "time",
   "virtual-mio/sys",
@@ -232,9 +234,11 @@ sys = [
   "wasmer/wat",
   "wasmer/js-serializable-module",
   "wasmer/sys",
+  "wasmer/demangle",
   # We must ensure at least one compiler backend (or `headless`) is enabled for `wasmer/sys`.
   "wasmer/headless",
 ]
+package-authoring = ["wasmer-package/authoring"]
 sys-default = ["sys"]
 sys-poll = []
 extra-logging = []
@@ -258,7 +262,6 @@ js = [
   "web-sys",
   "wasmer/js-default",
   "wasmer/wasm-types-polyfill",
-  "wasmer/wat",
   "wasmer/js-serializable-module",
 ]
 js-default = ["js"]

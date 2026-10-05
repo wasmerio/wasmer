@@ -692,7 +692,7 @@ impl Linker {
 
         let mut imports = import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
 
-        let memory = memory.attach(store);
+        let memory = memory.try_attach(store)?;
 
         let indirect_function_table = create_indirect_function_table(
             store,

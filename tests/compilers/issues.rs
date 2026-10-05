@@ -802,6 +802,36 @@ fn issue_5795_memory_reset_size(mut config: crate::Config) {
     assert_eq!(memory.view(&store).size().0, 1);
 }
 
+#[compiler_test(issues)]
+fn issue_exnref_global(mut config: crate::Config) {
+    if config.compiler == crate::Compiler::Singlepass {
+        return;
+    }
+
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+  (global (mut exnref) ref.null exn)
+  (func (export "run")
+    (local exnref)
+    global.get 0
+    local.set 0))
+"#
+        .as_bytes(),
+    )
+    .unwrap();
+
+    let mut store = config.store();
+    let module = Module::new(&store, wasm_bytes).unwrap();
+    let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    instance
+        .exports
+        .get_function("run")
+        .unwrap()
+        .call(&mut store, &[])
+        .unwrap();
+}
+
 #[cfg(not(target_os = "windows"))]
 #[compiler_test(issues)]
 fn issue_6004_exception(mut config: crate::Config) {

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-backend-api"
-version = "0.704.2"
+version = "0.705.0"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-backend-api"
@@ -15,8 +15,8 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 # Wasmer dependencies.
-wasmer-config = { version = "0.704.2", path = "../config" }
-wasmer-package.workspace = true
+wasmer-config = { version = "0.705.0", path = "../config" }
+wasmer-package = { workspace = true, features = ["execution"] }
 webc.workspace = true
 
 # crates.io dependencies.

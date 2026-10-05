@@ -1170,9 +1170,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             WasmerType::F32 => ir::types::F32,
             WasmerType::F64 => ir::types::F64,
             WasmerType::V128 => ir::types::I8X16,
-            WasmerType::FuncRef | WasmerType::ExternRef | WasmerType::ExceptionRef => {
-                self.reference_type()
-            }
+            WasmerType::FuncRef | WasmerType::ExternRef => self.reference_type(),
+            WasmerType::ExceptionRef => EXN_REF_TYPE,
         })
     }
 
@@ -1662,9 +1661,8 @@ impl FuncEnvironment<'_> {
                 WasmerType::F32 => ir::types::F32,
                 WasmerType::F64 => ir::types::F64,
                 WasmerType::V128 => ir::types::I8X16,
-                WasmerType::FuncRef | WasmerType::ExternRef | WasmerType::ExceptionRef => {
-                    self.reference_type()
-                }
+                WasmerType::FuncRef | WasmerType::ExternRef => self.reference_type(),
+                WasmerType::ExceptionRef => EXN_REF_TYPE,
             },
         })
     }
