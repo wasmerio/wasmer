@@ -38,4 +38,4 @@ pub use self::inner::{Engine, EngineInner};
 #[cfg(not(target_arch = "wasm32"))]
 pub use self::link::link_module;
 #[cfg(not(target_arch = "wasm32"))]
-pub use self::mapped_binary::LIBCALLS_ELF;
+pub use self::mapped_binary::{LIBCALLS_ELF, LIBCALLS_MACHO};

@@ -14,7 +14,7 @@ use wasmer_compiler::types::{
     section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
 };
 
-use wasmer_compiler::LIBCALLS_ELF;
+use wasmer_compiler::{LIBCALLS_ELF, LIBCALLS_MACHO};
 use wasmer_vm::libcalls::LibCall;
 
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
@@ -93,69 +93,6 @@ static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "__ledf2" => LibCall::Ledf2,
     "__gtsf2" => LibCall::Gtsf2,
     "__gtdf2" => LibCall::Gtdf2,
-};
-
-static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
-    "_ceilf" => LibCall::CeilF32,
-    "_ceil" => LibCall::CeilF64,
-    "_floorf" => LibCall::FloorF32,
-    "_floor" => LibCall::FloorF64,
-    "_nearbyintf" => LibCall::NearestF32,
-    "_nearbyint" => LibCall::NearestF64,
-    "_sqrtf" => LibCall::SqrtF32,
-    "_sqrt" => LibCall::SqrtF64,
-    "_truncf" => LibCall::TruncF32,
-    "_trunc" => LibCall::TruncF64,
-    "_wasmer_vm_f32_ceil" => LibCall::CeilF32,
-    "_wasmer_vm_f64_ceil" => LibCall::CeilF64,
-    "_wasmer_vm_f32_floor" => LibCall::FloorF32,
-    "_wasmer_vm_f64_floor" => LibCall::FloorF64,
-    "_wasmer_vm_f32_nearest" => LibCall::NearestF32,
-    "_wasmer_vm_f64_nearest" => LibCall::NearestF64,
-    "_wasmer_vm_f32_sqrt" => LibCall::SqrtF32,
-    "_wasmer_vm_f64_sqrt" => LibCall::SqrtF64,
-    "_wasmer_vm_f32_trunc" => LibCall::TruncF32,
-    "_wasmer_vm_f64_trunc" => LibCall::TruncF64,
-    "_wasmer_vm_memory32_size" => LibCall::Memory32Size,
-    "_wasmer_vm_imported_memory32_size" => LibCall::ImportedMemory32Size,
-    "_wasmer_vm_table_copy" => LibCall::TableCopy,
-    "_wasmer_vm_table_init" => LibCall::TableInit,
-    "_wasmer_vm_table_fill" => LibCall::TableFill,
-    "_wasmer_vm_table_size" => LibCall::TableSize,
-    "_wasmer_vm_imported_table_size" => LibCall::ImportedTableSize,
-    "_wasmer_vm_table_get" => LibCall::TableGet,
-    "_wasmer_vm_imported_table_get" => LibCall::ImportedTableGet,
-    "_wasmer_vm_table_set" => LibCall::TableSet,
-    "_wasmer_vm_imported_table_set" => LibCall::ImportedTableSet,
-    "_wasmer_vm_table_grow" => LibCall::TableGrow,
-    "_wasmer_vm_imported_table_grow" => LibCall::ImportedTableGrow,
-    "_wasmer_vm_func_ref" => LibCall::FuncRef,
-    "_wasmer_vm_elem_drop" => LibCall::ElemDrop,
-    "_wasmer_vm_memory32_copy" => LibCall::Memory32Copy,
-    "_wasmer_vm_memory32_fill" => LibCall::Memory32Fill,
-    "_wasmer_vm_imported_memory32_fill" => LibCall::ImportedMemory32Fill,
-    "_wasmer_vm_memory32_init" => LibCall::Memory32Init,
-    "_wasmer_vm_data_drop" => LibCall::DataDrop,
-    "_wasmer_vm_raise_trap" => LibCall::RaiseTrap,
-    "_wasmer_vm_memory32_atomic_wait32" => LibCall::Memory32AtomicWait32,
-    "_wasmer_vm_imported_memory32_atomic_wait32" => LibCall::ImportedMemory32AtomicWait32,
-    "_wasmer_vm_memory32_atomic_wait64" => LibCall::Memory32AtomicWait64,
-    "_wasmer_vm_imported_memory32_atomic_wait64" => LibCall::ImportedMemory32AtomicWait64,
-    "_wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
-    "_wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
-
-    "_wasmer_vm_throw" => LibCall::Throw,
-    "_wasmer_vm_alloc_exception" => LibCall::AllocException,
-    "_wasmer_vm_read_exnref" => LibCall::ReadExnRef,
-    "_wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
-    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
-    // will generate things differently than "normal", wreaking havoc.
-    //
-    // todo: find out if it is a bug in LLVM or it is expected.
-    "___gxx_personality_v0" => LibCall::EHPersonality,
-    "_wasmer_eh_personality2" => LibCall::EHPersonality2,
-    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
-    "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
 /// Returns whether `arch` is a RISC-V variant that lacks hardware floating-point
