@@ -10,6 +10,21 @@ pub struct Capabilities {
     pub polling: CapabilityPollingV1,
     pub max_sock_recv_size: Option<u64>,
     pub threading: CapabilityThreadingV1,
+
+    /// Whether the guest may suspend and resume: the WASIX context-switching
+    /// API, and the asynchronous guest re-entry it needs.
+    ///
+    /// With this off, `context_switch` answers `Notsup`, `context_create` finds
+    /// no environment to join, and every host import is synchronous. A host
+    /// whose guest calls back in through a synchronous foreign boundary — N-API,
+    /// whose bridge invokes guest callbacks through a C function returning
+    /// `u32` — must turn it off: such a callback cannot suspend, and an
+    /// asynchronous import below it would try to.
+    ///
+    /// Per process, so one process tree may mix guests that differ. A single
+    /// guest cannot have both.
+    /// (default = true)
+    pub enable_context_switching: bool,
 }
 
 impl Capabilities {
@@ -20,6 +35,7 @@ impl Capabilities {
             polling: Default::default(),
             max_sock_recv_size: Some(16 * 1024 * 1024),
             threading: Default::default(),
+            enable_context_switching: true,
         }
     }
 
@@ -32,12 +48,14 @@ impl Capabilities {
             polling,
             max_sock_recv_size,
             threading,
+            enable_context_switching,
         } = other;
         self.insecure_allow_all |= insecure_allow_all;
         self.http_client.update(http_client);
         self.polling.update(polling);
         self.max_sock_recv_size = max_sock_recv_size.or(self.max_sock_recv_size);
         self.threading.update(threading);
+        self.enable_context_switching &= enable_context_switching;
     }
 }
 
@@ -74,16 +92,12 @@ impl CapabilityPollingV1 {
 }
 
 /// Defines threading related permissions.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct CapabilityThreadingV1 {
     /// Maximum number of threads that can be spawned.
     ///
     /// [`None`] means no limit.
     pub max_threads: Option<usize>,
-
-    /// Flag that indicates if asynchronous threading is enabled.
-    /// (default = true)
-    pub enable_asynchronous_threading: bool,
 
     /// Flag that indicates if deep sleep is enabled.
     /// (default = false)
@@ -100,28 +114,14 @@ pub struct CapabilityThreadingV1 {
     pub enable_blocking_sleep: bool,
 }
 
-impl Default for CapabilityThreadingV1 {
-    fn default() -> Self {
-        Self {
-            max_threads: None,
-            enable_asynchronous_threading: true,
-            enable_deep_sleep: false,
-            enable_exponential_cpu_backoff: None,
-            enable_blocking_sleep: false,
-        }
-    }
-}
-
 impl CapabilityThreadingV1 {
     pub fn update(&mut self, other: CapabilityThreadingV1) {
         let CapabilityThreadingV1 {
             max_threads,
-            enable_asynchronous_threading,
             enable_deep_sleep,
             enable_exponential_cpu_backoff,
             enable_blocking_sleep,
         } = other;
-        self.enable_asynchronous_threading |= enable_asynchronous_threading;
         self.enable_deep_sleep |= enable_deep_sleep;
         if let Some(val) = enable_exponential_cpu_backoff {
             self.enable_exponential_cpu_backoff = Some(val);

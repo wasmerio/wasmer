@@ -276,14 +276,8 @@ impl WasiRunner {
         }
     }
 
-    pub fn with_asynchronous_threading(
-        &mut self,
-        enable_asynchronous_threading: bool,
-    ) -> &mut Self {
-        self.wasi
-            .capabilities
-            .threading
-            .enable_asynchronous_threading = enable_asynchronous_threading;
+    pub fn with_context_switching(&mut self, enable_context_switching: bool) -> &mut Self {
+        self.wasi.capabilities.enable_context_switching = enable_context_switching;
         self
     }
 

@@ -141,10 +141,9 @@ impl Run {
     #[cfg(feature = "napi-v8")]
     fn configure_wasi_runner_for_napi(&self, module: &Module, runner: &mut WasiRunner) {
         if Self::module_needs_napi(module) {
-            runner
-                .capabilities_mut()
-                .threading
-                .enable_asynchronous_threading = false;
+            // An N-API guest reaches the host through a synchronous C boundary
+            // that cannot suspend, so it may not have the context-switching API.
+            runner.capabilities_mut().enable_context_switching = false;
         }
     }
 

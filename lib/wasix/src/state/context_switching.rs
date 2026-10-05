@@ -166,12 +166,7 @@ impl ContextSwitchingEnvironment {
         params: Vec<wasmer::Value>,
         local_tasks: LocalTaskSpawner,
     ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
-        if !ctx
-            .data(&store)
-            .capabilities
-            .threading
-            .enable_asynchronous_threading
-        {
+        if !ctx.data(&store).capabilities.enable_context_switching {
             let result = entrypoint.call(&mut store, &params);
             return (store, result);
         }
