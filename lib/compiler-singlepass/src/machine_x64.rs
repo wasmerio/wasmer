@@ -5531,7 +5531,7 @@ impl Machine for MachineX86_64 {
             target_addr,
             memarg,
             true,
-            2,
+            4,
             need_check,
             imported_memories,
             offset,
