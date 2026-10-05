@@ -378,7 +378,8 @@ impl MemoryMappedBinary {
 
         // Create a contiguous virtual address memory map that will be populated
         // per-partes with the individual protection flags.
-        let map = Self::new_mmap(total_memory_size)?;
+        #[allow(unused_mut)]
+        let mut map = Self::new_mmap(total_memory_size)?;
         let base = map.base();
         let is_macho = object_file.format() == object::BinaryFormat::MachO;
 
@@ -551,6 +552,18 @@ impl MemoryMappedBinary {
             }
         }
 
+        #[cfg(target_os = "macos")]
+        if is_macho {
+            if let Some(section) = object_file.section_by_name("__unwind_info") {
+                let text_base = object_file
+                    .segments()
+                    .find(|segment| segment.name().ok().flatten() == Some("__TEXT"))
+                    .ok_or("Mach-O image has no __TEXT segment")?
+                    .address();
+                map.publish_unwind_info_section(text_base, section.address(), section.size())?;
+            }
+        }
+
         Ok(map)
     }
 
@@ -711,6 +724,30 @@ impl MemoryMappedBinary {
         Err("ELF artifacts are not supported on macOS".to_string())
     }
 
+    #[cfg(target_os = "macos")]
+    fn publish_unwind_info_section(
+        &mut self,
+        image_base: u64,
+        address: u64,
+        size: u64,
+    ) -> Result<(), String> {
+        if address
+            .checked_add(size)
+            .is_none_or(|end| end > self.size as u64)
+            || image_base >= self.size as u64
+        {
+            return Err("Compact unwind section exceeds allocated range".to_string());
+        }
+        let section = unsafe {
+            slice::from_raw_parts(self.base.cast::<u8>().add(address as usize), size as usize)
+        };
+        let base = self.base as usize;
+        self.unwind_registry
+            .as_mut()
+            .expect("unwind registry should remain alive until MemoryMap::drop")
+            .publish_unwind_info(base + image_base as usize..base + self.size, section)
+    }
+
     /// Maps an anonymous zero-filled region at `offset` with the given
     /// protection (used for a segment's BSS tail).
     fn map_zero(&self, offset: usize, size: usize, protection: i32) -> Result<(), String> {
@@ -835,7 +872,7 @@ impl MemoryMappedBinary {
 #[cfg(unix)]
 impl Drop for MemoryMappedBinary {
     fn drop(&mut self) {
-        // The registered `.eh_frame` records point into this mmap, so deregister
+        // Registered unwind sections point into this mmap, so deregister
         // them while the mapping is still live.
         drop(self.unwind_registry.take());
 

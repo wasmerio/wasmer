@@ -102,6 +102,7 @@ pub struct CompactUnwindManager {
     personalities: Vec<usize>,
     dso_base: usize,
     maybe_eh_personality_addr_in_got: Option<usize>,
+    mapped_image_range: Option<Range<usize>>,
 }
 
 static UNWIND_INFO: LazyLock<Mutex<RangeMap<usize, UnwindInfoEntry>>> =
@@ -159,6 +160,22 @@ impl CompactUnwindManager {
         - Self::SECOND_LEVEL_PAGE_HEADER_SIZE)
         / Self::SECOND_LEVEL_PAGE_ENTRY_SIZE;
     const UNWIND_HAS_LSDA: u32 = 0x4000_0000;
+
+    /// Publish an already-linked `__unwind_info` section without copying or rebuilding it.
+    /// The image and section must remain mapped until this manager is deregistered.
+    pub(crate) fn publish_unwind_info(&mut self, image_range: Range<usize>, section: &[u8]) {
+        self.dso_base = image_range.start;
+        UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO").insert(
+            image_range.clone(),
+            UnwindInfoEntry {
+                dso_base: self.dso_base,
+                section_ptr: section.as_ptr() as usize,
+                section_len: section.len(),
+            },
+        );
+        self.mapped_image_range = Some(image_range);
+        self.register();
+    }
 
     /// Analyze a `__compact_unwind` section, adding its entries to the manager.
     pub unsafe fn read_compact_unwind_section(
@@ -525,6 +542,13 @@ impl CompactUnwindManager {
     }
 
     pub(crate) fn deregister(&self) {
+        if let Some(range) = &self.mapped_image_range {
+            UNWIND_INFO
+                .lock()
+                .expect("cannot lock UNWIND_INFO")
+                .remove(range.clone());
+            return;
+        }
         if self.dso_base != 0 {
             let ranges: Vec<Range<usize>> = self
                 .compact_unwind_entries

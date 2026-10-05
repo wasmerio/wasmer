@@ -13,7 +13,7 @@ pub struct UnwindRegistry {
     published: bool,
     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     registrations: Vec<usize>,
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[cfg(target_os = "macos")]
     compact_unwind_mgr: compact_unwind::CompactUnwindManager,
 }
 
@@ -25,7 +25,7 @@ unsafe extern "C" {
 }
 
 // Apple-specific unwind functions - the following is taken from LLVM's libunwind itself.
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[cfg(target_os = "macos")]
 mod compact_unwind;
 
 /// There are two primary unwinders on Unix platforms: libunwind and libgcc.
@@ -73,7 +73,7 @@ impl UnwindRegistry {
             published: false,
             #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
             registrations: Vec::new(),
-            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            #[cfg(target_os = "macos")]
             compact_unwind_mgr: Default::default(),
         }
     }
@@ -176,6 +176,21 @@ impl UnwindRegistry {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn publish_unwind_info(
+        &mut self,
+        image_range: core::ops::Range<usize>,
+        section: &[u8],
+    ) -> Result<(), String> {
+        if self.published {
+            return Err("unwind registry has already been published".to_string());
+        }
+        self.compact_unwind_mgr
+            .publish_unwind_info(image_range, section);
+        self.published = true;
+        Ok(())
+    }
+
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     pub(crate) fn publish_compact_unwind(
         &mut self,
@@ -238,7 +253,7 @@ impl Drop for UnwindRegistry {
                 }
             }
 
-            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            #[cfg(target_os = "macos")]
             {
                 if EXIT_CALLED.load(Ordering::SeqCst) {
                     return;
