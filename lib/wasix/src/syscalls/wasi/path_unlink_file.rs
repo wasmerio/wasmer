@@ -56,6 +56,9 @@ pub(crate) fn path_unlink_file_internal(
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
+    if matches!(inode.read().deref(), Kind::Dir { .. } | Kind::Root { .. }) {
+        return Ok(Errno::Isdir);
+    }
     let (parent_inode, child_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
