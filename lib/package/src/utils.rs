@@ -163,9 +163,6 @@ pub fn features_to_wasm_annotations(features: &Features) -> Vec<String> {
     if features.exceptions {
         feature_strings.push("exception-handling".to_string());
     }
-    if features.memory64 {
-        feature_strings.push("memory64".to_string());
-    }
     if features.wide_arithmetic {
         feature_strings.push("wide-arithmetic".to_string());
     }
@@ -194,8 +191,7 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
         .reference_types(false)
         .multi_value(false)
         .threads(false)
-        .exceptions(false)
-        .memory64(false);
+        .exceptions(false);
 
     // Set features based on the string values
     for feature in feature_strings {
@@ -217,9 +213,6 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
             }
             "exception-handling" => {
                 features.exceptions(true);
-            }
-            "memory64" => {
-                features.memory64(true);
             }
             "relaxed-simd" => {
                 features.relaxed_simd(true);
