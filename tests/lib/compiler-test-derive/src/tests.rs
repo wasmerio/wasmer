@@ -127,7 +127,6 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "llvm")]
-                #[cfg(target_os = "linux")]
                 fn llvm_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::LLVM
@@ -136,7 +135,6 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "llvm")]
-                #[cfg(target_os = "linux")]
                 fn llvm_dynamic_memory_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::LLVM

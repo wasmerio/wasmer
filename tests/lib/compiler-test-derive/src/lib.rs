@@ -69,8 +69,8 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
         if dynamic_memory {
             config = quote! { #config.with_dynamic_memory() };
         }
-        let experimental_artifact_cfg =
-            experimental_artifact.then(|| quote! { #[cfg(target_os = "linux")] });
+        let experimental_artifact_cfg = (experimental_artifact && compiler_name != "LLVM")
+            .then(|| quote! { #[cfg(target_os = "linux")] });
         let mut new_sig = func.sig.clone();
         let attrs = func
             .attrs
