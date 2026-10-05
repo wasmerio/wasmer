@@ -880,9 +880,29 @@ impl Artifact {
                             "cannot load image section data: {e}"
                         ))
                     })?;
+                    let is_macho = image.format() == object::BinaryFormat::MachO;
+                    // Mach-O stores chained pointers here, not plain offsets.
+                    // Read the pointers after the mapper has applied the fixups.
+                    let data = if is_macho {
+                        unsafe {
+                            std::slice::from_raw_parts(
+                                base.cast::<u8>().add(section.address() as usize),
+                                data.len(),
+                            )
+                        }
+                    } else {
+                        data
+                    };
                     function_offsets = Some(
                         data.chunks_exact(std::mem::size_of::<usize>())
-                            .map(|chunk| usize::from_le_bytes(chunk.try_into().unwrap()))
+                            .map(|chunk| {
+                                let value = usize::from_le_bytes(chunk.try_into().unwrap());
+                                if is_macho {
+                                    value.wrapping_sub(base as usize)
+                                } else {
+                                    value
+                                }
+                            })
                             .collect_vec(),
                     );
                 }

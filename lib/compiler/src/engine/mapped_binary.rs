@@ -10,7 +10,7 @@ use std::{os::fd::RawFd, ptr, slice};
 use itertools::Itertools;
 use object::{Object, ObjectSection, ReadRef};
 #[cfg(unix)]
-use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf};
+use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf, macho};
 use wasmer_vm::LibCall;
 #[cfg(unix)]
 use wasmer_vm::libcalls::function_pointer;
@@ -196,6 +196,11 @@ impl ImageSegment {
                 p_flags.contains(elf::PF_W),
                 p_flags.contains(elf::PF_X),
             ),
+            SegmentFlags::MachO { initprot, .. } => (
+                initprot.contains(macho::VM_PROT_READ),
+                initprot.contains(macho::VM_PROT_WRITE),
+                initprot.contains(macho::VM_PROT_EXECUTE),
+            ),
             _ => return Err(format!("unsupported segment flags: {:?}", self.flags)),
         };
 
@@ -311,9 +316,10 @@ impl MemoryMappedBinary {
         // per-partes with the individual protection flags.
         let map = Self::new_mmap(total_memory_size)?;
         let base = map.base();
+        let is_macho = object_file.format() == object::BinaryFormat::MachO;
 
         // Mmap individual load segments
-        for load_segment in segments {
+        for load_segment in &segments {
             // The virtual offset does not need to start at a page boundary.
             if load_segment.file_address % page_size != load_segment.mem_address % page_size {
                 return Err(format!(
@@ -323,11 +329,20 @@ impl MemoryMappedBinary {
             }
 
             let protection = load_segment.protection()?;
+            // Chained fixups can live in read-only segments. Keep the image
+            // writable (and non-executable) until all fixups have been applied.
+            let protection = if is_macho && protection != libc::PROT_NONE {
+                libc::PROT_READ | libc::PROT_WRITE
+            } else {
+                protection
+            };
 
             let offset = load_segment.mem_address_page_aligned();
             let size = load_segment.file_size_page_aligned();
             let file_offset = load_segment.file_address_page_aligned();
-            let result = if let Some(file) = file {
+            let result = if size == 0 {
+                Ok(())
+            } else if let Some(file) = file {
                 map.map_file(offset, size, protection, file, file_offset)
             } else {
                 map.map_copy(
@@ -448,7 +463,101 @@ impl MemoryMappedBinary {
             }
         }
 
+        match object_file {
+            object::File::MachO64(macho) => map.apply_chained_fixups(macho)?,
+            object::File::MachO32(_) => {
+                return Err("32-bit Mach-O images are not supported".to_string());
+            }
+            _ => {}
+        }
+        if is_macho {
+            for segment in &segments {
+                let size = segment.mem_size_page_aligned();
+                if size != 0
+                    && unsafe {
+                        libc::mprotect(
+                            base.add(segment.mem_address_page_aligned()),
+                            size,
+                            segment.protection()?,
+                        )
+                    } != 0
+                {
+                    return Err(std::io::Error::last_os_error().to_string());
+                }
+            }
+        }
+
         Ok(map)
+    }
+
+    fn apply_chained_fixups<'a, Mach, R>(
+        &self,
+        image: &object::read::macho::MachOFile<'a, Mach, R>,
+    ) -> Result<(), String>
+    where
+        Mach: object::read::macho::MachHeader,
+        R: ReadRef<'a>,
+    {
+        use object::read::macho::Fixup;
+
+        let endian = image.endian();
+        let segments = image.segments().collect_vec();
+        let preferred_load_address = segments
+            .iter()
+            .find(|segment| segment.name().ok().flatten() == Some("__TEXT"))
+            .ok_or("Mach-O image has no __TEXT segment")?
+            .address();
+        let mut commands = image.macho_load_commands().map_err(|e| e.to_string())?;
+        while let Some(command) = commands.next().map_err(|e| e.to_string())? {
+            let Some(command) = command.dyld_chained_fixups().map_err(|e| e.to_string())? else {
+                continue;
+            };
+            let fixups = command
+                .chained_fixups(endian, image.data())
+                .map_err(|e| e.to_string())?;
+            let imports = fixups
+                .imports(endian)
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
+            for segment in fixups.segments(endian).map_err(|e| e.to_string())? {
+                let segment = segment.map_err(|e| e.to_string())?;
+                let source = segments
+                    .get(segment.index() as usize)
+                    .ok_or("Invalid Mach-O chained fixup segment index")?;
+                let data = source.data().map_err(|e| e.to_string())?;
+                for fixup in segment.fixups(endian, preferred_load_address, data) {
+                    let (offset, fixup) = fixup.map_err(|e| e.to_string())?;
+                    let value = match fixup {
+                        Fixup::Rebase(rebase) if rebase.auth.is_none() => (self.base as usize)
+                            .wrapping_add(preferred_load_address as usize)
+                            .wrapping_add(rebase.target_offset as usize),
+                        Fixup::Bind(bind) if bind.auth.is_none() => {
+                            // The artifact imports from a single dylib: Wasmer.
+                            let import = imports
+                                .get(bind.ordinal as usize)
+                                .ok_or("Invalid Mach-O chained bind ordinal")?;
+                            let name =
+                                std::str::from_utf8(import.name).map_err(|e| e.to_string())?;
+                            let symbol = name.strip_prefix('_').unwrap_or(name);
+                            let libcall = LIBCALLS_ELF.get(symbol).ok_or_else(|| {
+                                format!("unsupported Mach-O chained bind symbol {name}")
+                            })?;
+                            function_pointer(*libcall)
+                                .wrapping_add(import.addend as usize)
+                                .wrapping_add(bind.addend as usize)
+                        }
+                        _ => return Err(format!("unsupported Mach-O chained fixup {fixup:?}")),
+                    };
+                    let offset = source
+                        .address()
+                        .checked_add(offset)
+                        .ok_or("Mach-O chained fixup address overflow")?;
+                    self.write_relocation(offset, value)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn write_relocation(&self, offset: u64, value: usize) -> Result<(), String> {
