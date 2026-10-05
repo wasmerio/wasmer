@@ -1138,9 +1138,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .rev()
             .copied()
             .collect();
-        for (i, (stack_value, _)) in params.into_iter().enumerate() {
+        for (i, (stack_value, canonicalize)) in params.into_iter().enumerate() {
             let dst = self.value_stack[value_stack_depth_after + i].0;
-            self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
+            if let Some(canonicalize_size) = canonicalize.to_size()
+                && self.config.enable_nan_canonicalization
+            {
+                self.machine
+                    .canonicalize_nan(canonicalize_size, stack_value, dst)?;
+            } else {
+                self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
+            }
             self.ensure_output_size_within_limit()?;
         }
 
@@ -1875,23 +1882,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
 
             Operator::F32Abs => {
-                // Preserve canonicalization state.
-
-                let loc = self.pop_value_released()?.0;
+                let (loc, canonicalize) = self.pop_value_released()?;
                 let ret = self.acquire_location(&WpType::F32)?;
-                self.value_stack.push((ret, CanonicalizeType::None));
+                self.value_stack.push((ret, canonicalize));
 
                 self.machine.f32_abs(loc, ret)?;
             }
 
             Operator::F32Neg => {
-                // Preserve canonicalization state.
-
-                let loc = self.pop_value_released()?.0;
+                let (loc, mut canonicalize) = self.pop_value_released()?;
                 let ret = self.acquire_location(&WpType::F32)?;
-                self.value_stack.push((ret, CanonicalizeType::None));
 
-                self.machine.f32_neg(loc, ret)?;
+                if self.config.enable_nan_canonicalization
+                    && let Some(canonicalize_size) = canonicalize.to_size()
+                {
+                    self.machine.canonicalize_nan(canonicalize_size, loc, ret)?;
+                    self.machine.f32_neg(ret, ret)?;
+                    canonicalize = CanonicalizeType::None;
+                } else {
+                    self.machine.f32_neg(loc, ret)?;
+                }
+                self.value_stack.push((ret, canonicalize));
             }
 
             Operator::F64Const { value } => {
