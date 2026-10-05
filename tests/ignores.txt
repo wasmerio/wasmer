@@ -148,6 +148,10 @@ singlepass        multi_value_imports
 # V8 ignores
 v8                  table64
 v8                  wasmer::nan_canonicalization
+v8                  f32_abs_neg_nan_canonicalization
+v8                  wasmer::table_grow_max_elements
+v8                  wasmer::loop_nan_canonicalization
 #6571
 v8                  spec::global
 v8                  spec::table_grow
+v8                  wasmer::table_huge

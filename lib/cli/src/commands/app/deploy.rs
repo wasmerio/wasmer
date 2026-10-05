@@ -29,7 +29,7 @@ use wasmer_config::{
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
-use wasmer_sdk::app::deploy_remote_build::{
+use wasmer_package_sdk::app::deploy_remote_build::{
     DeployRemoteEvent, DeployRemoteOpts, deploy_app_remote,
 };
 
