@@ -540,7 +540,11 @@ impl InstanceGroupState {
         #[cfg(feature = "js")]
         let prefers_async_reentry = {
             let engine = store.as_store_ref().engine().clone();
-            engine.supports_async() && engine.is_js()
+            // Also gated on the embedder allowing suspension at all; see
+            // `Capabilities::enable_context_switching`.
+            engine.supports_async()
+                && engine.is_js()
+                && env.as_ref(store).capabilities.enable_context_switching
         };
         #[cfg(not(feature = "js"))]
         let prefers_async_reentry = false;

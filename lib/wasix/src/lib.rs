@@ -515,7 +515,17 @@ fn wasi_snapshot_preview1_exports(
 }
 
 fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
-    let engine_supports_async = store.as_store_ref().engine().supports_async();
+    // A guest may only suspend if the embedder allows it. An N-API host does
+    // not: its bridge invokes guest callbacks through a synchronous C function,
+    // and such a callback cannot suspend — so an asynchronous import anywhere
+    // beneath it would try to and fail. Turning this off leaves no asynchronous
+    // import at all: `context_switch` becomes the `Notsup` stub, `context_create`
+    // finds no environment to join, and guest re-entry stays synchronous.
+    //
+    // Per process, so one tree may run an N-API guest that executes a
+    // context-switching one, and the reverse. A single guest cannot have both.
+    let engine_supports_async = store.as_store_ref().engine().supports_async()
+        && env.as_ref(&store).capabilities.enable_context_switching;
     // Re-entering the guest from a *synchronous* host frame is what blocks a
     // suspension under a dynamic call on the JS backend: V8 will not suspend
     // past that frame. `sys` has no such restriction and its synchronous path is
@@ -673,7 +683,17 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
 }
 
 fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
-    let engine_supports_async = store.as_store_ref().engine().supports_async();
+    // A guest may only suspend if the embedder allows it. An N-API host does
+    // not: its bridge invokes guest callbacks through a synchronous C function,
+    // and such a callback cannot suspend — so an asynchronous import anywhere
+    // beneath it would try to and fail. Turning this off leaves no asynchronous
+    // import at all: `context_switch` becomes the `Notsup` stub, `context_create`
+    // finds no environment to join, and guest re-entry stays synchronous.
+    //
+    // Per process, so one tree may run an N-API guest that executes a
+    // context-switching one, and the reverse. A single guest cannot have both.
+    let engine_supports_async = store.as_store_ref().engine().supports_async()
+        && env.as_ref(&store).capabilities.enable_context_switching;
     // Re-entering the guest from a *synchronous* host frame is what blocks a
     // suspension under a dynamic call on the JS backend: V8 will not suspend
     // past that frame. `sys` has no such restriction and its synchronous path is
