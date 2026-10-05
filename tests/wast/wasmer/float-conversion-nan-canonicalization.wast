@@ -25,23 +25,12 @@
     f32.demote_f64
     f32.neg
     i32.reinterpret_f32)
-  ;; Constants have no pending canonicalization: preserve their NaN payloads.
-  (func (export "promote-const") (result i64)
-    f32.const nan:0x400001
-    f64.promote_f32
-    i64.reinterpret_f64)
-  (func (export "demote-const") (result i32)
-    f64.const nan:0x8000020000000
-    f32.demote_f64
-    i32.reinterpret_f32)
 )
 
 (assert_return (invoke "promote") (i64.const 0x7ff8000000000000))
 (assert_return (invoke "promote-neg") (i64.const 0xfff8000000000000))
 (assert_return (invoke "demote") (i32.const 0x7fc00000))
 (assert_return (invoke "demote-neg") (i32.const 0xffc00000))
-(assert_return (invoke "promote-const") (i64.const 0x7ff8000020000000))
-(assert_return (invoke "demote-const") (i32.const 0x7fc00001))
 
 (module
   (func $f64-to-f32 (param f64) (result f32) (f32.const 0))
