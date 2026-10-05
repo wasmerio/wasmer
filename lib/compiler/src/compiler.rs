@@ -5,7 +5,7 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 use crate::EH_FRAME_SECTION_NAME;
 use crate::misc::{CompiledFunctionExt, CompiledKind};
@@ -717,16 +717,21 @@ impl FileSystem for InMemoryFileSystem {
 const WASMER_IMAGE_FILENAME: &str = "wasmer-image.so";
 const WASMER_META_FILENAME: &str = "__wasmer_meta.o";
 const WASMER_LIBRARY_FILENAME: &str = "libwasmer.dylib";
-const WASMER_LIBRARY_TBD: &str = r#"--- !tapi-tbd
+static WASMER_LIBRARY_TBD: LazyLock<String> = LazyLock::new(|| {
+    let symbols = crate::LIBCALLS_MACHO.keys().copied().sorted().join(", ");
+    format!(
+        r#"--- !tapi-tbd
  tbd-version: 4
  targets: [  arm64e-macos ]
  install-name: 'libwasmer.dylib'
  current-version: 1
  exports:
    - targets: [ arm64e-macos ]
-     symbols: [ _wasmer_vm_alloc_exception, _wasmer_vm_read_exnref, _wasmer_vm_throw, _wasmer_eh_personality2, _wasmer_vm_exception_into_exnref, ___gxx_personality_v0 ]
+     symbols: [ {symbols} ]
 ...
-"#;
+"#
+    )
+});
 
 /// Emits Wasmer metadata sections and links backend-generated object buffers into a shared object.
 pub fn emit_metadata_and_link(
