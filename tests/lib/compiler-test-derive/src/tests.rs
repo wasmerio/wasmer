@@ -96,7 +96,7 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "cranelift")]
-                #[cfg(target_os = "linux")]
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
                 fn cranelift_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::Cranelift
@@ -105,7 +105,7 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "cranelift")]
-                #[cfg(target_os = "linux")]
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
                 fn cranelift_dynamic_memory_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::Cranelift

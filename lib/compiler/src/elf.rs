@@ -75,8 +75,17 @@ pub fn add_undefined_symbol(object: &mut Object<'static>, name: String) -> Symbo
 /// Declare an undefined dynamic symbol for a libcall, resolved by the runtime
 /// loader through a dynamic relocation.
 pub fn add_libcall_symbol(object: &mut Object<'static>, libcall: LibCall) -> SymbolId {
+    let name = if object.format() == object::BinaryFormat::MachO {
+        if libcall == LibCall::EHPersonality {
+            "___gxx_personality_v0".to_string()
+        } else {
+            format!("_{}", libcall.to_function_name())
+        }
+    } else {
+        libcall.to_function_name().to_string()
+    };
     object.add_symbol(Symbol {
-        name: libcall.to_function_name().to_string().into_bytes(),
+        name: name.into_bytes(),
         value: 0,
         size: 0,
         kind: SymbolKind::Unknown,
