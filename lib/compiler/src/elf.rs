@@ -122,8 +122,10 @@ pub fn relocation_kind_to_flags(kind: RelocationKind) -> Result<RelocationFlags,
             encoding: RelocationEncoding::Generic,
             size: 32,
         },
-        RelocationKind::Arm64Call => RelocationFlags::Elf {
-            r_type: elf::R_AARCH64_CALL26,
+        RelocationKind::Arm64Call => RelocationFlags::Generic {
+            kind: K::Relative,
+            encoding: RelocationEncoding::AArch64Call,
+            size: 26,
         },
         // For RISC-V relocations, please refer to:
         // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/2484f950a551c653f1823f1bd11926bf5a57fae3/riscv-elf.adoc#relocations
@@ -390,6 +392,7 @@ pub fn link_module(
         target,
         compile_info_blob,
         CompiledObjects {
+            emit_trap_offsets: true,
             object_files,
             import_trampoline_object_files: import_trampoline_objects,
             trampoline_object_files: trampoline_objects,

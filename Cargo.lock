@@ -3283,8 +3283,8 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "wasm-encoder 0.259.0",
- "wasmparser 0.259.0",
+ "wasm-encoder 0.261.0",
+ "wasmparser 0.261.0",
  "winnow 1.0.4",
  "zerocopy",
  "zlib-rs",
@@ -8074,7 +8074,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f7c12eac7bb587801590f6a67ff0bc84d0748513864b71108e4b311cc3df694"
 dependencies = [
  "bitflags 2.13.2",
- "hashbrown 0.17.1",
  "indexmap",
  "semver 1.0.28",
 ]
@@ -8086,6 +8085,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f20f20e44f7e8aeb6744823ea9d869ede51e51be4fdaedede2852282e54d2d8"
 dependencies = [
  "bitflags 2.13.2",
+ "hashbrown 0.17.1",
  "indexmap",
  "semver 1.0.28",
 ]

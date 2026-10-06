@@ -436,6 +436,8 @@ pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
 ///
 /// Counts of each category are derived from the slice lengths.
 pub struct CompiledObjects {
+    /// Whether the backend emits per-function trap tables to reference in metadata.
+    pub emit_trap_offsets: bool,
     /// Objects for local (user-defined) functions.
     pub object_files: Vec<Vec<u8>>,
     /// Objects for imported function call trampolines.
@@ -563,49 +565,51 @@ fn emit_wasmer_meta_object(
         })?;
     }
 
-    let trap_fn_offsets_section_id = obj.add_section(
-        obj.segment_name(StandardSegment::Data).to_vec(),
-        WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
-        SectionKind::ReadOnlyDataWithRel,
-    );
-    if obj.format() == object::BinaryFormat::Elf {
-        obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
-            sh_type: elf::SHT_PROGBITS,
-            sh_flags: elf::SHF_GNU_RETAIN,
-        };
+    if compiled_objects.emit_trap_offsets {
+        let trap_fn_offsets_section_id = obj.add_section(
+            obj.segment_name(StandardSegment::Data).to_vec(),
+            WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
+            SectionKind::ReadOnlyDataWithRel,
+        );
+        if obj.format() == object::BinaryFormat::Elf {
+            obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
+                sh_type: elf::SHT_PROGBITS,
+                sh_flags: elf::SHF_GNU_RETAIN,
+            };
+        }
+        for traps_name in (0..compiled_objects.object_files.len())
+            .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
+        {
+            let offset =
+                obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
+            let symbol_id = obj.add_symbol(ObjSymbol {
+                name: traps_name.as_bytes().into(),
+                value: 0,
+                size: 0,
+                kind: SymbolKind::Data,
+                scope: SymbolScope::Linkage,
+                weak: true,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
+            obj.add_relocation(
+                trap_fn_offsets_section_id,
+                Relocation {
+                    offset,
+                    flags: RelocationFlags::Generic {
+                        kind: RelocationKind::Absolute,
+                        encoding: RelocationEncoding::Generic,
+                        size: pointer_bits,
+                    },
+                    symbol: symbol_id,
+                    addend: 0,
+                },
+            )
+            .map_err(|e| {
+                format!("failed to add function trap offset relocation for {traps_name}: {e}")
+            })?;
+        }
     }
-    // for traps_name in (0..compiled_objects.object_files.len())
-    //     .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
-    // {
-    //     let offset =
-    //         obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
-    //     let symbol_id = obj.add_symbol(ObjSymbol {
-    //         name: traps_name.as_bytes().into(),
-    //         value: 0,
-    //         size: 0,
-    //         kind: SymbolKind::Data,
-    //         scope: SymbolScope::Linkage,
-    //         weak: true,
-    //         section: SymbolSection::Undefined,
-    //         flags: SymbolFlags::None,
-    //     });
-    //     obj.add_relocation(
-    //         trap_fn_offsets_section_id,
-    //         Relocation {
-    //             offset,
-    //             flags: RelocationFlags::Generic {
-    //                 kind: RelocationKind::Absolute,
-    //                 encoding: RelocationEncoding::Generic,
-    //                 size: pointer_bits,
-    //             },
-    //             symbol: symbol_id,
-    //             addend: 0,
-    //         },
-    //     )
-    //     .map_err(|e| {
-    //         format!("failed to add function trap offset relocation for {traps_name}: {e}")
-    //     })?;
-    // }
 
     obj.write()
         .map_err(|e| format!("failed to serialize Wasmer meta object: {e}"))
@@ -753,6 +757,7 @@ pub fn emit_metadata_and_link(
             let _ = std::fs::write(debug_dir.join(WASMER_META_FILENAME), &meta_object);
         }
         let CompiledObjects {
+            emit_trap_offsets: _,
             object_files,
             import_trampoline_object_files,
             trampoline_object_files,
