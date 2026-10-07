@@ -972,12 +972,13 @@ macro_rules! impl_host_function {
                 let store_id = wasmer_types::StoreId::from_raw(
                     std::num::NonZeroUsize::new(store_ptr).expect("a store id is never zero"),
                 );
-                // Scoped: the host function below may re-enter the guest, and a
-                // guest that suspends needs the store lent onwards — which
-                // `Function::call` does by pausing this borrow. A `StoreMut` held
-                // across that would be left with a dead tag, so the arguments are
-                // converted through this acquisition and the results through a
-                // fresh one. `sys` does the same, with `get_current_transient`.
+                // Used for the arguments only. The host function below may
+                // re-enter the guest through `Function::call`, which lends this
+                // borrow onwards by pausing it; a `StoreMut` used across that
+                // would be left with a dead tag. So `store` converts the
+                // arguments and is not touched again, although it stays in scope
+                // across the call, and the results go through a fresh
+                // acquisition. `sys` does the same, with `get_current_transient`.
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
                 let mut store = store_wrapper.as_mut();
 
@@ -999,8 +1000,18 @@ macro_rules! impl_host_function {
                         let c_struct = unsafe { result.into_c_struct(&mut store) };
                         return c_struct;
                     },
-                    Ok(Err(trap)) => crate::backend::js::error::raise(Box::new(trap)),
-                    Err(panic) => raise_host_function_panic(panic),
+                    // Raising throws a JavaScript exception, which unwinds past
+                    // this frame without running its destructors: release the
+                    // borrow first, or it outlives the call and the entry can
+                    // never be uninstalled.
+                    Ok(Err(trap)) => {
+                        drop(store_wrapper);
+                        crate::backend::js::error::raise(Box::new(trap))
+                    }
+                    Err(panic) => {
+                        drop(store_wrapper);
+                        raise_host_function_panic(panic)
+                    }
                 }
             }
 
@@ -1035,12 +1046,13 @@ macro_rules! impl_host_function {
                 let store_id = wasmer_types::StoreId::from_raw(
                     std::num::NonZeroUsize::new(store_ptr).expect("a store id is never zero"),
                 );
-                // Scoped: the host function below may re-enter the guest, and a
-                // guest that suspends needs the store lent onwards — which
-                // `Function::call` does by pausing this borrow. A `StoreMut` held
-                // across that would be left with a dead tag, so the arguments are
-                // converted through this acquisition and the results through a
-                // fresh one. `sys` does the same, with `get_current_transient`.
+                // Used for the arguments only. The host function below may
+                // re-enter the guest through `Function::call`, which lends this
+                // borrow onwards by pausing it; a `StoreMut` used across that
+                // would be left with a dead tag. So `store` converts the
+                // arguments and is not touched again, although it stays in scope
+                // across the call, and the results go through a fresh
+                // acquisition. `sys` does the same, with `get_current_transient`.
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
                 let mut store = store_wrapper.as_mut();
 
@@ -1079,13 +1091,26 @@ macro_rules! impl_host_function {
                         let c_struct = unsafe { result.into_c_struct(&mut store) };
                         return c_struct;
                     },
+                    // Raising throws a JavaScript exception, which unwinds past
+                    // this frame without running its destructors: release the
+                    // borrow first, or it outlives the call and the entry can
+                    // never be uninstalled.
                     #[allow(deprecated)]
                     #[cfg(feature = "std")]
-                    Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
+                    Ok(Err(trap)) => {
+                        drop(store_wrapper);
+                        crate::js::error::raise(Box::new(trap))
+                    }
                     #[cfg(feature = "core")]
                     #[allow(deprecated)]
-                    Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
-                    Err(panic) => raise_host_function_panic(panic),
+                    Ok(Err(trap)) => {
+                        drop(store_wrapper);
+                        crate::js::error::raise(Box::new(trap))
+                    }
+                    Err(panic) => {
+                        drop(store_wrapper);
+                        raise_host_function_panic(panic)
+                    }
                 }
             }
 
