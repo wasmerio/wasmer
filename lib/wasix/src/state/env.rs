@@ -817,13 +817,31 @@ impl WasiEnv {
         // includes `call_dynamic` — so for a guest that reaches it, dispatching
         // from a syscall is not representable.
         //
-        // Leave such signals queued on the thread instead. They are dispatched by
-        // [`Self::dispatch_pending_signals_async`], which the async syscalls call
-        // from a point where nothing holds the store and the handler may suspend
-        // freely. Nothing is lost: the queue is the thread's own, and the guest
-        // reaches those syscalls constantly.
+        // Leave such signals queued on the thread instead. They are dispatched
+        // from one of two places:
+        //
+        // * [`Self::dispatch_pending_signals_async`], which the async syscalls
+        //   (`call_dynamic` and the lazy-binding stubs) call from a point where
+        //   nothing holds the store, so the handler may suspend freely.
+        // * The blocking waits in `__asyncify`, which dispatch inline when a
+        //   signal interrupts them. A handler there runs beneath a synchronous
+        //   host frame and may not suspend; if it tries, the async import it
+        //   calls refuses and the guest sees an error. They dispatch anyway
+        //   because a guest that never reaches an async syscall — most statically
+        //   linked guests — would otherwise never see its handlers run, and
+        //   leaving the signal queued would only turn every blocking wait into an
+        //   endless `EINTR`.
+        //
+        // Only a guest running in a context-switching environment defers: only it
+        // has the async syscalls to dispatch from. A guest entered synchronously,
+        // or without the context-switching API, has nothing that could suspend
+        // beneath its handler, so it is dispatched here as on every other
+        // backend.
         #[cfg(feature = "js")]
-        if ctx.as_store_ref().engine().is_js() && inner.signal.as_ref().is_some() {
+        if ctx.as_store_ref().engine().is_js()
+            && env.context_switching_environment.is_some()
+            && inner.signal.as_ref().is_some()
+        {
             return Ok(Ok(false));
         }
 
@@ -863,7 +881,12 @@ impl WasiEnv {
             match handler {
                 // Nothing registered, so `process_signals` never deferred any.
                 None => return Ok(()),
-                Some(handler) => (handler, data.thread.pop_signals()),
+                Some(handler) => {
+                    // Timers too, as the synchronous path collects them.
+                    let mut signals = data.thread.pop_signals();
+                    signals.extend(data.due_interval_signals());
+                    (handler, signals)
+                }
             }
         };
 
@@ -883,6 +906,8 @@ impl WasiEnv {
             if let Err(err) = handler.call_async(&store, signal as i32).await {
                 match err.downcast::<WasiError>() {
                     Ok(wasi_err) => return Err(wasi_err),
+                    // As in the synchronous path: a handler that fails ends the
+                    // process with `EINTR`.
                     Err(runtime_err) => {
                         if signal != Signal::Sigkill {
                             tracing::warn!(
@@ -890,11 +915,31 @@ impl WasiEnv {
                                 "deferred signal handler runtime error",
                             );
                         }
+                        return Err(WasiError::Exit(Errno::Intr.into()));
                     }
                 }
             }
         }
         Ok(())
+    }
+
+    /// The interval signals (`alarm`, interval timers) whose interval has
+    /// elapsed, marked as delivered.
+    fn due_interval_signals(&self) -> Vec<Signal> {
+        let mut due = Vec::new();
+        let mut inner = self.process.inner.0.lock().unwrap();
+        if inner.signal_intervals.is_empty() {
+            return due;
+        }
+        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+        for signal in inner.signal_intervals.values_mut() {
+            let elapsed = now - signal.last_signal;
+            if elapsed >= signal.interval.as_nanos() {
+                signal.last_signal = now;
+                due.push(signal.signal);
+            }
+        }
+        due
     }
 
     pub(crate) fn process_signals_internal(
@@ -908,31 +953,7 @@ impl WasiEnv {
         let inner = env_inner.main_module_instance_handles();
         if let Some(handler) = inner.signal.clone() {
             // We might also have signals that trigger on timers
-            let mut now = 0;
-            {
-                let mut has_signal_interval = false;
-                let mut inner = env.process.inner.0.lock().unwrap();
-                if !inner.signal_intervals.is_empty() {
-                    now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap()
-                        as u128;
-                    for signal in inner.signal_intervals.values() {
-                        let elapsed = now - signal.last_signal;
-                        if elapsed >= signal.interval.as_nanos() {
-                            has_signal_interval = true;
-                            break;
-                        }
-                    }
-                }
-                if has_signal_interval {
-                    for signal in inner.signal_intervals.values_mut() {
-                        let elapsed = now - signal.last_signal;
-                        if elapsed >= signal.interval.as_nanos() {
-                            signal.last_signal = now;
-                            signals.push(signal.signal);
-                        }
-                    }
-                }
-            }
+            signals.extend(env.due_interval_signals());
 
             for signal in signals {
                 // Skip over Sigwakeup, which is host-side-only
