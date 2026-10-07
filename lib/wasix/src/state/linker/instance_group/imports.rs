@@ -544,7 +544,7 @@ impl InstanceGroupState {
             // `Capabilities::enable_context_switching`.
             engine.supports_async()
                 && engine.is_js()
-                && env.as_ref(store).capabilities.enable_context_switching
+                && env.as_ref(store).capabilities.context_switching_enabled()
         };
         #[cfg(not(feature = "js"))]
         let prefers_async_reentry = false;

@@ -525,7 +525,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     // Per process, so one tree may run an N-API guest that executes a
     // context-switching one, and the reverse. A single guest cannot have both.
     let engine_supports_async = store.as_store_ref().engine().supports_async()
-        && env.as_ref(&store).capabilities.enable_context_switching;
+        && env.as_ref(&store).capabilities.context_switching_enabled();
     // Re-entering the guest from a *synchronous* host frame is what blocks a
     // suspension under a dynamic call on the JS backend: V8 will not suspend
     // past that frame. `sys` has no such restriction and its synchronous path is
@@ -693,7 +693,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     // Per process, so one tree may run an N-API guest that executes a
     // context-switching one, and the reverse. A single guest cannot have both.
     let engine_supports_async = store.as_store_ref().engine().supports_async()
-        && env.as_ref(&store).capabilities.enable_context_switching;
+        && env.as_ref(&store).capabilities.context_switching_enabled();
     // Re-entering the guest from a *synchronous* host frame is what blocks a
     // suspension under a dynamic call on the JS backend: V8 will not suspend
     // past that frame. `sys` has no such restriction and its synchronous path is

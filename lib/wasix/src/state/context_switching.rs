@@ -159,6 +159,16 @@ impl ContextSwitchingEnvironment {
     /// Run the main context function in a context-switching environment
     ///
     /// This call yields until the entrypoint returns or traps.
+    ///
+    /// Every guest entry goes through here: a process's start function, and
+    /// the entry functions of the threads it spawns and the forks it makes. So
+    /// this is where [`Capabilities::enable_async_entrypoint`] and
+    /// [`Capabilities::enable_context_switching`] take effect, for all three:
+    /// the guest is entered synchronously, asynchronously, or asynchronously
+    /// with a context-switching environment to join.
+    ///
+    /// [`Capabilities::enable_async_entrypoint`]: crate::capabilities::Capabilities::enable_async_entrypoint
+    /// [`Capabilities::enable_context_switching`]: crate::capabilities::Capabilities::enable_context_switching
     pub(crate) async fn run_main_context(
         ctx: &WasiFunctionEnv,
         mut store: Store,
@@ -166,11 +176,6 @@ impl ContextSwitchingEnvironment {
         params: Vec<wasmer::Value>,
         local_tasks: LocalTaskSpawner,
     ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
-        if !ctx.data(&store).capabilities.enable_context_switching {
-            let result = entrypoint.call(&mut store, &params);
-            return (store, result);
-        }
-
         // If we are already in a context-switching environment, something went wrong
         if ctx
             .data_mut(&mut store)
@@ -197,8 +202,25 @@ impl ContextSwitchingEnvironment {
         #[cfg(feature = "js")]
         let supports_async =
             supports_async && !(store.engine().is_js() && ctx.data(&store).will_use_asyncify());
-        if !supports_async {
+        let capabilities = &ctx.data(&store).capabilities;
+        let enter_async = supports_async && capabilities.enable_async_entrypoint;
+        let context_switching = capabilities.context_switching_enabled();
+
+        // Entered synchronously: nothing in the guest can suspend, and the
+        // context-switching API is unavailable whatever its own setting says.
+        if !enter_async {
             let result = entrypoint.call(&mut store, &params);
+            return (store, result);
+        }
+
+        // Entered asynchronously, but without an environment to join: imports
+        // that suspend at the top of the guest's stack work, as N-API's event
+        // loop checkpoint does on JS, while the context-switching syscalls stay
+        // unavailable.
+        if !context_switching {
+            let store_async = store.into_async();
+            let result = entrypoint.call_async(&store_async, params).await;
+            let store = reclaim_store(store_async).await;
             return (store, result);
         }
 
