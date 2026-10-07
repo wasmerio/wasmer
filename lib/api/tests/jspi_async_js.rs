@@ -118,14 +118,15 @@ fn suspend_then_observe(store: &mut Store) -> (Instance, FunctionEnv<Observed>) 
     (instance, env)
 }
 
-/// `Function::call_async` installs the store context around `Reflect::apply`
-/// only, and that returns at the guest's first suspension. Everything the guest
-/// runs after resuming therefore executes with no context installed and no
-/// write lock held, so nothing excludes another task from the store while guest
-/// code is running.
+/// The part of a guest that runs after a suspension must still have its store
+/// context installed, and the store's write lock held.
 ///
-/// A synchronous import is the smallest way to observe it: reached before any
-/// suspension it can see its store, reached after one it cannot.
+/// `Reflect::apply` returns at the guest's first suspension, so a context
+/// installed around it would cover only the first span, and the guest would
+/// resume in a JavaScript job with no context and no lock. So the context is
+/// parked instead, and reinstalled by whichever import resumes the guest. A
+/// synchronous import is the smallest way to observe it: reached after a
+/// suspension, it must still find its store.
 #[wasm_bindgen_test]
 async fn a_sync_import_after_a_suspension_still_reaches_its_store() {
     let mut store = Store::default();
@@ -149,11 +150,15 @@ async fn a_sync_import_after_a_suspension_still_reaches_its_store() {
     );
 }
 
-/// Dropping the future returned by `Function::call_async` has to stop the call.
-/// The JSPI stack and its promise chain live in the JS runtime, so today the
-/// guest resumes regardless — and with the future gone, so is the
-/// `ActiveStoreGuard` that was the last thing pinning the store between host
-/// tasks, which is what turns a cancelled call into a use-after-free.
+/// Dropping the future returned by `Function::call_async` while its guest is
+/// suspended has to stop the call: the guest must never resume.
+///
+/// The JSPI stack and its promise chain live in the JavaScript runtime, which
+/// would resume the guest once its import completed, with no call left to give
+/// it a store. The call owns its imports, so dropping it drops them, and the
+/// guest's promise is never settled. (A drop just after an import completed
+/// cannot stop the resumption; see
+/// `a_guest_resumed_after_its_call_was_dropped_finishes_with_its_store`.)
 #[wasm_bindgen_test]
 async fn a_dropped_call_async_future_stops_the_guest() {
     let mut store = Store::default();
@@ -420,4 +425,223 @@ async fn cancelled_guest_call_does_not_resume_host_code_after_store_release() {
         "host code resumed with a released environment"
     );
     assert!(dropped.get(), "cancelled host future was not released");
+}
+
+/// A guest that suspends once on a fresh microtask, then either traps or
+/// returns 7.
+const SUSPEND_THEN_TRAP_OR_FINISH: &str = r#"
+(module
+  (import "host" "suspend" (func $suspend))
+  (func (export "trap")
+    call $suspend
+    unreachable)
+  (func (export "finish") (result i32)
+    call $suspend
+    i32.const 7))
+"#;
+
+/// Races `future` against a generous number of macrotasks, so a call that would
+/// wait forever fails the test instead of hanging it.
+async fn within_macrotasks<F: Future>(future: F) -> Option<F::Output> {
+    let deadline = async {
+        for _ in 0..50 {
+            JsFuture::from(next_macrotask()).await.unwrap();
+        }
+    };
+    futures::pin_mut!(future, deadline);
+    match futures::future::select(future, deadline).await {
+        futures::future::Either::Left((output, _)) => Some(output),
+        futures::future::Either::Right(((), _)) => None,
+    }
+}
+
+/// A guest that traps must not leave its call's context parked.
+///
+/// The context holds the store's write lock. Left behind, every other call on
+/// the store waits on that lock forever — here, the one that suspended while the
+/// trapping guest was running.
+#[wasm_bindgen_test]
+async fn a_trapping_guest_does_not_wedge_the_other_calls_on_its_store() {
+    let mut store = Store::default();
+    let module = Module::new(&store, SUSPEND_THEN_TRAP_OR_FINISH).unwrap();
+    let suspend = Function::new_typed_async(&mut store, async move || {
+        JsFuture::from(next_macrotask()).await.unwrap();
+    });
+    let imports = imports! { "host" => { "suspend" => suspend } };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    let trap: TypedFunction<(), ()> = instance.exports.get_typed_function(&store, "trap").unwrap();
+    let finish: TypedFunction<(), i32> = instance
+        .exports
+        .get_typed_function(&store, "finish")
+        .unwrap();
+
+    let store_async = store.into_async();
+    let both = futures::future::join(
+        trap.call_async(&store_async),
+        finish.call_async(&store_async),
+    );
+    let (trapped, finished) = within_macrotasks(both)
+        .await
+        .expect("a call on the store never finished after another call's guest trapped");
+
+    assert!(trapped.is_err(), "the guest should have trapped");
+    assert_eq!(finished.unwrap(), 7);
+}
+
+/// Polls `call` by hand until `ready_to_resume` reports that the import the
+/// guest suspended on has finished — so its promise is resolved and the guest
+/// will resume in a JavaScript job — then drops it before that job runs. That is
+/// the one cancellation the call cannot take back.
+async fn cancel_after_resolve_before_resume<F: Future>(
+    call: F,
+    ready_to_resume: impl Fn() -> bool,
+) {
+    let mut call = Box::pin(call);
+    let mut cx = std::task::Context::from_waker(futures::task::noop_waker_ref());
+    for _ in 0..20 {
+        assert!(
+            call.as_mut().poll(&mut cx).is_pending(),
+            "the guest finished before it could be cancelled"
+        );
+        if ready_to_resume() {
+            drop(call);
+            return;
+        }
+        // Let the import's own promise settle before polling again.
+        JsFuture::from(Promise::resolve(&JsValue::UNDEFINED))
+            .await
+            .unwrap();
+    }
+    panic!("the import never finished");
+}
+
+/// A guest whose call was dropped after its import finished, and which then
+/// runs to completion.
+///
+/// The resumption cannot be stopped, so the guest's context stays installed for
+/// it: the synchronous import it reaches must find its store rather than panic
+/// for want of a context — which used to leave the thread unusable. Once the
+/// guest finishes, nothing may still hold the store.
+#[wasm_bindgen_test]
+async fn a_guest_resumed_after_its_call_was_dropped_finishes_with_its_store() {
+    let mut store = Store::default();
+    let module = Module::new(&store, SUSPEND_THEN_OBSERVE).unwrap();
+    let resolved = Arc::new(Mutex::new(false));
+    let suspend = Function::new_typed_async(&mut store, {
+        let resolved = resolved.clone();
+        move || {
+            let resolved = resolved.clone();
+            async move {
+                JsFuture::from(Promise::resolve(&JsValue::UNDEFINED))
+                    .await
+                    .unwrap();
+                *resolved.lock().unwrap() = true;
+            }
+        }
+    });
+    let env = FunctionEnv::new(&mut store, Observed::default());
+    let observe = Function::new_with_env(
+        &mut store,
+        &env,
+        FunctionType::new(vec![], vec![]),
+        |mut env: FunctionEnvMut<'_, Observed>, _args| {
+            let reachable = env.as_store_async().is_some();
+            let data = env.data_mut();
+            data.store_was_reachable = Some(reachable);
+            data.observe_calls += 1;
+            Ok(vec![])
+        },
+    );
+    let imports = imports! { "host" => { "suspend" => suspend, "observe" => observe } };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    let run: TypedFunction<(), ()> = instance.exports.get_typed_function(&store, "run").unwrap();
+
+    let store_async = store.into_async();
+    cancel_after_resolve_before_resume(run.call_async(&store_async), || *resolved.lock().unwrap())
+        .await;
+    JsFuture::from(next_macrotask()).await.unwrap();
+
+    {
+        let lock = store_async.read_lock().await;
+        let observed = env.as_ref(&lock);
+        assert_eq!(
+            observed.observe_calls, 1,
+            "the resumed guest should have run on"
+        );
+        assert_eq!(
+            observed.store_was_reachable,
+            Some(true),
+            "the resumed guest must still find its store"
+        );
+    }
+    drop((run, instance));
+    assert!(
+        store_async.into_store().is_ok(),
+        "the finished guest must leave no clone of the store behind"
+    );
+}
+
+/// As above, but the resumed guest suspends again instead of finishing: it runs
+/// up to that suspension and no further, and gives the store back there.
+const SUSPEND_OBSERVE_SUSPEND_OBSERVE: &str = r#"
+(module
+  (import "host" "suspend" (func $suspend))
+  (import "host" "observe" (func $observe))
+  (func (export "run")
+    call $suspend
+    call $observe
+    call $suspend
+    call $observe))
+"#;
+
+#[wasm_bindgen_test]
+async fn a_guest_resumed_after_its_call_was_dropped_stops_at_its_next_suspension() {
+    let mut store = Store::default();
+    let module = Module::new(&store, SUSPEND_OBSERVE_SUSPEND_OBSERVE).unwrap();
+    let resolved = Arc::new(Mutex::new(false));
+    let suspend = Function::new_typed_async(&mut store, {
+        let resolved = resolved.clone();
+        move || {
+            let resolved = resolved.clone();
+            async move {
+                JsFuture::from(Promise::resolve(&JsValue::UNDEFINED))
+                    .await
+                    .unwrap();
+                *resolved.lock().unwrap() = true;
+            }
+        }
+    });
+    let env = FunctionEnv::new(&mut store, Observed::default());
+    let observe = Function::new_with_env(
+        &mut store,
+        &env,
+        FunctionType::new(vec![], vec![]),
+        |mut env: FunctionEnvMut<'_, Observed>, _args| {
+            env.data_mut().observe_calls += 1;
+            Ok(vec![])
+        },
+    );
+    let imports = imports! { "host" => { "suspend" => suspend, "observe" => observe } };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    let run: TypedFunction<(), ()> = instance.exports.get_typed_function(&store, "run").unwrap();
+
+    let store_async = store.into_async();
+    cancel_after_resolve_before_resume(run.call_async(&store_async), || *resolved.lock().unwrap())
+        .await;
+    JsFuture::from(next_macrotask()).await.unwrap();
+    JsFuture::from(next_macrotask()).await.unwrap();
+
+    {
+        let lock = store_async.read_lock().await;
+        assert_eq!(
+            env.as_ref(&lock).observe_calls,
+            1,
+            "the resumed guest must stop at its next suspension"
+        );
+    }
+    drop((run, instance));
+    assert!(
+        store_async.into_store().is_ok(),
+        "the guest left inert must leave no clone of the store behind"
+    );
 }

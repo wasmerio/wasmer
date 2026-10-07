@@ -261,6 +261,7 @@ impl Function {
                     jspi::ParkedCall {
                         guard: StoreContext::install_async(write_lock.inner),
                         call: alive,
+                        membership: None,
                     },
                 );
 
@@ -715,7 +716,9 @@ impl Function {
         let function = self.clone();
         let store = store.store();
         Box::pin(async move {
-            let _active_store = jspi::install_store(store.store());
+            // Releases whatever this call leaves parked, on every way out of
+            // this future: see `jspi::CallExit`.
+            let mut exit = jspi::CallExit::new(store.store());
             let store_id = store.store_id();
             let function_type = function.handle.ty.clone();
             let write_lock = store.write_lock().await;
@@ -734,11 +737,13 @@ impl Function {
             // which is also how a suspended import learns its call was cancelled.
             let call = std::rc::Rc::new(jspi::CallState::default());
             let store_context = StoreContext::install_async(write_lock.inner);
+            exit.entering(&call);
             jspi::park_context(
                 store_id,
                 jspi::ParkedCall {
                     guard: store_context,
                     call: std::rc::Rc::downgrade(&call),
+                    membership: None,
                 },
             );
             let promising = jspi::promising(&function.handle.function)
@@ -753,6 +758,7 @@ impl Function {
             // Not `JsFuture`: a cancelled call leaves its guest suspended on a
             // promise that never settles, and `JsFuture`'s callbacks would hold
             // that call's waker for the life of the page. See `jspi::PromiseFuture`.
+            exit.running(&promise);
             let mut guest =
                 std::pin::pin!(jspi::PromiseFuture::new(promise).map_err(RuntimeError::from)?);
             let result = std::future::poll_fn(|cx| {
@@ -761,14 +767,14 @@ impl Function {
                 call.drive(cx);
                 guest.as_mut().poll(cx)
             })
-            .await
-            .map_err(RuntimeError::from)?;
+            .await;
 
-            // The guest is finished. Whatever is parked now was installed by
-            // the last import to complete, or is still ours if it never
-            // suspended; either way it has to go before the store can be
-            // locked again.
-            drop(jspi::take_context(store_id));
+            // The guest is finished, whether it returned or trapped. Whatever of
+            // ours is parked now was installed by the last import to complete,
+            // or is still the entry's if it never suspended; either way it has
+            // to go before the store can be locked again.
+            exit.finished();
+            let result = result.map_err(RuntimeError::from)?;
             let mut write_lock = store.write_lock().await;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),

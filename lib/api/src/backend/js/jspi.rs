@@ -52,6 +52,11 @@ pub(crate) struct ParkedCall {
     /// `Function::call_async` future, and the futures this holds capture a
     /// `Weak` back, so a strong one here would be a cycle that never frees.
     pub(crate) call: Weak<CallState>,
+
+    /// The dead call's hold on the store, when this context was orphaned: see
+    /// [`CallExit`]. Keeps the store active, and so reachable by the guest's
+    /// trampolines, for exactly as long as the orphaned context is parked.
+    pub(crate) membership: Option<ActiveStoreGuard>,
 }
 
 /// What an async import's host future reports: how to settle the suspended
@@ -309,13 +314,19 @@ pub(crate) fn install_store(store: StoreAsync) -> ActiveStoreGuard {
 /// Dropped immediately if the call has already finished, which uninstalls the
 /// context and releases the store, as it would have done anyway.
 pub(crate) fn park_context(id: StoreId, parked: ParkedCall) {
-    ACTIVE_STORES.with(|stores| {
+    // Dropped outside the borrow: an orphan's membership reaches back into
+    // `ACTIVE_STORES` when it goes.
+    let unparked = ACTIVE_STORES.with(|stores| {
         let mut stores = stores.borrow_mut();
         match stores.get_mut(&id) {
-            Some(active) => active.installed = Some(parked),
-            None => drop(parked),
+            Some(active) => {
+                active.installed = Some(parked);
+                None
+            }
+            None => Some(parked),
         }
     });
+    drop(unparked);
 }
 
 /// Takes back the parked context, if there is one. Dropping the result
@@ -324,22 +335,132 @@ pub(crate) fn take_context(id: StoreId) -> Option<ParkedCall> {
     ACTIVE_STORES.with(|stores| stores.borrow_mut().get_mut(&id)?.installed.take())
 }
 
+/// Takes back the parked context only if it belongs to `call`.
+///
+/// A call that is finishing must not take whatever happens to be parked: once
+/// its own guest has suspended for the last time, the store may already be
+/// running another call's guest, whose context is the one parked.
+fn take_context_of(id: StoreId, call: &Weak<CallState>) -> Option<ParkedCall> {
+    ACTIVE_STORES.with(|stores| {
+        let mut stores = stores.borrow_mut();
+        let active = stores.get_mut(&id)?;
+        if !active.installed.as_ref()?.call.ptr_eq(call) {
+            return None;
+        }
+        active.installed.take()
+    })
+}
+
+/// Cleans up after a `Function::call_async`, however it ends.
+///
+/// A call parks its guest's context before entering it, and whichever of its
+/// imports completes last re-parks it before resuming the guest. How that
+/// context is released depends on how the call ends:
+///
+/// * The guest finished, trapped, or never started: the context, if it is
+///   still this call's, is released. Without this an error leaves it parked,
+///   holding the store's write lock, and every other call on the store waits
+///   forever.
+/// * The call was dropped while its guest is suspended: nothing of this
+///   call's is parked, and the import the guest suspended on leaves it inert.
+/// * The call was dropped just after one of its imports completed — its
+///   promise is resolved, so the guest *will* resume, in a JavaScript job that
+///   nothing can cancel. Its context is parked for that resumption. Releasing it
+///   would resume the guest with no context at all, so instead the context is
+///   *orphaned*: it stays parked, together with the call's hold on the store,
+///   until the guest next suspends — where the import sees the call is gone,
+///   releases both and leaves the guest inert — or finishes, where a handler on
+///   its promise releases them. In between the guest runs host code for a call
+///   that no longer exists, but only synchronously, and only up to that point.
+pub(crate) struct CallExit {
+    store_id: StoreId,
+    membership: Option<ActiveStoreGuard>,
+    call: Weak<CallState>,
+    guest: Option<Promise>,
+    finished: bool,
+}
+
+impl CallExit {
+    pub(crate) fn new(store: StoreAsync) -> Self {
+        Self {
+            store_id: store.store_id(),
+            membership: Some(install_store(store)),
+            call: Weak::new(),
+            guest: None,
+            finished: false,
+        }
+    }
+
+    /// The call about to enter its guest.
+    pub(crate) fn entering(&mut self, call: &Rc<CallState>) {
+        self.call = Rc::downgrade(call);
+    }
+
+    /// The guest is running, and settles `guest` when it stops.
+    pub(crate) fn running(&mut self, guest: &Promise) {
+        self.guest = Some(guest.clone());
+    }
+
+    /// The guest has finished; dropping this releases its context.
+    pub(crate) fn finished(mut self) {
+        self.finished = true;
+    }
+}
+
+impl Drop for CallExit {
+    fn drop(&mut self) {
+        let parked = take_context_of(self.store_id, &self.call);
+        let guest = match (self.finished, self.guest.take()) {
+            (false, Some(guest)) => guest,
+            // Finished, or never got as far as running: release.
+            _ => return drop(parked),
+        };
+        // Dropped while the guest is still running. With nothing of ours
+        // parked the guest is suspended, and stays so.
+        let Some(mut parked) = parked else {
+            return;
+        };
+
+        // Orphaned: see the type's documentation.
+        parked.membership = self.membership.take();
+        let store_id = self.store_id;
+        let call = self.call.clone();
+        let release = Closure::wrap(Box::new(move |_: JsValue| {
+            drop(take_context_of(store_id, &call));
+        }) as Box<dyn FnMut(JsValue)>)
+        .into_js_value();
+        // Handed to JavaScript to own, as in `PromiseFuture::new`, so a guest
+        // that never finishes does not leak it.
+        if let Ok(then) = Reflect::get(&guest, &"then".into()).and_then(|then| {
+            then.dyn_into::<Function>()
+        }) {
+            let _ = then.call2(&guest, &release, &release);
+        }
+        park_context(store_id, parked);
+    }
+}
+
 pub(crate) fn active_store(id: StoreId) -> Option<StoreAsync> {
     ACTIVE_STORES.with(|stores| stores.borrow().get(&id).map(|active| active.store.store()))
 }
 
 impl Drop for ActiveStoreGuard {
     fn drop(&mut self) {
-        ACTIVE_STORES.with(|stores| {
+        // Dropped outside the borrow, since a parked context can hold a
+        // membership of its own.
+        let removed = ACTIVE_STORES.with(|stores| {
             let mut stores = stores.borrow_mut();
             let active = stores
                 .get_mut(&self.id)
                 .expect("active JSPI store guard is unbalanced");
             active.users -= 1;
             if active.users == 0 {
-                stores.remove(&self.id);
+                stores.remove(&self.id)
+            } else {
+                None
             }
         });
+        drop(removed);
     }
 }
 

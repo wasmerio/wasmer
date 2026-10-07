@@ -241,7 +241,7 @@ impl ContextSwitchingEnvironment {
         if let Some(environment) = context_tasks.upgrade() {
             environment.shutdown().await;
         }
-        let mut store = store_async.into_store().ok().unwrap();
+        let mut store = reclaim_store(store_async).await;
 
         // Remove the context-switching environment from the WasiEnv
         let env = ctx.data_mut(&mut store);
@@ -581,4 +581,41 @@ impl ContextSwitchingEnvironment {
             }
         }
     }
+}
+
+/// Turns the guest's async store back into a [`Store`] once nothing else holds
+/// it.
+///
+/// On the JS backend a call that is cancelled just as one of its imports
+/// completes leaves its guest to resume once more, in a JavaScript job that
+/// cannot be cancelled; it keeps the store until that guest next suspends or
+/// finishes, which it does as soon as the job runs. Yielding lets that job run
+/// first. Anything still holding the store after that is a leak, and as before
+/// it is fatal.
+async fn reclaim_store(mut store_async: wasmer::StoreAsync) -> Store {
+    const ATTEMPTS: usize = 64;
+    for _ in 0..ATTEMPTS {
+        match store_async.into_store() {
+            Ok(store) => return store,
+            Err(still_shared) => store_async = still_shared,
+        }
+        yield_once().await;
+    }
+    panic!(
+        "the guest's store is still in use after its entrypoint returned and every \
+         context was shut down"
+    );
+}
+
+/// Yields to the executor once, waking itself so it is polled again.
+fn yield_once() -> impl Future<Output = ()> {
+    let mut yielded = false;
+    std::future::poll_fn(move |cx| {
+        if yielded {
+            return std::task::Poll::Ready(());
+        }
+        yielded = true;
+        cx.waker().wake_by_ref();
+        std::task::Poll::Pending
+    })
 }
