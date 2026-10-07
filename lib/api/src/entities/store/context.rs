@@ -107,6 +107,15 @@ impl StoreContextEntry {
     }
 }
 
+/// Appended to every store-context mismatch, which is almost always the same
+/// unsupported pattern rather than a bug in the caller.
+const MISMATCHED_STORE_HINT: &str = "the store on top of this thread's context stack is not \
+    the one being used. The usual cause is calls on two different stores interleaving on one \
+    thread. On the JavaScript backend that means two `Function::call_async` calls on different \
+    stores driven concurrently, which is unsupported: a guest there resumes in a JavaScript job, \
+    after whatever the other call installed. Drive calls on different stores so that they do not \
+    overlap, or run them on one store.";
+
 pub(crate) struct StoreContext {
     id: StoreId,
 
@@ -339,7 +348,11 @@ impl StoreContext {
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
-            assert_eq!(top.id, id, "Mismatched store context access");
+            assert_eq!(
+                top.id, id,
+                "Mismatched store context access: {}",
+                MISMATCHED_STORE_HINT
+            );
             let ref_count_decremented = if top.borrow_count > 0 {
                 top.borrow_count -= 1;
                 true
@@ -392,7 +405,11 @@ impl StoreContext {
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
-            assert_eq!(top.id, id, "Mismatched store context access");
+            assert_eq!(
+                top.id, id,
+                "Mismatched store context access: {}",
+                MISMATCHED_STORE_HINT
+            );
             top.borrow_count += 1;
             StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
@@ -412,7 +429,11 @@ impl StoreContext {
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
-            assert_eq!(top.id, id, "Mismatched store context access");
+            assert_eq!(
+                top.id, id,
+                "Mismatched store context access: {}",
+                MISMATCHED_STORE_HINT
+            );
             unsafe { top.entry.get().as_mut().unwrap().as_ptr() }
         })
     }
@@ -527,7 +548,7 @@ impl Clone for StorePtrWrapper {
                 .expect("No store context installed on this thread");
             match unsafe { top.entry.get().as_ref().unwrap() } {
                 StoreContextEntry::Sync(ptr) if *ptr == self.store_ptr => (),
-                _ => panic!("Mismatched store context access"),
+                _ => panic!("Mismatched store context access: {MISMATCHED_STORE_HINT}"),
             }
             top.borrow_count += 1;
             Self {
@@ -549,7 +570,11 @@ impl Drop for StorePtrWrapper {
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
-            assert_eq!(top.id, id, "Mismatched store context reinstall");
+            assert_eq!(
+                top.id, id,
+                "Mismatched store context reinstall: {}",
+                MISMATCHED_STORE_HINT
+            );
             top.borrow_count -= 1;
         })
     }
@@ -567,7 +592,11 @@ impl Drop for StoreAsyncGuardWrapper {
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
-            assert_eq!(top.id, id, "Mismatched store context reinstall");
+            assert_eq!(
+                top.id, id,
+                "Mismatched store context reinstall: {}",
+                MISMATCHED_STORE_HINT
+            );
             top.borrow_count -= 1;
         })
     }
@@ -582,7 +611,11 @@ impl Drop for StoreInstallGuard {
             let mut stack = cell.borrow_mut();
             match (stack.pop(), std::thread::panicking()) {
                 (Some(top), false) => {
-                    assert_eq!(top.id, store_id, "Mismatched store context uninstall");
+                    assert_eq!(
+                        top.id, store_id,
+                        "Mismatched store context uninstall: {}",
+                        MISMATCHED_STORE_HINT
+                    );
                     assert_eq!(
                         top.borrow_count, 0,
                         "Cannot uninstall store context while it is still borrowed"
@@ -612,7 +645,11 @@ impl Drop for ForcedStoreInstallGuard {
             let mut stack = cell.borrow_mut();
             match (stack.pop(), std::thread::panicking()) {
                 (Some(top), false) => {
-                    assert_eq!(top.id, self.store_id, "Mismatched store context uninstall");
+                    assert_eq!(
+                        top.id, self.store_id,
+                        "Mismatched store context uninstall: {}",
+                        MISMATCHED_STORE_HINT
+                    );
                     assert_eq!(
                         top.borrow_count, 0,
                         "Cannot uninstall store context while it is still borrowed"
@@ -646,11 +683,16 @@ impl Drop for StorePtrPauseGuard {
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
-            assert_eq!(top.id, self.store_id, "Mismatched store context access");
+            assert_eq!(
+                top.id, self.store_id,
+                "Mismatched store context access: {}",
+                MISMATCHED_STORE_HINT
+            );
             assert_eq!(
                 unsafe { top.entry.get().as_ref().unwrap() }.store_addr(),
                 self.ptr,
-                "Mismatched store context access"
+                "Mismatched store context access: {}",
+                MISMATCHED_STORE_HINT
             );
             if self.ref_count_decremented {
                 top.borrow_count += 1;
