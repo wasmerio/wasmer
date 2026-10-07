@@ -58,6 +58,52 @@ pub(crate) struct ParkedCall {
 /// guest's promise, or `None` to leave it unsettled and the guest inert.
 type ImportOutcome = Option<Result<JsValue, JsValue>>;
 
+thread_local! {
+    /// How many synchronous calls into the guest are on this thread's stack
+    /// since the innermost entry through `WebAssembly.promising`.
+    static SYNC_GUEST_ENTRIES: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// Marks a guest entered through a synchronous call, for as long as it lives.
+///
+/// Such a guest cannot suspend: the call entered it through `Reflect.apply`, a
+/// JavaScript frame that a suspension would have to cross, and the engine
+/// refuses. Async imports check [`beneath_sync_entry`] to refuse first, before
+/// they release anything the synchronous call still relies on.
+pub(crate) struct SyncGuestEntry(());
+
+impl SyncGuestEntry {
+    pub(crate) fn enter() -> Self {
+        SYNC_GUEST_ENTRIES.with(|entries| entries.set(entries.get() + 1));
+        Self(())
+    }
+}
+
+impl Drop for SyncGuestEntry {
+    fn drop(&mut self) {
+        SYNC_GUEST_ENTRIES.with(|entries| entries.set(entries.get() - 1));
+    }
+}
+
+/// Whether the guest now running was entered through a synchronous call, and
+/// so cannot suspend.
+pub(crate) fn beneath_sync_entry() -> bool {
+    SYNC_GUEST_ENTRIES.with(|entries| entries.get() > 0)
+}
+
+/// Runs `enter`, which enters a guest through `WebAssembly.promising`, as a
+/// fresh stack: a guest entered that way may suspend whatever synchronous
+/// calls are further down, because the suspension stops at its own entry.
+///
+/// Only the initial entry needs this. A suspended guest resumes inside a
+/// JavaScript job, with no synchronous call of ours on the stack.
+pub(crate) fn enter_promising<R>(enter: impl FnOnce() -> R) -> R {
+    let outer = SYNC_GUEST_ENTRIES.with(|entries| entries.replace(0));
+    let result = enter();
+    SYNC_GUEST_ENTRIES.with(|entries| entries.set(outer));
+    result
+}
+
 #[derive(Default)]
 struct PromiseState {
     result: Option<Result<JsValue, JsValue>>,

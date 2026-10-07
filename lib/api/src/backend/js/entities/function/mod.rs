@@ -121,6 +121,31 @@ impl Function {
         let raw_env = env.as_js().clone();
         let func = Rc::new(func);
         let wrapped_func = Closure::wrap(Box::new(move |args: &Array| -> Promise {
+            // A guest entered through a synchronous `Function::call` cannot
+            // suspend: the engine will refuse once this promise is returned,
+            // and throw into the guest instead. Refuse first, before anything
+            // below releases the store context, since the synchronous call
+            // still expects to find its entry when the guest returns to it.
+            //
+            // The engine never awaits the promise, so mark its rejection
+            // handled, or the host reports it as unhandled. The handler is
+            // handed to JavaScript to own, as in `jspi::PromiseFuture::new`,
+            // and is collected with the promise: refusals happen once per
+            // attempt, so anything kept alive here would accumulate.
+            if jspi::beneath_sync_entry() {
+                let refused = Promise::reject(&JsValue::from_str(
+                    "an async host function was called beneath a synchronous \
+                     Function::call, where the guest cannot suspend",
+                ));
+                let ignore = Closure::wrap(Box::new(|_: JsValue| {}) as Box<dyn FnMut(JsValue)>)
+                    .into_js_value();
+                if let Ok(catch) = js_sys::Reflect::get(&refused, &JsValue::from_str("catch"))
+                    .and_then(|catch| catch.dyn_into::<JsFunction>())
+                {
+                    let _ = catch.call1(&refused, &ignore);
+                }
+                return refused;
+            }
             let Some(async_store) = jspi::active_store(store_id) else {
                 return Promise::reject(&JsValue::from_str(
                     "an async host function was called outside Function::call_async",
@@ -614,17 +639,24 @@ impl Function {
                     // Lend the store to the guest for the duration of the call,
                     // exactly as `sys` does around its trampoline.
                     //
-                    // Without this, a frame that reached here while holding a
-                    // borrow — a syscall delivering a signal to a guest handler,
-                    // say — keeps that borrow counted while the guest runs, and a
-                    // guest that then suspends cannot release its context. The
-                    // caller must not use a `StoreMut` across this; nothing here
-                    // does, and the trampolines re-acquire afterwards.
+                    // A frame that reached here holding a borrow (a syscall
+                    // delivering a signal to a guest handler, say) is not using
+                    // it while the guest runs, so the borrow is not counted
+                    // meanwhile. That keeps the count honest for whatever asks
+                    // whether the store is free, such as
+                    // `FunctionEnvHandle::try_write`. The caller must not use a
+                    // `StoreMut` across this; nothing here does, and the
+                    // trampolines re-acquire afterwards.
+                    //
+                    // Marked as a synchronous entry too: a guest entered this way
+                    // cannot suspend, and its async imports refuse to.
                     //
                     // Safety: `&mut self` on the store makes the paused borrow
                     // unreachable for every frame on this thread until the guard
                     // is dropped.
                     let _pause_guard = unsafe { StoreContext::pause(store_id) };
+                    #[cfg(feature = "experimental-async")]
+                    let _sync_entry = jspi::SyncGuestEntry::enter();
                     js_sys::Reflect::apply(
                         &self.handle.function,
                         &wasm_bindgen::JsValue::NULL,
@@ -711,8 +743,10 @@ impl Function {
             );
             let promising = jspi::promising(&function.handle.function)
                 .map_err(RuntimeError::from)?;
-            let promise = Reflect::apply(&promising, &JsValue::NULL, &arguments)
-                .map_err(RuntimeError::from)?
+            let promise = jspi::enter_promising(|| {
+                Reflect::apply(&promising, &JsValue::NULL, &arguments)
+            })
+            .map_err(RuntimeError::from)?
                 .dyn_into::<Promise>()
                 .map_err(RuntimeError::from)?;
 
