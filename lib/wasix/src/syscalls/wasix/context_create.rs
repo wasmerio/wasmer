@@ -28,18 +28,14 @@ pub fn lookup_typechecked_entrypoint(
         }
     };
 
-    // TODO: Remove this check and return a TypedFunction once all backends support types
-    #[cfg(not(feature = "js"))]
-    {
-        let entrypoint_type = entrypoint.ty(&store);
-        if !entrypoint_type.params().is_empty() && !entrypoint_type.results().is_empty() {
-            tracing::trace!(
-                "Entrypoint function {entrypoint_id} has invalid signature: expected () -> (), got {:?} -> {:?}",
-                entrypoint_type.params(),
-                entrypoint_type.results()
-            );
-            return Err(Errno::Inval);
-        }
+    let entrypoint_type = entrypoint.ty(&store);
+    if !entrypoint_type.params().is_empty() || !entrypoint_type.results().is_empty() {
+        tracing::trace!(
+            "Entrypoint function {entrypoint_id} has invalid signature: expected () -> (), got {:?} -> {:?}",
+            entrypoint_type.params(),
+            entrypoint_type.results()
+        );
+        return Err(Errno::Inval);
     }
 
     Ok(entrypoint)
