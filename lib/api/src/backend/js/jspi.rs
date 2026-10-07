@@ -236,7 +236,13 @@ impl CallState {
         // the guest synchronously, and that guest can suspend on an import of its
         // own.
         let mut unfinished = Vec::new();
-        while let Some(mut import) = self.pending.borrow_mut().pop() {
+        loop {
+            // Popped in a statement of its own: in a `while let`, the borrow
+            // would last the whole loop body, poll included.
+            let next = self.pending.borrow_mut().pop();
+            let Some(mut import) = next else {
+                break;
+            };
             match import.future.as_mut().poll(cx) {
                 Poll::Pending => unfinished.push(import),
                 Poll::Ready(outcome) => {
