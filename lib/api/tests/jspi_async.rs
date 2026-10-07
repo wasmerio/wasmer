@@ -338,7 +338,7 @@ fn nested_async_in_sync() -> Result<()> {
 /// shadows the store's async entry while the nested call runs breaks this.
 #[test]
 #[cfg_attr(
-    all(feature = "v8-default", not(feature = "sys-default")),
+    feature = "v8-default",
     ignore = "async functions are not supported by the default v8 backend"
 )]
 fn async_context_stays_reachable_through_a_sync_import() -> Result<()> {
@@ -440,7 +440,7 @@ fn async_context_stays_reachable_through_a_sync_import() -> Result<()> {
 /// suspending one must not disturb the other's entry.
 #[test]
 #[cfg_attr(
-    all(feature = "v8-default", not(feature = "sys-default")),
+    feature = "v8-default",
     ignore = "async functions are not supported by the default v8 backend"
 )]
 fn two_calls_on_different_stores_interleave() -> Result<()> {
@@ -509,7 +509,7 @@ fn two_calls_on_different_stores_interleave() -> Result<()> {
 /// working in it too.
 #[test]
 #[cfg_attr(
-    all(feature = "v8-default", not(feature = "sys-default")),
+    feature = "v8-default",
     ignore = "async functions are not supported by the default v8 backend"
 )]
 fn nested_async_in_async() -> Result<()> {
@@ -710,7 +710,7 @@ mod function_env_handle {
     /// The reachable case, and the refusal that guards it.
     #[test]
     #[cfg_attr(
-        all(feature = "v8-default", not(feature = "sys-default")),
+        feature = "v8-default",
         ignore = "async functions are not supported by the default v8 backend"
     )]
     fn a_handle_reaches_its_store_while_the_guest_is_suspended() -> Result<()> {
@@ -728,7 +728,7 @@ mod function_env_handle {
     /// registration instead of queueing work that can never run.
     #[test]
     #[cfg_attr(
-        all(feature = "v8-default", not(feature = "sys-default")),
+        feature = "v8-default",
         ignore = "async functions are not supported by the default v8 backend"
     )]
     fn a_handle_outliving_its_store_reports_it_rather_than_panicking() -> Result<()> {
