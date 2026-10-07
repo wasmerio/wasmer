@@ -93,6 +93,14 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         self.runtime.tty()
     }
 
+    fn configure_capabilities(
+        &self,
+        module: &wasmer::Module,
+        capabilities: &mut wasmer_wasix::capabilities::Capabilities,
+    ) {
+        self.runtime.configure_capabilities(module, capabilities)
+    }
+
     fn additional_imports(
         &self,
         module: &Module,

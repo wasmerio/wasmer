@@ -204,7 +204,17 @@ pub struct WasiEnv {
     /// Terminal state scoped to this process tree, overriding the runtime default.
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync + 'static>>,
 
+    /// What this process runs with: [`Self::granted_capabilities`], as the
+    /// runtime adjusted them for its main module. Rebuilt from the grant each
+    /// time a main module is instantiated; see
+    /// [`InstantiationHook::configure_capabilities`](crate::runtime::InstantiationHook::configure_capabilities).
     pub capabilities: Capabilities,
+
+    /// What this process was given, before any adjustment for its main module.
+    /// Inherited by the threads, forks and processes it creates, so that each
+    /// one is adjusted for its own main module rather than inheriting another
+    /// module's adjustments.
+    pub(crate) granted_capabilities: Capabilities,
 
     /// Is this environment capable and setup for deep sleeping
     pub enable_deep_sleep: bool,
@@ -264,6 +274,7 @@ impl Clone for WasiEnv {
             runtime: self.runtime.clone(),
             tty: self.tty.clone(),
             capabilities: self.capabilities.clone(),
+            granted_capabilities: self.granted_capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
@@ -307,6 +318,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             tty: self.tty.clone(),
             capabilities: self.capabilities.clone(),
+            granted_capabilities: self.granted_capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
@@ -474,6 +486,7 @@ impl WasiEnv {
             runtime: init.runtime,
             tty: init.tty,
             bin_factory: init.bin_factory,
+            granted_capabilities: init.capabilities.clone(),
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
             context_switching_environment: None,
@@ -568,6 +581,7 @@ impl WasiEnv {
         }
 
         // Let's instantiate the module with the imports.
+        crate::settle_capabilities(&module, &mut store, &func_env.env);
         let mut import_object =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
         if let Some(memory) = memory.clone() {
@@ -1464,6 +1478,72 @@ mod tests {
     use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
     use wasmer::Engine;
     use wasmer_config::package::PackageId;
+
+    /// Turns context switching off for any module that imports from `napi`,
+    /// as N-API's own hook does.
+    #[derive(Debug)]
+    struct OptOutForNapi;
+
+    impl crate::runtime::InstantiationHook for OptOutForNapi {
+        fn configure_capabilities(&self, module: &Module, capabilities: &mut Capabilities) {
+            if module.imports().any(|import| import.module() == "napi") {
+                capabilities.enable_context_switching = false;
+            }
+        }
+    }
+
+    /// One process's adjustment must not leak into the processes it creates:
+    /// `node`, which imports N-API, must be able to spawn Python with context
+    /// switching, and the reverse.
+    #[tokio::test]
+    async fn a_capability_adjustment_stays_with_its_own_process() {
+        let task_manager = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
+            tokio::runtime::Handle::current(),
+        ));
+        let mut runtime = crate::PluggableRuntime::new(task_manager);
+        runtime.with_instantiation_hook(OptOutForNapi);
+
+        let mut store = wasmer::Store::default();
+        let napi_module = Module::new(
+            &store,
+            r#"(module (import "napi" "napi_get_undefined" (func (param i32 i32) (result i32))))"#,
+        )
+        .unwrap();
+        let plain_module = Module::new(&store, "(module)").unwrap();
+
+        let env = WasiEnvBuilder::new("node")
+            .runtime(Arc::new(runtime))
+            .build()
+            .unwrap();
+        let node = crate::WasiFunctionEnv::new(&mut store, env);
+        crate::settle_capabilities(&napi_module, &mut store, &node.env);
+        assert!(
+            !node.data(&store).capabilities.enable_context_switching,
+            "the hook should have turned context switching off for the N-API module"
+        );
+
+        // A child starts from what its parent was given, not from what the
+        // parent's module made of it.
+        let (child, _handle) = node.data(&store).fork().unwrap();
+        assert!(child.granted_capabilities.enable_context_switching);
+        let python = crate::WasiFunctionEnv::new(&mut store, child);
+        crate::settle_capabilities(&plain_module, &mut store, &python.env);
+        assert!(
+            python.data(&store).capabilities.enable_context_switching,
+            "a child without N-API must get context switching back"
+        );
+
+        // And the reverse: settling the plain module first, then N-API.
+        let (grandchild, _handle) = python.data(&store).fork().unwrap();
+        let grandchild = crate::WasiFunctionEnv::new(&mut store, grandchild);
+        crate::settle_capabilities(&napi_module, &mut store, &grandchild.env);
+        assert!(
+            !grandchild
+                .data(&store)
+                .capabilities
+                .enable_context_switching
+        );
+    }
 
     #[tokio::test]
     async fn command_alias_registration_is_independent() {

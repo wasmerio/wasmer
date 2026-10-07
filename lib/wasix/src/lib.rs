@@ -850,6 +850,33 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     namespace
 }
 
+/// Settles the capabilities a process runs with, for the main module it is
+/// about to instantiate: [`WasiEnv::granted_capabilities`], adjusted by the
+/// runtime's [`InstantiationHook::configure_capabilities`] for that module.
+///
+/// Called for every main module, before WASIX builds its imports, because the
+/// result decides how some of them are registered. Starting again from the
+/// grant each time is what keeps one process's adjustments out of the
+/// processes it creates: a shell without N-API can run a program that has it,
+/// and the reverse, and each gets what its own module needs.
+///
+/// Only a main module settles it. Side modules keep the main module's choice:
+/// they share its store and can call into one another, so a side module given
+/// the other model of WASIX imports could step on the main module's toes.
+///
+/// [`InstantiationHook::configure_capabilities`]: crate::runtime::InstantiationHook::configure_capabilities
+pub(crate) fn settle_capabilities(
+    module: &wasmer::Module,
+    store: &mut impl AsStoreMut,
+    env: &FunctionEnv<WasiEnv>,
+) {
+    let env = env.as_mut(store);
+    let mut capabilities = env.granted_capabilities.clone();
+    env.runtime
+        .configure_capabilities(module, &mut capabilities);
+    env.capabilities = capabilities;
+}
+
 // TODO: split function into two variants, one for JS and one for sys.
 // (this will make code less messy)
 fn import_object_for_all_wasi_versions(
