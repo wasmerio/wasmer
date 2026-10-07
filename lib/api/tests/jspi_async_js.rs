@@ -12,8 +12,8 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
 use wasmer::{
-    AsStoreAsync, AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType,
-    Instance, Module, Store, TypedFunction, imports,
+    AsStoreAsync, AsStoreMut, AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut,
+    FunctionType, Instance, Module, Store, TypedFunction, imports,
 };
 
 #[wasm_bindgen_test]
@@ -643,5 +643,68 @@ async fn a_guest_resumed_after_its_call_was_dropped_stops_at_its_next_suspension
     assert!(
         store_async.into_store().is_ok(),
         "the guest left inert must leave no clone of the store behind"
+    );
+}
+
+thread_local! {
+    /// The module and imports `instantiate_from_a_sync_import` builds, kept here
+    /// because JavaScript-backed imports cannot live in a `FunctionEnv`.
+    static TO_INSTANTIATE: RefCell<Option<(Module, wasmer::Imports)>> = const { RefCell::new(None) };
+}
+
+/// A start function is guest code entered synchronously: one that reaches an
+/// async import cannot suspend, and must be refused rather than allowed to
+/// release the store context from under the instantiating frame — which used to
+/// trip the "still borrowed" assertion and leave the thread unusable.
+#[wasm_bindgen_test]
+async fn a_start_function_reaching_an_async_import_is_refused() {
+    const OUTER: &str = r#"
+    (module
+      (import "host" "instantiate" (func $instantiate (result i32)))
+      (func (export "run") (result i32)
+        call $instantiate))
+    "#;
+    const STARTS_BY_SUSPENDING: &str = r#"
+    (module
+      (import "host" "suspend" (func $suspend))
+      (func $start call $suspend)
+      (start $start))
+    "#;
+
+    let mut store = Store::default();
+    let inner = Module::new(&store, STARTS_BY_SUSPENDING).unwrap();
+    let suspend = Function::new_typed_async(&mut store, async move || {
+        JsFuture::from(next_macrotask()).await.unwrap();
+    });
+    TO_INSTANTIATE.with_borrow_mut(|slot| {
+        *slot = Some((inner, imports! { "host" => { "suspend" => suspend } }));
+    });
+
+    let env = FunctionEnv::new(&mut store, ());
+    let instantiate =
+        Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<'_, ()>| -> i32 {
+            let (module, imports) = TO_INSTANTIATE.with_borrow(|slot| slot.clone().unwrap());
+            match Instance::new(&mut env.as_store_mut(), &module, &imports) {
+                Ok(_) => 1,
+                Err(_) => 0,
+            }
+        });
+    let outer = Module::new(&store, OUTER).unwrap();
+    let instance = Instance::new(
+        &mut store,
+        &outer,
+        &imports! { "host" => { "instantiate" => instantiate } },
+    )
+    .unwrap();
+    let run: TypedFunction<(), i32> = instance.exports.get_typed_function(&store, "run").unwrap();
+
+    let store_async = store.into_async();
+    let instantiated = within_macrotasks(run.call_async(&store_async))
+        .await
+        .expect("the outer call never finished")
+        .expect("the outer call should finish even though the instantiation failed");
+    assert_eq!(
+        instantiated, 0,
+        "a start function that reaches an async import cannot run to completion"
     );
 }

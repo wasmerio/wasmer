@@ -314,13 +314,21 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
         // Instantiation runs the module's start function, which can call
-        // imports, so their trampolines need the store installed here too.
+        // imports, so their trampolines need the store installed here too. It
+        // is guest code entered synchronously, so it is treated exactly as
+        // `Function::call` treats its guest: the caller's borrow is lent out
+        // for the duration, and an async import reached from it is refused
+        // rather than allowed to suspend beneath this frame.
         //
         // Safety: as in `Function::call`.
         let instance = {
             let _store_install_guard = unsafe {
                 crate::StoreContext::install(store.as_store_mut().inner as *mut _)
             };
+            let store_id = store.as_store_ref().objects().id();
+            let _pause_guard = unsafe { crate::StoreContext::pause(store_id) };
+            #[cfg(feature = "experimental-async")]
+            let _sync_entry = crate::backend::js::jspi::SyncGuestEntry::enter();
             WebAssembly::Instance::new(&self.local_module(), &imports_object)
                 .map_err(|e: JsValue| -> RuntimeError { e.into() })?
         };
