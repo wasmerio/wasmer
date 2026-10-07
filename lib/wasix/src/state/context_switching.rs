@@ -641,3 +641,125 @@ fn yield_once() -> impl Future<Output = ()> {
         std::task::Poll::Pending
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::task_manager::WasmTaskFuture;
+    use std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+        task::Context,
+    };
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    thread_local! {
+        static TASKS: RefCell<Vec<WasmTaskFuture>> = RefCell::default();
+    }
+
+    struct Dropped(Rc<Cell<bool>>);
+    impl Drop for Dropped {
+        fn drop(&mut self) {
+            self.0.set(true);
+        }
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn teardown_releases_a_context_waiting_on_an_abandoned_guest_promise() {
+        let environment = ContextSwitchingEnvironment::new(LocalTaskSpawner::new(|task| {
+            TASKS.with_borrow_mut(|tasks| tasks.push(task));
+            Ok(())
+        }));
+        let dropped = Rc::new(Cell::new(false));
+        let guard = Dropped(dropped.clone());
+        let id = environment.create_context(async move {
+            let _guard = guard;
+            futures::future::pending::<Result<(), RuntimeError>>().await
+        });
+        environment
+            .inner
+            .unblockers
+            .write()
+            .unwrap()
+            .remove(&id)
+            .unwrap()
+            .send(Ok(()))
+            .unwrap();
+        let mut task = TASKS.with_borrow_mut(|tasks| tasks.pop().unwrap());
+        let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+        assert!(task.as_mut().poll(&mut cx).is_pending());
+        assert!(!dropped.get());
+        drop(environment);
+        assert!(
+            task.as_mut().poll(&mut cx).is_ready(),
+            "context task outlived its environment"
+        );
+        assert!(
+            dropped.get(),
+            "suspended entrypoint retained its Rust state"
+        );
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn completed_contexts_remove_their_cancellation_registration() {
+        let environment = ContextSwitchingEnvironment::new(LocalTaskSpawner::new(|task| {
+            TASKS.with_borrow_mut(|tasks| tasks.push(task));
+            Ok(())
+        }));
+        let id = environment
+            .create_context(async { Err(RuntimeError::user(Box::new(ContextCanceled(())))) });
+        environment
+            .inner
+            .unblockers
+            .write()
+            .unwrap()
+            .remove(&id)
+            .unwrap()
+            .send(Ok(()))
+            .unwrap();
+        let mut task = TASKS.with_borrow_mut(|tasks| tasks.pop().unwrap());
+        let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+        assert!(task.as_mut().poll(&mut cx).is_ready());
+        assert!(environment.inner.context_tasks.read().unwrap().is_empty());
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn shutdown_waits_until_contexts_release_their_store_clones() {
+        use wasmer::AsStoreAsync;
+
+        let environment = ContextSwitchingEnvironment::new(LocalTaskSpawner::new(|task| {
+            TASKS.with_borrow_mut(|tasks| tasks.push(task));
+            Ok(())
+        }));
+        let store = Store::default().into_async();
+        let child_store = store.store();
+        let id = environment.create_context(async move {
+            let _store = child_store;
+            futures::future::pending::<Result<(), RuntimeError>>().await
+        });
+        environment
+            .inner
+            .unblockers
+            .write()
+            .unwrap()
+            .remove(&id)
+            .unwrap()
+            .send(Ok(()))
+            .unwrap();
+        let mut task = TASKS.with_borrow_mut(|tasks| tasks.pop().unwrap());
+        let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+        assert!(task.as_mut().poll(&mut cx).is_pending());
+        let mut shutdown = Box::pin(environment.inner.shutdown());
+        assert!(shutdown.as_mut().poll(&mut cx).is_pending());
+        assert!(task.as_mut().poll(&mut cx).is_ready());
+        assert!(shutdown.as_mut().poll(&mut cx).is_ready());
+        assert!(
+            store.into_store().is_ok(),
+            "a child context retained the store after shutdown"
+        );
+    }
+}

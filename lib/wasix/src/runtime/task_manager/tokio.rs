@@ -378,3 +378,26 @@ impl Drop for SleepNow {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::channel::oneshot;
+
+    use super::*;
+
+    #[test]
+    fn wasm_callback_drives_worker_local_tasks() {
+        let mut pool = LocalPool::new();
+        let spawner = local_task_spawner(&pool);
+        let (completed, wait_for_completion) = oneshot::channel();
+
+        pool.run_until(async move {
+            spawner
+                .spawn(async move {
+                    completed.send(()).unwrap();
+                })
+                .unwrap();
+            wait_for_completion.await.unwrap();
+        });
+    }
+}

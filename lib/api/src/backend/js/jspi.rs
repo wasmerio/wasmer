@@ -532,4 +532,43 @@ mod tests {
             "the waker outlived the future that registered it"
         );
     }
+
+    #[wasm_bindgen_test]
+    async fn promise_results_and_rejections_are_preserved() {
+        assert_eq!(
+            PromiseFuture::new(Promise::resolve(&JsValue::from(42)))
+                .unwrap()
+                .await
+                .unwrap(),
+            42
+        );
+        assert_eq!(
+            PromiseFuture::new(Promise::reject(&JsValue::from_str("failure")))
+                .unwrap()
+                .await
+                .unwrap_err(),
+            "failure"
+        );
+    }
+
+    /// A promise settled after its future was dropped finds nothing to wake,
+    /// and must do nothing — which is what a cancelled call's guest promise does.
+    #[wasm_bindgen_test]
+    async fn late_callbacks_after_cancellation_are_harmless() {
+        for reject in [false, true] {
+            let mut settle = None;
+            let promise = Promise::new(&mut |resolve, rejected| {
+                settle = Some(if reject { rejected } else { resolve })
+            });
+            drop(PromiseFuture::new(promise).unwrap());
+            settle
+                .unwrap()
+                .call1(&JsValue::UNDEFINED, &7.into())
+                .unwrap();
+            PromiseFuture::new(Promise::resolve(&JsValue::UNDEFINED))
+                .unwrap()
+                .await
+                .unwrap();
+        }
+    }
 }
