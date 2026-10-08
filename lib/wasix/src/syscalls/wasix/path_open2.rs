@@ -474,7 +474,7 @@ fn path_open_internal_with_symlink_depth(
                     return Ok(Ok(dup_fd));
                 }
 
-                let out_fd = wasi_try_ok_ok!(insert_fd_locked(
+                let out_fd = wasi_try_ok_ok!(insert_fd_locked_with_inode_guard(
                     &mut fd_map,
                     state,
                     adjusted_rights,
@@ -484,6 +484,7 @@ fn path_open_internal_with_symlink_depth(
                     file_open_flags,
                     inode.clone(),
                     with_fd,
+                    &guard,
                 ));
                 drop(guard);
                 out_fd
@@ -741,5 +742,31 @@ fn insert_fd_locked(
         inode,
         with_fd,
         with_fd.is_some(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_fd_locked_with_inode_guard(
+    fd_map: &mut FdList,
+    _state: &WasiState,
+    adjusted_rights: Rights,
+    adjusted_rights_inheriting: Rights,
+    fs_flags: Fdflags,
+    fd_flags: Fdflagsext,
+    open_flags: u16,
+    inode: InodeGuard,
+    with_fd: Option<WasiFd>,
+    inode_guard: &std::sync::RwLockWriteGuard<'_, Kind>,
+) -> Result<WasiFd, Errno> {
+    WasiFs::insert_fd_locked_with_inode_guard(
+        fd_map,
+        adjusted_rights,
+        adjusted_rights_inheriting,
+        fs_flags,
+        fd_flags,
+        open_flags,
+        inode,
+        with_fd,
+        inode_guard,
     )
 }

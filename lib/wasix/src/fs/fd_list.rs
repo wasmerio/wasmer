@@ -10,13 +10,32 @@
 //! must be atomic with respect to concurrent open/close. Lock order: fd map before
 //! inode (see module comment in `mod.rs`).
 
-use super::fd::{Fd, FdInner};
+use super::{
+    VirtualFileLock,
+    fd::{Fd, FdInner},
+};
 use wasmer_wasix_types::wasi::Fd as WasiFd;
 
 #[derive(Debug)]
 pub struct FdList {
     fds: Vec<Option<Fd>>,
     first_free: Option<usize>,
+}
+
+/// Result of installing an fd. Replacements surface the old open-file
+/// description only when that replacement dropped its final descriptor.
+#[must_use = "replacement shutdown targets must be drained"]
+pub(crate) struct InsertOutcome {
+    pub inserted: bool,
+    pub shutdown_target: Option<VirtualFileLock>,
+}
+
+/// An fd removed from the map together with the final-handle shutdown target,
+/// if this removal closed the shared open-file description.
+#[must_use = "final-handle shutdown targets must be drained"]
+pub(crate) struct RemoveOutcome {
+    pub fd: Fd,
+    pub shutdown_target: Option<VirtualFileLock>,
 }
 
 pub struct FdListIterator<'a> {
@@ -72,6 +91,12 @@ impl FdList {
 
     pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
         fd.inode.acquire_handle();
+        self.insert_first_free_preacquired(fd)
+    }
+
+    /// Installs an fd whose inode handle count was already incremented while
+    /// holding that inode's write lock.
+    pub(crate) fn insert_first_free_preacquired(&mut self, fd: Fd) -> WasiFd {
         match self.first_free {
             Some(free) => {
                 assert!(self.fds[free].is_none());
@@ -93,7 +118,7 @@ impl FdList {
         match self.first_free {
             // We're shorter than `after`, need to extend the list regardless of whether we have holes
             _ if self.fds.len() < after_or_equal as usize => {
-                if !self.insert(true, after_or_equal, fd) {
+                if !self.insert(true, after_or_equal, fd).inserted {
                     panic!(
                         "Internal error in FdList - expected {after_or_equal} to be unoccupied since the list wasn't long enough"
                     );
@@ -143,7 +168,7 @@ impl FdList {
             .map(|idx| idx + skip)
     }
 
-    pub fn insert(&mut self, exclusive: bool, idx: WasiFd, fd: Fd) -> bool {
+    pub(crate) fn insert(&mut self, exclusive: bool, idx: WasiFd, fd: Fd) -> InsertOutcome {
         let idx = idx as usize;
 
         if self.fds.len() <= idx {
@@ -161,51 +186,84 @@ impl FdList {
             self.fds.resize(idx + 1, None);
         }
 
-        if let Some(ref prev_fd) = self.fds[idx] {
-            if exclusive {
-                return false;
-            } else {
-                prev_fd.inode.drop_one_handle();
-            }
+        if self.fds[idx].is_some() && exclusive {
+            return InsertOutcome {
+                inserted: false,
+                shutdown_target: None,
+            };
         }
 
+        // Acquire the incoming reference before dropping a replaced one. If
+        // both entries share an inode, this prevents a transient final-close
+        // transition during dup2-style replacement.
         fd.inode.acquire_handle();
-        self.fds[idx] = Some(fd);
+        let previous = self.fds[idx].replace(fd);
+        let shutdown_target = previous.and_then(|fd| fd.inode.drop_one_handle());
 
         if self.first_free == Some(idx) {
             self.first_free = self.first_free_after(idx as WasiFd + 1);
         }
 
+        InsertOutcome {
+            inserted: true,
+            shutdown_target,
+        }
+    }
+
+    /// Installs a pre-acquired fd into an unoccupied exact slot.
+    pub(crate) fn insert_preacquired(&mut self, idx: WasiFd, fd: Fd) -> bool {
+        let idx = idx as usize;
+
+        if self.fds.len() <= idx {
+            if self.first_free.is_none() && idx > self.fds.len() {
+                self.first_free = Some(self.fds.len());
+            }
+            self.fds.resize(idx + 1, None);
+        }
+
+        if self.fds[idx].is_some() {
+            return false;
+        }
+
+        self.fds[idx] = Some(fd);
+        if self.first_free == Some(idx) {
+            self.first_free = self.first_free_after(idx as WasiFd + 1);
+        }
         true
     }
 
-    pub fn remove(&mut self, idx: WasiFd) -> Option<Fd> {
+    pub(crate) fn remove(&mut self, idx: WasiFd) -> Option<RemoveOutcome> {
         let idx = idx as usize;
 
-        let result = self.fds.get_mut(idx).and_then(|fd| fd.take());
+        let fd = self.fds.get_mut(idx).and_then(|fd| fd.take())?;
 
-        if let Some(fd) = result.as_ref() {
-            match self.first_free {
-                None => self.first_free = Some(idx),
-                Some(x) if x > idx => self.first_free = Some(idx),
-                _ => (),
-            }
-
-            fd.inode.drop_one_handle();
+        match self.first_free {
+            None => self.first_free = Some(idx),
+            Some(x) if x > idx => self.first_free = Some(idx),
+            _ => (),
         }
 
-        result
+        let shutdown_target = fd.inode.drop_one_handle();
+        Some(RemoveOutcome {
+            fd,
+            shutdown_target,
+        })
     }
 
-    pub fn clear(&mut self) {
-        for fd in &self.fds {
-            if let Some(fd) = fd.as_ref() {
-                fd.inode.drop_one_handle();
+    /// Removes every descriptor and returns all open-file descriptions whose
+    /// final descriptor was dropped. The caller must drain them after releasing
+    /// its fd-map lock.
+    pub fn clear(&mut self) -> Vec<VirtualFileLock> {
+        let mut shutdown_targets = Vec::new();
+        for fd in self.fds.iter_mut().filter_map(Option::take) {
+            if let Some(target) = fd.inode.drop_one_handle() {
+                shutdown_targets.push(target);
             }
         }
 
         self.fds.clear();
         self.first_free = None;
+        shutdown_targets
     }
 
     pub fn iter(&self) -> FdListIterator<'_> {
@@ -244,7 +302,9 @@ impl Clone for FdList {
 
 impl Drop for FdList {
     fn drop(&mut self) {
-        self.clear();
+        // Async shutdown cannot be driven from Drop. Normal process/reinit
+        // paths call `clear` explicitly and drain the returned targets first.
+        let _ = self.clear();
     }
 }
 
@@ -298,16 +358,27 @@ impl<'a> Iterator for FdListIteratorMut<'a> {
 mod tests {
     use std::{
         borrow::Cow,
+        io::{self, SeekFrom},
+        pin::Pin,
         sync::{
             Arc, RwLock,
-            atomic::{AtomicI32, AtomicU64},
+            atomic::{AtomicU64, AtomicUsize, Ordering},
+            mpsc,
         },
+        task::{Context, Poll},
+        thread,
+        time::{Duration, Instant},
     };
 
     use assert_panic::assert_panic;
+    use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+    use virtual_fs::{FsError, Pipe, VirtualFile};
     use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Rights};
 
-    use crate::fs::{Inode, InodeGuard, InodeVal, Kind, fd::FdInner};
+    use crate::fs::{
+        FlushPoller, HANDLE_CLOSED, HANDLE_FINALIZING, HandleAcquire, HandleDrop, Inode,
+        InodeGuard, InodeVal, Kind, OpenHandleState, ShutdownPoller, fd::FdInner,
+    };
 
     use super::{Fd, FdList, WasiFd};
 
@@ -322,7 +393,7 @@ mod tests {
                     name: RwLock::new(Cow::Borrowed("")),
                     stat: RwLock::new(Default::default()),
                 }),
-                open_handles: Arc::new(AtomicI32::new(0)),
+                open_handles: Arc::new(OpenHandleState::new()),
             },
             is_stdio: false,
             inner: FdInner {
@@ -333,6 +404,128 @@ mod tests {
                 fd_flags: Fdflagsext::empty(),
             },
         }
+    }
+
+    #[derive(Debug)]
+    struct CountingFile {
+        flushes: Arc<AtomicUsize>,
+        shutdowns: Arc<AtomicUsize>,
+    }
+
+    impl AsyncRead for CountingFile {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncWrite for CountingFile {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            self.flushes.fetch_add(1, Ordering::SeqCst);
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            self.shutdowns.fetch_add(1, Ordering::SeqCst);
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncSeek for CountingFile {
+        fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+            Poll::Ready(Ok(0))
+        }
+    }
+
+    impl VirtualFile for CountingFile {
+        fn last_accessed(&self) -> u64 {
+            0
+        }
+
+        fn last_modified(&self) -> u64 {
+            0
+        }
+
+        fn created_time(&self) -> u64 {
+            0
+        }
+
+        fn size(&self) -> u64 {
+            0
+        }
+
+        fn set_len(&mut self, _new_size: u64) -> Result<(), FsError> {
+            Ok(())
+        }
+
+        fn unlink(&mut self) -> Result<(), FsError> {
+            Ok(())
+        }
+
+        fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_write_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(8192))
+        }
+    }
+
+    fn counting_fd(n: u16) -> (Fd, Arc<AtomicUsize>, Arc<AtomicUsize>) {
+        let flushes = Arc::new(AtomicUsize::new(0));
+        let shutdowns = Arc::new(AtomicUsize::new(0));
+        let file = CountingFile {
+            flushes: flushes.clone(),
+            shutdowns: shutdowns.clone(),
+        };
+        let fd = Fd {
+            open_flags: 0,
+            inode: InodeGuard {
+                ino: Inode(n as u64),
+                inner: Arc::new(InodeVal {
+                    is_preopened: false,
+                    kind: RwLock::new(Kind::File {
+                        handle: Some(Arc::new(RwLock::new(Box::new(file)))),
+                        path: "".into(),
+                        fd: None,
+                    }),
+                    name: RwLock::new(Cow::Borrowed("counting")),
+                    stat: RwLock::new(Default::default()),
+                }),
+                open_handles: Arc::new(OpenHandleState::new()),
+            },
+            is_stdio: false,
+            inner: FdInner {
+                offset: Arc::new(AtomicU64::new(0)),
+                rights: Rights::FD_SYNC | Rights::FD_DATASYNC,
+                rights_inheriting: Rights::empty(),
+                flags: Fdflags::empty(),
+                fd_flags: Fdflagsext::empty(),
+            },
+        };
+        (fd, flushes, shutdowns)
+    }
+
+    fn drain_shutdown(target: super::VirtualFileLock) {
+        virtual_mio::block_on(ShutdownPoller { file: target }).unwrap();
     }
 
     fn is_useless_fd(fd: &Fd, n: u16) -> bool {
@@ -371,8 +564,8 @@ mod tests {
         l.insert_first_free(useless_fd(1));
         l.insert_first_free(useless_fd(2));
         l.insert_first_free(useless_fd(3));
-        l.remove(1);
-        l.remove(2);
+        let _ = l.remove(1);
+        let _ = l.remove(2);
         l.insert_first_free(useless_fd(4));
 
         assert_fds_match(&l, &[(0, 0), (1, 4), (3, 3)]);
@@ -386,8 +579,8 @@ mod tests {
         l.insert_first_free(useless_fd(2));
         l.insert_first_free(useless_fd(3));
         l.insert_first_free(useless_fd(4));
-        l.remove(1);
-        l.remove(3);
+        let _ = l.remove(1);
+        let _ = l.remove(3);
         l.insert_first_free(useless_fd(5));
         l.insert_first_free(useless_fd(6));
 
@@ -401,9 +594,9 @@ mod tests {
         l.insert_first_free(useless_fd(1));
         l.insert_first_free(useless_fd(2));
         l.insert_first_free(useless_fd(3));
-        l.remove(3);
+        let _ = l.remove(3);
         assert_eq!(l.first_free, Some(3));
-        l.remove(1);
+        let _ = l.remove(1);
         assert_eq!(l.first_free, Some(1));
         l.insert_first_free(useless_fd(4));
 
@@ -417,9 +610,9 @@ mod tests {
         l.insert_first_free(useless_fd(1));
         l.insert_first_free(useless_fd(2));
         l.insert_first_free(useless_fd(3));
-        l.remove(1);
-        l.remove(2);
-        assert!(l.insert(true, 1, useless_fd(4)));
+        let _ = l.remove(1);
+        let _ = l.remove(2);
+        assert!(l.insert(true, 1, useless_fd(4)).inserted);
         assert_eq!(l.first_free, Some(2));
 
         assert_fds_match(&l, &[(0, 0), (1, 4), (3, 3)]);
@@ -444,12 +637,12 @@ mod tests {
         assert_eq!(l.next_free_fd(), 4);
         assert_eq!(l.last_fd(), Some(3));
 
-        l.remove(3);
+        let _ = l.remove(3);
 
         assert_eq!(l.next_free_fd(), 3);
         assert_eq!(l.last_fd(), Some(2));
 
-        l.remove(1);
+        let _ = l.remove(1);
 
         assert_eq!(l.next_free_fd(), 1);
         assert_eq!(l.last_fd(), Some(2));
@@ -464,8 +657,8 @@ mod tests {
         l.insert_first_free(useless_fd(2));
         l.insert_first_free(useless_fd(3));
         l.insert_first_free(useless_fd(4));
-        l.remove(1);
-        l.remove(3);
+        let _ = l.remove(1);
+        let _ = l.remove(3);
 
         assert!(l.get(1).is_none());
         assert!(is_useless_fd(l.get(2).unwrap(), 2));
@@ -486,15 +679,15 @@ mod tests {
         l.insert_first_free(useless_fd(0));
         l.insert_first_free(useless_fd(1));
         l.insert_first_free(useless_fd(2));
-        l.remove(1);
+        let _ = l.remove(1);
 
-        assert!(l.insert(false, 2, useless_fd(3)));
+        assert!(l.insert(false, 2, useless_fd(3)).inserted);
         assert!(is_useless_fd(l.get(2).unwrap(), 3));
 
-        assert!(!l.insert(true, 2, useless_fd(4)));
+        assert!(!l.insert(true, 2, useless_fd(4)).inserted);
         assert!(is_useless_fd(l.get(2).unwrap(), 3));
 
-        assert!(l.insert(true, 1, useless_fd(5)));
+        assert!(l.insert(true, 1, useless_fd(5)).inserted);
         assert!(is_useless_fd(l.get(1).unwrap(), 5));
     }
 
@@ -504,7 +697,7 @@ mod tests {
 
         l.insert_first_free(useless_fd(0));
 
-        assert!(l.insert(false, 1, useless_fd(1)));
+        assert!(l.insert(false, 1, useless_fd(1)).inserted);
         assert!(is_useless_fd(l.get(1).unwrap(), 1));
 
         // Extending by exactly one element shouldn't change first_free
@@ -513,7 +706,7 @@ mod tests {
         assert!(l.first_free.is_none());
 
         // Now create a hole
-        assert!(l.insert(false, 5, useless_fd(5)));
+        assert!(l.insert(false, 5, useless_fd(5)).inserted);
         assert!(is_useless_fd(l.get(5).unwrap(), 5));
 
         for i in 2..=4 {
@@ -536,7 +729,7 @@ mod tests {
     #[test]
     fn insert_first_free_after_beyond_end_of_non_empty_list() {
         let mut l = FdList::new();
-        l.insert(false, 0, useless_fd(0));
+        assert!(l.insert(false, 0, useless_fd(0)).inserted);
         assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
         assert!(is_useless_fd(l.get(5).unwrap(), 1));
     }
@@ -544,8 +737,8 @@ mod tests {
     #[test]
     fn insert_first_free_after_beyond_end_of_non_empty_list_with_hole() {
         let mut l = FdList::new();
-        l.insert(false, 0, useless_fd(0));
-        l.insert(false, 2, useless_fd(2));
+        assert!(l.insert(false, 0, useless_fd(0)).inserted);
+        assert!(l.insert(false, 2, useless_fd(2)).inserted);
         assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
         assert!(is_useless_fd(l.get(5).unwrap(), 1));
     }
@@ -557,7 +750,7 @@ mod tests {
         l.insert_first_free(useless_fd(1));
         l.insert_first_free(useless_fd(2));
         l.insert_first_free(useless_fd(3));
-        l.remove(2).unwrap();
+        let _ = l.remove(2).unwrap();
         assert_eq!(l.insert_first_free_after(useless_fd(5), 1), 2);
         assert!(is_useless_fd(l.get(2).unwrap(), 5));
     }
@@ -581,7 +774,7 @@ mod tests {
         l.insert_first_free(useless_fd(2));
         l.insert_first_free(useless_fd(3));
         l.insert_first_free(useless_fd(4));
-        l.remove(1).unwrap();
+        let _ = l.remove(1).unwrap();
         assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 5);
         assert!(is_useless_fd(l.get(5).unwrap(), 5));
     }
@@ -594,8 +787,8 @@ mod tests {
         l.insert_first_free(useless_fd(2));
         l.insert_first_free(useless_fd(3));
         l.insert_first_free(useless_fd(4));
-        l.remove(1).unwrap();
-        l.remove(3).unwrap();
+        let _ = l.remove(1).unwrap();
+        let _ = l.remove(3).unwrap();
         assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 3);
         assert!(is_useless_fd(l.get(3).unwrap(), 5));
     }
@@ -608,7 +801,7 @@ mod tests {
         l.insert_first_free(useless_fd(1));
         l.insert_first_free(useless_fd(2));
 
-        assert!(is_useless_fd(&l.remove(1).unwrap(), 1));
+        assert!(is_useless_fd(&l.remove(1).unwrap().fd, 1));
         assert!(l.remove(1).is_none());
         assert!(l.remove(100000).is_none());
     }
@@ -620,9 +813,9 @@ mod tests {
         l.insert_first_free(useless_fd(0));
         l.insert_first_free(useless_fd(1));
         l.insert_first_free(useless_fd(2));
-        l.remove(1);
+        let _ = l.remove(1);
 
-        l.clear();
+        assert!(l.clear().is_empty());
 
         assert_eq!(l.next_free_fd(), 0);
         assert!(l.last_fd().is_none());
@@ -664,7 +857,7 @@ mod tests {
         // Try removing an FD, should drop the handle
         let fd1 = l.get(1).unwrap().clone();
         assert_eq!(fd1.inode.handle_count(), 1);
-        l.remove(1).unwrap();
+        let _ = l.remove(1).unwrap();
         assert_eq!(fd1.inode.handle_count(), 0);
 
         // Existing FDs should get a new handle when cloning the list
@@ -680,20 +873,302 @@ mod tests {
         }
 
         // Clearing the list should drop open handles
-        l.clear();
+        assert!(l.clear().is_empty());
         assert_eq!(fd0.inode.handle_count(), 1);
 
         // Clear the last handle, should go back to zero
-        l2.clear();
+        assert!(l2.clear().is_empty());
         assert_eq!(fd0.inode.handle_count(), 0);
 
         assert_panic!(
-            fd0.inode.drop_one_handle(),
+            {
+                let _ = fd0.inode.drop_one_handle();
+            },
             &str,
             "InodeGuard handle dropped too many times"
         );
 
         assert_panic!(drop(fd0.inode.write()), String, contains "PoisonError");
+    }
+
+    #[test]
+    fn duplicated_descriptor_shutdowns_only_on_final_close() {
+        let (fd, flushes, shutdowns) = counting_fd(1);
+        let duplicate = fd.clone();
+        let mut fds = FdList::new();
+        fds.insert_first_free(fd);
+        fds.insert_first_free(duplicate);
+
+        let first = fds.remove(0).unwrap();
+        assert!(first.shutdown_target.is_none());
+        assert_eq!(first.fd.inode.handle_count(), 1);
+        assert_eq!(shutdowns.load(Ordering::SeqCst), 0);
+
+        let last = fds.remove(1).unwrap();
+        assert_eq!(last.fd.inode.handle_count(), 0);
+        drain_shutdown(last.shutdown_target.unwrap());
+        assert_eq!(shutdowns.load(Ordering::SeqCst), 1);
+        assert_eq!(flushes.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn forked_fd_map_shutdowns_only_after_both_processes_close() {
+        let (fd, _flushes, shutdowns) = counting_fd(2);
+        let mut parent = FdList::new();
+        parent.insert_first_free(fd);
+        let mut child = parent.clone();
+
+        let parent_close = parent.remove(0).unwrap();
+        assert!(parent_close.shutdown_target.is_none());
+        assert_eq!(parent_close.fd.inode.handle_count(), 1);
+
+        let child_close = child.remove(0).unwrap();
+        assert_eq!(child_close.fd.inode.handle_count(), 0);
+        drain_shutdown(child_close.shutdown_target.unwrap());
+        assert_eq!(shutdowns.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn replacement_returns_only_replaced_final_description() {
+        let (source, _source_flushes, source_shutdowns) = counting_fd(3);
+        let (destination, _destination_flushes, destination_shutdowns) = counting_fd(4);
+        let mut fds = FdList::new();
+        fds.insert_first_free(source);
+        fds.insert_first_free(destination);
+
+        let duplicate = fds.get(0).unwrap().clone();
+        let replacement = fds.insert(false, 1, duplicate);
+        assert!(replacement.inserted);
+        drain_shutdown(replacement.shutdown_target.unwrap());
+        assert_eq!(destination_shutdowns.load(Ordering::SeqCst), 1);
+        assert_eq!(source_shutdowns.load(Ordering::SeqCst), 0);
+
+        assert!(fds.remove(0).unwrap().shutdown_target.is_none());
+        let final_source = fds.remove(1).unwrap().shutdown_target.unwrap();
+        drain_shutdown(final_source);
+        assert_eq!(source_shutdowns.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn explicit_sync_flush_is_distinct_from_close_shutdown() {
+        let (fd, flushes, shutdowns) = counting_fd(5);
+        let file = {
+            let guard = fd.inode.read();
+            match &*guard {
+                Kind::File {
+                    handle: Some(file), ..
+                } => file.clone(),
+                _ => unreachable!(),
+            }
+        };
+        let mut fds = FdList::new();
+        fds.insert_first_free(fd);
+
+        virtual_mio::block_on(FlushPoller { file }).unwrap();
+        assert_eq!(flushes.load(Ordering::SeqCst), 1);
+        assert_eq!(shutdowns.load(Ordering::SeqCst), 0);
+
+        drain_shutdown(fds.remove(0).unwrap().shutdown_target.unwrap());
+        assert_eq!(flushes.load(Ordering::SeqCst), 1);
+        assert_eq!(shutdowns.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn nonfinal_handle_changes_do_not_wait_for_inode_lock() {
+        let (fd, _flushes, _shutdowns) = counting_fd(6);
+        let inode = fd.inode.clone();
+        inode.acquire_handle();
+        assert_eq!(inode.handle_count(), 1);
+
+        // Holding the heavyweight inode lock must not stall OPEN(n) acquire or
+        // an OPEN(n>1) drop. This is the descriptor hot-path regression guard.
+        let inode_guard = inode.write();
+        let worker_inode = inode.clone();
+        let (tx, rx) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            worker_inode.acquire_handle();
+            tx.send(worker_inode.handle_count()).unwrap();
+            assert!(worker_inode.drop_one_handle().is_none());
+            tx.send(worker_inode.handle_count()).unwrap();
+        });
+
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), 2);
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), 1);
+        drop(inode_guard);
+        worker.join().unwrap();
+
+        drain_shutdown(inode.drop_one_handle().unwrap());
+    }
+
+    #[test]
+    fn finalizing_state_is_rescuable_but_owned_state_is_not() {
+        let state = OpenHandleState::new();
+        assert_eq!(state.try_acquire(), HandleAcquire::Acquired(1));
+        assert_eq!(state.begin_drop(), HandleDrop::Finalizing);
+        assert_eq!(state.raw(), HANDLE_FINALIZING);
+        assert_eq!(state.count(), 0);
+
+        // An acquire linearized before final ownership rescues the resource.
+        assert_eq!(state.try_acquire(), HandleAcquire::Acquired(1));
+        assert!(!state.try_own_final());
+        assert_eq!(state.count(), 1);
+
+        // Once ownership wins, ordinary acquisition must not silently create
+        // a descriptor; locked activation is required after final completion.
+        assert_eq!(state.begin_drop(), HandleDrop::Finalizing);
+        assert!(state.try_own_final());
+        assert_eq!(state.count(), 0);
+        assert_eq!(state.try_acquire(), HandleAcquire::NeedsLockedActivation);
+        state.finish_final(true);
+        assert_eq!(state.raw(), HANDLE_CLOSED);
+        assert_eq!(state.count(), 0);
+        assert_eq!(state.try_acquire(), HandleAcquire::NeedsLockedActivation);
+    }
+
+    #[test]
+    fn handle_count_overflow_panics_instead_of_wrapping() {
+        let state = OpenHandleState::new();
+        state.state.store(i32::MAX, Ordering::Release);
+        assert_panic!(
+            {
+                let _ = state.try_acquire();
+            },
+            &str,
+            "InodeGuard handle count overflow"
+        );
+        assert_eq!(state.raw(), i32::MAX);
+    }
+
+    #[test]
+    fn locked_path_open_can_rescue_a_waiting_final_drop() {
+        let (fd, _flushes, shutdowns) = counting_fd(7);
+        let inode = fd.inode.clone();
+        inode.acquire_handle();
+
+        // The closer can nominate the final transition while path_open holds
+        // the inode lock, but cannot own or extract the handle yet.
+        let inode_guard = inode.write();
+        let closer_inode = inode.clone();
+        let closer = thread::spawn(move || closer_inode.drop_one_handle());
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while inode.open_handles.raw() != HANDLE_FINALIZING {
+            assert!(Instant::now() < deadline, "closer never reached FINALIZING");
+            thread::yield_now();
+        }
+
+        inode.acquire_handle_locked(&inode_guard);
+        assert_eq!(inode.handle_count(), 1);
+        drop(inode_guard);
+        assert!(closer.join().unwrap().is_none());
+
+        drain_shutdown(inode.drop_one_handle().unwrap());
+        assert_eq!(shutdowns.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn completed_final_close_requires_handle_install_before_locked_reopen() {
+        let (fd, _flushes, old_shutdowns) = counting_fd(8);
+        let inode = fd.inode.clone();
+        inode.acquire_handle();
+        drain_shutdown(inode.drop_one_handle().unwrap());
+        assert_eq!(old_shutdowns.load(Ordering::SeqCst), 1);
+        assert_eq!(inode.open_handles.raw(), HANDLE_CLOSED);
+
+        let new_flushes = Arc::new(AtomicUsize::new(0));
+        let new_shutdowns = Arc::new(AtomicUsize::new(0));
+        let replacement = CountingFile {
+            flushes: new_flushes,
+            shutdowns: new_shutdowns.clone(),
+        };
+        {
+            let mut guard = inode.write();
+            let Kind::File { handle, .. } = &mut *guard else {
+                unreachable!();
+            };
+            assert!(handle.is_none());
+            *handle = Some(Arc::new(RwLock::new(Box::new(replacement))));
+            inode.acquire_handle_locked(&guard);
+        }
+        assert_eq!(inode.handle_count(), 1);
+
+        drain_shutdown(inode.drop_one_handle().unwrap());
+        assert_eq!(new_shutdowns.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn closed_file_cannot_reactivate_before_replacement_handle_is_installed() {
+        let (fd, _flushes, _shutdowns) = counting_fd(9);
+        let inode = fd.inode.clone();
+        inode.acquire_handle();
+        let _target = inode.drop_one_handle().unwrap();
+        assert_eq!(inode.open_handles.raw(), HANDLE_CLOSED);
+
+        assert_panic!(
+            {
+                let guard = inode.write();
+                inode.acquire_handle_locked(&guard);
+            },
+            &str,
+            "cannot reactivate a closed file before installing its handle"
+        );
+        assert_eq!(inode.open_handles.raw(), HANDLE_CLOSED);
+    }
+
+    #[test]
+    fn ordinary_acquire_cannot_attach_to_a_closed_or_later_reopened_file() {
+        let (fd, _flushes, _shutdowns) = counting_fd(10);
+        let inode = fd.inode.clone();
+        inode.acquire_handle();
+        let _target = inode.drop_one_handle().unwrap();
+        assert_eq!(inode.open_handles.raw(), HANDLE_CLOSED);
+
+        assert_panic!(
+            inode.acquire_handle(),
+            &str,
+            "ordinary handle acquisition requires locked reactivation"
+        );
+        assert_eq!(inode.open_handles.raw(), HANDLE_CLOSED);
+    }
+
+    #[test]
+    fn terminal_pipe_cannot_be_resurrected() {
+        let (tx, _rx) = Pipe::new().split();
+        let mut fd = useless_fd(11);
+        fd.inode.inner = Arc::new(InodeVal {
+            is_preopened: false,
+            kind: RwLock::new(Kind::PipeTx { tx }),
+            name: RwLock::new(Cow::Borrowed("pipe")),
+            stat: RwLock::new(Default::default()),
+        });
+        let inode = fd.inode.clone();
+        inode.acquire_handle();
+        assert!(inode.drop_one_handle().is_none());
+        assert_eq!(inode.open_handles.raw(), HANDLE_CLOSED);
+
+        assert_panic!(
+            {
+                let guard = inode.write();
+                inode.acquire_handle_locked(&guard);
+            },
+            &str,
+            "cannot reactivate a terminal inode resource"
+        );
+        assert_eq!(inode.open_handles.raw(), HANDLE_CLOSED);
+    }
+
+    #[test]
+    fn resource_retaining_kind_returns_to_ready() {
+        let fd = useless_fd(12);
+        let inode = fd.inode.clone();
+        inode.acquire_handle();
+        assert!(inode.drop_one_handle().is_none());
+        assert_eq!(inode.open_handles.raw(), 0);
+
+        inode.acquire_handle();
+        assert_eq!(inode.handle_count(), 1);
+        assert!(inode.drop_one_handle().is_none());
+        assert_eq!(inode.open_handles.raw(), 0);
     }
 
     #[test]
@@ -704,7 +1179,7 @@ mod tests {
         l.insert_first_free(useless_fd(0));
 
         let fd = l.get(0).unwrap();
-        fd.inode.drop_one_handle();
+        let _ = fd.inode.drop_one_handle();
 
         assert_panic!(drop(l), &str, "InodeGuard handle dropped too many times");
     }
