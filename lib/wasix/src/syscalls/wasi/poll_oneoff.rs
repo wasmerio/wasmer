@@ -290,11 +290,8 @@ where
                         continue;
                     }
 
-                    // If the timeout duration is zero then this is an immediate check rather than
-                    // a sleep itself
-                    if clock_info.timeout == 0 {
-                        time_to_sleep = Duration::MAX;
-                    } else if clock_info.timeout == 1 {
+                    // Zero is already due; retain the existing 1 ns fast path.
+                    if clock_info.timeout <= 1 {
                         time_to_sleep = Duration::ZERO;
                         clock_subs.push((clock_info, s.userdata));
                     } else {
