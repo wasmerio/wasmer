@@ -1,5 +1,6 @@
 use super::*;
 use crate::syscalls::*;
+use wasmer::AsyncFunctionEnvMut;
 use wasmer::Type;
 use wasmer::ValueType;
 
@@ -69,6 +70,92 @@ fn read_value(
     }
 }
 
+/// The work either flavour of `call_dynamic` does before re-entering the guest:
+/// resolve the table entry and decode the parameters out of guest memory.
+enum Prepared {
+    /// The resolved function and its decoded arguments.
+    Call(wasmer::Function, Vec<Value>),
+    /// The call was rejected before it started.
+    Fail(Errno),
+}
+
+fn prepare<M: MemorySize>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    function_id: u32,
+    values: WasmPtr<u8, M>,
+    values_len: M::Offset,
+    strict: bool,
+) -> Result<Prepared, MemoryAccessError> {
+    let (env, mut store) = ctx.data_and_store_mut();
+
+    let function = match env
+        .inner()
+        .indirect_function_table_lookup(&mut store, function_id)
+    {
+        Ok(function) => function,
+        Err(e) => return Ok(Prepared::Fail(Errno::from(e))),
+    };
+
+    let function_type = function.ty(&store);
+
+    let memory = unsafe { env.memory_view(&store) };
+    let mut current_values_offset: u64 = values.offset().into();
+    let max_values_offset = current_values_offset + values_len.into();
+    let mut values_buffer = vec![];
+    for ty in function_type.params() {
+        let Some(value) = read_value(
+            &memory,
+            &mut current_values_offset,
+            max_values_offset,
+            strict,
+            ty,
+        )?
+        else {
+            return Ok(Prepared::Fail(Errno::Inval));
+        };
+        values_buffer.push(value);
+    }
+
+    if strict && current_values_offset != max_values_offset {
+        // If strict is true, we expect to have read all values
+        return Ok(Prepared::Fail(Errno::Inval));
+    }
+
+    Ok(Prepared::Call(function, values_buffer))
+}
+
+fn finish<M: MemorySize>(
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    results: WasmPtr<u8, M>,
+    results_len: M::Offset,
+    strict: bool,
+    result_values: &[Value],
+) -> Result<Errno, MemoryAccessError> {
+    // The environment is taken immutably here: `memory_view` needs only `&self`,
+    // which leaves no laundering to do.
+    let env = ctx.data();
+    let store = ctx.as_store_ref();
+    let memory = unsafe { env.memory_view(&store) };
+    let mut current_results_offset: u64 = results.offset().into();
+    let max_results_offset = current_results_offset + results_len.into();
+    for result_value in result_values {
+        write_value(
+            &memory,
+            &mut current_results_offset,
+            max_results_offset,
+            strict,
+            result_value,
+        )?;
+    }
+
+    if strict && current_results_offset != max_results_offset {
+        // If strict is true, we expect to have written all results
+        return Ok(Errno::Inval);
+    }
+
+    Ok(Errno::Success)
+}
+
 /// Call a function from the `__indirect_function_table` with parameters and results from memory.
 ///
 /// This function can be used to call functions whose types are not known at
@@ -113,61 +200,97 @@ pub fn call_dynamic<M: MemorySize>(
     results_len: M::Offset,
     strict: Bool,
 ) -> Result<Errno, RuntimeError> {
-    let (env, mut store) = ctx.data_and_store_mut();
-
     let strict = matches!(strict, Bool::True);
 
-    let function = wasi_try_ok!(
-        env.inner()
-            .indirect_function_table_lookup(&mut store, function_id)
-            .map_err(Errno::from)
-    );
-
-    let function_type = function.ty(&store);
-
-    let memory = unsafe { env.memory_view(&store) };
-    let mut current_values_offset: u64 = values.offset().into();
-    let max_values_offset = current_values_offset + values_len.into();
-    let mut values_buffer = vec![];
-    for ty in function_type.params() {
-        let Some(value) = wasi_try_mem_ok!(read_value(
-            &memory,
-            &mut current_values_offset,
-            max_values_offset,
-            strict,
-            ty
-        )) else {
-            return Ok(Errno::Inval);
+    let (function, values_buffer) =
+        match wasi_try_mem_ok!(prepare(&mut ctx, function_id, values, values_len, strict)) {
+            Prepared::Call(function, values_buffer) => (function, values_buffer),
+            Prepared::Fail(errno) => return Ok(errno),
         };
-        values_buffer.push(value);
-    }
 
-    if strict && current_values_offset != max_values_offset {
-        // If strict is true, we expect to have read all values
-        return Ok(Errno::Inval);
-    }
-
+    // Call through `ctx` rather than a store half taken out of
+    // `data_and_store_mut`, so neither half spans the call. That pair is
+    // laundered past the borrow checker, and this calls an arbitrary
+    // indirect-table function — every syscall it makes reborrows this same
+    // environment, which invalidates the halves taken before it.
     let result_values = function
-        .call(&mut store, values_buffer.as_slice())
+        .call(&mut ctx, values_buffer.as_slice())
         .map_err(crate::flatten_runtime_error)?;
 
-    let memory = unsafe { env.memory_view(&store) };
-    let mut current_results_offset: u64 = results.offset().into();
-    let max_results_offset = current_results_offset + results_len.into();
-    for result_value in result_values {
-        wasi_try_mem_ok!(write_value(
-            &memory,
-            &mut current_results_offset,
-            max_results_offset,
-            strict,
-            &result_value
-        ));
+    Ok(wasi_try_mem_ok!(finish(
+        &ctx,
+        results,
+        results_len,
+        strict,
+        &result_values
+    )))
+}
+
+/// [`call_dynamic`] for hosts whose guests suspend through JSPI.
+///
+/// The sync flavour re-enters the guest with `Function::call`, which on the JS
+/// backend leaves a host frame between the guest's outer
+/// `WebAssembly.promising` boundary and everything the callee runs. V8 refuses
+/// to suspend past that frame ("trying to suspend JS frames"), so any
+/// suspension below a dynamic call fails — and dynamic calls are how a WASIX
+/// guest reaches every dlopen'd module, so on JS that rules out, for instance,
+/// a native extension that switches stacks.
+///
+/// Awaiting `Function::call_async` instead puts a `promising` boundary *above*
+/// the host frame, which makes the suspension legal. That requires this syscall
+/// to be an async import — the guest's own call has to be able to suspend while
+/// the callee runs — so the two flavours differ in how they are registered, not
+/// just in their bodies. See `wasix_exports_32`/`wasix_exports_64`.
+#[instrument(
+    level = "trace",
+    skip_all,
+    fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()),
+    ret
+)]
+#[allow(clippy::result_large_err)]
+pub async fn call_dynamic_async<M: MemorySize>(
+    ctx: AsyncFunctionEnvMut<WasiEnv>,
+    function_id: u32,
+    values: WasmPtr<u8, M>,
+    values_len: M::Offset,
+    results: WasmPtr<u8, M>,
+    results_len: M::Offset,
+    strict: Bool,
+) -> Result<Errno, RuntimeError> {
+    let strict = matches!(strict, Bool::True);
+
+    // Nothing holds the store here, and this is an async import, so a signal
+    // handler dispatched now may suspend. `process_signals` leaves them queued on
+    // JS precisely so they land here instead of inside a synchronous syscall.
+    if let Err(e) = WasiEnv::dispatch_pending_signals_async(&ctx).await {
+        return Err(RuntimeError::user(e.into()));
     }
 
-    if strict && current_results_offset != max_results_offset {
-        // If strict is true, we expect to have written all results
-        return Ok(Errno::Inval);
-    }
+    // Each lock is released before the next await: the nested call takes the
+    // store for itself, and holding one across it would deadlock.
+    let prepared = {
+        let mut write_lock = ctx.write().await;
+        let mut sync_ctx = write_lock.as_function_env_mut();
+        prepare(&mut sync_ctx, function_id, values, values_len, strict)
+    };
+    let (function, values_buffer) = match wasi_try_mem_ok!(prepared) {
+        Prepared::Call(function, values_buffer) => (function, values_buffer),
+        Prepared::Fail(errno) => return Ok(errno),
+    };
 
-    Ok(Errno::Success)
+    let store = ctx.as_store_async();
+    let result_values = function
+        .call_async(&store, values_buffer)
+        .await
+        .map_err(crate::flatten_runtime_error)?;
+
+    let mut write_lock = ctx.write().await;
+    let sync_ctx = write_lock.as_function_env_mut();
+    Ok(wasi_try_mem_ok!(finish(
+        &sync_ctx,
+        results,
+        results_len,
+        strict,
+        &result_values
+    )))
 }

@@ -276,14 +276,15 @@ impl WasiRunner {
         }
     }
 
-    pub fn with_asynchronous_threading(
-        &mut self,
-        enable_asynchronous_threading: bool,
-    ) -> &mut Self {
-        self.wasi
-            .capabilities
-            .threading
-            .enable_asynchronous_threading = enable_asynchronous_threading;
+    /// Sets [`Capabilities::enable_context_switching`](crate::capabilities::Capabilities::enable_context_switching).
+    pub fn with_context_switching(&mut self, enable_context_switching: bool) -> &mut Self {
+        self.wasi.capabilities.enable_context_switching = enable_context_switching;
+        self
+    }
+
+    /// Sets [`Capabilities::enable_async_entrypoint`](crate::capabilities::Capabilities::enable_async_entrypoint).
+    pub fn with_async_entrypoint(&mut self, enable_async_entrypoint: bool) -> &mut Self {
+        self.wasi.capabilities.enable_async_entrypoint = enable_async_entrypoint;
         self
     }
 

@@ -643,7 +643,7 @@ test-v8: test-v8-api
 test-v8-api:
 	cargo nextest run --package=wasmer --release --features="v8-default" --no-default-features
 
-test-js: test-js-api test-js-wasi
+test-js: test-js-api test-js-jspi test-js-wasi
 
 # TODO: disabled because the no-std / core feature doesn't actually work at the moment.
 # See https://github.com/wasmerio/wasmer/issues/3429
@@ -653,8 +653,19 @@ test-js: test-js-api test-js-wasi
 test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 
+# JSPI is behind a V8 flag in Node, and `js-default` leaves `experimental-async`
+# off, so the JSPI tests need their own invocation. `NODE_ARGS` is how
+# wasm-bindgen-test-runner forwards flags to the Node it spawns.
+test-js-jspi:
+	cd lib/api && NODE_ARGS="--experimental-wasm-jspi" wasm-pack test --node -- \
+		--no-default-features --features js-default,experimental-async,wat
+
+# Mirrors the two `test-js` lanes: without `experimental-async` nothing in the
+# JSPI implementation is linted at all, and without the test targets neither are
+# the tests. `wat` comes along because the tests build WAT modules.
 lint-js:
-	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default" --locked -- -D clippy::all
+	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default,wat" --locked --lib --tests -- -D clippy::all
+	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default,experimental-async,wat" --locked --lib --tests -- -D clippy::all
 
 test-js-wasi:
 	cd lib/wasix && wasm-pack test --node -- --no-default-features --features test-js,wasmer/js,wasmer/std

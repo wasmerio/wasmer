@@ -67,6 +67,17 @@ macro_rules! impl_native_traits {
                 let params_list: Vec<_> = unsafe {
                     vec![ $( (<$x::Native as NativeWasmType>::WASM_TYPE, $x.to_native().into_raw(store) ) ),* ]
                 };
+                // As in `Function::call`: install this borrow as the store
+                // executing on the thread, so an import's trampoline can
+                // acquire it from the context. This is a separate entry point
+                // from `Function::call`, and imports reached through it need
+                // the same installed context.
+                //
+                // Safety: `store` outlives the guard, and the guest cannot
+                // reach it except through the context.
+                let store_install_guard = unsafe {
+                    crate::StoreContext::install(store.as_store_mut().inner as *mut _)
+                };
                 let results = {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
@@ -79,12 +90,22 @@ macro_rules! impl_native_traits {
                                     .map(|(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
                             )
                         };
-                        r = self
-                            .func
-                            .as_js()
-                            .handle
-                            .function
-                            .apply(&JsValue::UNDEFINED, &args_array);
+                        r = {
+                            // Lend the store to the guest and mark the
+                            // entry synchronous, exactly as `Function::call`
+                            // does; see the reasons there.
+                            let store_id = store.as_store_ref().objects().id();
+                            let _pause_guard =
+                                unsafe { crate::StoreContext::pause(store_id) };
+                            #[cfg(feature = "experimental-async")]
+                            let _sync_entry =
+                                crate::backend::js::jspi::SyncGuestEntry::enter();
+                            self.func
+                                .as_js()
+                                .handle
+                                .function
+                                .apply(&JsValue::UNDEFINED, &args_array)
+                        };
                         let store_mut = store.as_store_mut();
                         if let Some(callback) = store_mut.inner.on_called.take() {
                             match callback(store_mut) {
@@ -98,6 +119,7 @@ macro_rules! impl_native_traits {
                     }
                     r?
                 };
+                drop(store_install_guard);
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
                 match Rets::size() {

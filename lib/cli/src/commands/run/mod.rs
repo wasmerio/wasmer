@@ -138,16 +138,6 @@ impl Run {
         ))
     }
 
-    #[cfg(feature = "napi-v8")]
-    fn configure_wasi_runner_for_napi(&self, module: &Module, runner: &mut WasiRunner) {
-        if Self::module_needs_napi(module) {
-            runner
-                .capabilities_mut()
-                .threading
-                .enable_asynchronous_threading = false;
-        }
-    }
-
     #[cfg(not(feature = "napi-v8"))]
     fn maybe_wrap_runtime_with_napi(
         &self,
@@ -156,9 +146,6 @@ impl Run {
     ) -> Result<Arc<dyn Runtime + Send + Sync>, Error> {
         Ok(runtime)
     }
-
-    #[cfg(not(feature = "napi-v8"))]
-    fn configure_wasi_runner_for_napi(&self, _module: &Module, _runner: &mut WasiRunner) {}
 
     #[cfg(feature = "wasm-c-api")]
     fn module_uses_wasm_c_api(module: &Module) -> bool {
@@ -531,8 +518,6 @@ impl Run {
 
         // Assume webcs are always WASIX
         let mut runner = self.build_wasi_runner(&runtime, true)?;
-        #[cfg(feature = "napi-v8")]
-        self.configure_wasi_runner_for_napi(&module, &mut runner);
         Runner::run_command(&mut runner, command_name, pkg, runtime)
     }
 
@@ -654,7 +639,6 @@ impl Run {
 
         let mut runner =
             self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
-        self.configure_wasi_runner_for_napi(&module, &mut runner);
         runner.run_wasm(
             RuntimeOrEngine::Runtime(runtime),
             &program_name,

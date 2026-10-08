@@ -42,6 +42,15 @@ unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
 
 impl Memory {
+    /// The JavaScript buffer backing this memory.
+    ///
+    /// For host integrations that need a zero-copy typed-array view over guest
+    /// memory. The buffer is detached and replaced when a non-shared memory
+    /// grows, so hold a view no longer than one synchronous span.
+    pub fn js_buffer(&self) -> wasm_bindgen::JsValue {
+        self.handle.memory.buffer()
+    }
+
     pub fn new(store: &mut impl AsStoreMut, mut ty: MemoryType) -> Result<Self, MemoryError> {
         if ty.shared
             && let Some(maximum) = ty.maximum

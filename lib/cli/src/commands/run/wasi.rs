@@ -157,17 +157,35 @@ pub struct Wasi {
     #[clap(long = "no-tty")]
     pub no_tty: bool,
 
-    /// Enables or disables asynchronous threading.
+    /// Enables or disables the WASIX context-switching API (`context_create`,
+    /// `context_switch`, …), and the asynchronous guest re-entry it needs.
     ///
-    /// If omitted, the runtime default is used.
+    /// It needs `--enable-async-entrypoint`. A guest that uses N-API runs
+    /// without it whatever this says. If omitted, the runtime default (on) is
+    /// used.
     #[clap(
-        long = "enable-async-threads",
+        long = "enable-context-switching",
         require_equals = true,
         default_missing_value = "true",
         num_args = 0..=1,
         action = clap::ArgAction::Set
     )]
-    pub enable_async_threads: Option<bool>,
+    pub enable_context_switching: Option<bool>,
+
+    /// Enables or disables entering the guest asynchronously: its start
+    /// function, and the entry function of every thread and fork it creates.
+    ///
+    /// Only a guest entered asynchronously can suspend, so turning this off
+    /// also turns off context switching. If omitted, the runtime default (on)
+    /// is used.
+    #[clap(
+        long = "enable-async-entrypoint",
+        require_equals = true,
+        default_missing_value = "true",
+        num_args = 0..=1,
+        action = clap::ArgAction::Set
+    )]
+    pub enable_async_entrypoint: Option<bool>,
 
     /// Enables an exponential backoff (measured in milli-seconds) of
     /// the process CPU usage when there are no active run tokens (when set
@@ -596,8 +614,11 @@ impl Wasi {
             caps.http_client = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
         }
 
-        if let Some(enable_async_threads) = self.enable_async_threads {
-            caps.threading.enable_asynchronous_threading = enable_async_threads;
+        if let Some(enable_context_switching) = self.enable_context_switching {
+            caps.enable_context_switching = enable_context_switching;
+        }
+        if let Some(enable_async_entrypoint) = self.enable_async_entrypoint {
+            caps.enable_async_entrypoint = enable_async_entrypoint;
         }
         caps.threading.enable_exponential_cpu_backoff =
             self.enable_cpu_backoff.map(Duration::from_millis);

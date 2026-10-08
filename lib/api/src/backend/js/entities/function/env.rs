@@ -1,16 +1,15 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
-    StoreMut,
+    StoreContext, StoreInner, StoreMut,
     js::{store::StoreHandle, vm::VMFunctionEnvironment},
     store::{AsStoreMut, AsStoreRef, StoreRef},
 };
+use wasmer_types::StoreId;
 #[cfg(feature = "experimental-async")]
 use crate::{
     AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock,
 };
-#[cfg(feature = "experimental-async")]
-use wasmer_types::StoreId;
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -73,7 +72,7 @@ impl<T> FunctionEnv<T> {
         T: Any + 'static + Sized,
     {
         FunctionEnvMut {
-            store_mut: store.as_store_mut(),
+            store: EnvStoreMut::Borrowed(store.as_store_mut()),
             func_env: self,
         }
     }
@@ -104,9 +103,96 @@ impl<T> Clone for FunctionEnv<T> {
 }
 
 /// A temporary handle to a [`FunctionEnv`].
+/// How a [`FunctionEnvMut`] reaches its store. Mirrors the `sys` backend.
+pub(crate) enum EnvStoreMut<'a> {
+    /// A borrow the caller handed in, as [`FunctionEnv::into_mut`] does.
+    Borrowed(StoreMut<'a>),
+
+    /// The store executing on this thread, re-derived on every access.
+    ///
+    /// An import trampoline uses this rather than holding the borrow it
+    /// acquired. The host function it hands the environment to can re-enter the
+    /// guest, and under an async store `StoreContext::install` installs nothing
+    /// — the async entry already owns the store — so the nested call's
+    /// acquisition would be a *sibling* of a held borrow and would invalidate
+    /// it. Deriving per access keeps nothing alive to invalidate.
+    Context {
+        id: StoreId,
+        marker: PhantomData<&'a mut StoreInner>,
+    },
+}
+
+impl EnvStoreMut<'_> {
+    /// Reborrows for a shorter lifetime, so a nested handle reaches the store
+    /// the same way this one does.
+    fn reborrow(&mut self) -> EnvStoreMut<'_> {
+        match self {
+            Self::Borrowed(store) => EnvStoreMut::Borrowed(store.as_store_mut()),
+            Self::Context { id, .. } => EnvStoreMut::Context {
+                id: *id,
+                marker: PhantomData,
+            },
+        }
+    }
+}
+
+impl AsStoreRef for EnvStoreMut<'_> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        match self {
+            Self::Borrowed(store) => store.as_store_ref(),
+            // Safety: building this variant requires a context for `id` to stay
+            // installed for `'a`, and the reference does not outlive `&self`.
+            Self::Context { id, .. } => StoreRef {
+                inner: unsafe { &*StoreContext::get_current_transient(*id) },
+            },
+        }
+    }
+}
+
+impl AsStoreMut for EnvStoreMut<'_> {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        match self {
+            Self::Borrowed(store) => store.as_store_mut(),
+            // Safety: as in `as_store_ref`.
+            Self::Context { id, .. } => StoreMut {
+                inner: unsafe { &mut *StoreContext::get_current_transient(*id) },
+            },
+        }
+    }
+
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+        match self {
+            Self::Borrowed(store) => store.objects_mut(),
+            // Safety: as in `as_store_ref`.
+            Self::Context { id, .. } => unsafe {
+                &mut (*StoreContext::get_current_transient(*id)).objects
+            },
+        }
+    }
+}
+
 pub struct FunctionEnvMut<'a, T: 'a> {
-    pub(crate) store_mut: StoreMut<'a>,
+    pub(crate) store: EnvStoreMut<'a>,
     pub(crate) func_env: FunctionEnv<T>,
+}
+
+impl<'a, T> FunctionEnvMut<'a, T> {
+    /// Builds a handle that reaches the store through this thread's store
+    /// context instead of holding a borrow of it. Import trampolines use this;
+    /// see [`EnvStoreMut::Context`].
+    ///
+    /// # Safety
+    /// A store context for `id` must stay installed on this thread for all of
+    /// `'a`.
+    pub(crate) unsafe fn from_context(id: StoreId, func_env: FunctionEnv<T>) -> Self {
+        Self {
+            store: EnvStoreMut::Context {
+                id,
+                marker: PhantomData,
+            },
+            func_env,
+        }
+    }
 }
 
 impl<T> Debug for FunctionEnvMut<'_, T>
@@ -114,19 +200,19 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.func_env.as_ref(&self.store_mut).fmt(f)
+        self.func_env.as_ref(&self.store).fmt(f)
     }
 }
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
-        self.func_env.as_ref(&self.store_mut)
+        self.func_env.as_ref(&self.store)
     }
 
     /// Returns a mutable- reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
-        self.func_env.as_mut(&mut self.store_mut)
+        self.func_env.as_mut(&mut self.store)
     }
 
     /// Borrows a new immmutable reference
@@ -137,45 +223,43 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// Borrows a new mutable reference
     pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
-            store_mut: self.store_mut.as_store_mut(),
+            store: self.store.reborrow(),
             func_env: self.func_env.clone(),
         }
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
     pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
-        let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
+        let data = self.func_env.as_mut(&mut self.store) as *mut T;
         // telling the borrow check to close his eyes here
         // this is still relatively safe to do as func_env are
         // stored in a specific vec of Store, separate from the other objects
         // and not really directly accessible with the StoreMut
         let data = unsafe { &mut *data };
-        (data, self.store_mut.as_store_mut())
+        (data, self.store.as_store_mut())
     }
 
     #[cfg(feature = "experimental-async")]
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
-        self.store_mut.as_store_async()
+        self.store.as_store_async()
     }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         StoreRef {
-            inner: self.store_mut.inner,
+            inner: self.store.as_store_ref().inner,
         }
     }
 }
 
 impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
-        StoreMut {
-            inner: self.store_mut.inner,
-        }
+        self.store.as_store_mut()
     }
 
     fn objects_mut(&mut self) -> &mut crate::StoreObjects {
-        self.store_mut.objects_mut()
+        self.store.objects_mut()
     }
 }
 
@@ -329,7 +413,7 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
 
     pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
-            store_mut: self.write_lock.as_store_mut(),
+            store: EnvStoreMut::Borrowed(self.write_lock.as_store_mut()),
             func_env: self.func_env.clone(),
         }
     }

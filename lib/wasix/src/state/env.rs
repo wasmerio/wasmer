@@ -204,7 +204,17 @@ pub struct WasiEnv {
     /// Terminal state scoped to this process tree, overriding the runtime default.
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync + 'static>>,
 
+    /// What this process runs with: [`Self::granted_capabilities`], as the
+    /// runtime adjusted them for its main module. Rebuilt from the grant each
+    /// time a main module is instantiated; see
+    /// [`InstantiationHook::configure_capabilities`](crate::runtime::InstantiationHook::configure_capabilities).
     pub capabilities: Capabilities,
+
+    /// What this process was given, before any adjustment for its main module.
+    /// Inherited by the threads, forks and processes it creates, so that each
+    /// one is adjusted for its own main module rather than inheriting another
+    /// module's adjustments.
+    pub(crate) granted_capabilities: Capabilities,
 
     /// Is this environment capable and setup for deep sleeping
     pub enable_deep_sleep: bool,
@@ -264,6 +274,7 @@ impl Clone for WasiEnv {
             runtime: self.runtime.clone(),
             tty: self.tty.clone(),
             capabilities: self.capabilities.clone(),
+            granted_capabilities: self.granted_capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
@@ -307,6 +318,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             tty: self.tty.clone(),
             capabilities: self.capabilities.clone(),
+            granted_capabilities: self.granted_capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
@@ -474,6 +486,7 @@ impl WasiEnv {
             runtime: init.runtime,
             tty: init.tty,
             bin_factory: init.bin_factory,
+            granted_capabilities: init.capabilities.clone(),
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
             context_switching_environment: None,
@@ -568,6 +581,7 @@ impl WasiEnv {
         }
 
         // Let's instantiate the module with the imports.
+        crate::settle_capabilities(&module, &mut store, &func_env.env);
         let mut import_object =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
         if let Some(memory) = memory.clone() {
@@ -796,6 +810,41 @@ impl WasiEnv {
             return Ok(Ok(drained));
         }
 
+        // Dispatching the handler re-enters the guest, and on the JS backend a
+        // guest reached from a synchronous host frame cannot suspend: JSPI makes
+        // `Reflect::apply` return at the suspension and the frame unwinds. A
+        // handler suspends whenever it touches an async import, which here
+        // includes `call_dynamic` — so for a guest that reaches it, dispatching
+        // from a syscall is not representable.
+        //
+        // Leave such signals queued on the thread instead. They are dispatched
+        // from one of two places:
+        //
+        // * [`Self::dispatch_pending_signals_async`], which the async syscalls
+        //   (`call_dynamic` and the lazy-binding stubs) call from a point where
+        //   nothing holds the store, so the handler may suspend freely.
+        // * The blocking waits in `__asyncify`, which dispatch inline when a
+        //   signal interrupts them. A handler there runs beneath a synchronous
+        //   host frame and may not suspend; if it tries, the async import it
+        //   calls refuses and the guest sees an error. They dispatch anyway
+        //   because a guest that never reaches an async syscall — most statically
+        //   linked guests — would otherwise never see its handlers run, and
+        //   leaving the signal queued would only turn every blocking wait into an
+        //   endless `EINTR`.
+        //
+        // Only a guest running in a context-switching environment defers: only it
+        // has the async syscalls to dispatch from. A guest entered synchronously,
+        // or without the context-switching API, has nothing that could suspend
+        // beneath its handler, so it is dispatched here as on every other
+        // backend.
+        #[cfg(feature = "js")]
+        if ctx.as_store_ref().engine().is_js()
+            && env.context_switching_environment.is_some()
+            && inner.signal.as_ref().is_some()
+        {
+            return Ok(Ok(false));
+        }
+
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
         let ret = if inner.signal.as_ref().is_some() {
@@ -806,6 +855,91 @@ impl WasiEnv {
         };
 
         Ok(Ok(ret))
+    }
+
+    /// Dispatches signals that [`Self::process_signals`] left queued on the JS
+    /// backend, from a caller that can await.
+    ///
+    /// Call this only where nothing holds the store: the handler re-enters the
+    /// guest with `call_async`, so it may suspend, and it needs the store free to
+    /// do so. The async syscalls are the places that qualify — a guest reaches
+    /// them often enough that the queue does not accumulate.
+    ///
+    /// Reached only from the asynchronous syscall flavours, which are registered
+    /// on the JS backend alone — so on other backends this is never called and
+    /// `process_signals` keeps dispatching inline.
+    pub(crate) async fn dispatch_pending_signals_async(
+        env: &wasmer::AsyncFunctionEnvMut<Self>,
+    ) -> Result<(), WasiError> {
+        let (handler, signals) = {
+            let lock = env.read().await;
+            let data = lock.data();
+            let Some(inner) = data.try_inner() else {
+                return Ok(());
+            };
+            let handler = inner.main_module_instance_handles().signal.clone();
+            match handler {
+                // Nothing registered, so `process_signals` never deferred any.
+                None => return Ok(()),
+                Some(handler) => {
+                    // Timers too, as the synchronous path collects them.
+                    let mut signals = data.thread.pop_signals();
+                    signals.extend(data.due_interval_signals());
+                    (handler, signals)
+                }
+            }
+        };
+
+        if signals.is_empty() {
+            return Ok(());
+        }
+
+        // The store must be free before the handler runs; the read lock above is
+        // scoped so that it is.
+        let store = env.as_store_async();
+        for signal in signals {
+            // Host-side only, as in the synchronous path.
+            if matches!(signal, Signal::Sigwakeup) {
+                continue;
+            }
+            tracing::trace!(?signal, "dispatching deferred signal via handler");
+            if let Err(err) = handler.call_async(&store, signal as i32).await {
+                match err.downcast::<WasiError>() {
+                    Ok(wasi_err) => return Err(wasi_err),
+                    // As in the synchronous path: a handler that fails ends the
+                    // process with `EINTR`.
+                    Err(runtime_err) => {
+                        if signal != Signal::Sigkill {
+                            tracing::warn!(
+                                runtime_err = &runtime_err as &dyn std::error::Error,
+                                "deferred signal handler runtime error",
+                            );
+                        }
+                        return Err(WasiError::Exit(Errno::Intr.into()));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The interval signals (`alarm`, interval timers) whose interval has
+    /// elapsed, marked as delivered.
+    fn due_interval_signals(&self) -> Vec<Signal> {
+        let mut due = Vec::new();
+        let mut inner = self.process.inner.0.lock().unwrap();
+        if inner.signal_intervals.is_empty() {
+            return due;
+        }
+        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+        for signal in inner.signal_intervals.values_mut() {
+            let elapsed = now - signal.last_signal;
+            if elapsed >= signal.interval.as_nanos() {
+                signal.last_signal = now;
+                due.push(signal.signal);
+            }
+        }
+        due
     }
 
     pub(crate) fn process_signals_internal(
@@ -819,31 +953,7 @@ impl WasiEnv {
         let inner = env_inner.main_module_instance_handles();
         if let Some(handler) = inner.signal.clone() {
             // We might also have signals that trigger on timers
-            let mut now = 0;
-            {
-                let mut has_signal_interval = false;
-                let mut inner = env.process.inner.0.lock().unwrap();
-                if !inner.signal_intervals.is_empty() {
-                    now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap()
-                        as u128;
-                    for signal in inner.signal_intervals.values() {
-                        let elapsed = now - signal.last_signal;
-                        if elapsed >= signal.interval.as_nanos() {
-                            has_signal_interval = true;
-                            break;
-                        }
-                    }
-                }
-                if has_signal_interval {
-                    for signal in inner.signal_intervals.values_mut() {
-                        let elapsed = now - signal.last_signal;
-                        if elapsed >= signal.interval.as_nanos() {
-                            signal.last_signal = now;
-                            signals.push(signal.signal);
-                        }
-                    }
-                }
-            }
+            signals.extend(env.due_interval_signals());
 
             for signal in signals {
                 // Skip over Sigwakeup, which is host-side-only
@@ -1389,6 +1499,72 @@ mod tests {
     use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
     use wasmer::Engine;
     use wasmer_config::package::PackageId;
+
+    /// Turns context switching off for any module that imports from `napi`,
+    /// as N-API's own hook does.
+    #[derive(Debug)]
+    struct OptOutForNapi;
+
+    impl crate::runtime::InstantiationHook for OptOutForNapi {
+        fn configure_capabilities(&self, module: &Module, capabilities: &mut Capabilities) {
+            if module.imports().any(|import| import.module() == "napi") {
+                capabilities.enable_context_switching = false;
+            }
+        }
+    }
+
+    /// One process's adjustment must not leak into the processes it creates:
+    /// `node`, which imports N-API, must be able to spawn Python with context
+    /// switching, and the reverse.
+    #[tokio::test]
+    async fn a_capability_adjustment_stays_with_its_own_process() {
+        let task_manager = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
+            tokio::runtime::Handle::current(),
+        ));
+        let mut runtime = crate::PluggableRuntime::new(task_manager);
+        runtime.with_instantiation_hook(OptOutForNapi);
+
+        let mut store = wasmer::Store::default();
+        let napi_module = Module::new(
+            &store,
+            r#"(module (import "napi" "napi_get_undefined" (func (param i32 i32) (result i32))))"#,
+        )
+        .unwrap();
+        let plain_module = Module::new(&store, "(module)").unwrap();
+
+        let env = WasiEnvBuilder::new("node")
+            .runtime(Arc::new(runtime))
+            .build()
+            .unwrap();
+        let node = crate::WasiFunctionEnv::new(&mut store, env);
+        crate::settle_capabilities(&napi_module, &mut store, &node.env);
+        assert!(
+            !node.data(&store).capabilities.enable_context_switching,
+            "the hook should have turned context switching off for the N-API module"
+        );
+
+        // A child starts from what its parent was given, not from what the
+        // parent's module made of it.
+        let (child, _handle) = node.data(&store).fork().unwrap();
+        assert!(child.granted_capabilities.enable_context_switching);
+        let python = crate::WasiFunctionEnv::new(&mut store, child);
+        crate::settle_capabilities(&plain_module, &mut store, &python.env);
+        assert!(
+            python.data(&store).capabilities.enable_context_switching,
+            "a child without N-API must get context switching back"
+        );
+
+        // And the reverse: settling the plain module first, then N-API.
+        let (grandchild, _handle) = python.data(&store).fork().unwrap();
+        let grandchild = crate::WasiFunctionEnv::new(&mut store, grandchild);
+        crate::settle_capabilities(&napi_module, &mut store, &grandchild.env);
+        assert!(
+            !grandchild
+                .data(&store)
+                .capabilities
+                .enable_context_switching
+        );
+    }
 
     #[tokio::test]
     async fn command_alias_registration_is_independent() {

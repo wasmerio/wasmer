@@ -515,13 +515,32 @@ fn wasi_snapshot_preview1_exports(
 }
 
 fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
-    let engine_supports_async = store.as_store_ref().engine().supports_async();
+    // A guest may only suspend if the embedder allows it. An N-API host does
+    // not: its bridge invokes guest callbacks through a synchronous C function,
+    // and such a callback cannot suspend — so an asynchronous import anywhere
+    // beneath it would try to and fail. Turning this off leaves no asynchronous
+    // import at all: `context_switch` becomes the `Notsup` stub, `context_create`
+    // finds no environment to join, and guest re-entry stays synchronous.
+    //
+    // Per process, so one tree may run an N-API guest that executes a
+    // context-switching one, and the reverse. A single guest cannot have both.
+    let engine_supports_async = store.as_store_ref().engine().supports_async()
+        && env.as_ref(&store).capabilities.context_switching_enabled();
+    // Re-entering the guest from a *synchronous* host frame is what blocks a
+    // suspension under a dynamic call on the JS backend: V8 will not suspend
+    // past that frame. `sys` has no such restriction and its synchronous path is
+    // both cheaper and the one every other syscall uses, so only JS switches.
+    #[cfg(feature = "js")]
+    let engine_prefers_async_reentry =
+        engine_supports_async && store.as_store_ref().engine().is_js();
+    #[cfg(not(feature = "js"))]
+    let engine_prefers_async_reentry = false;
 
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory32>),
         "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get::<Memory32>),
-        "call_dynamic" => Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory32>),
+        "call_dynamic" => if engine_prefers_async_reentry { Function::new_typed_with_env_async(&mut store, env, call_dynamic_async::<Memory32>) } else { Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory32>) },
         "reflect_signature" => Function::new_typed_with_env(&mut store, env, reflect_signature::<Memory32>),
         "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get::<Memory32>),
         "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get::<Memory32>),
@@ -664,13 +683,32 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
 }
 
 fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
-    let engine_supports_async = store.as_store_ref().engine().supports_async();
+    // A guest may only suspend if the embedder allows it. An N-API host does
+    // not: its bridge invokes guest callbacks through a synchronous C function,
+    // and such a callback cannot suspend — so an asynchronous import anywhere
+    // beneath it would try to and fail. Turning this off leaves no asynchronous
+    // import at all: `context_switch` becomes the `Notsup` stub, `context_create`
+    // finds no environment to join, and guest re-entry stays synchronous.
+    //
+    // Per process, so one tree may run an N-API guest that executes a
+    // context-switching one, and the reverse. A single guest cannot have both.
+    let engine_supports_async = store.as_store_ref().engine().supports_async()
+        && env.as_ref(&store).capabilities.context_switching_enabled();
+    // Re-entering the guest from a *synchronous* host frame is what blocks a
+    // suspension under a dynamic call on the JS backend: V8 will not suspend
+    // past that frame. `sys` has no such restriction and its synchronous path is
+    // both cheaper and the one every other syscall uses, so only JS switches.
+    #[cfg(feature = "js")]
+    let engine_prefers_async_reentry =
+        engine_supports_async && store.as_store_ref().engine().is_js();
+    #[cfg(not(feature = "js"))]
+    let engine_prefers_async_reentry = false;
 
     use syscalls::*;
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory64>),
         "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get::<Memory64>),
-        "call_dynamic" => Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory64>),
+        "call_dynamic" => if engine_prefers_async_reentry { Function::new_typed_with_env_async(&mut store, env, call_dynamic_async::<Memory64>) } else { Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory64>) },
         "reflect_signature" => Function::new_typed_with_env(&mut store, env, reflect_signature::<Memory64>),
         "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get::<Memory64>),
         "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get::<Memory64>),
@@ -810,6 +848,33 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "resolve" => Function::new_typed_with_env(&mut store, env, resolve::<Memory64>),
     };
     namespace
+}
+
+/// Settles the capabilities a process runs with, for the main module it is
+/// about to instantiate: [`WasiEnv::granted_capabilities`], adjusted by the
+/// runtime's [`InstantiationHook::configure_capabilities`] for that module.
+///
+/// Called for every main module, before WASIX builds its imports, because the
+/// result decides how some of them are registered. Starting again from the
+/// grant each time is what keeps one process's adjustments out of the
+/// processes it creates: a shell without N-API can run a program that has it,
+/// and the reverse, and each gets what its own module needs.
+///
+/// Only a main module settles it. Side modules keep the main module's choice:
+/// they share its store and can call into one another, so a side module given
+/// the other model of WASIX imports could step on the main module's toes.
+///
+/// [`InstantiationHook::configure_capabilities`]: crate::runtime::InstantiationHook::configure_capabilities
+pub(crate) fn settle_capabilities(
+    module: &wasmer::Module,
+    store: &mut impl AsStoreMut,
+    env: &FunctionEnv<WasiEnv>,
+) {
+    let env = env.as_mut(store);
+    let mut capabilities = env.granted_capabilities.clone();
+    env.runtime
+        .configure_capabilities(module, &mut capabilities);
+    env.capabilities = capabilities;
 }
 
 // TODO: split function into two variants, one for JS and one for sys.
