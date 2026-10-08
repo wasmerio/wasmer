@@ -1483,32 +1483,20 @@ mod tests {
     /// the global pool so memory cycles correctly across thread lifetimes.
     #[test]
     fn tls_stack_returns_to_pool_on_thread_exit() {
-        // GLOBAL_STATE is the test-suite mutex used to serialize tests that
-        // touch shared global state (STACK_POOL, the configured stack size).
-        // The spawned worker thread does NOT touch GLOBAL_STATE — it only
-        // calls `on_wasm_stack`, which takes neither this mutex nor any
-        // other lock that could contend with us.
-        //
-        // Even so, holding the guard across `handle.join()` is unnecessary:
-        // the only thing that needs to be serialized against other tests is
-        // the assertion on `STACK_POOL.pop()` AFTER the join. We release the
-        // guard before joining so future edits to `on_wasm_stack` that
-        // happen to touch this lock can't introduce a hard-to-debug
-        // deadlock here.
-        let lock = GLOBAL_STATE.lock().unwrap();
+        // Keep other tests from draining the pool or changing the stack size
+        // until the worker exits and we inspect its returned stack. The worker
+        // calls on_wasm_stack without acquiring this test-only mutex.
+        let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
         drain_stack_pool();
         clear_tls_stack();
 
         let size = get_stack_size();
-        drop(lock);
-
         let handle = std::thread::spawn(move || {
             assert!(on_wasm_stack(size, None, || ()).is_ok());
         });
         handle.join().unwrap();
 
-        let _lock = GLOBAL_STATE.lock().unwrap();
         // The spawned thread's TLS cache was dropped on join; the stack must
         // have made it back to the global pool.
         let returned = STACK_POOL
