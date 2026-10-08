@@ -20,7 +20,6 @@ pub struct Mmap {
     ptr: usize,
     total_size: usize,
     accessible_size: usize,
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
     sync_on_drop: bool,
 }
 
@@ -65,7 +64,6 @@ impl Mmap {
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
     /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
     /// must be native page-size multiples.
-    #[cfg(not(target_os = "windows"))]
     pub fn accessible_reserved(
         mut accessible_size: usize,
         mapping_size: usize,
@@ -193,80 +191,9 @@ impl Mmap {
         })
     }
 
-    /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
-    /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
-    /// must be native page-size multiples.
-    #[cfg(target_os = "windows")]
-    pub fn accessible_reserved(
-        accessible_size: usize,
-        mapping_size: usize,
-        _backing_file: Option<std::path::PathBuf>,
-        _memory_type: MmapType,
-        _hint_huge_pages: bool,
-    ) -> Result<Self, String> {
-        use windows_sys::Win32::System::Memory::{
-            MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE, VirtualAlloc,
-        };
-
-        let page_size = region::page::size();
-        assert_le!(accessible_size, mapping_size);
-        assert_eq!(mapping_size & (page_size - 1), 0);
-        assert_eq!(accessible_size & (page_size - 1), 0);
-
-        // VirtualAlloc may return ERROR_INVALID_PARAMETER if the size is zero,
-        // so just special-case that.
-        if mapping_size == 0 {
-            return Ok(Self::new());
-        }
-
-        Ok(if accessible_size == mapping_size {
-            // Allocate a single read-write region at once.
-            let ptr = unsafe {
-                VirtualAlloc(
-                    ptr::null_mut(),
-                    mapping_size,
-                    MEM_RESERVE | MEM_COMMIT,
-                    PAGE_READWRITE,
-                )
-            };
-            if ptr.is_null() {
-                return Err(io::Error::last_os_error().to_string());
-            }
-
-            Self {
-                ptr: ptr as usize,
-                total_size: mapping_size,
-                accessible_size,
-                sync_on_drop: false,
-            }
-        } else {
-            // Reserve the mapping size.
-            let ptr =
-                unsafe { VirtualAlloc(ptr::null_mut(), mapping_size, MEM_RESERVE, PAGE_NOACCESS) };
-            if ptr.is_null() {
-                return Err(io::Error::last_os_error().to_string());
-            }
-
-            let mut result = Self {
-                ptr: ptr as usize,
-                total_size: mapping_size,
-                accessible_size,
-                sync_on_drop: false,
-            };
-
-            if accessible_size != 0 {
-                // Commit the accessible size.
-                result.make_accessible(0, accessible_size)?;
-            }
-
-            result
-        })
-    }
-
     /// Make the memory starting at `start` and extending for `len` bytes accessible.
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
-    #[cfg(not(target_os = "windows"))]
     pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
@@ -278,37 +205,6 @@ impl Mmap {
         let ptr = self.ptr as *const u8;
         unsafe { region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
             .map_err(|e| e.to_string())
-    }
-
-    /// Make the memory starting at `start` and extending for `len` bytes accessible.
-    /// `start` and `len` must be native page-size multiples and describe a range within
-    /// `self`'s reserved memory.
-    #[cfg(target_os = "windows")]
-    pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
-        use std::ffi::c_void;
-        use windows_sys::Win32::System::Memory::{MEM_COMMIT, PAGE_READWRITE, VirtualAlloc};
-        let page_size = region::page::size();
-        assert_eq!(start & (page_size - 1), 0);
-        assert_eq!(len & (page_size - 1), 0);
-        assert_le!(len, self.len());
-        assert_le!(start, self.len() - len);
-
-        // Commit the accessible size.
-        let ptr = self.ptr as *const u8;
-        if unsafe {
-            VirtualAlloc(
-                ptr.add(start) as *mut c_void,
-                len,
-                MEM_COMMIT,
-                PAGE_READWRITE,
-            )
-        }
-        .is_null()
-        {
-            return Err(io::Error::last_os_error().to_string());
-        }
-
-        Ok(())
     }
 
     /// Return the allocated memory as a slice of u8.
@@ -386,7 +282,6 @@ impl Mmap {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
 fn advise_huge_pages(ptr: *mut libc::c_void, len: usize) {
     #[cfg(target_os = "linux")]
     unsafe {
@@ -400,7 +295,6 @@ fn advise_huge_pages(ptr: *mut libc::c_void, len: usize) {
 }
 
 impl Drop for Mmap {
-    #[cfg(not(target_os = "windows"))]
     fn drop(&mut self) {
         if self.total_size != 0 {
             if self.sync_on_drop {
@@ -415,16 +309,6 @@ impl Drop for Mmap {
             }
             let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.total_size) };
             assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    fn drop(&mut self) {
-        if !self.is_empty() {
-            use std::ffi::c_void;
-            use windows_sys::Win32::System::Memory::{MEM_RELEASE, VirtualFree};
-            let r = unsafe { VirtualFree(self.ptr as *mut c_void, 0, MEM_RELEASE) };
-            assert_ne!(r, 0);
         }
     }
 }
