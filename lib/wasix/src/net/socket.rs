@@ -238,6 +238,15 @@ pub struct InodeSocket {
     pub(crate) inner: Arc<InodeSocketInner>,
 }
 
+/// Why a socket is being bound, which decides how a network policy sees it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BindKind {
+    /// A `bind()` from the guest: a request to receive traffic on the address.
+    Explicit,
+    /// The implicit ephemeral bind before a UDP `connect()` or `sendto()`.
+    UdpClient,
+}
+
 impl InodeSocket {
     pub fn new(kind: InodeSocketKind) -> Self {
         let protected = InodeSocketProtected { kind };
@@ -289,7 +298,8 @@ impl InodeSocket {
             _ => return Err(Errno::Notsup),
         };
 
-        self.bind_internal(tasks, net, addr, timeout).await
+        self.bind_internal(tasks, net, addr, timeout, BindKind::UdpClient)
+            .await
     }
 
     pub async fn bind(
@@ -303,7 +313,8 @@ impl InodeSocket {
             .ok()
             .flatten()
             .unwrap_or(Duration::from_secs(30));
-        self.bind_internal(tasks, net, set_addr, timeout).await
+        self.bind_internal(tasks, net, set_addr, timeout, BindKind::Explicit)
+            .await
     }
 
     async fn bind_internal(
@@ -312,6 +323,7 @@ impl InodeSocket {
         net: &dyn VirtualNetworking,
         set_addr: SocketAddr,
         timeout: Duration,
+        kind: BindKind,
     ) -> Result<Option<InodeSocket>, Errno> {
         enum PendingBind {
             Tcp {
@@ -475,8 +487,16 @@ impl InodeSocket {
                 reuse_port,
                 reuse_addr,
             } => {
+                let bind = async {
+                    match kind {
+                        BindKind::Explicit => net.bind_udp(addr, reuse_port, reuse_addr).await,
+                        BindKind::UdpClient => {
+                            net.bind_udp_client(addr, reuse_port, reuse_addr).await
+                        }
+                    }
+                };
                 tokio::select! {
-                    socket = net.bind_udp(addr, reuse_port, reuse_addr) => {
+                    socket = bind => {
                         match socket {
                             Ok(socket) => Ok(Some(InodeSocket::new(InodeSocketKind::UdpSocket {
                                 socket,

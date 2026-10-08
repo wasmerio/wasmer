@@ -287,6 +287,17 @@ impl VirtualNetworking for RemoteNetworkingServer {
         self.inner.bind_udp(addr, reuse_port, reuse_addr).await
     }
 
+    async fn bind_udp_client(
+        &self,
+        addr: SocketAddr,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualUdpSocket + Sync>, NetworkError> {
+        self.inner
+            .bind_udp_client(addr, reuse_port, reuse_addr)
+            .await
+    }
+
     async fn bind_icmp(
         &self,
         addr: IpAddr,
