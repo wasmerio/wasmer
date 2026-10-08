@@ -225,6 +225,20 @@ impl VirtualFile for CopyOnWriteFile {
         Ok(())
     }
 
+    fn metadata(&self) -> crate::Result<crate::Metadata> {
+        let len = match &self.state {
+            CowState::ReadOnly(inner) => inner.metadata()?.len,
+            _ => self.size(),
+        };
+        Ok(crate::Metadata {
+            ft: crate::FileType::new_file(),
+            accessed: self.last_accessed,
+            created: self.created_time,
+            modified: self.last_modified,
+            len,
+        })
+    }
+
     fn size(&self) -> u64 {
         match &self.state {
             CowState::ReadOnly(inner) => inner.size(),
