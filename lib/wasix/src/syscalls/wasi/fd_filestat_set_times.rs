@@ -93,7 +93,7 @@ pub(crate) fn fd_filestat_set_times_internal(
     if let Kind::File {
         handle: Some(handle),
         ..
-    } = inode.kind.write().unwrap().deref()
+    } = inode.write().deref()
     {
         let mut handle = handle.write().unwrap();
 
