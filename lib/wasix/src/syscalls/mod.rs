@@ -153,6 +153,20 @@ pub(crate) fn from_offset<M: MemorySize>(offset: M::Offset) -> Result<usize, Err
     Ok(ret)
 }
 
+/// Converts a linear-memory address into the `i32` argument used to pass it to
+/// a guest export that takes a wasm32 pointer (`wasi_thread_start`,
+/// `asyncify_start_unwind`, ...).
+///
+/// Wasm integers carry no signedness, so every wasm32 address maps to the `i32`
+/// with the same bit pattern. `i32::try_from` would wrongly reject valid
+/// addresses at or above 2 GiB. Only addresses that do not fit into 32 bits
+/// (reachable with memory64) are rejected, with [`Errno::Overflow`].
+pub(crate) fn wasm32_ptr_to_i32_arg(ptr: u64) -> Result<i32, Errno> {
+    u32::try_from(ptr)
+        .map(u32::cast_signed)
+        .map_err(|_| Errno::Overflow)
+}
+
 pub(crate) fn write_bytes_inner<T: Write, M: MemorySize>(
     mut write_loc: T,
     memory: &MemoryView,
@@ -1223,7 +1237,7 @@ where
 
     // Invoke the callback that will prepare to unwind
     // We need to start unwinding the stack
-    let asyncify_data = wasi_try_ok!(unwind_pointer.try_into().map_err(|_| Errno::Overflow));
+    let asyncify_data = wasi_try_ok!(wasm32_ptr_to_i32_arg(unwind_pointer));
     if let Some(asyncify_start_unwind) = env
         .inner()
         .static_module_instance_handles()
@@ -1405,7 +1419,7 @@ pub fn rewind_ext<M: MemorySize>(
     );
 
     // Invoke the callback that will prepare to rewind
-    let asyncify_data = wasi_try!(rewind_pointer.try_into().map_err(|_| Errno::Overflow));
+    let asyncify_data = wasi_try!(wasm32_ptr_to_i32_arg(rewind_pointer));
     if let Some(asyncify_start_rewind) = env
         .inner()
         .static_module_instance_handles()
