@@ -79,6 +79,31 @@ fn strip_host_root(root: &Path, target: &Path) -> Option<PathBuf> {
         .map(path_suffix_to_guest_absolute)
 }
 
+/// `fsync` a directory so the entries created, renamed or removed inside it
+/// reach stable storage.
+///
+/// Measured on Windows 11: a directory only opens at all with
+/// `FILE_FLAG_BACKUP_SEMANTICS`, and `FlushFileBuffers` (what `sync_all` calls)
+/// then fails with `ERROR_ACCESS_DENIED` unless the handle also carries write
+/// access - hence the write-only open below. Nothing is ever written through
+/// that handle; the right is only what the flush contract demands.
+fn sync_dir_metadata(path: &Path) -> Result<()> {
+    #[cfg(windows)]
+    let dir = {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+        fs::OpenOptions::new()
+            .write(true)
+            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+            .open(path)?
+    };
+    #[cfg(not(windows))]
+    let dir = fs::File::open(path)?;
+
+    dir.sync_all()?;
+    Ok(())
+}
+
 fn host_root_relative_target(root: &Path, target: PathBuf) -> PathBuf {
     if root == Path::new("/") || !target.is_absolute() {
         return target;
@@ -167,6 +192,11 @@ impl crate::FileSystem for FileSystem {
         }
 
         fs::create_dir(path).map_err(Into::into)
+    }
+
+    fn sync_dir(&self, path: &Path) -> Result<()> {
+        let path = self.prepare_path(path)?;
+        sync_dir_metadata(&path)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
@@ -1075,6 +1105,23 @@ mod tests {
         assert!(
             !cur_dir.contains(&"foo".to_string()),
             "the foo directory still exists"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sync_dir() {
+        let temp: TempDir = TempDir::new().unwrap();
+        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
+        std::fs::create_dir_all(temp.path().join("foo")).unwrap();
+
+        fs.sync_dir(Path::new("foo"))
+            .expect("flushing a directory that exists");
+
+        std::fs::remove_dir(temp.path().join("foo")).unwrap();
+        assert_eq!(
+            fs.sync_dir(Path::new("foo")).err(),
+            Some(FsError::EntryNotFound),
+            "flushing a directory that is not there must not report success"
         );
     }
 
