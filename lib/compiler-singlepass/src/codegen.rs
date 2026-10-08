@@ -2763,8 +2763,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .drain((self.value_stack.len() - params_count)..)
                     .collect_vec();
                 for (param, phi_param) in params.iter().rev().zip(self.value_stack.iter().rev()) {
-                    self.machine
-                        .emit_relaxed_mov(Size::S64, param.0, phi_param.0)?;
+                    if let Some(canonicalize_size) = param.1.to_size()
+                        && self.config.enable_nan_canonicalization
+                    {
+                        self.machine
+                            .canonicalize_nan(canonicalize_size, param.0, phi_param.0)?;
+                    } else {
+                        self.machine
+                            .emit_relaxed_mov(Size::S64, param.0, phi_param.0)?;
+                    }
                 }
                 self.release_locations(&params)?;
 
