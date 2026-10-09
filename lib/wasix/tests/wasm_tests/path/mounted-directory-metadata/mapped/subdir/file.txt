@@ -1,0 +1,1 @@
+mounted directory metadata fixture
