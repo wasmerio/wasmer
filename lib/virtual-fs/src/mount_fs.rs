@@ -4,14 +4,17 @@
 
 use crate::*;
 
+#[cfg(not(feature = "js"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     ffi::OsString,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
-    time::{SystemTime, UNIX_EPOCH},
 };
+#[cfg(feature = "js")]
+use web_time::{SystemTime, UNIX_EPOCH};
 
 const MIN_METADATA_TIMESTAMP: u64 = 1_000_000_000; // 1 second in nano seconds
 
@@ -746,6 +749,31 @@ impl FileSystem for MountFileSystem {
 
         match self.resolve_mount(path) {
             Some(resolved) => resolved.fs.symlink_metadata(&resolved.delegated_path),
+            None => Err(FsError::EntryNotFound),
+        }
+    }
+
+    fn set_times(
+        &self,
+        path: &Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> Result<()> {
+        let path = self.prepare_path(path)?;
+        if let Some(node) = self.exact_node(&path) {
+            if let Some(fs) = node.fs {
+                return fs.set_times(&node.source_path, atime, mtime, follow_symlinks);
+            }
+            // Synthetic mount ancestors have no mutable backing metadata.
+            return Err(FsError::Unsupported);
+        }
+        match self.resolve_mount(path) {
+            Some(resolved) => {
+                resolved
+                    .fs
+                    .set_times(&resolved.delegated_path, atime, mtime, follow_symlinks)
+            }
             None => Err(FsError::EntryNotFound),
         }
     }

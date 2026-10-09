@@ -244,6 +244,7 @@ impl WebSource {
             .context("Unable to determine the package's metadata")?;
 
         let dist = DistributionInfo {
+            webc_size: None,
             webc: url.clone(),
             webc_sha256,
         };

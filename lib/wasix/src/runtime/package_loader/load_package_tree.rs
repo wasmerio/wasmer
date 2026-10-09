@@ -768,6 +768,7 @@ mod tests {
             id: dep_id.clone(),
             pkg: dep_info,
             dist: Some(DistributionInfo {
+                webc_size: None,
                 webc: "http://localhost/wasmer-static-web-server.webc"
                     .parse()
                     .unwrap(),

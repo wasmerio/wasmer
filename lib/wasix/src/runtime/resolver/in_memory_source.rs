@@ -274,6 +274,7 @@ mod tests {
                     filesystem: vec![],
                 },
                 dist: DistributionInfo {
+                    webc_size: None,
                     webc: crate::runtime::resolver::utils::url_from_file_path(
                         bash.canonicalize().unwrap(),
                     )

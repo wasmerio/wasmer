@@ -264,6 +264,59 @@ impl crate::FileSystem for FileSystem {
             .map_err(Into::into)
     }
 
+    fn set_times(
+        &self,
+        path: &Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> Result<()> {
+        let path = self.prepare_path(path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStrExt;
+            let path = std::ffi::CString::new(path.as_os_str().as_bytes())
+                .map_err(|_| FsError::InvalidInput)?;
+            let to_timespec = |time: Option<u64>| libc::timespec {
+                tv_sec: time.map_or(0, |t| (t / 1_000_000_000) as libc::time_t),
+                tv_nsec: time.map_or(libc::UTIME_OMIT, |t| (t % 1_000_000_000) as _),
+            };
+            let times = [to_timespec(atime), to_timespec(mtime)];
+            let flags = if follow_symlinks {
+                0
+            } else {
+                libc::AT_SYMLINK_NOFOLLOW
+            };
+            // SAFETY: path is NUL terminated and times points to two valid timespecs.
+            let result =
+                unsafe { libc::utimensat(libc::AT_FDCWD, path.as_ptr(), times.as_ptr(), flags) };
+            if result == 0 {
+                Ok(())
+            } else {
+                Err(io::Error::last_os_error().into())
+            }
+        }
+        #[cfg(not(unix))]
+        {
+            let metadata = if follow_symlinks {
+                fs::metadata(&path)?
+            } else {
+                fs::symlink_metadata(&path)?
+            };
+            let atime = atime
+                .map(file_time_from_nanos)
+                .unwrap_or_else(|| filetime::FileTime::from_last_access_time(&metadata));
+            let mtime = mtime
+                .map(file_time_from_nanos)
+                .unwrap_or_else(|| filetime::FileTime::from_last_modification_time(&metadata));
+            if follow_symlinks {
+                filetime::set_file_times(path, atime, mtime).map_err(Into::into)
+            } else {
+                filetime::set_symlink_file_times(path, atime, mtime).map_err(Into::into)
+            }
+        }
+    }
+
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         let path = self.prepare_path(path)?;
 
@@ -445,11 +498,10 @@ impl VirtualFile for File {
     }
 
     fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
-        let atime = atime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
-        let mtime = mtime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+        let atime = atime.map(file_time_from_nanos);
+        let mtime = mtime.map(file_time_from_nanos);
 
-        filetime::set_file_handle_times(&self.inner_std, atime, mtime)
-            .map_err(|_| crate::FsError::IOError)
+        filetime::set_file_handle_times(&self.inner_std, atime, mtime).map_err(Into::into)
     }
 
     fn size(&self) -> u64 {
@@ -937,6 +989,13 @@ impl VirtualFile for Stdin {
     fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))
     }
+}
+
+fn file_time_from_nanos(timestamp: u64) -> filetime::FileTime {
+    filetime::FileTime::from_unix_time(
+        (timestamp / 1_000_000_000) as i64,
+        (timestamp % 1_000_000_000) as u32,
+    )
 }
 
 #[cfg(test)]

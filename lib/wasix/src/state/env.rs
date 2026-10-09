@@ -329,10 +329,11 @@ impl WasiEnv {
     /// Returns true if this WASM process will need and try to use
     /// asyncify while its running which normally means.
     pub fn will_use_asyncify(&self) -> bool {
-        self.inner()
-            .static_module_instance_handles()
-            .map(|handles| self.enable_deep_sleep || handles.has_stack_checkpoint)
-            .unwrap_or(false)
+        let inner = self.inner();
+        let handles = inner.main_module_instance_handles();
+        self.enable_deep_sleep
+            || handles.has_stack_checkpoint
+            || handles.asyncify_start_unwind.is_some()
     }
 
     /// Re-initializes this environment so that it can be executed again
@@ -929,14 +930,6 @@ impl WasiEnv {
         )
     }
 
-    /// Provides safe access to the initialized part of WasiEnv
-    /// (it must be initialized before it can be used)
-    pub(crate) fn inner_mut(&mut self) -> WasiInstanceGuardMut<'_> {
-        self.inner.get_mut().expect(
-            "You must initialize the WasiEnv before using it and can not pass it between threads",
-        )
-    }
-
     /// Providers safe access to the initialized part of WasiEnv
     pub(crate) fn try_inner(&self) -> Option<WasiInstanceGuard<'_>> {
         self.inner.get()
@@ -1319,7 +1312,10 @@ impl WasiEnv {
             }
         }
 
-        // If the process wants to exit, also close all files and terminate it
+        // None means a normal thread return/thread_exit. Some is a process
+        // exit (proc_exit or a fatal trap), including when raised by a worker.
+        // Ignoring a worker's process exit leaves the main thread waiting on
+        // a pthread_join/futex that can never complete.
         if let Some(process_exit_code) = process_exit_code {
             let process = self.process.clone();
             let disable_fs_cleanup = self.disable_fs_cleanup;
@@ -1343,11 +1339,11 @@ impl WasiEnv {
                         }
                     }
 
-                    // Record the real exit code before broadcasting Sigquit.
-                    // Otherwise a pending Sigquit can win the status race and
-                    // make waiters observe a successful exit.
+                    // The process exit status is authoritative. terminate()
+                    // wakes residual threads with the host-only Sigwakeup so
+                    // libc cannot turn normal cleanup into guest-visible
+                    // SIGQUIT/SIGABRT diagnostics.
                     process.terminate(process_exit_code);
-                    process.signal_process(Signal::Sigquit);
                 }
             })
         } else {

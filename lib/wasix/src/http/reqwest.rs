@@ -5,7 +5,7 @@ use futures::{TryStreamExt, future::BoxFuture};
 use std::convert::TryFrom;
 use tokio::runtime::Handle;
 
-use super::{HttpRequest, HttpResponse};
+use super::{HttpDownloadObserver, HttpRequest, HttpResponse};
 
 #[derive(Clone, Debug)]
 pub struct ReqwestHttpClient {
@@ -38,7 +38,11 @@ impl ReqwestHttpClient {
     }
 
     #[tracing::instrument(skip_all, fields(method=?request.method, url=%request.url))]
-    async fn request(&self, request: HttpRequest) -> Result<HttpResponse, anyhow::Error> {
+    async fn request(
+        &self,
+        request: HttpRequest,
+        progress: Option<HttpDownloadObserver>,
+    ) -> Result<HttpResponse, anyhow::Error> {
         let method = reqwest::Method::try_from(request.method.as_str())
             .with_context(|| format!("Invalid http method {}", request.method))?;
 
@@ -48,7 +52,10 @@ impl ReqwestHttpClient {
             let mut builder = reqwest::ClientBuilder::new();
             #[cfg(not(feature = "js"))]
             {
-                builder = builder.connect_timeout(self.connect_timeout);
+                builder = builder
+                    .connect_timeout(self.connect_timeout)
+                    .gzip(progress.is_some())
+                    .zstd(progress.is_some());
             }
             builder
         };
@@ -77,7 +84,33 @@ impl ReqwestHttpClient {
 
         // Download the body.
         #[cfg(not(feature = "js"))]
-        let data = if let Some(timeout_duration) = self.response_body_chunk_timeout {
+        let data = if let Some(progress) = &progress {
+            let total = if headers.contains_key(http::header::CONTENT_ENCODING) {
+                None
+            } else {
+                response.content_length()
+            };
+            let decoded = !headers.contains_key(http::header::CONTENT_ENCODING);
+            let mut stream = response.bytes_stream();
+            let mut buf = Vec::new();
+            if decoded {
+                progress(0, total, false);
+            }
+            loop {
+                let chunk = match self.response_body_chunk_timeout {
+                    Some(timeout) => tokio::time::timeout(timeout, stream.try_next())
+                        .await
+                        .context("Timeout while downloading response body")??,
+                    None => stream.try_next().await?,
+                };
+                let Some(chunk) = chunk else { break };
+                buf.extend_from_slice(&chunk);
+                if decoded {
+                    progress(buf.len() as u64, total, false);
+                }
+            }
+            buf
+        } else if let Some(timeout_duration) = self.response_body_chunk_timeout {
             // Download the body with a chunk timeout.
             // The timeout prevents long stalls.
 
@@ -149,10 +182,19 @@ impl ReqwestHttpClient {
 }
 
 impl super::HttpClient for ReqwestHttpClient {
+    fn request_with_progress(
+        &self,
+        request: HttpRequest,
+        progress: HttpDownloadObserver,
+    ) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
+        let client = self.clone();
+        Box::pin(async move { client.request(request, Some(progress)).await })
+    }
+
     #[cfg(not(feature = "js"))]
     fn request(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
         let client = self.clone();
-        let f = async move { client.request(request).await };
+        let f = async move { client.request(request, None).await };
         Box::pin(f)
     }
 
@@ -161,7 +203,7 @@ impl super::HttpClient for ReqwestHttpClient {
         let client = self.clone();
         let (sender, receiver) = futures::channel::oneshot::channel();
         wasm_bindgen_futures::spawn_local(async move {
-            let result = client.request(request).await;
+            let result = client.request(request, None).await;
             let _ = sender.send(result);
         });
         Box::pin(async move {
@@ -170,5 +212,107 @@ impl super::HttpClient for ReqwestHttpClient {
                 Err(e) => Err(anyhow::Error::new(e)),
             }
         })
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use crate::http::HttpClient;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        sync::{Arc, Mutex},
+    };
+
+    // A real socket catches buffering and content-encoding mistakes that a
+    // mocked HttpClient cannot detect. Delay chunks to force intermediate reads.
+    fn serve(
+        bytes: Vec<u8>,
+        encoding: Option<&str>,
+        truncated: bool,
+    ) -> (String, std::thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/package", listener.local_addr().unwrap());
+        let encoding = encoding
+            .map(|e| format!("Content-Encoding: {e}\r\n"))
+            .unwrap_or_default();
+        let task = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0u8; 8192];
+            socket.read(&mut request).unwrap();
+            write!(
+                socket,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n{}Connection: close\r\n\r\n",
+                bytes.len() + usize::from(truncated),
+                encoding
+            )
+            .unwrap();
+            for chunk in bytes.chunks((bytes.len() / 4).max(1)) {
+                if socket.write_all(chunk).is_err() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(30));
+            }
+        });
+        (url, task)
+    }
+
+    #[tokio::test]
+    async fn progress_streams_decoded_bytes_for_identity_gzip_and_zstd() {
+        let body: Vec<u8> = (0..256 * 1024).map(|i| (i * 71 % 251) as u8).collect();
+        let mut gzip = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        gzip.write_all(&body).unwrap();
+        let gzip = gzip.finish().unwrap();
+        let zstd = zstd::stream::encode_all(body.as_slice(), 3).unwrap();
+        for (encoded, encoding) in [
+            (body.clone(), None),
+            (gzip, Some("gzip")),
+            (zstd, Some("zstd")),
+        ] {
+            let (url, server) = serve(encoded, encoding, false);
+            let updates = Arc::new(Mutex::new(Vec::new()));
+            let captured = updates.clone();
+            let request = http::Request::get(url).body(()).unwrap().into();
+            let response = HttpClient::request_with_progress(
+                &ReqwestHttpClient::default(),
+                request,
+                Arc::new(move |received, total, cached| {
+                    assert!(!cached);
+                    captured.lock().unwrap().push((received, total));
+                }),
+            )
+            .await
+            .unwrap();
+            server.join().unwrap();
+            assert_eq!(response.body.unwrap(), body);
+            let updates = updates.lock().unwrap();
+            assert_eq!(updates.first().unwrap().0, 0);
+            assert_eq!(updates.last().unwrap().0, body.len() as u64);
+            assert!(updates.windows(2).all(|p| p[0].0 <= p[1].0));
+            if encoding.is_none() {
+                assert!(updates.iter().any(|p| p.0 > 0 && p.0 < body.len() as u64));
+                assert!(updates.iter().all(|p| p.1 == Some(body.len() as u64)));
+            } else {
+                assert!(
+                    updates.iter().all(|p| p.1.is_none()),
+                    "compressed wire length is not the decoded total"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn truncated_body_is_an_error() {
+        let (url, server) = serve(vec![42; 100], None, true);
+        let request = http::Request::get(url).body(()).unwrap().into();
+        let result = HttpClient::request_with_progress(
+            &ReqwestHttpClient::default(),
+            request,
+            Arc::new(|_, _, _| {}),
+        )
+        .await;
+        server.join().unwrap();
+        assert!(result.is_err());
     }
 }

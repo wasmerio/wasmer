@@ -106,7 +106,7 @@ impl From<VMMemory> for (JsValue, MemoryType) {
 
 /// Detached shared memory contains no worker-local JavaScript handle.
 #[derive(Clone, Debug)]
-pub struct VMSharedMemory {
+pub(crate) struct VMSharedMemory {
     memory: crate::js::utils::shared_handle::SharedJsHandle,
     ty: MemoryType,
 }

@@ -158,6 +158,17 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
         let id = self.as_store_ref().inner.objects.id();
         crate::StoreAsync::from_context(id)
     }
+
+    /// Creates a shared async function-environment handle from a synchronous
+    /// import running inside an async store context.
+    #[cfg(all(feature = "experimental-async", feature = "js"))]
+    pub fn as_async_mut(&self) -> Option<BackendAsyncFunctionEnvMut<T>> {
+        match self {
+            Self::Js(f) => f.as_async_mut().map(BackendAsyncFunctionEnvMut::Js),
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
+    }
 }
 
 impl<T> AsStoreRef for BackendFunctionEnvMut<'_, T> {
@@ -262,6 +273,31 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
             Self::Js(f) => BackendAsyncFunctionEnvHandleMut::Js(f.write().await),
             #[cfg(feature = "v8")]
             _ => unsupported_async_backend(),
+        }
+    }
+
+    /// Attempts to acquire the store immediately and returns a mutable handle
+    /// when it is not currently executing on another stack.
+    #[cfg(feature = "js")]
+    pub fn try_write(&self) -> Option<BackendAsyncFunctionEnvHandleMut<T>> {
+        match self {
+            #[cfg(feature = "js")]
+            Self::Js(f) => f.try_write().map(BackendAsyncFunctionEnvHandleMut::Js),
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
+    }
+
+    /// Uses the Store context already installed on the current JSPI stack.
+    #[cfg(feature = "js")]
+    pub fn with_current_mut<R>(
+        &self,
+        f: impl FnOnce(BackendFunctionEnvMut<'_, T>) -> R,
+    ) -> Option<R> {
+        match self {
+            Self::Js(env) => env.with_current_mut(|env| f(BackendFunctionEnvMut::Js(env))),
+            #[allow(unreachable_patterns)]
+            _ => None,
         }
     }
 

@@ -11,7 +11,7 @@ use js_sys::{Array, Function as JsFunction};
 use js_sys::{Promise, Reflect};
 use wasm_bindgen::{JsCast, prelude::*};
 #[cfg(feature = "experimental-async")]
-use wasm_bindgen_futures::{JsFuture, future_to_promise};
+use wasm_bindgen_futures::future_to_promise;
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
@@ -129,8 +129,9 @@ impl Function {
                 ));
             };
             let callback_store = async_store.store();
+            let store_lifetime = async_store.downgrade();
             let js_env = JsAsyncFunctionEnvMut {
-                store: async_store,
+                store: async_store.downgrade(),
                 func_env: raw_env.clone(),
             };
             let env_mut =
@@ -142,6 +143,7 @@ impl Function {
 
             future_to_promise(async move {
                 let mut write_lock = callback_store.write_lock().await;
+                drop(callback_store);
                 let values = parameter_types
                     .iter()
                     .enumerate()
@@ -153,7 +155,29 @@ impl Function {
                 let future = func(env_mut, &values);
                 drop(store_context);
 
-                let results = future.await.map_err(JsValue::from)?;
+                // A JSPI import can outlive the guest call which started it
+                // (for example, when a WASIX context is cancelled). Do not
+                // resume host code holding environment pointers after the
+                // async store has been consumed or destroyed. Keep the store
+                // alive while polling, but release it across suspension so
+                // shutdown can reclaim it.
+                let mut future = std::pin::pin!(future);
+                let results = std::future::poll_fn(|cx| {
+                    let Some(_store) = store_lifetime.upgrade() else {
+                        return std::task::Poll::Ready(None);
+                    };
+                    future.as_mut().poll(cx).map(Some)
+                })
+                .await;
+                let Some(results) = results else {
+                    // The guest continuation was abandoned with the store.
+                    // Neither resolving nor rejecting its import may resume
+                    // that stack (including guest exception handlers). Drop
+                    // the Rust future and leave only an inert JS promise,
+                    // which the host can collect with the abandoned stack.
+                    return Ok(Promise::new(&mut |_, _| {}).into());
+                };
+                let results = results.map_err(JsValue::from)?;
                 match result_types.len() {
                     0 => Ok(JsValue::UNDEFINED),
                     1 => Ok(wasmer_value_to_js(&results[0])),
@@ -538,7 +562,10 @@ impl Function {
                 .map_err(RuntimeError::from)?;
             drop(store_context);
 
-            let result = JsFuture::from(promise).await.map_err(RuntimeError::from)?;
+            let result = jspi::PromiseFuture::new(promise)
+                .map_err(RuntimeError::from)?
+                .await
+                .map_err(RuntimeError::from)?;
             let mut write_lock = store.write_lock().await;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),
