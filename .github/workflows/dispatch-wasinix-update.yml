@@ -1,0 +1,19 @@
+name: Dispatch Wasinix Update
+# Wasmer's release workflow creates a draft. Dispatch the wasinix update when
+# that release is published, after its assets are ready.
+#
+# Requires the WASINIX_DISPATCH_TOKEN secret: a token with actions write
+# access on wasix-org/wasinix. The default GITHUB_TOKEN cannot dispatch
+# workflows in another repository.
+on:
+  release:
+    types: [published]
+permissions: {}
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the wasinix update workflow
+        env:
+          GH_TOKEN: ${{ secrets.WASINIX_DISPATCH_TOKEN }}
+        run: gh workflow run update.yml --repo wasix-org/wasinix -f targets=wasmer
