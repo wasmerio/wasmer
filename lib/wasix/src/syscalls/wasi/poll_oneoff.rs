@@ -210,9 +210,10 @@ pub(crate) fn poll_fd_guard(
         return Err(Errno::Access);
     }
     let inode = fd_entry.inode;
+    let target = inode.target_identity();
 
     let guard = inode.read();
-    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref()).ok_or(Errno::Badf)
+    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref(), target).ok_or(Errno::Badf)
 }
 
 /// ### `poll_oneoff()`
