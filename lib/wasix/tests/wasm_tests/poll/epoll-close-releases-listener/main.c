@@ -20,8 +20,9 @@ int main(void) {
     assert(epoll_fd >= 0);
     struct epoll_event event = {.events = EPOLLIN, .data.fd = listener};
     assert(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listener, &event) == 0);
-    // Abrupt process cleanup closes descriptors without EPOLL_CTL_DEL. Exercise
-    // both close orders; a callback ownership cycle leaves the port occupied.
+    // Close both without EPOLL_CTL_DEL, as a process that exits or a server
+    // that is cancelled does (exit closes every descriptor the same way). In
+    // either order the port must be free for the next round to bind it.
     if (round % 2 == 0) {
       assert(close(epoll_fd) == 0);
       assert(close(listener) == 0);
