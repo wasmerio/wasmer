@@ -35,7 +35,7 @@ use std::{
 
 use crate::{
     net::socket::InodeSocketKind,
-    os::epoll::EpollState,
+    os::epoll::{EpollState, EpollWatcher},
     state::{Stderr, Stdin, Stdout},
 };
 use futures::{Future, future::BoxFuture};
@@ -87,91 +87,6 @@ impl CloseFdOutcome {
             skipped_preopen: false,
             removed: false,
             flush_target: None,
-        }
-    }
-}
-
-/// Interest-list work gathered while `fd_map` is write-locked and applied after it
-/// is released.
-///
-/// Linux removes a descriptor from every epoll interest list that names it when the
-/// descriptor is closed (`ep_remove`, driven from `close()`), and empties an interest
-/// list when the epoll descriptor itself is closed. WASIX does neither: the lists are
-/// keyed by fd number and only `EPOLL_CTL_DEL` prunes them, so a subscription outlives
-/// the object it watches. Its join guard then keeps that object's inner `Arc` alive,
-/// which for a socket means the `LocalTcpStream` owning the host descriptor is never
-/// dropped - the guest has released its last handle, the peer never sees a FIN, and the
-/// number stays claimed in the list so the next `EPOLL_CTL_ADD` of that recycled number
-/// answers `EEXIST`.
-#[derive(Default)]
-pub(crate) struct EpollInterestWork {
-    /// Each descriptor being released that an interest list can name, with the
-    /// identity of the inode behind it. Interest lists survive a descriptor's close
-    /// only as a number, so a stale entry for an earlier owner of that number must
-    /// not be pruned on the new owner's behalf.
-    watched: Vec<(WasiFd, usize)>,
-    /// Every live epoll instance, resolved once, for the watchers above.
-    watchers: Vec<Arc<EpollState>>,
-    watchers_collected: bool,
-    /// Epoll instances being closed themselves; their whole list goes with them.
-    closing: Vec<Arc<EpollState>>,
-}
-
-impl EpollInterestWork {
-    /// Notes that `fd` is about to close. Cheap for the kinds an interest list cannot
-    /// hold, which is most closes: registering a file or a pipe's write end yields no
-    /// guard at all.
-    pub(crate) fn note_closing(&mut self, fd_map: &FdList, fd: WasiFd) {
-        let Some(closing) = fd_map.get(fd) else {
-            return;
-        };
-        let target = closing.inode.target_identity();
-        let is_watched = match closing.inode.read().deref() {
-            Kind::Epoll { state } => {
-                self.closing.push(state.clone());
-                return;
-            }
-            Kind::Socket { .. }
-            | Kind::PipeRx { .. }
-            | Kind::DuplexPipe { .. }
-            | Kind::EventNotifications { .. } => true,
-            _ => false,
-        };
-        if is_watched {
-            self.watched.push((fd, target));
-        }
-    }
-
-    /// Resolves the epoll instances to sweep. A no-op unless something prunable was
-    /// noted, so a batch of closes pays for one walk of the table.
-    pub(crate) fn note_watchers(&mut self, fd_map: &FdList) {
-        if self.watched.is_empty() || self.watchers_collected {
-            return;
-        }
-        self.watchers_collected = true;
-        for (_, fd_ref) in fd_map.iter() {
-            if let Kind::Epoll { state } = fd_ref.inode.read().deref() {
-                self.watchers.push(state.clone());
-            }
-        }
-    }
-
-    /// Runs the sweep. Must not be called with `fd_map` locked: detaching a guard
-    /// takes the watched object's write lock while the interest-list lock is held
-    /// nowhere in this path, and the epoll syscalls lock in the opposite order.
-    pub(crate) fn apply(self) {
-        for state in &self.closing {
-            let detached = state.close_all();
-            if detached > 0 {
-                trace!(%detached, "closing epoll instance detached its interest list");
-            }
-        }
-        for (fd, target) in &self.watched {
-            for state in &self.watchers {
-                if state.prune_closed(*fd, *target) > 0 {
-                    trace!(%fd, "closing descriptor pruned from an epoll interest list");
-                }
-            }
         }
     }
 }
@@ -264,6 +179,10 @@ pub struct InodeGuard {
     // so we can know when to drop the file handle, which should result
     // in the backing file (which may be a host file) getting closed.
     open_handles: Arc<AtomicI32>,
+
+    // The epoll registrations watching this inode, so that the close of its
+    // last handle can remove them. See `release_epoll_registrations`.
+    epoll_watchers: Arc<Mutex<Vec<EpollWatcher>>>,
 }
 impl InodeGuard {
     pub fn ino(&self) -> Inode {
@@ -274,6 +193,7 @@ impl InodeGuard {
         InodeWeakGuard {
             ino: self.ino,
             open_handles: self.open_handles.clone(),
+            epoll_watchers: self.epoll_watchers.clone(),
             inner: Arc::downgrade(&self.inner),
         }
     }
@@ -282,15 +202,59 @@ impl InodeGuard {
         Arc::strong_count(&self.inner)
     }
 
-    /// Identity of the inode object behind this guard, stable for as long as any
-    /// guard on it lives. Used to tell an fd's current owner from an earlier one
-    /// that shared the same recycled number.
-    pub(crate) fn target_identity(&self) -> usize {
-        Arc::as_ptr(&self.inner) as usize
-    }
-
     pub fn handle_count(&self) -> u32 {
         self.open_handles.load(Ordering::SeqCst) as u32
+    }
+
+    /// The identity of the object behind this inode, for telling it apart from
+    /// another that later takes the same descriptor number. A `Weak` rather than
+    /// an address: it keeps the allocation reserved, so the identity cannot be
+    /// reused by a new object while anything still compares against it.
+    pub(crate) fn identity(&self) -> Weak<InodeVal> {
+        Arc::downgrade(&self.inner)
+    }
+
+    /// Records that `epoll` watches this inode under descriptor number `fd`, so
+    /// that closing the inode's last handle removes the registration.
+    pub(crate) fn watch_epoll(&self, epoll: &Arc<EpollState>, fd: WasiFd) {
+        let epoll = Arc::downgrade(epoll);
+        let mut watchers = self.epoll_watchers.lock().unwrap();
+        // Bounded by the live (epoll, fd) pairs: repeated DEL and ADD of the same
+        // pair, or instances that have gone, do not accumulate.
+        watchers.retain(|watcher| watcher.epoll.strong_count() > 0);
+        if !watchers
+            .iter()
+            .any(|watcher| watcher.fd == fd && Weak::ptr_eq(&watcher.epoll, &epoll))
+        {
+            watchers.push(EpollWatcher { epoll, fd });
+        }
+    }
+
+    /// Removes this inode from every epoll interest list that watches it.
+    ///
+    /// Linux removes a registration when the last file descriptor referring to
+    /// the open file description is closed (epoll(7)), not when any one of them
+    /// is: a dup, or the copy a forked child holds, keeps it alive. The handle
+    /// count is shared by every descriptor naming this inode, across dups and
+    /// forks, so its reaching zero is exactly that point.
+    ///
+    /// Without this, a registration outlives its descriptor: its join guard keeps
+    /// the watched object alive (a socket keeps its host descriptor, and its port,
+    /// bound), and the descriptor number stays claimed in the interest list, so
+    /// the next `EPOLL_CTL_ADD` of that number answers `EEXIST`.
+    fn release_epoll_registrations(&self) {
+        let watchers = std::mem::take(&mut *self.epoll_watchers.lock().unwrap());
+        if watchers.is_empty() {
+            return;
+        }
+        let identity = self.identity();
+        for watcher in watchers {
+            if let Some(epoll) = watcher.epoll.upgrade()
+                && epoll.prune_closed(watcher.fd, &identity)
+            {
+                trace!(ino = %self.ino.0, fd = %watcher.fd, "closed inode left an epoll interest list");
+            }
+        }
     }
 
     pub fn acquire_handle(&self) {
@@ -307,6 +271,11 @@ impl InodeGuard {
         if prev_handles > 1 {
             return;
         }
+
+        // Before the object is closed below. Runs with the caller's fd table lock
+        // held, as the close itself does; it takes interest-list locks, released
+        // before the watched object's own, in the order a close already uses.
+        self.release_epoll_registrations();
 
         // ... otherwise, drop the VirtualFile reference
         let mut guard = self.inner.write();
@@ -359,6 +328,7 @@ pub struct InodeWeakGuard {
     // care too much when the AtomicI32 is dropped, so this is
     // a strong reference to keep things simple.
     open_handles: Arc<AtomicI32>,
+    epoll_watchers: Arc<Mutex<Vec<EpollWatcher>>>,
     inner: Weak<InodeVal>,
 }
 impl InodeWeakGuard {
@@ -367,6 +337,7 @@ impl InodeWeakGuard {
     }
     pub fn upgrade(&self) -> Option<InodeGuard> {
         Weak::upgrade(&self.inner).map(|inner| InodeGuard {
+            epoll_watchers: self.epoll_watchers.clone(),
             ino: self.ino,
             open_handles: self.open_handles.clone(),
             inner,
@@ -444,6 +415,7 @@ impl WasiInodes {
         InodeGuard {
             ino,
             open_handles,
+            epoll_watchers: Default::default(),
             inner: val,
         }
     }
@@ -809,7 +781,7 @@ impl WasiFs {
 
     /// Closes all file descriptors marked CLOEXEC (except stdio and preopens).
     pub async fn close_cloexec_fds(&self) {
-        let (flush_targets, interest) = {
+        let flush_targets = {
             let mut fd_map = self.fd_map.write().unwrap();
             let to_close: Vec<WasiFd> = fd_map
                 .iter()
@@ -826,19 +798,15 @@ impl WasiFs {
                 })
                 .collect();
             let mut flush_targets = Vec::new();
-            let mut interest = EpollInterestWork::default();
             for fd in to_close {
-                interest.note_closing(&fd_map, fd);
                 let outcome = Self::close_fd_locked(&mut fd_map, fd);
                 if let Some(target) = outcome.flush_target {
                     flush_targets.push(target);
                 }
             }
-            interest.note_watchers(&fd_map);
-            (flush_targets, interest)
+            flush_targets
         };
 
-        interest.apply();
         for file in flush_targets {
             Self::flush_file_best_effort(file).await;
         }
@@ -846,16 +814,14 @@ impl WasiFs {
 
     /// Closes all file descriptors, flushing captured handles after dropping the map lock.
     pub async fn close_all(&self) {
-        let (flush_targets, interest) = {
+        let flush_targets = {
             let mut fd_map = self.fd_map.write().unwrap();
             let mut fds: HashSet<WasiFd> = fd_map.keys().collect();
             fds.insert(__WASI_STDOUT_FILENO);
             fds.insert(__WASI_STDERR_FILENO);
 
             let mut flush_targets = Vec::new();
-            let mut interest = EpollInterestWork::default();
             for fd in fds {
-                interest.note_closing(&fd_map, fd);
                 let outcome = Self::close_fd_locked(&mut fd_map, fd);
                 if let Some(target) = outcome.flush_target {
                     flush_targets.push(target);
@@ -868,12 +834,10 @@ impl WasiFs {
                     flush_targets.push(target);
                 }
             }
-            interest.note_watchers(&fd_map);
             fd_map.clear();
-            (flush_targets, interest)
+            flush_targets
         };
 
-        interest.apply();
         for file in flush_targets {
             Self::flush_file_best_effort(file).await;
         }
@@ -2779,21 +2743,10 @@ impl WasiFs {
     /// Lock order: `fd_map` write, then inode read (never the reverse).
     pub(crate) fn close_fd_and_capture_flush(&self, fd: WasiFd) -> CloseFdOutcome {
         let mut fd_map = self.fd_map.write().unwrap();
-        let mut interest = EpollInterestWork::default();
-        interest.note_closing(&fd_map, fd);
-        interest.note_watchers(&fd_map);
-        let outcome = Self::close_fd_locked(&mut fd_map, fd);
-        drop(fd_map);
-        interest.apply();
-        outcome
+        Self::close_fd_locked(&mut fd_map, fd)
     }
 
     /// Closes an open FD in an already write-locked fd map.
-    ///
-    /// Callers that hold the map lock for a batch of closes must run
-    /// [`EpollInterestWork::apply`] once the lock is released: detaching an
-    /// interest-list guard takes the watched object's write lock, and the epoll
-    /// paths already reach `fd_map.read()` from inside their own lists.
     fn close_fd_locked(fd_map: &mut FdList, fd: WasiFd) -> CloseFdOutcome {
         let Some(fd_ref) = fd_map.get(fd) else {
             trace!(%fd, "closing file descriptor failed - {}", Errno::Badf);

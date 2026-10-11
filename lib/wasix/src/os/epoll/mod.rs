@@ -7,7 +7,11 @@
 //!
 //! The implementation uses:
 //! - `EpollState`: global state for one epoll fd (`subscriptions`, ready queue, notifier).
-//! - `EpollSubState`: per-watched-fd state (`pending_bits`, `enqueued`, `generation`, metadata).
+//! - `EpollSubState`: per-watched-fd state: metadata, the guards it owns, the identity of the
+//!   watched object, and its `EpollReadiness`.
+//! - `EpollReadiness`: the readiness state a callback reaches (`pending_bits`, `enqueued`,
+//!   `generation`), shared with `EpollHandler` without the guards, so that a callback never
+//!   keeps the object it is registered on alive.
 //! - `EpollHandler`: producer-side interest handler attached to socket/pipe/notification sources.
 //!
 //! ## Important flows
@@ -17,6 +21,8 @@
 //! 2. On ADD/MOD, `register_epoll_handler()` installs an `EpollHandler` on the target fd.
 //! 3. Guard ownership is stored in `EpollSubState.joins`; dropping a subscription drops guards
 //!    and unregisters handlers.
+//! 4. On ADD, the watched inode records the registration (`InodeGuard::watch_epoll`), so that
+//!    closing its last descriptor removes it (`EpollState::prune_closed`), as Linux does.
 //!
 //! ### Producer path (`EpollHandler::push_interest`)
 //! 1. Convert `InterestType` to a readiness bit.
@@ -40,7 +46,7 @@
 use std::{
     collections::VecDeque,
     sync::{
-        Arc, Mutex as StdMutex,
+        Arc, Mutex as StdMutex, Weak,
         atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
     },
 };
@@ -56,7 +62,7 @@ use wasmer_wasix_types::wasi::{
 };
 
 use crate::{
-    fs::{InodeValFilePollGuard, InodeValFilePollGuardMode},
+    fs::{InodeVal, InodeValFilePollGuard, InodeValFilePollGuardMode},
     state::{PollEvent, PollEventBuilder, WasiState},
     syscalls::poll_fd_guard,
 };
@@ -137,11 +143,6 @@ pub struct EpollJoinGuard {
 impl EpollJoinGuard {
     fn new(fd_guard: InodeValFilePollGuard) -> Self {
         Self { fd_guard }
-    }
-
-    /// Whether this guard pins the same inode object that `target` names.
-    fn targets(&self, target: usize) -> bool {
-        self.fd_guard.target == target
     }
 }
 
@@ -245,17 +246,19 @@ impl EpollState {
         self.ready.notify.notified().await;
     }
 
+    /// `target` is the identity of the object `fd` names (`InodeGuard::identity`).
     pub(crate) fn prepare_add(
         &self,
         fd: WasiFd,
         event: &EpollEventCtl,
+        target: Weak<InodeVal>,
     ) -> Result<(EpollFd, Arc<EpollSubState>), Errno> {
         let mut subscriptions = self.subscriptions.lock().unwrap();
         if subscriptions.contains_key(&fd) {
             return Err(Errno::Exist);
         }
 
-        let (epoll_fd, sub_state) = self.build_pending_subscription(fd, event, 1);
+        let (epoll_fd, sub_state) = self.build_pending_subscription(fd, event, 1, target);
         subscriptions.insert(fd, sub_state.clone());
         Ok((epoll_fd, sub_state))
     }
@@ -271,8 +274,13 @@ impl EpollState {
         };
         tracing::trace!(fd, "unregistering waker");
 
-        let (epoll_fd, sub_state) =
-            self.build_pending_subscription(fd, event, previous.next_generation());
+        // The same descriptor, so the same object: MOD keeps the identity.
+        let (epoll_fd, sub_state) = self.build_pending_subscription(
+            fd,
+            event,
+            previous.next_generation(),
+            previous.target.clone(),
+        );
         subscriptions.insert(fd, sub_state.clone());
         Ok((epoll_fd, sub_state, previous))
     }
@@ -288,58 +296,30 @@ impl EpollState {
         Ok(())
     }
 
-    /// Drops the interest-list entry that a closing descriptor created, the way
-    /// Linux's `close()` runs `ep_remove` on every epoll instance watching the fd.
+    /// Removes the registration for `fd` if it still watches the object `target`
+    /// names: called when that object's last descriptor closes
+    /// (`InodeGuard::release_epoll_registrations`), and by an ADD that raced that
+    /// close.
     ///
-    /// Without it the entry's join guard keeps its `Arc<InodeSocketInner>` alive
-    /// after the guest has released the last handle on the inode, so the socket
-    /// object - and with it the host descriptor it owns - is never dropped.
+    /// The interest list is keyed by descriptor *number*, which is reused, so an
+    /// entry the number now names for another object is left alone.
     ///
-    /// `target` is the `Arc<InodeVal>` identity of the object being closed. The
-    /// map is keyed by fd *number*, which guests recycle, so an entry left by an
-    /// earlier owner of that number must not be taken for the current one.
-    ///
-    /// Returns 1 when an entry was detached.
-    pub(crate) fn prune_closed(&self, fd: WasiFd, target: usize) -> usize {
-        let Some(sub) = self.subscription(fd) else {
-            return 0;
-        };
-        if !sub.pins_target(target) {
-            return 0;
-        }
-        let mut subscriptions = self.subscriptions.lock().unwrap();
-        // Re-check against the live entry: a concurrent EPOLL_CTL_MOD may have
-        // replaced it, and that replacement describes a descriptor still in use.
-        match subscriptions.get(&fd) {
-            Some(current) if Arc::ptr_eq(current, &sub) => {
-                subscriptions.remove(&fd);
-            }
-            _ => return 0,
-        }
-        drop(subscriptions);
-        sub.detach_joins();
-        1
-    }
-
-    /// Empties the interest list, as Linux does when an epoll descriptor itself is
-    /// closed. Watched descriptors may outlive the instance, so this is the only
-    /// thing that releases their guards.
-    pub(crate) fn close_all(&self) -> usize {
-        let subscriptions = {
+    /// Returns whether an entry was removed.
+    pub(crate) fn prune_closed(&self, fd: WasiFd, target: &Weak<InodeVal>) -> bool {
+        let removed = {
             let mut subscriptions = self.subscriptions.lock().unwrap();
-            std::mem::take(&mut *subscriptions)
+            match subscriptions.get(&fd) {
+                Some(current) if Weak::ptr_eq(&current.target, target) => subscriptions.remove(&fd),
+                _ => None,
+            }
         };
-        let count = subscriptions.len();
-        // Detached explicitly rather than by dropping the map: a subscription is
-        // also reachable from the `EpollHandler` installed inside the watched
-        // object, so removing it from this list does not by itself drop it - and
-        // that unreachable-but-alive pin is the leak this exists to clear. Each
-        // detach takes the watched object's write lock, so the map lock is gone
-        // before this loop runs.
-        for sub in subscriptions.values() {
-            sub.detach_joins();
-        }
-        count
+        let Some(removed) = removed else {
+            return false;
+        };
+        // Outside the list lock: dropping a guard takes the watched object's own
+        // lock, and the registration paths take them the other way round.
+        removed.detach_joins();
+        true
     }
 
     pub(crate) fn rollback_registration(&self, fd: WasiFd, previous: Option<Arc<EpollSubState>>) {
@@ -351,6 +331,7 @@ impl EpollState {
         fd: WasiFd,
         event: &EpollEventCtl,
         generation: u64,
+        target: Weak<InodeVal>,
     ) -> (EpollFd, Arc<EpollSubState>) {
         let epoll_fd = EpollFd::from_event_ctl(fd, event);
         tracing::trace!(
@@ -361,9 +342,17 @@ impl EpollState {
             fd,
             "registering waker"
         );
-        let sub_state = Arc::new(EpollSubState::new(epoll_fd.clone(), generation));
+        let sub_state = Arc::new(EpollSubState::new(epoll_fd.clone(), generation, target));
         (epoll_fd, sub_state)
     }
+}
+
+/// A record, kept on a watched inode, of one epoll registration watching it.
+/// See `InodeGuard::watch_epoll`.
+#[derive(Debug)]
+pub(crate) struct EpollWatcher {
+    pub(crate) epoll: Weak<EpollState>,
+    pub(crate) fd: WasiFd,
 }
 
 #[derive(Debug)]
@@ -373,6 +362,9 @@ pub struct EpollSubState {
     /// Guard ownership for all attached handlers.
     joins: StdMutex<Vec<EpollJoinGuard>>,
     readiness: Arc<EpollReadiness>,
+    /// The object the descriptor named when it was added, so that its close
+    /// removes this entry and not one the number now names for something else.
+    target: Weak<InodeVal>,
 }
 
 /// Shared with callbacks without retaining the watched resource. In particular,
@@ -390,8 +382,9 @@ struct EpollReadiness {
 
 impl EpollSubState {
     /// Creates a new subscription state with empty readiness and queue state.
-    pub fn new(fd_meta: EpollFd, generation: u64) -> Self {
+    pub fn new(fd_meta: EpollFd, generation: u64, target: Weak<InodeVal>) -> Self {
         Self {
+            target,
             fd_meta: StdMutex::new(fd_meta),
             joins: StdMutex::new(Vec::new()),
             readiness: Arc::new(EpollReadiness {
@@ -417,16 +410,6 @@ impl EpollSubState {
     /// Detaches and drops all registered handlers for this subscription.
     pub fn detach_joins(&self) {
         self.joins.lock().unwrap().clear();
-    }
-
-    /// Whether a guard here pins the inode object that `target` names. A
-    /// subscription with no guards holds nothing, so it never matches.
-    fn pins_target(&self, target: usize) -> bool {
-        self.joins
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|join| join.targets(target))
     }
 
     pub(crate) fn fd_meta(&self) -> EpollFd {
@@ -778,6 +761,7 @@ mod tests {
                 0,
             ),
             1,
+            Weak::new(),
         ));
         let handler = EpollHandler::new(fd, epoll_state.clone(), sub_state.clone());
         (epoll_state, sub_state, handler)
@@ -796,6 +780,7 @@ mod tests {
                 0,
             ),
             generation,
+            Weak::new(),
         ))
     }
 
@@ -816,10 +801,12 @@ mod tests {
         let sub_state1 = Arc::new(EpollSubState::new(
             EpollFd::new(EpollType::EPOLLIN, 0, 10, 0, 0),
             1,
+            Weak::new(),
         ));
         let sub_state2 = Arc::new(EpollSubState::new(
             EpollFd::new(EpollType::EPOLLIN, 0, 11, 0, 0),
             1,
+            Weak::new(),
         ));
         let mut handler1 = EpollHandler::new(10, epoll_state.clone(), sub_state1.clone());
         let mut handler2 = EpollHandler::new(11, epoll_state.clone(), sub_state2.clone());
@@ -948,6 +935,7 @@ mod tests {
         let sub = Arc::new(EpollSubState::new(
             EpollFd::new(EpollType::EPOLLIN | EpollType::EPOLLOUT, 0, 90, 0, 0),
             1,
+            Weak::new(),
         ));
 
         sub.readiness
@@ -1032,7 +1020,6 @@ mod tests {
                 },
             },
             mode: InodeValFilePollGuardMode::PipeRx { rx },
-            target: 0,
         }));
         drop(sub);
         drop(epoll_state);
@@ -1048,7 +1035,11 @@ mod tests {
     fn apply_del_detaches_joins_even_if_subscription_stays_alive() {
         let epoll_state = Arc::new(EpollState::new());
         let event = test_epoll_event_ctl(55);
-        let sub = Arc::new(EpollSubState::new(EpollFd::from_event_ctl(55, &event), 1));
+        let sub = Arc::new(EpollSubState::new(
+            EpollFd::from_event_ctl(55, &event),
+            1,
+            Weak::new(),
+        ));
         epoll_state.insert_subscription(55, sub.clone());
 
         let (tx, _rx) = Pipe::new().split();
@@ -1067,7 +1058,6 @@ mod tests {
             mode: InodeValFilePollGuardMode::PipeTx {
                 tx: Arc::new(RwLock::new(Box::new(tx))),
             },
-            target: 0,
         }));
 
         let leaked_ref = sub.clone();
@@ -1078,92 +1068,78 @@ mod tests {
         assert_eq!(leaked_ref.joins.lock().unwrap().len(), 0);
     }
 
-    /// A guard that pins an object, tagged with the inode identity the caller names.
-    /// The pipe write end stands in for the watched object because dropping its guard
-    /// is deliberately inert: these tests observe the subscription, not a pipe.
-    fn test_join_guard(fd: WasiFd, target: usize) -> EpollJoinGuard {
-        let (tx, _rx) = Pipe::new().split();
-        EpollJoinGuard::new(InodeValFilePollGuard {
-            fd,
-            peb: PollEventBuilder::new().build(),
-            subscription: Subscription {
-                userdata: 0,
-                type_: Eventtype::FdRead,
-                data: SubscriptionUnion {
-                    fd_readwrite: SubscriptionFsReadwrite {
-                        file_descriptor: fd,
-                    },
-                },
-            },
-            mode: InodeValFilePollGuardMode::PipeTx {
-                tx: Arc::new(RwLock::new(Box::new(tx))),
-            },
-            target,
+    fn test_inode() -> Arc<InodeVal> {
+        Arc::new(InodeVal {
+            is_preopened: false,
+            kind: RwLock::new(crate::fs::Kind::Buffer { buffer: vec![] }),
+            name: RwLock::new(std::borrow::Cow::Borrowed("")),
+            stat: RwLock::new(Default::default()),
         })
     }
 
-    fn test_subscription(fd: WasiFd, target: usize) -> Arc<EpollSubState> {
+    fn test_subscription(fd: WasiFd, target: Weak<InodeVal>) -> Arc<EpollSubState> {
         let event = test_epoll_event_ctl(fd);
-        let sub = Arc::new(EpollSubState::new(EpollFd::from_event_ctl(fd, &event), 1));
-        sub.add_join(test_join_guard(fd, target));
-        sub
+        Arc::new(EpollSubState::new(
+            EpollFd::from_event_ctl(fd, &event),
+            1,
+            target,
+        ))
     }
 
     #[test]
-    fn prune_closed_detaches_the_closing_descriptors_subscription() {
+    fn prune_closed_removes_the_entry_for_its_object() {
         let epoll_state = Arc::new(EpollState::new());
-        let sub = test_subscription(61, 0x1234);
-        epoll_state.insert_subscription(61, sub.clone());
+        let watched = test_inode();
+        epoll_state.insert_subscription(61, test_subscription(61, Arc::downgrade(&watched)));
 
-        assert_eq!(epoll_state.prune_closed(61, 0x9999), 0);
-        assert_eq!(epoll_state.prune_closed(61, 0x1234), 1);
-
+        assert!(epoll_state.prune_closed(61, &Arc::downgrade(&watched)));
         assert!(
-            sub.joins.lock().unwrap().is_empty(),
-            "closing the watched descriptor must release the guard pinning it"
-        );
-        assert!(
-            epoll_state.subscriptions.lock().unwrap().is_empty(),
+            epoll_state.subscription(61).is_none(),
             "a pruned number must be free for the next EPOLL_CTL_ADD"
         );
     }
 
     #[test]
-    fn prune_closed_leaves_a_number_that_now_names_another_object() {
+    fn prune_closed_leaves_an_entry_the_number_now_names_for_another_object() {
         let epoll_state = Arc::new(EpollState::new());
-        let sub = test_subscription(62, 0xAAAA);
-        epoll_state.insert_subscription(62, sub.clone());
+        let earlier = test_inode();
+        let current = test_inode();
+        epoll_state.insert_subscription(62, test_subscription(62, Arc::downgrade(&current)));
 
-        // An earlier owner of fd 62 closed after this one registered: that close
-        // may not disarm a descriptor still in use.
-        assert_eq!(epoll_state.prune_closed(62, 0xBBBB), 0);
-        assert_eq!(sub.joins.lock().unwrap().len(), 1);
+        // The earlier owner of fd 62 closing must not disarm the current one.
+        assert!(!epoll_state.prune_closed(62, &Arc::downgrade(&earlier)));
         assert!(epoll_state.subscription(62).is_some());
     }
 
+    /// The registration goes when the inode's last handle does, and not before:
+    /// a dup, or a forked child's copy of the descriptor, keeps it.
     #[test]
-    fn prune_closed_leaves_a_subscription_that_pins_nothing() {
+    fn a_registration_lasts_until_the_last_handle_on_its_inode_closes() {
+        let inodes = crate::fs::WasiInodes::new();
+        let watched = inodes.add_inode_val(InodeVal {
+            is_preopened: false,
+            kind: RwLock::new(crate::fs::Kind::Buffer { buffer: vec![] }),
+            name: RwLock::new(std::borrow::Cow::Borrowed("")),
+            stat: RwLock::new(Default::default()),
+        });
         let epoll_state = Arc::new(EpollState::new());
-        let event = test_epoll_event_ctl(63);
-        let sub = Arc::new(EpollSubState::new(EpollFd::from_event_ctl(63, &event), 1));
-        epoll_state.insert_subscription(63, sub.clone());
+        epoll_state.insert_subscription(64, test_subscription(64, watched.identity()));
+        watched.watch_epoll(&epoll_state, 64);
 
-        assert_eq!(epoll_state.prune_closed(63, 0x1234), 0);
-        assert!(epoll_state.subscription(63).is_some());
-    }
+        // The descriptor and a dup of it.
+        watched.acquire_handle();
+        watched.acquire_handle();
 
-    #[test]
-    fn close_all_detaches_every_subscription_of_a_closed_instance() {
-        let epoll_state = Arc::new(EpollState::new());
-        let first = test_subscription(70, 0x1);
-        let second = test_subscription(71, 0x2);
-        epoll_state.insert_subscription(70, first.clone());
-        epoll_state.insert_subscription(71, second.clone());
+        watched.drop_one_handle();
+        assert!(
+            epoll_state.subscription(64).is_some(),
+            "closing one of two descriptors must keep the registration"
+        );
 
-        assert_eq!(epoll_state.close_all(), 2);
-
-        assert!(first.joins.lock().unwrap().is_empty());
-        assert!(second.joins.lock().unwrap().is_empty());
-        assert!(epoll_state.subscriptions.lock().unwrap().is_empty());
+        watched.drop_one_handle();
+        assert!(
+            epoll_state.subscription(64).is_none(),
+            "closing the last descriptor must remove the registration"
+        );
     }
 }

@@ -1,5 +1,7 @@
-//! WASIX-level coverage for the interest-list sweep that a closing descriptor
-//! must run on every epoll instance watching it (`EpollInterestWork`).
+//! WASIX-level coverage for removing a closed descriptor's epoll registrations:
+//! when the last descriptor naming an object closes, every epoll instance
+//! watching it drops its entry (`InodeGuard::release_epoll_registrations`), as
+//! Linux does on the last close of an open file description.
 //!
 //! The `src/os/epoll/mod.rs` unit tests observe `EpollState::subscriptions`
 //! directly, so they prove the bookkeeping but not the symptom the guest saw. The
@@ -20,21 +22,22 @@
 //!   non-vacuous: it proves a present interest-list entry really does make
 //!   `ADD` refuse, so a later `Success` cannot be read as "this host never
 //!   refuses a duplicate".
-//! * `fd_close(a)` -> `Success`. The sweep runs before the syscall returns
-//!   (`FdList::close_fd_and_capture_flush` notes the closing descriptor and its
-//!   watchers, drops the map lock, then applies), so no other call is needed to
-//!   flush it.
+//! * `fd_close(a)` -> `Success`. `a` is the only descriptor naming its object, so
+//!   this is the last close, and the registrations go before the syscall returns
+//!   (`WasiFs::close_fd_and_capture_flush` drops the inode's last handle, which
+//!   removes them).
 //! * A fresh `sock_pair` then answers the *same* number `a` (the fd table is
 //!   lowest-free-first), and `ADD` of that number succeeds on **both** instances
-//!   that watched it. Before the sweep existed both answers `Exist`, which is the
+//!   that watched it. Without the removal both answer `Exist`, which is the
 //!   failure mode, not a variant of it.
 //!
 //! The watched objects here are `Kind::DuplexPipe` inodes: `sock_pair` builds a
 //! `Pipe::channel()` pair and ignores the family/type/proto arguments outright, so
 //! this covers the interest-list lifetime, which is shared by every watchable
 //! kind, rather than the `Kind::Socket` teardown that closes the host descriptor.
-//! Which kinds are swept is `EpollInterestWork::note_closing`'s own match, and the
-//! unit tests above pin `Kind::Socket` targets by identity.
+//! That, readiness after a close, and the cases where a close must *not* remove
+//! a registration (a dup, a forked child), are covered by the C fixtures under
+//! `wasm_tests/poll/`.
 //!
 //! Like `tests/stdio.rs` these need an engine with a compiler backend:
 //! `cargo test -p wasmer-wasix --features wasmer/cranelift --test epoll_prune_on_close`.
@@ -73,30 +76,21 @@ const R_CLOSE: u32 = 152;
 const R_PAIR2: u32 = 156;
 const R_READD_FIRST: u32 = 160;
 const R_READD_SECOND: u32 = 164;
-const R_WAIT_ERRNO: u32 = 200;
-const R_WAIT_NEVENTS: u32 = 204;
 
-/// Where the guest keeps the one `ep_event` it passes to every `EPOLL_CTL_ADD`,
-/// and the array `epoll_wait` writes into. Both are 8-byte aligned because the
-/// event's `data2` is a `u64`, and the buffer bounds are derived from the real
-/// struct rather than assumed: the module below hardcodes `512`, `1024` and
-/// `1152`, which the assertions here are the check on.
+/// Where the guest keeps the one `ep_event` it passes to every `EPOLL_CTL_ADD`.
+/// 8-byte aligned because the event's `data2` is a `u64`; the module below
+/// hardcodes `512`, which the assertions here are the check on.
 const EVENT_IN: u32 = 512;
-const EVENT_OUT: u32 = 1024;
-const MAXEVENTS: u32 = 4;
-const NEVENTS_OUT: u32 = EVENT_OUT + MAXEVENTS * EVENT_BYTES;
 
 const EVENT_BYTES: u32 = core::mem::size_of::<EpollEvent<Memory32>>() as u32;
 
 const _: () = assert!(core::mem::offset_of!(EpollEvent<Memory32>, events) == 0);
-const _: () = assert!(EVENT_BYTES % 8 == 0);
-const _: () = assert!(NEVENTS_OUT % 8 == 0);
-const _: () = assert!(EVENT_IN % 8 == 0 && EVENT_OUT % 8 == 0);
-// The four regions the module uses must name distinct bytes, and the whole set
-// must sit inside the single page the module declares.
-const _: () = assert!(R_WAIT_NEVENTS + 4 < EVENT_IN);
-const _: () = assert!(EVENT_IN + EVENT_BYTES < EVENT_OUT);
-const _: () = assert!(NEVENTS_OUT + 4 < 65_536);
+const _: () = assert!(EVENT_BYTES.is_multiple_of(8));
+const _: () = assert!(EVENT_IN.is_multiple_of(8));
+// The result slots and the event must name distinct bytes, inside the single page
+// the module declares.
+const _: () = assert!(R_READD_SECOND + 4 < EVENT_IN);
+const _: () = assert!(EVENT_IN + EVENT_BYTES < 65_536);
 
 /// `EPOLL_CTL_ADD`, pinned against the enum the syscall actually parses: if this
 /// discriminant ever moved, every registration below would be a different
@@ -108,7 +102,6 @@ const PROBE_WAT: &str = r#"
 (module
   (import "wasix_32v1" "epoll_create" (func $epoll_create (param i32) (result i32)))
   (import "wasix_32v1" "epoll_ctl" (func $epoll_ctl (param i32 i32 i32 i32) (result i32)))
-  (import "wasix_32v1" "epoll_wait" (func $epoll_wait (param i32 i32 i32 i64 i32) (result i32)))
   (import "wasix_32v1" "sock_pair" (func $sock_pair (param i32 i32 i32 i32 i32) (result i32)))
   (import "wasix_32v1" "fd_close" (func $fd_close (param i32) (result i32)))
   (memory (export "memory") 1)
@@ -153,23 +146,6 @@ const PROBE_WAT: &str = r#"
       (i32.const 164)
       (call $epoll_ctl (i32.load (i32.const 68)) (i32.const 0) (i32.load (i32.const 80)) (i32.const 512))
     )
-  )
-  ;; Poll the first instance once, with an empty interest list expected. A zero
-  ;; timeout is answered with Success and zero events by the host's own timeout
-  ;; arm, so a non-zero `nevents` here can only mean a retained entry.
-  (func (export "wait_after_close") (param $epollin i32)
-    (call $before_close (local.get $epollin))
-    (i32.store
-      (i32.const 200)
-      (call $epoll_wait
-        (i32.load (i32.const 64))
-        (i32.const 1024)
-        (i32.const 4)
-        (i64.const 0)
-        (i32.const 1152)
-      )
-    )
-    (i32.store (i32.const 204) (i32.load (i32.const 1152)))
   )
 )
 "#;
@@ -230,8 +206,6 @@ impl Probe {
             R_PAIR2,
             R_READD_FIRST,
             R_READD_SECOND,
-            R_WAIT_ERRNO,
-            R_WAIT_NEVENTS,
         ] {
             assert_eq!(
                 probe.read(i64::from(slot)),
@@ -359,29 +333,5 @@ fn closing_a_watched_descriptor_frees_its_number_for_the_next_epoll_ctl_add() {
         probe.errno(R_READD_SECOND),
         ep1 = probe.read(i64::from(OUT_EP1)),
         ep2 = probe.read(i64::from(OUT_EP2)),
-    );
-}
-
-#[test]
-fn closing_a_watched_descriptor_leaves_epoll_wait_with_nothing_to_report() {
-    let mut probe = Probe::new();
-    probe.run("wait_after_close");
-
-    probe.assert_errno(R_ADD_LIVE, Errno::Success);
-    probe.assert_errno(R_ADD_LIVE_DUP, Errno::Exist);
-    probe.assert_errno(R_CLOSE, Errno::Success);
-
-    // A zero timeout is answered `Success` with `nevents` written as 0 by the
-    // host's timeout arm, so a count here can only have come from a retained
-    // entry firing for a descriptor the guest no longer holds.
-    probe.assert_errno(R_WAIT_ERRNO, Errno::Success);
-    let nevents = probe.read(i64::from(R_WAIT_NEVENTS));
-    assert_eq!(
-        nevents, 0,
-        "epoll_wait reported a readiness event for the closed descriptor"
-    );
-    println!(
-        "measured: epoll_wait after close -> errno={} nevents={nevents} (maxevents {MAXEVENTS})",
-        probe.errno(R_WAIT_ERRNO),
     );
 }
