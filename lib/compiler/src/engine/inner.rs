@@ -293,8 +293,9 @@ impl Engine {
         unsafe {
             let mut file = std::fs::File::open(file_ref)?;
             let mut magic = [0; 4];
-            let is_elf = file.read_exact(&mut magic).is_ok() && magic == object::elf::ELFMAG;
-            if is_elf {
+            let is_native = file.read_exact(&mut magic).is_ok()
+                && crate::ArtifactBuild::has_native_header(&magic);
+            if is_native {
                 return Ok(Arc::new(Artifact::deserialize_file(self, file_ref)?));
             }
             file.rewind()?;

@@ -246,7 +246,9 @@ impl FuncTranslator {
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
-        let debug_info = if config.experimental_artifact {
+
+        // TODO: support dSYM debug info file creation and loading in the future
+        let debug_info = if matches!(target.binary_format, BinaryFormat::Elf) {
             let source_location = self.source_map.first_in_function(function_body);
             let debug_metadata_version = self
                 .ctx

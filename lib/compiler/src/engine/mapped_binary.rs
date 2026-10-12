@@ -10,7 +10,7 @@ use std::{os::fd::RawFd, ptr, slice};
 use itertools::Itertools;
 use object::{Object, ObjectSection, ReadRef};
 #[cfg(unix)]
-use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf};
+use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf, macho};
 use wasmer_vm::LibCall;
 #[cfg(unix)]
 use wasmer_vm::libcalls::function_pointer;
@@ -176,6 +176,70 @@ pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
+/// Maps an Mach-O dynamic-relocation symbol name to the `LibCall` it refers to.
+pub static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
+    "_ceilf" => LibCall::CeilF32,
+    "_ceil" => LibCall::CeilF64,
+    "_floorf" => LibCall::FloorF32,
+    "_floor" => LibCall::FloorF64,
+    "_nearbyintf" => LibCall::NearestF32,
+    "_nearbyint" => LibCall::NearestF64,
+    "_sqrtf" => LibCall::SqrtF32,
+    "_sqrt" => LibCall::SqrtF64,
+    "_truncf" => LibCall::TruncF32,
+    "_trunc" => LibCall::TruncF64,
+    "_wasmer_vm_f32_ceil" => LibCall::CeilF32,
+    "_wasmer_vm_f64_ceil" => LibCall::CeilF64,
+    "_wasmer_vm_f32_floor" => LibCall::FloorF32,
+    "_wasmer_vm_f64_floor" => LibCall::FloorF64,
+    "_wasmer_vm_f32_nearest" => LibCall::NearestF32,
+    "_wasmer_vm_f64_nearest" => LibCall::NearestF64,
+    "_wasmer_vm_f32_sqrt" => LibCall::SqrtF32,
+    "_wasmer_vm_f64_sqrt" => LibCall::SqrtF64,
+    "_wasmer_vm_f32_trunc" => LibCall::TruncF32,
+    "_wasmer_vm_f64_trunc" => LibCall::TruncF64,
+    "_wasmer_vm_memory32_size" => LibCall::Memory32Size,
+    "_wasmer_vm_imported_memory32_size" => LibCall::ImportedMemory32Size,
+    "_wasmer_vm_table_copy" => LibCall::TableCopy,
+    "_wasmer_vm_table_init" => LibCall::TableInit,
+    "_wasmer_vm_table_fill" => LibCall::TableFill,
+    "_wasmer_vm_table_size" => LibCall::TableSize,
+    "_wasmer_vm_imported_table_size" => LibCall::ImportedTableSize,
+    "_wasmer_vm_table_get" => LibCall::TableGet,
+    "_wasmer_vm_imported_table_get" => LibCall::ImportedTableGet,
+    "_wasmer_vm_table_set" => LibCall::TableSet,
+    "_wasmer_vm_imported_table_set" => LibCall::ImportedTableSet,
+    "_wasmer_vm_table_grow" => LibCall::TableGrow,
+    "_wasmer_vm_imported_table_grow" => LibCall::ImportedTableGrow,
+    "_wasmer_vm_func_ref" => LibCall::FuncRef,
+    "_wasmer_vm_elem_drop" => LibCall::ElemDrop,
+    "_wasmer_vm_memory32_copy" => LibCall::Memory32Copy,
+    "_wasmer_vm_memory32_fill" => LibCall::Memory32Fill,
+    "_wasmer_vm_imported_memory32_fill" => LibCall::ImportedMemory32Fill,
+    "_wasmer_vm_memory32_init" => LibCall::Memory32Init,
+    "_wasmer_vm_data_drop" => LibCall::DataDrop,
+    "_wasmer_vm_raise_trap" => LibCall::RaiseTrap,
+    "_wasmer_vm_memory32_atomic_wait32" => LibCall::Memory32AtomicWait32,
+    "_wasmer_vm_imported_memory32_atomic_wait32" => LibCall::ImportedMemory32AtomicWait32,
+    "_wasmer_vm_memory32_atomic_wait64" => LibCall::Memory32AtomicWait64,
+    "_wasmer_vm_imported_memory32_atomic_wait64" => LibCall::ImportedMemory32AtomicWait64,
+    "_wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
+    "_wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
+
+    "_wasmer_vm_throw" => LibCall::Throw,
+    "_wasmer_vm_alloc_exception" => LibCall::AllocException,
+    "_wasmer_vm_read_exnref" => LibCall::ReadExnRef,
+    "_wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
+    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
+    // will generate things differently than "normal", wreaking havoc.
+    //
+    // todo: find out if it is a bug in LLVM or it is expected.
+    "___gxx_personality_v0" => LibCall::EHPersonality,
+    "_wasmer_eh_personality2" => LibCall::EHPersonality2,
+    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "_wasmer_vm_dbg_str" => LibCall::DebugStr,
+};
+
 #[cfg(unix)]
 #[derive(Debug)]
 struct ImageSegment {
@@ -195,6 +259,11 @@ impl ImageSegment {
                 p_flags.contains(elf::PF_R),
                 p_flags.contains(elf::PF_W),
                 p_flags.contains(elf::PF_X),
+            ),
+            SegmentFlags::MachO { initprot, .. } => (
+                initprot.contains(macho::VM_PROT_READ),
+                initprot.contains(macho::VM_PROT_WRITE),
+                initprot.contains(macho::VM_PROT_EXECUTE),
             ),
             _ => return Err(format!("unsupported segment flags: {:?}", self.flags)),
         };
@@ -309,11 +378,13 @@ impl MemoryMappedBinary {
 
         // Create a contiguous virtual address memory map that will be populated
         // per-partes with the individual protection flags.
-        let map = Self::new_mmap(total_memory_size)?;
+        #[allow(unused_mut)]
+        let mut map = Self::new_mmap(total_memory_size)?;
         let base = map.base();
+        let is_macho = object_file.format() == object::BinaryFormat::MachO;
 
         // Mmap individual load segments
-        for load_segment in segments {
+        for load_segment in &segments {
             // The virtual offset does not need to start at a page boundary.
             if load_segment.file_address % page_size != load_segment.mem_address % page_size {
                 return Err(format!(
@@ -323,11 +394,20 @@ impl MemoryMappedBinary {
             }
 
             let protection = load_segment.protection()?;
+            // Chained fixups can live in read-only segments. Keep the image
+            // writable (and non-executable) until all fixups have been applied.
+            let protection = if is_macho && protection != libc::PROT_NONE {
+                libc::PROT_READ | libc::PROT_WRITE
+            } else {
+                protection
+            };
 
             let offset = load_segment.mem_address_page_aligned();
             let size = load_segment.file_size_page_aligned();
             let file_offset = load_segment.file_address_page_aligned();
-            let result = if let Some(file) = file {
+            let result = if size == 0 {
+                Ok(())
+            } else if let Some(file) = file {
                 map.map_file(offset, size, protection, file, file_offset)
             } else {
                 map.map_copy(
@@ -448,7 +528,110 @@ impl MemoryMappedBinary {
             }
         }
 
+        match object_file {
+            object::File::MachO64(macho) => map.apply_chained_fixups(macho)?,
+            object::File::MachO32(_) => {
+                return Err("32-bit Mach-O images are not supported".to_string());
+            }
+            _ => {}
+        }
+        if is_macho {
+            for segment in &segments {
+                let size = segment.mem_size_page_aligned();
+                if size != 0
+                    && unsafe {
+                        libc::mprotect(
+                            base.add(segment.mem_address_page_aligned()),
+                            size,
+                            segment.protection()?,
+                        )
+                    } != 0
+                {
+                    return Err(std::io::Error::last_os_error().to_string());
+                }
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        if is_macho && let Some(section) = object_file.section_by_name("__unwind_info") {
+            let text_base = object_file
+                .segments()
+                .find(|segment| segment.name().ok().flatten() == Some("__TEXT"))
+                .ok_or("Mach-O image has no __TEXT segment")?
+                .address();
+            map.publish_unwind_info_section(text_base, section.address(), section.size())?;
+        }
+
         Ok(map)
+    }
+
+    fn apply_chained_fixups<'a, Mach, R>(
+        &self,
+        image: &object::read::macho::MachOFile<'a, Mach, R>,
+    ) -> Result<(), String>
+    where
+        Mach: object::read::macho::MachHeader,
+        R: ReadRef<'a>,
+    {
+        use object::read::macho::Fixup;
+
+        let endian = image.endian();
+        let segments = image.segments().collect_vec();
+        let preferred_load_address = segments
+            .iter()
+            .find(|segment| segment.name().ok().flatten() == Some("__TEXT"))
+            .ok_or("Mach-O image has no __TEXT segment")?
+            .address();
+        let mut commands = image.macho_load_commands().map_err(|e| e.to_string())?;
+        while let Some(command) = commands.next().map_err(|e| e.to_string())? {
+            let Some(command) = command.dyld_chained_fixups().map_err(|e| e.to_string())? else {
+                continue;
+            };
+            let fixups = command
+                .chained_fixups(endian, image.data())
+                .map_err(|e| e.to_string())?;
+            let imports = fixups
+                .imports(endian)
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
+            for segment in fixups.segments(endian).map_err(|e| e.to_string())? {
+                let segment = segment.map_err(|e| e.to_string())?;
+                let source = segments
+                    .get(segment.index() as usize)
+                    .ok_or("Invalid Mach-O chained fixup segment index")?;
+                let data = source.data().map_err(|e| e.to_string())?;
+                for fixup in segment.fixups(endian, preferred_load_address, data) {
+                    let (offset, fixup) = fixup.map_err(|e| e.to_string())?;
+                    let value = match fixup {
+                        Fixup::Rebase(rebase) if rebase.auth.is_none() => (self.base as usize)
+                            .wrapping_add(preferred_load_address as usize)
+                            .wrapping_add(rebase.target_offset as usize),
+                        Fixup::Bind(bind) if bind.auth.is_none() => {
+                            // The artifact imports from a single dylib: Wasmer.
+                            let import = imports
+                                .get(bind.ordinal as usize)
+                                .ok_or("Invalid Mach-O chained bind ordinal")?;
+                            let symbol =
+                                std::str::from_utf8(import.name).map_err(|e| e.to_string())?;
+                            let libcall = LIBCALLS_MACHO.get(symbol).ok_or_else(|| {
+                                format!("unsupported Mach-O chained bind symbol {symbol}")
+                            })?;
+                            function_pointer(*libcall)
+                                .wrapping_add(import.addend as usize)
+                                .wrapping_add(bind.addend as usize)
+                        }
+                        _ => return Err(format!("unsupported Mach-O chained fixup {fixup:?}")),
+                    };
+                    let offset = source
+                        .address()
+                        .checked_add(offset)
+                        .ok_or("Mach-O chained fixup address overflow")?;
+                    self.write_relocation(offset, value)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn write_relocation(&self, offset: u64, value: usize) -> Result<(), String> {
@@ -537,6 +720,30 @@ impl MemoryMappedBinary {
         _size: u64,
     ) -> Result<(), String> {
         Err("ELF artifacts are not supported on macOS".to_string())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn publish_unwind_info_section(
+        &mut self,
+        image_base: u64,
+        address: u64,
+        size: u64,
+    ) -> Result<(), String> {
+        if address
+            .checked_add(size)
+            .is_none_or(|end| end > self.size as u64)
+            || image_base >= self.size as u64
+        {
+            return Err("Compact unwind section exceeds allocated range".to_string());
+        }
+        let section = unsafe {
+            slice::from_raw_parts(self.base.cast::<u8>().add(address as usize), size as usize)
+        };
+        let base = self.base as usize;
+        self.unwind_registry
+            .as_mut()
+            .expect("unwind registry should remain alive until MemoryMap::drop")
+            .publish_unwind_info(base + image_base as usize..base + self.size, section)
     }
 
     /// Maps an anonymous zero-filled region at `offset` with the given

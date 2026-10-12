@@ -472,6 +472,7 @@ impl Compiler for LLVMCompiler {
                 target,
                 compile_info_blob,
                 CompiledObjects {
+                    emit_trap_offsets: false,
                     object_files,
                     import_trampoline_object_files: Vec::new(),
                     trampoline_object_files: trampolines_objects,

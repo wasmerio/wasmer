@@ -255,9 +255,9 @@ impl Artifact {
         ))
     }
 
-    /// Load an ELF artifact directly from a file-backed memory map.
+    /// Load a native artifact directly from a file-backed memory map.
     ///
-    /// Unlike [`Self::deserialize`], this entrypoint only accepts ELF artifacts.
+    /// Unlike [`Self::deserialize`], this entrypoint only accepts ELF or Mach-O artifacts.
     ///
     /// # Safety
     /// This function loads executable code into memory. The file must be trusted
@@ -271,9 +271,12 @@ impl Artifact {
         let cache = ReadCache::new(BufReader::new(file));
         let image = object::File::parse(&cache)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        if image.format() != object::BinaryFormat::Elf {
+        if !matches!(
+            image.format(),
+            object::BinaryFormat::Elf | object::BinaryFormat::MachO
+        ) {
             return Err(DeserializeError::Incompatible(
-                "Artifact::deserialize_file only supports ELF artifacts".to_string(),
+                "Artifact::deserialize_file only supports ELF or Mach-O artifacts".to_string(),
             ));
         }
 
@@ -302,7 +305,7 @@ impl Artifact {
 
     /// Deserialize an ELF artifact held in memory, if the bytes contain one.
     fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
-        if !bytes.starts_with(&object::elf::ELFMAG) {
+        if !ArtifactBuild::has_native_header(bytes) {
             return Ok(None);
         }
 
@@ -831,9 +834,12 @@ impl Artifact {
         let cache = ReadCache::new(BufReader::new(file));
         let image = object::File::parse(&cache)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        if image.format() != object::BinaryFormat::Elf {
+        if !matches!(
+            image.format(),
+            object::BinaryFormat::Elf | object::BinaryFormat::MachO
+        ) {
             return Err(DeserializeError::Incompatible(
-                "file-backed Artifact is not ELF".to_string(),
+                "file-backed Artifact is not ELF or Mach-O".to_string(),
             ));
         }
         let base = engine_inner.map_elf_binary_file(&image, fd)?;
@@ -880,9 +886,29 @@ impl Artifact {
                             "cannot load image section data: {e}"
                         ))
                     })?;
+                    let is_macho = image.format() == object::BinaryFormat::MachO;
+                    // Mach-O stores chained pointers here, not plain offsets.
+                    // Read the pointers after the mapper has applied the fixups.
+                    let data = if is_macho {
+                        unsafe {
+                            std::slice::from_raw_parts(
+                                base.cast::<u8>().add(section.address() as usize),
+                                data.len(),
+                            )
+                        }
+                    } else {
+                        data
+                    };
                     function_offsets = Some(
                         data.chunks_exact(std::mem::size_of::<usize>())
-                            .map(|chunk| usize::from_le_bytes(chunk.try_into().unwrap()))
+                            .map(|chunk| {
+                                let value = usize::from_le_bytes(chunk.try_into().unwrap());
+                                if is_macho {
+                                    value.wrapping_sub(base as usize)
+                                } else {
+                                    value
+                                }
+                            })
                             .collect_vec(),
                     );
                 }
@@ -1883,11 +1909,12 @@ impl Artifact {
 /// parsed lazily instead of duplicating all trap tables in memory.
 pub(crate) struct TrapReader {
     source: DebugInfoSource,
+    image_base: usize,
 }
 
 impl TrapReader {
-    pub(crate) fn new(source: DebugInfoSource) -> Self {
-        Self { source }
+    pub(crate) fn new(source: DebugInfoSource, image_base: usize) -> Self {
+        Self { source, image_base }
     }
 
     /// Looks up the trap information for `local_index` at `rel_pos`, the offset
@@ -1900,33 +1927,41 @@ impl TrapReader {
         match &self.source {
             DebugInfoSource::Bytes(data) => {
                 let image = object::File::parse(&data[..]).ok()?;
-                Self::lookup_in_image(&image, local_index, rel_pos)
+                self.lookup_in_image(&image, local_index, rel_pos)
             }
             DebugInfoSource::File(file) => {
                 let file = file.lock().unwrap();
                 let cache = ReadCache::new(BufReader::new(file.try_clone().ok()?));
                 let image = object::File::parse(&cache).ok()?;
-                Self::lookup_in_image(&image, local_index, rel_pos)
+                self.lookup_in_image(&image, local_index, rel_pos)
             }
         }
     }
 
     fn lookup_in_image<'data, R: ReadRef<'data>>(
+        &self,
         image: &object::File<'data, R>,
         local_index: LocalFunctionIndex,
         rel_pos: u32,
     ) -> Option<TrapInformation> {
         let traps_section = image.section_by_name_bytes(WASMER_TRAPS_SECTION_NAME)?;
-        let trap_offsets = image
-            .section_by_name_bytes(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)?
-            .data()
-            .ok()?;
+        let offsets_section =
+            image.section_by_name_bytes(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)?;
+        let trap_offsets = offsets_section.data().ok()?;
         let slot = local_index.index().checked_mul(size_of::<usize>())?;
         let offset_bytes = trap_offsets.get(slot..slot + size_of::<usize>())?;
 
-        // These slots contain relocated virtual addresses, not section-relative
-        // offsets. ELF currently emitted by Wasmer is native and little-endian.
-        let trap_address = usize::from_le_bytes(offset_bytes.try_into().ok()?);
+        // Mach-O slots contain chained pointers on disk. Read the mapped
+        // slot after fixups, just as function-offset lookup does.
+        let trap_address = if image.format() == object::BinaryFormat::MachO {
+            let address = self
+                .image_base
+                .checked_add(offsets_section.address() as usize)?
+                .checked_add(slot)?;
+            unsafe { (address as *const usize).read_unaligned() }.checked_sub(self.image_base)?
+        } else {
+            usize::from_le_bytes(offset_bytes.try_into().ok()?)
+        };
         let trap_offset = trap_address.checked_sub(traps_section.address() as usize)?;
         let traps = Self::parse_function_traps(traps_section.data().ok()?, trap_offset)?;
         traps
