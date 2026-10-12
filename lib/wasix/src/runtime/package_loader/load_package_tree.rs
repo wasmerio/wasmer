@@ -67,12 +67,6 @@ pub async fn load_package_tree(
     let root = &resolution.package.root_package;
     let commands = commands(&resolution.package.commands, &containers, resolution)?;
 
-    let file_system_memory_footprint = if let Some(fs) = &fs_opt {
-        count_package_mounts(fs)
-    } else {
-        0
-    };
-
     let loaded = BinaryPackage {
         id: root.clone(),
         package_ids,
@@ -88,7 +82,6 @@ pub async fn load_package_tree(
         package_mounts: fs_opt.map(Arc::new),
         commands,
         uses: Vec::new(),
-        file_system_memory_footprint,
 
         additional_host_mapped_directories: vec![],
     };
@@ -362,43 +355,6 @@ fn packages_needed_for_load(pkg: &ResolvedPackage) -> HashSet<PackageId> {
     packages.remove(&pkg.root_package);
 
     packages
-}
-
-/// How many bytes worth of files does a directory contain?
-fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
-    let mut total = 0;
-
-    let dir = match fs.read_dir(path) {
-        Ok(d) => d,
-        Err(_err) => {
-            return 0;
-        }
-    };
-
-    for entry in dir.flatten() {
-        if let Ok(meta) = entry.metadata() {
-            total += meta.len();
-            if meta.is_dir() {
-                total += count_file_system(fs, entry.path.as_path());
-            }
-        }
-    }
-
-    total
-}
-
-fn count_package_mounts(mounts: &BinaryPackageMounts) -> u64 {
-    let mut total = 0;
-
-    if let Some(root_layer) = &mounts.root_layer {
-        total += count_file_system(root_layer.as_ref(), Path::new("/"));
-    }
-
-    for mount in &mounts.mounts {
-        total += count_file_system(mount.fs.as_ref(), Path::new("/"));
-    }
-
-    total
 }
 
 /// Given a set of [`ResolvedFileSystemMapping`]s and the [`Container`] for each
