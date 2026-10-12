@@ -443,6 +443,25 @@ impl MachineARM64 {
         }
         Ok(())
     }
+    fn emit_relaxed_fcvt(
+        &mut self,
+        src_size: Size,
+        dst_size: Size,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let src = self.location_to_neon(src_size, src, &mut temps, ImmType::None, true)?;
+        let dest = self.location_to_neon(dst_size, dst, &mut temps, ImmType::None, false)?;
+        self.assembler.emit_fcvt(src_size, src, dest)?;
+        if dst != dest {
+            self.move_location(dst_size, dest, dst)?;
+        }
+        for r in temps {
+            self.release_simd(r);
+        }
+        Ok(())
+    }
     fn emit_relaxed_binop3(
         &mut self,
         op: fn(&mut Assembler, Size, Location, Location, Location) -> Result<(), CompileError>,
@@ -7787,11 +7806,11 @@ impl Machine for MachineARM64 {
     }
 
     fn convert_f64_f32(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        self.emit_relaxed_binop_neon(Assembler::emit_fcvt, Size::S32, loc, ret, true)
+        self.emit_relaxed_fcvt(Size::S32, Size::S64, loc, ret)
     }
 
     fn convert_f32_f64(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        self.emit_relaxed_binop_neon(Assembler::emit_fcvt, Size::S64, loc, ret, true)
+        self.emit_relaxed_fcvt(Size::S64, Size::S32, loc, ret)
     }
 
     fn f64_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {

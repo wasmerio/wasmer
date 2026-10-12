@@ -1,4 +1,4 @@
-use crate::{Pages, ValueType, WASM_PAGE_SIZE};
+use crate::{Pages, ValueType};
 use core::ops::SubAssign;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
+
+const HUGE_PAGE_SIZE: u64 = 2 * 1024 * 1024;
 
 /// Implementation styles for WebAssembly linear memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
@@ -24,7 +26,7 @@ pub enum MemoryStyle {
     },
     /// Address space is allocated up front.
     ///
-    /// Static memories reserve 8 GiB (plus one extra page) of virtual address space at runtime:
+    /// Static memories reserve 8 GiB (plus an extra 2 MiB) of virtual address space at runtime:
     /// the 4 GiB wasm32 address space plus a 4 GiB offset guard. This lets generated
     /// code omit bounds checks while still relying on protected virtual memory
     /// to trap out-of-bounds accesses.
@@ -38,9 +40,10 @@ impl MemoryStyle {
     }
 
     /// Static memory reserves an additional 4 GiB offset guard
-    /// (plus one extra page as one can access up to 16B at the effective address).
+    /// (plus an extra 2 MiB as one can access up to 16B at the effective address,
+    /// keeping the reservation size a multiple of the huge page size).
     pub const fn static_offset_guard_size() -> u64 {
-        0x1_0000_0000 + WASM_PAGE_SIZE as u64
+        0x1_0000_0000 + HUGE_PAGE_SIZE
     }
 
     /// Returns the offset-guard size.

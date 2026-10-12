@@ -184,22 +184,6 @@ impl CanonicalizeType {
             CanonicalizeType::None => None,
         }
     }
-
-    fn promote(self) -> Result<Self, CompileError> {
-        match self {
-            CanonicalizeType::None => Ok(CanonicalizeType::None),
-            CanonicalizeType::F32 => Ok(CanonicalizeType::F64),
-            CanonicalizeType::F64 => codegen_error!("cannot promote F64"),
-        }
-    }
-
-    fn demote(self) -> Result<Self, CompileError> {
-        match self {
-            CanonicalizeType::None => Ok(CanonicalizeType::None),
-            CanonicalizeType::F32 => codegen_error!("cannot demote F64"),
-            CanonicalizeType::F64 => Ok(CanonicalizeType::F32),
-        }
-    }
 }
 
 trait WpTypeExt {
@@ -783,7 +767,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .take(return_value_sizes.len())
             .copied()
             .collect_vec();
-        let mut return_values = used_stack_params.clone();
+        // Reuse argument locations, not their pending canonicalization metadata.
+        let mut return_values = used_stack_params
+            .iter()
+            .map(|(loc, _)| (*loc, CanonicalizeType::None))
+            .collect_vec();
         let extra_return_values = (0..return_value_sizes.len().saturating_sub(stack_params.len()))
             .map(|_| -> Result<_, CompileError> {
                 Ok((self.acquire_location_on_stack()?, CanonicalizeType::None))
@@ -2052,14 +2040,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::F64PromoteF32 => {
                 let (loc, canonicalize) = self.pop_value_released()?;
                 let ret = self.acquire_location(&WpType::F64)?;
-                self.value_stack.push((ret, canonicalize.promote()?));
-                self.machine.convert_f64_f32(loc, ret)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
+                if self.config.enable_nan_canonicalization
+                    && let Some(canonicalize_size) = canonicalize.to_size()
+                {
+                    self.machine.canonicalize_nan(canonicalize_size, loc, ret)?;
+                    self.machine.convert_f64_f32(ret, ret)?;
+                } else {
+                    self.machine.convert_f64_f32(loc, ret)?;
+                }
             }
             Operator::F32DemoteF64 => {
                 let (loc, canonicalize) = self.pop_value_released()?;
-                let ret = self.acquire_location(&WpType::F64)?;
-                self.value_stack.push((ret, canonicalize.demote()?));
-                self.machine.convert_f32_f64(loc, ret)?;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
+                if self.config.enable_nan_canonicalization
+                    && let Some(canonicalize_size) = canonicalize.to_size()
+                {
+                    self.machine.canonicalize_nan(canonicalize_size, loc, ret)?;
+                    self.machine.convert_f32_f64(ret, ret)?;
+                } else {
+                    self.machine.convert_f32_f64(loc, ret)?;
+                }
             }
 
             Operator::I32ReinterpretF32 => {
