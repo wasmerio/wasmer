@@ -11,7 +11,7 @@ use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {
     published: bool,
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    eh_frames_published: bool,
     registrations: Vec<usize>,
     #[cfg(target_os = "macos")]
     compact_unwind_mgr: compact_unwind::CompactUnwindManager,
@@ -71,7 +71,7 @@ impl UnwindRegistry {
 
         Self {
             published: false,
-            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            eh_frames_published: false,
             registrations: Vec::new(),
             #[cfg(target_os = "macos")]
             compact_unwind_mgr: Default::default(),
@@ -94,9 +94,8 @@ impl UnwindRegistry {
     }
 
     /// Publishes all registered functions (coming from .eh_frame sections).
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     pub fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
-        if self.published {
+        if self.eh_frames_published {
             return Err("unwind registry has already been published".to_string());
         }
 
@@ -106,13 +105,12 @@ impl UnwindRegistry {
             }
         }
 
-        self.published = true;
+        self.eh_frames_published = true;
 
         Ok(())
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     unsafe fn register_eh_frames(&mut self, eh_frame: &[u8]) {
         {
             // Validate that the `.eh_frame` is well-formed before registering it.
@@ -128,7 +126,11 @@ impl UnwindRegistry {
             let mut current = 0;
             let mut last_len = 0;
             let using_libunwind = using_libunwind();
-            while current <= (eh_frame.len() - size_of::<u32>()) {
+            while current < eh_frame.len() {
+                assert!(
+                    eh_frame.len() - current >= size_of::<u32>(),
+                    "truncated frame length"
+                );
                 // If a CFI or a FDE starts with 0u32 it is a terminator.
                 let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
                 if len == 0 {
@@ -136,8 +138,14 @@ impl UnwindRegistry {
                     last_len = 0;
                     continue;
                 }
-                // The first record after a terminator is always a CIE.
-                let is_cie = last_len == 0;
+                assert!(
+                    len >= 4 && len as usize <= eh_frame.len() - current - 4,
+                    "truncated frame record"
+                );
+                // A zero CIE ID identifies a CIE; consecutive object files can
+                // contribute multiple CIEs without intervening terminators.
+                let is_cie = eh_frame[current + 4..current + 8] == [0; 4];
+                let first_record = last_len == 0;
                 last_len = len;
                 let record = eh_frame.as_ptr() as usize + current;
                 current = current + len as usize + 4;
@@ -150,16 +158,20 @@ impl UnwindRegistry {
                     }
                 } else {
                     // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
-                    if is_cie {
+                    if first_record {
                         records_to_register.push(record);
                     }
                 }
             }
 
-            assert_eq!(
-                last_len, 0,
-                "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
-            );
+            // libunwind registers individual FDEs, so a bounded Mach-O section
+            // does not need the terminator required by libgcc's table interface.
+            if !using_libunwind {
+                assert_eq!(
+                    last_len, 0,
+                    "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
+                );
+            }
             assert_eq!(
                 current,
                 eh_frame.len(),
@@ -230,8 +242,7 @@ extern "C" fn atexit_handler() {
 
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
-        if self.published {
-            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        if self.published || self.eh_frames_published {
             // libgcc stores the frame entries as a linked list in decreasing sort order
             // based on the PC value of the registered entry.
             //

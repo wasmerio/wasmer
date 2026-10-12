@@ -705,6 +705,8 @@ impl Artifact {
                     compact_unwind,
                     get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
                 )?;
+            } else {
+                engine_inner.publish_eh_frame(eh_frame)?;
             }
             #[cfg(not(any(
                 target_arch = "wasm32",

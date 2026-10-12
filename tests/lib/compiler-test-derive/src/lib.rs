@@ -70,8 +70,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
             config = quote! { #config.with_dynamic_memory() };
         }
         let experimental_artifact_cfg = experimental_artifact.then(|| match compiler_name {
-            "Cranelift" => quote! { #[cfg(any(target_os = "linux", target_os = "macos"))] },
-            "LLVM" => quote! {},
+            "Cranelift" | "Singlepass" | "LLVM" => quote! {},
             _ => quote! { #[cfg(target_os = "linux")] },
         });
         let mut new_sig = func.sig.clone();
