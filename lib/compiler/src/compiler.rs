@@ -768,7 +768,7 @@ pub fn emit_metadata_and_link(
         } = compiled_objects;
         let fs = InMemoryFileSystem::default();
         let mut link_args = match format {
-            BinaryFormat::Elf => {
+            BinaryFormat::Macho => {
                 vec![
                     "ld".to_string(),
                     "-flavor".to_string(),
@@ -777,7 +777,7 @@ pub fn emit_metadata_and_link(
                     WASMER_IMAGE_FILENAME.to_string(),
                 ]
             }
-            BinaryFormat::Macho => {
+            BinaryFormat::Elf => {
                 vec![
                     "ld".to_string(),
                     // Allow resolution of the public symbols directly without PLT entries!
@@ -822,7 +822,9 @@ pub fn emit_metadata_and_link(
         // records. Linkers concatenate input sections in object order, and a
         // leading terminator makes frame registration see an empty table.
         link_args.push(WASMER_META_FILENAME.to_string());
-        link_args.push(WASMER_LIBRARY_FILENAME.to_string());
+        if matches!(format, BinaryFormat::Macho) {
+            link_args.push(WASMER_LIBRARY_FILENAME.to_string());
+        }
 
         let mut wild_args = Args::new(|| link_args.iter().map(String::as_str)).map_err(|e| {
             CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}"))
