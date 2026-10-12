@@ -418,8 +418,9 @@ test-engine = ["test-generator/test-engine"]
 # that raise signals because that interferes with tarpaulin.
 coverage = []
 
-#[profile.release]
-#debug = true
+[profile.release-debug]
+inherits = "release"
+debug = true
 
 # Enable optimizations for a few crates, even for debug builds.
 # This greatly speeds up using debug builds, because these crates are extremely
