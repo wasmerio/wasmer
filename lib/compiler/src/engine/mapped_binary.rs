@@ -547,6 +547,7 @@ impl MemoryMappedBinary {
                 }
             }
 
+            #[cfg(target_os = "macos")]
             if let Some(section) = object_file.section_by_name("__unwind_info") {
                 let text_base = object_file
                     .segments()
