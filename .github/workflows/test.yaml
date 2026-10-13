@@ -829,9 +829,10 @@ jobs:
         uses: runs-on/cache@v5
         with:
           path: *cargo-cache-paths
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
+          # Start fresh example caches after repeated runner losses during restore.
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}${{ matrix.stage.make == 'test-examples' && '-v2' || '' }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}${{ matrix.stage.make == 'test-examples' && '-v2' || '' }}-
       - name: Cache (R2, non-aux runners)
         if: ${{ !startsWith(runner.name, 'aux-') }}
         uses: whywaita/actions-cache-s3@v2
