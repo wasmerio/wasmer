@@ -616,6 +616,8 @@ impl std::ops::Deref for WasiThreadHandle {
 pub enum WasiThreadError {
     #[error("Multithreading is not supported")]
     Unsupported,
+    #[error("Failed to create a host thread - {0}")]
+    ThreadCreateFailed(Arc<std::io::Error>),
     #[error("The method named is not an exported function")]
     MethodNotFound,
     #[error("Failed to create the requested memory - {0}")]
@@ -644,6 +646,7 @@ impl From<WasiThreadError> for Errno {
     fn from(a: WasiThreadError) -> Errno {
         match a {
             WasiThreadError::Unsupported => Errno::Notsup,
+            WasiThreadError::ThreadCreateFailed(_) => Errno::Again,
             WasiThreadError::MethodNotFound => Errno::Inval,
             WasiThreadError::MemoryCreateFailed(_) => Errno::Nomem,
             WasiThreadError::ExportError(_) => Errno::Noexec,
