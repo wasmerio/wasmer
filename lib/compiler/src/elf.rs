@@ -123,11 +123,6 @@ pub fn relocation_kind_to_flags(kind: RelocationKind) -> Result<RelocationFlags,
         RelocationKind::RiscvCall => RelocationFlags::Elf {
             r_type: elf::R_RISCV_CALL_PLT,
         },
-        kind => {
-            return Err(CompileError::Codegen(format!(
-                "unsupported ELF relocation kind: {kind:?}"
-            )));
-        }
     })
 }
 

@@ -11,7 +11,7 @@
 //! to emit a custom relocation: `RelocationTarget::CustomSection`, so
 //! it can be patched later by the engine (native or JIT).
 
-use super::relocation::{ArchivedRelocation, Relocation, RelocationLike};
+use super::relocation::Relocation;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -62,8 +62,7 @@ pub enum CustomSectionProtection {
 /// in the emitted module.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[rkyv(derive(Debug), compare(PartialEq))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CustomSection {
     /// Memory protection that applies to this section.
     pub protection: CustomSectionProtection,
@@ -82,59 +81,6 @@ pub struct CustomSection {
 
     /// Relocations that apply to this custom section.
     pub relocations: Vec<Relocation>,
-}
-
-/// Any struct that acts like a `CustomSection`.
-#[allow(missing_docs)]
-pub trait CustomSectionLike<'a> {
-    type Relocations: RelocationLike;
-
-    fn protection(&self) -> CustomSectionProtection;
-    fn alignment(&self) -> Option<u64>;
-    fn bytes(&self) -> &[u8];
-    fn relocations(&'a self) -> &'a [Self::Relocations];
-}
-
-impl<'a> CustomSectionLike<'a> for CustomSection {
-    type Relocations = Relocation;
-
-    fn protection(&self) -> CustomSectionProtection {
-        self.protection.clone()
-    }
-
-    fn alignment(&self) -> Option<u64> {
-        self.alignment
-    }
-
-    fn bytes(&self) -> &[u8] {
-        self.bytes.0.as_ref()
-    }
-
-    fn relocations(&'a self) -> &'a [Self::Relocations] {
-        self.relocations.as_slice()
-    }
-}
-
-impl<'a> CustomSectionLike<'a> for ArchivedCustomSection {
-    type Relocations = ArchivedRelocation;
-
-    fn protection(&self) -> CustomSectionProtection {
-        let protection = rkyv::deserialize::<CustomSectionProtection, ()>(&self.protection);
-        protection.unwrap()
-    }
-
-    fn alignment(&self) -> Option<u64> {
-        let alignment = rkyv::deserialize::<Option<u64>, ()>(&self.alignment);
-        alignment.unwrap()
-    }
-
-    fn bytes(&self) -> &[u8] {
-        self.bytes.0.as_ref()
-    }
-
-    fn relocations(&'a self) -> &'a [Self::Relocations] {
-        self.relocations.as_slice()
-    }
 }
 
 /// The bytes in the section.
