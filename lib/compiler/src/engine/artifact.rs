@@ -43,7 +43,7 @@ use crate::engine::mapped_binary::DebugInfoSource;
 use std::mem;
 
 #[cfg(feature = "static-artifact-create")]
-use crate::object::Object;
+use object::write::Object;
 
 use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,

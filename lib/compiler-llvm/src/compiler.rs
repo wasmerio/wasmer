@@ -6,9 +6,9 @@ use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use wasmer_compiler::elf::CompileOutput;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::Compilation;
-use wasmer_compiler::elf::CompileOutput;
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::{
     CompiledObjects, Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,

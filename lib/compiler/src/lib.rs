@@ -24,7 +24,6 @@ mod traits;
 
 pub mod abi;
 pub mod misc;
-pub mod object;
 pub mod progress;
 pub mod serialize;
 pub mod types;
@@ -41,9 +40,10 @@ mod compiler;
 #[cfg(feature = "compiler")]
 pub use crate::compiler::{
     ArtifactFormat, CompiledFunction, CompiledObjects, Compiler, CompilerConfig, Debugger,
-    DeterministicIdComponent, FuncTranslator, FunctionBucket, WASM_LARGE_FUNCTION_THRESHOLD,
-    WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets, emit_metadata_and_link,
-    translate_function_buckets, validate_module_fixed_table_size,
+    DeterministicIdComponent, FuncTranslator, FunctionBucket, ObjectError,
+    WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets,
+    emit_metadata_and_link, get_object_for_target, translate_function_buckets,
+    validate_module_fixed_table_size,
 };
 
 #[cfg(feature = "compiler")]

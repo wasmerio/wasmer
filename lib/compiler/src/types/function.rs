@@ -81,11 +81,17 @@ pub struct UnwindInfo {
 
 impl UnwindInfo {
     pub fn new(eh_frame: SectionIndex) -> Self {
-        Self { eh_frame: Some(eh_frame), compact_unwind: None }
+        Self {
+            eh_frame: Some(eh_frame),
+            compact_unwind: None,
+        }
     }
 
     pub fn new_cu(compact_unwind: SectionIndex) -> Self {
-        Self { eh_frame: None, compact_unwind: Some(compact_unwind) }
+        Self {
+            eh_frame: None,
+            compact_unwind: Some(compact_unwind),
+        }
     }
 }
 

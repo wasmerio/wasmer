@@ -31,8 +31,8 @@ use wasmer_compiler::elf::emit_eh_frame_section;
 use wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
+    get_object_for_target,
     misc::{CompiledFunctionExt, CompiledKind},
-    object::get_object_for_target,
     types::function::CompiledFunction,
 };
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
@@ -270,9 +270,11 @@ pub(crate) fn emit_local_function(
 
     // Populate DWARF line info from the address map.
     // TODO: support dSYM debug info file creation and loading in the future
-    if matches!(target.triple().binary_format, target_lexicon::BinaryFormat::Elf)
-        && let Ok(mut dwarf_state) =
-            init_dwarf_unit(function_name, module_name, "Wasmer (Cranelift)")
+    if matches!(
+        target.triple().binary_format,
+        target_lexicon::BinaryFormat::Elf
+    ) && let Ok(mut dwarf_state) =
+        init_dwarf_unit(function_name, module_name, "Wasmer (Cranelift)")
     {
         for instruction in &function.frame_info.address_map.instructions {
             dwarf_state.add_source_map_row(

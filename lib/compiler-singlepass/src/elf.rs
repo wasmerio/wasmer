@@ -17,8 +17,8 @@ use wasmer_compiler::dwarf::{DwarfState, WriterRelocate};
 use wasmer_compiler::elf::emit_eh_frame_section;
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
+    get_object_for_target,
     misc::{CompiledFunctionExt, CompiledKind},
-    object::get_object_for_target,
     types::function::CompiledFunction,
 };
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
