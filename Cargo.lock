@@ -3292,6 +3292,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libyaml-rs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e126dda6f34391ab7b444f9922055facc83c07a910da3eb16f1e4d9c45dc777"
+
+[[package]]
 name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7483,7 +7489,6 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "serde_json",
- "serde_yaml",
  "sha2",
  "shared-buffer",
  "tar",
@@ -7521,6 +7526,7 @@ dependencies = [
  "wasmer-wast",
  "webc",
  "yaml-edit",
+ "yaml_serde",
  "zip",
 ]
 
@@ -7655,11 +7661,11 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "serde_json",
- "serde_yaml",
  "tempfile",
  "thiserror 2.0.21",
  "toml 1.1.6+spec-1.1.0",
  "url",
+ "yaml_serde",
 ]
 
 [[package]]
@@ -7809,7 +7815,6 @@ dependencies = [
  "reqwest",
  "semver 1.0.28",
  "serde",
- "serde_yaml",
  "sha2",
  "tempfile",
  "thiserror 2.0.21",
@@ -7821,6 +7826,7 @@ dependencies = [
  "wasmer-backend-api",
  "wasmer-config",
  "wasmer-package",
+ "yaml_serde",
  "zip",
 ]
 
@@ -7963,7 +7969,6 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_yaml",
  "sha2",
  "shared-buffer",
  "strum",
@@ -8006,6 +8011,7 @@ dependencies = [
  "webc",
  "windows-sys 0.61.2",
  "xxhash-rust",
+ "yaml_serde",
  "zstd",
 ]
 
@@ -8508,6 +8514,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79e531de3d80075e0a2dc8246ca46c9167211297f8b9d513130880c2ef98d0b8"
 dependencies = [
  "rowan",
+]
+
+[[package]]
+name = "yaml_serde"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33b729a08a9a6be689bbad3e2bf8015926db54b6622cc89c3a5f7dc174b9e918"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "libyaml-rs",
+ "ryu",
+ "serde",
 ]
 
 [[package]]
