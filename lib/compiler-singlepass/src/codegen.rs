@@ -6127,11 +6127,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.output_reporter.finish(body.len())?;
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
-            callbacks.obj_memory_buffer(
-                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
-                &self.module.hash_string(),
-                &body,
-            );
+            if !self.config.experimental_artifact {
+                callbacks.obj_memory_buffer(
+                    &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                    &self.module.hash_string(),
+                    &body,
+                );
+            }
             callbacks.asm_memory_buffer(
                 &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
                 &self.module.hash_string(),
@@ -6149,17 +6151,22 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
         if self.config.experimental_artifact {
             let maximum_stack_usage = function.maximum_stack_usage;
-            Ok(CompileOutput::Object(
-                elf::emit_local_function(
-                    target,
-                    self.local_func_index,
-                    function,
-                    fde,
-                    #[cfg(feature = "unwind")]
-                    self.dwarf_state,
-                )?,
-                maximum_stack_usage,
-            ))
+            let object = elf::emit_local_function(
+                target,
+                self.local_func_index,
+                function,
+                fde,
+                #[cfg(feature = "unwind")]
+                self.dwarf_state,
+            )?;
+            if let Some(callbacks) = self.config.callbacks.as_ref() {
+                callbacks.obj_memory_buffer(
+                    &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                    &self.module.hash_string(),
+                    &object,
+                );
+            }
+            Ok(CompileOutput::Object(object, maximum_stack_usage))
         } else {
             Ok(CompileOutput::InMemory((function, fde)))
         }

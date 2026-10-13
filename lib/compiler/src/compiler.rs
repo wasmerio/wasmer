@@ -437,8 +437,6 @@ pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
 ///
 /// Counts of each category are derived from the slice lengths.
 pub struct CompiledObjects {
-    /// Whether the backend emits per-function trap tables to reference in metadata.
-    pub emit_trap_offsets: bool,
     /// Objects for local (user-defined) functions.
     pub object_files: Vec<Vec<u8>>,
     /// Objects for imported function call trampolines.
@@ -447,6 +445,8 @@ pub struct CompiledObjects {
     pub trampoline_object_files: Vec<Vec<u8>>,
     /// Objects for dynamic trampolines.
     pub dynamic_trampoline_object_files: Vec<Vec<u8>>,
+    /// Whether the backend emits per-function trap tables to reference in metadata.
+    pub emit_trap_offsets: bool,
 }
 
 fn emit_wasmer_meta_object(
@@ -490,7 +490,7 @@ fn emit_wasmer_meta_object(
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Debug).to_vec(),
         EH_FRAME_SECTION_NAME.to_vec(),
-        SectionKind::Debug,
+        SectionKind::Other,
     );
     obj.append_section_data(section_id, &0u64.to_ne_bytes(), 4);
 

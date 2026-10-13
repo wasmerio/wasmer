@@ -8,6 +8,7 @@ use std::{os::fd::RawFd, ptr, slice};
 
 #[cfg(unix)]
 use itertools::Itertools;
+#[cfg(unix)]
 use object::{Object, ObjectSection, ReadRef};
 #[cfg(unix)]
 use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf, macho};
@@ -528,14 +529,9 @@ impl MemoryMappedBinary {
             }
         }
 
-        match object_file {
-            object::File::MachO64(macho) => map.apply_chained_fixups(macho)?,
-            object::File::MachO32(_) => {
-                return Err("32-bit Mach-O images are not supported".to_string());
-            }
-            _ => {}
-        }
-        if is_macho {
+        if let object::File::MachO64(macho) = object_file {
+            map.apply_chained_fixups(macho)?;
+
             for segment in &segments {
                 let size = segment.mem_size_page_aligned();
                 if size != 0
@@ -550,16 +546,15 @@ impl MemoryMappedBinary {
                     return Err(std::io::Error::last_os_error().to_string());
                 }
             }
-        }
 
-        #[cfg(target_os = "macos")]
-        if is_macho && let Some(section) = object_file.section_by_name("__unwind_info") {
-            let text_base = object_file
-                .segments()
-                .find(|segment| segment.name().ok().flatten() == Some("__TEXT"))
-                .ok_or("Mach-O image has no __TEXT segment")?
-                .address();
-            map.publish_unwind_info_section(text_base, section.address(), section.size())?;
+            if let Some(section) = object_file.section_by_name("__unwind_info") {
+                let text_base = object_file
+                    .segments()
+                    .find(|segment| segment.name().ok().flatten() == Some("__TEXT"))
+                    .ok_or("Mach-O image has no __TEXT segment")?
+                    .address();
+                map.publish_unwind_info_section(text_base, section.address(), section.size())?;
+            }
         }
 
         Ok(map)
@@ -612,8 +607,7 @@ impl MemoryMappedBinary {
                             let import = imports
                                 .get(bind.ordinal as usize)
                                 .ok_or("Invalid Mach-O chained bind ordinal")?;
-                            let symbol =
-                                std::str::from_utf8(import.name).map_err(|e| e.to_string())?;
+                            let symbol = &String::from_utf8_lossy(import.name);
                             let libcall = LIBCALLS_MACHO.get(symbol).ok_or_else(|| {
                                 format!("unsupported Mach-O chained bind symbol {symbol}")
                             })?;

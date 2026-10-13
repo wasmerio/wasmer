@@ -877,6 +877,7 @@ impl Artifact {
         debug_info: DebugInfoSource,
     ) -> Result<AllocatedArtifact, DeserializeError> {
         const FN_OFFSET_SIZE: usize = std::mem::size_of::<usize>();
+        let is_macho = image.format() == object::BinaryFormat::MachO;
 
         let mut function_offsets = None;
         for section in image.sections() {
@@ -890,33 +891,28 @@ impl Artifact {
                             "cannot load image section data: {e}"
                         ))
                     })?;
-                    let is_macho = image.format() == object::BinaryFormat::MachO;
-                    // Mach-O stores chained pointers here, not plain offsets.
-                    // Read the pointers after the mapper has applied the fixups.
-                    let data = if is_macho {
-                        unsafe {
+
+                    function_offsets = Some(if is_macho {
+                        // Mach-O stores chained pointers here, not plain offsets.
+                        // Read the pointers after the mapper has applied the fixups.
+                        let data = unsafe {
                             std::slice::from_raw_parts(
                                 base.cast::<u8>().add(section.address() as usize),
                                 data.len(),
                             )
-                        }
-                    } else {
-                        data
-                    };
-                    function_offsets = Some(
+                        };
                         data.as_chunks::<FN_OFFSET_SIZE>()
                             .0
                             .iter()
-                            .map(|chunk| {
-                                let value = usize::from_le_bytes(*chunk);
-                                if is_macho {
-                                    value.wrapping_sub(base as usize)
-                                } else {
-                                    value
-                                }
-                            })
-                            .collect_vec(),
-                    );
+                            .map(|chunk| usize::from_le_bytes(*chunk).wrapping_sub(base as usize))
+                            .collect_vec()
+                    } else {
+                        data.as_chunks::<FN_OFFSET_SIZE>()
+                            .0
+                            .iter()
+                            .map(|chunk| usize::from_le_bytes(*chunk))
+                            .collect_vec()
+                    });
                 }
                 crate::EH_FRAME_SECTION_NAME => {
                     engine_inner.publish_elf_eh_frame(section.address(), section.size())?;
@@ -1957,8 +1953,7 @@ impl TrapReader {
         let slot = local_index.index().checked_mul(size_of::<usize>())?;
         let offset_bytes = trap_offsets.get(slot..slot + size_of::<usize>())?;
 
-        // Mach-O slots contain chained pointers on disk. Read the mapped
-        // slot after fixups, just as function-offset lookup does.
+        // Mach-O slots contain chained pointers on disk. Read the mapped slot after fixups.
         let trap_address = if image.format() == object::BinaryFormat::MachO {
             let address = self
                 .image_base
