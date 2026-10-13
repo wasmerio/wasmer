@@ -11,8 +11,9 @@ mod abi;
 mod compiler;
 mod config;
 mod error;
-mod object_file;
 mod translator;
 
 pub use crate::compiler::LLVMCompiler;
 pub use crate::config::{InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks, LLVMOptLevel};
+
+pub type CompiledFunction = Vec<u8>;

@@ -1,11 +1,8 @@
 use cranelift_codegen::gimli::write::{Address, EndianVec, Result, Writer};
 use cranelift_codegen::gimli::{RunTimeEndian, SectionId, constants};
 use std::collections::HashMap;
-use wasmer_compiler::types::{
-    relocation::{Relocation, RelocationKind, RelocationTarget},
-    section::{CustomSection, CustomSectionProtection, SectionBody},
-};
-use wasmer_types::{LibCall, LocalFunctionIndex, entity::EntityRef, target::Endianness};
+use wasmer_compiler::types::relocation::{Relocation, RelocationKind, RelocationTarget};
+use wasmer_types::{LibCall, LocalFunctionIndex, entity::EntityRef};
 
 #[derive(Clone, Debug)]
 pub struct WriterRelocate {
@@ -17,41 +14,6 @@ pub struct WriterRelocate {
 impl WriterRelocate {
     pub const FUNCTION_SYMBOL: usize = 0;
     pub const PERSONALITY_SYMBOL: usize = 1;
-    pub const LSDA_SYMBOL_BASE: usize = 2;
-
-    pub fn new(endianness: Option<Endianness>) -> Self {
-        let endianness = match endianness {
-            Some(Endianness::Little) => RunTimeEndian::Little,
-            Some(Endianness::Big) => RunTimeEndian::Big,
-            // We autodetect it, based on the host
-            None => RunTimeEndian::default(),
-        };
-        Self {
-            relocs: Vec::new(),
-            writer: EndianVec::new(endianness),
-            lsda_symbols: HashMap::new(),
-        }
-    }
-
-    pub fn register_lsda_symbol(&mut self, symbol: usize, target: RelocationTarget, offset: u32) {
-        self.lsda_symbols.insert(symbol, (target, offset));
-    }
-
-    pub fn lsda_symbol(func_index: LocalFunctionIndex) -> usize {
-        Self::LSDA_SYMBOL_BASE + func_index.index()
-    }
-
-    pub fn into_section(mut self) -> CustomSection {
-        // GCC expects a terminating "empty" length, so write a 0 length at the end of the table.
-        self.writer.write_u32(0).unwrap();
-        let data = self.writer.into_vec();
-        CustomSection {
-            protection: CustomSectionProtection::Read,
-            alignment: None,
-            bytes: SectionBody::new_with_vec(data),
-            relocations: self.relocs,
-        }
-    }
 }
 
 impl Writer for WriterRelocate {

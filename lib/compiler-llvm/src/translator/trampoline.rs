@@ -5,7 +5,6 @@ use crate::{
     abi::{LLVMAbi, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    object_file::{RkyvCompiledFunction, load_object_file},
     translator::{
         code::enable_m0_optimization,
         intrinsics::{Intrinsics, type_to_llvm},

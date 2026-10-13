@@ -12,9 +12,7 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, PhiLocation, State, TagCatchInfo},
 };
-use crate::{
-    compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle, object_file::CompiledFunction,
-};
+use crate::{CompiledFunction, compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
 use enumset::EnumSet;
 use inkwell::support::get_llvm_version;
 use inkwell::{
@@ -42,7 +40,6 @@ use crate::{
     abi::{LLVMAbi, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    object_file::load_object_file,
 };
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64, FunctionBinaryReader, FunctionBodyData,
@@ -52,10 +49,7 @@ use wasmer_compiler::{
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     WasmSourceMap, from_binaryreadererror_wasmerror,
     misc::{CompiledFunctionExt, CompiledKind},
-    types::{
-        relocation::RelocationTarget,
-        symbols::{Symbol, SymbolRegistry},
-    },
+    types::symbols::SymbolRegistry,
     wasmparser::{Catch, MemArg, Operator},
     wpheaptype_to_type, wptype_to_type,
 };
@@ -66,9 +60,7 @@ use wasmer_types::{
 use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
-const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_function";
 const FUNCTION_SECTION_MACHO: &str = "__TEXT";
-const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 
 // Since we want to use module-local tag numbers for landing pads,
 // the catch-all tag can't be zero; we instead use i32::MAX, which
@@ -121,7 +113,6 @@ pub struct FuncTranslator {
     target_machines: HashMap<OptimizationStyle, TargetMachine>,
     abi: LLVMAbi,
     binary_fmt: BinaryFormat,
-    func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
@@ -164,15 +155,6 @@ impl FuncTranslator {
             target_triple,
             target_machines,
             abi,
-            func_section: match binary_fmt {
-                BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
-                BinaryFormat::Macho => FUNCTION_SEGMENT_MACHO.to_string(),
-                _ => {
-                    return Err(CompileError::UnsupportedTarget(format!(
-                        "Unsupported binary format: {binary_fmt:?}"
-                    )));
-                }
-            },
             binary_fmt,
             pointer_width,
             cpu_features,
@@ -313,20 +295,6 @@ impl FuncTranslator {
 
         func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
-
-        let section = match self.binary_fmt {
-            BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
-            BinaryFormat::Macho => {
-                format!("{FUNCTION_SECTION_MACHO},{FUNCTION_SEGMENT_MACHO}")
-            }
-            _ => {
-                return Err(CompileError::UnsupportedTarget(format!(
-                    "Unsupported binary format: {:?}",
-                    self.binary_fmt
-                )));
-            }
-        };
-
         func.set_personality_function(intrinsics.personality);
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
