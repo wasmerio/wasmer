@@ -876,6 +876,8 @@ impl Artifact {
         base: *mut std::ffi::c_void,
         debug_info: DebugInfoSource,
     ) -> Result<AllocatedArtifact, DeserializeError> {
+        const FN_OFFSET_SIZE: usize = std::mem::size_of::<usize>();
+
         let mut function_offsets = None;
         for section in image.sections() {
             let Ok(section_name) = section.name_bytes() else {
@@ -902,9 +904,11 @@ impl Artifact {
                         data
                     };
                     function_offsets = Some(
-                        data.chunks_exact(std::mem::size_of::<usize>())
+                        data.as_chunks::<FN_OFFSET_SIZE>()
+                            .0
+                            .iter()
                             .map(|chunk| {
-                                let value = usize::from_le_bytes(chunk.try_into().unwrap());
+                                let value = usize::from_le_bytes(*chunk);
                                 if is_macho {
                                     value.wrapping_sub(base as usize)
                                 } else {
@@ -1985,7 +1989,9 @@ impl TrapReader {
         let records = data.get(WORD_SIZE..WORD_SIZE.checked_add(records_len)?)?;
 
         records
-            .chunks_exact(RECORD_SIZE)
+            .as_chunks::<RECORD_SIZE>()
+            .0
+            .iter()
             .map(|record| {
                 let code_offset = u32::from_le_bytes(record[..WORD_SIZE].try_into().ok()?);
                 let code = u32::from_le_bytes(record[WORD_SIZE..].try_into().ok()?);
