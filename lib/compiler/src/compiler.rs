@@ -490,7 +490,7 @@ fn emit_wasmer_meta_object(
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Debug).to_vec(),
         EH_FRAME_SECTION_NAME.to_vec(),
-        SectionKind::Debug,
+        SectionKind::Other,
     );
     obj.append_section_data(section_id, &0u64.to_ne_bytes(), 4);
 
