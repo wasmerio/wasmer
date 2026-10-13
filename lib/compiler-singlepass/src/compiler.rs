@@ -131,7 +131,7 @@ impl SinglepassCompiler {
             None
         } else {
             match target.triple().default_calling_convention() {
-                Ok(CallingConvention::SystemV) => {
+                Ok(CallingConvention::SystemV | CallingConvention::AppleAarch64) => {
                     match create_systemv_cie(target.triple().architecture) {
                         Some(cie) => {
                             let mut dwarf_frametable = FrameTable::default();
