@@ -78,9 +78,8 @@ pub(crate) fn path_filestat_set_times_internal(
     fst_flags: Fstflags,
 ) -> Result<(), Errno> {
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (state, inodes) = env.get_wasi_state_and_inodes();
     let fd_entry = state.fs.get_fd(fd)?;
-    let fd_inode = fd_entry.inode;
     if !fd_entry
         .inner
         .rights
@@ -88,37 +87,75 @@ pub(crate) fn path_filestat_set_times_internal(
     {
         return Err(Errno::Access);
     }
-    if (fst_flags.contains(Fstflags::SET_ATIM) && fst_flags.contains(Fstflags::SET_ATIM_NOW))
-        || (fst_flags.contains(Fstflags::SET_MTIM) && fst_flags.contains(Fstflags::SET_MTIM_NOW))
-    {
-        return Err(Errno::Inval);
-    }
-
+    let (atime, mtime) = timestamp_updates(st_atim, st_mtim, fst_flags)?;
     let file_inode =
         state
             .fs
             .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)?;
-    let stat = {
-        let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())?
+    state.fs.set_times_for_inode(&file_inode, atime, mtime)
+}
+
+pub(crate) fn timestamp_updates(
+    st_atim: Timestamp,
+    st_mtim: Timestamp,
+    flags: Fstflags,
+) -> Result<(Option<Timestamp>, Option<Timestamp>), Errno> {
+    if (flags.contains(Fstflags::SET_ATIM) && flags.contains(Fstflags::SET_ATIM_NOW))
+        || (flags.contains(Fstflags::SET_MTIM) && flags.contains(Fstflags::SET_MTIM_NOW))
+    {
+        return Err(Errno::Inval);
+    }
+    let now = if flags.intersects(Fstflags::SET_ATIM_NOW | Fstflags::SET_MTIM_NOW) {
+        Some(get_current_time_in_nanos()?)
+    } else {
+        None
     };
+    let atime = if flags.contains(Fstflags::SET_ATIM) {
+        Some(st_atim)
+    } else if flags.contains(Fstflags::SET_ATIM_NOW) {
+        now
+    } else {
+        None
+    };
+    let mtime = if flags.contains(Fstflags::SET_MTIM) {
+        Some(st_mtim)
+    } else if flags.contains(Fstflags::SET_MTIM_NOW) {
+        now
+    } else {
+        None
+    };
+    Ok((atime, mtime))
+}
 
-    if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
-        let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {
-            st_atim
-        } else {
-            get_current_time_in_nanos()?
-        };
-        fd_inode.stat.write().unwrap().st_atim = time_to_set;
-    }
-    if fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
-        let time_to_set = if fst_flags.contains(Fstflags::SET_MTIM) {
-            st_mtim
-        } else {
-            get_current_time_in_nanos()?
-        };
-        fd_inode.stat.write().unwrap().st_mtim = time_to_set;
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    Ok(())
+    #[test]
+    fn timestamp_flags_preserve_omitted_fields_and_allow_now() {
+        assert_eq!(
+            timestamp_updates(123, 456, Fstflags::empty()),
+            Ok((None, None))
+        );
+        assert_eq!(
+            timestamp_updates(123, 456, Fstflags::SET_ATIM),
+            Ok((Some(123), None))
+        );
+        assert_eq!(
+            timestamp_updates(123, 456, Fstflags::SET_MTIM),
+            Ok((None, Some(456)))
+        );
+        let (atime, mtime) =
+            timestamp_updates(0, 0, Fstflags::SET_ATIM_NOW | Fstflags::SET_MTIM_NOW).unwrap();
+        assert!(atime.unwrap() > 0);
+        assert_eq!(atime, mtime);
+        assert_eq!(
+            timestamp_updates(0, 0, Fstflags::SET_ATIM | Fstflags::SET_ATIM_NOW),
+            Err(Errno::Inval)
+        );
+        assert_eq!(
+            timestamp_updates(0, 0, Fstflags::SET_MTIM | Fstflags::SET_MTIM_NOW),
+            Err(Errno::Inval)
+        );
+    }
 }

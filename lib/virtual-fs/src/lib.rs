@@ -109,6 +109,19 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
+    /// Set access/modification times, in nanoseconds since the Unix epoch.
+    /// `None` preserves the corresponding timestamp. When `follow_symlinks` is
+    /// false, update the final symlink itself rather than its target.
+    fn set_times(
+        &self,
+        _path: &Path,
+        _atime: Option<u64>,
+        _mtime: Option<u64>,
+        _follow_symlinks: bool,
+    ) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
+
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions<'_>;
@@ -161,6 +174,16 @@ where
 
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         (**self).symlink_metadata(path)
+    }
+
+    fn set_times(
+        &self,
+        path: &Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> Result<()> {
+        (**self).set_times(path, atime, mtime, follow_symlinks)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
@@ -355,9 +378,10 @@ pub trait VirtualFile:
     fn created_time(&self) -> u64;
 
     #[allow(unused_variables)]
-    /// sets accessed and modified time
+    /// Sets access/modification times in nanoseconds since the Unix epoch.
+    /// `None` preserves the corresponding timestamp.
     fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
-        Ok(())
+        Err(FsError::Unsupported)
     }
 
     /// the size of the file in bytes
