@@ -24,8 +24,7 @@ use wasmer_compiler::{
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
 pub(crate) use wasmer_compiler::elf::{
-    CompileOutput, compile_output_in_memory, compile_output_objects, emit_function_body,
-    emit_import_trampoline, link_module,
+    CompileOutput, emit_function_body, emit_import_trampoline, link_module,
 };
 
 pub(crate) fn emit_local_function(
@@ -59,8 +58,10 @@ pub(crate) fn emit_local_function(
 
     // TODO: support dSYM debug info file creation and loading in the future
     #[cfg(feature = "unwind")]
-    if matches!(target.triple().binary_format, target_lexicon::BinaryFormat::Elf)
-        && let Some(dwarf_state) = dwarf_state.as_mut()
+    if matches!(
+        target.triple().binary_format,
+        target_lexicon::BinaryFormat::Elf
+    ) && let Some(dwarf_state) = dwarf_state.as_mut()
     {
         dwarf_state.write_sections(
             &mut object,

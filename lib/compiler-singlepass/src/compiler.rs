@@ -6,7 +6,7 @@ use crate::codegen::FuncGen;
 use crate::config::{self, Singlepass};
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-use crate::elf::{self, CompileOutput, compile_output_in_memory, compile_output_objects};
+use crate::elf::{self, CompileOutput};
 use crate::machine::Machine;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
@@ -162,13 +162,11 @@ impl SinglepassCompiler {
                     calling_convention,
                     progress_callback,
                 )?;
-                if let Some(callbacks) = self.config.callbacks.as_ref()
-                    && let CompileOutput::Object(object, _) = &body
-                {
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
                     callbacks.obj_memory_buffer(
                         &CompiledKind::ImportFunctionTrampoline(i, signature.clone()),
                         &module.hash_string(),
-                        object,
+                        &body.object,
                     );
                 }
                 Ok(body)
@@ -279,10 +277,7 @@ impl SinglepassCompiler {
             .collect::<Result<Vec<_>, CompileError>>()?;
         let function_max_stack_usage = functions
             .iter()
-            .map(|output| match output {
-                CompileOutput::InMemory((function, _)) => function.maximum_stack_usage,
-                CompileOutput::Object(_, maximum_stack_usage) => *maximum_stack_usage,
-            })
+            .map(|output| output.maximum_stack_usage)
             .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>();
 
         let module_hash = module.hash_string();
@@ -292,31 +287,17 @@ impl SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_par_iter()
             .map(
-                |(sig_index, func_type)| -> Result<CompileOutput<FunctionBody>, CompileError> {
+                |(sig_index, func_type)| -> Result<CompileOutput, CompileError> {
                     let kind = CompiledKind::FunctionCallTrampoline(sig_index, func_type.clone());
                     let body = gen_std_trampoline(
                         func_type,
                         target,
                         calling_convention,
-                        Some(&kind),
+                        &kind,
                         progress_callback,
                     )?;
-                    if let Some(callbacks) = self.config.callbacks.as_ref()
-                        && let CompileOutput::InMemory(body) = &body
-                    {
-                        callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
-                        callbacks.asm_memory_buffer(
-                            &kind,
-                            &module_hash,
-                            arch,
-                            &body.body,
-                            HashMap::new(),
-                        )?;
-                    }
-                    if let Some(callbacks) = self.config.callbacks.as_ref()
-                        && let CompileOutput::Object(object, _) = &body
-                    {
-                        callbacks.obj_memory_buffer(&kind, &module_hash, object);
+                    if let Some(callbacks) = self.config.callbacks.as_ref() {
+                        callbacks.obj_memory_buffer(&kind, &module_hash, &body.object);
                     }
                     if let Some(progress) = progress.as_ref() {
                         progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
@@ -333,7 +314,7 @@ impl SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_par_iter()
             .map(
-                |(index, func_type)| -> Result<CompileOutput<FunctionBody>, CompileError> {
+                |(index, func_type)| -> Result<CompileOutput, CompileError> {
                     let kind = CompiledKind::DynamicFunctionTrampoline(
                         FunctionIndex::from_u32(index as u32),
                         func_type.clone(),
@@ -343,25 +324,11 @@ impl SinglepassCompiler {
                         &func_type,
                         target,
                         calling_convention,
-                        Some(&kind),
+                        &kind,
                         progress_callback,
                     )?;
-                    if let Some(callbacks) = self.config.callbacks.as_ref()
-                        && let CompileOutput::InMemory(body) = &body
-                    {
-                        callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
-                        callbacks.asm_memory_buffer(
-                            &kind,
-                            &module_hash,
-                            arch,
-                            &body.body,
-                            HashMap::new(),
-                        )?;
-                    }
-                    if let Some(callbacks) = self.config.callbacks.as_ref()
-                        && let CompileOutput::Object(object, _) = &body
-                    {
-                        callbacks.obj_memory_buffer(&kind, &module_hash, object);
+                    if let Some(callbacks) = self.config.callbacks.as_ref() {
+                        callbacks.obj_memory_buffer(&kind, &module_hash, &body.object);
                     }
                     if let Some(progress) = progress.as_ref() {
                         progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
@@ -371,19 +338,14 @@ impl SinglepassCompiler {
             )
             .collect::<Result<Vec<_>, _>>()?;
 
-        let object_files = compile_output_objects(functions);
-        let import_trampoline_objects = compile_output_objects(import_trampolines);
-        let trampoline_objects = compile_output_objects(function_call_trampolines);
-        let dynamic_trampoline_objects = compile_output_objects(dynamic_function_trampolines);
-
         elf::link_module(
             pool,
             target,
             compile_info_blob,
-            object_files,
-            import_trampoline_objects,
-            trampoline_objects,
-            dynamic_trampoline_objects,
+            functions,
+            import_trampolines,
+            function_call_trampolines,
+            dynamic_function_trampolines,
             self.config
                 .callbacks
                 .as_ref()

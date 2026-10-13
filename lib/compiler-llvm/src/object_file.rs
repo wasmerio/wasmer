@@ -35,13 +35,7 @@ pub struct RkyvCompiledFunction {
     pub data_dw_ref_personality_section_indices: Vec<SectionIndex>,
 }
 
-#[derive(Debug)]
-pub enum CompiledFunction {
-    Rkyv(Box<RkyvCompiledFunction>),
-    Elf(Vec<u8>),
-}
-
-impl wasmer_compiler::CompiledFunction for CompiledFunction {}
+pub type CompiledFunction = Vec<u8>;
 
 // Soft-float routines that LLVM may emit for RISC-V ELF targets.  The map is
 // unconditional because `load_object_file` runs on the host while the ELF it

@@ -23,40 +23,15 @@ use wasmer_types::{
 };
 use wasmer_types::{FunctionIndex, FunctionType};
 
-/// The result of compiling a single unit (function or trampoline): either an
-/// in-memory body for the classic artifact format, or a relocatable object
-/// buffer for the ELF artifact format (together with the maximum stack usage,
-/// when known).
-pub enum CompileOutput<T> {
-    /// The compiled body, kept in memory.
-    InMemory(T),
-    /// Serialized relocatable object and the unit's maximum stack usage, when known.
-    Object(Vec<u8>, Option<usize>),
+/// Serialized relocatable object and the unit's maximum stack usage, when known.
+pub struct CompileOutput {
+    /// Serialized relocatable object.
+    pub object: Vec<u8>,
+    /// The unit's maximum stack usage, when known.
+    pub maximum_stack_usage: Option<usize>,
 }
 
-impl<T: crate::compiler::CompiledFunction> crate::compiler::CompiledFunction for CompileOutput<T> {}
-
-/// Extract the object buffers from ELF-mode compile outputs.
-pub fn compile_output_objects<T>(outputs: Vec<CompileOutput<T>>) -> Vec<Vec<u8>> {
-    outputs
-        .into_iter()
-        .map(|output| match output {
-            CompileOutput::Object(object, _) => object,
-            CompileOutput::InMemory(_) => unreachable!(),
-        })
-        .collect()
-}
-
-/// Extract the in-memory bodies from classic-mode compile outputs.
-pub fn compile_output_in_memory<T>(outputs: Vec<CompileOutput<T>>) -> Vec<T> {
-    outputs
-        .into_iter()
-        .map(|output| match output {
-            CompileOutput::InMemory(body) => body,
-            CompileOutput::Object(..) => unreachable!(),
-        })
-        .collect()
-}
+impl crate::compiler::CompiledFunction for CompileOutput {}
 
 /// Declare an undefined text symbol resolved when the objects are linked.
 pub fn add_undefined_symbol(object: &mut Object<'static>, name: String) -> SymbolId {
@@ -390,10 +365,10 @@ pub fn link_module(
     pool: &rayon::ThreadPool,
     target: &Target,
     compile_info_blob: &[u8],
-    object_files: Vec<Vec<u8>>,
-    import_trampoline_objects: Vec<Vec<u8>>,
-    trampoline_objects: Vec<Vec<u8>>,
-    dynamic_trampoline_objects: Vec<Vec<u8>>,
+    object_files: Vec<CompileOutput>,
+    import_trampoline_objects: Vec<CompileOutput>,
+    trampoline_objects: Vec<CompileOutput>,
+    dynamic_trampoline_objects: Vec<CompileOutput>,
     debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
     function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,

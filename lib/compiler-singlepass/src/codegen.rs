@@ -11,7 +11,6 @@ use crate::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
     },
     output_reporter::ChunkedOutputReporter,
-    unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
@@ -6040,7 +6039,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         arch: Architecture,
         target: &Target,
         _source_map: &WasmSourceMap,
-    ) -> Result<CompileOutput<(CompiledFunction, Option<UnwindFrame>)>, CompileError> {
+    ) -> Result<CompileOutput, CompileError> {
         self.stack_offset -= RED_ZONE_SIZE;
 
         self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
@@ -6152,7 +6151,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 &object,
             );
         }
-        Ok(CompileOutput::Object(object, maximum_stack_usage))
+        Ok(CompileOutput {
+            object,
+            maximum_stack_usage,
+        })
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

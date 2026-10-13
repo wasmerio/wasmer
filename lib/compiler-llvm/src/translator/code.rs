@@ -627,7 +627,7 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        Ok(CompiledFunction::Elf(memory_buffer.as_slice().to_vec()))
+        Ok(memory_buffer.as_slice().to_vec())
     }
 }
 

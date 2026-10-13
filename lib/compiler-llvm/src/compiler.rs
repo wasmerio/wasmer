@@ -1,6 +1,5 @@
 use crate::config::LLVM;
 use crate::config::OptimizationStyle;
-use crate::object_file::CompiledFunction;
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use itertools::Itertools;
@@ -9,6 +8,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::Compilation;
+use wasmer_compiler::elf::CompileOutput;
 use wasmer_compiler::types::function::CompiledFunctionBody;
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::{
@@ -418,29 +418,33 @@ impl Compiler for LLVMCompiler {
 
         let object_files = functions
             .into_iter()
-            .map(|compiled_function| match compiled_function {
-                CompiledFunction::Elf(path) => path,
-                CompiledFunction::Rkyv(_) => {
-                    unreachable!()
-                }
+            .map(|object| CompileOutput {
+                object,
+                maximum_stack_usage: None,
             })
-            .collect::<Vec<Vec<u8>>>();
+            .collect();
         let trampolines_objects = function_call_trampolines
             .into_iter()
             .map(|f| match f {
-                CompiledFunctionBody::Elf(path) => path,
+                CompiledFunctionBody::Elf(object) => CompileOutput {
+                    object,
+                    maximum_stack_usage: None,
+                },
                 CompiledFunctionBody::Rkyv(_) => {
                     unreachable!()
                 }
             })
-            .collect::<Vec<Vec<u8>>>();
+            .collect();
         let dynamic_trampolines_objects = dynamic_function_trampolines
             .into_iter()
             .map(|f| match f {
-                CompiledFunctionBody::Elf(path) => path,
+                CompiledFunctionBody::Elf(object) => CompileOutput {
+                    object,
+                    maximum_stack_usage: None,
+                },
                 CompiledFunctionBody::Rkyv(_) => unreachable!(),
             })
-            .collect::<Vec<Vec<u8>>>();
+            .collect();
 
         let elf_content = emit_metadata_and_link(
             &pool,

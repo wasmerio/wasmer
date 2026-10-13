@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
 use crate::EH_FRAME_SECTION_NAME;
+use crate::elf::CompileOutput;
 use crate::misc::{CompiledFunctionExt, CompiledKind};
 use crate::object::get_object_for_target;
 use crate::progress::ProgressContext;
@@ -340,6 +341,8 @@ pub fn build_function_buckets<'a>(
 /// Represents a function that has been compiled by the backend compiler.
 pub trait CompiledFunction {}
 
+impl CompiledFunction for Vec<u8> {}
+
 /// Translates a function from its input representation to a compiled form.
 pub trait FuncTranslator {}
 
@@ -435,13 +438,13 @@ pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
 /// Counts of each category are derived from the slice lengths.
 pub struct CompiledObjects {
     /// Objects for local (user-defined) functions.
-    pub object_files: Vec<Vec<u8>>,
+    pub object_files: Vec<CompileOutput>,
     /// Objects for imported function call trampolines.
-    pub import_trampoline_object_files: Vec<Vec<u8>>,
+    pub import_trampoline_object_files: Vec<CompileOutput>,
     /// Objects for static trampolines.
-    pub trampoline_object_files: Vec<Vec<u8>>,
+    pub trampoline_object_files: Vec<CompileOutput>,
     /// Objects for dynamic trampolines.
-    pub dynamic_trampoline_object_files: Vec<Vec<u8>>,
+    pub dynamic_trampoline_object_files: Vec<CompileOutput>,
     /// Whether the backend emits per-function trap tables to reference in metadata.
     pub emit_trap_offsets: bool,
 }
@@ -804,7 +807,7 @@ pub fn emit_metadata_and_link(
                 .enumerate()
             {
                 let path = PathBuf::from(format!("object-{index}.o"));
-                files.insert(path.clone(), Arc::new(object));
+                files.insert(path.clone(), Arc::new(object.object));
                 link_args.push(path.display().to_string());
             }
             files.insert(PathBuf::from(WASMER_META_FILENAME), Arc::new(meta_object));

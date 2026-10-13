@@ -35,7 +35,7 @@ use itertools::Itertools;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
-use wasmer_compiler::elf::{CompileOutput, compile_output_objects};
+use wasmer_compiler::elf::CompileOutput;
 use wasmer_compiler::types::function::Compilation;
 
 use wasmer_compiler::progress::ProgressContext;
@@ -189,10 +189,7 @@ impl CraneliftCompiler {
         let compile_function = |func_translator: &mut FuncTranslator,
                                 i: &LocalFunctionIndex,
                                 input: &FunctionBodyData|
-         -> Result<
-            CompileOutput<CraneliftCompiledFunction>,
-            CompileError,
-        > {
+         -> Result<CompileOutput, CompileError> {
             let func_index = module.func_index(*i);
             let mut context = Context::new();
             let mut func_env = FuncEnvironment::new(
@@ -380,7 +377,10 @@ impl CraneliftCompiler {
                 #[cfg(feature = "unwind")]
                 compiled.compact_unwind_encoding,
             )?;
-            Ok(CompileOutput::Object(object, None))
+            Ok(CompileOutput {
+                object,
+                maximum_stack_usage: None,
+            })
         };
 
         let num_threads = self.config.num_threads.get();
@@ -388,7 +388,7 @@ impl CraneliftCompiler {
             .num_threads(num_threads)
             .build()
             .unwrap();
-        let results = {
+        let object_files = {
             use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
             let buckets =
@@ -408,7 +408,7 @@ impl CraneliftCompiler {
         let module_hash = module.hash_string();
 
         // function call trampolines (only for local functions, by signature)
-        let function_call_trampoline_outputs = module
+        let trampoline_objects = module
             .signatures
             .iter()
             .collect_vec()
@@ -430,17 +430,17 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                Ok(CompileOutput::<()>::Object(
-                    wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
-                    None,
-                ))
+                Ok(CompileOutput {
+                    object: wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
+                    maximum_stack_usage: None,
+                })
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
         use wasmer_types::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
         // dynamic function trampolines (only for imported functions)
-        let dynamic_function_trampoline_outputs = module
+        let dynamic_trampoline_objects = module
             .imported_function_types()
             .enumerate()
             .collect_vec()
@@ -463,17 +463,13 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                Ok(CompileOutput::Object::<()>(
-                    wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
-                    None,
-                ))
+                Ok(CompileOutput {
+                    object: wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
+                    maximum_stack_usage: None,
+                })
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        let object_files = compile_output_objects(results);
-        let trampoline_objects = compile_output_objects(function_call_trampoline_outputs);
-        let dynamic_trampoline_objects =
-            compile_output_objects(dynamic_function_trampoline_outputs);
         wasmer_compiler::elf::link_module(
             &pool,
             target,
