@@ -12,7 +12,6 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 
-use crate::ArtifactBuildFromArchive;
 use crate::engine::artifact::TrapReader;
 use crate::engine::mapped_binary::{DebugInfo, DebugInfoSource};
 use crate::types::address_map::{
@@ -268,8 +267,6 @@ pub struct FunctionExtent {
 pub enum FrameInfosVariant {
     /// Owned frame infos
     Owned(PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>),
-    /// Archived frame infos
-    Archived(ArtifactBuildFromArchive),
 }
 
 impl FrameInfosVariant {
@@ -277,11 +274,6 @@ impl FrameInfosVariant {
     pub fn get(&self, index: LocalFunctionIndex) -> Option<CompiledFunctionFrameInfoVariant<'_>> {
         match self {
             Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
-            Self::Archived(archive) => archive
-                .get_frame_info_ref()
-                .expect("RKYV path expected")
-                .get(index)
-                .map(CompiledFunctionFrameInfoVariant::Archived),
         }
     }
 }

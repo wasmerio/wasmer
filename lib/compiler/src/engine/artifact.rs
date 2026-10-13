@@ -14,19 +14,18 @@ use std::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
+use crate::types::symbols::ModuleMetadata;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
-    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
+    FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
-    engine::{link::link_module, resolver::resolve_tags, trap::register_frame_info_source},
+    engine::{resolver::resolve_tags, trap::register_frame_info_source},
     resolve_imports,
-    serialize::{MetadataHeader, SerializableCompilation, SerializableModule},
-    types::relocation::{RelocationLike, RelocationTarget},
+    serialize::{MetadataHeader, SerializableModule},
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use crate::{serialize::RkyvSerializableCompilation, types::symbols::ModuleMetadata};
 use itertools::Itertools;
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
@@ -292,11 +291,6 @@ impl Artifact {
                 ))
             })?;
         let serializable = unsafe { SerializableModule::deserialize(module_info)? };
-        if !matches!(serializable.compilation, SerializableCompilation::Elf(_)) {
-            return Err(DeserializeError::Incompatible(
-                "file does not contain an ELF artifact".to_string(),
-            ));
-        }
 
         let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
         let mut inner_engine = engine.inner_mut();
@@ -323,14 +317,9 @@ impl Artifact {
                 ))
             })?;
         let mut serializable = unsafe { SerializableModule::deserialize(module_info)? };
-        let SerializableCompilation::Elf(elf) = &mut serializable.compilation else {
-            return Err(DeserializeError::Incompatible(
-                "ELF image does not contain an ELF artifact".to_string(),
-            ));
-        };
-        // The copy embedded in the image has an empty ELF placeholder to avoid
+        // The copy embedded in the image has an empty placeholder to avoid
         // embedding the image in itself. Restore it for allocation and reserialization.
-        *elf = bytes.to_vec();
+        serializable.compilation = bytes.to_vec();
 
         let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
         let mut inner_engine = engine.inner_mut();
@@ -474,285 +463,18 @@ impl Artifact {
         let module_info = artifact.module_info();
 
         let elf_file_data = match &artifact {
-            ArtifactBuildVariant::Plain(p) => {
-                if let SerializableCompilation::Elf(data) = &p.serializable.compilation {
-                    Some(data.as_ref())
-                } else {
-                    None
-                }
-            }
+            ArtifactBuildVariant::Plain(p) => p.serializable.compilation.as_slice(),
             ArtifactBuildVariant::Archived(a) => a.get_elf_file(),
         };
         let mut allocated = if let Some(module_file) = module_file.as_ref() {
-            if elf_file_data.is_none() {
-                return Err(DeserializeError::Incompatible(
-                    "file-backed loading only supports ELF artifacts".to_string(),
-                ));
-            }
             Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
-        } else if let Some(elf_file_data) = elf_file_data {
-            Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
         } else {
-            let (
-                finished_functions,
-                finished_function_call_trampolines,
-                finished_dynamic_function_trampolines,
-                custom_sections,
-            ) = match &artifact {
-                ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
-                    module_info,
-                    p.get_function_bodies_ref()
-                        .expect("RKYV path expected")
-                        .values(),
-                    p.get_function_call_trampolines_ref()
-                        .expect("RKYV path expected")
-                        .values(),
-                    p.get_dynamic_function_trampolines_ref()
-                        .expect("RKYV path expected")
-                        .values(),
-                    p.get_custom_sections_ref()
-                        .expect("RKYV path expected")
-                        .values(),
-                )?,
-
-                ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
-                    module_info,
-                    a.get_function_bodies_ref()
-                        .expect("RKYV path expected")
-                        .values(),
-                    a.get_function_call_trampolines_ref()
-                        .expect("RKYV path expected")
-                        .values(),
-                    a.get_dynamic_function_trampolines_ref()
-                        .expect("RKYV path expected")
-                        .values(),
-                    a.get_custom_sections_ref()
-                        .expect("RKYV path expected")
-                        .values(),
-                )?,
-            };
-
-            let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
-                ArtifactBuildVariant::Plain(p) => {
-                    if let Some(got) = p.get_got_ref().expect("RKYV path expected").index {
-                        let relocs: Vec<_> = p
-                            .get_custom_section_relocations_ref()
-                            .expect("RKYV path expected")[got]
-                            .iter()
-                            .map(|v| (v.reloc_target, v.offset))
-                            .collect();
-                        let got_base = custom_sections[got].0 as usize;
-                        Box::new(move |t: RelocationTarget| {
-                            relocs
-                                .iter()
-                                .find(|(v, _)| v == &t)
-                                .map(|(_, o)| got_base + (*o as usize))
-                        })
-                    } else {
-                        Box::new(|_: RelocationTarget| None)
-                    }
-                }
-
-                ArtifactBuildVariant::Archived(p) => {
-                    if let Some(got) = p.get_got_ref().expect("RKYV path expected").index {
-                        let relocs: Vec<_> = p
-                            .get_custom_section_relocations_ref()
-                            .expect("RKYV path expected")[got]
-                            .iter()
-                            .map(|v| (v.reloc_target(), v.offset))
-                            .collect();
-                        let got_base = custom_sections[got].0 as usize;
-                        Box::new(move |t: RelocationTarget| {
-                            relocs
-                                .iter()
-                                .find(|(v, _)| v == &t)
-                                .map(|(_, o)| got_base + (o.to_native() as usize))
-                        })
-                    } else {
-                        Box::new(|_: RelocationTarget| None)
-                    }
-                }
-            };
-            let functions_max_stack_usage = match &artifact {
-                ArtifactBuildVariant::Plain(p) => p
-                    .get_function_max_stack_usage()
-                    .expect("RKYV path expected")
-                    .values()
-                    .cloned()
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
-                ArtifactBuildVariant::Archived(a) => a
-                    .get_function_max_stack_usage()
-                    .expect("RKYV path expected")
-                    .values()
-                    .cloned()
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
-            };
-
-            match &artifact {
-                ArtifactBuildVariant::Plain(p) => link_module(
-                    module_info,
-                    &finished_functions,
-                    &finished_dynamic_function_trampolines,
-                    p.get_function_relocations()
-                        .expect("RKYV path expected")
-                        .iter()
-                        .map(|(k, v)| (k, v.iter())),
-                    &custom_sections,
-                    p.get_custom_section_relocations_ref()
-                        .expect("RKYV path expected")
-                        .iter()
-                        .map(|(k, v)| (k, v.iter())),
-                    p.get_libcall_trampolines().expect("RKYV path expected"),
-                    p.get_libcall_trampoline_len().expect("RKYV path expected"),
-                    &get_got_address,
-                ),
-                ArtifactBuildVariant::Archived(a) => link_module(
-                    module_info,
-                    &finished_functions,
-                    &finished_dynamic_function_trampolines,
-                    a.get_function_relocations()
-                        .expect("RKYV path expected")
-                        .iter()
-                        .map(|(k, v)| (k, v.iter())),
-                    &custom_sections,
-                    a.get_custom_section_relocations_ref()
-                        .expect("RKYV path expected")
-                        .iter()
-                        .map(|(k, v)| (k, v.iter())),
-                    a.get_libcall_trampolines().expect("RKYV path expected"),
-                    a.get_libcall_trampoline_len().expect("RKYV path expected"),
-                    &get_got_address,
-                ),
-            };
-
-            // Compute indices into the shared signature table.
-            let signatures = {
-                let signature_registry = engine_inner.signatures();
-                module_info
-                    .signatures
-                    .values()
-                    .zip(module_info.signature_hashes.values())
-                    .map(|(sig, sig_hash)| signature_registry.register(sig, *sig_hash))
-                    .collect::<PrimaryMap<_, _>>()
-            };
-
-            #[allow(unused_variables)]
-            let eh_frame = match &artifact {
-                ArtifactBuildVariant::Plain(p) => p
-                    .get_unwind_info()
-                    .expect("RKYV path expected")
-                    .eh_frame
-                    .map(|v| unsafe {
-                        std::slice::from_raw_parts(
-                            *custom_sections[v],
-                            p.get_custom_sections_ref().expect("RKYV path expected")[v]
-                                .bytes
-                                .len(),
-                        )
-                    }),
-                ArtifactBuildVariant::Archived(a) => a
-                    .get_unwind_info()
-                    .expect("RKYV path expected")
-                    .eh_frame
-                    .map(|v| unsafe {
-                        std::slice::from_raw_parts(
-                            *custom_sections[v],
-                            a.get_custom_sections_ref().expect("RKYV path expected")[v]
-                                .bytes
-                                .len(),
-                        )
-                    }),
-            };
-            #[allow(unused_variables)]
-            let compact_unwind = match &artifact {
-                ArtifactBuildVariant::Plain(p) => p
-                    .get_unwind_info()
-                    .expect("RKYV path expected")
-                    .compact_unwind
-                    .map(|v| unsafe {
-                        std::slice::from_raw_parts(
-                            *custom_sections[v],
-                            p.get_custom_sections_ref().expect("RKYV path expected")[v]
-                                .bytes
-                                .len(),
-                        )
-                    }),
-                ArtifactBuildVariant::Archived(a) => a
-                    .get_unwind_info()
-                    .expect("RKYV path expected")
-                    .compact_unwind
-                    .map(|v| unsafe {
-                        std::slice::from_raw_parts(
-                            *custom_sections[v],
-                            a.get_custom_sections_ref().expect("RKYV path expected")[v]
-                                .bytes
-                                .len(),
-                        )
-                    }),
-            };
-
-            #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
-            {
-                engine_inner.register_perfmap(&finished_functions, module_info)?;
-            }
-
-            // Make all code compiled thus far executable.
-            engine_inner.publish_compiled_code();
-
-            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-            if let Some(compact_unwind) = compact_unwind {
-                engine_inner.publish_compact_unwind(
-                    compact_unwind,
-                    get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
-                )?;
-            } else {
-                engine_inner.publish_eh_frame(eh_frame)?;
-            }
-            #[cfg(not(any(
-                target_arch = "wasm32",
-                all(target_os = "macos", target_arch = "aarch64")
-            )))]
-            engine_inner.publish_eh_frame(eh_frame)?;
-
-            drop(get_got_address);
-
-            let finished_function_lengths = finished_functions
-                .values()
-                .map(|extent| extent.length)
-                .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
-                .into_boxed_slice();
-            let finished_functions = finished_functions
-                .values()
-                .map(|extent| extent.ptr)
-                .collect::<PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>>()
-                .into_boxed_slice();
-            let finished_function_call_trampolines =
-                finished_function_call_trampolines.into_boxed_slice();
-            let finished_dynamic_function_trampolines =
-                finished_dynamic_function_trampolines.into_boxed_slice();
-            let signatures = signatures.into_boxed_slice();
-
-            let vm_offsets = VMOffsets::try_new(std::mem::size_of::<usize>() as u8, module_info)
-                .map_err(DeserializeError::Generic)?;
-
-            AllocatedArtifact {
-                frame_info_registered: false,
-                frame_info_registration: None,
-                finished_functions,
-                finished_function_call_trampolines,
-                finished_dynamic_function_trampolines,
-                signatures,
-                finished_function_lengths,
-                vm_offsets,
-                function_max_stack_usage: functions_max_stack_usage.into_boxed_slice(),
-                elf_image: None,
-            }
+            Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
         };
 
         // ELF allocation recovers function addresses from the linked image, but
         // maximum stack usage is compile metadata rather than an ELF property.
-        // Preserve it from the metadata embedded in the artifact, just as the
-        // in-memory Rkyv path does above.
+        // Preserve it from the metadata embedded in the artifact.
         if allocated.elf_image.is_some() {
             allocated.function_max_stack_usage = match &artifact {
                 ArtifactBuildVariant::Plain(p) => p
@@ -1236,18 +958,7 @@ impl Artifact {
             return Ok(()); // already done
         }
 
-        // ELF artifacts don't carry the RKYV frame-info section (per-instruction
-        // address maps); they get symbolicated from DWARF debug info instead,
-        // lazily loaded from the ELF image (see `elf_image` below).
-        let frame_infos = match &self.artifact {
-            ArtifactBuildVariant::Plain(p) => p
-                .get_frame_info_ref()
-                .map(|f| FrameInfosVariant::Owned(f.clone())),
-            ArtifactBuildVariant::Archived(a) => a
-                .get_frame_info_ref()
-                .map(|_| FrameInfosVariant::Archived(a.clone())),
-        };
-
+        // Native artifacts get symbolicated from lazily loaded DWARF debug info.
         let elf_image = self
             .allocated
             .as_ref()
@@ -1255,7 +966,7 @@ impl Artifact {
             .elf_image
             .clone();
 
-        if frame_infos.is_some() || elf_image.is_some() {
+        if elf_image.is_some() {
             let finished_function_extents = self
                 .allocated
                 .as_ref()
@@ -1277,7 +988,7 @@ impl Artifact {
             *frame_info_registration = register_frame_info_source(
                 self.artifact.create_module_info(),
                 &finished_function_extents,
-                frame_infos,
+                None,
                 image_base,
                 elf_data,
             );
@@ -1769,8 +1480,6 @@ impl Artifact {
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
         unsafe {
-            use crate::serialize::SerializableCompilation;
-
             let bytes = bytes.as_slice();
             let metadata_len = MetadataHeader::parse(bytes)?;
             let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
@@ -1856,7 +1565,7 @@ impl Artifact {
             }
 
             let artifact = ArtifactBuild::from_serializable(SerializableModule {
-                compilation: SerializableCompilation::Rkyv(RkyvSerializableCompilation::default()),
+                compilation: Vec::new(),
                 compile_info: metadata.compile_info,
                 data_initializers: metadata.data_initializers,
                 cpu_features: metadata.cpu_features,

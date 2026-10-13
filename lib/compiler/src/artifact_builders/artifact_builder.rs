@@ -2,26 +2,14 @@
 //! done as separate steps.
 
 #[cfg(feature = "compiler")]
-use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
-#[cfg(feature = "compiler")]
 use crate::translator::analyze_readonly_funcref_table;
 use crate::{
     ArtifactCreate, Features,
-    serialize::{
-        ArchivedSerializableCompilation, ArchivedSerializableModule, MetadataHeader,
-        SerializableCompilation, SerializableModule,
-    },
-    types::{
-        function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
-        module::CompileModuleInfo,
-        relocation::Relocation,
-        section::{CustomSection, SectionIndex},
-    },
+    serialize::{ArchivedSerializableModule, SerializableModule},
+    types::module::CompileModuleInfo,
 };
 #[cfg(feature = "compiler")]
-use crate::{
-    EngineInner, ModuleEnvironment, ModuleMiddlewareChain, serialize::RkyvSerializableCompilation,
-};
+use crate::{EngineInner, ModuleEnvironment, ModuleMiddlewareChain};
 #[cfg(feature = "compiler")]
 use wasmer_types::{CompilationProgressCallback, target::Target};
 
@@ -31,11 +19,7 @@ use rkyv::rancor::Error as RkyvError;
 use self_cell::self_cell;
 use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
-use wasmer_types::{
-    DeserializeError,
-    entity::{ArchivedPrimaryMap, PrimaryMap},
-    target::CpuFeature,
-};
+use wasmer_types::{DeserializeError, entity::PrimaryMap, target::CpuFeature};
 
 // Not every compiler backend uses these.
 #[allow(unused)]
@@ -79,9 +63,7 @@ impl ArtifactBuild {
 
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
-
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-
         let compiler = inner_engine.compiler()?;
 
         // We try to apply the middleware first
@@ -108,9 +90,9 @@ impl ArtifactBuild {
         };
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
         let mut serializable = SerializableModule {
-            // The native ELF image does not exist yet. This placeholder is only
+            // The native image does not exist yet. This placeholder is only
             // used for the metadata copy embedded in that image.
-            compilation: SerializableCompilation::Elf(Vec::new()),
+            compilation: Vec::new(),
             compile_info,
             data_initializers: translation
                 .data_initializers
@@ -124,7 +106,6 @@ impl ArtifactBuild {
             .serialize()
             .map_err(|e| CompileError::Codegen(format!("cannot serialize SerializeModule: {e}")))?;
 
-        // Compile the Module
         let compilation = compiler.compile_module(
             target,
             &serializable.compile_info,
@@ -137,174 +118,23 @@ impl ArtifactBuild {
             progress_callback,
         )?;
 
-        let compilation = match compilation {
-            Compilation::Rkyv {
-                compilation,
-                function_max_stack_usage,
-            } => {
-                serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
-                // Synthesize a custom section to hold the libcall trampolines.
-
-                let mut function_frame_info =
-                    PrimaryMap::with_capacity(compilation.functions.len());
-                let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
-                let mut function_relocations =
-                    PrimaryMap::with_capacity(compilation.functions.len());
-                for (_, func) in compilation.functions.into_iter() {
-                    function_bodies.push(func.body);
-                    function_relocations.push(func.relocations);
-                    function_frame_info.push(func.frame_info);
-                }
-                let mut custom_sections = compilation.custom_sections.clone();
-                let mut custom_section_relocations = compilation
-                    .custom_sections
-                    .iter()
-                    .map(|(_, section)| section.relocations.clone())
-                    .collect::<PrimaryMap<SectionIndex, _>>();
-                let libcall_trampolines_section = make_libcall_trampolines(target);
-                custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
-                let libcall_trampolines = custom_sections.push(libcall_trampolines_section);
-                let libcall_trampoline_len = libcall_trampoline_len(target) as u32;
-
-                SerializableCompilation::Rkyv(RkyvSerializableCompilation {
-                    function_bodies,
-                    function_relocations,
-                    function_frame_info,
-                    function_call_trampolines: compilation.function_call_trampolines,
-                    dynamic_function_trampolines: compilation.dynamic_function_trampolines,
-                    custom_sections,
-                    custom_section_relocations,
-                    unwind_info: compilation.unwind_info,
-                    libcall_trampolines,
-                    libcall_trampoline_len,
-                    got: compilation.got,
-                })
-            }
-            Compilation::Elf {
-                data,
-                function_max_stack_usage,
-            } => {
-                serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
-                SerializableCompilation::Elf(data)
-            }
+        let Compilation::Elf {
+            data,
+            function_max_stack_usage,
+        } = compilation
+        else {
+            return Err(CompileError::Codegen(
+                "only native object compilation is supported".to_string(),
+            ));
         };
-
-        serializable.compilation = compilation;
+        serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
+        serializable.compilation = data;
         Ok(Self { serializable })
     }
 
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self { serializable }
-    }
-
-    /// Get Functions Bodies ref
-    pub fn get_function_bodies_ref(&self) -> Option<&PrimaryMap<LocalFunctionIndex, FunctionBody>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.function_bodies)
-        } else {
-            None
-        }
-    }
-
-    /// Get Functions Call Trampolines ref
-    pub fn get_function_call_trampolines_ref(
-        &self,
-    ) -> Option<&PrimaryMap<SignatureIndex, FunctionBody>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.function_call_trampolines)
-        } else {
-            None
-        }
-    }
-
-    /// Get Dynamic Functions Call Trampolines ref
-    pub fn get_dynamic_function_trampolines_ref(
-        &self,
-    ) -> Option<&PrimaryMap<FunctionIndex, FunctionBody>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.dynamic_function_trampolines)
-        } else {
-            None
-        }
-    }
-
-    /// Get Custom Sections ref
-    pub fn get_custom_sections_ref(&self) -> Option<&PrimaryMap<SectionIndex, CustomSection>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.custom_sections)
-        } else {
-            None
-        }
-    }
-
-    /// Get Function Relocations
-    pub fn get_function_relocations(
-        &self,
-    ) -> Option<&PrimaryMap<LocalFunctionIndex, Vec<Relocation>>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.function_relocations)
-        } else {
-            None
-        }
-    }
-
-    /// Get Function Relocations ref
-    pub fn get_custom_section_relocations_ref(
-        &self,
-    ) -> Option<&PrimaryMap<SectionIndex, Vec<Relocation>>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.custom_section_relocations)
-        } else {
-            None
-        }
-    }
-
-    /// Get LibCall Trampoline Section Index
-    pub fn get_libcall_trampolines(&self) -> Option<SectionIndex> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(compilation.libcall_trampolines)
-        } else {
-            None
-        }
-    }
-
-    /// Get LibCall Trampoline Length
-    pub fn get_libcall_trampoline_len(&self) -> Option<usize> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(compilation.libcall_trampoline_len as usize)
-        } else {
-            None
-        }
-    }
-
-    /// Get a reference to the [`UnwindInfo`].
-    pub fn get_unwind_info(&self) -> Option<&UnwindInfo> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.unwind_info)
-        } else {
-            None
-        }
-    }
-
-    /// Get a reference to the [`GOT`].
-    pub fn get_got_ref(&self) -> Option<&GOT> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.got)
-        } else {
-            None
-        }
-    }
-
-    /// Get Function Relocations ref
-    pub fn get_frame_info_ref(
-        &self,
-    ) -> Option<&PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.function_frame_info)
-        } else {
-            None
-        }
     }
 
     /// The maximum stack allocation directly connected to the function itself
@@ -357,10 +187,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        match &self.serializable.compilation {
-            SerializableCompilation::Elf(data) => Ok(data.clone()),
-            SerializableCompilation::Rkyv(_) => serialize_module(&self.serializable),
-        }
+        Ok(self.serializable.compilation.clone())
     }
 }
 
@@ -368,15 +195,12 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
 /// interface of this crate and has to be mutable, it has to be deserialized completely.
 #[derive(Debug)]
 pub struct ModuleFromArchive<'a> {
-    /// The main serializable compilation object
-    pub compilation: &'a ArchivedSerializableCompilation,
+    /// The compiled native object bytes
+    pub compilation: &'a rkyv::Archived<Vec<u8>>,
     /// Data initializers
     pub data_initializers: &'a rkyv::Archived<Box<[OwnedDataInitializer]>>,
     /// CPU Feature flags for this compilation
     pub cpu_features: u64,
-
-    // Keep the original module around for re-serialization
-    original_module: &'a ArchivedSerializableModule,
 }
 
 impl<'a> ModuleFromArchive<'a> {
@@ -388,7 +212,6 @@ impl<'a> ModuleFromArchive<'a> {
             compilation: &module.compilation,
             data_initializers: &module.data_initializers,
             cpu_features: module.cpu_features.to_native(),
-            original_module: module,
         })
     }
 }
@@ -453,157 +276,6 @@ impl ArtifactBuildFromArchive {
         self.cell.borrow_owner()
     }
 
-    /// Get Functions Bodies ref
-    pub fn get_function_bodies_ref(
-        &self,
-    ) -> Option<&ArchivedPrimaryMap<LocalFunctionIndex, FunctionBody>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.function_bodies)
-        } else {
-            None
-        }
-    }
-
-    /// Get Functions Call Trampolines ref
-    pub fn get_function_call_trampolines_ref(
-        &self,
-    ) -> Option<&ArchivedPrimaryMap<SignatureIndex, FunctionBody>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.function_call_trampolines)
-        } else {
-            None
-        }
-    }
-
-    /// Get Dynamic Functions Call Trampolines ref
-    pub fn get_dynamic_function_trampolines_ref(
-        &self,
-    ) -> Option<&ArchivedPrimaryMap<FunctionIndex, FunctionBody>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.dynamic_function_trampolines)
-        } else {
-            None
-        }
-    }
-
-    /// Get Custom Sections ref
-    pub fn get_custom_sections_ref(
-        &self,
-    ) -> Option<&ArchivedPrimaryMap<SectionIndex, CustomSection>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.custom_sections)
-        } else {
-            None
-        }
-    }
-
-    /// Get Function Relocations
-    pub fn get_function_relocations(
-        &self,
-    ) -> Option<&ArchivedPrimaryMap<LocalFunctionIndex, Vec<Relocation>>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.function_relocations)
-        } else {
-            None
-        }
-    }
-
-    /// Get Function Relocations ref
-    pub fn get_custom_section_relocations_ref(
-        &self,
-    ) -> Option<&ArchivedPrimaryMap<SectionIndex, Vec<Relocation>>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.custom_section_relocations)
-        } else {
-            None
-        }
-    }
-
-    /// Get LibCall Trampoline Section Index
-    pub fn get_libcall_trampolines(&self) -> Option<SectionIndex> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(rkyv::deserialize::<_, RkyvError>(&compilation.libcall_trampolines).unwrap())
-        } else {
-            None
-        }
-    }
-
-    /// Get LibCall Trampoline Length
-    pub fn get_libcall_trampoline_len(&self) -> Option<usize> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(compilation.libcall_trampoline_len.to_native() as usize)
-        } else {
-            None
-        }
-    }
-
-    /// Get an unarchived [`UnwindInfo`].
-    pub fn get_unwind_info(&self) -> Option<UnwindInfo> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(rkyv::deserialize::<_, rkyv::rancor::Error>(&compilation.unwind_info).unwrap())
-        } else {
-            None
-        }
-    }
-
-    /// Get an unarchived [`GOT`].
-    pub fn get_got_ref(&self) -> Option<GOT> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(rkyv::deserialize::<_, rkyv::rancor::Error>(&compilation.got).unwrap())
-        } else {
-            None
-        }
-    }
-
-    /// Get Function Relocations ref
-    pub fn get_frame_info_ref(
-        &self,
-    ) -> Option<&ArchivedPrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.function_frame_info)
-        } else {
-            None
-        }
-    }
-
-    /// Get Function Relocations ref
-    pub fn deserialize_frame_info_ref(
-        &self,
-    ) -> Result<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>, DeserializeError> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            rkyv::deserialize::<_, RkyvError>(&compilation.function_frame_info)
-                .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))
-        } else {
-            Err(DeserializeError::CorruptedBinary(
-                "expected RKYV compilation".to_string(),
-            ))
-        }
-    }
-
     /// The maximum stack allocation directly connected to the function itself
     /// if tracked (does not include any potential function calls).
     /// Available only for the Singlepass compiler
@@ -613,14 +285,9 @@ impl ArtifactBuildFromArchive {
         Some(&self.compile_info.function_max_stack_usage)
     }
 
-    /// Get compiled ELF file data.
-    pub fn get_elf_file(&self) -> Option<&[u8]> {
-        if let ArchivedSerializableCompilation::Elf(data) = self.cell.borrow_dependent().compilation
-        {
-            Some(data)
-        } else {
-            None
-        }
+    /// Get compiled native object data.
+    pub fn get_elf_file(&self) -> &[u8] {
+        self.cell.borrow_dependent().compilation.as_slice()
     }
 }
 
@@ -664,33 +331,6 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        if let ArchivedSerializableCompilation::Elf(data) = self.cell.borrow_dependent().compilation
-        {
-            return Ok(data.to_vec());
-        }
-
-        // We could have stored the original bytes, but since the module info name
-        // is mutable, we have to assume the data may have changed and serialize
-        // everything all over again. Also, to be able to serialize, first we have
-        // to deserialize completely. Luckily, serializing a module that was already
-        // deserialized from a file makes little sense, so hopefully, this is not a
-        // common use-case.
-
-        let mut module: SerializableModule =
-            rkyv::deserialize::<_, RkyvError>(self.cell.borrow_dependent().original_module)
-                .map_err(|e| SerializeError::Generic(e.to_string()))?;
-        module.compile_info = self.compile_info.clone();
-        serialize_module(&module)
+        Ok(self.get_elf_file().to_vec())
     }
-}
-
-fn serialize_module(module: &SerializableModule) -> Result<Vec<u8>, SerializeError> {
-    let serialized_data = module.serialize()?;
-    assert!(std::mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
-
-    let mut metadata_binary = vec![];
-    metadata_binary.extend(ArtifactBuild::MAGIC_HEADER);
-    metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
-    metadata_binary.extend(serialized_data);
-    Ok(metadata_binary)
 }
