@@ -6,8 +6,6 @@
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
 
-use crate::types::unwind::CompiledFunctionUnwindInfoReference;
-
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {
     published: bool,
@@ -76,21 +74,6 @@ impl UnwindRegistry {
             #[cfg(target_os = "macos")]
             compact_unwind_mgr: Default::default(),
         }
-    }
-
-    /// Registers a function given the start offset, length, and unwind information.
-    pub fn register(
-        &mut self,
-        _base_address: usize,
-        _func_start: u32,
-        _func_len: u32,
-        info: &CompiledFunctionUnwindInfoReference,
-    ) -> Result<(), String> {
-        match info {
-            CompiledFunctionUnwindInfoReference::Dwarf => {}
-            _ => return Err(format!("unsupported unwind information {info:?}")),
-        };
-        Ok(())
     }
 
     /// Publishes all registered functions (coming from .eh_frame sections).

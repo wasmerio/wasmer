@@ -32,7 +32,7 @@ use wasmer_types::{
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
-    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
+    Artifact, BaseTunables, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
     engine::mapped_binary::MemoryMappedBinary,
 };
 
@@ -67,8 +67,6 @@ impl Engine {
             inner: Arc::new(Mutex::new(EngineInner {
                 compiler: Some(compiler),
                 features,
-                #[cfg(not(target_arch = "wasm32"))]
-                code_memory: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
                 elf_mapped_binary: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
@@ -142,8 +140,6 @@ impl Engine {
                 compiler: None,
                 #[cfg(feature = "compiler")]
                 features: Features::default(),
-                #[cfg(not(target_arch = "wasm32"))]
-                code_memory: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
                 elf_mapped_binary: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
@@ -367,10 +363,6 @@ pub struct EngineInner {
     #[cfg(feature = "compiler")]
     /// The compiler and cpu features
     features: Features,
-    /// The code memory is responsible of publishing the compiled
-    /// functions to memory.
-    #[cfg(not(target_arch = "wasm32"))]
-    code_memory: Vec<CodeMemory>,
     /// Memory-mapped Artifact image.
     #[cfg(not(target_arch = "wasm32"))]
     elf_mapped_binary: Vec<MemoryMappedBinary>,
@@ -526,15 +518,6 @@ impl EngineInner {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    /// Register the frame info for the code memory
-    pub(crate) fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
-        self.code_memory
-            .last_mut()
-            .unwrap()
-            .register_frame_info(frame_info);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
