@@ -32,11 +32,7 @@ use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
-    types::{
-        function::FunctionBody,
-        module::CompileModuleInfo,
-        section::SectionIndex,
-    },
+    types::{function::FunctionBody, module::CompileModuleInfo, section::SectionIndex},
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
@@ -119,29 +115,6 @@ impl SinglepassCompiler {
         let progress = progress_callback
             .cloned()
             .map(|cb| ProgressContext::new(cb, total_steps, "singlepass::functions"));
-
-        // Generate the frametable
-        #[cfg(feature = "unwind")]
-        let dwarf_frametable = if function_body_inputs.is_empty() {
-            // If we have no function body inputs, we don't need to
-            // construct the `FrameTable`. Constructing it, with empty
-            // FDEs will cause some issues in Linux.
-            None
-        } else {
-            match target.triple().default_calling_convention() {
-                Ok(CallingConvention::SystemV | CallingConvention::AppleAarch64) => {
-                    match create_systemv_cie(target.triple().architecture) {
-                        Some(cie) => {
-                            let mut dwarf_frametable = FrameTable::default();
-                            let cie_id = dwarf_frametable.add_cie(cie);
-                            Some((dwarf_frametable, cie_id))
-                        }
-                        None => None,
-                    }
-                }
-                _ => None,
-            }
-        };
 
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;

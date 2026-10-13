@@ -106,7 +106,6 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                 &compiler_name.to_lowercase(),
                 false,
             );
-            let native_compiler = compiler_name != "V8";
             let compiler_name_lowercase = compiler_name.to_lowercase();
 
             quote! {

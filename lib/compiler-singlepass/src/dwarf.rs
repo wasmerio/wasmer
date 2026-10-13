@@ -2,11 +2,8 @@ use gimli::{
     RunTimeEndian, SectionId,
     write::{Address, EndianVec, Result, Writer},
 };
-use wasmer_compiler::types::{
-    relocation::{Relocation, RelocationKind, RelocationTarget},
-    section::{CustomSection, CustomSectionProtection, SectionBody},
-};
-use wasmer_types::{LocalFunctionIndex, entity::EntityRef, target::Endianness};
+use wasmer_compiler::types::relocation::{Relocation, RelocationKind, RelocationTarget};
+use wasmer_types::{LocalFunctionIndex, entity::EntityRef};
 
 #[derive(Clone, Debug)]
 pub struct WriterRelocate {
@@ -16,30 +13,6 @@ pub struct WriterRelocate {
 
 impl WriterRelocate {
     pub const FUNCTION_SYMBOL: usize = 0;
-    pub fn new(endianness: Option<Endianness>) -> Self {
-        let endianness = match endianness {
-            Some(Endianness::Little) => RunTimeEndian::Little,
-            Some(Endianness::Big) => RunTimeEndian::Big,
-            // We autodetect it, based on the host
-            None => RunTimeEndian::default(),
-        };
-        WriterRelocate {
-            relocs: Vec::new(),
-            writer: EndianVec::new(endianness),
-        }
-    }
-
-    pub fn into_section(mut self) -> CustomSection {
-        // GCC expects a terminating "empty" length, so write a 0 length at the end of the table.
-        self.writer.write_u32(0).unwrap();
-        let data = self.writer.into_vec();
-        CustomSection {
-            protection: CustomSectionProtection::Read,
-            alignment: None,
-            bytes: SectionBody::new_with_vec(data),
-            relocations: self.relocs,
-        }
-    }
 }
 
 impl Writer for WriterRelocate {
