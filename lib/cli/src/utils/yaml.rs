@@ -8,8 +8,8 @@
 use std::str::FromStr;
 
 use anyhow::Context as _;
-use yaml_serde::Value;
 use yaml_edit::{Mapping, YamlFile, YamlNode};
+use yaml_serde::Value;
 
 /// Apply `target` onto the original app YAML `text`, preserving the formatting
 /// of everything that did not change.
