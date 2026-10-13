@@ -104,12 +104,10 @@ impl SinglepassCompiler {
         };
 
         let module = &compile_info.module;
-        let source_map = Arc::new(if self.config.experimental_artifact {
+        let source_map = Arc::new(
             WasmSourceMap::new(module, module_translation, &function_body_inputs)
-                .map_err(CompileError::Codegen)?
-        } else {
-            WasmSourceMap::default()
-        });
+                .map_err(CompileError::Codegen)?,
+        );
         let total_function_call_trampolines = module.signatures.len() as u64;
         let total_dynamic_trampolines = module.num_imported_functions as u64;
         let total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
@@ -162,7 +160,6 @@ impl SinglepassCompiler {
                     signature,
                     target,
                     calling_convention,
-                    self.config.experimental_artifact,
                     progress_callback,
                 )?;
                 if let Some(callbacks) = self.config.callbacks.as_ref()
@@ -301,7 +298,7 @@ impl SinglepassCompiler {
                         func_type,
                         target,
                         calling_convention,
-                        self.config.experimental_artifact.then_some(&kind),
+                        Some(&kind),
                         progress_callback,
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
@@ -346,7 +343,7 @@ impl SinglepassCompiler {
                         &func_type,
                         target,
                         calling_convention,
-                        self.config.experimental_artifact.then_some(&kind),
+                        Some(&kind),
                         progress_callback,
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
@@ -374,78 +371,26 @@ impl SinglepassCompiler {
             )
             .collect::<Result<Vec<_>, _>>()?;
 
-        if self.config.experimental_artifact {
-            let object_files = compile_output_objects(functions);
-            let import_trampoline_objects = compile_output_objects(import_trampolines);
-            let trampoline_objects = compile_output_objects(function_call_trampolines);
-            let dynamic_trampoline_objects = compile_output_objects(dynamic_function_trampolines);
+        let object_files = compile_output_objects(functions);
+        let import_trampoline_objects = compile_output_objects(import_trampolines);
+        let trampoline_objects = compile_output_objects(function_call_trampolines);
+        let dynamic_trampoline_objects = compile_output_objects(dynamic_function_trampolines);
 
-            return elf::link_module(
-                pool,
-                target,
-                compile_info_blob,
-                object_files,
-                import_trampoline_objects,
-                trampoline_objects,
-                dynamic_trampoline_objects,
-                self.config
-                    .callbacks
-                    .as_ref()
-                    .map(|callbacks| callbacks.debug_dir().clone()),
-                module.hash().map(|hash| hash.to_string()),
-                function_max_stack_usage,
-            );
-        }
-
-        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
-        let (functions, fdes): (Vec<_>, Vec<_>) =
-            compile_output_in_memory(functions).into_iter().unzip();
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut custom_sections = compile_output_in_memory(import_trampolines)
-            .into_iter()
-            .collect::<PrimaryMap<SectionIndex, _>>();
-        let function_call_trampolines = compile_output_in_memory(function_call_trampolines)
-            .into_iter()
-            .collect::<PrimaryMap<_, _>>();
-        let dynamic_function_trampolines = compile_output_in_memory(dynamic_function_trampolines)
-            .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, _>>();
-
-        #[allow(unused_mut)]
-        let mut unwind_info = UnwindInfo::default();
-
-        #[cfg(feature = "unwind")]
-        if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
-            for fde in fdes.into_iter().flatten() {
-                match fde {
-                    UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
-                }
-            }
-            let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
-            dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
-            eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
-
-            let eh_frame_section = eh_frame.0.into_section();
-            if let Some(progress_callback) = progress_callback.as_ref() {
-                progress_callback.reserve_size(eh_frame_section.bytes.len())?;
-            }
-            custom_sections.push(eh_frame_section);
-            unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1))
-        };
-
-        let got = wasmer_compiler::types::function::GOT::empty();
-
-        Ok(Compilation::Rkyv {
-            compilation: RkyvCompilation {
-                functions: functions.into_iter().collect(),
-                custom_sections,
-                function_call_trampolines,
-                dynamic_function_trampolines,
-                unwind_info,
-                got,
-            },
+        elf::link_module(
+            pool,
+            target,
+            compile_info_blob,
+            object_files,
+            import_trampoline_objects,
+            trampoline_objects,
+            dynamic_trampoline_objects,
+            self.config
+                .callbacks
+                .as_ref()
+                .map(|callbacks| callbacks.debug_dir().clone()),
+            module.hash().map(|hash| hash.to_string()),
             function_max_stack_usage,
-        })
+        )
     }
 }
 
@@ -477,12 +422,7 @@ impl Compiler for SinglepassCompiler {
     }
 
     fn artifact_format(&self) -> String {
-        if self.config.experimental_artifact {
-            wasmer_compiler::ArtifactFormat::Native
-        } else {
-            wasmer_compiler::ArtifactFormat::Rkyv
-        }
-        .to_string()
+        wasmer_compiler::ArtifactFormat::Native.to_string()
     }
 
     /// Get the middlewares for this compiler

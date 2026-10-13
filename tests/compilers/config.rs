@@ -70,7 +70,6 @@ pub struct Config {
     pub middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     pub canonicalize_nans: bool,
     pub allow_unaligned_memory_accesses: bool,
-    pub experimental_artifact: bool,
     pub dynamic_memory: bool,
 }
 
@@ -81,15 +80,9 @@ impl Config {
             features: None,
             canonicalize_nans: false,
             allow_unaligned_memory_accesses: false,
-            experimental_artifact: false,
             dynamic_memory: false,
             middlewares: vec![],
         }
-    }
-
-    pub fn with_experimental_artifact(mut self) -> Self {
-        self.experimental_artifact = true;
-        self
     }
 
     pub fn with_dynamic_memory(mut self) -> Self {
@@ -163,7 +156,6 @@ impl Config {
                 use wasmer_compiler_cranelift::CraneliftCallbacks;
 
                 let mut compiler = wasmer_compiler_cranelift::Cranelift::new();
-                compiler.experimental_artifact(self.experimental_artifact);
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler
                     .allow_experimental_unaligned_memory_accesses(allow_unaligned_memory_accesses);
@@ -181,7 +173,6 @@ impl Config {
             #[cfg(feature = "llvm")]
             Compiler::LLVM => {
                 let mut compiler = wasmer_compiler_llvm::LLVM::new();
-                compiler.experimental_artifact(self.experimental_artifact);
                 compiler.canonicalize_nans(canonicalize_nans);
                 if let Some(mut debug_dir) = debug_dir {
                     use wasmer_compiler_llvm::LLVMCallbacks;
@@ -197,7 +188,6 @@ impl Config {
             #[cfg(feature = "singlepass")]
             Compiler::Singlepass => {
                 let mut compiler = wasmer_compiler_singlepass::Singlepass::new();
-                compiler.experimental_artifact(self.experimental_artifact);
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler
                     .allow_experimental_unaligned_memory_accesses(allow_unaligned_memory_accesses);

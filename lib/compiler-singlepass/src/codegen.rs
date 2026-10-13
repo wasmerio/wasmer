@@ -6091,13 +6091,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if let Some(unwind) = unwind {
                     fde = Some(unwind.to_fde(Address::Symbol {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
-                        // In-memory compilation uses this addend to identify the
-                        // function relocation target.
-                        addend: if self.config.experimental_artifact {
-                            0
-                        } else {
-                            self.local_func_index.index() as _
-                        },
+                        addend: 0,
                     }));
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
@@ -6127,13 +6121,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.output_reporter.finish(body.len())?;
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
-            if !self.config.experimental_artifact {
-                callbacks.obj_memory_buffer(
-                    &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
-                    &self.module.hash_string(),
-                    &body,
-                );
-            }
             callbacks.asm_memory_buffer(
                 &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
                 &self.module.hash_string(),
@@ -6149,27 +6136,23 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             frame_info: CompiledFunctionFrameInfo { traps, address_map },
             maximum_stack_usage: Some(self.stack_offset.maximum_offset),
         };
-        if self.config.experimental_artifact {
-            let maximum_stack_usage = function.maximum_stack_usage;
-            let object = elf::emit_local_function(
-                target,
-                self.local_func_index,
-                function,
-                fde,
-                #[cfg(feature = "unwind")]
-                self.dwarf_state,
-            )?;
-            if let Some(callbacks) = self.config.callbacks.as_ref() {
-                callbacks.obj_memory_buffer(
-                    &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
-                    &self.module.hash_string(),
-                    &object,
-                );
-            }
-            Ok(CompileOutput::Object(object, maximum_stack_usage))
-        } else {
-            Ok(CompileOutput::InMemory((function, fde)))
+        let maximum_stack_usage = function.maximum_stack_usage;
+        let object = elf::emit_local_function(
+            target,
+            self.local_func_index,
+            function,
+            fde,
+            #[cfg(feature = "unwind")]
+            self.dwarf_state,
+        )?;
+        if let Some(callbacks) = self.config.callbacks.as_ref() {
+            callbacks.obj_memory_buffer(
+                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &self.module.hash_string(),
+                &object,
+            );
         }
+        Ok(CompileOutput::Object(object, maximum_stack_usage))
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

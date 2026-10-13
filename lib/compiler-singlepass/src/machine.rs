@@ -2441,7 +2441,6 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-    experimental_artifact: bool,
     progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<CompileOutput<CustomSection>, CompileError> {
     let section = match target.triple().architecture {
@@ -2479,18 +2478,14 @@ pub fn gen_import_call_trampoline(
             "singlepass unimplemented arch for gen_import_call_trampoline".to_owned(),
         )),
     }?;
-    if experimental_artifact {
-        Ok(CompileOutput::Object(
-            elf::emit_import_trampoline(
-                target,
-                &CompiledKind::ImportFunctionTrampoline(index, sig.to_owned()),
-                &section,
-            )?,
-            None,
-        ))
-    } else {
-        Ok(CompileOutput::InMemory(section))
-    }
+    Ok(CompileOutput::Object(
+        elf::emit_import_trampoline(
+            target,
+            &CompiledKind::ImportFunctionTrampoline(index, sig.to_owned()),
+            &section,
+        )?,
+        None,
+    ))
 }
 
 // Constants for the bounds of truncation operations. These are the least or

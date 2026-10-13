@@ -139,10 +139,6 @@ pub struct RuntimeOptions {
     ]))]
     v8: bool,
 
-    /// Use the experimental artifact format.
-    #[clap(long = "experimental-artifact")]
-    experimental_artifact: bool,
-
     /// Enable compiler internal verification.
     ///
     /// Available for Cranelift (enabled always for LLVM).
@@ -222,24 +218,6 @@ impl FromStr for Profiler {
 }
 
 impl RuntimeOptions {
-    fn validate_profiler(&self) -> Result<()> {
-        if self.experimental_artifact && !cfg!(any(target_os = "linux", target_os = "macos")) {
-            bail!("--experimental-artifact is only supported on Linux and macOS");
-        }
-        if !self.experimental_artifact {
-            match self.profiler {
-                Some(Profiler::Gdb) => {
-                    bail!("The gdb profiler requires --experimental-artifact")
-                }
-                Some(Profiler::Lldb) => {
-                    bail!("The lldb profiler requires --experimental-artifact")
-                }
-                _ => {}
-            }
-        }
-        Ok(())
-    }
-
     pub fn get_available_backends(&self) -> Result<Vec<BackendType>> {
         // If a specific backend is explicitly requested, use it
         #[cfg(feature = "cranelift")]
@@ -439,7 +417,6 @@ impl RuntimeOptions {
         &self,
         rt: &BackendType,
     ) -> Result<Box<dyn CompilerConfig>> {
-        self.validate_profiler()?;
         let compiler_config: Box<dyn CompilerConfig> = match rt {
             BackendType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
@@ -542,13 +519,7 @@ impl RuntimeOptions {
         };
 
         #[allow(unreachable_code)]
-        {
-            let mut compiler_config = compiler_config;
-            if self.experimental_artifact {
-                compiler_config.experimental_artifact(true);
-            }
-            Ok(compiler_config)
-        }
+        Ok(compiler_config)
     }
 }
 
@@ -592,7 +563,6 @@ impl BackendType {
     /// We enable every feature the engine supports, since the same engine may later be used
     /// with a module that requires more features than the one used during engine detection.
     pub fn get_engine(&self, target: &Target, runtime_opts: &RuntimeOptions) -> Result<Engine> {
-        runtime_opts.validate_profiler()?;
         match self {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {

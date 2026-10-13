@@ -117,7 +117,6 @@ pub struct Cranelift {
     pub(crate) enable_perfmap: bool,
     pub(crate) debugger: Option<Debugger>,
     pub(crate) enable_pic: bool,
-    pub(crate) experimental_artifact: bool,
     pub(crate) max_table_elements: u32,
     pub(crate) opt_level: CraneliftOptLevel,
     /// The number of threads to use for compilation.
@@ -137,7 +136,6 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
-            experimental_artifact: false,
             max_table_elements: DEFAULT_MAX_TABLE_ELEMENTS,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
             middlewares: vec![],
@@ -145,12 +143,6 @@ impl Cranelift {
             debugger: None,
             callbacks: None,
         }
-    }
-
-    /// Enable the experimental artifact format.
-    pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
-        self.experimental_artifact = enable;
-        self
     }
 
     /// Set the maximum total number of elements allowed in local fixed-size tables.
@@ -316,10 +308,6 @@ impl Cranelift {
 }
 
 impl CompilerConfig for Cranelift {
-    fn experimental_artifact(&mut self, enable: bool) {
-        self.experimental_artifact = enable;
-    }
-
     fn max_table_elements(&mut self, max_table_elements: u32) {
         self.max_table_elements = max_table_elements;
     }

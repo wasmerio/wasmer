@@ -4,10 +4,7 @@
 use crate::dwarf::WriterRelocate;
 
 #[cfg(feature = "unwind")]
-use crate::eh::{
-    CompactUnwindEntryData, FunctionLsdaData, build_compact_unwind_section, build_function_lsda,
-    build_lsda_section, build_tag_section, compact_unwind_encoding_aarch64,
-};
+use crate::eh::{FunctionLsdaData, build_function_lsda, compact_unwind_encoding_aarch64};
 
 #[cfg(feature = "unwind")]
 use crate::translator::CraneliftUnwindInfo;
@@ -31,36 +28,29 @@ use cranelift_codegen::{
 #[cfg(feature = "unwind")]
 use cranelift_codegen::gimli::{
     constants::DW_EH_PE_absptr,
-    write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
+    write::{Address, FrameDescriptionEntry, FrameTable},
 };
 
 use itertools::Itertools;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-#[cfg(feature = "unwind")]
-use std::collections::HashMap;
 use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
-use wasmer_compiler::elf::{CompileOutput, compile_output_in_memory, compile_output_objects};
+use wasmer_compiler::elf::{CompileOutput, compile_output_objects};
 use wasmer_compiler::types::function::Compilation;
 
 use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
-use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
+use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_compiler::{
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
     ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
     types::{
-        function::{
-            CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, RkyvCompilation, UnwindInfo,
-        },
+        function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         module::CompileModuleInfo,
-        relocation::{Relocation, RelocationKind, RelocationTarget},
-        section::{CustomSection, CustomSectionProtection, SectionBody},
+        relocation::{Relocation, RelocationTarget},
     },
 };
 use wasmer_compiler::{build_function_buckets, translate_function_buckets};
-#[cfg(feature = "unwind")]
-use wasmer_types::LibCall;
 #[cfg(feature = "unwind")]
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
@@ -138,12 +128,10 @@ impl CraneliftCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
-        let source_map = Arc::new(if self.config.experimental_artifact {
+        let source_map = Arc::new(
             WasmSourceMap::new(module, module_translation_state, &function_body_inputs)
-                .map_err(CompileError::Codegen)?
-        } else {
-            WasmSourceMap::default()
-        });
+                .map_err(CompileError::Codegen)?,
+        );
 
         let signatures = module
             .signatures
@@ -320,7 +308,7 @@ impl CraneliftCompiler {
                     result.buffer.call_sites(),
                     result.buffer.data().len(),
                     pointer_bytes,
-                    self.config.experimental_artifact,
+                    true,
                 )
             } else {
                 None
@@ -334,18 +322,11 @@ impl CraneliftCompiler {
                         // For the ELF artifact format each function's
                         // `.eh_frame` relocates against its own text symbol,
                         // so the FDE's initial location must not be shifted.
-                        let addend = if self.config.experimental_artifact {
-                            0
-                        } else {
-                            // We use the addend as a way to specify the
-                            // function index
-                            i.index() as _
-                        };
                         let fde = fde.to_fde(Address::Symbol {
                             // The symbol is the kind of relocation.
                             // "0" is used for functions
                             symbol: WriterRelocate::FUNCTION_SYMBOL,
-                            addend,
+                            addend: 0,
                         });
                         // The unwind information is inserted into the dwarf section
                         (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
@@ -383,31 +364,24 @@ impl CraneliftCompiler {
                 compact_unwind_encoding,
             };
 
-            if self.config.experimental_artifact {
-                let object = crate::elf::emit_local_function(
-                    #[cfg(feature = "unwind")]
-                    &*isa,
-                    target,
-                    *i,
-                    &compile_info.module.get_function_name(func_index),
-                    compile_info.module.name.as_deref(),
-                    &compiled.function,
-                    &source_map,
-                    #[cfg(feature = "unwind")]
-                    compiled.fde,
-                    #[cfg(feature = "unwind")]
-                    compiled.function_lsda,
-                    #[cfg(feature = "unwind")]
-                    compiled.compact_unwind_encoding,
-                )?;
-                Ok(CompileOutput::Object(object, None))
-            } else {
-                Ok(CompileOutput::InMemory(compiled))
-            }
+            let object = crate::elf::emit_local_function(
+                #[cfg(feature = "unwind")]
+                &*isa,
+                target,
+                *i,
+                &compile_info.module.get_function_name(func_index),
+                compile_info.module.name.as_deref(),
+                &compiled.function,
+                &source_map,
+                #[cfg(feature = "unwind")]
+                compiled.fde,
+                #[cfg(feature = "unwind")]
+                compiled.function_lsda,
+                #[cfg(feature = "unwind")]
+                compiled.compact_unwind_encoding,
+            )?;
+            Ok(CompileOutput::Object(object, None))
         };
-
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut custom_sections = PrimaryMap::new();
 
         let num_threads = self.config.num_threads.get();
         let pool = rayon::ThreadPoolBuilder::new()
@@ -456,14 +430,10 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                if self.config.experimental_artifact {
-                    Ok(CompileOutput::Object(
-                        wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
-                        None,
-                    ))
-                } else {
-                    Ok(CompileOutput::InMemory(trampoline))
-                }
+                Ok(CompileOutput::<()>::Object(
+                    wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
+                    None,
+                ))
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
@@ -493,228 +463,32 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                if self.config.experimental_artifact {
-                    Ok(CompileOutput::Object(
-                        wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
-                        None,
-                    ))
-                } else {
-                    Ok(CompileOutput::InMemory(trampoline))
-                }
+                Ok(CompileOutput::Object::<()>(
+                    wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
+                    None,
+                ))
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        if self.config.experimental_artifact {
-            let object_files = compile_output_objects(results);
-            let trampoline_objects = compile_output_objects(function_call_trampoline_outputs);
-            let dynamic_trampoline_objects =
-                compile_output_objects(dynamic_function_trampoline_outputs);
-            return wasmer_compiler::elf::link_module(
-                &pool,
-                target,
-                compile_info_blob,
-                object_files,
-                Vec::new(),
-                trampoline_objects,
-                dynamic_trampoline_objects,
-                self.config
-                    .callbacks
-                    .as_ref()
-                    .map(|callbacks| callbacks.debug_dir().clone()),
-                module.hash().map(|hash| hash.to_string()),
-                function_max_stack_usage,
-            );
-        }
-
-        let results = compile_output_in_memory(results);
-
-        let mut functions = Vec::with_capacity(function_body_inputs.len());
-        #[cfg(feature = "unwind")]
-        let mut fdes = Vec::with_capacity(function_body_inputs.len());
-        #[cfg(feature = "unwind")]
-        let mut lsda_data = Vec::with_capacity(function_body_inputs.len());
-        #[cfg(feature = "unwind")]
-        let mut compact_unwind_entries = Vec::new();
-
-        for compiled in results {
-            let CraneliftCompiledFunction {
-                function,
-                #[cfg(feature = "unwind")]
-                fde,
-                #[cfg(feature = "unwind")]
-                function_lsda,
-                #[cfg(feature = "unwind")]
-                compact_unwind_encoding,
-            } = compiled;
-            #[cfg(feature = "unwind")]
-            let local_function_index = LocalFunctionIndex::new(functions.len());
-            functions.push(function);
-            #[cfg(feature = "unwind")]
-            {
-                fdes.push(fde);
-                lsda_data.push(function_lsda);
-                if let Some(compact_encoding) = compact_unwind_encoding {
-                    let function_length = functions
-                        .last()
-                        .expect("function was just pushed")
-                        .body
-                        .body
-                        .len()
-                        .try_into()
-                        .map_err(|_| {
-                            CompileError::Codegen(
-                                "function body too large for Mach-O compact unwind".into(),
-                            )
-                        })?;
-                    compact_unwind_entries.push((
-                        local_function_index,
-                        function_length,
-                        compact_encoding,
-                    ));
-                }
-            }
-        }
-
-        #[cfg(feature = "unwind")]
-        let (_tag_section_index, lsda_section_index, function_lsda_offsets) =
-            if dwarf_frametable.is_some() || emit_macho_compact_unwind {
-                let mut tag_section_index = None;
-                let mut tag_offsets = HashMap::new();
-                if let Some((tag_section, offsets)) = build_tag_section(&lsda_data) {
-                    custom_sections.push(tag_section);
-                    tag_section_index = Some(SectionIndex::new(custom_sections.len() - 1));
-                    tag_offsets = offsets;
-                }
-                let lsda_vec = lsda_data;
-                let (lsda_section, offsets_per_function) =
-                    build_lsda_section(lsda_vec, pointer_bytes, &tag_offsets, tag_section_index);
-                let mut lsda_section_index = None;
-                if let Some(section) = lsda_section {
-                    custom_sections.push(section);
-                    lsda_section_index = Some(SectionIndex::new(custom_sections.len() - 1));
-                }
-                (tag_section_index, lsda_section_index, offsets_per_function)
-            } else {
-                (None, None, vec![None; functions.len()])
-            };
-
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut unwind_info = UnwindInfo::default();
-
-        #[cfg(feature = "unwind")]
-        if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
-            for (func_idx, fde_opt) in fdes.into_iter().enumerate() {
-                if let Some(mut fde) = fde_opt {
-                    let has_lsda = function_lsda_offsets
-                        .get(func_idx)
-                        .and_then(|v| *v)
-                        .is_some();
-                    let lsda_address = if has_lsda {
-                        debug_assert!(
-                            lsda_section_index.is_some(),
-                            "LSDA offsets require an LSDA section"
-                        );
-                        if lsda_section_index.is_some() {
-                            let symbol =
-                                WriterRelocate::lsda_symbol(LocalFunctionIndex::new(func_idx));
-                            Address::Symbol { symbol, addend: 0 }
-                        } else {
-                            Address::Constant(0)
-                        }
-                    } else {
-                        Address::Constant(0)
-                    };
-                    fde.lsda = Some(lsda_address);
-                    dwarf_frametable.add_fde(cie_id, fde);
-                }
-            }
-
-            let mut writer = WriterRelocate::new(target.triple().endianness().ok());
-            if let Some(lsda_section_index) = lsda_section_index {
-                for (func_idx, offset) in function_lsda_offsets.iter().enumerate() {
-                    if let Some(offset) = offset {
-                        writer.register_lsda_symbol(
-                            WriterRelocate::lsda_symbol(LocalFunctionIndex::new(func_idx)),
-                            RelocationTarget::CustomSection(lsda_section_index),
-                            *offset,
-                        );
-                    }
-                }
-            }
-
-            let mut eh_frame = EhFrame(writer);
-            dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
-            eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
-
-            let eh_frame_section = eh_frame.0.into_section();
-            custom_sections.push(eh_frame_section);
-            unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1));
-        };
-
-        #[cfg(feature = "unwind")]
-        if emit_macho_compact_unwind {
-            let entries = compact_unwind_entries
-                .into_iter()
-                .map(|(function, function_length, compact_encoding)| {
-                    let lsda_offset = function_lsda_offsets
-                        .get(function.index())
-                        .and_then(|offset| *offset);
-                    CompactUnwindEntryData {
-                        function,
-                        function_length,
-                        compact_encoding,
-                        lsda_offset,
-                    }
-                })
-                .collect::<Vec<_>>();
-            if let Some(section) = build_compact_unwind_section(entries, lsda_section_index) {
-                custom_sections.push(section);
-                unwind_info.compact_unwind = Some(SectionIndex::new(custom_sections.len() - 1));
-            }
-        }
-
-        let function_call_trampolines = compile_output_in_memory(function_call_trampoline_outputs)
-            .into_iter()
-            .collect();
-        let dynamic_function_trampolines =
-            compile_output_in_memory(dynamic_function_trampoline_outputs)
-                .into_iter()
-                .collect();
-
-        let mut got = wasmer_compiler::types::function::GOT::empty();
-
-        #[cfg(feature = "unwind")]
-        if emit_macho_compact_unwind {
-            let got_idx = SectionIndex::from_u32(custom_sections.len() as u32);
-            custom_sections.push(CustomSection {
-                protection: CustomSectionProtection::Read,
-                alignment: Some(pointer_bytes.into()),
-                bytes: SectionBody::new_with_vec(vec![0; pointer_bytes as usize]),
-                relocations: vec![Relocation {
-                    kind: match pointer_bytes {
-                        4 => RelocationKind::Abs4,
-                        8 => RelocationKind::Abs8,
-                        _ => unreachable!("unsupported pointer size for Mach-O compact unwind GOT"),
-                    },
-                    reloc_target: RelocationTarget::LibCall(LibCall::EHPersonality),
-                    offset: 0,
-                    addend: 0,
-                }],
-            });
-            got.index = Some(got_idx);
-        }
-
-        Ok(Compilation::Rkyv {
-            compilation: RkyvCompilation {
-                functions: functions.into_iter().collect(),
-                custom_sections,
-                function_call_trampolines,
-                dynamic_function_trampolines,
-                unwind_info,
-                got,
-            },
+        let object_files = compile_output_objects(results);
+        let trampoline_objects = compile_output_objects(function_call_trampoline_outputs);
+        let dynamic_trampoline_objects =
+            compile_output_objects(dynamic_function_trampoline_outputs);
+        wasmer_compiler::elf::link_module(
+            &pool,
+            target,
+            compile_info_blob,
+            object_files,
+            Vec::new(),
+            trampoline_objects,
+            dynamic_trampoline_objects,
+            self.config
+                .callbacks
+                .as_ref()
+                .map(|callbacks| callbacks.debug_dir().clone()),
+            module.hash().map(|hash| hash.to_string()),
             function_max_stack_usage,
-        })
+        )
     }
 }
 
@@ -758,12 +532,7 @@ impl Compiler for CraneliftCompiler {
     }
 
     fn artifact_format(&self) -> String {
-        if self.config.experimental_artifact {
-            wasmer_compiler::ArtifactFormat::Native
-        } else {
-            wasmer_compiler::ArtifactFormat::Rkyv
-        }
-        .to_string()
+        wasmer_compiler::ArtifactFormat::Native.to_string()
     }
 
     /// Get the middlewares for this compiler

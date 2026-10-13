@@ -103,9 +103,6 @@ pub enum ArtifactFormat {
 
 /// The compiler configuration options.
 pub trait CompilerConfig {
-    /// Enable the experimental artifact format.
-    fn experimental_artifact(&mut self, _enable: bool) {}
-
     /// Set the maximum total number of elements allowed in local fixed-size tables.
     fn max_table_elements(&mut self, _max_table_elements: u32) {}
 

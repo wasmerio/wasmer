@@ -204,19 +204,7 @@ impl FuncTranslator {
 
         let m0_is_enabled = enable_m0_optimization(config, memory_styles);
 
-        let (function_name, module_name) = if config.experimental_artifact {
-            (function.linkage_name(), String::new())
-        } else {
-            let function_name =
-                symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
-            let module_name = match wasm_module.name.as_ref() {
-                None => format!("<anonymous module> function {function_name}"),
-                Some(module_name) => format!("module {module_name} function {function_name}"),
-            };
-            (function_name, module_name)
-        };
-
-        let module = self.ctx.create_module(module_name.as_str());
+        let module = self.ctx.create_module("");
 
         let target_machine = &self.target_machines.values().next().unwrap();
         let target_triple = target_machine.get_triple();
@@ -245,7 +233,8 @@ impl FuncTranslator {
             m0_is_enabled,
         )?;
 
-        let func = module.add_function(&function_name, func_type, Some(Linkage::External));
+        let func =
+            module.add_function(&function.linkage_name(), func_type, Some(Linkage::External));
 
         // TODO: support dSYM debug info file creation and loading in the future
         let debug_info = if matches!(target.binary_format, BinaryFormat::Elf) {
@@ -339,10 +328,6 @@ impl FuncTranslator {
         };
 
         func.set_personality_function(intrinsics.personality);
-        if !config.experimental_artifact {
-            func.as_global_value().set_section(Some(&section));
-        }
-
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
@@ -642,34 +627,7 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        if config.experimental_artifact {
-            Ok(CompiledFunction::Elf(memory_buffer.as_slice().to_vec()))
-        } else {
-            Ok(CompiledFunction::Rkyv(Box::new(load_object_file(
-                memory_buffer.as_slice(),
-                &self.func_section,
-                RelocationTarget::LocalFunc(*local_func_index),
-                |name: &str| {
-                    Ok({
-                        let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
-                            name.strip_prefix("_").unwrap_or(name)
-                        } else {
-                            name
-                        }
-                        .to_string();
-                        if let Some(Symbol::LocalFunction(local_func_index)) =
-                            symbol_registry.name_to_symbol(&name)
-                        {
-                            Some(RelocationTarget::LocalFunc(local_func_index))
-                        } else {
-                            None
-                        }
-                    })
-                },
-                self.binary_fmt,
-                &self.target_triple,
-            )?)))
-        }
+        Ok(CompiledFunction::Elf(memory_buffer.as_slice().to_vec()))
     }
 }
 
