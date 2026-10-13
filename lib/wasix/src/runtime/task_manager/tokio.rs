@@ -112,6 +112,16 @@ impl Default for TokioTaskManager {
     }
 }
 
+// Guest threads can block or synchronously spawn another guest thread.
+// A bounded pool can leave the child's initialization queued forever.
+fn spawn_wasm_task(task: impl FnOnce() + Send + 'static) -> Result<(), WasiThreadError> {
+    std::thread::Builder::new()
+        .name("wasmer-wasm-task".to_string())
+        .spawn(task)
+        .map(|_| ())
+        .map_err(|err| WasiThreadError::ThreadCreateFailed(Arc::new(err)))
+}
+
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
@@ -172,8 +182,8 @@ impl VirtualTaskManager for TokioTaskManager {
         let (sx, rx) = std::sync::mpsc::channel();
 
         if task.callbacks.trigger.is_some() {
-            tracing::trace!("spawning task_wasm trigger in async pool");
-            self.pool.execute(move || {
+            tracing::trace!("spawning task_wasm trigger in dedicated thread");
+            spawn_wasm_task(move || {
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
                     Ok(x) => {
                         sx.send(Ok(())).unwrap();
@@ -243,12 +253,12 @@ impl VirtualTaskManager for TokioTaskManager {
                     trigger_result: Some(result),
                     recycle: callbacks.recycle,
                 });
-            });
+            })?;
         } else {
             tracing::trace!("spawning task_wasm in blocking thread");
 
             // Run the callback on a dedicated thread
-            self.pool.execute(move || {
+            spawn_wasm_task(move || {
                 tracing::trace!("task_wasm started in blocking thread");
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
                     Ok(x) => {
@@ -272,7 +282,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     trigger_result: None,
                     recycle: callbacks.recycle,
                 });
-            });
+            })?;
         }
 
         rx.recv()
@@ -328,6 +338,86 @@ impl Drop for SleepNow {
     fn drop(&mut self) {
         if let Some(h) = self.abort_handle.as_ref() {
             h.abort()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "sys"))]
+mod tests {
+    use super::*;
+    use crate::{WasiEnv, runtime::PluggableRuntime};
+    use std::sync::mpsc;
+    use wasmer::{Module, Store};
+
+    #[test]
+    fn host_thread_creation_failure_is_retryable() {
+        let error = WasiThreadError::ThreadCreateFailed(Arc::new(std::io::Error::from(
+            std::io::ErrorKind::WouldBlock,
+        )));
+        assert_eq!(
+            wasmer_wasix_types::wasi::Errno::from(error),
+            wasmer_wasix_types::wasi::Errno::Again
+        );
+    }
+
+    #[test]
+    fn wasm_tasks_start_when_the_blocking_pool_is_full() {
+        for with_trigger in [false, true] {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let _entered = rt.enter();
+            let manager = Arc::new(TokioTaskManager {
+                rt: rt.handle().clone().into(),
+                pool: Arc::new(ThreadPool {
+                    inner: rusty_pool::Builder::new().core_size(1).max_size(1).build(),
+                }),
+            });
+            let (occupied_tx, occupied_rx) = mpsc::channel();
+            let (release_tx, release_rx) = mpsc::channel();
+            manager.pool.execute(move || {
+                occupied_tx.send(()).unwrap();
+                let _ = release_rx.recv();
+            });
+            occupied_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+
+            let store = Store::default();
+            let module = Module::new(
+                &store,
+                r#"(module (memory (export "memory") 1) (func (export "_start")))"#,
+            )
+            .unwrap();
+            let mut runtime = PluggableRuntime::new(manager.clone());
+            runtime.set_engine(store.engine().clone());
+            let env = WasiEnv::builder("task-pool-regression")
+                .runtime(Arc::new(runtime))
+                .build()
+                .unwrap();
+            let (ran_tx, ran_rx) = mpsc::channel();
+            let mut task = TaskWasm::new(
+                Box::new(move |props| {
+                    assert_eq!(props.trigger_result.is_some(), with_trigger);
+                    ran_tx.send(()).unwrap();
+                }),
+                env,
+                module,
+                false,
+                false,
+            );
+            if with_trigger {
+                task = task.with_trigger(Box::new(|| Box::pin(async { Ok(bytes::Bytes::new()) })));
+            }
+            let (started_tx, started_rx) = mpsc::channel();
+            let caller = std::thread::spawn(move || {
+                started_tx.send(manager.task_wasm(task)).unwrap();
+            });
+            let started = started_rx.recv_timeout(Duration::from_secs(10));
+            let ran = ran_rx.recv_timeout(Duration::from_secs(10));
+            // Release the worker even on failure, so the old implementation can exit.
+            release_tx.send(()).unwrap();
+            caller.join().unwrap();
+            started
+                .expect("Wasm task initialization waited for a pool worker")
+                .unwrap();
+            ran.expect("Wasm callback waited for a pool worker");
         }
     }
 }

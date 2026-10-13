@@ -236,7 +236,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         task: Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>,
     ) -> Result<(), WasiThreadError>;
 
-    /// Run a blocking WebAssembly operation on the thread pool.
+    /// Run a blocking WebAssembly operation on a dedicated thread.
     ///
     /// This is primarily used inside the context of a syscall and allows
     /// the transfer of things like [`wasmer::Module`] across threads.
