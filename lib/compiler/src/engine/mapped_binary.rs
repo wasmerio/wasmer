@@ -176,7 +176,7 @@ pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
-/// Maps an Mach-O dynamic-relocation symbol name to the `LibCall` it refers to.
+/// Maps a Mach-O dynamic-relocation symbol name to the `LibCall` it refers to.
 pub static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_ceilf" => LibCall::CeilF32,
     "_ceil" => LibCall::CeilF64,
