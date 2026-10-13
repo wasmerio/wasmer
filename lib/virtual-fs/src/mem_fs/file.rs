@@ -1669,6 +1669,80 @@ mod test_read_write_seek {
             "reading past EOF should return zero bytes",
         );
     }
+
+    async fn assert_seek_overflow_preserves_cursor(file: &mut dyn crate::VirtualFile) {
+        assert_eq!(file.seek(io::SeekFrom::Start(1)).await.unwrap(), 1);
+
+        for position in [
+            io::SeekFrom::Current(i64::MAX),
+            io::SeekFrom::End(i64::MAX),
+            io::SeekFrom::Current(i64::MIN),
+            io::SeekFrom::End(i64::MIN),
+        ] {
+            let error = file.seek(position).await.unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+            assert_eq!(file.stream_position().await.unwrap(), 1);
+        }
+
+        assert_eq!(
+            file.seek(io::SeekFrom::End(i64::MAX - 3)).await.unwrap(),
+            i64::MAX as u64
+        );
+        let error = file.seek(io::SeekFrom::Current(1)).await.unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(file.stream_position().await.unwrap(), i64::MAX as u64);
+        assert_eq!(
+            file.seek(io::SeekFrom::Current(-i64::MAX)).await.unwrap(),
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn test_seek_overflow_preserves_cursor() {
+        let fs = FileSystem::default();
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to create a new file");
+        file.write_all(b"foo").await.unwrap();
+
+        assert_seek_overflow_preserves_cursor(file.as_mut()).await;
+    }
+
+    #[tokio::test]
+    async fn test_readonly_file_seek_overflow_preserves_cursor() {
+        let fs = FileSystem::default();
+        fs.insert_ro_file(path!("/foo.txt"), OwnedBuffer::from_static(b"foo"))
+            .expect("failed to insert readonly file");
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to open readonly file");
+
+        assert_seek_overflow_preserves_cursor(file.as_mut()).await;
+    }
+
+    #[tokio::test]
+    async fn test_offloaded_file_seek_overflow_preserves_cursor() {
+        let backing = OffloadBackingStore::new(OwnedBuffer::from_static(b"foo"), None);
+        let fs = FileSystem::default()
+            .with_backing_offload(backing)
+            .expect("failed to configure backing offload");
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to create a new file");
+        file.write_all(b"foo").await.unwrap();
+
+        assert_seek_overflow_preserves_cursor(file.as_mut()).await;
+    }
 }
 
 impl fmt::Debug for FileHandle {
@@ -1765,14 +1839,16 @@ impl File {
             io::SeekFrom::Start(offset) => offset.try_into().map_err(to_err)?,
 
             // Calculate from the end, so `buffer.len() + offset`.
-            io::SeekFrom::End(offset) => {
-                TryInto::<i64>::try_into(self.buffer.len()).map_err(to_err)? + offset
-            }
+            io::SeekFrom::End(offset) => TryInto::<i64>::try_into(self.buffer.len())
+                .map_err(to_err)?
+                .checked_add(offset)
+                .ok_or(io::ErrorKind::InvalidInput)?,
 
             // Calculate from the current cursor, so `cursor + offset`.
-            io::SeekFrom::Current(offset) => {
-                TryInto::<i64>::try_into(*cursor).map_err(to_err)? + offset
-            }
+            io::SeekFrom::Current(offset) => TryInto::<i64>::try_into(*cursor)
+                .map_err(to_err)?
+                .checked_add(offset)
+                .ok_or(io::ErrorKind::InvalidInput)?,
         };
 
         // It's an error to seek before byte 0.
@@ -1866,12 +1942,14 @@ impl ReadOnlyFile {
 
         let next_cursor: i64 = match position {
             io::SeekFrom::Start(offset) => offset.try_into().map_err(to_err)?,
-            io::SeekFrom::End(offset) => {
-                TryInto::<i64>::try_into(self.buffer.len()).map_err(to_err)? + offset
-            }
-            io::SeekFrom::Current(offset) => {
-                TryInto::<i64>::try_into(*cursor).map_err(to_err)? + offset
-            }
+            io::SeekFrom::End(offset) => TryInto::<i64>::try_into(self.buffer.len())
+                .map_err(to_err)?
+                .checked_add(offset)
+                .ok_or(io::ErrorKind::InvalidInput)?,
+            io::SeekFrom::Current(offset) => TryInto::<i64>::try_into(*cursor)
+                .map_err(to_err)?
+                .checked_add(offset)
+                .ok_or(io::ErrorKind::InvalidInput)?,
         };
 
         if next_cursor < 0 {
