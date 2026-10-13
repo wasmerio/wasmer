@@ -114,6 +114,8 @@ impl Default for TokioTaskManager {
 
 // Guest threads can block or synchronously spawn another guest thread.
 // A bounded pool can leave the child's initialization queued forever.
+// The control plane's max_threads capability limits guest threads; without it,
+// host thread creation is limited only by the OS. Use the default stack size.
 fn spawn_wasm_task(task: impl FnOnce() + Send + 'static) -> Result<(), WasiThreadError> {
     std::thread::Builder::new()
         .name("wasmer-wasm-task".to_string())
@@ -255,11 +257,11 @@ impl VirtualTaskManager for TokioTaskManager {
                 });
             })?;
         } else {
-            tracing::trace!("spawning task_wasm in blocking thread");
+            tracing::trace!("spawning task_wasm in dedicated thread");
 
             // Run the callback on a dedicated thread
             spawn_wasm_task(move || {
-                tracing::trace!("task_wasm started in blocking thread");
+                tracing::trace!("task_wasm started in dedicated thread");
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
                     Ok(x) => {
                         sx.send(Ok(())).unwrap();

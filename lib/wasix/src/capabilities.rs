@@ -78,7 +78,9 @@ impl CapabilityPollingV1 {
 pub struct CapabilityThreadingV1 {
     /// Maximum number of threads that can be spawned.
     ///
-    /// [`None`] means no limit.
+    /// [`None`] (the default) means no runtime limit; host OS resource limits
+    /// still apply. Native Wasm tasks use dedicated OS threads, so embedders
+    /// running untrusted workloads should set an explicit limit here.
     pub max_threads: Option<usize>,
 
     /// Flag that indicates if asynchronous threading is enabled.
