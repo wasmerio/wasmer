@@ -9,7 +9,6 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::elf::CompileOutput;
-use wasmer_compiler::types::function::CompiledFunctionBody;
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::{
     CompiledObjects, Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
@@ -425,24 +424,16 @@ impl Compiler for LLVMCompiler {
             .collect();
         let trampolines_objects = function_call_trampolines
             .into_iter()
-            .map(|f| match f {
-                CompiledFunctionBody::Elf(object) => CompileOutput {
-                    object,
-                    maximum_stack_usage: None,
-                },
-                CompiledFunctionBody::Rkyv(_) => {
-                    unreachable!()
-                }
+            .map(|object| CompileOutput {
+                object,
+                maximum_stack_usage: None,
             })
             .collect();
         let dynamic_trampolines_objects = dynamic_function_trampolines
             .into_iter()
-            .map(|f| match f {
-                CompiledFunctionBody::Elf(object) => CompileOutput {
-                    object,
-                    maximum_stack_usage: None,
-                },
-                CompiledFunctionBody::Rkyv(_) => unreachable!(),
+            .map(|object| CompileOutput {
+                object,
+                maximum_stack_usage: None,
             })
             .collect();
 
@@ -463,7 +454,7 @@ impl Compiler for LLVMCompiler {
                 .map(|callbacks| callbacks.debug_dir().clone()),
             module.hash().map(|hash| hash.to_string()),
         )?;
-        Ok(Compilation::Elf {
+        Ok(Compilation {
             data: elf_content,
             function_max_stack_usage,
         })

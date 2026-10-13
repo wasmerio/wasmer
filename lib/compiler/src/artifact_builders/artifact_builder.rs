@@ -118,15 +118,10 @@ impl ArtifactBuild {
             progress_callback,
         )?;
 
-        let Compilation::Elf {
+        let Compilation {
             data,
             function_max_stack_usage,
-        } = compilation
-        else {
-            return Err(CompileError::Codegen(
-                "only native object compilation is supported".to_string(),
-            ));
-        };
+        } = compilation;
         serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
         serializable.compilation = data;
         Ok(Self { serializable })

@@ -33,7 +33,7 @@ use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
     types::{
-        function::{FunctionBody, RkyvCompilation, UnwindInfo},
+        function::FunctionBody,
         module::CompileModuleInfo,
         section::SectionIndex,
     },

@@ -387,7 +387,7 @@ pub fn link_module(
         debug_dir,
         module_hash,
     )?;
-    Ok(Compilation::Elf {
+    Ok(Compilation {
         data: elf,
         function_max_stack_usage,
     })

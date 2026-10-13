@@ -1,61 +1,28 @@
-//! This module is used for having backtraces in the Wasm runtime.
-//! Once the Compiler has compiled the ModuleInfo, and we have a set of
-//! compiled functions (addresses and function index) and a module,
-//! then we can use this to set a backtrace for that module.
-//!
-//! # Example
-//! ```ignore
-//! use wasmer_vm::{FRAME_INFO};
-//! use wasmer_types::ModuleInfo;
-//!
-//! let module: ModuleInfo = ...;
-//! FRAME_INFO.register(module, compiled_functions);
-//! ```
+//! Backtrace and trap information for compiled native modules.
 
 use crate::engine::artifact::TrapReader;
 use crate::engine::mapped_binary::{DebugInfo, DebugInfoSource};
-use crate::types::address_map::{
-    ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
-    InstructionAddressMap,
-};
-use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
-use rkyv::vec::ArchivedVec;
+use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, LazyLock, RwLock};
-use std::{cmp, ops::Deref};
 use wasmer_types::{
     FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
-    entity::{BoxedSlice, EntityRef, PrimaryMap},
+    entity::{BoxedSlice, EntityRef},
 };
 use wasmer_vm::FunctionBodyPtr;
 
-/// This is a global cache of backtrace frame information for all active
-///
-/// This global cache is used during `Trap` creation to symbolicate frames.
-/// This is populated on module compilation, and it is cleared out whenever
-/// all references to a module are dropped.
+/// Global cache used to symbolicate frames for active modules.
 pub static FRAME_INFO: LazyLock<RwLock<GlobalFrameInfo>> = LazyLock::new(RwLock::default);
 
 #[derive(Default)]
 pub struct GlobalFrameInfo {
-    /// An internal map that keeps track of backtrace frame information for
-    /// each module.
-    ///
-    /// This map is morally a map of ranges to a map of information for that
-    /// module. Each module is expected to reside in a disjoint section of
-    /// contiguous memory. No modules can overlap.
-    ///
-    /// The key of this map is the highest address in the module and the value
-    /// is the module's information, which also contains the start address.
+    // Each key is the highest address in a disjoint module range.
     ranges: BTreeMap<usize, ModuleInfoFrameInfo>,
 }
 
-/// An RAII structure used to unregister a module's frame information when the
-/// module is destroyed.
+/// Unregisters a module's frame information when dropped.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct GlobalFrameInfoRegistration {
-    /// The key that will be removed from the global `ranges` map when this is
-    /// dropped.
     key: usize,
 }
 
@@ -63,27 +30,13 @@ struct ModuleInfoFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<ModuleInfo>,
-    /// Per-instruction address maps, when available (non-ELF artifacts).
-    frame_infos: Option<FrameInfosVariant>,
-    /// The base address the module's code was loaded at. Used together with
-    /// `debug_info` to translate a `pc` back into an offset within the
-    /// original ELF image for DWARF lookups.
+    /// Base address used to translate a PC into an ELF image offset.
     image_base: usize,
-    /// Lazily-loaded DWARF debug info, available for ELF-backed artifacts.
     debug_info: DebugInfo,
-    /// Lazily-read trap tables, available for ELF-backed artifacts.
     trap_reader: Option<TrapReader>,
 }
 
 impl ModuleInfoFrameInfo {
-    fn function_debug_info(
-        &self,
-        local_index: LocalFunctionIndex,
-    ) -> Option<CompiledFunctionFrameInfoVariant<'_>> {
-        self.frame_infos.as_ref()?.get(local_index)
-    }
-
-    /// Gets a function given a pc
     fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
         let (end, func) = self.functions.range(pc..).next()?;
         if func.start <= pc && pc <= *end {
@@ -102,67 +55,13 @@ struct FunctionInfo {
 
 impl GlobalFrameInfo {
     /// Fetches frame information about a program counter in a backtrace.
-    ///
-    /// Returns an object if this `pc` is known to some previously registered
-    /// module, or returns `None` if no information can be found.
     pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
         let func_index = module.module.func_index(func.local_index);
         let mut function_name = module.module.function_names.get(&func_index).cloned();
 
-        // Non-ELF artifacts carry a per-instruction address map that we use
-        // to precisely map `pc` back to a wasm source location.
-        if let Some(debug_info) = module.function_debug_info(func.local_index) {
-            // Use our relative position from the start of the function to find the
-            // machine instruction that corresponds to `pc`, which then allows us to
-            // map that to a wasm original source location.
-            let rel_pos = pc - func.start;
-            let instr_map = debug_info.address_map();
-            let pos = match instr_map.instructions().code_offset_by_key(rel_pos) {
-                // Exact hit!
-                Ok(pos) => Some(pos),
-
-                // This *would* be at the first slot in the array, so no
-                // instructions cover `pc`.
-                Err(0) => None,
-
-                // This would be at the `nth` slot, so check `n-1` to see if we're
-                // part of that instruction. This happens due to the minus one when
-                // this function is called form trap symbolication, where we don't
-                // always get called with a `pc` that's an exact instruction
-                // boundary.
-                Err(n) => {
-                    let instr = &instr_map.instructions().get(n - 1);
-                    if instr.code_offset <= rel_pos && rel_pos < instr.code_offset + instr.code_len
-                    {
-                        Some(n - 1)
-                    } else {
-                        None
-                    }
-                }
-            };
-
-            let instr = match pos {
-                Some(pos) => instr_map.instructions().get(pos).srcloc,
-                // Some compilers don't emit yet the full trap information for each of
-                // the instructions (such as LLVM).
-                // In case no specific instruction is found, we return by default the
-                // start offset of the function.
-                None => instr_map.start_srcloc(),
-            };
-            return Some(FrameInfo::new(
-                module.module.name(),
-                func_index.index() as u32,
-                function_name,
-                instr_map.start_srcloc(),
-                instr,
-            ));
-        }
-
-        // ELF-backed artifacts have no per-instruction address map; fall back
-        // to DWARF line info via `addr2line`, keyed off offsets into the
-        // original ELF image.
+        // Resolve DWARF line info using offsets into the original ELF image.
         let get_line = |context: &addr2line::Context<crate::engine::mapped_binary::DwarfReader>,
                         pc: u64| {
             if let Ok(Some(location)) = context.find_location(pc)
@@ -214,23 +113,12 @@ impl GlobalFrameInfo {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
         let rel_pos = u32::try_from(pc - func.start).ok()?;
-
-        if let Some(debug_info) = module.function_debug_info(func.local_index) {
-            let traps = debug_info.traps();
-            let idx = traps
-                .binary_search_by_key(&rel_pos, |info| info.code_offset)
-                .ok()?;
-            return Some(traps[idx]);
-        }
-
-        // Fall back to lazily reading trap information from the ELF artifact.
         module
             .trap_reader
             .as_ref()?
             .lookup(func.local_index, rel_pos)
     }
 
-    /// Gets a module given a pc
     fn module_info(&self, pc: usize) -> Option<&ModuleInfoFrameInfo> {
         let (end, module_info) = self.ranges.range(pc..).next()?;
         if module_info.start <= pc && pc <= *end {
@@ -249,191 +137,27 @@ impl Drop for GlobalFrameInfoRegistration {
     }
 }
 
-/// Represents a continuous region of executable memory starting with a function
-/// entry point.
+/// A continuous region of executable memory starting at a function entry point.
 #[derive(Debug)]
 #[repr(C)]
 pub struct FunctionExtent {
-    /// Entry point for normal entry of the function. All addresses in the
-    /// function lie after this address.
+    /// Entry point of the function.
     pub ptr: FunctionBodyPtr,
     /// Length in bytes.
     pub length: usize,
 }
 
-/// The variant of the frame information which can be an owned type
-/// or the explicit framed map
-#[derive(Debug)]
-pub enum FrameInfosVariant {
-    /// Owned frame infos
-    Owned(PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>),
-}
-
-impl FrameInfosVariant {
-    /// Gets the frame info for a given local function index
-    pub fn get(&self, index: LocalFunctionIndex) -> Option<CompiledFunctionFrameInfoVariant<'_>> {
-        match self {
-            Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
-        }
-    }
-}
-
-/// The variant of the compiled function frame info which can be an owned type
-#[derive(Debug)]
-pub enum CompiledFunctionFrameInfoVariant<'a> {
-    /// A reference to the frame info
-    Ref(&'a CompiledFunctionFrameInfo),
-    /// An archived frame info
-    Archived(&'a ArchivedCompiledFunctionFrameInfo),
-}
-
-impl CompiledFunctionFrameInfoVariant<'_> {
-    /// Gets the address map for the frame info
-    pub fn address_map(&self) -> FunctionAddressMapVariant<'_> {
-        match self {
-            CompiledFunctionFrameInfoVariant::Ref(info) => {
-                FunctionAddressMapVariant::Ref(&info.address_map)
-            }
-            CompiledFunctionFrameInfoVariant::Archived(info) => {
-                FunctionAddressMapVariant::Archived(&info.address_map)
-            }
-        }
-    }
-
-    /// Gets the traps for the frame info
-    pub fn traps(&self) -> VecTrapInformationVariant<'_> {
-        match self {
-            CompiledFunctionFrameInfoVariant::Ref(info) => {
-                VecTrapInformationVariant::Ref(&info.traps)
-            }
-            CompiledFunctionFrameInfoVariant::Archived(info) => {
-                let traps = rkyv::deserialize::<_, rkyv::rancor::Error>(&info.traps).unwrap();
-                VecTrapInformationVariant::Owned(traps)
-            }
-        }
-    }
-}
-
-/// The variant of the trap information which can be an owned type
-#[derive(Debug)]
-pub enum VecTrapInformationVariant<'a> {
-    Ref(&'a Vec<TrapInformation>),
-    Owned(Vec<TrapInformation>),
-}
-
-// We need to implement it for the `Deref` in `wasmer_types` to support both `core` and `std`.
-impl Deref for VecTrapInformationVariant<'_> {
-    type Target = [TrapInformation];
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            VecTrapInformationVariant::Ref(traps) => traps,
-            VecTrapInformationVariant::Owned(traps) => traps,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum FunctionAddressMapVariant<'a> {
-    Ref(&'a FunctionAddressMap),
-    Archived(&'a ArchivedFunctionAddressMap),
-}
-
-impl FunctionAddressMapVariant<'_> {
-    pub fn instructions(&self) -> FunctionAddressMapInstructionVariant<'_> {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => {
-                FunctionAddressMapInstructionVariant::Owned(&map.instructions)
-            }
-            FunctionAddressMapVariant::Archived(map) => {
-                FunctionAddressMapInstructionVariant::Archived(&map.instructions)
-            }
-        }
-    }
-
-    pub fn start_srcloc(&self) -> SourceLoc {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => map.start_srcloc,
-            FunctionAddressMapVariant::Archived(map) => {
-                rkyv::deserialize::<_, rkyv::rancor::Error>(&map.start_srcloc).unwrap()
-            }
-        }
-    }
-
-    pub fn end_srcloc(&self) -> SourceLoc {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => map.end_srcloc,
-            FunctionAddressMapVariant::Archived(map) => {
-                rkyv::deserialize::<_, rkyv::rancor::Error>(&map.end_srcloc).unwrap()
-            }
-        }
-    }
-
-    pub fn body_offset(&self) -> usize {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => map.body_offset,
-            FunctionAddressMapVariant::Archived(map) => map.body_offset.to_native() as usize,
-        }
-    }
-
-    pub fn body_len(&self) -> usize {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => map.body_len,
-            FunctionAddressMapVariant::Archived(map) => map.body_len.to_native() as usize,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum FunctionAddressMapInstructionVariant<'a> {
-    Owned(&'a Vec<InstructionAddressMap>),
-    Archived(&'a ArchivedVec<ArchivedInstructionAddressMap>),
-}
-
-impl FunctionAddressMapInstructionVariant<'_> {
-    pub fn code_offset_by_key(&self, key: usize) -> Result<usize, usize> {
-        match self {
-            FunctionAddressMapInstructionVariant::Owned(instructions) => {
-                instructions.binary_search_by_key(&key, |map| map.code_offset)
-            }
-            FunctionAddressMapInstructionVariant::Archived(instructions) => {
-                instructions.binary_search_by_key(&key, |map| map.code_offset.to_native() as usize)
-            }
-        }
-    }
-
-    pub fn get(&self, index: usize) -> InstructionAddressMap {
-        match self {
-            FunctionAddressMapInstructionVariant::Owned(instructions) => instructions[index],
-            FunctionAddressMapInstructionVariant::Archived(instructions) => instructions
-                .get(index)
-                .map(|map| InstructionAddressMap {
-                    srcloc: rkyv::deserialize::<_, rkyv::rancor::Error>(&map.srcloc).unwrap(),
-                    code_offset: map.code_offset.to_native() as usize,
-                    code_len: map.code_len.to_native() as usize,
-                })
-                .unwrap(),
-        }
-    }
-}
-
-/// Registers a new compiled module's frame information.
-///
-/// This function will register the `names` information for all of the
-/// compiled functions within `module`. If the `module` has no functions
-/// then `None` will be returned. Otherwise the returned object, when
-/// dropped, will be used to unregister all name information from this map.
+/// Registers a compiled module's frame information until the result is dropped.
+/// Returns `None` for modules without functions.
 pub fn register(
     module: Arc<ModuleInfo>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
-    frame_infos: Option<FrameInfosVariant>,
     image_base: usize,
     elf_data: Option<Arc<[u8]>>,
 ) -> Option<GlobalFrameInfoRegistration> {
     register_with_source(
         module,
         finished_functions,
-        frame_infos,
         image_base,
         elf_data.map(DebugInfoSource::Bytes),
     )
@@ -442,7 +166,6 @@ pub fn register(
 pub(crate) fn register_with_source(
     module: Arc<ModuleInfo>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
-    frame_infos: Option<FrameInfosVariant>,
     image_base: usize,
     elf_data: Option<DebugInfoSource>,
 ) -> Option<GlobalFrameInfoRegistration> {
@@ -461,7 +184,7 @@ pub(crate) fn register_with_source(
     ) in finished_functions.iter()
     {
         let start = **start as usize;
-        // end is "last byte" of the function code
+        // End is the last byte of the function code.
         let end = start + len - 1;
         min = cmp::min(min, start);
         max = cmp::max(max, end);
@@ -476,8 +199,7 @@ pub(crate) fn register_with_source(
     }
 
     let mut info = FRAME_INFO.write().unwrap();
-    // First up assert that our chunk of jit functions doesn't collide with
-    // any other known chunks of jit functions...
+    // Module code ranges must not overlap.
     if let Some((_, prev)) = info.ranges.range(max..).next() {
         assert!(prev.start > max);
     }
@@ -485,14 +207,12 @@ pub(crate) fn register_with_source(
         assert!(*prev_end < min);
     }
 
-    // ... then insert our range and assert nothing was there previously
     let prev = info.ranges.insert(
         max,
         ModuleInfoFrameInfo {
             start: min,
             functions,
             module,
-            frame_infos,
             image_base,
             debug_info: DebugInfo::new(elf_data),
             trap_reader,

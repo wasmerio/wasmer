@@ -43,9 +43,7 @@ use crate::engine::mapped_binary::DebugInfoSource;
 use std::mem;
 
 #[cfg(feature = "static-artifact-create")]
-use crate::object::{
-    Object, ObjectMetadataBuilder, emit_compilation, emit_data, get_object_for_target,
-};
+use crate::object::Object;
 
 use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
@@ -988,7 +986,6 @@ impl Artifact {
             *frame_info_registration = register_frame_info_source(
                 self.artifact.create_module_info(),
                 &finished_function_extents,
-                None,
                 image_base,
                 elf_data,
             );
@@ -1329,12 +1326,12 @@ impl Artifact {
     ///
     #[cfg(feature = "static-artifact-create")]
     pub fn generate_object<'data>(
-        compiler: &dyn Compiler,
-        data: &[u8],
-        metadata_prefix: Option<&str>,
-        target: &'data Target,
-        tunables: &dyn Tunables,
-        features: &Features,
+        _compiler: &dyn Compiler,
+        _data: &[u8],
+        _metadata_prefix: Option<&str>,
+        _target: &'data Target,
+        _tunables: &dyn Tunables,
+        _features: &Features,
     ) -> Result<
         (
             ModuleInfo,
@@ -1344,102 +1341,8 @@ impl Artifact {
         ),
         CompileError,
     > {
-        use crate::types::{
-            function::Compilation,
-            symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry},
-        };
-
-        fn to_compile_error(err: impl std::error::Error) -> CompileError {
-            CompileError::Codegen(format!("{err}"))
-        }
-
-        let target_triple = target.triple();
-        let (mut metadata, module_translation, function_body_inputs) =
-            Self::metadata(compiler, data, metadata_prefix, target, tunables, features)
-                .map_err(to_compile_error)?;
-
-        /*
-        In the C file we need:
-        - imports
-        - exports
-
-        to construct an api::Module which is a Store (can be passed in via argument) and an
-        Arc<dyn Artifact> which means this struct which includes:
-        - CompileModuleInfo
-        - Features
-        - ModuleInfo
-        - MemoryIndex -> MemoryStyle
-        - TableIndex -> TableStyle
-        - LocalFunctionIndex -> FunctionBodyPtr // finished functions
-        - FunctionIndex -> FunctionBodyPtr // finished dynamic function trampolines
-        - SignatureIndex -> VMSignatureHash // signatures
-         */
-
-        let compilation = compiler.compile_module(
-            target,
-            &metadata.compile_info,
-            &[],
-            module_translation.as_ref().unwrap(),
-            function_body_inputs,
-            None,
-        )?;
-        let Compilation::Rkyv {
-            compilation,
-            function_max_stack_usage,
-        } = compilation
-        else {
-            return Err(CompileError::Codegen(
-                "ELF compilation unsupported yet".to_string(),
-            ));
-        };
-        metadata.compile_info.function_max_stack_usage = function_max_stack_usage;
-
-        let mut metadata_builder =
-            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
-        let (_compile_info, symbol_registry) = metadata.split();
-        let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
-
-        let object_name = ModuleMetadataSymbolRegistry {
-            prefix: metadata_prefix.unwrap_or_default().to_string(),
-        }
-        .symbol_to_name(crate::types::symbols::Symbol::Metadata);
-
-        let default_align = match target_triple.architecture {
-            target_lexicon::Architecture::Aarch64(_) => {
-                if matches!(
-                    target_triple.operating_system,
-                    target_lexicon::OperatingSystem::Darwin(_)
-                ) {
-                    8
-                } else {
-                    4
-                }
-            }
-            _ => 1,
-        };
-
-        let offset = emit_data(
-            &mut obj,
-            object_name.as_bytes(),
-            metadata_builder.placeholder_data(),
-            std::cmp::max(MetadataHeader::ALIGN as u64, default_align),
-        )
-        .map_err(to_compile_error)?;
-        metadata_builder.set_section_offset(offset);
-
-        emit_compilation(
-            &mut obj,
-            compilation,
-            &symbol_registry,
-            target_triple,
-            &metadata_builder,
-        )
-        .map_err(to_compile_error)?;
-        Ok((
-            Arc::try_unwrap(metadata.compile_info.module).unwrap(),
-            obj,
-            metadata_builder.placeholder_data().len(),
-            Box::new(symbol_registry),
+        Err(CompileError::Codegen(
+            "ELF compilation unsupported yet".to_string(),
         ))
     }
 

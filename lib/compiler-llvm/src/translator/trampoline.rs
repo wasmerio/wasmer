@@ -173,7 +173,7 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(function, &module_hash, &asm_buffer);
         }
 
-        Ok(CompiledFunctionBody::Elf(memory_buffer.as_slice().to_vec()))
+        Ok(memory_buffer.as_slice().to_vec())
     }
 
     pub fn dynamic_trampoline_to_module(
@@ -265,7 +265,7 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(function, module_hash, &asm_buffer)
         }
 
-        Ok(CompiledFunctionBody::Elf(memory_buffer.as_slice().to_vec()))
+        Ok(memory_buffer.as_slice().to_vec())
     }
 
     #[allow(clippy::too_many_arguments)]

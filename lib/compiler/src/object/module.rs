@@ -2,7 +2,7 @@ use super::error::ObjectError;
 use crate::{
     serialize::MetadataHeader,
     types::{
-        function::RkyvCompilation,
+        function::ObjectCompilation,
         relocation::{RelocationKind as Reloc, RelocationTarget},
         section::{CustomSectionProtection, SectionIndex},
         symbols::{ModuleMetadata, Symbol, SymbolRegistry},
@@ -121,13 +121,13 @@ pub fn emit_data(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::{symbols::SymbolRegistry, function::RkyvCompilation};
+/// # use wasmer_compiler::types::{symbols::SymbolRegistry, function::ObjectCompilation};
 /// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, ObjectMetadataBuilder, get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
 /// #     triple: &Triple,
-/// #     compilation: RkyvCompilation,
+/// #     compilation: ObjectCompilation,
 /// #     builder: ObjectMetadataBuilder,
 /// #     symbol_registry: impl SymbolRegistry,
 /// # ) -> Result<(), ObjectError> {
@@ -138,7 +138,7 @@ pub fn emit_data(
 /// ```
 pub fn emit_compilation(
     obj: &mut Object,
-    compilation: RkyvCompilation,
+    compilation: ObjectCompilation,
     symbol_registry: &impl SymbolRegistry,
     triple: &Triple,
     relocs_builder: &ObjectMetadataBuilder,
