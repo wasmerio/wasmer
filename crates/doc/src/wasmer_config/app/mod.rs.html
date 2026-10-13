@@ -147,14 +147,14 @@
 <a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">pub const </span>KIND: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"wasmer.io/App.v0"</span>;
 <a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">pub const </span>CANONICAL_FILE_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"app.yaml"</span>;
 <a href=#149 id=149 data-nosnippet>149</a>
-<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">pub fn </span>to_yaml_value(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;serde_yaml::Value, serde_yaml::Error&gt; {
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">pub fn </span>to_yaml_value(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;yaml_serde::Value, yaml_serde::Error&gt; {
 <a href=#151 id=151 data-nosnippet>151</a>        <span class="comment">// Need to do an annoying type dance to both insert the kind field
 <a href=#152 id=152 data-nosnippet>152</a>        // and also insert kind at the top.
-<a href=#153 id=153 data-nosnippet>153</a>        </span><span class="kw">let </span>obj = <span class="kw">match </span>serde_yaml::to_value(<span class="self">self</span>)<span class="question-mark">? </span>{
-<a href=#154 id=154 data-nosnippet>154</a>            serde_yaml::Value::Mapping(m) =&gt; m,
+<a href=#153 id=153 data-nosnippet>153</a>        </span><span class="kw">let </span>obj = <span class="kw">match </span>yaml_serde::to_value(<span class="self">self</span>)<span class="question-mark">? </span>{
+<a href=#154 id=154 data-nosnippet>154</a>            yaml_serde::Value::Mapping(m) =&gt; m,
 <a href=#155 id=155 data-nosnippet>155</a>            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
 <a href=#156 id=156 data-nosnippet>156</a>        };
-<a href=#157 id=157 data-nosnippet>157</a>        <span class="kw">let </span><span class="kw-2">mut </span>m = serde_yaml::Mapping::new();
+<a href=#157 id=157 data-nosnippet>157</a>        <span class="kw">let </span><span class="kw-2">mut </span>m = yaml_serde::Mapping::new();
 <a href=#158 id=158 data-nosnippet>158</a>        m.insert(<span class="string">"kind"</span>.into(), <span class="self">Self</span>::KIND.into());
 <a href=#159 id=159 data-nosnippet>159</a>        <span class="kw">for </span>(k, v) <span class="kw">in </span>obj.into_iter() {
 <a href=#160 id=160 data-nosnippet>160</a>            m.insert(k, v);
@@ -162,12 +162,12 @@
 <a href=#162 id=162 data-nosnippet>162</a>        <span class="prelude-val">Ok</span>(m.into())
 <a href=#163 id=163 data-nosnippet>163</a>    }
 <a href=#164 id=164 data-nosnippet>164</a>
-<a href=#165 id=165 data-nosnippet>165</a>    <span class="kw">pub fn </span>to_yaml(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, serde_yaml::Error&gt; {
-<a href=#166 id=166 data-nosnippet>166</a>        serde_yaml::to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.to_yaml_value()<span class="question-mark">?</span>)
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="kw">pub fn </span>to_yaml(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, yaml_serde::Error&gt; {
+<a href=#166 id=166 data-nosnippet>166</a>        yaml_serde::to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.to_yaml_value()<span class="question-mark">?</span>)
 <a href=#167 id=167 data-nosnippet>167</a>    }
 <a href=#168 id=168 data-nosnippet>168</a>
 <a href=#169 id=169 data-nosnippet>169</a>    <span class="kw">pub fn </span>parse_yaml(value: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
-<a href=#170 id=170 data-nosnippet>170</a>        <span class="kw">let </span>raw = serde_yaml::from_str::&lt;serde_yaml::Value&gt;(value).context(<span class="string">"invalid yaml"</span>)<span class="question-mark">?</span>;
+<a href=#170 id=170 data-nosnippet>170</a>        <span class="kw">let </span>raw = yaml_serde::from_str::&lt;yaml_serde::Value&gt;(value).context(<span class="string">"invalid yaml"</span>)<span class="question-mark">?</span>;
 <a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">let </span>kind = raw
 <a href=#172 id=172 data-nosnippet>172</a>            .get(<span class="string">"kind"</span>)
 <a href=#173 id=173 data-nosnippet>173</a>            .context(<span class="string">"invalid app config: no 'kind' field found"</span>)<span class="question-mark">?
@@ -183,7 +183,7 @@
 <a href=#183 id=183 data-nosnippet>183</a>            }
 <a href=#184 id=184 data-nosnippet>184</a>        }
 <a href=#185 id=185 data-nosnippet>185</a>
-<a href=#186 id=186 data-nosnippet>186</a>        <span class="kw">let </span>data = serde_yaml::from_value(raw).context(<span class="string">"could not deserialize app config"</span>)<span class="question-mark">?</span>;
+<a href=#186 id=186 data-nosnippet>186</a>        <span class="kw">let </span>data = yaml_serde::from_value(raw).context(<span class="string">"could not deserialize app config"</span>)<span class="question-mark">?</span>;
 <a href=#187 id=187 data-nosnippet>187</a>        <span class="prelude-val">Ok</span>(data)
 <a href=#188 id=188 data-nosnippet>188</a>    }
 <a href=#189 id=189 data-nosnippet>189</a>}

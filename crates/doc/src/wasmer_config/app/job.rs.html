@@ -308,10 +308,10 @@
 <a href=#308 id=308 data-nosnippet>308</a>    </span><span class="kw">fn </span>job_action_rejects_anything_but_exactly_one_action() {
 <a href=#309 id=309 data-nosnippet>309</a>        <span class="kw">for </span>yaml <span class="kw">in </span>[<span class="string">"execute: {}\nfetch:\n  path: /"</span>, <span class="string">"{}"</span>, <span class="string">"sleep: {}"</span>] {
 <a href=#310 id=310 data-nosnippet>310</a>            <span class="macro">assert!</span>(
-<a href=#311 id=311 data-nosnippet>311</a>                serde_yaml::from_str::&lt;JobAction&gt;(yaml).is_err(),
+<a href=#311 id=311 data-nosnippet>311</a>                yaml_serde::from_str::&lt;JobAction&gt;(yaml).is_err(),
 <a href=#312 id=312 data-nosnippet>312</a>                <span class="string">"accepted invalid action {yaml:?}"
 <a href=#313 id=313 data-nosnippet>313</a>            </span>);
-<a href=#314 id=314 data-nosnippet>314</a>            <span class="kw">let </span>json: serde_json::Value = serde_yaml::from_str(yaml).unwrap();
+<a href=#314 id=314 data-nosnippet>314</a>            <span class="kw">let </span>json: serde_json::Value = yaml_serde::from_str(yaml).unwrap();
 <a href=#315 id=315 data-nosnippet>315</a>            <span class="macro">assert!</span>(serde_json::from_value::&lt;JobAction&gt;(json).is_err());
 <a href=#316 id=316 data-nosnippet>316</a>        }
 <a href=#317 id=317 data-nosnippet>317</a>    }
@@ -322,10 +322,10 @@
 <a href=#322 id=322 data-nosnippet>322</a>            <span class="string">"execute:\n  command: php"</span>,
 <a href=#323 id=323 data-nosnippet>323</a>            <span class="string">"fetch:\n  path: /\n  timeout: 30s"</span>,
 <a href=#324 id=324 data-nosnippet>324</a>        ] {
-<a href=#325 id=325 data-nosnippet>325</a>            <span class="kw">let </span>action: JobAction = serde_yaml::from_str(yaml).unwrap();
-<a href=#326 id=326 data-nosnippet>326</a>            <span class="macro">assert_eq!</span>(serde_yaml::to_string(<span class="kw-2">&amp;</span>action).unwrap().trim(), yaml);
+<a href=#325 id=325 data-nosnippet>325</a>            <span class="kw">let </span>action: JobAction = yaml_serde::from_str(yaml).unwrap();
+<a href=#326 id=326 data-nosnippet>326</a>            <span class="macro">assert_eq!</span>(yaml_serde::to_string(<span class="kw-2">&amp;</span>action).unwrap().trim(), yaml);
 <a href=#327 id=327 data-nosnippet>327</a>
-<a href=#328 id=328 data-nosnippet>328</a>            <span class="kw">let </span>json: serde_json::Value = serde_yaml::from_str(yaml).unwrap();
+<a href=#328 id=328 data-nosnippet>328</a>            <span class="kw">let </span>json: serde_json::Value = yaml_serde::from_str(yaml).unwrap();
 <a href=#329 id=329 data-nosnippet>329</a>            <span class="macro">assert_eq!</span>(
 <a href=#330 id=330 data-nosnippet>330</a>                serde_json::from_value::&lt;JobAction&gt;(json.clone()).unwrap(),
 <a href=#331 id=331 data-nosnippet>331</a>                action
@@ -461,9 +461,9 @@
 <a href=#461 id=461 data-nosnippet>461</a>
 <a href=#462 id=462 data-nosnippet>462</a>        <span class="macro">assert_eq!</span>(
 <a href=#463 id=463 data-nosnippet>463</a>            serialized.trim(),
-<a href=#464 id=464 data-nosnippet>464</a>            serde_yaml::to_string(<span class="kw-2">&amp;</span>job).unwrap().trim()
+<a href=#464 id=464 data-nosnippet>464</a>            yaml_serde::to_string(<span class="kw-2">&amp;</span>job).unwrap().trim()
 <a href=#465 id=465 data-nosnippet>465</a>        );
-<a href=#466 id=466 data-nosnippet>466</a>        <span class="macro">assert_eq!</span>(job, serde_yaml::from_str(serialized).unwrap());
+<a href=#466 id=466 data-nosnippet>466</a>        <span class="macro">assert_eq!</span>(job, yaml_serde::from_str(serialized).unwrap());
 <a href=#467 id=467 data-nosnippet>467</a>    }
 <a href=#468 id=468 data-nosnippet>468</a>}
 </code></pre></div></section></main></body></html>

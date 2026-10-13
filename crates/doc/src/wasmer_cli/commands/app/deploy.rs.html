@@ -148,7 +148,7 @@
 <a href=#148 id=148 data-nosnippet>148</a><span class="kw">struct </span>RemoteBuildInput {
 <a href=#149 id=149 data-nosnippet>149</a>    app_config: AppConfigV1,
 <a href=#150 id=150 data-nosnippet>150</a>    owner: String,
-<a href=#151 id=151 data-nosnippet>151</a>    original_config: <span class="prelude-ty">Option</span>&lt;serde_yaml::Value&gt;,
+<a href=#151 id=151 data-nosnippet>151</a>    original_config: <span class="prelude-ty">Option</span>&lt;yaml_serde::Value&gt;,
 <a href=#152 id=152 data-nosnippet>152</a>    config_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 <a href=#153 id=153 data-nosnippet>153</a>}
 <a href=#154 id=154 data-nosnippet>154</a>
@@ -193,14 +193,14 @@
 <a href=#193 id=193 data-nosnippet>193</a>    <span class="kw">async fn </span>get_owner(
 <a href=#194 id=194 data-nosnippet>194</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#195 id=195 data-nosnippet>195</a>        client: <span class="kw-2">&amp;</span>WasmerClient,
-<a href=#196 id=196 data-nosnippet>196</a>        app: <span class="kw-2">&amp;mut </span>serde_yaml::Value,
+<a href=#196 id=196 data-nosnippet>196</a>        app: <span class="kw-2">&amp;mut </span>yaml_serde::Value,
 <a href=#197 id=197 data-nosnippet>197</a>        maybe_edge_app: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>DeployApp&gt;,
 <a href=#198 id=198 data-nosnippet>198</a>    ) -&gt; anyhow::Result&lt;String&gt; {
 <a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span><span class="self">self</span>.owner {
 <a href=#200 id=200 data-nosnippet>200</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(owner.clone());
 <a href=#201 id=201 data-nosnippet>201</a>        }
 <a href=#202 id=202 data-nosnippet>202</a>
-<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(serde_yaml::Value::String(owner)) = <span class="kw-2">&amp;</span>app.get(<span class="string">"owner"</span>) {
+<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(yaml_serde::Value::String(owner)) = <span class="kw-2">&amp;</span>app.get(<span class="string">"owner"</span>) {
 <a href=#204 id=204 data-nosnippet>204</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(owner.clone());
 <a href=#205 id=205 data-nosnippet>205</a>        }
 <a href=#206 id=206 data-nosnippet>206</a>
@@ -369,7 +369,7 @@
 <a href=#369 id=369 data-nosnippet>369</a>        <span class="kw">let </span>config_str = std::fs::read_to_string(app_config_path)
 <a href=#370 id=370 data-nosnippet>370</a>            .with_context(|| <span class="macro">format!</span>(<span class="string">"Could not read file '{}'"</span>, app_config_path.display()))<span class="question-mark">?</span>;
 <a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a>        <span class="kw">let </span><span class="kw-2">mut </span>app_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
+<a href=#372 id=372 data-nosnippet>372</a>        <span class="kw">let </span><span class="kw-2">mut </span>app_yaml: yaml_serde::Value = yaml_serde::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
 <a href=#373 id=373 data-nosnippet>373</a>        <span class="kw">let </span>maybe_edge_app = <span class="kw">if let </span><span class="prelude-val">Some</span>(app_id) = app_yaml.get(<span class="string">"app_id"</span>).and_then(|s| s.as_str()) {
 <a href=#374 id=374 data-nosnippet>374</a>            wasmer_backend_api::query::get_app_by_id(client, app_id.to_owned())
 <a href=#375 id=375 data-nosnippet>375</a>                .<span class="kw">await
@@ -431,7 +431,7 @@
 <a href=#431 id=431 data-nosnippet>431</a>            }
 <a href=#432 id=432 data-nosnippet>432</a>        }
 <a href=#433 id=433 data-nosnippet>433</a>
-<a href=#434 id=434 data-nosnippet>434</a>        <span class="kw">let </span>current_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())<span class="question-mark">?</span>;
+<a href=#434 id=434 data-nosnippet>434</a>        <span class="kw">let </span>current_config: AppConfigV1 = yaml_serde::from_value(app_yaml.clone())<span class="question-mark">?</span>;
 <a href=#435 id=435 data-nosnippet>435</a>        <span class="kw">let </span>new_config_raw = <span class="kw">crate</span>::utils::yaml::apply_app_config_to_yaml(
 <a href=#436 id=436 data-nosnippet>436</a>            <span class="kw-2">&amp;</span>config_str,
 <a href=#437 id=437 data-nosnippet>437</a>            <span class="kw-2">&amp;</span>current_config.clone().to_yaml_value()<span class="question-mark">?</span>,
@@ -635,7 +635,7 @@
 <a href=#635 id=635 data-nosnippet>635</a>            .with_context(|| <span class="macro">format!</span>(<span class="string">"Could not read file '{}'"</span>, <span class="kw-2">&amp;</span>app_config_path.display()))<span class="question-mark">?</span>;
 <a href=#636 id=636 data-nosnippet>636</a>
 <a href=#637 id=637 data-nosnippet>637</a>        <span class="comment">// We want to allow the user to specify the app name interactively.
-<a href=#638 id=638 data-nosnippet>638</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>app_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
+<a href=#638 id=638 data-nosnippet>638</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>app_yaml: yaml_serde::Value = yaml_serde::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
 <a href=#639 id=639 data-nosnippet>639</a>        <span class="kw">let </span>maybe_edge_app = <span class="kw">if let </span><span class="prelude-val">Some</span>(app_id) = app_yaml.get(<span class="string">"app_id"</span>).and_then(|s| s.as_str()) {
 <a href=#640 id=640 data-nosnippet>640</a>            wasmer_backend_api::query::get_app_by_id(<span class="kw-2">&amp;</span>client, app_id.to_owned())
 <a href=#641 id=641 data-nosnippet>641</a>                .<span class="kw">await
@@ -728,7 +728,7 @@
 <a href=#728 id=728 data-nosnippet>728</a>            }
 <a href=#729 id=729 data-nosnippet>729</a>        }
 <a href=#730 id=730 data-nosnippet>730</a>
-<a href=#731 id=731 data-nosnippet>731</a>        <span class="kw">let </span>original_app_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())<span class="question-mark">?</span>;
+<a href=#731 id=731 data-nosnippet>731</a>        <span class="kw">let </span>original_app_config: AppConfigV1 = yaml_serde::from_value(app_yaml.clone())<span class="question-mark">?</span>;
 <a href=#732 id=732 data-nosnippet>732</a>        <span class="kw">let </span>new_config_raw = <span class="kw">crate</span>::utils::yaml::apply_app_config_to_yaml(
 <a href=#733 id=733 data-nosnippet>733</a>            <span class="kw-2">&amp;</span>config_str,
 <a href=#734 id=734 data-nosnippet>734</a>            <span class="kw-2">&amp;</span>original_app_config.clone().to_yaml_value()<span class="question-mark">?</span>,
@@ -1036,7 +1036,7 @@
 <a href=#1036 id=1036 data-nosnippet>1036</a>    <span class="comment">// Original raw yaml config.
 <a href=#1037 id=1037 data-nosnippet>1037</a>    // Present here to enable forwarding unknown fields to the backend, which
 <a href=#1038 id=1038 data-nosnippet>1038</a>    // preserves forwards-compatibility for schema changes.
-<a href=#1039 id=1039 data-nosnippet>1039</a>    </span><span class="kw">pub </span>original_config: <span class="prelude-ty">Option</span>&lt;serde_yaml::value::Value&gt;,
+<a href=#1039 id=1039 data-nosnippet>1039</a>    </span><span class="kw">pub </span>original_config: <span class="prelude-ty">Option</span>&lt;yaml_serde::value::Value&gt;,
 <a href=#1040 id=1040 data-nosnippet>1040</a>    <span class="doccomment">/// Optional dotenv file overlaid on the app configuration for deployment.
 <a href=#1041 id=1041 data-nosnippet>1041</a>    </span><span class="kw">pub </span>env_file: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 <a href=#1042 id=1042 data-nosnippet>1042</a>    <span class="attr">#[allow(dead_code)]
@@ -1139,7 +1139,7 @@
 <a href=#1139 id=1139 data-nosnippet>1139</a>    } <span class="kw">else </span>{
 <a href=#1140 id=1140 data-nosnippet>1140</a>        config_value
 <a href=#1141 id=1141 data-nosnippet>1141</a>    };
-<a href=#1142 id=1142 data-nosnippet>1142</a>    <span class="kw">let </span><span class="kw-2">mut </span>raw_config = serde_yaml::to_string(<span class="kw-2">&amp;</span>final_config)<span class="question-mark">?</span>.trim().to_string();
+<a href=#1142 id=1142 data-nosnippet>1142</a>    <span class="kw">let </span><span class="kw-2">mut </span>raw_config = yaml_serde::to_string(<span class="kw-2">&amp;</span>final_config)<span class="question-mark">?</span>.trim().to_string();
 <a href=#1143 id=1143 data-nosnippet>1143</a>    raw_config.push(<span class="string">'\n'</span>);
 <a href=#1144 id=1144 data-nosnippet>1144</a>
 <a href=#1145 id=1145 data-nosnippet>1145</a>    <span class="comment">// TODO: respect allow_create flag

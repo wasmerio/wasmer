@@ -58,7 +58,7 @@
 <a href=#58 id=58 data-nosnippet>58</a>    <span class="kw">fn </span>render_item(<span class="kw-2">&amp;</span><span class="self">self</span>, format: ItemFormat) -&gt; String {
 <a href=#59 id=59 data-nosnippet>59</a>        <span class="kw">match </span>format {
 <a href=#60 id=60 data-nosnippet>60</a>            ItemFormat::Json =&gt; serde_json::to_string_pretty(<span class="self">self</span>).unwrap(),
-<a href=#61 id=61 data-nosnippet>61</a>            ItemFormat::Yaml =&gt; serde_yaml::to_string(<span class="self">self</span>).unwrap(),
+<a href=#61 id=61 data-nosnippet>61</a>            ItemFormat::Yaml =&gt; yaml_serde::to_string(<span class="self">self</span>).unwrap(),
 <a href=#62 id=62 data-nosnippet>62</a>            ItemFormat::Table =&gt; <span class="self">self</span>.render_item_table(),
 <a href=#63 id=63 data-nosnippet>63</a>        }
 <a href=#64 id=64 data-nosnippet>64</a>    }
@@ -68,7 +68,7 @@
 <a href=#68 id=68 data-nosnippet>68</a>    <span class="kw">fn </span>render_list(items: <span class="kw-2">&amp;</span>[<span class="self">Self</span>], format: ListFormat) -&gt; String {
 <a href=#69 id=69 data-nosnippet>69</a>        <span class="kw">match </span>format {
 <a href=#70 id=70 data-nosnippet>70</a>            ListFormat::Json =&gt; serde_json::to_string_pretty(items).unwrap(),
-<a href=#71 id=71 data-nosnippet>71</a>            ListFormat::Yaml =&gt; serde_yaml::to_string(items).unwrap(),
+<a href=#71 id=71 data-nosnippet>71</a>            ListFormat::Yaml =&gt; yaml_serde::to_string(items).unwrap(),
 <a href=#72 id=72 data-nosnippet>72</a>            ListFormat::Table =&gt; <span class="self">Self</span>::render_list_table(items),
 <a href=#73 id=73 data-nosnippet>73</a>            ListFormat::ItemTable =&gt; {
 <a href=#74 id=74 data-nosnippet>74</a>                <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();

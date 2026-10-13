@@ -131,8 +131,8 @@
 <a href=#131 id=131 data-nosnippet>131</a><span class="doccomment">/// Merge two yaml values by recursively merging maps from b into a.
 <a href=#132 id=132 data-nosnippet>132</a>///
 <a href=#133 id=133 data-nosnippet>133</a>/// Preserves old values that were not in b.
-<a href=#134 id=134 data-nosnippet>134</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>merge_yaml_values(a: <span class="kw-2">&amp;</span>serde_yaml::Value, b: <span class="kw-2">&amp;</span>serde_yaml::Value) -&gt; serde_yaml::Value {
-<a href=#135 id=135 data-nosnippet>135</a>    <span class="kw">use </span>serde_yaml::Value <span class="kw">as </span>V;
+<a href=#134 id=134 data-nosnippet>134</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>merge_yaml_values(a: <span class="kw-2">&amp;</span>yaml_serde::Value, b: <span class="kw-2">&amp;</span>yaml_serde::Value) -&gt; yaml_serde::Value {
+<a href=#135 id=135 data-nosnippet>135</a>    <span class="kw">use </span>yaml_serde::Value <span class="kw">as </span>V;
 <a href=#136 id=136 data-nosnippet>136</a>    <span class="kw">match </span>(a, b) {
 <a href=#137 id=137 data-nosnippet>137</a>        (V::Mapping(a), V::Mapping(b)) =&gt; {
 <a href=#138 id=138 data-nosnippet>138</a>            <span class="kw">let </span><span class="kw-2">mut </span>m = a.clone();
@@ -168,7 +168,7 @@
 <a href=#168 id=168 data-nosnippet>168</a>
 <a href=#169 id=169 data-nosnippet>169</a>    <span class="attr">#[test]
 <a href=#170 id=170 data-nosnippet>170</a>    </span><span class="kw">fn </span>test_merge_yaml_values() {
-<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">use </span>serde_yaml::Value;
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">use </span>yaml_serde::Value;
 <a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span>v1 = <span class="string">r#"
 <a href=#173 id=173 data-nosnippet>173</a>a: a
 <a href=#174 id=174 data-nosnippet>174</a>b:
@@ -188,9 +188,9 @@
 <a href=#188 id=188 data-nosnippet>188</a>c: c
 <a href=#189 id=189 data-nosnippet>189</a>        "#</span>;
 <a href=#190 id=190 data-nosnippet>190</a>
-<a href=#191 id=191 data-nosnippet>191</a>        <span class="kw">let </span>a: Value = serde_yaml::from_str(v1).unwrap();
-<a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">let </span>b: Value = serde_yaml::from_str(v2).unwrap();
-<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">let </span>c: Value = serde_yaml::from_str(v3).unwrap();
+<a href=#191 id=191 data-nosnippet>191</a>        <span class="kw">let </span>a: Value = yaml_serde::from_str(v1).unwrap();
+<a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">let </span>b: Value = yaml_serde::from_str(v2).unwrap();
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">let </span>c: Value = yaml_serde::from_str(v3).unwrap();
 <a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span>merged = merge_yaml_values(<span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b);
 <a href=#195 id=195 data-nosnippet>195</a>        <span class="macro">assert_eq!</span>(merged, c);
 <a href=#196 id=196 data-nosnippet>196</a>    }

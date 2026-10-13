@@ -742,9 +742,9 @@
 <a href=#742 id=742 data-nosnippet>742</a>
 <a href=#743 id=743 data-nosnippet>743</a>        <span class="kw">if </span>app_yaml_path.exists() &amp;&amp; app_yaml_path.is_file() {
 <a href=#744 id=744 data-nosnippet>744</a>            <span class="kw">let </span>contents = tokio::fs::read_to_string(<span class="kw-2">&amp;</span>app_yaml_path).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#745 id=745 data-nosnippet>745</a>            <span class="kw">let </span><span class="kw-2">mut </span>raw_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>contents)<span class="question-mark">?</span>;
+<a href=#745 id=745 data-nosnippet>745</a>            <span class="kw">let </span><span class="kw-2">mut </span>raw_yaml: yaml_serde::Value = yaml_serde::from_str(<span class="kw-2">&amp;</span>contents)<span class="question-mark">?</span>;
 <a href=#746 id=746 data-nosnippet>746</a>
-<a href=#747 id=747 data-nosnippet>747</a>            <span class="kw">if let </span>serde_yaml::Value::Mapping(m) = <span class="kw-2">&amp;mut </span>raw_yaml {
+<a href=#747 id=747 data-nosnippet>747</a>            <span class="kw">if let </span>yaml_serde::Value::Mapping(m) = <span class="kw-2">&amp;mut </span>raw_yaml {
 <a href=#748 id=748 data-nosnippet>748</a>                m.insert(<span class="string">"name"</span>.into(), app_name.into());
 <a href=#749 id=749 data-nosnippet>749</a>                m.insert(<span class="string">"owner"</span>.into(), owner.into());
 <a href=#750 id=750 data-nosnippet>750</a>                m.shift_remove(<span class="string">"domains"</span>);

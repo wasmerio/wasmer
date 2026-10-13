@@ -65,7 +65,7 @@
 <a href=#65 id=65 data-nosnippet>65</a>    <span class="attr">#[error(<span class="string">"package publish error: {0}"</span>)]
 <a href=#66 id=66 data-nosnippet>66</a>    </span>Publish(<span class="attr">#[from] </span>PackagePublishError),
 <a href=#67 id=67 data-nosnippet>67</a>    <span class="attr">#[error(<span class="string">"yaml error: {0}"</span>)]
-<a href=#68 id=68 data-nosnippet>68</a>    </span>Yaml(<span class="attr">#[from] </span>serde_yaml::Error),
+<a href=#68 id=68 data-nosnippet>68</a>    </span>Yaml(<span class="attr">#[from] </span>yaml_serde::Error),
 <a href=#69 id=69 data-nosnippet>69</a>    <span class="attr">#[error(<span class="string">"backend API error: {0}"</span>)]
 <a href=#70 id=70 data-nosnippet>70</a>    </span>Api(<span class="attr">#[from] </span>anyhow::Error),
 <a href=#71 id=71 data-nosnippet>71</a>    <span class="attr">#[error(<span class="string">"app http probe failed: {message}"</span>)]
@@ -111,7 +111,7 @@
 <a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">let </span>name = config.name.clone().ok_or(DeployError::MissingName)<span class="question-mark">?</span>;
 <a href=#112 id=112 data-nosnippet>112</a>
 <a href=#113 id=113 data-nosnippet>113</a>    <span class="kw">let </span>config_value = config.clone().to_yaml_value()<span class="question-mark">?</span>;
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">let </span>raw_config = serde_yaml::to_string(<span class="kw-2">&amp;</span>config_value)<span class="question-mark">?</span>.trim().to_string() + <span class="string">"\n"</span>;
+<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">let </span>raw_config = yaml_serde::to_string(<span class="kw-2">&amp;</span>config_value)<span class="question-mark">?</span>.trim().to_string() + <span class="string">"\n"</span>;
 <a href=#115 id=115 data-nosnippet>115</a>
 <a href=#116 id=116 data-nosnippet>116</a>    progress(DeployProgress::Deploying);
 <a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">let </span>version = wasmer_backend_api::query::publish_deploy_app(

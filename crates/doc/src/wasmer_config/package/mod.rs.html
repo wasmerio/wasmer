@@ -288,8 +288,8 @@
 <a href=#288 id=288 data-nosnippet>288</a>                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(json_to_cbor_value(<span class="kw-2">&amp;</span>value)))
 <a href=#289 id=289 data-nosnippet>289</a>                    }
 <a href=#290 id=290 data-nosnippet>290</a>                    FileKind::Yaml =&gt; {
-<a href=#291 id=291 data-nosnippet>291</a>                        <span class="kw">let </span>value: serde_yaml::Value =
-<a href=#292 id=292 data-nosnippet>292</a>                            serde_yaml::from_str(<span class="kw-2">&amp;</span>file).map_err(|e| {
+<a href=#291 id=291 data-nosnippet>291</a>                        <span class="kw">let </span>value: yaml_serde::Value =
+<a href=#292 id=292 data-nosnippet>292</a>                            yaml_serde::from_str(<span class="kw-2">&amp;</span>file).map_err(|e| {
 <a href=#293 id=293 data-nosnippet>293</a>                                <span class="macro">format!</span>(
 <a href=#294 id=294 data-nosnippet>294</a>                                    <span class="string">"Error reading {:?}.annotation ({:?}): {e}"</span>,
 <a href=#295 id=295 data-nosnippet>295</a>                                    <span class="self">self</span>.name,
@@ -424,11 +424,11 @@
 <a href=#424 id=424 data-nosnippet>424</a>    }
 <a href=#425 id=425 data-nosnippet>425</a>}
 <a href=#426 id=426 data-nosnippet>426</a>
-<a href=#427 id=427 data-nosnippet>427</a><span class="kw">fn </span>yaml_to_cbor_value(val: <span class="kw-2">&amp;</span>serde_yaml::Value) -&gt; ciborium::Value {
+<a href=#427 id=427 data-nosnippet>427</a><span class="kw">fn </span>yaml_to_cbor_value(val: <span class="kw-2">&amp;</span>yaml_serde::Value) -&gt; ciborium::Value {
 <a href=#428 id=428 data-nosnippet>428</a>    <span class="kw">match </span>val {
-<a href=#429 id=429 data-nosnippet>429</a>        serde_yaml::Value::Null =&gt; ciborium::Value::Null,
-<a href=#430 id=430 data-nosnippet>430</a>        serde_yaml::Value::Bool(b) =&gt; ciborium::Value::Bool(<span class="kw-2">*</span>b),
-<a href=#431 id=431 data-nosnippet>431</a>        serde_yaml::Value::Number(n) =&gt; {
+<a href=#429 id=429 data-nosnippet>429</a>        yaml_serde::Value::Null =&gt; ciborium::Value::Null,
+<a href=#430 id=430 data-nosnippet>430</a>        yaml_serde::Value::Bool(b) =&gt; ciborium::Value::Bool(<span class="kw-2">*</span>b),
+<a href=#431 id=431 data-nosnippet>431</a>        yaml_serde::Value::Number(n) =&gt; {
 <a href=#432 id=432 data-nosnippet>432</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(i) = n.as_i64() {
 <a href=#433 id=433 data-nosnippet>433</a>                ciborium::Value::Integer(ciborium::value::Integer::from(i))
 <a href=#434 id=434 data-nosnippet>434</a>            } <span class="kw">else if let </span><span class="prelude-val">Some</span>(u) = n.as_u64() {
@@ -439,16 +439,16 @@
 <a href=#439 id=439 data-nosnippet>439</a>                ciborium::Value::Null
 <a href=#440 id=440 data-nosnippet>440</a>            }
 <a href=#441 id=441 data-nosnippet>441</a>        }
-<a href=#442 id=442 data-nosnippet>442</a>        serde_yaml::Value::String(s) =&gt; ciborium::Value::Text(s.clone()),
-<a href=#443 id=443 data-nosnippet>443</a>        serde_yaml::Value::Sequence(sq) =&gt; {
+<a href=#442 id=442 data-nosnippet>442</a>        yaml_serde::Value::String(s) =&gt; ciborium::Value::Text(s.clone()),
+<a href=#443 id=443 data-nosnippet>443</a>        yaml_serde::Value::Sequence(sq) =&gt; {
 <a href=#444 id=444 data-nosnippet>444</a>            ciborium::Value::Array(sq.iter().map(yaml_to_cbor_value).collect())
 <a href=#445 id=445 data-nosnippet>445</a>        }
-<a href=#446 id=446 data-nosnippet>446</a>        serde_yaml::Value::Mapping(m) =&gt; ciborium::Value::Map(
+<a href=#446 id=446 data-nosnippet>446</a>        yaml_serde::Value::Mapping(m) =&gt; ciborium::Value::Map(
 <a href=#447 id=447 data-nosnippet>447</a>            m.iter()
 <a href=#448 id=448 data-nosnippet>448</a>                .map(|(k, v)| (yaml_to_cbor_value(k), yaml_to_cbor_value(v)))
 <a href=#449 id=449 data-nosnippet>449</a>                .collect(),
 <a href=#450 id=450 data-nosnippet>450</a>        ),
-<a href=#451 id=451 data-nosnippet>451</a>        serde_yaml::Value::Tagged(tag) =&gt; yaml_to_cbor_value(<span class="kw-2">&amp;</span>tag.value),
+<a href=#451 id=451 data-nosnippet>451</a>        yaml_serde::Value::Tagged(tag) =&gt; yaml_to_cbor_value(<span class="kw-2">&amp;</span>tag.value),
 <a href=#452 id=452 data-nosnippet>452</a>    }
 <a href=#453 id=453 data-nosnippet>453</a>}
 <a href=#454 id=454 data-nosnippet>454</a>
@@ -475,7 +475,7 @@
 <a href=#475 id=475 data-nosnippet>475</a><span class="doccomment">/// The different formats that [`FileCommandAnnotations`] can be saved in.
 <a href=#476 id=476 data-nosnippet>476</a></span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Deserialize, Serialize)]
 <a href=#477 id=477 data-nosnippet>477</a></span><span class="kw">pub enum </span>FileKind {
-<a href=#478 id=478 data-nosnippet>478</a>    <span class="doccomment">/// A `*.yaml` file that will be deserialized using [`serde_yaml`].
+<a href=#478 id=478 data-nosnippet>478</a>    <span class="doccomment">/// A `*.yaml` file that will be deserialized using [`yaml_serde`].
 <a href=#479 id=479 data-nosnippet>479</a>    </span><span class="attr">#[serde(rename = <span class="string">"yaml"</span>)]
 <a href=#480 id=480 data-nosnippet>480</a>    </span>Yaml,
 <a href=#481 id=481 data-nosnippet>481</a>    <span class="doccomment">/// A `*.json` file that will be deserialized using [`serde_json`].
