@@ -241,11 +241,6 @@ impl FuncTrampoline {
         config: &LLVM,
         function: &CompiledKind,
         dynamic_trampoline_index: u32,
-        final_module_custom_sections: &mut PrimaryMap<SectionIndex, CustomSection>,
-        eh_frame_section_bytes: &mut Vec<u8>,
-        eh_frame_section_relocations: &mut Vec<Relocation>,
-        compact_unwind_section_bytes: &mut Vec<u8>,
-        compact_unwind_section_relocations: &mut Vec<Relocation>,
         module_hash: &Option<String>,
     ) -> Result<CompiledFunctionBody, CompileError> {
         let target_machine = &self.target_machine;

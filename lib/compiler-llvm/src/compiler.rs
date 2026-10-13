@@ -23,7 +23,6 @@ use wasmer_compiler::{
     translate_function_buckets,
 };
 use wasmer_types::ExportIndex;
-use wasmer_types::MetadataHeader;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
@@ -258,16 +257,6 @@ impl Compiler for LLVMCompiler {
             .cloned()
             .map(|cb| ProgressContext::new(cb, total_steps, "Compiling functions"));
 
-        // TODO: merge constants in sections.
-
-        let mut module_custom_sections = PrimaryMap::new();
-
-        let mut eh_frame_section_bytes = vec![];
-        let mut eh_frame_section_relocations = vec![];
-
-        let mut compact_unwind_section_bytes = vec![];
-        let mut compact_unwind_section_relocations = vec![];
-
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
         let module = &compile_info.module;
         let memory_styles = &compile_info.memory_styles;
@@ -394,11 +383,6 @@ impl Compiler for LLVMCompiler {
                         self.config(),
                         &kind,
                         index as u32,
-                        &mut module_custom_sections,
-                        &mut eh_frame_section_bytes,
-                        &mut eh_frame_section_relocations,
-                        &mut compact_unwind_section_bytes,
-                        &mut compact_unwind_section_relocations,
                         &module_hash,
                     )?;
                     if let Some(progress) = progress.as_ref() {
