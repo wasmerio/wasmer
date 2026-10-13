@@ -86,8 +86,8 @@ pub enum DeterministicIdComponent {
     Pic,
     #[strum(serialize = "ro_ftable")]
     ReadonlyFuncrefTable,
-    #[strum(serialize = "no_m0")]
-    DisableM0,
+    #[strum(serialize = "m0")]
+    EnableM0,
     #[strum(serialize = "unaligned_mem")]
     ExperimentalUnalignedMemoryAccesses,
 }
