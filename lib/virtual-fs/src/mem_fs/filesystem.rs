@@ -605,6 +605,33 @@ impl crate::FileSystem for FileSystem {
                         }
                     };
 
+                    // The file lookup above skips directories. An existing
+                    // directory may only be replaced by a directory, and only
+                    // while it is empty.
+                    let dir_dest = match fs.as_parent_get_position_and_inode_of_directory(
+                        inode_of_to_parent,
+                        &name_of_to,
+                        DirectoryMustBeEmpty::No,
+                    ) {
+                        Err(FsError::InvalidInput) => None,
+                        Err(err) => return Err(err),
+                        Ok((_, InodeResolution::Redirect(..))) => {
+                            return Err(FsError::InvalidInput);
+                        }
+                        Ok((_, InodeResolution::Found(dir))) if dir == inode => None,
+                        Ok((position, InodeResolution::Found(dir))) => {
+                            if !matches!(fs.storage.get(inode), Some(Node::Directory(_))) {
+                                return Err(FsError::NotAFile);
+                            }
+                            match fs.storage.get(dir) {
+                                Some(Node::Directory(DirectoryNode { children, .. }))
+                                    if children.is_empty() => {}
+                                _ => return Err(FsError::DirectoryNotEmpty),
+                            }
+                            Some((position, dir))
+                        }
+                    };
+
                     drop(fs);
 
                     {
@@ -622,6 +649,11 @@ impl crate::FileSystem for FileSystem {
                                 }
                             }
 
+                            fs.remove_child_from_node(inode_of_to_parent, position)?;
+                        }
+
+                        if let Some((position, dir)) = dir_dest {
+                            fs.storage.remove(dir);
                             fs.remove_child_from_node(inode_of_to_parent, position)?;
                         }
 
@@ -1653,6 +1685,71 @@ mod test_filesystem {
                 "`hello2.txt` has been renamed to `world2.txt`",
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_rename_onto_existing_directory() {
+        let fs = FileSystem::default();
+
+        assert_eq!(fs.create_dir(path!("/src")), Ok(()));
+        assert_eq!(fs.create_dir(path!("/src/inner")), Ok(()));
+        assert_eq!(fs.create_dir(path!("/empty")), Ok(()));
+        assert_eq!(fs.create_dir(path!("/full")), Ok(()));
+        assert_eq!(fs.create_dir(path!("/full/keep")), Ok(()));
+        assert!(
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path!("/file.txt"))
+                .is_ok()
+        );
+
+        let root_entries = |fs: &FileSystem| {
+            let mut names = fs
+                .read_dir(path!("/"))
+                .unwrap()
+                .map(|entry| entry.unwrap().path)
+                .collect::<Vec<_>>();
+            names.sort();
+            names
+        };
+
+        assert_eq!(
+            fs.rename(path!("/file.txt"), path!("/empty")).await,
+            Err(FsError::NotAFile),
+            "a file cannot replace a directory",
+        );
+        assert_eq!(
+            fs.rename(path!("/src"), path!("/full")).await,
+            Err(FsError::DirectoryNotEmpty),
+            "a directory cannot replace a non-empty directory",
+        );
+        assert_eq!(
+            root_entries(&fs),
+            vec![
+                path!(buf "/empty"),
+                path!(buf "/file.txt"),
+                path!(buf "/full"),
+                path!(buf "/src"),
+            ],
+            "failed renames leave the tree unchanged",
+        );
+
+        assert_eq!(
+            fs.rename(path!("/src"), path!("/empty")).await,
+            Ok(()),
+            "a directory replaces an empty directory",
+        );
+        assert_eq!(
+            root_entries(&fs),
+            vec![
+                path!(buf "/empty"),
+                path!(buf "/file.txt"),
+                path!(buf "/full")
+            ],
+            "the replaced directory is gone and no name appears twice",
+        );
+        assert!(fs.metadata(path!("/empty/inner")).unwrap().is_dir());
     }
 
     #[tokio::test]
