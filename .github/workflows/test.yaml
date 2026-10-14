@@ -790,12 +790,23 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           version: v0.4.3
-          sysroot-tag: ${{ env.WASIX_LIBC_SYSROOT_TAG }}
-      - name: Install older wasix-libc for compatibility testing
+          install-sysroot: "false"
+      - name: Install current and compatibility wasix-libc sysroots
+        if: matrix.metadata.build != 'windows-x64'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
-        if: matrix.metadata.build != 'windows-x64'
+        run: |
+          set -euo pipefail
+          for tag in "$WASIX_LIBC_SYSROOT_TAG" v2026-05-12.1; do
+            prefix="$HOME/.wasixcc/sysroot"
+            if [[ "$tag" == v2026-05-12.1 ]]; then prefix="$HOME/.wasixcc/sysroot-$tag"; fi
+            for attempt in 1 2 3; do
+              if WASIXCC_SYSROOT_PREFIX="$prefix" wasixccenv download-sysroot "$tag"; then break; fi
+              if [[ "$attempt" == 3 ]]; then exit 1; fi
+              sleep 5
+            done
+          done
+          wasixccenv print-sysroot
       # For the wasix-toolchain variants of the Rust wasm_tests fixtures.
       - name: Install cargo-wasix
         if: matrix.stage.make == 'test-all' && matrix.metadata.wasix_rust_toolchain
