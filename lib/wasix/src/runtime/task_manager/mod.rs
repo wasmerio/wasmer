@@ -236,7 +236,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         task: Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>,
     ) -> Result<(), WasiThreadError>;
 
-    /// Run a blocking WebAssembly operation on the thread pool.
+    /// Run a blocking WebAssembly operation on a dedicated thread.
     ///
     /// This is primarily used inside the context of a syscall and allows
     /// the transfer of things like [`wasmer::Module`] across threads.
@@ -332,9 +332,8 @@ where
 }
 
 impl dyn VirtualTaskManager {
-    /// Starts an WebAssembly task will run on a dedicated thread
-    /// pulled from the worker pool that has a stateful thread local variable
-    /// After the poller has succeeded
+    /// Starts a WebAssembly task on a dedicated thread with stateful
+    /// thread-local storage after the poller has succeeded.
     #[doc(hidden)]
     pub unsafe fn resume_wasm_after_poller(
         &self,

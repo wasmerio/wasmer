@@ -825,13 +825,26 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        if: startsWith(runner.name, 'aux-')
+        if: startsWith(runner.name, 'aux-') && matrix.stage.make != 'test-examples'
         uses: runs-on/cache@v5
         with:
           path: *cargo-cache-paths
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-
+      # Debug example artifacts produce a 25 GB compressed cache on Linux x64.
+      # Runners have repeatedly disconnected while saving it after tests passed.
+      - name: Cache example downloads
+        if: startsWith(runner.name, 'aux-') && matrix.stage.make == 'test-examples'
+        uses: runs-on/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-example-downloads-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-example-downloads-${{ matrix.metadata.build }}-
       - name: Cache (R2, non-aux runners)
         if: ${{ !startsWith(runner.name, 'aux-') }}
         uses: whywaita/actions-cache-s3@v2
