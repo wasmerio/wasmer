@@ -281,10 +281,13 @@ impl VirtualNetworking for RemoteNetworkingServer {
     async fn bind_udp(
         &self,
         addr: SocketAddr,
+        only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>, NetworkError> {
-        self.inner.bind_udp(addr, reuse_port, reuse_addr).await
+        self.inner
+            .bind_udp(addr, only_v6, reuse_port, reuse_addr)
+            .await
     }
 
     async fn bind_icmp(
@@ -561,6 +564,28 @@ impl RemoteNetworkingServerDriver {
         )
     }
 
+    fn process_bind_udp(
+        &self,
+        socket_id: SocketId,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+        req_id: Option<u64>,
+    ) -> BackgroundTask {
+        self.process_async_new_socket(
+            move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
+                Ok(RemoteAdapterSocket::UdpSocket(
+                    inner
+                        .bind_udp(addr, only_v6, reuse_port, reuse_addr)
+                        .await?,
+                ))
+            },
+            socket_id,
+            req_id,
+        )
+    }
+
     fn process_inner<F, R, T>(
         &self,
         work: F,
@@ -803,15 +828,14 @@ impl RemoteNetworkingServerDriver {
                 addr,
                 reuse_port,
                 reuse_addr,
-            } => self.process_async_new_socket(
-                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                    Ok(RemoteAdapterSocket::UdpSocket(
-                        inner.bind_udp(addr, reuse_port, reuse_addr).await?,
-                    ))
-                },
+            } => self.process_bind_udp(socket_id, addr, false, reuse_port, reuse_addr, req_id),
+            RequestType::BindUdpV2 {
                 socket_id,
-                req_id,
-            ),
+                addr,
+                only_v6,
+                reuse_port,
+                reuse_addr,
+            } => self.process_bind_udp(socket_id, addr, only_v6, reuse_port, reuse_addr, req_id),
             RequestType::BindIcmp { socket_id, addr } => self.process_async_new_socket(
                 move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     Ok(RemoteAdapterSocket::IcmpSocket(
