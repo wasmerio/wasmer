@@ -196,7 +196,7 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
           - build: macos-arm
-            os: depot-macos-14
+            os: macos-15
         exclude:
           - skip_macos: true
             metadata:
@@ -419,7 +419,7 @@ jobs:
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.zst"
             supports_v8: false
           - build: macos-arm
-            os: depot-macos-14
+            os: macos-15
             target: aarch64-apple-darwin
             exe: ""
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-aarch64.tar.zst"
@@ -684,7 +684,7 @@ jobs:
             wasix_rust_toolchain: true
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.zst"
           - build: macos-arm
-            os: depot-macos-14
+            os: macos-15
             target: aarch64-apple-darwin
             exe: ""
             wasix_rust_toolchain: true
