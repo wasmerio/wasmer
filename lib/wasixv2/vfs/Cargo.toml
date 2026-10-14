@@ -1,0 +1,14 @@
+[package]
+name = "wasixv2-vfs"
+version = "0.0.0"
+description = "WASIX virtual filesystem layer"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-abi = { path = "../abi" }

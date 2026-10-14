@@ -1,0 +1,22 @@
+[package]
+name = "wasixv2-exec"
+version = "0.0.0"
+description = "Runs WASIX tasks on the wasm engine"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-syscalls = { path = "../syscalls" }
+wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
+  "experimental-async",
+] }
+thiserror.workspace = true
+
+[features]
+default = ["sys"]
+sys = ["wasmer/sys", "wasmer/headless"]

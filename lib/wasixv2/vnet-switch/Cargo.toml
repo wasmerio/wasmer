@@ -1,0 +1,14 @@
+[package]
+name = "wasixv2-vnet-switch"
+version = "0.0.0"
+description = "Socket-level virtual switch connecting WASIX machines"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-vnet = { path = "../vnet" }

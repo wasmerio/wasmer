@@ -1,0 +1,13 @@
+[package]
+name = "wasixv2-codegen"
+version = "0.0.0"
+description = "Build-time generator for WASIX syscall bindings"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]

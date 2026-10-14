@@ -1,0 +1,14 @@
+[package]
+name = "wasixv2-syscalls"
+version = "0.0.0"
+description = "WASIX syscall trait, request types and layering"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-abi = { path = "../abi" }

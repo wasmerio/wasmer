@@ -1,0 +1,13 @@
+[package]
+name = "wasixv2-host"
+version = "0.0.0"
+description = "Host services required by the WASIX kernel"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]

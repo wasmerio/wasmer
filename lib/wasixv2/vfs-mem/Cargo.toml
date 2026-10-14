@@ -1,0 +1,14 @@
+[package]
+name = "wasixv2-vfs-mem"
+version = "0.0.0"
+description = "In-memory filesystem driver for the WASIX VFS"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-vfs = { path = "../vfs" }

@@ -1,0 +1,44 @@
+[package]
+name = "wasixv2"
+version = "0.0.0"
+description = "Embedding facade that assembles and boots a WASIX machine"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-abi = { path = "../abi" }
+wasixv2-syscalls = { path = "../syscalls" }
+wasixv2-trace = { path = "../trace" }
+wasixv2-record = { path = "../record" }
+wasixv2-policy = { path = "../policy" }
+wasixv2-host = { path = "../host" }
+wasixv2-vfs = { path = "../vfs" }
+wasixv2-vfs-mem = { path = "../vfs-mem" }
+wasixv2-vfs-host = { path = "../vfs-host" }
+wasixv2-vfs-overlay = { path = "../vfs-overlay" }
+wasixv2-vfs-package = { path = "../vfs-package" }
+wasixv2-vnet = { path = "../vnet" }
+wasixv2-vnet-host = { path = "../vnet-host" }
+wasixv2-vnet-switch = { path = "../vnet-switch" }
+wasixv2-kernel = { path = "../kernel" }
+wasixv2-checkpoint = { path = "../checkpoint" }
+wasixv2-exec = { path = "../exec" }
+wasixv2-dylink = { path = "../dylink" }
+wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
+  "cranelift",
+] }
+wat.workspace = true
+
+[features]
+default = ["sys"]
+sys = ["wasmer/sys", "wasmer/headless"]

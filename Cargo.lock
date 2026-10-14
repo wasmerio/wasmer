@@ -7055,6 +7055,168 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasixv2"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "tokio",
+ "wasixv2-abi",
+ "wasixv2-checkpoint",
+ "wasixv2-dylink",
+ "wasixv2-exec",
+ "wasixv2-host",
+ "wasixv2-kernel",
+ "wasixv2-policy",
+ "wasixv2-record",
+ "wasixv2-syscalls",
+ "wasixv2-trace",
+ "wasixv2-vfs",
+ "wasixv2-vfs-host",
+ "wasixv2-vfs-mem",
+ "wasixv2-vfs-overlay",
+ "wasixv2-vfs-package",
+ "wasixv2-vnet",
+ "wasixv2-vnet-host",
+ "wasixv2-vnet-switch",
+ "wasmer",
+ "wat",
+]
+
+[[package]]
+name = "wasixv2-abi"
+version = "0.0.0"
+
+[[package]]
+name = "wasixv2-checkpoint"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-kernel",
+]
+
+[[package]]
+name = "wasixv2-codegen"
+version = "0.0.0"
+
+[[package]]
+name = "wasixv2-dylink"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-exec",
+ "wasmer",
+]
+
+[[package]]
+name = "wasixv2-exec"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "wasixv2-syscalls",
+ "wasmer",
+]
+
+[[package]]
+name = "wasixv2-host"
+version = "0.0.0"
+
+[[package]]
+name = "wasixv2-kernel"
+version = "0.0.0"
+dependencies = [
+ "futures",
+ "wasixv2-abi",
+ "wasixv2-host",
+ "wasixv2-syscalls",
+ "wasixv2-vfs",
+ "wasixv2-vnet",
+]
+
+[[package]]
+name = "wasixv2-policy"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-syscalls",
+]
+
+[[package]]
+name = "wasixv2-record"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-syscalls",
+]
+
+[[package]]
+name = "wasixv2-syscalls"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-abi",
+]
+
+[[package]]
+name = "wasixv2-trace"
+version = "0.0.0"
+dependencies = [
+ "futures",
+ "tracing",
+ "wasixv2-syscalls",
+]
+
+[[package]]
+name = "wasixv2-vfs"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-abi",
+]
+
+[[package]]
+name = "wasixv2-vfs-host"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-vfs",
+]
+
+[[package]]
+name = "wasixv2-vfs-mem"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-vfs",
+]
+
+[[package]]
+name = "wasixv2-vfs-overlay"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-vfs",
+]
+
+[[package]]
+name = "wasixv2-vfs-package"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-vfs",
+]
+
+[[package]]
+name = "wasixv2-vnet"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-abi",
+]
+
+[[package]]
+name = "wasixv2-vnet-host"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-vnet",
+]
+
+[[package]]
+name = "wasixv2-vnet-switch"
+version = "0.0.0"
+dependencies = [
+ "wasixv2-vnet",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.129"
 source = "registry+https://github.com/rust-lang/crates.io-index"

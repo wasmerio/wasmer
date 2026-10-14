@@ -1,0 +1,14 @@
+[package]
+name = "wasixv2-vnet-host"
+version = "0.0.0"
+description = "Host-socket network backend for WASIX"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-vnet = { path = "../vnet" }

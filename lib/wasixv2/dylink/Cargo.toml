@@ -1,0 +1,19 @@
+[package]
+name = "wasixv2-dylink"
+version = "0.0.0"
+description = "Side-module loading and linking for WASIX"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-exec = { path = "../exec" }
+wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
+
+[features]
+default = ["sys"]
+sys = ["wasmer/sys", "wasmer/headless"]
