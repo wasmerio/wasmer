@@ -120,7 +120,7 @@ use crate::{
     journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
     os::task::{
         process::{MaybeCheckpointResult, WasiProcessCheckpoint},
-        thread::{RewindResult, RewindResultType},
+        thread::{RewindResult, RewindResultType, SignalWaiter},
     },
     utils::store::StoreSnapshot,
 };
@@ -330,6 +330,7 @@ where
     {
         ctx: &'a mut FunctionEnvMut<'b, WasiEnv>,
         pinned_work: Pin<Box<Fut>>,
+        signal_waiter: SignalWaiter,
     }
     impl<Fut, T> Future for SignalPoller<'_, '_, Fut, T>
     where
@@ -340,7 +341,13 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
-            if let Some(signals) = self.ctx.data().thread.pop_signals_or_subscribe(cx.waker()) {
+            let this = &mut *self;
+            if let Some(signals) = this
+                .ctx
+                .data()
+                .thread
+                .pop_signals_or_register(&mut this.signal_waiter, cx.waker())
+            {
                 if let Err(err) = WasiEnv::process_signals_internal(self.ctx, signals) {
                     return Poll::Ready(Err(err));
                 }
@@ -353,7 +360,11 @@ where
     // Block on the work
     let mut pinned_work = Box::pin(work);
     let tasks = env.tasks().clone();
-    let poller = SignalPoller { ctx, pinned_work };
+    let poller = SignalPoller {
+        ctx,
+        pinned_work,
+        signal_waiter: SignalWaiter::default(),
+    };
     block_on_with_timeout(&tasks, timeout, poller)
 }
 
@@ -369,6 +380,7 @@ where
 {
     ctx: &'b mut FunctionEnvMut<'c, WasiEnv>,
     work: &'a mut Pin<Box<Fut>>,
+    signal_waiter: SignalWaiter,
 }
 impl<T, Fut> Future for AsyncifyPoller<'_, '_, '_, T, Fut>
 where
@@ -385,14 +397,18 @@ where
             return Poll::Ready(Err(err));
         }
 
-        let env = self.ctx.data();
+        let this = &mut *self;
+        let env = this.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
             return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
                 tracing::debug!("exit runtime error - {}", err);
                 Errno::Child.into()
             }))));
         }
-        if env.thread.has_signals_or_subscribe(cx.waker()) {
+        if env
+            .thread
+            .has_signals_or_register(&mut this.signal_waiter, cx.waker())
+        {
             let has_exit = {
                 let signals = env.thread.signals().lock().unwrap();
                 signals
@@ -417,8 +433,8 @@ where
                     if let Some(exit_code) = has_exit {
                         Poll::Ready(Err(WasiError::Exit(exit_code)))
                     } else {
-                        // Re-subscribe so we get woken up for further signals as well
-                        self.ctx.data().thread.signals_subscribe(cx.waker());
+                        // The signal waiter was registered above and stays
+                        // registered, so further signals wake us up as well.
                         // Retry after Sigwakeup drain: dl ops may have started after the check above.
                         if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
                             return Poll::Ready(Err(err));
@@ -532,6 +548,7 @@ where
             res = AsyncifyPoller {
                 ctx: &mut ctx,
                 work: &mut trigger,
+                signal_waiter: SignalWaiter::default(),
             } => {
                 let result = res?;
                 AsyncifyAction::Finish(ctx, result)
