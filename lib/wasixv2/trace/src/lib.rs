@@ -57,7 +57,9 @@ mod tests {
         }
 
         async fn exit_group(&self, _: &Caller<'_>, status: i32) -> SysResult<()> {
-            self.0.borrow_mut().push(Syscall::ExitGroup { status });
+            self.0
+                .borrow_mut()
+                .push(Syscall::ExitGroup { error_code: status });
             Ok(())
         }
     }
@@ -85,7 +87,7 @@ mod tests {
                     fd: Fd(7),
                     buf: UserSliceMut::new(0, 1)
                 },
-                Syscall::ExitGroup { status: 3 },
+                Syscall::ExitGroup { error_code: 3 },
             ]
         );
     }

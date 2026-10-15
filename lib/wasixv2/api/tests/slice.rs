@@ -69,7 +69,7 @@ async fn run(wat: &str) -> Run {
 const IMPORTS: &str = r#"
   (import "wasixv2" "read" (func $read (param i32 i32 i32) (result i32)))
   (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
-  (import "wasixv2" "exit-group" (func $exit_group (param i32)))
+  (import "wasixv2" "exit_group" (func $exit_group (param i32)))
   (memory (export "memory") 1)
 "#;
 
@@ -151,6 +151,25 @@ async fn errors_come_back_as_negated_errno() {
     assert_eq!(bad_ptr.status.unwrap(), EFAULT);
     // Linux checks the descriptor before touching the buffer.
     assert_eq!(both.status.unwrap(), EBADF);
+}
+
+// The kernel does not implement `getpid` yet, so the generated default answers.
+#[tokio::test]
+async fn unimplemented_syscalls_return_enosys() {
+    const ENOSYS: i32 = 38;
+    let wat = r#"
+      (module
+        (import "wasixv2" "getpid" (func $getpid (result i32)))
+        (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+        (memory (export "memory") 1)
+        (func (export "_start")
+          (call $exit_group (i32.sub (i32.const 0) (call $getpid)))
+          unreachable))
+    "#;
+
+    let run = run(wat).await;
+
+    assert_eq!(run.status.unwrap(), ENOSYS);
 }
 
 #[tokio::test]

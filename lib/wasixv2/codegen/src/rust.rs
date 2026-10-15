@@ -108,6 +108,15 @@ pub(crate) fn wit_ty(t: &TyRef) -> String {
     }
 }
 
+/// `expr as to` unless `from` already is `to`.
+pub(crate) fn cast(expr: &str, from: Prim, to: Prim) -> String {
+    if from == to {
+        expr.to_string()
+    } else {
+        format!("{expr} as {}", prim(to))
+    }
+}
+
 /// Appends `docs` as `///` lines.
 pub(crate) fn push_docs(out: &mut String, docs: &[String]) {
     for d in docs {

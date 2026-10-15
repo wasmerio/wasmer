@@ -9,7 +9,7 @@ use wit_parser::{FunctionKind, PackageId, Resolve, Span, Type, TypeDefKind, Type
 use crate::annot::{Annotations, parse_docs, parse_int, parse_u32};
 use crate::ir::{
     Alias, ConstKind, Constant, Constants, Field, Function, Interface, Layout, MergedI64, Model,
-    Param, Pointer, Prim, Record, SplitOrder, Target, TyRef, TypeDef, TypeKind,
+    Param, Pointer, Prim, Record, SliceSpec, SplitOrder, Target, TyRef, TypeDef, TypeKind,
 };
 
 /// Parses a `.wit` file or a directory of `.wit` files.
@@ -354,6 +354,15 @@ impl<'a> Builder<'a> {
             .into_iter()
             .map(|s| parse_c_param(&s, loc))
             .collect::<Result<_>>()?;
+        let slices = ann
+            .values("slice")?
+            .into_iter()
+            .map(|s| parse_slice(&s, loc))
+            .collect::<Result<_>>()?;
+        let returns = ann
+            .value("returns")?
+            .map(|t| parse_type_name(&t, loc))
+            .transpose()?;
         ann.finish("a function")?;
         let params = f
             .params
@@ -376,6 +385,8 @@ impl<'a> Builder<'a> {
             unsupported,
             merged_i64,
             c_params,
+            slices,
+            returns,
             params,
             result,
         })
@@ -470,6 +481,26 @@ fn parse_c_param(s: &str, loc: &str) -> Result<(String, String)> {
     }
 }
 
+/// `ptr, len`.
+fn parse_slice(s: &str, loc: &str) -> Result<SliceSpec> {
+    match s.split_once(',') {
+        Some((ptr, len)) if is_kebab(ptr.trim()) && is_kebab(len.trim()) => Ok(SliceSpec {
+            ptr: ptr.trim().to_string(),
+            len: len.trim().to_string(),
+        }),
+        _ => bail!("{loc}: expected `@slice(ptr-param, len-param)`, found `{s}`"),
+    }
+}
+
+/// A primitive (`u32`) or a named type (`fd`).
+fn parse_type_name(s: &str, loc: &str) -> Result<TyRef> {
+    match Prim::from_wit_name(s) {
+        Some(p) => Ok(TyRef::Prim(p)),
+        None if is_kebab(s) => Ok(TyRef::Named(s.to_string())),
+        None => bail!("{loc}: invalid type `{s}`"),
+    }
+}
+
 /// `param` or `param, lo-hi|hi-lo`.
 fn parse_merged_i64(s: &str, loc: &str) -> Result<MergedI64> {
     let (param, order) = match s.split_once(',') {
@@ -526,7 +557,13 @@ fn validate_refs(model: &Model, pending: &Pending) -> Result<()> {
     for iface in &model.interfaces {
         for f in &iface.functions {
             let loc = &pending.function_locations[&(iface.name.clone(), f.name.clone())];
-            for ty in f.params.iter().map(|p| &p.ty).chain(&f.result) {
+            for ty in f
+                .params
+                .iter()
+                .map(|p| &p.ty)
+                .chain(&f.result)
+                .chain(&f.returns)
+            {
                 check(model, ty, loc)?;
             }
         }
@@ -578,6 +615,60 @@ fn validate_functions(model: &Model, pending: &Pending) -> Result<()> {
                     bail!("{loc}: `@c-param({name}: ...)` names an unknown param");
                 }
             }
+            validate_result(model, f, loc)?;
+            validate_slices(model, f, loc)?;
+        }
+    }
+    Ok(())
+}
+
+/// `@noreturn` functions have no result; `@returns` must fit the result.
+fn validate_result(model: &Model, f: &Function, loc: &str) -> Result<()> {
+    if f.noreturn && f.result.is_some() {
+        bail!("{loc}: `@noreturn` functions have no result");
+    }
+    let Some(returns) = &f.returns else {
+        return Ok(());
+    };
+    let result = f.result.as_ref().map(|r| model.layout(r).size);
+    match model.scalar_prim(returns) {
+        _ if result.is_none() => bail!("{loc}: `@returns` needs a result"),
+        Some(p) if Some(p.size()) <= result => Ok(()),
+        _ => bail!("{loc}: `@returns` type must be a scalar no wider than the result"),
+    }
+}
+
+/// `@slice(ptr, len)`: `ptr` is a byte pointer, `len` an unsigned length of at most 32 bits, and
+/// no param belongs to two slices.
+fn validate_slices(model: &Model, f: &Function, loc: &str) -> Result<()> {
+    let mut used = HashSet::new();
+    for s in &f.slices {
+        let what = format!("`@slice({}, {})`", s.ptr, s.len);
+        let ty = |name: &str| f.params.iter().find(|p| p.name == name).map(|p| &p.ty);
+        let (Some(ptr), Some(len)) = (ty(&s.ptr), ty(&s.len)) else {
+            bail!("{loc}: {what} names an unknown param");
+        };
+        if !used.insert(&s.ptr) || !used.insert(&s.len) {
+            bail!("{loc}: {what} reuses a param of another slice");
+        }
+        let byte_ptr = match ptr {
+            TyRef::Named(n) => match &model.type_def(n).expect("validated").kind {
+                TypeKind::Pointer(p) => matches!(p.pointee, None | Some(TyRef::Prim(Prim::U8))),
+                _ => false,
+            },
+            _ => false,
+        };
+        if !byte_ptr {
+            bail!("{loc}: {what}: `{}` is not a `u8` or `void` pointer", s.ptr);
+        }
+        if !matches!(
+            model.scalar_prim(len),
+            Some(Prim::U8 | Prim::U16 | Prim::U32)
+        ) {
+            bail!(
+                "{loc}: {what}: `{}` is not an unsigned 32-bit length",
+                s.len
+            );
         }
     }
     Ok(())
@@ -941,6 +1032,40 @@ mod tests {
             parse_str("t.wit", &src, Target::WASM32).unwrap_err()
         );
         assert!(e.contains("duplicate import name `x_y`"), "{e}");
+    }
+
+    #[test]
+    fn slice_and_returns_validation() {
+        let types = "/// @ptr(mut u8[])\ntype buf = uptr;\n/// @ptr(mut u32)\ntype u32-ptr = uptr;\n/// @pointer-sized\ntype usize = u32;\ntype fd = s32;\n";
+        let f = |func: &str| {
+            let src = format!(
+                "{PRELUDE}{types}}}\n/// @module(m)\ninterface f {{\nuse types.{{buf, u32-ptr, usize, fd}};\n{func}\n}}\n"
+            );
+            parse_str("t.wit", &src, Target::WASM32).map_err(|e| format!("{e:#}"))
+        };
+        let m =
+            f("/// @slice(b, n)\n/// @returns(u32)\nx: func(b: buf, n: usize) -> s32;").unwrap();
+        let x = &m.interfaces[1].functions[0];
+        assert_eq!(x.slices[0].ptr, "b");
+        assert_eq!(x.returns, Some(TyRef::Prim(Prim::U32)));
+        let e = f("/// @slice(b, m)\nx: func(b: buf, n: usize) -> s32;").unwrap_err();
+        assert!(e.contains("names an unknown param"), "{e}");
+        let e = f("/// @slice(p, n)\nx: func(p: u32-ptr, n: usize) -> s32;").unwrap_err();
+        assert!(e.contains("not a `u8` or `void` pointer"), "{e}");
+        let e = f("/// @slice(b, n)\nx: func(b: buf, n: s32) -> s32;").unwrap_err();
+        assert!(e.contains("not an unsigned 32-bit length"), "{e}");
+        let e = f("/// @slice(b, n)\n/// @slice(c, n)\nx: func(b: buf, c: buf, n: usize) -> s32;")
+            .unwrap_err();
+        assert!(e.contains("reuses a param"), "{e}");
+        let e = f("/// @slice(b n)\nx: func(b: buf, n: usize) -> s32;").unwrap_err();
+        assert!(e.contains("expected `@slice(ptr-param, len-param)`"), "{e}");
+        let e = f("/// @returns(u64)\nx: func() -> s32;").unwrap_err();
+        assert!(e.contains("no wider than the result"), "{e}");
+        let e = f("/// @returns(nope)\nx: func() -> s32;").unwrap_err();
+        assert!(e.contains("unknown type `nope`"), "{e}");
+        assert!(f("/// @returns(fd)\nx: func() -> s32;").is_ok());
+        let e = f("/// @noreturn\nx: func() -> s32;").unwrap_err();
+        assert!(e.contains("have no result"), "{e}");
     }
 
     #[test]

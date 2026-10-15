@@ -6,7 +6,9 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use wasixv2_codegen::{Target, generate_abi, generate_c, rust::source_from_header};
+use wasixv2_codegen::{
+    Target, generate_abi, generate_c, generate_exec, generate_syscalls, rust::source_from_header,
+};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")
@@ -19,7 +21,9 @@ const GOLDEN_C: &str = "lib/wasixv2/codegen/tests/golden/sample_c";
 const WIT: &str = "lib/wasixv2/codegen/wit";
 /// Mirrors the libc2 tree layout.
 const GOLDEN_WASIXV2_C: &str = "lib/wasixv2/codegen/tests/golden/wasixv2_c";
-const ABI: &str = "lib/wasixv2/abi/src/generated.rs";
+const ABI_RS: &str = "lib/wasixv2/abi/src/generated.rs";
+const SYSCALLS_RS: &str = "lib/wasixv2/syscalls/src/generated.rs";
+const EXEC_RS: &str = "lib/wasixv2/exec/src/generated.rs";
 
 fn bless() -> bool {
     std::env::var_os("WASIXV2_CODEGEN_BLESS").is_some()
@@ -124,7 +128,17 @@ fn check_generated(
 
 #[test]
 fn abi_is_up_to_date() {
-    check_generated(ABI, generate_abi, "abi");
+    check_generated(ABI_RS, generate_abi, "abi");
+}
+
+#[test]
+fn syscalls_is_up_to_date() {
+    check_generated(SYSCALLS_RS, generate_syscalls, "syscalls");
+}
+
+#[test]
+fn exec_is_up_to_date() {
+    check_generated(EXEC_RS, generate_exec, "exec");
 }
 
 #[allow(dead_code)]

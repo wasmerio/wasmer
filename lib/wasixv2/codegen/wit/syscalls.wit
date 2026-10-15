@@ -46,11 +46,13 @@ interface syscalls {
   /// musl ORs O_LARGEFILE (0100000 on asm-generic) into flags on 32-bit. mode is umode_t (u16) but passed
   /// as full register.
   /// @nr(56)
+  /// @returns(fd)
   openat: func(dfd: fd, filename: cstr, %flags: open-flags, mode: mode) -> slong;
 
   /// Kernel: `sys_openat2(int dfd, const char * filename, struct open_how * how, size_t usize)`.
   /// struct open_how {u64 flags; u64 mode; u64 resolve} 24 bytes; usize must be >= 24.
   /// @nr(437)
+  /// @returns(fd)
   openat2: func(dfd: fd, filename: cstr, how: const-open-how-ptr, usize: usize) -> slong;
 
   /// Kernel: `sys_close(unsigned int fd)`.
@@ -63,12 +65,14 @@ interface syscalls {
 
   /// Kernel: `sys_dup(unsigned int fildes)`.
   /// @nr(23)
+  /// @returns(fd)
   dup: func(fildes: fd) -> slong;
 
   /// Kernel: `sys_dup3(unsigned int oldfd, unsigned int newfd, int flags)`.
   /// No dup2 on asm-generic: musl dup2 -> dup3 (fails EINVAL if old==new, musl handles via fcntl
   /// F_GETFD).
   /// @nr(24)
+  /// @returns(fd)
   dup3: func(oldfd: fd, newfd: fd, %flags: open-flags) -> slong;
 
   /// Kernel: `sys_fcntl64(unsigned int fd, unsigned int cmd, unsigned long arg)`.
@@ -96,31 +100,41 @@ interface syscalls {
 
   /// Kernel: `sys_read(unsigned int fd, char * buf, size_t count)`.
   /// @nr(63)
+  /// @slice(buf, count)
+  /// @returns(u32)
   read: func(fd: fd, buf: buf, count: usize) -> slong;
 
   /// Kernel: `sys_write(unsigned int fd, const char * buf, size_t count)`.
   /// @nr(64)
+  /// @slice(buf, count)
+  /// @returns(u32)
   write: func(fd: fd, buf: const-buf, count: usize) -> slong;
 
   /// Kernel: `sys_readv(unsigned long fd, const struct iovec * vec, unsigned long vlen)`.
   /// struct iovec {void*; size_t} = 8 bytes on wasm32. IOV_MAX 1024.
   /// @nr(65)
+  /// @returns(u32)
   readv: func(fd: fd, vec: const-iovec-array, vlen: ulong) -> slong;
 
   /// Kernel: `sys_writev(unsigned long fd, const struct iovec * vec, unsigned long vlen)`.
   /// @nr(66)
+  /// @returns(u32)
   writev: func(fd: fd, vec: const-iovec-array, vlen: ulong) -> slong;
 
   /// Kernel: `sys_pread64(unsigned int fd, char * buf, size_t count, loff_t pos)`.
   /// pos register pair on riscv32 (no padding before the pair on riscv).
   /// @nr(67)
   /// @merged-i64(pos)
+  /// @slice(buf, count)
+  /// @returns(u32)
   pread64: func(fd: fd, buf: buf, count: usize, pos: loff) -> slong;
 
   /// Kernel: `sys_pwrite64(unsigned int fd, const char * buf, size_t count, loff_t pos)`.
   /// pos register pair.
   /// @nr(68)
   /// @merged-i64(pos)
+  /// @slice(buf, count)
+  /// @returns(u32)
   pwrite64: func(fd: fd, buf: const-buf, count: usize, pos: loff) -> slong;
 
   /// Kernel: `sys_preadv(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
@@ -128,6 +142,7 @@ interface syscalls {
   /// The kernel takes the position as (pos_l, pos_h) on all arches; here it is one `s64`.
   /// @nr(69)
   /// @merged-i64(pos)
+  /// @returns(u32)
   preadv: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64) -> slong;
 
   /// Kernel: `sys_pwritev(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
@@ -135,6 +150,7 @@ interface syscalls {
   /// The kernel takes the position as (pos_l, pos_h) on all arches; here it is one `s64`.
   /// @nr(70)
   /// @merged-i64(pos)
+  /// @returns(u32)
   pwritev: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64) -> slong;
 
   /// Kernel: `sys_preadv2(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
@@ -143,6 +159,7 @@ interface syscalls {
   /// position.
   /// @nr(286)
   /// @merged-i64(pos)
+  /// @returns(u32)
   preadv2: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64, %flags: rwf-flags) -> slong;
 
   /// Kernel: `sys_pwritev2(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
@@ -151,6 +168,7 @@ interface syscalls {
   /// position.
   /// @nr(287)
   /// @merged-i64(pos)
+  /// @returns(u32)
   pwritev2: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64, %flags: rwf-flags) -> slong;
 
   /// Kernel: `sys_llseek(unsigned int fd, unsigned long offset_high, unsigned long offset_low, loff_t *
@@ -325,6 +343,8 @@ interface syscalls {
 
   /// Kernel: `sys_getcwd(char * buf, unsigned long size)`.
   /// @nr(17)
+  /// @slice(buf, size)
+  /// @returns(u32)
   getcwd: func(buf: buf, size: ulong) -> slong;
 
   /// Kernel: `sys_fchmod(unsigned int fd, umode_t mode)`.
@@ -386,6 +406,7 @@ interface syscalls {
 
   /// Kernel: `sys_memfd_create(const char * uname, unsigned int flags)`.
   /// @nr(279)
+  /// @returns(fd)
   memfd-create: func(uname: cstr, %flags: memfd-flags) -> slong;
 
   /// Kernel: `sys_memfd_secret(unsigned int flags)`.
@@ -446,39 +467,54 @@ interface syscalls {
   /// Kernel: `sys_setxattr(const char * pathname, const char * name, const void * value, size_t size, int
   /// flags)`.
   /// @nr(5)
+  /// @slice(value, size)
   setxattr: func(pathname: cstr, name: cstr, value: const-buf, size: usize, %flags: xattr-flags) -> slong;
 
   /// Kernel: `sys_lsetxattr(const char * pathname, const char * name, const void * value, size_t size,
   /// int flags)`.
   /// @nr(6)
+  /// @slice(value, size)
   lsetxattr: func(pathname: cstr, name: cstr, value: const-buf, size: usize, %flags: xattr-flags) -> slong;
 
   /// Kernel: `sys_fsetxattr(int fd, const char * name, const void * value, size_t size, int flags)`.
   /// @nr(7)
+  /// @slice(value, size)
   fsetxattr: func(fd: fd, name: cstr, value: const-buf, size: usize, %flags: xattr-flags) -> slong;
 
   /// Kernel: `sys_getxattr(const char * pathname, const char * name, void * value, size_t size)`.
   /// @nr(8)
+  /// @slice(value, size)
+  /// @returns(u32)
   getxattr: func(pathname: cstr, name: cstr, value: buf, size: usize) -> slong;
 
   /// Kernel: `sys_lgetxattr(const char * pathname, const char * name, void * value, size_t size)`.
   /// @nr(9)
+  /// @slice(value, size)
+  /// @returns(u32)
   lgetxattr: func(pathname: cstr, name: cstr, value: buf, size: usize) -> slong;
 
   /// Kernel: `sys_fgetxattr(int fd, const char * name, void * value, size_t size)`.
   /// @nr(10)
+  /// @slice(value, size)
+  /// @returns(u32)
   fgetxattr: func(fd: fd, name: cstr, value: buf, size: usize) -> slong;
 
   /// Kernel: `sys_listxattr(const char * pathname, char * list, size_t size)`.
   /// @nr(11)
+  /// @slice(list, size)
+  /// @returns(u32)
   listxattr: func(pathname: cstr, %list: buf, size: usize) -> slong;
 
   /// Kernel: `sys_llistxattr(const char * pathname, char * list, size_t size)`.
   /// @nr(12)
+  /// @slice(list, size)
+  /// @returns(u32)
   llistxattr: func(pathname: cstr, %list: buf, size: usize) -> slong;
 
   /// Kernel: `sys_flistxattr(int fd, char * list, size_t size)`.
   /// @nr(13)
+  /// @slice(list, size)
+  /// @returns(u32)
   flistxattr: func(fd: fd, %list: buf, size: usize) -> slong;
 
   /// Kernel: `sys_removexattr(const char * pathname, const char * name)`.
@@ -520,6 +556,8 @@ interface syscalls {
   /// Kernel: `sys_listxattrat(int dfd, const char * pathname, unsigned int at_flags, char * list, size_t
   /// size)`.
   /// @nr(465)
+  /// @slice(list, size)
+  /// @returns(u32)
   listxattrat: func(dfd: fd, pathname: cstr, at-flags: at-flags, %list: buf, size: usize) -> slong;
 
   /// Kernel: `sys_removexattrat(int dfd, const char * pathname, unsigned int at_flags, const char *
@@ -532,6 +570,7 @@ interface syscalls {
   /// Kernel: `sys_epoll_create1(int flags)`.
   /// No epoll_create on asm-generic.
   /// @nr(20)
+  /// @returns(fd)
   epoll-create1: func(%flags: epoll-create-flags) -> slong;
 
   /// Kernel: `sys_epoll_ctl(int epfd, int op, int fd, struct epoll_event * event)`.
@@ -596,15 +635,18 @@ interface syscalls {
   /// Kernel: `sys_eventfd2(unsigned int count, int flags)`.
   /// No eventfd.
   /// @nr(19)
+  /// @returns(fd)
   eventfd2: func(count: u32, %flags: eventfd-flags) -> slong;
 
   /// Kernel: `sys_signalfd4(int ufd, sigset_t * user_mask, size_t sizemask, int flags)`.
   /// sizemask must be 8 (kernel sigset_t size).
   /// @nr(74)
+  /// @returns(fd)
   signalfd4: func(ufd: fd, user-mask: const-sigset-ptr, sizemask: usize, %flags: signalfd-flags) -> slong;
 
   /// Kernel: `sys_timerfd_create(int clockid, int flags)`.
   /// @nr(85)
+  /// @returns(fd)
   timerfd-create: func(clockid: clock-id, %flags: timerfd-flags) -> slong;
 
   /// Kernel: `sys_timerfd_settime(int ufd, int flags, const struct __kernel_itimerspec * utmr, struct
@@ -624,6 +666,7 @@ interface syscalls {
   /// Kernel: `sys_inotify_init1(int flags)`.
   /// No inotify_init.
   /// @nr(26)
+  /// @returns(fd)
   inotify-init1: func(%flags: inotify-init-flags) -> slong;
 
   /// Kernel: `sys_inotify_add_watch(int fd, const char * pathname, u32 mask)`.
@@ -806,18 +849,22 @@ interface syscalls {
 
   /// Kernel: `sys_getpid()`.
   /// @nr(172)
+  /// @returns(pid)
   getpid: func() -> slong;
 
   /// Kernel: `sys_getppid()`.
   /// @nr(173)
+  /// @returns(pid)
   getppid: func() -> slong;
 
   /// Kernel: `sys_gettid()`.
   /// @nr(178)
+  /// @returns(pid)
   gettid: func() -> slong;
 
   /// Kernel: `sys_getpgid(pid_t pid)`.
   /// @nr(155)
+  /// @returns(pid)
   getpgid: func(pid: pid) -> slong;
 
   /// Kernel: `sys_setpgid(pid_t pid, pid_t pgid)`.
@@ -826,14 +873,17 @@ interface syscalls {
 
   /// Kernel: `sys_getsid(pid_t pid)`.
   /// @nr(156)
+  /// @returns(pid)
   getsid: func(pid: pid) -> slong;
 
   /// Kernel: `sys_setsid()`.
   /// @nr(157)
+  /// @returns(pid)
   setsid: func() -> slong;
 
   /// Kernel: `sys_pidfd_open(pid_t pid, unsigned int flags)`.
   /// @nr(434)
+  /// @returns(fd)
   pidfd-open: func(pid: pid, %flags: u32) -> slong;
 
   /// Kernel: `sys_pidfd_getfd(int pidfd, int fd, unsigned int flags)`.
@@ -1120,6 +1170,8 @@ interface syscalls {
   /// Kernel: `sys_getrandom(char * ubuf, size_t len, unsigned int flags)`.
   /// musl getrandom() + getentropy.
   /// @nr(278)
+  /// @slice(ubuf, len)
+  /// @returns(u32)
   getrandom: func(ubuf: buf, len: usize, %flags: grnd-flags) -> slong;
 
   /// Kernel: `sys_membarrier(int cmd, unsigned int flags, int cpu_id)`.
@@ -1434,6 +1486,7 @@ interface syscalls {
   /// Kernel: `sys_socket(int family, int type, int protocol)`.
   /// SOCK_NONBLOCK=O_NONBLOCK(04000), SOCK_CLOEXEC=O_CLOEXEC(02000000) on asm-generic.
   /// @nr(198)
+  /// @returns(fd)
   socket: func(family: address-family, %type: s32, protocol: s32) -> slong;
 
   /// Kernel: `sys_socketpair(int family, int type, int protocol, int * usockvec)`.
@@ -1451,10 +1504,12 @@ interface syscalls {
   /// Kernel: `sys_accept(int fd, struct sockaddr * upeer_sockaddr, int * upeer_addrlen)`.
   /// musl defines SYS_accept to SYS_accept4 only if SYS_accept is missing; riscv32 has both.
   /// @nr(202)
+  /// @returns(fd)
   accept: func(fd: fd, upeer-sockaddr: sockaddr-ptr, upeer-addrlen: socklen-ptr) -> slong;
 
   /// Kernel: `sys_accept4(int fd, struct sockaddr * upeer_sockaddr, int * upeer_addrlen, int flags)`.
   /// @nr(242)
+  /// @returns(fd)
   accept4: func(
     fd: fd,
     upeer-sockaddr: sockaddr-ptr,
@@ -1477,6 +1532,8 @@ interface syscalls {
   /// Kernel: `sys_sendto(int fd, void * buff, size_t len, unsigned int flags, struct sockaddr * addr, int
   /// addr_len)`.
   /// @nr(206)
+  /// @slice(buff, len)
+  /// @returns(u32)
   sendto: func(
     fd: fd,
     buff: const-buf,
@@ -1489,6 +1546,8 @@ interface syscalls {
   /// Kernel: `sys_recvfrom(int fd, void * ubuf, size_t size, unsigned int flags, struct sockaddr * addr,
   /// int * addr_len)`.
   /// @nr(207)
+  /// @slice(ubuf, size)
+  /// @returns(u32)
   recvfrom: func(
     fd: fd,
     ubuf: buf,
@@ -1503,6 +1562,7 @@ interface syscalls {
   /// SO_RCVTIMEO_OLD(20)/SNDTIMEO_OLD(21) take 32-bit timeval; SO_RCVTIMEO_NEW(66)/SO_SNDTIMEO_NEW(67)
   /// take 64-bit __kernel_sock_timeval. musl tries _NEW first on 32-bit time64 archs then falls back.
   /// @nr(208)
+  /// @slice(optval, optlen)
   setsockopt: func(fd: fd, level: socket-level, optname: s32, optval: const-buf, optlen: socklen) -> slong;
 
   /// Kernel: `sys_getsockopt(int fd, int level, int optname, char * optval, int * optlen)`.

@@ -29,6 +29,10 @@ struct RustArgs {
 enum Cmd {
     /// Generate `lib/wasixv2/abi/src/generated.rs`.
     Abi(RustArgs),
+    /// Generate `lib/wasixv2/syscalls/src/generated.rs`.
+    Syscalls(RustArgs),
+    /// Generate `lib/wasixv2/exec/src/generated.rs`.
+    Exec(RustArgs),
     /// Generate the libc2 (musl) syscall glue.
     #[command(group(clap::ArgGroup::new("dest").required(true)))]
     C {
@@ -47,6 +51,8 @@ enum Cmd {
 fn main() -> Result<()> {
     match Cli::parse().command {
         Cmd::Abi(args) => write_rust(args, wasixv2_codegen::generate_abi),
+        Cmd::Syscalls(args) => write_rust(args, wasixv2_codegen::generate_syscalls),
+        Cmd::Exec(args) => write_rust(args, wasixv2_codegen::generate_exec),
         Cmd::C { wit, libc, out_dir } => {
             let files = wasixv2_codegen::generate_c(&wit, Target::WASM32)?;
             let (root, create) = match (libc, out_dir) {

@@ -243,8 +243,22 @@ pub struct Function {
     pub merged_i64: Vec<MergedI64>,
     /// `(param, C type)` prototype overrides.
     pub c_params: Vec<(String, String)>,
+    /// `@slice(ptr, len)`: pointer/length pairs the Rust backends merge into one user slice.
+    pub slices: Vec<SliceSpec>,
+    /// `@returns(T)`: the type of a successful result, for the Rust backends. `None` keeps the
+    /// declared result type.
+    pub returns: Option<TyRef>,
     pub params: Vec<Param>,
     pub result: Option<TyRef>,
+}
+
+/// `@slice(ptr, len)`: a byte buffer and the param holding its length in bytes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SliceSpec {
+    /// Kebab-case WIT name of the pointer param.
+    pub ptr: String,
+    /// Kebab-case WIT name of the length param.
+    pub len: String,
 }
 
 /// `@merged-i64(param[, lo-hi|hi-lo])`.

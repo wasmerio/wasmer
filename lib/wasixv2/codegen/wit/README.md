@@ -74,6 +74,11 @@ A line starting with `====` is a section divider. The divider comments
 | `@unsupported` | function | Declared for completeness. Hosts may return `-ENOSYS`. |
 | `@c-param(name: C type)` | function | Overrides the C prototype type of one parameter. |
 | `@import(name)` | function | Overrides the wasm import name. By default it is the snake form of the function name. |
+| `@slice(ptr, len)` | function | `ptr` is a byte buffer (`u8` or `void` pointee) and `len` its unsigned length in bytes. The Rust `Syscalls` method takes one `UserSlice` (const pointee) or `UserSliceMut` (mut pointee) named after `ptr` instead of the two params. Only for lengths that count bytes of exactly that buffer; signed lengths (`readlinkat`'s `bufsiz`) stay separate because a negative value means `EINVAL`. Repeatable. |
+| `@returns(T)` | function | The Rust `Syscalls` method returns `SysResult<T>` instead of the raw result type, for example `u32` for byte counts or `fd` for new descriptors. `T` is a scalar no wider than the result; the import shim converts it back. |
+
+The Rust backends require every function without a result to be `@noreturn`; its `Syscalls`
+method returns `SysResult<()>` and the import shim traps if it returns to the guest.
 
 Functions cannot document individual parameters, because wit-parser drops comments on
 parameters. Notes about a parameter go in the function docs. A command-dependent argument is
