@@ -7232,7 +7232,12 @@ dependencies = [
 name = "wasixv2-vnet-host"
 version = "0.0.0"
 dependencies = [
+ "mio",
+ "socket2",
+ "tracing",
+ "wasixv2-abi",
  "wasixv2-vnet",
+ "wasixv2-wait",
 ]
 
 [[package]]

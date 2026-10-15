@@ -11,4 +11,11 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+wasixv2-abi = { path = "../abi" }
 wasixv2-vnet = { path = "../vnet" }
+wasixv2-wait = { path = "../wait" }
+tracing = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+mio = { workspace = true, features = ["net", "os-ext", "os-poll"] }
+socket2 = { workspace = true }
