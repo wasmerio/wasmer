@@ -5,7 +5,9 @@ use wasmer_compiler::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
     section::{CustomSection, CustomSectionProtection, SectionBody},
 };
-use wasmer_types::{LibCall, LocalFunctionIndex, entity::EntityRef, target::Endianness};
+use wasmer_types::{
+    FunctionIndex, LibCall, LocalFunctionIndex, entity::EntityRef, target::Endianness,
+};
 
 #[derive(Clone, Debug)]
 pub struct WriterRelocate {
@@ -18,6 +20,8 @@ impl WriterRelocate {
     pub const FUNCTION_SYMBOL: usize = 0;
     pub const PERSONALITY_SYMBOL: usize = 1;
     pub const LSDA_SYMBOL_BASE: usize = 2;
+    /// Dynamic function trampoline; the addend is its `FunctionIndex`.
+    pub const DYNAMIC_TRAMPOLINE_SYMBOL: usize = usize::MAX;
 
     pub fn new(endianness: Option<Endianness>) -> Self {
         let endianness = match endianness {
@@ -78,10 +82,13 @@ impl Writer for WriterRelocate {
             Address::Constant(val) => self.write_udata(val, size),
             Address::Symbol { symbol, addend } => {
                 // Is a function relocation
-                if symbol == Self::FUNCTION_SYMBOL {
+                if symbol == Self::FUNCTION_SYMBOL || symbol == Self::DYNAMIC_TRAMPOLINE_SYMBOL {
                     // We use the addend to detect the function index
-                    let function_index = LocalFunctionIndex::new(addend as _);
-                    let reloc_target = RelocationTarget::LocalFunc(function_index);
+                    let reloc_target = if symbol == Self::FUNCTION_SYMBOL {
+                        RelocationTarget::LocalFunc(LocalFunctionIndex::new(addend as _))
+                    } else {
+                        RelocationTarget::DynamicTrampoline(FunctionIndex::new(addend as _))
+                    };
                     let offset = self.len() as u32;
                     let kind = match size {
                         8 => RelocationKind::Abs8,

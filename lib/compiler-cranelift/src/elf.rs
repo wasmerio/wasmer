@@ -33,7 +33,7 @@ use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
     misc::{CompiledFunctionExt, CompiledKind},
     object::get_object_for_target,
-    types::function::CompiledFunction,
+    types::function::{CompiledFunction, FunctionBody},
 };
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
@@ -275,15 +275,67 @@ pub(crate) fn emit_local_function(
     // Emit the per-function `.eh_frame` unwind table (and, for functions that
     // catch exceptions, the matching `.gcc_except_table` LSDA).
     #[cfg(feature = "unwind")]
-    if let Some(fde) = fde
-        && let Some(mut cie) = isa.create_systemv_cie()
-    {
+    if let Some(fde) = fde {
+        emit_unwind_info(&mut object, isa, function_symbol, fde, lsda.as_ref())?;
+    }
+
+    object
+        .write()
+        .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))
+}
+
+/// Serialize a dynamic function trampoline into its own relocatable object
+/// file. Host functions that throw unwind through it, so it gets an
+/// `.eh_frame` entry too.
+pub(crate) fn emit_dynamic_trampoline(
+    #[cfg(feature = "unwind")] isa: &dyn TargetIsa,
+    target: &Target,
+    kind: &CompiledKind,
+    body: &FunctionBody,
+    #[cfg(feature = "unwind")] fde: Option<FrameDescriptionEntry>,
+) -> Result<Vec<u8>, CompileError> {
+    let mut object = get_object_for_target(target.triple())
+        .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
+    let symbol = object.add_symbol(Symbol {
+        name: kind.linkage_name().into_bytes(),
+        value: 0,
+        size: body.body.len() as u64,
+        kind: SymbolKind::Text,
+        scope: SymbolScope::Linkage,
+        weak: false,
+        section: SymbolSection::Undefined,
+        flags: SymbolFlags::None,
+    });
+    let text = object.section_id(StandardSection::Text);
+    object.add_symbol_data(symbol, text, &body.body, 4);
+
+    #[cfg(feature = "unwind")]
+    if let Some(fde) = fde {
+        emit_unwind_info(&mut object, isa, symbol, fde, None)?;
+    }
+
+    object
+        .write()
+        .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))
+}
+
+/// Emit the `.eh_frame` unwind table for `function_symbol` (and, if `lsda` is
+/// given, the matching `.gcc_except_table`).
+#[cfg(feature = "unwind")]
+fn emit_unwind_info(
+    object: &mut Object<'static>,
+    isa: &dyn TargetIsa,
+    function_symbol: object::write::SymbolId,
+    fde: FrameDescriptionEntry,
+    lsda: Option<&FunctionLsdaData>,
+) -> Result<(), CompileError> {
+    if let Some(mut cie) = isa.create_systemv_cie() {
         let pointer_bytes = isa.frontend_config().pointer_bytes();
 
         // Emit the LSDA into `.gcc_except_table`, plus a per-object tag section
         // holding the exception tag constants referenced by its type table.
-        let lsda_section_symbol = if let Some(lsda) = &lsda {
-            let tag_section_symbol = emit_eh_tag_section(&mut object, lsda);
+        let lsda_section_symbol = if let Some(lsda) = lsda {
+            let tag_section_symbol = emit_eh_tag_section(object, lsda);
 
             let gcc_section = object.add_section(
                 object.segment_name(StandardSegment::Data).to_vec(),
@@ -367,15 +419,12 @@ pub(crate) fn emit_local_function(
 
         let relocations = std::mem::take(&mut eh_frame.0.relocs);
         emit_eh_frame_section(
-            &mut object,
+            object,
             &eh_frame.0.into_bytes(),
             &relocations,
             function_symbol,
             lsda_section_symbol,
         )?;
     }
-
-    object
-        .write()
-        .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))
+    Ok(())
 }

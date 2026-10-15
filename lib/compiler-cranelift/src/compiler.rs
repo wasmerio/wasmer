@@ -84,6 +84,12 @@ pub struct CraneliftCompiledFunction {
 
 impl wasmer_compiler::CompiledFunction for CraneliftCompiledFunction {}
 
+struct CraneliftCompiledTrampoline {
+    body: FunctionBody,
+    #[cfg(feature = "unwind")]
+    fde: Option<FrameDescriptionEntry>,
+}
+
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
 #[derive(Debug)]
@@ -478,7 +484,8 @@ impl CraneliftCompiler {
                     FunctionIndex::from_u32(*index as u32),
                     func_type.clone(),
                 );
-                let trampoline = make_trampoline_dynamic_function(
+                #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
+                let (trampoline, unwind_info) = make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
@@ -491,13 +498,47 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
+                // Host functions that throw unwind through the trampoline, so
+                // it needs an FDE in `.eh_frame` too.
+                #[cfg(feature = "unwind")]
+                let fde = match unwind_info {
+                    CraneliftUnwindInfo::Fde(fde) if dwarf_frametable.is_some() => {
+                        // The ELF artifact's `.eh_frame` relocates against the
+                        // trampoline's own text symbol.
+                        let address = if self.config.experimental_artifact {
+                            Address::Symbol {
+                                symbol: WriterRelocate::FUNCTION_SYMBOL,
+                                addend: 0,
+                            }
+                        } else {
+                            Address::Symbol {
+                                symbol: WriterRelocate::DYNAMIC_TRAMPOLINE_SYMBOL,
+                                addend: *index as _,
+                            }
+                        };
+                        Some(fde.to_fde(address))
+                    }
+                    _ => None,
+                };
                 if self.config.experimental_artifact {
                     Ok(CompileOutput::Object(
-                        wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
+                        crate::elf::emit_dynamic_trampoline(
+                            #[cfg(feature = "unwind")]
+                            &*isa,
+                            target,
+                            &kind,
+                            &trampoline,
+                            #[cfg(feature = "unwind")]
+                            fde,
+                        )?,
                         None,
                     ))
                 } else {
-                    Ok(CompileOutput::InMemory(trampoline))
+                    Ok(CompileOutput::InMemory(CraneliftCompiledTrampoline {
+                        body: trampoline,
+                        #[cfg(feature = "unwind")]
+                        fde,
+                    }))
                 }
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
@@ -599,8 +640,19 @@ impl CraneliftCompiler {
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut unwind_info = UnwindInfo::default();
 
+        let dynamic_function_trampolines =
+            compile_output_in_memory(dynamic_function_trampoline_outputs);
+
         #[cfg(feature = "unwind")]
         if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
+            for mut fde in dynamic_function_trampolines
+                .iter()
+                .filter_map(|trampoline| trampoline.fde.clone())
+            {
+                // The CIE declares an LSDA encoding, so every FDE needs one.
+                fde.lsda = Some(Address::Constant(0));
+                dwarf_frametable.add_fde(cie_id, fde);
+            }
             for (func_idx, fde_opt) in fdes.into_iter().enumerate() {
                 if let Some(mut fde) = fde_opt {
                     let has_lsda = function_lsda_offsets
@@ -674,10 +726,10 @@ impl CraneliftCompiler {
         let function_call_trampolines = compile_output_in_memory(function_call_trampoline_outputs)
             .into_iter()
             .collect();
-        let dynamic_function_trampolines =
-            compile_output_in_memory(dynamic_function_trampoline_outputs)
-                .into_iter()
-                .collect();
+        let dynamic_function_trampolines = dynamic_function_trampolines
+            .into_iter()
+            .map(|trampoline| trampoline.body)
+            .collect();
 
         let mut got = wasmer_compiler::types::function::GOT::empty();
 

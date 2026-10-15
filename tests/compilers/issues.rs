@@ -932,6 +932,70 @@ fn issue_5719_shared_catch_clause_block(mut config: crate::Config) {
     assert_eq!(&Value::I32(42), result.first().unwrap());
 }
 
+/// A wasm exception returned by a dynamic host function unwinds through the
+/// dynamic function trampoline and must be caught by the calling wasm frame.
+/// Async host functions use the same trampoline.
+#[cfg(not(target_os = "windows"))]
+#[compiler_test(issues)]
+fn dynamic_host_function_exception_is_caught(mut config: crate::Config) {
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+  (import "env" "throw" (func $throw))
+  (tag $e (export "e") (param i32))
+  (func (export "f") (result i32)
+    (block $h (result i32)
+      (try_table (catch $e $h)
+        (call $throw))
+      (i32.const 0)
+      (return)))
+)
+"#
+        .as_bytes(),
+    )
+    .expect("wat2wasm must succeed");
+
+    let mut store = config.store();
+    let module = match Module::new(&store, wasm_bytes) {
+        Err(CompileError::Validate(message))
+            if message.contains("exceptions proposal not enabled") =>
+        {
+            // Skip the test in that case.
+            return;
+        }
+        Ok(module) => module,
+        _ => unreachable!(),
+    };
+
+    let tag_env = FunctionEnv::new(&mut store, None::<Tag>);
+    let throw = Function::new_with_env(
+        &mut store,
+        &tag_env,
+        FunctionType::new(vec![], vec![]),
+        |mut env: FunctionEnvMut<Option<Tag>>, _| {
+            let (tag, mut store) = env.data_and_store_mut();
+            let tag = tag.clone().unwrap();
+            let exception = Exception::new(&mut store, &tag, &[Value::I32(42)]);
+            Err(RuntimeError::exception(&store, exception))
+        },
+    );
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "env" => { "throw" => throw } },
+    )
+    .unwrap();
+    *tag_env.as_mut(&mut store) = Some(instance.exports.get::<Tag>("e").unwrap().clone());
+
+    let result = instance
+        .exports
+        .get_function("f")
+        .unwrap()
+        .call(&mut store, &[])
+        .unwrap();
+    assert_eq!(&Value::I32(42), result.first().unwrap());
+}
+
 #[compiler_test(issues)]
 fn issue_4169_funcref_externref_import(mut config: crate::Config) -> Result<()> {
     let wasm_bytes = wat2wasm(

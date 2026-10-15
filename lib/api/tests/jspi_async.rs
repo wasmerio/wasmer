@@ -6,7 +6,7 @@ use anyhow::Result;
 use futures::future;
 use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module,
-    Store, StoreAsync, Type, TypedFunction, Value, imports,
+    RuntimeError, Store, StoreAsync, Type, TypedFunction, Value, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -305,6 +305,65 @@ fn nested_async_in_sync() -> Result<()> {
         .inner_async
         .borrow_mut()
         .replace(inner_async);
+
+    let entry = instance
+        .exports
+        .get_typed_function::<(), i32>(&store, "entry")?;
+    let result = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(entry.call_async(&store.into_async()))?;
+
+    assert_eq!(result, 42);
+
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
+fn async_host_rethrows_nested_exception() -> Result<()> {
+    const WAT: &str = r#"
+    (module
+      (import "env" "call_thrower" (func $call_thrower))
+      (tag $e (export "e") (param i32))
+      (func (export "thrower") (throw $e (i32.const 42)))
+      (func (export "entry") (result i32)
+        (block $h (result i32)
+          (try_table (catch $e $h)
+            (call $call_thrower))
+          (i32.const 0)
+          (return)))
+    )
+    "#;
+    let wasm = wat::parse_str(WAT).expect("valid WAT module");
+
+    let mut store = Store::default();
+    let module = Module::new(&store, wasm)?;
+
+    let env = FunctionEnv::new(&mut store, None::<Function>);
+    // The nested call's error carries the wasm exception; returning it from
+    // the import must re-raise it into the calling wasm frames.
+    let call_thrower = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async |env: AsyncFunctionEnvMut<Option<Function>>| -> Result<(), RuntimeError> {
+            let thrower = env.read().await.data().clone().unwrap();
+            let err = thrower
+                .call_async(&env.as_store_async(), vec![])
+                .await
+                .unwrap_err();
+            assert!(err.is_exception());
+            Err(err)
+        },
+    );
+
+    let imports = imports! { "env" => { "call_thrower" => call_thrower } };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    *env.as_mut(&mut store) = Some(instance.exports.get_function("thrower")?.clone());
 
     let entry = instance
         .exports
