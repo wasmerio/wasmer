@@ -83,6 +83,64 @@ Find the `.wast` file under `tests/wast/`, then rerun with the
 backend-filtered command from [docs/TEST.md](./docs/TEST.md). The runner
 prints `Running wast <path>`.
 
+## Testing WASIX v2
+
+WASIX v2 (`lib/wasixv2`, design in `lib/wasixv2/DESIGN.md`) spans three
+repositories besides this one, all wired in as submodules. Run
+`git submodule update --init` first: a missing submodule stops the cargo
+workspace from loading.
+
+| Repository | Here | Holds |
+| ---------- | ---- | ----- |
+| [wasixv2-abi](https://github.com/wasix-org/wasixv2-abi) | `lib/wasixv2/codegen` | The ABI (annotated WIT) and `wasixv2-codegen` |
+| [wasixv2-tests](https://github.com/wasix-org/wasixv2-tests) | `tests/wasixv2` | The test suite and its runner |
+| [libc2](https://github.com/wasix-org/libc2) | (not a submodule) | The musl-based libc; mounts both repos above under `wasixv2/` |
+
+### Crate tests
+
+```bash
+cargo test -p wasixv2 -p wasixv2-abi -p wasixv2-kernel -p wasixv2-codegen  # and the other lib/wasixv2 crates
+```
+
+These are plain Rust: the kernel's unit tests, the facade's WAT tests, and
+`lib/wasixv2/abi/tests/generated.rs`, which checks that the generated
+crates match the ABI at the pinned submodule commit. After an ABI or
+generator change, regenerate with
+`WASIXV2_CODEGEN_BLESS=1 cargo test -p wasixv2-abi --test generated`.
+
+### The test suite
+
+```bash
+make test-wasixv2   # builds the wasmer CLI, then runs tests/wasixv2
+```
+
+The suite builds every program under `tests/wasixv2/suite/` with `wasixcc`
+for `wasm32-wasixv2` and runs it with that `wasmer`. It needs, from the
+environment:
+
+- `wasixcc` with wasixv2 support on `PATH` (unreleased:
+  wasix-org/wasixcc#87).
+- The wasix-org LLVM fork (`wasix-22.1.8` branch), via
+  `WASIXCC_LLVM_LOCATION`.
+- A libc2 sysroot, via `WASIXCC_SYSROOT` (`<libc2>/build-wasixv2/sysroot-wasixv2`
+  after `make wasixv2-sysroot` in libc2).
+
+Filter tests with `WASIXV2_TESTS_ARGS=<filter>`. Most of the suite is
+expected to fail until wasixv2 is complete: `tests/wasixv2/expected-failures.txt`
+lists those tests, and a listed test that starts passing fails the run.
+Regenerate the list with `WASIXV2_TESTS_BLESS=1`, then commit it in
+wasixv2-tests. CI does not run the suite yet.
+
+### Rules
+
+- Do not add wasixv2 program tests to this repository, and never check in
+  prebuilt wasm for them. New tests go to wasixv2-tests, built from source
+  with `wasixcc`.
+- WASIX v1 tests stay in `lib/wasix/tests`; never copy them to wasixv2-tests.
+- An ABI change lands in wasixv2-abi first. Then bump the submodule in both
+  wasmer and libc2 to the same commit, regenerating in the same commit as
+  the bump.
+
 ## Personal execution preferences
 
 The gitignored `AGENTS.override.md` is the user's personal addendum. When
