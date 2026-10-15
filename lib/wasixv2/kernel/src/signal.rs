@@ -500,6 +500,11 @@ impl Kernel {
             if pid.is_some_and(|pid| pid != leader) || groups.iter().any(|(p, _)| *p == leader) {
                 continue;
             }
+            // ---- proc ----
+            // A reaped process's tasks may linger while their instance unwinds.
+            if self.procs.find(leader as u32).is_none() {
+                continue;
+            }
             groups.push((leader, task.signals.group().clone()));
         }
         groups

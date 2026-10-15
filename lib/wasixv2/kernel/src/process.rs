@@ -236,6 +236,7 @@ impl Kernel {
             };
             self.with_task(task, |t| t.pending = Some(action));
         }
+        self.exit_files(process);
         // `do_notify_parent`.
         let mut autoreap = true;
         if parent != 0
@@ -255,6 +256,33 @@ impl Kernel {
             self.procs.tree.lock().unwrap().nodes.remove(&pid);
         }
         self.procs.changed.wake(PollMask::empty());
+    }
+
+    /// `exit_files`: the process's tasks let go of their descriptor tables, closing every file
+    /// no one else holds.
+    fn exit_files(&self, process: &Arc<Process>) {
+        let tables: Vec<Arc<Mutex<FdTable>>> = {
+            let mut state = self.state.lock().unwrap();
+            state
+                .tasks
+                .values_mut()
+                .filter(|t| Arc::ptr_eq(&t.process, process))
+                .map(|t| std::mem::take(&mut t.files))
+                .collect()
+        };
+        let memory = NoMemory;
+        let caller = Caller::new(process.pid, &memory);
+        for table in tables {
+            let Ok(table) = Arc::try_unwrap(table) else {
+                continue;
+            };
+            let mut table = table.into_inner().unwrap();
+            for fd in (0..table.end()).map(|fd| Fd(fd as i32)) {
+                if let Some(file) = table.remove(fd) {
+                    self.closed(&caller, &file);
+                }
+            }
+        }
     }
 
     // ---- clone ----

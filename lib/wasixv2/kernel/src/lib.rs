@@ -1912,10 +1912,9 @@ impl Control for Kernel {
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
         let pending = {
             let mut state = self.state.lock().unwrap();
-            let entry = state
-                .tasks
-                .get_mut(&task)
-                .expect("syscall from an unknown task");
+            // ---- proc ----
+            // A reaped process's task, still unwinding.
+            let entry = state.tasks.get_mut(&task)?;
             let pending = entry.pending.take();
             // ---- thr ----
             if entry.thread.reapable(pending) {
