@@ -7197,7 +7197,14 @@ dependencies = [
 name = "wasixv2-vfs-host"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
+ "futures",
+ "libc",
+ "tempfile",
+ "wasixv2-abi",
+ "wasixv2-host",
  "wasixv2-vfs",
+ "wasixv2-vfs-mem",
 ]
 
 [[package]]

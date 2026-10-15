@@ -12,3 +12,14 @@ rust-version.workspace = true
 
 [dependencies]
 wasixv2-vfs = { path = "../vfs" }
+wasixv2-abi = { path = "../abi" }
+wasixv2-host = { path = "../host" }
+async-trait.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+futures.workspace = true
+tempfile.workspace = true
+wasixv2-vfs-mem = { path = "../vfs-mem" }
