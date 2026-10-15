@@ -26,7 +26,7 @@ pub use cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission};
 pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, MAX_DIR_COOKIE, Node};
 pub use file::{DIR_POS_EOD, File};
-pub use inode::Inode;
+pub use inode::{Bound, Inode};
 pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};
 pub use mount::{Mount, MountFlags, Namespace, Path, Superblock};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
@@ -193,6 +193,27 @@ impl Vfs {
     pub(crate) fn notify(&self, event: FsEvent<'_>) {
         if let Some(watcher) = &*self.watcher.read().unwrap() {
             watcher.event(&event);
+        }
+    }
+
+    /// Reports an event on the object `dentry` names, to its own watches and then to its
+    /// parent directory's, with its name.
+    pub(crate) fn notify_object(&self, dentry: &Arc<Dentry>, event: FsEvent<'_>) {
+        let Some(watcher) = &*self.watcher.read().unwrap() else {
+            return;
+        };
+        watcher.event(&event);
+        if dentry.is_unlinked() {
+            return;
+        }
+        if let Some(parent) = dentry.parent()
+            && !Arc::ptr_eq(&parent, dentry)
+        {
+            let dir = notify::Object {
+                sb: parent.sb().id,
+                ino: parent.node().ino(),
+            };
+            watcher.child_event(dir, &dentry.name(), &event);
         }
     }
 }

@@ -24,7 +24,7 @@ const DEFAULT_SIZE: usize = 16 * PIPE_PAGE;
 /// `/proc/sys/fs/pipe-max-size`; unprivileged callers cannot go above it.
 const MAX_SIZE: usize = 1024 * 1024;
 
-struct Pipe {
+pub(crate) struct Pipe {
     state: Mutex<State>,
     /// Readers wait here for data or the last writer to leave.
     rd_wait: WaitQueue,
@@ -83,6 +83,64 @@ pub(crate) fn pipe() -> (PipeEnd, PipeEnd) {
         writer: false,
     };
     (read, PipeEnd { pipe, writer: true })
+}
+
+// ---- fs: FIFOs (`fs/fifo.rs`) ----
+
+/// A pipe with no ends yet, for a FIFO inode's first open.
+pub(crate) fn fifo_pipe() -> Arc<Pipe> {
+    Arc::new(Pipe {
+        state: Mutex::new(State {
+            buf: VecDeque::new(),
+            capacity: DEFAULT_SIZE,
+            readers: 0,
+            writers: 0,
+        }),
+        rd_wait: WaitQueue::new(),
+        wr_wait: WaitQueue::new(),
+    })
+}
+
+impl Pipe {
+    /// The number of open read and write ends.
+    pub(crate) fn ends(&self) -> (usize, usize) {
+        let state = self.state.lock().unwrap();
+        (state.readers, state.writers)
+    }
+
+    /// Waits until `ready` holds for the end counts (`wait_for_partner`).
+    pub(crate) async fn wait_ends(
+        &self,
+        ready: impl Fn(usize, usize) -> bool,
+        interrupt: &dyn wasixv2_wait::Interrupt,
+    ) -> SysResult<()> {
+        let check = || {
+            let (readers, writers) = self.ends();
+            ready(readers, writers).then_some(())
+        };
+        wait_event(&self.rd_wait, check, interrupt)
+            .await
+            .map_err(|_| SysErr::Restart)
+    }
+}
+
+impl PipeEnd {
+    /// Opens another end of `pipe` and wakes whoever waits for one.
+    pub(crate) fn attach(pipe: &Arc<Pipe>, writer: bool) -> Self {
+        {
+            let mut state = pipe.state.lock().unwrap();
+            match writer {
+                true => state.writers += 1,
+                false => state.readers += 1,
+            }
+        }
+        pipe.rd_wait.wake(PollMask::empty());
+        pipe.wr_wait.wake(PollMask::empty());
+        Self {
+            pipe: pipe.clone(),
+            writer,
+        }
+    }
 }
 
 impl PipeEnd {

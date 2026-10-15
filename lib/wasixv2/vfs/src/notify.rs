@@ -27,6 +27,8 @@ pub enum FsEvent<'a> {
         name: &'a [u8],
         is_dir: bool,
         object: Object,
+        /// The object has no links left.
+        gone: bool,
     },
     /// `IN_MOVED_FROM`/`IN_MOVED_TO` with a shared cookie, and `IN_MOVE_SELF`.
     Move {
@@ -52,4 +54,11 @@ pub enum FsEvent<'a> {
 /// Receives change notifications. Called synchronously from the operation; must not block.
 pub trait FsWatcher: Send + Sync {
     fn event(&self, event: &FsEvent<'_>);
+
+    /// An object event (`Modify`, `Attrib`, `Access`, `Open`, `Close`) as the directory the
+    /// object was reached through sees it, under its name there (`fsnotify_parent`). Follows
+    /// `event` for the same change.
+    fn child_event(&self, dir: Object, name: &[u8], event: &FsEvent<'_>) {
+        let _ = (dir, name, event);
+    }
 }

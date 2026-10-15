@@ -94,6 +94,8 @@ pub struct Kernel {
     unix_names: Arc<unix::Names>,
     // ---- fs ----
     vfs: Arc<Vfs>,
+    /// inotify watches, fed by the VFS's change notifications.
+    inotify: Arc<fs::inotify::Registry>,
     // ---- thr ----
     futexes: futex::Futexes,
 }
@@ -130,12 +132,14 @@ impl Kernel {
     /// A kernel whose root filesystem is `root`. Further filesystems are mounted through
     /// [`Kernel::vfs`].
     pub fn new(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
+        let vfs = Vfs::new(root);
         Self {
             host,
             state: Mutex::default(),
             network: None,
             unix_names: Arc::default(),
-            vfs: Vfs::new(root),
+            inotify: fs::inotify::Registry::install(&vfs),
+            vfs,
             futexes: futex::Futexes::default(),
         }
     }
@@ -887,6 +891,28 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         let target = self.xattr_at(caller, dfd, pathname, at_flags).await?;
         self.xattr_remove(caller, target, name).await
+    }
+
+    async fn inotify_init1(
+        &self,
+        caller: &Caller<'_>,
+        flags: wasixv2_abi::InotifyInitFlags,
+    ) -> SysResult<Fd> {
+        self.sys_inotify_init1(caller, flags)
+    }
+
+    async fn inotify_add_watch(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        pathname: Cstr,
+        mask: wasixv2_abi::InotifyMask,
+    ) -> SysResult<i32> {
+        self.sys_inotify_add_watch(caller, fd, pathname, mask).await
+    }
+
+    async fn inotify_rm_watch(&self, caller: &Caller<'_>, fd: Fd, wd: i32) -> SysResult<i32> {
+        self.sys_inotify_rm_watch(caller, fd, wd)
     }
 
     async fn ioctl(

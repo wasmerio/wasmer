@@ -221,10 +221,11 @@ impl Vfs {
                     noatime: flags.contains(OpenFlags::O_NOATIME) || target.mnt.flags.noatime,
                     sync: flags.contains(OpenFlags::O_DSYNC),
                 };
-                target.dentry.node().open(options).await?
+                Some(target.dentry.node().open(options).await?)
             }
-            // TODO: FIFOs open a pipe once the kernel's pipes can be attached to an inode;
-            // device nodes need drivers. Sockets are ENXIO on Linux too.
+            // The kernel attaches the pipe (`fifo_open`) through `Inode::bound_or_bind`.
+            FileType::Fifo => None,
+            // TODO: device nodes need drivers. Sockets are ENXIO on Linux too.
             _ => return Err(Errno::ENXIO),
         };
         if truncate {
@@ -236,13 +237,16 @@ impl Vfs {
             };
             target.dentry.node().setattr(&attr).await?;
         }
-        self.notify(FsEvent::Open {
-            object: Self::object(&target.dentry),
-        });
+        self.notify_object(
+            &target.dentry,
+            FsEvent::Open {
+                object: Self::object(&target.dentry),
+            },
+        );
         Ok(File::new(
             self.clone(),
             target,
-            Some(handle),
+            handle,
             readable,
             writable,
             false,
@@ -508,9 +512,12 @@ impl Vfs {
             name: &name,
             is_dir: false,
         });
-        self.notify(FsEvent::Attrib {
-            object: Self::object(&source.dentry),
-        });
+        self.notify_object(
+            &source.dentry,
+            FsEvent::Attrib {
+                object: Self::object(&source.dentry),
+            },
+        );
         dir.dentry.child(&name, source.dentry.node().clone());
         Ok(())
     }
@@ -576,11 +583,18 @@ impl Vfs {
         }
         dir.dentry.node().unlink(&name).await?;
         victim.dentry.detach();
+        let gone = victim
+            .dentry
+            .node()
+            .getattr()
+            .await
+            .map_or(true, |attr| attr.nlink == 0);
         self.notify(FsEvent::Delete {
             dir: Self::object(&dir.dentry),
             name: &name,
             is_dir: false,
             object: Self::object(&victim.dentry),
+            gone,
         });
         Ok(())
     }
@@ -611,6 +625,7 @@ impl Vfs {
             name: &name,
             is_dir: true,
             object: Self::object(&victim.dentry),
+            gone: true,
         });
         Ok(())
     }
@@ -625,6 +640,9 @@ impl Vfs {
         new: &[u8],
         mode: RenameMode,
     ) -> FsResult<()> {
+        if mode == RenameMode::Whiteout && !cx.cred.capable(Cap::Mknod) {
+            return Err(Errno::EPERM);
+        }
         let (old_dir, old_last, old_slash) = self.parent_of(cx, old_start, old).await?;
         let (new_dir, new_last, new_slash) = self.parent_of(cx, new_start, new).await?;
         if !Arc::ptr_eq(&old_dir.mnt, &new_dir.mnt) {
@@ -801,9 +819,12 @@ impl Vfs {
 
     async fn setattr(&self, path: &Path, attr: SetAttr) -> FsResult<()> {
         path.dentry.node().setattr(&attr).await?;
-        self.notify(FsEvent::Attrib {
-            object: Self::object(&path.dentry),
-        });
+        self.notify_object(
+            &path.dentry,
+            FsEvent::Attrib {
+                object: Self::object(&path.dentry),
+            },
+        );
         Ok(())
     }
 
@@ -931,9 +952,12 @@ impl Vfs {
             ..SetAttr::default()
         };
         path.dentry.node().setattr(&set).await?;
-        self.notify(FsEvent::Modify {
-            object: Self::object(&path.dentry),
-        });
+        self.notify_object(
+            &path.dentry,
+            FsEvent::Modify {
+                object: Self::object(&path.dentry),
+            },
+        );
         Ok(())
     }
 
@@ -1048,18 +1072,24 @@ impl Vfs {
         }
         self.xattr_permission(cx, path, name, MAY_WRITE).await?;
         path.dentry.node().setxattr(name, value, how).await?;
-        self.notify(FsEvent::Attrib {
-            object: Self::object(&path.dentry),
-        });
+        self.notify_object(
+            &path.dentry,
+            FsEvent::Attrib {
+                object: Self::object(&path.dentry),
+            },
+        );
         Ok(())
     }
 
     pub async fn removexattr(&self, cx: &Ctx<'_>, path: &Path, name: &[u8]) -> FsResult<()> {
         self.xattr_permission(cx, path, name, MAY_WRITE).await?;
         path.dentry.node().removexattr(name).await?;
-        self.notify(FsEvent::Attrib {
-            object: Self::object(&path.dentry),
-        });
+        self.notify_object(
+            &path.dentry,
+            FsEvent::Attrib {
+                object: Self::object(&path.dentry),
+            },
+        );
         Ok(())
     }
 

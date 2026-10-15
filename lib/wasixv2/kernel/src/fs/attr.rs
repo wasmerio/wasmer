@@ -63,7 +63,9 @@ impl Kernel {
         if path.is_empty()
             && flags.contains(AtFlags::AT_EMPTY_PATH)
             && dfd.0 >= 0
-            && let Backing::Stream(_) = self.file(caller.task(), dfd)?.backing
+            && let file = self.file(caller.task(), dfd)?
+            && let Backing::Stream(_) = file.backing
+            && super::fifo::path_of(&file).is_none()
         {
             let stat = Statx {
                 stx_mask: StatxMask::STATX_BASIC_STATS,

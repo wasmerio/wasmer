@@ -2,6 +2,8 @@
 //! decides every path and permission question.
 
 mod attr;
+mod fifo;
+pub(crate) mod inotify;
 mod io;
 mod lock;
 mod path;
@@ -142,6 +144,9 @@ impl Kernel {
     /// The path an fd-based operation acts on; `EBADF` for streams, which have none.
     pub(crate) fn fd_path(&self, caller: &Caller<'_>, fd: Fd) -> Result<Path, Errno> {
         let file = self.file(caller.task(), fd)?;
+        if let Some(path) = fifo::path_of(&file) {
+            return Ok(path);
+        }
         Ok(file.inode().map_err(|_| Errno::EBADF)?.path.clone())
     }
 
@@ -341,7 +346,13 @@ impl Kernel {
             lookup,
         };
         let file = self.vfs.open(&env.cx(), &start, &path, &vfs_how).await?;
-        let file = Arc::new(OpenFile::new(Backing::Inode(file), flags));
+        let backing = if file.file_type() == wasixv2_vfs::FileType::Fifo && !file.path_only {
+            let interrupt = self.interrupt(caller);
+            Backing::Stream(Arc::new(fifo::open(file, flags, &*interrupt).await?))
+        } else {
+            Backing::Inode(file)
+        };
+        let file = Arc::new(OpenFile::new(backing, flags));
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
         self.install(caller, file, cloexec)
     }

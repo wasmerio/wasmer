@@ -87,9 +87,12 @@ impl File {
     pub async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
         let handle = self.handle()?;
         let n = handle.read_at(buf, offset).await?;
-        self.vfs.notify(FsEvent::Access {
-            object: self.object(),
-        });
+        self.vfs.notify_object(
+            &self.path.dentry,
+            FsEvent::Access {
+                object: self.object(),
+            },
+        );
         Ok(n)
     }
 
@@ -110,9 +113,12 @@ impl File {
 
     fn modified(&self, n: usize) {
         if n > 0 {
-            self.vfs.notify(FsEvent::Modify {
-                object: self.object(),
-            });
+            self.vfs.notify_object(
+                &self.path.dentry,
+                FsEvent::Modify {
+                    object: self.object(),
+                },
+            );
         }
     }
 
@@ -213,9 +219,12 @@ impl Drop for File {
             return;
         }
         self.vfs.locks.release_file(self.lock_key(), self.id);
-        self.vfs.notify(FsEvent::Close {
-            object: self.object(),
-            wrote: self.writable,
-        });
+        self.vfs.notify_object(
+            &self.path.dentry,
+            FsEvent::Close {
+                object: self.object(),
+                wrote: self.writable,
+            },
+        );
     }
 }
