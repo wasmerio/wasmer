@@ -567,9 +567,6 @@ impl BackendType {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
-                if runtime_opts.experimental_artifact {
-                    config.experimental_artifact(true);
-                }
                 if runtime_opts.enable_experimental_unaligned_memory_accesses {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
@@ -603,9 +600,6 @@ impl BackendType {
             #[cfg(feature = "cranelift")]
             Self::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
-                if runtime_opts.experimental_artifact {
-                    config.experimental_artifact(true);
-                }
                 if runtime_opts.enable_experimental_unaligned_memory_accesses {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
@@ -647,9 +641,6 @@ impl BackendType {
                 let mut config = wasmer_compiler_llvm::LLVM::new();
                 if runtime_opts.disable_m0_pass_param_opt {
                     config.enable_m0_pass_param(false);
-                }
-                if runtime_opts.experimental_artifact {
-                    config.experimental_artifact(true);
                 }
                 if !runtime_opts.disable_non_volatile_memops {
                     config.enable_non_volatile_memops();
