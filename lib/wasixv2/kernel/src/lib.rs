@@ -515,7 +515,17 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         let now = time::now(&*self.host, which_clock)?;
         let request = time::from_timespec(read_value(caller.memory(), rqtp).await?)?;
-        let duration = match flags.contains(TimerFlags::TIMER_ABSTIME) {
+        let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
+        let realtime = matches!(
+            which_clock,
+            ClockId::CLOCK_REALTIME | ClockId::CLOCK_REALTIME_COARSE
+        );
+        if absolute && !realtime {
+            // Every other clock time::now accepts is the host's monotonic clock.
+            self.host.sleep_until(request).await;
+            return Ok(0);
+        }
+        let duration = match absolute {
             true => request.saturating_sub(now),
             false => request,
         };

@@ -36,13 +36,12 @@ impl Kernel {
         Ok(Deadline::At(self.host.monotonic().saturating_add(timeout)))
     }
 
-    /// The time left until `deadline`, as a sleep the waiter can race against; `None` for
-    /// `Never`.
+    /// A sleep until `deadline` the waiter can race against; `None` for `Never`.
     pub(crate) fn timer(&self, deadline: Deadline) -> Option<wasixv2_host::LocalFuture<'_, ()>> {
         match deadline {
             Deadline::Never => None,
             Deadline::Now => Some(Box::pin(async {})),
-            Deadline::At(at) => Some(self.host.sleep(at.saturating_sub(self.host.monotonic()))),
+            Deadline::At(at) => Some(self.host.sleep_until(at)),
         }
     }
 
