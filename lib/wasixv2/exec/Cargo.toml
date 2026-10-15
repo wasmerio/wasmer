@@ -21,3 +21,4 @@ thiserror.workspace = true
 [features]
 default = ["sys"]
 sys = ["wasmer/sys", "wasmer/headless"]
+js = ["wasmer/js-default"]

@@ -24,12 +24,7 @@ wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { workspace = true, features = [
-  "macros",
-  "rt",
-  "test-util",
-  "time",
-] }
+tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test.workspace = true

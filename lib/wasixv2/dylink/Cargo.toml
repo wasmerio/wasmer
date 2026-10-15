@@ -11,9 +11,10 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasixv2-exec = { path = "../exec" }
+wasixv2-exec = { path = "../exec", default-features = false }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
 
 [features]
 default = ["sys"]
-sys = ["wasmer/sys", "wasmer/headless"]
+sys = ["wasmer/sys", "wasmer/headless", "wasixv2-exec/sys"]
+js = ["wasmer/js-default", "wasixv2-exec/js"]

@@ -16,7 +16,7 @@ wasixv2-syscalls = { path = "../syscalls" }
 wasixv2-trace = { path = "../trace" }
 wasixv2-record = { path = "../record" }
 wasixv2-policy = { path = "../policy" }
-wasixv2-host = { path = "../host", features = ["tokio"] }
+wasixv2-host = { path = "../host" }
 wasixv2-vfs = { path = "../vfs" }
 wasixv2-vfs-mem = { path = "../vfs-mem" }
 wasixv2-vfs-host = { path = "../vfs-host" }
@@ -27,8 +27,8 @@ wasixv2-vnet-host = { path = "../vnet-host" }
 wasixv2-vnet-switch = { path = "../vnet-switch" }
 wasixv2-kernel = { path = "../kernel" }
 wasixv2-checkpoint = { path = "../checkpoint" }
-wasixv2-exec = { path = "../exec" }
-wasixv2-dylink = { path = "../dylink" }
+wasixv2-exec = { path = "../exec", default-features = false }
+wasixv2-dylink = { path = "../dylink", default-features = false }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
 thiserror.workspace = true
 wasmparser.workspace = true
@@ -41,5 +41,15 @@ wasmer = { path = "../../api", version = "=7.5.0", default-features = false, fea
 wat.workspace = true
 
 [features]
-default = ["sys"]
-sys = ["wasmer/sys", "wasmer/headless"]
+default = ["sys", "tokio"]
+sys = [
+  "wasmer/sys",
+  "wasmer/headless",
+  "wasixv2-exec/sys",
+  "wasixv2-dylink/sys",
+]
+js = ["wasmer/js-default", "wasixv2-exec/js", "wasixv2-dylink/js"]
+# `Machine::new` and `Stdio::inherit` on a tokio runtime.
+tokio = ["wasixv2-host/tokio"]
+# `WebHost`, for embedders on a JavaScript event loop; pair with `js` on wasm32.
+web = ["wasixv2-host/web"]

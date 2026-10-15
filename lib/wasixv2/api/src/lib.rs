@@ -4,8 +4,11 @@
 use std::sync::Arc;
 
 pub use wasixv2_exec::ExecError;
-use wasixv2_host::TokioHost;
-pub use wasixv2_host::{ByteSink, ByteSource, LocalFuture};
+#[cfg(feature = "tokio")]
+pub use wasixv2_host::TokioHost;
+#[cfg(feature = "web")]
+pub use wasixv2_host::WebHost;
+pub use wasixv2_host::{ByteSink, ByteSource, EmptySource, Executor, FnSink, Host, LocalFuture};
 use wasixv2_kernel::Kernel;
 pub use wasixv2_kernel::{ProcessConfig, Stdio};
 use wasixv2_syscalls::Layered;
@@ -24,12 +27,13 @@ pub enum RunError {
 
 /// One kernel and the processes it runs.
 ///
-/// Must be driven by a tokio runtime with timers enabled. The root filesystem is in memory and
-/// starts out with an empty `/tmp`.
+/// The root filesystem is in memory and starts out with an empty `/tmp`. The machine's futures
+/// must be driven where its [`Host`]'s executor expects them; see [`Machine::new`].
 pub struct Machine {
     syscalls: Arc<Layered<Trace, Kernel>>,
 }
 
+#[cfg(feature = "tokio")]
 impl Default for Machine {
     fn default() -> Self {
         Self::new()
@@ -37,8 +41,16 @@ impl Default for Machine {
 }
 
 impl Machine {
+    /// A machine on [`TokioHost`]. Drive it on a tokio runtime with timers enabled, inside a
+    /// `tokio::task::LocalSet`, which background host work is spawned onto.
+    #[cfg(feature = "tokio")]
     pub fn new() -> Self {
-        let kernel = Kernel::new(Arc::new(TokioHost::default()), root_filesystem());
+        Self::with_host(Arc::new(TokioHost::default()))
+    }
+
+    /// A machine whose clocks, timers, entropy and executor come from `host`.
+    pub fn with_host(host: Arc<dyn Host>) -> Self {
+        let kernel = Kernel::new(host, root_filesystem());
         Self {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
         }

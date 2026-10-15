@@ -25,8 +25,11 @@ impl Run {
             env: self.wasixv2_env()?,
             stdio: Stdio::inherit(),
         };
-        // The machine's host calls are not `Send`, so drive it on this thread.
-        let result = match runtime.block_on(Machine::new().run_process(wasm, config)) {
+        // The machine's host calls are not `Send`, so drive it on this thread, in a `LocalSet`
+        // for the host work it spawns.
+        let machine = Machine::new();
+        let run = tokio::task::LocalSet::new().block_on(runtime, machine.run_process(wasm, config));
+        let result = match run {
             Ok(0) => Ok(()),
             Ok(status) => Err(WasiError::Exit(status.into()).into()),
             Err(err) => Err(err.into()),
