@@ -91,6 +91,10 @@ struct Shared {
     options: Options,
     host_uid: u32,
     host_gid: u32,
+    /// The host device of the mapped directory.
+    root_dev: libc::dev_t,
+    /// Other host devices seen below it (host mounts inside the directory), by index - 1.
+    other_devs: Mutex<Vec<libc::dev_t>>,
 }
 
 impl Shared {
@@ -135,6 +139,24 @@ impl Shared {
         )
     }
 
+    /// The inode number the VFS sees. Inode numbers are only unique per host device, and the
+    /// VFS needs them unique per filesystem, so objects on another host device than the mapped
+    /// directory get the device's index folded into the high bits, as overlayfs's `xino` does.
+    fn ino(&self, dev: libc::dev_t, ino: u64) -> u64 {
+        if dev == self.root_dev {
+            return ino;
+        }
+        let mut devs = self.other_devs.lock().unwrap();
+        let index = match devs.iter().position(|&d| d == dev) {
+            Some(index) => index,
+            None => {
+                devs.push(dev);
+                devs.len() - 1
+            }
+        };
+        ino ^ ((index as u64 + 1) << 48)
+    }
+
     fn attr(&self, st: &libc::stat) -> Attr {
         let (uid, gid) = self.to_guest(st.st_uid, st.st_gid);
         let device = |dev: libc::dev_t| Device {
@@ -142,7 +164,7 @@ impl Shared {
             minor: libc::minor(dev),
         };
         Attr {
-            ino: st.st_ino,
+            ino: self.ino(st.st_dev, st.st_ino),
             file_type: file_type(st.st_mode),
             mode: st.st_mode & 0o7777,
             nlink: st.st_nlink as u32,
@@ -156,7 +178,9 @@ impl Shared {
             mtime: Timestamp::new(st.st_mtime, st.st_mtime_nsec as u32),
             ctime: Timestamp::new(st.st_ctime, st.st_ctime_nsec as u32),
             btime: None,
-            dev: Some(device(st.st_dev)),
+            // Objects on other host devices keep a device of their own, which the VFS maps to
+            // one of its anonymous devices.
+            dev: (st.st_dev != self.root_dev).then(|| device(st.st_dev)),
         }
     }
 }
@@ -180,6 +204,8 @@ impl HostFs {
             options,
             host_uid,
             host_gid,
+            root_dev: st.st_dev,
+            other_devs: Mutex::default(),
         });
         let root = HostNode::new(&shared, fd, &st);
         Ok(Self { shared, root })
@@ -241,6 +267,7 @@ impl Filesystem for HostFs {
 pub struct HostNode {
     fd: Arc<OwnedFd>,
     ino: u64,
+    dev: libc::dev_t,
     file_type: FileType,
     shared: Arc<Shared>,
 }
@@ -249,7 +276,8 @@ impl HostNode {
     fn new(shared: &Arc<Shared>, fd: OwnedFd, st: &libc::stat) -> Arc<Self> {
         Arc::new(Self {
             fd: Arc::new(fd),
-            ino: st.st_ino,
+            ino: shared.ino(st.st_dev, st.st_ino),
+            dev: st.st_dev,
             file_type: file_type(st.st_mode),
             shared: shared.clone(),
         })
@@ -590,6 +618,7 @@ impl Node for HostNode {
             shared: self.shared.clone(),
             appender: Mutex::new(None),
             dir: Mutex::new(DirState::default()),
+            dev: self.dev,
         }))
     }
 
@@ -679,6 +708,8 @@ struct HostHandle {
     /// An `O_APPEND` descriptor for atomic appends, opened on first use.
     appender: Mutex<Option<Arc<OwnedFd>>>,
     dir: Mutex<DirState>,
+    /// The host device the object is on, for the inode numbers of directory entries.
+    dev: libc::dev_t,
 }
 
 impl HostHandle {
@@ -835,7 +866,7 @@ impl Handle for HostHandle {
             let next = (index as u64 + 1).min(MAX_DIR_COOKIE);
             let accepted = sink.push(DirEntry {
                 name: &entry.name,
-                ino: entry.ino,
+                ino: self.shared.ino(self.dev, entry.ino),
                 file_type: entry.file_type,
                 next,
             });

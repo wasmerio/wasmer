@@ -289,3 +289,98 @@ fn mounts_cover_their_mountpoint_and_dotdot_climbs_out() {
         Err(Errno::EXDEV)
     );
 }
+
+#[test]
+fn hard_links_share_one_inode() {
+    let w = World::new();
+    w.create(b"/a");
+    block_on(w.vfs.link(
+        &w.cx(),
+        &w.root,
+        b"/a",
+        LookupFlags::default(),
+        &w.root,
+        b"/b",
+    ))
+    .unwrap();
+
+    let a = w.lookup(b"/a", LookupFlags::default()).unwrap();
+    let b = w.lookup(b"/b", LookupFlags::default()).unwrap();
+    assert!(!Arc::ptr_eq(&a.dentry, &b.dentry));
+    assert!(Arc::ptr_eq(a.dentry.inode(), b.dentry.inode()));
+}
+
+#[test]
+fn only_tmpfiles_can_be_linked_back_from_nothing() {
+    let w = World::new();
+    let link_fd = |file: &File, to: &[u8]| {
+        let flags = LookupFlags {
+            empty: true,
+            ..LookupFlags::default()
+        };
+        block_on(w.vfs.link(&w.cx(), &file.path, b"", flags, &w.root, to))
+    };
+
+    // A deleted file stays deleted (`I_LINKABLE` is not set).
+    let deleted = w.create(b"/f");
+    block_on(w.vfs.unlink(&w.cx(), &w.root, b"/f")).unwrap();
+    assert_eq!(link_fd(&deleted, b"/back"), Err(Errno::ENOENT));
+
+    // An O_TMPFILE file gets a name once; O_EXCL makes it unlinkable.
+    let tmp = OpenFlags::__O_TMPFILE | OpenFlags::O_DIRECTORY | OpenFlags::O_RDWR;
+    let file = w.open(b"/", tmp, true).unwrap();
+    assert_eq!(link_fd(&file, b"/named"), Ok(()));
+    block_on(w.vfs.unlink(&w.cx(), &w.root, b"/named")).unwrap();
+    assert_eq!(link_fd(&file, b"/again"), Err(Errno::ENOENT));
+    let excl = w.open(b"/", tmp | OpenFlags::O_EXCL, true).unwrap();
+    assert_eq!(link_fd(&excl, b"/excl"), Err(Errno::ENOENT));
+}
+
+#[test]
+fn nothing_is_created_in_a_removed_or_replaced_directory() {
+    let w = World::new();
+    w.mkdir(b"/gone").unwrap();
+    w.mkdir(b"/src").unwrap();
+    w.mkdir(b"/dst").unwrap();
+    let gone = w.lookup(b"/gone", LookupFlags::default()).unwrap();
+    let replaced = w.lookup(b"/dst", LookupFlags::default()).unwrap();
+
+    block_on(w.vfs.rmdir(&w.cx(), &w.root, b"/gone")).unwrap();
+    block_on(w.vfs.rename(
+        &w.cx(),
+        &w.root,
+        b"/src",
+        &w.root,
+        b"/dst",
+        RenameMode::Replace,
+    ))
+    .unwrap();
+
+    for dir in [&gone, &replaced] {
+        assert_eq!(
+            block_on(w.vfs.mkdir(&w.cx(), dir, b"x", 0o755)),
+            Err(Errno::ENOENT)
+        );
+        assert!(w.vfs.d_path(dir, &w.root).ends_with(b" (deleted)"));
+    }
+    // The new /dst is the old /src and is usable.
+    assert_eq!(w.mkdir(b"/dst/x"), Ok(()));
+}
+
+#[test]
+fn every_filesystem_has_its_own_device() {
+    let w = World::new();
+    w.mkdir(b"/m").unwrap();
+    let fs = Arc::new(MemFs::new(Arc::new(Epoch), 0o755, 1, 1));
+    block_on(w.vfs.mount(b"/m", fs, MountFlags::default(), false)).unwrap();
+
+    let stat = |path: &[u8]| {
+        let path = w.lookup(path, LookupFlags::default()).unwrap();
+        block_on(w.vfs.stat(&path)).unwrap()
+    };
+    let (root, m) = (stat(b"/"), stat(b"/m"));
+    assert_eq!(root.dev.unwrap().major, 0);
+    assert_ne!(root.dev, m.dev);
+    // Both roots have the same inode number; the device tells them apart.
+    assert_eq!(root.ino, m.ino);
+}

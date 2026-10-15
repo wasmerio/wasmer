@@ -10,8 +10,9 @@ use crate::{
     cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission, sticky_denies},
     dentry::Dentry,
     file::File,
+    inode::DirLock,
     mount::Path,
-    namei::{Last, LookupFlags, Walk},
+    namei::{Last, LookupFlags, Walk, lookup_one},
     notify::{FsEvent, Object},
     types::{
         Attr, Device, FileType, FsResult, MODE_PERM, NewKind, NewNode, OpenOptions, RenameMode,
@@ -74,7 +75,11 @@ impl Vfs {
     /// `getattr` with the device filled in from the filesystem.
     pub async fn stat(&self, path: &Path) -> FsResult<Attr> {
         let mut attr = path.dentry.node().getattr().await?;
-        attr.dev.get_or_insert(path.dentry.sb().dev);
+        let sb = path.dentry.sb();
+        attr.dev = Some(match attr.dev {
+            None => sb.dev,
+            Some(dev) => self.sub_dev(sb, dev),
+        });
         Ok(attr)
     }
 
@@ -137,12 +142,18 @@ impl Vfs {
                 if walk.flags.directory {
                     return Err(Errno::EISDIR);
                 }
-                match walk.child_opt(&name).await? {
+                // The parent stays locked from the lookup to the create, so O_CREAT|O_EXCL is
+                // atomic whatever the driver does.
+                let lock = walk.path.dentry.inode().lock().await;
+                match walk.child_opt_locked(&name).await? {
                     Some(_) if flags.contains(OpenFlags::O_EXCL) => return Err(Errno::EEXIST),
-                    Some(found) => match walk.step_into(found).await? {
-                        Some(found) => break found,
-                        None => continue,
-                    },
+                    Some(found) => {
+                        drop(lock);
+                        match walk.step_into(found).await? {
+                            Some(found) => break found,
+                            None => continue,
+                        }
+                    }
                     None => {
                         let dir = walk.path.clone();
                         let new = NewNode {
@@ -300,8 +311,12 @@ impl Vfs {
         let node = dir.dentry.node().create_unnamed(&new).await?;
         let target = Path {
             mnt: dir.mnt.clone(),
-            dentry: Dentry::anonymous(dir.dentry.sb().clone(), node),
+            dentry: Dentry::anonymous(dir.dentry.sb(), node),
         };
+        target
+            .dentry
+            .inode()
+            .set_linkable(!how.flags.contains(OpenFlags::O_EXCL));
         self.may_open(cx.cred, &target, acc_mode & !MAY_WRITE, how.flags)
             .await?;
         self.finish_open(target, how.flags, true, false).await
@@ -338,7 +353,7 @@ impl Vfs {
         })
     }
 
-    /// `may_create` and the driver call.
+    /// `may_create` and the driver call; `dir` is locked.
     async fn create(
         &self,
         cx: &Ctx<'_>,
@@ -367,38 +382,39 @@ impl Vfs {
 
     async fn may_create(&self, cred: &Cred, dir: &Path) -> FsResult<()> {
         self.permission(cred, dir, MAY_WRITE | MAY_EXEC).await?;
-        if dir.dentry.is_unlinked() {
+        if dir.dentry.is_unlinked() || dir.dentry.inode().is_dead() {
             return Err(Errno::ENOENT);
         }
         Ok(())
     }
 
-    /// `filename_create`: the parent and the name of something about to be created, which must
-    /// not exist yet.
+    /// `filename_create`: the parent, locked, and the name of something about to be created,
+    /// which does not exist.
     async fn prepare_create(
         &self,
         cx: &Ctx<'_>,
         start: &Path,
         path: &[u8],
         want_dir: bool,
-    ) -> FsResult<(Path, Vec<u8>)> {
+    ) -> FsResult<(Path, Vec<u8>, DirLock)> {
         let mut walk = Walk::new(self, cx.cred, cx.root, start, path, LookupFlags::default())?;
         let last = walk.walk_parent().await?;
         let Last::Normal(name) = last else {
             return Err(Errno::EEXIST);
         };
         let trailing_slash = walk.flags.directory;
-        if walk.child_opt(&name).await?.is_some() {
+        let lock = walk.path.dentry.inode().lock().await;
+        if walk.child_opt_locked(&name).await?.is_some() {
             return Err(Errno::EEXIST);
         }
         if trailing_slash && !want_dir {
             return Err(Errno::ENOENT);
         }
-        Ok((walk.path, name))
+        Ok((walk.path, name, lock))
     }
 
     pub async fn mkdir(&self, cx: &Ctx<'_>, start: &Path, path: &[u8], mode: u32) -> FsResult<()> {
-        let (dir, name) = self.prepare_create(cx, start, path, true).await?;
+        let (dir, name, _lock) = self.prepare_create(cx, start, path, true).await?;
         let new = NewNode {
             kind: NewKind::Directory,
             ..self
@@ -427,7 +443,7 @@ impl Vfs {
             Some(FileType::Directory) => return Err(Errno::EPERM),
             _ => return Err(Errno::EINVAL),
         };
-        let (dir, name) = self.prepare_create(cx, start, path, false).await?;
+        let (dir, name, _lock) = self.prepare_create(cx, start, path, false).await?;
         let new = NewNode {
             kind,
             ..self
@@ -447,7 +463,7 @@ impl Vfs {
         if target.is_empty() {
             return Err(Errno::ENOENT);
         }
-        let (dir, name) = self.prepare_create(cx, start, path, false).await?;
+        let (dir, name, _lock) = self.prepare_create(cx, start, path, false).await?;
         let new = NewNode {
             kind: NewKind::Symlink(target),
             ..self.new_node_attrs(cx, &dir, 0o777, false).await?
@@ -468,7 +484,7 @@ impl Vfs {
         new: &[u8],
     ) -> FsResult<()> {
         let source = self.lookup(cx, old_start, old, old_flags).await?;
-        let (dir, name) = self.prepare_create(cx, new_start, new, false).await?;
+        let (dir, name, _lock) = self.prepare_create(cx, new_start, new, false).await?;
         if !Arc::ptr_eq(&source.mnt, &dir.mnt) {
             return Err(Errno::EXDEV);
         }
@@ -480,11 +496,13 @@ impl Vfs {
             return Err(Errno::EPERM);
         }
         let attr = source.dentry.node().getattr().await?;
-        // An unlinked file cannot get a name back, except an O_TMPFILE one.
-        if attr.nlink == 0 && !source.dentry.is_unlinked() {
+        // A removed file cannot get a name back, except an O_TMPFILE one (`I_LINKABLE`).
+        let inode = source.dentry.inode();
+        if attr.nlink == 0 && !inode.is_linkable() {
             return Err(Errno::ENOENT);
         }
         dir.dentry.node().link(&name, source.dentry.node()).await?;
+        inode.set_linkable(false);
         self.notify(FsEvent::Create {
             dir: Self::object(&dir.dentry),
             name: &name,
@@ -535,18 +553,6 @@ impl Vfs {
         Ok((walk.path.clone(), last, walk.flags.directory))
     }
 
-    /// The entry `name` in `dir`, without crossing mounts on it.
-    async fn entry(&self, dir: &Path, name: &[u8]) -> FsResult<Path> {
-        if name.len() > dir.dentry.sb().info.name_max {
-            return Err(Errno::ENAMETOOLONG);
-        }
-        let node = dir.dentry.node().lookup(name).await?;
-        Ok(Path {
-            mnt: dir.mnt.clone(),
-            dentry: dir.dentry.child(name, node),
-        })
-    }
-
     pub async fn unlink(&self, cx: &Ctx<'_>, start: &Path, path: &[u8]) -> FsResult<()> {
         let (dir, last, trailing_slash) = self.parent_of(cx, start, path).await?;
         let Last::Normal(name) = last else {
@@ -555,7 +561,8 @@ impl Vfs {
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
-        let victim = self.entry(&dir, &name).await?;
+        let _lock = dir.dentry.inode().lock().await;
+        let victim = lookup_one(&dir, &name).await?;
         if trailing_slash {
             return Err(if victim.dentry.is_dir() {
                 Errno::EISDIR
@@ -589,12 +596,15 @@ impl Vfs {
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
-        let victim = self.entry(&dir, &name).await?;
+        let _lock = dir.dentry.inode().lock().await;
+        let victim = lookup_one(&dir, &name).await?;
+        let _victim_lock = victim.dentry.inode().lock().await;
         self.may_delete(cx.cred, &dir, &victim, true).await?;
         if victim.dentry.is_mountpoint() {
             return Err(Errno::EBUSY);
         }
         dir.dentry.node().rmdir(&name).await?;
+        victim.dentry.inode().set_dead();
         victim.dentry.detach();
         self.notify(FsEvent::Delete {
             dir: Self::object(&dir.dentry),
@@ -634,16 +644,17 @@ impl Vfs {
             return Err(Errno::EROFS);
         }
         let sb = old_dir.dentry.sb().clone();
-        let cross_dir = !Arc::ptr_eq(&old_dir.dentry, &new_dir.dentry);
+        let cross_dir = !Arc::ptr_eq(old_dir.dentry.inode(), new_dir.dentry.inode());
         let _rename_guard = if cross_dir {
             Some(sb.rename_lock.lock().await)
         } else {
             None
         };
+        let _locks = lock_rename(&old_dir, &new_dir).await;
 
         // `__start_renaming`.
-        let source = self.entry(&old_dir, &old_name).await?;
-        let target = match self.entry(&new_dir, &new_name).await {
+        let source = lookup_one(&old_dir, &old_name).await?;
+        let target = match lookup_one(&new_dir, &new_name).await {
             Ok(target) if mode == RenameMode::NoReplace => {
                 drop(target);
                 return Err(Errno::EEXIST);
@@ -714,6 +725,15 @@ impl Vfs {
         {
             return Err(Errno::EBUSY);
         }
+        // A directory being replaced is locked like rmdir's victim, so nothing is created in it.
+        let replaced_dir = match &target {
+            Some(target) if new_is_dir && mode != RenameMode::Exchange => Some(target),
+            _ => None,
+        };
+        let _victim_lock = match replaced_dir {
+            Some(target) => Some(target.dentry.inode().lock().await),
+            None => None,
+        };
         old_dir
             .dentry
             .node()
@@ -725,6 +745,9 @@ impl Vfs {
                 target.dentry.move_to(&old_dir.dentry, &old_name);
             }
         } else if let Some(target) = &target {
+            if let Some(dir) = replaced_dir {
+                dir.dentry.inode().set_dead();
+            }
             target.dentry.detach();
         }
         source.dentry.move_to(&new_dir.dentry, &new_name);
@@ -1073,6 +1096,26 @@ impl Vfs {
         }
         Ok(())
     }
+}
+
+/// `lock_rename`: locks one parent, or both with the ancestor first and otherwise in a fixed
+/// order, so renames and the parent-then-child locking of `rmdir` cannot deadlock. Cross-
+/// directory callers hold the superblock's rename lock, which keeps the ancestry stable.
+async fn lock_rename(old_dir: &Path, new_dir: &Path) -> (DirLock, Option<DirLock>) {
+    let (a, b) = (old_dir.dentry.inode(), new_dir.dentry.inode());
+    if Arc::ptr_eq(a, b) {
+        return (a.lock().await, None);
+    }
+    let old_first = if old_dir.dentry.is_ancestor_of(&new_dir.dentry) {
+        true
+    } else if new_dir.dentry.is_ancestor_of(&old_dir.dentry) {
+        false
+    } else {
+        a.lock_ptr() < b.lock_ptr()
+    };
+    let (first, second) = if old_first { (a, b) } else { (b, a) };
+    let first = first.lock().await;
+    (first, Some(second.lock().await))
 }
 
 fn ctime_only() -> SetAttr {

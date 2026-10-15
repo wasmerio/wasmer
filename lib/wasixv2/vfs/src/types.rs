@@ -117,8 +117,10 @@ pub struct Attr {
     pub ctime: Timestamp,
     /// Creation time, if the filesystem records one.
     pub btime: Option<Timestamp>,
-    /// The device the object lives on, if the driver reports one per object (a host directory
-    /// can span host mounts). `None` uses the filesystem's device.
+    /// A device of the driver's own that the object lives on, when it is not the filesystem's
+    /// (a host directory can span host mounts). The VFS gives each such device its own
+    /// anonymous `st_dev`, so the value is only compared, never shown. `None` is the
+    /// filesystem's device.
     pub dev: Option<Device>,
 }
 

@@ -149,3 +149,51 @@ fn guest_changes_reach_the_host() {
     .unwrap();
     assert_eq!((attr.mode, attr.uid), (0o750, 1));
 }
+
+fn lookup(setup: &Setup, path: &[u8]) -> Result<wasixv2_vfs::Path, Errno> {
+    let cred = Cred::user(1, 1);
+    let root = setup.vfs.root();
+    let cx = Ctx {
+        cred: &cred,
+        root: &root,
+        umask: 0o022,
+    };
+    block_on(setup.vfs.lookup(&cx, &root, path, LookupFlags::default()))
+}
+
+#[test]
+fn directories_renamed_on_the_host_keep_their_one_dentry() {
+    let setup = setup();
+    let inside = setup.outside.parent().unwrap().join("inside");
+    fs::create_dir(inside.join("old")).unwrap();
+    let cwd = lookup(&setup, b"/mnt/old").unwrap();
+
+    fs::rename(inside.join("old"), inside.join("new")).unwrap();
+    let found = lookup(&setup, b"/mnt/new").unwrap();
+
+    assert!(Arc::ptr_eq(&cwd.dentry, &found.dentry));
+    assert_eq!(setup.vfs.d_path(&cwd, &setup.vfs.root()), b"/mnt/new");
+
+    fs::remove_dir(inside.join("new")).unwrap();
+    assert_eq!(lookup(&setup, b"/mnt/new").err(), Some(Errno::ENOENT));
+    assert_eq!(
+        setup.vfs.d_path(&cwd, &setup.vfs.root()),
+        b"/mnt/new (deleted)"
+    );
+}
+
+#[test]
+fn host_device_numbers_stay_on_the_host() {
+    use std::os::linux::fs::MetadataExt;
+
+    let setup = setup();
+    let stat = |path: &[u8]| block_on(setup.vfs.stat(&lookup(&setup, path).unwrap())).unwrap();
+    let (root, mnt, data) = (stat(b"/"), stat(b"/mnt"), stat(b"/mnt/data"));
+    let inside = setup.outside.parent().unwrap().join("inside");
+    let host = fs::metadata(inside.join("data")).unwrap();
+
+    assert_eq!(data.ino, host.st_ino());
+    assert_eq!(mnt.dev, data.dev);
+    assert_ne!(root.dev, mnt.dev);
+    assert_eq!(mnt.dev.unwrap().major, 0);
+}

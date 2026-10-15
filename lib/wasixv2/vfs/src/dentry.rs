@@ -5,7 +5,12 @@
 //! something holds (a working directory, an open file, a mount, a walk in progress) stay alive;
 //! parents hold their children weakly. Lookups always ask the driver and then reuse the cached
 //! dentry when the driver returns the same object, so a dentry never answers for a name that
-//! changed behind the VFS's back (the host side of a host directory, say).
+//! changed behind the VFS's back (the host side of a host directory, say). A directory has one
+//! dentry at most: finding it under a new name moves that dentry (`d_splice_alias`), so the
+//! working directory and the rename ancestry check follow moves made on the host.
+//!
+//! A directory's children change only under its inode's lock, so a lookup's driver call and
+//! its cache update happen as one step relative to `create`, `unlink` and `rename`.
 
 use std::{
     collections::HashMap,
@@ -15,11 +20,10 @@ use std::{
     },
 };
 
-use crate::{driver::Node, mount::Superblock, types::FileType};
+use crate::{driver::Node, inode::Inode, mount::Superblock, types::FileType};
 
 pub struct Dentry {
-    node: Arc<dyn Node>,
-    sb: Arc<Superblock>,
+    inode: Arc<Inode>,
     inner: Mutex<Inner>,
     /// How many mounts sit on this dentry.
     mounts: AtomicU32,
@@ -36,26 +40,21 @@ struct Inner {
 
 impl Dentry {
     /// The root dentry of a filesystem.
-    pub(crate) fn root(sb: Arc<Superblock>, node: Arc<dyn Node>) -> Arc<Self> {
-        Self::new(sb, node, b"/".to_vec(), None)
+    pub(crate) fn root(sb: &Arc<Superblock>, node: Arc<dyn Node>) -> Arc<Self> {
+        Self::new(sb.iget(node), b"/".to_vec(), None)
     }
 
     /// A dentry with no name, for an `O_TMPFILE` file.
-    pub(crate) fn anonymous(sb: Arc<Superblock>, node: Arc<dyn Node>) -> Arc<Self> {
-        let dentry = Self::new(sb, node, b"#".to_vec(), None);
+    pub(crate) fn anonymous(sb: &Arc<Superblock>, node: Arc<dyn Node>) -> Arc<Self> {
+        let dentry = Self::new(sb.iget(node), b"#".to_vec(), None);
         dentry.inner.lock().unwrap().unlinked = true;
         dentry
     }
 
-    fn new(
-        sb: Arc<Superblock>,
-        node: Arc<dyn Node>,
-        name: Vec<u8>,
-        parent: Option<Arc<Dentry>>,
-    ) -> Arc<Self> {
-        Arc::new(Self {
-            node,
-            sb,
+    fn new(inode: Arc<Inode>, name: Vec<u8>, parent: Option<Arc<Dentry>>) -> Arc<Self> {
+        let is_dir = inode.file_type() == FileType::Directory;
+        let dentry = Arc::new(Self {
+            inode,
             inner: Mutex::new(Inner {
                 name,
                 parent,
@@ -63,19 +62,27 @@ impl Dentry {
                 unlinked: false,
             }),
             mounts: AtomicU32::new(0),
-        })
+        });
+        if is_dir {
+            dentry.inode.set_alias(&dentry);
+        }
+        dentry
+    }
+
+    pub fn inode(&self) -> &Arc<Inode> {
+        &self.inode
     }
 
     pub fn node(&self) -> &Arc<dyn Node> {
-        &self.node
+        self.inode.node()
     }
 
     pub fn sb(&self) -> &Arc<Superblock> {
-        &self.sb
+        self.inode.sb()
     }
 
     pub fn file_type(&self) -> FileType {
-        self.node.file_type()
+        self.inode.file_type()
     }
 
     pub fn is_dir(&self) -> bool {
@@ -105,15 +112,24 @@ impl Dentry {
         };
     }
 
-    /// The child dentry for `name`, which the driver resolved to `node`: the cached one if it
-    /// still names the same object, else a new one (`d_splice_alias`).
+    /// The child dentry for `name`, which the driver resolved to `node` (`d_splice_alias`): the
+    /// cached one if it still names the same object, the directory's existing dentry moved
+    /// here, or a new one. Called with this directory locked.
     pub(crate) fn child(self: &Arc<Self>, name: &[u8], node: Arc<dyn Node>) -> Arc<Dentry> {
+        let inode = self.sb().iget(node);
         if let Some(cached) = self.cached_child(name)
-            && cached.node.ino() == node.ino()
+            && Arc::ptr_eq(&cached.inode, &inode)
         {
             return cached;
         }
-        let child = Self::new(self.sb.clone(), node, name.to_vec(), Some(self.clone()));
+        if let Some(alias) = inode.alias()
+            && alias.parent().is_some()
+            && !alias.is_ancestor_of(self)
+        {
+            alias.move_to(self, name);
+            return alias;
+        }
+        let child = Self::new(inode, name.to_vec(), Some(self.clone()));
         let stale = {
             let mut inner = self.inner.lock().unwrap();
             inner.children.insert(name.to_vec(), Arc::downgrade(&child))
@@ -122,6 +138,13 @@ impl Dentry {
             stale.inner.lock().unwrap().unlinked = true;
         }
         child
+    }
+
+    /// The driver no longer has `name`: a cached dentry for it is stale (`d_invalidate`).
+    pub(crate) fn forget_name(&self, name: &[u8]) {
+        if let Some(stale) = self.cached_child(name) {
+            stale.detach();
+        }
     }
 
     pub(crate) fn cached_child(&self, name: &[u8]) -> Option<Arc<Dentry>> {

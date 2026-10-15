@@ -46,7 +46,11 @@ pub trait Filesystem: Send + Sync {
 /// changed. Explicit changes come through `setattr`.
 #[async_trait(?Send)]
 pub trait Node: Send + Sync + Any {
-    /// The inode number: stable for the object's lifetime and unique within the filesystem.
+    /// The inode number: stable for the object's lifetime and unique within the filesystem, and
+    /// the object's identity. The VFS keeps one inode per number (its lock, its file locks, its
+    /// directory entry), so two `Node`s with one number must be the same object, and a number
+    /// must not name another object while a `Node` for the first is alive. A driver spanning
+    /// several devices folds the device into the number.
     fn ino(&self) -> u64;
 
     fn file_type(&self) -> FileType;

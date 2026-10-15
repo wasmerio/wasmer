@@ -5,9 +5,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use std::sync::Weak;
+
 use crate::{
     dentry::Dentry,
     driver::Filesystem,
+    inode::Inode,
     types::{Device, FsInfo},
 };
 
@@ -21,6 +24,10 @@ pub struct Superblock {
     /// Serializes renames across directories, so the "not into its own subdirectory" check
     /// stays true until the driver has moved the entry (`s_vfs_rename_mutex`).
     pub(crate) rename_lock: futures_util::lock::Mutex<()>,
+    /// The inode cache: every inode something holds, by number.
+    pub(crate) inodes: Mutex<HashMap<u64, Weak<Inode>>>,
+    /// The `st_dev` given to each device the driver reports per object (`Attr::dev`).
+    pub(crate) sub_devs: Mutex<HashMap<Device, Device>>,
 }
 
 /// Per-mount flags (`MNT_*`).

@@ -151,7 +151,7 @@ The kernel is plain async Rust with no wasm engine, no async runtime and no reco
 Open objects follow a three-level split:
 
 1. A **descriptor** is a table slot plus close-on-exec.
-2. An **open file** holds the offset and status flags, and is shared by `dup` and `fork`.
+2. An **open file** holds the offset and status flags, and is shared by `dup` and `fork`. A call that reads and then moves the offset holds the open file's position lock throughout (`f_pos_lock`), so threads sharing it never use one offset twice.
 3. The **object** behind it is an inode, socket, pipe or event source, behind one trait for read, write, poll and ioctl.
 
 ### Readiness and wait queues
@@ -205,9 +205,9 @@ There is one VFS. It owns all path and permission semantics, and filesystem driv
 
 **The VFS owns:**
 
-- A mount tree per mount namespace: bind mounts, propagation, read-only mounts, overmounting.
+- A mount tree per mount namespace: bind mounts, read-only mounts, overmounting. Propagation (shared and slave mounts) is not implemented yet.
 - Path walking: symlinks, `..`, and the `openat2` resolve flags.
-- A name cache.
+- An inode cache and a name cache.
 - Permission checks from mode bits and ownership.
 - File locks (`flock`, POSIX and open-file locks).
 - Change notification.
@@ -281,6 +281,7 @@ pub trait Handle: Send + Sync {                     // file_operations for an op
 }
 ```
 
+- **Identity.** `Node::ino` is the object's identity within its filesystem: the VFS keeps one inode per number, so two nodes with one number must be one object, and a driver spanning several devices folds the device into the number. `Attr::dev` names a driver device other than the filesystem's; the VFS shows each as an anonymous device of its own, never the driver's number.
 - **Timestamps.** Drivers keep the times their own operations imply (a write stamps `mtime` and `ctime`, a new entry stamps the parent), as Linux filesystems do in their inode operations; explicit changes arrive through `setattr`.
 - **Directory cookies** resume a read while entries come and go, and stay below 2^31 so a 32-bit `telldir` holds them. The VFS adds `.` and `..` at positions 0 and 1, and a position past the end, as tmpfs's `simple_offset` readdir.
 - **Open files.** `vfs::File` is the filesystem part of an open file description (path, handle, lock owner id); the kernel's `OpenFile` holds it as `Backing::Inode` with the position and status flags. Dropping the last reference is the last close.
@@ -288,7 +289,10 @@ pub trait Handle: Send + Sync {                     // file_operations for an op
 ### Mounts, names and path walking
 
 - **Mount tree.** A `Mount` is a superblock plus the dentry its tree starts at (a filesystem root, or any directory for a bind mount) and per-mount flags (read-only, nosuid, nodev, noexec, noatime, nosymfollow). Mounts stack on a `(mount, dentry)` mountpoint and the topmost wins. The embedder builds the tree with `Vfs::mount` and `Vfs::bind_mount`; the `mount` family of syscalls is not implemented yet.
-- **Dentries.** The VFS keeps the tree of names it has seen, for `..`, `getcwd`, mountpoints and the rename ancestry check. Only dentries something holds stay alive. A lookup always asks the driver and reuses the cached dentry only when it names the same object, so names that change behind the VFS (on a host directory) are never answered from a stale cache. There is no negative or attribute cache yet.
+- **Inodes.** A VFS `Inode` wraps the driver's node and is interned per (superblock, inode number) while anything holds it, so hard links and repeated lookups share one. It carries what Linux keeps on `struct inode`: the directory lock, the removed-directory flag (`S_DEAD`), the `O_TMPFILE` linkable flag (`I_LINKABLE`), and a directory's single dentry. FIFO pipes, bound Unix sockets, inotify marks and write denial for running executables belong here too when they arrive.
+- **Dentries.** The VFS keeps the tree of names it has seen, for `..`, `getcwd`, mountpoints and the rename ancestry check. Only dentries something holds stay alive. A lookup always asks the driver and reuses the cached dentry only when it names the same object, so names that change behind the VFS (on a host directory) are never answered from a stale cache (`d_revalidate` that always revalidates). A directory has at most one dentry: found under a new name, its dentry moves there (`d_splice_alias`), and a name the driver no longer has marks its dentry deleted. There is no LRU of unused dentries and no negative or attribute cache yet.
+- **Locking.** Each inode has an async directory lock (`i_rwsem`, always exclusive). A walk holds it for one lookup and its cache update. `create`, `link`, `unlink`, `rmdir`, `rename` and `O_CREAT` hold the parent from the final lookup through the driver call and the cache update, so their checks stay true and `O_CREAT|O_EXCL` is atomic whatever the driver does. `rmdir` and a rename over a directory also lock the victim and mark it removed; nothing is created in a removed directory (`ENOENT`). Cross-directory renames take the superblock's rename lock, then both parents, the ancestor first and otherwise in a fixed order (`lock_rename`). Order is always parent before child. `getcwd` and `d_path` read the name tree without a rename seqlock, so a path built during a concurrent cross-directory rename can mix old and new names.
+- **Cancellation.** A VFS call dropped after its driver call but before its cache update leaves a stale name until the next lookup corrects it. Calls are only dropped when their task is torn down; blocking points use the `Interrupt` hook instead.
 - **Walk.** `link_path_walk` semantics: search permission on every directory, symlinks followed in the middle and at the end unless `NOFOLLOW`, at most 40 per walk (`ELOOP`), trailing slashes demand a directory and force following, `..` stops at the process root and climbs from a mount root to its mountpoint, and the `openat2` scopes `RESOLVE_BENEATH`, `IN_ROOT`, `NO_XDEV` and `NO_SYMLINKS` (`RESOLVE_CACHED` resolves normally).
 
 ### Permissions
@@ -305,7 +309,7 @@ Every change the VFS makes is reported to one `FsWatcher` as an `FsEvent` (creat
 
 ### Host directories
 
-`wasixv2-vfs-host` (Linux hosts only for now) holds every object as an `O_PATH` descriptor and resolves names with `openat(dir, name, O_PATH | O_NOFOLLOW)`, one component at a time and never `..`, so neither symlinks nor `..` can leave the mapped directory: the VFS interprets symlink targets inside the guest tree. Operations that need more than an `O_PATH` descriptor go through `/proc/self/fd/N`, which names the held inode exactly, as libfuse's `passthrough_ll` does. Blocking host calls run on the `Host` executor's blocking pool. Files the host user owns appear as owned by the guest user, and the reverse.
+`wasixv2-vfs-host` (Linux hosts only for now) holds every object as an `O_PATH` descriptor, so a file removed on the host stays usable through a guest that holds it, and resolves names with `openat(dir, name, O_PATH | O_NOFOLLOW)`, one component at a time and never `..`, so neither symlinks nor `..` can leave the mapped directory: the VFS interprets symlink targets inside the guest tree. Operations that need more than an `O_PATH` descriptor go through `/proc/self/fd/N`, which names the held inode exactly, as libfuse's `passthrough_ll` does. Blocking host calls run on the `Host` executor's blocking pool. Files the host user owns appear as owned by the guest user, and the reverse. Inode numbers are the host's, except on host mounts inside the directory, whose device index is folded into the high bits (overlayfs's `xino`) so numbers stay unique; those objects report their host device, which the VFS shows as an anonymous device of its own.
 
 ## Networking
 
@@ -591,6 +595,7 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 
 | Date | Decision | Why |
 | --- | --- | --- |
+| 2026-10-15 | The VFS interns inodes per (superblock, inode number) and locks directories itself; drivers guarantee inode numbers are identities | Per-inode state (directory lock, `S_DEAD`, `I_LINKABLE`, the single directory dentry, later FIFOs, sockets and inotify marks) needs one place, and VFS checks must hold until the driver applies the change |
 | 2026-10-15 | The executor is reached through `Host::executor`; tokio and the browser are host implementations behind features | Keeps the kernel runtime-agnostic and lets one embedder share an executor between hosts |
 | 2026-10-14 | Crates live in this monorepo under lib/wasixv2, named wasixv2-\*, with the facade named wasixv2 | Keeping napi in a separate repo has been painful; the prefix keeps v2 apart from wasixv1 crates |
 | 2026-10-14 | The libc port is a separate effort; the first slice is tested with hand-crafted binaries that use no libc | Keeps the kernel work unblocked by libc |

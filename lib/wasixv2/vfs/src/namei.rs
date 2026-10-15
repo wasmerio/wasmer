@@ -213,24 +213,22 @@ impl<'a> Walk<'a> {
 
     /// Looks `name` up in the current directory and crosses any mount on it.
     pub(crate) async fn child(&self, name: &[u8]) -> FsResult<Path> {
-        let dir = &self.path;
-        if name.len() > dir.dentry.sb().info.name_max {
-            return Err(Errno::ENAMETOOLONG);
-        }
-        let node = dir.dentry.node().lookup(name).await?;
-        let mut path = Path {
-            mnt: dir.mnt.clone(),
-            dentry: dir.dentry.child(name, node),
-        };
+        let _lock = self.path.dentry.inode().lock().await;
+        self.child_locked(name).await
+    }
+
+    /// `child` with the current directory already locked by the caller.
+    pub(crate) async fn child_locked(&self, name: &[u8]) -> FsResult<Path> {
+        let mut path = lookup_one(&self.path, name).await?;
         if self.vfs.ns.follow_mounts(&mut path) && self.flags.no_xdev {
             return Err(Errno::EXDEV);
         }
         Ok(path)
     }
 
-    /// Like `child`, but `None` if the name does not exist.
-    pub(crate) async fn child_opt(&self, name: &[u8]) -> FsResult<Option<Path>> {
-        match self.child(name).await {
+    /// Like `child_locked`, but `None` if the name does not exist.
+    pub(crate) async fn child_opt_locked(&self, name: &[u8]) -> FsResult<Option<Path>> {
+        match self.child_locked(name).await {
             Ok(path) => Ok(Some(path)),
             Err(Errno::ENOENT) => Ok(None),
             Err(errno) => Err(errno),
@@ -304,6 +302,29 @@ impl<'a> Walk<'a> {
         }
         Ok(())
     }
+}
+
+/// Asks the driver for `name` in `dir` and updates the name cache (`lookup_slow`), without
+/// crossing mounts. The caller holds `dir`'s lock.
+pub(crate) async fn lookup_one(dir: &Path, name: &[u8]) -> FsResult<Path> {
+    if name.len() > dir.dentry.sb().info.name_max {
+        return Err(Errno::ENAMETOOLONG);
+    }
+    if dir.dentry.inode().is_dead() {
+        return Err(Errno::ENOENT);
+    }
+    let node = match dir.dentry.node().lookup(name).await {
+        Ok(node) => node,
+        Err(Errno::ENOENT) => {
+            dir.dentry.forget_name(name);
+            return Err(Errno::ENOENT);
+        }
+        Err(errno) => return Err(errno),
+    };
+    Ok(Path {
+        mnt: dir.mnt.clone(),
+        dentry: dir.dentry.child(name, node),
+    })
 }
 
 fn classify(comp: Vec<u8>) -> Last {

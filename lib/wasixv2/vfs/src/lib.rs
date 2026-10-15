@@ -9,6 +9,7 @@ mod cred;
 mod dentry;
 mod driver;
 mod file;
+mod inode;
 mod locks;
 mod mount;
 mod namei;
@@ -18,13 +19,14 @@ mod types;
 
 use std::sync::{
     Arc,
-    atomic::{AtomicU64, Ordering},
+    atomic::{AtomicU32, AtomicU64, Ordering},
 };
 
 pub use cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission};
 pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, MAX_DIR_COOKIE, Node};
 pub use file::{DIR_POS_EOD, File};
+pub use inode::Inode;
 pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};
 pub use mount::{Mount, MountFlags, Namespace, Path, Superblock};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
@@ -42,6 +44,8 @@ pub const NAME_MAX: usize = 255;
 pub struct Vfs {
     pub(crate) ns: Namespace,
     next_id: AtomicU64,
+    /// Minor numbers of anonymous devices (Linux's `get_anon_bdev`).
+    next_anon: AtomicU32,
     pub locks: LockManager,
     watcher: std::sync::RwLock<Option<Arc<dyn FsWatcher>>>,
 }
@@ -50,8 +54,9 @@ impl Vfs {
     /// A VFS whose root is `root`.
     pub fn new(root: Arc<dyn Filesystem>) -> Arc<Self> {
         let next_id = AtomicU64::new(1);
-        let sb = new_superblock(&next_id, root);
-        let root_dentry = Dentry::root(sb.clone(), sb.fs.root());
+        let next_anon = AtomicU32::new(1);
+        let sb = new_superblock(&next_id, &next_anon, root);
+        let root_dentry = Dentry::root(&sb, sb.fs.root());
         let mount = Arc::new(Mount {
             id: next_id.fetch_add(1, Ordering::Relaxed),
             root: root_dentry,
@@ -61,6 +66,7 @@ impl Vfs {
         Arc::new(Self {
             ns: Namespace::new(mount),
             next_id,
+            next_anon,
             locks: LockManager::default(),
             watcher: std::sync::RwLock::new(None),
         })
@@ -89,8 +95,8 @@ impl Vfs {
         flags: MountFlags,
         create: bool,
     ) -> FsResult<Arc<Mount>> {
-        let sb = new_superblock(&self.next_id, fs);
-        let root = Dentry::root(sb.clone(), sb.fs.root());
+        let sb = new_superblock(&self.next_id, &self.next_anon, fs);
+        let root = Dentry::root(&sb, sb.fs.root());
         self.attach(at, root, flags, create).await
     }
 
@@ -173,6 +179,17 @@ impl Vfs {
         *self.watcher.write().unwrap() = watcher;
     }
 
+    /// The `st_dev` of an object the driver says lives on its own device `dev`: an anonymous
+    /// device of the VFS's, the same one each time, so host device numbers never reach the
+    /// guest or collide with the VFS's own.
+    pub(crate) fn sub_dev(&self, sb: &Superblock, dev: Device) -> Device {
+        *sb.sub_devs
+            .lock()
+            .unwrap()
+            .entry(dev)
+            .or_insert_with(|| anon_dev(&self.next_anon))
+    }
+
     pub(crate) fn notify(&self, event: FsEvent<'_>) {
         if let Some(watcher) = &*self.watcher.read().unwrap() {
             watcher.event(&event);
@@ -180,19 +197,29 @@ impl Vfs {
     }
 }
 
-fn new_superblock(next_id: &AtomicU64, fs: Arc<dyn Filesystem>) -> Arc<Superblock> {
+/// A new anonymous device. They have major 0, like the ones Linux hands tmpfs.
+fn anon_dev(next_anon: &AtomicU32) -> Device {
+    Device {
+        major: 0,
+        minor: next_anon.fetch_add(1, Ordering::Relaxed) & 0xfffff,
+    }
+}
+
+fn new_superblock(
+    next_id: &AtomicU64,
+    next_anon: &AtomicU32,
+    fs: Arc<dyn Filesystem>,
+) -> Arc<Superblock> {
     let id = next_id.fetch_add(1, Ordering::Relaxed);
     let info = fs.info();
-    // Anonymous devices have major 0, like the ones Linux hands tmpfs.
-    let dev = info.dev.unwrap_or(Device {
-        major: 0,
-        minor: id as u32 & 0xfffff,
-    });
+    let dev = info.dev.unwrap_or_else(|| anon_dev(next_anon));
     Arc::new(Superblock {
         id,
         dev,
         fs,
         info,
         rename_lock: futures_util::lock::Mutex::new(()),
+        inodes: Default::default(),
+        sub_devs: Default::default(),
     })
 }
