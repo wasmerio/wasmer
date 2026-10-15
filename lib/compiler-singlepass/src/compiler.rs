@@ -4,8 +4,6 @@
 
 use crate::codegen::FuncGen;
 use crate::config::{self, Singlepass};
-#[cfg(feature = "unwind")]
-use crate::dwarf::WriterRelocate;
 use crate::elf::{self, CompileOutput};
 use crate::machine::Machine;
 use crate::machine::{

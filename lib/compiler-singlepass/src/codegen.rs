@@ -1,5 +1,3 @@
-#[cfg(feature = "unwind")]
-use crate::dwarf::WriterRelocate;
 use crate::{
     address_map::get_function_address_map,
     codegen_error,
@@ -25,7 +23,7 @@ use std::{
 use target_lexicon::Architecture;
 
 #[cfg(feature = "unwind")]
-use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
+use wasmer_compiler::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 
 use wasmer_compiler::{
     FunctionBodyData, WasmSourceMap,

@@ -22,8 +22,6 @@ mod codegen;
 mod common_decl;
 mod compiler;
 mod config;
-#[cfg(feature = "unwind")]
-mod dwarf;
 mod elf;
 mod emitter_arm64;
 mod emitter_riscv;
