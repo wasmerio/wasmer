@@ -1,12 +1,12 @@
 # WASIX wasm tests
 
-This directory contains integration tests that build small WASM programs and run them directly through `wasmer-wasix` from Rust. Most fixtures are C or C++ programs compiled with `wasixcc` / `wasix++`.
+This directory contains integration tests that build small WASM programs and run them directly through `wasmer-wasix` from Rust. Most fixtures are C or C++ programs compiled with `wasixcc` / `wasix++`. The suite is the `wasm_tests` test target of the `wasix-tests` crate.
 
 A working installation of `wasixcc` is required for this suite to work. The harness expects `wasixcc` and `wasix++` to be available on `PATH`.
 
 ## How the suite is structured
 
-The `wasix-wasm` integration test target discovers tests automatically from this
+The `wasm_tests` test target discovers tests automatically from this
 directory. Any subdirectory that contains one of these primary files is treated
 as a test fixture:
 
@@ -28,7 +28,7 @@ and registers one test per configuration each of the enabled engines.
 
 Primary source files can contain inline directives that define the runnable configurations,
 arguments, runtime environment, stdin, expected output, expected exit status, mapped directories, prefilled files, and file checks.
-The supported directives are documented in [`../wasm_tests.rs`](../wasm_tests.rs).
+The supported directives are documented in [`mod.rs`](./mod.rs).
 
 If a fixture has more than one `.sh` file, each shell file is treated as a
 primary source, where `build.sh` is the default shell source name.
@@ -62,8 +62,8 @@ the primary source, for example `//#BuildEnv: WASIXCC_PIC=1` in C/C++ sources or
 
 ## Running the tests
 
-These tests run through the normal `wasix` integration test target, so standard
-Cargo and nextest filtering both work. Before running the suite, make sure
+Run the suite with `cargo nextest run -p wasix-tests --release` (or
+`cargo test`); standard Cargo and nextest filtering both work. Before running the suite, make sure
 `wasixcc` is installed and available in your shell environment.
 Rust fixtures also require `cargo-wasix` on `PATH` (`cargo install cargo-wasix`).
 

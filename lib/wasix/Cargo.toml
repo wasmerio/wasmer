@@ -11,13 +11,6 @@ homepage.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-exclude = ["tests/wasm_tests/*/**"]
-
-[[test]]
-name = "wasm_tests"
-path = "tests/wasm_tests/mod.rs"
-harness = false
-required-features = ["sys-thread"]
 
 [dependencies]
 wasmer-package = { workspace = true, features = ["execution"] }
@@ -132,7 +125,6 @@ pin-utils.workspace = true
 wasmparser.workspace = true
 crossbeam-channel.workspace = true
 bus.workspace = true
-libtest-mimic.workspace = true
 walkdir.workspace = true
 fs_extra.workspace = true
 itertools.workspace = true
@@ -176,15 +168,11 @@ tokio = { workspace = true, features = [
 ], default-features = false }
 pretty_assertions.workspace = true
 tracing-test.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 wasm-bindgen-test.workspace = true
 env_logger = { workspace = true, default-features = false }
 log.workspace = true
 assert-panic.workspace = true
 ciborium.workspace = true
-strum.workspace = true
-dirs.workspace = true
-version-compare.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test.workspace = true

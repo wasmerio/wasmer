@@ -670,7 +670,7 @@ jobs:
         metadata:
           # `wasix_rust_toolchain` marks the hosts wasix-org/rust publishes a
           # toolchain for, i.e. the ones that collect the Rust wasm_tests
-          # fixtures (see lib/wasix/tests/wasm_tests/README.md).
+          # fixtures (see lib/wasix-tests/tests/wasm_tests/README.md).
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
