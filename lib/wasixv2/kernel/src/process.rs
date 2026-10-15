@@ -383,7 +383,7 @@ impl Kernel {
                 pid: id,
                 args: Mutex::new(parent.args.lock().unwrap().clone()),
                 env: Mutex::new(parent.env.lock().unwrap().clone()),
-                mm: Mutex::default(),
+                mm: Default::default(),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
                 ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
@@ -594,7 +594,7 @@ impl Kernel {
         self.task_signals(task).group().exec_reset();
         *process.args.lock().unwrap() = args;
         *process.env.lock().unwrap() = env;
-        *process.mm.lock().unwrap() = Default::default();
+        process.mm.reset();
         process.ident.lock().unwrap().set_comm_from_path(name);
         self.with_task(task, |t| {
             t.thread = thread::ThreadState::default();

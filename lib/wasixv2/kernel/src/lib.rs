@@ -58,7 +58,7 @@ use wasixv2_vfs::{Filesystem, Vfs};
 use crate::{
     file::{FdTable, OpenFile},
     fs::FsContext,
-    mm::AddressSpace,
+    mm::Mm,
     startup::Startup,
 };
 
@@ -113,7 +113,7 @@ struct Process {
     /// `argv` and the environment of the current image; `execve` replaces them.
     args: Mutex<Vec<String>>,
     env: Mutex<Vec<String>>,
-    mm: Mutex<AddressSpace>,
+    mm: Mm,
     // ---- thr ----
     group: thread::Group,
     // ---- base ----
@@ -182,7 +182,7 @@ impl Kernel {
             resources: Mutex::default(),
             args: Mutex::new(config.args),
             env: Mutex::new(config.env),
-            mm: Mutex::default(),
+            mm: Mm::default(),
             group: thread::Group::new(),
         };
         let task = Task {
