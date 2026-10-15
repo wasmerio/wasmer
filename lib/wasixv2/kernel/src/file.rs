@@ -8,6 +8,8 @@ use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
 use wasixv2_vfs::Inode;
 use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
+use crate::epoll::EpollLink;
+
 /// What an object needs to know about the call it serves: the open file's status flags as the
 /// call began (Linux reads `f_flags` once) and how to notice a signal while blocked.
 #[derive(Clone, Copy)]
@@ -70,6 +72,8 @@ pub(crate) struct OpenFile {
     flags: Mutex<OpenFlags>,
     /// The file position; unused for streams.
     pos: Mutex<u64>,
+    /// The epoll items watching this file, removed when it goes away.
+    pub(crate) epoll_links: Mutex<Vec<EpollLink>>,
 }
 
 impl OpenFile {
@@ -79,6 +83,7 @@ impl OpenFile {
             backing,
             flags: Mutex::new(flags & kept),
             pos: Mutex::new(0),
+            epoll_links: Mutex::default(),
         }
     }
 
@@ -207,6 +212,14 @@ impl OpenFile {
             .ok_or(Errno::EINVAL)?;
         *pos = new;
         Ok(new)
+    }
+}
+
+impl Drop for OpenFile {
+    /// `eventpoll_release`: the last reference is gone, so no epoll watches the file any more.
+    fn drop(&mut self) {
+        let links = std::mem::take(self.epoll_links.get_mut().unwrap());
+        crate::epoll::release(self, links);
     }
 }
 

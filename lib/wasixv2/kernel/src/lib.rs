@@ -6,6 +6,7 @@
 //!
 //! Every process has exactly one task so far, and the working directory is always `/`.
 
+mod epoll;
 mod eventfd;
 mod file;
 mod fs;
@@ -566,6 +567,57 @@ impl Syscalls for Kernel {
         sig: wasixv2_abi::ConstSigsetArgpackPtr,
     ) -> SysResult<i32> {
         self.sys_pselect6(caller, n, inp, outp, exp, tsp, sig).await
+    }
+
+    async fn epoll_create1(
+        &self,
+        caller: &Caller<'_>,
+        flags: wasixv2_abi::EpollCreateFlags,
+    ) -> SysResult<Fd> {
+        self.sys_epoll_create1(caller, flags).await
+    }
+
+    async fn epoll_ctl(
+        &self,
+        caller: &Caller<'_>,
+        epfd: Fd,
+        op: wasixv2_abi::EpollCtlOp,
+        fd: Fd,
+        event: wasixv2_abi::ConstEpollEventPtr,
+    ) -> SysResult<i32> {
+        self.sys_epoll_ctl(caller, epfd, op, fd, event).await
+    }
+
+    async fn epoll_pwait(
+        &self,
+        caller: &Caller<'_>,
+        epfd: Fd,
+        events: wasixv2_abi::EpollEventArray,
+        maxevents: i32,
+        timeout: i32,
+        sigmask: ConstSigsetPtr,
+        sigsetsize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_epoll_pwait(
+            caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
+        )
+        .await
+    }
+
+    async fn epoll_pwait2(
+        &self,
+        caller: &Caller<'_>,
+        epfd: Fd,
+        events: wasixv2_abi::EpollEventArray,
+        maxevents: i32,
+        timeout: ConstKernelTimespecPtr,
+        sigmask: ConstSigsetPtr,
+        sigsetsize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_epoll_pwait2(
+            caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
+        )
+        .await
     }
 }
 
