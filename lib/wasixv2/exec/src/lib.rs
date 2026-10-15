@@ -6,10 +6,13 @@
 
 mod generated;
 mod memory;
+mod thread;
 
 use std::sync::Arc;
 
 pub use generated::IMPORT_MODULE;
+pub use thread::THREAD_ENTRY;
+use wasixv2_host::Host;
 use wasixv2_syscalls::{Control, GuestAction, SysErr, SysResult, Syscalls, TaskId};
 use wasmer::{FunctionEnv, Imports, Instance, Memory, MemoryError, Module, RuntimeError, Store};
 
@@ -41,12 +44,14 @@ pub(crate) struct ExecEnv<S> {
 #[error("thread group exited with status {0}")]
 struct Exited(i32);
 
-/// Runs `module` as `task` until its thread group exits, and returns the exit status.
+/// Runs `module` as `task` until its thread group exits, and returns the exit status. Threads the
+/// guest creates run where `host`'s executor starts them.
 pub async fn run<S>(
     mut store: Store,
     module: &Module,
     syscalls: Arc<S>,
     task: TaskId,
+    host: Arc<dyn Host>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -54,7 +59,7 @@ where
     let env = FunctionEnv::new(
         &mut store,
         ExecEnv {
-            syscalls,
+            syscalls: syscalls.clone(),
             task,
             memory: None,
         },
@@ -66,6 +71,11 @@ where
         Some(memory) => memory,
         None => instance.exports.get_memory("memory")?.clone(),
     };
+    // ---- thr ----
+    let _threads = memory.as_shared(&store).map(|shared| {
+        let image = thread::Image::new(&store, module, shared, syscalls, host);
+        thread::register(&image, task)
+    });
     env.as_mut(&mut store).memory = Some(memory);
     let start = instance.exports.get_function("_start")?.clone();
 
@@ -96,14 +106,23 @@ fn import_memory(
 
 /// The return-to-guest path: runs the work the kernel left for `task`, then turns the syscall
 /// result into the guest's return value.
-fn return_to_guest<S: Control, R: From<i32>>(
+fn return_to_guest<S: Syscalls + Control, R: From<i32>>(
     syscalls: &S,
     task: TaskId,
     ret: SysResult<R>,
 ) -> Result<R, RuntimeError> {
+    let mut ret = ret;
     if let Some(action) = syscalls.take_pending(task) {
         match action {
             GuestAction::Exit(status) => return Err(RuntimeError::user(Box::new(Exited(status)))),
+            GuestAction::StartThread {
+                task: child,
+                start_arg,
+            } => {
+                if !thread::start(syscalls, task, child, start_arg) {
+                    ret = Err(SysErr::Errno(wasixv2_syscalls::Errno::EAGAIN));
+                }
+            }
         }
     }
     Ok(match ret {

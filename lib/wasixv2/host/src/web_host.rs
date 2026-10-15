@@ -1,10 +1,10 @@
-use std::time::Duration;
+use std::{io, time::Duration};
 
 use js_sys::{Function, Promise};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
-use crate::{Executor, Host, LocalFuture};
+use crate::{Executor, Host, LocalFuture, ThreadStart};
 
 #[wasm_bindgen]
 extern "C" {
@@ -93,6 +93,16 @@ impl Executor for WebHost {
 
     fn spawn_blocking(&self, work: Box<dyn FnOnce() + Send>) -> LocalFuture<'static, ()> {
         Box::pin(async move { work() })
+    }
+
+    // TODO: start a web worker that receives the module and the shared memory (as wasmer's js
+    // backend sends shared objects) and drives `start` on its own event loop.
+    fn spawn_thread(&self, start: ThreadStart) -> io::Result<()> {
+        drop(start);
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "guest threads are not supported in the browser yet",
+        ))
     }
 }
 

@@ -71,17 +71,33 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// TENTATIVE. Starts a new thread that calls the module's exported thread entry point
-    /// (in the style of `wasi_thread_start(tid, start-arg)`) with `start-arg`.
+    /// Starts a new thread: `clone` for the thread case, which cannot return twice in wasm.
     ///
-    /// This replaces `clone(CLONE_VM | CLONE_THREAD | ...)`, which cannot return twice in wasm.
-    /// The guest sets up the stack, TLS and `set_tid_address` itself from `start-arg`.
+    /// The kernel validates `flags` and creates the task as `clone(flags, newsp, parent-tid, tls,
+    /// child-tid)` does on Linux, so `CLONE_PARENT_SETTID`, `CLONE_CHILD_SETTID`,
+    /// `CLONE_CHILD_CLEARTID` and the sharing flags mean the same. `flags` must contain `CLONE_VM`,
+    /// `CLONE_FS`, `CLONE_FILES`, `CLONE_SIGHAND` and `CLONE_THREAD`; other forms are `-EINVAL`, and
+    /// forks go through `clone`. `CLONE_SETTLS` records `tls` as the thread pointer the new thread
+    /// starts with.
+    ///
+    /// The host then instantiates the module again on the same shared memory and calls its export
+    /// `wasixv2_thread_start(tid: s32, start-arg: uptr)` in the new thread. That entry point runs
+    /// before any guest state is set up: it must point `__stack_pointer` at the new thread's stack
+    /// and set up TLS before it touches either, all from what `start-arg` points to, which the
+    /// guest defines. The thread ends when it calls `exit` or `exit_group`; the entry point must
+    /// not return. A thread that returns from it or traps ends its thread group, as a fault does.
     /// Returns the new thread id or `-errno`.
     ///
     /// Wasm import `wasixv2.thread_spawn`.
-    ///
-    /// Declared for completeness; implementations may leave it unimplemented.
-    async fn thread_spawn(&self, caller: &Caller<'_>, start_arg: Uptr) -> SysResult<i32> {
+    async fn thread_spawn(
+        &self,
+        caller: &Caller<'_>,
+        flags: Ulong,
+        start_arg: Uptr,
+        parent_tid: S32Ptr,
+        tls: Uptr,
+        child_tid: S32Ptr,
+    ) -> SysResult<i32> {
         Err(Errno::ENOSYS.into())
     }
 
@@ -4295,7 +4311,11 @@ pub enum Syscall {
         buf: UserSliceMut,
     },
     ThreadSpawn {
+        flags: Ulong,
         start_arg: Uptr,
+        parent_tid: S32Ptr,
+        tls: Uptr,
+        child_tid: S32Ptr,
     },
     SignalCallbackRegister {
         callback: u32,
@@ -6223,9 +6243,17 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
         Syscall::StartupGet { buf } => {
             SyscallRet::StartupGet(syscalls.startup_get(caller, buf).await?)
         }
-        Syscall::ThreadSpawn { start_arg } => {
-            SyscallRet::ThreadSpawn(syscalls.thread_spawn(caller, start_arg).await?)
-        }
+        Syscall::ThreadSpawn {
+            flags,
+            start_arg,
+            parent_tid,
+            tls,
+            child_tid,
+        } => SyscallRet::ThreadSpawn(
+            syscalls
+                .thread_spawn(caller, flags, start_arg, parent_tid, tls, child_tid)
+                .await?,
+        ),
         Syscall::SignalCallbackRegister { callback } => SyscallRet::SignalCallbackRegister(
             syscalls.signal_callback_register(caller, callback).await?,
         ),
@@ -8089,8 +8117,22 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
         }
     }
 
-    async fn thread_spawn(&self, caller: &Caller<'_>, start_arg: Uptr) -> SysResult<i32> {
-        let call = Syscall::ThreadSpawn { start_arg };
+    async fn thread_spawn(
+        &self,
+        caller: &Caller<'_>,
+        flags: Ulong,
+        start_arg: Uptr,
+        parent_tid: S32Ptr,
+        tls: Uptr,
+        child_tid: S32Ptr,
+    ) -> SysResult<i32> {
+        let call = Syscall::ThreadSpawn {
+            flags,
+            start_arg,
+            parent_tid,
+            tls,
+            child_tid,
+        };
         match self.layer.call(caller, call, &self.inner).await? {
             SyscallRet::ThreadSpawn(ret) => Ok(ret),
             _ => mismatch("thread_spawn"),

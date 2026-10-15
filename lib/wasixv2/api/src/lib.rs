@@ -15,7 +15,9 @@ pub use wasixv2_exec::ExecError;
 pub use wasixv2_host::TokioHost;
 #[cfg(feature = "web")]
 pub use wasixv2_host::WebHost;
-pub use wasixv2_host::{ByteSink, ByteSource, EmptySource, Executor, FnSink, Host, LocalFuture};
+pub use wasixv2_host::{
+    ByteSink, ByteSource, EmptySource, Executor, FnSink, Host, LocalFuture, ThreadStart,
+};
 use wasixv2_kernel::{HostClock, Kernel};
 pub use wasixv2_kernel::{ProcessConfig, Stdio};
 use wasixv2_syscalls::Layered;
@@ -155,7 +157,8 @@ impl Machine {
         }
         let store = Store::default();
         let module = Module::new(&store, wasm)?;
-        Ok(wasixv2_exec::run(store, &module, self.syscalls.clone(), task).await?)
+        let host = self.host.clone();
+        Ok(wasixv2_exec::run(store, &module, self.syscalls.clone(), task, host).await?)
     }
 }
 

@@ -3,13 +3,12 @@
 //!
 //! Knows nothing about the wasm engine, the layers, or concrete filesystem drivers and network
 //! backends.
-//!
-//! Every process has exactly one task so far.
 
 mod epoll;
 mod eventfd;
 mod file;
 mod fs;
+mod futex;
 mod ioctl;
 mod mm;
 mod net;
@@ -18,6 +17,7 @@ mod poll;
 mod socket;
 mod startup;
 mod stdio;
+mod thread;
 mod time;
 
 use std::{
@@ -31,10 +31,11 @@ use wasixv2_abi::{
     AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstFileHandlePtr, ConstIovecArray,
     ConstKernelTimespecArray, ConstKernelTimespecPtr, ConstOpenHowPtr, ConstSigsetPtr,
     ConstXattrArgsPtr, Cstr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp,
-    Gid, GuestPtr, IoctlRequest, KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr, MapFlags,
-    Mode, NewUtsname, NewUtsnamePtr, OpenFlags, Pid, ProtFlags, RenameFlags, RwfFlags, S32Ptr,
-    SeekWhence, Signal, SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr, StatxMask, StatxPtr,
-    SyncFileRangeFlags, TimerFlags, U32Ptr, Uid, Ulong, Uptr, Usize, XattrArgsPtr, XattrFlags,
+    Gid, IoctlRequest, KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr, MapFlags, Mode,
+    NewUtsname, NewUtsnamePtr, OpenFlags, Pid, ProtFlags, RenameFlags, RobustListHeadPtr,
+    RobustListHeadPtrPtr, RwfFlags, S32Ptr, SeekWhence, Signal, SigprocmaskHow, Sigset, SigsetPtr,
+    Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags, TimerFlags, U32Ptr, Uid, Ulong, Uptr,
+    Usize, UsizePtr, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
@@ -88,6 +89,8 @@ pub struct Kernel {
     network: Option<Arc<dyn wasixv2_vnet::Network>>,
     // ---- fs ----
     vfs: Arc<Vfs>,
+    // ---- thr ----
+    futexes: futex::Futexes,
 }
 
 #[derive(Default)]
@@ -101,6 +104,8 @@ struct Process {
     args: Vec<String>,
     env: Vec<String>,
     mm: Mutex<AddressSpace>,
+    // ---- thr ----
+    group: thread::Group,
 }
 
 struct Task {
@@ -111,6 +116,8 @@ struct Task {
     pending: Option<GuestAction>,
     /// Blocked signals; bit `n - 1` is signal `n`.
     sigmask: u64,
+    // ---- thr ----
+    thread: thread::ThreadState,
 }
 
 impl Kernel {
@@ -122,6 +129,7 @@ impl Kernel {
             state: Mutex::default(),
             network: None,
             vfs: Vfs::new(root),
+            futexes: futex::Futexes::default(),
         }
     }
 
@@ -150,6 +158,7 @@ impl Kernel {
             args: config.args,
             env: config.env,
             mm: Mutex::default(),
+            group: thread::Group::new(),
         };
         let task = Task {
             process: Arc::new(process),
@@ -157,6 +166,7 @@ impl Kernel {
             fs: Arc::new(Mutex::new(FsContext::new(self.vfs.root()))),
             pending: None,
             sigmask: 0,
+            thread: thread::ThreadState::default(),
         };
         state.tasks.insert(id, task);
         id
@@ -182,12 +192,6 @@ impl Kernel {
             .get_mut(&task)
             .expect("syscall from an unknown task");
         f(task)
-    }
-
-    fn exit_process(&self, task: TaskId, status: i32) {
-        // Linux keeps only the low byte of the status.
-        let action = GuestAction::Exit(status & 0xff);
-        self.with_task(task, |task| task.pending = Some(action));
     }
 }
 
@@ -905,21 +909,67 @@ impl Syscalls for Kernel {
         Ok(n as u32)
     }
 
+    // ---- thr ----
+    async fn thread_spawn(
+        &self,
+        caller: &Caller<'_>,
+        flags: Ulong,
+        start_arg: Uptr,
+        parent_tid: S32Ptr,
+        tls: Uptr,
+        child_tid: S32Ptr,
+    ) -> SysResult<i32> {
+        self.sys_thread_spawn(caller, flags, start_arg, parent_tid, tls, child_tid)
+            .await
+    }
+
     async fn exit(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
-        // The task is the last of its thread group, so the process exits with its status.
-        self.exit_process(caller.task(), error_code);
-        Ok(())
+        self.sys_exit(caller, error_code).await
     }
 
     async fn exit_group(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
-        self.exit_process(caller.task(), error_code);
-        Ok(())
+        self.sys_exit_group(caller, error_code).await
     }
 
-    // Nothing reads `clear_child_tid` until there are threads to join.
-    async fn set_tid_address(&self, caller: &Caller<'_>, _: S32Ptr) -> SysResult<i32> {
-        Ok(caller.task().0 as i32)
+    async fn set_tid_address(&self, caller: &Caller<'_>, tidptr: S32Ptr) -> SysResult<i32> {
+        Ok(self.sys_set_tid_address(caller, tidptr))
     }
+
+    async fn set_robust_list(
+        &self,
+        caller: &Caller<'_>,
+        head: RobustListHeadPtr,
+        len: Usize,
+    ) -> SysResult<i32> {
+        self.sys_set_robust_list(caller, head, len)
+    }
+
+    async fn get_robust_list(
+        &self,
+        caller: &Caller<'_>,
+        pid: i32,
+        head_ptr: RobustListHeadPtrPtr,
+        len_ptr: UsizePtr,
+    ) -> SysResult<i32> {
+        self.sys_get_robust_list(caller, pid, head_ptr, len_ptr)
+            .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn futex_time64(
+        &self,
+        caller: &Caller<'_>,
+        uaddr: U32Ptr,
+        op: FutexOp,
+        val: u32,
+        utime: Ulong,
+        uaddr2: U32Ptr,
+        val3: u32,
+    ) -> SysResult<i32> {
+        self.sys_futex(caller, uaddr, op, val, utime, uaddr2, val3)
+            .await
+    }
+    // ---- end thr ----
 
     async fn getpid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
         Ok(self.process(caller.task()).pid.0 as Pid)
@@ -998,37 +1048,6 @@ impl Syscalls for Kernel {
             write_value(caller.memory(), oset, &old).await?;
         }
         Ok(0)
-    }
-
-    /// `FUTEX_WAIT` and `FUTEX_WAKE` for a process with one task: nothing else can wake a waiter,
-    /// so a wait without a timeout never returns, as on Linux.
-    async fn futex_time64(
-        &self,
-        caller: &Caller<'_>,
-        uaddr: U32Ptr,
-        op: FutexOp,
-        val: u32,
-        utime: Ulong,
-        _uaddr2: U32Ptr,
-        _val3: u32,
-    ) -> SysResult<i32> {
-        match FutexOp(op.0 & FutexOp::FUTEX_CMD_MASK.0) {
-            FutexOp::FUTEX_WAKE => Ok(0),
-            FutexOp::FUTEX_WAIT => {
-                let current: u32 = read_value(caller.memory(), GuestPtr::new(uaddr.addr())).await?;
-                if current != val {
-                    return Err(Errno::EAGAIN.into());
-                }
-                if utime == 0 {
-                    std::future::pending::<()>().await;
-                }
-                let timeout =
-                    read_value(caller.memory(), ConstKernelTimespecPtr::new(utime)).await?;
-                self.host.sleep(time::from_timespec(timeout)?).await;
-                Err(Errno::ETIMEDOUT.into())
-            }
-            _ => Err(Errno::ENOSYS.into()),
-        }
     }
 
     /// The break never moves, so musl's malloc falls back to `mmap`.
@@ -1439,7 +1458,17 @@ impl Syscalls for Kernel {
 
 impl Control for Kernel {
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
-        self.with_task(task, |task| task.pending.take())
+        let mut state = self.state.lock().unwrap();
+        let entry = state
+            .tasks
+            .get_mut(&task)
+            .expect("syscall from an unknown task");
+        let pending = entry.pending.take();
+        // ---- thr ----
+        if entry.thread.reapable(pending) {
+            state.tasks.remove(&task);
+        }
+        pending
     }
 }
 

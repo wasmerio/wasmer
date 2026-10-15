@@ -1715,7 +1715,11 @@ where
 
 async fn thread_spawn<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    flags: i32,
     start_arg: i32,
+    parent_tid: i32,
+    tls: i32,
+    child_tid: i32,
 ) -> Result<i32, RuntimeError>
 where
     S: Syscalls + Control + 'static,
@@ -1723,7 +1727,16 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::thread_spawn(&*syscalls, &caller, start_arg as u32).await;
+    let ret = Syscalls::thread_spawn(
+        &*syscalls,
+        &caller,
+        flags as u32,
+        start_arg as u32,
+        S32Ptr::new(parent_tid as u32),
+        tls as u32,
+        S32Ptr::new(child_tid as u32),
+    )
+    .await;
     return_to_guest(&*syscalls, task, ret)
 }
 

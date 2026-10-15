@@ -7121,7 +7121,9 @@ name = "wasixv2-exec"
 version = "0.0.0"
 dependencies = [
  "thiserror 2.0.21",
+ "tracing",
  "wasixv2-abi",
+ "wasixv2-host",
  "wasixv2-syscalls",
  "wasmer",
 ]

@@ -104,11 +104,11 @@ pub trait Host: Send + Sync {
     fn executor(&self) -> &dyn Executor;
 }
 
-/// Runs host work for the kernel.
-///
-/// Guest tasks are not spawned here yet. Thread creation (`clone` with `CLONE_VM`) will add a
-/// method that starts a task on a host thread (native) or a worker (browser); DESIGN.md says the
-/// host crate chooses between a thread and a coroutine.
+/// The work that runs a guest thread: called on the thread it runs on, it returns the future
+/// that runs the thread to its end.
+pub type ThreadStart = Box<dyn FnOnce() -> LocalFuture<'static, ()> + Send>;
+
+/// Runs host work for the kernel, and guest threads.
 pub trait Executor: Send + Sync {
     /// Runs `future` in the background on the current thread's executor. The future is not
     /// `Send`, because wasmer's async host calls are not; the caller must be running on that
@@ -120,6 +120,17 @@ pub trait Executor: Send + Sync {
     /// returned. A panic in `work` resumes in the awaiting task. Prefer
     /// [`run_blocking`](Executor::run_blocking), which also returns the result.
     fn spawn_blocking(&self, work: Box<dyn FnOnce() + Send>) -> LocalFuture<'static, ()>;
+
+    /// Runs a guest thread (a task created by `clone` with `CLONE_THREAD`) concurrently with the
+    /// calling one, on a host thread or a worker; the host chooses. `start` is called where the
+    /// thread runs, and the future it returns is driven there until it completes, so it may use
+    /// [`spawn_local`](Executor::spawn_local) and [`spawn_blocking`](Executor::spawn_blocking).
+    /// Fails when the host cannot start another thread; the kernel reports that as `EAGAIN`.
+    /// The default supports no threads.
+    fn spawn_thread(&self, start: ThreadStart) -> io::Result<()> {
+        drop(start);
+        Err(io::ErrorKind::Unsupported.into())
+    }
 }
 
 impl dyn Executor + '_ {

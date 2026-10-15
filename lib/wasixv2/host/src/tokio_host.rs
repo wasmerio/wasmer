@@ -7,17 +7,19 @@ use std::{
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     sync::Mutex,
+    task::LocalSet,
     time::Instant,
 };
 
-use crate::{ByteSink, ByteSource, Executor, Host, LocalFuture, Stdio};
+use crate::{ByteSink, ByteSource, Executor, Host, LocalFuture, Stdio, ThreadStart};
 
 /// The host on a tokio runtime with timers enabled: system clocks, tokio timers, the OS entropy
 /// source, and tokio as the executor.
 ///
 /// [`Executor::spawn_local`] uses `tokio::task::spawn_local`, so the kernel must be driven inside
 /// a `tokio::task::LocalSet` (for example `LocalSet::block_on`). Blocking work runs on tokio's
-/// blocking pool.
+/// blocking pool. Each guest thread gets its own OS thread, with a current-thread runtime and a
+/// `LocalSet` of its own, since the futures that run guests are not `Send`.
 pub struct TokioHost {
     // tokio's clock, so sleeps and `monotonic` agree, also when tests pause time.
     start: Instant,
@@ -80,6 +82,16 @@ impl Executor for TokioHost {
             }
         })
     }
+
+    fn spawn_thread(&self, start: ThreadStart) -> io::Result<()> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        std::thread::Builder::new()
+            .name("wasixv2-guest".into())
+            .spawn(move || LocalSet::new().block_on(&runtime, start()))?;
+        Ok(())
+    }
 }
 
 impl Stdio {
@@ -120,8 +132,6 @@ impl<T: AsyncWrite + Unpin + Send> ByteSink for HostStream<T> {
 mod tests {
     use std::{cell::Cell, rc::Rc};
 
-    use tokio::task::LocalSet;
-
     use super::*;
 
     #[tokio::test(start_paused = true)]
@@ -150,6 +160,28 @@ mod tests {
                 assert_ne!(thread, std::thread::current().id());
             })
             .await;
+    }
+
+    #[test]
+    fn spawn_thread_runs_on_another_thread_with_its_own_executor() {
+        let host = Arc::new(TokioHost::default());
+        let (done, finished) = std::sync::mpsc::channel();
+        let caller = std::thread::current().id();
+        let thread_host = host.clone();
+        host.spawn_thread(Box::new(move || {
+            Box::pin(async move {
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                thread_host
+                    .executor()
+                    .spawn_local(Box::pin(async move { tx.send(()).unwrap() }));
+                rx.await.unwrap();
+                thread_host.sleep(Duration::from_millis(1)).await;
+                done.send(std::thread::current().id()).unwrap();
+            })
+        }))
+        .unwrap();
+        let thread = finished.recv_timeout(Duration::from_secs(10)).unwrap();
+        assert_ne!(thread, caller);
     }
 
     #[tokio::test]

@@ -22246,14 +22246,36 @@ pub const SYSCALLS: &[SyscallDef] = &[
         module: "wasixv2",
         import_name: "thread_spawn",
         nr: None,
-        params: &[SyscallParam {
-            name: "start_arg",
-            ty: ValType::I32,
-            wit_type: "uptr",
-        }],
+        params: &[
+            SyscallParam {
+                name: "flags",
+                ty: ValType::I32,
+                wit_type: "ulong",
+            },
+            SyscallParam {
+                name: "start_arg",
+                ty: ValType::I32,
+                wit_type: "uptr",
+            },
+            SyscallParam {
+                name: "parent_tid",
+                ty: ValType::I32,
+                wit_type: "s32-ptr",
+            },
+            SyscallParam {
+                name: "tls",
+                ty: ValType::I32,
+                wit_type: "uptr",
+            },
+            SyscallParam {
+                name: "child_tid",
+                ty: ValType::I32,
+                wit_type: "s32-ptr",
+            },
+        ],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {
