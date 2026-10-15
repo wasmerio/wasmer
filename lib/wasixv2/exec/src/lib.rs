@@ -6,6 +6,7 @@
 
 mod generated;
 mod memory;
+mod signal;
 mod thread;
 
 use std::sync::Arc;
@@ -13,8 +14,11 @@ use std::sync::Arc;
 pub use generated::IMPORT_MODULE;
 pub use thread::THREAD_ENTRY;
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Control, GuestAction, SysErr, SysResult, Syscalls, TaskId};
-use wasmer::{FunctionEnv, Imports, Instance, Memory, MemoryError, Module, RuntimeError, Store};
+use wasixv2_syscalls::{Control, Errno, GuestAction, SysErr, SysResult, Syscalls, TaskId};
+use wasmer::{
+    AsyncFunctionEnvMut, FunctionEnv, Imports, Instance, Memory, MemoryError, Module, RuntimeError,
+    Store,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecError {
@@ -37,6 +41,7 @@ pub(crate) struct ExecEnv<S> {
     syscalls: Arc<S>,
     task: TaskId,
     memory: Option<Memory>,
+    signal: signal::SignalExports,
 }
 
 /// Raised from an import to unwind the guest after its thread group exited.
@@ -62,6 +67,7 @@ where
             syscalls: syscalls.clone(),
             task,
             memory: None,
+            signal: signal::SignalExports::default(),
         },
     );
     let mut imports = generated::imports(&mut store, &env);
@@ -77,6 +83,7 @@ where
         thread::register(&image, task)
     });
     env.as_mut(&mut store).memory = Some(memory);
+    env.as_mut(&mut store).signal = signal::SignalExports::new(&instance);
     let start = instance.exports.get_function("_start")?.clone();
 
     let store = store.into_async();
@@ -104,31 +111,46 @@ fn import_memory(
     Ok(Some(memory))
 }
 
-/// The return-to-guest path: runs the work the kernel left for `task`, then turns the syscall
-/// result into the guest's return value.
-fn return_to_guest<S: Syscalls + Control, R: From<i32>>(
+/// The return-to-guest path: runs the work the kernel left for `task` (exit, thread start,
+/// signal handlers), then turns the syscall result into the guest's return value, or `None` when
+/// the call must run again because a signal interrupted it and Linux would restart it.
+async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
+    env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     syscalls: &S,
     task: TaskId,
     ret: SysResult<R>,
-) -> Result<R, RuntimeError> {
+) -> Option<Result<R, RuntimeError>> {
     let mut ret = ret;
-    if let Some(action) = syscalls.take_pending(task) {
+    // `SA_RESTART` of the first handler run, which is the one that interrupted the call.
+    let mut handled: Option<bool> = None;
+    while let Some(action) = syscalls.take_pending(task) {
         match action {
-            GuestAction::Exit(status) => return Err(RuntimeError::user(Box::new(Exited(status)))),
+            GuestAction::Exit(status) => {
+                return Some(Err(RuntimeError::user(Box::new(Exited(status)))));
+            }
             GuestAction::StartThread {
                 task: child,
                 start_arg,
             } => {
                 if !thread::start(syscalls, task, child, start_arg) {
-                    ret = Err(SysErr::Errno(wasixv2_syscalls::Errno::EAGAIN));
+                    ret = Err(SysErr::Errno(Errno::EAGAIN));
+                }
+            }
+            GuestAction::Signal(frame) => {
+                handled.get_or_insert(frame.restarts());
+                if let Err(err) = signal::deliver(env, syscalls, task, &frame).await {
+                    return Some(Err(err));
                 }
             }
         }
     }
-    Ok(match ret {
-        Ok(value) => value,
-        Err(SysErr::Errno(errno)) => R::from(-errno.0),
-        // Nothing can interrupt a call until signals exist, so there is nothing to restart.
-        Err(SysErr::Restart) => R::from(-wasixv2_syscalls::Errno::EINTR.0),
-    })
+    let errno = match (ret, handled) {
+        (Ok(value), _) => return Some(Ok(value)),
+        (Err(SysErr::Errno(errno)), _) => errno,
+        (Err(SysErr::Restart), None | Some(true)) | (Err(SysErr::RestartNoHand), None) => {
+            return None;
+        }
+        (Err(SysErr::Restart | SysErr::RestartNoHand), Some(_)) => Errno::EINTR,
+    };
+    Some(Ok(R::from(-errno.0)))
 }

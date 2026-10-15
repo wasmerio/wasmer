@@ -8,9 +8,9 @@ use wasixv2_abi::{
     Pollfd, PollfdArray, Sigset,
 };
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, read_value, write_value};
-use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollWaiter, Wakeup};
+use wasixv2_wait::{Interrupt, PollMask, PollWaiter, Wakeup};
 
-use crate::{Kernel, signal_bit, sigset_bits, time};
+use crate::{Kernel, sigset_bits, time};
 
 /// `RLIMIT_NOFILE`'s default soft limit, which bounds `nfds` for poll.
 // TODO: the task's real limit once rlimits exist.
@@ -45,12 +45,6 @@ impl Kernel {
         }
     }
 
-    /// The signal state a blocked call watches.
-    // TODO: the task's pending signals once they are delivered.
-    pub(crate) fn interrupt(&self, _caller: &Caller<'_>) -> &'static dyn Interrupt {
-        &NoInterrupt
-    }
-
     /// `set_user_sigmask`: installs a temporary signal mask, returning the one to restore.
     pub(crate) async fn set_user_sigmask(
         &self,
@@ -65,20 +59,21 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let set = sigset_bits(read_value(caller.memory(), mask).await?);
-        let unblockable =
-            signal_bit(wasixv2_abi::Signal::SIGKILL) | signal_bit(wasixv2_abi::Signal::SIGSTOP);
-        let old = self.with_task(caller.task(), |task| {
-            std::mem::replace(&mut task.sigmask, set & !unblockable)
-        });
-        Ok(Some(old))
+        Ok(Some(self.task_signals(caller.task()).replace_blocked(set)))
     }
 
     /// `restore_saved_sigmask_unless`. Nothing delivers signals yet, so the mask is restored
     /// at once even when the call was interrupted.
     // TODO: keep the temporary mask until delivery when interrupted (TIF_RESTORE_SIGMASK).
-    pub(crate) fn restore_sigmask(&self, caller: &Caller<'_>, saved: Option<u64>) {
+    pub(crate) fn restore_sigmask(
+        &self,
+        caller: &Caller<'_>,
+        saved: Option<u64>,
+        interrupted: bool,
+    ) {
         if let Some(mask) = saved {
-            self.with_task(caller.task(), |task| task.sigmask = mask);
+            self.task_signals(caller.task())
+                .restore_blocked(mask, interrupted);
         }
     }
 
@@ -92,7 +87,8 @@ impl Kernel {
         saved: Option<u64>,
         ret: SysResult<i32>,
     ) -> SysResult<i32> {
-        self.restore_sigmask(caller, saved);
+        let interrupted = matches!(ret, Err(SysErr::Restart | SysErr::RestartNoHand));
+        self.restore_sigmask(caller, saved, interrupted);
         let Deadline::At(at) = deadline else {
             return ret;
         };
@@ -100,7 +96,7 @@ impl Kernel {
         let written = write_value(caller.memory(), tsp, &time::to_timespec(left)).await;
         match (written, ret) {
             // The timespec could not be updated, so the call cannot restart.
-            (Err(_), Err(SysErr::Restart)) => Err(Errno::EINTR.into()),
+            (Err(_), Err(SysErr::Restart | SysErr::RestartNoHand)) => Err(Errno::EINTR.into()),
             (_, ret) => ret,
         }
     }
@@ -169,16 +165,16 @@ impl Kernel {
             }
             register = false;
             if count == 0 && interrupt.pending() {
-                return Err(SysErr::Restart);
+                return Err(SysErr::RestartNoHand);
             }
             if count > 0 || timed_out {
                 break count;
             }
             let timer = timer.as_mut().map(|timer| timer.as_mut());
-            match waiter.sleep(interrupt, timer).await {
+            match waiter.sleep(&*interrupt, timer).await {
                 Wakeup::Woken(_) => {}
                 Wakeup::TimedOut => timed_out = true,
-                Wakeup::Interrupted => return Err(SysErr::Restart),
+                Wakeup::Interrupted => return Err(SysErr::RestartNoHand),
             }
         };
         drop(waiter);
@@ -305,13 +301,13 @@ impl Kernel {
                 break count;
             }
             if interrupt.pending() {
-                return Err(SysErr::Restart);
+                return Err(SysErr::RestartNoHand);
             }
             let timer = timer.as_mut().map(|timer| timer.as_mut());
-            match waiter.sleep(interrupt, timer).await {
+            match waiter.sleep(&*interrupt, timer).await {
                 Wakeup::Woken(_) => {}
                 Wakeup::TimedOut => timed_out = true,
-                Wakeup::Interrupted => return Err(SysErr::Restart),
+                Wakeup::Interrupted => return Err(SysErr::RestartNoHand),
             }
         };
         drop(waiter);

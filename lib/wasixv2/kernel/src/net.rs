@@ -232,7 +232,8 @@ impl Kernel {
             }
             AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
-        let io = self.io(caller, &file);
+        let interrupt = self.interrupt(caller);
+        let io = Self::io(&*interrupt, &file);
         let accepted = sock
             .block(io, RCV, wasixv2_wait::PollMask::READABLE, || {
                 sock.socket.accept()
@@ -271,7 +272,8 @@ impl Kernel {
             Err(Errno::EINPROGRESS) => {}
             result => return Ok(result.map(|()| 0)?),
         }
-        let io = self.io(caller, &file);
+        let interrupt = self.interrupt(caller);
+        let io = Self::io(&*interrupt, &file);
         if io.nonblocking() {
             return Err(Errno::EINPROGRESS.into());
         }
@@ -343,7 +345,8 @@ impl Kernel {
                 };
                 let to = self.unix_destination(caller, &sock, raw.as_deref()).await?;
                 let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
-                let io = dont_wait(self.io(caller, &file), flags);
+                let interrupt = self.interrupt(caller);
+                let io = dont_wait(Self::io(&*interrupt, &file), flags);
                 let cred = self.ucred(caller);
                 let anc = unix::Ancillary::default();
                 return Ok(unix::send(&sock, io, &data, to, anc, cred).await? as u32);
@@ -367,7 +370,9 @@ impl Kernel {
             flags,
             control: &[],
         };
-        Ok(sock.send(self.io(caller, &file), msg).await? as u32)
+        Ok(sock
+            .send(Self::io(&*self.interrupt(caller), &file), msg)
+            .await? as u32)
     }
 
     /// A send's destination. Stream sockets ignore it, as TCP does.
@@ -392,7 +397,13 @@ impl Kernel {
         let (file, sock) = match self.any_socket(caller, fd)? {
             AnySock::Inet(sock) => sock,
             AnySock::Unix(file, sock) => {
-                let msg = unix::recv(&sock, self.io(caller, &file), &mut data, flags).await?;
+                let msg = unix::recv(
+                    &sock,
+                    Self::io(&*self.interrupt(caller), &file),
+                    &mut data,
+                    flags,
+                )
+                .await?;
                 buf.copy_out(caller.memory(), &data[..msg.len]).await?;
                 if !addr.is_null() {
                     let raw = msg.from.clone().unwrap_or_default();
@@ -401,7 +412,8 @@ impl Kernel {
                 return Ok(unix_result(&sock, flags, &msg) as u32);
             }
             AnySock::Netlink(file, nl) => {
-                let io = dont_wait(self.io(caller, &file), flags);
+                let interrupt = self.interrupt(caller);
+                let io = dont_wait(Self::io(&*interrupt, &file), flags);
                 let (len, full) = nl.recv(io, &mut data, flags).await?;
                 buf.copy_out(caller.memory(), &data[..len]).await?;
                 if !addr.is_null() {
@@ -411,7 +423,9 @@ impl Kernel {
                 return Ok(if truncated { full } else { len } as u32);
             }
         };
-        let msg = sock.recv(self.io(caller, &file), &mut data, flags).await?;
+        let msg = sock
+            .recv(Self::io(&*self.interrupt(caller), &file), &mut data, flags)
+            .await?;
         buf.copy_out(caller.memory(), &data[..msg.len]).await?;
         if !addr.is_null() {
             let raw = msg.from.map(socket::encode).unwrap_or_default();
@@ -476,14 +490,16 @@ impl Kernel {
                     flags,
                     control: &control,
                 };
-                sock.send(self.io(caller, file), msg).await
+                sock.send(Self::io(&*self.interrupt(caller), file), msg)
+                    .await
             }
             AnySock::Unix(file, sock) => {
                 let to = self
                     .unix_destination(caller, sock, raw_to.as_deref())
                     .await?;
                 let anc = self.unix_ancillary(caller, &control)?;
-                let io = dont_wait(self.io(caller, file), flags);
+                let interrupt = self.interrupt(caller);
+                let io = dont_wait(Self::io(&*interrupt, file), flags);
                 let cred = self.ucred(caller);
                 unix::send(sock, io, &data, to, anc, cred).await
             }
@@ -522,7 +538,9 @@ impl Kernel {
         let mut data = vec![0; total.min(IO_CHUNK)];
         let got = match sock {
             AnySock::Inet((file, sock)) => {
-                let msg = sock.recv(self.io(caller, file), &mut data, flags).await?;
+                let msg = sock
+                    .recv(Self::io(&*self.interrupt(caller), file), &mut data, flags)
+                    .await?;
                 Got {
                     len: msg.len,
                     result: recv_result(sock, flags, &msg),
@@ -533,7 +551,13 @@ impl Kernel {
                 }
             }
             AnySock::Unix(file, sock) => {
-                let msg = unix::recv(sock, self.io(caller, file), &mut data, flags).await?;
+                let msg = unix::recv(
+                    sock,
+                    Self::io(&*self.interrupt(caller), file),
+                    &mut data,
+                    flags,
+                )
+                .await?;
                 let controls = msg
                     .cred
                     .map(|cred| Control {
@@ -554,7 +578,8 @@ impl Kernel {
                 }
             }
             AnySock::Netlink(file, nl) => {
-                let io = dont_wait(self.io(caller, file), flags);
+                let interrupt = self.interrupt(caller);
+                let io = dont_wait(Self::io(&*interrupt, file), flags);
                 let (len, full) = nl.recv(io, &mut data, flags).await?;
                 let mut out = MsgFlags(0);
                 if full > len {
@@ -893,10 +918,13 @@ impl Kernel {
     }
 
     /// The call context for an operation on `file`.
-    fn io<'a>(&'a self, caller: &Caller<'_>, file: &OpenFile) -> crate::file::Io<'a> {
+    pub(crate) fn io<'a>(
+        interrupt: &'a dyn wasixv2_wait::Interrupt,
+        file: &OpenFile,
+    ) -> crate::file::Io<'a> {
         crate::file::Io {
             flags: file.flags(),
-            interrupt: self.interrupt(caller),
+            interrupt,
         }
     }
 }

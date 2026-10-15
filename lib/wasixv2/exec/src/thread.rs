@@ -161,6 +161,7 @@ where
                 syscalls: self.syscalls.clone(),
                 task,
                 memory: None,
+                signal: crate::signal::SignalExports::default(),
             },
         );
         let mut imports = generated::imports(&mut store, &env);
@@ -170,6 +171,7 @@ where
         }
         let instance = Instance::new(&mut store, &self.module, &imports)?;
         env.as_mut(&mut store).memory = Some(memory);
+        env.as_mut(&mut store).signal = crate::signal::SignalExports::new(&instance);
         let entry = instance.exports.get_function(THREAD_ENTRY)?.clone();
         let _registration = register(&self, task);
 

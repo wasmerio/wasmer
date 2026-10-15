@@ -101,21 +101,26 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// TENTATIVE. Registers libc's signal trampoline for this thread, as an index into the module's
+    /// Registers libc's signal trampoline for the thread group, as an index into the module's
     /// indirect function table, with the signature `fn(signo: s32, info: siginfo-ptr, uctx: void-ptr)`.
+    /// Threads and `fork` children inherit it; `execve` clears it. Until it is registered, signals
+    /// take their default action even when a handler is installed.
     ///
-    /// To deliver a signal, the kernel writes the `siginfo` and a small `ucontext` below the current
-    /// shadow stack pointer, or on the alternate stack set with `sigaltstack`, and calls the
-    /// trampoline on top of the interrupted wasm call stack, which stays intact. `mcontext_t` holds
-    /// only guest state a handler can clobber, such as the shadow stack pointer and the TLS base.
-    /// The trampoline calls the handler under `setjmp`; libc's `rt_sigreturn` is the matching
-    /// `longjmp`, after which the trampoline restores that state and returns to the host. A
-    /// `siglongjmp` out of the handler unwinds through the host frames as a wasm exception.
+    /// To deliver a signal, the host writes a `ucontext_t` (816 bytes, 16-aligned) and above it the
+    /// `siginfo_t` (128 bytes) below the module's `__stack_pointer`, or at the top of the alternate
+    /// stack set with `sigaltstack` for an `SA_ONSTACK` handler, points `__stack_pointer` below the
+    /// frame, and calls the trampoline on top of the interrupted wasm call stack, which stays intact.
+    /// The `ucontext_t` has libc's riscv32-shaped layout: `uc_stack` at 8 holds the alternate stack
+    /// settings, `uc_sigmask` at 20 the mask to restore, and `uc_mcontext` at 160 starts with four
+    /// `ulong` slots: the handler (`sa_handler`, a table index), `sa_flags`, and the interrupted
+    /// `__stack_pointer` and `__tls_base`. The trampoline calls the handler with one argument, or
+    /// with three when `SA_SIGINFO` is set, and returns. That return is `rt_sigreturn`: the host
+    /// then sets the signal mask from `uc_sigmask` and the two globals from the `mcontext` slots.
+    /// A `siglongjmp` out of the handler unwinds through the host frames as a wasm exception, and
+    /// leaves the mask to `siglongjmp`.
     /// Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.signal_callback_register`.
-    ///
-    /// Declared for completeness; implementations may leave it unimplemented.
     async fn signal_callback_register(&self, caller: &Caller<'_>, callback: u32) -> SysResult<i32> {
         Err(Errno::ENOSYS.into())
     }
@@ -1682,9 +1687,9 @@ pub trait Syscalls {
     }
 
     /// Kernel: `sys_rt_sigreturn()`.
-    /// Not used: wasm has no register frame for the kernel to restore. libc's signal trampoline (see
-    /// `signal-callback-register`) calls the handler under `setjmp`, and libc's `rt_sigreturn` is the
-    /// matching `longjmp`. Hosts return `-ENOSYS`, so the import traps, since it is `@noreturn`.
+    /// Not used: wasm has no register frame for the kernel to restore. The return of libc's signal
+    /// trampoline (see `signal-callback-register`) is the sigreturn. Hosts return `-ENOSYS`, so the
+    /// import traps, since it is `@noreturn`.
     ///
     /// Wasm import `wasixv2.rt_sigreturn` (riscv32 nr 139).
     ///
@@ -13049,5 +13054,9 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
 impl<L, S: crate::Control> crate::Control for Layered<L, S> {
     fn take_pending(&self, task: crate::TaskId) -> Option<crate::GuestAction> {
         self.inner.take_pending(task)
+    }
+
+    fn signal_return(&self, task: crate::TaskId, mask: Option<u64>) {
+        self.inner.signal_return(task, mask)
     }
 }

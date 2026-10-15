@@ -158,16 +158,6 @@ impl OpenFile {
         }
     }
 
-    /// The call context for this file's current flags.
-    // TODO: carry the calling task's signal state once signals are delivered; until then
-    // nothing interrupts a blocked call.
-    pub(crate) fn io(&self) -> Io<'static> {
-        Io {
-            flags: self.flags(),
-            interrupt: &NoInterrupt,
-        }
-    }
-
     /// The object behind a non-inode file.
     pub(crate) fn object(&self) -> Option<&Arc<dyn FileObject>> {
         match &self.backing {
@@ -188,8 +178,21 @@ impl OpenFile {
     }
 
     pub(crate) async fn read(&self, buf: &mut [u8]) -> SysResult<usize> {
+        self.read_interruptible(&NoInterrupt, buf).await
+    }
+
+    /// `read`, ending early with `SysErr::Restart` when `interrupt` becomes pending.
+    pub(crate) async fn read_interruptible(
+        &self,
+        interrupt: &dyn Interrupt,
+        buf: &mut [u8],
+    ) -> SysResult<usize> {
+        let io = Io {
+            flags: self.flags(),
+            interrupt,
+        };
         let file = match &self.backing {
-            Backing::Stream(object) => return object.read(self.io(), buf).await,
+            Backing::Stream(object) => return object.read(io, buf).await,
             Backing::Inode(file) => file,
         };
         let _pos = self.lock_pos().await;
@@ -200,8 +203,21 @@ impl OpenFile {
     }
 
     pub(crate) async fn write(&self, data: &[u8]) -> SysResult<usize> {
+        self.write_interruptible(&NoInterrupt, data).await
+    }
+
+    /// `write`, ending early with `SysErr::Restart` when `interrupt` becomes pending.
+    pub(crate) async fn write_interruptible(
+        &self,
+        interrupt: &dyn Interrupt,
+        data: &[u8],
+    ) -> SysResult<usize> {
+        let io = Io {
+            flags: self.flags(),
+            interrupt,
+        };
         let file = match &self.backing {
-            Backing::Stream(object) => return object.write(self.io(), data).await,
+            Backing::Stream(object) => return object.write(io, data).await,
             Backing::Inode(file) => file,
         };
         let _pos = self.lock_pos().await;

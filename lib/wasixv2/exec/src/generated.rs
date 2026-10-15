@@ -1689,8 +1689,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::startup_size(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::startup_size(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn startup_get<S>(
@@ -1704,13 +1708,17 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::startup_get(
-        &*syscalls,
-        &caller,
-        UserSliceMut::new(buf as u32, len as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::startup_get(
+            &*syscalls,
+            &caller,
+            UserSliceMut::new(buf as u32, len as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn thread_spawn<S>(
@@ -1727,17 +1735,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::thread_spawn(
-        &*syscalls,
-        &caller,
-        flags as u32,
-        start_arg as u32,
-        S32Ptr::new(parent_tid as u32),
-        tls as u32,
-        S32Ptr::new(child_tid as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::thread_spawn(
+            &*syscalls,
+            &caller,
+            flags as u32,
+            start_arg as u32,
+            S32Ptr::new(parent_tid as u32),
+            tls as u32,
+            S32Ptr::new(child_tid as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn signal_callback_register<S>(
@@ -1750,8 +1762,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::signal_callback_register(&*syscalls, &caller, callback as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::signal_callback_register(&*syscalls, &caller, callback as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn context_create<S>(
@@ -1765,9 +1781,14 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret =
-        Syscalls::context_create(&*syscalls, &caller, entry as u32, U64Ptr::new(id as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::context_create(&*syscalls, &caller, entry as u32, U64Ptr::new(id as u32))
+                .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn context_switch<S>(
@@ -1780,8 +1801,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::context_switch(&*syscalls, &caller, id as u64).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::context_switch(&*syscalls, &caller, id as u64).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn context_destroy<S>(
@@ -1794,8 +1819,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::context_destroy(&*syscalls, &caller, id as u64).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::context_destroy(&*syscalls, &caller, id as u64).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1815,18 +1844,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::dl_open(
-        &*syscalls,
-        &caller,
-        Cstr::new(file as u32),
-        DlFlags(flags as u32),
-        Cstr::new(search_path as u32),
-        caller_addr as u32,
-        DlHandlePtr::new(handle as u32),
-        UserSliceMut::new(err as u32, err_len as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::dl_open(
+            &*syscalls,
+            &caller,
+            Cstr::new(file as u32),
+            DlFlags(flags as u32),
+            Cstr::new(search_path as u32),
+            caller_addr as u32,
+            DlHandlePtr::new(handle as u32),
+            UserSliceMut::new(err as u32, err_len as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn dl_sym<S>(
@@ -1844,17 +1877,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::dl_sym(
-        &*syscalls,
-        &caller,
-        DlHandle(handle as u32),
-        Cstr::new(symbol as u32),
-        caller_addr as u32,
-        UptrPtr::new(addr as u32),
-        UserSliceMut::new(err as u32, err_len as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::dl_sym(
+            &*syscalls,
+            &caller,
+            DlHandle(handle as u32),
+            Cstr::new(symbol as u32),
+            caller_addr as u32,
+            UptrPtr::new(addr as u32),
+            UserSliceMut::new(err as u32, err_len as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn dl_close<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, handle: i32) -> Result<i32, RuntimeError>
@@ -1864,8 +1901,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::dl_close(&*syscalls, &caller, DlHandle(handle as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::dl_close(&*syscalls, &caller, DlHandle(handle as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn dl_next_init<S>(
@@ -1878,8 +1919,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::dl_next_init(&*syscalls, &caller, UptrPtr::new(ctors as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::dl_next_init(&*syscalls, &caller, UptrPtr::new(ctors as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn openat<S>(
@@ -1895,16 +1940,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::openat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        OpenFlags(flags as u32),
-        mode as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::openat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            OpenFlags(flags as u32),
+            mode as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn openat2<S>(
@@ -1920,16 +1969,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::openat2(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        ConstOpenHowPtr::new(how as u32),
-        usize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::openat2(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            ConstOpenHowPtr::new(how as u32),
+            usize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn close<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, fd: i32) -> Result<i32, RuntimeError>
@@ -1939,8 +1992,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::close(&*syscalls, &caller, Fd(fd)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::close(&*syscalls, &caller, Fd(fd)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn close_range<S>(
@@ -1955,15 +2012,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::close_range(
-        &*syscalls,
-        &caller,
-        fd as u32,
-        max_fd as u32,
-        CloseRangeFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::close_range(
+            &*syscalls,
+            &caller,
+            fd as u32,
+            max_fd as u32,
+            CloseRangeFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn dup<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, fildes: i32) -> Result<i32, RuntimeError>
@@ -1973,8 +2034,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::dup(&*syscalls, &caller, Fd(fildes)).await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::dup(&*syscalls, &caller, Fd(fildes)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn dup3<S>(
@@ -1989,15 +2054,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::dup3(
-        &*syscalls,
-        &caller,
-        Fd(oldfd),
-        Fd(newfd),
-        OpenFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::dup3(
+            &*syscalls,
+            &caller,
+            Fd(oldfd),
+            Fd(newfd),
+            OpenFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn fcntl64<S>(
@@ -2012,8 +2081,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fcntl64(&*syscalls, &caller, Fd(fd), FcntlCmd(cmd), arg as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fcntl64(&*syscalls, &caller, Fd(fd), FcntlCmd(cmd), arg as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn flock<S>(
@@ -2027,8 +2100,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::flock(&*syscalls, &caller, Fd(fd), FlockOp(cmd as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::flock(&*syscalls, &caller, Fd(fd), FlockOp(cmd as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn ioctl<S>(
@@ -2043,15 +2120,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::ioctl(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        IoctlRequest(cmd as u32),
-        arg as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::ioctl(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            IoctlRequest(cmd as u32),
+            arg as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn read<S>(
@@ -2066,14 +2147,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::read(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        UserSliceMut::new(buf as u32, count as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::read(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            UserSliceMut::new(buf as u32, count as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn write<S>(
@@ -2088,14 +2173,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::write(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        UserSlice::new(buf as u32, count as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::write(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            UserSlice::new(buf as u32, count as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn readv<S>(
@@ -2110,15 +2199,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::readv(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstIovecArray::new(vec as u32),
-        vlen as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::readv(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstIovecArray::new(vec as u32),
+            vlen as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn writev<S>(
@@ -2133,15 +2226,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::writev(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstIovecArray::new(vec as u32),
-        vlen as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::writev(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstIovecArray::new(vec as u32),
+            vlen as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn pread64<S>(
@@ -2157,15 +2254,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pread64(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        UserSliceMut::new(buf as u32, count as u32),
-        pos,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::pread64(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            UserSliceMut::new(buf as u32, count as u32),
+            pos,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn pwrite64<S>(
@@ -2181,15 +2282,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pwrite64(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        UserSlice::new(buf as u32, count as u32),
-        pos,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::pwrite64(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            UserSlice::new(buf as u32, count as u32),
+            pos,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn preadv<S>(
@@ -2205,16 +2310,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::preadv(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstIovecArray::new(vec as u32),
-        vlen as u32,
-        pos,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::preadv(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstIovecArray::new(vec as u32),
+            vlen as u32,
+            pos,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn pwritev<S>(
@@ -2230,16 +2339,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pwritev(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstIovecArray::new(vec as u32),
-        vlen as u32,
-        pos,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::pwritev(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstIovecArray::new(vec as u32),
+            vlen as u32,
+            pos,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn preadv2<S>(
@@ -2256,17 +2369,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::preadv2(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstIovecArray::new(vec as u32),
-        vlen as u32,
-        pos,
-        RwfFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::preadv2(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstIovecArray::new(vec as u32),
+            vlen as u32,
+            pos,
+            RwfFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn pwritev2<S>(
@@ -2283,17 +2400,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pwritev2(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstIovecArray::new(vec as u32),
-        vlen as u32,
-        pos,
-        RwfFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::pwritev2(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstIovecArray::new(vec as u32),
+            vlen as u32,
+            pos,
+            RwfFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn lseek<S>(
@@ -2308,8 +2429,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::lseek(&*syscalls, &caller, Fd(fd), offset, SeekWhence(whence)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::lseek(&*syscalls, &caller, Fd(fd), offset, SeekWhence(whence)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sendfile64<S>(
@@ -2325,16 +2450,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sendfile64(
-        &*syscalls,
-        &caller,
-        Fd(out_fd),
-        Fd(in_fd),
-        LoffPtr::new(offset as u32),
-        count as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sendfile64(
+            &*syscalls,
+            &caller,
+            Fd(out_fd),
+            Fd(in_fd),
+            LoffPtr::new(offset as u32),
+            count as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn splice<S>(
@@ -2352,18 +2481,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::splice(
-        &*syscalls,
-        &caller,
-        Fd(fd_in),
-        LoffPtr::new(off_in as u32),
-        Fd(fd_out),
-        LoffPtr::new(off_out as u32),
-        len as u32,
-        SpliceFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::splice(
+            &*syscalls,
+            &caller,
+            Fd(fd_in),
+            LoffPtr::new(off_in as u32),
+            Fd(fd_out),
+            LoffPtr::new(off_out as u32),
+            len as u32,
+            SpliceFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn tee<S>(
@@ -2379,16 +2512,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::tee(
-        &*syscalls,
-        &caller,
-        Fd(fdin),
-        Fd(fdout),
-        len as u32,
-        SpliceFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::tee(
+            &*syscalls,
+            &caller,
+            Fd(fdin),
+            Fd(fdout),
+            len as u32,
+            SpliceFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn vmsplice<S>(
@@ -2404,16 +2541,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::vmsplice(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstIovecArray::new(uiov as u32),
-        nr_segs as u32,
-        SpliceFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::vmsplice(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstIovecArray::new(uiov as u32),
+            nr_segs as u32,
+            SpliceFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn copy_file_range<S>(
@@ -2431,18 +2572,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::copy_file_range(
-        &*syscalls,
-        &caller,
-        Fd(fd_in),
-        LoffPtr::new(off_in as u32),
-        Fd(fd_out),
-        LoffPtr::new(off_out as u32),
-        len as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::copy_file_range(
+            &*syscalls,
+            &caller,
+            Fd(fd_in),
+            LoffPtr::new(off_in as u32),
+            Fd(fd_out),
+            LoffPtr::new(off_out as u32),
+            len as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn truncate64<S>(
@@ -2456,8 +2601,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::truncate64(&*syscalls, &caller, Cstr::new(path as u32), length).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::truncate64(&*syscalls, &caller, Cstr::new(path as u32), length).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn ftruncate64<S>(
@@ -2471,8 +2620,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::ftruncate64(&*syscalls, &caller, Fd(fd), length).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::ftruncate64(&*syscalls, &caller, Fd(fd), length).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fallocate<S>(
@@ -2488,16 +2641,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fallocate(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        FallocFlags(mode as u32),
-        offset,
-        len,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fallocate(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            FallocFlags(mode as u32),
+            offset,
+            len,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fadvise64_64<S>(
@@ -2513,16 +2670,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fadvise64_64(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        offset,
-        len,
-        FadviseAdvice(advice),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fadvise64_64(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            offset,
+            len,
+            FadviseAdvice(advice),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn readahead<S>(
@@ -2537,8 +2698,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::readahead(&*syscalls, &caller, Fd(fd), offset, count as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::readahead(&*syscalls, &caller, Fd(fd), offset, count as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sync<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -2548,8 +2713,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sync(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sync(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fsync<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, fd: i32) -> Result<i32, RuntimeError>
@@ -2559,8 +2728,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fsync(&*syscalls, &caller, Fd(fd)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fsync(&*syscalls, &caller, Fd(fd)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fdatasync<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, fd: i32) -> Result<i32, RuntimeError>
@@ -2570,8 +2743,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fdatasync(&*syscalls, &caller, Fd(fd)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fdatasync(&*syscalls, &caller, Fd(fd)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn syncfs<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, fd: i32) -> Result<i32, RuntimeError>
@@ -2581,8 +2758,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::syncfs(&*syscalls, &caller, Fd(fd)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::syncfs(&*syscalls, &caller, Fd(fd)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sync_file_range<S>(
@@ -2598,16 +2779,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sync_file_range(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        offset,
-        nbytes,
-        SyncFileRangeFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sync_file_range(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            offset,
+            nbytes,
+            SyncFileRangeFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getdents64<S>(
@@ -2622,15 +2807,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getdents64(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        LinuxDirent64Ptr::new(dirent as u32),
-        count as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getdents64(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            LinuxDirent64Ptr::new(dirent as u32),
+            count as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mkdirat<S>(
@@ -2645,15 +2834,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mkdirat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(pathname as u32),
-        mode as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mkdirat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(pathname as u32),
+            mode as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mknodat<S>(
@@ -2669,16 +2862,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mknodat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        mode as u32,
-        dev as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mknodat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            mode as u32,
+            dev as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn unlinkat<S>(
@@ -2693,15 +2890,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::unlinkat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(pathname as u32),
-        AtFlags(flag as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::unlinkat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(pathname as u32),
+            AtFlags(flag as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn symlinkat<S>(
@@ -2716,15 +2917,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::symlinkat(
-        &*syscalls,
-        &caller,
-        Cstr::new(oldname as u32),
-        Fd(newdfd),
-        Cstr::new(newname as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::symlinkat(
+            &*syscalls,
+            &caller,
+            Cstr::new(oldname as u32),
+            Fd(newdfd),
+            Cstr::new(newname as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn linkat<S>(
@@ -2741,17 +2946,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::linkat(
-        &*syscalls,
-        &caller,
-        Fd(olddfd),
-        Cstr::new(oldname as u32),
-        Fd(newdfd),
-        Cstr::new(newname as u32),
-        AtFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::linkat(
+            &*syscalls,
+            &caller,
+            Fd(olddfd),
+            Cstr::new(oldname as u32),
+            Fd(newdfd),
+            Cstr::new(newname as u32),
+            AtFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn renameat2<S>(
@@ -2768,17 +2977,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::renameat2(
-        &*syscalls,
-        &caller,
-        Fd(olddfd),
-        Cstr::new(oldname as u32),
-        Fd(newdfd),
-        Cstr::new(newname as u32),
-        RenameFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::renameat2(
+            &*syscalls,
+            &caller,
+            Fd(olddfd),
+            Cstr::new(oldname as u32),
+            Fd(newdfd),
+            Cstr::new(newname as u32),
+            RenameFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn readlinkat<S>(
@@ -2794,16 +3007,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::readlinkat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(pathname as u32),
-        Buf::new(buf as u32),
-        bufsiz,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::readlinkat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(pathname as u32),
+            Buf::new(buf as u32),
+            bufsiz,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn faccessat<S>(
@@ -2818,15 +3035,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::faccessat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        AccessMode(mode as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::faccessat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            AccessMode(mode as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn faccessat2<S>(
@@ -2842,16 +3063,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::faccessat2(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        AccessMode(mode as u32),
-        AtFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::faccessat2(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            AccessMode(mode as u32),
+            AtFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn chdir<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, filename: i32) -> Result<i32, RuntimeError>
@@ -2861,8 +3086,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::chdir(&*syscalls, &caller, Cstr::new(filename as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::chdir(&*syscalls, &caller, Cstr::new(filename as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fchdir<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, fd: i32) -> Result<i32, RuntimeError>
@@ -2872,8 +3101,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fchdir(&*syscalls, &caller, Fd(fd)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fchdir(&*syscalls, &caller, Fd(fd)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn chroot<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, filename: i32) -> Result<i32, RuntimeError>
@@ -2883,8 +3116,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::chroot(&*syscalls, &caller, Cstr::new(filename as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::chroot(&*syscalls, &caller, Cstr::new(filename as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fchroot<S>(
@@ -2898,8 +3135,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fchroot(&*syscalls, &caller, Fd(fd), flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fchroot(&*syscalls, &caller, Fd(fd), flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getcwd<S>(
@@ -2913,13 +3154,17 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getcwd(
-        &*syscalls,
-        &caller,
-        UserSliceMut::new(buf as u32, size as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::getcwd(
+            &*syscalls,
+            &caller,
+            UserSliceMut::new(buf as u32, size as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn fchmod<S>(
@@ -2933,8 +3178,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fchmod(&*syscalls, &caller, Fd(fd), mode as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fchmod(&*syscalls, &caller, Fd(fd), mode as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fchmodat<S>(
@@ -2949,15 +3198,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fchmodat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        mode as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fchmodat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            mode as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fchmodat2<S>(
@@ -2973,16 +3226,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fchmodat2(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        mode as u32,
-        AtFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fchmodat2(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            mode as u32,
+            AtFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fchown<S>(
@@ -2997,8 +3254,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fchown(&*syscalls, &caller, Fd(fd), user as u32, group as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fchown(&*syscalls, &caller, Fd(fd), user as u32, group as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fchownat<S>(
@@ -3015,17 +3276,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fchownat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        user as u32,
-        group as u32,
-        AtFlags(flag as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fchownat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            user as u32,
+            group as u32,
+            AtFlags(flag as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn statx<S>(
@@ -3042,17 +3307,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::statx(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        AtFlags(flags as u32),
-        StatxMask(mask as u32),
-        StatxPtr::new(buffer as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::statx(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            AtFlags(flags as u32),
+            StatxMask(mask as u32),
+            StatxPtr::new(buffer as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn statfs64<S>(
@@ -3067,15 +3336,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::statfs64(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        sz as u32,
-        Statfs64Ptr::new(buf as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::statfs64(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            sz as u32,
+            Statfs64Ptr::new(buf as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fstatfs64<S>(
@@ -3090,15 +3363,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fstatfs64(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        sz as u32,
-        Statfs64Ptr::new(buf as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fstatfs64(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            sz as u32,
+            Statfs64Ptr::new(buf as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn utimensat_time64<S>(
@@ -3114,16 +3391,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::utimensat_time64(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        ConstKernelTimespecArray::new(utimes as u32),
-        AtFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::utimensat_time64(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            ConstKernelTimespecArray::new(utimes as u32),
+            AtFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn pipe2<S>(
@@ -3137,14 +3418,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pipe2(
-        &*syscalls,
-        &caller,
-        FdPair::new(fildes as u32),
-        OpenFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::pipe2(
+            &*syscalls,
+            &caller,
+            FdPair::new(fildes as u32),
+            OpenFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn memfd_create<S>(
@@ -3158,14 +3443,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::memfd_create(
-        &*syscalls,
-        &caller,
-        Cstr::new(uname as u32),
-        MemfdFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::memfd_create(
+            &*syscalls,
+            &caller,
+            Cstr::new(uname as u32),
+            MemfdFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn memfd_secret<S>(
@@ -3178,8 +3467,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::memfd_secret(&*syscalls, &caller, flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::memfd_secret(&*syscalls, &caller, flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn name_to_handle_at<S>(
@@ -3196,17 +3489,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::name_to_handle_at(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(name as u32),
-        FileHandlePtr::new(handle as u32),
-        S32Ptr::new(mnt_id as u32),
-        flag,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::name_to_handle_at(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(name as u32),
+            FileHandlePtr::new(handle as u32),
+            S32Ptr::new(mnt_id as u32),
+            flag,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn open_by_handle_at<S>(
@@ -3221,15 +3518,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::open_by_handle_at(
-        &*syscalls,
-        &caller,
-        Fd(mountdirfd),
-        ConstFileHandlePtr::new(handle as u32),
-        OpenFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::open_by_handle_at(
+            &*syscalls,
+            &caller,
+            Fd(mountdirfd),
+            ConstFileHandlePtr::new(handle as u32),
+            OpenFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn cachestat<S>(
@@ -3245,16 +3546,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::cachestat(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstCachestatRangePtr::new(cstat_range as u32),
-        CachestatPtr::new(cstat as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::cachestat(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstCachestatRangePtr::new(cstat_range as u32),
+            CachestatPtr::new(cstat as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn file_getattr<S>(
@@ -3271,17 +3576,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::file_getattr(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        FileAttrPtr::new(ufattr as u32),
-        usize as u32,
-        AtFlags(at_flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::file_getattr(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            FileAttrPtr::new(ufattr as u32),
+            usize as u32,
+            AtFlags(at_flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn file_setattr<S>(
@@ -3298,17 +3607,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::file_setattr(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        ConstFileAttrPtr::new(ufattr as u32),
-        usize as u32,
-        AtFlags(at_flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::file_setattr(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            ConstFileAttrPtr::new(ufattr as u32),
+            usize as u32,
+            AtFlags(at_flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn quotactl<S>(
@@ -3324,16 +3637,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::quotactl(
-        &*syscalls,
-        &caller,
-        cmd as u32,
-        Cstr::new(special as u32),
-        id as u32,
-        VoidPtr::new(addr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::quotactl(
+            &*syscalls,
+            &caller,
+            cmd as u32,
+            Cstr::new(special as u32),
+            id as u32,
+            VoidPtr::new(addr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn quotactl_fd<S>(
@@ -3349,16 +3666,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::quotactl_fd(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        cmd as u32,
-        id as u32,
-        VoidPtr::new(addr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::quotactl_fd(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            cmd as u32,
+            id as u32,
+            VoidPtr::new(addr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setxattr<S>(
@@ -3375,16 +3696,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setxattr(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        Cstr::new(name as u32),
-        UserSlice::new(value as u32, size as u32),
-        XattrFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setxattr(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            Cstr::new(name as u32),
+            UserSlice::new(value as u32, size as u32),
+            XattrFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn lsetxattr<S>(
@@ -3401,16 +3726,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::lsetxattr(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        Cstr::new(name as u32),
-        UserSlice::new(value as u32, size as u32),
-        XattrFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::lsetxattr(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            Cstr::new(name as u32),
+            UserSlice::new(value as u32, size as u32),
+            XattrFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fsetxattr<S>(
@@ -3427,16 +3756,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fsetxattr(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        Cstr::new(name as u32),
-        UserSlice::new(value as u32, size as u32),
-        XattrFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fsetxattr(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            Cstr::new(name as u32),
+            UserSlice::new(value as u32, size as u32),
+            XattrFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getxattr<S>(
@@ -3452,15 +3785,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getxattr(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        Cstr::new(name as u32),
-        UserSliceMut::new(value as u32, size as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::getxattr(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            Cstr::new(name as u32),
+            UserSliceMut::new(value as u32, size as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn lgetxattr<S>(
@@ -3476,15 +3813,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::lgetxattr(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        Cstr::new(name as u32),
-        UserSliceMut::new(value as u32, size as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::lgetxattr(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            Cstr::new(name as u32),
+            UserSliceMut::new(value as u32, size as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn fgetxattr<S>(
@@ -3500,15 +3841,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fgetxattr(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        Cstr::new(name as u32),
-        UserSliceMut::new(value as u32, size as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::fgetxattr(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            Cstr::new(name as u32),
+            UserSliceMut::new(value as u32, size as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn listxattr<S>(
@@ -3523,14 +3868,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::listxattr(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        UserSliceMut::new(list as u32, size as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::listxattr(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            UserSliceMut::new(list as u32, size as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn llistxattr<S>(
@@ -3545,14 +3894,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::llistxattr(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        UserSliceMut::new(list as u32, size as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::llistxattr(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            UserSliceMut::new(list as u32, size as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn flistxattr<S>(
@@ -3567,14 +3920,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::flistxattr(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        UserSliceMut::new(list as u32, size as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::flistxattr(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            UserSliceMut::new(list as u32, size as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn removexattr<S>(
@@ -3588,14 +3945,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::removexattr(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        Cstr::new(name as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::removexattr(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            Cstr::new(name as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn lremovexattr<S>(
@@ -3609,14 +3970,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::lremovexattr(
-        &*syscalls,
-        &caller,
-        Cstr::new(pathname as u32),
-        Cstr::new(name as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::lremovexattr(
+            &*syscalls,
+            &caller,
+            Cstr::new(pathname as u32),
+            Cstr::new(name as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fremovexattr<S>(
@@ -3630,8 +3995,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fremovexattr(&*syscalls, &caller, Fd(fd), Cstr::new(name as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fremovexattr(&*syscalls, &caller, Fd(fd), Cstr::new(name as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setxattrat<S>(
@@ -3649,18 +4018,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setxattrat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(pathname as u32),
-        AtFlags(at_flags as u32),
-        Cstr::new(name as u32),
-        ConstXattrArgsPtr::new(uargs as u32),
-        usize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setxattrat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(pathname as u32),
+            AtFlags(at_flags as u32),
+            Cstr::new(name as u32),
+            ConstXattrArgsPtr::new(uargs as u32),
+            usize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getxattrat<S>(
@@ -3678,18 +4051,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getxattrat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(pathname as u32),
-        AtFlags(at_flags as u32),
-        Cstr::new(name as u32),
-        XattrArgsPtr::new(uargs as u32),
-        usize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getxattrat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(pathname as u32),
+            AtFlags(at_flags as u32),
+            Cstr::new(name as u32),
+            XattrArgsPtr::new(uargs as u32),
+            usize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn listxattrat<S>(
@@ -3706,16 +4083,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::listxattrat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(pathname as u32),
-        AtFlags(at_flags as u32),
-        UserSliceMut::new(list as u32, size as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::listxattrat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(pathname as u32),
+            AtFlags(at_flags as u32),
+            UserSliceMut::new(list as u32, size as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn removexattrat<S>(
@@ -3731,16 +4112,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::removexattrat(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(pathname as u32),
-        AtFlags(at_flags as u32),
-        Cstr::new(name as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::removexattrat(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(pathname as u32),
+            AtFlags(at_flags as u32),
+            Cstr::new(name as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn epoll_create1<S>(
@@ -3753,8 +4138,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::epoll_create1(&*syscalls, &caller, EpollCreateFlags(flags as u32)).await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret =
+            Syscalls::epoll_create1(&*syscalls, &caller, EpollCreateFlags(flags as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn epoll_ctl<S>(
@@ -3770,16 +4160,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::epoll_ctl(
-        &*syscalls,
-        &caller,
-        Fd(epfd),
-        EpollCtlOp(op),
-        Fd(fd),
-        ConstEpollEventPtr::new(event as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::epoll_ctl(
+            &*syscalls,
+            &caller,
+            Fd(epfd),
+            EpollCtlOp(op),
+            Fd(fd),
+            ConstEpollEventPtr::new(event as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn epoll_pwait<S>(
@@ -3797,18 +4191,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::epoll_pwait(
-        &*syscalls,
-        &caller,
-        Fd(epfd),
-        EpollEventArray::new(events as u32),
-        maxevents,
-        timeout,
-        ConstSigsetPtr::new(sigmask as u32),
-        sigsetsize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::epoll_pwait(
+            &*syscalls,
+            &caller,
+            Fd(epfd),
+            EpollEventArray::new(events as u32),
+            maxevents,
+            timeout,
+            ConstSigsetPtr::new(sigmask as u32),
+            sigsetsize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn epoll_pwait2<S>(
@@ -3826,18 +4224,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::epoll_pwait2(
-        &*syscalls,
-        &caller,
-        Fd(epfd),
-        EpollEventArray::new(events as u32),
-        maxevents,
-        ConstKernelTimespecPtr::new(timeout as u32),
-        ConstSigsetPtr::new(sigmask as u32),
-        sigsetsize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::epoll_pwait2(
+            &*syscalls,
+            &caller,
+            Fd(epfd),
+            EpollEventArray::new(events as u32),
+            maxevents,
+            ConstKernelTimespecPtr::new(timeout as u32),
+            ConstSigsetPtr::new(sigmask as u32),
+            sigsetsize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn ppoll_time64<S>(
@@ -3854,17 +4256,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::ppoll_time64(
-        &*syscalls,
-        &caller,
-        PollfdArray::new(ufds as u32),
-        nfds as u32,
-        KernelTimespecPtr::new(tsp as u32),
-        ConstSigsetPtr::new(sigmask as u32),
-        sigsetsize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::ppoll_time64(
+            &*syscalls,
+            &caller,
+            PollfdArray::new(ufds as u32),
+            nfds as u32,
+            KernelTimespecPtr::new(tsp as u32),
+            ConstSigsetPtr::new(sigmask as u32),
+            sigsetsize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn pselect6_time64<S>(
@@ -3882,18 +4288,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pselect6_time64(
-        &*syscalls,
-        &caller,
-        n,
-        KernelFdSetPtr::new(inp as u32),
-        KernelFdSetPtr::new(outp as u32),
-        KernelFdSetPtr::new(exp as u32),
-        KernelTimespecPtr::new(tsp as u32),
-        ConstSigsetArgpackPtr::new(sig as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::pselect6_time64(
+            &*syscalls,
+            &caller,
+            n,
+            KernelFdSetPtr::new(inp as u32),
+            KernelFdSetPtr::new(outp as u32),
+            KernelFdSetPtr::new(exp as u32),
+            KernelTimespecPtr::new(tsp as u32),
+            ConstSigsetArgpackPtr::new(sig as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn eventfd2<S>(
@@ -3907,14 +4317,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::eventfd2(
-        &*syscalls,
-        &caller,
-        count as u32,
-        EventfdFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::eventfd2(
+            &*syscalls,
+            &caller,
+            count as u32,
+            EventfdFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn signalfd4<S>(
@@ -3930,16 +4344,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::signalfd4(
-        &*syscalls,
-        &caller,
-        Fd(ufd),
-        ConstSigsetPtr::new(user_mask as u32),
-        sizemask as u32,
-        SignalfdFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::signalfd4(
+            &*syscalls,
+            &caller,
+            Fd(ufd),
+            ConstSigsetPtr::new(user_mask as u32),
+            sizemask as u32,
+            SignalfdFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn timerfd_create<S>(
@@ -3953,14 +4371,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::timerfd_create(
-        &*syscalls,
-        &caller,
-        ClockId(clockid),
-        TimerfdFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::timerfd_create(
+            &*syscalls,
+            &caller,
+            ClockId(clockid),
+            TimerfdFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn timerfd_settime64<S>(
@@ -3976,16 +4398,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::timerfd_settime64(
-        &*syscalls,
-        &caller,
-        Fd(ufd),
-        TimerfdSettimeFlags(flags as u32),
-        ConstKernelItimerspecPtr::new(utmr as u32),
-        KernelItimerspecPtr::new(otmr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::timerfd_settime64(
+            &*syscalls,
+            &caller,
+            Fd(ufd),
+            TimerfdSettimeFlags(flags as u32),
+            ConstKernelItimerspecPtr::new(utmr as u32),
+            KernelItimerspecPtr::new(otmr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn timerfd_gettime64<S>(
@@ -3999,14 +4425,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::timerfd_gettime64(
-        &*syscalls,
-        &caller,
-        Fd(ufd),
-        KernelItimerspecPtr::new(otmr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::timerfd_gettime64(
+            &*syscalls,
+            &caller,
+            Fd(ufd),
+            KernelItimerspecPtr::new(otmr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn inotify_init1<S>(
@@ -4019,8 +4449,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::inotify_init1(&*syscalls, &caller, InotifyInitFlags(flags as u32)).await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret =
+            Syscalls::inotify_init1(&*syscalls, &caller, InotifyInitFlags(flags as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn inotify_add_watch<S>(
@@ -4035,15 +4470,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::inotify_add_watch(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        Cstr::new(pathname as u32),
-        InotifyMask(mask as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::inotify_add_watch(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            Cstr::new(pathname as u32),
+            InotifyMask(mask as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn inotify_rm_watch<S>(
@@ -4057,8 +4496,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::inotify_rm_watch(&*syscalls, &caller, Fd(fd), wd).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::inotify_rm_watch(&*syscalls, &caller, Fd(fd), wd).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fanotify_init<S>(
@@ -4072,9 +4515,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret =
-        Syscalls::fanotify_init(&*syscalls, &caller, flags as u32, event_f_flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::fanotify_init(&*syscalls, &caller, flags as u32, event_f_flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fanotify_mark<S>(
@@ -4091,17 +4538,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fanotify_mark(
-        &*syscalls,
-        &caller,
-        Fd(fanotify_fd),
-        flags as u32,
-        mask as u64,
-        Fd(dfd),
-        Cstr::new(pathname as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fanotify_mark(
+            &*syscalls,
+            &caller,
+            Fd(fanotify_fd),
+            flags as u32,
+            mask as u64,
+            Fd(dfd),
+            Cstr::new(pathname as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rt_sigaction<S>(
@@ -4117,16 +4568,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rt_sigaction(
-        &*syscalls,
-        &caller,
-        Signal(sig),
-        ConstSigactionPtr::new(act as u32),
-        SigactionPtr::new(oact as u32),
-        sigsetsize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rt_sigaction(
+            &*syscalls,
+            &caller,
+            Signal(sig),
+            ConstSigactionPtr::new(act as u32),
+            SigactionPtr::new(oact as u32),
+            sigsetsize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rt_sigprocmask<S>(
@@ -4142,16 +4597,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rt_sigprocmask(
-        &*syscalls,
-        &caller,
-        SigprocmaskHow(how),
-        ConstSigsetPtr::new(nset as u32),
-        SigsetPtr::new(oset as u32),
-        sigsetsize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rt_sigprocmask(
+            &*syscalls,
+            &caller,
+            SigprocmaskHow(how),
+            ConstSigsetPtr::new(nset as u32),
+            SigsetPtr::new(oset as u32),
+            sigsetsize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rt_sigpending<S>(
@@ -4165,14 +4624,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rt_sigpending(
-        &*syscalls,
-        &caller,
-        SigsetPtr::new(uset as u32),
-        sigsetsize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rt_sigpending(
+            &*syscalls,
+            &caller,
+            SigsetPtr::new(uset as u32),
+            sigsetsize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rt_sigsuspend<S>(
@@ -4186,14 +4649,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rt_sigsuspend(
-        &*syscalls,
-        &caller,
-        ConstSigsetPtr::new(unewset as u32),
-        sigsetsize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rt_sigsuspend(
+            &*syscalls,
+            &caller,
+            ConstSigsetPtr::new(unewset as u32),
+            sigsetsize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rt_sigtimedwait_time64<S>(
@@ -4209,16 +4676,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rt_sigtimedwait_time64(
-        &*syscalls,
-        &caller,
-        ConstSigsetPtr::new(uthese as u32),
-        SiginfoPtr::new(uinfo as u32),
-        ConstKernelTimespecPtr::new(uts as u32),
-        sigsetsize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rt_sigtimedwait_time64(
+            &*syscalls,
+            &caller,
+            ConstSigsetPtr::new(uthese as u32),
+            SiginfoPtr::new(uinfo as u32),
+            ConstKernelTimespecPtr::new(uts as u32),
+            sigsetsize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rt_sigqueueinfo<S>(
@@ -4233,15 +4704,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rt_sigqueueinfo(
-        &*syscalls,
-        &caller,
-        pid,
-        Signal(sig),
-        ConstSiginfoPtr::new(uinfo as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rt_sigqueueinfo(
+            &*syscalls,
+            &caller,
+            pid,
+            Signal(sig),
+            ConstSiginfoPtr::new(uinfo as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rt_tgsigqueueinfo<S>(
@@ -4257,16 +4732,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rt_tgsigqueueinfo(
-        &*syscalls,
-        &caller,
-        tgid,
-        pid,
-        Signal(sig),
-        ConstSiginfoPtr::new(uinfo as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rt_tgsigqueueinfo(
+            &*syscalls,
+            &caller,
+            tgid,
+            pid,
+            Signal(sig),
+            ConstSiginfoPtr::new(uinfo as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rt_sigreturn<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<(), RuntimeError>
@@ -4276,9 +4755,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rt_sigreturn(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret.map(|()| 0))?;
-    Err(RuntimeError::new("`rt_sigreturn` returned to the guest"))
+    loop {
+        let ret = Syscalls::rt_sigreturn(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|()| 0)).await {
+            ret?;
+            return Err(RuntimeError::new("`rt_sigreturn` returned to the guest"));
+        }
+    }
 }
 
 async fn sigaltstack<S>(
@@ -4292,14 +4775,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sigaltstack(
-        &*syscalls,
-        &caller,
-        ConstSigaltstackPtr::new(uss as u32),
-        SigaltstackPtr::new(uoss as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sigaltstack(
+            &*syscalls,
+            &caller,
+            ConstSigaltstackPtr::new(uss as u32),
+            SigaltstackPtr::new(uoss as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn kill<S>(
@@ -4313,8 +4800,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::kill(&*syscalls, &caller, pid, Signal(sig)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::kill(&*syscalls, &caller, pid, Signal(sig)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn tkill<S>(
@@ -4328,8 +4819,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::tkill(&*syscalls, &caller, pid, Signal(sig)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::tkill(&*syscalls, &caller, pid, Signal(sig)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn tgkill<S>(
@@ -4344,8 +4839,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::tgkill(&*syscalls, &caller, tgid, pid, Signal(sig)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::tgkill(&*syscalls, &caller, tgid, pid, Signal(sig)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn pidfd_send_signal<S>(
@@ -4361,16 +4860,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pidfd_send_signal(
-        &*syscalls,
-        &caller,
-        Fd(pidfd),
-        Signal(sig),
-        ConstSiginfoPtr::new(info as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::pidfd_send_signal(
+            &*syscalls,
+            &caller,
+            Fd(pidfd),
+            Signal(sig),
+            ConstSiginfoPtr::new(info as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn restart_syscall<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4380,8 +4883,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::restart_syscall(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::restart_syscall(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn clone<S>(
@@ -4398,17 +4905,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::clone(
-        &*syscalls,
-        &caller,
-        clone_flags as u32,
-        newsp as u32,
-        S32Ptr::new(parent_tidptr as u32),
-        tls as u32,
-        S32Ptr::new(child_tidptr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::clone(
+            &*syscalls,
+            &caller,
+            clone_flags as u32,
+            newsp as u32,
+            S32Ptr::new(parent_tidptr as u32),
+            tls as u32,
+            S32Ptr::new(child_tidptr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn clone3<S>(
@@ -4422,14 +4933,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::clone3(
-        &*syscalls,
-        &caller,
-        ConstCloneArgsPtr::new(uargs as u32),
-        size as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::clone3(
+            &*syscalls,
+            &caller,
+            ConstCloneArgsPtr::new(uargs as u32),
+            size as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn execve<S>(
@@ -4444,15 +4959,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::execve(
-        &*syscalls,
-        &caller,
-        Cstr::new(filename as u32),
-        CstrArray::new(argv as u32),
-        CstrArray::new(envp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::execve(
+            &*syscalls,
+            &caller,
+            Cstr::new(filename as u32),
+            CstrArray::new(argv as u32),
+            CstrArray::new(envp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn execveat<S>(
@@ -4469,17 +4988,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::execveat(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        Cstr::new(filename as u32),
-        CstrArray::new(argv as u32),
-        CstrArray::new(envp as u32),
-        AtFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::execveat(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            Cstr::new(filename as u32),
+            CstrArray::new(argv as u32),
+            CstrArray::new(envp as u32),
+            AtFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn exit<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, error_code: i32) -> Result<(), RuntimeError>
@@ -4489,9 +5012,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::exit(&*syscalls, &caller, error_code).await;
-    return_to_guest(&*syscalls, task, ret.map(|()| 0))?;
-    Err(RuntimeError::new("`exit` returned to the guest"))
+    loop {
+        let ret = Syscalls::exit(&*syscalls, &caller, error_code).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|()| 0)).await {
+            ret?;
+            return Err(RuntimeError::new("`exit` returned to the guest"));
+        }
+    }
 }
 
 async fn exit_group<S>(
@@ -4504,9 +5031,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::exit_group(&*syscalls, &caller, error_code).await;
-    return_to_guest(&*syscalls, task, ret.map(|()| 0))?;
-    Err(RuntimeError::new("`exit_group` returned to the guest"))
+    loop {
+        let ret = Syscalls::exit_group(&*syscalls, &caller, error_code).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|()| 0)).await {
+            ret?;
+            return Err(RuntimeError::new("`exit_group` returned to the guest"));
+        }
+    }
 }
 
 async fn waitid<S>(
@@ -4523,17 +5054,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::waitid(
-        &*syscalls,
-        &caller,
-        Idtype(which),
-        upid,
-        SiginfoPtr::new(infop as u32),
-        WaitOptions(options as u32),
-        RusagePtr::new(ru as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::waitid(
+            &*syscalls,
+            &caller,
+            Idtype(which),
+            upid,
+            SiginfoPtr::new(infop as u32),
+            WaitOptions(options as u32),
+            RusagePtr::new(ru as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn set_tid_address<S>(
@@ -4546,8 +5081,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::set_tid_address(&*syscalls, &caller, S32Ptr::new(tidptr as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::set_tid_address(&*syscalls, &caller, S32Ptr::new(tidptr as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn unshare<S>(
@@ -4560,8 +5099,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::unshare(&*syscalls, &caller, unshare_flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::unshare(&*syscalls, &caller, unshare_flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setns<S>(
@@ -4575,8 +5118,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setns(&*syscalls, &caller, Fd(fd), flags).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setns(&*syscalls, &caller, Fd(fd), flags).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getpid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4586,8 +5133,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getpid(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getpid(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getppid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4597,8 +5148,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getppid(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getppid(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn gettid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4608,8 +5163,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::gettid(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::gettid(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getpgid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, pid: i32) -> Result<i32, RuntimeError>
@@ -4619,8 +5178,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getpgid(&*syscalls, &caller, pid).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getpgid(&*syscalls, &caller, pid).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setpgid<S>(
@@ -4634,8 +5197,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setpgid(&*syscalls, &caller, pid, pgid).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setpgid(&*syscalls, &caller, pid, pgid).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getsid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, pid: i32) -> Result<i32, RuntimeError>
@@ -4645,8 +5212,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getsid(&*syscalls, &caller, pid).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getsid(&*syscalls, &caller, pid).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setsid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4656,8 +5227,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setsid(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setsid(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn pidfd_open<S>(
@@ -4671,8 +5246,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pidfd_open(&*syscalls, &caller, pid, flags as u32).await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::pidfd_open(&*syscalls, &caller, pid, flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn pidfd_getfd<S>(
@@ -4687,8 +5266,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pidfd_getfd(&*syscalls, &caller, Fd(pidfd), Fd(fd), flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::pidfd_getfd(&*syscalls, &caller, Fd(pidfd), Fd(fd), flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn process_mrelease<S>(
@@ -4702,8 +5285,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::process_mrelease(&*syscalls, &caller, Fd(pidfd), flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::process_mrelease(&*syscalls, &caller, Fd(pidfd), flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn kcmp<S>(
@@ -4720,17 +5307,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::kcmp(
-        &*syscalls,
-        &caller,
-        pid1,
-        pid2,
-        r#type,
-        idx1 as u32,
-        idx2 as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::kcmp(
+            &*syscalls,
+            &caller,
+            pid1,
+            pid2,
+            r#type,
+            idx1 as u32,
+            idx2 as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn personality<S>(
@@ -4743,8 +5334,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::personality(&*syscalls, &caller, personality as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::personality(&*syscalls, &caller, personality as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn prctl<S>(
@@ -4761,17 +5356,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::prctl(
-        &*syscalls,
-        &caller,
-        PrctlOption(option),
-        arg2 as u32,
-        arg3 as u32,
-        arg4 as u32,
-        arg5 as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::prctl(
+            &*syscalls,
+            &caller,
+            PrctlOption(option),
+            arg2 as u32,
+            arg3 as u32,
+            arg4 as u32,
+            arg5 as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn ptrace<S>(
@@ -4787,16 +5386,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::ptrace(
-        &*syscalls,
-        &caller,
-        PtraceRequest(request),
-        pid,
-        addr as u32,
-        data as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::ptrace(
+            &*syscalls,
+            &caller,
+            PtraceRequest(request),
+            pid,
+            addr as u32,
+            data as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn process_vm_readv<S>(
@@ -4814,18 +5417,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::process_vm_readv(
-        &*syscalls,
-        &caller,
-        pid,
-        ConstIovecArray::new(lvec as u32),
-        liovcnt as u32,
-        ConstIovecArray::new(rvec as u32),
-        riovcnt as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::process_vm_readv(
+            &*syscalls,
+            &caller,
+            pid,
+            ConstIovecArray::new(lvec as u32),
+            liovcnt as u32,
+            ConstIovecArray::new(rvec as u32),
+            riovcnt as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn process_vm_writev<S>(
@@ -4843,18 +5450,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::process_vm_writev(
-        &*syscalls,
-        &caller,
-        pid,
-        ConstIovecArray::new(lvec as u32),
-        liovcnt as u32,
-        ConstIovecArray::new(rvec as u32),
-        riovcnt as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::process_vm_writev(
+            &*syscalls,
+            &caller,
+            pid,
+            ConstIovecArray::new(lvec as u32),
+            liovcnt as u32,
+            ConstIovecArray::new(rvec as u32),
+            riovcnt as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn seccomp<S>(
@@ -4869,15 +5480,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::seccomp(
-        &*syscalls,
-        &caller,
-        op as u32,
-        flags as u32,
-        VoidPtr::new(uargs as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::seccomp(
+            &*syscalls,
+            &caller,
+            op as u32,
+            flags as u32,
+            VoidPtr::new(uargs as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rseq<S>(
@@ -4893,16 +5508,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rseq(
-        &*syscalls,
-        &caller,
-        VoidPtr::new(rseq as u32),
-        rseq_len as u32,
-        flags,
-        sig as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rseq(
+            &*syscalls,
+            &caller,
+            VoidPtr::new(rseq as u32),
+            rseq_len as u32,
+            flags,
+            sig as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn rseq_slice_yield<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4912,8 +5531,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::rseq_slice_yield(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::rseq_slice_yield(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn set_robust_list<S>(
@@ -4927,14 +5550,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::set_robust_list(
-        &*syscalls,
-        &caller,
-        RobustListHeadPtr::new(head as u32),
-        len as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::set_robust_list(
+            &*syscalls,
+            &caller,
+            RobustListHeadPtr::new(head as u32),
+            len as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn get_robust_list<S>(
@@ -4949,15 +5576,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::get_robust_list(
-        &*syscalls,
-        &caller,
-        pid,
-        RobustListHeadPtrPtr::new(head_ptr as u32),
-        UsizePtr::new(len_ptr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::get_robust_list(
+            &*syscalls,
+            &caller,
+            pid,
+            RobustListHeadPtrPtr::new(head_ptr as u32),
+            UsizePtr::new(len_ptr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getuid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4967,8 +5598,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getuid(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getuid(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn geteuid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4978,8 +5613,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::geteuid(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::geteuid(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getgid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -4989,8 +5628,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getgid(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getgid(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getegid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -5000,8 +5643,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getegid(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getegid(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setuid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, uid: i32) -> Result<i32, RuntimeError>
@@ -5011,8 +5658,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setuid(&*syscalls, &caller, uid as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setuid(&*syscalls, &caller, uid as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setgid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, gid: i32) -> Result<i32, RuntimeError>
@@ -5022,8 +5673,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setgid(&*syscalls, &caller, gid as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setgid(&*syscalls, &caller, gid as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setreuid<S>(
@@ -5037,8 +5692,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setreuid(&*syscalls, &caller, ruid as u32, euid as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setreuid(&*syscalls, &caller, ruid as u32, euid as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setregid<S>(
@@ -5052,8 +5711,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setregid(&*syscalls, &caller, rgid as u32, egid as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setregid(&*syscalls, &caller, rgid as u32, egid as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setresuid<S>(
@@ -5068,8 +5731,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setresuid(&*syscalls, &caller, ruid as u32, euid as u32, suid as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::setresuid(&*syscalls, &caller, ruid as u32, euid as u32, suid as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getresuid<S>(
@@ -5084,15 +5752,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getresuid(
-        &*syscalls,
-        &caller,
-        UidPtr::new(ruidp as u32),
-        UidPtr::new(euidp as u32),
-        UidPtr::new(suidp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getresuid(
+            &*syscalls,
+            &caller,
+            UidPtr::new(ruidp as u32),
+            UidPtr::new(euidp as u32),
+            UidPtr::new(suidp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setresgid<S>(
@@ -5107,8 +5779,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setresgid(&*syscalls, &caller, rgid as u32, egid as u32, sgid as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::setresgid(&*syscalls, &caller, rgid as u32, egid as u32, sgid as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getresgid<S>(
@@ -5123,15 +5800,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getresgid(
-        &*syscalls,
-        &caller,
-        GidPtr::new(rgidp as u32),
-        GidPtr::new(egidp as u32),
-        GidPtr::new(sgidp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getresgid(
+            &*syscalls,
+            &caller,
+            GidPtr::new(rgidp as u32),
+            GidPtr::new(egidp as u32),
+            GidPtr::new(sgidp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setfsuid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, uid: i32) -> Result<i32, RuntimeError>
@@ -5141,8 +5822,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setfsuid(&*syscalls, &caller, uid as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setfsuid(&*syscalls, &caller, uid as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setfsgid<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, gid: i32) -> Result<i32, RuntimeError>
@@ -5152,8 +5837,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setfsgid(&*syscalls, &caller, gid as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setfsgid(&*syscalls, &caller, gid as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getgroups<S>(
@@ -5167,14 +5856,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getgroups(
-        &*syscalls,
-        &caller,
-        gidsetsize,
-        GidArray::new(grouplist as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getgroups(
+            &*syscalls,
+            &caller,
+            gidsetsize,
+            GidArray::new(grouplist as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setgroups<S>(
@@ -5188,14 +5881,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setgroups(
-        &*syscalls,
-        &caller,
-        gidsetsize,
-        ConstGidArray::new(grouplist as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setgroups(
+            &*syscalls,
+            &caller,
+            gidsetsize,
+            ConstGidArray::new(grouplist as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn capget<S>(
@@ -5209,14 +5906,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::capget(
-        &*syscalls,
-        &caller,
-        UserCapHeaderPtr::new(header as u32),
-        UserCapDataArray::new(dataptr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::capget(
+            &*syscalls,
+            &caller,
+            UserCapHeaderPtr::new(header as u32),
+            UserCapDataArray::new(dataptr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn capset<S>(
@@ -5230,14 +5931,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::capset(
-        &*syscalls,
-        &caller,
-        UserCapHeaderPtr::new(header as u32),
-        ConstUserCapDataArray::new(data as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::capset(
+            &*syscalls,
+            &caller,
+            UserCapHeaderPtr::new(header as u32),
+            ConstUserCapDataArray::new(data as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_setparam<S>(
@@ -5251,14 +5956,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_setparam(
-        &*syscalls,
-        &caller,
-        pid,
-        ConstSchedParamPtr::new(param as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_setparam(
+            &*syscalls,
+            &caller,
+            pid,
+            ConstSchedParamPtr::new(param as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_getparam<S>(
@@ -5272,9 +5981,14 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret =
-        Syscalls::sched_getparam(&*syscalls, &caller, pid, SchedParamPtr::new(param as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::sched_getparam(&*syscalls, &caller, pid, SchedParamPtr::new(param as u32))
+                .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_setscheduler<S>(
@@ -5289,15 +6003,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_setscheduler(
-        &*syscalls,
-        &caller,
-        pid,
-        SchedPolicy(policy),
-        ConstSchedParamPtr::new(param as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_setscheduler(
+            &*syscalls,
+            &caller,
+            pid,
+            SchedPolicy(policy),
+            ConstSchedParamPtr::new(param as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_getscheduler<S>(
@@ -5310,8 +6028,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_getscheduler(&*syscalls, &caller, pid).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_getscheduler(&*syscalls, &caller, pid).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_setattr<S>(
@@ -5326,15 +6048,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_setattr(
-        &*syscalls,
-        &caller,
-        pid,
-        SchedAttrPtr::new(uattr as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_setattr(
+            &*syscalls,
+            &caller,
+            pid,
+            SchedAttrPtr::new(uattr as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_getattr<S>(
@@ -5350,16 +6076,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_getattr(
-        &*syscalls,
-        &caller,
-        pid,
-        SchedAttrPtr::new(uattr as u32),
-        usize as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_getattr(
+            &*syscalls,
+            &caller,
+            pid,
+            SchedAttrPtr::new(uattr as u32),
+            usize as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_setaffinity<S>(
@@ -5374,15 +6104,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_setaffinity(
-        &*syscalls,
-        &caller,
-        pid,
-        len as u32,
-        UlongArray::new(user_mask_ptr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_setaffinity(
+            &*syscalls,
+            &caller,
+            pid,
+            len as u32,
+            UlongArray::new(user_mask_ptr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_getaffinity<S>(
@@ -5397,15 +6131,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_getaffinity(
-        &*syscalls,
-        &caller,
-        pid,
-        len as u32,
-        UlongArray::new(user_mask_ptr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_getaffinity(
+            &*syscalls,
+            &caller,
+            pid,
+            len as u32,
+            UlongArray::new(user_mask_ptr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_yield<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -5415,8 +6153,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_yield(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_yield(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_get_priority_max<S>(
@@ -5429,8 +6171,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_get_priority_max(&*syscalls, &caller, SchedPolicy(policy)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_get_priority_max(&*syscalls, &caller, SchedPolicy(policy)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_get_priority_min<S>(
@@ -5443,8 +6189,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_get_priority_min(&*syscalls, &caller, SchedPolicy(policy)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_get_priority_min(&*syscalls, &caller, SchedPolicy(policy)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sched_rr_get_interval_time64<S>(
@@ -5458,14 +6208,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sched_rr_get_interval_time64(
-        &*syscalls,
-        &caller,
-        pid,
-        KernelTimespecPtr::new(interval as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sched_rr_get_interval_time64(
+            &*syscalls,
+            &caller,
+            pid,
+            KernelTimespecPtr::new(interval as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getpriority<S>(
@@ -5479,8 +6233,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getpriority(&*syscalls, &caller, PrioWhich(which), who).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getpriority(&*syscalls, &caller, PrioWhich(which), who).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setpriority<S>(
@@ -5495,8 +6253,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setpriority(&*syscalls, &caller, PrioWhich(which), who, niceval).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setpriority(&*syscalls, &caller, PrioWhich(which), who, niceval).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getrusage<S>(
@@ -5510,14 +6272,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getrusage(
-        &*syscalls,
-        &caller,
-        RusageWho(who),
-        RusagePtr::new(ru as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getrusage(
+            &*syscalls,
+            &caller,
+            RusageWho(who),
+            RusagePtr::new(ru as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn prlimit64<S>(
@@ -5533,16 +6299,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::prlimit64(
-        &*syscalls,
-        &caller,
-        pid,
-        RlimitResource(resource),
-        ConstRlimit64Ptr::new(new_rlim as u32),
-        Rlimit64Ptr::new(old_rlim as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::prlimit64(
+            &*syscalls,
+            &caller,
+            pid,
+            RlimitResource(resource),
+            ConstRlimit64Ptr::new(new_rlim as u32),
+            Rlimit64Ptr::new(old_rlim as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn times<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, tbuf: i32) -> Result<i32, RuntimeError>
@@ -5552,8 +6322,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::times(&*syscalls, &caller, TmsPtr::new(tbuf as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::times(&*syscalls, &caller, TmsPtr::new(tbuf as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn ioprio_set<S>(
@@ -5568,8 +6342,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::ioprio_set(&*syscalls, &caller, which, who, ioprio).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::ioprio_set(&*syscalls, &caller, which, who, ioprio).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn ioprio_get<S>(
@@ -5583,8 +6361,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::ioprio_get(&*syscalls, &caller, which, who).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::ioprio_get(&*syscalls, &caller, which, who).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getcpu<S>(
@@ -5599,15 +6381,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getcpu(
-        &*syscalls,
-        &caller,
-        U32Ptr::new(cpup as u32),
-        U32Ptr::new(nodep as u32),
-        VoidPtr::new(unused as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getcpu(
+            &*syscalls,
+            &caller,
+            U32Ptr::new(cpup as u32),
+            U32Ptr::new(nodep as u32),
+            VoidPtr::new(unused as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sysinfo<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, info: i32) -> Result<i32, RuntimeError>
@@ -5617,8 +6403,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sysinfo(&*syscalls, &caller, SysinfoPtr::new(info as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sysinfo(&*syscalls, &caller, SysinfoPtr::new(info as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn uname<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, name: i32) -> Result<i32, RuntimeError>
@@ -5628,8 +6418,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::uname(&*syscalls, &caller, NewUtsnamePtr::new(name as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::uname(&*syscalls, &caller, NewUtsnamePtr::new(name as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sethostname<S>(
@@ -5643,8 +6437,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sethostname(&*syscalls, &caller, ConstBuf::new(name as u32), len).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sethostname(&*syscalls, &caller, ConstBuf::new(name as u32), len).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setdomainname<S>(
@@ -5658,8 +6456,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setdomainname(&*syscalls, &caller, ConstBuf::new(name as u32), len).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::setdomainname(&*syscalls, &caller, ConstBuf::new(name as u32), len).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn umask<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, mask: i32) -> Result<i32, RuntimeError>
@@ -5669,8 +6472,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::umask(&*syscalls, &caller, mask).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::umask(&*syscalls, &caller, mask).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getrandom<S>(
@@ -5685,14 +6492,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getrandom(
-        &*syscalls,
-        &caller,
-        UserSliceMut::new(ubuf as u32, len as u32),
-        GrndFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::getrandom(
+            &*syscalls,
+            &caller,
+            UserSliceMut::new(ubuf as u32, len as u32),
+            GrndFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn membarrier<S>(
@@ -5707,15 +6518,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::membarrier(
-        &*syscalls,
-        &caller,
-        MembarrierCmd(cmd),
-        MembarrierCmdFlags(flags as u32),
-        cpu_id,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::membarrier(
+            &*syscalls,
+            &caller,
+            MembarrierCmd(cmd),
+            MembarrierCmdFlags(flags as u32),
+            cpu_id,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn futex_time64<S>(
@@ -5733,18 +6548,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::futex_time64(
-        &*syscalls,
-        &caller,
-        U32Ptr::new(uaddr as u32),
-        FutexOp(op),
-        val as u32,
-        utime as u32,
-        U32Ptr::new(uaddr2 as u32),
-        val3 as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::futex_time64(
+            &*syscalls,
+            &caller,
+            U32Ptr::new(uaddr as u32),
+            FutexOp(op),
+            val as u32,
+            utime as u32,
+            U32Ptr::new(uaddr2 as u32),
+            val3 as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn futex_waitv<S>(
@@ -5761,17 +6580,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::futex_waitv(
-        &*syscalls,
-        &caller,
-        ConstFutexWaitvArray::new(waiters as u32),
-        nr_futexes as u32,
-        flags as u32,
-        KernelTimespecPtr::new(timeout as u32),
-        ClockId(clockid),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::futex_waitv(
+            &*syscalls,
+            &caller,
+            ConstFutexWaitvArray::new(waiters as u32),
+            nr_futexes as u32,
+            flags as u32,
+            KernelTimespecPtr::new(timeout as u32),
+            ClockId(clockid),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn futex_wake<S>(
@@ -5787,16 +6610,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::futex_wake(
-        &*syscalls,
-        &caller,
-        U32Ptr::new(uaddr as u32),
-        mask as u32,
-        nr,
-        Futex2Flags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::futex_wake(
+            &*syscalls,
+            &caller,
+            U32Ptr::new(uaddr as u32),
+            mask as u32,
+            nr,
+            Futex2Flags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn futex_wait<S>(
@@ -5814,18 +6641,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::futex_wait(
-        &*syscalls,
-        &caller,
-        U32Ptr::new(uaddr as u32),
-        val as u32,
-        mask as u32,
-        Futex2Flags(flags as u32),
-        KernelTimespecPtr::new(timeout as u32),
-        ClockId(clockid),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::futex_wait(
+            &*syscalls,
+            &caller,
+            U32Ptr::new(uaddr as u32),
+            val as u32,
+            mask as u32,
+            Futex2Flags(flags as u32),
+            KernelTimespecPtr::new(timeout as u32),
+            ClockId(clockid),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn futex_requeue<S>(
@@ -5841,16 +6672,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::futex_requeue(
-        &*syscalls,
-        &caller,
-        ConstFutexWaitvArray::new(waiters as u32),
-        flags as u32,
-        nr_wake,
-        nr_requeue,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::futex_requeue(
+            &*syscalls,
+            &caller,
+            ConstFutexWaitvArray::new(waiters as u32),
+            flags as u32,
+            nr_wake,
+            nr_requeue,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn brk<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, brk: i32) -> Result<i32, RuntimeError>
@@ -5860,8 +6695,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::brk(&*syscalls, &caller, brk as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::brk(&*syscalls, &caller, brk as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mmap<S>(
@@ -5879,18 +6718,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mmap(
-        &*syscalls,
-        &caller,
-        addr as u32,
-        len as u32,
-        ProtFlags(prot as u32),
-        MapFlags(flags as u32),
-        Fd(fd),
-        offset,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::mmap(
+            &*syscalls,
+            &caller,
+            addr as u32,
+            len as u32,
+            ProtFlags(prot as u32),
+            MapFlags(flags as u32),
+            Fd(fd),
+            offset,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn munmap<S>(
@@ -5904,8 +6747,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::munmap(&*syscalls, &caller, addr as u32, len as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::munmap(&*syscalls, &caller, addr as u32, len as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mremap<S>(
@@ -5922,17 +6769,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mremap(
-        &*syscalls,
-        &caller,
-        addr as u32,
-        old_len as u32,
-        new_len as u32,
-        MremapFlags(flags as u32),
-        new_addr as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mremap(
+            &*syscalls,
+            &caller,
+            addr as u32,
+            old_len as u32,
+            new_len as u32,
+            MremapFlags(flags as u32),
+            new_addr as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mprotect<S>(
@@ -5947,15 +6798,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mprotect(
-        &*syscalls,
-        &caller,
-        start as u32,
-        len as u32,
-        ProtFlags(prot as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mprotect(
+            &*syscalls,
+            &caller,
+            start as u32,
+            len as u32,
+            ProtFlags(prot as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn pkey_mprotect<S>(
@@ -5971,16 +6826,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pkey_mprotect(
-        &*syscalls,
-        &caller,
-        start as u32,
-        len as u32,
-        ProtFlags(prot as u32),
-        pkey,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::pkey_mprotect(
+            &*syscalls,
+            &caller,
+            start as u32,
+            len as u32,
+            ProtFlags(prot as u32),
+            pkey,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn pkey_alloc<S>(
@@ -5994,8 +6853,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pkey_alloc(&*syscalls, &caller, flags as u32, init_val as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::pkey_alloc(&*syscalls, &caller, flags as u32, init_val as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn pkey_free<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, pkey: i32) -> Result<i32, RuntimeError>
@@ -6005,8 +6868,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pkey_free(&*syscalls, &caller, pkey).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::pkey_free(&*syscalls, &caller, pkey).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn msync<S>(
@@ -6021,15 +6888,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::msync(
-        &*syscalls,
-        &caller,
-        start as u32,
-        len as u32,
-        MsyncFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::msync(
+            &*syscalls,
+            &caller,
+            start as u32,
+            len as u32,
+            MsyncFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn madvise<S>(
@@ -6044,15 +6915,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::madvise(
-        &*syscalls,
-        &caller,
-        start as u32,
-        len_in as u32,
-        MadviseAdvice(behavior),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::madvise(
+            &*syscalls,
+            &caller,
+            start as u32,
+            len_in as u32,
+            MadviseAdvice(behavior),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn process_madvise<S>(
@@ -6069,17 +6944,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::process_madvise(
-        &*syscalls,
-        &caller,
-        Fd(pidfd),
-        ConstIovecArray::new(vec as u32),
-        vlen as u32,
-        MadviseAdvice(behavior),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::process_madvise(
+            &*syscalls,
+            &caller,
+            Fd(pidfd),
+            ConstIovecArray::new(vec as u32),
+            vlen as u32,
+            MadviseAdvice(behavior),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mincore<S>(
@@ -6094,15 +6973,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mincore(
-        &*syscalls,
-        &caller,
-        start as u32,
-        len as u32,
-        Buf::new(vec as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mincore(
+            &*syscalls,
+            &caller,
+            start as u32,
+            len as u32,
+            Buf::new(vec as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mlock<S>(
@@ -6116,8 +6999,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mlock(&*syscalls, &caller, start as u32, len as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mlock(&*syscalls, &caller, start as u32, len as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mlock2<S>(
@@ -6132,15 +7019,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mlock2(
-        &*syscalls,
-        &caller,
-        start as u32,
-        len as u32,
-        MlockFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mlock2(
+            &*syscalls,
+            &caller,
+            start as u32,
+            len as u32,
+            MlockFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn munlock<S>(
@@ -6154,8 +7045,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::munlock(&*syscalls, &caller, start as u32, len as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::munlock(&*syscalls, &caller, start as u32, len as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mlockall<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, flags: i32) -> Result<i32, RuntimeError>
@@ -6165,8 +7060,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mlockall(&*syscalls, &caller, MclFlags(flags as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mlockall(&*syscalls, &caller, MclFlags(flags as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn munlockall<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -6176,8 +7075,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::munlockall(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::munlockall(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn remap_file_pages<S>(
@@ -6194,17 +7097,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::remap_file_pages(
-        &*syscalls,
-        &caller,
-        start as u32,
-        size as u32,
-        prot as u32,
-        pgoff as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::remap_file_pages(
+            &*syscalls,
+            &caller,
+            start as u32,
+            size as u32,
+            prot as u32,
+            pgoff as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mbind<S>(
@@ -6222,18 +7129,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mbind(
-        &*syscalls,
-        &caller,
-        start as u32,
-        len as u32,
-        mode as u32,
-        ConstUlongArray::new(nmask as u32),
-        maxnode as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mbind(
+            &*syscalls,
+            &caller,
+            start as u32,
+            len as u32,
+            mode as u32,
+            ConstUlongArray::new(nmask as u32),
+            maxnode as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn get_mempolicy<S>(
@@ -6250,17 +7161,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::get_mempolicy(
-        &*syscalls,
-        &caller,
-        S32Ptr::new(policy as u32),
-        UlongArray::new(nmask as u32),
-        maxnode as u32,
-        addr as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::get_mempolicy(
+            &*syscalls,
+            &caller,
+            S32Ptr::new(policy as u32),
+            UlongArray::new(nmask as u32),
+            maxnode as u32,
+            addr as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn set_mempolicy<S>(
@@ -6275,15 +7190,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::set_mempolicy(
-        &*syscalls,
-        &caller,
-        mode,
-        ConstUlongArray::new(nmask as u32),
-        maxnode as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::set_mempolicy(
+            &*syscalls,
+            &caller,
+            mode,
+            ConstUlongArray::new(nmask as u32),
+            maxnode as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn set_mempolicy_home_node<S>(
@@ -6299,16 +7218,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::set_mempolicy_home_node(
-        &*syscalls,
-        &caller,
-        start as u32,
-        len as u32,
-        home_node as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::set_mempolicy_home_node(
+            &*syscalls,
+            &caller,
+            start as u32,
+            len as u32,
+            home_node as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn migrate_pages<S>(
@@ -6324,16 +7247,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::migrate_pages(
-        &*syscalls,
-        &caller,
-        pid,
-        maxnode as u32,
-        ConstUlongArray::new(old_nodes as u32),
-        ConstUlongArray::new(new_nodes as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::migrate_pages(
+            &*syscalls,
+            &caller,
+            pid,
+            maxnode as u32,
+            ConstUlongArray::new(old_nodes as u32),
+            ConstUlongArray::new(new_nodes as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn move_pages<S>(
@@ -6351,18 +7278,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::move_pages(
-        &*syscalls,
-        &caller,
-        pid,
-        nr_pages as u32,
-        ConstUptrArray::new(pages as u32),
-        ConstS32Array::new(nodes as u32),
-        S32Array::new(status as u32),
-        flags,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::move_pages(
+            &*syscalls,
+            &caller,
+            pid,
+            nr_pages as u32,
+            ConstUptrArray::new(pages as u32),
+            ConstS32Array::new(nodes as u32),
+            S32Array::new(status as u32),
+            flags,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mseal<S>(
@@ -6377,8 +7308,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mseal(&*syscalls, &caller, start as u32, len as u32, flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::mseal(&*syscalls, &caller, start as u32, len as u32, flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn map_shadow_stack<S>(
@@ -6393,10 +7329,14 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret =
-        Syscalls::map_shadow_stack(&*syscalls, &caller, addr as u32, size as u32, flags as u32)
-            .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::map_shadow_stack(&*syscalls, &caller, addr as u32, size as u32, flags as u32)
+                .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn userfaultfd<S>(
@@ -6409,8 +7349,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::userfaultfd(&*syscalls, &caller, flags).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::userfaultfd(&*syscalls, &caller, flags).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn clock_gettime64<S>(
@@ -6424,14 +7368,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::clock_gettime64(
-        &*syscalls,
-        &caller,
-        ClockId(which_clock),
-        KernelTimespecPtr::new(tp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::clock_gettime64(
+            &*syscalls,
+            &caller,
+            ClockId(which_clock),
+            KernelTimespecPtr::new(tp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn clock_settime64<S>(
@@ -6445,14 +7393,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::clock_settime64(
-        &*syscalls,
-        &caller,
-        ClockId(which_clock),
-        ConstKernelTimespecPtr::new(tp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::clock_settime64(
+            &*syscalls,
+            &caller,
+            ClockId(which_clock),
+            ConstKernelTimespecPtr::new(tp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn clock_getres_time64<S>(
@@ -6466,14 +7418,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::clock_getres_time64(
-        &*syscalls,
-        &caller,
-        ClockId(which_clock),
-        KernelTimespecPtr::new(tp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::clock_getres_time64(
+            &*syscalls,
+            &caller,
+            ClockId(which_clock),
+            KernelTimespecPtr::new(tp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn clock_nanosleep_time64<S>(
@@ -6489,16 +7445,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::clock_nanosleep_time64(
-        &*syscalls,
-        &caller,
-        ClockId(which_clock),
-        TimerFlags(flags as u32),
-        ConstKernelTimespecPtr::new(rqtp as u32),
-        KernelTimespecPtr::new(rmtp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::clock_nanosleep_time64(
+            &*syscalls,
+            &caller,
+            ClockId(which_clock),
+            TimerFlags(flags as u32),
+            ConstKernelTimespecPtr::new(rqtp as u32),
+            KernelTimespecPtr::new(rmtp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn clock_adjtime64<S>(
@@ -6512,14 +7472,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::clock_adjtime64(
-        &*syscalls,
-        &caller,
-        ClockId(which_clock),
-        KernelTimexPtr::new(utx as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::clock_adjtime64(
+            &*syscalls,
+            &caller,
+            ClockId(which_clock),
+            KernelTimexPtr::new(utx as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getitimer<S>(
@@ -6533,14 +7497,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getitimer(
-        &*syscalls,
-        &caller,
-        ItimerWhich(which),
-        KernelOldItimervalPtr::new(value as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getitimer(
+            &*syscalls,
+            &caller,
+            ItimerWhich(which),
+            KernelOldItimervalPtr::new(value as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn setitimer<S>(
@@ -6555,15 +7523,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setitimer(
-        &*syscalls,
-        &caller,
-        ItimerWhich(which),
-        ConstKernelOldItimervalPtr::new(value as u32),
-        KernelOldItimervalPtr::new(ovalue as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setitimer(
+            &*syscalls,
+            &caller,
+            ItimerWhich(which),
+            ConstKernelOldItimervalPtr::new(value as u32),
+            KernelOldItimervalPtr::new(ovalue as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn timer_create<S>(
@@ -6578,15 +7550,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::timer_create(
-        &*syscalls,
-        &caller,
-        ClockId(which_clock),
-        ConstSigeventPtr::new(timer_event_spec as u32),
-        TimerIdPtr::new(created_timer_id as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::timer_create(
+            &*syscalls,
+            &caller,
+            ClockId(which_clock),
+            ConstSigeventPtr::new(timer_event_spec as u32),
+            TimerIdPtr::new(created_timer_id as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn timer_settime64<S>(
@@ -6602,16 +7578,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::timer_settime64(
-        &*syscalls,
-        &caller,
-        timer_id,
-        TimerFlags(flags as u32),
-        ConstKernelItimerspecPtr::new(new_setting as u32),
-        KernelItimerspecPtr::new(old_setting as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::timer_settime64(
+            &*syscalls,
+            &caller,
+            timer_id,
+            TimerFlags(flags as u32),
+            ConstKernelItimerspecPtr::new(new_setting as u32),
+            KernelItimerspecPtr::new(old_setting as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn timer_gettime64<S>(
@@ -6625,14 +7605,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::timer_gettime64(
-        &*syscalls,
-        &caller,
-        timer_id,
-        KernelItimerspecPtr::new(setting as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::timer_gettime64(
+            &*syscalls,
+            &caller,
+            timer_id,
+            KernelItimerspecPtr::new(setting as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn timer_getoverrun<S>(
@@ -6645,8 +7629,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::timer_getoverrun(&*syscalls, &caller, timer_id).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::timer_getoverrun(&*syscalls, &caller, timer_id).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn timer_delete<S>(
@@ -6659,8 +7647,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::timer_delete(&*syscalls, &caller, timer_id).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::timer_delete(&*syscalls, &caller, timer_id).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn socket<S>(
@@ -6675,8 +7667,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::socket(&*syscalls, &caller, AddressFamily(family), r#type, protocol).await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret =
+            Syscalls::socket(&*syscalls, &caller, AddressFamily(family), r#type, protocol).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn socketpair<S>(
@@ -6692,16 +7689,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::socketpair(
-        &*syscalls,
-        &caller,
-        AddressFamily(family),
-        r#type,
-        protocol,
-        FdPair::new(usockvec as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::socketpair(
+            &*syscalls,
+            &caller,
+            AddressFamily(family),
+            r#type,
+            protocol,
+            FdPair::new(usockvec as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn bind<S>(
@@ -6716,15 +7717,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::bind(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstSockaddrPtr::new(umyaddr as u32),
-        addrlen as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::bind(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstSockaddrPtr::new(umyaddr as u32),
+            addrlen as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn listen<S>(
@@ -6738,8 +7743,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::listen(&*syscalls, &caller, Fd(fd), backlog).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::listen(&*syscalls, &caller, Fd(fd), backlog).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn accept<S>(
@@ -6754,15 +7763,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::accept(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        SockaddrPtr::new(upeer_sockaddr as u32),
-        SocklenPtr::new(upeer_addrlen as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::accept(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            SockaddrPtr::new(upeer_sockaddr as u32),
+            SocklenPtr::new(upeer_addrlen as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn accept4<S>(
@@ -6778,16 +7791,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::accept4(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        SockaddrPtr::new(upeer_sockaddr as u32),
-        SocklenPtr::new(upeer_addrlen as u32),
-        SocketFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v.0))
+    loop {
+        let ret = Syscalls::accept4(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            SockaddrPtr::new(upeer_sockaddr as u32),
+            SocklenPtr::new(upeer_addrlen as u32),
+            SocketFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
+            return ret;
+        }
+    }
 }
 
 async fn connect<S>(
@@ -6802,15 +7819,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::connect(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstSockaddrPtr::new(uservaddr as u32),
-        addrlen as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::connect(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstSockaddrPtr::new(uservaddr as u32),
+            addrlen as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getsockname<S>(
@@ -6825,15 +7846,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getsockname(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        SockaddrPtr::new(usockaddr as u32),
-        SocklenPtr::new(usockaddr_len as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getsockname(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            SockaddrPtr::new(usockaddr as u32),
+            SocklenPtr::new(usockaddr_len as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getpeername<S>(
@@ -6848,15 +7873,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getpeername(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        SockaddrPtr::new(usockaddr as u32),
-        SocklenPtr::new(usockaddr_len as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getpeername(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            SockaddrPtr::new(usockaddr as u32),
+            SocklenPtr::new(usockaddr_len as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sendto<S>(
@@ -6874,17 +7903,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sendto(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        UserSlice::new(buff as u32, len as u32),
-        MsgFlags(flags as u32),
-        ConstSockaddrPtr::new(addr as u32),
-        addr_len as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::sendto(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            UserSlice::new(buff as u32, len as u32),
+            MsgFlags(flags as u32),
+            ConstSockaddrPtr::new(addr as u32),
+            addr_len as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn recvfrom<S>(
@@ -6902,17 +7935,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::recvfrom(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        UserSliceMut::new(ubuf as u32, size as u32),
-        MsgFlags(flags as u32),
-        SockaddrPtr::new(addr as u32),
-        SocklenPtr::new(addr_len as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
+    loop {
+        let ret = Syscalls::recvfrom(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            UserSliceMut::new(ubuf as u32, size as u32),
+            MsgFlags(flags as u32),
+            SockaddrPtr::new(addr as u32),
+            SocklenPtr::new(addr_len as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
+            return ret;
+        }
+    }
 }
 
 async fn setsockopt<S>(
@@ -6929,16 +7966,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::setsockopt(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        SocketLevel(level),
-        optname,
-        UserSlice::new(optval as u32, optlen as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::setsockopt(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            SocketLevel(level),
+            optname,
+            UserSlice::new(optval as u32, optlen as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn getsockopt<S>(
@@ -6955,17 +7996,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::getsockopt(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        SocketLevel(level),
-        optname,
-        Buf::new(optval as u32),
-        SocklenPtr::new(optlen as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::getsockopt(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            SocketLevel(level),
+            optname,
+            Buf::new(optval as u32),
+            SocklenPtr::new(optlen as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn shutdown<S>(
@@ -6979,8 +8024,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::shutdown(&*syscalls, &caller, Fd(fd), ShutdownHow(how)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::shutdown(&*syscalls, &caller, Fd(fd), ShutdownHow(how)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sendmsg<S>(
@@ -6995,15 +8044,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sendmsg(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        ConstUserMsghdrPtr::new(msg as u32),
-        MsgFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sendmsg(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            ConstUserMsghdrPtr::new(msg as u32),
+            MsgFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn recvmsg<S>(
@@ -7018,15 +8071,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::recvmsg(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        UserMsghdrPtr::new(msg as u32),
-        MsgFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::recvmsg(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            UserMsghdrPtr::new(msg as u32),
+            MsgFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn sendmmsg<S>(
@@ -7042,16 +8099,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::sendmmsg(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        MmsghdrArray::new(mmsg as u32),
-        vlen as u32,
-        MsgFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::sendmmsg(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            MmsghdrArray::new(mmsg as u32),
+            vlen as u32,
+            MsgFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn recvmmsg_time64<S>(
@@ -7068,17 +8129,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::recvmmsg_time64(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        MmsghdrArray::new(mmsg as u32),
-        vlen as u32,
-        MsgFlags(flags as u32),
-        KernelTimespecPtr::new(timeout as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::recvmmsg_time64(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            MmsghdrArray::new(mmsg as u32),
+            vlen as u32,
+            MsgFlags(flags as u32),
+            KernelTimespecPtr::new(timeout as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn msgget<S>(
@@ -7092,8 +8157,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::msgget(&*syscalls, &caller, key, msgflg).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::msgget(&*syscalls, &caller, key, msgflg).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn msgctl<S>(
@@ -7108,15 +8177,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::msgctl(
-        &*syscalls,
-        &caller,
-        msqid,
-        cmd,
-        Msqid64DsPtr::new(buf as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::msgctl(
+            &*syscalls,
+            &caller,
+            msqid,
+            cmd,
+            Msqid64DsPtr::new(buf as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn msgrcv<S>(
@@ -7133,17 +8206,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::msgrcv(
-        &*syscalls,
-        &caller,
-        msqid,
-        MsgbufPtr::new(msgp as u32),
-        msgsz as u32,
-        msgtyp,
-        msgflg,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::msgrcv(
+            &*syscalls,
+            &caller,
+            msqid,
+            MsgbufPtr::new(msgp as u32),
+            msgsz as u32,
+            msgtyp,
+            msgflg,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn msgsnd<S>(
@@ -7159,16 +8236,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::msgsnd(
-        &*syscalls,
-        &caller,
-        msqid,
-        ConstMsgbufPtr::new(msgp as u32),
-        msgsz as u32,
-        msgflg,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::msgsnd(
+            &*syscalls,
+            &caller,
+            msqid,
+            ConstMsgbufPtr::new(msgp as u32),
+            msgsz as u32,
+            msgflg,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn semget<S>(
@@ -7183,8 +8264,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::semget(&*syscalls, &caller, key, nsems, semflg).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::semget(&*syscalls, &caller, key, nsems, semflg).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn semctl<S>(
@@ -7200,8 +8285,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::semctl(&*syscalls, &caller, semid, semnum, cmd, arg as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::semctl(&*syscalls, &caller, semid, semnum, cmd, arg as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn semop<S>(
@@ -7216,15 +8305,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::semop(
-        &*syscalls,
-        &caller,
-        semid,
-        ConstSembufArray::new(tsops as u32),
-        nsops as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::semop(
+            &*syscalls,
+            &caller,
+            semid,
+            ConstSembufArray::new(tsops as u32),
+            nsops as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn semtimedop_time64<S>(
@@ -7240,16 +8333,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::semtimedop_time64(
-        &*syscalls,
-        &caller,
-        semid,
-        ConstSembufArray::new(tsops as u32),
-        nsops as u32,
-        ConstKernelTimespecPtr::new(timeout as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::semtimedop_time64(
+            &*syscalls,
+            &caller,
+            semid,
+            ConstSembufArray::new(tsops as u32),
+            nsops as u32,
+            ConstKernelTimespecPtr::new(timeout as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn shmget<S>(
@@ -7264,8 +8361,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::shmget(&*syscalls, &caller, key, size as u32, shmflg).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::shmget(&*syscalls, &caller, key, size as u32, shmflg).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn shmctl<S>(
@@ -7280,15 +8381,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::shmctl(
-        &*syscalls,
-        &caller,
-        shmid,
-        cmd,
-        Shmid64DsPtr::new(buf as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::shmctl(
+            &*syscalls,
+            &caller,
+            shmid,
+            cmd,
+            Shmid64DsPtr::new(buf as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn shmat<S>(
@@ -7303,8 +8408,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::shmat(&*syscalls, &caller, shmid, shmaddr as u32, shmflg).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::shmat(&*syscalls, &caller, shmid, shmaddr as u32, shmflg).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn shmdt<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, shmaddr: i32) -> Result<i32, RuntimeError>
@@ -7314,8 +8423,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::shmdt(&*syscalls, &caller, shmaddr as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::shmdt(&*syscalls, &caller, shmaddr as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mq_open<S>(
@@ -7331,16 +8444,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mq_open(
-        &*syscalls,
-        &caller,
-        Cstr::new(u_name as u32),
-        OpenFlags(oflag as u32),
-        mode as u32,
-        ConstMqAttrPtr::new(u_attr as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mq_open(
+            &*syscalls,
+            &caller,
+            Cstr::new(u_name as u32),
+            OpenFlags(oflag as u32),
+            mode as u32,
+            ConstMqAttrPtr::new(u_attr as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mq_unlink<S>(
@@ -7353,8 +8470,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mq_unlink(&*syscalls, &caller, Cstr::new(u_name as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mq_unlink(&*syscalls, &caller, Cstr::new(u_name as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mq_timedsend_time64<S>(
@@ -7371,17 +8492,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mq_timedsend_time64(
-        &*syscalls,
-        &caller,
-        mqdes,
-        ConstBuf::new(u_msg_ptr as u32),
-        msg_len as u32,
-        msg_prio as u32,
-        ConstKernelTimespecPtr::new(u_abs_timeout as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mq_timedsend_time64(
+            &*syscalls,
+            &caller,
+            mqdes,
+            ConstBuf::new(u_msg_ptr as u32),
+            msg_len as u32,
+            msg_prio as u32,
+            ConstKernelTimespecPtr::new(u_abs_timeout as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mq_timedreceive_time64<S>(
@@ -7398,17 +8523,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mq_timedreceive_time64(
-        &*syscalls,
-        &caller,
-        mqdes,
-        Buf::new(u_msg_ptr as u32),
-        msg_len as u32,
-        U32Ptr::new(u_msg_prio as u32),
-        ConstKernelTimespecPtr::new(u_abs_timeout as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mq_timedreceive_time64(
+            &*syscalls,
+            &caller,
+            mqdes,
+            Buf::new(u_msg_ptr as u32),
+            msg_len as u32,
+            U32Ptr::new(u_msg_prio as u32),
+            ConstKernelTimespecPtr::new(u_abs_timeout as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mq_notify<S>(
@@ -7422,14 +8551,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mq_notify(
-        &*syscalls,
-        &caller,
-        mqdes,
-        ConstSigeventPtr::new(u_notification as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mq_notify(
+            &*syscalls,
+            &caller,
+            mqdes,
+            ConstSigeventPtr::new(u_notification as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mq_getsetattr<S>(
@@ -7444,15 +8577,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mq_getsetattr(
-        &*syscalls,
-        &caller,
-        mqdes,
-        ConstMqAttrPtr::new(u_mqstat as u32),
-        MqAttrPtr::new(u_omqstat as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mq_getsetattr(
+            &*syscalls,
+            &caller,
+            mqdes,
+            ConstMqAttrPtr::new(u_mqstat as u32),
+            MqAttrPtr::new(u_omqstat as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn io_setup<S>(
@@ -7466,14 +8603,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::io_setup(
-        &*syscalls,
-        &caller,
-        nr_events as u32,
-        AioContextPtr::new(ctxp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::io_setup(
+            &*syscalls,
+            &caller,
+            nr_events as u32,
+            AioContextPtr::new(ctxp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn io_destroy<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, ctx: i32) -> Result<i32, RuntimeError>
@@ -7483,8 +8624,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::io_destroy(&*syscalls, &caller, ctx as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::io_destroy(&*syscalls, &caller, ctx as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn io_submit<S>(
@@ -7499,15 +8644,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::io_submit(
-        &*syscalls,
-        &caller,
-        ctx_id as u32,
-        nr,
-        ConstIocbPtrArray::new(iocbpp as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::io_submit(
+            &*syscalls,
+            &caller,
+            ctx_id as u32,
+            nr,
+            ConstIocbPtrArray::new(iocbpp as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn io_cancel<S>(
@@ -7522,15 +8671,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::io_cancel(
-        &*syscalls,
-        &caller,
-        ctx_id as u32,
-        IocbPtr::new(iocb as u32),
-        IoEventPtr::new(result as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::io_cancel(
+            &*syscalls,
+            &caller,
+            ctx_id as u32,
+            IocbPtr::new(iocb as u32),
+            IoEventPtr::new(result as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn io_pgetevents_time64<S>(
@@ -7548,18 +8701,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::io_pgetevents_time64(
-        &*syscalls,
-        &caller,
-        ctx_id as u32,
-        min_nr,
-        nr,
-        IoEventArray::new(events as u32),
-        KernelTimespecPtr::new(timeout as u32),
-        ConstAioSigsetPtr::new(usig as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::io_pgetevents_time64(
+            &*syscalls,
+            &caller,
+            ctx_id as u32,
+            min_nr,
+            nr,
+            IoEventArray::new(events as u32),
+            KernelTimespecPtr::new(timeout as u32),
+            ConstAioSigsetPtr::new(usig as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn io_uring_setup<S>(
@@ -7573,14 +8730,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::io_uring_setup(
-        &*syscalls,
-        &caller,
-        entries as u32,
-        IoUringParamsPtr::new(params as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::io_uring_setup(
+            &*syscalls,
+            &caller,
+            entries as u32,
+            IoUringParamsPtr::new(params as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn io_uring_enter<S>(
@@ -7598,18 +8759,22 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::io_uring_enter(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        to_submit as u32,
-        min_complete as u32,
-        flags as u32,
-        ConstVoidPtr::new(argp as u32),
-        argsz as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::io_uring_enter(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            to_submit as u32,
+            min_complete as u32,
+            flags as u32,
+            ConstVoidPtr::new(argp as u32),
+            argsz as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn io_uring_register<S>(
@@ -7625,16 +8790,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::io_uring_register(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        opcode as u32,
-        VoidPtr::new(arg as u32),
-        nr_args as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::io_uring_register(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            opcode as u32,
+            VoidPtr::new(arg as u32),
+            nr_args as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mount<S>(
@@ -7651,17 +8820,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mount(
-        &*syscalls,
-        &caller,
-        Cstr::new(dev_name as u32),
-        Cstr::new(dir_name as u32),
-        Cstr::new(r#type as u32),
-        MountFlags(flags as u32),
-        ConstVoidPtr::new(data as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mount(
+            &*syscalls,
+            &caller,
+            Cstr::new(dev_name as u32),
+            Cstr::new(dir_name as u32),
+            Cstr::new(r#type as u32),
+            MountFlags(flags as u32),
+            ConstVoidPtr::new(data as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn umount2<S>(
@@ -7675,14 +8848,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::umount2(
-        &*syscalls,
-        &caller,
-        Cstr::new(name as u32),
-        UmountFlags(flags as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::umount2(
+            &*syscalls,
+            &caller,
+            Cstr::new(name as u32),
+            UmountFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn pivot_root<S>(
@@ -7696,14 +8873,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::pivot_root(
-        &*syscalls,
-        &caller,
-        Cstr::new(new_root as u32),
-        Cstr::new(put_old as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::pivot_root(
+            &*syscalls,
+            &caller,
+            Cstr::new(new_root as u32),
+            Cstr::new(put_old as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn open_tree<S>(
@@ -7718,15 +8899,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::open_tree(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::open_tree(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn open_tree_attr<S>(
@@ -7743,17 +8928,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::open_tree_attr(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(filename as u32),
-        flags as u32,
-        ConstMountAttrPtr::new(uattr as u32),
-        usize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::open_tree_attr(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(filename as u32),
+            flags as u32,
+            ConstMountAttrPtr::new(uattr as u32),
+            usize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn move_mount<S>(
@@ -7770,17 +8959,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::move_mount(
-        &*syscalls,
-        &caller,
-        Fd(from_dfd),
-        Cstr::new(from_pathname as u32),
-        Fd(to_dfd),
-        Cstr::new(to_pathname as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::move_mount(
+            &*syscalls,
+            &caller,
+            Fd(from_dfd),
+            Cstr::new(from_pathname as u32),
+            Fd(to_dfd),
+            Cstr::new(to_pathname as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fsopen<S>(
@@ -7794,8 +8987,13 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fsopen(&*syscalls, &caller, Cstr::new(fs_name as u32), flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::fsopen(&*syscalls, &caller, Cstr::new(fs_name as u32), flags as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fsconfig<S>(
@@ -7812,17 +9010,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fsconfig(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        cmd as u32,
-        Cstr::new(key as u32),
-        ConstVoidPtr::new(value as u32),
-        aux,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fsconfig(
+            &*syscalls,
+            &caller,
+            Fd(fd),
+            cmd as u32,
+            Cstr::new(key as u32),
+            ConstVoidPtr::new(value as u32),
+            aux,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fsmount<S>(
@@ -7837,15 +9039,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fsmount(
-        &*syscalls,
-        &caller,
-        Fd(fs_fd),
-        flags as u32,
-        attr_flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fsmount(
+            &*syscalls,
+            &caller,
+            Fd(fs_fd),
+            flags as u32,
+            attr_flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn fspick<S>(
@@ -7860,15 +9066,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::fspick(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(path as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::fspick(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(path as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn mount_setattr<S>(
@@ -7885,17 +9095,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mount_setattr(
-        &*syscalls,
-        &caller,
-        Fd(dfd),
-        Cstr::new(path as u32),
-        AtFlags(flags as u32),
-        ConstMountAttrPtr::new(uattr as u32),
-        usize as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::mount_setattr(
+            &*syscalls,
+            &caller,
+            Fd(dfd),
+            Cstr::new(path as u32),
+            AtFlags(flags as u32),
+            ConstMountAttrPtr::new(uattr as u32),
+            usize as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn statmount<S>(
@@ -7911,16 +9125,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::statmount(
-        &*syscalls,
-        &caller,
-        ConstMntIdReqPtr::new(req as u32),
-        VoidPtr::new(buf as u32),
-        bufsize as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::statmount(
+            &*syscalls,
+            &caller,
+            ConstMntIdReqPtr::new(req as u32),
+            VoidPtr::new(buf as u32),
+            bufsize as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn listmount<S>(
@@ -7936,16 +9154,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::listmount(
-        &*syscalls,
-        &caller,
-        ConstMntIdReqPtr::new(req as u32),
-        U64Array::new(mnt_ids as u32),
-        nr_mnt_ids as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::listmount(
+            &*syscalls,
+            &caller,
+            ConstMntIdReqPtr::new(req as u32),
+            U64Array::new(mnt_ids as u32),
+            nr_mnt_ids as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn listns<S>(
@@ -7961,16 +9183,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::listns(
-        &*syscalls,
-        &caller,
-        ConstNsIdReqPtr::new(req as u32),
-        U64Array::new(ns_ids as u32),
-        nr_ns_ids as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::listns(
+            &*syscalls,
+            &caller,
+            ConstNsIdReqPtr::new(req as u32),
+            U64Array::new(ns_ids as u32),
+            nr_ns_ids as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn landlock_create_ruleset<S>(
@@ -7985,15 +9211,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::landlock_create_ruleset(
-        &*syscalls,
-        &caller,
-        ConstLandlockRulesetAttrPtr::new(attr as u32),
-        size as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::landlock_create_ruleset(
+            &*syscalls,
+            &caller,
+            ConstLandlockRulesetAttrPtr::new(attr as u32),
+            size as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn landlock_add_rule<S>(
@@ -8009,16 +9239,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::landlock_add_rule(
-        &*syscalls,
-        &caller,
-        Fd(ruleset_fd),
-        rule_type,
-        ConstVoidPtr::new(rule_attr as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::landlock_add_rule(
+            &*syscalls,
+            &caller,
+            Fd(ruleset_fd),
+            rule_type,
+            ConstVoidPtr::new(rule_attr as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn landlock_restrict_self<S>(
@@ -8032,9 +9266,14 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret =
-        Syscalls::landlock_restrict_self(&*syscalls, &caller, Fd(ruleset_fd), flags as u32).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::landlock_restrict_self(&*syscalls, &caller, Fd(ruleset_fd), flags as u32)
+                .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn lsm_get_self_attr<S>(
@@ -8050,16 +9289,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::lsm_get_self_attr(
-        &*syscalls,
-        &caller,
-        attr as u32,
-        LsmCtxPtr::new(ctx as u32),
-        U32Ptr::new(size as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::lsm_get_self_attr(
+            &*syscalls,
+            &caller,
+            attr as u32,
+            LsmCtxPtr::new(ctx as u32),
+            U32Ptr::new(size as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn lsm_set_self_attr<S>(
@@ -8075,16 +9318,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::lsm_set_self_attr(
-        &*syscalls,
-        &caller,
-        attr as u32,
-        ConstLsmCtxPtr::new(ctx as u32),
-        size as u32,
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::lsm_set_self_attr(
+            &*syscalls,
+            &caller,
+            attr as u32,
+            ConstLsmCtxPtr::new(ctx as u32),
+            size as u32,
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn lsm_list_modules<S>(
@@ -8099,15 +9346,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::lsm_list_modules(
-        &*syscalls,
-        &caller,
-        U64Array::new(ids as u32),
-        U32Ptr::new(size as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::lsm_list_modules(
+            &*syscalls,
+            &caller,
+            U64Array::new(ids as u32),
+            U32Ptr::new(size as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn add_key<S>(
@@ -8124,17 +9375,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::add_key(
-        &*syscalls,
-        &caller,
-        Cstr::new(r#type as u32),
-        Cstr::new(description as u32),
-        ConstVoidPtr::new(payload as u32),
-        plen as u32,
-        ringid,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::add_key(
+            &*syscalls,
+            &caller,
+            Cstr::new(r#type as u32),
+            Cstr::new(description as u32),
+            ConstVoidPtr::new(payload as u32),
+            plen as u32,
+            ringid,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn request_key<S>(
@@ -8150,16 +9405,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::request_key(
-        &*syscalls,
-        &caller,
-        Cstr::new(r#type as u32),
-        Cstr::new(description as u32),
-        Cstr::new(callout_info as u32),
-        destringid,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::request_key(
+            &*syscalls,
+            &caller,
+            Cstr::new(r#type as u32),
+            Cstr::new(description as u32),
+            Cstr::new(callout_info as u32),
+            destringid,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn keyctl<S>(
@@ -8176,17 +9435,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::keyctl(
-        &*syscalls,
-        &caller,
-        option,
-        arg2 as u32,
-        arg3 as u32,
-        arg4 as u32,
-        arg5 as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::keyctl(
+            &*syscalls,
+            &caller,
+            option,
+            arg2 as u32,
+            arg3 as u32,
+            arg4 as u32,
+            arg5 as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn bpf<S>(
@@ -8203,17 +9466,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::bpf(
-        &*syscalls,
-        &caller,
-        cmd,
-        VoidPtr::new(uattr as u32),
-        size as u32,
-        VoidPtr::new(uattr_common as u32),
-        size_common as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::bpf(
+            &*syscalls,
+            &caller,
+            cmd,
+            VoidPtr::new(uattr as u32),
+            size as u32,
+            VoidPtr::new(uattr_common as u32),
+            size_common as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn perf_event_open<S>(
@@ -8230,17 +9497,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::perf_event_open(
-        &*syscalls,
-        &caller,
-        VoidPtr::new(attr_uptr as u32),
-        pid,
-        cpu,
-        Fd(group_fd),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::perf_event_open(
+            &*syscalls,
+            &caller,
+            VoidPtr::new(attr_uptr as u32),
+            pid,
+            cpu,
+            Fd(group_fd),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn reboot<S>(
@@ -8256,16 +9527,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::reboot(
-        &*syscalls,
-        &caller,
-        magic1,
-        magic2,
-        RebootCmd(cmd as u32),
-        VoidPtr::new(arg as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::reboot(
+            &*syscalls,
+            &caller,
+            magic1,
+            magic2,
+            RebootCmd(cmd as u32),
+            VoidPtr::new(arg as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn acct<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, name: i32) -> Result<i32, RuntimeError>
@@ -8275,8 +9550,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::acct(&*syscalls, &caller, Cstr::new(name as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::acct(&*syscalls, &caller, Cstr::new(name as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn swapon<S>(
@@ -8290,14 +9569,18 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::swapon(
-        &*syscalls,
-        &caller,
-        Cstr::new(specialfile as u32),
-        swap_flags,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::swapon(
+            &*syscalls,
+            &caller,
+            Cstr::new(specialfile as u32),
+            swap_flags,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn swapoff<S>(
@@ -8310,8 +9593,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::swapoff(&*syscalls, &caller, Cstr::new(specialfile as u32)).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::swapoff(&*syscalls, &caller, Cstr::new(specialfile as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn syslog<S>(
@@ -8326,8 +9613,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::syslog(&*syscalls, &caller, r#type, Buf::new(buf as u32), len).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::syslog(&*syscalls, &caller, r#type, Buf::new(buf as u32), len).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn vhangup<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
@@ -8337,8 +9628,12 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::vhangup(&*syscalls, &caller).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::vhangup(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn kexec_load<S>(
@@ -8354,16 +9649,20 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::kexec_load(
-        &*syscalls,
-        &caller,
-        entry as u32,
-        nr_segments as u32,
-        ConstKexecSegmentArray::new(segments as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::kexec_load(
+            &*syscalls,
+            &caller,
+            entry as u32,
+            nr_segments as u32,
+            ConstKexecSegmentArray::new(segments as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn kexec_file_load<S>(
@@ -8380,17 +9679,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::kexec_file_load(
-        &*syscalls,
-        &caller,
-        Fd(kernel_fd),
-        Fd(initrd_fd),
-        cmdline_len as u32,
-        Cstr::new(cmdline_ptr as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::kexec_file_load(
+            &*syscalls,
+            &caller,
+            Fd(kernel_fd),
+            Fd(initrd_fd),
+            cmdline_len as u32,
+            Cstr::new(cmdline_ptr as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn init_module<S>(
@@ -8405,15 +9708,19 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::init_module(
-        &*syscalls,
-        &caller,
-        ConstBuf::new(umod as u32),
-        len as u32,
-        Cstr::new(uargs as u32),
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::init_module(
+            &*syscalls,
+            &caller,
+            ConstBuf::new(umod as u32),
+            len as u32,
+            Cstr::new(uargs as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn finit_module<S>(
@@ -8428,9 +9735,14 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret =
-        Syscalls::finit_module(&*syscalls, &caller, Fd(fd), Cstr::new(uargs as u32), flags).await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret =
+            Syscalls::finit_module(&*syscalls, &caller, Fd(fd), Cstr::new(uargs as u32), flags)
+                .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }
 
 async fn delete_module<S>(
@@ -8444,12 +9756,16 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::delete_module(
-        &*syscalls,
-        &caller,
-        Cstr::new(name_user as u32),
-        flags as u32,
-    )
-    .await;
-    return_to_guest(&*syscalls, task, ret)
+    loop {
+        let ret = Syscalls::delete_module(
+            &*syscalls,
+            &caller,
+            Cstr::new(name_user as u32),
+            flags as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
 }

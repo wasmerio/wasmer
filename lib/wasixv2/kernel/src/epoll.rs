@@ -586,7 +586,11 @@ impl Kernel {
         let ret = self
             .do_epoll_wait(caller, epfd, events, maxevents, deadline)
             .await;
-        self.restore_sigmask(caller, saved);
+        self.restore_sigmask(
+            caller,
+            saved,
+            matches!(ret, Err(SysErr::Errno(Errno::EINTR))),
+        );
         ret
     }
 
@@ -625,11 +629,11 @@ impl Kernel {
                 break events;
             }
             // epoll_wait is never restarted.
-            if interrupt.pending() {
+            if wasixv2_wait::Interrupt::pending(&*interrupt) {
                 return Err(Errno::EINTR.into());
             }
             let timer = timer.as_mut().map(|timer| timer.as_mut());
-            match waiter.sleep(interrupt, timer).await {
+            match waiter.sleep(&*interrupt, timer).await {
                 Wakeup::Woken(_) => {}
                 Wakeup::TimedOut => timed_out = true,
                 Wakeup::Interrupted => return Err(SysErr::Errno(Errno::EINTR)),

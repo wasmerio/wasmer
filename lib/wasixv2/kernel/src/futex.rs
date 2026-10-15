@@ -291,7 +291,7 @@ impl Kernel {
                 return Ok(0);
             }
             let wakeup = waiter
-                .sleep(interrupt, timer.as_mut().map(|t| t.as_mut()))
+                .sleep(&*interrupt, timer.as_mut().map(|t| t.as_mut()))
                 .await;
             match wakeup {
                 Wakeup::Woken(_) => {}

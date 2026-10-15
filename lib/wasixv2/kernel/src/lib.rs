@@ -15,6 +15,7 @@ mod net;
 mod netlink;
 mod pipe;
 mod poll;
+mod signal;
 mod socket;
 mod startup;
 mod stdio;
@@ -118,10 +119,11 @@ struct Task {
     /// Root, working directory and umask (`fs_struct`).
     fs: Arc<Mutex<FsContext>>,
     pending: Option<GuestAction>,
-    /// Blocked signals; bit `n - 1` is signal `n`.
-    sigmask: u64,
     // ---- thr ----
     thread: thread::ThreadState,
+    // ---- sig ----
+    /// The task's masks and pending signals, and its thread group's dispositions.
+    signals: Arc<signal::TaskSignals>,
 }
 
 impl Kernel {
@@ -170,8 +172,8 @@ impl Kernel {
             files: Arc::new(Mutex::new(files)),
             fs: Arc::new(Mutex::new(FsContext::new(self.vfs.root()))),
             pending: None,
-            sigmask: 0,
             thread: thread::ThreadState::default(),
+            signals: signal::Signals::new().attach(id, 0),
         };
         state.tasks.insert(id, task);
         id
@@ -304,7 +306,7 @@ impl Syscalls for Kernel {
         vec: ConstIovecArray,
         vlen: Ulong,
     ) -> SysResult<u32> {
-        self.sys_writev(caller, fd, vec, vlen).await
+        self.sigpipe(caller, self.sys_writev(caller, fd, vec, vlen).await)
     }
 
     async fn pread64(
@@ -901,7 +903,9 @@ impl Syscalls for Kernel {
         let file = self.file(caller.task(), fd)?;
         file.check_readable()?;
         let mut data = vec![0; (buf.len as usize).min(IO_CHUNK)];
-        let n = file.read(&mut data).await?;
+        let n = file
+            .read_interruptible(&*self.interrupt(caller), &mut data)
+            .await?;
         buf.copy_out(caller.memory(), &data[..n]).await?;
         Ok(n as u32)
     }
@@ -910,7 +914,8 @@ impl Syscalls for Kernel {
         let file = self.file(caller.task(), fd)?;
         file.check_writable()?;
         let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
-        let n = file.write(&data).await?;
+        let interrupt = self.interrupt(caller);
+        let n = self.sigpipe(caller, file.write_interruptible(&*interrupt, &data).await)?;
         Ok(n as u32)
     }
 
@@ -1019,7 +1024,24 @@ impl Syscalls for Kernel {
         Ok(caller.task().0 as Pid)
     }
 
-    /// Tracks the mask; nothing delivers signals yet.
+    // ---- sig ----
+
+    async fn signal_callback_register(&self, caller: &Caller<'_>, callback: u32) -> SysResult<i32> {
+        self.sys_signal_callback_register(caller, callback).await
+    }
+
+    async fn rt_sigaction(
+        &self,
+        caller: &Caller<'_>,
+        sig: Signal,
+        act: wasixv2_abi::ConstSigactionPtr,
+        oact: wasixv2_abi::SigactionPtr,
+        sigsetsize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_rt_sigaction(caller, sig, act, oact, sigsetsize)
+            .await
+    }
+
     async fn rt_sigprocmask(
         &self,
         caller: &Caller<'_>,
@@ -1028,31 +1050,107 @@ impl Syscalls for Kernel {
         oset: SigsetPtr,
         sigsetsize: Usize,
     ) -> SysResult<i32> {
-        if sigsetsize as usize != size_of::<Sigset>() {
-            return Err(Errno::EINVAL.into());
-        }
-        let new = match nset.is_null() {
-            true => None,
-            false => Some(sigset_bits(read_value(caller.memory(), nset).await?)),
-        };
-        let old = self.with_task(caller.task(), |task| task.sigmask);
-        if let Some(set) = new {
-            let mask = match how {
-                SigprocmaskHow::SIG_BLOCK => old | set,
-                SigprocmaskHow::SIG_UNBLOCK => old & !set,
-                SigprocmaskHow::SIG_SETMASK => set,
-                _ => return Err(Errno::EINVAL.into()),
-            };
-            let unblockable = signal_bit(Signal::SIGKILL) | signal_bit(Signal::SIGSTOP);
-            self.with_task(caller.task(), |task| task.sigmask = mask & !unblockable);
-        }
-        if !oset.is_null() {
-            let old = Sigset {
-                sig: [old as u32, (old >> 32) as u32],
-            };
-            write_value(caller.memory(), oset, &old).await?;
-        }
-        Ok(0)
+        self.sys_rt_sigprocmask(caller, how, nset, oset, sigsetsize)
+            .await
+    }
+
+    async fn rt_sigpending(
+        &self,
+        caller: &Caller<'_>,
+        uset: SigsetPtr,
+        sigsetsize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_rt_sigpending(caller, uset, sigsetsize).await
+    }
+
+    async fn rt_sigsuspend(
+        &self,
+        caller: &Caller<'_>,
+        unewset: ConstSigsetPtr,
+        sigsetsize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_rt_sigsuspend(caller, unewset, sigsetsize).await
+    }
+
+    async fn rt_sigtimedwait_time64(
+        &self,
+        caller: &Caller<'_>,
+        uthese: ConstSigsetPtr,
+        uinfo: wasixv2_abi::SiginfoPtr,
+        uts: ConstKernelTimespecPtr,
+        sigsetsize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_rt_sigtimedwait(caller, uthese, uinfo, uts, sigsetsize)
+            .await
+    }
+
+    async fn rt_sigqueueinfo(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        sig: Signal,
+        uinfo: wasixv2_abi::ConstSiginfoPtr,
+    ) -> SysResult<i32> {
+        self.sys_rt_sigqueueinfo(caller, pid, None, sig, uinfo)
+            .await
+    }
+
+    async fn rt_tgsigqueueinfo(
+        &self,
+        caller: &Caller<'_>,
+        tgid: Pid,
+        pid: Pid,
+        sig: Signal,
+        uinfo: wasixv2_abi::ConstSiginfoPtr,
+    ) -> SysResult<i32> {
+        self.sys_rt_sigqueueinfo(caller, tgid, Some(pid), sig, uinfo)
+            .await
+    }
+
+    async fn sigaltstack(
+        &self,
+        caller: &Caller<'_>,
+        uss: wasixv2_abi::ConstSigaltstackPtr,
+        uoss: wasixv2_abi::SigaltstackPtr,
+    ) -> SysResult<i32> {
+        self.sys_sigaltstack(caller, uss, uoss).await
+    }
+
+    async fn kill(&self, caller: &Caller<'_>, pid: Pid, sig: Signal) -> SysResult<i32> {
+        self.sys_kill(caller, pid, sig).await
+    }
+
+    async fn tkill(&self, caller: &Caller<'_>, pid: Pid, sig: Signal) -> SysResult<i32> {
+        self.sys_tgkill(caller, None, pid, sig).await
+    }
+
+    async fn tgkill(
+        &self,
+        caller: &Caller<'_>,
+        tgid: Pid,
+        pid: Pid,
+        sig: Signal,
+    ) -> SysResult<i32> {
+        self.sys_tgkill(caller, Some(tgid), pid, sig).await
+    }
+
+    async fn setitimer(
+        &self,
+        caller: &Caller<'_>,
+        which: wasixv2_abi::ItimerWhich,
+        value: wasixv2_abi::ConstKernelOldItimervalPtr,
+        ovalue: wasixv2_abi::KernelOldItimervalPtr,
+    ) -> SysResult<i32> {
+        self.sys_setitimer(caller, which, value, ovalue).await
+    }
+
+    async fn getitimer(
+        &self,
+        caller: &Caller<'_>,
+        which: wasixv2_abi::ItimerWhich,
+        value: wasixv2_abi::KernelOldItimervalPtr,
+    ) -> SysResult<i32> {
+        self.sys_getitimer(caller, which, value).await
     }
 
     /// The break never moves, so musl's malloc falls back to `mmap`.
@@ -1153,16 +1251,16 @@ impl Syscalls for Kernel {
             which_clock,
             ClockId::CLOCK_REALTIME | ClockId::CLOCK_REALTIME_COARSE
         );
-        if absolute && !realtime {
+        let sleep = match (absolute, realtime) {
             // Every other clock time::now accepts is the host's monotonic clock.
-            self.host.sleep_until(request).await;
-            return Ok(0);
-        }
-        let duration = match absolute {
-            true => request.saturating_sub(now),
-            false => request,
+            (true, false) => self.host.sleep_until(request),
+            (true, true) => self.host.sleep(request.saturating_sub(now)),
+            (false, _) => self.host.sleep(request),
         };
-        self.host.sleep(duration).await;
+        // TODO: write the time left to `rmtp` and restart with it (`restart_block`).
+        self.interruptible_sleep(caller, sleep)
+            .await
+            .map_err(|_| wasixv2_syscalls::SysErr::RestartNoHand)?;
         Ok(0)
     }
 
@@ -1463,26 +1561,30 @@ impl Syscalls for Kernel {
 
 impl Control for Kernel {
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
-        let mut state = self.state.lock().unwrap();
-        let entry = state
-            .tasks
-            .get_mut(&task)
-            .expect("syscall from an unknown task");
-        let pending = entry.pending.take();
-        // ---- thr ----
-        if entry.thread.reapable(pending) {
-            state.tasks.remove(&task);
-        }
-        pending
+        let pending = {
+            let mut state = self.state.lock().unwrap();
+            let entry = state
+                .tasks
+                .get_mut(&task)
+                .expect("syscall from an unknown task");
+            let pending = entry.pending.take();
+            // ---- thr ----
+            if entry.thread.reapable(pending) {
+                let entry = state.tasks.remove(&task).expect("task checked above");
+                entry.signals.detach();
+            }
+            pending
+        };
+        pending.or_else(|| self.take_signal(task))
+    }
+
+    fn signal_return(&self, task: TaskId, mask: Option<u64>) {
+        Kernel::signal_return(self, task, mask)
     }
 }
 
 fn sigset_bits(set: Sigset) -> u64 {
     u64::from(set.sig[0]) | (u64::from(set.sig[1]) << 32)
-}
-
-fn signal_bit(signal: Signal) -> u64 {
-    1 << (signal.0 - 1)
 }
 
 #[cfg(test)]

@@ -22290,7 +22290,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         }],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {

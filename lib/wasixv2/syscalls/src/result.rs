@@ -6,9 +6,13 @@ use crate::memory::Fault;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SysErr {
     Errno(Errno),
-    /// Interrupted by a signal; the return-to-guest path decides between rerunning the call and
-    /// returning `EINTR`.
+    /// Interrupted by a signal (`ERESTARTSYS`); the return-to-guest path reruns the call unless a
+    /// handler without `SA_RESTART` ran, in which case it returns `EINTR`.
     Restart,
+    /// Interrupted by a signal (`ERESTARTNOHAND`): `EINTR` once any handler ran, whatever its
+    /// `SA_RESTART`; rerun otherwise. For calls Linux never restarts after a handler, such as
+    /// `poll`, `pause` and `sigsuspend`.
+    RestartNoHand,
 }
 
 impl From<Errno> for SysErr {

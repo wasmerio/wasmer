@@ -145,16 +145,16 @@ impl Kernel {
                 },
                 exited: false,
             };
+            let id = TaskId(state.last_id + 1);
             let new = Task {
                 process,
                 files: task.files.clone(),
                 fs: task.fs.clone(),
                 pending: None,
-                sigmask: task.sigmask,
                 thread,
+                signals: task.signals.group().attach(id, task.signals.blocked()),
             };
             state.last_id += 1;
-            let id = TaskId(state.last_id);
             state.tasks.insert(id, new);
             id
         };
@@ -187,7 +187,7 @@ impl Kernel {
             group.live == 0
         };
         if last {
-            self.exit_group(task, status);
+            self.do_group_exit(task, status);
             return Ok(());
         }
         if task == process.pid {
@@ -209,13 +209,13 @@ impl Kernel {
     }
 
     pub(crate) async fn sys_exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
-        self.exit_group(caller.task(), status);
+        self.do_group_exit(caller.task(), status);
         Ok(())
     }
 
     /// `do_group_exit`: every task of the group exits with `status`. The first exit wins. Tasks
-    /// blocked in a futex wait notice; the others unwind on their next return to the guest.
-    fn exit_group(&self, task: TaskId, status: i32) {
+    /// blocked in an interruptible wait notice; the others unwind on their next return to the guest.
+    pub(crate) fn do_group_exit(&self, task: TaskId, status: i32) {
         // Linux keeps only the low byte of the status.
         let status = status & 0xff;
         let mut state = self.state.lock().unwrap();
@@ -227,12 +227,18 @@ impl Kernel {
             .unwrap()
             .exit
             .get_or_insert(status);
-        for task in state.tasks.values_mut() {
-            if Arc::ptr_eq(&task.process, &process) {
-                task.pending = Some(GuestAction::Exit(status));
+        let mut others = false;
+        for (&id, t) in state.tasks.iter_mut() {
+            if Arc::ptr_eq(&t.process, &process) {
+                t.pending = Some(GuestAction::Exit(status));
+                others |= id != task;
             }
         }
+        let signals = state.tasks[&task].signals.group().clone();
         drop(state);
+        if others {
+            signals.kill_all();
+        }
         process.group.exited.wake(PollMask::empty());
     }
 

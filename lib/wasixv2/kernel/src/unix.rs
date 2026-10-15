@@ -1082,7 +1082,8 @@ impl Kernel {
             return Ok(0);
         }
         let cred = self.ucred(caller);
-        let io = self.unix_io(caller, file);
+        let interrupt = self.interrupt(caller);
+        let io = Self::io(&*interrupt, file);
         block(io, &target.wait, || sock.try_connect(&target, cred)).await?;
         Ok(0)
     }
@@ -1097,7 +1098,8 @@ impl Kernel {
         if !sock.kind.connection() {
             return Err(Errno::EOPNOTSUPP.into());
         }
-        let io = self.unix_io(caller, file);
+        let interrupt = self.interrupt(caller);
+        let io = Self::io(&*interrupt, file);
         block(io, &sock.wait, || sock.try_accept()).await
     }
 
@@ -1192,14 +1194,6 @@ impl Kernel {
             | SocketOption::SO_KEEPALIVE
             | SocketOption::SO_BROADCAST => int(0),
             _ => Err(Errno::ENOPROTOOPT),
-        }
-    }
-
-    /// The call context for an operation on `file`.
-    pub(crate) fn unix_io<'a>(&'a self, caller: &Caller<'_>, file: &OpenFile) -> Io<'a> {
-        Io {
-            flags: file.flags(),
-            interrupt: self.interrupt(caller),
         }
     }
 }

@@ -12,7 +12,7 @@ mod memory;
 mod result;
 
 pub use caller::{Caller, TaskId};
-pub use control::{Control, GuestAction};
+pub use control::{Control, GuestAction, SignalFrame};
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{
     CstrError, Fault, LocalFuture, UserMemory, UserSlice, UserSliceMut, WASM_PAGE_SIZE, read_cstr,
