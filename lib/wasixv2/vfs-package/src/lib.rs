@@ -7,14 +7,19 @@
 //! buffer.
 //!
 //! What the image does not record is fixed: every object belongs to root (uid and gid 0), files
-//! are `0644`, directories `0755`, symlinks `0777`. All timestamps are the epoch, since the v3
-//! reader does not expose the stored modification time. Inode numbers are derived from the
-//! layout alone: the root is 1 and a child is the FNV-1a hash of its parent's number and its
-//! name, so a package always presents the same numbers.
+//! and directories are `0755`, symlinks `0777`. Files are executable because v3 stores no mode
+//! bits and packages carry programs and scripts; nothing can be written anyway. All timestamps
+//! are the epoch, since the v3 reader does not expose the stored modification time. Inode
+//! numbers are handed out from a per-volume counter when a directory is first parsed (the root
+//! is 1, its entries take the next consecutive numbers), so every object has exactly one
+//! number for the mount's lifetime and no two objects share one.
 
 use std::{
     any::Any,
-    sync::{Arc, OnceLock},
+    sync::{
+        Arc, OnceLock,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use async_trait::async_trait;
@@ -37,7 +42,7 @@ mod tests;
 pub const WEBC_MAGIC: u32 = 0x7765_6263;
 const BLOCK: u64 = 4096;
 const ROOT_INO: u64 = 1;
-const FILE_MODE: u32 = 0o644;
+const FILE_MODE: u32 = 0o755;
 const DIR_MODE: u32 = 0o755;
 const SYMLINK_MODE: u32 = 0o777;
 
@@ -62,6 +67,8 @@ struct Volume {
     // Never read: it owns the header bytes that `Directory<'static>` and names point into.
     _section: VolumeSection,
     size: u64,
+    /// The next inode number to hand out.
+    next_ino: AtomicU64,
 }
 
 impl PackageFs {
@@ -80,8 +87,9 @@ impl PackageFs {
         let vol = Arc::new(Volume {
             _section: section,
             size,
+            next_ino: AtomicU64::new(ROOT_INO + 1),
         });
-        let root = Arc::new(DirData::new(root, ROOT_INO, vol.clone()));
+        let root = Arc::new(DirData::new(root, vol.clone()));
         Ok(Self { root, vol })
     }
 }
@@ -125,7 +133,6 @@ impl Filesystem for PackageFs {
 /// A directory and, once parsed, its entries.
 struct DirData {
     dir: Directory<'static>,
-    ino: u64,
     children: OnceLock<Result<Children, Errno>>,
     vol: Arc<Volume>,
 }
@@ -160,10 +167,9 @@ impl Kind {
 }
 
 impl DirData {
-    fn new(dir: Directory<'static>, ino: u64, vol: Arc<Volume>) -> Self {
+    fn new(dir: Directory<'static>, vol: Arc<Volume>) -> Self {
         Self {
             dir,
-            ino,
             children: OnceLock::new(),
             vol,
         }
@@ -179,13 +185,21 @@ impl DirData {
     fn parse(&self) -> FsResult<Children> {
         let mut entries = Vec::new();
         let mut subdirs = 0;
-        for entry in self.dir.entries() {
-            let (name, _hash, entry) = entry.map_err(|_| Errno::EIO)?;
-            let ino = child_ino(self.ino, name.as_bytes());
+        let parsed = self
+            .dir
+            .entries()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| Errno::EIO)?;
+        // `children` runs this once per directory, so each entry gets its number exactly once.
+        let first = self
+            .vol
+            .next_ino
+            .fetch_add(parsed.len() as u64, Ordering::Relaxed);
+        for (ino, (name, _hash, entry)) in (first..).zip(parsed) {
             let kind = match entry {
                 WebcEntry::Dir(dir) => {
                     subdirs += 1;
-                    Kind::Dir(Arc::new(DirData::new(dir, ino, self.vol.clone())))
+                    Kind::Dir(Arc::new(DirData::new(dir, self.vol.clone())))
                 }
                 WebcEntry::File(file) => Kind::File(file.bytes().clone()),
                 WebcEntry::Symlink(link) => Kind::Symlink(link.target()),
@@ -204,16 +218,6 @@ impl DirData {
             subdirs,
         })
     }
-}
-
-/// FNV-1a over the parent's inode number and the name. Never 0 or the root's number.
-fn child_ino(parent: u64, name: &[u8]) -> u64 {
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for &byte in parent.to_le_bytes().iter().chain(name) {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    if hash <= ROOT_INO { hash + 2 } else { hash }
 }
 
 /// A file, directory or symlink of the volume.

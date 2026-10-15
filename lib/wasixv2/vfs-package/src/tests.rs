@@ -93,14 +93,22 @@ fn lookup_finds_entries_and_misses_with_enoent() {
 }
 
 #[test]
-fn inode_numbers_are_stable_and_match_readdir() {
-    let (one, two) = (fs(), fs());
-    let ino = lookup(&one, "bin/tool").ino();
-    assert_eq!(ino, lookup(&two, "bin/tool").ino());
-    assert_ne!(ino, lookup(&one, "a.txt").ino());
-    assert_eq!(one.root().ino(), ROOT_INO);
+fn inode_numbers_are_unique_stable_and_match_readdir() {
+    let fs = fs();
+    let ino = lookup(&fs, "bin/tool").ino();
+    assert_eq!(ino, lookup(&fs, "bin/tool").ino());
+    assert_eq!(fs.root().ino(), ROOT_INO);
 
-    let entries = read_dir(&*lookup(&one, "bin"), 0, usize::MAX);
+    let mut all = vec![ROOT_INO];
+    for path in ["a.txt", "bin", "bin/tool", "bin/sh", "empty", "z"] {
+        all.push(lookup(&fs, path).ino());
+    }
+    let count = all.len();
+    all.sort_unstable();
+    all.dedup();
+    assert_eq!(all.len(), count);
+
+    let entries = read_dir(&*lookup(&fs, "bin"), 0, usize::MAX);
     assert!(entries.iter().any(|e| e.0 == b"tool" && e.1 == ino));
 }
 
@@ -140,7 +148,7 @@ fn getattr_reports_a_root_owned_read_only_image() {
     let file = block_on(lookup(&fs, "a.txt").getattr()).unwrap();
     assert_eq!(
         (file.mode, file.uid, file.gid, file.nlink, file.size),
-        (0o644, 0, 0, 1, 11)
+        (0o755, 0, 0, 1, 11)
     );
     let root = block_on(fs.root().getattr()).unwrap();
     // `.`, the parent's entry, and one `..` each from bin, empty and z.
