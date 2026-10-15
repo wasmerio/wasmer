@@ -7223,6 +7223,7 @@ name = "wasixv2-vnet"
 version = "0.0.0"
 dependencies = [
  "wasixv2-abi",
+ "wasixv2-wait",
 ]
 
 [[package]]
