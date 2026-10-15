@@ -7108,6 +7108,10 @@ dependencies = [
 [[package]]
 name = "wasixv2-abi"
 version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "wasixv2-codegen",
+]
 
 [[package]]
 name = "wasixv2-checkpoint"

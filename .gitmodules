@@ -7,3 +7,6 @@
 [submodule "wasmer-test-files"]
 	path = wasmer-test-files
 	url = https://github.com/wasmerio/wasmer-test-files.git
+[submodule "lib/wasixv2/codegen"]
+	path = lib/wasixv2/codegen
+	url = https://github.com/wasix-org/wasixv2-abi.git

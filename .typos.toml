@@ -48,7 +48,7 @@ existant = "existant"
 fourty = "fourty"
 # Scene ID
 tne = "tne"
-# Linux ABI identifiers (lib/wasixv2/codegen/wit)
+# Linux ABI identifiers (lib/wasixv2/codegen/wit and the code generated from it)
 controllen = "controllen"
 exta = "exta"
 EXTA = "EXTA"

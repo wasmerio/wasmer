@@ -11,3 +11,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+
+[dev-dependencies]
+anyhow.workspace = true
+wasixv2-codegen = { path = "../codegen" }
