@@ -12,6 +12,7 @@ mod futex;
 mod ioctl;
 mod mm;
 mod net;
+mod netlink;
 mod pipe;
 mod poll;
 mod socket;
@@ -19,6 +20,7 @@ mod startup;
 mod stdio;
 mod thread;
 mod time;
+mod unix;
 
 use std::{
     collections::HashMap,
@@ -87,6 +89,8 @@ pub struct Kernel {
     /// `EAFNOSUPPORT`.
     // TODO: one per network namespace once namespaces exist.
     network: Option<Arc<dyn wasixv2_vnet::Network>>,
+    /// Bound Unix socket names (the abstract namespace and socket inodes).
+    unix_names: Arc<unix::Names>,
     // ---- fs ----
     vfs: Arc<Vfs>,
     // ---- thr ----
@@ -128,6 +132,7 @@ impl Kernel {
             host,
             state: Mutex::default(),
             network: None,
+            unix_names: Arc::default(),
             vfs: Vfs::new(root),
             futexes: futex::Futexes::default(),
         }

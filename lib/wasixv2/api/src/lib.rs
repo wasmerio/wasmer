@@ -43,7 +43,7 @@ const USER: u32 = 1;
 
 /// One kernel and the processes it runs.
 ///
-/// The root filesystem is in memory and starts out with an empty `/tmp` and, when there are
+/// The root filesystem is in memory and starts out with an empty `/tmp`, `/etc/hosts` and, when there are
 /// name servers, `/etc/resolv.conf`. The network is one namespace; with the `host-network`
 /// feature on a Unix host, traffic leaving it goes through host sockets, otherwise it is
 /// loopback-only. The machine's futures must be driven where its [`Host`]'s executor expects
@@ -183,8 +183,11 @@ fn default_network() -> Arc<Net> {
     Net::new(NetConfig::default(), None)
 }
 
-/// A memory root owned by the user processes run as, with a world-writable sticky `/tmp` and,
-/// when there are name servers, `/etc/resolv.conf`.
+/// The guest's `/etc/hosts`.
+const HOSTS: &str = "127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loopback\n";
+
+/// A memory root owned by the user processes run as, with a world-writable sticky `/tmp`,
+/// `/etc/hosts` and, when there are name servers, `/etc/resolv.conf`.
 fn root_filesystem(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesystem> {
     let root: Arc<dyn Filesystem> = Arc::new(MemFs::new(
         Arc::new(HostClock(host.clone())),
@@ -206,13 +209,16 @@ fn root_filesystem(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesyste
             .lookup(&cx, &top, b"/tmp", LookupFlags::follow())
             .await?;
         vfs.chmod(&cx, &path, 0o1777).await?;
+        vfs.mkdir(&cx, &top, b"/etc", 0o755).await?;
+        let how = wasixv2_vfs::OpenHow {
+            flags: wasixv2_abi::OpenFlags::O_CREAT | wasixv2_abi::OpenFlags::O_WRONLY,
+            mode: 0o644,
+            lookup: LookupFlags::follow(),
+        };
+        // `localhost` resolves without DNS, as on every Linux system.
+        let file = vfs.open(&cx, &top, b"/etc/hosts", &how).await?;
+        file.write_at(HOSTS.as_bytes(), 0).await?;
         if !resolv_conf.is_empty() {
-            vfs.mkdir(&cx, &top, b"/etc", 0o755).await?;
-            let how = wasixv2_vfs::OpenHow {
-                flags: wasixv2_abi::OpenFlags::O_CREAT | wasixv2_abi::OpenFlags::O_WRONLY,
-                mode: 0o644,
-                lookup: LookupFlags::follow(),
-            };
             let file = vfs.open(&cx, &top, b"/etc/resolv.conf", &how).await?;
             file.write_at(resolv_conf.as_bytes(), 0).await?;
         }

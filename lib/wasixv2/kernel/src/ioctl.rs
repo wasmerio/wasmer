@@ -42,6 +42,10 @@ impl Kernel {
                 file.set_status_flags(flags);
                 Ok(0)
             }
+            // ---- net ----
+            _ if crate::net::is_dev_ioctl(request) && self.is_socket(&file) => {
+                self.sys_dev_ioctl(caller, request, arg).await
+            }
             _ => match file.object() {
                 Some(object) => object.ioctl(caller, request, arg).await,
                 None => Err(Errno::ENOTTY.into()),
