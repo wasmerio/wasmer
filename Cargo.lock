@@ -7171,6 +7171,7 @@ name = "wasixv2-vfs"
 version = "0.0.0"
 dependencies = [
  "wasixv2-abi",
+ "wasixv2-host",
 ]
 
 [[package]]
@@ -7184,6 +7185,8 @@ dependencies = [
 name = "wasixv2-vfs-mem"
 version = "0.0.0"
 dependencies = [
+ "futures",
+ "wasixv2-abi",
  "wasixv2-vfs",
 ]
 

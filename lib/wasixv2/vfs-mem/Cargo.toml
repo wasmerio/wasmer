@@ -12,3 +12,7 @@ rust-version.workspace = true
 
 [dependencies]
 wasixv2-vfs = { path = "../vfs" }
+wasixv2-abi = { path = "../abi" }
+
+[dev-dependencies]
+futures.workspace = true
