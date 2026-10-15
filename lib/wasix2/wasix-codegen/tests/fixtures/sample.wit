@@ -1,0 +1,355 @@
+/// Representative subset of the wasix2 definitions, exercising every annotation.
+package wasix2:sample@0.1.0;
+
+/// Primitive aliases, structs, unions and constant families.
+interface types {
+  /// Guest address.
+  /// @pointer-sized
+  type uptr = u32;
+  /// C `unsigned long`.
+  /// @pointer-sized
+  /// @c(unsigned long)
+  type ulong = u32;
+  /// C `long`; the return type of every Linux syscall.
+  /// @pointer-sized
+  /// @c(long)
+  type slong = s32;
+  /// @pointer-sized
+  /// @c(size_t)
+  type usize = u32;
+
+  /// @c(int)
+  type fd = s32;
+  /// Alias of an alias.
+  /// @c(int)
+  type dirfd = fd;
+  /// @c(mode_t)
+  type mode = u32;
+  /// @c(off_t)
+  type off = s64;
+  /// @c(loff_t)
+  type loff = s64;
+  /// @c(clockid_t)
+  type clockid = s32;
+  /// @c(socklen_t)
+  type socklen = u32;
+  /// @c(sa_family_t)
+  type sa-family = u16;
+  /// @c(time_t)
+  type time = s64;
+
+  /// NUL-terminated string.
+  /// @ptr(const u8[])
+  /// @c(const char *)
+  type cstr = uptr;
+  /// @ptr(mut void)
+  type void-ptr = uptr;
+  /// @ptr(const void)
+  /// @nullable
+  type const-void-ptr = uptr;
+  /// @ptr(mut u8[])
+  type buf = uptr;
+  /// NULL-terminated argument vector.
+  /// @ptr(const cstr[])
+  type argv = uptr;
+  /// @ptr(mut timespec)
+  /// @nullable
+  type timespec-ptr = uptr;
+  /// @ptr(mut statx)
+  type statx-ptr = uptr;
+  /// @ptr(mut epoll-event[])
+  type epoll-event-ptr = uptr;
+  /// @ptr(const sockaddr)
+  type sockaddr-ptr = uptr;
+  /// @ptr(mut loff)
+  type loff-ptr = uptr;
+
+  /// Kernel time64 timespec (musl: `long` tv_nsec plus anonymous padding, same layout).
+  /// @c(struct timespec)
+  /// @size(16)
+  /// @align(8)
+  record timespec {
+    tv-sec: time,
+    tv-nsec: s64,
+  }
+
+  /// @c(struct statx_timestamp)
+  /// @size(16)
+  /// @align(8)
+  record statx-timestamp {
+    tv-sec: s64,
+    tv-nsec: u32,
+    /// @c-name(__pad)
+    pad: u32,
+  }
+
+  /// @c(struct statx)
+  /// @size(256)
+  /// @align(8)
+  record statx {
+    stx-mask: u32,
+    stx-blksize: u32,
+    stx-attributes: u64,
+    stx-nlink: u32,
+    stx-uid: u32,
+    stx-gid: u32,
+    stx-mode: u16,
+    /// @c-name(__pad0)
+    pad0: list<u16, 1>,
+    stx-ino: u64,
+    stx-size: u64,
+    stx-blocks: u64,
+    stx-attributes-mask: u64,
+    stx-atime: statx-timestamp,
+    stx-btime: statx-timestamp,
+    stx-ctime: statx-timestamp,
+    stx-mtime: statx-timestamp,
+    stx-rdev-major: u32,
+    stx-rdev-minor: u32,
+    stx-dev-major: u32,
+    stx-dev-minor: u32,
+    stx-mnt-id: u64,
+    stx-dio-mem-align: u32,
+    stx-dio-offset-align: u32,
+    stx-subvol: u64,
+    stx-atomic-write-unit-min: u32,
+    stx-atomic-write-unit-max: u32,
+    stx-atomic-write-segments-max: u32,
+    /// @c-name(__pad1)
+    pad1: list<u32, 1>,
+    /// @c-name(__pad2)
+    pad2: list<u64, 9>,
+  }
+
+  /// @c(union epoll_data)
+  /// @union
+  /// @size(8)
+  /// @align(8)
+  record epoll-data {
+    ptr: void-ptr,
+    fd: fd,
+    %u32: u32,
+    %u64: u64,
+  }
+
+  /// Implicit padding after `events` (the u64 union member is 8-aligned).
+  /// @c(struct epoll_event)
+  /// @size(16)
+  /// @align(8)
+  record epoll-event {
+    events: epoll-events,
+    data: epoll-data,
+  }
+
+  /// @c(struct sockaddr)
+  /// @size(16)
+  /// @align(2)
+  record sockaddr {
+    sa-family: sa-family,
+    sa-data: list<u8, 14>,
+  }
+
+  /// Error numbers (returned negated).
+  /// @repr(s32)
+  /// @abi-error
+  enum errno {
+    /// Operation not permitted.
+    /// @value(1)
+    eperm,
+    /// @value(2)
+    enoent,
+    /// @value(11)
+    eagain,
+    /// Alias of EAGAIN.
+    /// @value(11)
+    ewouldblock,
+    /// @value(38)
+    enosys,
+  }
+
+  /// Special dirfd values.
+  /// @repr(s32)
+  enum at-fd {
+    /// @value(-100)
+    at-fdcwd,
+  }
+
+  /// @repr(u32)
+  enum ioctl-request {
+    /// @value(0x5401)
+    tcgets,
+    /// @value(0x541B)
+    fionread,
+  }
+
+  /// `open(2)` flags (sparse bits, aliases, multi-bit masks).
+  /// @repr(u32)
+  /// @c(int)
+  flags open-flags {
+    /// @value(0)
+    o-rdonly,
+    /// @value(1)
+    o-wronly,
+    /// @value(2)
+    o-rdwr,
+    /// @value(0x40)
+    o-creat,
+    /// @value(0x80)
+    o-excl,
+    /// @value(0x200)
+    o-trunc,
+    /// @value(0x400)
+    o-append,
+    /// @value(0x800)
+    o-nonblock,
+    /// @value(0x800)
+    o-ndelay,
+    /// @value(0x10000)
+    o-directory,
+    /// @value(0x80000)
+    o-cloexec,
+    /// @value(0x410000)
+    o-tmpfile,
+  }
+
+  /// `wait4` options; the `__W*` names are not representable in kebab-case.
+  /// @repr(u32)
+  flags wait-options {
+    /// @value(0x1)
+    wnohang,
+    /// @name(__WNOTHREAD)
+    /// @value(0x20000000)
+    wnothread,
+    /// @name(__WALL)
+    /// @value(0x40000000)
+    wall,
+    /// @name(__WCLONE)
+    /// @value(0x80000000)
+    wclone,
+  }
+
+  /// @repr(s32)
+  enum signal-limits {
+    /// @name(_NSIG)
+    /// @value(65)
+    nsig,
+    /// Mixed-case names are allowed too.
+    /// @name(SIGRTmax)
+    /// @value(64)
+    sigrtmax,
+  }
+
+  /// @repr(u32)
+  flags epoll-events {
+    /// @value(0x1)
+    epollin,
+    /// @value(0x4)
+    epollout,
+    /// @value(0x80000000)
+    epollet,
+  }
+}
+
+/// Linux syscalls.
+/// @module(wasix2)
+interface syscalls {
+  use types.{
+    slong, usize, ulong, fd, dirfd, mode, off, loff, clockid, socklen, cstr, buf, argv,
+    void-ptr, const-void-ptr, timespec-ptr, statx-ptr, epoll-event-ptr, sockaddr-ptr, loff-ptr,
+    open-flags,
+  };
+
+  /// @nr(63)
+  read: func(fd: fd, buf: buf, count: usize) -> slong;
+
+  /// @nr(56)
+  /// @c-param(flags: int)
+  openat: func(dirfd: dirfd, pathname: cstr, %flags: open-flags, mode: mode) -> slong;
+
+  /// riscv32 splits `offset` into hi/lo (high word first); wasm passes it as one i64.
+  /// musl spells the number `SYS__llseek`.
+  /// @nr(62)
+  /// @merged-i64(offset, hi-lo)
+  /// @sys-name(_llseek)
+  llseek: func(fd: fd, offset: s64, %result: loff-ptr, whence: u32) -> slong;
+
+  /// @nr(67)
+  /// @merged-i64(offset)
+  pread64: func(fd: fd, buf: buf, count: usize, offset: off) -> slong;
+
+  /// Two merged params: all six musl argument slots.
+  /// @nr(223)
+  /// @merged-i64(offset)
+  /// @merged-i64(len, lo-hi)
+  fadvise64-64: func(fd: fd, offset: loff, len: loff, advice: s32) -> slong;
+
+  /// musl also needs `SYS_futex`, emitted as an alias of this number.
+  /// @nr(422)
+  futex-time64: func(
+    uaddr: void-ptr,
+    futex-op: s32,
+    val: u32,
+    timeout: const-void-ptr,
+    uaddr2: void-ptr,
+    val3: u32,
+  ) -> slong;
+
+  /// @nr(172)
+  getpid: func() -> slong;
+
+  /// @nr(25)
+  /// @import(fcntl64)
+  /// @c-param(arg: unsigned long)
+  fcntl: func(fd: fd, cmd: s32, arg: ulong) -> slong;
+
+  /// @nr(29)
+  /// @c-param(request: int)
+  /// @c-param(arg: unsigned long)
+  ioctl: func(fd: fd, request: u32, arg: ulong) -> slong;
+
+  /// @nr(291)
+  statx: func(dirfd: dirfd, pathname: cstr, %flags: s32, mask: u32, statxbuf: statx-ptr) -> slong;
+
+  /// @nr(22)
+  epoll-pwait: func(
+    epfd: fd,
+    events: epoll-event-ptr,
+    maxevents: s32,
+    timeout: s32,
+    sigmask: const-void-ptr,
+    sigsetsize: usize,
+  ) -> slong;
+
+  /// @nr(403)
+  clock-gettime64: func(clockid: clockid, tp: timespec-ptr) -> slong;
+
+  /// @nr(200)
+  bind: func(sockfd: fd, addr: sockaddr-ptr, addrlen: socklen) -> slong;
+
+  /// @nr(221)
+  execve: func(pathname: cstr, argv: argv, envp: argv) -> slong;
+
+  /// @nr(0)
+  /// @unsupported
+  io-setup: func(nr-events: u32, ctxp: void-ptr) -> slong;
+
+  /// @nr(93)
+  /// @noreturn
+  exit: func(status: s32);
+
+  /// @nr(94)
+  /// @noreturn
+  exit-group: func(status: s32);
+}
+
+/// Wasm-specific primitives.
+/// @module(wasix_ext)
+interface ext {
+  use types.{void-ptr};
+
+  /// Starts a new thread running the guest's start routine with `arg`.
+  thread-spawn: func(arg: void-ptr) -> s32;
+
+  /// Sets the thread pointer.
+  tls-init: func(tls-base: void-ptr);
+}

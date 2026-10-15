@@ -62,6 +62,9 @@ members = [
   "lib/wai-bindgen-wasmer",
   "lib/wasi-types",
   "lib/wasix",
+  "lib/wasix2/wasix-codegen",
+  "lib/wasix2/wasix-types2",
+  "lib/wasix2/wasix-syscalls2",
   "lib/journal",
   "lib/wasixv2/*",
   "lib/swift",
@@ -331,6 +334,9 @@ web-sys = "0.3.64"
 web-time = "1.1"
 which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
+wit-parser = { version = "0.259.0", default-features = false, features = [
+  "std",
+] }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
 zip = { version = "8.1.0", default-features = false }

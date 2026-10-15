@@ -1,0 +1,2 @@
+# Generated musl-style C (tabs, long arm lines); the golden copy must stay byte-identical.
+DisableFormat: true

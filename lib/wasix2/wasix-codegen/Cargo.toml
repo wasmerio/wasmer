@@ -1,0 +1,22 @@
+[package]
+name = "wasix-codegen"
+description = "Generates wasix2 bindings (Rust types, wasmer host functions, C headers) from annotated WIT definitions"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = [
+  "derive",
+  "std",
+  "help",
+  "usage",
+  "error-context",
+] }
+wit-parser.workspace = true

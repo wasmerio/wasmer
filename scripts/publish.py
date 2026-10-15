@@ -174,6 +174,8 @@ class Publisher:
         for member in members:
             with open(member, "rb") as file:
                 member_data = tomllib.load(file)
+            if member_data["package"].get("publish", True) is False:
+                continue
 
             def return_dependencies(toml) -> typing.List[str]:
                 acc = set()
