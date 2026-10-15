@@ -7060,6 +7060,7 @@ version = "0.0.0"
 dependencies = [
  "thiserror 2.0.21",
  "tokio",
+ "tracing",
  "wasixv2-abi",
  "wasixv2-checkpoint",
  "wasixv2-dylink",

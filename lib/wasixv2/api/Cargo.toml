@@ -23,7 +23,7 @@ wasixv2-vfs-host = { path = "../vfs-host" }
 wasixv2-vfs-overlay = { path = "../vfs-overlay" }
 wasixv2-vfs-package = { path = "../vfs-package" }
 wasixv2-vnet = { path = "../vnet" }
-wasixv2-vnet-host = { path = "../vnet-host" }
+wasixv2-vnet-host = { path = "../vnet-host", optional = true }
 wasixv2-vnet-switch = { path = "../vnet-switch" }
 wasixv2-kernel = { path = "../kernel" }
 wasixv2-checkpoint = { path = "../checkpoint" }
@@ -31,6 +31,7 @@ wasixv2-exec = { path = "../exec", default-features = false }
 wasixv2-dylink = { path = "../dylink", default-features = false }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
 thiserror.workspace = true
+tracing.workspace = true
 wasmparser.workspace = true
 
 [dev-dependencies]
@@ -41,7 +42,7 @@ wasmer = { path = "../../api", version = "=7.5.0", default-features = false, fea
 wat.workspace = true
 
 [features]
-default = ["sys", "tokio"]
+default = ["sys", "tokio", "host-network"]
 sys = [
   "wasmer/sys",
   "wasmer/headless",
@@ -51,5 +52,8 @@ sys = [
 js = ["wasmer/js-default", "wasixv2-exec/js", "wasixv2-dylink/js"]
 # `Machine::new` and `Stdio::inherit` on a tokio runtime.
 tokio = ["wasixv2-host/tokio"]
+# Guest traffic leaving the machine goes through host sockets (Unix only). Without it the
+# network is loopback-only.
+host-network = ["dep:wasixv2-vnet-host"]
 # `WebHost`, for embedders on a JavaScript event loop; pair with `js` on wasm32.
 web = ["wasixv2-host/web"]
