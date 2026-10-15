@@ -11,3 +11,14 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+getrandom = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = [
+  "io-std",
+  "io-util",
+  "sync",
+  "time",
+] }
+
+[features]
+default = []
+tokio = ["dep:tokio", "dep:getrandom"]

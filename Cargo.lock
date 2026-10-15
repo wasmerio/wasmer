@@ -7079,6 +7079,7 @@ dependencies = [
  "wasixv2-vnet-host",
  "wasixv2-vnet-switch",
  "wasmer",
+ "wasmparser 0.259.0",
  "wat",
 ]
 
@@ -7123,6 +7124,10 @@ dependencies = [
 [[package]]
 name = "wasixv2-host"
 version = "0.0.0"
+dependencies = [
+ "getrandom 0.4.3",
+ "tokio",
+]
 
 [[package]]
 name = "wasixv2-kernel"
@@ -7133,6 +7138,7 @@ dependencies = [
  "wasixv2-host",
  "wasixv2-syscalls",
  "wasixv2-vfs",
+ "wasixv2-vfs-mem",
  "wasixv2-vnet",
 ]
 

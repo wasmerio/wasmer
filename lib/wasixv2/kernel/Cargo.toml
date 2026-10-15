@@ -19,3 +19,4 @@ wasixv2-vnet = { path = "../vnet" }
 
 [dev-dependencies]
 futures.workspace = true
+wasixv2-vfs-mem = { path = "../vfs-mem" }

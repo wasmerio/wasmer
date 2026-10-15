@@ -32,4 +32,23 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
                 .map_err(|_| Fault)
         })
     }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        Box::pin(async move {
+            let mut env = self.env.write().await;
+            let (data, store) = env.data_and_store_mut();
+            data.memory
+                .as_ref()
+                .map_or(0, |memory| memory.view(&*store).data_size())
+        })
+    }
+
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        Box::pin(async move {
+            let mut env = self.env.write().await;
+            let (data, store) = env.data_and_store_mut();
+            let previous = data.memory.as_ref()?.grow(store, pages).ok()?;
+            Some(previous.bytes().0 as u64)
+        })
+    }
 }

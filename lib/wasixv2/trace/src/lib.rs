@@ -40,6 +40,14 @@ mod tests {
         fn write<'a>(&'a self, _: u32, _: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
             Box::pin(async { Err(Fault) })
         }
+
+        fn size(&self) -> LocalFuture<'_, u64> {
+            Box::pin(async { 0 })
+        }
+
+        fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
+            Box::pin(async { None })
+        }
     }
 
     #[derive(Default)]

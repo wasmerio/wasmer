@@ -1,25 +1,20 @@
 use std::{io, sync::Arc};
 
-use wasixv2_host::{ByteSink, ByteSource};
+use wasixv2_abi::OpenFlags;
+use wasixv2_host::{ByteSink, ByteSource, Stdio};
 use wasixv2_syscalls::{Errno, LocalFuture};
 
-use crate::file::FileObject;
+use crate::file::{Backing, FileObject, OpenFile};
 
-/// The host streams a new process gets as descriptors 0, 1 and 2.
-pub struct Stdio {
-    pub stdin: Arc<dyn ByteSource>,
-    pub stdout: Arc<dyn ByteSink>,
-    pub stderr: Arc<dyn ByteSink>,
-}
-
-impl Stdio {
-    pub(crate) fn into_objects(self) -> [Arc<dyn FileObject>; 3] {
-        [
-            Arc::new(HostInput(self.stdin)),
-            Arc::new(HostOutput(self.stdout)),
-            Arc::new(HostOutput(self.stderr)),
-        ]
-    }
+/// The open files behind descriptors 0, 1 and 2.
+pub(crate) fn open_files(stdio: Stdio) -> [OpenFile; 3] {
+    let input = |source| Backing::Stream(Arc::new(HostInput(source)));
+    let output = |sink| Backing::Stream(Arc::new(HostOutput(sink)));
+    [
+        OpenFile::new(input(stdio.stdin), OpenFlags::O_RDONLY),
+        OpenFile::new(output(stdio.stdout), OpenFlags::O_WRONLY),
+        OpenFile::new(output(stdio.stderr), OpenFlags::O_WRONLY),
+    ]
 }
 
 struct HostInput(Arc<dyn ByteSource>);

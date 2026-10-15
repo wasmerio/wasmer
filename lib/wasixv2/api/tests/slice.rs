@@ -153,17 +153,17 @@ async fn errors_come_back_as_negated_errno() {
     assert_eq!(both.status.unwrap(), EBADF);
 }
 
-// The kernel does not implement `getpid` yet, so the generated default answers.
+// The kernel does not implement `getppid` yet, so the generated default answers.
 #[tokio::test]
 async fn unimplemented_syscalls_return_enosys() {
     const ENOSYS: i32 = 38;
     let wat = r#"
       (module
-        (import "wasixv2" "getpid" (func $getpid (result i32)))
+        (import "wasixv2" "getppid" (func $getppid (result i32)))
         (import "wasixv2" "exit_group" (func $exit_group (param i32)))
         (memory (export "memory") 1)
         (func (export "_start")
-          (call $exit_group (i32.sub (i32.const 0) (call $getpid)))
+          (call $exit_group (i32.sub (i32.const 0) (call $getppid)))
           unreachable))
     "#;
 

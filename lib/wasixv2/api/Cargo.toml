@@ -16,7 +16,7 @@ wasixv2-syscalls = { path = "../syscalls" }
 wasixv2-trace = { path = "../trace" }
 wasixv2-record = { path = "../record" }
 wasixv2-policy = { path = "../policy" }
-wasixv2-host = { path = "../host" }
+wasixv2-host = { path = "../host", features = ["tokio"] }
 wasixv2-vfs = { path = "../vfs" }
 wasixv2-vfs-mem = { path = "../vfs-mem" }
 wasixv2-vfs-host = { path = "../vfs-host" }
@@ -31,6 +31,7 @@ wasixv2-exec = { path = "../exec" }
 wasixv2-dylink = { path = "../dylink" }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
 thiserror.workspace = true
+wasmparser.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
