@@ -11,7 +11,7 @@ use futures::executor::block_on;
 use wasixv2_abi::{GuestPtr, GuestPtrMut};
 use wasixv2_host::{ByteSink, ByteSource, Executor, LocalFuture};
 use wasixv2_syscalls::{Fault, SysErr, UserMemory, WASM_PAGE_SIZE};
-use wasixv2_vfs_mem::MemDir;
+use wasixv2_vfs_mem::MemFs;
 
 use super::*;
 
@@ -119,7 +119,14 @@ fn setup(input: &[u8]) -> (Kernel, TaskId, Arc<Capture>) {
 }
 
 fn spawn(input: &[u8], args: &[&str], env: &[&str]) -> (Kernel, TaskId, Arc<Capture>) {
-    let kernel = Kernel::new(Arc::new(TestHost), MemDir::root());
+    let host: Arc<dyn Host> = Arc::new(TestHost);
+    let root = MemFs::new(
+        Arc::new(HostClock(host.clone())),
+        0o755,
+        ID as u32,
+        ID as u32,
+    );
+    let kernel = Kernel::new(host, Arc::new(root));
     let stdout = Arc::new(Capture::default());
     let task = kernel.spawn(ProcessConfig {
         args: args.iter().map(|s| s.to_string()).collect(),
@@ -350,6 +357,116 @@ fn uname_reports_the_wasixv2_abi_version() {
     assert_eq!(field(0), "wasixv2");
     assert_eq!(field(2), "2.0.0");
     assert_eq!(field(4), "wasm32");
+}
+
+fn put(memory: &FlatMemory, addr: u32, bytes: &[u8]) {
+    memory.0.borrow_mut()[addr as usize..][..bytes.len()].copy_from_slice(bytes);
+}
+
+#[test]
+fn chdir_mkdir_and_getcwd_follow_the_working_directory() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 512]));
+    let caller = Caller::new(task, &memory);
+    put(&memory, 0, b"a\0");
+    put(&memory, 8, b"b\0");
+    put(&memory, 16, b"..\0");
+    let cstr = GuestPtr::new;
+
+    assert_eq!(
+        block_on(kernel.mkdirat(&caller, Fd(-100), cstr(0), 0o755)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.chdir(&caller, cstr(0))), Ok(0));
+    assert_eq!(
+        block_on(kernel.mkdirat(&caller, Fd(-100), cstr(8), 0o755)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.chdir(&caller, cstr(8))), Ok(0));
+    let len = block_on(kernel.getcwd(&caller, UserSliceMut::new(100, 64)));
+    assert_eq!(len, Ok(5));
+    assert_eq!(cstr_at(&memory, 100), "/a/b");
+    assert_eq!(
+        block_on(kernel.getcwd(&caller, UserSliceMut::new(100, 4))),
+        Err(SysErr::Errno(Errno::ERANGE))
+    );
+    // Removing the working directory leaves getcwd with nothing to report.
+    assert_eq!(block_on(kernel.chdir(&caller, cstr(16))), Ok(0));
+    assert_eq!(
+        block_on(kernel.unlinkat(&caller, Fd(-100), cstr(8), AtFlags::AT_REMOVEDIR)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.mkdirat(&caller, Fd(-100), cstr(8), 0o755)),
+        Ok(0)
+    );
+}
+
+#[test]
+fn getdents_lists_dots_then_entries_and_resumes() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 1024]));
+    let caller = Caller::new(task, &memory);
+    put(&memory, 0, b"/\0");
+    put(&memory, 8, b"/x\0");
+    block_on(kernel.mkdirat(&caller, Fd(-100), GuestPtr::new(8), 0o755)).unwrap();
+    let dir = block_on(kernel.openat(
+        &caller,
+        Fd(-100),
+        GuestPtr::new(0),
+        OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY,
+        0,
+    ))
+    .unwrap();
+
+    let mut names = Vec::new();
+    loop {
+        let n = block_on(kernel.getdents64(&caller, dir, GuestPtrMut::new(256), 40)).unwrap();
+        if n == 0 {
+            break;
+        }
+        let reclen = u16::from_le_bytes([memory.0.borrow()[256 + 16], memory.0.borrow()[257 + 16]]);
+        assert_eq!(n as u16, reclen, "a 40-byte buffer holds one record");
+        names.push(cstr_at(&memory, 256 + 19));
+    }
+
+    assert_eq!(names, [".", "..", "x"]);
+    assert_eq!(
+        block_on(kernel.getdents64(&caller, dir, GuestPtrMut::new(256), 8)),
+        Ok(0)
+    );
+}
+
+#[test]
+fn posix_locks_go_away_when_any_descriptor_closes() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 512]));
+    let caller = Caller::new(task, &memory);
+    put(&memory, 0, b"/l\0");
+    let open = || {
+        block_on(kernel.openat(
+            &caller,
+            Fd(-100),
+            GuestPtr::new(0),
+            OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+            0o600,
+        ))
+        .unwrap()
+    };
+    let (first, second) = (open(), open());
+    // flock64 { l_type = F_WRLCK, l_whence = SEEK_SET, l_start = 0, l_len = 0 } at 64.
+    put(&memory, 64, &[1, 0, 0, 0]);
+    let set = |fd| block_on(kernel.fcntl64(&caller, fd, FcntlCmd::F_SETLK64, 64));
+    assert_eq!(set(first), Ok(0));
+    // The same process may relock through another descriptor.
+    assert_eq!(set(second), Ok(0));
+
+    assert_eq!(block_on(kernel.close(&caller, second)), Ok(0));
+    // An OFD lock from `first` now finds nothing in its way.
+    assert_eq!(
+        block_on(kernel.fcntl64(&caller, first, FcntlCmd::F_OFD_SETLK, 64)),
+        Ok(0)
+    );
 }
 
 mod ipc;

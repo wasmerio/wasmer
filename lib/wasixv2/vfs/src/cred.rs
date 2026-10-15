@@ -17,6 +17,7 @@ pub enum Cap {
     DacReadSearch = 2,
     Fowner = 3,
     Fsetid = 4,
+    SysChroot = 18,
     SysAdmin = 21,
     Mknod = 27,
 }

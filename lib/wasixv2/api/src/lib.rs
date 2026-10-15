@@ -1,7 +1,14 @@
 //! Embedding facade: assembles the kernel, filesystem drivers, network backends, layers and the
 //! execution engine into a machine, and boots it.
 
-use std::sync::Arc;
+use std::{
+    future::Future,
+    io,
+    path::Path,
+    pin::pin,
+    sync::Arc,
+    task::{Context, Poll, Waker},
+};
 
 pub use wasixv2_exec::ExecError;
 #[cfg(feature = "tokio")]
@@ -9,12 +16,13 @@ pub use wasixv2_host::TokioHost;
 #[cfg(feature = "web")]
 pub use wasixv2_host::WebHost;
 pub use wasixv2_host::{ByteSink, ByteSource, EmptySource, Executor, FnSink, Host, LocalFuture};
-use wasixv2_kernel::Kernel;
+use wasixv2_kernel::{HostClock, Kernel};
 pub use wasixv2_kernel::{ProcessConfig, Stdio};
 use wasixv2_syscalls::Layered;
 use wasixv2_trace::Trace;
-use wasixv2_vfs::{FileType, Inode};
-use wasixv2_vfs_mem::MemDir;
+pub use wasixv2_vfs::Filesystem;
+use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, Vfs};
+use wasixv2_vfs_mem::MemFs;
 pub use wasixv2_vnet::{Net, NetConfig};
 use wasmer::{Module, Store};
 
@@ -24,7 +32,12 @@ pub enum RunError {
     Compile(#[from] wasmer::CompileError),
     #[error(transparent)]
     Exec(#[from] ExecError),
+    #[error("cannot use the working directory: {0}")]
+    WorkingDir(io::Error),
 }
+
+/// The uid and gid processes run as, which own the root filesystem.
+const USER: u32 = 1;
 
 /// One kernel and the processes it runs.
 ///
@@ -36,6 +49,9 @@ pub enum RunError {
 pub struct Machine {
     syscalls: Arc<Layered<Trace, Kernel>>,
     network: Arc<Net>,
+    host: Arc<dyn Host>,
+    /// Where new processes start; `/` if unset.
+    working_dir: Option<String>,
 }
 
 #[cfg(feature = "tokio")]
@@ -56,11 +72,13 @@ impl Machine {
     /// A machine whose clocks, timers, entropy and executor come from `host`.
     pub fn with_host(host: Arc<dyn Host>) -> Self {
         let network = default_network();
-        let kernel = Kernel::new(host, root_filesystem(&network.resolv_conf()))
+        let kernel = Kernel::new(host.clone(), root_filesystem(&host, &network.resolv_conf()))
             .with_network(network.clone());
         Self {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
             network,
+            host,
+            working_dir: None,
         }
     }
 
@@ -68,6 +86,50 @@ impl Machine {
     /// listener.
     pub fn network(&self) -> &Arc<Net> {
         &self.network
+    }
+
+    fn vfs(&self) -> &Arc<Vfs> {
+        self.syscalls.inner.vfs()
+    }
+
+    /// Mounts `fs` at `guest` (an absolute guest path), creating missing directories on the
+    /// way, over whatever is there.
+    pub async fn mount(
+        &self,
+        guest: &str,
+        fs: Arc<dyn Filesystem>,
+        read_only: bool,
+    ) -> io::Result<()> {
+        let flags = MountFlags {
+            read_only,
+            ..MountFlags::default()
+        };
+        self.vfs()
+            .mount(guest.as_bytes(), fs, flags, true)
+            .await
+            .map(drop)
+            .map_err(errno_to_io)
+    }
+
+    /// Maps the host directory `host_dir` to `guest`. The guest cannot reach anything outside
+    /// `host_dir`; files the host user owns appear as owned by the guest user.
+    pub async fn mount_host_dir(
+        &self,
+        guest: &str,
+        host_dir: &Path,
+        read_only: bool,
+    ) -> io::Result<()> {
+        let options = wasixv2_vfs_host::Options {
+            read_only,
+            owner: (USER, USER),
+        };
+        let fs = wasixv2_vfs_host::open(host_dir, self.host.clone(), options)?;
+        self.mount(guest, fs, read_only).await
+    }
+
+    /// Makes new processes start in `dir`, an absolute guest path.
+    pub fn set_working_dir(&mut self, dir: impl Into<String>) {
+        self.working_dir = Some(dir.into());
     }
 
     /// Starts `wasm` as a new process with no arguments or environment and waits for it to exit.
@@ -84,6 +146,13 @@ impl Machine {
     /// Starts `wasm` as a new process and waits for it to exit. Returns its exit status.
     pub async fn run_process(&self, wasm: &[u8], config: ProcessConfig) -> Result<i32, RunError> {
         let task = self.syscalls.inner.spawn(config);
+        if let Some(dir) = &self.working_dir {
+            self.syscalls
+                .inner
+                .set_working_dir(task, dir.as_bytes())
+                .await
+                .map_err(|errno| RunError::WorkingDir(errno_to_io(errno)))?;
+        }
         let store = Store::default();
         let module = Module::new(&store, wasm)?;
         Ok(wasixv2_exec::run(store, &module, self.syscalls.clone(), task).await?)
@@ -111,32 +180,51 @@ fn default_network() -> Arc<Net> {
     Net::new(NetConfig::default(), None)
 }
 
-fn root_filesystem(resolv_conf: &str) -> Arc<dyn Inode> {
-    let root = MemDir::root();
-    root.create(b"tmp", FileType::Directory)
-        .expect("a new directory is empty");
-    if !resolv_conf.is_empty() {
-        let etc = root
-            .create(b"etc", FileType::Directory)
-            .expect("a new directory is empty");
-        let file = etc
-            .create(b"resolv.conf", FileType::Regular)
-            .expect("a new directory is empty");
-        write_now(&*file, resolv_conf.as_bytes());
+/// A memory root owned by the user processes run as, with a world-writable sticky `/tmp` and,
+/// when there are name servers, `/etc/resolv.conf`.
+fn root_filesystem(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesystem> {
+    let root: Arc<dyn Filesystem> = Arc::new(MemFs::new(
+        Arc::new(HostClock(host.clone())),
+        0o755,
+        USER,
+        USER,
+    ));
+    let vfs = Vfs::new(root.clone());
+    let cred = Cred::user(USER, USER);
+    let top = vfs.root();
+    let cx = Ctx {
+        cred: &cred,
+        root: &top,
+        umask: 0,
+    };
+    let tmp = async {
+        vfs.mkdir(&cx, &top, b"/tmp", 0o1777).await?;
+        let path = vfs
+            .lookup(&cx, &top, b"/tmp", LookupFlags::follow())
+            .await?;
+        vfs.chmod(&cx, &path, 0o1777).await?;
+        if !resolv_conf.is_empty() {
+            vfs.mkdir(&cx, &top, b"/etc", 0o755).await?;
+            let how = wasixv2_vfs::OpenHow {
+                flags: wasixv2_abi::OpenFlags::O_CREAT | wasixv2_abi::OpenFlags::O_WRONLY,
+                mode: 0o644,
+                lookup: LookupFlags::follow(),
+            };
+            let file = vfs.open(&cx, &top, b"/etc/resolv.conf", &how).await?;
+            file.write_at(resolv_conf.as_bytes(), 0).await?;
+        }
+        Ok::<_, Errno>(())
+    };
+    // A memory filesystem never waits.
+    match pin!(tmp).poll(&mut Context::from_waker(Waker::noop())) {
+        Poll::Ready(result) => result.expect("a new memory filesystem accepts /tmp and /etc"),
+        Poll::Pending => unreachable!("memory filesystem operations complete at once"),
     }
     root
 }
 
-/// Writes to an in-memory file, whose futures are ready at once.
-fn write_now(file: &dyn Inode, data: &[u8]) {
-    use std::task::{Context, Poll, Waker};
-
-    let mut write = file.write_at(data, 0);
-    let poll = write.as_mut().poll(&mut Context::from_waker(Waker::noop()));
-    assert!(
-        matches!(poll, Poll::Ready(Ok(n)) if n == data.len()),
-        "in-memory writes complete at once"
-    );
+fn errno_to_io(errno: Errno) -> io::Error {
+    io::Error::from_raw_os_error(errno.0)
 }
 
 /// Whether `wasm` targets this ABI: it imports something from the `wasixv2` module. Only the

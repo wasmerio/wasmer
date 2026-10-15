@@ -4,7 +4,7 @@
 //! Knows nothing about the wasm engine, the layers, or concrete filesystem drivers and network
 //! backends.
 //!
-//! Every process has exactly one task so far, and the working directory is always `/`.
+//! Every process has exactly one task so far.
 
 mod epoll;
 mod eventfd;
@@ -26,11 +26,15 @@ use std::{
 };
 
 pub use file::{FileObject, Io};
+pub use fs::HostClock;
 use wasixv2_abi::{
-    AtFlags, ClockId, ConstIovecArray, ConstKernelTimespecPtr, ConstSigsetPtr, Cstr, FcntlCmd,
-    FutexOp, GuestPtr, IoctlRequest, KernelTimespecPtr, Loff, MapFlags, Mode, NewUtsname,
-    NewUtsnamePtr, OpenFlags, Pid, ProtFlags, S32Ptr, SeekWhence, Signal, SigprocmaskHow, Sigset,
-    SigsetPtr, TimerFlags, U32Ptr, Ulong, Uptr, Usize,
+    AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstFileHandlePtr, ConstIovecArray,
+    ConstKernelTimespecArray, ConstKernelTimespecPtr, ConstOpenHowPtr, ConstSigsetPtr,
+    ConstXattrArgsPtr, Cstr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp,
+    Gid, GuestPtr, IoctlRequest, KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr, MapFlags,
+    Mode, NewUtsname, NewUtsnamePtr, OpenFlags, Pid, ProtFlags, RenameFlags, RwfFlags, S32Ptr,
+    SeekWhence, Signal, SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr, StatxMask, StatxPtr,
+    SyncFileRangeFlags, TimerFlags, U32Ptr, Uid, Ulong, Uptr, Usize, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
@@ -38,10 +42,11 @@ use wasixv2_syscalls::{
     Caller, Control, Errno, Fd, GuestAction, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut,
     read_value, write_value,
 };
-use wasixv2_vfs::Inode;
+use wasixv2_vfs::{Filesystem, Vfs};
 
 use crate::{
     file::{FdTable, OpenFile},
+    fs::FsContext,
     mm::{AddressSpace, PAGE_SIZE, Placement},
     startup::Startup,
 };
@@ -75,14 +80,14 @@ pub struct ProcessConfig {
 
 pub struct Kernel {
     host: Arc<dyn Host>,
-    /// The root directory, which is also every process's working directory.
-    root: Arc<dyn Inode>,
     state: Mutex<State>,
     // ---- net ----
     /// The network namespace IP sockets live in; without one, `socket` fails with
     /// `EAFNOSUPPORT`.
     // TODO: one per network namespace once namespaces exist.
     network: Option<Arc<dyn wasixv2_vnet::Network>>,
+    // ---- fs ----
+    vfs: Arc<Vfs>,
 }
 
 #[derive(Default)]
@@ -101,18 +106,22 @@ struct Process {
 struct Task {
     process: Arc<Process>,
     files: Arc<Mutex<FdTable>>,
+    /// Root, working directory and umask (`fs_struct`).
+    fs: Arc<Mutex<FsContext>>,
     pending: Option<GuestAction>,
     /// Blocked signals; bit `n - 1` is signal `n`.
     sigmask: u64,
 }
 
 impl Kernel {
-    pub fn new(host: Arc<dyn Host>, root: Arc<dyn Inode>) -> Self {
+    /// A kernel whose root filesystem is `root`. Further filesystems are mounted through
+    /// [`Kernel::vfs`].
+    pub fn new(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
         Self {
             host,
-            root,
             state: Mutex::default(),
             network: None,
+            vfs: Vfs::new(root),
         }
     }
 
@@ -120,6 +129,11 @@ impl Kernel {
     pub fn with_network(mut self, network: Arc<dyn wasixv2_vnet::Network>) -> Self {
         self.network = Some(network);
         self
+    }
+
+    /// The machine's VFS, for the embedder to mount filesystems.
+    pub fn vfs(&self) -> &Arc<Vfs> {
+        &self.vfs
     }
 
     /// Starts a process with a single task whose descriptors 0, 1 and 2 are `config.stdio`.
@@ -140,6 +154,7 @@ impl Kernel {
         let task = Task {
             process: Arc::new(process),
             files: Arc::new(Mutex::new(files)),
+            fs: Arc::new(Mutex::new(FsContext::new(self.vfs.root()))),
             pending: None,
             sigmask: 0,
         };
@@ -198,29 +213,55 @@ impl Syscalls for Kernel {
         Ok(0)
     }
 
+    // ---- fs ----
     async fn openat(
         &self,
         caller: &Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: OpenFlags,
-        _mode: Mode,
+        mode: Mode,
     ) -> SysResult<Fd> {
-        self.open(caller, dfd, filename, flags).await
+        self.sys_openat(caller, dfd, filename, flags, mode).await
     }
 
-    async fn close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        self.close_fd(caller, fd)
-    }
-
-    async fn unlinkat(
+    async fn openat2(
         &self,
         caller: &Caller<'_>,
         dfd: Fd,
-        pathname: Cstr,
-        flag: AtFlags,
+        filename: Cstr,
+        how: ConstOpenHowPtr,
+        usize: Usize,
+    ) -> SysResult<Fd> {
+        self.sys_openat2(caller, dfd, filename, how, usize).await
+    }
+
+    async fn close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+        self.sys_close(caller, fd)
+    }
+
+    async fn close_range(
+        &self,
+        caller: &Caller<'_>,
+        fd: u32,
+        max_fd: u32,
+        flags: CloseRangeFlags,
     ) -> SysResult<i32> {
-        self.unlink(caller, dfd, pathname, flag).await
+        self.sys_close_range(caller, fd, max_fd, flags)
+    }
+
+    async fn dup(&self, caller: &Caller<'_>, fildes: Fd) -> SysResult<Fd> {
+        self.sys_dup(caller, fildes)
+    }
+
+    async fn dup3(
+        &self,
+        caller: &Caller<'_>,
+        oldfd: Fd,
+        newfd: Fd,
+        flags: OpenFlags,
+    ) -> SysResult<Fd> {
+        self.sys_dup3(caller, oldfd, newfd, flags)
     }
 
     async fn fcntl64(
@@ -230,7 +271,611 @@ impl Syscalls for Kernel {
         cmd: FcntlCmd,
         arg: Ulong,
     ) -> SysResult<i32> {
-        self.fcntl(caller, fd, cmd, arg)
+        self.sys_fcntl(caller, fd, cmd, arg).await
+    }
+
+    async fn flock(&self, caller: &Caller<'_>, fd: Fd, cmd: FlockOp) -> SysResult<i32> {
+        self.sys_flock(caller, fd, cmd).await
+    }
+
+    async fn readv(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        vec: ConstIovecArray,
+        vlen: Ulong,
+    ) -> SysResult<u32> {
+        self.sys_readv(caller, fd, vec, vlen).await
+    }
+
+    async fn writev(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        vec: ConstIovecArray,
+        vlen: Ulong,
+    ) -> SysResult<u32> {
+        self.sys_writev(caller, fd, vec, vlen).await
+    }
+
+    async fn pread64(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        buf: UserSliceMut,
+        pos: Loff,
+    ) -> SysResult<u32> {
+        self.sys_pread(caller, fd, buf, pos).await
+    }
+
+    async fn pwrite64(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        buf: UserSlice,
+        pos: Loff,
+    ) -> SysResult<u32> {
+        self.sys_pwrite(caller, fd, buf, pos).await
+    }
+
+    async fn preadv(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        vec: ConstIovecArray,
+        vlen: Ulong,
+        pos: i64,
+    ) -> SysResult<u32> {
+        self.sys_preadv2(caller, fd, vec, vlen, pos.max(0), RwfFlags(0))
+            .await
+    }
+
+    async fn pwritev(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        vec: ConstIovecArray,
+        vlen: Ulong,
+        pos: i64,
+    ) -> SysResult<u32> {
+        self.sys_pwritev2(caller, fd, vec, vlen, pos.max(0), RwfFlags(0))
+            .await
+    }
+
+    async fn preadv2(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        vec: ConstIovecArray,
+        vlen: Ulong,
+        pos: i64,
+        flags: RwfFlags,
+    ) -> SysResult<u32> {
+        self.sys_preadv2(caller, fd, vec, vlen, pos, flags).await
+    }
+
+    async fn pwritev2(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        vec: ConstIovecArray,
+        vlen: Ulong,
+        pos: i64,
+        flags: RwfFlags,
+    ) -> SysResult<u32> {
+        self.sys_pwritev2(caller, fd, vec, vlen, pos, flags).await
+    }
+
+    async fn lseek(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        offset: Loff,
+        whence: SeekWhence,
+    ) -> SysResult<i64> {
+        self.sys_lseek(caller, fd, offset, whence).await
+    }
+
+    async fn sendfile64(
+        &self,
+        caller: &Caller<'_>,
+        out_fd: Fd,
+        in_fd: Fd,
+        offset: LoffPtr,
+        count: Usize,
+    ) -> SysResult<i32> {
+        self.sys_sendfile(caller, out_fd, in_fd, offset, count)
+            .await
+    }
+
+    async fn copy_file_range(
+        &self,
+        caller: &Caller<'_>,
+        fd_in: Fd,
+        off_in: LoffPtr,
+        fd_out: Fd,
+        off_out: LoffPtr,
+        len: Usize,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_copy_file_range(caller, fd_in, off_in, fd_out, off_out, len, flags)
+            .await
+    }
+
+    async fn truncate64(&self, caller: &Caller<'_>, path: Cstr, length: Loff) -> SysResult<i32> {
+        self.sys_truncate(caller, path, length).await
+    }
+
+    async fn ftruncate64(&self, caller: &Caller<'_>, fd: Fd, length: Loff) -> SysResult<i32> {
+        self.sys_ftruncate(caller, fd, length).await
+    }
+
+    async fn fallocate(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        mode: FallocFlags,
+        offset: Loff,
+        len: Loff,
+    ) -> SysResult<i32> {
+        self.sys_fallocate(caller, fd, mode, offset, len).await
+    }
+
+    async fn fadvise64_64(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        _offset: Loff,
+        len: Loff,
+        advice: FadviseAdvice,
+    ) -> SysResult<i32> {
+        self.sys_fadvise(caller, fd, len, advice)
+    }
+
+    async fn readahead(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        _offset: Loff,
+        _count: Usize,
+    ) -> SysResult<i32> {
+        self.sys_readahead(caller, fd)
+    }
+
+    async fn sync(&self, _: &Caller<'_>) -> SysResult<i32> {
+        self.sys_sync().await
+    }
+
+    async fn fsync(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+        self.sys_fsync(caller, fd, false).await
+    }
+
+    async fn fdatasync(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+        self.sys_fsync(caller, fd, true).await
+    }
+
+    async fn syncfs(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+        self.sys_syncfs(caller, fd).await
+    }
+
+    async fn sync_file_range(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        offset: Loff,
+        nbytes: Loff,
+        flags: SyncFileRangeFlags,
+    ) -> SysResult<i32> {
+        self.sys_sync_file_range(caller, fd, offset, nbytes, flags)
+            .await
+    }
+
+    async fn getdents64(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        dirent: LinuxDirent64Ptr,
+        count: u32,
+    ) -> SysResult<i32> {
+        self.sys_getdents64(caller, fd, dirent, count).await
+    }
+
+    async fn mkdirat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        pathname: Cstr,
+        mode: Mode,
+    ) -> SysResult<i32> {
+        self.sys_mkdirat(caller, dfd, pathname, mode).await
+    }
+
+    async fn mknodat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        mode: Mode,
+        dev: u32,
+    ) -> SysResult<i32> {
+        self.sys_mknodat(caller, dfd, filename, mode, dev).await
+    }
+
+    async fn unlinkat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        pathname: Cstr,
+        flag: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_unlinkat(caller, dfd, pathname, flag).await
+    }
+
+    async fn symlinkat(
+        &self,
+        caller: &Caller<'_>,
+        oldname: Cstr,
+        newdfd: Fd,
+        newname: Cstr,
+    ) -> SysResult<i32> {
+        self.sys_symlinkat(caller, oldname, newdfd, newname).await
+    }
+
+    async fn linkat(
+        &self,
+        caller: &Caller<'_>,
+        olddfd: Fd,
+        oldname: Cstr,
+        newdfd: Fd,
+        newname: Cstr,
+        flags: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_linkat(caller, olddfd, oldname, newdfd, newname, flags)
+            .await
+    }
+
+    async fn renameat2(
+        &self,
+        caller: &Caller<'_>,
+        olddfd: Fd,
+        oldname: Cstr,
+        newdfd: Fd,
+        newname: Cstr,
+        flags: RenameFlags,
+    ) -> SysResult<i32> {
+        self.sys_renameat2(caller, olddfd, oldname, newdfd, newname, flags)
+            .await
+    }
+
+    async fn readlinkat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        pathname: Cstr,
+        buf: Buf,
+        bufsiz: i32,
+    ) -> SysResult<i32> {
+        self.sys_readlinkat(caller, dfd, pathname, buf, bufsiz)
+            .await
+    }
+
+    async fn faccessat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        mode: AccessMode,
+    ) -> SysResult<i32> {
+        self.sys_faccessat2(caller, dfd, filename, mode, AtFlags(0))
+            .await
+    }
+
+    async fn faccessat2(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        mode: AccessMode,
+        flags: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_faccessat2(caller, dfd, filename, mode, flags)
+            .await
+    }
+
+    async fn chdir(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
+        self.sys_chdir(caller, filename).await
+    }
+
+    async fn fchdir(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+        self.sys_fchdir(caller, fd).await
+    }
+
+    async fn chroot(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
+        self.sys_chroot(caller, filename).await
+    }
+
+    async fn getcwd(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<u32> {
+        self.sys_getcwd(caller, buf).await
+    }
+
+    async fn umask(&self, caller: &Caller<'_>, mask: i32) -> SysResult<i32> {
+        self.sys_umask(caller, mask)
+    }
+
+    async fn fchmod(&self, caller: &Caller<'_>, fd: Fd, mode: Mode) -> SysResult<i32> {
+        self.sys_fchmod(caller, fd, mode).await
+    }
+
+    async fn fchmodat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        mode: Mode,
+    ) -> SysResult<i32> {
+        self.sys_fchmodat2(caller, dfd, filename, mode, AtFlags(0))
+            .await
+    }
+
+    async fn fchmodat2(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        mode: Mode,
+        flags: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_fchmodat2(caller, dfd, filename, mode, flags).await
+    }
+
+    async fn fchown(&self, caller: &Caller<'_>, fd: Fd, user: Uid, group: Gid) -> SysResult<i32> {
+        self.sys_fchown(caller, fd, user, group).await
+    }
+
+    async fn fchownat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        user: Uid,
+        group: Gid,
+        flag: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_fchownat(caller, dfd, filename, user, group, flag)
+            .await
+    }
+
+    async fn statx(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        flags: AtFlags,
+        mask: StatxMask,
+        buffer: StatxPtr,
+    ) -> SysResult<i32> {
+        self.sys_statx(caller, dfd, filename, flags, mask, buffer)
+            .await
+    }
+
+    async fn statfs64(
+        &self,
+        caller: &Caller<'_>,
+        pathname: Cstr,
+        sz: Usize,
+        buf: Statfs64Ptr,
+    ) -> SysResult<i32> {
+        self.sys_statfs(caller, pathname, sz, buf).await
+    }
+
+    async fn fstatfs64(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        sz: Usize,
+        buf: Statfs64Ptr,
+    ) -> SysResult<i32> {
+        self.sys_fstatfs(caller, fd, sz, buf).await
+    }
+
+    async fn utimensat_time64(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        utimes: ConstKernelTimespecArray,
+        flags: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_utimensat(caller, dfd, filename, utimes, flags)
+            .await
+    }
+
+    async fn name_to_handle_at(
+        &self,
+        _: &Caller<'_>,
+        _: Fd,
+        _: Cstr,
+        _: FileHandlePtr,
+        _: S32Ptr,
+        _: i32,
+    ) -> SysResult<i32> {
+        Err(Errno::EOPNOTSUPP.into())
+    }
+
+    async fn open_by_handle_at(
+        &self,
+        _: &Caller<'_>,
+        _: Fd,
+        _: ConstFileHandlePtr,
+        _: OpenFlags,
+    ) -> SysResult<i32> {
+        Err(Errno::EOPNOTSUPP.into())
+    }
+
+    async fn setxattr(
+        &self,
+        caller: &Caller<'_>,
+        pathname: Cstr,
+        name: Cstr,
+        value: UserSlice,
+        flags: XattrFlags,
+    ) -> SysResult<i32> {
+        let target = self.xattr_path(caller, pathname, true).await?;
+        self.xattr_set(caller, target, name, value, flags).await
+    }
+
+    async fn lsetxattr(
+        &self,
+        caller: &Caller<'_>,
+        pathname: Cstr,
+        name: Cstr,
+        value: UserSlice,
+        flags: XattrFlags,
+    ) -> SysResult<i32> {
+        let target = self.xattr_path(caller, pathname, false).await?;
+        self.xattr_set(caller, target, name, value, flags).await
+    }
+
+    async fn fsetxattr(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        name: Cstr,
+        value: UserSlice,
+        flags: XattrFlags,
+    ) -> SysResult<i32> {
+        let target = self.xattr_of_fd(caller, fd)?;
+        self.xattr_set(caller, target, name, value, flags).await
+    }
+
+    async fn getxattr(
+        &self,
+        caller: &Caller<'_>,
+        pathname: Cstr,
+        name: Cstr,
+        value: UserSliceMut,
+    ) -> SysResult<u32> {
+        let target = self.xattr_path(caller, pathname, true).await?;
+        self.xattr_get(caller, target, name, value).await
+    }
+
+    async fn lgetxattr(
+        &self,
+        caller: &Caller<'_>,
+        pathname: Cstr,
+        name: Cstr,
+        value: UserSliceMut,
+    ) -> SysResult<u32> {
+        let target = self.xattr_path(caller, pathname, false).await?;
+        self.xattr_get(caller, target, name, value).await
+    }
+
+    async fn fgetxattr(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        name: Cstr,
+        value: UserSliceMut,
+    ) -> SysResult<u32> {
+        let target = self.xattr_of_fd(caller, fd)?;
+        self.xattr_get(caller, target, name, value).await
+    }
+
+    async fn listxattr(
+        &self,
+        caller: &Caller<'_>,
+        pathname: Cstr,
+        list: UserSliceMut,
+    ) -> SysResult<u32> {
+        let target = self.xattr_path(caller, pathname, true).await?;
+        self.xattr_list(caller, target, list).await
+    }
+
+    async fn llistxattr(
+        &self,
+        caller: &Caller<'_>,
+        pathname: Cstr,
+        list: UserSliceMut,
+    ) -> SysResult<u32> {
+        let target = self.xattr_path(caller, pathname, false).await?;
+        self.xattr_list(caller, target, list).await
+    }
+
+    async fn flistxattr(&self, caller: &Caller<'_>, fd: Fd, list: UserSliceMut) -> SysResult<u32> {
+        let target = self.xattr_of_fd(caller, fd)?;
+        self.xattr_list(caller, target, list).await
+    }
+
+    async fn removexattr(&self, caller: &Caller<'_>, pathname: Cstr, name: Cstr) -> SysResult<i32> {
+        let target = self.xattr_path(caller, pathname, true).await?;
+        self.xattr_remove(caller, target, name).await
+    }
+
+    async fn lremovexattr(
+        &self,
+        caller: &Caller<'_>,
+        pathname: Cstr,
+        name: Cstr,
+    ) -> SysResult<i32> {
+        let target = self.xattr_path(caller, pathname, false).await?;
+        self.xattr_remove(caller, target, name).await
+    }
+
+    async fn fremovexattr(&self, caller: &Caller<'_>, fd: Fd, name: Cstr) -> SysResult<i32> {
+        let target = self.xattr_of_fd(caller, fd)?;
+        self.xattr_remove(caller, target, name).await
+    }
+
+    async fn setxattrat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        pathname: Cstr,
+        at_flags: AtFlags,
+        name: Cstr,
+        uargs: ConstXattrArgsPtr,
+        usize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_setxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
+            .await
+    }
+
+    async fn getxattrat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        pathname: Cstr,
+        at_flags: AtFlags,
+        name: Cstr,
+        uargs: XattrArgsPtr,
+        usize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_getxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
+            .await
+    }
+
+    async fn listxattrat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        pathname: Cstr,
+        at_flags: AtFlags,
+        list: UserSliceMut,
+    ) -> SysResult<u32> {
+        let target = self.xattr_at(caller, dfd, pathname, at_flags).await?;
+        self.xattr_list(caller, target, list).await
+    }
+
+    async fn removexattrat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        pathname: Cstr,
+        at_flags: AtFlags,
+        name: Cstr,
+    ) -> SysResult<i32> {
+        let target = self.xattr_at(caller, dfd, pathname, at_flags).await?;
+        self.xattr_remove(caller, target, name).await
     }
 
     async fn ioctl(
@@ -258,56 +903,6 @@ impl Syscalls for Kernel {
         let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
         let n = file.write(&data).await?;
         Ok(n as u32)
-    }
-
-    async fn readv(
-        &self,
-        caller: &Caller<'_>,
-        fd: Fd,
-        vec: ConstIovecArray,
-        vlen: Ulong,
-    ) -> SysResult<u32> {
-        self.read_vectored(caller, fd, vec, vlen).await
-    }
-
-    async fn writev(
-        &self,
-        caller: &Caller<'_>,
-        fd: Fd,
-        vec: ConstIovecArray,
-        vlen: Ulong,
-    ) -> SysResult<u32> {
-        self.write_vectored(caller, fd, vec, vlen).await
-    }
-
-    async fn pread64(
-        &self,
-        caller: &Caller<'_>,
-        fd: Fd,
-        buf: UserSliceMut,
-        pos: i64,
-    ) -> SysResult<u32> {
-        self.pread(caller, fd, buf, pos).await
-    }
-
-    async fn pwrite64(
-        &self,
-        caller: &Caller<'_>,
-        fd: Fd,
-        buf: UserSlice,
-        pos: i64,
-    ) -> SysResult<u32> {
-        self.pwrite(caller, fd, buf, pos).await
-    }
-
-    async fn lseek(
-        &self,
-        caller: &Caller<'_>,
-        fd: Fd,
-        offset: Loff,
-        whence: SeekWhence,
-    ) -> SysResult<i64> {
-        Ok(self.seek(caller, fd, offset, whence)? as i64)
     }
 
     async fn exit(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {

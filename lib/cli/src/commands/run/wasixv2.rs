@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
-use anyhow::{Error, bail};
+use anyhow::{Context, Error, bail};
 use wasixv2::{Machine, ProcessConfig, Stdio};
-use wasmer_wasix::WasiError;
+use wasmer_wasix::{WasiError, runners::MAPPED_CURRENT_DIR_DEFAULT_PATH};
 
 use super::{Run, exit_with_wasi_exit_code, wasi::utf8_env_part};
 use crate::backend::RuntimeOptions;
@@ -27,12 +27,31 @@ impl Run {
         };
         // The machine's host calls are not `Send`, so drive it on this thread, in a `LocalSet`
         // for the host work it spawns.
-        let machine = Machine::new();
-        let run = tokio::task::LocalSet::new().block_on(runtime, machine.run_process(wasm, config));
+        let mut machine = Machine::new();
+        let (have_current_dir, volumes) = self.wasi.build_mapped_directories(true)?;
+        if let Some(cwd) = &self.wasi.cwd {
+            if !cwd.starts_with("/") {
+                bail!("The argument to --cwd must be an absolute path");
+            }
+            machine.set_working_dir(cwd.display().to_string());
+        } else if have_current_dir {
+            machine.set_working_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
+        }
+        let run = tokio::task::LocalSet::new().block_on(runtime, async {
+            for volume in &volumes {
+                machine
+                    .mount_host_dir(&volume.guest, &volume.host, false)
+                    .await
+                    .with_context(|| {
+                        format!("cannot map {} to {}", volume.host.display(), volume.guest)
+                    })?;
+            }
+            Ok::<_, Error>(machine.run_process(wasm, config).await?)
+        });
         let result = match run {
             Ok(0) => Ok(()),
             Ok(status) => Err(WasiError::Exit(status.into()).into()),
-            Err(err) => Err(err.into()),
+            Err(err) => Err(err),
         };
         // Exit before the tokio runtime is dropped: a guest blocked reading stdin leaves an
         // uncancellable read on the blocking pool, and dropping the runtime would wait for it.
@@ -59,10 +78,6 @@ impl Run {
         let wasi = &self.wasi;
         #[allow(unused_mut)]
         let mut given = vec![
-            ("--volume", !wasi.volumes.is_empty()),
-            ("--dir", !wasi.pre_opened_directories.is_empty()),
-            ("--mapdir", !wasi.mapped_dirs.is_empty()),
-            ("--cwd", wasi.cwd.is_some()),
             ("--use", !wasi.uses.is_empty()),
             ("--include-webc", !wasi.include_webcs.is_empty()),
             ("--map-command", !wasi.map_commands.is_empty()),

@@ -5,7 +5,7 @@ use std::{
 
 use wasixv2_abi::{IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
-use wasixv2_vfs::Inode;
+use wasixv2_vfs::{File, FileType, SeekHole};
 use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
 use crate::epoll::EpollLink;
@@ -59,11 +59,21 @@ pub trait FileObject: Pollable + Any {
 
 pub(crate) enum Backing {
     Stream(Arc<dyn FileObject>),
-    Inode(Arc<dyn Inode>),
+    /// A filesystem object, opened through the VFS.
+    Inode(File),
 }
 
-/// Flags `F_SETFL` can change.
-const SETFL_MASK: OpenFlags = OpenFlags(OpenFlags::O_APPEND.0 | OpenFlags::O_NONBLOCK.0);
+/// Flags `F_SETFL` can change (`SETFL_MASK`).
+const SETFL_MASK: OpenFlags = OpenFlags(
+    OpenFlags::O_APPEND.0
+        | OpenFlags::O_NONBLOCK.0
+        | OpenFlags::O_NOATIME.0
+        | OpenFlags::O_DIRECT.0,
+);
+/// Status flags `F_GETFL` reports besides the access mode and `SETFL_MASK`.
+const KEPT_FLAGS: OpenFlags = OpenFlags(
+    OpenFlags::O_DSYNC.0 | OpenFlags::__O_SYNC.0 | OpenFlags::O_PATH.0 | OpenFlags::O_LARGEFILE.0,
+);
 
 /// An open file description: the part `dup` and `fork` share.
 pub(crate) struct OpenFile {
@@ -78,7 +88,7 @@ pub(crate) struct OpenFile {
 
 impl OpenFile {
     pub(crate) fn new(backing: Backing, flags: OpenFlags) -> Self {
-        let kept = OpenFlags::O_ACCMODE | SETFL_MASK;
+        let kept = OpenFlags::O_ACCMODE | SETFL_MASK | KEPT_FLAGS;
         Self {
             backing,
             flags: Mutex::new(flags & kept),
@@ -107,6 +117,9 @@ impl OpenFile {
 
     /// `EBADF` unless the file was opened for reading, as Linux checks `FMODE_READ`.
     pub(crate) fn check_readable(&self) -> Result<(), Errno> {
+        if self.flags().contains(OpenFlags::O_PATH) {
+            return Err(Errno::EBADF);
+        }
         match self.access() {
             OpenFlags::O_RDONLY | OpenFlags::O_RDWR => Ok(()),
             _ => Err(Errno::EBADF),
@@ -114,6 +127,9 @@ impl OpenFile {
     }
 
     pub(crate) fn check_writable(&self) -> Result<(), Errno> {
+        if self.flags().contains(OpenFlags::O_PATH) {
+            return Err(Errno::EBADF);
+        }
         match self.access() {
             OpenFlags::O_WRONLY | OpenFlags::O_RDWR => Ok(()),
             _ => Err(Errno::EBADF),
@@ -125,7 +141,8 @@ impl OpenFile {
         self.inode().map(drop)
     }
 
-    fn inode(&self) -> Result<&Arc<dyn Inode>, Errno> {
+    /// The VFS file behind this description; `ESPIPE` for streams.
+    pub(crate) fn inode(&self) -> Result<&File, Errno> {
         match &self.backing {
             Backing::Inode(inode) => Ok(inode),
             Backing::Stream(_) => Err(Errno::ESPIPE),
@@ -162,27 +179,29 @@ impl OpenFile {
     }
 
     pub(crate) async fn read(&self, buf: &mut [u8]) -> SysResult<usize> {
-        let inode = match &self.backing {
+        let file = match &self.backing {
             Backing::Stream(object) => return object.read(self.io(), buf).await,
-            Backing::Inode(inode) => inode,
+            Backing::Inode(file) => file,
         };
         let pos = *self.pos.lock().unwrap();
-        let n = inode.read_at(buf, pos).await?;
+        let n = file.read_at(buf, pos).await?;
         *self.pos.lock().unwrap() = pos + n as u64;
         Ok(n)
     }
 
     pub(crate) async fn write(&self, data: &[u8]) -> SysResult<usize> {
-        let inode = match &self.backing {
+        let file = match &self.backing {
             Backing::Stream(object) => return object.write(self.io(), data).await,
-            Backing::Inode(inode) => inode,
+            Backing::Inode(file) => file,
         };
-        let pos = if self.flags().contains(OpenFlags::O_APPEND) {
-            inode.size()
-        } else {
-            *self.pos.lock().unwrap()
-        };
-        let n = inode.write_at(data, pos).await?;
+        if self.flags().contains(OpenFlags::O_APPEND) {
+            let (end, n) = file.append(data).await?;
+            *self.pos.lock().unwrap() = end;
+            return Ok(n);
+        }
+        let pos = *self.pos.lock().unwrap();
+        check_file_size(pos, data.len())?;
+        let n = file.write_at(data, pos).await?;
         *self.pos.lock().unwrap() = pos + n as u64;
         Ok(n)
     }
@@ -192,25 +211,55 @@ impl OpenFile {
         self.inode()?.read_at(buf, offset).await
     }
 
+    /// Writes at `offset` without moving the file position. Like Linux, `O_APPEND` wins over
+    /// the offset (`pwrite` on an append-only description appends).
     pub(crate) async fn write_at(&self, data: &[u8], offset: u64) -> Result<usize, Errno> {
-        self.inode()?.write_at(data, offset).await
+        let file = self.inode()?;
+        if self.flags().contains(OpenFlags::O_APPEND) {
+            return Ok(file.append(data).await?.1);
+        }
+        check_file_size(offset, data.len())?;
+        file.write_at(data, offset).await
+    }
+
+    pub(crate) fn pos(&self) -> u64 {
+        *self.pos.lock().unwrap()
+    }
+
+    pub(crate) fn set_pos(&self, pos: u64) {
+        *self.pos.lock().unwrap() = pos;
     }
 
     /// Moves the file position, as `lseek` does, and returns the new one.
-    pub(crate) fn seek(&self, base: SeekBase, offset: i64) -> Result<u64, Errno> {
-        let inode = self.inode()?;
-        let mut pos = self.pos.lock().unwrap();
-        let base = match base {
-            SeekBase::Start => 0,
-            SeekBase::Current => *pos,
-            SeekBase::End => inode.size(),
+    pub(crate) async fn seek(&self, base: SeekBase, offset: i64) -> Result<u64, Errno> {
+        let file = self.inode()?;
+        if file.path_only {
+            return Err(Errno::EBADF);
+        }
+        let current = self.pos();
+        let is_dir = file.file_type() == FileType::Directory;
+        let new = match base {
+            SeekBase::Start | SeekBase::Current => {
+                let base = if base == SeekBase::Start { 0 } else { current };
+                checked_offset(base, offset)?
+            }
+            // tmpfs directories only seek from the start or the current position.
+            _ if is_dir => return Err(Errno::EINVAL),
+            SeekBase::End => {
+                let size = file.node().getattr().await?.size;
+                checked_offset(size, offset)?
+            }
+            SeekBase::Data | SeekBase::Hole => {
+                let offset = u64::try_from(offset).map_err(|_| Errno::ENXIO)?;
+                let which = if base == SeekBase::Data {
+                    SeekHole::Data
+                } else {
+                    SeekHole::Hole
+                };
+                file.seek_hole(offset, which).await?
+            }
         };
-        let new = i64::try_from(base)
-            .ok()
-            .and_then(|base| base.checked_add(offset))
-            .and_then(|new| u64::try_from(new).ok())
-            .ok_or(Errno::EINVAL)?;
-        *pos = new;
+        self.set_pos(new);
         Ok(new)
     }
 }
@@ -234,10 +283,30 @@ impl Pollable for OpenFile {
     }
 }
 
+/// `base + offset`, which must land in `0..=i64::MAX` (`vfs_setpos`).
+fn checked_offset(base: u64, offset: i64) -> Result<u64, Errno> {
+    i64::try_from(base)
+        .ok()
+        .and_then(|base| base.checked_add(offset))
+        .and_then(|new| u64::try_from(new).ok())
+        .ok_or(Errno::EINVAL)
+}
+
+/// Writes may not reach past the largest file offset (`generic_write_check_limits`).
+fn check_file_size(pos: u64, len: usize) -> Result<(), Errno> {
+    if len > 0 && pos >= i64::MAX as u64 {
+        return Err(Errno::EFBIG);
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SeekBase {
     Start,
     Current,
     End,
+    Data,
+    Hole,
 }
 
 struct Slot {
@@ -266,6 +335,44 @@ impl FdTable {
         };
         self.slots[index] = Some(Slot { file, cloexec });
         Fd(index as i32)
+    }
+
+    /// Installs `file` at the lowest free descriptor at or above `min`, as `F_DUPFD` does;
+    /// `None` if that would reach `limit`.
+    pub(crate) fn install_from(
+        &mut self,
+        min: usize,
+        limit: usize,
+        file: Arc<OpenFile>,
+        cloexec: bool,
+    ) -> Option<Fd> {
+        let index = (min..limit).find(|&i| self.slots.get(i).is_none_or(Option::is_none))?;
+        if self.slots.len() <= index {
+            self.slots.resize_with(index + 1, || None);
+        }
+        self.slots[index] = Some(Slot { file, cloexec });
+        Some(Fd(index as i32))
+    }
+
+    /// Puts `file` at `fd`, as `dup2` does, and returns what was there.
+    pub(crate) fn install_at(
+        &mut self,
+        fd: Fd,
+        file: Arc<OpenFile>,
+        cloexec: bool,
+    ) -> Option<Arc<OpenFile>> {
+        let index = fd.0 as usize;
+        if self.slots.len() <= index {
+            self.slots.resize_with(index + 1, || None);
+        }
+        self.slots[index]
+            .replace(Slot { file, cloexec })
+            .map(|slot| slot.file)
+    }
+
+    /// One past the highest descriptor that may be in use.
+    pub(crate) fn end(&self) -> usize {
+        self.slots.len()
     }
 
     pub(crate) fn remove(&mut self, fd: Fd) -> Option<Arc<OpenFile>> {

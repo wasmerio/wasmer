@@ -21,7 +21,8 @@ impl Kernel {
             && let Backing::Inode(inode) = &file.backing
             && inode.file_type() == FileType::Regular
         {
-            let left = inode.size().saturating_sub(file.position()) as i32;
+            let size = inode.node().getattr().await?.size;
+            let left = size.saturating_sub(file.position()) as i32;
             write_value(caller.memory(), GuestPtrMut::new(arg), &left).await?;
             return Ok(0);
         }

@@ -237,6 +237,76 @@ It is async throughout.
 
 Mounts are the only way to compose filesystems. Overlay is a filesystem, not a second composition mechanism.
 
+### The VFS and driver split
+
+`wasixv2-vfs` decides every path, permission and ownership question, following Linux's `fs/namei.c`, `fs/open.c`, `fs/attr.c`, `fs/utimes.c` and `fs/xattr.c`, including their error precedence. The kernel only decodes syscall arguments, keeps per-process state (root, working directory, umask, credentials) and calls `Vfs`. Drivers never see paths, `.`, `..`, symlink resolution, credentials or permission checks: they get single names in a directory they already returned, and objects of their own filesystem.
+
+```rust
+#[async_trait(?Send)]
+pub trait Filesystem: Send + Sync {
+    fn info(&self) -> FsInfo;                       // statfs magic, name_max, read_only, dev, has_btime
+    fn root(&self) -> Arc<dyn Node>;
+    async fn statfs(&self) -> FsResult<StatFs>;
+    async fn sync(&self) -> FsResult<()>;           // syncfs
+}
+
+#[async_trait(?Send)]
+pub trait Node: Send + Sync + Any {                 // Linux's inode + inode_operations
+    fn ino(&self) -> u64;
+    fn file_type(&self) -> FileType;                // regular, dir, symlink, fifo, socket, char, block
+    fn as_any(&self) -> &dyn Any;
+    async fn getattr(&self) -> FsResult<Attr>;      // mode, uid, gid, nlink, size, blocks, a/m/c/btime (ns), rdev, dev
+    async fn setattr(&self, attr: &SetAttr) -> FsResult<Attr>;   // values the VFS decided; size truncates
+    async fn lookup(&self, name: &[u8]) -> FsResult<Arc<dyn Node>>;
+    async fn create(&self, name: &[u8], new: &NewNode<'_>) -> FsResult<Arc<dyn Node>>;  // any type, mode/uid/gid decided
+    async fn create_unnamed(&self, new: &NewNode<'_>) -> FsResult<Arc<dyn Node>>;       // O_TMPFILE
+    async fn link(&self, name: &[u8], target: &Arc<dyn Node>) -> FsResult<()>;
+    async fn unlink(&self, name: &[u8]) -> FsResult<()>;
+    async fn rmdir(&self, name: &[u8]) -> FsResult<()>;
+    async fn rename(&self, name: &[u8], new_dir: &Arc<dyn Node>, new_name: &[u8], mode: RenameMode) -> FsResult<()>;
+    async fn readlink(&self) -> FsResult<Vec<u8>>;
+    async fn open(&self, options: OpenOptions) -> FsResult<Box<dyn Handle>>;
+    async fn getxattr / setxattr(name, value, XattrSet) / listxattr / removexattr;
+}
+
+#[async_trait(?Send)]
+pub trait Handle: Send + Sync {                     // file_operations for an opened object
+    async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize>;
+    async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize>;
+    async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)>;   // atomic O_APPEND
+    async fn sync(&self, data_only: bool) -> FsResult<()>;
+    async fn allocate(&self, mode: AllocMode, offset: u64, len: u64) -> FsResult<()>;
+    async fn seek_hole(&self, offset: u64, size: u64, which: SeekHole) -> FsResult<u64>;
+    async fn readdir(&self, cookie: u64, sink: &mut dyn DirSink) -> FsResult<()>;  // no . or ..
+}
+```
+
+- **Timestamps.** Drivers keep the times their own operations imply (a write stamps `mtime` and `ctime`, a new entry stamps the parent), as Linux filesystems do in their inode operations; explicit changes arrive through `setattr`.
+- **Directory cookies** resume a read while entries come and go, and stay below 2^31 so a 32-bit `telldir` holds them. The VFS adds `.` and `..` at positions 0 and 1, and a position past the end, as tmpfs's `simple_offset` readdir.
+- **Open files.** `vfs::File` is the filesystem part of an open file description (path, handle, lock owner id); the kernel's `OpenFile` holds it as `Backing::Inode` with the position and status flags. Dropping the last reference is the last close.
+
+### Mounts, names and path walking
+
+- **Mount tree.** A `Mount` is a superblock plus the dentry its tree starts at (a filesystem root, or any directory for a bind mount) and per-mount flags (read-only, nosuid, nodev, noexec, noatime, nosymfollow). Mounts stack on a `(mount, dentry)` mountpoint and the topmost wins. The embedder builds the tree with `Vfs::mount` and `Vfs::bind_mount`; the `mount` family of syscalls is not implemented yet.
+- **Dentries.** The VFS keeps the tree of names it has seen, for `..`, `getcwd`, mountpoints and the rename ancestry check. Only dentries something holds stay alive. A lookup always asks the driver and reuses the cached dentry only when it names the same object, so names that change behind the VFS (on a host directory) are never answered from a stale cache. There is no negative or attribute cache yet.
+- **Walk.** `link_path_walk` semantics: search permission on every directory, symlinks followed in the middle and at the end unless `NOFOLLOW`, at most 40 per walk (`ELOOP`), trailing slashes demand a directory and force following, `..` stops at the process root and climbs from a mount root to its mountpoint, and the `openat2` scopes `RESOLVE_BENEATH`, `IN_ROOT`, `NO_XDEV` and `NO_SYMLINKS` (`RESOLVE_CACHED` resolves normally).
+
+### Permissions
+
+`generic_permission` over the owner, group (with supplementary groups) and other bits, plus the DAC-override capabilities; sticky directories; set-gid inheritance and the umask at creation; `chmod`, `chown` and `utimensat` ownership rules. Processes run as uid and gid 1 without capabilities. Read-only filesystems and mounts give `EROFS` where Linux does.
+
+### Locks
+
+`LockManager` holds `flock` locks (owned by an open file), POSIX record locks (owned by a process, dropped when it closes any descriptor of the file) and OFD record locks (owned by an open file). Record locks of both kinds conflict with each other and split and merge like Linux's; `flock` locks are separate. Blocking requests wait for any lock change, and `F_SETLKW` detects deadlock cycles between processes (`EDEADLK`). Waiting is not yet interruptible by signals.
+
+### Change notification
+
+Every change the VFS makes is reported to one `FsWatcher` as an `FsEvent` (create, delete, move, modify, attrib, access, open, close), keyed by object identity (superblock id, inode number). inotify instances will hang off this hook in the kernel; they are not implemented yet. Changes made on the host side of a host directory are not seen.
+
+### Host directories
+
+`wasixv2-vfs-host` (Linux hosts only for now) holds every object as an `O_PATH` descriptor and resolves names with `openat(dir, name, O_PATH | O_NOFOLLOW)`, one component at a time and never `..`, so neither symlinks nor `..` can leave the mapped directory: the VFS interprets symlink targets inside the guest tree. Operations that need more than an `O_PATH` descriptor go through `/proc/self/fd/N`, which names the held inode exactly, as libfuse's `passthrough_ll` does. Blocking host calls run on the `Host` executor's blocking pool. Files the host user owns appear as owned by the guest user, and the reverse.
+
 ## Networking
 
 The kernel implements networking at the socket layer and has no TCP/IP stack. A guest can only observe sockets (ports, `bind` conflicts, accept queues, addresses, options, errno), and in-memory streams plus host sockets cover all of that.
