@@ -154,6 +154,51 @@ Open objects follow a three-level split:
 2. An **open file** holds the offset and status flags, and is shared by `dup` and `fork`.
 3. The **object** behind it is an inode, socket, pipe or event source, behind one trait for read, write, poll and ioctl.
 
+### Readiness and wait queues
+
+The crate `wasixv2-wait` holds what the VFS, the network and the kernel all need for readiness. It is the counterpart of Linux's `wait_queue_head_t`, `poll_table` and `__poll_t`.
+
+- **`PollMask`**: the `EPOLL*` bits, which equal the `POLL*` bits on the generic architecture.
+- **`WaitQueue`**: owned by an object, which calls `wake(events)` whenever its state changes, from any thread. An empty key means "anything".
+  - `add(Arc<dyn WaitEntry>)` returns a guard that unregisters on drop.
+  - Exclusive entries queue last. A wake stops at the first exclusive entry that takes it.
+- **`Pollable::poll(Option<&mut PollTable>) -> PollMask`**: Linux's `f_op->poll`. It registers on the object's queues through the table and returns the current mask without blocking.
+- **Waiting** goes through Rust wakers, so it works on any executor:
+  - `Waiter` is one task's entry and can sit on many queues.
+  - `PollWaiter` is `poll_wqueues`, used by poll and select.
+  - `wait_event`, `wait_event_timeout` and `wait_event_exclusive` are cancellation-safe. An exclusive wakeup that a cancelled waiter took is passed on.
+  - Each takes an `Interrupt` hook, the kernel's `signal_pending`.
+
+### The object trait
+
+`FileObject` (kernel `file.rs`) extends `Pollable` with:
+
+- `read` and `write`, which take an `Io` holding the open file's flags as the call began plus the interrupt hook. They block asynchronously unless `O_NONBLOCK` is set, in which case they return `EAGAIN`.
+- `ioctl`, which defaults to `ENOTTY`. The kernel handles `FIOCLEX`, `FIONCLEX`, `FIONBIO`, and `FIONREAD` on regular files, before calling the object.
+- `can_poll`, which is `file_can_poll`.
+
+Dropping the object is Linux's `release`. Inode-backed open files poll as `DEFAULT_POLLMASK` and are `EPERM` for epoll.
+
+### poll, select and epoll
+
+These follow `fs/select.c` and `fs/eventpoll.c`.
+
+- **poll and select:**
+  - Register on the first pass only.
+  - `POLLNVAL` for closed descriptors, while select returns `EBADF`.
+  - `POLLERR` and `POLLHUP` are always reported.
+  - The time left is written back to the timespec.
+  - The temporary signal mask is restored on return.
+- **epoll:**
+  - An item is keyed by (open file, descriptor) and goes away when the open file's last reference does, not when one duplicate closes.
+  - Items wake the epoll from their queue callback. `epoll_wait` re-polls ready items, requeues level-triggered ones and disarms one-shot ones.
+  - Epolls nest up to `EP_MAX_NESTS`, and a nesting that would create a loop is `ELOOP`.
+  - `epoll_wait` is never restarted.
+- **Not yet:**
+  - Signal delivery, so waits are never interrupted.
+  - `reverse_path_check`'s wakeup-path limits.
+  - `max_user_watches`.
+
 ## Filesystems
 
 There is one VFS. It owns all path and permission semantics, and filesystem drivers only store data.
@@ -205,6 +250,21 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 - **Interfaces and routes** are kernel tables served over netlink, so `ip addr`, `getifaddrs` and routing lookups work. No frames sit behind them.
 - **Namespaces:** `unshare` of the network namespace gives a fresh port space with only loopback.
 - **Unix sockets** stay a separate kernel facility. Their abstract namespace is per network namespace.
+
+**The vnet interface** (`wasixv2-vnet`'s `api` module):
+
+- **The kernel's socket layer** decodes and encodes guest structs and owns descriptors, blocking, `SO_RCVTIMEO` and `SO_SNDTIMEO`, signals, and the `SOL_SOCKET` options that only describe the descriptor. A missing network makes IP `socket` calls fail with `EAFNOSUPPORT`.
+- **`Network`** is one namespace. `socket(domain, kind, protocol)`, which is `inet_create`, plus `ports()` and `interfaces()`.
+- **`Socket`** is one IP socket, and the kernel wraps it as an open-file object.
+  - Operations: `bind`, `listen`, `accept`, `connect`, `disconnect`, `shutdown`, `send`/`recv` (with `Control` messages), `local_addr`, `peer_addr`, `take_error`, `input_len` and raw `set_option`/`get_option`.
+  - Every operation is synchronous and non-blocking, returning `EAGAIN` or `EINPROGRESS`.
+  - `poll` must match `tcp_poll` and `udp_poll`. The kernel blocks by waiting for poll events and retrying, as `sk_wait_event` does.
+- **`Backend`** carries traffic leaving the namespace:
+  - `connect` returns a `BackendStream`.
+  - `datagram` returns a `BackendDatagram`.
+  - `publish` hands accepted host connections to an `InboundSink` and returns a `Publication`.
+
+  Backends wake the returned objects' queues from their own threads.
 
 **Where a connection goes**
 
@@ -404,15 +464,16 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 | `wasixv2-record` | `record` | Layer: record and replay | syscalls |
 | `wasixv2-policy` | `policy` | Layer: syscall filtering and policy | syscalls |
 | `wasixv2-host` | `host` | What the kernel needs from the host: executor, clocks, timers, entropy | — |
+| `wasixv2-wait` | `wait` | Readiness: poll masks, wait queues, poll tables, blocking waits | abi |
 | `wasixv2-vfs` | `vfs` | Mount trees, path walk, name cache, permissions, locks, notification, filesystem driver trait | abi |
 | `wasixv2-vfs-mem` | `vfs-mem` | Memory filesystem | vfs |
 | `wasixv2-vfs-host` | `vfs-host` | Host directory passthrough | vfs |
 | `wasixv2-vfs-overlay` | `vfs-overlay` | Overlay filesystem | vfs |
 | `wasixv2-vfs-package` | `vfs-package` | Read-only packaged filesystem images | vfs |
-| `wasixv2-vnet` | `vnet` | Socket-level network per namespace: port tables, interfaces and routes, in-memory streams and datagram queues, publishing, the backend trait | abi |
+| `wasixv2-vnet` | `vnet` | Socket-level network per namespace: port tables, interfaces and routes, in-memory streams and datagram queues, publishing, the backend trait | abi, wait |
 | `wasixv2-vnet-host` | `vnet-host` | Backend that carries outbound connections over host sockets and accepts published ports | vnet |
 | `wasixv2-vnet-switch` | `vnet-switch` | Socket-level virtual switch that routes connections between machines by address | vnet |
-| `wasixv2-kernel` | `kernel` | Tasks, processes, credentials, signals, namespaces, IPC, memory, terminals, pseudo filesystems, socket layer, Unix sockets; implements `Syscalls` | abi, syscalls, host, vfs, vnet |
+| `wasixv2-kernel` | `kernel` | Tasks, processes, credentials, signals, namespaces, IPC, memory, terminals, pseudo filesystems, socket layer, Unix sockets; implements `Syscalls` | abi, syscalls, host, vfs, vnet, wait |
 | `wasixv2-checkpoint` | `checkpoint` | Kernel state checkpoint and restore | kernel |
 | `wasixv2-exec` | `exec` | Loading, instances, suspension, return-to-guest, fork, preemption | syscalls, wasmer |
 | `wasixv2-dylink` | `dylink` | Side-module loading and linking (wasm extension) | exec, wasmer |
