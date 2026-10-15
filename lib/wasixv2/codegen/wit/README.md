@@ -1,6 +1,6 @@
 # wasix2 definitions
 
-The Linux syscall ABI for wasm32 guests, written as annotated WIT. `wasix-codegen` reads these
+The Linux syscall ABI for wasm32 guests, written as annotated WIT. `wasixv2-codegen` reads these
 files with `wit-parser` only; nothing here uses the component model.
 
 - `types.wit` (`interface types`): scalar and pointer aliases, kernel structs and unions, and
@@ -77,6 +77,6 @@ typed `ulong`, and the function docs explain it.
 
 ## Validation
 
-`wasix-codegen` parses these files, computes C layouts and checks every `@size`/`@align`.
+`wasixv2-codegen` parses these files, computes C layouts and checks every `@size`/`@align`.
 The definitions were cross-checked against clang record-layout dumps of the Linux UAPI headers
 and of musl's riscv32 headers.

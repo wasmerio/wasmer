@@ -7055,6 +7055,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasix-syscalls2"
+version = "7.5.0"
+dependencies = [
+ "wasix-types2",
+ "wasmer",
+]
+
+[[package]]
+name = "wasix-types2"
+version = "7.5.0"
+
+[[package]]
 name = "wasixv2"
 version = "0.0.0"
 dependencies = [
@@ -7096,6 +7108,11 @@ dependencies = [
 [[package]]
 name = "wasixv2-codegen"
 version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "wit-parser",
+]
 
 [[package]]
 name = "wasixv2-dylink"
@@ -8622,6 +8639,21 @@ name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
+
+[[package]]
+name = "wit-parser"
+version = "0.259.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6390f4f02493ce678d509c859cf1698e38929fb75c8012a6ee2f7d6b6cb66cd7"
+dependencies = [
+ "anyhow",
+ "hashbrown 0.17.1",
+ "id-arena",
+ "indexmap",
+ "log",
+ "semver 1.0.28",
+ "unicode-ident",
+]
 
 [[package]]
 name = "writeable"

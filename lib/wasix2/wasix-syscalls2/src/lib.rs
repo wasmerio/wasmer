@@ -2,7 +2,7 @@
 //!
 //! [`Syscalls`] has one method per imported function; implement the ones a host supports and
 //! register them with [`imports`]. The trait, the [`host`] functions and [`imports`] are
-//! generated from the WIT definitions by `wasix-codegen`; see the header of `src/generated.rs`.
+//! generated from the WIT definitions by `wasixv2-codegen`; see the header of `src/generated.rs`.
 
 mod generated;
 

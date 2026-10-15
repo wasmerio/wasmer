@@ -1,11 +1,11 @@
 //! Golden/up-to-date checks for generated Rust and C, plus a compile-and-run check of the fixture
 //! output.
 //!
-//! Set `WASIX_CODEGEN_BLESS=1` to rewrite the fixture golden files.
+//! Set `WASIXV2_CODEGEN_BLESS=1` to rewrite the fixture golden files.
 
 use std::path::{Path, PathBuf};
 
-use wasix_codegen::{
+use wasixv2_codegen::{
     Target, generate_c, generate_rust, generate_rust_host, rust::source_from_header,
 };
 
@@ -13,13 +13,13 @@ fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")
 }
 
-const FIXTURE: &str = "lib/wasix2/wasix-codegen/tests/fixtures/sample.wit";
-const GOLDEN: &str = "lib/wasix2/wasix-codegen/tests/golden/sample.rs";
+const FIXTURE: &str = "lib/wasixv2/codegen/tests/fixtures/sample.wit";
+const GOLDEN: &str = "lib/wasixv2/codegen/tests/golden/sample.rs";
 /// Mirrors the libc2 tree layout.
-const GOLDEN_C: &str = "lib/wasix2/wasix-codegen/tests/golden/sample_c";
-const WIT: &str = "lib/wasix2/wit";
+const GOLDEN_C: &str = "lib/wasixv2/codegen/tests/golden/sample_c";
+const WIT: &str = "lib/wasixv2/codegen/wit";
 /// Mirrors the libc2 tree layout.
-const GOLDEN_WASIX2_C: &str = "lib/wasix2/wasix-codegen/tests/golden/wasix2_c";
+const GOLDEN_WASIX2_C: &str = "lib/wasixv2/codegen/tests/golden/wasix2_c";
 const TYPES2: &str = "lib/wasix2/wasix-types2/src/generated.rs";
 const SYSCALLS2: &str = "lib/wasix2/wasix-syscalls2/src/generated.rs";
 
@@ -28,13 +28,13 @@ fn fixture_golden_is_up_to_date() {
     let root = repo_root();
     let fresh = generate_rust(&root.join(FIXTURE), FIXTURE, Target::WASM32).unwrap();
     let golden_path = root.join(GOLDEN);
-    if std::env::var_os("WASIX_CODEGEN_BLESS").is_some() {
+    if std::env::var_os("WASIXV2_CODEGEN_BLESS").is_some() {
         std::fs::write(&golden_path, &fresh).unwrap();
     }
     let golden = std::fs::read_to_string(&golden_path).unwrap();
     assert!(
         fresh == golden,
-        "{GOLDEN} is stale; rerun with WASIX_CODEGEN_BLESS=1"
+        "{GOLDEN} is stale; rerun with WASIXV2_CODEGEN_BLESS=1"
     );
 }
 
@@ -50,12 +50,12 @@ fn wasix2_c_golden_is_up_to_date() {
     check_c_golden(WIT, GOLDEN_WASIX2_C);
 }
 
-/// Compares (or with `WASIX_CODEGEN_BLESS`, rewrites) every generated file under `golden_dir`,
+/// Compares (or with `WASIXV2_CODEGEN_BLESS`, rewrites) every generated file under `golden_dir`,
 /// and rejects files there that the generator no longer produces.
 fn check_c_golden(wit: &str, golden_dir: &str) {
     let root = repo_root();
     let dir = root.join(golden_dir);
-    let bless = std::env::var_os("WASIX_CODEGEN_BLESS").is_some();
+    let bless = std::env::var_os("WASIXV2_CODEGEN_BLESS").is_some();
     let files = generate_c(&root.join(wit), Target::WASM32).unwrap();
     for file in &files {
         let path = dir.join(file.path);
@@ -66,7 +66,7 @@ fn check_c_golden(wit: &str, golden_dir: &str) {
         let golden = std::fs::read_to_string(&path).unwrap();
         assert!(
             file.contents == golden,
-            "{golden_dir}/{} is stale; rerun with WASIX_CODEGEN_BLESS=1",
+            "{golden_dir}/{} is stale; rerun with WASIXV2_CODEGEN_BLESS=1",
             file.path
         );
     }
@@ -79,7 +79,7 @@ fn check_c_golden(wit: &str, golden_dir: &str) {
             std::fs::remove_file(&path).unwrap();
         } else {
             panic!(
-                "{golden_dir}/{} is no longer generated; rerun with WASIX_CODEGEN_BLESS=1",
+                "{golden_dir}/{} is no longer generated; rerun with WASIXV2_CODEGEN_BLESS=1",
                 rel.display()
             );
         }
@@ -109,7 +109,7 @@ fn wasix_types2_is_up_to_date() {
     assert!(
         fresh == current,
         "{TYPES2} is stale; from the repo root run:\n  \
-         cargo run -p wasix-codegen -- rust --wit {source} --out {TYPES2}"
+         cargo run -p wasixv2-codegen -- rust --wit {source} --out {TYPES2}"
     );
 }
 
@@ -123,7 +123,7 @@ fn wasix_syscalls2_is_up_to_date() {
     assert!(
         fresh == current,
         "{SYSCALLS2} is stale; from the repo root run:\n  \
-         cargo run -p wasix-codegen -- rust-host --wit {source} --out {SYSCALLS2}"
+         cargo run -p wasixv2-codegen -- rust-host --wit {source} --out {SYSCALLS2}"
     );
 }
 

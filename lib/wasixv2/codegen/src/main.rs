@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use wasix_codegen::Target;
+use wasixv2_codegen::Target;
 
 /// Generates wasix2 bindings from the annotated WIT definitions.
 ///
@@ -53,18 +53,18 @@ fn main() -> Result<()> {
     match Cli::parse().command {
         Cmd::Rust { wit, out } => {
             let source = source_label(&wit)?;
-            let code = wasix_codegen::generate_rust(&wit, &source, Target::WASM32)?;
+            let code = wasixv2_codegen::generate_rust(&wit, &source, Target::WASM32)?;
             std::fs::write(&out, code).with_context(|| format!("writing {}", out.display()))?;
             Ok(())
         }
         Cmd::RustHost { wit, out } => {
             let source = source_label(&wit)?;
-            let code = wasix_codegen::generate_rust_host(&wit, &source, Target::WASM32)?;
+            let code = wasixv2_codegen::generate_rust_host(&wit, &source, Target::WASM32)?;
             std::fs::write(&out, code).with_context(|| format!("writing {}", out.display()))?;
             Ok(())
         }
         Cmd::C { wit, libc, out_dir } => {
-            let files = wasix_codegen::generate_c(&wit, Target::WASM32)?;
+            let files = wasixv2_codegen::generate_c(&wit, Target::WASM32)?;
             let (root, create) = match (libc, out_dir) {
                 (Some(libc), _) => {
                     // Catch a wrong path before scattering files into it.
