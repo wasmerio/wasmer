@@ -16,6 +16,7 @@ wasixv2-syscalls = { path = "../syscalls" }
 wasixv2-host = { path = "../host" }
 wasixv2-vfs = { path = "../vfs" }
 wasixv2-vnet = { path = "../vnet" }
+wasixv2-wait = { path = "../wait" }
 
 [dev-dependencies]
 futures.workspace = true

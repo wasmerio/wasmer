@@ -1,13 +1,58 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 
-use wasixv2_abi::OpenFlags;
-use wasixv2_syscalls::{Errno, Fd, LocalFuture};
+use wasixv2_abi::{IoctlRequest, OpenFlags};
+use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
 use wasixv2_vfs::Inode;
+use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
-/// A stream an open file can refer to instead of an inode: a pipe, a socket, a host stream.
-pub trait FileObject: Send + Sync {
-    fn read<'a>(&'a self, buf: &'a mut [u8]) -> LocalFuture<'a, Result<usize, Errno>>;
-    fn write<'a>(&'a self, data: &'a [u8]) -> LocalFuture<'a, Result<usize, Errno>>;
+/// What an object needs to know about the call it serves: the open file's status flags as the
+/// call began (Linux reads `f_flags` once) and how to notice a signal while blocked.
+#[derive(Clone, Copy)]
+pub struct Io<'a> {
+    pub flags: OpenFlags,
+    pub interrupt: &'a dyn Interrupt,
+}
+
+impl Io<'_> {
+    /// `O_NONBLOCK`: fail with `EAGAIN` instead of waiting.
+    pub fn nonblocking(&self) -> bool {
+        self.flags.contains(OpenFlags::O_NONBLOCK)
+    }
+}
+
+/// The object behind an open file that is not an inode: a pipe, a socket, an event source, a
+/// host stream. Linux's `file_operations`: one trait for read, write, poll and ioctl.
+///
+/// `read` and `write` block (asynchronously) unless `io.nonblocking()`, then fail with
+/// `EAGAIN`. A blocked call ends with `SysErr::Restart` when `io.interrupt` becomes pending,
+/// or with the bytes moved so far. `Pollable::poll` must agree with what `read` and `write`
+/// would do.
+///
+/// The object is dropped when the last open file referring to it goes away (Linux's
+/// `release`), so `Drop` is where a pipe end or a socket closes.
+pub trait FileObject: Pollable + Any {
+    fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>>;
+    fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>>;
+
+    /// Requests the generic ioctl code did not handle. Linux answers unknown requests with
+    /// `ENOTTY`.
+    fn ioctl<'a>(
+        &'a self,
+        caller: &'a Caller<'a>,
+        request: IoctlRequest,
+        arg: u32,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        let _ = (caller, request, arg);
+        Box::pin(async { Err(Errno::ENOTTY.into()) })
+    }
+
+    /// Linux's `file_can_poll`: whether epoll may watch the object.
+    fn can_poll(&self) -> bool {
+        true
+    }
 }
 
 pub(crate) enum Backing {
@@ -46,6 +91,11 @@ impl OpenFile {
         *current = (*current & !SETFL_MASK) | (flags & SETFL_MASK);
     }
 
+    /// The file position.
+    pub(crate) fn position(&self) -> u64 {
+        *self.pos.lock().unwrap()
+    }
+
     fn access(&self) -> OpenFlags {
         self.flags() & OpenFlags::O_ACCMODE
     }
@@ -77,9 +127,47 @@ impl OpenFile {
         }
     }
 
-    pub(crate) async fn read(&self, buf: &mut [u8]) -> Result<usize, Errno> {
+    /// The call context for this file's current flags.
+    // TODO: carry the calling task's signal state once signals are delivered; until then
+    // nothing interrupts a blocked call.
+    pub(crate) fn io(&self) -> Io<'static> {
+        Io {
+            flags: self.flags(),
+            interrupt: &NoInterrupt,
+        }
+    }
+
+    /// The object behind a non-inode file.
+    pub(crate) fn object(&self) -> Option<&Arc<dyn FileObject>> {
+        match &self.backing {
+            Backing::Stream(object) => Some(object),
+            Backing::Inode(_) => None,
+        }
+    }
+
+    /// The object behind the file, if it is a `T`.
+    pub(crate) fn downcast<T: FileObject>(&self) -> Option<&T> {
+        let object: &dyn Any = &**self.object()?;
+        object.downcast_ref()
+    }
+
+    /// `vfs_poll`. Inodes have no readiness of their own and are always ready, as Linux's
+    /// `DEFAULT_POLLMASK` for files without a poll operation.
+    pub(crate) fn poll(&self, table: Option<&mut PollTable<'_>>) -> PollMask {
+        match &self.backing {
+            Backing::Stream(object) => object.poll(table),
+            Backing::Inode(_) => PollMask::DEFAULT,
+        }
+    }
+
+    /// `file_can_poll`: regular files and directories cannot be watched by epoll.
+    pub(crate) fn can_poll(&self) -> bool {
+        self.object().is_some_and(|object| object.can_poll())
+    }
+
+    pub(crate) async fn read(&self, buf: &mut [u8]) -> SysResult<usize> {
         let inode = match &self.backing {
-            Backing::Stream(object) => return object.read(buf).await,
+            Backing::Stream(object) => return object.read(self.io(), buf).await,
             Backing::Inode(inode) => inode,
         };
         let pos = *self.pos.lock().unwrap();
@@ -88,9 +176,9 @@ impl OpenFile {
         Ok(n)
     }
 
-    pub(crate) async fn write(&self, data: &[u8]) -> Result<usize, Errno> {
+    pub(crate) async fn write(&self, data: &[u8]) -> SysResult<usize> {
         let inode = match &self.backing {
-            Backing::Stream(object) => return object.write(data).await,
+            Backing::Stream(object) => return object.write(self.io(), data).await,
             Backing::Inode(inode) => inode,
         };
         let pos = if self.flags().contains(OpenFlags::O_APPEND) {

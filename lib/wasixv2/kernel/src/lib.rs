@@ -8,6 +8,7 @@
 
 mod file;
 mod fs;
+mod ioctl;
 mod mm;
 mod startup;
 mod stdio;
@@ -18,7 +19,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub use file::FileObject;
+pub use file::{FileObject, Io};
 use wasixv2_abi::{
     AtFlags, ClockId, ConstIovecArray, ConstKernelTimespecPtr, ConstSigsetPtr, Cstr, FcntlCmd,
     FutexOp, GuestPtr, IoctlRequest, KernelTimespecPtr, Loff, MapFlags, Mode, NewUtsname,
@@ -214,16 +215,14 @@ impl Syscalls for Kernel {
         self.fcntl(caller, fd, cmd, arg)
     }
 
-    // No descriptor is a terminal or device yet.
     async fn ioctl(
         &self,
         caller: &Caller<'_>,
         fd: Fd,
-        _: IoctlRequest,
-        _: Ulong,
+        request: IoctlRequest,
+        arg: Ulong,
     ) -> SysResult<i32> {
-        self.file(caller.task(), fd)?;
-        Err(Errno::ENOTTY.into())
+        self.sys_ioctl(caller, fd, request, arg).await
     }
 
     async fn read(&self, caller: &Caller<'_>, fd: Fd, buf: UserSliceMut) -> SysResult<u32> {
