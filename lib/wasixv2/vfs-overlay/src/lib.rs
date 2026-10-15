@@ -183,9 +183,9 @@ impl Shared {
             return (layer as u64) << LAYER_SHIFT | ino;
         }
         let mut overflow = self.overflow.lock().unwrap();
-        *overflow.entry((layer, ino)).or_insert_with(|| {
-            OVERFLOW_LAYER << LAYER_SHIFT | self.next_overflow.fetch_add(1, Ordering::Relaxed)
-        })
+        *overflow
+            .entry((layer, ino))
+            .or_insert_with(|| self.fresh_ino())
     }
 
     /// The inode number of the object whose real objects are `found` (topmost first): the
@@ -204,8 +204,18 @@ impl Shared {
         self.xino(top.layer, top.node.ino())
     }
 
+    /// A number no real inode maps to, for an object that cannot use its real one.
+    fn fresh_ino(&self) -> u64 {
+        OVERFLOW_LAYER << LAYER_SHIFT | self.next_overflow.fetch_add(1, Ordering::Relaxed)
+    }
+
     /// The overlay object for `found`, reached as `name` in `parent`.
-    fn node(&self, found: Vec<Real>, parent: &Arc<OverlayNode>, name: &[u8]) -> Arc<OverlayNode> {
+    async fn node(
+        &self,
+        found: Vec<Real>,
+        parent: &Arc<OverlayNode>,
+        name: &[u8],
+    ) -> FsResult<Arc<OverlayNode>> {
         let top = &found[0];
         let key = match top.layer {
             UPPER => Key::Upper(top.node.ino()),
@@ -216,8 +226,14 @@ impl Shared {
         if let Some(node) = existing
             && node.real().ino() == top.node.ino()
         {
-            return node;
+            return Ok(node);
         }
+        // Lower hard links are separate overlay objects (`index=off`) that diverge on copy-up,
+        // and an inode number is the object's identity in the VFS, so each takes a number of
+        // its own instead of sharing the real one. Its `d_ino` in a listing stays the real one.
+        let aliased = top.layer != UPPER
+            && top.node.file_type() != FileType::Directory
+            && top.node.getattr().await?.nlink > 1;
         let shared = parent.shared.clone();
         let file_type = top.node.file_type();
         let mut found = found.into_iter();
@@ -228,7 +244,10 @@ impl Shared {
         };
         let all: Vec<Real> = upper.iter().chain(&lowers).cloned().collect();
         let node = Arc::new_cyclic(|this| OverlayNode {
-            ino: self.ino_for(&all),
+            ino: match aliased {
+                true => self.fresh_ino(),
+                false => self.ino_for(&all),
+            },
             file_type,
             this: this.clone(),
             shared,
@@ -244,7 +263,7 @@ impl Shared {
             .lock()
             .unwrap()
             .insert(key, Arc::downgrade(&node));
-        node
+        Ok(node)
     }
 
     /// Drops what is remembered about upper object `node` once its last link is gone, as the
@@ -670,7 +689,10 @@ impl Node for OverlayNode {
         if found.is_empty() {
             return Err(Errno::ENOENT);
         }
-        Ok(self.shared.node(found, &self.arc(), name))
+        self.shared
+            .node(found, &self.arc(), name)
+            .await
+            .map(|n| n as _)
     }
 
     async fn create(&self, name: &[u8], new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
@@ -709,7 +731,10 @@ impl Node for OverlayNode {
             node: child,
             xwhiteouts: false,
         }];
-        Ok(self.shared.node(found, &self.arc(), name))
+        self.shared
+            .node(found, &self.arc(), name)
+            .await
+            .map(|n| n as _)
     }
 
     async fn create_unnamed(&self, new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
@@ -722,7 +747,10 @@ impl Node for OverlayNode {
             node: child,
             xwhiteouts: false,
         }];
-        Ok(self.shared.node(found, &self.arc(), b""))
+        self.shared
+            .node(found, &self.arc(), b"")
+            .await
+            .map(|n| n as _)
     }
 
     async fn link(&self, name: &[u8], target: &Arc<dyn Node>) -> FsResult<()> {
@@ -772,7 +800,7 @@ impl Node for OverlayNode {
             return Err(Errno::ENOENT);
         }
         let in_upper = found[0].layer == UPPER;
-        let child = self.shared.node(found, &self.arc(), name);
+        let child = self.shared.node(found, &self.arc(), name).await?;
         child.check_dir()?;
         if !child.merged_entries().await?.is_empty() {
             return Err(Errno::ENOTEMPTY);
@@ -809,7 +837,7 @@ impl Node for OverlayNode {
         if found.is_empty() {
             return Err(Errno::ENOENT);
         }
-        let source = self.shared.node(found, &old_parent, name);
+        let source = self.shared.node(found, &old_parent, name).await?;
         // Without `redirect_dir`, a directory with lower parts cannot move (as Linux).
         if source.is_dir() && source.has_lowers() {
             return Err(Errno::EXDEV);
@@ -817,7 +845,7 @@ impl Node for OverlayNode {
         let found = new_parent.find(new_name).await?;
         let target = match found.is_empty() {
             true => None,
-            false => Some(self.shared.node(found, &new_parent, new_name)),
+            false => Some(self.shared.node(found, &new_parent, new_name).await?),
         };
         match (mode, &target) {
             (RenameMode::NoReplace, Some(_)) => return Err(Errno::EEXIST),

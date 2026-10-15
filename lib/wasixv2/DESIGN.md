@@ -335,8 +335,9 @@ Every change the VFS makes is reported to one `FsWatcher` as an `FsEvent` (creat
 - **Rename.** A directory that has lower parts returns `EXDEV`, as Linux does without `redirect_dir`. Programs then fall back to copying. Non-directories are copied up and then renamed. A directory moved onto a name that a lower layer has is made opaque. `RENAME_WHITEOUT` returns `EINVAL`.
 - **Inode numbers.** Inode numbers follow `xino`: a real inode number below 2^56 is combined with its layer index in the top byte. Larger numbers get a counter instead.
   - A copied-up object keeps the number of its lower origin. Linux records the origin in an xattr; here it is remembered in memory for the life of the overlay.
-  - A merged directory takes its number from its topmost lower directory. `readdir` reports the same numbers as `stat`.
-  - Hard links between lower files are broken by copy-up, as Linux does with `index=off`. The copy and the remaining lower link can then share an inode number.
+  - A merged directory takes its number from its topmost lower directory, which no other overlay object can reach, since directories have no hard links and merged directories cannot move. `readdir` reports the same numbers as `stat`.
+  - Hard links between lower files are separate overlay objects, broken by copy-up as Linux does with `index=off`. Because an inode number is the object's identity in the VFS, each such link (a lower non-directory with more than one link) takes a counter number of its own while it is in use, instead of the shared real one; for these `readdir` still reports the layer's number.
+  - The layer byte keeps upper objects, lower objects and counter numbers apart, so a copied-up object keeping its lower number cannot collide with anything that lives only in the upper layer.
 - **readdir.** A directory handle reads the merged listing when reading starts at cookie 0. Cookies index into that snapshot, as in Linux's `ovl_dir_cache`.
 - **Locking.** One overlay-wide lock serialises all namespace and metadata changes, including copy-up. Data I/O on files that are already copied up does not take it.
 - **Reporting.** A merged directory reports `nlink` 1. `statfs` comes from the upper layer, or from the top lower layer when there is no upper.

@@ -128,6 +128,23 @@ fn write_copies_up_file_and_parents_keeping_ino() {
 }
 
 #[test]
+fn lower_hard_links_are_separate_objects_with_their_own_inos() {
+    let (overlay, _upper, lower) = setup();
+    let lower_d = lookup(&lower.root(), b"d").unwrap();
+    let lower_f = lookup(&lower_d, b"f").unwrap();
+    block_on(lower_d.link(b"g", &lower_f)).unwrap();
+
+    let d = lookup(&overlay.root(), b"d").unwrap();
+    let (f, g) = (lookup(&d, b"f").unwrap(), lookup(&d, b"g").unwrap());
+    assert_ne!(f.ino(), g.ino());
+    let ino = f.ino();
+    block_on(f.setattr(&SetAttr::default())).unwrap();
+    assert_eq!(lookup(&d, b"f").unwrap().ino(), ino);
+    assert_eq!(lookup(&d, b"g").unwrap().ino(), g.ino());
+    assert_ne!(ino, g.ino());
+}
+
+#[test]
 fn setattr_and_xattr_copy_up() {
     let (overlay, upper, _) = setup();
     let f = lookup(&lookup(&overlay.root(), b"d").unwrap(), b"f").unwrap();
