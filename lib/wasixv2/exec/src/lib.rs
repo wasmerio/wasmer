@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 pub use generated::IMPORT_MODULE;
 use wasixv2_syscalls::{Control, GuestAction, SysErr, SysResult, Syscalls, TaskId};
-use wasmer::{FunctionEnv, Instance, Memory, Module, RuntimeError, Store};
+use wasmer::{FunctionEnv, Imports, Instance, Memory, MemoryError, Module, RuntimeError, Store};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecError {
@@ -19,6 +19,8 @@ pub enum ExecError {
     Instantiate(#[from] wasmer::InstantiationError),
     #[error("missing export: {0}")]
     Export(#[from] wasmer::ExportError),
+    #[error("cannot create the imported memory: {0}")]
+    Memory(#[from] MemoryError),
     #[error("guest trapped: {0}")]
     Trap(RuntimeError),
     // TODO: once signals exist, kill the process with SIGSEGV instead, as
@@ -57,9 +59,14 @@ where
             memory: None,
         },
     );
-    let imports = generated::imports(&mut store, &env);
+    let mut imports = generated::imports(&mut store, &env);
+    let imported = import_memory(&mut store, module, &mut imports)?;
     let instance = Instance::new(&mut store, module, &imports)?;
-    env.as_mut(&mut store).memory = Some(instance.exports.get_memory("memory")?.clone());
+    let memory = match imported {
+        Some(memory) => memory,
+        None => instance.exports.get_memory("memory")?.clone(),
+    };
+    env.as_mut(&mut store).memory = Some(memory);
     let start = instance.exports.get_function("_start")?.clone();
 
     let store = store.into_async();
@@ -70,6 +77,21 @@ where
             Err(err) => Err(ExecError::Trap(err)),
         },
     }
+}
+
+/// Creates the memory `module` imports, if any, with the limits and sharing its import declares.
+/// libc-built guests import a shared memory so threads can share it; others export `memory`.
+fn import_memory(
+    store: &mut Store,
+    module: &Module,
+    imports: &mut Imports,
+) -> Result<Option<Memory>, MemoryError> {
+    let Some(import) = module.imports().memories().next() else {
+        return Ok(None);
+    };
+    let memory = Memory::new(store, *import.ty())?;
+    imports.define(import.module(), import.name(), memory.clone());
+    Ok(Some(memory))
 }
 
 /// The return-to-guest path: runs the work the kernel left for `task`, then turns the syscall
