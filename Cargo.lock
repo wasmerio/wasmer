@@ -7130,7 +7130,11 @@ name = "wasixv2-host"
 version = "0.0.0"
 dependencies = [
  "getrandom 0.4.3",
+ "js-sys",
  "tokio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
 ]
 
 [[package]]

@@ -9,7 +9,7 @@ use std::{
 
 use futures::executor::block_on;
 use wasixv2_abi::{GuestPtr, GuestPtrMut};
-use wasixv2_host::{ByteSink, ByteSource, LocalFuture};
+use wasixv2_host::{ByteSink, ByteSource, Executor, LocalFuture};
 use wasixv2_syscalls::{Fault, SysErr, UserMemory, WASM_PAGE_SIZE};
 use wasixv2_vfs_mem::MemDir;
 
@@ -67,8 +67,28 @@ impl Host for TestHost {
         Box::pin(async {})
     }
 
+    // The clock never moves, so the default would wait forever.
+    fn sleep_until(&self, _: Duration) -> LocalFuture<'_, ()> {
+        Box::pin(async {})
+    }
+
     fn random(&self, buf: &mut [u8]) {
         buf.fill(0x5a);
+    }
+
+    fn executor(&self) -> &dyn Executor {
+        self
+    }
+}
+
+/// Blocking work runs inline; nothing here drives background futures.
+impl Executor for TestHost {
+    fn spawn_local(&self, _: LocalFuture<'static, ()>) {
+        unimplemented!("kernel tests run no background host work")
+    }
+
+    fn spawn_blocking(&self, work: Box<dyn FnOnce() + Send>) -> LocalFuture<'static, ()> {
+        Box::pin(async move { work() })
     }
 }
 

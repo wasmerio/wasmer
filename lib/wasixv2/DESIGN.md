@@ -41,7 +41,7 @@ wasixv2-kernel      tasks, processes, signals, memory, IPC, terminals, sockets
   │
   ├── wasixv2-vfs   ── vfs-mem · vfs-host · vfs-overlay · vfs-package
   ├── wasixv2-vnet  ── vnet-host · vnet-switch
-  └── wasixv2-host     clocks, timers, entropy, byte streams
+  └── wasixv2-host     executor, clocks, timers, entropy, byte streams
 ```
 
 Only the execution and dynamic-linking crates know about the wasm engine. Everything from the layers down is plain Rust and can be tested without wasm.
@@ -324,6 +324,43 @@ Side modules must export `__wasm_init_tls`, `__tls_size` and `__tls_align`; wasi
 
 A real signal would let the guest block, ignore or catch the request, and a thread that blocks all signals would stall every `dlopen`; this is Linux's `task_work`. The linker-generated functions above get no interrupt points, and run with pending work suppressed, so no thread is interrupted in the middle of setting up its own TLS.
 
+### Host and executor
+
+The kernel never names an async runtime. Everything it needs from the host is one `Arc<dyn Host>`, passed to `Kernel::new`; the facade builds it with `Machine::with_host(host)`, or `Machine::new()` for the tokio default.
+
+```rust
+pub trait Host: Send + Sync {
+    fn realtime(&self) -> Duration;                 // CLOCK_REALTIME, since the epoch
+    fn monotonic(&self) -> Duration;                // CLOCK_MONOTONIC, never goes backwards
+    fn sleep(&self, d: Duration) -> LocalFuture<'_, ()>;
+    fn sleep_until(&self, deadline: Duration) -> LocalFuture<'_, ()>; // monotonic deadline; never early
+    fn random(&self, buf: &mut [u8]);
+    fn executor(&self) -> &dyn Executor;
+}
+pub trait Executor: Send + Sync {
+    fn spawn_local(&self, f: LocalFuture<'static, ()>);   // detached, on the current thread's executor
+    fn spawn_blocking(&self, work: Box<dyn FnOnce() + Send>) -> LocalFuture<'static, ()>;
+}
+// helper: (dyn Executor)::run_blocking(|| ..) -> T
+```
+
+- **Futures are not `Send`**, because wasmer's async host calls are not, so background work is spawned locally.
+- **Absolute timeouts** (`clock_nanosleep` with `TIMER_ABSTIME`, epoll and ppoll deadlines) use `sleep_until` on the monotonic clock. Its default re-sleeps until the clock passes the deadline.
+- **Boxing** happens once per sleep, spawn or blocking call, never per syscall.
+
+| Implementation | Feature | Clocks | Timers | Entropy | Executor |
+| --- | --- | --- | --- | --- | --- |
+| `TokioHost` | `tokio` (facade default) | `SystemTime`, tokio `Instant` | tokio timers | OS (`getrandom`) | `spawn_local` needs a `LocalSet`; blocking work on tokio's blocking pool |
+| `WebHost` | `web`, `wasm32-unknown-unknown` | `Date.now()`, `performance.now()` | `setTimeout`, re-armed until the deadline | `crypto.getRandomValues` | `wasm_bindgen_futures::spawn_local`; blocking work runs inline and stalls the event loop |
+
+`Stdio::from_fns` wires stdout and stderr to callbacks with stdin at end of stream, which is enough for a browser console. A richer browser stdin is the embedder's own `ByteSource`.
+
+**Open items**
+
+- **Guest threads.** `Executor` gets a method to start a task on a host thread, or on a web worker, when `clone` lands.
+- **Exec in the browser.** `wasixv2-exec`, `wasixv2-dylink` and the facade build for `wasm32-unknown-unknown` with the `js` feature, since wasmer's js backend implements async host functions and `call_async` with JSPI (`WebAssembly.Suspending` and `promising`). Running a guest has not been tried yet. It needs a JSPI-capable engine, and guests built with exception handling need exnref support.
+- **Shared memory.** libc-built guests import a shared memory, which needs `SharedArrayBuffer` and therefore a cross-origin isolated page (COOP and COEP headers).
+
 ## Recording, replay and checkpointing
 
 These are two separate features. Recording is a syscall layer; checkpointing serializes kernel state directly.
@@ -392,6 +429,7 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 
 | Date | Decision | Why |
 | --- | --- | --- |
+| 2026-10-15 | The executor is reached through `Host::executor`; tokio and the browser are host implementations behind features | Keeps the kernel runtime-agnostic and lets one embedder share an executor between hosts |
 | 2026-10-14 | Crates live in this monorepo under lib/wasixv2, named wasixv2-\*, with the facade named wasixv2 | Keeping napi in a separate repo has been painful; the prefix keeps v2 apart from wasixv1 crates |
 | 2026-10-14 | The libc port is a separate effort; the first slice is tested with hand-crafted binaries that use no libc | Keeps the kernel work unblocked by libc |
 | 2026-10-14 | Keep wasixv1's setjmp-based vfork, with a task switch in the exec layer instead of swapping environments | The guest-side mechanism matches vfork semantics; only the host side was brittle |
