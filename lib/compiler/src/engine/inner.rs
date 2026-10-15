@@ -282,7 +282,7 @@ impl Engine {
             let mut file = std::fs::File::open(file_ref)?;
             let mut magic = [0; 4];
             let is_native = file.read_exact(&mut magic).is_ok()
-                && crate::ArtifactBuild::has_native_header(&magic);
+                && crate::ArtifactBuild::is_deserializable(&magic);
             if is_native {
                 return Ok(Arc::new(Artifact::deserialize_file(self, file_ref)?));
             }

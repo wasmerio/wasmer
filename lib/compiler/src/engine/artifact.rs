@@ -14,6 +14,8 @@ use std::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
+#[cfg(feature = "static-artifact-load")]
+use crate::serialize::MetadataHeader;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::types::symbols::ModuleMetadata;
 use crate::{
@@ -22,7 +24,7 @@ use crate::{
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{resolver::resolve_tags, trap::register_frame_info_source},
     resolve_imports,
-    serialize::{MetadataHeader, SerializableModule},
+    serialize::SerializableModule,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
@@ -297,7 +299,7 @@ impl Artifact {
 
     /// Deserialize an ELF artifact held in memory, if the bytes contain one.
     fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
-        if !ArtifactBuild::has_native_header(bytes) {
+        if !ArtifactBuild::is_deserializable(bytes) {
             return Ok(None);
         }
 
@@ -330,49 +332,20 @@ impl Artifact {
     /// This function loads executable code into memory.
     /// You must trust the loaded bytes to be valid for the chosen engine and
     /// for the host CPU architecture.
-    /// In contrast to [`Self::deserialize_unchecked`] the artifact layout is
-    /// validated, which increases safety.
+    /// The artifact layout is validated before loading.
     pub unsafe fn deserialize(
         engine: &Engine,
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
-        unsafe {
-            if !ArtifactBuild::has_rkyv_header(bytes.as_ref()) {
-                if let Some(artifact) = Self::deserialize_elf(engine, bytes.as_ref())? {
-                    return Ok(artifact);
-                }
-
-                let static_artifact = Self::deserialize_object(engine, bytes);
-                match static_artifact {
-                    Ok(v) => {
-                        return Ok(v);
-                    }
-                    Err(e) => {
-                        return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not a Wasmer engine artifact: {e}"
-                        )));
-                    }
-                }
-            }
-
-            let artifact = ArtifactBuildFromArchive::try_new(bytes, |bytes| {
-                let bytes =
-                    Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
-
-                let metadata_len = MetadataHeader::parse(bytes)?;
-                let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
-                let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
-
-                SerializableModule::archive_from_slice_checked(metadata_slice)
-            })?;
-
-            let mut inner_engine = engine.inner_mut();
-            Self::from_parts(
-                &mut inner_engine,
-                ArtifactBuildVariant::Archived(artifact),
-                engine.target(),
-            )
+        if let Some(artifact) = Self::deserialize_elf(engine, bytes.as_ref())? {
+            return Ok(artifact);
         }
+
+        unsafe { Self::deserialize_object(engine, bytes) }.map_err(|e| {
+            DeserializeError::Incompatible(format!(
+                "The provided bytes are not a Wasmer engine artifact: {e}"
+            ))
+        })
     }
 
     /// Deserialize a serialized artifact.
@@ -381,49 +354,12 @@ impl Artifact {
     ///
     /// # Safety
     /// See [`Self::deserialize`].
-    /// In contrast to the above, this function skips artifact layout validation,
-    /// which increases the risk of loading invalid artifacts.
+    /// This is equivalent to [`Self::deserialize`] for native artifacts.
     pub unsafe fn deserialize_unchecked(
         engine: &Engine,
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
-        unsafe {
-            if !ArtifactBuild::has_rkyv_header(bytes.as_ref()) {
-                if let Some(artifact) = Self::deserialize_elf(engine, bytes.as_ref())? {
-                    return Ok(artifact);
-                }
-
-                let static_artifact = Self::deserialize_object(engine, bytes);
-                match static_artifact {
-                    Ok(v) => {
-                        return Ok(v);
-                    }
-                    Err(e) => {
-                        return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not a Wasmer engine artifact: {e}"
-                        )));
-                    }
-                }
-            }
-
-            let artifact = ArtifactBuildFromArchive::try_new(bytes, |bytes| {
-                let bytes =
-                    Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
-
-                let metadata_len = MetadataHeader::parse(bytes)?;
-                let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
-                let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
-
-                SerializableModule::archive_from_slice(metadata_slice)
-            })?;
-
-            let mut inner_engine = engine.inner_mut();
-            Self::from_parts(
-                &mut inner_engine,
-                ArtifactBuildVariant::Archived(artifact),
-                engine.target(),
-            )
-        }
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     /// Construct a `ArtifactBuild` from component parts.
@@ -1349,6 +1285,7 @@ impl Artifact {
         ))
     }
 
+    #[cfg(feature = "static-artifact-load")]
     fn get_byte_slice(input: &[u8], start: usize, end: usize) -> Result<&[u8], DeserializeError> {
         if (start == end && input.len() > start)
             || (start < end && input.len() > start && input.len() >= end)

@@ -32,21 +32,10 @@ pub struct ArtifactBuild {
 }
 
 impl ArtifactBuild {
-    /// Header signature for wasmu binary
-    pub const MAGIC_HEADER: &'static [u8; 16] = b"wasmer-universal";
-
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
-        Self::has_rkyv_header(bytes) || Self::has_native_header(bytes)
-    }
-
-    pub(crate) fn has_native_header(bytes: &[u8]) -> bool {
         bytes.starts_with(&object::elf::ELFMAG)
             || bytes.starts_with(&object::macho::MH_MAGIC_64.to_le_bytes())
-    }
-
-    pub(crate) fn has_rkyv_header(bytes: &[u8]) -> bool {
-        bytes.starts_with(Self::MAGIC_HEADER)
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
