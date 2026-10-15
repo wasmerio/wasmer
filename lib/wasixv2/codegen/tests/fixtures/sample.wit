@@ -1,5 +1,5 @@
-/// Representative subset of the wasix2 definitions, exercising every annotation.
-package wasix2:sample@0.1.0;
+/// Representative subset of the wasixv2 definitions, exercising every annotation.
+package wasixv2:sample@0.1.0;
 
 /// Primitive aliases, structs, unions and constant families.
 interface types {
@@ -251,7 +251,7 @@ interface types {
 }
 
 /// Linux syscalls.
-/// @module(wasix2)
+/// @module(wasixv2)
 interface syscalls {
   use types.{
     slong, usize, ulong, fd, dirfd, mode, off, loff, clockid, socklen, cstr, buf, argv,
@@ -343,7 +343,7 @@ interface syscalls {
 }
 
 /// Wasm-specific primitives.
-/// @module(wasix_ext)
+/// @module(wasixv2)
 interface ext {
   use types.{void-ptr};
 

@@ -911,6 +911,18 @@ mod tests {
     }
 
     #[test]
+    fn import_names_are_unique_across_interfaces_of_a_module() {
+        let src = format!(
+            "{PRELUDE}}}\n/// @module(m)\ninterface a {{\nx-y: func();\n}}\n/// @module(m)\ninterface b {{\n/// @import(x_y)\nz: func();\n}}\n"
+        );
+        let e = format!(
+            "{:#}",
+            parse_str("t.wit", &src, Target::WASM32).unwrap_err()
+        );
+        assert!(e.contains("duplicate import name `x_y`"), "{e}");
+    }
+
+    #[test]
     fn merged_i64_order_and_sys_name() {
         let src = format!(
             "{PRELUDE}}}\n/// @module(m)\ninterface f {{\n/// @merged-i64(a, hi-lo)\n/// @merged-i64(b)\n/// @sys-name(_x)\nx: func(a: s64, b: u64, c: s64);\n}}\n"

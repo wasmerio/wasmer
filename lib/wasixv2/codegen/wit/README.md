@@ -1,13 +1,16 @@
-# wasix2 definitions
+# wasixv2 definitions
 
 The Linux syscall ABI for wasm32 guests, written as annotated WIT. `wasixv2-codegen` reads these
 files with `wit-parser` only; nothing here uses the component model.
 
 - `types.wit` (`interface types`): scalar and pointer aliases, kernel structs and unions, and
   constant families.
-- `syscalls.wit` (`interface syscalls`, import module `wasix2`): one function per riscv32
-  syscall.
-- `ext.wit` (`interface ext`, import module `wasix_ext`): wasm-specific primitives.
+- `syscalls.wit` (`interface syscalls`): one function per riscv32 syscall.
+- `ext.wit` (`interface ext`): wasm-specific primitives.
+
+Both function interfaces use the single import module `wasixv2`. Import names are the snake form
+of the function names (`exit_group`, `startup_get`), so a syscall and an extension must not share
+a name; the generator rejects collisions.
 
 These files are the source of truth. Edit them by hand.
 

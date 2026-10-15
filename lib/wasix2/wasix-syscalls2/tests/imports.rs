@@ -6,10 +6,10 @@ use wasmer::{Extern, FunctionEnv, Instance, Module, Store, Type, TypedFunction};
 
 const GUEST: &str = r#"
 (module
-  (import "wasix2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
-  (import "wasix2" "pread64" (func $pread64 (param i32 i32 i32 i64) (result i32)))
-  (import "wasix2" "exit_group" (func $exit_group (param i32)))
-  (import "wasix_ext" "thread_spawn" (func $thread_spawn (param i32) (result i32)))
+  (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+  (import "wasixv2" "pread64" (func $pread64 (param i32 i32 i32 i64) (result i32)))
+  (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+  (import "wasixv2" "thread_spawn" (func $thread_spawn (param i32) (result i32)))
   (func (export "openat") (result i32)
     (call $openat (i32.const -100) (i32.const 0x1000) (i32.const 0x80000000) (i32.const 420)))
   (func (export "pread64") (result i32)

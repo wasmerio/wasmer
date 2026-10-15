@@ -2,7 +2,7 @@
 ///
 /// Keep this small: anything Linux can express stays in `syscalls`. Functions marked TENTATIVE
 /// are placeholders whose shape is not settled; hosts may return `-ENOSYS` for them.
-/// @module(wasix_ext)
+/// @module(wasixv2)
 interface ext {
   use types.{buf, s32-ptr, uptr, slong};
 

@@ -1,7 +1,7 @@
 /// Linux syscall ABI for wasm32 guests, mirroring riscv32 (asm-generic, ILP32, time64 only).
 ///
 /// See README.md in this directory for the annotation conventions.
-package wasix2:linux@0.1.0;
+package wasixv2:linux@0.1.0;
 
 /// Primitive aliases, structs, unions and constant families shared by all interfaces.
 ///
@@ -1931,7 +1931,7 @@ interface types {
   /// Kernel signal action for `rt_sigaction` (asm-generic `struct sigaction`, 16 bytes).
   /// riscv has no `SA_RESTORER`, so there is no `sa_restorer` field. musl passes its internal
   /// `struct k_sigaction` (`src/internal/ksigaction.h`); upstream musl riscv32 wrongly adds a
-  /// restorer field (20 bytes), which the wasix2 port must not do.
+  /// restorer field (20 bytes), which the wasixv2 port must not do.
   /// @c(struct k_sigaction)
   /// @size(16)
   /// @align(4)
@@ -2177,7 +2177,7 @@ interface types {
   }
 
   /// `sigaction.sa_flags` (`asm-generic/signal-defs.h`).
-  /// riscv (and therefore wasix2) has no `SA_RESTORER`.
+  /// riscv (and therefore wasixv2) has no `SA_RESTORER`.
   /// @repr(u32)
   /// @c(unsigned long)
   flags sa-flags {
@@ -3539,7 +3539,7 @@ interface types {
   }
 
   /// Auxiliary vector entry types (`linux/auxvec.h`, riscv `asm/auxvec.h`).
-  /// Used in the startup block written by `wasix_ext.startup-get`.
+  /// Used in the startup block written by `wasixv2.startup_get`.
   /// @repr(u32)
   enum auxv-type {
     /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
@@ -5729,7 +5729,7 @@ interface types {
   }
 
   /// `msgctl`/`semctl`/`shmctl` commands (`linux/ipc.h`, `msg.h`, `sem.h`, `shm.h`).
-  /// On most 32-bit arches `IPC_64` is ORed in; musl riscv32 (and wasix2) passes commands without it.
+  /// On most 32-bit arches `IPC_64` is ORed in; musl riscv32 (and wasixv2) passes commands without it.
   /// @repr(s32)
   /// @c(int)
   enum ipc-cmd {

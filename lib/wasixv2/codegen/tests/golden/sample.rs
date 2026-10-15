@@ -1298,7 +1298,7 @@ pub struct SyscallDef {
 pub const SYSCALLS: &[SyscallDef] = &[
     SyscallDef {
         name: "read",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "read",
         nr: Some(63),
         params: &[
@@ -1325,7 +1325,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "openat",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "openat",
         nr: Some(56),
         params: &[
@@ -1357,7 +1357,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "llseek",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "llseek",
         nr: Some(62),
         params: &[
@@ -1389,7 +1389,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "pread64",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "pread64",
         nr: Some(67),
         params: &[
@@ -1421,7 +1421,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "fadvise64_64",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "fadvise64_64",
         nr: Some(223),
         params: &[
@@ -1453,7 +1453,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "futex_time64",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "futex_time64",
         nr: Some(422),
         params: &[
@@ -1495,7 +1495,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "getpid",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "getpid",
         nr: Some(172),
         params: &[],
@@ -1506,7 +1506,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "fcntl",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "fcntl64",
         nr: Some(25),
         params: &[
@@ -1533,7 +1533,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "ioctl",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "ioctl",
         nr: Some(29),
         params: &[
@@ -1560,7 +1560,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "statx",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "statx",
         nr: Some(291),
         params: &[
@@ -1597,7 +1597,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "epoll_pwait",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "epoll_pwait",
         nr: Some(22),
         params: &[
@@ -1639,7 +1639,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "clock_gettime64",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "clock_gettime64",
         nr: Some(403),
         params: &[
@@ -1661,7 +1661,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "bind",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "bind",
         nr: Some(200),
         params: &[
@@ -1688,7 +1688,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "execve",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "execve",
         nr: Some(221),
         params: &[
@@ -1715,7 +1715,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "io_setup",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "io_setup",
         nr: Some(0),
         params: &[
@@ -1737,7 +1737,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "exit",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "exit",
         nr: Some(93),
         params: &[SyscallParam {
@@ -1752,7 +1752,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "exit_group",
-        module: "wasix2",
+        module: "wasixv2",
         import_name: "exit_group",
         nr: Some(94),
         params: &[SyscallParam {
@@ -1767,7 +1767,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "thread_spawn",
-        module: "wasix_ext",
+        module: "wasixv2",
         import_name: "thread_spawn",
         nr: None,
         params: &[SyscallParam {
@@ -1782,7 +1782,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
     },
     SyscallDef {
         name: "tls_init",
-        module: "wasix_ext",
+        module: "wasixv2",
         import_name: "tls_init",
         nr: None,
         params: &[SyscallParam {

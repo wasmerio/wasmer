@@ -10,7 +10,7 @@ use wasix_types2::*;
 pub trait Syscalls: Sized + Send + 'static {
     /// Size in bytes of the startup block that `startup-get` writes.
     ///
-    /// Wasm import `wasix_ext.startup_size`.
+    /// Wasm import `wasixv2.startup_size`.
     fn ext_startup_size(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult<u32> {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -31,7 +31,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Hosts provide at least `AT_PAGESZ`, `AT_RANDOM`, `AT_UID`, `AT_EUID`, `AT_GID`, `AT_EGID`,
     /// `AT_SECURE` and `AT_CLKTCK`. ELF-related entries (`AT_PHDR`, `AT_ENTRY`, ...) are absent.
     ///
-    /// Wasm import `wasix_ext.startup_get`.
+    /// Wasm import `wasixv2.startup_get`.
     fn ext_startup_get(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, buf: Buf) -> SyscallResult<i32> {
         let _ = (ctx, buf);
         Err(Errno::ENOSYS)
@@ -44,7 +44,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// The guest sets up the stack, TLS and `set_tid_address` itself from `start-arg`.
     /// Returns the new thread id or `-errno`.
     ///
-    /// Wasm import `wasix_ext.thread_spawn`.
+    /// Wasm import `wasixv2.thread_spawn`.
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn ext_thread_spawn(
@@ -60,7 +60,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// user-visible register frame, so `rt_sigreturn`-style delivery does not apply.
     /// Returns 0 or `-errno`.
     ///
-    /// Wasm import `wasix_ext.signal_callback_register`.
+    /// Wasm import `wasixv2.signal_callback_register`.
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn ext_signal_callback_register(
@@ -75,7 +75,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// of this thread must be interrupted (pthread cancellation, pending signals). NULL
     /// unregisters. Returns 0 or `-errno`.
     ///
-    /// Wasm import `wasix_ext.cancel_flag_register`.
+    /// Wasm import `wasixv2.cancel_flag_register`.
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn ext_cancel_flag_register(
@@ -90,7 +90,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// musl ORs O_LARGEFILE (0100000 on asm-generic) into flags on 32-bit. mode is umode_t (u16) but passed
     /// as full register.
     ///
-    /// Wasm import `wasix2.openat` (riscv32 nr 56).
+    /// Wasm import `wasixv2.openat` (riscv32 nr 56).
     fn openat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -105,7 +105,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_openat2(int dfd, const char * filename, struct open_how * how, size_t usize)`.
     /// struct open_how {u64 flags; u64 mode; u64 resolve} 24 bytes; usize must be >= 24.
     ///
-    /// Wasm import `wasix2.openat2` (riscv32 nr 437).
+    /// Wasm import `wasixv2.openat2` (riscv32 nr 437).
     fn openat2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -119,7 +119,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_close(unsigned int fd)`.
     ///
-    /// Wasm import `wasix2.close` (riscv32 nr 57).
+    /// Wasm import `wasixv2.close` (riscv32 nr 57).
     fn close(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd) -> SyscallResult {
         let _ = (ctx, fd);
         Err(Errno::ENOSYS)
@@ -127,7 +127,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_close_range(unsigned int fd, unsigned int max_fd, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.close_range` (riscv32 nr 436).
+    /// Wasm import `wasixv2.close_range` (riscv32 nr 436).
     fn close_range(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: u32,
@@ -140,7 +140,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_dup(unsigned int fildes)`.
     ///
-    /// Wasm import `wasix2.dup` (riscv32 nr 23).
+    /// Wasm import `wasixv2.dup` (riscv32 nr 23).
     fn dup(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fildes: Fd) -> SyscallResult {
         let _ = (ctx, fildes);
         Err(Errno::ENOSYS)
@@ -150,7 +150,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// No dup2 on asm-generic: musl dup2 -> dup3 (fails EINVAL if old==new, musl handles via fcntl
     /// F_GETFD).
     ///
-    /// Wasm import `wasix2.dup3` (riscv32 nr 24).
+    /// Wasm import `wasixv2.dup3` (riscv32 nr 24).
     fn dup3(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         oldfd: Fd,
@@ -169,7 +169,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Untyped: arg: an integer, or a guest pointer to `flock64`, `flock`, `f-owner-ex` or `u64`, depending
     /// on `cmd`.
     ///
-    /// Wasm import `wasix2.fcntl64` (riscv32 nr 25).
+    /// Wasm import `wasixv2.fcntl64` (riscv32 nr 25).
     fn fcntl64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -183,7 +183,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_flock(unsigned int fd, unsigned int cmd)`.
     /// BSD flock(2), not fcntl locks.
     ///
-    /// Wasm import `wasix2.flock` (riscv32 nr 32).
+    /// Wasm import `wasixv2.flock` (riscv32 nr 32).
     fn flock(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd, cmd: FlockOp) -> SyscallResult {
         let _ = (ctx, fd, cmd);
         Err(Errno::ENOSYS)
@@ -195,7 +195,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// SIOC*...). musl uses TCGETS/TCSETS*/TIOCGWINSZ/FIONBIO/SIOCGIF* etc.
     /// Untyped: arg: an integer or a guest pointer, depending on `cmd`.
     ///
-    /// Wasm import `wasix2.ioctl` (riscv32 nr 29).
+    /// Wasm import `wasixv2.ioctl` (riscv32 nr 29).
     fn ioctl(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -208,7 +208,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_read(unsigned int fd, char * buf, size_t count)`.
     ///
-    /// Wasm import `wasix2.read` (riscv32 nr 63).
+    /// Wasm import `wasixv2.read` (riscv32 nr 63).
     fn read(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -221,7 +221,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_write(unsigned int fd, const char * buf, size_t count)`.
     ///
-    /// Wasm import `wasix2.write` (riscv32 nr 64).
+    /// Wasm import `wasixv2.write` (riscv32 nr 64).
     fn write(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -235,7 +235,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_readv(unsigned long fd, const struct iovec * vec, unsigned long vlen)`.
     /// struct iovec {void*; size_t} = 8 bytes on wasm32. IOV_MAX 1024.
     ///
-    /// Wasm import `wasix2.readv` (riscv32 nr 65).
+    /// Wasm import `wasixv2.readv` (riscv32 nr 65).
     fn readv(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -248,7 +248,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_writev(unsigned long fd, const struct iovec * vec, unsigned long vlen)`.
     ///
-    /// Wasm import `wasix2.writev` (riscv32 nr 66).
+    /// Wasm import `wasixv2.writev` (riscv32 nr 66).
     fn writev(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -262,7 +262,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_pread64(unsigned int fd, char * buf, size_t count, loff_t pos)`.
     /// pos register pair on riscv32 (no padding before the pair on riscv).
     ///
-    /// Wasm import `wasix2.pread64` (riscv32 nr 67).
+    /// Wasm import `wasixv2.pread64` (riscv32 nr 67).
     fn pread64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -277,7 +277,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_pwrite64(unsigned int fd, const char * buf, size_t count, loff_t pos)`.
     /// pos register pair.
     ///
-    /// Wasm import `wasix2.pwrite64` (riscv32 nr 68).
+    /// Wasm import `wasixv2.pwrite64` (riscv32 nr 68).
     fn pwrite64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -293,7 +293,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// pos_l, unsigned long pos_h)`.
     /// The kernel takes the position as (pos_l, pos_h) on all arches; here it is one `s64`.
     ///
-    /// Wasm import `wasix2.preadv` (riscv32 nr 69).
+    /// Wasm import `wasixv2.preadv` (riscv32 nr 69).
     fn preadv(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -309,7 +309,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// pos_l, unsigned long pos_h)`.
     /// The kernel takes the position as (pos_l, pos_h) on all arches; here it is one `s64`.
     ///
-    /// Wasm import `wasix2.pwritev` (riscv32 nr 70).
+    /// Wasm import `wasixv2.pwritev` (riscv32 nr 70).
     fn pwritev(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -326,7 +326,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// The kernel takes the position as (pos_l, pos_h); here it is one `s64`. -1 means the current
     /// position.
     ///
-    /// Wasm import `wasix2.preadv2` (riscv32 nr 286).
+    /// Wasm import `wasixv2.preadv2` (riscv32 nr 286).
     fn preadv2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -344,7 +344,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// The kernel takes the position as (pos_l, pos_h); here it is one `s64`. -1 means the current
     /// position.
     ///
-    /// Wasm import `wasix2.pwritev2` (riscv32 nr 287).
+    /// Wasm import `wasixv2.pwritev2` (riscv32 nr 287).
     fn pwritev2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -362,7 +362,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// The kernel takes the offset as (offset_high, offset_low); here it is one `s64`. The 64-bit result is
     /// written to `result`; the return value is 0 or `-errno`.
     ///
-    /// Wasm import `wasix2.llseek` (riscv32 nr 62).
+    /// Wasm import `wasixv2.llseek` (riscv32 nr 62).
     fn llseek(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -377,7 +377,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_sendfile64(int out_fd, int in_fd, loff_t * offset, size_t count)`.
     /// riscv32 name sendfile64; offset is loff_t* (64-bit in memory).
     ///
-    /// Wasm import `wasix2.sendfile64` (riscv32 nr 71).
+    /// Wasm import `wasixv2.sendfile64` (riscv32 nr 71).
     fn sendfile64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         out_fd: Fd,
@@ -393,7 +393,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// int flags)`.
     /// offsets are loff_t* (64-bit in memory).
     ///
-    /// Wasm import `wasix2.splice` (riscv32 nr 76).
+    /// Wasm import `wasixv2.splice` (riscv32 nr 76).
     fn splice(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd_in: Fd,
@@ -409,7 +409,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_tee(int fdin, int fdout, size_t len, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.tee` (riscv32 nr 77).
+    /// Wasm import `wasixv2.tee` (riscv32 nr 77).
     fn tee(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fdin: Fd,
@@ -424,7 +424,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_vmsplice(int fd, const struct iovec * uiov, unsigned long nr_segs, unsigned int
     /// flags)`.
     ///
-    /// Wasm import `wasix2.vmsplice` (riscv32 nr 75).
+    /// Wasm import `wasixv2.vmsplice` (riscv32 nr 75).
     fn vmsplice(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -440,7 +440,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// unsigned int flags)`.
     /// offsets are loff_t*.
     ///
-    /// Wasm import `wasix2.copy_file_range` (riscv32 nr 285).
+    /// Wasm import `wasixv2.copy_file_range` (riscv32 nr 285).
     fn copy_file_range(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd_in: Fd,
@@ -457,7 +457,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_truncate64(const char * path, loff_t length)`.
     /// riscv32 name truncate64; length register pair.
     ///
-    /// Wasm import `wasix2.truncate64` (riscv32 nr 45).
+    /// Wasm import `wasixv2.truncate64` (riscv32 nr 45).
     fn truncate64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         path: Cstr,
@@ -470,7 +470,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_ftruncate64(unsigned int fd, loff_t length)`.
     /// riscv32 name ftruncate64; length register pair.
     ///
-    /// Wasm import `wasix2.ftruncate64` (riscv32 nr 46).
+    /// Wasm import `wasixv2.ftruncate64` (riscv32 nr 46).
     fn ftruncate64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -483,7 +483,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_fallocate(int fd, int mode, loff_t offset, loff_t len)`.
     /// offset/len register pairs.
     ///
-    /// Wasm import `wasix2.fallocate` (riscv32 nr 47).
+    /// Wasm import `wasixv2.fallocate` (riscv32 nr 47).
     fn fallocate(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -500,7 +500,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// int advice); riscv32 passes offset and len as register pairs and does NOT reorder args (unlike
     /// arm/ppc fadvise64_64 with advice second).
     ///
-    /// Wasm import `wasix2.fadvise64_64` (riscv32 nr 223).
+    /// Wasm import `wasixv2.fadvise64_64` (riscv32 nr 223).
     fn fadvise64_64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -515,7 +515,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_readahead(int fd, loff_t offset, size_t count)`.
     /// offset register pair.
     ///
-    /// Wasm import `wasix2.readahead` (riscv32 nr 213).
+    /// Wasm import `wasixv2.readahead` (riscv32 nr 213).
     fn readahead(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -528,7 +528,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sync()`.
     ///
-    /// Wasm import `wasix2.sync` (riscv32 nr 81).
+    /// Wasm import `wasixv2.sync` (riscv32 nr 81).
     fn sync(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -536,7 +536,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fsync(unsigned int fd)`.
     ///
-    /// Wasm import `wasix2.fsync` (riscv32 nr 82).
+    /// Wasm import `wasixv2.fsync` (riscv32 nr 82).
     fn fsync(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd) -> SyscallResult {
         let _ = (ctx, fd);
         Err(Errno::ENOSYS)
@@ -544,7 +544,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fdatasync(unsigned int fd)`.
     ///
-    /// Wasm import `wasix2.fdatasync` (riscv32 nr 83).
+    /// Wasm import `wasixv2.fdatasync` (riscv32 nr 83).
     fn fdatasync(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd) -> SyscallResult {
         let _ = (ctx, fd);
         Err(Errno::ENOSYS)
@@ -552,7 +552,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_syncfs(int fd)`.
     ///
-    /// Wasm import `wasix2.syncfs` (riscv32 nr 267).
+    /// Wasm import `wasixv2.syncfs` (riscv32 nr 267).
     fn syncfs(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd) -> SyscallResult {
         let _ = (ctx, fd);
         Err(Errno::ENOSYS)
@@ -561,7 +561,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_sync_file_range(int fd, loff_t offset, loff_t nbytes, unsigned int flags)`.
     /// riscv32 uses sync_file_range (not sync_file_range2); offset/nbytes are register pairs on riscv32.
     ///
-    /// Wasm import `wasix2.sync_file_range` (riscv32 nr 84).
+    /// Wasm import `wasixv2.sync_file_range` (riscv32 nr 84).
     fn sync_file_range(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -576,7 +576,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_getdents64(unsigned int fd, struct linux_dirent64 * dirent, unsigned int count)`.
     /// struct linux_dirent64 records, 8-byte aligned reclen.
     ///
-    /// Wasm import `wasix2.getdents64` (riscv32 nr 61).
+    /// Wasm import `wasixv2.getdents64` (riscv32 nr 61).
     fn getdents64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -589,7 +589,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_mkdirat(int dfd, const char * pathname, umode_t mode)`.
     ///
-    /// Wasm import `wasix2.mkdirat` (riscv32 nr 34).
+    /// Wasm import `wasixv2.mkdirat` (riscv32 nr 34).
     fn mkdirat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -603,7 +603,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mknodat(int dfd, const char * filename, umode_t mode, unsigned int dev)`.
     /// dev is u32 in new_encode_dev format (major<<8 low bits... see kdev_t.h).
     ///
-    /// Wasm import `wasix2.mknodat` (riscv32 nr 33).
+    /// Wasm import `wasixv2.mknodat` (riscv32 nr 33).
     fn mknodat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -618,7 +618,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_unlinkat(int dfd, const char * pathname, int flag)`.
     /// No unlink/rmdir: AT_REMOVEDIR flag.
     ///
-    /// Wasm import `wasix2.unlinkat` (riscv32 nr 35).
+    /// Wasm import `wasixv2.unlinkat` (riscv32 nr 35).
     fn unlinkat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -631,7 +631,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_symlinkat(const char * oldname, int newdfd, const char * newname)`.
     ///
-    /// Wasm import `wasix2.symlinkat` (riscv32 nr 36).
+    /// Wasm import `wasixv2.symlinkat` (riscv32 nr 36).
     fn symlinkat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         oldname: Cstr,
@@ -644,7 +644,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_linkat(int olddfd, const char * oldname, int newdfd, const char * newname, int flags)`.
     ///
-    /// Wasm import `wasix2.linkat` (riscv32 nr 37).
+    /// Wasm import `wasixv2.linkat` (riscv32 nr 37).
     fn linkat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         olddfd: Fd,
@@ -661,7 +661,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// int flags)`.
     /// No renameat on riscv32 (renameat abi not enabled): musl rename/renameat -> renameat2(..., 0).
     ///
-    /// Wasm import `wasix2.renameat2` (riscv32 nr 276).
+    /// Wasm import `wasixv2.renameat2` (riscv32 nr 276).
     fn renameat2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         olddfd: Fd,
@@ -677,7 +677,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_readlinkat(int dfd, const char * pathname, char * buf, int bufsiz)`.
     /// returns byte count, no NUL terminator.
     ///
-    /// Wasm import `wasix2.readlinkat` (riscv32 nr 78).
+    /// Wasm import `wasixv2.readlinkat` (riscv32 nr 78).
     fn readlinkat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -692,7 +692,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_faccessat(int dfd, const char * filename, int mode)`.
     /// No access(2): AT_FDCWD.
     ///
-    /// Wasm import `wasix2.faccessat` (riscv32 nr 48).
+    /// Wasm import `wasixv2.faccessat` (riscv32 nr 48).
     fn faccessat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -706,7 +706,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_faccessat2(int dfd, const char * filename, int mode, int flags)`.
     /// musl faccessat with flags tries faccessat2 first.
     ///
-    /// Wasm import `wasix2.faccessat2` (riscv32 nr 439).
+    /// Wasm import `wasixv2.faccessat2` (riscv32 nr 439).
     fn faccessat2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -720,7 +720,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_chdir(const char * filename)`.
     ///
-    /// Wasm import `wasix2.chdir` (riscv32 nr 49).
+    /// Wasm import `wasixv2.chdir` (riscv32 nr 49).
     fn chdir(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, filename: Cstr) -> SyscallResult {
         let _ = (ctx, filename);
         Err(Errno::ENOSYS)
@@ -728,7 +728,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fchdir(unsigned int fd)`.
     ///
-    /// Wasm import `wasix2.fchdir` (riscv32 nr 50).
+    /// Wasm import `wasixv2.fchdir` (riscv32 nr 50).
     fn fchdir(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd) -> SyscallResult {
         let _ = (ctx, fd);
         Err(Errno::ENOSYS)
@@ -736,7 +736,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_chroot(const char * filename)`.
     ///
-    /// Wasm import `wasix2.chroot` (riscv32 nr 51).
+    /// Wasm import `wasixv2.chroot` (riscv32 nr 51).
     fn chroot(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, filename: Cstr) -> SyscallResult {
         let _ = (ctx, filename);
         Err(Errno::ENOSYS)
@@ -744,7 +744,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fchroot(int fd, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.fchroot` (riscv32 nr 472).
+    /// Wasm import `wasixv2.fchroot` (riscv32 nr 472).
     fn fchroot(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd, flags: u32) -> SyscallResult {
         let _ = (ctx, fd, flags);
         Err(Errno::ENOSYS)
@@ -752,7 +752,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getcwd(char * buf, unsigned long size)`.
     ///
-    /// Wasm import `wasix2.getcwd` (riscv32 nr 17).
+    /// Wasm import `wasixv2.getcwd` (riscv32 nr 17).
     fn getcwd(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, buf: Buf, size: Ulong) -> SyscallResult {
         let _ = (ctx, buf, size);
         Err(Errno::ENOSYS)
@@ -760,7 +760,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fchmod(unsigned int fd, umode_t mode)`.
     ///
-    /// Wasm import `wasix2.fchmod` (riscv32 nr 52).
+    /// Wasm import `wasixv2.fchmod` (riscv32 nr 52).
     fn fchmod(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd, mode: Mode) -> SyscallResult {
         let _ = (ctx, fd, mode);
         Err(Errno::ENOSYS)
@@ -768,7 +768,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fchmodat(int dfd, const char * filename, umode_t mode)`.
     ///
-    /// Wasm import `wasix2.fchmodat` (riscv32 nr 53).
+    /// Wasm import `wasixv2.fchmodat` (riscv32 nr 53).
     fn fchmodat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -782,7 +782,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_fchmodat2(int dfd, const char * filename, umode_t mode, unsigned int flags)`.
     /// musl fchmodat(AT_SYMLINK_NOFOLLOW) tries fchmodat2 first.
     ///
-    /// Wasm import `wasix2.fchmodat2` (riscv32 nr 452).
+    /// Wasm import `wasixv2.fchmodat2` (riscv32 nr 452).
     fn fchmodat2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -796,7 +796,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fchown(unsigned int fd, uid_t user, gid_t group)`.
     ///
-    /// Wasm import `wasix2.fchown` (riscv32 nr 55).
+    /// Wasm import `wasixv2.fchown` (riscv32 nr 55).
     fn fchown(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -809,7 +809,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fchownat(int dfd, const char * filename, uid_t user, gid_t group, int flag)`.
     ///
-    /// Wasm import `wasix2.fchownat` (riscv32 nr 54).
+    /// Wasm import `wasixv2.fchownat` (riscv32 nr 54).
     fn fchownat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -828,7 +828,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// stat/fstat/lstat/fstatat via statx and converts to its struct stat. struct statx = 256 bytes. musl
     /// fstat(fd) uses statx(fd, "", AT_EMPTY_PATH, ...).
     ///
-    /// Wasm import `wasix2.statx` (riscv32 nr 291).
+    /// Wasm import `wasixv2.statx` (riscv32 nr 291).
     fn statx(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -845,7 +845,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// sz must be sizeof(struct statfs64) == 88 on riscv32/wasm32 (asm-generic: __statfs_word is u32 on
     /// 32-bit).
     ///
-    /// Wasm import `wasix2.statfs64` (riscv32 nr 43).
+    /// Wasm import `wasixv2.statfs64` (riscv32 nr 43).
     fn statfs64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -859,7 +859,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_fstatfs64(unsigned int fd, size_t sz, struct statfs64 * buf)`.
     /// sz must be sizeof(struct statfs64) == 88.
     ///
-    /// Wasm import `wasix2.fstatfs64` (riscv32 nr 44).
+    /// Wasm import `wasixv2.fstatfs64` (riscv32 nr 44).
     fn fstatfs64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -875,7 +875,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// times[2] of timespec64 (32 bytes), UTIME_NOW/UTIME_OMIT in tv_nsec. filename NULL allowed
     /// (futimens).
     ///
-    /// Wasm import `wasix2.utimensat_time64` (riscv32 nr 412).
+    /// Wasm import `wasixv2.utimensat_time64` (riscv32 nr 412).
     fn utimensat_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -890,7 +890,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_pipe2(int * fildes, int flags)`.
     /// fildes is int[2].
     ///
-    /// Wasm import `wasix2.pipe2` (riscv32 nr 59).
+    /// Wasm import `wasixv2.pipe2` (riscv32 nr 59).
     fn pipe2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fildes: FdPair,
@@ -902,7 +902,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_memfd_create(const char * uname, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.memfd_create` (riscv32 nr 279).
+    /// Wasm import `wasixv2.memfd_create` (riscv32 nr 279).
     fn memfd_create(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         uname: Cstr,
@@ -915,7 +915,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_memfd_secret(unsigned int flags)`.
     /// Enabled on riscv via memfd_secret abi (syscall_abis_32 += riscv memfd_secret).
     ///
-    /// Wasm import `wasix2.memfd_secret` (riscv32 nr 447).
+    /// Wasm import `wasixv2.memfd_secret` (riscv32 nr 447).
     fn memfd_secret(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, flags: u32) -> SyscallResult {
         let _ = (ctx, flags);
         Err(Errno::ENOSYS)
@@ -926,7 +926,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct file_handle {u32 handle_bytes; int handle_type; u8 f_handle[]} 8-byte header.
     /// Untyped: mnt-id: `int *`, or `u64 *` with `AT_HANDLE_MNT_ID_UNIQUE`.
     ///
-    /// Wasm import `wasix2.name_to_handle_at` (riscv32 nr 264).
+    /// Wasm import `wasixv2.name_to_handle_at` (riscv32 nr 264).
     fn name_to_handle_at(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -941,7 +941,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_open_by_handle_at(int mountdirfd, struct file_handle * handle, int flags)`.
     ///
-    /// Wasm import `wasix2.open_by_handle_at` (riscv32 nr 265).
+    /// Wasm import `wasixv2.open_by_handle_at` (riscv32 nr 265).
     fn open_by_handle_at(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         mountdirfd: Fd,
@@ -956,7 +956,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// cstat, unsigned int flags)`.
     /// struct cachestat_range {u64 off; u64 len}; struct cachestat 5 x u64.
     ///
-    /// Wasm import `wasix2.cachestat` (riscv32 nr 451).
+    /// Wasm import `wasixv2.cachestat` (riscv32 nr 451).
     fn cachestat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -971,7 +971,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_file_getattr(int dfd, const char * filename, struct file_attr * ufattr, size_t usize,
     /// unsigned int at_flags)`.
     ///
-    /// Wasm import `wasix2.file_getattr` (riscv32 nr 468).
+    /// Wasm import `wasixv2.file_getattr` (riscv32 nr 468).
     fn file_getattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -987,7 +987,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_file_setattr(int dfd, const char * filename, struct file_attr * ufattr, size_t usize,
     /// unsigned int at_flags)`.
     ///
-    /// Wasm import `wasix2.file_setattr` (riscv32 nr 469).
+    /// Wasm import `wasixv2.file_setattr` (riscv32 nr 469).
     fn file_setattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -1004,7 +1004,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// addr type depends on cmd.
     /// Untyped: addr: pointee depends on `cmd`.
     ///
-    /// Wasm import `wasix2.quotactl` (riscv32 nr 60).
+    /// Wasm import `wasixv2.quotactl` (riscv32 nr 60).
     fn quotactl(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         cmd: u32,
@@ -1019,7 +1019,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_quotactl_fd(unsigned int fd, unsigned int cmd, qid_t id, void * addr)`.
     /// Untyped: addr: pointee depends on `cmd`.
     ///
-    /// Wasm import `wasix2.quotactl_fd` (riscv32 nr 443).
+    /// Wasm import `wasixv2.quotactl_fd` (riscv32 nr 443).
     fn quotactl_fd(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -1034,7 +1034,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_setxattr(const char * pathname, const char * name, const void * value, size_t size, int
     /// flags)`.
     ///
-    /// Wasm import `wasix2.setxattr` (riscv32 nr 5).
+    /// Wasm import `wasixv2.setxattr` (riscv32 nr 5).
     fn setxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -1050,7 +1050,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_lsetxattr(const char * pathname, const char * name, const void * value, size_t size,
     /// int flags)`.
     ///
-    /// Wasm import `wasix2.lsetxattr` (riscv32 nr 6).
+    /// Wasm import `wasixv2.lsetxattr` (riscv32 nr 6).
     fn lsetxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -1065,7 +1065,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fsetxattr(int fd, const char * name, const void * value, size_t size, int flags)`.
     ///
-    /// Wasm import `wasix2.fsetxattr` (riscv32 nr 7).
+    /// Wasm import `wasixv2.fsetxattr` (riscv32 nr 7).
     fn fsetxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -1080,7 +1080,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getxattr(const char * pathname, const char * name, void * value, size_t size)`.
     ///
-    /// Wasm import `wasix2.getxattr` (riscv32 nr 8).
+    /// Wasm import `wasixv2.getxattr` (riscv32 nr 8).
     fn getxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -1094,7 +1094,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_lgetxattr(const char * pathname, const char * name, void * value, size_t size)`.
     ///
-    /// Wasm import `wasix2.lgetxattr` (riscv32 nr 9).
+    /// Wasm import `wasixv2.lgetxattr` (riscv32 nr 9).
     fn lgetxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -1108,7 +1108,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fgetxattr(int fd, const char * name, void * value, size_t size)`.
     ///
-    /// Wasm import `wasix2.fgetxattr` (riscv32 nr 10).
+    /// Wasm import `wasixv2.fgetxattr` (riscv32 nr 10).
     fn fgetxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -1122,7 +1122,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_listxattr(const char * pathname, char * list, size_t size)`.
     ///
-    /// Wasm import `wasix2.listxattr` (riscv32 nr 11).
+    /// Wasm import `wasixv2.listxattr` (riscv32 nr 11).
     fn listxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -1135,7 +1135,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_llistxattr(const char * pathname, char * list, size_t size)`.
     ///
-    /// Wasm import `wasix2.llistxattr` (riscv32 nr 12).
+    /// Wasm import `wasixv2.llistxattr` (riscv32 nr 12).
     fn llistxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -1148,7 +1148,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_flistxattr(int fd, char * list, size_t size)`.
     ///
-    /// Wasm import `wasix2.flistxattr` (riscv32 nr 13).
+    /// Wasm import `wasixv2.flistxattr` (riscv32 nr 13).
     fn flistxattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -1161,7 +1161,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_removexattr(const char * pathname, const char * name)`.
     ///
-    /// Wasm import `wasix2.removexattr` (riscv32 nr 14).
+    /// Wasm import `wasixv2.removexattr` (riscv32 nr 14).
     fn removexattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -1173,7 +1173,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_lremovexattr(const char * pathname, const char * name)`.
     ///
-    /// Wasm import `wasix2.lremovexattr` (riscv32 nr 15).
+    /// Wasm import `wasixv2.lremovexattr` (riscv32 nr 15).
     fn lremovexattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pathname: Cstr,
@@ -1185,7 +1185,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fremovexattr(int fd, const char * name)`.
     ///
-    /// Wasm import `wasix2.fremovexattr` (riscv32 nr 16).
+    /// Wasm import `wasixv2.fremovexattr` (riscv32 nr 16).
     fn fremovexattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -1198,7 +1198,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_setxattrat(int dfd, const char * pathname, unsigned int at_flags, const char * name,
     /// const struct xattr_args * uargs, size_t usize)`.
     ///
-    /// Wasm import `wasix2.setxattrat` (riscv32 nr 463).
+    /// Wasm import `wasixv2.setxattrat` (riscv32 nr 463).
     fn setxattrat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -1215,7 +1215,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_getxattrat(int dfd, const char * pathname, unsigned int at_flags, const char * name,
     /// struct xattr_args * uargs, size_t usize)`.
     ///
-    /// Wasm import `wasix2.getxattrat` (riscv32 nr 464).
+    /// Wasm import `wasixv2.getxattrat` (riscv32 nr 464).
     fn getxattrat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -1232,7 +1232,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_listxattrat(int dfd, const char * pathname, unsigned int at_flags, char * list, size_t
     /// size)`.
     ///
-    /// Wasm import `wasix2.listxattrat` (riscv32 nr 465).
+    /// Wasm import `wasixv2.listxattrat` (riscv32 nr 465).
     fn listxattrat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -1248,7 +1248,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_removexattrat(int dfd, const char * pathname, unsigned int at_flags, const char *
     /// name)`.
     ///
-    /// Wasm import `wasix2.removexattrat` (riscv32 nr 466).
+    /// Wasm import `wasixv2.removexattrat` (riscv32 nr 466).
     fn removexattrat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -1263,7 +1263,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_epoll_create1(int flags)`.
     /// No epoll_create on asm-generic.
     ///
-    /// Wasm import `wasix2.epoll_create1` (riscv32 nr 20).
+    /// Wasm import `wasixv2.epoll_create1` (riscv32 nr 20).
     fn epoll_create1(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         flags: EpollCreateFlags,
@@ -1275,7 +1275,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_epoll_ctl(int epfd, int op, int fd, struct epoll_event * event)`.
     /// struct epoll_event is NOT packed on asm-generic (packed only on x86_64): 16 bytes, data at offset 8.
     ///
-    /// Wasm import `wasix2.epoll_ctl` (riscv32 nr 21).
+    /// Wasm import `wasixv2.epoll_ctl` (riscv32 nr 21).
     fn epoll_ctl(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         epfd: Fd,
@@ -1292,7 +1292,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// timeout is int ms; sigmask optional, sigsetsize must be 8. No epoll_wait on asm-generic: musl
     /// implements epoll_wait via epoll_pwait(..., NULL, 8).
     ///
-    /// Wasm import `wasix2.epoll_pwait` (riscv32 nr 22).
+    /// Wasm import `wasixv2.epoll_pwait` (riscv32 nr 22).
     fn epoll_pwait(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         epfd: Fd,
@@ -1310,7 +1310,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// __kernel_timespec * timeout, const sigset_t * sigmask, size_t sigsetsize)`.
     /// timespec64 timeout.
     ///
-    /// Wasm import `wasix2.epoll_pwait2` (riscv32 nr 441).
+    /// Wasm import `wasixv2.epoll_pwait2` (riscv32 nr 441).
     fn epoll_pwait2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         epfd: Fd,
@@ -1328,7 +1328,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// sigset_t * sigmask, size_t sigsetsize)`.
     /// No poll on riscv32: musl poll() -> ppoll_time64(fds, n, ts or NULL, NULL, 8). Kernel updates *tsp.
     ///
-    /// Wasm import `wasix2.ppoll_time64` (riscv32 nr 414).
+    /// Wasm import `wasixv2.ppoll_time64` (riscv32 nr 414).
     fn ppoll_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ufds: PollfdArray,
@@ -1347,7 +1347,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// bytes on ILP32), NOT a sigset pointer. fd_set = 1024 bits = 128 bytes, unsigned long words (32-bit).
     /// No select on riscv32: musl select() -> pselect6_time64.
     ///
-    /// Wasm import `wasix2.pselect6_time64` (riscv32 nr 413).
+    /// Wasm import `wasixv2.pselect6_time64` (riscv32 nr 413).
     fn pselect6_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         n: i32,
@@ -1364,7 +1364,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_eventfd2(unsigned int count, int flags)`.
     /// No eventfd.
     ///
-    /// Wasm import `wasix2.eventfd2` (riscv32 nr 19).
+    /// Wasm import `wasixv2.eventfd2` (riscv32 nr 19).
     fn eventfd2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         count: u32,
@@ -1377,7 +1377,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_signalfd4(int ufd, sigset_t * user_mask, size_t sizemask, int flags)`.
     /// sizemask must be 8 (kernel sigset_t size).
     ///
-    /// Wasm import `wasix2.signalfd4` (riscv32 nr 74).
+    /// Wasm import `wasixv2.signalfd4` (riscv32 nr 74).
     fn signalfd4(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ufd: Fd,
@@ -1391,7 +1391,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_timerfd_create(int clockid, int flags)`.
     ///
-    /// Wasm import `wasix2.timerfd_create` (riscv32 nr 85).
+    /// Wasm import `wasixv2.timerfd_create` (riscv32 nr 85).
     fn timerfd_create(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         clockid: ClockId,
@@ -1404,7 +1404,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_timerfd_settime(int ufd, int flags, const struct __kernel_itimerspec * utmr, struct
     /// __kernel_itimerspec * otmr)`.
     ///
-    /// Wasm import `wasix2.timerfd_settime64` (riscv32 nr 411).
+    /// Wasm import `wasixv2.timerfd_settime64` (riscv32 nr 411).
     fn timerfd_settime64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ufd: Fd,
@@ -1418,7 +1418,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_timerfd_gettime(int ufd, struct __kernel_itimerspec * otmr)`.
     ///
-    /// Wasm import `wasix2.timerfd_gettime64` (riscv32 nr 410).
+    /// Wasm import `wasixv2.timerfd_gettime64` (riscv32 nr 410).
     fn timerfd_gettime64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ufd: Fd,
@@ -1431,7 +1431,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_inotify_init1(int flags)`.
     /// No inotify_init.
     ///
-    /// Wasm import `wasix2.inotify_init1` (riscv32 nr 26).
+    /// Wasm import `wasixv2.inotify_init1` (riscv32 nr 26).
     fn inotify_init1(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         flags: InotifyInitFlags,
@@ -1442,7 +1442,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_inotify_add_watch(int fd, const char * pathname, u32 mask)`.
     ///
-    /// Wasm import `wasix2.inotify_add_watch` (riscv32 nr 27).
+    /// Wasm import `wasixv2.inotify_add_watch` (riscv32 nr 27).
     fn inotify_add_watch(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -1455,7 +1455,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_inotify_rm_watch(int fd, __s32 wd)`.
     ///
-    /// Wasm import `wasix2.inotify_rm_watch` (riscv32 nr 28).
+    /// Wasm import `wasixv2.inotify_rm_watch` (riscv32 nr 28).
     fn inotify_rm_watch(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -1467,7 +1467,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fanotify_init(unsigned int flags, unsigned int event_f_flags)`.
     ///
-    /// Wasm import `wasix2.fanotify_init` (riscv32 nr 262).
+    /// Wasm import `wasixv2.fanotify_init` (riscv32 nr 262).
     fn fanotify_init(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         flags: u32,
@@ -1481,7 +1481,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// pathname)`.
     /// __u64 mask: register pair on riscv32.
     ///
-    /// Wasm import `wasix2.fanotify_mark` (riscv32 nr 263).
+    /// Wasm import `wasixv2.fanotify_mark` (riscv32 nr 263).
     fn fanotify_mark(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fanotify_fd: Fd,
@@ -1504,7 +1504,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// commit 269d1938 (2023) fixed for riscv64/mips/or1k/microblaze but riscv32 (merged 2024 from 2020
     /// headers) reintroduced. For WASIX, follow the kernel layout (16 bytes, no restorer).
     ///
-    /// Wasm import `wasix2.rt_sigaction` (riscv32 nr 134).
+    /// Wasm import `wasixv2.rt_sigaction` (riscv32 nr 134).
     fn rt_sigaction(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         sig: Signal,
@@ -1519,7 +1519,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_rt_sigprocmask(int how, sigset_t * nset, sigset_t * oset, size_t sigsetsize)`.
     /// sigsetsize must be 8.
     ///
-    /// Wasm import `wasix2.rt_sigprocmask` (riscv32 nr 135).
+    /// Wasm import `wasixv2.rt_sigprocmask` (riscv32 nr 135).
     fn rt_sigprocmask(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         how: SigprocmaskHow,
@@ -1534,7 +1534,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_rt_sigpending(sigset_t * uset, size_t sigsetsize)`.
     /// sigsetsize must be 8.
     ///
-    /// Wasm import `wasix2.rt_sigpending` (riscv32 nr 136).
+    /// Wasm import `wasixv2.rt_sigpending` (riscv32 nr 136).
     fn rt_sigpending(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         uset: SigsetPtr,
@@ -1547,7 +1547,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_rt_sigsuspend(sigset_t * unewset, size_t sigsetsize)`.
     /// sigsetsize must be 8.
     ///
-    /// Wasm import `wasix2.rt_sigsuspend` (riscv32 nr 133).
+    /// Wasm import `wasixv2.rt_sigsuspend` (riscv32 nr 133).
     fn rt_sigsuspend(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         unewset: ConstSigsetPtr,
@@ -1561,7 +1561,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// __kernel_timespec * uts, size_t sigsetsize)`.
     /// sigsetsize must be 8. siginfo 128 bytes.
     ///
-    /// Wasm import `wasix2.rt_sigtimedwait_time64` (riscv32 nr 421).
+    /// Wasm import `wasixv2.rt_sigtimedwait_time64` (riscv32 nr 421).
     fn rt_sigtimedwait_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         uthese: ConstSigsetPtr,
@@ -1576,7 +1576,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_rt_sigqueueinfo(pid_t pid, int sig, siginfo_t * uinfo)`.
     /// siginfo_t 128 bytes.
     ///
-    /// Wasm import `wasix2.rt_sigqueueinfo` (riscv32 nr 138).
+    /// Wasm import `wasixv2.rt_sigqueueinfo` (riscv32 nr 138).
     fn rt_sigqueueinfo(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -1590,7 +1590,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_rt_tgsigqueueinfo(pid_t tgid, pid_t pid, int sig, siginfo_t * uinfo)`.
     /// siginfo_t 128 bytes.
     ///
-    /// Wasm import `wasix2.rt_tgsigqueueinfo` (riscv32 nr 240).
+    /// Wasm import `wasixv2.rt_tgsigqueueinfo` (riscv32 nr 240).
     fn rt_tgsigqueueinfo(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         tgid: Pid,
@@ -1607,7 +1607,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// trampoline (src/signal/riscv32/restore.s), riscv uses a vDSO trampoline. In wasm this needs a
     /// host-specific design (no user-visible register frame).
     ///
-    /// Wasm import `wasix2.rt_sigreturn` (riscv32 nr 139).
+    /// Wasm import `wasixv2.rt_sigreturn` (riscv32 nr 139).
     fn rt_sigreturn(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
     ) -> Result<(), wasmer::RuntimeError> {
@@ -1621,7 +1621,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// stack_t = 12 bytes on ILP32 {void* ss_sp; int ss_flags; size_t ss_size}. MINSIGSTKSZ/SIGSTKSZ arch
     /// constants (musl riscv32: 2048/8192).
     ///
-    /// Wasm import `wasix2.sigaltstack` (riscv32 nr 132).
+    /// Wasm import `wasixv2.sigaltstack` (riscv32 nr 132).
     fn sigaltstack(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         uss: ConstSigaltstackPtr,
@@ -1633,7 +1633,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_kill(pid_t pid, int sig)`.
     ///
-    /// Wasm import `wasix2.kill` (riscv32 nr 129).
+    /// Wasm import `wasixv2.kill` (riscv32 nr 129).
     fn kill(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, pid: Pid, sig: Signal) -> SyscallResult {
         let _ = (ctx, pid, sig);
         Err(Errno::ENOSYS)
@@ -1641,7 +1641,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_tkill(pid_t pid, int sig)`.
     ///
-    /// Wasm import `wasix2.tkill` (riscv32 nr 130).
+    /// Wasm import `wasixv2.tkill` (riscv32 nr 130).
     fn tkill(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, pid: Pid, sig: Signal) -> SyscallResult {
         let _ = (ctx, pid, sig);
         Err(Errno::ENOSYS)
@@ -1649,7 +1649,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_tgkill(pid_t tgid, pid_t pid, int sig)`.
     ///
-    /// Wasm import `wasix2.tgkill` (riscv32 nr 131).
+    /// Wasm import `wasixv2.tgkill` (riscv32 nr 131).
     fn tgkill(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         tgid: Pid,
@@ -1662,7 +1662,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_pidfd_send_signal(int pidfd, int sig, siginfo_t * info, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.pidfd_send_signal` (riscv32 nr 424).
+    /// Wasm import `wasixv2.pidfd_send_signal` (riscv32 nr 424).
     fn pidfd_send_signal(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pidfd: Fd,
@@ -1677,7 +1677,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_restart_syscall()`.
     /// Kernel-internal restart mechanism; not called by libc.
     ///
-    /// Wasm import `wasix2.restart_syscall` (riscv32 nr 128).
+    /// Wasm import `wasixv2.restart_syscall` (riscv32 nr 128).
     fn restart_syscall(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -1686,10 +1686,10 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_clone(unsigned long clone_flags, unsigned long newsp, int * parent_tidptr, unsigned
     /// long tls, int * child_tidptr)`.
     /// riscv uses CLONE_BACKWARDS order: (flags, newsp, parent_tid, tls, child_tid). Returns twice (0 in
-    /// the child running on `newsp`), which a wasm import cannot do; threads need `wasix_ext.thread-spawn`
+    /// the child running on `newsp`), which a wasm import cannot do; threads need `wasixv2.thread_spawn`
     /// and fork/vfork need a host design.
     ///
-    /// Wasm import `wasix2.clone` (riscv32 nr 220).
+    /// Wasm import `wasixv2.clone` (riscv32 nr 220).
     fn clone(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         clone_flags: Ulong,
@@ -1706,7 +1706,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct clone_args: all fields __aligned_u64; size 88 (VER2). Same return-twice issue as clone. Not
     /// used by musl.
     ///
-    /// Wasm import `wasix2.clone3` (riscv32 nr 435).
+    /// Wasm import `wasixv2.clone3` (riscv32 nr 435).
     fn clone3(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         uargs: ConstCloneArgsPtr,
@@ -1720,7 +1720,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Replaces process image; no return on success. argv/envp are NULL-terminated arrays of 32-bit
     /// pointers.
     ///
-    /// Wasm import `wasix2.execve` (riscv32 nr 221).
+    /// Wasm import `wasixv2.execve` (riscv32 nr 221).
     fn execve(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         filename: Cstr,
@@ -1735,7 +1735,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// envp, int flags)`.
     /// AT_EMPTY_PATH for fexecve.
     ///
-    /// Wasm import `wasix2.execveat` (riscv32 nr 281).
+    /// Wasm import `wasixv2.execveat` (riscv32 nr 281).
     fn execveat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -1751,7 +1751,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_exit(int error_code)`.
     /// Exits only the calling thread. noreturn.
     ///
-    /// Wasm import `wasix2.exit` (riscv32 nr 93).
+    /// Wasm import `wasixv2.exit` (riscv32 nr 93).
     fn exit(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         error_code: i32,
@@ -1765,7 +1765,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_exit_group(int error_code)`.
     /// noreturn.
     ///
-    /// Wasm import `wasix2.exit_group` (riscv32 nr 94).
+    /// Wasm import `wasixv2.exit_group` (riscv32 nr 94).
     fn exit_group(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         error_code: i32,
@@ -1783,7 +1783,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// 32-bit tv_sec/tv_usec (long) on riscv32 => y2038-limited; kernel struct rusage = 72 bytes on ILP32
     /// (see types.md).
     ///
-    /// Wasm import `wasix2.waitid` (riscv32 nr 95).
+    /// Wasm import `wasixv2.waitid` (riscv32 nr 95).
     fn waitid(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which: Idtype,
@@ -1800,7 +1800,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Sets clear_child_tid: kernel writes 0 to *tidptr and futex-wakes it on thread exit. Returns caller
     /// tid. musl uses it at startup and in pthread_create via clone CLONE_CHILD_CLEARTID.
     ///
-    /// Wasm import `wasix2.set_tid_address` (riscv32 nr 96).
+    /// Wasm import `wasixv2.set_tid_address` (riscv32 nr 96).
     fn set_tid_address(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         tidptr: S32Ptr,
@@ -1811,7 +1811,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_unshare(unsigned long unshare_flags)`.
     ///
-    /// Wasm import `wasix2.unshare` (riscv32 nr 97).
+    /// Wasm import `wasixv2.unshare` (riscv32 nr 97).
     fn unshare(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, unshare_flags: Ulong) -> SyscallResult {
         let _ = (ctx, unshare_flags);
         Err(Errno::ENOSYS)
@@ -1819,7 +1819,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setns(int fd, int flags)`.
     ///
-    /// Wasm import `wasix2.setns` (riscv32 nr 268).
+    /// Wasm import `wasixv2.setns` (riscv32 nr 268).
     fn setns(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd, flags: i32) -> SyscallResult {
         let _ = (ctx, fd, flags);
         Err(Errno::ENOSYS)
@@ -1827,7 +1827,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getpid()`.
     ///
-    /// Wasm import `wasix2.getpid` (riscv32 nr 172).
+    /// Wasm import `wasixv2.getpid` (riscv32 nr 172).
     fn getpid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -1835,7 +1835,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getppid()`.
     ///
-    /// Wasm import `wasix2.getppid` (riscv32 nr 173).
+    /// Wasm import `wasixv2.getppid` (riscv32 nr 173).
     fn getppid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -1843,7 +1843,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_gettid()`.
     ///
-    /// Wasm import `wasix2.gettid` (riscv32 nr 178).
+    /// Wasm import `wasixv2.gettid` (riscv32 nr 178).
     fn gettid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -1851,7 +1851,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getpgid(pid_t pid)`.
     ///
-    /// Wasm import `wasix2.getpgid` (riscv32 nr 155).
+    /// Wasm import `wasixv2.getpgid` (riscv32 nr 155).
     fn getpgid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, pid: Pid) -> SyscallResult {
         let _ = (ctx, pid);
         Err(Errno::ENOSYS)
@@ -1859,7 +1859,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setpgid(pid_t pid, pid_t pgid)`.
     ///
-    /// Wasm import `wasix2.setpgid` (riscv32 nr 154).
+    /// Wasm import `wasixv2.setpgid` (riscv32 nr 154).
     fn setpgid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, pid: Pid, pgid: Pid) -> SyscallResult {
         let _ = (ctx, pid, pgid);
         Err(Errno::ENOSYS)
@@ -1867,7 +1867,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getsid(pid_t pid)`.
     ///
-    /// Wasm import `wasix2.getsid` (riscv32 nr 156).
+    /// Wasm import `wasixv2.getsid` (riscv32 nr 156).
     fn getsid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, pid: Pid) -> SyscallResult {
         let _ = (ctx, pid);
         Err(Errno::ENOSYS)
@@ -1875,7 +1875,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setsid()`.
     ///
-    /// Wasm import `wasix2.setsid` (riscv32 nr 157).
+    /// Wasm import `wasixv2.setsid` (riscv32 nr 157).
     fn setsid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -1883,7 +1883,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_pidfd_open(pid_t pid, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.pidfd_open` (riscv32 nr 434).
+    /// Wasm import `wasixv2.pidfd_open` (riscv32 nr 434).
     fn pidfd_open(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -1895,7 +1895,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_pidfd_getfd(int pidfd, int fd, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.pidfd_getfd` (riscv32 nr 438).
+    /// Wasm import `wasixv2.pidfd_getfd` (riscv32 nr 438).
     fn pidfd_getfd(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pidfd: Fd,
@@ -1908,7 +1908,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_process_mrelease(int pidfd, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.process_mrelease` (riscv32 nr 448).
+    /// Wasm import `wasixv2.process_mrelease` (riscv32 nr 448).
     fn process_mrelease(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pidfd: Fd,
@@ -1920,7 +1920,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2)`.
     ///
-    /// Wasm import `wasix2.kcmp` (riscv32 nr 272).
+    /// Wasm import `wasixv2.kcmp` (riscv32 nr 272).
     fn kcmp(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid1: Pid,
@@ -1935,7 +1935,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_personality(unsigned int personality)`.
     ///
-    /// Wasm import `wasix2.personality` (riscv32 nr 92).
+    /// Wasm import `wasixv2.personality` (riscv32 nr 92).
     fn personality(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, personality: u32) -> SyscallResult {
         let _ = (ctx, personality);
         Err(Errno::ENOSYS)
@@ -1946,7 +1946,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Untyped args (int or pointer depending on option, e.g. PR_SET_NAME takes char*[16]).
     /// Untyped: arg2..arg5: integers or guest pointers, depending on `option`.
     ///
-    /// Wasm import `wasix2.prctl` (riscv32 nr 167).
+    /// Wasm import `wasixv2.prctl` (riscv32 nr 167).
     fn prctl(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         option: PrctlOption,
@@ -1965,7 +1965,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Untyped: data: an integer or a guest pointer, depending on `request` (`PTRACE_PEEK*` store the word
     /// at `data`).
     ///
-    /// Wasm import `wasix2.ptrace` (riscv32 nr 117).
+    /// Wasm import `wasixv2.ptrace` (riscv32 nr 117).
     fn ptrace(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         request: PtraceRequest,
@@ -1980,7 +1980,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_process_vm_readv(pid_t pid, const struct iovec * lvec, unsigned long liovcnt, const
     /// struct iovec * rvec, unsigned long riovcnt, unsigned long flags)`.
     ///
-    /// Wasm import `wasix2.process_vm_readv` (riscv32 nr 270).
+    /// Wasm import `wasixv2.process_vm_readv` (riscv32 nr 270).
     fn process_vm_readv(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -1997,7 +1997,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_process_vm_writev(pid_t pid, const struct iovec * lvec, unsigned long liovcnt, const
     /// struct iovec * rvec, unsigned long riovcnt, unsigned long flags)`.
     ///
-    /// Wasm import `wasix2.process_vm_writev` (riscv32 nr 271).
+    /// Wasm import `wasixv2.process_vm_writev` (riscv32 nr 271).
     fn process_vm_writev(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2014,7 +2014,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_seccomp(unsigned int op, unsigned int flags, void * uargs)`.
     /// Untyped: uargs: pointee depends on `op`.
     ///
-    /// Wasm import `wasix2.seccomp` (riscv32 nr 277).
+    /// Wasm import `wasixv2.seccomp` (riscv32 nr 277).
     fn seccomp(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         op: u32,
@@ -2031,7 +2031,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Untyped: rseq: `struct rseq` (64 bytes, 32-byte aligned, not modelled: WIT records cannot express
     /// over-alignment).
     ///
-    /// Wasm import `wasix2.rseq` (riscv32 nr 293).
+    /// Wasm import `wasixv2.rseq` (riscv32 nr 293).
     fn rseq(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         rseq: VoidPtr,
@@ -2045,7 +2045,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_rseq_slice_yield()`.
     ///
-    /// Wasm import `wasix2.rseq_slice_yield` (riscv32 nr 471).
+    /// Wasm import `wasixv2.rseq_slice_yield` (riscv32 nr 471).
     fn rseq_slice_yield(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -2054,7 +2054,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_set_robust_list(struct robust_list_head * head, size_t len)`.
     /// len must be sizeof(struct robust_list_head) == 12 on ILP32.
     ///
-    /// Wasm import `wasix2.set_robust_list` (riscv32 nr 99).
+    /// Wasm import `wasixv2.set_robust_list` (riscv32 nr 99).
     fn set_robust_list(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         head: RobustListHeadPtr,
@@ -2066,7 +2066,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_get_robust_list(int pid, struct robust_list_head * * head_ptr, size_t * len_ptr)`.
     ///
-    /// Wasm import `wasix2.get_robust_list` (riscv32 nr 100).
+    /// Wasm import `wasixv2.get_robust_list` (riscv32 nr 100).
     fn get_robust_list(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: i32,
@@ -2079,7 +2079,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getuid()`.
     ///
-    /// Wasm import `wasix2.getuid` (riscv32 nr 174).
+    /// Wasm import `wasixv2.getuid` (riscv32 nr 174).
     fn getuid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -2087,7 +2087,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_geteuid()`.
     ///
-    /// Wasm import `wasix2.geteuid` (riscv32 nr 175).
+    /// Wasm import `wasixv2.geteuid` (riscv32 nr 175).
     fn geteuid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -2095,7 +2095,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getgid()`.
     ///
-    /// Wasm import `wasix2.getgid` (riscv32 nr 176).
+    /// Wasm import `wasixv2.getgid` (riscv32 nr 176).
     fn getgid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -2103,7 +2103,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getegid()`.
     ///
-    /// Wasm import `wasix2.getegid` (riscv32 nr 177).
+    /// Wasm import `wasixv2.getegid` (riscv32 nr 177).
     fn getegid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -2111,7 +2111,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setuid(uid_t uid)`.
     ///
-    /// Wasm import `wasix2.setuid` (riscv32 nr 146).
+    /// Wasm import `wasixv2.setuid` (riscv32 nr 146).
     fn setuid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, uid: Uid) -> SyscallResult {
         let _ = (ctx, uid);
         Err(Errno::ENOSYS)
@@ -2119,7 +2119,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setgid(gid_t gid)`.
     ///
-    /// Wasm import `wasix2.setgid` (riscv32 nr 144).
+    /// Wasm import `wasixv2.setgid` (riscv32 nr 144).
     fn setgid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, gid: Gid) -> SyscallResult {
         let _ = (ctx, gid);
         Err(Errno::ENOSYS)
@@ -2127,7 +2127,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setreuid(uid_t ruid, uid_t euid)`.
     ///
-    /// Wasm import `wasix2.setreuid` (riscv32 nr 145).
+    /// Wasm import `wasixv2.setreuid` (riscv32 nr 145).
     fn setreuid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, ruid: Uid, euid: Uid) -> SyscallResult {
         let _ = (ctx, ruid, euid);
         Err(Errno::ENOSYS)
@@ -2135,7 +2135,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setregid(gid_t rgid, gid_t egid)`.
     ///
-    /// Wasm import `wasix2.setregid` (riscv32 nr 143).
+    /// Wasm import `wasixv2.setregid` (riscv32 nr 143).
     fn setregid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, rgid: Gid, egid: Gid) -> SyscallResult {
         let _ = (ctx, rgid, egid);
         Err(Errno::ENOSYS)
@@ -2143,7 +2143,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setresuid(uid_t ruid, uid_t euid, uid_t suid)`.
     ///
-    /// Wasm import `wasix2.setresuid` (riscv32 nr 147).
+    /// Wasm import `wasixv2.setresuid` (riscv32 nr 147).
     fn setresuid(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ruid: Uid,
@@ -2156,7 +2156,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getresuid(uid_t * ruidp, uid_t * euidp, uid_t * suidp)`.
     ///
-    /// Wasm import `wasix2.getresuid` (riscv32 nr 148).
+    /// Wasm import `wasixv2.getresuid` (riscv32 nr 148).
     fn getresuid(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ruidp: UidPtr,
@@ -2169,7 +2169,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid)`.
     ///
-    /// Wasm import `wasix2.setresgid` (riscv32 nr 149).
+    /// Wasm import `wasixv2.setresgid` (riscv32 nr 149).
     fn setresgid(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         rgid: Gid,
@@ -2182,7 +2182,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getresgid(gid_t * rgidp, gid_t * egidp, gid_t * sgidp)`.
     ///
-    /// Wasm import `wasix2.getresgid` (riscv32 nr 150).
+    /// Wasm import `wasixv2.getresgid` (riscv32 nr 150).
     fn getresgid(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         rgidp: GidPtr,
@@ -2195,7 +2195,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setfsuid(uid_t uid)`.
     ///
-    /// Wasm import `wasix2.setfsuid` (riscv32 nr 151).
+    /// Wasm import `wasixv2.setfsuid` (riscv32 nr 151).
     fn setfsuid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, uid: Uid) -> SyscallResult {
         let _ = (ctx, uid);
         Err(Errno::ENOSYS)
@@ -2203,7 +2203,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setfsgid(gid_t gid)`.
     ///
-    /// Wasm import `wasix2.setfsgid` (riscv32 nr 152).
+    /// Wasm import `wasixv2.setfsgid` (riscv32 nr 152).
     fn setfsgid(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, gid: Gid) -> SyscallResult {
         let _ = (ctx, gid);
         Err(Errno::ENOSYS)
@@ -2212,7 +2212,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_getgroups(int gidsetsize, gid_t * grouplist)`.
     /// gid_t is 32-bit (uid32 on asm-generic).
     ///
-    /// Wasm import `wasix2.getgroups` (riscv32 nr 158).
+    /// Wasm import `wasixv2.getgroups` (riscv32 nr 158).
     fn getgroups(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         gidsetsize: i32,
@@ -2224,7 +2224,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setgroups(int gidsetsize, gid_t * grouplist)`.
     ///
-    /// Wasm import `wasix2.setgroups` (riscv32 nr 159).
+    /// Wasm import `wasixv2.setgroups` (riscv32 nr 159).
     fn setgroups(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         gidsetsize: i32,
@@ -2237,7 +2237,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_capget(cap_user_header_t header, cap_user_data_t dataptr)`.
     /// cap_user_header_t/cap_user_data_t are pointer typedefs.
     ///
-    /// Wasm import `wasix2.capget` (riscv32 nr 90).
+    /// Wasm import `wasixv2.capget` (riscv32 nr 90).
     fn capget(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         header: UserCapHeaderPtr,
@@ -2250,7 +2250,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_capset(cap_user_header_t header, const cap_user_data_t data)`.
     /// cap_user_header_t/cap_user_data_t are pointer typedefs.
     ///
-    /// Wasm import `wasix2.capset` (riscv32 nr 91).
+    /// Wasm import `wasixv2.capset` (riscv32 nr 91).
     fn capset(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         header: UserCapHeaderPtr,
@@ -2262,7 +2262,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sched_setparam(pid_t pid, struct sched_param * param)`.
     ///
-    /// Wasm import `wasix2.sched_setparam` (riscv32 nr 118).
+    /// Wasm import `wasixv2.sched_setparam` (riscv32 nr 118).
     fn sched_setparam(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2274,7 +2274,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sched_getparam(pid_t pid, struct sched_param * param)`.
     ///
-    /// Wasm import `wasix2.sched_getparam` (riscv32 nr 121).
+    /// Wasm import `wasixv2.sched_getparam` (riscv32 nr 121).
     fn sched_getparam(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2286,7 +2286,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sched_setscheduler(pid_t pid, int policy, struct sched_param * param)`.
     ///
-    /// Wasm import `wasix2.sched_setscheduler` (riscv32 nr 119).
+    /// Wasm import `wasixv2.sched_setscheduler` (riscv32 nr 119).
     fn sched_setscheduler(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2299,7 +2299,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sched_getscheduler(pid_t pid)`.
     ///
-    /// Wasm import `wasix2.sched_getscheduler` (riscv32 nr 120).
+    /// Wasm import `wasixv2.sched_getscheduler` (riscv32 nr 120).
     fn sched_getscheduler(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, pid: Pid) -> SyscallResult {
         let _ = (ctx, pid);
         Err(Errno::ENOSYS)
@@ -2308,7 +2308,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_sched_setattr(pid_t pid, struct sched_attr * uattr, unsigned int flags)`.
     /// struct sched_attr size-versioned (56 bytes VER1).
     ///
-    /// Wasm import `wasix2.sched_setattr` (riscv32 nr 274).
+    /// Wasm import `wasixv2.sched_setattr` (riscv32 nr 274).
     fn sched_setattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2322,7 +2322,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_sched_getattr(pid_t pid, struct sched_attr * uattr, unsigned int usize, unsigned int
     /// flags)`.
     ///
-    /// Wasm import `wasix2.sched_getattr` (riscv32 nr 275).
+    /// Wasm import `wasixv2.sched_getattr` (riscv32 nr 275).
     fn sched_getattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2337,7 +2337,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_sched_setaffinity(pid_t pid, unsigned int len, unsigned long * user_mask_ptr)`.
     /// mask is array of unsigned long (32-bit on wasm32); len in bytes.
     ///
-    /// Wasm import `wasix2.sched_setaffinity` (riscv32 nr 122).
+    /// Wasm import `wasixv2.sched_setaffinity` (riscv32 nr 122).
     fn sched_setaffinity(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2351,7 +2351,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_sched_getaffinity(pid_t pid, unsigned int len, unsigned long * user_mask_ptr)`.
     /// Returns number of bytes written (kernel cpumask size), not 0.
     ///
-    /// Wasm import `wasix2.sched_getaffinity` (riscv32 nr 123).
+    /// Wasm import `wasixv2.sched_getaffinity` (riscv32 nr 123).
     fn sched_getaffinity(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2364,7 +2364,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sched_yield()`.
     ///
-    /// Wasm import `wasix2.sched_yield` (riscv32 nr 124).
+    /// Wasm import `wasixv2.sched_yield` (riscv32 nr 124).
     fn sched_yield(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -2372,7 +2372,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sched_get_priority_max(int policy)`.
     ///
-    /// Wasm import `wasix2.sched_get_priority_max` (riscv32 nr 125).
+    /// Wasm import `wasixv2.sched_get_priority_max` (riscv32 nr 125).
     fn sched_get_priority_max(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         policy: SchedPolicy,
@@ -2383,7 +2383,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sched_get_priority_min(int policy)`.
     ///
-    /// Wasm import `wasix2.sched_get_priority_min` (riscv32 nr 126).
+    /// Wasm import `wasixv2.sched_get_priority_min` (riscv32 nr 126).
     fn sched_get_priority_min(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         policy: SchedPolicy,
@@ -2394,7 +2394,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sched_rr_get_interval(pid_t pid, struct __kernel_timespec * interval)`.
     ///
-    /// Wasm import `wasix2.sched_rr_get_interval_time64` (riscv32 nr 423).
+    /// Wasm import `wasixv2.sched_rr_get_interval_time64` (riscv32 nr 423).
     fn sched_rr_get_interval_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2407,7 +2407,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_getpriority(int which, int who)`.
     /// Returns 20 - nice (1..40) to avoid negative values; libc converts.
     ///
-    /// Wasm import `wasix2.getpriority` (riscv32 nr 141).
+    /// Wasm import `wasixv2.getpriority` (riscv32 nr 141).
     fn getpriority(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which: PrioWhich,
@@ -2419,7 +2419,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setpriority(int which, int who, int niceval)`.
     ///
-    /// Wasm import `wasix2.setpriority` (riscv32 nr 140).
+    /// Wasm import `wasixv2.setpriority` (riscv32 nr 140).
     fn setpriority(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which: PrioWhich,
@@ -2434,7 +2434,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct rusage uses __kernel_old_timeval (long tv_sec, long tv_usec: 32-bit each on riscv32) => 72
     /// bytes; musl converts to 64-bit-time struct rusage on 32-bit archs.
     ///
-    /// Wasm import `wasix2.getrusage` (riscv32 nr 165).
+    /// Wasm import `wasixv2.getrusage` (riscv32 nr 165).
     fn getrusage(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         who: RusageWho,
@@ -2449,7 +2449,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Only rlimit syscall on riscv32 (getrlimit/setrlimit are "rlimit" abi, rv64 only). struct rlimit64 =
     /// 2 x __u64 = 16 bytes.
     ///
-    /// Wasm import `wasix2.prlimit64` (riscv32 nr 261).
+    /// Wasm import `wasixv2.prlimit64` (riscv32 nr 261).
     fn prlimit64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2465,7 +2465,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct tms = 4 x __kernel_clock_t (long, 32-bit on riscv32) = 16 bytes. Return value is clock_t
     /// ticks (32-bit, may wrap and look like -errno).
     ///
-    /// Wasm import `wasix2.times` (riscv32 nr 153).
+    /// Wasm import `wasixv2.times` (riscv32 nr 153).
     fn times(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, tbuf: TmsPtr) -> SyscallResult {
         let _ = (ctx, tbuf);
         Err(Errno::ENOSYS)
@@ -2473,7 +2473,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_ioprio_set(int which, int who, int ioprio)`.
     ///
-    /// Wasm import `wasix2.ioprio_set` (riscv32 nr 30).
+    /// Wasm import `wasixv2.ioprio_set` (riscv32 nr 30).
     fn ioprio_set(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which: i32,
@@ -2486,7 +2486,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_ioprio_get(int which, int who)`.
     ///
-    /// Wasm import `wasix2.ioprio_get` (riscv32 nr 31).
+    /// Wasm import `wasixv2.ioprio_get` (riscv32 nr 31).
     fn ioprio_get(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which: i32,
@@ -2499,7 +2499,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_getcpu(unsigned * cpup, unsigned * nodep, void * unused)`.
     /// 3rd arg unused (was tcache).
     ///
-    /// Wasm import `wasix2.getcpu` (riscv32 nr 168).
+    /// Wasm import `wasixv2.getcpu` (riscv32 nr 168).
     fn getcpu(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         cpup: U32Ptr,
@@ -2514,7 +2514,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct sysinfo with __kernel_long_t fields (32-bit on riscv32): 64 bytes incl. padding to 64
     /// (_f[20-2*sizeof(long)-sizeof(int)] = 8 bytes).
     ///
-    /// Wasm import `wasix2.sysinfo` (riscv32 nr 179).
+    /// Wasm import `wasixv2.sysinfo` (riscv32 nr 179).
     fn sysinfo(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, info: SysinfoPtr) -> SyscallResult {
         let _ = (ctx, info);
         Err(Errno::ENOSYS)
@@ -2523,7 +2523,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_newuname(struct new_utsname * name)`.
     /// struct new_utsname = 6 x 65 chars = 390 bytes.
     ///
-    /// Wasm import `wasix2.uname` (riscv32 nr 160).
+    /// Wasm import `wasixv2.uname` (riscv32 nr 160).
     fn uname(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, name: NewUtsnamePtr) -> SyscallResult {
         let _ = (ctx, name);
         Err(Errno::ENOSYS)
@@ -2531,7 +2531,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_sethostname(char * name, int len)`.
     ///
-    /// Wasm import `wasix2.sethostname` (riscv32 nr 161).
+    /// Wasm import `wasixv2.sethostname` (riscv32 nr 161).
     fn sethostname(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         name: ConstBuf,
@@ -2543,7 +2543,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_setdomainname(char * name, int len)`.
     ///
-    /// Wasm import `wasix2.setdomainname` (riscv32 nr 162).
+    /// Wasm import `wasixv2.setdomainname` (riscv32 nr 162).
     fn setdomainname(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         name: ConstBuf,
@@ -2555,7 +2555,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_umask(int mask)`.
     ///
-    /// Wasm import `wasix2.umask` (riscv32 nr 166).
+    /// Wasm import `wasixv2.umask` (riscv32 nr 166).
     fn umask(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, mask: i32) -> SyscallResult {
         let _ = (ctx, mask);
         Err(Errno::ENOSYS)
@@ -2564,7 +2564,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_getrandom(char * ubuf, size_t len, unsigned int flags)`.
     /// musl getrandom() + getentropy.
     ///
-    /// Wasm import `wasix2.getrandom` (riscv32 nr 278).
+    /// Wasm import `wasixv2.getrandom` (riscv32 nr 278).
     fn getrandom(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ubuf: Buf,
@@ -2577,7 +2577,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_membarrier(int cmd, unsigned int flags, int cpu_id)`.
     ///
-    /// Wasm import `wasix2.membarrier` (riscv32 nr 283).
+    /// Wasm import `wasixv2.membarrier` (riscv32 nr 283).
     fn membarrier(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         cmd: MembarrierCmd,
@@ -2595,7 +2595,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Untyped: utime: a pointer to `kernel-timespec` for the waiting ops, but reinterpreted as the `u32`
     /// `val2` for `FUTEX_REQUEUE`, `FUTEX_CMP_REQUEUE*` and `FUTEX_WAKE_OP`.
     ///
-    /// Wasm import `wasix2.futex_time64` (riscv32 nr 422).
+    /// Wasm import `wasixv2.futex_time64` (riscv32 nr 422).
     fn futex_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         uaddr: U32Ptr,
@@ -2614,7 +2614,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct futex_waitv {u64 val; u64 uaddr; u32 flags; u32 __reserved} 24 bytes (uaddr as u64 even on
     /// 32-bit).
     ///
-    /// Wasm import `wasix2.futex_waitv` (riscv32 nr 449).
+    /// Wasm import `wasixv2.futex_waitv` (riscv32 nr 449).
     fn futex_waitv(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         waiters: ConstFutexWaitvArray,
@@ -2630,7 +2630,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_futex_wake(void * uaddr, unsigned long mask, int nr, unsigned int flags)`.
     /// futex2 API (6.7+). mask is unsigned long (32-bit on riscv32).
     ///
-    /// Wasm import `wasix2.futex_wake` (riscv32 nr 454).
+    /// Wasm import `wasixv2.futex_wake` (riscv32 nr 454).
     fn futex_wake(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         uaddr: U32Ptr,
@@ -2646,7 +2646,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct __kernel_timespec * timeout, clockid_t clockid)`.
     /// futex2 API; val/mask unsigned long.
     ///
-    /// Wasm import `wasix2.futex_wait` (riscv32 nr 455).
+    /// Wasm import `wasixv2.futex_wait` (riscv32 nr 455).
     fn futex_wait(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         uaddr: U32Ptr,
@@ -2664,7 +2664,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// nr_requeue)`.
     /// Takes array of 2 struct futex_waitv.
     ///
-    /// Wasm import `wasix2.futex_requeue` (riscv32 nr 456).
+    /// Wasm import `wasixv2.futex_requeue` (riscv32 nr 456).
     fn futex_requeue(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         waiters: ConstFutexWaitvArray,
@@ -2680,7 +2680,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Returns new break (or current break on failure), never -errno. musl malloc-ng only uses brk to
     /// probe/extend (lite_malloc/mallocng expand_heap).
     ///
-    /// Wasm import `wasix2.brk` (riscv32 nr 214).
+    /// Wasm import `wasixv2.brk` (riscv32 nr 214).
     fn brk(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, brk: Uptr) -> SyscallResult {
         let _ = (ctx, brk);
         Err(Errno::ENOSYS)
@@ -2693,7 +2693,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// not multiple of 4096. Wasm: page size mismatch (wasm pages 64KiB; Linux 4KiB) - host design needed.
     /// Returns address.
     ///
-    /// Wasm import `wasix2.mmap2` (riscv32 nr 222).
+    /// Wasm import `wasixv2.mmap2` (riscv32 nr 222).
     fn mmap2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         addr: Uptr,
@@ -2709,7 +2709,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_munmap(unsigned long addr, size_t len)`.
     ///
-    /// Wasm import `wasix2.munmap` (riscv32 nr 215).
+    /// Wasm import `wasixv2.munmap` (riscv32 nr 215).
     fn munmap(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, addr: Uptr, len: Usize) -> SyscallResult {
         let _ = (ctx, addr, len);
         Err(Errno::ENOSYS)
@@ -2719,7 +2719,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// flags, unsigned long new_addr)`.
     /// 5th arg new_addr only with MREMAP_FIXED; returns address.
     ///
-    /// Wasm import `wasix2.mremap` (riscv32 nr 216).
+    /// Wasm import `wasixv2.mremap` (riscv32 nr 216).
     fn mremap(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         addr: Uptr,
@@ -2735,7 +2735,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mprotect(unsigned long start, size_t len, unsigned long prot)`.
     /// Wasm cannot change protection of linear memory pages - host design question.
     ///
-    /// Wasm import `wasix2.mprotect` (riscv32 nr 226).
+    /// Wasm import `wasixv2.mprotect` (riscv32 nr 226).
     fn mprotect(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2748,7 +2748,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_pkey_mprotect(unsigned long start, size_t len, unsigned long prot, int pkey)`.
     ///
-    /// Wasm import `wasix2.pkey_mprotect` (riscv32 nr 288).
+    /// Wasm import `wasixv2.pkey_mprotect` (riscv32 nr 288).
     fn pkey_mprotect(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2762,7 +2762,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_pkey_alloc(unsigned long flags, unsigned long init_val)`.
     ///
-    /// Wasm import `wasix2.pkey_alloc` (riscv32 nr 289).
+    /// Wasm import `wasixv2.pkey_alloc` (riscv32 nr 289).
     fn pkey_alloc(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         flags: Ulong,
@@ -2774,7 +2774,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_pkey_free(int pkey)`.
     ///
-    /// Wasm import `wasix2.pkey_free` (riscv32 nr 290).
+    /// Wasm import `wasixv2.pkey_free` (riscv32 nr 290).
     fn pkey_free(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, pkey: i32) -> SyscallResult {
         let _ = (ctx, pkey);
         Err(Errno::ENOSYS)
@@ -2782,7 +2782,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_msync(unsigned long start, size_t len, int flags)`.
     ///
-    /// Wasm import `wasix2.msync` (riscv32 nr 227).
+    /// Wasm import `wasixv2.msync` (riscv32 nr 227).
     fn msync(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2795,7 +2795,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_madvise(unsigned long start, size_t len_in, int behavior)`.
     ///
-    /// Wasm import `wasix2.madvise` (riscv32 nr 233).
+    /// Wasm import `wasixv2.madvise` (riscv32 nr 233).
     fn madvise(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2809,7 +2809,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_process_madvise(int pidfd, const struct iovec * vec, size_t vlen, int behavior,
     /// unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.process_madvise` (riscv32 nr 440).
+    /// Wasm import `wasixv2.process_madvise` (riscv32 nr 440).
     fn process_madvise(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pidfd: Fd,
@@ -2825,7 +2825,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mincore(unsigned long start, size_t len, unsigned char * vec)`.
     /// vec gets one byte per 4096-byte page.
     ///
-    /// Wasm import `wasix2.mincore` (riscv32 nr 232).
+    /// Wasm import `wasixv2.mincore` (riscv32 nr 232).
     fn mincore(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2838,7 +2838,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_mlock(unsigned long start, size_t len)`.
     ///
-    /// Wasm import `wasix2.mlock` (riscv32 nr 228).
+    /// Wasm import `wasixv2.mlock` (riscv32 nr 228).
     fn mlock(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, start: Uptr, len: Usize) -> SyscallResult {
         let _ = (ctx, start, len);
         Err(Errno::ENOSYS)
@@ -2846,7 +2846,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_mlock2(unsigned long start, size_t len, int flags)`.
     ///
-    /// Wasm import `wasix2.mlock2` (riscv32 nr 284).
+    /// Wasm import `wasixv2.mlock2` (riscv32 nr 284).
     fn mlock2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2859,7 +2859,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_munlock(unsigned long start, size_t len)`.
     ///
-    /// Wasm import `wasix2.munlock` (riscv32 nr 229).
+    /// Wasm import `wasixv2.munlock` (riscv32 nr 229).
     fn munlock(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2871,7 +2871,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_mlockall(int flags)`.
     ///
-    /// Wasm import `wasix2.mlockall` (riscv32 nr 230).
+    /// Wasm import `wasixv2.mlockall` (riscv32 nr 230).
     fn mlockall(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, flags: MclFlags) -> SyscallResult {
         let _ = (ctx, flags);
         Err(Errno::ENOSYS)
@@ -2879,7 +2879,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_munlockall()`.
     ///
-    /// Wasm import `wasix2.munlockall` (riscv32 nr 231).
+    /// Wasm import `wasixv2.munlockall` (riscv32 nr 231).
     fn munlockall(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -2889,7 +2889,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// long pgoff, unsigned long flags)`.
     /// Deprecated (emulated).
     ///
-    /// Wasm import `wasix2.remap_file_pages` (riscv32 nr 234).
+    /// Wasm import `wasixv2.remap_file_pages` (riscv32 nr 234).
     fn remap_file_pages(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2905,7 +2905,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mbind(unsigned long start, unsigned long len, unsigned long mode, const unsigned long *
     /// nmask, unsigned long maxnode, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.mbind` (riscv32 nr 235).
+    /// Wasm import `wasixv2.mbind` (riscv32 nr 235).
     fn mbind(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2922,7 +2922,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_get_mempolicy(int * policy, unsigned long * nmask, unsigned long maxnode, unsigned long
     /// addr, unsigned long flags)`.
     ///
-    /// Wasm import `wasix2.get_mempolicy` (riscv32 nr 236).
+    /// Wasm import `wasixv2.get_mempolicy` (riscv32 nr 236).
     fn get_mempolicy(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         policy: S32Ptr,
@@ -2937,7 +2937,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_set_mempolicy(int mode, const unsigned long * nmask, unsigned long maxnode)`.
     ///
-    /// Wasm import `wasix2.set_mempolicy` (riscv32 nr 237).
+    /// Wasm import `wasixv2.set_mempolicy` (riscv32 nr 237).
     fn set_mempolicy(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         mode: i32,
@@ -2951,7 +2951,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_set_mempolicy_home_node(unsigned long start, unsigned long len, unsigned long
     /// home_node, unsigned long flags)`.
     ///
-    /// Wasm import `wasix2.set_mempolicy_home_node` (riscv32 nr 450).
+    /// Wasm import `wasixv2.set_mempolicy_home_node` (riscv32 nr 450).
     fn set_mempolicy_home_node(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -2966,7 +2966,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_migrate_pages(pid_t pid, unsigned long maxnode, const unsigned long * old_nodes, const
     /// unsigned long * new_nodes)`.
     ///
-    /// Wasm import `wasix2.migrate_pages` (riscv32 nr 238).
+    /// Wasm import `wasixv2.migrate_pages` (riscv32 nr 238).
     fn migrate_pages(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2981,7 +2981,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_move_pages(pid_t pid, unsigned long nr_pages, const void * * pages, const int * nodes,
     /// int * status, int flags)`.
     ///
-    /// Wasm import `wasix2.move_pages` (riscv32 nr 239).
+    /// Wasm import `wasixv2.move_pages` (riscv32 nr 239).
     fn move_pages(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         pid: Pid,
@@ -2997,7 +2997,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_mseal(unsigned long start, size_t len, unsigned long flags)`.
     ///
-    /// Wasm import `wasix2.mseal` (riscv32 nr 462).
+    /// Wasm import `wasixv2.mseal` (riscv32 nr 462).
     fn mseal(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         start: Uptr,
@@ -3011,7 +3011,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_map_shadow_stack(unsigned long addr, unsigned long size, unsigned int flags)`.
     /// Common in table; riscv implements it (arch/riscv/kernel/usercfi.c) for Zicfiss. Irrelevant for wasm.
     ///
-    /// Wasm import `wasix2.map_shadow_stack` (riscv32 nr 453).
+    /// Wasm import `wasixv2.map_shadow_stack` (riscv32 nr 453).
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn map_shadow_stack(
@@ -3026,7 +3026,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_userfaultfd(int flags)`.
     ///
-    /// Wasm import `wasix2.userfaultfd` (riscv32 nr 282).
+    /// Wasm import `wasixv2.userfaultfd` (riscv32 nr 282).
     fn userfaultfd(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, flags: i32) -> SyscallResult {
         let _ = (ctx, flags);
         Err(Errno::ENOSYS)
@@ -3037,7 +3037,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// (VDSO_CGT_SYM, LINUX_4.15) then syscall. timespec64 = {s64 tv_sec; long tv_nsec; 4 bytes pad} 16
     /// bytes.
     ///
-    /// Wasm import `wasix2.clock_gettime64` (riscv32 nr 403).
+    /// Wasm import `wasixv2.clock_gettime64` (riscv32 nr 403).
     fn clock_gettime64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which_clock: ClockId,
@@ -3049,7 +3049,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_clock_settime(const clockid_t which_clock, const struct __kernel_timespec * tp)`.
     ///
-    /// Wasm import `wasix2.clock_settime64` (riscv32 nr 404).
+    /// Wasm import `wasixv2.clock_settime64` (riscv32 nr 404).
     fn clock_settime64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which_clock: ClockId,
@@ -3061,7 +3061,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_clock_getres(const clockid_t which_clock, struct __kernel_timespec * tp)`.
     ///
-    /// Wasm import `wasix2.clock_getres_time64` (riscv32 nr 406).
+    /// Wasm import `wasixv2.clock_getres_time64` (riscv32 nr 406).
     fn clock_getres_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which_clock: ClockId,
@@ -3076,7 +3076,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// No nanosleep on riscv32: musl nanosleep()/sleep()/usleep() -> clock_nanosleep(CLOCK_REALTIME, 0,
     /// ...). Returns -errno directly (POSIX clock_nanosleep returns positive errno; libc converts).
     ///
-    /// Wasm import `wasix2.clock_nanosleep_time64` (riscv32 nr 407).
+    /// Wasm import `wasixv2.clock_nanosleep_time64` (riscv32 nr 407).
     fn clock_nanosleep_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which_clock: ClockId,
@@ -3092,7 +3092,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct __kernel_timex: 208 bytes, 64-bit time fields (time64 variant). musl adjtimex() ->
     /// clock_adjtime(CLOCK_REALTIME).
     ///
-    /// Wasm import `wasix2.clock_adjtime64` (riscv32 nr 405).
+    /// Wasm import `wasixv2.clock_adjtime64` (riscv32 nr 405).
     fn clock_adjtime64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which_clock: ClockId,
@@ -3106,7 +3106,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Uses struct __kernel_old_itimerval (two __kernel_old_timeval, long fields => 32-bit tv_sec on
     /// riscv32, 16 bytes total). y2038 legacy; musl converts on 32-bit.
     ///
-    /// Wasm import `wasix2.getitimer` (riscv32 nr 102).
+    /// Wasm import `wasixv2.getitimer` (riscv32 nr 102).
     fn getitimer(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which: ItimerWhich,
@@ -3121,7 +3121,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Uses struct __kernel_old_itimerval (32-bit fields on riscv32). musl converts; values > INT32 seconds
     /// fail with EOVERFLOW-like handling in musl.
     ///
-    /// Wasm import `wasix2.setitimer` (riscv32 nr 103).
+    /// Wasm import `wasixv2.setitimer` (riscv32 nr 103).
     fn setitimer(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which: ItimerWhich,
@@ -3137,7 +3137,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct sigevent: 64 bytes (SIGEV_THREAD_ID uses _tid). musl SIGEV_THREAD implemented in userland via
     /// helper thread + SIGEV_THREAD_ID.
     ///
-    /// Wasm import `wasix2.timer_create` (riscv32 nr 107).
+    /// Wasm import `wasixv2.timer_create` (riscv32 nr 107).
     fn timer_create(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         which_clock: ClockId,
@@ -3152,7 +3152,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// new_setting, struct __kernel_itimerspec * old_setting)`.
     /// struct __kernel_itimerspec = 2 x timespec64 = 32 bytes.
     ///
-    /// Wasm import `wasix2.timer_settime64` (riscv32 nr 409).
+    /// Wasm import `wasixv2.timer_settime64` (riscv32 nr 409).
     fn timer_settime64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         timer_id: TimerId,
@@ -3166,7 +3166,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_timer_gettime(timer_t timer_id, struct __kernel_itimerspec * setting)`.
     ///
-    /// Wasm import `wasix2.timer_gettime64` (riscv32 nr 408).
+    /// Wasm import `wasixv2.timer_gettime64` (riscv32 nr 408).
     fn timer_gettime64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         timer_id: TimerId,
@@ -3178,7 +3178,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_timer_getoverrun(timer_t timer_id)`.
     ///
-    /// Wasm import `wasix2.timer_getoverrun` (riscv32 nr 109).
+    /// Wasm import `wasixv2.timer_getoverrun` (riscv32 nr 109).
     fn timer_getoverrun(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         timer_id: TimerId,
@@ -3189,7 +3189,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_timer_delete(timer_t timer_id)`.
     ///
-    /// Wasm import `wasix2.timer_delete` (riscv32 nr 111).
+    /// Wasm import `wasixv2.timer_delete` (riscv32 nr 111).
     fn timer_delete(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         timer_id: TimerId,
@@ -3201,7 +3201,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_socket(int family, int type, int protocol)`.
     /// SOCK_NONBLOCK=O_NONBLOCK(04000), SOCK_CLOEXEC=O_CLOEXEC(02000000) on asm-generic.
     ///
-    /// Wasm import `wasix2.socket` (riscv32 nr 198).
+    /// Wasm import `wasixv2.socket` (riscv32 nr 198).
     fn socket(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         family: AddressFamily,
@@ -3214,7 +3214,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_socketpair(int family, int type, int protocol, int * usockvec)`.
     ///
-    /// Wasm import `wasix2.socketpair` (riscv32 nr 199).
+    /// Wasm import `wasixv2.socketpair` (riscv32 nr 199).
     fn socketpair(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         family: AddressFamily,
@@ -3228,7 +3228,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_bind(int fd, struct sockaddr * umyaddr, int addrlen)`.
     ///
-    /// Wasm import `wasix2.bind` (riscv32 nr 200).
+    /// Wasm import `wasixv2.bind` (riscv32 nr 200).
     fn bind(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3241,7 +3241,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_listen(int fd, int backlog)`.
     ///
-    /// Wasm import `wasix2.listen` (riscv32 nr 201).
+    /// Wasm import `wasixv2.listen` (riscv32 nr 201).
     fn listen(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, fd: Fd, backlog: i32) -> SyscallResult {
         let _ = (ctx, fd, backlog);
         Err(Errno::ENOSYS)
@@ -3250,7 +3250,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_accept(int fd, struct sockaddr * upeer_sockaddr, int * upeer_addrlen)`.
     /// musl defines SYS_accept to SYS_accept4 only if SYS_accept is missing; riscv32 has both.
     ///
-    /// Wasm import `wasix2.accept` (riscv32 nr 202).
+    /// Wasm import `wasixv2.accept` (riscv32 nr 202).
     fn accept(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3263,7 +3263,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_accept4(int fd, struct sockaddr * upeer_sockaddr, int * upeer_addrlen, int flags)`.
     ///
-    /// Wasm import `wasix2.accept4` (riscv32 nr 242).
+    /// Wasm import `wasixv2.accept4` (riscv32 nr 242).
     fn accept4(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3277,7 +3277,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_connect(int fd, struct sockaddr * uservaddr, int addrlen)`.
     ///
-    /// Wasm import `wasix2.connect` (riscv32 nr 203).
+    /// Wasm import `wasixv2.connect` (riscv32 nr 203).
     fn connect(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3290,7 +3290,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getsockname(int fd, struct sockaddr * usockaddr, int * usockaddr_len)`.
     ///
-    /// Wasm import `wasix2.getsockname` (riscv32 nr 204).
+    /// Wasm import `wasixv2.getsockname` (riscv32 nr 204).
     fn getsockname(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3303,7 +3303,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_getpeername(int fd, struct sockaddr * usockaddr, int * usockaddr_len)`.
     ///
-    /// Wasm import `wasix2.getpeername` (riscv32 nr 205).
+    /// Wasm import `wasixv2.getpeername` (riscv32 nr 205).
     fn getpeername(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3317,7 +3317,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_sendto(int fd, void * buff, size_t len, unsigned int flags, struct sockaddr * addr, int
     /// addr_len)`.
     ///
-    /// Wasm import `wasix2.sendto` (riscv32 nr 206).
+    /// Wasm import `wasixv2.sendto` (riscv32 nr 206).
     fn sendto(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3334,7 +3334,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_recvfrom(int fd, void * ubuf, size_t size, unsigned int flags, struct sockaddr * addr,
     /// int * addr_len)`.
     ///
-    /// Wasm import `wasix2.recvfrom` (riscv32 nr 207).
+    /// Wasm import `wasixv2.recvfrom` (riscv32 nr 207).
     fn recvfrom(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3353,7 +3353,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// SO_RCVTIMEO_OLD(20)/SNDTIMEO_OLD(21) take 32-bit timeval; SO_RCVTIMEO_NEW(66)/SO_SNDTIMEO_NEW(67)
     /// take 64-bit __kernel_sock_timeval. musl tries _NEW first on 32-bit time64 archs then falls back.
     ///
-    /// Wasm import `wasix2.setsockopt` (riscv32 nr 208).
+    /// Wasm import `wasixv2.setsockopt` (riscv32 nr 208).
     fn setsockopt(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3369,7 +3369,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_getsockopt(int fd, int level, int optname, char * optval, int * optlen)`.
     /// see setsockopt.
     ///
-    /// Wasm import `wasix2.getsockopt` (riscv32 nr 209).
+    /// Wasm import `wasixv2.getsockopt` (riscv32 nr 209).
     fn getsockopt(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3384,7 +3384,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_shutdown(int fd, int how)`.
     ///
-    /// Wasm import `wasix2.shutdown` (riscv32 nr 210).
+    /// Wasm import `wasixv2.shutdown` (riscv32 nr 210).
     fn shutdown(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3398,7 +3398,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct user_msghdr = 28 bytes on ILP32; cmsghdr {size_t len; int level; int type} 12 bytes,
     /// CMSG_ALIGN to sizeof(long)=4.
     ///
-    /// Wasm import `wasix2.sendmsg` (riscv32 nr 211).
+    /// Wasm import `wasixv2.sendmsg` (riscv32 nr 211).
     fn sendmsg(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3412,7 +3412,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_recvmsg(int fd, struct user_msghdr * msg, unsigned int flags)`.
     /// see sendmsg. SCM_TIMESTAMP*_OLD vs _NEW differ on 32-bit.
     ///
-    /// Wasm import `wasix2.recvmsg` (riscv32 nr 212).
+    /// Wasm import `wasixv2.recvmsg` (riscv32 nr 212).
     fn recvmsg(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3426,7 +3426,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_sendmmsg(int fd, struct mmsghdr * mmsg, unsigned int vlen, unsigned int flags)`.
     /// struct mmsghdr = msghdr(28) + unsigned msg_len = 32 bytes.
     ///
-    /// Wasm import `wasix2.sendmmsg` (riscv32 nr 269).
+    /// Wasm import `wasixv2.sendmmsg` (riscv32 nr 269).
     fn sendmmsg(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3442,7 +3442,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// __kernel_timespec * timeout)`.
     /// struct mmsghdr = 32 bytes; timespec64 timeout.
     ///
-    /// Wasm import `wasix2.recvmmsg_time64` (riscv32 nr 417).
+    /// Wasm import `wasixv2.recvmmsg_time64` (riscv32 nr 417).
     fn recvmmsg_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3457,7 +3457,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_msgget(key_t key, int msgflg)`.
     ///
-    /// Wasm import `wasix2.msgget` (riscv32 nr 186).
+    /// Wasm import `wasixv2.msgget` (riscv32 nr 186).
     fn msgget(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, key: Key, msgflg: i32) -> SyscallResult {
         let _ = (ctx, key, msgflg);
         Err(Errno::ENOSYS)
@@ -3468,7 +3468,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// (arch/riscv32/syscall_arch.h). struct msqid64_ds on asm-generic 32-bit: time fields split into lo/hi
     /// (msg_stime + msg_stime_high).
     ///
-    /// Wasm import `wasix2.msgctl` (riscv32 nr 187).
+    /// Wasm import `wasixv2.msgctl` (riscv32 nr 187).
     fn msgctl(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         msqid: i32,
@@ -3482,7 +3482,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_msgrcv(int msqid, struct msgbuf * msgp, size_t msgsz, long msgtyp, int msgflg)`.
     /// msgbuf {long mtype; char mtext[]} - mtype is 32-bit on ILP32.
     ///
-    /// Wasm import `wasix2.msgrcv` (riscv32 nr 188).
+    /// Wasm import `wasixv2.msgrcv` (riscv32 nr 188).
     fn msgrcv(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         msqid: i32,
@@ -3498,7 +3498,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_msgsnd(int msqid, struct msgbuf * msgp, size_t msgsz, int msgflg)`.
     /// see msgrcv.
     ///
-    /// Wasm import `wasix2.msgsnd` (riscv32 nr 189).
+    /// Wasm import `wasixv2.msgsnd` (riscv32 nr 189).
     fn msgsnd(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         msqid: i32,
@@ -3512,7 +3512,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_semget(key_t key, int nsems, int semflg)`.
     ///
-    /// Wasm import `wasix2.semget` (riscv32 nr 190).
+    /// Wasm import `wasixv2.semget` (riscv32 nr 190).
     fn semget(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         key: Key,
@@ -3528,7 +3528,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// fields on 32-bit.
     /// Untyped: arg: `union semun` by value: an `int`, or a pointer to `semid64-ds`, `u16[]` or `seminfo`.
     ///
-    /// Wasm import `wasix2.semctl` (riscv32 nr 191).
+    /// Wasm import `wasixv2.semctl` (riscv32 nr 191).
     fn semctl(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         semid: i32,
@@ -3542,7 +3542,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_semop(int semid, struct sembuf * tsops, unsigned int nsops)`.
     ///
-    /// Wasm import `wasix2.semop` (riscv32 nr 193).
+    /// Wasm import `wasixv2.semop` (riscv32 nr 193).
     fn semop(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         semid: i32,
@@ -3557,7 +3557,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// __kernel_timespec * timeout)`.
     /// musl semop uses semop; semtimedop -> semtimedop_time64.
     ///
-    /// Wasm import `wasix2.semtimedop_time64` (riscv32 nr 420).
+    /// Wasm import `wasixv2.semtimedop_time64` (riscv32 nr 420).
     fn semtimedop_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         semid: i32,
@@ -3571,7 +3571,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_shmget(key_t key, size_t size, int shmflg)`.
     ///
-    /// Wasm import `wasix2.shmget` (riscv32 nr 194).
+    /// Wasm import `wasixv2.shmget` (riscv32 nr 194).
     fn shmget(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         key: Key,
@@ -3585,7 +3585,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_shmctl(int shmid, int cmd, struct shmid_ds * buf)`.
     /// shmid64_ds with split time high fields on 32-bit.
     ///
-    /// Wasm import `wasix2.shmctl` (riscv32 nr 195).
+    /// Wasm import `wasixv2.shmctl` (riscv32 nr 195).
     fn shmctl(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         shmid: i32,
@@ -3599,7 +3599,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_shmat(int shmid, char * shmaddr, int shmflg)`.
     /// Returns attach address. SHMLBA alignment.
     ///
-    /// Wasm import `wasix2.shmat` (riscv32 nr 196).
+    /// Wasm import `wasixv2.shmat` (riscv32 nr 196).
     fn shmat(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         shmid: i32,
@@ -3612,7 +3612,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_shmdt(char * shmaddr)`.
     ///
-    /// Wasm import `wasix2.shmdt` (riscv32 nr 197).
+    /// Wasm import `wasixv2.shmdt` (riscv32 nr 197).
     fn shmdt(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, shmaddr: Uptr) -> SyscallResult {
         let _ = (ctx, shmaddr);
         Err(Errno::ENOSYS)
@@ -3621,7 +3621,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mq_open(const char * u_name, int oflag, umode_t mode, struct mq_attr * u_attr)`.
     /// struct mq_attr = 4 x long + 4 x long reserved = 32 bytes on ILP32.
     ///
-    /// Wasm import `wasix2.mq_open` (riscv32 nr 180).
+    /// Wasm import `wasixv2.mq_open` (riscv32 nr 180).
     fn mq_open(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         u_name: Cstr,
@@ -3635,7 +3635,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_mq_unlink(const char * u_name)`.
     ///
-    /// Wasm import `wasix2.mq_unlink` (riscv32 nr 181).
+    /// Wasm import `wasixv2.mq_unlink` (riscv32 nr 181).
     fn mq_unlink(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, u_name: Cstr) -> SyscallResult {
         let _ = (ctx, u_name);
         Err(Errno::ENOSYS)
@@ -3644,7 +3644,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mq_timedsend(mqd_t mqdes, const char * u_msg_ptr, size_t msg_len, unsigned int
     /// msg_prio, const struct __kernel_timespec * u_abs_timeout)`.
     ///
-    /// Wasm import `wasix2.mq_timedsend_time64` (riscv32 nr 418).
+    /// Wasm import `wasixv2.mq_timedsend_time64` (riscv32 nr 418).
     fn mq_timedsend_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         mqdes: Mqd,
@@ -3660,7 +3660,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mq_timedreceive(mqd_t mqdes, char * u_msg_ptr, size_t msg_len, unsigned int *
     /// u_msg_prio, const struct __kernel_timespec * u_abs_timeout)`.
     ///
-    /// Wasm import `wasix2.mq_timedreceive_time64` (riscv32 nr 419).
+    /// Wasm import `wasixv2.mq_timedreceive_time64` (riscv32 nr 419).
     fn mq_timedreceive_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         mqdes: Mqd,
@@ -3675,7 +3675,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_mq_notify(mqd_t mqdes, const struct sigevent * u_notification)`.
     ///
-    /// Wasm import `wasix2.mq_notify` (riscv32 nr 184).
+    /// Wasm import `wasixv2.mq_notify` (riscv32 nr 184).
     fn mq_notify(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         mqdes: Mqd,
@@ -3688,7 +3688,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mq_getsetattr(mqd_t mqdes, const struct mq_attr * u_mqstat, struct mq_attr *
     /// u_omqstat)`.
     ///
-    /// Wasm import `wasix2.mq_getsetattr` (riscv32 nr 185).
+    /// Wasm import `wasixv2.mq_getsetattr` (riscv32 nr 185).
     fn mq_getsetattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         mqdes: Mqd,
@@ -3703,7 +3703,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// aio_context_t is __kernel_ulong_t => 32-bit on riscv32 (*ctxp is u32 on wasm32). Linux native AIO;
     /// musl does not use it (POSIX aio is thread-based).
     ///
-    /// Wasm import `wasix2.io_setup` (riscv32 nr 0).
+    /// Wasm import `wasixv2.io_setup` (riscv32 nr 0).
     fn io_setup(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         nr_events: u32,
@@ -3716,7 +3716,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_io_destroy(aio_context_t ctx)`.
     /// aio_context_t is 32-bit unsigned long on riscv32.
     ///
-    /// Wasm import `wasix2.io_destroy` (riscv32 nr 1).
+    /// Wasm import `wasixv2.io_destroy` (riscv32 nr 1).
     fn io_destroy(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, ctx_: AioContext) -> SyscallResult {
         let _ = (ctx, ctx_);
         Err(Errno::ENOSYS)
@@ -3725,7 +3725,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_io_submit(aio_context_t ctx_id, long nr, struct iocb * * iocbpp)`.
     /// struct iocb is fixed 64 bytes with explicit __u64 fields (pointer-in-u64).
     ///
-    /// Wasm import `wasix2.io_submit` (riscv32 nr 2).
+    /// Wasm import `wasixv2.io_submit` (riscv32 nr 2).
     fn io_submit(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ctx_id: AioContext,
@@ -3738,7 +3738,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_io_cancel(aio_context_t ctx_id, struct iocb * iocb, struct io_event * result)`.
     ///
-    /// Wasm import `wasix2.io_cancel` (riscv32 nr 3).
+    /// Wasm import `wasixv2.io_cancel` (riscv32 nr 3).
     fn io_cancel(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ctx_id: AioContext,
@@ -3754,7 +3754,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Linux AIO; usig points to struct __aio_sigset {const sigset_t *sigmask; size_t sigsetsize} (8 bytes
     /// ILP32). Not used by musl.
     ///
-    /// Wasm import `wasix2.io_pgetevents_time64` (riscv32 nr 416).
+    /// Wasm import `wasixv2.io_pgetevents_time64` (riscv32 nr 416).
     fn io_pgetevents_time64(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ctx_id: AioContext,
@@ -3770,7 +3770,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_io_uring_setup(u32 entries, struct io_uring_params * params)`.
     ///
-    /// Wasm import `wasix2.io_uring_setup` (riscv32 nr 425).
+    /// Wasm import `wasixv2.io_uring_setup` (riscv32 nr 425).
     fn io_uring_setup(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         entries: u32,
@@ -3784,7 +3784,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// argp, size_t argsz)`.
     /// Untyped: argp: a `sigset` or an `io-uring-getevents-arg`, depending on `flags`.
     ///
-    /// Wasm import `wasix2.io_uring_enter` (riscv32 nr 426).
+    /// Wasm import `wasixv2.io_uring_enter` (riscv32 nr 426).
     fn io_uring_enter(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3802,7 +3802,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// nr_args)`.
     /// Untyped: arg: pointee depends on `opcode`.
     ///
-    /// Wasm import `wasix2.io_uring_register` (riscv32 nr 427).
+    /// Wasm import `wasixv2.io_uring_register` (riscv32 nr 427).
     fn io_uring_register(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3819,7 +3819,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// data untyped (fs-specific).
     /// Untyped: data: file system specific.
     ///
-    /// Wasm import `wasix2.mount` (riscv32 nr 40).
+    /// Wasm import `wasixv2.mount` (riscv32 nr 40).
     fn mount(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dev_name: Cstr,
@@ -3834,7 +3834,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_umount(char * name, int flags)`.
     ///
-    /// Wasm import `wasix2.umount2` (riscv32 nr 39).
+    /// Wasm import `wasixv2.umount2` (riscv32 nr 39).
     fn umount2(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         name: Cstr,
@@ -3846,7 +3846,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_pivot_root(const char * new_root, const char * put_old)`.
     ///
-    /// Wasm import `wasix2.pivot_root` (riscv32 nr 41).
+    /// Wasm import `wasixv2.pivot_root` (riscv32 nr 41).
     fn pivot_root(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         new_root: Cstr,
@@ -3858,7 +3858,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_open_tree(int dfd, const char * filename, unsigned flags)`.
     ///
-    /// Wasm import `wasix2.open_tree` (riscv32 nr 428).
+    /// Wasm import `wasixv2.open_tree` (riscv32 nr 428).
     fn open_tree(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -3872,7 +3872,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_open_tree_attr(int dfd, const char * filename, unsigned flags, struct mount_attr *
     /// uattr, size_t usize)`.
     ///
-    /// Wasm import `wasix2.open_tree_attr` (riscv32 nr 467).
+    /// Wasm import `wasixv2.open_tree_attr` (riscv32 nr 467).
     fn open_tree_attr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -3888,7 +3888,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_move_mount(int from_dfd, const char * from_pathname, int to_dfd, const char *
     /// to_pathname, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.move_mount` (riscv32 nr 429).
+    /// Wasm import `wasixv2.move_mount` (riscv32 nr 429).
     fn move_mount(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         from_dfd: Fd,
@@ -3903,7 +3903,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fsopen(const char * _fs_name, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.fsopen` (riscv32 nr 430).
+    /// Wasm import `wasixv2.fsopen` (riscv32 nr 430).
     fn fsopen(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fs_name: Cstr,
@@ -3916,7 +3916,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_fsconfig(int fd, unsigned int cmd, const char * _key, const void * _value, int aux)`.
     /// Untyped: value: pointee depends on `cmd`.
     ///
-    /// Wasm import `wasix2.fsconfig` (riscv32 nr 431).
+    /// Wasm import `wasixv2.fsconfig` (riscv32 nr 431).
     fn fsconfig(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fd: Fd,
@@ -3931,7 +3931,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fsmount(int fs_fd, unsigned int flags, unsigned int attr_flags)`.
     ///
-    /// Wasm import `wasix2.fsmount` (riscv32 nr 432).
+    /// Wasm import `wasixv2.fsmount` (riscv32 nr 432).
     fn fsmount(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         fs_fd: Fd,
@@ -3944,7 +3944,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_fspick(int dfd, const char * path, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.fspick` (riscv32 nr 433).
+    /// Wasm import `wasixv2.fspick` (riscv32 nr 433).
     fn fspick(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -3958,7 +3958,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_mount_setattr(int dfd, const char * path, unsigned int flags, struct mount_attr *
     /// uattr, size_t usize)`.
     ///
-    /// Wasm import `wasix2.mount_setattr` (riscv32 nr 442).
+    /// Wasm import `wasixv2.mount_setattr` (riscv32 nr 442).
     fn mount_setattr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         dfd: Fd,
@@ -3976,7 +3976,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// variable-size struct statmount.
     /// Untyped: buf: `struct statmount` (512+ bytes, size-versioned, not modelled).
     ///
-    /// Wasm import `wasix2.statmount` (riscv32 nr 457).
+    /// Wasm import `wasixv2.statmount` (riscv32 nr 457).
     fn statmount(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         req: ConstMntIdReqPtr,
@@ -3992,7 +3992,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// flags)`.
     /// struct mnt_id_req (u32 size, u32 spare/mnt_ns_fd, u64 mnt_id, u64 param, u64 mnt_ns_id).
     ///
-    /// Wasm import `wasix2.listmount` (riscv32 nr 458).
+    /// Wasm import `wasixv2.listmount` (riscv32 nr 458).
     fn listmount(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         req: ConstMntIdReqPtr,
@@ -4007,7 +4007,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_listns(const struct ns_id_req * req, u64 * ns_ids, size_t nr_ns_ids, unsigned int
     /// flags)`.
     ///
-    /// Wasm import `wasix2.listns` (riscv32 nr 470).
+    /// Wasm import `wasixv2.listns` (riscv32 nr 470).
     fn listns(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         req: ConstNsIdReqPtr,
@@ -4022,7 +4022,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_landlock_create_ruleset(const struct landlock_ruleset_attr *const attr, const size_t
     /// size, const __u32 flags)`.
     ///
-    /// Wasm import `wasix2.landlock_create_ruleset` (riscv32 nr 444).
+    /// Wasm import `wasixv2.landlock_create_ruleset` (riscv32 nr 444).
     fn landlock_create_ruleset(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         attr: ConstLandlockRulesetAttrPtr,
@@ -4038,7 +4038,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Untyped: rule-attr: `landlock-net-port-attr`, or the packed 12-byte `struct
     /// landlock_path_beneath_attr`.
     ///
-    /// Wasm import `wasix2.landlock_add_rule` (riscv32 nr 445).
+    /// Wasm import `wasixv2.landlock_add_rule` (riscv32 nr 445).
     fn landlock_add_rule(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ruleset_fd: Fd,
@@ -4052,7 +4052,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_landlock_restrict_self(const int ruleset_fd, const __u32 flags)`.
     ///
-    /// Wasm import `wasix2.landlock_restrict_self` (riscv32 nr 446).
+    /// Wasm import `wasixv2.landlock_restrict_self` (riscv32 nr 446).
     fn landlock_restrict_self(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ruleset_fd: Fd,
@@ -4064,7 +4064,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_lsm_get_self_attr(unsigned int attr, struct lsm_ctx * ctx, u32 * size, u32 flags)`.
     ///
-    /// Wasm import `wasix2.lsm_get_self_attr` (riscv32 nr 459).
+    /// Wasm import `wasixv2.lsm_get_self_attr` (riscv32 nr 459).
     fn lsm_get_self_attr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         attr: u32,
@@ -4078,7 +4078,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_lsm_set_self_attr(unsigned int attr, struct lsm_ctx * ctx, u32 size, u32 flags)`.
     ///
-    /// Wasm import `wasix2.lsm_set_self_attr` (riscv32 nr 460).
+    /// Wasm import `wasixv2.lsm_set_self_attr` (riscv32 nr 460).
     fn lsm_set_self_attr(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         attr: u32,
@@ -4092,7 +4092,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_lsm_list_modules(u64 * ids, u32 * size, u32 flags)`.
     ///
-    /// Wasm import `wasix2.lsm_list_modules` (riscv32 nr 461).
+    /// Wasm import `wasixv2.lsm_list_modules` (riscv32 nr 461).
     fn lsm_list_modules(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         ids: U64Array,
@@ -4106,7 +4106,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_add_key(const char * _type, const char * _description, const void * _payload, size_t
     /// plen, key_serial_t ringid)`.
     ///
-    /// Wasm import `wasix2.add_key` (riscv32 nr 217).
+    /// Wasm import `wasixv2.add_key` (riscv32 nr 217).
     fn add_key(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         r#type: Cstr,
@@ -4122,7 +4122,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_request_key(const char * _type, const char * _description, const char * _callout_info,
     /// key_serial_t destringid)`.
     ///
-    /// Wasm import `wasix2.request_key` (riscv32 nr 218).
+    /// Wasm import `wasixv2.request_key` (riscv32 nr 218).
     fn request_key(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         r#type: Cstr,
@@ -4139,7 +4139,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Untyped args depending on option.
     /// Untyped: arg2..arg5: integers or guest pointers, depending on `option`.
     ///
-    /// Wasm import `wasix2.keyctl` (riscv32 nr 219).
+    /// Wasm import `wasixv2.keyctl` (riscv32 nr 219).
     fn keyctl(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         option: i32,
@@ -4158,7 +4158,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Untyped: uattr/uattr-common: `union bpf_attr`/`struct bpf_common_attr`, size-versioned, not
     /// modelled.
     ///
-    /// Wasm import `wasix2.bpf` (riscv32 nr 280).
+    /// Wasm import `wasixv2.bpf` (riscv32 nr 280).
     fn bpf(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         cmd: i32,
@@ -4176,7 +4176,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// struct perf_event_attr size-versioned.
     /// Untyped: attr-uptr: `struct perf_event_attr` (size-versioned, not modelled).
     ///
-    /// Wasm import `wasix2.perf_event_open` (riscv32 nr 241).
+    /// Wasm import `wasixv2.perf_event_open` (riscv32 nr 241).
     fn perf_event_open(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         attr_uptr: VoidPtr,
@@ -4193,7 +4193,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// magic numbers required.
     /// Untyped: arg: only used by `LINUX_REBOOT_CMD_RESTART2` (a string).
     ///
-    /// Wasm import `wasix2.reboot` (riscv32 nr 142).
+    /// Wasm import `wasixv2.reboot` (riscv32 nr 142).
     fn reboot(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         magic1: i32,
@@ -4207,7 +4207,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_acct(const char * name)`.
     ///
-    /// Wasm import `wasix2.acct` (riscv32 nr 89).
+    /// Wasm import `wasixv2.acct` (riscv32 nr 89).
     fn acct(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, name: Cstr) -> SyscallResult {
         let _ = (ctx, name);
         Err(Errno::ENOSYS)
@@ -4215,7 +4215,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_swapon(const char * specialfile, int swap_flags)`.
     ///
-    /// Wasm import `wasix2.swapon` (riscv32 nr 224).
+    /// Wasm import `wasixv2.swapon` (riscv32 nr 224).
     fn swapon(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         specialfile: Cstr,
@@ -4227,7 +4227,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_swapoff(const char * specialfile)`.
     ///
-    /// Wasm import `wasix2.swapoff` (riscv32 nr 225).
+    /// Wasm import `wasixv2.swapoff` (riscv32 nr 225).
     fn swapoff(ctx: &mut wasmer::FunctionEnvMut<'_, Self>, specialfile: Cstr) -> SyscallResult {
         let _ = (ctx, specialfile);
         Err(Errno::ENOSYS)
@@ -4236,7 +4236,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_syslog(int type, char * buf, int len)`.
     /// klogctl.
     ///
-    /// Wasm import `wasix2.syslog` (riscv32 nr 116).
+    /// Wasm import `wasixv2.syslog` (riscv32 nr 116).
     fn syslog(
         ctx: &mut wasmer::FunctionEnvMut<'_, Self>,
         r#type: i32,
@@ -4249,7 +4249,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_vhangup()`.
     ///
-    /// Wasm import `wasix2.vhangup` (riscv32 nr 58).
+    /// Wasm import `wasixv2.vhangup` (riscv32 nr 58).
     fn vhangup(ctx: &mut wasmer::FunctionEnvMut<'_, Self>) -> SyscallResult {
         let _ = ctx;
         Err(Errno::ENOSYS)
@@ -4258,7 +4258,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_kexec_load(unsigned long entry, unsigned long nr_segments, struct kexec_segment *
     /// segments, unsigned long flags)`.
     ///
-    /// Wasm import `wasix2.kexec_load` (riscv32 nr 104).
+    /// Wasm import `wasixv2.kexec_load` (riscv32 nr 104).
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn kexec_load(
@@ -4275,7 +4275,7 @@ pub trait Syscalls: Sized + Send + 'static {
     /// Kernel: `sys_kexec_file_load(int kernel_fd, int initrd_fd, unsigned long cmdline_len, const char *
     /// cmdline_ptr, unsigned long flags)`.
     ///
-    /// Wasm import `wasix2.kexec_file_load` (riscv32 nr 294).
+    /// Wasm import `wasixv2.kexec_file_load` (riscv32 nr 294).
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn kexec_file_load(
@@ -4292,7 +4292,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_init_module(void * umod, unsigned long len, const char * uargs)`.
     ///
-    /// Wasm import `wasix2.init_module` (riscv32 nr 105).
+    /// Wasm import `wasixv2.init_module` (riscv32 nr 105).
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn init_module(
@@ -4307,7 +4307,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_finit_module(int fd, const char * uargs, int flags)`.
     ///
-    /// Wasm import `wasix2.finit_module` (riscv32 nr 273).
+    /// Wasm import `wasixv2.finit_module` (riscv32 nr 273).
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn finit_module(
@@ -4322,7 +4322,7 @@ pub trait Syscalls: Sized + Send + 'static {
 
     /// Kernel: `sys_delete_module(const char * name_user, unsigned int flags)`.
     ///
-    /// Wasm import `wasix2.delete_module` (riscv32 nr 106).
+    /// Wasm import `wasixv2.delete_module` (riscv32 nr 106).
     ///
     /// Declared for completeness; hosts may leave it unimplemented.
     fn delete_module(
@@ -4339,7 +4339,7 @@ pub trait Syscalls: Sized + Send + 'static {
 pub mod host {
     use super::*;
 
-    /// Host function for `wasix_ext.startup_size`; see [`Syscalls::ext_startup_size`].
+    /// Host function for `wasixv2.startup_size`; see [`Syscalls::ext_startup_size`].
     pub fn ext_startup_size<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::ext_startup_size(&mut ctx) {
             Ok(v) => v as i32,
@@ -4347,7 +4347,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix_ext.startup_get`; see [`Syscalls::ext_startup_get`].
+    /// Host function for `wasixv2.startup_get`; see [`Syscalls::ext_startup_get`].
     pub fn ext_startup_get<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, buf: i32) -> i32 {
         match E::ext_startup_get(&mut ctx, Buf::new(buf as u32)) {
             Ok(v) => v,
@@ -4355,7 +4355,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix_ext.thread_spawn`; see [`Syscalls::ext_thread_spawn`].
+    /// Host function for `wasixv2.thread_spawn`; see [`Syscalls::ext_thread_spawn`].
     pub fn ext_thread_spawn<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start_arg: i32,
@@ -4366,7 +4366,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix_ext.signal_callback_register`; see [`Syscalls::ext_signal_callback_register`].
+    /// Host function for `wasixv2.signal_callback_register`; see [`Syscalls::ext_signal_callback_register`].
     pub fn ext_signal_callback_register<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         callback: i32,
@@ -4377,7 +4377,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix_ext.cancel_flag_register`; see [`Syscalls::ext_cancel_flag_register`].
+    /// Host function for `wasixv2.cancel_flag_register`; see [`Syscalls::ext_cancel_flag_register`].
     pub fn ext_cancel_flag_register<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         flag: i32,
@@ -4388,7 +4388,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.openat`; see [`Syscalls::openat`].
+    /// Host function for `wasixv2.openat`; see [`Syscalls::openat`].
     pub fn openat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -4408,7 +4408,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.openat2`; see [`Syscalls::openat2`].
+    /// Host function for `wasixv2.openat2`; see [`Syscalls::openat2`].
     pub fn openat2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -4428,7 +4428,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.close`; see [`Syscalls::close`].
+    /// Host function for `wasixv2.close`; see [`Syscalls::close`].
     pub fn close<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32) -> i32 {
         match E::close(&mut ctx, fd) {
             Ok(v) => v,
@@ -4436,7 +4436,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.close_range`; see [`Syscalls::close_range`].
+    /// Host function for `wasixv2.close_range`; see [`Syscalls::close_range`].
     pub fn close_range<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4454,7 +4454,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.dup`; see [`Syscalls::dup`].
+    /// Host function for `wasixv2.dup`; see [`Syscalls::dup`].
     pub fn dup<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fildes: i32) -> i32 {
         match E::dup(&mut ctx, fildes) {
             Ok(v) => v,
@@ -4462,7 +4462,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.dup3`; see [`Syscalls::dup3`].
+    /// Host function for `wasixv2.dup3`; see [`Syscalls::dup3`].
     pub fn dup3<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         oldfd: i32,
@@ -4475,7 +4475,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fcntl64`; see [`Syscalls::fcntl64`].
+    /// Host function for `wasixv2.fcntl64`; see [`Syscalls::fcntl64`].
     pub fn fcntl64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4488,7 +4488,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.flock`; see [`Syscalls::flock`].
+    /// Host function for `wasixv2.flock`; see [`Syscalls::flock`].
     pub fn flock<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32, cmd: i32) -> i32 {
         match E::flock(&mut ctx, fd, FlockOp(cmd as u32)) {
             Ok(v) => v,
@@ -4496,7 +4496,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.ioctl`; see [`Syscalls::ioctl`].
+    /// Host function for `wasixv2.ioctl`; see [`Syscalls::ioctl`].
     pub fn ioctl<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4509,7 +4509,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.read`; see [`Syscalls::read`].
+    /// Host function for `wasixv2.read`; see [`Syscalls::read`].
     pub fn read<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4522,7 +4522,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.write`; see [`Syscalls::write`].
+    /// Host function for `wasixv2.write`; see [`Syscalls::write`].
     pub fn write<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4535,7 +4535,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.readv`; see [`Syscalls::readv`].
+    /// Host function for `wasixv2.readv`; see [`Syscalls::readv`].
     pub fn readv<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4548,7 +4548,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.writev`; see [`Syscalls::writev`].
+    /// Host function for `wasixv2.writev`; see [`Syscalls::writev`].
     pub fn writev<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4561,7 +4561,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pread64`; see [`Syscalls::pread64`].
+    /// Host function for `wasixv2.pread64`; see [`Syscalls::pread64`].
     pub fn pread64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4575,7 +4575,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pwrite64`; see [`Syscalls::pwrite64`].
+    /// Host function for `wasixv2.pwrite64`; see [`Syscalls::pwrite64`].
     pub fn pwrite64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4589,7 +4589,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.preadv`; see [`Syscalls::preadv`].
+    /// Host function for `wasixv2.preadv`; see [`Syscalls::preadv`].
     pub fn preadv<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4609,7 +4609,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pwritev`; see [`Syscalls::pwritev`].
+    /// Host function for `wasixv2.pwritev`; see [`Syscalls::pwritev`].
     pub fn pwritev<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4629,7 +4629,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.preadv2`; see [`Syscalls::preadv2`].
+    /// Host function for `wasixv2.preadv2`; see [`Syscalls::preadv2`].
     pub fn preadv2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4651,7 +4651,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pwritev2`; see [`Syscalls::pwritev2`].
+    /// Host function for `wasixv2.pwritev2`; see [`Syscalls::pwritev2`].
     pub fn pwritev2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4673,7 +4673,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.llseek`; see [`Syscalls::llseek`].
+    /// Host function for `wasixv2.llseek`; see [`Syscalls::llseek`].
     pub fn llseek<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4693,7 +4693,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sendfile64`; see [`Syscalls::sendfile64`].
+    /// Host function for `wasixv2.sendfile64`; see [`Syscalls::sendfile64`].
     pub fn sendfile64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         out_fd: i32,
@@ -4713,7 +4713,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.splice`; see [`Syscalls::splice`].
+    /// Host function for `wasixv2.splice`; see [`Syscalls::splice`].
     pub fn splice<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd_in: i32,
@@ -4737,7 +4737,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.tee`; see [`Syscalls::tee`].
+    /// Host function for `wasixv2.tee`; see [`Syscalls::tee`].
     pub fn tee<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fdin: i32,
@@ -4751,7 +4751,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.vmsplice`; see [`Syscalls::vmsplice`].
+    /// Host function for `wasixv2.vmsplice`; see [`Syscalls::vmsplice`].
     pub fn vmsplice<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4771,7 +4771,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.copy_file_range`; see [`Syscalls::copy_file_range`].
+    /// Host function for `wasixv2.copy_file_range`; see [`Syscalls::copy_file_range`].
     pub fn copy_file_range<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd_in: i32,
@@ -4795,7 +4795,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.truncate64`; see [`Syscalls::truncate64`].
+    /// Host function for `wasixv2.truncate64`; see [`Syscalls::truncate64`].
     pub fn truncate64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         path: i32,
@@ -4807,7 +4807,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.ftruncate64`; see [`Syscalls::ftruncate64`].
+    /// Host function for `wasixv2.ftruncate64`; see [`Syscalls::ftruncate64`].
     pub fn ftruncate64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4819,7 +4819,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fallocate`; see [`Syscalls::fallocate`].
+    /// Host function for `wasixv2.fallocate`; see [`Syscalls::fallocate`].
     pub fn fallocate<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4833,7 +4833,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fadvise64_64`; see [`Syscalls::fadvise64_64`].
+    /// Host function for `wasixv2.fadvise64_64`; see [`Syscalls::fadvise64_64`].
     pub fn fadvise64_64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4847,7 +4847,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.readahead`; see [`Syscalls::readahead`].
+    /// Host function for `wasixv2.readahead`; see [`Syscalls::readahead`].
     pub fn readahead<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4860,7 +4860,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sync`; see [`Syscalls::sync`].
+    /// Host function for `wasixv2.sync`; see [`Syscalls::sync`].
     pub fn sync<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::sync(&mut ctx) {
             Ok(v) => v,
@@ -4868,7 +4868,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fsync`; see [`Syscalls::fsync`].
+    /// Host function for `wasixv2.fsync`; see [`Syscalls::fsync`].
     pub fn fsync<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32) -> i32 {
         match E::fsync(&mut ctx, fd) {
             Ok(v) => v,
@@ -4876,7 +4876,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fdatasync`; see [`Syscalls::fdatasync`].
+    /// Host function for `wasixv2.fdatasync`; see [`Syscalls::fdatasync`].
     pub fn fdatasync<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32) -> i32 {
         match E::fdatasync(&mut ctx, fd) {
             Ok(v) => v,
@@ -4884,7 +4884,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.syncfs`; see [`Syscalls::syncfs`].
+    /// Host function for `wasixv2.syncfs`; see [`Syscalls::syncfs`].
     pub fn syncfs<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32) -> i32 {
         match E::syncfs(&mut ctx, fd) {
             Ok(v) => v,
@@ -4892,7 +4892,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sync_file_range`; see [`Syscalls::sync_file_range`].
+    /// Host function for `wasixv2.sync_file_range`; see [`Syscalls::sync_file_range`].
     pub fn sync_file_range<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4912,7 +4912,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getdents64`; see [`Syscalls::getdents64`].
+    /// Host function for `wasixv2.getdents64`; see [`Syscalls::getdents64`].
     pub fn getdents64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -4930,7 +4930,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mkdirat`; see [`Syscalls::mkdirat`].
+    /// Host function for `wasixv2.mkdirat`; see [`Syscalls::mkdirat`].
     pub fn mkdirat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -4943,7 +4943,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mknodat`; see [`Syscalls::mknodat`].
+    /// Host function for `wasixv2.mknodat`; see [`Syscalls::mknodat`].
     pub fn mknodat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -4963,7 +4963,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.unlinkat`; see [`Syscalls::unlinkat`].
+    /// Host function for `wasixv2.unlinkat`; see [`Syscalls::unlinkat`].
     pub fn unlinkat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -4981,7 +4981,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.symlinkat`; see [`Syscalls::symlinkat`].
+    /// Host function for `wasixv2.symlinkat`; see [`Syscalls::symlinkat`].
     pub fn symlinkat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         oldname: i32,
@@ -4999,7 +4999,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.linkat`; see [`Syscalls::linkat`].
+    /// Host function for `wasixv2.linkat`; see [`Syscalls::linkat`].
     pub fn linkat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         olddfd: i32,
@@ -5021,7 +5021,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.renameat2`; see [`Syscalls::renameat2`].
+    /// Host function for `wasixv2.renameat2`; see [`Syscalls::renameat2`].
     pub fn renameat2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         olddfd: i32,
@@ -5043,7 +5043,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.readlinkat`; see [`Syscalls::readlinkat`].
+    /// Host function for `wasixv2.readlinkat`; see [`Syscalls::readlinkat`].
     pub fn readlinkat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5063,7 +5063,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.faccessat`; see [`Syscalls::faccessat`].
+    /// Host function for `wasixv2.faccessat`; see [`Syscalls::faccessat`].
     pub fn faccessat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5081,7 +5081,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.faccessat2`; see [`Syscalls::faccessat2`].
+    /// Host function for `wasixv2.faccessat2`; see [`Syscalls::faccessat2`].
     pub fn faccessat2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5101,7 +5101,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.chdir`; see [`Syscalls::chdir`].
+    /// Host function for `wasixv2.chdir`; see [`Syscalls::chdir`].
     pub fn chdir<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, filename: i32) -> i32 {
         match E::chdir(&mut ctx, Cstr::new(filename as u32)) {
             Ok(v) => v,
@@ -5109,7 +5109,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fchdir`; see [`Syscalls::fchdir`].
+    /// Host function for `wasixv2.fchdir`; see [`Syscalls::fchdir`].
     pub fn fchdir<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32) -> i32 {
         match E::fchdir(&mut ctx, fd) {
             Ok(v) => v,
@@ -5117,7 +5117,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.chroot`; see [`Syscalls::chroot`].
+    /// Host function for `wasixv2.chroot`; see [`Syscalls::chroot`].
     pub fn chroot<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, filename: i32) -> i32 {
         match E::chroot(&mut ctx, Cstr::new(filename as u32)) {
             Ok(v) => v,
@@ -5125,7 +5125,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fchroot`; see [`Syscalls::fchroot`].
+    /// Host function for `wasixv2.fchroot`; see [`Syscalls::fchroot`].
     pub fn fchroot<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5137,7 +5137,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getcwd`; see [`Syscalls::getcwd`].
+    /// Host function for `wasixv2.getcwd`; see [`Syscalls::getcwd`].
     pub fn getcwd<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, buf: i32, size: i32) -> i32 {
         match E::getcwd(&mut ctx, Buf::new(buf as u32), size as u32) {
             Ok(v) => v,
@@ -5145,7 +5145,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fchmod`; see [`Syscalls::fchmod`].
+    /// Host function for `wasixv2.fchmod`; see [`Syscalls::fchmod`].
     pub fn fchmod<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32, mode: i32) -> i32 {
         match E::fchmod(&mut ctx, fd, mode as u32) {
             Ok(v) => v,
@@ -5153,7 +5153,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fchmodat`; see [`Syscalls::fchmodat`].
+    /// Host function for `wasixv2.fchmodat`; see [`Syscalls::fchmodat`].
     pub fn fchmodat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5166,7 +5166,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fchmodat2`; see [`Syscalls::fchmodat2`].
+    /// Host function for `wasixv2.fchmodat2`; see [`Syscalls::fchmodat2`].
     pub fn fchmodat2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5186,7 +5186,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fchown`; see [`Syscalls::fchown`].
+    /// Host function for `wasixv2.fchown`; see [`Syscalls::fchown`].
     pub fn fchown<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5199,7 +5199,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fchownat`; see [`Syscalls::fchownat`].
+    /// Host function for `wasixv2.fchownat`; see [`Syscalls::fchownat`].
     pub fn fchownat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5221,7 +5221,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.statx`; see [`Syscalls::statx`].
+    /// Host function for `wasixv2.statx`; see [`Syscalls::statx`].
     pub fn statx<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5243,7 +5243,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.statfs64`; see [`Syscalls::statfs64`].
+    /// Host function for `wasixv2.statfs64`; see [`Syscalls::statfs64`].
     pub fn statfs64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5261,7 +5261,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fstatfs64`; see [`Syscalls::fstatfs64`].
+    /// Host function for `wasixv2.fstatfs64`; see [`Syscalls::fstatfs64`].
     pub fn fstatfs64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5274,7 +5274,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.utimensat_time64`; see [`Syscalls::utimensat_time64`].
+    /// Host function for `wasixv2.utimensat_time64`; see [`Syscalls::utimensat_time64`].
     pub fn utimensat_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5294,7 +5294,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pipe2`; see [`Syscalls::pipe2`].
+    /// Host function for `wasixv2.pipe2`; see [`Syscalls::pipe2`].
     pub fn pipe2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fildes: i32,
@@ -5310,7 +5310,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.memfd_create`; see [`Syscalls::memfd_create`].
+    /// Host function for `wasixv2.memfd_create`; see [`Syscalls::memfd_create`].
     pub fn memfd_create<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         uname: i32,
@@ -5322,7 +5322,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.memfd_secret`; see [`Syscalls::memfd_secret`].
+    /// Host function for `wasixv2.memfd_secret`; see [`Syscalls::memfd_secret`].
     pub fn memfd_secret<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, flags: i32) -> i32 {
         match E::memfd_secret(&mut ctx, flags as u32) {
             Ok(v) => v,
@@ -5330,7 +5330,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.name_to_handle_at`; see [`Syscalls::name_to_handle_at`].
+    /// Host function for `wasixv2.name_to_handle_at`; see [`Syscalls::name_to_handle_at`].
     pub fn name_to_handle_at<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5352,7 +5352,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.open_by_handle_at`; see [`Syscalls::open_by_handle_at`].
+    /// Host function for `wasixv2.open_by_handle_at`; see [`Syscalls::open_by_handle_at`].
     pub fn open_by_handle_at<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         mountdirfd: i32,
@@ -5370,7 +5370,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.cachestat`; see [`Syscalls::cachestat`].
+    /// Host function for `wasixv2.cachestat`; see [`Syscalls::cachestat`].
     pub fn cachestat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5390,7 +5390,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.file_getattr`; see [`Syscalls::file_getattr`].
+    /// Host function for `wasixv2.file_getattr`; see [`Syscalls::file_getattr`].
     pub fn file_getattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5412,7 +5412,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.file_setattr`; see [`Syscalls::file_setattr`].
+    /// Host function for `wasixv2.file_setattr`; see [`Syscalls::file_setattr`].
     pub fn file_setattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5434,7 +5434,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.quotactl`; see [`Syscalls::quotactl`].
+    /// Host function for `wasixv2.quotactl`; see [`Syscalls::quotactl`].
     pub fn quotactl<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         cmd: i32,
@@ -5454,7 +5454,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.quotactl_fd`; see [`Syscalls::quotactl_fd`].
+    /// Host function for `wasixv2.quotactl_fd`; see [`Syscalls::quotactl_fd`].
     pub fn quotactl_fd<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5474,7 +5474,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setxattr`; see [`Syscalls::setxattr`].
+    /// Host function for `wasixv2.setxattr`; see [`Syscalls::setxattr`].
     pub fn setxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5496,7 +5496,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.lsetxattr`; see [`Syscalls::lsetxattr`].
+    /// Host function for `wasixv2.lsetxattr`; see [`Syscalls::lsetxattr`].
     pub fn lsetxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5518,7 +5518,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fsetxattr`; see [`Syscalls::fsetxattr`].
+    /// Host function for `wasixv2.fsetxattr`; see [`Syscalls::fsetxattr`].
     pub fn fsetxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5540,7 +5540,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getxattr`; see [`Syscalls::getxattr`].
+    /// Host function for `wasixv2.getxattr`; see [`Syscalls::getxattr`].
     pub fn getxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5560,7 +5560,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.lgetxattr`; see [`Syscalls::lgetxattr`].
+    /// Host function for `wasixv2.lgetxattr`; see [`Syscalls::lgetxattr`].
     pub fn lgetxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5580,7 +5580,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fgetxattr`; see [`Syscalls::fgetxattr`].
+    /// Host function for `wasixv2.fgetxattr`; see [`Syscalls::fgetxattr`].
     pub fn fgetxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5600,7 +5600,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.listxattr`; see [`Syscalls::listxattr`].
+    /// Host function for `wasixv2.listxattr`; see [`Syscalls::listxattr`].
     pub fn listxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5618,7 +5618,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.llistxattr`; see [`Syscalls::llistxattr`].
+    /// Host function for `wasixv2.llistxattr`; see [`Syscalls::llistxattr`].
     pub fn llistxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5636,7 +5636,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.flistxattr`; see [`Syscalls::flistxattr`].
+    /// Host function for `wasixv2.flistxattr`; see [`Syscalls::flistxattr`].
     pub fn flistxattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5649,7 +5649,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.removexattr`; see [`Syscalls::removexattr`].
+    /// Host function for `wasixv2.removexattr`; see [`Syscalls::removexattr`].
     pub fn removexattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5661,7 +5661,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.lremovexattr`; see [`Syscalls::lremovexattr`].
+    /// Host function for `wasixv2.lremovexattr`; see [`Syscalls::lremovexattr`].
     pub fn lremovexattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pathname: i32,
@@ -5673,7 +5673,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fremovexattr`; see [`Syscalls::fremovexattr`].
+    /// Host function for `wasixv2.fremovexattr`; see [`Syscalls::fremovexattr`].
     pub fn fremovexattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5685,7 +5685,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setxattrat`; see [`Syscalls::setxattrat`].
+    /// Host function for `wasixv2.setxattrat`; see [`Syscalls::setxattrat`].
     pub fn setxattrat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5709,7 +5709,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getxattrat`; see [`Syscalls::getxattrat`].
+    /// Host function for `wasixv2.getxattrat`; see [`Syscalls::getxattrat`].
     pub fn getxattrat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5733,7 +5733,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.listxattrat`; see [`Syscalls::listxattrat`].
+    /// Host function for `wasixv2.listxattrat`; see [`Syscalls::listxattrat`].
     pub fn listxattrat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5755,7 +5755,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.removexattrat`; see [`Syscalls::removexattrat`].
+    /// Host function for `wasixv2.removexattrat`; see [`Syscalls::removexattrat`].
     pub fn removexattrat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -5775,7 +5775,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.epoll_create1`; see [`Syscalls::epoll_create1`].
+    /// Host function for `wasixv2.epoll_create1`; see [`Syscalls::epoll_create1`].
     pub fn epoll_create1<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, flags: i32) -> i32 {
         match E::epoll_create1(&mut ctx, EpollCreateFlags(flags as u32)) {
             Ok(v) => v,
@@ -5783,7 +5783,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.epoll_ctl`; see [`Syscalls::epoll_ctl`].
+    /// Host function for `wasixv2.epoll_ctl`; see [`Syscalls::epoll_ctl`].
     pub fn epoll_ctl<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         epfd: i32,
@@ -5803,7 +5803,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.epoll_pwait`; see [`Syscalls::epoll_pwait`].
+    /// Host function for `wasixv2.epoll_pwait`; see [`Syscalls::epoll_pwait`].
     pub fn epoll_pwait<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         epfd: i32,
@@ -5827,7 +5827,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.epoll_pwait2`; see [`Syscalls::epoll_pwait2`].
+    /// Host function for `wasixv2.epoll_pwait2`; see [`Syscalls::epoll_pwait2`].
     pub fn epoll_pwait2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         epfd: i32,
@@ -5851,7 +5851,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.ppoll_time64`; see [`Syscalls::ppoll_time64`].
+    /// Host function for `wasixv2.ppoll_time64`; see [`Syscalls::ppoll_time64`].
     pub fn ppoll_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ufds: i32,
@@ -5873,7 +5873,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pselect6_time64`; see [`Syscalls::pselect6_time64`].
+    /// Host function for `wasixv2.pselect6_time64`; see [`Syscalls::pselect6_time64`].
     pub fn pselect6_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         n: i32,
@@ -5897,7 +5897,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.eventfd2`; see [`Syscalls::eventfd2`].
+    /// Host function for `wasixv2.eventfd2`; see [`Syscalls::eventfd2`].
     pub fn eventfd2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         count: i32,
@@ -5909,7 +5909,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.signalfd4`; see [`Syscalls::signalfd4`].
+    /// Host function for `wasixv2.signalfd4`; see [`Syscalls::signalfd4`].
     pub fn signalfd4<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ufd: i32,
@@ -5929,7 +5929,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.timerfd_create`; see [`Syscalls::timerfd_create`].
+    /// Host function for `wasixv2.timerfd_create`; see [`Syscalls::timerfd_create`].
     pub fn timerfd_create<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         clockid: i32,
@@ -5941,7 +5941,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.timerfd_settime64`; see [`Syscalls::timerfd_settime64`].
+    /// Host function for `wasixv2.timerfd_settime64`; see [`Syscalls::timerfd_settime64`].
     pub fn timerfd_settime64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ufd: i32,
@@ -5961,7 +5961,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.timerfd_gettime64`; see [`Syscalls::timerfd_gettime64`].
+    /// Host function for `wasixv2.timerfd_gettime64`; see [`Syscalls::timerfd_gettime64`].
     pub fn timerfd_gettime64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ufd: i32,
@@ -5973,7 +5973,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.inotify_init1`; see [`Syscalls::inotify_init1`].
+    /// Host function for `wasixv2.inotify_init1`; see [`Syscalls::inotify_init1`].
     pub fn inotify_init1<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, flags: i32) -> i32 {
         match E::inotify_init1(&mut ctx, InotifyInitFlags(flags as u32)) {
             Ok(v) => v,
@@ -5981,7 +5981,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.inotify_add_watch`; see [`Syscalls::inotify_add_watch`].
+    /// Host function for `wasixv2.inotify_add_watch`; see [`Syscalls::inotify_add_watch`].
     pub fn inotify_add_watch<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -5999,7 +5999,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.inotify_rm_watch`; see [`Syscalls::inotify_rm_watch`].
+    /// Host function for `wasixv2.inotify_rm_watch`; see [`Syscalls::inotify_rm_watch`].
     pub fn inotify_rm_watch<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -6011,7 +6011,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fanotify_init`; see [`Syscalls::fanotify_init`].
+    /// Host function for `wasixv2.fanotify_init`; see [`Syscalls::fanotify_init`].
     pub fn fanotify_init<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         flags: i32,
@@ -6023,7 +6023,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fanotify_mark`; see [`Syscalls::fanotify_mark`].
+    /// Host function for `wasixv2.fanotify_mark`; see [`Syscalls::fanotify_mark`].
     pub fn fanotify_mark<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fanotify_fd: i32,
@@ -6045,7 +6045,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rt_sigaction`; see [`Syscalls::rt_sigaction`].
+    /// Host function for `wasixv2.rt_sigaction`; see [`Syscalls::rt_sigaction`].
     pub fn rt_sigaction<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         sig: i32,
@@ -6065,7 +6065,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rt_sigprocmask`; see [`Syscalls::rt_sigprocmask`].
+    /// Host function for `wasixv2.rt_sigprocmask`; see [`Syscalls::rt_sigprocmask`].
     pub fn rt_sigprocmask<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         how: i32,
@@ -6085,7 +6085,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rt_sigpending`; see [`Syscalls::rt_sigpending`].
+    /// Host function for `wasixv2.rt_sigpending`; see [`Syscalls::rt_sigpending`].
     pub fn rt_sigpending<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         uset: i32,
@@ -6097,7 +6097,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rt_sigsuspend`; see [`Syscalls::rt_sigsuspend`].
+    /// Host function for `wasixv2.rt_sigsuspend`; see [`Syscalls::rt_sigsuspend`].
     pub fn rt_sigsuspend<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         unewset: i32,
@@ -6113,7 +6113,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rt_sigtimedwait_time64`; see [`Syscalls::rt_sigtimedwait_time64`].
+    /// Host function for `wasixv2.rt_sigtimedwait_time64`; see [`Syscalls::rt_sigtimedwait_time64`].
     pub fn rt_sigtimedwait_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         uthese: i32,
@@ -6133,7 +6133,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rt_sigqueueinfo`; see [`Syscalls::rt_sigqueueinfo`].
+    /// Host function for `wasixv2.rt_sigqueueinfo`; see [`Syscalls::rt_sigqueueinfo`].
     pub fn rt_sigqueueinfo<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6151,7 +6151,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rt_tgsigqueueinfo`; see [`Syscalls::rt_tgsigqueueinfo`].
+    /// Host function for `wasixv2.rt_tgsigqueueinfo`; see [`Syscalls::rt_tgsigqueueinfo`].
     pub fn rt_tgsigqueueinfo<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         tgid: i32,
@@ -6171,14 +6171,14 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rt_sigreturn`; see [`Syscalls::rt_sigreturn`].
+    /// Host function for `wasixv2.rt_sigreturn`; see [`Syscalls::rt_sigreturn`].
     pub fn rt_sigreturn<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
     ) -> Result<(), wasmer::RuntimeError> {
         E::rt_sigreturn(&mut ctx)
     }
 
-    /// Host function for `wasix2.sigaltstack`; see [`Syscalls::sigaltstack`].
+    /// Host function for `wasixv2.sigaltstack`; see [`Syscalls::sigaltstack`].
     pub fn sigaltstack<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         uss: i32,
@@ -6194,7 +6194,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.kill`; see [`Syscalls::kill`].
+    /// Host function for `wasixv2.kill`; see [`Syscalls::kill`].
     pub fn kill<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, pid: i32, sig: i32) -> i32 {
         match E::kill(&mut ctx, pid, Signal(sig)) {
             Ok(v) => v,
@@ -6202,7 +6202,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.tkill`; see [`Syscalls::tkill`].
+    /// Host function for `wasixv2.tkill`; see [`Syscalls::tkill`].
     pub fn tkill<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, pid: i32, sig: i32) -> i32 {
         match E::tkill(&mut ctx, pid, Signal(sig)) {
             Ok(v) => v,
@@ -6210,7 +6210,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.tgkill`; see [`Syscalls::tgkill`].
+    /// Host function for `wasixv2.tgkill`; see [`Syscalls::tgkill`].
     pub fn tgkill<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         tgid: i32,
@@ -6223,7 +6223,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pidfd_send_signal`; see [`Syscalls::pidfd_send_signal`].
+    /// Host function for `wasixv2.pidfd_send_signal`; see [`Syscalls::pidfd_send_signal`].
     pub fn pidfd_send_signal<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pidfd: i32,
@@ -6243,7 +6243,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.restart_syscall`; see [`Syscalls::restart_syscall`].
+    /// Host function for `wasixv2.restart_syscall`; see [`Syscalls::restart_syscall`].
     pub fn restart_syscall<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::restart_syscall(&mut ctx) {
             Ok(v) => v,
@@ -6251,7 +6251,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.clone`; see [`Syscalls::clone`].
+    /// Host function for `wasixv2.clone`; see [`Syscalls::clone`].
     pub fn clone<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         clone_flags: i32,
@@ -6273,7 +6273,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.clone3`; see [`Syscalls::clone3`].
+    /// Host function for `wasixv2.clone3`; see [`Syscalls::clone3`].
     pub fn clone3<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         uargs: i32,
@@ -6285,7 +6285,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.execve`; see [`Syscalls::execve`].
+    /// Host function for `wasixv2.execve`; see [`Syscalls::execve`].
     pub fn execve<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         filename: i32,
@@ -6303,7 +6303,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.execveat`; see [`Syscalls::execveat`].
+    /// Host function for `wasixv2.execveat`; see [`Syscalls::execveat`].
     pub fn execveat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -6325,7 +6325,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.exit`; see [`Syscalls::exit`].
+    /// Host function for `wasixv2.exit`; see [`Syscalls::exit`].
     pub fn exit<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         error_code: i32,
@@ -6333,7 +6333,7 @@ pub mod host {
         E::exit(&mut ctx, error_code)
     }
 
-    /// Host function for `wasix2.exit_group`; see [`Syscalls::exit_group`].
+    /// Host function for `wasixv2.exit_group`; see [`Syscalls::exit_group`].
     pub fn exit_group<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         error_code: i32,
@@ -6341,7 +6341,7 @@ pub mod host {
         E::exit_group(&mut ctx, error_code)
     }
 
-    /// Host function for `wasix2.waitid`; see [`Syscalls::waitid`].
+    /// Host function for `wasixv2.waitid`; see [`Syscalls::waitid`].
     pub fn waitid<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which: i32,
@@ -6363,7 +6363,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.set_tid_address`; see [`Syscalls::set_tid_address`].
+    /// Host function for `wasixv2.set_tid_address`; see [`Syscalls::set_tid_address`].
     pub fn set_tid_address<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         tidptr: i32,
@@ -6374,7 +6374,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.unshare`; see [`Syscalls::unshare`].
+    /// Host function for `wasixv2.unshare`; see [`Syscalls::unshare`].
     pub fn unshare<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, unshare_flags: i32) -> i32 {
         match E::unshare(&mut ctx, unshare_flags as u32) {
             Ok(v) => v,
@@ -6382,7 +6382,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setns`; see [`Syscalls::setns`].
+    /// Host function for `wasixv2.setns`; see [`Syscalls::setns`].
     pub fn setns<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32, flags: i32) -> i32 {
         match E::setns(&mut ctx, fd, flags) {
             Ok(v) => v,
@@ -6390,7 +6390,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getpid`; see [`Syscalls::getpid`].
+    /// Host function for `wasixv2.getpid`; see [`Syscalls::getpid`].
     pub fn getpid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::getpid(&mut ctx) {
             Ok(v) => v,
@@ -6398,7 +6398,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getppid`; see [`Syscalls::getppid`].
+    /// Host function for `wasixv2.getppid`; see [`Syscalls::getppid`].
     pub fn getppid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::getppid(&mut ctx) {
             Ok(v) => v,
@@ -6406,7 +6406,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.gettid`; see [`Syscalls::gettid`].
+    /// Host function for `wasixv2.gettid`; see [`Syscalls::gettid`].
     pub fn gettid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::gettid(&mut ctx) {
             Ok(v) => v,
@@ -6414,7 +6414,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getpgid`; see [`Syscalls::getpgid`].
+    /// Host function for `wasixv2.getpgid`; see [`Syscalls::getpgid`].
     pub fn getpgid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, pid: i32) -> i32 {
         match E::getpgid(&mut ctx, pid) {
             Ok(v) => v,
@@ -6422,7 +6422,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setpgid`; see [`Syscalls::setpgid`].
+    /// Host function for `wasixv2.setpgid`; see [`Syscalls::setpgid`].
     pub fn setpgid<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6434,7 +6434,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getsid`; see [`Syscalls::getsid`].
+    /// Host function for `wasixv2.getsid`; see [`Syscalls::getsid`].
     pub fn getsid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, pid: i32) -> i32 {
         match E::getsid(&mut ctx, pid) {
             Ok(v) => v,
@@ -6442,7 +6442,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setsid`; see [`Syscalls::setsid`].
+    /// Host function for `wasixv2.setsid`; see [`Syscalls::setsid`].
     pub fn setsid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::setsid(&mut ctx) {
             Ok(v) => v,
@@ -6450,7 +6450,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pidfd_open`; see [`Syscalls::pidfd_open`].
+    /// Host function for `wasixv2.pidfd_open`; see [`Syscalls::pidfd_open`].
     pub fn pidfd_open<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6462,7 +6462,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pidfd_getfd`; see [`Syscalls::pidfd_getfd`].
+    /// Host function for `wasixv2.pidfd_getfd`; see [`Syscalls::pidfd_getfd`].
     pub fn pidfd_getfd<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pidfd: i32,
@@ -6475,7 +6475,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.process_mrelease`; see [`Syscalls::process_mrelease`].
+    /// Host function for `wasixv2.process_mrelease`; see [`Syscalls::process_mrelease`].
     pub fn process_mrelease<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pidfd: i32,
@@ -6487,7 +6487,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.kcmp`; see [`Syscalls::kcmp`].
+    /// Host function for `wasixv2.kcmp`; see [`Syscalls::kcmp`].
     pub fn kcmp<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid1: i32,
@@ -6502,7 +6502,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.personality`; see [`Syscalls::personality`].
+    /// Host function for `wasixv2.personality`; see [`Syscalls::personality`].
     pub fn personality<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         personality: i32,
@@ -6513,7 +6513,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.prctl`; see [`Syscalls::prctl`].
+    /// Host function for `wasixv2.prctl`; see [`Syscalls::prctl`].
     pub fn prctl<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         option: i32,
@@ -6535,7 +6535,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.ptrace`; see [`Syscalls::ptrace`].
+    /// Host function for `wasixv2.ptrace`; see [`Syscalls::ptrace`].
     pub fn ptrace<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         request: i32,
@@ -6555,7 +6555,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.process_vm_readv`; see [`Syscalls::process_vm_readv`].
+    /// Host function for `wasixv2.process_vm_readv`; see [`Syscalls::process_vm_readv`].
     pub fn process_vm_readv<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6579,7 +6579,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.process_vm_writev`; see [`Syscalls::process_vm_writev`].
+    /// Host function for `wasixv2.process_vm_writev`; see [`Syscalls::process_vm_writev`].
     pub fn process_vm_writev<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6603,7 +6603,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.seccomp`; see [`Syscalls::seccomp`].
+    /// Host function for `wasixv2.seccomp`; see [`Syscalls::seccomp`].
     pub fn seccomp<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         op: i32,
@@ -6621,7 +6621,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rseq`; see [`Syscalls::rseq`].
+    /// Host function for `wasixv2.rseq`; see [`Syscalls::rseq`].
     pub fn rseq<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         rseq: i32,
@@ -6641,7 +6641,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.rseq_slice_yield`; see [`Syscalls::rseq_slice_yield`].
+    /// Host function for `wasixv2.rseq_slice_yield`; see [`Syscalls::rseq_slice_yield`].
     pub fn rseq_slice_yield<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::rseq_slice_yield(&mut ctx) {
             Ok(v) => v,
@@ -6649,7 +6649,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.set_robust_list`; see [`Syscalls::set_robust_list`].
+    /// Host function for `wasixv2.set_robust_list`; see [`Syscalls::set_robust_list`].
     pub fn set_robust_list<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         head: i32,
@@ -6661,7 +6661,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.get_robust_list`; see [`Syscalls::get_robust_list`].
+    /// Host function for `wasixv2.get_robust_list`; see [`Syscalls::get_robust_list`].
     pub fn get_robust_list<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6679,7 +6679,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getuid`; see [`Syscalls::getuid`].
+    /// Host function for `wasixv2.getuid`; see [`Syscalls::getuid`].
     pub fn getuid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::getuid(&mut ctx) {
             Ok(v) => v,
@@ -6687,7 +6687,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.geteuid`; see [`Syscalls::geteuid`].
+    /// Host function for `wasixv2.geteuid`; see [`Syscalls::geteuid`].
     pub fn geteuid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::geteuid(&mut ctx) {
             Ok(v) => v,
@@ -6695,7 +6695,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getgid`; see [`Syscalls::getgid`].
+    /// Host function for `wasixv2.getgid`; see [`Syscalls::getgid`].
     pub fn getgid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::getgid(&mut ctx) {
             Ok(v) => v,
@@ -6703,7 +6703,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getegid`; see [`Syscalls::getegid`].
+    /// Host function for `wasixv2.getegid`; see [`Syscalls::getegid`].
     pub fn getegid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::getegid(&mut ctx) {
             Ok(v) => v,
@@ -6711,7 +6711,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setuid`; see [`Syscalls::setuid`].
+    /// Host function for `wasixv2.setuid`; see [`Syscalls::setuid`].
     pub fn setuid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, uid: i32) -> i32 {
         match E::setuid(&mut ctx, uid as u32) {
             Ok(v) => v,
@@ -6719,7 +6719,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setgid`; see [`Syscalls::setgid`].
+    /// Host function for `wasixv2.setgid`; see [`Syscalls::setgid`].
     pub fn setgid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, gid: i32) -> i32 {
         match E::setgid(&mut ctx, gid as u32) {
             Ok(v) => v,
@@ -6727,7 +6727,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setreuid`; see [`Syscalls::setreuid`].
+    /// Host function for `wasixv2.setreuid`; see [`Syscalls::setreuid`].
     pub fn setreuid<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ruid: i32,
@@ -6739,7 +6739,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setregid`; see [`Syscalls::setregid`].
+    /// Host function for `wasixv2.setregid`; see [`Syscalls::setregid`].
     pub fn setregid<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         rgid: i32,
@@ -6751,7 +6751,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setresuid`; see [`Syscalls::setresuid`].
+    /// Host function for `wasixv2.setresuid`; see [`Syscalls::setresuid`].
     pub fn setresuid<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ruid: i32,
@@ -6764,7 +6764,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getresuid`; see [`Syscalls::getresuid`].
+    /// Host function for `wasixv2.getresuid`; see [`Syscalls::getresuid`].
     pub fn getresuid<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ruidp: i32,
@@ -6782,7 +6782,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setresgid`; see [`Syscalls::setresgid`].
+    /// Host function for `wasixv2.setresgid`; see [`Syscalls::setresgid`].
     pub fn setresgid<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         rgid: i32,
@@ -6795,7 +6795,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getresgid`; see [`Syscalls::getresgid`].
+    /// Host function for `wasixv2.getresgid`; see [`Syscalls::getresgid`].
     pub fn getresgid<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         rgidp: i32,
@@ -6813,7 +6813,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setfsuid`; see [`Syscalls::setfsuid`].
+    /// Host function for `wasixv2.setfsuid`; see [`Syscalls::setfsuid`].
     pub fn setfsuid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, uid: i32) -> i32 {
         match E::setfsuid(&mut ctx, uid as u32) {
             Ok(v) => v,
@@ -6821,7 +6821,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setfsgid`; see [`Syscalls::setfsgid`].
+    /// Host function for `wasixv2.setfsgid`; see [`Syscalls::setfsgid`].
     pub fn setfsgid<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, gid: i32) -> i32 {
         match E::setfsgid(&mut ctx, gid as u32) {
             Ok(v) => v,
@@ -6829,7 +6829,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getgroups`; see [`Syscalls::getgroups`].
+    /// Host function for `wasixv2.getgroups`; see [`Syscalls::getgroups`].
     pub fn getgroups<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         gidsetsize: i32,
@@ -6841,7 +6841,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setgroups`; see [`Syscalls::setgroups`].
+    /// Host function for `wasixv2.setgroups`; see [`Syscalls::setgroups`].
     pub fn setgroups<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         gidsetsize: i32,
@@ -6853,7 +6853,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.capget`; see [`Syscalls::capget`].
+    /// Host function for `wasixv2.capget`; see [`Syscalls::capget`].
     pub fn capget<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         header: i32,
@@ -6869,7 +6869,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.capset`; see [`Syscalls::capset`].
+    /// Host function for `wasixv2.capset`; see [`Syscalls::capset`].
     pub fn capset<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         header: i32,
@@ -6885,7 +6885,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_setparam`; see [`Syscalls::sched_setparam`].
+    /// Host function for `wasixv2.sched_setparam`; see [`Syscalls::sched_setparam`].
     pub fn sched_setparam<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6897,7 +6897,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_getparam`; see [`Syscalls::sched_getparam`].
+    /// Host function for `wasixv2.sched_getparam`; see [`Syscalls::sched_getparam`].
     pub fn sched_getparam<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6909,7 +6909,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_setscheduler`; see [`Syscalls::sched_setscheduler`].
+    /// Host function for `wasixv2.sched_setscheduler`; see [`Syscalls::sched_setscheduler`].
     pub fn sched_setscheduler<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6927,7 +6927,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_getscheduler`; see [`Syscalls::sched_getscheduler`].
+    /// Host function for `wasixv2.sched_getscheduler`; see [`Syscalls::sched_getscheduler`].
     pub fn sched_getscheduler<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6938,7 +6938,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_setattr`; see [`Syscalls::sched_setattr`].
+    /// Host function for `wasixv2.sched_setattr`; see [`Syscalls::sched_setattr`].
     pub fn sched_setattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6951,7 +6951,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_getattr`; see [`Syscalls::sched_getattr`].
+    /// Host function for `wasixv2.sched_getattr`; see [`Syscalls::sched_getattr`].
     pub fn sched_getattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6971,7 +6971,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_setaffinity`; see [`Syscalls::sched_setaffinity`].
+    /// Host function for `wasixv2.sched_setaffinity`; see [`Syscalls::sched_setaffinity`].
     pub fn sched_setaffinity<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -6989,7 +6989,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_getaffinity`; see [`Syscalls::sched_getaffinity`].
+    /// Host function for `wasixv2.sched_getaffinity`; see [`Syscalls::sched_getaffinity`].
     pub fn sched_getaffinity<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -7007,7 +7007,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_yield`; see [`Syscalls::sched_yield`].
+    /// Host function for `wasixv2.sched_yield`; see [`Syscalls::sched_yield`].
     pub fn sched_yield<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::sched_yield(&mut ctx) {
             Ok(v) => v,
@@ -7015,7 +7015,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_get_priority_max`; see [`Syscalls::sched_get_priority_max`].
+    /// Host function for `wasixv2.sched_get_priority_max`; see [`Syscalls::sched_get_priority_max`].
     pub fn sched_get_priority_max<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         policy: i32,
@@ -7026,7 +7026,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_get_priority_min`; see [`Syscalls::sched_get_priority_min`].
+    /// Host function for `wasixv2.sched_get_priority_min`; see [`Syscalls::sched_get_priority_min`].
     pub fn sched_get_priority_min<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         policy: i32,
@@ -7037,7 +7037,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sched_rr_get_interval_time64`; see [`Syscalls::sched_rr_get_interval_time64`].
+    /// Host function for `wasixv2.sched_rr_get_interval_time64`; see [`Syscalls::sched_rr_get_interval_time64`].
     pub fn sched_rr_get_interval_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -7053,7 +7053,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getpriority`; see [`Syscalls::getpriority`].
+    /// Host function for `wasixv2.getpriority`; see [`Syscalls::getpriority`].
     pub fn getpriority<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which: i32,
@@ -7065,7 +7065,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setpriority`; see [`Syscalls::setpriority`].
+    /// Host function for `wasixv2.setpriority`; see [`Syscalls::setpriority`].
     pub fn setpriority<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which: i32,
@@ -7078,7 +7078,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getrusage`; see [`Syscalls::getrusage`].
+    /// Host function for `wasixv2.getrusage`; see [`Syscalls::getrusage`].
     pub fn getrusage<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         who: i32,
@@ -7090,7 +7090,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.prlimit64`; see [`Syscalls::prlimit64`].
+    /// Host function for `wasixv2.prlimit64`; see [`Syscalls::prlimit64`].
     pub fn prlimit64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -7110,7 +7110,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.times`; see [`Syscalls::times`].
+    /// Host function for `wasixv2.times`; see [`Syscalls::times`].
     pub fn times<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, tbuf: i32) -> i32 {
         match E::times(&mut ctx, TmsPtr::new(tbuf as u32)) {
             Ok(v) => v,
@@ -7118,7 +7118,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.ioprio_set`; see [`Syscalls::ioprio_set`].
+    /// Host function for `wasixv2.ioprio_set`; see [`Syscalls::ioprio_set`].
     pub fn ioprio_set<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which: i32,
@@ -7131,7 +7131,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.ioprio_get`; see [`Syscalls::ioprio_get`].
+    /// Host function for `wasixv2.ioprio_get`; see [`Syscalls::ioprio_get`].
     pub fn ioprio_get<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which: i32,
@@ -7143,7 +7143,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getcpu`; see [`Syscalls::getcpu`].
+    /// Host function for `wasixv2.getcpu`; see [`Syscalls::getcpu`].
     pub fn getcpu<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         cpup: i32,
@@ -7161,7 +7161,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sysinfo`; see [`Syscalls::sysinfo`].
+    /// Host function for `wasixv2.sysinfo`; see [`Syscalls::sysinfo`].
     pub fn sysinfo<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, info: i32) -> i32 {
         match E::sysinfo(&mut ctx, SysinfoPtr::new(info as u32)) {
             Ok(v) => v,
@@ -7169,7 +7169,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.uname`; see [`Syscalls::uname`].
+    /// Host function for `wasixv2.uname`; see [`Syscalls::uname`].
     pub fn uname<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, name: i32) -> i32 {
         match E::uname(&mut ctx, NewUtsnamePtr::new(name as u32)) {
             Ok(v) => v,
@@ -7177,7 +7177,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sethostname`; see [`Syscalls::sethostname`].
+    /// Host function for `wasixv2.sethostname`; see [`Syscalls::sethostname`].
     pub fn sethostname<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         name: i32,
@@ -7189,7 +7189,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setdomainname`; see [`Syscalls::setdomainname`].
+    /// Host function for `wasixv2.setdomainname`; see [`Syscalls::setdomainname`].
     pub fn setdomainname<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         name: i32,
@@ -7201,7 +7201,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.umask`; see [`Syscalls::umask`].
+    /// Host function for `wasixv2.umask`; see [`Syscalls::umask`].
     pub fn umask<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, mask: i32) -> i32 {
         match E::umask(&mut ctx, mask) {
             Ok(v) => v,
@@ -7209,7 +7209,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getrandom`; see [`Syscalls::getrandom`].
+    /// Host function for `wasixv2.getrandom`; see [`Syscalls::getrandom`].
     pub fn getrandom<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ubuf: i32,
@@ -7227,7 +7227,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.membarrier`; see [`Syscalls::membarrier`].
+    /// Host function for `wasixv2.membarrier`; see [`Syscalls::membarrier`].
     pub fn membarrier<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         cmd: i32,
@@ -7245,7 +7245,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.futex_time64`; see [`Syscalls::futex_time64`].
+    /// Host function for `wasixv2.futex_time64`; see [`Syscalls::futex_time64`].
     pub fn futex_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         uaddr: i32,
@@ -7269,7 +7269,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.futex_waitv`; see [`Syscalls::futex_waitv`].
+    /// Host function for `wasixv2.futex_waitv`; see [`Syscalls::futex_waitv`].
     pub fn futex_waitv<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         waiters: i32,
@@ -7291,7 +7291,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.futex_wake`; see [`Syscalls::futex_wake`].
+    /// Host function for `wasixv2.futex_wake`; see [`Syscalls::futex_wake`].
     pub fn futex_wake<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         uaddr: i32,
@@ -7311,7 +7311,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.futex_wait`; see [`Syscalls::futex_wait`].
+    /// Host function for `wasixv2.futex_wait`; see [`Syscalls::futex_wait`].
     pub fn futex_wait<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         uaddr: i32,
@@ -7335,7 +7335,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.futex_requeue`; see [`Syscalls::futex_requeue`].
+    /// Host function for `wasixv2.futex_requeue`; see [`Syscalls::futex_requeue`].
     pub fn futex_requeue<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         waiters: i32,
@@ -7355,7 +7355,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.brk`; see [`Syscalls::brk`].
+    /// Host function for `wasixv2.brk`; see [`Syscalls::brk`].
     pub fn brk<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, brk: i32) -> i32 {
         match E::brk(&mut ctx, brk as u32) {
             Ok(v) => v,
@@ -7363,7 +7363,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mmap2`; see [`Syscalls::mmap2`].
+    /// Host function for `wasixv2.mmap2`; see [`Syscalls::mmap2`].
     pub fn mmap2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         addr: i32,
@@ -7387,7 +7387,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.munmap`; see [`Syscalls::munmap`].
+    /// Host function for `wasixv2.munmap`; see [`Syscalls::munmap`].
     pub fn munmap<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, addr: i32, len: i32) -> i32 {
         match E::munmap(&mut ctx, addr as u32, len as u32) {
             Ok(v) => v,
@@ -7395,7 +7395,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mremap`; see [`Syscalls::mremap`].
+    /// Host function for `wasixv2.mremap`; see [`Syscalls::mremap`].
     pub fn mremap<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         addr: i32,
@@ -7417,7 +7417,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mprotect`; see [`Syscalls::mprotect`].
+    /// Host function for `wasixv2.mprotect`; see [`Syscalls::mprotect`].
     pub fn mprotect<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7430,7 +7430,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pkey_mprotect`; see [`Syscalls::pkey_mprotect`].
+    /// Host function for `wasixv2.pkey_mprotect`; see [`Syscalls::pkey_mprotect`].
     pub fn pkey_mprotect<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7450,7 +7450,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pkey_alloc`; see [`Syscalls::pkey_alloc`].
+    /// Host function for `wasixv2.pkey_alloc`; see [`Syscalls::pkey_alloc`].
     pub fn pkey_alloc<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         flags: i32,
@@ -7462,7 +7462,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pkey_free`; see [`Syscalls::pkey_free`].
+    /// Host function for `wasixv2.pkey_free`; see [`Syscalls::pkey_free`].
     pub fn pkey_free<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, pkey: i32) -> i32 {
         match E::pkey_free(&mut ctx, pkey) {
             Ok(v) => v,
@@ -7470,7 +7470,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.msync`; see [`Syscalls::msync`].
+    /// Host function for `wasixv2.msync`; see [`Syscalls::msync`].
     pub fn msync<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7483,7 +7483,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.madvise`; see [`Syscalls::madvise`].
+    /// Host function for `wasixv2.madvise`; see [`Syscalls::madvise`].
     pub fn madvise<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7501,7 +7501,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.process_madvise`; see [`Syscalls::process_madvise`].
+    /// Host function for `wasixv2.process_madvise`; see [`Syscalls::process_madvise`].
     pub fn process_madvise<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pidfd: i32,
@@ -7523,7 +7523,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mincore`; see [`Syscalls::mincore`].
+    /// Host function for `wasixv2.mincore`; see [`Syscalls::mincore`].
     pub fn mincore<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7536,7 +7536,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mlock`; see [`Syscalls::mlock`].
+    /// Host function for `wasixv2.mlock`; see [`Syscalls::mlock`].
     pub fn mlock<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, start: i32, len: i32) -> i32 {
         match E::mlock(&mut ctx, start as u32, len as u32) {
             Ok(v) => v,
@@ -7544,7 +7544,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mlock2`; see [`Syscalls::mlock2`].
+    /// Host function for `wasixv2.mlock2`; see [`Syscalls::mlock2`].
     pub fn mlock2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7557,7 +7557,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.munlock`; see [`Syscalls::munlock`].
+    /// Host function for `wasixv2.munlock`; see [`Syscalls::munlock`].
     pub fn munlock<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7569,7 +7569,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mlockall`; see [`Syscalls::mlockall`].
+    /// Host function for `wasixv2.mlockall`; see [`Syscalls::mlockall`].
     pub fn mlockall<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, flags: i32) -> i32 {
         match E::mlockall(&mut ctx, MclFlags(flags as u32)) {
             Ok(v) => v,
@@ -7577,7 +7577,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.munlockall`; see [`Syscalls::munlockall`].
+    /// Host function for `wasixv2.munlockall`; see [`Syscalls::munlockall`].
     pub fn munlockall<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::munlockall(&mut ctx) {
             Ok(v) => v,
@@ -7585,7 +7585,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.remap_file_pages`; see [`Syscalls::remap_file_pages`].
+    /// Host function for `wasixv2.remap_file_pages`; see [`Syscalls::remap_file_pages`].
     pub fn remap_file_pages<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7607,7 +7607,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mbind`; see [`Syscalls::mbind`].
+    /// Host function for `wasixv2.mbind`; see [`Syscalls::mbind`].
     pub fn mbind<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7631,7 +7631,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.get_mempolicy`; see [`Syscalls::get_mempolicy`].
+    /// Host function for `wasixv2.get_mempolicy`; see [`Syscalls::get_mempolicy`].
     pub fn get_mempolicy<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         policy: i32,
@@ -7653,7 +7653,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.set_mempolicy`; see [`Syscalls::set_mempolicy`].
+    /// Host function for `wasixv2.set_mempolicy`; see [`Syscalls::set_mempolicy`].
     pub fn set_mempolicy<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         mode: i32,
@@ -7671,7 +7671,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.set_mempolicy_home_node`; see [`Syscalls::set_mempolicy_home_node`].
+    /// Host function for `wasixv2.set_mempolicy_home_node`; see [`Syscalls::set_mempolicy_home_node`].
     pub fn set_mempolicy_home_node<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7691,7 +7691,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.migrate_pages`; see [`Syscalls::migrate_pages`].
+    /// Host function for `wasixv2.migrate_pages`; see [`Syscalls::migrate_pages`].
     pub fn migrate_pages<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -7711,7 +7711,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.move_pages`; see [`Syscalls::move_pages`].
+    /// Host function for `wasixv2.move_pages`; see [`Syscalls::move_pages`].
     pub fn move_pages<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         pid: i32,
@@ -7735,7 +7735,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mseal`; see [`Syscalls::mseal`].
+    /// Host function for `wasixv2.mseal`; see [`Syscalls::mseal`].
     pub fn mseal<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         start: i32,
@@ -7748,7 +7748,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.map_shadow_stack`; see [`Syscalls::map_shadow_stack`].
+    /// Host function for `wasixv2.map_shadow_stack`; see [`Syscalls::map_shadow_stack`].
     pub fn map_shadow_stack<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         addr: i32,
@@ -7761,7 +7761,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.userfaultfd`; see [`Syscalls::userfaultfd`].
+    /// Host function for `wasixv2.userfaultfd`; see [`Syscalls::userfaultfd`].
     pub fn userfaultfd<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, flags: i32) -> i32 {
         match E::userfaultfd(&mut ctx, flags) {
             Ok(v) => v,
@@ -7769,7 +7769,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.clock_gettime64`; see [`Syscalls::clock_gettime64`].
+    /// Host function for `wasixv2.clock_gettime64`; see [`Syscalls::clock_gettime64`].
     pub fn clock_gettime64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which_clock: i32,
@@ -7785,7 +7785,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.clock_settime64`; see [`Syscalls::clock_settime64`].
+    /// Host function for `wasixv2.clock_settime64`; see [`Syscalls::clock_settime64`].
     pub fn clock_settime64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which_clock: i32,
@@ -7801,7 +7801,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.clock_getres_time64`; see [`Syscalls::clock_getres_time64`].
+    /// Host function for `wasixv2.clock_getres_time64`; see [`Syscalls::clock_getres_time64`].
     pub fn clock_getres_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which_clock: i32,
@@ -7817,7 +7817,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.clock_nanosleep_time64`; see [`Syscalls::clock_nanosleep_time64`].
+    /// Host function for `wasixv2.clock_nanosleep_time64`; see [`Syscalls::clock_nanosleep_time64`].
     pub fn clock_nanosleep_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which_clock: i32,
@@ -7837,7 +7837,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.clock_adjtime64`; see [`Syscalls::clock_adjtime64`].
+    /// Host function for `wasixv2.clock_adjtime64`; see [`Syscalls::clock_adjtime64`].
     pub fn clock_adjtime64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which_clock: i32,
@@ -7853,7 +7853,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getitimer`; see [`Syscalls::getitimer`].
+    /// Host function for `wasixv2.getitimer`; see [`Syscalls::getitimer`].
     pub fn getitimer<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which: i32,
@@ -7869,7 +7869,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setitimer`; see [`Syscalls::setitimer`].
+    /// Host function for `wasixv2.setitimer`; see [`Syscalls::setitimer`].
     pub fn setitimer<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which: i32,
@@ -7887,7 +7887,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.timer_create`; see [`Syscalls::timer_create`].
+    /// Host function for `wasixv2.timer_create`; see [`Syscalls::timer_create`].
     pub fn timer_create<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         which_clock: i32,
@@ -7905,7 +7905,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.timer_settime64`; see [`Syscalls::timer_settime64`].
+    /// Host function for `wasixv2.timer_settime64`; see [`Syscalls::timer_settime64`].
     pub fn timer_settime64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         timer_id: i32,
@@ -7925,7 +7925,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.timer_gettime64`; see [`Syscalls::timer_gettime64`].
+    /// Host function for `wasixv2.timer_gettime64`; see [`Syscalls::timer_gettime64`].
     pub fn timer_gettime64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         timer_id: i32,
@@ -7937,7 +7937,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.timer_getoverrun`; see [`Syscalls::timer_getoverrun`].
+    /// Host function for `wasixv2.timer_getoverrun`; see [`Syscalls::timer_getoverrun`].
     pub fn timer_getoverrun<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         timer_id: i32,
@@ -7948,7 +7948,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.timer_delete`; see [`Syscalls::timer_delete`].
+    /// Host function for `wasixv2.timer_delete`; see [`Syscalls::timer_delete`].
     pub fn timer_delete<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, timer_id: i32) -> i32 {
         match E::timer_delete(&mut ctx, timer_id) {
             Ok(v) => v,
@@ -7956,7 +7956,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.socket`; see [`Syscalls::socket`].
+    /// Host function for `wasixv2.socket`; see [`Syscalls::socket`].
     pub fn socket<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         family: i32,
@@ -7969,7 +7969,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.socketpair`; see [`Syscalls::socketpair`].
+    /// Host function for `wasixv2.socketpair`; see [`Syscalls::socketpair`].
     pub fn socketpair<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         family: i32,
@@ -7989,7 +7989,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.bind`; see [`Syscalls::bind`].
+    /// Host function for `wasixv2.bind`; see [`Syscalls::bind`].
     pub fn bind<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8007,7 +8007,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.listen`; see [`Syscalls::listen`].
+    /// Host function for `wasixv2.listen`; see [`Syscalls::listen`].
     pub fn listen<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8019,7 +8019,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.accept`; see [`Syscalls::accept`].
+    /// Host function for `wasixv2.accept`; see [`Syscalls::accept`].
     pub fn accept<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8037,7 +8037,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.accept4`; see [`Syscalls::accept4`].
+    /// Host function for `wasixv2.accept4`; see [`Syscalls::accept4`].
     pub fn accept4<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8057,7 +8057,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.connect`; see [`Syscalls::connect`].
+    /// Host function for `wasixv2.connect`; see [`Syscalls::connect`].
     pub fn connect<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8075,7 +8075,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getsockname`; see [`Syscalls::getsockname`].
+    /// Host function for `wasixv2.getsockname`; see [`Syscalls::getsockname`].
     pub fn getsockname<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8093,7 +8093,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getpeername`; see [`Syscalls::getpeername`].
+    /// Host function for `wasixv2.getpeername`; see [`Syscalls::getpeername`].
     pub fn getpeername<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8111,7 +8111,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sendto`; see [`Syscalls::sendto`].
+    /// Host function for `wasixv2.sendto`; see [`Syscalls::sendto`].
     pub fn sendto<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8135,7 +8135,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.recvfrom`; see [`Syscalls::recvfrom`].
+    /// Host function for `wasixv2.recvfrom`; see [`Syscalls::recvfrom`].
     pub fn recvfrom<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8159,7 +8159,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.setsockopt`; see [`Syscalls::setsockopt`].
+    /// Host function for `wasixv2.setsockopt`; see [`Syscalls::setsockopt`].
     pub fn setsockopt<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8181,7 +8181,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.getsockopt`; see [`Syscalls::getsockopt`].
+    /// Host function for `wasixv2.getsockopt`; see [`Syscalls::getsockopt`].
     pub fn getsockopt<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8203,7 +8203,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.shutdown`; see [`Syscalls::shutdown`].
+    /// Host function for `wasixv2.shutdown`; see [`Syscalls::shutdown`].
     pub fn shutdown<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, fd: i32, how: i32) -> i32 {
         match E::shutdown(&mut ctx, fd, ShutdownHow(how)) {
             Ok(v) => v,
@@ -8211,7 +8211,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sendmsg`; see [`Syscalls::sendmsg`].
+    /// Host function for `wasixv2.sendmsg`; see [`Syscalls::sendmsg`].
     pub fn sendmsg<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8229,7 +8229,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.recvmsg`; see [`Syscalls::recvmsg`].
+    /// Host function for `wasixv2.recvmsg`; see [`Syscalls::recvmsg`].
     pub fn recvmsg<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8247,7 +8247,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.sendmmsg`; see [`Syscalls::sendmmsg`].
+    /// Host function for `wasixv2.sendmmsg`; see [`Syscalls::sendmmsg`].
     pub fn sendmmsg<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8267,7 +8267,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.recvmmsg_time64`; see [`Syscalls::recvmmsg_time64`].
+    /// Host function for `wasixv2.recvmmsg_time64`; see [`Syscalls::recvmmsg_time64`].
     pub fn recvmmsg_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8289,7 +8289,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.msgget`; see [`Syscalls::msgget`].
+    /// Host function for `wasixv2.msgget`; see [`Syscalls::msgget`].
     pub fn msgget<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         key: i32,
@@ -8301,7 +8301,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.msgctl`; see [`Syscalls::msgctl`].
+    /// Host function for `wasixv2.msgctl`; see [`Syscalls::msgctl`].
     pub fn msgctl<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         msqid: i32,
@@ -8314,7 +8314,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.msgrcv`; see [`Syscalls::msgrcv`].
+    /// Host function for `wasixv2.msgrcv`; see [`Syscalls::msgrcv`].
     pub fn msgrcv<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         msqid: i32,
@@ -8336,7 +8336,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.msgsnd`; see [`Syscalls::msgsnd`].
+    /// Host function for `wasixv2.msgsnd`; see [`Syscalls::msgsnd`].
     pub fn msgsnd<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         msqid: i32,
@@ -8356,7 +8356,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.semget`; see [`Syscalls::semget`].
+    /// Host function for `wasixv2.semget`; see [`Syscalls::semget`].
     pub fn semget<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         key: i32,
@@ -8369,7 +8369,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.semctl`; see [`Syscalls::semctl`].
+    /// Host function for `wasixv2.semctl`; see [`Syscalls::semctl`].
     pub fn semctl<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         semid: i32,
@@ -8383,7 +8383,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.semop`; see [`Syscalls::semop`].
+    /// Host function for `wasixv2.semop`; see [`Syscalls::semop`].
     pub fn semop<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         semid: i32,
@@ -8401,7 +8401,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.semtimedop_time64`; see [`Syscalls::semtimedop_time64`].
+    /// Host function for `wasixv2.semtimedop_time64`; see [`Syscalls::semtimedop_time64`].
     pub fn semtimedop_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         semid: i32,
@@ -8421,7 +8421,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.shmget`; see [`Syscalls::shmget`].
+    /// Host function for `wasixv2.shmget`; see [`Syscalls::shmget`].
     pub fn shmget<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         key: i32,
@@ -8434,7 +8434,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.shmctl`; see [`Syscalls::shmctl`].
+    /// Host function for `wasixv2.shmctl`; see [`Syscalls::shmctl`].
     pub fn shmctl<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         shmid: i32,
@@ -8447,7 +8447,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.shmat`; see [`Syscalls::shmat`].
+    /// Host function for `wasixv2.shmat`; see [`Syscalls::shmat`].
     pub fn shmat<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         shmid: i32,
@@ -8460,7 +8460,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.shmdt`; see [`Syscalls::shmdt`].
+    /// Host function for `wasixv2.shmdt`; see [`Syscalls::shmdt`].
     pub fn shmdt<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, shmaddr: i32) -> i32 {
         match E::shmdt(&mut ctx, shmaddr as u32) {
             Ok(v) => v,
@@ -8468,7 +8468,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mq_open`; see [`Syscalls::mq_open`].
+    /// Host function for `wasixv2.mq_open`; see [`Syscalls::mq_open`].
     pub fn mq_open<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         u_name: i32,
@@ -8488,7 +8488,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mq_unlink`; see [`Syscalls::mq_unlink`].
+    /// Host function for `wasixv2.mq_unlink`; see [`Syscalls::mq_unlink`].
     pub fn mq_unlink<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, u_name: i32) -> i32 {
         match E::mq_unlink(&mut ctx, Cstr::new(u_name as u32)) {
             Ok(v) => v,
@@ -8496,7 +8496,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mq_timedsend_time64`; see [`Syscalls::mq_timedsend_time64`].
+    /// Host function for `wasixv2.mq_timedsend_time64`; see [`Syscalls::mq_timedsend_time64`].
     pub fn mq_timedsend_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         mqdes: i32,
@@ -8518,7 +8518,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mq_timedreceive_time64`; see [`Syscalls::mq_timedreceive_time64`].
+    /// Host function for `wasixv2.mq_timedreceive_time64`; see [`Syscalls::mq_timedreceive_time64`].
     pub fn mq_timedreceive_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         mqdes: i32,
@@ -8540,7 +8540,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mq_notify`; see [`Syscalls::mq_notify`].
+    /// Host function for `wasixv2.mq_notify`; see [`Syscalls::mq_notify`].
     pub fn mq_notify<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         mqdes: i32,
@@ -8556,7 +8556,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mq_getsetattr`; see [`Syscalls::mq_getsetattr`].
+    /// Host function for `wasixv2.mq_getsetattr`; see [`Syscalls::mq_getsetattr`].
     pub fn mq_getsetattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         mqdes: i32,
@@ -8574,7 +8574,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.io_setup`; see [`Syscalls::io_setup`].
+    /// Host function for `wasixv2.io_setup`; see [`Syscalls::io_setup`].
     pub fn io_setup<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         nr_events: i32,
@@ -8586,7 +8586,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.io_destroy`; see [`Syscalls::io_destroy`].
+    /// Host function for `wasixv2.io_destroy`; see [`Syscalls::io_destroy`].
     pub fn io_destroy<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, ctx_: i32) -> i32 {
         match E::io_destroy(&mut ctx, ctx_ as u32) {
             Ok(v) => v,
@@ -8594,7 +8594,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.io_submit`; see [`Syscalls::io_submit`].
+    /// Host function for `wasixv2.io_submit`; see [`Syscalls::io_submit`].
     pub fn io_submit<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ctx_id: i32,
@@ -8612,7 +8612,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.io_cancel`; see [`Syscalls::io_cancel`].
+    /// Host function for `wasixv2.io_cancel`; see [`Syscalls::io_cancel`].
     pub fn io_cancel<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ctx_id: i32,
@@ -8630,7 +8630,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.io_pgetevents_time64`; see [`Syscalls::io_pgetevents_time64`].
+    /// Host function for `wasixv2.io_pgetevents_time64`; see [`Syscalls::io_pgetevents_time64`].
     pub fn io_pgetevents_time64<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ctx_id: i32,
@@ -8654,7 +8654,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.io_uring_setup`; see [`Syscalls::io_uring_setup`].
+    /// Host function for `wasixv2.io_uring_setup`; see [`Syscalls::io_uring_setup`].
     pub fn io_uring_setup<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         entries: i32,
@@ -8670,7 +8670,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.io_uring_enter`; see [`Syscalls::io_uring_enter`].
+    /// Host function for `wasixv2.io_uring_enter`; see [`Syscalls::io_uring_enter`].
     pub fn io_uring_enter<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8694,7 +8694,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.io_uring_register`; see [`Syscalls::io_uring_register`].
+    /// Host function for `wasixv2.io_uring_register`; see [`Syscalls::io_uring_register`].
     pub fn io_uring_register<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8714,7 +8714,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mount`; see [`Syscalls::mount`].
+    /// Host function for `wasixv2.mount`; see [`Syscalls::mount`].
     pub fn mount<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dev_name: i32,
@@ -8736,7 +8736,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.umount2`; see [`Syscalls::umount2`].
+    /// Host function for `wasixv2.umount2`; see [`Syscalls::umount2`].
     pub fn umount2<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         name: i32,
@@ -8748,7 +8748,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.pivot_root`; see [`Syscalls::pivot_root`].
+    /// Host function for `wasixv2.pivot_root`; see [`Syscalls::pivot_root`].
     pub fn pivot_root<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         new_root: i32,
@@ -8764,7 +8764,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.open_tree`; see [`Syscalls::open_tree`].
+    /// Host function for `wasixv2.open_tree`; see [`Syscalls::open_tree`].
     pub fn open_tree<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -8777,7 +8777,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.open_tree_attr`; see [`Syscalls::open_tree_attr`].
+    /// Host function for `wasixv2.open_tree_attr`; see [`Syscalls::open_tree_attr`].
     pub fn open_tree_attr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -8799,7 +8799,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.move_mount`; see [`Syscalls::move_mount`].
+    /// Host function for `wasixv2.move_mount`; see [`Syscalls::move_mount`].
     pub fn move_mount<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         from_dfd: i32,
@@ -8821,7 +8821,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fsopen`; see [`Syscalls::fsopen`].
+    /// Host function for `wasixv2.fsopen`; see [`Syscalls::fsopen`].
     pub fn fsopen<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fs_name: i32,
@@ -8833,7 +8833,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fsconfig`; see [`Syscalls::fsconfig`].
+    /// Host function for `wasixv2.fsconfig`; see [`Syscalls::fsconfig`].
     pub fn fsconfig<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -8855,7 +8855,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fsmount`; see [`Syscalls::fsmount`].
+    /// Host function for `wasixv2.fsmount`; see [`Syscalls::fsmount`].
     pub fn fsmount<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fs_fd: i32,
@@ -8868,7 +8868,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.fspick`; see [`Syscalls::fspick`].
+    /// Host function for `wasixv2.fspick`; see [`Syscalls::fspick`].
     pub fn fspick<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -8881,7 +8881,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.mount_setattr`; see [`Syscalls::mount_setattr`].
+    /// Host function for `wasixv2.mount_setattr`; see [`Syscalls::mount_setattr`].
     pub fn mount_setattr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         dfd: i32,
@@ -8903,7 +8903,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.statmount`; see [`Syscalls::statmount`].
+    /// Host function for `wasixv2.statmount`; see [`Syscalls::statmount`].
     pub fn statmount<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         req: i32,
@@ -8923,7 +8923,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.listmount`; see [`Syscalls::listmount`].
+    /// Host function for `wasixv2.listmount`; see [`Syscalls::listmount`].
     pub fn listmount<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         req: i32,
@@ -8943,7 +8943,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.listns`; see [`Syscalls::listns`].
+    /// Host function for `wasixv2.listns`; see [`Syscalls::listns`].
     pub fn listns<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         req: i32,
@@ -8963,7 +8963,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.landlock_create_ruleset`; see [`Syscalls::landlock_create_ruleset`].
+    /// Host function for `wasixv2.landlock_create_ruleset`; see [`Syscalls::landlock_create_ruleset`].
     pub fn landlock_create_ruleset<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         attr: i32,
@@ -8981,7 +8981,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.landlock_add_rule`; see [`Syscalls::landlock_add_rule`].
+    /// Host function for `wasixv2.landlock_add_rule`; see [`Syscalls::landlock_add_rule`].
     pub fn landlock_add_rule<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ruleset_fd: i32,
@@ -9001,7 +9001,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.landlock_restrict_self`; see [`Syscalls::landlock_restrict_self`].
+    /// Host function for `wasixv2.landlock_restrict_self`; see [`Syscalls::landlock_restrict_self`].
     pub fn landlock_restrict_self<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ruleset_fd: i32,
@@ -9013,7 +9013,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.lsm_get_self_attr`; see [`Syscalls::lsm_get_self_attr`].
+    /// Host function for `wasixv2.lsm_get_self_attr`; see [`Syscalls::lsm_get_self_attr`].
     pub fn lsm_get_self_attr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         attr: i32,
@@ -9033,7 +9033,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.lsm_set_self_attr`; see [`Syscalls::lsm_set_self_attr`].
+    /// Host function for `wasixv2.lsm_set_self_attr`; see [`Syscalls::lsm_set_self_attr`].
     pub fn lsm_set_self_attr<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         attr: i32,
@@ -9053,7 +9053,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.lsm_list_modules`; see [`Syscalls::lsm_list_modules`].
+    /// Host function for `wasixv2.lsm_list_modules`; see [`Syscalls::lsm_list_modules`].
     pub fn lsm_list_modules<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         ids: i32,
@@ -9071,7 +9071,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.add_key`; see [`Syscalls::add_key`].
+    /// Host function for `wasixv2.add_key`; see [`Syscalls::add_key`].
     pub fn add_key<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         r#type: i32,
@@ -9093,7 +9093,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.request_key`; see [`Syscalls::request_key`].
+    /// Host function for `wasixv2.request_key`; see [`Syscalls::request_key`].
     pub fn request_key<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         r#type: i32,
@@ -9113,7 +9113,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.keyctl`; see [`Syscalls::keyctl`].
+    /// Host function for `wasixv2.keyctl`; see [`Syscalls::keyctl`].
     pub fn keyctl<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         option: i32,
@@ -9135,7 +9135,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.bpf`; see [`Syscalls::bpf`].
+    /// Host function for `wasixv2.bpf`; see [`Syscalls::bpf`].
     pub fn bpf<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         cmd: i32,
@@ -9157,7 +9157,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.perf_event_open`; see [`Syscalls::perf_event_open`].
+    /// Host function for `wasixv2.perf_event_open`; see [`Syscalls::perf_event_open`].
     pub fn perf_event_open<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         attr_uptr: i32,
@@ -9179,7 +9179,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.reboot`; see [`Syscalls::reboot`].
+    /// Host function for `wasixv2.reboot`; see [`Syscalls::reboot`].
     pub fn reboot<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         magic1: i32,
@@ -9199,7 +9199,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.acct`; see [`Syscalls::acct`].
+    /// Host function for `wasixv2.acct`; see [`Syscalls::acct`].
     pub fn acct<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, name: i32) -> i32 {
         match E::acct(&mut ctx, Cstr::new(name as u32)) {
             Ok(v) => v,
@@ -9207,7 +9207,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.swapon`; see [`Syscalls::swapon`].
+    /// Host function for `wasixv2.swapon`; see [`Syscalls::swapon`].
     pub fn swapon<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         specialfile: i32,
@@ -9219,7 +9219,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.swapoff`; see [`Syscalls::swapoff`].
+    /// Host function for `wasixv2.swapoff`; see [`Syscalls::swapoff`].
     pub fn swapoff<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>, specialfile: i32) -> i32 {
         match E::swapoff(&mut ctx, Cstr::new(specialfile as u32)) {
             Ok(v) => v,
@@ -9227,7 +9227,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.syslog`; see [`Syscalls::syslog`].
+    /// Host function for `wasixv2.syslog`; see [`Syscalls::syslog`].
     pub fn syslog<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         r#type: i32,
@@ -9240,7 +9240,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.vhangup`; see [`Syscalls::vhangup`].
+    /// Host function for `wasixv2.vhangup`; see [`Syscalls::vhangup`].
     pub fn vhangup<E: Syscalls>(mut ctx: wasmer::FunctionEnvMut<'_, E>) -> i32 {
         match E::vhangup(&mut ctx) {
             Ok(v) => v,
@@ -9248,7 +9248,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.kexec_load`; see [`Syscalls::kexec_load`].
+    /// Host function for `wasixv2.kexec_load`; see [`Syscalls::kexec_load`].
     pub fn kexec_load<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         entry: i32,
@@ -9268,7 +9268,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.kexec_file_load`; see [`Syscalls::kexec_file_load`].
+    /// Host function for `wasixv2.kexec_file_load`; see [`Syscalls::kexec_file_load`].
     pub fn kexec_file_load<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         kernel_fd: i32,
@@ -9290,7 +9290,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.init_module`; see [`Syscalls::init_module`].
+    /// Host function for `wasixv2.init_module`; see [`Syscalls::init_module`].
     pub fn init_module<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         umod: i32,
@@ -9308,7 +9308,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.finit_module`; see [`Syscalls::finit_module`].
+    /// Host function for `wasixv2.finit_module`; see [`Syscalls::finit_module`].
     pub fn finit_module<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         fd: i32,
@@ -9321,7 +9321,7 @@ pub mod host {
         }
     }
 
-    /// Host function for `wasix2.delete_module`; see [`Syscalls::delete_module`].
+    /// Host function for `wasixv2.delete_module`; see [`Syscalls::delete_module`].
     pub fn delete_module<E: Syscalls>(
         mut ctx: wasmer::FunctionEnvMut<'_, E>,
         name_user: i32,
@@ -9341,1602 +9341,1602 @@ pub fn imports<E: Syscalls>(
 ) -> wasmer::Imports {
     let mut imports = wasmer::Imports::new();
     imports.define(
-        "wasix_ext",
+        "wasixv2",
         "startup_size",
         wasmer::Function::new_typed_with_env(store, env, host::ext_startup_size::<E>),
     );
     imports.define(
-        "wasix_ext",
+        "wasixv2",
         "startup_get",
         wasmer::Function::new_typed_with_env(store, env, host::ext_startup_get::<E>),
     );
     imports.define(
-        "wasix_ext",
+        "wasixv2",
         "thread_spawn",
         wasmer::Function::new_typed_with_env(store, env, host::ext_thread_spawn::<E>),
     );
     imports.define(
-        "wasix_ext",
+        "wasixv2",
         "signal_callback_register",
         wasmer::Function::new_typed_with_env(store, env, host::ext_signal_callback_register::<E>),
     );
     imports.define(
-        "wasix_ext",
+        "wasixv2",
         "cancel_flag_register",
         wasmer::Function::new_typed_with_env(store, env, host::ext_cancel_flag_register::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "openat",
         wasmer::Function::new_typed_with_env(store, env, host::openat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "openat2",
         wasmer::Function::new_typed_with_env(store, env, host::openat2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "close",
         wasmer::Function::new_typed_with_env(store, env, host::close::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "close_range",
         wasmer::Function::new_typed_with_env(store, env, host::close_range::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "dup",
         wasmer::Function::new_typed_with_env(store, env, host::dup::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "dup3",
         wasmer::Function::new_typed_with_env(store, env, host::dup3::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fcntl64",
         wasmer::Function::new_typed_with_env(store, env, host::fcntl64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "flock",
         wasmer::Function::new_typed_with_env(store, env, host::flock::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "ioctl",
         wasmer::Function::new_typed_with_env(store, env, host::ioctl::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "read",
         wasmer::Function::new_typed_with_env(store, env, host::read::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "write",
         wasmer::Function::new_typed_with_env(store, env, host::write::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "readv",
         wasmer::Function::new_typed_with_env(store, env, host::readv::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "writev",
         wasmer::Function::new_typed_with_env(store, env, host::writev::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pread64",
         wasmer::Function::new_typed_with_env(store, env, host::pread64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pwrite64",
         wasmer::Function::new_typed_with_env(store, env, host::pwrite64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "preadv",
         wasmer::Function::new_typed_with_env(store, env, host::preadv::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pwritev",
         wasmer::Function::new_typed_with_env(store, env, host::pwritev::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "preadv2",
         wasmer::Function::new_typed_with_env(store, env, host::preadv2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pwritev2",
         wasmer::Function::new_typed_with_env(store, env, host::pwritev2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "llseek",
         wasmer::Function::new_typed_with_env(store, env, host::llseek::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sendfile64",
         wasmer::Function::new_typed_with_env(store, env, host::sendfile64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "splice",
         wasmer::Function::new_typed_with_env(store, env, host::splice::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "tee",
         wasmer::Function::new_typed_with_env(store, env, host::tee::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "vmsplice",
         wasmer::Function::new_typed_with_env(store, env, host::vmsplice::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "copy_file_range",
         wasmer::Function::new_typed_with_env(store, env, host::copy_file_range::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "truncate64",
         wasmer::Function::new_typed_with_env(store, env, host::truncate64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "ftruncate64",
         wasmer::Function::new_typed_with_env(store, env, host::ftruncate64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fallocate",
         wasmer::Function::new_typed_with_env(store, env, host::fallocate::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fadvise64_64",
         wasmer::Function::new_typed_with_env(store, env, host::fadvise64_64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "readahead",
         wasmer::Function::new_typed_with_env(store, env, host::readahead::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sync",
         wasmer::Function::new_typed_with_env(store, env, host::sync::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fsync",
         wasmer::Function::new_typed_with_env(store, env, host::fsync::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fdatasync",
         wasmer::Function::new_typed_with_env(store, env, host::fdatasync::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "syncfs",
         wasmer::Function::new_typed_with_env(store, env, host::syncfs::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sync_file_range",
         wasmer::Function::new_typed_with_env(store, env, host::sync_file_range::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getdents64",
         wasmer::Function::new_typed_with_env(store, env, host::getdents64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mkdirat",
         wasmer::Function::new_typed_with_env(store, env, host::mkdirat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mknodat",
         wasmer::Function::new_typed_with_env(store, env, host::mknodat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "unlinkat",
         wasmer::Function::new_typed_with_env(store, env, host::unlinkat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "symlinkat",
         wasmer::Function::new_typed_with_env(store, env, host::symlinkat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "linkat",
         wasmer::Function::new_typed_with_env(store, env, host::linkat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "renameat2",
         wasmer::Function::new_typed_with_env(store, env, host::renameat2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "readlinkat",
         wasmer::Function::new_typed_with_env(store, env, host::readlinkat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "faccessat",
         wasmer::Function::new_typed_with_env(store, env, host::faccessat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "faccessat2",
         wasmer::Function::new_typed_with_env(store, env, host::faccessat2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "chdir",
         wasmer::Function::new_typed_with_env(store, env, host::chdir::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fchdir",
         wasmer::Function::new_typed_with_env(store, env, host::fchdir::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "chroot",
         wasmer::Function::new_typed_with_env(store, env, host::chroot::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fchroot",
         wasmer::Function::new_typed_with_env(store, env, host::fchroot::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getcwd",
         wasmer::Function::new_typed_with_env(store, env, host::getcwd::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fchmod",
         wasmer::Function::new_typed_with_env(store, env, host::fchmod::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fchmodat",
         wasmer::Function::new_typed_with_env(store, env, host::fchmodat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fchmodat2",
         wasmer::Function::new_typed_with_env(store, env, host::fchmodat2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fchown",
         wasmer::Function::new_typed_with_env(store, env, host::fchown::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fchownat",
         wasmer::Function::new_typed_with_env(store, env, host::fchownat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "statx",
         wasmer::Function::new_typed_with_env(store, env, host::statx::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "statfs64",
         wasmer::Function::new_typed_with_env(store, env, host::statfs64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fstatfs64",
         wasmer::Function::new_typed_with_env(store, env, host::fstatfs64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "utimensat_time64",
         wasmer::Function::new_typed_with_env(store, env, host::utimensat_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pipe2",
         wasmer::Function::new_typed_with_env(store, env, host::pipe2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "memfd_create",
         wasmer::Function::new_typed_with_env(store, env, host::memfd_create::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "memfd_secret",
         wasmer::Function::new_typed_with_env(store, env, host::memfd_secret::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "name_to_handle_at",
         wasmer::Function::new_typed_with_env(store, env, host::name_to_handle_at::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "open_by_handle_at",
         wasmer::Function::new_typed_with_env(store, env, host::open_by_handle_at::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "cachestat",
         wasmer::Function::new_typed_with_env(store, env, host::cachestat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "file_getattr",
         wasmer::Function::new_typed_with_env(store, env, host::file_getattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "file_setattr",
         wasmer::Function::new_typed_with_env(store, env, host::file_setattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "quotactl",
         wasmer::Function::new_typed_with_env(store, env, host::quotactl::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "quotactl_fd",
         wasmer::Function::new_typed_with_env(store, env, host::quotactl_fd::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setxattr",
         wasmer::Function::new_typed_with_env(store, env, host::setxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "lsetxattr",
         wasmer::Function::new_typed_with_env(store, env, host::lsetxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fsetxattr",
         wasmer::Function::new_typed_with_env(store, env, host::fsetxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getxattr",
         wasmer::Function::new_typed_with_env(store, env, host::getxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "lgetxattr",
         wasmer::Function::new_typed_with_env(store, env, host::lgetxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fgetxattr",
         wasmer::Function::new_typed_with_env(store, env, host::fgetxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "listxattr",
         wasmer::Function::new_typed_with_env(store, env, host::listxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "llistxattr",
         wasmer::Function::new_typed_with_env(store, env, host::llistxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "flistxattr",
         wasmer::Function::new_typed_with_env(store, env, host::flistxattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "removexattr",
         wasmer::Function::new_typed_with_env(store, env, host::removexattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "lremovexattr",
         wasmer::Function::new_typed_with_env(store, env, host::lremovexattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fremovexattr",
         wasmer::Function::new_typed_with_env(store, env, host::fremovexattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setxattrat",
         wasmer::Function::new_typed_with_env(store, env, host::setxattrat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getxattrat",
         wasmer::Function::new_typed_with_env(store, env, host::getxattrat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "listxattrat",
         wasmer::Function::new_typed_with_env(store, env, host::listxattrat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "removexattrat",
         wasmer::Function::new_typed_with_env(store, env, host::removexattrat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "epoll_create1",
         wasmer::Function::new_typed_with_env(store, env, host::epoll_create1::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "epoll_ctl",
         wasmer::Function::new_typed_with_env(store, env, host::epoll_ctl::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "epoll_pwait",
         wasmer::Function::new_typed_with_env(store, env, host::epoll_pwait::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "epoll_pwait2",
         wasmer::Function::new_typed_with_env(store, env, host::epoll_pwait2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "ppoll_time64",
         wasmer::Function::new_typed_with_env(store, env, host::ppoll_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pselect6_time64",
         wasmer::Function::new_typed_with_env(store, env, host::pselect6_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "eventfd2",
         wasmer::Function::new_typed_with_env(store, env, host::eventfd2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "signalfd4",
         wasmer::Function::new_typed_with_env(store, env, host::signalfd4::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "timerfd_create",
         wasmer::Function::new_typed_with_env(store, env, host::timerfd_create::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "timerfd_settime64",
         wasmer::Function::new_typed_with_env(store, env, host::timerfd_settime64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "timerfd_gettime64",
         wasmer::Function::new_typed_with_env(store, env, host::timerfd_gettime64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "inotify_init1",
         wasmer::Function::new_typed_with_env(store, env, host::inotify_init1::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "inotify_add_watch",
         wasmer::Function::new_typed_with_env(store, env, host::inotify_add_watch::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "inotify_rm_watch",
         wasmer::Function::new_typed_with_env(store, env, host::inotify_rm_watch::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fanotify_init",
         wasmer::Function::new_typed_with_env(store, env, host::fanotify_init::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fanotify_mark",
         wasmer::Function::new_typed_with_env(store, env, host::fanotify_mark::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rt_sigaction",
         wasmer::Function::new_typed_with_env(store, env, host::rt_sigaction::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rt_sigprocmask",
         wasmer::Function::new_typed_with_env(store, env, host::rt_sigprocmask::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rt_sigpending",
         wasmer::Function::new_typed_with_env(store, env, host::rt_sigpending::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rt_sigsuspend",
         wasmer::Function::new_typed_with_env(store, env, host::rt_sigsuspend::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rt_sigtimedwait_time64",
         wasmer::Function::new_typed_with_env(store, env, host::rt_sigtimedwait_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rt_sigqueueinfo",
         wasmer::Function::new_typed_with_env(store, env, host::rt_sigqueueinfo::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rt_tgsigqueueinfo",
         wasmer::Function::new_typed_with_env(store, env, host::rt_tgsigqueueinfo::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rt_sigreturn",
         wasmer::Function::new_typed_with_env(store, env, host::rt_sigreturn::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sigaltstack",
         wasmer::Function::new_typed_with_env(store, env, host::sigaltstack::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "kill",
         wasmer::Function::new_typed_with_env(store, env, host::kill::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "tkill",
         wasmer::Function::new_typed_with_env(store, env, host::tkill::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "tgkill",
         wasmer::Function::new_typed_with_env(store, env, host::tgkill::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pidfd_send_signal",
         wasmer::Function::new_typed_with_env(store, env, host::pidfd_send_signal::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "restart_syscall",
         wasmer::Function::new_typed_with_env(store, env, host::restart_syscall::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "clone",
         wasmer::Function::new_typed_with_env(store, env, host::clone::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "clone3",
         wasmer::Function::new_typed_with_env(store, env, host::clone3::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "execve",
         wasmer::Function::new_typed_with_env(store, env, host::execve::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "execveat",
         wasmer::Function::new_typed_with_env(store, env, host::execveat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "exit",
         wasmer::Function::new_typed_with_env(store, env, host::exit::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "exit_group",
         wasmer::Function::new_typed_with_env(store, env, host::exit_group::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "waitid",
         wasmer::Function::new_typed_with_env(store, env, host::waitid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "set_tid_address",
         wasmer::Function::new_typed_with_env(store, env, host::set_tid_address::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "unshare",
         wasmer::Function::new_typed_with_env(store, env, host::unshare::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setns",
         wasmer::Function::new_typed_with_env(store, env, host::setns::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getpid",
         wasmer::Function::new_typed_with_env(store, env, host::getpid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getppid",
         wasmer::Function::new_typed_with_env(store, env, host::getppid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "gettid",
         wasmer::Function::new_typed_with_env(store, env, host::gettid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getpgid",
         wasmer::Function::new_typed_with_env(store, env, host::getpgid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setpgid",
         wasmer::Function::new_typed_with_env(store, env, host::setpgid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getsid",
         wasmer::Function::new_typed_with_env(store, env, host::getsid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setsid",
         wasmer::Function::new_typed_with_env(store, env, host::setsid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pidfd_open",
         wasmer::Function::new_typed_with_env(store, env, host::pidfd_open::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pidfd_getfd",
         wasmer::Function::new_typed_with_env(store, env, host::pidfd_getfd::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "process_mrelease",
         wasmer::Function::new_typed_with_env(store, env, host::process_mrelease::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "kcmp",
         wasmer::Function::new_typed_with_env(store, env, host::kcmp::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "personality",
         wasmer::Function::new_typed_with_env(store, env, host::personality::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "prctl",
         wasmer::Function::new_typed_with_env(store, env, host::prctl::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "ptrace",
         wasmer::Function::new_typed_with_env(store, env, host::ptrace::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "process_vm_readv",
         wasmer::Function::new_typed_with_env(store, env, host::process_vm_readv::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "process_vm_writev",
         wasmer::Function::new_typed_with_env(store, env, host::process_vm_writev::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "seccomp",
         wasmer::Function::new_typed_with_env(store, env, host::seccomp::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rseq",
         wasmer::Function::new_typed_with_env(store, env, host::rseq::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "rseq_slice_yield",
         wasmer::Function::new_typed_with_env(store, env, host::rseq_slice_yield::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "set_robust_list",
         wasmer::Function::new_typed_with_env(store, env, host::set_robust_list::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "get_robust_list",
         wasmer::Function::new_typed_with_env(store, env, host::get_robust_list::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getuid",
         wasmer::Function::new_typed_with_env(store, env, host::getuid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "geteuid",
         wasmer::Function::new_typed_with_env(store, env, host::geteuid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getgid",
         wasmer::Function::new_typed_with_env(store, env, host::getgid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getegid",
         wasmer::Function::new_typed_with_env(store, env, host::getegid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setuid",
         wasmer::Function::new_typed_with_env(store, env, host::setuid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setgid",
         wasmer::Function::new_typed_with_env(store, env, host::setgid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setreuid",
         wasmer::Function::new_typed_with_env(store, env, host::setreuid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setregid",
         wasmer::Function::new_typed_with_env(store, env, host::setregid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setresuid",
         wasmer::Function::new_typed_with_env(store, env, host::setresuid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getresuid",
         wasmer::Function::new_typed_with_env(store, env, host::getresuid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setresgid",
         wasmer::Function::new_typed_with_env(store, env, host::setresgid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getresgid",
         wasmer::Function::new_typed_with_env(store, env, host::getresgid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setfsuid",
         wasmer::Function::new_typed_with_env(store, env, host::setfsuid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setfsgid",
         wasmer::Function::new_typed_with_env(store, env, host::setfsgid::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getgroups",
         wasmer::Function::new_typed_with_env(store, env, host::getgroups::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setgroups",
         wasmer::Function::new_typed_with_env(store, env, host::setgroups::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "capget",
         wasmer::Function::new_typed_with_env(store, env, host::capget::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "capset",
         wasmer::Function::new_typed_with_env(store, env, host::capset::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_setparam",
         wasmer::Function::new_typed_with_env(store, env, host::sched_setparam::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_getparam",
         wasmer::Function::new_typed_with_env(store, env, host::sched_getparam::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_setscheduler",
         wasmer::Function::new_typed_with_env(store, env, host::sched_setscheduler::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_getscheduler",
         wasmer::Function::new_typed_with_env(store, env, host::sched_getscheduler::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_setattr",
         wasmer::Function::new_typed_with_env(store, env, host::sched_setattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_getattr",
         wasmer::Function::new_typed_with_env(store, env, host::sched_getattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_setaffinity",
         wasmer::Function::new_typed_with_env(store, env, host::sched_setaffinity::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_getaffinity",
         wasmer::Function::new_typed_with_env(store, env, host::sched_getaffinity::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_yield",
         wasmer::Function::new_typed_with_env(store, env, host::sched_yield::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_get_priority_max",
         wasmer::Function::new_typed_with_env(store, env, host::sched_get_priority_max::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_get_priority_min",
         wasmer::Function::new_typed_with_env(store, env, host::sched_get_priority_min::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sched_rr_get_interval_time64",
         wasmer::Function::new_typed_with_env(store, env, host::sched_rr_get_interval_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getpriority",
         wasmer::Function::new_typed_with_env(store, env, host::getpriority::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setpriority",
         wasmer::Function::new_typed_with_env(store, env, host::setpriority::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getrusage",
         wasmer::Function::new_typed_with_env(store, env, host::getrusage::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "prlimit64",
         wasmer::Function::new_typed_with_env(store, env, host::prlimit64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "times",
         wasmer::Function::new_typed_with_env(store, env, host::times::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "ioprio_set",
         wasmer::Function::new_typed_with_env(store, env, host::ioprio_set::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "ioprio_get",
         wasmer::Function::new_typed_with_env(store, env, host::ioprio_get::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getcpu",
         wasmer::Function::new_typed_with_env(store, env, host::getcpu::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sysinfo",
         wasmer::Function::new_typed_with_env(store, env, host::sysinfo::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "uname",
         wasmer::Function::new_typed_with_env(store, env, host::uname::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sethostname",
         wasmer::Function::new_typed_with_env(store, env, host::sethostname::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setdomainname",
         wasmer::Function::new_typed_with_env(store, env, host::setdomainname::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "umask",
         wasmer::Function::new_typed_with_env(store, env, host::umask::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getrandom",
         wasmer::Function::new_typed_with_env(store, env, host::getrandom::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "membarrier",
         wasmer::Function::new_typed_with_env(store, env, host::membarrier::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "futex_time64",
         wasmer::Function::new_typed_with_env(store, env, host::futex_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "futex_waitv",
         wasmer::Function::new_typed_with_env(store, env, host::futex_waitv::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "futex_wake",
         wasmer::Function::new_typed_with_env(store, env, host::futex_wake::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "futex_wait",
         wasmer::Function::new_typed_with_env(store, env, host::futex_wait::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "futex_requeue",
         wasmer::Function::new_typed_with_env(store, env, host::futex_requeue::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "brk",
         wasmer::Function::new_typed_with_env(store, env, host::brk::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mmap2",
         wasmer::Function::new_typed_with_env(store, env, host::mmap2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "munmap",
         wasmer::Function::new_typed_with_env(store, env, host::munmap::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mremap",
         wasmer::Function::new_typed_with_env(store, env, host::mremap::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mprotect",
         wasmer::Function::new_typed_with_env(store, env, host::mprotect::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pkey_mprotect",
         wasmer::Function::new_typed_with_env(store, env, host::pkey_mprotect::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pkey_alloc",
         wasmer::Function::new_typed_with_env(store, env, host::pkey_alloc::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pkey_free",
         wasmer::Function::new_typed_with_env(store, env, host::pkey_free::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "msync",
         wasmer::Function::new_typed_with_env(store, env, host::msync::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "madvise",
         wasmer::Function::new_typed_with_env(store, env, host::madvise::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "process_madvise",
         wasmer::Function::new_typed_with_env(store, env, host::process_madvise::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mincore",
         wasmer::Function::new_typed_with_env(store, env, host::mincore::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mlock",
         wasmer::Function::new_typed_with_env(store, env, host::mlock::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mlock2",
         wasmer::Function::new_typed_with_env(store, env, host::mlock2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "munlock",
         wasmer::Function::new_typed_with_env(store, env, host::munlock::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mlockall",
         wasmer::Function::new_typed_with_env(store, env, host::mlockall::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "munlockall",
         wasmer::Function::new_typed_with_env(store, env, host::munlockall::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "remap_file_pages",
         wasmer::Function::new_typed_with_env(store, env, host::remap_file_pages::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mbind",
         wasmer::Function::new_typed_with_env(store, env, host::mbind::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "get_mempolicy",
         wasmer::Function::new_typed_with_env(store, env, host::get_mempolicy::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "set_mempolicy",
         wasmer::Function::new_typed_with_env(store, env, host::set_mempolicy::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "set_mempolicy_home_node",
         wasmer::Function::new_typed_with_env(store, env, host::set_mempolicy_home_node::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "migrate_pages",
         wasmer::Function::new_typed_with_env(store, env, host::migrate_pages::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "move_pages",
         wasmer::Function::new_typed_with_env(store, env, host::move_pages::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mseal",
         wasmer::Function::new_typed_with_env(store, env, host::mseal::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "map_shadow_stack",
         wasmer::Function::new_typed_with_env(store, env, host::map_shadow_stack::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "userfaultfd",
         wasmer::Function::new_typed_with_env(store, env, host::userfaultfd::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "clock_gettime64",
         wasmer::Function::new_typed_with_env(store, env, host::clock_gettime64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "clock_settime64",
         wasmer::Function::new_typed_with_env(store, env, host::clock_settime64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "clock_getres_time64",
         wasmer::Function::new_typed_with_env(store, env, host::clock_getres_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "clock_nanosleep_time64",
         wasmer::Function::new_typed_with_env(store, env, host::clock_nanosleep_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "clock_adjtime64",
         wasmer::Function::new_typed_with_env(store, env, host::clock_adjtime64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getitimer",
         wasmer::Function::new_typed_with_env(store, env, host::getitimer::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setitimer",
         wasmer::Function::new_typed_with_env(store, env, host::setitimer::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "timer_create",
         wasmer::Function::new_typed_with_env(store, env, host::timer_create::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "timer_settime64",
         wasmer::Function::new_typed_with_env(store, env, host::timer_settime64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "timer_gettime64",
         wasmer::Function::new_typed_with_env(store, env, host::timer_gettime64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "timer_getoverrun",
         wasmer::Function::new_typed_with_env(store, env, host::timer_getoverrun::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "timer_delete",
         wasmer::Function::new_typed_with_env(store, env, host::timer_delete::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "socket",
         wasmer::Function::new_typed_with_env(store, env, host::socket::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "socketpair",
         wasmer::Function::new_typed_with_env(store, env, host::socketpair::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "bind",
         wasmer::Function::new_typed_with_env(store, env, host::bind::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "listen",
         wasmer::Function::new_typed_with_env(store, env, host::listen::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "accept",
         wasmer::Function::new_typed_with_env(store, env, host::accept::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "accept4",
         wasmer::Function::new_typed_with_env(store, env, host::accept4::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "connect",
         wasmer::Function::new_typed_with_env(store, env, host::connect::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getsockname",
         wasmer::Function::new_typed_with_env(store, env, host::getsockname::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getpeername",
         wasmer::Function::new_typed_with_env(store, env, host::getpeername::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sendto",
         wasmer::Function::new_typed_with_env(store, env, host::sendto::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "recvfrom",
         wasmer::Function::new_typed_with_env(store, env, host::recvfrom::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "setsockopt",
         wasmer::Function::new_typed_with_env(store, env, host::setsockopt::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "getsockopt",
         wasmer::Function::new_typed_with_env(store, env, host::getsockopt::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "shutdown",
         wasmer::Function::new_typed_with_env(store, env, host::shutdown::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sendmsg",
         wasmer::Function::new_typed_with_env(store, env, host::sendmsg::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "recvmsg",
         wasmer::Function::new_typed_with_env(store, env, host::recvmsg::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "sendmmsg",
         wasmer::Function::new_typed_with_env(store, env, host::sendmmsg::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "recvmmsg_time64",
         wasmer::Function::new_typed_with_env(store, env, host::recvmmsg_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "msgget",
         wasmer::Function::new_typed_with_env(store, env, host::msgget::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "msgctl",
         wasmer::Function::new_typed_with_env(store, env, host::msgctl::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "msgrcv",
         wasmer::Function::new_typed_with_env(store, env, host::msgrcv::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "msgsnd",
         wasmer::Function::new_typed_with_env(store, env, host::msgsnd::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "semget",
         wasmer::Function::new_typed_with_env(store, env, host::semget::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "semctl",
         wasmer::Function::new_typed_with_env(store, env, host::semctl::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "semop",
         wasmer::Function::new_typed_with_env(store, env, host::semop::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "semtimedop_time64",
         wasmer::Function::new_typed_with_env(store, env, host::semtimedop_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "shmget",
         wasmer::Function::new_typed_with_env(store, env, host::shmget::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "shmctl",
         wasmer::Function::new_typed_with_env(store, env, host::shmctl::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "shmat",
         wasmer::Function::new_typed_with_env(store, env, host::shmat::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "shmdt",
         wasmer::Function::new_typed_with_env(store, env, host::shmdt::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mq_open",
         wasmer::Function::new_typed_with_env(store, env, host::mq_open::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mq_unlink",
         wasmer::Function::new_typed_with_env(store, env, host::mq_unlink::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mq_timedsend_time64",
         wasmer::Function::new_typed_with_env(store, env, host::mq_timedsend_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mq_timedreceive_time64",
         wasmer::Function::new_typed_with_env(store, env, host::mq_timedreceive_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mq_notify",
         wasmer::Function::new_typed_with_env(store, env, host::mq_notify::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mq_getsetattr",
         wasmer::Function::new_typed_with_env(store, env, host::mq_getsetattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "io_setup",
         wasmer::Function::new_typed_with_env(store, env, host::io_setup::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "io_destroy",
         wasmer::Function::new_typed_with_env(store, env, host::io_destroy::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "io_submit",
         wasmer::Function::new_typed_with_env(store, env, host::io_submit::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "io_cancel",
         wasmer::Function::new_typed_with_env(store, env, host::io_cancel::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "io_pgetevents_time64",
         wasmer::Function::new_typed_with_env(store, env, host::io_pgetevents_time64::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "io_uring_setup",
         wasmer::Function::new_typed_with_env(store, env, host::io_uring_setup::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "io_uring_enter",
         wasmer::Function::new_typed_with_env(store, env, host::io_uring_enter::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "io_uring_register",
         wasmer::Function::new_typed_with_env(store, env, host::io_uring_register::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mount",
         wasmer::Function::new_typed_with_env(store, env, host::mount::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "umount2",
         wasmer::Function::new_typed_with_env(store, env, host::umount2::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "pivot_root",
         wasmer::Function::new_typed_with_env(store, env, host::pivot_root::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "open_tree",
         wasmer::Function::new_typed_with_env(store, env, host::open_tree::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "open_tree_attr",
         wasmer::Function::new_typed_with_env(store, env, host::open_tree_attr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "move_mount",
         wasmer::Function::new_typed_with_env(store, env, host::move_mount::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fsopen",
         wasmer::Function::new_typed_with_env(store, env, host::fsopen::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fsconfig",
         wasmer::Function::new_typed_with_env(store, env, host::fsconfig::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fsmount",
         wasmer::Function::new_typed_with_env(store, env, host::fsmount::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "fspick",
         wasmer::Function::new_typed_with_env(store, env, host::fspick::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "mount_setattr",
         wasmer::Function::new_typed_with_env(store, env, host::mount_setattr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "statmount",
         wasmer::Function::new_typed_with_env(store, env, host::statmount::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "listmount",
         wasmer::Function::new_typed_with_env(store, env, host::listmount::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "listns",
         wasmer::Function::new_typed_with_env(store, env, host::listns::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "landlock_create_ruleset",
         wasmer::Function::new_typed_with_env(store, env, host::landlock_create_ruleset::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "landlock_add_rule",
         wasmer::Function::new_typed_with_env(store, env, host::landlock_add_rule::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "landlock_restrict_self",
         wasmer::Function::new_typed_with_env(store, env, host::landlock_restrict_self::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "lsm_get_self_attr",
         wasmer::Function::new_typed_with_env(store, env, host::lsm_get_self_attr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "lsm_set_self_attr",
         wasmer::Function::new_typed_with_env(store, env, host::lsm_set_self_attr::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "lsm_list_modules",
         wasmer::Function::new_typed_with_env(store, env, host::lsm_list_modules::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "add_key",
         wasmer::Function::new_typed_with_env(store, env, host::add_key::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "request_key",
         wasmer::Function::new_typed_with_env(store, env, host::request_key::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "keyctl",
         wasmer::Function::new_typed_with_env(store, env, host::keyctl::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "bpf",
         wasmer::Function::new_typed_with_env(store, env, host::bpf::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "perf_event_open",
         wasmer::Function::new_typed_with_env(store, env, host::perf_event_open::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "reboot",
         wasmer::Function::new_typed_with_env(store, env, host::reboot::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "acct",
         wasmer::Function::new_typed_with_env(store, env, host::acct::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "swapon",
         wasmer::Function::new_typed_with_env(store, env, host::swapon::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "swapoff",
         wasmer::Function::new_typed_with_env(store, env, host::swapoff::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "syslog",
         wasmer::Function::new_typed_with_env(store, env, host::syslog::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "vhangup",
         wasmer::Function::new_typed_with_env(store, env, host::vhangup::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "kexec_load",
         wasmer::Function::new_typed_with_env(store, env, host::kexec_load::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "kexec_file_load",
         wasmer::Function::new_typed_with_env(store, env, host::kexec_file_load::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "init_module",
         wasmer::Function::new_typed_with_env(store, env, host::init_module::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "finit_module",
         wasmer::Function::new_typed_with_env(store, env, host::finit_module::<E>),
     );
     imports.define(
-        "wasix2",
+        "wasixv2",
         "delete_module",
         wasmer::Function::new_typed_with_env(store, env, host::delete_module::<E>),
     );

@@ -4,7 +4,7 @@
 
 /* Dispatch a syscall whose number is only known at run time. Only linked
  * into binaries that use syscall(), setxid or similar dynamic sites, since it
- * references every wasix2 import. */
+ * references every wasixv2 syscall import. */
 long __syscall_dyn(long n, long a, long b, long c, long d, long e, long f)
 {
 	switch (n) {

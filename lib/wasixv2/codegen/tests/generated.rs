@@ -19,7 +19,7 @@ const GOLDEN: &str = "lib/wasixv2/codegen/tests/golden/sample.rs";
 const GOLDEN_C: &str = "lib/wasixv2/codegen/tests/golden/sample_c";
 const WIT: &str = "lib/wasixv2/codegen/wit";
 /// Mirrors the libc2 tree layout.
-const GOLDEN_WASIX2_C: &str = "lib/wasixv2/codegen/tests/golden/wasix2_c";
+const GOLDEN_WASIXV2_C: &str = "lib/wasixv2/codegen/tests/golden/wasixv2_c";
 const TYPES2: &str = "lib/wasix2/wasix-types2/src/generated.rs";
 const SYSCALLS2: &str = "lib/wasix2/wasix-syscalls2/src/generated.rs";
 
@@ -46,8 +46,8 @@ fn fixture_c_golden_is_up_to_date() {
 /// Snapshot of the C glue for the real definitions, so a WIT change shows up in review as a libc2
 /// diff even without a libc2 checkout.
 #[test]
-fn wasix2_c_golden_is_up_to_date() {
-    check_c_golden(WIT, GOLDEN_WASIX2_C);
+fn wasixv2_c_golden_is_up_to_date() {
+    check_c_golden(WIT, GOLDEN_WASIXV2_C);
 }
 
 /// Compares (or with `WASIXV2_CODEGEN_BLESS`, rewrites) every generated file under `golden_dir`,
@@ -200,7 +200,7 @@ fn constants_and_flags() {
 fn syscall_metadata() {
     let llseek = SYSCALLS.iter().find(|s| s.name == "llseek").unwrap();
     assert_eq!(llseek.nr, Some(62));
-    assert_eq!(llseek.module, "wasix2");
+    assert_eq!(llseek.module, "wasixv2");
     assert_eq!(llseek.merged_i64, &["offset"]);
     let fadvise = SYSCALLS.iter().find(|s| s.name == "fadvise64_64").unwrap();
     assert_eq!(fadvise.merged_i64, &["offset", "len"]);
@@ -217,7 +217,7 @@ fn syscall_metadata() {
     assert!(exit.noreturn);
     assert_eq!(exit.result, None);
     let spawn = SYSCALLS.iter().find(|s| s.name == "thread_spawn").unwrap();
-    assert_eq!((spawn.module, spawn.nr), ("wasix_ext", None));
+    assert_eq!((spawn.module, spawn.nr), ("wasixv2", None));
     assert!(
         SYSCALLS
             .iter()

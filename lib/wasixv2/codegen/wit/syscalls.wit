@@ -3,7 +3,7 @@
 /// Import name = riscv32 table name; return value = Linux `long` (value or `-errno`).
 /// Arguments that riscv32 splits into register pairs are a single 64-bit parameter here.
 /// `lookup_dcookie` (18) and `nfsservctl` (42) are omitted: they are `sys_ni_syscall` stubs.
-/// @module(wasix2)
+/// @module(wasixv2)
 interface syscalls {
   use types.{
     access-mode, address-family, aio-context, aio-context-ptr, at-flags, buf, cachestat-ptr,
@@ -740,7 +740,7 @@ interface syscalls {
   /// Kernel: `sys_clone(unsigned long clone_flags, unsigned long newsp, int * parent_tidptr, unsigned
   /// long tls, int * child_tidptr)`.
   /// riscv uses CLONE_BACKWARDS order: (flags, newsp, parent_tid, tls, child_tid). Returns twice (0 in
-  /// the child running on `newsp`), which a wasm import cannot do; threads need `wasix_ext.thread-spawn`
+  /// the child running on `newsp`), which a wasm import cannot do; threads need `wasixv2.thread_spawn`
   /// and fork/vfork need a host design.
   /// @nr(220)
   clone: func(
