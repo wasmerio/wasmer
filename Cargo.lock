@@ -7680,6 +7680,7 @@ dependencies = [
  "virtual-mio",
  "virtual-net",
  "walkdir",
+ "wasixv2",
  "wasm-coredump-builder",
  "wasmer",
  "wasmer-backend-api",

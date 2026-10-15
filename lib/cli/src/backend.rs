@@ -22,7 +22,7 @@ use wasmer_compiler::{CompilerConfig, Debugger};
 
 use wasmer::Engine;
 
-#[derive(Debug, clap::Parser, Clone, Default)]
+#[derive(Debug, clap::Parser, Clone, Default, PartialEq)]
 /// The WebAssembly features that can be passed through the
 /// Command Line args.
 pub struct WasmFeatures {
@@ -88,7 +88,7 @@ pub struct WasmFeatures {
     pub all: bool,
 }
 
-#[derive(Debug, Clone, clap::Parser, Default)]
+#[derive(Debug, Clone, clap::Parser, Default, PartialEq)]
 /// The compiler options
 pub struct RuntimeOptions {
     /// Use Singlepass compiler.
@@ -198,7 +198,7 @@ pub struct RuntimeOptions {
     features: WasmFeatures,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Profiler {
     /// Perfmap-based profilers.
     Perfmap,

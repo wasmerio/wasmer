@@ -5,6 +5,8 @@ mod package_source;
 mod runtime;
 mod target;
 mod wasi;
+#[cfg(feature = "wasixv2")]
+mod wasixv2;
 
 use std::{
     borrow::Cow,
@@ -283,6 +285,14 @@ impl Run {
             }
         } else {
             tracing::info!("Input is not a file, skipping WebAssembly feature detection");
+        }
+
+        #[cfg(feature = "wasixv2")]
+        if let (CliPackageSource::File(path), Some(wasm)) = (&self.input, &wasm_bytes)
+            && ::wasixv2::is_wasixv2_module(wasm)
+        {
+            pb.finish_and_clear();
+            return self.execute_wasixv2(path, wasm, &runtime);
         }
 
         // Get engine with feature-based backend selection if possible

@@ -35,6 +35,7 @@ default = [
   "journal",
   "wasmer-artifact-create",
   "static-artifact-create",
+  "wasixv2",
 ]
 
 # # Tun-tap client for connecting to Wasmer Edge VPNs
@@ -114,6 +115,8 @@ headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
 napi-v8 = ["dep:wasmer-napi", "wasmer-napi/wasix"]
 wasm-c-api = ["dep:wasmer-c-api-imports", "wasmer-c-api-imports/wasix"]
+# Run modules that import `wasixv2` on the experimental WASIX v2 stack.
+wasixv2 = ["dep:wasixv2"]
 
 # Optional
 enable-serde = [
@@ -152,6 +155,7 @@ wasmer-types = { version = "=7.5.0", path = "../types", features = [
 ] }
 wasmer-napi = { version = "0.705.0", path = "../napi", optional = true }
 wasmer-c-api-imports = { version = "=7.5.0", path = "../c-api-imports", optional = true, default-features = false }
+wasixv2 = { path = "../wasixv2/api", optional = true }
 virtual-fs = { version = "0.705.0", path = "../virtual-fs", default-features = false, features = [
   "host-fs",
 ] }

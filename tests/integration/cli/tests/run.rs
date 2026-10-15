@@ -556,6 +556,88 @@ fn run_v8_wasi_proc_exit_zero_is_success() {
         .success();
 }
 
+const WASIXV2_HELLO_WAT: &str = r#"
+    (module
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 16) "hello")
+      (func (export "_start")
+        (drop (call $write (i32.const 1) (i32.const 16) (i32.const 5)))
+        (call $exit_group (i32.const 7))
+        unreachable))
+"#;
+
+#[test]
+fn run_wasixv2_module_forwards_stdout_and_exit_status() {
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("hello.wat");
+    std::fs::write(&module_file, WASIXV2_HELLO_WAT).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .assert()
+        .code(7)
+        .stdout("hello");
+}
+
+#[test]
+fn run_wasixv2_module_rejects_unsupported_options() {
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("hello.wat");
+    std::fs::write(&module_file, WASIXV2_HELLO_WAT).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg("--volume")
+        .arg(temp.path())
+        .arg("--net")
+        .arg(&module_file)
+        .assert()
+        .failure()
+        .stdout("")
+        .stderr(contains(
+            "this module targets WASIX v2, which does not support --volume, --net yet",
+        ));
+}
+
+#[test]
+fn run_wasixv2_libc_program_gets_argv() {
+    let module_file = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../lib/wasixv2/api/tests/fixtures/hello.wasm");
+
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .arg("--")
+        .arg("one")
+        .arg("two")
+        .assert()
+        .success()
+        .stdout(format!(
+            "hello from {} with 3 args\n",
+            module_file.display()
+        ));
+}
+
+// The smoke test checks that it got exactly one argument and `WASIXV2_SMOKE=1`.
+#[test]
+fn run_wasixv2_libc_smoke_test_passes() {
+    let module_file = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../lib/wasixv2/api/tests/fixtures/smoke.wasm");
+
+    wasmer_command()
+        .arg("run")
+        .arg("--env")
+        .arg("WASIXV2_SMOKE=1")
+        .arg(&module_file)
+        .arg("/tmp")
+        .assert()
+        .success()
+        .stdout(contains("checks passed\n"));
+}
+
 // Test that wasmer can run a complex path
 #[test]
 fn test_wasmer_run_complex_url() {
