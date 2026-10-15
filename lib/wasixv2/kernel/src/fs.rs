@@ -253,7 +253,7 @@ async fn read_path(memory: &dyn UserMemory, path: Cstr) -> Result<Vec<u8>, Errno
         })
 }
 
-async fn read_iovecs(
+pub(crate) async fn read_iovecs(
     memory: &dyn UserMemory,
     vec: ConstIovecArray,
     vlen: u32,

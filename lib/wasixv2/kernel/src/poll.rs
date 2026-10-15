@@ -216,6 +216,7 @@ impl Kernel {
     }
 
     /// `pselect6`.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) async fn sys_pselect6(
         &self,
         caller: &Caller<'_>,

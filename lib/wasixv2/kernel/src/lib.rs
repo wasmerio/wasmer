@@ -12,8 +12,10 @@ mod file;
 mod fs;
 mod ioctl;
 mod mm;
+mod net;
 mod pipe;
 mod poll;
+mod socket;
 mod startup;
 mod stdio;
 mod time;
@@ -76,6 +78,11 @@ pub struct Kernel {
     /// The root directory, which is also every process's working directory.
     root: Arc<dyn Inode>,
     state: Mutex<State>,
+    // ---- net ----
+    /// The network namespace IP sockets live in; without one, `socket` fails with
+    /// `EAFNOSUPPORT`.
+    // TODO: one per network namespace once namespaces exist.
+    network: Option<Arc<dyn wasixv2_vnet::Network>>,
 }
 
 #[derive(Default)]
@@ -105,7 +112,14 @@ impl Kernel {
             host,
             root,
             state: Mutex::default(),
+            network: None,
         }
+    }
+
+    /// Gives the kernel a network for IP sockets.
+    pub fn with_network(mut self, network: Arc<dyn wasixv2_vnet::Network>) -> Self {
+        self.network = Some(network);
+        self
     }
 
     /// Starts a process with a single task whose descriptors 0, 1 and 2 are `config.stdio`.
@@ -628,6 +642,203 @@ impl Syscalls for Kernel {
             caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
         )
         .await
+    }
+
+    // ---- net ----
+
+    async fn socket(
+        &self,
+        caller: &Caller<'_>,
+        family: wasixv2_abi::AddressFamily,
+        r#type: i32,
+        protocol: i32,
+    ) -> SysResult<Fd> {
+        self.sys_socket(caller, family, r#type, protocol).await
+    }
+
+    async fn socketpair(
+        &self,
+        caller: &Caller<'_>,
+        family: wasixv2_abi::AddressFamily,
+        r#type: i32,
+        protocol: i32,
+        usockvec: wasixv2_abi::FdPair,
+    ) -> SysResult<i32> {
+        self.sys_socketpair(caller, family, r#type, protocol, usockvec)
+            .await
+    }
+
+    async fn bind(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        umyaddr: wasixv2_abi::ConstSockaddrPtr,
+        addrlen: wasixv2_abi::Socklen,
+    ) -> SysResult<i32> {
+        self.sys_bind(caller, fd, umyaddr, addrlen).await
+    }
+
+    async fn listen(&self, caller: &Caller<'_>, fd: Fd, backlog: i32) -> SysResult<i32> {
+        self.sys_listen(caller, fd, backlog).await
+    }
+
+    async fn accept(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        upeer_sockaddr: wasixv2_abi::SockaddrPtr,
+        upeer_addrlen: wasixv2_abi::SocklenPtr,
+    ) -> SysResult<Fd> {
+        let flags = wasixv2_abi::SocketFlags(0);
+        self.sys_accept4(caller, fd, upeer_sockaddr, upeer_addrlen, flags)
+            .await
+    }
+
+    async fn accept4(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        upeer_sockaddr: wasixv2_abi::SockaddrPtr,
+        upeer_addrlen: wasixv2_abi::SocklenPtr,
+        flags: wasixv2_abi::SocketFlags,
+    ) -> SysResult<Fd> {
+        self.sys_accept4(caller, fd, upeer_sockaddr, upeer_addrlen, flags)
+            .await
+    }
+
+    async fn connect(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        uservaddr: wasixv2_abi::ConstSockaddrPtr,
+        addrlen: wasixv2_abi::Socklen,
+    ) -> SysResult<i32> {
+        self.sys_connect(caller, fd, uservaddr, addrlen).await
+    }
+
+    async fn getsockname(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        usockaddr: wasixv2_abi::SockaddrPtr,
+        usockaddr_len: wasixv2_abi::SocklenPtr,
+    ) -> SysResult<i32> {
+        self.sys_getsockname(caller, fd, usockaddr, usockaddr_len)
+            .await
+    }
+
+    async fn getpeername(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        usockaddr: wasixv2_abi::SockaddrPtr,
+        usockaddr_len: wasixv2_abi::SocklenPtr,
+    ) -> SysResult<i32> {
+        self.sys_getpeername(caller, fd, usockaddr, usockaddr_len)
+            .await
+    }
+
+    async fn sendto(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        buff: UserSlice,
+        flags: wasixv2_abi::MsgFlags,
+        addr: wasixv2_abi::ConstSockaddrPtr,
+        addr_len: wasixv2_abi::Socklen,
+    ) -> SysResult<u32> {
+        self.sys_sendto(caller, fd, buff, flags, addr, addr_len)
+            .await
+    }
+
+    async fn recvfrom(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        ubuf: UserSliceMut,
+        flags: wasixv2_abi::MsgFlags,
+        addr: wasixv2_abi::SockaddrPtr,
+        addr_len: wasixv2_abi::SocklenPtr,
+    ) -> SysResult<u32> {
+        self.sys_recvfrom(caller, fd, ubuf, flags, addr, addr_len)
+            .await
+    }
+
+    async fn setsockopt(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        level: wasixv2_abi::SocketLevel,
+        optname: i32,
+        optval: UserSlice,
+    ) -> SysResult<i32> {
+        self.sys_setsockopt(caller, fd, level, optname, optval)
+            .await
+    }
+
+    async fn getsockopt(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        level: wasixv2_abi::SocketLevel,
+        optname: i32,
+        optval: wasixv2_abi::Buf,
+        optlen: wasixv2_abi::SocklenPtr,
+    ) -> SysResult<i32> {
+        self.sys_getsockopt(caller, fd, level, optname, optval, optlen)
+            .await
+    }
+
+    async fn shutdown(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        how: wasixv2_abi::ShutdownHow,
+    ) -> SysResult<i32> {
+        self.sys_shutdown(caller, fd, how).await
+    }
+
+    async fn sendmsg(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        msg: wasixv2_abi::ConstUserMsghdrPtr,
+        flags: wasixv2_abi::MsgFlags,
+    ) -> SysResult<i32> {
+        self.sys_sendmsg(caller, fd, msg, flags).await
+    }
+
+    async fn recvmsg(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        msg: wasixv2_abi::UserMsghdrPtr,
+        flags: wasixv2_abi::MsgFlags,
+    ) -> SysResult<i32> {
+        self.sys_recvmsg(caller, fd, msg, flags).await
+    }
+
+    async fn sendmmsg(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        mmsg: wasixv2_abi::MmsghdrArray,
+        vlen: u32,
+        flags: wasixv2_abi::MsgFlags,
+    ) -> SysResult<i32> {
+        self.sys_sendmmsg(caller, fd, mmsg, vlen, flags).await
+    }
+
+    async fn recvmmsg_time64(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        mmsg: wasixv2_abi::MmsghdrArray,
+        vlen: u32,
+        flags: wasixv2_abi::MsgFlags,
+        _timeout: KernelTimespecPtr,
+    ) -> SysResult<i32> {
+        self.sys_recvmmsg(caller, fd, mmsg, vlen, flags).await
     }
 }
 

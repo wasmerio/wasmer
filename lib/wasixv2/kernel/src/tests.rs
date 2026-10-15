@@ -353,3 +353,4 @@ fn uname_reports_the_wasixv2_abi_version() {
 }
 
 mod ipc;
+mod net;

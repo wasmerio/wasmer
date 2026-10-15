@@ -43,7 +43,7 @@ fn pipe_moves_bytes_and_reports_eof_after_the_writer_closes() {
     let caller = Caller::new(task, &memory);
     let (r, w) = pipe(&kernel, &caller, OpenFlags::O_NONBLOCK);
     assert_eq!((r, w), (Fd(3), Fd(4)));
-    put(&memory, 0x200, b"hello");
+    put(&memory, 0x200, b"abcde");
 
     assert_eq!(
         block_on(kernel.write(&caller, w, UserSlice::new(0x200, 5))),
@@ -61,7 +61,7 @@ fn pipe_moves_bytes_and_reports_eof_after_the_writer_closes() {
         block_on(kernel.read(&caller, r, UserSliceMut::new(0x300, 3))),
         Ok(3)
     );
-    assert_eq!(get(&memory, 0x300, 3), b"hel");
+    assert_eq!(get(&memory, 0x300, 3), b"abc");
     assert_eq!(
         block_on(kernel.read(&caller, r, UserSliceMut::new(0x300, 9))),
         Ok(2)

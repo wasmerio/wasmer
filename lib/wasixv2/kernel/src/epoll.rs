@@ -468,7 +468,7 @@ impl Kernel {
         }
         // EPOLLWAKEUP needs CAP_BLOCK_SUSPEND, which nobody has; Linux drops it silently.
         if let Some(event) = &mut event {
-            event.events = event.events & !EpollEvents::EPOLLWAKEUP;
+            event.events &= !EpollEvents::EPOLLWAKEUP;
         }
         let ep = match epfile.downcast::<Epoll>() {
             Some(epoll) if !Arc::ptr_eq(&epfile, &target) => epoll.ep.clone(),

@@ -195,8 +195,9 @@ pub trait Socket: Pollable {
 
     /// Sends without blocking. Returns the bytes taken: all of a datagram, or a prefix of a
     /// stream's data. `EAGAIN` when nothing fits, `EPIPE` after `shutdown(Write)` or a reset
-    /// (the kernel raises `SIGPIPE`), `EDESTADDRREQ` unconnected without `to`, `EISCONN` for
-    /// a `to` on a connected stream, `EMSGSIZE` for an oversized datagram.
+    /// (the kernel raises `SIGPIPE`), `EDESTADDRREQ` unconnected without `to`, `EMSGSIZE`
+    /// for an oversized datagram. The kernel never passes `to` to a stream socket: TCP
+    /// ignores the address.
     fn send(&self, msg: SendMsg<'_>) -> Result<usize, Errno>;
 
     /// Receives into `buf` without blocking. `flags` may hold `MSG_PEEK`, `MSG_TRUNC`,
