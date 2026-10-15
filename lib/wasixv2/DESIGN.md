@@ -296,6 +296,37 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 
 `ping` works the way unprivileged ICMP sockets do on Linux, through a host ICMP socket. A packet-level stack can come later as an optional backend if something needs these.
 
+### Port tables
+
+`wasixv2-vnet`'s `Net` is one namespace. It keeps one port table per protocol, shared by IPv4 and IPv6 as Linux's bind hash is, so a dual-stack `[::]` socket collides with IPv4 sockets on its port unless it is `IPV6_V6ONLY`. IPv4-mapped addresses are stored as IPv4.
+
+- **Explicit bind** (`inet_bind_conflict`): two sockets conflict when their addresses overlap (equal, or either a wildcard that covers the other), unless both set `SO_REUSEADDR` and the existing one is not listening, or both set `SO_REUSEPORT` with the same owner. `listen` re-checks, so of two `SO_REUSEADDR` sockets on one port only one can listen. UDP shares with `SO_REUSEADDR` on both, whatever the state.
+- **Errors, in Linux's order:** `EADDRNOTAVAIL` for an address on no up interface (unless `IP_FREEBIND`), `EACCES` below `ip_unprivileged_port_start` (1024) without the capability the kernel passes in, `EINVAL` when already bound, `EADDRINUSE` on a conflict.
+- **Ephemeral ports** come from `ip_local_port_range` (32768–60999) from a seeded random offset. `bind` to port 0 tries odd ports first (SO_REUSEADDR sockets the lower half of the range, others the upper half) and fails with `EADDRINUSE`; `connect` tries even ports first, may share a port with other connected sockets that have a different peer, and fails with `EADDRNOTAVAIL`.
+- Accepted sockets share the listener's port. Closing a socket frees its port at once: there is no `TIME_WAIT`.
+
+### Streams and datagrams
+
+- **TCP inside a namespace.** `connect` to a local listener creates the accepted socket at once and pairs the two with an in-memory connection. When the accept queue holds more than `backlog` connections, the client waits in `SYN_SENT` (`EINPROGRESS`) until `accept` makes room. Closing the listener resets queued connections and refuses waiting clients. A connection to a port nobody listens on fails with `ECONNREFUSED` right away.
+- **Buffering.** Each direction queues up to the receiver's `SO_RCVBUF` plus the sender's `SO_SNDBUF`, counted in payload bytes. `SO_SNDBUF` and `SO_RCVBUF` are doubled and clamped as Linux does. Writes are partial when the queue fills, then `EAGAIN`.
+- **Close and shutdown.** These follow `tcp_close` and `tcp_reset`. Closing with unread data or `SO_LINGER` zero resets the peer: its next call fails with `ECONNRESET`, or `EPIPE` once it has seen our FIN, and later calls see EOF or `EPIPE`. A write to a peer that closed normally succeeds once and then fails with `EPIPE`.
+- **Readiness** is `tcp_poll`'s: a fresh socket is `OUT|WRNORM|HUP`, `RDHUP` follows the peer's FIN, `HUP` needs both directions shut, and `ERR` shows while `SO_ERROR` is set.
+- **UDP.** Datagrams are copied between receive queues. A queue drops new datagrams once it holds more than `SO_RCVBUF`, charging each payload plus a fixed 768-byte overhead. Connected sockets only receive from their peer. A connected sender learns `ECONNREFUSED` when nobody is bound to its peer's port. `MSG_PEEK` and `MSG_TRUNC` work. Broadcast and multicast are accepted but not delivered.
+
+### Backends and the host bridge
+
+The kernel-facing traits are in `vnet/src/api.rs`. Traffic for a destination that is not local goes through a route on the uplink interface (by default `eth0`, 10.0.2.15/24 via gateway 10.0.2.2), so the guest's source address is the uplink address and a virtual ephemeral port. Without a route the error is `ENETUNREACH`.
+
+- The **gateway alias** (by default the gateway) maps to the host's loopback in both directions.
+- **Publishing** (`Net::publish`, or auto-publishing of non-loopback listeners) hands `Backend::publish` a sink that delivers each accepted host connection to whichever guest listener holds the address at that moment. `getpeername` reports the real host peer.
+- **DNS**: `NetConfig::nameservers` makes up `resolv.conf`. `vnet-host::host_nameservers` derives them from the host's file and routes loopback resolvers through the alias.
+
+`wasixv2-vnet-host` runs one mio reactor thread per `HostBackend`, never tokio, and is Unix-only for now.
+
+- Guest-side stream and datagram objects are buffers: 256 KiB per direction for streams, 256 KiB of queued datagrams. Guests read and write them without blocking.
+- The reactor moves bytes between the buffers and the host sockets. Guest activity marks a stream dirty and wakes the reactor through a `mio::Waker`. The reactor wakes guest wait queues from its own thread.
+- Host errors keep their Linux errno numbers. Dropping the guest's handle flushes and closes the host socket, or resets it when unread data or `SO_LINGER` zero call for that.
+
 ## Execution
 
 The execution crate is the only layer below the facade that knows about the wasm engine. It turns kernel tasks into running wasm, and turns guest control flow into kernel operations.
