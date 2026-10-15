@@ -55,6 +55,7 @@ A line starting with `====` is a section divider. The divider comments
 | `@c(<C type>)` | alias, record, enum, flags | The C type musl uses, for example `@c(struct statx)` or `@c(pid_t)`. |
 | `@kernel-only` | record | musl has no layout-compatible type. Either musl's type differs and musl converts it (`rusage`, `msqid64-ds`), or musl's type is a larger prefix-compatible superset (`termios`, `sysinfo`, `sched-param`, `sigset`). Do not assert this layout against musl. |
 | `@pointer-sized` | alias | The width is the target pointer width. WIT declares the wasm32 width. |
+| `@newtype` | alias of an integer | Rust backends emit a distinct `#[repr(transparent)]` struct (`pub struct Fd(pub i32)`) instead of a type alias, so values of this type cannot be mixed up with plain integers. Used on `fd`. C sees the plain integer. |
 | `@ptr(const T)`, `@ptr(mut T)` | alias of `uptr` | A guest pointer to `T`. `T` can be a type name, a primitive, `void`, or `T[]` for an array. |
 | `@nullable` | pointer alias | The pointer may be NULL. Not used yet: nullability is per argument, so the function docs describe it. |
 | `@union` | record | All fields are at offset 0. |

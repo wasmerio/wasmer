@@ -385,10 +385,16 @@ impl<'a> Builder<'a> {
 fn alias(name: &str, target: TyRef, ann: &mut Annotations, p: &mut Pending) -> Result<TypeKind> {
     let pointer_sized = ann.flag("pointer-sized")?;
     let nullable = ann.flag("nullable")?;
+    let newtype = ann.flag("newtype")?;
     let loc = ann.location().to_string();
+    if newtype && (pointer_sized || !matches!(target, TyRef::Prim(_))) {
+        bail!(
+            "{loc}: `@newtype` aliases must alias a fixed-width integer, without `@pointer-sized`"
+        );
+    }
     if let Some(spec) = ann.value("ptr")? {
-        if pointer_sized {
-            bail!("{loc}: `@ptr` and `@pointer-sized` are mutually exclusive");
+        if pointer_sized || newtype {
+            bail!("{loc}: `@ptr` excludes `@pointer-sized` and `@newtype`");
         }
         p.ptr_bases.push((name.to_string(), target));
         return parse_ptr(&spec, nullable, &loc).map(TypeKind::Pointer);
@@ -402,6 +408,7 @@ fn alias(name: &str, target: TyRef, ann: &mut Annotations, p: &mut Pending) -> R
     Ok(TypeKind::Alias(Alias {
         target,
         pointer_sized,
+        newtype,
     }))
 }
 
@@ -881,6 +888,20 @@ mod tests {
         assert!(err("/// @ptr(owned u8)\ntype p = uptr;").contains("expected `const` or `mut`"));
         assert!(err("/// @nullable\ntype p = uptr;").contains("requires `@ptr"));
         assert!(err("/// @pointer-sized\ntype p = u64;").contains("u32 or s32"));
+    }
+
+    #[test]
+    fn newtype_validation() {
+        let m = parse("/// @newtype\ntype fd = s32;").unwrap();
+        let TypeKind::Alias(a) = &m.type_def("fd").unwrap().kind else {
+            panic!("not an alias")
+        };
+        assert!(a.newtype);
+        assert!(err("/// @newtype\ntype x = uptr;").contains("fixed-width integer"));
+        let e = err("/// @newtype\n/// @pointer-sized\ntype x = u32;");
+        assert!(e.contains("fixed-width integer"), "{e}");
+        assert!(err("/// @newtype\n/// @ptr(const u8)\ntype p = uptr;").contains("fixed-width"));
+        assert!(err("/// @newtype\nrecord r { a: u32 }").contains("not allowed on a record"));
     }
 
     fn func_err(func: &str) -> String {

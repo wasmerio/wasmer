@@ -4,36 +4,31 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use wasixv2_codegen::Target;
 
-/// Generates wasix2 bindings from the annotated WIT definitions.
+/// Generates wasixv2 bindings from the annotated WIT definitions.
 ///
 /// Run from the repository root: the `--wit` path is recorded (relative) in the output header
-/// so the up-to-date test can regenerate from the same source.
+/// so the up-to-date tests can regenerate from the same source.
 #[derive(Parser)]
 struct Cli {
     #[command(subcommand)]
     command: Cmd,
 }
 
+/// Where a Rust backend reads from and writes to.
+#[derive(clap::Args)]
+struct RustArgs {
+    /// WIT file or directory (relative to the current directory).
+    #[arg(long)]
+    wit: PathBuf,
+    /// Output `.rs` file.
+    #[arg(long)]
+    out: PathBuf,
+}
+
 #[derive(Subcommand)]
 enum Cmd {
-    /// Generate the Rust module for `wasix-types2`.
-    Rust {
-        /// WIT file or directory (relative to the current directory).
-        #[arg(long)]
-        wit: PathBuf,
-        /// Output `.rs` file.
-        #[arg(long)]
-        out: PathBuf,
-    },
-    /// Generate the wasmer host bindings for `wasix-syscalls2`.
-    RustHost {
-        /// WIT file or directory (relative to the current directory).
-        #[arg(long)]
-        wit: PathBuf,
-        /// Output `.rs` file.
-        #[arg(long)]
-        out: PathBuf,
-    },
+    /// Generate `lib/wasixv2/abi/src/generated.rs`.
+    Abi(RustArgs),
     /// Generate the libc2 (musl) syscall glue.
     #[command(group(clap::ArgGroup::new("dest").required(true)))]
     C {
@@ -51,18 +46,7 @@ enum Cmd {
 
 fn main() -> Result<()> {
     match Cli::parse().command {
-        Cmd::Rust { wit, out } => {
-            let source = source_label(&wit)?;
-            let code = wasixv2_codegen::generate_rust(&wit, &source, Target::WASM32)?;
-            std::fs::write(&out, code).with_context(|| format!("writing {}", out.display()))?;
-            Ok(())
-        }
-        Cmd::RustHost { wit, out } => {
-            let source = source_label(&wit)?;
-            let code = wasixv2_codegen::generate_rust_host(&wit, &source, Target::WASM32)?;
-            std::fs::write(&out, code).with_context(|| format!("writing {}", out.display()))?;
-            Ok(())
-        }
+        Cmd::Abi(args) => write_rust(args, wasixv2_codegen::generate_abi),
         Cmd::C { wit, libc, out_dir } => {
             let files = wasixv2_codegen::generate_c(&wit, Target::WASM32)?;
             let (root, create) = match (libc, out_dir) {
@@ -88,6 +72,12 @@ fn main() -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn write_rust(args: RustArgs, generate: fn(&Path, &str, Target) -> Result<String>) -> Result<()> {
+    let source = source_label(&args.wit)?;
+    let code = generate(&args.wit, &source, Target::WASM32)?;
+    std::fs::write(&args.out, code).with_context(|| format!("writing {}", args.out.display()))
 }
 
 fn source_label(wit: &Path) -> Result<String> {

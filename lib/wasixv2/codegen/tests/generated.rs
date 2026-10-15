@@ -1,13 +1,12 @@
 //! Golden/up-to-date checks for generated Rust and C, plus a compile-and-run check of the fixture
 //! output.
 //!
-//! Set `WASIXV2_CODEGEN_BLESS=1` to rewrite the fixture golden files.
+//! Set `WASIXV2_CODEGEN_BLESS=1` to rewrite the golden files and the generated crate sources.
 
 use std::path::{Path, PathBuf};
 
-use wasixv2_codegen::{
-    Target, generate_c, generate_rust, generate_rust_host, rust::source_from_header,
-};
+use anyhow::Result;
+use wasixv2_codegen::{Target, generate_abi, generate_c, rust::source_from_header};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")
@@ -20,15 +19,18 @@ const GOLDEN_C: &str = "lib/wasixv2/codegen/tests/golden/sample_c";
 const WIT: &str = "lib/wasixv2/codegen/wit";
 /// Mirrors the libc2 tree layout.
 const GOLDEN_WASIXV2_C: &str = "lib/wasixv2/codegen/tests/golden/wasixv2_c";
-const TYPES2: &str = "lib/wasix2/wasix-types2/src/generated.rs";
-const SYSCALLS2: &str = "lib/wasix2/wasix-syscalls2/src/generated.rs";
+const ABI: &str = "lib/wasixv2/abi/src/generated.rs";
+
+fn bless() -> bool {
+    std::env::var_os("WASIXV2_CODEGEN_BLESS").is_some()
+}
 
 #[test]
 fn fixture_golden_is_up_to_date() {
     let root = repo_root();
-    let fresh = generate_rust(&root.join(FIXTURE), FIXTURE, Target::WASM32).unwrap();
+    let fresh = generate_abi(&root.join(FIXTURE), FIXTURE, Target::WASM32).unwrap();
     let golden_path = root.join(GOLDEN);
-    if std::env::var_os("WASIXV2_CODEGEN_BLESS").is_some() {
+    if bless() {
         std::fs::write(&golden_path, &fresh).unwrap();
     }
     let golden = std::fs::read_to_string(&golden_path).unwrap();
@@ -55,7 +57,7 @@ fn wasixv2_c_golden_is_up_to_date() {
 fn check_c_golden(wit: &str, golden_dir: &str) {
     let root = repo_root();
     let dir = root.join(golden_dir);
-    let bless = std::env::var_os("WASIXV2_CODEGEN_BLESS").is_some();
+    let bless = bless();
     let files = generate_c(&root.join(wit), Target::WASM32).unwrap();
     for file in &files {
         let path = dir.join(file.path);
@@ -99,32 +101,30 @@ fn files_under(dir: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// Regenerates wasix-types2 from the WIT source recorded in its header.
-#[test]
-fn wasix_types2_is_up_to_date() {
+/// Regenerates the checked-in `path` from the WIT source recorded in its header.
+fn check_generated(
+    path: &str,
+    generate: fn(&Path, &str, Target) -> Result<String>,
+    subcommand: &str,
+) {
     let root = repo_root();
-    let current = std::fs::read_to_string(root.join(TYPES2)).unwrap();
+    let current = std::fs::read_to_string(root.join(path)).unwrap();
     let source = source_from_header(&current).expect("generated header names its source");
-    let fresh = generate_rust(&root.join(source), source, Target::WASM32).unwrap();
+    let fresh = generate(&root.join(source), source, Target::WASM32).unwrap();
+    if bless() {
+        std::fs::write(root.join(path), &fresh).unwrap();
+        return;
+    }
     assert!(
         fresh == current,
-        "{TYPES2} is stale; from the repo root run:\n  \
-         cargo run -p wasixv2-codegen -- rust --wit {source} --out {TYPES2}"
+        "{path} is stale; from the repo root run:\n  \
+         cargo run -p wasixv2-codegen -- {subcommand} --wit {source} --out {path}"
     );
 }
 
-/// Regenerates wasix-syscalls2 from the WIT source recorded in its header.
 #[test]
-fn wasix_syscalls2_is_up_to_date() {
-    let root = repo_root();
-    let current = std::fs::read_to_string(root.join(SYSCALLS2)).unwrap();
-    let source = source_from_header(&current).expect("generated header names its source");
-    let fresh = generate_rust_host(&root.join(source), source, Target::WASM32).unwrap();
-    assert!(
-        fresh == current,
-        "{SYSCALLS2} is stale; from the repo root run:\n  \
-         cargo run -p wasixv2-codegen -- rust-host --wit {source} --out {SYSCALLS2}"
-    );
+fn abi_is_up_to_date() {
+    check_generated(ABI, generate_abi, "abi");
 }
 
 #[allow(dead_code)]
@@ -156,7 +156,7 @@ fn record_roundtrip_is_little_endian() {
 fn nested_record_with_union_and_implicit_padding() {
     let ev = EpollEvent {
         events: EpollEvents::EPOLLIN | EpollEvents::EPOLLET,
-        data: EpollData::from_fd(7),
+        data: EpollData::from_fd(Fd(7)),
     };
     let mut buf = [0xaau8; 16];
     ev.write_to(&mut buf);
@@ -164,7 +164,7 @@ fn nested_record_with_union_and_implicit_padding() {
     assert_eq!(buf[..8], [1, 0, 0, 0x80, 0, 0, 0, 0]);
     assert_eq!(buf[8..12], [7, 0, 0, 0]);
     let back = EpollEvent::read_from(&buf).unwrap();
-    assert_eq!(back.data.fd(), 7);
+    assert_eq!(back.data.fd(), Fd(7));
     assert_eq!(back.data.u64(), 7);
     assert_eq!(<Statx as GuestLayout>::SIZE, 256);
     assert_eq!(Statx::default().stx_atime, StatxTimestamp::default());

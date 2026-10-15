@@ -19,6 +19,7 @@ interface types {
   type usize = u32;
 
   /// @c(int)
+  /// @newtype
   type fd = s32;
   /// Alias of an alias.
   /// @c(int)

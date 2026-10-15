@@ -260,7 +260,22 @@ pub type Slong = i32;
 /// C: `size_t`
 pub type Usize = u32;
 /// C: `int`
-pub type Fd = i32;
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Fd(pub i32);
+
+impl GuestLayout for Fd {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// Alias of an alias.
 ///
 /// C: `int`
@@ -706,9 +721,6 @@ impl Errno {
         }
     }
 }
-
-/// Result of a syscall: the value, or the [`Errno`] the guest receives negated.
-pub type SyscallResult<T = Slong> = Result<T, Errno>;
 
 impl Errno {
     /// Encodes the error as a raw syscall return value (`-errno`).

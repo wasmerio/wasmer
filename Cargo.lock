@@ -7055,18 +7055,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasix-syscalls2"
-version = "7.5.0"
-dependencies = [
- "wasix-types2",
- "wasmer",
-]
-
-[[package]]
-name = "wasix-types2"
-version = "7.5.0"
-
-[[package]]
 name = "wasixv2"
 version = "0.0.0"
 dependencies = [

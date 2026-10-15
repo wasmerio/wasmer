@@ -16,6 +16,7 @@ const KNOWN: &[&str] = &[
     "merged-i64",
     "module",
     "name",
+    "newtype",
     "noreturn",
     "nr",
     "nullable",

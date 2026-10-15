@@ -1,4 +1,4 @@
-//! Backend-independent model of the wasix2 definitions.
+//! Backend-independent model of the wasixv2 definitions.
 //!
 //! Produced by [`crate::parse`]: annotations are parsed and validated, `use` copies are resolved
 //! to their originals and every type carries its C layout for the chosen [`Target`].
@@ -151,6 +151,8 @@ pub struct Alias {
     /// For `@pointer-sized` aliases this is the declared wasm32 type; see [`Model::scalar_prim`].
     pub target: TyRef,
     pub pointer_sized: bool,
+    /// `@newtype`: Rust backends emit a distinct type instead of a type alias.
+    pub newtype: bool,
 }
 
 #[derive(Clone, Debug)]

@@ -38,6 +38,7 @@ interface types {
 
   /// File descriptor. Kernel prototypes mix `int` and `unsigned int`; the bits are the same.
   /// @c(int)
+  /// @newtype
   type fd = s32;
 
   /// Process, thread, process group or session id (`__kernel_pid_t`).
