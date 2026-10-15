@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     Extern, error::InstantiationError, exports::Exports, imports::Imports,
     macros::backend::gen_rt_ty, module::Module, store::AsStoreMut,
@@ -16,7 +18,7 @@ pub struct Instance {
     pub(crate) _inner: BackendInstance,
     pub(crate) module: Module,
     /// The exports for an instance.
-    pub exports: Exports,
+    pub exports: Arc<Exports>,
 }
 
 impl Instance {
@@ -77,7 +79,7 @@ impl Instance {
         Ok(Self {
             _inner,
             module: module.clone(),
-            exports,
+            exports: Arc::new(exports),
         })
     }
 
@@ -121,7 +123,7 @@ impl Instance {
         Ok(Self {
             _inner,
             module: module.clone(),
-            exports,
+            exports: Arc::new(exports),
         })
     }
 
