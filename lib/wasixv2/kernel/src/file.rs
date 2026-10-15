@@ -345,9 +345,15 @@ struct Slot {
 #[derive(Default)]
 pub(crate) struct FdTable {
     slots: Vec<Option<Slot>>,
+    /// The soft `RLIMIT_NOFILE` once a process set one; bounds `install_from`.
+    limit: Option<usize>,
 }
 
 impl FdTable {
+    pub(crate) fn set_limit(&mut self, limit: usize) {
+        self.limit = Some(limit);
+    }
+
     pub(crate) fn get(&self, fd: Fd) -> Option<Arc<OpenFile>> {
         Some(self.slot(fd)?.file.clone())
     }
@@ -374,6 +380,7 @@ impl FdTable {
         file: Arc<OpenFile>,
         cloexec: bool,
     ) -> Option<Fd> {
+        let limit = self.limit.map_or(limit, |own| own.min(limit));
         let index = (min..limit).find(|&i| self.slots.get(i).is_none_or(Option::is_none))?;
         if self.slots.len() <= index {
             self.slots.resize_with(index + 1, || None);

@@ -7,6 +7,7 @@ use std::{
 };
 
 use wasixv2_abi::{AddressFamily, MsgFlags, SocketFlags, SocketLevel, SocketOption, UserMsghdr};
+use wasixv2_syscalls::{read_value, write_value};
 use wasixv2_vnet::{
     Accepted, Control, Domain, Network, RecvMsg, SendMsg, Shutdown, Socket, SocketKind,
 };

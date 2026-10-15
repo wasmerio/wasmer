@@ -9,18 +9,21 @@ mod eventfd;
 mod file;
 mod fs;
 mod futex;
+mod ident;
 mod ioctl;
 mod mm;
 mod net;
 mod netlink;
 mod pipe;
 mod poll;
+mod resource;
 mod signal;
 mod socket;
 mod startup;
 mod stdio;
 mod thread;
 mod time;
+mod timerfd;
 mod unix;
 
 use std::{
@@ -31,27 +34,30 @@ use std::{
 pub use file::{FileObject, Io};
 pub use fs::HostClock;
 use wasixv2_abi::{
-    AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstFileHandlePtr, ConstIovecArray,
-    ConstKernelTimespecArray, ConstKernelTimespecPtr, ConstOpenHowPtr, ConstSigsetPtr,
+    AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstBuf, ConstFileHandlePtr,
+    ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr, ConstKernelTimespecArray,
+    ConstKernelTimespecPtr, ConstOpenHowPtr, ConstRlimit64Ptr, ConstSchedParamPtr, ConstSigsetPtr,
     ConstXattrArgsPtr, Cstr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp,
-    Gid, IoctlRequest, KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr, MapFlags, Mode,
-    NewUtsname, NewUtsnamePtr, OpenFlags, Pid, ProtFlags, RenameFlags, RobustListHeadPtr,
-    RobustListHeadPtrPtr, RwfFlags, S32Ptr, SeekWhence, Signal, SigprocmaskHow, Sigset, SigsetPtr,
-    Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags, TimerFlags, U32Ptr, Uid, Ulong, Uptr,
-    Usize, UsizePtr, XattrArgsPtr, XattrFlags,
+    Gid, GidArray, GidPtr, GrndFlags, IoctlRequest, KernelItimerspecPtr, KernelTimespecPtr,
+    LinuxDirent64Ptr, Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags, MembarrierCmd,
+    MembarrierCmdFlags, MlockFlags, Mode, MremapFlags, MsyncFlags, NewUtsnamePtr, OpenFlags, Pid,
+    PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr,
+    RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedParamPtr, SchedPolicy,
+    SeekWhence, Signal, SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr, StatxMask, StatxPtr,
+    SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr,
+    Uid, UidPtr, Ulong, UlongArray, Uptr, Usize, UsizePtr, VoidPtr, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
 use wasixv2_syscalls::{
     Caller, Control, Errno, Fd, GuestAction, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut,
-    read_value, write_value,
 };
 use wasixv2_vfs::{Filesystem, Vfs};
 
 use crate::{
     file::{FdTable, OpenFile},
     fs::FsContext,
-    mm::{AddressSpace, PAGE_SIZE, Placement},
+    mm::AddressSpace,
     startup::Startup,
 };
 
@@ -62,15 +68,6 @@ const IO_CHUNK: usize = 64 * 1024;
 /// The uid and gid of every process until credentials exist. Not 0: root bypasses permission
 /// checks, so programs take paths that only make sense for a privileged user.
 const ID: i32 = 1;
-
-/// `uname` fields. The release is the wasixv2 ABI version, not a Linux version: the target is not
-/// Linux, and programs that parse the release to guess Linux features should not match it.
-const SYSNAME: &str = "wasixv2";
-const NODENAME: &str = "localhost";
-const RELEASE: &str = "2.0.0";
-const VERSION: &str = "#1";
-const MACHINE: &str = "wasm32";
-const DOMAINNAME: &str = "(none)";
 
 /// What a new process starts with.
 pub struct ProcessConfig {
@@ -113,6 +110,11 @@ struct Process {
     mm: Mutex<AddressSpace>,
     // ---- thr ----
     group: thread::Group,
+    // ---- base ----
+    /// Monotonic time the process started, the origin of its CPU clocks.
+    start: std::time::Duration,
+    ident: Mutex<ident::Ident>,
+    resources: Mutex<resource::Resources>,
 }
 
 struct Task {
@@ -166,6 +168,9 @@ impl Kernel {
         let id = TaskId(state.last_id);
         let process = Process {
             pid: id,
+            start: self.host.monotonic(),
+            ident: Mutex::new(ident::Ident::new(id.0, &config.args)),
+            resources: Mutex::default(),
             args: config.args,
             env: config.env,
             mm: Mutex::default(),
@@ -1011,41 +1016,6 @@ impl Syscalls for Kernel {
         Ok(self.process(caller.task()).pid.0 as Pid)
     }
 
-    async fn getuid(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(ID)
-    }
-
-    async fn geteuid(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(ID)
-    }
-
-    async fn getgid(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(ID)
-    }
-
-    async fn getegid(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(ID)
-    }
-
-    // TODO: the nodename and domainname come from the UTS namespace once `sethostname` exists.
-    async fn uname(&self, caller: &Caller<'_>, name: NewUtsnamePtr) -> SysResult<i32> {
-        fn field(s: &str) -> [u8; 65] {
-            let mut out = [0; 65];
-            out[..s.len()].copy_from_slice(s.as_bytes());
-            out
-        }
-        let uts = NewUtsname {
-            sysname: field(SYSNAME),
-            nodename: field(NODENAME),
-            release: field(RELEASE),
-            version: field(VERSION),
-            machine: field(MACHINE),
-            domainname: field(DOMAINNAME),
-        };
-        write_value(caller.memory(), name, &uts).await?;
-        Ok(0)
-    }
-
     async fn gettid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
         Ok(caller.task().0 as Pid)
     }
@@ -1179,115 +1149,381 @@ impl Syscalls for Kernel {
         self.sys_getitimer(caller, which, value).await
     }
 
-    /// The break never moves, so musl's malloc falls back to `mmap`.
-    async fn brk(&self, _: &Caller<'_>, _: Uptr) -> SysResult<i32> {
+    // ---- base ----
+    async fn getppid(&self, _: &Caller<'_>) -> SysResult<Pid> {
         Ok(0)
     }
-
-    /// Anonymous mappings only, at an address the kernel picks; see `mm`.
+    async fn getuid(&self, _: &Caller<'_>) -> SysResult<i32> {
+        Ok(ID)
+    }
+    async fn geteuid(&self, _: &Caller<'_>) -> SysResult<i32> {
+        Ok(ID)
+    }
+    async fn getgid(&self, _: &Caller<'_>) -> SysResult<i32> {
+        Ok(ID)
+    }
+    async fn getegid(&self, _: &Caller<'_>) -> SysResult<i32> {
+        Ok(ID)
+    }
+    async fn setuid(&self, _: &Caller<'_>, uid: Uid) -> SysResult<i32> {
+        self.sys_set_ids(&[uid])
+    }
+    async fn setgid(&self, _: &Caller<'_>, gid: Gid) -> SysResult<i32> {
+        self.sys_set_ids(&[gid])
+    }
+    async fn setreuid(&self, _: &Caller<'_>, ruid: Uid, euid: Uid) -> SysResult<i32> {
+        self.sys_set_ids(&[ruid, euid])
+    }
+    async fn setregid(&self, _: &Caller<'_>, rgid: Gid, egid: Gid) -> SysResult<i32> {
+        self.sys_set_ids(&[rgid, egid])
+    }
+    async fn setresuid(&self, _: &Caller<'_>, r: Uid, e: Uid, s: Uid) -> SysResult<i32> {
+        self.sys_set_ids(&[r, e, s])
+    }
+    async fn setresgid(&self, _: &Caller<'_>, r: Gid, e: Gid, s: Gid) -> SysResult<i32> {
+        self.sys_set_ids(&[r, e, s])
+    }
+    async fn getresuid(
+        &self,
+        caller: &Caller<'_>,
+        r: UidPtr,
+        e: UidPtr,
+        s: UidPtr,
+    ) -> SysResult<i32> {
+        self.sys_getresid(caller, [r, e, s]).await
+    }
+    async fn getresgid(
+        &self,
+        caller: &Caller<'_>,
+        r: GidPtr,
+        e: GidPtr,
+        s: GidPtr,
+    ) -> SysResult<i32> {
+        self.sys_getresid(caller, [r, e, s]).await
+    }
+    async fn setfsuid(&self, _: &Caller<'_>, _: Uid) -> SysResult<i32> {
+        self.sys_setfsid()
+    }
+    async fn setfsgid(&self, _: &Caller<'_>, _: Gid) -> SysResult<i32> {
+        self.sys_setfsid()
+    }
+    async fn getgroups(&self, caller: &Caller<'_>, size: i32, list: GidArray) -> SysResult<i32> {
+        self.sys_getgroups(caller, size, list).await
+    }
+    async fn setgroups(&self, _: &Caller<'_>, _: i32, _: ConstGidArray) -> SysResult<i32> {
+        Err(Errno::EPERM.into())
+    }
+    async fn getpgid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
+        self.sys_getpgid(caller, pid)
+    }
+    async fn setpgid(&self, caller: &Caller<'_>, pid: Pid, pgid: Pid) -> SysResult<i32> {
+        self.sys_setpgid(caller, pid, pgid)
+    }
+    async fn getsid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
+        self.sys_getsid(caller, pid)
+    }
+    async fn setsid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
+        self.sys_setsid(caller)
+    }
+    async fn uname(&self, caller: &Caller<'_>, name: NewUtsnamePtr) -> SysResult<i32> {
+        self.sys_uname(caller, name).await
+    }
+    async fn sethostname(&self, _: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
+        self.sys_sethostname(name, len)
+    }
+    async fn setdomainname(&self, _: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
+        self.sys_sethostname(name, len)
+    }
+    async fn personality(&self, caller: &Caller<'_>, personality: u32) -> SysResult<i32> {
+        self.sys_personality(caller, personality)
+    }
+    async fn prctl(
+        &self,
+        caller: &Caller<'_>,
+        option: PrctlOption,
+        a2: Ulong,
+        a3: Ulong,
+        a4: Ulong,
+        a5: Ulong,
+    ) -> SysResult<i32> {
+        self.sys_prctl(caller, option, a2, a3, a4, a5).await
+    }
+    async fn prlimit64(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        resource: RlimitResource,
+        new: ConstRlimit64Ptr,
+        old: Rlimit64Ptr,
+    ) -> SysResult<i32> {
+        self.sys_prlimit64(caller, pid, resource, new, old).await
+    }
+    async fn getrusage(
+        &self,
+        caller: &Caller<'_>,
+        who: RusageWho,
+        ru: RusagePtr,
+    ) -> SysResult<i32> {
+        self.sys_getrusage(caller, who, ru).await
+    }
+    async fn times(&self, caller: &Caller<'_>, tbuf: TmsPtr) -> SysResult<i32> {
+        self.sys_times(caller, tbuf).await
+    }
+    async fn sysinfo(&self, caller: &Caller<'_>, info: SysinfoPtr) -> SysResult<i32> {
+        self.sys_sysinfo(caller, info).await
+    }
+    async fn getrandom(
+        &self,
+        caller: &Caller<'_>,
+        buf: UserSliceMut,
+        flags: GrndFlags,
+    ) -> SysResult<u32> {
+        self.sys_getrandom(caller, buf, flags).await
+    }
+    async fn sched_yield(&self, _: &Caller<'_>) -> SysResult<i32> {
+        self.sys_sched_yield().await
+    }
+    async fn sched_getscheduler(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<i32> {
+        self.sys_sched_getscheduler(caller, pid)
+    }
+    async fn sched_setscheduler(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        policy: SchedPolicy,
+        param: ConstSchedParamPtr,
+    ) -> SysResult<i32> {
+        self.sys_sched_setscheduler(caller, pid, Some(policy), param)
+            .await
+    }
+    async fn sched_setparam(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        param: ConstSchedParamPtr,
+    ) -> SysResult<i32> {
+        self.sys_sched_setscheduler(caller, pid, None, param).await
+    }
+    async fn sched_getparam(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        param: SchedParamPtr,
+    ) -> SysResult<i32> {
+        self.sys_sched_getparam(caller, pid, param).await
+    }
+    async fn sched_get_priority_max(&self, _: &Caller<'_>, policy: SchedPolicy) -> SysResult<i32> {
+        self.sys_sched_priority(policy, true)
+    }
+    async fn sched_get_priority_min(&self, _: &Caller<'_>, policy: SchedPolicy) -> SysResult<i32> {
+        self.sys_sched_priority(policy, false)
+    }
+    async fn sched_rr_get_interval_time64(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        interval: KernelTimespecPtr,
+    ) -> SysResult<i32> {
+        self.sys_sched_rr_get_interval(caller, pid, interval).await
+    }
+    async fn sched_getaffinity(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        len: u32,
+        mask: UlongArray,
+    ) -> SysResult<i32> {
+        self.sys_sched_getaffinity(caller, pid, len, mask).await
+    }
+    async fn sched_setaffinity(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        len: u32,
+        mask: UlongArray,
+    ) -> SysResult<i32> {
+        self.sys_sched_setaffinity(caller, pid, len, mask).await
+    }
+    async fn getcpu(
+        &self,
+        caller: &Caller<'_>,
+        cpu: U32Ptr,
+        node: U32Ptr,
+        _: VoidPtr,
+    ) -> SysResult<i32> {
+        self.sys_getcpu(caller, cpu, node).await
+    }
+    async fn getpriority(&self, caller: &Caller<'_>, which: PrioWhich, who: i32) -> SysResult<i32> {
+        self.sys_getpriority(caller, which, who)
+    }
+    async fn setpriority(
+        &self,
+        caller: &Caller<'_>,
+        which: PrioWhich,
+        who: i32,
+        nice: i32,
+    ) -> SysResult<i32> {
+        self.sys_setpriority(caller, which, who, nice)
+    }
+    async fn membarrier(
+        &self,
+        caller: &Caller<'_>,
+        cmd: MembarrierCmd,
+        flags: MembarrierCmdFlags,
+        _: i32,
+    ) -> SysResult<i32> {
+        self.sys_membarrier(caller, cmd, flags)
+    }
+    async fn brk(&self, caller: &Caller<'_>, brk: Uptr) -> SysResult<i32> {
+        self.sys_brk(caller, brk).await
+    }
     async fn mmap(
         &self,
         caller: &Caller<'_>,
-        _addr: Uptr,
+        addr: Uptr,
         len: Ulong,
-        _prot: ProtFlags,
+        prot: ProtFlags,
         flags: MapFlags,
-        _fd: Fd,
+        fd: Fd,
         offset: Loff,
     ) -> SysResult<Uptr> {
-        if offset % PAGE_SIZE as i64 != 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        // Shared anonymous memory is ordinary memory within one address space. Wasm modules
-        // cannot share part of their memory, so no other process will ever see it.
-        match flags & MapFlags::MAP_TYPE {
-            MapFlags::MAP_SHARED | MapFlags::MAP_PRIVATE | MapFlags::MAP_SHARED_VALIDATE => {}
-            _ => return Err(Errno::EINVAL.into()),
-        }
-        if !flags.contains(MapFlags::MAP_ANONYMOUS) {
-            return Err(Errno::ENODEV.into());
-        }
-        // TODO: MAP_FIXED over pages `mmap` already handed out, if wasm allows it.
-        if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
-            return Err(Errno::EINVAL.into());
-        }
-        let pages = mm::pages(len)?;
-        let process = self.process(caller.task());
-        let placement = process.mm.lock().unwrap().place(pages)?;
-        let addr = match placement {
-            Placement::Reuse(addr) => {
-                mm::zero(caller.memory(), addr, pages * PAGE_SIZE).await?;
-                addr
-            }
-            Placement::Grow(pages) => {
-                let previous = caller.memory().grow(pages).await.ok_or(Errno::ENOMEM)?;
-                process.mm.lock().unwrap().grown(previous, pages);
-                previous
-            }
-        };
-        Ok(addr as Uptr)
+        self.sys_mmap(caller, addr, len, prot, flags, fd, offset)
+            .await
     }
-
     async fn munmap(&self, caller: &Caller<'_>, addr: Uptr, len: Usize) -> SysResult<i32> {
-        if !u64::from(addr).is_multiple_of(PAGE_SIZE) || len == 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        let process = self.process(caller.task());
-        process.mm.lock().unwrap().unmap(addr.into(), len.into());
-        Ok(0)
+        self.sys_munmap(caller, addr, len).await
     }
-
+    async fn mremap(
+        &self,
+        caller: &Caller<'_>,
+        addr: Uptr,
+        old_len: Ulong,
+        new_len: Ulong,
+        flags: MremapFlags,
+        new_addr: Uptr,
+    ) -> SysResult<i32> {
+        self.sys_mremap(caller, addr, old_len, new_len, flags, new_addr)
+            .await
+    }
     async fn mprotect(
         &self,
-        _: &Caller<'_>,
+        caller: &Caller<'_>,
         start: Uptr,
-        _: Usize,
-        _: ProtFlags,
+        len: Usize,
+        prot: ProtFlags,
     ) -> SysResult<i32> {
-        if !u64::from(start).is_multiple_of(PAGE_SIZE) {
-            return Err(Errno::EINVAL.into());
-        }
+        self.sys_mprotect(caller, start, len, prot).await
+    }
+    async fn madvise(
+        &self,
+        caller: &Caller<'_>,
+        start: Uptr,
+        len: Usize,
+        advice: MadviseAdvice,
+    ) -> SysResult<i32> {
+        self.sys_madvise(caller, start, len, advice).await
+    }
+    async fn mincore(
+        &self,
+        caller: &Caller<'_>,
+        start: Uptr,
+        len: Usize,
+        vec: Buf,
+    ) -> SysResult<i32> {
+        self.sys_mincore(caller, start, len, vec).await
+    }
+    async fn msync(
+        &self,
+        caller: &Caller<'_>,
+        start: Uptr,
+        len: Usize,
+        flags: MsyncFlags,
+    ) -> SysResult<i32> {
+        self.sys_msync(caller, start, len, flags).await
+    }
+    async fn mlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
+        self.sys_mlock(caller, start, len, MlockFlags::empty())
+            .await
+    }
+    async fn mlock2(
+        &self,
+        caller: &Caller<'_>,
+        start: Uptr,
+        len: Usize,
+        flags: MlockFlags,
+    ) -> SysResult<i32> {
+        self.sys_mlock(caller, start, len, flags).await
+    }
+    async fn munlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
+        self.sys_mlock(caller, start, len, MlockFlags::empty())
+            .await
+    }
+    async fn mlockall(&self, _: &Caller<'_>, flags: MclFlags) -> SysResult<i32> {
+        self.sys_mlockall(flags)
+    }
+    async fn munlockall(&self, _: &Caller<'_>) -> SysResult<i32> {
         Ok(0)
     }
-
     async fn clock_gettime64(
         &self,
         caller: &Caller<'_>,
-        which_clock: ClockId,
+        clock: ClockId,
         tp: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        let now = time::now(&*self.host, which_clock)?;
-        write_value(caller.memory(), tp, &time::to_timespec(now)).await?;
-        Ok(0)
+        self.sys_clock_gettime(caller, clock, tp).await
     }
-
+    async fn clock_getres_time64(
+        &self,
+        caller: &Caller<'_>,
+        clock: ClockId,
+        tp: KernelTimespecPtr,
+    ) -> SysResult<i32> {
+        self.sys_clock_getres(caller, clock, tp).await
+    }
+    async fn clock_settime64(
+        &self,
+        caller: &Caller<'_>,
+        clock: ClockId,
+        tp: ConstKernelTimespecPtr,
+    ) -> SysResult<i32> {
+        self.sys_clock_settime(caller, clock, tp).await
+    }
     // Nothing interrupts a sleep yet, so `rmtp` is never written.
     async fn clock_nanosleep_time64(
         &self,
         caller: &Caller<'_>,
-        which_clock: ClockId,
+        clock: ClockId,
         flags: TimerFlags,
         rqtp: ConstKernelTimespecPtr,
-        _rmtp: KernelTimespecPtr,
+        _: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        let now = time::now(&*self.host, which_clock)?;
-        let request = time::from_timespec(read_value(caller.memory(), rqtp).await?)?;
-        let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
-        let realtime = matches!(
-            which_clock,
-            ClockId::CLOCK_REALTIME | ClockId::CLOCK_REALTIME_COARSE
-        );
-        let sleep = match (absolute, realtime) {
-            // Every other clock time::now accepts is the host's monotonic clock.
-            (true, false) => self.host.sleep_until(request),
-            (true, true) => self.host.sleep(request.saturating_sub(now)),
-            (false, _) => self.host.sleep(request),
-        };
-        // TODO: write the time left to `rmtp` and restart with it (`restart_block`).
-        self.interruptible_sleep(caller, sleep)
-            .await
-            .map_err(|_| wasixv2_syscalls::SysErr::RestartNoHand)?;
-        Ok(0)
+        self.sys_clock_nanosleep(caller, clock, flags, rqtp).await
+    }
+    async fn timerfd_create(
+        &self,
+        caller: &Caller<'_>,
+        clock: ClockId,
+        flags: TimerfdFlags,
+    ) -> SysResult<Fd> {
+        self.sys_timerfd_create(caller, clock, flags).await
+    }
+    async fn timerfd_settime64(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        flags: TimerfdSettimeFlags,
+        new: ConstKernelItimerspecPtr,
+        old: KernelItimerspecPtr,
+    ) -> SysResult<i32> {
+        self.sys_timerfd_settime(caller, fd, flags, new, old).await
+    }
+    async fn timerfd_gettime64(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        out: KernelItimerspecPtr,
+    ) -> SysResult<i32> {
+        self.sys_timerfd_gettime(caller, fd, out).await
     }
 
     // ---- poll ----

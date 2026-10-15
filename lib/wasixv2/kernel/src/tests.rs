@@ -275,10 +275,20 @@ fn mmap_grows_memory_and_reuses_unmapped_pages_zeroed() {
         10,
         ProtFlags(3),
         MapFlags::MAP_PRIVATE,
-        Fd(3),
+        Fd(0),
         0,
     ));
     assert_eq!(file_backed, Err(SysErr::Errno(Errno::ENODEV)));
+    let bad_fd = block_on(kernel.mmap(
+        &caller,
+        0,
+        10,
+        ProtFlags(3),
+        MapFlags::MAP_PRIVATE,
+        Fd(3),
+        0,
+    ));
+    assert_eq!(bad_fd, Err(SysErr::Errno(Errno::EBADF)));
     assert_eq!(mmap(0), Err(SysErr::Errno(Errno::EINVAL)));
     let unaligned = block_on(kernel.mmap(&caller, 0, 10, ProtFlags(3), anon, Fd(-1), 4096));
     assert_eq!(unaligned, Err(SysErr::Errno(Errno::EINVAL)));

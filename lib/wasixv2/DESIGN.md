@@ -578,8 +578,8 @@ These limits are why full compatibility stays a goal rather than a state we reac
 | --- | --- | --- |
 | Shared file mappings | No MMU, so no coherent `MAP_SHARED` file pages between processes | Impossible; shared file mappings are rejected |
 | Shared memory between processes | Wasm modules cannot share part of their memory | Impossible; `MAP_SHARED` anonymous memory stays private to its process, even across fork |
-| `MAP_FIXED` | Wasm memory only grows at the end | Rejected for now; may later work over pages `mmap` already handed out |
-| `mprotect`, guard pages | Linear memory has no page protection | Impossible; protections are not enforced |
+| `MAP_FIXED` | Wasm memory only grows at the end | Works over pages `brk` and `mmap` handed out and past the end of memory; the image's own pages cannot be replaced (`EINVAL`) |
+| `mprotect`, guard pages | Linear memory has no page protection | Impossible; protections are not enforced, and `PROT_EXEC` fails with `EACCES` |
 | Fork | No copy-on-write | Asyncify configuration only; memory is copied eagerly |
 | Async signals | Guests only stop at interruption checks | Engine interruption checks; latency is bounded by check density |
 | `ptrace` | No way to stop and inspect a guest at the instruction level | Exported, returns ENOSYS |
