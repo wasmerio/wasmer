@@ -197,7 +197,20 @@ impl Kernel {
     /// zombie, hands its children to a reaper, tells the parent, and releases a vfork parent.
     pub(crate) fn process_exited(&self, process: &Arc<Process>, task: TaskId, status: i32) {
         let pid = process.pid.0;
-        let (parent, exit, exit_signal, vfork_parent) = {
+        let parent = {
+            let tree = self.procs.tree.lock().unwrap();
+            match tree.nodes.get(&pid) {
+                Some(node) if node.exit.is_none() => node.parent,
+                _ => return,
+            }
+        };
+        self.exit_files(process);
+        // `do_notify_parent`: how the parent treats SIGCHLD decides whether a zombie stays.
+        let parent_signals = (parent != 0).then(|| self.group_signals(parent)).flatten();
+        let (ignored, nocldwait) = parent_signals
+            .as_ref()
+            .map_or((true, true), |signals| signals.child_reaping());
+        let (exit, exit_signal, vfork_parent) = {
             let mut tree = self.procs.tree.lock().unwrap();
             let reaper = tree.reaper(pid);
             let Some(node) = tree.nodes.get_mut(&pid) else {
@@ -217,7 +230,12 @@ impl Kernel {
                 },
             };
             node.exit = Some(exit);
-            let (parent, exit_signal) = (node.parent, node.exit_signal);
+            let exit_signal = node.exit_signal;
+            let autoreap = parent_signals.is_none()
+                || (exit_signal == Signal::SIGCHLD.0 && (ignored || nocldwait));
+            if autoreap {
+                tree.nodes.remove(&pid);
+            }
             let orphans: Vec<u32> = tree.children(pid).map(|(&child, _)| child).collect();
             for child in orphans {
                 let node = tree.nodes.get_mut(&child).expect("listed above");
@@ -226,8 +244,7 @@ impl Kernel {
                     tree.nodes.remove(&child);
                 }
             }
-            let vfork_parent = tree.vforks.remove(&task);
-            (parent, exit, exit_signal, vfork_parent)
+            (exit, exit_signal, tree.vforks.remove(&task))
         };
         if let Some(parent_task) = vfork_parent {
             let action = GuestAction::VforkReturn {
@@ -236,24 +253,11 @@ impl Kernel {
             };
             self.with_task(task, |t| t.pending = Some(action));
         }
-        self.exit_files(process);
-        // `do_notify_parent`.
-        let mut autoreap = true;
-        if parent != 0
-            && let Some(signals) = self.group_signals(parent)
+        if let Some(signals) = parent_signals
+            && exit_signal != 0
+            && !ignored
         {
-            let (ignored, nocldwait) = signals.child_reaping();
-            if exit_signal == Signal::SIGCHLD.0 {
-                autoreap = ignored || nocldwait;
-            } else {
-                autoreap = false;
-            }
-            if exit_signal != 0 && !ignored {
-                signals.send_group(child_info(exit_signal, pid, exit));
-            }
-        }
-        if autoreap {
-            self.procs.tree.lock().unwrap().nodes.remove(&pid);
+            signals.send_group(child_info(exit_signal, pid, exit));
         }
         self.procs.changed.wake(PollMask::empty());
     }
@@ -440,6 +444,10 @@ impl Kernel {
         }
         let path = crate::fs::read_path(caller.memory(), filename).await?;
         let mut args = read_strings(caller, argv).await?;
+        // Linux 5.18+: an empty argv gets an empty argv[0], so argc is never 0.
+        if args.is_empty() {
+            args.push(String::new());
+        }
         let env = read_strings(caller, envp).await?;
         let total: usize = args.iter().chain(&env).map(|s| s.len() + 1 + 4).sum();
         if total > ARG_MAX {
