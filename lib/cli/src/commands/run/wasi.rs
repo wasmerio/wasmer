@@ -55,8 +55,8 @@ use wasmer_wasix::{
 use crate::{
     config::{UserRegistry, WasmerEnv},
     utils::{
-        WAPM_SOURCE_CACHE_TIMEOUT, parse_envvar, parse_mapdir, parse_volume,
-        registry_query_cache_dir,
+        PublishedPort, WAPM_SOURCE_CACHE_TIMEOUT, parse_envvar, parse_mapdir, parse_publish,
+        parse_volume, registry_query_cache_dir,
     },
 };
 
@@ -152,6 +152,12 @@ pub struct Wasi {
     // Note that when --net is passed to the cli, the first Option will be initialized: Some(None)
     // and when --net=<ruleset> is specified, the inner Option will be initialized: Some(Some(ruleset))
     pub networking: Option<Option<String>>,
+
+    /// Forward connections to a host port to a port the guest listens on, as
+    /// `[HOST_IP:]HOST_PORT:GUEST_PORT`. The host address defaults to 127.0.0.1. Only for
+    /// WASIX v2 modules.
+    #[clap(long = "publish", name = "[HOST_IP:]HOST_PORT:GUEST_PORT", value_parser = parse_publish)]
+    pub(crate) publish: Vec<PublishedPort>,
 
     /// Disables the TTY bridge
     #[clap(long = "no-tty")]

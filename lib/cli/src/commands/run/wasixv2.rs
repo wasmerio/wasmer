@@ -1,43 +1,153 @@
-//! Runs modules that import `wasixv2` on the experimental WASIX v2 stack.
+//! Runs modules that import `wasixv2`, and packages whose command runs one, on the experimental
+//! WASIX v2 stack.
 
-use std::path::Path;
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    path::Path,
+    sync::Arc,
+};
 
 use anyhow::{Context, Error, bail};
 use wasixv2::{Machine, ProcessConfig, Stdio};
-use wasmer_wasix::{WasiError, runners::MAPPED_CURRENT_DIR_DEFAULT_PATH};
+use wasmer_wasix::{
+    Runtime, WasiError, bin_factory::BinaryPackage, runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
+    runtime::task_manager::VirtualTaskManagerExt as _,
+};
+use webc::{
+    metadata::annotations::{FileSystemMapping, Wasi as WasiAnnotation},
+    v3::read::OwnedReader,
+};
 
-use super::{Run, exit_with_wasi_exit_code, wasi::utf8_env_part};
+use super::{CliPackageSource, Run, exit_with_wasi_exit_code, wasi::utf8_env_part};
 use crate::backend::RuntimeOptions;
 
+/// What to start on the WASIX v2 stack.
+pub(super) struct Wasixv2Program {
+    argv0: String,
+    wasm: Vec<u8>,
+    /// The command's `wasi` annotation, for a package.
+    wasi: Option<WasiAnnotation>,
+    /// The package whose volumes are mounted as its manifest's `fs` annotation says. `None` for a
+    /// module, and for a package directory, whose `fs` table maps host directories instead
+    /// (they arrive as `--volume`s, as for v1).
+    package: Option<Arc<OwnedReader>>,
+}
+
+impl Wasixv2Program {
+    pub(super) fn module(path: &Path, wasm: Vec<u8>) -> Self {
+        Self {
+            argv0: path.display().to_string(),
+            wasm,
+            wasi: None,
+            package: None,
+        }
+    }
+
+    fn is_package(&self) -> bool {
+        self.wasi.is_some()
+    }
+}
+
 impl Run {
+    /// The program to run on WASIX v2 when the package's selected command is a WASIX v2
+    /// module, or `None` to run the package on v1. The command is chosen as for v1.
+    pub(super) fn wasixv2_package_program(
+        &self,
+        pkg: &BinaryPackage,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Option<Wasixv2Program>, Error> {
+        let name = match self.entrypoint.as_deref() {
+            Some(name) => name,
+            None => pkg.infer_entrypoint()?,
+        };
+        // A missing command is reported by the v1 path.
+        let Some(cmd) = pkg.get_command(name) else {
+            return Ok(None);
+        };
+        if !::wasixv2::is_wasixv2_module(cmd.atom_ref()) {
+            return Ok(None);
+        }
+        let wasi = cmd
+            .metadata()
+            .annotation::<WasiAnnotation>(WasiAnnotation::KEY)?
+            .unwrap_or_else(|| WasiAnnotation::new(name));
+        let package = match &self.input {
+            CliPackageSource::File(path) => Some(Arc::new(
+                OwnedReader::from_path(path).with_context(|| {
+                    format!(
+                        "WASIX v2 needs a webc v3 package, and \"{}\" is not one",
+                        path.display()
+                    )
+                })?,
+            )),
+            CliPackageSource::Dir(_) => None,
+            CliPackageSource::Package(specifier) => {
+                Some(load_registry_package(specifier, runtime)?)
+            }
+        };
+        Ok(Some(Wasixv2Program {
+            argv0: wasi.exec_name.clone().unwrap_or_else(|| name.to_string()),
+            wasm: cmd.atom_ref().to_vec(),
+            wasi: Some(wasi),
+            package,
+        }))
+    }
+
     pub(super) fn execute_wasixv2(
         &self,
-        path: &Path,
-        wasm: &[u8],
-        runtime: &tokio::runtime::Runtime,
+        program: Wasixv2Program,
+        runtime: &tokio::runtime::Handle,
     ) -> Result<(), Error> {
-        self.reject_options_unsupported_by_wasixv2()?;
+        self.reject_options_unsupported_by_wasixv2(program.is_package())?;
 
+        let wasi = program.wasi.as_ref();
         let config = ProcessConfig {
-            args: std::iter::once(path.display().to_string())
+            args: std::iter::once(program.argv0.clone())
+                .chain(wasi.and_then(|w| w.main_args.clone()).unwrap_or_default())
                 .chain(self.args.iter().cloned())
                 .collect(),
-            env: self.wasixv2_env()?,
+            env: self.wasixv2_env(wasi)?,
             stdio: Stdio::inherit(),
         };
-        // The machine's host calls are not `Send`, so drive it on this thread, in a `LocalSet`
-        // for the host work it spawns.
         let mut machine = Machine::new();
         let (have_current_dir, volumes) = self.wasi.build_mapped_directories(true)?;
-        if let Some(cwd) = &self.wasi.cwd {
+        // v1's precedence: the command's `cwd` annotation, then `--cwd`, then the mapped current
+        // directory.
+        let cwd = wasi
+            .and_then(|w| w.cwd.as_deref())
+            .or(self.wasi.cwd.as_deref());
+        if let Some(cwd) = cwd {
             if !cwd.starts_with("/") {
-                bail!("The argument to --cwd must be an absolute path");
+                bail!("The working directory must be an absolute path");
             }
             machine.set_working_dir(cwd.display().to_string());
         } else if have_current_dir {
             machine.set_working_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
         }
-        let run = tokio::task::LocalSet::new().block_on(runtime, async {
+        let package_mounts = match &program.package {
+            Some(reader) => package_mounts(reader)?,
+            None => Vec::new(),
+        };
+        // The machine's host calls are not `Send`, so drive it on this thread, in a `LocalSet`
+        // for the host work it spawns.
+        let run = runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+            for mapping in &package_mounts {
+                let reader = program
+                    .package
+                    .as_deref()
+                    .expect("mounts come from a package");
+                // Writable like v1's package mounts; changes stay in memory.
+                machine
+                    .mount_package_volume(&mapping.mount_path, reader, &mapping.volume_name, true)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "cannot mount the package volume \"{}\" at {}",
+                            mapping.volume_name, mapping.mount_path
+                        )
+                    })?;
+            }
+            // `--volume`s go on top, so they win over a package volume at the same path.
             for volume in &volumes {
                 machine
                     .mount_host_dir(&volume.guest, &volume.host, false)
@@ -46,8 +156,26 @@ impl Run {
                         format!("cannot map {} to {}", volume.host.display(), volume.guest)
                     })?;
             }
-            Ok::<_, Error>(machine.run_process(wasm, config).await?)
-        });
+            // Each publication lasts as long as its handle.
+            let _publications = self
+                .wasi
+                .publish
+                .iter()
+                .map(|port| {
+                    let guest = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), port.guest_port);
+                    machine
+                        .network()
+                        .publish(port.host, guest)
+                        .with_context(|| {
+                            format!(
+                                "cannot publish {} to guest port {}",
+                                port.host, port.guest_port
+                            )
+                        })
+                })
+                .collect::<Result<Vec<_>, Error>>()?;
+            Ok::<_, Error>(machine.run_process(&program.wasm, config).await?)
+        }));
         let result = match run {
             Ok(0) => Ok(()),
             Ok(status) => Err(WasiError::Exit(status.into()).into()),
@@ -58,23 +186,34 @@ impl Run {
         exit_with_wasi_exit_code(result)
     }
 
-    /// Same sources and precedence as the v1 runner: forwarded host variables, then the env
-    /// file, then `--env`.
-    fn wasixv2_env(&self) -> Result<Vec<String>, Error> {
-        let mut env = Vec::new();
+    /// Same sources and precedence as the v1 runner: the command's `env` annotation, then
+    /// forwarded host variables, then the env file, then `--env`; a later value for a name
+    /// replaces an earlier one.
+    fn wasixv2_env(&self, wasi: Option<&WasiAnnotation>) -> Result<Vec<String>, Error> {
+        let mut env: Vec<(String, String)> = Vec::new();
+        let mut set = |key: String, value: String| {
+            env.retain(|(k, _)| *k != key);
+            env.push((key, value));
+        };
+        for item in wasi.and_then(|w| w.env.as_deref()).unwrap_or_default() {
+            let (key, value) = item.split_once('=').unwrap_or((item, ""));
+            set(key.to_string(), value.to_string());
+        }
         if self.wasi.forward_host_env {
             for (key, value) in std::env::vars_os() {
-                env.push((utf8_env_part(key)?, utf8_env_part(value)?));
+                set(utf8_env_part(key)?, utf8_env_part(value)?);
             }
         }
-        env.extend(self.wasi.resolved_env_vars()?);
+        for (key, value) in self.wasi.resolved_env_vars()? {
+            set(key, value);
+        }
         Ok(env
             .into_iter()
             .map(|(key, value)| format!("{key}={value}"))
             .collect())
     }
 
-    fn reject_options_unsupported_by_wasixv2(&self) -> Result<(), Error> {
+    fn reject_options_unsupported_by_wasixv2(&self, is_package: bool) -> Result<(), Error> {
         let wasi = &self.wasi;
         #[allow(unused_mut)]
         let mut given = vec![
@@ -89,7 +228,8 @@ impl Run {
             ),
             ("--enable-cpu-backoff", wasi.enable_cpu_backoff.is_some()),
             ("--stack-size", self.stack_size.is_some()),
-            ("--entrypoint", self.entrypoint.is_some()),
+            // For a package it picks the command.
+            ("--entrypoint", !is_package && self.entrypoint.is_some()),
             ("--invoke", self.invoke.is_some()),
             ("--coredump-on-trap", self.coredump_on_trap.is_some()),
             ("--experimental-napi", self.experimental_napi),
@@ -119,4 +259,58 @@ impl Run {
         }
         Ok(())
     }
+}
+
+/// The registry package's container, through the same source and loader (and so the same
+/// download cache, memory-mapped) that resolved it for v1.
+fn load_registry_package(
+    specifier: &wasmer_config::package::PackageSource,
+    runtime: &Arc<dyn Runtime + Send + Sync>,
+) -> Result<Arc<OwnedReader>, Error> {
+    let container = {
+        let specifier = specifier.clone();
+        let runtime = runtime.clone();
+        runtime
+            .task_manager()
+            .clone()
+            .spawn_and_block_on(async move {
+                let summary = runtime.source().latest(&specifier).await?;
+                runtime.package_loader().load(&summary).await
+            })??
+    };
+    container.downcast::<OwnedReader>().map_err(|_| {
+        anyhow::anyhow!("WASIX v2 needs a webc v3 package, and {specifier} is not one")
+    })
+}
+
+/// The volumes of the package's `fs` annotation, parents before what is mounted inside them.
+/// v1 mounts a webc v3 volume's root wherever the mapping says, whatever its `host_path`; so
+/// does this. Volumes of dependencies and a volume at `/` are not supported yet.
+fn package_mounts(reader: &OwnedReader) -> Result<Vec<FileSystemMapping>, Error> {
+    let mut mappings = match reader.manifest().filesystem()? {
+        Some(fs) => fs.0,
+        None => return Ok(Vec::new()),
+    };
+    for mapping in &mappings {
+        if let Some(dependency) = &mapping.from {
+            bail!(
+                "WASIX v2 cannot mount volumes of dependencies yet (\"{}\" from \"{dependency}\")",
+                mapping.volume_name
+            );
+        }
+        if !mapping.mount_path.starts_with('/') {
+            bail!(
+                "the package mounts a volume at a relative path, {}",
+                mapping.mount_path
+            );
+        }
+        if Path::new(&mapping.mount_path) == Path::new("/") {
+            bail!(
+                "WASIX v2 cannot mount a package volume (\"{}\") at / yet",
+                mapping.volume_name
+            );
+        }
+    }
+    mappings.sort_by_key(|m| Path::new(&m.mount_path).components().count());
+    Ok(mappings)
 }

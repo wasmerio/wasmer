@@ -7082,6 +7082,7 @@ dependencies = [
  "wasmer",
  "wasmparser 0.259.0",
  "wat",
+ "webc",
 ]
 
 [[package]]
@@ -7924,6 +7925,7 @@ dependencies = [
  "target-lexicon 0.13.5",
  "tempfile",
  "tokio",
+ "wat",
 ]
 
 [[package]]

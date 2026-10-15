@@ -22,6 +22,10 @@ fn file(data: &'static [u8]) -> WEntry<'static> {
 
 /// `/a.txt`, `/bin/{tool,sh -> tool}`, `/empty/`, `/z/`.
 fn fs() -> PackageFs {
+    PackageFs::new(&reader(), "atom").unwrap()
+}
+
+fn reader() -> OwnedReader {
     let volume = dir(vec![
         ("z", WEntry::Dir(dir(vec![]))),
         ("a.txt", file(b"hello world")),
@@ -44,8 +48,7 @@ fn fs() -> PackageFs {
         .unwrap();
     writer.write_volume("atom", volume).unwrap();
     let webc = writer.finish(SignatureAlgorithm::None).unwrap();
-    let reader = OwnedReader::parse(webc).unwrap();
-    PackageFs::new(&reader, "atom").unwrap()
+    OwnedReader::parse(webc).unwrap()
 }
 
 fn lookup(fs: &PackageFs, path: &str) -> Arc<dyn Node> {
@@ -157,6 +160,15 @@ fn getattr_reports_a_root_owned_read_only_image() {
     assert_eq!(block_on(link.readlink()), Ok(b"tool".to_vec()));
     assert_eq!(block_on(link.getattr()).unwrap().size, 4);
     assert!(fs.info().read_only);
+}
+
+#[test]
+fn with_owner_sets_every_objects_owner() {
+    let fs = PackageFs::with_owner(&reader(), "atom", 1, 2).unwrap();
+    for path in ["", "a.txt", "bin", "bin/sh"] {
+        let attr = block_on(lookup(&fs, path).getattr()).unwrap();
+        assert_eq!((attr.uid, attr.gid), (1, 2), "{path}");
+    }
 }
 
 #[test]

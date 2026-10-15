@@ -8,6 +8,7 @@ pub(crate) mod unpack;
 pub(crate) mod yaml;
 
 use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -88,6 +89,41 @@ pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
 
         Some(position) => Ok((entry[..position].into(), entry[position + 1..].into())),
     }
+}
+
+/// A host port that forwards connections to a guest port (`--publish`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PublishedPort {
+    pub host: SocketAddr,
+    pub guest_port: u16,
+}
+
+/// Parses `[HOST_IP:]HOST_PORT:GUEST_PORT`, the format of `docker run --publish`, except that
+/// the host address defaults to loopback instead of every interface.
+pub fn parse_publish(entry: &str) -> Result<PublishedPort> {
+    let (host, guest_port) = entry
+        .rsplit_once(':')
+        .with_context(|| format!("expected [HOST_IP:]HOST_PORT:GUEST_PORT, got `{entry}`"))?;
+    let guest_port = guest_port
+        .parse()
+        .with_context(|| format!("invalid guest port in `{entry}`"))?;
+    let (ip, host_port) = match host.rsplit_once(':') {
+        Some((ip, port)) => {
+            let ip = ip.trim_start_matches('[').trim_end_matches(']');
+            let ip: IpAddr = ip
+                .parse()
+                .with_context(|| format!("invalid host address in `{entry}`"))?;
+            (ip, port)
+        }
+        None => (Ipv4Addr::LOCALHOST.into(), host),
+    };
+    let host_port = host_port
+        .parse()
+        .with_context(|| format!("invalid host port in `{entry}`"))?;
+    Ok(PublishedPort {
+        host: SocketAddr::new(ip, host_port),
+        guest_port,
+    })
 }
 
 pub(crate) const DEFAULT_PACKAGE_MANIFEST_FILE: &str = "wasmer.toml";
@@ -193,6 +229,29 @@ c: c
         let c: Value = serde_yaml::from_str(v3).unwrap();
         let merged = merge_yaml_values(&a, &b);
         assert_eq!(merged, c);
+    }
+
+    #[test]
+    fn test_parse_publish() {
+        let port = |host: &str, guest_port| PublishedPort {
+            host: host.parse().unwrap(),
+            guest_port,
+        };
+        assert_eq!(
+            parse_publish("8080:80").unwrap(),
+            port("127.0.0.1:8080", 80)
+        );
+        assert_eq!(
+            parse_publish("0.0.0.0:8080:80").unwrap(),
+            port("0.0.0.0:8080", 80)
+        );
+        assert_eq!(
+            parse_publish("[::1]:8080:80").unwrap(),
+            port("[::1]:8080", 80)
+        );
+        assert!(parse_publish("8080").is_err());
+        assert!(parse_publish("x:8080:80").is_err());
+        assert!(parse_publish("8080:70000").is_err());
     }
 
     #[test]

@@ -33,6 +33,7 @@ wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
 thiserror.workspace = true
 tracing.workspace = true
 wasmparser.workspace = true
+webc.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }

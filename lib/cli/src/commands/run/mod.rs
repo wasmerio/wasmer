@@ -292,7 +292,8 @@ impl Run {
             && ::wasixv2::is_wasixv2_module(wasm)
         {
             pb.finish_and_clear();
-            return self.execute_wasixv2(path, wasm, &runtime);
+            let program = wasixv2::Wasixv2Program::module(path, wasm.clone());
+            return self.execute_wasixv2(program, runtime.handle());
         }
 
         // Get engine with feature-based backend selection if possible
@@ -375,6 +376,12 @@ impl Run {
                     path,
                 } => self.execute_wasm(&path, module, module_hash, runtime.clone()),
                 ExecutableTarget::Package(pkg) => {
+                    #[cfg(feature = "wasixv2")]
+                    if let Some(program) =
+                        self.wasixv2_package_program(&pkg, &monitoring_runtime)?
+                    {
+                        return self.execute_wasixv2(program, &handle);
+                    }
                     // Check if we should update the engine based on the WebC package features
                     if let Some(cmd) = pkg.get_entrypoint_command()
                         && let Some(features) = cmd.wasm_features()
@@ -593,6 +600,10 @@ impl Run {
         is_wasix: bool,
     ) -> Result<WasiRunner, anyhow::Error> {
         let packages = self.load_injected_packages(runtime)?;
+
+        if !self.wasi.publish.is_empty() {
+            bail!("--publish is only supported for WASIX v2 modules");
+        }
 
         let mut runner = WasiRunner::new();
 

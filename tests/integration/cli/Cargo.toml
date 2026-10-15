@@ -33,6 +33,7 @@ once_cell.workspace = true
 futures.workspace = true
 regex.workspace = true
 libc.workspace = true
+wat.workspace = true
 
 [dependencies]
 anyhow.workspace = true

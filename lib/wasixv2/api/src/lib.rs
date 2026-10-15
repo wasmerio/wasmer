@@ -25,8 +25,11 @@ use wasixv2_trace::Trace;
 pub use wasixv2_vfs::Filesystem;
 use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, Vfs};
 use wasixv2_vfs_mem::MemFs;
+use wasixv2_vfs_overlay::OverlayFs;
+use wasixv2_vfs_package::PackageFs;
 pub use wasixv2_vnet::{Net, NetConfig};
 use wasmer::{Module, Store};
+use webc::v3::read::OwnedReader;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
@@ -127,6 +130,33 @@ impl Machine {
         };
         let fs = wasixv2_vfs_host::open(host_dir, self.host.clone(), options)?;
         self.mount(guest, fs, read_only).await
+    }
+
+    /// Mounts the volume `volume` of the webc v3 package `reader` at `guest`, sharing the
+    /// reader's buffer. With `writable`, the volume is the lower layer of an overlay whose upper
+    /// layer is in memory, so changes work and are lost with the machine; otherwise the mount is
+    /// read-only. Objects in the volume appear owned by the guest user.
+    pub async fn mount_package_volume(
+        &self,
+        guest: &str,
+        reader: &OwnedReader,
+        volume: &str,
+        writable: bool,
+    ) -> io::Result<()> {
+        let lower: Arc<dyn Filesystem> =
+            Arc::new(PackageFs::with_owner(reader, volume, USER, USER).map_err(io::Error::other)?);
+        let fs = if writable {
+            let upper: Arc<dyn Filesystem> = Arc::new(MemFs::new(
+                Arc::new(HostClock(self.host.clone())),
+                0o755,
+                USER,
+                USER,
+            ));
+            OverlayFs::new(Some(upper), vec![lower])
+        } else {
+            lower
+        };
+        self.mount(guest, fs, !writable).await
     }
 
     /// Makes new processes start in `dir`, an absolute guest path.

@@ -6,8 +6,8 @@
 //! container's buffer (an mmap or `Bytes`), so nothing is copied until a read fills the caller's
 //! buffer.
 //!
-//! What the image does not record is fixed: every object belongs to root (uid and gid 0), files
-//! and directories are `0755`, symlinks `0777`. Files are executable because v3 stores no mode
+//! What the image does not record is fixed: every object belongs to root (uid and gid 0) unless
+//! the embedder picks another owner, files and directories are `0755`, symlinks `0777`. Files are executable because v3 stores no mode
 //! bits and packages carry programs and scripts; nothing can be written anyway. All timestamps
 //! are the epoch, since the v3 reader does not expose the stored modification time. Inode
 //! numbers are handed out from a per-volume counter when a directory is first parsed (the root
@@ -67,6 +67,8 @@ struct Volume {
     // Never read: it owns the header bytes that `Directory<'static>` and names point into.
     _section: VolumeSection,
     size: u64,
+    /// The uid and gid every object reports.
+    owner: (u32, u32),
     /// The next inode number to hand out.
     next_ino: AtomicU64,
 }
@@ -75,6 +77,17 @@ impl PackageFs {
     /// Mounts the volume `name` of `reader` (for example `"atom"`, or a name from the
     /// manifest's `fs` annotation). Shares the reader's buffer.
     pub fn new(reader: &OwnedReader, name: &str) -> Result<Self, PackageFsError> {
+        Self::with_owner(reader, name, 0, 0)
+    }
+
+    /// Like [`PackageFs::new`], with every object owned by `uid` and `gid` instead of root, so
+    /// that an overlay copying them up gives that user files it can change.
+    pub fn with_owner(
+        reader: &OwnedReader,
+        name: &str,
+        uid: u32,
+        gid: u32,
+    ) -> Result<Self, PackageFsError> {
         let section = reader.get_volume(name)?;
         let size = reader.index().volumes.get(name).map_or(0, |e| e.span.len) as u64;
         let root = section.root()?;
@@ -87,6 +100,7 @@ impl PackageFs {
         let vol = Arc::new(Volume {
             _section: section,
             size,
+            owner: (uid, gid),
             next_ino: AtomicU64::new(ROOT_INO + 1),
         });
         let root = Arc::new(DirData::new(root, vol.clone()));
@@ -262,8 +276,8 @@ impl Node for PackageNode {
             file_type: self.kind.file_type(),
             mode,
             nlink,
-            uid: 0,
-            gid: 0,
+            uid: self.vol.owner.0,
+            gid: self.vol.owner.1,
             rdev: Device::default(),
             size,
             blocks: size.div_ceil(512),

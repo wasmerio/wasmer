@@ -638,6 +638,99 @@ fn run_wasixv2_libc_smoke_test_passes() {
         .stdout(contains("checks passed\n"));
 }
 
+/// Prints `/data/msg.txt`, then creates `/data/new.txt`. Exits with 0, or the errno of the
+/// first call that failed.
+const WASIXV2_PACKAGE_WAT: &str = r#"
+    (module
+      (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "read" (func $read (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 16) "/data/msg.txt\00")
+      (data (i32.const 48) "/data/new.txt\00")
+      (func $check (param $ret i32) (result i32)
+        (if (i32.lt_s (local.get $ret) (i32.const 0))
+          (then (call $exit_group (i32.sub (i32.const 0) (local.get $ret))) unreachable))
+        (local.get $ret))
+      (func (export "_start")
+        (local $fd i32)
+        (local.set $fd (call $check
+          (call $openat (i32.const -100) (i32.const 16) (i32.const 0) (i32.const 0))))
+        (drop (call $write (i32.const 1) (i32.const 1024)
+          (call $check (call $read (local.get $fd) (i32.const 1024) (i32.const 512)))))
+        ;; O_WRONLY | O_CREAT, 0644: package volumes are writable, as on v1.
+        (drop (call $check
+          (call $openat (i32.const -100) (i32.const 48) (i32.const 0x41) (i32.const 420))))
+        (call $exit_group (i32.const 0))
+        unreachable))
+"#;
+
+/// A package directory whose command runs a WASIX v2 module, with `data/` mounted at `/data`.
+fn wasixv2_package_dir() -> TempDir {
+    let temp = TempDir::new().unwrap();
+    let wasm = wat::parse_str(WASIXV2_PACKAGE_WAT).unwrap();
+    std::fs::write(temp.path().join("main.wasm"), wasm).unwrap();
+    std::fs::create_dir(temp.path().join("data")).unwrap();
+    std::fs::write(temp.path().join("data/msg.txt"), "from the package\n").unwrap();
+    std::fs::write(
+        temp.path().join("wasmer.toml"),
+        r#"
+            [[module]]
+            name = "main"
+            source = "main.wasm"
+
+            [fs]
+            "/data" = "data"
+
+            [[command]]
+            name = "main"
+            module = "main"
+            runner = "wasi"
+        "#,
+    )
+    .unwrap();
+    temp
+}
+
+#[test]
+fn run_wasixv2_webc_mounts_package_volumes() {
+    let package = wasixv2_package_dir();
+    let out = TempDir::new().unwrap();
+    let webc = out.path().join("wasixv2.webc");
+    wasmer_command()
+        .arg("-q")
+        .arg("package")
+        .arg("build")
+        .arg(package.path())
+        .arg("-o")
+        .arg(&webc)
+        .assert()
+        .success();
+    // The package's files are only in the webc from here on.
+    drop(package);
+
+    wasmer_command()
+        .arg("run")
+        .arg(&webc)
+        .assert()
+        .success()
+        .stdout("from the package\n");
+}
+
+#[test]
+fn run_wasixv2_package_dir_maps_its_fs_table() {
+    let package = wasixv2_package_dir();
+
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .assert()
+        .success()
+        .stdout("from the package\n");
+    assert!(package.path().join("data/new.txt").exists());
+}
+
 // Test that wasmer can run a complex path
 #[test]
 fn test_wasmer_run_complex_url() {
