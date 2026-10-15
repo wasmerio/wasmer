@@ -12,3 +12,11 @@ rust-version.workspace = true
 
 [dependencies]
 wasixv2-vfs = { path = "../vfs" }
+wasixv2-abi = { path = "../abi" }
+async-trait.workspace = true
+shared-buffer.workspace = true
+thiserror.workspace = true
+webc.workspace = true
+
+[dev-dependencies]
+futures.workspace = true

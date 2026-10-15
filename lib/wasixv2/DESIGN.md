@@ -311,6 +311,14 @@ Every change the VFS makes is reported to one `FsWatcher` as an `FsEvent` (creat
 
 `wasixv2-vfs-host` (Linux hosts only for now) holds every object as an `O_PATH` descriptor, so a file removed on the host stays usable through a guest that holds it, and resolves names with `openat(dir, name, O_PATH | O_NOFOLLOW)`, one component at a time and never `..`, so neither symlinks nor `..` can leave the mapped directory: the VFS interprets symlink targets inside the guest tree. Operations that need more than an `O_PATH` descriptor go through `/proc/self/fd/N`, which names the held inode exactly, as libfuse's `passthrough_ll` does. Blocking host calls run on the `Host` executor's blocking pool. Files the host user owns appear as owned by the guest user, and the reverse. Inode numbers are the host's, except on host mounts inside the directory, whose device index is folded into the high bits (overlayfs's `xino`) so numbers stay unique; those objects report their host device, which the VFS shows as an anonymous device of its own.
 
+### Package filesystems
+
+`wasixv2-vfs-package` mounts one volume of a webc v3 package read-only, like squashfs or erofs: `PackageFs::new(&OwnedReader, "atom")` gives a `Filesystem` to pass to `Vfs::mount`. Only the v3 reader (`webc::v3::read`) is used, never the version-agnostic container API.
+
+- **Lazy and zero-copy.** A directory's entries are parsed on its first lookup or read into a name-ordered table (v3 writes them sorted) that every node for it shares; lookups binary-search it. File data is a slice of the container's `OwnedBuffer` (mmap or `Bytes`); reads copy only into the caller's buffer. The tables borrow the volume header for `'static` while every holder keeps the volume alive.
+- **Metadata.** Everything is owned by root: files `0644`, directories `0755` with `2 + subdirectories` links, symlinks `0777`. Timestamps are the epoch, because the v3 reader does not expose the stored modification time. The root's inode number is 1 and a child's is the FNV-1a hash of its parent's number and its name, so numbers depend only on the layout.
+- **Read-only.** `FsInfo::read_only` makes the VFS answer `EROFS` and `statfs` report `ST_RDONLY`; the driver also returns `EROFS` for every mutation. `f_type` is `0x77656263` ("webc"), blocks are the volume's size and none are free. There are no extended attributes (`ENODATA`, empty list) and no holes. v3 symlinks are served as symlinks.
+
 ## Networking
 
 The kernel implements networking at the socket layer and has no TCP/IP stack. A guest can only observe sockets (ports, `bind` conflicts, accept queues, addresses, options, errno), and in-memory streams plus host sockets cover all of that.

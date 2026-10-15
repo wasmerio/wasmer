@@ -7229,7 +7229,13 @@ dependencies = [
 name = "wasixv2-vfs-package"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
+ "futures",
+ "shared-buffer",
+ "thiserror 2.0.21",
+ "wasixv2-abi",
  "wasixv2-vfs",
+ "webc",
 ]
 
 [[package]]
