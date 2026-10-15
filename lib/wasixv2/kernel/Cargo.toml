@@ -17,6 +17,7 @@ wasixv2-host = { path = "../host" }
 wasixv2-vfs = { path = "../vfs" }
 wasixv2-vnet = { path = "../vnet" }
 wasixv2-wait = { path = "../wait" }
+futures-util = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 futures.workspace = true

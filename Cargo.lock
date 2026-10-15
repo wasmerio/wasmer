@@ -7143,6 +7143,7 @@ name = "wasixv2-kernel"
 version = "0.0.0"
 dependencies = [
  "futures",
+ "futures-util",
  "wasixv2-abi",
  "wasixv2-host",
  "wasixv2-syscalls",

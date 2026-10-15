@@ -82,6 +82,9 @@ pub(crate) struct OpenFile {
     flags: Mutex<OpenFlags>,
     /// The file position; unused for streams.
     pos: Mutex<u64>,
+    /// Held across a call that reads and then moves the position, so threads sharing the
+    /// description never use one position twice (`f_pos_lock`, `FMODE_ATOMIC_POS`).
+    pos_lock: futures_util::lock::Mutex<()>,
     /// The epoll items watching this file, removed when it goes away.
     pub(crate) epoll_links: Mutex<Vec<EpollLink>>,
 }
@@ -93,6 +96,7 @@ impl OpenFile {
             backing,
             flags: Mutex::new(flags & kept),
             pos: Mutex::new(0),
+            pos_lock: futures_util::lock::Mutex::new(()),
             epoll_links: Mutex::default(),
         }
     }
@@ -104,6 +108,11 @@ impl OpenFile {
     pub(crate) fn set_status_flags(&self, flags: OpenFlags) {
         let mut current = self.flags.lock().unwrap();
         *current = (*current & !SETFL_MASK) | (flags & SETFL_MASK);
+    }
+
+    /// Serialises position updates for the duration of a call (`fdget_pos`).
+    pub(crate) async fn lock_pos(&self) -> futures_util::lock::MutexGuard<'_, ()> {
+        self.pos_lock.lock().await
     }
 
     /// The file position.
@@ -183,6 +192,7 @@ impl OpenFile {
             Backing::Stream(object) => return object.read(self.io(), buf).await,
             Backing::Inode(file) => file,
         };
+        let _pos = self.lock_pos().await;
         let pos = *self.pos.lock().unwrap();
         let n = file.read_at(buf, pos).await?;
         *self.pos.lock().unwrap() = pos + n as u64;
@@ -194,6 +204,7 @@ impl OpenFile {
             Backing::Stream(object) => return object.write(self.io(), data).await,
             Backing::Inode(file) => file,
         };
+        let _pos = self.lock_pos().await;
         if self.flags().contains(OpenFlags::O_APPEND) {
             let (end, n) = file.append(data).await?;
             *self.pos.lock().unwrap() = end;
@@ -236,6 +247,7 @@ impl OpenFile {
         if file.path_only {
             return Err(Errno::EBADF);
         }
+        let _pos = self.lock_pos().await;
         let current = self.pos();
         let is_dir = file.file_type() == FileType::Directory;
         let new = match base {

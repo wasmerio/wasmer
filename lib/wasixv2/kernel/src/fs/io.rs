@@ -186,6 +186,7 @@ impl Kernel {
         }
         let n = match &file.backing {
             Backing::Inode(inner) if flags.contains(RwfFlags::RWF_APPEND) => {
+                let _pos = file.lock_pos().await;
                 let (end, n) = inner.append(&data).await?;
                 if matches!(at, At::Position) {
                     file.set_pos(end);
@@ -196,6 +197,7 @@ impl Kernel {
                 if flags.contains(RwfFlags::RWF_NOAPPEND)
                     && file.flags().contains(OpenFlags::O_APPEND) =>
             {
+                let _pos = file.lock_pos().await;
                 let offset = match at {
                     At::Offset(offset) => offset,
                     At::Position => file.pos(),
@@ -264,6 +266,7 @@ impl Kernel {
             limit: count as usize,
             too_small: false,
         };
+        let _pos = file.lock_pos().await;
         let pos = inner.readdir(file.pos(), &mut sink).await?;
         if sink.out.is_empty() && sink.too_small {
             return Err(Errno::EINVAL.into());
