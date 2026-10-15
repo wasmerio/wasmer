@@ -61,6 +61,7 @@ A line starting with `====` is a section divider. The divider comments
 | `@union` | record | All fields are at offset 0. |
 | `@size(N)`, `@align(N)` | record | The riscv32 layout. Generators assert it. Every record has both. |
 | `@repr(T)` | enum, flags | The integer type of the constant family. |
+| `@abi-error` | enum | The errno family whose values syscalls return negated (`-errno`). At most one enum has it, and its `@repr` must be signed. Used on `errno`. |
 | `@value(N)` | enum case, flags member | The value, in decimal or `0x` hex, and possibly negative. Flags members carry the full mask, not a bit index. Aliases may share a value. |
 | `@name(C_NAME)` | enum case, flags member | The exact C name, when it is not the SCREAMING_SNAKE form of the case name. |
 | `@c-name(c_name)` | record field | The exact C field name, when it is not the snake form of the field name. |
