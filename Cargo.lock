@@ -7223,6 +7223,7 @@ dependencies = [
 name = "wasixv2-vnet"
 version = "0.0.0"
 dependencies = [
+ "tracing",
  "wasixv2-abi",
  "wasixv2-wait",
 ]
