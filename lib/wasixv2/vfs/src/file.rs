@@ -1,0 +1,221 @@
+//! Open files: the filesystem part of an open file description.
+
+use std::sync::Arc;
+
+use wasixv2_abi::Errno;
+
+use crate::{
+    Vfs,
+    driver::{Handle, Node},
+    locks::LockKey,
+    mount::Path,
+    notify::{FsEvent, Object},
+    types::{DirEntry, DirSink, FileType, FsResult},
+};
+
+/// The directory position after the last entry (tmpfs's `DIR_OFFSET_EOD`). Entries added after a
+/// reader reached the end are not returned until it seeks back.
+pub const DIR_POS_EOD: u64 = i32::MAX as u64;
+
+/// An opened object. Shared by every descriptor of one open file description; dropping the last
+/// reference is the last close.
+pub struct File {
+    pub path: Path,
+    handle: Option<Box<dyn Handle>>,
+    /// Unique per open, the owner of `flock` and OFD locks.
+    pub id: u64,
+    pub readable: bool,
+    pub writable: bool,
+    /// Opened with `O_PATH`: only usable as a location.
+    pub path_only: bool,
+    vfs: Arc<Vfs>,
+}
+
+impl File {
+    pub(crate) fn new(
+        vfs: Arc<Vfs>,
+        path: Path,
+        handle: Option<Box<dyn Handle>>,
+        readable: bool,
+        writable: bool,
+        path_only: bool,
+    ) -> Self {
+        Self {
+            id: vfs.next_id(),
+            path,
+            handle,
+            readable,
+            writable,
+            path_only,
+            vfs,
+        }
+    }
+
+    pub fn node(&self) -> &Arc<dyn Node> {
+        self.path.dentry.node()
+    }
+
+    pub fn file_type(&self) -> FileType {
+        self.node().file_type()
+    }
+
+    pub fn vfs(&self) -> &Arc<Vfs> {
+        &self.vfs
+    }
+
+    /// The key this object's locks are filed under.
+    pub fn lock_key(&self) -> LockKey {
+        (self.path.dentry.sb().id, self.node().ino())
+    }
+
+    pub(crate) fn object(&self) -> Object {
+        Object {
+            sb: self.path.dentry.sb().id,
+            ino: self.node().ino(),
+        }
+    }
+
+    fn handle(&self) -> FsResult<&dyn Handle> {
+        match (&self.handle, self.file_type()) {
+            (Some(handle), _) => Ok(handle.as_ref()),
+            (None, FileType::Directory) => Err(Errno::EISDIR),
+            (None, _) => Err(Errno::EINVAL),
+        }
+    }
+
+    /// Reads at `offset` (`vfs_read` after the access-mode check).
+    pub async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
+        let handle = self.handle()?;
+        let n = handle.read_at(buf, offset).await?;
+        self.vfs.notify(FsEvent::Access {
+            object: self.object(),
+        });
+        Ok(n)
+    }
+
+    pub async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
+        let handle = self.handle()?;
+        let n = handle.write_at(data, offset).await?;
+        self.modified(n);
+        Ok(n)
+    }
+
+    /// Writes at the end of the file (`O_APPEND`). Returns the offset after the data.
+    pub async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {
+        let handle = self.handle()?;
+        let (at, n) = handle.append(data).await?;
+        self.modified(n);
+        Ok((at + n as u64, n))
+    }
+
+    fn modified(&self, n: usize) {
+        if n > 0 {
+            self.vfs.notify(FsEvent::Modify {
+                object: self.object(),
+            });
+        }
+    }
+
+    pub async fn sync(&self, data_only: bool) -> FsResult<()> {
+        match &self.handle {
+            Some(handle) => handle.sync(data_only).await,
+            None => Ok(()),
+        }
+    }
+
+    pub async fn allocate(&self, mode: crate::AllocMode, offset: u64, len: u64) -> FsResult<()> {
+        self.handle()?.allocate(mode, offset, len).await?;
+        self.modified(1);
+        Ok(())
+    }
+
+    pub async fn seek_hole(&self, offset: u64, which: crate::SeekHole) -> FsResult<u64> {
+        let size = self.node().getattr().await?.size;
+        self.handle()?.seek_hole(offset, size, which).await
+    }
+
+    /// Reads directory entries from position `pos` into `sink`, `.` and `..` first, and returns
+    /// the position after the last entry taken (`iterate_dir` with `dir_emit_dots`).
+    pub async fn readdir(&self, pos: u64, sink: &mut dyn DirSink) -> FsResult<u64> {
+        if self.file_type() != FileType::Directory {
+            return Err(Errno::ENOTDIR);
+        }
+        let handle = self.handle.as_deref().ok_or(Errno::EBADF)?;
+        let mut pos = pos;
+        if pos == 0 {
+            let dot = DirEntry {
+                name: b".",
+                ino: self.node().ino(),
+                file_type: FileType::Directory,
+                next: 1,
+            };
+            if !sink.push(dot) {
+                return Ok(pos);
+            }
+            pos = 1;
+        }
+        if pos == 1 {
+            let parent_ino = self
+                .path
+                .dentry
+                .parent()
+                .map_or(self.node().ino(), |parent| parent.node().ino());
+            let dotdot = DirEntry {
+                name: b"..",
+                ino: parent_ino,
+                file_type: FileType::Directory,
+                next: 2,
+            };
+            if !sink.push(dotdot) {
+                return Ok(pos);
+            }
+            pos = 2;
+        }
+        if pos >= DIR_POS_EOD {
+            return Ok(pos);
+        }
+        let mut shifted = Shifted {
+            inner: sink,
+            pos,
+            full: false,
+        };
+        handle.readdir(pos - 2, &mut shifted).await?;
+        Ok(if shifted.full {
+            shifted.pos
+        } else {
+            DIR_POS_EOD
+        })
+    }
+}
+
+/// Maps driver cookies into the position space after `.` and `..`.
+struct Shifted<'a> {
+    inner: &'a mut dyn DirSink,
+    pos: u64,
+    full: bool,
+}
+
+impl DirSink for Shifted<'_> {
+    fn push(&mut self, entry: DirEntry<'_>) -> bool {
+        let next = (entry.next + 2).min(DIR_POS_EOD - 1);
+        if !self.inner.push(DirEntry { next, ..entry }) {
+            self.full = true;
+            return false;
+        }
+        self.pos = next;
+        true
+    }
+}
+
+impl Drop for File {
+    fn drop(&mut self) {
+        if self.path_only {
+            return;
+        }
+        self.vfs.locks.release_file(self.lock_key(), self.id);
+        self.vfs.notify(FsEvent::Close {
+            object: self.object(),
+            wrote: self.writable,
+        });
+    }
+}

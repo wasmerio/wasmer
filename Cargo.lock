@@ -7186,8 +7186,11 @@ dependencies = [
 name = "wasixv2-vfs"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
+ "futures",
+ "futures-util",
  "wasixv2-abi",
- "wasixv2-host",
+ "wasixv2-vfs-mem",
 ]
 
 [[package]]
@@ -7201,6 +7204,7 @@ dependencies = [
 name = "wasixv2-vfs-mem"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "futures",
  "wasixv2-abi",
  "wasixv2-vfs",

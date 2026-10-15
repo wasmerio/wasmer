@@ -1,142 +1,198 @@
-//! The single VFS: mount trees, path walking, name cache, permission checks, file locks, change
-//! notification, and the inode-based trait that filesystem drivers implement.
+//! The single VFS: mount trees, path walking, the name cache, permission checks, file locks,
+//! change notification, and the inode-based traits filesystem drivers implement.
 //!
-//! So far: the inode trait and a path walk over one tree. There are no mounts, symlinks, modes or
-//! permission checks yet.
+//! Drivers ([`Filesystem`], [`Node`], [`Handle`]) only store data. Everything a program can
+//! observe about paths and permissions is decided here, following Linux's `fs/` code; the kernel
+//! decodes syscall arguments and calls [`Vfs`].
 
-use std::sync::Arc;
+mod cred;
+mod dentry;
+mod driver;
+mod file;
+mod locks;
+mod mount;
+mod namei;
+mod notify;
+mod ops;
+mod types;
 
-use wasixv2_abi::Errno;
-pub use wasixv2_host::LocalFuture;
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
+
+pub use cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission};
+pub use dentry::Dentry;
+pub use driver::{Filesystem, Handle, MAX_DIR_COOKIE, Node};
+pub use file::{DIR_POS_EOD, File};
+pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};
+pub use mount::{Mount, MountFlags, Namespace, Path, Superblock};
+pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
+pub use notify::{FsEvent, FsWatcher, Object as FsObject};
+pub use ops::{Ctx, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
+pub use types::*;
+pub use wasixv2_abi::Errno;
 
 /// Longest path, including its terminating NUL, that a syscall accepts.
 pub const PATH_MAX: usize = 4096;
 /// Longest single path component.
 pub const NAME_MAX: usize = 255;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FileType {
-    Regular,
-    Directory,
+/// The VFS of one machine: its mount tree, lock tables and watchers.
+pub struct Vfs {
+    pub(crate) ns: Namespace,
+    next_id: AtomicU64,
+    pub locks: LockManager,
+    watcher: std::sync::RwLock<Option<Arc<dyn FsWatcher>>>,
 }
 
-/// A file or directory of one filesystem, as its driver implements it.
-///
-/// Data methods apply to regular files and default to `EISDIR`; namespace methods apply to
-/// directories and default to `ENOTDIR`. Names are single components, never `.` or `..`.
-pub trait Inode: Send + Sync {
-    fn file_type(&self) -> FileType;
-
-    /// Size in bytes.
-    fn size(&self) -> u64 {
-        0
+impl Vfs {
+    /// A VFS whose root is `root`.
+    pub fn new(root: Arc<dyn Filesystem>) -> Arc<Self> {
+        let next_id = AtomicU64::new(1);
+        let sb = new_superblock(&next_id, root);
+        let root_dentry = Dentry::root(sb.clone(), sb.fs.root());
+        let mount = Arc::new(Mount {
+            id: next_id.fetch_add(1, Ordering::Relaxed),
+            root: root_dentry,
+            flags: MountFlags::default(),
+            parent: std::sync::Mutex::new(None),
+        });
+        Arc::new(Self {
+            ns: Namespace::new(mount),
+            next_id,
+            locks: LockManager::default(),
+            watcher: std::sync::RwLock::new(None),
+        })
     }
 
-    /// Reads at `offset`; returns 0 at or past the end.
-    fn read_at<'a>(
-        &'a self,
-        _buf: &'a mut [u8],
-        _offset: u64,
-    ) -> LocalFuture<'a, Result<usize, Errno>> {
-        Box::pin(async { Err(Errno::EISDIR) })
+    pub fn namespace(&self) -> &Namespace {
+        &self.ns
     }
 
-    /// Writes at `offset`, extending the file (with a hole) if `offset` is past the end.
-    fn write_at<'a>(
-        &'a self,
-        _data: &'a [u8],
-        _offset: u64,
-    ) -> LocalFuture<'a, Result<usize, Errno>> {
-        Box::pin(async { Err(Errno::EISDIR) })
+    /// The root of the mount tree.
+    pub fn root(&self) -> Path {
+        self.ns.root()
     }
 
-    /// Sets the size, discarding data past it or extending with zeroes.
-    fn truncate(&self, _size: u64) -> Result<(), Errno> {
-        Err(Errno::EISDIR)
+    pub(crate) fn next_id(&self) -> u64 {
+        self.next_id.fetch_add(1, Ordering::Relaxed)
     }
 
-    /// The containing directory; `None` for the root.
-    fn parent(&self) -> Option<Arc<dyn Inode>> {
-        None
+    /// Mounts `fs` on the directory `at` (resolved from the tree's root with full privileges),
+    /// as the embedder configures the machine. With `create`, missing directories along `at` are
+    /// made first, as `mkdir -p` would.
+    pub async fn mount(
+        &self,
+        at: &[u8],
+        fs: Arc<dyn Filesystem>,
+        flags: MountFlags,
+        create: bool,
+    ) -> FsResult<Arc<Mount>> {
+        let sb = new_superblock(&self.next_id, fs);
+        let root = Dentry::root(sb.clone(), sb.fs.root());
+        self.attach(at, root, flags, create).await
     }
 
-    fn lookup(&self, _name: &[u8]) -> Result<Arc<dyn Inode>, Errno> {
-        Err(Errno::ENOTDIR)
+    /// Bind-mounts the tree at `from` on `at` (`mount --bind`).
+    pub async fn bind_mount(
+        &self,
+        from: &[u8],
+        at: &[u8],
+        flags: MountFlags,
+        create: bool,
+    ) -> FsResult<Arc<Mount>> {
+        let cred = Cred::root();
+        let root = self.root();
+        let cx = Ctx {
+            cred: &cred,
+            root: &root,
+            umask: 0o022,
+        };
+        let source = self.lookup(&cx, &root, from, LookupFlags::follow()).await?;
+        self.attach(at, source.dentry, flags, create).await
     }
 
-    /// Creates an empty file or directory; `EEXIST` if the name is taken.
-    fn create(&self, _name: &[u8], _file_type: FileType) -> Result<Arc<dyn Inode>, Errno> {
-        Err(Errno::ENOTDIR)
-    }
-
-    /// Removes `name`, which must have type `file_type`, as `unlink` (regular) or `rmdir`
-    /// (directory) do.
-    fn remove(&self, _name: &[u8], _file_type: FileType) -> Result<(), Errno> {
-        Err(Errno::ENOTDIR)
-    }
-}
-
-/// A path split into the directory holding its last component and that component.
-pub struct Parent {
-    pub dir: Arc<dyn Inode>,
-    /// `None` when the path ends in `.`, `..` or `/`, which name a directory and not an entry.
-    pub name: Option<Vec<u8>>,
-}
-
-/// Walks every component of `path` but the last, from `root` for an absolute path and from `start`
-/// otherwise.
-pub fn walk_parent(
-    root: &Arc<dyn Inode>,
-    start: &Arc<dyn Inode>,
-    path: &[u8],
-) -> Result<Parent, Errno> {
-    if path.is_empty() {
-        return Err(Errno::ENOENT);
-    }
-    let mut dir = if path[0] == b'/' {
-        root.clone()
-    } else {
-        start.clone()
-    };
-    let mut components = path
-        .split(|&b| b == b'/')
-        .filter(|c| !c.is_empty())
-        .peekable();
-    while let Some(component) = components.next() {
-        if component.len() > NAME_MAX {
-            return Err(Errno::ENAMETOOLONG);
+    async fn attach(
+        &self,
+        at: &[u8],
+        root: Arc<Dentry>,
+        flags: MountFlags,
+        create: bool,
+    ) -> FsResult<Arc<Mount>> {
+        let cred = Cred::root();
+        let ns_root = self.root();
+        let cx = Ctx {
+            cred: &cred,
+            root: &ns_root,
+            umask: 0o022,
+        };
+        if create {
+            self.mkdir_all(&cx, at).await?;
         }
-        let last = components.peek().is_none();
-        match component {
-            b"." => {}
-            b".." => dir = dir.parent().unwrap_or(dir),
-            name if last && !path.ends_with(b"/") => {
-                if dir.file_type() != FileType::Directory {
-                    return Err(Errno::ENOTDIR);
-                }
-                return Ok(Parent {
-                    dir,
-                    name: Some(name.to_vec()),
-                });
-            }
-            name => dir = dir.lookup(name)?,
+        let target = self
+            .lookup(&cx, &ns_root, at, LookupFlags::follow())
+            .await?;
+        if target.dentry.is_dir() != root.is_dir() {
+            return Err(if root.is_dir() {
+                Errno::ENOTDIR
+            } else {
+                Errno::EISDIR
+            });
+        }
+        let mount = Arc::new(Mount {
+            id: self.next_id(),
+            root,
+            flags,
+            parent: std::sync::Mutex::new(None),
+        });
+        self.ns.attach(mount.clone(), &target);
+        Ok(mount)
+    }
+
+    /// Detaches the topmost mount on `at` (resolved with full privileges).
+    pub async fn umount(&self, at: &[u8]) -> FsResult<()> {
+        let cred = Cred::root();
+        let root = self.root();
+        let cx = Ctx {
+            cred: &cred,
+            root: &root,
+            umask: 0,
+        };
+        let path = self.lookup(&cx, &root, at, LookupFlags::follow()).await?;
+        if !path.is_mount_root() {
+            return Err(Errno::EINVAL);
+        }
+        let mountpoint = path.mnt.parent().ok_or(Errno::EBUSY)?;
+        self.ns.detach(&mountpoint).ok_or(Errno::EINVAL)?;
+        Ok(())
+    }
+
+    /// Installs the watcher that receives change notifications.
+    pub fn set_watcher(&self, watcher: Option<Arc<dyn FsWatcher>>) {
+        *self.watcher.write().unwrap() = watcher;
+    }
+
+    pub(crate) fn notify(&self, event: FsEvent<'_>) {
+        if let Some(watcher) = &*self.watcher.read().unwrap() {
+            watcher.event(&event);
         }
     }
-    if dir.file_type() != FileType::Directory {
-        return Err(Errno::ENOTDIR);
-    }
-    Ok(Parent { dir, name: None })
 }
 
-/// Resolves `path` to an existing inode, as `walk_parent` plus a lookup of the last component.
-pub fn walk(
-    root: &Arc<dyn Inode>,
-    start: &Arc<dyn Inode>,
-    path: &[u8],
-) -> Result<Arc<dyn Inode>, Errno> {
-    let parent = walk_parent(root, start, path)?;
-    match parent.name {
-        Some(name) => parent.dir.lookup(&name),
-        None => Ok(parent.dir),
-    }
+fn new_superblock(next_id: &AtomicU64, fs: Arc<dyn Filesystem>) -> Arc<Superblock> {
+    let id = next_id.fetch_add(1, Ordering::Relaxed);
+    let info = fs.info();
+    // Anonymous devices have major 0, like the ones Linux hands tmpfs.
+    let dev = info.dev.unwrap_or(Device {
+        major: 0,
+        minor: id as u32 & 0xfffff,
+    });
+    Arc::new(Superblock {
+        id,
+        dev,
+        fs,
+        info,
+        rename_lock: futures_util::lock::Mutex::new(()),
+    })
 }
