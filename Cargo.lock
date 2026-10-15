@@ -7240,6 +7240,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasixv2-wait"
+version = "0.0.0"
+dependencies = [
+ "futures",
+ "wasixv2-abi",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.129"
 source = "registry+https://github.com/rust-lang/crates.io-index"
