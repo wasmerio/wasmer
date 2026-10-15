@@ -449,7 +449,7 @@ The execution crate is the only layer below the facade that knows about the wasm
 - **Build configurations.** All three work from day one:
   - **Exception handling with exnref** (the default). `setjmp`/`longjmp` use wasm exceptions.
   - **Exception handling plus PIC.** For programs that need dynamic linking.
-  - **Asyncify.** For programs that need `fork`, which today means bash, and for guests that will be checkpointed. Asyncify also implements `setjmp`/`longjmp` in this configuration.
+  - **Asyncify.** For programs that need `fork`, which today means bash, and for guests that will be checkpointed. Binaryen's asyncify cannot be combined with wasm exceptions, so in this configuration `setjmp`/`longjmp` use the `stack-save` and `stack-restore` extensions, v1's `stack_checkpoint` and `stack_restore`, which only libc calls. Modules in other configurations get `ENOSYS` from them.
 - **Return to guest.** After every syscall and at every preemption point, the hook runs pending work:
   - deliver signals: build the frame, run the handler, and have `rt_sigreturn` restore state
   - restart interrupted calls
@@ -560,6 +560,14 @@ pub trait Executor: Send + Sync {
 - **Exec in the browser.** `wasixv2-exec`, `wasixv2-dylink` and the facade build for `wasm32-unknown-unknown` with the `js` feature, since wasmer's js backend implements async host functions and `call_async` with JSPI (`WebAssembly.Suspending` and `promising`). Running a guest has not been tried yet. It needs a JSPI-capable engine, and guests built with exception handling need exnref support.
 - **Shared memory.** libc-built guests import a shared memory, which needs `SharedArrayBuffer` and therefore a cross-origin isolated page (COOP and COEP headers).
 
+## Function tables
+
+`call-dynamic`, `reflect-signature` and the closure calls exist because a guest cannot call through a signature chosen at run time, inspect a table entry's type, or create a function. libffi needs all three. They keep wasix-libc's C shapes, and live in `wasixv2-dylink`, since they manage the function table and generated code as dynamic linking does.
+
+- **`call-dynamic`** calls a table entry with argument and result buffers. Its strict mode requires the buffers to match the signature. Its lax mode follows native calling conventions as far as wasm allows, because C code routinely calls through a function pointer of the wrong arity (K&R `void (*)()` casts, CPython's `METH_NOARGS`, GLib callbacks): extra arguments are dropped, missing ones and missing results are zero. Types of the arguments both sides have must still match, as no native ABI defines those mismatches either.
+- **Closures come from per-type stub pools.** wasixv1 compiles a module per closure, because it bakes the backing function and environment into the code. Instead, the host generates one module per function type exporting a batch of stubs, and grows the pool by another, larger batch when it runs out. Stub *k* reads its backing function and environment from entry *k* of an array in linear memory, in the host-owned arena dynamic linking uses for TLS, so a batch is compiled and instantiated once per type, and wasmer's module cache can reuse it across processes. `closure-prepare` takes a free stub of the right type, writes the two values to its entry, and places the stub in the closure's table slot.
+- **One table write per closure remains.** libffi fixes a closure's code address in `ffi_closure_alloc`, before `ffi_prep_closure_loc` gives its type, and CPython's ctypes and cffi depend on that order. So `closure-allocate` reserves a slot without knowing the pool, and `closure-prepare` writes it in every thread, with the stop-the-world described for dynamic linking. Avoiding that would take a separate libffi port, which is not worth it.
+
 ## Recording, replay and checkpointing
 
 These are two separate features. Recording is a syscall layer; checkpointing serializes kernel state directly.
@@ -567,11 +575,33 @@ These are two separate features. Recording is a syscall layer; checkpointing ser
 | Feature | Where | How | Used for |
 | --- | --- | --- | --- |
 | Record and replay | Generic syscall layer | Logs each call, its result and every byte copied to the guest. Replay returns the logged results without running the kernel, as rr does. | Deterministic debugging, auditing, reproducing failures |
-| Checkpoint and restore | Kernel crate plus a checkpoint crate | Serializes the kernel object graph and guest memory, then rebuilds them on restore, as CRIU does | Snapshots, fast start, migration; the guest must use the asyncify configuration to capture its stack |
+| Checkpoint and restore | Kernel crate plus a checkpoint crate | Serializes the kernel object graph and guest memory, then rebuilds them on restore, as CRIU does | Snapshots, fast start, migration; the stack being captured must be asyncify-instrumented |
 
 Rebuilding state by re-running a syscall log would force the log to understand kernel semantics in order to compact it. Checkpointing avoids that.
 
+**Guest-triggered checkpoints.** A guest can checkpoint itself with the `checkpoint` extension, v1's `proc_snapshot`. This is what lets a module built with exception handling, such as the PHP interpreter, work with instaboot. One carefully chosen call site plus a short list of asyncify-instrumented functions on the path to it are exactly the stack the host has to capture, and the rest of the module needs no asyncify. The call returns twice: 0 when the checkpoint is taken, and 1 in a process resumed from it, which must then reseed randomness and reconnect what it needs. A call path with a function that is not instrumented gets `EINVAL`, and an embedder without checkpoints gives `ENOSYS`.
+
 Objects that point at the host, such as host files and published ports, are restored through their backends and may fail. Each such failure is reported per object, not as a whole-restore failure.
+
+## wasixv1's extensions in v2
+
+wasixv1 has about 95 syscalls of its own. Most become their Linux counterparts, and only those wasm cannot express from the guest remain extensions. libc2 keeps wasix-libc's C interface for them: the `<wasix/...>` headers (`context.h`, `call_dynamic.h`, `closure.h`, `reflection.h`, `function_pointer.h`, `value_type.h`) and v1's function names, so code ports between v1 and v2 unchanged.
+
+| wasixv1 | v2 |
+| --- | --- |
+| `sock_*`, `proc_exec*`, `proc_fork*`, `proc_exit2`, `proc_id`, `proc_parent`, `proc_join`, `proc_signal`, `proc_signals_get`, `thread_exit`, `thread_id`, `thread_join`, `thread_signal`, `thread_sleep`, `thread_parallelism`, `futex_*`, `epoll_*`, `fd_dup2`, `fd_fdflags_*`, `fd_pipe`, `path_open2`, `chdir`, `getcwd`, `tty_get`, `tty_set`, `sched_yield` | Their Linux syscalls |
+| `proc_spawn*` | musl's `posix_spawn`, through `vfork` and `execve` |
+| `thread_spawn`, `callback_signal`, `context_*`, `dlopen`, `dlsym`, `dl_invalid_handle` | `thread-spawn`, `signal-callback-register`, `context-*`, `dl-*` |
+| `call_dynamic`, `reflect_signature`, `closure_*` | The same, in [Function tables](#function-tables) |
+| `proc_snapshot` | `checkpoint`; libc2's `wasix_proc_snapshot()` stays as a legacy wrapper that always returns 0, documented as such and pointing to `wasix_proc_checkpoint()`, which returns 1 when resumed |
+| `stack_checkpoint`, `stack_restore` | `stack-save`, `stack-restore`, for asyncify modules |
+| `port_*` (addresses, routes, gateway, MAC, bridge, DHCP) | Dropped. Interfaces, addresses and routes are netlink; bridging and DHCP are the embedder's network configuration, as they are userspace on Linux |
+| `resolve` | Dropped. libc's resolver uses `/etc/resolv.conf` over sockets, as on Linux, which has no DNS syscall for applications |
+
+## Open questions
+
+- **An in-process DNS server**, for sandboxes without direct DNS access, that `/etc/resolv.conf` can point at.
+- **`--volume` and `--cwd` in `wasmer run` for wasixv2**, which need host directory mounts.
 
 ## Where wasm limits compatibility
 
@@ -648,6 +678,11 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 | 2026-10-15 | Side-module data and TLS come from a host-owned arena of kernel pages | A thread stopped while holding the `malloc` lock cannot allocate its own TLS through `malloc` |
 | 2026-10-15 | libc2 passes the library search list as data; the host walks it through the `openat` path | Policy stays in libc, the walk is the kernel's, and startup reuses it |
 | 2026-10-15 | Stop-the-world for `dlopen` is kernel-internal pending work delivered like a signal, not a signal number | The guest cannot block, ignore or observe it; this is Linux's `task_work` |
+| 2026-10-15 | Closure stubs come from per-type pools, compiled and instantiated once per batch; closures still cost one table write each | v1's module per closure is wasteful, and libffi's API fixes the code address before the type |
+| 2026-10-15 | `call-dynamic` keeps a lax mode for arity mismatches, defined precisely | C code calls through mismatched function pointers, which native ABIs tolerate and wasm traps on |
+| 2026-10-15 | Guest-triggered `checkpoint` returns twice, 0 and then 1 | A resumed process must know to reseed randomness and reconnect |
+| 2026-10-15 | libc2 keeps wasix-libc's `<wasix/...>` headers and function names | Source compatibility between v1 and v2 |
+| 2026-10-15 | `port_*` and `resolve` are dropped | Linux has no such syscalls: network configuration is netlink or the embedder's, and DNS is userspace |
 | 2026-10-15 | `lseek` and `mmap` take 64-bit offsets directly, keeping riscv32's numbers; riscv32 only has `llseek` and `mmap2` | A wasm import can pass an `i64`; the riscv32 forms only work around 32-bit registers |
 | 2026-10-14 | No shared file mappings and no memory protection; mapping support is limited, as in wasixv1's libc | Physically impossible on wasm linear memory |
 | 2026-10-14 | The target reports itself as unix but not Linux: target\_family = "unix" and target\_os = "wasixv2" in Rust; clang defines \_\_unix\_\_ but not \_\_linux\_\_ | Low-level code is ported explicitly, as the existing wasixv1 forks already are, and defining \_\_linux\_\_ would not have spared any of them. Code that turns out fully compatible adds a wasixv2 case to its Linux check. |
