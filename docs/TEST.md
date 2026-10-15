@@ -41,6 +41,17 @@ WASIX guest-side tests live in `lib/wasix/tests/wasm_tests/`. They need
 `wasixcc` and `cargo-wasix` on PATH. Fixture directives are documented in
 `lib/wasix/tests/wasm_tests.rs`.
 
+## WASIX v2 Test Suite
+
+The wasixv2 suite lives in its own repository,
+[wasixv2-tests](https://github.com/wasix-org/wasixv2-tests), checked out at
+`tests/wasixv2`; libc2 runs the same suite. `make test-wasixv2` builds the
+`wasmer` CLI and runs it. It needs `wasixcc` with `wasm32-wasixv2` support on
+PATH; `WASIXCC_LLVM_LOCATION` and `WASIXCC_SYSROOT` point it at a local LLVM
+fork and libc2 sysroot. Most tests are expected to fail until wasixv2 is
+complete: the suite's `expected-failures.txt` lists them. CI does not run it
+yet.
+
 ## CI Coverage Gaps
 
 macOS and musl CI jobs run on a PR only when the PR carries the `macos` or

@@ -10,3 +10,6 @@
 [submodule "lib/wasixv2/codegen"]
 	path = lib/wasixv2/codegen
 	url = https://github.com/wasix-org/wasixv2-abi.git
+[submodule "tests/wasixv2"]
+	path = tests/wasixv2
+	url = https://github.com/wasix-org/wasixv2-tests.git

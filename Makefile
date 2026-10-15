@@ -715,6 +715,15 @@ test-integration-cli-ci: require-nextest build-wasmer
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) -p wasmer-integration-tests-ios --locked
 
+# The wasixv2 test suite (the tests/wasixv2 submodule), run against this checkout's wasmer.
+# Needs wasixcc with wasm32-wasixv2 support on PATH; WASIXCC_LLVM_LOCATION and WASIXCC_SYSROOT
+# select a local LLVM fork and libc2 sysroot. Pass test filters with WASIXV2_TESTS_ARGS. See
+# tests/wasixv2/README.md.
+WASIXV2_TESTS_WASMER ?= $(abspath $(TARGET_DIR)/wasmer)
+test-wasixv2: build-wasmer
+	WASIXV2_TESTS_WASMER="$(WASIXV2_TESTS_WASMER)" $(CARGO_BINARY) run --release --locked \
+		--manifest-path tests/wasixv2/Cargo.toml -- $(WASIXV2_TESTS_ARGS)
+
 #####
 #
 # Packaging.

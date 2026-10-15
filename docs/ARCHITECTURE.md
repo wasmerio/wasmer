@@ -25,8 +25,10 @@ The root crate is a meta-crate.
 
 ## Submodules
 
-Four submodules: `tests/wast/spec`, `lib/napi`, `wasmer-test-files`, and
-`lib/wasixv2/codegen`. The last is
+Five submodules: `tests/wast/spec`, `lib/napi`, `wasmer-test-files`,
+`tests/wasixv2` ([wasixv2-tests](https://github.com/wasix-org/wasixv2-tests), the
+wasixv2 test suite, run with `make test-wasixv2`), and `lib/wasixv2/codegen`.
+The last is
 [wasixv2-abi](https://github.com/wasix-org/wasixv2-abi): the wasixv2 guest ABI in
 WIT and the `wasixv2-codegen` generator, shared with libc2. ABI changes land
 there first; `lib/wasixv2/abi/tests/generated.rs` checks that the generated

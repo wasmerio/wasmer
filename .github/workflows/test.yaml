@@ -852,6 +852,16 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+  # TODO(wasixv2): run the wasixv2 test suite (`make test-wasixv2`, the tests/wasixv2
+  # submodule) in CI. It MUST be enabled before wasixv2 ships: today nothing in CI checks that
+  # wasmer still runs real libc2 programs, and a regression only shows up when someone runs the
+  # suite by hand. The suite is green while every failure is listed in its
+  # expected-failures.txt, so the job can be required from the start. It needs:
+  #   - wasixcc with wasm32-wasixv2 support (wasix-org/wasixcc#87, not released yet),
+  #   - the wasix-org/llvm-project wasix-22.1.8 toolchain (no release yet),
+  #   - a libc2 sysroot (wasix-org/libc2 has no release yet),
+  # each pinned and installed before `make test-wasixv2`. The suite has no CI of its own: wasmer
+  # and libc2 are the only places it runs.
   ci_success:
     name: Tests CI
     runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
