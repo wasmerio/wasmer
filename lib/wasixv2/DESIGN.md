@@ -319,6 +319,28 @@ Every change the VFS makes is reported to one `FsWatcher` as an `FsEvent` (creat
 - **Metadata.** Everything is owned by root: files `0644`, directories `0755` with `2 + subdirectories` links, symlinks `0777`. Timestamps are the epoch, because the v3 reader does not expose the stored modification time. The root's inode number is 1 and a child's is the FNV-1a hash of its parent's number and its name, so numbers depend only on the layout.
 - **Read-only.** `FsInfo::read_only` makes the VFS answer `EROFS` and `statfs` report `ST_RDONLY`; the driver also returns `EROFS` for every mutation. `f_type` is `0x77656263` ("webc"), blocks are the volume's size and none are free. There are no extended attributes (`ENODATA`, empty list) and no holes. v3 symlinks are served as symlinks.
 
+### Overlay filesystem
+
+`wasixv2-vfs-overlay` follows Linux overlayfs. `OverlayFs::new(upper, lowers)` stacks an optional writable upper layer over read-only lower layers, topmost first. Every layer can be any driver. Without an upper layer, the overlay is read-only and every change returns `EROFS`.
+
+- **Lookup.** A name resolves top-down through the layers. A non-directory hides everything below it. Directories with the same name merge until one of them is opaque. A whiteout hides the name in all lower layers.
+- **On-disk format.** This matches Linux, so a host upper directory stays compatible with the kernel's overlayfs.
+  - A whiteout is a 0/0 character device. Where the upper driver cannot create one (for example a host directory without `CAP_MKNOD`), it is an empty file with an `overlay.whiteout` xattr, and its directory is marked `overlay.opaque=x` (Linux 6.7's xwhiteouts).
+  - An opaque directory has `overlay.opaque=y`.
+  - Markers are written as `trusted.overlay.*`, falling back to `user.overlay.*`. Both prefixes are read, and both are hidden from programs.
+- **Copy-up.** Copy-up runs before any of these touches a lower object: open for write, `setattr` (including truncate), xattr changes, `link`, and any entry change in a lower directory. Ancestors are copied up first. Data is copied with holes preserved, along with mode, ownership, xattrs, and atime and mtime. The parent keeps its times.
+  - There is no workdir. A regular file is filled while unnamed (`O_TMPFILE`) and linked in only when complete, where the upper driver supports that. Replacing an entry with a whiteout takes two steps.
+  - A file opened read-only before its copy-up switches to the copy on its next access. This matches Linux 4.19 and later.
+- **Removal.** `unlink` and `rmdir` leave a whiteout wherever a lower layer still has the name. `rmdir` of a merged directory requires every layer to be empty apart from whiteouts. Creating a directory over a whiteout makes the new directory opaque.
+- **Rename.** A directory that has lower parts returns `EXDEV`, as Linux does without `redirect_dir`. Programs then fall back to copying. Non-directories are copied up and then renamed. A directory moved onto a name that a lower layer has is made opaque. `RENAME_WHITEOUT` returns `EINVAL`.
+- **Inode numbers.** Inode numbers follow `xino`: a real inode number below 2^56 is combined with its layer index in the top byte. Larger numbers get a counter instead.
+  - A copied-up object keeps the number of its lower origin. Linux records the origin in an xattr; here it is remembered in memory for the life of the overlay.
+  - A merged directory takes its number from its topmost lower directory. `readdir` reports the same numbers as `stat`.
+  - Hard links between lower files are broken by copy-up, as Linux does with `index=off`. The copy and the remaining lower link can then share an inode number.
+- **readdir.** A directory handle reads the merged listing when reading starts at cookie 0. Cookies index into that snapshot, as in Linux's `ovl_dir_cache`.
+- **Locking.** One overlay-wide lock serialises all namespace and metadata changes, including copy-up. Data I/O on files that are already copied up does not take it.
+- **Reporting.** A merged directory reports `nlink` 1. `statfs` comes from the upper layer, or from the top lower layer when there is no upper.
+
 ## Networking
 
 The kernel implements networking at the socket layer and has no TCP/IP stack. A guest can only observe sockets (ports, `bind` conflicts, accept queues, addresses, options, errno), and in-memory streams plus host sockets cover all of that.
