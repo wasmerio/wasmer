@@ -151,15 +151,6 @@ impl OpenFile {
         object.downcast_ref()
     }
 
-    /// `vfs_poll`. Inodes have no readiness of their own and are always ready, as Linux's
-    /// `DEFAULT_POLLMASK` for files without a poll operation.
-    pub(crate) fn poll(&self, table: Option<&mut PollTable<'_>>) -> PollMask {
-        match &self.backing {
-            Backing::Stream(object) => object.poll(table),
-            Backing::Inode(_) => PollMask::DEFAULT,
-        }
-    }
-
     /// `file_can_poll`: regular files and directories cannot be watched by epoll.
     pub(crate) fn can_poll(&self) -> bool {
         self.object().is_some_and(|object| object.can_poll())
@@ -219,6 +210,17 @@ impl OpenFile {
     }
 }
 
+impl Pollable for OpenFile {
+    /// `vfs_poll`. Inodes have no readiness of their own and are always ready, as Linux's
+    /// `DEFAULT_POLLMASK` for files without a poll operation.
+    fn poll(&self, table: Option<&mut PollTable<'_>>) -> PollMask {
+        match &self.backing {
+            Backing::Stream(object) => object.poll(table),
+            Backing::Inode(_) => PollMask::DEFAULT,
+        }
+    }
+}
+
 pub(crate) enum SeekBase {
     Start,
     Current,
@@ -256,6 +258,18 @@ impl FdTable {
     pub(crate) fn remove(&mut self, fd: Fd) -> Option<Arc<OpenFile>> {
         let index = usize::try_from(fd.0).ok()?;
         Some(self.slots.get_mut(index)?.take()?.file)
+    }
+
+    /// The table's capacity as Linux's `fdtable.max_fds` would be: 32 descriptors, then grown
+    /// in power-of-two multiples of 256 (`alloc_fdtable` on a 32-bit kernel). `select` ignores
+    /// descriptors at or above it.
+    pub(crate) fn max_fds(&self) -> usize {
+        const DEFAULT: usize = 32;
+        const STEP: usize = 1024 / 4;
+        match self.slots.len() {
+            len if len <= DEFAULT => DEFAULT,
+            len => ((len - 1) / STEP + 1).next_power_of_two() * STEP,
+        }
     }
 
     pub(crate) fn cloexec(&self, fd: Fd) -> Option<bool> {

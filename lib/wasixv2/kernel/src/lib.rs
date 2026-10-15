@@ -12,6 +12,7 @@ mod fs;
 mod ioctl;
 mod mm;
 mod pipe;
+mod poll;
 mod startup;
 mod stdio;
 mod time;
@@ -539,6 +540,32 @@ impl Syscalls for Kernel {
         flags: wasixv2_abi::EventfdFlags,
     ) -> SysResult<Fd> {
         self.sys_eventfd2(caller, count, flags).await
+    }
+
+    async fn ppoll_time64(
+        &self,
+        caller: &Caller<'_>,
+        ufds: wasixv2_abi::PollfdArray,
+        nfds: u32,
+        tsp: KernelTimespecPtr,
+        sigmask: ConstSigsetPtr,
+        sigsetsize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_ppoll(caller, ufds, nfds, tsp, sigmask, sigsetsize)
+            .await
+    }
+
+    async fn pselect6_time64(
+        &self,
+        caller: &Caller<'_>,
+        n: i32,
+        inp: wasixv2_abi::KernelFdSetPtr,
+        outp: wasixv2_abi::KernelFdSetPtr,
+        exp: wasixv2_abi::KernelFdSetPtr,
+        tsp: KernelTimespecPtr,
+        sig: wasixv2_abi::ConstSigsetArgpackPtr,
+    ) -> SysResult<i32> {
+        self.sys_pselect6(caller, n, inp, outp, exp, tsp, sig).await
     }
 }
 
