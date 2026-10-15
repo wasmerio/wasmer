@@ -466,8 +466,8 @@ The execution crate is the only layer below the facade that knows about the wasm
   1. libc's `vfork` is a macro that calls `setjmp` in the caller's frame, then calls clone with CLONE\_VM | CLONE\_VFORK, which returns 0.
   2. The kernel creates the child with a shared address space and blocks the parent task, as `CLONE_VFORK` does on Linux.
   3. The exec layer switches the instance's current task to the child, so later syscalls run as the child.
-  4. When the child calls `execve`, the new image starts in its own instance. When it calls `exit`, it becomes a zombie.
-  5. Either way, the instance switches back to the parent task and the call returns. libc then `longjmp`s to the vfork point, which returns the child's pid.
+  4. When the child calls `execve`, the new image starts in its own instance. When it calls `exit` or a signal kills it, it becomes a zombie.
+  5. Either way, the instance switches back to the parent task, and the host calls libc's exported `wasixv2_vfork_return(child)` from within the child's last call. It `longjmp`s to the vfork point, which returns the child's pid; the exception unwinds through the call as a `siglongjmp` out of a handler does.
 
   wasixv1 is brittle because it swaps its whole environment object in place and threads vfork state through exit, exec and process startup. Here a task switch is one pointer in the exec layer, and the kernel tracks the vfork relationship. As on Linux, returning from the function that called `vfork` is undefined. Because `vfork` is a macro, its address cannot be taken.
 - **Preemption.** Engine interruption checks such as epochs let the kernel deliver signals to a busy guest and enforce `SIGKILL` and `SIGSTOP`.
@@ -629,6 +629,7 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 
 | Date | Decision | Why |
 | --- | --- | --- |
+| 2026-10-16 | A vfork child's end resumes the parent through a guest export, `wasixv2_vfork_return`, which `longjmp`s to the vfork point | One path for `execve`, `exit` and death by a signal; libc's `_exit` and `execve` stay unchanged, and no call returns where Linux never returns |
 | 2026-10-15 | The VFS interns inodes per (superblock, inode number) and locks directories itself; drivers guarantee inode numbers are identities | Per-inode state (directory lock, `S_DEAD`, `I_LINKABLE`, the single directory dentry, later FIFOs, sockets and inotify marks) needs one place, and VFS checks must hold until the driver applies the change |
 | 2026-10-15 | The executor is reached through `Host::executor`; tokio and the browser are host implementations behind features | Keeps the kernel runtime-agnostic and lets one embedder share an executor between hosts |
 | 2026-10-14 | Crates live in this monorepo under lib/wasixv2, named wasixv2-\*, with the facade named wasixv2 | Keeping napi in a separate repo has been painful; the prefix keeps v2 apart from wasixv1 crates |

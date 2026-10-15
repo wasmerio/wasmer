@@ -386,7 +386,7 @@ impl Kernel {
                 mm: Mutex::default(),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
-                ident: Mutex::new(parent.ident.lock().unwrap().clone()),
+                ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
                 resources: Mutex::new(parent.resources.lock().unwrap().clone()),
             });
             let files = match flags.contains(CloneFlags::CLONE_FILES) {

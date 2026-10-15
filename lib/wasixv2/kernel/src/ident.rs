@@ -84,6 +84,16 @@ impl Ident {
     pub(crate) fn child_subreaper(&self) -> bool {
         self.child_subreaper
     }
+
+    /// What a new process inherits (`copy_process`): everything but the parent-death signal
+    /// and the subreaper flag.
+    pub(crate) fn for_child(&self) -> Self {
+        Self {
+            pdeathsig: 0,
+            child_subreaper: false,
+            ..self.clone()
+        }
+    }
 }
 
 /// An unprivileged id change: each new id is -1 (unchanged) or the current id.
