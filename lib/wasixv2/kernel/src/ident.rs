@@ -33,6 +33,7 @@ const PR_CAP_AMBIENT: PrctlOption = PrctlOption(47);
 
 /// What `prctl` and friends keep per process.
 // TODO: the name, timer slack and nice value are per thread on Linux.
+#[derive(Clone)]
 pub(crate) struct Ident {
     pub(crate) pgid: u32,
     pub(crate) sid: u32,
@@ -69,6 +70,22 @@ impl Ident {
     }
 }
 
+impl Ident {
+    // ---- proc ----
+    /// `execve` names the task after the file it runs (`kbasename(bprm->filename)`).
+    pub(crate) fn set_comm_from_path(&mut self, path: &[u8]) {
+        let name = path.rsplit(|&b| b == b'/').next().unwrap_or_default();
+        let n = name.len().min(COMM_LEN - 1);
+        self.comm = [0; COMM_LEN];
+        self.comm[..n].copy_from_slice(&name[..n]);
+    }
+
+    /// `PR_SET_CHILD_SUBREAPER`.
+    pub(crate) fn child_subreaper(&self) -> bool {
+        self.child_subreaper
+    }
+}
+
 /// An unprivileged id change: each new id is -1 (unchanged) or the current id.
 fn check_ids(ids: &[u32]) -> SysResult<i32> {
     match ids.iter().all(|&id| id == u32::MAX || id == ID as u32) {
@@ -84,19 +101,17 @@ fn utsname_field(s: &str) -> [u8; 65] {
 }
 
 impl Kernel {
-    /// The process `pid` names for the caller: 0 is the caller's own. Only the caller's process
-    /// exists to it so far.
+    /// The process `pid` names for the caller: 0 is the caller's own.
     pub(crate) fn lookup_pid(
         &self,
         caller: &Caller<'_>,
         pid: Pid,
     ) -> Result<std::sync::Arc<Process>, Errno> {
-        let process = self.process(caller.task());
         match pid {
-            0 => Ok(process),
+            0 => Ok(self.process(caller.task())),
             pid if pid < 0 => Err(Errno::EINVAL),
-            pid if pid as u32 == process.pid.0 => Ok(process),
-            _ => Err(Errno::ESRCH),
+            // ---- proc ----
+            pid => self.procs.find(pid as u32).ok_or(Errno::ESRCH),
         }
     }
 
@@ -143,37 +158,6 @@ impl Kernel {
 
     pub(crate) fn sys_getsid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
         Ok(self.lookup_pid(caller, pid)?.ident.lock().unwrap().sid as Pid)
-    }
-
-    pub(crate) fn sys_setpgid(&self, caller: &Caller<'_>, pid: Pid, pgid: Pid) -> SysResult<i32> {
-        if pgid < 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        let process = self.lookup_pid(caller, pid)?;
-        let me = process.pid.0;
-        let mut ident = process.ident.lock().unwrap();
-        if ident.sid == me {
-            return Err(Errno::EPERM.into());
-        }
-        let pgid = if pgid == 0 { me } else { pgid as u32 };
-        // Only the process's own group exists in its session.
-        if pgid != me && pgid != ident.pgid {
-            return Err(Errno::EPERM.into());
-        }
-        ident.pgid = pgid;
-        Ok(0)
-    }
-
-    pub(crate) fn sys_setsid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        let process = self.process(caller.task());
-        let me = process.pid.0;
-        let mut ident = process.ident.lock().unwrap();
-        if ident.pgid == me {
-            return Err(Errno::EPERM.into());
-        }
-        ident.pgid = me;
-        ident.sid = me;
-        Ok(me as Pid)
     }
 
     // TODO: the nodename and domainname come from the UTS namespace once `sethostname` exists.

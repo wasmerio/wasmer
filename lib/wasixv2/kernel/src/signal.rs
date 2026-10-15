@@ -231,6 +231,58 @@ impl Signals {
         })
     }
 
+    // ---- proc ----
+    /// `copy_sighand` and `copy_signal` for a new process: the dispositions and the trampoline,
+    /// with nothing pending and no timers.
+    pub(crate) fn fork(&self) -> Arc<Self> {
+        let new = Self::new();
+        {
+            let state = self.state.lock().unwrap();
+            let mut copy = new.state.lock().unwrap();
+            copy.actions = state.actions;
+            copy.trampoline = state.trampoline;
+        }
+        new
+    }
+
+    /// `flush_signal_handlers` and `sas_ss_reset` at `execve`: caught signals go back to their
+    /// default action, ignored ones stay ignored, and the trampoline and alternate stacks
+    /// belonged to the old image. Masks and pending signals stay.
+    pub(crate) fn exec_reset(&self) {
+        let mut state = self.state.lock().unwrap();
+        for action in state.actions.iter_mut() {
+            *action = match action.is_ignore() {
+                true => Action {
+                    handler: action.handler,
+                    ..Action::default()
+                },
+                false => Action::default(),
+            };
+        }
+        state.trampoline = None;
+        for task in state.tasks.values_mut() {
+            task.altstack = AltStack::default();
+            task.frames.clear();
+        }
+    }
+
+    /// How the group treats its children's exits: SIGCHLD is ignored (`SIG_IGN`), and
+    /// `SA_NOCLDWAIT` is set.
+    pub(crate) fn child_reaping(&self) -> (bool, bool) {
+        let state = self.state.lock().unwrap();
+        let action = state.actions[Signal::SIGCHLD.0 as usize - 1];
+        (
+            action.is_ignore(),
+            action.flags & SaFlags::SA_NOCLDWAIT.0 != 0,
+        )
+    }
+
+    /// Queues `info` for the whole group (`__group_send_sig_info`).
+    pub(crate) fn send_group(&self, info: Siginfo) {
+        self.send(None, info);
+    }
+    // ---- end proc ----
+
     /// `zap_other_threads`: queues SIGKILL for the group, so every task blocked in an
     /// interruptible wait wakes up and unwinds through its pending exit.
     pub(crate) fn kill_all(&self) {
@@ -511,6 +563,7 @@ impl Kernel {
                     // The whole thread group dies (`do_group_exit`).
                     DefaultAction::Terminate => {
                         drop(state);
+                        self.note_killed(task, sig);
                         self.do_group_exit(task, 128 + sig);
                         return self.with_task(task, |t| t.pending.take());
                     }
@@ -810,15 +863,16 @@ impl Kernel {
         }
         let me = self.tgid(caller.task());
         let info = user_info(sig.0, SiCode::SI_USER, me);
-        // Every process is its own process group until process groups exist.
         let targets: Vec<_> = match pid {
-            0 => self.groups(Some(me)),
+            // ---- proc ----
+            0 => self.pgrp_groups(self.pgid_of(me)),
             -1 => self
                 .groups(None)
                 .into_iter()
                 .filter(|(pid, _)| *pid != me)
                 .collect(),
-            pid => self.groups(Some(pid.checked_abs().unwrap_or(0))),
+            pid if pid < 0 => self.pgrp_groups(pid.checked_abs().unwrap_or(0)),
+            pid => self.groups(Some(pid)),
         };
         if targets.is_empty() {
             return Err(Errno::ESRCH.into());

@@ -240,6 +240,8 @@ impl Kernel {
             signals.kill_all();
         }
         process.group.exited.wake(PollMask::empty());
+        // ---- proc ----
+        self.process_exited(&process, task, status);
     }
 
     /// `mm_release` and `exit_robust_list`: what a task's exit does to the memory it shared.

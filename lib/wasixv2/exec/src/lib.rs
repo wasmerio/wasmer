@@ -6,6 +6,7 @@
 
 mod generated;
 mod memory;
+mod process;
 mod signal;
 mod thread;
 
@@ -42,6 +43,8 @@ pub(crate) struct ExecEnv<S> {
     task: TaskId,
     memory: Option<Memory>,
     signal: signal::SignalExports,
+    // ---- proc ----
+    proc: process::ProcExports,
 }
 
 /// Raised from an import to unwind the guest after its thread group exited.
@@ -50,9 +53,10 @@ pub(crate) struct ExecEnv<S> {
 struct Exited(i32);
 
 /// Runs `module` as `task` until its thread group exits, and returns the exit status. Threads the
-/// guest creates run where `host`'s executor starts them.
+/// guest creates run where `host`'s executor starts them, and so do the images of vfork
+/// children; images that `execve` loads replace `module`.
 pub async fn run<S>(
-    mut store: Store,
+    store: Store,
     module: &Module,
     syscalls: Arc<S>,
     task: TaskId,
@@ -61,6 +65,21 @@ pub async fn run<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
+    process::run(store, module, syscalls, task, host).await
+}
+
+/// Runs one image of `task`'s process until it exits or `execve` replaces it.
+async fn run_image<S>(
+    mut store: Store,
+    module: &Module,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+) -> Result<process::Ended, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    let spawner = process::spawner(store.engine().clone(), syscalls.clone(), host.clone());
     let env = FunctionEnv::new(
         &mut store,
         ExecEnv {
@@ -68,6 +87,7 @@ where
             task,
             memory: None,
             signal: signal::SignalExports::default(),
+            proc: process::ProcExports::new(spawner),
         },
     );
     let mut imports = generated::imports(&mut store, &env);
@@ -84,14 +104,18 @@ where
     });
     env.as_mut(&mut store).memory = Some(memory);
     env.as_mut(&mut store).signal = signal::SignalExports::new(&instance);
+    env.as_mut(&mut store).proc.set_instance(&instance);
     let start = instance.exports.get_function("_start")?.clone();
 
     let store = store.into_async();
     match start.call_async(&store, Vec::new()).await {
         Ok(_) => Err(ExecError::ReturnedFromStart),
         Err(err) => match err.downcast::<Exited>() {
-            Ok(Exited(status)) => Ok(status),
-            Err(err) => Err(ExecError::Trap(err)),
+            Ok(Exited(status)) => Ok(process::Ended::Exited(status)),
+            Err(err) => match err.downcast::<process::ExecNew>() {
+                Ok(process::ExecNew(image)) => Ok(process::Ended::Exec(image)),
+                Err(err) => Err(ExecError::Trap(err)),
+            },
         },
     }
 }
@@ -121,6 +145,7 @@ async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
     ret: SysResult<R>,
 ) -> Option<Result<R, RuntimeError>> {
     let mut ret = ret;
+    let mut task = task;
     // `SA_RESTART` of the first handler run, which is the one that interrupted the call.
     let mut handled: Option<bool> = None;
     while let Some(action) = syscalls.take_pending(task) {
@@ -135,6 +160,26 @@ async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
                 if !thread::start(syscalls, task, child, start_arg) {
                     ret = Err(SysErr::Errno(Errno::EAGAIN));
                 }
+            }
+            // ---- proc ----
+            GuestAction::SwitchTask {
+                task: to,
+                ret: value,
+            } => {
+                process::switch(env, to).await;
+                task = to;
+                ret = Ok(R::from(value));
+            }
+            GuestAction::Exec { vfork_parent } => {
+                let image = syscalls.take_image(task).unwrap_or_default();
+                let Some(parent) = vfork_parent else {
+                    return Some(Err(RuntimeError::user(Box::new(process::ExecNew(image)))));
+                };
+                process::spawn_image(env, task, image).await;
+                return Some(Err(process::vfork_return(env, parent, task).await));
+            }
+            GuestAction::VforkReturn { parent, child } => {
+                return Some(Err(process::vfork_return(env, parent, child).await));
             }
             GuestAction::Signal(frame) => {
                 handled.get_or_insert(frame.restarts());

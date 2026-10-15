@@ -16,6 +16,7 @@ mod net;
 mod netlink;
 mod pipe;
 mod poll;
+mod process;
 mod resource;
 mod signal;
 mod socket;
@@ -95,6 +96,9 @@ pub struct Kernel {
     inotify: Arc<fs::inotify::Registry>,
     // ---- thr ----
     futexes: futex::Futexes,
+    // ---- proc ----
+    /// The process tree: parents, zombies, vfork relations and images waiting for `execve`.
+    procs: process::Procs,
 }
 
 #[derive(Default)]
@@ -105,8 +109,10 @@ struct State {
 
 struct Process {
     pid: TaskId,
-    args: Vec<String>,
-    env: Vec<String>,
+    // ---- proc ----
+    /// `argv` and the environment of the current image; `execve` replaces them.
+    args: Mutex<Vec<String>>,
+    env: Mutex<Vec<String>>,
     mm: Mutex<AddressSpace>,
     // ---- thr ----
     group: thread::Group,
@@ -143,6 +149,7 @@ impl Kernel {
             inotify: fs::inotify::Registry::install(&vfs),
             vfs,
             futexes: futex::Futexes::default(),
+            procs: process::Procs::default(),
         }
     }
 
@@ -173,8 +180,8 @@ impl Kernel {
             start: self.host.monotonic(),
             ident: Mutex::new(ident::Ident::new(id.0, &config.args)),
             resources: Mutex::default(),
-            args: config.args,
-            env: config.env,
+            args: Mutex::new(config.args),
+            env: Mutex::new(config.env),
             mm: Mutex::default(),
             group: thread::Group::new(),
         };
@@ -186,7 +193,11 @@ impl Kernel {
             thread: thread::ThreadState::default(),
             signals: signal::Signals::new().attach(id, 0),
         };
+        let process = task.process.clone();
         state.tasks.insert(id, task);
+        drop(state);
+        // ---- proc ----
+        self.procs.add(process, 0, Signal::SIGCHLD.0);
         id
     }
 
@@ -216,7 +227,8 @@ impl Kernel {
 impl Syscalls for Kernel {
     async fn startup_size(&self, caller: &Caller<'_>) -> SysResult<u32> {
         let process = self.process(caller.task());
-        Ok(Startup::new(&process.args, &process.env).size()?)
+        let (args, env) = (process.args.lock().unwrap(), process.env.lock().unwrap());
+        Ok(Startup::new(&args, &env).size()?)
     }
 
     async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
@@ -224,7 +236,11 @@ impl Syscalls for Kernel {
             return Err(Errno::EINVAL.into());
         }
         let process = self.process(caller.task());
-        let startup = Startup::new(&process.args, &process.env);
+        let (args, env) = (
+            process.args.lock().unwrap().clone(),
+            process.env.lock().unwrap().clone(),
+        );
+        let startup = Startup::new(&args, &env);
         if buf.len < startup.size()? {
             return Err(Errno::EINVAL.into());
         }
@@ -1014,6 +1030,75 @@ impl Syscalls for Kernel {
     }
     // ---- end thr ----
 
+    // ---- proc ----
+    async fn clone(
+        &self,
+        caller: &Caller<'_>,
+        clone_flags: Ulong,
+        newsp: Uptr,
+        parent_tidptr: S32Ptr,
+        tls: Uptr,
+        child_tidptr: S32Ptr,
+    ) -> SysResult<i32> {
+        self.sys_clone(caller, clone_flags, newsp, parent_tidptr, tls, child_tidptr)
+            .await
+    }
+
+    async fn execve(
+        &self,
+        caller: &Caller<'_>,
+        filename: Cstr,
+        argv: wasixv2_abi::CstrArray,
+        envp: wasixv2_abi::CstrArray,
+    ) -> SysResult<i32> {
+        let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
+        self.sys_execveat(caller, cwd, filename, argv, envp, AtFlags(0))
+            .await
+    }
+
+    async fn execveat(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        filename: Cstr,
+        argv: wasixv2_abi::CstrArray,
+        envp: wasixv2_abi::CstrArray,
+        flags: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_execveat(caller, fd, filename, argv, envp, flags)
+            .await
+    }
+
+    async fn waitid(
+        &self,
+        caller: &Caller<'_>,
+        which: wasixv2_abi::Idtype,
+        upid: Pid,
+        infop: wasixv2_abi::SiginfoPtr,
+        options: wasixv2_abi::WaitOptions,
+        ru: RusagePtr,
+    ) -> SysResult<i32> {
+        self.sys_waitid(caller, which, upid, infop, options, ru)
+            .await
+    }
+
+    async fn pidfd_open(&self, caller: &Caller<'_>, pid: Pid, flags: u32) -> SysResult<Fd> {
+        self.sys_pidfd_open(caller, pid, flags)
+    }
+
+    async fn pidfd_send_signal(
+        &self,
+        caller: &Caller<'_>,
+        pidfd: Fd,
+        sig: Signal,
+        info: wasixv2_abi::ConstSiginfoPtr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_pidfd_send_signal(caller, pidfd, sig, info, flags)
+            .await
+    }
+    // ---- end proc ----
+
     async fn getpid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
         Ok(self.process(caller.task()).pid.0 as Pid)
     }
@@ -1152,8 +1237,8 @@ impl Syscalls for Kernel {
     }
 
     // ---- base ----
-    async fn getppid(&self, _: &Caller<'_>) -> SysResult<Pid> {
-        Ok(0)
+    async fn getppid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
+        Ok(self.sys_getppid(caller))
     }
     async fn getuid(&self, _: &Caller<'_>) -> SysResult<i32> {
         Ok(ID)
@@ -1844,6 +1929,11 @@ impl Control for Kernel {
 
     fn signal_return(&self, task: TaskId, mask: Option<u64>) {
         Kernel::signal_return(self, task, mask)
+    }
+
+    // ---- proc ----
+    fn take_image(&self, task: TaskId) -> Option<Vec<u8>> {
+        self.procs.take_image(task)
     }
 }
 

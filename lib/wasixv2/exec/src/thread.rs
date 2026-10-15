@@ -162,6 +162,11 @@ where
                 task,
                 memory: None,
                 signal: crate::signal::SignalExports::default(),
+                proc: crate::process::ProcExports::new(crate::process::spawner(
+                    self.engine.clone(),
+                    self.syscalls.clone(),
+                    self.host.clone(),
+                )),
             },
         );
         let mut imports = generated::imports(&mut store, &env);
@@ -172,6 +177,7 @@ where
         let instance = Instance::new(&mut store, &self.module, &imports)?;
         env.as_mut(&mut store).memory = Some(memory);
         env.as_mut(&mut store).signal = crate::signal::SignalExports::new(&instance);
+        env.as_mut(&mut store).proc.set_instance(&instance);
         let entry = instance.exports.get_function(THREAD_ENTRY)?.clone();
         let _registration = register(&self, task);
 
@@ -187,7 +193,7 @@ where
 
 /// Memory for kernel calls the execution layer makes itself, for a task whose instance is not
 /// there: every access faults.
-struct NoMemory;
+pub(crate) struct NoMemory;
 
 impl UserMemory for NoMemory {
     fn read<'a>(&'a self, _: u32, _: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {

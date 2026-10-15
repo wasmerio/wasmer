@@ -14,6 +14,20 @@ pub enum GuestAction {
     /// Run a signal handler on top of the interrupted guest stack, then report back through
     /// [`Control::signal_return`].
     Signal(SignalFrame),
+    // ---- proc ----
+    /// The task replaced its image (`execve`): run the module [`Control::take_image`] hands
+    /// out as the same task, in a new instance with new memory, from `_start`. With
+    /// `vfork_parent`, the task was a vfork child running in its parent's instance: the new
+    /// instance runs on its own, and this one resumes the parent as for
+    /// [`GuestAction::VforkReturn`].
+    Exec { vfork_parent: Option<TaskId> },
+    /// The instance runs as `task` from now on, and the current call returns `ret`: `clone`
+    /// returning 0 to a vfork child.
+    SwitchTask { task: TaskId, ret: i32 },
+    /// The vfork child `child`, running in its parent's instance, ended: the instance runs as
+    /// `parent` again, and the guest's `wasixv2_vfork_return(child)` export unwinds to the
+    /// vfork point.
+    VforkReturn { parent: TaskId, child: TaskId },
 }
 
 /// One signal handler invocation: what the execution layer writes into the guest's signal frame
@@ -60,5 +74,11 @@ pub trait Control {
     /// not return but unwound past its frame (`siglongjmp`).
     fn signal_return(&self, task: TaskId, mask: Option<u64>) {
         let _ = (task, mask);
+    }
+
+    /// The module bytes `task`'s pending [`GuestAction::Exec`] runs.
+    fn take_image(&self, task: TaskId) -> Option<Vec<u8>> {
+        let _ = task;
+        None
     }
 }

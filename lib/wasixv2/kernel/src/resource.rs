@@ -48,6 +48,7 @@ const DEFAULT_LIMITS: [(u64, u64); NLIMITS] = [
 
 /// Per-process limits and scheduling state.
 // TODO: nice, policy and affinity are per thread on Linux.
+#[derive(Clone)]
 pub(crate) struct Resources {
     limits: [Rlimit64; NLIMITS],
     nice: i32,
