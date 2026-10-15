@@ -6,7 +6,7 @@ use std::{
     io,
     path::Path,
     pin::pin,
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{Context, Poll, Waker},
 };
 
@@ -20,7 +20,7 @@ pub use wasixv2_host::{
 };
 use wasixv2_kernel::{HostClock, Kernel};
 pub use wasixv2_kernel::{ProcessConfig, Stdio};
-use wasixv2_syscalls::Layered;
+use wasixv2_syscalls::{Layered, TaskId};
 use wasixv2_trace::Trace;
 pub use wasixv2_vfs::Filesystem;
 use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, Vfs};
@@ -57,6 +57,8 @@ pub struct Machine {
     host: Arc<dyn Host>,
     /// Where new processes start; `/` if unset.
     working_dir: Option<String>,
+    /// The processes [`Machine::run_process`] started that are still running.
+    running: Mutex<Vec<TaskId>>,
 }
 
 #[cfg(feature = "tokio")]
@@ -84,6 +86,7 @@ impl Machine {
             network,
             host,
             working_dir: None,
+            running: Mutex::default(),
         }
     }
 
@@ -175,9 +178,39 @@ impl Machine {
         self.run_process(wasm, config).await
     }
 
+    /// Sends the signal `sig` to every process started with [`Machine::run`] or
+    /// [`Machine::run_process`] that is still running, as a signal from outside the machine
+    /// (`SI_USER` with `si_pid` 0). It goes through the kernel's normal signal generation:
+    /// the guest's handler runs if it installed one, and otherwise the default action does, so
+    /// e.g. an unhandled `SIGTERM` ends the process with status 128 + 15.
+    ///
+    /// A task notices a pending signal only at an interruption point, a blocking call or the
+    /// return from a syscall; a guest spinning without syscalls does not see it.
+    ///
+    /// Fails with `EINVAL` for a signal number outside 1..=64.
+    pub fn signal(&self, sig: i32) -> io::Result<()> {
+        if !(1..=64).contains(&sig) {
+            return Err(errno_to_io(Errno::EINVAL));
+        }
+        let running = self.running.lock().unwrap().clone();
+        for task in running {
+            match self.syscalls.inner.kill(task, wasixv2_abi::Signal(sig)) {
+                // It exited meanwhile.
+                Ok(()) | Err(Errno::ESRCH) => {}
+                Err(errno) => return Err(errno_to_io(errno)),
+            }
+        }
+        Ok(())
+    }
+
     /// Starts `wasm` as a new process and waits for it to exit. Returns its exit status.
     pub async fn run_process(&self, wasm: &[u8], config: ProcessConfig) -> Result<i32, RunError> {
         let task = self.syscalls.inner.spawn(config);
+        self.running.lock().unwrap().push(task);
+        let _running = Running {
+            machine: self,
+            task,
+        };
         if let Some(dir) = &self.working_dir {
             self.syscalls
                 .inner
@@ -189,6 +222,22 @@ impl Machine {
         let module = Module::new(&store, wasm)?;
         let host = self.host.clone();
         Ok(wasixv2_exec::run(store, &module, self.syscalls.clone(), task, host).await?)
+    }
+}
+
+/// Takes a process off [`Machine::signal`]'s list however `run_process` ends.
+struct Running<'a> {
+    machine: &'a Machine,
+    task: TaskId,
+}
+
+impl Drop for Running<'_> {
+    fn drop(&mut self) {
+        self.machine
+            .running
+            .lock()
+            .unwrap()
+            .retain(|task| *task != self.task);
     }
 }
 

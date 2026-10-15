@@ -695,6 +695,141 @@ fn run_wasixv2_package_dir_maps_its_fs_table() {
     assert!(package.path().join("data/new.txt").exists());
 }
 
+/// Prints `ready`, then waits in `ppoll` with nothing to poll and no timeout, forever.
+const WASIXV2_BLOCK_WAT: &str = r#"
+    (module
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "ppoll_time64" (func $ppoll (param i32 i32 i32 i32 i32) (result i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 16) "ready\n")
+      (func (export "_start")
+        (drop (call $write (i32.const 1) (i32.const 16) (i32.const 6)))
+        (loop $forever
+          (drop (call $ppoll (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 8)))
+          (br $forever))))
+"#;
+
+/// Blocks `SIGINT`, prints `ready`, then waits for it with `rt_sigtimedwait` and exits with the
+/// number of the signal it took, or 100 + errno.
+const WASIXV2_SIGWAIT_WAT: &str = r#"
+    (module
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "rt_sigprocmask" (func $sigprocmask (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "rt_sigtimedwait_time64"
+        (func $sigtimedwait (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      ;; The set {SIGINT}.
+      (data (i32.const 8) "\02\00\00\00\00\00\00\00")
+      (data (i32.const 16) "ready\n")
+      (func (export "_start")
+        (local $ret i32)
+        ;; SIG_BLOCK
+        (local.set $ret (call $sigprocmask (i32.const 0) (i32.const 8) (i32.const 0) (i32.const 8)))
+        (if (i32.lt_s (local.get $ret) (i32.const 0))
+          (then (call $exit_group (i32.sub (i32.const 100) (local.get $ret)))))
+        (drop (call $write (i32.const 1) (i32.const 16) (i32.const 6)))
+        (local.set $ret
+          (call $sigtimedwait (i32.const 8) (i32.const 256) (i32.const 0) (i32.const 8)))
+        (if (i32.lt_s (local.get $ret) (i32.const 0))
+          (then (call $exit_group (i32.sub (i32.const 100) (local.get $ret)))))
+        (call $exit_group (local.get $ret))
+        unreachable))
+"#;
+
+/// Blocks `SIGINT`, prints `ready`, then waits in `ppoll` forever: Ctrl-C never reaches it.
+const WASIXV2_DEAF_WAT: &str = r#"
+    (module
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "rt_sigprocmask" (func $sigprocmask (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "ppoll_time64" (func $ppoll (param i32 i32 i32 i32 i32) (result i32)))
+      (memory (export "memory") 1)
+      ;; The set {SIGINT}.
+      (data (i32.const 8) "\02\00\00\00\00\00\00\00")
+      (data (i32.const 16) "ready\n")
+      (func (export "_start")
+        ;; SIG_BLOCK
+        (drop (call $sigprocmask (i32.const 0) (i32.const 8) (i32.const 0) (i32.const 8)))
+        (drop (call $write (i32.const 1) (i32.const 16) (i32.const 6)))
+        (loop $forever
+          (drop (call $ppoll (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 8)))
+          (br $forever))))
+"#;
+
+/// Runs `wat` with `wasmer run`, waits for it to print `ready`, sends the `wasmer` process
+/// `signals`, a little apart, and returns how it exited. Every signal but the last must leave
+/// it running.
+#[cfg(unix)]
+fn run_wasixv2_and_signal(wat: &str, signals: &[i32]) -> ExitStatus {
+    use std::io::{BufRead, BufReader};
+    use std::time::{Duration, Instant};
+
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("guest.wat");
+    std::fs::write(&module_file, wat).unwrap();
+    let mut child = wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap())
+        .read_line(&mut line)
+        .unwrap();
+    assert_eq!(line, "ready\n");
+    for (i, &sig) in signals.iter().enumerate() {
+        if i > 0 {
+            std::thread::sleep(Duration::from_millis(200));
+            assert!(child.try_wait().unwrap().is_none(), "wasmer exited early");
+        }
+        assert_eq!(unsafe { libc::kill(child.id() as libc::pid_t, sig) }, 0);
+    }
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            return status;
+        }
+        if Instant::now() > deadline {
+            child.kill().unwrap();
+            panic!("wasmer did not exit after the signal");
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+/// A host `SIGTERM` reaches the guest, which has no handler and so dies of the default action:
+/// `wasmer` exits with 128 + 15 itself rather than being killed by the signal.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_forwards_sigterm_to_the_guest() {
+    use std::os::unix::process::ExitStatusExt as _;
+
+    let status = run_wasixv2_and_signal(WASIXV2_BLOCK_WAT, &[libc::SIGTERM]);
+    assert_eq!(status.signal(), None, "wasmer died of the signal: {status}");
+    assert_eq!(status.code(), Some(128 + 15));
+}
+
+/// A guest that waits for `SIGINT` takes the host's.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_delivers_sigint_to_a_waiting_guest() {
+    let status = run_wasixv2_and_signal(WASIXV2_SIGWAIT_WAT, &[libc::SIGINT]);
+    assert_eq!(status.code(), Some(2), "{status}");
+}
+
+/// The third Ctrl-C ends `wasmer` with 130 even when the guest never takes them.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_exits_on_the_third_sigint() {
+    use std::os::unix::process::ExitStatusExt as _;
+
+    let sigints = [libc::SIGINT; 3];
+    let status = run_wasixv2_and_signal(WASIXV2_DEAF_WAT, &sigints);
+    assert_eq!(status.signal(), None, "wasmer died of the signal: {status}");
+    assert_eq!(status.code(), Some(130));
+}
+
 // Test that wasmer can run a complex path
 #[test]
 fn test_wasmer_run_complex_url() {

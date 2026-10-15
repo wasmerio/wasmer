@@ -210,7 +210,7 @@ tracing-subscriber = { workspace = true, features = [
   "ansi",
 ] }
 async-trait.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 once_cell.workspace = true
 indicatif.workspace = true
 opener.workspace = true

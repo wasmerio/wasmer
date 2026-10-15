@@ -837,6 +837,16 @@ impl Kernel {
         Ok(())
     }
 
+    /// Sends `sig` to the process `pid` from outside the machine, like `kill(2)` from a process
+    /// in an ancestor PID namespace: `si_code` is `SI_USER` and `si_pid` 0. The guest's
+    /// dispositions apply as for any other signal, so with no handler the default action
+    /// runs. A signal reaches a task at its next interruption point (a blocking call or a
+    /// return from a syscall).
+    pub fn kill(&self, pid: TaskId, sig: Signal) -> Result<(), Errno> {
+        let sig = check_signal(sig)?;
+        self.send_to_group(pid.0 as Pid, user_info(sig, SiCode::SI_USER, 0))
+    }
+
     /// `do_tkill`: `tgid` must own `tid` when given.
     fn send_to_task(&self, tgid: Option<Pid>, tid: Pid, info: Siginfo) -> Result<(), Errno> {
         if tid <= 0 || tgid.is_some_and(|tgid| tgid <= 0) {
