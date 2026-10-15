@@ -206,6 +206,7 @@ fn startup_block_lays_out_argv_envp_and_auxv() {
         .take_while(|&(key, _)| key != 0)
         .collect();
     assert!(auxv.contains(&(6, 65536)), "AT_PAGESZ: {auxv:?}");
+    assert!(auxv.contains(&(11, 1)), "AT_UID: {auxv:?}");
     let random = auxv.iter().find(|(key, _)| *key == 25).unwrap().1;
     assert_eq!(memory.0.borrow()[random as usize..][..16], [0x5a; 16]);
     assert!(random + 16 <= base + size);
@@ -314,4 +315,19 @@ fn files_round_trip_through_the_vfs() {
     let unlinked = block_on(kernel.unlinkat(&caller, Fd(-100), GuestPtr::new(0), AtFlags(0)));
     assert_eq!(unlinked, Ok(0));
     assert_eq!(open(OpenFlags::O_RDONLY), Err(SysErr::Errno(Errno::ENOENT)));
+}
+
+#[test]
+fn uname_reports_the_wasixv2_abi_version() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 512]));
+    let caller = Caller::new(task, &memory);
+
+    assert_eq!(block_on(kernel.uname(&caller, GuestPtrMut::new(8))), Ok(0));
+    assert_eq!(block_on(kernel.getuid(&caller)), Ok(1));
+
+    let field = |i: u32| cstr_at(&memory, 8 + i * 65);
+    assert_eq!(field(0), "wasixv2");
+    assert_eq!(field(2), "2.0.0");
+    assert_eq!(field(4), "wasm32");
 }

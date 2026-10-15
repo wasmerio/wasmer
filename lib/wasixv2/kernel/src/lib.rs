@@ -21,9 +21,9 @@ use std::{
 pub use file::FileObject;
 use wasixv2_abi::{
     AtFlags, ClockId, ConstIovecArray, ConstKernelTimespecPtr, ConstSigsetPtr, Cstr, FcntlCmd,
-    FutexOp, GuestPtr, IoctlRequest, KernelTimespecPtr, Loff, MapFlags, Mode, OpenFlags, Pid,
-    ProtFlags, S32Ptr, SeekWhence, Signal, SigprocmaskHow, Sigset, SigsetPtr, TimerFlags, U32Ptr,
-    Ulong, Uptr, Usize,
+    FutexOp, GuestPtr, IoctlRequest, KernelTimespecPtr, Loff, MapFlags, Mode, NewUtsname,
+    NewUtsnamePtr, OpenFlags, Pid, ProtFlags, S32Ptr, SeekWhence, Signal, SigprocmaskHow, Sigset,
+    SigsetPtr, TimerFlags, U32Ptr, Ulong, Uptr, Usize,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
@@ -42,6 +42,19 @@ use crate::{
 /// Most bytes one `read` or `write` moves. Partial transfers are valid for both, and this bounds
 /// the host allocation a guest-chosen length can cause.
 const IO_CHUNK: usize = 64 * 1024;
+
+/// The uid and gid of every process until credentials exist. Not 0: root bypasses permission
+/// checks, so programs take paths that only make sense for a privileged user.
+const ID: i32 = 1;
+
+/// `uname` fields. The release is the wasixv2 ABI version, not a Linux version: the target is not
+/// Linux, and programs that parse the release to guess Linux features should not match it.
+const SYSNAME: &str = "wasixv2";
+const NODENAME: &str = "localhost";
+const RELEASE: &str = "2.0.0";
+const VERSION: &str = "#1";
+const MACHINE: &str = "wasm32";
+const DOMAINNAME: &str = "(none)";
 
 /// What a new process starts with.
 pub struct ProcessConfig {
@@ -300,6 +313,41 @@ impl Syscalls for Kernel {
         Ok(self.process(caller.task()).pid.0 as Pid)
     }
 
+    async fn getuid(&self, _: &Caller<'_>) -> SysResult<i32> {
+        Ok(ID)
+    }
+
+    async fn geteuid(&self, _: &Caller<'_>) -> SysResult<i32> {
+        Ok(ID)
+    }
+
+    async fn getgid(&self, _: &Caller<'_>) -> SysResult<i32> {
+        Ok(ID)
+    }
+
+    async fn getegid(&self, _: &Caller<'_>) -> SysResult<i32> {
+        Ok(ID)
+    }
+
+    // TODO: the nodename and domainname come from the UTS namespace once `sethostname` exists.
+    async fn uname(&self, caller: &Caller<'_>, name: NewUtsnamePtr) -> SysResult<i32> {
+        fn field(s: &str) -> [u8; 65] {
+            let mut out = [0; 65];
+            out[..s.len()].copy_from_slice(s.as_bytes());
+            out
+        }
+        let uts = NewUtsname {
+            sysname: field(SYSNAME),
+            nodename: field(NODENAME),
+            release: field(RELEASE),
+            version: field(VERSION),
+            machine: field(MACHINE),
+            domainname: field(DOMAINNAME),
+        };
+        write_value(caller.memory(), name, &uts).await?;
+        Ok(0)
+    }
+
     async fn gettid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
         Ok(caller.task().0 as Pid)
     }
@@ -390,6 +438,8 @@ impl Syscalls for Kernel {
         if offset % PAGE_SIZE as i64 != 0 {
             return Err(Errno::EINVAL.into());
         }
+        // Shared anonymous memory is ordinary memory within one address space. Wasm modules
+        // cannot share part of their memory, so no other process will ever see it.
         match flags & MapFlags::MAP_TYPE {
             MapFlags::MAP_SHARED | MapFlags::MAP_PRIVATE | MapFlags::MAP_SHARED_VALIDATE => {}
             _ => return Err(Errno::EINVAL.into()),

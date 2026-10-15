@@ -3,7 +3,7 @@
 use wasixv2_abi::AuxvType;
 use wasixv2_syscalls::Errno;
 
-use crate::mm::PAGE_SIZE;
+use crate::{ID, mm::PAGE_SIZE};
 
 const WORD: usize = 4;
 const RANDOM_LEN: usize = 16;
@@ -11,15 +11,15 @@ const RANDOM_LEN: usize = 16;
 const CLOCK_TICKS: u32 = 100;
 
 /// The auxiliary vector, except `AT_RANDOM`, whose value is an address in the block, and the
-/// terminating `AT_NULL`. The process runs as root: there are no credentials yet.
+/// terminating `AT_NULL`.
 const AUXV: &[(AuxvType, u32)] = &[
     (AuxvType::AT_PAGESZ, PAGE_SIZE as u32),
     (AuxvType::AT_CLKTCK, CLOCK_TICKS),
     (AuxvType::AT_HWCAP, 0),
-    (AuxvType::AT_UID, 0),
-    (AuxvType::AT_EUID, 0),
-    (AuxvType::AT_GID, 0),
-    (AuxvType::AT_EGID, 0),
+    (AuxvType::AT_UID, ID as u32),
+    (AuxvType::AT_EUID, ID as u32),
+    (AuxvType::AT_GID, ID as u32),
+    (AuxvType::AT_EGID, ID as u32),
     (AuxvType::AT_SECURE, 0),
 ];
 
