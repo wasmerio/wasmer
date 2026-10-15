@@ -7055,28 +7055,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasix-tests"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "dirs",
- "itertools 0.15.0",
- "libtest-mimic",
- "strum",
- "tempfile",
- "tokio",
- "toml 1.1.6+spec-1.1.0",
- "tracing",
- "tracing-subscriber",
- "version-compare",
- "walkdir",
- "wasixv2",
- "wasmer",
- "wasmer-types",
- "wasmer-wasix",
-]
-
-[[package]]
 name = "wasixv2"
 version = "0.0.0"
 dependencies = [
@@ -8131,6 +8109,7 @@ dependencies = [
  "crossbeam-channel",
  "dashmap",
  "derive_more",
+ "dirs",
  "env_logger",
  "flate2",
  "fnv",
@@ -8147,6 +8126,7 @@ dependencies = [
  "itertools 0.15.0",
  "js-sys",
  "libc",
+ "libtest-mimic",
  "linked_hash_set",
  "log",
  "lz4_flex",
@@ -8168,6 +8148,7 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "shared-buffer",
+ "strum",
  "tempfile",
  "terminal_size",
  "termios",
@@ -8178,10 +8159,12 @@ dependencies = [
  "tower",
  "tower-http 0.7.1",
  "tracing",
+ "tracing-subscriber",
  "tracing-test",
  "tracing-wasm",
  "url",
  "urlencoding",
+ "version-compare",
  "virtual-fs",
  "virtual-mio",
  "virtual-net",

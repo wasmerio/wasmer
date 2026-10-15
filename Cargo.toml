@@ -62,7 +62,6 @@ members = [
   "lib/wai-bindgen-wasmer",
   "lib/wasi-types",
   "lib/wasix",
-  "lib/wasix-tests",
   "lib/journal",
   "lib/wasixv2/*",
   "lib/swift",

@@ -37,19 +37,9 @@ To debug a failing WAST test, see
 
 ## WASIX Guest-Side Tests
 
-WASIX guest-side tests live in the `wasix-tests` crate, under
-`lib/wasix-tests/tests/wasm_tests/`. They need `wasixcc` and `cargo-wasix` on
-PATH. Fixture directives are documented in
-`lib/wasix-tests/tests/wasm_tests/mod.rs`, the rest in the
-[suite README](../lib/wasix-tests/tests/wasm_tests/README.md):
-
-```bash
-cargo nextest run -p wasix-tests --release
-```
-
-Every fixture runs on WASIX v1. C fixtures also run on WASIX v2 when its
-toolchain is installed; v2 variants known to fail are listed in
-`lib/wasix-tests/v2-expected-failures.txt`.
+WASIX guest-side tests live in `lib/wasix/tests/wasm_tests/`. They need
+`wasixcc` and `cargo-wasix` on PATH. Fixture directives are documented in
+`lib/wasix/tests/wasm_tests.rs`.
 
 ## CI Coverage Gaps
 

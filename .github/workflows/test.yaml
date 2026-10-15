@@ -670,7 +670,7 @@ jobs:
         metadata:
           # `wasix_rust_toolchain` marks the hosts wasix-org/rust publishes a
           # toolchain for, i.e. the ones that collect the Rust wasm_tests
-          # fixtures (see lib/wasix-tests/tests/wasm_tests/README.md).
+          # fixtures (see lib/wasix/tests/wasm_tests/README.md).
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -802,11 +802,6 @@ jobs:
         uses: wasix-org/cargo-wasix@main
         with:
           toolchain-version: ${{ env.WASIX_RUST_TOOLCHAIN_TAG }}
-      # TODO: run the WASIX v2 variants of lib/wasix-tests here once the
-      # wasm32-wasixv2 LLVM and sysroot are released: install them with
-      # wasixcc (`WASIXCC_TARGET=wasm32-wasixv2 wasixccenv download-all`, to
-      # ~/.wasixcc/llvm-wasixv2 and ~/.wasixcc/sysroot-wasixv2) and the suite
-      # registers them automatically. Until then it skips them.
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url

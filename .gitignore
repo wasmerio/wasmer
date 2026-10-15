@@ -34,5 +34,5 @@ link.tar.gz
 .codex
 result
 result-*
-/lib/wasix-tests/tests/wasm_tests/build/
+/lib/wasix/tests/wasm_tests/build/
 .env

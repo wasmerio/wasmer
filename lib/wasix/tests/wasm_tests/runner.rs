@@ -415,7 +415,7 @@ where
                 None,
             )
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to load module: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))?;
 
             tokio::task::block_in_place(move || {
                 // Run the WASM module using WasiRunner
@@ -484,7 +484,7 @@ pub(crate) fn format_captured_output(result: &WasmRunResult) -> String {
     );
 
     if let Some(error) = &result.error {
-        message.push_str(&format!("\nerror:\n{error}"));
+        message.push_str(&format!("\nerror:\n{}", error));
     }
 
     message
