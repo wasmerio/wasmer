@@ -175,7 +175,10 @@ pub trait Syscalls {
     /// module's runtime path, then in `search-path`. Every candidate is opened as `openat` would,
     /// with the process's credentials and working directory.
     ///
-    /// `flags` are `RTLD_*`; linking is always immediate, so `RTLD_LAZY` acts as `RTLD_NOW`.
+    /// `flags` are `RTLD_*`, with musl's meaning. Symbols are bound at load time either way. With
+    /// `RTLD_LAZY`, a function or GOT reference to a missing symbol does not fail the load: it is
+    /// resolved when a later `RTLD_GLOBAL` load defines the symbol, and calling a function that
+    /// never appears kills the process. With `RTLD_NOW`, a missing symbol fails the load.
     /// `caller-addr` is an address in the calling module's data, such as its `__dso_handle`, or 0
     /// for the main module. It selects the module whose runtime path applies.
     ///

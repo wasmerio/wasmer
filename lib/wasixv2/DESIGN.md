@@ -505,7 +505,9 @@ Side modules must export `__wasm_init_tls`, `__tls_size` and `__tls_align`; wasi
 
 **Policy is data.**
 
-- `RTLD_GLOBAL`, `RTLD_LOCAL`, `RTLD_NOLOAD`, `RTLD_NODELETE`, `RTLD_NOW` and `RTLD_LAZY` are flags with musl's values. The host keeps the global scope: the main module and `RTLD_GLOBAL` modules, in load order. Linking is always immediate.
+- `RTLD_GLOBAL`, `RTLD_LOCAL`, `RTLD_NOLOAD`, `RTLD_NODELETE`, `RTLD_NOW` and `RTLD_LAZY` are flags with musl's values and meaning. The host keeps the global scope: the main module and `RTLD_GLOBAL` modules, in load order.
+- Symbols are always bound at load time, as in musl. True lazy binding through a PLT has no wasm equivalent, and musl does not do it either. Its `RTLD_LAZY` only defers references to missing symbols, and that maps onto wasm: a missing function import gets a stub that resolves the symbol when called, and a missing `GOT.func` or `GOT.mem` entry, a mutable global, is filled in when a later `RTLD_GLOBAL` load defines the symbol. A call to a symbol that never appears kills the process. With `RTLD_NOW`, a missing symbol fails the load. To avoid a host call on every call through a stub, the host can generate the stubs as wasm that calls through a table slot.
+- `RTLD_NODELETE` changes nothing: no module is ever unloaded, which is also musl's behaviour.
 - `RTLD_DEFAULT` and `RTLD_NEXT` need the caller's module. libc2 passes an address in the caller's data, such as its `__dso_handle`, and the host maps it to a module by memory range.
 - Symbol precedence and weak symbols follow ELF rules in the host.
 - The host's error messages go straight to `dlerror()`.
