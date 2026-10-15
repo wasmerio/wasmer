@@ -167,6 +167,14 @@ interface types {
   /// @c(unsigned *)
   type u32-ptr = uptr;
 
+  /// @ptr(mut u64)
+  /// @c(uint64_t *)
+  type u64-ptr = uptr;
+
+  /// @ptr(mut uptr)
+  /// @c(uintptr_t *)
+  type uptr-ptr = uptr;
+
   /// @ptr(mut u64[])
   /// @c(uint64_t *)
   type u64-array = uptr;
@@ -1132,7 +1140,7 @@ interface types {
     rename-whiteout,
   }
 
-  /// `whence` values for `llseek` (`linux/fs.h`).
+  /// `whence` values for `lseek` (`linux/fs.h`).
   /// @repr(s32)
   /// @c(int)
   enum seek-whence {
@@ -3845,7 +3853,7 @@ interface types {
     prot-growsup,
   }
 
-  /// `mmap2` flags (`MAP_*`, `asm-generic/mman*.h`, `linux/mman.h`).
+  /// `mmap` flags (`MAP_*`, `asm-generic/mman*.h`, `linux/mman.h`).
   /// `MAP_SHARED`/`MAP_PRIVATE`/`MAP_SHARED_VALIDATE` are values of the `MAP_TYPE` field;
   /// `MAP_HUGE_*` encode log2(page size) in bits 26..31.
   /// @repr(u32)
@@ -3919,7 +3927,7 @@ interface types {
     map-huge-16gb,
   }
 
-  /// Shift/mask of the huge page size field in `mmap2` and `memfd_create` flags.
+  /// Shift/mask of the huge page size field in `mmap` and `memfd_create` flags.
   /// @repr(u32)
   enum hugetlb-encoding {
     /// @value(26)

@@ -972,8 +972,11 @@ impl GuestLayout for OpenFlags {
 pub struct WaitOptions(pub u32);
 impl WaitOptions {
     pub const WNOHANG: Self = Self(0x1);
+    #[allow(non_upper_case_globals)]
     pub const __WNOTHREAD: Self = Self(0x20000000);
+    #[allow(non_upper_case_globals)]
     pub const __WALL: Self = Self(0x40000000);
+    #[allow(non_upper_case_globals)]
     pub const __WCLONE: Self = Self(0x80000000);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
@@ -1082,6 +1085,7 @@ impl GuestLayout for WaitOptions {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct SignalLimits(pub i32);
 impl SignalLimits {
+    #[allow(non_upper_case_globals)]
     pub const _NSIG: Self = Self(65);
     /// Mixed-case names are allowed too.
     #[allow(non_upper_case_globals)]

@@ -18,11 +18,14 @@ These files are the source of truth. Edit them by hand.
 
 - riscv32 is the reference: asm-generic, ILP32, time64 only. Its struct layouts are
   byte-identical to wasm32.
-- Syscalls mirror Linux 1:1: the riscv32 table name is the import name, and the arguments and
+- Syscalls mirror Linux: the riscv32 table name is the import name, and the arguments and
   semantics are the same. The return value is a Linux `long`, either a value or `-errno`.
 - Arguments that riscv32 splits into register pairs are a single `s64`/`u64` parameter here.
-  This also covers `llseek` (`offset_high`, `offset_low`) and the `pos_l`/`pos_h` pair of
-  `preadv`/`pwritev`/`preadv2`/`pwritev2`. `mmap2` keeps its offset in 4096-byte units.
+  This also covers the `pos_l`/`pos_h` pair of `preadv`/`pwritev`/`preadv2`/`pwritev2`.
+- riscv32 is the reference, not a copy. Where it works around 32-bit registers, the import uses
+  the 64-bit form instead: `lseek` takes and returns an `s64` (riscv32 has only `llseek`), and
+  `mmap` takes a byte offset (riscv32 has only `mmap2`, which counts 4096-byte units). Both keep
+  riscv32's numbers.
 - Records describe the layout the kernel sees, because that is what the host implements.
   `@c` names the type that musl passes to the syscall, where one matches.
 - Four syscalls are omitted: `lookup_dcookie` (18) and `nfsservctl` (42), which are
@@ -69,8 +72,9 @@ A line starting with `====` is a section divider. The divider comments
 | `@c-enum` | enum, flags | musl defines the members as C enumerators, not macros. Their C asserts are not guarded by `#ifdef`. |
 | `@module(name)` | interface | The wasm import module. |
 | `@nr(N)` | syscall | The riscv32 syscall number. |
-| `@sys-name(name)` | syscall | The musl `SYS_` suffix, when it differs from the import name (`_llseek`). |
+| `@sys-name(name)` | syscall | The musl `SYS_` suffix, when it differs from the import name. |
 | `@merged-i64(param[, hi-lo])` | syscall | Linux passes `param` as two 32-bit halves. The default order is `lo-hi`. |
+| `@c-one-slot(param)` | syscall | musl passes this 64-bit `param` in one `long` argument slot, not two, so the C glue sign-extends it. Used where musl calls a syscall that only exists on 64-bit Linux (`lseek`, `mmap`); libc calls the import directly for values beyond 32 bits. |
 | `@noreturn` | function | The function never returns, so it has no result (`exit`, `exit_group`, `rt_sigreturn`). |
 | `@unsupported` | function | Declared for completeness. Hosts may return `-ENOSYS`. |
 | `@c-param(name: C type)` | function | Overrides the C prototype type of one parameter. |

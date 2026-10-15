@@ -27,8 +27,8 @@ use wasixv2_abi::{
     ShutdownHow, SigactionPtr, SigaltstackPtr, SiginfoPtr, Signal, SignalfdFlags, SigprocmaskHow,
     SigsetPtr, SockaddrPtr, SocketFlags, SocketLevel, SocklenPtr, SpliceFlags, Statfs64Ptr,
     StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerIdPtr, TimerfdFlags,
-    TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, UidPtr, UlongArray, UmountFlags,
-    UserCapDataArray, UserCapHeaderPtr, UserMsghdrPtr, UsizePtr, VoidPtr, WaitOptions,
+    TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, U64Ptr, UidPtr, UlongArray, UmountFlags,
+    UptrPtr, UserCapDataArray, UserCapHeaderPtr, UserMsghdrPtr, UsizePtr, VoidPtr, WaitOptions,
     XattrArgsPtr, XattrFlags,
 };
 use wasixv2_syscalls::{Caller, Control, Syscalls, TaskId, UserSlice, UserSliceMut};
@@ -66,8 +66,33 @@ where
     );
     imports.define(
         IMPORT_MODULE,
-        "cancel_flag_register",
-        Function::new_typed_with_env_async(store, env, cancel_flag_register::<S>),
+        "context_create",
+        Function::new_typed_with_env_async(store, env, context_create::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "context_switch",
+        Function::new_typed_with_env_async(store, env, context_switch::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "context_destroy",
+        Function::new_typed_with_env_async(store, env, context_destroy::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "dl_open",
+        Function::new_typed_with_env_async(store, env, dl_open::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "dl_sym",
+        Function::new_typed_with_env_async(store, env, dl_sym::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "dl_close",
+        Function::new_typed_with_env_async(store, env, dl_close::<S>),
     );
     imports.define(
         IMPORT_MODULE,
@@ -166,8 +191,8 @@ where
     );
     imports.define(
         IMPORT_MODULE,
-        "llseek",
-        Function::new_typed_with_env_async(store, env, llseek::<S>),
+        "lseek",
+        Function::new_typed_with_env_async(store, env, lseek::<S>),
     );
     imports.define(
         IMPORT_MODULE,
@@ -1056,8 +1081,8 @@ where
     );
     imports.define(
         IMPORT_MODULE,
-        "mmap2",
-        Function::new_typed_with_env_async(store, env, mmap2::<S>),
+        "mmap",
+        Function::new_typed_with_env_async(store, env, mmap::<S>),
     );
     imports.define(
         IMPORT_MODULE,
@@ -1663,14 +1688,23 @@ where
     return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
 }
 
-async fn startup_get<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, buf: i32) -> Result<i32, RuntimeError>
+async fn startup_get<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    buf: i32,
+    len: i32,
+) -> Result<i32, RuntimeError>
 where
     S: Syscalls + Control + 'static,
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::startup_get(&*syscalls, &caller, Buf::new(buf as u32)).await;
+    let ret = Syscalls::startup_get(
+        &*syscalls,
+        &caller,
+        UserSliceMut::new(buf as u32, len as u32),
+    )
+    .await;
     return_to_guest(&*syscalls, task, ret)
 }
 
@@ -1702,9 +1736,10 @@ where
     return_to_guest(&*syscalls, task, ret)
 }
 
-async fn cancel_flag_register<S>(
+async fn context_create<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
-    flag: i32,
+    entry: i32,
+    id: i32,
 ) -> Result<i32, RuntimeError>
 where
     S: Syscalls + Control + 'static,
@@ -1712,7 +1747,99 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::cancel_flag_register(&*syscalls, &caller, S32Ptr::new(flag as u32)).await;
+    let ret =
+        Syscalls::context_create(&*syscalls, &caller, entry as u32, U64Ptr::new(id as u32)).await;
+    return_to_guest(&*syscalls, task, ret)
+}
+
+async fn context_switch<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    id: i64,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    let ret = Syscalls::context_switch(&*syscalls, &caller, id as u64).await;
+    return_to_guest(&*syscalls, task, ret)
+}
+
+async fn context_destroy<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    id: i64,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    let ret = Syscalls::context_destroy(&*syscalls, &caller, id as u64).await;
+    return_to_guest(&*syscalls, task, ret)
+}
+
+async fn dl_open<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    path: i32,
+    flags: i32,
+    err: i32,
+    err_len: i32,
+    handle: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    let ret = Syscalls::dl_open(
+        &*syscalls,
+        &caller,
+        Cstr::new(path as u32),
+        flags,
+        UserSliceMut::new(err as u32, err_len as u32),
+        U32Ptr::new(handle as u32),
+    )
+    .await;
+    return_to_guest(&*syscalls, task, ret)
+}
+
+async fn dl_sym<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    handle: i32,
+    symbol: i32,
+    err: i32,
+    err_len: i32,
+    addr: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    let ret = Syscalls::dl_sym(
+        &*syscalls,
+        &caller,
+        handle as u32,
+        Cstr::new(symbol as u32),
+        UserSliceMut::new(err as u32, err_len as u32),
+        UptrPtr::new(addr as u32),
+    )
+    .await;
+    return_to_guest(&*syscalls, task, ret)
+}
+
+async fn dl_close<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, handle: i32) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    let ret = Syscalls::dl_close(&*syscalls, &caller, handle as u32).await;
     return_to_guest(&*syscalls, task, ret)
 }
 
@@ -2130,28 +2257,19 @@ where
     return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
 }
 
-async fn llseek<S>(
+async fn lseek<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
     fd: i32,
     offset: i64,
-    result: i32,
     whence: i32,
-) -> Result<i32, RuntimeError>
+) -> Result<i64, RuntimeError>
 where
     S: Syscalls + Control + 'static,
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::llseek(
-        &*syscalls,
-        &caller,
-        Fd(fd),
-        offset,
-        LoffPtr::new(result as u32),
-        SeekWhence(whence),
-    )
-    .await;
+    let ret = Syscalls::lseek(&*syscalls, &caller, Fd(fd), offset, SeekWhence(whence)).await;
     return_to_guest(&*syscalls, task, ret)
 }
 
@@ -5707,14 +5825,14 @@ where
     return_to_guest(&*syscalls, task, ret)
 }
 
-async fn mmap2<S>(
+async fn mmap<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
     addr: i32,
     len: i32,
     prot: i32,
     flags: i32,
     fd: i32,
-    offset: i32,
+    offset: i64,
 ) -> Result<i32, RuntimeError>
 where
     S: Syscalls + Control + 'static,
@@ -5722,7 +5840,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::mmap2(
+    let ret = Syscalls::mmap(
         &*syscalls,
         &caller,
         addr as u32,
@@ -5730,10 +5848,10 @@ where
         ProtFlags(prot as u32),
         MapFlags(flags as u32),
         Fd(fd),
-        offset as u32,
+        offset,
     )
     .await;
-    return_to_guest(&*syscalls, task, ret)
+    return_to_guest(&*syscalls, task, ret.map(|v| v as i32))
 }
 
 async fn munmap<S>(

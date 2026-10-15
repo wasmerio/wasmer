@@ -96,11 +96,11 @@ fn import_memory(
 
 /// The return-to-guest path: runs the work the kernel left for `task`, then turns the syscall
 /// result into the guest's return value.
-fn return_to_guest<S: Control>(
+fn return_to_guest<S: Control, R: From<i32>>(
     syscalls: &S,
     task: TaskId,
-    ret: SysResult<i32>,
-) -> Result<i32, RuntimeError> {
+    ret: SysResult<R>,
+) -> Result<R, RuntimeError> {
     if let Some(action) = syscalls.take_pending(task) {
         match action {
             GuestAction::Exit(status) => return Err(RuntimeError::user(Box::new(Exited(status)))),
@@ -108,8 +108,8 @@ fn return_to_guest<S: Control>(
     }
     Ok(match ret {
         Ok(value) => value,
-        Err(SysErr::Errno(errno)) => -errno.0,
+        Err(SysErr::Errno(errno)) => R::from(-errno.0),
         // Nothing can interrupt a call until signals exist, so there is nothing to restart.
-        Err(SysErr::Restart) => -wasixv2_syscalls::Errno::EINTR.0,
+        Err(SysErr::Restart) => R::from(-wasixv2_syscalls::Errno::EINTR.0),
     })
 }

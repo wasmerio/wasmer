@@ -56,7 +56,7 @@
 #define __NR_pipe2	59
 #define __NR_quotactl	60
 #define __NR_getdents64	61
-#define __NR__llseek	62
+#define __NR_lseek	62
 #define __NR_read	63
 #define __NR_write	64
 #define __NR_readv	65
@@ -191,7 +191,7 @@
 #define __NR_keyctl	219
 #define __NR_clone	220
 #define __NR_execve	221
-#define __NR_mmap2	222
+#define __NR_mmap	222
 #define __NR_fadvise64_64	223
 #define __NR_swapon	224
 #define __NR_swapoff	225

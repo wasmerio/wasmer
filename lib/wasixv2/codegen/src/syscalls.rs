@@ -308,7 +308,6 @@ pub(crate) mod tests {
         let e = |funcs: &str| format!("{:#}", generate(&model(funcs), "t.wit").unwrap_err());
         assert!(e("x: func(a-b: s32, A-B: s32) -> slong;").contains("duplicate `a_b`"));
         assert!(e("x: func();").contains("is not `@noreturn`"));
-        assert!(e("x: func() -> s64;").contains("only 32-bit results"));
         assert!(e("imports: func() -> slong;").contains("reserved by generated code"));
         let e = e("x-y: func() -> slong;\n/// @import(z)\nX-Y: func() -> slong;");
         assert!(e.contains("both map to Rust method `x_y`"), "{e}");

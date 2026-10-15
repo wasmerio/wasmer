@@ -2,7 +2,8 @@
 //!
 //! musl's `__syscallN(nr, ...)` macros token-paste the syscall *number* into `__wx2_nr_<nr>(...)`,
 //! an "arm" that casts musl's `long` argument slots to the typed `wasixv2` import's parameters.
-//! Every 64-bit param occupies two slots (musl splits it); the arm reassembles it into one i64.
+//! A 64-bit param occupies two slots (musl splits it) and the arm reassembles it into one i64,
+//! unless it is `@c-one-slot`: musl passes it in one `long` slot and the arm sign-extends it.
 //! The non-generated half of this lives in libc2's `arch/wasm32/syscall_arch.h`.
 
 use std::collections::{BTreeMap, HashMap};
@@ -147,9 +148,11 @@ impl CType {
         }
     }
 
-    fn slots(self) -> usize {
+    /// musl argument slots param `p` of `f` occupies: two for a 64-bit value, unless it is
+    /// `@c-one-slot`.
+    fn slots(self, f: &Function, p: &Param) -> usize {
         match self {
-            CType::LongLong | CType::ULongLong => 2,
+            CType::LongLong | CType::ULongLong if !f.c_one_slot.contains(&p.name) => 2,
             _ => 1,
         }
     }
@@ -215,11 +218,11 @@ fn syscalls(model: &Model) -> Result<Vec<Syscall<'_>>> {
                 .iter()
                 .map(|p| (p, CType::of(model, &p.ty)))
                 .collect();
-            let slots: usize = params.iter().map(|(_, t)| t.slots()).sum();
+            let slots: usize = params.iter().map(|(p, t)| t.slots(f, p)).sum();
             if slots > MAX_SLOTS {
                 bail!(
-                    "function `{}` needs {slots} musl argument slots (64-bit params take two), \
-                     more than the {MAX_SLOTS} musl passes",
+                    "function `{}` needs {slots} musl argument slots (64-bit params take two \
+                     unless `@c-one-slot`), more than the {MAX_SLOTS} musl passes",
                     f.name
                 );
             }
@@ -318,6 +321,9 @@ fn arm(s: &Syscall<'_>) -> String {
         let ty = t.spelling();
         exprs.push(match t {
             CType::Ptr | CType::ConstPtr => format!("({ty})(__UINTPTR_TYPE__)(a{slot})"),
+            CType::LongLong | CType::ULongLong if t.slots(s.f, p) == 1 => {
+                format!("({ty})(a{slot})")
+            }
             CType::LongLong | CType::ULongLong => {
                 let (lo, hi) = match s.f.split_order(&p.name) {
                     SplitOrder::LoHi => (slot, slot + 1),
@@ -327,7 +333,7 @@ fn arm(s: &Syscall<'_>) -> String {
             }
             _ => format!("({ty})(a{slot})"),
         });
-        slot += t.slots();
+        slot += t.slots(s.f, p);
     }
     let mut slots: Vec<String> = (0..slot).map(|i| format!("a{i}")).collect();
     slots.push("...".to_string());
@@ -568,6 +574,22 @@ mod tests {
             "/* 62: llseek(unsigned int fd, long long offset, void *result, unsigned int whence) */"
         ));
         assert_eq!(file(&m, SYSCALL_NUMBERS_PATH), "#define __NR__llseek\t62\n");
+    }
+
+    #[test]
+    fn one_slot_i64_is_sign_extended() {
+        let m = model(
+            "",
+            "/// @nr(222)\n/// @c-one-slot(off)\nmmap: func(addr: vp, len: u32, prot: u32, %flags: u32, fd: s32, off: s64) -> slong;",
+        );
+        let h = file(&m, SYSCALLS_HEADER_PATH);
+        assert!(
+            h.contains(
+                "#define __wx2_a_222(a0, a1, a2, a3, a4, a5, ...) __wasix2_mmap((void *)(__UINTPTR_TYPE__)(a0), \
+             (unsigned int)(a1), (unsigned int)(a2), (unsigned int)(a3), (int)(a4), (long long)(a5))\n"
+            ),
+            "{h}"
+        );
     }
 
     #[test]

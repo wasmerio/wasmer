@@ -27,6 +27,8 @@ pub struct Method<'a> {
     pub params: Vec<Param>,
     /// Type of a successful result; `None` for `@noreturn` functions.
     pub ret: Option<TyRef>,
+    /// Wasm type of the import's result (`i32` or `i64`); `S32` for `@noreturn` functions.
+    pub raw_ret: Prim,
 }
 
 pub struct RawParam {
@@ -151,17 +153,19 @@ fn method<'a>(model: &Model, module: &'a str, f: &'a Function) -> Result<Method<
             });
         }
     }
-    let ret = match (&f.result, f.noreturn) {
-        (_, true) => None,
+    let (ret, raw_ret) = match (&f.result, f.noreturn) {
+        (_, true) => (None, Prim::S32),
         (None, false) => bail!("function `{}` has no result but is not `@noreturn`", f.name),
         (Some(r), false) => {
-            if model.valtype(r) != Some(ValType::I32) {
-                bail!("function `{}`: only 32-bit results are supported", f.name);
-            }
-            Some(match &f.returns {
+            let raw_ret = match model.valtype(r).expect("validated scalar") {
+                ValType::I32 => Prim::S32,
+                ValType::I64 => Prim::S64,
+            };
+            let ret = match &f.returns {
                 Some(t) => t.clone(),
                 None => TyRef::Prim(model.scalar_prim(r).expect("validated scalar")),
-            })
+            };
+            (Some(ret), raw_ret)
         }
     };
     Ok(Method {
@@ -172,6 +176,7 @@ fn method<'a>(model: &Model, module: &'a str, f: &'a Function) -> Result<Method<
         raw,
         params,
         ret,
+        raw_ret,
     })
 }
 
@@ -301,13 +306,13 @@ pub fn decode(model: &Model, r: &RawParam) -> String {
     }
 }
 
-/// Rust expression turning the typed success value `v` into the raw `i32` result, or `None` when
+/// Rust expression turning the typed success value `v` into the raw `to` result, or `None` when
 /// `v` already is one.
-pub fn encode(model: &Model, t: &TyRef, v: &str) -> Option<String> {
+pub fn encode(model: &Model, t: &TyRef, v: &str, to: Prim) -> Option<String> {
     let expr = match repr(model, t) {
-        Repr::Int(p) => cast(v, p, Prim::S32),
-        Repr::Ptr => format!("{v}.addr() as {}", prim(Prim::S32)),
-        Repr::Wrapped { prim: p, .. } => cast(&format!("{v}.0"), p, Prim::S32),
+        Repr::Int(p) => cast(v, p, to),
+        Repr::Ptr => format!("{v}.addr() as {}", prim(to)),
+        Repr::Wrapped { prim: p, .. } => cast(&format!("{v}.0"), p, to),
     };
     (expr != v).then_some(expr)
 }

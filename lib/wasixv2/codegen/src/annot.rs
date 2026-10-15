@@ -9,6 +9,7 @@ const KNOWN: &[&str] = &[
     "c",
     "c-enum",
     "c-name",
+    "c-one-slot",
     "c-param",
     "c-skip",
     "import",

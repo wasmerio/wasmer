@@ -25,9 +25,9 @@ use wasixv2_abi::{
     Shmid64DsPtr, ShutdownHow, SigactionPtr, SigaltstackPtr, SiginfoPtr, Signal, SignalfdFlags,
     SigprocmaskHow, SigsetPtr, Slong, SockaddrPtr, SocketFlags, SocketLevel, Socklen, SocklenPtr,
     SpliceFlags, Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags,
-    TimerId, TimerIdPtr, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, Uid, UidPtr,
-    Ulong, UlongArray, UmountFlags, Uptr, UserCapDataArray, UserCapHeaderPtr, UserMsghdrPtr, Usize,
-    UsizePtr, VoidPtr, WaitOptions, XattrArgsPtr, XattrFlags,
+    TimerId, TimerIdPtr, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, U64Ptr, Uid,
+    UidPtr, Ulong, UlongArray, UmountFlags, Uptr, UptrPtr, UserCapDataArray, UserCapHeaderPtr,
+    UserMsghdrPtr, Usize, UsizePtr, VoidPtr, WaitOptions, XattrArgsPtr, XattrFlags,
 };
 
 use crate::{
@@ -50,8 +50,8 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// Writes the Linux-style initial process block into `buf`, which must be at least
-    /// `startup-size()` bytes and 16-byte aligned. Returns 0 or `-errno`.
+    /// Writes the Linux-style initial process block into `buf`, which holds `len` bytes and must be
+    /// 16-byte aligned. Returns 0, or `-EINVAL` when `len` is less than `startup-size()`.
     ///
     /// The layout matches what the kernel puts on the initial stack, with every pointer being a
     /// guest address inside `buf` and every word `ulong`-sized:
@@ -66,7 +66,7 @@ pub trait Syscalls {
     /// `AT_SECURE` and `AT_CLKTCK`. ELF-related entries (`AT_PHDR`, `AT_ENTRY`, ...) are absent.
     ///
     /// Wasm import `wasixv2.startup_get`.
-    async fn startup_get(&self, caller: &Caller<'_>, buf: Buf) -> SysResult<i32> {
+    async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
         Err(Errno::ENOSYS.into())
     }
 
@@ -84,9 +84,16 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// TENTATIVE. Registers the function the host calls to deliver a signal to this thread,
-    /// as an index into the module's indirect function table (`fn(signo: s32)`). Wasm has no
-    /// user-visible register frame, so `rt_sigreturn`-style delivery does not apply.
+    /// TENTATIVE. Registers libc's signal trampoline for this thread, as an index into the module's
+    /// indirect function table, with the signature `fn(signo: s32, info: siginfo-ptr, uctx: void-ptr)`.
+    ///
+    /// To deliver a signal, the kernel writes the `siginfo` and a small `ucontext` below the current
+    /// shadow stack pointer, or on the alternate stack set with `sigaltstack`, and calls the
+    /// trampoline on top of the interrupted wasm call stack, which stays intact. `mcontext_t` holds
+    /// only guest state a handler can clobber, such as the shadow stack pointer and the TLS base.
+    /// The trampoline calls the handler under `setjmp`; libc's `rt_sigreturn` is the matching
+    /// `longjmp`, after which the trampoline restores that state and returns to the host. A
+    /// `siglongjmp` out of the handler unwinds through the host frames as a wasm exception.
     /// Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.signal_callback_register`.
@@ -96,14 +103,86 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// TENTATIVE. Registers a per-thread word the host sets to non-zero when a blocking syscall
-    /// of this thread must be interrupted (pthread cancellation, pending signals). NULL
-    /// unregisters. Returns 0 or `-errno`.
+    /// TENTATIVE. Creates a suspended coroutine context and writes its id to `id`. Its first
+    /// resumption calls the function at table index `entry` (`fn()`) on a fresh wasm call stack; the
+    /// guest provides the shadow stack. Carried over from wasixv1 (wasix-libc's `wasix/context.h`):
+    /// greenlet uses it directly, and libc builds `makecontext` and `swapcontext` on top of it.
+    /// Returns 0 or `-errno`.
     ///
-    /// Wasm import `wasixv2.cancel_flag_register`.
+    /// Wasm import `wasixv2.context_create`.
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn cancel_flag_register(&self, caller: &Caller<'_>, flag: S32Ptr) -> SysResult<i32> {
+    async fn context_create(&self, caller: &Caller<'_>, entry: u32, id: U64Ptr) -> SysResult<i32> {
+        Err(Errno::ENOSYS.into())
+    }
+
+    /// TENTATIVE. Suspends the current context and resumes context `id`, from where it last
+    /// suspended or from its entry point. Returns 0 once another context switches back to this one,
+    /// or `-errno`.
+    ///
+    /// Wasm import `wasixv2.context_switch`.
+    ///
+    /// Declared for completeness; implementations may leave it unimplemented.
+    async fn context_switch(&self, caller: &Caller<'_>, id: u64) -> SysResult<i32> {
+        Err(Errno::ENOSYS.into())
+    }
+
+    /// TENTATIVE. Destroys a suspended or finished context and releases its resources. Destroying
+    /// the current or the main context fails. Returns 0 or `-errno`.
+    ///
+    /// Wasm import `wasixv2.context_destroy`.
+    ///
+    /// Declared for completeness; implementations may leave it unimplemented.
+    async fn context_destroy(&self, caller: &Caller<'_>, id: u64) -> SysResult<i32> {
+        Err(Errno::ENOSYS.into())
+    }
+
+    /// TENTATIVE. Loads the side module at `path` with `RTLD_*` `flags`, instantiates it against
+    /// this process's memory and indirect function table, links it, and writes its handle to
+    /// `handle`. A wasm guest cannot instantiate modules itself, so this replaces the userspace
+    /// dynamic loader's mapping step. On failure, writes a NUL-terminated `dlerror` message into
+    /// `err` and returns `-errno`. Returns 0 or `-errno`.
+    ///
+    /// Wasm import `wasixv2.dl_open`.
+    ///
+    /// Declared for completeness; implementations may leave it unimplemented.
+    async fn dl_open(
+        &self,
+        caller: &Caller<'_>,
+        path: Cstr,
+        flags: i32,
+        err: UserSliceMut,
+        handle: U32Ptr,
+    ) -> SysResult<i32> {
+        Err(Errno::ENOSYS.into())
+    }
+
+    /// TENTATIVE. Looks up `symbol` in the module `handle` and writes its address to `addr`: an
+    /// index into the indirect function table for a function, or a linear memory address for data.
+    /// On failure, writes a NUL-terminated `dlerror` message into `err` and returns `-errno`.
+    /// Returns 0 or `-errno`.
+    ///
+    /// Wasm import `wasixv2.dl_sym`.
+    ///
+    /// Declared for completeness; implementations may leave it unimplemented.
+    async fn dl_sym(
+        &self,
+        caller: &Caller<'_>,
+        handle: u32,
+        symbol: Cstr,
+        err: UserSliceMut,
+        addr: UptrPtr,
+    ) -> SysResult<i32> {
+        Err(Errno::ENOSYS.into())
+    }
+
+    /// TENTATIVE. Drops a reference to the module `handle`. Wasm cannot unload an instance's code,
+    /// so the module stays linked until the process exits. Returns 0 or `-errno`.
+    ///
+    /// Wasm import `wasixv2.dl_close`.
+    ///
+    /// Declared for completeness; implementations may leave it unimplemented.
+    async fn dl_close(&self, caller: &Caller<'_>, handle: u32) -> SysResult<i32> {
         Err(Errno::ENOSYS.into())
     }
 
@@ -361,20 +440,21 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// Kernel: `sys_llseek(unsigned int fd, unsigned long offset_high, unsigned long offset_low, loff_t *
-    /// result, unsigned int whence)`.
-    /// The kernel takes the offset as (offset_high, offset_low); here it is one `s64`. The 64-bit result is
-    /// written to `result`; the return value is 0 or `-errno`.
+    /// Kernel: `sys_lseek(unsigned int fd, off_t offset, unsigned int whence)`, with a 64-bit offset.
+    /// riscv32 only has `llseek`, which splits the offset and writes the result through a pointer
+    /// because a register cannot hold it. A wasm import takes and returns `s64` directly, so this is
+    /// the 64-bit `lseek` instead: it returns the new offset or `-errno`.
+    /// Without `SYS__llseek`, musl's `lseek` calls `SYS_lseek` with the offset in one `long` slot,
+    /// which truncates offsets beyond 2 GiB; libc calls this import directly for the full range.
     ///
-    /// Wasm import `wasixv2.llseek` (riscv32 nr 62).
-    async fn llseek(
+    /// Wasm import `wasixv2.lseek` (riscv32 nr 62).
+    async fn lseek(
         &self,
         caller: &Caller<'_>,
         fd: Fd,
-        offset: i64,
-        result: LoffPtr,
+        offset: Loff,
         whence: SeekWhence,
-    ) -> SysResult<i32> {
+    ) -> SysResult<i64> {
         Err(Errno::ENOSYS.into())
     }
 
@@ -1544,11 +1624,13 @@ pub trait Syscalls {
     }
 
     /// Kernel: `sys_rt_sigreturn()`.
-    /// Restores the signal frame (ucontext/mcontext on user stack). musl calls it from __restore_rt
-    /// trampoline (src/signal/riscv32/restore.s), riscv uses a vDSO trampoline. In wasm this needs a
-    /// host-specific design (no user-visible register frame).
+    /// Not used: wasm has no register frame for the kernel to restore. libc's signal trampoline (see
+    /// `signal-callback-register`) calls the handler under `setjmp`, and libc's `rt_sigreturn` is the
+    /// matching `longjmp`. Hosts return `-ENOSYS`, so the import traps, since it is `@noreturn`.
     ///
     /// Wasm import `wasixv2.rt_sigreturn` (riscv32 nr 139).
+    ///
+    /// Declared for completeness; implementations may leave it unimplemented.
     async fn rt_sigreturn(&self, caller: &Caller<'_>) -> SysResult<()> {
         Err(Errno::ENOSYS.into())
     }
@@ -1556,6 +1638,8 @@ pub trait Syscalls {
     /// Kernel: `sys_sigaltstack(const stack_t * uss, stack_t * uoss)`.
     /// stack_t = 12 bytes on ILP32 {void* ss_sp; int ss_flags; size_t ss_size}. MINSIGSTKSZ/SIGSTKSZ arch
     /// constants (musl riscv32: 2048/8192).
+    /// Only the shadow stack moves: a handler on the alternate stack uses it as its shadow stack, while
+    /// the wasm call stack stays with the engine.
     ///
     /// Wasm import `wasixv2.sigaltstack` (riscv32 nr 132).
     async fn sigaltstack(
@@ -1618,9 +1702,19 @@ pub trait Syscalls {
 
     /// Kernel: `sys_clone(unsigned long clone_flags, unsigned long newsp, int * parent_tidptr, unsigned
     /// long tls, int * child_tidptr)`.
-    /// riscv uses CLONE_BACKWARDS order: (flags, newsp, parent_tid, tls, child_tid). Returns twice (0 in
-    /// the child running on `newsp`), which a wasm import cannot do; threads need `wasixv2.thread_spawn`
-    /// and fork/vfork need a host design.
+    /// riscv uses CLONE_BACKWARDS order: (flags, newsp, parent_tid, tls, child_tid). On Linux it returns
+    /// twice, which a wasm import cannot do in general, so only two forms work, both with `newsp` 0.
+    ///
+    /// vfork (`CLONE_VM | CLONE_VFORK`) works in every build configuration. libc's `vfork` is a macro
+    /// that calls `setjmp` first. The call returns 0, and the instance keeps running as the child task.
+    /// When the child's `execve` succeeds or it calls `exit` or `exit_group`, that call returns to the
+    /// guest as the parent with the child's pid, and libc `longjmp`s back to the vfork point.
+    ///
+    /// fork (no `CLONE_VM`) works only in the asyncify build configuration. The host unwinds the stack
+    /// into linear memory, copies the memory for the child and rewinds both, so the call returns the
+    /// child's pid in the parent and 0 in the child.
+    ///
+    /// Threads use `thread-spawn` instead, since the new thread needs its own entry point.
     ///
     /// Wasm import `wasixv2.clone` (riscv32 nr 220).
     async fn clone(
@@ -1636,8 +1730,8 @@ pub trait Syscalls {
     }
 
     /// Kernel: `sys_clone3(struct clone_args * uargs, size_t size)`.
-    /// struct clone_args: all fields __aligned_u64; size 88 (VER2). Same return-twice issue as clone. Not
-    /// used by musl.
+    /// struct clone_args: all fields __aligned_u64; size 88 (VER2). Supports the same forms as `clone`.
+    /// Not used by musl.
     ///
     /// Wasm import `wasixv2.clone3` (riscv32 nr 435).
     async fn clone3(
@@ -1650,8 +1744,8 @@ pub trait Syscalls {
     }
 
     /// Kernel: `sys_execve(const char * filename, const char *const * argv, const char *const * envp)`.
-    /// Replaces process image; no return on success. argv/envp are NULL-terminated arrays of 32-bit
-    /// pointers.
+    /// Replaces process image; no return on success, except in a vfork child (see `clone`). argv/envp
+    /// are NULL-terminated arrays of 32-bit pointers.
     ///
     /// Wasm import `wasixv2.execve` (riscv32 nr 221).
     async fn execve(
@@ -1682,7 +1776,7 @@ pub trait Syscalls {
     }
 
     /// Kernel: `sys_exit(int error_code)`.
-    /// Exits only the calling thread. noreturn.
+    /// Exits only the calling thread. noreturn, except in a vfork child (see `clone`).
     ///
     /// Wasm import `wasixv2.exit` (riscv32 nr 93).
     async fn exit(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
@@ -1690,7 +1784,7 @@ pub trait Syscalls {
     }
 
     /// Kernel: `sys_exit_group(int error_code)`.
-    /// noreturn.
+    /// noreturn, except in a vfork child (see `clone`).
     ///
     /// Wasm import `wasixv2.exit_group` (riscv32 nr 94).
     async fn exit_group(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
@@ -2548,16 +2642,22 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// Kernel: `sys_mmap2(unsigned long addr, unsigned long len, unsigned long prot, unsigned long flags,
-    /// unsigned long fd, unsigned long offset)`.
-    /// riscv32 has only mmap2 (no mmap): offset is in units of 4096 bytes (riscv sys_mmap2 uses a constant
-    /// shift of 12 regardless of PAGE_SIZE), NOT bytes. musl passes off/4096 (UNIT=4096) and rejects off
-    /// not multiple of 4096. Wasm: page size mismatch (wasm pages 64KiB; Linux 4KiB) - host design needed.
-    /// Returns address.
+    /// Kernel: `sys_mmap(unsigned long addr, unsigned long len, unsigned long prot, unsigned long flags,
+    /// unsigned long fd, off_t offset)`, with a 64-bit offset in bytes.
+    /// riscv32 only has `mmap2`, whose offset counts 4096-byte units so that it fits a register. A wasm
+    /// import takes `s64` directly, so this is `mmap` with a byte offset instead. The offset must be a
+    /// multiple of the page size, which is 64 KiB (`AT_PAGESZ`).
+    /// Support is limited, as in wasixv1: wasm has one linear memory per process and no page
+    /// mapping. `MAP_FIXED` and shared file mappings are not supported, shared anonymous memory is
+    /// never visible to other processes (wasm modules cannot share part of their memory), and a
+    /// private file mapping is a copy of the file's contents.
+    /// Returns the address or `-errno`.
+    /// Without `SYS_mmap2`, musl's `mmap` calls `SYS_mmap` with the offset in one `long` slot, which
+    /// truncates offsets beyond 2 GiB; libc calls this import directly for the full range.
     ///
-    /// Wasm import `wasixv2.mmap2` (riscv32 nr 222).
+    /// Wasm import `wasixv2.mmap` (riscv32 nr 222).
     #[allow(clippy::too_many_arguments)]
-    async fn mmap2(
+    async fn mmap(
         &self,
         caller: &Caller<'_>,
         addr: Uptr,
@@ -2565,8 +2665,8 @@ pub trait Syscalls {
         prot: ProtFlags,
         flags: MapFlags,
         fd: Fd,
-        offset: Ulong,
-    ) -> SysResult<i32> {
+        offset: Loff,
+    ) -> SysResult<Uptr> {
         Err(Errno::ENOSYS.into())
     }
 
@@ -2595,7 +2695,7 @@ pub trait Syscalls {
     }
 
     /// Kernel: `sys_mprotect(unsigned long start, size_t len, unsigned long prot)`.
-    /// Wasm cannot change protection of linear memory pages - host design question.
+    /// Wasm linear memory has no page protection, so the kernel cannot enforce `prot`.
     ///
     /// Wasm import `wasixv2.mprotect` (riscv32 nr 226).
     async fn mprotect(
@@ -4150,7 +4250,7 @@ pub trait Syscalls {
 pub enum Syscall {
     StartupSize,
     StartupGet {
-        buf: Buf,
+        buf: UserSliceMut,
     },
     ThreadSpawn {
         start_arg: Uptr,
@@ -4158,8 +4258,30 @@ pub enum Syscall {
     SignalCallbackRegister {
         callback: u32,
     },
-    CancelFlagRegister {
-        flag: S32Ptr,
+    ContextCreate {
+        entry: u32,
+        id: U64Ptr,
+    },
+    ContextSwitch {
+        id: u64,
+    },
+    ContextDestroy {
+        id: u64,
+    },
+    DlOpen {
+        path: Cstr,
+        flags: i32,
+        err: UserSliceMut,
+        handle: U32Ptr,
+    },
+    DlSym {
+        handle: u32,
+        symbol: Cstr,
+        err: UserSliceMut,
+        addr: UptrPtr,
+    },
+    DlClose {
+        handle: u32,
     },
     Openat {
         dfd: Fd,
@@ -4257,10 +4379,9 @@ pub enum Syscall {
         pos: i64,
         flags: RwfFlags,
     },
-    Llseek {
+    Lseek {
         fd: Fd,
-        offset: i64,
-        result: LoffPtr,
+        offset: Loff,
         whence: SeekWhence,
     },
     Sendfile64 {
@@ -5091,13 +5212,13 @@ pub enum Syscall {
     Brk {
         brk: Uptr,
     },
-    Mmap2 {
+    Mmap {
         addr: Uptr,
         len: Ulong,
         prot: ProtFlags,
         flags: MapFlags,
         fd: Fd,
-        offset: Ulong,
+        offset: Loff,
     },
     Munmap {
         addr: Uptr,
@@ -5720,7 +5841,12 @@ pub enum SyscallRet {
     StartupGet(i32),
     ThreadSpawn(i32),
     SignalCallbackRegister(i32),
-    CancelFlagRegister(i32),
+    ContextCreate(i32),
+    ContextSwitch(i32),
+    ContextDestroy(i32),
+    DlOpen(i32),
+    DlSym(i32),
+    DlClose(i32),
     Openat(Fd),
     Openat2(Fd),
     Close(i32),
@@ -5740,7 +5866,7 @@ pub enum SyscallRet {
     Pwritev(u32),
     Preadv2(u32),
     Pwritev2(u32),
-    Llseek(i32),
+    Lseek(i64),
     Sendfile64(i32),
     Splice(i32),
     Tee(i32),
@@ -5918,7 +6044,7 @@ pub enum SyscallRet {
     FutexWait(i32),
     FutexRequeue(i32),
     Brk(i32),
-    Mmap2(i32),
+    Mmap(Uptr),
     Munmap(i32),
     Mremap(i32),
     Mprotect(i32),
@@ -6054,8 +6180,29 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
         Syscall::SignalCallbackRegister { callback } => SyscallRet::SignalCallbackRegister(
             syscalls.signal_callback_register(caller, callback).await?,
         ),
-        Syscall::CancelFlagRegister { flag } => {
-            SyscallRet::CancelFlagRegister(syscalls.cancel_flag_register(caller, flag).await?)
+        Syscall::ContextCreate { entry, id } => {
+            SyscallRet::ContextCreate(syscalls.context_create(caller, entry, id).await?)
+        }
+        Syscall::ContextSwitch { id } => {
+            SyscallRet::ContextSwitch(syscalls.context_switch(caller, id).await?)
+        }
+        Syscall::ContextDestroy { id } => {
+            SyscallRet::ContextDestroy(syscalls.context_destroy(caller, id).await?)
+        }
+        Syscall::DlOpen {
+            path,
+            flags,
+            err,
+            handle,
+        } => SyscallRet::DlOpen(syscalls.dl_open(caller, path, flags, err, handle).await?),
+        Syscall::DlSym {
+            handle,
+            symbol,
+            err,
+            addr,
+        } => SyscallRet::DlSym(syscalls.dl_sym(caller, handle, symbol, err, addr).await?),
+        Syscall::DlClose { handle } => {
+            SyscallRet::DlClose(syscalls.dl_close(caller, handle).await?)
         }
         Syscall::Openat {
             dfd,
@@ -6120,12 +6267,9 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             pos,
             flags,
         } => SyscallRet::Pwritev2(syscalls.pwritev2(caller, fd, vec, vlen, pos, flags).await?),
-        Syscall::Llseek {
-            fd,
-            offset,
-            result,
-            whence,
-        } => SyscallRet::Llseek(syscalls.llseek(caller, fd, offset, result, whence).await?),
+        Syscall::Lseek { fd, offset, whence } => {
+            SyscallRet::Lseek(syscalls.lseek(caller, fd, offset, whence).await?)
+        }
         Syscall::Sendfile64 {
             out_fd,
             in_fd,
@@ -7067,16 +7211,16 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
                 .await?,
         ),
         Syscall::Brk { brk } => SyscallRet::Brk(syscalls.brk(caller, brk).await?),
-        Syscall::Mmap2 {
+        Syscall::Mmap {
             addr,
             len,
             prot,
             flags,
             fd,
             offset,
-        } => SyscallRet::Mmap2(
+        } => SyscallRet::Mmap(
             syscalls
-                .mmap2(caller, addr, len, prot, flags, fd, offset)
+                .mmap(caller, addr, len, prot, flags, fd, offset)
                 .await?,
         ),
         Syscall::Munmap { addr, len } => {
@@ -7874,7 +8018,7 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
         }
     }
 
-    async fn startup_get(&self, caller: &Caller<'_>, buf: Buf) -> SysResult<i32> {
+    async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
         let call = Syscall::StartupGet { buf };
         match self.layer.call(caller, call, &self.inner).await? {
             SyscallRet::StartupGet(ret) => Ok(ret),
@@ -7898,11 +8042,75 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
         }
     }
 
-    async fn cancel_flag_register(&self, caller: &Caller<'_>, flag: S32Ptr) -> SysResult<i32> {
-        let call = Syscall::CancelFlagRegister { flag };
+    async fn context_create(&self, caller: &Caller<'_>, entry: u32, id: U64Ptr) -> SysResult<i32> {
+        let call = Syscall::ContextCreate { entry, id };
         match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::CancelFlagRegister(ret) => Ok(ret),
-            _ => mismatch("cancel_flag_register"),
+            SyscallRet::ContextCreate(ret) => Ok(ret),
+            _ => mismatch("context_create"),
+        }
+    }
+
+    async fn context_switch(&self, caller: &Caller<'_>, id: u64) -> SysResult<i32> {
+        let call = Syscall::ContextSwitch { id };
+        match self.layer.call(caller, call, &self.inner).await? {
+            SyscallRet::ContextSwitch(ret) => Ok(ret),
+            _ => mismatch("context_switch"),
+        }
+    }
+
+    async fn context_destroy(&self, caller: &Caller<'_>, id: u64) -> SysResult<i32> {
+        let call = Syscall::ContextDestroy { id };
+        match self.layer.call(caller, call, &self.inner).await? {
+            SyscallRet::ContextDestroy(ret) => Ok(ret),
+            _ => mismatch("context_destroy"),
+        }
+    }
+
+    async fn dl_open(
+        &self,
+        caller: &Caller<'_>,
+        path: Cstr,
+        flags: i32,
+        err: UserSliceMut,
+        handle: U32Ptr,
+    ) -> SysResult<i32> {
+        let call = Syscall::DlOpen {
+            path,
+            flags,
+            err,
+            handle,
+        };
+        match self.layer.call(caller, call, &self.inner).await? {
+            SyscallRet::DlOpen(ret) => Ok(ret),
+            _ => mismatch("dl_open"),
+        }
+    }
+
+    async fn dl_sym(
+        &self,
+        caller: &Caller<'_>,
+        handle: u32,
+        symbol: Cstr,
+        err: UserSliceMut,
+        addr: UptrPtr,
+    ) -> SysResult<i32> {
+        let call = Syscall::DlSym {
+            handle,
+            symbol,
+            err,
+            addr,
+        };
+        match self.layer.call(caller, call, &self.inner).await? {
+            SyscallRet::DlSym(ret) => Ok(ret),
+            _ => mismatch("dl_sym"),
+        }
+    }
+
+    async fn dl_close(&self, caller: &Caller<'_>, handle: u32) -> SysResult<i32> {
+        let call = Syscall::DlClose { handle };
+        match self.layer.call(caller, call, &self.inner).await? {
+            SyscallRet::DlClose(ret) => Ok(ret),
+            _ => mismatch("dl_close"),
         }
     }
 
@@ -8176,23 +8384,17 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
         }
     }
 
-    async fn llseek(
+    async fn lseek(
         &self,
         caller: &Caller<'_>,
         fd: Fd,
-        offset: i64,
-        result: LoffPtr,
+        offset: Loff,
         whence: SeekWhence,
-    ) -> SysResult<i32> {
-        let call = Syscall::Llseek {
-            fd,
-            offset,
-            result,
-            whence,
-        };
+    ) -> SysResult<i64> {
+        let call = Syscall::Lseek { fd, offset, whence };
         match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Llseek(ret) => Ok(ret),
-            _ => mismatch("llseek"),
+            SyscallRet::Lseek(ret) => Ok(ret),
+            _ => mismatch("lseek"),
         }
     }
 
@@ -10787,7 +10989,7 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn mmap2(
+    async fn mmap(
         &self,
         caller: &Caller<'_>,
         addr: Uptr,
@@ -10795,9 +10997,9 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
         prot: ProtFlags,
         flags: MapFlags,
         fd: Fd,
-        offset: Ulong,
-    ) -> SysResult<i32> {
-        let call = Syscall::Mmap2 {
+        offset: Loff,
+    ) -> SysResult<Uptr> {
+        let call = Syscall::Mmap {
             addr,
             len,
             prot,
@@ -10806,8 +11008,8 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
             offset,
         };
         match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mmap2(ret) => Ok(ret),
-            _ => mismatch("mmap2"),
+            SyscallRet::Mmap(ret) => Ok(ret),
+            _ => mismatch("mmap"),
         }
     }
 

@@ -349,6 +349,11 @@ impl<'a> Builder<'a> {
             .into_iter()
             .map(|s| parse_merged_i64(&s, loc))
             .collect::<Result<_>>()?;
+        let c_one_slot = ann
+            .values("c-one-slot")?
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .collect();
         let c_params = ann
             .values("c-param")?
             .into_iter()
@@ -384,6 +389,7 @@ impl<'a> Builder<'a> {
             noreturn,
             unsupported,
             merged_i64,
+            c_one_slot,
             c_params,
             slices,
             returns,
@@ -608,6 +614,19 @@ fn validate_functions(model: &Model, pending: &Pending) -> Result<()> {
                 }
                 if f.merged_i64[..i].iter().any(|prev| &prev.param == m) {
                     bail!("{loc}: duplicate `@merged-i64({m})`");
+                }
+            }
+            for (i, name) in f.c_one_slot.iter().enumerate() {
+                match param(name) {
+                    Some(p) if model.valtype(&p.ty) == Some(crate::ir::ValType::I64) => {}
+                    Some(_) => bail!("{loc}: `@c-one-slot({name})` param is not 64-bit"),
+                    None => bail!("{loc}: `@c-one-slot({name})` names an unknown param"),
+                }
+                if f.c_one_slot[..i].contains(name) {
+                    bail!("{loc}: duplicate `@c-one-slot({name})`");
+                }
+                if f.merged_i64.iter().any(|m| &m.param == name) {
+                    bail!("{loc}: `@c-one-slot({name})` param is also `@merged-i64`");
                 }
             }
             for (name, _) in &f.c_params {

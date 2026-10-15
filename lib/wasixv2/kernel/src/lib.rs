@@ -21,7 +21,7 @@ use std::{
 pub use file::FileObject;
 use wasixv2_abi::{
     AtFlags, ClockId, ConstIovecArray, ConstKernelTimespecPtr, ConstSigsetPtr, Cstr, FcntlCmd,
-    FutexOp, GuestPtr, IoctlRequest, KernelTimespecPtr, LoffPtr, MapFlags, Mode, OpenFlags, Pid,
+    FutexOp, GuestPtr, IoctlRequest, KernelTimespecPtr, Loff, MapFlags, Mode, OpenFlags, Pid,
     ProtFlags, S32Ptr, SeekWhence, Signal, SigprocmaskHow, Sigset, SigsetPtr, TimerFlags, U32Ptr,
     Ulong, Uptr, Usize,
 };
@@ -150,15 +150,19 @@ impl Syscalls for Kernel {
         Ok(Startup::new(&process.args, &process.env).size()?)
     }
 
-    async fn startup_get(&self, caller: &Caller<'_>, buf: wasixv2_abi::Buf) -> SysResult<i32> {
-        if !buf.addr().is_multiple_of(16) {
+    async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
+        if !buf.addr.is_multiple_of(16) {
             return Err(Errno::EINVAL.into());
         }
         let process = self.process(caller.task());
+        let startup = Startup::new(&process.args, &process.env);
+        if buf.len < startup.size()? {
+            return Err(Errno::EINVAL.into());
+        }
         let mut random = [0; 16];
         self.host.random(&mut random);
-        let block = Startup::new(&process.args, &process.env).build(buf.addr(), random)?;
-        caller.memory().write(buf.addr(), &block).await?;
+        let block = startup.build(buf.addr, random)?;
+        buf.copy_out(caller.memory(), &block).await?;
         Ok(0)
     }
 
@@ -266,17 +270,14 @@ impl Syscalls for Kernel {
         self.pwrite(caller, fd, buf, pos).await
     }
 
-    async fn llseek(
+    async fn lseek(
         &self,
         caller: &Caller<'_>,
         fd: Fd,
-        offset: i64,
-        result: LoffPtr,
+        offset: Loff,
         whence: SeekWhence,
-    ) -> SysResult<i32> {
-        let pos = self.seek(caller, fd, offset, whence)?;
-        write_value(caller.memory(), result, &(pos as i64)).await?;
-        Ok(0)
+    ) -> SysResult<i64> {
+        Ok(self.seek(caller, fd, offset, whence)? as i64)
     }
 
     async fn exit(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
@@ -376,7 +377,7 @@ impl Syscalls for Kernel {
     }
 
     /// Anonymous mappings only, at an address the kernel picks; see `mm`.
-    async fn mmap2(
+    async fn mmap(
         &self,
         caller: &Caller<'_>,
         _addr: Uptr,
@@ -384,8 +385,11 @@ impl Syscalls for Kernel {
         _prot: ProtFlags,
         flags: MapFlags,
         _fd: Fd,
-        _offset: Ulong,
-    ) -> SysResult<i32> {
+        offset: Loff,
+    ) -> SysResult<Uptr> {
+        if offset % PAGE_SIZE as i64 != 0 {
+            return Err(Errno::EINVAL.into());
+        }
         match flags & MapFlags::MAP_TYPE {
             MapFlags::MAP_SHARED | MapFlags::MAP_PRIVATE | MapFlags::MAP_SHARED_VALIDATE => {}
             _ => return Err(Errno::EINVAL.into()),
@@ -393,6 +397,7 @@ impl Syscalls for Kernel {
         if !flags.contains(MapFlags::MAP_ANONYMOUS) {
             return Err(Errno::ENODEV.into());
         }
+        // TODO: MAP_FIXED over pages `mmap` already handed out, if wasm allows it.
         if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
             return Err(Errno::EINVAL.into());
         }
@@ -410,8 +415,7 @@ impl Syscalls for Kernel {
                 previous
             }
         };
-        // Addresses above 2 GiB come out negative and still read as addresses, as on Linux.
-        Ok(addr as u32 as i32)
+        Ok(addr as Uptr)
     }
 
     async fn munmap(&self, caller: &Caller<'_>, addr: Uptr, len: Usize) -> SysResult<i32> {

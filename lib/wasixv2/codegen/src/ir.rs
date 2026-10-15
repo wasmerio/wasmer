@@ -235,12 +235,14 @@ pub struct Function {
     pub docs: Vec<String>,
     pub nr: Option<u32>,
     /// `@sys-name(...)`: suffix of musl's `SYS_*`/`__NR_*` macro when it differs from
-    /// `import_name` (`llseek` is `SYS__llseek`).
+    /// `import_name`.
     pub sys_name: Option<String>,
     pub noreturn: bool,
     pub unsupported: bool,
     /// Params that riscv32 splits into a register pair.
     pub merged_i64: Vec<MergedI64>,
+    /// `@c-one-slot(param)`: 64-bit params that musl passes in a single `long` slot.
+    pub c_one_slot: Vec<String>,
     /// `(param, C type)` prototype overrides.
     pub c_params: Vec<(String, String)>,
     /// `@slice(ptr, len)`: pointer/length pairs the Rust backends merge into one user slice.
@@ -272,10 +274,10 @@ pub struct MergedI64 {
 /// Order of the two 32-bit halves of a split 64-bit argument in the original (riscv32) call.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SplitOrder {
-    /// Low word first: the `__SYSCALL_LL_E`/`_O` layout, used by every syscall but `llseek`.
+    /// Low word first: the `__SYSCALL_LL_E`/`_O` layout.
     #[default]
     LoHi,
-    /// High word first (`llseek`'s `offset_high, offset_low`).
+    /// High word first (riscv32 `llseek`'s `offset_high, offset_low`).
     HiLo,
 }
 

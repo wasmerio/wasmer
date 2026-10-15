@@ -4,15 +4,15 @@
 /// are placeholders whose shape is not settled; hosts may return `-ENOSYS` for them.
 /// @module(wasixv2)
 interface ext {
-  use types.{buf, s32-ptr, uptr, slong};
+  use types.{buf, cstr, u32-ptr, u64-ptr, uptr, uptr-ptr, slong, usize};
 
   // ==== Process startup ====
 
   /// Size in bytes of the startup block that `startup-get` writes.
   startup-size: func() -> u32;
 
-  /// Writes the Linux-style initial process block into `buf`, which must be at least
-  /// `startup-size()` bytes and 16-byte aligned. Returns 0 or `-errno`.
+  /// Writes the Linux-style initial process block into `buf`, which holds `len` bytes and must be
+  /// 16-byte aligned. Returns 0, or `-EINVAL` when `len` is less than `startup-size()`.
   ///
   /// The layout matches what the kernel puts on the initial stack, with every pointer being a
   /// guest address inside `buf` and every word `ulong`-sized:
@@ -25,7 +25,8 @@ interface ext {
   ///
   /// Hosts provide at least `AT_PAGESZ`, `AT_RANDOM`, `AT_UID`, `AT_EUID`, `AT_GID`, `AT_EGID`,
   /// `AT_SECURE` and `AT_CLKTCK`. ELF-related entries (`AT_PHDR`, `AT_ENTRY`, ...) are absent.
-  startup-get: func(buf: buf) -> s32;
+  /// @slice(buf, len)
+  startup-get: func(buf: buf, len: usize) -> s32;
 
   // ==== Threads ====
 
@@ -38,18 +39,64 @@ interface ext {
   /// @unsupported
   thread-spawn: func(start-arg: uptr) -> slong;
 
-  // ==== Signals and cancellation ====
+  // ==== Signals ====
 
-  /// TENTATIVE. Registers the function the host calls to deliver a signal to this thread,
-  /// as an index into the module's indirect function table (`fn(signo: s32)`). Wasm has no
-  /// user-visible register frame, so `rt_sigreturn`-style delivery does not apply.
+  /// TENTATIVE. Registers libc's signal trampoline for this thread, as an index into the module's
+  /// indirect function table, with the signature `fn(signo: s32, info: siginfo-ptr, uctx: void-ptr)`.
+  ///
+  /// To deliver a signal, the kernel writes the `siginfo` and a small `ucontext` below the current
+  /// shadow stack pointer, or on the alternate stack set with `sigaltstack`, and calls the
+  /// trampoline on top of the interrupted wasm call stack, which stays intact. `mcontext_t` holds
+  /// only guest state a handler can clobber, such as the shadow stack pointer and the TLS base.
+  /// The trampoline calls the handler under `setjmp`; libc's `rt_sigreturn` is the matching
+  /// `longjmp`, after which the trampoline restores that state and returns to the host. A
+  /// `siglongjmp` out of the handler unwinds through the host frames as a wasm exception.
   /// Returns 0 or `-errno`.
   /// @unsupported
   signal-callback-register: func(callback: u32) -> slong;
 
-  /// TENTATIVE. Registers a per-thread word the host sets to non-zero when a blocking syscall
-  /// of this thread must be interrupted (pthread cancellation, pending signals). NULL
-  /// unregisters. Returns 0 or `-errno`.
+  // ==== Coroutines ====
+
+  /// TENTATIVE. Creates a suspended coroutine context and writes its id to `id`. Its first
+  /// resumption calls the function at table index `entry` (`fn()`) on a fresh wasm call stack; the
+  /// guest provides the shadow stack. Carried over from wasixv1 (wasix-libc's `wasix/context.h`):
+  /// greenlet uses it directly, and libc builds `makecontext` and `swapcontext` on top of it.
+  /// Returns 0 or `-errno`.
   /// @unsupported
-  cancel-flag-register: func(flag: s32-ptr) -> slong;
+  context-create: func(entry: u32, id: u64-ptr) -> slong;
+
+  /// TENTATIVE. Suspends the current context and resumes context `id`, from where it last
+  /// suspended or from its entry point. Returns 0 once another context switches back to this one,
+  /// or `-errno`.
+  /// @unsupported
+  context-switch: func(id: u64) -> slong;
+
+  /// TENTATIVE. Destroys a suspended or finished context and releases its resources. Destroying
+  /// the current or the main context fails. Returns 0 or `-errno`.
+  /// @unsupported
+  context-destroy: func(id: u64) -> slong;
+
+  // ==== Dynamic linking ====
+
+  /// TENTATIVE. Loads the side module at `path` with `RTLD_*` `flags`, instantiates it against
+  /// this process's memory and indirect function table, links it, and writes its handle to
+  /// `handle`. A wasm guest cannot instantiate modules itself, so this replaces the userspace
+  /// dynamic loader's mapping step. On failure, writes a NUL-terminated `dlerror` message into
+  /// `err` and returns `-errno`. Returns 0 or `-errno`.
+  /// @slice(err, err-len)
+  /// @unsupported
+  dl-open: func(path: cstr, %flags: s32, err: buf, err-len: usize, handle: u32-ptr) -> slong;
+
+  /// TENTATIVE. Looks up `symbol` in the module `handle` and writes its address to `addr`: an
+  /// index into the indirect function table for a function, or a linear memory address for data.
+  /// On failure, writes a NUL-terminated `dlerror` message into `err` and returns `-errno`.
+  /// Returns 0 or `-errno`.
+  /// @slice(err, err-len)
+  /// @unsupported
+  dl-sym: func(handle: u32, symbol: cstr, err: buf, err-len: usize, addr: uptr-ptr) -> slong;
+
+  /// TENTATIVE. Drops a reference to the module `handle`. Wasm cannot unload an instance's code,
+  /// so the module stays linked until the process exits. Returns 0 or `-errno`.
+  /// @unsupported
+  dl-close: func(handle: u32) -> slong;
 }

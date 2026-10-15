@@ -171,14 +171,15 @@ interface syscalls {
   /// @returns(u32)
   pwritev2: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64, %flags: rwf-flags) -> slong;
 
-  /// Kernel: `sys_llseek(unsigned int fd, unsigned long offset_high, unsigned long offset_low, loff_t *
-  /// result, unsigned int whence)`.
-  /// The kernel takes the offset as (offset_high, offset_low); here it is one `s64`. The 64-bit result is
-  /// written to `result`; the return value is 0 or `-errno`.
+  /// Kernel: `sys_lseek(unsigned int fd, off_t offset, unsigned int whence)`, with a 64-bit offset.
+  /// riscv32 only has `llseek`, which splits the offset and writes the result through a pointer
+  /// because a register cannot hold it. A wasm import takes and returns `s64` directly, so this is
+  /// the 64-bit `lseek` instead: it returns the new offset or `-errno`.
+  /// Without `SYS__llseek`, musl's `lseek` calls `SYS_lseek` with the offset in one `long` slot,
+  /// which truncates offsets beyond 2 GiB; libc calls this import directly for the full range.
   /// @nr(62)
-  /// @sys-name(_llseek)
-  /// @merged-i64(offset, hi-lo)
-  llseek: func(fd: fd, offset: s64, %result: loff-ptr, whence: seek-whence) -> slong;
+  /// @c-one-slot(offset)
+  lseek: func(fd: fd, offset: loff, whence: seek-whence) -> loff;
 
   /// Kernel: `sys_sendfile64(int out_fd, int in_fd, loff_t * offset, size_t count)`.
   /// riscv32 name sendfile64; offset is loff_t* (64-bit in memory).
@@ -744,16 +745,19 @@ interface syscalls {
   rt-tgsigqueueinfo: func(tgid: pid, pid: pid, sig: signal, uinfo: const-siginfo-ptr) -> slong;
 
   /// Kernel: `sys_rt_sigreturn()`.
-  /// Restores the signal frame (ucontext/mcontext on user stack). musl calls it from __restore_rt
-  /// trampoline (src/signal/riscv32/restore.s), riscv uses a vDSO trampoline. In wasm this needs a
-  /// host-specific design (no user-visible register frame).
+  /// Not used: wasm has no register frame for the kernel to restore. libc's signal trampoline (see
+  /// `signal-callback-register`) calls the handler under `setjmp`, and libc's `rt_sigreturn` is the
+  /// matching `longjmp`. Hosts return `-ENOSYS`, so the import traps, since it is `@noreturn`.
   /// @nr(139)
   /// @noreturn
+  /// @unsupported
   rt-sigreturn: func();
 
   /// Kernel: `sys_sigaltstack(const stack_t * uss, stack_t * uoss)`.
   /// stack_t = 12 bytes on ILP32 {void* ss_sp; int ss_flags; size_t ss_size}. MINSIGSTKSZ/SIGSTKSZ arch
   /// constants (musl riscv32: 2048/8192).
+  /// Only the shadow stack moves: a handler on the alternate stack uses it as its shadow stack, while
+  /// the wasm call stack stays with the engine.
   /// @nr(132)
   sigaltstack: func(uss: const-sigaltstack-ptr, uoss: sigaltstack-ptr) -> slong;
 
@@ -782,9 +786,19 @@ interface syscalls {
 
   /// Kernel: `sys_clone(unsigned long clone_flags, unsigned long newsp, int * parent_tidptr, unsigned
   /// long tls, int * child_tidptr)`.
-  /// riscv uses CLONE_BACKWARDS order: (flags, newsp, parent_tid, tls, child_tid). Returns twice (0 in
-  /// the child running on `newsp`), which a wasm import cannot do; threads need `wasixv2.thread_spawn`
-  /// and fork/vfork need a host design.
+  /// riscv uses CLONE_BACKWARDS order: (flags, newsp, parent_tid, tls, child_tid). On Linux it returns
+  /// twice, which a wasm import cannot do in general, so only two forms work, both with `newsp` 0.
+  ///
+  /// vfork (`CLONE_VM | CLONE_VFORK`) works in every build configuration. libc's `vfork` is a macro
+  /// that calls `setjmp` first. The call returns 0, and the instance keeps running as the child task.
+  /// When the child's `execve` succeeds or it calls `exit` or `exit_group`, that call returns to the
+  /// guest as the parent with the child's pid, and libc `longjmp`s back to the vfork point.
+  ///
+  /// fork (no `CLONE_VM`) works only in the asyncify build configuration. The host unwinds the stack
+  /// into linear memory, copies the memory for the child and rewinds both, so the call returns the
+  /// child's pid in the parent and 0 in the child.
+  ///
+  /// Threads use `thread-spawn` instead, since the new thread needs its own entry point.
   /// @nr(220)
   clone: func(
     clone-flags: ulong,
@@ -795,14 +809,14 @@ interface syscalls {
   ) -> slong;
 
   /// Kernel: `sys_clone3(struct clone_args * uargs, size_t size)`.
-  /// struct clone_args: all fields __aligned_u64; size 88 (VER2). Same return-twice issue as clone. Not
-  /// used by musl.
+  /// struct clone_args: all fields __aligned_u64; size 88 (VER2). Supports the same forms as `clone`.
+  /// Not used by musl.
   /// @nr(435)
   clone3: func(uargs: const-clone-args-ptr, size: usize) -> slong;
 
   /// Kernel: `sys_execve(const char * filename, const char *const * argv, const char *const * envp)`.
-  /// Replaces process image; no return on success. argv/envp are NULL-terminated arrays of 32-bit
-  /// pointers.
+  /// Replaces process image; no return on success, except in a vfork child (see `clone`). argv/envp
+  /// are NULL-terminated arrays of 32-bit pointers.
   /// @nr(221)
   execve: func(filename: cstr, argv: cstr-array, envp: cstr-array) -> slong;
 
@@ -813,13 +827,13 @@ interface syscalls {
   execveat: func(fd: fd, filename: cstr, argv: cstr-array, envp: cstr-array, %flags: at-flags) -> slong;
 
   /// Kernel: `sys_exit(int error_code)`.
-  /// Exits only the calling thread. noreturn.
+  /// Exits only the calling thread. noreturn, except in a vfork child (see `clone`).
   /// @nr(93)
   /// @noreturn
   exit: func(error-code: s32);
 
   /// Kernel: `sys_exit_group(int error_code)`.
-  /// noreturn.
+  /// noreturn, except in a vfork child (see `clone`).
   /// @nr(94)
   /// @noreturn
   exit-group: func(error-code: s32);
@@ -1241,14 +1255,22 @@ interface syscalls {
   /// @nr(214)
   brk: func(brk: uptr) -> slong;
 
-  /// Kernel: `sys_mmap2(unsigned long addr, unsigned long len, unsigned long prot, unsigned long flags,
-  /// unsigned long fd, unsigned long offset)`.
-  /// riscv32 has only mmap2 (no mmap): offset is in units of 4096 bytes (riscv sys_mmap2 uses a constant
-  /// shift of 12 regardless of PAGE_SIZE), NOT bytes. musl passes off/4096 (UNIT=4096) and rejects off
-  /// not multiple of 4096. Wasm: page size mismatch (wasm pages 64KiB; Linux 4KiB) - host design needed.
-  /// Returns address.
+  /// Kernel: `sys_mmap(unsigned long addr, unsigned long len, unsigned long prot, unsigned long flags,
+  /// unsigned long fd, off_t offset)`, with a 64-bit offset in bytes.
+  /// riscv32 only has `mmap2`, whose offset counts 4096-byte units so that it fits a register. A wasm
+  /// import takes `s64` directly, so this is `mmap` with a byte offset instead. The offset must be a
+  /// multiple of the page size, which is 64 KiB (`AT_PAGESZ`).
+  /// Support is limited, as in wasixv1: wasm has one linear memory per process and no page
+  /// mapping. `MAP_FIXED` and shared file mappings are not supported, shared anonymous memory is
+  /// never visible to other processes (wasm modules cannot share part of their memory), and a
+  /// private file mapping is a copy of the file's contents.
+  /// Returns the address or `-errno`.
+  /// Without `SYS_mmap2`, musl's `mmap` calls `SYS_mmap` with the offset in one `long` slot, which
+  /// truncates offsets beyond 2 GiB; libc calls this import directly for the full range.
   /// @nr(222)
-  mmap2: func(addr: uptr, len: ulong, prot: prot-flags, %flags: map-flags, fd: fd, offset: ulong) -> slong;
+  /// @c-one-slot(offset)
+  /// @returns(uptr)
+  mmap: func(addr: uptr, len: ulong, prot: prot-flags, %flags: map-flags, fd: fd, offset: loff) -> slong;
 
   /// Kernel: `sys_munmap(unsigned long addr, size_t len)`.
   /// @nr(215)
@@ -1261,7 +1283,7 @@ interface syscalls {
   mremap: func(addr: uptr, old-len: ulong, new-len: ulong, %flags: mremap-flags, new-addr: uptr) -> slong;
 
   /// Kernel: `sys_mprotect(unsigned long start, size_t len, unsigned long prot)`.
-  /// Wasm cannot change protection of linear memory pages - host design question.
+  /// Wasm linear memory has no page protection, so the kernel cannot enforce `prot`.
   /// @nr(226)
   mprotect: func(start: uptr, len: usize, prot: prot-flags) -> slong;
 

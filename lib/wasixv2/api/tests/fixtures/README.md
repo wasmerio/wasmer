@@ -10,11 +10,11 @@ small: they are built with `-Os` and stripped.
 
 Built with:
 
-- libc2 commit `4b4d6bf8c0c79ac5a60da36a910daf191f274efc` (`v1.2.6-19-g4b4d6bf8`), sysroot from
+- libc2 commit `ab4c616e73c21ba3ef61582aa9036ff1fe3063d5`, sysroot from
   `wasix2/build-sysroot.sh` with target `wasm32-wasixv2`.
-- wasix-org/llvm-project clang 22.1.8 (commit `3f3e05caa210706061b88ff694226d41d991c4c9`), which
+- wasix-org/llvm-project clang 22.1.8 (commit `2a4063580997f6447e428cae89d9ee60812364ae`), which
   also provided compiler-rt for the builtins.
-- wasm-tools 1.260.0.
+- wasm-tools 1.245.1.
 
 To rebuild, build a sysroot as the libc2 README describes, then:
 

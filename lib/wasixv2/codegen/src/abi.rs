@@ -372,7 +372,12 @@ impl Gen<'_> {
         let _ = writeln!(self.out, "impl {name} {{");
         for m in &c.members {
             self.docs(&m.docs);
-            if m.c_name.chars().any(|ch| ch.is_ascii_lowercase()) {
+            // Linux names like `__WALL`, `_NSIG` or `STATX__RESERVED` are kept as they are, though
+            // rust-analyzer's case check rejects leading and doubled underscores.
+            if m.c_name.chars().any(|ch| ch.is_ascii_lowercase())
+                || m.c_name.starts_with('_')
+                || m.c_name.contains("__")
+            {
                 self.line("#[allow(non_upper_case_globals)]");
             }
             let _ = writeln!(

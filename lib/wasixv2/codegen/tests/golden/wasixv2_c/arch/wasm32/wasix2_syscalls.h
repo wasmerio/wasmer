@@ -188,9 +188,9 @@ long __wasix2_quotactl(unsigned int, const void *, unsigned int, void *);
 /* 61: getdents64(int fd, void *dirent, unsigned int count) */
 __attribute__((__import_module__("wasixv2"), __import_name__("getdents64")))
 long __wasix2_getdents64(int, void *, unsigned int);
-/* 62: llseek(int fd, long long offset, void *result, int whence) */
-__attribute__((__import_module__("wasixv2"), __import_name__("llseek")))
-long __wasix2_llseek(int, long long, void *, int);
+/* 62: lseek(int fd, long long offset, int whence) */
+__attribute__((__import_module__("wasixv2"), __import_name__("lseek")))
+long long __wasix2_lseek(int, long long, int);
 /* 63: read(int fd, void *buf, unsigned long count) */
 __attribute__((__import_module__("wasixv2"), __import_name__("read")))
 long __wasix2_read(int, void *, unsigned long);
@@ -593,9 +593,9 @@ long __wasix2_clone(unsigned long, unsigned long, void *, unsigned long, void *)
 /* 221: execve(const void *filename, const void *argv, const void *envp) */
 __attribute__((__import_module__("wasixv2"), __import_name__("execve")))
 long __wasix2_execve(const void *, const void *, const void *);
-/* 222: mmap2(unsigned long addr, unsigned long len, unsigned int prot, unsigned int flags, int fd, unsigned long offset) */
-__attribute__((__import_module__("wasixv2"), __import_name__("mmap2")))
-long __wasix2_mmap2(unsigned long, unsigned long, unsigned int, unsigned int, int, unsigned long);
+/* 222: mmap(unsigned long addr, unsigned long len, unsigned int prot, unsigned int flags, int fd, long long offset) */
+__attribute__((__import_module__("wasixv2"), __import_name__("mmap")))
+long __wasix2_mmap(unsigned long, unsigned long, unsigned int, unsigned int, int, long long);
 /* 223: fadvise64_64(int fd, long long offset, long long len, int advice) */
 __attribute__((__import_module__("wasixv2"), __import_name__("fadvise64_64")))
 long __wasix2_fadvise64_64(int, long long, long long, int);
@@ -1079,7 +1079,7 @@ long __wasix2_fchroot(int, unsigned int);
 #define __wx2_nr_61(...) __wx2_a_61(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
 #define __wx2_a_61(a0, a1, a2, ...) __wasix2_getdents64((int)(a0), (void *)(__UINTPTR_TYPE__)(a1), (unsigned int)(a2))
 #define __wx2_nr_62(...) __wx2_a_62(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
-#define __wx2_a_62(a0, a1, a2, a3, a4, ...) __wasix2_llseek((int)(a0), (long long)__wx2_ll(a2, a1), (void *)(__UINTPTR_TYPE__)(a3), (int)(a4))
+#define __wx2_a_62(a0, a1, a2, ...) __wasix2_lseek((int)(a0), (long long)(a1), (int)(a2))
 #define __wx2_nr_63(...) __wx2_a_63(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
 #define __wx2_a_63(a0, a1, a2, ...) __wasix2_read((int)(a0), (void *)(__UINTPTR_TYPE__)(a1), (unsigned long)(a2))
 #define __wx2_nr_64(...) __wx2_a_64(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
@@ -1349,7 +1349,7 @@ long __wasix2_fchroot(int, unsigned int);
 #define __wx2_nr_221(...) __wx2_a_221(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
 #define __wx2_a_221(a0, a1, a2, ...) __wasix2_execve((const void *)(__UINTPTR_TYPE__)(a0), (const void *)(__UINTPTR_TYPE__)(a1), (const void *)(__UINTPTR_TYPE__)(a2))
 #define __wx2_nr_222(...) __wx2_a_222(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
-#define __wx2_a_222(a0, a1, a2, a3, a4, a5, ...) __wasix2_mmap2((unsigned long)(a0), (unsigned long)(a1), (unsigned int)(a2), (unsigned int)(a3), (int)(a4), (unsigned long)(a5))
+#define __wx2_a_222(a0, a1, a2, a3, a4, a5, ...) __wasix2_mmap((unsigned long)(a0), (unsigned long)(a1), (unsigned int)(a2), (unsigned int)(a3), (int)(a4), (long long)(a5))
 #define __wx2_nr_223(...) __wx2_a_223(__VA_ARGS__, 0, 0, 0, 0, 0, 0)
 #define __wx2_a_223(a0, a1, a2, a3, a4, a5, ...) __wasix2_fadvise64_64((int)(a0), (long long)__wx2_ll(a1, a2), (long long)__wx2_ll(a3, a4), (int)(a5))
 #define __wx2_nr_224(...) __wx2_a_224(__VA_ARGS__, 0, 0, 0, 0, 0, 0)

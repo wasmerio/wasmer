@@ -420,6 +420,14 @@ pub type FdPair = GuestPtrMut<Fd>;
 pub type U32Ptr = GuestPtrMut<u32>;
 /// C: `uint64_t *`
 ///
+/// Guest pointer to a `u64`.
+pub type U64Ptr = GuestPtrMut<u64>;
+/// C: `uintptr_t *`
+///
+/// Guest pointer to a `uptr`.
+pub type UptrPtr = GuestPtrMut<Uptr>;
+/// C: `uint64_t *`
+///
 /// Guest pointer to an array of `u64`.
 pub type U64Array = GuestPtrMut<u64>;
 /// Bitmask array of `unsigned long` words (CPU and NUMA node masks).
@@ -1831,9 +1839,11 @@ impl OpenFlags {
     pub const O_NOFOLLOW: Self = Self(0x20000);
     pub const O_NOATIME: Self = Self(0x40000);
     pub const O_CLOEXEC: Self = Self(0x80000);
+    #[allow(non_upper_case_globals)]
     pub const __O_SYNC: Self = Self(0x100000);
     pub const O_SYNC: Self = Self(0x101000);
     pub const O_PATH: Self = Self(0x200000);
+    #[allow(non_upper_case_globals)]
     pub const __O_TMPFILE: Self = Self(0x400000);
     pub const O_TMPFILE: Self = Self(0x410000);
     pub const O_EMPTYPATH: Self = Self(0x4000000);
@@ -2361,7 +2371,7 @@ impl GuestLayout for RenameFlags {
     }
 }
 
-/// `whence` values for `llseek` (`linux/fs.h`).
+/// `whence` values for `lseek` (`linux/fs.h`).
 ///
 /// C: `int`
 #[repr(transparent)]
@@ -3444,6 +3454,7 @@ impl StatxMask {
     pub const STATX_SUBVOL: Self = Self(0x8000);
     pub const STATX_WRITE_ATOMIC: Self = Self(0x10000);
     pub const STATX_DIO_READ_ALIGN: Self = Self(0x20000);
+    #[allow(non_upper_case_globals)]
     pub const STATX__RESERVED: Self = Self(0x80000000);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
@@ -6915,11 +6926,14 @@ impl GuestLayout for Signal {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct SignalLimits(pub u32);
 impl SignalLimits {
+    #[allow(non_upper_case_globals)]
     pub const _NSIG_WORDS: Self = Self(2);
     pub const SIGEV_PAD_SIZE: Self = Self(13);
+    #[allow(non_upper_case_globals)]
     pub const _NSIG_BPW: Self = Self(32);
     pub const SIGEV_MAX_SIZE: Self = Self(64);
     /// No C assert: musl's `_NSIG` is 65 (signals 1..64 plus one), the kernel's is 64.
+    #[allow(non_upper_case_globals)]
     pub const _NSIG: Self = Self(64);
     pub const MINSIGSTKSZ: Self = Self(2048);
     pub const SIGSTKSZ: Self = Self(8192);
@@ -8743,8 +8757,11 @@ impl WaitOptions {
     pub const WEXITED: Self = Self(0x4);
     pub const WCONTINUED: Self = Self(0x8);
     pub const WNOWAIT: Self = Self(0x1000000);
+    #[allow(non_upper_case_globals)]
     pub const __WNOTHREAD: Self = Self(0x20000000);
+    #[allow(non_upper_case_globals)]
     pub const __WALL: Self = Self(0x40000000);
+    #[allow(non_upper_case_globals)]
     pub const __WCLONE: Self = Self(0x80000000);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
@@ -11748,7 +11765,7 @@ impl GuestLayout for ProtFlags {
     }
 }
 
-/// `mmap2` flags (`MAP_*`, `asm-generic/mman*.h`, `linux/mman.h`).
+/// `mmap` flags (`MAP_*`, `asm-generic/mman*.h`, `linux/mman.h`).
 /// `MAP_SHARED`/`MAP_PRIVATE`/`MAP_SHARED_VALIDATE` are values of the `MAP_TYPE` field;
 /// `MAP_HUGE_*` encode log2(page size) in bits 26..31.
 ///
@@ -11922,7 +11939,7 @@ impl GuestLayout for MapFlags {
     }
 }
 
-/// Shift/mask of the huge page size field in `mmap2` and `memfd_create` flags.
+/// Shift/mask of the huge page size field in `mmap` and `memfd_create` flags.
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct HugetlbEncoding(pub u32);
@@ -21235,6 +21252,7 @@ impl MountAttrFlags {
     pub const MOUNT_ATTR_NOEXEC: Self = Self(0x8);
     pub const MOUNT_ATTR_NOATIME: Self = Self(0x10);
     pub const MOUNT_ATTR_STRICTATIME: Self = Self(0x20);
+    #[allow(non_upper_case_globals)]
     pub const MOUNT_ATTR__ATIME: Self = Self(0x70);
     pub const MOUNT_ATTR_NODIRATIME: Self = Self(0x80);
     pub const MOUNT_ATTR_IDMAP: Self = Self(0x100000);
@@ -21413,6 +21431,7 @@ impl MoveMountFlags {
     pub const MOVE_MOUNT_T_EMPTY_PATH: Self = Self(0x40);
     pub const MOVE_MOUNT_SET_GROUP: Self = Self(0x100);
     pub const MOVE_MOUNT_BENEATH: Self = Self(0x200);
+    #[allow(non_upper_case_globals)]
     pub const MOVE_MOUNT__MASK: Self = Self(0x377);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
@@ -22016,11 +22035,18 @@ pub const SYSCALLS: &[SyscallDef] = &[
         module: "wasixv2",
         import_name: "startup_get",
         nr: None,
-        params: &[SyscallParam {
-            name: "buf",
-            ty: ValType::I32,
-            wit_type: "buf",
-        }],
+        params: &[
+            SyscallParam {
+                name: "buf",
+                ty: ValType::I32,
+                wit_type: "buf",
+            },
+            SyscallParam {
+                name: "len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+        ],
         result: Some(ValType::I32),
         noreturn: false,
         unsupported: false,
@@ -22057,14 +22083,140 @@ pub const SYSCALLS: &[SyscallDef] = &[
         merged_i64: &[],
     },
     SyscallDef {
-        name: "cancel_flag_register",
+        name: "context_create",
         module: "wasixv2",
-        import_name: "cancel_flag_register",
+        import_name: "context_create",
+        nr: None,
+        params: &[
+            SyscallParam {
+                name: "entry",
+                ty: ValType::I32,
+                wit_type: "u32",
+            },
+            SyscallParam {
+                name: "id",
+                ty: ValType::I32,
+                wit_type: "u64-ptr",
+            },
+        ],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: true,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "context_switch",
+        module: "wasixv2",
+        import_name: "context_switch",
         nr: None,
         params: &[SyscallParam {
-            name: "flag",
+            name: "id",
+            ty: ValType::I64,
+            wit_type: "u64",
+        }],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: true,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "context_destroy",
+        module: "wasixv2",
+        import_name: "context_destroy",
+        nr: None,
+        params: &[SyscallParam {
+            name: "id",
+            ty: ValType::I64,
+            wit_type: "u64",
+        }],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: true,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "dl_open",
+        module: "wasixv2",
+        import_name: "dl_open",
+        nr: None,
+        params: &[
+            SyscallParam {
+                name: "path",
+                ty: ValType::I32,
+                wit_type: "cstr",
+            },
+            SyscallParam {
+                name: "flags",
+                ty: ValType::I32,
+                wit_type: "s32",
+            },
+            SyscallParam {
+                name: "err",
+                ty: ValType::I32,
+                wit_type: "buf",
+            },
+            SyscallParam {
+                name: "err_len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+            SyscallParam {
+                name: "handle",
+                ty: ValType::I32,
+                wit_type: "u32-ptr",
+            },
+        ],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: true,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "dl_sym",
+        module: "wasixv2",
+        import_name: "dl_sym",
+        nr: None,
+        params: &[
+            SyscallParam {
+                name: "handle",
+                ty: ValType::I32,
+                wit_type: "u32",
+            },
+            SyscallParam {
+                name: "symbol",
+                ty: ValType::I32,
+                wit_type: "cstr",
+            },
+            SyscallParam {
+                name: "err",
+                ty: ValType::I32,
+                wit_type: "buf",
+            },
+            SyscallParam {
+                name: "err_len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+            SyscallParam {
+                name: "addr",
+                ty: ValType::I32,
+                wit_type: "uptr-ptr",
+            },
+        ],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: true,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "dl_close",
+        module: "wasixv2",
+        import_name: "dl_close",
+        nr: None,
+        params: &[SyscallParam {
+            name: "handle",
             ty: ValType::I32,
-            wit_type: "s32-ptr",
+            wit_type: "u32",
         }],
         result: Some(ValType::I32),
         noreturn: false,
@@ -22606,9 +22758,9 @@ pub const SYSCALLS: &[SyscallDef] = &[
         merged_i64: &["pos"],
     },
     SyscallDef {
-        name: "llseek",
+        name: "lseek",
         module: "wasixv2",
-        import_name: "llseek",
+        import_name: "lseek",
         nr: Some(62),
         params: &[
             SyscallParam {
@@ -22619,12 +22771,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
             SyscallParam {
                 name: "offset",
                 ty: ValType::I64,
-                wit_type: "s64",
-            },
-            SyscallParam {
-                name: "result",
-                ty: ValType::I32,
-                wit_type: "loff-ptr",
+                wit_type: "loff",
             },
             SyscallParam {
                 name: "whence",
@@ -22632,10 +22779,10 @@ pub const SYSCALLS: &[SyscallDef] = &[
                 wit_type: "seek-whence",
             },
         ],
-        result: Some(ValType::I32),
+        result: Some(ValType::I64),
         noreturn: false,
         unsupported: false,
-        merged_i64: &["offset"],
+        merged_i64: &[],
     },
     SyscallDef {
         name: "sendfile64",
@@ -25172,7 +25319,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         params: &[],
         result: None,
         noreturn: true,
-        unsupported: false,
+        unsupported: true,
         merged_i64: &[],
     },
     SyscallDef {
@@ -27188,9 +27335,9 @@ pub const SYSCALLS: &[SyscallDef] = &[
         merged_i64: &[],
     },
     SyscallDef {
-        name: "mmap2",
+        name: "mmap",
         module: "wasixv2",
-        import_name: "mmap2",
+        import_name: "mmap",
         nr: Some(222),
         params: &[
             SyscallParam {
@@ -27220,8 +27367,8 @@ pub const SYSCALLS: &[SyscallDef] = &[
             },
             SyscallParam {
                 name: "offset",
-                ty: ValType::I32,
-                wit_type: "ulong",
+                ty: ValType::I64,
+                wit_type: "loff",
             },
         ],
         result: Some(ValType::I32),

@@ -92,6 +92,7 @@ __WX2_LAYOUT(int *, 4, 4);
 __WX2_LAYOUT(const int *, 4, 4);
 __WX2_LAYOUT(unsigned *, 4, 4);
 __WX2_LAYOUT(uint64_t *, 4, 4);
+__WX2_LAYOUT(uintptr_t *, 4, 4);
 __WX2_LAYOUT(unsigned long *, 4, 4);
 __WX2_LAYOUT(const unsigned long *, 4, 4);
 __WX2_LAYOUT(size_t *, 4, 4);

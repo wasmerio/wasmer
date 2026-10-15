@@ -183,7 +183,11 @@ fn startup_block_lays_out_argv_envp_and_auxv() {
 
     let size = block_on(kernel.startup_size(&caller)).unwrap();
     assert_eq!(
-        block_on(kernel.startup_get(&caller, GuestPtrMut::new(base))),
+        block_on(kernel.startup_get(&caller, UserSliceMut::new(base, size - 16))),
+        Err(SysErr::Errno(Errno::EINVAL))
+    );
+    assert_eq!(
+        block_on(kernel.startup_get(&caller, UserSliceMut::new(base, size))),
         Ok(0)
     );
 
@@ -213,7 +217,7 @@ fn startup_get_rejects_an_unaligned_buffer() {
     let memory = FlatMemory(RefCell::new(vec![0; 4096]));
     let caller = Caller::new(task, &memory);
 
-    let result = block_on(kernel.startup_get(&caller, GuestPtrMut::new(8)));
+    let result = block_on(kernel.startup_get(&caller, UserSliceMut::new(8, 4096)));
 
     assert_eq!(result, Err(SysErr::Errno(Errno::EINVAL)));
 }
@@ -224,20 +228,20 @@ fn mmap_grows_memory_and_reuses_unmapped_pages_zeroed() {
     let memory = FlatMemory(RefCell::new(vec![0; WASM_PAGE_SIZE as usize]));
     let caller = Caller::new(task, &memory);
     let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
-    let mmap = |len| block_on(kernel.mmap2(&caller, 0, len, ProtFlags(3), anon, Fd(-1), 0));
+    let mmap = |len| block_on(kernel.mmap(&caller, 0, len, ProtFlags(3), anon, Fd(-1), 0));
 
-    let first = mmap(100).unwrap() as u32;
-    let second = mmap(70_000).unwrap() as u32;
+    let first = mmap(100).unwrap();
+    let second = mmap(70_000).unwrap();
     memory.0.borrow_mut()[first as usize] = 1;
     assert_eq!(block_on(kernel.munmap(&caller, first, 100)), Ok(0));
-    let reused = mmap(10).unwrap() as u32;
+    let reused = mmap(10).unwrap();
 
     assert_eq!(first, WASM_PAGE_SIZE as u32);
     assert_eq!(second, 2 * WASM_PAGE_SIZE as u32);
     assert_eq!(block_on(caller.memory().size()), 4 * WASM_PAGE_SIZE);
     assert_eq!(reused, first);
     assert_eq!(memory.0.borrow()[first as usize], 0);
-    let file_backed = block_on(kernel.mmap2(
+    let file_backed = block_on(kernel.mmap(
         &caller,
         0,
         10,
@@ -248,6 +252,8 @@ fn mmap_grows_memory_and_reuses_unmapped_pages_zeroed() {
     ));
     assert_eq!(file_backed, Err(SysErr::Errno(Errno::ENODEV)));
     assert_eq!(mmap(0), Err(SysErr::Errno(Errno::EINVAL)));
+    let unaligned = block_on(kernel.mmap(&caller, 0, 10, ProtFlags(3), anon, Fd(-1), 4096));
+    assert_eq!(unaligned, Err(SysErr::Errno(Errno::EINVAL)));
 }
 
 #[test]

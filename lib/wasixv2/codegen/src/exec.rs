@@ -112,7 +112,11 @@ impl Gen<'_> {
                 .iter()
                 .map(|r| format!("{}: {}", r.name, prim(r.prim))),
         );
-        let result = if m.ret.is_some() { "i32" } else { "()" };
+        let result = if m.ret.is_some() {
+            prim(m.raw_ret)
+        } else {
+            "()"
+        };
         self.line("");
         if params.len() > 7 {
             self.line("#[allow(clippy::too_many_arguments)]");
@@ -139,13 +143,16 @@ impl Gen<'_> {
         );
         match &m.ret {
             Some(t) => {
-                let ret = match encode(self.model, t, "v") {
+                let ret = match encode(self.model, t, "v", m.raw_ret) {
                     Some(expr) => format!("ret.map(|v| {expr})"),
                     None => "ret".to_string(),
                 };
                 let _ = writeln!(self.out, "return_to_guest(&*syscalls, task, {ret})");
             }
             None => {
+                // TODO: a vfork child's `exit`, `exit_group` and successful `execve` resume the
+                // parent, so the call returns to the guest; the return path needs a
+                // `GuestAction` for that instead of this trap.
                 self.line("return_to_guest(&*syscalls, task, ret.map(|()| 0))?;");
                 let _ = writeln!(
                     self.out,
@@ -190,7 +197,8 @@ mod tests {
             &model(
                 "/// @slice(buf, count)\n/// @returns(u32)\nread: func(fd: fd, buf: buf, count: usize) -> slong;\n\
                  /// @returns(fd)\nopenat: func(dfd: fd, path: cstr, mode: u32, pos: s64) -> slong;\n\
-                 /// @noreturn\nexit-group: func(error-code: s32);\ngetpid: func() -> slong;",
+                 /// @noreturn\nexit-group: func(error-code: s32);\ngetpid: func() -> slong;\n\
+                 lseek: func(fd: fd, offset: s64, whence: u32) -> s64;",
             ),
             "t.wit",
         )
@@ -206,6 +214,7 @@ mod tests {
             "async fn exit_group<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, error_code: i32) -> Result<(), RuntimeError>",
             "Err(RuntimeError::new(\"`exit_group` returned to the guest\"))",
             "return_to_guest(&*syscalls, task, ret)\n",
+            "async fn lseek<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>, fd: i32, offset: i64, whence: i32) -> Result<i64, RuntimeError>",
             "use wasixv2_abi::{Cstr, Fd};",
             "use wasixv2_syscalls::{Caller, Control, Syscalls, TaskId, UserSliceMut};",
         ] {
