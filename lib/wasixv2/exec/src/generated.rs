@@ -13,23 +13,23 @@ use wasixv2_abi::{
     ConstS32Array, ConstSchedParamPtr, ConstSembufArray, ConstSigactionPtr, ConstSigaltstackPtr,
     ConstSigeventPtr, ConstSiginfoPtr, ConstSigsetArgpackPtr, ConstSigsetPtr, ConstSockaddrPtr,
     ConstUlongArray, ConstUptrArray, ConstUserCapDataArray, ConstUserMsghdrPtr, ConstVoidPtr,
-    ConstXattrArgsPtr, Cstr, CstrArray, EpollCreateFlags, EpollCtlOp, EpollEventArray,
-    EventfdFlags, FadviseAdvice, FallocFlags, FcntlCmd, Fd, FdPair, FileAttrPtr, FileHandlePtr,
-    FlockOp, Futex2Flags, FutexOp, GidArray, GidPtr, GrndFlags, Idtype, InotifyInitFlags,
-    InotifyMask, IoEventArray, IoEventPtr, IoUringParamsPtr, IocbPtr, IoctlRequest, ItimerWhich,
-    KernelFdSetPtr, KernelItimerspecPtr, KernelOldItimervalPtr, KernelTimespecPtr, KernelTimexPtr,
-    LinuxDirent64Ptr, LoffPtr, LsmCtxPtr, MadviseAdvice, MapFlags, MclFlags, MembarrierCmd,
-    MembarrierCmdFlags, MemfdFlags, MlockFlags, MmsghdrArray, MountFlags, MqAttrPtr, MremapFlags,
-    MsgFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr, OpenFlags, PollfdArray,
-    PrctlOption, PrioWhich, ProtFlags, PtraceRequest, RebootCmd, RenameFlags, Rlimit64Ptr,
-    RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags,
-    S32Array, S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence, Shmid64DsPtr,
-    ShutdownHow, SigactionPtr, SigaltstackPtr, SiginfoPtr, Signal, SignalfdFlags, SigprocmaskHow,
-    SigsetPtr, SockaddrPtr, SocketFlags, SocketLevel, SocklenPtr, SpliceFlags, Statfs64Ptr,
-    StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerIdPtr, TimerfdFlags,
-    TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, U64Ptr, UidPtr, UlongArray, UmountFlags,
-    UptrPtr, UserCapDataArray, UserCapHeaderPtr, UserMsghdrPtr, UsizePtr, VoidPtr, WaitOptions,
-    XattrArgsPtr, XattrFlags,
+    ConstXattrArgsPtr, Cstr, CstrArray, DlFlags, DlHandle, DlHandlePtr, EpollCreateFlags,
+    EpollCtlOp, EpollEventArray, EventfdFlags, FadviseAdvice, FallocFlags, FcntlCmd, Fd, FdPair,
+    FileAttrPtr, FileHandlePtr, FlockOp, Futex2Flags, FutexOp, GidArray, GidPtr, GrndFlags, Idtype,
+    InotifyInitFlags, InotifyMask, IoEventArray, IoEventPtr, IoUringParamsPtr, IocbPtr,
+    IoctlRequest, ItimerWhich, KernelFdSetPtr, KernelItimerspecPtr, KernelOldItimervalPtr,
+    KernelTimespecPtr, KernelTimexPtr, LinuxDirent64Ptr, LoffPtr, LsmCtxPtr, MadviseAdvice,
+    MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags, MmsghdrArray,
+    MountFlags, MqAttrPtr, MremapFlags, MsgFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags,
+    NewUtsnamePtr, OpenFlags, PollfdArray, PrctlOption, PrioWhich, ProtFlags, PtraceRequest,
+    RebootCmd, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr,
+    RusagePtr, RusageWho, RwfFlags, S32Array, S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy,
+    SeekWhence, Shmid64DsPtr, ShutdownHow, SigactionPtr, SigaltstackPtr, SiginfoPtr, Signal,
+    SignalfdFlags, SigprocmaskHow, SigsetPtr, SockaddrPtr, SocketFlags, SocketLevel, SocklenPtr,
+    SpliceFlags, Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags,
+    TimerIdPtr, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, U64Ptr, UidPtr,
+    UlongArray, UmountFlags, UptrPtr, UserCapDataArray, UserCapHeaderPtr, UserMsghdrPtr, UsizePtr,
+    VoidPtr, WaitOptions, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_syscalls::{Caller, Control, Syscalls, TaskId, UserSlice, UserSliceMut};
 use wasmer::{AsyncFunctionEnvMut, Function, FunctionEnv, Imports, RuntimeError, Store};
@@ -93,6 +93,11 @@ where
         IMPORT_MODULE,
         "dl_close",
         Function::new_typed_with_env_async(store, env, dl_close::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "dl_next_init",
+        Function::new_typed_with_env_async(store, env, dl_next_init::<S>),
     );
     imports.define(
         IMPORT_MODULE,
@@ -1780,13 +1785,16 @@ where
     return_to_guest(&*syscalls, task, ret)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn dl_open<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
-    path: i32,
+    file: i32,
     flags: i32,
+    search_path: i32,
+    caller_addr: i32,
+    handle: i32,
     err: i32,
     err_len: i32,
-    handle: i32,
 ) -> Result<i32, RuntimeError>
 where
     S: Syscalls + Control + 'static,
@@ -1797,10 +1805,12 @@ where
     let ret = Syscalls::dl_open(
         &*syscalls,
         &caller,
-        Cstr::new(path as u32),
-        flags,
+        Cstr::new(file as u32),
+        DlFlags(flags as u32),
+        Cstr::new(search_path as u32),
+        caller_addr as u32,
+        DlHandlePtr::new(handle as u32),
         UserSliceMut::new(err as u32, err_len as u32),
-        U32Ptr::new(handle as u32),
     )
     .await;
     return_to_guest(&*syscalls, task, ret)
@@ -1810,9 +1820,10 @@ async fn dl_sym<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
     handle: i32,
     symbol: i32,
+    caller_addr: i32,
+    addr: i32,
     err: i32,
     err_len: i32,
-    addr: i32,
 ) -> Result<i32, RuntimeError>
 where
     S: Syscalls + Control + 'static,
@@ -1823,10 +1834,11 @@ where
     let ret = Syscalls::dl_sym(
         &*syscalls,
         &caller,
-        handle as u32,
+        DlHandle(handle as u32),
         Cstr::new(symbol as u32),
-        UserSliceMut::new(err as u32, err_len as u32),
+        caller_addr as u32,
         UptrPtr::new(addr as u32),
+        UserSliceMut::new(err as u32, err_len as u32),
     )
     .await;
     return_to_guest(&*syscalls, task, ret)
@@ -1839,7 +1851,21 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
-    let ret = Syscalls::dl_close(&*syscalls, &caller, handle as u32).await;
+    let ret = Syscalls::dl_close(&*syscalls, &caller, DlHandle(handle as u32)).await;
+    return_to_guest(&*syscalls, task, ret)
+}
+
+async fn dl_next_init<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    ctors: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    let ret = Syscalls::dl_next_init(&*syscalls, &caller, UptrPtr::new(ctors as u32)).await;
     return_to_guest(&*syscalls, task, ret)
 }
 

@@ -21982,6 +21982,195 @@ impl GuestLayout for FspickFlags {
     }
 }
 
+/// A loaded module, as `dlopen` returns it. In C it is a `void *`.
+///
+/// C: `void *`
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DlHandle(pub u32);
+
+impl GuestLayout for DlHandle {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// C: `void **`
+///
+/// Guest pointer to a `dl-handle`.
+pub type DlHandlePtr = GuestPtrMut<DlHandle>;
+/// The special `dlsym` handles (`dlfcn.h`). They are pointers in C, so their values are not
+/// checked against the headers.
+///
+/// C: `void *`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct DlSpecialHandle(pub u32);
+impl DlSpecialHandle {
+    /// The global scope: the main module, then `RTLD_GLOBAL` modules in load order.
+    pub const RTLD_DEFAULT: Self = Self(0);
+    /// The modules after the caller's in the global scope.
+    pub const RTLD_NEXT: Self = Self(4294967295);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("RTLD_DEFAULT", Self::RTLD_DEFAULT),
+        ("RTLD_NEXT", Self::RTLD_NEXT),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("RTLD_DEFAULT"),
+            4294967295 => Some("RTLD_NEXT"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for DlSpecialHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "DlSpecialHandle({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for DlSpecialHandle {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `dlopen` modes (`dlfcn.h`), with musl's values.
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct DlFlags(pub u32);
+impl DlFlags {
+    pub const RTLD_LOCAL: Self = Self(0x0);
+    pub const RTLD_LAZY: Self = Self(0x1);
+    pub const RTLD_NOW: Self = Self(0x2);
+    pub const RTLD_NOLOAD: Self = Self(0x4);
+    pub const RTLD_GLOBAL: Self = Self(0x100);
+    pub const RTLD_NODELETE: Self = Self(0x1000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("RTLD_LOCAL", Self::RTLD_LOCAL),
+        ("RTLD_LAZY", Self::RTLD_LAZY),
+        ("RTLD_NOW", Self::RTLD_NOW),
+        ("RTLD_NOLOAD", Self::RTLD_NOLOAD),
+        ("RTLD_GLOBAL", Self::RTLD_GLOBAL),
+        ("RTLD_NODELETE", Self::RTLD_NODELETE),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for DlFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("DlFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for DlFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for DlFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for DlFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for DlFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for DlFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for DlFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for DlFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for DlFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// Wasm value type of an import param or result.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ValType {
@@ -22141,14 +22330,29 @@ pub const SYSCALLS: &[SyscallDef] = &[
         nr: None,
         params: &[
             SyscallParam {
-                name: "path",
+                name: "file",
                 ty: ValType::I32,
                 wit_type: "cstr",
             },
             SyscallParam {
                 name: "flags",
                 ty: ValType::I32,
-                wit_type: "s32",
+                wit_type: "dl-flags",
+            },
+            SyscallParam {
+                name: "search_path",
+                ty: ValType::I32,
+                wit_type: "cstr",
+            },
+            SyscallParam {
+                name: "caller_addr",
+                ty: ValType::I32,
+                wit_type: "uptr",
+            },
+            SyscallParam {
+                name: "handle",
+                ty: ValType::I32,
+                wit_type: "dl-handle-ptr",
             },
             SyscallParam {
                 name: "err",
@@ -22159,11 +22363,6 @@ pub const SYSCALLS: &[SyscallDef] = &[
                 name: "err_len",
                 ty: ValType::I32,
                 wit_type: "usize",
-            },
-            SyscallParam {
-                name: "handle",
-                ty: ValType::I32,
-                wit_type: "u32-ptr",
             },
         ],
         result: Some(ValType::I32),
@@ -22180,12 +22379,22 @@ pub const SYSCALLS: &[SyscallDef] = &[
             SyscallParam {
                 name: "handle",
                 ty: ValType::I32,
-                wit_type: "u32",
+                wit_type: "dl-handle",
             },
             SyscallParam {
                 name: "symbol",
                 ty: ValType::I32,
                 wit_type: "cstr",
+            },
+            SyscallParam {
+                name: "caller_addr",
+                ty: ValType::I32,
+                wit_type: "uptr",
+            },
+            SyscallParam {
+                name: "addr",
+                ty: ValType::I32,
+                wit_type: "uptr-ptr",
             },
             SyscallParam {
                 name: "err",
@@ -22196,11 +22405,6 @@ pub const SYSCALLS: &[SyscallDef] = &[
                 name: "err_len",
                 ty: ValType::I32,
                 wit_type: "usize",
-            },
-            SyscallParam {
-                name: "addr",
-                ty: ValType::I32,
-                wit_type: "uptr-ptr",
             },
         ],
         result: Some(ValType::I32),
@@ -22216,7 +22420,22 @@ pub const SYSCALLS: &[SyscallDef] = &[
         params: &[SyscallParam {
             name: "handle",
             ty: ValType::I32,
-            wit_type: "u32",
+            wit_type: "dl-handle",
+        }],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: true,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "dl_next_init",
+        module: "wasixv2",
+        import_name: "dl_next_init",
+        nr: None,
+        params: &[SyscallParam {
+            name: "ctors",
+            ty: ValType::I32,
+            wit_type: "uptr-ptr",
         }],
         result: Some(ValType::I32),
         noreturn: false,

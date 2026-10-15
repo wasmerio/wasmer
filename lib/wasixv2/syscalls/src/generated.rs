@@ -11,23 +11,24 @@ use wasixv2_abi::{
     ConstS32Array, ConstSchedParamPtr, ConstSembufArray, ConstSigactionPtr, ConstSigaltstackPtr,
     ConstSigeventPtr, ConstSiginfoPtr, ConstSigsetArgpackPtr, ConstSigsetPtr, ConstSockaddrPtr,
     ConstUlongArray, ConstUptrArray, ConstUserCapDataArray, ConstUserMsghdrPtr, ConstVoidPtr,
-    ConstXattrArgsPtr, Cstr, CstrArray, EpollCreateFlags, EpollCtlOp, EpollEventArray, Errno,
-    EventfdFlags, FadviseAdvice, FallocFlags, FcntlCmd, Fd, FdPair, FileAttrPtr, FileHandlePtr,
-    FlockOp, Futex2Flags, FutexOp, Gid, GidArray, GidPtr, GrndFlags, Idtype, InotifyInitFlags,
-    InotifyMask, IoEventArray, IoEventPtr, IoUringParamsPtr, IocbPtr, IoctlRequest, ItimerWhich,
-    KernelFdSetPtr, KernelItimerspecPtr, KernelOldItimervalPtr, KernelTimespecPtr, KernelTimexPtr,
-    Key, KeySerial, LinuxDirent64Ptr, Loff, LoffPtr, LsmCtxPtr, MadviseAdvice, MapFlags, MclFlags,
-    MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags, MmsghdrArray, Mode, MountFlags,
-    MqAttrPtr, Mqd, MremapFlags, MsgFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr,
-    OpenFlags, Pid, PollfdArray, PrctlOption, PrioWhich, ProtFlags, PtraceRequest, Qid, RebootCmd,
-    RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr,
-    RusageWho, RwfFlags, S32Array, S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence,
-    Shmid64DsPtr, ShutdownHow, SigactionPtr, SigaltstackPtr, SiginfoPtr, Signal, SignalfdFlags,
-    SigprocmaskHow, SigsetPtr, Slong, SockaddrPtr, SocketFlags, SocketLevel, Socklen, SocklenPtr,
-    SpliceFlags, Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags,
-    TimerId, TimerIdPtr, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, U64Ptr, Uid,
-    UidPtr, Ulong, UlongArray, UmountFlags, Uptr, UptrPtr, UserCapDataArray, UserCapHeaderPtr,
-    UserMsghdrPtr, Usize, UsizePtr, VoidPtr, WaitOptions, XattrArgsPtr, XattrFlags,
+    ConstXattrArgsPtr, Cstr, CstrArray, DlFlags, DlHandle, DlHandlePtr, EpollCreateFlags,
+    EpollCtlOp, EpollEventArray, Errno, EventfdFlags, FadviseAdvice, FallocFlags, FcntlCmd, Fd,
+    FdPair, FileAttrPtr, FileHandlePtr, FlockOp, Futex2Flags, FutexOp, Gid, GidArray, GidPtr,
+    GrndFlags, Idtype, InotifyInitFlags, InotifyMask, IoEventArray, IoEventPtr, IoUringParamsPtr,
+    IocbPtr, IoctlRequest, ItimerWhich, KernelFdSetPtr, KernelItimerspecPtr, KernelOldItimervalPtr,
+    KernelTimespecPtr, KernelTimexPtr, Key, KeySerial, LinuxDirent64Ptr, Loff, LoffPtr, LsmCtxPtr,
+    MadviseAdvice, MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags,
+    MmsghdrArray, Mode, MountFlags, MqAttrPtr, Mqd, MremapFlags, MsgFlags, MsgbufPtr, Msqid64DsPtr,
+    MsyncFlags, NewUtsnamePtr, OpenFlags, Pid, PollfdArray, PrctlOption, PrioWhich, ProtFlags,
+    PtraceRequest, Qid, RebootCmd, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr,
+    RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Array, S32Ptr, SchedAttrPtr,
+    SchedParamPtr, SchedPolicy, SeekWhence, Shmid64DsPtr, ShutdownHow, SigactionPtr,
+    SigaltstackPtr, SiginfoPtr, Signal, SignalfdFlags, SigprocmaskHow, SigsetPtr, Slong,
+    SockaddrPtr, SocketFlags, SocketLevel, Socklen, SocklenPtr, SpliceFlags, Statfs64Ptr,
+    StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerId, TimerIdPtr,
+    TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, U64Ptr, Uid, UidPtr, Ulong,
+    UlongArray, UmountFlags, Uptr, UptrPtr, UserCapDataArray, UserCapHeaderPtr, UserMsghdrPtr,
+    Usize, UsizePtr, VoidPtr, WaitOptions, XattrArgsPtr, XattrFlags,
 };
 
 use crate::{
@@ -137,30 +138,55 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// TENTATIVE. Loads the side module at `path` with `RTLD_*` `flags`, instantiates it against
-    /// this process's memory and indirect function table, links it, and writes its handle to
-    /// `handle`. A wasm guest cannot instantiate modules itself, so this replaces the userspace
-    /// dynamic loader's mapping step. On failure, writes a NUL-terminated `dlerror` message into
-    /// `err` and returns `-errno`. Returns 0 or `-errno`.
+    /// The host instantiates and links side modules; libc2 decides policy and runs constructors.
+    /// See "Dynamic linking" in wasmer's lib/wasixv2/DESIGN.md. Side modules must export
+    /// `__wasm_init_tls`, `__tls_size` and `__tls_align`. During a link the host calls only
+    /// functions wasm-ld synthesizes, never user code.
+    /// TENTATIVE. `dlopen`: loads `file` and the modules it needs into every instance of the
+    /// process, unless they are loaded already, links them, and writes the handle of `file`'s
+    /// module to `handle`.
+    ///
+    /// `file` NULL is the main program. A `file` containing `/` is opened as is, relative to the
+    /// working directory; otherwise each directory of `search-path` is tried in order.
+    ///
+    /// `search-path` is a colon-separated list, or NULL for none: libc passes `LD_LIBRARY_PATH` as
+    /// read at startup, then the default directories. A needed module is searched in the needing
+    /// module's runtime path, then in `search-path`. Every candidate is opened as `openat` would,
+    /// with the process's credentials and working directory.
+    ///
+    /// `flags` are `RTLD_*`; linking is always immediate, so `RTLD_LAZY` acts as `RTLD_NOW`.
+    /// `caller-addr` is an address in the calling module's data, such as its `__dso_handle`, or 0
+    /// for the main module. It selects the module whose runtime path applies.
+    ///
+    /// Constructors are not run: newly loaded modules are queued, in initialization order, for
+    /// `dl-next-init`. On failure, writes a NUL-terminated message for `dlerror` into `err`.
+    /// Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.dl_open`.
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
+    #[allow(clippy::too_many_arguments)]
     async fn dl_open(
         &self,
         caller: &Caller<'_>,
-        path: Cstr,
-        flags: i32,
+        file: Cstr,
+        flags: DlFlags,
+        search_path: Cstr,
+        caller_addr: Uptr,
+        handle: DlHandlePtr,
         err: UserSliceMut,
-        handle: U32Ptr,
     ) -> SysResult<i32> {
         Err(Errno::ENOSYS.into())
     }
 
-    /// TENTATIVE. Looks up `symbol` in the module `handle` and writes its address to `addr`: an
-    /// index into the indirect function table for a function, or a linear memory address for data.
-    /// On failure, writes a NUL-terminated `dlerror` message into `err` and returns `-errno`.
-    /// Returns 0 or `-errno`.
+    /// TENTATIVE. `dlsym`: looks up `symbol` and writes its address to `addr`: a linear memory
+    /// address for data, or a function-table index for a function, which is placed in the table of
+    /// every instance if it is not there yet.
+    ///
+    /// `handle` is a module, searched with its dependencies; `RTLD_DEFAULT`, the global scope; or
+    /// `RTLD_NEXT`, the global scope after the caller's module. `caller-addr` is as for
+    /// `dl-open`. Symbol precedence and weak symbols follow ELF rules. On failure, writes a
+    /// NUL-terminated message for `dlerror` into `err`. Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.dl_sym`.
     ///
@@ -168,21 +194,37 @@ pub trait Syscalls {
     async fn dl_sym(
         &self,
         caller: &Caller<'_>,
-        handle: u32,
+        handle: DlHandle,
         symbol: Cstr,
-        err: UserSliceMut,
+        caller_addr: Uptr,
         addr: UptrPtr,
+        err: UserSliceMut,
     ) -> SysResult<i32> {
         Err(Errno::ENOSYS.into())
     }
 
-    /// TENTATIVE. Drops a reference to the module `handle`. Wasm cannot unload an instance's code,
-    /// so the module stays linked until the process exits. Returns 0 or `-errno`.
+    /// TENTATIVE. `dlclose`: drops a reference to `handle`. Code is never unloaded. Returns 0, or
+    /// `-EINVAL` if `handle` is not a loaded module.
     ///
     /// Wasm import `wasixv2.dl_close`.
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn dl_close(&self, caller: &Caller<'_>, handle: u32) -> SysResult<i32> {
+    async fn dl_close(&self, caller: &Caller<'_>, handle: DlHandle) -> SysResult<i32> {
+        Err(Errno::ENOSYS.into())
+    }
+
+    /// TENTATIVE. Takes the next queued module whose constructors have not run, in initialization
+    /// order, and writes the function-table index of its `__wasm_call_ctors` to `ctors`, or 0 if it
+    /// has none. Returns 1 when it took a module, 0 when the queue is empty, or `-errno`.
+    ///
+    /// libc calls this until the queue is empty after every successful `dl-open`, and before
+    /// `main` for the libraries loaded at startup, then calls each `ctors` function. No host lock is
+    /// held then, so constructors may call `dlopen`; libc serializes loading with its own lock.
+    ///
+    /// Wasm import `wasixv2.dl_next_init`.
+    ///
+    /// Declared for completeness; implementations may leave it unimplemented.
+    async fn dl_next_init(&self, caller: &Caller<'_>, ctors: UptrPtr) -> SysResult<i32> {
         Err(Errno::ENOSYS.into())
     }
 
@@ -4269,19 +4311,25 @@ pub enum Syscall {
         id: u64,
     },
     DlOpen {
-        path: Cstr,
-        flags: i32,
+        file: Cstr,
+        flags: DlFlags,
+        search_path: Cstr,
+        caller_addr: Uptr,
+        handle: DlHandlePtr,
         err: UserSliceMut,
-        handle: U32Ptr,
     },
     DlSym {
-        handle: u32,
+        handle: DlHandle,
         symbol: Cstr,
-        err: UserSliceMut,
+        caller_addr: Uptr,
         addr: UptrPtr,
+        err: UserSliceMut,
     },
     DlClose {
-        handle: u32,
+        handle: DlHandle,
+    },
+    DlNextInit {
+        ctors: UptrPtr,
     },
     Openat {
         dfd: Fd,
@@ -5847,6 +5895,7 @@ pub enum SyscallRet {
     DlOpen(i32),
     DlSym(i32),
     DlClose(i32),
+    DlNextInit(i32),
     Openat(Fd),
     Openat2(Fd),
     Close(i32),
@@ -6190,19 +6239,33 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             SyscallRet::ContextDestroy(syscalls.context_destroy(caller, id).await?)
         }
         Syscall::DlOpen {
-            path,
+            file,
             flags,
-            err,
+            search_path,
+            caller_addr,
             handle,
-        } => SyscallRet::DlOpen(syscalls.dl_open(caller, path, flags, err, handle).await?),
+            err,
+        } => SyscallRet::DlOpen(
+            syscalls
+                .dl_open(caller, file, flags, search_path, caller_addr, handle, err)
+                .await?,
+        ),
         Syscall::DlSym {
             handle,
             symbol,
-            err,
+            caller_addr,
             addr,
-        } => SyscallRet::DlSym(syscalls.dl_sym(caller, handle, symbol, err, addr).await?),
+            err,
+        } => SyscallRet::DlSym(
+            syscalls
+                .dl_sym(caller, handle, symbol, caller_addr, addr, err)
+                .await?,
+        ),
         Syscall::DlClose { handle } => {
             SyscallRet::DlClose(syscalls.dl_close(caller, handle).await?)
+        }
+        Syscall::DlNextInit { ctors } => {
+            SyscallRet::DlNextInit(syscalls.dl_next_init(caller, ctors).await?)
         }
         Syscall::Openat {
             dfd,
@@ -8066,19 +8129,24 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn dl_open(
         &self,
         caller: &Caller<'_>,
-        path: Cstr,
-        flags: i32,
+        file: Cstr,
+        flags: DlFlags,
+        search_path: Cstr,
+        caller_addr: Uptr,
+        handle: DlHandlePtr,
         err: UserSliceMut,
-        handle: U32Ptr,
     ) -> SysResult<i32> {
         let call = Syscall::DlOpen {
-            path,
+            file,
             flags,
-            err,
+            search_path,
+            caller_addr,
             handle,
+            err,
         };
         match self.layer.call(caller, call, &self.inner).await? {
             SyscallRet::DlOpen(ret) => Ok(ret),
@@ -8089,16 +8157,18 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
     async fn dl_sym(
         &self,
         caller: &Caller<'_>,
-        handle: u32,
+        handle: DlHandle,
         symbol: Cstr,
-        err: UserSliceMut,
+        caller_addr: Uptr,
         addr: UptrPtr,
+        err: UserSliceMut,
     ) -> SysResult<i32> {
         let call = Syscall::DlSym {
             handle,
             symbol,
-            err,
+            caller_addr,
             addr,
+            err,
         };
         match self.layer.call(caller, call, &self.inner).await? {
             SyscallRet::DlSym(ret) => Ok(ret),
@@ -8106,11 +8176,19 @@ impl<L: Layer, S: Syscalls> Syscalls for Layered<L, S> {
         }
     }
 
-    async fn dl_close(&self, caller: &Caller<'_>, handle: u32) -> SysResult<i32> {
+    async fn dl_close(&self, caller: &Caller<'_>, handle: DlHandle) -> SysResult<i32> {
         let call = Syscall::DlClose { handle };
         match self.layer.call(caller, call, &self.inner).await? {
             SyscallRet::DlClose(ret) => Ok(ret),
             _ => mismatch("dl_close"),
+        }
+    }
+
+    async fn dl_next_init(&self, caller: &Caller<'_>, ctors: UptrPtr) -> SysResult<i32> {
+        let call = Syscall::DlNextInit { ctors };
+        match self.layer.call(caller, call, &self.inner).await? {
+            SyscallRet::DlNextInit(ret) => Ok(ret),
+            _ => mismatch("dl_next_init"),
         }
     }
 
