@@ -1,9 +1,6 @@
 //! Support for compiling with Cranelift.
 
 #[cfg(feature = "unwind")]
-use crate::dwarf::WriterRelocate;
-
-#[cfg(feature = "unwind")]
 use crate::eh::{FunctionLsdaData, build_function_lsda, compact_unwind_encoding_aarch64};
 
 #[cfg(feature = "unwind")]
@@ -61,6 +58,11 @@ use wasmer_types::{
     CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
     SignatureIndex, TrapCode, TrapInformation,
 };
+
+#[cfg(feature = "unwind")]
+const FUNCTION_SYMBOL: usize = 0;
+#[cfg(feature = "unwind")]
+const PERSONALITY_SYMBOL: usize = 1;
 
 pub struct CraneliftCompiledFunction {
     function: CompiledFunction,
@@ -168,7 +170,7 @@ impl CraneliftCompiler {
                         cie.personality = Some((
                             DW_EH_PE_absptr,
                             Address::Symbol {
-                                symbol: WriterRelocate::PERSONALITY_SYMBOL,
+                                symbol: PERSONALITY_SYMBOL,
                                 addend: 0,
                             },
                         ));
@@ -322,7 +324,7 @@ impl CraneliftCompiler {
                         let fde = fde.to_fde(Address::Symbol {
                             // The symbol is the kind of relocation.
                             // "0" is used for functions
-                            symbol: WriterRelocate::FUNCTION_SYMBOL,
+                            symbol: FUNCTION_SYMBOL,
                             addend: 0,
                         });
                         // The unwind information is inserted into the dwarf section
