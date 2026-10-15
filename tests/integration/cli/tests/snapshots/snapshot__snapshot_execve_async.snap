@@ -14,7 +14,7 @@ expression: snapshot
     "debug_output": false,
     "enable_threads": true,
     "enable_network": false,
-    "enable_async_threads": true
+    "enable_async_entrypoint": true
   },
   "result": {
     "Success": {

@@ -20,6 +20,8 @@ use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::{Engine, Module, RuntimeError};
+
+use crate::capabilities::Capabilities;
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -151,6 +153,24 @@ pub trait InstantiationHook: fmt::Debug + Send + Sync + 'static {
         Ok(state)
     }
 
+    /// Adjusts the capabilities a process runs with, for the main module it is
+    /// about to instantiate.
+    ///
+    /// Called once for each process, thread and fork, with the main module and
+    /// a fresh copy of the capabilities the process was given — never the
+    /// result of an earlier call — before WASIX builds that module's imports.
+    /// Changes apply to that process alone: the processes it spawns start again
+    /// from the capabilities it was given, and are configured for their own
+    /// main modules. Side modules are not passed here; they run with whatever
+    /// their main module got.
+    ///
+    /// This is the place for a host API whose imports constrain how the guest
+    /// may run. N-API's is one: a guest that imports it cannot have
+    /// [`Capabilities::enable_context_switching`](crate::capabilities::Capabilities::enable_context_switching).
+    fn configure_capabilities(&self, module: &wasmer::Module, capabilities: &mut Capabilities) {
+        let _ = (module, capabilities);
+    }
+
     /// Configures an instance after successful instantiation and startup.
     ///
     /// `state` is the [`InstantiationState`] this hook returned from the
@@ -170,6 +190,10 @@ pub trait InstantiationHook: fmt::Debug + Send + Sync + 'static {
 }
 
 impl<H: InstantiationHook + ?Sized> InstantiationHook for Arc<H> {
+    fn configure_capabilities(&self, module: &wasmer::Module, capabilities: &mut Capabilities) {
+        (**self).configure_capabilities(module, capabilities)
+    }
+
     fn additional_imports(
         &self,
         module: &wasmer::Module,
@@ -418,6 +442,11 @@ where
         merge_missing_imports(imports, &additional_imports);
         Ok(state)
     }
+
+    /// Adjusts the capabilities a process runs with, for the main module it is
+    /// about to instantiate. See [`InstantiationHook::configure_capabilities`],
+    /// which the provided runtimes call for each registered hook.
+    fn configure_capabilities(&self, _module: &wasmer::Module, _capabilities: &mut Capabilities) {}
 
     /// Configure an instance after successful instantiation and startup.
     ///
@@ -914,6 +943,12 @@ impl Runtime for PluggableRuntime {
         self.module_cache.clone()
     }
 
+    fn configure_capabilities(&self, module: &wasmer::Module, capabilities: &mut Capabilities) {
+        for hook in &self.instantiation_hooks {
+            hook.configure_capabilities(module, capabilities);
+        }
+    }
+
     fn additional_imports(
         &self,
         module: &wasmer::Module,
@@ -1164,6 +1199,14 @@ impl Runtime for OverriddenRuntime {
             wasmer::Store::new(engine)
         } else {
             self.inner.new_store()
+        }
+    }
+
+    fn configure_capabilities(&self, module: &wasmer::Module, capabilities: &mut Capabilities) {
+        // In the order imports are prepared: the inner runtime's hooks first.
+        self.inner.configure_capabilities(module, capabilities);
+        for hook in &self.instantiation_hooks {
+            hook.configure_capabilities(module, capabilities);
         }
     }
 

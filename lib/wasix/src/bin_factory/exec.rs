@@ -10,7 +10,8 @@ use crate::{
         ModuleInput, TaintReason,
         module_cache::HashedModuleData,
         task_manager::{
-            TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
+            LocalTaskSpawner, TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties,
+            TaskWasmRunProperties, WasmTaskFuture,
         },
     },
     state::context_switching::ContextSwitchingEnvironment,
@@ -141,7 +142,7 @@ pub fn spawn_exec_module(
 
         tasks_outer
             .task_wasm(
-                TaskWasm::new(Box::new(run_exec), env, module, true, true).with_pre_run(Box::new(
+                TaskWasm::new(run_exec, env, module, true, true).with_pre_run(Box::new(
                     |ctx, store| {
                         let wasi_state = ctx.data(store).state.clone();
                         Box::pin(async move {
@@ -180,9 +181,10 @@ unsafe fn run_recycle(
     }
 }
 
-pub fn run_exec(props: TaskWasmRunProperties) {
+pub async fn run_exec(props: TaskWasmRunProperties) {
     let ctx = props.ctx;
     let mut store = props.store;
+    let local_tasks = props.local_tasks;
 
     // Create the WasiFunctionEnv
     let thread = WasiThreadRunGuard::new(ctx.data(&store).thread.clone());
@@ -232,7 +234,7 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     // TODO: rewrite to use crate::run_wasi_func
 
     // Call the module
-    call_module(ctx, store, thread, rewind_state, recycle);
+    call_module(ctx, store, thread, rewind_state, recycle, local_tasks).await;
 }
 
 fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
@@ -247,12 +249,13 @@ fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
 }
 
 /// Calls the module
-fn call_module(
+async fn call_module(
     ctx: WasiFunctionEnv,
     mut store: Store,
     handle: WasiThreadRunGuard,
     rewind_state: Option<(RewindState, RewindResultType)>,
     recycle: Option<Box<TaskWasmRecycle>>,
+    local_tasks: LocalTaskSpawner,
 ) {
     let env = ctx.data(&store);
     let pid = env.pid();
@@ -302,12 +305,18 @@ fn call_module(
         return;
     };
 
-    let (mut store, mut call_ret) =
-        ContextSwitchingEnvironment::run_main_context(&ctx, store, start.clone(), vec![]);
+    let (mut store, mut call_ret) = ContextSwitchingEnvironment::run_main_context(
+        &ctx,
+        store,
+        start.clone(),
+        vec![],
+        local_tasks.clone(),
+    )
+    .await;
 
     let mut store = loop {
         // Technically, it's an error for a vfork to return from main, but anyway...
-        store = match resume_vfork(&ctx, store, &start, &call_ret) {
+        store = match resume_vfork(&ctx, store, &start, &call_ret, local_tasks.clone()).await {
             // A vfork was resumed, there may be another, so loop back
             (store, Ok(Some(ret))) => {
                 call_ret = ret;
@@ -337,15 +346,16 @@ fn call_module(
                 // Create the callback that will be invoked when the thread respawns after a deep sleep
                 let rewind = deep.rewind;
                 let respawn = {
-                    move |ctx, store, rewind_result| {
+                    move |ctx, store, rewind_result, local_tasks| {
                         // Call the thread
-                        call_module(
+                        Box::pin(call_module(
                             ctx,
                             store,
                             handle,
                             Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
                             recycle,
-                        );
+                            local_tasks,
+                        )) as WasmTaskFuture
                     }
                 };
 
@@ -407,11 +417,12 @@ fn call_module(
 }
 
 #[allow(clippy::type_complexity)]
-fn resume_vfork(
+async fn resume_vfork(
     ctx: &WasiFunctionEnv,
     mut store: Store,
     start: &Function,
     call_ret: &Result<Box<[Value]>, RuntimeError>,
+    local_tasks: LocalTaskSpawner,
 ) -> (
     Store,
     Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno>,
@@ -519,7 +530,9 @@ fn resume_vfork(
                     store,
                     start.clone(),
                     vec![],
-                );
+                    local_tasks,
+                )
+                .await;
                 (store, Ok(Some(result)))
             }
             err => {
