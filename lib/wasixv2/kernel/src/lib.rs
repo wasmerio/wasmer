@@ -6,10 +6,12 @@
 //!
 //! Every process has exactly one task so far, and the working directory is always `/`.
 
+mod eventfd;
 mod file;
 mod fs;
 mod ioctl;
 mod mm;
+mod pipe;
 mod startup;
 mod stdio;
 mod time;
@@ -517,6 +519,26 @@ impl Syscalls for Kernel {
         };
         self.host.sleep(duration).await;
         Ok(0)
+    }
+
+    // ---- poll ----
+
+    async fn pipe2(
+        &self,
+        caller: &Caller<'_>,
+        fildes: wasixv2_abi::FdPair,
+        flags: OpenFlags,
+    ) -> SysResult<i32> {
+        self.sys_pipe2(caller, fildes, flags).await
+    }
+
+    async fn eventfd2(
+        &self,
+        caller: &Caller<'_>,
+        count: u32,
+        flags: wasixv2_abi::EventfdFlags,
+    ) -> SysResult<Fd> {
+        self.sys_eventfd2(caller, count, flags).await
     }
 }
 

@@ -238,6 +238,7 @@ impl Kernel {
                 file.set_status_flags(OpenFlags(arg));
                 Ok(0)
             }
+            FcntlCmd::F_GETPIPE_SZ | FcntlCmd::F_SETPIPE_SZ => crate::pipe::fcntl(&file, cmd, arg),
             _ => Err(Errno::EINVAL.into()),
         }
     }

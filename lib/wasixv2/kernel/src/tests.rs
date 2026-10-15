@@ -351,3 +351,5 @@ fn uname_reports_the_wasixv2_abi_version() {
     assert_eq!(field(2), "2.0.0");
     assert_eq!(field(4), "wasm32");
 }
+
+mod ipc;
