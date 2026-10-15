@@ -22171,6 +22171,265 @@ impl GuestLayout for DlFlags {
     }
 }
 
+/// A wasm value type in `call-dynamic`, `reflect-signature` and `closure-prepare` (wasix-libc's
+/// `wasix/value_type.h`, with v1's values).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct WasmValueType(pub u8);
+impl WasmValueType {
+    pub const WASIX_VALUE_TYPE_I32: Self = Self(0);
+    pub const WASIX_VALUE_TYPE_I64: Self = Self(1);
+    pub const WASIX_VALUE_TYPE_F32: Self = Self(2);
+    pub const WASIX_VALUE_TYPE_F64: Self = Self(3);
+    pub const WASIX_VALUE_TYPE_V128: Self = Self(4);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("WASIX_VALUE_TYPE_I32", Self::WASIX_VALUE_TYPE_I32),
+        ("WASIX_VALUE_TYPE_I64", Self::WASIX_VALUE_TYPE_I64),
+        ("WASIX_VALUE_TYPE_F32", Self::WASIX_VALUE_TYPE_F32),
+        ("WASIX_VALUE_TYPE_F64", Self::WASIX_VALUE_TYPE_F64),
+        ("WASIX_VALUE_TYPE_V128", Self::WASIX_VALUE_TYPE_V128),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("WASIX_VALUE_TYPE_I32"),
+            1 => Some("WASIX_VALUE_TYPE_I64"),
+            2 => Some("WASIX_VALUE_TYPE_F32"),
+            3 => Some("WASIX_VALUE_TYPE_F64"),
+            4 => Some("WASIX_VALUE_TYPE_V128"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for WasmValueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "WasmValueType({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for WasmValueType {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `call-dynamic` flags.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct CallDynamicFlags(pub u32);
+impl CallDynamicFlags {
+    /// Fail with `EINVAL` unless the buffers exactly match the function's signature.
+    pub const CALL_DYNAMIC_STRICT: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("CALL_DYNAMIC_STRICT", Self::CALL_DYNAMIC_STRICT)];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for CallDynamicFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("CallDynamicFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for CallDynamicFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for CallDynamicFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for CallDynamicFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for CallDynamicFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for CallDynamicFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for CallDynamicFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for CallDynamicFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for CallDynamicFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `reflect-signature`'s result (wasix-libc's `wasix_reflection_result_t`, v1's layout).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ReflectionResult {
+    /// Non-zero if the signature at this table index never changes. Zero for closures, whose
+    /// slots are reused.
+    pub cacheable: u8,
+    /// Number of arguments the function takes.
+    pub arguments: u16,
+    /// Number of results it returns.
+    pub results: u16,
+}
+const _: () = {
+    assert!(core::mem::size_of::<ReflectionResult>() == 6);
+    assert!(core::mem::align_of::<ReflectionResult>() == 2);
+    assert!(core::mem::offset_of!(ReflectionResult, cacheable) == 0);
+    assert!(core::mem::offset_of!(ReflectionResult, arguments) == 2);
+    assert!(core::mem::offset_of!(ReflectionResult, results) == 4);
+};
+impl Default for ReflectionResult {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for ReflectionResult {
+    const SIZE: usize = 6;
+    const ALIGN: usize = 2;
+    const ZERO: Self = Self {
+        cacheable: <u8 as GuestLayout>::ZERO,
+        arguments: <u16 as GuestLayout>::ZERO,
+        results: <u16 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            cacheable: GuestLayout::read_from(&bytes[0..])?,
+            arguments: GuestLayout::read_from(&bytes[2..])?,
+            results: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.cacheable.write_to(&mut out[0..]);
+        self.arguments.write_to(&mut out[2..]);
+        self.results.write_to(&mut out[4..]);
+    }
+}
+/// Guest pointer to a `reflection-result`.
+pub type ReflectionResultPtr = GuestPtrMut<ReflectionResult>;
+/// What `stack-save` records for `stack-restore` (v1's `__wasi_stack_snapshot_t` layout).
+/// Opaque to the guest: the host fills it in.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct StackSnapshot {
+    pub user: u64,
+    pub hash_lower: u64,
+    pub hash_upper: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<StackSnapshot>() == 24);
+    assert!(core::mem::align_of::<StackSnapshot>() == 8);
+    assert!(core::mem::offset_of!(StackSnapshot, user) == 0);
+    assert!(core::mem::offset_of!(StackSnapshot, hash_lower) == 8);
+    assert!(core::mem::offset_of!(StackSnapshot, hash_upper) == 16);
+};
+impl Default for StackSnapshot {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for StackSnapshot {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        user: <u64 as GuestLayout>::ZERO,
+        hash_lower: <u64 as GuestLayout>::ZERO,
+        hash_upper: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            user: GuestLayout::read_from(&bytes[0..])?,
+            hash_lower: GuestLayout::read_from(&bytes[8..])?,
+            hash_upper: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.user.write_to(&mut out[0..]);
+        self.hash_lower.write_to(&mut out[8..]);
+        self.hash_upper.write_to(&mut out[16..]);
+    }
+}
+/// Guest pointer to a `stack-snapshot`.
+pub type StackSnapshotPtr = GuestPtrMut<StackSnapshot>;
+/// Guest pointer to a `stack-snapshot`.
+pub type ConstStackSnapshotPtr = GuestPtr<StackSnapshot>;
+
 /// Wasm value type of an import param or result.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ValType {
@@ -22294,6 +22553,222 @@ pub const SYSCALLS: &[SyscallDef] = &[
         merged_i64: &[],
     },
     SyscallDef {
+        name: "call_dynamic",
+        module: "wasixv2",
+        import_name: "call_dynamic",
+        nr: None,
+        params: &[
+            SyscallParam {
+                name: "function",
+                ty: ValType::I32,
+                wit_type: "u32",
+            },
+            SyscallParam {
+                name: "values",
+                ty: ValType::I32,
+                wit_type: "const-buf",
+            },
+            SyscallParam {
+                name: "values_len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+            SyscallParam {
+                name: "results",
+                ty: ValType::I32,
+                wit_type: "buf",
+            },
+            SyscallParam {
+                name: "results_len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+            SyscallParam {
+                name: "flags",
+                ty: ValType::I32,
+                wit_type: "call-dynamic-flags",
+            },
+        ],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: false,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "reflect_signature",
+        module: "wasixv2",
+        import_name: "reflect_signature",
+        nr: None,
+        params: &[
+            SyscallParam {
+                name: "function",
+                ty: ValType::I32,
+                wit_type: "u32",
+            },
+            SyscallParam {
+                name: "argument_types",
+                ty: ValType::I32,
+                wit_type: "buf",
+            },
+            SyscallParam {
+                name: "argument_types_len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+            SyscallParam {
+                name: "result_types",
+                ty: ValType::I32,
+                wit_type: "buf",
+            },
+            SyscallParam {
+                name: "result_types_len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+            SyscallParam {
+                name: "result",
+                ty: ValType::I32,
+                wit_type: "reflection-result-ptr",
+            },
+        ],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: false,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "closure_allocate",
+        module: "wasixv2",
+        import_name: "closure_allocate",
+        nr: None,
+        params: &[SyscallParam {
+            name: "closure",
+            ty: ValType::I32,
+            wit_type: "u32-ptr",
+        }],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: false,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "closure_prepare",
+        module: "wasixv2",
+        import_name: "closure_prepare",
+        nr: None,
+        params: &[
+            SyscallParam {
+                name: "backing",
+                ty: ValType::I32,
+                wit_type: "u32",
+            },
+            SyscallParam {
+                name: "closure",
+                ty: ValType::I32,
+                wit_type: "u32",
+            },
+            SyscallParam {
+                name: "argument_types",
+                ty: ValType::I32,
+                wit_type: "const-buf",
+            },
+            SyscallParam {
+                name: "argument_types_len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+            SyscallParam {
+                name: "result_types",
+                ty: ValType::I32,
+                wit_type: "const-buf",
+            },
+            SyscallParam {
+                name: "result_types_len",
+                ty: ValType::I32,
+                wit_type: "usize",
+            },
+            SyscallParam {
+                name: "env",
+                ty: ValType::I32,
+                wit_type: "uptr",
+            },
+        ],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: false,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "closure_free",
+        module: "wasixv2",
+        import_name: "closure_free",
+        nr: None,
+        params: &[SyscallParam {
+            name: "closure",
+            ty: ValType::I32,
+            wit_type: "u32",
+        }],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: false,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "checkpoint",
+        module: "wasixv2",
+        import_name: "checkpoint",
+        nr: None,
+        params: &[],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: false,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "stack_save",
+        module: "wasixv2",
+        import_name: "stack_save",
+        nr: None,
+        params: &[
+            SyscallParam {
+                name: "snapshot",
+                ty: ValType::I32,
+                wit_type: "stack-snapshot-ptr",
+            },
+            SyscallParam {
+                name: "val",
+                ty: ValType::I32,
+                wit_type: "s32-ptr",
+            },
+        ],
+        result: Some(ValType::I32),
+        noreturn: false,
+        unsupported: false,
+        merged_i64: &[],
+    },
+    SyscallDef {
+        name: "stack_restore",
+        module: "wasixv2",
+        import_name: "stack_restore",
+        nr: None,
+        params: &[
+            SyscallParam {
+                name: "snapshot",
+                ty: ValType::I32,
+                wit_type: "const-stack-snapshot-ptr",
+            },
+            SyscallParam {
+                name: "val",
+                ty: ValType::I32,
+                wit_type: "s32",
+            },
+        ],
+        result: None,
+        noreturn: true,
+        unsupported: false,
+        merged_i64: &[],
+    },
+    SyscallDef {
         name: "context_create",
         module: "wasixv2",
         import_name: "context_create",
@@ -22312,7 +22787,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         ],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {
@@ -22327,7 +22802,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         }],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {
@@ -22342,7 +22817,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         }],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {
@@ -22389,7 +22864,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         ],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {
@@ -22431,7 +22906,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         ],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {
@@ -22446,7 +22921,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         }],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {
@@ -22461,7 +22936,7 @@ pub const SYSCALLS: &[SyscallDef] = &[
         }],
         result: Some(ValType::I32),
         noreturn: false,
-        unsupported: true,
+        unsupported: false,
         merged_i64: &[],
     },
     SyscallDef {

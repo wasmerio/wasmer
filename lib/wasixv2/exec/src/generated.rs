@@ -3,15 +3,16 @@
 use std::sync::Arc;
 
 use wasixv2_abi::{
-    AccessMode, AddressFamily, AioContextPtr, AtFlags, Buf, CachestatPtr, ClockId, CloseRangeFlags,
-    ConstAioSigsetPtr, ConstBuf, ConstCachestatRangePtr, ConstCloneArgsPtr, ConstEpollEventPtr,
-    ConstFileAttrPtr, ConstFileHandlePtr, ConstFutexWaitvArray, ConstGidArray, ConstIocbPtrArray,
-    ConstIovecArray, ConstKernelItimerspecPtr, ConstKernelOldItimervalPtr,
-    ConstKernelTimespecArray, ConstKernelTimespecPtr, ConstKexecSegmentArray,
-    ConstLandlockRulesetAttrPtr, ConstLsmCtxPtr, ConstMntIdReqPtr, ConstMountAttrPtr,
-    ConstMqAttrPtr, ConstMsgbufPtr, ConstNsIdReqPtr, ConstOpenHowPtr, ConstRlimit64Ptr,
-    ConstS32Array, ConstSchedParamPtr, ConstSembufArray, ConstSigactionPtr, ConstSigaltstackPtr,
-    ConstSigeventPtr, ConstSiginfoPtr, ConstSigsetArgpackPtr, ConstSigsetPtr, ConstSockaddrPtr,
+    AccessMode, AddressFamily, AioContextPtr, AtFlags, Buf, CachestatPtr, CallDynamicFlags,
+    ClockId, CloseRangeFlags, ConstAioSigsetPtr, ConstBuf, ConstCachestatRangePtr,
+    ConstCloneArgsPtr, ConstEpollEventPtr, ConstFileAttrPtr, ConstFileHandlePtr,
+    ConstFutexWaitvArray, ConstGidArray, ConstIocbPtrArray, ConstIovecArray,
+    ConstKernelItimerspecPtr, ConstKernelOldItimervalPtr, ConstKernelTimespecArray,
+    ConstKernelTimespecPtr, ConstKexecSegmentArray, ConstLandlockRulesetAttrPtr, ConstLsmCtxPtr,
+    ConstMntIdReqPtr, ConstMountAttrPtr, ConstMqAttrPtr, ConstMsgbufPtr, ConstNsIdReqPtr,
+    ConstOpenHowPtr, ConstRlimit64Ptr, ConstS32Array, ConstSchedParamPtr, ConstSembufArray,
+    ConstSigactionPtr, ConstSigaltstackPtr, ConstSigeventPtr, ConstSiginfoPtr,
+    ConstSigsetArgpackPtr, ConstSigsetPtr, ConstSockaddrPtr, ConstStackSnapshotPtr,
     ConstUlongArray, ConstUptrArray, ConstUserCapDataArray, ConstUserMsghdrPtr, ConstVoidPtr,
     ConstXattrArgsPtr, Cstr, CstrArray, DlFlags, DlHandle, DlHandlePtr, EpollCreateFlags,
     EpollCtlOp, EpollEventArray, EventfdFlags, FadviseAdvice, FallocFlags, FcntlCmd, Fd, FdPair,
@@ -22,14 +23,15 @@ use wasixv2_abi::{
     MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags, MmsghdrArray,
     MountFlags, MqAttrPtr, MremapFlags, MsgFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags,
     NewUtsnamePtr, OpenFlags, PollfdArray, PrctlOption, PrioWhich, ProtFlags, PtraceRequest,
-    RebootCmd, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr,
-    RusagePtr, RusageWho, RwfFlags, S32Array, S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy,
-    SeekWhence, Shmid64DsPtr, ShutdownHow, SigactionPtr, SigaltstackPtr, SiginfoPtr, Signal,
-    SignalfdFlags, SigprocmaskHow, SigsetPtr, SockaddrPtr, SocketFlags, SocketLevel, SocklenPtr,
-    SpliceFlags, Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags,
-    TimerIdPtr, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, U64Ptr, UidPtr,
-    UlongArray, UmountFlags, UptrPtr, UserCapDataArray, UserCapHeaderPtr, UserMsghdrPtr, UsizePtr,
-    VoidPtr, WaitOptions, XattrArgsPtr, XattrFlags,
+    RebootCmd, ReflectionResultPtr, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr,
+    RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Array, S32Ptr, SchedAttrPtr,
+    SchedParamPtr, SchedPolicy, SeekWhence, Shmid64DsPtr, ShutdownHow, SigactionPtr,
+    SigaltstackPtr, SiginfoPtr, Signal, SignalfdFlags, SigprocmaskHow, SigsetPtr, SockaddrPtr,
+    SocketFlags, SocketLevel, SocklenPtr, SpliceFlags, StackSnapshotPtr, Statfs64Ptr, StatxMask,
+    StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerIdPtr, TimerfdFlags,
+    TimerfdSettimeFlags, TmsPtr, U32Ptr, U64Array, U64Ptr, UidPtr, UlongArray, UmountFlags,
+    UptrPtr, UserCapDataArray, UserCapHeaderPtr, UserMsghdrPtr, UsizePtr, VoidPtr, WaitOptions,
+    XattrArgsPtr, XattrFlags,
 };
 use wasixv2_syscalls::{Caller, Control, Syscalls, TaskId, UserSlice, UserSliceMut};
 use wasmer::{AsyncFunctionEnvMut, Function, FunctionEnv, Imports, RuntimeError, Store};
@@ -63,6 +65,46 @@ where
         IMPORT_MODULE,
         "signal_callback_register",
         Function::new_typed_with_env_async(store, env, signal_callback_register::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "call_dynamic",
+        Function::new_typed_with_env_async(store, env, call_dynamic::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "reflect_signature",
+        Function::new_typed_with_env_async(store, env, reflect_signature::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "closure_allocate",
+        Function::new_typed_with_env_async(store, env, closure_allocate::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "closure_prepare",
+        Function::new_typed_with_env_async(store, env, closure_prepare::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "closure_free",
+        Function::new_typed_with_env_async(store, env, closure_free::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "checkpoint",
+        Function::new_typed_with_env_async(store, env, checkpoint::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "stack_save",
+        Function::new_typed_with_env_async(store, env, stack_save::<S>),
+    );
+    imports.define(
+        IMPORT_MODULE,
+        "stack_restore",
+        Function::new_typed_with_env_async(store, env, stack_restore::<S>),
     );
     imports.define(
         IMPORT_MODULE,
@@ -1766,6 +1808,205 @@ where
         let ret = Syscalls::signal_callback_register(&*syscalls, &caller, callback as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
             return ret;
+        }
+    }
+}
+
+async fn call_dynamic<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    function: i32,
+    values: i32,
+    values_len: i32,
+    results: i32,
+    results_len: i32,
+    flags: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    loop {
+        let ret = Syscalls::call_dynamic(
+            &*syscalls,
+            &caller,
+            function as u32,
+            UserSlice::new(values as u32, values_len as u32),
+            UserSliceMut::new(results as u32, results_len as u32),
+            CallDynamicFlags(flags as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
+}
+
+async fn reflect_signature<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    function: i32,
+    argument_types: i32,
+    argument_types_len: i32,
+    result_types: i32,
+    result_types_len: i32,
+    result: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    loop {
+        let ret = Syscalls::reflect_signature(
+            &*syscalls,
+            &caller,
+            function as u32,
+            UserSliceMut::new(argument_types as u32, argument_types_len as u32),
+            UserSliceMut::new(result_types as u32, result_types_len as u32),
+            ReflectionResultPtr::new(result as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
+}
+
+async fn closure_allocate<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    closure: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    loop {
+        let ret =
+            Syscalls::closure_allocate(&*syscalls, &caller, U32Ptr::new(closure as u32)).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn closure_prepare<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    backing: i32,
+    closure: i32,
+    argument_types: i32,
+    argument_types_len: i32,
+    result_types: i32,
+    result_types_len: i32,
+    env_: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    loop {
+        let ret = Syscalls::closure_prepare(
+            &*syscalls,
+            &caller,
+            backing as u32,
+            closure as u32,
+            UserSlice::new(argument_types as u32, argument_types_len as u32),
+            UserSlice::new(result_types as u32, result_types_len as u32),
+            env_ as u32,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
+}
+
+async fn closure_free<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    closure: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    loop {
+        let ret = Syscalls::closure_free(&*syscalls, &caller, closure as u32).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
+}
+
+async fn checkpoint<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    loop {
+        let ret = Syscalls::checkpoint(&*syscalls, &caller).await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
+}
+
+async fn stack_save<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    snapshot: i32,
+    val: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    loop {
+        let ret = Syscalls::stack_save(
+            &*syscalls,
+            &caller,
+            StackSnapshotPtr::new(snapshot as u32),
+            S32Ptr::new(val as u32),
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return ret;
+        }
+    }
+}
+
+async fn stack_restore<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    snapshot: i32,
+    val: i32,
+) -> Result<(), RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task) = caller_parts(&env).await;
+    let memory = GuestMemory { env: &env };
+    let caller = Caller::new(task, &memory);
+    loop {
+        let ret = Syscalls::stack_restore(
+            &*syscalls,
+            &caller,
+            ConstStackSnapshotPtr::new(snapshot as u32),
+            val,
+        )
+        .await;
+        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|()| 0)).await {
+            ret?;
+            return Err(RuntimeError::new("`stack_restore` returned to the guest"));
         }
     }
 }
