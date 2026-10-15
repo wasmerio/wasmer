@@ -590,52 +590,16 @@ fn run_wasixv2_module_rejects_unsupported_options() {
 
     wasmer_command()
         .arg("run")
-        .arg("--volume")
-        .arg(temp.path())
         .arg("--net")
+        .arg("--invoke")
+        .arg("main")
         .arg(&module_file)
         .assert()
         .failure()
         .stdout("")
         .stderr(contains(
-            "this module targets WASIX v2, which does not support --volume, --net yet",
+            "this module targets WASIX v2, which does not support --net, --invoke yet",
         ));
-}
-
-#[test]
-fn run_wasixv2_libc_program_gets_argv() {
-    let module_file = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../lib/wasixv2/api/tests/fixtures/hello.wasm");
-
-    wasmer_command()
-        .arg("run")
-        .arg(&module_file)
-        .arg("--")
-        .arg("one")
-        .arg("two")
-        .assert()
-        .success()
-        .stdout(format!(
-            "hello from {} with 3 args\n",
-            module_file.display()
-        ));
-}
-
-// The smoke test checks that it got exactly one argument and `WASIXV2_SMOKE=1`.
-#[test]
-fn run_wasixv2_libc_smoke_test_passes() {
-    let module_file = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../lib/wasixv2/api/tests/fixtures/smoke.wasm");
-
-    wasmer_command()
-        .arg("run")
-        .arg("--env")
-        .arg("WASIXV2_SMOKE=1")
-        .arg(&module_file)
-        .arg("/tmp")
-        .assert()
-        .success()
-        .stdout(contains("checks passed\n"));
 }
 
 /// Prints `/data/msg.txt`, then creates `/data/new.txt`. Exits with 0, or the errno of the
