@@ -71,14 +71,15 @@ impl Kernel {
         self.socket_fd(caller, fd).map(AnySock::Inet)
     }
 
-    fn install_unix(&self, caller: &Caller<'_>, sock: Arc<unix::Sock>, flags: SocketFlags) -> Fd {
-        let mut status = OpenFlags::O_RDWR;
-        if flags.contains(SocketFlags::SOCK_NONBLOCK) {
-            status |= OpenFlags::O_NONBLOCK;
-        }
-        let file = OpenFile::new(Backing::Stream(Arc::new(UnixFile(sock))), status);
-        let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC));
-        fd
+    fn install_unix(
+        &self,
+        caller: &Caller<'_>,
+        sock: Arc<unix::Sock>,
+        flags: SocketFlags,
+    ) -> SysResult<Fd> {
+        let file = unix_file(sock, flags);
+        let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
+        Ok(fd)
     }
 
     /// `sockfd_lookup`: `EBADF`, then `ENOTSOCK` for a descriptor that is not a socket.
@@ -95,7 +96,7 @@ impl Kernel {
         caller: &Caller<'_>,
         socket: Arc<dyn wasixv2_vnet::Socket>,
         flags: SocketFlags,
-    ) -> Fd {
+    ) -> SysResult<Fd> {
         let mut status = OpenFlags::O_RDWR;
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
@@ -103,8 +104,8 @@ impl Kernel {
         let object = SocketFile::new(socket, self.host.clone());
         let file = OpenFile::new(Backing::Stream(Arc::new(object)), status);
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
-        let [fd] = self.install_files(caller, [file], cloexec);
-        fd
+        let [fd] = self.install_files(caller, [file], cloexec)?;
+        Ok(fd)
     }
 
     /// `__sys_socket` and `__sock_create`.
@@ -121,7 +122,7 @@ impl Kernel {
             AddressFamily::AF_INET6 => Domain::Inet6,
             AddressFamily::AF_UNIX => {
                 let sock = self.unix_socket(caller, kind, protocol)?;
-                return Ok(self.install_unix(caller, sock, flags));
+                return self.install_unix(caller, sock, flags);
             }
             AddressFamily::AF_NETLINK => return self.netlink_socket(caller, kind, protocol, flags),
             // Every other family (and anything past NPROTO) has no implementation.
@@ -136,7 +137,7 @@ impl Kernel {
         };
         let network = self.network.as_ref().ok_or(Errno::EAFNOSUPPORT)?;
         let socket = network.socket(domain, kind, protocol)?;
-        Ok(self.install_socket(caller, socket, flags))
+        self.install_socket(caller, socket, flags)
     }
 
     /// `__sys_socketpair`. Only Unix sockets have pairs, and they do not exist yet.
@@ -159,10 +160,9 @@ impl Kernel {
         let a = self.unix_socket(caller, kind, protocol)?;
         let b = self.unix_socket(caller, kind, protocol)?;
         unix::Sock::pair(&a, &b);
-        let fds = [
-            self.install_unix(caller, a, flags),
-            self.install_unix(caller, b, flags),
-        ];
+        let files = [unix_file(a, flags), unix_file(b, flags)];
+        let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
+        let fds = self.install_files(caller, files, cloexec)?;
         self.copy_out_fd_pair(caller, usockvec, fds).await?;
         Ok(0)
     }
@@ -228,7 +228,7 @@ impl Kernel {
                     let raw = accepted.peer_addr().unwrap_or_default();
                     move_addr_to_user(caller, &raw, addr, addrlen).await?;
                 }
-                return Ok(self.install_unix(caller, accepted, flags));
+                return self.install_unix(caller, accepted, flags);
             }
             AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
@@ -243,7 +243,7 @@ impl Kernel {
             let raw = socket::encode(accepted.peer);
             move_addr_to_user(caller, &raw, addr, addrlen).await?;
         }
-        Ok(self.install_socket(caller, accepted.socket, flags))
+        self.install_socket(caller, accepted.socket, flags)
     }
 
     /// `__sys_connect`, `inet_stream_connect` and `inet_dgram_connect`.
@@ -642,19 +642,25 @@ impl Kernel {
             *flags |= MsgFlags::MSG_CTRUNC;
             return Ok(0);
         }
-        let n = fit.min(rights.len());
-        if n < rights.len() {
-            *flags |= MsgFlags::MSG_CTRUNC;
-        }
+        let total = rights.len();
+        let wanted = fit.min(total);
+        // `scm_detach_fds`: descriptors past the limit are dropped, and the message says so.
         let fds: Vec<Fd> = {
             let table = self.files(caller.task());
             let mut table = table.lock().unwrap();
             rights
                 .into_iter()
-                .take(n)
-                .map(|file| table.install(file, cloexec))
+                .take(wanted)
+                .map_while(|file| table.install(file, cloexec))
                 .collect()
         };
+        let n = fds.len();
+        if n < total {
+            *flags |= MsgFlags::MSG_CTRUNC;
+        }
+        if n == 0 {
+            return Ok(0);
+        }
         let len = CMSG_HDR + 4 * n;
         let mut raw = Vec::with_capacity(len);
         raw.extend((len as u32).to_le_bytes());
@@ -927,6 +933,15 @@ impl Kernel {
             interrupt,
         }
     }
+}
+
+/// An open file for the Unix socket `sock`.
+fn unix_file(sock: Arc<unix::Sock>, flags: SocketFlags) -> OpenFile {
+    let mut status = OpenFlags::O_RDWR;
+    if flags.contains(SocketFlags::SOCK_NONBLOCK) {
+        status |= OpenFlags::O_NONBLOCK;
+    }
+    OpenFile::new(Backing::Stream(Arc::new(UnixFile(sock))), status)
 }
 
 /// Splits `socket`'s type argument into the type and the `SOCK_NONBLOCK`/`SOCK_CLOEXEC` flags.

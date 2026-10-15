@@ -345,7 +345,8 @@ struct Slot {
 #[derive(Default)]
 pub(crate) struct FdTable {
     slots: Vec<Option<Slot>>,
-    /// The soft `RLIMIT_NOFILE` once a process set one; bounds `install_from`.
+    /// The soft `RLIMIT_NOFILE` once a process set one; no descriptor at or above it is handed
+    /// out.
     limit: Option<usize>,
 }
 
@@ -354,34 +355,30 @@ impl FdTable {
         self.limit = Some(limit);
     }
 
+    /// The soft `RLIMIT_NOFILE` in force.
+    pub(crate) fn limit(&self) -> usize {
+        self.limit.unwrap_or(crate::fs::NOFILE)
+    }
+
     pub(crate) fn get(&self, fd: Fd) -> Option<Arc<OpenFile>> {
         Some(self.slot(fd)?.file.clone())
     }
 
-    /// Installs `file` at the lowest free descriptor, as `open` does.
-    pub(crate) fn install(&mut self, file: Arc<OpenFile>, cloexec: bool) -> Fd {
-        let index = match self.slots.iter().position(Option::is_none) {
-            Some(index) => index,
-            None => {
-                self.slots.push(None);
-                self.slots.len() - 1
-            }
-        };
-        self.slots[index] = Some(Slot { file, cloexec });
-        Fd(index as i32)
+    /// Installs `file` at the lowest free descriptor, as `open` does; `None` if that would reach
+    /// the limit (`EMFILE`).
+    pub(crate) fn install(&mut self, file: Arc<OpenFile>, cloexec: bool) -> Option<Fd> {
+        self.install_from(0, file, cloexec)
     }
 
     /// Installs `file` at the lowest free descriptor at or above `min`, as `F_DUPFD` does;
-    /// `None` if that would reach `limit`.
+    /// `None` if that would reach the limit.
     pub(crate) fn install_from(
         &mut self,
         min: usize,
-        limit: usize,
         file: Arc<OpenFile>,
         cloexec: bool,
     ) -> Option<Fd> {
-        let limit = self.limit.map_or(limit, |own| own.min(limit));
-        let index = (min..limit).find(|&i| self.slots.get(i).is_none_or(Option::is_none))?;
+        let index = self.free_from(min).next()?;
         if self.slots.len() <= index {
             self.slots.resize_with(index + 1, || None);
         }
@@ -403,6 +400,16 @@ impl FdTable {
         self.slots[index]
             .replace(Slot { file, cloexec })
             .map(|slot| slot.file)
+    }
+
+    /// Whether `n` descriptors are free below the limit, for calls that install several at
+    /// once and must not install some of them only.
+    pub(crate) fn has_room(&self, n: usize) -> bool {
+        self.free_from(0).take(n).count() == n
+    }
+
+    fn free_from(&self, min: usize) -> impl Iterator<Item = usize> + '_ {
+        (min..self.limit()).filter(|&i| self.slots.get(i).is_none_or(Option::is_none))
     }
 
     /// One past the highest descriptor that may be in use.

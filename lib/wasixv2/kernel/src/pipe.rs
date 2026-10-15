@@ -331,21 +331,28 @@ impl Kernel {
             OpenFlags::O_WRONLY | status,
         );
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
-        let fds = self.install_files(caller, [read, write], cloexec);
+        let fds = self.install_files(caller, [read, write], cloexec)?;
         self.copy_out_fd_pair(caller, fildes, fds).await?;
         Ok(0)
     }
 
-    /// Installs `files` at the lowest free descriptors.
+    /// Installs `files` at the lowest free descriptors: all of them, or none with `EMFILE`.
     pub(crate) fn install_files<const N: usize>(
         &self,
         caller: &Caller<'_>,
         files: [OpenFile; N],
         cloexec: bool,
-    ) -> [Fd; N] {
+    ) -> Result<[Fd; N], Errno> {
         let table = self.files(caller.task());
         let mut table = table.lock().unwrap();
-        files.map(|file| table.install(Arc::new(file), cloexec))
+        if !table.has_room(N) {
+            return Err(Errno::EMFILE);
+        }
+        Ok(files.map(|file| {
+            table
+                .install(Arc::new(file), cloexec)
+                .expect("room checked above")
+        }))
     }
 
     /// Writes a new descriptor pair to the guest. On a fault the descriptors are closed again,

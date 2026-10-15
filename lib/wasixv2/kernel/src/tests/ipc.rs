@@ -415,7 +415,7 @@ mod epoll {
         fn dup(&self, fd: Fd) -> Fd {
             let file = self.kernel.file(self.task, fd).unwrap();
             let files = self.kernel.files(self.task);
-            files.lock().unwrap().install(file, false)
+            files.lock().unwrap().install(file, false).unwrap()
         }
     }
 

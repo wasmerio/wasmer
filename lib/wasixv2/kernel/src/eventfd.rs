@@ -122,7 +122,7 @@ impl Kernel {
         }
         let file = OpenFile::new(Backing::Stream(Arc::new(object)), status);
         let cloexec = flags.contains(EventfdFlags::EFD_CLOEXEC);
-        let [fd] = self.install_files(caller, [file], cloexec);
+        let [fd] = self.install_files(caller, [file], cloexec)?;
         Ok(fd)
     }
 }

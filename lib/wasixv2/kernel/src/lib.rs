@@ -161,7 +161,9 @@ impl Kernel {
     pub fn spawn(&self, config: ProcessConfig) -> TaskId {
         let mut files = FdTable::default();
         for file in stdio::open_files(config.stdio) {
-            files.install(Arc::new(file), false);
+            files
+                .install(Arc::new(file), false)
+                .expect("a new table has room for stdio");
         }
         let mut state = self.state.lock().unwrap();
         state.last_id += 1;

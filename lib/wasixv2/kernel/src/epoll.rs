@@ -442,9 +442,7 @@ impl Kernel {
         let file = Arc::new(OpenFile::new(Backing::Stream(object), OpenFlags::O_RDWR));
         ep.file.set(Arc::downgrade(&file)).ok();
         let cloexec = flags.contains(EpollCreateFlags::EPOLL_CLOEXEC);
-        let files = self.files(caller.task());
-        let fd = files.lock().unwrap().install(file, cloexec);
-        Ok(fd)
+        self.install(caller, file, cloexec)
     }
 
     /// `epoll_ctl` and `do_epoll_ctl`, with Linux's error order.

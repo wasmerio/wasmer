@@ -365,9 +365,7 @@ impl Kernel {
     ) -> SysResult<Fd> {
         let files = self.files(caller.task());
         let mut files = files.lock().unwrap();
-        Ok(files
-            .install_from(0, NOFILE, file, cloexec)
-            .ok_or(Errno::EMFILE)?)
+        Ok(files.install(file, cloexec).ok_or(Errno::EMFILE)?)
     }
 
     /// What closing a descriptor does besides dropping the reference: release the process's
@@ -434,15 +432,13 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let file = self.file(caller.task(), old)?;
-        if new.0 < 0 || new.0 as usize >= NOFILE {
+        let files = self.files(caller.task());
+        let mut table = files.lock().unwrap();
+        if new.0 < 0 || new.0 as usize >= table.limit() {
             return Err(Errno::EBADF.into());
         }
-        let files = self.files(caller.task());
-        let replaced =
-            files
-                .lock()
-                .unwrap()
-                .install_at(new, file, flags.contains(OpenFlags::O_CLOEXEC));
+        let replaced = table.install_at(new, file, flags.contains(OpenFlags::O_CLOEXEC));
+        drop(table);
         if let Some(replaced) = replaced {
             self.closed(caller, &replaced);
         }
@@ -462,14 +458,13 @@ impl Kernel {
         let files = self.files(caller.task());
         match cmd {
             FcntlCmd::F_DUPFD | FcntlCmd::F_DUPFD_CLOEXEC => {
-                if arg as usize >= NOFILE {
+                let mut table = files.lock().unwrap();
+                if arg as usize >= table.limit() {
                     return Err(Errno::EINVAL.into());
                 }
                 let cloexec = cmd == FcntlCmd::F_DUPFD_CLOEXEC;
-                let fd = files
-                    .lock()
-                    .unwrap()
-                    .install_from(arg as usize, NOFILE, file, cloexec)
+                let fd = table
+                    .install_from(arg as usize, file, cloexec)
                     .ok_or(Errno::EMFILE)?;
                 Ok(fd.0)
             }

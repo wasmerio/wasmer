@@ -12,10 +12,6 @@ use wasixv2_wait::{Interrupt, PollMask, PollWaiter, Wakeup};
 
 use crate::{Kernel, sigset_bits, time};
 
-/// `RLIMIT_NOFILE`'s default soft limit, which bounds `nfds` for poll.
-// TODO: the task's real limit once rlimits exist.
-const NOFILE: u32 = 1024;
-
 /// When a wait gives up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Deadline {
@@ -138,7 +134,9 @@ impl Kernel {
         nfds: u32,
         deadline: Deadline,
     ) -> SysResult<i32> {
-        if nfds > NOFILE {
+        // `RLIMIT_NOFILE` bounds `nfds`.
+        let limit = self.files(caller.task()).lock().unwrap().limit();
+        if nfds as usize > limit {
             return Err(Errno::EINVAL.into());
         }
         let memory = caller.memory();
