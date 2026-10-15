@@ -75,8 +75,19 @@ pub fn add_undefined_symbol(object: &mut Object<'static>, name: String) -> Symbo
 /// Declare an undefined dynamic symbol for a libcall, resolved by the runtime
 /// loader through a dynamic relocation.
 pub fn add_libcall_symbol(object: &mut Object<'static>, libcall: LibCall) -> SymbolId {
+    let name = if object.format() == object::BinaryFormat::MachO {
+        // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
+        // will generate things differently than "normal", wreaking havoc.
+        if libcall == LibCall::EHPersonality {
+            "___gxx_personality_v0".to_string()
+        } else {
+            format!("_{}", libcall.to_function_name())
+        }
+    } else {
+        libcall.to_function_name().to_string()
+    };
     object.add_symbol(Symbol {
-        name: libcall.to_function_name().to_string().into_bytes(),
+        name: name.into_bytes(),
         value: 0,
         size: 0,
         kind: SymbolKind::Unknown,
@@ -122,8 +133,10 @@ pub fn relocation_kind_to_flags(kind: RelocationKind) -> Result<RelocationFlags,
             encoding: RelocationEncoding::Generic,
             size: 32,
         },
-        RelocationKind::Arm64Call => RelocationFlags::Elf {
-            r_type: elf::R_AARCH64_CALL26,
+        RelocationKind::Arm64Call => RelocationFlags::Generic {
+            kind: K::Relative,
+            encoding: RelocationEncoding::AArch64Call,
+            size: 26,
         },
         // For RISC-V relocations, please refer to:
         // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/2484f950a551c653f1823f1bd11926bf5a57fae3/riscv-elf.adoc#relocations
@@ -390,6 +403,7 @@ pub fn link_module(
         target,
         compile_info_blob,
         CompiledObjects {
+            emit_trap_offsets: true,
             object_files,
             import_trampoline_object_files: import_trampoline_objects,
             trampoline_object_files: trampoline_objects,
