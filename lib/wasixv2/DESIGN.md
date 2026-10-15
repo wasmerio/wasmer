@@ -274,9 +274,55 @@ The execution crate is the only layer below the facade that knows about the wasm
 
   wasixv1 is brittle because it swaps its whole environment object in place and threads vfork state through exit, exec and process startup. Here a task switch is one pointer in the exec layer, and the kernel tracks the vfork relationship. As on Linux, returning from the function that called `vfork` is undefined. Because `vfork` is a macro, its address cannot be taken.
 - **Preemption.** Engine interruption checks such as epochs let the kernel deliver signals to a busy guest and enforce `SIGKILL` and `SIGSTOP`.
-- **Dynamic linking.**
-  - On Linux the dynamic linker is userspace, but a wasm guest cannot instantiate side modules by itself.
-  - Loading and linking side modules is a wasm-specific extension (dl-open, dl-sym, dl-close) in the wasixv2 import module, implemented in its own crate.
+- **Dynamic linking.** Side modules are loaded and linked by the host; see the next section.
+
+## Dynamic linking
+
+The host instantiates and links side modules; libc2 decides policy and runs user code. On Linux all of ld.so is userspace, but wasm has no instruction to compile or instantiate a module, so whatever creates code must be the host. The work lives in `wasixv2-dylink`, next to the exec layer: it is engine glue, and the kernel stays engine-free.
+
+Three things make the host's part more than one "instantiate" call:
+
+- **Threads.** Each thread is its own instance on shared memory. A library one thread loads must be instantiated into every other thread's instance, and into threads created later. Only the host sees all of a process's instances.
+- **Startup.** A dynamic main module imports from its libraries, so they must be loaded before any guest code runs, which is what `PT_INTERP` does on Linux.
+- **Per-instance state.** Each instance has its own `__stack_pointer`, `__tls_base`, and memory and table bases.
+
+**The split**
+
+| Host (`wasixv2-dylink`) | libc2 |
+| --- | --- |
+| Instantiate a side module in every instance of the process, and in new threads | The search list: `LD_LIBRARY_PATH`, the defaults |
+| Read `dylink.0`, allocate the module's memory and table space, resolve its imports against what is loaded | `RTLD_*` flags, `dlerror()` |
+| Walk the search list for the library and its dependencies | Run constructors |
+| Load the main module's dependencies at startup | |
+
+**No calls into user code during a link.** The host runs the link inside a syscall, holding the process's loader state and with other threads stopped. A call into guest code from there could re-enter the loader through a recursive `dlopen`, deadlock on locks the guest holds, unwind host frames with `longjmp` or an exception, or take a signal. So the host calls only functions wasm-ld synthesizes, which touch memory and globals and call nothing outside the linker's own output:
+
+- `__wasm_init_memory`, the side module's wasm `start` function. An atomic flag makes it copy `.data` and set up the first instance's TLS only once per process.
+- `__wasm_apply_data_relocs`, once per process.
+- `__wasm_init_tls(block)`, in every other instance. It sets `__tls_base`, copies the TLS image with `memory.init`, and calls `__wasm_apply_tls_relocs`.
+
+Side modules must export `__wasm_init_tls`, `__tls_size` and `__tls_align`; wasixcc adds the flags when it links a wasixv2 shared library.
+
+**Memory comes from the host, never from `malloc`.** A side module's data region and every TLS block for it come from a host-owned arena, carved from pages the kernel's address-space manager hands out, as for `mmap`. `malloc` never sees those pages. This removes a deadlock that a guest allocator invites: a thread stopped while holding the `malloc` lock cannot also allocate its own TLS. The arena frees a thread's blocks when the thread exits. The main module's TLS for new threads stays with `pthread_create`.
+
+**Constructors are the only user code, and libc2 runs them.** The host queues each newly loaded module, in initialization order. After the link syscall returns, libc2's `dlopen` takes each queued module's `__wasm_call_ctors` from the queue, as an entry in the function table, and calls it; `__libc_start_main` does the same for preloaded libraries before `main`. No host lock is held while constructors run, so they may call `dlopen` themselves. Code is never unloaded, so `dlclose` only drops a reference, and destructors run at exit.
+
+**Policy is data.**
+
+- `RTLD_GLOBAL`, `RTLD_LOCAL`, `RTLD_NOLOAD`, `RTLD_NODELETE`, `RTLD_NOW` and `RTLD_LAZY` are flags with musl's values. The host keeps the global scope: the main module and `RTLD_GLOBAL` modules, in load order. Linking is always immediate.
+- `RTLD_DEFAULT` and `RTLD_NEXT` need the caller's module. libc2 passes an address in the caller's data, such as its `__dso_handle`, and the host maps it to a module by memory range.
+- Symbol precedence and weak symbols follow ELF rules in the host.
+- The host's error messages go straight to `dlerror()`.
+
+**Search paths.** libc2 passes the ordered search list with each request: `LD_LIBRARY_PATH` as read at startup, then the defaults. The host walks it for the library and for each dependency, the latter also searched in the needing module's runtime path. A name containing `/` is opened as is. Every candidate is opened through the same kernel path as `openat`, with the process's credentials, working directory and mount namespace, so permissions and errors match `openat` exactly, and the bytes come from the open file. At `execve`, before any guest code runs, the host builds the list itself from the new environment's `LD_LIBRARY_PATH` and `LD_PRELOAD` and the same defaults, as ld.so does at startup.
+
+**Stopping the other threads.** Each thread's function table and side-module instances must be updated before a `dlopen` returns. The loader marks every other task of the process with pending link work and wakes it. This uses the signal machinery, without a signal number:
+
+- Injected interrupt points and interruptible waits notice the work, as they would a signal.
+- The task does the work on its return-to-guest path, then continues.
+- An interrupted syscall always restarts, since nothing happened that the guest can see.
+
+A real signal would let the guest block, ignore or catch the request, and a thread that blocks all signals would stall every `dlopen`; this is Linux's `task_work`. The linker-generated functions above get no interrupt points, and run with pending work suppressed, so no thread is interrupted in the middle of setting up its own TLS.
 
 ## Recording, replay and checkpointing
 
@@ -357,6 +403,11 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 | 2026-10-14 | uname reports machine wasm32 and system name wasixv2 | Matches the target identity: unix, not Linux |
 | 2026-10-15 | uname release is the ABI version, 2.0.0; nodename is localhost and domainname `(none)` until UTS namespaces exist | A Linux version would mislead programs that probe Linux features |
 | 2026-10-15 | Processes run as uid and gid 1 until credentials exist | Root (0) bypasses permission checks and sends programs down privileged paths |
+| 2026-10-15 | The host instantiates and links side modules; libc2 owns policy and runs constructors | Wasm cannot create code from the guest, and threads, startup and per-instance state need the host; everything else stays in libc as on Linux |
+| 2026-10-15 | During a link the host only calls wasm-ld's synthesized functions (`__wasm_init_memory`, `__wasm_apply_data_relocs`, `__wasm_init_tls`), never user code or `malloc` | Calls into user code mid-link invite re-entry, deadlocks and unwinding through host frames |
+| 2026-10-15 | Side-module data and TLS come from a host-owned arena of kernel pages | A thread stopped while holding the `malloc` lock cannot allocate its own TLS through `malloc` |
+| 2026-10-15 | libc2 passes the library search list as data; the host walks it through the `openat` path | Policy stays in libc, the walk is the kernel's, and startup reuses it |
+| 2026-10-15 | Stop-the-world for `dlopen` is kernel-internal pending work delivered like a signal, not a signal number | The guest cannot block, ignore or observe it; this is Linux's `task_work` |
 | 2026-10-15 | `lseek` and `mmap` take 64-bit offsets directly, keeping riscv32's numbers; riscv32 only has `llseek` and `mmap2` | A wasm import can pass an `i64`; the riscv32 forms only work around 32-bit registers |
 | 2026-10-14 | No shared file mappings and no memory protection; mapping support is limited, as in wasixv1's libc | Physically impossible on wasm linear memory |
 | 2026-10-14 | The target reports itself as unix but not Linux: target\_family = "unix" and target\_os = "wasixv2" in Rust; clang defines \_\_unix\_\_ but not \_\_linux\_\_ | Low-level code is ported explicitly, as the existing wasixv1 forks already are, and defining \_\_linux\_\_ would not have spared any of them. Code that turns out fully compatible adds a wasixv2 case to its Linux check. |
