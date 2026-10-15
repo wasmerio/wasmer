@@ -48,6 +48,16 @@ existant = "existant"
 fourty = "fourty"
 # Scene ID
 tne = "tne"
+# Linux ABI identifiers (lib/wasix2)
+controllen = "controllen"
+exta = "exta"
+EXTA = "EXTA"
+fre = "fre"
+FRE = "FRE"
+sme = "sme"
+SME = "SME"
+usig = "usig"
+wronly = "wronly"
 
 [default.extend-identifiers]
 as_slice_arbitary = "as_slice_arbitary"

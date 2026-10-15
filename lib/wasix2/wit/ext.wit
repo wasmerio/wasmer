@@ -1,0 +1,55 @@
+/// Wasm-specific primitives with no Linux syscall equivalent.
+///
+/// Keep this small: anything Linux can express stays in `syscalls`. Functions marked TENTATIVE
+/// are placeholders whose shape is not settled; hosts may return `-ENOSYS` for them.
+/// @module(wasix_ext)
+interface ext {
+  use types.{buf, s32-ptr, uptr, slong};
+
+  // ==== Process startup ====
+
+  /// Size in bytes of the startup block that `startup-get` writes.
+  startup-size: func() -> u32;
+
+  /// Writes the Linux-style initial process block into `buf`, which must be at least
+  /// `startup-size()` bytes and 16-byte aligned. Returns 0 or `-errno`.
+  ///
+  /// The layout matches what the kernel puts on the initial stack, with every pointer being a
+  /// guest address inside `buf` and every word `ulong`-sized:
+  ///
+  /// - `argc`
+  /// - `argv[0]` .. `argv[argc - 1]`, then NULL
+  /// - `envp[0]` .. `envp[n - 1]`, then NULL
+  /// - auxv `(type, value)` pairs (see `auxv-type`), terminated by `(AT_NULL, 0)`
+  /// - string data and other auxv payloads (`AT_RANDOM`'s 16 bytes, `AT_EXECFN`, ...)
+  ///
+  /// Hosts provide at least `AT_PAGESZ`, `AT_RANDOM`, `AT_UID`, `AT_EUID`, `AT_GID`, `AT_EGID`,
+  /// `AT_SECURE` and `AT_CLKTCK`. ELF-related entries (`AT_PHDR`, `AT_ENTRY`, ...) are absent.
+  startup-get: func(buf: buf) -> s32;
+
+  // ==== Threads ====
+
+  /// TENTATIVE. Starts a new thread that calls the module's exported thread entry point
+  /// (in the style of `wasi_thread_start(tid, start-arg)`) with `start-arg`.
+  ///
+  /// This replaces `clone(CLONE_VM | CLONE_THREAD | ...)`, which cannot return twice in wasm.
+  /// The guest sets up the stack, TLS and `set_tid_address` itself from `start-arg`.
+  /// Returns the new thread id or `-errno`.
+  /// @unsupported
+  thread-spawn: func(start-arg: uptr) -> slong;
+
+  // ==== Signals and cancellation ====
+
+  /// TENTATIVE. Registers the function the host calls to deliver a signal to this thread,
+  /// as an index into the module's indirect function table (`fn(signo: s32)`). Wasm has no
+  /// user-visible register frame, so `rt_sigreturn`-style delivery does not apply.
+  /// Returns 0 or `-errno`.
+  /// @unsupported
+  signal-callback-register: func(callback: u32) -> slong;
+
+  /// TENTATIVE. Registers a per-thread word the host sets to non-zero when a blocking syscall
+  /// of this thread must be interrupted (pthread cancellation, pending signals). NULL
+  /// unregisters. Returns 0 or `-errno`.
+  /// @unsupported
+  cancel-flag-register: func(flag: s32-ptr) -> slong;
+}

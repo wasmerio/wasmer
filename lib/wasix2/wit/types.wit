@@ -1,0 +1,6936 @@
+/// Linux syscall ABI for wasm32 guests, mirroring riscv32 (asm-generic, ILP32, time64 only).
+///
+/// See README.md in this directory for the annotation conventions.
+package wasix2:linux@0.1.0;
+
+/// Primitive aliases, structs, unions and constant families shared by all interfaces.
+///
+/// Layouts are the kernel's view on riscv32, which is byte-identical to wasm32.
+interface types {
+  // ==== Pointer-sized base types ====
+
+  /// Guest address. On wasm32 this is an offset into linear memory.
+  /// @pointer-sized
+  /// @c(uintptr_t)
+  type uptr = u32;
+
+  /// C `unsigned long` (`__kernel_ulong_t`).
+  /// @pointer-sized
+  /// @c(unsigned long)
+  type ulong = u32;
+
+  /// C `long` (`__kernel_long_t`). Every syscall returns it: a value, or `-errno`.
+  /// @pointer-sized
+  /// @c(long)
+  type slong = s32;
+
+  /// C `size_t` (`__kernel_size_t`).
+  /// @pointer-sized
+  /// @c(size_t)
+  type usize = u32;
+
+  /// C `ssize_t` (`__kernel_ssize_t`).
+  /// @pointer-sized
+  /// @c(ssize_t)
+  type ssize = s32;
+
+  // ==== Scalar types ====
+
+  /// File descriptor. Kernel prototypes mix `int` and `unsigned int`; the bits are the same.
+  /// @c(int)
+  type fd = s32;
+
+  /// Process, thread, process group or session id (`__kernel_pid_t`).
+  /// @c(pid_t)
+  type pid = s32;
+
+  /// User id (`__kernel_uid32_t`).
+  /// @c(uid_t)
+  type uid = u32;
+
+  /// Group id (`__kernel_gid32_t`).
+  /// @c(gid_t)
+  type gid = u32;
+
+  /// File mode. The kernel's `umode_t` is 16 bits in memory but passed as a full register.
+  /// @c(mode_t)
+  type mode = u32;
+
+  /// 64-bit file offset (`loff_t`, `__kernel_loff_t`).
+  /// @c(off_t)
+  type loff = s64;
+
+  /// 64-bit seconds (`__kernel_time64_t`).
+  /// @c(time_t)
+  type time = s64;
+
+  /// Clock tick count (`__kernel_clock_t`, a `long`).
+  /// @c(clock_t)
+  type kernel-clock = slong;
+
+  /// Clock id, see `clock-id` for the constants.
+  /// @c(clockid_t)
+  type clockid = s32;
+
+  /// Kernel POSIX timer id (`__kernel_timer_t` is `int`; musl's `timer_t` is a pointer it converts from).
+  /// @c(int)
+  type timer-id = s32;
+
+  /// SysV IPC key.
+  /// @c(key_t)
+  type key = s32;
+
+  /// POSIX message queue descriptor (an fd).
+  /// @c(mqd_t)
+  type mqd = s32;
+
+  /// Quota id (`qid_t`).
+  /// @c(unsigned)
+  type qid = u32;
+
+  /// Key serial number for the key management syscalls (`key_serial_t`).
+  /// @c(int)
+  type key-serial = s32;
+
+  /// `preadv2`/`pwritev2` flags type (`__kernel_rwf_t`), see `rwf-flags`.
+  /// @c(int)
+  type rwf = s32;
+
+  /// Linux native AIO context handle (`aio_context_t`, `__kernel_ulong_t`).
+  /// @c(unsigned long)
+  type aio-context = ulong;
+
+  /// Socket address length.
+  /// @c(socklen_t)
+  type socklen = u32;
+
+  /// Socket address family as stored in `sockaddr` (`__kernel_sa_family_t`), see `address-family`.
+  /// @c(sa_family_t)
+  type sa-family = u16;
+
+  // ==== Guest pointers ====
+
+  /// NUL-terminated string.
+  /// @ptr(const u8[])
+  /// @c(const char *)
+  type cstr = uptr;
+
+  /// NULL-terminated array of string pointers (`argv`, `envp`).
+  /// @ptr(const cstr[])
+  /// @c(char *const *)
+  type cstr-array = uptr;
+
+  /// Output byte buffer; its length is a separate argument.
+  /// @ptr(mut u8[])
+  /// @c(void *)
+  type buf = uptr;
+
+  /// Input byte buffer; its length is a separate argument.
+  /// @ptr(const u8[])
+  /// @c(const void *)
+  type const-buf = uptr;
+
+  /// Untyped pointer whose pointee depends on other arguments.
+  /// @ptr(mut void)
+  /// @c(void *)
+  type void-ptr = uptr;
+
+  /// Untyped read-only pointer whose pointee depends on other arguments.
+  /// @ptr(const void)
+  /// @c(const void *)
+  type const-void-ptr = uptr;
+
+  /// Array of guest addresses (`const void **`).
+  /// @ptr(const uptr[])
+  /// @c(const void **)
+  type const-uptr-array = uptr;
+
+  /// @ptr(mut s32)
+  /// @c(int *)
+  type s32-ptr = uptr;
+
+  /// @ptr(mut s32[])
+  /// @c(int *)
+  type s32-array = uptr;
+
+  /// @ptr(const s32[])
+  /// @c(const int *)
+  type const-s32-array = uptr;
+
+  /// Two file descriptors (`pipe2`, `socketpair`).
+  /// @ptr(mut fd[])
+  /// @c(int *)
+  type fd-pair = uptr;
+
+  /// @ptr(mut u32)
+  /// @c(unsigned *)
+  type u32-ptr = uptr;
+
+  /// @ptr(mut u64[])
+  /// @c(uint64_t *)
+  type u64-array = uptr;
+
+  /// Bitmask array of `unsigned long` words (CPU and NUMA node masks).
+  /// @ptr(mut ulong[])
+  /// @c(unsigned long *)
+  type ulong-array = uptr;
+
+  /// Read-only bitmask array of `unsigned long` words.
+  /// @ptr(const ulong[])
+  /// @c(const unsigned long *)
+  type const-ulong-array = uptr;
+
+  /// @ptr(mut usize)
+  /// @c(size_t *)
+  type usize-ptr = uptr;
+
+  /// @ptr(mut loff)
+  /// @c(off_t *)
+  type loff-ptr = uptr;
+
+  /// In/out socket address length. The kernel declares it `int *`.
+  /// @ptr(mut socklen)
+  /// @c(socklen_t *)
+  type socklen-ptr = uptr;
+
+  /// @ptr(mut uid)
+  /// @c(uid_t *)
+  type uid-ptr = uptr;
+
+  /// @ptr(mut gid)
+  /// @c(gid_t *)
+  type gid-ptr = uptr;
+
+  /// @ptr(mut gid[])
+  /// @c(gid_t *)
+  type gid-array = uptr;
+
+  /// @ptr(const gid[])
+  /// @c(const gid_t *)
+  type const-gid-array = uptr;
+
+  /// @ptr(mut aio-context)
+  /// @c(unsigned long *)
+  type aio-context-ptr = uptr;
+
+  /// @ptr(mut timer-id)
+  /// @c(int *)
+  type timer-id-ptr = uptr;
+
+  /// @ptr(mut kernel-timespec)
+  type kernel-timespec-ptr = uptr;
+
+  /// @ptr(const kernel-timespec)
+  type const-kernel-timespec-ptr = uptr;
+
+  /// `utimensat_time64` times: two entries (atime, mtime).
+  /// @ptr(const kernel-timespec[])
+  type const-kernel-timespec-array = uptr;
+
+  /// @ptr(mut kernel-itimerspec)
+  type kernel-itimerspec-ptr = uptr;
+
+  /// @ptr(const kernel-itimerspec)
+  type const-kernel-itimerspec-ptr = uptr;
+
+  /// @ptr(mut kernel-old-itimerval)
+  type kernel-old-itimerval-ptr = uptr;
+
+  /// @ptr(const kernel-old-itimerval)
+  type const-kernel-old-itimerval-ptr = uptr;
+
+  /// @ptr(mut kernel-timex)
+  type kernel-timex-ptr = uptr;
+
+  /// @ptr(mut tms)
+  type tms-ptr = uptr;
+
+  /// @ptr(mut rusage)
+  type rusage-ptr = uptr;
+
+  /// @ptr(mut rlimit64)
+  type rlimit64-ptr = uptr;
+
+  /// @ptr(const rlimit64)
+  type const-rlimit64-ptr = uptr;
+
+  /// @ptr(mut sysinfo)
+  type sysinfo-ptr = uptr;
+
+  /// @ptr(mut new-utsname)
+  type new-utsname-ptr = uptr;
+
+  /// @ptr(mut sched-param)
+  type sched-param-ptr = uptr;
+
+  /// @ptr(const sched-param)
+  type const-sched-param-ptr = uptr;
+
+  /// @ptr(mut sched-attr)
+  type sched-attr-ptr = uptr;
+
+  /// @ptr(const clone-args)
+  type const-clone-args-ptr = uptr;
+
+  /// @ptr(mut user-cap-header-struct)
+  type user-cap-header-ptr = uptr;
+
+  /// @ptr(mut user-cap-data-struct[])
+  type user-cap-data-array = uptr;
+
+  /// @ptr(const user-cap-data-struct[])
+  type const-user-cap-data-array = uptr;
+
+  /// @ptr(mut robust-list-head)
+  type robust-list-head-ptr = uptr;
+
+  /// @ptr(mut robust-list-head-ptr)
+  type robust-list-head-ptr-ptr = uptr;
+
+  /// @ptr(const futex-waitv[])
+  type const-futex-waitv-array = uptr;
+
+  /// @ptr(const kexec-segment[])
+  type const-kexec-segment-array = uptr;
+
+  /// @ptr(mut sigset)
+  type sigset-ptr = uptr;
+
+  /// @ptr(const sigset)
+  type const-sigset-ptr = uptr;
+
+  /// @ptr(mut sigaction)
+  type sigaction-ptr = uptr;
+
+  /// @ptr(const sigaction)
+  type const-sigaction-ptr = uptr;
+
+  /// @ptr(mut sigaltstack)
+  type sigaltstack-ptr = uptr;
+
+  /// @ptr(const sigaltstack)
+  type const-sigaltstack-ptr = uptr;
+
+  /// @ptr(mut siginfo)
+  type siginfo-ptr = uptr;
+
+  /// @ptr(const siginfo)
+  type const-siginfo-ptr = uptr;
+
+  /// @ptr(const sigevent)
+  type const-sigevent-ptr = uptr;
+
+  /// @ptr(const sigset-argpack)
+  type const-sigset-argpack-ptr = uptr;
+
+  /// @ptr(const aio-sigset)
+  type const-aio-sigset-ptr = uptr;
+
+  /// @ptr(mut statx)
+  type statx-ptr = uptr;
+
+  /// @ptr(mut statfs64)
+  type statfs64-ptr = uptr;
+
+  /// Buffer receiving a sequence of variable-length `linux_dirent64` records.
+  /// @ptr(mut linux-dirent64)
+  type linux-dirent64-ptr = uptr;
+
+  /// @ptr(mut file-handle)
+  type file-handle-ptr = uptr;
+
+  /// @ptr(const file-handle)
+  type const-file-handle-ptr = uptr;
+
+  /// @ptr(const open-how)
+  type const-open-how-ptr = uptr;
+
+  /// @ptr(const iovec[])
+  type const-iovec-array = uptr;
+
+  /// @ptr(mut xattr-args)
+  type xattr-args-ptr = uptr;
+
+  /// @ptr(const xattr-args)
+  type const-xattr-args-ptr = uptr;
+
+  /// @ptr(mut file-attr)
+  type file-attr-ptr = uptr;
+
+  /// @ptr(const file-attr)
+  type const-file-attr-ptr = uptr;
+
+  /// @ptr(const cachestat-range)
+  type const-cachestat-range-ptr = uptr;
+
+  /// @ptr(mut cachestat)
+  type cachestat-ptr = uptr;
+
+  /// @ptr(const mount-attr)
+  type const-mount-attr-ptr = uptr;
+
+  /// @ptr(const mnt-id-req)
+  type const-mnt-id-req-ptr = uptr;
+
+  /// @ptr(const ns-id-req)
+  type const-ns-id-req-ptr = uptr;
+
+  /// @ptr(mut lsm-ctx)
+  type lsm-ctx-ptr = uptr;
+
+  /// @ptr(const lsm-ctx)
+  type const-lsm-ctx-ptr = uptr;
+
+  /// @ptr(const landlock-ruleset-attr)
+  type const-landlock-ruleset-attr-ptr = uptr;
+
+  /// @ptr(mut pollfd[])
+  type pollfd-array = uptr;
+
+  /// @ptr(const epoll-event)
+  type const-epoll-event-ptr = uptr;
+
+  /// @ptr(mut epoll-event[])
+  type epoll-event-array = uptr;
+
+  /// @ptr(mut kernel-fd-set)
+  type kernel-fd-set-ptr = uptr;
+
+  /// Output socket address buffer; its capacity is passed via a `socklen-ptr`.
+  /// @ptr(mut sockaddr)
+  type sockaddr-ptr = uptr;
+
+  /// Input socket address; the actual layout is selected by the family (`sockaddr-in`, ...).
+  /// @ptr(const sockaddr)
+  type const-sockaddr-ptr = uptr;
+
+  /// @ptr(mut user-msghdr)
+  type user-msghdr-ptr = uptr;
+
+  /// @ptr(const user-msghdr)
+  type const-user-msghdr-ptr = uptr;
+
+  /// @ptr(mut mmsghdr[])
+  type mmsghdr-array = uptr;
+
+  /// @ptr(mut msqid64-ds)
+  type msqid64-ds-ptr = uptr;
+
+  /// @ptr(mut shmid64-ds)
+  type shmid64-ds-ptr = uptr;
+
+  /// @ptr(const sembuf[])
+  type const-sembuf-array = uptr;
+
+  /// @ptr(mut msgbuf)
+  type msgbuf-ptr = uptr;
+
+  /// @ptr(const msgbuf)
+  type const-msgbuf-ptr = uptr;
+
+  /// @ptr(mut mq-attr)
+  type mq-attr-ptr = uptr;
+
+  /// @ptr(const mq-attr)
+  type const-mq-attr-ptr = uptr;
+
+  /// @ptr(mut iocb)
+  type iocb-ptr = uptr;
+
+  /// @ptr(const iocb-ptr[])
+  type const-iocb-ptr-array = uptr;
+
+  /// @ptr(mut io-event)
+  type io-event-ptr = uptr;
+
+  /// @ptr(mut io-event[])
+  type io-event-array = uptr;
+
+  /// @ptr(mut io-uring-params)
+  type io-uring-params-ptr = uptr;
+
+  // ==== Errors ====
+
+  /// Error numbers (`asm-generic/errno-base.h`, `asm-generic/errno.h`).
+  /// Syscalls return them negated (`-ENOENT`).
+  /// @repr(s32)
+  /// @c(int)
+  /// @abi-error
+  enum errno {
+    /// @value(1)
+    eperm,
+    /// @value(2)
+    enoent,
+    /// @value(3)
+    esrch,
+    /// @value(4)
+    eintr,
+    /// @value(5)
+    eio,
+    /// @value(6)
+    enxio,
+    /// @value(7)
+    e2big,
+    /// @value(8)
+    enoexec,
+    /// @value(9)
+    ebadf,
+    /// @value(10)
+    echild,
+    /// @value(11)
+    eagain,
+    /// @value(11)
+    ewouldblock,
+    /// @value(12)
+    enomem,
+    /// @value(13)
+    eacces,
+    /// @value(14)
+    efault,
+    /// @value(15)
+    enotblk,
+    /// @value(16)
+    ebusy,
+    /// @value(17)
+    eexist,
+    /// @value(18)
+    exdev,
+    /// @value(19)
+    enodev,
+    /// @value(20)
+    enotdir,
+    /// @value(21)
+    eisdir,
+    /// @value(22)
+    einval,
+    /// @value(23)
+    enfile,
+    /// @value(24)
+    emfile,
+    /// @value(25)
+    enotty,
+    /// @value(26)
+    etxtbsy,
+    /// @value(27)
+    efbig,
+    /// @value(28)
+    enospc,
+    /// @value(29)
+    espipe,
+    /// @value(30)
+    erofs,
+    /// @value(31)
+    emlink,
+    /// @value(32)
+    epipe,
+    /// @value(33)
+    edom,
+    /// @value(34)
+    erange,
+    /// @value(35)
+    edeadlk,
+    /// @value(35)
+    edeadlock,
+    /// @value(36)
+    enametoolong,
+    /// @value(37)
+    enolck,
+    /// @value(38)
+    enosys,
+    /// @value(39)
+    enotempty,
+    /// @value(40)
+    eloop,
+    /// @value(42)
+    enomsg,
+    /// @value(43)
+    eidrm,
+    /// @value(44)
+    echrng,
+    /// @value(45)
+    el2nsync,
+    /// @value(46)
+    el3hlt,
+    /// @value(47)
+    el3rst,
+    /// @value(48)
+    elnrng,
+    /// @value(49)
+    eunatch,
+    /// @value(50)
+    enocsi,
+    /// @value(51)
+    el2hlt,
+    /// @value(52)
+    ebade,
+    /// @value(53)
+    ebadr,
+    /// @value(54)
+    exfull,
+    /// @value(55)
+    enoano,
+    /// @value(56)
+    ebadrqc,
+    /// @value(57)
+    ebadslt,
+    /// @value(59)
+    ebfont,
+    /// @value(60)
+    enostr,
+    /// @value(61)
+    enodata,
+    /// @value(62)
+    etime,
+    /// @value(63)
+    enosr,
+    /// @value(64)
+    enonet,
+    /// @value(65)
+    enopkg,
+    /// @value(66)
+    eremote,
+    /// @value(67)
+    enolink,
+    /// @value(68)
+    eadv,
+    /// @value(69)
+    esrmnt,
+    /// @value(70)
+    ecomm,
+    /// @value(71)
+    eproto,
+    /// @value(72)
+    emultihop,
+    /// @value(73)
+    edotdot,
+    /// @value(74)
+    ebadmsg,
+    /// @value(74)
+    efsbadcrc,
+    /// @value(75)
+    eoverflow,
+    /// @value(76)
+    enotuniq,
+    /// @value(77)
+    ebadfd,
+    /// @value(78)
+    eremchg,
+    /// @value(79)
+    elibacc,
+    /// @value(80)
+    elibbad,
+    /// @value(81)
+    elibscn,
+    /// @value(82)
+    elibmax,
+    /// @value(83)
+    elibexec,
+    /// @value(84)
+    eilseq,
+    /// @value(85)
+    erestart,
+    /// @value(86)
+    estrpipe,
+    /// @value(87)
+    eusers,
+    /// @value(88)
+    enotsock,
+    /// @value(89)
+    edestaddrreq,
+    /// @value(90)
+    emsgsize,
+    /// @value(91)
+    eprototype,
+    /// @value(92)
+    enoprotoopt,
+    /// @value(93)
+    eprotonosupport,
+    /// @value(94)
+    esocktnosupport,
+    /// @value(95)
+    eopnotsupp,
+    /// @value(96)
+    epfnosupport,
+    /// @value(97)
+    eafnosupport,
+    /// @value(98)
+    eaddrinuse,
+    /// @value(99)
+    eaddrnotavail,
+    /// @value(100)
+    enetdown,
+    /// @value(101)
+    enetunreach,
+    /// @value(102)
+    enetreset,
+    /// @value(103)
+    econnaborted,
+    /// @value(104)
+    econnreset,
+    /// @value(105)
+    enobufs,
+    /// @value(106)
+    eisconn,
+    /// @value(107)
+    enotconn,
+    /// @value(108)
+    eshutdown,
+    /// @value(109)
+    etoomanyrefs,
+    /// @value(110)
+    etimedout,
+    /// @value(111)
+    econnrefused,
+    /// @value(112)
+    ehostdown,
+    /// @value(113)
+    ehostunreach,
+    /// @value(114)
+    ealready,
+    /// @value(115)
+    einprogress,
+    /// @value(116)
+    estale,
+    /// @value(117)
+    efscorrupted,
+    /// @value(117)
+    euclean,
+    /// @value(118)
+    enotnam,
+    /// @value(119)
+    enavail,
+    /// @value(120)
+    eisnam,
+    /// @value(121)
+    eremoteio,
+    /// @value(122)
+    edquot,
+    /// @value(123)
+    enomedium,
+    /// @value(124)
+    emediumtype,
+    /// @value(125)
+    ecanceled,
+    /// @value(126)
+    enokey,
+    /// @value(127)
+    ekeyexpired,
+    /// @value(128)
+    ekeyrevoked,
+    /// @value(129)
+    ekeyrejected,
+    /// @value(130)
+    eownerdead,
+    /// @value(131)
+    enotrecoverable,
+    /// @value(132)
+    erfkill,
+    /// @value(133)
+    ehwpoison,
+    /// @value(134)
+    eftype,
+  }
+
+  // ==== Files, directories and file systems ====
+
+  /// `statx` timestamp (`struct statx_timestamp`).
+  /// @c(struct statx_timestamp)
+  /// @size(16)
+  /// @align(8)
+  record statx-timestamp {
+    tv-sec: s64,
+    tv-nsec: u32,
+    /// musl: `__pad`.
+    /// @c-name(__pad)
+    reserved: s32,
+  }
+
+  /// `statx` result (`struct statx`). This is the only stat syscall on riscv32.
+  /// @c(struct statx)
+  /// @size(256)
+  /// @align(8)
+  record statx {
+    stx-mask: statx-mask,
+    stx-blksize: u32,
+    stx-attributes: statx-attributes,
+    stx-nlink: u32,
+    stx-uid: uid,
+    stx-gid: gid,
+    stx-mode: u16,
+    /// musl: `__pad0`.
+    /// @c-name(__pad0)
+    spare0: list<u16, 1>,
+    stx-ino: u64,
+    stx-size: u64,
+    stx-blocks: u64,
+    stx-attributes-mask: statx-attributes,
+    stx-atime: statx-timestamp,
+    stx-btime: statx-timestamp,
+    stx-ctime: statx-timestamp,
+    stx-mtime: statx-timestamp,
+    stx-rdev-major: u32,
+    stx-rdev-minor: u32,
+    stx-dev-major: u32,
+    stx-dev-minor: u32,
+    stx-mnt-id: u64,
+    stx-dio-mem-align: u32,
+    stx-dio-offset-align: u32,
+    stx-subvol: u64,
+    stx-atomic-write-unit-min: u32,
+    stx-atomic-write-unit-max: u32,
+    stx-atomic-write-segments-max: u32,
+    /// No C assert: newer than musl 1.2.6, whose `struct statx` has `__pad1`/`__pad2` here.
+    /// @c-skip
+    stx-dio-read-offset-align: u32,
+    /// No C assert: newer than musl 1.2.6 (inside musl's `__pad2`).
+    /// @c-skip
+    stx-atomic-write-unit-max-opt: u32,
+    /// No C assert: inside musl's `__pad2`.
+    /// @c-skip
+    /// @c-name(__spare2)
+    spare2: list<u32, 1>,
+    /// No C assert: inside musl's `__pad2`.
+    /// @c-skip
+    /// @c-name(__spare3)
+    spare3: list<u64, 8>,
+  }
+
+  /// File system id (`__kernel_fsid_t`).
+  /// @c(fsid_t)
+  /// @size(8)
+  /// @align(4)
+  record kernel-fsid {
+    /// @c-name(__val)
+    val: list<s32, 2>,
+  }
+
+  /// `statfs64`/`fstatfs64` result (asm-generic `struct statfs64`). The `sz` argument must be 88.
+  /// @c(struct statfs)
+  /// @size(88)
+  /// @align(8)
+  record statfs64 {
+    f-type: u32,
+    f-bsize: u32,
+    f-blocks: u64,
+    f-bfree: u64,
+    f-bavail: u64,
+    f-files: u64,
+    f-ffree: u64,
+    f-fsid: kernel-fsid,
+    f-namelen: u32,
+    f-frsize: u32,
+    f-flags: u32,
+    f-spare: list<u32, 4>,
+  }
+
+  /// Legacy lock with 32-bit offsets (`struct flock`), only reachable with kernel `F_GETLK` (5)..
+  /// `F_SETLKW` (7). musl's `struct flock` is the 64-bit `flock64`.
+  /// @kernel-only
+  /// @size(16)
+  /// @align(4)
+  record flock {
+    l-type: lock-type,
+    l-whence: s16,
+    l-start: slong,
+    l-len: slong,
+    l-pid: pid,
+  }
+
+  /// File lock for `F_GETLK64`..`F_SETLKW64` and the `F_OFD_*` commands (`struct flock64`).
+  /// 4 bytes of implicit padding follow `l-whence` and `l-pid`.
+  /// @c(struct flock)
+  /// @size(32)
+  /// @align(8)
+  record flock64 {
+    l-type: lock-type,
+    l-whence: s16,
+    l-start: loff,
+    l-len: loff,
+    l-pid: pid,
+  }
+
+  /// `F_GETOWN_EX`/`F_SETOWN_EX` argument (`struct f_owner_ex`).
+  /// @c(struct f_owner_ex)
+  /// @size(8)
+  /// @align(4)
+  record f-owner-ex {
+    %type: f-owner-type,
+    pid: pid,
+  }
+
+  /// Header of a `getdents64` record (`struct linux_dirent64`). The NUL-terminated `d_name`
+  /// starts at offset 19; `d-reclen` covers the name and pads the record to 8 bytes.
+  /// @kernel-only
+  /// @size(24)
+  /// @align(8)
+  record linux-dirent64 {
+    d-ino: u64,
+    d-off: s64,
+    d-reclen: u16,
+    d-type: u8,
+  }
+
+  /// Header of `struct file_handle`; `handle-bytes` opaque bytes follow at offset 8.
+  /// @c(struct file_handle)
+  /// @size(8)
+  /// @align(4)
+  record file-handle {
+    handle-bytes: u32,
+    handle-type: s32,
+  }
+
+  /// `openat2` arguments (`struct open_how`); `usize` must be >= 24.
+  /// @kernel-only
+  /// @size(24)
+  /// @align(8)
+  record open-how {
+    /// `open-flags` (zero-extended).
+    %flags: u64,
+    mode: u64,
+    resolve: resolve-flags,
+  }
+
+  /// Scatter/gather element (`struct iovec`).
+  /// @c(struct iovec)
+  /// @size(8)
+  /// @align(4)
+  record iovec {
+    iov-base: uptr,
+    iov-len: usize,
+  }
+
+  /// `setxattrat`/`getxattrat` arguments (`struct xattr_args`).
+  /// @kernel-only
+  /// @size(16)
+  /// @align(8)
+  record xattr-args {
+    /// Guest address of the value buffer, zero-extended.
+    value: u64,
+    size: u32,
+    /// `xattr-flags` bits.
+    %flags: u32,
+  }
+
+  /// `file_getattr`/`file_setattr` attributes (`struct file_attr`).
+  /// @kernel-only
+  /// @size(24)
+  /// @align(8)
+  record file-attr {
+    fa-xflags: u64,
+    fa-extsize: u32,
+    fa-nextents: u32,
+    fa-projid: u32,
+    fa-cowextsize: u32,
+  }
+
+  /// `cachestat` range (`struct cachestat_range`).
+  /// @kernel-only
+  /// @size(16)
+  /// @align(8)
+  record cachestat-range {
+    off: u64,
+    len: u64,
+  }
+
+  /// `cachestat` result (`struct cachestat`).
+  /// @kernel-only
+  /// @size(40)
+  /// @align(8)
+  record cachestat {
+    nr-cache: u64,
+    nr-dirty: u64,
+    nr-writeback: u64,
+    nr-evicted: u64,
+    nr-recently-evicted: u64,
+  }
+
+  /// Header of an LSM context (`struct lsm_ctx`); `ctx-len` bytes of context follow at offset 32.
+  /// @kernel-only
+  /// @size(32)
+  /// @align(8)
+  record lsm-ctx {
+    id: u64,
+    %flags: u64,
+    len: u64,
+    ctx-len: u64,
+  }
+
+  /// `landlock_create_ruleset` attributes (`struct landlock_ruleset_attr`, size-versioned).
+  /// @kernel-only
+  /// @size(48)
+  /// @align(8)
+  record landlock-ruleset-attr {
+    handled-access-fs: u64,
+    handled-access-net: u64,
+    scoped: u64,
+    quiet-access-fs: u64,
+    quiet-access-net: u64,
+    quiet-scoped: u64,
+  }
+
+  /// `LANDLOCK_RULE_NET_PORT` rule (`struct landlock_net_port_attr`).
+  /// `LANDLOCK_RULE_PATH_BENEATH` uses a packed 12-byte struct that WIT records cannot express.
+  /// @kernel-only
+  /// @size(16)
+  /// @align(8)
+  record landlock-net-port-attr {
+    allowed-access: u64,
+    port: u64,
+  }
+
+  /// Header of an inotify event (`struct inotify_event`); `len` bytes of name follow at offset 16.
+  /// @c(struct inotify_event)
+  /// @size(16)
+  /// @align(4)
+  record inotify-event {
+    wd: s32,
+    mask: inotify-mask,
+    cookie: u32,
+    len: u32,
+  }
+
+  /// fanotify event header (`struct fanotify_event_metadata`).
+  /// @c(struct fanotify_event_metadata)
+  /// @size(24)
+  /// @align(8)
+  record fanotify-event-metadata {
+    event-len: u32,
+    vers: u8,
+    reserved: u8,
+    metadata-len: u16,
+    mask: u64,
+    fd: s32,
+    pid: s32,
+  }
+
+  /// `O_*` flags for `openat`, `openat2` (low 32 bits), `pipe2`, `dup3`, `mq_open` (`asm-generic/fcntl.h`).
+  /// `O_RDONLY`/`O_WRONLY`/`O_RDWR` are values of the `O_ACCMODE` field, not bits.
+  /// @repr(u32)
+  /// @c(int)
+  flags open-flags {
+    /// @value(0x0)
+    o-rdonly,
+    /// @value(0x1)
+    o-wronly,
+    /// @value(0x2)
+    o-rdwr,
+    /// @value(0x3)
+    /// No C assert: musl adds `O_PATH` to `O_ACCMODE` (`03|O_PATH`); the kernel mask is 3.
+    /// @c-skip
+    o-accmode,
+    /// @value(0x40)
+    o-creat,
+    /// @value(0x80)
+    o-excl,
+    /// @value(0x100)
+    o-noctty,
+    /// @value(0x200)
+    o-trunc,
+    /// @value(0x400)
+    o-append,
+    /// @value(0x800)
+    o-ndelay,
+    /// @value(0x800)
+    o-nonblock,
+    /// @value(0x1000)
+    o-dsync,
+    /// @value(0x4000)
+    o-direct,
+    /// @value(0x8000)
+    o-largefile,
+    /// @value(0x10000)
+    o-directory,
+    /// @value(0x20000)
+    o-nofollow,
+    /// @value(0x40000)
+    o-noatime,
+    /// @value(0x80000)
+    o-cloexec,
+    /// @name(__O_SYNC)
+    /// @value(0x100000)
+    o-sync-bit,
+    /// @value(0x101000)
+    o-sync,
+    /// @value(0x200000)
+    o-path,
+    /// @name(__O_TMPFILE)
+    /// @value(0x400000)
+    o-tmpfile-bit,
+    /// @value(0x410000)
+    o-tmpfile,
+    /// @value(0x4000000)
+    o-emptypath,
+  }
+
+  /// Special directory file descriptor values for `*at` syscalls (`linux/fcntl.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum at-fd {
+    /// @value(-100)
+    at-fdcwd,
+  }
+
+  /// `AT_*` flags for `*at` syscalls (`linux/fcntl.h`).
+  /// Some bits are reused with different meanings by individual syscalls (`AT_EACCESS` == `AT_REMOVEDIR`).
+  /// @repr(u32)
+  /// @c(int)
+  flags at-flags {
+    /// @value(0x0)
+    at-statx-sync-as-stat,
+    /// @value(0x100)
+    at-symlink-nofollow,
+    /// @value(0x200)
+    at-eaccess,
+    /// @value(0x200)
+    at-removedir,
+    /// @value(0x400)
+    at-symlink-follow,
+    /// @value(0x800)
+    at-no-automount,
+    /// @value(0x1000)
+    at-empty-path,
+    /// @value(0x2000)
+    at-statx-force-sync,
+    /// @value(0x4000)
+    at-statx-dont-sync,
+    /// @value(0x6000)
+    at-statx-sync-type,
+    /// @value(0x8000)
+    at-recursive,
+    /// @value(0x10000)
+    at-execve-check,
+  }
+
+  /// `AT_HANDLE_*` flags for `name_to_handle_at` (`linux/fcntl.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags at-handle-flags {
+    /// @value(0x1)
+    at-handle-mnt-id-unique,
+    /// @value(0x2)
+    at-handle-connectable,
+    /// @value(0x200)
+    at-handle-fid,
+  }
+
+  /// `renameat2` flags (`linux/fs.h`; `AT_RENAME_*` are the `linux/fcntl.h` spellings).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags rename-flags {
+    /// @value(0x1)
+    at-rename-noreplace,
+    /// @value(0x1)
+    rename-noreplace,
+    /// @value(0x2)
+    at-rename-exchange,
+    /// @value(0x2)
+    rename-exchange,
+    /// @value(0x4)
+    at-rename-whiteout,
+    /// @value(0x4)
+    rename-whiteout,
+  }
+
+  /// `whence` values for `llseek` (`linux/fs.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum seek-whence {
+    /// @value(0)
+    seek-set,
+    /// @value(1)
+    seek-cur,
+    /// @value(2)
+    seek-end,
+    /// @value(3)
+    seek-data,
+    /// @value(4)
+    seek-hole,
+    /// @value(4)
+    seek-max,
+  }
+
+  /// `mode` for `faccessat`/`faccessat2`.
+  /// Not in the Linux UAPI headers; these are the POSIX values the kernel checks (musl `unistd.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags access-mode {
+    /// From `musl unistd.h` (not in the extracted constant set).
+    /// @value(0x0)
+    f-ok,
+    /// From `musl unistd.h` (not in the extracted constant set).
+    /// @value(0x1)
+    x-ok,
+    /// From `musl unistd.h` (not in the extracted constant set).
+    /// @value(0x2)
+    w-ok,
+    /// From `musl unistd.h` (not in the extracted constant set).
+    /// @value(0x4)
+    r-ok,
+  }
+
+  /// `fcntl64` commands (`asm-generic/fcntl.h`, `linux/fcntl.h`).
+  /// Kernel spelling: `F_GETLK`/`F_SETLK`/`F_SETLKW` (5/6/7) take the legacy 16-byte `struct flock`; musl on
+  /// riscv32 defines `F_GETLK` as 12 (= `F_GETLK64`) and only ever passes `flock64`.
+  /// @repr(s32)
+  /// @c(int)
+  enum fcntl-cmd {
+    /// @value(0)
+    f-dupfd,
+    /// @value(1)
+    f-getfd,
+    /// @value(2)
+    f-setfd,
+    /// @value(3)
+    f-getfl,
+    /// @value(4)
+    f-setfl,
+    /// @value(5)
+    /// No C assert: musl defines `F_GETLK` as `F_GETLK64` (12) on 32-bit and only passes `flock64`.
+    /// @c-skip
+    f-getlk,
+    /// @value(6)
+    /// No C assert: musl defines `F_SETLK` as `F_SETLK64` (13) on 32-bit and only passes `flock64`.
+    /// @c-skip
+    f-setlk,
+    /// @value(7)
+    /// No C assert: musl defines `F_SETLKW` as `F_SETLKW64` (14) on 32-bit and only passes `flock64`.
+    /// @c-skip
+    f-setlkw,
+    /// @value(8)
+    f-setown,
+    /// @value(9)
+    f-getown,
+    /// @value(10)
+    f-setsig,
+    /// @value(11)
+    f-getsig,
+    /// @value(12)
+    f-getlk64,
+    /// @value(13)
+    f-setlk64,
+    /// @value(14)
+    f-setlkw64,
+    /// @value(15)
+    f-setown-ex,
+    /// @value(16)
+    f-getown-ex,
+    /// @value(17)
+    f-getowner-uids,
+    /// @value(36)
+    f-ofd-getlk,
+    /// @value(37)
+    f-ofd-setlk,
+    /// @value(38)
+    f-ofd-setlkw,
+    /// @value(1024)
+    f-linux-specific-base,
+    /// @value(1024)
+    f-setlease,
+    /// @value(1025)
+    f-getlease,
+    /// @value(1026)
+    f-notify,
+    /// @value(1027)
+    f-dupfd-query,
+    /// @value(1028)
+    f-created-query,
+    /// @value(1029)
+    f-cancellk,
+    /// @value(1030)
+    f-dupfd-cloexec,
+    /// @value(1031)
+    f-setpipe-sz,
+    /// @value(1032)
+    f-getpipe-sz,
+    /// @value(1033)
+    f-add-seals,
+    /// @value(1034)
+    f-get-seals,
+    /// @value(1035)
+    f-get-rw-hint,
+    /// @value(1036)
+    f-set-rw-hint,
+    /// @value(1037)
+    f-get-file-rw-hint,
+    /// @value(1038)
+    f-set-file-rw-hint,
+    /// @value(1039)
+    f-getdeleg,
+    /// @value(1040)
+    f-setdeleg,
+  }
+
+  /// File descriptor flags for `F_GETFD`/`F_SETFD`.
+  /// @repr(u32)
+  /// @c(int)
+  flags fd-flags {
+    /// @value(0x1)
+    fd-cloexec,
+  }
+
+  /// `l_type` of `flock`/`flock64` (`asm-generic/fcntl.h`).
+  /// @repr(s16)
+  /// @c(short)
+  enum lock-type {
+    /// @value(0)
+    f-rdlck,
+    /// @value(1)
+    f-wrlck,
+    /// @value(2)
+    f-unlck,
+    /// @value(4)
+    f-exlck,
+    /// @value(8)
+    f-shlck,
+  }
+
+  /// `type` of `struct f_owner_ex` (`F_GETOWN_EX`/`F_SETOWN_EX`).
+  /// @repr(s32)
+  /// @c(int)
+  enum f-owner-type {
+    /// @value(0)
+    f-owner-tid,
+    /// @value(1)
+    f-owner-pid,
+    /// @value(2)
+    f-owner-pgrp,
+  }
+
+  /// `F_ADD_SEALS`/`F_GET_SEALS` seals.
+  /// @repr(u32)
+  /// @c(int)
+  flags seal-flags {
+    /// @value(0x1)
+    f-seal-seal,
+    /// @value(0x2)
+    f-seal-shrink,
+    /// @value(0x4)
+    f-seal-grow,
+    /// @value(0x8)
+    f-seal-write,
+    /// @value(0x10)
+    f-seal-future-write,
+    /// @value(0x20)
+    f-seal-exec,
+  }
+
+  /// `F_NOTIFY` (dnotify) event mask.
+  /// @repr(u32)
+  /// @c(int)
+  flags dnotify-flags {
+    /// @value(0x1)
+    dn-access,
+    /// @value(0x2)
+    dn-modify,
+    /// @value(0x4)
+    dn-create,
+    /// @value(0x8)
+    dn-delete,
+    /// @value(0x10)
+    dn-rename,
+    /// @value(0x20)
+    dn-attrib,
+    /// @value(0x80000000)
+    dn-multishot,
+  }
+
+  /// `flock(2)` operations (`LOCK_*`, `asm-generic/fcntl.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags flock-op {
+    /// @value(0x1)
+    lock-sh,
+    /// @value(0x2)
+    lock-ex,
+    /// @value(0x4)
+    lock-nb,
+    /// @value(0x8)
+    lock-un,
+    /// @value(0x20)
+    lock-mand,
+    /// @value(0x40)
+    lock-read,
+    /// @value(0x80)
+    lock-write,
+    /// @value(0xc0)
+    lock-rw,
+  }
+
+  /// `STATX_*` request/result mask (`linux/stat.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags statx-mask {
+    /// @value(0x1)
+    statx-type,
+    /// @value(0x2)
+    statx-mode,
+    /// @value(0x4)
+    statx-nlink,
+    /// @value(0x8)
+    statx-uid,
+    /// @value(0x10)
+    statx-gid,
+    /// @value(0x20)
+    statx-atime,
+    /// @value(0x40)
+    statx-mtime,
+    /// @value(0x80)
+    statx-ctime,
+    /// @value(0x100)
+    statx-ino,
+    /// @value(0x200)
+    statx-size,
+    /// @value(0x400)
+    statx-blocks,
+    /// @value(0x7ff)
+    statx-basic-stats,
+    /// @value(0x800)
+    statx-btime,
+    /// @value(0xfff)
+    statx-all,
+    /// @value(0x1000)
+    statx-mnt-id,
+    /// @value(0x2000)
+    statx-dioalign,
+    /// @value(0x4000)
+    statx-mnt-id-unique,
+    /// @value(0x8000)
+    statx-subvol,
+    /// @value(0x10000)
+    statx-write-atomic,
+    /// @value(0x20000)
+    statx-dio-read-align,
+    /// @name(STATX__RESERVED)
+    /// @value(0x80000000)
+    statx-reserved,
+  }
+
+  /// `STATX_ATTR_*` bits of `statx.stx_attributes` (`linux/stat.h`).
+  /// @repr(u64)
+  /// @c(uint64_t)
+  flags statx-attributes {
+    /// @value(0x4)
+    statx-attr-compressed,
+    /// @value(0x10)
+    statx-attr-immutable,
+    /// @value(0x20)
+    statx-attr-append,
+    /// @value(0x40)
+    statx-attr-nodump,
+    /// @value(0x800)
+    statx-attr-encrypted,
+    /// @value(0x1000)
+    statx-attr-automount,
+    /// @value(0x2000)
+    statx-attr-mount-root,
+    /// @value(0x100000)
+    statx-attr-verity,
+    /// @value(0x200000)
+    statx-attr-dax,
+    /// @value(0x400000)
+    statx-attr-write-atomic,
+  }
+
+  /// File type and permission bits (`S_IF*`, `S_I*`; `linux/stat.h`).
+  /// `S_IF*` are values of the `S_IFMT` field, not bits.
+  /// @repr(u32)
+  /// @c(mode_t)
+  flags file-mode {
+    /// @value(0x1)
+    s-ixoth,
+    /// @value(0x2)
+    s-iwoth,
+    /// @value(0x4)
+    s-iroth,
+    /// @value(0x7)
+    s-irwxo,
+    /// @value(0x8)
+    s-ixgrp,
+    /// @value(0x10)
+    s-iwgrp,
+    /// @value(0x20)
+    s-irgrp,
+    /// @value(0x38)
+    s-irwxg,
+    /// @value(0x40)
+    s-ixusr,
+    /// @value(0x80)
+    s-iwusr,
+    /// @value(0x100)
+    s-irusr,
+    /// @value(0x1c0)
+    s-irwxu,
+    /// @value(0x200)
+    s-isvtx,
+    /// @value(0x400)
+    s-isgid,
+    /// @value(0x800)
+    s-isuid,
+    /// @value(0x1000)
+    s-ififo,
+    /// @value(0x2000)
+    s-ifchr,
+    /// @value(0x4000)
+    s-ifdir,
+    /// @value(0x6000)
+    s-ifblk,
+    /// @value(0x8000)
+    s-ifreg,
+    /// @value(0xa000)
+    s-iflnk,
+    /// @value(0xc000)
+    s-ifsock,
+    /// @value(0xf000)
+    s-ifmt,
+  }
+
+  /// Special `tv_nsec` values for `utimensat_time64` (`UTIME_*`).
+  /// Not in the UAPI headers (kernel `include/linux/stat.h`); values match musl `sys/stat.h`.
+  /// @repr(s32)
+  /// @c(long)
+  enum utime-special {
+    /// From `musl sys/stat.h` (not in the extracted constant set).
+    /// @value(0x3ffffffe)
+    utime-omit,
+    /// From `musl sys/stat.h` (not in the extracted constant set).
+    /// @value(0x3fffffff)
+    utime-now,
+  }
+
+  /// `open_how.resolve` flags for `openat2` (`linux/openat2.h`).
+  /// @repr(u64)
+  /// @c(uint64_t)
+  flags resolve-flags {
+    /// @value(0x1)
+    resolve-no-xdev,
+    /// @value(0x2)
+    resolve-no-magiclinks,
+    /// @value(0x4)
+    resolve-no-symlinks,
+    /// @value(0x8)
+    resolve-beneath,
+    /// @value(0x10)
+    resolve-in-root,
+    /// @value(0x20)
+    resolve-cached,
+  }
+
+  /// `fallocate` mode (`linux/falloc.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags falloc-flags {
+    /// @value(0x0)
+    falloc-fl-allocate-range,
+    /// @value(0x1)
+    falloc-fl-keep-size,
+    /// @value(0x2)
+    falloc-fl-punch-hole,
+    /// @value(0x4)
+    falloc-fl-no-hide-stale,
+    /// @value(0x8)
+    falloc-fl-collapse-range,
+    /// @value(0x10)
+    falloc-fl-zero-range,
+    /// @value(0x20)
+    falloc-fl-insert-range,
+    /// @value(0x40)
+    falloc-fl-unshare-range,
+    /// @value(0x80)
+    falloc-fl-write-zeroes,
+  }
+
+  /// `fadvise64_64` advice (`linux/fadvise.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum fadvise-advice {
+    /// @value(0)
+    posix-fadv-normal,
+    /// @value(1)
+    posix-fadv-random,
+    /// @value(2)
+    posix-fadv-sequential,
+    /// @value(3)
+    posix-fadv-willneed,
+    /// @value(4)
+    posix-fadv-dontneed,
+    /// @value(5)
+    posix-fadv-noreuse,
+  }
+
+  /// `preadv2`/`pwritev2` flags (`RWF_*`, `linux/fs.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags rwf-flags {
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x1)
+    rwf-hipri,
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x2)
+    rwf-dsync,
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x4)
+    rwf-sync,
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x8)
+    rwf-nowait,
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x10)
+    rwf-append,
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x20)
+    rwf-noappend,
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x40)
+    rwf-atomic,
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x80)
+    rwf-dontcache,
+    /// From `linux/fs.h` (not in the extracted constant set).
+    /// @value(0x100)
+    rwf-nosignal,
+  }
+
+  /// `splice`/`tee`/`vmsplice` flags.
+  /// Not in the UAPI headers (kernel `include/linux/splice.h`); values match musl `fcntl.h`.
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags splice-flags {
+    /// From `musl fcntl.h` (not in the extracted constant set).
+    /// @value(0x1)
+    splice-f-move,
+    /// From `musl fcntl.h` (not in the extracted constant set).
+    /// @value(0x2)
+    splice-f-nonblock,
+    /// From `musl fcntl.h` (not in the extracted constant set).
+    /// @value(0x4)
+    splice-f-more,
+    /// From `musl fcntl.h` (not in the extracted constant set).
+    /// @value(0x8)
+    splice-f-gift,
+  }
+
+  /// `sync_file_range` flags (musl `fcntl.h`; kernel `include/linux/fs.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags sync-file-range-flags {
+    /// @value(0x1)
+    sync-file-range-wait-before,
+    /// @value(0x2)
+    sync-file-range-write,
+    /// @value(0x4)
+    sync-file-range-wait-after,
+    /// @value(0x7)
+    sync-file-range-write-and-wait,
+  }
+
+  /// `setxattr` family flags (`linux/xattr.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags xattr-flags {
+    /// @value(0x1)
+    xattr-create,
+    /// @value(0x2)
+    xattr-replace,
+  }
+
+  /// `inotify_init1` flags (`linux/inotify.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags inotify-init-flags {
+    /// @value(0x800)
+    in-nonblock,
+    /// @value(0x80000)
+    in-cloexec,
+  }
+
+  /// `inotify_add_watch` mask and `inotify_event.mask` bits (`linux/inotify.h`).
+  /// @repr(u32)
+  /// @c(uint32_t)
+  flags inotify-mask {
+    /// @value(0x1)
+    in-access,
+    /// @value(0x2)
+    in-modify,
+    /// @value(0x4)
+    in-attrib,
+    /// @value(0x8)
+    in-close-write,
+    /// @value(0x10)
+    in-close-nowrite,
+    /// @value(0x18)
+    in-close,
+    /// @value(0x20)
+    in-open,
+    /// @value(0x40)
+    in-moved-from,
+    /// @value(0x80)
+    in-moved-to,
+    /// @value(0xc0)
+    in-move,
+    /// @value(0x100)
+    in-create,
+    /// @value(0x200)
+    in-delete,
+    /// @value(0x400)
+    in-delete-self,
+    /// @value(0x800)
+    in-move-self,
+    /// @value(0xfff)
+    in-all-events,
+    /// @value(0x2000)
+    in-unmount,
+    /// @value(0x4000)
+    in-q-overflow,
+    /// @value(0x8000)
+    in-ignored,
+    /// @value(0x1000000)
+    in-onlydir,
+    /// @value(0x2000000)
+    in-dont-follow,
+    /// @value(0x4000000)
+    in-excl-unlink,
+    /// @value(0x10000000)
+    in-mask-create,
+    /// @value(0x20000000)
+    in-mask-add,
+    /// @value(0x40000000)
+    in-isdir,
+    /// @value(0x80000000)
+    in-oneshot,
+  }
+
+  /// Kernel limits (`linux/limits.h`, `linux/fs.h`, `linux/xattr.h`).
+  /// @repr(u32)
+  enum limits {
+    /// @value(4)
+    xattr-hurd-prefix-len,
+    /// @value(4)
+    xattr-mac-osx-prefix-len,
+    /// @value(5)
+    xattr-user-prefix-len,
+    /// @value(6)
+    xattr-btrfs-prefix-len,
+    /// @value(7)
+    xattr-system-prefix-len,
+    /// @value(8)
+    xattr-trusted-prefix-len,
+    /// @value(9)
+    xattr-security-prefix-len,
+    /// @value(13)
+    xattr-name-bpf-lsm-len,
+    /// @value(32)
+    rtsig-max,
+    /// @value(127)
+    link-max,
+    /// @value(255)
+    name-max,
+    /// @value(255)
+    xattr-name-max,
+    /// @value(1024)
+    inr-open-cur,
+    /// @value(4096)
+    inr-open-max,
+    /// @value(4096)
+    path-max,
+    /// @value(0x10000)
+    /// No C assert: musl's `<limits.h>` `NGROUPS_MAX` is 32, a libc limit below the kernel's 65536.
+    /// @c-skip
+    ngroups-max,
+    /// @value(0x10000)
+    xattr-list-max,
+    /// @value(0x10000)
+    xattr-size-max,
+    /// @value(0x20000)
+    arg-max,
+  }
+
+  // ==== Polling and event notification ====
+
+  /// `ppoll_time64` entry (`struct pollfd`).
+  /// @c(struct pollfd)
+  /// @size(8)
+  /// @align(4)
+  record pollfd {
+    fd: fd,
+    events: poll-events,
+    revents: poll-events,
+  }
+
+  /// User data of an epoll event (kernel: a plain `__u64`).
+  /// @c(union epoll_data)
+  /// @union
+  /// @size(8)
+  /// @align(8)
+  record epoll-data {
+    ptr: uptr,
+    fd: fd,
+    %u32: u32,
+    %u64: u64,
+  }
+
+  /// epoll event (`struct epoll_event`). Not packed on asm-generic: 4 bytes of implicit padding
+  /// follow `events`.
+  /// @c(struct epoll_event)
+  /// @size(16)
+  /// @align(8)
+  record epoll-event {
+    events: epoll-events,
+    data: epoll-data,
+  }
+
+  /// 1024-bit descriptor set for `pselect6_time64` (`__kernel_fd_set`).
+  /// @c(fd_set)
+  /// @size(128)
+  /// @align(4)
+  record kernel-fd-set {
+    fds-bits: list<ulong, 32>,
+  }
+
+  /// `pollfd.events`/`revents` (`asm-generic/poll.h`). C type is `short`.
+  /// @repr(u16)
+  /// @c(short)
+  flags poll-events {
+    /// @value(0x1)
+    pollin,
+    /// @value(0x2)
+    pollpri,
+    /// @value(0x4)
+    pollout,
+    /// @value(0x8)
+    pollerr,
+    /// @value(0x10)
+    pollhup,
+    /// @value(0x20)
+    pollnval,
+    /// @value(0x40)
+    pollrdnorm,
+    /// @value(0x80)
+    pollrdband,
+    /// @value(0x100)
+    pollwrnorm,
+    /// @value(0x200)
+    pollwrband,
+    /// @value(0x400)
+    pollmsg,
+    /// @value(0x1000)
+    pollremove,
+    /// @value(0x2000)
+    pollrdhup,
+  }
+
+  /// `epoll_event.events` (`linux/eventpoll.h`).
+  /// @repr(u32)
+  /// @c(uint32_t)
+  flags epoll-events {
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x1)
+    epollin,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x2)
+    epollpri,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x4)
+    epollout,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x8)
+    epollerr,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x10)
+    epollhup,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x20)
+    epollnval,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x40)
+    epollrdnorm,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x80)
+    epollrdband,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x100)
+    epollwrnorm,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x200)
+    epollwrband,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x400)
+    epollmsg,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x2000)
+    epollrdhup,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x8000000)
+    epoll-uring-wake,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x10000000)
+    epollexclusive,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x20000000)
+    epollwakeup,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x40000000)
+    epolloneshot,
+    /// From `linux/eventpoll.h` (not in the extracted constant set).
+    /// @value(0x80000000)
+    epollet,
+  }
+
+  /// `epoll_create1` flags (`linux/eventpoll.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags epoll-create-flags {
+    /// @value(0x80000)
+    epoll-cloexec,
+  }
+
+  /// `epoll_ctl` operations (`linux/eventpoll.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum epoll-ctl-op {
+    /// @value(1)
+    epoll-ctl-add,
+    /// @value(2)
+    epoll-ctl-del,
+    /// @value(3)
+    epoll-ctl-mod,
+  }
+
+  /// `eventfd2` flags (`linux/eventfd.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags eventfd-flags {
+    /// @value(0x1)
+    efd-semaphore,
+    /// @value(0x800)
+    efd-nonblock,
+    /// @value(0x80000)
+    efd-cloexec,
+  }
+
+  /// `signalfd4` flags (`linux/signalfd.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags signalfd-flags {
+    /// @value(0x800)
+    sfd-nonblock,
+    /// @value(0x80000)
+    sfd-cloexec,
+  }
+
+  // ==== Signals ====
+
+  /// Kernel signal set (`sigset_t` in `asm-generic/signal.h`): 64 signals, 8 bytes.
+  /// Every `sigsetsize` argument must be 8. musl's 128-byte user `sigset_t` starts with the same words.
+  /// @kernel-only
+  /// @size(8)
+  /// @align(4)
+  record sigset {
+    sig: list<ulong, 2>,
+  }
+
+  /// Kernel signal action for `rt_sigaction` (asm-generic `struct sigaction`, 16 bytes).
+  /// riscv has no `SA_RESTORER`, so there is no `sa_restorer` field. musl passes its internal
+  /// `struct k_sigaction` (`src/internal/ksigaction.h`); upstream musl riscv32 wrongly adds a
+  /// restorer field (20 bytes), which the wasix2 port must not do.
+  /// @c(struct k_sigaction)
+  /// @size(16)
+  /// @align(4)
+  record sigaction {
+    /// Handler address, or a `signal-handler` value.
+    /// @c-name(handler)
+    sa-handler: uptr,
+    /// `sa-flags` bits.
+    /// @c-name(flags)
+    sa-flags: ulong,
+    /// @c-name(mask)
+    sa-mask: sigset,
+  }
+
+  /// Alternate signal stack (`stack_t`, `struct sigaltstack`).
+  /// @c(stack_t)
+  /// @size(12)
+  /// @align(4)
+  record sigaltstack {
+    ss-sp: uptr,
+    /// `sigaltstack-flags` bits.
+    ss-flags: s32,
+    ss-size: usize,
+  }
+
+  /// Signal value (`union sigval`).
+  /// @c(union sigval)
+  /// @union
+  /// @size(4)
+  /// @align(4)
+  record sigval {
+    sival-int: s32,
+    sival-ptr: uptr,
+  }
+
+  /// Signal information (`siginfo_t`, 128 bytes). Only the common header is modelled; `sifields`
+  /// is the `union __sifields` padded to 116 bytes. Offsets of the common union members:
+  ///
+  /// - kill/rt: `si_pid` 12, `si_uid` 16, `si_value` 20
+  /// - timer: `si_tid` 12, `si_overrun` 16, `si_value` 20
+  /// - SIGCHLD: `si_pid` 12, `si_uid` 16, `si_status` 20, `si_utime` 24, `si_stime` 28 (32-bit clock_t)
+  /// - SIGILL/SIGFPE/SIGSEGV/SIGBUS: `si_addr` 12
+  /// - SIGPOLL: `si_band` 12 (long), `si_fd` 16
+  /// - SIGSYS: `si_call_addr` 12, `si_syscall` 16, `si_arch` 20
+  /// @c(siginfo_t)
+  /// @size(128)
+  /// @align(4)
+  record siginfo {
+    si-signo: s32,
+    si-errno: s32,
+    /// `si-code` value.
+    si-code: s32,
+    /// musl: `__si_fields`.
+    /// @c-name(__si_fields)
+    sifields: list<u8, 116>,
+  }
+
+  /// `SIGEV_THREAD` member of `sigevent-un` (anonymous struct `_sigev_thread`).
+  /// @kernel-only
+  /// @size(8)
+  /// @align(4)
+  record sigevent-thread {
+    /// @c-name(_function)
+    function: uptr,
+    /// @c-name(_attribute)
+    attribute: uptr,
+  }
+
+  /// The `_sigev_un` union of `sigevent`.
+  /// @kernel-only
+  /// @union
+  /// @size(52)
+  /// @align(4)
+  record sigevent-un {
+    /// @c-name(_pad)
+    pad: list<s32, 13>,
+    /// Thread id for `SIGEV_THREAD_ID`.
+    /// @c-name(_tid)
+    tid: pid,
+    /// @c-name(_sigev_thread)
+    sigev-thread: sigevent-thread,
+  }
+
+  /// Notification request for `timer_create` and `mq_notify` (`struct sigevent`, 64 bytes).
+  /// @c(struct sigevent)
+  /// @size(64)
+  /// @align(4)
+  record sigevent {
+    sigev-value: sigval,
+    sigev-signo: s32,
+    /// `sigev-notify` value.
+    sigev-notify: s32,
+    /// musl: `__sev_fields`.
+    /// @c-name(__sev_fields)
+    sigev-un: sigevent-un,
+  }
+
+  /// Record read from a signalfd (`struct signalfd_siginfo`).
+  /// @c(struct signalfd_siginfo)
+  /// @size(128)
+  /// @align(8)
+  record signalfd-siginfo {
+    ssi-signo: u32,
+    ssi-errno: s32,
+    ssi-code: s32,
+    ssi-pid: u32,
+    ssi-uid: u32,
+    ssi-fd: s32,
+    ssi-tid: u32,
+    ssi-band: u32,
+    ssi-overrun: u32,
+    ssi-trapno: u32,
+    ssi-status: s32,
+    ssi-int: s32,
+    ssi-ptr: u64,
+    ssi-utime: u64,
+    ssi-stime: u64,
+    ssi-addr: u64,
+    ssi-addr-lsb: u16,
+    /// @c-name(__pad2)
+    pad2: u16,
+    ssi-syscall: s32,
+    ssi-call-addr: u64,
+    ssi-arch: u32,
+    /// @c-name(__pad)
+    pad: list<u8, 28>,
+  }
+
+  /// 6th argument of `pselect6_time64` (`struct sigset_argpack` in fs/select.c).
+  /// @kernel-only
+  /// @size(8)
+  /// @align(4)
+  record sigset-argpack {
+    p: const-sigset-ptr,
+    size: usize,
+  }
+
+  /// Signal numbers (`asm-generic/signal.h`).
+  /// musl reserves 32..34 internally, so its `SIGRTMIN` is 35; the kernel value is 32.
+  /// @repr(s32)
+  /// @c(int)
+  enum signal {
+    /// @value(1)
+    sighup,
+    /// @value(2)
+    sigint,
+    /// @value(3)
+    sigquit,
+    /// @value(4)
+    sigill,
+    /// @value(5)
+    sigtrap,
+    /// @value(6)
+    sigabrt,
+    /// @value(6)
+    sigiot,
+    /// @value(7)
+    sigbus,
+    /// @value(8)
+    sigfpe,
+    /// @value(9)
+    sigkill,
+    /// @value(10)
+    sigusr1,
+    /// @value(11)
+    sigsegv,
+    /// @value(12)
+    sigusr2,
+    /// @value(13)
+    sigpipe,
+    /// @value(14)
+    sigalrm,
+    /// @value(15)
+    sigterm,
+    /// @value(16)
+    sigstkflt,
+    /// @value(17)
+    sigchld,
+    /// @value(18)
+    sigcont,
+    /// @value(19)
+    sigstop,
+    /// @value(20)
+    sigtstp,
+    /// @value(21)
+    sigttin,
+    /// @value(22)
+    sigttou,
+    /// @value(23)
+    sigurg,
+    /// @value(24)
+    sigxcpu,
+    /// @value(25)
+    sigxfsz,
+    /// @value(26)
+    sigvtalrm,
+    /// @value(27)
+    sigprof,
+    /// @value(28)
+    sigwinch,
+    /// @value(29)
+    sigio,
+    /// @value(29)
+    sigpoll,
+    /// @value(30)
+    sigpwr,
+    /// @value(31)
+    sigsys,
+    /// @value(31)
+    sigunused,
+    /// @value(32)
+    /// No C assert: musl's `SIGRTMIN` is a function call (`__libc_current_sigrtmin()`), not a constant.
+    /// @c-skip
+    sigrtmin,
+    /// @value(64)
+    /// No C assert: musl's `SIGRTMAX` is a function call (`__libc_current_sigrtmax()`), not a constant.
+    /// @c-skip
+    sigrtmax,
+  }
+
+  /// Signal-related sizes (`asm-generic/signal.h`, `asm-generic/siginfo.h`).
+  /// @repr(u32)
+  enum signal-limits {
+    /// @name(_NSIG_WORDS)
+    /// @value(2)
+    nsig-words,
+    /// @value(13)
+    sigev-pad-size,
+    /// @name(_NSIG_BPW)
+    /// @value(32)
+    nsig-bpw,
+    /// @value(64)
+    sigev-max-size,
+    /// @name(_NSIG)
+    /// @value(64)
+    /// No C assert: musl's `_NSIG` is 65 (signals 1..64 plus one), the kernel's is 64.
+    /// @c-skip
+    nsig,
+    /// @value(2048)
+    minsigstksz,
+    /// @value(8192)
+    sigstksz,
+  }
+
+  /// `sigaction.sa_flags` (`asm-generic/signal-defs.h`).
+  /// riscv (and therefore wasix2) has no `SA_RESTORER`.
+  /// @repr(u32)
+  /// @c(unsigned long)
+  flags sa-flags {
+    /// @value(0x1)
+    sa-nocldstop,
+    /// @value(0x2)
+    sa-nocldwait,
+    /// @value(0x4)
+    sa-siginfo,
+    /// @value(0x400)
+    sa-unsupported,
+    /// @value(0x800)
+    sa-expose-tagbits,
+    /// @value(0x8000000)
+    sa-onstack,
+    /// @value(0x10000000)
+    sa-restart,
+    /// @value(0x40000000)
+    sa-nodefer,
+    /// @value(0x40000000)
+    sa-nomask,
+    /// @value(0x80000000)
+    sa-oneshot,
+    /// @value(0x80000000)
+    sa-resethand,
+  }
+
+  /// Special `sa_handler` values (`asm-generic/signal-defs.h`).
+  /// @repr(s32)
+  enum signal-handler {
+    /// From `asm-generic/signal-defs.h` (not in the extracted constant set).
+    /// @value(0)
+    sig-dfl,
+    /// From `asm-generic/signal-defs.h` (not in the extracted constant set).
+    /// @value(1)
+    sig-ign,
+    /// From `asm-generic/signal-defs.h` (not in the extracted constant set).
+    /// @value(-1)
+    sig-err,
+  }
+
+  /// `how` for `rt_sigprocmask` (`asm-generic/signal-defs.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum sigprocmask-how {
+    /// From `asm-generic/signal-defs.h` (not in the extracted constant set).
+    /// @value(0)
+    sig-block,
+    /// From `asm-generic/signal-defs.h` (not in the extracted constant set).
+    /// @value(1)
+    sig-unblock,
+    /// From `asm-generic/signal-defs.h` (not in the extracted constant set).
+    /// @value(2)
+    sig-setmask,
+  }
+
+  /// `stack_t.ss_flags` (`linux/signal.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags sigaltstack-flags {
+    /// From `linux/signal.h` (not in the extracted constant set).
+    /// @value(0x1)
+    ss-onstack,
+    /// From `linux/signal.h` (not in the extracted constant set).
+    /// @value(0x2)
+    ss-disable,
+    /// From `linux/signal.h` (not in the extracted constant set).
+    /// @value(0x80000000)
+    ss-autodisarm,
+  }
+
+  /// `siginfo.si_code` values (`asm-generic/siginfo.h`).
+  /// The meaning of positive values depends on the signal number.
+  /// @repr(s32)
+  /// @c(int)
+  enum si-code {
+    /// @value(0)
+    si-user,
+    /// @value(1)
+    bus-adraln,
+    /// @value(1)
+    cld-exited,
+    /// @value(1)
+    fpe-intdiv,
+    /// @value(1)
+    ill-illopc,
+    /// @value(1)
+    poll-in,
+    /// @value(1)
+    segv-maperr,
+    /// @value(1)
+    sys-seccomp,
+    /// @value(1)
+    trap-brkpt,
+    /// @value(2)
+    bus-adrerr,
+    /// @value(2)
+    cld-killed,
+    /// @value(2)
+    fpe-intovf,
+    /// @value(2)
+    ill-illopn,
+    /// @value(2)
+    poll-out,
+    /// @value(2)
+    segv-accerr,
+    /// @value(2)
+    sys-user-dispatch,
+    /// @value(2)
+    trap-trace,
+    /// @value(3)
+    bus-objerr,
+    /// @value(3)
+    cld-dumped,
+    /// @value(3)
+    fpe-fltdiv,
+    /// @value(3)
+    ill-illadr,
+    /// @value(3)
+    poll-msg,
+    /// @value(3)
+    segv-bnderr,
+    /// @value(3)
+    trap-branch,
+    /// @value(4)
+    bus-mceerr-ar,
+    /// @value(4)
+    cld-trapped,
+    /// @value(4)
+    fpe-fltovf,
+    /// @value(4)
+    ill-illtrp,
+    /// @value(4)
+    poll-err,
+    /// @value(4)
+    segv-pkuerr,
+    /// @value(4)
+    trap-hwbkpt,
+    /// @value(5)
+    bus-mceerr-ao,
+    /// @value(5)
+    cld-stopped,
+    /// @value(5)
+    fpe-fltund,
+    /// @value(5)
+    ill-prvopc,
+    /// @value(5)
+    poll-pri,
+    /// @value(5)
+    segv-accadi,
+    /// @value(5)
+    trap-unk,
+    /// @value(6)
+    cld-continued,
+    /// @value(6)
+    fpe-fltres,
+    /// @value(6)
+    ill-prvreg,
+    /// @value(6)
+    poll-hup,
+    /// @value(6)
+    segv-adiderr,
+    /// @value(6)
+    trap-perf,
+    /// @value(7)
+    fpe-fltinv,
+    /// @value(7)
+    ill-coproc,
+    /// @value(7)
+    segv-adiperr,
+    /// @value(8)
+    fpe-fltsub,
+    /// @value(8)
+    ill-badstk,
+    /// @value(8)
+    segv-mteaerr,
+    /// @value(9)
+    ill-badiaddr,
+    /// @value(9)
+    segv-mteserr,
+    /// @value(10)
+    segv-cperr,
+    /// @value(14)
+    fpe-fltunk,
+    /// @value(15)
+    fpe-condtrap,
+    /// @value(128)
+    si-kernel,
+    /// @value(-60)
+    si-asyncnl,
+    /// @value(-7)
+    si-dethread,
+    /// @value(-6)
+    si-tkill,
+    /// @value(-5)
+    si-sigio,
+    /// @value(-4)
+    si-asyncio,
+    /// @value(-3)
+    si-mesgq,
+    /// @value(-2)
+    si-timer,
+    /// @value(-1)
+    si-queue,
+  }
+
+  /// `sigevent.sigev_notify` (`asm-generic/siginfo.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum sigev-notify {
+    /// @value(0)
+    sigev-signal,
+    /// @value(1)
+    sigev-none,
+    /// @value(2)
+    sigev-thread,
+    /// @value(4)
+    sigev-thread-id,
+  }
+
+  // ==== Processes, scheduling and resources ====
+
+  /// Resource usage with legacy 32-bit `timeval`s (kernel `struct rusage`, 72 bytes).
+  /// musl's 152-byte `struct rusage` is different: it lets the kernel fill the start and converts.
+  /// @kernel-only
+  /// @size(72)
+  /// @align(4)
+  record rusage {
+    ru-utime: kernel-old-timeval,
+    ru-stime: kernel-old-timeval,
+    ru-maxrss: slong,
+    ru-ixrss: slong,
+    ru-idrss: slong,
+    ru-isrss: slong,
+    ru-minflt: slong,
+    ru-majflt: slong,
+    ru-nswap: slong,
+    ru-inblock: slong,
+    ru-oublock: slong,
+    ru-msgsnd: slong,
+    ru-msgrcv: slong,
+    ru-nsignals: slong,
+    ru-nvcsw: slong,
+    ru-nivcsw: slong,
+  }
+
+  /// Resource limit for `prlimit64` (`struct rlimit64`). See `rlim-value` for infinity.
+  /// @c(struct rlimit)
+  /// @size(16)
+  /// @align(8)
+  record rlimit64 {
+    rlim-cur: u64,
+    rlim-max: u64,
+  }
+
+  /// System statistics (kernel `struct sysinfo`, 64 bytes).
+  /// musl's 312-byte `struct sysinfo` is a prefix-compatible superset.
+  /// @kernel-only
+  /// @size(64)
+  /// @align(4)
+  record sysinfo {
+    uptime: slong,
+    loads: list<ulong, 3>,
+    totalram: ulong,
+    freeram: ulong,
+    sharedram: ulong,
+    bufferram: ulong,
+    totalswap: ulong,
+    freeswap: ulong,
+    procs: u16,
+    pad: u16,
+    totalhigh: ulong,
+    freehigh: ulong,
+    mem-unit: u32,
+    /// @c-name(_f)
+    f: list<u8, 8>,
+  }
+
+  /// `uname` result (`struct new_utsname`), six NUL-terminated 65-byte strings.
+  /// musl names the last field `__domainname` unless `_GNU_SOURCE` is defined.
+  /// @c(struct utsname)
+  /// @size(390)
+  /// @align(1)
+  record new-utsname {
+    sysname: list<u8, 65>,
+    nodename: list<u8, 65>,
+    release: list<u8, 65>,
+    version: list<u8, 65>,
+    machine: list<u8, 65>,
+    domainname: list<u8, 65>,
+  }
+
+  /// Kernel `struct sched_param` (4 bytes). musl's 48-byte struct is a prefix-compatible superset.
+  /// @kernel-only
+  /// @size(4)
+  /// @align(4)
+  record sched-param {
+    sched-priority: s32,
+  }
+
+  /// `sched_setattr`/`sched_getattr` attributes (`struct sched_attr`, size-versioned; VER1 = 56).
+  /// @kernel-only
+  /// @size(56)
+  /// @align(8)
+  record sched-attr {
+    size: u32,
+    sched-policy: u32,
+    sched-flags: sched-flags,
+    sched-nice: s32,
+    sched-priority: u32,
+    sched-runtime: u64,
+    sched-deadline: u64,
+    sched-period: u64,
+    sched-util-min: u32,
+    sched-util-max: u32,
+  }
+
+  /// `clone3` arguments (`struct clone_args`, size-versioned; VER2 = 88).
+  /// Pointer fields hold zero-extended guest addresses.
+  /// @kernel-only
+  /// @size(88)
+  /// @align(8)
+  record clone-args {
+    %flags: clone-flags,
+    pidfd: u64,
+    child-tid: u64,
+    parent-tid: u64,
+    exit-signal: u64,
+    stack: u64,
+    stack-size: u64,
+    tls: u64,
+    set-tid: u64,
+    set-tid-size: u64,
+    cgroup: u64,
+  }
+
+  /// `capget`/`capset` header (`struct __user_cap_header_struct`).
+  /// @kernel-only
+  /// @size(8)
+  /// @align(4)
+  record user-cap-header-struct {
+    version: u32,
+    pid: pid,
+  }
+
+  /// `capget`/`capset` data (`struct __user_cap_data_struct`); version 3 uses two of them.
+  /// @kernel-only
+  /// @size(12)
+  /// @align(4)
+  record user-cap-data-struct {
+    effective: u32,
+    permitted: u32,
+    inheritable: u32,
+  }
+
+  /// Robust futex list entry (`struct robust_list`).
+  /// @kernel-only
+  /// @size(4)
+  /// @align(4)
+  record robust-list {
+    next: uptr,
+  }
+
+  /// Robust futex list head (`struct robust_list_head`); `set_robust_list` requires len 12.
+  /// @kernel-only
+  /// @size(12)
+  /// @align(4)
+  record robust-list-head {
+    %list: robust-list,
+    futex-offset: slong,
+    list-op-pending: uptr,
+  }
+
+  /// `kexec_load` segment (`struct kexec_segment`).
+  /// @kernel-only
+  /// @size(16)
+  /// @align(4)
+  record kexec-segment {
+    buf: uptr,
+    bufsz: usize,
+    mem: uptr,
+    memsz: usize,
+  }
+
+  /// `CLONE_*` flags (`linux/sched.h`): `clone` takes the low 32 bits, `clone3` all 64.
+  /// `CSIGNAL` masks the exit signal in the low byte of `clone` flags.
+  /// @repr(u64)
+  /// @c(uint64_t)
+  flags clone-flags {
+    /// @value(0x80)
+    clone-newtime,
+    /// @value(0xff)
+    csignal,
+    /// @value(0x100)
+    clone-vm,
+    /// @value(0x200)
+    clone-fs,
+    /// @value(0x400)
+    clone-files,
+    /// @value(0x800)
+    clone-sighand,
+    /// @value(0x1000)
+    clone-pidfd,
+    /// @value(0x2000)
+    clone-ptrace,
+    /// @value(0x4000)
+    clone-vfork,
+    /// @value(0x8000)
+    clone-parent,
+    /// @value(0x10000)
+    clone-thread,
+    /// @value(0x20000)
+    clone-newns,
+    /// @value(0x40000)
+    clone-sysvsem,
+    /// @value(0x80000)
+    clone-settls,
+    /// @value(0x100000)
+    clone-parent-settid,
+    /// @value(0x200000)
+    clone-child-cleartid,
+    /// @value(0x400000)
+    clone-detached,
+    /// @value(0x800000)
+    clone-untraced,
+    /// @value(0x1000000)
+    clone-child-settid,
+    /// @value(0x2000000)
+    clone-newcgroup,
+    /// @value(0x4000000)
+    clone-newuts,
+    /// @value(0x8000000)
+    clone-newipc,
+    /// @value(0x10000000)
+    clone-newuser,
+    /// @value(0x20000000)
+    clone-newpid,
+    /// @value(0x40000000)
+    clone-newnet,
+    /// @value(0x80000000)
+    clone-io,
+    /// @value(0x100000000)
+    clone-clear-sighand,
+    /// @value(0x200000000)
+    clone-into-cgroup,
+    /// @value(0x400000000)
+    clone-autoreap,
+    /// @value(0x800000000)
+    clone-nnp,
+    /// @value(0x1000000000)
+    clone-pidfd-autokill,
+    /// @value(0x2000000000)
+    clone-empty-mntns,
+  }
+
+  /// Known `struct clone_args` sizes (`linux/sched.h`).
+  /// @repr(u32)
+  enum clone-args-size {
+    /// @value(64)
+    clone-args-size-ver0,
+    /// @value(80)
+    clone-args-size-ver1,
+    /// @value(88)
+    clone-args-size-ver2,
+  }
+
+  /// Scheduling policies (`linux/sched.h`). `SCHED_RESET_ON_FORK` may be ORed into the policy.
+  /// @repr(s32)
+  /// @c(int)
+  enum sched-policy {
+    /// @value(0)
+    sched-normal,
+    /// @value(1)
+    sched-fifo,
+    /// @value(2)
+    sched-rr,
+    /// @value(3)
+    sched-batch,
+    /// @value(5)
+    sched-idle,
+    /// @value(6)
+    sched-deadline,
+    /// @value(7)
+    sched-ext,
+    /// @value(0x40000000)
+    sched-reset-on-fork,
+  }
+
+  /// `sched_attr.sched_flags` (`linux/sched.h`).
+  /// @repr(u64)
+  /// @c(uint64_t)
+  flags sched-flags {
+    /// @value(0x1)
+    sched-flag-reset-on-fork,
+    /// @value(0x2)
+    sched-flag-reclaim,
+    /// @value(0x4)
+    sched-flag-dl-overrun,
+    /// @value(0x8)
+    sched-flag-keep-policy,
+    /// @value(0x10)
+    sched-flag-keep-params,
+    /// @value(0x18)
+    sched-flag-keep-all,
+    /// @value(0x20)
+    sched-flag-util-clamp-min,
+    /// @value(0x40)
+    sched-flag-util-clamp-max,
+    /// @value(0x60)
+    sched-flag-util-clamp,
+    /// @value(0x7f)
+    sched-flag-all,
+  }
+
+  /// `sched_getattr` flags (`linux/sched.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags sched-getattr-flags {
+    /// @value(0x1)
+    sched-getattr-flag-dl-dynamic,
+  }
+
+  /// `waitid` id types (`linux/wait.h`). musl declares them as `idtype_t` enumerators.
+  /// @repr(s32)
+  /// @c(int)
+  /// @c-enum
+  enum idtype {
+    /// @value(0)
+    p-all,
+    /// @value(1)
+    p-pid,
+    /// @value(2)
+    p-pgid,
+    /// @value(3)
+    p-pidfd,
+  }
+
+  /// `waitid` options (`linux/wait.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags wait-options {
+    /// @value(0x1)
+    wnohang,
+    /// @value(0x2)
+    wstopped,
+    /// @value(0x2)
+    wuntraced,
+    /// @value(0x4)
+    wexited,
+    /// @value(0x8)
+    wcontinued,
+    /// @value(0x1000000)
+    wnowait,
+    /// @name(__WNOTHREAD)
+    /// @value(0x20000000)
+    wnothread,
+    /// @name(__WALL)
+    /// @value(0x40000000)
+    wall,
+    /// @name(__WCLONE)
+    /// @value(0x80000000)
+    wclone,
+  }
+
+  /// `which` for `getpriority`/`setpriority` (`linux/resource.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum prio-which {
+    /// @value(0)
+    prio-process,
+    /// @value(1)
+    prio-pgrp,
+    /// @value(2)
+    prio-user,
+  }
+
+  /// Nice value range (`linux/resource.h`).
+  /// @repr(s32)
+  enum prio-limits {
+    /// @value(20)
+    prio-max,
+    /// @value(-20)
+    prio-min,
+  }
+
+  /// `prlimit64` resources (`asm-generic/resource.h`).
+  /// @repr(s32)
+  /// @c(unsigned)
+  enum rlimit-resource {
+    /// @value(0)
+    rlimit-cpu,
+    /// @value(1)
+    rlimit-fsize,
+    /// @value(2)
+    rlimit-data,
+    /// @value(3)
+    rlimit-stack,
+    /// @value(4)
+    rlimit-core,
+    /// @value(5)
+    rlimit-rss,
+    /// @value(6)
+    rlimit-nproc,
+    /// @value(7)
+    rlimit-nofile,
+    /// @value(8)
+    rlimit-memlock,
+    /// @value(9)
+    rlimit-as,
+    /// @value(10)
+    rlimit-locks,
+    /// @value(11)
+    rlimit-sigpending,
+    /// @value(12)
+    rlimit-msgqueue,
+    /// @value(13)
+    rlimit-nice,
+    /// @value(14)
+    rlimit-rtprio,
+    /// @value(15)
+    rlimit-rttime,
+    /// @value(16)
+    rlim-nlimits,
+  }
+
+  /// Special resource limit values.
+  /// `RLIM_INFINITY` is the UAPI (`unsigned long`) spelling; `prlimit64` uses `RLIM64_INFINITY`
+  /// (kernel `include/linux/resource.h`), which is what musl calls `RLIM_INFINITY`.
+  /// @repr(u64)
+  enum rlim-value {
+    /// @value(0xffffffff)
+    /// No C assert: musl's `RLIM_INFINITY` is the 64-bit `~0ULL` (`rlim_t` is 64-bit; musl uses `prlimit64`).
+    /// @c-skip
+    rlim-infinity,
+    /// From `kernel include/linux/resource.h` (not in the extracted constant set).
+    /// @value(0xffffffffffffffff)
+    rlim64-infinity,
+  }
+
+  /// `who` for `getrusage` (`linux/resource.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum rusage-who {
+    /// @value(0)
+    rusage-self,
+    /// @value(1)
+    rusage-thread,
+    /// @value(-2)
+    rusage-both,
+    /// @value(-1)
+    rusage-children,
+  }
+
+  /// `prctl` options (first argument; `linux/prctl.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum prctl-option {
+    /// @value(1)
+    pr-set-pdeathsig,
+    /// @value(2)
+    pr-get-pdeathsig,
+    /// @value(3)
+    pr-get-dumpable,
+    /// @value(4)
+    pr-set-dumpable,
+    /// @value(5)
+    pr-get-unalign,
+    /// @value(6)
+    pr-set-unalign,
+    /// @value(7)
+    pr-get-keepcaps,
+    /// @value(8)
+    pr-set-keepcaps,
+    /// @value(9)
+    pr-get-fpemu,
+    /// @value(10)
+    pr-set-fpemu,
+    /// @value(11)
+    pr-get-fpexc,
+    /// @value(12)
+    pr-set-fpexc,
+    /// @value(13)
+    pr-get-timing,
+    /// @value(14)
+    pr-set-timing,
+    /// @value(15)
+    pr-set-name,
+    /// @value(16)
+    pr-get-name,
+    /// @value(19)
+    pr-get-endian,
+    /// @value(20)
+    pr-set-endian,
+    /// @value(21)
+    pr-get-seccomp,
+    /// @value(22)
+    pr-set-seccomp,
+    /// @value(23)
+    pr-capbset-read,
+    /// @value(24)
+    pr-capbset-drop,
+    /// @value(25)
+    pr-get-tsc,
+    /// @value(26)
+    pr-set-tsc,
+    /// @value(27)
+    pr-get-securebits,
+    /// @value(28)
+    pr-set-securebits,
+    /// @value(29)
+    pr-set-timerslack,
+    /// @value(30)
+    pr-get-timerslack,
+    /// @value(31)
+    pr-task-perf-events-disable,
+    /// @value(32)
+    pr-task-perf-events-enable,
+    /// @value(33)
+    pr-mce-kill,
+    /// @value(34)
+    pr-mce-kill-get,
+    /// @value(35)
+    pr-set-mm,
+    /// @value(36)
+    pr-set-child-subreaper,
+    /// @value(37)
+    pr-get-child-subreaper,
+    /// @value(38)
+    pr-set-no-new-privs,
+    /// @value(39)
+    pr-get-no-new-privs,
+    /// @value(40)
+    pr-get-tid-address,
+    /// @value(41)
+    pr-set-thp-disable,
+    /// @value(42)
+    pr-get-thp-disable,
+    /// @value(43)
+    pr-mpx-enable-management,
+    /// @value(44)
+    pr-mpx-disable-management,
+    /// @value(45)
+    pr-set-fp-mode,
+    /// @value(46)
+    pr-get-fp-mode,
+    /// @value(47)
+    pr-cap-ambient,
+    /// @value(50)
+    pr-sve-set-vl,
+    /// @value(51)
+    pr-sve-get-vl,
+    /// @value(52)
+    pr-get-speculation-ctrl,
+    /// @value(53)
+    pr-set-speculation-ctrl,
+    /// @value(54)
+    pr-pac-reset-keys,
+    /// @value(55)
+    pr-set-tagged-addr-ctrl,
+    /// @value(56)
+    pr-get-tagged-addr-ctrl,
+    /// @value(57)
+    pr-set-io-flusher,
+    /// @value(58)
+    pr-get-io-flusher,
+    /// @value(59)
+    pr-set-syscall-user-dispatch,
+    /// @value(60)
+    pr-pac-set-enabled-keys,
+    /// @value(61)
+    pr-pac-get-enabled-keys,
+    /// @value(62)
+    pr-sched-core,
+    /// @value(63)
+    pr-sme-set-vl,
+    /// @value(64)
+    pr-sme-get-vl,
+    /// @value(65)
+    pr-set-mdwe,
+    /// @value(66)
+    pr-get-mdwe,
+    /// @value(67)
+    pr-set-memory-merge,
+    /// @value(68)
+    pr-get-memory-merge,
+    /// @value(69)
+    pr-riscv-v-set-control,
+    /// @value(70)
+    pr-riscv-v-get-control,
+    /// @value(71)
+    pr-riscv-set-icache-flush-ctx,
+    /// @value(72)
+    pr-ppc-get-dexcr,
+    /// @value(73)
+    pr-ppc-set-dexcr,
+    /// @value(74)
+    pr-get-shadow-stack-status,
+    /// @value(75)
+    pr-set-shadow-stack-status,
+    /// @value(76)
+    pr-lock-shadow-stack-status,
+    /// @value(77)
+    pr-timer-create-restore-ids,
+    /// @value(78)
+    pr-futex-hash,
+    /// @value(79)
+    pr-rseq-slice-extension,
+    /// @value(80)
+    pr-get-cfi,
+    /// @value(81)
+    pr-set-cfi,
+    /// @value(0x41555856)
+    pr-get-auxv,
+    /// @value(0x53564d41)
+    pr-set-vma,
+    /// @value(0x59616d61)
+    pr-set-ptracer,
+  }
+
+  /// Values, flags and masks for the arguments of individual `prctl` options (`linux/prctl.h`).
+  /// @repr(u32)
+  enum prctl-arg {
+    /// @value(0)
+    pr-cfi-branch-landing-pads,
+    /// @value(0)
+    pr-endian-big,
+    /// @value(0)
+    pr-fp-exc-disabled,
+    /// @value(0)
+    pr-mce-kill-clear,
+    /// @value(0)
+    pr-mce-kill-late,
+    /// @value(0)
+    pr-mte-tcf-none,
+    /// @value(0)
+    pr-ppc-dexcr-sbhe,
+    /// @value(0)
+    pr-riscv-ctx-sw-fencei-on,
+    /// @value(0)
+    pr-riscv-scope-per-process,
+    /// @value(0)
+    pr-riscv-v-vstate-ctrl-default,
+    /// @value(0)
+    pr-sched-core-get,
+    /// @value(0)
+    pr-sched-core-scope-thread,
+    /// @value(0)
+    pr-set-vma-anon-name,
+    /// @value(0)
+    pr-spec-not-affected,
+    /// @value(0)
+    pr-spec-store-bypass,
+    /// @value(0)
+    pr-sys-dispatch-off,
+    /// @value(0)
+    pr-timer-create-restore-ids-off,
+    /// @value(0)
+    pr-timing-statistical,
+    /// @value(1)
+    pr-cap-ambient-is-set,
+    /// @value(1)
+    pr-endian-little,
+    /// @value(1)
+    pr-fpemu-noprint,
+    /// @value(1)
+    pr-fp-exc-nonrecov,
+    /// @value(1)
+    pr-fp-mode-fr,
+    /// @value(1)
+    pr-futex-hash-set-slots,
+    /// @value(1)
+    pr-mce-kill-early,
+    /// @value(1)
+    pr-mce-kill-set,
+    /// @value(1)
+    pr-mdwe-refuse-exec-gain,
+    /// @value(1)
+    pr-mte-tcf-shift,
+    /// @value(1)
+    pr-pac-apiakey,
+    /// @value(1)
+    pr-ppc-dexcr-ctrl-editable,
+    /// @value(1)
+    pr-ppc-dexcr-ibrtpd,
+    /// @value(1)
+    pr-riscv-ctx-sw-fencei-off,
+    /// @value(1)
+    pr-riscv-scope-per-thread,
+    /// @value(1)
+    pr-riscv-v-vstate-ctrl-off,
+    /// @value(1)
+    pr-rseq-slice-extension-get,
+    /// @value(1)
+    pr-rseq-slice-ext-enable,
+    /// @value(1)
+    pr-sched-core-create,
+    /// @value(1)
+    pr-sched-core-scope-thread-group,
+    /// @value(1)
+    pr-set-mm-start-code,
+    /// @value(1)
+    pr-shadow-stack-enable,
+    /// @value(1)
+    pr-spec-indirect-branch,
+    /// @value(1)
+    pr-spec-prctl,
+    /// @value(1)
+    pr-sys-dispatch-exclusive-on,
+    /// @value(1)
+    pr-sys-dispatch-on,
+    /// @value(1)
+    pr-tagged-addr-enable,
+    /// @value(1)
+    pr-timer-create-restore-ids-on,
+    /// @value(1)
+    pr-timing-timestamp,
+    /// @value(1)
+    pr-tsc-enable,
+    /// @value(1)
+    pr-unalign-noprint,
+    /// @value(2)
+    pr-cap-ambient-raise,
+    /// @value(2)
+    pr-endian-ppc-little,
+    /// @value(2)
+    pr-fpemu-sigfpe,
+    /// @value(2)
+    pr-fp-exc-async,
+    /// @value(2)
+    pr-fp-mode-fre,
+    /// @value(2)
+    pr-futex-hash-get-slots,
+    /// @value(2)
+    pr-mce-kill-default,
+    /// @value(2)
+    pr-mdwe-no-inherit,
+    /// @value(2)
+    pr-mte-tcf-sync,
+    /// @value(2)
+    pr-pac-apibkey,
+    /// @value(2)
+    pr-ppc-dexcr-ctrl-set,
+    /// @value(2)
+    pr-ppc-dexcr-srapd,
+    /// @value(2)
+    pr-riscv-v-vstate-ctrl-on,
+    /// @value(2)
+    pr-rseq-slice-extension-set,
+    /// @value(2)
+    pr-sched-core-scope-process-group,
+    /// @value(2)
+    pr-sched-core-share-to,
+    /// @value(2)
+    pr-set-mm-end-code,
+    /// @value(2)
+    pr-shadow-stack-write,
+    /// @value(2)
+    pr-spec-enable,
+    /// @value(2)
+    pr-spec-l1d-flush,
+    /// @value(2)
+    pr-sys-dispatch-inclusive-on,
+    /// @value(2)
+    pr-thp-disable-except-advised,
+    /// @value(2)
+    pr-timer-create-restore-ids-get,
+    /// @value(2)
+    pr-tsc-sigsegv,
+    /// @value(2)
+    pr-unalign-sigbus,
+    /// @value(3)
+    pr-cap-ambient-lower,
+    /// @value(3)
+    pr-fp-exc-precise,
+    /// @value(3)
+    pr-mte-tag-shift,
+    /// @value(3)
+    pr-ppc-dexcr-nphie,
+    /// @value(3)
+    pr-riscv-v-vstate-ctrl-cur-mask,
+    /// @value(3)
+    pr-sched-core-share-from,
+    /// @value(3)
+    pr-set-mm-start-data,
+    /// @value(4)
+    pr-cap-ambient-clear-all,
+    /// @value(4)
+    pr-mte-tcf-async,
+    /// @value(4)
+    pr-pac-apdakey,
+    /// @value(4)
+    pr-ppc-dexcr-ctrl-clear,
+    /// @value(4)
+    pr-sched-core-max,
+    /// @value(4)
+    pr-set-mm-end-data,
+    /// @value(4)
+    pr-shadow-stack-push,
+    /// @value(4)
+    pr-spec-disable,
+    /// @value(5)
+    pr-set-mm-start-stack,
+    /// @value(6)
+    pr-mte-tcf-mask,
+    /// @value(6)
+    pr-set-mm-start-brk,
+    /// @value(7)
+    pr-set-mm-brk,
+    /// @value(8)
+    pr-pac-apdbkey,
+    /// @value(8)
+    pr-ppc-dexcr-ctrl-set-onexec,
+    /// @value(8)
+    pr-set-mm-arg-start,
+    /// @value(8)
+    pr-spec-force-disable,
+    /// @value(9)
+    pr-set-mm-arg-end,
+    /// @value(10)
+    pr-set-mm-env-start,
+    /// @value(11)
+    pr-set-mm-env-end,
+    /// @value(12)
+    pr-riscv-v-vstate-ctrl-next-mask,
+    /// @value(12)
+    pr-set-mm-auxv,
+    /// @value(13)
+    pr-set-mm-exe-file,
+    /// @value(14)
+    pr-set-mm-map,
+    /// @value(15)
+    pr-set-mm-map-size,
+    /// @value(16)
+    pr-pac-apgakey,
+    /// @value(16)
+    pr-ppc-dexcr-ctrl-clear-onexec,
+    /// @value(16)
+    pr-riscv-v-vstate-ctrl-inherit,
+    /// @value(16)
+    pr-spec-disable-noexec,
+    /// @value(24)
+    pr-pmlen-shift,
+    /// @value(31)
+    pr-ppc-dexcr-ctrl-mask,
+    /// @value(31)
+    pr-riscv-v-vstate-ctrl-mask,
+    /// @value(128)
+    pr-fp-exc-sw-enable,
+    /// @value(65535)
+    pr-sme-vl-len-mask,
+    /// @value(65535)
+    pr-sve-vl-len-mask,
+    /// @value(0x10000)
+    pr-fp-exc-div,
+    /// @value(0x20000)
+    pr-fp-exc-ovf,
+    /// @value(0x20000)
+    pr-sme-vl-inherit,
+    /// @value(0x20000)
+    pr-sve-vl-inherit,
+    /// @value(0x40000)
+    pr-fp-exc-und,
+    /// @value(0x40000)
+    pr-sme-set-vl-onexec,
+    /// @value(0x40000)
+    pr-sve-set-vl-onexec,
+    /// @value(0x7fff8)
+    pr-mte-tag-mask,
+    /// @value(0x80000)
+    pr-fp-exc-res,
+    /// @value(0x80000)
+    pr-mte-store-only,
+    /// @value(0x100000)
+    pr-fp-exc-inv,
+    /// @value(0x7f000000)
+    pr-pmlen-mask,
+    /// @value(0xffffffff)
+    pr-set-ptracer-any,
+  }
+
+  /// `ptrace` requests (`linux/ptrace.h`).
+  /// @repr(s32)
+  /// @c(long)
+  enum ptrace-request {
+    /// @value(0)
+    ptrace-traceme,
+    /// @value(1)
+    ptrace-peektext,
+    /// @value(2)
+    ptrace-peekdata,
+    /// @value(3)
+    ptrace-peekusr,
+    /// @value(4)
+    ptrace-poketext,
+    /// @value(5)
+    ptrace-pokedata,
+    /// @value(6)
+    ptrace-pokeusr,
+    /// @value(7)
+    ptrace-cont,
+    /// @value(8)
+    ptrace-kill,
+    /// @value(9)
+    ptrace-singlestep,
+    /// @value(16)
+    ptrace-attach,
+    /// @value(17)
+    ptrace-detach,
+    /// @value(24)
+    ptrace-syscall,
+    /// @value(33)
+    ptrace-getfdpic,
+    /// @value(16896)
+    ptrace-setoptions,
+    /// @value(16897)
+    ptrace-geteventmsg,
+    /// @value(16898)
+    ptrace-getsiginfo,
+    /// @value(16899)
+    ptrace-setsiginfo,
+    /// @value(16900)
+    ptrace-getregset,
+    /// @value(16901)
+    ptrace-setregset,
+    /// @value(16902)
+    ptrace-seize,
+    /// @value(16903)
+    ptrace-interrupt,
+    /// @value(16904)
+    ptrace-listen,
+    /// @value(16905)
+    ptrace-peeksiginfo,
+    /// @value(16906)
+    ptrace-getsigmask,
+    /// @value(16907)
+    ptrace-setsigmask,
+    /// @value(16908)
+    ptrace-seccomp-get-filter,
+    /// @value(16909)
+    ptrace-seccomp-get-metadata,
+    /// @value(16910)
+    ptrace-get-syscall-info,
+    /// @value(16911)
+    ptrace-get-rseq-configuration,
+    /// @value(16912)
+    ptrace-set-syscall-user-dispatch-config,
+    /// @value(16913)
+    ptrace-get-syscall-user-dispatch-config,
+    /// @value(16914)
+    ptrace-set-syscall-info,
+  }
+
+  /// `PTRACE_SETOPTIONS` options (`linux/ptrace.h`).
+  /// @repr(u32)
+  flags ptrace-options {
+    /// @value(0x1)
+    ptrace-o-tracesysgood,
+    /// @value(0x2)
+    ptrace-o-tracefork,
+    /// @value(0x4)
+    ptrace-o-tracevfork,
+    /// @value(0x8)
+    ptrace-o-traceclone,
+    /// @value(0x10)
+    ptrace-o-traceexec,
+    /// @value(0x20)
+    ptrace-o-tracevforkdone,
+    /// @value(0x40)
+    ptrace-o-traceexit,
+    /// @value(0x80)
+    ptrace-o-traceseccomp,
+    /// @value(0x100000)
+    ptrace-o-exitkill,
+    /// @value(0x200000)
+    ptrace-o-suspend-seccomp,
+    /// @value(0x3000ff)
+    ptrace-o-mask,
+  }
+
+  /// `PTRACE_EVENT_*` stop codes (`linux/ptrace.h`).
+  /// @repr(s32)
+  enum ptrace-event {
+    /// @value(1)
+    ptrace-event-fork,
+    /// @value(2)
+    ptrace-event-vfork,
+    /// @value(3)
+    ptrace-event-clone,
+    /// @value(4)
+    ptrace-event-exec,
+    /// @value(5)
+    ptrace-event-vfork-done,
+    /// @value(6)
+    ptrace-event-exit,
+    /// @value(7)
+    ptrace-event-seccomp,
+    /// @value(128)
+    ptrace-event-stop,
+  }
+
+  /// Values, flags and masks used by individual `ptrace` requests (`linux/ptrace.h`).
+  /// @repr(u32)
+  enum ptrace-arg {
+    /// @value(0)
+    ptrace-cfi-branch-landing-pad-en-bit,
+    /// @value(0)
+    ptrace-getfdpic-exec,
+    /// @value(0)
+    ptrace-syscall-info-none,
+    /// @value(1)
+    ptrace-cfi-branch-landing-pad-en-state,
+    /// @value(1)
+    ptrace-cfi-branch-landing-pad-lock-bit,
+    /// @value(1)
+    ptrace-eventmsg-syscall-entry,
+    /// @value(1)
+    ptrace-getfdpic-interp,
+    /// @value(1)
+    ptrace-peeksiginfo-shared,
+    /// @value(1)
+    ptrace-syscall-info-entry,
+    /// @value(2)
+    ptrace-cfi-branch-expected-landing-pad-bit,
+    /// @value(2)
+    ptrace-cfi-branch-landing-pad-lock-state,
+    /// @value(2)
+    ptrace-eventmsg-syscall-exit,
+    /// @value(2)
+    ptrace-syscall-info-exit,
+    /// @value(3)
+    ptrace-cfi-shadow-stack-en-bit,
+    /// @value(3)
+    ptrace-syscall-info-seccomp,
+    /// @value(4)
+    ptrace-cfi-branch-expected-landing-pad-state,
+    /// @value(4)
+    ptrace-cfi-shadow-stack-lock-bit,
+    /// @value(5)
+    ptrace-cfi-shadow-stack-ptr-bit,
+    /// @value(8)
+    ptrace-cfi-shadow-stack-en-state,
+    /// @value(16)
+    ptrace-cfi-shadow-stack-lock-state,
+    /// @value(32)
+    ptrace-cfi-shadow-stack-ptr-state,
+    /// @value(0xffffffc0)
+    ptrace-cfi-state-invalid-mask,
+  }
+
+  /// `membarrier` commands (`linux/membarrier.h`, an enum there).
+  /// @repr(s32)
+  /// @c(int)
+  enum membarrier-cmd {
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(0)
+    membarrier-cmd-query,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(1)
+    membarrier-cmd-global,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(1)
+    membarrier-cmd-shared,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(2)
+    membarrier-cmd-global-expedited,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(4)
+    membarrier-cmd-register-global-expedited,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(8)
+    membarrier-cmd-private-expedited,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(16)
+    membarrier-cmd-register-private-expedited,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(32)
+    membarrier-cmd-private-expedited-sync-core,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(64)
+    membarrier-cmd-register-private-expedited-sync-core,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(128)
+    membarrier-cmd-private-expedited-rseq,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(256)
+    membarrier-cmd-register-private-expedited-rseq,
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(512)
+    membarrier-cmd-get-registrations,
+  }
+
+  /// `membarrier` flags (`linux/membarrier.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags membarrier-cmd-flags {
+    /// From `linux/membarrier.h` (not in the extracted constant set).
+    /// @value(0x1)
+    membarrier-cmd-flag-cpu,
+  }
+
+  /// `getrandom` flags (`linux/random.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags grnd-flags {
+    /// @value(0x1)
+    grnd-nonblock,
+    /// @value(0x2)
+    grnd-random,
+    /// @value(0x4)
+    grnd-insecure,
+  }
+
+  /// `close_range` flags (`linux/close_range.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags close-range-flags {
+    /// @value(0x2)
+    close-range-unshare,
+    /// @value(0x4)
+    close-range-cloexec,
+  }
+
+  /// `reboot` magic numbers (`linux/reboot.h`).
+  /// @repr(u32)
+  /// @c(int)
+  enum reboot-magic {
+    /// @value(0x5121996)
+    linux-reboot-magic2a,
+    /// @value(0x16041998)
+    linux-reboot-magic2b,
+    /// @value(0x20112000)
+    linux-reboot-magic2c,
+    /// @value(0x28121969)
+    linux-reboot-magic2,
+    /// @value(0xfee1dead)
+    linux-reboot-magic1,
+  }
+
+  /// `reboot` commands (`linux/reboot.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  enum reboot-cmd {
+    /// @value(0)
+    linux-reboot-cmd-cad-off,
+    /// @value(0x1234567)
+    linux-reboot-cmd-restart,
+    /// @value(0x4321fedc)
+    linux-reboot-cmd-power-off,
+    /// @value(0x45584543)
+    linux-reboot-cmd-kexec,
+    /// @value(0x89abcdef)
+    linux-reboot-cmd-cad-on,
+    /// @value(0xa1b2c3d4)
+    linux-reboot-cmd-restart2,
+    /// @value(0xcdef0123)
+    linux-reboot-cmd-halt,
+    /// @value(0xd000fce2)
+    linux-reboot-cmd-sw-suspend,
+  }
+
+  /// Auxiliary vector entry types (`linux/auxvec.h`, riscv `asm/auxvec.h`).
+  /// Used in the startup block written by `wasix_ext.startup-get`.
+  /// @repr(u32)
+  enum auxv-type {
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(0)
+    at-null,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(1)
+    at-ignore,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(2)
+    at-execfd,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(3)
+    at-phdr,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(4)
+    at-phent,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(5)
+    at-phnum,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(6)
+    at-pagesz,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(7)
+    at-base,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(8)
+    at-flags,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(9)
+    at-entry,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(10)
+    at-notelf,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(11)
+    at-uid,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(12)
+    at-euid,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(13)
+    at-gid,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(14)
+    at-egid,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(15)
+    at-platform,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(16)
+    at-hwcap,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(17)
+    at-clktck,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(23)
+    at-secure,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(24)
+    at-base-platform,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(25)
+    at-random,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(26)
+    at-hwcap2,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(27)
+    at-rseq-feature-size,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(28)
+    at-rseq-align,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(29)
+    at-hwcap3,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(30)
+    at-hwcap4,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(31)
+    at-execfn,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(33)
+    at-sysinfo-ehdr,
+    /// From `linux/auxvec.h, asm/auxvec.h` (not in the extracted constant set).
+    /// @value(51)
+    at-minsigstksz,
+  }
+
+  // ==== Futexes ====
+
+  /// `futex_waitv`/`futex_requeue` waiter (`struct futex_waitv`).
+  /// @kernel-only
+  /// @size(24)
+  /// @align(8)
+  record futex-waitv {
+    val: u64,
+    /// Guest address of the futex word, zero-extended.
+    uaddr: u64,
+    %flags: futex2-flags,
+    /// @c-name(__reserved)
+    reserved: u32,
+  }
+
+  /// `futex_time64` operations and their modifier bits (`linux/futex.h`).
+  /// The operation is `op & FUTEX_CMD_MASK`; `FUTEX_PRIVATE_FLAG` and `FUTEX_CLOCK_REALTIME` may be ORed in.
+  /// @repr(s32)
+  /// @c(int)
+  enum futex-op {
+    /// @value(0)
+    futex-wait,
+    /// @value(1)
+    futex-wake,
+    /// @value(2)
+    futex-fd,
+    /// @value(3)
+    futex-requeue,
+    /// @value(4)
+    futex-cmp-requeue,
+    /// @value(5)
+    futex-wake-op,
+    /// @value(6)
+    futex-lock-pi,
+    /// @value(7)
+    futex-unlock-pi,
+    /// @value(8)
+    futex-trylock-pi,
+    /// @value(9)
+    futex-wait-bitset,
+    /// @value(10)
+    futex-wake-bitset,
+    /// @value(11)
+    futex-wait-requeue-pi,
+    /// @value(12)
+    futex-cmp-requeue-pi,
+    /// @value(13)
+    futex-lock-pi2,
+    /// @value(128)
+    futex-private-flag,
+    /// @value(128)
+    futex-wait-private,
+    /// @value(129)
+    futex-wake-private,
+    /// @value(131)
+    futex-requeue-private,
+    /// @value(132)
+    futex-cmp-requeue-private,
+    /// @value(133)
+    futex-wake-op-private,
+    /// @value(134)
+    futex-lock-pi-private,
+    /// @value(135)
+    futex-unlock-pi-private,
+    /// @value(136)
+    futex-trylock-pi-private,
+    /// @value(137)
+    futex-wait-bitset-private,
+    /// @value(138)
+    futex-wake-bitset-private,
+    /// @value(139)
+    futex-wait-requeue-pi-private,
+    /// @value(140)
+    futex-cmp-requeue-pi-private,
+    /// @value(141)
+    futex-lock-pi2-private,
+    /// @value(256)
+    futex-clock-realtime,
+    /// @value(513)
+    futex-unlock-wake-list64,
+    /// @value(519)
+    futex-unlock-pi-list64,
+    /// @value(522)
+    futex-unlock-bitset-list64,
+    /// @value(641)
+    futex-unlock-wake-list64-private,
+    /// @value(647)
+    futex-unlock-pi-list64-private,
+    /// @value(650)
+    futex-unlock-bitset-list64-private,
+    /// @value(1537)
+    futex-unlock-wake-list32,
+    /// @value(1543)
+    futex-unlock-pi-list32,
+    /// @value(1546)
+    futex-unlock-bitset-list32,
+    /// @value(1665)
+    futex-unlock-wake-list32-private,
+    /// @value(1671)
+    futex-unlock-pi-list32-private,
+    /// @value(1674)
+    futex-unlock-bitset-list32-private,
+    /// @value(-1921)
+    futex-cmd-mask,
+  }
+
+  /// `FUTEX_WAKE_OP` encoding of `val3` (`linux/futex.h`).
+  /// @repr(s32)
+  enum futex-wake-op {
+    /// @value(0)
+    futex-op-cmp-eq,
+    /// @value(0)
+    futex-op-set,
+    /// @value(1)
+    futex-op-add,
+    /// @value(1)
+    futex-op-cmp-ne,
+    /// @value(2)
+    futex-op-cmp-lt,
+    /// @value(2)
+    futex-op-or,
+    /// @value(3)
+    futex-op-andn,
+    /// @value(3)
+    futex-op-cmp-le,
+    /// @value(4)
+    futex-op-cmp-gt,
+    /// @value(4)
+    futex-op-xor,
+    /// @value(5)
+    futex-op-cmp-ge,
+    /// @value(8)
+    futex-op-oparg-shift,
+  }
+
+  /// `futex_wake`/`futex_wait`/`futex_waitv` flags (`FUTEX2_*`, `linux/futex.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags futex2-flags {
+    /// @value(0x0)
+    futex2-size-u8,
+    /// @value(0x1)
+    futex2-size-u16,
+    /// @value(0x2)
+    futex2-size-u32,
+    /// @value(0x2)
+    futex-32,
+    /// @value(0x3)
+    futex2-size-mask,
+    /// @value(0x3)
+    futex2-size-u64,
+    /// @value(0x4)
+    futex2-numa,
+    /// @value(0x8)
+    futex2-mpol,
+    /// @value(0x80)
+    futex2-private,
+  }
+
+  /// Bits of a PI / robust futex word (`linux/futex.h`).
+  /// @repr(u32)
+  flags futex-word-bits {
+    /// @value(0x3fffffff)
+    futex-tid-mask,
+    /// @value(0x40000000)
+    futex-owner-died,
+    /// @value(0x80000000)
+    futex-waiters,
+  }
+
+  /// Other futex constants (`linux/futex.h`). `@repr(s64)` only because the values mix -1 and 0xffffffff.
+  /// @repr(s64)
+  enum futex-misc {
+    /// @value(1)
+    futex-robust-mod-mask,
+    /// @value(1)
+    futex-robust-mod-pi,
+    /// @value(128)
+    futex-waitv-max,
+    /// @value(512)
+    futex-robust-unlock,
+    /// @value(1024)
+    futex-robust-list32,
+    /// @value(2048)
+    robust-list-limit,
+    /// @value(0xffffffff)
+    futex-bitset-match-any,
+    /// @value(-1)
+    futex-no-node,
+  }
+
+  // ==== Memory management ====
+
+  /// Memory protection (`PROT_*`, `asm-generic/mman-common.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags prot-flags {
+    /// @value(0x0)
+    prot-none,
+    /// @value(0x1)
+    prot-read,
+    /// @value(0x2)
+    prot-write,
+    /// @value(0x4)
+    prot-exec,
+    /// @value(0x8)
+    prot-sem,
+    /// @value(0x1000000)
+    prot-growsdown,
+    /// @value(0x2000000)
+    prot-growsup,
+  }
+
+  /// `mmap2` flags (`MAP_*`, `asm-generic/mman*.h`, `linux/mman.h`).
+  /// `MAP_SHARED`/`MAP_PRIVATE`/`MAP_SHARED_VALIDATE` are values of the `MAP_TYPE` field;
+  /// `MAP_HUGE_*` encode log2(page size) in bits 26..31.
+  /// @repr(u32)
+  /// @c(int)
+  flags map-flags {
+    /// @value(0x0)
+    map-file,
+    /// @value(0x1)
+    map-shared,
+    /// @value(0x2)
+    map-private,
+    /// @value(0x3)
+    map-shared-validate,
+    /// @value(0x8)
+    map-droppable,
+    /// @value(0xf)
+    map-type,
+    /// @value(0x10)
+    map-fixed,
+    /// @value(0x20)
+    map-anonymous,
+    /// @value(0x100)
+    map-growsdown,
+    /// @value(0x800)
+    map-denywrite,
+    /// @value(0x1000)
+    map-executable,
+    /// @value(0x2000)
+    map-locked,
+    /// @value(0x4000)
+    map-noreserve,
+    /// @value(0x8000)
+    map-populate,
+    /// @value(0x10000)
+    map-nonblock,
+    /// @value(0x20000)
+    map-stack,
+    /// @value(0x40000)
+    map-hugetlb,
+    /// @value(0x80000)
+    map-sync,
+    /// @value(0x100000)
+    map-fixed-noreplace,
+    /// @value(0x4000000)
+    map-uninitialized,
+    /// @value(0x38000000)
+    map-huge-16kb,
+    /// @value(0x40000000)
+    map-huge-64kb,
+    /// @value(0x4c000000)
+    map-huge-512kb,
+    /// @value(0x50000000)
+    map-huge-1mb,
+    /// @value(0x54000000)
+    map-huge-2mb,
+    /// @value(0x5c000000)
+    map-huge-8mb,
+    /// @value(0x60000000)
+    map-huge-16mb,
+    /// @value(0x64000000)
+    map-huge-32mb,
+    /// @value(0x70000000)
+    map-huge-256mb,
+    /// @value(0x74000000)
+    map-huge-512mb,
+    /// @value(0x78000000)
+    map-huge-1gb,
+    /// @value(0x7c000000)
+    map-huge-2gb,
+    /// @value(0x88000000)
+    map-huge-16gb,
+  }
+
+  /// Shift/mask of the huge page size field in `mmap2` and `memfd_create` flags.
+  /// @repr(u32)
+  enum hugetlb-encoding {
+    /// @value(26)
+    map-huge-shift,
+    /// @value(26)
+    mfd-huge-shift,
+    /// @value(63)
+    map-huge-mask,
+    /// @value(63)
+    mfd-huge-mask,
+  }
+
+  /// `msync` flags (`asm-generic/mman-common.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags msync-flags {
+    /// @value(0x1)
+    ms-async,
+    /// @value(0x2)
+    ms-invalidate,
+    /// @value(0x4)
+    ms-sync,
+  }
+
+  /// `madvise`/`process_madvise` advice (`asm-generic/mman-common.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum madvise-advice {
+    /// @value(0)
+    madv-normal,
+    /// @value(1)
+    madv-random,
+    /// @value(2)
+    madv-sequential,
+    /// @value(3)
+    madv-willneed,
+    /// @value(4)
+    madv-dontneed,
+    /// @value(8)
+    madv-free,
+    /// @value(9)
+    madv-remove,
+    /// @value(10)
+    madv-dontfork,
+    /// @value(11)
+    madv-dofork,
+    /// @value(12)
+    madv-mergeable,
+    /// @value(13)
+    madv-unmergeable,
+    /// @value(14)
+    madv-hugepage,
+    /// @value(15)
+    madv-nohugepage,
+    /// @value(16)
+    madv-dontdump,
+    /// @value(17)
+    madv-dodump,
+    /// @value(18)
+    madv-wipeonfork,
+    /// @value(19)
+    madv-keeponfork,
+    /// @value(20)
+    madv-cold,
+    /// @value(21)
+    madv-pageout,
+    /// @value(22)
+    madv-populate-read,
+    /// @value(23)
+    madv-populate-write,
+    /// @value(24)
+    madv-dontneed-locked,
+    /// @value(25)
+    madv-collapse,
+    /// @value(100)
+    madv-hwpoison,
+    /// @value(101)
+    madv-soft-offline,
+    /// @value(102)
+    madv-guard-install,
+    /// @value(103)
+    madv-guard-remove,
+  }
+
+  /// `mlockall` flags (`asm-generic/mman.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags mcl-flags {
+    /// @value(0x1)
+    mcl-current,
+    /// @value(0x2)
+    mcl-future,
+    /// @value(0x4)
+    mcl-onfault,
+  }
+
+  /// `mlock2` flags (`asm-generic/mman-common.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags mlock-flags {
+    /// @value(0x1)
+    mlock-onfault,
+  }
+
+  /// `mremap` flags (`linux/mman.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags mremap-flags {
+    /// @value(0x1)
+    mremap-maymove,
+    /// @value(0x2)
+    mremap-fixed,
+    /// @value(0x4)
+    mremap-dontunmap,
+  }
+
+  /// `vm.overcommit_memory` modes (`linux/mman.h`).
+  /// @repr(s32)
+  enum overcommit-mode {
+    /// @value(0)
+    overcommit-guess,
+    /// @value(1)
+    overcommit-always,
+    /// @value(2)
+    overcommit-never,
+  }
+
+  /// `pkey_alloc` access rights (`asm-generic/mman-common.h`).
+  /// @repr(u32)
+  flags pkey-access {
+    /// @value(0x0)
+    pkey-unrestricted,
+    /// @value(0x1)
+    pkey-disable-access,
+    /// @value(0x2)
+    pkey-disable-write,
+    /// @value(0x3)
+    pkey-access-mask,
+  }
+
+  /// `memfd_create` flags (`linux/memfd.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags memfd-flags {
+    /// @value(0x1)
+    mfd-cloexec,
+    /// @value(0x2)
+    mfd-allow-sealing,
+    /// @value(0x4)
+    mfd-hugetlb,
+    /// @value(0x8)
+    mfd-noexec-seal,
+    /// @value(0x10)
+    mfd-exec,
+  }
+
+  // ==== Clocks and timers ====
+
+  /// Time64 timespec (`struct __kernel_timespec`). The `time64` syscalls all use it.
+  ///
+  /// musl's `struct timespec` has a 32-bit `long tv_nsec` at offset 8 followed by 4 bytes of
+  /// padding that it does not initialise. The kernel truncates `tv_nsec` to 32 bits on 32-bit
+  /// ABIs, so on input hosts must read only the low 32 bits; on output they write the full
+  /// 64-bit value (high half zero).
+  /// @c(struct timespec)
+  /// @size(16)
+  /// @align(8)
+  record kernel-timespec {
+    tv-sec: time,
+    tv-nsec: s64,
+  }
+
+  /// Time64 interval timer value (`struct __kernel_itimerspec`).
+  /// @c(struct itimerspec)
+  /// @size(32)
+  /// @align(8)
+  record kernel-itimerspec {
+    it-interval: kernel-timespec,
+    it-value: kernel-timespec,
+  }
+
+  /// Legacy 32-bit `timeval` (`struct __kernel_old_timeval`), used by `getitimer`, `setitimer`,
+  /// `getrusage` and `waitid`. musl's 64-bit `struct timeval` does not match; it converts.
+  /// @kernel-only
+  /// @size(8)
+  /// @align(4)
+  record kernel-old-timeval {
+    tv-sec: slong,
+    tv-usec: slong,
+  }
+
+  /// Legacy 32-bit interval timer (`struct __kernel_old_itimerval`).
+  /// @kernel-only
+  /// @size(16)
+  /// @align(4)
+  record kernel-old-itimerval {
+    it-interval: kernel-old-timeval,
+    it-value: kernel-old-timeval,
+  }
+
+  /// Time64 `timeval` for `SO_RCVTIMEO_NEW`/`SO_SNDTIMEO_NEW` (`struct __kernel_sock_timeval`).
+  /// @c(struct timeval)
+  /// @size(16)
+  /// @align(8)
+  record kernel-sock-timeval {
+    tv-sec: s64,
+    tv-usec: s64,
+  }
+
+  /// `timeval` embedded in `kernel-timex` (`struct __kernel_timex_timeval`).
+  /// @kernel-only
+  /// @size(16)
+  /// @align(8)
+  record kernel-timex-timeval {
+    tv-sec: time,
+    tv-usec: s64,
+  }
+
+  /// Time64 `timex` for `clock_adjtime64` (`struct __kernel_timex`).
+  /// musl's `struct timex` differs; it converts. The `pad*` fields are anonymous `int :32`.
+  /// @kernel-only
+  /// @size(208)
+  /// @align(8)
+  record kernel-timex {
+    modes: adjtimex-modes,
+    pad0: s32,
+    offset: s64,
+    freq: s64,
+    maxerror: s64,
+    esterror: s64,
+    status: timex-status,
+    pad1: s32,
+    constant: s64,
+    precision: s64,
+    tolerance: s64,
+    time: kernel-timex-timeval,
+    tick: s64,
+    ppsfreq: s64,
+    jitter: s64,
+    shift: s32,
+    pad2: s32,
+    stabil: s64,
+    jitcnt: s64,
+    calcnt: s64,
+    errcnt: s64,
+    stbcnt: s64,
+    tai: s32,
+    pad3: list<s32, 11>,
+  }
+
+  /// Process times for `times` (`struct tms`, 32-bit `clock_t`).
+  /// @c(struct tms)
+  /// @size(16)
+  /// @align(4)
+  record tms {
+    tms-utime: kernel-clock,
+    tms-stime: kernel-clock,
+    tms-cutime: kernel-clock,
+    tms-cstime: kernel-clock,
+  }
+
+  /// Clock ids (`linux/time.h`). Negative ids encode per-process/thread CPU clocks.
+  /// @repr(s32)
+  /// @c(clockid_t)
+  enum clock-id {
+    /// @value(0)
+    clock-realtime,
+    /// @value(1)
+    clock-monotonic,
+    /// @value(2)
+    clock-process-cputime-id,
+    /// @value(3)
+    clock-thread-cputime-id,
+    /// @value(4)
+    clock-monotonic-raw,
+    /// @value(5)
+    clock-realtime-coarse,
+    /// @value(6)
+    clock-monotonic-coarse,
+    /// @value(7)
+    clock-boottime,
+    /// @value(8)
+    clock-realtime-alarm,
+    /// @value(9)
+    clock-boottime-alarm,
+    /// @value(10)
+    clock-sgi-cycle,
+    /// @value(11)
+    clock-tai,
+    /// @value(16)
+    clock-aux,
+    /// @value(16)
+    max-clocks,
+    /// @value(23)
+    clock-aux-last,
+  }
+
+  /// `clock_nanosleep_time64`/`timer_settime64` flags (`linux/time.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags timer-flags {
+    /// @value(0x1)
+    timer-abstime,
+  }
+
+  /// `getitimer`/`setitimer` timers (`linux/time.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum itimer-which {
+    /// @value(0)
+    itimer-real,
+    /// @value(1)
+    itimer-virtual,
+    /// @value(2)
+    itimer-prof,
+  }
+
+  /// `timerfd_create` flags (`linux/timerfd.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags timerfd-flags {
+    /// @value(0x800)
+    tfd-nonblock,
+    /// @value(0x80000)
+    tfd-cloexec,
+  }
+
+  /// `timerfd_settime64` flags (`linux/timerfd.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags timerfd-settime-flags {
+    /// @value(0x1)
+    tfd-timer-abstime,
+    /// @value(0x2)
+    tfd-timer-cancel-on-set,
+  }
+
+  /// `kernel-timex.modes` (`ADJ_*`, `MOD_*`; `linux/timex.h`).
+  /// @repr(u32)
+  flags adjtimex-modes {
+    /// @value(0x1)
+    adj-offset,
+    /// @value(0x1)
+    mod-offset,
+    /// @value(0x2)
+    adj-frequency,
+    /// @value(0x2)
+    mod-frequency,
+    /// @value(0x4)
+    adj-maxerror,
+    /// @value(0x4)
+    mod-maxerror,
+    /// @value(0x8)
+    adj-esterror,
+    /// @value(0x8)
+    mod-esterror,
+    /// @value(0x10)
+    adj-status,
+    /// @value(0x10)
+    mod-status,
+    /// @value(0x20)
+    adj-timeconst,
+    /// @value(0x20)
+    mod-timeconst,
+    /// @value(0x80)
+    adj-tai,
+    /// @value(0x80)
+    mod-tai,
+    /// @value(0x100)
+    adj-setoffset,
+    /// @value(0x1000)
+    adj-micro,
+    /// @value(0x1000)
+    mod-micro,
+    /// @value(0x2000)
+    adj-nano,
+    /// @value(0x2000)
+    mod-nano,
+    /// @value(0x4000)
+    adj-tick,
+    /// @value(0x8001)
+    adj-offset-singleshot,
+    /// @value(0xa001)
+    adj-offset-ss-read,
+  }
+
+  /// `kernel-timex.status` (`STA_*`; `linux/timex.h`).
+  /// @repr(u32)
+  flags timex-status {
+    /// @value(0x1)
+    sta-pll,
+    /// @value(0x2)
+    sta-ppsfreq,
+    /// @value(0x4)
+    sta-ppstime,
+    /// @value(0x8)
+    sta-fll,
+    /// @value(0x10)
+    sta-ins,
+    /// @value(0x20)
+    sta-del,
+    /// @value(0x40)
+    sta-unsync,
+    /// @value(0x80)
+    sta-freqhold,
+    /// @value(0x100)
+    sta-ppssignal,
+    /// @value(0x200)
+    sta-ppsjitter,
+    /// @value(0x400)
+    sta-ppswander,
+    /// @value(0x800)
+    sta-ppserror,
+    /// @value(0x1000)
+    sta-clockerr,
+    /// @value(0x2000)
+    sta-nano,
+    /// @value(0x4000)
+    sta-mode,
+    /// @value(0x8000)
+    sta-clk,
+    /// @value(0xff00)
+    sta-ronly,
+  }
+
+  /// `clock_adjtime64` return values (`TIME_*`; `linux/timex.h`).
+  /// @repr(s32)
+  enum clock-state {
+    /// @value(0)
+    time-ok,
+    /// @value(1)
+    time-ins,
+    /// @value(2)
+    time-del,
+    /// @value(3)
+    time-oop,
+    /// @value(4)
+    time-wait,
+    /// @value(5)
+    time-bad,
+    /// @value(5)
+    time-error,
+  }
+
+  // ==== Sockets and networking ====
+
+  /// Generic socket address (`struct sockaddr`).
+  /// @c(struct sockaddr)
+  /// @size(16)
+  /// @align(2)
+  record sockaddr {
+    sa-family: sa-family,
+    sa-data: list<u8, 14>,
+  }
+
+  /// Socket address storage (`struct __kernel_sockaddr_storage`).
+  /// The kernel declares a union of `{ ss_family; __data[126] }` and a `void *` aligner; this is
+  /// the same 128 bytes split the way musl's `struct sockaddr_storage` does.
+  /// @c(struct sockaddr_storage)
+  /// @size(128)
+  /// @align(4)
+  record sockaddr-storage {
+    ss-family: sa-family,
+    /// @c-name(__ss_padding)
+    ss-padding: list<u8, 122>,
+    /// @c-name(__ss_align)
+    ss-align: ulong,
+  }
+
+  /// IPv4 address in network byte order (`struct in_addr`).
+  /// @c(struct in_addr)
+  /// @size(4)
+  /// @align(4)
+  record in-addr {
+    s-addr: u32,
+  }
+
+  /// IPv6 address (`struct in6_addr`, a union `in6_u` in the kernel).
+  /// @c(struct in6_addr)
+  /// @union
+  /// @size(16)
+  /// @align(4)
+  record in6-addr {
+    /// @c-name(__in6_union.__s6_addr)
+    u6-addr8: list<u8, 16>,
+    /// @c-name(__in6_union.__s6_addr16)
+    u6-addr16: list<u16, 8>,
+    /// @c-name(__in6_union.__s6_addr32)
+    u6-addr32: list<u32, 4>,
+  }
+
+  /// IPv4 socket address (`struct sockaddr_in`). Port and address are big-endian.
+  /// @c(struct sockaddr_in)
+  /// @size(16)
+  /// @align(4)
+  record sockaddr-in {
+    sin-family: sa-family,
+    sin-port: u16,
+    sin-addr: in-addr,
+    /// Kernel field `__pad`, `#define`d to `sin_zero`.
+    sin-zero: list<u8, 8>,
+  }
+
+  /// IPv6 socket address (`struct sockaddr_in6`).
+  /// @c(struct sockaddr_in6)
+  /// @size(28)
+  /// @align(4)
+  record sockaddr-in6 {
+    sin6-family: sa-family,
+    sin6-port: u16,
+    sin6-flowinfo: u32,
+    sin6-addr: in6-addr,
+    sin6-scope-id: u32,
+  }
+
+  /// Unix domain socket address (`struct sockaddr_un`).
+  /// @c(struct sockaddr_un)
+  /// @size(110)
+  /// @align(2)
+  record sockaddr-un {
+    sun-family: sa-family,
+    sun-path: list<u8, 108>,
+  }
+
+  /// Netlink socket address (`struct sockaddr_nl`).
+  /// @kernel-only
+  /// @size(12)
+  /// @align(4)
+  record sockaddr-nl {
+    nl-family: sa-family,
+    nl-pad: u16,
+    nl-pid: u32,
+    nl-groups: u32,
+  }
+
+  /// Link-layer socket address (`struct sockaddr_ll`).
+  /// @c(struct sockaddr_ll)
+  /// @size(20)
+  /// @align(4)
+  record sockaddr-ll {
+    sll-family: sa-family,
+    sll-protocol: u16,
+    sll-ifindex: s32,
+    sll-hatype: u16,
+    sll-pkttype: u8,
+    sll-halen: u8,
+    sll-addr: list<u8, 8>,
+  }
+
+  /// `sendmsg`/`recvmsg` header (`struct user_msghdr`).
+  /// @c(struct msghdr)
+  /// @size(28)
+  /// @align(4)
+  record user-msghdr {
+    msg-name: sockaddr-ptr,
+    msg-namelen: s32,
+    msg-iov: const-iovec-array,
+    msg-iovlen: usize,
+    msg-control: void-ptr,
+    msg-controllen: usize,
+    /// `msg-flags` bits.
+    msg-flags: u32,
+  }
+
+  /// `sendmmsg`/`recvmmsg_time64` element (`struct mmsghdr`).
+  /// @c(struct mmsghdr)
+  /// @size(32)
+  /// @align(4)
+  record mmsghdr {
+    msg-hdr: user-msghdr,
+    msg-len: u32,
+  }
+
+  /// Control message header (`struct cmsghdr`). Data follows at offset 12; `CMSG_ALIGN` is 4.
+  /// @c(struct cmsghdr)
+  /// @size(12)
+  /// @align(4)
+  record cmsghdr {
+    cmsg-len: usize,
+    cmsg-level: s32,
+    cmsg-type: s32,
+  }
+
+  /// `SO_PEERCRED`/`SCM_CREDENTIALS` payload (`struct ucred`).
+  /// @c(struct ucred)
+  /// @size(12)
+  /// @align(4)
+  record ucred {
+    pid: pid,
+    uid: uid,
+    gid: gid,
+  }
+
+  /// `SO_LINGER` payload (`struct linger`).
+  /// @c(struct linger)
+  /// @size(8)
+  /// @align(4)
+  record linger {
+    l-onoff: s32,
+    l-linger: s32,
+  }
+
+  /// `IP_ADD_MEMBERSHIP` payload (`struct ip_mreq`).
+  /// @c(struct ip_mreq)
+  /// @size(8)
+  /// @align(4)
+  record ip-mreq {
+    imr-multiaddr: in-addr,
+    imr-interface: in-addr,
+  }
+
+  /// `IP_ADD_MEMBERSHIP`/`IP_MULTICAST_IF` payload with interface index (`struct ip_mreqn`).
+  /// @c(struct ip_mreqn)
+  /// @size(12)
+  /// @align(4)
+  record ip-mreqn {
+    imr-multiaddr: in-addr,
+    imr-address: in-addr,
+    imr-ifindex: s32,
+  }
+
+  /// `IPV6_ADD_MEMBERSHIP` payload (`struct ipv6_mreq`).
+  /// @c(struct ipv6_mreq)
+  /// @size(20)
+  /// @align(4)
+  record ipv6-mreq {
+    ipv6mr-multiaddr: in6-addr,
+    /// musl (POSIX): `ipv6mr_interface`.
+    /// @c-name(ipv6mr_interface)
+    ipv6mr-ifindex: s32,
+  }
+
+  /// Address/protocol families (`AF_*`, `PF_*`).
+  /// Not in the UAPI headers; values follow the kernel's `include/linux/socket.h`.
+  /// @repr(s32)
+  /// @c(int)
+  enum address-family {
+    /// @value(0)
+    af-unspec,
+    /// @value(0)
+    pf-unspec,
+    /// @value(1)
+    af-file,
+    /// @value(1)
+    af-local,
+    /// @value(1)
+    af-unix,
+    /// @value(1)
+    pf-file,
+    /// @value(1)
+    pf-local,
+    /// @value(1)
+    pf-unix,
+    /// @value(2)
+    af-inet,
+    /// @value(2)
+    pf-inet,
+    /// @value(3)
+    af-ax25,
+    /// @value(3)
+    pf-ax25,
+    /// @value(4)
+    af-ipx,
+    /// @value(4)
+    pf-ipx,
+    /// @value(5)
+    af-appletalk,
+    /// @value(5)
+    pf-appletalk,
+    /// @value(6)
+    af-netrom,
+    /// @value(6)
+    pf-netrom,
+    /// @value(7)
+    af-bridge,
+    /// @value(7)
+    pf-bridge,
+    /// @value(8)
+    af-atmpvc,
+    /// @value(8)
+    pf-atmpvc,
+    /// @value(9)
+    af-x25,
+    /// @value(9)
+    pf-x25,
+    /// @value(10)
+    af-inet6,
+    /// @value(10)
+    pf-inet6,
+    /// @value(11)
+    af-rose,
+    /// @value(11)
+    pf-rose,
+    /// @value(13)
+    af-netbeui,
+    /// @value(13)
+    pf-netbeui,
+    /// @value(14)
+    af-security,
+    /// @value(14)
+    pf-security,
+    /// @value(15)
+    af-key,
+    /// @value(15)
+    pf-key,
+    /// @value(16)
+    af-netlink,
+    /// @value(16)
+    af-route,
+    /// @value(16)
+    pf-netlink,
+    /// @value(16)
+    pf-route,
+    /// @value(17)
+    af-packet,
+    /// @value(17)
+    pf-packet,
+    /// @value(18)
+    af-ash,
+    /// @value(18)
+    pf-ash,
+    /// @value(19)
+    af-econet,
+    /// @value(19)
+    pf-econet,
+    /// @value(20)
+    af-atmsvc,
+    /// @value(20)
+    pf-atmsvc,
+    /// @value(21)
+    af-rds,
+    /// @value(21)
+    pf-rds,
+    /// @value(22)
+    af-sna,
+    /// @value(22)
+    pf-sna,
+    /// @value(23)
+    af-irda,
+    /// @value(23)
+    pf-irda,
+    /// @value(24)
+    af-pppox,
+    /// @value(24)
+    pf-pppox,
+    /// @value(25)
+    af-wanpipe,
+    /// @value(25)
+    pf-wanpipe,
+    /// @value(26)
+    af-llc,
+    /// @value(26)
+    pf-llc,
+    /// @value(27)
+    af-ib,
+    /// @value(27)
+    pf-ib,
+    /// @value(28)
+    af-mpls,
+    /// @value(28)
+    pf-mpls,
+    /// @value(29)
+    af-can,
+    /// @value(29)
+    pf-can,
+    /// @value(30)
+    af-tipc,
+    /// @value(30)
+    pf-tipc,
+    /// @value(31)
+    af-bluetooth,
+    /// @value(31)
+    pf-bluetooth,
+    /// @value(32)
+    af-iucv,
+    /// @value(32)
+    pf-iucv,
+    /// @value(33)
+    af-rxrpc,
+    /// @value(33)
+    pf-rxrpc,
+    /// @value(34)
+    af-isdn,
+    /// @value(34)
+    pf-isdn,
+    /// @value(35)
+    af-phonet,
+    /// @value(35)
+    pf-phonet,
+    /// @value(36)
+    af-ieee802154,
+    /// @value(36)
+    pf-ieee802154,
+    /// @value(37)
+    af-caif,
+    /// @value(37)
+    pf-caif,
+    /// @value(38)
+    af-alg,
+    /// @value(38)
+    pf-alg,
+    /// @value(39)
+    af-nfc,
+    /// @value(39)
+    pf-nfc,
+    /// @value(40)
+    af-vsock,
+    /// @value(40)
+    pf-vsock,
+    /// @value(41)
+    af-kcm,
+    /// @value(41)
+    pf-kcm,
+    /// @value(42)
+    af-qipcrtr,
+    /// @value(42)
+    pf-qipcrtr,
+    /// @value(43)
+    af-smc,
+    /// @value(43)
+    pf-smc,
+    /// @value(44)
+    af-xdp,
+    /// @value(44)
+    pf-xdp,
+    /// @value(45)
+    af-mctp,
+    /// @value(45)
+    pf-mctp,
+    /// @value(46)
+    /// No C assert: musl 1.2.6 predates `AF_MCTP` and still defines `AF_MAX` as 45.
+    /// @c-skip
+    af-max,
+    /// @value(46)
+    /// No C assert: musl 1.2.6 predates `PF_MCTP` and still defines `PF_MAX` as 45.
+    /// @c-skip
+    pf-max,
+  }
+
+  /// Socket types (`SOCK_*`); `socket-flags` may be ORed in.
+  /// @repr(s32)
+  /// @c(int)
+  enum socket-type {
+    /// @value(1)
+    sock-stream,
+    /// @value(2)
+    sock-dgram,
+    /// @value(3)
+    sock-raw,
+    /// @value(4)
+    sock-rdm,
+    /// @value(5)
+    sock-seqpacket,
+    /// @value(6)
+    sock-dccp,
+    /// @value(10)
+    sock-packet,
+  }
+
+  /// `SOCK_NONBLOCK`/`SOCK_CLOEXEC` for `socket`, `socketpair` (ORed into the type) and `accept4`.
+  /// @repr(u32)
+  /// @c(int)
+  flags socket-flags {
+    /// @value(0x800)
+    sock-nonblock,
+    /// @value(0x80000)
+    sock-cloexec,
+  }
+
+  /// `send*`/`recv*` flags and `msghdr.msg_flags` (`MSG_*`; musl `sys/socket.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags msg-flags {
+    /// @value(0x1)
+    msg-oob,
+    /// @value(0x2)
+    msg-peek,
+    /// @value(0x4)
+    msg-dontroute,
+    /// @value(0x8)
+    msg-ctrunc,
+    /// @value(0x10)
+    msg-proxy,
+    /// @value(0x20)
+    msg-trunc,
+    /// @value(0x40)
+    msg-dontwait,
+    /// @value(0x80)
+    msg-eor,
+    /// @value(0x100)
+    msg-waitall,
+    /// @value(0x200)
+    msg-fin,
+    /// @value(0x400)
+    msg-syn,
+    /// @value(0x800)
+    msg-confirm,
+    /// @value(0x1000)
+    msg-rst,
+    /// @value(0x2000)
+    msg-errqueue,
+    /// @value(0x4000)
+    msg-nosignal,
+    /// @value(0x8000)
+    msg-more,
+    /// @value(0x10000)
+    msg-waitforone,
+    /// @value(0x40000)
+    msg-batch,
+    /// @value(0x4000000)
+    msg-zerocopy,
+    /// @value(0x20000000)
+    msg-fastopen,
+    /// @value(0x40000000)
+    msg-cmsg-cloexec,
+  }
+
+  /// `shutdown` modes (musl `sys/socket.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum shutdown-how {
+    /// @value(0)
+    shut-rd,
+    /// @value(1)
+    shut-wr,
+    /// @value(2)
+    shut-rdwr,
+  }
+
+  /// `setsockopt`/`getsockopt` levels and `cmsghdr.cmsg_level` (`SOL_*`).
+  /// @repr(s32)
+  /// @c(int)
+  enum socket-level {
+    /// @value(0)
+    sol-ip,
+    /// @value(1)
+    sol-socket,
+    /// @value(6)
+    sol-tcp,
+    /// @value(41)
+    sol-ipv6,
+    /// @value(58)
+    sol-icmpv6,
+    /// @value(255)
+    sol-raw,
+    /// @value(261)
+    sol-decnet,
+    /// @value(262)
+    sol-x25,
+    /// @value(263)
+    sol-packet,
+    /// @value(264)
+    sol-atm,
+    /// @value(265)
+    sol-aal,
+    /// @value(266)
+    sol-irda,
+    /// @value(267)
+    sol-netbeui,
+    /// @value(268)
+    sol-llc,
+    /// @value(269)
+    sol-dccp,
+    /// @value(270)
+    sol-netlink,
+    /// @value(271)
+    sol-tipc,
+    /// @value(272)
+    sol-rxrpc,
+    /// @value(273)
+    sol-pppol2tp,
+    /// @value(274)
+    sol-bluetooth,
+    /// @value(275)
+    sol-pnpipe,
+    /// @value(276)
+    sol-rds,
+    /// @value(277)
+    sol-iucv,
+    /// @value(278)
+    sol-caif,
+    /// @value(279)
+    sol-alg,
+    /// @value(280)
+    sol-nfc,
+    /// @value(281)
+    sol-kcm,
+    /// @value(282)
+    sol-tls,
+    /// @value(283)
+    sol-xdp,
+  }
+
+  /// `SOL_SOCKET` options (`asm-generic/socket.h`).
+  /// The `*_OLD` variants of time-related options use 32-bit time; musl uses the `*_NEW` ones.
+  /// @repr(s32)
+  /// @c(int)
+  enum socket-option {
+    /// @value(1)
+    so-debug,
+    /// @value(2)
+    so-reuseaddr,
+    /// @value(3)
+    so-type,
+    /// @value(4)
+    so-error,
+    /// @value(5)
+    so-dontroute,
+    /// @value(6)
+    so-broadcast,
+    /// @value(7)
+    so-sndbuf,
+    /// @value(8)
+    so-rcvbuf,
+    /// @value(9)
+    so-keepalive,
+    /// @value(10)
+    so-oobinline,
+    /// @value(11)
+    so-no-check,
+    /// @value(12)
+    so-priority,
+    /// @value(13)
+    so-linger,
+    /// @value(14)
+    so-bsdcompat,
+    /// @value(15)
+    so-reuseport,
+    /// @value(16)
+    so-passcred,
+    /// @value(17)
+    so-peercred,
+    /// @value(18)
+    so-rcvlowat,
+    /// @value(19)
+    so-sndlowat,
+    /// @value(20)
+    so-rcvtimeo-old,
+    /// @value(21)
+    so-sndtimeo-old,
+    /// @value(22)
+    so-security-authentication,
+    /// @value(23)
+    so-security-encryption-transport,
+    /// @value(24)
+    so-security-encryption-network,
+    /// @value(25)
+    so-bindtodevice,
+    /// @value(26)
+    so-attach-filter,
+    /// @value(26)
+    so-get-filter,
+    /// @value(27)
+    so-detach-bpf,
+    /// @value(27)
+    so-detach-filter,
+    /// @value(28)
+    so-peername,
+    /// @value(29)
+    so-timestamp-old,
+    /// @value(30)
+    so-acceptconn,
+    /// @value(31)
+    so-peersec,
+    /// @value(32)
+    so-sndbufforce,
+    /// @value(33)
+    so-rcvbufforce,
+    /// @value(34)
+    so-passsec,
+    /// @value(35)
+    so-timestampns-old,
+    /// @value(36)
+    so-mark,
+    /// @value(37)
+    so-timestamping-old,
+    /// @value(38)
+    so-protocol,
+    /// @value(39)
+    so-domain,
+    /// @value(40)
+    so-rxq-ovfl,
+    /// @value(41)
+    so-wifi-status,
+    /// @value(42)
+    so-peek-off,
+    /// @value(43)
+    so-nofcs,
+    /// @value(44)
+    so-lock-filter,
+    /// @value(45)
+    so-select-err-queue,
+    /// @value(46)
+    so-busy-poll,
+    /// @value(47)
+    so-max-pacing-rate,
+    /// @value(48)
+    so-bpf-extensions,
+    /// @value(49)
+    so-incoming-cpu,
+    /// @value(50)
+    so-attach-bpf,
+    /// @value(51)
+    so-attach-reuseport-cbpf,
+    /// @value(52)
+    so-attach-reuseport-ebpf,
+    /// @value(53)
+    so-cnx-advice,
+    /// @value(55)
+    so-meminfo,
+    /// @value(56)
+    so-incoming-napi-id,
+    /// @value(57)
+    so-cookie,
+    /// @value(59)
+    so-peergroups,
+    /// @value(60)
+    so-zerocopy,
+    /// @value(61)
+    so-txtime,
+    /// @value(62)
+    so-bindtoifindex,
+    /// @value(63)
+    so-timestamp-new,
+    /// @value(64)
+    so-timestampns-new,
+    /// @value(65)
+    so-timestamping-new,
+    /// @value(66)
+    so-rcvtimeo-new,
+    /// @value(67)
+    so-sndtimeo-new,
+    /// @value(68)
+    so-detach-reuseport-bpf,
+    /// @value(69)
+    so-prefer-busy-poll,
+    /// @value(70)
+    so-busy-poll-budget,
+    /// @value(71)
+    so-netns-cookie,
+    /// @value(72)
+    so-buf-lock,
+    /// @value(73)
+    so-reserve-mem,
+    /// @value(74)
+    so-txrehash,
+    /// @value(75)
+    so-rcvmark,
+    /// @value(76)
+    so-passpidfd,
+    /// @value(77)
+    so-peerpidfd,
+    /// @value(78)
+    so-devmem-linear,
+    /// @value(79)
+    so-devmem-dmabuf,
+    /// @value(80)
+    so-devmem-dontneed,
+    /// @value(82)
+    so-rcvpriority,
+    /// @value(83)
+    so-passrights,
+    /// @value(84)
+    so-inq,
+    /// @value(85)
+    so-rights-notrunc,
+  }
+
+  /// `SOL_SOCKET` control message types (`cmsghdr.cmsg_type`).
+  /// `SCM_RIGHTS`..`SCM_PIDFD` come from kernel `include/linux/socket.h` (not UAPI).
+  /// @repr(s32)
+  /// @c(int)
+  enum scm-type {
+    /// From `kernel include/linux/socket.h` (not in the extracted constant set).
+    /// @value(1)
+    scm-rights,
+    /// From `kernel include/linux/socket.h` (not in the extracted constant set).
+    /// @value(2)
+    scm-credentials,
+    /// From `kernel include/linux/socket.h` (not in the extracted constant set).
+    /// @value(3)
+    scm-security,
+    /// From `kernel include/linux/socket.h` (not in the extracted constant set).
+    /// @value(4)
+    scm-pidfd,
+    /// @value(41)
+    scm-wifi-status,
+    /// @value(54)
+    scm-timestamping-opt-stats,
+    /// @value(58)
+    scm-timestamping-pktinfo,
+    /// @value(61)
+    scm-txtime,
+    /// @value(78)
+    scm-devmem-linear,
+    /// @value(79)
+    scm-devmem-dmabuf,
+    /// @value(81)
+    scm-ts-opt-id,
+    /// @value(84)
+    scm-inq,
+  }
+
+  /// IP protocol numbers (`IPPROTO_*`; musl `netinet/in.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum ip-protocol {
+    /// @value(0)
+    ipproto-hopopts,
+    /// @value(0)
+    ipproto-ip,
+    /// @value(1)
+    ipproto-icmp,
+    /// @value(2)
+    ipproto-igmp,
+    /// @value(4)
+    ipproto-ipip,
+    /// @value(6)
+    ipproto-tcp,
+    /// @value(8)
+    ipproto-egp,
+    /// @value(12)
+    ipproto-pup,
+    /// @value(17)
+    ipproto-udp,
+    /// @value(22)
+    ipproto-idp,
+    /// @value(29)
+    ipproto-tp,
+    /// @value(33)
+    ipproto-dccp,
+    /// @value(41)
+    ipproto-ipv6,
+    /// @value(43)
+    ipproto-routing,
+    /// @value(44)
+    ipproto-fragment,
+    /// @value(46)
+    ipproto-rsvp,
+    /// @value(47)
+    ipproto-gre,
+    /// @value(50)
+    ipproto-esp,
+    /// @value(51)
+    ipproto-ah,
+    /// @value(58)
+    ipproto-icmpv6,
+    /// @value(59)
+    ipproto-none,
+    /// @value(60)
+    ipproto-dstopts,
+    /// @value(92)
+    ipproto-mtp,
+    /// @value(94)
+    ipproto-beetph,
+    /// @value(98)
+    ipproto-encap,
+    /// @value(103)
+    ipproto-pim,
+    /// @value(108)
+    ipproto-comp,
+    /// @value(132)
+    ipproto-sctp,
+    /// @value(135)
+    ipproto-mh,
+    /// @value(136)
+    ipproto-udplite,
+    /// @value(137)
+    ipproto-mpls,
+    /// @value(143)
+    ipproto-ethernet,
+    /// @value(255)
+    ipproto-raw,
+    /// @value(262)
+    ipproto-mptcp,
+    /// @value(263)
+    ipproto-max,
+  }
+
+  /// `SOL_IP` socket options (musl `netinet/in.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum ip-option {
+    /// @value(1)
+    ip-tos,
+    /// @value(2)
+    ip-ttl,
+    /// @value(3)
+    ip-hdrincl,
+    /// @value(4)
+    ip-options,
+    /// @value(5)
+    ip-router-alert,
+    /// @value(6)
+    ip-recvopts,
+    /// @value(7)
+    ip-recvretopts,
+    /// @value(7)
+    ip-retopts,
+    /// @value(8)
+    ip-pktinfo,
+    /// @value(9)
+    ip-pktoptions,
+    /// @value(10)
+    ip-mtu-discover,
+    /// @value(10)
+    ip-pmtudisc,
+    /// @value(11)
+    ip-recverr,
+    /// @value(12)
+    ip-recvttl,
+    /// @value(13)
+    ip-recvtos,
+    /// @value(14)
+    ip-mtu,
+    /// @value(15)
+    ip-freebind,
+    /// @value(16)
+    ip-ipsec-policy,
+    /// @value(17)
+    ip-xfrm-policy,
+    /// @value(18)
+    ip-passsec,
+    /// @value(19)
+    ip-transparent,
+    /// @value(20)
+    ip-origdstaddr,
+    /// @value(20)
+    ip-recvorigdstaddr,
+    /// @value(21)
+    ip-minttl,
+    /// @value(22)
+    ip-nodefrag,
+    /// @value(23)
+    ip-checksum,
+    /// @value(24)
+    ip-bind-address-no-port,
+    /// @value(25)
+    ip-recvfragsize,
+    /// @value(32)
+    ip-multicast-if,
+    /// @value(33)
+    ip-multicast-ttl,
+    /// @value(34)
+    ip-multicast-loop,
+    /// @value(35)
+    ip-add-membership,
+    /// @value(36)
+    ip-drop-membership,
+    /// @value(37)
+    ip-unblock-source,
+    /// @value(38)
+    ip-block-source,
+    /// @value(39)
+    ip-add-source-membership,
+    /// @value(40)
+    ip-drop-source-membership,
+    /// @value(41)
+    ip-msfilter,
+    /// @value(49)
+    ip-multicast-all,
+    /// @value(50)
+    ip-unicast-if,
+  }
+
+  /// `SOL_IPV6` socket options (musl `netinet/in.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum ipv6-option {
+    /// @value(1)
+    ipv6-addrform,
+    /// @value(7)
+    ipv6-checksum,
+    /// @value(9)
+    ipv6-nexthop,
+    /// @value(10)
+    ipv6-authhdr,
+    /// @value(16)
+    ipv6-unicast-hops,
+    /// @value(17)
+    ipv6-multicast-if,
+    /// @value(18)
+    ipv6-multicast-hops,
+    /// @value(19)
+    ipv6-multicast-loop,
+    /// @value(20)
+    ipv6-add-membership,
+    /// @value(20)
+    ipv6-join-group,
+    /// @value(21)
+    ipv6-drop-membership,
+    /// @value(21)
+    ipv6-leave-group,
+    /// @value(22)
+    ipv6-router-alert,
+    /// @value(23)
+    ipv6-mtu-discover,
+    /// @value(24)
+    ipv6-mtu,
+    /// @value(25)
+    ipv6-recverr,
+    /// @value(27)
+    ipv6-join-anycast,
+    /// @value(28)
+    ipv6-leave-anycast,
+    /// @value(29)
+    ipv6-multicast-all,
+    /// @value(30)
+    ipv6-router-alert-isolate,
+    /// @value(34)
+    ipv6-ipsec-policy,
+    /// @value(35)
+    ipv6-xfrm-policy,
+    /// @value(36)
+    ipv6-hdrincl,
+    /// @value(49)
+    ipv6-recvpktinfo,
+    /// @value(50)
+    ipv6-pktinfo,
+    /// @value(51)
+    ipv6-recvhoplimit,
+    /// @value(52)
+    ipv6-hoplimit,
+    /// @value(53)
+    ipv6-recvhopopts,
+    /// @value(54)
+    ipv6-hopopts,
+    /// @value(54)
+    ipv6-rxhopopts,
+    /// @value(55)
+    ipv6-rthdrdstopts,
+    /// @value(56)
+    ipv6-recvrthdr,
+    /// @value(57)
+    ipv6-rthdr,
+    /// @value(58)
+    ipv6-recvdstopts,
+    /// @value(59)
+    ipv6-dstopts,
+    /// @value(59)
+    ipv6-rxdstopts,
+    /// @value(60)
+    ipv6-recvpathmtu,
+    /// @value(61)
+    ipv6-pathmtu,
+    /// @value(62)
+    ipv6-dontfrag,
+    /// @value(66)
+    ipv6-recvtclass,
+    /// @value(67)
+    ipv6-tclass,
+    /// @value(70)
+    ipv6-autoflowlabel,
+    /// @value(72)
+    ipv6-addr-preferences,
+    /// @value(73)
+    ipv6-minhopcount,
+    /// @value(74)
+    ipv6-origdstaddr,
+    /// @value(74)
+    ipv6-recvorigdstaddr,
+    /// @value(75)
+    ipv6-transparent,
+    /// @value(76)
+    ipv6-unicast-if,
+    /// @value(77)
+    ipv6-recvfragsize,
+    /// @value(78)
+    ipv6-freebind,
+  }
+
+  /// IPv4 multicast defaults and limits (musl `netinet/in.h`).
+  /// @repr(s32)
+  enum ip-limits {
+    /// @value(1)
+    ip-default-multicast-loop,
+    /// @value(1)
+    ip-default-multicast-ttl,
+    /// @value(20)
+    ip-max-memberships,
+  }
+
+  /// Values for `IP_MTU_DISCOVER`/`IPV6_MTU_DISCOVER`.
+  /// @repr(s32)
+  enum pmtudisc-mode {
+    /// @value(0)
+    ipv6-pmtudisc-dont,
+    /// @value(0)
+    ip-pmtudisc-dont,
+    /// @value(1)
+    ipv6-pmtudisc-want,
+    /// @value(1)
+    ip-pmtudisc-want,
+    /// @value(2)
+    ipv6-pmtudisc-do,
+    /// @value(2)
+    ip-pmtudisc-do,
+    /// @value(3)
+    ipv6-pmtudisc-probe,
+    /// @value(3)
+    ip-pmtudisc-probe,
+    /// @value(4)
+    ipv6-pmtudisc-interface,
+    /// @value(4)
+    ip-pmtudisc-interface,
+    /// @value(5)
+    ipv6-pmtudisc-omit,
+    /// @value(5)
+    ip-pmtudisc-omit,
+  }
+
+  /// Values for `IPV6_ADDR_PREFERENCES`.
+  /// @repr(u32)
+  flags ipv6-prefer-src-flags {
+    /// @value(0x1)
+    ipv6-prefer-src-tmp,
+    /// @value(0x2)
+    ipv6-prefer-src-public,
+    /// @value(0x4)
+    ipv6-prefer-src-coa,
+    /// @value(0x8)
+    ipv6-prefer-src-cga,
+    /// @value(0x100)
+    ipv6-prefer-src-pubtmp-default,
+    /// @value(0x400)
+    ipv6-prefer-src-home,
+    /// @value(0x800)
+    ipv6-prefer-src-noncga,
+  }
+
+  /// IPv6 routing header types.
+  /// @repr(s32)
+  enum ipv6-rthdr-type {
+    /// @value(0)
+    ipv6-rthdr-loose,
+    /// @value(1)
+    ipv6-rthdr-strict,
+  }
+
+  /// `SOL_TCP` socket options (musl `netinet/tcp.h`).
+  /// @repr(s32)
+  /// @c(int)
+  enum tcp-option {
+    /// @value(1)
+    tcp-nodelay,
+    /// @value(2)
+    tcp-maxseg,
+    /// @value(3)
+    tcp-cork,
+    /// @value(4)
+    tcp-keepidle,
+    /// @value(5)
+    tcp-keepintvl,
+    /// @value(6)
+    tcp-keepcnt,
+    /// @value(7)
+    tcp-syncnt,
+    /// @value(9)
+    tcp-defer-accept,
+    /// @value(10)
+    tcp-window-clamp,
+    /// @value(11)
+    tcp-info,
+    /// @value(12)
+    tcp-quickack,
+    /// @value(13)
+    tcp-congestion,
+    /// @value(16)
+    tcp-thin-linear-timeouts,
+    /// @value(17)
+    tcp-thin-dupack,
+    /// @value(18)
+    tcp-user-timeout,
+    /// @value(19)
+    tcp-repair,
+    /// @value(20)
+    tcp-repair-queue,
+    /// @value(21)
+    tcp-queue-seq,
+    /// @value(22)
+    tcp-repair-options,
+    /// @value(23)
+    tcp-fastopen,
+    /// @value(24)
+    tcp-timestamp,
+    /// @value(25)
+    tcp-notsent-lowat,
+    /// @value(26)
+    tcp-cc-info,
+    /// @value(27)
+    tcp-save-syn,
+    /// @value(28)
+    tcp-saved-syn,
+    /// @value(29)
+    tcp-repair-window,
+    /// @value(30)
+    tcp-fastopen-connect,
+    /// @value(31)
+    tcp-ulp,
+    /// @value(33)
+    tcp-fastopen-key,
+    /// @value(34)
+    tcp-fastopen-no-cookie,
+    /// @value(35)
+    tcp-zerocopy-receive,
+    /// @value(36)
+    tcp-cm-inq,
+    /// @value(36)
+    tcp-inq,
+    /// @value(37)
+    tcp-tx-delay,
+  }
+
+  /// TCP connection states (`tcp_info.tcpi_state`).
+  /// @repr(s32)
+  enum tcp-state {
+    /// @value(1)
+    tcp-established,
+    /// @value(2)
+    tcp-syn-sent,
+    /// @value(3)
+    tcp-syn-recv,
+    /// @value(6)
+    tcp-time-wait,
+    /// @value(7)
+    tcp-close,
+    /// @value(8)
+    tcp-close-wait,
+    /// @value(9)
+    tcp-last-ack,
+    /// @value(10)
+    tcp-listen,
+    /// @value(11)
+    tcp-closing,
+  }
+
+  /// TCP congestion avoidance states.
+  /// @repr(s32)
+  enum tcp-ca-state {
+    /// @value(2)
+    tcp-ca-cwr,
+  }
+
+  /// Values for `TCP_REPAIR`.
+  /// @repr(s32)
+  enum tcp-repair-mode {
+    /// @value(0)
+    tcp-repair-off,
+    /// @value(1)
+    tcp-repair-on,
+    /// @value(-1)
+    tcp-repair-off-no-wp,
+  }
+
+  /// `TCP_ZEROCOPY_RECEIVE` flags.
+  /// @repr(u32)
+  flags tcp-zerocopy-flags {
+    /// @value(0x1)
+    tcp-receive-zerocopy-flag-tlb-clean-hint,
+  }
+
+  // ==== System V IPC ====
+
+  /// IPC permissions (asm-generic `struct ipc64_perm`). The zero-length `__pad1` is omitted.
+  /// @c(struct ipc_perm)
+  /// @size(36)
+  /// @align(4)
+  record ipc64-perm {
+    key: key,
+    uid: uid,
+    gid: gid,
+    cuid: uid,
+    cgid: gid,
+    mode: mode,
+    /// musl: `int __ipc_perm_seq`, covering `seq` and `__pad2` (little-endian).
+    /// @c-name(__ipc_perm_seq)
+    seq: u16,
+    /// No C assert: part of musl's 32-bit `__ipc_perm_seq`.
+    /// @c-skip
+    pad2: u16,
+    /// musl: `__pad1`.
+    /// @c-name(__pad1)
+    unused1: ulong,
+    /// musl: `__pad2`.
+    /// @c-name(__pad2)
+    unused2: ulong,
+  }
+
+  /// `msgctl` buffer (asm-generic `struct msqid64_ds`, times split into low/high words).
+  /// musl's 112-byte `struct msqid_ds` differs; it converts.
+  /// @kernel-only
+  /// @size(88)
+  /// @align(4)
+  record msqid64-ds {
+    msg-perm: ipc64-perm,
+    msg-stime: ulong,
+    msg-stime-high: ulong,
+    msg-rtime: ulong,
+    msg-rtime-high: ulong,
+    msg-ctime: ulong,
+    msg-ctime-high: ulong,
+    msg-cbytes: ulong,
+    msg-qnum: ulong,
+    msg-qbytes: ulong,
+    msg-lspid: pid,
+    msg-lrpid: pid,
+    /// @c-name(__unused4)
+    unused4: ulong,
+    /// @c-name(__unused5)
+    unused5: ulong,
+  }
+
+  /// `semctl` buffer (asm-generic `struct semid64_ds`), passed through the `semun` argument.
+  /// @kernel-only
+  /// @size(64)
+  /// @align(4)
+  record semid64-ds {
+    sem-perm: ipc64-perm,
+    sem-otime: ulong,
+    sem-otime-high: ulong,
+    sem-ctime: ulong,
+    sem-ctime-high: ulong,
+    sem-nsems: ulong,
+    /// @c-name(__unused3)
+    unused3: ulong,
+    /// @c-name(__unused4)
+    unused4: ulong,
+  }
+
+  /// `shmctl` buffer (asm-generic `struct shmid64_ds`).
+  /// @kernel-only
+  /// @size(84)
+  /// @align(4)
+  record shmid64-ds {
+    shm-perm: ipc64-perm,
+    shm-segsz: usize,
+    shm-atime: ulong,
+    shm-atime-high: ulong,
+    shm-dtime: ulong,
+    shm-dtime-high: ulong,
+    shm-ctime: ulong,
+    shm-ctime-high: ulong,
+    shm-cpid: pid,
+    shm-lpid: pid,
+    shm-nattch: ulong,
+    /// @c-name(__unused4)
+    unused4: ulong,
+    /// @c-name(__unused5)
+    unused5: ulong,
+  }
+
+  /// `semop`/`semtimedop_time64` operation (`struct sembuf`).
+  /// @c(struct sembuf)
+  /// @size(6)
+  /// @align(2)
+  record sembuf {
+    sem-num: u16,
+    sem-op: s16,
+    /// `sem-flags` bits (plus `IPC_NOWAIT`).
+    sem-flg: s16,
+  }
+
+  /// Message buffer header (`struct msgbuf`); `msgsz` bytes of text start at offset 4.
+  /// @c(struct msgbuf)
+  /// @size(8)
+  /// @align(4)
+  record msgbuf {
+    mtype: slong,
+    mtext: list<u8, 1>,
+  }
+
+  /// POSIX message queue attributes (`struct mq_attr`).
+  /// @c(struct mq_attr)
+  /// @size(32)
+  /// @align(4)
+  record mq-attr {
+    mq-flags: slong,
+    mq-maxmsg: slong,
+    mq-msgsize: slong,
+    mq-curmsgs: slong,
+    /// musl: `__unused`.
+    /// @c-name(__unused)
+    reserved: list<slong, 4>,
+  }
+
+  /// Special SysV IPC keys (`linux/ipc.h`).
+  /// @repr(s32)
+  /// @c(key_t)
+  enum ipc-key {
+    /// @value(0)
+    ipc-private,
+  }
+
+  /// `msgget`/`semget`/`shmget` flags (`IPC_*`; low 9 bits carry permissions).
+  /// @repr(u32)
+  /// @c(int)
+  flags ipc-flags {
+    /// @value(0x200)
+    ipc-creat,
+    /// @value(0x400)
+    ipc-excl,
+    /// @value(0x800)
+    ipc-nowait,
+    /// @value(0x1000)
+    ipc-dipc,
+    /// @value(0x2000)
+    ipc-own,
+  }
+
+  /// `msgctl`/`semctl`/`shmctl` commands (`linux/ipc.h`, `msg.h`, `sem.h`, `shm.h`).
+  /// On most 32-bit arches `IPC_64` is ORed in; musl riscv32 (and wasix2) passes commands without it.
+  /// @repr(s32)
+  /// @c(int)
+  enum ipc-cmd {
+    /// @value(0)
+    ipc-old,
+    /// @value(0)
+    ipc-rmid,
+    /// @value(1)
+    ipc-set,
+    /// @value(2)
+    /// No C assert: musl ORs `IPC_TIME64` (0x100) into `IPC_STAT` on time64 archs and translates.
+    /// @c-skip
+    ipc-stat,
+    /// @value(3)
+    ipc-info,
+    /// @value(11)
+    getpid,
+    /// @value(11)
+    /// No C assert: musl ORs `IPC_TIME64` (0x100) into `MSG_STAT` on time64 archs and translates.
+    /// @c-skip
+    msg-stat,
+    /// @value(11)
+    shm-lock,
+    /// @value(12)
+    getval,
+    /// @value(12)
+    msg-info,
+    /// @value(12)
+    shm-unlock,
+    /// @value(13)
+    getall,
+    /// @value(13)
+    /// No C assert: musl ORs `IPC_TIME64` (0x100) into `SHM_STAT` on time64 archs and translates.
+    /// @c-skip
+    shm-stat,
+    /// @value(14)
+    getncnt,
+    /// @value(14)
+    shm-info,
+    /// @value(15)
+    getzcnt,
+    /// @value(16)
+    setval,
+    /// @value(17)
+    setall,
+    /// @value(18)
+    /// No C assert: musl ORs `IPC_TIME64` (0x100) into `SEM_STAT` on time64 archs and translates.
+    /// @c-skip
+    sem-stat,
+    /// @value(19)
+    sem-info,
+    /// @value(256)
+    /// No C assert: musl's internal `IPC_64` is 0 on riscv32 and wasm32; asm-generic kernels
+    /// always use the 64-bit IPC structs, so musl passes no flag.
+    /// @c-skip
+    ipc-64,
+  }
+
+  /// `msgrcv` flags (`linux/msg.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags msgrcv-flags {
+    /// @value(0x1000)
+    msg-noerror,
+    /// @value(0x2000)
+    msg-except,
+    /// @value(0x4000)
+    msg-copy,
+  }
+
+  /// `sembuf.sem_flg` bits (`linux/sem.h`).
+  /// @repr(u32)
+  flags sem-flags {
+    /// @value(0x1000)
+    sem-undo,
+  }
+
+  /// `shmget`/`shmat` flags (`linux/shm.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags shm-flags {
+    /// @value(0x80)
+    shm-w,
+    /// @value(0x100)
+    shm-r,
+    /// @value(0x800)
+    shm-hugetlb,
+    /// @value(0x1000)
+    shm-noreserve,
+    /// @value(0x1000)
+    shm-rdonly,
+    /// @value(0x2000)
+    shm-rnd,
+    /// @value(0x4000)
+    shm-remap,
+    /// @value(0x8000)
+    shm-exec,
+  }
+
+  // ==== Asynchronous I/O and io_uring ====
+
+  /// Linux native AIO control block (`struct iocb`). Pointers are zero-extended `u64`s.
+  /// @kernel-only
+  /// @size(64)
+  /// @align(8)
+  record iocb {
+    aio-data: u64,
+    aio-key: u32,
+    aio-rw-flags: rwf,
+    aio-lio-opcode: u16,
+    aio-reqprio: s16,
+    aio-fildes: u32,
+    aio-buf: u64,
+    aio-nbytes: u64,
+    aio-offset: s64,
+    aio-reserved2: u64,
+    aio-flags: u32,
+    aio-resfd: u32,
+  }
+
+  /// Linux native AIO completion (`struct io_event`).
+  /// @kernel-only
+  /// @size(32)
+  /// @align(8)
+  record io-event {
+    data: u64,
+    obj: u64,
+    res: s64,
+    res2: s64,
+  }
+
+  /// 6th argument of `io_pgetevents_time64` (`struct __aio_sigset`).
+  /// @kernel-only
+  /// @size(8)
+  /// @align(4)
+  record aio-sigset {
+    sigmask: const-sigset-ptr,
+    sigsetsize: usize,
+  }
+
+  /// Submission ring offsets (`struct io_sqring_offsets`).
+  /// @kernel-only
+  /// @size(40)
+  /// @align(8)
+  record io-sqring-offsets {
+    head: u32,
+    tail: u32,
+    ring-mask: u32,
+    ring-entries: u32,
+    %flags: u32,
+    dropped: u32,
+    array: u32,
+    resv1: u32,
+    user-addr: u64,
+  }
+
+  /// Completion ring offsets (`struct io_cqring_offsets`).
+  /// @kernel-only
+  /// @size(40)
+  /// @align(8)
+  record io-cqring-offsets {
+    head: u32,
+    tail: u32,
+    ring-mask: u32,
+    ring-entries: u32,
+    overflow: u32,
+    cqes: u32,
+    %flags: u32,
+    resv1: u32,
+    user-addr: u64,
+  }
+
+  /// `io_uring_setup` parameters (`struct io_uring_params`).
+  /// @kernel-only
+  /// @size(120)
+  /// @align(8)
+  record io-uring-params {
+    sq-entries: u32,
+    cq-entries: u32,
+    %flags: u32,
+    sq-thread-cpu: u32,
+    sq-thread-idle: u32,
+    features: u32,
+    wq-fd: u32,
+    resv: list<u32, 3>,
+    sq-off: io-sqring-offsets,
+    cq-off: io-cqring-offsets,
+  }
+
+  /// `io_uring_enter` extended argument with `IORING_ENTER_EXT_ARG` (`struct io_uring_getevents_arg`).
+  /// @kernel-only
+  /// @size(24)
+  /// @align(8)
+  record io-uring-getevents-arg {
+    sigmask: u64,
+    sigmask-sz: u32,
+    min-wait-usec: u32,
+    ts: u64,
+  }
+
+  // ==== Terminals and ioctl requests ====
+
+  /// Kernel terminal attributes for `TCGETS`/`TCSETS*` (asm-generic `struct termios`, `NCCS` 19).
+  /// musl's 60-byte `struct termios` is a prefix-compatible superset passed directly.
+  /// @kernel-only
+  /// @size(36)
+  /// @align(4)
+  record termios {
+    c-iflag: termios-iflag,
+    c-oflag: termios-oflag,
+    c-cflag: termios-cflag,
+    c-lflag: termios-lflag,
+    c-line: u8,
+    c-cc: list<u8, 19>,
+  }
+
+  /// Terminal attributes with explicit speeds for `TCGETS2`/`TCSETS*2` (`struct termios2`).
+  /// @kernel-only
+  /// @size(44)
+  /// @align(4)
+  record termios2 {
+    c-iflag: termios-iflag,
+    c-oflag: termios-oflag,
+    c-cflag: termios-cflag,
+    c-lflag: termios-lflag,
+    c-line: u8,
+    c-cc: list<u8, 19>,
+    c-ispeed: u32,
+    c-ospeed: u32,
+  }
+
+  /// Terminal window size for `TIOCGWINSZ`/`TIOCSWINSZ` (`struct winsize`).
+  /// @c(struct winsize)
+  /// @size(8)
+  /// @align(2)
+  record winsize {
+    ws-row: u16,
+    ws-col: u16,
+    ws-xpixel: u16,
+    ws-ypixel: u16,
+  }
+
+  /// `ioctl` requests for terminals, sockets and timerfd
+  /// (`asm-generic/ioctls.h`, `asm-generic/sockios.h`, `linux/sockios.h`, `linux/timerfd.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  enum ioctl-request {
+    /// @value(21505)
+    tcgets,
+    /// @value(21506)
+    tcsets,
+    /// @value(21507)
+    tcsetsw,
+    /// @value(21508)
+    tcsetsf,
+    /// @value(21509)
+    tcgeta,
+    /// @value(21510)
+    tcseta,
+    /// @value(21511)
+    tcsetaw,
+    /// @value(21512)
+    tcsetaf,
+    /// @value(21513)
+    tcsbrk,
+    /// @value(21514)
+    tcxonc,
+    /// @value(21515)
+    tcflsh,
+    /// @value(21516)
+    tiocexcl,
+    /// @value(21517)
+    tiocnxcl,
+    /// @value(21518)
+    tiocsctty,
+    /// @value(21519)
+    tiocgpgrp,
+    /// @value(21520)
+    tiocspgrp,
+    /// @value(21521)
+    tiocoutq,
+    /// @value(21522)
+    tiocsti,
+    /// @value(21523)
+    tiocgwinsz,
+    /// @value(21524)
+    tiocswinsz,
+    /// @value(21525)
+    tiocmget,
+    /// @value(21526)
+    tiocmbis,
+    /// @value(21527)
+    tiocmbic,
+    /// @value(21528)
+    tiocmset,
+    /// @value(21529)
+    tiocgsoftcar,
+    /// @value(21530)
+    tiocssoftcar,
+    /// @value(21531)
+    fionread,
+    /// @value(21531)
+    tiocinq,
+    /// @value(21532)
+    tioclinux,
+    /// @value(21533)
+    tioccons,
+    /// @value(21534)
+    tiocgserial,
+    /// @value(21535)
+    tiocsserial,
+    /// @value(21536)
+    tiocpkt,
+    /// @value(21537)
+    fionbio,
+    /// @value(21538)
+    tiocnotty,
+    /// @value(21539)
+    tiocsetd,
+    /// @value(21540)
+    tiocgetd,
+    /// @value(21541)
+    tcsbrkp,
+    /// @value(21543)
+    tiocsbrk,
+    /// @value(21544)
+    tioccbrk,
+    /// @value(21545)
+    tiocgsid,
+    /// @value(21550)
+    tiocgrs485,
+    /// @value(21551)
+    tiocsrs485,
+    /// @value(21554)
+    tcgetx,
+    /// @value(21555)
+    tcsetx,
+    /// @value(21556)
+    tcsetxf,
+    /// @value(21557)
+    tcsetxw,
+    /// @value(21559)
+    tiocvhangup,
+    /// @value(21569)
+    tiocgptpeer,
+    /// @value(21584)
+    fionclex,
+    /// @value(21585)
+    fioclex,
+    /// @value(21586)
+    fioasync,
+    /// @value(21587)
+    tiocserconfig,
+    /// @value(21588)
+    tiocsergwild,
+    /// @value(21589)
+    tiocserswild,
+    /// @value(21590)
+    tiocglcktrmios,
+    /// @value(21591)
+    tiocslcktrmios,
+    /// @value(21592)
+    tiocsergstruct,
+    /// @value(21593)
+    tiocsergetlsr,
+    /// @value(21594)
+    tiocsergetmulti,
+    /// @value(21595)
+    tiocsersetmulti,
+    /// @value(21596)
+    tiocmiwait,
+    /// @value(21597)
+    tiocgicount,
+    /// @value(21600)
+    fioqsize,
+    /// @value(35073)
+    fiosetown,
+    /// @value(35074)
+    siocspgrp,
+    /// @value(35075)
+    fiogetown,
+    /// @value(35076)
+    siocgpgrp,
+    /// @value(35077)
+    siocatmark,
+    /// @value(35078)
+    siocgstamp-old,
+    /// @value(35079)
+    siocgstampns-old,
+    /// @value(35083)
+    siocaddrt,
+    /// @value(35084)
+    siocdelrt,
+    /// @value(35085)
+    siocrtmsg,
+    /// @value(35088)
+    siocgifname,
+    /// @value(35089)
+    siocsiflink,
+    /// @value(35090)
+    siocgifconf,
+    /// @value(35091)
+    siocgifflags,
+    /// @value(35092)
+    siocsifflags,
+    /// @value(35093)
+    siocgifaddr,
+    /// @value(35094)
+    siocsifaddr,
+    /// @value(35095)
+    siocgifdstaddr,
+    /// @value(35096)
+    siocsifdstaddr,
+    /// @value(35097)
+    siocgifbrdaddr,
+    /// @value(35098)
+    siocsifbrdaddr,
+    /// @value(35099)
+    siocgifnetmask,
+    /// @value(35100)
+    siocsifnetmask,
+    /// @value(35101)
+    siocgifmetric,
+    /// @value(35102)
+    siocsifmetric,
+    /// @value(35103)
+    siocgifmem,
+    /// @value(35104)
+    siocsifmem,
+    /// @value(35105)
+    siocgifmtu,
+    /// @value(35106)
+    siocsifmtu,
+    /// @value(35107)
+    siocsifname,
+    /// @value(35108)
+    siocsifhwaddr,
+    /// @value(35109)
+    siocgifencap,
+    /// @value(35110)
+    siocsifencap,
+    /// @value(35111)
+    siocgifhwaddr,
+    /// @value(35113)
+    siocgifslave,
+    /// @value(35120)
+    siocsifslave,
+    /// @value(35121)
+    siocaddmulti,
+    /// @value(35122)
+    siocdelmulti,
+    /// @value(35123)
+    siocgifindex,
+    /// @value(35124)
+    siocsifpflags,
+    /// @value(35125)
+    siocgifpflags,
+    /// @value(35126)
+    siocdifaddr,
+    /// @value(35127)
+    siocsifhwbroadcast,
+    /// @value(35128)
+    siocgifcount,
+    /// @value(35136)
+    siocgifbr,
+    /// @value(35137)
+    siocsifbr,
+    /// @value(35138)
+    siocgiftxqlen,
+    /// @value(35139)
+    siocsiftxqlen,
+    /// @value(35142)
+    siocethtool,
+    /// @value(35143)
+    siocgmiiphy,
+    /// @value(35144)
+    siocgmiireg,
+    /// @value(35145)
+    siocsmiireg,
+    /// @value(35146)
+    siocwandev,
+    /// @value(35147)
+    siocoutqnsd,
+    /// @value(35148)
+    siocgskns,
+    /// @value(35155)
+    siocdarp,
+    /// @value(35156)
+    siocgarp,
+    /// @value(35157)
+    siocsarp,
+    /// @value(35168)
+    siocdrarp,
+    /// @value(35169)
+    siocgrarp,
+    /// @value(35170)
+    siocsrarp,
+    /// @value(35184)
+    siocgifmap,
+    /// @value(35185)
+    siocsifmap,
+    /// @value(35200)
+    siocadddlci,
+    /// @value(35201)
+    siocdeldlci,
+    /// @value(35202)
+    siocgifvlan,
+    /// @value(35203)
+    siocsifvlan,
+    /// @value(35216)
+    siocbondenslave,
+    /// @value(35217)
+    siocbondrelease,
+    /// @value(35218)
+    siocbondsethwaddr,
+    /// @value(35219)
+    siocbondslaveinfoquery,
+    /// @value(35220)
+    siocbondinfoquery,
+    /// @value(35221)
+    siocbondchangeactive,
+    /// @value(35232)
+    siocbraddbr,
+    /// @value(35233)
+    siocbrdelbr,
+    /// @value(35234)
+    siocbraddif,
+    /// @value(35235)
+    siocbrdelif,
+    /// @value(35248)
+    siocshwtstamp,
+    /// @value(35249)
+    siocghwtstamp,
+    /// @value(35296)
+    siocprotoprivate,
+    /// @value(35312)
+    siocdevprivate,
+    /// @value(0x40045431)
+    tiocsptlck,
+    /// @value(0x40045436)
+    tiocsig,
+    /// @value(0x40085400)
+    tfd-ioc-set-ticks,
+    /// @value(0x402c542b)
+    tcsets2,
+    /// @value(0x402c542c)
+    tcsetsw2,
+    /// @value(0x402c542d)
+    tcsetsf2,
+    /// @value(0x80045430)
+    tiocgptn,
+    /// @value(0x80045432)
+    tiocgdev,
+    /// @value(0x80045438)
+    tiocgpkt,
+    /// @value(0x80045439)
+    tiocgptlck,
+    /// @value(0x80045440)
+    tiocgexcl,
+    /// @value(0x802c542a)
+    tcgets2,
+  }
+
+  /// `_IOC_TYPE` bytes of ioctl request families.
+  /// @repr(u32)
+  enum ioctl-type {
+    /// @value(138)
+    epoll-ioc-type,
+  }
+
+  /// `termios.c_iflag` (`asm-generic/termbits*.h`).
+  /// @repr(u32)
+  flags termios-iflag {
+    /// @value(0x1)
+    ignbrk,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x2)
+    brkint,
+    /// @value(0x4)
+    ignpar,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x8)
+    parmrk,
+    /// @value(0x10)
+    inpck,
+    /// @value(0x20)
+    istrip,
+    /// @value(0x40)
+    inlcr,
+    /// @value(0x80)
+    igncr,
+    /// @value(0x100)
+    icrnl,
+    /// @value(0x200)
+    iuclc,
+    /// @value(0x400)
+    ixon,
+    /// @value(0x800)
+    ixany,
+    /// @value(0x1000)
+    ixoff,
+    /// @value(0x2000)
+    imaxbel,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x4000)
+    iutf8,
+  }
+
+  /// `termios.c_oflag` (`asm-generic/termbits*.h`). `*DLY` are field masks, `NL0`.. their values.
+  /// @repr(u32)
+  flags termios-oflag {
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x0)
+    bs0,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x0)
+    cr0,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x0)
+    ff0,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x0)
+    nl0,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x0)
+    tab0,
+    /// @value(0x0)
+    vt0,
+    /// @value(0x1)
+    opost,
+    /// @value(0x2)
+    olcuc,
+    /// @value(0x4)
+    onlcr,
+    /// @value(0x8)
+    ocrnl,
+    /// @value(0x10)
+    onocr,
+    /// @value(0x20)
+    onlret,
+    /// @value(0x40)
+    ofill,
+    /// @value(0x80)
+    ofdel,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x100)
+    nl1,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x100)
+    nldly,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x200)
+    cr1,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x400)
+    cr2,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x600)
+    cr3,
+    /// @value(0x600)
+    crdly,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x800)
+    tab1,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x1000)
+    tab2,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x1800)
+    tab3,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x1800)
+    tabdly,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x1800)
+    xtabs,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x2000)
+    bs1,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x2000)
+    bsdly,
+    /// @value(0x4000)
+    vt1,
+    /// @value(0x4000)
+    vtdly,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x8000)
+    ff1,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x8000)
+    ffdly,
+  }
+
+  /// `termios.c_cflag` (`asm-generic/termbits*.h`). `CBAUD`, `CSIZE`, `CIBAUD` are field masks.
+  /// @repr(u32)
+  flags termios-cflag {
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x0)
+    cs5,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x10)
+    cs6,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x20)
+    cs7,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x30)
+    cs8,
+    /// @value(0x30)
+    csize,
+    /// @value(0x40)
+    cstopb,
+    /// @value(0x80)
+    cread,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x100)
+    parenb,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x200)
+    parodd,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x400)
+    hupcl,
+    /// @value(0x800)
+    clocal,
+    /// @value(0x1000)
+    cbaudex,
+    /// @value(0x100f)
+    cbaud,
+    /// @value(0x100f0000)
+    cibaud,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x20000000)
+    addrb,
+    /// @value(0x40000000)
+    cmspar,
+    /// @value(0x80000000)
+    crtscts,
+  }
+
+  /// `termios.c_lflag` (`asm-generic/termbits.h`).
+  /// @repr(u32)
+  flags termios-lflag {
+    /// @value(0x1)
+    isig,
+    /// @value(0x2)
+    icanon,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x4)
+    xcase,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x8)
+    echo,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x10)
+    echoe,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x20)
+    echok,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x40)
+    echonl,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x80)
+    noflsh,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x100)
+    tostop,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x200)
+    echoctl,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x400)
+    echoprt,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x800)
+    echoke,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x1000)
+    flusho,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x4000)
+    pendin,
+    /// @value(0x8000)
+    iexten,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(0x10000)
+    extproc,
+  }
+
+  /// Baud rate codes of the `CBAUD` field (`asm-generic/termbits*.h`).
+  /// @repr(u32)
+  enum baud {
+    /// @value(0)
+    b0,
+    /// @value(1)
+    b50,
+    /// @value(2)
+    b75,
+    /// @value(3)
+    b110,
+    /// @value(4)
+    b134,
+    /// @value(5)
+    b150,
+    /// @value(6)
+    b200,
+    /// @value(7)
+    b300,
+    /// @value(8)
+    b600,
+    /// @value(9)
+    b1200,
+    /// @value(10)
+    b1800,
+    /// @value(11)
+    b2400,
+    /// @value(12)
+    b4800,
+    /// @value(13)
+    b9600,
+    /// @value(14)
+    b19200,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(14)
+    exta,
+    /// @value(15)
+    b38400,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(15)
+    extb,
+    /// From `asm-generic/termbits*.h` (not in the extracted constant set).
+    /// @value(4096)
+    bother,
+    /// @value(4097)
+    b57600,
+    /// @value(4098)
+    b115200,
+    /// @value(4099)
+    b230400,
+    /// @value(4100)
+    b460800,
+    /// @value(4101)
+    b500000,
+    /// @value(4102)
+    b576000,
+    /// @value(4103)
+    b921600,
+    /// @value(4104)
+    b1000000,
+    /// @value(4105)
+    b1152000,
+    /// @value(4106)
+    b1500000,
+    /// @value(4107)
+    b2000000,
+    /// @value(4108)
+    b2500000,
+    /// @value(4109)
+    b3000000,
+    /// @value(4110)
+    b3500000,
+    /// @value(4111)
+    b4000000,
+  }
+
+  /// Indices into `termios.c_cc` (`asm-generic/termbits.h`).
+  /// @repr(u32)
+  enum termios-cc-index {
+    /// @value(0)
+    vintr,
+    /// @value(1)
+    vquit,
+    /// @value(2)
+    verase,
+    /// @value(3)
+    vkill,
+    /// @value(4)
+    veof,
+    /// @value(5)
+    vtime,
+    /// @value(6)
+    vmin,
+    /// @value(7)
+    vswtc,
+    /// @value(8)
+    vstart,
+    /// @value(9)
+    vstop,
+    /// @value(10)
+    vsusp,
+    /// @value(11)
+    veol,
+    /// @value(12)
+    vreprint,
+    /// @value(13)
+    vdiscard,
+    /// @value(14)
+    vwerase,
+    /// @value(15)
+    vlnext,
+    /// @value(16)
+    veol2,
+  }
+
+  /// Other termios constants. Kernel `NCCS` is 19; musl's user-level `NCCS` is 32.
+  /// @repr(u32)
+  enum termios-misc {
+    /// @value(16)
+    ibshift,
+    /// @value(19)
+    /// No C assert: musl's `NCCS` is 32, sizing its larger `struct termios` (`termios` is
+    /// `@kernel-only`).
+    /// @c-skip
+    nccs,
+  }
+
+  /// `tcsetattr` actions (`TCSA*`).
+  /// @repr(s32)
+  enum tcsetattr-action {
+    /// @value(0)
+    tcsanow,
+    /// @value(1)
+    tcsadrain,
+    /// @value(2)
+    tcsaflush,
+  }
+
+  /// `TCFLSH` argument.
+  /// @repr(s32)
+  enum tcflush-queue {
+    /// @value(0)
+    tciflush,
+    /// @value(1)
+    tcoflush,
+    /// @value(2)
+    tcioflush,
+  }
+
+  /// `TCXONC` argument.
+  /// @repr(s32)
+  enum tcflow-action {
+    /// @value(0)
+    tcooff,
+    /// @value(1)
+    tcoon,
+    /// @value(2)
+    tcioff,
+    /// @value(3)
+    tcion,
+  }
+
+  /// Packet mode status byte (`TIOCPKT_*`).
+  /// @repr(u32)
+  flags tiocpkt-flags {
+    /// @value(0x0)
+    tiocpkt-data,
+    /// @value(0x1)
+    tiocpkt-flushread,
+    /// @value(0x2)
+    tiocpkt-flushwrite,
+    /// @value(0x4)
+    tiocpkt-stop,
+    /// @value(0x8)
+    tiocpkt-start,
+    /// @value(0x10)
+    tiocpkt-nostop,
+    /// @value(0x20)
+    tiocpkt-dostop,
+    /// @value(0x40)
+    tiocpkt-ioctl,
+  }
+
+  /// `TIOCSERGETLSR` result bits.
+  /// @repr(u32)
+  flags tiocser-flags {
+    /// @value(0x1)
+    tiocser-temt,
+  }
+
+  // ==== Mounting ====
+
+  /// `mount_setattr`/`open_tree_attr` attributes (`struct mount_attr`).
+  /// @kernel-only
+  /// @size(32)
+  /// @align(8)
+  record mount-attr {
+    attr-set: mount-attr-flags,
+    attr-clr: mount-attr-flags,
+    propagation: u64,
+    userns-fd: u64,
+  }
+
+  /// `statmount`/`listmount` request (`struct mnt_id_req`). `mnt-ns-fd` is a union with `mnt_fd`.
+  /// @kernel-only
+  /// @size(32)
+  /// @align(8)
+  record mnt-id-req {
+    size: u32,
+    mnt-ns-fd: u32,
+    mnt-id: u64,
+    param: u64,
+    mnt-ns-id: u64,
+  }
+
+  /// `listns` request (`struct ns_id_req`).
+  /// @kernel-only
+  /// @size(32)
+  /// @align(8)
+  record ns-id-req {
+    size: u32,
+    spare: u32,
+    ns-id: u64,
+    ns-type: u32,
+    spare2: u32,
+    user-ns-id: u64,
+  }
+
+  /// `mount` flags (`MS_*`, `linux/mount.h`).
+  /// @repr(u32)
+  /// @c(unsigned long)
+  flags mount-flags {
+    /// @value(0x1)
+    ms-rdonly,
+    /// @value(0x2)
+    ms-nosuid,
+    /// @value(0x4)
+    ms-nodev,
+    /// @value(0x8)
+    ms-noexec,
+    /// @value(0x10)
+    ms-synchronous,
+    /// @value(0x20)
+    ms-remount,
+    /// @value(0x40)
+    ms-mandlock,
+    /// @value(0x80)
+    ms-dirsync,
+    /// @value(0x100)
+    ms-nosymfollow,
+    /// @value(0x400)
+    ms-noatime,
+    /// @value(0x800)
+    ms-nodiratime,
+    /// @value(0x1000)
+    ms-bind,
+    /// @value(0x2000)
+    ms-move,
+    /// @value(0x4000)
+    ms-rec,
+    /// @value(0x8000)
+    ms-silent,
+    /// @value(0x8000)
+    ms-verbose,
+    /// @value(0x10000)
+    ms-posixacl,
+    /// @value(0x20000)
+    ms-unbindable,
+    /// @value(0x40000)
+    ms-private,
+    /// @value(0x80000)
+    ms-slave,
+    /// @value(0x100000)
+    ms-shared,
+    /// @value(0x200000)
+    ms-relatime,
+    /// @value(0x400000)
+    ms-kernmount,
+    /// @value(0x800000)
+    ms-i-version,
+    /// @value(0x1000000)
+    ms-strictatime,
+    /// @value(0x2000000)
+    ms-lazytime,
+    /// @value(0x2800051)
+    ms-rmt-mask,
+    /// @value(0x4000000)
+    ms-submount,
+    /// @value(0x8000000)
+    ms-noremotelock,
+    /// @value(0x10000000)
+    ms-nosec,
+    /// @value(0x20000000)
+    ms-born,
+    /// @value(0x40000000)
+    ms-active,
+    /// @value(0x80000000)
+    ms-nouser,
+    /// @value(0xc0ed0000)
+    ms-mgc-val,
+    /// @value(0xffff0000)
+    ms-mgc-msk,
+  }
+
+  /// `umount2` flags (musl `sys/mount.h`; kernel `include/linux/fs.h`).
+  /// @repr(u32)
+  /// @c(int)
+  flags umount-flags {
+    /// @value(0x1)
+    mnt-force,
+    /// @value(0x2)
+    mnt-detach,
+    /// @value(0x4)
+    mnt-expire,
+    /// @value(0x8)
+    umount-nofollow,
+  }
+
+  /// `MOUNT_ATTR_*` (`linux/mount.h`): `mount_attr.attr_set`/`attr_clr` and `fsmount` attr flags.
+  /// @repr(u64)
+  flags mount-attr-flags {
+    /// @value(0x0)
+    mount-attr-relatime,
+    /// @value(0x1)
+    mount-attr-rdonly,
+    /// @value(0x2)
+    mount-attr-nosuid,
+    /// @value(0x4)
+    mount-attr-nodev,
+    /// @value(0x8)
+    mount-attr-noexec,
+    /// @value(0x10)
+    mount-attr-noatime,
+    /// @value(0x20)
+    mount-attr-strictatime,
+    /// @name(MOUNT_ATTR__ATIME)
+    /// @value(0x70)
+    mount-attr-atime,
+    /// @value(0x80)
+    mount-attr-nodiratime,
+    /// @value(0x100000)
+    mount-attr-idmap,
+    /// @value(0x200000)
+    mount-attr-nosymfollow,
+  }
+
+  /// `move_mount` flags (`linux/mount.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags move-mount-flags {
+    /// @value(0x1)
+    move-mount-f-symlinks,
+    /// @value(0x2)
+    move-mount-f-automounts,
+    /// @value(0x4)
+    move-mount-f-empty-path,
+    /// @value(0x10)
+    move-mount-t-symlinks,
+    /// @value(0x20)
+    move-mount-t-automounts,
+    /// @value(0x40)
+    move-mount-t-empty-path,
+    /// @value(0x100)
+    move-mount-set-group,
+    /// @value(0x200)
+    move-mount-beneath,
+    /// @name(MOVE_MOUNT__MASK)
+    /// @value(0x377)
+    move-mount-mask,
+  }
+
+  /// `open_tree` flags (`linux/mount.h`); `AT_*` flags may be ORed in.
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags open-tree-flags {
+    /// @value(0x1)
+    open-tree-clone,
+    /// @value(0x2)
+    open-tree-namespace,
+  }
+
+  /// `fsopen` flags (`linux/mount.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags fsopen-flags {
+    /// @value(0x1)
+    fsopen-cloexec,
+  }
+
+  /// `fsmount` flags (`linux/mount.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags fsmount-flags {
+    /// @value(0x1)
+    fsmount-cloexec,
+    /// @value(0x2)
+    fsmount-namespace,
+  }
+
+  /// `fspick` flags (`linux/mount.h`).
+  /// @repr(u32)
+  /// @c(unsigned)
+  flags fspick-flags {
+    /// @value(0x1)
+    fspick-cloexec,
+    /// @value(0x2)
+    fspick-symlink-nofollow,
+    /// @value(0x4)
+    fspick-no-automount,
+    /// @value(0x8)
+    fspick-empty-path,
+  }
+}

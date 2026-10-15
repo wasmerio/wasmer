@@ -1,0 +1,1934 @@
+/// Linux syscalls, one function per riscv32 syscall table entry.
+///
+/// Import name = riscv32 table name; return value = Linux `long` (value or `-errno`).
+/// Arguments that riscv32 splits into register pairs are a single 64-bit parameter here.
+/// `lookup_dcookie` (18) and `nfsservctl` (42) are omitted: they are `sys_ni_syscall` stubs.
+/// @module(wasix2)
+interface syscalls {
+  use types.{
+    access-mode, address-family, aio-context, aio-context-ptr, at-flags, buf, cachestat-ptr,
+    clock-id, close-range-flags, const-aio-sigset-ptr, const-buf, const-cachestat-range-ptr,
+    const-clone-args-ptr, const-epoll-event-ptr, const-file-attr-ptr, const-file-handle-ptr,
+    const-futex-waitv-array, const-gid-array, const-iocb-ptr-array, const-iovec-array,
+    const-kernel-itimerspec-ptr, const-kernel-old-itimerval-ptr, const-kernel-timespec-array,
+    const-kernel-timespec-ptr, const-kexec-segment-array, const-landlock-ruleset-attr-ptr,
+    const-lsm-ctx-ptr, const-mnt-id-req-ptr, const-mount-attr-ptr, const-mq-attr-ptr,
+    const-msgbuf-ptr, const-ns-id-req-ptr, const-open-how-ptr, const-rlimit64-ptr, const-s32-array,
+    const-sched-param-ptr, const-sembuf-array, const-sigaction-ptr, const-sigaltstack-ptr,
+    const-sigevent-ptr, const-siginfo-ptr, const-sigset-argpack-ptr, const-sigset-ptr,
+    const-sockaddr-ptr, const-ulong-array, const-uptr-array, const-user-cap-data-array,
+    const-user-msghdr-ptr, const-void-ptr, const-xattr-args-ptr, cstr, cstr-array,
+    epoll-create-flags, epoll-ctl-op, epoll-event-array, eventfd-flags, fadvise-advice,
+    falloc-flags, fcntl-cmd, fd, fd-pair, file-attr-ptr, file-handle-ptr, flock-op, futex-op,
+    futex2-flags, gid, gid-array, gid-ptr, grnd-flags, idtype, inotify-init-flags, inotify-mask,
+    io-event-array, io-event-ptr, io-uring-params-ptr, iocb-ptr, ioctl-request, itimer-which,
+    kernel-fd-set-ptr, kernel-itimerspec-ptr, kernel-old-itimerval-ptr, kernel-timespec-ptr,
+    kernel-timex-ptr, key, key-serial, linux-dirent64-ptr, loff, loff-ptr, lsm-ctx-ptr,
+    madvise-advice, map-flags, mcl-flags, membarrier-cmd, membarrier-cmd-flags, memfd-flags,
+    mlock-flags, mmsghdr-array, mode, mount-flags, mq-attr-ptr, mqd, mremap-flags, msg-flags,
+    msgbuf-ptr, msqid64-ds-ptr, msync-flags, new-utsname-ptr, open-flags, pid, pollfd-array,
+    prctl-option, prio-which, prot-flags, ptrace-request, qid, reboot-cmd, rename-flags,
+    rlimit-resource, rlimit64-ptr, robust-list-head-ptr,
+    robust-list-head-ptr-ptr, rusage-ptr, rusage-who, rwf-flags, s32-array, s32-ptr,
+    sched-attr-ptr, sched-param-ptr, sched-policy, seek-whence, shmid64-ds-ptr, shutdown-how,
+    sigaction-ptr, sigaltstack-ptr, siginfo-ptr, signal, signalfd-flags, sigprocmask-how,
+    sigset-ptr, slong, sockaddr-ptr, socket-flags, socket-level, socklen, socklen-ptr,
+    splice-flags, statfs64-ptr, statx-mask, statx-ptr, sync-file-range-flags, sysinfo-ptr,
+    timer-flags, timer-id, timer-id-ptr, timerfd-flags, timerfd-settime-flags, tms-ptr, u32-ptr,
+    u64-array, uid, uid-ptr, ulong, ulong-array, umount-flags, uptr, user-cap-data-array,
+    user-cap-header-ptr, user-msghdr-ptr, usize, usize-ptr, void-ptr, wait-options, xattr-args-ptr,
+    xattr-flags,
+  };
+
+  // ==== Files and directories ====
+
+  /// Kernel: `sys_openat(int dfd, const char * filename, int flags, umode_t mode)`.
+  /// musl ORs O_LARGEFILE (0100000 on asm-generic) into flags on 32-bit. mode is umode_t (u16) but passed
+  /// as full register.
+  /// @nr(56)
+  openat: func(dfd: fd, filename: cstr, %flags: open-flags, mode: mode) -> slong;
+
+  /// Kernel: `sys_openat2(int dfd, const char * filename, struct open_how * how, size_t usize)`.
+  /// struct open_how {u64 flags; u64 mode; u64 resolve} 24 bytes; usize must be >= 24.
+  /// @nr(437)
+  openat2: func(dfd: fd, filename: cstr, how: const-open-how-ptr, usize: usize) -> slong;
+
+  /// Kernel: `sys_close(unsigned int fd)`.
+  /// @nr(57)
+  close: func(fd: fd) -> slong;
+
+  /// Kernel: `sys_close_range(unsigned int fd, unsigned int max_fd, unsigned int flags)`.
+  /// @nr(436)
+  close-range: func(fd: u32, max-fd: u32, %flags: close-range-flags) -> slong;
+
+  /// Kernel: `sys_dup(unsigned int fildes)`.
+  /// @nr(23)
+  dup: func(fildes: fd) -> slong;
+
+  /// Kernel: `sys_dup3(unsigned int oldfd, unsigned int newfd, int flags)`.
+  /// No dup2 on asm-generic: musl dup2 -> dup3 (fails EINVAL if old==new, musl handles via fcntl
+  /// F_GETFD).
+  /// @nr(24)
+  dup3: func(oldfd: fd, newfd: fd, %flags: open-flags) -> slong;
+
+  /// Kernel: `sys_fcntl64(unsigned int fd, unsigned int cmd, unsigned long arg)`.
+  /// riscv32 name of fcntl. `F_GETLK64`/`F_SETLK64`/`F_SETLKW64` (12/13/14) and `F_OFD_*` take a
+  /// `flock64`; the kernel `F_GETLK`..`F_SETLKW` (5/6/7) take the legacy 16-byte `flock`. musl on riscv32
+  /// defines `F_GETLK` as 12, so it only ever passes `flock64`. `F_GETOWN` may return a negative pgid
+  /// that looks like `-errno`.
+  /// Untyped: arg: an integer, or a guest pointer to `flock64`, `flock`, `f-owner-ex` or `u64`, depending
+  /// on `cmd`.
+  /// @nr(25)
+  fcntl64: func(fd: fd, cmd: fcntl-cmd, arg: ulong) -> slong;
+
+  /// Kernel: `sys_flock(unsigned int fd, unsigned int cmd)`.
+  /// BSD flock(2), not fcntl locks.
+  /// @nr(32)
+  flock: func(fd: fd, cmd: flock-op) -> slong;
+
+  /// Kernel: `sys_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)`.
+  /// Untyped 3rd arg (int or pointer depending on request); request encoding _IOC(dir,type,nr,size) with
+  /// asm-generic ioctl.h (size bits 14). Host must know per-request layouts (termios, winsize, FIONREAD,
+  /// SIOC*...). musl uses TCGETS/TCSETS*/TIOCGWINSZ/FIONBIO/SIOCGIF* etc.
+  /// Untyped: arg: an integer or a guest pointer, depending on `cmd`.
+  /// @nr(29)
+  ioctl: func(fd: fd, cmd: ioctl-request, arg: ulong) -> slong;
+
+  /// Kernel: `sys_read(unsigned int fd, char * buf, size_t count)`.
+  /// @nr(63)
+  read: func(fd: fd, buf: buf, count: usize) -> slong;
+
+  /// Kernel: `sys_write(unsigned int fd, const char * buf, size_t count)`.
+  /// @nr(64)
+  write: func(fd: fd, buf: const-buf, count: usize) -> slong;
+
+  /// Kernel: `sys_readv(unsigned long fd, const struct iovec * vec, unsigned long vlen)`.
+  /// struct iovec {void*; size_t} = 8 bytes on wasm32. IOV_MAX 1024.
+  /// @nr(65)
+  readv: func(fd: fd, vec: const-iovec-array, vlen: ulong) -> slong;
+
+  /// Kernel: `sys_writev(unsigned long fd, const struct iovec * vec, unsigned long vlen)`.
+  /// @nr(66)
+  writev: func(fd: fd, vec: const-iovec-array, vlen: ulong) -> slong;
+
+  /// Kernel: `sys_pread64(unsigned int fd, char * buf, size_t count, loff_t pos)`.
+  /// pos register pair on riscv32 (no padding before the pair on riscv).
+  /// @nr(67)
+  /// @merged-i64(pos)
+  pread64: func(fd: fd, buf: buf, count: usize, pos: loff) -> slong;
+
+  /// Kernel: `sys_pwrite64(unsigned int fd, const char * buf, size_t count, loff_t pos)`.
+  /// pos register pair.
+  /// @nr(68)
+  /// @merged-i64(pos)
+  pwrite64: func(fd: fd, buf: const-buf, count: usize, pos: loff) -> slong;
+
+  /// Kernel: `sys_preadv(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
+  /// pos_l, unsigned long pos_h)`.
+  /// The kernel takes the position as (pos_l, pos_h) on all arches; here it is one `s64`.
+  /// @nr(69)
+  /// @merged-i64(pos)
+  preadv: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64) -> slong;
+
+  /// Kernel: `sys_pwritev(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
+  /// pos_l, unsigned long pos_h)`.
+  /// The kernel takes the position as (pos_l, pos_h) on all arches; here it is one `s64`.
+  /// @nr(70)
+  /// @merged-i64(pos)
+  pwritev: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64) -> slong;
+
+  /// Kernel: `sys_preadv2(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
+  /// pos_l, unsigned long pos_h, rwf_t flags)`.
+  /// The kernel takes the position as (pos_l, pos_h); here it is one `s64`. -1 means the current
+  /// position.
+  /// @nr(286)
+  /// @merged-i64(pos)
+  preadv2: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64, %flags: rwf-flags) -> slong;
+
+  /// Kernel: `sys_pwritev2(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
+  /// pos_l, unsigned long pos_h, rwf_t flags)`.
+  /// The kernel takes the position as (pos_l, pos_h); here it is one `s64`. -1 means the current
+  /// position.
+  /// @nr(287)
+  /// @merged-i64(pos)
+  pwritev2: func(fd: fd, vec: const-iovec-array, vlen: ulong, pos: s64, %flags: rwf-flags) -> slong;
+
+  /// Kernel: `sys_llseek(unsigned int fd, unsigned long offset_high, unsigned long offset_low, loff_t *
+  /// result, unsigned int whence)`.
+  /// The kernel takes the offset as (offset_high, offset_low); here it is one `s64`. The 64-bit result is
+  /// written to `result`; the return value is 0 or `-errno`.
+  /// @nr(62)
+  /// @sys-name(_llseek)
+  /// @merged-i64(offset, hi-lo)
+  llseek: func(fd: fd, offset: s64, %result: loff-ptr, whence: seek-whence) -> slong;
+
+  /// Kernel: `sys_sendfile64(int out_fd, int in_fd, loff_t * offset, size_t count)`.
+  /// riscv32 name sendfile64; offset is loff_t* (64-bit in memory).
+  /// @nr(71)
+  sendfile64: func(out-fd: fd, in-fd: fd, offset: loff-ptr, count: usize) -> slong;
+
+  /// Kernel: `sys_splice(int fd_in, loff_t * off_in, int fd_out, loff_t * off_out, size_t len, unsigned
+  /// int flags)`.
+  /// offsets are loff_t* (64-bit in memory).
+  /// @nr(76)
+  splice: func(
+    fd-in: fd,
+    off-in: loff-ptr,
+    fd-out: fd,
+    off-out: loff-ptr,
+    len: usize,
+    %flags: splice-flags,
+  ) -> slong;
+
+  /// Kernel: `sys_tee(int fdin, int fdout, size_t len, unsigned int flags)`.
+  /// @nr(77)
+  tee: func(fdin: fd, fdout: fd, len: usize, %flags: splice-flags) -> slong;
+
+  /// Kernel: `sys_vmsplice(int fd, const struct iovec * uiov, unsigned long nr_segs, unsigned int
+  /// flags)`.
+  /// @nr(75)
+  vmsplice: func(fd: fd, uiov: const-iovec-array, nr-segs: ulong, %flags: splice-flags) -> slong;
+
+  /// Kernel: `sys_copy_file_range(int fd_in, loff_t * off_in, int fd_out, loff_t * off_out, size_t len,
+  /// unsigned int flags)`.
+  /// offsets are loff_t*.
+  /// @nr(285)
+  copy-file-range: func(
+    fd-in: fd,
+    off-in: loff-ptr,
+    fd-out: fd,
+    off-out: loff-ptr,
+    len: usize,
+    %flags: u32,
+  ) -> slong;
+
+  /// Kernel: `sys_truncate64(const char * path, loff_t length)`.
+  /// riscv32 name truncate64; length register pair.
+  /// @nr(45)
+  /// @merged-i64(length)
+  truncate64: func(path: cstr, length: loff) -> slong;
+
+  /// Kernel: `sys_ftruncate64(unsigned int fd, loff_t length)`.
+  /// riscv32 name ftruncate64; length register pair.
+  /// @nr(46)
+  /// @merged-i64(length)
+  ftruncate64: func(fd: fd, length: loff) -> slong;
+
+  /// Kernel: `sys_fallocate(int fd, int mode, loff_t offset, loff_t len)`.
+  /// offset/len register pairs.
+  /// @nr(47)
+  /// @merged-i64(offset)
+  /// @merged-i64(len)
+  fallocate: func(fd: fd, mode: falloc-flags, offset: loff, len: loff) -> slong;
+
+  /// Kernel: `sys_fadvise64_64(int fd, loff_t offset, loff_t len, int advice)`.
+  /// riscv32 name fadvise64_64 (64-only table has fadvise64). Logical (int fd, loff_t offset, loff_t len,
+  /// int advice); riscv32 passes offset and len as register pairs and does NOT reorder args (unlike
+  /// arm/ppc fadvise64_64 with advice second).
+  /// @nr(223)
+  /// @merged-i64(offset)
+  /// @merged-i64(len)
+  fadvise64-64: func(fd: fd, offset: loff, len: loff, advice: fadvise-advice) -> slong;
+
+  /// Kernel: `sys_readahead(int fd, loff_t offset, size_t count)`.
+  /// offset register pair.
+  /// @nr(213)
+  /// @merged-i64(offset)
+  readahead: func(fd: fd, offset: loff, count: usize) -> slong;
+
+  /// Kernel: `sys_sync()`.
+  /// @nr(81)
+  sync: func() -> slong;
+
+  /// Kernel: `sys_fsync(unsigned int fd)`.
+  /// @nr(82)
+  fsync: func(fd: fd) -> slong;
+
+  /// Kernel: `sys_fdatasync(unsigned int fd)`.
+  /// @nr(83)
+  fdatasync: func(fd: fd) -> slong;
+
+  /// Kernel: `sys_syncfs(int fd)`.
+  /// @nr(267)
+  syncfs: func(fd: fd) -> slong;
+
+  /// Kernel: `sys_sync_file_range(int fd, loff_t offset, loff_t nbytes, unsigned int flags)`.
+  /// riscv32 uses sync_file_range (not sync_file_range2); offset/nbytes are register pairs on riscv32.
+  /// @nr(84)
+  /// @merged-i64(offset)
+  /// @merged-i64(nbytes)
+  sync-file-range: func(fd: fd, offset: loff, nbytes: loff, %flags: sync-file-range-flags) -> slong;
+
+  /// Kernel: `sys_getdents64(unsigned int fd, struct linux_dirent64 * dirent, unsigned int count)`.
+  /// struct linux_dirent64 records, 8-byte aligned reclen.
+  /// @nr(61)
+  getdents64: func(fd: fd, dirent: linux-dirent64-ptr, count: u32) -> slong;
+
+  /// Kernel: `sys_mkdirat(int dfd, const char * pathname, umode_t mode)`.
+  /// @nr(34)
+  mkdirat: func(dfd: fd, pathname: cstr, mode: mode) -> slong;
+
+  /// Kernel: `sys_mknodat(int dfd, const char * filename, umode_t mode, unsigned int dev)`.
+  /// dev is u32 in new_encode_dev format (major<<8 low bits... see kdev_t.h).
+  /// @nr(33)
+  mknodat: func(dfd: fd, filename: cstr, mode: mode, dev: u32) -> slong;
+
+  /// Kernel: `sys_unlinkat(int dfd, const char * pathname, int flag)`.
+  /// No unlink/rmdir: AT_REMOVEDIR flag.
+  /// @nr(35)
+  unlinkat: func(dfd: fd, pathname: cstr, flag: at-flags) -> slong;
+
+  /// Kernel: `sys_symlinkat(const char * oldname, int newdfd, const char * newname)`.
+  /// @nr(36)
+  symlinkat: func(oldname: cstr, newdfd: fd, newname: cstr) -> slong;
+
+  /// Kernel: `sys_linkat(int olddfd, const char * oldname, int newdfd, const char * newname, int flags)`.
+  /// @nr(37)
+  linkat: func(olddfd: fd, oldname: cstr, newdfd: fd, newname: cstr, %flags: at-flags) -> slong;
+
+  /// Kernel: `sys_renameat2(int olddfd, const char * oldname, int newdfd, const char * newname, unsigned
+  /// int flags)`.
+  /// No renameat on riscv32 (renameat abi not enabled): musl rename/renameat -> renameat2(..., 0).
+  /// @nr(276)
+  renameat2: func(olddfd: fd, oldname: cstr, newdfd: fd, newname: cstr, %flags: rename-flags) -> slong;
+
+  /// Kernel: `sys_readlinkat(int dfd, const char * pathname, char * buf, int bufsiz)`.
+  /// returns byte count, no NUL terminator.
+  /// @nr(78)
+  readlinkat: func(dfd: fd, pathname: cstr, buf: buf, bufsiz: s32) -> slong;
+
+  /// Kernel: `sys_faccessat(int dfd, const char * filename, int mode)`.
+  /// No access(2): AT_FDCWD.
+  /// @nr(48)
+  faccessat: func(dfd: fd, filename: cstr, mode: access-mode) -> slong;
+
+  /// Kernel: `sys_faccessat2(int dfd, const char * filename, int mode, int flags)`.
+  /// musl faccessat with flags tries faccessat2 first.
+  /// @nr(439)
+  faccessat2: func(dfd: fd, filename: cstr, mode: access-mode, %flags: at-flags) -> slong;
+
+  /// Kernel: `sys_chdir(const char * filename)`.
+  /// @nr(49)
+  chdir: func(filename: cstr) -> slong;
+
+  /// Kernel: `sys_fchdir(unsigned int fd)`.
+  /// @nr(50)
+  fchdir: func(fd: fd) -> slong;
+
+  /// Kernel: `sys_chroot(const char * filename)`.
+  /// @nr(51)
+  chroot: func(filename: cstr) -> slong;
+
+  /// Kernel: `sys_fchroot(int fd, unsigned int flags)`.
+  /// @nr(472)
+  fchroot: func(fd: fd, %flags: u32) -> slong;
+
+  /// Kernel: `sys_getcwd(char * buf, unsigned long size)`.
+  /// @nr(17)
+  getcwd: func(buf: buf, size: ulong) -> slong;
+
+  /// Kernel: `sys_fchmod(unsigned int fd, umode_t mode)`.
+  /// @nr(52)
+  fchmod: func(fd: fd, mode: mode) -> slong;
+
+  /// Kernel: `sys_fchmodat(int dfd, const char * filename, umode_t mode)`.
+  /// @nr(53)
+  fchmodat: func(dfd: fd, filename: cstr, mode: mode) -> slong;
+
+  /// Kernel: `sys_fchmodat2(int dfd, const char * filename, umode_t mode, unsigned int flags)`.
+  /// musl fchmodat(AT_SYMLINK_NOFOLLOW) tries fchmodat2 first.
+  /// @nr(452)
+  fchmodat2: func(dfd: fd, filename: cstr, mode: mode, %flags: at-flags) -> slong;
+
+  /// Kernel: `sys_fchown(unsigned int fd, uid_t user, gid_t group)`.
+  /// @nr(55)
+  fchown: func(fd: fd, user: uid, group: gid) -> slong;
+
+  /// Kernel: `sys_fchownat(int dfd, const char * filename, uid_t user, gid_t group, int flag)`.
+  /// @nr(54)
+  fchownat: func(dfd: fd, filename: cstr, user: uid, group: gid, flag: at-flags) -> slong;
+
+  /// Kernel: `sys_statx(int dfd, const char * filename, unsigned flags, unsigned int mask, struct statx *
+  /// buffer)`.
+  /// Only stat syscall on riscv32 (no fstatat64/newfstatat/fstat): musl implements
+  /// stat/fstat/lstat/fstatat via statx and converts to its struct stat. struct statx = 256 bytes. musl
+  /// fstat(fd) uses statx(fd, "", AT_EMPTY_PATH, ...).
+  /// @nr(291)
+  statx: func(dfd: fd, filename: cstr, %flags: at-flags, mask: statx-mask, buffer: statx-ptr) -> slong;
+
+  /// Kernel: `sys_statfs64(const char * pathname, size_t sz, struct statfs64 * buf)`.
+  /// sz must be sizeof(struct statfs64) == 88 on riscv32/wasm32 (asm-generic: __statfs_word is u32 on
+  /// 32-bit).
+  /// @nr(43)
+  statfs64: func(pathname: cstr, sz: usize, buf: statfs64-ptr) -> slong;
+
+  /// Kernel: `sys_fstatfs64(unsigned int fd, size_t sz, struct statfs64 * buf)`.
+  /// sz must be sizeof(struct statfs64) == 88.
+  /// @nr(44)
+  fstatfs64: func(fd: fd, sz: usize, buf: statfs64-ptr) -> slong;
+
+  /// Kernel: `sys_utimensat(int dfd, const char * filename, struct __kernel_timespec * utimes, int
+  /// flags)`.
+  /// times[2] of timespec64 (32 bytes), UTIME_NOW/UTIME_OMIT in tv_nsec. filename NULL allowed
+  /// (futimens).
+  /// @nr(412)
+  utimensat-time64: func(
+    dfd: fd,
+    filename: cstr,
+    utimes: const-kernel-timespec-array,
+    %flags: at-flags,
+  ) -> slong;
+
+  /// Kernel: `sys_pipe2(int * fildes, int flags)`.
+  /// fildes is int[2].
+  /// @nr(59)
+  pipe2: func(fildes: fd-pair, %flags: open-flags) -> slong;
+
+  /// Kernel: `sys_memfd_create(const char * uname, unsigned int flags)`.
+  /// @nr(279)
+  memfd-create: func(uname: cstr, %flags: memfd-flags) -> slong;
+
+  /// Kernel: `sys_memfd_secret(unsigned int flags)`.
+  /// Enabled on riscv via memfd_secret abi (syscall_abis_32 += riscv memfd_secret).
+  /// @nr(447)
+  memfd-secret: func(%flags: u32) -> slong;
+
+  /// Kernel: `sys_name_to_handle_at(int dfd, const char * name, struct file_handle * handle, void *
+  /// mnt_id, int flag)`.
+  /// struct file_handle {u32 handle_bytes; int handle_type; u8 f_handle[]} 8-byte header.
+  /// Untyped: mnt-id: `int *`, or `u64 *` with `AT_HANDLE_MNT_ID_UNIQUE`.
+  /// @nr(264)
+  name-to-handle-at: func(dfd: fd, name: cstr, handle: file-handle-ptr, mnt-id: s32-ptr, flag: s32) -> slong;
+
+  /// Kernel: `sys_open_by_handle_at(int mountdirfd, struct file_handle * handle, int flags)`.
+  /// @nr(265)
+  open-by-handle-at: func(mountdirfd: fd, handle: const-file-handle-ptr, %flags: open-flags) -> slong;
+
+  /// Kernel: `sys_cachestat(unsigned int fd, struct cachestat_range * cstat_range, struct cachestat *
+  /// cstat, unsigned int flags)`.
+  /// struct cachestat_range {u64 off; u64 len}; struct cachestat 5 x u64.
+  /// @nr(451)
+  cachestat: func(fd: fd, cstat-range: const-cachestat-range-ptr, cstat: cachestat-ptr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_file_getattr(int dfd, const char * filename, struct file_attr * ufattr, size_t usize,
+  /// unsigned int at_flags)`.
+  /// @nr(468)
+  file-getattr: func(
+    dfd: fd,
+    filename: cstr,
+    ufattr: file-attr-ptr,
+    usize: usize,
+    at-flags: at-flags,
+  ) -> slong;
+
+  /// Kernel: `sys_file_setattr(int dfd, const char * filename, struct file_attr * ufattr, size_t usize,
+  /// unsigned int at_flags)`.
+  /// @nr(469)
+  file-setattr: func(
+    dfd: fd,
+    filename: cstr,
+    ufattr: const-file-attr-ptr,
+    usize: usize,
+    at-flags: at-flags,
+  ) -> slong;
+
+  /// Kernel: `sys_quotactl(unsigned int cmd, const char * special, qid_t id, void * addr)`.
+  /// addr type depends on cmd.
+  /// Untyped: addr: pointee depends on `cmd`.
+  /// @nr(60)
+  quotactl: func(cmd: u32, special: cstr, id: qid, addr: void-ptr) -> slong;
+
+  /// Kernel: `sys_quotactl_fd(unsigned int fd, unsigned int cmd, qid_t id, void * addr)`.
+  /// Untyped: addr: pointee depends on `cmd`.
+  /// @nr(443)
+  quotactl-fd: func(fd: fd, cmd: u32, id: qid, addr: void-ptr) -> slong;
+
+  /// Kernel: `sys_setxattr(const char * pathname, const char * name, const void * value, size_t size, int
+  /// flags)`.
+  /// @nr(5)
+  setxattr: func(pathname: cstr, name: cstr, value: const-buf, size: usize, %flags: xattr-flags) -> slong;
+
+  /// Kernel: `sys_lsetxattr(const char * pathname, const char * name, const void * value, size_t size,
+  /// int flags)`.
+  /// @nr(6)
+  lsetxattr: func(pathname: cstr, name: cstr, value: const-buf, size: usize, %flags: xattr-flags) -> slong;
+
+  /// Kernel: `sys_fsetxattr(int fd, const char * name, const void * value, size_t size, int flags)`.
+  /// @nr(7)
+  fsetxattr: func(fd: fd, name: cstr, value: const-buf, size: usize, %flags: xattr-flags) -> slong;
+
+  /// Kernel: `sys_getxattr(const char * pathname, const char * name, void * value, size_t size)`.
+  /// @nr(8)
+  getxattr: func(pathname: cstr, name: cstr, value: buf, size: usize) -> slong;
+
+  /// Kernel: `sys_lgetxattr(const char * pathname, const char * name, void * value, size_t size)`.
+  /// @nr(9)
+  lgetxattr: func(pathname: cstr, name: cstr, value: buf, size: usize) -> slong;
+
+  /// Kernel: `sys_fgetxattr(int fd, const char * name, void * value, size_t size)`.
+  /// @nr(10)
+  fgetxattr: func(fd: fd, name: cstr, value: buf, size: usize) -> slong;
+
+  /// Kernel: `sys_listxattr(const char * pathname, char * list, size_t size)`.
+  /// @nr(11)
+  listxattr: func(pathname: cstr, %list: buf, size: usize) -> slong;
+
+  /// Kernel: `sys_llistxattr(const char * pathname, char * list, size_t size)`.
+  /// @nr(12)
+  llistxattr: func(pathname: cstr, %list: buf, size: usize) -> slong;
+
+  /// Kernel: `sys_flistxattr(int fd, char * list, size_t size)`.
+  /// @nr(13)
+  flistxattr: func(fd: fd, %list: buf, size: usize) -> slong;
+
+  /// Kernel: `sys_removexattr(const char * pathname, const char * name)`.
+  /// @nr(14)
+  removexattr: func(pathname: cstr, name: cstr) -> slong;
+
+  /// Kernel: `sys_lremovexattr(const char * pathname, const char * name)`.
+  /// @nr(15)
+  lremovexattr: func(pathname: cstr, name: cstr) -> slong;
+
+  /// Kernel: `sys_fremovexattr(int fd, const char * name)`.
+  /// @nr(16)
+  fremovexattr: func(fd: fd, name: cstr) -> slong;
+
+  /// Kernel: `sys_setxattrat(int dfd, const char * pathname, unsigned int at_flags, const char * name,
+  /// const struct xattr_args * uargs, size_t usize)`.
+  /// @nr(463)
+  setxattrat: func(
+    dfd: fd,
+    pathname: cstr,
+    at-flags: at-flags,
+    name: cstr,
+    uargs: const-xattr-args-ptr,
+    usize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_getxattrat(int dfd, const char * pathname, unsigned int at_flags, const char * name,
+  /// struct xattr_args * uargs, size_t usize)`.
+  /// @nr(464)
+  getxattrat: func(
+    dfd: fd,
+    pathname: cstr,
+    at-flags: at-flags,
+    name: cstr,
+    uargs: xattr-args-ptr,
+    usize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_listxattrat(int dfd, const char * pathname, unsigned int at_flags, char * list, size_t
+  /// size)`.
+  /// @nr(465)
+  listxattrat: func(dfd: fd, pathname: cstr, at-flags: at-flags, %list: buf, size: usize) -> slong;
+
+  /// Kernel: `sys_removexattrat(int dfd, const char * pathname, unsigned int at_flags, const char *
+  /// name)`.
+  /// @nr(466)
+  removexattrat: func(dfd: fd, pathname: cstr, at-flags: at-flags, name: cstr) -> slong;
+
+  // ==== Polling and event notification ====
+
+  /// Kernel: `sys_epoll_create1(int flags)`.
+  /// No epoll_create on asm-generic.
+  /// @nr(20)
+  epoll-create1: func(%flags: epoll-create-flags) -> slong;
+
+  /// Kernel: `sys_epoll_ctl(int epfd, int op, int fd, struct epoll_event * event)`.
+  /// struct epoll_event is NOT packed on asm-generic (packed only on x86_64): 16 bytes, data at offset 8.
+  /// @nr(21)
+  epoll-ctl: func(epfd: fd, op: epoll-ctl-op, fd: fd, event: const-epoll-event-ptr) -> slong;
+
+  /// Kernel: `sys_epoll_pwait(int epfd, struct epoll_event * events, int maxevents, int timeout, const
+  /// sigset_t * sigmask, size_t sigsetsize)`.
+  /// timeout is int ms; sigmask optional, sigsetsize must be 8. No epoll_wait on asm-generic: musl
+  /// implements epoll_wait via epoll_pwait(..., NULL, 8).
+  /// @nr(22)
+  epoll-pwait: func(
+    epfd: fd,
+    events: epoll-event-array,
+    maxevents: s32,
+    timeout: s32,
+    sigmask: const-sigset-ptr,
+    sigsetsize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_epoll_pwait2(int epfd, struct epoll_event * events, int maxevents, const struct
+  /// __kernel_timespec * timeout, const sigset_t * sigmask, size_t sigsetsize)`.
+  /// timespec64 timeout.
+  /// @nr(441)
+  epoll-pwait2: func(
+    epfd: fd,
+    events: epoll-event-array,
+    maxevents: s32,
+    timeout: const-kernel-timespec-ptr,
+    sigmask: const-sigset-ptr,
+    sigsetsize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_ppoll(struct pollfd * ufds, unsigned int nfds, struct __kernel_timespec * tsp, const
+  /// sigset_t * sigmask, size_t sigsetsize)`.
+  /// No poll on riscv32: musl poll() -> ppoll_time64(fds, n, ts or NULL, NULL, 8). Kernel updates *tsp.
+  /// @nr(414)
+  ppoll-time64: func(
+    ufds: pollfd-array,
+    nfds: u32,
+    tsp: kernel-timespec-ptr,
+    sigmask: const-sigset-ptr,
+    sigsetsize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_pselect6(int n, fd_set * inp, fd_set * outp, fd_set * exp, struct __kernel_timespec *
+  /// tsp, void * sig)`.
+  /// Kernel modifies *tsp (remaining time). 6th arg is pointer to {const sigset_t *ss; size_t ss_len} (8
+  /// bytes on ILP32), NOT a sigset pointer. fd_set = 1024 bits = 128 bytes, unsigned long words (32-bit).
+  /// No select on riscv32: musl select() -> pselect6_time64.
+  /// @nr(413)
+  pselect6-time64: func(
+    n: s32,
+    inp: kernel-fd-set-ptr,
+    outp: kernel-fd-set-ptr,
+    exp: kernel-fd-set-ptr,
+    tsp: kernel-timespec-ptr,
+    sig: const-sigset-argpack-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_eventfd2(unsigned int count, int flags)`.
+  /// No eventfd.
+  /// @nr(19)
+  eventfd2: func(count: u32, %flags: eventfd-flags) -> slong;
+
+  /// Kernel: `sys_signalfd4(int ufd, sigset_t * user_mask, size_t sizemask, int flags)`.
+  /// sizemask must be 8 (kernel sigset_t size).
+  /// @nr(74)
+  signalfd4: func(ufd: fd, user-mask: const-sigset-ptr, sizemask: usize, %flags: signalfd-flags) -> slong;
+
+  /// Kernel: `sys_timerfd_create(int clockid, int flags)`.
+  /// @nr(85)
+  timerfd-create: func(clockid: clock-id, %flags: timerfd-flags) -> slong;
+
+  /// Kernel: `sys_timerfd_settime(int ufd, int flags, const struct __kernel_itimerspec * utmr, struct
+  /// __kernel_itimerspec * otmr)`.
+  /// @nr(411)
+  timerfd-settime64: func(
+    ufd: fd,
+    %flags: timerfd-settime-flags,
+    utmr: const-kernel-itimerspec-ptr,
+    otmr: kernel-itimerspec-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_timerfd_gettime(int ufd, struct __kernel_itimerspec * otmr)`.
+  /// @nr(410)
+  timerfd-gettime64: func(ufd: fd, otmr: kernel-itimerspec-ptr) -> slong;
+
+  /// Kernel: `sys_inotify_init1(int flags)`.
+  /// No inotify_init.
+  /// @nr(26)
+  inotify-init1: func(%flags: inotify-init-flags) -> slong;
+
+  /// Kernel: `sys_inotify_add_watch(int fd, const char * pathname, u32 mask)`.
+  /// @nr(27)
+  inotify-add-watch: func(fd: fd, pathname: cstr, mask: inotify-mask) -> slong;
+
+  /// Kernel: `sys_inotify_rm_watch(int fd, __s32 wd)`.
+  /// @nr(28)
+  inotify-rm-watch: func(fd: fd, wd: s32) -> slong;
+
+  /// Kernel: `sys_fanotify_init(unsigned int flags, unsigned int event_f_flags)`.
+  /// @nr(262)
+  fanotify-init: func(%flags: u32, event-f-flags: u32) -> slong;
+
+  /// Kernel: `sys_fanotify_mark(int fanotify_fd, unsigned int flags, __u64 mask, int dfd, const char *
+  /// pathname)`.
+  /// __u64 mask: register pair on riscv32.
+  /// @nr(263)
+  /// @merged-i64(mask)
+  fanotify-mark: func(fanotify-fd: fd, %flags: u32, mask: u64, dfd: fd, pathname: cstr) -> slong;
+
+  // ==== Signals ====
+
+  /// Kernel: `sys_rt_sigaction(int sig, const struct sigaction * act, struct sigaction * oact, size_t
+  /// sigsetsize)`.
+  /// Kernel struct sigaction on riscv (asm-generic, riscv does NOT define
+  /// SA_RESTORER/__ARCH_HAS_SA_RESTORER): {sighandler_t handler; unsigned long sa_flags; sigset_t sa_mask
+  /// (8 bytes)} = 16 bytes on ILP32, mask at offset 8. sigsetsize must be 8. MUSL BUG: musl riscv32
+  /// (v1.2.6 and master b1efda5b) defines SA_RESTORER 0x04000000 in arch/riscv32/bits/signal.h, so its
+  /// struct k_sigaction is {handler, flags, restorer, mask[2]} (mask at offset 12) - the same bug musl
+  /// commit 269d1938 (2023) fixed for riscv64/mips/or1k/microblaze but riscv32 (merged 2024 from 2020
+  /// headers) reintroduced. For WASIX, follow the kernel layout (16 bytes, no restorer).
+  /// @nr(134)
+  rt-sigaction: func(sig: signal, act: const-sigaction-ptr, oact: sigaction-ptr, sigsetsize: usize) -> slong;
+
+  /// Kernel: `sys_rt_sigprocmask(int how, sigset_t * nset, sigset_t * oset, size_t sigsetsize)`.
+  /// sigsetsize must be 8.
+  /// @nr(135)
+  rt-sigprocmask: func(
+    how: sigprocmask-how,
+    nset: const-sigset-ptr,
+    oset: sigset-ptr,
+    sigsetsize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_rt_sigpending(sigset_t * uset, size_t sigsetsize)`.
+  /// sigsetsize must be 8.
+  /// @nr(136)
+  rt-sigpending: func(uset: sigset-ptr, sigsetsize: usize) -> slong;
+
+  /// Kernel: `sys_rt_sigsuspend(sigset_t * unewset, size_t sigsetsize)`.
+  /// sigsetsize must be 8.
+  /// @nr(133)
+  rt-sigsuspend: func(unewset: const-sigset-ptr, sigsetsize: usize) -> slong;
+
+  /// Kernel: `sys_rt_sigtimedwait(const sigset_t * uthese, siginfo_t * uinfo, const struct
+  /// __kernel_timespec * uts, size_t sigsetsize)`.
+  /// sigsetsize must be 8. siginfo 128 bytes.
+  /// @nr(421)
+  rt-sigtimedwait-time64: func(
+    uthese: const-sigset-ptr,
+    uinfo: siginfo-ptr,
+    uts: const-kernel-timespec-ptr,
+    sigsetsize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_rt_sigqueueinfo(pid_t pid, int sig, siginfo_t * uinfo)`.
+  /// siginfo_t 128 bytes.
+  /// @nr(138)
+  rt-sigqueueinfo: func(pid: pid, sig: signal, uinfo: const-siginfo-ptr) -> slong;
+
+  /// Kernel: `sys_rt_tgsigqueueinfo(pid_t tgid, pid_t pid, int sig, siginfo_t * uinfo)`.
+  /// siginfo_t 128 bytes.
+  /// @nr(240)
+  rt-tgsigqueueinfo: func(tgid: pid, pid: pid, sig: signal, uinfo: const-siginfo-ptr) -> slong;
+
+  /// Kernel: `sys_rt_sigreturn()`.
+  /// Restores the signal frame (ucontext/mcontext on user stack). musl calls it from __restore_rt
+  /// trampoline (src/signal/riscv32/restore.s), riscv uses a vDSO trampoline. In wasm this needs a
+  /// host-specific design (no user-visible register frame).
+  /// @nr(139)
+  /// @noreturn
+  rt-sigreturn: func();
+
+  /// Kernel: `sys_sigaltstack(const stack_t * uss, stack_t * uoss)`.
+  /// stack_t = 12 bytes on ILP32 {void* ss_sp; int ss_flags; size_t ss_size}. MINSIGSTKSZ/SIGSTKSZ arch
+  /// constants (musl riscv32: 2048/8192).
+  /// @nr(132)
+  sigaltstack: func(uss: const-sigaltstack-ptr, uoss: sigaltstack-ptr) -> slong;
+
+  /// Kernel: `sys_kill(pid_t pid, int sig)`.
+  /// @nr(129)
+  kill: func(pid: pid, sig: signal) -> slong;
+
+  /// Kernel: `sys_tkill(pid_t pid, int sig)`.
+  /// @nr(130)
+  tkill: func(pid: pid, sig: signal) -> slong;
+
+  /// Kernel: `sys_tgkill(pid_t tgid, pid_t pid, int sig)`.
+  /// @nr(131)
+  tgkill: func(tgid: pid, pid: pid, sig: signal) -> slong;
+
+  /// Kernel: `sys_pidfd_send_signal(int pidfd, int sig, siginfo_t * info, unsigned int flags)`.
+  /// @nr(424)
+  pidfd-send-signal: func(pidfd: fd, sig: signal, info: const-siginfo-ptr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_restart_syscall()`.
+  /// Kernel-internal restart mechanism; not called by libc.
+  /// @nr(128)
+  restart-syscall: func() -> slong;
+
+  // ==== Processes and threads ====
+
+  /// Kernel: `sys_clone(unsigned long clone_flags, unsigned long newsp, int * parent_tidptr, unsigned
+  /// long tls, int * child_tidptr)`.
+  /// riscv uses CLONE_BACKWARDS order: (flags, newsp, parent_tid, tls, child_tid). Returns twice (0 in
+  /// the child running on `newsp`), which a wasm import cannot do; threads need `wasix_ext.thread-spawn`
+  /// and fork/vfork need a host design.
+  /// @nr(220)
+  clone: func(
+    clone-flags: ulong,
+    newsp: uptr,
+    parent-tidptr: s32-ptr,
+    tls: uptr,
+    child-tidptr: s32-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_clone3(struct clone_args * uargs, size_t size)`.
+  /// struct clone_args: all fields __aligned_u64; size 88 (VER2). Same return-twice issue as clone. Not
+  /// used by musl.
+  /// @nr(435)
+  clone3: func(uargs: const-clone-args-ptr, size: usize) -> slong;
+
+  /// Kernel: `sys_execve(const char * filename, const char *const * argv, const char *const * envp)`.
+  /// Replaces process image; no return on success. argv/envp are NULL-terminated arrays of 32-bit
+  /// pointers.
+  /// @nr(221)
+  execve: func(filename: cstr, argv: cstr-array, envp: cstr-array) -> slong;
+
+  /// Kernel: `sys_execveat(int fd, const char * filename, const char *const * argv, const char *const *
+  /// envp, int flags)`.
+  /// AT_EMPTY_PATH for fexecve.
+  /// @nr(281)
+  execveat: func(fd: fd, filename: cstr, argv: cstr-array, envp: cstr-array, %flags: at-flags) -> slong;
+
+  /// Kernel: `sys_exit(int error_code)`.
+  /// Exits only the calling thread. noreturn.
+  /// @nr(93)
+  /// @noreturn
+  exit: func(error-code: s32);
+
+  /// Kernel: `sys_exit_group(int error_code)`.
+  /// noreturn.
+  /// @nr(94)
+  /// @noreturn
+  exit-group: func(error-code: s32);
+
+  /// Kernel: `sys_waitid(int which, pid_t upid, struct siginfo * infop, int options, struct rusage *
+  /// ru)`.
+  /// Also the only wait primitive on riscv32 (no wait4): musl implements wait4/waitpid via
+  /// waitid(P_ALL/P_PID/P_PGID/P_PIDFD) + rusage. 5th arg struct rusage uses __kernel_old_timeval with
+  /// 32-bit tv_sec/tv_usec (long) on riscv32 => y2038-limited; kernel struct rusage = 72 bytes on ILP32
+  /// (see types.md).
+  /// @nr(95)
+  waitid: func(which: idtype, upid: pid, infop: siginfo-ptr, options: wait-options, ru: rusage-ptr) -> slong;
+
+  /// Kernel: `sys_set_tid_address(int * tidptr)`.
+  /// Sets clear_child_tid: kernel writes 0 to *tidptr and futex-wakes it on thread exit. Returns caller
+  /// tid. musl uses it at startup and in pthread_create via clone CLONE_CHILD_CLEARTID.
+  /// @nr(96)
+  set-tid-address: func(tidptr: s32-ptr) -> slong;
+
+  /// Kernel: `sys_unshare(unsigned long unshare_flags)`.
+  /// @nr(97)
+  unshare: func(unshare-flags: ulong) -> slong;
+
+  /// Kernel: `sys_setns(int fd, int flags)`.
+  /// @nr(268)
+  setns: func(fd: fd, %flags: s32) -> slong;
+
+  /// Kernel: `sys_getpid()`.
+  /// @nr(172)
+  getpid: func() -> slong;
+
+  /// Kernel: `sys_getppid()`.
+  /// @nr(173)
+  getppid: func() -> slong;
+
+  /// Kernel: `sys_gettid()`.
+  /// @nr(178)
+  gettid: func() -> slong;
+
+  /// Kernel: `sys_getpgid(pid_t pid)`.
+  /// @nr(155)
+  getpgid: func(pid: pid) -> slong;
+
+  /// Kernel: `sys_setpgid(pid_t pid, pid_t pgid)`.
+  /// @nr(154)
+  setpgid: func(pid: pid, pgid: pid) -> slong;
+
+  /// Kernel: `sys_getsid(pid_t pid)`.
+  /// @nr(156)
+  getsid: func(pid: pid) -> slong;
+
+  /// Kernel: `sys_setsid()`.
+  /// @nr(157)
+  setsid: func() -> slong;
+
+  /// Kernel: `sys_pidfd_open(pid_t pid, unsigned int flags)`.
+  /// @nr(434)
+  pidfd-open: func(pid: pid, %flags: u32) -> slong;
+
+  /// Kernel: `sys_pidfd_getfd(int pidfd, int fd, unsigned int flags)`.
+  /// @nr(438)
+  pidfd-getfd: func(pidfd: fd, fd: fd, %flags: u32) -> slong;
+
+  /// Kernel: `sys_process_mrelease(int pidfd, unsigned int flags)`.
+  /// @nr(448)
+  process-mrelease: func(pidfd: fd, %flags: u32) -> slong;
+
+  /// Kernel: `sys_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2)`.
+  /// @nr(272)
+  kcmp: func(pid1: pid, pid2: pid, %type: s32, idx1: ulong, idx2: ulong) -> slong;
+
+  /// Kernel: `sys_personality(unsigned int personality)`.
+  /// @nr(92)
+  personality: func(personality: u32) -> slong;
+
+  /// Kernel: `sys_prctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned
+  /// long arg5)`.
+  /// Untyped args (int or pointer depending on option, e.g. PR_SET_NAME takes char*[16]).
+  /// Untyped: arg2..arg5: integers or guest pointers, depending on `option`.
+  /// @nr(167)
+  prctl: func(%option: prctl-option, arg2: ulong, arg3: ulong, arg4: ulong, arg5: ulong) -> slong;
+
+  /// Kernel: `sys_ptrace(long request, long pid, unsigned long addr, unsigned long data)`.
+  /// Raw kernel semantics: PTRACE_PEEK* store result to *data (glibc/musl wrapper returns it). musl
+  /// ptrace() wrapper does this.
+  /// Untyped: data: an integer or a guest pointer, depending on `request` (`PTRACE_PEEK*` store the word
+  /// at `data`).
+  /// @nr(117)
+  ptrace: func(request: ptrace-request, pid: pid, addr: uptr, data: ulong) -> slong;
+
+  /// Kernel: `sys_process_vm_readv(pid_t pid, const struct iovec * lvec, unsigned long liovcnt, const
+  /// struct iovec * rvec, unsigned long riovcnt, unsigned long flags)`.
+  /// @nr(270)
+  process-vm-readv: func(
+    pid: pid,
+    lvec: const-iovec-array,
+    liovcnt: ulong,
+    rvec: const-iovec-array,
+    riovcnt: ulong,
+    %flags: ulong,
+  ) -> slong;
+
+  /// Kernel: `sys_process_vm_writev(pid_t pid, const struct iovec * lvec, unsigned long liovcnt, const
+  /// struct iovec * rvec, unsigned long riovcnt, unsigned long flags)`.
+  /// @nr(271)
+  process-vm-writev: func(
+    pid: pid,
+    lvec: const-iovec-array,
+    liovcnt: ulong,
+    rvec: const-iovec-array,
+    riovcnt: ulong,
+    %flags: ulong,
+  ) -> slong;
+
+  /// Kernel: `sys_seccomp(unsigned int op, unsigned int flags, void * uargs)`.
+  /// Untyped: uargs: pointee depends on `op`.
+  /// @nr(277)
+  seccomp: func(op: u32, %flags: u32, uargs: void-ptr) -> slong;
+
+  /// Kernel: `sys_rseq(struct rseq * rseq, u32 rseq_len, int flags, u32 sig)`.
+  /// struct rseq is 32-byte aligned (__attribute__((aligned(32))) in uapi). Registered by glibc, not
+  /// musl.
+  /// Untyped: rseq: `struct rseq` (64 bytes, 32-byte aligned, not modelled: WIT records cannot express
+  /// over-alignment).
+  /// @nr(293)
+  rseq: func(rseq: void-ptr, rseq-len: u32, %flags: s32, sig: u32) -> slong;
+
+  /// Kernel: `sys_rseq_slice_yield()`.
+  /// @nr(471)
+  rseq-slice-yield: func() -> slong;
+
+  /// Kernel: `sys_set_robust_list(struct robust_list_head * head, size_t len)`.
+  /// len must be sizeof(struct robust_list_head) == 12 on ILP32.
+  /// @nr(99)
+  set-robust-list: func(head: robust-list-head-ptr, len: usize) -> slong;
+
+  /// Kernel: `sys_get_robust_list(int pid, struct robust_list_head * * head_ptr, size_t * len_ptr)`.
+  /// @nr(100)
+  get-robust-list: func(pid: s32, head-ptr: robust-list-head-ptr-ptr, len-ptr: usize-ptr) -> slong;
+
+  // ==== Credentials ====
+
+  /// Kernel: `sys_getuid()`.
+  /// @nr(174)
+  getuid: func() -> slong;
+
+  /// Kernel: `sys_geteuid()`.
+  /// @nr(175)
+  geteuid: func() -> slong;
+
+  /// Kernel: `sys_getgid()`.
+  /// @nr(176)
+  getgid: func() -> slong;
+
+  /// Kernel: `sys_getegid()`.
+  /// @nr(177)
+  getegid: func() -> slong;
+
+  /// Kernel: `sys_setuid(uid_t uid)`.
+  /// @nr(146)
+  setuid: func(uid: uid) -> slong;
+
+  /// Kernel: `sys_setgid(gid_t gid)`.
+  /// @nr(144)
+  setgid: func(gid: gid) -> slong;
+
+  /// Kernel: `sys_setreuid(uid_t ruid, uid_t euid)`.
+  /// @nr(145)
+  setreuid: func(ruid: uid, euid: uid) -> slong;
+
+  /// Kernel: `sys_setregid(gid_t rgid, gid_t egid)`.
+  /// @nr(143)
+  setregid: func(rgid: gid, egid: gid) -> slong;
+
+  /// Kernel: `sys_setresuid(uid_t ruid, uid_t euid, uid_t suid)`.
+  /// @nr(147)
+  setresuid: func(ruid: uid, euid: uid, suid: uid) -> slong;
+
+  /// Kernel: `sys_getresuid(uid_t * ruidp, uid_t * euidp, uid_t * suidp)`.
+  /// @nr(148)
+  getresuid: func(ruidp: uid-ptr, euidp: uid-ptr, suidp: uid-ptr) -> slong;
+
+  /// Kernel: `sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid)`.
+  /// @nr(149)
+  setresgid: func(rgid: gid, egid: gid, sgid: gid) -> slong;
+
+  /// Kernel: `sys_getresgid(gid_t * rgidp, gid_t * egidp, gid_t * sgidp)`.
+  /// @nr(150)
+  getresgid: func(rgidp: gid-ptr, egidp: gid-ptr, sgidp: gid-ptr) -> slong;
+
+  /// Kernel: `sys_setfsuid(uid_t uid)`.
+  /// @nr(151)
+  setfsuid: func(uid: uid) -> slong;
+
+  /// Kernel: `sys_setfsgid(gid_t gid)`.
+  /// @nr(152)
+  setfsgid: func(gid: gid) -> slong;
+
+  /// Kernel: `sys_getgroups(int gidsetsize, gid_t * grouplist)`.
+  /// gid_t is 32-bit (uid32 on asm-generic).
+  /// @nr(158)
+  getgroups: func(gidsetsize: s32, grouplist: gid-array) -> slong;
+
+  /// Kernel: `sys_setgroups(int gidsetsize, gid_t * grouplist)`.
+  /// @nr(159)
+  setgroups: func(gidsetsize: s32, grouplist: const-gid-array) -> slong;
+
+  /// Kernel: `sys_capget(cap_user_header_t header, cap_user_data_t dataptr)`.
+  /// cap_user_header_t/cap_user_data_t are pointer typedefs.
+  /// @nr(90)
+  capget: func(header: user-cap-header-ptr, dataptr: user-cap-data-array) -> slong;
+
+  /// Kernel: `sys_capset(cap_user_header_t header, const cap_user_data_t data)`.
+  /// cap_user_header_t/cap_user_data_t are pointer typedefs.
+  /// @nr(91)
+  capset: func(header: user-cap-header-ptr, data: const-user-cap-data-array) -> slong;
+
+  // ==== Scheduling and resources ====
+
+  /// Kernel: `sys_sched_setparam(pid_t pid, struct sched_param * param)`.
+  /// @nr(118)
+  sched-setparam: func(pid: pid, param: const-sched-param-ptr) -> slong;
+
+  /// Kernel: `sys_sched_getparam(pid_t pid, struct sched_param * param)`.
+  /// @nr(121)
+  sched-getparam: func(pid: pid, param: sched-param-ptr) -> slong;
+
+  /// Kernel: `sys_sched_setscheduler(pid_t pid, int policy, struct sched_param * param)`.
+  /// @nr(119)
+  sched-setscheduler: func(pid: pid, policy: sched-policy, param: const-sched-param-ptr) -> slong;
+
+  /// Kernel: `sys_sched_getscheduler(pid_t pid)`.
+  /// @nr(120)
+  sched-getscheduler: func(pid: pid) -> slong;
+
+  /// Kernel: `sys_sched_setattr(pid_t pid, struct sched_attr * uattr, unsigned int flags)`.
+  /// struct sched_attr size-versioned (56 bytes VER1).
+  /// @nr(274)
+  sched-setattr: func(pid: pid, uattr: sched-attr-ptr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_sched_getattr(pid_t pid, struct sched_attr * uattr, unsigned int usize, unsigned int
+  /// flags)`.
+  /// @nr(275)
+  sched-getattr: func(pid: pid, uattr: sched-attr-ptr, usize: u32, %flags: u32) -> slong;
+
+  /// Kernel: `sys_sched_setaffinity(pid_t pid, unsigned int len, unsigned long * user_mask_ptr)`.
+  /// mask is array of unsigned long (32-bit on wasm32); len in bytes.
+  /// @nr(122)
+  sched-setaffinity: func(pid: pid, len: u32, user-mask-ptr: ulong-array) -> slong;
+
+  /// Kernel: `sys_sched_getaffinity(pid_t pid, unsigned int len, unsigned long * user_mask_ptr)`.
+  /// Returns number of bytes written (kernel cpumask size), not 0.
+  /// @nr(123)
+  sched-getaffinity: func(pid: pid, len: u32, user-mask-ptr: ulong-array) -> slong;
+
+  /// Kernel: `sys_sched_yield()`.
+  /// @nr(124)
+  sched-yield: func() -> slong;
+
+  /// Kernel: `sys_sched_get_priority_max(int policy)`.
+  /// @nr(125)
+  sched-get-priority-max: func(policy: sched-policy) -> slong;
+
+  /// Kernel: `sys_sched_get_priority_min(int policy)`.
+  /// @nr(126)
+  sched-get-priority-min: func(policy: sched-policy) -> slong;
+
+  /// Kernel: `sys_sched_rr_get_interval(pid_t pid, struct __kernel_timespec * interval)`.
+  /// @nr(423)
+  sched-rr-get-interval-time64: func(pid: pid, interval: kernel-timespec-ptr) -> slong;
+
+  /// Kernel: `sys_getpriority(int which, int who)`.
+  /// Returns 20 - nice (1..40) to avoid negative values; libc converts.
+  /// @nr(141)
+  getpriority: func(which: prio-which, who: s32) -> slong;
+
+  /// Kernel: `sys_setpriority(int which, int who, int niceval)`.
+  /// @nr(140)
+  setpriority: func(which: prio-which, who: s32, niceval: s32) -> slong;
+
+  /// Kernel: `sys_getrusage(int who, struct rusage * ru)`.
+  /// struct rusage uses __kernel_old_timeval (long tv_sec, long tv_usec: 32-bit each on riscv32) => 72
+  /// bytes; musl converts to 64-bit-time struct rusage on 32-bit archs.
+  /// @nr(165)
+  getrusage: func(who: rusage-who, ru: rusage-ptr) -> slong;
+
+  /// Kernel: `sys_prlimit64(pid_t pid, unsigned int resource, const struct rlimit64 * new_rlim, struct
+  /// rlimit64 * old_rlim)`.
+  /// Only rlimit syscall on riscv32 (getrlimit/setrlimit are "rlimit" abi, rv64 only). struct rlimit64 =
+  /// 2 x __u64 = 16 bytes.
+  /// @nr(261)
+  prlimit64: func(
+    pid: pid,
+    %resource: rlimit-resource,
+    new-rlim: const-rlimit64-ptr,
+    old-rlim: rlimit64-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_times(struct tms * tbuf)`.
+  /// struct tms = 4 x __kernel_clock_t (long, 32-bit on riscv32) = 16 bytes. Return value is clock_t
+  /// ticks (32-bit, may wrap and look like -errno).
+  /// @nr(153)
+  times: func(tbuf: tms-ptr) -> slong;
+
+  /// Kernel: `sys_ioprio_set(int which, int who, int ioprio)`.
+  /// @nr(30)
+  ioprio-set: func(which: s32, who: s32, ioprio: s32) -> slong;
+
+  /// Kernel: `sys_ioprio_get(int which, int who)`.
+  /// @nr(31)
+  ioprio-get: func(which: s32, who: s32) -> slong;
+
+  /// Kernel: `sys_getcpu(unsigned * cpup, unsigned * nodep, void * unused)`.
+  /// 3rd arg unused (was tcache).
+  /// @nr(168)
+  getcpu: func(cpup: u32-ptr, nodep: u32-ptr, unused: void-ptr) -> slong;
+
+  /// Kernel: `sys_sysinfo(struct sysinfo * info)`.
+  /// struct sysinfo with __kernel_long_t fields (32-bit on riscv32): 64 bytes incl. padding to 64
+  /// (_f[20-2*sizeof(long)-sizeof(int)] = 8 bytes).
+  /// @nr(179)
+  sysinfo: func(info: sysinfo-ptr) -> slong;
+
+  /// Kernel: `sys_newuname(struct new_utsname * name)`.
+  /// struct new_utsname = 6 x 65 chars = 390 bytes.
+  /// @nr(160)
+  uname: func(name: new-utsname-ptr) -> slong;
+
+  /// Kernel: `sys_sethostname(char * name, int len)`.
+  /// @nr(161)
+  sethostname: func(name: const-buf, len: s32) -> slong;
+
+  /// Kernel: `sys_setdomainname(char * name, int len)`.
+  /// @nr(162)
+  setdomainname: func(name: const-buf, len: s32) -> slong;
+
+  /// Kernel: `sys_umask(int mask)`.
+  /// @nr(166)
+  umask: func(mask: s32) -> slong;
+
+  /// Kernel: `sys_getrandom(char * ubuf, size_t len, unsigned int flags)`.
+  /// musl getrandom() + getentropy.
+  /// @nr(278)
+  getrandom: func(ubuf: buf, len: usize, %flags: grnd-flags) -> slong;
+
+  /// Kernel: `sys_membarrier(int cmd, unsigned int flags, int cpu_id)`.
+  /// @nr(283)
+  membarrier: func(cmd: membarrier-cmd, %flags: membarrier-cmd-flags, cpu-id: s32) -> slong;
+
+  // ==== Futexes ====
+
+  /// Kernel: `sys_futex(u32 * uaddr, int op, u32 val, const struct __kernel_timespec * utime, u32 *
+  /// uaddr2, u32 val3)`.
+  /// riscv32 has no plain `futex`; musl defines `SYS_futex` as `SYS_futex_time64`. The timeout is
+  /// relative for `FUTEX_WAIT` and absolute for `FUTEX_WAIT_BITSET`/`FUTEX_LOCK_PI2`.
+  /// Untyped: utime: a pointer to `kernel-timespec` for the waiting ops, but reinterpreted as the `u32`
+  /// `val2` for `FUTEX_REQUEUE`, `FUTEX_CMP_REQUEUE*` and `FUTEX_WAKE_OP`.
+  /// @nr(422)
+  futex-time64: func(
+    uaddr: u32-ptr,
+    op: futex-op,
+    val: u32,
+    utime: ulong,
+    uaddr2: u32-ptr,
+    val3: u32,
+  ) -> slong;
+
+  /// Kernel: `sys_futex_waitv(struct futex_waitv * waiters, unsigned int nr_futexes, unsigned int flags,
+  /// struct __kernel_timespec * timeout, clockid_t clockid)`.
+  /// struct futex_waitv {u64 val; u64 uaddr; u32 flags; u32 __reserved} 24 bytes (uaddr as u64 even on
+  /// 32-bit).
+  /// @nr(449)
+  futex-waitv: func(
+    waiters: const-futex-waitv-array,
+    nr-futexes: u32,
+    %flags: u32,
+    timeout: kernel-timespec-ptr,
+    clockid: clock-id,
+  ) -> slong;
+
+  /// Kernel: `sys_futex_wake(void * uaddr, unsigned long mask, int nr, unsigned int flags)`.
+  /// futex2 API (6.7+). mask is unsigned long (32-bit on riscv32).
+  /// @nr(454)
+  futex-wake: func(uaddr: u32-ptr, mask: ulong, nr: s32, %flags: futex2-flags) -> slong;
+
+  /// Kernel: `sys_futex_wait(void * uaddr, unsigned long val, unsigned long mask, unsigned int flags,
+  /// struct __kernel_timespec * timeout, clockid_t clockid)`.
+  /// futex2 API; val/mask unsigned long.
+  /// @nr(455)
+  futex-wait: func(
+    uaddr: u32-ptr,
+    val: ulong,
+    mask: ulong,
+    %flags: futex2-flags,
+    timeout: kernel-timespec-ptr,
+    clockid: clock-id,
+  ) -> slong;
+
+  /// Kernel: `sys_futex_requeue(struct futex_waitv * waiters, unsigned int flags, int nr_wake, int
+  /// nr_requeue)`.
+  /// Takes array of 2 struct futex_waitv.
+  /// @nr(456)
+  futex-requeue: func(waiters: const-futex-waitv-array, %flags: u32, nr-wake: s32, nr-requeue: s32) -> slong;
+
+  // ==== Memory management ====
+
+  /// Kernel: `sys_brk(unsigned long brk)`.
+  /// Returns new break (or current break on failure), never -errno. musl malloc-ng only uses brk to
+  /// probe/extend (lite_malloc/mallocng expand_heap).
+  /// @nr(214)
+  brk: func(brk: uptr) -> slong;
+
+  /// Kernel: `sys_mmap2(unsigned long addr, unsigned long len, unsigned long prot, unsigned long flags,
+  /// unsigned long fd, unsigned long offset)`.
+  /// riscv32 has only mmap2 (no mmap): offset is in units of 4096 bytes (riscv sys_mmap2 uses a constant
+  /// shift of 12 regardless of PAGE_SIZE), NOT bytes. musl passes off/4096 (UNIT=4096) and rejects off
+  /// not multiple of 4096. Wasm: page size mismatch (wasm pages 64KiB; Linux 4KiB) - host design needed.
+  /// Returns address.
+  /// @nr(222)
+  mmap2: func(addr: uptr, len: ulong, prot: prot-flags, %flags: map-flags, fd: fd, offset: ulong) -> slong;
+
+  /// Kernel: `sys_munmap(unsigned long addr, size_t len)`.
+  /// @nr(215)
+  munmap: func(addr: uptr, len: usize) -> slong;
+
+  /// Kernel: `sys_mremap(unsigned long addr, unsigned long old_len, unsigned long new_len, unsigned long
+  /// flags, unsigned long new_addr)`.
+  /// 5th arg new_addr only with MREMAP_FIXED; returns address.
+  /// @nr(216)
+  mremap: func(addr: uptr, old-len: ulong, new-len: ulong, %flags: mremap-flags, new-addr: uptr) -> slong;
+
+  /// Kernel: `sys_mprotect(unsigned long start, size_t len, unsigned long prot)`.
+  /// Wasm cannot change protection of linear memory pages - host design question.
+  /// @nr(226)
+  mprotect: func(start: uptr, len: usize, prot: prot-flags) -> slong;
+
+  /// Kernel: `sys_pkey_mprotect(unsigned long start, size_t len, unsigned long prot, int pkey)`.
+  /// @nr(288)
+  pkey-mprotect: func(start: uptr, len: usize, prot: prot-flags, pkey: s32) -> slong;
+
+  /// Kernel: `sys_pkey_alloc(unsigned long flags, unsigned long init_val)`.
+  /// @nr(289)
+  pkey-alloc: func(%flags: ulong, init-val: ulong) -> slong;
+
+  /// Kernel: `sys_pkey_free(int pkey)`.
+  /// @nr(290)
+  pkey-free: func(pkey: s32) -> slong;
+
+  /// Kernel: `sys_msync(unsigned long start, size_t len, int flags)`.
+  /// @nr(227)
+  msync: func(start: uptr, len: usize, %flags: msync-flags) -> slong;
+
+  /// Kernel: `sys_madvise(unsigned long start, size_t len_in, int behavior)`.
+  /// @nr(233)
+  madvise: func(start: uptr, len-in: usize, behavior: madvise-advice) -> slong;
+
+  /// Kernel: `sys_process_madvise(int pidfd, const struct iovec * vec, size_t vlen, int behavior,
+  /// unsigned int flags)`.
+  /// @nr(440)
+  process-madvise: func(
+    pidfd: fd,
+    vec: const-iovec-array,
+    vlen: usize,
+    behavior: madvise-advice,
+    %flags: u32,
+  ) -> slong;
+
+  /// Kernel: `sys_mincore(unsigned long start, size_t len, unsigned char * vec)`.
+  /// vec gets one byte per 4096-byte page.
+  /// @nr(232)
+  mincore: func(start: uptr, len: usize, vec: buf) -> slong;
+
+  /// Kernel: `sys_mlock(unsigned long start, size_t len)`.
+  /// @nr(228)
+  mlock: func(start: uptr, len: usize) -> slong;
+
+  /// Kernel: `sys_mlock2(unsigned long start, size_t len, int flags)`.
+  /// @nr(284)
+  mlock2: func(start: uptr, len: usize, %flags: mlock-flags) -> slong;
+
+  /// Kernel: `sys_munlock(unsigned long start, size_t len)`.
+  /// @nr(229)
+  munlock: func(start: uptr, len: usize) -> slong;
+
+  /// Kernel: `sys_mlockall(int flags)`.
+  /// @nr(230)
+  mlockall: func(%flags: mcl-flags) -> slong;
+
+  /// Kernel: `sys_munlockall()`.
+  /// @nr(231)
+  munlockall: func() -> slong;
+
+  /// Kernel: `sys_remap_file_pages(unsigned long start, unsigned long size, unsigned long prot, unsigned
+  /// long pgoff, unsigned long flags)`.
+  /// Deprecated (emulated).
+  /// @nr(234)
+  remap-file-pages: func(start: uptr, size: ulong, prot: ulong, pgoff: ulong, %flags: ulong) -> slong;
+
+  /// Kernel: `sys_mbind(unsigned long start, unsigned long len, unsigned long mode, const unsigned long *
+  /// nmask, unsigned long maxnode, unsigned int flags)`.
+  /// @nr(235)
+  mbind: func(
+    start: uptr,
+    len: ulong,
+    mode: ulong,
+    nmask: const-ulong-array,
+    maxnode: ulong,
+    %flags: u32,
+  ) -> slong;
+
+  /// Kernel: `sys_get_mempolicy(int * policy, unsigned long * nmask, unsigned long maxnode, unsigned long
+  /// addr, unsigned long flags)`.
+  /// @nr(236)
+  get-mempolicy: func(
+    policy: s32-ptr,
+    nmask: ulong-array,
+    maxnode: ulong,
+    addr: uptr,
+    %flags: ulong,
+  ) -> slong;
+
+  /// Kernel: `sys_set_mempolicy(int mode, const unsigned long * nmask, unsigned long maxnode)`.
+  /// @nr(237)
+  set-mempolicy: func(mode: s32, nmask: const-ulong-array, maxnode: ulong) -> slong;
+
+  /// Kernel: `sys_set_mempolicy_home_node(unsigned long start, unsigned long len, unsigned long
+  /// home_node, unsigned long flags)`.
+  /// @nr(450)
+  set-mempolicy-home-node: func(start: uptr, len: ulong, home-node: ulong, %flags: ulong) -> slong;
+
+  /// Kernel: `sys_migrate_pages(pid_t pid, unsigned long maxnode, const unsigned long * old_nodes, const
+  /// unsigned long * new_nodes)`.
+  /// @nr(238)
+  migrate-pages: func(
+    pid: pid,
+    maxnode: ulong,
+    old-nodes: const-ulong-array,
+    new-nodes: const-ulong-array,
+  ) -> slong;
+
+  /// Kernel: `sys_move_pages(pid_t pid, unsigned long nr_pages, const void * * pages, const int * nodes,
+  /// int * status, int flags)`.
+  /// @nr(239)
+  move-pages: func(
+    pid: pid,
+    nr-pages: ulong,
+    pages: const-uptr-array,
+    nodes: const-s32-array,
+    status: s32-array,
+    %flags: s32,
+  ) -> slong;
+
+  /// Kernel: `sys_mseal(unsigned long start, size_t len, unsigned long flags)`.
+  /// @nr(462)
+  mseal: func(start: uptr, len: usize, %flags: ulong) -> slong;
+
+  /// Kernel: `sys_map_shadow_stack(unsigned long addr, unsigned long size, unsigned int flags)`.
+  /// Common in table; riscv implements it (arch/riscv/kernel/usercfi.c) for Zicfiss. Irrelevant for wasm.
+  /// @nr(453)
+  /// @unsupported
+  map-shadow-stack: func(addr: uptr, size: ulong, %flags: u32) -> slong;
+
+  /// Kernel: `sys_userfaultfd(int flags)`.
+  /// @nr(282)
+  userfaultfd: func(%flags: s32) -> slong;
+
+  // ==== Clocks and timers ====
+
+  /// Kernel: `sys_clock_gettime(const clockid_t which_clock, struct __kernel_timespec * tp)`.
+  /// riscv32 name clock_gettime64 (entry sys_clock_gettime). musl tries vDSO __vdso_clock_gettime first
+  /// (VDSO_CGT_SYM, LINUX_4.15) then syscall. timespec64 = {s64 tv_sec; long tv_nsec; 4 bytes pad} 16
+  /// bytes.
+  /// @nr(403)
+  clock-gettime64: func(which-clock: clock-id, tp: kernel-timespec-ptr) -> slong;
+
+  /// Kernel: `sys_clock_settime(const clockid_t which_clock, const struct __kernel_timespec * tp)`.
+  /// @nr(404)
+  clock-settime64: func(which-clock: clock-id, tp: const-kernel-timespec-ptr) -> slong;
+
+  /// Kernel: `sys_clock_getres(const clockid_t which_clock, struct __kernel_timespec * tp)`.
+  /// @nr(406)
+  clock-getres-time64: func(which-clock: clock-id, tp: kernel-timespec-ptr) -> slong;
+
+  /// Kernel: `sys_clock_nanosleep(const clockid_t which_clock, int flags, const struct __kernel_timespec
+  /// * rqtp, struct __kernel_timespec * rmtp)`.
+  /// No nanosleep on riscv32: musl nanosleep()/sleep()/usleep() -> clock_nanosleep(CLOCK_REALTIME, 0,
+  /// ...). Returns -errno directly (POSIX clock_nanosleep returns positive errno; libc converts).
+  /// @nr(407)
+  clock-nanosleep-time64: func(
+    which-clock: clock-id,
+    %flags: timer-flags,
+    rqtp: const-kernel-timespec-ptr,
+    rmtp: kernel-timespec-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_clock_adjtime(const clockid_t which_clock, struct __kernel_timex * utx)`.
+  /// struct __kernel_timex: 208 bytes, 64-bit time fields (time64 variant). musl adjtimex() ->
+  /// clock_adjtime(CLOCK_REALTIME).
+  /// @nr(405)
+  clock-adjtime64: func(which-clock: clock-id, utx: kernel-timex-ptr) -> slong;
+
+  /// Kernel: `sys_getitimer(int which, struct __kernel_old_itimerval * value)`.
+  /// Uses struct __kernel_old_itimerval (two __kernel_old_timeval, long fields => 32-bit tv_sec on
+  /// riscv32, 16 bytes total). y2038 legacy; musl converts on 32-bit.
+  /// @nr(102)
+  getitimer: func(which: itimer-which, value: kernel-old-itimerval-ptr) -> slong;
+
+  /// Kernel: `sys_setitimer(int which, struct __kernel_old_itimerval * value, struct
+  /// __kernel_old_itimerval * ovalue)`.
+  /// Uses struct __kernel_old_itimerval (32-bit fields on riscv32). musl converts; values > INT32 seconds
+  /// fail with EOVERFLOW-like handling in musl.
+  /// @nr(103)
+  setitimer: func(
+    which: itimer-which,
+    value: const-kernel-old-itimerval-ptr,
+    ovalue: kernel-old-itimerval-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_timer_create(const clockid_t which_clock, struct sigevent * timer_event_spec, timer_t *
+  /// created_timer_id)`.
+  /// struct sigevent: 64 bytes (SIGEV_THREAD_ID uses _tid). musl SIGEV_THREAD implemented in userland via
+  /// helper thread + SIGEV_THREAD_ID.
+  /// @nr(107)
+  timer-create: func(
+    which-clock: clock-id,
+    timer-event-spec: const-sigevent-ptr,
+    created-timer-id: timer-id-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_timer_settime(timer_t timer_id, int flags, const struct __kernel_itimerspec *
+  /// new_setting, struct __kernel_itimerspec * old_setting)`.
+  /// struct __kernel_itimerspec = 2 x timespec64 = 32 bytes.
+  /// @nr(409)
+  timer-settime64: func(
+    timer-id: timer-id,
+    %flags: timer-flags,
+    new-setting: const-kernel-itimerspec-ptr,
+    old-setting: kernel-itimerspec-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_timer_gettime(timer_t timer_id, struct __kernel_itimerspec * setting)`.
+  /// @nr(408)
+  timer-gettime64: func(timer-id: timer-id, setting: kernel-itimerspec-ptr) -> slong;
+
+  /// Kernel: `sys_timer_getoverrun(timer_t timer_id)`.
+  /// @nr(109)
+  timer-getoverrun: func(timer-id: timer-id) -> slong;
+
+  /// Kernel: `sys_timer_delete(timer_t timer_id)`.
+  /// @nr(111)
+  timer-delete: func(timer-id: timer-id) -> slong;
+
+  // ==== Sockets ====
+
+  /// Kernel: `sys_socket(int family, int type, int protocol)`.
+  /// SOCK_NONBLOCK=O_NONBLOCK(04000), SOCK_CLOEXEC=O_CLOEXEC(02000000) on asm-generic.
+  /// @nr(198)
+  socket: func(family: address-family, %type: s32, protocol: s32) -> slong;
+
+  /// Kernel: `sys_socketpair(int family, int type, int protocol, int * usockvec)`.
+  /// @nr(199)
+  socketpair: func(family: address-family, %type: s32, protocol: s32, usockvec: fd-pair) -> slong;
+
+  /// Kernel: `sys_bind(int fd, struct sockaddr * umyaddr, int addrlen)`.
+  /// @nr(200)
+  bind: func(fd: fd, umyaddr: const-sockaddr-ptr, addrlen: socklen) -> slong;
+
+  /// Kernel: `sys_listen(int fd, int backlog)`.
+  /// @nr(201)
+  listen: func(fd: fd, backlog: s32) -> slong;
+
+  /// Kernel: `sys_accept(int fd, struct sockaddr * upeer_sockaddr, int * upeer_addrlen)`.
+  /// musl defines SYS_accept to SYS_accept4 only if SYS_accept is missing; riscv32 has both.
+  /// @nr(202)
+  accept: func(fd: fd, upeer-sockaddr: sockaddr-ptr, upeer-addrlen: socklen-ptr) -> slong;
+
+  /// Kernel: `sys_accept4(int fd, struct sockaddr * upeer_sockaddr, int * upeer_addrlen, int flags)`.
+  /// @nr(242)
+  accept4: func(
+    fd: fd,
+    upeer-sockaddr: sockaddr-ptr,
+    upeer-addrlen: socklen-ptr,
+    %flags: socket-flags,
+  ) -> slong;
+
+  /// Kernel: `sys_connect(int fd, struct sockaddr * uservaddr, int addrlen)`.
+  /// @nr(203)
+  connect: func(fd: fd, uservaddr: const-sockaddr-ptr, addrlen: socklen) -> slong;
+
+  /// Kernel: `sys_getsockname(int fd, struct sockaddr * usockaddr, int * usockaddr_len)`.
+  /// @nr(204)
+  getsockname: func(fd: fd, usockaddr: sockaddr-ptr, usockaddr-len: socklen-ptr) -> slong;
+
+  /// Kernel: `sys_getpeername(int fd, struct sockaddr * usockaddr, int * usockaddr_len)`.
+  /// @nr(205)
+  getpeername: func(fd: fd, usockaddr: sockaddr-ptr, usockaddr-len: socklen-ptr) -> slong;
+
+  /// Kernel: `sys_sendto(int fd, void * buff, size_t len, unsigned int flags, struct sockaddr * addr, int
+  /// addr_len)`.
+  /// @nr(206)
+  sendto: func(
+    fd: fd,
+    buff: const-buf,
+    len: usize,
+    %flags: msg-flags,
+    addr: const-sockaddr-ptr,
+    addr-len: socklen,
+  ) -> slong;
+
+  /// Kernel: `sys_recvfrom(int fd, void * ubuf, size_t size, unsigned int flags, struct sockaddr * addr,
+  /// int * addr_len)`.
+  /// @nr(207)
+  recvfrom: func(
+    fd: fd,
+    ubuf: buf,
+    size: usize,
+    %flags: msg-flags,
+    addr: sockaddr-ptr,
+    addr-len: socklen-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_setsockopt(int fd, int level, int optname, char * optval, int optlen)`.
+  /// optval layouts per (level,optname). SO_RCVTIMEO/SO_SNDTIMEO: on 32-bit,
+  /// SO_RCVTIMEO_OLD(20)/SNDTIMEO_OLD(21) take 32-bit timeval; SO_RCVTIMEO_NEW(66)/SO_SNDTIMEO_NEW(67)
+  /// take 64-bit __kernel_sock_timeval. musl tries _NEW first on 32-bit time64 archs then falls back.
+  /// @nr(208)
+  setsockopt: func(fd: fd, level: socket-level, optname: s32, optval: const-buf, optlen: socklen) -> slong;
+
+  /// Kernel: `sys_getsockopt(int fd, int level, int optname, char * optval, int * optlen)`.
+  /// see setsockopt.
+  /// @nr(209)
+  getsockopt: func(fd: fd, level: socket-level, optname: s32, optval: buf, optlen: socklen-ptr) -> slong;
+
+  /// Kernel: `sys_shutdown(int fd, int how)`.
+  /// @nr(210)
+  shutdown: func(fd: fd, how: shutdown-how) -> slong;
+
+  /// Kernel: `sys_sendmsg(int fd, struct user_msghdr * msg, unsigned int flags)`.
+  /// struct user_msghdr = 28 bytes on ILP32; cmsghdr {size_t len; int level; int type} 12 bytes,
+  /// CMSG_ALIGN to sizeof(long)=4.
+  /// @nr(211)
+  sendmsg: func(fd: fd, msg: const-user-msghdr-ptr, %flags: msg-flags) -> slong;
+
+  /// Kernel: `sys_recvmsg(int fd, struct user_msghdr * msg, unsigned int flags)`.
+  /// see sendmsg. SCM_TIMESTAMP*_OLD vs _NEW differ on 32-bit.
+  /// @nr(212)
+  recvmsg: func(fd: fd, msg: user-msghdr-ptr, %flags: msg-flags) -> slong;
+
+  /// Kernel: `sys_sendmmsg(int fd, struct mmsghdr * mmsg, unsigned int vlen, unsigned int flags)`.
+  /// struct mmsghdr = msghdr(28) + unsigned msg_len = 32 bytes.
+  /// @nr(269)
+  sendmmsg: func(fd: fd, mmsg: mmsghdr-array, vlen: u32, %flags: msg-flags) -> slong;
+
+  /// Kernel: `sys_recvmmsg(int fd, struct mmsghdr * mmsg, unsigned int vlen, unsigned int flags, struct
+  /// __kernel_timespec * timeout)`.
+  /// struct mmsghdr = 32 bytes; timespec64 timeout.
+  /// @nr(417)
+  recvmmsg-time64: func(
+    fd: fd,
+    mmsg: mmsghdr-array,
+    vlen: u32,
+    %flags: msg-flags,
+    timeout: kernel-timespec-ptr,
+  ) -> slong;
+
+  // ==== System V IPC and POSIX message queues ====
+
+  /// Kernel: `sys_msgget(key_t key, int msgflg)`.
+  /// @nr(186)
+  msgget: func(key: key, msgflg: s32) -> slong;
+
+  /// Kernel: `sys_msgctl(int msqid, int cmd, struct msqid_ds * buf)`.
+  /// cmd must have IPC_64 (0x100) on most archs; musl riscv32 defines IPC_64 = 0
+  /// (arch/riscv32/syscall_arch.h). struct msqid64_ds on asm-generic 32-bit: time fields split into lo/hi
+  /// (msg_stime + msg_stime_high).
+  /// @nr(187)
+  msgctl: func(msqid: s32, cmd: s32, buf: msqid64-ds-ptr) -> slong;
+
+  /// Kernel: `sys_msgrcv(int msqid, struct msgbuf * msgp, size_t msgsz, long msgtyp, int msgflg)`.
+  /// msgbuf {long mtype; char mtext[]} - mtype is 32-bit on ILP32.
+  /// @nr(188)
+  msgrcv: func(msqid: s32, msgp: msgbuf-ptr, msgsz: usize, msgtyp: slong, msgflg: s32) -> slong;
+
+  /// Kernel: `sys_msgsnd(int msqid, struct msgbuf * msgp, size_t msgsz, int msgflg)`.
+  /// see msgrcv.
+  /// @nr(189)
+  msgsnd: func(msqid: s32, msgp: const-msgbuf-ptr, msgsz: usize, msgflg: s32) -> slong;
+
+  /// Kernel: `sys_semget(key_t key, int nsems, int semflg)`.
+  /// @nr(190)
+  semget: func(key: key, nsems: s32, semflg: s32) -> slong;
+
+  /// Kernel: `sys_semctl(int semid, int semnum, int cmd, unsigned long arg)`.
+  /// 4th arg is union semun by value (unsigned long: int val or pointer). semid64_ds has split time_high
+  /// fields on 32-bit.
+  /// Untyped: arg: `union semun` by value: an `int`, or a pointer to `semid64-ds`, `u16[]` or `seminfo`.
+  /// @nr(191)
+  semctl: func(semid: s32, semnum: s32, cmd: s32, arg: ulong) -> slong;
+
+  /// Kernel: `sys_semop(int semid, struct sembuf * tsops, unsigned int nsops)`.
+  /// @nr(193)
+  semop: func(semid: s32, tsops: const-sembuf-array, nsops: u32) -> slong;
+
+  /// Kernel: `sys_semtimedop(int semid, struct sembuf * tsops, unsigned int nsops, const struct
+  /// __kernel_timespec * timeout)`.
+  /// musl semop uses semop; semtimedop -> semtimedop_time64.
+  /// @nr(420)
+  semtimedop-time64: func(
+    semid: s32,
+    tsops: const-sembuf-array,
+    nsops: u32,
+    timeout: const-kernel-timespec-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_shmget(key_t key, size_t size, int shmflg)`.
+  /// @nr(194)
+  shmget: func(key: key, size: usize, shmflg: s32) -> slong;
+
+  /// Kernel: `sys_shmctl(int shmid, int cmd, struct shmid_ds * buf)`.
+  /// shmid64_ds with split time high fields on 32-bit.
+  /// @nr(195)
+  shmctl: func(shmid: s32, cmd: s32, buf: shmid64-ds-ptr) -> slong;
+
+  /// Kernel: `sys_shmat(int shmid, char * shmaddr, int shmflg)`.
+  /// Returns attach address. SHMLBA alignment.
+  /// @nr(196)
+  shmat: func(shmid: s32, shmaddr: uptr, shmflg: s32) -> slong;
+
+  /// Kernel: `sys_shmdt(char * shmaddr)`.
+  /// @nr(197)
+  shmdt: func(shmaddr: uptr) -> slong;
+
+  /// Kernel: `sys_mq_open(const char * u_name, int oflag, umode_t mode, struct mq_attr * u_attr)`.
+  /// struct mq_attr = 4 x long + 4 x long reserved = 32 bytes on ILP32.
+  /// @nr(180)
+  mq-open: func(u-name: cstr, oflag: open-flags, mode: mode, u-attr: const-mq-attr-ptr) -> slong;
+
+  /// Kernel: `sys_mq_unlink(const char * u_name)`.
+  /// @nr(181)
+  mq-unlink: func(u-name: cstr) -> slong;
+
+  /// Kernel: `sys_mq_timedsend(mqd_t mqdes, const char * u_msg_ptr, size_t msg_len, unsigned int
+  /// msg_prio, const struct __kernel_timespec * u_abs_timeout)`.
+  /// @nr(418)
+  mq-timedsend-time64: func(
+    mqdes: mqd,
+    u-msg-ptr: const-buf,
+    msg-len: usize,
+    msg-prio: u32,
+    u-abs-timeout: const-kernel-timespec-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_mq_timedreceive(mqd_t mqdes, char * u_msg_ptr, size_t msg_len, unsigned int *
+  /// u_msg_prio, const struct __kernel_timespec * u_abs_timeout)`.
+  /// @nr(419)
+  mq-timedreceive-time64: func(
+    mqdes: mqd,
+    u-msg-ptr: buf,
+    msg-len: usize,
+    u-msg-prio: u32-ptr,
+    u-abs-timeout: const-kernel-timespec-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_mq_notify(mqd_t mqdes, const struct sigevent * u_notification)`.
+  /// @nr(184)
+  mq-notify: func(mqdes: mqd, u-notification: const-sigevent-ptr) -> slong;
+
+  /// Kernel: `sys_mq_getsetattr(mqd_t mqdes, const struct mq_attr * u_mqstat, struct mq_attr *
+  /// u_omqstat)`.
+  /// @nr(185)
+  mq-getsetattr: func(mqdes: mqd, u-mqstat: const-mq-attr-ptr, u-omqstat: mq-attr-ptr) -> slong;
+
+  // ==== Asynchronous I/O and io_uring ====
+
+  /// Kernel: `sys_io_setup(unsigned nr_events, aio_context_t * ctxp)`.
+  /// aio_context_t is __kernel_ulong_t => 32-bit on riscv32 (*ctxp is u32 on wasm32). Linux native AIO;
+  /// musl does not use it (POSIX aio is thread-based).
+  /// @nr(0)
+  io-setup: func(nr-events: u32, ctxp: aio-context-ptr) -> slong;
+
+  /// Kernel: `sys_io_destroy(aio_context_t ctx)`.
+  /// aio_context_t is 32-bit unsigned long on riscv32.
+  /// @nr(1)
+  io-destroy: func(ctx: aio-context) -> slong;
+
+  /// Kernel: `sys_io_submit(aio_context_t ctx_id, long nr, struct iocb * * iocbpp)`.
+  /// struct iocb is fixed 64 bytes with explicit __u64 fields (pointer-in-u64).
+  /// @nr(2)
+  io-submit: func(ctx-id: aio-context, nr: slong, iocbpp: const-iocb-ptr-array) -> slong;
+
+  /// Kernel: `sys_io_cancel(aio_context_t ctx_id, struct iocb * iocb, struct io_event * result)`.
+  /// @nr(3)
+  io-cancel: func(ctx-id: aio-context, iocb: iocb-ptr, %result: io-event-ptr) -> slong;
+
+  /// Kernel: `sys_io_pgetevents(aio_context_t ctx_id, long min_nr, long nr, struct io_event * events,
+  /// struct __kernel_timespec * timeout, const struct __aio_sigset * usig)`.
+  /// Linux AIO; usig points to struct __aio_sigset {const sigset_t *sigmask; size_t sigsetsize} (8 bytes
+  /// ILP32). Not used by musl.
+  /// @nr(416)
+  io-pgetevents-time64: func(
+    ctx-id: aio-context,
+    min-nr: slong,
+    nr: slong,
+    events: io-event-array,
+    timeout: kernel-timespec-ptr,
+    usig: const-aio-sigset-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_io_uring_setup(u32 entries, struct io_uring_params * params)`.
+  /// @nr(425)
+  io-uring-setup: func(entries: u32, params: io-uring-params-ptr) -> slong;
+
+  /// Kernel: `sys_io_uring_enter(unsigned int fd, u32 to_submit, u32 min_complete, u32 flags, const void
+  /// * argp, size_t argsz)`.
+  /// Untyped: argp: a `sigset` or an `io-uring-getevents-arg`, depending on `flags`.
+  /// @nr(426)
+  io-uring-enter: func(
+    fd: fd,
+    to-submit: u32,
+    min-complete: u32,
+    %flags: u32,
+    argp: const-void-ptr,
+    argsz: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_io_uring_register(unsigned int fd, unsigned int opcode, void * arg, unsigned int
+  /// nr_args)`.
+  /// Untyped: arg: pointee depends on `opcode`.
+  /// @nr(427)
+  io-uring-register: func(fd: fd, opcode: u32, arg: void-ptr, nr-args: u32) -> slong;
+
+  // ==== Mounting and namespaces ====
+
+  /// Kernel: `sys_mount(char * dev_name, char * dir_name, char * type, unsigned long flags, void *
+  /// data)`.
+  /// data untyped (fs-specific).
+  /// Untyped: data: file system specific.
+  /// @nr(40)
+  mount: func(
+    dev-name: cstr,
+    dir-name: cstr,
+    %type: cstr,
+    %flags: mount-flags,
+    data: const-void-ptr,
+  ) -> slong;
+
+  /// Kernel: `sys_umount(char * name, int flags)`.
+  /// @nr(39)
+  umount2: func(name: cstr, %flags: umount-flags) -> slong;
+
+  /// Kernel: `sys_pivot_root(const char * new_root, const char * put_old)`.
+  /// @nr(41)
+  pivot-root: func(new-root: cstr, put-old: cstr) -> slong;
+
+  /// Kernel: `sys_open_tree(int dfd, const char * filename, unsigned flags)`.
+  /// @nr(428)
+  open-tree: func(dfd: fd, filename: cstr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_open_tree_attr(int dfd, const char * filename, unsigned flags, struct mount_attr *
+  /// uattr, size_t usize)`.
+  /// @nr(467)
+  open-tree-attr: func(
+    dfd: fd,
+    filename: cstr,
+    %flags: u32,
+    uattr: const-mount-attr-ptr,
+    usize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_move_mount(int from_dfd, const char * from_pathname, int to_dfd, const char *
+  /// to_pathname, unsigned int flags)`.
+  /// @nr(429)
+  move-mount: func(from-dfd: fd, from-pathname: cstr, to-dfd: fd, to-pathname: cstr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_fsopen(const char * _fs_name, unsigned int flags)`.
+  /// @nr(430)
+  fsopen: func(fs-name: cstr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_fsconfig(int fd, unsigned int cmd, const char * _key, const void * _value, int aux)`.
+  /// Untyped: value: pointee depends on `cmd`.
+  /// @nr(431)
+  fsconfig: func(fd: fd, cmd: u32, key: cstr, value: const-void-ptr, aux: s32) -> slong;
+
+  /// Kernel: `sys_fsmount(int fs_fd, unsigned int flags, unsigned int attr_flags)`.
+  /// @nr(432)
+  fsmount: func(fs-fd: fd, %flags: u32, attr-flags: u32) -> slong;
+
+  /// Kernel: `sys_fspick(int dfd, const char * path, unsigned int flags)`.
+  /// @nr(433)
+  fspick: func(dfd: fd, path: cstr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_mount_setattr(int dfd, const char * path, unsigned int flags, struct mount_attr *
+  /// uattr, size_t usize)`.
+  /// @nr(442)
+  mount-setattr: func(
+    dfd: fd,
+    path: cstr,
+    %flags: at-flags,
+    uattr: const-mount-attr-ptr,
+    usize: usize,
+  ) -> slong;
+
+  /// Kernel: `sys_statmount(const struct mnt_id_req * req, struct statmount * buf, size_t bufsize,
+  /// unsigned int flags)`.
+  /// variable-size struct statmount.
+  /// Untyped: buf: `struct statmount` (512+ bytes, size-versioned, not modelled).
+  /// @nr(457)
+  statmount: func(req: const-mnt-id-req-ptr, buf: void-ptr, bufsize: usize, %flags: u32) -> slong;
+
+  /// Kernel: `sys_listmount(const struct mnt_id_req * req, u64 * mnt_ids, size_t nr_mnt_ids, unsigned int
+  /// flags)`.
+  /// struct mnt_id_req (u32 size, u32 spare/mnt_ns_fd, u64 mnt_id, u64 param, u64 mnt_ns_id).
+  /// @nr(458)
+  listmount: func(req: const-mnt-id-req-ptr, mnt-ids: u64-array, nr-mnt-ids: usize, %flags: u32) -> slong;
+
+  /// Kernel: `sys_listns(const struct ns_id_req * req, u64 * ns_ids, size_t nr_ns_ids, unsigned int
+  /// flags)`.
+  /// @nr(470)
+  listns: func(req: const-ns-id-req-ptr, ns-ids: u64-array, nr-ns-ids: usize, %flags: u32) -> slong;
+
+  // ==== Security ====
+
+  /// Kernel: `sys_landlock_create_ruleset(const struct landlock_ruleset_attr *const attr, const size_t
+  /// size, const __u32 flags)`.
+  /// @nr(444)
+  landlock-create-ruleset: func(attr: const-landlock-ruleset-attr-ptr, size: usize, %flags: u32) -> slong;
+
+  /// Kernel: `sys_landlock_add_rule(const int ruleset_fd, const enum landlock_rule_type rule_type, const
+  /// void *const rule_attr, const __u32 flags)`.
+  /// Untyped: rule-attr: `landlock-net-port-attr`, or the packed 12-byte `struct
+  /// landlock_path_beneath_attr`.
+  /// @nr(445)
+  landlock-add-rule: func(ruleset-fd: fd, rule-type: s32, rule-attr: const-void-ptr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_landlock_restrict_self(const int ruleset_fd, const __u32 flags)`.
+  /// @nr(446)
+  landlock-restrict-self: func(ruleset-fd: fd, %flags: u32) -> slong;
+
+  /// Kernel: `sys_lsm_get_self_attr(unsigned int attr, struct lsm_ctx * ctx, u32 * size, u32 flags)`.
+  /// @nr(459)
+  lsm-get-self-attr: func(attr: u32, ctx: lsm-ctx-ptr, size: u32-ptr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_lsm_set_self_attr(unsigned int attr, struct lsm_ctx * ctx, u32 size, u32 flags)`.
+  /// @nr(460)
+  lsm-set-self-attr: func(attr: u32, ctx: const-lsm-ctx-ptr, size: u32, %flags: u32) -> slong;
+
+  /// Kernel: `sys_lsm_list_modules(u64 * ids, u32 * size, u32 flags)`.
+  /// @nr(461)
+  lsm-list-modules: func(ids: u64-array, size: u32-ptr, %flags: u32) -> slong;
+
+  /// Kernel: `sys_add_key(const char * _type, const char * _description, const void * _payload, size_t
+  /// plen, key_serial_t ringid)`.
+  /// @nr(217)
+  add-key: func(
+    %type: cstr,
+    description: cstr,
+    payload: const-void-ptr,
+    plen: usize,
+    ringid: key-serial,
+  ) -> slong;
+
+  /// Kernel: `sys_request_key(const char * _type, const char * _description, const char * _callout_info,
+  /// key_serial_t destringid)`.
+  /// @nr(218)
+  request-key: func(%type: cstr, description: cstr, callout-info: cstr, destringid: key-serial) -> slong;
+
+  /// Kernel: `sys_keyctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned
+  /// long arg5)`.
+  /// Untyped args depending on option.
+  /// Untyped: arg2..arg5: integers or guest pointers, depending on `option`.
+  /// @nr(219)
+  keyctl: func(%option: s32, arg2: ulong, arg3: ulong, arg4: ulong, arg5: ulong) -> slong;
+
+  /// Kernel: `sys_bpf(int cmd, union bpf_attr * uattr, unsigned int size, struct bpf_common_attr *
+  /// uattr_common, unsigned int size_common)`.
+  /// Kernel 7.x prototype has 5 args (cmd, attr, size, uattr_common, size_common); older kernels 3 args.
+  /// Untyped: uattr/uattr-common: `union bpf_attr`/`struct bpf_common_attr`, size-versioned, not
+  /// modelled.
+  /// @nr(280)
+  bpf: func(cmd: s32, uattr: void-ptr, size: u32, uattr-common: void-ptr, size-common: u32) -> slong;
+
+  /// Kernel: `sys_perf_event_open(struct perf_event_attr * attr_uptr, pid_t pid, int cpu, int group_fd,
+  /// unsigned long flags)`.
+  /// struct perf_event_attr size-versioned.
+  /// Untyped: attr-uptr: `struct perf_event_attr` (size-versioned, not modelled).
+  /// @nr(241)
+  perf-event-open: func(attr-uptr: void-ptr, pid: pid, cpu: s32, group-fd: fd, %flags: ulong) -> slong;
+
+  // ==== System administration ====
+
+  /// Kernel: `sys_reboot(int magic1, int magic2, unsigned int cmd, void * arg)`.
+  /// magic numbers required.
+  /// Untyped: arg: only used by `LINUX_REBOOT_CMD_RESTART2` (a string).
+  /// @nr(142)
+  reboot: func(magic1: s32, magic2: s32, cmd: reboot-cmd, arg: void-ptr) -> slong;
+
+  /// Kernel: `sys_acct(const char * name)`.
+  /// @nr(89)
+  acct: func(name: cstr) -> slong;
+
+  /// Kernel: `sys_swapon(const char * specialfile, int swap_flags)`.
+  /// @nr(224)
+  swapon: func(specialfile: cstr, swap-flags: s32) -> slong;
+
+  /// Kernel: `sys_swapoff(const char * specialfile)`.
+  /// @nr(225)
+  swapoff: func(specialfile: cstr) -> slong;
+
+  /// Kernel: `sys_syslog(int type, char * buf, int len)`.
+  /// klogctl.
+  /// @nr(116)
+  syslog: func(%type: s32, buf: buf, len: s32) -> slong;
+
+  /// Kernel: `sys_vhangup()`.
+  /// @nr(58)
+  vhangup: func() -> slong;
+
+  /// Kernel: `sys_kexec_load(unsigned long entry, unsigned long nr_segments, struct kexec_segment *
+  /// segments, unsigned long flags)`.
+  /// @nr(104)
+  /// @unsupported
+  kexec-load: func(
+    entry: uptr,
+    nr-segments: ulong,
+    segments: const-kexec-segment-array,
+    %flags: ulong,
+  ) -> slong;
+
+  /// Kernel: `sys_kexec_file_load(int kernel_fd, int initrd_fd, unsigned long cmdline_len, const char *
+  /// cmdline_ptr, unsigned long flags)`.
+  /// @nr(294)
+  /// @unsupported
+  kexec-file-load: func(
+    kernel-fd: fd,
+    initrd-fd: fd,
+    cmdline-len: ulong,
+    cmdline-ptr: cstr,
+    %flags: ulong,
+  ) -> slong;
+
+  /// Kernel: `sys_init_module(void * umod, unsigned long len, const char * uargs)`.
+  /// @nr(105)
+  /// @unsupported
+  init-module: func(umod: const-buf, len: ulong, uargs: cstr) -> slong;
+
+  /// Kernel: `sys_finit_module(int fd, const char * uargs, int flags)`.
+  /// @nr(273)
+  /// @unsupported
+  finit-module: func(fd: fd, uargs: cstr, %flags: s32) -> slong;
+
+  /// Kernel: `sys_delete_module(const char * name_user, unsigned int flags)`.
+  /// @nr(106)
+  /// @unsupported
+  delete-module: func(name-user: cstr, %flags: u32) -> slong;
+}
