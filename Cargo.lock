@@ -7070,6 +7070,7 @@ dependencies = [
  "tracing-subscriber",
  "version-compare",
  "walkdir",
+ "wasixv2",
  "wasmer",
  "wasmer-types",
  "wasmer-wasix",

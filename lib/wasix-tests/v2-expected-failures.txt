@@ -1,0 +1,291 @@
+# WASIX v2 variants of the wasm_tests suite that are known to fail.
+#
+# One full test name per line (as `cargo nextest list -p wasix-tests` prints it,
+# e.g. `wasm/basic/helloworld/default/v2/cranelift`); `#` starts a comment.
+# A listed test that fails passes the suite; a listed test that passes fails it
+# with "unexpectedly passed", so remove it from here when it starts working. An
+# entry that names no registered v2 test fails `wasm/v2-expected-failures`.
+#
+# Grouped by the first cause the harness reports: a build error, the syscalls
+# the kernel answered with ENOSYS, or the symptom.
+
+# ENOSYS: Chdir
+wasm/path/chdir-getcwd/default/v2/cranelift
+
+# ENOSYS: Dup3, RtSigaction
+wasm/fd/fd-dup2-same-inode/default/v2/cranelift
+wasm/fd/fd-renumber-negative-target/default/v2/cranelift
+
+# ENOSYS: Eventfd2
+wasm/poll/epoll-create-ctl-wait/default/v2/cranelift
+
+# ENOSYS: Eventfd2, RtSigaction
+wasm/fd_tests/fd-event-nonblock/default/v2/cranelift
+wasm/fd_tests/fd-event-readable/default/v2/cranelift
+
+# ENOSYS: Faccessat
+wasm/semaphore/semaphore-named/default/v2/cranelift
+wasm/semaphore/semaphore-same-name-twice-with-excl/default/v2/cranelift
+wasm/semaphore/semaphore-same-name-twice-without-excl/default/v2/cranelift
+wasm/semaphore/semaphore-unlink-named/default/v2/cranelift
+
+# ENOSYS: Ftruncate64, RtSigaction
+wasm/fd/fd-append-after-truncate/default/v2/cranelift
+wasm/fd/fd-sparse-write-after-truncate/default/v2/cranelift
+
+# ENOSYS: Getdents64
+wasm/path/closing-pre-opened-dirs/default/v2/cranelift
+
+# ENOSYS: Mkdirat
+wasm/path/create-and-remove-dirs/default/v2/cranelift
+wasm/path/create-dir-at-cwd-with-chdir/default/v2/cranelift
+wasm/path/create-dir-at-cwd/default/v2/cranelift
+wasm/path/create-move-open/default/v2/cranelift
+wasm/path/distinct-inodes-same-basename/default/v2/cranelift
+wasm/path/fstatat-with-chdir/default/v2/cranelift
+wasm/path/mount-tmp-locally/default/v2/cranelift
+
+# ENOSYS: Mkdirat, RtSigaction
+wasm/path/rename-dir-into-child/default/v2/cranelift
+
+# ENOSYS: Pipe2
+wasm/process/builtin-wasmer-version/default/v2/cranelift
+wasm/socket/pipe_send_recv_compat/default/v2/cranelift
+
+# ENOSYS: Pipe2, RtSigaction
+wasm/fd/fcntl-setfd-clear-cloexec/default/v2/cranelift
+wasm/fd/fd-close-pipe-stdio/default/v2/cranelift
+wasm/fd/fd-datasync-pipe/default/v2/cranelift
+wasm/fd/fd-poll-pipe-stdio/default/v2/cranelift
+wasm/poll/poll-oneoff/default/v2/cranelift
+
+# ENOSYS: Renameat2, RtSigaction
+wasm/path/rename-same-path/default/v2/cranelift
+
+# ENOSYS: RtSigaction, Socket
+wasm/socket/stream-tcp-writev-partial/default/v2/cranelift
+
+# ENOSYS: RtSigaction, Socketpair
+wasm/socket/socket-pair-cloexec/default/v2/cranelift
+
+# ENOSYS: RtSigaction, Statx
+wasm/fd/fd-unlink/default/v2/cranelift
+
+# ENOSYS: RtSigaction, Tkill
+wasm/fd_dup2/default/v2/cranelift
+wasm/semaphore/semaphore-unlink-nullptr-exits/default/v2/cranelift
+wasm/signal/pthread-sigmask-inherit/default/v2/cranelift
+wasm/signal/sigaction-mask-blocks-other/default/v2/cranelift
+wasm/signal/sigaction-mask-defers/default/v2/cranelift
+wasm/signal/sigaction-nodefer-reenters/default/v2/cranelift
+wasm/signal/sigaction-resethand/default/v2/cranelift
+wasm/signal/sigaction-siginfo/default/v2/cranelift
+wasm/signal/sigprocmask-blocks-and-pends/default/v2/cranelift
+
+# ENOSYS: Socket
+wasm/fd/fd-close/default/v2/cranelift
+wasm/socket/bind-fail-stays-unbound/default/v2/cranelift
+wasm/socket/bind-port-zero-connect/default/v2/cranelift
+wasm/socket/bind-port-zero/default/v2/cranelift
+wasm/socket/bound-tcp-getpeername/default/v2/cranelift
+wasm/socket/bound-tcp-writable/default/v2/cranelift
+wasm/socket/connect-holds-local-port/default/v2/cranelift
+wasm/socket/connected-udp-writev/default/v2/cranelift
+wasm/socket/create-nonblocking/default/v2/cranelift
+wasm/socket/get-last-socket-error/default/v2/cranelift
+wasm/socket/getaddrinfo-af-inet-filter/default/v2/cranelift
+wasm/socket/getnameinfo-loopback/default/v2/cranelift
+wasm/socket/nonblocking-connect-network-unreachable/default/v2/cranelift
+wasm/socket/nonblocking-connect/default/v2/cranelift
+wasm/socket/set-socket-opt-bool/default/v2/cranelift
+wasm/socket/stream-tcp-writev/default/v2/cranelift
+wasm/socket/udp-connected-wrong-peer/default/v2/cranelift
+wasm/socket/udp-getpeername-unconnected/default/v2/cranelift
+wasm/socket/udp-peek/default/v2/cranelift
+wasm/socket/udp-readiness/default/v2/cranelift
+wasm/socket/udp/test_udp_addr_reuse/v2/cranelift
+wasm/socket/udp/test_udp_autobind_connect/v2/cranelift
+wasm/socket/udp/test_udp_autobind_sendto/v2/cranelift
+wasm/socket/udp/test_udp_ipv6/v2/cranelift
+
+# ENOSYS: Statx
+wasm/path/unlink-backing-symlink/default/v2/cranelift
+
+# build: dynamic linking / PIC (not supported by wasm32-wasixv2 yet)
+wasm/dynamic_call_and_closure/closure-lifecycle/default/v2/cranelift
+wasm/dynamic_library/dl-cache/default/v2/cranelift
+wasm/dynamic_library/dl-concurrent-open-and-spawn/default/v2/cranelift
+wasm/dynamic_library/dl-multi-thread-shared-side-calls/default/v2/cranelift
+wasm/dynamic_library/dl-needed/default/v2/cranelift
+wasm/dynamic_library/dl-spawn-under-dlsym-worker/default/v2/cranelift
+wasm/dynamic_library/dlopen-exports/default/v2/cranelift
+wasm/dynamic_library/dlopen/default/v2/cranelift
+wasm/dynamic_library/duplicate-dynamic-lib/default/v2/cranelift
+wasm/dynamic_library/dylink-needed/default/v2/cranelift
+wasm/dynamic_library/simple-dynamic-lib/default/v2/cranelift
+wasm/dynamic_library_tests/dl-spawn-tls-init-under-contention/default/v2/cranelift
+wasm/edge_case/funky-problem/default/v2/cranelift
+wasm/edge_case/indirect-call-to-own-function-in-module/default/v2/cranelift
+wasm/edge_case/llvm-caching-problem/default/v2/cranelift
+wasm/exit/exit-nonzero-in-closure-call/default/v2/cranelift
+wasm/exit/exit-zero-in-call-dynamic-thread/default/v2/cranelift
+wasm/exit/exit-zero-in-closure-call-thread/default/v2/cranelift
+wasm/exit/exit-zero-in-closure-call/default/v2/cranelift
+wasm/reflection/wasix-reflection-and-closures/default/v2/cranelift
+wasm/reflection/wasix-reflection-dlopen/default/v2/cranelift
+wasm/shared_library/errno-in-shared-lib/default/v2/cranelift
+wasm/shared_library/simple-shared-lib/default/v2/cranelift
+wasm/threadlocal/dl-tls/default/v2/cranelift
+wasm/threadlocal/minimal-threadlocals/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DIRECT-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-DYNAMIC-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DIRECT-in-SHARED-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DIRECT-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-DYNAMIC-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-DYNAMIC-in-SHARED-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DIRECT-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-DYNAMIC-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-DIRECT-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-DIRECT-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-DIRECT-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-DYNAMIC-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-DYNAMIC-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-DYNAMIC-in-SHARED/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-SHARED-in-DIRECT/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-SHARED-in-DYNAMIC/default/v2/cranelift
+wasm/threadlocal/thread-getspecific/tsd-set-SHARED-in-SHARED-get-SHARED-in-SHARED/default/v2/cranelift
+wasm/threadlocal/threadlocal-defined-in-main-used-in-shared-lib/default/v2/cranelift
+wasm/threadlocal/threadlocal-in-shared-lib/default/v2/cranelift
+wasm/threadlocal/threadlocals-work-in-a-shared-lib-weird/default/v2/cranelift
+wasm/threadlocal/threadlocals-work-in-a-shared-lib/default/v2/cranelift
+
+# build: other compile error
+wasm/socket/connected-udp-peer/default/v2/cranelift
+
+# build: uses the WASIX v1 API (<wasi/*.h>, <wasix/*.h>)
+wasm/context_destroy/default/v2/cranelift
+wasm/context_switch/default/v2/cranelift
+wasm/context_switching/contexts_with_env_vars/default/v2/cranelift
+wasm/context_switching/contexts_with_mutexes/default/v2/cranelift
+wasm/context_switching/contexts_with_pipes/default/v2/cranelift
+wasm/context_switching/contexts_with_setjmp/default/v2/cranelift
+wasm/context_switching/contexts_with_signals/default/v2/cranelift
+wasm/context_switching/contexts_with_timers/default/v2/cranelift
+wasm/context_switching/error_handling/default/v2/cranelift
+wasm/context_switching/malloc_during_switch/default/v2/cranelift
+wasm/context_switching/multiple_contexts/default/v2/cranelift
+wasm/context_switching/nested_host_call_switch/default/v2/cranelift
+wasm/context_switching/nested_switches/default/v2/cranelift
+wasm/context_switching/pending_file_operations/default/v2/cranelift
+wasm/context_switching/recursive_host_calls/default/v2/cranelift
+wasm/context_switching/simple_switching/default/v2/cranelift
+wasm/context_switching/switch_to_never_resumed/default/v2/cranelift
+wasm/context_switching/switching_in_threads/default/v2/cranelift
+wasm/context_switching/switching_to_a_deleted_context/default/v2/cranelift
+wasm/context_switching/switching_with_main/default/v2/cranelift
+wasm/context_switching/three_way_recursion/default/v2/cranelift
+wasm/dynamic_call_and_closure/call-dynamic-buffer-modes/default/v2/cranelift
+wasm/dynamic_call_and_closure/call-dynamic-complex-abi/default/v2/cranelift
+wasm/dynamic_call_and_closure/call-dynamic-strict-and-nonstrict/default/v2/cranelift
+wasm/dynamic_library/spawn-under-sched-yield-worker/default/v2/cranelift
+wasm/fd/fd-allocate/default/v2/cranelift
+wasm/fd/fd-dup2-huge-min/default/v2/cranelift
+wasm/fd/fd-open-readonly/default/v2/cranelift
+wasm/fd/proc-spawn2-dup2-huge-fd/default/v2/cranelift
+wasm/fd/proc-spawn2-dup2/default/v2/cranelift
+wasm/fd/proc-spawn2-open-huge-fd/default/v2/cranelift
+wasm/fd_fdflags_get/default/v2/cranelift
+wasm/fd_fdflags_set/default/v2/cranelift
+wasm/fd_fdstat_set_rights/default/v2/cranelift
+wasm/poll/epoll-create/default/v2/cranelift
+wasm/poll/poll-oneoff-zero/default/v2/cranelift
+wasm/poll/udp-zero-length-poll-oneoff/default/v2/cranelift
+wasm/proc_exec3/default/v2/cranelift
+wasm/proc_exec3_empty_argv/default/v2/cranelift
+wasm/proc_exec3_errors/default/v2/cranelift
+wasm/proc_exec4_newline_arg/default/v2/cranelift
+wasm/proc_exec4_newline_env/default/v2/cranelift
+wasm/proc_spawn3_newline_arg/default/v2/cranelift
+wasm/random/default/v2/cranelift
+wasm/sched_yield/default/v2/cranelift
+wasm/socket/udp-dgram-iovec/default/v2/cranelift
+wasm/socket/udp-oversize-payload/default/v2/cranelift
+
+# runtime: wrong exit status or output
+wasm/dynamic_library/spawn-under-nanosleep-worker/default/v2/cranelift
+wasm/fd/pwrite-and-size/default/v2/cranelift
+wasm/libc/libc-clock-function/default/v2/cranelift
+wasm/path/cwd-to-home/default/v2/cranelift
+wasm/semaphore/semaphore-open-invalid-names/default/v2/cranelift
+wasm/semaphore/semaphore-same-name-no-create-on-second/default/v2/cranelift
+
+# threads: thread creation fails
+wasm/exit/exit-zero-in-thread/default/v2/cranelift
+wasm/fd/fd-read-none-handle-race/default/v2/cranelift
+wasm/pthread/mutex-lock-timeout/default/v2/cranelift
+wasm/semaphore/semaphore-unnamed/default/v2/cranelift
+wasm/threadlocal/threadlocals-are-actually-threadlocal/default/v2/cranelift

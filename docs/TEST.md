@@ -47,6 +47,10 @@ PATH. Fixture directives are documented in
 cargo nextest run -p wasix-tests --release
 ```
 
+Every fixture runs on WASIX v1. C fixtures also run on WASIX v2 when its
+toolchain is installed; v2 variants known to fail are listed in
+`lib/wasix-tests/v2-expected-failures.txt`.
+
 ## CI Coverage Gaps
 
 macOS and musl CI jobs run on a PR only when the PR carries the `macos` or

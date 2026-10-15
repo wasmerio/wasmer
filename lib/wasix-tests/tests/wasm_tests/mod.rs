@@ -79,10 +79,14 @@
 //! `FileSystems:{kind}` selects the filesystem backend. Supported values are
 //! `host`, `inmemory`, `tmp`, `passthrumemory`, `union`, `root`, comma-separated
 //! lists of those values, and `all`.
+//!
+//! Every configuration runs on WASIX v1. C fixtures also get a WASIX v2 variant
+//! (`.../v2/cranelift`) when the v2 toolchain is installed; see the README for
+//! which directives v2 honours and how `v2-expected-failures.txt` works.
 
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, create_dir_all, read_dir, remove_dir_all};
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -105,6 +109,7 @@ use wasmer_wasix::virtual_fs::{
 
 mod error;
 mod runner;
+mod v2;
 
 const TESTED_LIBC_VERSIONS: &[Option<&str>] = &[None, Some("v2026-05-12.1")];
 
@@ -209,6 +214,16 @@ impl RustToolchain {
     }
 }
 
+/// The WASIX ABI a fixture is built for and run on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Target {
+    /// wasix-libc and `wasmer-wasix`.
+    V1,
+    /// libc2 and `wasixv2::Machine`.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
+    V2,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter, strum::EnumString)]
 #[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 enum FileSystemKind {
@@ -244,6 +259,7 @@ struct Config {
 
     test_name: String,
     config_name: String,
+    target: Target,
     engine: Engine,
     rust_toolchain: RustToolchain,
     rust_toolchains: Option<Vec<RustToolchain>>,
@@ -287,6 +303,7 @@ impl Config {
             tests_build_root,
             test_name,
             config_name: "default".to_owned(),
+            target: Target::V1,
             #[cfg(target_os = "windows")]
             engine: Engine::V8,
             #[cfg(not(target_os = "windows"))]
@@ -337,6 +354,9 @@ impl Config {
         }
         if self.rust_toolchain != RustToolchain::Wasix {
             parts.push(self.rust_toolchain.to_string());
+        }
+        if self.target == Target::V2 {
+            parts.push("v2".to_owned());
         }
         parts.push(self.engine.to_string());
         parts.join("/")
@@ -839,7 +859,8 @@ fn copy_cargo_wasix_artifact(build_dir: &Path, bin_name: &str) -> Result<PathBuf
     Ok(main_path)
 }
 
-fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
+/// Builds the fixture; `v2` is the toolchain for a [`Target::V2`] configuration.
+fn run_build_script(config: &Config, v2: Option<&v2::Toolchain>) -> anyhow::Result<PathBuf> {
     // First, copy the test source directory to the 'build' subfolder that will
     // be unique for each configuration of a test.
     let build_test_path = config.build_path();
@@ -861,7 +882,10 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
             let mut cmd = Command::new("bash");
             cmd.arg(build_test_path.join(filename))
                 .current_dir(&build_test_path)
-                .env("CC", "wasixcc")
+                .env(
+                    "CC",
+                    v2.map_or(Path::new("wasixcc"), v2::Toolchain::wasixcc),
+                )
                 .env("CXX", "wasix++")
                 .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
             cmd
@@ -869,9 +893,10 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         PrimarySource::CSourceFile(filename) | PrimarySource::CppSourceFile(filename) => {
             let primary_source = build_test_path.join(filename);
             let compiler = match &config.source {
-                PrimarySource::CSourceFile(_) => {
-                    std::env::var("CC").unwrap_or_else(|_| "wasixcc".to_string())
-                }
+                PrimarySource::CSourceFile(_) => match v2 {
+                    Some(v2) => v2.wasixcc().display().to_string(),
+                    None => std::env::var("CC").unwrap_or_else(|_| "wasixcc".to_string()),
+                },
                 PrimarySource::CppSourceFile(_) => {
                     std::env::var("CXX").unwrap_or_else(|_| "wasix++".to_string())
                 }
@@ -899,6 +924,9 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     };
 
     for (k, v) in &config.build_env {
+        cmd.env(k, v);
+    }
+    for (k, v) in v2.iter().flat_map(|v2| v2.build_env()) {
         cmd.env(k, v);
     }
     cmd.env("WASMER_BACKEND", config.engine.name());
@@ -1184,28 +1212,33 @@ fn configure_mapped_directories(
     Ok(())
 }
 
-fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
+/// Why the configuration does not run on this host or engine, if it does not.
+fn skip_reason(config: &Config) -> Result<Option<String>> {
     if let Some(reason) = &config.ignored {
-        return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
+        return Ok(Some(reason.clone()));
     }
     if !cfg!(unix) && config.unix_only {
-        return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
+        return Ok(Some("Unix only".to_owned()));
     }
     if cfg!(target_os = "macos") && config.ignore_macos {
-        return Ok(libtest_mimic::Completion::ignored_with("Ignored on macOS"));
+        return Ok(Some("Ignored on macOS".to_owned()));
     }
     if let Some((_, reason)) = config
         .skipped_engines
         .iter()
         .find(|(engine, _)| *engine == config.engine)
     {
-        return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
+        return Ok(Some(reason.clone()));
     }
-    if let Some(reason) = minimal_libc_skip_reason(&config)? {
+    minimal_libc_skip_reason(config)
+}
+
+fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
+    if let Some(reason) = skip_reason(&config)? {
         return Ok(libtest_mimic::Completion::ignored_with(reason));
     }
 
-    let wasm = run_build_script(&config)?;
+    let wasm = run_build_script(&config, None)?;
     let run_dir = &config.build_path();
     for (path, file_content) in &config.prefilled_files {
         File::create(run_dir.join(path))?.write_all(file_content.as_bytes())?;
@@ -1241,12 +1274,86 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
         },
     )?;
 
+    check_run_result(&config, &result, run_dir)
+}
+
+/// The directives of a v2 configuration that the v2 runner cannot honour yet.
+fn v2_unsupported_directives(config: &Config) -> Vec<String> {
+    let mut unsupported = Vec::new();
+    let mut given = |directive: &str, is_given: bool| {
+        if is_given {
+            unsupported.push(directive.to_owned());
+        }
+    };
+    given("MappedDirectory", !config.mapped_directories.is_empty());
+    given("CurrentDirectory", config.current_directory.is_some());
+    given("PrefilledFile", !config.prefilled_files.is_empty());
+    given("ExpectedFile", !config.expected_files.is_empty());
+    given("FileSystems", config.file_systems.is_some());
+    for (key, value) in &config.build_env {
+        let value = value.to_ascii_lowercase();
+        // wasixcc refuses these for wasm32-wasixv2.
+        let rejected_by_wasixcc = match key.as_str() {
+            "WASIXCC_PIC" => matches!(value.as_str(), "1" | "yes" | "true" | "on"),
+            "WASIXCC_WASM_EXCEPTIONS" => {
+                matches!(value.as_str(), "legacy" | "0" | "no" | "false" | "off")
+            }
+            _ => false,
+        };
+        given(&format!("BuildEnv: {key}={value}"), rejected_by_wasixcc);
+    }
+    unsupported
+}
+
+fn run_v2_test(config: Config, toolchain: &v2::Toolchain) -> Result<libtest_mimic::Completion> {
+    if let Some(reason) = skip_reason(&config)? {
+        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
+    let unsupported = v2_unsupported_directives(&config);
+    if !unsupported.is_empty() {
+        return Ok(libtest_mimic::Completion::ignored_with(format!(
+            "unsupported on v2: {}",
+            unsupported.join(", ")
+        )));
+    }
+
+    let wasm_path = run_build_script(&config, Some(toolchain))?;
+    let wasm =
+        fs::read(&wasm_path).with_context(|| format!("failed to read {}", wasm_path.display()))?;
+    v2::ensure_wasixv2_module(&wasm)?;
+
+    let program_name = config
+        .program_name
+        .clone()
+        .unwrap_or_else(|| wasm_path.to_string_lossy().to_string());
+    let result = v2::run(v2::Process {
+        wasm,
+        args: std::iter::once(program_name)
+            .chain(config.arguments.iter().cloned())
+            .collect(),
+        env: config
+            .env
+            .iter()
+            .map(|(key, value)| format!("{key}={value}"))
+            .collect(),
+        stdin: config.stdin.clone().unwrap_or_default(),
+    })?;
+
+    check_run_result(&config, &result, &config.build_path())
+}
+
+/// Checks the exit status, output and files a configuration expects.
+fn check_run_result(
+    config: &Config,
+    result: &runner::WasmRunResult,
+    run_dir: &Path,
+) -> Result<libtest_mimic::Completion> {
     if config.nonzero_exit_code {
         ensure!(
             result.exit_code != 0,
             "{} expected non-zero exit code\n{}",
             config.test_name,
-            runner::format_captured_output(&result),
+            runner::format_captured_output(result),
         );
     } else if result.exit_code != config.expected_exit_code {
         bail!(
@@ -1254,7 +1361,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
             config.test_name,
             config.expected_exit_code,
             result.exit_code,
-            runner::format_captured_output(&result),
+            runner::format_captured_output(result),
         );
     }
 
@@ -1272,7 +1379,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
                 config.test_name,
                 config.expected_stdout,
                 result_lines,
-                runner::format_captured_output(&result),
+                runner::format_captured_output(result),
             )
         }
     }
@@ -1291,22 +1398,22 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
                 config.test_name,
                 config.expected_stderr,
                 result_lines,
-                runner::format_captured_output(&result),
+                runner::format_captured_output(result),
             )
         }
     }
 
-    for (path, expected_content) in config.expected_files {
-        let content = std::fs::read_to_string(run_dir.join(&path))
+    for (path, expected_content) in &config.expected_files {
+        let content = std::fs::read_to_string(run_dir.join(path))
             .with_context(|| format!("{} failed to read {}", config.test_name, path.display()))?;
         ensure!(
-            content == expected_content,
+            content == *expected_content,
             "{} expected file {} to contain `{:?}`, got `{:?}`\n{}",
             config.test_name,
             path.display(),
             expected_content,
             content,
-            runner::format_captured_output(&result),
+            runner::format_captured_output(result),
         );
     }
 
@@ -1462,9 +1569,74 @@ fn has_primary_source_file(path: &Path) -> bool {
         })
 }
 
+/// The v2 toolchain, if v2 variants should be registered on this host.
+fn detect_v2_toolchain() -> Option<Arc<v2::Toolchain>> {
+    if cfg!(target_os = "windows") {
+        return None;
+    }
+    match v2::Toolchain::detect() {
+        Ok(toolchain) => Some(Arc::new(toolchain)),
+        Err(why) => {
+            eprintln!("skipping WASIX v2 tests: {why}");
+            None
+        }
+    }
+}
+
+/// Whether a fixture gets a v2 variant: only C builds for v2 so far.
+fn builds_for_v2(source: &PrimarySource, test_src_dir: &Path) -> Result<bool> {
+    Ok(match source {
+        PrimarySource::CSourceFile(_) => true,
+        PrimarySource::BashScript(filename) => {
+            let path = test_src_dir.join(filename);
+            let script = fs::read_to_string(&path)
+                .with_context(|| format!("Failed to read {}", path.display()))?;
+            v2::shell_script_is_c_only(&script)
+        }
+        PrimarySource::CppSourceFile(_)
+        | PrimarySource::RustSourceFile(_)
+        | PrimarySource::CargoProject => false,
+    })
+}
+
+/// Runs a v2 variant, inverting the outcome of the ones listed as expected failures.
+fn run_v2_trial(
+    config: Config,
+    toolchain: &v2::Toolchain,
+    expected_failure: bool,
+) -> Result<libtest_mimic::Completion, libtest_mimic::Failed> {
+    let name = config.full_test_name();
+    match (run_v2_test(config, toolchain), expected_failure) {
+        (Ok(libtest_mimic::Completion::Completed), true) => Err(format!(
+            "unexpectedly passed: remove `{name}` from lib/wasix-tests/{}",
+            v2::EXPECTED_FAILURES_FILE
+        )
+        .into()),
+        (Ok(completion), _) => Ok(completion),
+        (Err(error), true) => {
+            eprintln!(
+                "expected failure (listed in {}):\n{error:?}",
+                v2::EXPECTED_FAILURES_FILE
+            );
+            Ok(libtest_mimic::Completion::Completed)
+        }
+        (Err(error), false) => Err(format!("{error:?}").into()),
+    }
+}
+
 fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
-    let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
+    let crate_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?;
+    let tests_dir = crate_dir.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
+
+    let v2_toolchain = detect_v2_toolchain();
+    let v2_expected_failures = match &v2_toolchain {
+        Some(_) => Arc::new(v2::load_expected_failures(
+            &crate_dir.join(v2::EXPECTED_FAILURES_FILE),
+        )?),
+        None => Arc::default(),
+    };
+    let mut v2_test_names = HashSet::new();
 
     tests.push(libtest_mimic::Trial::test("wasm/dynamic_runtime_hooks", {
         let tests_dir = tests_dir.clone();
@@ -1593,8 +1765,46 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         }
                     }
                 }
+
+                #[cfg(not(target_os = "windows"))]
+                if let Some(toolchain) = &v2_toolchain
+                    && builds_for_v2(&config.source, entry.path())?
+                {
+                    let mut config = config.clone();
+                    config.target = Target::V2;
+                    config.engine = Engine::Cranelift;
+                    let name = config.full_test_name();
+                    let expected_failure = v2_expected_failures.contains(&name);
+                    v2_test_names.insert(name.clone());
+                    let toolchain = toolchain.clone();
+                    tests.push(libtest_mimic::Trial::ignorable_test(name, move || {
+                        run_v2_trial(config, &toolchain, expected_failure)
+                    }));
+                }
             }
         }
+    }
+
+    if v2_toolchain.is_some() {
+        let stale = v2_expected_failures
+            .iter()
+            .filter(|name| !v2_test_names.contains(*name))
+            .sorted()
+            .join("\n  ");
+        tests.push(libtest_mimic::Trial::test(
+            "wasm/v2-expected-failures",
+            move || {
+                if stale.is_empty() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "{} lists tests that are not v2 tests:\n  {stale}",
+                        v2::EXPECTED_FAILURES_FILE
+                    )
+                    .into())
+                }
+            },
+        ));
     }
 
     Ok(())
@@ -1617,7 +1827,7 @@ fn run_dynamic_runtime_hook_smoke(
         tests_build_root.to_path_buf(),
         "dynamic_runtime_hooks".to_owned(),
     );
-    let wasm = run_build_script(&config)?;
+    let wasm = run_build_script(&config, None)?;
     let run_dir = config.build_path();
 
     let additional_import_calls = Arc::new(AtomicUsize::new(0));

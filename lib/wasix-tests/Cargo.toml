@@ -17,6 +17,7 @@ harness = false
 
 [dev-dependencies]
 wasmer-wasix.workspace = true
+wasixv2 = { path = "../wasixv2/api" }
 wasmer = { path = "../api", version = "=7.5.0", default-features = false }
 wasmer-types = { path = "../types", version = "=7.5.0", default-features = false }
 anyhow.workspace = true
