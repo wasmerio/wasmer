@@ -1,11 +1,20 @@
 use wasixv2_syscalls::{Fault, LocalFuture, UserMemory};
 use wasmer::AsyncFunctionEnvMut;
 
-use crate::ExecEnv;
+use crate::{
+    ExecEnv,
+    asyncify::{Access, Outside},
+};
 
 /// The calling instance's linear memory, reached through its async function environment.
-pub(crate) struct GuestMemory<'a, S: 'static> {
+pub struct GuestMemory<'a, S: 'static> {
     pub(crate) env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+}
+
+impl<'a, S: 'static> GuestMemory<'a, S> {
+    pub fn new(env: &'a AsyncFunctionEnvMut<ExecEnv<S>>) -> Self {
+        Self { env }
+    }
 }
 
 impl<S: 'static> UserMemory for GuestMemory<'_, S> {
@@ -80,5 +89,48 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
             let previous = data.memory.as_ref()?.grow(store, pages).ok()?;
             Some(previous.bytes().0 as u64)
         })
+    }
+}
+
+/// The linear memory of an instance seen from outside any guest call, for the calls the
+/// execution layer makes on the guest's behalf, such as the exit when an entry point returns.
+pub(crate) struct OutsideMemory<'a, 'b, S: 'static> {
+    pub(crate) cx: &'a Outside<'b, S>,
+}
+
+impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
+    fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(self.cx.with(move |data, store| {
+            let memory = data.memory.as_ref().ok_or(Fault)?;
+            memory
+                .view(&*store)
+                .read(addr.into(), buf)
+                .map_err(|_| Fault)
+        }))
+    }
+
+    fn write<'a>(&'a self, addr: u32, bytes: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(self.cx.with(move |data, store| {
+            let memory = data.memory.as_ref().ok_or(Fault)?;
+            memory
+                .view(&*store)
+                .write(addr.into(), bytes)
+                .map_err(|_| Fault)
+        }))
+    }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        Box::pin(self.cx.with(|data, store| {
+            data.memory
+                .as_ref()
+                .map_or(0, |memory| memory.view(&*store).data_size())
+        }))
+    }
+
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        Box::pin(self.cx.with(move |data, store| {
+            let previous = data.memory.as_ref()?.grow(store, pages).ok()?;
+            Some(previous.bytes().0 as u64)
+        }))
     }
 }

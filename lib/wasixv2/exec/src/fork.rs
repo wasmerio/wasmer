@@ -22,6 +22,13 @@ struct Writes {
     parent_tid: Option<u32>,
     child_tid: Option<u32>,
     tls: Option<u32>,
+    /// The forking import's own data ([`asyncify::import::set_fork_payload`]).
+    payload: Option<asyncify::Tag>,
+}
+
+/// The payload of a fork's `tag`.
+pub(crate) fn payload(tag: &asyncify::Tag) -> Option<asyncify::Tag> {
+    tag.downcast_ref::<Writes>()?.payload.clone()
 }
 
 /// Replaces the imports that unwind the stack with their asyncify versions, for an instrumented
@@ -73,10 +80,12 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
     child_tid: Option<u32>,
     tls: Option<u32>,
 ) -> SysResult<()> {
+    let payload = env.write().await.data_mut().fork_payload.take();
     let tag = Arc::new(Writes {
         parent_tid,
         child_tid,
         tls,
+        payload,
     });
     match asyncify::unwind(env, Request::Fork { child, tag }).await {
         Ok(()) => Ok(()),
@@ -120,7 +129,13 @@ async fn fork_returned<S: 'static>(
                 if let Some(addr) = writes.child_tid {
                     let _ = view.write(addr.into(), &data.task.0.to_le_bytes());
                 }
-                if let (Some(tls), Some(global)) = (writes.tls, &data.signal.tls_base) {
+                let tls_base = data.abi.as_ref().and_then(|abi| {
+                    let instance = abi
+                        .as_any()
+                        .downcast_ref::<crate::wasixv2::Wasixv2Instance>();
+                    instance?.tls_base()
+                });
+                if let (Some(tls), Some(global)) = (writes.tls, tls_base) {
                     global.set(store, Value::I32(tls as i32))?;
                 }
                 Ok(0)

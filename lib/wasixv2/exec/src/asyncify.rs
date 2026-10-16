@@ -3,7 +3,7 @@
 //! copied or returned to otherwise, and fork and `setjmp` without wasm exceptions need both.
 //!
 //! This module is the ABI-neutral machinery; the imports that use it live with their ABI
-//! (wasixv2's in [`crate::fork`]).
+//! (wasixv2's in `fork.rs`, other ABIs' through [`import`]).
 //!
 //! - **Levels.** Every call the host makes into an asyncify instance goes through [`call`] and
 //!   is one level: the entry point, and the signal handlers and vfork returns the host runs from
@@ -62,7 +62,7 @@ pub(crate) enum Request {
 }
 
 /// Data an import passes through a fork to its resumption on both sides.
-pub(crate) type Tag = Arc<dyn Any + Send + Sync>;
+pub type Tag = Arc<dyn Any + Send + Sync>;
 
 /// What a rewound import returns, after the work its [`Request`] asked for.
 pub(crate) enum Resume {
@@ -77,10 +77,10 @@ pub(crate) enum Resume {
 
 /// Names one saved stack: its slot, which save to the slot it was, and its level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct StackId {
-    pub(crate) slot: u32,
-    pub(crate) generation: u64,
-    pub(crate) level: u32,
+pub struct StackId {
+    pub slot: u32,
+    pub generation: u64,
+    pub level: u32,
 }
 
 /// One saved stack: the unwound data and the shadow stack pointer of the save point.
@@ -566,4 +566,73 @@ fn fault(err: impl std::fmt::Display) -> RuntimeError {
 
 fn not_instrumented() -> RuntimeError {
     RuntimeError::new("the module is not instrumented with asyncify")
+}
+
+/// The asyncify machinery for the imports of ABIs other than wasixv2, which reach their
+/// instance through its async function environment.
+pub mod import {
+    use wasixv2_syscalls::TaskId;
+    use wasmer::{AsyncFunctionEnvMut, RuntimeError};
+
+    use super::{Request, Resume, StackId, Tag};
+    use crate::ExecEnv;
+
+    /// How an import the guest rewinds into ended.
+    pub enum Resumed {
+        /// [`save`] saved the stack under this id.
+        Saved(StackId),
+        /// [`restore`] rewound a saved stack with this value.
+        Restored(i32),
+        /// A fork copied the instance: `child` is the child in the parent and `None` in the
+        /// child; `payload` is what the import gave [`set_fork_payload`] before it forked.
+        Forked {
+            child: Option<TaskId>,
+            payload: Option<Tag>,
+        },
+    }
+
+    /// Whether the instance is instrumented with asyncify.
+    pub async fn instrumented<S: 'static>(env: &AsyncFunctionEnvMut<ExecEnv<S>>) -> bool {
+        env.read().await.data().asyncify.is_some()
+    }
+
+    /// The outcome of the import the guest is rewinding into, which ends the rewind; `None`
+    /// when the import is called normally. Every import that unwinds calls this first.
+    pub async fn resumed<S: 'static>(
+        env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+    ) -> Result<Option<Resumed>, RuntimeError> {
+        Ok(super::resumed(env).await?.map(|resume| match resume {
+            Resume::Saved(id) => Resumed::Saved(id),
+            Resume::Restored(val) => Resumed::Restored(val),
+            Resume::Forked { child, tag } => Resumed::Forked {
+                child,
+                payload: crate::fork::payload(&tag),
+            },
+        }))
+    }
+
+    /// Starts unwinding the stack to save it under `slot`; the import returns afterwards and
+    /// resumes with [`Resumed::Saved`].
+    pub async fn save<S: 'static>(
+        env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+        slot: u32,
+    ) -> Result<(), RuntimeError> {
+        super::unwind(env, Request::Save { slot }).await
+    }
+
+    /// The error that rewinds the stack saved as `id`, whose import resumes with
+    /// [`Resumed::Restored`]`(val)`; the import returns it.
+    pub async fn restore<S: 'static>(
+        env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+        id: StackId,
+        val: i32,
+    ) -> RuntimeError {
+        super::restore(env, id, val).await
+    }
+
+    /// Hands `payload` to both sides of the fork the import is about to start (with `clone`),
+    /// in [`Resumed::Forked`].
+    pub async fn set_fork_payload<S: 'static>(env: &AsyncFunctionEnvMut<ExecEnv<S>>, payload: Tag) {
+        env.write().await.data_mut().fork_payload = Some(payload);
+    }
 }

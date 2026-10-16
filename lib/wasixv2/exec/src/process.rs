@@ -9,9 +9,9 @@ use std::{future::Future, sync::Arc};
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Control, GuestAction, Syscalls, TaskId};
-use wasmer::{AsyncFunctionEnvMut, Engine, Function, Instance, Module, RuntimeError, Store, Value};
+use wasmer::{AsyncFunctionEnvMut, Engine, Function, Module, RuntimeError, Store, Value};
 
-use crate::{Ended, ExecEnv, ExecError, asyncify};
+use crate::{Ended, ExecEnv, ExecError, abi::Abis, asyncify};
 
 /// Raised from an import to unwind the old image after `execve`, carrying the new one.
 #[derive(Debug, thiserror::Error)]
@@ -30,9 +30,16 @@ pub(crate) struct Spawner<S> {
     engine: Engine,
     syscalls: Arc<S>,
     host: Arc<dyn Host>,
+    /// The ABIs the images of the processes it starts select from.
+    abis: Arc<Abis<S>>,
 }
 
-pub(crate) fn spawner<S>(engine: Engine, syscalls: Arc<S>, host: Arc<dyn Host>) -> Arc<dyn Spawn>
+pub(crate) fn spawner<S>(
+    engine: Engine,
+    syscalls: Arc<S>,
+    host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
+) -> Arc<dyn Spawn>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
@@ -40,6 +47,7 @@ where
         engine,
         syscalls,
         host,
+        abis,
     })
 }
 
@@ -48,22 +56,26 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     fn spawn(&self, task: TaskId, image: Vec<u8>) {
-        let (engine, syscalls, host) = (
+        let (engine, syscalls, host, abis) = (
             self.engine.clone(),
             self.syscalls.clone(),
             self.host.clone(),
+            self.abis.clone(),
         );
-        self.start(task, move || run_new_image(engine, image, syscalls, task, host));
+        self.start(task, move || {
+            run_new_image(engine, image, syscalls, task, host, abis)
+        });
     }
 
     fn fork(&self, task: TaskId, image: asyncify::ForkImage) {
-        let (engine, syscalls, host) = (
+        let (engine, syscalls, host, abis) = (
             self.engine.clone(),
             self.syscalls.clone(),
             self.host.clone(),
+            self.abis.clone(),
         );
         self.start(task, move || {
-            let run = run_forked(engine, image, syscalls.clone(), task, host);
+            let run = run_forked(engine, image, syscalls.clone(), task, host, abis);
             async move {
                 crate::catch_panic(run)
                     .await
@@ -107,13 +119,22 @@ pub(crate) async fn run<S>(
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let engine = store.engine().clone();
-    let first = crate::run_image(store, module, syscalls.clone(), task, host.clone()).await;
-    finish(engine, first, syscalls, task, host).await
+    let first = crate::run_image(
+        store,
+        module,
+        syscalls.clone(),
+        task,
+        host.clone(),
+        abis.clone(),
+    )
+    .await;
+    finish(engine, first, syscalls, task, host, abis).await
 }
 
 /// Runs a fork child from the copy of its parent's instance, then every image its `execve`
@@ -124,29 +145,22 @@ async fn run_forked<S>(
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    let module = image.module.clone();
     let store = Store::new(engine.clone());
-    let ready = crate::instantiate(
+    let first = crate::run_forked(
         store,
-        &module,
+        image,
         syscalls.clone(),
         task,
         host.clone(),
-        Some(&image),
-    );
-    let first = match ready {
-        Ok(ready) => {
-            let (entry, args, buffer) = (image.entry, image.args.clone(), image.buffer());
-            drop(image);
-            ready.run(entry, args, Some(buffer)).await
-        }
-        Err(err) => Err(err),
-    };
-    finish(engine, first, syscalls, task, host).await
+        abis.clone(),
+    )
+    .await;
+    finish(engine, first, syscalls, task, host, abis).await
 }
 
 /// Follows `task`'s process from the end of its first image's run through the images its
@@ -158,6 +172,7 @@ async fn finish<S>(
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -187,7 +202,14 @@ where
         ended = match crate::load(&engine, &image) {
             Ok(module) => {
                 let store = Store::new(engine.clone());
-                let run = crate::run_image(store, &module, syscalls.clone(), task, host.clone());
+                let run = crate::run_image(
+                    store,
+                    &module,
+                    syscalls.clone(),
+                    task,
+                    host.clone(),
+                    abis.clone(),
+                );
                 run.await.unwrap_or_else(|err| Ended::Fault {
                     task,
                     signal: Signal::SIGSEGV.0,
@@ -223,6 +245,7 @@ async fn run_new_image<S>(
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -236,7 +259,7 @@ where
             return Ok(status);
         }
     };
-    crate::run(Store::new(engine), &module, syscalls, task, host).await
+    crate::run_with_abis(Store::new(engine), &module, syscalls, task, host, abis).await
 }
 
 /// Kills `task`'s thread group with the fault `signal` and returns its exit status.
@@ -270,7 +293,7 @@ pub(crate) fn fault_in<S: Control>(
 }
 
 /// The status of the exit pending on `task`, taking everything else that is.
-fn exit_status<S: Control>(syscalls: &S, task: TaskId) -> i32 {
+pub(crate) fn exit_status<S: Control>(syscalls: &S, task: TaskId) -> i32 {
     let mut status = 128 + Signal::SIGKILL.0;
     while let Some(action) = syscalls.take_pending(task) {
         if let GuestAction::Exit(exit) = action {
@@ -303,8 +326,6 @@ pub(crate) struct ProcExports {
     pub(crate) spawner: Arc<dyn Spawn>,
     /// The instance's module, which a fork child instantiates.
     pub(crate) module: Option<Module>,
-    /// `wasixv2_vfork_return(child)`, which libc exports to unwind to the vfork point.
-    vfork_return: Option<Function>,
 }
 
 impl ProcExports {
@@ -312,35 +333,31 @@ impl ProcExports {
         Self {
             spawner,
             module: None,
-            vfork_return: None,
         }
     }
 
-    pub(crate) fn set_instance(&mut self, instance: &Instance, module: &Module) {
+    pub(crate) fn set_module(&mut self, module: &Module) {
         self.module = Some(module.clone());
-        self.vfork_return = instance.exports.get_function(VFORK_RETURN).ok().cloned();
     }
 }
 
 /// The export a vfork parent resumes through, as `wasixv2_vfork_return(child_tid)`.
 pub const VFORK_RETURN: &str = "wasixv2_vfork_return";
 
-/// Switches the instance back to the vfork parent and calls the guest's vfork return, which
-/// unwinds to the vfork point with an exception; returns that error for the import to raise.
-pub(crate) async fn vfork_return<S: Control + 'static>(
+/// Calls the guest's vfork return, `function`, in the vfork parent, which unwinds to the vfork
+/// point with an exception; returns that error for the import to raise.
+pub(crate) async fn vfork_return<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
-    parent: TaskId,
+    function: Option<&Function>,
     child: TaskId,
 ) -> RuntimeError {
-    switch(env, parent).await;
-    let function = env.read().await.data().proc.vfork_return.clone();
     let Some(function) = function else {
         return RuntimeError::new(format!(
             "a vfork child ended, but the guest has no `{VFORK_RETURN}`"
         ));
     };
     let args = [Value::I32(child.0 as i32)];
-    match asyncify::call(env, None, &function, &args).await {
+    match asyncify::call(env, None, function, &args).await {
         Err(err) => err,
         Ok(_) => RuntimeError::new(format!("`{VFORK_RETURN}` returned")),
     }

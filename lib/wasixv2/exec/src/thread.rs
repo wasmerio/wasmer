@@ -12,13 +12,15 @@ use std::{io, sync::Arc};
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Control, Syscalls, TaskId};
-use wasmer::{
-    AsyncFunctionEnvMut, Engine, FunctionEnv, Instance, Module, SharedMemory, Store, Value,
+use wasmer::{AsyncFunctionEnvMut, Engine, FunctionEnv, Instance, Module, SharedMemory, Store};
+
+use crate::{
+    Ended, ExecEnv, ExecError,
+    abi::{Abi, Abis, Entry, Role},
+    process,
 };
 
-use crate::{Ended, ExecEnv, ExecError, process};
-
-/// The export a new thread starts at, as `wasixv2_thread_start(tid, start_arg)`.
+/// The export a `wasixv2` thread starts at, as `wasixv2_thread_start(tid, start_arg)`.
 pub const THREAD_ENTRY: &str = "wasixv2_thread_start";
 
 /// What every thread of one process instantiates.
@@ -28,6 +30,10 @@ pub(crate) struct Image<S> {
     memory: SharedMemory,
     syscalls: Arc<S>,
     host: Arc<dyn Host>,
+    /// The ABI of `module`.
+    abi: Arc<dyn Abi<S>>,
+    /// What the processes the threads start select their ABI from.
+    abis: Arc<Abis<S>>,
 }
 
 impl<S> Image<S> {
@@ -37,6 +43,8 @@ impl<S> Image<S> {
         memory: SharedMemory,
         syscalls: Arc<S>,
         host: Arc<dyn Host>,
+        abi: Arc<dyn Abi<S>>,
+        abis: Arc<Abis<S>>,
     ) -> Arc<Self> {
         Arc::new(Self {
             engine: store.engine().clone(),
@@ -44,6 +52,8 @@ impl<S> Image<S> {
             memory,
             syscalls,
             host,
+            abi,
+            abis,
         })
     }
 }
@@ -124,6 +134,7 @@ where
             self.engine.clone(),
             self.syscalls.clone(),
             self.host.clone(),
+            self.abis.clone(),
         );
         let env = FunctionEnv::new(
             &mut store,
@@ -133,21 +144,25 @@ where
                 process::ProcExports::new(spawner),
             ),
         );
-        let mut imports = crate::imports(&mut store, &env, &self.module);
+        let mut imports = crate::imports(&*self.abi, &mut store, &env, &self.module);
         let memory = self.memory.clone().try_attach(&mut store)?;
         if let Some(import) = self.module.imports().memories().next() {
             imports.define(import.module(), import.name(), memory.clone());
         }
         let instance = Instance::new(&mut store, &self.module, &imports)?;
+        let abi = self.abi.bind(&instance, &mut store, task, Role::Thread)?;
         let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
         let data = env.as_mut(&mut store);
         data.memory = Some(memory);
+        data.abi = Some(abi.clone());
         data.threads = Some(self.clone());
-        data.signal = crate::signal::SignalExports::new(&instance);
-        data.proc.set_instance(&instance, &self.module);
+        data.proc.set_module(&self.module);
         data.asyncify = asyncify;
-        let entry = instance.exports.get_function(THREAD_ENTRY)?.clone();
-        let args = vec![Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
-        Ok(crate::call(store, &env, THREAD_ENTRY, entry, args, None).await)
+
+        let store = store.into_async();
+        let entry = Entry::new(&env, &store);
+        let result = abi.start_thread(&entry, task, start_arg).await;
+        let on_return = abi.on_thread_return();
+        Ok(crate::ended(entry.cx(), result, on_return, Role::Thread).await)
     }
 }
