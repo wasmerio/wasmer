@@ -2,6 +2,7 @@
 
 use std::{
     collections::HashMap,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
@@ -16,7 +17,7 @@ use wasmer_wasix::{
     runtime::{
         ModuleInput,
         module_cache::progress::{ModuleLoadProgress, ModuleLoadProgressReporter},
-        package_loader::load_package_tree,
+        package_loader::{builtin_loader::FileSystemCache, load_package_tree},
         resolver::{PackageSummary, QueryError, Resolution, ResolvedFileSystemMapping},
     },
 };
@@ -32,6 +33,8 @@ pub struct MonitoringRuntime<R> {
     progress: ProgressBar,
     quiet_mode: bool,
     tree: Arc<Mutex<PackageTree>>,
+    /// The package loader's download cache, where loaded packages' files are.
+    checkouts: Option<Arc<FileSystemCache>>,
 }
 
 impl<R> MonitoringRuntime<R> {
@@ -41,7 +44,15 @@ impl<R> MonitoringRuntime<R> {
             progress,
             quiet_mode,
             tree: Arc::default(),
+            checkouts: None,
         }
+    }
+
+    /// Tells where the package loader caches downloads, so the tree records each package's
+    /// file.
+    pub fn with_checkouts(mut self, checkouts: FileSystemCache) -> Self {
+        self.checkouts = Some(Arc::new(checkouts));
+        self
     }
 
     /// The containers and volume mappings of the package tree loaded last.
@@ -56,6 +67,8 @@ impl<R> MonitoringRuntime<R> {
 pub struct PackageTree {
     /// Every container loaded, by package.
     pub containers: HashMap<PackageId, Container>,
+    /// The file each downloaded package was loaded from.
+    pub files: HashMap<PackageId, PathBuf>,
     /// The tree's filesystem table; mappings earlier in the list obscure later ones.
     pub filesystem: Vec<ResolvedFileSystemMapping>,
     /// The root package, if a tree was loaded.
@@ -81,6 +94,7 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
             inner,
             progress: self.progress.clone(),
             tree: self.tree.clone(),
+            checkouts: self.checkouts.clone(),
         })
     }
 
@@ -218,6 +232,7 @@ struct MonitoringPackageLoader {
     inner: Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync>,
     progress: ProgressBar,
     tree: Arc<Mutex<PackageTree>>,
+    checkouts: Option<Arc<FileSystemCache>>,
 }
 
 #[async_trait::async_trait]
@@ -227,11 +242,16 @@ impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageL
         self.progress.set_message(format!("Downloading {pkg_id}"));
 
         let container = self.inner.load(summary).await?;
-        self.tree
-            .lock()
-            .unwrap()
-            .containers
-            .insert(pkg_id, container.clone());
+        let file = self
+            .checkouts
+            .as_ref()
+            .map(|cache| cache.path(&summary.dist.webc_sha256))
+            .filter(|path| path.is_file());
+        let mut tree = self.tree.lock().unwrap();
+        if let Some(file) = file {
+            tree.files.insert(pkg_id.clone(), file);
+        }
+        tree.containers.insert(pkg_id, container.clone());
         Ok(container)
     }
 
