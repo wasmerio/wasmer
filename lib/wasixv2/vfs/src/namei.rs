@@ -95,6 +95,8 @@ pub(crate) struct Walk<'a> {
     stack: Vec<Segment>,
     /// The last step was a magic link's jump (`ND_JUMPED`).
     jumped: bool,
+    /// The tree's shape count when the walk started, for scoped walks (`nd->r_seq`).
+    tree_seq: u64,
 }
 
 impl<'a> Walk<'a> {
@@ -136,6 +138,7 @@ impl<'a> Walk<'a> {
             links: 0,
             stack: vec![Segment::parse(path)],
             jumped: false,
+            tree_seq: vfs.tree_seq.read(),
         })
     }
 
@@ -307,8 +310,19 @@ impl<'a> Walk<'a> {
         Ok(())
     }
 
-    /// `follow_dotdot`: never above the root, and from a mount's root to where it is mounted.
+    /// `follow_dotdot`, and for a walk scoped to its start (`RESOLVE_BENEATH`,
+    /// `RESOLVE_IN_ROOT`), `EAGAIN` if a rename or mount anywhere may have taken it out of the
+    /// root meanwhile, so `..` could have left it: the caller retries (`handle_dots`).
     fn dotdot(&mut self) -> FsResult<()> {
+        self.follow_dotdot()?;
+        if (self.flags.beneath || self.flags.in_root) && self.vfs.tree_seq.read() != self.tree_seq {
+            return Err(Errno::EAGAIN);
+        }
+        Ok(())
+    }
+
+    /// Never above the root, and from a mount's root to where it is mounted.
+    fn follow_dotdot(&mut self) -> FsResult<()> {
         loop {
             if self.path == self.root {
                 return if self.flags.beneath {
@@ -349,6 +363,15 @@ pub(crate) async fn lookup_one(dir: &Path, name: &[u8]) -> FsResult<Path> {
     }
     if dir.dentry.inode().is_dead() {
         return Err(Errno::ENOENT);
+    }
+    // On a filesystem only this VFS changes, a cached name is still true (the dcache hit).
+    if dir.dentry.sb().info.stable
+        && let Some(cached) = dir.dentry.cached_child(name)
+    {
+        return Ok(Path {
+            mnt: dir.mnt.clone(),
+            dentry: cached,
+        });
     }
     let node = match dir.dentry.node().lookup(name).await {
         Ok(node) => node,

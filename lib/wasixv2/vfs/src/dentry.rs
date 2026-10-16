@@ -106,6 +106,15 @@ impl Dentry {
         self.inner.lock().unwrap().unlinked
     }
 
+    /// Runs `f` with the parent directory and the name in it, unless the name was removed or
+    /// this is a filesystem root.
+    pub(crate) fn with_parent(&self, f: impl FnOnce(&Arc<Dentry>, &[u8])) {
+        let inner = self.inner.lock().unwrap();
+        if let (false, Some(parent)) = (inner.unlinked, &inner.parent) {
+            f(parent, &inner.name);
+        }
+    }
+
     pub(crate) fn is_mountpoint(&self) -> bool {
         self.mounts.load(Ordering::Relaxed) != 0
     }
@@ -183,8 +192,10 @@ impl Dentry {
     }
 
     /// The object moved to `new_name` under `new_parent` (`d_move`). Whatever the cache had
-    /// under the new name is replaced, and is unlinked.
+    /// under the new name is replaced, and is unlinked; the moved name is live, wherever it was
+    /// found before.
     pub(crate) fn move_to(self: &Arc<Self>, new_parent: &Arc<Dentry>, new_name: &[u8]) {
+        self.sb().tree_seq.bump();
         let old_parent = self.inner.lock().unwrap().parent.clone();
         if let Some(old_parent) = &old_parent {
             old_parent.forget_child(self);
@@ -193,6 +204,7 @@ impl Dentry {
             let mut inner = self.inner.lock().unwrap();
             inner.name = new_name.to_vec();
             inner.parent = Some(new_parent.clone());
+            inner.unlinked = false;
         }
         let displaced = {
             let mut inner = new_parent.inner.lock().unwrap();
@@ -206,6 +218,28 @@ impl Dentry {
             displaced.inner.lock().unwrap().unlinked = true;
         }
         drop(old_parent);
+    }
+
+    /// `a` and `b` swapped names (`d_exchange`, for `RENAME_EXCHANGE`): both stay live.
+    pub(crate) fn exchange(a: &Arc<Dentry>, b: &Arc<Dentry>) {
+        a.sb().tree_seq.bump();
+        let take = |d: &Arc<Dentry>| {
+            let inner = d.inner.lock().unwrap();
+            (inner.parent.clone(), inner.name.clone())
+        };
+        let ((a_parent, a_name), (b_parent, b_name)) = (take(a), take(b));
+        let put = |d: &Arc<Dentry>, parent: Option<Arc<Dentry>>, name: Vec<u8>| {
+            if let Some(parent) = &parent {
+                let mut dir = parent.inner.lock().unwrap();
+                dir.children.insert(name.clone(), Arc::downgrade(d));
+            }
+            let mut inner = d.inner.lock().unwrap();
+            inner.parent = parent;
+            inner.name = name;
+            inner.unlinked = false;
+        };
+        put(a, b_parent, b_name);
+        put(b, a_parent, a_name);
     }
 
     /// Whether `self` is `other` or one of its ancestors in the same filesystem.

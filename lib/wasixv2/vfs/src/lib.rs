@@ -28,6 +28,7 @@ pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node};
 pub use file::{DIR_POS_EOD, File};
 pub use inode::{Bound, Inode};
 pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};
+use mount::TreeSeq;
 pub use mount::{Mount, MountFlags, Namespace, Path, Superblock};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
 pub use notify::{FsEvent, FsWatcher, Object as FsObject};
@@ -43,6 +44,7 @@ pub const NAME_MAX: usize = 255;
 /// The VFS of one machine: its mount tree, lock tables and watchers.
 pub struct Vfs {
     pub(crate) ns: Namespace,
+    pub(crate) tree_seq: Arc<TreeSeq>,
     next_id: AtomicU64,
     /// Minor numbers of anonymous devices (Linux's `get_anon_bdev`).
     next_anon: AtomicU32,
@@ -55,7 +57,8 @@ impl Vfs {
     pub fn new(root: Arc<dyn Filesystem>) -> Arc<Self> {
         let next_id = AtomicU64::new(1);
         let next_anon = AtomicU32::new(1);
-        let sb = new_superblock(&next_id, &next_anon, root);
+        let tree_seq = Arc::new(TreeSeq::default());
+        let sb = new_superblock(&next_id, &next_anon, &tree_seq, root);
         let root_dentry = Dentry::root(&sb, sb.fs.root());
         let mount = Arc::new(Mount {
             id: next_id.fetch_add(1, Ordering::Relaxed),
@@ -65,6 +68,7 @@ impl Vfs {
         });
         Arc::new(Self {
             ns: Namespace::new(mount),
+            tree_seq,
             next_id,
             next_anon,
             locks: LockManager::default(),
@@ -95,7 +99,7 @@ impl Vfs {
         flags: MountFlags,
         create: bool,
     ) -> FsResult<Arc<Mount>> {
-        let sb = new_superblock(&self.next_id, &self.next_anon, fs);
+        let sb = new_superblock(&self.next_id, &self.next_anon, &self.tree_seq, fs);
         let root = Dentry::root(&sb, sb.fs.root());
         self.attach(at, root, flags, create).await
     }
@@ -104,7 +108,7 @@ impl Vfs {
     /// name: those behind pipes, sockets and event descriptors. Their paths come from
     /// [`Mount::pseudo_path`].
     pub fn kern_mount(&self, fs: Arc<dyn Filesystem>) -> Arc<Mount> {
-        let sb = new_superblock(&self.next_id, &self.next_anon, fs);
+        let sb = new_superblock(&self.next_id, &self.next_anon, &self.tree_seq, fs);
         Arc::new(Mount {
             id: self.next_id(),
             root: Dentry::root(&sb, sb.fs.root()),
@@ -167,6 +171,7 @@ impl Vfs {
             flags,
             parent: std::sync::Mutex::new(None),
         });
+        self.tree_seq.bump();
         self.ns.attach(mount.clone(), &target);
         Ok(mount)
     }
@@ -186,6 +191,7 @@ impl Vfs {
             return Err(Errno::EINVAL);
         }
         let mountpoint = path.mnt.parent().ok_or(Errno::EBUSY)?;
+        self.tree_seq.bump();
         self.ns.detach(&mountpoint).ok_or(Errno::EINVAL)?;
         Ok(())
     }
@@ -215,22 +221,18 @@ impl Vfs {
     /// Reports an event on the object `dentry` names, to its own watches and then to its
     /// parent directory's, with its name.
     pub(crate) fn notify_object(&self, dentry: &Arc<Dentry>, event: FsEvent<'_>) {
-        let Some(watcher) = &*self.watcher.read().unwrap() else {
+        let watcher = self.watcher.read().unwrap();
+        let Some(watcher) = watcher.as_ref().filter(|watcher| watcher.is_watching()) else {
             return;
         };
         watcher.event(&event);
-        if dentry.is_unlinked() {
-            return;
-        }
-        if let Some(parent) = dentry.parent()
-            && !Arc::ptr_eq(&parent, dentry)
-        {
+        dentry.with_parent(|parent, name| {
             let dir = notify::Object {
                 sb: parent.sb().id,
                 ino: parent.node().ino(),
             };
-            watcher.child_event(dir, &dentry.name(), &event);
-        }
+            watcher.child_event(dir, name, &event);
+        });
     }
 }
 
@@ -245,6 +247,7 @@ fn anon_dev(next_anon: &AtomicU32) -> Device {
 fn new_superblock(
     next_id: &AtomicU64,
     next_anon: &AtomicU32,
+    tree_seq: &Arc<TreeSeq>,
     fs: Arc<dyn Filesystem>,
 ) -> Arc<Superblock> {
     let id = next_id.fetch_add(1, Ordering::Relaxed);
@@ -256,6 +259,7 @@ fn new_superblock(
         fs,
         info,
         rename_lock: futures_util::lock::Mutex::new(()),
+        tree_seq: tree_seq.clone(),
         inodes: Default::default(),
         sub_devs: Default::default(),
     })

@@ -2,7 +2,10 @@
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use std::sync::Weak;
@@ -24,10 +27,31 @@ pub struct Superblock {
     /// Serializes renames across directories, so the "not into its own subdirectory" check
     /// stays true until the driver has moved the entry (`s_vfs_rename_mutex`).
     pub(crate) rename_lock: futures_util::lock::Mutex<()>,
+    /// The VFS's count of changes to the shape of its tree.
+    pub(crate) tree_seq: Arc<TreeSeq>,
     /// The inode cache: every inode something holds, by number.
     pub(crate) inodes: Mutex<HashMap<u64, Weak<Inode>>>,
     /// The `st_dev` given to each device the driver reports per object (`Attr::dev`).
     pub(crate) sub_devs: Mutex<HashMap<Device, Device>>,
+}
+
+/// Counts the changes that move a name to another place in a VFS's tree, a dentry move or a
+/// mount or unmount (Linux's `rename_lock` and `mount_lock` sequence counts), so a walk scoped
+/// to a directory can tell that `..` might have left it through a concurrent change.
+#[derive(Default)]
+pub(crate) struct TreeSeq(AtomicU64);
+
+impl TreeSeq {
+    /// The current count.
+    pub(crate) fn read(&self) -> u64 {
+        self.0.load(Ordering::SeqCst)
+    }
+
+    /// Counts a change. Called before the change, so a walk that sees the change sees the
+    /// count go up too.
+    pub(crate) fn bump(&self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
 }
 
 /// Per-mount flags (`MNT_*`).

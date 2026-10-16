@@ -212,6 +212,11 @@ struct Shifted<'a> {
 
 impl DirSink for Shifted<'_> {
     fn push(&mut self, entry: DirEntry<'_>) -> bool {
+        // A name no lookup could reach would corrupt the listing (`..`, `a/b`, or one longer
+        // than a record can say): a driver's bad entry is skipped.
+        if !is_entry_name(entry.name) {
+            return true;
+        }
         let next = (entry.next + 2).min(DIR_POS_EOD - 1);
         if !self.inner.push(DirEntry { next, ..entry }) {
             self.full = true;
@@ -220,6 +225,15 @@ impl DirSink for Shifted<'_> {
         self.pos = next;
         true
     }
+}
+
+/// A name a directory entry can have.
+fn is_entry_name(name: &[u8]) -> bool {
+    !name.is_empty()
+        && name.len() <= crate::NAME_MAX
+        && name != b"."
+        && name != b".."
+        && !name.iter().any(|&b| b == b'/' || b == 0)
 }
 
 impl Drop for File {

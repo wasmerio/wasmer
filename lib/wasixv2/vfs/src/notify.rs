@@ -55,6 +55,13 @@ pub enum FsEvent<'a> {
 pub trait FsWatcher: Send + Sync {
     fn event(&self, event: &FsEvent<'_>);
 
+    /// Whether anything is watched at all. While nothing is, the VFS skips the events of data
+    /// access (`Access`, `Modify`, `Open`, `Close`, `Attrib`) without building them, as
+    /// `fsnotify` returns early for objects without marks.
+    fn is_watching(&self) -> bool {
+        true
+    }
+
     /// An object event (`Modify`, `Attrib`, `Access`, `Open`, `Close`) as the directory the
     /// object was reached through sees it, under its name there (`fsnotify_parent`). Follows
     /// `event` for the same change.

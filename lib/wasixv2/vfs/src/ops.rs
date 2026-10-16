@@ -811,17 +811,20 @@ impl Vfs {
             .rename(&old_name, new_dir.dentry.node(), &new_name, mode)
             .await?;
 
-        if mode == RenameMode::Exchange {
-            if let Some(target) = &target {
-                target.dentry.move_to(&old_dir.dentry, &old_name);
+        match &target {
+            Some(target) if mode == RenameMode::Exchange => {
+                Dentry::exchange(&source.dentry, &target.dentry);
             }
-        } else if let Some(target) = &target {
-            if let Some(dir) = replaced_dir {
-                dir.dentry.inode().set_dead();
+            _ => {
+                if let Some(target) = &target {
+                    if let Some(dir) = replaced_dir {
+                        dir.dentry.inode().set_dead();
+                    }
+                    target.dentry.detach();
+                }
+                source.dentry.move_to(&new_dir.dentry, &new_name);
             }
-            target.dentry.detach();
         }
-        source.dentry.move_to(&new_dir.dentry, &new_name);
         self.notify(FsEvent::Move {
             from_dir: Self::object(&old_dir.dentry),
             from_name: &old_name,
@@ -920,16 +923,17 @@ impl Vfs {
         }
         let attr = path.dentry.node().getattr().await?;
         let cred = cx.cred;
-        // `chown_ok` and `chgrp_ok`.
+        // `chown_ok` and `chgrp_ok`: only the owner may even "change" to the current ids.
+        let owner = cred.fsuid == attr.uid;
         if let Some(uid) = uid
-            && uid != attr.uid
+            && !(owner && uid == attr.uid)
             && !cred.capable(Cap::Chown)
         {
             return Err(Errno::EPERM);
         }
         if let Some(gid) = gid
-            && gid != attr.gid
-            && !((cred.fsuid == attr.uid && cred.in_group(gid)) || cred.capable(Cap::Chown))
+            && !(owner && (gid == attr.gid || cred.in_group(gid)))
+            && !cred.capable(Cap::Chown)
         {
             return Err(Errno::EPERM);
         }

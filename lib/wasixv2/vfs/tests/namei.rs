@@ -386,3 +386,232 @@ fn every_filesystem_has_its_own_device() {
     // Both roots have the same inode number; the device tells them apart.
     assert_eq!(root.ino, m.ino);
 }
+
+#[test]
+fn exchanged_directories_both_stay_live() {
+    let w = World::new();
+    w.mkdir(b"/a").unwrap();
+    w.mkdir(b"/b").unwrap();
+    let cwd = w.lookup(b"/a", LookupFlags::default()).unwrap();
+
+    block_on(w.vfs.rename(
+        &w.cx(),
+        &w.root,
+        b"/a",
+        &w.root,
+        b"/b",
+        RenameMode::Exchange,
+    ))
+    .unwrap();
+
+    // `getcwd` in the moved directory, and creating in it, work as on Linux.
+    assert_eq!(w.vfs.d_path(&cwd, &w.root), b"/b");
+    assert_eq!(block_on(w.vfs.mkdir(&w.cx(), &cwd, b"x", 0o755)), Ok(()));
+    let other = w.lookup(b"/a", LookupFlags::default()).unwrap();
+    assert_eq!(w.vfs.d_path(&other, &w.root), b"/a");
+    assert!(w.lookup(b"/b/x", LookupFlags::default()).is_ok());
+}
+
+#[test]
+fn chown_to_the_current_ids_needs_ownership() {
+    let w = World::new();
+    w.create(b"/f");
+    let f = w.lookup(b"/f", LookupFlags::default()).unwrap();
+    let other = Cred::user(2, 2);
+    let cx = Ctx {
+        cred: &other,
+        root: &w.root,
+        umask: 0o022,
+        task: 0,
+    };
+
+    assert_eq!(
+        block_on(w.vfs.chown(&cx, &f, Some(1), None)),
+        Err(Errno::EPERM)
+    );
+    assert_eq!(
+        block_on(w.vfs.chown(&cx, &f, None, Some(1))),
+        Err(Errno::EPERM)
+    );
+    assert_eq!(block_on(w.vfs.chown(&w.cx(), &f, Some(1), Some(1))), Ok(()));
+}
+
+#[test]
+fn fifos_open_for_writing_on_read_only_mounts() {
+    let w = World::new();
+    w.mkdir(b"/d").unwrap();
+    block_on(w.vfs.mknod(
+        &w.cx(),
+        &w.root,
+        b"/d/fifo",
+        0o010_644,
+        wasixv2_vfs::Device::default(),
+    ))
+    .unwrap();
+    w.mkdir(b"/ro").unwrap();
+    let read_only = MountFlags {
+        read_only: true,
+        ..MountFlags::default()
+    };
+    block_on(w.vfs.bind_mount(b"/d", b"/ro", read_only, false)).unwrap();
+
+    assert!(w.open(b"/ro/fifo", OpenFlags::O_WRONLY, true).is_ok());
+    w.create(b"/d/file");
+    assert_eq!(
+        w.open(b"/ro/file", OpenFlags::O_WRONLY, true).err(),
+        Some(Errno::EROFS)
+    );
+}
+
+/// A filesystem whose root holds one empty directory, `p`, whose lookup waits until `open` is
+/// set: a walk can be stopped inside it.
+struct GateFs {
+    root: Arc<GateNode>,
+}
+
+struct GateNode {
+    ino: u64,
+    open: Arc<std::sync::atomic::AtomicBool>,
+}
+
+#[async_trait::async_trait(?Send)]
+impl wasixv2_vfs::Filesystem for GateFs {
+    fn info(&self) -> wasixv2_vfs::FsInfo {
+        wasixv2_vfs::FsInfo {
+            name: "gate",
+            magic: 0,
+            name_max: 255,
+            read_only: false,
+            dev: None,
+            has_btime: false,
+            stable: false,
+        }
+    }
+
+    fn root(&self) -> Arc<dyn wasixv2_vfs::Node> {
+        self.root.clone()
+    }
+
+    async fn statfs(&self) -> Result<wasixv2_vfs::StatFs, Errno> {
+        Ok(Default::default())
+    }
+}
+
+#[async_trait::async_trait(?Send)]
+impl wasixv2_vfs::Node for GateNode {
+    fn ino(&self) -> u64 {
+        self.ino
+    }
+
+    fn file_type(&self) -> wasixv2_vfs::FileType {
+        wasixv2_vfs::FileType::Directory
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    async fn getattr(&self) -> Result<wasixv2_vfs::Attr, Errno> {
+        Ok(wasixv2_vfs::Attr {
+            ino: self.ino,
+            file_type: wasixv2_vfs::FileType::Directory,
+            mode: 0o755,
+            nlink: 2,
+            uid: 1,
+            gid: 1,
+            rdev: Default::default(),
+            size: 0,
+            blocks: 0,
+            blksize: 4096,
+            atime: Timestamp::default(),
+            mtime: Timestamp::default(),
+            ctime: Timestamp::default(),
+            btime: None,
+            dev: None,
+        })
+    }
+
+    async fn setattr(&self, _: &wasixv2_vfs::SetAttr) -> Result<wasixv2_vfs::Attr, Errno> {
+        Err(Errno::EPERM)
+    }
+
+    async fn lookup(&self, name: &[u8]) -> Result<Arc<dyn wasixv2_vfs::Node>, Errno> {
+        if self.ino != 1 || name != b"p" {
+            return Err(Errno::ENOENT);
+        }
+        futures::future::poll_fn(
+            |_| match self.open.load(std::sync::atomic::Ordering::SeqCst) {
+                true => std::task::Poll::Ready(()),
+                false => std::task::Poll::Pending,
+            },
+        )
+        .await;
+        Ok(Arc::new(GateNode {
+            ino: 2,
+            open: self.open.clone(),
+        }))
+    }
+
+    async fn open(
+        &self,
+        _: wasixv2_vfs::OpenOptions,
+    ) -> Result<Box<dyn wasixv2_vfs::Handle>, Errno> {
+        Err(Errno::EOPNOTSUPP)
+    }
+}
+
+/// `openat2(jail, "a/m/p/../../../../x", RESOLVE_IN_ROOT)` while `a` is renamed out of the
+/// jail after the walk entered it: `..` would climb to the real `/x`, so the walk fails with
+/// `EAGAIN`, as Linux's does when `rename_lock` changed.
+#[test]
+fn a_rename_during_a_scoped_walk_makes_dotdot_fail_with_eagain() {
+    use std::{
+        future::Future,
+        sync::atomic::{AtomicBool, Ordering},
+        task::{Context, Poll},
+    };
+
+    let w = World::new();
+    for dir in [&b"/jail"[..], b"/jail/a", b"/jail/a/m", b"/elsewhere"] {
+        w.mkdir(dir).unwrap();
+    }
+    w.create(b"/x");
+    let open = Arc::new(AtomicBool::new(false));
+    let gate = GateFs {
+        root: Arc::new(GateNode {
+            ino: 1,
+            open: open.clone(),
+        }),
+    };
+    block_on(
+        w.vfs
+            .mount(b"/jail/a/m", Arc::new(gate), MountFlags::default(), false),
+    )
+    .unwrap();
+    let jail = w.lookup(b"/jail", LookupFlags::default()).unwrap();
+    let flags = LookupFlags {
+        follow: true,
+        in_root: true,
+        ..LookupFlags::default()
+    };
+
+    let cx = w.cx();
+    let mut walk = std::pin::pin!(w.vfs.lookup(&cx, &jail, b"a/m/p/../../../../x", flags));
+    let mut poll = || {
+        let waker = futures::task::noop_waker();
+        walk.as_mut().poll(&mut Context::from_waker(&waker))
+    };
+    assert!(poll().is_pending());
+    block_on(w.vfs.rename(
+        &w.cx(),
+        &w.root,
+        b"/jail/a",
+        &w.root,
+        b"/elsewhere/a",
+        RenameMode::Replace,
+    ))
+    .unwrap();
+    open.store(true, Ordering::SeqCst);
+
+    assert!(matches!(poll(), Poll::Ready(Err(Errno::EAGAIN))));
+}
