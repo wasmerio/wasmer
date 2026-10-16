@@ -1,24 +1,24 @@
-//! Provides CLI-specific Wasix components.
+//! The runtime `wasmer run` resolves, downloads and compiles packages with.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Error;
 use futures::future::BoxFuture;
 use indicatif::ProgressBar;
-use std::io::IsTerminal as _;
 use wasmer::{Engine, Module};
-use wasmer_config::package::PackageSource;
-use wasmer_types::ModuleHash;
+use wasmer_config::package::{PackageId, PackageSource};
 use wasmer_wasix::{
     SpawnError,
-    bin_factory::{BinaryPackage, BinaryPackageCommand},
+    bin_factory::BinaryPackage,
     runtime::{
         ModuleInput,
-        module_cache::{
-            HashedModuleData,
-            progress::{ModuleLoadProgress, ModuleLoadProgressReporter},
-        },
-        resolver::{PackageSummary, QueryError},
+        module_cache::progress::{ModuleLoadProgress, ModuleLoadProgressReporter},
+        package_loader::{builtin_loader::FileSystemCache, load_package_tree},
+        resolver::{PackageSummary, QueryError, Resolution, ResolvedFileSystemMapping},
     },
 };
 use webc::Container;
@@ -26,12 +26,15 @@ use webc::Container;
 /// Special wasix runtime implementation for the CLI.
 ///
 /// Wraps an underlying runtime and adds progress monitoring for package
-/// compilation.
+/// compilation, and keeps the containers of the package tree it loads.
 #[derive(Debug)]
 pub struct MonitoringRuntime<R> {
     pub runtime: Arc<R>,
     progress: ProgressBar,
     quiet_mode: bool,
+    tree: Arc<Mutex<PackageTree>>,
+    /// The package loader's download cache, where loaded packages' files are.
+    checkouts: Option<Arc<FileSystemCache>>,
 }
 
 impl<R> MonitoringRuntime<R> {
@@ -40,8 +43,38 @@ impl<R> MonitoringRuntime<R> {
             runtime: Arc::new(runtime),
             progress,
             quiet_mode,
+            tree: Arc::default(),
+            checkouts: None,
         }
     }
+
+    /// Tells where the package loader caches downloads, so the tree records each package's
+    /// file.
+    pub fn with_checkouts(mut self, checkouts: FileSystemCache) -> Self {
+        self.checkouts = Some(Arc::new(checkouts));
+        self
+    }
+
+    /// The containers and volume mappings of the package tree loaded last.
+    pub fn package_tree(&self) -> PackageTree {
+        self.tree.lock().unwrap().clone()
+    }
+}
+
+/// What the machine needs of a loaded package tree, which a `BinaryPackage` does not keep: the
+/// containers whose volumes its filesystem table mounts.
+#[derive(Debug, Clone, Default)]
+pub struct PackageTree {
+    /// Every container loaded, by package.
+    pub containers: HashMap<PackageId, Container>,
+    /// The file each downloaded package was loaded from.
+    pub files: HashMap<PackageId, PathBuf>,
+    /// The tree's filesystem table; mappings earlier in the list obscure later ones.
+    pub filesystem: Vec<ResolvedFileSystemMapping>,
+    /// The root package, if a tree was loaded.
+    pub root: Option<PackageId>,
+    /// Whether the root is a package directory, whose own mappings name host directories.
+    pub root_is_local_dir: bool,
 }
 
 impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for MonitoringRuntime<R> {
@@ -60,6 +93,8 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         Arc::new(MonitoringPackageLoader {
             inner,
             progress: self.progress.clone(),
+            tree: self.tree.clone(),
+            checkouts: self.checkouts.clone(),
         })
     }
 
@@ -83,62 +118,6 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
 
     fn new_store(&self) -> wasmer::Store {
         self.runtime.new_store()
-    }
-
-    fn http_client(&self) -> Option<&wasmer_wasix::http::DynHttpClient> {
-        self.runtime.http_client()
-    }
-
-    fn tty(&self) -> Option<&(dyn wasmer_wasix::os::TtyBridge + Send + Sync)> {
-        self.runtime.tty()
-    }
-
-    fn additional_imports(
-        &self,
-        module: &Module,
-        store: &mut wasmer::StoreMut,
-    ) -> anyhow::Result<(wasmer::Imports, wasmer_wasix::runtime::InstantiationState)> {
-        self.runtime.additional_imports(module, store)
-    }
-
-    fn prepare_imports(
-        &self,
-        module: &Module,
-        store: &mut wasmer::StoreMut,
-        imports: &mut wasmer::Imports,
-    ) -> anyhow::Result<wasmer_wasix::runtime::InstantiationState> {
-        self.runtime.prepare_imports(module, store, imports)
-    }
-
-    fn configure_new_instance(
-        &self,
-        module: &Module,
-        store: &mut wasmer::StoreMut,
-        instance: &wasmer::Instance,
-        imported_memory: Option<&wasmer::Memory>,
-        state: wasmer_wasix::runtime::InstantiationState,
-    ) -> anyhow::Result<()> {
-        self.runtime
-            .configure_new_instance(module, store, instance, imported_memory, state)
-    }
-
-    #[cfg(feature = "journal")]
-    fn read_only_journals<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = Arc<wasmer_wasix::journal::DynReadableJournal>> + 'a> {
-        self.runtime.read_only_journals()
-    }
-
-    #[cfg(feature = "journal")]
-    fn writable_journals<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = Arc<wasmer_wasix::journal::DynJournal>> + 'a> {
-        self.runtime.writable_journals()
-    }
-
-    #[cfg(feature = "journal")]
-    fn active_journal(&self) -> Option<&'_ wasmer_wasix::journal::DynJournal> {
-        self.runtime.active_journal()
     }
 
     fn resolve_module<'a>(
@@ -252,6 +231,8 @@ impl wasmer_wasix::runtime::resolver::Source for MonitoringSource {
 struct MonitoringPackageLoader {
     inner: Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync>,
     progress: ProgressBar,
+    tree: Arc<Mutex<PackageTree>>,
+    checkouts: Option<Arc<FileSystemCache>>,
 }
 
 #[async_trait::async_trait]
@@ -260,17 +241,35 @@ impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageL
         let pkg_id = summary.package_id();
         self.progress.set_message(format!("Downloading {pkg_id}"));
 
-        self.inner.load(summary).await
+        let container = self.inner.load(summary).await?;
+        let file = self
+            .checkouts
+            .as_ref()
+            .map(|cache| cache.path(&summary.dist.webc_sha256))
+            .filter(|path| path.is_file());
+        let mut tree = self.tree.lock().unwrap();
+        if let Some(file) = file {
+            tree.files.insert(pkg_id.clone(), file);
+        }
+        tree.containers.insert(pkg_id, container.clone());
+        Ok(container)
     }
 
     async fn load_package_tree(
         &self,
         root: &Container,
-        resolution: &wasmer_wasix::runtime::resolver::Resolution,
+        resolution: &Resolution,
         root_is_local_dir: bool,
     ) -> Result<BinaryPackage, Error> {
-        self.inner
-            .load_package_tree(root, resolution, root_is_local_dir)
-            .await
+        {
+            let mut tree = self.tree.lock().unwrap();
+            let id = resolution.package.root_package.clone();
+            tree.containers.insert(id.clone(), root.clone());
+            tree.filesystem = resolution.package.filesystem.clone();
+            tree.root = Some(id);
+            tree.root_is_local_dir = root_is_local_dir;
+        }
+        // Through `self`, so the dependencies' containers are kept too.
+        load_package_tree(root, self, resolution, root_is_local_dir).await
     }
 }

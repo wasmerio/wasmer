@@ -84,8 +84,8 @@ wasmer run syrusakbary/cowsay -- "Hello from Wasmer"
 
 Wasmer downloads the package and caches it for future runs. Use `--` to separate
 Wasmer options from the arguments passed to your program. To work with local
-files, grant access to a directory with `--volume`; enable host networking with
-`--net` when your program needs it. See the
+files, grant access to a directory with `--volume`; make a port your program
+listens on reachable from the host with `--publish`. See the
 [CLI guide](https://docs.wasmer.io/runtime/cli/) for details.
 
 **No installation needed:** open [wasmer.sh](https://wasmer.sh) to try a sandbox

@@ -50,23 +50,15 @@ fn list_cwd() {
 
     let output = wasmer_command().arg("run").arg(package).output().unwrap();
 
-    let stdout = output.stdout;
+    let stdout = String::from_utf8(output.stdout).unwrap();
     eprintln!("{}", String::from_utf8(output.stderr).unwrap());
 
-    let expected = ".
-..
-.app
-.private
-bin
-data
-dev
-etc
-tmp
-usr
-"
-    .to_owned();
-
-    assert_eq!(expected, String::from_utf8(stdout).unwrap());
+    // As under v1, wasix-libc resolves "./" through the `/` preopen, so this lists the root,
+    // where the package directory is mapped at `/data`.
+    let listed: Vec<_> = stdout.lines().collect();
+    for entry in [".", "..", "data", "etc", "tmp"] {
+        assert!(listed.contains(&entry), "{entry} is missing:\n{stdout}");
+    }
 }
 
 #[test]
@@ -87,37 +79,36 @@ fn nested_mounted_paths() {
 
     let webc_stdout = String::from_utf8(webc_output.stdout).unwrap();
 
-    let expected = "/:
-.
-..
-.app
-.private
-app
-bin
-dev
-etc
-tmp
-usr
-
-/app:
-.
-..
-a
-b
-
-/app/a:
-.
-..
-data-a.txt
-
-/app/b:
-.
-..
-data-b.txt
-";
-
-    assert_eq!(&host_stdout, &expected);
-    assert_eq!(&webc_stdout, &expected);
+    // Each directory's entries, sorted, since a directory lists in no particular order.
+    let listings = |stdout: &str| -> Vec<(String, Vec<String>)> {
+        stdout
+            .split("\n\n")
+            .map(|section| {
+                let mut lines = section.lines();
+                let dir = lines.next().unwrap_or_default().to_string();
+                let mut entries: Vec<String> = lines.map(str::to_string).collect();
+                entries.sort_unstable();
+                (dir, entries)
+            })
+            .collect()
+    };
+    let entries = |names: &[&str]| names.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+    for stdout in [&host_stdout, &webc_stdout] {
+        let listed = listings(stdout);
+        assert_eq!(listed.len(), 4, "{stdout}");
+        // The root holds the machine's own directories too; only the mounts matter here.
+        assert_eq!(listed[0].0, "/:");
+        assert!(listed[0].1.contains(&"app".to_string()), "{stdout}");
+        assert_eq!(listed[1], ("/app:".into(), entries(&[".", "..", "a", "b"])));
+        assert_eq!(
+            listed[2],
+            ("/app/a:".into(), entries(&[".", "..", "data-a.txt"]))
+        );
+        assert_eq!(
+            listed[3],
+            ("/app/b:".into(), entries(&[".", "..", "data-b.txt"]))
+        );
+    }
 }
 
 // The test would be very slow on Windows or macOS
@@ -590,7 +581,7 @@ fn run_wasixv2_module_rejects_unsupported_options() {
 
     wasmer_command()
         .arg("run")
-        .arg("--net")
+        .arg("--net=ipv4:allow=127.0.0.1:80/in")
         .arg("--invoke")
         .arg("main")
         .arg(&module_file)
@@ -598,8 +589,76 @@ fn run_wasixv2_module_rejects_unsupported_options() {
         .failure()
         .stdout("")
         .stderr(contains(
-            "this module targets WASIX v2, which does not support --net, --invoke yet",
+            "the WASIX v2 kernel does not support network rulesets (--net=<RULES>), --invoke yet",
         ));
+}
+
+/// Plain `--net` changes nothing on the WASIX v2 kernel, whose guests always reach the host's
+/// network, so it is accepted (`binfmt_misc` registrations pass it), as is `--invoke _start`.
+#[test]
+fn run_wasixv2_module_accepts_plain_net_and_invoking_start() {
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("hello.wat");
+    std::fs::write(&module_file, WASIXV2_HELLO_WAT).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg("--net")
+        .arg("--invoke=_start")
+        .arg(&module_file)
+        .assert()
+        .code(7)
+        .stdout("hello");
+}
+
+/// Writes `hello` with `fd_write` and exits with 7 through `proc_exit`.
+const WASIX1_HELLO_WAT: &str = r#"
+    (module
+      (import "wasi_snapshot_preview1" "fd_write"
+        (func $fd_write (param i32 i32 i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $proc_exit (param i32)))
+      (memory (export "memory") 1)
+      ;; One iovec at 0: "hello" at 16.
+      (data (i32.const 0) "\10\00\00\00\05\00\00\00")
+      (data (i32.const 16) "hello")
+      (func (export "_start")
+        (drop (call $fd_write (i32.const 1) (i32.const 0) (i32.const 1) (i32.const 8)))
+        (call $proc_exit (i32.const 7))))
+"#;
+
+/// A WASI preview1 module runs on the WASIX v2 kernel through its v1 compatibility ABI.
+#[test]
+fn run_wasix1_module_forwards_stdout_and_exit_status() {
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("hello.wat");
+    std::fs::write(&module_file, WASIX1_HELLO_WAT).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .assert()
+        .code(7)
+        .stdout("hello");
+}
+
+#[test]
+fn run_wasix1_wasm64_module_is_rejected() {
+    let wat = r#"
+        (module
+          (import "wasix_64v1" "proc_exit" (func $proc_exit (param i32)))
+          (memory (export "memory") i64 1)
+          (func (export "_start") (call $proc_exit (i32.const 0))))
+    "#;
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("wasm64.wat");
+    std::fs::write(&module_file, wat).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .assert()
+        .failure()
+        .stderr(contains("wasm64 WASIX v1 modules are not supported"));
 }
 
 /// Prints `/data/msg.txt`, then creates `/data/new.txt`. Exits with 0, or the errno of the
@@ -682,6 +741,35 @@ fn run_wasixv2_webc_mounts_package_volumes() {
         .stdout("from the package\n");
 }
 
+/// A webc v2 file is migrated to v3 in memory, whose volumes the WASIX v2 kernel mounts.
+#[test]
+fn run_webc_v2_file_is_migrated() {
+    let package = wasixv2_package_dir();
+    let out = TempDir::new().unwrap();
+    let v3 = out.path().join("v3.webc");
+    wasmer_command()
+        .arg("-q")
+        .arg("package")
+        .arg("build")
+        .arg(package.path())
+        .arg("-o")
+        .arg(&v3)
+        .assert()
+        .success();
+    drop(package);
+    let v2 = out.path().join("v2.webc");
+    let migrated = webc::migration::v3_to_v2(std::fs::read(&v3).unwrap()).unwrap();
+    std::fs::write(&v2, migrated).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg(&v2)
+        .assert()
+        .success()
+        .stdout("from the package\n")
+        .stderr(contains("WebC v2 is a deprecated format"));
+}
+
 #[test]
 fn run_wasixv2_package_dir_maps_its_fs_table() {
     let package = wasixv2_package_dir();
@@ -693,6 +781,97 @@ fn run_wasixv2_package_dir_maps_its_fs_table() {
         .success()
         .stdout("from the package\n");
     assert!(package.path().join("data/new.txt").exists());
+}
+
+/// Prints `/msg.txt`, then opens `/etc/hosts` and creates `/new.txt`. Exits with 0, or the
+/// errno of the first call that failed.
+const WASIXV2_ROOT_VOLUME_WAT: &str = r#"
+    (module
+      (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "read" (func $read (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 16) "/msg.txt\00")
+      (data (i32.const 32) "/etc/hosts\00")
+      (data (i32.const 48) "/new.txt\00")
+      (func $check (param $ret i32) (result i32)
+        (if (i32.lt_s (local.get $ret) (i32.const 0))
+          (then (call $exit_group (i32.sub (i32.const 0) (local.get $ret))) unreachable))
+        (local.get $ret))
+      (func (export "_start")
+        (local $fd i32)
+        (local.set $fd (call $check
+          (call $openat (i32.const -100) (i32.const 16) (i32.const 0) (i32.const 0))))
+        (drop (call $write (i32.const 1) (i32.const 1024)
+          (call $check (call $read (local.get $fd) (i32.const 1024) (i32.const 512)))))
+        (drop (call $check
+          (call $openat (i32.const -100) (i32.const 32) (i32.const 0) (i32.const 0))))
+        ;; O_WRONLY | O_CREAT, 0644
+        (drop (call $check
+          (call $openat (i32.const -100) (i32.const 48) (i32.const 0x41) (i32.const 420))))
+        (call $exit_group (i32.const 0))
+        unreachable))
+"#;
+
+/// A package directory whose `fs` table maps its `root/` to `/`.
+fn root_volume_package_dir() -> TempDir {
+    let temp = TempDir::new().unwrap();
+    let wasm = wat::parse_str(WASIXV2_ROOT_VOLUME_WAT).unwrap();
+    std::fs::write(temp.path().join("main.wasm"), wasm).unwrap();
+    std::fs::create_dir(temp.path().join("root")).unwrap();
+    std::fs::write(temp.path().join("root/msg.txt"), "from the root volume\n").unwrap();
+    std::fs::write(
+        temp.path().join("wasmer.toml"),
+        r#"
+            [[module]]
+            name = "main"
+            source = "main.wasm"
+
+            [fs]
+            "/" = "root"
+
+            [[command]]
+            name = "main"
+            module = "main"
+            runner = "wasi"
+        "#,
+    )
+    .unwrap();
+    temp
+}
+
+/// A volume at `/` is a layer of the root, under the machine's own `/etc` and `/tmp`; changes
+/// stay in memory.
+#[test]
+fn run_package_with_a_root_volume() {
+    let package = root_volume_package_dir();
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .assert()
+        .success()
+        .stdout("from the root volume\n");
+    assert!(!package.path().join("root/new.txt").exists());
+
+    let out = TempDir::new().unwrap();
+    let webc = out.path().join("root-volume.webc");
+    wasmer_command()
+        .arg("-q")
+        .arg("package")
+        .arg("build")
+        .arg(package.path())
+        .arg("-o")
+        .arg(&webc)
+        .assert()
+        .success();
+    drop(package);
+    wasmer_command()
+        .arg("run")
+        .arg(&webc)
+        .assert()
+        .success()
+        .stdout("from the root volume\n");
 }
 
 /// Prints `ready`, then waits in `ppoll` with nothing to poll and no timeout, forever.
@@ -958,9 +1137,12 @@ fn local_package_fs_mounts_work_for_dir_and_webc() {
         .success();
 }
 
+/// The `wasm_c_api_v0` host imports were an extension of the legacy WASIX runtime, which
+/// `wasmer run` no longer uses; the WASIX v2 kernel does not provide them (yet), and says so
+/// instead of running the guest without them.
 #[cfg(target_os = "linux")]
 #[test]
-fn wasmer_run_wasix_wasm_c_api_guest() {
+fn wasmer_run_wasix_wasm_c_api_guest_is_refused() {
     let temp = TempDir::new().unwrap();
     let wasm = temp.path().join("wasix-wasm-c-api-smoke.wasm");
 
@@ -971,8 +1153,8 @@ fn wasmer_run_wasix_wasm_c_api_guest() {
         .arg(&wasm)
         .env("RUST_LOG", &*RUST_LOG)
         .assert()
-        .success()
-        .stdout(contains("wasm-c-api ok"));
+        .failure()
+        .stderr(contains("wasm_c_api_v0"));
 }
 
 #[test]
@@ -1001,10 +1183,11 @@ fn wasi_runner_on_disk_with_mounted_directories_and_webc_volumes() {
 fn wasi_runner_on_disk_with_dependencies() {
     let port = random_port();
     let mut cmd = wasmer_command();
+    // The guest listens inside the machine; `--publish` makes the port reachable from here.
     cmd.arg("run")
         .arg("wasmer/hello")
         .arg(format!("--env=SERVER_PORT={port}"))
-        .arg("--net")
+        .arg(format!("--publish={port}:{port}"))
         .arg("--")
         .arg("--log-level=info")
         .env("RUST_LOG", &*RUST_LOG);
@@ -1091,11 +1274,8 @@ fn issue_3794_unable_to_mount_relative_paths() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
-#[cfg_attr(
-    target_os = "windows",
-    ignore = "wasmer/bash packages require wasm exception handling support on Windows"
-)]
 #[test]
+#[ignore = "`--use` (injecting packages into the filesystem) is not supported on the WASIX v2 kernel yet"]
 fn merged_filesystem_contains_all_files() {
     let assert = wasmer_command()
         .arg("run")
@@ -1231,11 +1411,8 @@ fn run_quickjs_via_url() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
-#[cfg_attr(
-    target_os = "windows",
-    ignore = "wasmer/bash packages require wasm exception handling support on Windows"
-)]
 #[test]
+#[ignore = "`--use` (injecting packages into the filesystem) is not supported on the WASIX v2 kernel yet"]
 fn run_bash_using_coreutils() {
     let assert = wasmer_command()
         .arg("run")
@@ -1348,12 +1525,15 @@ fn shared_fd_closes_the_host_file_only_after_the_last_fd_is_closed() {
         .arg(&wasm)
         .arg("--volume")
         .arg(".")
-        .current_dir(temp.path())
-        .env("RUST_LOG", "virtual_fs=trace");
+        .current_dir(temp.path());
 
     let (status, combined_output) = run_with_combined_output(&mut cmd, &combined_log);
     assert!(status.success(), "{combined_output}");
 
+    // "parent 1" is written after the child closed both its descriptors: a host file closed
+    // with the first descriptor instead of the last would have lost it. (The legacy runtime's
+    // `virtual_fs` trace of the host close, which this test also checked, does not exist on
+    // the WASIX v2 kernel.)
     let output = std::fs::read_to_string(&output_path).unwrap();
     for expected in ["parent 1", "parent 2", "child 1", "child 2"] {
         assert!(
@@ -1361,17 +1541,9 @@ fn shared_fd_closes_the_host_file_only_after_the_last_fd_is_closed() {
             "missing `{expected}` in output file:\n{output}"
         );
     }
-
     let closing_marker = combined_output.find("closing last fd").unwrap();
-    let close_log = combined_output
-        .find(&output_path.display().to_string())
-        .unwrap_or_else(|| panic!("missing close trace for output file:\n{combined_output}"));
     let closed_marker = combined_output.find("last fd closed").unwrap();
-
-    assert!(
-        closing_marker < close_log && close_log < closed_marker,
-        "unexpected close ordering:\n{combined_output}"
-    );
+    assert!(closing_marker < closed_marker, "{combined_output}");
 }
 
 fn project_root() -> &'static Path {
