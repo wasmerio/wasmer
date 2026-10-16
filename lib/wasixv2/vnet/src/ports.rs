@@ -339,9 +339,45 @@ impl<T: Clone> PortTable<T> {
         src: Option<SocketAddr>,
         filter: impl Fn(&T, bool) -> bool,
     ) -> Vec<T> {
-        let Some(bucket) = self.buckets.get(&dst.port()) else {
-            return Vec::new();
-        };
+        let best = self.scored(dst, src, &filter).map(|(s, _)| s).max();
+        self.scored(dst, src, &filter)
+            .filter(|(s, _)| Some(*s) == best)
+            .map(|(_, p)| p.clone())
+            .collect()
+    }
+
+    /// `lookup` narrowed to one socket without allocating: a `SO_REUSEPORT` group is spread by
+    /// `hash` (`reuseport_select_sock`).
+    pub fn lookup_one(
+        &self,
+        dst: SocketAddr,
+        src: Option<SocketAddr>,
+        filter: impl Fn(&T, bool) -> bool,
+        hash: usize,
+    ) -> Option<T> {
+        let (best, count) =
+            self.scored(dst, src, &filter)
+                .fold((0, 0), |(best, n), (s, _)| match s.cmp(&best) {
+                    std::cmp::Ordering::Greater => (s, 1),
+                    std::cmp::Ordering::Equal => (best, n + 1),
+                    std::cmp::Ordering::Less => (best, n),
+                });
+        if count == 0 {
+            return None;
+        }
+        self.scored(dst, src, &filter)
+            .filter(|(s, _)| *s == best)
+            .nth(hash % count)
+            .map(|(_, p)| p.clone())
+    }
+
+    /// Every entry that can take traffic to `dst` from `src`, with its `compute_score`.
+    fn scored<'a>(
+        &'a self,
+        dst: SocketAddr,
+        src: Option<SocketAddr>,
+        filter: &'a impl Fn(&T, bool) -> bool,
+    ) -> impl Iterator<Item = (u32, &'a T)> + 'a {
         let probe = BindSpec {
             family: if dst.is_ipv4() {
                 Domain::Inet
@@ -354,11 +390,10 @@ impl<T: Clone> PortTable<T> {
             reuseport: false,
             uid: 0,
         };
-        let mut best = 0;
-        let mut out = Vec::new();
-        for e in bucket {
+        let bucket = self.buckets.get(&dst.port()).into_iter().flatten();
+        bucket.filter_map(move |e| {
             if !filter(&e.payload, e.listening) || !addrs_overlap(&probe, &e.spec) {
-                continue;
+                return None;
             }
             let mut score = if e.spec.family == Domain::Inet { 2 } else { 1 };
             if e.spec.addr == dst.ip() {
@@ -366,19 +401,12 @@ impl<T: Clone> PortTable<T> {
             }
             if let Some(remote) = e.remote.filter(|_| !e.listening) {
                 if Some(remote) != src {
-                    continue;
+                    return None;
                 }
                 score += 4;
             }
-            if score > best {
-                best = score;
-                out.clear();
-            }
-            if score == best {
-                out.push(e.payload.clone());
-            }
-        }
-        out
+            Some((score, &e.payload))
+        })
     }
 }
 

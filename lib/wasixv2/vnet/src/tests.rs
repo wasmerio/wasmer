@@ -248,3 +248,64 @@ fn reuseaddr_allows_rebind_while_connection_lives() {
     reuse.bind(a("127.0.0.1:6000"), false).unwrap();
     reuse.listen(4).unwrap();
 }
+
+#[test]
+fn ports_lists_sockets_while_they_come_and_go() {
+    let n = net();
+    let l = tcp(&n);
+    l.bind(a("127.0.0.1:7100"), false).unwrap();
+    l.listen(4).unwrap();
+    let u = udp(&n);
+    u.bind(a("0.0.0.0:7101"), false).unwrap();
+    let ports = n.ports();
+    assert!(
+        ports
+            .iter()
+            .any(|p| p.local == a("127.0.0.1:7100") && p.listening)
+    );
+    assert!(
+        ports
+            .iter()
+            .any(|p| p.local == a("0.0.0.0:7101") && !p.listening)
+    );
+
+    // Sockets dropped while `ports` walks the tables unbind under the namespace lock; the walk
+    // must not hold it then, nor drop their last reference inside it.
+    let walker = {
+        let n = n.clone();
+        std::thread::spawn(move || {
+            for _ in 0..2000 {
+                n.ports();
+            }
+        })
+    };
+    for i in 0..2000u16 {
+        let s = if i % 2 == 0 { tcp(&n) } else { udp(&n) };
+        s.bind(a("127.0.0.1:0"), false).unwrap();
+        drop(s);
+    }
+    walker.join().unwrap();
+}
+
+#[test]
+fn udp_reuseport_group_spreads_by_source_port() {
+    let n = net();
+    let one = 1i32.to_le_bytes();
+    let group: Vec<_> = (0..2)
+        .map(|_| {
+            let s = udp(&n);
+            s.set_option(1, 15, &one).unwrap();
+            s.bind(a("127.0.0.1:7200"), false).unwrap();
+            s
+        })
+        .collect();
+    for _ in 0..8 {
+        let c = udp(&n);
+        send_to(&*c, b"x", Some(a("127.0.0.1:7200"))).unwrap();
+    }
+    let got: Vec<usize> = group
+        .iter()
+        .map(|s| std::iter::from_fn(|| recv(&**s, 4).ok()).count())
+        .collect();
+    assert_eq!(got.iter().sum::<usize>(), 8);
+}

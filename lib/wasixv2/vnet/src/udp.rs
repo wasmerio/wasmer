@@ -14,7 +14,7 @@ use crate::{
     Accepted, BackendDatagram, Domain, NetResult, PortEntry, RecvMsg, SendMsg, Shutdown, Socket,
     SocketKind,
     addr::{canonical, present, unbound},
-    net::{Net, Path},
+    net::{Net, Path, UdpRoute},
     opts::{Changed, SockOpts},
     ports::{BindSpec, SockId},
 };
@@ -144,14 +144,23 @@ impl UdpSocket {
         self.wq.wake(PollMask::IN | PollMask::RDNORM);
     }
 
+    /// The endpoint for traffic leaving the namespace, made on first use. It wakes this
+    /// socket's queue, so waiters registered before it existed hear its datagrams.
     fn backend_endpoint(&self, g: &mut Inner) -> NetResult<Arc<dyn BackendDatagram>> {
         if let Some(b) = &g.backend {
             return Ok(b.clone());
         }
         let backend = self.net.backend.as_ref().ok_or(Errno::ENETUNREACH)?;
-        let b = backend.datagram(self.domain)?;
+        let b = backend.datagram(self.domain, self.wq.clone())?;
         g.backend = Some(b.clone());
         Ok(b)
+    }
+
+    /// `sock_error`: the socket's pending error, else the backend endpoint's.
+    fn take_err(g: &mut Inner) -> Option<Errno> {
+        g.err
+            .take()
+            .or_else(|| g.backend.as_ref().and_then(|b| b.take_error()))
     }
 }
 
@@ -185,7 +194,7 @@ impl Pollable for UdpSocket {
         let backend = g.backend.clone();
         drop(g);
         if let Some(b) = backend {
-            m |= b.poll(table) & (PollMask::IN | PollMask::RDNORM | PollMask::ERR);
+            m |= b.poll(None) & (PollMask::IN | PollMask::RDNORM | PollMask::ERR);
         }
         m
     }
@@ -254,6 +263,14 @@ impl Socket for UdpSocket {
             .state()
             .udp
             .set_remote(self.id, local.port(), Some(dst));
+        match path {
+            // The host endpoint filters by the peer and reports its ICMP errors.
+            Path::Backend { host_dst, .. } => {
+                self.backend_endpoint(&mut g)?.connect(Some(host_dst))?
+            }
+            // The association moved inside the namespace: nothing from outside is for us now.
+            Path::Local { .. } => g.backend = None,
+        }
         g.peer = Some(dst);
         Ok(())
     }
@@ -262,6 +279,9 @@ impl Socket for UdpSocket {
     fn disconnect(&self) -> NetResult<()> {
         let mut g = self.lock();
         g.peer = None;
+        if let Some(b) = &g.backend {
+            b.connect(None)?;
+        }
         if let Some(local) = g.local {
             let mut st = self.net.state();
             st.udp.set_remote(self.id, local.port(), None);
@@ -314,7 +334,7 @@ impl Socket for UdpSocket {
         if dst.port() == 0 {
             return Err(Errno::EINVAL);
         }
-        if let Some(e) = g.err.take() {
+        if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
         }
         if let IpAddr::V4(v4) = dst.ip()
@@ -330,14 +350,16 @@ impl Socket for UdpSocket {
             }
             return Ok(msg.data.len());
         }
-        let path = self.net.path(dst, g.local.map(|l| l.ip()))?;
-        let local = self.autobind(&mut g)?;
+        let autobind = self.spec(&g.opts, self.any());
+        let (local, route) =
+            self.net
+                .udp_route(self.id, autobind, g.local, dst, self.me.clone())?;
+        g.local = Some(local);
         let connected = g.peer.is_some();
-        match path {
-            Path::Local { src } => {
+        match route {
+            UdpRoute::Local { from, to } => {
                 drop(g);
-                let from = SocketAddr::new(src, local.port());
-                match self.net.find_udp(dst, from) {
+                match to {
                     Some(target) => target.deliver(msg.data, from),
                     None if connected => {
                         // ICMP port unreachable reaches connected sockets as ECONNREFUSED.
@@ -348,7 +370,7 @@ impl Socket for UdpSocket {
                 }
                 Ok(msg.data.len())
             }
-            Path::Backend { host_dst, .. } => {
+            UdpRoute::Backend { host_dst } => {
                 let b = self.backend_endpoint(&mut g)?;
                 drop(g);
                 b.send_to(msg.data, host_dst)
@@ -363,7 +385,7 @@ impl Socket for UdpSocket {
         let peek = flags.0 & MsgFlags::MSG_PEEK.0 != 0;
         let mut g = self.lock();
         // `__skb_try_recv_datagram` reports a pending error before queued data.
-        if let Some(e) = g.err.take() {
+        if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
         }
         let dgram = if peek {
@@ -417,7 +439,7 @@ impl Socket for UdpSocket {
     }
 
     fn take_error(&self) -> Option<Errno> {
-        self.lock().err.take()
+        Self::take_err(&mut self.lock())
     }
 
     fn input_len(&self) -> NetResult<usize> {
@@ -448,7 +470,7 @@ impl Socket for UdpSocket {
     fn get_option(&self, level: i32, name: i32, out: &mut [u8]) -> NetResult<usize> {
         let mut g = self.lock();
         if level == SocketLevel::SOL_SOCKET.0 && name == SocketOption::SO_ERROR.0 {
-            let e = g.err.take().map_or(0, |e| e.0);
+            let e = Self::take_err(&mut g).map_or(0, |e| e.0);
             return Ok(crate::opts::write_int(out, e));
         }
         if level == SocketLevel::SOL_SOCKET.0 && name == SocketOption::SO_ACCEPTCONN.0 {

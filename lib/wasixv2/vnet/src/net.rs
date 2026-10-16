@@ -10,6 +10,8 @@ use std::{
 
 use wasixv2_abi::Errno;
 
+use wasixv2_wait::WaitQueue;
+
 use crate::{
     Backend, BackendStream, Domain, InboundSink, Interface, NetResult, Network, PortEntry,
     Publication, Socket, SocketKind,
@@ -224,7 +226,10 @@ impl Net {
 
     /// Where traffic to `dst` (canonical) goes, given the socket's bound address.
     pub(crate) fn path(&self, dst: SocketAddr, bound: Option<IpAddr>) -> NetResult<Path> {
-        let st = self.state();
+        self.path_in(&self.state(), dst, bound)
+    }
+
+    fn path_in(&self, st: &NetState, dst: SocketAddr, bound: Option<IpAddr>) -> NetResult<Path> {
         let decision = st.ifaces.route(dst.ip()).ok_or(Errno::ENETUNREACH)?;
         let src = bound
             .filter(|ip| !ip.is_unspecified())
@@ -342,15 +347,63 @@ impl Net {
         live.into_iter().nth(i)
     }
 
-    pub(crate) fn find_udp(&self, dst: SocketAddr, src: SocketAddr) -> Option<Arc<UdpSocket>> {
-        let candidates = self.state().udp.lookup(dst, Some(src), |_, _| true);
-        let live: Vec<_> = candidates.iter().filter_map(Weak::upgrade).collect();
-        if live.is_empty() {
-            return None;
-        }
-        let i = src.port() as usize % live.len();
-        live.into_iter().nth(i)
+    /// Where a UDP datagram to `dst` goes, decided under one lock: the route, the sender's port
+    /// (bound with `autobind` first if `local` is `None` and there is a route), and inside the
+    /// namespace the receiving socket. Returns the sender's local address and the route.
+    pub(crate) fn udp_route(
+        &self,
+        id: SockId,
+        autobind: BindSpec,
+        local: Option<SocketAddr>,
+        dst: SocketAddr,
+        me: Weak<UdpSocket>,
+    ) -> NetResult<(SocketAddr, UdpRoute)> {
+        let (local, route) = {
+            let mut st = self.state();
+            let st = &mut *st;
+            let path = self.path_in(st, dst, local.map(|l| l.ip()))?;
+            let local = match local {
+                Some(local) => local,
+                None => {
+                    let range = self.config.port_range;
+                    let port = st.udp.bind(id, autobind, 0, range, &mut st.rng, me)?;
+                    SocketAddr::new(autobind.addr, port)
+                }
+            };
+            let route = match path {
+                Path::Local { src } => {
+                    let from = SocketAddr::new(src, local.port());
+                    // Liveness without upgrading: a last reference must not drop under the lock.
+                    let live = |w: &Weak<UdpSocket>, _| w.strong_count() > 0;
+                    let to = st
+                        .udp
+                        .lookup_one(dst, Some(from), live, from.port() as usize);
+                    Ok((from, to))
+                }
+                Path::Backend { host_dst, .. } => Err(host_dst),
+            };
+            (local, route)
+        };
+        let route = match route {
+            Ok((from, to)) => UdpRoute::Local {
+                from,
+                to: to.and_then(|w| w.upgrade()),
+            },
+            Err(host_dst) => UdpRoute::Backend { host_dst },
+        };
+        Ok((local, route))
     }
+}
+
+/// Where one UDP datagram goes (see [`Net::udp_route`]).
+pub(crate) enum UdpRoute {
+    /// Inside the namespace, from `from`, to the socket bound for it if any.
+    Local {
+        from: SocketAddr,
+        to: Option<Arc<UdpSocket>>,
+    },
+    /// Out through the backend to `host_dst`.
+    Backend { host_dst: SocketAddr },
 }
 
 fn default_route(dst: IpAddr, gw: IpAddr, oif: u32) -> Route {
@@ -380,18 +433,25 @@ impl Network for Net {
     }
 
     fn ports(&self) -> Vec<PortEntry> {
-        let st = self.state();
-        let tcp = st
-            .tcp
-            .entries()
-            .filter_map(|(_, w)| w.upgrade())
-            .map(|s| s.port_entry());
-        let udp = st
-            .udp
-            .entries()
-            .filter_map(|(_, w)| w.upgrade())
-            .map(|s| s.port_entry());
-        tcp.chain(udp).flatten().collect()
+        // Sockets lock themselves before the namespace, so the entries are read only after
+        // the namespace lock is gone; the strong references, possibly the last ones, are also
+        // dropped outside it, since a socket's drop unbinds under that lock.
+        let (tcp, udp): (Vec<_>, Vec<_>) = {
+            let st = self.state();
+            (
+                st.tcp.entries().map(|(_, w)| w.clone()).collect(),
+                st.udp.entries().map(|(_, w)| w.clone()).collect(),
+            )
+        };
+        let tcp = tcp
+            .iter()
+            .filter_map(Weak::upgrade)
+            .filter_map(|s| s.port_entry());
+        let udp = udp
+            .iter()
+            .filter_map(Weak::upgrade)
+            .filter_map(|s| s.port_entry());
+        tcp.chain(udp).collect()
     }
 
     fn interfaces(&self) -> Vec<Interface> {
@@ -417,7 +477,7 @@ struct GuestListenerSink {
 }
 
 impl InboundSink for GuestListenerSink {
-    fn incoming(&self, stream: Arc<dyn BackendStream>) -> bool {
+    fn incoming(&self, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool {
         let Some(net) = self.net.upgrade() else {
             return false;
         };
@@ -439,7 +499,7 @@ impl InboundSink for GuestListenerSink {
             dst.set_ip(ip);
         }
         match net.find_listener(dst, peer) {
-            Some(listener) => listener.incoming_remote(stream, dst, peer),
+            Some(listener) => listener.incoming_remote(stream, wq, dst, peer),
             None => false,
         }
     }

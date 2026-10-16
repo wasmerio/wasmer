@@ -20,7 +20,7 @@
 use std::{fmt, net::SocketAddr, sync::Arc};
 
 use wasixv2_abi::{Errno, MsgFlags};
-use wasixv2_wait::Pollable;
+use wasixv2_wait::{Pollable, WaitQueue};
 
 /// The address family of an IP socket. Unix sockets never reach this crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -239,16 +239,22 @@ pub trait Socket: Pollable {
 }
 
 /// Where traffic for destinations outside the namespace goes: host sockets, a virtual switch.
-/// Implementations do their I/O off the guest's thread (a reactor) and wake the returned
-/// objects' queues.
+/// Implementations do their I/O off the guest's thread (a reactor).
+///
+/// A guest socket has one wait queue for its whole life (Linux's `sk_sleep`). A backend object
+/// made for it later (on `connect`, on the first datagram to an outside address) wakes that
+/// queue, never one of its own, so a waiter that registered on the socket before the backend
+/// object existed still hears about it.
 pub trait Backend: Send + Sync {
     /// Starts an outbound stream connection to `peer`. The stream reports `OUT` once
     /// connected, or `ERR` with `take_error` set if it failed. Immediate failures
-    /// (`ENETUNREACH`) are errors here.
-    fn connect(&self, peer: SocketAddr) -> Result<Arc<dyn BackendStream>, Errno>;
+    /// (`ENETUNREACH`) are errors here. The stream wakes `wq`, the guest socket's queue, on
+    /// every change of its readiness.
+    fn connect(&self, peer: SocketAddr, wq: WaitQueue) -> Result<Arc<dyn BackendStream>, Errno>;
 
-    /// A datagram endpoint for traffic to outside addresses, of the given family.
-    fn datagram(&self, domain: Domain) -> Result<Arc<dyn BackendDatagram>, Errno>;
+    /// A datagram endpoint for traffic to outside addresses, of the given family. It wakes
+    /// `wq`, the guest socket's queue, when datagrams or errors arrive.
+    fn datagram(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno>;
 
     /// Publishing: accepts connections on `host` and hands each to `sink`. The returned handle
     /// stops publishing when dropped. Failure (a taken host port) is the host's problem: the
@@ -260,8 +266,23 @@ pub trait Backend: Send + Sync {
     ) -> Result<Box<dyn Publication>, std::io::Error>;
 }
 
-/// A stream through the backend, non-blocking like a guest socket.
+/// Where a backend stream's connection stands, as far as the socket layer cares.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum StreamState {
+    /// The connection attempt is under way (`SYN_SENT`).
+    Connecting,
+    /// Connected; either side may have shut down a direction since.
+    Established,
+    /// `tcp_done`: the connection failed or was reset. `take_error` says why until taken.
+    Closed,
+}
+
+/// A stream through the backend, non-blocking like a guest socket. `poll` reports what
+/// `tcp_poll` would for the guest socket it carries; it registers nothing, since the stream
+/// wakes the guest socket's queue (see [`Backend`]).
 pub trait BackendStream: Pollable {
+    /// Where the connection stands.
+    fn state(&self) -> StreamState;
     /// `EAGAIN` when nothing is buffered; 0 at end of stream.
     fn read(&self, buf: &mut [u8], peek: bool) -> Result<usize, Errno>;
     /// `EAGAIN` when nothing fits.
@@ -281,10 +302,17 @@ pub trait BackendStream: Pollable {
     }
 }
 
-/// A datagram endpoint through the backend.
+/// A datagram endpoint through the backend. `poll` reports `IN` while datagrams are queued and
+/// `ERR` while an error is pending; like a stream's, it registers nothing.
 pub trait BackendDatagram: Pollable {
     /// Sends one datagram; `EAGAIN` when the host would block.
     fn send_to(&self, data: &[u8], to: SocketAddr) -> Result<usize, Errno>;
+    /// `connect` (`Some`) or `connect(AF_UNSPEC)` (`None`) of the guest socket to a peer
+    /// outside the namespace: a connected endpoint only receives from its peer and learns of
+    /// errors sending to it (an ICMP port unreachable becomes `ECONNREFUSED`).
+    fn connect(&self, peer: Option<SocketAddr>) -> Result<(), Errno>;
+    /// The pending asynchronous error (`sk_err`), cleared by the call.
+    fn take_error(&self) -> Option<Errno>;
     /// Receives one datagram into `buf`: (bytes copied, full datagram length, sender).
     fn recv_from(&self, buf: &mut [u8], peek: bool) -> Result<(usize, usize, SocketAddr), Errno>;
     /// The next datagram's size, 0 if none.
@@ -293,9 +321,10 @@ pub trait BackendDatagram: Pollable {
 
 /// Receives the connections a `Backend` accepted for a published port.
 pub trait InboundSink: Send + Sync {
-    /// Called from the backend's thread. Returns `false` if the guest listener is gone or its
-    /// queue is full; the backend then drops the connection.
-    fn incoming(&self, stream: Arc<dyn BackendStream>) -> bool;
+    /// Called from the backend's thread. `wq` is the queue `stream` wakes; the guest socket
+    /// made for the connection adopts it as its own. Returns `false` if the guest listener is
+    /// gone or its queue is full; the backend then drops the connection.
+    fn incoming(&self, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool;
 }
 
 /// A running publication; dropping it stops it.

@@ -12,7 +12,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
     Accepted, BackendStream, Domain, NetResult, PortEntry, Publication, RecvMsg, SendMsg, Shutdown,
-    Socket, SocketKind,
+    Socket, SocketKind, StreamState,
     addr::{canonical, connect_target, present, unbound},
     net::{Net, Path},
     opts::{self, Changed, SockOpts},
@@ -47,23 +47,20 @@ impl Transport {
                     Phase::Pending
                 }
             }
-            Self::Remote(s) => {
-                let m = s.poll(None);
-                if m.contains(PollMask::OUT) {
-                    Phase::Established
-                } else if m.intersects(PollMask::ERR | PollMask::HUP) {
-                    Phase::Failed
-                } else {
-                    Phase::Pending
-                }
-            }
+            Self::Remote(s) => match s.state() {
+                StreamState::Connecting => Phase::Pending,
+                StreamState::Established => Phase::Established,
+                StreamState::Closed => Phase::Failed,
+            },
         }
     }
 
-    fn poll(&self, table: Option<&mut PollTable<'_>>) -> PollMask {
+    /// The transport's readiness. Both kinds wake the socket's own queue, which the socket
+    /// registers on.
+    fn poll(&self) -> PollMask {
         match self {
             Self::Local(c, side) => c.poll(*side),
-            Self::Remote(s) => s.poll(table),
+            Self::Remote(s) => s.poll(None),
         }
     }
 
@@ -123,10 +120,11 @@ impl Transport {
         }
     }
 
+    /// `tcp_done` happened: reset, refused or aborted.
     fn is_done(&self) -> bool {
         match self {
             Self::Local(c, side) => c.is_done(*side),
-            Self::Remote(_) => false,
+            Self::Remote(s) => s.state() == StreamState::Closed,
         }
     }
 }
@@ -206,22 +204,26 @@ impl TcpSocket {
             SockOpts::new(SocketKind::Stream, domain),
             None,
             State::Closed,
+            WaitQueue::new(),
         )
     }
 
+    /// A socket whose one wait queue is `wq`: everything that changes its readiness, its own
+    /// transport included, wakes that queue.
     fn with_state(
         net: Arc<Net>,
         domain: Domain,
         opts: SockOpts,
         local: Option<SocketAddr>,
         state: State,
+        wq: WaitQueue,
     ) -> Arc<Self> {
         let id = net.next_id();
         Arc::new_cyclic(|me| Self {
             net,
             id,
             domain,
-            wq: WaitQueue::new(),
+            wq,
             me: me.clone(),
             listener: Mutex::new(None),
             inner: Mutex::new(Inner {
@@ -366,11 +368,13 @@ impl TcpSocket {
         }
     }
 
-    /// A child for a connection to the listener `self`, sharing its port.
+    /// A child for a connection to the listener `self`, sharing its port, with `wq` as its
+    /// queue.
     fn new_child(
         &self,
         local: SocketAddr,
         peer: SocketAddr,
+        wq: WaitQueue,
         transport: impl FnOnce(&WaitQueue, &SockOpts) -> Transport,
     ) -> Arc<TcpSocket> {
         let opts = self.inner.lock().unwrap().opts.inherit();
@@ -380,6 +384,7 @@ impl TcpSocket {
             opts.clone(),
             Some(local),
             State::Closed,
+            wq,
         );
         let t = transport(&child.wq, &opts);
         child.inner.lock().unwrap().state = State::Connected(t, peer);
@@ -393,10 +398,12 @@ impl TcpSocket {
         child
     }
 
-    /// A connection accepted by the backend for a published port.
+    /// A connection accepted by the backend for a published port; `wq` is the queue the stream
+    /// wakes.
     pub(crate) fn incoming_remote(
         &self,
         stream: Arc<dyn BackendStream>,
+        wq: WaitQueue,
         local: SocketAddr,
         peer: SocketAddr,
     ) -> bool {
@@ -409,7 +416,7 @@ impl TcpSocket {
                 return false;
             }
         }
-        let child = self.new_child(local, peer, |_, _| Transport::Remote(stream));
+        let child = self.new_child(local, peer, wq, |_, _| Transport::Remote(stream));
         let mut li = l.inner.lock().unwrap();
         if li.closed || li.full() {
             drop(li);
@@ -435,7 +442,7 @@ impl TcpSocket {
         };
         let client_bufs = bufs(&g.opts);
         let mut conn = None;
-        let child = listening.new_child(dst, local, |child_wq, child_opts| {
+        let child = listening.new_child(dst, local, WaitQueue::new(), |child_wq, child_opts| {
             let c = Arc::new(Conn::new(
                 [self.wq.clone(), child_wq.clone()],
                 [client_bufs, bufs(child_opts)],
@@ -499,6 +506,7 @@ impl Listener {
 impl Pollable for TcpSocket {
     /// `tcp_poll` and `inet_csk_listen_poll`.
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
+        // The one queue, whatever the state: the transport wakes it too.
         poll_wait(&mut table, &self.wq);
         let g = self.lock();
         match &g.state {
@@ -512,7 +520,7 @@ impl Pollable for TcpSocket {
             State::Connecting(t, _) | State::Connected(t, _) => {
                 let t = t.clone();
                 drop(g);
-                t.poll(table)
+                t.poll()
             }
             State::Closed => {
                 let mut m = PollMask::HUP | PollMask::OUT | PollMask::WRNORM;
@@ -649,7 +657,7 @@ impl Socket for TcpSocket {
             Path::Local { .. } => self.connect_local(&mut g, dst),
             Path::Backend { host_dst, .. } => {
                 let backend = self.net.backend.clone().ok_or(Errno::ENETUNREACH)?;
-                match backend.connect(host_dst) {
+                match backend.connect(host_dst, self.wq.clone()) {
                     Ok(stream) => {
                         g.state = State::Connecting(Transport::Remote(stream), dst);
                         Err(Errno::EINPROGRESS)

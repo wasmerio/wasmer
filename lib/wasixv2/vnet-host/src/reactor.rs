@@ -1,4 +1,7 @@
 //! The mio reactor thread and the guest-facing stream, datagram and publication objects.
+//!
+//! Every object wakes the wait queue of the guest socket it serves, handed over when the object
+//! is made, so a waiter registered on the socket before the object existed is not lost.
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -9,7 +12,7 @@ use std::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use std::os::fd::AsRawFd;
@@ -22,8 +25,9 @@ use mio::{
 use wasixv2_abi::{Errno, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
     Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, Shutdown,
+    StreamState as Phase,
 };
-use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
+use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};
 
 use crate::errno_from_io;
 
@@ -33,6 +37,10 @@ const STREAM_BUF: usize = 256 * 1024;
 /// Bytes of datagrams buffered for the guest.
 const DGRAM_BUF: usize = 256 * 1024;
 const READ_CHUNK: usize = 64 * 1024;
+/// How long a stream the guest closed may go without the host peer taking any of its unsent
+/// bytes before it is reset, standing in for `tcp_fin_timeout` and the orphan retransmission
+/// limit (`tcp_orphan_retries`) that bound an orphaned Linux socket.
+const ORPHAN_TIMEOUT: Duration = Duration::from_secs(60);
 
 enum Entry {
     Stream(Arc<StreamShared>),
@@ -44,8 +52,9 @@ struct Shared {
     registry: Registry,
     waker: Waker,
     entries: Mutex<HashMap<Token, Entry>>,
-    /// Streams the guest side touched; the reactor pumps them on the next wake.
-    dirty: Mutex<Vec<Token>>,
+    /// Streams the guest side touched since the reactor last pumped them; each is listed at
+    /// most once, guarded by its `dirty` flag.
+    dirty: Mutex<Vec<Arc<StreamShared>>>,
     next: AtomicUsize,
     stop: AtomicBool,
 }
@@ -55,8 +64,13 @@ impl Shared {
         Token(self.next.fetch_add(1, Ordering::Relaxed))
     }
 
-    fn kick(&self, token: Token) {
-        self.dirty.lock().unwrap().push(token);
+    /// Marks `stream` dirty, waking the reactor only when it was not dirty already, so a burst
+    /// of guest writes costs one wakeup and one pump.
+    fn kick(&self, stream: &Arc<StreamShared>) {
+        if stream.dirty.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        self.dirty.lock().unwrap().push(stream.clone());
         let _ = self.waker.wake();
     }
 
@@ -69,7 +83,8 @@ impl Shared {
     }
 
     fn remove(&self, token: Token) {
-        self.entries.lock().unwrap().remove(&token);
+        let removed = self.entries.lock().unwrap().remove(&token);
+        drop(removed);
     }
 }
 
@@ -118,14 +133,22 @@ impl Drop for HostBackend {
 fn run(mut poll: Poll, shared: Arc<Shared>) {
     let mut events = Events::with_capacity(256);
     let mut buf = vec![0u8; READ_CHUNK];
+    // Streams the guest closed with bytes still unsent, by token.
+    let mut orphans: HashMap<Token, Arc<StreamShared>> = HashMap::new();
+    let mut timeout = None;
     while !shared.stop.load(Ordering::Acquire) {
-        if let Err(e) = poll.poll(&mut events, None) {
+        if let Err(e) = poll.poll(&mut events, timeout) {
             if e.kind() == io::ErrorKind::Interrupted {
                 continue;
             }
             tracing::error!(error = %e, "vnet-host reactor failed");
             return;
         }
+        let mut pump = |s: &Arc<StreamShared>, buf: &mut [u8]| {
+            if s.pump(&shared, buf) {
+                orphans.insert(s.token, s.clone());
+            }
+        };
         for ev in events.iter() {
             if ev.token() == WAKER {
                 continue;
@@ -138,7 +161,7 @@ fn run(mut poll: Poll, shared: Arc<Shared>) {
                             ev.is_readable() || ev.is_read_closed() || ev.is_error();
                         st.host_writable |= ev.is_writable() || ev.is_error();
                     }
-                    s.pump(&shared, &mut buf);
+                    pump(&s, &mut buf);
                 }
                 Some(Entry::Listener(l)) => l.accept_all(),
                 Some(Entry::Datagram(d)) => d.receive_all(&mut buf),
@@ -146,11 +169,21 @@ fn run(mut poll: Poll, shared: Arc<Shared>) {
             }
         }
         let dirty = std::mem::take(&mut *shared.dirty.lock().unwrap());
-        for token in dirty {
-            if let Some(Entry::Stream(s)) = shared.entry(token) {
-                s.pump(&shared, &mut buf);
-            }
+        for s in dirty {
+            // Cleared before pumping: a guest write during the pump marks it again.
+            s.dirty.store(false, Ordering::Release);
+            pump(&s, &mut buf);
         }
+        let now = Instant::now();
+        let mut next: Option<Instant> = None;
+        orphans.retain(|_, s| match s.expire(&shared, now) {
+            Some(deadline) => {
+                next = Some(next.map_or(deadline, |n| n.min(deadline)));
+                true
+            }
+            None => false,
+        });
+        timeout = next.map(|deadline| deadline.saturating_duration_since(now));
     }
 }
 
@@ -179,13 +212,25 @@ struct StreamState {
     released: bool,
     /// Close with RST (`SO_LINGER` zero, or unread data at close).
     abort: bool,
+    /// `SO_LINGER` with a timeout: the longest the unsent bytes may take after close.
+    linger: Option<Duration>,
+    /// While orphaned with bytes unsent: when the stream is reset if the host peer has taken
+    /// nothing more by then.
+    orphan_deadline: Option<Instant>,
+    /// When the reactor first saw the stream released with bytes unsent.
+    closed_at: Option<Instant>,
+    /// Deregistered: the reactor is finished with it.
+    gone: bool,
 }
 
 struct StreamShared {
     sock: TcpStream,
     token: Token,
     peer: SocketAddr,
+    /// The guest socket's queue.
     wq: WaitQueue,
+    /// Listed on `Shared::dirty`.
+    dirty: AtomicBool,
     st: Mutex<StreamState>,
     backend: Weak<Shared>,
 }
@@ -195,19 +240,23 @@ impl StreamShared {
         self.st.lock().unwrap()
     }
 
-    fn kick(&self) {
-        if let Some(b) = self.backend.upgrade() {
-            b.kick(self.token);
-        }
-    }
-
     /// Moves bytes between the host socket and the buffers. Runs on the reactor thread.
-    fn pump(&self, shared: &Shared, buf: &mut [u8]) {
+    /// Returns whether the stream is now an orphan draining its last bytes.
+    fn pump(self: &Arc<Self>, shared: &Shared, buf: &mut [u8]) -> bool {
         let mut st = self.state();
+        if st.gone {
+            return false;
+        }
+        if st.released && !st.connected {
+            // `tcp_close` in `SYN_SENT` (or after a failed attempt): nothing to deliver.
+            drop(st);
+            self.close(shared);
+            return false;
+        }
         let mut wake = PollMask::empty();
         if !st.connected && !st.failed {
             if !st.host_writable && !st.host_readable {
-                return;
+                return false;
             }
             match self.sock.take_error() {
                 Ok(Some(e)) | Err(e) => {
@@ -222,7 +271,7 @@ impl StreamShared {
                     }
                     Err(e) if e.kind() == io::ErrorKind::NotConnected => {
                         st.host_writable = false;
-                        return;
+                        return false;
                     }
                     Err(e) => {
                         st.failed = true;
@@ -232,8 +281,10 @@ impl StreamShared {
                 },
             }
         }
+        let mut progress = false;
         if st.connected && !st.reset {
-            while st.host_readable && !st.rx_eof && st.rx.len() < STREAM_BUF {
+            // An orphan reads nothing more: what arrives after close is the host's to answer.
+            while st.host_readable && !st.released && !st.rx_eof && st.rx.len() < STREAM_BUF {
                 let want = (STREAM_BUF - st.rx.len()).min(buf.len());
                 match (&self.sock).read(&mut buf[..want]) {
                     Ok(0) => {
@@ -258,6 +309,7 @@ impl StreamShared {
                 match (&self.sock).write(chunk) {
                     Ok(n) => {
                         st.tx.drain(..n);
+                        progress = true;
                         wake |= PollMask::OUT | PollMask::WRNORM;
                     }
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => st.host_writable = false,
@@ -274,27 +326,73 @@ impl StreamShared {
                 let _ = self.sock.shutdown(std::net::Shutdown::Write);
             }
         }
-        let finished = st.released && (st.abort || st.tx.is_empty() || st.reset || st.failed);
-        if finished {
-            if st.abort {
-                let _ = socket2::SockRef::from(&self.sock).set_linger(Some(Duration::ZERO));
-            } else {
-                let _ = self.sock.shutdown(std::net::Shutdown::Both);
+        if st.released {
+            let finished = st.abort || st.tx.is_empty() || st.reset || st.failed;
+            if finished {
+                drop(st);
+                self.close(shared);
+                return false;
             }
-            drop(st);
-            self.deregister(shared);
-            return;
+            // `tcp_close` with data still queued: the orphan drains while its peer makes
+            // progress, and is reset once it stalls (or its `SO_LINGER` time is up).
+            let now = Instant::now();
+            let closed = *st.closed_at.get_or_insert(now);
+            let idle = match st.orphan_deadline {
+                Some(deadline) if !progress => deadline,
+                _ => now + ORPHAN_TIMEOUT,
+            };
+            st.orphan_deadline = Some(match st.linger {
+                Some(linger) => idle.min(closed + linger),
+                None => idle,
+            });
+            return true;
         }
         drop(st);
         if !wake.is_empty() {
             self.wq.wake(wake);
         }
+        false
     }
 
-    fn deregister(&self, shared: &Shared) {
+    /// For an orphan: resets it once its deadline passed. Returns the deadline while it is
+    /// still draining, `None` once it is gone.
+    fn expire(&self, shared: &Shared, now: Instant) -> Option<Instant> {
+        let mut st = self.state();
+        if st.gone {
+            return None;
+        }
+        let deadline = st.orphan_deadline?;
+        if deadline > now {
+            return Some(deadline);
+        }
+        st.abort = true;
+        drop(st);
+        self.close(shared);
+        None
+    }
+
+    /// The end of the host socket: RST when aborting, else FIN after everything queued, which
+    /// the host kernel delivers on its own once the descriptor is closed.
+    fn close(&self, shared: &Shared) {
+        let abort = {
+            let mut st = self.state();
+            st.gone = true;
+            st.abort
+        };
+        if abort {
+            let _ = socket2::SockRef::from(&self.sock).set_linger(Some(Duration::ZERO));
+        } else {
+            let _ = self.sock.shutdown(std::net::Shutdown::Write);
+        }
         let fd = self.sock.as_raw_fd();
         let _ = shared.registry.deregister(&mut SourceFd(&fd));
         shared.remove(self.token);
+    }
+
+    fn kick(self: &Arc<Self>) {
+        if let Some(b) = self.backend.upgrade() {
+            b.kick(self);
+        }
     }
 }
 
@@ -307,13 +405,15 @@ impl HostStream {
         sock: TcpStream,
         peer: SocketAddr,
         connected: bool,
+        wq: WaitQueue,
     ) -> io::Result<Arc<Self>> {
         let token = backend.token();
         let shared = Arc::new(StreamShared {
             sock,
             token,
             peer,
-            wq: WaitQueue::new(),
+            wq,
+            dirty: AtomicBool::new(false),
             st: Mutex::new(StreamState {
                 connected,
                 ..StreamState::default()
@@ -350,8 +450,7 @@ impl Drop for HostStream {
 
 impl Pollable for HostStream {
     /// What `tcp_poll` reports for the guest socket this stream backs.
-    fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
-        poll_wait(&mut table, &self.0.wq);
+    fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
         let st = self.0.state();
         let mut m = PollMask::empty();
         if st.err.is_some() {
@@ -388,13 +487,25 @@ impl Pollable for HostStream {
 }
 
 impl BackendStream for HostStream {
+    fn state(&self) -> Phase {
+        let st = self.0.state();
+        if st.failed || st.reset {
+            Phase::Closed
+        } else if st.connected {
+            Phase::Established
+        } else {
+            Phase::Connecting
+        }
+    }
+
     fn read(&self, buf: &mut [u8], peek: bool) -> Result<usize, Errno> {
         let mut st = self.0.state();
         if !st.rx.is_empty() {
             let n = buf.len().min(st.rx.len());
-            for (dst, src) in buf[..n].iter_mut().zip(st.rx.iter()) {
-                *dst = *src;
-            }
+            let (a, b) = st.rx.as_slices();
+            let first = n.min(a.len());
+            buf[..first].copy_from_slice(&a[..first]);
+            buf[first..n].copy_from_slice(&b[..n - first]);
             if !peek {
                 let was_full = st.rx.len() >= STREAM_BUF;
                 st.rx.drain(..n);
@@ -463,20 +574,23 @@ impl BackendStream for HostStream {
     }
 
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
-        let int = || {
+        let int = |at: usize| {
             value
-                .get(..4)
+                .get(at..at + 4)
                 .map(|b| i32::from_le_bytes(b.try_into().unwrap()))
         };
         let sock = socket2::SockRef::from(&self.0.sock);
-        let (Some(v), sol_socket) = (int(), level == SocketLevel::SOL_SOCKET.0) else {
+        let (Some(v), sol_socket) = (int(0), level == SocketLevel::SOL_SOCKET.0) else {
             return Ok(());
         };
         if sol_socket && name == SocketOption::SO_LINGER.0 {
-            let secs = value
-                .get(4..8)
-                .map(|b| i32::from_le_bytes(b.try_into().unwrap()));
-            self.0.state().abort = v != 0 && secs == Some(0);
+            let secs = int(4);
+            let mut st = self.0.state();
+            st.abort = v != 0 && secs == Some(0);
+            st.linger = match (v, secs) {
+                (0, _) | (_, None) => None,
+                (_, Some(secs)) => Some(Duration::from_secs(secs.max(0) as u64)),
+            };
         } else if sol_socket && name == SocketOption::SO_KEEPALIVE.0 {
             let _ = sock.set_keepalive(v != 0);
         } else if level == SocketLevel::SOL_TCP.0 && name == TcpOption::TCP_NODELAY.0 {
@@ -502,14 +616,18 @@ impl ListenerShared {
         };
         loop {
             match self.sock.accept() {
-                Ok((sock, peer)) => match HostStream::register(&backend, sock, peer, true) {
-                    Ok(stream) => {
-                        if !self.sink.incoming(stream) {
-                            tracing::debug!(%peer, "published connection refused by the guest");
+                Ok((sock, peer)) => {
+                    // The queue of the guest socket-to-be, which adopts it.
+                    let wq = WaitQueue::new();
+                    match HostStream::register(&backend, sock, peer, true, wq.clone()) {
+                        Ok(stream) => {
+                            if !self.sink.incoming(stream, wq) {
+                                tracing::debug!(%peer, "published connection refused by the guest");
+                            }
                         }
+                        Err(e) => tracing::warn!(error = %e, "registering published connection"),
                     }
-                    Err(e) => tracing::warn!(error = %e, "registering published connection"),
-                },
+                }
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => return,
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
                 Err(e) => {
@@ -549,38 +667,54 @@ impl Drop for HostPublication {
 struct DgramState {
     queue: VecDeque<(Vec<u8>, SocketAddr)>,
     queued: usize,
+    /// `sk_err` of the host socket: what an ICMP error to a connected peer left.
+    err: Option<Errno>,
+    /// The host socket is connected (`connect`), so the host filters by its peer.
+    connected: Option<SocketAddr>,
 }
 
 struct DgramShared {
     sock: UdpSocket,
     token: Token,
+    /// The guest socket's queue.
     wq: WaitQueue,
     st: Mutex<DgramState>,
     backend: Weak<Shared>,
 }
 
 impl DgramShared {
+    fn state(&self) -> MutexGuard<'_, DgramState> {
+        self.st.lock().unwrap()
+    }
+
     fn receive_all(&self, buf: &mut [u8]) {
-        let mut got = false;
+        let mut wake = PollMask::empty();
         loop {
             match self.sock.recv_from(buf) {
                 Ok((n, from)) => {
-                    let mut st = self.st.lock().unwrap();
+                    let mut st = self.state();
                     // Like a full SO_RCVBUF: drop when the buffer is over its limit.
                     if st.queued <= DGRAM_BUF {
                         st.queued += n;
                         st.queue.push_back((buf[..n].to_vec(), from));
-                        got = true;
+                        wake |= PollMask::IN | PollMask::RDNORM;
                     }
                 }
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                // ICMP errors on unconnected sockets are not reported (no IP_RECVERR).
-                Err(_) => {}
+                // An ICMP error for a connected socket (`__udp4_lib_err`); unconnected ones
+                // never hear of them (no IP_RECVERR).
+                Err(e) => {
+                    let mut st = self.state();
+                    if st.connected.is_some() {
+                        st.err = Some(errno_from_io(&e));
+                        wake |= PollMask::ERR;
+                    }
+                }
             }
         }
-        if got {
-            self.wq.wake(PollMask::IN | PollMask::RDNORM);
+        if !wake.is_empty() {
+            self.wq.wake(wake);
         }
     }
 }
@@ -598,11 +732,14 @@ impl Drop for HostDatagram {
 }
 
 impl Pollable for HostDatagram {
-    fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
-        poll_wait(&mut table, &self.0.wq);
+    fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
         let mut m = PollMask::OUT | PollMask::WRNORM;
-        if !self.0.st.lock().unwrap().queue.is_empty() {
+        let st = self.0.state();
+        if !st.queue.is_empty() {
             m |= PollMask::IN | PollMask::RDNORM;
+        }
+        if st.err.is_some() {
+            m |= PollMask::ERR;
         }
         m
     }
@@ -610,11 +747,17 @@ impl Pollable for HostDatagram {
 
 impl BackendDatagram for HostDatagram {
     fn send_to(&self, data: &[u8], to: SocketAddr) -> Result<usize, Errno> {
-        self.0.sock.send_to(data, to).map_err(|e| errno_from_io(&e))
+        // `send` to the connected peer, so the host reports its errors on this socket.
+        let connected = self.0.state().connected;
+        let sent = match connected {
+            Some(peer) if peer == to => self.0.sock.send(data),
+            _ => self.0.sock.send_to(data, to),
+        };
+        sent.map_err(|e| errno_from_io(&e))
     }
 
     fn recv_from(&self, buf: &mut [u8], peek: bool) -> Result<(usize, usize, SocketAddr), Errno> {
-        let mut st = self.0.st.lock().unwrap();
+        let mut st = self.0.state();
         let (data, from) = st.queue.front().ok_or(Errno::EAGAIN)?;
         let (from, full) = (*from, data.len());
         let n = buf.len().min(full);
@@ -627,27 +770,48 @@ impl BackendDatagram for HostDatagram {
     }
 
     fn input_len(&self) -> usize {
-        self.0
-            .st
-            .lock()
-            .unwrap()
-            .queue
-            .front()
-            .map_or(0, |d| d.0.len())
+        self.0.state().queue.front().map_or(0, |d| d.0.len())
+    }
+
+    fn connect(&self, peer: Option<SocketAddr>) -> Result<(), Errno> {
+        let sock = socket2::SockRef::from(&self.0.sock);
+        match peer {
+            Some(peer) => sock.connect(&peer.into()),
+            None => {
+                // SAFETY: a zeroed `sockaddr_storage` is a valid `AF_UNSPEC` address, which
+                // dissolves the association (`udp_disconnect`).
+                let unspec =
+                    unsafe { socket2::SockAddr::new(socket2::SockAddrStorage::zeroed(), 16) };
+                match sock.connect(&unspec) {
+                    // BSDs dissolve it too, but report EAFNOSUPPORT.
+                    Err(e) if e.raw_os_error() == Some(Errno::EAFNOSUPPORT.0) => Ok(()),
+                    result => result,
+                }
+            }
+        }
+        .map_err(|e| errno_from_io(&e))?;
+        let mut st = self.0.state();
+        st.connected = peer;
+        st.err = None;
+        Ok(())
+    }
+
+    fn take_error(&self) -> Option<Errno> {
+        self.0.state().err.take()
     }
 }
 
 // ---- the backend ----
 
 impl Backend for HostBackend {
-    fn connect(&self, peer: SocketAddr) -> Result<Arc<dyn BackendStream>, Errno> {
+    fn connect(&self, peer: SocketAddr, wq: WaitQueue) -> Result<Arc<dyn BackendStream>, Errno> {
         let sock = TcpStream::connect(peer).map_err(|e| errno_from_io(&e))?;
-        let stream =
-            HostStream::register(&self.shared, sock, peer, false).map_err(|e| errno_from_io(&e))?;
+        let stream = HostStream::register(&self.shared, sock, peer, false, wq)
+            .map_err(|e| errno_from_io(&e))?;
         Ok(stream)
     }
 
-    fn datagram(&self, domain: Domain) -> Result<Arc<dyn BackendDatagram>, Errno> {
+    fn datagram(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
         let any: SocketAddr = match domain {
             Domain::Inet => (Ipv4Addr::UNSPECIFIED, 0).into(),
             Domain::Inet6 => (Ipv6Addr::UNSPECIFIED, 0).into(),
@@ -657,7 +821,7 @@ impl Backend for HostBackend {
         let shared = Arc::new(DgramShared {
             sock,
             token,
-            wq: WaitQueue::new(),
+            wq,
             st: Mutex::new(DgramState::default()),
             backend: Arc::downgrade(&self.shared),
         });
@@ -667,10 +831,14 @@ impl Backend for HostBackend {
             .unwrap()
             .insert(token, Entry::Datagram(shared.clone()));
         let fd = shared.sock.as_raw_fd();
-        self.shared
+        if let Err(e) = self
+            .shared
             .registry
             .register(&mut SourceFd(&fd), token, Interest::READABLE)
-            .map_err(|e| errno_from_io(&e))?;
+        {
+            self.shared.remove(token);
+            return Err(errno_from_io(&e));
+        }
         Ok(Arc::new(HostDatagram(shared)))
     }
 
