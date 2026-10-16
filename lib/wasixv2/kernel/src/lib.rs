@@ -122,7 +122,6 @@ struct Process {
     /// The file the image was loaded from (`mm->exe_file`); `None` for a process the embedder
     /// started from bytes.
     exe: Mutex<Option<wasixv2_vfs::Path>>,
-    mm: Mm,
     // ---- thr ----
     group: thread::Group,
     // ---- base ----
@@ -134,6 +133,8 @@ struct Process {
 
 struct Task {
     process: Arc<Process>,
+    /// The address space the task runs on (`task->mm`).
+    mm: Arc<Mm>,
     files: Arc<Mutex<FdTable>>,
     /// Root, working directory and umask (`fs_struct`).
     fs: Arc<Mutex<FsContext>>,
@@ -194,11 +195,11 @@ impl Kernel {
             args: Mutex::new(config.args),
             env: Mutex::new(config.env),
             exe: Mutex::new(None),
-            mm: Mm::default(),
             group: thread::Group::new(),
         };
         let task = Task {
             process: Arc::new(process),
+            mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
             fs: Arc::new(Mutex::new(FsContext::new(self.vfs.root()))),
             pending: None,
@@ -224,6 +225,10 @@ impl Kernel {
 
     fn process(&self, task: TaskId) -> Arc<Process> {
         self.with_task(task, |task| task.process.clone())
+    }
+
+    fn mm(&self, task: TaskId) -> Arc<Mm> {
+        self.with_task(task, |task| task.mm.clone())
     }
 
     fn with_task<R>(&self, task: TaskId, f: impl FnOnce(&mut Task) -> R) -> R {

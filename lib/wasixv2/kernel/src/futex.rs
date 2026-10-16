@@ -27,11 +27,12 @@ const FUTEX_TID_MASK: u32 = 0x3fff_ffff;
 /// `ROBUST_LIST_LIMIT`: how many entries a robust list walk visits at most.
 const ROBUST_LIST_LIMIT: usize = 2048;
 
-/// A futex: the address space (named by its thread group's pid; address spaces are never shared
-/// between thread groups) and the address of the word.
+/// A futex: the address space ([`Mm::id`](crate::mm::Mm::id)) and the address of the word. As
+/// Linux keys private futexes by `mm`, every task on the same memory, a vfork child included,
+/// finds the same queue.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct Key {
-    pub(crate) mm: u32,
+    pub(crate) mm: u64,
     pub(crate) addr: u32,
 }
 
@@ -144,7 +145,7 @@ enum Timeout {
 impl Kernel {
     fn futex_key(&self, caller: &Caller<'_>, addr: u32) -> Key {
         Key {
-            mm: self.process(caller.task()).pid.0,
+            mm: self.mm(caller.task()).id(),
             addr,
         }
     }

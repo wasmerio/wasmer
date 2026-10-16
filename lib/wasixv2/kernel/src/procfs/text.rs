@@ -13,7 +13,7 @@ use crate::{
     ID,
     file::OpenFile,
     ident,
-    mm::{PAGE_SIZE, RegionKind},
+    mm::{Mm, PAGE_SIZE, RegionKind},
     resource::{ADDRESS_SPACE, TICKS, cpus},
 };
 
@@ -143,8 +143,8 @@ fn meminfo(source: &Source) -> Vec<u8> {
     let used: u64 = source
         .pids()
         .into_iter()
-        .filter_map(|pid| source.process(pid))
-        .map(|info| info.process.mm.size())
+        .filter_map(|pid| source.mm(Scope { pid, tid: None }))
+        .map(|mm| mm.size())
         .sum();
     let total = ADDRESS_SPACE / 1024;
     let free = (ADDRESS_SPACE.saturating_sub(used)) / 1024;
@@ -299,7 +299,7 @@ pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<V
             comm
         }
         PerPid::Limits => limits(process),
-        PerPid::Maps => maps(process),
+        PerPid::Maps => maps(source.mm(scope).as_deref()),
         PerPid::Mounts | PerPid::Mountinfo => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
             let root = task.fs.lock().unwrap().root.clone();
@@ -307,7 +307,7 @@ pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<V
         }
         PerPid::Stat => stat_line(source, scope, &info),
         PerPid::Statm => {
-            let pages = process.mm.size() / PAGE_SIZE;
+            let pages = source.mm(scope).map_or(0, |mm| mm.size()) / PAGE_SIZE;
             format!("{pages} {pages} 0 0 0 {pages} 0\n").into_bytes()
         }
         PerPid::Status => status(source, scope, &info),
@@ -365,9 +365,9 @@ fn limits(process: &crate::Process) -> Vec<u8> {
 }
 
 /// `show_map_vma` for each region.
-fn maps(process: &crate::Process) -> Vec<u8> {
+fn maps(mm: Option<&Mm>) -> Vec<u8> {
     let mut out = String::new();
-    for region in process.mm.regions() {
+    for region in mm.map(Mm::regions).unwrap_or_default() {
         let name = match region.kind {
             RegionKind::Image => "[image]",
             RegionKind::Heap => "[heap]",
@@ -523,7 +523,7 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
     let now = source.host.monotonic();
     let cpu = ticks(now.saturating_sub(process.start));
     let start = ticks(process.start);
-    let vsize = process.mm.size();
+    let vsize = source.mm(scope).map_or(0, |mm| mm.size());
     let rss = vsize / PAGE_SIZE;
     let signals = source
         .task(scope.pid, scope.tid)
@@ -603,7 +603,7 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         .map(|task| task.signals.proc_status())
         .unwrap_or_default();
     let pid = scope.tid.unwrap_or(scope.pid);
-    let kb = process.mm.size() / 1024;
+    let kb = task.as_ref().map_or(0, |task| task.mm.size()) / 1024;
     let threads = source.threads(scope.pid).len().max(1);
     let (letter, state_name) = state(info);
     let id = ID;

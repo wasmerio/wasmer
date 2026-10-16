@@ -6,7 +6,10 @@
 //! pages stay accessible and `mprotect` changes nothing, except that executable memory is
 //! refused, since wasm cannot run code generated at run time.
 
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{
+    Mutex, MutexGuard, PoisonError,
+    atomic::{AtomicU64, Ordering},
+};
 
 use wasixv2_abi::{
     Buf, Fd, Loff, MadviseAdvice, MapFlags, MclFlags, MlockFlags, MremapFlags, MsyncFlags,
@@ -19,9 +22,12 @@ use crate::Kernel;
 /// The page size the guest sees in `AT_PAGESZ` and the unit of every mapping.
 pub(crate) const PAGE_SIZE: u64 = WASM_PAGE_SIZE;
 
-/// A process's address space and the lock that orders changes to it.
-#[derive(Default)]
+/// An address space and the lock that orders changes to it (`mm_struct`). Every task on the
+/// same linear memory shares one: the threads of a group, and a vfork child while it runs in its
+/// parent's instance.
 pub(crate) struct Mm {
+    /// Names the address space in futex keys; never reused.
+    id: u64,
     /// Held by every call that reads the size of memory, grows it, or takes pages, from the
     /// first look at the page map to the last update. Each thread runs its own instance on the
     /// shared memory, so without it two threads interleave their growths and each other's
@@ -30,16 +36,35 @@ pub(crate) struct Mm {
     space: Mutex<AddressSpace>,
 }
 
+impl Default for Mm {
+    fn default() -> Self {
+        Self::with_space(AddressSpace::default())
+    }
+}
+
 impl Mm {
+    fn with_space(space: AddressSpace) -> Self {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+        Self {
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            op: Default::default(),
+            space: Mutex::new(space),
+        }
+    }
+
+    pub(crate) fn id(&self) -> u64 {
+        self.id
+    }
+
+    /// `dup_mmap`: a new address space with the same mappings, for a child that copies memory.
+    pub(crate) fn dup(&self) -> Self {
+        Self::with_space(self.space().clone())
+    }
+
     /// The page map. A panic elsewhere while it was held must not wedge every other thread of
     /// the process, so poisoning is ignored.
     fn space(&self) -> MutexGuard<'_, AddressSpace> {
         self.space.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Forgets every mapping and the break, for a new image.
-    pub(crate) fn reset(&self) {
-        *self.space() = AddressSpace::default();
     }
 
     /// The address space as `/proc/<pid>/maps` lists it, lowest first, as far as the kernel
@@ -72,7 +97,7 @@ pub(crate) enum RegionKind {
     Anon,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct AddressSpace {
     /// First page under the allocator's control, fixed by the first growth. Pages below belong to
     /// the image.
@@ -271,15 +296,15 @@ fn advice_valid(advice: MadviseAdvice) -> bool {
 impl Kernel {
     pub(crate) async fn mem_size(&self, caller: &Caller<'_>) -> u64 {
         let size = caller.memory().size().await;
-        self.process(caller.task()).mm.space().seen = size;
+        self.mm(caller.task()).space().seen = size;
         size
     }
 
     /// Fails with `ENOMEM` unless all of `[addr, addr + len)` is mapped.
     async fn check_mapped(&self, caller: &Caller<'_>, addr: u64, len: u64) -> Result<(), Errno> {
         let size = self.mem_size(caller).await;
-        let process = self.process(caller.task());
-        match process.mm.space().range_mapped(addr, len, size) {
+        let mm = self.mm(caller.task());
+        match mm.space().range_mapped(addr, len, size) {
             true => Ok(()),
             false => Err(Errno::ENOMEM),
         }
@@ -289,15 +314,15 @@ impl Kernel {
     /// its end, and zeroes those that were mapped before. They must be free.
     async fn take_pages(&self, caller: &Caller<'_>, first: u64, end: u64) -> Result<(), Errno> {
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
-        let process = self.process(caller.task());
+        let mm = self.mm(caller.task());
         if end > mem_pages {
             let grow = u32::try_from(end - mem_pages).map_err(|_| Errno::ENOMEM)?;
             let previous = caller.memory().grow(grow).await.ok_or(Errno::ENOMEM)?;
-            let mut mm = process.mm.space();
-            mm.grown(previous, grow);
+            let mut space = mm.space();
+            space.grown(previous, grow);
             if previous != mem_pages * PAGE_SIZE {
                 // Someone else grew memory in between; give up rather than guess.
-                mm.set_pages(
+                space.set_pages(
                     previous / PAGE_SIZE,
                     previous / PAGE_SIZE + grow as u64,
                     false,
@@ -305,7 +330,7 @@ impl Kernel {
                 return Err(Errno::ENOMEM);
             }
         }
-        process.mm.space().set_pages(first, end, true);
+        mm.space().set_pages(first, end, true);
         let reused_end = end.min(mem_pages);
         if first < reused_end {
             zero(
@@ -320,27 +345,24 @@ impl Kernel {
 
     /// The break starts at the end of memory as it is on the first call.
     pub(crate) async fn sys_brk(&self, caller: &Caller<'_>, brk: Uptr) -> SysResult<i32> {
-        let process = self.process(caller.task());
-        let _op = process.mm.op.lock().await;
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
         let size = self.mem_size(caller).await;
-        let (start, current) = *process.mm.space().brk.get_or_insert((size, size));
+        let (start, current) = *mm.space().brk.get_or_insert((size, size));
         let new = u64::from(brk);
         if new < start {
             return Ok(current as i32);
         }
         let (old_end, new_end) = (current.div_ceil(PAGE_SIZE), new.div_ceil(PAGE_SIZE));
         if new_end > old_end {
-            let free = process
-                .mm
-                .space()
-                .pages_free(old_end, new_end, size / PAGE_SIZE);
+            let free = mm.space().pages_free(old_end, new_end, size / PAGE_SIZE);
             if !free || self.take_pages(caller, old_end, new_end).await.is_err() {
                 return Ok(current as i32);
             }
         } else {
-            process.mm.space().set_pages(new_end, old_end, false);
+            mm.space().set_pages(new_end, old_end, false);
         }
-        process.mm.space().brk = Some((start, new));
+        mm.space().brk = Some((start, new));
         Ok(new as i32)
     }
 
@@ -376,8 +398,8 @@ impl Kernel {
             return Err(Errno::ENODEV.into());
         }
         let pages = pages(len)?;
-        let process = self.process(caller.task());
-        let _op = process.mm.op.lock().await;
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
         if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
             let noreplace = !flags.contains(MapFlags::MAP_FIXED);
             return self.map_fixed(caller, addr, pages, noreplace).await;
@@ -387,8 +409,8 @@ impl Kernel {
 
     /// Maps `pages` zeroed pages wherever they fit. The caller holds `Mm::op`.
     async fn map_anywhere(&self, caller: &Caller<'_>, pages: u64) -> Result<u64, Errno> {
-        let process = self.process(caller.task());
-        let placement = process.mm.space().place(pages)?;
+        let mm = self.mm(caller.task());
+        let placement = mm.space().place(pages)?;
         let addr = match placement {
             Placement::Reuse(addr) => {
                 zero(caller.memory(), addr, pages * PAGE_SIZE).await?;
@@ -396,7 +418,7 @@ impl Kernel {
             }
             Placement::Grow(pages) => {
                 let previous = caller.memory().grow(pages).await.ok_or(Errno::ENOMEM)?;
-                process.mm.space().grown(previous, pages);
+                mm.space().grown(previous, pages);
                 previous
             }
         };
@@ -419,25 +441,25 @@ impl Kernel {
             return Err(Errno::ENOMEM.into());
         }
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
-        let process = self.process(caller.task());
+        let mm = self.mm(caller.task());
         {
-            let mut mm = process.mm.space();
-            if mm.pages_free(first, end, mem_pages) {
+            let mut space = mm.space();
+            if space.pages_free(first, end, mem_pages) {
                 // Free pages can be taken as they are.
             } else if noreplace {
                 return Err(Errno::EEXIST.into());
             } else {
-                let owned = |page: u64| mm.base.is_some_and(|base| page >= base);
+                let owned = |page: u64| space.base.is_some_and(|base| page >= base);
                 if !(first..end).all(|page| owned(page) || page >= mem_pages) {
                     return Err(Errno::EINVAL.into());
                 }
-                mm.set_pages(first, end, false);
+                space.set_pages(first, end, false);
             }
         }
         // Pages between the end of memory and the mapping stay free.
         self.take_pages(caller, first, end).await?;
         if first > mem_pages {
-            process.mm.space().set_pages(mem_pages, first, false);
+            mm.space().set_pages(mem_pages, first, false);
         }
         Ok(addr)
     }
@@ -452,9 +474,9 @@ impl Kernel {
         if len == 0 {
             return Err(Errno::EINVAL.into());
         }
-        let process = self.process(caller.task());
-        let _op = process.mm.op.lock().await;
-        process.mm.space().unmap(addr.into(), len.into());
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        mm.space().unmap(addr.into(), len.into());
         Ok(0)
     }
 
@@ -478,8 +500,8 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let (addr64, old_pages, new_pages) = (u64::from(addr), pages(old_len)?, pages(new_len)?);
-        let process = self.process(caller.task());
-        let _op = process.mm.op.lock().await;
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
         self.check_mapped(caller, addr64, old_pages * PAGE_SIZE)
             .await
             .map_err(|_| Errno::EFAULT)?;
@@ -488,20 +510,18 @@ impl Kernel {
             let target = self.map_fixed(caller, new_addr, new_pages, false).await?;
             let keep = old_pages.min(new_pages) * PAGE_SIZE;
             copy(caller.memory(), addr64, target.into(), keep).await?;
-            process.mm.space().unmap(addr64, old_pages * PAGE_SIZE);
+            mm.space().unmap(addr64, old_pages * PAGE_SIZE);
             return Ok(target as i32);
         }
         if new_pages <= old_pages {
-            let mut mm = process.mm.space();
-            mm.set_pages(first + new_pages, first + old_pages, false);
+            let mut space = mm.space();
+            space.set_pages(first + new_pages, first + old_pages, false);
             return Ok(addr as i32);
         }
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
-        let grow_in_place =
-            process
-                .mm
-                .space()
-                .pages_free(first + old_pages, first + new_pages, mem_pages);
+        let grow_in_place = mm
+            .space()
+            .pages_free(first + old_pages, first + new_pages, mem_pages);
         if grow_in_place
             && self
                 .take_pages(caller, first + old_pages, first + new_pages)
@@ -515,7 +535,7 @@ impl Kernel {
         }
         let target = self.map_anywhere(caller, new_pages).await?;
         copy(caller.memory(), addr64, target, old_pages * PAGE_SIZE).await?;
-        process.mm.space().unmap(addr64, old_pages * PAGE_SIZE);
+        mm.space().unmap(addr64, old_pages * PAGE_SIZE);
         Ok(target as i32)
     }
 

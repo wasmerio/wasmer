@@ -148,6 +148,7 @@ impl Kernel {
             let id = TaskId(state.last_id + 1);
             let new = Task {
                 process,
+                mm: task.mm.clone(),
                 files: task.files.clone(),
                 fs: task.fs.clone(),
                 pending: None,
@@ -254,7 +255,7 @@ impl Kernel {
             let ptr = GuestPtrMut::<u32>::new(thread.clear_child_tid);
             if write_value(caller.memory(), ptr, &0).await.is_ok() {
                 let key = crate::futex::Key {
-                    mm: self.process(caller.task()).pid.0,
+                    mm: self.mm(caller.task()).id(),
                     addr: thread.clear_child_tid,
                 };
                 self.futexes.wake(key, 1, u32::MAX);

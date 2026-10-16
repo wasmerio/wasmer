@@ -22,6 +22,7 @@ use crate::{
     Kernel, Process, State,
     file::FdTable,
     fs::{FsContext, HostClock},
+    mm::Mm,
     process::Tree,
     signal::TaskSignals,
 };
@@ -102,6 +103,8 @@ struct TaskInfo {
     files: Arc<Mutex<FdTable>>,
     fs: Arc<Mutex<FsContext>>,
     signals: Arc<TaskSignals>,
+    /// The address space (`get_task_mm`).
+    mm: Arc<Mm>,
 }
 
 impl Source {
@@ -160,7 +163,14 @@ impl Source {
             files: task.files.clone(),
             fs: task.fs.clone(),
             signals: task.signals.clone(),
+            mm: task.mm.clone(),
         })
+    }
+
+    /// The address space of task `tid` of process `pid` (or its leader), as `get_task_mm` finds
+    /// it; `None` once the process is a zombie.
+    fn mm(&self, scope: node::Scope) -> Option<Arc<Mm>> {
+        self.task(scope.pid, scope.tid).map(|task| task.mm)
     }
 
     /// The thread group of the task `tid`.

@@ -391,7 +391,6 @@ impl Kernel {
                 args: Mutex::new(parent.args.lock().unwrap().clone()),
                 env: Mutex::new(parent.env.lock().unwrap().clone()),
                 exe: Mutex::new(parent.exe.lock().unwrap().clone()),
-                mm: Default::default(),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
                 ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
@@ -410,8 +409,14 @@ impl Kernel {
                 .group()
                 .fork()
                 .attach(id, task.signals.blocked());
+            // A vfork child runs on its parent's memory, so it shares the address space.
+            let mm = match flags.contains(CloneFlags::CLONE_VM) {
+                true => task.mm.clone(),
+                false => Arc::new(task.mm.dup()),
+            };
             let new = Task {
                 process: process.clone(),
+                mm,
                 files,
                 fs,
                 pending: None,
@@ -604,9 +609,11 @@ impl Kernel {
         *process.args.lock().unwrap() = args;
         *process.env.lock().unwrap() = env;
         *process.exe.lock().unwrap() = Some(exe);
-        process.mm.reset();
         process.ident.lock().unwrap().set_comm_from_path(name);
         self.with_task(task, |t| {
+            // `exec_mmap`: the new image gets its own address space. A vfork child leaves its
+            // parent's untouched.
+            t.mm = Arc::default();
             t.thread = thread::ThreadState::default();
             t.pending = Some(GuestAction::Exec { vfork_parent });
         });
