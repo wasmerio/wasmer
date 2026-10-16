@@ -6,11 +6,14 @@ use std::{
     io,
     path::Path,
     pin::pin,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     task::{Context, Poll, Waker},
 };
 
-pub use wasixv2_exec::ExecError;
+pub use wasixv2_exec::{ExecError, load};
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
 use wasixv2_exec::{Abis, Wasixv2};
@@ -28,12 +31,13 @@ use wasixv2_trace::Trace;
 pub use wasixv2_vfs::Filesystem;
 use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, Vfs};
 use wasixv2_vfs_mem::MemFs;
-use wasixv2_vfs_overlay::OverlayFs;
+use wasixv2_vfs_overlay::{MAX_LOWERS, OverlayFs};
 use wasixv2_vfs_package::PackageFs;
 pub use wasixv2_vnet::{Net, NetConfig};
 #[cfg(feature = "wasix1")]
-pub use wasixv2_wasix1::{V1Flavor, is_wasix1_module};
-use wasmer::Store;
+pub use wasixv2_wasix1::{V1Flavor, is_wasix1_module, module_flavor as wasix1_module_flavor};
+pub use wasmer::Engine;
+use wasmer::{Module, Store};
 use webc::v3::read::OwnedReader;
 
 #[derive(Debug, thiserror::Error)]
@@ -49,7 +53,8 @@ pub enum RunError {
 /// One kernel and the processes it runs.
 ///
 /// The root filesystem is in memory and laid out as a small Linux system (see
-/// [`default_root`]); [`Machine::with_root`] takes another. Either way the kernel's own
+/// [`default_root`]); [`MachineBuilder::root`] takes another, and [`Machine::mount_root_lower`]
+/// stacks read-only layers, such as package volumes, under it. Either way the kernel's own
 /// filesystems are mounted on it: `/proc`, `/dev` with the device nodes, and memory
 /// filesystems at `/dev/shm` and `/tmp`. The network is one namespace; with the `host-network`
 /// feature on a Unix host, traffic leaving it goes through host sockets, otherwise it is
@@ -70,6 +75,16 @@ pub struct Machine {
     working_dir: Option<String>,
     /// The processes [`Machine::run_process`] started that are still running.
     running: Arc<Mutex<Vec<TaskId>>>,
+    /// Who the processes start as and what `uname` reports, for a kernel booted on a new root.
+    user: Credentials,
+    uname: Uname,
+    /// The root filesystem's writable top layer: the [`default_root`] or the embedder's.
+    root_upper: Arc<dyn Filesystem>,
+    /// Read-only layers under `root_upper`, topmost first; see [`Machine::mount_root_lower`].
+    root_lowers: Vec<Arc<dyn Filesystem>>,
+    /// Set by the first mount, process or [`Signaller`]: from then on the root filesystem is
+    /// fixed.
+    in_use: AtomicBool,
 }
 
 #[cfg(feature = "tokio")]
@@ -140,20 +155,19 @@ impl MachineBuilder {
         let owner = (user.uid(), user.gid());
         let network = default_network();
         let root = root.unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user));
-        let kernel = Kernel::new(host.clone(), root)
-            .with_network(network.clone())
-            .with_shm(shm_filesystem(&host))
-            .with_credentials(user)
-            .with_uname(&uname);
-        mount_kernel_filesystems(&kernel, &host);
         Machine {
-            syscalls: Arc::new(Layered::new(Trace, kernel)),
+            syscalls: kernel(&host, root.clone(), &network, &user, &uname),
             abis: Arc::new(default_abis()),
             network,
             host,
             owner,
             working_dir: None,
             running: Arc::default(),
+            user,
+            uname,
+            root_upper: root,
+            root_lowers: Vec::new(),
+            in_use: AtomicBool::new(false),
         }
     }
 }
@@ -185,6 +199,47 @@ impl Machine {
         MachineBuilder::new(host).root(root).build()
     }
 
+    /// Makes the volume `volume` of the webc v3 package `reader` a read-only layer of the root
+    /// filesystem, under its top layer (the [`default_root`] or the embedder's root), which holds
+    /// `/etc` and every change, and over the layers earlier calls added. Objects in the volume
+    /// appear owned by the machine's user. This is how a package's volume at `/` is mounted. The
+    /// kernel's filesystems are mounted on the new root as on the old one.
+    ///
+    /// The root can only change on a fresh machine: this fails with `EBUSY` after anything was
+    /// mounted or run, or a [`Signaller`] was handed out.
+    pub fn mount_root_lower(&mut self, reader: &OwnedReader, volume: &str) -> io::Result<()> {
+        let (uid, gid) = self.owner;
+        let lower = PackageFs::with_owner(reader, volume, uid, gid).map_err(io::Error::other)?;
+        self.push_root_lower(Arc::new(lower))
+    }
+
+    /// [`Machine::mount_root_lower`] for the host directory `host_dir`, which the guest sees
+    /// through the root but never changes: changes stay in the top layer. This is how a
+    /// host directory mapped to `/` is mounted, since nothing can be mounted over the root.
+    pub fn mount_root_lower_host_dir(&mut self, host_dir: &Path) -> io::Result<()> {
+        let options = wasixv2_vfs_host::Options {
+            read_only: true,
+            owner: self.owner,
+        };
+        let lower = wasixv2_vfs_host::open(host_dir, self.host.clone(), options)?;
+        self.push_root_lower(lower)
+    }
+
+    fn push_root_lower(&mut self, lower: Arc<dyn Filesystem>) -> io::Result<()> {
+        if *self.in_use.get_mut() {
+            return Err(errno_to_io(Errno::EBUSY));
+        }
+        if self.root_lowers.len() == MAX_LOWERS {
+            return Err(io::Error::other("too many layers stacked under the root"));
+        }
+        self.root_lowers.insert(0, lower);
+        let root = OverlayFs::new(Some(self.root_upper.clone()), self.root_lowers.clone());
+        // Nothing lives in the kernel yet, so a new one on the new root replaces it, with the
+        // kernel's filesystems mounted afresh.
+        self.syscalls = kernel(&self.host, root, &self.network, &self.user, &self.uname);
+        Ok(())
+    }
+
     /// The machine's network namespace, e.g. to [`Net::publish`] a host port to a guest
     /// listener.
     pub fn network(&self) -> &Arc<Net> {
@@ -207,6 +262,7 @@ impl Machine {
             read_only,
             ..MountFlags::default()
         };
+        self.in_use.store(true, Ordering::Relaxed);
         self.vfs()
             .mount(guest.as_bytes(), fs, flags, true)
             .await
@@ -283,6 +339,8 @@ impl Machine {
     /// A handle that signals this machine's processes from any thread, for an embedder that
     /// forwards the signals of its host process.
     pub fn signaller(&self) -> Signaller {
+        // A new root would boot a kernel the signaller does not reach.
+        self.in_use.store(true, Ordering::Relaxed);
         Signaller {
             syscalls: self.syscalls.clone(),
             running: self.running.clone(),
@@ -292,8 +350,21 @@ impl Machine {
     /// Starts `wasm` as a new process and waits for it to exit. Returns its exit status: that of
     /// `exit_group`, or 128 + the signal that killed it, a trap of the guest included.
     pub async fn run_process(&self, wasm: &[u8], config: ProcessConfig) -> Result<i32, RunError> {
-        let store = Store::default();
-        let module = wasixv2_exec::load(store.engine(), wasm)?;
+        let engine = Engine::default();
+        let module = load(&engine, wasm)?;
+        self.run_module(&engine, &module, config).await
+    }
+
+    /// Starts `module`, compiled by `engine` with [`load`], as a new process and waits for it to
+    /// exit. Returns its exit status. Threads and the images the process `execve`s are compiled
+    /// by `engine` too, so an embedder picks the compiler and can cache compiled modules.
+    pub async fn run_module(
+        &self,
+        engine: &Engine,
+        module: &Module,
+        config: ProcessConfig,
+    ) -> Result<i32, RunError> {
+        self.in_use.store(true, Ordering::Relaxed);
         let task = self.syscalls.inner.spawn(config);
         self.running.lock().unwrap().push(task);
         let _running = Running {
@@ -307,9 +378,10 @@ impl Machine {
                 .await
                 .map_err(|errno| RunError::WorkingDir(errno_to_io(errno)))?;
         }
+        let store = Store::new(engine.clone());
         let host = self.host.clone();
         let (syscalls, abis) = (self.syscalls.clone(), self.abis.clone());
-        Ok(wasixv2_exec::run_with_abis(store, &module, syscalls, task, host, abis).await?)
+        Ok(wasixv2_exec::run_with_abis(store, module, syscalls, task, host, abis).await?)
     }
 }
 
@@ -372,6 +444,24 @@ impl Signaller {
         }
         Ok(())
     }
+}
+
+/// Boots a kernel on `root` with the machine's network, user and names, and mounts the kernel's
+/// own filesystems on it.
+fn kernel(
+    host: &Arc<dyn Host>,
+    root: Arc<dyn Filesystem>,
+    network: &Arc<Net>,
+    user: &Credentials,
+    uname: &Uname,
+) -> Arc<Layered<Trace, Kernel>> {
+    let kernel = Kernel::new(host.clone(), root)
+        .with_network(network.clone())
+        .with_shm(shm_filesystem(host))
+        .with_credentials(user.clone())
+        .with_uname(uname);
+    mount_kernel_filesystems(&kernel, host);
+    Arc::new(Layered::new(Trace, kernel))
 }
 
 fn default_abis() -> Abis<Layered<Trace, Kernel>> {
@@ -586,6 +676,13 @@ fn now<T>(future: impl Future<Output = T>) -> T {
 
 fn errno_to_io(errno: Errno) -> io::Error {
     io::Error::from_raw_os_error(errno.0)
+}
+
+/// [`is_wasixv2_module`] for a compiled module, e.g. one deserialized from an artifact.
+pub fn targets_wasixv2(module: &Module) -> bool {
+    module
+        .imports()
+        .any(|import| import.module() == wasixv2_exec::IMPORT_MODULE)
 }
 
 /// Whether `wasm` targets this ABI: it imports something from the `wasixv2` module. Only the

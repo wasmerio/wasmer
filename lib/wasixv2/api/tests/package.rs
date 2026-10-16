@@ -104,3 +104,72 @@ async fn read_only_volume_refuses_writes() {
     // EROFS
     assert_eq!(status, 30);
 }
+
+/// Prints `/msg.txt`, from the package volume under the root, then opens `/etc/hosts`, from
+/// the machine's own layer, and creates `/new.txt`. Exits with 0, or the errno of the first
+/// open that failed.
+const ROOT_GUEST: &str = r#"
+(module
+  (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+  (import "wasixv2" "read" (func $read (param i32 i32 i32) (result i32)))
+  (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+  (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 16) "/msg.txt\00")
+  (data (i32.const 32) "/etc/hosts\00")
+  (data (i32.const 48) "/new.txt\00")
+  (func $check (param $ret i32) (result i32)
+    (if (i32.lt_s (local.get $ret) (i32.const 0))
+      (then (call $exit_group (i32.sub (i32.const 0) (local.get $ret))) unreachable))
+    (local.get $ret))
+  (func (export "_start")
+    (local $fd i32)
+    (local.set $fd (call $check (call $openat (i32.const -100) (i32.const 16) (i32.const 0) (i32.const 0))))
+    (drop (call $write (i32.const 1) (i32.const 1024)
+      (call $check (call $read (local.get $fd) (i32.const 1024) (i32.const 512)))))
+    (drop (call $check (call $openat (i32.const -100) (i32.const 32) (i32.const 0) (i32.const 0))))
+    ;; O_WRONLY | O_CREAT, 0644
+    (drop (call $check (call $openat (i32.const -100) (i32.const 48) (i32.const 0x41) (i32.const 420))))
+    (call $exit_group (i32.const 0))
+    unreachable))
+"#;
+
+#[tokio::test]
+async fn root_volume_is_a_writable_layer_under_the_machine_root() {
+    let local = tokio::task::LocalSet::new();
+    let (status, stdout) = local
+        .run_until(async {
+            let mut machine = Machine::new();
+            machine.mount_root_lower(&package(), "/data").unwrap();
+            let stdout = Arc::new(Capture::default());
+            let stdio = Stdio {
+                stdin: Arc::new(EmptySource),
+                stdout: stdout.clone(),
+                stderr: Arc::new(Capture::default()),
+            };
+            let wasm = wat::parse_str(ROOT_GUEST).unwrap();
+            let status = machine.run(&wasm, stdio).await.unwrap();
+            let out = stdout.0.lock().unwrap().clone();
+            (status, out)
+        })
+        .await;
+    assert_eq!(stdout, b"from the package\n");
+    assert_eq!(status, 0);
+}
+
+#[tokio::test]
+async fn root_volume_needs_a_fresh_machine() {
+    let local = tokio::task::LocalSet::new();
+    local
+        .run_until(async {
+            let mut machine = Machine::new();
+            machine
+                .mount_package_volume("/data", &package(), "/data", false)
+                .await
+                .unwrap();
+            let err = machine.mount_root_lower(&package(), "/data").unwrap_err();
+            // EBUSY
+            assert_eq!(err.raw_os_error(), Some(16));
+        })
+        .await;
+}
