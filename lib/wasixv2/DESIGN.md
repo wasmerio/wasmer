@@ -142,7 +142,7 @@ The kernel is plain async Rust with no wasm engine, no async runtime and no reco
   - Clocks; interval, POSIX and fd-based timers, all driven by host timers, never by polling.
 - **Namespaces.** Mount, pid, network, uts, ipc and user namespaces.
 - **IPC.** Pipes, Unix sockets, SysV and POSIX message queues, shared memory and semaphores, and event, signal, timer, epoll and inotify descriptors.
-- **Memory.** A manager for the guest's linear memory that implements `brk`, anonymous `mmap`, private file mappings and an unenforced `mprotect`.
+- **Memory.** A manager for the guest's linear memory that implements `brk`, anonymous `mmap`, private and shared file mappings, SysV segment attachments and an unenforced `mprotect`; see [Mappings without an MMU](#mappings-without-an-mmu).
 - **Terminals.**
   - The line discipline, pseudo-terminals and job control (`SIGTTIN`, `SIGTTOU`, foreground groups) live in the kernel.
   - The host only provides raw byte streams.
@@ -153,6 +153,20 @@ Open objects follow a three-level split:
 1. A **descriptor** is a table slot plus close-on-exec.
 2. An **open file** holds the offset and status flags, and is shared by `dup` and `fork`. A call that reads and then moves the offset holds the open file's position lock throughout (`f_pos_lock`), so threads sharing it never use one offset twice.
 3. The **object** behind it is an inode, socket, pipe or event source, behind one trait for read, write, poll and ioctl.
+
+### Mappings without an MMU
+
+A page of linear memory can neither alias a page of another module's memory nor appear at two addresses, so every file mapping and SysV segment attachment is a copy in the process's memory (kernel `mm.rs`, `mm/shared.rs`).
+
+- **Private mappings** are filled from the file when made, and again for pages `mremap` adds and pages `MADV_DONTNEED` drops. They never see later changes to the file, which Linux leaves unspecified for pages a private mapping did not write.
+- **Shared mappings** (`MAP_SHARED` of a file, and segment attachments) keep a shadow of the object's bytes as of the last synchronisation. Synchronising writes back each byte the memory changed since, then copies in each byte the object changed, so concurrent changes on both sides merge byte by byte and the object wins where both changed one.
+- **When a shared file mapping synchronises:** `msync`, `MADV_DONTNEED`, and before and after each data syscall the same process makes on the file (`read`, `write` and their vectored, positioned and copying forms, `ftruncate`, `fallocate`), so one process always sees one copy of the file. It is written back by `munmap`, `mremap` and `MAP_FIXED` over it, and when the address space ends with `exit`, `exit_group` or `execve`. Mappings belong to the address space: a fork child gets copies (with an attachment of its own per segment), threads and a vfork child share them, and the writeback at the end waits for the last live process on the address space.
+- **When a segment attachment synchronises:** filled at `shmat`, written back at `shmdt`, `munmap` and the end of the address space, and synchronised by `msync` over it and around `semop`/`semtimedop`, before `msgsnd`/`mq_timedsend` and after `msgrcv`/`mq_timedreceive`. Data handed over under a semaphore or with a message, the usual pattern between processes, therefore arrives as on Linux.
+- **What is not coherent:** another process sees a change only once both passed such a point, as does a second mapping in the same process; futexes in shared memory only work between threads of one process; a process killed by a signal writes nothing back, since its memory is gone first. Bytes past the end of a file are never written back and pages past it read as zeroes instead of raising `SIGBUS`.
+
+### SysV IPC and POSIX message queues
+
+Semaphore sets, SysV message queues and POSIX message queues live entirely in the kernel (`ipc/`), so they work between any processes of the machine as on Linux: keys and `IPC_PRIVATE`, ids of `seq * 32768 + index`, `ipc_perm` checks with `CAP_IPC_OWNER`, `IPC_STAT`/`IPC_SET`/`IPC_RMID`/`IPC_INFO` and the `*_STAT`/`*_INFO` variants with Linux's limits, all-or-nothing `semop` with `SEM_UNDO` applied at process exit, and `msgrcv`'s type selection. POSIX queues are open files that poll and read as Linux's `mqueue` files do; their names live in a kernel table rather than a mounted `mqueue` filesystem, and each queue's inode sits on an internal `mqueue` mount, which names its descriptors `/<name>`. `mq_notify` delivers `SIGEV_SIGNAL` with `SI_MESGQ`, and `SIGEV_THREAD` as Linux does, by sending musl's cookie over the netlink socket it names. There is one IPC namespace per machine until `CLONE_NEWIPC` exists.
 
 ### Readiness and wait queues
 
@@ -656,8 +670,8 @@ These limits are why full compatibility stays a goal rather than a state we reac
 
 | Area | Limit | Behaviour we choose |
 | --- | --- | --- |
-| Shared file mappings | No MMU, so no coherent `MAP_SHARED` file pages between processes | Impossible; shared file mappings are rejected |
-| Shared memory between processes | Wasm modules cannot share part of their memory | Impossible; `MAP_SHARED` anonymous memory stays private to its process, even across fork |
+| Shared file mappings | No MMU, so no page can be shared with the page cache or another mapping | Copies synchronised with the file at `msync`, `munmap`, exit and around the process's own I/O on the file; other processes see changes once both passed such a point |
+| Shared memory between processes | Wasm modules cannot share part of their memory | `MAP_SHARED` anonymous memory stays private to its process, even across fork; SysV segment attachments are copies synchronised at `shmat`, `shmdt`, `msync` and IPC syscalls; futexes in shared memory work only within a process |
 | `MAP_FIXED` | Wasm memory only grows at the end | Works over pages `brk` and `mmap` handed out and past the end of memory; the image's own pages cannot be replaced (`EINVAL`) |
 | `mprotect`, guard pages | Linear memory has no page protection | Impossible; protections are not enforced, and `PROT_EXEC` fails with `EACCES` |
 | Fork | No copy-on-write; the wasm call stack is outside linear memory | Asyncify configuration only, not from signal handlers; memory is copied eagerly; other configurations get `ENOSYS` |
@@ -716,6 +730,7 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 | 2026-10-16 | The asyncify machinery in `wasixv2-exec` is ABI-neutral (levels, unwind requests, saved stacks, fork images); wasixv2's imports sit on top of it | A compatibility layer for wasixv1's asyncify modules needs the same unwinding |
 | 2026-10-16 | `longjmp` in the asyncify configuration discards the stack with an error that crosses host frames, then rewinds the saved stack at the level that saved it | One path for `longjmp`, `siglongjmp` out of a handler and the vfork return, as with wasm exceptions |
 | 2026-10-16 | wasixcc's `WASM_EXCEPTIONS=no` selects the asyncify configuration and its own sysroot, `sysroot-wasixv2-asyncify` | Matches wasixv1's setting; asyncify cannot instrument wasm exceptions |
+| 2026-10-16 | File mappings and SysV segment attachments are copies synchronised byte by byte with their object at defined points, against a shadow of the last synchronisation | Gives Linux's results for one process's own I/O and for data handed over under semaphores and messages, without an MMU; supersedes rejecting shared file mappings |
 | 2026-10-16 | A vfork child's end resumes the parent through a guest export, `wasixv2_vfork_return`, which `longjmp`s to the vfork point | One path for `execve`, `exit` and death by a signal; libc's `_exit` and `execve` stay unchanged, and no call returns where Linux never returns |
 | 2026-10-15 | The VFS interns inodes per (superblock, inode number) and locks directories itself; drivers guarantee inode numbers are identities | Per-inode state (directory lock, `S_DEAD`, `I_LINKABLE`, the single directory dentry, later FIFOs, sockets and inotify marks) needs one place, and VFS checks must hold until the driver applies the change |
 | 2026-10-15 | The executor is reached through `Host::executor`; tokio and the browser are host implementations behind features | Keeps the kernel runtime-agnostic and lets one embedder share an executor between hosts |
