@@ -71,6 +71,14 @@ impl Default for Resources {
 }
 
 impl Resources {
+    /// `copy_process`'s `RLIMIT_NPROC` check, given how many tasks the user has: a user other
+    /// than root without `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN`, which every process here is,
+    /// cannot have more tasks than the soft limit.
+    pub(crate) fn nproc_reached(&self, tasks: usize) -> bool {
+        let limit = self.limits[RlimitResource::RLIMIT_NPROC.0 as usize].rlim_cur;
+        tasks as u64 >= limit
+    }
+
     pub(crate) fn nofile(&self) -> usize {
         self.limits[RlimitResource::RLIMIT_NOFILE.0 as usize]
             .rlim_cur

@@ -20,7 +20,7 @@ use wasmer::{Engine, FunctionEnv, Instance, Module, SharedMemory, Store};
 
 use crate::{
     ExecEnv, ExecError, Exited,
-    abi::{Abi, Abis, EntryReturn, Role},
+    abi::{Abi, Abis, Entry, EntryReturn, Role},
 };
 
 /// The export a new thread starts at, as `wasixv2_thread_start(tid, start_arg)`.
@@ -189,19 +189,24 @@ where
             &mut store,
             ExecEnv::new(self.syscalls.clone(), task, spawner),
         );
-        let mut imports = self.abi.imports(&mut store, &env);
+        let mut imports = self.abi.imports(&mut store, &env, &self.module);
         let memory = self.memory.clone().try_attach(&mut store)?;
         if let Some(import) = self.module.imports().memories().next() {
             imports.define(import.module(), import.name(), memory.clone());
         }
-        let instance = Instance::new(&mut store, &self.module, &imports)?;
+        let instance = Instance::new(&mut store, &self.module, &imports).map_err(Box::new)?;
         let abi = self.abi.bind(&instance, &mut store, task, Role::Thread)?;
-        env.as_mut(&mut store).memory = Some(memory);
-        env.as_mut(&mut store).abi = Some(abi.clone());
+        let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
+        let data = env.as_mut(&mut store);
+        data.memory = Some(memory);
+        data.abi = Some(abi.clone());
+        data.proc.set_module(&self.module);
+        data.asyncify = asyncify;
         let _registration = register(&self, task);
 
         let store = store.into_async();
-        abi.start_thread(&store, task, start_arg)
+        let entry = Entry::new(&env, &store);
+        abi.start_thread(&entry, task, start_arg)
             .await
             .map_err(ExecError::Trap)?;
         Ok(abi.on_thread_return())

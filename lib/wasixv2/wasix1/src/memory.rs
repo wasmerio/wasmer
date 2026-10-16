@@ -193,6 +193,10 @@ impl<S: 'static> UserMemory for CompatMemory<'_, S> {
         self.guest.size()
     }
 
+    fn can_duplicate(&self) -> LocalFuture<'_, bool> {
+        self.guest.can_duplicate()
+    }
+
     /// Grows the guest's memory, but never into the scratch window.
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(async move {

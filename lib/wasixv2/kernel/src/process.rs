@@ -1,10 +1,13 @@
 //! Processes, after Linux's `kernel/fork.c`, `kernel/exit.c`, `fs/exec.c` and the process-group
-//! half of `kernel/sys.c`: the process tree, `clone` for new processes (vfork), `execve`,
-//! zombies and the `wait` family, reparenting, SIGCHLD, process groups, sessions and pidfds.
+//! half of `kernel/sys.c`: the process tree, `clone` for new processes (fork and vfork),
+//! `execve`, zombies and the `wait` family, reparenting, SIGCHLD, process groups, sessions and
+//! pidfds.
 //!
 //! vfork runs the child in its parent's instance: `clone` asks the execution layer to switch
 //! the instance to the child ([`GuestAction::SwitchTask`]), and the child's exit or `execve`
-//! switches it back, as the kernel tracks in [`Tree::vforks`].
+//! switches it back, as the kernel tracks in [`Tree::vforks`]. fork asks the execution layer to
+//! copy the caller's memory and stack into a new instance for the child
+//! ([`GuestAction::Fork`]).
 
 use std::{
     collections::HashMap,
@@ -291,9 +294,9 @@ impl Kernel {
 
     // ---- clone ----
 
-    /// `clone` for a new process. vfork (`CLONE_VM | CLONE_VFORK`) is the form that works in
-    /// every build configuration; fork without `CLONE_VM` needs the asyncify configuration,
-    /// which is not there yet.
+    /// `clone` for a new process. vfork (`CLONE_VM | CLONE_VFORK`) works in every build
+    /// configuration; fork (no `CLONE_VM`) needs an address space that can be duplicated, and
+    /// gets `ENOSYS` otherwise, as there is no fork without an MMU on Linux.
     pub(crate) async fn sys_clone(
         &self,
         caller: &Caller<'_>,
@@ -331,15 +334,24 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         if !flags.contains(CloneFlags::CLONE_VM) {
-            // TODO: fork, through asyncify.
-            return Err(Errno::ENOSYS.into());
+            return self
+                .fork(
+                    caller,
+                    flags,
+                    exit_signal,
+                    newsp,
+                    parent_tid,
+                    tls,
+                    child_tid,
+                )
+                .await;
         }
         // Only vfork can run the child: it takes over the caller's instance.
         if !flags.contains(CloneFlags::CLONE_VFORK) || newsp != 0 {
             return Err(Errno::EINVAL.into());
         }
         let parent_task = caller.task();
-        let child = self.copy_process(parent_task, flags, exit_signal, tls)?;
+        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid.addr())?;
         let tid = child.0 as i32;
         // Linux ignores faults on both writes.
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
@@ -362,19 +374,65 @@ impl Kernel {
         Ok(0)
     }
 
+    /// fork: `clone` without `CLONE_VM`. The child gets a copy of the address space, which the
+    /// execution layer makes once the call returns ([`GuestAction::Fork`]); clone's writes to
+    /// guest memory wait for that copy, so each lands only in the address space Linux writes.
+    #[allow(clippy::too_many_arguments)]
+    async fn fork(
+        &self,
+        caller: &Caller<'_>,
+        flags: CloneFlags,
+        exit_signal: i32,
+        newsp: Uptr,
+        parent_tid: S32Ptr,
+        tls: Uptr,
+        child_tid: S32Ptr,
+    ) -> SysResult<i32> {
+        // The child cannot start on another stack (`newsp`), and nothing can block the parent
+        // until a child with its own memory execs (`CLONE_VFORK`).
+        if newsp != 0 || flags.contains(CloneFlags::CLONE_VFORK) {
+            return Err(Errno::EINVAL.into());
+        }
+        if !caller.memory().can_duplicate().await {
+            return Err(Errno::ENOSYS.into());
+        }
+        let parent_task = caller.task();
+        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid.addr())?;
+        let set = |flag: CloneFlags, addr: u32| flags.contains(flag).then_some(addr);
+        let fork = GuestAction::Fork {
+            child,
+            parent_tid: set(CloneFlags::CLONE_PARENT_SETTID, parent_tid.addr()),
+            child_tid: set(CloneFlags::CLONE_CHILD_SETTID, child_tid.addr()),
+            tls: set(CloneFlags::CLONE_SETTLS, tls),
+        };
+        self.with_task(parent_task, |t| t.pending = Some(fork));
+        Ok(child.0 as i32)
+    }
+
     /// `copy_process` for a new thread group: the child gets copies of what `flags` does not
-    /// share, the caller's mask, and a place in the tree.
+    /// share, the caller's mask, and a place in the tree. Without `CLONE_VM`, that includes the
+    /// address space's mappings and break (`dup_mm`).
     fn copy_process(
         &self,
         parent_task: TaskId,
         flags: CloneFlags,
         exit_signal: i32,
-        _tls: u32,
+        tls: u32,
+        child_tid: u32,
     ) -> Result<TaskId, Errno> {
         let (id, process, parent_pid) = {
             let mut state = self.state.lock().unwrap();
             let task = &state.tasks[&parent_task];
             let parent = task.process.clone();
+            // Every task belongs to the one user.
+            if parent
+                .resources
+                .lock()
+                .unwrap()
+                .nproc_reached(state.tasks.len())
+            {
+                return Err(Errno::EAGAIN);
+            }
             if parent.group.exiting() {
                 return Err(Errno::EINTR);
             }
@@ -383,7 +441,10 @@ impl Kernel {
                 pid: id,
                 args: Mutex::new(parent.args.lock().unwrap().clone()),
                 env: Mutex::new(parent.env.lock().unwrap().clone()),
-                mm: Default::default(),
+                mm: match flags.contains(CloneFlags::CLONE_VM) {
+                    true => Default::default(),
+                    false => parent.mm.duplicate(),
+                },
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
                 ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
@@ -407,7 +468,7 @@ impl Kernel {
                 files,
                 fs,
                 pending: None,
-                thread: thread::ThreadState::default(),
+                thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
             };
             state.last_id += 1;

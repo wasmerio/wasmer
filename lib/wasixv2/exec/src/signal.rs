@@ -22,7 +22,7 @@ const SIGINFO_SIZE: u32 = 128;
 /// The guest exports delivery needs. libc-built modules export all of them.
 pub(crate) struct SignalExports {
     stack_pointer: Option<Global>,
-    tls_base: Option<Global>,
+    pub(crate) tls_base: Option<Global>,
     table: Option<Table>,
 }
 
@@ -48,12 +48,12 @@ pub(crate) async fn deliver<S: 'static>(
 ) -> Result<u64, RuntimeError> {
     let (trampoline, uc) = push_frame(env, exports, frame).await?;
     let info = uc + UCONTEXT_SIZE;
-    let args = vec![
+    let args = [
         Value::I32(frame.signo()),
         Value::I32(info as i32),
         Value::I32(uc as i32),
     ];
-    trampoline.call_async(&env.as_store_async(), args).await?;
+    crate::asyncify::call(env, None, &trampoline, &args).await?;
     pop_frame(env, exports, uc).await
 }
 

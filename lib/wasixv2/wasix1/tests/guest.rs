@@ -198,9 +198,10 @@ const WASIX: &str = r#"
     ;; the main thread's id is its pid
     (if (i32.ne (i32.load (i32.const 100)) (i32.load (i32.const 104)))
       (then (call $proc_exit2 (i32.const 6))))
-    ;; libc's startup fails hard unless these succeed; nothing is inherited as ignored here
+    ;; libc's startup fails hard unless these succeed; every signal but SIGKILL and SIGSTOP
+    ;; is reported, at its default here
     (if (call $proc_signals_sizes_get (i32.const 108)) (then (call $proc_exit2 (i32.const 7))))
-    (if (i32.load (i32.const 108)) (then (call $proc_exit2 (i32.const 8))))
+    (if (i32.ne (i32.load (i32.const 108)) (i32.const 29)) (then (call $proc_exit2 (i32.const 8))))
     (if (call $proc_signals_get (i32.const 112)) (then (call $proc_exit2 (i32.const 9))))
     (call $proc_exit2 (i32.const 0))))
 "#;
