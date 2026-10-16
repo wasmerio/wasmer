@@ -552,6 +552,13 @@ pub trait PackageCache: Send + Sync + std::fmt::Debug {
 impl FileSystemCache {
     const FILE_SUFFIX: &'static str = ".bin";
 
+    /// The cache in `cache_dir`, as [`BuiltinPackageLoader::with_cache_dir`] uses it.
+    pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
+        Self {
+            cache_dir: cache_dir.into(),
+        }
+    }
+
     fn temp_dir(&self) -> PathBuf {
         self.cache_dir.join("__temp__")
     }
@@ -693,7 +700,9 @@ impl FileSystemCache {
         }
     }
 
-    fn path(&self, hash: &WebcHash) -> PathBuf {
+    /// Where the package whose webc has the hash `hash` is cached, for a reader of its own
+    /// (e.g. a zero-copy webc v3 reader; [`Container`] does not give one back).
+    pub fn path(&self, hash: &WebcHash) -> PathBuf {
         self.cache_dir.join(format!(
             "{}{}",
             hex::encode(hash.as_bytes()),
