@@ -161,7 +161,8 @@ The crate `wasixv2-wait` holds what the VFS, the network and the kernel all need
 - **`PollMask`**: the `EPOLL*` bits, which equal the `POLL*` bits on the generic architecture.
 - **`WaitQueue`**: owned by an object, which calls `wake(events)` whenever its state changes, from any thread. An empty key means "anything".
   - `add(Arc<dyn WaitEntry>)` returns a guard that unregisters on drop.
-  - Exclusive entries queue last. A wake stops at the first exclusive entry that takes it.
+  - Exclusive entries queue last. A wake stops at the first exclusive entry that takes it; a task that is already woken does not take another.
+  - Entries run under the queue's lock, as Linux's wake functions do, so an entry whose registration was dropped never runs again.
 - **`Pollable::poll(Option<&mut PollTable>) -> PollMask`**: Linux's `f_op->poll`. It registers on the object's queues through the table and returns the current mask without blocking.
 - **Waiting** goes through Rust wakers, so it works on any executor:
   - `Waiter` is one task's entry and can sit on many queues.
@@ -192,10 +193,9 @@ These follow `fs/select.c` and `fs/eventpoll.c`.
 - **epoll:**
   - An item is keyed by (open file, descriptor) and goes away when the open file's last reference does, not when one duplicate closes.
   - Items wake the epoll from their queue callback. `epoll_wait` re-polls ready items, requeues level-triggered ones and disarms one-shot ones.
-  - Epolls nest up to `EP_MAX_NESTS`, and a nesting that would create a loop is `ELOOP`.
+  - Epolls nest up to `EP_MAX_NESTS`, and a nesting that would create a loop is `ELOOP`. One kernel-wide lock holds the loop check and the insert together (`epnested_mutex`).
   - `epoll_wait` is never restarted.
 - **Not yet:**
-  - Signal delivery, so waits are never interrupted.
   - `reverse_path_check`'s wakeup-path limits.
   - `max_user_watches`.
 
@@ -319,7 +319,7 @@ The facade lays out the default root as a small Linux system (`wasixv2::default_
 
 ### Locks
 
-`LockManager` holds `flock` locks (owned by an open file), POSIX record locks (owned by a process, dropped when it closes any descriptor of the file) and OFD record locks (owned by an open file). Record locks of both kinds conflict with each other and split and merge like Linux's; `flock` locks are separate. Blocking requests wait for any lock change, and `F_SETLKW` detects deadlock cycles between processes (`EDEADLK`). Waiting is not yet interruptible by signals.
+`LockManager` holds `flock` locks (owned by an open file), POSIX record locks (owned by a process, dropped when it closes any descriptor of the file) and OFD record locks (owned by an open file). Record locks of both kinds conflict with each other and split and merge like Linux's; `flock` locks are separate. Blocking requests wait for any lock change, and `F_SETLKW` detects deadlock cycles between processes (`EDEADLK`). A signal ends the wait, and the call restarts unless the handler lacks `SA_RESTART`.
 
 ### Change notification
 

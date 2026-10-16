@@ -492,6 +492,48 @@ fn posix_locks_go_away_when_any_descriptor_closes() {
     );
 }
 
+#[test]
+fn a_blocked_flock_or_ofd_lock_ends_on_a_signal() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 512]));
+    let caller = Caller::new(task, &memory);
+    put(&memory, 0, b"/l\0");
+    let open = || {
+        block_on(kernel.openat(
+            &caller,
+            Fd(-100),
+            GuestPtr::new(0),
+            OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+            0o600,
+        ))
+        .unwrap()
+    };
+    let (first, second) = (open(), open());
+    let exclusive = FlockOp::LOCK_EX;
+    assert_eq!(block_on(kernel.flock(&caller, first, exclusive)), Ok(0));
+    // An OFD write lock over the whole file from `first`, as flock64 at 64.
+    put(&memory, 64, &[1, 0, 0, 0]);
+    let ofd = |fd, cmd| block_on(kernel.fcntl64(&caller, fd, cmd, 64));
+    assert_eq!(ofd(first, FcntlCmd::F_OFD_SETLK), Ok(0));
+
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            std::thread::sleep(Duration::from_millis(20));
+            kernel.kill(task, Signal::SIGUSR1).unwrap();
+        });
+        // Each waits for `first`'s lock until the signal ends the wait.
+        assert_eq!(
+            block_on(kernel.flock(&caller, second, exclusive)),
+            Err(SysErr::Restart)
+        );
+    });
+    assert_eq!(ofd(second, FcntlCmd::F_OFD_SETLKW), Err(SysErr::Restart));
+    // A lock that is free is still taken with the signal pending.
+    let unlock = FlockOp::LOCK_UN;
+    assert_eq!(block_on(kernel.flock(&caller, first, unlock)), Ok(0));
+    assert_eq!(block_on(kernel.flock(&caller, second, exclusive)), Ok(0));
+}
+
 mod ipc;
 mod net;
 mod proc;

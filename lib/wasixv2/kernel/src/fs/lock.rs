@@ -1,8 +1,9 @@
 //! `flock` and the `fcntl` record-lock commands (`fs/locks.c`).
 
 use wasixv2_abi::{FcntlCmd, Flock, Flock64, FlockOp, GuestLayout, LockType, SeekWhence};
-use wasixv2_syscalls::{Caller, Errno, Fd, SysResult};
+use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult};
 use wasixv2_vfs::{FlockOp as Op, LockKind, LockOwner, RangeLock};
+use wasixv2_wait::{Interrupted, interruptible};
 
 use crate::{
     Kernel,
@@ -43,10 +44,11 @@ impl Kernel {
         let Backing::Inode(inner) = &file.backing else {
             return Ok(0);
         };
-        self.vfs
+        let lock = self
+            .vfs
             .locks
-            .flock(inner.lock_key(), inner.id, op, nonblock)
-            .await?;
+            .flock(inner.lock_key(), inner.id, op, nonblock);
+        self.lock_wait(caller, lock).await?;
         Ok(0)
     }
 
@@ -148,16 +150,36 @@ impl Kernel {
                     start,
                     end,
                 };
-                self.vfs.locks.set(key, lock, wait).await?;
+                self.lock_wait(caller, self.vfs.locks.set(key, lock, wait))
+                    .await?;
             }
         }
         Ok(0)
     }
 }
 
+impl Kernel {
+    /// A lock request that may wait for a conflicting lock to go. A signal ends the wait with
+    /// a restart, as `wait_event_interruptible` does in `flock_lock_inode_wait` and
+    /// `fcntl_setlk`; the lock manager forgets the request when it is dropped.
+    async fn lock_wait(
+        &self,
+        caller: &Caller<'_>,
+        request: impl Future<Output = Result<(), Errno>>,
+    ) -> SysResult<()> {
+        match interruptible(request, &*self.interrupt(caller)).await {
+            Ok(result) => Ok(result?),
+            Err(Interrupted) => Err(SysErr::Restart),
+        }
+    }
+}
+
 /// `flock_to_posix_lock`: the inclusive byte range a request covers.
 fn range(base: i64, l_start: i64, l_len: i64) -> Result<(u64, u64), Errno> {
     let mut start = base.checked_add(l_start).ok_or(Errno::EOVERFLOW)?;
+    if start < 0 {
+        return Err(Errno::EINVAL);
+    }
     let end = if l_len > 0 {
         start.checked_add(l_len - 1).ok_or(Errno::EOVERFLOW)?
     } else if l_len < 0 {
