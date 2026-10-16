@@ -159,6 +159,102 @@ impl Rights {
     pub const ALL: Self = Self((1 << 39) - 1);
 }
 
+/// Bit operations for the v1 flag sets.
+macro_rules! flag_ops {
+    ($($name:ident),* $(,)?) => {$(
+        impl $name {
+            pub const fn empty() -> Self {
+                Self(0)
+            }
+
+            /// Whether every bit of `other` is set.
+            pub const fn contains(self, other: Self) -> bool {
+                self.0 & other.0 == other.0
+            }
+
+            /// Whether any bit of `other` is set.
+            pub const fn intersects(self, other: Self) -> bool {
+                self.0 & other.0 != 0
+            }
+        }
+
+        impl core::ops::BitOr for $name {
+            type Output = Self;
+            fn bitor(self, other: Self) -> Self {
+                Self(self.0 | other.0)
+            }
+        }
+
+        impl core::ops::BitOrAssign for $name {
+            fn bitor_assign(&mut self, other: Self) {
+                self.0 |= other.0;
+            }
+        }
+
+        impl core::ops::BitAnd for $name {
+            type Output = Self;
+            fn bitand(self, other: Self) -> Self {
+                Self(self.0 & other.0)
+            }
+        }
+
+        impl core::ops::Not for $name {
+            type Output = Self;
+            fn not(self) -> Self {
+                Self(!self.0)
+            }
+        }
+    )*};
+}
+
+flag_ops!(Fdflags, Fdflagsext, Oflags, Lookupflags, Fstflags, Rights);
+
+impl Fdflags {
+    pub const ALL: Self = Self(0x1f);
+}
+
+impl Oflags {
+    pub const ALL: Self = Self(0xf);
+}
+
+impl Fstflags {
+    pub const ALL: Self = Self(0xf);
+}
+
+impl Rights {
+    /// What a directory descriptor may do to the names below it.
+    pub const PATH_ALL: Self = Self(
+        Self::PATH_CREATE_DIRECTORY.0
+            | Self::PATH_CREATE_FILE.0
+            | Self::PATH_LINK_SOURCE.0
+            | Self::PATH_LINK_TARGET.0
+            | Self::PATH_OPEN.0
+            | Self::PATH_READLINK.0
+            | Self::PATH_RENAME_SOURCE.0
+            | Self::PATH_RENAME_TARGET.0
+            | Self::PATH_FILESTAT_GET.0
+            | Self::PATH_FILESTAT_SET_SIZE.0
+            | Self::PATH_FILESTAT_SET_TIMES.0
+            | Self::PATH_SYMLINK.0
+            | Self::PATH_REMOVE_DIRECTORY.0
+            | Self::PATH_UNLINK_FILE.0,
+    );
+    /// Every socket operation.
+    pub const SOCK_ALL: Self = Self(
+        Self::SOCK_SHUTDOWN.0
+            | Self::SOCK_ACCEPT.0
+            | Self::SOCK_CONNECT.0
+            | Self::SOCK_LISTEN.0
+            | Self::SOCK_BIND.0
+            | Self::SOCK_RECV.0
+            | Self::SOCK_SEND.0
+            | Self::SOCK_ADDR_LOCAL.0
+            | Self::SOCK_ADDR_REMOTE.0
+            | Self::SOCK_RECV_FROM.0
+            | Self::SOCK_SEND_TO.0,
+    );
+}
+
 newtype_layout!(
     Filetype(u8),
     Fdflags(u16),
