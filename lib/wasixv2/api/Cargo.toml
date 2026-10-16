@@ -29,6 +29,7 @@ wasixv2-kernel = { path = "../kernel" }
 wasixv2-checkpoint = { path = "../checkpoint" }
 wasixv2-exec = { path = "../exec", default-features = false }
 wasixv2-dylink = { path = "../dylink", default-features = false }
+wasixv2-wasix1 = { path = "../wasix1", default-features = false, optional = true }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
 thiserror.workspace = true
 tracing.workspace = true
@@ -43,14 +44,22 @@ wasmer = { path = "../../api", version = "=7.5.0", default-features = false, fea
 wat.workspace = true
 
 [features]
-default = ["sys", "tokio", "host-network"]
+default = ["sys", "tokio", "host-network", "wasix1"]
 sys = [
   "wasmer/sys",
   "wasmer/headless",
   "wasixv2-exec/sys",
   "wasixv2-dylink/sys",
+  "wasixv2-wasix1?/sys",
 ]
-js = ["wasmer/js-default", "wasixv2-exec/js", "wasixv2-dylink/js"]
+js = [
+  "wasmer/js-default",
+  "wasixv2-exec/js",
+  "wasixv2-dylink/js",
+  "wasixv2-wasix1?/js",
+]
+# Runs WASIX v1 (and plain WASI preview1) programs too.
+wasix1 = ["dep:wasixv2-wasix1"]
 # `Machine::new` and `Stdio::inherit` on a tokio runtime.
 tokio = ["wasixv2-host/tokio"]
 # Guest traffic leaving the machine goes through host sockets (Unix only). Without it the
