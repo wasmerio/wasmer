@@ -431,6 +431,15 @@ impl Kernel {
             let mut state = self.state.lock().unwrap();
             let task = &state.tasks[&parent_task];
             let parent = task.process.clone();
+            // Every task belongs to the one user.
+            if parent
+                .resources
+                .lock()
+                .unwrap()
+                .nproc_reached(state.tasks.len())
+            {
+                return Err(Errno::EAGAIN);
+            }
             if parent.group.exiting() {
                 return Err(Errno::EINTR);
             }

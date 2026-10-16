@@ -143,6 +143,15 @@ impl Kernel {
                 .get(&parent)
                 .expect("syscall from an unknown task");
             let process = task.process.clone();
+            // Every task belongs to the one user.
+            if process
+                .resources
+                .lock()
+                .unwrap()
+                .nproc_reached(state.tasks.len())
+            {
+                return Err(Errno::EAGAIN.into());
+            }
             {
                 let mut group = process.group.state.lock().unwrap();
                 // A group on its way out starts nothing (Linux: fatal_signal_pending).
