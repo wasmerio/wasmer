@@ -46,7 +46,8 @@ errnos! {
     DOM = 18 => [EDOM],
     DQUOT = 19 => [EDQUOT],
     EXIST = 20 => [EEXIST],
-    FAULT = 21 => [EFAULT],
+    // The v1 host reported a bad guest pointer as `MEMVIOLATION`, never as `FAULT`.
+    FAULT = 21 => [],
     FBIG = 22 => [EFBIG],
     HOSTUNREACH = 23 => [EHOSTUNREACH, EHOSTDOWN],
     IDRM = 24 => [EIDRM],
@@ -103,7 +104,7 @@ errnos! {
     XDEV = 75 => [EXDEV],
     NOTCAPABLE = 76 => [],
     SHUTDOWN = 77 => [ESHUTDOWN],
-    MEMVIOLATION = 78 => [],
+    MEMVIOLATION = 78 => [EFAULT],
     UNKNOWN = 79 => [],
 }
 
@@ -132,6 +133,7 @@ mod tests {
         assert_eq!(Errno::from_linux(L::EWOULDBLOCK), Errno::AGAIN);
         assert_eq!(Errno::from_linux(L::EDEADLOCK), Errno::DEADLK);
         assert_eq!(Errno::from_linux(L::ENOENT), Errno::NOENT);
+        assert_eq!(Errno::from_linux(L::EFAULT), Errno::MEMVIOLATION);
         assert_eq!(Errno::from_linux(L::ERESTART), Errno::IO);
         for linux in 1..=134 {
             let v1 = Errno::from_linux(L(linux));
