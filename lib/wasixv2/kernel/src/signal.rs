@@ -743,6 +743,15 @@ fn check_signal(sig: Signal) -> Result<i32, Errno> {
     }
 }
 
+/// `valid_signal`: a signal a process may send, where 0 only checks that the target exists.
+/// Linux checks it once the target is found, so a missing target is `ESRCH` first.
+fn check_sendable(sig: i32) -> Result<(), Errno> {
+    match (0..=NSIG).contains(&sig) {
+        true => Ok(()),
+        false => Err(Errno::EINVAL),
+    }
+}
+
 pub(crate) fn sigset_bits(set: Sigset) -> u64 {
     u64::from(set.sig[0]) | (u64::from(set.sig[1]) << 32)
 }
@@ -765,13 +774,16 @@ impl Kernel {
         self.task_signals(caller.task())
     }
 
-    /// The thread groups whose leader is `pid`, or every group for `None`.
+    /// The thread group `pid` names, or every group for `None`. As for Linux's `kill_pid_info`,
+    /// any thread's id names its whole group, and the group id still does once its leader thread
+    /// has exited.
     fn groups(&self, pid: Option<Pid>) -> Vec<(Pid, Arc<Signals>)> {
         let state = self.state.read().unwrap();
         let mut groups: Vec<(Pid, Arc<Signals>)> = Vec::new();
-        for task in state.tasks.values() {
+        for (id, task) in &state.tasks {
             let leader = task.process.pid.0 as Pid;
-            if pid.is_some_and(|pid| pid != leader) || groups.iter().any(|(p, _)| *p == leader) {
+            let named = pid.is_none_or(|pid| pid == leader || pid == id.0 as Pid);
+            if !named || groups.iter().any(|(p, _)| *p == leader) {
                 continue;
             }
             // ---- proc ----
@@ -880,8 +892,9 @@ impl Kernel {
                 block |= bit(sig);
             }
             task.blocked = (task.blocked | block) & !UNBLOCKABLE;
+            // `SA_ONESHOT` resets only the handler; the flags and mask stay.
             if action.flags & SaFlags::SA_RESETHAND.0 != 0 {
-                state.actions[sig as usize - 1] = Action::default();
+                state.actions[sig as usize - 1].handler = SignalHandler::SIG_DFL.0 as u32;
             }
             return Some(GuestAction::Signal(SignalFrame {
                 trampoline,
@@ -1090,14 +1103,18 @@ impl Kernel {
         uinfo: ConstSiginfoPtr,
     ) -> SysResult<i32> {
         let mut info = read_value(caller.memory(), uinfo).await?;
-        let sig = check_signal(sig)?;
-        // Only the kernel may claim to be the kernel or `tkill`, except towards oneself.
+        info.si_signo = sig.0;
+        // `rt_tgsigqueueinfo` targets a single task.
+        if tid.is_some_and(|tid| tid <= 0 || tgid <= 0) {
+            return Err(Errno::EINVAL.into());
+        }
+        // Only the kernel may claim to be the kernel or `tkill`, except towards the calling
+        // thread itself (`si_code_reserved_to_kernel`).
         if (info.si_code >= 0 || info.si_code == SiCode::SI_TKILL.0)
-            && tgid != self.tgid(caller.task())
+            && tid.unwrap_or(tgid) != caller.task().0 as Pid
         {
             return Err(Errno::EPERM.into());
         }
-        info.si_signo = sig;
         let sender = Some(&*self.process(caller.task()));
         match tid {
             Some(tid) => self.send_to_task(sender, Some(tgid), tid, info)?,
@@ -1136,6 +1153,7 @@ impl Kernel {
         let Some((_, group)) = groups.first() else {
             return Err(Errno::ESRCH);
         };
+        check_sendable(info.si_signo)?;
         if !self.may_signal(sender, pid, info.si_signo) {
             return Err(Errno::EPERM);
         }
@@ -1175,6 +1193,7 @@ impl Kernel {
                 .map(|task| (task.process.pid.0 as Pid, task.signals.group().clone()))
         };
         let (pid, group) = target.ok_or(Errno::ESRCH)?;
+        check_sendable(info.si_signo)?;
         if !self.may_signal(sender, pid, info.si_signo) {
             return Err(Errno::EPERM);
         }
@@ -1190,18 +1209,16 @@ impl Kernel {
         pid: Pid,
         sig: Signal,
     ) -> SysResult<i32> {
-        if !(0..=NSIG).contains(&sig.0) {
-            return Err(Errno::EINVAL.into());
-        }
         let me = self.tgid(caller.task());
         let info = self.sender_info(caller, sig.0, SiCode::SI_USER);
         let targets: Vec<_> = match pid {
             // ---- proc ----
             0 => self.pgrp_groups(self.pgid_of(me)),
+            // Every process but init and the caller.
             -1 => self
                 .groups(None)
                 .into_iter()
-                .filter(|(pid, _)| *pid != me)
+                .filter(|(pid, _)| *pid > 1 && *pid != me)
                 .collect(),
             pid if pid < 0 => self.pgrp_groups(pid.checked_abs().unwrap_or(0)),
             pid => self.groups(Some(pid)),
@@ -1209,6 +1226,7 @@ impl Kernel {
         if targets.is_empty() {
             return Err(Errno::ESRCH.into());
         }
+        check_sendable(sig.0)?;
         let sender = self.process(caller.task());
         let mut sent = false;
         for (target, group) in targets {
@@ -1235,9 +1253,6 @@ impl Kernel {
         tid: Pid,
         sig: Signal,
     ) -> SysResult<i32> {
-        if !(0..=NSIG).contains(&sig.0) {
-            return Err(Errno::EINVAL.into());
-        }
         let info = self.sender_info(caller, sig.0, SiCode::SI_TKILL);
         let sender = self.process(caller.task());
         self.send_to_task(Some(&sender), tgid, tid, info)?;

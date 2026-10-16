@@ -328,6 +328,70 @@ fn sigprocmask_tracks_the_mask_but_never_blocks_sigkill() {
 }
 
 #[test]
+fn signal_zero_probes_and_a_missing_target_comes_before_a_bad_signal() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 256]));
+    let caller = Caller::new(task, &memory);
+    // A siginfo from sigqueue(): si_code SI_QUEUE.
+    memory.0.borrow_mut()[24..28].copy_from_slice(&wasixv2_abi::SiCode::SI_QUEUE.0.to_le_bytes());
+    let me = task.0 as Pid;
+    let sigqueue =
+        |pid, sig| block_on(kernel.rt_sigqueueinfo(&caller, pid, Signal(sig), GuestPtr::new(16)));
+    let kill = |pid, sig| block_on(kernel.sys_kill(&caller, pid, Signal(sig)));
+    let err = |errno| Err(SysErr::Errno(errno));
+
+    assert_eq!(sigqueue(me, 0), Ok(0));
+    assert_eq!(sigqueue(999_999, 0), err(Errno::ESRCH));
+    assert_eq!(sigqueue(999_999, 65), err(Errno::ESRCH));
+    assert_eq!(sigqueue(me, 65), err(Errno::EINVAL));
+    assert_eq!(kill(me, 0), Ok(0));
+    assert_eq!(kill(999_999, 65), err(Errno::ESRCH));
+    assert_eq!(kill(me, 65), err(Errno::EINVAL));
+    // kill(-1) spares init, and the caller is the only other process.
+    assert_eq!(kill(-1, 0), err(Errno::ESRCH));
+}
+
+#[test]
+fn sa_resethand_resets_only_the_handler() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 64]));
+    let caller = Caller::new(task, &memory);
+    let flags = wasixv2_abi::SaFlags::SA_RESETHAND.0 | wasixv2_abi::SaFlags::SA_SIGINFO.0;
+    {
+        let mut memory = memory.0.borrow_mut();
+        memory[8..12].copy_from_slice(&7u32.to_le_bytes());
+        memory[12..16].copy_from_slice(&flags.to_le_bytes());
+    }
+    let sigaction = |act, oact| {
+        block_on(kernel.rt_sigaction(
+            &caller,
+            Signal::SIGUSR1,
+            GuestPtr::new(act),
+            GuestPtrMut::new(oact),
+            8,
+        ))
+    };
+    assert_eq!(block_on(kernel.signal_callback_register(&caller, 3)), Ok(0));
+    assert_eq!(sigaction(8, 0), Ok(0));
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, task.0 as Pid, Signal::SIGUSR1)),
+        Ok(0)
+    );
+    assert!(matches!(
+        kernel.take_pending(task),
+        Some(GuestAction::Signal(wasixv2_syscalls::SignalFrame {
+            handler: 7,
+            ..
+        }))
+    ));
+
+    assert_eq!(sigaction(0, 32), Ok(0));
+    let memory = memory.0.borrow();
+    assert_eq!(memory[32..36], 0u32.to_le_bytes());
+    assert_eq!(memory[36..40], flags.to_le_bytes());
+}
+
+#[test]
 fn files_round_trip_through_the_vfs() {
     let (kernel, task, _) = setup(b"");
     let memory = FlatMemory(RefCell::new(vec![0; 256]));
