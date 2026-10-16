@@ -1,0 +1,564 @@
+//! The asyncify build configuration: binaryen's `--asyncify` lets the host unwind the guest's
+//! wasm call stack into linear memory and rewind it from there. A wasm call stack cannot be
+//! copied or returned to otherwise, and fork and `setjmp` without wasm exceptions need both.
+//!
+//! This module is the ABI-neutral machinery; the imports that use it live with their ABI
+//! (wasixv2's in [`crate::fork`]).
+//!
+//! - **Levels.** Every call the host makes into an asyncify instance goes through [`call`] and
+//!   is one level: the entry point, and the signal handlers and vfork returns the host runs from
+//!   inside imports on top of it. An unwind only reaches the innermost level's call, since host
+//!   frames sit between levels.
+//! - **Unwind and rewind.** An import asks for the stack with [`unwind`] and returns; the guest
+//!   unwinds to the level's call, which does the work the [`Request`] names and rewinds by
+//!   calling the same function again. The rewinding guest calls the import again, which takes
+//!   the [`Resume`] with [`resumed`] and returns what it says.
+//! - **Saved stacks.** [`Request::Save`] records the level's stack, and [`restore`] gives the
+//!   error that discards the current stack up to that level, which then rewinds the saved one.
+//!   That is `longjmp`: memory stays as it is, and the frames from the level's entry to the
+//!   save point come back with their wasm locals as they were saved.
+//! - **Fork.** [`Request::Fork`] copies the instance (memory, exported mutable globals and the
+//!   unwound stack) into a [`ForkImage`] that a new instance rewinds as the child. Only the
+//!   outermost level can fork: the levels below would be host frames the copy cannot hold.
+
+use std::{any::Any, collections::HashMap, future::Future, sync::Arc};
+
+use wasixv2_syscalls::TaskId;
+use wasmer::{
+    AsStoreAsync, AsStoreMut, AsyncFunctionEnvMut, Function, FunctionEnv, Global, Instance, Module,
+    Mutability, RuntimeError, StoreAsync, StoreMut, TypedFunction, Value,
+};
+
+use crate::ExecEnv;
+
+/// Pages of linear memory an instance takes, on its first unwind, for its unwound stacks. An
+/// unwind that needs more traps.
+const BUFFER_PAGES: u32 = 16;
+const BUFFER_SIZE: u32 = BUFFER_PAGES * 64 * 1024;
+/// asyncify's data header: the position, where an unwind pushes and a rewind pops, and the end.
+const HEADER: u32 = 8;
+
+const START_UNWIND: &str = "asyncify_start_unwind";
+const STOP_UNWIND: &str = "asyncify_stop_unwind";
+const START_REWIND: &str = "asyncify_start_rewind";
+const STOP_REWIND: &str = "asyncify_stop_rewind";
+
+/// Whether `module` was instrumented with binaryen's asyncify.
+pub(crate) fn instrumented(module: &Module) -> bool {
+    let has = |name: &str| module.exports().any(|export| export.name() == name);
+    [START_UNWIND, STOP_UNWIND, START_REWIND, STOP_REWIND]
+        .into_iter()
+        .all(has)
+}
+
+/// What an unwind is for, as the import that started it asked.
+pub(crate) enum Request {
+    /// Record the stack under `slot`, a guest address the import picks (such as its
+    /// `jmp_buf`); a later save to the same slot replaces it.
+    Save { slot: u32 },
+    /// Copy the instance for the child task `child`. `tag` comes back to the import on both
+    /// sides of the fork.
+    Fork { child: TaskId, tag: Tag },
+}
+
+/// Data an import passes through a fork to its resumption on both sides.
+pub(crate) type Tag = Arc<dyn Any + Send + Sync>;
+
+/// What a rewound import returns, after the work its [`Request`] asked for.
+pub(crate) enum Resume {
+    /// The stack was saved under this id.
+    Saved(StackId),
+    /// [`restore`] rewound the stack saved here, with this value.
+    Restored(i32),
+    /// The instance was copied: `child` is the child task in the parent, and `None` in the
+    /// child.
+    Forked { child: Option<TaskId>, tag: Tag },
+}
+
+/// Names one saved stack: its slot, which save to the slot it was, and its level.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct StackId {
+    pub(crate) slot: u32,
+    pub(crate) generation: u64,
+    pub(crate) level: u32,
+}
+
+/// One saved stack: the unwound data and the shadow stack pointer of the save point.
+#[derive(Debug)]
+pub(crate) struct Saved {
+    id: StackId,
+    data: Vec<u8>,
+    stack_pointer: Value,
+}
+
+/// Raised to discard the stack up to the level that saved `saved`, which rewinds it.
+#[derive(Debug, thiserror::Error)]
+#[error("restoring a saved guest stack")]
+struct Restore {
+    saved: Arc<Saved>,
+    val: i32,
+}
+
+/// One asyncify instance's exports and unwind state.
+pub(crate) struct Asyncify {
+    start_unwind: TypedFunction<i32, ()>,
+    stop_unwind: TypedFunction<(), ()>,
+    start_rewind: TypedFunction<i32, ()>,
+    stop_rewind: TypedFunction<(), ()>,
+    stack_pointer: Global,
+    /// Exported mutable globals of a numeric type, which a fork copies.
+    globals: Vec<(String, Global)>,
+    /// The guest address of the unwind buffer (header and data), once taken.
+    buffer: Option<u32>,
+    /// How many levels are running.
+    depth: u32,
+    unwinding: Option<Request>,
+    resume: Option<Resume>,
+    saved: HashMap<u32, Arc<Saved>>,
+    generation: u64,
+}
+
+impl Asyncify {
+    /// The asyncify state of `instance`, or `None` if its module is not instrumented. An
+    /// instrumented module must export `__stack_pointer`, as libc-built ones do.
+    pub(crate) fn new(
+        instance: &Instance,
+        store: &mut impl AsStoreMut,
+    ) -> Result<Option<Self>, wasmer::ExportError> {
+        let exports = &instance.exports;
+        if exports.get_function(START_UNWIND).is_err() {
+            return Ok(None);
+        }
+        let globals = exports
+            .iter()
+            .filter_map(|(name, export)| match export {
+                wasmer::Extern::Global(global) => Some((name.clone(), global.clone())),
+                _ => None,
+            })
+            .filter(|(_, global)| {
+                let ty = global.ty(store);
+                ty.mutability == Mutability::Var && ty.ty.is_num()
+            })
+            .collect();
+        Ok(Some(Self {
+            start_unwind: exports.get_typed_function(store, START_UNWIND)?,
+            stop_unwind: exports.get_typed_function(store, STOP_UNWIND)?,
+            start_rewind: exports.get_typed_function(store, START_REWIND)?,
+            stop_rewind: exports.get_typed_function(store, STOP_REWIND)?,
+            stack_pointer: exports.get_global("__stack_pointer")?.clone(),
+            globals,
+            buffer: None,
+            depth: 0,
+            unwinding: None,
+            resume: None,
+            saved: HashMap::new(),
+            generation: 0,
+        }))
+    }
+
+    /// Takes over a parent's state in a forked child, which rewinds as `resume` says.
+    fn inherit(&mut self, from: &ForkState) {
+        self.buffer = Some(from.buffer);
+        self.saved = from.saved.clone();
+        self.generation = from.generation;
+        self.resume = Some(Resume::Forked {
+            child: None,
+            tag: from.tag.clone(),
+        });
+    }
+}
+
+/// How the execution layer reaches an instance: from outside any guest call (its function
+/// environment and store), or from an import (its async environment).
+pub(crate) trait Access<S: 'static> {
+    fn store(&self) -> StoreAsync;
+    fn with<R>(
+        &self,
+        f: impl FnOnce(&mut ExecEnv<S>, &mut StoreMut<'_>) -> R,
+    ) -> impl Future<Output = R>;
+}
+
+/// An instance seen from outside any guest call.
+pub(crate) struct Outside<'a, S: 'static> {
+    pub(crate) env: &'a FunctionEnv<ExecEnv<S>>,
+    pub(crate) store: &'a StoreAsync,
+}
+
+impl<S: Send + Sync + 'static> Access<S> for Outside<'_, S> {
+    fn store(&self) -> StoreAsync {
+        self.store.store()
+    }
+
+    async fn with<R>(&self, f: impl FnOnce(&mut ExecEnv<S>, &mut StoreMut<'_>) -> R) -> R {
+        let mut lock = self.store.write_lock().await;
+        let mut env = self.env.clone().into_mut(&mut lock);
+        let (data, mut store) = env.data_and_store_mut();
+        f(data, &mut store)
+    }
+}
+
+impl<S: 'static> Access<S> for AsyncFunctionEnvMut<ExecEnv<S>> {
+    fn store(&self) -> StoreAsync {
+        self.as_store_async().store()
+    }
+
+    async fn with<R>(&self, f: impl FnOnce(&mut ExecEnv<S>, &mut StoreMut<'_>) -> R) -> R {
+        let mut guard = self.write().await;
+        let (data, store) = guard.data_and_store_mut();
+        f(data, &mut store.as_store_mut())
+    }
+}
+
+/// Whether an import running now could have the whole stack unwound: the instance is
+/// instrumented and the import runs in the outermost level.
+pub(crate) async fn whole_stack<S: 'static>(cx: &impl Access<S>) -> bool {
+    cx.with(|env, _| env.asyncify.as_ref().is_some_and(|a| a.depth == 1))
+        .await
+}
+
+/// Calls `function` as one level of guest calls on the instance behind `cx` and carries out
+/// the unwinds and rewinds that its imports ask for, until it returns or fails for good.
+/// `entry` names `function` as an export, which a fork child calls to rewind; only an entry
+/// point has one.
+pub(crate) async fn call<S: 'static>(
+    cx: &impl Access<S>,
+    entry: Option<&'static str>,
+    function: &Function,
+    args: &[Value],
+) -> Result<Box<[Value]>, RuntimeError> {
+    let level = cx
+        .with(|env, _| {
+            env.asyncify.as_mut().map(|a| {
+                a.depth += 1;
+                a.depth
+            })
+        })
+        .await;
+    let Some(level) = level else {
+        return function.call_async(&cx.store(), args.to_vec()).await;
+    };
+    let result = loop {
+        let result = function.call_async(&cx.store(), args.to_vec()).await;
+        match settle(cx, level, entry, args, result).await {
+            Ok(None) => continue,
+            Ok(Some(values)) => break Ok(values),
+            Err(err) => break Err(err),
+        }
+    };
+    cx.with(|env, _| {
+        let a = env.asyncify.as_mut().expect("entered above");
+        a.depth -= 1;
+        // Stacks saved in this level cannot be restored once it returned.
+        a.saved.retain(|_, saved| saved.id.level < level);
+    })
+    .await;
+    result
+}
+
+/// After one call of a level's function: its values, `None` to call it again because a rewind
+/// started, or the error that ends the level.
+async fn settle<S: 'static>(
+    cx: &impl Access<S>,
+    level: u32,
+    entry: Option<&'static str>,
+    args: &[Value],
+    result: Result<Box<[Value]>, RuntimeError>,
+) -> Result<Option<Box<[Value]>>, RuntimeError> {
+    let values = match result {
+        Ok(values) => values,
+        Err(err) => match err.downcast::<Restore>() {
+            Ok(restore) if restore.saved.id.level == level => {
+                rewind_saved(cx, &restore.saved, restore.val).await?;
+                return Ok(None);
+            }
+            Ok(restore) => return Err(RuntimeError::user(Box::new(restore))),
+            Err(err) => return Err(err),
+        },
+    };
+    let Some((request, functions)) = cx
+        .with(|env, _| {
+            let a = env.asyncify.as_mut()?;
+            Some((
+                a.unwinding.take()?,
+                (a.stop_unwind.clone(), a.start_rewind.clone()),
+            ))
+        })
+        .await
+    else {
+        return Ok(Some(values));
+    };
+    let (stop_unwind, start_rewind) = functions;
+    stop_unwind.call_async(&cx.store()).await?;
+    let resume = match request {
+        Request::Save { slot } => Resume::Saved(save(cx, level, slot).await?),
+        Request::Fork { child, tag } => {
+            let entry = entry.filter(|_| level == 1).ok_or_else(|| {
+                RuntimeError::new("fork from a guest call that is not the entry point")
+            })?;
+            let image = snapshot(cx, entry, args, tag.clone()).await?;
+            let spawner = cx.with(|env, _| env.proc.spawner.clone()).await;
+            spawner.fork(child, image);
+            Resume::Forked {
+                child: Some(child),
+                tag,
+            }
+        }
+    };
+    let buffer = cx
+        .with(|env, _| {
+            let a = env.asyncify.as_mut().expect("unwound above");
+            a.resume = Some(resume);
+            a.buffer.expect("an unwind has a buffer")
+        })
+        .await;
+    start_rewind.call_async(&cx.store(), buffer as i32).await?;
+    Ok(None)
+}
+
+/// Records the just unwound stack of `level` under `slot`.
+async fn save<S: 'static>(
+    cx: &impl Access<S>,
+    level: u32,
+    slot: u32,
+) -> Result<StackId, RuntimeError> {
+    cx.with(|env, store| {
+        let memory = env.memory.clone().expect("an instance has memory");
+        let a = env.asyncify.as_mut().expect("unwound above");
+        let buffer = a.buffer.expect("an unwind has a buffer");
+        let view = memory.view(&*store);
+        let mut header = [0u8; 4];
+        view.read(buffer.into(), &mut header).map_err(fault)?;
+        let end = u32::from_le_bytes(header);
+        let mut data = vec![0; end.saturating_sub(buffer + HEADER) as usize];
+        view.read((buffer + HEADER).into(), &mut data)
+            .map_err(fault)?;
+        a.generation += 1;
+        let id = StackId {
+            slot,
+            generation: a.generation,
+            level,
+        };
+        let stack_pointer = a.stack_pointer.get(store);
+        a.saved.insert(
+            slot,
+            Arc::new(Saved {
+                id,
+                data,
+                stack_pointer,
+            }),
+        );
+        Ok(id)
+    })
+    .await
+}
+
+/// Puts `saved` back into the unwind buffer and starts rewinding it; the import that saved it
+/// resumes with `val`.
+async fn rewind_saved<S: 'static>(
+    cx: &impl Access<S>,
+    saved: &Saved,
+    val: i32,
+) -> Result<(), RuntimeError> {
+    let (start_rewind, buffer) = cx
+        .with(|env, store| {
+            let memory = env.memory.clone().expect("an instance has memory");
+            let a = env.asyncify.as_mut().expect("saved stacks are asyncify's");
+            let buffer = a.buffer.expect("a saved stack went through the buffer");
+            let end = buffer + HEADER + saved.data.len() as u32;
+            let view = memory.view(&*store);
+            let mut header = [0u8; HEADER as usize];
+            header[..4].copy_from_slice(&end.to_le_bytes());
+            header[4..].copy_from_slice(&(buffer + BUFFER_SIZE).to_le_bytes());
+            view.write(buffer.into(), &header).map_err(fault)?;
+            view.write((buffer + HEADER).into(), &saved.data)
+                .map_err(fault)?;
+            a.stack_pointer.set(store, saved.stack_pointer.clone())?;
+            a.resume = Some(Resume::Restored(val));
+            Ok::<_, RuntimeError>((a.start_rewind.clone(), buffer))
+        })
+        .await?;
+    start_rewind.call_async(&cx.store(), buffer as i32).await
+}
+
+/// Starts unwinding the calling level's stack for `request`. The import returns afterwards
+/// (any value), and is called again once the work is done.
+pub(crate) async fn unwind<S: 'static>(
+    cx: &impl Access<S>,
+    request: Request,
+) -> Result<(), RuntimeError> {
+    let buffer = buffer(cx).await?;
+    let start_unwind = cx
+        .with(|env, store| {
+            let memory = env.memory.clone().expect("an instance has memory");
+            let a = env.asyncify.as_mut().ok_or_else(not_instrumented)?;
+            let mut header = [0u8; HEADER as usize];
+            header[..4].copy_from_slice(&(buffer + HEADER).to_le_bytes());
+            header[4..].copy_from_slice(&(buffer + BUFFER_SIZE).to_le_bytes());
+            memory
+                .view(&*store)
+                .write(buffer.into(), &header)
+                .map_err(fault)?;
+            a.unwinding = Some(request);
+            Ok::<_, RuntimeError>(a.start_unwind.clone())
+        })
+        .await?;
+    start_unwind.call_async(&cx.store(), buffer as i32).await
+}
+
+/// The unwind buffer, taken from the top of memory the first time. Pages grown here count as
+/// mapped for the kernel, as pages the guest grows itself do.
+async fn buffer<S: 'static>(cx: &impl Access<S>) -> Result<u32, RuntimeError> {
+    cx.with(|env, store| {
+        let memory = env.memory.clone().expect("an instance has memory");
+        let a = env.asyncify.as_mut().ok_or_else(not_instrumented)?;
+        if let Some(buffer) = a.buffer {
+            return Ok(buffer);
+        }
+        let previous = memory
+            .grow(store, BUFFER_PAGES)
+            .map_err(|err| RuntimeError::new(format!("no memory for unwinding: {err}")))?;
+        let buffer = u32::try_from(previous.bytes().0)
+            .map_err(|_| RuntimeError::new("no memory for unwinding"))?;
+        a.buffer = Some(buffer);
+        Ok(buffer)
+    })
+    .await
+}
+
+/// The [`Resume`] of the import the guest is rewinding into, which ends the rewind; `None` when
+/// the import is called normally.
+pub(crate) async fn resumed<S: 'static>(
+    cx: &impl Access<S>,
+) -> Result<Option<Resume>, RuntimeError> {
+    let resumed = cx
+        .with(|env, _| {
+            let a = env.asyncify.as_mut()?;
+            Some((a.resume.take()?, a.stop_rewind.clone()))
+        })
+        .await;
+    let Some((resume, stop_rewind)) = resumed else {
+        return Ok(None);
+    };
+    stop_rewind.call_async(&cx.store()).await?;
+    Ok(Some(resume))
+}
+
+/// The error that discards the guest's stack up to the level that saved `id`, which then
+/// rewinds that stack, so that its import resumes with [`Resume::Restored`]`(val)`. The import
+/// returns it. Fails if `id` is not a saved stack of a level still running.
+pub(crate) async fn restore<S: 'static>(
+    cx: &impl Access<S>,
+    id: StackId,
+    val: i32,
+) -> RuntimeError {
+    let saved = cx
+        .with(|env, _| {
+            let a = env.asyncify.as_ref()?;
+            let saved = a.saved.get(&id.slot)?;
+            (saved.id == id && id.level <= a.depth).then(|| saved.clone())
+        })
+        .await;
+    match saved {
+        Some(saved) => RuntimeError::user(Box::new(Restore { saved, val })),
+        None => RuntimeError::new("restoring a stack that was not saved, or whose call returned"),
+    }
+}
+
+/// A copy of an instance for a forked child.
+pub(crate) struct ForkImage {
+    pub(crate) module: Module,
+    /// Linear memory, unwound stack included.
+    pub(crate) memory: Vec<u8>,
+    /// Exported mutable globals and their values.
+    pub(crate) globals: Vec<(String, Value)>,
+    /// The entry point the child calls to rewind, and its arguments.
+    pub(crate) entry: &'static str,
+    pub(crate) args: Vec<Value>,
+    state: ForkState,
+}
+
+/// The asyncify state a child takes over.
+struct ForkState {
+    buffer: u32,
+    saved: HashMap<u32, Arc<Saved>>,
+    generation: u64,
+    tag: Tag,
+}
+
+impl ForkImage {
+    /// Makes `asyncify`, a fresh instance of the image with this memory and these globals,
+    /// rewind as the child: it calls `entry` through [`call`], after [`start_rewind`].
+    pub(crate) fn adopt(&self, asyncify: &mut Asyncify) {
+        asyncify.inherit(&self.state);
+    }
+
+    pub(crate) fn buffer(&self) -> u32 {
+        self.state.buffer
+    }
+}
+
+/// Copies the instance behind `cx`, whose outermost level just unwound.
+async fn snapshot<S: 'static>(
+    cx: &impl Access<S>,
+    entry: &'static str,
+    args: &[Value],
+    tag: Tag,
+) -> Result<ForkImage, RuntimeError> {
+    cx.with(|env, store| {
+        let module = env
+            .proc
+            .module
+            .clone()
+            .ok_or_else(|| RuntimeError::new("fork needs the instance's module"))?;
+        let memory = env.memory.clone().expect("an instance has memory");
+        let a = env.asyncify.as_ref().expect("unwound above");
+        let bytes = memory.view(&*store).copy_to_vec().map_err(fault)?;
+        let globals = a
+            .globals
+            .iter()
+            .map(|(name, global)| (name.clone(), global.get(store)))
+            .collect();
+        // Stacks saved in the levels above cannot be restored in the child.
+        let saved = a
+            .saved
+            .iter()
+            .filter(|(_, saved)| saved.id.level == 1)
+            .map(|(&slot, saved)| (slot, saved.clone()))
+            .collect();
+        Ok(ForkImage {
+            module,
+            memory: bytes,
+            globals,
+            entry,
+            args: args.to_vec(),
+            state: ForkState {
+                buffer: a.buffer.expect("an unwind has a buffer"),
+                saved,
+                generation: a.generation,
+                tag,
+            },
+        })
+    })
+    .await
+}
+
+/// Starts rewinding a fork child's stack; the child then calls its entry point through
+/// [`call`].
+pub(crate) async fn start_rewind<S: 'static>(
+    cx: &impl Access<S>,
+    buffer: u32,
+) -> Result<(), RuntimeError> {
+    let start_rewind = cx
+        .with(|env, _| env.asyncify.as_ref().map(|a| a.start_rewind.clone()))
+        .await
+        .ok_or_else(not_instrumented)?;
+    start_rewind.call_async(&cx.store(), buffer as i32).await
+}
+
+fn fault(err: impl std::fmt::Display) -> RuntimeError {
+    RuntimeError::new(format!("unwind buffer outside guest memory: {err}"))
+}
+
+fn not_instrumented() -> RuntimeError {
+    RuntimeError::new("the module is not instrumented with asyncify")
+}
