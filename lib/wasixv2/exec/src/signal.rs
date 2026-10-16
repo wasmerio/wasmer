@@ -3,7 +3,9 @@
 
 use wasixv2_abi::GuestLayout;
 use wasixv2_syscalls::{Control, SignalFrame, TaskId};
-use wasmer::{AsyncFunctionEnvMut, Function, Global, Instance, RuntimeError, Table, Value};
+use wasmer::{
+    AsStoreRef, AsyncFunctionEnvMut, Function, Global, Instance, RuntimeError, Table, Type, Value,
+};
 
 use crate::ExecEnv;
 
@@ -12,12 +14,20 @@ const UCONTEXT_SIZE: u32 = 816;
 const UC_STACK: usize = 8;
 const UC_SIGMASK: usize = 20;
 const UC_MCONTEXT: usize = 160;
-/// `mcontext` slots: handler, `sa_flags`, `__stack_pointer`, `__tls_base`.
+/// `mcontext` slots: handler, `sa_flags`, `__stack_pointer`, `__tls_base`, restart, and the
+/// handler's parameter count.
 const MC_HANDLER: usize = UC_MCONTEXT;
 const MC_FLAGS: usize = UC_MCONTEXT + 4;
 const MC_SP: usize = UC_MCONTEXT + 8;
 const MC_TLS: usize = UC_MCONTEXT + 12;
+const MC_RESTART: usize = UC_MCONTEXT + 16;
+const MC_NPARAMS: usize = UC_MCONTEXT + 20;
 const SIGINFO_SIZE: u32 = 128;
+/// LLVM's wasm red zone: a function that calls nothing may keep this much below
+/// `__stack_pointer` without moving it, so a frame on the interrupted stack goes below it. The
+/// alternate stack holds nothing live and needs none; its minimum size, `MINSIGSTKSZ`, covers the
+/// frame alone.
+const RED_ZONE: u32 = 128;
 
 /// The guest exports delivery needs. libc-built modules export all of them.
 #[derive(Default)]
@@ -40,15 +50,17 @@ impl SignalExports {
 
 /// Runs one handler: writes the frame below the stack pointer (or at the top of the alternate
 /// stack), calls the trampoline, then restores the mask, stack pointer and TLS base it left in
-/// the frame. An error from the handler, such as the exception of a `siglongjmp` or an exit,
-/// passes through untouched.
+/// the frame. `restart` says whether the interrupted syscall runs again once the handler
+/// returns; the result is that, after the handler had its say. An error from the handler, such
+/// as the exception of a `siglongjmp` or an exit, passes through untouched.
 pub(crate) async fn deliver<S: Control + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     syscalls: &S,
     task: TaskId,
     frame: &SignalFrame,
-) -> Result<(), RuntimeError> {
-    let (trampoline, uc) = match push_frame(env, frame).await {
+    restart: bool,
+) -> Result<bool, RuntimeError> {
+    let (trampoline, uc) = match push_frame(env, frame, restart).await {
         Ok(pushed) => pushed,
         Err(err) => {
             syscalls.signal_return(task, None);
@@ -65,14 +77,15 @@ pub(crate) async fn deliver<S: Control + 'static>(
         syscalls.signal_return(task, None);
         return Err(err);
     }
-    let mask = pop_frame(env, uc).await?;
+    let (mask, restart_slot) = pop_frame(env, uc).await?;
     syscalls.signal_return(task, Some(mask));
-    Ok(())
+    Ok(restart && restart_slot != 0)
 }
 
 async fn push_frame<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     frame: &SignalFrame,
+    restart: bool,
 ) -> Result<(Function, u32), RuntimeError> {
     let mut guard = env.write().await;
     let (data, store) = guard.data_and_store_mut();
@@ -89,11 +102,15 @@ async fn push_frame<S: 'static>(
         .tls_base
         .as_ref()
         .map_or(0, |global| global_u32(global, store));
-    let top = frame.stack_top.unwrap_or(sp);
+    let top = match frame.stack_top {
+        Some(top) => Some(top),
+        None => sp.checked_sub(RED_ZONE),
+    };
     let uc = top
-        .checked_sub(UCONTEXT_SIZE + SIGINFO_SIZE)
+        .and_then(|top| top.checked_sub(UCONTEXT_SIZE + SIGINFO_SIZE))
         .ok_or_else(|| RuntimeError::new("no room for a signal frame"))?
         & !15;
+    let nparams = handler_params(table, store, frame.handler)?;
 
     let mut bytes = vec![0u8; (UCONTEXT_SIZE + SIGINFO_SIZE) as usize];
     let (ss_sp, ss_flags, ss_size) = frame.altstack;
@@ -105,6 +122,8 @@ async fn push_frame<S: 'static>(
     put(&mut bytes, MC_FLAGS, frame.flags);
     put(&mut bytes, MC_SP, sp);
     put(&mut bytes, MC_TLS, tls);
+    put(&mut bytes, MC_RESTART, restart as u32);
+    put(&mut bytes, MC_NPARAMS, nparams);
     frame.info.write_to(&mut bytes[UCONTEXT_SIZE as usize..]);
     memory
         .view(&*store)
@@ -119,18 +138,41 @@ async fn push_frame<S: 'static>(
     Ok((trampoline, uc))
 }
 
-/// The sigreturn: reads back the mask, stack pointer and TLS base from the frame at `uc`.
+/// How many parameters the handler at table index `handler` takes, for the trampoline to pass:
+/// its type must be `(i32 × n) -> ()` with n at most 3, as `signo`, `info` and `uctx`.
+fn handler_params(
+    table: &Table,
+    store: &mut impl wasmer::AsStoreMut,
+    handler: u32,
+) -> Result<u32, RuntimeError> {
+    let Some(Value::FuncRef(Some(function))) = table.get(&mut *store, handler) else {
+        return Err(RuntimeError::new(format!(
+            "signal handler {handler} is not a function"
+        )));
+    };
+    let ty = function.ty(&store.as_store_ref());
+    let params = ty.params();
+    match ty.results().is_empty() && params.len() <= 3 && params.iter().all(|p| *p == Type::I32) {
+        true => Ok(params.len() as u32),
+        false => Err(RuntimeError::new(format!(
+            "signal handler {handler} has type {ty}, which cannot take a signal"
+        ))),
+    }
+}
+
+/// The sigreturn: reads back the mask, stack pointer and TLS base from the frame at `uc`, and the
+/// restart slot.
 async fn pop_frame<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     uc: u32,
-) -> Result<u64, RuntimeError> {
+) -> Result<(u64, u32), RuntimeError> {
     let mut guard = env.write().await;
     let (data, store) = guard.data_and_store_mut();
     let memory = data
         .memory
         .as_ref()
         .expect("checked when the frame was pushed");
-    let mut bytes = [0u8; MC_TLS + 4];
+    let mut bytes = [0u8; MC_RESTART + 4];
     memory
         .view(&*store)
         .read(uc.into(), &mut bytes)
@@ -143,7 +185,7 @@ async fn pop_frame<S: 'static>(
     if let Some(global) = &data.signal.tls_base {
         global.set(&mut *store, Value::I32(get(MC_TLS) as i32))?;
     }
-    Ok(mask)
+    Ok((mask, get(MC_RESTART)))
 }
 
 fn global_u32(global: &Global, store: &mut impl wasmer::AsStoreMut) -> u32 {

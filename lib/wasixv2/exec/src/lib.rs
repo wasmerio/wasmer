@@ -146,7 +146,9 @@ async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
 ) -> Option<Result<R, RuntimeError>> {
     let mut ret = ret;
     let mut task = task;
-    // `SA_RESTART` of the first handler run, which is the one that interrupted the call.
+    // Once a handler ran: whether the call runs again. The first handler, the one that
+    // interrupted the call, decides by its `SA_RESTART`, and any handler may cancel the restart
+    // through its frame.
     let mut handled: Option<bool> = None;
     while let Some(action) = syscalls.take_pending(task) {
         match action {
@@ -182,9 +184,11 @@ async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
                 return Some(Err(process::vfork_return(env, parent, child).await));
             }
             GuestAction::Signal(frame) => {
-                handled.get_or_insert(frame.restarts());
-                if let Err(err) = signal::deliver(env, syscalls, task, &frame).await {
-                    return Some(Err(err));
+                let restart =
+                    handled.get_or_insert(matches!(ret, Err(SysErr::Restart)) && frame.restarts());
+                match signal::deliver(env, syscalls, task, &frame, *restart).await {
+                    Ok(still) => *restart = still,
+                    Err(err) => return Some(Err(err)),
                 }
             }
         }
@@ -192,10 +196,8 @@ async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
     let errno = match (ret, handled) {
         (Ok(value), _) => return Some(Ok(value)),
         (Err(SysErr::Errno(errno)), _) => errno,
-        (Err(SysErr::Restart), None | Some(true)) | (Err(SysErr::RestartNoHand), None) => {
-            return None;
-        }
-        (Err(SysErr::Restart | SysErr::RestartNoHand), Some(_)) => Errno::EINTR,
+        (Err(SysErr::Restart | SysErr::RestartNoHand), None | Some(true)) => return None,
+        (Err(SysErr::Restart | SysErr::RestartNoHand), Some(false)) => Errno::EINTR,
     };
     Some(Ok(R::from(-errno.0)))
 }
