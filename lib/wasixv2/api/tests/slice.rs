@@ -3,6 +3,7 @@
 use std::{
     io,
     sync::{Arc, Mutex},
+    task::{Context, Poll},
     time::Duration,
 };
 
@@ -27,17 +28,17 @@ impl ByteSink for Capture {
 }
 
 /// Stdin fed by the test while the guest runs.
-struct ChannelInput(tokio::sync::Mutex<mpsc::UnboundedReceiver<Vec<u8>>>);
+struct ChannelInput(Mutex<mpsc::UnboundedReceiver<Vec<u8>>>);
 
 impl ByteSource for ChannelInput {
-    fn read<'a>(&'a self, buf: &'a mut [u8]) -> LocalFuture<'a, io::Result<usize>> {
-        Box::pin(async move {
-            let Some(data) = self.0.lock().await.recv().await else {
-                return Ok(0);
-            };
-            buf[..data.len()].copy_from_slice(&data);
-            Ok(data.len())
-        })
+    fn poll_read(&self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+        let mut input = self.0.lock().unwrap();
+        let Some(data) = std::task::ready!(input.poll_recv(cx)) else {
+            return Poll::Ready(Ok(0));
+        };
+        assert!(data.len() <= buf.len(), "the tests send short lines");
+        buf[..data.len()].copy_from_slice(&data);
+        Poll::Ready(Ok(data.len()))
     }
 }
 
@@ -50,7 +51,7 @@ async fn run_with_stdin(wat: &str, stdin: mpsc::UnboundedReceiver<Vec<u8>>) -> R
     let wasm = wat::parse_str(wat).expect("valid test module");
     let stdout = Arc::new(Capture::default());
     let stdio = Stdio {
-        stdin: Arc::new(ChannelInput(tokio::sync::Mutex::new(stdin))),
+        stdin: Arc::new(ChannelInput(Mutex::new(stdin))),
         stdout: stdout.clone(),
         stderr: Arc::new(Capture::default()),
     };

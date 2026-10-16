@@ -5,13 +5,13 @@ use std::{
 };
 
 use tokio::{
-    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    io::{AsyncWrite, AsyncWriteExt},
     sync::Mutex,
     task::LocalSet,
     time::Instant,
 };
 
-use crate::{ByteSink, ByteSource, Executor, Host, LocalFuture, Stdio, ThreadStart};
+use crate::{BlockingSource, ByteSink, Executor, Host, LocalFuture, Stdio, ThreadStart};
 
 /// The host on a tokio runtime with timers enabled: system clocks, tokio timers, the OS entropy
 /// source, and tokio as the executor.
@@ -95,13 +95,12 @@ impl Executor for TokioHost {
 }
 
 impl Stdio {
-    /// The host process's own stdin, stdout and stderr, through tokio.
-    ///
-    /// tokio reads stdin with a blocking read on its blocking pool that cannot be cancelled, so a
-    /// guest blocked in `read(0, ..)` can delay runtime shutdown until input arrives.
+    /// The host process's own stdin, stdout and stderr. Stdin is read on a thread of its own
+    /// ([`BlockingSource`]), so no runtime waits for input at shutdown; stdout and stderr go
+    /// through tokio.
     pub fn inherit() -> Self {
         Self {
-            stdin: Arc::new(HostStream(Mutex::new(tokio::io::stdin()))),
+            stdin: Arc::new(BlockingSource::new(std::io::stdin())),
             stdout: Arc::new(HostStream(Mutex::new(tokio::io::stdout()))),
             stderr: Arc::new(HostStream(Mutex::new(tokio::io::stderr()))),
         }
@@ -109,12 +108,6 @@ impl Stdio {
 }
 
 struct HostStream<T>(Mutex<T>);
-
-impl<T: AsyncRead + Unpin + Send> ByteSource for HostStream<T> {
-    fn read<'a>(&'a self, buf: &'a mut [u8]) -> LocalFuture<'a, io::Result<usize>> {
-        Box::pin(async move { self.0.lock().await.read(buf).await })
-    }
-}
 
 impl<T: AsyncWrite + Unpin + Send> ByteSink for HostStream<T> {
     // Flushed per call, so output reaches the host in the order the guest wrote it.

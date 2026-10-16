@@ -11,6 +11,8 @@ use std::{
 };
 
 pub use wasixv2_exec::ExecError;
+#[cfg(not(target_family = "wasm"))]
+pub use wasixv2_host::BlockingSource;
 #[cfg(feature = "tokio")]
 pub use wasixv2_host::TokioHost;
 #[cfg(feature = "web")]

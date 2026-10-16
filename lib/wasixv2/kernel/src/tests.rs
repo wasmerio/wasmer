@@ -105,12 +105,16 @@ impl ByteSink for Capture {
 struct Input(Mutex<Vec<u8>>);
 
 impl ByteSource for Input {
-    fn read<'a>(&'a self, buf: &'a mut [u8]) -> LocalFuture<'a, io::Result<usize>> {
+    fn poll_read(
+        &self,
+        _: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<io::Result<usize>> {
         let mut input = self.0.lock().unwrap();
         let n = input.len().min(buf.len());
         buf[..n].copy_from_slice(&input[..n]);
         input.drain(..n);
-        Box::pin(async move { Ok(n) })
+        std::task::Poll::Ready(Ok(n))
     }
 }
 
@@ -119,6 +123,15 @@ fn setup(input: &[u8]) -> (Kernel, TaskId, Arc<Capture>) {
 }
 
 fn spawn(input: &[u8], args: &[&str], env: &[&str]) -> (Kernel, TaskId, Arc<Capture>) {
+    let stdin = Arc::new(Input(Mutex::new(input.to_vec())));
+    spawn_with_stdin(stdin, args, env)
+}
+
+fn spawn_with_stdin(
+    stdin: Arc<dyn ByteSource>,
+    args: &[&str],
+    env: &[&str],
+) -> (Kernel, TaskId, Arc<Capture>) {
     let host: Arc<dyn Host> = Arc::new(TestHost);
     let root = MemFs::new(
         Arc::new(HostClock(host.clone())),
@@ -132,7 +145,7 @@ fn spawn(input: &[u8], args: &[&str], env: &[&str]) -> (Kernel, TaskId, Arc<Capt
         args: args.iter().map(|s| s.to_string()).collect(),
         env: env.iter().map(|s| s.to_string()).collect(),
         stdio: Stdio {
-            stdin: Arc::new(Input(Mutex::new(input.to_vec()))),
+            stdin,
             stdout: stdout.clone(),
             stderr: Arc::new(Capture::default()),
         },
@@ -483,3 +496,4 @@ mod ipc;
 mod net;
 mod proc;
 mod procfs;
+mod stdio;

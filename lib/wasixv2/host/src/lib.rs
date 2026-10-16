@@ -14,6 +14,7 @@ use std::{
     io,
     pin::Pin,
     sync::{Arc, Mutex},
+    task::{Context, Poll},
     time::Duration,
 };
 
@@ -26,9 +27,16 @@ pub use web_host::WebHost;
 pub type LocalFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 /// A raw byte stream from the host, such as the embedder's stdin.
+///
+/// Readiness-based, like `AsyncRead`, so the kernel can tell when input is available without
+/// waiting for it: `poll` and `epoll` on the descriptor, `O_NONBLOCK` reads, and blocked reads
+/// that a signal interrupts.
 pub trait ByteSource: Send + Sync {
-    /// Reads into `buf`; `Ok(0)` is end of stream.
-    fn read<'a>(&'a self, buf: &'a mut [u8]) -> LocalFuture<'a, io::Result<usize>>;
+    /// Reads into `buf` without blocking. `Ready(Ok(0))` is end of stream; a later read may
+    /// find more input, as on a terminal after `^D`. `Pending` means no input yet: it consumes
+    /// nothing, and the source wakes `cx`'s waker, from any thread, once a read may make
+    /// progress.
+    fn poll_read(&self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>>;
 }
 
 /// A raw byte stream to the host, such as the embedder's stdout.
@@ -62,8 +70,150 @@ impl Stdio {
 pub struct EmptySource;
 
 impl ByteSource for EmptySource {
-    fn read<'a>(&'a self, _: &'a mut [u8]) -> LocalFuture<'a, io::Result<usize>> {
-        Box::pin(async { Ok(0) })
+    fn poll_read(&self, _: &mut Context<'_>, _: &mut [u8]) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
+}
+
+/// A source over a blocking reader, such as the host process's stdin, read on a thread of its
+/// own so no executor ever blocks on it. The thread starts on the first read and reads at most
+/// one chunk ahead of the guest, so input nobody asked for stays with the host.
+#[cfg(not(target_family = "wasm"))]
+pub struct BlockingSource {
+    shared: Arc<blocking::Shared>,
+    reader: Mutex<Option<Box<dyn io::Read + Send>>>,
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl BlockingSource {
+    pub fn new(reader: impl io::Read + Send + 'static) -> Self {
+        Self {
+            shared: Arc::default(),
+            reader: Mutex::new(Some(Box::new(reader))),
+        }
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl ByteSource for BlockingSource {
+    fn poll_read(&self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+        let ready = self.shared.poll_read(cx, buf);
+        if ready.is_pending()
+            && let Some(reader) = self.reader.lock().unwrap().take()
+        {
+            let shared = self.shared.clone();
+            let spawned = std::thread::Builder::new()
+                .name("wasixv2-input".into())
+                .spawn(move || shared.run(reader));
+            if let Err(err) = spawned {
+                return Poll::Ready(Err(err));
+            }
+        }
+        ready
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl Drop for BlockingSource {
+    /// Lets the reader thread go once its current read returns.
+    fn drop(&mut self) {
+        self.shared.state.lock().unwrap().closed = true;
+        self.shared.wanted.notify_one();
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+mod blocking {
+    use std::{
+        io,
+        sync::{Condvar, Mutex},
+        task::{Context, Poll, Waker},
+    };
+
+    /// How much the reader thread asks for at once.
+    const CHUNK: usize = 16 * 1024;
+
+    #[derive(Default)]
+    pub(super) struct Shared {
+        pub(super) state: Mutex<State>,
+        /// Signalled when the consumer wants input, or the source is gone.
+        pub(super) wanted: Condvar,
+    }
+
+    #[derive(Default)]
+    pub(super) struct State {
+        /// Input read but not consumed yet, from `pos` on.
+        data: Vec<u8>,
+        pos: usize,
+        /// What the last host read ended with, if not data: end of stream or an error.
+        end: Option<io::Result<()>>,
+        want: bool,
+        pub(super) closed: bool,
+        waker: Option<Waker>,
+    }
+
+    impl Shared {
+        pub(super) fn poll_read(
+            &self,
+            cx: &mut Context<'_>,
+            buf: &mut [u8],
+        ) -> Poll<io::Result<usize>> {
+            let mut state = self.state.lock().unwrap();
+            if state.pos < state.data.len() {
+                let n = buf.len().min(state.data.len() - state.pos);
+                buf[..n].copy_from_slice(&state.data[state.pos..][..n]);
+                state.pos += n;
+                return Poll::Ready(Ok(n));
+            }
+            if let Some(end) = state.end.take() {
+                return Poll::Ready(end.map(|()| 0));
+            }
+            state.waker = Some(cx.waker().clone());
+            if !state.want {
+                state.want = true;
+                self.wanted.notify_one();
+            }
+            Poll::Pending
+        }
+
+        /// The reader thread: one host read each time the consumer runs dry.
+        pub(super) fn run(&self, mut reader: Box<dyn io::Read + Send>) {
+            let mut chunk = vec![0; CHUNK];
+            loop {
+                {
+                    let mut state = self.state.lock().unwrap();
+                    while !state.want && !state.closed {
+                        state = self.wanted.wait(state).unwrap();
+                    }
+                    if state.closed {
+                        return;
+                    }
+                }
+                let result = loop {
+                    match reader.read(&mut chunk) {
+                        Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+                        result => break result,
+                    }
+                };
+                let waker = {
+                    let mut state = self.state.lock().unwrap();
+                    state.want = false;
+                    match result {
+                        Ok(0) => state.end = Some(Ok(())),
+                        Ok(n) => {
+                            state.data.clear();
+                            state.data.extend_from_slice(&chunk[..n]);
+                            state.pos = 0;
+                        }
+                        Err(err) => state.end = Some(Err(err)),
+                    }
+                    state.waker.take()
+                };
+                if let Some(waker) = waker {
+                    waker.wake();
+                }
+            }
+        }
     }
 }
 
@@ -231,7 +381,78 @@ mod tests {
             |_| {},
         );
         assert_eq!(block_on(stdio.stdout.write(b"hi")).unwrap(), 2);
-        assert_eq!(block_on(stdio.stdin.read(&mut [0; 4])).unwrap(), 0);
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(matches!(
+            stdio.stdin.poll_read(&mut cx, &mut [0; 4]),
+            Poll::Ready(Ok(0))
+        ));
         assert_eq!(*written.lock().unwrap(), b"hi");
+    }
+
+    /// A blocking reader fed through a channel, like a terminal.
+    #[cfg(not(target_family = "wasm"))]
+    struct ChannelReader(std::sync::mpsc::Receiver<Vec<u8>>);
+
+    #[cfg(not(target_family = "wasm"))]
+    impl io::Read for ChannelReader {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            let data = self.0.recv().unwrap_or_default();
+            buf[..data.len()].copy_from_slice(&data);
+            Ok(data.len())
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[test]
+    fn blocking_source_wakes_the_reader_when_input_arrives() {
+        use std::task::{Wake, Waker};
+
+        /// Counts wakes, so the test can wait for one.
+        #[derive(Default)]
+        struct Flag(std::sync::Mutex<bool>, std::sync::Condvar);
+
+        impl Wake for Flag {
+            fn wake(self: Arc<Self>) {
+                *self.0.lock().unwrap() = true;
+                self.1.notify_all();
+            }
+        }
+
+        impl Flag {
+            fn wait(&self) {
+                let mut woken = self.0.lock().unwrap();
+                while !*woken {
+                    woken = self.1.wait(woken).unwrap();
+                }
+                *woken = false;
+            }
+        }
+
+        let (send, recv) = std::sync::mpsc::channel();
+        let source = BlockingSource::new(ChannelReader(recv));
+        let flag = Arc::new(Flag::default());
+        let waker = Waker::from(flag.clone());
+        let mut cx = Context::from_waker(&waker);
+        let mut buf = [0; 8];
+
+        // Nothing yet: pending, without blocking the caller.
+        assert!(source.poll_read(&mut cx, &mut buf).is_pending());
+        send.send(b"abc".to_vec()).unwrap();
+        flag.wait();
+        assert!(matches!(
+            source.poll_read(&mut cx, &mut buf),
+            Poll::Ready(Ok(3))
+        ));
+        assert_eq!(&buf[..3], b"abc");
+
+        // End of stream is reported once; the next read asks the host again.
+        assert!(source.poll_read(&mut cx, &mut buf).is_pending());
+        send.send(Vec::new()).unwrap();
+        flag.wait();
+        assert!(matches!(
+            source.poll_read(&mut cx, &mut buf),
+            Poll::Ready(Ok(0))
+        ));
+        assert!(source.poll_read(&mut cx, &mut buf).is_pending());
     }
 }
