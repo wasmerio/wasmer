@@ -534,6 +534,31 @@ fn a_blocked_flock_or_ofd_lock_ends_on_a_signal() {
     assert_eq!(block_on(kernel.flock(&caller, second, exclusive)), Ok(0));
 }
 
+#[test]
+fn file_io_skips_notification_while_nothing_is_watched() {
+    use wasixv2_abi::{InotifyInitFlags, InotifyMask};
+    use wasixv2_vfs::FsWatcher;
+
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 512]));
+    let caller = Caller::new(task, &memory);
+    put(&memory, 0, b"/\0");
+    assert!(!kernel.inotify.watching());
+
+    let fd = block_on(kernel.inotify_init1(&caller, InotifyInitFlags(0))).unwrap();
+    let add = kernel.inotify_add_watch(&caller, fd, GuestPtr::new(0), InotifyMask::IN_MODIFY);
+    let wd = block_on(add).unwrap();
+    assert!(kernel.inotify.watching());
+    assert_eq!(block_on(kernel.inotify_rm_watch(&caller, fd, wd)), Ok(0));
+    assert!(!kernel.inotify.watching());
+
+    // Closing the instance drops its watches too.
+    let add = kernel.inotify_add_watch(&caller, fd, GuestPtr::new(0), InotifyMask::IN_MODIFY);
+    block_on(add).unwrap();
+    assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+    assert!(!kernel.inotify.watching());
+}
+
 mod ipc;
 mod net;
 mod proc;

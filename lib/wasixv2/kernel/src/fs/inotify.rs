@@ -48,8 +48,8 @@ type Watchers = Vec<(Weak<Instance>, i32)>;
 #[derive(Default)]
 pub(crate) struct Registry {
     watches: Mutex<HashMap<FsObject, Watchers>>,
-    /// `watches` is not empty, so the VFS's event fast path can tell without the lock.
-    watching: AtomicBool,
+    /// Whether `watches` holds anything, readable without its lock.
+    watched: AtomicBool,
     cookie: AtomicU32,
 }
 
@@ -57,8 +57,16 @@ impl Registry {
     /// A registry fed by `vfs`'s change notifications.
     pub(crate) fn install(vfs: &Vfs) -> Arc<Self> {
         let registry = Arc::new(Self::default());
-        vfs.set_watcher(Some(registry.clone()));
+        vfs.set_watcher(registry.clone());
         registry
+    }
+
+    /// Changes the watch table, keeping `watched` in step.
+    fn update<R>(&self, f: impl FnOnce(&mut HashMap<FsObject, Watchers>) -> R) -> R {
+        let mut watches = self.watches.lock().unwrap();
+        let result = f(&mut watches);
+        self.watched.store(!watches.is_empty(), Ordering::Release);
+        result
     }
 
     /// Queues `mask` for every watch on `object` that wants it.
@@ -77,20 +85,10 @@ impl Registry {
         }
     }
 
-    /// Records whether anything is watched, after a change to `watches`.
-    fn changed(&self, watches: &HashMap<FsObject, Watchers>) {
-        self.watching.store(!watches.is_empty(), Ordering::Release);
-    }
-
     /// The object is gone: `IN_DELETE_SELF`, then `IN_IGNORED` as its watches go away.
     fn gone(&self, object: FsObject) {
         self.deliver(object, InotifyMask::IN_DELETE_SELF.0, 0, b"");
-        let removed = {
-            let mut watches = self.watches.lock().unwrap();
-            let removed = watches.remove(&object);
-            self.changed(&watches);
-            removed
-        };
+        let removed = self.update(|watches| watches.remove(&object));
         for (inotify, wd) in removed.into_iter().flatten() {
             if let Some(inotify) = inotify.upgrade() {
                 inotify.forget(wd);
@@ -100,20 +98,20 @@ impl Registry {
     }
 
     fn unwatch(&self, object: FsObject, inotify: &Instance, wd: i32) {
-        let mut watches = self.watches.lock().unwrap();
-        if let Some(list) = watches.get_mut(&object) {
-            list.retain(|(i, w)| !(*w == wd && std::ptr::eq(i.as_ptr(), inotify)));
-            if list.is_empty() {
-                watches.remove(&object);
+        self.update(|watches| {
+            if let Some(list) = watches.get_mut(&object) {
+                list.retain(|(i, w)| !(*w == wd && std::ptr::eq(i.as_ptr(), inotify)));
+                if list.is_empty() {
+                    watches.remove(&object);
+                }
             }
-        }
-        self.changed(&watches);
+        });
     }
 }
 
 impl FsWatcher for Registry {
-    fn is_watching(&self) -> bool {
-        self.watching.load(Ordering::Acquire)
+    fn watching(&self) -> bool {
+        self.watched.load(Ordering::Acquire)
     }
 
     fn event(&self, event: &FsEvent<'_>) {
@@ -317,16 +315,16 @@ fn overflow_record() -> Vec<u8> {
 impl Drop for Inotify {
     fn drop(&mut self) {
         let watches = std::mem::take(&mut self.inner.state.lock().unwrap().watches);
-        let mut registry = self.registry.watches.lock().unwrap();
-        for watch in watches.values() {
-            if let Some(list) = registry.get_mut(&watch.object) {
-                list.retain(|(i, _)| !std::ptr::eq(i.as_ptr(), &*self.inner));
-                if list.is_empty() {
-                    registry.remove(&watch.object);
+        self.registry.update(|registry| {
+            for watch in watches.values() {
+                if let Some(list) = registry.get_mut(&watch.object) {
+                    list.retain(|(i, _)| !std::ptr::eq(i.as_ptr(), &*self.inner));
+                    if list.is_empty() {
+                        registry.remove(&watch.object);
+                    }
                 }
             }
-        }
-        self.registry.changed(&registry);
+        });
     }
 }
 
@@ -452,12 +450,10 @@ impl Kernel {
         let wd = state.last_wd;
         state.watches.insert(wd, Watch { object, mask });
         drop(state);
-        let mut watches = self.inotify.watches.lock().unwrap();
-        watches
-            .entry(object)
-            .or_default()
-            .push((Arc::downgrade(&inotify), wd));
-        self.inotify.changed(&watches);
+        self.inotify.update(|watches| {
+            let list = watches.entry(object).or_default();
+            list.push((Arc::downgrade(&inotify), wd));
+        });
         Ok(wd)
     }
 

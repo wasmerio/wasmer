@@ -49,7 +49,7 @@ pub struct Vfs {
     /// Minor numbers of anonymous devices (Linux's `get_anon_bdev`).
     next_anon: AtomicU32,
     pub locks: LockManager,
-    watcher: std::sync::RwLock<Option<Arc<dyn FsWatcher>>>,
+    watcher: std::sync::OnceLock<Arc<dyn FsWatcher>>,
 }
 
 impl Vfs {
@@ -72,7 +72,7 @@ impl Vfs {
             next_id,
             next_anon,
             locks: LockManager::default(),
-            watcher: std::sync::RwLock::new(None),
+            watcher: std::sync::OnceLock::new(),
         })
     }
 
@@ -196,9 +196,13 @@ impl Vfs {
         Ok(())
     }
 
-    /// Installs the watcher that receives change notifications.
-    pub fn set_watcher(&self, watcher: Option<Arc<dyn FsWatcher>>) {
-        *self.watcher.write().unwrap() = watcher;
+    /// Installs the watcher that receives change notifications. A VFS has at most one, set
+    /// before it is used, so reporting a change never takes a lock.
+    pub fn set_watcher(&self, watcher: Arc<dyn FsWatcher>) {
+        assert!(
+            self.watcher.set(watcher).is_ok(),
+            "the VFS watcher is installed once"
+        );
     }
 
     /// The `st_dev` of an object the driver says lives on its own device `dev`: an anonymous
@@ -212,8 +216,14 @@ impl Vfs {
             .or_insert_with(|| anon_dev(&self.next_anon))
     }
 
+    /// The watcher, if it watches anything: reads and writes of unwatched files then cost no
+    /// more than this check (`fsnotify`'s early return on an empty mask).
+    fn watching(&self) -> Option<&Arc<dyn FsWatcher>> {
+        self.watcher.get().filter(|watcher| watcher.watching())
+    }
+
     pub(crate) fn notify(&self, event: FsEvent<'_>) {
-        if let Some(watcher) = &*self.watcher.read().unwrap() {
+        if let Some(watcher) = self.watching() {
             watcher.event(&event);
         }
     }
@@ -221,8 +231,7 @@ impl Vfs {
     /// Reports an event on the object `dentry` names, to its own watches and then to its
     /// parent directory's, with its name.
     pub(crate) fn notify_object(&self, dentry: &Arc<Dentry>, event: FsEvent<'_>) {
-        let watcher = self.watcher.read().unwrap();
-        let Some(watcher) = watcher.as_ref().filter(|watcher| watcher.is_watching()) else {
+        let Some(watcher) = self.watching() else {
             return;
         };
         watcher.event(&event);

@@ -55,10 +55,9 @@ pub enum FsEvent<'a> {
 pub trait FsWatcher: Send + Sync {
     fn event(&self, event: &FsEvent<'_>);
 
-    /// Whether anything is watched at all. While nothing is, the VFS skips the events of data
-    /// access (`Access`, `Modify`, `Open`, `Close`, `Attrib`) without building them, as
-    /// `fsnotify` returns early for objects without marks.
-    fn is_watching(&self) -> bool {
+    /// Whether any watch exists. While none does, the VFS builds no events at all, so this must
+    /// be cheap (an atomic load) and become true before the first watch can see an event.
+    fn watching(&self) -> bool {
         true
     }
 
