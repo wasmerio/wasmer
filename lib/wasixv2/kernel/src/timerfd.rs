@@ -1,8 +1,9 @@
 //! Timer descriptors, as Linux's `fs/timerfd.c`.
 //!
 //! Expirations are counted from the clock whenever the timer is looked at, so reads and polls
-//! are exact. A host timer task wakes the timer's queue at each expiry, so blocked readers and
-//! pollers notice without polling.
+//! are exact. A kernel timer wakes the descriptor's queue at the next expiry, so blocked readers
+//! and pollers notice without polling. As on Linux, it stays disarmed once it fired until a read
+//! takes the expirations, so a periodic timer nobody reads costs nothing.
 
 use std::{
     sync::{Arc, Mutex, Weak},
@@ -23,6 +24,7 @@ use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
     time::{self, Clock},
+    timer::{self, Timer},
 };
 
 #[derive(Default)]
@@ -32,8 +34,6 @@ struct State {
     interval: Duration,
     /// Expirations not read yet.
     ticks: u64,
-    /// Bumped on every `settime`, retiring the previous host timer task.
-    generation: u64,
 }
 
 struct Inner {
@@ -41,6 +41,8 @@ struct Inner {
     host: Arc<dyn Host>,
     state: Mutex<State>,
     wait: WaitQueue,
+    /// Fires at `deadline` while no expiration is unread.
+    timer: Timer,
 }
 
 pub(crate) struct TimerFd(Arc<Inner>);
@@ -57,15 +59,47 @@ impl Inner {
             && deadline <= now
         {
             if state.interval.is_zero() {
-                state.ticks += 1;
+                state.ticks = state.ticks.saturating_add(1);
                 state.deadline = None;
             } else {
-                let missed = (now - deadline).as_nanos() / state.interval.as_nanos();
-                state.ticks += 1 + missed as u64;
-                state.deadline = Some(deadline + state.interval * (missed as u32 + 1));
+                let (ticks, next) = timer::forward(deadline, state.interval, now);
+                state.ticks = state.ticks.saturating_add(ticks);
+                state.deadline = next;
             }
         }
         state.ticks > 0
+    }
+
+    /// `deadline` on the host's monotonic clock, which kernel timers run on. A realtime
+    /// deadline is checked again when the timer fires, since that clock can move.
+    fn monotonic(&self, deadline: Duration) -> Duration {
+        match self.clock {
+            Clock::Realtime => {
+                let left = deadline.saturating_sub(self.host.realtime());
+                self.host.monotonic().saturating_add(left)
+            }
+            _ => deadline,
+        }
+    }
+
+    /// Arms the kernel timer for the next expiry while none is unread.
+    fn rearm(&self, state: &State) {
+        match state.deadline {
+            Some(deadline) if state.ticks == 0 => self.timer.start(self.monotonic(deadline)),
+            _ => self.timer.cancel(),
+        }
+    }
+
+    /// `timerfd_tmrproc`: wakes readers once an expiration is due. Until then (a realtime
+    /// deadline the clock has not reached yet) the timer goes on.
+    fn expired(&self) -> Option<Duration> {
+        let mut state = self.state.lock().unwrap();
+        if self.update(&mut state) {
+            drop(state);
+            self.wait.wake(PollMask::READABLE);
+            return None;
+        }
+        state.deadline.map(|deadline| self.monotonic(deadline))
     }
 
     /// The current setting, as `timerfd_gettime` reports it.
@@ -81,35 +115,6 @@ impl Inner {
     }
 }
 
-/// Wakes the timer's readers at each expiry until the timer is re-armed or closed.
-async fn run_timer(inner: Weak<Inner>, host: Arc<dyn Host>, generation: u64) {
-    loop {
-        let (clock, deadline) = {
-            let Some(inner) = inner.upgrade() else { return };
-            let state = inner.state.lock().unwrap();
-            match state.deadline {
-                Some(deadline) if state.generation == generation => (inner.clock, deadline),
-                _ => return,
-            }
-        };
-        match clock {
-            Clock::Realtime => host.sleep(deadline.saturating_sub(host.realtime())).await,
-            _ => host.sleep_until(deadline).await,
-        }
-        let Some(inner) = inner.upgrade() else { return };
-        let ready = {
-            let mut state = inner.state.lock().unwrap();
-            if state.generation != generation {
-                return;
-            }
-            inner.update(&mut state)
-        };
-        if ready {
-            inner.wait.wake(PollMask::READABLE);
-        }
-    }
-}
-
 impl TimerFd {
     async fn read_ticks(&self, io: Io<'_>, buf: &mut [u8]) -> SysResult<usize> {
         if buf.len() < 8 {
@@ -120,7 +125,10 @@ impl TimerFd {
             if !self.0.update(&mut state) {
                 return io.nonblocking().then_some(Err(Errno::EAGAIN));
             }
-            Some(Ok(std::mem::take(&mut state.ticks)))
+            let ticks = std::mem::take(&mut state.ticks);
+            // `hrtimer_forward_now` and `hrtimer_restart`: on to the next expiry.
+            self.0.rearm(&state);
+            Some(Ok(ticks))
         };
         let ticks = wait_event(&self.0.wait, take, io.interrupt)
             .await
@@ -171,11 +179,16 @@ impl Kernel {
             }
             _ => return Err(Errno::EINVAL.into()),
         };
-        let object = TimerFd(Arc::new(Inner {
-            clock,
-            host: self.host.clone(),
-            state: Mutex::default(),
-            wait: WaitQueue::new(),
+        let object = TimerFd(Arc::new_cyclic(|inner: &Weak<Inner>| {
+            let inner = inner.clone();
+            let expired = move || inner.upgrade().and_then(|inner| inner.expired());
+            Inner {
+                clock,
+                host: self.host.clone(),
+                state: Mutex::default(),
+                wait: WaitQueue::new(),
+                timer: self.timers.timer(Box::new(expired)),
+            }
         }));
         let mut status = OpenFlags::O_RDWR;
         if flags.contains(TimerfdFlags::TFD_NONBLOCK) {
@@ -214,10 +227,9 @@ impl Kernel {
         let interval = time::from_timespec(new.it_interval)?;
         let file = self.timerfd(caller, fd)?;
         let timer = &file.downcast::<TimerFd>().unwrap().0;
-        let (previous, generation, armed) = {
+        let previous = {
             let mut state = timer.state.lock().unwrap();
             let previous = timer.setting(&mut state);
-            state.generation += 1;
             state.ticks = 0;
             state.interval = interval;
             state.deadline = match (
@@ -226,14 +238,12 @@ impl Kernel {
             ) {
                 (true, _) => None,
                 (false, true) => Some(value),
-                (false, false) => Some(timer.now() + value),
+                (false, false) => timer.now().checked_add(value),
             };
-            (previous, state.generation, state.deadline.is_some())
+            // `hrtimer_cancel`, then `hrtimer_start` for the new setting.
+            timer.rearm(&state);
+            previous
         };
-        if armed {
-            let task = run_timer(Arc::downgrade(timer), self.host.clone(), generation);
-            self.host.executor().spawn_local(Box::pin(task));
-        }
         if !old.is_null() {
             write_value(caller.memory(), old, &previous).await?;
         }

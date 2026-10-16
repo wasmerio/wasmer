@@ -27,6 +27,7 @@ mod startup;
 mod stdio;
 mod thread;
 mod time;
+mod timer;
 mod timerfd;
 mod unix;
 
@@ -112,6 +113,8 @@ pub struct Kernel {
     // ---- ipc ----
     /// Serialises epoll nesting changes with their loop checks (`epnested_mutex`).
     epoll_nesting: Mutex<()>,
+    /// Every armed timer: timerfds and interval timers.
+    timers: timer::Timers,
 }
 
 #[derive(Default)]
@@ -161,6 +164,7 @@ impl Kernel {
         let clock = Arc::new(fs::HostClock(host.clone()));
         Self {
             pseudo: pseudo::Pseudo::new(&vfs, clock),
+            timers: timer::Timers::new(host.clone()),
             host,
             state: Arc::default(),
             network: None,

@@ -18,13 +18,15 @@ use wasixv2_abi::{
     SigaltstackPtr, Siginfo, SiginfoPtr, Signal, SignalHandler, SignalLimits, SigprocmaskHow,
     Sigset, SigsetPtr,
 };
-use wasixv2_host::Host;
 use wasixv2_syscalls::{
     Caller, Errno, GuestAction, SignalFrame, SysErr, SysResult, TaskId, read_value, write_value,
 };
 use wasixv2_wait::{Interrupt, WaitQueue, Waiter, Wakeup};
 
-use crate::{ID, Kernel, time};
+use crate::{
+    ID, Kernel, time,
+    timer::{self, Timer},
+};
 
 const NSIG: i32 = 64;
 const SIGRTMIN: i32 = 32;
@@ -166,13 +168,14 @@ impl AltStack {
     }
 }
 
-/// `ITIMER_REAL`. Each arming bumps `generation`, so the timer task of an older arming stops.
+/// `ITIMER_REAL`.
 #[derive(Default)]
 struct RealTimer {
-    generation: u64,
     /// On the host's monotonic clock.
     deadline: Option<Duration>,
     interval: Duration,
+    /// Sends SIGALRM at `deadline` (`it_real_fn`); made at the first arming.
+    timer: Option<Timer>,
 }
 
 /// What a signal does by default (`sig_kernel_*` in `include/linux/signal.h`).
@@ -1048,7 +1051,7 @@ impl Kernel {
     }
 
     /// Arms (or with a zero value disarms) `ITIMER_REAL` and returns its previous value and
-    /// interval. A host task sends SIGALRM at each expiry.
+    /// interval. A kernel timer sends SIGALRM at each expiry.
     fn arm_real_timer(
         &self,
         group: &Arc<Signals>,
@@ -1060,39 +1063,43 @@ impl Kernel {
         let Some((value, interval)) = new else {
             return old;
         };
-        let timer = &mut state.real_timer;
-        timer.generation += 1;
-        timer.interval = interval;
-        timer.deadline = (!value.is_zero()).then(|| now + value);
-        if let Some(deadline) = timer.deadline {
-            let run = real_timer(self.host.clone(), group.clone(), timer.generation, deadline);
-            self.host.executor().spawn_local(Box::pin(run));
+        let real = &mut state.real_timer;
+        real.interval = interval;
+        real.deadline = (!value.is_zero()).then(|| now.saturating_add(value));
+        let timer = real.timer.get_or_insert_with(|| {
+            let group = Arc::downgrade(group);
+            let host = self.host.clone();
+            let fire = move || {
+                let group = group.upgrade()?;
+                real_timer_expired(&group, host.monotonic())
+            };
+            self.timers.timer(Box::new(fire))
+        });
+        match real.deadline {
+            Some(deadline) => timer.start(deadline),
+            None => timer.cancel(),
         }
         old
     }
 }
 
-/// The body of an armed `ITIMER_REAL`: sleeps to each deadline and sends SIGALRM to the group,
-/// until a later arming replaces it.
-async fn real_timer(host: Arc<dyn Host>, group: Arc<Signals>, generation: u64, first: Duration) {
-    let mut deadline = first;
-    loop {
-        host.sleep_until(deadline).await;
-        {
-            let mut state = group.state.lock().unwrap();
-            let timer = &mut state.real_timer;
-            if timer.generation != generation {
-                return;
-            }
-            timer.deadline = (!timer.interval.is_zero()).then(|| deadline + timer.interval);
+/// `it_real_fn`: sends SIGALRM, and moves a periodic timer past `now`; missed periods
+/// collapse into the one signal. Returns the deadline to re-arm at.
+fn real_timer_expired(group: &Signals, now: Duration) -> Option<Duration> {
+    {
+        let mut state = group.state.lock().unwrap();
+        let real = &mut state.real_timer;
+        let deadline = real.deadline?;
+        if deadline > now {
+            return Some(deadline);
         }
-        group.send(None, kernel_info(Signal::SIGALRM.0));
-        let state = group.state.lock().unwrap();
-        match state.real_timer.deadline {
-            Some(next) if state.real_timer.generation == generation => deadline = next,
-            _ => return,
-        }
+        real.deadline = match real.interval.is_zero() {
+            true => None,
+            false => timer::forward(deadline, real.interval, now).1,
+        };
     }
+    group.send(None, kernel_info(Signal::SIGALRM.0));
+    group.state.lock().unwrap().real_timer.deadline
 }
 
 fn real_timer_value(timer: &RealTimer, now: Duration) -> (Duration, Duration) {
