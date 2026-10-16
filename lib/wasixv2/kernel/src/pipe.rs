@@ -379,8 +379,8 @@ impl Kernel {
             OpenFlags::O_WRONLY | status,
         );
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
-        let fds = self.install_files(caller, [read, write], cloexec)?;
-        self.copy_out_fd_pair(caller, fildes, fds).await?;
+        self.install_pair(caller, fildes, [read, write], cloexec)
+            .await?;
         Ok(0)
     }
 
@@ -391,36 +391,30 @@ impl Kernel {
         files: [OpenFile; N],
         cloexec: bool,
     ) -> Result<[Fd; N], Errno> {
-        let table = self.files(caller.task());
-        let mut table = table.lock().unwrap();
-        if !table.has_room(N) {
-            return Err(Errno::EMFILE);
-        }
-        Ok(files.map(|file| {
-            table
-                .install(Arc::new(file), cloexec)
-                .expect("room checked above")
-        }))
+        let fds = self.reserve_fds::<N>(caller, cloexec)?;
+        let mut files = files.into_iter();
+        Ok(fds.map(|fd| fd.install(Arc::new(files.next().expect("one file per fd")))))
     }
 
-    /// Writes a new descriptor pair to the guest. On a fault the descriptors are closed again,
-    /// as Linux only installs them after the copy succeeded.
-    pub(crate) async fn copy_out_fd_pair(
+    /// Installs a new pair of files and writes their descriptors to the guest, as `do_pipe2`
+    /// does: the numbers are reserved first and the files installed only once the copy
+    /// succeeded, so a fault never closes descriptors another thread may already use.
+    pub(crate) async fn install_pair(
         &self,
         caller: &Caller<'_>,
         out: FdPair,
-        fds: [Fd; 2],
+        files: [OpenFile; 2],
+        cloexec: bool,
     ) -> SysResult<()> {
-        let pair = [fds[0].0, fds[1].0];
-        let result = write_value(caller.memory(), GuestPtrMut::new(out.addr()), &pair).await;
-        if result.is_err() {
-            let table = self.files(caller.task());
-            let mut table = table.lock().unwrap();
-            let removed = fds.map(|fd| table.remove(fd));
-            drop(table);
-            drop(removed);
-            return Err(Errno::EFAULT.into());
-        }
+        let fds = self.reserve_fds::<2>(caller, cloexec)?;
+        let pair = [fds[0].fd().0, fds[1].fd().0];
+        write_value(caller.memory(), GuestPtrMut::new(out.addr()), &pair)
+            .await
+            .map_err(|_| Errno::EFAULT)?;
+        let [read, write] = files;
+        let [rfd, wfd] = fds;
+        rfd.install(Arc::new(read));
+        wfd.install(Arc::new(write));
         Ok(())
     }
 }

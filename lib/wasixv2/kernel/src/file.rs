@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    collections::BTreeSet,
     sync::{Arc, Mutex},
 };
 
@@ -381,6 +382,9 @@ struct Slot {
 #[derive(Default)]
 pub(crate) struct FdTable {
     slots: Vec<Option<Slot>>,
+    /// Descriptors handed out for a file still being opened (`get_unused_fd_flags` before
+    /// `fd_install`): no other allocation takes them, and they are not open yet.
+    reserved: BTreeSet<usize>,
     /// The soft `RLIMIT_NOFILE` once a process set one; no descriptor at or above it is handed
     /// out.
     limit: Option<usize>,
@@ -445,7 +449,34 @@ impl FdTable {
     }
 
     fn free_from(&self, min: usize) -> impl Iterator<Item = usize> + '_ {
-        (min..self.limit()).filter(|&i| self.slots.get(i).is_none_or(Option::is_none))
+        (min..self.limit()).filter(|&i| {
+            self.slots.get(i).is_none_or(Option::is_none) && !self.reserved.contains(&i)
+        })
+    }
+
+    /// Reserves the lowest free descriptor; `None` at the limit (`EMFILE`).
+    pub(crate) fn reserve(&mut self) -> Option<Fd> {
+        let index = self.free_from(0).next()?;
+        self.reserved.insert(index);
+        Some(Fd(index as i32))
+    }
+
+    /// Installs `file` at the reserved `fd` (`fd_install`).
+    pub(crate) fn fill(&mut self, fd: Fd, file: Arc<OpenFile>, cloexec: bool) {
+        let removed = self.reserved.remove(&(fd.0 as usize));
+        debug_assert!(removed, "only reserved descriptors are filled");
+        let replaced = self.install_at(fd, file, cloexec);
+        debug_assert!(replaced.is_none());
+    }
+
+    /// Gives back a reservation that was not filled (`put_unused_fd`).
+    pub(crate) fn release(&mut self, fd: Fd) {
+        self.reserved.remove(&(fd.0 as usize));
+    }
+
+    /// Whether `fd` is reserved for a file still being opened.
+    pub(crate) fn is_reserved(&self, fd: Fd) -> bool {
+        usize::try_from(fd.0).is_ok_and(|index| self.reserved.contains(&index))
     }
 
     /// One past the highest descriptor that may be in use.

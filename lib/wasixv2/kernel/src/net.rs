@@ -211,8 +211,7 @@ impl Kernel {
             unix_file(b, flags, self.pseudo.socket()),
         ];
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
-        let fds = self.install_files(caller, files, cloexec)?;
-        self.copy_out_fd_pair(caller, usockvec, fds).await?;
+        self.install_pair(caller, usockvec, files, cloexec).await?;
         Ok(0)
     }
 

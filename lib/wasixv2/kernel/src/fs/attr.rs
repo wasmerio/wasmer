@@ -268,8 +268,8 @@ impl Kernel {
             None
         } else {
             let atime: KernelTimespec = read_value(caller.memory(), utimes).await?;
-            let mtime: KernelTimespec =
-                read_value(caller.memory(), GuestPtr::new(utimes.addr() + 16)).await?;
+            let second = utimes.addr().checked_add(16).ok_or(Errno::EFAULT)?;
+            let mtime: KernelTimespec = read_value(caller.memory(), GuestPtr::new(second)).await?;
             Some([atime, mtime])
         };
         let env = self.env(caller);

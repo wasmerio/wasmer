@@ -170,8 +170,13 @@ impl Kernel {
             previous
         };
         if new.is_some() && resource == RlimitResource::RLIMIT_NOFILE {
+            // The limit is the target's, not the caller's: every descriptor table its tasks use.
             let limit = process.resources.lock().unwrap().nofile();
-            self.files(caller.task()).lock().unwrap().set_limit(limit);
+            let state = self.state.read().unwrap();
+            let tasks = state.tasks.values();
+            for task in tasks.filter(|task| std::sync::Arc::ptr_eq(&task.process, &process)) {
+                task.files.lock().unwrap().set_limit(limit);
+            }
         }
         if !old.is_null() {
             write_value(caller.memory(), old, &previous).await?;
@@ -377,7 +382,7 @@ impl Kernel {
         len: u32,
         mask: UlongArray,
     ) -> SysResult<i32> {
-        if len * 8 < cpus() || !len.is_multiple_of(MASK_WORD) {
+        if u64::from(len) * 8 < u64::from(cpus()) || !len.is_multiple_of(MASK_WORD) {
             return Err(Errno::EINVAL.into());
         }
         let affinity = self

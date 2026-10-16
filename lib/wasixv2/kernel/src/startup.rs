@@ -53,6 +53,8 @@ impl<'a> Startup<'a> {
 
     /// The block as it must appear at guest address `base`.
     pub(crate) fn build(&self, base: u32, random: [u8; RANDOM_LEN]) -> Result<Vec<u8>, Errno> {
+        // A block that would wrap past the end of the address space is a bad pointer.
+        base.checked_add(self.size()?).ok_or(Errno::EFAULT)?;
         let mut block = vec![0; self.size()? as usize];
         let random_at = self.header_len();
         block[random_at..][..RANDOM_LEN].copy_from_slice(&random);

@@ -975,7 +975,7 @@ impl FileObject for PidFd {
 }
 
 /// `dup_fd`: the same open files at the same numbers, close-on-exec flags included.
-fn copy_files(table: &FdTable) -> FdTable {
+pub(crate) fn copy_files(table: &FdTable) -> FdTable {
     let mut copy = FdTable::default();
     copy.set_limit(table.limit());
     for fd in (0..table.end()).map(|fd| Fd(fd as i32)) {

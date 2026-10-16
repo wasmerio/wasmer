@@ -15,7 +15,8 @@ impl Kernel {
         request: IoctlRequest,
         arg: u32,
     ) -> SysResult<i32> {
-        let file = self.file(caller.task(), fd)?;
+        // `fdget`: an `O_PATH` descriptor has no operations.
+        let file = self.io_file(caller, fd)?;
         // Regular files answer FIONREAD generically; other files ask their object.
         if request == IoctlRequest::FIONREAD
             && let Backing::Inode(inode) = &file.backing

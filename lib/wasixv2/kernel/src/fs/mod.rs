@@ -10,7 +10,7 @@ mod path;
 
 pub(crate) use io::read_iovecs;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use wasixv2_abi::{
     AtFd, AtFlags, CloseRangeFlags, ConstOpenHowPtr, Cstr, FcntlCmd, FdFlags, OpenFlags, OpenHow,
@@ -24,7 +24,7 @@ use wasixv2_vfs::{Clock, Cred, Ctx, LookupFlags, MODE_PERM, PATH_MAX, Path, Time
 
 use crate::{
     ID, Kernel,
-    file::{Backing, OpenFile},
+    file::{Backing, FdTable, OpenFile},
 };
 
 /// The soft `RLIMIT_NOFILE` every process has until resource limits exist.
@@ -342,11 +342,13 @@ impl Kernel {
             mode: how.mode as u32,
             lookup,
         };
+        // `get_unused_fd_flags` before `do_filp_open`: at the limit, nothing is created,
+        // truncated or waited for.
+        let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
+        let [fd] = self.reserve_fds(caller, cloexec)?;
         let file = self.vfs.open(&env.cx(), &start, &path, &vfs_how).await?;
         let backing = self.attach(caller, file, flags).await?;
-        let file = Arc::new(OpenFile::new(backing, flags));
-        let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
-        self.install(caller, file, cloexec)
+        Ok(fd.install(Arc::new(OpenFile::new(backing, flags))))
     }
 
     /// `do_dentry_open`'s `f_op->open`: a FIFO attaches to its pipe and a device node to its
@@ -388,6 +390,27 @@ impl Kernel {
         Ok(files.install(file, cloexec).ok_or(Errno::EMFILE)?)
     }
 
+    /// Reserves the `N` lowest free descriptors, all or none (`EMFILE`), for files that are
+    /// installed once nothing can fail any more.
+    pub(crate) fn reserve_fds<const N: usize>(
+        &self,
+        caller: &Caller<'_>,
+        cloexec: bool,
+    ) -> Result<[FdReservation; N], Errno> {
+        let table = self.files(caller.task());
+        let mut files = table.lock().unwrap();
+        if !files.has_room(N) {
+            return Err(Errno::EMFILE);
+        }
+        let fds = [(); N].map(|()| files.reserve().expect("room checked above"));
+        drop(files);
+        Ok(fds.map(|fd| FdReservation {
+            table: Some(table.clone()),
+            fd,
+            cloexec,
+        }))
+    }
+
     /// What closing a descriptor does besides dropping the reference: release the process's
     /// POSIX locks on the file (`filp_flush` → `locks_remove_posix`).
     pub(crate) fn closed(&self, caller: &Caller<'_>, file: &OpenFile) {
@@ -417,18 +440,32 @@ impl Kernel {
         if !(flags & !known).is_empty() || first > last {
             return Err(Errno::EINVAL.into());
         }
-        let files = self.files(caller.task());
-        let end = files.lock().unwrap().end().min(last as usize + 1);
-        for index in first as usize..end {
-            let fd = Fd(index as i32);
-            if flags.contains(CloseRangeFlags::CLOSE_RANGE_CLOEXEC) {
-                files.lock().unwrap().set_cloexec(fd, true);
-            } else {
-                let file = files.lock().unwrap().remove(fd);
-                if let Some(file) = file {
-                    self.closed(caller, &file);
+        let mut files = self.files(caller.task());
+        // `unshare_fd`: a table shared with other tasks is copied first, so only the
+        // caller's descriptors close. The task and this function hold one reference each.
+        if flags.contains(CloseRangeFlags::CLOSE_RANGE_UNSHARE) && Arc::strong_count(&files) > 2 {
+            let copy = Arc::new(Mutex::new(crate::process::copy_files(
+                &files.lock().unwrap(),
+            )));
+            self.with_task(caller.task(), |task| task.files = copy.clone());
+            files = copy;
+        }
+        let closed: Vec<Arc<OpenFile>> = {
+            let mut table = files.lock().unwrap();
+            let end = table.end().min(last as usize + 1);
+            let range = (first as usize..end).map(|index| Fd(index as i32));
+            match flags.contains(CloseRangeFlags::CLOSE_RANGE_CLOEXEC) {
+                true => {
+                    for fd in range {
+                        table.set_cloexec(fd, true);
+                    }
+                    Vec::new()
                 }
+                false => range.filter_map(|fd| table.remove(fd)).collect(),
             }
+        };
+        for file in &closed {
+            self.closed(caller, file);
         }
         Ok(0)
     }
@@ -451,11 +488,17 @@ impl Kernel {
         if old == new {
             return Err(Errno::EINVAL.into());
         }
-        let file = self.file(caller.task(), old)?;
+        // `do_dup2` under `file_lock`: the lookup and the install are one step, so a
+        // concurrent close of `old` cannot be undone.
         let files = self.files(caller.task());
         let mut table = files.lock().unwrap();
         if new.0 < 0 || new.0 as usize >= table.limit() {
             return Err(Errno::EBADF.into());
+        }
+        let file = table.get(old).ok_or(Errno::EBADF)?;
+        // A descriptor reserved by an open still in progress.
+        if table.is_reserved(new) {
+            return Err(Errno::EBUSY.into());
         }
         let replaced = table.install_at(new, file, flags.contains(OpenFlags::O_CLOEXEC));
         drop(table);
@@ -520,6 +563,35 @@ impl Kernel {
             }
             FcntlCmd::F_GETPIPE_SZ | FcntlCmd::F_SETPIPE_SZ => crate::pipe::fcntl(&file, cmd, arg),
             _ => self.fcntl_lock(caller, &file, cmd, arg).await,
+        }
+    }
+}
+
+/// A descriptor reserved by `Kernel::reserve_fds`. Dropping it unused gives the number back.
+pub(crate) struct FdReservation {
+    /// `None` once installed.
+    table: Option<Arc<Mutex<FdTable>>>,
+    fd: Fd,
+    cloexec: bool,
+}
+
+impl FdReservation {
+    pub(crate) fn fd(&self) -> Fd {
+        self.fd
+    }
+
+    /// Installs `file` at the reserved descriptor (`fd_install`).
+    pub(crate) fn install(mut self, file: Arc<OpenFile>) -> Fd {
+        let table = self.table.take().expect("installed once");
+        table.lock().unwrap().fill(self.fd, file, self.cloexec);
+        self.fd
+    }
+}
+
+impl Drop for FdReservation {
+    fn drop(&mut self) {
+        if let Some(table) = &self.table {
+            table.lock().unwrap().release(self.fd);
         }
     }
 }

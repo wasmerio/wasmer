@@ -559,6 +559,56 @@ fn file_io_skips_notification_while_nothing_is_watched() {
     assert!(!kernel.inotify.watching());
 }
 
+/// Sets `pid`'s soft `RLIMIT_NOFILE` to `limit`, with a hard limit of 64, from `caller`.
+fn set_nofile(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory, pid: i32, limit: u64) {
+    put(memory, 256, &limit.to_le_bytes());
+    put(memory, 264, &64u64.to_le_bytes());
+    let nofile = wasixv2_abi::RlimitResource::RLIMIT_NOFILE;
+    let set = kernel.prlimit64(caller, pid, nofile, GuestPtr::new(256), GuestPtrMut::NULL);
+    assert_eq!(block_on(set), Ok(0));
+}
+
+#[test]
+fn an_open_at_the_descriptor_limit_creates_nothing() {
+    use ipc::errno;
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 512]));
+    let caller = Caller::new(task, &memory);
+    put(&memory, 0, b"/new\0");
+    // Descriptors 0 to 2 are stdio, so there is no room left.
+    set_nofile(&kernel, &caller, &memory, 0, 3);
+    let create = OpenFlags::O_CREAT | OpenFlags::O_RDWR | OpenFlags::O_TRUNC;
+    let open = |flags| block_on(kernel.openat(&caller, Fd(-100), GuestPtr::new(0), flags, 0o600));
+    assert_eq!(errno(open(create)), Errno::EMFILE);
+    set_nofile(&kernel, &caller, &memory, 0, 8);
+    assert_eq!(errno(open(OpenFlags::O_RDONLY)), Errno::ENOENT);
+
+    // A pipe whose descriptors cannot be copied out installs none of them.
+    let fault = wasixv2_abi::FdPair::new(1 << 30);
+    let pipe = block_on(kernel.pipe2(&caller, fault, OpenFlags(0)));
+    assert_eq!(errno(pipe), Errno::EFAULT);
+    assert_eq!(open(create), Ok(Fd(3)));
+}
+
+#[test]
+fn prlimit_of_another_process_sets_its_descriptor_limit() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 512]));
+    let caller = Caller::new(task, &memory);
+    let other = kernel.spawn(ProcessConfig {
+        args: vec!["other".into()],
+        env: Vec::new(),
+        stdio: Stdio::from_fns(|_| {}, |_| {}),
+    });
+    set_nofile(&kernel, &caller, &memory, other.0 as i32, 3);
+    let dup = |task| {
+        let stdin = kernel.file(task, Fd(0)).unwrap();
+        kernel.files(task).lock().unwrap().install(stdin, false)
+    };
+    assert_eq!(dup(other), None);
+    assert_eq!(dup(task), Some(Fd(3)));
+}
+
 mod ipc;
 mod net;
 mod proc;
