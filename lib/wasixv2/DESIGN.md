@@ -450,6 +450,9 @@ The execution crate is the only layer below the facade that knows about the wasm
   - **Exception handling with exnref** (the default). `setjmp`/`longjmp` use wasm exceptions.
   - **Exception handling plus PIC.** For programs that need dynamic linking.
   - **Asyncify.** For programs that need `fork`, which today means bash, and for guests that will be checkpointed. Binaryen's asyncify cannot be combined with wasm exceptions, so in this configuration `setjmp`/`longjmp` use the `stack-save` and `stack-restore` extensions, v1's `stack_checkpoint` and `stack_restore`, which only libc calls. Modules in other configurations get `ENOSYS` from them.
+    - libc2 builds a second sysroot for it, `sysroot-wasixv2-asyncify`, without wasm exception handling; there `setjmp` is a function on `stack-save`, and `longjmp` one on `stack-restore`.
+    - wasixcc selects it with `WASM_EXCEPTIONS=no`, as for wasixv1, and runs `wasm-opt --asyncify` with `asyncify-imports` naming the imports that unwind (`clone`, `stack-save`, `checkpoint`), so only code that can reach them is instrumented.
+    - The execution layer recognizes an instrumented module by its `asyncify_*` exports and needs `__stack_pointer` exported, as libc-built modules do.
 - **Return to guest.** After every syscall and at every preemption point, the hook runs pending work:
   - deliver signals: build the frame, run the handler, and have `rt_sigreturn` restore state
   - restart interrupted calls
@@ -462,6 +465,13 @@ The execution crate is the only layer below the facade that knows about the wasm
   - **`siglongjmp` out of a handler works across host frames.** The embedder's `Function::call` returns an error carrying the wasm exception, and the import returns it, which re-raises it through the remaining wasm frames. The host-side signal delivery code must pass these errors through untouched.
 - **Coroutines.** wasixv1's context API (`context-create`, `context-switch`, `context-destroy`) carries over as `wasixv2` extension functions, and greenlet keeps using it directly. libc implements `getcontext`, `setcontext`, `makecontext` and `swapcontext` on top of it. On each switch, libc also swaps the shadow stack pointer and signal mask, passes arguments through a trampoline, and follows `uc_link`.
 - **Fork.** Fork needs the asyncify configuration and goes through clone without CLONE\_VM. Asyncify unwinds the stack into linear memory, memory is copied, and both are rewound, so clone returns the child's pid in the parent and 0 in the child.
+  1. The kernel asks the caller's address space whether it can be duplicated (`UserMemory::can_duplicate`), and fails with `ENOSYS` when it cannot, as Linux has no fork without an MMU. Only an asyncify instance whose import runs in the entry point's level says yes; see [Asyncify](#asyncify).
+  2. `copy_process` copies the descriptor table, filesystem context, signal handlers, credentials and the address space's mappings and break (`dup_mm`), and leaves `GuestAction::Fork` for the caller.
+  3. clone's writes that Linux makes after `dup_mm` wait for the copy, each in its own address space: `CLONE_PARENT_SETTID` in the parent's, `CLONE_CHILD_SETTID` and `CLONE_SETTLS` in the child's.
+  4. The execution layer unwinds the stack, copies linear memory and the exported mutable globals (`__stack_pointer`, `__tls_base`) into a new instance on a host thread of its own, and rewinds both.
+  5. The child has only the thread that forked, which may be any thread of the parent: it rewinds into that thread's entry point (`_start` or `wasixv2_thread_start`).
+
+  Not supported: a new stack (`newsp`) and `CLONE_VFORK` without `CLONE_VM` are `EINVAL`, and fork from a signal handler is `ENOSYS`, since host frames separate the handler from the stack below it.
 - **Vfork.** This is salvaged from wasixv1's setjmp-based vfork and works in all three configurations:
   1. libc's `vfork` is a macro that calls `setjmp` in the caller's frame, then calls clone with CLONE\_VM | CLONE\_VFORK, which returns 0.
   2. The kernel creates the child with a shared address space and blocks the parent task, as `CLONE_VFORK` does on Linux.
@@ -472,6 +482,19 @@ The execution crate is the only layer below the facade that knows about the wasm
   wasixv1 is brittle because it swaps its whole environment object in place and threads vfork state through exit, exec and process startup. Here a task switch is one pointer in the exec layer, and the kernel tracks the vfork relationship. As on Linux, returning from the function that called `vfork` is undefined. Because `vfork` is a macro, its address cannot be taken.
 - **Preemption.** Engine interruption checks such as epochs let the kernel deliver signals to a busy guest and enforce `SIGKILL` and `SIGSTOP`.
 - **Dynamic linking.** Side modules are loaded and linked by the host; see the next section.
+
+### Asyncify
+
+`wasixv2-exec`'s `asyncify` module is the machinery of the asyncify configuration, and knows no ABI: wasixv2's `clone`, `stack-save` and `stack-restore` use it (exec's `fork` module), and a compatibility layer for another ABI can do the same.
+
+- **Levels.** Every call the host makes into an asyncify instance goes through `asyncify::call` and is one level: the entry point, and the signal handlers and vfork returns the host runs from inside imports on top of it. An unwind reaches only the innermost level's call, because host frames sit between levels.
+- **Unwind and rewind.** An import asks for the stack with `asyncify::unwind(request)` and returns. The guest unwinds to the level's call, which carries out the request and rewinds by calling the same function again. The rewinding guest calls the import again, and the import takes the outcome with `asyncify::resumed`, which ends the rewind, and returns what it says.
+- **Requests.**
+  - `Save { slot }` records the level's stack under a guest address the import picks, such as its `jmp_buf`; a later save to the slot replaces it. The import resumes with the saved stack's id.
+  - `asyncify::restore(id, val)` gives the error the import returns: it discards the guest stack up to the level that saved `id`, through host frames, as an exception does, and that level rewinds the saved stack, whose import resumes with `val`. Memory stays as it is, and the frames from the entry point to the save point come back with their wasm locals as saved, which is `longjmp`'s contract. A stack can be restored only while its level runs.
+  - `Fork { child, tag }` copies the instance for the task `child` and resumes on both sides with `tag`, which carries the ABI's own data (wasixv2's tid writes). Only the outermost level can fork; `asyncify::whole_stack` says whether an import runs there.
+- **Memory.** Each instance takes a 1 MiB unwind buffer from the top of linear memory on its first unwind. Pages grown there count as mapped for the kernel, as pages the guest grows itself do. A deeper stack than the buffer holds traps.
+- **The import that unwinds** must not run its effect twice, since the rewinding guest calls it again: wasixv2's `clone` is wrapped so the kernel sees it once.
 
 ## Dynamic linking
 
@@ -613,7 +636,7 @@ These limits are why full compatibility stays a goal rather than a state we reac
 | Shared memory between processes | Wasm modules cannot share part of their memory | Impossible; `MAP_SHARED` anonymous memory stays private to its process, even across fork |
 | `MAP_FIXED` | Wasm memory only grows at the end | Works over pages `brk` and `mmap` handed out and past the end of memory; the image's own pages cannot be replaced (`EINVAL`) |
 | `mprotect`, guard pages | Linear memory has no page protection | Impossible; protections are not enforced, and `PROT_EXEC` fails with `EACCES` |
-| Fork | No copy-on-write | Asyncify configuration only; memory is copied eagerly |
+| Fork | No copy-on-write; the wasm call stack is outside linear memory | Asyncify configuration only, not from signal handlers; memory is copied eagerly; other configurations get `ENOSYS` |
 | Async signals | Guests only stop at interruption checks | Engine interruption checks; latency is bounded by check density |
 | `ptrace` | No way to stop and inspect a guest at the instruction level | Exported, returns ENOSYS |
 | Executable memory, JIT | Wasm code cannot be generated at runtime inside the guest | `PROT_EXEC` mappings fail |
@@ -659,6 +682,10 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 
 | Date | Decision | Why |
 | --- | --- | --- |
+| 2026-10-16 | Fork is clone without `CLONE_VM` in the asyncify configuration; the kernel asks the caller's address space whether it can be duplicated, and answers `ENOSYS` otherwise | The engine knows whether the stack can be captured, the kernel what fork means; an early `ENOSYS` creates nothing, as on Linux without an MMU |
+| 2026-10-16 | The asyncify machinery in `wasixv2-exec` is ABI-neutral (levels, unwind requests, saved stacks, fork images); wasixv2's imports sit on top of it | A compatibility layer for wasixv1's asyncify modules needs the same unwinding |
+| 2026-10-16 | `longjmp` in the asyncify configuration discards the stack with an error that crosses host frames, then rewinds the saved stack at the level that saved it | One path for `longjmp`, `siglongjmp` out of a handler and the vfork return, as with wasm exceptions |
+| 2026-10-16 | wasixcc's `WASM_EXCEPTIONS=no` selects the asyncify configuration and its own sysroot, `sysroot-wasixv2-asyncify` | Matches wasixv1's setting; asyncify cannot instrument wasm exceptions |
 | 2026-10-16 | A vfork child's end resumes the parent through a guest export, `wasixv2_vfork_return`, which `longjmp`s to the vfork point | One path for `execve`, `exit` and death by a signal; libc's `_exit` and `execve` stay unchanged, and no call returns where Linux never returns |
 | 2026-10-15 | The VFS interns inodes per (superblock, inode number) and locks directories itself; drivers guarantee inode numbers are identities | Per-inode state (directory lock, `S_DEAD`, `I_LINKABLE`, the single directory dentry, later FIFOs, sockets and inotify marks) needs one place, and VFS checks must hold until the driver applies the change |
 | 2026-10-15 | The executor is reached through `Host::executor`; tokio and the browser are host implementations behind features | Keeps the kernel runtime-agnostic and lets one embedder share an executor between hosts |

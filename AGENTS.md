@@ -123,8 +123,13 @@ with that `wasmer`. It needs, from the environment:
   wasix-org/wasixcc#87).
 - The wasix-org LLVM fork (`wasix-22.1.8` branch), via
   `WASIXCC_LLVM_LOCATION`.
-- A libc2 sysroot, via `WASIXCC_SYSROOT` (`<libc2>/build-wasixv2/sysroot-wasixv2`
-  after `make wasixv2-sysroot` in libc2).
+- The libc2 sysroots, via `WASIXCC_SYSROOT_PREFIX=<libc2>/build-wasixv2` after
+  `make wasixv2-sysroot wasixv2-sysroot-asyncify` in libc2. Tests that fork build
+  for the asyncify configuration (`WASIXCC_WASM_EXCEPTIONS=no`), whose sysroot is
+  `sysroot-wasixv2-asyncify`; `WASIXCC_SYSROOT` names one sysroot for every test,
+  so those tests fail with it.
+- binaryen's `wasm-opt`, via `WASIXCC_BINARYEN_LOCATION` (its install
+  directory), for the asyncify configuration's `wasm-opt --asyncify`.
 
 Filter tests with `WASIXV2_TESTS_ARGS=<filter>`, for example `ltp/` or
 `posix/`. Many tests are expected to fail until wasixv2 is complete:
