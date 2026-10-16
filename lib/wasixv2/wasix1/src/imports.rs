@@ -123,16 +123,16 @@ table! {
     "path_rename" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Pending;
     "path_symlink" WASI (I32 I32 I32 I32 I32) -> (I32) Pending;
     "path_unlink_file" WASI (I32 I32 I32) -> (I32) Pending;
-    "poll_oneoff" WASI (I32 I32 I32 I32) -> (I32) Pending;
+    "poll_oneoff" WASI (I32 I32 I32 I32) -> (I32) Shim;
     "proc_exit" WASI (I32) -> () Shim;
     "proc_raise" WASI (I32) -> (I32) Pending;
     "random_get" WASI (I32 I32) -> (I32) Shim;
     "sched_yield" WASI () -> (I32) Shim;
-    "sock_recv" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "sock_send" WASI (I32 I32 I32 I32 I32) -> (I32) Pending;
-    "sock_shutdown" WASI (I32 I32) -> (I32) Pending;
+    "sock_recv" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "sock_send" WASI (I32 I32 I32 I32 I32) -> (I32) Shim;
+    "sock_shutdown" WASI (I32 I32) -> (I32) Shim;
     // preview1's form; `wasix_32v1`'s `sock_accept` is `sock_accept_v2`, below.
-    "sock_accept" PREVIEW1 (I32 I32 I32) -> (I32) Pending;
+    "sock_accept" PREVIEW1 (I32 I32 I32) -> (I32) Shim;
     // wasi-threads; `wasix_32v1` has `thread_spawn` instead.
     "thread-spawn" THREADS (I32) -> (I32) Pending;
 
@@ -140,7 +140,7 @@ table! {
     "clock_time_set" WASIX (I32 I64) -> (I32) Pending;
     "fd_dup" WASIX (I32 I32) -> (I32) Pending;
     "fd_dup2" WASIX (I32 I32 I32 I32) -> (I32) Pending;
-    "fd_event" WASIX (I64 I32 I32) -> (I32) Pending;
+    "fd_event" WASIX (I64 I32 I32) -> (I32) Shim;
     "fd_pipe" WASIX (I32 I32) -> (I32) Pending;
     "fd_fdflags_get" WASIX (I32 I32) -> (I32) Pending;
     "fd_fdflags_set" WASIX (I32 I32) -> (I32) Pending;
@@ -189,41 +189,42 @@ table! {
     "port_addr_add" WASIX (I32) -> (I32) Unsupported;
     "port_addr_remove" WASIX (I32) -> (I32) Unsupported;
     "port_addr_clear" WASIX () -> (I32) Unsupported;
-    "port_mac" WASIX (I32) -> (I32) Pending;
-    "port_addr_list" WASIX (I32 I32) -> (I32) Pending;
+    "port_mac" WASIX (I32) -> (I32) Shim;
+    "port_addr_list" WASIX (I32 I32) -> (I32) Shim;
     "port_gateway_set" WASIX (I32) -> (I32) Unsupported;
     "port_route_add" WASIX (I32 I32 I32 I32) -> (I32) Unsupported;
     "port_route_remove" WASIX (I32) -> (I32) Unsupported;
     "port_route_clear" WASIX () -> (I32) Unsupported;
-    "port_route_list" WASIX (I32 I32) -> (I32) Pending;
-    "sock_status" WASIX (I32 I32) -> (I32) Pending;
-    "sock_addr_local" WASIX (I32 I32) -> (I32) Pending;
-    "sock_addr_peer" WASIX (I32 I32) -> (I32) Pending;
-    "sock_open" WASIX (I32 I32 I32 I32) -> (I32) Pending;
-    "sock_pair" WASIX (I32 I32 I32 I32 I32) -> (I32) Pending;
-    "sock_set_opt_flag" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_get_opt_flag" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_set_opt_time" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_get_opt_time" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_set_opt_size" WASIX (I32 I32 I64) -> (I32) Pending;
-    "sock_get_opt_size" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_join_multicast_v4" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_leave_multicast_v4" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_join_multicast_v6" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_leave_multicast_v6" WASIX (I32 I32 I32) -> (I32) Pending;
-    "sock_bind" WASIX (I32 I32) -> (I32) Pending;
-    "sock_listen" WASIX (I32 I32) -> (I32) Pending;
+    // Until the kernel's netlink answers `RTM_GETROUTE`.
+    "port_route_list" WASIX (I32 I32) -> (I32) Unsupported;
+    "sock_status" WASIX (I32 I32) -> (I32) Shim;
+    "sock_addr_local" WASIX (I32 I32) -> (I32) Shim;
+    "sock_addr_peer" WASIX (I32 I32) -> (I32) Shim;
+    "sock_open" WASIX (I32 I32 I32 I32) -> (I32) Shim;
+    "sock_pair" WASIX (I32 I32 I32 I32 I32) -> (I32) Shim;
+    "sock_set_opt_flag" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_get_opt_flag" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_set_opt_time" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_get_opt_time" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_set_opt_size" WASIX (I32 I32 I64) -> (I32) Shim;
+    "sock_get_opt_size" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_join_multicast_v4" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_leave_multicast_v4" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_join_multicast_v6" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_leave_multicast_v6" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_bind" WASIX (I32 I32) -> (I32) Shim;
+    "sock_listen" WASIX (I32 I32) -> (I32) Shim;
     // `wasix_32v1`'s `sock_accept` is the v2 form.
-    "sock_accept" WASIX (I32 I32 I32 I32) -> (I32) Pending;
-    "sock_accept_v2" WASIX (I32 I32 I32 I32) -> (I32) Pending;
-    "sock_connect" WASIX (I32 I32) -> (I32) Pending;
-    "sock_recv_from" WASIX (I32 I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "sock_send_to" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "sock_send_file" WASIX (I32 I32 I64 I64 I32) -> (I32) Pending;
-    "resolve" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "epoll_create" WASIX (I32) -> (I32) Pending;
-    "epoll_ctl" WASIX (I32 I32 I32 I32) -> (I32) Pending;
-    "epoll_wait" WASIX (I32 I32 I32 I64 I32) -> (I32) Pending;
+    "sock_accept" WASIX (I32 I32 I32 I32) -> (I32) Shim;
+    "sock_accept_v2" WASIX (I32 I32 I32 I32) -> (I32) Shim;
+    "sock_connect" WASIX (I32 I32) -> (I32) Shim;
+    "sock_recv_from" WASIX (I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "sock_send_to" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "sock_send_file" WASIX (I32 I32 I64 I64 I32) -> (I32) Shim;
+    "resolve" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "epoll_create" WASIX (I32) -> (I32) Shim;
+    "epoll_ctl" WASIX (I32 I32 I32 I32) -> (I32) Shim;
+    "epoll_wait" WASIX (I32 I32 I32 I64 I32) -> (I32) Shim;
     // Dynamic linking, closures and reflection: another team's surface.
     "dl_invalid_handle" WASIX (I32) -> (I32) Unsupported;
     "dlopen" WASIX (I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
@@ -268,7 +269,7 @@ where
 pub(crate) fn shim<S>(
     store: &mut Store,
     env: &FunctionEnv<ExecEnv<S>>,
-    _module: Module,
+    module: Module,
     name: &str,
 ) -> Option<Function>
 where
@@ -301,6 +302,41 @@ where
         "callback_signal" => f!(signal::callback_signal::<S>),
         "proc_signals_get" => f!(signal::proc_signals_get::<S>),
         "proc_signals_sizes_get" => f!(signal::proc_signals_sizes_get::<S>),
+        "poll_oneoff" if module == Module::Unstable => f!(poll::poll_oneoff_snapshot0::<S>),
+        "poll_oneoff" => f!(poll::poll_oneoff_preview1::<S>),
+        "epoll_create" => f!(epoll::epoll_create::<S>),
+        "epoll_ctl" => f!(epoll::epoll_ctl::<S>),
+        "epoll_wait" => f!(epoll::epoll_wait::<S>),
+        "fd_event" => f!(event::fd_event::<S>),
+        "sock_open" => f!(sock::sock_open::<S>),
+        "sock_pair" => f!(sock::sock_pair::<S>),
+        "sock_bind" => f!(sock::sock_bind::<S>),
+        "sock_listen" => f!(sock::sock_listen::<S>),
+        "sock_connect" => f!(sock::sock_connect::<S>),
+        "sock_accept" if module != Module::Wasix32 => f!(sock::sock_accept_preview1::<S>),
+        "sock_accept" | "sock_accept_v2" => f!(sock::sock_accept_v2::<S>),
+        "sock_recv" => f!(sock::sock_recv::<S>),
+        "sock_recv_from" => f!(sock::sock_recv_from::<S>),
+        "sock_send" => f!(sock::sock_send::<S>),
+        "sock_send_to" => f!(sock::sock_send_to::<S>),
+        "sock_send_file" => f!(sock::sock_send_file::<S>),
+        "sock_shutdown" => f!(sock::sock_shutdown::<S>),
+        "sock_status" => f!(sock::sock_status::<S>),
+        "sock_addr_local" => f!(sock::sock_addr_local::<S>),
+        "sock_addr_peer" => f!(sock::sock_addr_peer::<S>),
+        "sock_set_opt_flag" => f!(sockopt::sock_set_opt_flag::<S>),
+        "sock_get_opt_flag" => f!(sockopt::sock_get_opt_flag::<S>),
+        "sock_set_opt_size" => f!(sockopt::sock_set_opt_size::<S>),
+        "sock_get_opt_size" => f!(sockopt::sock_get_opt_size::<S>),
+        "sock_set_opt_time" => f!(sockopt::sock_set_opt_time::<S>),
+        "sock_get_opt_time" => f!(sockopt::sock_get_opt_time::<S>),
+        "sock_join_multicast_v4" => f!(sockopt::sock_join_multicast_v4::<S>),
+        "sock_leave_multicast_v4" => f!(sockopt::sock_leave_multicast_v4::<S>),
+        "sock_join_multicast_v6" => f!(sockopt::sock_join_multicast_v6::<S>),
+        "sock_leave_multicast_v6" => f!(sockopt::sock_leave_multicast_v6::<S>),
+        "resolve" => f!(resolve::resolve::<S>),
+        "port_addr_list" => f!(port::port_addr_list::<S>),
+        "port_mac" => f!(port::port_mac::<S>),
         _ => return None,
     })
 }
