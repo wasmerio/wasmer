@@ -13,6 +13,7 @@ use std::{
 pub use wasixv2_exec::ExecError;
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
+use wasixv2_exec::{Abis, Wasixv2};
 #[cfg(feature = "tokio")]
 pub use wasixv2_host::TokioHost;
 #[cfg(feature = "web")]
@@ -30,6 +31,8 @@ use wasixv2_vfs_mem::MemFs;
 use wasixv2_vfs_overlay::OverlayFs;
 use wasixv2_vfs_package::PackageFs;
 pub use wasixv2_vnet::{Net, NetConfig};
+#[cfg(feature = "wasix1")]
+pub use wasixv2_wasix1::{V1Flavor, is_wasix1_module};
 use wasmer::Store;
 use webc::v3::read::OwnedReader;
 
@@ -57,6 +60,8 @@ pub enum RunError {
 /// filesystem, mapped host directories and package volumes.
 pub struct Machine {
     syscalls: Arc<Layered<Trace, Kernel>>,
+    /// The guest ABIs programs may target: `wasixv2`, then WASIX v1 with the `wasix1` feature.
+    abis: Arc<Abis<Layered<Trace, Kernel>>>,
     network: Arc<Net>,
     host: Arc<dyn Host>,
     /// The uid and gid processes start as and filesystems are owned by.
@@ -143,6 +148,7 @@ impl MachineBuilder {
         mount_kernel_filesystems(&kernel, &host);
         Machine {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
+            abis: Arc::new(default_abis()),
             network,
             host,
             owner,
@@ -302,7 +308,8 @@ impl Machine {
                 .map_err(|errno| RunError::WorkingDir(errno_to_io(errno)))?;
         }
         let host = self.host.clone();
-        Ok(wasixv2_exec::run(store, &module, self.syscalls.clone(), task, host).await?)
+        let (syscalls, abis) = (self.syscalls.clone(), self.abis.clone());
+        Ok(wasixv2_exec::run_with_abis(store, &module, syscalls, task, host, abis).await?)
     }
 }
 
@@ -365,6 +372,14 @@ impl Signaller {
         }
         Ok(())
     }
+}
+
+fn default_abis() -> Abis<Layered<Trace, Kernel>> {
+    let mut abis = Abis::new();
+    abis.push(Arc::new(Wasixv2));
+    #[cfg(feature = "wasix1")]
+    abis.push(Arc::new(wasixv2_wasix1::Wasix1::new()));
+    abis
 }
 
 /// Takes a process off [`Machine::signal`]'s list however `run_process` ends.

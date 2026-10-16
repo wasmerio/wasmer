@@ -1,0 +1,36 @@
+[package]
+name = "wasixv2-wasix1"
+version = "0.0.0"
+description = "The WASIX v1 guest ABI, served by the WASIX v2 kernel"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-abi = { path = "../abi" }
+wasixv2-syscalls = { path = "../syscalls" }
+wasixv2-exec = { path = "../exec", default-features = false }
+wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
+  "experimental-async",
+] }
+tracing.workspace = true
+wasmparser.workspace = true
+
+[dev-dependencies]
+# Layout conformance only; never a runtime dependency.
+wasmer-wasix-types = { path = "../../wasi-types" }
+wasixv2 = { path = "../api" }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
+  "cranelift",
+] }
+wat.workspace = true
+
+[features]
+default = ["sys"]
+sys = ["wasmer/sys", "wasmer/headless", "wasixv2-exec/sys"]
+js = ["wasmer/js-default", "wasixv2-exec/js"]
