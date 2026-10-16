@@ -24,6 +24,7 @@ mod process;
 mod procfs;
 mod pseudo;
 mod resource;
+mod sched;
 mod signal;
 mod signalfd;
 mod socket;
@@ -54,7 +55,7 @@ use wasixv2_abi::{
     Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags,
     MlockFlags, Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr,
     OpenFlags, Pid, PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource,
-    RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedParamPtr,
+    RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedAttrPtr, SchedParamPtr,
     SchedPolicy, SeekWhence, Shmid64DsPtr, Signal, SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr,
     StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags,
     TimerfdSettimeFlags, TmsPtr, U32Ptr, Uid, UidPtr, Ulong, UlongArray, Uptr, Usize, UsizePtr,
@@ -181,6 +182,10 @@ struct Task {
     /// Root, working directory and umask (`fs_struct`).
     fs: Arc<Mutex<FsContext>>,
     pending: Option<GuestAction>,
+    /// The task's name (`comm`), which `PR_SET_NAME` and `execve` set.
+    comm: ident::Comm,
+    /// Policy, priorities, affinity and timer slack: all per thread, as on Linux.
+    sched: sched::Sched,
     // ---- thr ----
     thread: thread::ThreadState,
     // ---- sig ----
@@ -248,10 +253,16 @@ impl Kernel {
         let mut state = self.state.lock().unwrap();
         state.last_id += 1;
         let id = TaskId(state.last_id);
+        let name = config
+            .args
+            .first()
+            .map(String::as_bytes)
+            .unwrap_or_default();
+        let comm = ident::Comm::from_path(name);
         let process = Process {
             pid: id,
             start: self.host.monotonic(),
-            ident: Mutex::new(ident::Ident::new(id.0, &config.args)),
+            ident: Mutex::new(ident::Ident::new(id.0)),
             cred: Mutex::new(cred),
             resources: Mutex::default(),
             args: Mutex::new(config.args),
@@ -260,6 +271,8 @@ impl Kernel {
             group: thread::Group::new(),
         };
         let task = Task {
+            comm,
+            sched: sched::Sched::default(),
             process: Arc::new(process),
             mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
@@ -1556,6 +1569,26 @@ impl Syscalls for Kernel {
         param: SchedParamPtr,
     ) -> SysResult<i32> {
         self.sys_sched_getparam(caller, pid, param).await
+    }
+    async fn sched_setattr(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        uattr: SchedAttrPtr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_sched_setattr(caller, pid, uattr, flags).await
+    }
+    async fn sched_getattr(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        uattr: SchedAttrPtr,
+        usize: u32,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_sched_getattr(caller, pid, uattr, usize, flags)
+            .await
     }
     async fn sched_get_priority_max(&self, _: &Caller<'_>, policy: SchedPolicy) -> SysResult<i32> {
         self.sys_sched_priority(policy, true)

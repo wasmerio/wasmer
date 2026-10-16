@@ -1,5 +1,5 @@
-//! Process identity: ids and credentials, sessions and process groups, the task name and the
-//! other per-process knobs `prctl` reads and writes, `uname` and `personality`.
+//! Process identity: ids, credentials and capabilities, sessions and process groups, the task
+//! name and the other knobs `prctl` reads and writes, `uname` and `personality`.
 //!
 //! The credential rules themselves live in [`crate::cred`]; this is the syscall side.
 
@@ -21,8 +21,6 @@ use crate::{
 
 /// `TASK_COMM_LEN`.
 const COMM_LEN: usize = 16;
-/// The default timer slack, in nanoseconds.
-const TIMER_SLACK: u32 = 50_000;
 /// `_NSIG`.
 const NSIG: u32 = 64;
 const PR_SET_VMA: PrctlOption = PrctlOption(0x53564d41);
@@ -157,17 +155,39 @@ impl Uname {
     }
 }
 
+/// A task's name, NUL-padded (`task_struct.comm`). Each thread has its own.
+#[derive(Clone, Copy)]
+pub(crate) struct Comm([u8; COMM_LEN]);
+
+impl Comm {
+    /// `name` cut to `TASK_COMM_LEN - 1` bytes, as `set_task_comm` takes it.
+    pub(crate) fn new(name: &[u8]) -> Self {
+        let mut comm = [0; COMM_LEN];
+        let n = name.len().min(COMM_LEN - 1);
+        comm[..n].copy_from_slice(&name[..n]);
+        Self(comm)
+    }
+
+    /// The name `execve` gives a task: the file's base name (`kbasename(bprm->filename)`).
+    pub(crate) fn from_path(path: &[u8]) -> Self {
+        Self::new(path.rsplit(|&b| b == b'/').next().unwrap_or_default())
+    }
+
+    /// The name without its NUL padding.
+    pub(crate) fn name(&self) -> &[u8] {
+        let n = self.0.iter().position(|&b| b == 0).unwrap_or(COMM_LEN);
+        &self.0[..n]
+    }
+}
+
 /// What `prctl` and friends keep per process.
-// TODO: the name, timer slack and nice value are per thread on Linux.
 #[derive(Clone)]
 pub(crate) struct Ident {
     pub(crate) pgid: u32,
     pub(crate) sid: u32,
-    comm: [u8; COMM_LEN],
     pub(crate) dumpable: bool,
     pdeathsig: u32,
     pub(crate) no_new_privs: bool,
-    timer_slack: u32,
     child_subreaper: bool,
     pub(crate) personality: u32,
     /// Whether the current image was started privilege-elevating (`AT_SECURE`).
@@ -175,21 +195,14 @@ pub(crate) struct Ident {
 }
 
 impl Ident {
-    /// A session and group leader named after `argv[0]`.
-    pub(crate) fn new(pid: u32, args: &[String]) -> Self {
-        let mut comm = [0; COMM_LEN];
-        let name = args.first().map(String::as_str).unwrap_or_default();
-        let name = name.rsplit('/').next().unwrap_or_default().as_bytes();
-        let n = name.len().min(COMM_LEN - 1);
-        comm[..n].copy_from_slice(&name[..n]);
+    /// A session and group leader.
+    pub(crate) fn new(pid: u32) -> Self {
         Self {
             pgid: pid,
             sid: pid,
-            comm,
             dumpable: true,
             pdeathsig: 0,
             no_new_privs: false,
-            timer_slack: TIMER_SLACK,
             child_subreaper: false,
             personality: 0,
             secure_exec: false,
@@ -198,26 +211,6 @@ impl Ident {
 }
 
 impl Ident {
-    // ---- proc ----
-    /// `execve` names the task after the file it runs (`kbasename(bprm->filename)`).
-    pub(crate) fn set_comm_from_path(&mut self, path: &[u8]) {
-        self.set_comm(path.rsplit(|&b| b == b'/').next().unwrap_or_default());
-    }
-
-    /// The task name (`comm`), without its NUL padding.
-    pub(crate) fn comm(&self) -> &[u8] {
-        let n = self.comm.iter().position(|&b| b == 0).unwrap_or(COMM_LEN);
-        &self.comm[..n]
-    }
-
-    /// Renames the task, as writing `/proc/<pid>/comm` does (`set_task_comm`): the name is
-    /// cut to `TASK_COMM_LEN - 1` bytes.
-    pub(crate) fn set_comm(&mut self, name: &[u8]) {
-        let n = name.len().min(COMM_LEN - 1);
-        self.comm = [0; COMM_LEN];
-        self.comm[..n].copy_from_slice(&name[..n]);
-    }
-
     /// `PR_SET_CHILD_SUBREAPER`.
     pub(crate) fn child_subreaper(&self) -> bool {
         self.child_subreaper
@@ -555,10 +548,10 @@ impl Kernel {
                         break;
                     }
                 }
-                process.ident.lock().unwrap().comm = name;
+                self.with_task(caller.task(), |t| t.comm = Comm(name));
             }
             PrctlOption::PR_GET_NAME => {
-                let comm = process.ident.lock().unwrap().comm;
+                let Comm(comm) = self.with_task(caller.task(), |t| t.comm);
                 memory.write(arg2, &comm).await?;
             }
             PrctlOption::PR_GET_DUMPABLE => {
@@ -588,11 +581,12 @@ impl Kernel {
                 return Ok(process.ident.lock().unwrap().no_new_privs as i32);
             }
             PrctlOption::PR_SET_TIMERSLACK => {
-                let slack = if arg2 == 0 { TIMER_SLACK } else { arg2 };
-                process.ident.lock().unwrap().timer_slack = slack;
+                self.with_task(caller.task(), |t| t.sched.set_timer_slack(arg2.into()));
             }
             PrctlOption::PR_GET_TIMERSLACK => {
-                return Ok(process.ident.lock().unwrap().timer_slack as i32);
+                // The result is a `long`.
+                let slack = self.with_task(caller.task(), |t| t.sched.timer_slack());
+                return Ok(slack.min(i32::MAX as u64) as i32);
             }
             PrctlOption::PR_SET_CHILD_SUBREAPER => {
                 process.ident.lock().unwrap().child_subreaper = arg2 != 0;

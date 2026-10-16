@@ -134,6 +134,7 @@ The kernel is plain async Rust with no wasm engine, no async runtime and no reco
   - Zombies and reaping, `wait` variants, pidfds.
   - Pid allocation per pid namespace, with reuse.
 - **Credentials.** Real, effective and saved uid and gid, supplementary groups and capabilities. They are checked by the kernel, never by the host.
+- **Scheduling attributes.** Policy (`SCHED_OTHER`, `BATCH`, `IDLE`, `FIFO`, `RR`, `DEADLINE`), priorities, nice value, utilization clamps, CPU affinity, timer slack and name are per task, as on Linux, and follow `kernel/sched/syscalls.c`: the same validation, `CAP_SYS_NICE`, `RLIMIT_NICE` and `RLIMIT_RTPRIO` checks, deadline admission, `SCHED_RESET_ON_FORK`, and inheritance on clone and across `execve`. They are advisory: the host schedules guest threads, so none of them changes when or where a guest runs, and real-time policies give no real-time guarantees.
 - **Signals.**
   - Pending sets per task and per thread group, masks, dispositions, `sigaltstack`, and queued realtime signals.
   - Delivered on the return-to-guest path.
@@ -677,6 +678,7 @@ These limits are why full compatibility stays a goal rather than a state we reac
 | Fork | No copy-on-write; the wasm call stack is outside linear memory | Asyncify configuration only, not from signal handlers; memory is copied eagerly; other configurations get `ENOSYS` |
 | Async signals | Guests only stop at interruption checks | Engine interruption checks; latency is bounded by check density |
 | `ptrace` | No way to stop and inspect a guest at the instruction level | Exported, returns ENOSYS |
+| Scheduling | The host, not the kernel, schedules guest threads | Policies, priorities, nice values and affinity are kept, checked and reported per thread, but advisory; no real-time guarantees |
 | Executable memory, JIT | Wasm code cannot be generated at runtime inside the guest | `PROT_EXEC` mappings fail |
 | Native binaries | Only wasm is executable | `execve` of an ELF file returns ENOEXEC unless a registered format handles it |
 

@@ -64,7 +64,7 @@ pub(crate) struct ThreadState {
 }
 
 impl ThreadState {
-    /// The task called `exit`.
+    /// The task called `exit` and is gone from its thread group.
     pub(crate) fn exited(&self) -> bool {
         self.exited
     }
@@ -152,6 +152,7 @@ impl Kernel {
             if crate::resource::nproc_exceeded(&state, &process) {
                 return Err(Errno::EAGAIN.into());
             }
+            let sched = task.sched.for_child()?;
             {
                 let mut group = process.group.state.lock().unwrap();
                 // A group on its way out starts nothing (Linux: fatal_signal_pending).
@@ -179,6 +180,8 @@ impl Kernel {
                 files: task.files.clone(),
                 fs: task.fs.clone(),
                 pending: None,
+                comm: task.comm,
+                sched,
                 thread,
                 signals: task.signals.group().attach(id, task.signals.blocked()),
             };

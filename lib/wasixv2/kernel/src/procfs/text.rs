@@ -12,7 +12,8 @@ use super::{Source, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
-    resource::{ADDRESS_SPACE, TICKS, cpus},
+    resource::{ADDRESS_SPACE, TICKS},
+    sched::cpus,
 };
 
 /// `PID_MAX_LIMIT` on 64-bit Linux; pids are never reused here, so any value below it works.
@@ -299,7 +300,8 @@ pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<V
         PerPid::Cmdline => nul_joined(&process.args.lock().unwrap()),
         PerPid::Environ => nul_joined(&process.env.lock().unwrap()),
         PerPid::Comm => {
-            let mut comm = process.ident.lock().unwrap().comm().to_vec();
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            let mut comm = task.comm.name().to_vec();
             comm.push(b'\n');
             comm
         }
@@ -522,8 +524,11 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
     let process = &info.process;
     let pid = scope.tid.unwrap_or(scope.pid);
     let ident = process.ident.lock().unwrap().clone();
-    let comm = String::from_utf8_lossy(ident.comm()).into_owned();
-    let nice = process.resources.lock().unwrap().nice();
+    let task = source.task(scope.pid, scope.tid);
+    let comm = task.as_ref().map_or(Vec::new(), |task| task.comm.name().to_vec());
+    let comm = String::from_utf8_lossy(&comm).into_owned();
+    let sched = task.map(|task| task.sched).unwrap_or_default();
+    let nice = sched.nice();
     let threads = source.threads(scope.pid).len().max(1);
     let now = source.host.monotonic();
     let cpu = ticks(now.saturating_sub(process.start));
@@ -550,7 +555,7 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
         0,                                 // stime
         0,                                 // cutime
         0,                                 // cstime
-        20 + nice as i128,                 // priority
+        sched.prio() as i128,              // priority
         nice as i128,                      // nice
         threads as i128,                   // num_threads
         0,                                 // itrealvalue
@@ -572,8 +577,8 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
         0,                                 // cnswap
         info.exit_signal as i128,          // exit_signal
         0,                                 // processor
-        0,                                 // rt_priority
-        0,                                 // policy
+        sched.rt_priority() as i128,       // rt_priority
+        sched.policy().0 as i128,          // policy
         0,                                 // delayacct_blkio_ticks
         0,                                 // guest_time
         0,                                 // cguest_time
@@ -613,6 +618,8 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
     let (letter, state_name) = state(info);
     let cred = process.cred();
     let (user, group) = (&cred.user, &cred.group);
+    let comm = task.as_ref().map_or(Vec::new(), |task| task.comm.name().to_vec());
+    let affinity = task.as_ref().map_or(Vec::new(), |task| task.sched.affinity().to_vec());
     let groups: String = cred.groups.iter().map(|gid| format!("{gid} ")).collect();
     let cpus = cpus();
     let mut out = String::new();
@@ -625,9 +632,9 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
          RssAnon:\t{kb:8} kB\nRssFile:\t       0 kB\nRssShmem:\t       0 kB\nVmData:\t{kb:8} kB\nVmStk:\t       0 kB\nVmExe:\t       0 kB\nVmLib:\t       0 kB\nVmPTE:\t       0 kB\nVmSwap:\t       0 kB\n\
          Threads:\t{threads}\nSigQ:\t0/4096\nSigPnd:\t{:016x}\nShdPnd:\t{:016x}\nSigBlk:\t{:016x}\nSigIgn:\t{:016x}\nSigCgt:\t{:016x}\n\
          CapInh:\t{:016x}\nCapPrm:\t{:016x}\nCapEff:\t{:016x}\nCapBnd:\t{:016x}\nCapAmb:\t{:016x}\n\
-         NoNewPrivs:\t{}\nSeccomp:\t0\nCpus_allowed:\t{:x}\nCpus_allowed_list:\t0-{}\n\
+         NoNewPrivs:\t{}\nSeccomp:\t0\nCpus_allowed:\t{}\nCpus_allowed_list:\t{}\n\
          voluntary_ctxt_switches:\t0\nnonvoluntary_ctxt_switches:\t0\n",
-        String::from_utf8_lossy(ident.comm()),
+        String::from_utf8_lossy(&comm),
         scope.pid,
         info.parent,
         user.real,
@@ -652,14 +659,49 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         cred.bounding,
         cred.ambient,
         u8::from(ident.no_new_privs),
-        if cpus >= 32 {
-            u32::MAX
-        } else {
-            (1u32 << cpus) - 1
-        },
-        cpus.saturating_sub(1),
+        cpu_mask(&affinity, cpus),
+        cpu_list(&affinity),
     );
     out.into_bytes()
+}
+
+/// A mask of `nbits` CPUs as `%*pb` prints it: 32-bit groups in hex, the highest first and only
+/// as wide as its bits, separated by commas.
+fn cpu_mask(words: &[u32], nbits: u32) -> String {
+    let chunks = nbits.div_ceil(32).max(1) as usize;
+    let top = (nbits as usize - (chunks - 1) * 32).div_ceil(4).max(1);
+    (0..chunks)
+        .rev()
+        .map(|i| {
+            let word = words.get(i).copied().unwrap_or(0);
+            let width = if i == chunks - 1 { top } else { 8 };
+            format!("{word:0width$x}")
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// A CPU mask as `%*pbl` prints it: ranges of set CPUs, such as `0-3,5`.
+fn cpu_list(words: &[u32]) -> String {
+    let set = |cpu: usize| words[cpu / 32] & (1 << (cpu % 32)) != 0;
+    let bits = words.len() * 32;
+    let mut ranges = Vec::new();
+    let mut cpu = 0;
+    while cpu < bits {
+        if !set(cpu) {
+            cpu += 1;
+            continue;
+        }
+        let start = cpu;
+        while cpu < bits && set(cpu) {
+            cpu += 1;
+        }
+        ranges.push(match cpu - 1 {
+            end if end == start => start.to_string(),
+            end => format!("{start}-{end}"),
+        });
+    }
+    ranges.join(",")
 }
 
 /// `seq_fdinfo`: position, flags (with `O_CLOEXEC` for a close-on-exec descriptor), mount and

@@ -22,8 +22,10 @@ use crate::{
     Kernel, Process, TaskTable,
     file::FdTable,
     fs::{FsContext, HostClock},
+    ident::Comm,
     mm::Mm,
     process::Tree,
+    sched::Sched,
     signal::TaskSignals,
 };
 
@@ -110,6 +112,8 @@ struct TaskInfo {
     signals: Arc<TaskSignals>,
     /// The address space (`get_task_mm`).
     mm: Arc<Mm>,
+    comm: Comm,
+    sched: Sched,
 }
 
 impl Source {
@@ -169,7 +173,25 @@ impl Source {
             fs: task.fs.clone(),
             signals: task.signals.clone(),
             mm: task.mm.clone(),
+            comm: task.comm,
+            sched: task.sched.clone(),
         })
+    }
+
+    /// Renames the task `tid` of process `pid`, or its leader (`comm_write`).
+    fn set_comm(&self, pid: u32, tid: Option<u32>, name: &[u8]) -> Option<()> {
+        let tid = match tid {
+            Some(tid) => tid,
+            None => *self.threads(pid).first()?,
+        };
+        let state = self.state.upgrade()?;
+        let mut state = state.lock().unwrap();
+        let task = state.tasks.get_mut(&TaskId(tid))?;
+        if task.process.pid.0 != pid {
+            return None;
+        }
+        task.comm = Comm::new(name);
+        Some(())
     }
 
     /// The address space of task `tid` of process `pid` (or its leader), as `get_task_mm` finds

@@ -309,3 +309,46 @@ fn uname_fields_must_fit_new_utsname() {
     assert!(Uname::default().with_release("x".repeat(65)).is_err());
     assert!(Uname::default().with_nodename("a\0b").is_err());
 }
+
+#[test]
+fn scheduling_another_users_task_needs_cap_sys_nice() {
+    use wasixv2_abi::PrioWhich;
+
+    let (kernel, a, memory) = machine_as(0, 0);
+    let b = kernel.spawn(ProcessConfig {
+        args: vec!["b".into()],
+        env: Vec::new(),
+        stdio: Stdio {
+            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+            stdout: Arc::new(Capture::default()),
+            stderr: Arc::new(Capture::default()),
+        },
+    });
+    let (a_caller, b_caller) = (Caller::new(a, &memory), Caller::new(b, &memory));
+    let b_pid = b.0 as i32;
+    assert_eq!(block_on(kernel.setuid(&b_caller, 2000)), Ok(0));
+
+    // Root renices anyone, and PRIO_USER finds the tasks by real uid.
+    let user = PrioWhich::PRIO_USER;
+    assert_eq!(kernel.sys_setpriority(&a_caller, user, 2000, 5), Ok(0));
+    assert_eq!(kernel.sys_getpriority(&a_caller, user, 2000), Ok(15));
+    assert_eq!(
+        errno(kernel.sys_getpriority(&a_caller, user, 3000)),
+        Errno::ESRCH
+    );
+
+    assert_eq!(block_on(kernel.setuid(&a_caller, 1000)), Ok(0));
+    let process = PrioWhich::PRIO_PROCESS;
+    assert_eq!(
+        errno(kernel.sys_setpriority(&a_caller, process, b_pid, 10)),
+        Errno::EPERM
+    );
+    block_on(memory.write(0x100, &0i32.to_le_bytes())).unwrap();
+    let param = GuestPtr::new(0x100);
+    let policy = SchedPolicy::SCHED_BATCH;
+    let set = kernel.sched_setscheduler(&a_caller, b_pid, policy, param);
+    assert_eq!(errno(block_on(set)), Errno::EPERM);
+    // Its own tasks it still changes.
+    let set = kernel.sched_setscheduler(&a_caller, 0, policy, param);
+    assert_eq!(block_on(set), Ok(0));
+}

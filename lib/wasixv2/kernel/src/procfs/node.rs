@@ -546,8 +546,9 @@ impl Handle for FileHandle {
     /// `comm_write`: the new name, cut to fit.
     async fn write_at(&self, data: &[u8], _: u64) -> FsResult<usize> {
         let (source, scope) = self.comm.as_ref().ok_or(Errno::EINVAL)?;
-        let process = source.process(scope.pid).ok_or(Errno::ESRCH)?;
-        process.process.ident.lock().unwrap().set_comm(data);
+        source
+            .set_comm(scope.pid, scope.tid, data)
+            .ok_or(Errno::ESRCH)?;
         Ok(data.len())
     }
 

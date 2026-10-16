@@ -614,3 +614,4 @@ mod procfs;
 mod ptimer;
 mod stdio;
 mod sysvipc;
+mod sched;

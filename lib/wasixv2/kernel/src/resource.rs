@@ -1,13 +1,12 @@
-//! Resources and accounting: resource limits, usage and times, `sysinfo`, entropy, and the
-//! scheduler interface (policies, nice values, affinity), plus `membarrier`.
+//! Resources and accounting: resource limits, usage and times, `sysinfo`, entropy and
+//! `membarrier`.
 
-use std::{future::poll_fn, task::Poll, time::Duration};
+use std::time::Duration;
 
 use wasixv2_abi::{
-    ConstRlimit64Ptr, ConstSchedParamPtr, GrndFlags, KernelClock, KernelOldTimeval,
-    KernelTimespecPtr, MembarrierCmd, MembarrierCmdFlags, Pid, PrioWhich, Rlimit64, Rlimit64Ptr,
-    RlimitResource, Rusage, RusagePtr, RusageWho, SchedParam, SchedParamPtr, SchedPolicy, Sysinfo,
-    SysinfoPtr, Tms, TmsPtr, U32Ptr, UlongArray,
+    ConstRlimit64Ptr, GrndFlags, KernelClock, KernelOldTimeval, MembarrierCmd, MembarrierCmdFlags,
+    Pid, Rlimit64, Rlimit64Ptr, RlimitResource, Rusage, RusagePtr, RusageWho, Sysinfo, SysinfoPtr,
+    Tms, TmsPtr,
 };
 use wasixv2_syscalls::{Caller, Errno, SysResult, UserSliceMut, read_value, write_value};
 
@@ -24,8 +23,6 @@ const NR_OPEN: u64 = 1 << 20;
 pub(crate) const TICKS: u128 = 100;
 /// The address space a wasm32 guest can grow into.
 pub(crate) const ADDRESS_SPACE: u64 = 1 << 32;
-/// Bytes per guest `cpu_set_t` word (`unsigned long`).
-const MASK_WORD: u32 = 4;
 const GETRANDOM_CHUNK: usize = 64 * 1024;
 
 /// Linux's defaults for an unprivileged process.
@@ -48,17 +45,10 @@ const DEFAULT_LIMITS: [(u64, u64); NLIMITS] = [
     (INFINITY, INFINITY), // RTTIME
 ];
 
-/// Per-process limits and scheduling state.
-// TODO: nice, policy and affinity are per thread on Linux.
+/// Per-process limits and `membarrier` registration. Scheduling state is per task, in `sched`.
 #[derive(Clone)]
 pub(crate) struct Resources {
     limits: [Rlimit64; NLIMITS],
-    nice: i32,
-    policy: SchedPolicy,
-    /// The static priority of a real-time policy.
-    rt_priority: i32,
-    /// CPUs the process may run on, one bit each.
-    affinity: Vec<u32>,
     membarrier_private: bool,
 }
 
@@ -66,10 +56,6 @@ impl Default for Resources {
     fn default() -> Self {
         Self {
             limits: DEFAULT_LIMITS.map(|(rlim_cur, rlim_max)| Rlimit64 { rlim_cur, rlim_max }),
-            nice: 0,
-            policy: SchedPolicy::SCHED_NORMAL,
-            rt_priority: 0,
-            affinity: full_mask(cpus()),
             membarrier_private: false,
         }
     }
@@ -97,10 +83,6 @@ impl Resources {
         &self.limits
     }
 
-    pub(crate) fn nice(&self) -> i32 {
-        self.nice
-    }
-
     /// Whether `tasks`, how many the user has, reach the soft `RLIMIT_NPROC`.
     fn nproc_reached(&self, tasks: usize) -> bool {
         let limit = self.limits[RlimitResource::RLIMIT_NPROC.0 as usize].rlim_cur;
@@ -123,24 +105,6 @@ impl Resources {
     }
 }
 
-/// CPUs the host offers.
-pub(crate) fn cpus() -> u32 {
-    std::thread::available_parallelism().map_or(1, |n| n.get().min(1024) as u32)
-}
-
-fn full_mask(cpus: u32) -> Vec<u32> {
-    let mut mask = vec![0; cpus.div_ceil(32) as usize];
-    for cpu in 0..cpus {
-        mask[(cpu / 32) as usize] |= 1 << (cpu % 32);
-    }
-    mask
-}
-
-/// `cpumask_size()`: bytes of a mask covering every possible CPU.
-fn mask_size() -> u32 {
-    cpus().div_ceil(32) * MASK_WORD
-}
-
 fn timeval(d: Duration) -> KernelOldTimeval {
     KernelOldTimeval {
         tv_sec: d.as_secs() as i32,
@@ -150,18 +114,6 @@ fn timeval(d: Duration) -> KernelOldTimeval {
 
 fn ticks(d: Duration) -> KernelClock {
     (d.as_millis() * TICKS / 1000) as KernelClock & i32::MAX
-}
-
-/// Priority range of `policy`, or `None` if it is unknown.
-fn priority_range(policy: SchedPolicy) -> Option<(i32, i32)> {
-    match policy {
-        SchedPolicy::SCHED_FIFO | SchedPolicy::SCHED_RR => Some((1, 99)),
-        SchedPolicy::SCHED_NORMAL
-        | SchedPolicy::SCHED_BATCH
-        | SchedPolicy::SCHED_IDLE
-        | SchedPolicy::SCHED_DEADLINE => Some((0, 0)),
-        _ => None,
-    }
 }
 
 impl Kernel {
@@ -315,258 +267,6 @@ impl Kernel {
             done += n as u32;
         }
         Ok(done)
-    }
-
-    /// Lets other host work run before returning.
-    pub(crate) async fn sys_sched_yield(&self) -> SysResult<i32> {
-        let mut yielded = false;
-        poll_fn(|cx| {
-            if yielded {
-                return Poll::Ready(());
-            }
-            yielded = true;
-            cx.waker().wake_by_ref();
-            Poll::Pending
-        })
-        .await;
-        Ok(0)
-    }
-
-    pub(crate) fn sys_sched_getscheduler(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<i32> {
-        Ok(self
-            .lookup_pid(caller, pid)?
-            .resources
-            .lock()
-            .unwrap()
-            .policy
-            .0)
-    }
-
-    pub(crate) async fn sys_sched_getparam(
-        &self,
-        caller: &Caller<'_>,
-        pid: Pid,
-        param: SchedParamPtr,
-    ) -> SysResult<i32> {
-        if param.is_null() {
-            return Err(Errno::EINVAL.into());
-        }
-        let priority = self
-            .lookup_pid(caller, pid)?
-            .resources
-            .lock()
-            .unwrap()
-            .rt_priority;
-        let value = SchedParam {
-            sched_priority: priority,
-        };
-        write_value(caller.memory(), param, &value).await?;
-        Ok(0)
-    }
-
-    /// `policy` of `None` keeps the current one (`sched_setparam`). Without `CAP_SYS_NICE`,
-    /// real-time policies need `RLIMIT_RTPRIO` to allow them, and only the caller's own
-    /// processes can change.
-    pub(crate) async fn sys_sched_setscheduler(
-        &self,
-        caller: &Caller<'_>,
-        pid: Pid,
-        policy: Option<SchedPolicy>,
-        param: ConstSchedParamPtr,
-    ) -> SysResult<i32> {
-        if param.is_null() || pid < 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        let param = read_value(caller.memory(), param).await?;
-        let process = self.lookup_pid(caller, pid)?;
-        let cred = self.cred(caller);
-        let target = process.cred();
-        let mut resources = process.resources.lock().unwrap();
-        let policy = policy.map_or(resources.policy, |p| {
-            SchedPolicy(p.0 & !SchedPolicy::SCHED_RESET_ON_FORK.0)
-        });
-        let (min, max) = priority_range(policy).ok_or(Errno::EINVAL)?;
-        if policy == SchedPolicy::SCHED_DEADLINE || !(min..=max).contains(&param.sched_priority) {
-            return Err(Errno::EINVAL.into());
-        }
-        let rt = matches!(policy, SchedPolicy::SCHED_FIFO | SchedPolicy::SCHED_RR);
-        if !cred.capable(Cap::SysNice) {
-            let limit = resources.limits[RlimitResource::RLIMIT_RTPRIO.0 as usize].rlim_cur;
-            let priority = param.sched_priority;
-            if rt
-                && ((policy != resources.policy && limit == 0)
-                    || (priority > resources.rt_priority && priority as u64 > limit))
-            {
-                return Err(Errno::EPERM.into());
-            }
-            if !cred.same_owner(&target) {
-                return Err(Errno::EPERM.into());
-            }
-        }
-        resources.policy = policy;
-        resources.rt_priority = param.sched_priority;
-        Ok(0)
-    }
-
-    pub(crate) fn sys_sched_priority(&self, policy: SchedPolicy, max: bool) -> SysResult<i32> {
-        let (low, high) = priority_range(policy).ok_or(Errno::EINVAL)?;
-        Ok(if max { high } else { low })
-    }
-
-    pub(crate) async fn sys_sched_rr_get_interval(
-        &self,
-        caller: &Caller<'_>,
-        pid: Pid,
-        interval: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        let policy = self
-            .lookup_pid(caller, pid)?
-            .resources
-            .lock()
-            .unwrap()
-            .policy;
-        let slice = match policy {
-            SchedPolicy::SCHED_RR => Duration::from_millis(100),
-            _ => Duration::ZERO,
-        };
-        write_value(caller.memory(), interval, &time::to_timespec(slice)).await?;
-        Ok(0)
-    }
-
-    pub(crate) async fn sys_sched_getaffinity(
-        &self,
-        caller: &Caller<'_>,
-        pid: Pid,
-        len: u32,
-        mask: UlongArray,
-    ) -> SysResult<i32> {
-        if u64::from(len) * 8 < u64::from(cpus()) || !len.is_multiple_of(MASK_WORD) {
-            return Err(Errno::EINVAL.into());
-        }
-        let affinity = self
-            .lookup_pid(caller, pid)?
-            .resources
-            .lock()
-            .unwrap()
-            .affinity
-            .clone();
-        let size = len.min(mask_size());
-        let bytes: Vec<u8> = affinity.iter().flat_map(|w| w.to_le_bytes()).collect();
-        caller
-            .memory()
-            .write(mask.addr(), &bytes[..size as usize])
-            .await?;
-        Ok(size as i32)
-    }
-
-    pub(crate) async fn sys_sched_setaffinity(
-        &self,
-        caller: &Caller<'_>,
-        pid: Pid,
-        len: u32,
-        mask: UlongArray,
-    ) -> SysResult<i32> {
-        let size = len.min(mask_size()) as usize;
-        let mut bytes = vec![0; mask_size() as usize];
-        caller
-            .memory()
-            .read(mask.addr(), &mut bytes[..size])
-            .await?;
-        let online = full_mask(cpus());
-        let new: Vec<u32> = bytes
-            .chunks_exact(4)
-            .zip(&online)
-            .map(|(word, online)| u32::from_le_bytes(word.try_into().unwrap()) & online)
-            .collect();
-        if new.iter().all(|&word| word == 0) {
-            return Err(Errno::EINVAL.into());
-        }
-        self.lookup_pid(caller, pid)?
-            .resources
-            .lock()
-            .unwrap()
-            .affinity = new;
-        Ok(0)
-    }
-
-    /// The task runs on the first CPU it may use.
-    pub(crate) async fn sys_getcpu(
-        &self,
-        caller: &Caller<'_>,
-        cpup: U32Ptr,
-        nodep: U32Ptr,
-    ) -> SysResult<i32> {
-        let affinity = self
-            .process(caller.task())
-            .resources
-            .lock()
-            .unwrap()
-            .affinity
-            .clone();
-        let cpu = affinity
-            .iter()
-            .enumerate()
-            .find(|(_, word)| **word != 0)
-            .map_or(0, |(i, word)| i as u32 * 32 + word.trailing_zeros());
-        if !cpup.is_null() {
-            write_value(caller.memory(), cpup, &cpu).await?;
-        }
-        if !nodep.is_null() {
-            write_value(caller.memory(), nodep, &0u32).await?;
-        }
-        Ok(0)
-    }
-
-    /// Checks `which` and `who` and returns the process they name.
-    fn priority_target(
-        &self,
-        caller: &Caller<'_>,
-        which: PrioWhich,
-        who: i32,
-    ) -> Result<std::sync::Arc<crate::Process>, Errno> {
-        let process = self.process(caller.task());
-        let matches = match which {
-            PrioWhich::PRIO_PROCESS => who == 0 || who as u32 == process.pid.0,
-            PrioWhich::PRIO_PGRP => who == 0 || who as u32 == process.ident.lock().unwrap().pgid,
-            PrioWhich::PRIO_USER => who == 0 || who as u32 == process.cred().user.real,
-            _ => return Err(Errno::EINVAL),
-        };
-        match matches {
-            true => Ok(process),
-            false => Err(Errno::ESRCH),
-        }
-    }
-
-    /// Returns `20 - nice`, as the raw syscall does, so it is never negative.
-    pub(crate) fn sys_getpriority(
-        &self,
-        caller: &Caller<'_>,
-        which: PrioWhich,
-        who: i32,
-    ) -> SysResult<i32> {
-        let process = self.priority_target(caller, which, who)?;
-        let nice = process.resources.lock().unwrap().nice;
-        Ok(20 - nice)
-    }
-
-    /// Lowering the nice value needs `RLIMIT_NICE` to allow it, or `CAP_SYS_NICE`.
-    pub(crate) fn sys_setpriority(
-        &self,
-        caller: &Caller<'_>,
-        which: PrioWhich,
-        who: i32,
-        nice: i32,
-    ) -> SysResult<i32> {
-        let process = self.priority_target(caller, which, who)?;
-        let nice = nice.clamp(-20, 19);
-        let mut resources = process.resources.lock().unwrap();
-        let limit = resources.limits[RlimitResource::RLIMIT_NICE.0 as usize].rlim_cur;
-        let can_nice = (20 - nice) as u64 <= limit || self.cred(caller).capable(Cap::SysNice);
-        if nice < resources.nice && !can_nice {
-            return Err(Errno::EACCES.into());
-        }
-        resources.nice = nice;
-        Ok(0)
     }
 
     /// Wasm memory accesses are ordered by the engine, so no barrier needs to be issued; this

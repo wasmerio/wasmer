@@ -29,6 +29,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_eve
 use crate::{
     Kernel, Process, Task,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
+    ident::Comm,
     signal::Signals,
     thread,
 };
@@ -452,6 +453,7 @@ impl Kernel {
             if parent.group.exiting() {
                 return Err(Errno::EINTR);
             }
+            let sched = task.sched.for_child()?;
             let id = TaskId(state.last_id + 1);
             let process = Arc::new(Process {
                 pid: id,
@@ -490,6 +492,8 @@ impl Kernel {
                 files,
                 fs,
                 pending: None,
+                comm: task.comm,
+                sched,
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
             };
@@ -703,11 +707,11 @@ impl Kernel {
         *process.exe.lock().unwrap() = Some(binary.path);
         {
             let mut ident = process.ident.lock().unwrap();
-            ident.set_comm_from_path(name);
             ident.secure_exec = secure;
             ident.dumpable = dumpable;
         }
         self.with_task(task, |t| {
+            t.comm = Comm::from_path(name);
             // `exec_mmap`: the new image gets its own address space. A vfork child leaves its
             // parent's untouched.
             t.mm = Arc::default();
