@@ -143,7 +143,8 @@ fn clocks() {
     assert_eq!(block_on(CLOCK, &["clock"]).0, 28);
 }
 
-/// `fd_prestat_get` announces `.` on 3 and `/` on 4, and `EBADF` (8) after them.
+/// `fd_prestat_get` announces `/` on 3, `.` on 4 and `/` on 5, as v1 did, and `EBADF` (8)
+/// after them.
 const PREOPENS: &str = r#"
 (module
   (import "wasi_snapshot_preview1" "fd_prestat_get" (func $prestat_get (param i32 i32) (result i32)))
@@ -161,13 +162,14 @@ const PREOPENS: &str = r#"
   (func (export "_start")
     (call $print_name (i32.const 3))
     (call $print_name (i32.const 4))
-    (call $proc_exit (call $prestat_get (i32.const 5) (i32.const 0)))))
+    (call $print_name (i32.const 5))
+    (call $proc_exit (call $prestat_get (i32.const 6) (i32.const 0)))))
 "#;
 
 #[test]
 fn preopens() {
     let (status, stdout) = block_on(PREOPENS, &["preopens"]);
-    assert_eq!(stdout, b"./");
+    assert_eq!(stdout, b"/./");
     assert_eq!(status, 8);
 }
 

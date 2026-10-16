@@ -92,37 +92,37 @@ table! {
     "environ_sizes_get" WASI (I32 I32) -> (I32) Shim;
     "clock_res_get" WASI (I32 I32) -> (I32) Shim;
     "clock_time_get" WASI (I32 I64 I32) -> (I32) Shim;
-    "fd_advise" WASI (I32 I64 I64 I32) -> (I32) Pending;
-    "fd_allocate" WASI (I32 I64 I64) -> (I32) Pending;
+    "fd_advise" WASI (I32 I64 I64 I32) -> (I32) Shim;
+    "fd_allocate" WASI (I32 I64 I64) -> (I32) Shim;
     "fd_close" WASI (I32) -> (I32) Shim;
-    "fd_datasync" WASI (I32) -> (I32) Pending;
-    "fd_fdstat_get" WASI (I32 I32) -> (I32) Pending;
-    "fd_fdstat_set_flags" WASI (I32 I32) -> (I32) Pending;
-    "fd_fdstat_set_rights" WASI (I32 I64 I64) -> (I32) Pending;
-    "fd_filestat_get" WASI (I32 I32) -> (I32) Pending;
-    "fd_filestat_set_size" WASI (I32 I64) -> (I32) Pending;
-    "fd_filestat_set_times" WASI (I32 I64 I64 I32) -> (I32) Pending;
-    "fd_pread" WASI (I32 I32 I32 I64 I32) -> (I32) Pending;
+    "fd_datasync" WASI (I32) -> (I32) Shim;
+    "fd_fdstat_get" WASI (I32 I32) -> (I32) Shim;
+    "fd_fdstat_set_flags" WASI (I32 I32) -> (I32) Shim;
+    "fd_fdstat_set_rights" WASI (I32 I64 I64) -> (I32) Shim;
+    "fd_filestat_get" WASI (I32 I32) -> (I32) Shim;
+    "fd_filestat_set_size" WASI (I32 I64) -> (I32) Shim;
+    "fd_filestat_set_times" WASI (I32 I64 I64 I32) -> (I32) Shim;
+    "fd_pread" WASI (I32 I32 I32 I64 I32) -> (I32) Shim;
     "fd_prestat_get" WASI (I32 I32) -> (I32) Shim;
     "fd_prestat_dir_name" WASI (I32 I32 I32) -> (I32) Shim;
-    "fd_pwrite" WASI (I32 I32 I32 I64 I32) -> (I32) Pending;
+    "fd_pwrite" WASI (I32 I32 I32 I64 I32) -> (I32) Shim;
     "fd_read" WASI (I32 I32 I32 I32) -> (I32) Shim;
-    "fd_readdir" WASI (I32 I32 I32 I64 I32) -> (I32) Pending;
-    "fd_renumber" WASI (I32 I32) -> (I32) Pending;
-    "fd_seek" WASI (I32 I64 I32 I32) -> (I32) Pending;
-    "fd_sync" WASI (I32) -> (I32) Pending;
-    "fd_tell" WASI (I32 I32) -> (I32) Pending;
+    "fd_readdir" WASI (I32 I32 I32 I64 I32) -> (I32) Shim;
+    "fd_renumber" WASI (I32 I32) -> (I32) Shim;
+    "fd_seek" WASI (I32 I64 I32 I32) -> (I32) Shim;
+    "fd_sync" WASI (I32) -> (I32) Shim;
+    "fd_tell" WASI (I32 I32) -> (I32) Shim;
     "fd_write" WASI (I32 I32 I32 I32) -> (I32) Shim;
-    "path_create_directory" WASI (I32 I32 I32) -> (I32) Pending;
-    "path_filestat_get" WASI (I32 I32 I32 I32 I32) -> (I32) Pending;
-    "path_filestat_set_times" WASI (I32 I32 I32 I32 I64 I64 I32) -> (I32) Pending;
-    "path_link" WASI (I32 I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "path_open" WASI (I32 I32 I32 I32 I32 I64 I64 I32 I32) -> (I32) Pending;
-    "path_readlink" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "path_remove_directory" WASI (I32 I32 I32) -> (I32) Pending;
-    "path_rename" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "path_symlink" WASI (I32 I32 I32 I32 I32) -> (I32) Pending;
-    "path_unlink_file" WASI (I32 I32 I32) -> (I32) Pending;
+    "path_create_directory" WASI (I32 I32 I32) -> (I32) Shim;
+    "path_filestat_get" WASI (I32 I32 I32 I32 I32) -> (I32) Shim;
+    "path_filestat_set_times" WASI (I32 I32 I32 I32 I64 I64 I32) -> (I32) Shim;
+    "path_link" WASI (I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "path_open" WASI (I32 I32 I32 I32 I32 I64 I64 I32 I32) -> (I32) Shim;
+    "path_readlink" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "path_remove_directory" WASI (I32 I32 I32) -> (I32) Shim;
+    "path_rename" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "path_symlink" WASI (I32 I32 I32 I32 I32) -> (I32) Shim;
+    "path_unlink_file" WASI (I32 I32 I32) -> (I32) Shim;
     "poll_oneoff" WASI (I32 I32 I32 I32) -> (I32) Pending;
     "proc_exit" WASI (I32) -> () Shim;
     "proc_raise" WASI (I32) -> (I32) Pending;
@@ -138,17 +138,17 @@ table! {
 
     // ---- WASIX ----
     "clock_time_set" WASIX (I32 I64) -> (I32) Pending;
-    "fd_dup" WASIX (I32 I32) -> (I32) Pending;
-    "fd_dup2" WASIX (I32 I32 I32 I32) -> (I32) Pending;
+    "fd_dup" WASIX (I32 I32) -> (I32) Shim;
+    "fd_dup2" WASIX (I32 I32 I32 I32) -> (I32) Shim;
     "fd_event" WASIX (I64 I32 I32) -> (I32) Pending;
-    "fd_pipe" WASIX (I32 I32) -> (I32) Pending;
-    "fd_fdflags_get" WASIX (I32 I32) -> (I32) Pending;
-    "fd_fdflags_set" WASIX (I32 I32) -> (I32) Pending;
-    "path_open2" WASIX (I32 I32 I32 I32 I32 I64 I64 I32 I32 I32) -> (I32) Pending;
+    "fd_pipe" WASIX (I32 I32) -> (I32) Shim;
+    "fd_fdflags_get" WASIX (I32 I32) -> (I32) Shim;
+    "fd_fdflags_set" WASIX (I32 I32) -> (I32) Shim;
+    "path_open2" WASIX (I32 I32 I32 I32 I32 I64 I64 I32 I32 I32) -> (I32) Shim;
     "tty_get" WASIX (I32) -> (I32) Pending;
     "tty_set" WASIX (I32) -> (I32) Pending;
-    "getcwd" WASIX (I32 I32) -> (I32) Pending;
-    "chdir" WASIX (I32 I32) -> (I32) Pending;
+    "getcwd" WASIX (I32 I32) -> (I32) Shim;
+    "chdir" WASIX (I32 I32) -> (I32) Shim;
     // Until signal delivery lands, signals take their default actions, as in v1 before
     // libc registers its handler.
     "callback_signal" WASIX (I32 I32) -> () Shim;
@@ -268,7 +268,7 @@ where
 pub(crate) fn shim<S>(
     store: &mut Store,
     env: &FunctionEnv<ExecEnv<S>>,
-    _module: Module,
+    module: Module,
     name: &str,
 ) -> Option<Function>
 where
@@ -298,6 +298,48 @@ where
         "fd_read" => f!(io::fd_read::<S>),
         "fd_write" => f!(io::fd_write::<S>),
         "fd_close" => f!(io::fd_close::<S>),
+        // `wasi_unstable` lays out `filestat` and numbers `whence` differently.
+        "fd_seek" if module == Module::Unstable => f!(fs::snapshot0_fd_seek::<S>),
+        "fd_filestat_get" if module == Module::Unstable => {
+            f!(fs::snapshot0_fd_filestat_get::<S>)
+        }
+        "path_filestat_get" if module == Module::Unstable => {
+            f!(path::snapshot0_path_filestat_get::<S>)
+        }
+        "fd_seek" => f!(fs::fd_seek::<S>),
+        "fd_filestat_get" => f!(fs::fd_filestat_get::<S>),
+        "path_filestat_get" => f!(path::path_filestat_get::<S>),
+        "fd_tell" => f!(fs::fd_tell::<S>),
+        "fd_pread" => f!(fs::fd_pread::<S>),
+        "fd_pwrite" => f!(fs::fd_pwrite::<S>),
+        "fd_sync" => f!(fs::fd_sync::<S>),
+        "fd_datasync" => f!(fs::fd_datasync::<S>),
+        "fd_advise" => f!(fs::fd_advise::<S>),
+        "fd_allocate" => f!(fs::fd_allocate::<S>),
+        "fd_fdstat_get" => f!(fs::fd_fdstat_get::<S>),
+        "fd_fdstat_set_flags" => f!(fs::fd_fdstat_set_flags::<S>),
+        "fd_fdstat_set_rights" => f!(fs::fd_fdstat_set_rights::<S>),
+        "fd_filestat_set_size" => f!(fs::fd_filestat_set_size::<S>),
+        "fd_filestat_set_times" => f!(fs::fd_filestat_set_times::<S>),
+        "fd_renumber" => f!(fs::fd_renumber::<S>),
+        "fd_dup" => f!(fs::fd_dup::<S>),
+        "fd_dup2" => f!(fs::fd_dup2::<S>),
+        "fd_fdflags_get" => f!(fs::fd_fdflags_get::<S>),
+        "fd_fdflags_set" => f!(fs::fd_fdflags_set::<S>),
+        "fd_pipe" => f!(fs::fd_pipe::<S>),
+        "fd_readdir" => f!(dir::fd_readdir::<S>),
+        "path_open" => f!(path::path_open::<S>),
+        "path_open2" => f!(path::path_open2::<S>),
+        "path_create_directory" => f!(path::path_create_directory::<S>),
+        "path_remove_directory" => f!(path::path_remove_directory::<S>),
+        "path_unlink_file" => f!(path::path_unlink_file::<S>),
+        "path_filestat_set_times" => f!(path::path_filestat_set_times::<S>),
+        "path_link" => f!(path::path_link::<S>),
+        "path_rename" => f!(path::path_rename::<S>),
+        "path_symlink" => f!(path::path_symlink::<S>),
+        "path_readlink" => f!(path::path_readlink::<S>),
+        "getcwd" => f!(path::getcwd::<S>),
+        "chdir" => f!(path::chdir::<S>),
         "callback_signal" => f!(signal::callback_signal::<S>),
         "proc_signals_get" => f!(signal::proc_signals_get::<S>),
         "proc_signals_sizes_get" => f!(signal::proc_signals_sizes_get::<S>),

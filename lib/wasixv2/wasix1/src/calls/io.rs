@@ -48,6 +48,10 @@ pub(crate) async fn fd_close<S: Syscalls + Control + 'static>(
     fd: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        // v1 never closed its preopened directories (see `fs::is_preopen`).
+        if crate::calls::fs::is_preopen(frame, fd).await? {
+            return Ok(());
+        }
         frame.syscalls.close(&frame.caller(), Fd(fd)).await?;
         Ok(())
     })

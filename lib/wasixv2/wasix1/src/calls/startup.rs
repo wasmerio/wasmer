@@ -3,8 +3,10 @@
 //! v2 hands a process its arguments and environment as one Linux-style startup block
 //! (`startup_get`); v1 has `args_*`/`environ_*`. The block is read once per image, into
 //! scratch, and served from [`Startup`]. v1 also expects preopened directories, announced
-//! through `fd_prestat_get` from fd 3 up: the compat layer opens the working directory as `.`
-//! and the root as `/` at the same time, so they normally land on 3 and 4 as under v1.
+//! through `fd_prestat_get` from fd 3 up. The compat layer opens them as v1's runner did, so
+//! they normally land on the same descriptors: the virtual root `/` on 3, the working directory
+//! as `.` on 4 and the root again as `/` on 5. Programs and tests that hard-code these numbers
+//! keep working.
 
 use std::sync::Arc;
 
@@ -22,7 +24,7 @@ use crate::{
 };
 
 /// The directories every v1 process starts with, as (path, announced name).
-const PREOPENS: [(&[u8], &[u8]); 2] = [(b".", b"."), (b"/", b"/")];
+const PREOPENS: [(&[u8], &[u8]); 3] = [(b"/", b"/"), (b".", b"."), (b"/", b"/")];
 
 /// The startup state of `proc`, loading it on first use.
 pub(crate) async fn load<S: Syscalls + Control + 'static>(
@@ -218,6 +220,9 @@ pub(crate) async fn fd_prestat_get<S: Syscalls + Control + 'static>(
         let Some(preopen) = startup.preopen(Fd(fd)) else {
             return shim::fail(Errno::BADF);
         };
+        if !crate::calls::fs::is_preopen(frame, fd).await? {
+            return shim::fail(Errno::BADF);
+        }
         let prestat = Prestat {
             pr_type: Preopentype::DIR,
             pr_name_len: preopen.name.len() as u32,
@@ -239,6 +244,9 @@ pub(crate) async fn fd_prestat_dir_name<S: Syscalls + Control + 'static>(
         let Some(preopen) = startup.preopen(Fd(fd)) else {
             return shim::fail(Errno::BADF);
         };
+        if !crate::calls::fs::is_preopen(frame, fd).await? {
+            return shim::fail(Errno::BADF);
+        }
         if preopen.name.len() > path_len as u32 as usize {
             return shim::fail(Errno::OVERFLOW);
         }
