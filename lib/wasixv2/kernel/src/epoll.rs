@@ -8,6 +8,7 @@
 //! duplicate descriptors closes), or with its epoll.
 
 use std::{
+    cell::Cell,
     collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, Mutex, OnceLock, Weak},
     time::Duration,
@@ -51,6 +52,29 @@ const EXCLUSIVE_OK_BITS: u32 = EpollEvents::EPOLLIN.0
 
 /// An item's key: the open file's address and the descriptor it was added with.
 type Key = (usize, i32);
+
+thread_local! {
+    /// How deep this thread is in wakes and polls of epolls inside epolls.
+    static NESTING: Cell<usize> = const { Cell::new(0) };
+}
+
+/// Runs `f` one epoll level deeper, or returns `fallback` past `MAX_NESTS` levels. The loop
+/// check already keeps nesting within the limit; this is the backstop that keeps a bug from
+/// recursing until the host stack overflows (`ep_call_nested` in older Linux).
+fn nested<R>(fallback: R, f: impl FnOnce() -> R) -> R {
+    struct Level;
+    impl Drop for Level {
+        fn drop(&mut self) {
+            NESTING.with(|depth| depth.set(depth.get() - 1));
+        }
+    }
+    if NESTING.with(|depth| depth.replace(depth.get() + 1)) > MAX_NESTS {
+        drop(Level);
+        return fallback;
+    }
+    let _level = Level;
+    f()
+}
 
 /// Kept on an open file for each item watching it, so the item goes when the file does.
 pub(crate) struct EpollLink {
@@ -117,7 +141,7 @@ impl WaitEntry for ItemEntry {
         }
         let sleepers = ep.wq.is_active();
         ep.queue_ready(&[item.key]);
-        ep.wake();
+        nested((), || ep.wake());
         if !self.exclusive {
             return true;
         }
@@ -151,6 +175,11 @@ impl Ep {
 
     fn find(&self, key: Key) -> Option<Arc<Item>> {
         self.state.lock().unwrap().items.get(&key).cloned()
+    }
+
+    /// `ep_events_available`.
+    fn has_ready(&self) -> bool {
+        !self.state.lock().unwrap().ready.is_empty()
     }
 
     /// Appends items to the ready list unless already on it.
@@ -385,6 +414,13 @@ impl Pollable for Epoll {
     /// ready leave the ready list.
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.ep.poll_wait);
+        nested(PollMask::empty(), || self.ready_mask())
+    }
+}
+
+impl Epoll {
+    /// The readiness part of `ep_eventpoll_poll`.
+    fn ready_mask(&self) -> PollMask {
         let ready: Vec<Key> = self
             .ep
             .state
@@ -488,6 +524,10 @@ impl Kernel {
                 return Err(Errno::EINVAL.into());
             }
         }
+        // `epnested_mutex`: the loop check and the insert it allows are one step, or two
+        // concurrent ADDs could each pass and together build a cycle.
+        let _nesting = (op == EpollCtlOp::EPOLL_CTL_ADD && target_ep.is_some())
+            .then(|| self.epoll_nesting.lock().unwrap());
         if op == EpollCtlOp::EPOLL_CTL_ADD
             && let Some(to) = &target_ep
             && !loop_check(&ep, to)
@@ -621,7 +661,6 @@ impl Kernel {
 
         let interrupt = self.interrupt(caller);
         let waiter = Waiter::new();
-        let _registration = waiter.register_exclusive(&ep.wq, PollMask::empty());
         let mut timer = self.timer(deadline);
         let mut timed_out = deadline == Deadline::Now;
         let events = loop {
@@ -632,6 +671,12 @@ impl Kernel {
             // epoll_wait is never restarted.
             if wasixv2_wait::Interrupt::pending(&*interrupt) {
                 return Err(Errno::EINTR.into());
+            }
+            // On `ep->wq` only while asleep, as `ep_autoremove_wake_function` takes a woken
+            // waiter off: wakes that come while this thread harvests go to other waiters.
+            let _registration = waiter.register_exclusive(&ep.wq, PollMask::empty());
+            if ep.has_ready() {
+                continue;
             }
             let timer = timer.as_mut().map(|timer| timer.as_mut());
             match waiter.sleep(&*interrupt, timer).await {

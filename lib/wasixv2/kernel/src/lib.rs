@@ -69,6 +69,10 @@ use crate::{
 /// the host allocation a guest-chosen length can cause.
 const IO_CHUNK: usize = 64 * 1024;
 
+/// Most bytes any read or write family call transfers (`MAX_RW_COUNT`: `INT_MAX` rounded down
+/// to the page size), so a count always fits the `ssize_t` result.
+const MAX_RW_COUNT: usize = i32::MAX as usize & !(wasixv2_syscalls::WASM_PAGE_SIZE as usize - 1);
+
 /// The uid and gid of every process until credentials exist. Not 0: root bypasses permission
 /// checks, so programs take paths that only make sense for a privileged user.
 const ID: i32 = 1;
@@ -105,6 +109,9 @@ pub struct Kernel {
     // ---- proc ----
     /// The process tree: parents, zombies, vfork relations and images waiting for `execve`.
     procs: process::Procs,
+    // ---- ipc ----
+    /// Serialises epoll nesting changes with their loop checks (`epnested_mutex`).
+    epoll_nesting: Mutex<()>,
 }
 
 #[derive(Default)]
@@ -162,6 +169,7 @@ impl Kernel {
             vfs,
             futexes: futex::Futexes::default(),
             procs: process::Procs::default(),
+            epoll_nesting: Mutex::default(),
         }
     }
 
@@ -383,7 +391,11 @@ impl Syscalls for Kernel {
         vlen: Ulong,
         pos: i64,
     ) -> SysResult<u32> {
-        self.sys_preadv2(caller, fd, vec, vlen, pos.max(0), RwfFlags(0))
+        // `do_preadv`: only preadv2 gives -1 a meaning.
+        if pos < 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        self.sys_preadv2(caller, fd, vec, vlen, pos, RwfFlags(0))
             .await
     }
 
@@ -395,8 +407,13 @@ impl Syscalls for Kernel {
         vlen: Ulong,
         pos: i64,
     ) -> SysResult<u32> {
-        self.sys_pwritev2(caller, fd, vec, vlen, pos.max(0), RwfFlags(0))
-            .await
+        if pos < 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let ret = self
+            .sys_pwritev2(caller, fd, vec, vlen, pos, RwfFlags(0))
+            .await;
+        self.sigpipe(caller, ret)
     }
 
     async fn preadv2(
@@ -420,7 +437,8 @@ impl Syscalls for Kernel {
         pos: i64,
         flags: RwfFlags,
     ) -> SysResult<u32> {
-        self.sys_pwritev2(caller, fd, vec, vlen, pos, flags).await
+        let ret = self.sys_pwritev2(caller, fd, vec, vlen, pos, flags).await;
+        self.sigpipe(caller, ret)
     }
 
     async fn lseek(
@@ -441,8 +459,10 @@ impl Syscalls for Kernel {
         offset: LoffPtr,
         count: Usize,
     ) -> SysResult<i32> {
-        self.sys_sendfile(caller, out_fd, in_fd, offset, count)
-            .await
+        let ret = self
+            .sys_sendfile(caller, out_fd, in_fd, offset, count)
+            .await;
+        self.sigpipe(caller, ret)
     }
 
     async fn copy_file_range(
@@ -971,9 +991,7 @@ impl Syscalls for Kernel {
         let file = self.file(caller.task(), fd)?;
         file.check_readable()?;
         let mut data = vec![0; (buf.len as usize).min(IO_CHUNK)];
-        let n = file
-            .read_interruptible(&*self.interrupt(caller), &mut data)
-            .await?;
+        let n = file.read(&*self.interrupt(caller), &mut data).await?;
         buf.copy_out(caller.memory(), &data[..n]).await?;
         Ok(n as u32)
     }
@@ -983,7 +1001,7 @@ impl Syscalls for Kernel {
         file.check_writable()?;
         let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
         let interrupt = self.interrupt(caller);
-        let n = self.sigpipe(caller, file.write_interruptible(&*interrupt, &data).await)?;
+        let n = self.sigpipe(caller, file.write(&*interrupt, &data).await)?;
         Ok(n as u32)
     }
 

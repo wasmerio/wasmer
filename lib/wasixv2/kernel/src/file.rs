@@ -203,16 +203,9 @@ impl OpenFile {
         self.object().is_some_and(|object| object.can_poll())
     }
 
-    pub(crate) async fn read(&self, buf: &mut [u8]) -> SysResult<usize> {
-        self.read_interruptible(&NoInterrupt, buf).await
-    }
-
-    /// `read`, ending early with `SysErr::Restart` when `interrupt` becomes pending.
-    pub(crate) async fn read_interruptible(
-        &self,
-        interrupt: &dyn Interrupt,
-        buf: &mut [u8],
-    ) -> SysResult<usize> {
+    /// `read` at the file position. A blocked read ends early with `SysErr::Restart` when
+    /// `interrupt` becomes pending, as every blocking read does on Linux, vectored or not.
+    pub(crate) async fn read(&self, interrupt: &dyn Interrupt, buf: &mut [u8]) -> SysResult<usize> {
         let io = Io {
             flags: self.flags(),
             interrupt,
@@ -228,16 +221,9 @@ impl OpenFile {
         Ok(n)
     }
 
-    pub(crate) async fn write(&self, data: &[u8]) -> SysResult<usize> {
-        self.write_interruptible(&NoInterrupt, data).await
-    }
-
-    /// `write`, ending early with `SysErr::Restart` when `interrupt` becomes pending.
-    pub(crate) async fn write_interruptible(
-        &self,
-        interrupt: &dyn Interrupt,
-        data: &[u8],
-    ) -> SysResult<usize> {
+    /// `write` at the file position (or the end, for `O_APPEND`). A blocked write ends early
+    /// with `SysErr::Restart`, or the bytes moved so far, when `interrupt` becomes pending.
+    pub(crate) async fn write(&self, interrupt: &dyn Interrupt, data: &[u8]) -> SysResult<usize> {
         let io = Io {
             flags: self.flags(),
             interrupt,

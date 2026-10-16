@@ -129,7 +129,10 @@ fn blocking_pipe_read_waits_for_a_writer_on_another_thread() {
     std::thread::scope(|scope| {
         scope.spawn(|| {
             std::thread::sleep(Duration::from_millis(20));
-            assert_eq!(block_on(writer.write(b"xy")), Ok(2));
+            assert_eq!(
+                block_on(writer.write(&wasixv2_wait::NoInterrupt, b"xy")),
+                Ok(2)
+            );
         });
         assert_eq!(
             block_on(kernel.read(&caller, r, UserSliceMut::new(0x300, 9))),
@@ -137,6 +140,88 @@ fn blocking_pipe_read_waits_for_a_writer_on_another_thread() {
         );
     });
     assert_eq!(get(&memory, 0x300, 2), b"xy");
+}
+
+/// Writes one iovec `{base, len}` at `at`.
+fn iovec(memory: &FlatMemory, at: u32, base: u32, len: u32) -> wasixv2_abi::ConstIovecArray {
+    put(memory, at, &base.to_le_bytes());
+    put(memory, at + 4, &len.to_le_bytes());
+    GuestPtr::new(at)
+}
+
+#[test]
+fn a_blocked_readv_or_writev_ends_on_a_signal() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (r, w) = pipe(&kernel, &caller, OpenFlags(0));
+    let vec = iovec(&memory, 0x80, 0x300, 9);
+
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            std::thread::sleep(Duration::from_millis(20));
+            kernel.kill(task, Signal::SIGUSR1).unwrap();
+        });
+        assert_eq!(
+            block_on(kernel.readv(&caller, r, vec, 1)),
+            Err(SysErr::Restart)
+        );
+    });
+
+    // The signal is still pending, so a writev that has to wait for room gives up at once,
+    // with what it got in before.
+    let fill = iovec(&memory, 0x80, 0, 65536 + 1);
+    assert_eq!(block_on(kernel.writev(&caller, w, fill, 1)), Ok(65536));
+    let one = iovec(&memory, 0x80, 0, 1);
+    assert_eq!(
+        block_on(kernel.writev(&caller, w, one, 1)),
+        Err(SysErr::Restart)
+    );
+}
+
+#[test]
+fn readv_copies_out_up_to_a_fault() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (r, w) = pipe(&kernel, &caller, OpenFlags::O_NONBLOCK);
+    put(&memory, 0x200, b"abcdef");
+    assert_eq!(
+        block_on(kernel.write(&caller, w, UserSlice::new(0x200, 6))),
+        Ok(6)
+    );
+    // Three bytes fit the first buffer; the second lies outside guest memory.
+    let vec = iovec(&memory, 0x80, 0x300, 3);
+    iovec(&memory, 0x88, 1 << 30, 3);
+    assert_eq!(block_on(kernel.readv(&caller, r, vec, 2)), Ok(3));
+    assert_eq!(get(&memory, 0x300, 3), b"abc");
+}
+
+#[test]
+fn preadv_and_pwritev_reject_negative_offsets() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (r, w) = pipe(&kernel, &caller, OpenFlags::O_NONBLOCK);
+    let vec = iovec(&memory, 0x80, 0x300, 1);
+    // `do_preadv` checks the offset before it looks at the descriptor; only the v2 calls give
+    // -1 a meaning.
+    assert_eq!(
+        errno(block_on(kernel.preadv(&caller, r, vec, 1, -1))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(block_on(kernel.pwritev(&caller, w, vec, 1, -5))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(block_on(kernel.preadv2(
+            &caller,
+            r,
+            vec,
+            1,
+            -2,
+            RwfFlags(0)
+        ))),
+        Errno::EINVAL
+    );
 }
 
 #[test]
@@ -274,7 +359,10 @@ fn ppoll_blocks_until_another_thread_writes() {
     std::thread::scope(|scope| {
         scope.spawn(|| {
             std::thread::sleep(Duration::from_millis(20));
-            assert_eq!(block_on(writer.write(b"!")), Ok(1));
+            assert_eq!(
+                block_on(writer.write(&wasixv2_wait::NoInterrupt, b"!")),
+                Ok(1)
+            );
         });
         let (result, revents) = ppoll(&kernel, &caller, &memory, &[(r.0, 1)], None);
         assert_eq!((result, revents), (Ok(1), vec![1]));
@@ -557,6 +645,33 @@ mod epoll {
         assert_eq!(errno(deep), Errno::ELOOP);
     }
 
+    /// `EPOLL_CTL_ADD` of `fd` with `EPOLLIN`, from a memory of its own, for other threads.
+    fn add_from_thread(kernel: &Kernel, task: TaskId, epfd: Fd, fd: Fd) -> SysResult<i32> {
+        let memory = FlatMemory(RefCell::new(vec![0; 64]));
+        put(&memory, 0, &IN.to_le_bytes());
+        let caller = Caller::new(task, &memory);
+        let op = EpollCtlOp::EPOLL_CTL_ADD;
+        block_on(kernel.epoll_ctl(&caller, epfd, op, fd, GuestPtr::new(0)))
+    }
+
+    #[test]
+    fn concurrent_cross_adds_never_build_a_loop() {
+        let t = Fixture::new();
+        for _ in 0..200 {
+            let (a, b) = (t.create(), t.create());
+            let (ab, ba) = std::thread::scope(|scope| {
+                let ab = scope.spawn(|| add_from_thread(&t.kernel, t.task, a, b));
+                let ba = add_from_thread(&t.kernel, t.task, b, a);
+                (ab.join().unwrap(), ba)
+            });
+            // Exactly one nesting wins; the other sees the loop.
+            assert!(ab.is_ok() != ba.is_ok(), "{ab:?} {ba:?}");
+            assert_eq!(ab.or(ba), Ok(0));
+            t.close(a);
+            t.close(b);
+        }
+    }
+
     #[test]
     fn closing_the_epoll_unregisters_its_items() {
         let t = Fixture::new();
@@ -581,7 +696,10 @@ mod epoll {
         std::thread::scope(|scope| {
             scope.spawn(|| {
                 std::thread::sleep(Duration::from_millis(20));
-                assert_eq!(block_on(writer.write(b"!")), Ok(1));
+                assert_eq!(
+                    block_on(writer.write(&wasixv2_wait::NoInterrupt, b"!")),
+                    Ok(1)
+                );
             });
             assert_eq!(t.wait(ep, -1), [(IN, r.0 as u64)]);
         });

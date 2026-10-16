@@ -10,7 +10,7 @@ use wasixv2_syscalls::{
 use wasixv2_vfs::{AllocMode, DirEntry, DirSink, FileType};
 
 use crate::{
-    IO_CHUNK, Kernel,
+    IO_CHUNK, Kernel, MAX_RW_COUNT,
     file::{Backing, OpenFile, SeekBase},
 };
 
@@ -35,6 +35,7 @@ enum At {
 }
 
 impl Kernel {
+    /// Reads into the buffers in order. A blocked read ends on a signal, as `read` does.
     async fn read_into_iovecs(
         &self,
         caller: &Caller<'_>,
@@ -45,21 +46,14 @@ impl Kernel {
         let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
         let mut data = vec![0; total.min(IO_CHUNK)];
         let n = match at {
-            At::Position => file.read(&mut data).await?,
+            At::Position => file.read(&*self.interrupt(caller), &mut data).await?,
             At::Offset(offset) => file.read_at(&mut data, offset).await?,
         };
-        let mut rest = &data[..n];
-        for iov in iovecs {
-            let (chunk, tail) = rest.split_at(rest.len().min(iov.iov_len as usize));
-            UserSliceMut::new(iov.iov_base, iov.iov_len)
-                .copy_out(caller.memory(), chunk)
-                .await?;
-            rest = tail;
-        }
-        Ok(n as u32)
+        Ok(scatter(caller.memory(), iovecs, &data[..n]).await? as u32)
     }
 
-    /// Gathers the buffers into one write, so they reach the file together.
+    /// Gathers the buffers into one write, so they reach the file together. A blocked write
+    /// ends on a signal, as `write` does.
     async fn write_from_iovecs(
         &self,
         caller: &Caller<'_>,
@@ -67,17 +61,9 @@ impl Kernel {
         iovecs: &[Iovec],
         at: At,
     ) -> SysResult<u32> {
-        let mut data = Vec::new();
-        for iov in iovecs {
-            let slice = UserSlice::new(iov.iov_base, iov.iov_len);
-            data.extend(
-                slice
-                    .copy_in(caller.memory(), IO_CHUNK - data.len())
-                    .await?,
-            );
-        }
+        let data = gather(caller.memory(), iovecs).await?;
         let n = match at {
-            At::Position => file.write(&data).await?,
+            At::Position => file.write(&*self.interrupt(caller), &data).await?,
             At::Offset(offset) => file.write_at(&data, offset).await?,
         };
         Ok(n as u32)
@@ -153,6 +139,10 @@ impl Kernel {
         pos: i64,
         flags: RwfFlags,
     ) -> SysResult<u32> {
+        // `do_preadv`/`do_pwritev` check the offset first; -1 means the file position.
+        if pos < -1 {
+            return Err(Errno::EINVAL.into());
+        }
         let file = self.file(caller.task(), fd)?;
         file.check_readable()?;
         let at = self.rw_position(&file, pos)?;
@@ -170,20 +160,16 @@ impl Kernel {
         pos: i64,
         flags: RwfFlags,
     ) -> SysResult<u32> {
+        // `do_preadv`/`do_pwritev` check the offset first; -1 means the file position.
+        if pos < -1 {
+            return Err(Errno::EINVAL.into());
+        }
         let file = self.file(caller.task(), fd)?;
         file.check_writable()?;
         let at = self.rw_position(&file, pos)?;
         rw_flags(flags)?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
-        let mut data = Vec::new();
-        for iov in &iovecs {
-            let slice = UserSlice::new(iov.iov_base, iov.iov_len);
-            data.extend(
-                slice
-                    .copy_in(caller.memory(), IO_CHUNK - data.len())
-                    .await?,
-            );
-        }
+        let data = gather(caller.memory(), &iovecs).await?;
         let n = match &file.backing {
             Backing::Inode(inner) if flags.contains(RwfFlags::RWF_APPEND) => {
                 let _pos = file.lock_pos().await;
@@ -209,7 +195,7 @@ impl Kernel {
                 n
             }
             _ => match at {
-                At::Position => file.write(&data).await?,
+                At::Position => file.write(&*self.interrupt(caller), &data).await?,
                 At::Offset(offset) => file.write_at(&data, offset).await?,
             },
         };
@@ -304,7 +290,8 @@ impl Kernel {
                 u64::try_from(pos).map_err(|_| Errno::EINVAL)?
             }
         };
-        let count = (count as usize).min(i32::MAX as usize);
+        let count = (count as usize).min(MAX_RW_COUNT);
+        let interrupt = self.interrupt(caller);
         let mut done = 0;
         let mut buf = vec![0; count.min(IO_CHUNK)];
         while done < count {
@@ -313,7 +300,7 @@ impl Kernel {
             if n == 0 {
                 break;
             }
-            let written = match output.write(&buf[..n]).await {
+            let written = match output.write(&*interrupt, &buf[..n]).await {
                 Ok(written) => written,
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
@@ -366,7 +353,7 @@ impl Kernel {
         }
         let mut pos_in = read_offset(caller, off_in, &input).await?;
         let mut pos_out = read_offset(caller, off_out, &output).await?;
-        let len = len as u64;
+        let len = u64::from(len).min(MAX_RW_COUNT as u64);
         let same = src.lock_key() == dst.lock_key();
         if same && pos_in < pos_out + len && pos_out < pos_in + len {
             return Err(Errno::EINVAL.into());
@@ -628,10 +615,63 @@ pub(crate) async fn read_iovecs(
         .chunks_exact(Iovec::SIZE)
         .filter_map(Iovec::read_from)
         .collect();
-    // Linux rejects a total that overflows `ssize_t`.
-    let total: u64 = iovecs.iter().map(|iov| u64::from(iov.iov_len)).sum();
-    if total > i32::MAX as u64 {
+    // `iovec_from_user`: a negative length is `EINVAL`; the total is cut to `MAX_RW_COUNT`.
+    if iovecs.iter().any(|iov| iov.iov_len > i32::MAX as u32) {
         return Err(Errno::EINVAL);
     }
-    Ok(iovecs)
+    let mut left = MAX_RW_COUNT as u32;
+    Ok(iovecs
+        .into_iter()
+        .map(|iov| {
+            let iov_len = iov.iov_len.min(left);
+            left -= iov_len;
+            Iovec { iov_len, ..iov }
+        })
+        .collect())
+}
+
+/// Copies `data` out to the buffers in order. A fault ends the copy: the count so far, or
+/// `EFAULT` if nothing was copied (`copy_to_iter` stopping short).
+async fn scatter(memory: &dyn UserMemory, iovecs: &[Iovec], data: &[u8]) -> Result<usize, Errno> {
+    let mut copied = 0;
+    for iov in iovecs {
+        if copied == data.len() {
+            break;
+        }
+        let chunk = &data[copied..][..(data.len() - copied).min(iov.iov_len as usize)];
+        let fault = UserSliceMut::new(iov.iov_base, iov.iov_len)
+            .copy_out(memory, chunk)
+            .await
+            .is_err();
+        if fault {
+            return if copied > 0 {
+                Ok(copied)
+            } else {
+                Err(Errno::EFAULT)
+            };
+        }
+        copied += chunk.len();
+    }
+    Ok(copied)
+}
+
+/// Gathers up to `IO_CHUNK` bytes from the buffers. A fault ends the gathering: what came
+/// before it is still written, or `EFAULT` if nothing was gathered.
+async fn gather(memory: &dyn UserMemory, iovecs: &[Iovec]) -> Result<Vec<u8>, Errno> {
+    let mut data = Vec::new();
+    for iov in iovecs {
+        let room = IO_CHUNK - data.len();
+        if room == 0 {
+            break;
+        }
+        match UserSlice::new(iov.iov_base, iov.iov_len)
+            .copy_in(memory, room)
+            .await
+        {
+            Ok(chunk) => data.extend(chunk),
+            Err(_) if !data.is_empty() => break,
+            Err(_) => return Err(Errno::EFAULT),
+        }
+    }
+    Ok(data)
 }
