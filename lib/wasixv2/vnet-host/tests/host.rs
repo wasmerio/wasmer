@@ -260,10 +260,11 @@ fn refused_host_connect_closes_the_socket() {
     let ephemeral = s.local_addr().unwrap().port();
     assert_ne!(ephemeral, 0);
     assert!(wait_for(&*s, PollMask::ERR).contains(PollMask::HUP));
-    // `tcp_done`: no peer, state CLOSE, the autobound port released.
+    // `tcp_done`: no peer, state CLOSE, the autobound port released (`getsockname` still
+    // shows it, as Linux's `inet_sport` does).
     assert_eq!(s.peer_addr(), Err(Errno::ENOTCONN));
     assert_eq!(tcp_state(&*s), 7);
-    assert_eq!(s.local_addr().unwrap().port(), 0);
+    assert_eq!(s.local_addr().unwrap().port(), ephemeral);
     assert!(net.ports().iter().all(|p| p.local.port() != ephemeral));
     assert_eq!(s.take_error(), Some(Errno::ECONNREFUSED));
     // The next connect reports the (already taken) error once; the one after retries.

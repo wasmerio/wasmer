@@ -142,6 +142,9 @@ struct Inner {
     local: Option<SocketAddr>,
     /// `SOCK_BINDPORT_LOCK`: the port was chosen by `bind`, so it survives a disconnect.
     port_locked: bool,
+    /// What `getsockname` reports once an autobound port went back to the table while
+    /// unbound: `inet_put_port` clears `inet_num` but leaves `inet_sport`.
+    put_back: Option<SocketAddr>,
     state: State,
     /// `sk_err` while not connected.
     err: Option<Errno>,
@@ -230,6 +233,7 @@ impl TcpSocket {
                 opts,
                 local,
                 port_locked: local.is_some(),
+                put_back: None,
                 state,
                 err: None,
                 failed: false,
@@ -284,6 +288,7 @@ impl TcpSocket {
             && let Some(local) = g.local.take()
         {
             self.net.state().tcp.unbind(self.id, local.port());
+            g.put_back = Some(local);
         }
     }
 
@@ -781,6 +786,7 @@ impl Socket for TcpSocket {
     fn local_addr(&self) -> NetResult<SocketAddr> {
         let g = self.lock();
         Ok(g.local
+            .or(g.put_back)
             .map_or(unbound(self.domain), |a| present(self.domain, a)))
     }
 
