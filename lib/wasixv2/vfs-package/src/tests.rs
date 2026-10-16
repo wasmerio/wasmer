@@ -197,3 +197,71 @@ fn mutations_fail_with_erofs() {
     assert_eq!(block_on(file.getxattr(b"user.x")), Err(Errno::ENODATA));
     assert_eq!(block_on(file.listxattr()), Ok(vec![]));
 }
+
+/// The bytes of a package whose volume `atom` holds `children`.
+fn webc_bytes(children: Vec<(&str, WEntry<'static>)>) -> Vec<u8> {
+    let mut writer = Writer::new(ChecksumAlgorithm::Sha256)
+        .write_manifest(&Default::default())
+        .unwrap()
+        .write_atoms(BTreeMap::new())
+        .unwrap();
+    writer.write_volume("atom", dir(children)).unwrap();
+    writer.finish(SignatureAlgorithm::None).unwrap().to_vec()
+}
+
+fn mount(bytes: Vec<u8>) -> Result<PackageFs, PackageFsError> {
+    PackageFs::new(&OwnedReader::parse(bytes).unwrap(), "atom")
+}
+
+fn find(bytes: &[u8], what: &[u8]) -> usize {
+    let at = bytes.windows(what.len()).position(|w| w == what);
+    let at = at.expect("pattern in the image");
+    assert_eq!(
+        bytes[at + 1..].windows(what.len()).position(|w| w == what),
+        None
+    );
+    at
+}
+
+#[test]
+fn a_file_whose_data_ends_before_it_starts_is_rejected_at_mount() {
+    let mut bytes = webc_bytes(vec![("f", file(&[0xab; 1000]))]);
+    // The file's header entry: its tag, then its data's start and end offsets.
+    let at = (0..bytes.len() - 17)
+        .find(|&i| {
+            let word = |at: usize| u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap());
+            bytes[i] == 31 && word(i + 9).checked_sub(word(i + 1)) == Some(1000)
+        })
+        .expect("the file's entry");
+    let (start, end) = (at + 1, at + 9);
+    let (a, b) = (bytes[start..end].to_vec(), bytes[end..end + 8].to_vec());
+    bytes[start..end].copy_from_slice(&b);
+    bytes[end..end + 8].copy_from_slice(&a);
+
+    assert!(matches!(mount(bytes), Err(PackageFsError::Malformed(_))));
+}
+
+#[test]
+fn names_that_are_not_file_names_are_rejected_at_mount() {
+    for bad in [&b".."[..], b"a/", b"a\0"] {
+        let mut bytes = webc_bytes(vec![("ab", file(b"x"))]);
+        // A directory entry: the name's length, then the name.
+        let at = find(&bytes, b"\x02\0\0\0\0\0\0\0ab") + 8;
+        bytes[at..at + 2].copy_from_slice(bad);
+        assert!(
+            matches!(mount(bytes), Err(PackageFsError::Malformed(_))),
+            "{bad:?}"
+        );
+    }
+}
+
+#[test]
+fn a_directory_that_contains_itself_is_rejected_at_mount() {
+    let mut bytes = webc_bytes(vec![("d", WEntry::Dir(dir(vec![])))]);
+    // The root's entry for `d`: its header offset, hash, name length and name. Offset 0 is the
+    // root itself.
+    let at = find(&bytes, b"\x01\0\0\0\0\0\0\0d") - 40;
+    bytes[at..at + 8].copy_from_slice(&0u64.to_le_bytes());
+
+    assert!(matches!(mount(bytes), Err(PackageFsError::Malformed(_))));
+}

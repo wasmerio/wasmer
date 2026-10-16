@@ -13,9 +13,14 @@
 //! numbers are handed out from a per-volume counter when a directory is first parsed (the root
 //! is 1, its entries take the next consecutive numbers), so every object has exactly one
 //! number for the mount's lifetime and no two objects share one.
+//!
+//! The image is untrusted: mounting walks its whole directory tree once and refuses an image
+//! whose entries cannot be decoded, whose names are not valid file names, or whose directories
+//! are shared or loop, as squashfs and erofs reject corrupt metadata instead of trusting it.
 
 use std::{
     any::Any,
+    panic::AssertUnwindSafe,
     sync::{
         Arc, OnceLock,
         atomic::{AtomicU64, Ordering},
@@ -45,6 +50,9 @@ const ROOT_INO: u64 = 1;
 const FILE_MODE: u32 = 0o755;
 const DIR_MODE: u32 = 0o755;
 const SYMLINK_MODE: u32 = 0o777;
+/// The fewest header bytes a directory entry takes in a well-formed image: its offset, hash and
+/// name length (the name itself is at least a byte more).
+const MIN_ENTRY_SIZE: u64 = 8 + 32 + 8;
 
 /// Why a volume cannot be mounted.
 #[derive(Debug, thiserror::Error)]
@@ -53,6 +61,8 @@ pub enum PackageFsError {
     Volume(#[from] OwnedReaderError),
     #[error("unable to read the volume's root directory")]
     Header(#[from] VolumeHeaderError),
+    #[error("the volume is malformed: {0}")]
+    Malformed(&'static str),
 }
 
 /// One volume of a webc v3 package, mounted read-only.
@@ -88,8 +98,15 @@ impl PackageFs {
         uid: u32,
         gid: u32,
     ) -> Result<Self, PackageFsError> {
+        // webc adds the span's start and length unchecked.
+        let span = reader.index().volumes.get(name).map(|entry| entry.span);
+        if span.is_some_and(|span| span.start.checked_add(span.len).is_none()) {
+            return Err(PackageFsError::Malformed(
+                "the volume lies outside the file",
+            ));
+        }
+        let size = span.map_or(0, |span| span.len) as u64;
         let section = reader.get_volume(name)?;
-        let size = reader.index().volumes.get(name).map_or(0, |e| e.span.len) as u64;
         let root = section.root()?;
         // SAFETY: `root` borrows the header bytes inside `section`'s `OwnedBuffer`, which are
         // reference-counted heap or mmap memory that does not move with the `VolumeSection`.
@@ -97,6 +114,7 @@ impl PackageFs {
         // every `Directory<'static>` and `&'static str` derived from them, none of which escape
         // this crate.
         let root = unsafe { std::mem::transmute::<Directory<'_>, Directory<'static>>(root) };
+        validate(&root, size)?;
         let vol = Arc::new(Volume {
             _section: section,
             size,
@@ -201,17 +219,14 @@ impl DirData {
     fn parse(&self) -> FsResult<Children> {
         let mut entries = Vec::new();
         let mut subdirs = 0;
-        let parsed = self
-            .dir
-            .entries()
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_| Errno::EIO)?;
+        // Mounting decoded every directory already; this cannot fail on the same bytes.
+        let parsed = decode(&self.dir).map_err(|_| Errno::EIO)?;
         // `children` runs this once per directory, so each entry gets its number exactly once.
         let first = self
             .vol
             .next_ino
             .fetch_add(parsed.len() as u64, Ordering::Relaxed);
-        for (ino, (name, _hash, entry)) in (first..).zip(parsed) {
+        for (ino, (name, entry)) in (first..).zip(parsed) {
             let kind = match entry {
                 WebcEntry::Dir(dir) => {
                     subdirs += 1;
@@ -222,18 +237,73 @@ impl DirData {
             };
             entries.push(Child { name, ino, kind });
         }
-        if entries.len() as u64 > MAX_DIR_COOKIE {
-            return Err(Errno::EOVERFLOW);
-        }
-        // The writer emits names in order; a foreign image that does not still gets lookups.
-        if !entries.is_sorted_by(|a, b| a.name <= b.name) {
-            entries.sort_unstable_by(|a, b| a.name.cmp(b.name));
-        }
         Ok(Children {
             entries: entries.into_boxed_slice(),
             subdirs,
         })
     }
+}
+
+type Entries = Vec<(&'static str, WebcEntry<'static>)>;
+
+/// The entries of `dir` in name order, checked: each decodes, and each name is a single valid
+/// file name that occurs once.
+fn decode(dir: &Directory<'static>) -> Result<Entries, &'static str> {
+    // webc 12 panics on some malformed entries instead of failing: a file whose data starts
+    // past its end slices the data section backwards, and a header number above `usize::MAX`
+    // on a 32-bit host. Contain that as a malformed image; it only works where panics unwind,
+    // so webc itself must check these.
+    let decoded = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        dir.entries()
+            .map(|entry| entry.map(|(name, _hash, entry)| (name, entry)))
+            .collect::<Result<Entries, _>>()
+    }));
+    let mut entries = decoded
+        .map_err(|_| "an entry lies outside the volume")?
+        .map_err(|_| "an entry cannot be decoded")?;
+    if entries.iter().any(|(name, _)| !valid_name(name)) {
+        return Err("an entry's name is not a file name");
+    }
+    if entries.len() as u64 > MAX_DIR_COOKIE {
+        return Err("a directory has too many entries");
+    }
+    // The writer emits names in order; a foreign image that does not still gets lookups.
+    if !entries.is_sorted_by(|a, b| a.0 < b.0) {
+        entries.sort_unstable_by(|a, b| a.0.cmp(b.0));
+        if entries.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+            return Err("a directory has a name twice");
+        }
+    }
+    Ok(entries)
+}
+
+/// A name a directory entry may have (what `getname` and `lookup` accept).
+fn valid_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= NAME_MAX
+        && name != "."
+        && name != ".."
+        && !name.bytes().any(|b| b == b'/' || b == 0)
+}
+
+/// Decodes every directory under `root` once. A tree has at most one entry per
+/// `MIN_ENTRY_SIZE` bytes of a `volume_size`-byte volume; more means directories are shared or
+/// loop, which would make the tree unbounded.
+fn validate(root: &Directory<'static>, volume_size: u64) -> Result<(), PackageFsError> {
+    let mut budget = volume_size / MIN_ENTRY_SIZE;
+    let mut pending = vec![root.clone()];
+    while let Some(dir) = pending.pop() {
+        let entries = decode(&dir).map_err(PackageFsError::Malformed)?;
+        budget = budget
+            .checked_sub(entries.len() as u64)
+            .ok_or(PackageFsError::Malformed("directories are shared or loop"))?;
+        pending.extend(
+            entries
+                .into_iter()
+                .filter_map(|(_, entry)| entry.into_dir()),
+        );
+    }
+    Ok(())
 }
 
 /// A file, directory or symlink of the volume.
