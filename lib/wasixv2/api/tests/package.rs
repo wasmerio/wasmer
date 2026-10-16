@@ -140,7 +140,7 @@ async fn root_volume_is_a_writable_layer_under_the_machine_root() {
     let (status, stdout) = local
         .run_until(async {
             let mut machine = Machine::new();
-            machine.mount_root_lower(&package(), "/data").unwrap();
+            machine.mount_root_lower(&package(), "/data").await.unwrap();
             let stdout = Arc::new(Capture::default());
             let stdio = Stdio {
                 stdin: Arc::new(EmptySource),
@@ -167,7 +167,10 @@ async fn root_volume_needs_a_fresh_machine() {
                 .mount_package_volume("/data", &package(), "/data", false)
                 .await
                 .unwrap();
-            let err = machine.mount_root_lower(&package(), "/data").unwrap_err();
+            let err = machine
+                .mount_root_lower(&package(), "/data")
+                .await
+                .unwrap_err();
             // EBUSY
             assert_eq!(err.raw_os_error(), Some(16));
         })

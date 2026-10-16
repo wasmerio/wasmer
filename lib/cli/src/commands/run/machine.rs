@@ -198,6 +198,16 @@ impl Run {
                 (true, Some(path)) => path.clone(),
                 _ => mapping.volume_name.clone(),
             };
+            // Migration keeps only the parts of "atom" an `fs` table names, so a v2 package
+            // without one (whose "atom" v1 mounted at `/`) has nothing to mount.
+            if reader.migrated && reader.v3.get_volume(&name).is_err() {
+                tracing::warn!(
+                    package = %mapping.package,
+                    volume = %name,
+                    "the webc v2 package has no `fs` table; its \"atom\" volume is not mounted",
+                );
+                continue;
+            }
             volumes.push(PackageVolume {
                 reader: reader.v3.clone(),
                 name,
@@ -230,24 +240,29 @@ impl Run {
             .volumes
             .iter()
             .partition(|v| Path::new(&v.mount_path) == Path::new("/"));
-        for volume in root_volumes {
-            machine
-                .mount_root_lower(&volume.reader, &volume.name)
-                .with_context(|| {
-                    format!("cannot mount the package volume \"{}\" at /", volume.name)
-                })?;
-        }
         let (have_current_dir, host_dirs) = self.wasi.build_mapped_directories()?;
         // Nothing can be mounted over the root, so a host directory for `/` joins its layers,
         // over the package's.
         let (root_dirs, host_dirs): (Vec<_>, Vec<_>) = host_dirs
             .into_iter()
             .partition(|dir| Path::new(&dir.guest) == Path::new("/"));
-        for dir in root_dirs {
-            machine
-                .mount_root_lower_host_dir(&dir.host)
-                .with_context(|| format!("cannot map {} to /", dir.host.display()))?;
-        }
+        runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+            for volume in root_volumes {
+                machine
+                    .mount_root_lower(&volume.reader, &volume.name)
+                    .await
+                    .with_context(|| {
+                        format!("cannot mount the package volume \"{}\" at /", volume.name)
+                    })?;
+            }
+            for dir in root_dirs {
+                machine
+                    .mount_root_lower_host_dir(&dir.host)
+                    .await
+                    .with_context(|| format!("cannot map {} to /", dir.host.display()))?;
+            }
+            Ok::<_, Error>(())
+        }))?;
         // v1's precedence: the command's `cwd` annotation, then `--cwd`, then the mapped current
         // directory.
         let cwd = wasi
@@ -341,8 +356,14 @@ impl Run {
             set(key.to_string(), value.to_string());
         }
         if self.wasi.forward_host_env {
+            // The kernel's environment is UTF-8, so a variable that is not stays behind.
             for (key, value) in std::env::vars_os() {
-                set(utf8_env_part(key)?, utf8_env_part(value)?);
+                match (utf8_env_part(key), utf8_env_part(value)) {
+                    (Ok(key), Ok(value)) => set(key, value),
+                    (Err(err), _) | (_, Err(err)) => {
+                        tracing::warn!(%err, "not forwarding a host environment variable");
+                    }
+                }
             }
         }
         for (key, value) in self.wasi.resolved_env_vars()? {

@@ -116,24 +116,24 @@ impl Machine {
     ///
     /// The root can only change on a fresh machine: this fails with `EBUSY` after anything was
     /// mounted or run.
-    pub fn mount_root_lower(&mut self, reader: &OwnedReader, volume: &str) -> io::Result<()> {
+    pub async fn mount_root_lower(&mut self, reader: &OwnedReader, volume: &str) -> io::Result<()> {
         let lower = PackageFs::with_owner(reader, volume, USER, USER).map_err(io::Error::other)?;
-        self.push_root_lower(Arc::new(lower))
+        self.push_root_lower(Arc::new(lower)).await
     }
 
     /// [`Machine::mount_root_lower`] for the host directory `host_dir`, which the guest sees
     /// through the root but never changes: changes stay in the in-memory layer. This is how a
     /// host directory mapped to `/` is mounted, since nothing can be mounted over the root.
-    pub fn mount_root_lower_host_dir(&mut self, host_dir: &Path) -> io::Result<()> {
+    pub async fn mount_root_lower_host_dir(&mut self, host_dir: &Path) -> io::Result<()> {
         let options = wasixv2_vfs_host::Options {
             read_only: true,
             owner: (USER, USER),
         };
         let lower = wasixv2_vfs_host::open(host_dir, self.host.clone(), options)?;
-        self.push_root_lower(lower)
+        self.push_root_lower(lower).await
     }
 
-    fn push_root_lower(&mut self, lower: Arc<dyn Filesystem>) -> io::Result<()> {
+    async fn push_root_lower(&mut self, lower: Arc<dyn Filesystem>) -> io::Result<()> {
         if *self.in_use.get_mut() {
             return Err(errno_to_io(Errno::EBUSY));
         }

@@ -53,11 +53,12 @@ fn list_cwd() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     eprintln!("{}", String::from_utf8(output.stderr).unwrap());
 
-    // The command's `cwd` annotation is `/data`, where the package directory is mapped; a
-    // directory lists in no particular order.
-    let mut listed: Vec<_> = stdout.lines().collect();
-    listed.sort_unstable();
-    assert_eq!(listed, [".", "..", "main.c", "main.wasm", "wasmer.toml"]);
+    // As under v1, wasix-libc resolves "./" through the `/` preopen, so this lists the root,
+    // where the package directory is mapped at `/data`.
+    let listed: Vec<_> = stdout.lines().collect();
+    for entry in [".", "..", "data", "etc", "tmp"] {
+        assert!(listed.contains(&entry), "{entry} is missing:\n{stdout}");
+    }
 }
 
 #[test]
