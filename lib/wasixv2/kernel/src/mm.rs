@@ -41,6 +41,35 @@ impl Mm {
     pub(crate) fn reset(&self) {
         *self.space() = AddressSpace::default();
     }
+
+    /// The address space as `/proc/<pid>/maps` lists it, lowest first, as far as the kernel
+    /// has seen memory.
+    pub(crate) fn regions(&self) -> Vec<Region> {
+        self.space().regions()
+    }
+
+    /// The size of memory when a memory call last looked (`total_vm`).
+    pub(crate) fn size(&self) -> u64 {
+        self.space().seen
+    }
+}
+
+/// A run of pages in use, for `/proc/<pid>/maps`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Region {
+    pub(crate) start: u64,
+    pub(crate) end: u64,
+    pub(crate) kind: RegionKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RegionKind {
+    /// The image's data, stack and heap, below the allocator's pages.
+    Image,
+    /// The program break's pages (`[heap]`).
+    Heap,
+    /// Anonymous mappings, and memory the guest grew itself.
+    Anon,
 }
 
 #[derive(Default)]
@@ -52,6 +81,8 @@ pub(crate) struct AddressSpace {
     mapped: Vec<bool>,
     /// The program break: where it started and where it is.
     brk: Option<(u64, u64)>,
+    /// The size of memory when a memory call last looked.
+    seen: u64,
 }
 
 /// Where a new mapping goes.
@@ -80,6 +111,7 @@ impl AddressSpace {
     /// kernel. Pages someone else grew count as mapped, so they are never handed out; a growth
     /// below `base` stays the image's.
     pub(crate) fn grown(&mut self, previous: u64, pages: u32) {
+        self.seen = self.seen.max(previous + u64::from(pages) * PAGE_SIZE);
         let first = previous / PAGE_SIZE;
         let base = *self.base.get_or_insert(first);
         let Some(index) = first.checked_sub(base) else {
@@ -134,6 +166,37 @@ impl AddressSpace {
     fn pages_free(&self, first: u64, end: u64, mem_pages: u64) -> bool {
         let movable = |page: u64| self.base.is_some_and(|base| page >= base) || page >= mem_pages;
         (first..end).all(|page| movable(page) && !self.page_mapped(page, mem_pages))
+    }
+
+    fn regions(&self) -> Vec<Region> {
+        let mem_pages = self.seen.div_ceil(PAGE_SIZE);
+        let image_end = self.base.unwrap_or(mem_pages).min(mem_pages);
+        let mut regions = Vec::new();
+        if image_end > 0 {
+            regions.push(Region {
+                start: 0,
+                end: image_end * PAGE_SIZE,
+                kind: RegionKind::Image,
+            });
+        }
+        let heap = self
+            .brk
+            .map(|(start, end)| (start / PAGE_SIZE, end.div_ceil(PAGE_SIZE)));
+        let kind = |page: u64| match heap {
+            Some((start, end)) if (start..end).contains(&page) => RegionKind::Heap,
+            _ => RegionKind::Anon,
+        };
+        for page in image_end..mem_pages {
+            if !self.page_mapped(page, mem_pages) {
+                continue;
+            }
+            let (start, end, kind) = (page * PAGE_SIZE, (page + 1) * PAGE_SIZE, kind(page));
+            match regions.last_mut() {
+                Some(last) if last.end == start && last.kind == kind => last.end = end,
+                _ => regions.push(Region { start, end, kind }),
+            }
+        }
+        regions
     }
 
     fn free_run(&self, pages: u64) -> Option<usize> {
@@ -206,8 +269,10 @@ fn advice_valid(advice: MadviseAdvice) -> bool {
 }
 
 impl Kernel {
-    async fn mem_size(&self, caller: &Caller<'_>) -> u64 {
-        caller.memory().size().await
+    pub(crate) async fn mem_size(&self, caller: &Caller<'_>) -> u64 {
+        let size = caller.memory().size().await;
+        self.process(caller.task()).mm.space().seen = size;
+        size
     }
 
     /// Fails with `ENOMEM` unless all of `[addr, addr + len)` is mapped.

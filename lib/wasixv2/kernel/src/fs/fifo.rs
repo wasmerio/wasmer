@@ -3,11 +3,11 @@
 
 use wasixv2_abi::{IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult};
-use wasixv2_vfs::{File, Path};
+use wasixv2_vfs::File;
 use wasixv2_wait::{Interrupt, PollMask, PollTable, Pollable};
 
 use crate::{
-    file::{FileObject, Io, OpenFile},
+    file::{FileObject, Io},
     pipe::{Pipe, PipeEnd, fifo_pipe},
 };
 
@@ -16,13 +16,7 @@ use crate::{
 pub(crate) struct FifoFile {
     read: Option<PipeEnd>,
     write: Option<PipeEnd>,
-    pub(crate) file: File,
-}
-
-impl FifoFile {
-    pub(crate) fn path(&self) -> &Path {
-        &self.file.path
-    }
+    _file: File,
 }
 
 /// `fifo_open`. Blocking opens wait for the other side; a non-blocking writer without readers
@@ -61,7 +55,11 @@ pub(crate) async fn open(
             Some(PipeEnd::attach(&pipe, true)),
         ),
     };
-    Ok(FifoFile { read, write, file })
+    Ok(FifoFile {
+        read,
+        write,
+        _file: file,
+    })
 }
 
 impl Pollable for FifoFile {
@@ -107,9 +105,4 @@ impl FileObject for FifoFile {
             None => Box::pin(async { Err(Errno::ENOTTY.into()) }),
         }
     }
-}
-
-/// The FIFO's own path, for the fd-based calls that act on the inode (`fstat`, `fchmod`).
-pub(crate) fn path_of(file: &OpenFile) -> Option<Path> {
-    file.downcast::<FifoFile>().map(|fifo| fifo.path().clone())
 }

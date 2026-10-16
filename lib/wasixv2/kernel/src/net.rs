@@ -14,6 +14,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{
     Caller, Errno, Fd, SysErr, SysResult, UserSlice, UserSliceMut, read_value, write_value,
 };
+use wasixv2_vfs::Path;
 use wasixv2_vnet::{Control, Domain, SendMsg, Shutdown, SocketKind};
 
 use crate::{
@@ -77,7 +78,7 @@ impl Kernel {
         sock: Arc<unix::Sock>,
         flags: SocketFlags,
     ) -> SysResult<Fd> {
-        let file = unix_file(sock, flags);
+        let file = unix_file(sock, flags, self.pseudo.socket());
         let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
         Ok(fd)
     }
@@ -102,7 +103,10 @@ impl Kernel {
             status |= OpenFlags::O_NONBLOCK;
         }
         let object = SocketFile::new(socket, self.host.clone());
-        let file = OpenFile::new(Backing::Stream(Arc::new(object)), status);
+        let file = OpenFile::new(
+            Backing::Stream(Arc::new(object), self.pseudo.socket()),
+            status,
+        );
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [fd] = self.install_files(caller, [file], cloexec)?;
         Ok(fd)
@@ -160,7 +164,10 @@ impl Kernel {
         let a = self.unix_socket(caller, kind, protocol)?;
         let b = self.unix_socket(caller, kind, protocol)?;
         unix::Sock::pair(&a, &b);
-        let files = [unix_file(a, flags), unix_file(b, flags)];
+        let files = [
+            unix_file(a, flags, self.pseudo.socket()),
+            unix_file(b, flags, self.pseudo.socket()),
+        ];
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let fds = self.install_files(caller, files, cloexec)?;
         self.copy_out_fd_pair(caller, usockvec, fds).await?;
@@ -936,12 +943,12 @@ impl Kernel {
 }
 
 /// An open file for the Unix socket `sock`.
-fn unix_file(sock: Arc<unix::Sock>, flags: SocketFlags) -> OpenFile {
+fn unix_file(sock: Arc<unix::Sock>, flags: SocketFlags, path: Path) -> OpenFile {
     let mut status = OpenFlags::O_RDWR;
     if flags.contains(SocketFlags::SOCK_NONBLOCK) {
         status |= OpenFlags::O_NONBLOCK;
     }
-    OpenFile::new(Backing::Stream(Arc::new(UnixFile(sock))), status)
+    OpenFile::new(Backing::Stream(Arc::new(UnixFile(sock)), path), status)
 }
 
 /// Splits `socket`'s type argument into the type and the `SOCK_NONBLOCK`/`SOCK_CLOEXEC` flags.

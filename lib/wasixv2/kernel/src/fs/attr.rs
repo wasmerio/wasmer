@@ -15,7 +15,7 @@ use wasixv2_vfs::{
 };
 
 use super::{Env, read_path};
-use crate::{Kernel, file::Backing};
+use crate::Kernel;
 
 /// `ST_*` bits of `statfs.f_flags`.
 const ST_RDONLY: u32 = 1;
@@ -39,7 +39,7 @@ fn timestamp(time: Timestamp) -> StatxTimestamp {
 }
 
 impl Kernel {
-    /// `statx`. Streams (stdio) report a FIFO, as a pipe would.
+    /// `statx`.
     pub(crate) async fn sys_statx(
         &self,
         caller: &Caller<'_>,
@@ -60,26 +60,6 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let path = read_path(caller.memory(), filename).await?;
-        if path.is_empty()
-            && flags.contains(AtFlags::AT_EMPTY_PATH)
-            && dfd.0 >= 0
-            && let file = self.file(caller.task(), dfd)?
-            && let Backing::Stream(_) = file.backing
-            && super::fifo::path_of(&file).is_none()
-        {
-            let stat = Statx {
-                stx_mask: StatxMask::STATX_BASIC_STATS,
-                stx_blksize: 4096,
-                stx_nlink: 1,
-                stx_uid: crate::ID as u32,
-                stx_gid: crate::ID as u32,
-                stx_mode: (FileType::Fifo.mode_bits() | 0o600) as u16,
-                stx_ino: dfd.0 as u64 + 1,
-                ..Statx::default()
-            };
-            write_value(caller.memory(), buffer, &stat).await?;
-            return Ok(0);
-        }
         let env = self.env(caller);
         let target = self
             .resolve_at(caller, &env, dfd, &path, flags, true)
@@ -510,6 +490,14 @@ impl Kernel {
     }
 }
 
+/// `st_mode`. Anonymous inodes have no file type (`anon_inode_getattr`).
+fn st_mode(path: &Path, attr: &Attr) -> u32 {
+    match path.dentry.sb().info.magic {
+        crate::pseudo::ANON_INODE_FS_MAGIC => attr.mode,
+        _ => attr.st_mode(),
+    }
+}
+
 fn statx(path: &Path, attr: &Attr) -> Statx {
     let dev = attr.dev.unwrap_or_default();
     let mut mask = StatxMask::STATX_BASIC_STATS | StatxMask::STATX_MNT_ID;
@@ -527,7 +515,7 @@ fn statx(path: &Path, attr: &Attr) -> Statx {
         stx_nlink: attr.nlink,
         stx_uid: attr.uid,
         stx_gid: attr.gid,
-        stx_mode: attr.st_mode() as u16,
+        stx_mode: st_mode(path, attr) as u16,
         stx_ino: attr.ino,
         stx_size: attr.size,
         stx_blocks: attr.blocks,

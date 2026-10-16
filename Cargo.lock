@@ -7145,6 +7145,7 @@ dependencies = [
 name = "wasixv2-kernel"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "futures",
  "futures-util",
  "wasixv2-abi",

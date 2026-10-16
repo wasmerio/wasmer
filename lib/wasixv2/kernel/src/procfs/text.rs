@@ -1,0 +1,659 @@
+//! The contents of the process filesystem's files, in the formats of `fs/proc` and
+//! `Documentation/filesystems/proc.rst`.
+
+use std::{fmt::Write as _, net::SocketAddr, time::Duration};
+
+use wasixv2_abi::OpenFlags;
+use wasixv2_syscalls::Errno;
+use wasixv2_vfs::{FsResult, Mount, MountFlags, Path};
+use wasixv2_vnet::SocketKind;
+
+use super::{Source, node::Scope};
+use crate::{
+    ID,
+    file::OpenFile,
+    ident,
+    mm::{PAGE_SIZE, RegionKind},
+    resource::{ADDRESS_SPACE, TICKS, cpus},
+};
+
+/// `PID_MAX_LIMIT` on 64-bit Linux; pids are never reused here, so any value below it works.
+const PID_MAX: u32 = 4_194_304;
+/// `fs.nr_open` and `fs.pipe-max-size`, Linux's defaults.
+const NR_OPEN: u32 = 1 << 20;
+const PIPE_MAX_SIZE: u32 = 1 << 20;
+
+/// The system-wide files.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Global {
+    Cpuinfo,
+    Meminfo,
+    Uptime,
+    Loadavg,
+    Stat,
+    Version,
+    Filesystems,
+    Cmdline,
+    Hostname,
+    Domainname,
+    Ostype,
+    Osrelease,
+    PidMax,
+    Overcommit,
+    FileMax,
+    NrOpen,
+    PipeMaxSize,
+    /// `/proc/net/tcp`, or `tcp6`.
+    Tcp(bool),
+    Udp(bool),
+    Unix,
+    NetDev,
+}
+
+impl Global {
+    /// Tunables are writable by root; the rest are read-only.
+    pub(super) fn mode(self) -> u32 {
+        match self {
+            Self::Hostname
+            | Self::Domainname
+            | Self::PidMax
+            | Self::Overcommit
+            | Self::FileMax
+            | Self::NrOpen
+            | Self::PipeMaxSize => 0o644,
+            _ => 0o444,
+        }
+    }
+}
+
+/// The files of a process or thread directory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum PerPid {
+    Cmdline,
+    Comm,
+    Environ,
+    Limits,
+    Maps,
+    Mountinfo,
+    Mounts,
+    Stat,
+    Statm,
+    Status,
+}
+
+pub(super) fn global(source: &Source, file: Global) -> FsResult<Vec<u8>> {
+    let line = |s: &str| format!("{s}\n").into_bytes();
+    Ok(match file {
+        Global::Cpuinfo => cpuinfo(),
+        Global::Meminfo => meminfo(source),
+        Global::Uptime => {
+            let up = source.host.monotonic();
+            line(&format!("{} 0.00", centis(up)))
+        }
+        Global::Loadavg => {
+            let (tasks, last) = source.task_counts();
+            line(&format!("0.00 0.00 0.00 1/{tasks} {last}"))
+        }
+        Global::Stat => stat(source),
+        Global::Version => line(&format!(
+            "{} version {} {}",
+            ident::SYSNAME,
+            ident::RELEASE,
+            ident::VERSION
+        )),
+        Global::Filesystems => filesystems(source),
+        Global::Cmdline => line(""),
+        Global::Hostname => line(ident::NODENAME),
+        Global::Domainname => line(ident::DOMAINNAME),
+        Global::Ostype => line(ident::SYSNAME),
+        Global::Osrelease => line(ident::RELEASE),
+        Global::PidMax => line(&PID_MAX.to_string()),
+        // `OVERCOMMIT_GUESS`.
+        Global::Overcommit => line("0"),
+        Global::FileMax => line(&i64::MAX.to_string()),
+        Global::NrOpen => line(&NR_OPEN.to_string()),
+        Global::PipeMaxSize => line(&PIPE_MAX_SIZE.to_string()),
+        Global::Tcp(v6) => sockets(source, SocketKind::Stream, v6),
+        Global::Udp(v6) => sockets(source, SocketKind::Datagram, v6),
+        Global::Unix => b"Num       RefCount Protocol Flags    Type St Inode Path\n".to_vec(),
+        Global::NetDev => net_dev(source),
+    })
+}
+
+/// Seconds with two decimals, as `uptime` shows them.
+fn centis(d: Duration) -> String {
+    format!("{}.{:02}", d.as_secs(), d.subsec_millis() / 10)
+}
+
+fn ticks(d: Duration) -> u128 {
+    d.as_nanos() * TICKS / 1_000_000_000
+}
+
+fn cpuinfo() -> Vec<u8> {
+    let mut out = String::new();
+    for cpu in 0..cpus() {
+        let _ = write!(out, "processor\t: {cpu}\nmodel name\t: wasm32\n\n");
+    }
+    out.into_bytes()
+}
+
+/// Memory is the 4 GiB a wasm32 guest can address, less what the processes use, as `sysinfo`
+/// counts it.
+fn meminfo(source: &Source) -> Vec<u8> {
+    let used: u64 = source
+        .pids()
+        .into_iter()
+        .filter_map(|pid| source.process(pid))
+        .map(|info| info.process.mm.size())
+        .sum();
+    let total = ADDRESS_SPACE / 1024;
+    let free = (ADDRESS_SPACE.saturating_sub(used)) / 1024;
+    let mut out = String::new();
+    for (name, kb) in [
+        ("MemTotal", total),
+        ("MemFree", free),
+        ("MemAvailable", free),
+        ("Buffers", 0),
+        ("Cached", 0),
+        ("SwapCached", 0),
+        ("Active", used / 1024),
+        ("Inactive", 0),
+        ("SwapTotal", 0),
+        ("SwapFree", 0),
+        ("Shmem", 0),
+        ("AnonPages", used / 1024),
+        ("Mapped", 0),
+        ("CommitLimit", total),
+        ("Committed_AS", used / 1024),
+        ("VmallocTotal", 0),
+        ("VmallocUsed", 0),
+    ] {
+        let _ = writeln!(out, "{:<16}{kb:>8} kB", format!("{name}:"));
+    }
+    out.into_bytes()
+}
+
+/// `show_stat`. The machine's processes share no CPU accounting yet, so the CPU lines are
+/// idle time only.
+fn stat(source: &Source) -> Vec<u8> {
+    let up = ticks(source.host.monotonic());
+    let boot = source
+        .host
+        .realtime()
+        .saturating_sub(source.host.monotonic())
+        .as_secs();
+    let (tasks, last) = source.task_counts();
+    let mut out = String::new();
+    let _ = writeln!(out, "cpu  0 0 0 {up} 0 0 0 0 0 0");
+    for cpu in 0..cpus() {
+        let _ = writeln!(out, "cpu{cpu} 0 0 0 {up} 0 0 0 0 0 0");
+    }
+    let _ = write!(
+        out,
+        "intr 0\nctxt 0\nbtime {boot}\nprocesses {last}\nprocs_running {}\nprocs_blocked 0\nsoftirq 0 0 0 0 0 0 0 0 0 0 0\n",
+        tasks.min(1)
+    );
+    out.into_bytes()
+}
+
+/// The kernel's own filesystem types, then those of what is mounted.
+fn filesystems(source: &Source) -> Vec<u8> {
+    let mut names = vec!["anon_inodefs", "pipefs", "sockfs", "proc"];
+    if let Some(vfs) = source.vfs.upgrade() {
+        for mount in vfs.namespace().mounts() {
+            let name = mount.sb().info.name;
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+    }
+    let mut out = String::new();
+    for name in names {
+        let _ = writeln!(out, "nodev\t{name}");
+    }
+    out.into_bytes()
+}
+
+/// `tcp4_seq_show` and `udp4_seq_show` (and their v6 forms) over the port table.
+fn sockets(source: &Source, kind: SocketKind, v6: bool) -> Vec<u8> {
+    let mut out = String::new();
+    let addr_width = if v6 { 32 } else { 8 };
+    let _ = writeln!(
+        out,
+        "  sl  {:<w$} {:<w$} st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode",
+        "local_address",
+        "rem_address",
+        w = addr_width + 5
+    );
+    let ports = source
+        .network
+        .as_ref()
+        .map(|net| net.ports())
+        .unwrap_or_default();
+    let entries = ports
+        .into_iter()
+        .filter(|port| port.kind == kind && port.local.is_ipv6() == v6);
+    for (sl, port) in entries.enumerate() {
+        let peer = port.peer.unwrap_or_else(|| match port.local {
+            SocketAddr::V4(_) => SocketAddr::from(([0, 0, 0, 0], 0)),
+            SocketAddr::V6(_) => SocketAddr::from(([0u16; 8], 0)),
+        });
+        // TCP_LISTEN, TCP_ESTABLISHED, TCP_CLOSE.
+        let state = match (port.listening, port.peer.is_some()) {
+            (true, _) => 0x0a,
+            (false, true) => 0x01,
+            (false, false) => 0x07,
+        };
+        let _ = writeln!(
+            out,
+            "{sl:4}: {} {} {state:02X} 00000000:00000000 00:00000000 00000000 {ID:5}        0 0",
+            hex_addr(port.local),
+            hex_addr(peer),
+        );
+    }
+    out.into_bytes()
+}
+
+/// An address as `/proc/net/tcp` prints it: the address's bytes as native 32-bit words in hex,
+/// then the port.
+fn hex_addr(addr: SocketAddr) -> String {
+    let words = match addr {
+        SocketAddr::V4(v4) => vec![u32::from_ne_bytes(v4.ip().octets())],
+        SocketAddr::V6(v6) => v6
+            .ip()
+            .octets()
+            .chunks(4)
+            .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
+            .collect(),
+    };
+    let mut out: String = words.iter().map(|w| format!("{w:08X}")).collect();
+    let _ = write!(out, ":{:04X}", addr.port());
+    out
+}
+
+/// `dev_seq_show`: the interfaces, with no traffic counted.
+fn net_dev(source: &Source) -> Vec<u8> {
+    let mut out = String::from(
+        "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n",
+    );
+    let interfaces = source
+        .network
+        .as_ref()
+        .map(|net| net.interfaces())
+        .unwrap_or_default();
+    for interface in interfaces {
+        let _ = writeln!(out, "{:>6}: {}", interface.name, ["       0"; 16].join(" "));
+    }
+    out.into_bytes()
+}
+
+pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<Vec<u8>> {
+    let info = source.process(scope.pid).ok_or(Errno::ESRCH)?;
+    let process = &info.process;
+    Ok(match file {
+        PerPid::Cmdline => nul_joined(&process.args.lock().unwrap()),
+        PerPid::Environ => nul_joined(&process.env.lock().unwrap()),
+        PerPid::Comm => {
+            let mut comm = process.ident.lock().unwrap().comm().to_vec();
+            comm.push(b'\n');
+            comm
+        }
+        PerPid::Limits => limits(process),
+        PerPid::Maps => maps(process),
+        PerPid::Mounts | PerPid::Mountinfo => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            let root = task.fs.lock().unwrap().root.clone();
+            mounts(source, &root, file == PerPid::Mountinfo)
+        }
+        PerPid::Stat => stat_line(source, scope, &info),
+        PerPid::Statm => {
+            let pages = process.mm.size() / PAGE_SIZE;
+            format!("{pages} {pages} 0 0 0 {pages} 0\n").into_bytes()
+        }
+        PerPid::Status => status(source, scope, &info),
+    })
+}
+
+/// `cmdline` and `environ`: every string followed by a NUL.
+fn nul_joined(strings: &[String]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for s in strings {
+        out.extend_from_slice(s.as_bytes());
+        out.push(0);
+    }
+    out
+}
+
+/// `proc_pid_limits`.
+fn limits(process: &crate::Process) -> Vec<u8> {
+    const NAMES: [(&str, &str); 16] = [
+        ("Max cpu time", "seconds"),
+        ("Max file size", "bytes"),
+        ("Max data size", "bytes"),
+        ("Max stack size", "bytes"),
+        ("Max core file size", "bytes"),
+        ("Max resident set", "bytes"),
+        ("Max processes", "processes"),
+        ("Max open files", "files"),
+        ("Max locked memory", "bytes"),
+        ("Max address space", "bytes"),
+        ("Max file locks", "locks"),
+        ("Max pending signals", "signals"),
+        ("Max msgqueue size", "bytes"),
+        ("Max nice priority", ""),
+        ("Max realtime priority", ""),
+        ("Max realtime timeout", "us"),
+    ];
+    let limits = *process.resources.lock().unwrap().limits();
+    let value = |v: u64| match v {
+        u64::MAX => "unlimited".to_string(),
+        v => v.to_string(),
+    };
+    let mut out = format!(
+        "{:<25} {:<20} {:<20} {:<10}\n",
+        "Limit", "Soft Limit", "Hard Limit", "Units"
+    );
+    for ((name, unit), limit) in NAMES.iter().zip(limits) {
+        let _ = writeln!(
+            out,
+            "{name:<25} {:<20} {:<20} {unit:<10}",
+            value(limit.rlim_cur),
+            value(limit.rlim_max)
+        );
+    }
+    out.into_bytes()
+}
+
+/// `show_map_vma` for each region.
+fn maps(process: &crate::Process) -> Vec<u8> {
+    let mut out = String::new();
+    for region in process.mm.regions() {
+        let name = match region.kind {
+            RegionKind::Image => "[image]",
+            RegionKind::Heap => "[heap]",
+            RegionKind::Anon => "",
+        };
+        let line = format!(
+            "{:08x}-{:08x} rw-p 00000000 00:00 0",
+            region.start, region.end
+        );
+        let _ = match name {
+            "" => writeln!(out, "{line}"),
+            name => writeln!(out, "{line:<73}{name}"),
+        };
+    }
+    out.into_bytes()
+}
+
+/// `show_vfsmnt` and `show_mountinfo` for the mounts the process's root reaches.
+fn mounts(source: &Source, root: &Path, info: bool) -> Vec<u8> {
+    let Some(vfs) = source.vfs.upgrade() else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for mount in vfs.namespace().mounts() {
+        let at = Path {
+            mnt: mount.clone(),
+            dentry: mount.root.clone(),
+        };
+        let point = vfs.d_path(&at, root);
+        if point.starts_with(b"(unreachable)") {
+            continue;
+        }
+        let sb = mount.sb();
+        let options = mount_options(&mount);
+        let fs_options = if sb.info.read_only { "ro" } else { "rw" };
+        if info {
+            let parent = mount.parent().map_or(mount.id, |parent| parent.mnt.id);
+            let _ = write!(
+                out_string(&mut out),
+                "{} {parent} {}:{} ",
+                mount.id,
+                sb.dev.major,
+                sb.dev.minor
+            );
+            out.extend_from_slice(&escape(&root_in_fs(&mount)));
+            out.push(b' ');
+            out.extend_from_slice(&escape(&point));
+            let _ = writeln!(
+                out_string(&mut out),
+                " {options} - {} {} {fs_options}",
+                sb.info.name,
+                sb.info.name
+            );
+        } else {
+            out.extend_from_slice(sb.info.name.as_bytes());
+            out.push(b' ');
+            out.extend_from_slice(&escape(&point));
+            let _ = writeln!(out_string(&mut out), " {} {options} 0 0", sb.info.name);
+        }
+    }
+    out
+}
+
+/// Appends formatted text to a byte buffer.
+fn out_string(out: &mut Vec<u8>) -> impl std::fmt::Write + '_ {
+    struct Bytes<'a>(&'a mut Vec<u8>);
+    impl std::fmt::Write for Bytes<'_> {
+        fn write_str(&mut self, s: &str) -> std::fmt::Result {
+            self.0.extend_from_slice(s.as_bytes());
+            Ok(())
+        }
+    }
+    Bytes(out)
+}
+
+/// `show_mnt_opts`, plus `relatime`, Linux's default.
+fn mount_options(mount: &Mount) -> String {
+    let MountFlags {
+        read_only,
+        nosuid,
+        nodev,
+        noexec,
+        noatime,
+        nosymfollow,
+    } = mount.flags;
+    let mut options = vec![if read_only || mount.sb().info.read_only {
+        "ro"
+    } else {
+        "rw"
+    }];
+    for (set, name) in [
+        (nosuid, "nosuid"),
+        (nodev, "nodev"),
+        (noexec, "noexec"),
+        (nosymfollow, "nosymfollow"),
+    ] {
+        if set {
+            options.push(name);
+        }
+    }
+    options.push(if noatime { "noatime" } else { "relatime" });
+    options.join(",")
+}
+
+/// Where a mount's tree starts inside its filesystem, for `mountinfo`'s root field.
+fn root_in_fs(mount: &Mount) -> Vec<u8> {
+    let mut parts = Vec::new();
+    let mut dentry = mount.root.clone();
+    while let Some(parent) = dentry.parent() {
+        parts.push(dentry.name());
+        dentry = parent;
+    }
+    let mut out = Vec::new();
+    for part in parts.iter().rev() {
+        out.push(b'/');
+        out.extend_from_slice(part);
+    }
+    if out.is_empty() {
+        out.push(b'/');
+    }
+    out
+}
+
+/// `mangle`: space, tab, newline and backslash as octal escapes.
+fn escape(path: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(path.len());
+    for &b in path {
+        match b {
+            b' ' | b'\t' | b'\n' | b'\\' => out.extend_from_slice(format!("\\{b:03o}").as_bytes()),
+            _ => out.push(b),
+        }
+    }
+    out
+}
+
+/// The task's state letter: a zombie, or sleeping (a task reading its own state is running,
+/// but a file does not know who reads it).
+fn state(info: &super::ProcessInfo) -> (char, &'static str) {
+    match info.zombie {
+        true => ('Z', "zombie"),
+        false => ('S', "sleeping"),
+    }
+}
+
+/// `do_task_stat`.
+fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
+    let process = &info.process;
+    let pid = scope.tid.unwrap_or(scope.pid);
+    let ident = process.ident.lock().unwrap().clone();
+    let comm = String::from_utf8_lossy(ident.comm()).into_owned();
+    let nice = process.resources.lock().unwrap().nice();
+    let threads = source.threads(scope.pid).len().max(1);
+    let now = source.host.monotonic();
+    let cpu = ticks(now.saturating_sub(process.start));
+    let start = ticks(process.start);
+    let vsize = process.mm.size();
+    let rss = vsize / PAGE_SIZE;
+    let signals = source
+        .task(scope.pid, scope.tid)
+        .map(|task| task.signals.proc_status())
+        .unwrap_or_default();
+    let (letter, _) = state(info);
+    let fields: Vec<String> = [
+        info.parent as i128,               // ppid
+        ident.pgid as i128,                // pgrp
+        ident.sid as i128,                 // session
+        0,                                 // tty_nr
+        -1,                                // tpgid
+        0x0040_0000,                       // flags: PF_RANDOMIZE
+        0,                                 // minflt
+        0,                                 // cminflt
+        0,                                 // majflt
+        0,                                 // cmajflt
+        cpu as i128,                       // utime
+        0,                                 // stime
+        0,                                 // cutime
+        0,                                 // cstime
+        20 + nice as i128,                 // priority
+        nice as i128,                      // nice
+        threads as i128,                   // num_threads
+        0,                                 // itrealvalue
+        start as i128,                     // starttime
+        vsize as i128,                     // vsize
+        rss as i128,                       // rss
+        u64::MAX as i128,                  // rsslim
+        0,                                 // startcode
+        0,                                 // endcode
+        0,                                 // startstack
+        0,                                 // kstkesp
+        0,                                 // kstkeip
+        (signals[0] | signals[1]) as i128, // signal
+        signals[2] as i128,                // blocked
+        signals[3] as i128,                // sigignore
+        signals[4] as i128,                // sigcatch
+        0,                                 // wchan
+        0,                                 // nswap
+        0,                                 // cnswap
+        info.exit_signal as i128,          // exit_signal
+        0,                                 // processor
+        0,                                 // rt_priority
+        0,                                 // policy
+        0,                                 // delayacct_blkio_ticks
+        0,                                 // guest_time
+        0,                                 // cguest_time
+        0,                                 // start_data
+        0,                                 // end_data
+        0,                                 // start_brk
+        0,                                 // arg_start
+        0,                                 // arg_end
+        0,                                 // env_start
+        0,                                 // env_end
+        0,                                 // exit_code
+    ]
+    .iter()
+    .map(i128::to_string)
+    .collect();
+    format!("{pid} ({comm}) {letter} {}\n", fields.join(" ")).into_bytes()
+}
+
+/// `proc_pid_status`.
+fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
+    let process = &info.process;
+    let ident = process.ident.lock().unwrap().clone();
+    let task = source.task(scope.pid, scope.tid);
+    let umask = task
+        .as_ref()
+        .map_or(0o022, |task| task.fs.lock().unwrap().umask);
+    let fd_size = task
+        .as_ref()
+        .map_or(0, |task| task.files.lock().unwrap().max_fds());
+    let signals = task
+        .as_ref()
+        .map(|task| task.signals.proc_status())
+        .unwrap_or_default();
+    let pid = scope.tid.unwrap_or(scope.pid);
+    let kb = process.mm.size() / 1024;
+    let threads = source.threads(scope.pid).len().max(1);
+    let (letter, state_name) = state(info);
+    let id = ID;
+    let cpus = cpus();
+    let mut out = String::new();
+    let _ = write!(
+        out,
+        "Name:\t{}\nUmask:\t{umask:04o}\nState:\t{letter} ({state_name})\nTgid:\t{}\nNgid:\t0\nPid:\t{pid}\nPPid:\t{}\nTracerPid:\t0\n\
+         Uid:\t{id}\t{id}\t{id}\t{id}\nGid:\t{id}\t{id}\t{id}\t{id}\nFDSize:\t{fd_size}\nGroups:\t\n\
+         NStgid:\t{}\nNSpid:\t{pid}\nNSpgid:\t{}\nNSsid:\t{}\n\
+         VmPeak:\t{kb:8} kB\nVmSize:\t{kb:8} kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t{kb:8} kB\nVmRSS:\t{kb:8} kB\n\
+         RssAnon:\t{kb:8} kB\nRssFile:\t       0 kB\nRssShmem:\t       0 kB\nVmData:\t{kb:8} kB\nVmStk:\t       0 kB\nVmExe:\t       0 kB\nVmLib:\t       0 kB\nVmPTE:\t       0 kB\nVmSwap:\t       0 kB\n\
+         Threads:\t{threads}\nSigQ:\t0/4096\nSigPnd:\t{:016x}\nShdPnd:\t{:016x}\nSigBlk:\t{:016x}\nSigIgn:\t{:016x}\nSigCgt:\t{:016x}\n\
+         CapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\n\
+         NoNewPrivs:\t0\nSeccomp:\t0\nCpus_allowed:\t{:x}\nCpus_allowed_list:\t0-{}\n\
+         voluntary_ctxt_switches:\t0\nnonvoluntary_ctxt_switches:\t0\n",
+        String::from_utf8_lossy(ident.comm()),
+        scope.pid,
+        info.parent,
+        scope.pid,
+        ident.pgid,
+        ident.sid,
+        signals[0],
+        signals[1],
+        signals[2],
+        signals[3],
+        signals[4],
+        if cpus >= 32 {
+            u32::MAX
+        } else {
+            (1u32 << cpus) - 1
+        },
+        cpus.saturating_sub(1),
+    );
+    out.into_bytes()
+}
+
+/// `seq_fdinfo`: position, flags (with `O_CLOEXEC` for a close-on-exec descriptor), mount and
+/// inode.
+pub(super) fn fdinfo(file: &OpenFile, cloexec: bool) -> Vec<u8> {
+    let mut flags = file.flags().0;
+    if cloexec {
+        flags |= OpenFlags::O_CLOEXEC.0;
+    }
+    let path = file.path();
+    format!(
+        "pos:\t{}\nflags:\t0{flags:o}\nmnt_id:\t{}\nino:\t{}\n",
+        file.pos(),
+        path.mnt.id,
+        path.dentry.node().ino()
+    )
+    .into_bytes()
+}

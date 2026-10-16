@@ -7,6 +7,7 @@ use std::{
 
 use wasixv2_abi::{FcntlCmd, FdPair, GuestPtrMut, IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysErr, SysResult, write_value};
+use wasixv2_vfs::Bound;
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
@@ -321,13 +322,17 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let (read, write) = pipe();
+        // The pipe hangs off its inode, as a FIFO's does, so `/proc/<pid>/fd/<n>` reopens it.
+        let path = self.pseudo.pipe();
+        let pipe: Bound = read.pipe.clone();
+        path.dentry.inode().bind(&pipe);
         let status = flags & OpenFlags::O_NONBLOCK;
         let read = OpenFile::new(
-            Backing::Stream(Arc::new(read)),
+            Backing::Stream(Arc::new(read), path.clone()),
             OpenFlags::O_RDONLY | status,
         );
         let write = OpenFile::new(
-            Backing::Stream(Arc::new(write)),
+            Backing::Stream(Arc::new(write), path),
             OpenFlags::O_WRONLY | status,
         );
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);

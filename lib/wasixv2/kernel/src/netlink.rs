@@ -315,7 +315,10 @@ impl Kernel {
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let file = OpenFile::new(Backing::Stream(Arc::new(socket)), status);
+        let file = OpenFile::new(
+            Backing::Stream(Arc::new(socket), self.pseudo.socket()),
+            status,
+        );
         let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
         Ok(fd)
     }

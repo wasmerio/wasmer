@@ -5,17 +5,58 @@ use wasixv2_host::{ByteSink, ByteSource, Stdio};
 use wasixv2_syscalls::{Errno, LocalFuture, SysResult};
 use wasixv2_wait::{PollMask, PollTable, Pollable};
 
-use crate::file::{Backing, FileObject, Io, OpenFile};
+use wasixv2_vfs::{Bound, File};
 
-/// The open files behind descriptors 0, 1 and 2.
-pub(crate) fn open_files(stdio: Stdio) -> [OpenFile; 3] {
-    let input = |source| Backing::Stream(Arc::new(HostInput(source)));
-    let output = |sink| Backing::Stream(Arc::new(HostOutput(sink)));
+use crate::{
+    file::{Backing, FileObject, Io, OpenFile},
+    pseudo::Pseudo,
+};
+
+/// The open files behind descriptors 0, 1 and 2. Each host stream looks like a pipe, with an
+/// inode of its own that it hangs off, so opening `/proc/self/fd/1` (`/dev/stdout`) reaches
+/// the same stream again, as it reaches the same pipe on Linux.
+pub(crate) fn open_files(stdio: Stdio, pseudo: &Pseudo) -> [OpenFile; 3] {
+    fn open<T: FileObject + Send + Sync>(
+        object: Arc<T>,
+        flags: OpenFlags,
+        pseudo: &Pseudo,
+    ) -> OpenFile {
+        let path = pseudo.pipe();
+        let bound: Bound = object.clone();
+        path.dentry.inode().bind(&bound);
+        OpenFile::new(Backing::Stream(object, path), flags)
+    }
     [
-        OpenFile::new(input(stdio.stdin), OpenFlags::O_RDONLY),
-        OpenFile::new(output(stdio.stdout), OpenFlags::O_WRONLY),
-        OpenFile::new(output(stdio.stderr), OpenFlags::O_WRONLY),
+        open(
+            Arc::new(HostInput(stdio.stdin)),
+            OpenFlags::O_RDONLY,
+            pseudo,
+        ),
+        open(
+            Arc::new(HostOutput(stdio.stdout)),
+            OpenFlags::O_WRONLY,
+            pseudo,
+        ),
+        open(
+            Arc::new(HostOutput(stdio.stderr)),
+            OpenFlags::O_WRONLY,
+            pseudo,
+        ),
     ]
+}
+
+/// The host stream `file`, a pipe inode, belongs to, if it is one: opening it again shares the
+/// stream.
+pub(crate) fn reopen(file: &File) -> Option<Arc<dyn FileObject>> {
+    let bound = file.path.dentry.inode().bound()?;
+    let bound = match bound.downcast::<HostInput>() {
+        Ok(input) => return Some(input),
+        Err(bound) => bound,
+    };
+    bound
+        .downcast::<HostOutput>()
+        .ok()
+        .map(|output| output as Arc<dyn FileObject>)
 }
 
 // Host byte streams have no readiness to report, so they always look ready, as a file without

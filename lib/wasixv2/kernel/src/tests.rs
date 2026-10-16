@@ -481,3 +481,4 @@ fn posix_locks_go_away_when_any_descriptor_closes() {
 
 mod ipc;
 mod net;
+mod procfs;

@@ -259,7 +259,7 @@ impl Kernel {
         let file = self.io_file(caller, fd)?;
         let inner = match &file.backing {
             Backing::Inode(inner) => inner,
-            Backing::Stream(_) => return Err(Errno::ENOTDIR.into()),
+            Backing::Stream(..) => return Err(Errno::ENOTDIR.into()),
         };
         let mut sink = Dirents {
             out: Vec::new(),
@@ -410,7 +410,7 @@ impl Kernel {
         let file = self.io_file(caller, fd)?;
         match &file.backing {
             Backing::Inode(inner) => inner.sync(data_only).await?,
-            Backing::Stream(_) => return Err(Errno::EINVAL.into()),
+            Backing::Stream(..) => return Err(Errno::EINVAL.into()),
         }
         Ok(0)
     }
@@ -542,7 +542,7 @@ impl Kernel {
         advice: FadviseAdvice,
     ) -> SysResult<i32> {
         let file = self.file(caller.task(), fd)?;
-        if matches!(file.backing, Backing::Stream(_)) {
+        if matches!(file.backing, Backing::Stream(..)) {
             return Err(Errno::ESPIPE.into());
         }
         if len < 0 || advice.0 > 5 {

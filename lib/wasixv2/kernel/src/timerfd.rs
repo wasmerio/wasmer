@@ -181,7 +181,10 @@ impl Kernel {
         if flags.contains(TimerfdFlags::TFD_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let file = Arc::new(OpenFile::new(Backing::Stream(Arc::new(object)), status));
+        let file = Arc::new(OpenFile::new(
+            Backing::Stream(Arc::new(object), self.pseudo.anon("[timerfd]")),
+            status,
+        ));
         self.install(caller, file, flags.contains(TimerfdFlags::TFD_CLOEXEC))
     }
 

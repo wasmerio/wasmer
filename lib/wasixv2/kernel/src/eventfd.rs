@@ -120,7 +120,10 @@ impl Kernel {
         if flags.contains(EventfdFlags::EFD_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let file = OpenFile::new(Backing::Stream(Arc::new(object)), status);
+        let file = OpenFile::new(
+            Backing::Stream(Arc::new(object), self.pseudo.anon("[eventfd]")),
+            status,
+        );
         let cloexec = flags.contains(EventfdFlags::EFD_CLOEXEC);
         let [fd] = self.install_files(caller, [file], cloexec)?;
         Ok(fd)

@@ -5,7 +5,7 @@ use std::{
 
 use wasixv2_abi::{IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
-use wasixv2_vfs::{File, FileType, SeekHole};
+use wasixv2_vfs::{File, FileType, Path, SeekHole};
 use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
 use crate::epoll::EpollLink;
@@ -55,10 +55,25 @@ pub trait FileObject: Pollable + Any {
     fn can_poll(&self) -> bool {
         true
     }
+
+    /// Whether the object has a position, as a device does (`FMODE_PREAD`, `FMODE_PWRITE`,
+    /// and an `llseek`): `pread` and `pwrite` then go to `read` and `write`, and `lseek` to
+    /// [`FileObject::llseek`]. Streams have none and fail those with `ESPIPE`.
+    fn positional(&self) -> bool {
+        false
+    }
+
+    /// `llseek` of a positional object, from the position `pos`; returns the new position.
+    fn llseek(&self, pos: u64, base: SeekBase, offset: i64) -> Result<u64, Errno> {
+        let _ = (pos, base, offset);
+        Err(Errno::ESPIPE)
+    }
 }
 
 pub(crate) enum Backing {
-    Stream(Arc<dyn FileObject>),
+    /// An object that is not an inode's data, and the path of the inode it belongs to: its
+    /// pipefs, sockfs or anonymous inode, or the FIFO or device node it was opened through.
+    Stream(Arc<dyn FileObject>, Path),
     /// A filesystem object, opened through the VFS.
     Inode(File),
 }
@@ -145,24 +160,35 @@ impl OpenFile {
         }
     }
 
-    /// `ESPIPE` for streams, which have no file position.
+    /// `ESPIPE` for streams, which have no file position (`FMODE_PREAD` and `FMODE_PWRITE`).
     pub(crate) fn check_seekable(&self) -> Result<(), Errno> {
-        self.inode().map(drop)
+        match self.positional() {
+            Some(_) => Ok(()),
+            None => self.inode().map(drop),
+        }
     }
 
     /// The VFS file behind this description; `ESPIPE` for streams.
     pub(crate) fn inode(&self) -> Result<&File, Errno> {
         match &self.backing {
             Backing::Inode(inode) => Ok(inode),
-            Backing::Stream(_) => Err(Errno::ESPIPE),
+            Backing::Stream(..) => Err(Errno::ESPIPE),
         }
     }
 
     /// The object behind a non-inode file.
     pub(crate) fn object(&self) -> Option<&Arc<dyn FileObject>> {
         match &self.backing {
-            Backing::Stream(object) => Some(object),
+            Backing::Stream(object, _) => Some(object),
             Backing::Inode(_) => None,
+        }
+    }
+
+    /// Where the file is (`f_path`): its VFS path, or the inode of its object.
+    pub(crate) fn path(&self) -> &Path {
+        match &self.backing {
+            Backing::Stream(_, path) => path,
+            Backing::Inode(file) => &file.path,
         }
     }
 
@@ -192,7 +218,7 @@ impl OpenFile {
             interrupt,
         };
         let file = match &self.backing {
-            Backing::Stream(object) => return object.read(io, buf).await,
+            Backing::Stream(object, _) => return object.read(io, buf).await,
             Backing::Inode(file) => file,
         };
         let _pos = self.lock_pos().await;
@@ -217,7 +243,7 @@ impl OpenFile {
             interrupt,
         };
         let file = match &self.backing {
-            Backing::Stream(object) => return object.write(io, data).await,
+            Backing::Stream(object, _) => return object.write(io, data).await,
             Backing::Inode(file) => file,
         };
         let _pos = self.lock_pos().await;
@@ -234,19 +260,37 @@ impl OpenFile {
     }
 
     /// Reads at `offset` without moving the file position, as `pread` does.
-    pub(crate) async fn read_at(&self, buf: &mut [u8], offset: u64) -> Result<usize, Errno> {
-        self.inode()?.read_at(buf, offset).await
+    pub(crate) async fn read_at(&self, buf: &mut [u8], offset: u64) -> SysResult<usize> {
+        if let Some(object) = self.positional() {
+            return object.read(self.io(), buf).await;
+        }
+        Ok(self.inode()?.read_at(buf, offset).await?)
+    }
+
+    /// The object of a positional non-inode file (a device).
+    fn positional(&self) -> Option<&Arc<dyn FileObject>> {
+        self.object().filter(|object| object.positional())
+    }
+
+    fn io(&self) -> Io<'_> {
+        Io {
+            flags: self.flags(),
+            interrupt: &NoInterrupt,
+        }
     }
 
     /// Writes at `offset` without moving the file position. Like Linux, `O_APPEND` wins over
     /// the offset (`pwrite` on an append-only description appends).
-    pub(crate) async fn write_at(&self, data: &[u8], offset: u64) -> Result<usize, Errno> {
+    pub(crate) async fn write_at(&self, data: &[u8], offset: u64) -> SysResult<usize> {
+        if let Some(object) = self.positional() {
+            return object.write(self.io(), data).await;
+        }
         let file = self.inode()?;
         if self.flags().contains(OpenFlags::O_APPEND) {
             return Ok(file.append(data).await?.1);
         }
         check_file_size(offset, data.len())?;
-        file.write_at(data, offset).await
+        Ok(file.write_at(data, offset).await?)
     }
 
     pub(crate) fn pos(&self) -> u64 {
@@ -259,6 +303,12 @@ impl OpenFile {
 
     /// Moves the file position, as `lseek` does, and returns the new one.
     pub(crate) async fn seek(&self, base: SeekBase, offset: i64) -> Result<u64, Errno> {
+        if let Some(object) = self.positional() {
+            let _pos = self.lock_pos().await;
+            let new = object.llseek(self.pos(), base, offset)?;
+            self.set_pos(new);
+            return Ok(new);
+        }
         let file = self.inode()?;
         if file.path_only {
             return Err(Errno::EBADF);
@@ -305,7 +355,7 @@ impl Pollable for OpenFile {
     /// `DEFAULT_POLLMASK` for files without a poll operation.
     fn poll(&self, table: Option<&mut PollTable<'_>>) -> PollMask {
         match &self.backing {
-            Backing::Stream(object) => object.poll(table),
+            Backing::Stream(object, _) => object.poll(table),
             Backing::Inode(_) => PollMask::DEFAULT,
         }
     }
@@ -329,7 +379,7 @@ fn check_file_size(pos: u64, len: usize) -> Result<(), Errno> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SeekBase {
+pub enum SeekBase {
     Start,
     Current,
     End,
@@ -432,6 +482,14 @@ impl FdTable {
             len if len <= DEFAULT => DEFAULT,
             len => ((len - 1) / STEP + 1).next_power_of_two() * STEP,
         }
+    }
+
+    /// Every open descriptor, lowest first, with its close-on-exec flag.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (Fd, &Arc<OpenFile>, bool)> {
+        self.slots.iter().enumerate().filter_map(|(index, slot)| {
+            let slot = slot.as_ref()?;
+            Some((Fd(index as i32), &slot.file, slot.cloexec))
+        })
     }
 
     pub(crate) fn cloexec(&self, fd: Fd) -> Option<bool> {

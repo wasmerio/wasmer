@@ -58,32 +58,39 @@ const PIDFD_NONBLOCK: u32 = OpenFlags::O_NONBLOCK.0;
 
 #[derive(Default)]
 pub(crate) struct Procs {
-    tree: Arc<Mutex<Tree>>,
+    pub(crate) tree: Arc<Mutex<Tree>>,
     /// Woken whenever a process exits; waiters and pidfd pollers recheck (`wait_chldexit`).
     changed: Arc<WaitQueue>,
 }
 
 #[derive(Default)]
-struct Tree {
-    nodes: HashMap<u32, Node>,
+pub(crate) struct Tree {
+    pub(crate) nodes: HashMap<u32, Node>,
     /// vfork children running in their parent's instance, to the parent task that waits.
     vforks: HashMap<TaskId, TaskId>,
     /// Images an `execve` loaded, until the execution layer takes them.
     images: HashMap<TaskId, Vec<u8>>,
 }
 
-struct Node {
-    process: Arc<Process>,
+pub(crate) struct Node {
+    pub(crate) process: Arc<Process>,
     /// 0 for none: the first process, or an orphan with nobody to reap it.
-    parent: u32,
+    pub(crate) parent: u32,
     /// The signal the parent gets when the process exits (`CSIGNAL`).
-    exit_signal: i32,
+    pub(crate) exit_signal: i32,
     /// For `setpgid`'s `EACCES`.
     did_exec: bool,
     /// The signal whose default action killed the process.
     killed_by: Option<i32>,
     /// Set once the process exited; it is a zombie until reaped.
     exit: Option<Exit>,
+}
+
+impl Node {
+    /// A zombie: exited, not reaped.
+    pub(crate) fn is_zombie(&self) -> bool {
+        self.exit.is_some()
+    }
 }
 
 /// How a process ended, as `waitid` reports it.
@@ -383,6 +390,7 @@ impl Kernel {
                 pid: id,
                 args: Mutex::new(parent.args.lock().unwrap().clone()),
                 env: Mutex::new(parent.env.lock().unwrap().clone()),
+                exe: Mutex::new(parent.exe.lock().unwrap().clone()),
                 mm: Default::default(),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
@@ -465,10 +473,10 @@ impl Kernel {
         };
         let mut file = (dfd, path, flags);
         let mut depth = 0;
-        let image = loop {
-            let bytes = self.open_exec(caller, file.0, &file.1, file.2).await?;
+        let (image, exe) = loop {
+            let (bytes, exe) = self.open_exec(caller, file.0, &file.1, file.2).await?;
             if bytes.starts_with(WASM_MAGIC) {
-                break bytes;
+                break (bytes, exe);
             }
             let Some((interp, arg)) = parse_shebang(&bytes) else {
                 return Err(Errno::ENOEXEC.into());
@@ -493,19 +501,19 @@ impl Kernel {
             let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
             file = (cwd, interp, AtFlags(0));
         };
-        self.exec_commit(caller.task(), &name, args, env, image);
+        self.exec_commit(caller.task(), &name, args, env, image, exe);
         Ok(0)
     }
 
     /// `do_open_execat`: the file must be a regular file with an execute bit the caller may
-    /// use, on a mount that allows execution. Returns its contents.
+    /// use, on a mount that allows execution. Returns its contents and where it is.
     async fn open_exec(
         &self,
         caller: &Caller<'_>,
         dfd: Fd,
         path: &[u8],
         flags: AtFlags,
-    ) -> SysResult<Vec<u8>> {
+    ) -> SysResult<(Vec<u8>, wasixv2_vfs::Path)> {
         if path.is_empty() && !flags.contains(AtFlags::AT_EMPTY_PATH) {
             return Err(Errno::ENOENT.into());
         }
@@ -541,7 +549,7 @@ impl Kernel {
             }
         }
         bytes.truncate(at);
-        Ok(bytes)
+        Ok((bytes, target))
     }
 
     /// Past the point of no return (`begin_new_exec`): close-on-exec descriptors close, caught
@@ -554,6 +562,7 @@ impl Kernel {
         args: Vec<String>,
         env: Vec<String>,
         image: Vec<u8>,
+        exe: wasixv2_vfs::Path,
     ) {
         // TODO: `de_thread`: kill the other threads, and take over the leader's pid.
         let process = self.process(task);
@@ -594,6 +603,7 @@ impl Kernel {
         self.task_signals(task).group().exec_reset();
         *process.args.lock().unwrap() = args;
         *process.env.lock().unwrap() = env;
+        *process.exe.lock().unwrap() = Some(exe);
         process.mm.reset();
         process.ident.lock().unwrap().set_comm_from_path(name);
         self.with_task(task, |t| {
@@ -826,7 +836,10 @@ impl Kernel {
         if flags & PIDFD_NONBLOCK != 0 {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let file = OpenFile::new(Backing::Stream(Arc::new(object)), status);
+        let file = OpenFile::new(
+            Backing::Stream(Arc::new(object), self.pseudo.anon("[pidfd]")),
+            status,
+        );
         let [fd] = self.install_files(caller, [file], true)?;
         Ok(fd)
     }

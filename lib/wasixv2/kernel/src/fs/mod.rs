@@ -137,20 +137,12 @@ impl Kernel {
         if path.starts_with(b"/") || dfd.0 == AtFd::AT_FDCWD.0 {
             return Ok(env.fs.cwd.clone());
         }
-        let file = self.file(caller.task(), dfd)?;
-        match &file.backing {
-            Backing::Inode(file) => Ok(file.path.clone()),
-            Backing::Stream(_) => Err(Errno::ENOTDIR),
-        }
+        Ok(self.file(caller.task(), dfd)?.path().clone())
     }
 
-    /// The path an fd-based operation acts on; `EBADF` for streams, which have none.
+    /// The path an fd-based operation acts on: the file's, or its object's inode.
     pub(crate) fn fd_path(&self, caller: &Caller<'_>, fd: Fd) -> Result<Path, Errno> {
-        let file = self.file(caller.task(), fd)?;
-        if let Some(path) = fifo::path_of(&file) {
-            return Ok(path);
-        }
-        Ok(file.inode().map_err(|_| Errno::EBADF)?.path.clone())
+        Ok(self.file(caller.task(), fd)?.path().clone())
     }
 
     /// An open file usable for I/O-like operations: `O_PATH` descriptors are `EBADF`.
@@ -351,15 +343,38 @@ impl Kernel {
             lookup,
         };
         let file = self.vfs.open(&env.cx(), &start, &path, &vfs_how).await?;
-        let backing = if file.file_type() == wasixv2_vfs::FileType::Fifo && !file.path_only {
-            let interrupt = self.interrupt(caller);
-            Backing::Stream(Arc::new(fifo::open(file, flags, &*interrupt).await?))
-        } else {
-            Backing::Inode(file)
-        };
+        let backing = self.attach(caller, file, flags).await?;
         let file = Arc::new(OpenFile::new(backing, flags));
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
         self.install(caller, file, cloexec)
+    }
+
+    /// `do_dentry_open`'s `f_op->open`: a FIFO attaches to its pipe and a device node to its
+    /// driver; what the inode holds directly is read through the VFS.
+    async fn attach(
+        &self,
+        caller: &Caller<'_>,
+        file: wasixv2_vfs::File,
+        flags: OpenFlags,
+    ) -> SysResult<Backing> {
+        if file.path_only {
+            return Ok(Backing::Inode(file));
+        }
+        let path = file.path.clone();
+        let object: Arc<dyn crate::FileObject> = match file.file_type() {
+            wasixv2_vfs::FileType::Fifo => {
+                if let Some(object) = crate::stdio::reopen(&file) {
+                    return Ok(Backing::Stream(object, path));
+                }
+                let interrupt = self.interrupt(caller);
+                Arc::new(fifo::open(file, flags, &*interrupt).await?)
+            }
+            wasixv2_vfs::FileType::CharDevice | wasixv2_vfs::FileType::BlockDevice => {
+                self.open_device(file).await?
+            }
+            _ => return Ok(Backing::Inode(file)),
+        };
+        Ok(Backing::Stream(object, path))
     }
 
     pub(crate) fn install(

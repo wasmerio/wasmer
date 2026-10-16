@@ -369,7 +369,10 @@ impl Kernel {
         if flags.contains(InotifyInitFlags::IN_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let file = OpenFile::new(Backing::Stream(Arc::new(inotify)), status);
+        let file = OpenFile::new(
+            Backing::Stream(Arc::new(inotify), self.pseudo.anon("inotify")),
+            status,
+        );
         let cloexec = flags.contains(InotifyInitFlags::IN_CLOEXEC);
         self.install(caller, Arc::new(file), cloexec)
     }

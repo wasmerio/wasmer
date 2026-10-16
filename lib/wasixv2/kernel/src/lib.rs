@@ -4,6 +4,7 @@
 //! Knows nothing about the wasm engine, the layers, or concrete filesystem drivers and network
 //! backends.
 
+mod chrdev;
 mod epoll;
 mod eventfd;
 mod file;
@@ -17,6 +18,8 @@ mod netlink;
 mod pipe;
 mod poll;
 mod process;
+mod procfs;
+mod pseudo;
 mod resource;
 mod signal;
 mod socket;
@@ -32,7 +35,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub use file::{FileObject, Io};
+pub use file::{FileObject, Io, SeekBase};
 pub use fs::HostClock;
 use wasixv2_abi::{
     AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstBuf, ConstFileHandlePtr,
@@ -82,7 +85,8 @@ pub struct ProcessConfig {
 
 pub struct Kernel {
     host: Arc<dyn Host>,
-    state: Mutex<State>,
+    /// Shared with the process filesystems, which read it.
+    state: Arc<Mutex<State>>,
     // ---- net ----
     /// The network namespace IP sockets live in; without one, `socket` fails with
     /// `EAFNOSUPPORT`.
@@ -92,6 +96,8 @@ pub struct Kernel {
     unix_names: Arc<unix::Names>,
     // ---- fs ----
     vfs: Arc<Vfs>,
+    /// The inodes of pipes, sockets and anonymous files.
+    pseudo: pseudo::Pseudo,
     /// inotify watches, fed by the VFS's change notifications.
     inotify: Arc<fs::inotify::Registry>,
     // ---- thr ----
@@ -113,6 +119,9 @@ struct Process {
     /// `argv` and the environment of the current image; `execve` replaces them.
     args: Mutex<Vec<String>>,
     env: Mutex<Vec<String>>,
+    /// The file the image was loaded from (`mm->exe_file`); `None` for a process the embedder
+    /// started from bytes.
+    exe: Mutex<Option<wasixv2_vfs::Path>>,
     mm: Mm,
     // ---- thr ----
     group: thread::Group,
@@ -141,9 +150,11 @@ impl Kernel {
     /// [`Kernel::vfs`].
     pub fn new(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
         let vfs = Vfs::new(root);
+        let clock = Arc::new(fs::HostClock(host.clone()));
         Self {
+            pseudo: pseudo::Pseudo::new(&vfs, clock),
             host,
-            state: Mutex::default(),
+            state: Arc::default(),
             network: None,
             unix_names: Arc::default(),
             inotify: fs::inotify::Registry::install(&vfs),
@@ -167,7 +178,7 @@ impl Kernel {
     /// Starts a process with a single task whose descriptors 0, 1 and 2 are `config.stdio`.
     pub fn spawn(&self, config: ProcessConfig) -> TaskId {
         let mut files = FdTable::default();
-        for file in stdio::open_files(config.stdio) {
+        for file in stdio::open_files(config.stdio, &self.pseudo) {
             files
                 .install(Arc::new(file), false)
                 .expect("a new table has room for stdio");
@@ -182,6 +193,7 @@ impl Kernel {
             resources: Mutex::default(),
             args: Mutex::new(config.args),
             env: Mutex::new(config.env),
+            exe: Mutex::new(None),
             mm: Mm::default(),
             group: thread::Group::new(),
         };
@@ -241,6 +253,8 @@ impl Syscalls for Kernel {
             process.env.lock().unwrap().clone(),
         );
         let startup = Startup::new(&args, &env);
+        // The address space starts out as the image left it.
+        self.mem_size(caller).await;
         if buf.len < startup.size()? {
             return Err(Errno::EINVAL.into());
         }

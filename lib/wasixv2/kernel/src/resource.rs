@@ -19,9 +19,9 @@ const NLIMITS: usize = 16;
 /// `fs.nr_open`: the most `RLIMIT_NOFILE` can be raised to.
 const NR_OPEN: u64 = 1 << 20;
 /// Clock ticks per second (`USER_HZ`).
-const TICKS: u128 = 100;
+pub(crate) const TICKS: u128 = 100;
 /// The address space a wasm32 guest can grow into.
-const ADDRESS_SPACE: u64 = 1 << 32;
+pub(crate) const ADDRESS_SPACE: u64 = 1 << 32;
 /// Bytes per guest `cpu_set_t` word (`unsigned long`).
 const MASK_WORD: u32 = 4;
 const GETRANDOM_CHUNK: usize = 64 * 1024;
@@ -71,6 +71,15 @@ impl Default for Resources {
 }
 
 impl Resources {
+    /// Every limit, indexed by `RLIMIT_*`.
+    pub(crate) fn limits(&self) -> &[Rlimit64; NLIMITS] {
+        &self.limits
+    }
+
+    pub(crate) fn nice(&self) -> i32 {
+        self.nice
+    }
+
     pub(crate) fn nofile(&self) -> usize {
         self.limits[RlimitResource::RLIMIT_NOFILE.0 as usize]
             .rlim_cur
@@ -79,7 +88,7 @@ impl Resources {
 }
 
 /// CPUs the host offers.
-fn cpus() -> u32 {
+pub(crate) fn cpus() -> u32 {
     std::thread::available_parallelism().map_or(1, |n| n.get().min(1024) as u32)
 }
 

@@ -401,6 +401,25 @@ impl TaskSignals {
         self.with(|task| task.blocked)
     }
 
+    /// The masks `/proc/<pid>/status` shows: pending for the task and for the group, blocked,
+    /// ignored and caught.
+    pub(crate) fn proc_status(&self) -> [u64; 5] {
+        let state = self.group.state.lock().unwrap();
+        let task = state.tasks.get(&self.task);
+        let (pending, blocked) = task.map_or((0, 0), |task| (task.pending.set, task.blocked));
+        let mut ignored = 0;
+        let mut caught = 0;
+        for (index, action) in state.actions.iter().enumerate() {
+            let mask = 1 << index;
+            if action.is_ignore() {
+                ignored |= mask;
+            } else if !action.is_default() {
+                caught |= mask;
+            }
+        }
+        [pending, state.shared.set, blocked, ignored, caught]
+    }
+
     /// Ends a temporary mask (`sigsuspend`, `ppoll`, `pselect`, `epoll_pwait`). When the call
     /// was interrupted, the temporary mask stays until the handler's frame is built, whose
     /// `uc_sigmask` then holds `saved` (`restore_saved_sigmask_unless`).

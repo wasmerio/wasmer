@@ -439,7 +439,10 @@ impl Kernel {
         }
         let ep = Ep::new();
         let object = Arc::new(Epoll { ep: ep.clone() });
-        let file = Arc::new(OpenFile::new(Backing::Stream(object), OpenFlags::O_RDWR));
+        let file = Arc::new(OpenFile::new(
+            Backing::Stream(object, self.pseudo.anon("[eventpoll]")),
+            OpenFlags::O_RDWR,
+        ));
         ep.file.set(Arc::downgrade(&file)).ok();
         let cloexec = flags.contains(EpollCreateFlags::EPOLL_CLOEXEC);
         self.install(caller, file, cloexec)

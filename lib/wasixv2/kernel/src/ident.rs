@@ -13,12 +13,12 @@ use crate::{ID, Kernel, Process};
 
 /// `uname` fields. The release is the wasixv2 ABI version, not a Linux version: the target is not
 /// Linux, and programs that parse the release to guess Linux features should not match it.
-const SYSNAME: &str = "wasixv2";
-const NODENAME: &str = "localhost";
-const RELEASE: &str = "2.0.0";
-const VERSION: &str = "#1";
+pub(crate) const SYSNAME: &str = "wasixv2";
+pub(crate) const NODENAME: &str = "localhost";
+pub(crate) const RELEASE: &str = "2.0.0";
+pub(crate) const VERSION: &str = "#1";
 const MACHINE: &str = "wasm32";
-const DOMAINNAME: &str = "(none)";
+pub(crate) const DOMAINNAME: &str = "(none)";
 
 /// `TASK_COMM_LEN`.
 const COMM_LEN: usize = 16;
@@ -74,7 +74,18 @@ impl Ident {
     // ---- proc ----
     /// `execve` names the task after the file it runs (`kbasename(bprm->filename)`).
     pub(crate) fn set_comm_from_path(&mut self, path: &[u8]) {
-        let name = path.rsplit(|&b| b == b'/').next().unwrap_or_default();
+        self.set_comm(path.rsplit(|&b| b == b'/').next().unwrap_or_default());
+    }
+
+    /// The task name (`comm`), without its NUL padding.
+    pub(crate) fn comm(&self) -> &[u8] {
+        let n = self.comm.iter().position(|&b| b == 0).unwrap_or(COMM_LEN);
+        &self.comm[..n]
+    }
+
+    /// Renames the task, as writing `/proc/<pid>/comm` does (`set_task_comm`): the name is
+    /// cut to `TASK_COMM_LEN - 1` bytes.
+    pub(crate) fn set_comm(&mut self, name: &[u8]) {
         let n = name.len().min(COMM_LEN - 1);
         self.comm = [0; COMM_LEN];
         self.comm[..n].copy_from_slice(&name[..n]);
