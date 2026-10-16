@@ -87,8 +87,8 @@ prints `Running wast <path>`.
 
 WASIX v2 (`lib/wasixv2`, design in `lib/wasixv2/DESIGN.md`) spans three
 repositories besides this one, all wired in as submodules. Run
-`git submodule update --init` first: a missing submodule stops the cargo
-workspace from loading.
+`git submodule update --init --recursive` first: a missing submodule stops the
+cargo workspace from loading, and the test suite has submodules of its own.
 
 | Repository | Here | Holds |
 | ---------- | ---- | ----- |
@@ -114,9 +114,10 @@ generator change, regenerate with
 make test-wasixv2   # builds the wasmer CLI, then runs tests/wasixv2
 ```
 
-The suite builds every program under `tests/wasixv2/suite/` with `wasixcc`
-for `wasm32-wasixv2` and runs it with that `wasmer`. It needs, from the
-environment:
+The suite builds every program under `tests/wasixv2/suite/`, and three
+upstream suites (musl's libc-test, the Open POSIX Test Suite and LTP, from
+wasix-org's LTP fork), with `wasixcc` for `wasm32-wasixv2` and runs them
+with that `wasmer`. It needs, from the environment:
 
 - `wasixcc` with wasixv2 support on `PATH` (unreleased:
   wasix-org/wasixcc#87).
@@ -125,11 +126,14 @@ environment:
 - A libc2 sysroot, via `WASIXCC_SYSROOT` (`<libc2>/build-wasixv2/sysroot-wasixv2`
   after `make wasixv2-sysroot` in libc2).
 
-Filter tests with `WASIXV2_TESTS_ARGS=<filter>`. Most of the suite is
-expected to fail until wasixv2 is complete: `tests/wasixv2/expected-failures.txt`
-lists those tests, and a listed test that starts passing fails the run.
-Regenerate the list with `WASIXV2_TESTS_BLESS=1`, then commit it in
-wasixv2-tests. CI does not run the suite yet.
+Filter tests with `WASIXV2_TESTS_ARGS=<filter>`, for example `ltp/` or
+`posix/`. Many tests are expected to fail until wasixv2 is complete:
+`tests/wasixv2/expected-failures/<suite>.txt` lists them, and a listed test
+that starts passing fails the run. Regenerate the lists with
+`WASIXV2_TESTS_BLESS=1`, then commit them in wasixv2-tests. Upstream tests
+that cannot make sense on wasixv2 (root, block devices, kernel modules, ...)
+are excluded rather than listed; see `tests/wasixv2/excluded.txt`. CI does
+not run the suite yet.
 
 ### Rules
 
