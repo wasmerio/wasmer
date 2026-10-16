@@ -185,7 +185,9 @@ fn udp_send_to_recv_from() {
         r#"{LOOPBACK_ADDR}
         (data (i32.const 2000) "hey!")
         (data (i32.const 1600) "\d0\07\00\00\04\00\00\00")
-        (data (i32.const 1610) "\34\08\00\00\10\00\00\00")"#
+        (data (i32.const 1610) "\34\08\00\00\10\00\00\00")
+        ;; subscription at 3000: FD_READ; the fd is filled in
+        (data (i32.const 3000) "\00\00\00\00\00\00\00\00\01")"#
     );
     let body = r#"
     (call $ok (call $sock_open (i32.const 1) (i32.const 2) (i32.const 17) (i32.const 0)) (i32.const 1))
@@ -208,6 +210,18 @@ fn udp_send_to_recv_from() {
     (call $assert (i32.eq (i32.load (i32.const 12)) (i32.const 2)) (i32.const 16))
     (call $assert (i32.eq (i32.load16_u (i32.const 16)) (i32.const 1)) (i32.const 17))
     (call $print (i32.const 2100) (i32.const 2))
+    ;; a datagram to a closed port: poll reports an error, and the next receive still gets
+    ;; the refusal (CONNREFUSED, 14), as on Linux
+    (call $ok (call $sock_open (i32.const 1) (i32.const 2) (i32.const 17) (i32.const 20)) (i32.const 18))
+    (call $ok (call $sock_bind (i32.load (i32.const 20)) (i32.const 1024)) (i32.const 19))
+    (call $ok (call $sock_addr_local (i32.load (i32.const 20)) (i32.const 2600)) (i32.const 20))
+    (call $ok (call $fd_close (i32.load (i32.const 20))) (i32.const 21))
+    (call $ok (call $sock_connect (i32.load (i32.const 4)) (i32.const 2600)) (i32.const 22))
+    (call $ok (call $sock_send (i32.load (i32.const 4)) (i32.const 1600) (i32.const 1) (i32.const 0) (i32.const 8)) (i32.const 23))
+    (i32.store (i32.const 3016) (i32.load (i32.const 4)))
+    (call $ok (call $poll_oneoff (i32.const 3000) (i32.const 3100) (i32.const 1) (i32.const 16)) (i32.const 24))
+    (call $assert (i32.eq (i32.load16_u (i32.const 3108)) (i32.const 29)) (i32.const 25))
+    (call $assert (i32.eq (call $sock_recv (i32.load (i32.const 4)) (i32.const 1610) (i32.const 1) (i32.const 0) (i32.const 12) (i32.const 16)) (i32.const 14)) (i32.const 26))
     "#;
     assert_eq!(run(&data, body), (0, "he".to_string()));
 }

@@ -26,8 +26,6 @@ use crate::{
     shim::{self, Env, Frame},
 };
 
-use super::sock::int_option;
-
 /// What one subscription waits for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Wait {
@@ -287,21 +285,6 @@ async fn nbytes<S: Syscalls + Control + 'static>(frame: &Frame<'_, S>, wait: Wai
     }
 }
 
-/// The error a `POLLERR` stands for: a socket's pending error, else `PIPE` for writing (a
-/// pipe without readers) and `IO` for reading.
-async fn poll_error<S: Syscalls + Control + 'static>(
-    frame: &Frame<'_, S>,
-    wait: Wait,
-    fd: Fd,
-) -> Errno {
-    use wasixv2_abi::{SocketLevel, SocketOption};
-    match int_option(frame, fd, SocketLevel::SOL_SOCKET, SocketOption::SO_ERROR.0).await {
-        Ok(errno) if errno != 0 => Errno::from_linux(wasixv2_abi::Errno(errno)),
-        _ if matches!(wait, Wait::Write(_)) => Errno::PIPE,
-        _ => Errno::IO,
-    }
-}
-
 /// The event of a descriptor subscription whose descriptor reported `revents`, if any.
 async fn fd_event<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
@@ -329,7 +312,10 @@ async fn fd_event<S: Syscalls + Control + 'static>(
     if ready & PollEvents::POLLNVAL.0 != 0 {
         event.error = Errno::BADF;
     } else if ready & PollEvents::POLLERR.0 != 0 {
-        event.error = poll_error(frame, sub.wait, fd).await;
+        // Not the socket's pending error: reading `SO_ERROR` would clear it, and Linux leaves
+        // it for the next call on the socket. wasix-libc's `poll` turns any error into
+        // `POLLERR`.
+        event.error = Errno::IO;
     } else {
         event.fd_readwrite.nbytes = nbytes(frame, sub.wait, fd).await;
     }
