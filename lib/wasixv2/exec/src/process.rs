@@ -11,9 +11,9 @@ use std::{
 
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Control, Syscalls, TaskId};
-use wasmer::{AsyncFunctionEnvMut, Engine, Function, Instance, Module, RuntimeError, Store, Value};
+use wasmer::{AsyncFunctionEnvMut, Engine, Function, Module, RuntimeError, Store, Value};
 
-use crate::{ExecEnv, ExecError, thread::NoMemory};
+use crate::{ExecEnv, ExecError, abi::Abis, thread::NoMemory};
 
 /// The status a process exits with when its new image does not compile or traps.
 // TODO: kill it with SIGSEGV through the kernel.
@@ -40,9 +40,15 @@ pub(crate) struct Spawner<S> {
     engine: Engine,
     syscalls: Arc<S>,
     host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
 }
 
-pub(crate) fn spawner<S>(engine: Engine, syscalls: Arc<S>, host: Arc<dyn Host>) -> Arc<dyn Spawn>
+pub(crate) fn spawner<S>(
+    engine: Engine,
+    syscalls: Arc<S>,
+    host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
+) -> Arc<dyn Spawn>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
@@ -50,6 +56,7 @@ where
         engine,
         syscalls,
         host,
+        abis,
     })
 }
 
@@ -58,15 +65,17 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     fn spawn(&self, task: TaskId, image: Vec<u8>) {
-        let (engine, syscalls, host) = (
+        let (engine, syscalls, host, abis) = (
             self.engine.clone(),
             self.syscalls.clone(),
             self.host.clone(),
+            self.abis.clone(),
         );
         let start = Box::new(move || {
             Box::pin(async move {
                 let store = Store::new(engine);
-                if let Err(err) = run_bytes(store, image, syscalls.clone(), task, host).await {
+                if let Err(err) = run_bytes(store, image, syscalls.clone(), task, host, abis).await
+                {
                     tracing::warn!(tid = task.0, %err, "process image failed");
                     fault(&*syscalls, task).await;
                 }
@@ -88,12 +97,21 @@ pub(crate) async fn run<S>(
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let engine = store.engine().clone();
-    let mut ended = crate::run_image(store, module, syscalls.clone(), task, host.clone()).await?;
+    let mut ended = crate::run_image(
+        store,
+        module,
+        syscalls.clone(),
+        task,
+        host.clone(),
+        abis.clone(),
+    )
+    .await?;
     loop {
         match ended {
             Ended::Exited(status) => return Ok(status),
@@ -106,8 +124,15 @@ where
                     }
                 };
                 let store = Store::new(engine.clone());
-                ended =
-                    crate::run_image(store, &module, syscalls.clone(), task, host.clone()).await?;
+                ended = crate::run_image(
+                    store,
+                    &module,
+                    syscalls.clone(),
+                    task,
+                    host.clone(),
+                    abis.clone(),
+                )
+                .await?;
             }
         }
     }
@@ -119,6 +144,7 @@ async fn run_bytes<S>(
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -130,16 +156,25 @@ where
             return Ok(fault(&*syscalls, task).await);
         }
     };
-    run(store, &module, syscalls, task, host).await
+    run(store, &module, syscalls, task, host, abis).await
 }
 
 /// Ends `task`'s thread group as a fault would, and returns its status.
-async fn fault<S: Syscalls + Control>(syscalls: &S, task: TaskId) -> i32 {
+pub(crate) async fn fault<S: Syscalls + Control>(syscalls: &S, task: TaskId) -> i32 {
+    exit_group(syscalls, task, FAULT_STATUS).await
+}
+
+/// Ends `task`'s thread group with `status` on the guest's behalf, and returns the status.
+pub(crate) async fn exit_group<S: Syscalls + Control>(
+    syscalls: &S,
+    task: TaskId,
+    status: i32,
+) -> i32 {
     let _ = syscalls
-        .exit_group(&Caller::new(task, &NoMemory), FAULT_STATUS)
+        .exit_group(&Caller::new(task, &NoMemory), status)
         .await;
     while syscalls.take_pending(task).is_some() {}
-    FAULT_STATUS
+    status
 }
 
 /// Makes the instance behind `env` run as `task` from now on.
@@ -160,35 +195,24 @@ pub(crate) async fn spawn_image<S: 'static>(
 /// What the execution layer needs of an instance for processes.
 pub(crate) struct ProcExports {
     spawner: Arc<dyn Spawn>,
-    /// `wasixv2_vfork_return(child)`, which libc exports to unwind to the vfork point.
-    vfork_return: Option<Function>,
 }
 
 impl ProcExports {
     pub(crate) fn new(spawner: Arc<dyn Spawn>) -> Self {
-        Self {
-            spawner,
-            vfork_return: None,
-        }
-    }
-
-    pub(crate) fn set_instance(&mut self, instance: &Instance) {
-        self.vfork_return = instance.exports.get_function(VFORK_RETURN).ok().cloned();
+        Self { spawner }
     }
 }
 
 /// The export a vfork parent resumes through, as `wasixv2_vfork_return(child_tid)`.
 pub const VFORK_RETURN: &str = "wasixv2_vfork_return";
 
-/// Switches the instance back to the vfork parent and calls the guest's vfork return, which
-/// unwinds to the vfork point with an exception; returns that error for the import to raise.
+/// Calls the guest's vfork return, `function`, in the vfork parent, which unwinds to the vfork
+/// point with an exception; returns that error for the import to raise.
 pub(crate) async fn vfork_return<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
-    parent: TaskId,
+    function: Option<&Function>,
     child: TaskId,
 ) -> RuntimeError {
-    switch(env, parent).await;
-    let function = env.read().await.data().proc.vfork_return.clone();
     let Some(function) = function else {
         return RuntimeError::new(format!(
             "a vfork child ended, but the guest has no `{VFORK_RETURN}`"

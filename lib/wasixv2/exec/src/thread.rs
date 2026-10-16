@@ -16,9 +16,12 @@ use std::{
 
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Control, Fault, LocalFuture, Syscalls, TaskId, UserMemory};
-use wasmer::{Engine, FunctionEnv, Instance, Module, SharedMemory, Store, Value};
+use wasmer::{Engine, FunctionEnv, Instance, Module, SharedMemory, Store};
 
-use crate::{ExecEnv, ExecError, Exited, generated};
+use crate::{
+    ExecEnv, ExecError, Exited,
+    abi::{Abi, Abis, EntryReturn, Role},
+};
 
 /// The export a new thread starts at, as `wasixv2_thread_start(tid, start_arg)`.
 pub const THREAD_ENTRY: &str = "wasixv2_thread_start";
@@ -35,6 +38,9 @@ pub(crate) struct Image<S> {
     memory: SharedMemory,
     syscalls: Arc<S>,
     host: Arc<dyn Host>,
+    /// The ABI of `module`.
+    abi: Arc<dyn Abi<S>>,
+    abis: Arc<Abis<S>>,
 }
 
 impl<S> Image<S> {
@@ -44,6 +50,8 @@ impl<S> Image<S> {
         memory: SharedMemory,
         syscalls: Arc<S>,
         host: Arc<dyn Host>,
+        abi: Arc<dyn Abi<S>>,
+        abis: Arc<Abis<S>>,
     ) -> Arc<Self> {
         Arc::new(Self {
             engine: store.engine().clone(),
@@ -51,6 +59,8 @@ impl<S> Image<S> {
             memory,
             syscalls,
             host,
+            abi,
+            abis,
         })
     }
 }
@@ -136,7 +146,16 @@ where
     /// Runs the thread `task` to its end, on the host thread it was started on.
     async fn run(self: Arc<Self>, task: TaskId, start_arg: u32) {
         let fault = match self.clone().call_entry(task, start_arg).await {
-            Ok(()) => "returned from its entry point".to_string(),
+            Ok(EntryReturn::Exit(status)) => {
+                // The thread ends as if it had called `exit`.
+                let _ = self
+                    .syscalls
+                    .exit(&Caller::new(task, &NoMemory), status)
+                    .await;
+                while self.syscalls.take_pending(task).is_some() {}
+                return;
+            }
+            Ok(EntryReturn::Fault) => "returned from its entry point".to_string(),
             Err(ExecError::Trap(err)) => match err.downcast::<Exited>() {
                 Ok(Exited(_)) => return,
                 Err(err) => err.to_string(),
@@ -153,41 +172,39 @@ where
             .await;
     }
 
-    async fn call_entry(self: Arc<Self>, task: TaskId, start_arg: u32) -> Result<(), ExecError> {
+    /// Runs the thread entry; on a normal return, says what the ABI makes of that.
+    async fn call_entry(
+        self: Arc<Self>,
+        task: TaskId,
+        start_arg: u32,
+    ) -> Result<EntryReturn, ExecError> {
         let mut store = Store::new(self.engine.clone());
+        let spawner = crate::process::spawner(
+            self.engine.clone(),
+            self.syscalls.clone(),
+            self.host.clone(),
+            self.abis.clone(),
+        );
         let env = FunctionEnv::new(
             &mut store,
-            ExecEnv {
-                syscalls: self.syscalls.clone(),
-                task,
-                memory: None,
-                signal: crate::signal::SignalExports::default(),
-                proc: crate::process::ProcExports::new(crate::process::spawner(
-                    self.engine.clone(),
-                    self.syscalls.clone(),
-                    self.host.clone(),
-                )),
-            },
+            ExecEnv::new(self.syscalls.clone(), task, spawner),
         );
-        let mut imports = generated::imports(&mut store, &env);
+        let mut imports = self.abi.imports(&mut store, &env);
         let memory = self.memory.clone().try_attach(&mut store)?;
         if let Some(import) = self.module.imports().memories().next() {
             imports.define(import.module(), import.name(), memory.clone());
         }
         let instance = Instance::new(&mut store, &self.module, &imports)?;
+        let abi = self.abi.bind(&instance, &mut store, task, Role::Thread)?;
         env.as_mut(&mut store).memory = Some(memory);
-        env.as_mut(&mut store).signal = crate::signal::SignalExports::new(&instance);
-        env.as_mut(&mut store).proc.set_instance(&instance);
-        let entry = instance.exports.get_function(THREAD_ENTRY)?.clone();
+        env.as_mut(&mut store).abi = Some(abi.clone());
         let _registration = register(&self, task);
 
         let store = store.into_async();
-        let args = [Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
-        entry
-            .call_async(&store, args.to_vec())
+        abi.start_thread(&store, task, start_arg)
             .await
-            .map(drop)
-            .map_err(ExecError::Trap)
+            .map_err(ExecError::Trap)?;
+        Ok(abi.on_thread_return())
     }
 }
 

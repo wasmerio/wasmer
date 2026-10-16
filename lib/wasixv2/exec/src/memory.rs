@@ -4,8 +4,14 @@ use wasmer::AsyncFunctionEnvMut;
 use crate::ExecEnv;
 
 /// The calling instance's linear memory, reached through its async function environment.
-pub(crate) struct GuestMemory<'a, S: 'static> {
+pub struct GuestMemory<'a, S: 'static> {
     pub(crate) env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+}
+
+impl<'a, S: 'static> GuestMemory<'a, S> {
+    pub fn new(env: &'a AsyncFunctionEnvMut<ExecEnv<S>>) -> Self {
+        Self { env }
+    }
 }
 
 impl<S: 'static> UserMemory for GuestMemory<'_, S> {

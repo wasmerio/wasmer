@@ -2,7 +2,7 @@
 //! the sigreturn that follows it (see `signal-callback-register` in the ABI).
 
 use wasixv2_abi::GuestLayout;
-use wasixv2_syscalls::{Control, SignalFrame, TaskId};
+use wasixv2_syscalls::SignalFrame;
 use wasmer::{AsyncFunctionEnvMut, Function, Global, Instance, RuntimeError, Table, Value};
 
 use crate::ExecEnv;
@@ -20,7 +20,6 @@ const MC_TLS: usize = UC_MCONTEXT + 12;
 const SIGINFO_SIZE: u32 = 128;
 
 /// The guest exports delivery needs. libc-built modules export all of them.
-#[derive(Default)]
 pub(crate) struct SignalExports {
     stack_pointer: Option<Global>,
     tls_base: Option<Global>,
@@ -39,44 +38,32 @@ impl SignalExports {
 }
 
 /// Runs one handler: writes the frame below the stack pointer (or at the top of the alternate
-/// stack), calls the trampoline, then restores the mask, stack pointer and TLS base it left in
-/// the frame. An error from the handler, such as the exception of a `siglongjmp` or an exit,
-/// passes through untouched.
-pub(crate) async fn deliver<S: Control + 'static>(
+/// stack), calls the trampoline, then restores the stack pointer and TLS base it left in the
+/// frame and returns the mask for `rt_sigreturn`. An error from the handler, such as the
+/// exception of a `siglongjmp` or an exit, passes through untouched.
+pub(crate) async fn deliver<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
-    syscalls: &S,
-    task: TaskId,
+    exports: &SignalExports,
     frame: &SignalFrame,
-) -> Result<(), RuntimeError> {
-    let (trampoline, uc) = match push_frame(env, frame).await {
-        Ok(pushed) => pushed,
-        Err(err) => {
-            syscalls.signal_return(task, None);
-            return Err(err);
-        }
-    };
+) -> Result<u64, RuntimeError> {
+    let (trampoline, uc) = push_frame(env, exports, frame).await?;
     let info = uc + UCONTEXT_SIZE;
     let args = vec![
         Value::I32(frame.signo()),
         Value::I32(info as i32),
         Value::I32(uc as i32),
     ];
-    if let Err(err) = trampoline.call_async(&env.as_store_async(), args).await {
-        syscalls.signal_return(task, None);
-        return Err(err);
-    }
-    let mask = pop_frame(env, uc).await?;
-    syscalls.signal_return(task, Some(mask));
-    Ok(())
+    trampoline.call_async(&env.as_store_async(), args).await?;
+    pop_frame(env, exports, uc).await
 }
 
 async fn push_frame<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+    exports: &SignalExports,
     frame: &SignalFrame,
 ) -> Result<(Function, u32), RuntimeError> {
     let mut guard = env.write().await;
     let (data, store) = guard.data_and_store_mut();
-    let exports = &data.signal;
     let (Some(sp_global), Some(table), Some(memory)) =
         (&exports.stack_pointer, &exports.table, &data.memory)
     else {
@@ -122,6 +109,7 @@ async fn push_frame<S: 'static>(
 /// The sigreturn: reads back the mask, stack pointer and TLS base from the frame at `uc`.
 async fn pop_frame<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+    exports: &SignalExports,
     uc: u32,
 ) -> Result<u64, RuntimeError> {
     let mut guard = env.write().await;
@@ -137,10 +125,10 @@ async fn pop_frame<S: 'static>(
         .map_err(|_| RuntimeError::new("signal frame outside guest memory"))?;
     let mask = u64::from_le_bytes(bytes[UC_SIGMASK..UC_SIGMASK + 8].try_into().unwrap());
     let get = |at: usize| u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap());
-    if let Some(global) = &data.signal.stack_pointer {
+    if let Some(global) = &exports.stack_pointer {
         global.set(&mut *store, Value::I32(get(MC_SP) as i32))?;
     }
-    if let Some(global) = &data.signal.tls_base {
+    if let Some(global) = &exports.tls_base {
         global.set(&mut *store, Value::I32(get(MC_TLS) as i32))?;
     }
     Ok(mask)
