@@ -20,8 +20,8 @@ pub use wasixv2_host::WebHost;
 pub use wasixv2_host::{
     ByteSink, ByteSource, EmptySource, Executor, FnSink, Host, LocalFuture, ThreadStart,
 };
+pub use wasixv2_kernel::{Credentials, ProcessConfig, Stdio, Uname, UnameError};
 use wasixv2_kernel::{HostClock, Kernel};
-pub use wasixv2_kernel::{ProcessConfig, Stdio};
 use wasixv2_syscalls::{Layered, TaskId};
 use wasixv2_trace::Trace;
 pub use wasixv2_vfs::Filesystem;
@@ -43,9 +43,6 @@ pub enum RunError {
     WorkingDir(io::Error),
 }
 
-/// The uid and gid processes run as, which own the root filesystem.
-const USER: u32 = 1;
-
 /// One kernel and the processes it runs.
 ///
 /// The root filesystem is in memory and laid out as a small Linux system (see
@@ -55,10 +52,15 @@ const USER: u32 = 1;
 /// feature on a Unix host, traffic leaving it goes through host sockets, otherwise it is
 /// loopback-only. The machine's futures must be driven where its [`Host`]'s executor expects
 /// them; see [`Machine::new`].
+///
+/// Processes run as the machine's user ([`MachineBuilder::user`]), which also owns the root
+/// filesystem, mapped host directories and package volumes.
 pub struct Machine {
     syscalls: Arc<Layered<Trace, Kernel>>,
     network: Arc<Net>,
     host: Arc<dyn Host>,
+    /// The uid and gid processes start as and filesystems are owned by.
+    owner: (u32, u32),
     /// Where new processes start; `/` if unset.
     working_dir: Option<String>,
     /// The processes [`Machine::run_process`] started that are still running.
@@ -72,39 +74,108 @@ impl Default for Machine {
     }
 }
 
-impl Machine {
-    /// A machine on [`TokioHost`]. Drive it on a tokio runtime with timers enabled, inside a
-    /// `tokio::task::LocalSet`, which background host work is spawned onto.
-    #[cfg(feature = "tokio")]
-    pub fn new() -> Self {
-        Self::with_host(Arc::new(TokioHost::default()))
-    }
+/// Configures a [`Machine`] before it boots: who its processes run as, what `uname` reports
+/// and the root filesystem. The defaults are those of [`Credentials`] and [`Uname`], and the
+/// [`default_root`].
+///
+/// ```no_run
+/// # use wasixv2::{Credentials, Machine, Uname};
+/// let machine = Machine::builder()
+///     .user(Credentials::new(0, 0))
+///     .uname(Uname::default().with_release("6.1.0")?)
+///     .build();
+/// # Ok::<(), wasixv2::UnameError>(())
+/// ```
+pub struct MachineBuilder {
+    host: Arc<dyn Host>,
+    user: Credentials,
+    uname: Uname,
+    root: Option<Arc<dyn Filesystem>>,
+}
 
-    /// A machine whose clocks, timers, entropy and executor come from `host`, on the
-    /// [`default_root`].
-    pub fn with_host(host: Arc<dyn Host>) -> Self {
-        let network = default_network();
-        let root = default_root(&host, &network.resolv_conf());
-        Self::assemble(host, root, network)
-    }
-
-    /// A machine on `root` instead of the default root filesystem, such as an embedder's
-    /// image. `/proc`, `/dev`, `/dev/shm` and `/tmp` are mounted on it, their directories made
-    /// where missing; a mount point that cannot be made (on a read-only root) is left out.
-    pub fn with_root(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
-        Self::assemble(host, root, default_network())
-    }
-
-    fn assemble(host: Arc<dyn Host>, root: Arc<dyn Filesystem>, network: Arc<Net>) -> Self {
-        let kernel = Kernel::new(host.clone(), root).with_network(network.clone());
-        mount_kernel_filesystems(&kernel, &host);
+impl MachineBuilder {
+    /// A machine whose clocks, timers, entropy and executor come from `host`.
+    pub fn new(host: Arc<dyn Host>) -> Self {
         Self {
+            host,
+            user: Credentials::default(),
+            uname: Uname::default(),
+            root: None,
+        }
+    }
+
+    /// The identity the machine's processes start as, and that owns its filesystems. uid 0 is
+    /// root, with every capability.
+    pub fn user(mut self, user: Credentials) -> Self {
+        self.user = user;
+        self
+    }
+
+    /// The names `uname` reports.
+    pub fn uname(mut self, uname: Uname) -> Self {
+        self.uname = uname;
+        self
+    }
+
+    /// Boots on `root` instead of the [`default_root`], such as an embedder's image. `/proc`,
+    /// `/dev`, `/dev/shm` and `/tmp` are mounted on it, their directories made where missing;
+    /// a mount point that cannot be made (on a read-only root) is left out.
+    pub fn root(mut self, root: Arc<dyn Filesystem>) -> Self {
+        self.root = Some(root);
+        self
+    }
+
+    pub fn build(self) -> Machine {
+        let Self {
+            host,
+            user,
+            uname,
+            root,
+        } = self;
+        let owner = (user.uid(), user.gid());
+        let network = default_network();
+        let root = root.unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user));
+        let kernel = Kernel::new(host.clone(), root)
+            .with_network(network.clone())
+            .with_credentials(user)
+            .with_uname(&uname);
+        mount_kernel_filesystems(&kernel, &host);
+        Machine {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
             network,
             host,
+            owner,
             working_dir: None,
             running: Mutex::default(),
         }
+    }
+}
+
+impl Machine {
+    /// A machine on [`TokioHost`] with the default configuration. Drive it on a tokio runtime
+    /// with timers enabled, inside a `tokio::task::LocalSet`, which background host work is
+    /// spawned onto.
+    #[cfg(feature = "tokio")]
+    pub fn new() -> Self {
+        Self::builder().build()
+    }
+
+    /// Configures a machine on [`TokioHost`]; see [`Machine::new`].
+    #[cfg(feature = "tokio")]
+    pub fn builder() -> MachineBuilder {
+        MachineBuilder::new(Arc::new(TokioHost::default()))
+    }
+
+    /// A machine with the default configuration whose clocks, timers, entropy and executor
+    /// come from `host`.
+    pub fn with_host(host: Arc<dyn Host>) -> Self {
+        MachineBuilder::new(host).build()
+    }
+
+    /// A machine on `root` instead of the default root filesystem; see
+    /// [`MachineBuilder::root`].
+    pub fn with_root(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
+        MachineBuilder::new(host).root(root).build()
     }
 
     /// The machine's network namespace, e.g. to [`Net::publish`] a host port to a guest
@@ -137,7 +208,7 @@ impl Machine {
     }
 
     /// Maps the host directory `host_dir` to `guest`. The guest cannot reach anything outside
-    /// `host_dir`; files the host user owns appear as owned by the guest user.
+    /// `host_dir`; files the host user owns appear as owned by the machine's user.
     pub async fn mount_host_dir(
         &self,
         guest: &str,
@@ -146,7 +217,7 @@ impl Machine {
     ) -> io::Result<()> {
         let options = wasixv2_vfs_host::Options {
             read_only,
-            owner: (USER, USER),
+            owner: self.owner,
         };
         let fs = wasixv2_vfs_host::open(host_dir, self.host.clone(), options)?;
         self.mount(guest, fs, read_only).await
@@ -155,7 +226,7 @@ impl Machine {
     /// Mounts the volume `volume` of the webc v3 package `reader` at `guest`, sharing the
     /// reader's buffer. With `writable`, the volume is the lower layer of an overlay whose upper
     /// layer is in memory, so changes work and are lost with the machine; otherwise the mount is
-    /// read-only. Objects in the volume appear owned by the guest user.
+    /// read-only. Objects in the volume appear owned by the machine's user.
     pub async fn mount_package_volume(
         &self,
         guest: &str,
@@ -163,14 +234,15 @@ impl Machine {
         volume: &str,
         writable: bool,
     ) -> io::Result<()> {
+        let (uid, gid) = self.owner;
         let lower: Arc<dyn Filesystem> =
-            Arc::new(PackageFs::with_owner(reader, volume, USER, USER).map_err(io::Error::other)?);
+            Arc::new(PackageFs::with_owner(reader, volume, uid, gid).map_err(io::Error::other)?);
         let fs = if writable {
             let upper: Arc<dyn Filesystem> = Arc::new(MemFs::new(
                 Arc::new(HostClock(self.host.clone())),
                 0o755,
-                USER,
-                USER,
+                uid,
+                gid,
             ));
             OverlayFs::new(Some(upper), vec![lower])
         } else {
@@ -281,23 +353,25 @@ fn default_network() -> Arc<Net> {
 
 /// The guest's `/etc/hosts`: `localhost` resolves without DNS, as on every Linux system.
 const HOSTS: &str = "127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loopback\n";
-/// The users and groups: root, and the user processes run as.
-const PASSWD: &str = "root:x:0:0:root:/root:/bin/sh\nuser:x:1:1:user:/home/user:/bin/sh\n";
-const GROUP: &str = "root:x:0:\nuser:x:1:\n";
 /// The kernel's nodename.
 const HOSTNAME: &str = "localhost\n";
 
-/// The default root filesystem: a memory filesystem whose top directory the user processes run
-/// as owns, laid out as a small Linux system. It has empty `/bin`, `/usr/bin` and `/usr/lib`
-/// for packages and mounts to fill, `/root` and the user's home `/home/user`, and in `/etc`
-/// `passwd` and `group` naming both users, `hostname`, `hosts` and, when there are name
-/// servers, `resolv.conf`. `/proc`, `/dev` and `/tmp` are mount points.
-pub fn default_root(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesystem> {
+/// The default root filesystem: a memory filesystem whose top directory `user` owns, laid out
+/// as a small Linux system. It has empty `/bin`, `/usr/bin` and `/usr/lib` for packages and
+/// mounts to fill, `/root` and the user's home `/home/user`, and in `/etc` `passwd` and `group`
+/// naming root and the user, `hostname`, `hosts` and, when there are name servers,
+/// `resolv.conf`. `/proc`, `/dev` and `/tmp` are mount points.
+pub fn default_root(
+    host: &Arc<dyn Host>,
+    resolv_conf: &str,
+    user: &Credentials,
+) -> Arc<dyn Filesystem> {
+    let (uid, gid) = (user.uid(), user.gid());
     let root: Arc<dyn Filesystem> = Arc::new(MemFs::new(
         Arc::new(HostClock(host.clone())),
         0o755,
-        USER,
-        USER,
+        uid,
+        gid,
     ));
     let vfs = Vfs::new(root.clone());
     let cred = Cred::root();
@@ -326,10 +400,11 @@ pub fn default_root(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesyst
         let home = vfs
             .lookup(&cx, &top, b"/home/user", LookupFlags::follow())
             .await?;
-        vfs.chown(&cx, &home, Some(USER), Some(USER)).await?;
+        vfs.chown(&cx, &home, Some(uid), Some(gid)).await?;
+        let (passwd, group) = (passwd(uid, gid), group(gid));
         let mut files = vec![
-            ("/etc/passwd", PASSWD),
-            ("/etc/group", GROUP),
+            ("/etc/passwd", passwd.as_str()),
+            ("/etc/group", group.as_str()),
             ("/etc/hostname", HOSTNAME),
             ("/etc/hosts", HOSTS),
         ];
@@ -349,6 +424,24 @@ pub fn default_root(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesyst
     };
     now(layout).expect("a new memory filesystem takes the default layout");
     root
+}
+
+/// `/etc/passwd`: root, and the user processes run as unless that is root.
+fn passwd(uid: u32, gid: u32) -> String {
+    let mut passwd = String::from("root:x:0:0:root:/root:/bin/sh\n");
+    if uid != 0 {
+        passwd += &format!("user:x:{uid}:{gid}:user:/home/user:/bin/sh\n");
+    }
+    passwd
+}
+
+/// `/etc/group`: root's group, and the user's unless that is root's.
+fn group(gid: u32) -> String {
+    let mut group = String::from("root:x:0:\n");
+    if gid != 0 {
+        group += &format!("user:x:{gid}:\n");
+    }
+    group
 }
 
 /// Mounts the kernel's filesystems as a Linux system has them: `/proc`, `/dev` (a memory
