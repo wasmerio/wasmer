@@ -1,6 +1,9 @@
 //! fork: clone without `CLONE_VM`.
 
-use wasixv2_abi::{CloneFlags, Idtype, Pid, RusagePtr, S32Ptr, SiginfoPtr, Signal, WaitOptions};
+use wasixv2_abi::{
+    CloneFlags, ConstRlimit64Ptr, Idtype, Pid, Rlimit64Ptr, RlimitResource, RusagePtr, S32Ptr,
+    SiginfoPtr, Signal, WaitOptions,
+};
 
 use super::*;
 
@@ -123,4 +126,28 @@ fn fork_rejects_a_new_stack_and_clone_vfork() {
 
     assert_eq!(stack, Err(SysErr::Errno(Errno::EINVAL)));
     assert_eq!(blocking, Err(SysErr::Errno(Errno::EINVAL)));
+}
+
+#[test]
+fn fork_fails_with_eagain_at_rlimit_nproc() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    // The caller's own task already counts: a limit of 1 leaves no room for a child.
+    let limit = [1u64.to_le_bytes(), 1u64.to_le_bytes()].concat();
+    block_on(memory.write(64, &limit)).unwrap();
+    let set = block_on(kernel.prlimit64(
+        &caller,
+        0,
+        RlimitResource::RLIMIT_NPROC,
+        ConstRlimit64Ptr::new(64),
+        Rlimit64Ptr::new(0),
+    ));
+    assert_eq!(set, Ok(0));
+
+    assert_eq!(
+        clone(&kernel, &caller, SIGCHLD, 0),
+        Err(SysErr::Errno(Errno::EAGAIN))
+    );
+    assert_eq!(kernel.take_pending(task), None);
 }
