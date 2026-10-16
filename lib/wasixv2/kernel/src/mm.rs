@@ -970,8 +970,7 @@ impl Kernel {
                     u64::from(addr) / PAGE_SIZE + pages,
                 );
                 let size = self.mem_size(caller).await;
-                let busy =
-                    (first..end).any(|page| mm.space().page_mapped(page, size / PAGE_SIZE));
+                let busy = (first..end).any(|page| mm.space().page_mapped(page, size / PAGE_SIZE));
                 if busy && !remap {
                     return Err(Errno::EINVAL);
                 }

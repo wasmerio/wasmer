@@ -54,13 +54,13 @@ use wasixv2_abi::{
     Cstr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp, Gid, GidArray,
     GidPtr, GrndFlags, IoctlRequest, KernelItimerspecPtr, KernelTimespecPtr, LinuxDirent64Ptr,
     Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags,
-    MemfdFlags, MlockFlags, Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr,
-    OpenFlags, Pid, PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource,
-    RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedAttrPtr, SchedParamPtr,
-    SchedPolicy, SeekWhence, Shmid64DsPtr, Signal, SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr,
-    StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags,
-    TimerfdSettimeFlags, TmsPtr, U32Ptr, Uid, UidPtr, Ulong, UlongArray, Uptr, Usize, UsizePtr,
-    VoidPtr, XattrArgsPtr, XattrFlags,
+    MemfdFlags, MlockFlags, Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags,
+    NewUtsnamePtr, OpenFlags, Pid, PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr,
+    RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags,
+    S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence, Shmid64DsPtr, Signal,
+    SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags,
+    SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr, Uid, UidPtr, Ulong,
+    UlongArray, Uptr, Usize, UsizePtr, VoidPtr, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;

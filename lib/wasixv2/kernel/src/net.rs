@@ -152,7 +152,10 @@ impl Kernel {
         }
         let object = SocketFile::new(socket, self.host.clone());
         OpenFile::new(
-            Backing::Stream(Arc::new(object), self.pseudo.socket(self.cred(caller).fs_owner())),
+            Backing::Stream(
+                Arc::new(object),
+                self.pseudo.socket(self.cred(caller).fs_owner()),
+            ),
             status,
         )
     }

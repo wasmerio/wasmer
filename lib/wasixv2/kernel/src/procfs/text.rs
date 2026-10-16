@@ -525,7 +525,9 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
     let pid = scope.tid.unwrap_or(scope.pid);
     let ident = process.ident.lock().unwrap().clone();
     let task = source.task(scope.pid, scope.tid);
-    let comm = task.as_ref().map_or(Vec::new(), |task| task.comm.name().to_vec());
+    let comm = task
+        .as_ref()
+        .map_or(Vec::new(), |task| task.comm.name().to_vec());
     let comm = String::from_utf8_lossy(&comm).into_owned();
     let sched = task.map(|task| task.sched).unwrap_or_default();
     let nice = sched.nice();
@@ -618,8 +620,12 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
     let (letter, state_name) = state(info);
     let cred = process.cred();
     let (user, group) = (&cred.user, &cred.group);
-    let comm = task.as_ref().map_or(Vec::new(), |task| task.comm.name().to_vec());
-    let affinity = task.as_ref().map_or(Vec::new(), |task| task.sched.affinity().to_vec());
+    let comm = task
+        .as_ref()
+        .map_or(Vec::new(), |task| task.comm.name().to_vec());
+    let affinity = task
+        .as_ref()
+        .map_or(Vec::new(), |task| task.sched.affinity().to_vec());
     let groups: String = cred.groups.iter().map(|gid| format!("{gid} ")).collect();
     let cpus = cpus();
     let mut out = String::new();
