@@ -278,6 +278,27 @@ fn epoll_keeps_v1_data() {
     assert_eq!(run("", body).0, 0);
 }
 
+/// v1 let `sock_send`/`sock_recv` without flags work on any stream; an eventfd stands in for
+/// a pipe. A bad output pointer is `MEMVIOLATION` (78), as the v1 host reported it.
+#[test]
+fn stream_fallback_and_bad_pointers() {
+    let data = r#"
+        (data (i32.const 1600) "\d0\07\00\00\08\00\00\00")
+        (data (i32.const 1610) "\34\08\00\00\08\00\00\00")
+        (data (i32.const 2000) "\05\00\00\00\00\00\00\00")"#;
+    let body = r#"
+    (call $ok (call $fd_event (i64.const 0) (i32.const 0) (i32.const 0)) (i32.const 1))
+    (call $ok (call $sock_send (i32.load (i32.const 0)) (i32.const 1600) (i32.const 1) (i32.const 0) (i32.const 8)) (i32.const 2))
+    (call $assert (i32.eq (i32.load (i32.const 8)) (i32.const 8)) (i32.const 3))
+    (call $ok (call $sock_recv (i32.load (i32.const 0)) (i32.const 1610) (i32.const 1) (i32.const 0) (i32.const 12) (i32.const 16)) (i32.const 4))
+    (call $assert (i64.eq (i64.load (i32.const 2100)) (i64.const 5)) (i32.const 5))
+    ;; with flags it is a socket call, and an eventfd is no socket (NOTSOCK, 57)
+    (call $assert (i32.eq (call $sock_send (i32.load (i32.const 0)) (i32.const 1600) (i32.const 1) (i32.const 1) (i32.const 8)) (i32.const 57)) (i32.const 6))
+    (call $assert (i32.eq (call $epoll_create (i32.const 0xfffffff0)) (i32.const 78)) (i32.const 7))
+    "#;
+    assert_eq!(run(data, body).0, 0);
+}
+
 /// Options: flags, sizes and times, the compat-side timeouts, kind mismatches and the one
 /// option Linux cannot serve.
 #[test]

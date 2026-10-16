@@ -11,7 +11,7 @@ use wasixv2_abi::{
     PollEvents, Pollfd, SeekWhence, ShutdownHow, SocketFlags, SocketLevel, SocketOption,
     SocketType, UserMsghdr, VoidPtr,
 };
-use wasixv2_syscalls::{Control, SysResult, Syscalls};
+use wasixv2_syscalls::{Control, SysErr, SysResult, Syscalls};
 use wasmer::RuntimeError;
 
 use crate::{
@@ -418,7 +418,7 @@ async fn recv<S: Syscalls + Control + 'static>(
         None
     };
     let msg = msghdr(frame, iovs, iovs_len, name)?;
-    let n = frame
+    let received = frame
         .syscalls
         .recvmsg(
             &frame.caller(),
@@ -426,7 +426,23 @@ async fn recv<S: Syscalls + Control + 'static>(
             msg,
             recv_flags(RiFlags(ri_flags as u16)),
         )
-        .await?;
+        .await;
+    let n = match received {
+        // v1 let `sock_recv` read any stream, such as a pipe.
+        Err(SysErr::Errno(wasixv2_abi::Errno::ENOTSOCK)) if !want_peer && ri_flags == 0 => {
+            let n = frame
+                .syscalls
+                .readv(
+                    &frame.caller(),
+                    Fd(fd),
+                    ConstIovecArray::new(iovs as u32),
+                    iovs_len as u32,
+                )
+                .await?;
+            return Ok((n, RoFlags(0), SockAddr::Unspec));
+        }
+        other => other?,
+    };
     let out = frame.mem.take(msg);
     let mut ro = RoFlags(0);
     if out.msg_flags & MsgFlags::MSG_TRUNC.0 != 0 {
@@ -515,7 +531,7 @@ async fn send<S: Syscalls + Control + 'static>(
         None => None,
     };
     let msg = msghdr(frame, iovs, iovs_len, name)?;
-    let n = frame
+    let sent = frame
         .syscalls
         .sendmsg(
             &frame.caller(),
@@ -523,8 +539,22 @@ async fn send<S: Syscalls + Control + 'static>(
             GuestPtr::new(msg.addr()),
             send_flags(SiFlags(si_flags as u16)),
         )
-        .await?;
-    Ok(n as u32)
+        .await;
+    match sent {
+        // v1 let `sock_send` write any stream, such as a pipe.
+        Err(SysErr::Errno(wasixv2_abi::Errno::ENOTSOCK)) if to.is_none() && si_flags == 0 => {
+            Ok(frame
+                .syscalls
+                .writev(
+                    &frame.caller(),
+                    Fd(fd),
+                    ConstIovecArray::new(iovs as u32),
+                    iovs_len as u32,
+                )
+                .await?)
+        }
+        other => Ok(other? as u32),
+    }
 }
 
 pub(crate) async fn sock_send<S: Syscalls + Control + 'static>(
