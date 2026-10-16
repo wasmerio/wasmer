@@ -276,3 +276,91 @@ fn sleep_reports_the_timer() {
     let wakeup = block_on(waiter.sleep(&NoInterrupt, Some(timer.as_mut())));
     assert_eq!(wakeup, Wakeup::TimedOut);
 }
+
+#[test]
+fn a_woken_exclusive_waiter_passes_the_next_wakeup_on() {
+    let tokens = Tokens::default();
+    let mut first = pin!(wait_event_exclusive(
+        &tokens.queue,
+        || tokens.take(),
+        &NoInterrupt
+    ));
+    let mut second = pin!(wait_event_exclusive(
+        &tokens.queue,
+        || tokens.take(),
+        &NoInterrupt
+    ));
+    assert!(poll_once(first.as_mut()).is_pending());
+    assert!(poll_once(second.as_mut()).is_pending());
+
+    // Two wakes before either waiter runs: `first` already holds a wakeup, so the second one
+    // goes to `second`, as `try_to_wake_up` fails for a runnable task.
+    tokens.put();
+    tokens.put();
+
+    assert_eq!(poll_once(first.as_mut()), Poll::Ready(Ok(())));
+    assert_eq!(poll_once(second.as_mut()), Poll::Ready(Ok(())));
+}
+
+#[test]
+fn an_unregistered_waiter_never_takes_a_wakeup() {
+    // A waiter leaves while another thread wakes the queue. The wake reaches it before it
+    // left, or the waiter that stays after; it is never lost in between.
+    for _ in 0..200 {
+        let queue = Arc::new(WaitQueue::new());
+        let leaves = Waiter::new();
+        let stays = Waiter::new();
+        let leaving = leaves.register_exclusive(&queue, PollMask::empty());
+        let _staying = stays.register_exclusive(&queue, PollMask::empty());
+        let waker = {
+            let queue = queue.clone();
+            thread::spawn(move || queue.wake(PollMask::IN))
+        };
+        drop(leaving);
+        let left_with = leaves.take_wakeup();
+        waker.join().unwrap();
+        assert!(left_with.is_some() != stays.take_wakeup().is_some());
+    }
+}
+
+/// Drops another entry's registration from inside its wake.
+struct DropsOther(std::sync::Mutex<Option<WaitRegistration>>);
+
+impl WaitEntry for DropsOther {
+    fn wake(&self, _: PollMask) -> bool {
+        self.0.lock().unwrap().take();
+        true
+    }
+}
+
+#[test]
+fn an_entry_dropped_during_a_wake_does_not_run() {
+    let queue = WaitQueue::new();
+    let victim = Waiter::new();
+    // Non-exclusive entries run newest first, so the victim, added first, would run second.
+    let killer = Arc::new(DropsOther(std::sync::Mutex::new(None)));
+    *killer.0.lock().unwrap() = Some(victim.register(&queue, PollMask::empty()));
+    let _killer = queue.add(killer);
+
+    queue.wake(PollMask::IN);
+
+    assert_eq!(victim.take_wakeup(), None);
+    queue.wake(PollMask::IN);
+    assert_eq!(victim.take_wakeup(), None);
+}
+
+#[test]
+fn interruptible_ends_a_foreign_wait_on_a_signal() {
+    let signals = Signals {
+        pending: AtomicBool::new(false),
+        queue: WaitQueue::new(),
+    };
+    let mut wait = pin!(interruptible(std::future::pending::<()>(), &signals));
+    assert!(poll_once(wait.as_mut()).is_pending());
+    signals.pending.store(true, Ordering::SeqCst);
+    signals.queue.wake(PollMask::empty());
+    assert_eq!(poll_once(wait.as_mut()), Poll::Ready(Err(Interrupted)));
+
+    // A wait that can complete does, even with a signal pending.
+    assert_eq!(block_on(interruptible(async { 7 }, &signals)), Ok(7));
+}

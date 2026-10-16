@@ -60,16 +60,18 @@ struct TaskInner {
 }
 
 impl TaskState {
-    fn wake(&self, events: PollMask) {
-        let waker = {
+    /// `try_to_wake_up`: records the wakeup and returns whether the task was not woken yet.
+    fn wake(&self, events: PollMask) -> bool {
+        let (first, waker) = {
             let mut inner = self.inner.lock().unwrap();
-            inner.woken = true;
+            let first = !std::mem::replace(&mut inner.woken, true);
             inner.events |= events;
-            inner.waker.take()
+            (first, inner.waker.take())
         };
         if let Some(waker) = waker {
             waker.wake();
         }
+        first
     }
 }
 
@@ -82,13 +84,13 @@ struct KeyedEntry {
 
 impl WaitEntry for KeyedEntry {
     /// Linux's `pollwake` and `autoremove_wake_function`: ignore wakeups for events nobody asked
-    /// about.
+    /// about. A task that is already woken does not take another wakeup, so an exclusive one
+    /// goes on to the next waiter (`default_wake_function`).
     fn wake(&self, events: PollMask) -> bool {
         if !self.key.is_empty() && !events.is_empty() && !events.intersects(self.key) {
             return false;
         }
-        self.task.wake(events);
-        true
+        self.task.wake(events)
     }
 
     fn exclusive(&self) -> bool {
@@ -249,6 +251,33 @@ pub async fn wait_event_exclusive<T>(
 ) -> Result<T, Interrupted> {
     let result = wait(queue, true, ready, interrupt, None).await;
     result.map(|value| value.expect("no timer to expire"))
+}
+
+/// Runs `future` unless `interrupt` becomes pending first, for a wait that is not on a
+/// `WaitQueue` (a lock manager's, say) but must still end on a signal, as
+/// `wait_event_interruptible` does. `future` is checked first, so a wait that can complete does
+/// even with a signal pending; on `Interrupted` it is dropped, so it must be cancellation-safe.
+pub async fn interruptible<T>(
+    future: impl Future<Output = T>,
+    interrupt: &dyn Interrupt,
+) -> Result<T, Interrupted> {
+    let waiter = Waiter::new();
+    let _registration = interrupt
+        .queue()
+        .map(|queue| waiter.register(queue, PollMask::empty()));
+    let mut future = std::pin::pin!(future);
+    poll_fn(|cx| {
+        // The waker is in place before `pending` is read, so a signal after it wakes us.
+        waiter.state.inner.lock().unwrap().waker = Some(cx.waker().clone());
+        if let Poll::Ready(value) = future.as_mut().poll(cx) {
+            return Poll::Ready(Ok(value));
+        }
+        if interrupt.pending() {
+            return Poll::Ready(Err(Interrupted));
+        }
+        Poll::Pending
+    })
+    .await
 }
 
 async fn wait<T>(
