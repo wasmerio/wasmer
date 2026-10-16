@@ -8,7 +8,10 @@
 
 use std::{
     any::Any,
-    sync::{Arc, Mutex, Weak, atomic::AtomicU32},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicI32, AtomicU32},
+    },
 };
 
 use futures_util::lock::{Mutex as AsyncMutex, OwnedMutexGuard};
@@ -35,6 +38,9 @@ pub struct Inode {
     pub(crate) sealable: bool,
     /// Its seals (`SealFlags`), changed only under `lock`; see the `seals` module.
     pub(crate) seals: AtomicU32,
+    /// Writable shared mappings of the file, or below zero once `F_SEAL_WRITE` denies them
+    /// (`i_mmap_writable`).
+    pub(crate) mmap_writable: AtomicI32,
 }
 
 #[derive(Default)]
@@ -161,6 +167,7 @@ impl Superblock {
             state: Mutex::default(),
             sealable,
             seals: AtomicU32::new(SealFlags::F_SEAL_SEAL.0),
+            mmap_writable: AtomicI32::new(0),
         });
         inodes.insert(ino, Arc::downgrade(&inode));
         inode

@@ -26,13 +26,13 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
-pub(crate) use shared::{Mapping, Object, Shared, Source};
+pub(crate) use shared::{Mapping, Object, Shared, Source, Writer};
 use wasixv2_abi::{
     Buf, Fd, Loff, MadviseAdvice, MapFlags, MclFlags, MlockFlags, MremapFlags, MsyncFlags,
     OpenFlags, ProtFlags, Ulong, Uptr, Usize,
 };
 use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, UserMemory, WASM_PAGE_SIZE};
-use wasixv2_vfs::FileType;
+use wasixv2_vfs::{FileType, WRITE_SEALS};
 
 use crate::{Kernel, file::OpenFile};
 
@@ -1059,19 +1059,34 @@ fn check_file_mapping(
         return Err(Errno::EACCES);
     }
     // Only regular files have pages to map (`can_mmap_file`).
-    match file.inode() {
-        Ok(inode) if inode.file_type() == FileType::Regular => {}
+    let inode = match file.inode() {
+        Ok(inode) if inode.file_type() == FileType::Regular => inode,
         _ => return Err(Errno::ENODEV),
+    };
+    if !shared {
+        return Ok(Source::Private { file, offset });
     }
-    Ok(match shared {
-        true => Source::Shared(Shared {
-            object: Object::File(file),
-            offset,
-            shadow: Vec::new(),
-            writable,
-        }),
-        false => Source::Private { file, offset },
-    })
+    // `memfd_check_seals_mmap`: a write-sealed file takes no writable shared mapping, and a
+    // read-only one never becomes writable (`VM_MAYWRITE` cleared).
+    crate::memfd::check_seals_mmap(inode, prot, flags)?;
+    let sealed = inode
+        .path
+        .dentry
+        .inode()
+        .seals()
+        .is_some_and(|seals| seals.intersects(WRITE_SEALS));
+    let writable = writable && !sealed;
+    let writer = match writable {
+        true => Some(Writer::new(inode.path.dentry.inode().clone())?),
+        false => None,
+    };
+    Ok(Source::Shared(Shared {
+        object: Object::File(file),
+        offset,
+        shadow: Vec::new(),
+        writable,
+        writer,
+    }))
 }
 
 #[cfg(test)]

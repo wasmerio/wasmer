@@ -507,7 +507,8 @@ impl Kernel {
         Ok(new)
     }
 
-    /// `fcntl`: descriptor flags, status flags, duplication and record locks.
+    /// `fcntl`: descriptor flags, status flags, duplication, record locks, pipe sizes and
+    /// seals.
     pub(crate) async fn sys_fcntl(
         &self,
         caller: &Caller<'_>,
@@ -563,6 +564,9 @@ impl Kernel {
             FcntlCmd::F_GETPIPE_SZ | FcntlCmd::F_SETPIPE_SZ => {
                 let privileged = self.cred(caller).capable(wasixv2_vfs::Cap::SysResource);
                 crate::pipe::fcntl(&file, cmd, arg, privileged)
+            }
+            FcntlCmd::F_ADD_SEALS | FcntlCmd::F_GET_SEALS => {
+                self.memfd_fcntl(&file, cmd, arg).await
             }
             _ => self.fcntl_lock(caller, &file, cmd, arg).await,
         }

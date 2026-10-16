@@ -133,8 +133,10 @@ fn spawn_with_stdin(
     env: &[&str],
 ) -> (Kernel, TaskId, Arc<Capture>) {
     let host: Arc<dyn Host> = Arc::new(TestHost);
-    let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1);
-    let kernel = Kernel::new(host, Arc::new(root));
+    let clock = Arc::new(HostClock(host.clone()));
+    let root = MemFs::new(clock.clone(), 0o755, 1, 1);
+    let shm = MemFs::new(clock, 0o1777, 0, 0);
+    let kernel = Kernel::new(host, Arc::new(root)).with_shm(Arc::new(shm));
     let stdout = Arc::new(Capture::default());
     let task = kernel.spawn(ProcessConfig {
         args: args.iter().map(|s| s.to_string()).collect(),
@@ -672,10 +674,11 @@ mod cred;
 mod futex;
 mod ipc;
 mod mapping;
+mod memfd;
 mod net;
 mod proc;
 mod procfs;
 mod ptimer;
+mod sched;
 mod stdio;
 mod sysvipc;
-mod sched;

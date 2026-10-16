@@ -30,6 +30,39 @@ const ALL_SEALS: SealFlags = SealFlags(
 );
 
 impl Inode {
+    /// `mapping_map_writable`: counts a new writable shared mapping of the file, which
+    /// `F_SEAL_WRITE` forbids (`EPERM`).
+    pub fn map_writable(&self) -> FsResult<()> {
+        self.mmap_writable
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                (n >= 0).then_some(n + 1)
+            })
+            .map(drop)
+            .map_err(|_| Errno::EPERM)
+    }
+
+    /// `mapping_allow_writable`: counts a copy of a writable shared mapping, made by splitting
+    /// one or by `fork`, which an existing mapping makes allowed.
+    pub fn allow_writable(&self) {
+        self.mmap_writable.fetch_add(1, Ordering::AcqRel);
+    }
+
+    /// `mapping_unmap_writable`: a writable shared mapping of the file is gone.
+    pub fn unmap_writable(&self) {
+        self.mmap_writable.fetch_sub(1, Ordering::AcqRel);
+    }
+
+    /// `mapping_deny_writable`: forbids writable shared mappings from now on, `EBUSY` while one
+    /// exists.
+    fn deny_writable(&self) -> FsResult<()> {
+        self.mmap_writable
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                (n <= 0).then_some(n - 1)
+            })
+            .map(drop)
+            .map_err(|_| Errno::EBUSY)
+    }
+
     /// The file's seals; `None` for a file that cannot have any (`memfd_file_seals_ptr`).
     pub fn seals(&self) -> Option<SealFlags> {
         self.sealable
@@ -144,9 +177,11 @@ impl Vfs {
         {
             seals = seals | SealFlags::F_SEAL_SHRINK | SealFlags::F_SEAL_GROW | WRITE_SEALS;
         }
-        // Linux first denies new writable shared mappings and waits for pinned pages, failing
-        // with EBUSY while a writable shared mapping exists. There are no shared file mappings
-        // yet, so there is nothing to deny or wait for.
+        // No writable shared mapping may exist or appear once the file is write-sealed
+        // (`memfd_wait_for_pins` has nothing to wait for: no page is ever pinned).
+        if seals.contains(SealFlags::F_SEAL_WRITE) && !current.contains(SealFlags::F_SEAL_WRITE) {
+            inode.deny_writable()?;
+        }
         inode.seals.fetch_or(seals.0, Ordering::AcqRel);
         Ok(())
     }

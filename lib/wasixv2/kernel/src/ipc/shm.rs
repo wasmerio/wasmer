@@ -363,6 +363,7 @@ impl Kernel {
             offset: 0,
             shadow: Vec::new(),
             writable: !readonly,
+            writer: None,
         };
         let len = segment.size as u64;
         let remap = flags.contains(ShmFlags::SHM_REMAP);

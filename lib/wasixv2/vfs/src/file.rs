@@ -150,7 +150,15 @@ impl File {
     /// only its write access counts, never the permission bits. The caller has checked that it
     /// is a regular file opened for writing.
     pub async fn set_size(&self, size: u64) -> FsResult<()> {
-        self.handle()?.set_size(size).await?;
+        let handle = self.handle()?;
+        let inode = self.path.dentry.inode();
+        let _sealed = inode.seal_lock().await;
+        let attr = crate::SetAttr {
+            size: Some(size),
+            ..crate::SetAttr::default()
+        };
+        inode.sealed_setattr(&attr).await?;
+        handle.set_size(size).await?;
         self.modified(1);
         Ok(())
     }

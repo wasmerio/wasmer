@@ -137,6 +137,7 @@ impl MachineBuilder {
         let root = root.unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user));
         let kernel = Kernel::new(host.clone(), root)
             .with_network(network.clone())
+            .with_shm(shm_filesystem(&host))
             .with_credentials(user)
             .with_uname(&uname);
         mount_kernel_filesystems(&kernel, &host);
@@ -355,6 +356,12 @@ fn default_network() -> Arc<Net> {
 const HOSTS: &str = "127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loopback\n";
 /// The kernel's nodename.
 const HOSTNAME: &str = "localhost\n";
+
+/// The kernel's internal tmpfs for `memfd_create` (`shm_mnt`): its root is root's, mode 1777,
+/// and like Linux's internal mount it has no size limit of its own.
+fn shm_filesystem(host: &Arc<dyn Host>) -> Arc<dyn Filesystem> {
+    Arc::new(MemFs::new(Arc::new(HostClock(host.clone())), 0o1777, 0, 0))
+}
 
 /// The default root filesystem: a memory filesystem whose top directory `user` owns, laid out
 /// as a small Linux system. It has empty `/bin`, `/usr/bin` and `/usr/lib` for packages and

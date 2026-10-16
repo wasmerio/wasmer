@@ -24,6 +24,8 @@ use std::{ops::Range, sync::Arc};
 
 use wasixv2_syscalls::{Errno, UserMemory};
 
+use wasixv2_vfs::Inode;
+
 use crate::{file::OpenFile, ipc::shm::Attachment};
 
 /// Differing runs closer than this are written as one, which costs less than another call.
@@ -53,6 +55,34 @@ pub(crate) struct Shared {
     /// Whether memory changes reach the object: a shared file mapping of a descriptor not open
     /// for writing only ever reads, as Linux then clears `VM_SHARED`.
     pub(crate) writable: bool,
+    /// For a writable shared file mapping, its count in the file's writable mappings, which
+    /// `F_SEAL_WRITE` waits on.
+    pub(crate) writer: Option<Writer>,
+}
+
+/// One writable shared mapping of a file, counted on its inode (`mapping_map_writable`) while it
+/// exists.
+pub(crate) struct Writer(Arc<Inode>);
+
+impl Writer {
+    /// Counts a new mapping of `inode`; `EPERM` once the file is write-sealed.
+    pub(crate) fn new(inode: Arc<Inode>) -> Result<Self, Errno> {
+        inode.map_writable()?;
+        Ok(Self(inode))
+    }
+}
+
+impl Clone for Writer {
+    fn clone(&self) -> Self {
+        self.0.allow_writable();
+        Self(self.0.clone())
+    }
+}
+
+impl Drop for Writer {
+    fn drop(&mut self) {
+        self.0.unmap_writable();
+    }
 }
 
 /// What a shared mapping shows.
@@ -177,6 +207,7 @@ impl Mapping {
                 offset: shared.offset + cut,
                 shadow: shared.shadow.split_off(cut as usize),
                 writable: shared.writable,
+                writer: shared.writer.clone(),
             }),
         };
         let rest = Mapping {
@@ -281,6 +312,7 @@ impl Mapping {
                     offset: shared.offset + self.len,
                     shadow: Vec::new(),
                     writable: shared.writable,
+                    writer: shared.writer.clone(),
                 }),
             },
         };
@@ -389,6 +421,7 @@ impl Mappings {
                         offset: shared.offset,
                         shadow: shared.shadow.clone(),
                         writable: shared.writable,
+                        writer: shared.writer.clone(),
                     }),
                 },
             })

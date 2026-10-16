@@ -14,6 +14,7 @@ mod futex;
 mod ident;
 mod ioctl;
 mod ipc;
+mod memfd;
 mod mm;
 mod net;
 mod netlink;
@@ -53,7 +54,7 @@ use wasixv2_abi::{
     Cstr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp, Gid, GidArray,
     GidPtr, GrndFlags, IoctlRequest, KernelItimerspecPtr, KernelTimespecPtr, LinuxDirent64Ptr,
     Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags,
-    MlockFlags, Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr,
+    MemfdFlags, MlockFlags, Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr,
     OpenFlags, Pid, PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource,
     RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedAttrPtr, SchedParamPtr,
     SchedPolicy, SeekWhence, Shmid64DsPtr, Signal, SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr,
@@ -66,7 +67,7 @@ pub use wasixv2_host::Stdio;
 use wasixv2_syscalls::{
     Caller, Control, Errno, Fd, GuestAction, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut,
 };
-use wasixv2_vfs::{Filesystem, Vfs};
+use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
 use crate::{
     cred::{IdChange, IdKind},
@@ -109,6 +110,9 @@ pub struct Kernel {
     vfs: Arc<Vfs>,
     /// The inodes of pipes, sockets and anonymous files.
     pseudo: pseudo::Pseudo,
+    /// The internal shmem filesystem behind `memfd_create` (`shm_mnt`); without one,
+    /// `memfd_create` fails with `ENOSYS`.
+    shm: Option<Arc<Mount>>,
     /// inotify watches, fed by the VFS's change notifications.
     inotify: Arc<fs::inotify::Registry>,
     // ---- thr ----
@@ -207,6 +211,7 @@ impl Kernel {
             network: None,
             unix_names: Arc::default(),
             inotify: fs::inotify::Registry::install(&vfs),
+            shm: None,
             vfs,
             futexes: futex::Futexes::default(),
             ipc: ipc::Ipc::default(),
@@ -232,6 +237,13 @@ impl Kernel {
     /// Gives the kernel a network for IP sockets.
     pub fn with_network(mut self, network: Arc<dyn wasixv2_vnet::Network>) -> Self {
         self.network = Some(network);
+        self
+    }
+
+    /// Gives the kernel its internal shmem filesystem, a tmpfs mounted outside the tree, for
+    /// `memfd_create`'s files. Seals work only on a tmpfs.
+    pub fn with_shm(mut self, fs: Arc<dyn Filesystem>) -> Self {
+        self.shm = Some(self.vfs.kern_mount(fs));
         self
     }
 
@@ -1741,6 +1753,14 @@ impl Syscalls for Kernel {
     }
     async fn munlockall(&self, _: &Caller<'_>) -> SysResult<i32> {
         Ok(0)
+    }
+    async fn memfd_create(
+        &self,
+        caller: &Caller<'_>,
+        uname: Cstr,
+        flags: MemfdFlags,
+    ) -> SysResult<Fd> {
+        self.sys_memfd_create(caller, uname, flags).await
     }
     async fn clock_gettime64(
         &self,
