@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use wasixv2_abi::Signal;
 use wasixv2_syscalls::{Control, Errno, SysErr, SysResult, Syscalls, TaskId};
 use wasmer::{AsyncFunctionEnvMut, Function, FunctionEnv, Imports, RuntimeError, Store, Value};
 
@@ -82,7 +83,8 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
         Err(err) => {
             // The kernel made the child already; it never runs.
             tracing::warn!(%err, "cannot unwind the stack for fork");
-            process::fault(syscalls, child).await;
+            process::fault(syscalls, child, Signal::SIGSEGV.0);
+            syscalls.release(child);
             Err(SysErr::Errno(Errno::ENOMEM))
         }
     }

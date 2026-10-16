@@ -252,6 +252,11 @@ pub trait Host: Send + Sync {
     fn random(&self, buf: &mut [u8]);
     /// Where host work runs: background futures and blocking calls.
     fn executor(&self) -> &dyn Executor;
+    /// A message about a guest for whoever runs the host, such as why a process died of a
+    /// trap; the kernel log (`dmesg`) of a Linux system. Goes to the host's stderr by default.
+    fn report(&self, message: &str) {
+        eprintln!("{message}");
+    }
 }
 
 /// The work that runs a guest thread: called on the thread it runs on, it returns the future

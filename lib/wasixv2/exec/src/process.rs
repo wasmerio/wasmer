@@ -4,32 +4,19 @@
 //!
 //! A task switch is one field, [`ExecEnv::task`], which every import reads on entry.
 
-use std::{
-    future::Future,
-    sync::Arc,
-    task::{Context, Waker},
-};
+use std::{future::Future, sync::Arc};
 
+use wasixv2_abi::Signal;
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Caller, Control, Syscalls, TaskId};
+use wasixv2_syscalls::{Control, GuestAction, Syscalls, TaskId};
 use wasmer::{AsyncFunctionEnvMut, Engine, Function, Instance, Module, RuntimeError, Store, Value};
 
-use crate::{ExecEnv, ExecError, asyncify, thread::NoMemory};
-
-/// The status a process exits with when its new image does not compile or traps.
-// TODO: kill it with SIGSEGV through the kernel.
-const FAULT_STATUS: i32 = 128 + 11;
+use crate::{Ended, ExecEnv, ExecError, asyncify};
 
 /// Raised from an import to unwind the old image after `execve`, carrying the new one.
 #[derive(Debug, thiserror::Error)]
 #[error("execve replaced the image")]
 pub(crate) struct ExecNew(pub(crate) Vec<u8>);
-
-/// How one image's run ended.
-pub(crate) enum Ended {
-    Exited(i32),
-    Exec(Vec<u8>),
-}
 
 /// Starts the processes an instance creates on instances of their own: the image of a vfork
 /// child that called `execve`, and a fork child; the type-erased part of the execution layer
@@ -66,10 +53,7 @@ where
             self.syscalls.clone(),
             self.host.clone(),
         );
-        self.start(task, move || async move {
-            let store = Store::new(engine);
-            run_bytes(store, image, syscalls, task, host).await
-        });
+        self.start(task, move || run_new_image(engine, image, syscalls, task, host));
     }
 
     fn fork(&self, task: TaskId, image: asyncify::ForkImage) {
@@ -78,9 +62,13 @@ where
             self.syscalls.clone(),
             self.host.clone(),
         );
-        self.start(task, move || async move {
-            let store = Store::new(engine);
-            run_forked(store, image, syscalls, task, host).await
+        self.start(task, move || {
+            let run = run_forked(engine, image, syscalls.clone(), task, host);
+            async move {
+                crate::catch_panic(run)
+                    .await
+                    .unwrap_or_else(|panic| Err(crate::host_panicked(&*syscalls, task, panic)))
+            }
         });
     }
 }
@@ -89,32 +77,30 @@ impl<S> Spawner<S>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    /// Runs the process `task` on a host thread of its own, ending it as a fault would if its
-    /// image fails or no thread can start.
+    /// Runs the process `task` on a host thread of its own. The run ends the process itself when
+    /// its image fails; when no thread can start, the process dies of SIGSEGV here.
     fn start<F, R>(&self, task: TaskId, run: R)
     where
         R: FnOnce() -> F + Send + 'static,
         F: Future<Output = Result<i32, ExecError>> + 'static,
     {
-        let syscalls = self.syscalls.clone();
         let start = Box::new(move || {
             Box::pin(async move {
                 if let Err(err) = run().await {
                     tracing::warn!(tid = task.0, %err, "process image failed");
-                    fault(&*syscalls, task).await;
                 }
             }) as wasixv2_host::LocalFuture<'static, ()>
         });
         if let Err(err) = self.host.executor().spawn_thread(start) {
             tracing::warn!(%err, "cannot start a process on a thread of its own");
-            // The kernel's exit_group never waits.
-            let exit = fault(&*self.syscalls, task);
-            let _ = std::pin::pin!(exit).poll(&mut Context::from_waker(Waker::noop()));
+            fault(&*self.syscalls, task, Signal::SIGSEGV.0);
+            self.syscalls.release(task);
         }
     }
 }
 
-/// Runs `module` as `task`, then every image its `execve` calls load, until the process exits.
+/// Runs `module` as `task`, then every image its `execve` calls load, until the process exits;
+/// releases the task then.
 pub(crate) async fn run<S>(
     store: Store,
     module: &Module,
@@ -126,14 +112,14 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let engine = store.engine().clone();
-    let ended = crate::run_image(store, module, syscalls.clone(), task, host.clone()).await?;
-    finish(engine, ended, syscalls, task, host).await
+    let first = crate::run_image(store, module, syscalls.clone(), task, host.clone()).await;
+    finish(engine, first, syscalls, task, host).await
 }
 
 /// Runs a fork child from the copy of its parent's instance, then every image its `execve`
-/// calls load, until the process exits.
+/// calls load, until the process exits; releases the task then.
 async fn run_forked<S>(
-    store: Store,
+    engine: Engine,
     image: asyncify::ForkImage,
     syscalls: Arc<S>,
     task: TaskId,
@@ -142,8 +128,8 @@ async fn run_forked<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    let engine = store.engine().clone();
     let module = image.module.clone();
+    let store = Store::new(engine.clone());
     let ready = crate::instantiate(
         store,
         &module,
@@ -151,18 +137,24 @@ where
         task,
         host.clone(),
         Some(&image),
-    )?;
-    let (entry, args, buffer) = (image.entry, image.args.clone(), image.buffer());
-    drop(image);
-    let ended = ready.run(entry, args, Some(buffer)).await?;
-    finish(engine, ended, syscalls, task, host).await
+    );
+    let first = match ready {
+        Ok(ready) => {
+            let (entry, args, buffer) = (image.entry, image.args.clone(), image.buffer());
+            drop(image);
+            ready.run(entry, args, Some(buffer)).await
+        }
+        Err(err) => Err(err),
+    };
+    finish(engine, first, syscalls, task, host).await
 }
 
-/// Follows `task`'s process from the end of one image's run through the images its `execve`
-/// calls load, until it exits.
+/// Follows `task`'s process from the end of its first image's run through the images its
+/// `execve` calls load, until it exits; releases the task then. An image that cannot start kills
+/// the process with SIGSEGV.
 async fn finish<S>(
     engine: Engine,
-    mut ended: Ended,
+    first: Result<Ended, ExecError>,
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
@@ -170,27 +162,63 @@ async fn finish<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    loop {
-        match ended {
-            Ended::Exited(status) => return Ok(status),
-            Ended::Exec(image) => {
-                let module = match Module::new(&engine, image) {
-                    Ok(module) => module,
-                    Err(err) => {
-                        tracing::warn!(%err, "execve loaded a module that does not compile");
-                        return Ok(fault(&*syscalls, task).await);
-                    }
-                };
-                let store = Store::new(engine.clone());
-                ended =
-                    crate::run_image(store, &module, syscalls.clone(), task, host.clone()).await?;
-            }
+    let mut ended = match first {
+        Ok(ended) => ended,
+        Err(err) => {
+            fault(&*syscalls, task, Signal::SIGSEGV.0);
+            syscalls.release(task);
+            return Err(err);
         }
-    }
+    };
+    let status = loop {
+        let image = match ended {
+            Ended::Exited(status) => break status,
+            Ended::Fault {
+                task: at,
+                signal,
+                report,
+            } => break fault_in(&*syscalls, &*host, task, at, signal, &report),
+            Ended::Exec(image) => image,
+        };
+        // `de_thread`: the old image is gone from every thread before the new one starts.
+        if let Err(status) = syscalls.exec_wait(task).await {
+            break status;
+        }
+        ended = match crate::load(&engine, &image) {
+            Ok(module) => {
+                let store = Store::new(engine.clone());
+                let run = crate::run_image(store, &module, syscalls.clone(), task, host.clone());
+                run.await.unwrap_or_else(|err| Ended::Fault {
+                    task,
+                    signal: Signal::SIGSEGV.0,
+                    report: format!(
+                        "wasixv2: cannot start the image process {} loaded with execve, \
+                         killing it with SIGSEGV: {err}",
+                        task.0
+                    ),
+                })
+            }
+            // Past the point of no return, a binary that does not load is a SIGSEGV.
+            Err(err) => Ended::Fault {
+                task,
+                signal: Signal::SIGSEGV.0,
+                report: format!(
+                    "wasixv2: process {} loaded a module with execve that does not compile, \
+                     killing it with SIGSEGV: {err}",
+                    task.0
+                ),
+            },
+        };
+    };
+    // A zombie leader stays until its group is empty.
+    syscalls.group_wait(task).await;
+    syscalls.release(task);
+    Ok(status)
 }
 
-async fn run_bytes<S>(
-    store: Store,
+/// The image of a vfork child's `execve`, from its bytes.
+async fn run_new_image<S>(
+    engine: Engine,
     image: Vec<u8>,
     syscalls: Arc<S>,
     task: TaskId,
@@ -199,28 +227,65 @@ async fn run_bytes<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    let module = match Module::new(&store, image) {
+    let module = match crate::load(&engine, &image) {
         Ok(module) => module,
         Err(err) => {
-            tracing::warn!(%err, "execve loaded a module that does not compile");
-            return Ok(fault(&*syscalls, task).await);
+            tracing::warn!(tid = task.0, %err, "execve loaded a module that does not compile");
+            let status = fault(&*syscalls, task, Signal::SIGSEGV.0);
+            syscalls.release(task);
+            return Ok(status);
         }
     };
-    run(store, &module, syscalls, task, host).await
+    crate::run(Store::new(engine), &module, syscalls, task, host).await
 }
 
-/// Ends `task`'s thread group as a fault would, and returns its status.
-pub(crate) async fn fault<S: Syscalls + Control>(syscalls: &S, task: TaskId) -> i32 {
-    let _ = syscalls
-        .exit_group(&Caller::new(task, &NoMemory), FAULT_STATUS)
-        .await;
-    while syscalls.take_pending(task).is_some() {}
-    FAULT_STATUS
+/// Kills `task`'s thread group with the fault `signal` and returns its exit status.
+pub(crate) fn fault<S: Control>(syscalls: &S, task: TaskId, signal: i32) -> i32 {
+    syscalls.fault(task, signal);
+    exit_status(syscalls, task)
+}
+
+/// A trap of the instance of `task` while it ran as `at`: `task` itself, or a vfork child
+/// running in its instance. The child dies of the fault; the parent's stack went with the
+/// instance, so it cannot resume either and dies of SIGSEGV. `report` goes to `host` when the
+/// fault kills a process: a trap while its group is exiting anyway is part of tearing it down.
+/// Returns `task`'s exit status.
+pub(crate) fn fault_in<S: Control>(
+    syscalls: &S,
+    host: &dyn Host,
+    task: TaskId,
+    at: TaskId,
+    signal: i32,
+    report: &str,
+) -> i32 {
+    if syscalls.fault(at, signal) {
+        host.report(report);
+    }
+    if at == task {
+        return exit_status(syscalls, task);
+    }
+    exit_status(syscalls, at);
+    syscalls.release(at);
+    fault(syscalls, task, Signal::SIGSEGV.0)
+}
+
+/// The status of the exit pending on `task`, taking everything else that is.
+fn exit_status<S: Control>(syscalls: &S, task: TaskId) -> i32 {
+    let mut status = 128 + Signal::SIGKILL.0;
+    while let Some(action) = syscalls.take_pending(task) {
+        if let GuestAction::Exit(exit) = action {
+            status = exit;
+        }
+    }
+    status
 }
 
 /// Makes the instance behind `env` run as `task` from now on.
-pub(crate) async fn switch<S: 'static>(env: &AsyncFunctionEnvMut<ExecEnv<S>>, task: TaskId) {
-    env.write().await.data_mut().task = task;
+pub(crate) async fn switch<S: Control + 'static>(
+    env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+    task: TaskId,
+) {
+    env.write().await.data_mut().switch(task);
 }
 
 /// Starts the image `task` loaded with `execve` while it was a vfork child.
@@ -262,7 +327,7 @@ pub const VFORK_RETURN: &str = "wasixv2_vfork_return";
 
 /// Switches the instance back to the vfork parent and calls the guest's vfork return, which
 /// unwinds to the vfork point with an exception; returns that error for the import to raise.
-pub(crate) async fn vfork_return<S: 'static>(
+pub(crate) async fn vfork_return<S: Control + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     parent: TaskId,
     child: TaskId,

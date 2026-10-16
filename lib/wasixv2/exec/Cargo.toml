@@ -17,8 +17,15 @@ wasixv2-host = { path = "../host" }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
   "experimental-async",
 ] }
+wasmer-types = { path = "../../types", version = "=7.5.0", default-features = false }
 thiserror.workspace = true
 tracing.workspace = true
+wasm-encoder = { workspace = true, features = ["wasmparser"] }
+wasmparser.workspace = true
+
+[dev-dependencies]
+wasmprinter.workspace = true
+wat.workspace = true
 
 [features]
 default = ["sys"]

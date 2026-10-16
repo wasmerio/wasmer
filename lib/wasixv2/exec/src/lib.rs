@@ -8,49 +8,92 @@ mod asyncify;
 mod fork;
 mod generated;
 mod memory;
+mod preempt;
 mod process;
 mod signal;
 mod thread;
 
-use std::sync::Arc;
+use std::{
+    any::Any,
+    future::Future,
+    panic::{AssertUnwindSafe, catch_unwind},
+    pin::pin,
+    sync::Arc,
+    task::Poll,
+};
 
 pub use generated::IMPORT_MODULE;
 pub use thread::THREAD_ENTRY;
+use wasixv2_abi::Signal;
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Control, Errno, GuestAction, SysErr, SysResult, Syscalls, TaskId};
-use wasmer::{
-    AsyncFunctionEnvMut, FunctionEnv, Imports, Instance, Memory, MemoryError, Module, Pages,
-    RuntimeError, Store, Value,
+use wasixv2_syscalls::{
+    Caller, Control, Errno, GuestAction, SysErr, SysResult, Syscalls, TaskId, WorkFlag,
 };
+use wasmer::{
+    AsyncFunctionEnvMut, CompileError, Engine, Function, FunctionEnv, Imports, Instance, Memory,
+    MemoryError, Module, Pages, RuntimeError, Store, Value,
+};
+use wasmer_types::TrapCode;
+
+use crate::memory::GuestMemory;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecError {
     #[error("instantiation failed: {0}")]
-    Instantiate(#[from] Box<wasmer::InstantiationError>),
+    Instantiate(Box<wasmer::InstantiationError>),
     #[error("missing export: {0}")]
     Export(#[from] wasmer::ExportError),
     #[error("cannot create the imported memory: {0}")]
     Memory(#[from] MemoryError),
-    #[error("guest trapped: {0}")]
-    Trap(RuntimeError),
-    // TODO: once signals exist, kill the process with SIGSEGV instead, as
-    // Linux does when the entry point returns, and drop this variant.
-    #[error("the entry point returned without calling `exit_group`")]
-    ReturnedFromStart,
-    #[error("cannot copy a forked process's memory: {0}")]
-    Fork(MemoryError),
+    #[error("cannot copy a forked process's instance: {0}")]
+    Fork(String),
+    /// The host panicked while running the process; its thread group was killed.
+    #[error("the host panicked: {0}")]
+    Panic(String),
+}
+
+impl From<wasmer::InstantiationError> for ExecError {
+    fn from(err: wasmer::InstantiationError) -> Self {
+        Self::Instantiate(Box::new(err))
+    }
 }
 
 /// Host state behind every import of one instance.
 pub(crate) struct ExecEnv<S> {
     syscalls: Arc<S>,
     task: TaskId,
+    /// `task`'s work flag, read on every return to the guest.
+    work: Arc<WorkFlag>,
     memory: Option<Memory>,
     signal: signal::SignalExports,
+    // ---- thr ----
+    /// What new threads of the process instantiate, when its memory is shared.
+    threads: Option<Arc<dyn thread::Start>>,
     // ---- proc ----
     proc: process::ProcExports,
     /// The unwind state of an asyncify instance, `None` in the other build configurations.
     asyncify: Option<asyncify::Asyncify>,
+}
+
+impl<S: Control> ExecEnv<S> {
+    pub(crate) fn new(syscalls: Arc<S>, task: TaskId, proc: process::ProcExports) -> Self {
+        Self {
+            work: syscalls.work_flag(task),
+            syscalls,
+            task,
+            memory: None,
+            signal: signal::SignalExports::default(),
+            threads: None,
+            proc,
+            asyncify: None,
+        }
+    }
+
+    /// The instance runs as `task` from now on.
+    pub(crate) fn switch(&mut self, task: TaskId) {
+        self.work = self.syscalls.work_flag(task);
+        self.task = task;
+    }
 }
 
 /// Raised from an import to unwind the guest after its thread group exited.
@@ -58,9 +101,20 @@ pub(crate) struct ExecEnv<S> {
 #[error("thread group exited with status {0}")]
 struct Exited(i32);
 
-/// Runs `module` as `task` until its thread group exits, and returns the exit status. Threads the
-/// guest creates run where `host`'s executor starts them, and so do the images of vfork
+/// Compiles `wasm` for [`run`], with the preemption points that let a busy guest notice signals
+/// and the exit of its thread group.
+pub fn load(engine: &Engine, wasm: &[u8]) -> Result<Module, CompileError> {
+    Module::new(engine, preempt::instrument(wasm))
+}
+
+/// Runs `module`, which [`load`] compiled, as `task` until its thread group exits, and returns
+/// the exit status: the status of `exit_group`, or 128 + the signal that killed it, a trap of the
+/// guest included (SIGSEGV for a bad memory access, SIGILL for `unreachable`, and so on). Threads
+/// the guest creates run where `host`'s executor starts them, and so do the images of vfork
 /// children; images that `execve` loads replace `module`.
+///
+/// Fails when `module` cannot be instantiated, after the kernel ended the process as it does
+/// for a fault; or when the host panicked.
 pub async fn run<S>(
     store: Store,
     module: &Module,
@@ -71,17 +125,142 @@ pub async fn run<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    process::run(store, module, syscalls, task, host).await
+    let run = process::run(store, module, syscalls.clone(), task, host);
+    catch_panic(run)
+        .await
+        .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
 }
 
-/// Runs one image of `task`'s process until it exits or `execve` replaces it.
+/// How one image's run ended.
+pub(crate) enum Ended {
+    /// The task's thread group, or for a thread the task itself, exited.
+    Exited(i32),
+    /// `execve` replaced the image.
+    Exec(Vec<u8>),
+    /// The guest trapped while the instance ran as `task`: a hardware fault, signal `signal`.
+    /// `report` says what happened, for the host when the fault kills the process.
+    Fault {
+        task: TaskId,
+        signal: i32,
+        report: String,
+    },
+}
+
+/// Runs `function`, the export `entry` of the instance behind `env`, until it unwinds or traps.
+/// With `rewind`, a forked child's unwind buffer, the call rewinds the copied stack first.
+async fn call<S: Send + Sync + 'static>(
+    store: Store,
+    env: &FunctionEnv<ExecEnv<S>>,
+    entry: &'static str,
+    function: Function,
+    args: Vec<Value>,
+    rewind: Option<u32>,
+) -> Ended {
+    let store = store.into_async();
+    let cx = asyncify::Outside { env, store: &store };
+    let rewound = match rewind {
+        Some(buffer) => asyncify::start_rewind(&cx, buffer).await,
+        None => Ok(()),
+    };
+    let result = match rewound {
+        Ok(()) => asyncify::call(&cx, Some(entry), &function, &args).await,
+        Err(err) => Err(err),
+    };
+    let err = match result {
+        // Linux kills a process whose entry point returns with SIGSEGV, as it runs into
+        // whatever follows.
+        Ok(_) => {
+            tracing::warn!("the guest returned from its entry point");
+            RuntimeError::new("the guest returned from its entry point")
+        }
+        Err(err) => err,
+    };
+    let err = match err.downcast::<Exited>() {
+        Ok(Exited(status)) => return Ended::Exited(status),
+        Err(err) => err,
+    };
+    let err = match err.downcast::<process::ExecNew>() {
+        Ok(process::ExecNew(image)) => return Ended::Exec(image),
+        Err(err) => err,
+    };
+    let task = env.as_ref(&store.read()).task;
+    let message = err.to_string();
+    let signal = fault_signal(err);
+    tracing::debug!(tid = task.0, signal, "guest trapped: {message}");
+    let report = format!(
+        "wasixv2: thread {} trapped, killing its process with {}: {message}",
+        task.0,
+        signal_name(signal)
+    );
+    Ended::Fault {
+        task,
+        signal,
+        report,
+    }
+}
+
+fn signal_name(signal: i32) -> &'static str {
+    match Signal(signal) {
+        Signal::SIGILL => "SIGILL",
+        Signal::SIGFPE => "SIGFPE",
+        Signal::SIGBUS => "SIGBUS",
+        _ => "SIGSEGV",
+    }
+}
+
+/// The signal a trap stands for, as the processor's exception would raise it on Linux.
+fn fault_signal(err: RuntimeError) -> i32 {
+    let signal = match err.to_trap() {
+        Some(TrapCode::IntegerDivisionByZero | TrapCode::IntegerOverflow) => Signal::SIGFPE,
+        // `ud2` and `__builtin_trap`.
+        Some(TrapCode::UnreachableCodeReached) => Signal::SIGILL,
+        Some(TrapCode::UnalignedAtomic | TrapCode::HeapMisaligned) => Signal::SIGBUS,
+        // Bad accesses, the stack running out, calls through bad pointers, and everything the
+        // host cannot run on: a signal frame that does not fit, an exception nobody caught.
+        _ => Signal::SIGSEGV,
+    };
+    signal.0
+}
+
+/// Reports a host panic and kills the thread group of `task` with SIGSEGV, as a kernel oops
+/// kills the task it hit (`make_task_dead`).
+fn host_panicked<S: Control>(syscalls: &S, task: TaskId, panic: Box<dyn Any + Send>) -> ExecError {
+    let message = panic
+        .downcast_ref::<&str>()
+        .map(|s| s.to_string())
+        .or_else(|| panic.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "a panic without a message".to_string());
+    tracing::error!(tid = task.0, "the host panicked running a guest: {message}");
+    // The kernel's state may be what panicked; a second panic changes nothing.
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        process::fault(syscalls, task, Signal::SIGSEGV.0);
+        syscalls.release(task);
+    }));
+    ExecError::Panic(message)
+}
+
+/// Polls `future`, turning a panic into an error.
+async fn catch_panic<F: Future>(future: F) -> Result<F::Output, Box<dyn Any + Send>> {
+    let mut future = pin!(future);
+    std::future::poll_fn(move |cx| {
+        match catch_unwind(AssertUnwindSafe(|| future.as_mut().poll(cx))) {
+            Ok(Poll::Ready(value)) => Poll::Ready(Ok(value)),
+            Ok(Poll::Pending) => Poll::Pending,
+            Err(panic) => Poll::Ready(Err(panic)),
+        }
+    })
+    .await
+}
+
+/// Instantiates one image of `task`'s process and runs it from `_start` until it exits, traps or
+/// `execve` replaces it.
 async fn run_image<S>(
     store: Store,
     module: &Module,
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
-) -> Result<process::Ended, ExecError>
+) -> Result<Ended, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
@@ -94,8 +273,6 @@ struct Ready<S: 'static> {
     store: Store,
     env: FunctionEnv<ExecEnv<S>>,
     instance: Instance,
-    // ---- thr ----
-    _threads: Option<thread::Registration>,
 }
 
 /// Instantiates `module` as `task`, or, with `fork`, the copy of an instance a forked child
@@ -114,22 +291,12 @@ where
     let spawner = process::spawner(store.engine().clone(), syscalls.clone(), host.clone());
     let env = FunctionEnv::new(
         &mut store,
-        ExecEnv {
-            syscalls: syscalls.clone(),
-            task,
-            memory: None,
-            signal: signal::SignalExports::default(),
-            proc: process::ProcExports::new(spawner),
-            asyncify: None,
-        },
+        ExecEnv::new(syscalls.clone(), task, process::ProcExports::new(spawner)),
     );
-    let mut imports = generated::imports(&mut store, &env);
-    if asyncify::instrumented(module) {
-        fork::imports(&mut store, &env, &mut imports);
-    }
+    let mut imports = imports(&mut store, &env, module);
     let size = fork.map(|image| image.memory.len() as u64);
     let imported = import_memory(&mut store, module, &mut imports, size)?;
-    let instance = Instance::new(&mut store, module, &imports).map_err(Box::new)?;
+    let instance = Instance::new(&mut store, module, &imports)?;
     let memory = match imported {
         Some(memory) => memory,
         None => instance.exports.get_memory("memory")?.clone(),
@@ -143,11 +310,11 @@ where
     }
     // ---- thr ----
     let threads = memory.as_shared(&store).map(|shared| {
-        let image = thread::Image::new(&store, module, shared, syscalls, host);
-        thread::register(&image, task)
+        thread::Image::new(&store, module, shared, syscalls, host.clone()) as Arc<dyn thread::Start>
     });
     let data = env.as_mut(&mut store);
     data.memory = Some(memory);
+    data.threads = threads;
     data.signal = signal::SignalExports::new(&instance);
     data.proc.set_instance(&instance, module);
     data.asyncify = asyncify;
@@ -155,7 +322,6 @@ where
         store,
         env,
         instance,
-        _threads: threads,
     })
 }
 
@@ -170,52 +336,51 @@ fn copy_image(
     let missing = (image.memory.len() as u64).saturating_sub(size);
     if missing > 0 {
         let pages = missing.div_ceil(wasixv2_syscalls::WASM_PAGE_SIZE) as u32;
-        memory.grow(&mut *store, pages).map_err(ExecError::Fork)?;
+        memory.grow(&mut *store, pages)?;
     }
     memory
         .view(&*store)
         .write(0, &image.memory)
-        .map_err(|err| ExecError::Trap(RuntimeError::new(err.to_string())))?;
+        .map_err(|err| ExecError::Fork(err.to_string()))?;
     for (name, value) in &image.globals {
         let global = instance.exports.get_global(name)?;
         global
             .set(&mut *store, value.clone())
-            .map_err(ExecError::Trap)?;
+            .map_err(|err| ExecError::Fork(err.to_string()))?;
     }
     Ok(())
 }
 
 impl<S: Send + Sync + 'static> Ready<S> {
-    /// Calls the export `entry` until the image exits or `execve` replaces it. With `rewind`,
-    /// a forked child's unwind buffer, the call rewinds the copied stack first.
+    /// Calls the export `entry` until the image exits, traps or `execve` replaces it. With
+    /// `rewind`, a forked child's unwind buffer, the call rewinds the copied stack first.
     async fn run(
         self,
         entry: &'static str,
         args: Vec<Value>,
         rewind: Option<u32>,
-    ) -> Result<process::Ended, ExecError> {
+    ) -> Result<Ended, ExecError> {
         let function = self.instance.exports.get_function(entry)?.clone();
-        let store = self.store.into_async();
-        let cx = asyncify::Outside {
-            env: &self.env,
-            store: &store,
-        };
-        if let Some(buffer) = rewind {
-            asyncify::start_rewind(&cx, buffer)
-                .await
-                .map_err(ExecError::Trap)?;
-        }
-        match asyncify::call(&cx, Some(entry), &function, &args).await {
-            Ok(_) => Err(ExecError::ReturnedFromStart),
-            Err(err) => match err.downcast::<Exited>() {
-                Ok(Exited(status)) => Ok(process::Ended::Exited(status)),
-                Err(err) => match err.downcast::<process::ExecNew>() {
-                    Ok(process::ExecNew(image)) => Ok(process::Ended::Exec(image)),
-                    Err(err) => Err(ExecError::Trap(err)),
-                },
-            },
-        }
+        Ok(call(self.store, &self.env, entry, function, args, rewind).await)
     }
+}
+
+/// The imports of one instance of `module`: the syscalls, with their asyncify versions for an
+/// instrumented module, and the hook of the preemption points.
+fn imports<S>(store: &mut Store, env: &FunctionEnv<ExecEnv<S>>, module: &Module) -> Imports
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    let mut imports = generated::imports(store, env);
+    if asyncify::instrumented(module) {
+        fork::imports(store, env, &mut imports);
+    }
+    imports.define(
+        preempt::HOOK_MODULE,
+        preempt::HOOK_NAME,
+        Function::new_typed_with_env_async(store, env, preempt_point::<S>),
+    );
+    imports
 }
 
 /// Creates the memory `module` imports, if any, with the limits and sharing its import declares,
@@ -240,9 +405,49 @@ fn import_memory(
     Ok(Some(memory))
 }
 
+/// A preemption point whose budget ran out: the guest lets the host's executor run what else
+/// is ready on its thread (timers, a sibling's work), as a timer interrupt would, then takes the
+/// return-to-guest path with no call to finish. Returns the next budget.
+async fn preempt_point<S>(env: AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let (syscalls, task, ready) = {
+        let env = env.read().await;
+        let data = env.data();
+        // Still instantiating: nothing can be delivered yet. Nor while asyncify unwinds or
+        // rewinds the stack: the checks were added after its instrumentation, so they run on
+        // the way, and a handler called then would find the instance mid-rewind.
+        let ready = data.memory.is_some() && !data.asyncify.as_ref().is_some_and(|a| a.moving());
+        (data.syscalls.clone(), data.task, ready)
+    };
+    yield_now().await;
+    if ready {
+        let ret: SysResult<i32> = Ok(0);
+        if let Some(Err(err)) = return_to_guest(&env, &*syscalls, task, ret).await {
+            return Err(err);
+        }
+    }
+    Ok(preempt::BUDGET)
+}
+
+/// Pending once, so the executor polls its other work before the guest goes on.
+async fn yield_now() {
+    let mut yielded = false;
+    std::future::poll_fn(|cx| match std::mem::replace(&mut yielded, true) {
+        true => Poll::Ready(()),
+        false => {
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    })
+    .await
+}
+
 /// The return-to-guest path: runs the work the kernel left for `task` (exit, thread start,
 /// signal handlers), then turns the syscall result into the guest's return value, or `None` when
-/// the call must run again because a signal interrupted it and Linux would restart it.
+/// the call must run again because a signal interrupted it and Linux would restart it. A call
+/// that saved how to go on (`ERESTART_RESTARTBLOCK`) continues through `restart_syscall` here.
 async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     syscalls: &S,
@@ -251,71 +456,89 @@ async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
 ) -> Option<Result<R, RuntimeError>> {
     let mut ret = ret;
     let mut task = task;
-    // Once a handler ran: whether the call runs again. The first handler, the one that
-    // interrupted the call, decides by its `SA_RESTART`, and any handler may cancel the restart
-    // through its frame.
-    let mut handled: Option<bool> = None;
-    while let Some(action) = syscalls.take_pending(task) {
-        match action {
-            GuestAction::Exit(status) => {
-                return Some(Err(RuntimeError::user(Box::new(Exited(status)))));
-            }
-            GuestAction::StartThread {
-                task: child,
-                start_arg,
-            } => {
-                if !thread::start(syscalls, task, child, start_arg) {
-                    ret = Err(SysErr::Errno(Errno::EAGAIN));
+    loop {
+        // Once a handler ran: whether the call runs again. The first handler, the one that
+        // interrupted the call, decides by its `SA_RESTART`, and any handler may cancel the
+        // restart through its frame. `ERESTARTNOHAND` and `ERESTART_RESTARTBLOCK` never restart
+        // after a handler.
+        let mut handled: Option<bool> = None;
+        // Nothing to do unless the kernel raised the flag (`exit_to_user_mode_prepare`).
+        let raised = env.read().await.data().work.is_raised();
+        while let Some(action) = raised.then(|| syscalls.take_pending(task)).flatten() {
+            match action {
+                GuestAction::Exit(status) => {
+                    return Some(Err(RuntimeError::user(Box::new(Exited(status)))));
                 }
-            }
-            // ---- proc ----
-            GuestAction::SwitchTask {
-                task: to,
-                ret: value,
-            } => {
-                process::switch(env, to).await;
-                task = to;
-                ret = Ok(R::from(value));
-            }
-            GuestAction::Exec { vfork_parent } => {
-                let image = syscalls.take_image(task).unwrap_or_default();
-                let Some(parent) = vfork_parent else {
-                    return Some(Err(RuntimeError::user(Box::new(process::ExecNew(image)))));
-                };
-                process::spawn_image(env, task, image).await;
-                return Some(Err(process::vfork_return(env, parent, task).await));
-            }
-            GuestAction::Fork {
-                child,
-                parent_tid,
-                child_tid,
-                tls,
-            } => {
-                // The guest unwinds now; clone returns once it rewinds (see `fork`).
-                return match fork::start(env, syscalls, child, parent_tid, child_tid, tls).await {
-                    Ok(()) => Some(Ok(R::from(0))),
-                    Err(SysErr::Errno(errno)) => Some(Ok(R::from(-errno.0))),
-                    Err(_) => unreachable!("fork fails with an errno"),
-                };
-            }
-            GuestAction::VforkReturn { parent, child } => {
-                return Some(Err(process::vfork_return(env, parent, child).await));
-            }
-            GuestAction::Signal(frame) => {
-                let restart =
-                    handled.get_or_insert(matches!(ret, Err(SysErr::Restart)) && frame.restarts());
-                match signal::deliver(env, syscalls, task, &frame, *restart).await {
-                    Ok(still) => *restart = still,
-                    Err(err) => return Some(Err(err)),
+                GuestAction::StartThread {
+                    task: child,
+                    start_arg,
+                } => {
+                    if !thread::start(env, syscalls, child, start_arg).await {
+                        ret = Err(SysErr::Errno(Errno::EAGAIN));
+                    }
+                }
+                // ---- proc ----
+                GuestAction::SwitchTask {
+                    task: to,
+                    ret: value,
+                } => {
+                    process::switch(env, to).await;
+                    task = to;
+                    ret = Ok(R::from(value));
+                }
+                GuestAction::Exec { vfork_parent } => {
+                    let image = syscalls.take_image(task).unwrap_or_default();
+                    let Some(parent) = vfork_parent else {
+                        return Some(Err(RuntimeError::user(Box::new(process::ExecNew(image)))));
+                    };
+                    process::spawn_image(env, task, image).await;
+                    return Some(Err(process::vfork_return(env, parent, task).await));
+                }
+                GuestAction::Fork {
+                    child,
+                    parent_tid,
+                    child_tid,
+                    tls,
+                } => {
+                    // The guest unwinds now; clone returns once it rewinds (see `fork`).
+                    return match fork::start(env, syscalls, child, parent_tid, child_tid, tls).await
+                    {
+                        Ok(()) => Some(Ok(R::from(0))),
+                        Err(SysErr::Errno(errno)) => Some(Ok(R::from(-errno.0))),
+                        Err(_) => unreachable!("fork fails with an errno"),
+                    };
+                }
+                GuestAction::VforkReturn { parent, child } => {
+                    // The child ended; nothing runs as it any more.
+                    syscalls.release(child);
+                    return Some(Err(process::vfork_return(env, parent, child).await));
+                }
+                GuestAction::Signal(frame) => {
+                    let restart = handled
+                        .get_or_insert(matches!(ret, Err(SysErr::Restart)) && frame.restarts());
+                    match signal::deliver(env, syscalls, task, &frame, *restart).await {
+                        Ok(still) => *restart = still,
+                        Err(err) => return Some(Err(err)),
+                    }
                 }
             }
         }
+        let errno = match (ret, handled) {
+            (Ok(value), _) => return Some(Ok(value)),
+            (Err(SysErr::Errno(errno)), _) => errno,
+            (Err(SysErr::RestartBlock), None | Some(true)) => {
+                let memory = GuestMemory { env };
+                let caller = Caller::new(task, &memory);
+                ret = Syscalls::restart_syscall(syscalls, &caller)
+                    .await
+                    .map(R::from);
+                continue;
+            }
+            (Err(SysErr::Restart | SysErr::RestartNoHand), None | Some(true)) => return None,
+            (Err(SysErr::Restart | SysErr::RestartNoHand | SysErr::RestartBlock), Some(false)) => {
+                Errno::EINTR
+            }
+        };
+        return Some(Ok(R::from(-errno.0)));
     }
-    let errno = match (ret, handled) {
-        (Ok(value), _) => return Some(Ok(value)),
-        (Err(SysErr::Errno(errno)), _) => errno,
-        (Err(SysErr::Restart | SysErr::RestartNoHand), None | Some(true)) => return None,
-        (Err(SysErr::Restart | SysErr::RestartNoHand), Some(false)) => Errno::EINTR,
-    };
-    Some(Ok(R::from(-errno.0)))
 }

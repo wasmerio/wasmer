@@ -30,7 +30,7 @@ use wasixv2_vfs_mem::MemFs;
 use wasixv2_vfs_overlay::OverlayFs;
 use wasixv2_vfs_package::PackageFs;
 pub use wasixv2_vnet::{Net, NetConfig};
-use wasmer::{Module, Store};
+use wasmer::Store;
 use webc::v3::read::OwnedReader;
 
 #[derive(Debug, thiserror::Error)]
@@ -64,7 +64,7 @@ pub struct Machine {
     /// Where new processes start; `/` if unset.
     working_dir: Option<String>,
     /// The processes [`Machine::run_process`] started that are still running.
-    running: Mutex<Vec<TaskId>>,
+    running: Arc<Mutex<Vec<TaskId>>>,
 }
 
 #[cfg(feature = "tokio")]
@@ -147,7 +147,7 @@ impl MachineBuilder {
             host,
             owner,
             working_dir: None,
-            running: Mutex::default(),
+            running: Arc::default(),
         }
     }
 }
@@ -269,32 +269,25 @@ impl Machine {
     }
 
     /// Sends the signal `sig` to every process started with [`Machine::run`] or
-    /// [`Machine::run_process`] that is still running, as a signal from outside the machine
-    /// (`SI_USER` with `si_pid` 0). It goes through the kernel's normal signal generation:
-    /// the guest's handler runs if it installed one, and otherwise the default action does, so
-    /// e.g. an unhandled `SIGTERM` ends the process with status 128 + 15.
-    ///
-    /// A task notices a pending signal only at an interruption point, a blocking call or the
-    /// return from a syscall; a guest spinning without syscalls does not see it.
-    ///
-    /// Fails with `EINVAL` for a signal number outside 1..=64.
+    /// [`Machine::run_process`] that is still running; see [`Signaller::signal`].
     pub fn signal(&self, sig: i32) -> io::Result<()> {
-        if !(1..=64).contains(&sig) {
-            return Err(errno_to_io(Errno::EINVAL));
-        }
-        let running = self.running.lock().unwrap().clone();
-        for task in running {
-            match self.syscalls.inner.kill(task, wasixv2_abi::Signal(sig)) {
-                // It exited meanwhile.
-                Ok(()) | Err(Errno::ESRCH) => {}
-                Err(errno) => return Err(errno_to_io(errno)),
-            }
-        }
-        Ok(())
+        self.signaller().signal(sig)
     }
 
-    /// Starts `wasm` as a new process and waits for it to exit. Returns its exit status.
+    /// A handle that signals this machine's processes from any thread, for an embedder that
+    /// forwards the signals of its host process.
+    pub fn signaller(&self) -> Signaller {
+        Signaller {
+            syscalls: self.syscalls.clone(),
+            running: self.running.clone(),
+        }
+    }
+
+    /// Starts `wasm` as a new process and waits for it to exit. Returns its exit status: that of
+    /// `exit_group`, or 128 + the signal that killed it, a trap of the guest included.
     pub async fn run_process(&self, wasm: &[u8], config: ProcessConfig) -> Result<i32, RunError> {
+        let store = Store::default();
+        let module = wasixv2_exec::load(store.engine(), wasm)?;
         let task = self.syscalls.inner.spawn(config);
         self.running.lock().unwrap().push(task);
         let _running = Running {
@@ -308,10 +301,69 @@ impl Machine {
                 .await
                 .map_err(|errno| RunError::WorkingDir(errno_to_io(errno)))?;
         }
-        let store = Store::default();
-        let module = Module::new(&store, wasm)?;
         let host = self.host.clone();
         Ok(wasixv2_exec::run(store, &module, self.syscalls.clone(), task, host).await?)
+    }
+}
+
+/// Sends signals to the processes a [`Machine`] runs, from any thread; see
+/// [`Machine::signaller`].
+#[derive(Clone)]
+pub struct Signaller {
+    syscalls: Arc<Layered<Trace, Kernel>>,
+    running: Arc<Mutex<Vec<TaskId>>>,
+}
+
+impl Signaller {
+    /// Sends the signal `sig` to every process started with [`Machine::run`] or
+    /// [`Machine::run_process`] that is still running, as a signal from outside the machine
+    /// (`SI_USER` with `si_pid` 0), as `kill` of the host process does. It goes through the
+    /// kernel's normal signal generation: the guest's handler runs if it installed one, and
+    /// otherwise the default action does, so e.g. an unhandled `SIGTERM` ends the process with
+    /// status 128 + 15. A busy guest notices it at its next preemption point.
+    ///
+    /// Fails with `EINVAL` for a signal number outside 1..=64.
+    pub fn signal(&self, sig: i32) -> io::Result<()> {
+        self.each(sig, |kernel, task, sig| kernel.kill(task, sig))
+    }
+
+    /// Sends `sig` to the process groups of those processes, as a terminal sends the signals of
+    /// `^C` and `^\` to its foreground process group, so the children of a guest shell get
+    /// them too.
+    pub fn signal_foreground(&self, sig: i32) -> io::Result<()> {
+        self.each(sig, |kernel, task, sig| {
+            kernel.kill_process_group(task, sig)
+        })
+    }
+
+    /// Whether a `sig` sent with [`Signaller::signal_foreground`] is still pending, not yet
+    /// taken by any process of those groups.
+    pub fn foreground_pending(&self, sig: i32) -> bool {
+        let running = self.running.lock().unwrap().clone();
+        running.into_iter().any(|task| {
+            self.syscalls
+                .inner
+                .process_group_pending(task, wasixv2_abi::Signal(sig))
+        })
+    }
+
+    fn each(
+        &self,
+        sig: i32,
+        send: impl Fn(&Kernel, TaskId, wasixv2_abi::Signal) -> Result<(), Errno>,
+    ) -> io::Result<()> {
+        if !(1..=64).contains(&sig) {
+            return Err(errno_to_io(Errno::EINVAL));
+        }
+        let running = self.running.lock().unwrap().clone();
+        for task in running {
+            match send(&self.syscalls.inner, task, wasixv2_abi::Signal(sig)) {
+                // It exited meanwhile.
+                Ok(()) | Err(Errno::ESRCH) => {}
+                Err(errno) => return Err(errno_to_io(errno)),
+            }
+        }
+        Ok(())
     }
 }
 

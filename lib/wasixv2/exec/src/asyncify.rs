@@ -156,6 +156,11 @@ impl Asyncify {
         }))
     }
 
+    /// Whether the guest's stack is being unwound or rewound right now.
+    pub(crate) fn moving(&self) -> bool {
+        self.unwinding.is_some() || self.resume.is_some()
+    }
+
     /// Takes over a parent's state in a forked child, which rewinds as `resume` says.
     fn inherit(&mut self, from: &ForkState) {
         self.buffer = Some(from.buffer);

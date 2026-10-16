@@ -9,7 +9,7 @@ use std::{
 
 use tokio::sync::mpsc;
 
-use wasixv2::{ByteSink, ByteSource, ExecError, LocalFuture, Machine, RunError, Stdio};
+use wasixv2::{ByteSink, ByteSource, EmptySource, LocalFuture, Machine, RunError, Stdio};
 
 #[derive(Default)]
 struct Capture(Mutex<Vec<u8>>);
@@ -173,14 +173,53 @@ async fn unimplemented_syscalls_return_enosys() {
     assert_eq!(run.status.unwrap(), ENOSYS);
 }
 
+/// Exit statuses of death by a signal, as `wasmer run` reports them: 128 + the signal.
+const SIGILL: i32 = 128 + 4;
+const SIGFPE: i32 = 128 + 8;
+const SIGSEGV: i32 = 128 + 11;
+const SIGTERM: i32 = 128 + 15;
+
+// Linux kills a process whose entry point returns with SIGSEGV.
 #[tokio::test]
-async fn returning_from_start_is_an_error() {
+async fn returning_from_start_kills_with_sigsegv() {
     let wat = module(r#"(func (export "_start"))"#);
 
     let run = run(&wat).await;
 
-    assert!(matches!(
-        run.status,
-        Err(RunError::Exec(ExecError::ReturnedFromStart))
-    ));
+    assert_eq!(run.status.unwrap(), SIGSEGV);
+}
+
+#[tokio::test]
+async fn traps_kill_with_the_signal_of_their_fault() {
+    let trap = |body: &str| module(&format!(r#"(func (export "_start") {body} unreachable)"#));
+
+    let unreachable = run(&trap("")).await;
+    let divide = run(&trap("(drop (i32.div_s (i32.const 1) (i32.const 0)))")).await;
+    let load = run(&trap("(drop (i32.load (i32.const 0x7fff_fff0)))")).await;
+
+    assert_eq!(unreachable.status.unwrap(), SIGILL);
+    assert_eq!(divide.status.unwrap(), SIGFPE);
+    assert_eq!(load.status.unwrap(), SIGSEGV);
+}
+
+// The guest never makes a syscall, so only a preemption point can deliver the signal.
+#[tokio::test]
+async fn a_busy_guest_takes_a_signal_at_a_preemption_point() {
+    let wasm = wat::parse_str(module(r#"(func (export "_start") (loop (br 0)))"#)).unwrap();
+    let machine = Machine::new();
+    let signaller = machine.signaller();
+    let kill = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(50));
+        signaller.signal(15).unwrap();
+    });
+    let stdio = Stdio {
+        stdin: Arc::new(EmptySource),
+        stdout: Arc::new(Capture::default()),
+        stderr: Arc::new(Capture::default()),
+    };
+
+    let status = tokio::time::timeout(Duration::from_secs(10), machine.run(&wasm, stdio)).await;
+
+    kill.join().unwrap();
+    assert_eq!(status.expect("the guest took the signal").unwrap(), SIGTERM);
 }

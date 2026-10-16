@@ -7126,7 +7126,12 @@ dependencies = [
  "wasixv2-abi",
  "wasixv2-host",
  "wasixv2-syscalls",
+ "wasm-encoder 0.259.0",
  "wasmer",
+ "wasmer-types",
+ "wasmparser 0.259.0",
+ "wasmprinter",
+ "wat",
 ]
 
 [[package]]
