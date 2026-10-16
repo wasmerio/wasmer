@@ -1,6 +1,7 @@
 //! Pipes, eventfd, poll, select and epoll.
 
 use wasixv2_abi::{EventfdFlags, FdPair};
+use wasixv2_wait::{PollMask, Pollable};
 
 use super::*;
 
@@ -222,6 +223,91 @@ fn preadv_and_pwritev_reject_negative_offsets() {
         ))),
         Errno::EINVAL
     );
+}
+
+/// `fstat` through `statx(fd, "", AT_EMPTY_PATH)`.
+fn stat_of(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    memory: &FlatMemory,
+    fd: Fd,
+) -> wasixv2_abi::Statx {
+    put(memory, 0x2ff0, b"\0");
+    let (name, out) = (GuestPtr::new(0x2ff0), GuestPtrMut::new(0x3000));
+    let mask = wasixv2_abi::StatxMask(0x7ff);
+    let flags = wasixv2_abi::AtFlags::AT_EMPTY_PATH;
+    block_on(kernel.statx(caller, fd, name, flags, mask, out)).unwrap();
+    block_on(wasixv2_syscalls::read_value(memory, GuestPtr::new(0x3000))).unwrap()
+}
+
+#[test]
+fn fstat_shows_each_object_its_pseudo_inode() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    const S_IFMT: u16 = 0o170000;
+    let (r, w) = pipe(&kernel, &caller, OpenFlags(0));
+    let (other, _) = pipe(&kernel, &caller, OpenFlags(0));
+    let (rs, ws, os) = (
+        stat_of(&kernel, &caller, &memory, r),
+        stat_of(&kernel, &caller, &memory, w),
+        stat_of(&kernel, &caller, &memory, other),
+    );
+    // Both ends of a pipe are one FIFO inode; another pipe is another inode.
+    assert_eq!(rs.stx_mode, 0o010600);
+    assert_eq!(
+        (rs.stx_ino, rs.stx_dev_minor),
+        (ws.stx_ino, ws.stx_dev_minor)
+    );
+    assert_ne!(rs.stx_ino, os.stx_ino);
+
+    let sockets = FdPair::new(0x100);
+    let unix = wasixv2_abi::AddressFamily(1);
+    assert_eq!(
+        block_on(kernel.socketpair(&caller, unix, 1, 0, sockets)),
+        Ok(0)
+    );
+    let fd = |at| Fd(i32::from_le_bytes(get(&memory, at, 4).try_into().unwrap()));
+    let (a, b) = (
+        stat_of(&kernel, &caller, &memory, fd(0x100)),
+        stat_of(&kernel, &caller, &memory, fd(0x104)),
+    );
+    assert_eq!(a.stx_mode & S_IFMT, 0o140000);
+    assert_ne!(a.stx_ino, b.stx_ino);
+    assert_ne!(a.stx_dev_minor, rs.stx_dev_minor);
+
+    // eventfd, epoll and friends share one anon inode with no file type, made by root.
+    let efd = block_on(kernel.eventfd2(&caller, 0, EventfdFlags(0))).unwrap();
+    let anon = stat_of(&kernel, &caller, &memory, efd);
+    assert_eq!((anon.stx_mode, anon.stx_uid), (0o600, 0));
+    let epfd = block_on(kernel.epoll_create1(&caller, wasixv2_abi::EpollCreateFlags(0)));
+    assert_eq!(
+        stat_of(&kernel, &caller, &memory, epfd.unwrap()).stx_ino,
+        anon.stx_ino
+    );
+}
+
+#[test]
+fn a_nonblocking_fifo_reader_hangs_up_only_after_a_writer_left() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    put(&memory, 0x40, b"fifo\0");
+    let mode: Mode = 0o010600;
+    assert_eq!(
+        block_on(kernel.mknodat(&caller, Fd(-100), GuestPtr::new(0x40), mode, 0)),
+        Ok(0)
+    );
+    let open = |flags: OpenFlags| {
+        block_on(kernel.openat(&caller, Fd(-100), GuestPtr::new(0x40), flags, 0)).unwrap()
+    };
+    let reader = open(OpenFlags::O_RDONLY | OpenFlags::O_NONBLOCK);
+    let mask = || kernel.file(task, reader).unwrap().poll(None);
+    // No writer has come yet: neither readable nor hung up (`f_pipe`).
+    assert_eq!(mask(), PollMask::empty());
+
+    let writer = open(OpenFlags::O_WRONLY | OpenFlags::O_NONBLOCK);
+    assert_eq!(mask(), PollMask::empty());
+    assert_eq!(block_on(kernel.close(&caller, writer)), Ok(0));
+    assert_eq!(mask(), PollMask::HUP);
 }
 
 #[test]

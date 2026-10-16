@@ -38,6 +38,10 @@ struct State {
     capacity: usize,
     readers: usize,
     writers: usize,
+    /// Read and write ends ever attached (`r_counter`, `w_counter`), so a FIFO opener can wait
+    /// for a partner to arrive, even one that left again at once.
+    r_counter: u64,
+    w_counter: u64,
 }
 
 impl State {
@@ -50,6 +54,10 @@ impl State {
 pub(crate) struct PipeEnd {
     pipe: Arc<Pipe>,
     writer: bool,
+    /// A read end reports `HUP` without writers only once `w_counter` differs from this
+    /// (`f_pipe`): a FIFO opened for reading without blocking, before any writer came, does
+    /// not hang up.
+    hup_unless: u64,
 }
 
 impl Drop for PipeEnd {
@@ -67,57 +75,67 @@ impl Drop for PipeEnd {
     }
 }
 
-/// A new pipe's read and write ends.
-pub(crate) fn pipe() -> (PipeEnd, PipeEnd) {
-    let pipe = Arc::new(Pipe {
-        state: Mutex::new(State {
-            buf: VecDeque::new(),
-            capacity: DEFAULT_SIZE,
-            readers: 1,
-            writers: 1,
-        }),
-        rd_wait: WaitQueue::new(),
-        wr_wait: WaitQueue::new(),
-    });
-    let read = PipeEnd {
-        pipe: pipe.clone(),
-        writer: false,
-    };
-    (read, PipeEnd { pipe, writer: true })
-}
-
-// ---- fs: FIFOs (`fs/fifo.rs`) ----
-
-/// A pipe with no ends yet, for a FIFO inode's first open.
-pub(crate) fn fifo_pipe() -> Arc<Pipe> {
+/// A pipe with no ends yet (`alloc_pipe_info`).
+fn new_pipe() -> Arc<Pipe> {
     Arc::new(Pipe {
         state: Mutex::new(State {
             buf: VecDeque::new(),
             capacity: DEFAULT_SIZE,
             readers: 0,
             writers: 0,
+            r_counter: 1,
+            w_counter: 1,
         }),
         rd_wait: WaitQueue::new(),
         wr_wait: WaitQueue::new(),
     })
 }
 
+/// A new pipe's read and write ends.
+pub(crate) fn pipe() -> (PipeEnd, PipeEnd) {
+    let pipe = new_pipe();
+    let (read, _) = PipeEnd::attach(&pipe, false);
+    let (write, _) = PipeEnd::attach(&pipe, true);
+    (read, write)
+}
+
+// ---- fs: FIFOs (`fs/fifo.rs`) ----
+
+/// A pipe with no ends yet, for a FIFO inode's first open.
+pub(crate) fn fifo_pipe() -> Arc<Pipe> {
+    new_pipe()
+}
+
+/// The other side of a pipe as an end was attached: how many ends it had open, and how many it
+/// ever had (its counter).
+#[derive(Clone, Copy)]
+pub(crate) struct Partner {
+    pub(crate) open: usize,
+    pub(crate) counter: u64,
+}
+
 impl Pipe {
-    /// The number of open read and write ends.
-    pub(crate) fn ends(&self) -> (usize, usize) {
-        let state = self.state.lock().unwrap();
-        (state.readers, state.writers)
+    /// The number of open read ends.
+    pub(crate) fn readers(&self) -> usize {
+        self.state.lock().unwrap().readers
     }
 
-    /// Waits until `ready` holds for the end counts (`wait_for_partner`).
-    pub(crate) async fn wait_ends(
+    /// `wait_for_partner`: waits until an end of the other side has been attached since
+    /// `partner` was seen, whether or not it is still open.
+    pub(crate) async fn wait_for_partner(
         &self,
-        ready: impl Fn(usize, usize) -> bool,
+        writers: bool,
+        partner: Partner,
         interrupt: &dyn wasixv2_wait::Interrupt,
     ) -> SysResult<()> {
         let check = || {
-            let (readers, writers) = self.ends();
-            ready(readers, writers).then_some(())
+            let state = self.state.lock().unwrap();
+            let counter = if writers {
+                state.w_counter
+            } else {
+                state.r_counter
+            };
+            (counter != partner.counter).then_some(())
         };
         wait_event(&self.rd_wait, check, interrupt)
             .await
@@ -126,21 +144,46 @@ impl Pipe {
 }
 
 impl PipeEnd {
-    /// Opens another end of `pipe` and wakes whoever waits for one.
-    pub(crate) fn attach(pipe: &Arc<Pipe>, writer: bool) -> Self {
-        {
+    /// Opens another end of `pipe` and wakes whoever waits for one. Returns the other side as
+    /// it was then.
+    pub(crate) fn attach(pipe: &Arc<Pipe>, writer: bool) -> (Self, Partner) {
+        let partner = {
             let mut state = pipe.state.lock().unwrap();
             match writer {
-                true => state.writers += 1,
-                false => state.readers += 1,
+                true => {
+                    state.writers += 1;
+                    state.w_counter += 1;
+                }
+                false => {
+                    state.readers += 1;
+                    state.r_counter += 1;
+                }
             }
-        }
+            match writer {
+                true => Partner {
+                    open: state.readers,
+                    counter: state.r_counter,
+                },
+                false => Partner {
+                    open: state.writers,
+                    counter: state.w_counter,
+                },
+            }
+        };
         pipe.rd_wait.wake(PollMask::empty());
         pipe.wr_wait.wake(PollMask::empty());
-        Self {
+        let end = Self {
             pipe: pipe.clone(),
             writer,
-        }
+            hup_unless: 0,
+        };
+        (end, partner)
+    }
+
+    /// Suppresses `HUP` on this read end until a writer has come (and gone): what a FIFO
+    /// opened `O_RDONLY | O_NONBLOCK` with no writer gets.
+    pub(crate) fn hup_after_writer(&mut self, partner: Partner) {
+        self.hup_unless = partner.counter;
     }
 }
 
@@ -256,7 +299,7 @@ impl Pollable for PipeEnd {
             if !state.buf.is_empty() {
                 mask |= PollMask::READABLE;
             }
-            if state.writers == 0 {
+            if state.writers == 0 && state.w_counter != self.hup_unless {
                 mask |= PollMask::HUP;
             }
         } else {

@@ -34,25 +34,28 @@ pub(crate) async fn open(
     let nonblock = flags.contains(OpenFlags::O_NONBLOCK);
     let (read, write) = match flags & OpenFlags::O_ACCMODE {
         OpenFlags::O_RDONLY => {
-            let end = PipeEnd::attach(&pipe, false);
-            if !nonblock {
-                pipe.wait_ends(|_, writers| writers > 0, interrupt).await?;
+            let (mut end, writers) = PipeEnd::attach(&pipe, false);
+            if writers.open == 0 {
+                match nonblock {
+                    true => end.hup_after_writer(writers),
+                    false => pipe.wait_for_partner(true, writers, interrupt).await?,
+                }
             }
             (Some(end), None)
         }
         OpenFlags::O_WRONLY => {
-            if nonblock && pipe.ends().0 == 0 {
+            if nonblock && pipe.readers() == 0 {
                 return Err(Errno::ENXIO.into());
             }
-            let end = PipeEnd::attach(&pipe, true);
-            if !nonblock {
-                pipe.wait_ends(|readers, _| readers > 0, interrupt).await?;
+            let (end, readers) = PipeEnd::attach(&pipe, true);
+            if !nonblock && readers.open == 0 {
+                pipe.wait_for_partner(false, readers, interrupt).await?;
             }
             (None, Some(end))
         }
         _ => (
-            Some(PipeEnd::attach(&pipe, false)),
-            Some(PipeEnd::attach(&pipe, true)),
+            Some(PipeEnd::attach(&pipe, false).0),
+            Some(PipeEnd::attach(&pipe, true).0),
         ),
     };
     Ok(FifoFile {

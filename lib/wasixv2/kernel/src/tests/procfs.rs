@@ -211,10 +211,11 @@ fn opening_stdouts_fd_link_reaches_the_same_stream() {
 
     assert_eq!(t.write(fd, b"out"), Ok(3));
     assert_eq!(*stdout.0.lock().unwrap(), b"out");
-    // Anonymous files do not open again (`no_open`).
+    // Anonymous files do not open again: the shared inode is root's, `0600`, so `may_open`
+    // refuses a user before `no_open` would.
     let event = block_on(kernel.eventfd2(&t.caller, 0, EventfdFlags(0))).unwrap();
     let at = format!("/proc/self/fd/{}", event.0);
-    assert_eq!(errno(t.open(&at, OpenFlags::O_RDWR)), Errno::ENXIO);
+    assert_eq!(errno(t.open(&at, OpenFlags::O_RDWR)), Errno::EACCES);
 }
 
 #[test]
