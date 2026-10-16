@@ -411,6 +411,8 @@ impl Kernel {
     /// What closing a descriptor does besides dropping the reference: release the process's
     /// POSIX locks on the file (`filp_flush` → `locks_remove_posix`).
     pub(crate) fn closed(&self, caller: &Caller<'_>, file: &OpenFile) {
+        // ---- ipc ----
+        self.mq_flush(caller, file);
         if let Backing::Inode(file) = &file.backing
             && !file.path_only
         {

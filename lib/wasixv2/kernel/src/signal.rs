@@ -31,7 +31,7 @@ use crate::{
     timer::{self, Timer},
 };
 
-const NSIG: i32 = 64;
+pub(crate) const NSIG: i32 = 64;
 const SIGRTMIN: i32 = 32;
 const UNBLOCKABLE: u64 = bit(Signal::SIGKILL.0) | bit(Signal::SIGSTOP.0);
 
@@ -1125,7 +1125,8 @@ impl Kernel {
                 && sender.ident.lock().unwrap().sid == target.ident.lock().unwrap().sid)
     }
 
-    fn send_to_group(
+    /// Queues `info` for the thread group `pid` (`kill_pid_info`), if `sender` may signal it.
+    pub(crate) fn send_to_group(
         &self,
         sender: Option<&Process>,
         pid: Pid,

@@ -1,26 +1,61 @@
-//! The program break and anonymous mappings inside the guest's linear memory.
+//! The program break, anonymous and file mappings inside the guest's linear memory.
 //!
 //! Linear memory only grows, so `brk` and `mmap` hand out pages above everything the image owns
 //! (its data, stack and heap) and grow memory when no unmapped run fits. `munmap` returns pages
 //! for reuse by later mappings, which are zeroed then. Wasm has no page protection: unmapped
 //! pages stay accessible and `mprotect` changes nothing, except that executable memory is
 //! refused, since wasm cannot run code generated at run time.
+//!
+//! File mappings and SysV segment attachments are copies kept coherent at defined points (see
+//! [`shared`]). A shared file mapping is synchronised with its file:
+//!
+//! - by `msync` over it, and `MADV_DONTNEED`;
+//! - by `munmap`, `mremap` and `MAP_FIXED` over it, and when the address space ends with
+//!   `exit`, `exit_group` or `execve` (written back only);
+//! - around every `read`, `write` and other data syscall the same process makes on the file,
+//!   so within one process `read` sees what the mapping wrote and the mapping sees what
+//!   `write` wrote, as on Linux.
+//!
+//! Another process sees a change once both sides passed such a point. A process killed by a
+//! signal writes nothing back: its memory is gone before the kernel could read it.
+
+mod shared;
 
 use std::sync::{
-    Mutex, MutexGuard, PoisonError,
-    atomic::{AtomicU64, Ordering},
+    Arc, Mutex, MutexGuard, PoisonError,
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
+pub(crate) use shared::{Mapping, Object, Shared, Source};
 use wasixv2_abi::{
     Buf, Fd, Loff, MadviseAdvice, MapFlags, MclFlags, MlockFlags, MremapFlags, MsyncFlags,
-    ProtFlags, Ulong, Uptr, Usize,
+    OpenFlags, ProtFlags, Ulong, Uptr, Usize,
 };
-use wasixv2_syscalls::{Caller, Errno, SysResult, UserMemory, WASM_PAGE_SIZE};
+use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, UserMemory, WASM_PAGE_SIZE};
+use wasixv2_vfs::FileType;
 
-use crate::Kernel;
+use crate::{Kernel, file::OpenFile};
 
 /// The page size the guest sees in `AT_PAGESZ` and the unit of every mapping.
 pub(crate) const PAGE_SIZE: u64 = WASM_PAGE_SIZE;
+
+/// `LEGACY_MAP_MASK`: the flags `MAP_SHARED_VALIDATE` accepts for a file.
+const LEGACY_MAP_MASK: MapFlags = MapFlags(
+    MapFlags::MAP_SHARED.0
+        | MapFlags::MAP_PRIVATE.0
+        | MapFlags::MAP_FIXED.0
+        | MapFlags::MAP_ANONYMOUS.0
+        | MapFlags::MAP_DENYWRITE.0
+        | MapFlags::MAP_EXECUTABLE.0
+        | MapFlags::MAP_UNINITIALIZED.0
+        | MapFlags::MAP_GROWSDOWN.0
+        | MapFlags::MAP_LOCKED.0
+        | MapFlags::MAP_NORESERVE.0
+        | MapFlags::MAP_POPULATE.0
+        | MapFlags::MAP_NONBLOCK.0
+        | MapFlags::MAP_STACK.0
+        | MapFlags::MAP_HUGETLB.0,
+);
 
 /// An address space and the lock that orders changes to it (`mm_struct`). Every task on the
 /// same linear memory shares one: the threads of a group, and a vfork child while it runs in its
@@ -29,11 +64,13 @@ pub(crate) struct Mm {
     /// Names the address space in futex keys; never reused.
     id: u64,
     /// Held by every call that reads the size of memory, grows it, or takes pages, from the
-    /// first look at the page map to the last update. Each thread runs its own instance on the
-    /// shared memory, so without it two threads interleave their growths and each other's
-    /// checks.
+    /// first look at the page map to the last update, and by every synchronisation of a
+    /// mapping. Each thread runs its own instance on the shared memory, so without it two
+    /// threads interleave their growths and each other's checks.
     op: futures_util::lock::Mutex<()>,
     space: Mutex<AddressSpace>,
+    /// Whether any shared mapping exists, so file I/O skips the mapping table otherwise.
+    shared: AtomicBool,
 }
 
 impl Default for Mm {
@@ -48,6 +85,7 @@ impl Mm {
         Self {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             op: Default::default(),
+            shared: AtomicBool::new(space.mappings.any_shared()),
             space: Mutex::new(space),
         }
     }
@@ -56,9 +94,10 @@ impl Mm {
         self.id
     }
 
-    /// `dup_mmap`: a new address space with the same mappings, for a child that copies memory.
-    pub(crate) fn dup(&self) -> Self {
-        Self::with_space(self.space().clone())
+    /// `dup_mmap`: a new address space with the same mappings, for the child `pid` that copies
+    /// memory. Its file mappings and segment attachments are its own from then on.
+    pub(crate) fn dup(&self, pid: u32) -> Self {
+        Self::with_space(self.space().dup(pid))
     }
 
     /// The page map. A panic elsewhere while it was held must not wedge every other thread of
@@ -76,6 +115,36 @@ impl Mm {
     /// The size of memory when a memory call last looked (`total_vm`).
     pub(crate) fn size(&self) -> u64 {
         self.space().seen
+    }
+
+    /// Forgets every mapping and the break, for a process that is gone. Shared mappings are
+    /// dropped without writing back, since the memory may be gone.
+    pub(crate) fn reset(&self) {
+        let old = std::mem::take(&mut *self.space());
+        self.shared.store(false, Ordering::Release);
+        drop(old);
+    }
+
+    fn insert(&self, mapping: Mapping) {
+        let mut space = self.space();
+        space.mappings.insert(mapping);
+        self.shared
+            .store(space.mappings.any_shared(), Ordering::Release);
+    }
+
+    fn take_range(&self, start: u64, end: u64) -> Vec<Mapping> {
+        let mut space = self.space();
+        let taken = space.mappings.take_range(start, end);
+        self.shared
+            .store(space.mappings.any_shared(), Ordering::Release);
+        taken
+    }
+
+    fn restore(&self, mappings: Vec<Mapping>) {
+        let mut space = self.space();
+        space.mappings.restore(mappings);
+        self.shared
+            .store(space.mappings.any_shared(), Ordering::Release);
     }
 }
 
@@ -97,7 +166,7 @@ pub(crate) enum RegionKind {
     Anon,
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub(crate) struct AddressSpace {
     /// First page under the allocator's control, fixed by the first growth. Pages below belong to
     /// the image.
@@ -108,6 +177,8 @@ pub(crate) struct AddressSpace {
     brk: Option<(u64, u64)>,
     /// The size of memory when a memory call last looked.
     seen: u64,
+    /// Mappings of files and segments; pages not in one are anonymous.
+    mappings: shared::Mappings,
 }
 
 /// Where a new mapping goes.
@@ -119,6 +190,17 @@ pub(crate) enum Placement {
 }
 
 impl AddressSpace {
+    /// A copy for the fork child `pid`.
+    fn dup(&self, pid: u32) -> Self {
+        Self {
+            base: self.base,
+            mapped: self.mapped.clone(),
+            brk: self.brk,
+            seen: self.seen,
+            mappings: self.mappings.dup(pid),
+        }
+    }
+
     /// Picks the first unmapped run of `pages` pages, marking it mapped.
     pub(crate) fn place(&mut self, pages: u64) -> Result<Placement, Errno> {
         if let Some(index) = self.free_run(pages) {
@@ -366,7 +448,7 @@ impl Kernel {
         Ok(new as i32)
     }
 
-    /// Anonymous mappings only; see the module docs.
+    /// `do_mmap`. File mappings copy the file in; see the module docs.
     #[allow(clippy::too_many_arguments)]
     pub(crate) async fn sys_mmap(
         &self,
@@ -381,30 +463,56 @@ impl Kernel {
         if offset % PAGE_SIZE as i64 != 0 {
             return Err(Errno::EINVAL.into());
         }
-        if !flags.contains(MapFlags::MAP_ANONYMOUS) {
-            self.file(caller.task(), fd)?;
-        }
+        let anonymous = flags.contains(MapFlags::MAP_ANONYMOUS);
+        let file = match anonymous {
+            true => None,
+            false => Some(self.mmap_file(caller, fd)?),
+        };
         if prot.contains(ProtFlags::PROT_EXEC) {
             return Err(Errno::EACCES.into());
         }
-        // Shared anonymous memory is ordinary memory within one address space. Wasm modules
-        // cannot share part of their memory, so no other process will ever see it.
-        match flags & MapFlags::MAP_TYPE {
-            MapFlags::MAP_SHARED | MapFlags::MAP_PRIVATE | MapFlags::MAP_SHARED_VALIDATE => {}
-            _ => return Err(Errno::EINVAL.into()),
-        }
-        if !flags.contains(MapFlags::MAP_ANONYMOUS) {
-            // TODO: private file mappings.
-            return Err(Errno::ENODEV.into());
-        }
         let pages = pages(len)?;
+        let kind = flags & MapFlags::MAP_TYPE;
+        let source = match file {
+            None => match kind {
+                // Shared anonymous memory is ordinary memory within one address space. Wasm
+                // modules cannot share part of their memory, so no other process sees it.
+                MapFlags::MAP_SHARED | MapFlags::MAP_PRIVATE => None,
+                _ => return Err(Errno::EINVAL.into()),
+            },
+            Some(file) => Some(check_file_mapping(file, offset, pages, prot, flags)?),
+        };
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
-        if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
+        let start = if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
             let noreplace = !flags.contains(MapFlags::MAP_FIXED);
-            return self.map_fixed(caller, addr, pages, noreplace).await;
+            self.map_fixed(caller, addr, pages, noreplace).await?
+        } else {
+            self.map_anywhere(caller, pages).await? as Uptr
+        };
+        let Some(source) = source else {
+            return Ok(start);
+        };
+        let mut mapping = Mapping {
+            start: start.into(),
+            len: pages * PAGE_SIZE,
+            source,
+        };
+        if let Err(errno) = mapping.fill(caller.memory()).await {
+            mm.space().unmap(start.into(), pages * PAGE_SIZE);
+            return Err(errno.into());
         }
-        Ok(self.map_anywhere(caller, pages).await? as Uptr)
+        mm.insert(mapping);
+        Ok(start)
+    }
+
+    /// The open file `mmap` maps: `EBADF` unless `fd` is open, and not just as a location.
+    fn mmap_file(&self, caller: &Caller<'_>, fd: Fd) -> Result<Arc<OpenFile>, Errno> {
+        let file = self.file(caller.task(), fd)?;
+        if file.flags().contains(OpenFlags::O_PATH) {
+            return Err(Errno::EBADF);
+        }
+        Ok(file)
     }
 
     /// Maps `pages` zeroed pages wherever they fit. The caller holds `Mm::op`.
@@ -426,7 +534,8 @@ impl Kernel {
     }
 
     /// `MAP_FIXED` works over pages the allocator owns and past the end of memory; the image's
-    /// own pages cannot be replaced. The caller holds `Mm::op`.
+    /// own pages cannot be replaced. Mappings it replaces are unmapped first. The caller holds
+    /// `Mm::op`.
     async fn map_fixed(
         &self,
         caller: &Caller<'_>,
@@ -442,10 +551,11 @@ impl Kernel {
         }
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
         let mm = self.mm(caller.task());
-        {
-            let mut space = mm.space();
+        let replace = {
+            let space = mm.space();
             if space.pages_free(first, end, mem_pages) {
                 // Free pages can be taken as they are.
+                false
             } else if noreplace {
                 return Err(Errno::EEXIST.into());
             } else {
@@ -453,8 +563,12 @@ impl Kernel {
                 if !(first..end).all(|page| owned(page) || page >= mem_pages) {
                     return Err(Errno::EINVAL.into());
                 }
-                space.set_pages(first, end, false);
+                true
             }
+        };
+        if replace {
+            self.unmap_range(caller, first * PAGE_SIZE, end * PAGE_SIZE)
+                .await;
         }
         // Pages between the end of memory and the mapping stay free.
         self.take_pages(caller, first, end).await?;
@@ -462,6 +576,17 @@ impl Kernel {
             mm.space().set_pages(mem_pages, first, false);
         }
         Ok(addr)
+    }
+
+    /// `do_vmi_munmap`: writes back the shared mappings in `[start, end)`, drops every mapping
+    /// there and frees the pages. The caller holds `Mm::op`.
+    async fn unmap_range(&self, caller: &Caller<'_>, start: u64, end: u64) {
+        let mm = self.mm(caller.task());
+        for mut mapping in mm.take_range(start, end) {
+            // munmap cannot fail once the range is valid; a file that refuses the data loses it.
+            let _ = mapping.write_back(caller.memory()).await;
+        }
+        mm.space().unmap(start, end - start);
     }
 
     pub(crate) async fn sys_munmap(
@@ -474,9 +599,11 @@ impl Kernel {
         if len == 0 {
             return Err(Errno::EINVAL.into());
         }
+        let start = u64::from(addr);
+        let end = (start + u64::from(len)).div_ceil(PAGE_SIZE) * PAGE_SIZE;
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
-        mm.space().unmap(addr.into(), len.into());
+        self.unmap_range(caller, start, end).await;
         Ok(0)
     }
 
@@ -500,22 +627,25 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let (addr64, old_pages, new_pages) = (u64::from(addr), pages(old_len)?, pages(new_len)?);
+        let (old_size, new_size) = (old_pages * PAGE_SIZE, new_pages * PAGE_SIZE);
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
-        self.check_mapped(caller, addr64, old_pages * PAGE_SIZE)
+        self.check_mapped(caller, addr64, old_size)
             .await
             .map_err(|_| Errno::EFAULT)?;
         let first = addr64 / PAGE_SIZE;
         if flags.contains(MremapFlags::MREMAP_FIXED) {
             let target = self.map_fixed(caller, new_addr, new_pages, false).await?;
-            let keep = old_pages.min(new_pages) * PAGE_SIZE;
+            let keep = old_size.min(new_size);
             copy(caller.memory(), addr64, target.into(), keep).await?;
-            mm.space().unmap(addr64, old_pages * PAGE_SIZE);
+            self.move_mappings(caller, addr64, old_size, target.into(), new_size)
+                .await?;
+            mm.space().unmap(addr64, old_size);
             return Ok(target as i32);
         }
         if new_pages <= old_pages {
-            let mut space = mm.space();
-            space.set_pages(first + new_pages, first + old_pages, false);
+            self.unmap_range(caller, addr64 + new_size, addr64 + old_size)
+                .await;
             return Ok(addr as i32);
         }
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
@@ -528,15 +658,57 @@ impl Kernel {
                 .await
                 .is_ok()
         {
+            self.move_mappings(caller, addr64, old_size, addr64, new_size)
+                .await?;
             return Ok(addr as i32);
         }
         if !may_move {
             return Err(Errno::ENOMEM.into());
         }
         let target = self.map_anywhere(caller, new_pages).await?;
-        copy(caller.memory(), addr64, target, old_pages * PAGE_SIZE).await?;
-        mm.space().unmap(addr64, old_pages * PAGE_SIZE);
+        copy(caller.memory(), addr64, target, old_size).await?;
+        self.move_mappings(caller, addr64, old_size, target, new_size)
+            .await?;
+        mm.space().unmap(addr64, old_size);
         Ok(target as i32)
+    }
+
+    /// The mappings of `[from, from + old_len)` follow `mremap` to `to` with `new_len` bytes,
+    /// whose memory already holds the old contents: parts past the new length are written back
+    /// and dropped, and a mapping that ended at the old end grows with more of its source. The
+    /// caller holds `Mm::op`.
+    async fn move_mappings(
+        &self,
+        caller: &Caller<'_>,
+        from: u64,
+        old_len: u64,
+        to: u64,
+        new_len: u64,
+    ) -> Result<(), Errno> {
+        let mm = self.mm(caller.task());
+        let mut moved = mm.take_range(from, from + old_len);
+        let keep = old_len.min(new_len);
+        let mut kept = Vec::new();
+        for mut mapping in moved.drain(..) {
+            if mapping.start >= from + keep {
+                let _ = mapping.write_back(caller.memory()).await;
+                continue;
+            }
+            if mapping.end() > from + keep {
+                let mut tail = mapping.split_off(from + keep);
+                let _ = tail.write_back(caller.memory()).await;
+            }
+            mapping.start = mapping.start - from + to;
+            kept.push(mapping);
+        }
+        if new_len > old_len
+            && let Some(last) = kept.last_mut()
+            && last.end() == to + old_len
+        {
+            last.grow(caller.memory(), new_len - old_len).await?;
+        }
+        mm.restore(kept);
+        Ok(())
     }
 
     pub(crate) async fn sys_mprotect(
@@ -567,8 +739,9 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `MADV_DONTNEED` zeroes the pages, as it does to private anonymous memory; every other
-    /// advice changes nothing.
+    /// `MADV_DONTNEED` drops the pages: anonymous memory reads as zeroes again, a private file
+    /// mapping as the file, and a shared mapping keeps its contents, which are synchronised.
+    /// Every other advice changes nothing.
     pub(crate) async fn sys_madvise(
         &self,
         caller: &Caller<'_>,
@@ -586,7 +759,7 @@ impl Kernel {
         let len = u64::from(len).div_ceil(PAGE_SIZE) * PAGE_SIZE;
         self.check_mapped(caller, start.into(), len).await?;
         match advice {
-            MadviseAdvice::MADV_DONTNEED => zero(caller.memory(), start.into(), len).await?,
+            MadviseAdvice::MADV_DONTNEED => self.drop_pages(caller, start.into(), len).await?,
             MadviseAdvice::MADV_REMOVE => return Err(Errno::EINVAL.into()),
             MadviseAdvice(100 | 101) => return Err(Errno::EPERM.into()),
             _ => {}
@@ -623,8 +796,55 @@ impl Kernel {
         {
             return Err(Errno::EINVAL.into());
         }
-        self.check_mapped(caller, start.into(), len.into()).await?;
+        let len = u64::from(len).div_ceil(PAGE_SIZE) * PAGE_SIZE;
+        let start = u64::from(start);
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        self.check_mapped(caller, start, len).await?;
+        let mut mappings = mm.take_range(start, start + len);
+        let mut result = Ok(());
+        for mapping in &mut mappings {
+            let Some(shared) = mapping.shared() else {
+                continue;
+            };
+            let file = shared.object.file().cloned();
+            let synced = mapping.sync(caller.memory()).await;
+            let synced = match (synced, file) {
+                (Ok(()), Some(file)) if flags.contains(MsyncFlags::MS_SYNC) => {
+                    file.inode()?.sync(true).await
+                }
+                (synced, _) => synced,
+            };
+            result = result.and(synced);
+        }
+        mm.restore(mappings);
+        result?;
         Ok(0)
+    }
+
+    /// `MADV_DONTNEED` over `[start, start + len)`.
+    async fn drop_pages(&self, caller: &Caller<'_>, start: u64, len: u64) -> Result<(), Errno> {
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let mut mappings = mm.take_range(start, start + len);
+        let mut at = start;
+        let mut result = Ok(());
+        for mapping in &mut mappings {
+            if mapping.start > at {
+                result = result.and(zero(caller.memory(), at, mapping.start - at).await);
+            }
+            let refreshed = match mapping.shared() {
+                Some(_) => mapping.sync(caller.memory()).await,
+                None => mapping.fill(caller.memory()).await,
+            };
+            result = result.and(refreshed);
+            at = mapping.end();
+        }
+        if at < start + len {
+            result = result.and(zero(caller.memory(), at, start + len - at).await);
+        }
+        mm.restore(mappings);
+        result
     }
 
     /// Memory is never paged out, so locking only checks the range.
@@ -652,6 +872,206 @@ impl Kernel {
         }
         Ok(0)
     }
+
+    /// Makes the caller's shared mappings of `file`'s inode agree with it. Data syscalls on a
+    /// file call it before they read or write it and after they wrote, so the process sees one
+    /// copy of the file whichever way it looks.
+    pub(crate) async fn sync_file_mappings(&self, caller: &Caller<'_>, file: &OpenFile) {
+        let mm = self.mm(caller.task());
+        if !mm.shared.load(Ordering::Acquire) {
+            return;
+        }
+        let Ok(inode) = file.inode() else {
+            return;
+        };
+        let key = inode.lock_key();
+        let of_file = |mapping: &Mapping| {
+            let file = mapping.shared().and_then(|shared| shared.object.file());
+            file.and_then(|file| file.inode().ok())
+                .is_some_and(|inode| inode.lock_key() == key)
+        };
+        self.sync_where(caller, of_file).await;
+    }
+
+    /// Synchronises every attachment of a SysV segment in the caller's address space; see
+    /// `ipc::shm` for when.
+    pub(crate) async fn sync_segments(&self, caller: &Caller<'_>) {
+        let mm = self.mm(caller.task());
+        if !mm.shared.load(Ordering::Acquire) {
+            return;
+        }
+        let is_segment = |mapping: &Mapping| {
+            mapping
+                .shared()
+                .is_some_and(|shared| matches!(shared.object, Object::Segment(_)))
+        };
+        self.sync_where(caller, is_segment).await;
+    }
+
+    async fn sync_where(&self, caller: &Caller<'_>, pick: impl FnMut(&Mapping) -> bool) {
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let mut mappings = mm.space().mappings.take_where(pick);
+        for mapping in &mut mappings {
+            // Nothing to report to: the syscall that got here is about something else.
+            let _ = mapping.sync(caller.memory()).await;
+        }
+        mm.restore(mappings);
+    }
+
+    /// Whether a live process other than `task`'s runs on `task`'s address space: a vfork
+    /// parent or child (`mm_users` above what the group holds).
+    pub(crate) fn mm_shared_elsewhere(&self, task: TaskId) -> bool {
+        let state = self.state.read().unwrap();
+        let Some(me) = state.tasks.get(&task) else {
+            return false;
+        };
+        state.tasks.values().any(|other| {
+            !Arc::ptr_eq(&other.process, &me.process)
+                && Arc::ptr_eq(&other.mm, &me.mm)
+                && !other.process.group.exiting()
+        })
+    }
+
+    /// `exit_mmap` while the memory is still there: writes back every shared mapping and drops
+    /// all of them, for `exit`, `exit_group` and `execve`. An address space a vfork relative
+    /// still runs on stays as it is (`mmput` of a user that is not the last).
+    pub(crate) async fn mm_release(&self, caller: &Caller<'_>) {
+        if self.mm_shared_elsewhere(caller.task()) {
+            return;
+        }
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let mappings = mm.space().mappings.clear();
+        for mut mapping in mappings {
+            let _ = mapping.write_back(caller.memory()).await;
+        }
+        mm.shared.store(false, Ordering::Release);
+    }
+
+    /// Maps a SysV segment attachment of `len` bytes at `addr`, or anywhere for 0, replacing
+    /// what is there only with `remap`. Returns the address.
+    pub(crate) async fn map_segment(
+        &self,
+        caller: &Caller<'_>,
+        addr: Uptr,
+        len: u64,
+        remap: bool,
+        shared: Shared,
+    ) -> Result<Uptr, Errno> {
+        let pages = len.div_ceil(PAGE_SIZE);
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let start = match addr {
+            0 => self.map_anywhere(caller, pages).await? as Uptr,
+            addr => {
+                let (first, end) = (
+                    u64::from(addr) / PAGE_SIZE,
+                    u64::from(addr) / PAGE_SIZE + pages,
+                );
+                let size = self.mem_size(caller).await;
+                let busy =
+                    (first..end).any(|page| mm.space().page_mapped(page, size / PAGE_SIZE));
+                if busy && !remap {
+                    return Err(Errno::EINVAL);
+                }
+                self.map_fixed(caller, addr, pages, false)
+                    .await
+                    .map_err(|_| Errno::EINVAL)?
+            }
+        };
+        let mut mapping = Mapping {
+            start: start.into(),
+            len: pages * PAGE_SIZE,
+            source: Source::Shared(shared),
+        };
+        if let Err(errno) = mapping.fill(caller.memory()).await {
+            mm.space().unmap(start.into(), pages * PAGE_SIZE);
+            return Err(errno);
+        }
+        mm.insert(mapping);
+        Ok(start)
+    }
+
+    /// `shmdt`: unmaps the attachment that starts at `addr`, every part of it. `EINVAL` if no
+    /// attachment starts there.
+    pub(crate) async fn unmap_segment(&self, caller: &Caller<'_>, addr: Uptr) -> Result<(), Errno> {
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let attachment = {
+            let space = mm.space();
+            let mapping = space.mappings.starting_at(addr.into());
+            match mapping
+                .and_then(Mapping::shared)
+                .map(|shared| &shared.object)
+            {
+                Some(Object::Segment(attachment)) => attachment.clone(),
+                _ => return Err(Errno::EINVAL),
+            }
+        };
+        let same = |mapping: &Mapping| {
+            matches!(mapping.shared().map(|s| &s.object),
+                Some(Object::Segment(other)) if Arc::ptr_eq(other, &attachment))
+        };
+        let parts = mm.space().mappings.take_where(same);
+        for mut part in parts {
+            let _ = part.write_back(caller.memory()).await;
+            mm.space().unmap(part.start, part.len);
+        }
+        let any = mm.space().mappings.any_shared();
+        mm.shared.store(any, Ordering::Release);
+        Ok(())
+    }
+}
+
+/// The file checks of `do_mmap`, in its order, and the source the mapping copies.
+fn check_file_mapping(
+    file: Arc<OpenFile>,
+    offset: Loff,
+    pages: u64,
+    prot: ProtFlags,
+    flags: MapFlags,
+) -> Result<Source, Errno> {
+    // `file_mmap_ok`: the range must fit below the largest file offset.
+    let offset = u64::try_from(offset).map_err(|_| Errno::EOVERFLOW)?;
+    if offset
+        .checked_add(pages * PAGE_SIZE)
+        .is_none_or(|end| end > i64::MAX as u64)
+    {
+        return Err(Errno::EOVERFLOW);
+    }
+    let writable = file.check_writable().is_ok();
+    let shared = match flags & MapFlags::MAP_TYPE {
+        MapFlags::MAP_SHARED | MapFlags::MAP_SHARED_VALIDATE => {
+            let validate = flags & MapFlags::MAP_TYPE == MapFlags::MAP_SHARED_VALIDATE;
+            if validate && !(flags & !LEGACY_MAP_MASK).is_empty() {
+                return Err(Errno::EOPNOTSUPP);
+            }
+            if prot.contains(ProtFlags::PROT_WRITE) && !writable {
+                return Err(Errno::EACCES);
+            }
+            true
+        }
+        MapFlags::MAP_PRIVATE => false,
+        _ => return Err(Errno::EINVAL),
+    };
+    if file.check_readable().is_err() {
+        return Err(Errno::EACCES);
+    }
+    // Only regular files have pages to map (`can_mmap_file`).
+    match file.inode() {
+        Ok(inode) if inode.file_type() == FileType::Regular => {}
+        _ => return Err(Errno::ENODEV),
+    }
+    Ok(match shared {
+        true => Source::Shared(Shared {
+            object: Object::File(file),
+            offset,
+            shadow: Vec::new(),
+            writable,
+        }),
+        false => Source::Private { file, offset },
+    })
 }
 
 #[cfg(test)]

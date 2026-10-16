@@ -606,8 +606,10 @@ fn prlimit_of_another_process_sets_its_descriptor_limit() {
 
 mod cred;
 mod ipc;
+mod mapping;
 mod net;
 mod proc;
 mod procfs;
 mod ptimer;
 mod stdio;
+mod sysvipc;

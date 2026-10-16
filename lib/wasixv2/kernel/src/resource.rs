@@ -13,7 +13,7 @@ use wasixv2_syscalls::{Caller, Errno, SysResult, UserSliceMut, read_value, write
 
 use wasixv2_vfs::Cap;
 
-use crate::{Kernel, mm::PAGE_SIZE, time};
+use crate::{Kernel, Process, State, mm::PAGE_SIZE, time};
 
 const INFINITY: u64 = u64::MAX;
 /// `RLIM_NLIMITS`.
@@ -75,6 +75,22 @@ impl Default for Resources {
     }
 }
 
+/// `copy_process`'s `RLIMIT_NPROC` check for a new task of `process`: a user other than root
+/// without `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN` cannot have more tasks than the soft limit.
+pub(crate) fn nproc_exceeded(state: &State, process: &Process) -> bool {
+    let cred = process.cred();
+    let uid = cred.user.real;
+    if uid == 0 || cred.capable(Cap::SysResource) || cred.capable(Cap::SysAdmin) {
+        return false;
+    }
+    let tasks = state
+        .tasks
+        .values()
+        .filter(|task| task.process.cred().user.real == uid)
+        .count();
+    process.resources.lock().unwrap().nproc_reached(tasks)
+}
+
 impl Resources {
     /// Every limit, indexed by `RLIMIT_*`.
     pub(crate) fn limits(&self) -> &[Rlimit64; NLIMITS] {
@@ -85,12 +101,15 @@ impl Resources {
         self.nice
     }
 
-    /// `copy_process`'s `RLIMIT_NPROC` check, given how many tasks the user has: a user other
-    /// than root without `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN`, which every process here is,
-    /// cannot have more tasks than the soft limit.
-    pub(crate) fn nproc_reached(&self, tasks: usize) -> bool {
+    /// Whether `tasks`, how many the user has, reach the soft `RLIMIT_NPROC`.
+    fn nproc_reached(&self, tasks: usize) -> bool {
         let limit = self.limits[RlimitResource::RLIMIT_NPROC.0 as usize].rlim_cur;
         tasks as u64 >= limit
+    }
+
+    /// The soft limit of `resource`.
+    pub(crate) fn soft(&self, resource: RlimitResource) -> u64 {
+        self.limits[resource.0 as usize].rlim_cur
     }
 
     pub(crate) fn nofile(&self) -> usize {

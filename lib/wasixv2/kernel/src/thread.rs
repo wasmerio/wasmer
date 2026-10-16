@@ -40,6 +40,7 @@ impl Group {
         group
     }
 
+    /// The group is exiting or exited.
     pub(crate) fn exiting(&self) -> bool {
         self.state.lock().unwrap().exit.is_some()
     }
@@ -148,13 +149,7 @@ impl Kernel {
                 .get(&parent)
                 .expect("syscall from an unknown task");
             let process = task.process.clone();
-            // Every task belongs to the one user.
-            if process
-                .resources
-                .lock()
-                .unwrap()
-                .nproc_reached(state.tasks.len())
-            {
+            if crate::resource::nproc_exceeded(&state, &process) {
                 return Err(Errno::EAGAIN.into());
             }
             {
@@ -220,6 +215,7 @@ impl Kernel {
             group.live == 0
         };
         if last {
+            self.mm_release(caller).await;
             self.do_group_exit(task, status);
             return Ok(());
         }
@@ -242,6 +238,7 @@ impl Kernel {
     }
 
     pub(crate) async fn sys_exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
+        self.mm_release(caller).await;
         self.do_group_exit(caller.task(), status);
         Ok(())
     }
@@ -276,6 +273,12 @@ impl Kernel {
         signals.cancel_real_timer();
         crate::posix_timer::exit_itimers(&signals);
         process.group.exited.wake(PollMask::empty());
+        // ---- ipc ----
+        // `exit_sem`, and `exit_mm` for what nobody could write back.
+        self.ipc_process_exited(process.pid.0);
+        if !self.mm_shared_elsewhere(task) {
+            self.mm(task).reset();
+        }
         // ---- proc ----
         self.process_exited(&process, task, status);
     }
@@ -293,7 +296,7 @@ impl Kernel {
                     mm: self.mm(caller.task()).id(),
                     addr: thread.clear_child_tid,
                 };
-                self.futexes.wake(key, 1, u32::MAX);
+                let _ = self.futexes.wake(key, 1, u32::MAX);
             }
         }
     }

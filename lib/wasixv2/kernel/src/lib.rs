@@ -13,6 +13,7 @@ mod fs;
 mod futex;
 mod ident;
 mod ioctl;
+mod ipc;
 mod mm;
 mod net;
 mod netlink;
@@ -46,16 +47,18 @@ pub use ident::{Uname, UnameError};
 use wasixv2_abi::{
     AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstBuf, ConstFileHandlePtr,
     ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr, ConstKernelTimespecArray,
-    ConstKernelTimespecPtr, ConstOpenHowPtr, ConstRlimit64Ptr, ConstSchedParamPtr, ConstSigsetPtr,
-    ConstXattrArgsPtr, Cstr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp,
-    Gid, GidArray, GidPtr, GrndFlags, IoctlRequest, KernelItimerspecPtr, KernelTimespecPtr,
-    LinuxDirent64Ptr, Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags, MembarrierCmd,
-    MembarrierCmdFlags, MlockFlags, Mode, MremapFlags, MsyncFlags, NewUtsnamePtr, OpenFlags, Pid,
-    PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr,
-    RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedParamPtr, SchedPolicy,
-    SeekWhence, Signal, SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr, StatxMask, StatxPtr,
-    SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr,
-    Uid, UidPtr, Ulong, UlongArray, Uptr, Usize, UsizePtr, VoidPtr, XattrArgsPtr, XattrFlags,
+    ConstKernelTimespecPtr, ConstMqAttrPtr, ConstMsgbufPtr, ConstOpenHowPtr, ConstRlimit64Ptr,
+    ConstSchedParamPtr, ConstSembufArray, ConstSigeventPtr, ConstSigsetPtr, ConstXattrArgsPtr,
+    Cstr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp, Gid, GidArray,
+    GidPtr, GrndFlags, IoctlRequest, KernelItimerspecPtr, KernelTimespecPtr, LinuxDirent64Ptr,
+    Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags,
+    MlockFlags, Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr,
+    OpenFlags, Pid, PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource,
+    RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedParamPtr,
+    SchedPolicy, SeekWhence, Shmid64DsPtr, Signal, SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr,
+    StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags,
+    TimerfdSettimeFlags, TmsPtr, U32Ptr, Uid, UidPtr, Ulong, UlongArray, Uptr, Usize, UsizePtr,
+    VoidPtr, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
@@ -109,6 +112,9 @@ pub struct Kernel {
     inotify: Arc<fs::inotify::Registry>,
     // ---- thr ----
     futexes: futex::Futexes,
+    // ---- ipc ----
+    /// SysV IPC objects and POSIX message queues.
+    ipc: ipc::Ipc,
     // ---- proc ----
     /// The process tree: parents, zombies, vfork relations and images waiting for `execve`.
     procs: process::Procs,
@@ -198,6 +204,7 @@ impl Kernel {
             inotify: fs::inotify::Registry::install(&vfs),
             vfs,
             futexes: futex::Futexes::default(),
+            ipc: ipc::Ipc::default(),
             procs: process::Procs::default(),
             epoll_nesting: Mutex::default(),
             credentials: Credentials::default(),
@@ -1774,6 +1781,212 @@ impl Syscalls for Kernel {
         out: KernelItimerspecPtr,
     ) -> SysResult<i32> {
         self.sys_timerfd_gettime(caller, fd, out).await
+    }
+
+    // ---- ipc ----
+
+    async fn msgget(&self, caller: &Caller<'_>, key: i32, msgflg: i32) -> SysResult<i32> {
+        self.sys_msgget(caller, key, msgflg)
+    }
+
+    async fn msgctl(
+        &self,
+        caller: &Caller<'_>,
+        msqid: i32,
+        cmd: i32,
+        buf: Msqid64DsPtr,
+    ) -> SysResult<i32> {
+        self.sys_msgctl(caller, msqid, cmd, buf.addr()).await
+    }
+
+    async fn msgrcv(
+        &self,
+        caller: &Caller<'_>,
+        msqid: i32,
+        msgp: MsgbufPtr,
+        msgsz: Usize,
+        msgtyp: i32,
+        msgflg: i32,
+    ) -> SysResult<i32> {
+        let n = self
+            .sys_msgrcv(caller, msqid, msgp, msgsz, msgtyp, msgflg)
+            .await?;
+        self.sync_segments(caller).await;
+        Ok(n)
+    }
+
+    async fn msgsnd(
+        &self,
+        caller: &Caller<'_>,
+        msqid: i32,
+        msgp: ConstMsgbufPtr,
+        msgsz: Usize,
+        msgflg: i32,
+    ) -> SysResult<i32> {
+        self.sync_segments(caller).await;
+        self.sys_msgsnd(caller, msqid, msgp, msgsz, msgflg).await
+    }
+
+    async fn semget(
+        &self,
+        caller: &Caller<'_>,
+        key: i32,
+        nsems: i32,
+        semflg: i32,
+    ) -> SysResult<i32> {
+        self.sys_semget(caller, key, nsems, semflg)
+    }
+
+    async fn semctl(
+        &self,
+        caller: &Caller<'_>,
+        semid: i32,
+        semnum: i32,
+        cmd: i32,
+        arg: Ulong,
+    ) -> SysResult<i32> {
+        self.sys_semctl(caller, semid, semnum, cmd, arg).await
+    }
+
+    async fn semop(
+        &self,
+        caller: &Caller<'_>,
+        semid: i32,
+        tsops: ConstSembufArray,
+        nsops: u32,
+    ) -> SysResult<i32> {
+        let none = ConstKernelTimespecPtr::NULL;
+        self.semtimedop_time64(caller, semid, tsops, nsops, none)
+            .await
+    }
+
+    async fn semtimedop_time64(
+        &self,
+        caller: &Caller<'_>,
+        semid: i32,
+        tsops: ConstSembufArray,
+        nsops: u32,
+        timeout: ConstKernelTimespecPtr,
+    ) -> SysResult<i32> {
+        self.sync_segments(caller).await;
+        let result = self
+            .sys_semtimedop(caller, semid, tsops, nsops, timeout)
+            .await;
+        self.sync_segments(caller).await;
+        result
+    }
+
+    async fn shmget(
+        &self,
+        caller: &Caller<'_>,
+        key: i32,
+        size: Usize,
+        shmflg: i32,
+    ) -> SysResult<i32> {
+        self.sys_shmget(caller, key, size, shmflg)
+    }
+
+    async fn shmctl(
+        &self,
+        caller: &Caller<'_>,
+        shmid: i32,
+        cmd: i32,
+        buf: Shmid64DsPtr,
+    ) -> SysResult<i32> {
+        self.sys_shmctl(caller, shmid, cmd, buf.addr()).await
+    }
+
+    async fn shmat(
+        &self,
+        caller: &Caller<'_>,
+        shmid: i32,
+        shmaddr: Uptr,
+        shmflg: i32,
+    ) -> SysResult<i32> {
+        self.sys_shmat(caller, shmid, shmaddr, shmflg).await
+    }
+
+    async fn shmdt(&self, caller: &Caller<'_>, shmaddr: Uptr) -> SysResult<i32> {
+        self.sys_shmdt(caller, shmaddr).await
+    }
+
+    async fn mq_open(
+        &self,
+        caller: &Caller<'_>,
+        u_name: Cstr,
+        oflag: OpenFlags,
+        mode: Mode,
+        u_attr: ConstMqAttrPtr,
+    ) -> SysResult<i32> {
+        self.sys_mq_open(caller, u_name, oflag, mode, u_attr).await
+    }
+
+    async fn mq_unlink(&self, caller: &Caller<'_>, u_name: Cstr) -> SysResult<i32> {
+        self.sys_mq_unlink(caller, u_name).await
+    }
+
+    async fn mq_timedsend_time64(
+        &self,
+        caller: &Caller<'_>,
+        mqdes: i32,
+        u_msg_ptr: ConstBuf,
+        msg_len: Usize,
+        msg_prio: u32,
+        u_abs_timeout: ConstKernelTimespecPtr,
+    ) -> SysResult<i32> {
+        self.sync_segments(caller).await;
+        self.sys_mq_timedsend(
+            caller,
+            Fd(mqdes),
+            u_msg_ptr,
+            msg_len,
+            msg_prio,
+            u_abs_timeout,
+        )
+        .await
+    }
+
+    async fn mq_timedreceive_time64(
+        &self,
+        caller: &Caller<'_>,
+        mqdes: i32,
+        u_msg_ptr: Buf,
+        msg_len: Usize,
+        u_msg_prio: U32Ptr,
+        u_abs_timeout: ConstKernelTimespecPtr,
+    ) -> SysResult<i32> {
+        let n = self
+            .sys_mq_timedreceive(
+                caller,
+                Fd(mqdes),
+                u_msg_ptr,
+                msg_len,
+                u_msg_prio,
+                u_abs_timeout,
+            )
+            .await?;
+        self.sync_segments(caller).await;
+        Ok(n)
+    }
+
+    async fn mq_notify(
+        &self,
+        caller: &Caller<'_>,
+        mqdes: i32,
+        u_notification: ConstSigeventPtr,
+    ) -> SysResult<i32> {
+        self.sys_mq_notify(caller, Fd(mqdes), u_notification).await
+    }
+
+    async fn mq_getsetattr(
+        &self,
+        caller: &Caller<'_>,
+        mqdes: i32,
+        u_mqstat: ConstMqAttrPtr,
+        u_omqstat: MqAttrPtr,
+    ) -> SysResult<i32> {
+        self.sys_mq_getsetattr(caller, Fd(mqdes), u_mqstat, u_omqstat)
+            .await
     }
 
     // ---- poll ----

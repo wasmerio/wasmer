@@ -446,13 +446,7 @@ impl Kernel {
             let mut state = self.state.lock().unwrap();
             let task = &state.tasks[&parent_task];
             let parent = task.process.clone();
-            // Every task belongs to the one user.
-            if parent
-                .resources
-                .lock()
-                .unwrap()
-                .nproc_reached(state.tasks.len())
-            {
+            if crate::resource::nproc_exceeded(&state, &parent) {
                 return Err(Errno::EAGAIN);
             }
             if parent.group.exiting() {
@@ -488,7 +482,7 @@ impl Kernel {
             // copies.
             let mm = match flags.contains(CloneFlags::CLONE_VM) {
                 true => task.mm.clone(),
-                false => Arc::new(task.mm.dup()),
+                false => Arc::new(task.mm.dup(id.0)),
             };
             let new = Task {
                 process: process.clone(),
@@ -582,6 +576,7 @@ impl Kernel {
             let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
             file = (cwd, interp, AtFlags(0));
         };
+        self.mm_release(caller).await;
         self.exec_commit(caller.task(), &name, args, env, image, binary);
         Ok(0)
     }

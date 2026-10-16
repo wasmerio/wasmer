@@ -180,6 +180,7 @@ impl Kernel {
         let mut buf = vec![0; total.min(IO_CHUNK)];
         let mut cursor = Cursor::new(iovecs);
         let mut done = 0;
+        self.sync_file_mappings(caller, file).await;
         loop {
             let want = (total - done).min(buf.len());
             let n = match target.read(&mut buf[..want], done).await {
@@ -236,13 +237,14 @@ impl Kernel {
         let mut buf = vec![0; step];
         let mut cursor = Cursor::new(iovecs);
         let mut done = 0;
+        self.sync_file_mappings(caller, file).await;
         loop {
             let (n, faulted) = cursor.copy_in(caller.memory(), &mut buf).await;
             if n == 0 && faulted {
-                return match done {
-                    0 => Err(Errno::EFAULT.into()),
-                    _ => Ok(done as u32),
-                };
+                if done == 0 {
+                    return Err(Errno::EFAULT.into());
+                }
+                break;
             }
             let written = match target.write(&buf[..n], done).await {
                 Ok(written) => written,
@@ -254,6 +256,7 @@ impl Kernel {
                 break;
             }
         }
+        self.sync_file_mappings(caller, file).await;
         if flags.intersects(RwfFlags::RWF_DSYNC | RwfFlags::RWF_SYNC)
             && let Backing::Inode(inner) = &file.backing
         {
@@ -500,6 +503,8 @@ impl Kernel {
         let interrupt = self.interrupt(caller);
         let mut done = 0;
         let mut buf = vec![0; count.min(IO_CHUNK)];
+        self.sync_file_mappings(caller, &input).await;
+        self.sync_file_mappings(caller, &output).await;
         while done < count {
             let want = (count - done).min(buf.len());
             let n = input.read_at(&mut buf[..want], pos).await?;
@@ -517,6 +522,7 @@ impl Kernel {
                 break;
             }
         }
+        self.sync_file_mappings(caller, &output).await;
         if offset.is_null() {
             input.set_pos(pos);
         } else {
@@ -584,6 +590,8 @@ impl Kernel {
         }
         let mut done = 0u64;
         let mut buf = vec![0; (len as usize).min(IO_CHUNK)];
+        self.sync_file_mappings(caller, &input).await;
+        self.sync_file_mappings(caller, &output).await;
         while done < len {
             let want = ((len - done) as usize).min(buf.len());
             let n = src.read_at(&mut buf[..want], pos_in).await?;
@@ -598,6 +606,7 @@ impl Kernel {
                 break;
             }
         }
+        self.sync_file_mappings(caller, &output).await;
         if off_in.is_null() {
             input.set_pos(pos_in);
         } else {
@@ -719,7 +728,10 @@ impl Kernel {
         {
             return Err(Errno::EPERM.into());
         }
-        inner.allocate(alloc, offset as u64, len as u64).await?;
+        self.sync_file_mappings(caller, &file).await;
+        let allocated = inner.allocate(alloc, offset as u64, len as u64).await;
+        self.sync_file_mappings(caller, &file).await;
+        allocated?;
         Ok(0)
     }
 
@@ -740,7 +752,10 @@ impl Kernel {
         if inner.file_type() != FileType::Regular || !inner.writable {
             return Err(Errno::EINVAL.into());
         }
-        inner.set_size(length as u64).await?;
+        self.sync_file_mappings(caller, &file).await;
+        let resized = inner.set_size(length as u64).await;
+        self.sync_file_mappings(caller, &file).await;
+        resized?;
         Ok(0)
     }
 

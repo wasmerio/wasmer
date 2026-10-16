@@ -260,6 +260,13 @@ impl NetlinkSocket {
         Blocking::new(&*self.host, io, flags, self.timeouts.get(dir))
     }
 
+    /// `netlink_sendskb`: queues a datagram the kernel sends on its own, such as the cookie of
+    /// a `SIGEV_THREAD` message queue notification.
+    pub(crate) fn deliver(&self, datagram: Vec<u8>) {
+        self.reply(datagram);
+        self.wait.wake(PollMask::READABLE);
+    }
+
     pub(crate) fn bind(&self, raw: &[u8]) -> Result<i32, Errno> {
         if raw.len() < SOCKADDR_NL {
             return Err(Errno::EINVAL);

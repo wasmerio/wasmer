@@ -22,12 +22,16 @@ use wasixv2_vfs::{
 const PIPEFS_MAGIC: u32 = 0x5049_5045;
 const SOCKFS_MAGIC: u32 = 0x534f_434b;
 pub(crate) const ANON_INODE_FS_MAGIC: u32 = 0x0904_1934;
+/// `MQUEUE_MAGIC`.
+const MQUEUE_MAGIC: u32 = 0x1980_0202;
 
 /// The internal mounts behind objects without a name.
 pub(crate) struct Pseudo {
     pipe: (Arc<Mount>, Arc<PseudoFs>),
     socket: (Arc<Mount>, Arc<PseudoFs>),
     anon: Arc<Mount>,
+    /// The kernel's own mount of the message queue filesystem (`mq_mnt`).
+    mqueue: (Arc<Mount>, Arc<PseudoFs>),
     /// The one inode every anonymous file shares (`anon_inode_inode`); only its name differs.
     anon_inode: Arc<dyn Node>,
 }
@@ -41,6 +45,7 @@ impl Pseudo {
         let pipe = mount(Kind::Pipe);
         let socket = mount(Kind::Socket);
         let (anon, anon_fs) = mount(Kind::Anon);
+        let mqueue = mount(Kind::Mqueue);
         // Anonymous inodes have no file type (`alloc_anon_inode`); the VFS needs one, and
         // `statx` masks it off as `anon_inode_getattr` does. The one inode is made at boot, so
         // root owns it.
@@ -49,6 +54,7 @@ impl Pseudo {
             pipe,
             socket,
             anon,
+            mqueue,
             anon_inode,
         }
     }
@@ -67,6 +73,17 @@ impl Pseudo {
         mount.pseudo_path(fs.new_node(FileType::Socket, 0o777, owner), b"")
     }
 
+    /// The inode of a new POSIX message queue (`mqueue_get_inode`), owned by `owner` with the
+    /// permission bits `mode`.
+    pub(crate) fn mqueue_inode(&self, owner: (u32, u32), mode: u32) -> Arc<dyn Node> {
+        self.mqueue.1.new_node(FileType::Regular, mode, owner)
+    }
+
+    /// Where the queue `name` with the inode `inode` is, as an open descriptor names it.
+    pub(crate) fn mqueue(&self, inode: Arc<dyn Node>, name: &[u8]) -> Path {
+        self.mqueue.0.pseudo_path(inode, name)
+    }
+
     /// A path for an anonymous file of the class `name`, such as `[eventfd]`
     /// (`anon_inode_getfile`).
     pub(crate) fn anon(&self, name: &str) -> Path {
@@ -80,6 +97,7 @@ enum Kind {
     Pipe,
     Socket,
     Anon,
+    Mqueue,
 }
 
 struct PseudoFs {
@@ -121,6 +139,7 @@ impl Filesystem for PseudoFs {
             Kind::Pipe => ("pipefs", PIPEFS_MAGIC),
             Kind::Socket => ("sockfs", SOCKFS_MAGIC),
             Kind::Anon => ("anon_inodefs", ANON_INODE_FS_MAGIC),
+            Kind::Mqueue => ("mqueue", MQUEUE_MAGIC),
         };
         FsInfo {
             name,
@@ -147,12 +166,14 @@ impl Filesystem for PseudoFs {
         })
     }
 
-    /// `pipefs_dname`, `sockfs_dname` and `anon_inodefs_dname`.
+    /// `pipefs_dname`, `sockfs_dname` and `anon_inodefs_dname`; a queue is named by its path in
+    /// the queue filesystem.
     fn dname(&self, name: &[u8], node: &dyn Node) -> Option<Vec<u8>> {
         Some(match self.kind {
             Kind::Pipe => format!("pipe:[{}]", node.ino()).into_bytes(),
             Kind::Socket => format!("socket:[{}]", node.ino()).into_bytes(),
             Kind::Anon => [b"anon_inode:", name].concat(),
+            Kind::Mqueue => [b"/", name].concat(),
         })
     }
 }
