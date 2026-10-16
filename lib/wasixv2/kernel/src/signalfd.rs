@@ -186,7 +186,10 @@ impl Kernel {
         if flags.contains(SignalfdFlags::SFD_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let file = OpenFile::new(Backing::Stream(Arc::new(object)), status);
+        let file = OpenFile::new(
+            Backing::Stream(Arc::new(object), self.pseudo.anon("[signalfd]")),
+            status,
+        );
         let [fd] =
             self.install_files(caller, [file], flags.contains(SignalfdFlags::SFD_CLOEXEC))?;
         Ok(fd)

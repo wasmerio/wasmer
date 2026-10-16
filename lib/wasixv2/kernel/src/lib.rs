@@ -67,8 +67,8 @@ use crate::{
     startup::Startup,
 };
 
-/// Most bytes one `read` or `write` moves. Partial transfers are valid for both, and this bounds
-/// the host allocation a guest-chosen length can cause.
+/// Most bytes one step of a `read` or `write` moves through the kernel; larger transfers go
+/// in several steps. Bounds the host allocation a guest-chosen length can cause.
 const IO_CHUNK: usize = 64 * 1024;
 
 /// Most bytes any read or write family call transfers (`MAX_RW_COUNT`: `INT_MAX` rounded down
@@ -392,7 +392,7 @@ impl Syscalls for Kernel {
         vec: ConstIovecArray,
         vlen: Ulong,
     ) -> SysResult<u32> {
-        self.sigpipe(caller, self.sys_writev(caller, fd, vec, vlen).await)
+        self.sys_writev(caller, fd, vec, vlen).await
     }
 
     async fn pread64(
@@ -442,10 +442,8 @@ impl Syscalls for Kernel {
         if pos < 0 {
             return Err(Errno::EINVAL.into());
         }
-        let ret = self
-            .sys_pwritev2(caller, fd, vec, vlen, pos, RwfFlags(0))
-            .await;
-        self.sigpipe(caller, ret)
+        self.sys_pwritev2(caller, fd, vec, vlen, pos, RwfFlags(0))
+            .await
     }
 
     async fn preadv2(
@@ -469,8 +467,7 @@ impl Syscalls for Kernel {
         pos: i64,
         flags: RwfFlags,
     ) -> SysResult<u32> {
-        let ret = self.sys_pwritev2(caller, fd, vec, vlen, pos, flags).await;
-        self.sigpipe(caller, ret)
+        self.sys_pwritev2(caller, fd, vec, vlen, pos, flags).await
     }
 
     async fn lseek(
@@ -491,10 +488,8 @@ impl Syscalls for Kernel {
         offset: LoffPtr,
         count: Usize,
     ) -> SysResult<i32> {
-        let ret = self
-            .sys_sendfile(caller, out_fd, in_fd, offset, count)
-            .await;
-        self.sigpipe(caller, ret)
+        self.sys_sendfile_signalled(caller, out_fd, in_fd, offset, count)
+            .await
     }
 
     async fn copy_file_range(
@@ -1022,19 +1017,13 @@ impl Syscalls for Kernel {
     async fn read(&self, caller: &Caller<'_>, fd: Fd, buf: UserSliceMut) -> SysResult<u32> {
         let file = self.file(caller.task(), fd)?;
         file.check_readable()?;
-        let mut data = vec![0; (buf.len as usize).min(IO_CHUNK)];
-        let n = file.read(&*self.interrupt(caller), &mut data).await?;
-        buf.copy_out(caller.memory(), &data[..n]).await?;
-        Ok(n as u32)
+        self.read_buf(caller, &file, buf, fs::At::Position).await
     }
 
     async fn write(&self, caller: &Caller<'_>, fd: Fd, buf: UserSlice) -> SysResult<u32> {
         let file = self.file(caller.task(), fd)?;
         file.check_writable()?;
-        let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
-        let interrupt = self.interrupt(caller);
-        let n = self.sigpipe(caller, file.write(&*interrupt, &data).await)?;
-        Ok(n as u32)
+        self.write_buf(caller, &file, buf, fs::At::Position).await
     }
 
     // ---- thr ----

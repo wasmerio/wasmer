@@ -227,6 +227,10 @@ impl Pollable for SocketFile {
 }
 
 impl FileObject for SocketFile {
+    fn messages(&self) -> bool {
+        self.socket.kind() != wasixv2_vnet::SocketKind::Stream
+    }
+
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let mut wait = self.blocking(io, RCV, MsgFlags(0));

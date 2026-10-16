@@ -9,9 +9,11 @@ use wasixv2_syscalls::{
 };
 use wasixv2_vfs::{AllocMode, DirEntry, DirSink, FileType};
 
+use wasixv2_wait::Interrupt;
+
 use crate::{
     IO_CHUNK, Kernel, MAX_RW_COUNT,
-    file::{Backing, OpenFile, SeekBase},
+    file::{Backing, OpenFile, SeekBase, check_file_size},
 };
 
 /// Most iovecs one `readv` or `writev` takes, as Linux's `UIO_MAXIOV`.
@@ -27,16 +29,131 @@ const RWF_KNOWN: u32 = RwfFlags::RWF_HIPRI.0
 
 /// Where a vectored transfer happens.
 #[derive(Clone, Copy)]
-enum At {
+pub(crate) enum At {
     /// The file position, which moves.
     Position,
     /// An explicit offset; the position stays.
     Offset(u64),
 }
 
+/// Most bytes one datagram write may carry; a larger one is `EMSGSIZE`, as it would exceed
+/// any socket's send buffer. Bounds the host allocation a guest-chosen length causes.
+const MAX_MESSAGE: usize = 4 << 20;
+
+/// A position in a list of guest buffers, for transfers made in steps.
+struct Cursor<'a> {
+    iovecs: &'a [Iovec],
+    index: usize,
+    offset: usize,
+}
+
+impl<'a> Cursor<'a> {
+    fn new(iovecs: &'a [Iovec]) -> Self {
+        Self {
+            iovecs,
+            index: 0,
+            offset: 0,
+        }
+    }
+
+    /// The guest buffer pieces covering the next `len` bytes, and advances past them.
+    fn take(&mut self, mut len: usize) -> Vec<(u32, usize)> {
+        let mut pieces = Vec::new();
+        while len > 0 && self.index < self.iovecs.len() {
+            let iov = &self.iovecs[self.index];
+            let n = (iov.iov_len as usize - self.offset).min(len);
+            if n > 0 {
+                pieces.push((iov.iov_base.wrapping_add(self.offset as u32), n));
+            }
+            self.offset += n;
+            len -= n;
+            if self.offset == iov.iov_len as usize {
+                self.index += 1;
+                self.offset = 0;
+            }
+        }
+        pieces
+    }
+
+    /// Copies the next bytes in from the guest, up to `buf.len()`. A fault ends the copy:
+    /// the count before it and `true`.
+    async fn copy_in(&mut self, memory: &dyn UserMemory, buf: &mut [u8]) -> (usize, bool) {
+        let mut n = 0;
+        for (addr, len) in self.take(buf.len()) {
+            if memory.read(addr, &mut buf[n..n + len]).await.is_err() {
+                return (n, true);
+            }
+            n += len;
+        }
+        (n, false)
+    }
+
+    /// Copies `data` out to the next guest bytes. A fault ends the copy: the count before it
+    /// and `true`.
+    async fn copy_out(&mut self, memory: &dyn UserMemory, data: &[u8]) -> (usize, bool) {
+        let mut n = 0;
+        for (addr, len) in self.take(data.len()) {
+            if memory.write(addr, &data[n..n + len]).await.is_err() {
+                return (n, true);
+            }
+            n += len;
+        }
+        (n, false)
+    }
+}
+
+/// Where the steps of one read or write go. A transfer at the file position holds the
+/// position lock throughout (`fdget_pos`), so threads sharing the description never interleave
+/// within one call.
+struct Target<'a> {
+    file: &'a OpenFile,
+    interrupt: &'a dyn Interrupt,
+    at: At,
+    /// Writes go to the end of the file (`O_APPEND` or `RWF_APPEND`, unless `RWF_NOAPPEND`).
+    append: bool,
+    /// The offset the transfer started at, for files.
+    start: u64,
+}
+
+impl Target<'_> {
+    async fn read(&self, buf: &mut [u8], done: usize) -> SysResult<usize> {
+        let Backing::Inode(inner) = &self.file.backing else {
+            return self.file.read(self.interrupt, buf).await;
+        };
+        let offset = self.start + done as u64;
+        let n = inner.read_at(buf, offset).await?;
+        if matches!(self.at, At::Position) {
+            self.file.set_pos(offset + n as u64);
+        }
+        Ok(n)
+    }
+
+    async fn write(&self, data: &[u8], done: usize) -> SysResult<usize> {
+        let Backing::Inode(inner) = &self.file.backing else {
+            return self.file.write(self.interrupt, data).await;
+        };
+        if self.append {
+            let (end, n) = inner.append(data).await?;
+            if matches!(self.at, At::Position) {
+                self.file.set_pos(end);
+            }
+            return Ok(n);
+        }
+        let offset = self.start + done as u64;
+        check_file_size(offset, data.len())?;
+        let n = inner.write_at(data, offset).await?;
+        if matches!(self.at, At::Position) {
+            self.file.set_pos(offset + n as u64);
+        }
+        Ok(n)
+    }
+}
+
 impl Kernel {
-    /// Reads into the buffers in order. A blocked read ends on a signal, as `read` does.
-    async fn read_into_iovecs(
+    /// Reads into the buffers in order. Files are read in steps until the buffers are full or
+    /// the file ends; a stream read returns what one read of the object gives, as Linux's
+    /// `pipe_read` and socket reads do. A blocked read ends on a signal.
+    pub(crate) async fn read_into_iovecs(
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,
@@ -44,29 +161,152 @@ impl Kernel {
         at: At,
     ) -> SysResult<u32> {
         let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
-        let mut data = vec![0; total.min(IO_CHUNK)];
-        let n = match at {
-            At::Position => file.read(&*self.interrupt(caller), &mut data).await?,
-            At::Offset(offset) => file.read_at(&mut data, offset).await?,
+        let interrupt = self.interrupt(caller);
+        let _pos = match (at, &file.backing) {
+            (At::Position, Backing::Inode(_)) => Some(file.lock_pos().await),
+            _ => None,
         };
-        Ok(scatter(caller.memory(), iovecs, &data[..n]).await? as u32)
+        let target = Target {
+            file,
+            interrupt: &*interrupt,
+            at,
+            append: false,
+            start: match at {
+                At::Position => file.pos(),
+                At::Offset(offset) => offset,
+            },
+        };
+        let stream = file.object().is_some();
+        let mut buf = vec![0; total.min(IO_CHUNK)];
+        let mut cursor = Cursor::new(iovecs);
+        let mut done = 0;
+        loop {
+            let want = (total - done).min(buf.len());
+            let n = match target.read(&mut buf[..want], done).await {
+                Ok(n) => n,
+                Err(_) if done > 0 => break,
+                Err(err) => return Err(err),
+            };
+            let (copied, faulted) = cursor.copy_out(caller.memory(), &buf[..n]).await;
+            if copied == 0 && n > 0 && done == 0 {
+                return Err(Errno::EFAULT.into());
+            }
+            done += copied;
+            if stream || faulted || n < want || done == total {
+                break;
+            }
+        }
+        Ok(done as u32)
     }
 
-    /// Gathers the buffers into one write, so they reach the file together. A blocked write
-    /// ends on a signal, as `write` does.
+    /// Writes the buffers in order, in steps, until all is written or an object takes less:
+    /// a blocking write to a stream writes everything, as Linux's do, while a signal, a full
+    /// non-blocking object or a fault ends it with the count so far. A datagram is one write.
     async fn write_from_iovecs(
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,
         iovecs: &[Iovec],
         at: At,
+        flags: RwfFlags,
     ) -> SysResult<u32> {
-        let data = gather(caller.memory(), iovecs).await?;
-        let n = match at {
-            At::Position => file.write(&*self.interrupt(caller), &data).await?,
-            At::Offset(offset) => file.write_at(&data, offset).await?,
+        let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
+        let messages = file.messages();
+        if messages && total > MAX_MESSAGE {
+            return Err(Errno::EMSGSIZE.into());
+        }
+        let interrupt = self.interrupt(caller);
+        let _pos = match (at, &file.backing) {
+            (At::Position, Backing::Inode(_)) => Some(file.lock_pos().await),
+            _ => None,
         };
-        Ok(n as u32)
+        let o_append = file.flags().contains(OpenFlags::O_APPEND);
+        let target = Target {
+            file,
+            interrupt: &*interrupt,
+            at,
+            append: flags.contains(RwfFlags::RWF_APPEND)
+                || (o_append && !flags.contains(RwfFlags::RWF_NOAPPEND)),
+            start: match at {
+                At::Position => file.pos(),
+                At::Offset(offset) => offset,
+            },
+        };
+        let step = if messages { total } else { total.min(IO_CHUNK) };
+        let mut buf = vec![0; step];
+        let mut cursor = Cursor::new(iovecs);
+        let mut done = 0;
+        loop {
+            let (n, faulted) = cursor.copy_in(caller.memory(), &mut buf).await;
+            if n == 0 && faulted {
+                return match done {
+                    0 => Err(Errno::EFAULT.into()),
+                    _ => Ok(done as u32),
+                };
+            }
+            let written = match target.write(&buf[..n], done).await {
+                Ok(written) => written,
+                Err(_) if done > 0 => break,
+                Err(err) => return Err(err),
+            };
+            done += written;
+            if messages || faulted || written < n || done == total {
+                break;
+            }
+        }
+        if flags.intersects(RwfFlags::RWF_DSYNC | RwfFlags::RWF_SYNC)
+            && let Backing::Inode(inner) = &file.backing
+        {
+            inner.sync(!flags.contains(RwfFlags::RWF_SYNC)).await?;
+        }
+        Ok(done as u32)
+    }
+
+    /// `write(2)` on `file`, from one guest buffer. `EPIPE` on a byte stream raises
+    /// `SIGPIPE`.
+    pub(crate) async fn write_buf(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        buf: UserSlice,
+        at: At,
+    ) -> SysResult<u32> {
+        let iovec = [Iovec {
+            iov_base: buf.addr,
+            iov_len: buf.len.min(MAX_RW_COUNT as u32),
+        }];
+        let ret = self
+            .write_from_iovecs(caller, file, &iovec, at, RwfFlags(0))
+            .await;
+        self.epipe(caller, file, ret)
+    }
+
+    /// `read(2)` on `file`, into one guest buffer.
+    pub(crate) async fn read_buf(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        buf: UserSliceMut,
+        at: At,
+    ) -> SysResult<u32> {
+        let iovec = [Iovec {
+            iov_base: buf.addr,
+            iov_len: buf.len.min(MAX_RW_COUNT as u32),
+        }];
+        self.read_into_iovecs(caller, file, &iovec, at).await
+    }
+
+    /// `SIGPIPE` for an `EPIPE` from a byte stream; datagram and seqpacket sockets only fail.
+    pub(crate) fn epipe<T>(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        ret: SysResult<T>,
+    ) -> SysResult<T> {
+        match file.messages() {
+            true => ret,
+            false => self.sigpipe(caller, ret),
+        }
     }
 
     pub(crate) async fn sys_readv(
@@ -93,8 +333,10 @@ impl Kernel {
         let file = self.file(caller.task(), fd)?;
         file.check_writable()?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
-        self.write_from_iovecs(caller, &file, &iovecs, At::Position)
-            .await
+        let ret = self
+            .write_from_iovecs(caller, &file, &iovecs, At::Position, RwfFlags(0))
+            .await;
+        self.epipe(caller, &file, ret)
     }
 
     pub(crate) async fn sys_pread(
@@ -108,10 +350,7 @@ impl Kernel {
         file.check_readable()?;
         file.check_seekable()?;
         let pos = u64::try_from(pos).map_err(|_| Errno::EINVAL)?;
-        let mut data = vec![0; (buf.len as usize).min(IO_CHUNK)];
-        let n = file.read_at(&mut data, pos).await?;
-        buf.copy_out(caller.memory(), &data[..n]).await?;
-        Ok(n as u32)
+        self.read_buf(caller, &file, buf, At::Offset(pos)).await
     }
 
     pub(crate) async fn sys_pwrite(
@@ -125,8 +364,7 @@ impl Kernel {
         file.check_writable()?;
         file.check_seekable()?;
         let pos = u64::try_from(pos).map_err(|_| Errno::EINVAL)?;
-        let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
-        Ok(file.write_at(&data, pos).await? as u32)
+        self.write_buf(caller, &file, buf, At::Offset(pos)).await
     }
 
     /// `preadv2`; `preadv` is the same with no flags. A position of -1 uses the file position.
@@ -169,42 +407,10 @@ impl Kernel {
         let at = self.rw_position(&file, pos)?;
         rw_flags(flags)?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
-        let data = gather(caller.memory(), &iovecs).await?;
-        let n = match &file.backing {
-            Backing::Inode(inner) if flags.contains(RwfFlags::RWF_APPEND) => {
-                let _pos = file.lock_pos().await;
-                let (end, n) = inner.append(&data).await?;
-                if matches!(at, At::Position) {
-                    file.set_pos(end);
-                }
-                n
-            }
-            Backing::Inode(inner)
-                if flags.contains(RwfFlags::RWF_NOAPPEND)
-                    && file.flags().contains(OpenFlags::O_APPEND) =>
-            {
-                let _pos = file.lock_pos().await;
-                let offset = match at {
-                    At::Offset(offset) => offset,
-                    At::Position => file.pos(),
-                };
-                let n = inner.write_at(&data, offset).await?;
-                if matches!(at, At::Position) {
-                    file.set_pos(offset + n as u64);
-                }
-                n
-            }
-            _ => match at {
-                At::Position => file.write(&*self.interrupt(caller), &data).await?,
-                At::Offset(offset) => file.write_at(&data, offset).await?,
-            },
-        };
-        if flags.intersects(RwfFlags::RWF_DSYNC | RwfFlags::RWF_SYNC)
-            && let Backing::Inode(inner) = &file.backing
-        {
-            inner.sync(!flags.contains(RwfFlags::RWF_SYNC)).await?;
-        }
-        Ok(n as u32)
+        let ret = self
+            .write_from_iovecs(caller, &file, &iovecs, at, flags)
+            .await;
+        self.epipe(caller, &file, ret)
     }
 
     fn rw_position(&self, file: &OpenFile, pos: i64) -> Result<At, Errno> {
@@ -317,6 +523,24 @@ impl Kernel {
             write_value(caller.memory(), offset, &(pos as i64)).await?;
         }
         Ok(done as i32)
+    }
+
+    /// `sendfile`, raising `SIGPIPE` when the output is a byte stream with no reader left.
+    pub(crate) async fn sys_sendfile_signalled(
+        &self,
+        caller: &Caller<'_>,
+        out_fd: Fd,
+        in_fd: Fd,
+        offset: LoffPtr,
+        count: u32,
+    ) -> SysResult<i32> {
+        let ret = self
+            .sys_sendfile(caller, out_fd, in_fd, offset, count)
+            .await;
+        match self.file(caller.task(), out_fd) {
+            Ok(output) => self.epipe(caller, &output, ret),
+            Err(_) => ret,
+        }
     }
 
     /// `copy_file_range` between regular files.
@@ -628,50 +852,4 @@ pub(crate) async fn read_iovecs(
             Iovec { iov_len, ..iov }
         })
         .collect())
-}
-
-/// Copies `data` out to the buffers in order. A fault ends the copy: the count so far, or
-/// `EFAULT` if nothing was copied (`copy_to_iter` stopping short).
-async fn scatter(memory: &dyn UserMemory, iovecs: &[Iovec], data: &[u8]) -> Result<usize, Errno> {
-    let mut copied = 0;
-    for iov in iovecs {
-        if copied == data.len() {
-            break;
-        }
-        let chunk = &data[copied..][..(data.len() - copied).min(iov.iov_len as usize)];
-        let fault = UserSliceMut::new(iov.iov_base, iov.iov_len)
-            .copy_out(memory, chunk)
-            .await
-            .is_err();
-        if fault {
-            return if copied > 0 {
-                Ok(copied)
-            } else {
-                Err(Errno::EFAULT)
-            };
-        }
-        copied += chunk.len();
-    }
-    Ok(copied)
-}
-
-/// Gathers up to `IO_CHUNK` bytes from the buffers. A fault ends the gathering: what came
-/// before it is still written, or `EFAULT` if nothing was gathered.
-async fn gather(memory: &dyn UserMemory, iovecs: &[Iovec]) -> Result<Vec<u8>, Errno> {
-    let mut data = Vec::new();
-    for iov in iovecs {
-        let room = IO_CHUNK - data.len();
-        if room == 0 {
-            break;
-        }
-        match UserSlice::new(iov.iov_base, iov.iov_len)
-            .copy_in(memory, room)
-            .await
-        {
-            Ok(chunk) => data.extend(chunk),
-            Err(_) if !data.is_empty() => break,
-            Err(_) => return Err(Errno::EFAULT),
-        }
-    }
-    Ok(data)
 }

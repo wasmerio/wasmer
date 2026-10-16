@@ -180,6 +180,63 @@ fn a_blocked_readv_or_writev_ends_on_a_signal() {
 }
 
 #[test]
+fn a_blocking_write_to_a_pipe_writes_everything() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (r, w) = pipe(&kernel, &caller, OpenFlags(0));
+    let reader = kernel.file(task, r).unwrap();
+    // More than a pipe holds and more than one kernel step: the write waits for the reader.
+    const LEN: usize = 60_000;
+    let total = std::thread::scope(|scope| {
+        let drain = scope.spawn(|| {
+            let mut got = 0;
+            let mut buf = vec![0; 8192];
+            while got < 3 * LEN {
+                let n = block_on(reader.read(&wasixv2_wait::NoInterrupt, &mut buf)).unwrap();
+                got += n;
+            }
+            got
+        });
+        let vec = iovec(&memory, 0x80, 0, LEN as u32);
+        iovec(&memory, 0x88, 0, LEN as u32);
+        iovec(&memory, 0x90, 0, LEN as u32);
+        assert_eq!(
+            block_on(kernel.writev(&caller, w, vec, 3)),
+            Ok(3 * LEN as u32)
+        );
+        drain.join().unwrap()
+    });
+    assert_eq!(total, 3 * LEN);
+}
+
+#[test]
+fn epipe_raises_sigpipe_only_on_byte_streams() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let sigpipe = 1 << (Signal::SIGPIPE.0 - 1);
+    let pending = || kernel.task_signals(task).has_pending(sigpipe);
+
+    // A seqpacket socket whose peer is gone fails with EPIPE, and that is all.
+    let pair = FdPair::new(0x100);
+    let unix = wasixv2_abi::AddressFamily(1);
+    const SOCK_SEQPACKET: i32 = 5;
+    let made = kernel.socketpair(&caller, unix, SOCK_SEQPACKET, 0, pair);
+    assert_eq!(block_on(made), Ok(0));
+    let fd = |at| Fd(i32::from_le_bytes(get(&memory, at, 4).try_into().unwrap()));
+    assert_eq!(block_on(kernel.close(&caller, fd(0x104))), Ok(0));
+    let sent = block_on(kernel.write(&caller, fd(0x100), UserSlice::new(0, 4)));
+    assert_eq!(errno(sent), Errno::EPIPE);
+    assert!(!pending());
+
+    // A pipe without readers raises it.
+    let (r, w) = pipe(&kernel, &caller, OpenFlags(0));
+    assert_eq!(block_on(kernel.close(&caller, r)), Ok(0));
+    let written = block_on(kernel.write(&caller, w, UserSlice::new(0, 4)));
+    assert_eq!(errno(written), Errno::EPIPE);
+    assert!(pending());
+}
+
+#[test]
 fn readv_copies_out_up_to_a_fault() {
     let (kernel, task, memory) = machine();
     let caller = Caller::new(task, &memory);

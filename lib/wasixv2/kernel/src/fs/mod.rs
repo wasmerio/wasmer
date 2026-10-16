@@ -8,7 +8,7 @@ mod io;
 mod lock;
 mod path;
 
-pub(crate) use io::read_iovecs;
+pub(crate) use io::{At, read_iovecs};
 
 use std::sync::{Arc, Mutex};
 

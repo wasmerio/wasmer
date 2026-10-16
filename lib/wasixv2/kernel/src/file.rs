@@ -64,6 +64,13 @@ pub trait FileObject: Pollable + Any {
         false
     }
 
+    /// Whether each write is one message (datagram and seqpacket sockets): it reaches the
+    /// object whole, never split into steps, and `EPIPE` from it raises no `SIGPIPE`, which
+    /// only byte streams do (`pipe_write`, `sk_stream_error`, `unix_stream_sendmsg`).
+    fn messages(&self) -> bool {
+        false
+    }
+
     /// `llseek` of a positional object, from the position `pos`; returns the new position.
     fn llseek(&self, pos: u64, base: SeekBase, offset: i64) -> Result<u64, Errno> {
         let _ = (pos, base, offset);
@@ -199,6 +206,11 @@ impl OpenFile {
         object.downcast_ref()
     }
 
+    /// Whether writes to this file are messages; see `FileObject::messages`.
+    pub(crate) fn messages(&self) -> bool {
+        self.object().is_some_and(|object| object.messages())
+    }
+
     /// `file_can_poll`: regular files and directories cannot be watched by epoll.
     pub(crate) fn can_poll(&self) -> bool {
         self.object().is_some_and(|object| object.can_poll())
@@ -264,20 +276,6 @@ impl OpenFile {
             flags: self.flags(),
             interrupt: &NoInterrupt,
         }
-    }
-
-    /// Writes at `offset` without moving the file position. Like Linux, `O_APPEND` wins over
-    /// the offset (`pwrite` on an append-only description appends).
-    pub(crate) async fn write_at(&self, data: &[u8], offset: u64) -> SysResult<usize> {
-        if let Some(object) = self.positional() {
-            return object.write(self.io(), data).await;
-        }
-        let file = self.inode()?;
-        if self.flags().contains(OpenFlags::O_APPEND) {
-            return Ok(file.append(data).await?.1);
-        }
-        check_file_size(offset, data.len())?;
-        Ok(file.write_at(data, offset).await?)
     }
 
     pub(crate) fn pos(&self) -> u64 {
@@ -358,7 +356,7 @@ fn checked_offset(base: u64, offset: i64) -> Result<u64, Errno> {
 }
 
 /// Writes may not reach past the largest file offset (`generic_write_check_limits`).
-fn check_file_size(pos: u64, len: usize) -> Result<(), Errno> {
+pub(crate) fn check_file_size(pos: u64, len: usize) -> Result<(), Errno> {
     if len > 0 && pos >= i64::MAX as u64 {
         return Err(Errno::EFBIG);
     }

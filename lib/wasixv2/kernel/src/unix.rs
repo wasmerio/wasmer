@@ -991,6 +991,10 @@ impl Pollable for UnixFile {
 }
 
 impl FileObject for UnixFile {
+    fn messages(&self) -> bool {
+        self.0.kind() != Kind::Stream
+    }
+
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let mut wait = self.0.blocking(io, RCV, MsgFlags(0));
