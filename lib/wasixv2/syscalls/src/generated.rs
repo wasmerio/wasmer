@@ -13401,4 +13401,28 @@ impl<L, S: crate::Control> crate::Control for Layered<L, S> {
     fn take_image(&self, task: crate::TaskId) -> Option<Vec<u8>> {
         self.inner.take_image(task)
     }
+
+    fn work_flag(&self, task: crate::TaskId) -> std::sync::Arc<crate::WorkFlag> {
+        self.inner.work_flag(task)
+    }
+
+    fn exec_wait(&self, task: crate::TaskId) -> crate::LocalFuture<'_, Result<(), i32>> {
+        self.inner.exec_wait(task)
+    }
+
+    fn group_wait(&self, task: crate::TaskId) -> crate::LocalFuture<'_, ()> {
+        self.inner.group_wait(task)
+    }
+
+    fn fault(&self, task: crate::TaskId, signal: i32) -> bool {
+        self.inner.fault(task, signal)
+    }
+
+    fn release(&self, task: crate::TaskId) {
+        self.inner.release(task)
+    }
+
+    fn abort_thread(&self, task: crate::TaskId) {
+        self.inner.abort_thread(task)
+    }
 }

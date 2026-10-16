@@ -1,6 +1,11 @@
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+
 use wasixv2_abi::Siginfo;
 
-use crate::caller::TaskId;
+use crate::{caller::TaskId, memory::LocalFuture};
 
 /// Work the execution layer must do before control returns to the guest.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,11 +82,45 @@ impl SignalFrame {
     }
 }
 
-/// The return-to-guest interface. The execution layer asks after every syscall.
+/// Set whenever the kernel leaves work for a task: an action, a signal, or a mask change that may
+/// make a pending signal deliverable (Linux's `TIF_SIGPENDING` and `TIF_NOTIFY_RESUME`). The
+/// execution layer reads it without a lock on every return to the guest and asks
+/// [`Control::take_pending`] only while it is set; `take_pending` clears it before it looks, so
+/// work queued meanwhile raises it again.
+#[derive(Debug, Default)]
+pub struct WorkFlag(AtomicBool);
+
+impl WorkFlag {
+    /// A flag that is always set, for implementations that do not track work per task.
+    pub fn always() -> Self {
+        Self(AtomicBool::new(true))
+    }
+
+    pub fn raise(&self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+
+    pub fn is_raised(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+
+    pub fn clear(&self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
+/// The return-to-guest interface. The execution layer asks after every syscall and at every
+/// preemption point, and reports what becomes of the instances it runs tasks on.
 pub trait Control {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
+
+    /// The flag that says whether [`Control::take_pending`] may have something for `task`.
+    fn work_flag(&self, task: TaskId) -> Arc<WorkFlag> {
+        let _ = task;
+        Arc::new(WorkFlag::always())
+    }
 
     /// A handler from [`GuestAction::Signal`] finished. `mask` is `uc_sigmask` as the handler
     /// left it, which becomes the task's mask (`rt_sigreturn`), or `None` when the handler did
@@ -94,5 +133,43 @@ pub trait Control {
     fn take_image(&self, task: TaskId) -> Option<Vec<u8>> {
         let _ = task;
         None
+    }
+
+    /// Before the image of a [`GuestAction::Exec`] starts: waits until `task` is the only task
+    /// left in its thread group, as `de_thread` does. `Err(status)` when the group exited
+    /// meanwhile, and the image must not start.
+    fn exec_wait(&self, task: TaskId) -> LocalFuture<'_, Result<(), i32>> {
+        let _ = task;
+        Box::pin(async { Ok(()) })
+    }
+
+    /// Before the last task of a process is released: waits until the other tasks of its thread
+    /// group are gone, as a zombie leader stays until its group is empty, so whoever waits for
+    /// the process never sees it end while a thread still runs.
+    fn group_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
+        let _ = task;
+        Box::pin(async {})
+    }
+
+    /// `task`'s instance trapped and cannot go on: the hardware fault `signal` (SIGSEGV, SIGILL,
+    /// SIGFPE, SIGBUS) with no way to run a handler, so its default action kills the thread
+    /// group (`force_sig_fault`, then `get_signal`). Leaves the group's exit pending on `task`.
+    /// False when the group was exiting already: the trap came of tearing a thread down and
+    /// changes nothing.
+    fn fault(&self, task: TaskId, signal: i32) -> bool {
+        let _ = (task, signal);
+        true
+    }
+
+    /// The execution layer is done with `task`: its instance ended, or the vfork child stopped
+    /// using its parent's (`release_task`). Nothing is asked about the task after this.
+    fn release(&self, task: TaskId) {
+        let _ = task;
+    }
+
+    /// The thread `task` from a [`GuestAction::StartThread`] could not be started: the kernel
+    /// forgets it, as if `thread-spawn` had failed.
+    fn abort_thread(&self, task: TaskId) {
+        let _ = task;
     }
 }

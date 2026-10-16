@@ -13,6 +13,11 @@ pub enum SysErr {
     /// `SA_RESTART`; rerun otherwise. For calls Linux never restarts after a handler, such as
     /// `poll`, `pause` and `sigsuspend`.
     RestartNoHand,
+    /// Interrupted by a signal (`ERESTART_RESTARTBLOCK`), after the kernel saved on the task how
+    /// to go on: `EINTR` once any handler ran; otherwise the call continues through
+    /// `restart_syscall` rather than with its original arguments. For calls whose arguments a
+    /// rerun would get wrong, such as the relative timeout of `nanosleep` or a timed futex wait.
+    RestartBlock,
 }
 
 impl From<Errno> for SysErr {
