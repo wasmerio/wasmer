@@ -20,6 +20,24 @@ pub struct ProcState {
     pub proc: calls::proc::State,
 }
 
+impl ProcState {
+    /// The state of a child that `fork` or `vfork` makes of this process: it has the same
+    /// descriptors, so it announces the same preopens, and the same arguments. Families whose
+    /// state follows descriptors or dispositions copy theirs here.
+    pub fn fork(&self) -> Self {
+        let startup = OnceLock::new();
+        if let Some(loaded) = self.startup.get() {
+            let _ = startup.set(loaded.clone());
+        }
+        Self {
+            startup,
+            fs: Default::default(),
+            net: Default::default(),
+            proc: self.proc.fork(),
+        }
+    }
+}
+
 /// What v1 reads once per image: the argument and environment strings, and the preopened
 /// directories.
 #[derive(Debug, Default)]

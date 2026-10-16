@@ -125,7 +125,7 @@ table! {
     "path_unlink_file" WASI (I32 I32 I32) -> (I32) Pending;
     "poll_oneoff" WASI (I32 I32 I32 I32) -> (I32) Pending;
     "proc_exit" WASI (I32) -> () Shim;
-    "proc_raise" WASI (I32) -> (I32) Pending;
+    "proc_raise" WASI (I32) -> (I32) Shim;
     "random_get" WASI (I32 I32) -> (I32) Shim;
     "sched_yield" WASI () -> (I32) Shim;
     "sock_recv" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Pending;
@@ -134,7 +134,7 @@ table! {
     // preview1's form; `wasix_32v1`'s `sock_accept` is `sock_accept_v2`, below.
     "sock_accept" PREVIEW1 (I32 I32 I32) -> (I32) Pending;
     // wasi-threads; `wasix_32v1` has `thread_spawn` instead.
-    "thread-spawn" THREADS (I32) -> (I32) Pending;
+    "thread-spawn" THREADS (I32) -> (I32) Shim;
 
     // ---- WASIX ----
     "clock_time_set" WASIX (I32 I64) -> (I32) Pending;
@@ -145,41 +145,42 @@ table! {
     "fd_fdflags_get" WASIX (I32 I32) -> (I32) Pending;
     "fd_fdflags_set" WASIX (I32 I32) -> (I32) Pending;
     "path_open2" WASIX (I32 I32 I32 I32 I32 I64 I64 I32 I32 I32) -> (I32) Pending;
-    "tty_get" WASIX (I32) -> (I32) Pending;
-    "tty_set" WASIX (I32) -> (I32) Pending;
+    "tty_get" WASIX (I32) -> (I32) Shim;
+    "tty_set" WASIX (I32) -> (I32) Shim;
     "getcwd" WASIX (I32 I32) -> (I32) Pending;
     "chdir" WASIX (I32 I32) -> (I32) Pending;
-    // Until signal delivery lands, signals take their default actions, as in v1 before
-    // libc registers its handler.
     "callback_signal" WASIX (I32 I32) -> () Shim;
-    "thread_spawn" WASIX (I32 I32) -> (I32) Pending;
-    "thread_spawn_v2" WASIX (I32 I32) -> (I32) Pending;
-    "thread_sleep" WASIX (I64) -> (I32) Pending;
+    "thread_spawn" WASIX (I32 I32) -> (I32) Shim;
+    "thread_spawn_v2" WASIX (I32 I32) -> (I32) Shim;
+    "thread_sleep" WASIX (I64) -> (I32) Shim;
     "thread_id" WASIX (I32) -> (I32) Shim;
-    "thread_join" WASIX (I32) -> (I32) Pending;
-    "thread_parallelism" WASIX (I32) -> (I32) Pending;
-    "thread_signal" WASIX (I32 I32) -> (I32) Pending;
+    // No libc uses it (pthread_join waits on a futex); Linux has no tid-wait outside
+    // pidfds of threads (`PIDFD_THREAD`), which the kernel does not have.
+    "thread_join" WASIX (I32) -> (I32) Unsupported;
+    "thread_parallelism" WASIX (I32) -> (I32) Shim;
+    "thread_signal" WASIX (I32 I32) -> (I32) Shim;
     "thread_exit" WASIX (I32) -> () Shim;
-    "futex_wait" WASIX (I32 I32 I32 I32) -> (I32) Pending;
-    "futex_wake" WASIX (I32 I32) -> (I32) Pending;
-    "futex_wake_all" WASIX (I32 I32) -> (I32) Pending;
-    "stack_checkpoint" WASIX (I32 I32) -> (I32) Pending;
-    "stack_restore" WASIX (I32 I64) -> () Pending;
-    "proc_raise_interval" WASIX (I32 I64 I32) -> (I32) Pending;
-    "proc_fork" WASIX (I32 I32) -> (I32) Pending;
-    "proc_fork_env" WASIX (I32) -> (I32) Pending;
+    "futex_wait" WASIX (I32 I32 I32 I32) -> (I32) Shim;
+    "futex_wake" WASIX (I32 I32) -> (I32) Shim;
+    "futex_wake_all" WASIX (I32 I32) -> (I32) Shim;
+    "stack_checkpoint" WASIX (I32 I32) -> (I32) Shim;
+    "stack_restore" WASIX (I32 I64) -> () Shim;
+    "proc_raise_interval" WASIX (I32 I64 I32) -> (I32) Shim;
+    "proc_fork" WASIX (I32 I32) -> (I32) Shim;
+    "proc_fork_env" WASIX (I32) -> (I32) Shim;
     "proc_exit2" WASIX (I32) -> () Shim;
-    "proc_exec" WASIX (I32 I32 I32 I32) -> () Pending;
-    "proc_exec2" WASIX (I32 I32 I32 I32 I32 I32) -> () Pending;
-    "proc_exec3" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "proc_exec4" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "proc_spawn" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "proc_spawn2" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Pending;
-    "proc_spawn3" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Pending;
+    "proc_exec" WASIX (I32 I32 I32 I32) -> () Shim;
+    "proc_exec2" WASIX (I32 I32 I32 I32 I32 I32) -> () Shim;
+    "proc_exec3" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "proc_exec4" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    // The old bus API with stdio modes and handles; wasix-libc spawns with proc_spawn2.
+    "proc_spawn" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
+    "proc_spawn2" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "proc_spawn3" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "proc_id" WASIX (I32) -> (I32) Shim;
-    "proc_parent" WASIX (I32 I32) -> (I32) Pending;
-    "proc_join" WASIX (I32 I32 I32) -> (I32) Pending;
-    "proc_signal" WASIX (I32 I32) -> (I32) Pending;
+    "proc_parent" WASIX (I32 I32) -> (I32) Shim;
+    "proc_join" WASIX (I32 I32 I32) -> (I32) Shim;
+    "proc_signal" WASIX (I32 I32) -> (I32) Shim;
     "proc_signals_get" WASIX (I32) -> (I32) Shim;
     "proc_signals_sizes_get" WASIX (I32) -> (I32) Shim;
     "proc_snapshot" WASIX () -> (I32) Unsupported;
@@ -301,6 +302,31 @@ where
         "callback_signal" => f!(signal::callback_signal::<S>),
         "proc_signals_get" => f!(signal::proc_signals_get::<S>),
         "proc_signals_sizes_get" => f!(signal::proc_signals_sizes_get::<S>),
+        "proc_raise" => f!(signal::proc_raise::<S>),
+        "proc_raise_interval" => f!(signal::proc_raise_interval::<S>),
+        "proc_signal" => f!(signal::proc_signal::<S>),
+        "thread_signal" => f!(signal::thread_signal::<S>),
+        "thread_spawn" | "thread_spawn_v2" => f!(thread::thread_spawn_v2::<S>),
+        "thread-spawn" => f!(thread::wasi_thread_spawn::<S>),
+        "thread_sleep" => f!(thread::thread_sleep::<S>),
+        "thread_parallelism" => f!(thread::thread_parallelism::<S>),
+        "futex_wait" => f!(futex::futex_wait::<S>),
+        "futex_wake" => f!(futex::futex_wake::<S>),
+        "futex_wake_all" => f!(futex::futex_wake_all::<S>),
+        "stack_checkpoint" => f!(stack::stack_checkpoint::<S>),
+        "stack_restore" => f!(stack::stack_restore::<S>),
+        "tty_get" => f!(tty::tty_get::<S>),
+        "tty_set" => f!(tty::tty_set::<S>),
+        "proc_fork" => f!(proc::proc_fork::<S>),
+        "proc_fork_env" => f!(proc::proc_fork_env::<S>),
+        "proc_exec" => f!(proc::proc_exec::<S>),
+        "proc_exec2" => f!(proc::proc_exec2::<S>),
+        "proc_exec3" => f!(proc::proc_exec3::<S>),
+        "proc_exec4" => f!(proc::proc_exec4::<S>),
+        "proc_spawn2" => f!(proc::proc_spawn2::<S>),
+        "proc_spawn3" => f!(proc::proc_spawn3::<S>),
+        "proc_join" => f!(proc::proc_join::<S>),
+        "proc_parent" => f!(proc::proc_parent::<S>),
         _ => return None,
     })
 }
