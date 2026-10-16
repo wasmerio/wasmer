@@ -552,9 +552,15 @@ impl Kernel {
     ) -> Result<(), wasixv2_wait::Interrupted> {
         let signals = self.interrupt(caller);
         let mut sleep = sleep;
-        match Waiter::new().sleep(&*signals, Some(sleep.as_mut())).await {
-            Wakeup::Interrupted => Err(wasixv2_wait::Interrupted),
-            _ => Ok(()),
+        let waiter = Waiter::new();
+        loop {
+            match waiter.sleep(&*signals, Some(sleep.as_mut())).await {
+                Wakeup::Interrupted => return Err(wasixv2_wait::Interrupted),
+                Wakeup::TimedOut => return Ok(()),
+                // The group's signal queue also wakes for signals other threads take; only a
+                // signal for this task ends the sleep.
+                Wakeup::Woken(_) => {}
+            }
         }
     }
 
