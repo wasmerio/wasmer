@@ -108,17 +108,38 @@ pub trait Syscalls {
     /// take their default action even when a handler is installed.
     ///
     /// To deliver a signal, the host writes a `ucontext_t` (816 bytes, 16-aligned) and above it the
-    /// `siginfo_t` (128 bytes) below the module's `__stack_pointer`, or at the top of the alternate
-    /// stack set with `sigaltstack` for an `SA_ONSTACK` handler, points `__stack_pointer` below the
-    /// frame, and calls the trampoline on top of the interrupted wasm call stack, which stays intact.
+    /// `siginfo_t` (128 bytes), points `__stack_pointer` below the frame, and calls the trampoline
+    /// on top of the interrupted wasm call stack, which stays intact. For an `SA_ONSTACK` handler the
+    /// frame goes at the top of the alternate stack set with `sigaltstack`. Otherwise it goes below
+    /// the module's `__stack_pointer` minus 128 bytes, LLVM's red zone: a function that calls
+    /// nothing may keep up to 128 bytes of locals below `__stack_pointer` without moving it, as on
+    /// x86-64.
+    ///
     /// The `ucontext_t` has libc's riscv32-shaped layout: `uc_stack` at 8 holds the alternate stack
-    /// settings, `uc_sigmask` at 20 the mask to restore, and `uc_mcontext` at 160 starts with four
-    /// `ulong` slots: the handler (`sa_handler`, a table index), `sa_flags`, and the interrupted
-    /// `__stack_pointer` and `__tls_base`. The trampoline calls the handler with one argument, or
-    /// with three when `SA_SIGINFO` is set, and returns. That return is `rt_sigreturn`: the host
-    /// then sets the signal mask from `uc_sigmask` and the two globals from the `mcontext` slots.
-    /// A `siglongjmp` out of the handler unwinds through the host frames as a wasm exception, and
-    /// leaves the mask to `siglongjmp`.
+    /// settings, `uc_sigmask` at 20 the mask to restore, and `uc_mcontext` at 160 starts with 32
+    /// `ulong` slots. Slot 0 holds the handler (`sa_handler`, a table index), 1 `sa_flags`, and 2
+    /// and 3 the interrupted `__stack_pointer` and `__tls_base`.
+    ///
+    /// Slot 4 is restart: 1 when the signal interrupted a syscall that runs again once the handler
+    /// returns (`SA_RESTART`), else 0. A handler may set it to 0, and the call then fails with
+    /// `EINTR` instead, as a Linux handler moves the saved program counter off the syscall
+    /// instruction. Setting it to 1 has no effect.
+    ///
+    /// Slot 5 is how many parameters the handler takes, 0 to 3; its type is `(s32 × n) -> ()`. The
+    /// trampoline passes the first n of `signo`, `info` and `uctx`, whatever `SA_SIGINFO` says,
+    /// since a native handler ignores the arguments it does not declare. Delivering to a handler of
+    /// any other type fails as a fault.
+    ///
+    /// Slots 6 to 15 are reserved and zero. Slots 16 to 31 are the guest's: the host writes them as
+    /// zero and never reads them, and libc keeps per-frame state there.
+    ///
+    /// The trampoline calls the handler and returns. That return is `rt_sigreturn`: the host then
+    /// sets the signal mask from `uc_sigmask` and the two globals from slots 2 and 3, and reads
+    /// slot 4. A `siglongjmp` out of the handler unwinds through the host frames as a wasm
+    /// exception, and leaves the mask to `siglongjmp`.
+    ///
+    /// Handlers are table indices, and `SIG_DFL`, `SIG_IGN` and `SIG_HOLD` are 0, 1 and 2, so
+    /// modules are linked with `--table-base=3`: no function lives at those indices.
     /// Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.signal_callback_register`.
