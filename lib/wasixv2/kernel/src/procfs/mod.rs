@@ -61,6 +61,8 @@ impl Filesystem for ProcFs {
             read_only: false,
             dev: None,
             has_btime: false,
+            // Process and fd entries come and go with the kernel's state (`pid_revalidate`).
+            stable: false,
         }
     }
 

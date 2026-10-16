@@ -135,6 +135,15 @@ impl File {
         Ok(())
     }
 
+    /// `ftruncate` (`do_truncate` with the open file): sets the size through this open file, so
+    /// only its write access counts, never the permission bits. The caller has checked that it
+    /// is a regular file opened for writing.
+    pub async fn set_size(&self, size: u64) -> FsResult<()> {
+        self.handle()?.set_size(size).await?;
+        self.modified(1);
+        Ok(())
+    }
+
     pub async fn seek_hole(&self, offset: u64, which: crate::SeekHole) -> FsResult<u64> {
         let size = self.node().getattr().await?.size;
         self.handle()?.seek_hole(offset, size, which).await

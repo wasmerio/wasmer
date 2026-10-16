@@ -9,7 +9,7 @@ use crate::{
     Vfs,
     cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission, sticky_denies},
     dentry::Dentry,
-    driver::Link,
+    driver::{Handle, Link, Node},
     file::File,
     inode::DirLock,
     mount::Path,
@@ -124,7 +124,8 @@ impl Vfs {
 
         let mut walk = Walk::new(self, cx, start, path, how.lookup)?;
         let creating = flags.contains(OpenFlags::O_CREAT);
-        let mut created = false;
+        let excl = flags.contains(OpenFlags::O_EXCL);
+        let mut created = None;
         let target = if path.is_empty() {
             start.clone()
         } else {
@@ -149,36 +150,43 @@ impl Vfs {
                 // The parent stays locked from the lookup to the create, so O_CREAT|O_EXCL is
                 // atomic whatever the driver does.
                 let lock = walk.path.dentry.inode().lock().await;
-                match walk.child_opt_locked(&name).await? {
-                    Some(_) if flags.contains(OpenFlags::O_EXCL) => return Err(Errno::EEXIST),
-                    Some(found) => {
-                        drop(lock);
-                        match walk.step_into(found).await? {
-                            Some(found) => break found,
-                            None => continue,
+                // `lookup_open`: the existing object, or a new one.
+                let found = loop {
+                    if let Some(found) = walk.child_opt_locked(&name).await? {
+                        if excl {
+                            return Err(Errno::EEXIST);
                         }
+                        break found;
                     }
-                    None => {
-                        let dir = walk.path.clone();
-                        let new = NewNode {
-                            kind: NewKind::Regular,
-                            ..self
-                                .new_node_attrs(cx, &dir, how.mode & MODE_PERM, false)
-                                .await?
-                        };
-                        match self.create(cx, &dir, &name, &new).await {
-                            Ok(dentry) => {
-                                created = true;
-                                break Path {
-                                    mnt: dir.mnt,
-                                    dentry,
-                                };
-                            }
-                            // Lost a race with another creator; open what it made.
-                            Err(Errno::EEXIST) if !flags.contains(OpenFlags::O_EXCL) => continue,
-                            Err(errno) => return Err(errno),
+                    let dir = walk.path.clone();
+                    let new = NewNode {
+                        kind: NewKind::Regular,
+                        ..self
+                            .new_node_attrs(cx, &dir, how.mode & MODE_PERM, false)
+                            .await?
+                    };
+                    let options = open_options(flags, &dir);
+                    match self.create_open(cx, &dir, &name, &new, options).await {
+                        Ok((dentry, handle)) => {
+                            created = Some(handle);
+                            break Path {
+                                mnt: dir.mnt,
+                                dentry,
+                            };
                         }
+                        // Created behind the VFS (on the host side of a host directory); open
+                        // what is there now.
+                        Err(Errno::EEXIST) if !excl => {}
+                        Err(errno) => return Err(errno),
                     }
+                };
+                if created.is_some() {
+                    break found;
+                }
+                drop(lock);
+                match walk.step_into(found).await? {
+                    Some(found) => break found,
+                    None => continue,
                 }
             }
         };
@@ -192,7 +200,7 @@ impl Vfs {
             return Err(Errno::ENOTDIR);
         }
         let mut truncate = false;
-        if created {
+        if created.is_some() {
             acc_mode = 0;
         } else if file_type == FileType::Regular && flags.contains(OpenFlags::O_TRUNC) {
             if target.mnt.is_read_only() {
@@ -202,36 +210,48 @@ impl Vfs {
         }
         self.may_open(cx.cred, &target, acc_mode, flags).await?;
         let writable = access != OpenFlags::O_RDONLY;
-        if writable && target.mnt.is_read_only() && !created {
+        // `do_dentry_open` takes write access only for what a read-only mount protects: a FIFO
+        // or device node is not written through the filesystem.
+        if writable
+            && created.is_none()
+            && target.mnt.is_read_only()
+            && matches!(
+                file_type,
+                FileType::Regular | FileType::Directory | FileType::Symlink
+            )
+        {
             return Err(Errno::EROFS);
         }
-        self.finish_open(target, flags, writable, truncate).await
+        self.finish_open(target, flags, writable, truncate, created)
+            .await
     }
 
+    /// Opens `target`, or takes the handle its creation returned, and builds the open file.
     async fn finish_open(
         self: &Arc<Self>,
         target: Path,
         flags: OpenFlags,
         writable: bool,
         truncate: bool,
+        handle: Option<Box<dyn Handle>>,
     ) -> FsResult<File> {
         let access = flags & OpenFlags::O_ACCMODE;
         let readable = access != OpenFlags::O_WRONLY;
-        let handle = match target.dentry.file_type() {
-            FileType::Regular | FileType::Directory => {
+        let handle = match (handle, target.dentry.file_type()) {
+            (Some(handle), _) => Some(handle),
+            (None, FileType::Regular | FileType::Directory) => {
                 let options = OpenOptions {
-                    read: readable,
                     write: writable,
-                    noatime: flags.contains(OpenFlags::O_NOATIME) || target.mnt.flags.noatime,
-                    sync: flags.contains(OpenFlags::O_DSYNC),
+                    truncate,
+                    ..open_options(flags, &target)
                 };
                 Some(target.dentry.node().open(options).await?)
             }
             // The kernel attaches the pipe (`fifo_open`) through `Inode::bound_or_bind`, or the
             // device driver its number names (`chrdev_open`).
-            FileType::Fifo | FileType::CharDevice | FileType::BlockDevice => None,
+            (None, FileType::Fifo | FileType::CharDevice | FileType::BlockDevice) => None,
             // `sock_no_open`.
-            FileType::Socket | FileType::Symlink => return Err(Errno::ENXIO),
+            (None, FileType::Socket | FileType::Symlink) => return Err(Errno::ENXIO),
         };
         if truncate {
             let attr = SetAttr {
@@ -317,7 +337,11 @@ impl Vfs {
                 .new_node_attrs(cx, &dir, how.mode & MODE_PERM, false)
                 .await?
         };
-        let node = dir.dentry.node().create_unnamed(&new).await?;
+        let options = OpenOptions {
+            write: true,
+            ..open_options(how.flags, &dir)
+        };
+        let (node, handle) = dir.dentry.node().create_unnamed(&new, options).await?;
         let target = Path {
             mnt: dir.mnt.clone(),
             dentry: Dentry::anonymous(dir.dentry.sb(), node),
@@ -328,7 +352,8 @@ impl Vfs {
             .set_linkable(!how.flags.contains(OpenFlags::O_EXCL));
         self.may_open(cx.cred, &target, acc_mode & !MAY_WRITE, how.flags)
             .await?;
-        self.finish_open(target, how.flags, true, false).await
+        self.finish_open(target, how.flags, true, false, Some(handle))
+            .await
     }
 
     /// Ownership and permission bits of a new object in `dir`: the umask applied, the group from
@@ -370,6 +395,26 @@ impl Vfs {
         name: &[u8],
         new: &NewNode<'_>,
     ) -> FsResult<Arc<Dentry>> {
+        self.may_create_node(cx, dir, new).await?;
+        let node = dir.dentry.node().create(name, new).await?;
+        Ok(self.created(dir, name, node))
+    }
+
+    /// `create` of a regular file that is opened at once (`O_CREAT`); `dir` is locked.
+    async fn create_open(
+        &self,
+        cx: &Ctx<'_>,
+        dir: &Path,
+        name: &[u8],
+        new: &NewNode<'_>,
+        options: OpenOptions,
+    ) -> FsResult<(Arc<Dentry>, Box<dyn Handle>)> {
+        self.may_create_node(cx, dir, new).await?;
+        let (node, handle) = dir.dentry.node().create_open(name, new, options).await?;
+        Ok((self.created(dir, name, node), handle))
+    }
+
+    async fn may_create_node(&self, cx: &Ctx<'_>, dir: &Path, new: &NewNode<'_>) -> FsResult<()> {
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
@@ -379,14 +424,17 @@ impl Vfs {
         {
             return Err(Errno::EPERM);
         }
-        let node = dir.dentry.node().create(name, new).await?;
-        let is_dir = node.file_type() == FileType::Directory;
+        Ok(())
+    }
+
+    /// Reports `node`, just created as `name` in `dir`, and caches its name.
+    fn created(&self, dir: &Path, name: &[u8], node: Arc<dyn Node>) -> Arc<Dentry> {
         self.notify(FsEvent::Create {
             dir: Self::object(&dir.dentry),
             name,
-            is_dir,
+            is_dir: node.file_type() == FileType::Directory,
         });
-        Ok(dir.dentry.child(name, node))
+        dir.dentry.child(name, node)
     }
 
     async fn may_create(&self, cred: &Cred, dir: &Path) -> FsResult<()> {
@@ -1161,6 +1209,18 @@ async fn lock_rename(old_dir: &Path, new_dir: &Path) -> (DirLock, Option<DirLock
     let (first, second) = if old_first { (a, b) } else { (b, a) };
     let first = first.lock().await;
     (first, Some(second.lock().await))
+}
+
+/// The data-access options of an open with `flags` on `at`'s mount.
+fn open_options(flags: OpenFlags, at: &Path) -> OpenOptions {
+    let access = flags & OpenFlags::O_ACCMODE;
+    OpenOptions {
+        read: access != OpenFlags::O_WRONLY,
+        write: access != OpenFlags::O_RDONLY,
+        noatime: flags.contains(OpenFlags::O_NOATIME) || at.mnt.flags.noatime,
+        sync: flags.contains(OpenFlags::O_DSYNC),
+        truncate: false,
+    }
 }
 
 fn ctime_only() -> SetAttr {

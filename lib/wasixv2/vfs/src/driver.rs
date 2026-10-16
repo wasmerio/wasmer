@@ -94,9 +94,30 @@ pub trait Node: Send + Sync + Any {
         Err(Errno::ENOTDIR)
     }
 
-    /// Creates an unnamed regular file in this directory for `O_TMPFILE`. Its link count is 0
-    /// until `link` gives it a name.
-    async fn create_unnamed(&self, _new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
+    /// Adds a new regular file under `name` and opens it at once, as `open(O_CREAT)` does when
+    /// it creates the file (Linux's `->atomic_open`, `FMODE_CREATED`): the creator gets the
+    /// access `options` asks for whatever the new file's permission bits are. `EEXIST` if the
+    /// name is taken. A driver whose `open` checks permission bits itself (a host directory)
+    /// overrides this.
+    async fn create_open(
+        &self,
+        name: &[u8],
+        new: &NewNode<'_>,
+        options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
+        let node = self.create(name, new).await?;
+        let handle = node.open(options).await?;
+        Ok((node, handle))
+    }
+
+    /// Creates an unnamed regular file in this directory for `O_TMPFILE` and opens it with
+    /// `options`, which a new file grants whatever its permission bits (Linux's `->tmpfile`).
+    /// Its link count is 0 until `link` gives it a name.
+    async fn create_unnamed(
+        &self,
+        _new: &NewNode<'_>,
+        _options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
         Err(Errno::EOPNOTSUPP)
     }
 
@@ -192,6 +213,13 @@ pub trait Handle: Send + Sync {
 
     async fn allocate(&self, _mode: AllocMode, _offset: u64, _len: u64) -> FsResult<()> {
         Err(Errno::EOPNOTSUPP)
+    }
+
+    /// Truncates the file, or extends it with a hole, to `size` through this open file, as
+    /// `ftruncate` does (Linux's `ATTR_FILE`): it needs the open file's write access, never the
+    /// permission bits. Stamps `mtime` and `ctime`. Only called on handles opened for writing.
+    async fn set_size(&self, _size: u64) -> FsResult<()> {
+        Err(Errno::EINVAL)
     }
 
     /// The first offset at or after `offset` that starts data or a hole; `ENXIO` if `offset` is

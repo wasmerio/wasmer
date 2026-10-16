@@ -200,3 +200,101 @@ fn host_device_numbers_stay_on_the_host() {
     assert_ne!(root.dev, mnt.dev);
     assert_eq!(mnt.dev.unwrap().major, 0);
 }
+
+fn open(
+    setup: &Setup,
+    path: &[u8],
+    flags: OpenFlags,
+    mode: u32,
+) -> Result<wasixv2_vfs::File, Errno> {
+    let cred = Cred::user(1, 1);
+    let root = setup.vfs.root();
+    let cx = Ctx {
+        cred: &cred,
+        root: &root,
+        umask: 0o022,
+        task: 0,
+    };
+    let how = OpenHow {
+        flags,
+        mode,
+        lookup: LookupFlags::follow(),
+    };
+    block_on(setup.vfs.open(&cx, &root, path, &how))
+}
+
+/// What `open(O_CREAT)` grants is the access asked for, whatever the new file's mode (git's
+/// read-only objects, `tar x` and `install -m 0444`); the host must not check the mode again.
+#[test]
+fn a_file_created_read_only_is_writable_through_its_creating_open() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let setup = setup();
+    let flags = OpenFlags::O_CREAT | OpenFlags::O_EXCL | OpenFlags::O_RDWR;
+    let file = open(&setup, b"/mnt/obj", flags, 0o444).unwrap();
+    assert_eq!(block_on(file.write_at(b"object", 0)), Ok(6));
+    assert_eq!(block_on(file.append(b"!")), Ok((7, 1)));
+    // ftruncate needs the open file's write access, not the mode bits.
+    assert_eq!(block_on(file.set_size(3)), Ok(()));
+    drop(file);
+
+    let host = setup.outside.parent().unwrap().join("inside/obj");
+    assert_eq!(fs::read(&host).unwrap(), b"obj");
+    assert_eq!(
+        fs::metadata(&host).unwrap().permissions().mode() & 0o777,
+        0o444
+    );
+    // Reopening is checked against the mode, by the VFS and the host alike.
+    assert_eq!(
+        open(&setup, b"/mnt/obj", OpenFlags::O_WRONLY, 0).err(),
+        Some(Errno::EACCES)
+    );
+}
+
+#[test]
+fn a_writable_open_survives_chmod_to_read_only() {
+    let setup = setup();
+    let file = open(&setup, b"/mnt/data", OpenFlags::O_RDWR, 0).unwrap();
+    let cred = Cred::user(1, 1);
+    let root = setup.vfs.root();
+    let cx = Ctx {
+        cred: &cred,
+        root: &root,
+        umask: 0o022,
+        task: 0,
+    };
+    block_on(setup.vfs.chmod(&cx, &file.path, 0o444)).unwrap();
+
+    assert_eq!(block_on(file.set_size(0)), Ok(()));
+    assert_eq!(block_on(file.append(b"new")), Ok((3, 3)));
+    assert_eq!(read(&setup, b"/mnt/data"), Ok(b"new".to_vec()));
+}
+
+#[test]
+fn an_unnamed_read_only_file_is_writable_and_linkable() {
+    let setup = setup();
+    let flags = OpenFlags::__O_TMPFILE | OpenFlags::O_RDWR;
+    let file = open(&setup, b"/mnt", flags, 0o400).unwrap();
+    assert_eq!(block_on(file.write_at(b"tmp", 0)), Ok(3));
+
+    let cred = Cred::user(1, 1);
+    let root = setup.vfs.root();
+    let cx = Ctx {
+        cred: &cred,
+        root: &root,
+        umask: 0o022,
+        task: 0,
+    };
+    let empty = LookupFlags {
+        empty: true,
+        ..LookupFlags::default()
+    };
+    block_on(
+        setup
+            .vfs
+            .link(&cx, &file.path, b"", empty, &root, b"/mnt/named"),
+    )
+    .unwrap();
+    let host = setup.outside.parent().unwrap().join("inside/named");
+    assert_eq!(fs::read(host).unwrap(), b"tmp");
+}

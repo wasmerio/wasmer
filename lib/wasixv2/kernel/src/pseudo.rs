@@ -126,6 +126,8 @@ impl Filesystem for PseudoFs {
             read_only: false,
             dev: None,
             has_btime: false,
+            // Nothing is ever named in it.
+            stable: true,
         }
     }
 

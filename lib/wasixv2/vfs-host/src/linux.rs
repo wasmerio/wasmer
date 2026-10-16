@@ -3,6 +3,7 @@
 
 use std::{
     any::Any,
+    collections::HashMap,
     ffi::CString,
     io,
     mem::MaybeUninit,
@@ -23,6 +24,12 @@ use wasixv2_vfs::{
 use crate::Options;
 
 const XATTR_SIZE_MAX: usize = 65536;
+/// Host inode numbers below `1 << DEV_SHIFT` are combined with a device index above it.
+const DEV_SHIFT: u32 = 48;
+/// Device indices that fit between `DEV_SHIFT` and the overflow bit.
+const MAX_FOLDED_DEVS: u64 = (1 << (63 - DEV_SHIFT)) - 1;
+/// The range of inode numbers handed out from a counter.
+const OVERFLOW_INO: u64 = 1 << 63;
 
 fn last_errno() -> Errno {
     Errno(
@@ -86,6 +93,49 @@ fn file_type(mode: libc::mode_t) -> FileType {
     FileType::from_mode(mode).unwrap_or(FileType::Regular)
 }
 
+/// An `O_PATH` descriptor for the object `fd` is open on, which needs no access to it.
+fn path_fd(fd: RawFd) -> FsResult<OwnedFd> {
+    open_at(libc::AT_FDCWD, &proc_path(fd), libc::O_PATH, 0)
+}
+
+/// The `open` flags for `options`' access, besides the access mode.
+fn data_flags(options: OpenOptions) -> libc::c_int {
+    let mut flags = 0;
+    if options.sync {
+        flags |= libc::O_DSYNC;
+    }
+    if options.noatime {
+        flags |= libc::O_NOATIME;
+    }
+    flags
+}
+
+/// `open_at` with `flags`, retrying without `O_NOATIME` where the host refuses it (the guest
+/// may own a file the host user does not).
+fn open_data(
+    dir: RawFd,
+    name: &CString,
+    flags: libc::c_int,
+    mode: libc::c_uint,
+) -> FsResult<OwnedFd> {
+    match open_at(dir, name, flags, mode) {
+        Err(Errno::EPERM) if flags & libc::O_NOATIME != 0 => {
+            open_at(dir, name, flags & !libc::O_NOATIME, mode)
+        }
+        result => result,
+    }
+}
+
+/// Gives a new object the mode and owner the VFS decided: the host's umask applied at creation,
+/// and only a privileged host user can give files away, so the owner is best effort.
+fn set_new_attrs(fd: RawFd, mode: u32, uid: u32, gid: u32) -> FsResult<()> {
+    // SAFETY: plain syscalls on an owned descriptor; "" with AT_EMPTY_PATH names `fd` itself.
+    unsafe {
+        libc::fchownat(fd, c"".as_ptr(), uid, gid, libc::AT_EMPTY_PATH);
+        cvt(libc::fchmod(fd, mode)).map(drop)
+    }
+}
+
 struct Shared {
     host: Arc<dyn Host>,
     options: Options,
@@ -95,6 +145,8 @@ struct Shared {
     root_dev: libc::dev_t,
     /// Other host devices seen below it (host mounts inside the directory), by index - 1.
     other_devs: Mutex<Vec<libc::dev_t>>,
+    /// Numbers given to host objects whose own do not fold (`ino`), by device and number.
+    overflow: Mutex<HashMap<(libc::dev_t, u64), u64>>,
 }
 
 impl Shared {
@@ -141,20 +193,29 @@ impl Shared {
 
     /// The inode number the VFS sees. Inode numbers are only unique per host device, and the
     /// VFS needs them unique per filesystem, so objects on another host device than the mapped
-    /// directory get the device's index folded into the high bits, as overlayfs's `xino` does.
+    /// directory get the device's index in the high bits, as overlayfs's `xino` does. Numbers
+    /// that do not leave room for it (64-bit numbers on XFS, NFS, FUSE or an `xino` overlay) get
+    /// one from a counter instead, in a range of their own.
     fn ino(&self, dev: libc::dev_t, ino: u64) -> u64 {
-        if dev == self.root_dev {
-            return ino;
-        }
-        let mut devs = self.other_devs.lock().unwrap();
-        let index = match devs.iter().position(|&d| d == dev) {
-            Some(index) => index,
-            None => {
-                devs.push(dev);
-                devs.len() - 1
+        if ino < 1 << DEV_SHIFT {
+            if dev == self.root_dev {
+                return ino;
             }
-        };
-        ino ^ ((index as u64 + 1) << 48)
+            let mut devs = self.other_devs.lock().unwrap();
+            let index = match devs.iter().position(|&d| d == dev) {
+                Some(index) => index,
+                None => {
+                    devs.push(dev);
+                    devs.len() - 1
+                }
+            };
+            if (index as u64) < MAX_FOLDED_DEVS {
+                return (index as u64 + 1) << DEV_SHIFT | ino;
+            }
+        }
+        let mut overflow = self.overflow.lock().unwrap();
+        let next = OVERFLOW_INO | overflow.len() as u64;
+        *overflow.entry((dev, ino)).or_insert(next)
     }
 
     fn attr(&self, st: &libc::stat) -> Attr {
@@ -206,6 +267,7 @@ impl HostFs {
             host_gid,
             root_dev: st.st_dev,
             other_devs: Mutex::default(),
+            overflow: Mutex::default(),
         });
         let root = HostNode::new(&shared, fd, &st);
         Ok(Self { shared, root })
@@ -222,6 +284,8 @@ impl Filesystem for HostFs {
             read_only: self.shared.options.read_only,
             dev: None,
             has_btime: false,
+            // The host changes names behind the VFS.
+            stable: false,
         }
     }
 
@@ -314,6 +378,18 @@ impl HostNode {
         self.shared
             .blocking(move || op(dir.as_raw_fd(), &name))
             .await
+    }
+
+    /// The handle for `file`, a descriptor opened for data access on this object.
+    fn handle(&self, file: OwnedFd) -> Box<dyn Handle> {
+        Box::new(HostHandle {
+            file: Arc::new(file),
+            shared: self.shared.clone(),
+            position: Arc::default(),
+            appender: Mutex::new(None),
+            dir: Mutex::new(DirState::default()),
+            dev: self.dev,
+        })
     }
 
     /// Runs `op` with the `/proc/self/fd` path of this object.
@@ -470,17 +546,55 @@ impl Node for HostNode {
         .map(|(fd, st)| HostNode::new(&self.shared, fd, &st) as Arc<dyn Node>)
     }
 
-    async fn create_unnamed(&self, new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
+    /// Creates with `O_CREAT | O_EXCL` and keeps the creating descriptor as the handle: the
+    /// host checks no permission bits for a file its open created, while reopening the new file
+    /// would check the final ones (a file created read-only could not be written).
+    async fn create_open(
+        &self,
+        name: &[u8],
+        new: &NewNode<'_>,
+        options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
         self.shared.writable()?;
-        let mode = new.mode;
-        let (fd, st) = self
-            .at(b".", move |dir, dot| {
-                let fd = open_at(dir, dot, libc::O_TMPFILE | libc::O_RDWR, mode)?;
-                let st = stat_fd(fd.as_raw_fd())?;
-                Ok((fd, st))
+        let NewNode { mode, uid, gid, .. } = *new;
+        let (uid, gid) = self.shared.to_host(Some(uid), Some(gid));
+        let flags = libc::O_CREAT | libc::O_EXCL | libc::O_RDWR | libc::O_NOFOLLOW;
+        let flags = flags | data_flags(options);
+        let (file, node, st) = self
+            .at(name, move |dir, name| {
+                let file = open_data(dir, name, flags, mode)?;
+                set_new_attrs(file.as_raw_fd(), mode, uid, gid)?;
+                let node = path_fd(file.as_raw_fd())?;
+                let st = stat_fd(file.as_raw_fd())?;
+                Ok((file, node, st))
             })
             .await?;
-        Ok(HostNode::new(&self.shared, fd, &st))
+        let node = HostNode::new(&self.shared, node, &st);
+        let handle = node.handle(file);
+        Ok((node, handle))
+    }
+
+    async fn create_unnamed(
+        &self,
+        new: &NewNode<'_>,
+        options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
+        self.shared.writable()?;
+        let NewNode { mode, uid, gid, .. } = *new;
+        let (uid, gid) = self.shared.to_host(Some(uid), Some(gid));
+        let flags = libc::O_TMPFILE | libc::O_RDWR | data_flags(options);
+        let (file, node, st) = self
+            .at(b".", move |dir, dot| {
+                let file = open_data(dir, dot, flags, mode)?;
+                set_new_attrs(file.as_raw_fd(), mode, uid, gid)?;
+                let node = path_fd(file.as_raw_fd())?;
+                let st = stat_fd(file.as_raw_fd())?;
+                Ok((file, node, st))
+            })
+            .await?;
+        let node = HostNode::new(&self.shared, node, &st);
+        let handle = node.handle(file);
+        Ok((node, handle))
     }
 
     async fn link(&self, name: &[u8], target: &Arc<dyn Node>) -> FsResult<()> {
@@ -573,6 +687,9 @@ impl Node for HostNode {
             .await
     }
 
+    /// Reopens the object through its magic link with the access asked for. The host checks
+    /// its permission bits again, which agree with the guest's view of a file the host user
+    /// owns; a file just created is opened by `create_open` instead.
     async fn open(&self, options: OpenOptions) -> FsResult<Box<dyn Handle>> {
         let fd = self.fd.clone();
         let is_dir = self.file_type == FileType::Directory;
@@ -591,53 +708,25 @@ impl Node for HostNode {
                 if options.write && read_only {
                     return Err(Errno::EROFS);
                 }
-                let mut flags = match (options.read, options.write) {
+                let access = match (options.read, options.write) {
                     (_, false) => libc::O_RDONLY,
                     (false, true) => libc::O_WRONLY,
                     (true, true) => libc::O_RDWR,
                 };
-                if options.sync {
-                    flags |= libc::O_DSYNC;
-                }
                 let proc = proc_path(fd.as_raw_fd());
-                match open_at(
-                    libc::AT_FDCWD,
-                    &proc,
-                    flags | if options.noatime { libc::O_NOATIME } else { 0 },
-                    0,
-                ) {
-                    // The host may refuse O_NOATIME where the guest owns the file.
-                    Err(Errno::EPERM) if options.noatime => {
-                        open_at(libc::AT_FDCWD, &proc, flags, 0)
-                    }
-                    result => result,
-                }
+                open_data(libc::AT_FDCWD, &proc, access | data_flags(options), 0)
             })
             .await?;
-        Ok(Box::new(HostHandle {
-            file: Arc::new(file),
-            shared: self.shared.clone(),
-            appender: Mutex::new(None),
-            dir: Mutex::new(DirState::default()),
-            dev: self.dev,
-        }))
+        Ok(self.handle(file))
     }
 
     async fn getxattr(&self, name: &[u8]) -> FsResult<Vec<u8>> {
         let name = cstring(name)?;
         self.via_proc(move |path| {
-            let mut buf = vec![0u8; XATTR_SIZE_MAX];
-            // SAFETY: `buf` is writable for its length.
-            let n = cvt_size(unsafe {
-                libc::getxattr(
-                    path.as_ptr(),
-                    name.as_ptr(),
-                    buf.as_mut_ptr().cast(),
-                    buf.len(),
-                )
-            })?;
-            buf.truncate(n);
-            Ok(buf)
+            // SAFETY: `buf` is writable for its length (none for the size probe).
+            read_sized(|buf, len| unsafe {
+                libc::getxattr(path.as_ptr(), name.as_ptr(), buf.cast(), len)
+            })
         })
         .await
     }
@@ -669,12 +758,10 @@ impl Node for HostNode {
 
     async fn listxattr(&self) -> FsResult<Vec<Vec<u8>>> {
         self.via_proc(|path| {
-            let mut buf = vec![0u8; XATTR_SIZE_MAX];
-            // SAFETY: `buf` is writable for its length.
-            let n = cvt_size(unsafe {
-                libc::listxattr(path.as_ptr(), buf.as_mut_ptr().cast(), buf.len())
-            })?;
-            Ok(buf[..n]
+            // SAFETY: `buf` is writable for its length (none for the size probe).
+            let buf =
+                read_sized(|buf, len| unsafe { libc::listxattr(path.as_ptr(), buf.cast(), len) })?;
+            Ok(buf
                 .split(|&b| b == 0)
                 .filter(|name| !name.is_empty())
                 .map(<[u8]>::to_vec)
@@ -694,6 +781,23 @@ impl Node for HostNode {
     }
 }
 
+/// Reads a value whose size `read(NULL, 0)` reports first (`getxattr`, `listxattr`), retrying
+/// while it grows between the calls.
+fn read_sized(read: impl Fn(*mut u8, usize) -> isize) -> FsResult<Vec<u8>> {
+    loop {
+        let len = cvt_size(read(std::ptr::null_mut(), 0))?.min(XATTR_SIZE_MAX);
+        let mut buf = vec![0u8; len];
+        match cvt_size(read(buf.as_mut_ptr(), buf.len())) {
+            Ok(n) => {
+                buf.truncate(n);
+                return Ok(buf);
+            }
+            Err(Errno::ERANGE) if len < XATTR_SIZE_MAX => continue,
+            Err(errno) => return Err(errno),
+        }
+    }
+}
+
 /// Where a directory handle's cookies point: the host offset after each entry it returned.
 /// Cookie `n` resumes after the `n`th entry; host offsets themselves can be 64-bit hashes,
 /// which do not fit a 32-bit `telldir`.
@@ -702,11 +806,14 @@ struct DirState {
     offsets: Vec<i64>,
 }
 
-/// An open host file or directory.
+/// An open host file or directory: the descriptor its open returned, used for all its I/O, so
+/// what it may do was decided once, when it was opened.
 struct HostHandle {
     file: Arc<OwnedFd>,
     shared: Arc<Shared>,
-    /// An `O_APPEND` descriptor for atomic appends, opened on first use.
+    /// Held across the calls that use the descriptor's file position (appends, `SEEK_DATA`).
+    position: Arc<Mutex<()>>,
+    /// An `O_APPEND` descriptor, for hosts whose `pwritev2` has no `RWF_APPEND` (before 4.16).
     appender: Mutex<Option<Arc<OwnedFd>>>,
     dir: Mutex<DirState>,
     /// The host device the object is on, for the inode numbers of directory entries.
@@ -722,6 +829,20 @@ impl HostHandle {
         self.shared.blocking(move || op(fd.as_raw_fd())).await
     }
 
+    /// Appends through an `O_APPEND` descriptor, where the host has no `RWF_APPEND`.
+    async fn append_reopened(&self, data: Vec<u8>) -> FsResult<(u64, usize)> {
+        let fd = self.appender().await?;
+        self.shared
+            .blocking(move || {
+                let fd = fd.as_raw_fd();
+                // SAFETY: `data` is readable for its length.
+                let n = cvt_size(unsafe { libc::write(fd, data.as_ptr().cast(), data.len()) })?;
+                Ok((position(fd)? - n as u64, n))
+            })
+            .await
+    }
+
+    /// The fallback `O_APPEND` descriptor, opened on first use.
     async fn appender(&self) -> FsResult<Arc<OwnedFd>> {
         if let Some(fd) = &*self.appender.lock().unwrap() {
             return Ok(fd.clone());
@@ -748,12 +869,18 @@ impl Handle for HostHandle {
         let len = buf.len();
         let data = self
             .run(move |fd| {
-                let mut data = vec![0u8; len];
-                // SAFETY: `data` is writable for its length.
-                let n = cvt_size(unsafe {
-                    libc::pread(fd, data.as_mut_ptr().cast(), len, offset as i64)
-                })?;
-                data.truncate(n);
+                let mut data = Vec::<u8>::with_capacity(len);
+                // SAFETY: the spare capacity is writable for `len` bytes, and `pread` initialized
+                // the `n` it reports.
+                unsafe {
+                    let n = cvt_size(libc::pread(
+                        fd,
+                        data.as_mut_ptr().cast(),
+                        len,
+                        offset as i64,
+                    ))?;
+                    data.set_len(n);
+                }
                 Ok(data)
             })
             .await?;
@@ -770,22 +897,32 @@ impl Handle for HostHandle {
         .await
     }
 
+    /// Appends through this handle's own descriptor with `RWF_APPEND`, so no `O_APPEND`
+    /// descriptor is needed: reopening with `O_APPEND` would check the permission bits again.
     async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {
-        let fd = self.appender().await?;
+        let (file, position) = (self.file.clone(), self.position.clone());
         let data = data.to_vec();
-        self.shared
+        let (result, data) = self
+            .shared
             .blocking(move || {
-                let fd = fd.as_raw_fd();
-                // SAFETY: `data` is readable for its length.
-                let n = cvt_size(unsafe { libc::write(fd, data.as_ptr().cast(), data.len()) })?;
-                // SAFETY: plain syscall.
-                let end = unsafe { libc::lseek(fd, 0, libc::SEEK_CUR) };
-                if end < 0 {
-                    return Err(last_errno());
-                }
-                Ok((end as u64 - n as u64, n))
+                let _position = position.lock().unwrap();
+                (append_at_end(file.as_raw_fd(), &data), data)
             })
-            .await
+            .await;
+        match result {
+            // No `RWF_APPEND` (before Linux 4.16) or no `pwritev2` (before 4.6).
+            Err(Errno::EOPNOTSUPP | Errno::ENOSYS) => self.append_reopened(data).await,
+            result => result,
+        }
+    }
+
+    async fn set_size(&self, size: u64) -> FsResult<()> {
+        let size = i64::try_from(size).map_err(|_| Errno::EFBIG)?;
+        self.run(move |fd| {
+            // SAFETY: plain syscall.
+            cvt(unsafe { libc::ftruncate(fd, size) }).map(drop)
+        })
+        .await
     }
 
     async fn sync(&self, data_only: bool) -> FsResult<()> {
@@ -825,8 +962,10 @@ impl Handle for HostHandle {
             SeekHole::Data => libc::SEEK_DATA,
             SeekHole::Hole => libc::SEEK_HOLE,
         };
+        let position = self.position.clone();
         self.run(move |fd| {
-            // SAFETY: plain syscall; this descriptor's position is not used for I/O.
+            let _position = position.lock().unwrap();
+            // SAFETY: plain syscall; data I/O on this descriptor is positional.
             let at = unsafe { libc::lseek(fd, offset as i64, whence) };
             if at < 0 {
                 Err(last_errno())
@@ -837,47 +976,69 @@ impl Handle for HostHandle {
         .await
     }
 
+    /// Reads one host buffer of entries at a time, until the sink is full or the directory
+    /// ends, so a call costs what the sink takes.
     async fn readdir(&self, cookie: u64, sink: &mut dyn DirSink) -> FsResult<()> {
-        let start = match cookie {
+        let mut index = usize::try_from(cookie).map_err(|_| Errno::EINVAL)?;
+        let mut at = match index {
             0 => 0,
             n => {
                 let dir = self.dir.lock().unwrap();
-                *dir.offsets.get(n as usize - 1).ok_or(Errno::EINVAL)?
+                *dir.offsets.get(n - 1).ok_or(Errno::EINVAL)?
             }
         };
-        let entries = self
-            .run(move |fd| {
-                // SAFETY: plain syscall.
-                if unsafe { libc::lseek(fd, start, libc::SEEK_SET) } < 0 {
-                    return Err(last_errno());
+        loop {
+            let batch = self.run(move |fd| read_host_dir(fd, at)).await?;
+            let Some(last) = batch.last() else {
+                return Ok(());
+            };
+            at = last.off;
+            for entry in batch {
+                if entry.name == b"." || entry.name == b".." {
+                    continue;
                 }
-                read_host_dir(fd)
-            })
-            .await?;
-        let mut index = cookie as usize;
-        for entry in entries {
-            if entry.name == b"." || entry.name == b".." {
-                continue;
+                {
+                    let mut dir = self.dir.lock().unwrap();
+                    dir.offsets.truncate(index);
+                    dir.offsets.push(entry.off);
+                }
+                let next = (index as u64 + 1).min(MAX_DIR_COOKIE);
+                let accepted = sink.push(DirEntry {
+                    name: &entry.name,
+                    ino: self.shared.ino(self.dev, entry.ino),
+                    file_type: entry.file_type,
+                    next,
+                });
+                if !accepted {
+                    return Ok(());
+                }
+                index += 1;
             }
-            {
-                let mut dir = self.dir.lock().unwrap();
-                dir.offsets.truncate(index);
-                dir.offsets.push(entry.off);
-            }
-            let next = (index as u64 + 1).min(MAX_DIR_COOKIE);
-            let accepted = sink.push(DirEntry {
-                name: &entry.name,
-                ino: self.shared.ino(self.dev, entry.ino),
-                file_type: entry.file_type,
-                next,
-            });
-            if !accepted {
-                break;
-            }
-            index += 1;
         }
-        Ok(())
     }
+}
+
+/// Writes `data` at the end of the file `fd` is open on, whatever its open flags, and returns
+/// where it went and how much was written. With offset -1, `RWF_APPEND` also moves the
+/// descriptor's position past the data, which tells where that was.
+fn append_at_end(fd: RawFd, data: &[u8]) -> FsResult<(u64, usize)> {
+    let iov = libc::iovec {
+        iov_base: data.as_ptr().cast_mut().cast(),
+        iov_len: data.len(),
+    };
+    // SAFETY: `iov` describes `data`, which the call only reads.
+    let n = cvt_size(unsafe { libc::pwritev2(fd, &iov, 1, -1, libc::RWF_APPEND) })?;
+    Ok((position(fd)? - n as u64, n))
+}
+
+/// The file position of `fd`.
+fn position(fd: RawFd) -> FsResult<u64> {
+    // SAFETY: plain syscall.
+    let at = unsafe { libc::lseek(fd, 0, libc::SEEK_CUR) };
+    if at < 0 {
+        return Err(last_errno());
+    }
+    Ok(at as u64)
 }
 
 struct HostDirent {
@@ -887,44 +1048,50 @@ struct HostDirent {
     file_type: FileType,
 }
 
-/// Reads the rest of a host directory with `getdents64`.
-fn read_host_dir(fd: RawFd) -> FsResult<Vec<HostDirent>> {
-    let mut out = Vec::new();
-    let mut buf = vec![0u8; 32 * 1024];
-    loop {
-        // SAFETY: `buf` is writable for its length.
-        let n = unsafe { libc::syscall(libc::SYS_getdents64, fd, buf.as_mut_ptr(), buf.len()) };
-        if n < 0 {
-            return Err(last_errno());
-        }
-        if n == 0 {
-            return Ok(out);
-        }
-        let mut pos = 0;
-        while pos < n as usize {
-            let record = &buf[pos..];
-            let ino = u64::from_ne_bytes(record[0..8].try_into().unwrap());
-            let off = i64::from_ne_bytes(record[8..16].try_into().unwrap());
-            let reclen = u16::from_ne_bytes(record[16..18].try_into().unwrap()) as usize;
-            let d_type = record[18];
-            let name = &record[19..reclen];
-            let name = &name[..name.iter().position(|&b| b == 0).unwrap_or(name.len())];
-            let file_type = match FileType::from_mode(u32::from(d_type) << 12) {
-                Some(t) => t,
-                None => {
-                    // DT_UNKNOWN: ask the inode.
-                    let cname = cstring(name)?;
-                    let child = open_at(fd, &cname, libc::O_PATH | libc::O_NOFOLLOW, 0)?;
-                    file_type(stat_fd(child.as_raw_fd())?.st_mode)
-                }
-            };
-            out.push(HostDirent {
-                name: name.to_vec(),
-                ino,
-                off,
-                file_type,
-            });
-            pos += reclen;
-        }
+/// Reads one buffer of host directory entries with `getdents64`, from the host offset `at`.
+fn read_host_dir(fd: RawFd, at: i64) -> FsResult<Vec<HostDirent>> {
+    // SAFETY: plain syscall.
+    if unsafe { libc::lseek(fd, at, libc::SEEK_SET) } < 0 {
+        return Err(last_errno());
     }
+    let mut buf = vec![0u8; 32 * 1024];
+    // SAFETY: `buf` is writable for its length.
+    let n = unsafe { libc::syscall(libc::SYS_getdents64, fd, buf.as_mut_ptr(), buf.len()) };
+    if n < 0 {
+        return Err(last_errno());
+    }
+    let mut out = Vec::new();
+    let mut pos = 0;
+    while pos < n as usize {
+        let record = &buf[pos..];
+        let ino = u64::from_ne_bytes(record[0..8].try_into().unwrap());
+        let off = i64::from_ne_bytes(record[8..16].try_into().unwrap());
+        let reclen = u16::from_ne_bytes(record[16..18].try_into().unwrap()) as usize;
+        let d_type = record[18];
+        let name = &record[19..reclen];
+        let name = &name[..name.iter().position(|&b| b == 0).unwrap_or(name.len())];
+        pos += reclen;
+        let file_type = match FileType::from_mode(u32::from(d_type) << 12) {
+            Some(t) => t,
+            // DT_UNKNOWN: ask the inode. One removed meanwhile is simply gone.
+            None => match type_of(fd, name) {
+                Ok(t) => t,
+                Err(Errno::ENOENT) => continue,
+                Err(errno) => return Err(errno),
+            },
+        };
+        out.push(HostDirent {
+            name: name.to_vec(),
+            ino,
+            off,
+            file_type,
+        });
+    }
+    Ok(out)
+}
+
+/// The type of the entry `name` in the directory `dir`.
+fn type_of(dir: RawFd, name: &[u8]) -> FsResult<FileType> {
+    let child = open_at(dir, &cstring(name)?, libc::O_PATH | libc::O_NOFOLLOW, 0)?;
+    Ok(file_type(stat_fd(child.as_raw_fd())?.st_mode))
 }

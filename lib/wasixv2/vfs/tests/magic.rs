@@ -63,6 +63,7 @@ impl Filesystem for Magic {
             read_only: true,
             dev: None,
             has_btime: false,
+            stable: false,
         }
     }
 

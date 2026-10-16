@@ -2,9 +2,15 @@
 //! and `fs/libfs.c`).
 //!
 //! File data is stored sparsely in fixed-size blocks, so a write far past the end costs one block
-//! and the hole reads as zeroes. Directory cookies are insertion offsets that are never reused,
-//! as tmpfs's `simple_offset` map: a reader resuming at a cookie sees every entry that existed for
-//! the whole read exactly once, however the directory changes in between.
+//! and the hole reads as zeroes; allocation is tracked as ranges, so `fallocate` and hole
+//! punching cost what they touch, not the length of the range. Directory cookies are insertion
+//! offsets that are never reused, as tmpfs's `simple_offset` map: a reader resuming at a cookie
+//! sees every entry that existed for the whole read exactly once, however the directory changes
+//! in between.
+//!
+//! Like tmpfs, a filesystem has a size limit for data (`size=`) and one for inodes
+//! (`nr_inodes=`), by default half of the memory the machine is given (see [`Limits`]). Past
+//! them, writes and creation fail with `ENOSPC`.
 
 use std::{
     any::Any,
@@ -23,16 +29,60 @@ use wasixv2_vfs::{
     SetAttr, StatFs, TMPFS_MAGIC, TimeSet, Timestamp, XattrSet,
 };
 
+mod data;
+
+use data::Data;
+
 const BLOCK: u64 = 4096;
 /// Largest file size, as Linux's `MAX_LFS_FILESIZE` on 64-bit.
 const MAX_SIZE: u64 = i64::MAX as u64;
 /// tmpfs's `BOGO_DIRENT_SIZE`: what each entry adds to a directory's size.
 const DIRENT_SIZE: u64 = 20;
-/// Blocks `statfs` reports in total. tmpfs has no fixed size here.
-// TODO: an optional size limit (`size=` mount option) enforced with ENOSPC.
-const TOTAL_BLOCKS: u64 = 1 << 22;
+/// tmpfs's `BOGO_INODE_SIZE`: the inode space an inode or an extra link takes.
+const INODE_SIZE: u64 = 1024;
+/// What an extended attribute takes besides its name and value (`simple_xattr_space`).
+const XATTR_OVERHEAD: u64 = 40;
 /// relatime: refresh `atime` at least this often even when it is newer than `mtime`.
 const RELATIME_SECS: i64 = 24 * 60 * 60;
+/// Directory entries `readdir` copies out per hold of the directory's lock.
+const READDIR_BATCH: usize = 64;
+
+/// Size limits of a memory filesystem (tmpfs's `size=` and `nr_inodes=`). `None`, or 0 as for
+/// tmpfs, is unlimited.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limits {
+    /// Bytes of file data, in whole blocks.
+    pub max_bytes: Option<u64>,
+    /// Inodes. As tmpfs's `free_ispace`, each extra hard link counts as one too, and extended
+    /// attributes take from the same space, 1 KiB per inode.
+    pub max_inodes: Option<u64>,
+}
+
+impl Limits {
+    pub const UNLIMITED: Self = Self {
+        max_bytes: None,
+        max_inodes: None,
+    };
+
+    /// The memory a machine has when the embedder does not say: the 4 GiB a wasm32 guest can
+    /// address, which is the total `sysinfo` reports.
+    pub const DEFAULT_MEMORY: u64 = 4 << 30;
+
+    /// tmpfs's defaults for a machine with `memory` bytes: half of it for data, and an inode
+    /// per two pages of it (`shmem_default_max_blocks`, `shmem_default_max_inodes`).
+    pub fn for_memory(memory: u64) -> Self {
+        Self {
+            max_bytes: Some(memory / 2 / BLOCK * BLOCK),
+            max_inodes: Some(memory / BLOCK / 2),
+        }
+    }
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self::for_memory(Self::DEFAULT_MEMORY)
+    }
+}
 
 /// A memory filesystem.
 pub struct MemFs {
@@ -43,8 +93,7 @@ pub struct MemFs {
 struct Shared {
     clock: Arc<dyn Clock>,
     next_ino: AtomicU64,
-    blocks_used: AtomicU64,
-    inodes: AtomicU64,
+    space: Space,
 }
 
 impl Shared {
@@ -60,25 +109,97 @@ impl Shared {
     }
 }
 
+/// The space a filesystem has used and may use (`shmem_sb_info`'s `used_blocks` and
+/// `free_ispace`).
+pub(crate) struct Space {
+    max_blocks: Option<u64>,
+    blocks: AtomicU64,
+    max_inodes: Option<u64>,
+    /// Inode space used, in bytes: [`INODE_SIZE`] per inode and extra link, plus xattrs.
+    ispace: AtomicU64,
+}
+
+impl Space {
+    fn new(limits: Limits) -> Self {
+        Self {
+            max_blocks: limits
+                .max_bytes
+                .map(|bytes| bytes / BLOCK)
+                .filter(|&n| n > 0),
+            blocks: AtomicU64::new(0),
+            max_inodes: limits.max_inodes.filter(|&n| n > 0),
+            ispace: AtomicU64::new(0),
+        }
+    }
+
+    /// Takes `n` from `used` unless that would pass `max`.
+    fn charge(used: &AtomicU64, max: Option<u64>, n: u64) -> FsResult<()> {
+        used.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |now| {
+            let next = now.checked_add(n)?;
+            max.is_none_or(|max| next <= max).then_some(next)
+        })
+        .map(drop)
+        .map_err(|_| Errno::ENOSPC)
+    }
+
+    pub(crate) fn charge_blocks(&self, n: u64) -> FsResult<()> {
+        Self::charge(&self.blocks, self.max_blocks, n)
+    }
+
+    pub(crate) fn release_blocks(&self, n: u64) {
+        self.blocks.fetch_sub(n, Ordering::Relaxed);
+    }
+
+    fn max_ispace(&self) -> Option<u64> {
+        self.max_inodes.map(|n| n.saturating_mul(INODE_SIZE))
+    }
+
+    fn charge_ispace(&self, bytes: u64) -> FsResult<()> {
+        Self::charge(&self.ispace, self.max_ispace(), bytes)
+    }
+
+    fn release_ispace(&self, bytes: u64) {
+        self.ispace.fetch_sub(bytes, Ordering::Relaxed);
+    }
+
+    /// `shmem_reserve_inode`: room for an inode, or for another link to one.
+    fn reserve_inode(&self) -> FsResult<()> {
+        self.charge_ispace(INODE_SIZE)
+    }
+
+    fn free_inode(&self) {
+        self.release_ispace(INODE_SIZE);
+    }
+}
+
 impl MemFs {
-    /// An empty filesystem whose root is owned by `uid`/`gid` with permission bits `mode`.
+    /// An empty filesystem whose root is owned by `uid`/`gid` with permission bits `mode`, with
+    /// the default [`Limits`].
     pub fn new(clock: Arc<dyn Clock>, mode: u32, uid: u32, gid: u32) -> Self {
+        Self::with_limits(clock, mode, uid, gid, Limits::default())
+    }
+
+    /// Like [`MemFs::new`], with the given size limits.
+    pub fn with_limits(
+        clock: Arc<dyn Clock>,
+        mode: u32,
+        uid: u32,
+        gid: u32,
+        limits: Limits,
+    ) -> Self {
         let shared = Arc::new(Shared {
             clock,
             next_ino: AtomicU64::new(1),
-            blocks_used: AtomicU64::new(0),
-            inodes: AtomicU64::new(0),
+            space: Space::new(limits),
         });
-        let root = MemNode::new(
-            &shared,
-            &NewNode {
-                kind: NewKind::Directory,
-                mode,
-                uid,
-                gid,
-            },
-        );
+        let root = NewNode {
+            kind: NewKind::Directory,
+            mode,
+            uid,
+            gid,
+        };
         // The root's `..` is itself.
+        let root = MemNode::new(&shared, &root).expect("an empty filesystem has room for its root");
         root.meta().nlink = 2;
         Self { shared, root }
     }
@@ -94,6 +215,7 @@ impl Filesystem for MemFs {
             read_only: false,
             dev: None,
             has_btime: true,
+            stable: true,
         }
     }
 
@@ -101,20 +223,24 @@ impl Filesystem for MemFs {
         self.root.clone()
     }
 
+    /// As `shmem_statfs`: an unlimited size or inode count reports 0 for it.
     async fn statfs(&self) -> FsResult<StatFs> {
-        let used = self.shared.blocks_used.load(Ordering::Relaxed);
-        let inodes = self.shared.inodes.load(Ordering::Relaxed);
-        let free = TOTAL_BLOCKS.saturating_sub(used);
-        Ok(StatFs {
+        let space = &self.shared.space;
+        let mut stat = StatFs {
             block_size: BLOCK as u32,
-            blocks: TOTAL_BLOCKS,
-            blocks_free: free,
-            blocks_avail: free,
-            files: TOTAL_BLOCKS,
-            files_free: TOTAL_BLOCKS.saturating_sub(inodes),
             name_max: NAME_MAX as u32,
             fragment_size: BLOCK as u32,
-        })
+            ..StatFs::default()
+        };
+        if let Some(max) = space.max_blocks {
+            let free = max.saturating_sub(space.blocks.load(Ordering::Relaxed));
+            (stat.blocks, stat.blocks_free, stat.blocks_avail) = (max, free, free);
+        }
+        if let (Some(max), Some(max_ispace)) = (space.max_inodes, space.max_ispace()) {
+            let free = max_ispace.saturating_sub(space.ispace.load(Ordering::Relaxed));
+            (stat.files, stat.files_free) = (max, free / INODE_SIZE);
+        }
+        Ok(stat)
     }
 }
 
@@ -142,7 +268,7 @@ struct Meta {
 }
 
 enum Content {
-    File(Mutex<Blocks>),
+    File(Mutex<Data>),
     Dir(Mutex<Dir>),
     Symlink(Vec<u8>),
     Special,
@@ -190,7 +316,9 @@ impl Dir {
 }
 
 impl MemNode {
-    fn new(shared: &Arc<Shared>, new: &NewNode<'_>) -> Arc<Self> {
+    /// A new object, charged to the filesystem's inode space.
+    fn new(shared: &Arc<Shared>, new: &NewNode<'_>) -> FsResult<Arc<Self>> {
+        shared.space.reserve_inode()?;
         let now = shared.now();
         let (content, rdev) = match new.kind {
             NewKind::Regular => (Content::File(Mutex::default()), Device::default()),
@@ -199,8 +327,7 @@ impl MemNode {
             NewKind::CharDevice(dev) | NewKind::BlockDevice(dev) => (Content::Special, dev),
             NewKind::Fifo | NewKind::Socket => (Content::Special, Device::default()),
         };
-        shared.inodes.fetch_add(1, Ordering::Relaxed);
-        Arc::new_cyclic(|this| Self {
+        Ok(Arc::new_cyclic(|this| Self {
             ino: shared.next_ino.fetch_add(1, Ordering::Relaxed),
             file_type: new.kind.file_type(),
             this: this.clone(),
@@ -218,7 +345,7 @@ impl MemNode {
                 xattrs: BTreeMap::new(),
             }),
             content,
-        })
+        }))
     }
 
     fn arc(&self) -> Arc<MemNode> {
@@ -236,7 +363,7 @@ impl MemNode {
         }
     }
 
-    fn blocks(&self) -> FsResult<MutexGuard<'_, Blocks>> {
+    fn data(&self) -> FsResult<MutexGuard<'_, Data>> {
         match &self.content {
             Content::File(blocks) => Ok(blocks.lock().unwrap()),
             Content::Dir(_) => Err(Errno::EISDIR),
@@ -269,8 +396,13 @@ impl MemNode {
         }
     }
 
+    /// One name of a non-directory went away. A link beyond the last gives its inode space
+    /// back (`shmem_unlink`); the last one's goes with the inode.
     fn drop_link(&self) {
         let mut meta = self.meta();
+        if meta.nlink > 1 {
+            self.shared.space.free_inode();
+        }
         meta.nlink = meta.nlink.saturating_sub(1);
         meta.ctime = self.shared.now();
     }
@@ -284,7 +416,7 @@ impl MemNode {
 
     fn size(&self) -> u64 {
         match &self.content {
-            Content::File(blocks) => blocks.lock().unwrap().size,
+            Content::File(data) => data.lock().unwrap().size,
             Content::Dir(dir) => dir.lock().unwrap().by_name.len() as u64 * DIRENT_SIZE,
             Content::Symlink(target) => target.len() as u64,
             Content::Special => 0,
@@ -293,31 +425,25 @@ impl MemNode {
 
     fn allocated(&self) -> u64 {
         match &self.content {
-            Content::File(blocks) => blocks.lock().unwrap().blocks.len() as u64,
+            Content::File(data) => data.lock().unwrap().allocated(),
             _ => 0,
-        }
-    }
-
-    fn account(&self, before: u64) {
-        let after = self.allocated();
-        if after >= before {
-            self.shared
-                .blocks_used
-                .fetch_add(after - before, Ordering::Relaxed);
-        } else {
-            self.shared
-                .blocks_used
-                .fetch_sub(before - after, Ordering::Relaxed);
         }
     }
 }
 
 impl Drop for MemNode {
     fn drop(&mut self) {
-        let blocks = self.allocated();
-        self.shared.blocks_used.fetch_sub(blocks, Ordering::Relaxed);
-        self.shared.inodes.fetch_sub(1, Ordering::Relaxed);
+        let space = &self.shared.space;
+        space.release_blocks(self.allocated());
+        let xattrs: u64 = self.meta().xattrs.iter().map(xattr_space).sum();
+        space.release_ispace(xattrs);
+        space.free_inode();
     }
+}
+
+/// The inode space an extended attribute takes (`simple_xattr_space`).
+fn xattr_space((name, value): (&Vec<u8>, &Vec<u8>)) -> u64 {
+    XATTR_OVERHEAD + name.len() as u64 + value.len() as u64
 }
 
 /// Locks two directories in inode order, so concurrent renames cannot deadlock.
@@ -376,9 +502,7 @@ impl Node for MemNode {
             if size > MAX_SIZE {
                 return Err(Errno::EFBIG);
             }
-            let before = self.allocated();
-            self.blocks()?.truncate(size);
-            self.account(before);
+            self.data()?.truncate(&self.shared.space, size);
         }
         {
             let mut meta = self.meta();
@@ -415,7 +539,7 @@ impl Node for MemNode {
         if dir.by_name.contains_key(name) {
             return Err(Errno::EEXIST);
         }
-        let node = MemNode::new(&self.shared, new);
+        let node = MemNode::new(&self.shared, new)?;
         dir.insert(name, node.clone())?;
         drop(dir);
         if new.kind == NewKind::Directory {
@@ -426,11 +550,16 @@ impl Node for MemNode {
         Ok(node)
     }
 
-    async fn create_unnamed(&self, new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
+    async fn create_unnamed(
+        &self,
+        new: &NewNode<'_>,
+        options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
         drop(self.dir()?);
-        let node = MemNode::new(&self.shared, new);
+        let node = MemNode::new(&self.shared, new)?;
         node.meta().nlink = 0;
-        Ok(node)
+        let handle = node.open(options).await?;
+        Ok((node, handle))
     }
 
     async fn link(&self, name: &[u8], target: &Arc<dyn Node>) -> FsResult<()> {
@@ -439,7 +568,18 @@ impl Node for MemNode {
         if dir.by_name.contains_key(name) {
             return Err(Errno::EEXIST);
         }
-        dir.insert(name, target.clone())?;
+        // `shmem_link`: a link to a named file takes inode space; naming an O_TMPFILE file
+        // uses what its inode already has.
+        let named = target.meta().nlink > 0;
+        if named {
+            self.shared.space.reserve_inode()?;
+        }
+        if let Err(errno) = dir.insert(name, target.clone()) {
+            if named {
+                self.shared.space.free_inode();
+            }
+            return Err(errno);
+        }
         drop(dir);
         target.meta().nlink += 1;
         target.touch_ctime();
@@ -525,7 +665,12 @@ impl Node for MemNode {
             XattrSet::Replace if !exists => return Err(Errno::ENODATA),
             _ => {}
         }
-        meta.xattrs.insert(name.to_vec(), value.to_vec());
+        let (name, value) = (name.to_vec(), value.to_vec());
+        let space = &self.shared.space;
+        space.charge_ispace(xattr_space((&name, &value)))?;
+        if let Some(old) = meta.xattrs.insert(name.clone(), value) {
+            space.release_ispace(xattr_space((&name, &old)));
+        }
         meta.ctime = now;
         Ok(())
     }
@@ -537,7 +682,10 @@ impl Node for MemNode {
     async fn removexattr(&self, name: &[u8]) -> FsResult<()> {
         let now = self.shared.now();
         let mut meta = self.meta();
-        meta.xattrs.remove(name).ok_or(Errno::ENODATA)?;
+        let (name, value) = meta.xattrs.remove_entry(name).ok_or(Errno::ENODATA)?;
+        self.shared
+            .space
+            .release_ispace(xattr_space((&name, &value)));
         meta.ctime = now;
         Ok(())
     }
@@ -668,27 +816,27 @@ impl MemHandle {
 #[async_trait(?Send)]
 impl Handle for MemHandle {
     async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
-        let n = self.node.blocks()?.read(buf, offset);
+        let n = self.node.data()?.read(buf, offset);
         self.read_done();
         Ok(n)
     }
 
     async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
-        let before = self.node.allocated();
-        let n = self.node.blocks()?.write(data, offset)?;
-        self.node.account(before);
+        let n = self
+            .node
+            .data()?
+            .write(&self.node.shared.space, data, offset)?;
         self.node.touch();
         Ok(n)
     }
 
     async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {
-        let before = self.node.allocated();
         let result = {
-            let mut blocks = self.node.blocks()?;
-            let at = blocks.size;
-            blocks.write(data, at).map(|n| (at, n))
+            let mut file = self.node.data()?;
+            let at = file.size;
+            file.write(&self.node.shared.space, data, at)
+                .map(|n| (at, n))
         }?;
-        self.node.account(before);
         self.node.touch();
         Ok(result)
     }
@@ -698,164 +846,79 @@ impl Handle for MemHandle {
             .checked_add(len)
             .filter(|&end| end <= MAX_SIZE)
             .ok_or(Errno::EFBIG)?;
-        let before = self.node.allocated();
+        let space = &self.node.shared.space;
         {
-            let mut blocks = self.node.blocks()?;
+            let mut file = self.node.data()?;
             match mode {
                 AllocMode::Allocate | AllocMode::AllocateKeepSize => {
-                    blocks.allocate(offset, end);
+                    file.allocate(space, offset, end)?;
                     if mode == AllocMode::Allocate {
-                        blocks.size = blocks.size.max(end);
+                        file.size = file.size.max(end);
                     }
                 }
-                AllocMode::PunchHole => blocks.punch(offset, end),
+                AllocMode::PunchHole => file.punch(space, offset, end),
                 AllocMode::ZeroRange { keep_size } => {
-                    blocks.punch(offset, end);
-                    blocks.allocate(offset, end);
+                    file.punch(space, offset, end);
+                    file.allocate(space, offset, end)?;
                     if !keep_size {
-                        blocks.size = blocks.size.max(end);
+                        file.size = file.size.max(end);
                     }
                 }
             }
         }
-        self.node.account(before);
+        self.node.touch();
+        Ok(())
+    }
+
+    async fn set_size(&self, size: u64) -> FsResult<()> {
+        if size > MAX_SIZE {
+            return Err(Errno::EFBIG);
+        }
+        self.node.data()?.truncate(&self.node.shared.space, size);
         self.node.touch();
         Ok(())
     }
 
     async fn seek_hole(&self, offset: u64, _size: u64, which: SeekHole) -> FsResult<u64> {
-        self.node.blocks()?.seek_hole(offset, which)
+        self.node.data()?.seek_hole(offset, which)
     }
 
     async fn readdir(&self, cookie: u64, sink: &mut dyn DirSink) -> FsResult<()> {
-        // Collected first so the sink never runs under the directory lock.
-        let entries: Vec<(u64, Vec<u8>, u64, FileType)> = {
-            let dir = self.node.dir()?;
-            dir.by_cookie
-                .range(cookie.max(1)..)
-                .map(|(&c, (name, node))| (c, name.clone(), node.ino, node.file_type))
-                .collect()
-        };
-        for (c, name, ino, file_type) in entries {
-            let entry = DirEntry {
-                name: &name,
-                ino,
-                file_type,
-                next: c + 1,
+        // Copied out in small batches, so the sink never runs under the directory lock and a
+        // call costs what the sink takes, not the size of the directory.
+        let mut cookie = cookie.max(1);
+        loop {
+            let batch: Vec<(u64, Vec<u8>, u64, FileType)> = {
+                let dir = self.node.dir()?;
+                dir.by_cookie
+                    .range(cookie..)
+                    .take(READDIR_BATCH)
+                    .map(|(&c, (name, node))| (c, name.clone(), node.ino, node.file_type))
+                    .collect()
             };
-            if !sink.push(entry) {
+            let Some(&(last, ..)) = batch.last() else {
+                break;
+            };
+            let ended = batch.len() < READDIR_BATCH;
+            for (c, name, ino, file_type) in batch {
+                let entry = DirEntry {
+                    name: &name,
+                    ino,
+                    file_type,
+                    next: c + 1,
+                };
+                if !sink.push(entry) {
+                    self.read_done();
+                    return Ok(());
+                }
+            }
+            if ended {
                 break;
             }
+            cookie = last + 1;
         }
         self.read_done();
         Ok(())
-    }
-}
-
-#[derive(Default)]
-struct Blocks {
-    size: u64,
-    blocks: BTreeMap<u64, Box<[u8]>>,
-}
-
-impl Blocks {
-    fn read(&self, buf: &mut [u8], offset: u64) -> usize {
-        let end = self.size.min(offset.saturating_add(buf.len() as u64));
-        let mut pos = offset;
-        while pos < end {
-            let (index, start) = (pos / BLOCK, (pos % BLOCK) as usize);
-            let len = ((BLOCK - start as u64).min(end - pos)) as usize;
-            let out = &mut buf[(pos - offset) as usize..][..len];
-            match self.blocks.get(&index) {
-                Some(block) => out.copy_from_slice(&block[start..start + len]),
-                None => out.fill(0),
-            }
-            pos += len as u64;
-        }
-        end.saturating_sub(offset) as usize
-    }
-
-    fn write(&mut self, data: &[u8], offset: u64) -> FsResult<usize> {
-        let end = offset
-            .checked_add(data.len() as u64)
-            .filter(|&end| end <= MAX_SIZE)
-            .ok_or(Errno::EFBIG)?;
-        let mut pos = offset;
-        while pos < end {
-            let (index, start) = (pos / BLOCK, (pos % BLOCK) as usize);
-            let len = ((BLOCK - start as u64).min(end - pos)) as usize;
-            let block = self.block(index);
-            block[start..start + len].copy_from_slice(&data[(pos - offset) as usize..][..len]);
-            pos += len as u64;
-        }
-        self.size = self.size.max(end);
-        Ok(data.len())
-    }
-
-    fn block(&mut self, index: u64) -> &mut Box<[u8]> {
-        self.blocks
-            .entry(index)
-            .or_insert_with(|| vec![0; BLOCK as usize].into_boxed_slice())
-    }
-
-    fn truncate(&mut self, size: u64) {
-        let first_gone = size.div_ceil(BLOCK);
-        self.blocks.split_off(&first_gone);
-        // Zero the tail of the last block so a later extension reads zeroes there.
-        if let Some(block) = self.blocks.get_mut(&(size / BLOCK)) {
-            block[(size % BLOCK) as usize..].fill(0);
-        }
-        self.size = size;
-    }
-
-    fn allocate(&mut self, start: u64, end: u64) {
-        if start >= end {
-            return;
-        }
-        for index in start / BLOCK..=(end - 1) / BLOCK {
-            self.block(index);
-        }
-    }
-
-    /// Zeroes `start..end`, freeing whole blocks.
-    fn punch(&mut self, start: u64, end: u64) {
-        let end = end.min(self.size.max(start));
-        let mut pos = start;
-        while pos < end {
-            let (index, offset) = (pos / BLOCK, (pos % BLOCK) as usize);
-            let len = (BLOCK - offset as u64).min(end - pos) as usize;
-            if len as u64 == BLOCK {
-                self.blocks.remove(&index);
-            } else if let Some(block) = self.blocks.get_mut(&index) {
-                block[offset..offset + len].fill(0);
-            }
-            pos += len as u64;
-        }
-    }
-
-    /// `SEEK_DATA`/`SEEK_HOLE` over allocated blocks, as tmpfs answers from its page cache.
-    fn seek_hole(&self, offset: u64, which: SeekHole) -> FsResult<u64> {
-        if offset >= self.size {
-            return Err(Errno::ENXIO);
-        }
-        let index = offset / BLOCK;
-        match which {
-            SeekHole::Data => {
-                let (&first, _) = self.blocks.range(index..).next().ok_or(Errno::ENXIO)?;
-                let at = (first * BLOCK).max(offset);
-                if at >= self.size {
-                    return Err(Errno::ENXIO);
-                }
-                Ok(at)
-            }
-            SeekHole::Hole => {
-                let mut i = index;
-                while self.blocks.contains_key(&i) {
-                    i += 1;
-                }
-                Ok((i * BLOCK).max(offset).min(self.size))
-            }
-        }
     }
 }
 

@@ -164,3 +164,137 @@ fn xattrs_honour_create_and_replace() {
     assert_eq!(block_on(root.getxattr(b"user.k")), Ok(b"v".to_vec()));
     assert_eq!(block_on(root.listxattr()), Ok(vec![b"user.k".to_vec()]));
 }
+
+fn limited(limits: Limits) -> MemFs {
+    MemFs::with_limits(Arc::new(FixedClock), 0o755, 1, 1, limits)
+}
+
+fn open_file(fs: &MemFs, name: &[u8]) -> (Arc<dyn Node>, Box<dyn Handle>) {
+    let options = OpenOptions {
+        read: true,
+        write: true,
+        ..OpenOptions::default()
+    };
+    block_on(fs.root().create_open(name, &new(NewKind::Regular), options)).unwrap()
+}
+
+#[test]
+fn fallocate_past_the_size_limit_fails_at_once() {
+    let fs = fs();
+    let (file, handle) = open_file(&fs, b"f");
+
+    // Far more than the default limit (half of 4 GiB): refused up front, nothing charged.
+    assert_eq!(
+        block_on(handle.allocate(AllocMode::Allocate, 0, 1 << 40)),
+        Err(Errno::ENOSPC)
+    );
+    let attr = block_on(file.getattr()).unwrap();
+    assert_eq!((attr.size, attr.blocks), (0, 0));
+    let statfs = block_on(fs.statfs()).unwrap();
+    assert_eq!(statfs.blocks, (1 << 31) / BLOCK);
+    assert_eq!(statfs.blocks_free, statfs.blocks);
+}
+
+#[test]
+fn huge_allocations_and_punches_cost_ranges_not_blocks() {
+    let fs = limited(Limits::UNLIMITED);
+    let (file, handle) = open_file(&fs, b"f");
+
+    // A terabyte of allocation is one range: no memory and no per-block loop.
+    block_on(handle.allocate(AllocMode::AllocateKeepSize, 0, 1 << 40)).unwrap();
+    block_on(handle.write_at(b"data", 1 << 30)).unwrap();
+    let attr = block_on(file.getattr()).unwrap();
+    assert_eq!(attr.size, (1 << 30) + 4);
+    assert_eq!(attr.blocks, (1 << 40) / 512);
+    // Allocated but unwritten blocks are holes to SEEK_DATA, as tmpfs's.
+    assert_eq!(
+        block_on(handle.seek_hole(0, attr.size, SeekHole::Data)),
+        Ok(1 << 30)
+    );
+
+    // A file made enormous by truncation, then punched across its whole length.
+    block_on(handle.set_size(1 << 62)).unwrap();
+    block_on(handle.allocate(AllocMode::PunchHole, 0, 1 << 62)).unwrap();
+    let attr = block_on(file.getattr()).unwrap();
+    assert_eq!((attr.size, attr.blocks), (1 << 62, 0));
+    let mut buf = [1; 4];
+    block_on(handle.read_at(&mut buf, 1 << 30)).unwrap();
+    assert_eq!(buf, [0; 4]);
+}
+
+#[test]
+fn writes_stop_at_the_size_limit() {
+    let fs = limited(Limits {
+        max_bytes: Some(4 * BLOCK),
+        max_inodes: None,
+    });
+    let (file, handle) = open_file(&fs, b"f");
+
+    let data = vec![7; 5 * BLOCK as usize];
+    assert_eq!(block_on(handle.write_at(&data, 0)), Ok(4 * BLOCK as usize));
+    assert_eq!(
+        block_on(handle.write_at(&data, 4 * BLOCK)),
+        Err(Errno::ENOSPC)
+    );
+    assert_eq!(block_on(fs.statfs()).unwrap().blocks_free, 0);
+    // Rewriting allocated blocks needs no space; freeing gives it back.
+    assert_eq!(block_on(handle.write_at(b"x", 0)), Ok(1));
+    block_on(handle.set_size(BLOCK)).unwrap();
+    assert_eq!(block_on(fs.statfs()).unwrap().blocks_free, 3);
+    drop((file, handle));
+    block_on(fs.root().unlink(b"f")).unwrap();
+    assert_eq!(block_on(fs.statfs()).unwrap().blocks_free, 4);
+}
+
+#[test]
+fn inodes_and_extra_links_are_limited() {
+    // The root and two more.
+    let fs = limited(Limits {
+        max_bytes: None,
+        max_inodes: Some(3),
+    });
+    let root = fs.root();
+    let a = block_on(root.create(b"a", &new(NewKind::Regular))).unwrap();
+    assert_eq!(block_on(fs.statfs()).unwrap().files_free, 1);
+    block_on(root.link(b"b", &a)).unwrap();
+
+    assert_eq!(
+        block_on(root.create(b"c", &new(NewKind::Regular))).err(),
+        Some(Errno::ENOSPC)
+    );
+    assert_eq!(block_on(root.link(b"c", &a)), Err(Errno::ENOSPC));
+    block_on(root.unlink(b"b")).unwrap();
+    block_on(root.create(b"c", &new(NewKind::Directory))).unwrap();
+}
+
+#[test]
+fn an_empty_write_past_the_end_does_not_extend() {
+    let fs = fs();
+    let (file, handle) = open_file(&fs, b"f");
+
+    assert_eq!(block_on(handle.write_at(b"", 1 << 20)), Ok(0));
+    assert_eq!(block_on(file.getattr()).unwrap().size, 0);
+}
+
+#[test]
+fn readdir_resumes_across_batches() {
+    let fs = fs();
+    let root = fs.root();
+    let names: Vec<Vec<u8>> = (0..200).map(|i| format!("f{i:03}").into_bytes()).collect();
+    for name in &names {
+        block_on(root.create(name, &new(NewKind::Regular))).unwrap();
+    }
+    let dir = block_on(root.open(OpenOptions::default())).unwrap();
+
+    let mut seen = Vec::new();
+    let mut cookie = 0;
+    loop {
+        let chunk = read_dir(&*dir, cookie, 37);
+        let Some((_, next)) = chunk.last() else {
+            break;
+        };
+        cookie = *next;
+        seen.extend(chunk.into_iter().map(|(name, _)| name));
+    }
+    assert_eq!(seen, names);
+}

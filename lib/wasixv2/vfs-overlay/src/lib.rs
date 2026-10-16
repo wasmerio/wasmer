@@ -16,7 +16,8 @@
 //!
 //! Without a `workdir` there is no atomic rename-into-place: copy-up of a regular file goes
 //! through an unnamed file (`O_TMPFILE`) linked in when complete where the upper driver supports
-//! that, and replacing an entry by a whiteout is two steps.
+//! that, and a whiteout that replaces an entry is made under a temporary name first and renamed
+//! over it, so a failure to make one changes nothing.
 
 use std::{
     any::Any,
@@ -49,6 +50,12 @@ const XATTR_PREFIXES: [&[u8]; 2] = [b"trusted.overlay.", b"user.overlay."];
 const OPAQUE: &[u8] = b"opaque";
 const WHITEOUT: &[u8] = b"whiteout";
 const COPY_CHUNK: u64 = 64 * 1024;
+/// Permission bits a copy has until it is complete, so the overlay can fill it whatever the
+/// final bits are (a host upper checks them for xattrs and reopening).
+const COPY_FILE_MODE: u32 = 0o600;
+const COPY_DIR_MODE: u32 = 0o700;
+/// Temporary names of whiteouts made before they replace an entry.
+const WHITEOUT_PREFIX: &[u8] = b"#overlay-whiteout.";
 
 /// An overlay of an optional upper layer over lower layers.
 pub struct OverlayFs {
@@ -79,6 +86,7 @@ impl OverlayFs {
             origins: Mutex::default(),
             overflow: Mutex::default(),
             next_overflow: AtomicU64::new(1),
+            next_whiteout: AtomicU64::new(0),
             write_lock: AsyncMutex::new(()),
         });
         // Root directories are never opaque; xwhiteouts are checked for conservatively.
@@ -109,7 +117,9 @@ impl OverlayFs {
                 parent: None,
                 name: Vec::new(),
                 key: None,
+                unlinked: false,
             }),
+            copy_lock: AsyncMutex::new(()),
         });
         Arc::new(Self { shared, root })
     }
@@ -122,11 +132,13 @@ impl OverlayFs {
 #[async_trait(?Send)]
 impl Filesystem for OverlayFs {
     fn info(&self) -> FsInfo {
-        let layers = self.shared.upper.iter().chain(&self.shared.lowers);
+        let layers = || self.shared.upper.iter().chain(&self.shared.lowers);
         FsInfo {
             name: "overlay",
             magic: OVERLAYFS_SUPER_MAGIC,
-            name_max: layers.map(|fs| fs.info().name_max).max().unwrap_or(0),
+            name_max: layers().map(|fs| fs.info().name_max).max().unwrap_or(0),
+            // Every change goes through the overlay unless a layer changes underneath it.
+            stable: layers().all(|fs| fs.info().stable),
             read_only: self
                 .shared
                 .upper
@@ -163,8 +175,10 @@ struct Shared {
     origins: Mutex<HashMap<u64, u64>>,
     overflow: Mutex<HashMap<(u8, u64), u64>>,
     next_overflow: AtomicU64,
-    /// Serialises namespace and metadata changes, standing in for the parent's `i_rwsem` and
-    /// the copy-up lock: several of them are multi-step on the upper layer.
+    next_whiteout: AtomicU64,
+    /// Serialises namespace and metadata changes, standing in for the parents' `i_rwsem`:
+    /// several of them are multi-step on the upper layer. Copying a file's data up for an open
+    /// holds it only to put the finished copy in place.
     write_lock: AsyncMutex<()>,
 }
 
@@ -258,7 +272,9 @@ impl Shared {
                 parent: Some(parent.clone()),
                 name: name.to_vec(),
                 key: Some(key.clone()),
+                unlinked: false,
             }),
+            copy_lock: AsyncMutex::new(()),
         });
         self.nodes
             .lock()
@@ -275,6 +291,24 @@ impl Shared {
         }
         self.origins.lock().unwrap().remove(&node.ino());
         self.nodes.lock().unwrap().remove(&Key::Upper(node.ino()));
+    }
+
+    /// The lower object reached as `name` in `parent` lost that name: a copy-up of it, for a
+    /// file still open, must not take the name back (`d_unhashed` in `ovl_copy_up`).
+    fn lower_unlinked(&self, parent: &OverlayNode, name: &[u8]) {
+        let key = Key::Lower(parent.ino, name.to_vec());
+        let node = self.nodes.lock().unwrap().remove(&key);
+        if let Some(node) = node.and_then(|weak| weak.upgrade()) {
+            let mut state = node.state.lock().unwrap();
+            state.unlinked = true;
+            state.key = None;
+        }
+    }
+
+    /// A name for a whiteout that does not replace anything yet.
+    fn whiteout_name(&self) -> Vec<u8> {
+        let n = self.next_whiteout.fetch_add(1, Ordering::Relaxed);
+        [WHITEOUT_PREFIX, n.to_string().as_bytes()].concat()
     }
 }
 
@@ -295,6 +329,8 @@ pub struct OverlayNode {
     this: Weak<OverlayNode>,
     shared: Arc<Shared>,
     state: Mutex<State>,
+    /// Held while this object's data is copied up for an open, so only one copy is made.
+    copy_lock: AsyncMutex<()>,
 }
 
 struct State {
@@ -306,6 +342,8 @@ struct State {
     parent: Option<Arc<OverlayNode>>,
     name: Vec<u8>,
     key: Option<Key>,
+    /// A lower non-directory whose name was removed: its copy-up stays unnamed.
+    unlinked: bool,
 }
 
 impl Drop for OverlayNode {
@@ -318,6 +356,15 @@ impl Drop for OverlayNode {
             nodes.remove(&key);
         }
     }
+}
+
+/// A copy of a lower object, complete but maybe not in place yet.
+struct Copy {
+    node: Arc<dyn Node>,
+    /// Created under its name rather than unnamed.
+    named: bool,
+    /// A regular file's copy, open with the options `prepare_copy` was given.
+    handle: Option<Box<dyn Handle>>,
 }
 
 impl OverlayNode {
@@ -496,13 +543,55 @@ impl OverlayNode {
             cur = parent.expect("the root has an upper directory when the overlay does");
         }
         for node in chain.into_iter().rev() {
-            node.copy_up_one().await?;
+            let copy = node.prepare_copy(None, false).await?;
+            node.install_copy(copy).await?;
         }
         Ok(self.upper_node().expect("copied up"))
     }
 
-    /// Copies this object up into its parent's upper directory, which exists.
-    async fn copy_up_one(&self) -> FsResult<()> {
+    /// The upper object of a file opened for writing with `options`, copying it up first
+    /// (`ovl_open` with write access), and the copy's handle if this made it. The data is
+    /// copied into an unnamed file without the overlay lock, which is taken only to put the
+    /// copy in place; for `O_TRUNC` the data is not copied at all.
+    async fn copy_up_for_write(
+        self: &Arc<Self>,
+        options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Option<Box<dyn Handle>>)> {
+        if let Some(upper) = self.upper_node() {
+            return Ok((upper, None));
+        }
+        let _copying = self.copy_lock.lock().await;
+        if let Some(upper) = self.upper_node() {
+            return Ok((upper, None));
+        }
+        let parent = self.state.lock().unwrap().parent.clone();
+        let parent = parent.expect("a file has a parent");
+        {
+            let _guard = self.shared.write_lock.lock().await;
+            parent.copy_up().await?;
+        }
+        let unnamed = self.prepare_copy(Some(options), true).await;
+        let _guard = self.shared.write_lock.lock().await;
+        // A metadata change may have copied it up meanwhile; ours is unnamed, so it just goes.
+        if let Some(upper) = self.upper_node() {
+            return Ok((upper, None));
+        }
+        let mut copy = match unnamed {
+            // A copy made under its name is a namespace change, so it is made under the lock.
+            Err(Errno::EOPNOTSUPP) => self.prepare_copy(Some(options), false).await?,
+            copy => copy?,
+        };
+        // The copy's own handle: reopening could check bits the copy's opener is exempt from.
+        let handle = copy.handle.take();
+        self.install_copy(copy).await?;
+        Ok((self.upper_node().expect("copied up"), handle))
+    }
+
+    /// Makes a complete copy of this lower object in its parent's upper directory, which
+    /// exists: named for anything but a regular file the upper driver can create unnamed, or
+    /// `EOPNOTSUPP` with `unnamed_only`. A regular file's copy stays open for writing, with
+    /// `open`'s other options; for `O_TRUNC` its data is not copied.
+    async fn prepare_copy(&self, open: Option<OpenOptions>, unnamed_only: bool) -> FsResult<Copy> {
         let (parent, name, lower) = {
             let state = self.state.lock().unwrap();
             let parent = state.parent.clone().expect("not the root");
@@ -515,36 +604,45 @@ impl OverlayNode {
             FileType::Symlink => lower.readlink().await?,
             _ => Vec::new(),
         };
-        let kind = match self.file_type {
-            FileType::Regular => NewKind::Regular,
-            FileType::Directory => NewKind::Directory,
-            FileType::Symlink => NewKind::Symlink(&target),
-            FileType::Fifo => NewKind::Fifo,
-            FileType::Socket => NewKind::Socket,
-            FileType::CharDevice => NewKind::CharDevice(attr.rdev),
-            FileType::BlockDevice => NewKind::BlockDevice(attr.rdev),
+        let (kind, mode) = match self.file_type {
+            FileType::Regular => (NewKind::Regular, COPY_FILE_MODE),
+            FileType::Directory => (NewKind::Directory, COPY_DIR_MODE),
+            FileType::Symlink => (NewKind::Symlink(&target), attr.mode),
+            FileType::Fifo => (NewKind::Fifo, attr.mode),
+            FileType::Socket => (NewKind::Socket, attr.mode),
+            FileType::CharDevice => (NewKind::CharDevice(attr.rdev), attr.mode),
+            FileType::BlockDevice => (NewKind::BlockDevice(attr.rdev), attr.mode),
         };
         let new = NewNode {
             kind,
-            mode: attr.mode,
+            mode,
             uid: attr.uid,
             gid: attr.gid,
         };
+        let unlinked = self.state.lock().unwrap().unlinked;
         // A regular file is filled while unnamed where possible, so a failed or interrupted
         // copy never shadows the lower file with a partial one.
-        let (upper, named) = match kind {
-            NewKind::Regular => match parent_upper.create_unnamed(&new).await {
-                Ok(file) => (file, false),
-                Err(Errno::EOPNOTSUPP) => (parent_upper.create(&name, &new).await?, true),
+        let write = OpenOptions {
+            write: true,
+            truncate: false,
+            ..open.unwrap_or_default()
+        };
+        let (upper, handle, named) = match kind {
+            NewKind::Regular => match parent_upper.create_unnamed(&new, write).await {
+                Ok((file, handle)) => (file, Some(handle), false),
+                Err(Errno::EOPNOTSUPP) if !unlinked && !unnamed_only => {
+                    let (file, handle) = parent_upper.create_open(&name, &new, write).await?;
+                    (file, Some(handle), true)
+                }
                 Err(err) => return Err(err),
             },
-            _ => (parent_upper.create(&name, &new).await?, true),
+            _ => (parent_upper.create(&name, &new).await?, None, true),
         };
-        let mut result = fill_copy(&lower, &upper, &attr).await;
-        if result.is_ok() && !named {
-            result = parent_upper.link(&name, &upper).await;
-        }
-        if let Err(err) = result {
+        let size = match open {
+            Some(options) if options.truncate => 0,
+            _ => attr.size,
+        };
+        if let Err(err) = fill_copy(&lower, &upper, handle.as_deref(), &attr, size).await {
             if named {
                 let _ = match self.is_dir() {
                     true => parent_upper.rmdir(&name).await,
@@ -553,8 +651,33 @@ impl OverlayNode {
             }
             return Err(err);
         }
-        // Creating the entry stamped the parent; it keeps the times it had (as Linux).
-        let _ = parent_upper.setattr(&restore_times(&parent_attr)).await;
+        if named {
+            // Creating the entry stamped the parent; it keeps the times it had (as Linux).
+            let _ = parent_upper.setattr(&restore_times(&parent_attr)).await;
+        }
+        Ok(Copy {
+            node: upper,
+            named,
+            handle,
+        })
+    }
+
+    /// Puts a copy from `prepare_copy` in place: links an unnamed one in where this object was
+    /// last reached, unless its name was removed, and makes it this object's upper object.
+    async fn install_copy(&self, copy: Copy) -> FsResult<()> {
+        let upper = copy.node;
+        let (parent, name, unlinked) = {
+            let state = self.state.lock().unwrap();
+            (state.parent.clone(), state.name.clone(), state.unlinked)
+        };
+        if !copy.named && !unlinked {
+            let parent_upper = parent
+                .and_then(|parent| parent.upper_node())
+                .expect("parent copied up first");
+            let parent_attr = parent_upper.getattr().await?;
+            parent_upper.link(&name, &upper).await?;
+            let _ = parent_upper.setattr(&restore_times(&parent_attr)).await;
+        }
 
         let old_key = {
             let mut state = self.state.lock().unwrap();
@@ -566,13 +689,19 @@ impl OverlayNode {
             if !self.is_dir() {
                 state.lowers.clear();
             }
-            state.key.replace(Key::Upper(upper.ino()))
+            match unlinked {
+                true => None,
+                false => state.key.replace(Key::Upper(upper.ino())),
+            }
         };
         self.shared
             .origins
             .lock()
             .unwrap()
             .insert(upper.ino(), self.ino);
+        if unlinked {
+            return Ok(());
+        }
         let mut nodes = self.shared.nodes.lock().unwrap();
         if let Some(old) = old_key
             && nodes
@@ -605,20 +734,45 @@ impl OverlayNode {
                 real.xwhiteouts = true;
             }
         }
-        let file = upper
-            .create(
-                name,
-                &NewNode {
-                    kind: NewKind::Regular,
-                    ..device
-                },
-            )
-            .await?;
+        // Owner-writable, so a host upper lets the owner set the `user.` marker on it.
+        let file = NewNode {
+            kind: NewKind::Regular,
+            mode: COPY_FILE_MODE,
+            ..device
+        };
+        let file = upper.create(name, &file).await?;
         if let Err(err) = set_overlay_xattr(&file, WHITEOUT, b"y").await {
             let _ = upper.unlink(name).await;
             return Err(err);
         }
         Ok(())
+    }
+
+    /// Makes a whiteout under a temporary name in upper directory `upper`, for
+    /// `install_whiteout` to move over an entry once the entry may go.
+    async fn prepare_whiteout(&self, upper: &Arc<dyn Node>) -> FsResult<Vec<u8>> {
+        loop {
+            let name = self.shared.whiteout_name();
+            match self.make_whiteout(upper, &name).await {
+                Ok(()) => return Ok(name),
+                Err(Errno::EEXIST) => continue,
+                Err(err) => return Err(err),
+            }
+        }
+    }
+
+    /// Renames the whiteout `temp` to `name`, replacing what is there.
+    async fn install_whiteout(
+        &self,
+        upper: &Arc<dyn Node>,
+        temp: &[u8],
+        name: &[u8],
+    ) -> FsResult<()> {
+        let result = upper.rename(temp, upper, name, RenameMode::Replace).await;
+        if result.is_err() {
+            let _ = upper.unlink(temp).await;
+        }
+        result
     }
 
     /// Removes a whiteout at `name` in upper directory `upper`; whether there was one.
@@ -651,10 +805,73 @@ impl OverlayNode {
         Ok(())
     }
 
+    /// The upper object for a change of this object's own metadata, copied up under the
+    /// overlay lock if it has none yet.
+    async fn upper_for_change(&self) -> FsResult<Arc<dyn Node>> {
+        if let Some(upper) = self.upper_node() {
+            return Ok(upper);
+        }
+        let _guard = self.shared.write_lock.lock().await;
+        self.arc().copy_up().await
+    }
+
     fn moved(&self, parent: &Arc<OverlayNode>, name: &[u8]) {
         let mut state = self.state.lock().unwrap();
         state.parent = Some(parent.clone());
         state.name = name.to_vec();
+    }
+
+    /// Adds `name` in the upper directory, over a whiteout if there is one, and opens it with
+    /// `open` at once if given.
+    async fn create_entry(
+        &self,
+        name: &[u8],
+        new: &NewNode<'_>,
+        open: Option<OpenOptions>,
+    ) -> FsResult<(Arc<OverlayNode>, Option<Box<dyn Handle>>)> {
+        self.check_dir()?;
+        let _guard = self.shared.write_lock.lock().await;
+        if !self.find(name).await?.is_empty() {
+            return Err(Errno::EEXIST);
+        }
+        let upper = self.arc().copy_up().await?;
+        let over_whiteout = self.clear_whiteout(&upper, name).await?;
+        let created = match open {
+            Some(options) => upper
+                .create_open(name, new, options)
+                .await
+                .map(|(child, handle)| (child, Some(handle))),
+            None => upper.create(name, new).await.map(|child| (child, None)),
+        };
+        // A directory replacing a whiteout must not merge with what the whiteout hid.
+        let created = match created {
+            Ok((child, handle)) if over_whiteout && new.kind == NewKind::Directory => {
+                match set_overlay_xattr(&child, OPAQUE, b"y").await {
+                    Ok(()) => Ok((child, handle)),
+                    Err(err) => {
+                        let _ = upper.rmdir(name).await;
+                        Err(err)
+                    }
+                }
+            }
+            other => other,
+        };
+        let (child, handle) = match created {
+            Ok(created) => created,
+            Err(err) => {
+                if over_whiteout {
+                    let _ = self.make_whiteout(&upper, name).await;
+                }
+                return Err(err);
+            }
+        };
+        let found = vec![Real {
+            layer: UPPER,
+            node: child,
+            xwhiteouts: false,
+        }];
+        let node = self.shared.node(found, &self.arc(), name).await?;
+        Ok((node, handle))
     }
 }
 
@@ -678,8 +895,7 @@ impl Node for OverlayNode {
     }
 
     async fn setattr(&self, attr: &SetAttr) -> FsResult<Attr> {
-        let _guard = self.shared.write_lock.lock().await;
-        let upper = self.arc().copy_up().await?;
+        let upper = self.upper_for_change().await?;
         let attr = upper.setattr(attr).await?;
         Ok(self.fix_attr(attr))
     }
@@ -697,61 +913,37 @@ impl Node for OverlayNode {
     }
 
     async fn create(&self, name: &[u8], new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
-        self.check_dir()?;
-        let _guard = self.shared.write_lock.lock().await;
-        if !self.find(name).await?.is_empty() {
-            return Err(Errno::EEXIST);
-        }
-        let upper = self.arc().copy_up().await?;
-        let over_whiteout = self.clear_whiteout(&upper, name).await?;
-        let created = upper.create(name, new).await;
-        // A directory replacing a whiteout must not merge with what the whiteout hid.
-        let created = match created {
-            Ok(child) if over_whiteout && new.kind == NewKind::Directory => {
-                match set_overlay_xattr(&child, OPAQUE, b"y").await {
-                    Ok(()) => Ok(child),
-                    Err(err) => {
-                        let _ = upper.rmdir(name).await;
-                        Err(err)
-                    }
-                }
-            }
-            other => other,
-        };
-        let child = match created {
-            Ok(child) => child,
-            Err(err) => {
-                if over_whiteout {
-                    let _ = self.make_whiteout(&upper, name).await;
-                }
-                return Err(err);
-            }
-        };
-        let found = vec![Real {
-            layer: UPPER,
-            node: child,
-            xwhiteouts: false,
-        }];
-        self.shared
-            .node(found, &self.arc(), name)
-            .await
-            .map(|n| n as _)
+        let (node, _) = self.create_entry(name, new, None).await?;
+        Ok(node)
     }
 
-    async fn create_unnamed(&self, new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
+    async fn create_open(
+        &self,
+        name: &[u8],
+        new: &NewNode<'_>,
+        options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
+        let (node, handle) = self.create_entry(name, new, Some(options)).await?;
+        let handle = handle.expect("opened");
+        Ok((node.clone(), FileHandle::upper(node, options, handle)))
+    }
+
+    async fn create_unnamed(
+        &self,
+        new: &NewNode<'_>,
+        options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
         self.check_dir()?;
         let _guard = self.shared.write_lock.lock().await;
         let upper = self.arc().copy_up().await?;
-        let child = upper.create_unnamed(new).await?;
+        let (child, handle) = upper.create_unnamed(new, options).await?;
         let found = vec![Real {
             layer: UPPER,
             node: child,
             xwhiteouts: false,
         }];
-        self.shared
-            .node(found, &self.arc(), b"")
-            .await
-            .map(|n| n as _)
+        let node = self.shared.node(found, &self.arc(), b"").await?;
+        Ok((node.clone(), FileHandle::upper(node, options, handle)))
     }
 
     async fn link(&self, name: &[u8], target: &Arc<dyn Node>) -> FsResult<()> {
@@ -783,12 +975,19 @@ impl Node for OverlayNode {
         }
         let upper = self.arc().copy_up().await?;
         let positive = self.lower_positive(name).await?;
-        if top.layer == UPPER {
-            upper.unlink(name).await?;
-            self.shared.forget_if_gone(&top.node).await;
+        match (top.layer == UPPER, positive) {
+            (true, true) => {
+                let temp = self.prepare_whiteout(&upper).await?;
+                self.install_whiteout(&upper, &temp, name).await?;
+            }
+            (true, false) => upper.unlink(name).await?,
+            (false, _) => {
+                self.make_whiteout(&upper, name).await?;
+                self.shared.lower_unlinked(self, name);
+            }
         }
-        if positive {
-            self.make_whiteout(&upper, name).await?;
+        if top.layer == UPPER {
+            self.shared.forget_if_gone(&top.node).await;
         }
         Ok(())
     }
@@ -808,14 +1007,31 @@ impl Node for OverlayNode {
         }
         let upper = self.arc().copy_up().await?;
         let positive = self.lower_positive(name).await?;
-        if in_upper {
-            child.clear_upper_whiteouts().await?;
-            let child_upper = child.upper_node().expect("in the upper layer");
-            upper.rmdir(name).await?;
-            self.shared.forget_if_gone(&child_upper).await;
+        if !in_upper {
+            return match positive {
+                true => self.make_whiteout(&upper, name).await,
+                false => Ok(()),
+            };
         }
-        if positive {
-            self.make_whiteout(&upper, name).await?;
+        // The whiteout, which can fail to be made, exists before anything is removed.
+        let temp = match positive {
+            true => Some(self.prepare_whiteout(&upper).await?),
+            false => None,
+        };
+        let removed = async {
+            child.clear_upper_whiteouts().await?;
+            upper.rmdir(name).await
+        };
+        if let Err(err) = removed.await {
+            if let Some(temp) = &temp {
+                let _ = upper.unlink(temp).await;
+            }
+            return Err(err);
+        }
+        let child_upper = child.upper_node().expect("in the upper layer");
+        self.shared.forget_if_gone(&child_upper).await;
+        if let Some(temp) = temp {
+            self.install_whiteout(&upper, &temp, name).await?;
         }
         Ok(())
     }
@@ -885,7 +1101,23 @@ impl Node for OverlayNode {
         }
         let source_positive = old_parent.lower_positive(name).await?;
         let target_positive = new_parent.lower_positive(new_name).await?;
-        old_upper.rename(name, &new_upper, new_name, mode).await?;
+        // The whiteout the source leaves exists before the source moves.
+        let temp = match source_positive && mode != RenameMode::Exchange {
+            true => Some(old_parent.prepare_whiteout(&old_upper).await?),
+            false => None,
+        };
+        if let Err(err) = old_upper.rename(name, &new_upper, new_name, mode).await {
+            if let Some(temp) = &temp {
+                let _ = old_upper.unlink(temp).await;
+            }
+            return Err(err);
+        }
+        if let Some(target) = &target
+            && target.upper().is_none()
+            && mode != RenameMode::Exchange
+        {
+            self.shared.lower_unlinked(&new_parent, new_name);
+        }
 
         if mode == RenameMode::Exchange {
             let target = target.as_ref().expect("checked above");
@@ -897,8 +1129,8 @@ impl Node for OverlayNode {
             if let Some(replaced) = &target_upper {
                 self.shared.forget_if_gone(replaced).await;
             }
-            if source_positive {
-                old_parent.make_whiteout(&old_upper, name).await?;
+            if let Some(temp) = temp {
+                old_parent.install_whiteout(&old_upper, &temp, name).await?;
             }
         }
         source.moved(&new_parent, new_name);
@@ -919,14 +1151,16 @@ impl Node for OverlayNode {
                 snapshot: Mutex::new(None),
             }));
         }
-        let (real, in_upper) = if options.write {
-            let _guard = self.shared.write_lock.lock().await;
-            (self.arc().copy_up().await?, true)
+        let (real, copied, in_upper) = if options.write {
+            let (real, copied) = self.arc().copy_up_for_write(options).await?;
+            (real, copied, true)
         } else {
-            let in_upper = self.upper().is_some();
-            (self.real(), in_upper)
+            (self.real(), None, self.upper().is_some())
         };
-        let handle = real.open(options).await?;
+        let handle = match copied {
+            Some(handle) => handle,
+            None => real.open(options).await?,
+        };
         Ok(Box::new(FileHandle {
             node: self.arc(),
             options,
@@ -945,8 +1179,7 @@ impl Node for OverlayNode {
         if is_private(name) {
             return Err(Errno::EOPNOTSUPP);
         }
-        let _guard = self.shared.write_lock.lock().await;
-        let upper = self.arc().copy_up().await?;
+        let upper = self.upper_for_change().await?;
         upper.setxattr(name, value, how).await
     }
 
@@ -960,22 +1193,30 @@ impl Node for OverlayNode {
         if is_private(name) {
             return Err(Errno::EOPNOTSUPP);
         }
-        let _guard = self.shared.write_lock.lock().await;
-        let upper = self.arc().copy_up().await?;
+        let upper = self.upper_for_change().await?;
         upper.removexattr(name).await
     }
 }
 
-/// Copies data, extended attributes and times from `lower` to its fresh upper copy `upper`.
-async fn fill_copy(lower: &Arc<dyn Node>, upper: &Arc<dyn Node>, attr: &Attr) -> FsResult<()> {
-    if attr.file_type == FileType::Regular {
-        copy_data(lower, upper, attr.size).await?;
+/// Copies `size` bytes of data, the extended attributes, and then the mode and times of `lower`
+/// (whose metadata is `attr`) to its fresh upper copy `upper`, opened for writing as `handle`
+/// if it is a regular file.
+async fn fill_copy(
+    lower: &Arc<dyn Node>,
+    upper: &Arc<dyn Node>,
+    handle: Option<&dyn Handle>,
+    attr: &Attr,
+    size: u64,
+) -> FsResult<()> {
+    if let Some(handle) = handle {
+        copy_data(lower, handle, size).await?;
+        handle.set_size(size).await?;
     }
     copy_xattrs(lower, upper).await?;
-    let mut set = restore_times(attr);
-    if attr.file_type == FileType::Regular {
-        set.size = Some(attr.size);
-    }
+    let set = SetAttr {
+        mode: (attr.file_type != FileType::Symlink).then_some(attr.mode),
+        ..restore_times(attr)
+    };
     match upper.setattr(&set).await {
         // Not every host can stamp a symlink.
         Err(_) if attr.file_type == FileType::Symlink => Ok(()),
@@ -991,18 +1232,15 @@ fn restore_times(attr: &Attr) -> SetAttr {
     }
 }
 
-/// Copies the data ranges of a regular file, leaving holes as holes.
-async fn copy_data(lower: &Arc<dyn Node>, upper: &Arc<dyn Node>, size: u64) -> FsResult<()> {
+/// Copies the data ranges of a regular file to `dst`, leaving holes as holes.
+async fn copy_data(lower: &Arc<dyn Node>, dst: &dyn Handle, size: u64) -> FsResult<()> {
+    if size == 0 {
+        return Ok(());
+    }
     let src = lower
         .open(OpenOptions {
             read: true,
             noatime: true,
-            ..OpenOptions::default()
-        })
-        .await?;
-    let dst = upper
-        .open(OpenOptions {
-            write: true,
             ..OpenOptions::default()
         })
         .await?;
@@ -1170,6 +1408,19 @@ struct FileHandle {
 }
 
 impl FileHandle {
+    /// A handle on an object that is in the upper layer already.
+    fn upper(
+        node: Arc<OverlayNode>,
+        options: OpenOptions,
+        handle: Box<dyn Handle>,
+    ) -> Box<dyn Handle> {
+        Box::new(Self {
+            node,
+            options,
+            real: Mutex::new((true, Arc::from(handle))),
+        })
+    }
+
     async fn current(&self) -> FsResult<Arc<dyn Handle>> {
         let (in_upper, handle) = self.real.lock().unwrap().clone();
         if in_upper {
@@ -1204,6 +1455,10 @@ impl Handle for FileHandle {
 
     async fn allocate(&self, mode: AllocMode, offset: u64, len: u64) -> FsResult<()> {
         self.current().await?.allocate(mode, offset, len).await
+    }
+
+    async fn set_size(&self, size: u64) -> FsResult<()> {
+        self.current().await?.set_size(size).await
     }
 
     async fn seek_hole(&self, offset: u64, size: u64, which: SeekHole) -> FsResult<u64> {

@@ -232,6 +232,9 @@ pub struct OpenOptions {
     pub noatime: bool,
     /// Writes reach stable storage before returning (`O_SYNC`/`O_DSYNC`).
     pub sync: bool,
+    /// The VFS truncates the file to 0 right after opening it (`O_TRUNC`), so a driver may skip
+    /// work for the old data (an overlay's copy-up).
+    pub truncate: bool,
 }
 
 /// `fallocate` modes the VFS passes through.
@@ -293,6 +296,10 @@ pub struct FsInfo {
     pub dev: Option<Device>,
     /// The driver records creation times.
     pub has_btime: bool,
+    /// Names change only through this VFS (a memory or package filesystem, not a host
+    /// directory), so a name the VFS has cached needs no driver lookup to stay true (Linux's
+    /// filesystems without `d_revalidate`).
+    pub stable: bool,
 }
 
 /// `TMPFS_MAGIC`.

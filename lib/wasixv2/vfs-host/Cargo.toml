@@ -23,3 +23,4 @@ libc = { workspace = true, features = ["std"] }
 futures.workspace = true
 tempfile.workspace = true
 wasixv2-vfs-mem = { path = "../vfs-mem" }
+wasixv2-vfs-overlay = { path = "../vfs-overlay" }

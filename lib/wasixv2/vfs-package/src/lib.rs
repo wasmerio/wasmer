@@ -118,6 +118,7 @@ impl Filesystem for PackageFs {
             read_only: true,
             dev: None,
             has_btime: false,
+            stable: true,
         }
     }
 
@@ -314,7 +315,11 @@ impl Node for PackageNode {
         Err(Errno::EROFS)
     }
 
-    async fn create_unnamed(&self, _new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
+    async fn create_unnamed(
+        &self,
+        _new: &NewNode<'_>,
+        _options: OpenOptions,
+    ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
         Err(Errno::EROFS)
     }
 
@@ -403,6 +408,10 @@ impl Handle for FileHandle {
     }
 
     async fn allocate(&self, _mode: AllocMode, _offset: u64, _len: u64) -> FsResult<()> {
+        Err(Errno::EROFS)
+    }
+
+    async fn set_size(&self, _size: u64) -> FsResult<()> {
         Err(Errno::EROFS)
     }
 }

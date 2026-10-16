@@ -294,3 +294,67 @@ fn read_only_overlay_refuses_changes() {
     assert_eq!(block_on(f.open(write)).err(), Some(Errno::EROFS));
     assert_eq!(block_on(root.rmdir(b"d")), Err(Errno::ENOTEMPTY));
 }
+
+#[test]
+fn copy_up_of_an_unlinked_open_file_stays_unnamed() {
+    let (overlay, upper, _lower) = setup();
+    let d = lookup(&overlay.root(), b"d").unwrap();
+    let f = lookup(&d, b"f").unwrap();
+    let reader = block_on(f.open(OpenOptions {
+        read: true,
+        ..OpenOptions::default()
+    }))
+    .unwrap();
+    block_on(d.unlink(b"f")).unwrap();
+
+    // `fchmod` on the still-open file copies it up without giving it its old name back.
+    let chmod = SetAttr {
+        mode: Some(0o600),
+        ..SetAttr::default()
+    };
+    assert_eq!(block_on(f.setattr(&chmod)).unwrap().mode, 0o600);
+    assert_eq!(lookup(&d, b"f").err(), Some(Errno::ENOENT));
+    assert!(list(&d).is_empty());
+    assert_eq!(list(&lookup(&upper.root(), b"d").unwrap()), [b"f".to_vec()]);
+    let mut buf = [0; 5];
+    assert_eq!(block_on(reader.read_at(&mut buf, 0)), Ok(5));
+    assert_eq!(&buf, b"hello");
+}
+
+#[test]
+fn opening_for_truncation_copies_up_no_data() {
+    let (overlay, upper, _lower) = setup();
+    let f = lookup(&lookup(&overlay.root(), b"d").unwrap(), b"f").unwrap();
+
+    let writer = block_on(f.open(OpenOptions {
+        write: true,
+        truncate: true,
+        ..OpenOptions::default()
+    }))
+    .unwrap();
+    block_on(writer.write_at(b"new", 0)).unwrap();
+
+    let upper_f = lookup(&lookup(&upper.root(), b"d").unwrap(), b"f").unwrap();
+    assert_eq!(read(&upper_f), b"new");
+    // The rest of the copy is metadata: xattrs, mode and times.
+    assert_eq!(block_on(upper_f.getxattr(b"user.x")), Ok(b"1".to_vec()));
+    assert_eq!(block_on(upper_f.getattr()).unwrap().mode, 0o644);
+}
+
+#[test]
+fn whiteouts_replacing_upper_entries_leave_no_temporary_names() {
+    let (overlay, upper, _lower) = setup();
+    let d = lookup(&overlay.root(), b"d").unwrap();
+    let f = lookup(&d, b"f").unwrap();
+    block_on(f.setattr(&SetAttr {
+        mode: Some(0o600),
+        ..SetAttr::default()
+    }))
+    .unwrap();
+
+    block_on(d.unlink(b"f")).unwrap();
+    assert_eq!(lookup(&d, b"f").err(), Some(Errno::ENOENT));
+    assert!(list(&d).is_empty());
+    // The upper directory holds only the whiteout, under the removed name.
+    assert_eq!(list(&lookup(&upper.root(), b"d").unwrap()), [b"f".to_vec()]);
+}
