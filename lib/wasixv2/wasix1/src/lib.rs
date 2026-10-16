@@ -72,7 +72,12 @@ where
         flavor(module.imports().map(|import| import.module().to_owned())) == Some(V1Flavor::Wasm32)
     }
 
-    fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>) -> Imports {
+    fn imports(
+        &self,
+        store: &mut Store,
+        env: &FunctionEnv<ExecEnv<S>>,
+        _module: &Module,
+    ) -> Imports {
         imports::imports(store, env)
     }
 

@@ -6,10 +6,11 @@ use std::sync::Arc;
 
 use wasixv2_syscalls::{Control, LocalFuture, SignalFrame, Syscalls, TaskId};
 use wasmer::{
-    AsyncFunctionEnvMut, FunctionEnv, Imports, Instance, Module, RuntimeError, Store, StoreAsync,
+    AsyncFunctionEnvMut, Function, FunctionEnv, Imports, Instance, Module, RuntimeError, Store,
+    StoreAsync, Value,
 };
 
-use crate::{ExecEnv, ExecError};
+use crate::{ExecEnv, ExecError, asyncify};
 
 /// One guest ABI.
 pub trait Abi<S>: Send + Sync + 'static
@@ -22,8 +23,10 @@ where
     /// Whether `module` targets this ABI, decided from its imports.
     fn matches(&self, module: &Module) -> bool;
 
-    /// Every function import the ABI provides. The execution layer adds the memory import.
-    fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>) -> Imports;
+    /// Every function import the ABI provides for an instance of `module`. The execution layer
+    /// adds the memory import.
+    fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>, module: &Module)
+    -> Imports;
 
     /// Binds what the execution layer needs of a new instance of a module this ABI matched.
     /// Called once per instance, before any of its code runs, with the task it starts as.
@@ -49,23 +52,23 @@ pub enum Role {
 /// The per-instance half of an [`Abi`]: entry points and the guest-visible interruptions.
 pub trait AbiInstance<S: 'static>: Send + Sync {
     /// Runs the process image from its entry point until the entry returns or the guest unwinds.
-    fn start(&self, store: &StoreAsync) -> LocalFuture<'static, Result<(), RuntimeError>>;
+    fn start<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<(), RuntimeError>>;
 
     /// What it means when [`AbiInstance::start`] returns normally.
     fn on_entry_return(&self) -> EntryReturn;
 
     /// Runs the thread entry of `task` with the `start_arg` its creator passed.
-    fn start_thread(
-        &self,
-        store: &StoreAsync,
+    fn start_thread<'a>(
+        &'a self,
+        entry: &'a Entry<'a, S>,
         task: TaskId,
         start_arg: u32,
-    ) -> LocalFuture<'static, Result<(), RuntimeError>>;
+    ) -> LocalFuture<'a, Result<(), RuntimeError>>;
 
     /// What it means when [`AbiInstance::start_thread`] returns normally.
     fn on_thread_return(&self) -> EntryReturn;
 
-    /// Runs the guest's handling of one signal. Returns the mask to restore (`rt_sigreturn`), or
+    /// Runs the guest's handling of one signal, calling into the guest with [`crate::call_guest`]. Returns the mask to restore (`rt_sigreturn`), or
     /// `None` to leave it as delivery set it. An error, such as the exception of a `siglongjmp`
     /// or an exit, passes through untouched; the execution layer then reports that the handler
     /// did not return.
@@ -85,6 +88,42 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
 
     /// The ABI's own state, for its import shims to downcast.
     fn as_any(&self) -> &dyn std::any::Any;
+}
+
+/// How an [`AbiInstance`] calls its entry points: each call is the outermost level of guest
+/// calls ([`asyncify`]), so that the imports below it may unwind the whole stack, and a fork
+/// child can rewind into the same export.
+pub struct Entry<'a, S: 'static> {
+    cx: asyncify::Outside<'a, S>,
+}
+
+impl<'a, S: Send + Sync + 'static> Entry<'a, S> {
+    pub(crate) fn new(env: &'a FunctionEnv<ExecEnv<S>>, store: &'a StoreAsync) -> Self {
+        Self {
+            cx: asyncify::Outside { env, store },
+        }
+    }
+
+    /// Calls `function`, the export named `export`, with `args`. A fork child of a call made
+    /// here calls the export again, with the same arguments, to rewind.
+    pub async fn call(
+        &self,
+        export: &'static str,
+        function: &Function,
+        args: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        asyncify::call(&self.cx, Some(export), function, args).await
+    }
+
+    /// Calls `function` as an entry no fork can come back to, such as a reactor's
+    /// `_initialize`: a fork in it fails.
+    pub async fn call_once(
+        &self,
+        function: &Function,
+        args: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        asyncify::call(&self.cx, None, function, args).await
+    }
 }
 
 /// The meaning of an entry point returning normally.

@@ -24,6 +24,20 @@ pub enum GuestAction {
     /// The instance runs as `task` from now on, and the current call returns `ret`: `clone`
     /// returning 0 to a vfork child.
     SwitchTask { task: TaskId, ret: i32 },
+    /// The calling task created the process `child` with a copy of its address space (`clone`
+    /// without `CLONE_VM`, which only an address space that
+    /// [`can_duplicate`](crate::UserMemory::can_duplicate) gets): copy the memory and the guest's
+    /// call stack to a new instance that runs as `child`, where the call returns 0, while here it
+    /// returns the child's pid. clone's writes land after the copy, each in one address space:
+    /// the child's tid at `parent_tid` in this one (`CLONE_PARENT_SETTID`), and at `child_tid`
+    /// in the child's (`CLONE_CHILD_SETTID`), whose thread pointer becomes `tls`
+    /// (`CLONE_SETTLS`).
+    Fork {
+        child: TaskId,
+        parent_tid: Option<u32>,
+        child_tid: Option<u32>,
+        tls: Option<u32>,
+    },
     /// The vfork child `child`, running in its parent's instance, ended: the instance runs as
     /// `parent` again, and the guest's `wasixv2_vfork_return(child)` export unwinds to the
     /// vfork point.

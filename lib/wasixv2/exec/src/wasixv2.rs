@@ -5,14 +5,14 @@ use std::{any::Any, sync::Arc};
 
 use wasixv2_syscalls::{Control, LocalFuture, SignalFrame, Syscalls, TaskId};
 use wasmer::{
-    AsyncFunctionEnvMut, Function, FunctionEnv, Imports, Instance, Module, RuntimeError, Store,
-    StoreAsync, Value,
+    AsyncFunctionEnvMut, Function, FunctionEnv, Global, Imports, Instance, Module, RuntimeError,
+    Store, Value,
 };
 
 use crate::{
     ExecEnv, ExecError,
-    abi::{Abi, AbiInstance, EntryReturn, Role, VforkResume},
-    generated, process, signal, thread,
+    abi::{Abi, AbiInstance, Entry, EntryReturn, Role, VforkResume},
+    asyncify, fork, generated, process, signal, thread,
 };
 
 /// The `wasixv2` ABI: modules that import from [`crate::IMPORT_MODULE`].
@@ -32,8 +32,17 @@ where
             .any(|import| import.module() == generated::IMPORT_MODULE)
     }
 
-    fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>) -> Imports {
-        generated::imports(store, env)
+    fn imports(
+        &self,
+        store: &mut Store,
+        env: &FunctionEnv<ExecEnv<S>>,
+        module: &Module,
+    ) -> Imports {
+        let mut imports = generated::imports(store, env);
+        if asyncify::instrumented(module) {
+            fork::imports(store, env, &mut imports);
+        }
+        imports
     }
 
     fn bind(
@@ -56,7 +65,7 @@ where
     }
 }
 
-struct Wasixv2Instance {
+pub(crate) struct Wasixv2Instance {
     /// `_start` of a process image, `wasixv2_thread_start` of a thread.
     entry: Function,
     signal: signal::SignalExports,
@@ -64,10 +73,16 @@ struct Wasixv2Instance {
     vfork_return: Option<Function>,
 }
 
-impl<S: Control + 'static> AbiInstance<S> for Wasixv2Instance {
-    fn start(&self, store: &StoreAsync) -> LocalFuture<'static, Result<(), RuntimeError>> {
-        let call = self.entry.call_async(store, Vec::new());
-        Box::pin(async move { call.await.map(drop) })
+impl Wasixv2Instance {
+    /// `__tls_base`, which `CLONE_SETTLS` sets.
+    pub(crate) fn tls_base(&self) -> Option<&Global> {
+        self.signal.tls_base.as_ref()
+    }
+}
+
+impl<S: Control + Send + Sync + 'static> AbiInstance<S> for Wasixv2Instance {
+    fn start<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<(), RuntimeError>> {
+        Box::pin(async move { entry.call("_start", &self.entry, &[]).await.map(drop) })
     }
 
     // The guest must end with `exit_group`; Linux faults a process whose entry returns.
@@ -75,15 +90,19 @@ impl<S: Control + 'static> AbiInstance<S> for Wasixv2Instance {
         EntryReturn::Fault
     }
 
-    fn start_thread(
-        &self,
-        store: &StoreAsync,
+    fn start_thread<'a>(
+        &'a self,
+        entry: &'a Entry<'a, S>,
         task: TaskId,
         start_arg: u32,
-    ) -> LocalFuture<'static, Result<(), RuntimeError>> {
-        let args = vec![Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
-        let call = self.entry.call_async(store, args);
-        Box::pin(async move { call.await.map(drop) })
+    ) -> LocalFuture<'a, Result<(), RuntimeError>> {
+        let args = [Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
+        Box::pin(async move {
+            entry
+                .call(thread::THREAD_ENTRY, &self.entry, &args)
+                .await
+                .map(drop)
+        })
     }
 
     fn on_thread_return(&self) -> EntryReturn {

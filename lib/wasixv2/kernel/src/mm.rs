@@ -41,9 +41,18 @@ impl Mm {
     pub(crate) fn reset(&self) {
         *self.space() = AddressSpace::default();
     }
+
+    /// A copy for a child that does not share the address space (`dup_mmap`): the same
+    /// mappings and break, over the copy of memory the execution layer makes.
+    pub(crate) fn duplicate(&self) -> Self {
+        Self {
+            op: Default::default(),
+            space: Mutex::new(self.space().clone()),
+        }
+    }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct AddressSpace {
     /// First page under the allocator's control, fixed by the first growth. Pages below belong to
     /// the image.
