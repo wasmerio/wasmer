@@ -695,6 +695,133 @@ fn run_wasixv2_package_dir_maps_its_fs_table() {
     assert!(package.path().join("data/new.txt").exists());
 }
 
+/// Prints `uname -n` and `uname -r`, space-separated, and exits with its effective uid.
+const WASIXV2_UNAME_WAT: &str = r#"
+    (module
+      (import "wasixv2" "uname" (func $uname (param i32) (result i32)))
+      (import "wasixv2" "geteuid" (func $geteuid (result i32)))
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 8) " ")
+      (func $strlen (param $p i32) (result i32) (local $n i32)
+        (block $done
+          (loop $next
+            (br_if $done (i32.eqz (i32.load8_u (i32.add (local.get $p) (local.get $n)))))
+            (local.set $n (i32.add (local.get $n) (i32.const 1)))
+            (br $next)))
+        (local.get $n))
+      (func $print (param $p i32)
+        (drop (call $write (i32.const 1) (local.get $p) (call $strlen (local.get $p)))))
+      (func (export "_start")
+        (drop (call $uname (i32.const 1024)))
+        ;; nodename is the second 65-byte field of `struct new_utsname`, release the third.
+        (call $print (i32.const 1089))
+        (drop (call $write (i32.const 1) (i32.const 8) (i32.const 1)))
+        (call $print (i32.const 1154))
+        (call $exit_group (call $geteuid))
+        unreachable))
+"#;
+
+#[test]
+fn run_wasixv2_reports_the_configured_uname_and_user() {
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("uname.wat");
+    std::fs::write(&module_file, WASIXV2_UNAME_WAT).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .args([
+            "--user",
+            "42:7",
+            "--hostname",
+            "box",
+            "--uname-release",
+            "6.1.0",
+        ])
+        .arg(&module_file)
+        .assert()
+        .code(42)
+        .stdout("box 6.1.0");
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .assert()
+        .code(1)
+        .stdout("localhost 2.0.0");
+    wasmer_command()
+        .arg("run")
+        .args(["--uname-release", &"x".repeat(65)])
+        .arg(&module_file)
+        .assert()
+        .failure()
+        .stderr(contains("invalid --uname-release"));
+}
+
+/// Binds TCP port 80, then creates `/f`, gives it to uid 1234, makes it mode 0 and opens it for
+/// reading: all things only root may do. Exits with 0, or with the number of the step that
+/// failed after printing its errno as a decimal number.
+const WASIXV2_ROOT_ONLY_WAT: &str = r#"
+    (module
+      (import "wasixv2" "socket" (func $socket (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "bind" (func $bind (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "fchownat" (func $fchownat (param i32 i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "fchmodat" (func $fchmodat (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      ;; sockaddr_in for 127.0.0.1:80
+      (data (i32.const 16) "\02\00\00\50\7f\00\00\01\00\00\00\00\00\00\00\00")
+      (data (i32.const 32) "/f\00")
+      (func $check (param $v i32) (param $step i32) (result i32)
+        (local $errno i32)
+        (if (i32.lt_s (local.get $v) (i32.const 0))
+          (then
+            (local.set $errno (i32.sub (i32.const 0) (local.get $v)))
+            ;; Two decimal digits.
+            (i32.store8 (i32.const 0)
+              (i32.add (i32.const 48) (i32.div_u (local.get $errno) (i32.const 10))))
+            (i32.store8 (i32.const 1)
+              (i32.add (i32.const 48) (i32.rem_u (local.get $errno) (i32.const 10))))
+            (drop (call $write (i32.const 1) (i32.const 0) (i32.const 2)))
+            (call $exit_group (local.get $step))
+            unreachable))
+        (local.get $v))
+      (func (export "_start") (local $fd i32)
+        (local.set $fd (call $check (call $socket (i32.const 2) (i32.const 1) (i32.const 0)) (i32.const 1)))
+        (drop (call $check (call $bind (local.get $fd) (i32.const 16) (i32.const 16)) (i32.const 2)))
+        ;; O_WRONLY | O_CREAT, 0600
+        (drop (call $check (call $openat (i32.const -100) (i32.const 32) (i32.const 0x41) (i32.const 384)) (i32.const 3)))
+        (drop (call $check (call $fchownat (i32.const -100) (i32.const 32) (i32.const 1234) (i32.const 1234) (i32.const 0)) (i32.const 4)))
+        (drop (call $check (call $fchmodat (i32.const -100) (i32.const 32) (i32.const 0)) (i32.const 5)))
+        (drop (call $check (call $openat (i32.const -100) (i32.const 32) (i32.const 0) (i32.const 0)) (i32.const 6)))
+        (call $exit_group (i32.const 0))
+        unreachable))
+"#;
+
+#[test]
+fn run_wasixv2_as_root_binds_low_ports_and_overrides_file_permissions() {
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("root.wat");
+    std::fs::write(&module_file, WASIXV2_ROOT_ONLY_WAT).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .args(["--user", "0"])
+        .arg(&module_file)
+        .assert()
+        .success()
+        .stdout("");
+    // The default user is unprivileged: binding port 80 is EACCES.
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .assert()
+        .code(2)
+        .stdout("13");
+}
+
 /// Prints `ready`, then waits in `ppoll` with nothing to poll and no timeout, forever.
 const WASIXV2_BLOCK_WAT: &str = r#"
     (module

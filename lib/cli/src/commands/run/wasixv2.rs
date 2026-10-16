@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{Context, Error, bail};
-use wasixv2::{Machine, ProcessConfig, Stdio};
+use wasixv2::{Credentials, Machine, ProcessConfig, Stdio, Uname};
 use wasmer_wasix::{
     Runtime, WasiError, bin_factory::BinaryPackage, runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runtime::task_manager::VirtualTaskManagerExt as _,
@@ -111,7 +111,7 @@ impl Run {
             env: self.wasixv2_env(wasi)?,
             stdio: Stdio::inherit(),
         };
-        let mut machine = Machine::new();
+        let mut machine = self.wasixv2_machine()?;
         let (have_current_dir, volumes) = self.wasi.build_mapped_directories(true)?;
         // v1's precedence: the command's `cwd` annotation, then `--cwd`, then the mapped current
         // directory.
@@ -192,6 +192,40 @@ impl Run {
         // Exit before the tokio runtime is dropped: a guest blocked reading stdin leaves an
         // uncancellable read on the blocking pool, and dropping the runtime would wait for it.
         exit_with_wasi_exit_code(result)
+    }
+
+    /// A machine configured by `--user` and the `uname` options.
+    fn wasixv2_machine(&self) -> Result<Machine, Error> {
+        let wasi = &self.wasi;
+        let mut builder = Machine::builder();
+        if let Some(user) = wasi.user {
+            builder = builder.user(Credentials::new(user.uid, user.gid));
+        }
+        let mut uname = Uname::default();
+        if let Some(name) = &wasi.hostname {
+            uname = uname.with_nodename(name).context("invalid --hostname")?;
+        }
+        if let Some(name) = &wasi.domainname {
+            uname = uname
+                .with_domainname(name)
+                .context("invalid --domainname")?;
+        }
+        if let Some(release) = &wasi.uname_release {
+            uname = uname
+                .with_release(release)
+                .context("invalid --uname-release")?;
+        }
+        if let Some(version) = &wasi.uname_version {
+            uname = uname
+                .with_version(version)
+                .context("invalid --uname-version")?;
+        }
+        if let Some(machine) = &wasi.uname_machine {
+            uname = uname
+                .with_machine(machine)
+                .context("invalid --uname-machine")?;
+        }
+        Ok(builder.uname(uname).build())
     }
 
     /// Same sources and precedence as the v1 runner: the command's `env` annotation, then

@@ -126,6 +126,33 @@ pub fn parse_publish(entry: &str) -> Result<PublishedPort> {
     })
 }
 
+/// The identity a guest runs as (`--user`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GuestUser {
+    pub uid: u32,
+    pub gid: u32,
+}
+
+/// Parses `UID[:GID]`, numeric ids as `docker run --user` takes them; the gid defaults to the
+/// uid. `4294967295` is `(uid_t)-1` and not an id.
+pub fn parse_user(entry: &str) -> Result<GuestUser> {
+    let id = |value: &str, what: &str| -> Result<u32> {
+        value
+            .parse()
+            .ok()
+            .filter(|&id| id != u32::MAX)
+            .with_context(|| format!("invalid {what} `{value}` in `{entry}`: expected a number"))
+    };
+    let (uid, gid) = match entry.split_once(':') {
+        Some((uid, gid)) => (id(uid, "uid")?, id(gid, "gid")?),
+        None => {
+            let uid = id(entry, "uid")?;
+            (uid, uid)
+        }
+    };
+    Ok(GuestUser { uid, gid })
+}
+
 pub(crate) const DEFAULT_PACKAGE_MANIFEST_FILE: &str = "wasmer.toml";
 
 /// Load a package manifest from the manifest file.
@@ -252,6 +279,16 @@ c: c
         assert!(parse_publish("8080").is_err());
         assert!(parse_publish("x:8080:80").is_err());
         assert!(parse_publish("8080:70000").is_err());
+    }
+
+    #[test]
+    fn test_parse_user() {
+        let user = |uid, gid| GuestUser { uid, gid };
+        assert_eq!(parse_user("0").unwrap(), user(0, 0));
+        assert_eq!(parse_user("1000:100").unwrap(), user(1000, 100));
+        assert!(parse_user("root").is_err());
+        assert!(parse_user("1000:").is_err());
+        assert!(parse_user("4294967295").is_err());
     }
 
     #[test]

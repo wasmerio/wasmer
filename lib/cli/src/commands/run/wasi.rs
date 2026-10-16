@@ -55,8 +55,8 @@ use wasmer_wasix::{
 use crate::{
     config::{UserRegistry, WasmerEnv},
     utils::{
-        PublishedPort, WAPM_SOURCE_CACHE_TIMEOUT, parse_envvar, parse_mapdir, parse_publish,
-        parse_volume, registry_query_cache_dir,
+        GuestUser, PublishedPort, WAPM_SOURCE_CACHE_TIMEOUT, parse_envvar, parse_mapdir,
+        parse_publish, parse_user, parse_volume, registry_query_cache_dir,
     },
 };
 
@@ -158,6 +158,34 @@ pub struct Wasi {
     /// WASIX v2 modules.
     #[clap(long = "publish", name = "[HOST_IP:]HOST_PORT:GUEST_PORT", value_parser = parse_publish)]
     pub(crate) publish: Vec<PublishedPort>,
+
+    /// Run the guest as `UID[:GID]` (numeric; the gid defaults to the uid), which also owns
+    /// the guest's filesystems. uid 0 is root and holds every capability, so permission checks
+    /// that would stop other users pass. The default is 1:1. Only for WASIX v2 modules.
+    #[clap(long = "user", name = "UID[:GID]", value_parser = parse_user)]
+    pub(crate) user: Option<GuestUser>,
+
+    /// The host name the guest sees (`uname -n`). Only for WASIX v2 modules.
+    #[clap(long = "hostname")]
+    pub(crate) hostname: Option<String>,
+
+    /// The NIS domain name the guest sees (`getdomainname`). Only for WASIX v2 modules.
+    #[clap(long = "domainname")]
+    pub(crate) domainname: Option<String>,
+
+    /// The kernel release the guest sees (`uname -r`), e.g. for programs that insist on a
+    /// Linux version. The default is the WASIX v2 ABI version. Only for WASIX v2 modules.
+    #[clap(long = "uname-release")]
+    pub(crate) uname_release: Option<String>,
+
+    /// The kernel version the guest sees (`uname -v`). Only for WASIX v2 modules.
+    #[clap(long = "uname-version")]
+    pub(crate) uname_version: Option<String>,
+
+    /// The machine the guest sees (`uname -m`); the default is `wasm32`. Only for WASIX v2
+    /// modules.
+    #[clap(long = "uname-machine")]
+    pub(crate) uname_machine: Option<String>,
 
     /// Disables the TTY bridge
     #[clap(long = "no-tty")]

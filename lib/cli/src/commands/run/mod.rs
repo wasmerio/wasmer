@@ -601,8 +601,25 @@ impl Run {
     ) -> Result<WasiRunner, anyhow::Error> {
         let packages = self.load_injected_packages(runtime)?;
 
-        if !self.wasi.publish.is_empty() {
-            bail!("--publish is only supported for WASIX v2 modules");
+        let wasi = &self.wasi;
+        let wasixv2_only: Vec<_> = [
+            ("--publish", !wasi.publish.is_empty()),
+            ("--user", wasi.user.is_some()),
+            ("--hostname", wasi.hostname.is_some()),
+            ("--domainname", wasi.domainname.is_some()),
+            ("--uname-release", wasi.uname_release.is_some()),
+            ("--uname-version", wasi.uname_version.is_some()),
+            ("--uname-machine", wasi.uname_machine.is_some()),
+        ]
+        .into_iter()
+        .filter_map(|(name, given)| given.then_some(name))
+        .collect();
+        if !wasixv2_only.is_empty() {
+            let verb = if wasixv2_only.len() == 1 { "is" } else { "are" };
+            bail!(
+                "{} {verb} only supported for WASIX v2 modules",
+                wasixv2_only.join(", ")
+            );
         }
 
         let mut runner = WasiRunner::new();
