@@ -25,6 +25,30 @@ pub trait UserMemory {
     fn can_duplicate(&self) -> LocalFuture<'_, bool> {
         Box::pin(async { false })
     }
+
+    /// Replaces the `u32` at `addr`, which is 4-byte aligned, with `new` if it holds `expected`,
+    /// and returns what it held (`futex_atomic_cmpxchg_inatomic`). The futex code relies on
+    /// this to change a futex word under the feet of guest threads.
+    ///
+    /// Memory that other threads use at the same time must override this with an atomic
+    /// compare-and-exchange. The default reads and then writes, which is only right when
+    /// nothing else touches the memory meanwhile.
+    fn compare_exchange_u32(
+        &self,
+        addr: u32,
+        expected: u32,
+        new: u32,
+    ) -> LocalFuture<'_, Result<u32, Fault>> {
+        Box::pin(async move {
+            let mut word = [0; 4];
+            self.read(addr, &mut word).await?;
+            let current = u32::from_le_bytes(word);
+            if current == expected {
+                self.write(addr, &new.to_le_bytes()).await?;
+            }
+            Ok(current)
+        })
+    }
 }
 
 /// Bytes of a wasm page, the unit `UserMemory::grow` counts in.

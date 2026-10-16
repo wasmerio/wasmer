@@ -47,6 +47,32 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
         Box::pin(crate::asyncify::whole_stack(self.env))
     }
 
+    /// An atomic compare-and-exchange on the memory itself, so guest threads running at the same
+    /// time on other host threads see the futex word change as one step.
+    #[cfg(feature = "sys")]
+    fn compare_exchange_u32(
+        &self,
+        addr: u32,
+        expected: u32,
+        new: u32,
+    ) -> LocalFuture<'_, Result<u32, Fault>> {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        Box::pin(async move {
+            let mut env = self.env.write().await;
+            let (data, store) = env.data_and_store_mut();
+            let memory = data.memory.as_ref().ok_or(Fault)?;
+            let view = memory.view(&*store);
+            if !addr.is_multiple_of(4) || u64::from(addr) + 4 > view.data_size() {
+                return Err(Fault);
+            }
+            // SAFETY: the word is in bounds and aligned, and linear memory stays mapped while
+            // the store is borrowed; guest threads only race with this through atomics.
+            let word = unsafe { AtomicU32::from_ptr(view.data_ptr().add(addr as usize).cast()) };
+            let current = word.compare_exchange(expected, new, Ordering::SeqCst, Ordering::SeqCst);
+            Ok(current.unwrap_or_else(|actual| actual))
+        })
+    }
+
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(async move {
             let mut env = self.env.write().await;
