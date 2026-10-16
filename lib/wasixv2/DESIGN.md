@@ -598,6 +598,19 @@ wasixv1 has about 95 syscalls of its own. Most become their Linux counterparts, 
 | `port_*` (addresses, routes, gateway, MAC, bridge, DHCP) | Dropped. Interfaces, addresses and routes are netlink; bridging and DHCP are the embedder's network configuration, as they are userspace on Linux |
 | `resolve` | Dropped. libc's resolver uses `/etc/resolv.conf` over sockets, as on Linux, which has no DNS syscall for applications |
 
+## WASIX v1 compatibility
+
+Programs built for WASIX v1 (`wasi_snapshot_preview1`, `wasi_unstable`, `wasix_32v1` and wasi-threads' `wasi` module, as wasix-libc calls them) run unchanged on the v2 kernel.
+
+- **Where it lives.** `wasixv2-wasix1` is a second guest ABI of the execution layer. Exec's `Abi` trait has five ABI-specific spots: the import table, the process entry, the thread entry, signal delivery, and how a vfork parent resumes. `Abis` is the ordered registry that process images, `execve`d images and vfork children select through, so a v1 program may `execve` a v2 one and vice versa. The `wasixv2` ABI is its first entry; the facade adds `Wasix1` with its default-on `wasix1` feature.
+- **The kernel stays v1-free.** Every v1 import is a shim that calls `Syscalls` and runs exec's ABI-neutral return-to-guest path (`complete`), exactly like the generated v2 shims. The trace, record and policy layers therefore see a v1 program as the v2 calls it makes. Anything v1 needs that Linux does not have lives in the shim layer: preopens, rights, v1 layouts and errno numbers, `args_get` over the startup block.
+- **Layouts.** v1 structs are hand-written `GuestLayout` impls with explicit offsets, checked against `wasmer-wasix-types` (a dev-dependency only) and wasix-libc's static assertions, which win where the two disagree.
+- **Translation through scratch.** v2 calls take guest addresses. A shim that must hand the kernel a struct with a different layout builds it in a 16 MiB scratch window at the top of the 32-bit address space (`CompatMemory`), above anything the guest's memory can reach, and reads results back from there. Buffers and iovec arrays, which have the same layout, pass through, so bulk data is still copied once. A v1 guest's memory cannot grow into the window.
+- **Startup.** `_initialize` (if exported), then `_start`; returning from `_start` is `exit(0)`, and returning from `wasi_thread_start` ends the thread. Preopens are the working directory (`.`) and the root (`/`), opened on the process's first v1 call so they land on descriptors 3 and 4.
+- **Signals.** wasix-libc keeps its own disposition table and runs handlers from one export, `__wasm_signal(sig)`; the host only decides that it runs and restores the mask afterwards.
+- **vfork.** The kernel's vfork model is reused unchanged. A v1 parent resumes when the child's `proc_exec*` or `proc_exit2` returns to it, and libc then longjmps to the vfork point itself.
+- **Not served.** wasm64 (`wasix_64v1`): the kernel's address spaces are 32-bit. `wasix_http_client_v1`. `port_*` configuration, which v2 dropped. Dynamic linking, closures and reflection return `NOTSUP` until they forward to their v2 extensions. Calls not implemented yet return `NOSYS`. Rights are reported, never enforced, so `NOTCAPABLE` never comes back.
+
 ## Open questions
 
 - **An in-process DNS server**, for sandboxes without direct DNS access, that `/etc/resolv.conf` can point at.
@@ -646,6 +659,7 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 | `wasixv2-checkpoint` | `checkpoint` | Kernel state checkpoint and restore | kernel |
 | `wasixv2-exec` | `exec` | Loading, instances, suspension, return-to-guest, fork, preemption | syscalls, wasmer |
 | `wasixv2-dylink` | `dylink` | Side-module loading and linking (wasm extension) | exec, wasmer |
+| `wasixv2-wasix1` | `wasix1` | The WASIX v1 guest ABI as a second exec ABI, served through `Syscalls` | abi, syscalls, exec, wasmer |
 
 **Dependency rules**
 
@@ -659,6 +673,7 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 
 | Date | Decision | Why |
 | --- | --- | --- |
+| 2026-10-16 | WASIX v1 is a second guest ABI of the execution layer (`Abi` registry), served by shims over `Syscalls` in `wasixv2-wasix1`, with v1 structs translated through a scratch window above the guest's memory | The kernel stays v1-free and the layers cover v1 programs; exec had exactly five ABI-specific spots; the host has no guest allocator to borrow |
 | 2026-10-16 | A vfork child's end resumes the parent through a guest export, `wasixv2_vfork_return`, which `longjmp`s to the vfork point | One path for `execve`, `exit` and death by a signal; libc's `_exit` and `execve` stay unchanged, and no call returns where Linux never returns |
 | 2026-10-15 | The VFS interns inodes per (superblock, inode number) and locks directories itself; drivers guarantee inode numbers are identities | Per-inode state (directory lock, `S_DEAD`, `I_LINKABLE`, the single directory dentry, later FIFOs, sockets and inotify marks) needs one place, and VFS checks must hold until the driver applies the change |
 | 2026-10-15 | The executor is reached through `Host::executor`; tokio and the browser are host implementations behind features | Keeps the kernel runtime-agnostic and lets one embedder share an executor between hosts |

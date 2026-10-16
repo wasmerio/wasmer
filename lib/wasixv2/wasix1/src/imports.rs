@@ -180,8 +180,8 @@ table! {
     "proc_parent" WASIX (I32 I32) -> (I32) Pending;
     "proc_join" WASIX (I32 I32 I32) -> (I32) Pending;
     "proc_signal" WASIX (I32 I32) -> (I32) Pending;
-    "proc_signals_get" WASIX (I32) -> (I32) Pending;
-    "proc_signals_sizes_get" WASIX (I32) -> (I32) Pending;
+    "proc_signals_get" WASIX (I32) -> (I32) Shim;
+    "proc_signals_sizes_get" WASIX (I32) -> (I32) Shim;
     "proc_snapshot" WASIX () -> (I32) Unsupported;
     "port_bridge" WASIX (I32 I32 I32 I32 I32) -> (I32) Unsupported;
     "port_unbridge" WASIX () -> (I32) Unsupported;
@@ -299,6 +299,8 @@ where
         "fd_write" => f!(io::fd_write::<S>),
         "fd_close" => f!(io::fd_close::<S>),
         "callback_signal" => f!(signal::callback_signal::<S>),
+        "proc_signals_get" => f!(signal::proc_signals_get::<S>),
+        "proc_signals_sizes_get" => f!(signal::proc_signals_sizes_get::<S>),
         _ => return None,
     })
 }
