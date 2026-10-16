@@ -145,13 +145,15 @@ impl Kernel {
         }
     }
 
-    // Nothing interrupts a sleep yet, so `rmtp` is never written.
+    /// `clock_nanosleep`. An interrupted relative sleep writes the time left to `rmtp`
+    /// (`nanosleep_copyout`).
     pub(crate) async fn sys_clock_nanosleep(
         &self,
         caller: &Caller<'_>,
         id: ClockId,
         flags: TimerFlags,
         rqtp: ConstKernelTimespecPtr,
+        rmtp: KernelTimespecPtr,
     ) -> SysResult<i32> {
         let clock = self.clock(caller, id)?;
         if clock == Clock::ThreadCpu {
@@ -161,7 +163,7 @@ impl Kernel {
         let now = self.clock_now(caller, clock);
         let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
         // A signal ends the sleep. Without a handler it restarts with the same request.
-        // TODO: write the time left to `rmtp` and restart with it (`restart_block`).
+        // TODO: restart a relative sleep with the time left (`restart_block`).
         let interrupted = |_: wasixv2_wait::Interrupted| SysErr::RestartNoHand;
         match (absolute, clock) {
             (true, Clock::Monotonic) => self
@@ -178,10 +180,18 @@ impl Kernel {
                     now = self.clock_now(caller, clock);
                 }
             }
-            (false, _) => self
-                .interruptible_sleep(caller, self.host.sleep(request))
-                .await
-                .map_err(interrupted)?,
+            // Relative sleeps run on the monotonic clock, whichever clock they name.
+            (false, _) => {
+                let deadline = self.host.monotonic().saturating_add(request);
+                let sleep = self.host.sleep_until(deadline);
+                if let Err(err) = self.interruptible_sleep(caller, sleep).await {
+                    if !rmtp.is_null() {
+                        let left = deadline.saturating_sub(self.host.monotonic());
+                        write_value(caller.memory(), rmtp, &to_timespec(left)).await?;
+                    }
+                    return Err(interrupted(err));
+                }
+            }
         }
         Ok(0)
     }

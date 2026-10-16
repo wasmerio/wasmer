@@ -63,6 +63,11 @@ pub(crate) struct ThreadState {
 }
 
 impl ThreadState {
+    /// The task called `exit`.
+    pub(crate) fn exited(&self) -> bool {
+        self.exited
+    }
+
     /// Whether the task ended and its last pending action was taken, so it can be forgotten.
     pub(crate) fn reapable(&self, pending: Option<GuestAction>) -> bool {
         self.exited && matches!(pending, Some(GuestAction::Exit(_)))
@@ -267,6 +272,9 @@ impl Kernel {
         if others {
             signals.kill_all();
         }
+        // The dying group's timers stop (`do_exit` with `group_dead`).
+        signals.cancel_real_timer();
+        crate::posix_timer::exit_itimers(&signals);
         process.group.exited.wake(PollMask::empty());
         // ---- proc ----
         self.process_exited(&process, task, status);

@@ -93,6 +93,10 @@ impl Resources {
             .rlim_cur
             .min(NR_OPEN) as usize
     }
+
+    pub(crate) fn sigpending(&self) -> u64 {
+        self.limits[RlimitResource::RLIMIT_SIGPENDING.0 as usize].rlim_cur
+    }
 }
 
 /// CPUs the host offers.

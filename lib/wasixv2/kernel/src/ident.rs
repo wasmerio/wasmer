@@ -288,6 +288,9 @@ impl Kernel {
                 let reaper = process.ident.lock().unwrap().child_subreaper;
                 put_int(reaper as u32).await?;
             }
+            PrctlOption::PR_TIMER_CREATE_RESTORE_IDS => {
+                return self.timer_create_prctl(caller, arg2, [arg3, arg4, arg5]);
+            }
             PrctlOption::PR_GET_KEEPCAPS => {
                 return Ok(process.ident.lock().unwrap().keepcaps as i32);
             }

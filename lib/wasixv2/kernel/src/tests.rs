@@ -613,4 +613,5 @@ mod ipc;
 mod net;
 mod proc;
 mod procfs;
+mod ptimer;
 mod stdio;

@@ -665,7 +665,12 @@ impl Kernel {
         for file in closing {
             self.closed(&caller, &file);
         }
-        self.task_signals(task).group().exec_reset();
+        // `exit_itimers` and `flush_itimer_signals`: POSIX timers belong to the old image;
+        // interval timers stay.
+        let signals = self.task_signals(task);
+        crate::posix_timer::exit_itimers(signals.group());
+        signals.group().flush_timer_signals();
+        signals.group().exec_reset();
         *process.args.lock().unwrap() = args;
         *process.env.lock().unwrap() = env;
         *process.exe.lock().unwrap() = Some(exe);

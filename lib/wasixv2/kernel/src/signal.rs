@@ -1,13 +1,14 @@
 //! Signals, after Linux's `kernel/signal.c`: generation into per-task and per-thread-group
 //! pending sets, masks, dispositions, dequeueing on the return-to-guest path, `sigaltstack`,
-//! `sigsuspend`, `sigtimedwait` and the `ITIMER_REAL` interval timer.
+//! `sigsuspend`, `sigtimedwait`, the `ITIMER_REAL` interval timer, and the signal side of POSIX
+//! timers ([`crate::posix_timer`]): their preallocated queue entries and the ignored list.
 //!
 //! Handlers run in the guest: [`Kernel::take_signal`] hands the execution layer a
 //! [`SignalFrame`] and [`Kernel::signal_return`] is the matching sigreturn.
 
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
 
@@ -24,7 +25,9 @@ use wasixv2_syscalls::{
 use wasixv2_wait::{Interrupt, WaitQueue, Waiter, Wakeup};
 
 use crate::{
-    ID, Kernel, time,
+    ID, Kernel,
+    posix_timer::{self, PosixTimer},
+    time,
     timer::{self, Timer},
 };
 
@@ -51,6 +54,11 @@ struct GroupState {
     shared: Pending,
     tasks: HashMap<TaskId, TaskState>,
     real_timer: RealTimer,
+    /// The group's POSIX timers (`signal_struct::posix_timers`).
+    posix_timers: posix_timer::Table,
+    /// Periodic POSIX timers whose signal was ignored when it fired; they are queued again
+    /// once the signal is no longer ignored (`ignored_posix_timers`).
+    ignored_timers: Vec<Arc<PosixTimer>>,
 }
 
 impl Default for GroupState {
@@ -61,6 +69,8 @@ impl Default for GroupState {
             shared: Pending::default(),
             tasks: HashMap::new(),
             real_timer: RealTimer::default(),
+            posix_timers: posix_timer::Table::default(),
+            ignored_timers: Vec::new(),
         }
     }
 }
@@ -82,11 +92,19 @@ impl Action {
     }
 }
 
-/// A pending set plus the `siginfo` of every queued instance, oldest first.
+/// A pending set plus every queued instance, oldest first.
 #[derive(Default)]
 struct Pending {
     set: u64,
-    queue: VecDeque<Siginfo>,
+    queue: VecDeque<Queued>,
+}
+
+/// One queued signal (`struct sigqueue`). A POSIX timer's signal names its timer, as the
+/// timer's preallocated `sigqueue` does on Linux: a timer is queued at most once, and it
+/// decides at dequeue whether its signal still counts (`posixtimer_deliver_signal`).
+struct Queued {
+    info: Siginfo,
+    timer: Option<Arc<PosixTimer>>,
 }
 
 impl Pending {
@@ -97,22 +115,66 @@ impl Pending {
             return;
         }
         self.set |= bit(sig);
-        self.queue.push_back(info);
+        self.queue.push_back(Queued { info, timer: None });
     }
 
-    /// `collect_signal`: takes the oldest instance of `sig`.
-    fn take(&mut self, sig: i32) -> Siginfo {
-        let at = self.queue.iter().position(|info| info.si_signo == sig);
-        let info = at.and_then(|at| self.queue.remove(at));
-        if !self.queue.iter().any(|info| info.si_signo == sig) {
+    /// `posixtimer_queue_sigqueue`: a timer's signal is queued even next to a pending
+    /// standard signal of the same number.
+    fn add_timer(&mut self, info: Siginfo, timer: Arc<PosixTimer>) {
+        self.set |= bit(info.si_signo);
+        self.queue.push_back(Queued {
+            info,
+            timer: Some(timer),
+        });
+    }
+
+    fn has_timer(&self, timer: &Arc<PosixTimer>) -> bool {
+        self.queue
+            .iter()
+            .any(|queued| queued.timer.as_ref().is_some_and(|t| Arc::ptr_eq(t, timer)))
+    }
+
+    /// `collect_signal`: takes the oldest instance of `sig`, and its timer if a POSIX timer
+    /// sent it.
+    fn take(&mut self, sig: i32) -> (Siginfo, Option<Arc<PosixTimer>>) {
+        let at = self.queue.iter().position(|q| q.info.si_signo == sig);
+        let queued = at.and_then(|at| self.queue.remove(at));
+        if !self.queue.iter().any(|q| q.info.si_signo == sig) {
             self.set &= !bit(sig);
         }
-        info.unwrap_or_else(|| kernel_info(sig))
+        match queued {
+            Some(queued) => (queued.info, queued.timer),
+            None => (kernel_info(sig), None),
+        }
     }
 
-    fn flush(&mut self, mask: u64) {
+    /// `flush_sigqueue_mask`. Returns the timers whose signals it dropped.
+    fn flush(&mut self, mask: u64) -> Vec<Arc<PosixTimer>> {
         self.set &= !mask;
-        self.queue.retain(|info| mask & bit(info.si_signo) == 0);
+        let mut timers = Vec::new();
+        self.queue.retain_mut(|queued| {
+            if mask & bit(queued.info.si_signo) == 0 {
+                return true;
+            }
+            timers.extend(queued.timer.take());
+            false
+        });
+        timers
+    }
+
+    /// `__flush_itimer_signals`: drops every POSIX timer signal, and the pending bits only
+    /// they held.
+    fn flush_timers(&mut self) {
+        let (mut retain, mut dropped) = (0, 0);
+        self.queue.retain(|queued| {
+            let sig = bit(queued.info.si_signo);
+            match queued.timer {
+                Some(_) => dropped |= sig,
+                None => retain |= sig,
+            }
+            queued.timer.is_none()
+        });
+        self.set = (self.set & !dropped) | retain;
     }
 }
 
@@ -295,9 +357,130 @@ impl Signals {
     /// `send_signal`: queues `info` for the group, or for `task` alone, unless it would be
     /// ignored, and wakes the group's waiters.
     fn send(&self, task: Option<TaskId>, info: Siginfo) {
-        let sig = info.si_signo;
         let mut state = self.state.lock().unwrap();
-        // `prepare_signal`: SIGCONT and the stop signals cancel each other.
+        if !state.prepare(task, info.si_signo) {
+            return;
+        }
+        match task.and_then(|task| state.tasks.get_mut(&task)) {
+            Some(task) => task.pending.add(info),
+            None => state.shared.add(info),
+        }
+        drop(state);
+        self.queue.wake(wasixv2_wait::PollMask::empty());
+    }
+
+    /// `posixtimer_send_sigqueue`: queues the signal of `timer`, which just expired, for its
+    /// target thread or the group. Called with the timer's state locked. `periodic` says
+    /// whether the timer re-arms once its signal is delivered.
+    pub(crate) fn send_timer(&self, timer: &Arc<PosixTimer>, periodic: bool) {
+        let target = timer.target_thread();
+        let info = timer.info();
+        let mut state = self.state.lock().unwrap();
+        // `task_can_queue_signal`: a target thread that is gone takes nothing.
+        if target.is_some_and(|task| !state.tasks.contains_key(&task)) {
+            return;
+        }
+        timer.set_sig_periodic(periodic);
+        let queued = state.pending(target).has_timer(timer);
+        let ignored_at = state
+            .ignored_timers
+            .iter()
+            .position(|t| Arc::ptr_eq(t, timer));
+        if !state.prepare(target, info.si_signo) {
+            // A queued signal that is ignored now stays, as a regular one does. Otherwise a
+            // periodic timer waits on the ignored list for the signal to be caught again,
+            // and a one-shot one is done.
+            match (queued, periodic, ignored_at) {
+                (true, _, _) | (false, true, Some(_)) => {}
+                (false, true, None) => state.ignored_timers.push(timer.clone()),
+                (false, false, Some(at)) => {
+                    state.ignored_timers.swap_remove(at);
+                }
+                (false, false, None) => {}
+            }
+            return;
+        }
+        if queued {
+            return;
+        }
+        // Blocked again after it was ignored: back to the pending list.
+        if let Some(at) = ignored_at {
+            state.ignored_timers.swap_remove(at);
+        }
+        state.pending(target).add_timer(info, timer.clone());
+        drop(state);
+        self.queue.wake(wasixv2_wait::PollMask::empty());
+    }
+
+    /// `posix_timer_delete`'s signal half: `timer` stops being a timer of the group. A
+    /// signal of it still queued stays, and is dropped when it is dequeued.
+    pub(crate) fn unlink_timer(&self, timer: &Arc<PosixTimer>, id: i32) {
+        let mut state = self.state.lock().unwrap();
+        timer.invalidate();
+        state.posix_timers.remove(id);
+        state.ignored_timers.retain(|t| !Arc::ptr_eq(t, timer));
+    }
+
+    /// Runs `f` on the group's POSIX timer table, with the group locked.
+    pub(crate) fn with_posix_timers<R>(&self, f: impl FnOnce(&mut posix_timer::Table) -> R) -> R {
+        f(&mut self.state.lock().unwrap().posix_timers)
+    }
+
+    /// Whether `task` still belongs to the group.
+    pub(crate) fn has_task(&self, task: TaskId) -> bool {
+        self.state.lock().unwrap().tasks.contains_key(&task)
+    }
+
+    /// `flush_itimer_signals` at `execve`: the old image's POSIX timer signals go.
+    pub(crate) fn flush_timer_signals(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.shared.flush_timers();
+        for task in state.tasks.values_mut() {
+            task.pending.flush_timers();
+        }
+    }
+
+    /// `hrtimer_cancel(&sig->real_timer)` once the group is dead.
+    pub(crate) fn cancel_real_timer(&self) {
+        let mut state = self.state.lock().unwrap();
+        let real = &mut state.real_timer;
+        real.deadline = None;
+        if let Some(timer) = &real.timer {
+            timer.cancel();
+        }
+    }
+
+    /// `dequeue_signal` with `state` the group's locked state. A POSIX timer's signal is
+    /// handed to its timer with the group unlocked, as the timer's lock comes first; the
+    /// timer re-arms and fills in `si_overrun`, or drops a signal that no longer counts.
+    fn dequeue<'a>(
+        &'a self,
+        mut state: MutexGuard<'a, GroupState>,
+        task: TaskId,
+        wanted: u64,
+    ) -> (MutexGuard<'a, GroupState>, Option<Siginfo>) {
+        loop {
+            let Some((mut info, timer)) = state.dequeue(task, wanted) else {
+                return (state, None);
+            };
+            let Some(timer) = timer else {
+                return (state, Some(info));
+            };
+            drop(state);
+            let counts = timer.deliver(&mut info);
+            state = self.state.lock().unwrap();
+            if counts {
+                return (state, Some(info));
+            }
+        }
+    }
+}
+
+impl GroupState {
+    /// `prepare_signal`: SIGCONT and the stop signals cancel each other; returns whether
+    /// `sig` is to be queued for `task`, or for the group with `None`. A blocked signal is
+    /// never ignored, since the handler may change before it is unblocked (`sig_ignored`).
+    fn prepare(&mut self, task: Option<TaskId>, sig: i32) -> bool {
         let stops = [
             Signal::SIGSTOP,
             Signal::SIGTSTP,
@@ -312,33 +495,58 @@ impl Signals {
             _ => 0,
         };
         if cancelled != 0 {
-            state.shared.flush(cancelled);
-            for task in state.tasks.values_mut() {
-                task.pending.flush(cancelled);
-            }
+            self.flush(cancelled);
         }
-        // `sig_ignored`: a blocked signal stays queued, since the handler may change before it
-        // is unblocked.
         let blocked = match task {
-            Some(task) => state
+            Some(task) => self
                 .tasks
                 .get(&task)
                 .is_some_and(|t| t.blocked & bit(sig) != 0),
-            None => state.tasks.values().all(|t| t.blocked & bit(sig) != 0),
+            None => self.tasks.values().all(|t| t.blocked & bit(sig) != 0),
         };
-        if !blocked && state.ignores(sig) {
-            return;
-        }
-        match task.and_then(|task| state.tasks.get_mut(&task)) {
-            Some(task) => task.pending.add(info),
-            None => state.shared.add(info),
-        }
-        drop(state);
-        self.queue.wake(wasixv2_wait::PollMask::empty());
+        blocked || !self.ignores(sig)
     }
-}
 
-impl GroupState {
+    /// The pending list of `task`, or the group's for `None` or a task that is gone.
+    fn pending(&mut self, task: Option<TaskId>) -> &mut Pending {
+        match task {
+            Some(task) if self.tasks.contains_key(&task) => &mut self.task(task).pending,
+            _ => &mut self.shared,
+        }
+    }
+
+    /// `flush_sigqueue_mask` on the group's and every task's pending list. A dropped signal
+    /// of a periodic POSIX timer moves to the ignored list (`sigqueue_free_ignored`).
+    fn flush(&mut self, mask: u64) {
+        let mut timers = self.shared.flush(mask);
+        for task in self.tasks.values_mut() {
+            timers.extend(task.pending.flush(mask));
+        }
+        for timer in timers {
+            // `posixtimer_sig_ignore`
+            if timer.is_valid() && timer.sig_periodic() {
+                self.ignored_timers.push(timer);
+            }
+        }
+    }
+
+    /// `posixtimer_sig_unignore`: `sig` is caught again, so the periodic timers that fired
+    /// while it was ignored queue their signal now.
+    fn unignore_timers(&mut self, sig: i32) {
+        let (requeue, keep) = std::mem::take(&mut self.ignored_timers)
+            .into_iter()
+            .partition(|timer| timer.signo() == sig);
+        self.ignored_timers = keep;
+        for timer in requeue {
+            let target = timer.target_thread();
+            if target.is_some_and(|task| !self.tasks.contains_key(&task)) {
+                continue;
+            }
+            let info = timer.info();
+            self.pending(target).add_timer(info, timer);
+        }
+    }
+
     /// `sig_task_ignored`: the disposition throws the signal away. SIGKILL and SIGSTOP never are.
     fn ignores(&self, sig: i32) -> bool {
         if UNBLOCKABLE & bit(sig) != 0 {
@@ -362,8 +570,9 @@ impl GroupState {
     }
 
     /// `dequeue_signal`: the lowest-numbered signal in `wanted`, from the task's own pending
-    /// set first, then the group's.
-    fn dequeue(&mut self, task: TaskId, wanted: u64) -> Option<Siginfo> {
+    /// set first, then the group's. A POSIX timer's signal comes with its timer, which the
+    /// caller asks, with the group unlocked, whether the signal still counts.
+    fn dequeue(&mut self, task: TaskId, wanted: u64) -> Option<(Siginfo, Option<Arc<PosixTimer>>)> {
         let own = self.task(task).pending.set & wanted;
         if own != 0 {
             let sig = own.trailing_zeros() as i32 + 1;
@@ -443,12 +652,24 @@ impl TaskSignals {
     /// group, blocked or not. Once the task is gone, only the group's.
     pub(crate) fn dequeue_from(&self, wanted: u64) -> Option<Siginfo> {
         let mut state = self.group.state.lock().unwrap();
-        match state.tasks.contains_key(&self.task) {
-            true => state.dequeue(self.task, wanted),
-            false => {
-                let shared = state.shared.set & wanted;
-                (shared != 0).then(|| state.shared.take(shared.trailing_zeros() as i32 + 1))
+        if state.tasks.contains_key(&self.task) {
+            return self.group.dequeue(state, self.task, wanted).1;
+        }
+        // As `Signals::dequeue`, from the group's queue only.
+        loop {
+            let shared = state.shared.set & wanted;
+            if shared == 0 {
+                return None;
             }
+            let (mut info, timer) = state.shared.take(shared.trailing_zeros() as i32 + 1);
+            let Some(timer) = timer else {
+                return Some(info);
+            };
+            drop(state);
+            if timer.deliver(&mut info) {
+                return Some(info);
+            }
+            state = self.group.state.lock().unwrap();
         }
     }
 
@@ -604,7 +825,9 @@ impl Kernel {
         let mut state = signals.group.state.lock().unwrap();
         loop {
             let blocked = state.task(task).blocked;
-            let Some(info) = state.dequeue(task, !blocked) else {
+            let info;
+            (state, info) = signals.group.dequeue(state, task, !blocked);
+            let Some(info) = info else {
                 // `restore_saved_sigmask`: no handler took the temporary mask's signal.
                 let task = state.task(task);
                 if let Some(saved) = task.saved.take() {
@@ -724,10 +947,10 @@ impl Kernel {
                 };
                 // POSIX: setting a disposition to ignore discards the pending signal.
                 if state.ignores(sig) {
-                    state.shared.flush(bit(sig));
-                    for task in state.tasks.values_mut() {
-                        task.pending.flush(bit(sig));
-                    }
+                    state.flush(bit(sig));
+                } else if old.is_ignore() {
+                    state.unignore_timers(sig);
+                    signals.group.queue.wake(wasixv2_wait::PollMask::empty());
                 }
             }
             old
@@ -820,12 +1043,10 @@ impl Kernel {
         };
         let signals = self.task_signals(caller.task());
         let take = || {
-            signals
-                .group
-                .state
-                .lock()
-                .unwrap()
-                .dequeue(caller.task(), these)
+            let group = &signals.group;
+            group
+                .dequeue(group.state.lock().unwrap(), caller.task(), these)
+                .1
         };
         let info = match take() {
             Some(info) => Some(info),

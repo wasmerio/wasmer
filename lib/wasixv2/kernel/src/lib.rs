@@ -17,6 +17,7 @@ mod net;
 mod netlink;
 mod pipe;
 mod poll;
+mod posix_timer;
 mod process;
 mod procfs;
 mod pseudo;
@@ -1294,6 +1295,54 @@ impl Syscalls for Kernel {
         self.sys_getitimer(caller, which, value).await
     }
 
+    async fn timer_create(
+        &self,
+        caller: &Caller<'_>,
+        which_clock: ClockId,
+        timer_event_spec: wasixv2_abi::ConstSigeventPtr,
+        created_timer_id: wasixv2_abi::TimerIdPtr,
+    ) -> SysResult<i32> {
+        self.sys_timer_create(caller, which_clock, timer_event_spec, created_timer_id)
+            .await
+    }
+
+    async fn timer_settime64(
+        &self,
+        caller: &Caller<'_>,
+        timer_id: wasixv2_abi::TimerId,
+        flags: TimerFlags,
+        new_setting: ConstKernelItimerspecPtr,
+        old_setting: KernelItimerspecPtr,
+    ) -> SysResult<i32> {
+        self.sys_timer_settime(caller, timer_id, flags, new_setting, old_setting)
+            .await
+    }
+
+    async fn timer_gettime64(
+        &self,
+        caller: &Caller<'_>,
+        timer_id: wasixv2_abi::TimerId,
+        setting: KernelItimerspecPtr,
+    ) -> SysResult<i32> {
+        self.sys_timer_gettime(caller, timer_id, setting).await
+    }
+
+    async fn timer_getoverrun(
+        &self,
+        caller: &Caller<'_>,
+        timer_id: wasixv2_abi::TimerId,
+    ) -> SysResult<i32> {
+        self.sys_timer_getoverrun(caller, timer_id)
+    }
+
+    async fn timer_delete(
+        &self,
+        caller: &Caller<'_>,
+        timer_id: wasixv2_abi::TimerId,
+    ) -> SysResult<i32> {
+        self.sys_timer_delete(caller, timer_id)
+    }
+
     // ---- base ----
     async fn getppid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
         Ok(self.sys_getppid(caller))
@@ -1633,16 +1682,16 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         self.sys_clock_settime(caller, clock, tp).await
     }
-    // Nothing interrupts a sleep yet, so `rmtp` is never written.
     async fn clock_nanosleep_time64(
         &self,
         caller: &Caller<'_>,
         clock: ClockId,
         flags: TimerFlags,
         rqtp: ConstKernelTimespecPtr,
-        _: KernelTimespecPtr,
+        rmtp: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        self.sys_clock_nanosleep(caller, clock, flags, rqtp).await
+        self.sys_clock_nanosleep(caller, clock, flags, rqtp, rmtp)
+            .await
     }
     async fn signalfd4(
         &self,
