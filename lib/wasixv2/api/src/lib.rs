@@ -46,8 +46,10 @@ const USER: u32 = 1;
 
 /// One kernel and the processes it runs.
 ///
-/// The root filesystem is in memory and starts out with an empty `/tmp`, `/etc/hosts` and, when there are
-/// name servers, `/etc/resolv.conf`. The network is one namespace; with the `host-network`
+/// The root filesystem is in memory and laid out as a small Linux system (see
+/// [`default_root`]); [`Machine::with_root`] takes another. Either way the kernel's own
+/// filesystems are mounted on it: `/proc`, `/dev` with the device nodes, and memory
+/// filesystems at `/dev/shm` and `/tmp`. The network is one namespace; with the `host-network`
 /// feature on a Unix host, traffic leaving it goes through host sockets, otherwise it is
 /// loopback-only. The machine's futures must be driven where its [`Host`]'s executor expects
 /// them; see [`Machine::new`].
@@ -76,11 +78,24 @@ impl Machine {
         Self::with_host(Arc::new(TokioHost::default()))
     }
 
-    /// A machine whose clocks, timers, entropy and executor come from `host`.
+    /// A machine whose clocks, timers, entropy and executor come from `host`, on the
+    /// [`default_root`].
     pub fn with_host(host: Arc<dyn Host>) -> Self {
         let network = default_network();
-        let kernel = Kernel::new(host.clone(), root_filesystem(&host, &network.resolv_conf()))
-            .with_network(network.clone());
+        let root = default_root(&host, &network.resolv_conf());
+        Self::assemble(host, root, network)
+    }
+
+    /// A machine on `root` instead of the default root filesystem, such as an embedder's
+    /// image. `/proc`, `/dev`, `/dev/shm` and `/tmp` are mounted on it, their directories made
+    /// where missing; a mount point that cannot be made (on a read-only root) is left out.
+    pub fn with_root(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
+        Self::assemble(host, root, default_network())
+    }
+
+    fn assemble(host: Arc<dyn Host>, root: Arc<dyn Filesystem>, network: Arc<Net>) -> Self {
+        let kernel = Kernel::new(host.clone(), root).with_network(network.clone());
+        mount_kernel_filesystems(&kernel, &host);
         Self {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
             network,
@@ -262,12 +277,20 @@ fn default_network() -> Arc<Net> {
     Net::new(NetConfig::default(), None)
 }
 
-/// The guest's `/etc/hosts`.
+/// The guest's `/etc/hosts`: `localhost` resolves without DNS, as on every Linux system.
 const HOSTS: &str = "127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loopback\n";
+/// The users and groups: root, and the user processes run as.
+const PASSWD: &str = "root:x:0:0:root:/root:/bin/sh\nuser:x:1:1:user:/home/user:/bin/sh\n";
+const GROUP: &str = "root:x:0:\nuser:x:1:\n";
+/// The kernel's nodename.
+const HOSTNAME: &str = "localhost\n";
 
-/// A memory root owned by the user processes run as, with a world-writable sticky `/tmp`,
-/// `/etc/hosts` and, when there are name servers, `/etc/resolv.conf`.
-fn root_filesystem(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesystem> {
+/// The default root filesystem: a memory filesystem whose top directory the user processes run
+/// as owns, laid out as a small Linux system. It has empty `/bin`, `/usr/bin` and `/usr/lib`
+/// for packages and mounts to fill, `/root` and the user's home `/home/user`, and in `/etc`
+/// `passwd` and `group` naming both users, `hostname`, `hosts` and, when there are name
+/// servers, `resolv.conf`. `/proc`, `/dev` and `/tmp` are mount points.
+pub fn default_root(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesystem> {
     let root: Arc<dyn Filesystem> = Arc::new(MemFs::new(
         Arc::new(HostClock(host.clone())),
         0o755,
@@ -275,7 +298,7 @@ fn root_filesystem(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesyste
         USER,
     ));
     let vfs = Vfs::new(root.clone());
-    let cred = Cred::user(USER, USER);
+    let cred = Cred::root();
     let top = vfs.root();
     let cx = Ctx {
         cred: &cred,
@@ -283,33 +306,113 @@ fn root_filesystem(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesyste
         umask: 0,
         task: 0,
     };
-    let tmp = async {
-        vfs.mkdir(&cx, &top, b"/tmp", 0o1777).await?;
-        let path = vfs
-            .lookup(&cx, &top, b"/tmp", LookupFlags::follow())
+    let layout = async {
+        let dirs = [
+            "/bin",
+            "/usr/bin",
+            "/usr/lib",
+            "/etc",
+            "/home/user",
+            "/proc",
+            "/dev",
+            "/tmp",
+        ];
+        for dir in dirs {
+            vfs.mkdir_all(&cx, dir.as_bytes()).await?;
+        }
+        vfs.mkdir(&cx, &top, b"/root", 0o700).await?;
+        let home = vfs
+            .lookup(&cx, &top, b"/home/user", LookupFlags::follow())
             .await?;
-        vfs.chmod(&cx, &path, 0o1777).await?;
-        vfs.mkdir(&cx, &top, b"/etc", 0o755).await?;
+        vfs.chown(&cx, &home, Some(USER), Some(USER)).await?;
+        let mut files = vec![
+            ("/etc/passwd", PASSWD),
+            ("/etc/group", GROUP),
+            ("/etc/hostname", HOSTNAME),
+            ("/etc/hosts", HOSTS),
+        ];
+        if !resolv_conf.is_empty() {
+            files.push(("/etc/resolv.conf", resolv_conf));
+        }
         let how = wasixv2_vfs::OpenHow {
             flags: wasixv2_abi::OpenFlags::O_CREAT | wasixv2_abi::OpenFlags::O_WRONLY,
             mode: 0o644,
             lookup: LookupFlags::follow(),
         };
-        // `localhost` resolves without DNS, as on every Linux system.
-        let file = vfs.open(&cx, &top, b"/etc/hosts", &how).await?;
-        file.write_at(HOSTS.as_bytes(), 0).await?;
-        if !resolv_conf.is_empty() {
-            let file = vfs.open(&cx, &top, b"/etc/resolv.conf", &how).await?;
-            file.write_at(resolv_conf.as_bytes(), 0).await?;
+        for (path, contents) in files {
+            let file = vfs.open(&cx, &top, path.as_bytes(), &how).await?;
+            file.write_at(contents.as_bytes(), 0).await?;
         }
         Ok::<_, Errno>(())
     };
-    // A memory filesystem never waits.
-    match pin!(tmp).poll(&mut Context::from_waker(Waker::noop())) {
-        Poll::Ready(result) => result.expect("a new memory filesystem accepts /tmp and /etc"),
+    now(layout).expect("a new memory filesystem takes the default layout");
+    root
+}
+
+/// Mounts the kernel's filesystems as a Linux system has them: `/proc`, `/dev` (a memory
+/// filesystem with the device nodes, as devtmpfs is, and the conventional links into
+/// `/proc/self/fd`), and memory filesystems at `/dev/shm` for POSIX shared memory and at
+/// `/tmp`, world-writable and sticky.
+fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
+    let vfs = kernel.vfs();
+    let tmpfs = |mode| -> Arc<dyn Filesystem> {
+        Arc::new(MemFs::new(Arc::new(HostClock(host.clone())), mode, 0, 0))
+    };
+    let flags = |nodev, noexec| MountFlags {
+        nosuid: true,
+        nodev,
+        noexec,
+        ..MountFlags::default()
+    };
+    let cred = Cred::root();
+    let top = vfs.root();
+    let cx = Ctx {
+        cred: &cred,
+        root: &top,
+        umask: 0,
+        task: 0,
+    };
+    let mount = |at: &'static str, fs, flags| async move {
+        match vfs.mount(at.as_bytes(), fs, flags, true).await {
+            Ok(_) => true,
+            Err(errno) => {
+                tracing::warn!(
+                    at,
+                    ?errno,
+                    "cannot mount a kernel filesystem; it is left out"
+                );
+                false
+            }
+        }
+    };
+    let mounts = async {
+        mount("/proc", kernel.procfs(), flags(true, true)).await;
+        if mount("/dev", tmpfs(0o755), flags(false, false)).await {
+            kernel.create_device_nodes(b"/dev").await?;
+            for (link, target) in [
+                ("/dev/fd", "/proc/self/fd"),
+                ("/dev/stdin", "/proc/self/fd/0"),
+                ("/dev/stdout", "/proc/self/fd/1"),
+                ("/dev/stderr", "/proc/self/fd/2"),
+            ] {
+                vfs.symlink(&cx, target.as_bytes(), &top, link.as_bytes())
+                    .await?;
+            }
+            mount("/dev/shm", tmpfs(0o1777), flags(true, false)).await;
+        }
+        mount("/tmp", tmpfs(0o1777), flags(true, false)).await;
+        Ok::<_, Errno>(())
+    };
+    now(mounts).expect("the kernel's filesystems take their layout");
+}
+
+/// Runs `future`, which never waits: memory filesystems and the kernel's own complete every
+/// operation at once.
+fn now<T>(future: impl Future<Output = T>) -> T {
+    match pin!(future).poll(&mut Context::from_waker(Waker::noop())) {
+        Poll::Ready(value) => value,
         Poll::Pending => unreachable!("memory filesystem operations complete at once"),
     }
-    root
 }
 
 fn errno_to_io(errno: Errno) -> io::Error {
