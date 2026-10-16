@@ -17,6 +17,7 @@ mod wasixv2;
 
 use std::{
     any::Any,
+    borrow::Cow,
     future::Future,
     panic::{AssertUnwindSafe, catch_unwind},
     pin::pin,
@@ -151,7 +152,14 @@ struct Exited(i32);
 /// Compiles `wasm` for [`run`], with the preemption points that let a busy guest notice signals
 /// and the exit of its thread group.
 pub fn load(engine: &Engine, wasm: &[u8]) -> Result<Module, CompileError> {
-    Module::new(engine, preempt::instrument(wasm))
+    Module::new(engine, instrument(wasm))
+}
+
+/// `wasm` with the preemption points [`load`] adds, for an embedder that compiles (and caches)
+/// modules itself. A module compiled without them runs, but a guest that computes without
+/// making syscalls does not notice signals or its group's exit.
+pub fn instrument(wasm: &[u8]) -> Cow<'_, [u8]> {
+    preempt::instrument(wasm)
 }
 
 /// Runs `module`, a `wasixv2` program which [`load`] compiled, as `task` until its thread group

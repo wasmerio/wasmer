@@ -13,7 +13,7 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-pub use wasixv2_exec::{ExecError, load};
+pub use wasixv2_exec::{ExecError, instrument, load};
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
 use wasixv2_exec::{Abis, Wasixv2};

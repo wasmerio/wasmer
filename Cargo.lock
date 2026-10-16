@@ -7702,7 +7702,6 @@ dependencies = [
  "dialoguer",
  "dirs",
  "dotenvy",
- "enum-iterator",
  "flate2",
  "futures",
  "futures-util",
@@ -7758,13 +7757,11 @@ dependencies = [
  "wasm-coredump-builder",
  "wasmer",
  "wasmer-backend-api",
- "wasmer-c-api-imports",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-config",
- "wasmer-napi",
  "wasmer-package",
  "wasmer-package-sdk",
  "wasmer-types",
@@ -7950,6 +7947,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "wat",
+ "webc",
 ]
 
 [[package]]
