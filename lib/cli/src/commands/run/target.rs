@@ -10,7 +10,6 @@ use indicatif::ProgressBar;
 use wasmer::Module;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
-use wasmer_types::ModuleHash;
 use wasmer_wasix::{
     Runtime,
     bin_factory::BinaryPackage,
@@ -68,11 +67,7 @@ impl TargetOnDisk {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum ExecutableTarget {
-    WebAssembly {
-        module: Module,
-        module_hash: ModuleHash,
-        path: PathBuf,
-    },
+    WebAssembly { module: Module, path: PathBuf },
     Package(Box<BinaryPackage>),
 }
 
@@ -110,7 +105,6 @@ impl ExecutableTarget {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
                 let module_data = HashedModuleData::new(wasm);
-                let module_hash = *module_data.hash();
 
                 pb.set_message("Compiling to WebAssembly");
                 let module = runtime
@@ -119,7 +113,6 @@ impl ExecutableTarget {
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
-                    module_hash,
                     path: path.to_path_buf(),
                 })
             }
@@ -128,13 +121,8 @@ impl ExecutableTarget {
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
 
-                let module_hash = module.info().hash.ok_or_else(|| {
-                    anyhow::Error::msg("module hash is not present in the artifact")
-                })?;
-
                 Ok(ExecutableTarget::WebAssembly {
                     module,
-                    module_hash,
                     path: path.to_path_buf(),
                 })
             }

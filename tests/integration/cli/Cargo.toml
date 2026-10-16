@@ -34,6 +34,7 @@ futures.workspace = true
 regex.workspace = true
 libc.workspace = true
 wat.workspace = true
+webc.workspace = true
 
 [dependencies]
 anyhow.workspace = true
