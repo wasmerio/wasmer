@@ -908,9 +908,16 @@ impl Kernel {
         }
     }
 
-    /// `rt_sigreturn`: the innermost handler of `task` finished.
+    /// `rt_sigreturn`: the innermost handler of `task` finished. A handler that ended its thread
+    /// (`pthread_exit`, a cancellation) unwinds through here after the task is gone.
     pub(crate) fn signal_return(&self, task: TaskId, mask: Option<u64>) {
-        let signals = self.task_signals(task);
+        let signals = {
+            let state = self.state.read().unwrap();
+            match state.tasks.get(&task) {
+                Some(task) => task.signals.clone(),
+                None => return,
+            }
+        };
         signals.with(|task| {
             if let Some((_, Some(alt))) = task.frames.pop() {
                 task.altstack = alt;
