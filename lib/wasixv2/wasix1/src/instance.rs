@@ -3,17 +3,19 @@
 
 use std::{
     any::Any,
+    collections::HashMap,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
 };
 
 use wasixv2_exec::{
-    AbiInstance, Entry, EntryReturn, ExecEnv, Role, Sigreturn, VforkResume, call_guest,
+    AbiInstance, Entry, EntryReturn, ExecEnv, Role, Sigreturn, VforkResume, asyncify::StackId,
+    call_guest,
 };
 use wasixv2_syscalls::{LocalFuture, SignalFrame, TaskId};
-use wasmer::{AsyncFunctionEnvMut, Function, Instance, RuntimeError, Value};
+use wasmer::{AsyncFunctionEnvMut, Exports, Function, Instance, RuntimeError, Value};
 
 use crate::process::{ProcState, Procs};
 
@@ -27,14 +29,30 @@ pub const SIGNAL_CALLBACK: &str = "__wasm_signal";
 
 pub struct Wasix1Instance {
     procs: Arc<Procs>,
-    /// For a process image: its pid and the compat state it started.
-    image: Option<(TaskId, Arc<ProcState>)>,
+    /// For a process image: its pid and the compat state it started with (or took over from
+    /// its parent, for a fork child).
+    image: Mutex<Option<(TaskId, Arc<ProcState>)>>,
+    exports: Exports,
     initialize: Option<Function>,
     /// `_start` of a process image, `wasi_thread_start` of a thread.
     entry: Function,
-    signal: Option<Function>,
+    /// The export `callback_signal` last named that exists: `__wasm_signal` unless libc
+    /// named another.
+    signal: Mutex<Option<Function>>,
     /// Whether this instance's process loaded its startup state.
     started: AtomicBool,
+    /// The vfork children running in this instance, by tid.
+    vforks: Mutex<HashMap<TaskId, Vfork>>,
+}
+
+/// A vfork child that runs in its parent's instance.
+pub(crate) struct Vfork {
+    /// The compat state the child started with, a copy of its parent's.
+    pub(crate) state: Arc<ProcState>,
+    /// For `proc_fork` without a memory copy (asyncify builds): the parent's stack, saved at
+    /// the vfork point, which the parent resumes on. `None` for `proc_fork_env` and
+    /// `proc_spawn`, whose parent resumes by returning from the child's last import.
+    pub(crate) resume: Option<StackId>,
 }
 
 impl Wasix1Instance {
@@ -56,11 +74,13 @@ impl Wasix1Instance {
         };
         Ok(Self {
             procs,
-            image,
+            image: Mutex::new(image),
+            exports: exports.clone(),
             initialize: function(INITIALIZE).filter(|_| role == Role::Process),
             entry,
-            signal: function(SIGNAL_CALLBACK),
+            signal: Mutex::new(function(SIGNAL_CALLBACK)),
             started: AtomicBool::new(false),
+            vforks: Mutex::new(HashMap::new()),
         })
     }
 
@@ -75,12 +95,45 @@ impl Wasix1Instance {
     pub(crate) fn set_started(&self) {
         self.started.store(true, Ordering::Relaxed);
     }
+
+    /// Makes `name` the signal callback if the instance exports a function by that name, and
+    /// says whether it does.
+    pub(crate) fn select_signal_callback(&self, name: &str) -> bool {
+        match self.exports.get_function(name) {
+            Ok(function) => {
+                *self.signal.lock().unwrap() = Some(function.clone());
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// Makes `state`, a copy of the forking parent's, the compat state of this process image,
+    /// a fork child whose pid is `pid`.
+    pub(crate) fn adopt(&self, pid: TaskId, state: Arc<ProcState>) {
+        self.procs.replace(pid, state.clone());
+        let old = self.image.lock().unwrap().replace((pid, state));
+        if let Some((pid, old)) = old {
+            self.procs.remove(pid, &old);
+        }
+        self.set_started();
+    }
+
+    /// Records the vfork child `child`, which now runs in this instance.
+    pub(crate) fn add_vfork(&self, child: TaskId, vfork: Vfork) {
+        self.vforks.lock().unwrap().insert(child, vfork);
+    }
+
+    /// Whether `task` is a vfork child running in this instance.
+    pub(crate) fn is_vfork_child(&self, task: TaskId) -> bool {
+        self.vforks.lock().unwrap().contains_key(&task)
+    }
 }
 
 impl Drop for Wasix1Instance {
     fn drop(&mut self) {
-        if let Some((pid, state)) = &self.image {
-            self.procs.remove(*pid, state);
+        if let Some((pid, state)) = self.image.get_mut().unwrap().take() {
+            self.procs.remove(pid, &state);
         }
     }
 }
@@ -116,9 +169,9 @@ impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
         EntryReturn::Exit(0)
     }
 
-    /// libc keeps the dispositions and runs the handler from `__wasm_signal(sig)`; the host only
-    /// decides that it runs. The mask in force before delivery is restored afterwards.
-    /// v1's handler has no frame to cancel a restart through, so `restart` stands.
+    /// libc keeps the dispositions and runs the handler from its callback, `__wasm_signal(sig)`;
+    /// the host only decides that it runs. The mask in force before delivery is restored
+    /// afterwards. v1's handler has no frame to cancel a restart through, so `restart` stands.
     fn deliver_signal<'a>(
         &'a self,
         env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
@@ -126,12 +179,12 @@ impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
         restart: bool,
     ) -> LocalFuture<'a, Result<Sigreturn, RuntimeError>> {
         Box::pin(async move {
-            let Some(callback) = &self.signal else {
+            let Some(callback) = self.signal.lock().unwrap().clone() else {
                 return Err(RuntimeError::new(format!(
                     "a signal handler must run, but the guest has no `{SIGNAL_CALLBACK}`"
                 )));
             };
-            call_guest(env, callback, &[Value::I32(frame.signo())]).await?;
+            call_guest(env, &callback, &[Value::I32(frame.signo())]).await?;
             Ok(Sigreturn {
                 mask: Some(frame.mask),
                 restart,
@@ -139,14 +192,28 @@ impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
         })
     }
 
-    /// v1 resumes a vfork parent by returning from the child's `proc_exec*` or `proc_exit2`;
-    /// libc then calls `__vfork_restore` itself.
+    /// A parent that vforked with `proc_fork_env` or `proc_spawn` resumes by returning from the
+    /// child's `proc_exec*` or `proc_exit2` (libc then calls `__vfork_restore` itself); one that
+    /// vforked with `proc_fork` rewinds the stack saved at its vfork point, so `proc_fork`
+    /// returns the child's pid.
     fn vfork_resume<'a>(
         &'a self,
-        _env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
-        _child: TaskId,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        child: TaskId,
     ) -> LocalFuture<'a, VforkResume> {
-        Box::pin(async { VforkResume::ReturnSuccess })
+        Box::pin(async move {
+            let Some(vfork) = self.vforks.lock().unwrap().remove(&child) else {
+                return VforkResume::ReturnSuccess;
+            };
+            // A new image of the child has a state of its own by now, which stays.
+            self.procs.remove(child, &vfork.state);
+            match vfork.resume {
+                None => VforkResume::ReturnSuccess,
+                Some(id) => VforkResume::Unwind(
+                    wasixv2_exec::asyncify::import::restore(env, id, child.0 as i32).await,
+                ),
+            }
+        })
     }
 
     fn as_any(&self) -> &dyn Any {
