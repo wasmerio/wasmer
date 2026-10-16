@@ -18,6 +18,13 @@ pub trait UserMemory {
     /// Grows the address space by `pages` wasm pages of 64 KiB and returns its previous size in
     /// bytes, or `None` if it cannot grow that far.
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>>;
+    /// Whether the address space can be duplicated for a child that does not share it, as
+    /// `clone` without `CLONE_VM` does (`dup_mm`). Wasm has no copy-on-write and keeps the call
+    /// stack outside linear memory, so only an engine that can capture the caller's stack says
+    /// yes: the asyncify build configuration, called from the guest's entry point.
+    fn can_duplicate(&self) -> LocalFuture<'_, bool> {
+        Box::pin(async { false })
+    }
 }
 
 /// Bytes of a wasm page, the unit `UserMemory::grow` counts in.

@@ -67,6 +67,24 @@ impl ThreadState {
     pub(crate) fn reapable(&self, pending: Option<GuestAction>) -> bool {
         self.exited && matches!(pending, Some(GuestAction::Exit(_)))
     }
+
+    /// The thread state of a new process's first task, made from the caller's (`copy_process`):
+    /// no robust list, the caller's thread pointer unless `CLONE_SETTLS` gives `tls`, and
+    /// `CLONE_CHILD_CLEARTID`'s `child_tid`.
+    pub(crate) fn for_process(&self, flags: CloneFlags, tls: u32, child_tid: u32) -> Self {
+        Self {
+            clear_child_tid: match flags.contains(CloneFlags::CLONE_CHILD_CLEARTID) {
+                true => child_tid,
+                false => 0,
+            },
+            robust_list: 0,
+            tls: match flags.contains(CloneFlags::CLONE_SETTLS) {
+                true => tls,
+                false => self.tls,
+            },
+            exited: false,
+        }
+    }
 }
 
 /// The flags every thread needs: one address space, filesystem context, descriptor table, signal
