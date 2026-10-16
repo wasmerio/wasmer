@@ -227,7 +227,7 @@ impl Kernel {
         let uptime = self.host.monotonic();
         let total = ADDRESS_SPACE / PAGE_SIZE;
         let used = caller.memory().size().await / PAGE_SIZE;
-        let procs = self.state.lock().unwrap().tasks.len();
+        let procs = self.state.read().unwrap().tasks.len();
         let si = Sysinfo {
             uptime: (uptime.as_secs() + u64::from(uptime.subsec_nanos() > 0)) as i32,
             totalram: total as u32,

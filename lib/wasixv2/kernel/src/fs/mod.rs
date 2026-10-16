@@ -117,7 +117,7 @@ impl Env {
 
 impl Kernel {
     pub(crate) fn env(&self, caller: &Caller<'_>) -> Env {
-        let fs = self.with_task(caller.task(), |task| task.fs.lock().unwrap().clone());
+        let fs = self.task_ref(caller.task(), |task| task.fs.lock().unwrap().clone());
         Env {
             fs,
             cred: Cred::user(ID as u32, ID as u32),
@@ -191,7 +191,7 @@ impl Kernel {
         task: wasixv2_syscalls::TaskId,
         path: &[u8],
     ) -> Result<(), Errno> {
-        let fs = self.with_task(task, |task| task.fs.lock().unwrap().clone());
+        let fs = self.task_ref(task, |task| task.fs.lock().unwrap().clone());
         let env = Env {
             fs,
             cred: Cred::user(ID as u32, ID as u32),

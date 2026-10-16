@@ -33,7 +33,7 @@ mod unix;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, LockResult, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 pub use file::{FileObject, Io, SeekBase};
@@ -91,7 +91,7 @@ pub struct ProcessConfig {
 pub struct Kernel {
     host: Arc<dyn Host>,
     /// Shared with the process filesystems, which read it.
-    state: Arc<Mutex<State>>,
+    state: Arc<TaskTable>,
     // ---- net ----
     /// The network namespace IP sockets live in; without one, `socket` fails with
     /// `EAFNOSUPPORT`.
@@ -121,6 +121,24 @@ pub struct Kernel {
 struct State {
     last_id: u32,
     tasks: HashMap<TaskId, Task>,
+}
+
+/// The task table. Syscalls only read it, to find the caller's descriptor table, signals,
+/// process and filesystem context, so readers share it and never wait for each other; only
+/// task creation, exit and changes to a task's resource groups take it exclusively.
+#[derive(Default)]
+struct TaskTable(RwLock<State>);
+
+impl TaskTable {
+    /// Exclusive access.
+    fn lock(&self) -> LockResult<RwLockWriteGuard<'_, State>> {
+        self.0.write()
+    }
+
+    /// Shared access, for lookups.
+    fn read(&self) -> LockResult<RwLockReadGuard<'_, State>> {
+        self.0.read()
+    }
 }
 
 struct Process {
@@ -232,15 +250,24 @@ impl Kernel {
     }
 
     fn files(&self, task: TaskId) -> Arc<Mutex<FdTable>> {
-        self.with_task(task, |task| task.files.clone())
+        self.task_ref(task, |task| task.files.clone())
     }
 
     fn process(&self, task: TaskId) -> Arc<Process> {
-        self.with_task(task, |task| task.process.clone())
+        self.task_ref(task, |task| task.process.clone())
+    }
+
+    /// Reads `task`'s entry under the shared lock.
+    fn task_ref<R>(&self, task: TaskId, f: impl FnOnce(&Task) -> R) -> R {
+        let state = self.state.read().unwrap();
+        f(state
+            .tasks
+            .get(&task)
+            .expect("syscall from an unknown task"))
     }
 
     fn mm(&self, task: TaskId) -> Arc<Mm> {
-        self.with_task(task, |task| task.mm.clone())
+        self.task_ref(task, |task| task.mm.clone())
     }
 
     fn with_task<R>(&self, task: TaskId, f: impl FnOnce(&mut Task) -> R) -> R {

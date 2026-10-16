@@ -505,7 +505,7 @@ use wasixv2_abi::GuestLayout;
 
 impl Kernel {
     pub(crate) fn task_signals(&self, task: TaskId) -> Arc<TaskSignals> {
-        self.with_task(task, |task| task.signals.clone())
+        self.task_ref(task, |task| task.signals.clone())
     }
 
     /// The signal state a blocked call watches.
@@ -515,7 +515,7 @@ impl Kernel {
 
     /// The thread groups whose leader is `pid`, or every group for `None`.
     fn groups(&self, pid: Option<Pid>) -> Vec<(Pid, Arc<Signals>)> {
-        let state = self.state.lock().unwrap();
+        let state = self.state.read().unwrap();
         let mut groups: Vec<(Pid, Arc<Signals>)> = Vec::new();
         for task in state.tasks.values() {
             let leader = task.process.pid.0 as Pid;
@@ -881,7 +881,7 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let target = {
-            let state = self.state.lock().unwrap();
+            let state = self.state.read().unwrap();
             state
                 .tasks
                 .get(&TaskId(tid as u32))

@@ -1,7 +1,7 @@
 //! `ppoll` and `pselect6`, as Linux's `fs/select.c`, plus the timeout and temporary signal
 //! mask handling that epoll shares.
 
-use std::time::Duration;
+use std::{sync::Mutex, time::Duration};
 
 use wasixv2_abi::{
     ConstSigsetPtr, GuestLayout, KernelFdSetPtr, KernelTimespec, KernelTimespecPtr, PollEvents,
@@ -10,7 +10,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, read_value, write_value};
 use wasixv2_wait::{Interrupt, PollMask, PollWaiter, Wakeup};
 
-use crate::{Kernel, sigset_bits, time};
+use crate::{Kernel, file::FdTable, sigset_bits, time};
 
 /// When a wait gives up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -148,6 +148,7 @@ impl Kernel {
             .collect();
 
         let interrupt = self.interrupt(caller);
+        let files = self.files(caller.task());
         let mut waiter = PollWaiter::new();
         let mut timer = self.timer(deadline);
         let mut timed_out = deadline == Deadline::Now;
@@ -155,7 +156,7 @@ impl Kernel {
         let count = loop {
             let mut count = 0;
             for pollfd in &mut fds {
-                let mask = self.do_pollfd(caller, pollfd, &mut waiter, register);
+                let mask = do_pollfd(&files, pollfd, &mut waiter, register);
                 if !mask.is_empty() {
                     count += 1;
                     register = false;
@@ -183,30 +184,6 @@ impl Kernel {
             memory.write(at, &pollfd.revents.0.to_le_bytes()).await?;
         }
         Ok(count)
-    }
-
-    /// `do_pollfd`: negative descriptors are skipped, closed ones report `POLLNVAL`, and
-    /// `POLLERR` and `POLLHUP` are always reported.
-    fn do_pollfd(
-        &self,
-        caller: &Caller<'_>,
-        pollfd: &mut Pollfd,
-        waiter: &mut PollWaiter,
-        register: bool,
-    ) -> PollMask {
-        pollfd.revents = PollEvents::empty();
-        if pollfd.fd.0 < 0 {
-            return PollMask::empty();
-        }
-        let mask = match self.file(caller.task(), pollfd.fd) {
-            Err(_) => PollMask::NVAL,
-            Ok(file) => {
-                let filter = PollMask::from(pollfd.events) | PollMask::ERR | PollMask::HUP;
-                waiter.poll(&*file, filter, register) & filter
-            }
-        };
-        pollfd.revents = mask.into();
-        mask
     }
 
     /// `pselect6`.
@@ -275,11 +252,12 @@ impl Kernel {
         let mut timed_out = deadline == Deadline::Now;
         let mut register = !timed_out;
         let mut result = [vec![0u8; bytes], vec![0u8; bytes], vec![0u8; bytes]];
+        let files = self.files(caller.task());
         let count = loop {
             let mut count = 0;
             // Looked up again on every pass, as Linux does.
             for (fd, want) in &wanted {
-                let Ok(file) = self.file(caller.task(), Fd(*fd as i32)) else {
+                let Some(file) = files.lock().unwrap().get(Fd(*fd as i32)) else {
                     continue;
                 };
                 let key = (0..3)
@@ -317,4 +295,28 @@ impl Kernel {
         }
         Ok(count)
     }
+}
+
+/// `do_pollfd`: negative descriptors are skipped, closed ones report `POLLNVAL`, and
+/// `POLLERR` and `POLLHUP` are always reported.
+fn do_pollfd(
+    files: &Mutex<FdTable>,
+    pollfd: &mut Pollfd,
+    waiter: &mut PollWaiter,
+    register: bool,
+) -> PollMask {
+    pollfd.revents = PollEvents::empty();
+    if pollfd.fd.0 < 0 {
+        return PollMask::empty();
+    }
+    let file = files.lock().unwrap().get(pollfd.fd);
+    let mask = match file {
+        None => PollMask::NVAL,
+        Some(file) => {
+            let filter = PollMask::from(pollfd.events) | PollMask::ERR | PollMask::HUP;
+            waiter.poll(&*file, filter, register) & filter
+        }
+    };
+    pollfd.revents = mask.into();
+    mask
 }

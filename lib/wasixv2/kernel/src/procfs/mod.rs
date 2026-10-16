@@ -19,7 +19,7 @@ use wasixv2_vfs::{Clock, Filesystem, FsInfo, FsResult, NAME_MAX, Node, StatFs, T
 use wasixv2_vnet::Network;
 
 use crate::{
-    Kernel, Process, State,
+    Kernel, Process, TaskTable,
     file::FdTable,
     fs::{FsContext, HostClock},
     mm::Mm,
@@ -83,7 +83,7 @@ impl Filesystem for ProcFs {
 /// What the process filesystem reads: the kernel's state, held weakly so that a mounted
 /// `/proc` does not keep the kernel alive.
 struct Source {
-    state: Weak<Mutex<State>>,
+    state: Weak<TaskTable>,
     tree: Weak<Mutex<Tree>>,
     vfs: Weak<Vfs>,
     host: Arc<dyn Host>,
@@ -137,7 +137,7 @@ impl Source {
         let Some(state) = self.state.upgrade() else {
             return Vec::new();
         };
-        let state = state.lock().unwrap();
+        let state = state.read().unwrap();
         let mut tids: Vec<u32> = state
             .tasks
             .iter()
@@ -156,7 +156,7 @@ impl Source {
             None => *self.threads(pid).first()?,
         };
         let state = self.state.upgrade()?;
-        let state = state.lock().unwrap();
+        let state = state.read().unwrap();
         let task = state.tasks.get(&TaskId(tid))?;
         if task.process.pid.0 != pid {
             return None;
@@ -178,14 +178,14 @@ impl Source {
     /// The thread group of the task `tid`.
     fn tgid_of(&self, tid: u32) -> Option<u32> {
         let state = self.state.upgrade()?;
-        let state = state.lock().unwrap();
+        let state = state.read().unwrap();
         Some(state.tasks.get(&TaskId(tid))?.process.pid.0)
     }
 
     /// How many tasks run, and the last pid handed out.
     fn task_counts(&self) -> (usize, u32) {
         self.state.upgrade().map_or((0, 0), |state| {
-            let state = state.lock().unwrap();
+            let state = state.read().unwrap();
             (state.tasks.len(), state.last_id)
         })
     }
