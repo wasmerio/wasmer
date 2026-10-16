@@ -72,9 +72,10 @@ pub async fn read_value<T: GuestLayout>(
     memory: &dyn UserMemory,
     ptr: GuestPtr<T>,
 ) -> Result<T, Fault> {
-    let mut buf = vec![0; T::SIZE];
-    memory.read(ptr.addr(), &mut buf).await?;
-    T::read_from(&buf).ok_or(Fault)
+    let mut scratch = Scratch::new(T::SIZE);
+    let buf = scratch.get();
+    memory.read(ptr.addr(), buf).await?;
+    T::read_from(buf).ok_or(Fault)
 }
 
 /// Writes `value` where `ptr` points.
@@ -83,9 +84,33 @@ pub async fn write_value<T: GuestLayout>(
     ptr: GuestPtrMut<T>,
     value: &T,
 ) -> Result<(), Fault> {
-    let mut buf = vec![0; T::SIZE];
-    value.write_to(&mut buf);
-    memory.write(ptr.addr(), &buf).await
+    let mut scratch = Scratch::new(T::SIZE);
+    let buf = scratch.get();
+    value.write_to(buf);
+    memory.write(ptr.addr(), buf).await
+}
+
+/// A buffer for one guest value: on the stack for the scalars and small structs nearly every
+/// copy is about, on the heap for the few larger ones.
+enum Scratch {
+    Stack([u8; 128], usize),
+    Heap(Vec<u8>),
+}
+
+impl Scratch {
+    fn new(size: usize) -> Self {
+        match size <= 128 {
+            true => Self::Stack([0; 128], size),
+            false => Self::Heap(vec![0; size]),
+        }
+    }
+
+    fn get(&mut self) -> &mut [u8] {
+        match self {
+            Self::Stack(bytes, size) => &mut bytes[..*size],
+            Self::Heap(bytes) => bytes,
+        }
+    }
 }
 
 /// Reads the NUL-terminated string at `ptr`, without the NUL, failing with `TooLong` unless the
