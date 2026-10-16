@@ -9,6 +9,7 @@ use crate::{
     Vfs,
     cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission, sticky_denies},
     dentry::Dentry,
+    driver::Link,
     file::File,
     inode::DirLock,
     mount::Path,
@@ -25,6 +26,9 @@ pub struct Ctx<'a> {
     pub cred: &'a Cred,
     pub root: &'a Path,
     pub umask: u32,
+    /// The calling task, as the kernel numbers it, for pseudo filesystems whose answers depend
+    /// on who asks (`/proc/self`); 0 for the embedder, which is no task.
+    pub task: u32,
 }
 
 /// What to open (`struct open_how`, after `build_open_flags` validated it).
@@ -52,9 +56,7 @@ impl Vfs {
         if path.is_empty() && flags.empty {
             return Ok(start.clone());
         }
-        Walk::new(self, cx.cred, cx.root, start, path, flags)?
-            .resolve()
-            .await
+        Walk::new(self, cx, start, path, flags)?.resolve().await
     }
 
     /// `inode_permission`: mode bits, plus no writes to a read-only filesystem.
@@ -120,7 +122,7 @@ impl Vfs {
             return self.open_tmpfile(cx, start, path, how, acc_mode).await;
         }
 
-        let mut walk = Walk::new(self, cx.cred, cx.root, start, path, how.lookup)?;
+        let mut walk = Walk::new(self, cx, start, path, how.lookup)?;
         let creating = flags.contains(OpenFlags::O_CREAT);
         let mut created = false;
         let target = if path.is_empty() {
@@ -137,6 +139,8 @@ impl Vfs {
                 // `open_last_lookups` with O_CREAT.
                 let name = match last {
                     Last::Normal(name) => name,
+                    // A magic link's object exists; `do_open` treats it as found.
+                    Last::Bind => break walk.path.clone(),
                     _ => return Err(Errno::EISDIR),
                 };
                 if walk.flags.directory {
@@ -223,10 +227,11 @@ impl Vfs {
                 };
                 Some(target.dentry.node().open(options).await?)
             }
-            // The kernel attaches the pipe (`fifo_open`) through `Inode::bound_or_bind`.
-            FileType::Fifo => None,
-            // TODO: device nodes need drivers. Sockets are ENXIO on Linux too.
-            _ => return Err(Errno::ENXIO),
+            // The kernel attaches the pipe (`fifo_open`) through `Inode::bound_or_bind`, or the
+            // device driver its number names (`chrdev_open`).
+            FileType::Fifo | FileType::CharDevice | FileType::BlockDevice => None,
+            // `sock_no_open`.
+            FileType::Socket | FileType::Symlink => return Err(Errno::ENXIO),
         };
         if truncate {
             let attr = SetAttr {
@@ -401,7 +406,7 @@ impl Vfs {
         path: &[u8],
         want_dir: bool,
     ) -> FsResult<(Path, Vec<u8>, DirLock)> {
-        let mut walk = Walk::new(self, cx.cred, cx.root, start, path, LookupFlags::default())?;
+        let mut walk = Walk::new(self, cx, start, path, LookupFlags::default())?;
         let last = walk.walk_parent().await?;
         let Last::Normal(name) = last else {
             return Err(Errno::EEXIST);
@@ -555,7 +560,7 @@ impl Vfs {
         start: &Path,
         path: &[u8],
     ) -> FsResult<(Path, Last, bool)> {
-        let mut walk = Walk::new(self, cx.cred, cx.root, start, path, LookupFlags::default())?;
+        let mut walk = Walk::new(self, cx, start, path, LookupFlags::default())?;
         let last = walk.walk_parent().await?;
         Ok((walk.path.clone(), last, walk.flags.directory))
     }
@@ -605,7 +610,7 @@ impl Vfs {
             Last::Normal(name) => name,
             Last::DotDot => return Err(Errno::ENOTEMPTY),
             Last::Dot => return Err(Errno::EINVAL),
-            Last::Root => return Err(Errno::EBUSY),
+            Last::Root | Last::Bind => return Err(Errno::EBUSY),
         };
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
@@ -796,7 +801,11 @@ impl Vfs {
         if link.dentry.file_type() != FileType::Symlink {
             return Err(Errno::EINVAL);
         }
-        link.dentry.node().readlink().await
+        // A magic link reads as where its object is (`proc_pid_readlink`).
+        Ok(match link.dentry.node().get_link(cx).await? {
+            Link::Body(body) => body,
+            Link::Jump(target) => self.d_path(&target, cx.root),
+        })
     }
 
     /// `faccessat2`: `mask` is a `MAY_*` combination; `cx.cred` is already the right identity
@@ -964,6 +973,12 @@ impl Vfs {
     /// `d_path`: the path of `path` as seen from `root`. Unreachable locations (outside a
     /// chroot) get Linux's `(unreachable)` prefix; removed ones its ` (deleted)` suffix.
     pub fn d_path(&self, path: &Path, root: &Path) -> Vec<u8> {
+        if !path.is_mount_root() {
+            let fs = &path.dentry.sb().fs;
+            if let Some(name) = fs.dname(&path.dentry.name(), path.dentry.node().as_ref()) {
+                return name;
+            }
+        }
         let mut parts: Vec<Vec<u8>> = Vec::new();
         let mut current = path.clone();
         let mut reachable = true;

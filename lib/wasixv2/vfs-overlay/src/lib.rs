@@ -124,6 +124,7 @@ impl Filesystem for OverlayFs {
     fn info(&self) -> FsInfo {
         let layers = self.shared.upper.iter().chain(&self.shared.lowers);
         FsInfo {
+            name: "overlay",
             magic: OVERLAYFS_SUPER_MAGIC,
             name_max: layers.map(|fs| fs.info().name_max).max().unwrap_or(0),
             read_only: self

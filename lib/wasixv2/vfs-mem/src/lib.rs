@@ -88,6 +88,7 @@ impl MemFs {
 impl Filesystem for MemFs {
     fn info(&self) -> FsInfo {
         FsInfo {
+            name: "tmpfs",
             magic: TMPFS_MAGIC,
             name_max: NAME_MAX,
             read_only: false,

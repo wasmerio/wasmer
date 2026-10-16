@@ -41,6 +41,7 @@ impl World {
             cred: &self.cred,
             root: &self.root,
             umask: 0o022,
+            task: 0,
         }
     }
 
@@ -185,6 +186,7 @@ fn permissions_apply_to_an_unprivileged_user() {
         cred: &other,
         root: &w.root,
         umask: 0,
+        task: 0,
     };
     assert_eq!(
         block_on(w.vfs.chmod(&cx, &locked, 0o777)),

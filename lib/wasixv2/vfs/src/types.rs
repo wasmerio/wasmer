@@ -280,6 +280,8 @@ pub struct StatFs {
 /// What the VFS needs to know about a filesystem up front.
 #[derive(Clone, Debug)]
 pub struct FsInfo {
+    /// The filesystem type's name, as `/proc/self/mounts` shows it (`tmpfs`, `proc`).
+    pub name: &'static str,
     /// `f_type` of `statfs` (e.g. `TMPFS_MAGIC`).
     pub magic: u32,
     /// Longest name a directory entry can have.

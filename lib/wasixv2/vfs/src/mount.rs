@@ -9,7 +9,7 @@ use std::sync::Weak;
 
 use crate::{
     dentry::Dentry,
-    driver::Filesystem,
+    driver::{Filesystem, Node},
     inode::Inode,
     types::{Device, FsInfo},
 };
@@ -63,6 +63,15 @@ impl Mount {
 
     pub fn parent(&self) -> Option<Path> {
         self.parent.lock().unwrap().clone()
+    }
+
+    /// A path for `node`, an object of this mount's filesystem that no directory holds, under
+    /// `name` (`d_alloc_pseudo`). `d_path` shows it as the filesystem's `dname` says.
+    pub fn pseudo_path(self: &Arc<Self>, node: Arc<dyn Node>, name: &[u8]) -> Path {
+        Path {
+            mnt: self.clone(),
+            dentry: Dentry::pseudo(self.sb(), node, name),
+        }
     }
 }
 

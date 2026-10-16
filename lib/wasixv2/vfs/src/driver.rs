@@ -13,9 +13,13 @@ use std::{any::Any, sync::Arc};
 use async_trait::async_trait;
 use wasixv2_abi::Errno;
 
-use crate::types::{
-    AllocMode, Attr, DirSink, FileType, FsInfo, FsResult, NewNode, OpenOptions, RenameMode,
-    SeekHole, SetAttr, StatFs, XattrSet,
+use crate::{
+    mount::Path,
+    ops::Ctx,
+    types::{
+        AllocMode, Attr, DirSink, FileType, FsInfo, FsResult, NewNode, OpenOptions, RenameMode,
+        SeekHole, SetAttr, StatFs, XattrSet,
+    },
 };
 
 /// A mounted filesystem instance (Linux's `super_block`).
@@ -32,6 +36,23 @@ pub trait Filesystem: Send + Sync {
     async fn sync(&self) -> FsResult<()> {
         Ok(())
     }
+
+    /// The name `d_path` gives an object of this filesystem instead of its path (`d_dname`),
+    /// for filesystems that are mounted nowhere, whose objects have no path: `pipe:[ino]`,
+    /// `anon_inode:[eventfd]`. `name` is the name the object was given when its path was made.
+    fn dname(&self, _name: &[u8], _node: &dyn Node) -> Option<Vec<u8>> {
+        None
+    }
+}
+
+/// Where following a symbolic link leads.
+pub enum Link {
+    /// A path to walk, as a symlink's body.
+    Body(Vec<u8>),
+    /// An object itself (`/proc/<pid>/fd/<n>`, `/proc/<pid>/cwd`): the walk continues from it
+    /// without a path to walk, as Linux's `nd_jump_link` does for magic links. `readlink` shows
+    /// its `d_path`.
+    Jump(Path),
 }
 
 /// A filesystem object (Linux's `inode` plus its `inode_operations`).
@@ -111,6 +132,13 @@ pub trait Node: Send + Sync + Any {
     /// The target of a symbolic link.
     async fn readlink(&self) -> FsResult<Vec<u8>> {
         Err(Errno::EINVAL)
+    }
+
+    /// Where following this symbolic link leads for the caller `cx` (`get_link`). The default
+    /// is the body `readlink` gives; pseudo filesystems answer per caller (`/proc/self`) or with
+    /// an object (magic links).
+    async fn get_link(&self, _cx: &Ctx<'_>) -> FsResult<Link> {
+        self.readlink().await.map(Link::Body)
     }
 
     /// Opens a regular file or directory for data access.

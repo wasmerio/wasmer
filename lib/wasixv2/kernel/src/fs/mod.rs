@@ -101,6 +101,7 @@ impl FsContext {
 pub(crate) struct Env {
     pub(crate) fs: FsContext,
     pub(crate) cred: Cred,
+    pub(crate) task: u32,
 }
 
 impl Env {
@@ -109,6 +110,7 @@ impl Env {
             cred: &self.cred,
             root: &self.fs.root,
             umask: self.fs.umask,
+            task: self.task,
         }
     }
 }
@@ -119,6 +121,7 @@ impl Kernel {
         Env {
             fs,
             cred: Cred::user(ID as u32, ID as u32),
+            task: caller.task().0,
         }
     }
 
@@ -200,6 +203,7 @@ impl Kernel {
         let env = Env {
             fs,
             cred: Cred::user(ID as u32, ID as u32),
+            task: task.0,
         };
         let lookup = LookupFlags {
             follow: true,
@@ -329,6 +333,7 @@ impl Kernel {
             empty: flags.contains(OpenFlags::O_EMPTYPATH),
             no_xdev: resolve.contains(ResolveFlags::RESOLVE_NO_XDEV),
             no_symlinks: resolve.contains(ResolveFlags::RESOLVE_NO_SYMLINKS),
+            no_magiclinks: resolve.contains(ResolveFlags::RESOLVE_NO_MAGICLINKS),
             beneath: resolve.contains(ResolveFlags::RESOLVE_BENEATH),
             in_root: resolve.contains(ResolveFlags::RESOLVE_IN_ROOT),
         };

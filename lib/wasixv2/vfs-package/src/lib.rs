@@ -112,6 +112,7 @@ impl PackageFs {
 impl Filesystem for PackageFs {
     fn info(&self) -> FsInfo {
         FsInfo {
+            name: "webc",
             magic: WEBC_MAGIC,
             name_max: NAME_MAX,
             read_only: true,

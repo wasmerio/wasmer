@@ -24,7 +24,7 @@ use std::sync::{
 
 pub use cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission};
 pub use dentry::Dentry;
-pub use driver::{Filesystem, Handle, MAX_DIR_COOKIE, Node};
+pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node};
 pub use file::{DIR_POS_EOD, File};
 pub use inode::{Bound, Inode};
 pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};
@@ -100,6 +100,19 @@ impl Vfs {
         self.attach(at, root, flags, create).await
     }
 
+    /// Mounts `fs` outside the mount tree (`kern_mount`), for filesystems whose objects have no
+    /// name: those behind pipes, sockets and event descriptors. Their paths come from
+    /// [`Mount::pseudo_path`].
+    pub fn kern_mount(&self, fs: Arc<dyn Filesystem>) -> Arc<Mount> {
+        let sb = new_superblock(&self.next_id, &self.next_anon, fs);
+        Arc::new(Mount {
+            id: self.next_id(),
+            root: Dentry::root(&sb, sb.fs.root()),
+            flags: MountFlags::default(),
+            parent: std::sync::Mutex::new(None),
+        })
+    }
+
     /// Bind-mounts the tree at `from` on `at` (`mount --bind`).
     pub async fn bind_mount(
         &self,
@@ -114,6 +127,7 @@ impl Vfs {
             cred: &cred,
             root: &root,
             umask: 0o022,
+            task: 0,
         };
         let source = self.lookup(&cx, &root, from, LookupFlags::follow()).await?;
         self.attach(at, source.dentry, flags, create).await
@@ -132,6 +146,7 @@ impl Vfs {
             cred: &cred,
             root: &ns_root,
             umask: 0o022,
+            task: 0,
         };
         if create {
             self.mkdir_all(&cx, at).await?;
@@ -164,6 +179,7 @@ impl Vfs {
             cred: &cred,
             root: &root,
             umask: 0,
+            task: 0,
         };
         let path = self.lookup(&cx, &root, at, LookupFlags::follow()).await?;
         if !path.is_mount_root() {

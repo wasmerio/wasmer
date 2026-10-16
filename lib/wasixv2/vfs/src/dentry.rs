@@ -51,6 +51,11 @@ impl Dentry {
         dentry
     }
 
+    /// A dentry with a name but no parent, for an object of an internal mount.
+    pub(crate) fn pseudo(sb: &Arc<Superblock>, node: Arc<dyn Node>, name: &[u8]) -> Arc<Self> {
+        Self::new(sb.iget(node), name.to_vec(), None)
+    }
+
     fn new(inode: Arc<Inode>, name: Vec<u8>, parent: Option<Arc<Dentry>>) -> Arc<Self> {
         let is_dir = inode.file_type() == FileType::Directory;
         let dentry = Arc::new(Self {

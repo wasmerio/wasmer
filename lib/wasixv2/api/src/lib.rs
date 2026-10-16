@@ -281,6 +281,7 @@ fn root_filesystem(host: &Arc<dyn Host>, resolv_conf: &str) -> Arc<dyn Filesyste
         cred: &cred,
         root: &top,
         umask: 0,
+        task: 0,
     };
     let tmp = async {
         vfs.mkdir(&cx, &top, b"/tmp", 0o1777).await?;

@@ -83,6 +83,7 @@ fn read(setup: &Setup, path: &[u8]) -> Result<Vec<u8>, Errno> {
         cred: &cred,
         root: &root,
         umask: 0o022,
+        task: 0,
     };
     let how = OpenHow {
         flags: OpenFlags::O_RDONLY,
@@ -125,6 +126,7 @@ fn guest_changes_reach_the_host() {
         cred: &cred,
         root: &root,
         umask: 0o022,
+        task: 0,
     };
 
     block_on(setup.vfs.mkdir(&cx, &root, b"/mnt/new", 0o750)).unwrap();
@@ -157,6 +159,7 @@ fn lookup(setup: &Setup, path: &[u8]) -> Result<wasixv2_vfs::Path, Errno> {
         cred: &cred,
         root: &root,
         umask: 0o022,
+        task: 0,
     };
     block_on(setup.vfs.lookup(&cx, &root, path, LookupFlags::default()))
 }

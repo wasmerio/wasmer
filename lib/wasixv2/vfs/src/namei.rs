@@ -7,8 +7,10 @@ use wasixv2_abi::Errno;
 
 use crate::{
     Vfs,
-    cred::{Cred, MAY_EXEC},
+    cred::MAY_EXEC,
+    driver::Link,
     mount::Path,
+    ops::Ctx,
     types::{FileType, FsResult},
 };
 
@@ -28,6 +30,8 @@ pub struct LookupFlags {
     pub no_xdev: bool,
     /// `RESOLVE_NO_SYMLINKS`: any symlink fails with `ELOOP`.
     pub no_symlinks: bool,
+    /// `RESOLVE_NO_MAGICLINKS`: a magic link ([`Link::Jump`]) fails with `ELOOP`.
+    pub no_magiclinks: bool,
     /// `RESOLVE_BENEATH`: escaping the start directory fails with `EXDEV`.
     pub beneath: bool,
     /// `RESOLVE_IN_ROOT`: the start directory is the root for this walk.
@@ -55,6 +59,8 @@ pub enum Last {
     DotDot,
     /// No component at all: `/` or `//`.
     Root,
+    /// The walk ended on a magic link's object, which has no name to look up (`LAST_BIND`).
+    Bind,
 }
 
 /// One string being walked: the path itself, or a symlink body.
@@ -80,25 +86,27 @@ impl Segment {
 /// A walk in progress (Linux's `nameidata`).
 pub(crate) struct Walk<'a> {
     vfs: &'a Vfs,
-    cred: &'a Cred,
+    cx: &'a Ctx<'a>,
     root: Path,
     /// Where the walk is: the directory holding the next component.
     pub(crate) path: Path,
     pub(crate) flags: LookupFlags,
     links: u32,
     stack: Vec<Segment>,
+    /// The last step was a magic link's jump (`ND_JUMPED`).
+    jumped: bool,
 }
 
 impl<'a> Walk<'a> {
     /// Starts walking `path` from `start` (`path_init`).
     pub(crate) fn new(
         vfs: &'a Vfs,
-        cred: &'a Cred,
-        root: &Path,
+        cx: &'a Ctx<'a>,
         start: &Path,
         path: &[u8],
         flags: LookupFlags,
     ) -> FsResult<Self> {
+        let root = cx.root;
         if path.is_empty() && !flags.empty {
             return Err(Errno::ENOENT);
         }
@@ -121,12 +129,13 @@ impl<'a> Walk<'a> {
         };
         Ok(Self {
             vfs,
-            cred,
+            cx,
             root,
             path: current,
             flags,
             links: 0,
             stack: vec![Segment::parse(path)],
+            jumped: false,
         })
     }
 
@@ -137,17 +146,22 @@ impl<'a> Walk<'a> {
             while self.stack.len() > 1 && self.stack.last().is_some_and(|s| s.comps.is_empty()) {
                 self.stack.pop();
             }
+            let end = if self.jumped { Last::Bind } else { Last::Root };
             let Some(top) = self.stack.last_mut() else {
-                return Ok(Last::Root);
+                return Ok(end);
             };
             if top.comps.is_empty() {
-                return Ok(Last::Root);
+                return Ok(end);
             }
             if !self.path.dentry.is_dir() {
                 return Err(Errno::ENOTDIR);
             }
-            self.vfs.permission(self.cred, &self.path, MAY_EXEC).await?;
+            self.vfs
+                .permission(self.cx.cred, &self.path, MAY_EXEC)
+                .await?;
+            let top = self.stack.last_mut().expect("checked above");
             let comp = top.comps.pop_front().expect("checked above");
+            self.jumped = false;
             if self.stack.len() == 1 && self.stack[0].comps.is_empty() {
                 let last = classify(comp);
                 if self.stack[0].trailing_slash && matches!(last, Last::Normal(_)) {
@@ -158,7 +172,7 @@ impl<'a> Walk<'a> {
                 return Ok(last);
             }
             match classify(comp) {
-                Last::Dot | Last::Root => {}
+                Last::Dot | Last::Root | Last::Bind => {}
                 Last::DotDot => self.dotdot()?,
                 Last::Normal(name) => {
                     let child = self.child(&name).await?;
@@ -176,7 +190,7 @@ impl<'a> Walk<'a> {
     /// which case the caller walks again.
     pub(crate) async fn step_last(&mut self, last: &Last) -> FsResult<Option<Path>> {
         match last {
-            Last::Root | Last::Dot => Ok(Some(self.path.clone())),
+            Last::Root | Last::Dot | Last::Bind => Ok(Some(self.path.clone())),
             Last::DotDot => {
                 self.dotdot()?;
                 Ok(Some(self.path.clone()))
@@ -244,7 +258,10 @@ impl<'a> Walk<'a> {
         if self.flags.no_symlinks || link.mnt.flags.nosymfollow {
             return Err(Errno::ELOOP);
         }
-        let body = link.dentry.node().readlink().await?;
+        let body = match link.dentry.node().get_link(self.cx).await? {
+            Link::Body(body) => body,
+            Link::Jump(target) => return self.jump(target),
+        };
         if body.is_empty() {
             return Err(Errno::ENOENT);
         }
@@ -255,6 +272,26 @@ impl<'a> Walk<'a> {
             self.stack.pop();
         }
         self.stack.push(Segment::parse(&body));
+        Ok(())
+    }
+
+    /// `nd_jump_link`: the walk continues from a magic link's object. Not in scoped lookups,
+    /// whose containment a jump would escape.
+    fn jump(&mut self, target: Path) -> FsResult<()> {
+        if self.flags.no_magiclinks {
+            return Err(Errno::ELOOP);
+        }
+        if self.flags.no_xdev && !Arc::ptr_eq(&self.path.mnt, &target.mnt) {
+            return Err(Errno::EXDEV);
+        }
+        if self.flags.beneath || self.flags.in_root {
+            return Err(Errno::EXDEV);
+        }
+        while self.stack.len() > 1 && self.stack.last().is_some_and(|s| s.comps.is_empty()) {
+            self.stack.pop();
+        }
+        self.path = target;
+        self.jumped = true;
         Ok(())
     }
 

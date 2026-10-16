@@ -216,6 +216,7 @@ impl HostFs {
 impl Filesystem for HostFs {
     fn info(&self) -> FsInfo {
         FsInfo {
+            name: "9p",
             magic: 0x0102_1997, // V9FS_MAGIC: a passthrough filesystem
             name_max: NAME_MAX,
             read_only: self.shared.options.read_only,
