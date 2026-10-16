@@ -10,9 +10,7 @@ use wasixv2_vnet::SocketKind;
 
 use super::{Source, node::Scope};
 use crate::{
-    ID,
     file::OpenFile,
-    ident,
     mm::{Mm, PAGE_SIZE, RegionKind},
     resource::{ADDRESS_SPACE, TICKS, cpus},
 };
@@ -83,6 +81,11 @@ pub(super) enum PerPid {
 
 pub(super) fn global(source: &Source, file: Global) -> FsResult<Vec<u8>> {
     let line = |s: &str| format!("{s}\n").into_bytes();
+    let names = *source.uts.lock().unwrap();
+    let uts = |field: &[u8; 65]| {
+        let len = field.iter().position(|&b| b == 0).unwrap_or(field.len());
+        String::from_utf8_lossy(&field[..len]).into_owned()
+    };
     Ok(match file {
         Global::Cpuinfo => cpuinfo(),
         Global::Meminfo => meminfo(source),
@@ -97,16 +100,16 @@ pub(super) fn global(source: &Source, file: Global) -> FsResult<Vec<u8>> {
         Global::Stat => stat(source),
         Global::Version => line(&format!(
             "{} version {} {}",
-            ident::SYSNAME,
-            ident::RELEASE,
-            ident::VERSION
+            uts(&names.sysname),
+            uts(&names.release),
+            uts(&names.version)
         )),
         Global::Filesystems => filesystems(source),
         Global::Cmdline => line(""),
-        Global::Hostname => line(ident::NODENAME),
-        Global::Domainname => line(ident::DOMAINNAME),
-        Global::Ostype => line(ident::SYSNAME),
-        Global::Osrelease => line(ident::RELEASE),
+        Global::Hostname => line(&uts(&names.nodename)),
+        Global::Domainname => line(&uts(&names.domainname)),
+        Global::Ostype => line(&uts(&names.sysname)),
+        Global::Osrelease => line(&uts(&names.release)),
         Global::PidMax => line(&PID_MAX.to_string()),
         // `OVERCOMMIT_GUESS`.
         Global::Overcommit => line("0"),
@@ -246,9 +249,11 @@ fn sockets(source: &Source, kind: SocketKind, v6: bool) -> Vec<u8> {
         };
         let _ = writeln!(
             out,
-            "{sl:4}: {} {} {state:02X} 00000000:00000000 00:00000000 00000000 {ID:5}        0 0",
+            "{sl:4}: {} {} {state:02X} 00000000:00000000 00:00000000 00000000 {:5}        0 0",
             hex_addr(port.local),
             hex_addr(peer),
+            // TODO: the socket inode's owner (`sock_i_uid`); ports do not say whose they are.
+            0,
         );
     }
     out.into_bytes()
@@ -606,23 +611,33 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
     let kb = task.as_ref().map_or(0, |task| task.mm.size()) / 1024;
     let threads = source.threads(scope.pid).len().max(1);
     let (letter, state_name) = state(info);
-    let id = ID;
+    let cred = process.cred();
+    let (user, group) = (&cred.user, &cred.group);
+    let groups: String = cred.groups.iter().map(|gid| format!("{gid} ")).collect();
     let cpus = cpus();
     let mut out = String::new();
     let _ = write!(
         out,
         "Name:\t{}\nUmask:\t{umask:04o}\nState:\t{letter} ({state_name})\nTgid:\t{}\nNgid:\t0\nPid:\t{pid}\nPPid:\t{}\nTracerPid:\t0\n\
-         Uid:\t{id}\t{id}\t{id}\t{id}\nGid:\t{id}\t{id}\t{id}\t{id}\nFDSize:\t{fd_size}\nGroups:\t\n\
+         Uid:\t{}\t{}\t{}\t{}\nGid:\t{}\t{}\t{}\t{}\nFDSize:\t{fd_size}\nGroups:\t{groups}\n\
          NStgid:\t{}\nNSpid:\t{pid}\nNSpgid:\t{}\nNSsid:\t{}\n\
          VmPeak:\t{kb:8} kB\nVmSize:\t{kb:8} kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t{kb:8} kB\nVmRSS:\t{kb:8} kB\n\
          RssAnon:\t{kb:8} kB\nRssFile:\t       0 kB\nRssShmem:\t       0 kB\nVmData:\t{kb:8} kB\nVmStk:\t       0 kB\nVmExe:\t       0 kB\nVmLib:\t       0 kB\nVmPTE:\t       0 kB\nVmSwap:\t       0 kB\n\
          Threads:\t{threads}\nSigQ:\t0/4096\nSigPnd:\t{:016x}\nShdPnd:\t{:016x}\nSigBlk:\t{:016x}\nSigIgn:\t{:016x}\nSigCgt:\t{:016x}\n\
-         CapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\n\
-         NoNewPrivs:\t0\nSeccomp:\t0\nCpus_allowed:\t{:x}\nCpus_allowed_list:\t0-{}\n\
+         CapInh:\t{:016x}\nCapPrm:\t{:016x}\nCapEff:\t{:016x}\nCapBnd:\t{:016x}\nCapAmb:\t{:016x}\n\
+         NoNewPrivs:\t{}\nSeccomp:\t0\nCpus_allowed:\t{:x}\nCpus_allowed_list:\t0-{}\n\
          voluntary_ctxt_switches:\t0\nnonvoluntary_ctxt_switches:\t0\n",
         String::from_utf8_lossy(ident.comm()),
         scope.pid,
         info.parent,
+        user.real,
+        user.effective,
+        user.saved,
+        user.fs,
+        group.real,
+        group.effective,
+        group.saved,
+        group.fs,
         scope.pid,
         ident.pgid,
         ident.sid,
@@ -631,6 +646,12 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         signals[2],
         signals[3],
         signals[4],
+        cred.inheritable,
+        cred.permitted,
+        cred.effective,
+        cred.bounding,
+        cred.ambient,
+        u8::from(ident.no_new_privs),
         if cpus >= 32 {
             u32::MAX
         } else {

@@ -3,40 +3,52 @@
 use wasixv2_abi::AuxvType;
 use wasixv2_syscalls::Errno;
 
-use crate::{ID, mm::PAGE_SIZE};
+use crate::mm::PAGE_SIZE;
 
 const WORD: usize = 4;
 const RANDOM_LEN: usize = 16;
 /// `sysconf(_SC_CLK_TCK)`, as on every Linux architecture musl supports.
 const CLOCK_TICKS: u32 = 100;
 
-/// The auxiliary vector, except `AT_RANDOM`, whose value is an address in the block, and the
-/// terminating `AT_NULL`.
+/// The fixed part of the auxiliary vector. The identity entries, `AT_RANDOM`, whose value is an
+/// address in the block, and the terminating `AT_NULL` follow it.
 const AUXV: &[(AuxvType, u32)] = &[
     (AuxvType::AT_PAGESZ, PAGE_SIZE as u32),
     (AuxvType::AT_CLKTCK, CLOCK_TICKS),
     (AuxvType::AT_HWCAP, 0),
-    (AuxvType::AT_UID, ID as u32),
-    (AuxvType::AT_EUID, ID as u32),
-    (AuxvType::AT_GID, ID as u32),
-    (AuxvType::AT_EGID, ID as u32),
-    (AuxvType::AT_SECURE, 0),
 ];
+/// The identity entries, the random bytes and `AT_NULL`.
+const AUXV_EXTRA: usize = 7;
+
+/// Who the process runs as: `AT_UID`, `AT_EUID`, `AT_GID`, `AT_EGID` and `AT_SECURE`.
+#[derive(Clone, Copy)]
+pub(crate) struct Identity {
+    pub(crate) uid: u32,
+    pub(crate) euid: u32,
+    pub(crate) gid: u32,
+    pub(crate) egid: u32,
+    pub(crate) secure: bool,
+}
 
 /// Lays out argc, argv, envp, auxv, the `AT_RANDOM` bytes and the strings.
 pub(crate) struct Startup<'a> {
     args: &'a [String],
     env: &'a [String],
+    identity: Identity,
 }
 
 impl<'a> Startup<'a> {
-    pub(crate) fn new(args: &'a [String], env: &'a [String]) -> Self {
-        Self { args, env }
+    pub(crate) fn new(args: &'a [String], env: &'a [String], identity: Identity) -> Self {
+        Self {
+            args,
+            env,
+            identity,
+        }
     }
 
     fn header_len(&self) -> usize {
         let pointers = 1 + self.args.len() + 1 + self.env.len() + 1;
-        let auxv = (AUXV.len() + 2) * 2;
+        let auxv = (AUXV.len() + AUXV_EXTRA) * 2;
         (pointers + auxv) * WORD
     }
 
@@ -73,6 +85,10 @@ impl<'a> Startup<'a> {
         for &(key, value) in AUXV {
             words.extend([key.0, value]);
         }
+        let id = self.identity;
+        words.extend([AuxvType::AT_UID.0, id.uid, AuxvType::AT_EUID.0, id.euid]);
+        words.extend([AuxvType::AT_GID.0, id.gid, AuxvType::AT_EGID.0, id.egid]);
+        words.extend([AuxvType::AT_SECURE.0, id.secure as u32]);
         words.extend([AuxvType::AT_RANDOM.0, base + random_at as u32]);
         words.extend([AuxvType::AT_NULL.0, 0]);
 

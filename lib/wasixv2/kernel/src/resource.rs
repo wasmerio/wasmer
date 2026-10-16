@@ -11,7 +11,9 @@ use wasixv2_abi::{
 };
 use wasixv2_syscalls::{Caller, Errno, SysResult, UserSliceMut, read_value, write_value};
 
-use crate::{ID, Kernel, mm::PAGE_SIZE, time};
+use wasixv2_vfs::Cap;
+
+use crate::{Kernel, mm::PAGE_SIZE, time};
 
 const INFINITY: u64 = u64::MAX;
 /// `RLIM_NLIMITS`.
@@ -53,6 +55,8 @@ pub(crate) struct Resources {
     limits: [Rlimit64; NLIMITS],
     nice: i32,
     policy: SchedPolicy,
+    /// The static priority of a real-time policy.
+    rt_priority: i32,
     /// CPUs the process may run on, one bit each.
     affinity: Vec<u32>,
     membarrier_private: bool,
@@ -64,6 +68,7 @@ impl Default for Resources {
             limits: DEFAULT_LIMITS.map(|(rlim_cur, rlim_max)| Rlimit64 { rlim_cur, rlim_max }),
             nice: 0,
             policy: SchedPolicy::SCHED_NORMAL,
+            rt_priority: 0,
             affinity: full_mask(cpus()),
             membarrier_private: false,
         }
@@ -158,6 +163,12 @@ impl Kernel {
             .ok()
             .filter(|&i| i < NLIMITS)
             .ok_or(Errno::EINVAL)?;
+        let cred = self.cred(caller);
+        if !std::ptr::eq(&*process, &*self.process(caller.task()))
+            && !cred.may_change_limits_of(&process.cred())
+        {
+            return Err(Errno::EPERM.into());
+        }
         let previous = {
             let mut resources = process.resources.lock().unwrap();
             let previous = resources.limits[index];
@@ -166,7 +177,8 @@ impl Kernel {
                     return Err(Errno::EINVAL.into());
                 }
                 let nofile = resource == RlimitResource::RLIMIT_NOFILE;
-                if new.rlim_max > previous.rlim_max || (nofile && new.rlim_max > NR_OPEN) {
+                let raises = new.rlim_max > previous.rlim_max && !cred.capable(Cap::SysResource);
+                if raises || (nofile && new.rlim_max > NR_OPEN) {
                     return Err(Errno::EPERM.into());
                 }
                 resources.limits[index] = new;
@@ -320,13 +332,22 @@ impl Kernel {
         if param.is_null() {
             return Err(Errno::EINVAL.into());
         }
-        self.lookup_pid(caller, pid)?;
-        write_value(caller.memory(), param, &SchedParam { sched_priority: 0 }).await?;
+        let priority = self
+            .lookup_pid(caller, pid)?
+            .resources
+            .lock()
+            .unwrap()
+            .rt_priority;
+        let value = SchedParam {
+            sched_priority: priority,
+        };
+        write_value(caller.memory(), param, &value).await?;
         Ok(0)
     }
 
-    /// `policy` of `None` keeps the current one (`sched_setparam`). Real-time policies need a
-    /// privilege no process has.
+    /// `policy` of `None` keeps the current one (`sched_setparam`). Without `CAP_SYS_NICE`,
+    /// real-time policies need `RLIMIT_RTPRIO` to allow them, and only the caller's own
+    /// processes can change.
     pub(crate) async fn sys_sched_setscheduler(
         &self,
         caller: &Caller<'_>,
@@ -339,6 +360,8 @@ impl Kernel {
         }
         let param = read_value(caller.memory(), param).await?;
         let process = self.lookup_pid(caller, pid)?;
+        let cred = self.cred(caller);
+        let target = process.cred();
         let mut resources = process.resources.lock().unwrap();
         let policy = policy.map_or(resources.policy, |p| {
             SchedPolicy(p.0 & !SchedPolicy::SCHED_RESET_ON_FORK.0)
@@ -347,10 +370,22 @@ impl Kernel {
         if policy == SchedPolicy::SCHED_DEADLINE || !(min..=max).contains(&param.sched_priority) {
             return Err(Errno::EINVAL.into());
         }
-        if matches!(policy, SchedPolicy::SCHED_FIFO | SchedPolicy::SCHED_RR) {
-            return Err(Errno::EPERM.into());
+        let rt = matches!(policy, SchedPolicy::SCHED_FIFO | SchedPolicy::SCHED_RR);
+        if !cred.capable(Cap::SysNice) {
+            let limit = resources.limits[RlimitResource::RLIMIT_RTPRIO.0 as usize].rlim_cur;
+            let priority = param.sched_priority;
+            if rt
+                && ((policy != resources.policy && limit == 0)
+                    || (priority > resources.rt_priority && priority as u64 > limit))
+            {
+                return Err(Errno::EPERM.into());
+            }
+            if !cred.same_owner(&target) {
+                return Err(Errno::EPERM.into());
+            }
         }
         resources.policy = policy;
+        resources.rt_priority = param.sched_priority;
         Ok(0)
     }
 
@@ -474,7 +509,7 @@ impl Kernel {
         let matches = match which {
             PrioWhich::PRIO_PROCESS => who == 0 || who as u32 == process.pid.0,
             PrioWhich::PRIO_PGRP => who == 0 || who as u32 == process.ident.lock().unwrap().pgid,
-            PrioWhich::PRIO_USER => who == 0 || who == ID,
+            PrioWhich::PRIO_USER => who == 0 || who as u32 == process.cred().user.real,
             _ => return Err(Errno::EINVAL),
         };
         match matches {
@@ -495,7 +530,7 @@ impl Kernel {
         Ok(20 - nice)
     }
 
-    /// Lowering the nice value needs `RLIMIT_NICE` to allow it.
+    /// Lowering the nice value needs `RLIMIT_NICE` to allow it, or `CAP_SYS_NICE`.
     pub(crate) fn sys_setpriority(
         &self,
         caller: &Caller<'_>,
@@ -507,7 +542,8 @@ impl Kernel {
         let nice = nice.clamp(-20, 19);
         let mut resources = process.resources.lock().unwrap();
         let limit = resources.limits[RlimitResource::RLIMIT_NICE.0 as usize].rlim_cur;
-        if nice < resources.nice && (20 - nice) as u64 > limit {
+        let can_nice = (20 - nice) as u64 <= limit || self.cred(caller).capable(Cap::SysNice);
+        if nice < resources.nice && !can_nice {
             return Err(Errno::EACCES.into());
         }
         resources.nice = nice;

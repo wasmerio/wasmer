@@ -27,7 +27,7 @@ use wasixv2_vfs::{FileType, LookupFlags, MAY_EXEC, OpenHow};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
-    ID, Kernel, Process, Task,
+    Kernel, Process, Task,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     signal::Signals,
     thread,
@@ -96,11 +96,22 @@ impl Node {
     }
 }
 
+/// The file `execve` runs: where it is, and what of it decides the new image's credentials.
+struct Binary {
+    path: wasixv2_vfs::Path,
+    mode: u32,
+    owner: (u32, u32),
+    /// On a `nosuid` mount, whose set-user-ID and set-group-ID bits do not apply.
+    nosuid: bool,
+}
+
 /// How a process ended, as `waitid` reports it.
 #[derive(Clone, Copy)]
 struct Exit {
     code: SiCode,
     status: i32,
+    /// The process's real uid when it exited.
+    uid: u32,
 }
 
 impl Procs {
@@ -155,7 +166,8 @@ impl Tree {
     }
 }
 
-/// The `siginfo` of SIGCHLD and `waitid`: `si_pid`, `si_uid`, `si_status`.
+/// The `siginfo` of SIGCHLD and `waitid`: `si_pid`, `si_uid` (the child's real uid),
+/// `si_status`.
 fn child_info(signo: i32, pid: u32, exit: Exit) -> Siginfo {
     let mut info = Siginfo {
         si_signo: signo,
@@ -164,7 +176,7 @@ fn child_info(signo: i32, pid: u32, exit: Exit) -> Siginfo {
         sifields: [0; 116],
     };
     info.sifields[0..4].copy_from_slice(&(pid as i32).to_le_bytes());
-    info.sifields[4..8].copy_from_slice(&ID.to_le_bytes());
+    info.sifields[4..8].copy_from_slice(&exit.uid.to_le_bytes());
     info.sifields[8..12].copy_from_slice(&exit.status.to_le_bytes());
     info
 }
@@ -229,14 +241,17 @@ impl Kernel {
             if node.exit.is_some() {
                 return;
             }
+            let uid = process.cred().user.real;
             let exit = match node.killed_by {
                 Some(sig) => Exit {
                     code: SiCode::CLD_KILLED,
                     status: sig,
+                    uid,
                 },
                 None => Exit {
                     code: SiCode::CLD_EXITED,
                     status: status & 0xff,
+                    uid,
                 },
             };
             node.exit = Some(exit);
@@ -452,6 +467,7 @@ impl Kernel {
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
                 ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
+                cred: Mutex::new(parent.cred()),
                 resources: Mutex::new(parent.resources.lock().unwrap().clone()),
             });
             let files = match flags.contains(CloneFlags::CLONE_FILES) {
@@ -538,10 +554,10 @@ impl Kernel {
         };
         let mut file = (dfd, path, flags);
         let mut depth = 0;
-        let (image, exe) = loop {
-            let (bytes, exe) = self.open_exec(caller, file.0, &file.1, file.2).await?;
+        let (image, binary) = loop {
+            let (bytes, binary) = self.open_exec(caller, file.0, &file.1, file.2).await?;
             if bytes.starts_with(WASM_MAGIC) {
-                break (bytes, exe);
+                break (bytes, binary);
             }
             let Some((interp, arg)) = parse_shebang(&bytes) else {
                 return Err(Errno::ENOEXEC.into());
@@ -566,19 +582,19 @@ impl Kernel {
             let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
             file = (cwd, interp, AtFlags(0));
         };
-        self.exec_commit(caller.task(), &name, args, env, image, exe);
+        self.exec_commit(caller.task(), &name, args, env, image, binary);
         Ok(0)
     }
 
     /// `do_open_execat`: the file must be a regular file with an execute bit the caller may
-    /// use, on a mount that allows execution. Returns its contents and where it is.
+    /// use, on a mount that allows execution. Returns its contents and the binary.
     async fn open_exec(
         &self,
         caller: &Caller<'_>,
         dfd: Fd,
         path: &[u8],
         flags: AtFlags,
-    ) -> SysResult<(Vec<u8>, wasixv2_vfs::Path)> {
+    ) -> SysResult<(Vec<u8>, Binary)> {
         if path.is_empty() && !flags.contains(AtFlags::AT_EMPTY_PATH) {
             return Err(Errno::ENOENT.into());
         }
@@ -614,12 +630,18 @@ impl Kernel {
             }
         }
         bytes.truncate(at);
-        Ok((bytes, target))
+        let binary = Binary {
+            mode: attr.mode,
+            owner: (attr.uid, attr.gid),
+            nosuid: target.mnt.flags.nosuid,
+            path: target,
+        };
+        Ok((bytes, binary))
     }
 
     /// Past the point of no return (`begin_new_exec`): close-on-exec descriptors close, caught
-    /// signals reset, the vfork parent resumes, and the new image's arguments, environment and
-    /// memory replace the old ones.
+    /// signals reset, the vfork parent resumes, the new image's arguments, environment and
+    /// memory replace the old ones, and the credentials become what `binary` grants.
     fn exec_commit(
         &self,
         task: TaskId,
@@ -627,7 +649,7 @@ impl Kernel {
         args: Vec<String>,
         env: Vec<String>,
         image: Vec<u8>,
-        exe: wasixv2_vfs::Path,
+        binary: Binary,
     ) {
         // TODO: `de_thread`: kill the other threads, and take over the leader's pid.
         let process = self.process(task);
@@ -673,8 +695,23 @@ impl Kernel {
         signals.group().exec_reset();
         *process.args.lock().unwrap() = args;
         *process.env.lock().unwrap() = env;
-        *process.exe.lock().unwrap() = Some(exe);
-        process.ident.lock().unwrap().set_comm_from_path(name);
+        let no_new_privs = process.ident.lock().unwrap().no_new_privs;
+        let (cred, secure) = process.cred().exec(
+            binary.mode,
+            binary.owner,
+            !binary.nosuid && !no_new_privs,
+            no_new_privs,
+        );
+        let dumpable =
+            cred.user.effective == cred.user.real && cred.group.effective == cred.group.real;
+        *process.cred.lock().unwrap() = cred;
+        *process.exe.lock().unwrap() = Some(binary.path);
+        {
+            let mut ident = process.ident.lock().unwrap();
+            ident.set_comm_from_path(name);
+            ident.secure_exec = secure;
+            ident.dumpable = dumpable;
+        }
         self.with_task(task, |t| {
             // `exec_mmap`: the new image gets its own address space. A vfork child leaves its
             // parent's untouched.

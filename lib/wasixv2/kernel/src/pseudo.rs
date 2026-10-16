@@ -18,8 +18,6 @@ use wasixv2_vfs::{
     OpenOptions, Path, SetAttr, StatFs, TimeSet, Vfs,
 };
 
-use crate::ID;
-
 /// `PIPEFS_MAGIC`, `SOCKFS_MAGIC` and `ANON_INODE_FS_MAGIC`.
 const PIPEFS_MAGIC: u32 = 0x5049_5045;
 const SOCKFS_MAGIC: u32 = 0x534f_434b;
@@ -46,7 +44,7 @@ impl Pseudo {
         // Anonymous inodes have no file type (`alloc_anon_inode`); the VFS needs one, and
         // `statx` masks it off as `anon_inode_getattr` does. The one inode is made at boot, so
         // root owns it.
-        let anon_inode = anon_fs.new_node(FileType::Regular, 0o600, 0);
+        let anon_inode = anon_fs.new_node(FileType::Regular, 0o600, (0, 0));
         Self {
             pipe,
             socket,
@@ -55,16 +53,18 @@ impl Pseudo {
         }
     }
 
-    /// The inode of a new pipe (`get_pipe_inode`).
-    pub(crate) fn pipe(&self) -> Path {
+    /// The inode of a new pipe (`get_pipe_inode`), owned by `owner`, the creator's fsuid and
+    /// fsgid.
+    pub(crate) fn pipe(&self, owner: (u32, u32)) -> Path {
         let (mount, fs) = &self.pipe;
-        mount.pseudo_path(fs.new_node(FileType::Fifo, 0o600, ID as u32), b"")
+        mount.pseudo_path(fs.new_node(FileType::Fifo, 0o600, owner), b"")
     }
 
-    /// The inode of a new socket (`sock_alloc`).
-    pub(crate) fn socket(&self) -> Path {
+    /// The inode of a new socket (`sock_alloc`), owned by `owner`, the creator's fsuid and
+    /// fsgid.
+    pub(crate) fn socket(&self, owner: (u32, u32)) -> Path {
         let (mount, fs) = &self.socket;
-        mount.pseudo_path(fs.new_node(FileType::Socket, 0o777, ID as u32), b"")
+        mount.pseudo_path(fs.new_node(FileType::Socket, 0o777, owner), b"")
     }
 
     /// A path for an anonymous file of the class `name`, such as `[eventfd]`
@@ -91,7 +91,7 @@ struct PseudoFs {
 
 impl PseudoFs {
     fn new(kind: Kind, clock: Arc<dyn Clock>) -> Self {
-        let root = PseudoNode::new(1, FileType::Directory, 0o755, 0, kind, clock.clone());
+        let root = PseudoNode::new(1, FileType::Directory, 0o755, (0, 0), kind, clock.clone());
         Self {
             kind,
             next_ino: AtomicU64::new(2),
@@ -100,8 +100,8 @@ impl PseudoFs {
         }
     }
 
-    /// A new inode of this filesystem, owned by `owner` (the creator's fsuid and fsgid).
-    fn new_node(&self, file_type: FileType, mode: u32, owner: u32) -> Arc<dyn Node> {
+    /// A new inode of this filesystem, owned by the uid and gid `owner`.
+    fn new_node(&self, file_type: FileType, mode: u32, owner: (u32, u32)) -> Arc<dyn Node> {
         let ino = self.next_ino.fetch_add(1, Ordering::Relaxed);
         Arc::new(PseudoNode::new(
             ino,
@@ -168,7 +168,7 @@ impl PseudoNode {
         ino: u64,
         file_type: FileType,
         mode: u32,
-        owner: u32,
+        (uid, gid): (u32, u32),
         kind: Kind,
         clock: Arc<dyn Clock>,
     ) -> Self {
@@ -181,8 +181,8 @@ impl PseudoNode {
                 file_type,
                 mode,
                 nlink: 1,
-                uid: owner,
-                gid: owner,
+                uid,
+                gid,
                 rdev: Default::default(),
                 size: 0,
                 blocks: 0,

@@ -1,35 +1,161 @@
 //! Process identity: ids and credentials, sessions and process groups, the task name and the
 //! other per-process knobs `prctl` reads and writes, `uname` and `personality`.
 //!
-//! Every process runs as uid and gid 1 without capabilities, so the set*id calls can only
-//! "change" an id to the value it already has.
+//! The credential rules themselves live in [`crate::cred`]; this is the syscall side.
+
+use std::fmt;
 
 use wasixv2_abi::{
-    ConstBuf, Gid, GidArray, NewUtsname, NewUtsnamePtr, Pid, PrctlOption, Uid, UidPtr, Ulong,
+    ConstBuf, ConstGidArray, ConstUserCapDataArray, Gid, GidArray, GuestPtr, GuestPtrMut,
+    NewUtsname, NewUtsnamePtr, Pid, PrctlOption, Uid, UidPtr, Ulong, UserCapDataArray,
+    UserCapDataStruct, UserCapHeaderPtr, UserCapHeaderStruct,
 };
-use wasixv2_syscalls::{Caller, Errno, SysResult, read_value, write_value};
+use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, read_value, write_value};
+use wasixv2_vfs::Cap;
 
-use crate::{ID, Kernel, Process};
-
-/// `uname` fields. The release is the wasixv2 ABI version, not a Linux version: the target is not
-/// Linux, and programs that parse the release to guess Linux features should not match it.
-pub(crate) const SYSNAME: &str = "wasixv2";
-pub(crate) const NODENAME: &str = "localhost";
-pub(crate) const RELEASE: &str = "2.0.0";
-pub(crate) const VERSION: &str = "#1";
-const MACHINE: &str = "wasm32";
-pub(crate) const DOMAINNAME: &str = "(none)";
+use crate::{
+    Kernel, Process,
+    cred::{Cred, IdChange, IdKind, NGROUPS_MAX, secure},
+    startup::Identity,
+};
 
 /// `TASK_COMM_LEN`.
 const COMM_LEN: usize = 16;
 /// The default timer slack, in nanoseconds.
 const TIMER_SLACK: u32 = 50_000;
-/// `CAP_LAST_CAP`.
-const CAP_LAST_CAP: u32 = 40;
 /// `_NSIG`.
 const NSIG: u32 = 64;
 const PR_SET_VMA: PrctlOption = PrctlOption(0x53564d41);
 const PR_CAP_AMBIENT: PrctlOption = PrctlOption(47);
+/// `__NEW_UTS_LEN`.
+const UTS_LEN: usize = 64;
+/// `_LINUX_CAPABILITY_VERSION_1`, `_2` and `_3`: version 1 has one 32-bit word per set, the
+/// others two.
+const CAPABILITY_V1: u32 = 0x1998_0330;
+const CAPABILITY_V2: u32 = 0x2007_1026;
+const CAPABILITY_V3: u32 = 0x2008_0522;
+
+/// The names `uname` reports (`struct new_utsname`).
+///
+/// The defaults are `wasixv2` `localhost` `2.0.0` `#1` `wasm32`, with the domain name `(none)`.
+/// The release is the wasixv2 ABI version, not a Linux version: the target is not Linux, and
+/// programs that parse the release to guess Linux features should not match it. An embedder
+/// that runs programs which insist on a Linux release can report one. The system name is always
+/// `wasixv2`. A guest with `CAP_SYS_ADMIN` can change the node and domain names with
+/// `sethostname` and `setdomainname`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Uname {
+    nodename: String,
+    release: String,
+    version: String,
+    machine: String,
+    domainname: String,
+}
+
+impl Default for Uname {
+    fn default() -> Self {
+        Self {
+            nodename: "localhost".into(),
+            release: "2.0.0".into(),
+            version: "#1".into(),
+            machine: "wasm32".into(),
+            domainname: "(none)".into(),
+        }
+    }
+}
+
+/// A `uname` field that does not fit `struct new_utsname`: longer than 64 bytes, or containing
+/// a NUL byte.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnameError {
+    field: &'static str,
+}
+
+impl fmt::Display for UnameError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "the uname {} must be at most {UTS_LEN} bytes and contain no NUL byte",
+            self.field
+        )
+    }
+}
+
+impl std::error::Error for UnameError {}
+
+fn uts_value(field: &'static str, value: String) -> Result<String, UnameError> {
+    match value.len() <= UTS_LEN && !value.contains('\0') {
+        true => Ok(value),
+        false => Err(UnameError { field }),
+    }
+}
+
+impl Uname {
+    /// The system name, which is always `wasixv2`.
+    pub const SYSNAME: &str = "wasixv2";
+
+    /// `uname -n`, the host name.
+    pub fn with_nodename(mut self, value: impl Into<String>) -> Result<Self, UnameError> {
+        self.nodename = uts_value("node name", value.into())?;
+        Ok(self)
+    }
+
+    /// `uname -r`.
+    pub fn with_release(mut self, value: impl Into<String>) -> Result<Self, UnameError> {
+        self.release = uts_value("release", value.into())?;
+        Ok(self)
+    }
+
+    /// `uname -v`.
+    pub fn with_version(mut self, value: impl Into<String>) -> Result<Self, UnameError> {
+        self.version = uts_value("version", value.into())?;
+        Ok(self)
+    }
+
+    /// `uname -m`.
+    pub fn with_machine(mut self, value: impl Into<String>) -> Result<Self, UnameError> {
+        self.machine = uts_value("machine", value.into())?;
+        Ok(self)
+    }
+
+    /// The NIS domain name (`getdomainname`).
+    pub fn with_domainname(mut self, value: impl Into<String>) -> Result<Self, UnameError> {
+        self.domainname = uts_value("domain name", value.into())?;
+        Ok(self)
+    }
+
+    pub fn nodename(&self) -> &str {
+        &self.nodename
+    }
+
+    pub fn release(&self) -> &str {
+        &self.release
+    }
+
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
+    pub fn machine(&self) -> &str {
+        &self.machine
+    }
+
+    pub fn domainname(&self) -> &str {
+        &self.domainname
+    }
+
+    /// The fields as the guest sees them.
+    pub(crate) fn to_utsname(&self) -> NewUtsname {
+        NewUtsname {
+            sysname: utsname_field(Self::SYSNAME.as_bytes()),
+            nodename: utsname_field(self.nodename.as_bytes()),
+            release: utsname_field(self.release.as_bytes()),
+            version: utsname_field(self.version.as_bytes()),
+            machine: utsname_field(self.machine.as_bytes()),
+            domainname: utsname_field(self.domainname.as_bytes()),
+        }
+    }
+}
 
 /// What `prctl` and friends keep per process.
 // TODO: the name, timer slack and nice value are per thread on Linux.
@@ -38,13 +164,14 @@ pub(crate) struct Ident {
     pub(crate) pgid: u32,
     pub(crate) sid: u32,
     comm: [u8; COMM_LEN],
-    dumpable: bool,
+    pub(crate) dumpable: bool,
     pdeathsig: u32,
-    no_new_privs: bool,
+    pub(crate) no_new_privs: bool,
     timer_slack: u32,
     child_subreaper: bool,
-    keepcaps: bool,
     pub(crate) personality: u32,
+    /// Whether the current image was started privilege-elevating (`AT_SECURE`).
+    pub(crate) secure_exec: bool,
 }
 
 impl Ident {
@@ -64,8 +191,8 @@ impl Ident {
             no_new_privs: false,
             timer_slack: TIMER_SLACK,
             child_subreaper: false,
-            keepcaps: false,
             personality: 0,
+            secure_exec: false,
         }
     }
 }
@@ -107,18 +234,51 @@ impl Ident {
     }
 }
 
-/// An unprivileged id change: each new id is -1 (unchanged) or the current id.
-fn check_ids(ids: &[u32]) -> SysResult<i32> {
-    match ids.iter().all(|&id| id == u32::MAX || id == ID as u32) {
-        true => Ok(0),
-        false => Err(Errno::EPERM.into()),
-    }
+fn utsname_field(s: &[u8]) -> [u8; 65] {
+    let mut out = [0; 65];
+    out[..s.len()].copy_from_slice(s);
+    out
 }
 
-fn utsname_field(s: &str) -> [u8; 65] {
-    let mut out = [0; 65];
-    out[..s.len()].copy_from_slice(s.as_bytes());
-    out
+/// `cap_valid`.
+fn cap_valid(cap: Ulong) -> bool {
+    cap <= Cap::LAST
+}
+
+impl Process {
+    /// A snapshot of the process's credentials.
+    pub(crate) fn cred(&self) -> Cred {
+        self.cred.lock().unwrap().clone()
+    }
+
+    /// `commit_creds`: installs `new`, and makes the process non-dumpable if that changed its
+    /// effective or filesystem ids or gave it capabilities.
+    pub(crate) fn commit_cred(&self, new: Cred) {
+        let mut cred = self.cred.lock().unwrap();
+        if new.drops_dumpable(&cred) {
+            self.ident.lock().unwrap().dumpable = false;
+        }
+        *cred = new;
+    }
+
+    /// The identity entries of the process's auxiliary vector.
+    pub(crate) fn identity(&self) -> Identity {
+        let cred = self.cred();
+        Identity {
+            uid: cred.user.real,
+            euid: cred.user.effective,
+            gid: cred.group.real,
+            egid: cred.group.effective,
+            secure: self.ident.lock().unwrap().secure_exec,
+        }
+    }
+
+    /// Applies `change` to the credentials, if it allows.
+    fn update_cred(&self, change: impl FnOnce(&Cred) -> Result<Cred, Errno>) -> SysResult<i32> {
+        let new = change(&self.cred())?;
+        self.commit_cred(new);
+        Ok(0)
+    }
 }
 
 impl Kernel {
@@ -136,39 +296,179 @@ impl Kernel {
         }
     }
 
-    pub(crate) fn sys_set_ids(&self, ids: &[u32]) -> SysResult<i32> {
-        check_ids(ids)
+    /// The caller's credentials.
+    pub(crate) fn cred(&self, caller: &Caller<'_>) -> Cred {
+        self.process(caller.task()).cred()
+    }
+
+    /// `setuid`, `setreuid`, `setresuid` and their gid twins.
+    pub(crate) fn sys_set_ids(
+        &self,
+        caller: &Caller<'_>,
+        kind: IdKind,
+        change: IdChange,
+    ) -> SysResult<i32> {
+        self.process(caller.task())
+            .update_cred(|cred| cred.change_ids(kind, change))
     }
 
     /// `setfsuid` and `setfsgid` return the old id whether or not they change it.
-    pub(crate) fn sys_setfsid(&self) -> SysResult<i32> {
-        Ok(ID)
+    pub(crate) fn sys_setfsid(&self, caller: &Caller<'_>, kind: IdKind, id: u32) -> SysResult<i32> {
+        let process = self.process(caller.task());
+        let (old, new) = process.cred().change_fsid(kind, id);
+        process.commit_cred(new);
+        Ok(old as i32)
+    }
+
+    pub(crate) fn sys_getid(&self, caller: &Caller<'_>, kind: IdKind, effective: bool) -> i32 {
+        let cred = self.cred(caller);
+        let ids = match kind {
+            IdKind::User => cred.user,
+            IdKind::Group => cred.group,
+        };
+        match effective {
+            true => ids.effective as i32,
+            false => ids.real as i32,
+        }
     }
 
     pub(crate) async fn sys_getresid(
         &self,
         caller: &Caller<'_>,
+        kind: IdKind,
         ptrs: [UidPtr; 3],
     ) -> SysResult<i32> {
-        for ptr in ptrs {
-            write_value(caller.memory(), ptr, &(ID as Uid)).await?;
+        let cred = self.cred(caller);
+        let ids = match kind {
+            IdKind::User => cred.user,
+            IdKind::Group => cred.group,
+        };
+        for (ptr, id) in ptrs.into_iter().zip([ids.real, ids.effective, ids.saved]) {
+            write_value(caller.memory(), ptr, &(id as Uid)).await?;
         }
         Ok(0)
     }
 
-    /// The only supplementary group is the primary one.
     pub(crate) async fn sys_getgroups(
         &self,
         caller: &Caller<'_>,
         size: i32,
         list: GidArray,
     ) -> SysResult<i32> {
+        let groups = self.cred(caller).groups;
+        let count = groups.len() as i32;
         match size {
             ..0 => Err(Errno::EINVAL.into()),
-            0 => Ok(1),
+            0 => Ok(count),
+            size if size < count => Err(Errno::EINVAL.into()),
             _ => {
-                write_value(caller.memory(), list, &(ID as Gid)).await?;
-                Ok(1)
+                let bytes: Vec<u8> = groups.iter().flat_map(|gid| gid.to_le_bytes()).collect();
+                caller.memory().write(list.addr(), &bytes).await?;
+                Ok(count)
+            }
+        }
+    }
+
+    /// `setgroups`: the privilege check comes before the size check, as in `may_setgroups`.
+    pub(crate) async fn sys_setgroups(
+        &self,
+        caller: &Caller<'_>,
+        size: i32,
+        list: ConstGidArray,
+    ) -> SysResult<i32> {
+        let process = self.process(caller.task());
+        if !process.cred().capable(Cap::Setgid) {
+            return Err(Errno::EPERM.into());
+        }
+        let size = usize::try_from(size)
+            .ok()
+            .filter(|&size| size <= NGROUPS_MAX)
+            .ok_or(Errno::EINVAL)?;
+        let mut bytes = vec![0; size * 4];
+        caller.memory().read(list.addr(), &mut bytes).await?;
+        let groups = bytes
+            .chunks_exact(4)
+            .map(|gid| Gid::from_le_bytes(gid.try_into().unwrap()))
+            .collect();
+        process.update_cred(|cred| cred.set_groups(groups))
+    }
+
+    /// `capget`: an unknown header version is answered with the preferred one.
+    pub(crate) async fn sys_capget(
+        &self,
+        caller: &Caller<'_>,
+        header: UserCapHeaderPtr,
+        data: UserCapDataArray,
+    ) -> SysResult<i32> {
+        let words = match self.capability_words(caller, header).await {
+            Err(SysErr::Errno(Errno::EINVAL)) if data.is_null() => return Ok(0),
+            result => result?,
+        };
+        if data.is_null() {
+            return Ok(0);
+        }
+        let mut hdr: UserCapHeaderStruct =
+            read_value(caller.memory(), GuestPtr::new(header.addr())).await?;
+        if hdr.pid < 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        if hdr.pid == 0 {
+            hdr.pid = self.process(caller.task()).pid.0 as Pid;
+        }
+        let cred = self.procs.find(hdr.pid as u32).ok_or(Errno::ESRCH)?.cred();
+        for word in 0..words {
+            let shift = 32 * word;
+            let set = UserCapDataStruct {
+                effective: (cred.effective >> shift) as u32,
+                permitted: (cred.permitted >> shift) as u32,
+                inheritable: (cred.inheritable >> shift) as u32,
+            };
+            let ptr = UserCapDataArray::new(data.addr() + word * 12);
+            write_value(caller.memory(), ptr, &set).await?;
+        }
+        Ok(0)
+    }
+
+    /// `capset`: only the caller's own sets can change.
+    pub(crate) async fn sys_capset(
+        &self,
+        caller: &Caller<'_>,
+        header: UserCapHeaderPtr,
+        data: ConstUserCapDataArray,
+    ) -> SysResult<i32> {
+        let words = self.capability_words(caller, header).await?;
+        let hdr: UserCapHeaderStruct =
+            read_value(caller.memory(), GuestPtr::new(header.addr())).await?;
+        let process = self.process(caller.task());
+        if hdr.pid != 0 && hdr.pid != process.pid.0 as Pid {
+            return Err(Errno::EPERM.into());
+        }
+        let (mut effective, mut permitted, mut inheritable) = (0, 0, 0);
+        for word in 0..words {
+            let ptr = ConstUserCapDataArray::new(data.addr() + word * 12);
+            let set = read_value(caller.memory(), ptr).await?;
+            let shift = 32 * word;
+            effective |= u64::from(set.effective) << shift;
+            permitted |= u64::from(set.permitted) << shift;
+            inheritable |= u64::from(set.inheritable) << shift;
+        }
+        process.update_cred(|cred| cred.capset(effective, permitted, inheritable))
+    }
+
+    /// `cap_validate_magic`: how many 32-bit words per set the header's version uses.
+    async fn capability_words(
+        &self,
+        caller: &Caller<'_>,
+        header: UserCapHeaderPtr,
+    ) -> SysResult<u32> {
+        let version = GuestPtr::<u32>::new(header.addr());
+        match read_value(caller.memory(), version).await? {
+            CAPABILITY_V1 => Ok(1),
+            CAPABILITY_V2 | CAPABILITY_V3 => Ok(2),
+            _ => {
+                let version = GuestPtrMut::<u32>::new(header.addr());
+                write_value(caller.memory(), version, &CAPABILITY_V3).await?;
+                Err(Errno::EINVAL.into())
             }
         }
     }
@@ -181,27 +481,40 @@ impl Kernel {
         Ok(self.lookup_pid(caller, pid)?.ident.lock().unwrap().sid as Pid)
     }
 
-    // TODO: the nodename and domainname come from the UTS namespace once `sethostname` exists.
     pub(crate) async fn sys_uname(
         &self,
         caller: &Caller<'_>,
         name: NewUtsnamePtr,
     ) -> SysResult<i32> {
-        let uts = NewUtsname {
-            sysname: utsname_field(SYSNAME),
-            nodename: utsname_field(NODENAME),
-            release: utsname_field(RELEASE),
-            version: utsname_field(VERSION),
-            machine: utsname_field(MACHINE),
-            domainname: utsname_field(DOMAINNAME),
-        };
+        let uts = *self.uts.lock().unwrap();
         write_value(caller.memory(), name, &uts).await?;
         Ok(0)
     }
 
-    /// Changing the UTS names needs `CAP_SYS_ADMIN`.
-    pub(crate) fn sys_sethostname(&self, _: ConstBuf, _: i32) -> SysResult<i32> {
-        Err(Errno::EPERM.into())
+    /// `sethostname` or, with `domain`, `setdomainname`: needs `CAP_SYS_ADMIN`.
+    pub(crate) async fn sys_sethostname(
+        &self,
+        caller: &Caller<'_>,
+        name: ConstBuf,
+        len: i32,
+        domain: bool,
+    ) -> SysResult<i32> {
+        if !self.cred(caller).capable(Cap::SysAdmin) {
+            return Err(Errno::EPERM.into());
+        }
+        let len = usize::try_from(len)
+            .ok()
+            .filter(|&len| len <= UTS_LEN)
+            .ok_or(Errno::EINVAL)?;
+        let mut value = vec![0; len];
+        caller.memory().read(name.addr(), &mut value).await?;
+        let mut uts = self.uts.lock().unwrap();
+        let field = match domain {
+            true => &mut uts.domainname,
+            false => &mut uts.nodename,
+        };
+        *field = utsname_field(&value);
+        Ok(0)
     }
 
     pub(crate) fn sys_personality(&self, caller: &Caller<'_>, personality: u32) -> SysResult<i32> {
@@ -292,32 +605,124 @@ impl Kernel {
                 return self.timer_create_prctl(caller, arg2, [arg3, arg4, arg5]);
             }
             PrctlOption::PR_GET_KEEPCAPS => {
-                return Ok(process.ident.lock().unwrap().keepcaps as i32);
+                return Ok(process.cred().secure(secure::KEEP_CAPS) as i32);
             }
-            PrctlOption::PR_SET_KEEPCAPS => process.ident.lock().unwrap().keepcaps = flag(arg2)?,
+            PrctlOption::PR_SET_KEEPCAPS => {
+                let keep = flag(arg2)?;
+                return process.update_cred(|cred| {
+                    if cred.secure(secure::KEEP_CAPS_LOCKED) {
+                        return Err(Errno::EPERM);
+                    }
+                    let mut new = cred.clone();
+                    new.securebits &= !secure::KEEP_CAPS;
+                    new.securebits |= if keep { secure::KEEP_CAPS } else { 0 };
+                    Ok(new)
+                });
+            }
+            PrctlOption::PR_GET_SECUREBITS => return Ok(process.cred().securebits as i32),
+            PrctlOption::PR_SET_SECUREBITS => {
+                return process.update_cred(|cred| set_securebits(cred, arg2));
+            }
             PrctlOption::PR_CAPBSET_READ => {
-                return match arg2 <= CAP_LAST_CAP {
-                    true => Ok(1),
-                    false => Err(Errno::EINVAL.into()),
-                };
+                if !cap_valid(arg2) {
+                    return Err(Errno::EINVAL.into());
+                }
+                return Ok((process.cred().bounding >> arg2 & 1) as i32);
             }
-            PrctlOption::PR_GET_SECUREBITS
-            | PrctlOption::PR_GET_TIMING
+            PrctlOption::PR_CAPBSET_DROP => {
+                return process.update_cred(|cred| {
+                    if !cred.capable(Cap::Setpcap) {
+                        return Err(Errno::EPERM);
+                    }
+                    if !cap_valid(arg2) {
+                        return Err(Errno::EINVAL);
+                    }
+                    let mut new = cred.clone();
+                    new.bounding &= !(1 << arg2);
+                    Ok(new)
+                });
+            }
+            PR_CAP_AMBIENT => return ambient(&process, arg2, arg3, arg4 | arg5),
+            PrctlOption::PR_GET_TIMING
             | PrctlOption::PR_GET_THP_DISABLE
             | PrctlOption::PR_GET_SECCOMP => return Ok(0),
-            PrctlOption::PR_CAPBSET_DROP
-            | PrctlOption::PR_SET_SECUREBITS
-            | PrctlOption::PR_SET_MM => {
-                return Err(Errno::EPERM.into());
+            // `prctl_set_mm` needs CAP_SYS_RESOURCE, and even then the wasm memory layout has
+            // nothing it could change.
+            PrctlOption::PR_SET_MM => {
+                return match process.cred().capable(Cap::SysResource) {
+                    true => Err(Errno::EINVAL.into()),
+                    false => Err(Errno::EPERM.into()),
+                };
             }
             PrctlOption::PR_SET_THP_DISABLE | PR_SET_VMA | PrctlOption::PR_SET_PTRACER => {}
-            PR_CAP_AMBIENT => match arg2 {
-                1 | 3 | 4 => {}
-                2 => return Err(Errno::EPERM.into()),
-                _ => return Err(Errno::EINVAL.into()),
-            },
             _ => return Err(Errno::EINVAL.into()),
         }
         Ok(0)
+    }
+}
+
+/// `PR_SET_SECUREBITS`: locked bits stay, locks stay, and changing anything but the
+/// unprivileged bits needs `CAP_SETPCAP`.
+fn set_securebits(cred: &Cred, bits: Ulong) -> Result<Cred, Errno> {
+    let old = cred.securebits;
+    let locked = (old & secure::ALL_LOCKS) >> 1;
+    if locked & (old ^ bits) != 0
+        || old & secure::ALL_LOCKS & !bits != 0
+        || bits & !(secure::ALL_LOCKS | secure::ALL_BITS) != 0
+    {
+        return Err(Errno::EPERM);
+    }
+    if !cred.capable(Cap::Setpcap) {
+        let unprivileged = secure::ALL_UNPRIVILEGED | secure::ALL_UNPRIVILEGED << 1;
+        let changed = old ^ bits;
+        // Denying a non-change is Linux's legacy behaviour.
+        if changed == 0 || changed & !unprivileged != 0 {
+            return Err(Errno::EPERM);
+        }
+    }
+    Ok(Cred {
+        securebits: bits,
+        ..cred.clone()
+    })
+}
+
+/// `PR_CAP_AMBIENT`: raising needs the capability in the permitted and inheritable sets.
+fn ambient(process: &Process, op: Ulong, cap: Ulong, rest: Ulong) -> SysResult<i32> {
+    const IS_SET: Ulong = 1;
+    const RAISE: Ulong = 2;
+    const LOWER: Ulong = 3;
+    const CLEAR_ALL: Ulong = 4;
+    if op == CLEAR_ALL {
+        if cap | rest != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        return process.update_cred(|cred| {
+            Ok(Cred {
+                ambient: 0,
+                ..cred.clone()
+            })
+        });
+    }
+    if !cap_valid(cap) || rest != 0 {
+        return Err(Errno::EINVAL.into());
+    }
+    let bit = 1 << cap;
+    match op {
+        IS_SET => Ok((process.cred().ambient & bit != 0) as i32),
+        RAISE | LOWER => process.update_cred(|cred| {
+            let mut new = cred.clone();
+            if op == LOWER {
+                new.ambient &= !bit;
+                return Ok(new);
+            }
+            if cred.permitted & cred.inheritable & bit == 0
+                || cred.secure(secure::NO_CAP_AMBIENT_RAISE)
+            {
+                return Err(Errno::EPERM);
+            }
+            new.ambient |= bit;
+            Ok(new)
+        }),
+        _ => Err(Errno::EINVAL.into()),
     }
 }

@@ -337,6 +337,29 @@ fn socket_checks_type_flags_and_families() {
 }
 
 #[test]
+fn root_binds_privileged_ports_and_raw_sockets_need_cap_net_raw() {
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| {
+        kernel
+            .with_credentials(Credentials::new(0, 0))
+            .with_network(FakeNet::new())
+    });
+    let caller = Caller::new(task, &memory);
+    let fd = socket(&kernel, &caller, STREAM);
+    sockaddr(&memory, 0x200, 80);
+
+    assert_eq!(
+        block_on(kernel.bind(&caller, fd, GuestPtr::new(0x200), 16)),
+        Ok(0)
+    );
+    let raw = block_on(kernel.socket(&caller, AddressFamily::AF_INET, 3, 1));
+    assert_eq!(errno(raw), Errno::ESOCKTNOSUPPORT);
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let raw = block_on(kernel.socket(&caller, AddressFamily::AF_INET, 3, 1));
+    assert_eq!(errno(raw), Errno::EPERM);
+}
+
+#[test]
 fn bind_and_getsockname_follow_the_addrlen_rules() {
     let (kernel, task, memory) = networked();
     let caller = Caller::new(task, &memory);

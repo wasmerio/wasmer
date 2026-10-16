@@ -503,8 +503,10 @@ impl Kernel {
         if !target.can_poll() {
             return Err(Errno::EPERM.into());
         }
-        // EPOLLWAKEUP needs CAP_BLOCK_SUSPEND, which nobody has; Linux drops it silently.
-        if let Some(event) = &mut event {
+        // EPOLLWAKEUP needs CAP_BLOCK_SUSPEND; without it Linux drops the flag silently.
+        if let Some(event) = &mut event
+            && !self.cred(caller).capable(wasixv2_vfs::Cap::BlockSuspend)
+        {
             event.events &= !EpollEvents::EPOLLWAKEUP;
         }
         let ep = match epfile.downcast::<Epoll>() {

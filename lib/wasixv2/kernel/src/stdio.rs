@@ -19,13 +19,14 @@ use crate::{
 /// The open files behind descriptors 0, 1 and 2. Each host stream looks like a pipe, with an
 /// inode of its own that it hangs off, so opening `/proc/self/fd/1` (`/dev/stdout`) reaches
 /// the same stream again, as it reaches the same pipe on Linux.
-pub(crate) fn open_files(stdio: Stdio, pseudo: &Pseudo) -> [OpenFile; 3] {
+pub(crate) fn open_files(stdio: Stdio, pseudo: &Pseudo, owner: (u32, u32)) -> [OpenFile; 3] {
     fn open<T: FileObject + Send + Sync>(
         object: Arc<T>,
         flags: OpenFlags,
         pseudo: &Pseudo,
+        owner: (u32, u32),
     ) -> OpenFile {
-        let path = pseudo.pipe();
+        let path = pseudo.pipe(owner);
         let bound: Bound = object.clone();
         path.dentry.inode().bind(&bound);
         OpenFile::new(Backing::Stream(object, path), flags)
@@ -35,16 +36,19 @@ pub(crate) fn open_files(stdio: Stdio, pseudo: &Pseudo) -> [OpenFile; 3] {
             Arc::new(HostInput::new(stdio.stdin)),
             OpenFlags::O_RDONLY,
             pseudo,
+            owner,
         ),
         open(
             Arc::new(HostOutput(stdio.stdout)),
             OpenFlags::O_WRONLY,
             pseudo,
+            owner,
         ),
         open(
             Arc::new(HostOutput(stdio.stderr)),
             OpenFlags::O_WRONLY,
             pseudo,
+            owner,
         ),
     ]
 }

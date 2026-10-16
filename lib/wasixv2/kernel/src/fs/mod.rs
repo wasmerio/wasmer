@@ -18,12 +18,12 @@ use wasixv2_abi::{
 };
 use wasixv2_host::Host;
 use wasixv2_syscalls::{
-    Caller, CstrError, Errno, Fd, SysResult, UserMemory, read_cstr, read_value,
+    Caller, CstrError, Errno, Fd, SysResult, TaskId, UserMemory, read_cstr, read_value,
 };
 use wasixv2_vfs::{Clock, Cred, Ctx, LookupFlags, MODE_PERM, PATH_MAX, Path, Timestamp};
 
 use crate::{
-    ID, Kernel,
+    Kernel,
     file::{Backing, FdTable, OpenFile},
 };
 
@@ -117,11 +117,17 @@ impl Env {
 
 impl Kernel {
     pub(crate) fn env(&self, caller: &Caller<'_>) -> Env {
-        let fs = self.task_ref(caller.task(), |task| task.fs.lock().unwrap().clone());
+        self.task_env(caller.task())
+    }
+
+    fn task_env(&self, task: TaskId) -> Env {
+        let (fs, process) = self.task_ref(task, |task| {
+            (task.fs.lock().unwrap().clone(), task.process.clone())
+        });
         Env {
             fs,
-            cred: Cred::user(ID as u32, ID as u32),
-            task: caller.task().0,
+            cred: process.cred().fs(),
+            task: task.0,
         }
     }
 
@@ -186,17 +192,8 @@ impl Kernel {
     }
 
     /// Moves `task`'s working directory to `path`, as `chdir` would, for the embedder.
-    pub async fn set_working_dir(
-        &self,
-        task: wasixv2_syscalls::TaskId,
-        path: &[u8],
-    ) -> Result<(), Errno> {
-        let fs = self.task_ref(task, |task| task.fs.lock().unwrap().clone());
-        let env = Env {
-            fs,
-            cred: Cred::user(ID as u32, ID as u32),
-            task: task.0,
-        };
+    pub async fn set_working_dir(&self, task: TaskId, path: &[u8]) -> Result<(), Errno> {
+        let env = self.task_env(task);
         let lookup = LookupFlags {
             follow: true,
             directory: true,
@@ -561,7 +558,10 @@ impl Kernel {
                 file.set_status_flags(flags);
                 Ok(0)
             }
-            FcntlCmd::F_GETPIPE_SZ | FcntlCmd::F_SETPIPE_SZ => crate::pipe::fcntl(&file, cmd, arg),
+            FcntlCmd::F_GETPIPE_SZ | FcntlCmd::F_SETPIPE_SZ => {
+                let privileged = self.cred(caller).capable(wasixv2_vfs::Cap::SysResource);
+                crate::pipe::fcntl(&file, cmd, arg, privileged)
+            }
             _ => self.fcntl_lock(caller, &file, cmd, arg).await,
         }
     }

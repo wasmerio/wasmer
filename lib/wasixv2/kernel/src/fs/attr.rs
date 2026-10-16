@@ -168,7 +168,7 @@ impl Kernel {
         let path = read_path(caller.memory(), filename).await?;
         let mut env = self.env(caller);
         if !flags.contains(AtFlags::AT_EACCESS) {
-            env.cred = env.cred.for_access();
+            env.cred = self.cred(caller).fs_for_access();
         }
         let lookup_flags = flags & (AtFlags::AT_SYMLINK_NOFOLLOW | AtFlags::AT_EMPTY_PATH);
         let target = self

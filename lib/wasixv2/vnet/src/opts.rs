@@ -259,7 +259,7 @@ impl SockOpts {
                 self.rcvbuf = buf_size(val, RMEM_MAX, SOCK_MIN_RCVBUF);
                 Ok(Changed::Buffers)
             }
-            // The forcing variants need CAP_NET_ADMIN, which guests never hold.
+            // TODO: the forcing variants, which ignore the maximum with CAP_NET_ADMIN.
             (SOL_SOCKET, n) if n == So::SO_SNDBUFFORCE.0 || n == So::SO_RCVBUFFORCE.0 => {
                 Err(Errno::EPERM)
             }

@@ -139,7 +139,8 @@ impl Kernel {
         let clock = self.clock(caller, id)?;
         from_timespec(read_value(caller.memory(), tp).await?)?;
         match clock {
-            // Setting the wall clock needs CAP_SYS_TIME.
+            // Setting the wall clock needs CAP_SYS_TIME, and the wall clock is the host's, so
+            // not even that is enough.
             Clock::Realtime if id == ClockId::CLOCK_REALTIME => Err(Errno::EPERM.into()),
             _ => Err(Errno::EINVAL.into()),
         }

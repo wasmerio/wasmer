@@ -11,7 +11,6 @@ use wasixv2_vfs::{
 };
 
 use super::{Source, text};
-use crate::ID;
 
 /// A directory, file or link of the process filesystem.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -269,12 +268,25 @@ impl ProcNode {
         }
     }
 
-    /// Who owns the node: root for the system files, the process's user for its own.
-    fn owner(&self) -> u32 {
-        match self.entry {
-            Entry::Root | Entry::Static(_) => 0,
-            _ => ID as u32,
+    /// Who owns the node: root for the system files, and for a process's own its effective
+    /// uid and gid, or root's once it is not dumpable (`task_dump_owner`).
+    fn owner(&self) -> (u32, u32) {
+        let scope = match self.entry {
+            Entry::Root | Entry::Static(_) => return (0, 0),
+            Entry::Dir(scope)
+            | Entry::Pid(scope, _)
+            | Entry::Fd(scope, _)
+            | Entry::FdInfo(scope, _) => scope,
+        };
+        let Some(info) = self.source.process(scope.pid) else {
+            return (0, 0);
+        };
+        let process = info.process;
+        if !process.ident.lock().unwrap().dumpable {
+            return (0, 0);
         }
+        let cred = process.cred();
+        (cred.user.effective, cred.group.effective)
     }
 }
 
@@ -332,6 +344,7 @@ impl Node for ProcNode {
 
     async fn getattr(&self) -> FsResult<Attr> {
         let file_type = self.file_type();
+        let (uid, gid) = self.owner();
         let time = self.source.mounted;
         Ok(Attr {
             ino: self.ino(),
@@ -342,8 +355,8 @@ impl Node for ProcNode {
             } else {
                 1
             },
-            uid: self.owner(),
-            gid: self.owner(),
+            uid,
+            gid,
             rdev: Default::default(),
             size: 0,
             blocks: 0,

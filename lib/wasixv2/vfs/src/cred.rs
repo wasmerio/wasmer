@@ -9,7 +9,8 @@ pub const MAY_EXEC: u32 = 1;
 pub const MAY_WRITE: u32 = 2;
 pub const MAY_READ: u32 = 4;
 
-/// Capabilities the filesystem code checks, as bit numbers of Linux's capability sets.
+/// Linux's capabilities, as bit numbers of its capability sets
+/// (`include/uapi/linux/capability.h`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cap {
     Chown = 0,
@@ -17,9 +18,52 @@ pub enum Cap {
     DacReadSearch = 2,
     Fowner = 3,
     Fsetid = 4,
+    Kill = 5,
+    Setgid = 6,
+    Setuid = 7,
+    Setpcap = 8,
+    LinuxImmutable = 9,
+    NetBindService = 10,
+    NetBroadcast = 11,
+    NetAdmin = 12,
+    NetRaw = 13,
+    IpcLock = 14,
+    IpcOwner = 15,
+    SysModule = 16,
+    SysRawio = 17,
     SysChroot = 18,
+    SysPtrace = 19,
+    SysPacct = 20,
     SysAdmin = 21,
+    SysBoot = 22,
+    SysNice = 23,
+    SysResource = 24,
+    SysTime = 25,
+    SysTtyConfig = 26,
     Mknod = 27,
+    Lease = 28,
+    AuditWrite = 29,
+    AuditControl = 30,
+    Setfcap = 31,
+    MacOverride = 32,
+    MacAdmin = 33,
+    Syslog = 34,
+    WakeAlarm = 35,
+    BlockSuspend = 36,
+    AuditRead = 37,
+    Perfmon = 38,
+    Bpf = 39,
+    CheckpointRestore = 40,
+}
+
+impl Cap {
+    /// `CAP_LAST_CAP`.
+    pub const LAST: u32 = Cap::CheckpointRestore as u32;
+
+    /// The capability's bit in a capability set.
+    pub const fn bit(self) -> u64 {
+        1 << self as u32
+    }
 }
 
 /// The identity a filesystem operation runs as.
@@ -58,24 +102,12 @@ impl Cred {
     }
 
     pub fn capable(&self, cap: Cap) -> bool {
-        self.caps & (1 << cap as u32) != 0
+        self.caps & cap.bit() != 0
     }
 
     /// `in_group_p`: the filesystem gid or a supplementary group.
     pub fn in_group(&self, gid: u32) -> bool {
         self.fsgid == gid || self.groups.contains(&gid)
-    }
-
-    /// The credentials `access`/`faccessat` without `AT_EACCESS` check with: the real ids as
-    /// filesystem ids, and no capabilities unless the real uid is root (`access_override_creds`).
-    pub fn for_access(&self) -> Self {
-        let caps = if self.uid == 0 { self.caps } else { 0 };
-        Self {
-            fsuid: self.uid,
-            fsgid: self.gid,
-            caps,
-            ..self.clone()
-        }
     }
 
     /// `inode_owner_or_capable`.

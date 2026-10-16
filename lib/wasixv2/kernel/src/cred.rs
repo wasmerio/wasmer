@@ -1,0 +1,690 @@
+//! Credentials (`struct cred`): the real, effective, saved and filesystem ids, the supplementary
+//! groups, the capability sets and the securebits, and how the set*id calls, `capset`, `prctl`
+//! and `execve` change them (`kernel/sys.c`, `security/commoncap.c`).
+//!
+//! uid 0 is privileged the way Linux makes it: a process whose effective uid is 0 holds every
+//! capability, and the set*id transitions drop and regain them as on Linux. Credentials are per
+//! process; Linux keeps them per thread, but libc applies every set*id call to all threads, so a
+//! program cannot tell.
+
+use wasixv2_syscalls::Errno;
+use wasixv2_vfs::{Cap, Cred as FsCred};
+
+/// `CAP_VALID_MASK`: every capability.
+pub(crate) const CAP_FULL: u64 = (1 << (Cap::LAST + 1)) - 1;
+/// `CAP_FS_MASK`: the capabilities a filesystem uid of 0 historically meant.
+const CAP_FS_MASK: u64 = Cap::Chown.bit()
+    | Cap::Mknod.bit()
+    | Cap::DacOverride.bit()
+    | Cap::DacReadSearch.bit()
+    | Cap::Fowner.bit()
+    | Cap::Fsetid.bit()
+    | Cap::MacOverride.bit();
+/// `NGROUPS_MAX`.
+pub(crate) const NGROUPS_MAX: usize = 65536;
+/// `(uid_t)-1`: "unchanged" for the set*id calls, and never a valid id.
+const UNCHANGED: u32 = u32::MAX;
+
+/// The securebits (`include/uapi/linux/securebits.h`).
+pub(crate) mod secure {
+    pub(crate) const NOROOT: u32 = 1 << 0;
+    pub(crate) const NO_SETUID_FIXUP: u32 = 1 << 2;
+    pub(crate) const KEEP_CAPS: u32 = 1 << 4;
+    pub(crate) const KEEP_CAPS_LOCKED: u32 = 1 << 5;
+    pub(crate) const NO_CAP_AMBIENT_RAISE: u32 = 1 << 6;
+    const EXEC_RESTRICT_FILE: u32 = 1 << 8;
+    const EXEC_DENY_INTERACTIVE: u32 = 1 << 10;
+    pub(crate) const ALL_BITS: u32 = NOROOT
+        | NO_SETUID_FIXUP
+        | KEEP_CAPS
+        | NO_CAP_AMBIENT_RAISE
+        | EXEC_RESTRICT_FILE
+        | EXEC_DENY_INTERACTIVE;
+    pub(crate) const ALL_LOCKS: u32 = ALL_BITS << 1;
+    /// Restrictions user space enforces on itself, which need no privilege.
+    pub(crate) const ALL_UNPRIVILEGED: u32 = EXEC_RESTRICT_FILE | EXEC_DENY_INTERACTIVE;
+}
+
+/// The identity a machine's first process runs as. Its children inherit it, and from there it
+/// changes only as the guest's set*id calls and `execve`s change it.
+///
+/// The default is uid and gid 1 with gid 1 as the only supplementary group. uid 0 is root and
+/// holds every capability, so permission checks pass that would fail for anyone else.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Credentials {
+    uid: u32,
+    gid: u32,
+    groups: Vec<u32>,
+}
+
+impl Default for Credentials {
+    fn default() -> Self {
+        Self::new(1, 1)
+    }
+}
+
+impl Credentials {
+    /// `uid` and `gid`, with `gid` as the only supplementary group.
+    ///
+    /// # Panics
+    ///
+    /// If `uid` or `gid` is `u32::MAX`, which is `(uid_t)-1` and not an id.
+    pub fn new(uid: u32, gid: u32) -> Self {
+        assert!(
+            uid != UNCHANGED && gid != UNCHANGED,
+            "(uid_t)-1 is not an id"
+        );
+        Self {
+            uid,
+            gid,
+            groups: vec![gid],
+        }
+    }
+
+    /// Replaces the supplementary groups.
+    ///
+    /// # Panics
+    ///
+    /// If there are more than 65536 (`NGROUPS_MAX`), or one is `u32::MAX`.
+    pub fn with_groups(mut self, groups: impl IntoIterator<Item = u32>) -> Self {
+        let mut groups: Vec<u32> = groups.into_iter().collect();
+        assert!(groups.len() <= NGROUPS_MAX, "more than NGROUPS_MAX groups");
+        assert!(!groups.contains(&UNCHANGED), "(gid_t)-1 is not a group");
+        groups.sort_unstable();
+        self.groups = groups;
+        self
+    }
+
+    pub fn uid(&self) -> u32 {
+        self.uid
+    }
+
+    pub fn gid(&self) -> u32 {
+        self.gid
+    }
+
+    /// The supplementary groups, in ascending order.
+    pub fn groups(&self) -> &[u32] {
+        &self.groups
+    }
+}
+
+/// One kind of id: the real, effective, saved and filesystem uid, or the same four gids.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Ids {
+    pub(crate) real: u32,
+    pub(crate) effective: u32,
+    pub(crate) saved: u32,
+    pub(crate) fs: u32,
+}
+
+impl Ids {
+    fn all(id: u32) -> Self {
+        Self {
+            real: id,
+            effective: id,
+            saved: id,
+            fs: id,
+        }
+    }
+
+    /// Whether an unprivileged process may take `id`: it is its real, effective or saved id.
+    pub(crate) fn holds(&self, id: u32) -> bool {
+        id == self.real || id == self.effective || id == self.saved
+    }
+
+    /// `__sys_setuid`: with the privilege every id but the filesystem one follows, otherwise
+    /// only the effective one, to the real or saved id.
+    fn set(&mut self, id: u32, privileged: bool) -> Result<(), Errno> {
+        if id == UNCHANGED {
+            return Err(Errno::EINVAL);
+        }
+        if privileged {
+            self.real = id;
+            self.saved = id;
+        } else if id != self.real && id != self.saved {
+            return Err(Errno::EPERM);
+        }
+        self.effective = id;
+        self.fs = id;
+        Ok(())
+    }
+
+    /// `__sys_setreuid`: the real id may become the effective one and the effective id any of
+    /// the three. The saved id follows the effective one when the real id is set or the
+    /// effective one moves away from the real id.
+    fn set_re(&mut self, real: u32, effective: u32, privileged: bool) -> Result<(), Errno> {
+        let old = *self;
+        if real != UNCHANGED {
+            if real != old.real && real != old.effective && !privileged {
+                return Err(Errno::EPERM);
+            }
+            self.real = real;
+        }
+        if effective != UNCHANGED {
+            if !old.holds(effective) && !privileged {
+                return Err(Errno::EPERM);
+            }
+            self.effective = effective;
+        }
+        if real != UNCHANGED || (effective != UNCHANGED && effective != old.real) {
+            self.saved = self.effective;
+        }
+        self.fs = self.effective;
+        Ok(())
+    }
+
+    /// `__sys_setresuid`: without the privilege, each new id is one of the current three.
+    fn set_res(&mut self, ids: [u32; 3], privileged: bool) -> Result<(), Errno> {
+        let changed = ids.into_iter().filter(|&id| id != UNCHANGED);
+        if !privileged && !changed.clone().all(|id| self.holds(id)) {
+            return Err(Errno::EPERM);
+        }
+        let [real, effective, saved] = ids;
+        for (slot, id) in [
+            (&mut self.real, real),
+            (&mut self.effective, effective),
+            (&mut self.saved, saved),
+        ] {
+            if id != UNCHANGED {
+                *slot = id;
+            }
+        }
+        self.fs = self.effective;
+        Ok(())
+    }
+
+    /// `__sys_setfsuid`: any of the four ids, or anything with the privilege. Returns whether
+    /// the filesystem id changed.
+    fn set_fs(&mut self, id: u32, privileged: bool) -> bool {
+        if id == UNCHANGED || id == self.fs || !(self.holds(id) || privileged) {
+            return false;
+        }
+        self.fs = id;
+        true
+    }
+}
+
+/// Which ids a set*id call changes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IdKind {
+    User,
+    Group,
+}
+
+/// A set*id call other than `setfsuid`/`setfsgid`.
+#[derive(Clone, Copy)]
+pub(crate) enum IdChange {
+    /// `setuid`
+    Id(u32),
+    /// `setreuid`
+    Re(u32, u32),
+    /// `setresuid`
+    Res(u32, u32, u32),
+}
+
+/// A process's credentials.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Cred {
+    pub(crate) user: Ids,
+    pub(crate) group: Ids,
+    /// Supplementary groups, in ascending order (`groups_sort`).
+    pub(crate) groups: Vec<u32>,
+    pub(crate) inheritable: u64,
+    pub(crate) permitted: u64,
+    pub(crate) effective: u64,
+    pub(crate) bounding: u64,
+    pub(crate) ambient: u64,
+    pub(crate) securebits: u32,
+}
+
+impl Cred {
+    /// The first process's credentials: root holds every capability, as init does; anyone else
+    /// none, as after a login program's `setuid`.
+    pub(crate) fn new(identity: &Credentials) -> Self {
+        let caps = match identity.uid {
+            0 => CAP_FULL,
+            _ => 0,
+        };
+        Self {
+            user: Ids::all(identity.uid),
+            group: Ids::all(identity.gid),
+            groups: identity.groups.clone(),
+            inheritable: 0,
+            permitted: caps,
+            effective: caps,
+            bounding: CAP_FULL,
+            ambient: 0,
+            securebits: 0,
+        }
+    }
+
+    pub(crate) fn capable(&self, cap: Cap) -> bool {
+        self.effective & cap.bit() != 0
+    }
+
+    pub(crate) fn secure(&self, bit: u32) -> bool {
+        self.securebits & bit != 0
+    }
+
+    /// `in_group_p`: the filesystem gid or a supplementary group.
+    pub(crate) fn in_group(&self, gid: u32) -> bool {
+        self.group.fs == gid || self.groups.binary_search(&gid).is_ok()
+    }
+
+    /// Who owns what the process creates: its filesystem uid and gid.
+    pub(crate) fn fs_owner(&self) -> (u32, u32) {
+        (self.user.fs, self.group.fs)
+    }
+
+    /// What the filesystem checks against.
+    pub(crate) fn fs(&self) -> FsCred {
+        FsCred {
+            uid: self.user.real,
+            gid: self.group.real,
+            fsuid: self.user.fs,
+            fsgid: self.group.fs,
+            groups: self.groups.clone(),
+            caps: self.effective,
+        }
+    }
+
+    /// `access_override_creds`: `access` checks with the real ids, and with the permitted
+    /// capabilities only if the real uid is root.
+    pub(crate) fn fs_for_access(&self) -> FsCred {
+        let mut cred = self.fs();
+        cred.fsuid = self.user.real;
+        cred.fsgid = self.group.real;
+        if !self.secure(secure::NO_SETUID_FIXUP) {
+            cred.caps = match self.user.real {
+                0 => self.permitted,
+                _ => 0,
+            };
+        }
+        cred
+    }
+
+    /// The ids `SO_PEERCRED` and `SCM_CREDENTIALS` report (`cred_to_ucred`).
+    pub(crate) fn ucred_ids(&self) -> (u32, u32) {
+        (self.user.effective, self.group.effective)
+    }
+
+    /// `kill_ok_by_cred`: whether this sender may signal a process with `target`'s ids.
+    pub(crate) fn may_signal(&self, target: &Cred) -> bool {
+        let (sender, target) = (&self.user, &target.user);
+        [sender.effective, sender.real]
+            .iter()
+            .any(|&id| id == target.saved || id == target.real)
+            || self.capable(Cap::Kill)
+    }
+
+    /// `check_same_owner`: the caller's effective uid is the target's real or effective uid.
+    pub(crate) fn same_owner(&self, target: &Cred) -> bool {
+        let euid = self.user.effective;
+        euid == target.user.effective || euid == target.user.real
+    }
+
+    /// `check_prlimit_permission`: the target's uids and gids all match the caller's real id,
+    /// or the caller has `CAP_SYS_RESOURCE`.
+    pub(crate) fn may_change_limits_of(&self, target: &Cred) -> bool {
+        let same = |caller: &Ids, target: &Ids| {
+            [target.real, target.effective, target.saved]
+                .iter()
+                .all(|&id| id == caller.real)
+        };
+        (same(&self.user, &target.user) && same(&self.group, &target.group))
+            || self.capable(Cap::SysResource)
+    }
+
+    /// One of `setuid`, `setreuid`, `setresuid` or their gid twins.
+    pub(crate) fn change_ids(&self, kind: IdKind, change: IdChange) -> Result<Self, Errno> {
+        let mut new = self.clone();
+        let (ids, cap) = match kind {
+            IdKind::User => (&mut new.user, Cap::Setuid),
+            IdKind::Group => (&mut new.group, Cap::Setgid),
+        };
+        let privileged = self.capable(cap);
+        match change {
+            IdChange::Id(id) => ids.set(id, privileged)?,
+            IdChange::Re(real, effective) => ids.set_re(real, effective, privileged)?,
+            IdChange::Res(real, effective, saved) => {
+                ids.set_res([real, effective, saved], privileged)?
+            }
+        }
+        if kind == IdKind::User && !self.secure(secure::NO_SETUID_FIXUP) {
+            new.emulate_setxuid(self);
+        }
+        Ok(new)
+    }
+
+    /// `setfsuid` or `setfsgid`: returns the old filesystem id, which the call returns whether
+    /// or not it changed anything, and the new credentials.
+    pub(crate) fn change_fsid(&self, kind: IdKind, id: u32) -> (u32, Self) {
+        let mut new = self.clone();
+        let (ids, cap) = match kind {
+            IdKind::User => (&mut new.user, Cap::Setuid),
+            IdKind::Group => (&mut new.group, Cap::Setgid),
+        };
+        let old = ids.fs;
+        let changed = ids.set_fs(id, self.capable(cap));
+        if changed && kind == IdKind::User && !self.secure(secure::NO_SETUID_FIXUP) {
+            // The filesystem capabilities follow a filesystem uid of 0.
+            if old == 0 && id != 0 {
+                new.effective &= !CAP_FS_MASK;
+            } else if old != 0 && id == 0 {
+                new.effective |= new.permitted & CAP_FS_MASK;
+            }
+        }
+        (old, new)
+    }
+
+    /// `cap_emulate_setxuid`: leaving uid 0 in all three ids drops the capabilities (unless
+    /// `SECBIT_KEEP_CAPS`), and the effective set follows an effective uid of 0.
+    fn emulate_setxuid(&mut self, old: &Self) {
+        let had_root = old.user.holds(0);
+        if had_root && !self.user.holds(0) {
+            if !old.secure(secure::KEEP_CAPS) {
+                self.permitted = 0;
+                self.effective = 0;
+            }
+            self.ambient = 0;
+        }
+        if old.user.effective == 0 && self.user.effective != 0 {
+            self.effective = 0;
+        }
+        if old.user.effective != 0 && self.user.effective == 0 {
+            self.effective = self.permitted;
+        }
+    }
+
+    /// `setgroups`: needs `CAP_SETGID`.
+    pub(crate) fn set_groups(&self, mut groups: Vec<u32>) -> Result<Self, Errno> {
+        if !self.capable(Cap::Setgid) {
+            return Err(Errno::EPERM);
+        }
+        if groups.contains(&UNCHANGED) {
+            return Err(Errno::EINVAL);
+        }
+        groups.sort_unstable();
+        Ok(Self {
+            groups,
+            ..self.clone()
+        })
+    }
+
+    /// `cap_capset`: the new sets are within what the process already has.
+    pub(crate) fn capset(
+        &self,
+        effective: u64,
+        permitted: u64,
+        inheritable: u64,
+    ) -> Result<Self, Errno> {
+        let subset = |a: u64, b: u64| a & !b == 0;
+        if !self.capable(Cap::Setpcap) && !subset(inheritable, self.inheritable | self.permitted) {
+            return Err(Errno::EPERM);
+        }
+        if !subset(inheritable, self.inheritable | self.bounding)
+            || !subset(permitted, self.permitted)
+            || !subset(effective, permitted)
+        {
+            return Err(Errno::EPERM);
+        }
+        Ok(Self {
+            effective,
+            permitted,
+            inheritable,
+            ambient: self.ambient & permitted & inheritable,
+            ..self.clone()
+        })
+    }
+
+    /// The credentials after `execve` of a file with mode `mode` owned by `owner`
+    /// (`bprm_fill_uid` and `cap_bprm_creds_from_file`, for files without file capabilities),
+    /// and whether the exec is privilege-elevating (`AT_SECURE`). `setid` says whether the
+    /// file's set-user-ID and set-group-ID bits may apply: not on a `nosuid` mount or under
+    /// `no_new_privs`.
+    pub(crate) fn exec(
+        &self,
+        mode: u32,
+        owner: (u32, u32),
+        setid: bool,
+        no_new_privs: bool,
+    ) -> (Self, bool) {
+        const S_ISUID: u32 = 0o4000;
+        const S_ISGID: u32 = 0o2000;
+        const S_IXGRP: u32 = 0o010;
+        let mut new = self.clone();
+        if setid && mode & S_ISUID != 0 {
+            new.user.effective = owner.0;
+        }
+        if setid && mode & (S_ISGID | S_IXGRP) == S_ISGID | S_IXGRP {
+            new.group.effective = owner.1;
+        }
+        // `handle_privileged_root`: root gets its bounding set back on every exec.
+        let mut raise_effective = false;
+        if !self.secure(secure::NOROOT) {
+            if new.user.effective == 0 || new.user.real == 0 {
+                new.permitted = self.bounding | self.inheritable;
+            }
+            raise_effective = new.user.effective == 0;
+        }
+        let id_changed =
+            new.user.effective != self.user.effective || !self.in_group(new.group.effective);
+        let gained = new.permitted & !self.permitted != 0;
+        if (id_changed || gained) && no_new_privs {
+            new.user.effective = new.user.real;
+            new.group.effective = new.group.real;
+            new.permitted &= self.permitted;
+        }
+        new.user.saved = new.user.effective;
+        new.user.fs = new.user.effective;
+        new.group.saved = new.group.effective;
+        new.group.fs = new.group.effective;
+        if id_changed {
+            new.ambient = 0;
+        }
+        new.permitted |= new.ambient;
+        new.effective = match raise_effective {
+            true => new.permitted,
+            false => new.ambient,
+        };
+        new.securebits &= !secure::KEEP_CAPS;
+        let secure = id_changed
+            || new.user.effective != self.user.real
+            || new.group.effective != self.group.real
+            || (new.user.real != 0 && (raise_effective || new.permitted & !new.ambient != 0));
+        (new, secure)
+    }
+
+    /// Whether committing `self` over `old` makes the process non-dumpable (`commit_creds`).
+    pub(crate) fn drops_dumpable(&self, old: &Self) -> bool {
+        self.user.effective != old.user.effective
+            || self.user.fs != old.user.fs
+            || self.group.effective != old.group.effective
+            || self.group.fs != old.group.fs
+            || self.permitted & !old.permitted != 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SETUID_ROOT: u32 = 0o4755;
+
+    fn root() -> Cred {
+        Cred::new(&Credentials::new(0, 0))
+    }
+
+    fn user(uid: u32) -> Cred {
+        Cred::new(&Credentials::new(uid, uid))
+    }
+
+    fn uids(cred: &Cred) -> [u32; 4] {
+        let ids = cred.user;
+        [ids.real, ids.effective, ids.saved, ids.fs]
+    }
+
+    #[test]
+    fn root_starts_with_every_capability_and_others_with_none() {
+        let root = root();
+        let user = user(1000);
+
+        assert_eq!((root.permitted, root.effective), (CAP_FULL, CAP_FULL));
+        assert!(root.capable(Cap::DacOverride) && root.capable(Cap::CheckpointRestore));
+        assert_eq!((user.permitted, user.effective), (0, 0));
+        assert_eq!(user.bounding, CAP_FULL);
+        assert_eq!(user.groups, [1000]);
+        assert!(root.fs().capable(Cap::Chown) && !user.fs().capable(Cap::Chown));
+    }
+
+    #[test]
+    fn setuid_away_from_root_drops_every_capability_for_good() {
+        let dropped = root().change_ids(IdKind::User, IdChange::Id(1000)).unwrap();
+
+        assert_eq!(uids(&dropped), [1000; 4]);
+        assert_eq!((dropped.permitted, dropped.effective), (0, 0));
+        assert_eq!(
+            dropped.change_ids(IdKind::User, IdChange::Id(0)),
+            Err(Errno::EPERM)
+        );
+    }
+
+    #[test]
+    fn a_saved_root_uid_brings_the_capabilities_back() {
+        let seteuid = IdChange::Res(UNCHANGED, 1000, UNCHANGED);
+        let lowered = root().change_ids(IdKind::User, seteuid).unwrap();
+
+        assert_eq!(uids(&lowered), [0, 1000, 0, 1000]);
+        assert_eq!((lowered.permitted, lowered.effective), (CAP_FULL, 0));
+        let restored = lowered
+            .change_ids(IdKind::User, IdChange::Res(UNCHANGED, 0, UNCHANGED))
+            .unwrap();
+        assert_eq!(restored.effective, CAP_FULL);
+    }
+
+    #[test]
+    fn keep_caps_keeps_the_permitted_set_across_setuid() {
+        let mut cred = root();
+        cred.securebits |= secure::KEEP_CAPS;
+
+        let dropped = cred.change_ids(IdKind::User, IdChange::Id(1000)).unwrap();
+
+        assert_eq!((dropped.permitted, dropped.effective), (CAP_FULL, 0));
+    }
+
+    #[test]
+    fn unprivileged_id_changes_only_move_between_held_ids() {
+        let cred = user(1000);
+
+        assert_eq!(
+            cred.change_ids(IdKind::User, IdChange::Id(0)),
+            Err(Errno::EPERM)
+        );
+        assert_eq!(
+            cred.change_ids(IdKind::Group, IdChange::Re(UNCHANGED, 5)),
+            Err(Errno::EPERM)
+        );
+        assert_eq!(
+            cred.change_ids(IdKind::User, IdChange::Id(UNCHANGED)),
+            Err(Errno::EINVAL)
+        );
+        assert_eq!(cred.set_groups(vec![5]), Err(Errno::EPERM));
+        let (old, same) = cred.change_fsid(IdKind::User, 0);
+        assert_eq!((old, same.user.fs), (1000, 1000));
+    }
+
+    #[test]
+    fn setreuid_moves_the_saved_uid_with_the_effective_one() {
+        let cred = Cred {
+            user: Ids {
+                real: 1,
+                effective: 2,
+                saved: 3,
+                fs: 2,
+            },
+            ..user(1)
+        };
+
+        let swapped = cred.change_ids(IdKind::User, IdChange::Re(2, 1)).unwrap();
+
+        assert_eq!(uids(&swapped), [2, 1, 1, 1]);
+        let to_saved = cred
+            .change_ids(IdKind::User, IdChange::Re(UNCHANGED, 3))
+            .unwrap();
+        assert_eq!(uids(&to_saved), [1, 3, 3, 3]);
+    }
+
+    #[test]
+    fn a_filesystem_uid_of_zero_carries_the_filesystem_capabilities() {
+        let (old, fs_user) = root().change_fsid(IdKind::User, 1000);
+
+        assert_eq!(old, 0);
+        assert!(!fs_user.capable(Cap::DacOverride) && fs_user.capable(Cap::Kill));
+        let (_, back) = fs_user.change_fsid(IdKind::User, 0);
+        assert_eq!(back.effective, CAP_FULL);
+    }
+
+    #[test]
+    fn root_sets_groups_sorted() {
+        let cred = root().set_groups(vec![30, 10, 20]).unwrap();
+
+        assert_eq!(cred.groups, [10, 20, 30]);
+        assert!(cred.in_group(20) && !cred.in_group(40));
+    }
+
+    #[test]
+    fn capset_only_narrows() {
+        let root = root();
+        let narrowed = root
+            .capset(Cap::Kill.bit(), Cap::Kill.bit() | Cap::Chown.bit(), 0)
+            .unwrap();
+
+        assert!(narrowed.capable(Cap::Kill) && !narrowed.capable(Cap::Chown));
+        assert_eq!(
+            narrowed.capset(Cap::Chown.bit(), Cap::Kill.bit(), 0),
+            Err(Errno::EPERM)
+        );
+        assert_eq!(narrowed.capset(0, CAP_FULL, 0), Err(Errno::EPERM));
+        assert_eq!(user(1).capset(0, 0, Cap::Kill.bit()), Err(Errno::EPERM));
+    }
+
+    #[test]
+    fn exec_gives_root_its_capabilities_and_nobody_else_any() {
+        let (root_after, root_secure) = root().exec(0o755, (5, 5), true, false);
+        let (user_after, user_secure) = user(1000).exec(0o755, (5, 5), true, false);
+
+        assert_eq!(root_after.effective, CAP_FULL);
+        assert!(!root_secure);
+        assert_eq!(user_after.effective, 0);
+        assert!(!user_secure);
+    }
+
+    #[test]
+    fn exec_of_a_setuid_root_file_makes_the_caller_root() {
+        let (cred, secure) = user(1000).exec(SETUID_ROOT, (0, 0), true, false);
+
+        assert_eq!(uids(&cred), [1000, 0, 0, 0]);
+        assert_eq!(cred.effective, CAP_FULL);
+        assert!(secure);
+    }
+
+    #[test]
+    fn nosuid_and_no_new_privs_ignore_the_setuid_bit() {
+        let (nosuid, _) = user(1000).exec(SETUID_ROOT, (0, 0), false, false);
+        let (no_new_privs, _) = user(1000).exec(SETUID_ROOT, (0, 0), false, true);
+
+        assert_eq!(uids(&nosuid), [1000; 4]);
+        assert_eq!(nosuid.effective, 0);
+        assert_eq!(no_new_privs, user(1000));
+    }
+
+    #[test]
+    fn kill_needs_a_shared_uid_or_cap_kill() {
+        let (a, b) = (user(1000), user(2000));
+
+        assert!(a.may_signal(&a));
+        assert!(!a.may_signal(&b));
+        assert!(root().may_signal(&b));
+    }
+}

@@ -5,6 +5,7 @@
 //! backends.
 
 mod chrdev;
+mod cred;
 mod epoll;
 mod eventfd;
 mod file;
@@ -38,8 +39,10 @@ use std::{
     sync::{Arc, LockResult, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
+pub use cred::Credentials;
 pub use file::{FileObject, Io, SeekBase};
 pub use fs::HostClock;
+pub use ident::{Uname, UnameError};
 use wasixv2_abi::{
     AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstBuf, ConstFileHandlePtr,
     ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr, ConstKernelTimespecArray,
@@ -62,6 +65,7 @@ use wasixv2_syscalls::{
 use wasixv2_vfs::{Filesystem, Vfs};
 
 use crate::{
+    cred::{IdChange, IdKind},
     file::{FdTable, OpenFile},
     fs::FsContext,
     mm::Mm,
@@ -75,10 +79,6 @@ const IO_CHUNK: usize = 64 * 1024;
 /// Most bytes any read or write family call transfers (`MAX_RW_COUNT`: `INT_MAX` rounded down
 /// to the page size), so a count always fits the `ssize_t` result.
 const MAX_RW_COUNT: usize = i32::MAX as usize & !(wasixv2_syscalls::WASM_PAGE_SIZE as usize - 1);
-
-/// The uid and gid of every process until credentials exist. Not 0: root bypasses permission
-/// checks, so programs take paths that only make sense for a privileged user.
-const ID: i32 = 1;
 
 /// What a new process starts with.
 pub struct ProcessConfig {
@@ -117,6 +117,11 @@ pub struct Kernel {
     epoll_nesting: Mutex<()>,
     /// Every armed timer: timerfds and interval timers.
     timers: timer::Timers,
+    // ---- base ----
+    /// What [`Kernel::spawn`]ed processes run as.
+    credentials: Credentials,
+    /// The UTS names (one UTS namespace per kernel), shared with the process filesystems.
+    uts: Arc<Mutex<wasixv2_abi::NewUtsname>>,
 }
 
 #[derive(Default)]
@@ -158,6 +163,7 @@ struct Process {
     /// Monotonic time the process started, the origin of its CPU clocks.
     start: std::time::Duration,
     ident: Mutex<ident::Ident>,
+    cred: Mutex<cred::Cred>,
     resources: Mutex<resource::Resources>,
 }
 
@@ -194,7 +200,21 @@ impl Kernel {
             futexes: futex::Futexes::default(),
             procs: process::Procs::default(),
             epoll_nesting: Mutex::default(),
+            credentials: Credentials::default(),
+            uts: Arc::new(Mutex::new(Uname::default().to_utsname())),
         }
+    }
+
+    /// Makes [`Kernel::spawn`]ed processes run as `credentials` instead of uid and gid 1.
+    pub fn with_credentials(mut self, credentials: Credentials) -> Self {
+        self.credentials = credentials;
+        self
+    }
+
+    /// Makes `uname` report `uname`.
+    pub fn with_uname(self, uname: &Uname) -> Self {
+        *self.uts.lock().unwrap() = uname.to_utsname();
+        self
     }
 
     /// Gives the kernel a network for IP sockets.
@@ -208,10 +228,12 @@ impl Kernel {
         &self.vfs
     }
 
-    /// Starts a process with a single task whose descriptors 0, 1 and 2 are `config.stdio`.
+    /// Starts a process with a single task whose descriptors 0, 1 and 2 are `config.stdio`,
+    /// running as the kernel's [`Credentials`].
     pub fn spawn(&self, config: ProcessConfig) -> TaskId {
+        let cred = cred::Cred::new(&self.credentials);
         let mut files = FdTable::default();
-        for file in stdio::open_files(config.stdio, &self.pseudo) {
+        for file in stdio::open_files(config.stdio, &self.pseudo, cred.fs_owner()) {
             files
                 .install(Arc::new(file), false)
                 .expect("a new table has room for stdio");
@@ -223,6 +245,7 @@ impl Kernel {
             pid: id,
             start: self.host.monotonic(),
             ident: Mutex::new(ident::Ident::new(id.0, &config.args)),
+            cred: Mutex::new(cred),
             resources: Mutex::default(),
             args: Mutex::new(config.args),
             env: Mutex::new(config.env),
@@ -286,7 +309,7 @@ impl Syscalls for Kernel {
     async fn startup_size(&self, caller: &Caller<'_>) -> SysResult<u32> {
         let process = self.process(caller.task());
         let (args, env) = (process.args.lock().unwrap(), process.env.lock().unwrap());
-        Ok(Startup::new(&args, &env).size()?)
+        Ok(Startup::new(&args, &env, process.identity()).size()?)
     }
 
     async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
@@ -298,7 +321,7 @@ impl Syscalls for Kernel {
             process.args.lock().unwrap().clone(),
             process.env.lock().unwrap().clone(),
         );
-        let startup = Startup::new(&args, &env);
+        let startup = Startup::new(&args, &env, process.identity());
         // The address space starts out as the image left it.
         self.mem_size(caller).await;
         if buf.len < startup.size()? {
@@ -1347,35 +1370,35 @@ impl Syscalls for Kernel {
     async fn getppid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
         Ok(self.sys_getppid(caller))
     }
-    async fn getuid(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(ID)
+    async fn getuid(&self, caller: &Caller<'_>) -> SysResult<i32> {
+        Ok(self.sys_getid(caller, IdKind::User, false))
     }
-    async fn geteuid(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(ID)
+    async fn geteuid(&self, caller: &Caller<'_>) -> SysResult<i32> {
+        Ok(self.sys_getid(caller, IdKind::User, true))
     }
-    async fn getgid(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(ID)
+    async fn getgid(&self, caller: &Caller<'_>) -> SysResult<i32> {
+        Ok(self.sys_getid(caller, IdKind::Group, false))
     }
-    async fn getegid(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(ID)
+    async fn getegid(&self, caller: &Caller<'_>) -> SysResult<i32> {
+        Ok(self.sys_getid(caller, IdKind::Group, true))
     }
-    async fn setuid(&self, _: &Caller<'_>, uid: Uid) -> SysResult<i32> {
-        self.sys_set_ids(&[uid])
+    async fn setuid(&self, caller: &Caller<'_>, uid: Uid) -> SysResult<i32> {
+        self.sys_set_ids(caller, IdKind::User, IdChange::Id(uid))
     }
-    async fn setgid(&self, _: &Caller<'_>, gid: Gid) -> SysResult<i32> {
-        self.sys_set_ids(&[gid])
+    async fn setgid(&self, caller: &Caller<'_>, gid: Gid) -> SysResult<i32> {
+        self.sys_set_ids(caller, IdKind::Group, IdChange::Id(gid))
     }
-    async fn setreuid(&self, _: &Caller<'_>, ruid: Uid, euid: Uid) -> SysResult<i32> {
-        self.sys_set_ids(&[ruid, euid])
+    async fn setreuid(&self, caller: &Caller<'_>, ruid: Uid, euid: Uid) -> SysResult<i32> {
+        self.sys_set_ids(caller, IdKind::User, IdChange::Re(ruid, euid))
     }
-    async fn setregid(&self, _: &Caller<'_>, rgid: Gid, egid: Gid) -> SysResult<i32> {
-        self.sys_set_ids(&[rgid, egid])
+    async fn setregid(&self, caller: &Caller<'_>, rgid: Gid, egid: Gid) -> SysResult<i32> {
+        self.sys_set_ids(caller, IdKind::Group, IdChange::Re(rgid, egid))
     }
-    async fn setresuid(&self, _: &Caller<'_>, r: Uid, e: Uid, s: Uid) -> SysResult<i32> {
-        self.sys_set_ids(&[r, e, s])
+    async fn setresuid(&self, caller: &Caller<'_>, r: Uid, e: Uid, s: Uid) -> SysResult<i32> {
+        self.sys_set_ids(caller, IdKind::User, IdChange::Res(r, e, s))
     }
-    async fn setresgid(&self, _: &Caller<'_>, r: Gid, e: Gid, s: Gid) -> SysResult<i32> {
-        self.sys_set_ids(&[r, e, s])
+    async fn setresgid(&self, caller: &Caller<'_>, r: Gid, e: Gid, s: Gid) -> SysResult<i32> {
+        self.sys_set_ids(caller, IdKind::Group, IdChange::Res(r, e, s))
     }
     async fn getresuid(
         &self,
@@ -1384,7 +1407,7 @@ impl Syscalls for Kernel {
         e: UidPtr,
         s: UidPtr,
     ) -> SysResult<i32> {
-        self.sys_getresid(caller, [r, e, s]).await
+        self.sys_getresid(caller, IdKind::User, [r, e, s]).await
     }
     async fn getresgid(
         &self,
@@ -1393,19 +1416,40 @@ impl Syscalls for Kernel {
         e: GidPtr,
         s: GidPtr,
     ) -> SysResult<i32> {
-        self.sys_getresid(caller, [r, e, s]).await
+        self.sys_getresid(caller, IdKind::Group, [r, e, s]).await
     }
-    async fn setfsuid(&self, _: &Caller<'_>, _: Uid) -> SysResult<i32> {
-        self.sys_setfsid()
+    async fn setfsuid(&self, caller: &Caller<'_>, uid: Uid) -> SysResult<i32> {
+        self.sys_setfsid(caller, IdKind::User, uid)
     }
-    async fn setfsgid(&self, _: &Caller<'_>, _: Gid) -> SysResult<i32> {
-        self.sys_setfsid()
+    async fn setfsgid(&self, caller: &Caller<'_>, gid: Gid) -> SysResult<i32> {
+        self.sys_setfsid(caller, IdKind::Group, gid)
     }
     async fn getgroups(&self, caller: &Caller<'_>, size: i32, list: GidArray) -> SysResult<i32> {
         self.sys_getgroups(caller, size, list).await
     }
-    async fn setgroups(&self, _: &Caller<'_>, _: i32, _: ConstGidArray) -> SysResult<i32> {
-        Err(Errno::EPERM.into())
+    async fn setgroups(
+        &self,
+        caller: &Caller<'_>,
+        size: i32,
+        list: ConstGidArray,
+    ) -> SysResult<i32> {
+        self.sys_setgroups(caller, size, list).await
+    }
+    async fn capget(
+        &self,
+        caller: &Caller<'_>,
+        header: wasixv2_abi::UserCapHeaderPtr,
+        data: wasixv2_abi::UserCapDataArray,
+    ) -> SysResult<i32> {
+        self.sys_capget(caller, header, data).await
+    }
+    async fn capset(
+        &self,
+        caller: &Caller<'_>,
+        header: wasixv2_abi::UserCapHeaderPtr,
+        data: wasixv2_abi::ConstUserCapDataArray,
+    ) -> SysResult<i32> {
+        self.sys_capset(caller, header, data).await
     }
     async fn getpgid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
         self.sys_getpgid(caller, pid)
@@ -1422,11 +1466,11 @@ impl Syscalls for Kernel {
     async fn uname(&self, caller: &Caller<'_>, name: NewUtsnamePtr) -> SysResult<i32> {
         self.sys_uname(caller, name).await
     }
-    async fn sethostname(&self, _: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
-        self.sys_sethostname(name, len)
+    async fn sethostname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
+        self.sys_sethostname(caller, name, len, false).await
     }
-    async fn setdomainname(&self, _: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
-        self.sys_sethostname(name, len)
+    async fn setdomainname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
+        self.sys_sethostname(caller, name, len, true).await
     }
     async fn personality(&self, caller: &Caller<'_>, personality: u32) -> SysResult<i32> {
         self.sys_personality(caller, personality)

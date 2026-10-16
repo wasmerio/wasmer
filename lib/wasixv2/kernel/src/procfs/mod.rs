@@ -39,6 +39,7 @@ impl Kernel {
             vfs: Arc::downgrade(&self.vfs),
             host: self.host.clone(),
             network: self.network.clone(),
+            uts: self.uts.clone(),
             mounted: HostClock(self.host.clone()).now(),
         };
         Arc::new(ProcFs {
@@ -88,6 +89,8 @@ struct Source {
     vfs: Weak<Vfs>,
     host: Arc<dyn Host>,
     network: Option<Arc<dyn Network>>,
+    /// The UTS names, for `/proc/version` and `/proc/sys/kernel`.
+    uts: Arc<Mutex<wasixv2_abi::NewUtsname>>,
     /// Every node's timestamps: when the filesystem was made.
     mounted: Timestamp,
 }

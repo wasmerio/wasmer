@@ -25,7 +25,7 @@ use wasixv2_syscalls::{
 use wasixv2_wait::{Interrupt, WaitQueue, Waiter, Wakeup};
 
 use crate::{
-    ID, Kernel,
+    Kernel, Process,
     posix_timer::{self, PosixTimer},
     time,
     timer::{self, Timer},
@@ -269,12 +269,13 @@ fn kernel_info(sig: i32) -> Siginfo {
     }
 }
 
-/// A `siginfo` for a signal a process sent: `si_pid` and `si_uid` are its first fields.
-fn user_info(sig: i32, code: SiCode, pid: Pid) -> Siginfo {
+/// A `siginfo` for a signal a process sent: `si_pid` and `si_uid` (its real uid) are its first
+/// fields.
+fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
     let mut info = kernel_info(sig);
     info.si_code = code.0;
     info.sifields[0..4].copy_from_slice(&pid.to_le_bytes());
-    info.sifields[4..8].copy_from_slice(&ID.to_le_bytes());
+    info.sifields[4..8].copy_from_slice(&uid.to_le_bytes());
     info
 }
 
@@ -790,8 +791,7 @@ impl Kernel {
     /// `send_sig(SIGPIPE, current, 0)` when a write failed with `EPIPE`.
     pub(crate) fn sigpipe<T>(&self, caller: &Caller<'_>, ret: SysResult<T>) -> SysResult<T> {
         if ret.as_ref().err() == Some(&SysErr::Errno(Errno::EPIPE)) {
-            let pid = self.tgid(caller.task());
-            let info = user_info(Signal::SIGPIPE.0, SiCode::SI_USER, pid);
+            let info = self.sender_info(caller, Signal::SIGPIPE.0, SiCode::SI_USER);
             let signals = self.task_signals(caller.task());
             signals.group.send(Some(caller.task()), info);
         }
@@ -1098,18 +1098,46 @@ impl Kernel {
             return Err(Errno::EPERM.into());
         }
         info.si_signo = sig;
+        let sender = Some(&*self.process(caller.task()));
         match tid {
-            Some(tid) => self.send_to_task(Some(tgid), tid, info)?,
-            None => self.send_to_group(tgid, info)?,
+            Some(tid) => self.send_to_task(sender, Some(tgid), tid, info)?,
+            None => self.send_to_group(sender, tgid, info)?,
         }
         Ok(0)
     }
 
-    fn send_to_group(&self, pid: Pid, info: Siginfo) -> Result<(), Errno> {
+    /// A `siginfo` naming the caller's process as the sender.
+    fn sender_info(&self, caller: &Caller<'_>, sig: i32, code: SiCode) -> Siginfo {
+        let process = self.process(caller.task());
+        let uid = process.cred().user.real;
+        user_info(sig, code, process.pid.0 as Pid, uid)
+    }
+
+    /// `check_kill_permission` for a signal from `sender` (`None`: from outside the machine,
+    /// which may signal anything) to the process `target`: `kill_ok_by_cred`, or `SIGCONT`
+    /// within the sender's session.
+    fn may_signal(&self, sender: Option<&Process>, target: Pid, sig: i32) -> bool {
+        let (Some(sender), Some(target)) = (sender, self.procs.find(target as u32)) else {
+            return true;
+        };
+        sender.cred().may_signal(&target.cred())
+            || (sig == Signal::SIGCONT.0
+                && sender.ident.lock().unwrap().sid == target.ident.lock().unwrap().sid)
+    }
+
+    fn send_to_group(
+        &self,
+        sender: Option<&Process>,
+        pid: Pid,
+        info: Siginfo,
+    ) -> Result<(), Errno> {
         let groups = self.groups(Some(pid));
         let Some((_, group)) = groups.first() else {
             return Err(Errno::ESRCH);
         };
+        if !self.may_signal(sender, pid, info.si_signo) {
+            return Err(Errno::EPERM);
+        }
         if info.si_signo != 0 {
             group.send(None, info);
         }
@@ -1123,11 +1151,17 @@ impl Kernel {
     /// return from a syscall).
     pub fn kill(&self, pid: TaskId, sig: Signal) -> Result<(), Errno> {
         let sig = check_signal(sig)?;
-        self.send_to_group(pid.0 as Pid, user_info(sig, SiCode::SI_USER, 0))
+        self.send_to_group(None, pid.0 as Pid, user_info(sig, SiCode::SI_USER, 0, 0))
     }
 
     /// `do_tkill`: `tgid` must own `tid` when given.
-    fn send_to_task(&self, tgid: Option<Pid>, tid: Pid, info: Siginfo) -> Result<(), Errno> {
+    fn send_to_task(
+        &self,
+        sender: Option<&Process>,
+        tgid: Option<Pid>,
+        tid: Pid,
+        info: Siginfo,
+    ) -> Result<(), Errno> {
         if tid <= 0 || tgid.is_some_and(|tgid| tgid <= 0) {
             return Err(Errno::EINVAL);
         }
@@ -1137,9 +1171,12 @@ impl Kernel {
                 .tasks
                 .get(&TaskId(tid as u32))
                 .filter(|task| tgid.is_none_or(|tgid| task.process.pid.0 as Pid == tgid))
-                .map(|task| task.signals.group().clone())
+                .map(|task| (task.process.pid.0 as Pid, task.signals.group().clone()))
         };
-        let group = target.ok_or(Errno::ESRCH)?;
+        let (pid, group) = target.ok_or(Errno::ESRCH)?;
+        if !self.may_signal(sender, pid, info.si_signo) {
+            return Err(Errno::EPERM);
+        }
         if info.si_signo != 0 {
             group.send(Some(TaskId(tid as u32)), info);
         }
@@ -1156,7 +1193,7 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let me = self.tgid(caller.task());
-        let info = user_info(sig.0, SiCode::SI_USER, me);
+        let info = self.sender_info(caller, sig.0, SiCode::SI_USER);
         let targets: Vec<_> = match pid {
             // ---- proc ----
             0 => self.pgrp_groups(self.pgid_of(me)),
@@ -1171,12 +1208,23 @@ impl Kernel {
         if targets.is_empty() {
             return Err(Errno::ESRCH.into());
         }
-        if sig.0 != 0 {
-            for (_, group) in targets {
+        let sender = self.process(caller.task());
+        let mut sent = false;
+        for (target, group) in targets {
+            if !self.may_signal(Some(&sender), target, sig.0) {
+                continue;
+            }
+            sent = true;
+            if sig.0 != 0 {
                 group.send(None, info);
             }
         }
-        Ok(0)
+        // A process group or a single process none of which may be signalled is `EPERM`;
+        // `kill(-1)` only reports targets that do not exist.
+        match sent || pid == -1 {
+            true => Ok(0),
+            false => Err(Errno::EPERM.into()),
+        }
     }
 
     pub(crate) async fn sys_tgkill(
@@ -1189,8 +1237,9 @@ impl Kernel {
         if !(0..=NSIG).contains(&sig.0) {
             return Err(Errno::EINVAL.into());
         }
-        let info = user_info(sig.0, SiCode::SI_TKILL, self.tgid(caller.task()));
-        self.send_to_task(tgid, tid, info)?;
+        let info = self.sender_info(caller, sig.0, SiCode::SI_TKILL);
+        let sender = self.process(caller.task());
+        self.send_to_task(Some(&sender), tgid, tid, info)?;
         Ok(0)
     }
 

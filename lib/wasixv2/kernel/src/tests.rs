@@ -133,12 +133,7 @@ fn spawn_with_stdin(
     env: &[&str],
 ) -> (Kernel, TaskId, Arc<Capture>) {
     let host: Arc<dyn Host> = Arc::new(TestHost);
-    let root = MemFs::new(
-        Arc::new(HostClock(host.clone())),
-        0o755,
-        ID as u32,
-        ID as u32,
-    );
+    let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1);
     let kernel = Kernel::new(host, Arc::new(root));
     let stdout = Arc::new(Capture::default());
     let task = kernel.spawn(ProcessConfig {
@@ -609,6 +604,7 @@ fn prlimit_of_another_process_sets_its_descriptor_limit() {
     assert_eq!(dup(task), Some(Fd(3)));
 }
 
+mod cred;
 mod ipc;
 mod net;
 mod proc;

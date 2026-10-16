@@ -210,7 +210,7 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `chroot`: needs `CAP_SYS_CHROOT`, which processes do not have yet.
+    /// `chroot`: needs `CAP_SYS_CHROOT`.
     pub(crate) async fn sys_chroot(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
         let path = read_path(caller.memory(), filename).await?;
         let env = self.env(caller);

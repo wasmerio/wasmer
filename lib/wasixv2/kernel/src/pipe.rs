@@ -266,15 +266,15 @@ impl PipeEnd {
     }
 
     /// `pipe_set_size` with `round_pipe_size`.
-    fn set_size(&self, size: u32) -> Result<usize, Errno> {
+    fn set_size(&self, size: u32, privileged: bool) -> Result<usize, Errno> {
         let size = size as usize;
         let size = match size {
             0 => return Err(Errno::EINVAL),
             _ if size > 1 << 31 => return Err(Errno::EINVAL),
             _ => size.max(PIPE_PAGE).next_power_of_two(),
         };
-        // The caller has no CAP_SYS_RESOURCE.
-        if size > MAX_SIZE {
+        // CAP_SYS_RESOURCE lifts the limit.
+        if size > MAX_SIZE && !privileged {
             return Err(Errno::EPERM);
         }
         let mut state = self.pipe.state.lock().unwrap();
@@ -342,11 +342,12 @@ impl FileObject for PipeEnd {
 }
 
 /// `pipe_fcntl`: `F_GETPIPE_SZ` and `F_SETPIPE_SZ`; `EBADF` for anything but a pipe.
-pub(crate) fn fcntl(file: &OpenFile, cmd: FcntlCmd, arg: u32) -> SysResult<i32> {
+/// `privileged` is whether the caller has `CAP_SYS_RESOURCE`, which lifts the size limit.
+pub(crate) fn fcntl(file: &OpenFile, cmd: FcntlCmd, arg: u32, privileged: bool) -> SysResult<i32> {
     let end = file.downcast::<PipeEnd>().ok_or(Errno::EBADF)?;
     let size = match cmd {
         FcntlCmd::F_GETPIPE_SZ => end.pipe.state.lock().unwrap().capacity,
-        _ => end.set_size(arg)?,
+        _ => end.set_size(arg, privileged)?,
     };
     Ok(size as i32)
 }
@@ -366,7 +367,7 @@ impl Kernel {
         }
         let (read, write) = pipe();
         // The pipe hangs off its inode, as a FIFO's does, so `/proc/<pid>/fd/<n>` reopens it.
-        let path = self.pseudo.pipe();
+        let path = self.pseudo.pipe(self.cred(caller).fs_owner());
         let pipe: Bound = read.pipe.clone();
         path.dentry.inode().bind(&pipe);
         let status = flags & OpenFlags::O_NONBLOCK;

@@ -24,7 +24,7 @@ use wasixv2_syscalls::{
     Caller, Errno, Fd, SysErr, SysResult, UserMemory, UserSlice, UserSliceMut, read_value,
     write_value,
 };
-use wasixv2_vfs::Path;
+use wasixv2_vfs::{Cap, Path};
 use wasixv2_vnet::{Control, Domain, SendMsg, Shutdown, SocketKind};
 use wasixv2_wait::PollMask;
 
@@ -124,7 +124,8 @@ impl Kernel {
         sock: Arc<unix::Sock>,
         flags: SocketFlags,
     ) -> SysResult<Fd> {
-        let file = unix_file(sock, flags, self.pseudo.socket());
+        let owner = self.cred(caller).fs_owner();
+        let file = unix_file(sock, flags, self.pseudo.socket(owner));
         let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
         Ok(fd)
     }
@@ -139,14 +140,19 @@ impl Kernel {
     }
 
     /// An open file for the IP socket `socket`.
-    fn socket_file(&self, socket: Arc<dyn wasixv2_vnet::Socket>, flags: SocketFlags) -> OpenFile {
+    fn socket_file(
+        &self,
+        caller: &Caller<'_>,
+        socket: Arc<dyn wasixv2_vnet::Socket>,
+        flags: SocketFlags,
+    ) -> OpenFile {
         let mut status = OpenFlags::O_RDWR;
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
         let object = SocketFile::new(socket, self.host.clone());
         OpenFile::new(
-            Backing::Stream(Arc::new(object), self.pseudo.socket()),
+            Backing::Stream(Arc::new(object), self.pseudo.socket(self.cred(caller).fs_owner())),
             status,
         )
     }
@@ -174,13 +180,16 @@ impl Kernel {
         let kind = match kind {
             SocketType::SOCK_STREAM => SocketKind::Stream,
             SocketType::SOCK_DGRAM => SocketKind::Datagram,
-            // `inet_create` matches raw sockets, then wants CAP_NET_RAW.
-            SocketType::SOCK_RAW => return Err(Errno::EPERM.into()),
+            // `inet_create` matches raw sockets, then wants CAP_NET_RAW. With it, they are
+            // still not implemented.
+            SocketType::SOCK_RAW if !self.cred(caller).capable(Cap::NetRaw) => {
+                return Err(Errno::EPERM.into());
+            }
             _ => return Err(Errno::ESOCKTNOSUPPORT.into()),
         };
         let network = self.network.as_ref().ok_or(Errno::EAFNOSUPPORT)?;
         let socket = network.socket(domain, kind, protocol)?;
-        let file = self.socket_file(socket, flags);
+        let file = self.socket_file(caller, socket, flags);
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [fd] = self.install_files(caller, [file], cloexec)?;
         Ok(fd)
@@ -206,9 +215,10 @@ impl Kernel {
         let a = self.unix_socket(caller, kind, protocol)?;
         let b = self.unix_socket(caller, kind, protocol)?;
         unix::Sock::pair(&a, &b);
+        let owner = self.cred(caller).fs_owner();
         let files = [
-            unix_file(a, flags, self.pseudo.socket()),
-            unix_file(b, flags, self.pseudo.socket()),
+            unix_file(a, flags, self.pseudo.socket(owner)),
+            unix_file(b, flags, self.pseudo.socket(owner)),
         ];
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         self.install_pair(caller, usockvec, files, cloexec).await?;
@@ -235,8 +245,8 @@ impl Kernel {
         if socket::family(&raw)? == AddressFamily::AF_UNSPEC && !addr.ip().is_unspecified() {
             return Err(Errno::EAFNOSUPPORT.into());
         }
-        // Processes have no capabilities, so no CAP_NET_BIND_SERVICE.
-        sock.socket.bind(addr, false)?;
+        let privileged = self.cred(caller).capable(Cap::NetBindService);
+        sock.socket.bind(addr, privileged)?;
         Ok(0)
     }
 
@@ -283,7 +293,7 @@ impl Kernel {
                     self.install_accepted(caller, cloexec, || {
                         let accepted = sock.socket.accept()?;
                         let peer = socket::encode(accepted.peer);
-                        Ok((self.socket_file(accepted.socket, flags), peer))
+                        Ok((self.socket_file(caller, accepted.socket, flags), peer))
                     })
                 })
                 .await?
@@ -298,7 +308,8 @@ impl Kernel {
                         // The embryo is an open file at once, so every way out releases it.
                         let embryo = sock.try_accept()?;
                         let peer = embryo.peer_addr().unwrap_or_default();
-                        Ok((unix_file(embryo, flags, self.pseudo.socket()), peer))
+                        let owner = self.cred(caller).fs_owner();
+                        Ok((unix_file(embryo, flags, self.pseudo.socket(owner)), peer))
                     })
                 })
                 .await?

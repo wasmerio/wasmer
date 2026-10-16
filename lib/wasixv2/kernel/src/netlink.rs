@@ -506,7 +506,7 @@ impl Kernel {
             status |= OpenFlags::O_NONBLOCK;
         }
         let file = OpenFile::new(
-            Backing::Stream(Arc::new(socket), self.pseudo.socket()),
+            Backing::Stream(Arc::new(socket), self.pseudo.socket(self.cred(caller).fs_owner())),
             status,
         );
         let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;

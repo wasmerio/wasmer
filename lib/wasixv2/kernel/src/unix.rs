@@ -24,7 +24,7 @@ use std::{
 use wasixv2_abi::{AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, SocketOption, SocketType};
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult, write_value};
-use wasixv2_vfs::{FileType, LookupFlags, MAY_WRITE};
+use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_WRITE};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
@@ -1108,11 +1108,23 @@ pub(crate) async fn send(
 impl Kernel {
     /// The credentials `SCM_CREDENTIALS` and `SO_PEERCRED` report for the caller.
     pub(crate) fn ucred(&self, caller: &Caller<'_>) -> Ucred {
+        let process = self.process(caller.task());
+        let (uid, gid) = process.cred().ucred_ids();
         Ucred {
-            pid: self.process(caller.task()).pid.0 as i32,
-            uid: crate::ID as u32,
-            gid: crate::ID as u32,
+            pid: process.pid.0 as i32,
+            uid,
+            gid,
         }
+    }
+
+    /// `scm_check_creds`: a process may claim its own pid and any of its real, effective or
+    /// saved ids, and others with `CAP_SYS_ADMIN`, `CAP_SETUID` and `CAP_SETGID`.
+    fn may_claim(&self, caller: &Caller<'_>, claim: &Ucred) -> bool {
+        let process = self.process(caller.task());
+        let cred = process.cred();
+        (claim.pid == process.pid.0 as i32 || cred.capable(Cap::SysAdmin))
+            && (cred.user.holds(claim.uid) || cred.capable(Cap::Setuid))
+            && (cred.group.holds(claim.gid) || cred.capable(Cap::Setgid))
     }
 
     /// `unix_create`.
@@ -1301,8 +1313,7 @@ impl Kernel {
                     let cred = Ucred::from_bytes(&control.data)
                         .filter(|_| control.data.len() == 12)
                         .ok_or(Errno::EINVAL)?;
-                    // Without capabilities, a process can only claim itself.
-                    if cred != self.ucred(caller) {
+                    if !self.may_claim(caller, &cred) {
                         return Err(Errno::EPERM.into());
                     }
                     anc.cred = Some(cred);

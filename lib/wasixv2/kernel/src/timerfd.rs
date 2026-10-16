@@ -173,10 +173,15 @@ impl Kernel {
         let clock = match clockid {
             ClockId::CLOCK_REALTIME => Clock::Realtime,
             ClockId::CLOCK_MONOTONIC | ClockId::CLOCK_BOOTTIME => Clock::Monotonic,
-            // The alarm clocks need CAP_WAKE_ALARM.
-            ClockId::CLOCK_REALTIME_ALARM | ClockId::CLOCK_BOOTTIME_ALARM => {
+            // The alarm clocks need CAP_WAKE_ALARM. A machine never suspends, so they run as
+            // their plain clocks do.
+            ClockId::CLOCK_REALTIME_ALARM | ClockId::CLOCK_BOOTTIME_ALARM
+                if !self.cred(caller).capable(wasixv2_vfs::Cap::WakeAlarm) =>
+            {
                 return Err(Errno::EPERM.into());
             }
+            ClockId::CLOCK_REALTIME_ALARM => Clock::Realtime,
+            ClockId::CLOCK_BOOTTIME_ALARM => Clock::Monotonic,
             _ => return Err(Errno::EINVAL.into()),
         };
         let object = TimerFd(Arc::new_cyclic(|inner: &Weak<Inner>| {
