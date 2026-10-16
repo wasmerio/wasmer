@@ -69,7 +69,7 @@ where
     }
 
     fn matches(&self, module: &Module) -> bool {
-        flavor(module.imports().map(|import| import.module().to_owned())) == Some(V1Flavor::Wasm32)
+        module_flavor(module) == Some(V1Flavor::Wasm32)
     }
 
     fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>) -> Imports {
@@ -134,6 +134,11 @@ pub fn is_wasix1_module(wasm: &[u8]) -> Option<V1Flavor> {
         }
     }
     None
+}
+
+/// [`is_wasix1_module`] for a compiled module, e.g. one deserialized from an artifact.
+pub fn module_flavor(module: &Module) -> Option<V1Flavor> {
+    flavor(module.imports().map(|import| import.module().to_owned()))
 }
 
 /// The flavour of a module importing from `modules`.
