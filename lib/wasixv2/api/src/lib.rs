@@ -13,10 +13,10 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
+use wasixv2_exec::{Abis, Wasixv2};
 pub use wasixv2_exec::{ExecError, instrument, load};
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
-use wasixv2_exec::{Abis, Wasixv2};
 #[cfg(feature = "tokio")]
 pub use wasixv2_host::TokioHost;
 #[cfg(feature = "web")]
@@ -139,7 +139,12 @@ impl MachineBuilder {
 
     /// Boots on `root` instead of the [`default_root`], such as an embedder's image. `/proc`,
     /// `/dev`, `/dev/shm` and `/tmp` are mounted on it, their directories made where missing;
-    /// a mount point that cannot be made (on a read-only root) is left out.
+    /// a mount point that cannot be made (on a read-only root) is left out. [`build`] mounts
+    /// them at once, so `root` must answer at once, as memory filesystems do; layers that answer
+    /// asynchronously, such as host directories, go under it with
+    /// [`Machine::mount_root_lower_host_dir`].
+    ///
+    /// [`build`]: MachineBuilder::build
     pub fn root(mut self, root: Arc<dyn Filesystem>) -> Self {
         self.root = Some(root);
         self
@@ -155,8 +160,10 @@ impl MachineBuilder {
         let owner = (user.uid(), user.gid());
         let network = default_network();
         let root = root.unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user));
+        let kernel = boot(&host, root.clone(), &network, &user, &uname);
+        now(mount_kernel_filesystems(&kernel, &host));
         Machine {
-            syscalls: kernel(&host, root.clone(), &network, &user, &uname),
+            syscalls: Arc::new(Layered::new(Trace, kernel)),
             abis: Arc::new(default_abis()),
             network,
             host,
@@ -207,25 +214,25 @@ impl Machine {
     ///
     /// The root can only change on a fresh machine: this fails with `EBUSY` after anything was
     /// mounted or run, or a [`Signaller`] was handed out.
-    pub fn mount_root_lower(&mut self, reader: &OwnedReader, volume: &str) -> io::Result<()> {
+    pub async fn mount_root_lower(&mut self, reader: &OwnedReader, volume: &str) -> io::Result<()> {
         let (uid, gid) = self.owner;
         let lower = PackageFs::with_owner(reader, volume, uid, gid).map_err(io::Error::other)?;
-        self.push_root_lower(Arc::new(lower))
+        self.push_root_lower(Arc::new(lower)).await
     }
 
     /// [`Machine::mount_root_lower`] for the host directory `host_dir`, which the guest sees
     /// through the root but never changes: changes stay in the top layer. This is how a
     /// host directory mapped to `/` is mounted, since nothing can be mounted over the root.
-    pub fn mount_root_lower_host_dir(&mut self, host_dir: &Path) -> io::Result<()> {
+    pub async fn mount_root_lower_host_dir(&mut self, host_dir: &Path) -> io::Result<()> {
         let options = wasixv2_vfs_host::Options {
             read_only: true,
             owner: self.owner,
         };
         let lower = wasixv2_vfs_host::open(host_dir, self.host.clone(), options)?;
-        self.push_root_lower(lower)
+        self.push_root_lower(lower).await
     }
 
-    fn push_root_lower(&mut self, lower: Arc<dyn Filesystem>) -> io::Result<()> {
+    async fn push_root_lower(&mut self, lower: Arc<dyn Filesystem>) -> io::Result<()> {
         if *self.in_use.get_mut() {
             return Err(errno_to_io(Errno::EBUSY));
         }
@@ -235,8 +242,10 @@ impl Machine {
         self.root_lowers.insert(0, lower);
         let root = OverlayFs::new(Some(self.root_upper.clone()), self.root_lowers.clone());
         // Nothing lives in the kernel yet, so a new one on the new root replaces it, with the
-        // kernel's filesystems mounted afresh.
-        self.syscalls = kernel(&self.host, root, &self.network, &self.user, &self.uname);
+        // kernel's filesystems mounted afresh; a host directory's layer answers asynchronously.
+        let kernel = boot(&self.host, root, &self.network, &self.user, &self.uname);
+        mount_kernel_filesystems(&kernel, &self.host).await;
+        self.syscalls = Arc::new(Layered::new(Trace, kernel));
         Ok(())
     }
 
@@ -446,22 +455,20 @@ impl Signaller {
     }
 }
 
-/// Boots a kernel on `root` with the machine's network, user and names, and mounts the kernel's
-/// own filesystems on it.
-fn kernel(
+/// A kernel on `root` with the machine's network, user and names; its own filesystems are
+/// mounted next ([`mount_kernel_filesystems`]).
+fn boot(
     host: &Arc<dyn Host>,
     root: Arc<dyn Filesystem>,
     network: &Arc<Net>,
     user: &Credentials,
     uname: &Uname,
-) -> Arc<Layered<Trace, Kernel>> {
-    let kernel = Kernel::new(host.clone(), root)
+) -> Kernel {
+    Kernel::new(host.clone(), root)
         .with_network(network.clone())
         .with_shm(shm_filesystem(host))
         .with_credentials(user.clone())
-        .with_uname(uname);
-    mount_kernel_filesystems(&kernel, host);
-    Arc::new(Layered::new(Trace, kernel))
+        .with_uname(uname)
 }
 
 fn default_abis() -> Abis<Layered<Trace, Kernel>> {
@@ -612,7 +619,7 @@ fn group(gid: u32) -> String {
 /// filesystem with the device nodes, as devtmpfs is, and the conventional links into
 /// `/proc/self/fd`), and memory filesystems at `/dev/shm` for POSIX shared memory and at
 /// `/tmp`, world-writable and sticky.
-fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
+async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
     let vfs = kernel.vfs();
     let tmpfs = |mode| -> Arc<dyn Filesystem> {
         Arc::new(MemFs::new(Arc::new(HostClock(host.clone())), mode, 0, 0))
@@ -662,7 +669,9 @@ fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
         mount("/tmp", tmpfs(0o1777), flags(true, false)).await;
         Ok::<_, Errno>(())
     };
-    now(mounts).expect("the kernel's filesystems take their layout");
+    mounts
+        .await
+        .expect("the kernel's filesystems take their layout");
 }
 
 /// Runs `future`, which never waits: memory filesystems and the kernel's own complete every
