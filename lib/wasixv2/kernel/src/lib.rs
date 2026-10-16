@@ -22,6 +22,7 @@ mod procfs;
 mod pseudo;
 mod resource;
 mod signal;
+mod signalfd;
 mod socket;
 mod startup;
 mod stdio;
@@ -1654,6 +1655,18 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         self.sys_clock_nanosleep(caller, clock, flags, rqtp).await
     }
+    async fn signalfd4(
+        &self,
+        caller: &Caller<'_>,
+        ufd: Fd,
+        user_mask: ConstSigsetPtr,
+        sizemask: Usize,
+        flags: wasixv2_abi::SignalfdFlags,
+    ) -> SysResult<Fd> {
+        self.sys_signalfd4(caller, ufd, user_mask, sizemask, flags)
+            .await
+    }
+
     async fn timerfd_create(
         &self,
         caller: &Caller<'_>,

@@ -438,6 +438,36 @@ impl TaskSignals {
         self.group.state.lock().unwrap().tasks.remove(&self.task);
     }
 
+    // ---- ipc: signalfd ----
+    /// `dequeue_signal` for a signalfd: the next signal in `wanted` pending for the task or its
+    /// group, blocked or not. Once the task is gone, only the group's.
+    pub(crate) fn dequeue_from(&self, wanted: u64) -> Option<Siginfo> {
+        let mut state = self.group.state.lock().unwrap();
+        match state.tasks.contains_key(&self.task) {
+            true => state.dequeue(self.task, wanted),
+            false => {
+                let shared = state.shared.set & wanted;
+                (shared != 0).then(|| state.shared.take(shared.trailing_zeros() as i32 + 1))
+            }
+        }
+    }
+
+    /// Whether a signal in `wanted` is pending for the task or its group.
+    pub(crate) fn has_pending(&self, wanted: u64) -> bool {
+        let state = self.group.state.lock().unwrap();
+        let own = state
+            .tasks
+            .get(&self.task)
+            .map_or(0, |task| task.pending.set);
+        (own | state.shared.set) & wanted != 0
+    }
+
+    /// Woken whenever a signal is sent to the group or one of its tasks.
+    pub(crate) fn sent(&self) -> &WaitQueue {
+        &self.group.queue
+    }
+    // ---- end ipc ----
+
     /// Waits until a signal the task does not block is pending.
     async fn wait_unblocked(&self) {
         let waiter = Waiter::new();
