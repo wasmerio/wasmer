@@ -736,6 +736,17 @@ impl Kernel {
         if prot.contains(ProtFlags::PROT_EXEC) {
             return Err(Errno::EACCES.into());
         }
+        // Write access a shared mapping could never have (`VM_MAYWRITE`).
+        let (start, end) = (u64::from(start), u64::from(start) + u64::from(len));
+        if prot.contains(ProtFlags::PROT_WRITE)
+            && self
+                .mm(caller.task())
+                .space()
+                .mappings
+                .read_only_shared_in(start, end)
+        {
+            return Err(Errno::EACCES.into());
+        }
         Ok(0)
     }
 

@@ -376,6 +376,14 @@ impl Mappings {
         }
     }
 
+    /// Whether a shared mapping that may never be written (`VM_MAYWRITE` clear: its file is not
+    /// open for writing, or is write-sealed) overlaps `[start, end)`.
+    pub(crate) fn read_only_shared_in(&self, start: u64, end: u64) -> bool {
+        self.list.iter().any(|m| {
+            m.start < end && m.end() > start && m.shared().is_some_and(|shared| !shared.writable)
+        })
+    }
+
     pub(crate) fn any_shared(&self) -> bool {
         self.list.iter().any(|m| m.shared().is_some())
     }

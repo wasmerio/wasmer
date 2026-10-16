@@ -216,6 +216,8 @@ fn write_seals_stop_writes_and_writable_shared_mappings() {
     assert_eq!(errno(map_shared(&kernel, &caller, fd, rw)), Errno::EPERM);
     // A read-only one still works, and never writes back.
     let read_only = map_shared(&kernel, &caller, fd, ProtFlags::PROT_READ).unwrap();
+    let mprotect = kernel.mprotect(&caller, read_only, len, rw);
+    assert_eq!(errno(block_on(mprotect)), Errno::EACCES);
     assert_eq!(block_on(kernel.munmap(&caller, read_only, len)), Ok(0));
 
     assert_eq!(
