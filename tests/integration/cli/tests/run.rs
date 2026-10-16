@@ -883,6 +883,47 @@ const WASIXV2_DEAF_WAT: &str = r#"
           (br $forever))))
 "#;
 
+/// Blocks `SIGINT`, prints `ready`, then takes four `SIGINT`s one by one with `rt_sigtimedwait`
+/// and exits with 4, or 100 + errno.
+const WASIXV2_SIGWAIT_FOUR_WAT: &str = r#"
+    (module
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "rt_sigprocmask" (func $sigprocmask (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "rt_sigtimedwait_time64"
+        (func $sigtimedwait (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      ;; The set {SIGINT}.
+      (data (i32.const 8) "\02\00\00\00\00\00\00\00")
+      (data (i32.const 16) "ready\n")
+      (func (export "_start")
+        (local $ret i32)
+        (local $taken i32)
+        ;; SIG_BLOCK
+        (drop (call $sigprocmask (i32.const 0) (i32.const 8) (i32.const 0) (i32.const 8)))
+        (drop (call $write (i32.const 1) (i32.const 16) (i32.const 6)))
+        (loop $next
+          (local.set $ret
+            (call $sigtimedwait (i32.const 8) (i32.const 256) (i32.const 0) (i32.const 8)))
+          (if (i32.lt_s (local.get $ret) (i32.const 0))
+            (then (call $exit_group (i32.sub (i32.const 100) (local.get $ret)))))
+          (local.set $taken (i32.add (local.get $taken) (i32.const 1)))
+          (br_if $next (i32.lt_u (local.get $taken) (i32.const 4))))
+        (call $exit_group (local.get $taken))
+        unreachable))
+"#;
+
+/// Prints `ready`, then spins without ever making a syscall.
+const WASIXV2_SPIN_WAT: &str = r#"
+    (module
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 16) "ready\n")
+      (func (export "_start")
+        (drop (call $write (i32.const 1) (i32.const 16) (i32.const 6)))
+        (loop $forever (br $forever))))
+"#;
+
 /// Runs `wat` with `wasmer run`, waits for it to print `ready`, sends the `wasmer` process
 /// `signals`, a little apart, and returns how it exited. Every signal but the last must leave
 /// it running.
@@ -955,6 +996,52 @@ fn run_wasixv2_exits_on_the_third_sigint() {
     let status = run_wasixv2_and_signal(WASIXV2_DEAF_WAT, &sigints);
     assert_eq!(status.signal(), None, "wasmer died of the signal: {status}");
     assert_eq!(status.code(), Some(130));
+}
+
+/// Ctrl-C only forces an exit while the guest leaves the earlier ones untaken: a guest that takes
+/// every one of them keeps running past the third.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_keeps_a_guest_that_takes_each_sigint() {
+    let sigints = [libc::SIGINT; 4];
+    let status = run_wasixv2_and_signal(WASIXV2_SIGWAIT_FOUR_WAT, &sigints);
+    assert_eq!(status.code(), Some(4), "{status}");
+}
+
+/// A guest spinning without syscalls still takes a signal, at a preemption point.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_signals_a_busy_guest() {
+    let status = run_wasixv2_and_signal(WASIXV2_SPIN_WAT, &[libc::SIGTERM]);
+    assert_eq!(status.code(), Some(128 + 15), "{status}");
+}
+
+/// A trap kills the guest with the signal of its fault, reported as 128 + the signal, and
+/// `wasmer` says why on stderr.
+#[test]
+fn run_wasixv2_reports_a_trap_as_death_by_its_signal() {
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("guest.wat");
+    let wat = r#"
+        (module
+          (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+          (memory (export "memory") 1)
+          (func (export "_start") unreachable))
+    "#;
+    std::fs::write(&module_file, wat).unwrap();
+
+    let output = wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(128 + 4), "{stderr}");
+    assert!(
+        stderr.contains("trapped, killing its process with SIGILL"),
+        "{stderr}"
+    );
 }
 
 // Test that wasmer can run a complex path

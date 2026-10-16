@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{Context, Error, bail};
-use wasixv2::{Credentials, Machine, ProcessConfig, Stdio, Uname};
+use wasixv2::{Credentials, Machine, ProcessConfig, Signaller, Stdio, Uname};
 use wasmer_wasix::{
     Runtime, WasiError, bin_factory::BinaryPackage, runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runtime::task_manager::VirtualTaskManagerExt as _,
@@ -177,12 +177,9 @@ impl Run {
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
             // Installed before the guest starts, so no signal takes the host's default action.
-            force_exit_on_repeated_sigint(runtime).context("cannot install signal handlers")?;
-            let signals = forward_signals(&machine).context("cannot install signal handlers")?;
-            tokio::select! {
-                status = machine.run_process(&program.wasm, config) => Ok::<_, Error>(status?),
-                () = signals => unreachable!("signal forwarding never ends"),
-            }
+            forward_signals(runtime, machine.signaller())
+                .context("cannot install signal handlers")?;
+            Ok::<_, Error>(machine.run_process(&program.wasm, config).await?)
         }));
         let result = match run {
             Ok(0) => Ok(()),
@@ -303,92 +300,88 @@ impl Run {
     }
 }
 
-/// After how many `SIGINT`s (Ctrl-C) `wasmer run` gives up on the guest and exits by itself.
-/// The ones before are forwarded like any other signal, so a guest with a handler gets to shut
-/// down gracefully and one without dies of the first.
+/// After how many `SIGINT`s (Ctrl-C) in a row that the guest leaves pending `wasmer run` gives up
+/// on it and exits by itself. A press that finds the previous one taken starts the count again,
+/// so a guest that handles every Ctrl-C, such as a shell or a REPL, is never cut short; one that
+/// keeps SIGINT blocked, or is stuck where it cannot take it, goes on the third.
 const SIGINTS_TO_FORCE_EXIT: u32 = 3;
 
 /// The guest ABI's `SIGINT` (Linux's numbering).
 const GUEST_SIGINT: i32 = 2;
 
-/// Exits on the [`SIGINTS_TO_FORCE_EXIT`]th Ctrl-C, with 130 (3 on Windows, as the C runtime
-/// does), whatever the guest does. It listens on the runtime's worker threads, so it works
-/// even when the thread driving the guest is stuck.
-fn force_exit_on_repeated_sigint(runtime: &tokio::runtime::Handle) -> io::Result<()> {
+/// Forwards the signals a terminal or supervisor sends `wasmer run` to the guest, as signals from
+/// outside the machine. `^C` and `^\` go to the foreground process group as a terminal sends
+/// them, the others to the process `wasmer run` started, which is also its session leader, as
+/// `kill` and a hangup would. A guest without a handler for a signal dies of it, and `wasmer run`
+/// then exits with the guest's status, 128 + the signal.
+///
+/// The handlers listen on the runtime's worker threads, so they work even when the thread driving
+/// the guest is stuck; [`SIGINTS_TO_FORCE_EXIT`] is the way out then.
+#[cfg(unix)]
+fn forward_signals(runtime: &tokio::runtime::Handle, signaller: Signaller) -> io::Result<()> {
+    use tokio::signal::unix::{SignalKind, signal};
+
+    // Host signal, its number in the guest's ABI, and whether a terminal sends it.
+    const FORWARDED: [(i32, i32, bool); 6] = [
+        (libc::SIGHUP, 1, false),
+        (libc::SIGINT, GUEST_SIGINT, true),
+        (libc::SIGQUIT, 3, true),
+        (libc::SIGUSR1, 10, false),
+        (libc::SIGUSR2, 12, false),
+        (libc::SIGTERM, 15, false),
+    ];
+
     let _context = runtime.enter();
-    #[cfg(unix)]
-    let (mut sigint, status) = (
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?,
-        128 + GUEST_SIGINT,
-    );
-    #[cfg(windows)]
-    let (mut sigint, status) = (tokio::signal::windows::ctrl_c()?, 3);
-    runtime.spawn(async move {
-        for _ in 0..SIGINTS_TO_FORCE_EXIT {
-            if sigint.recv().await.is_none() {
-                return;
+    for (host, guest, terminal) in FORWARDED {
+        let mut stream = signal(SignalKind::from_raw(host))?;
+        let signaller = signaller.clone();
+        runtime.spawn(async move {
+            let mut unanswered = 0;
+            while stream.recv().await.is_some() {
+                if guest == GUEST_SIGINT {
+                    unanswered = match signaller.foreground_pending(guest) {
+                        true => unanswered + 1,
+                        false => 1,
+                    };
+                    if unanswered >= SIGINTS_TO_FORCE_EXIT {
+                        std::process::exit(128 + GUEST_SIGINT);
+                    }
+                }
+                forward(&signaller, guest, terminal);
             }
+        });
+    }
+    Ok(())
+}
+
+/// Forwards Ctrl-C as `SIGINT`; see the Unix version. Exits with 3, as the C runtime does.
+#[cfg(windows)]
+fn forward_signals(runtime: &tokio::runtime::Handle, signaller: Signaller) -> io::Result<()> {
+    let _context = runtime.enter();
+    let mut ctrl_c = tokio::signal::windows::ctrl_c()?;
+    runtime.spawn(async move {
+        let mut unanswered = 0;
+        while ctrl_c.recv().await.is_some() {
+            unanswered = match signaller.foreground_pending(GUEST_SIGINT) {
+                true => unanswered + 1,
+                false => 1,
+            };
+            if unanswered >= SIGINTS_TO_FORCE_EXIT {
+                std::process::exit(3);
+            }
+            forward(&signaller, GUEST_SIGINT, true);
         }
-        std::process::exit(status);
     });
     Ok(())
 }
 
-/// Forwards the signals a terminal or supervisor sends `wasmer run` to the guest processes, as
-/// signals from outside the machine; see [`Machine::signal`]. The handlers are installed now;
-/// the returned future forwards and never completes. A guest without a handler for a signal
-/// dies of it, and `wasmer run` then exits with the guest's status, 128 + the signal.
-///
-/// A guest sees a signal only at its next blocking call or syscall return, so one spinning in
-/// pure computation does not; [`force_exit_on_repeated_sigint`] is the way out then.
-#[cfg(unix)]
-fn forward_signals(machine: &Machine) -> io::Result<impl Future<Output = ()> + '_> {
-    use futures::FutureExt as _;
-    use tokio::signal::unix::{SignalKind, signal};
-
-    // Host signal, and its number in the guest's ABI.
-    const FORWARDED: [(i32, i32); 6] = [
-        (libc::SIGHUP, 1),
-        (libc::SIGINT, GUEST_SIGINT),
-        (libc::SIGQUIT, 3),
-        (libc::SIGUSR1, 10),
-        (libc::SIGUSR2, 12),
-        (libc::SIGTERM, 15),
-    ];
-
-    let listeners = FORWARDED
-        .iter()
-        .map(|&(host, guest)| {
-            let mut stream = signal(SignalKind::from_raw(host))?;
-            Ok(async move {
-                while stream.recv().await.is_some() {
-                    forward(machine, guest);
-                }
-            }
-            .boxed_local())
-        })
-        .collect::<io::Result<Vec<_>>>()?;
-    Ok(async move {
-        futures::future::join_all(listeners).await;
-        std::future::pending().await
-    })
-}
-
-/// Forwards Ctrl-C as `SIGINT`; see the Unix version.
-#[cfg(windows)]
-fn forward_signals(machine: &Machine) -> io::Result<impl Future<Output = ()> + '_> {
-    let mut ctrl_c = tokio::signal::windows::ctrl_c()?;
-    Ok(async move {
-        while ctrl_c.recv().await.is_some() {
-            forward(machine, GUEST_SIGINT);
-        }
-        std::future::pending().await
-    })
-}
-
-fn forward(machine: &Machine, sig: i32) {
+fn forward(signaller: &Signaller, sig: i32, terminal: bool) {
     tracing::debug!(sig, "forwarding a host signal to the guest");
-    if let Err(err) = machine.signal(sig) {
+    let sent = match terminal {
+        true => signaller.signal_foreground(sig),
+        false => signaller.signal(sig),
+    };
+    if let Err(err) = sent {
         tracing::warn!(sig, %err, "cannot forward a signal to the guest");
     }
 }
