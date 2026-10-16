@@ -1,5 +1,6 @@
 //! Process images: `execve` replaces the instance with a new one of the image the kernel
-//! loaded, and vfork switches an instance between the parent and child tasks.
+//! loaded, vfork switches an instance between the parent and child tasks, and a fork child
+//! starts from a copy of its parent's instance.
 //!
 //! A task switch is one field, [`ExecEnv::task`], which every import reads on entry.
 
@@ -13,7 +14,7 @@ use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Control, Syscalls, TaskId};
 use wasmer::{AsyncFunctionEnvMut, Engine, Function, Instance, Module, RuntimeError, Store, Value};
 
-use crate::{ExecEnv, ExecError, thread::NoMemory};
+use crate::{ExecEnv, ExecError, asyncify, thread::NoMemory};
 
 /// The status a process exits with when its new image does not compile or traps.
 // TODO: kill it with SIGSEGV through the kernel.
@@ -30,10 +31,12 @@ pub(crate) enum Ended {
     Exec(Vec<u8>),
 }
 
-/// Starts the image of a vfork child that called `execve`, on its own instance; the type-erased
-/// part of the execution layer that the return-to-guest path can reach.
+/// Starts the processes an instance creates on instances of their own: the image of a vfork
+/// child that called `execve`, and a fork child; the type-erased part of the execution layer
+/// that the return-to-guest path can reach.
 pub(crate) trait Spawn: Send + Sync {
     fn spawn(&self, task: TaskId, image: Vec<u8>);
+    fn fork(&self, task: TaskId, image: asyncify::ForkImage);
 }
 
 pub(crate) struct Spawner<S> {
@@ -63,17 +66,47 @@ where
             self.syscalls.clone(),
             self.host.clone(),
         );
+        self.start(task, move || async move {
+            let store = Store::new(engine);
+            run_bytes(store, image, syscalls, task, host).await
+        });
+    }
+
+    fn fork(&self, task: TaskId, image: asyncify::ForkImage) {
+        let (engine, syscalls, host) = (
+            self.engine.clone(),
+            self.syscalls.clone(),
+            self.host.clone(),
+        );
+        self.start(task, move || async move {
+            let store = Store::new(engine);
+            run_forked(store, image, syscalls, task, host).await
+        });
+    }
+}
+
+impl<S> Spawner<S>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    /// Runs the process `task` on a host thread of its own, ending it as a fault would if its
+    /// image fails or no thread can start.
+    fn start<F, R>(&self, task: TaskId, run: R)
+    where
+        R: FnOnce() -> F + Send + 'static,
+        F: Future<Output = Result<i32, ExecError>> + 'static,
+    {
+        let syscalls = self.syscalls.clone();
         let start = Box::new(move || {
             Box::pin(async move {
-                let store = Store::new(engine);
-                if let Err(err) = run_bytes(store, image, syscalls.clone(), task, host).await {
+                if let Err(err) = run().await {
                     tracing::warn!(tid = task.0, %err, "process image failed");
                     fault(&*syscalls, task).await;
                 }
             }) as wasixv2_host::LocalFuture<'static, ()>
         });
         if let Err(err) = self.host.executor().spawn_thread(start) {
-            tracing::warn!(%err, "cannot start the process image of a vfork child");
+            tracing::warn!(%err, "cannot start a process on a thread of its own");
             // The kernel's exit_group never waits.
             let exit = fault(&*self.syscalls, task);
             let _ = std::pin::pin!(exit).poll(&mut Context::from_waker(Waker::noop()));
@@ -93,7 +126,50 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let engine = store.engine().clone();
-    let mut ended = crate::run_image(store, module, syscalls.clone(), task, host.clone()).await?;
+    let ended = crate::run_image(store, module, syscalls.clone(), task, host.clone()).await?;
+    finish(engine, ended, syscalls, task, host).await
+}
+
+/// Runs a fork child from the copy of its parent's instance, then every image its `execve`
+/// calls load, until the process exits.
+async fn run_forked<S>(
+    store: Store,
+    image: asyncify::ForkImage,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+) -> Result<i32, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    let engine = store.engine().clone();
+    let module = image.module.clone();
+    let ready = crate::instantiate(
+        store,
+        &module,
+        syscalls.clone(),
+        task,
+        host.clone(),
+        Some(&image),
+    )?;
+    let (entry, args, buffer) = (image.entry, image.args.clone(), image.buffer());
+    drop(image);
+    let ended = ready.run(entry, args, Some(buffer)).await?;
+    finish(engine, ended, syscalls, task, host).await
+}
+
+/// Follows `task`'s process from the end of one image's run through the images its `execve`
+/// calls load, until it exits.
+async fn finish<S>(
+    engine: Engine,
+    mut ended: Ended,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+) -> Result<i32, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
     loop {
         match ended {
             Ended::Exited(status) => return Ok(status),
@@ -134,7 +210,7 @@ where
 }
 
 /// Ends `task`'s thread group as a fault would, and returns its status.
-async fn fault<S: Syscalls + Control>(syscalls: &S, task: TaskId) -> i32 {
+pub(crate) async fn fault<S: Syscalls + Control>(syscalls: &S, task: TaskId) -> i32 {
     let _ = syscalls
         .exit_group(&Caller::new(task, &NoMemory), FAULT_STATUS)
         .await;
@@ -159,7 +235,9 @@ pub(crate) async fn spawn_image<S: 'static>(
 
 /// What the execution layer needs of an instance for processes.
 pub(crate) struct ProcExports {
-    spawner: Arc<dyn Spawn>,
+    pub(crate) spawner: Arc<dyn Spawn>,
+    /// The instance's module, which a fork child instantiates.
+    pub(crate) module: Option<Module>,
     /// `wasixv2_vfork_return(child)`, which libc exports to unwind to the vfork point.
     vfork_return: Option<Function>,
 }
@@ -168,11 +246,13 @@ impl ProcExports {
     pub(crate) fn new(spawner: Arc<dyn Spawn>) -> Self {
         Self {
             spawner,
+            module: None,
             vfork_return: None,
         }
     }
 
-    pub(crate) fn set_instance(&mut self, instance: &Instance) {
+    pub(crate) fn set_instance(&mut self, instance: &Instance, module: &Module) {
+        self.module = Some(module.clone());
         self.vfork_return = instance.exports.get_function(VFORK_RETURN).ok().cloned();
     }
 }
@@ -194,8 +274,8 @@ pub(crate) async fn vfork_return<S: 'static>(
             "a vfork child ended, but the guest has no `{VFORK_RETURN}`"
         ));
     };
-    let args = vec![Value::I32(child.0 as i32)];
-    match function.call_async(&env.as_store_async(), args).await {
+    let args = [Value::I32(child.0 as i32)];
+    match asyncify::call(env, None, &function, &args).await {
         Err(err) => err,
         Ok(_) => RuntimeError::new(format!("`{VFORK_RETURN}` returned")),
     }

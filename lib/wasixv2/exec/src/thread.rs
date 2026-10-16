@@ -167,24 +167,34 @@ where
                     self.syscalls.clone(),
                     self.host.clone(),
                 )),
+                asyncify: None,
             },
         );
         let mut imports = generated::imports(&mut store, &env);
+        if crate::asyncify::instrumented(&self.module) {
+            crate::fork::imports(&mut store, &env, &mut imports);
+        }
         let memory = self.memory.clone().try_attach(&mut store)?;
         if let Some(import) = self.module.imports().memories().next() {
             imports.define(import.module(), import.name(), memory.clone());
         }
-        let instance = Instance::new(&mut store, &self.module, &imports)?;
-        env.as_mut(&mut store).memory = Some(memory);
-        env.as_mut(&mut store).signal = crate::signal::SignalExports::new(&instance);
-        env.as_mut(&mut store).proc.set_instance(&instance);
+        let instance = Instance::new(&mut store, &self.module, &imports).map_err(Box::new)?;
+        let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
+        let data = env.as_mut(&mut store);
+        data.memory = Some(memory);
+        data.signal = crate::signal::SignalExports::new(&instance);
+        data.proc.set_instance(&instance, &self.module);
+        data.asyncify = asyncify;
         let entry = instance.exports.get_function(THREAD_ENTRY)?.clone();
         let _registration = register(&self, task);
 
         let store = store.into_async();
+        let cx = crate::asyncify::Outside {
+            env: &env,
+            store: &store,
+        };
         let args = [Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
-        entry
-            .call_async(&store, args.to_vec())
+        crate::asyncify::call(&cx, Some(THREAD_ENTRY), &entry, &args)
             .await
             .map(drop)
             .map_err(ExecError::Trap)

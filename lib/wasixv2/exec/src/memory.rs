@@ -43,6 +43,10 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
         })
     }
 
+    fn can_duplicate(&self) -> LocalFuture<'_, bool> {
+        Box::pin(crate::asyncify::whole_stack(self.env))
+    }
+
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(async move {
             let mut env = self.env.write().await;

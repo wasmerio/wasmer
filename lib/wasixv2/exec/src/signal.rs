@@ -33,7 +33,7 @@ const RED_ZONE: u32 = 128;
 #[derive(Default)]
 pub(crate) struct SignalExports {
     stack_pointer: Option<Global>,
-    tls_base: Option<Global>,
+    pub(crate) tls_base: Option<Global>,
     table: Option<Table>,
 }
 
@@ -68,12 +68,12 @@ pub(crate) async fn deliver<S: Control + 'static>(
         }
     };
     let info = uc + UCONTEXT_SIZE;
-    let args = vec![
+    let args = [
         Value::I32(frame.signo()),
         Value::I32(info as i32),
         Value::I32(uc as i32),
     ];
-    if let Err(err) = trampoline.call_async(&env.as_store_async(), args).await {
+    if let Err(err) = crate::asyncify::call(env, None, &trampoline, &args).await {
         syscalls.signal_return(task, None);
         return Err(err);
     }
