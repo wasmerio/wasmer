@@ -79,6 +79,7 @@ const PRELUDE: &str = r#"
   (import "wasix_32v1" "epoll_ctl" (func $epoll_ctl (param i32 i32 i32 i32) (result i32)))
   (import "wasix_32v1" "epoll_wait" (func $epoll_wait (param i32 i32 i32 i64 i32) (result i32)))
   (import "wasix_32v1" "fd_event" (func $fd_event (param i64 i32 i32) (result i32)))
+  (import "wasix_32v1" "fd_dup" (func $fd_dup (param i32 i32) (result i32)))
   (import "wasix_32v1" "resolve" (func $resolve (param i32 i32 i32 i32 i32 i32) (result i32)))
   (import "wasix_32v1" "port_addr_list" (func $port_addr_list (param i32 i32) (result i32)))
   (import "wasix_32v1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
@@ -288,6 +289,37 @@ fn epoll_keeps_v1_data() {
     (call $ok (call $epoll_wait (i32.load (i32.const 4)) (i32.const 2000) (i32.const 4) (i64.const 1000000) (i32.const 8)) (i32.const 15))
     (call $assert (i32.eqz (i32.load (i32.const 8))) (i32.const 16))
     (call $assert (i32.eq (call $epoll_wait (i32.load (i32.const 4)) (i32.const 2000) (i32.const 0) (i64.const 0) (i32.const 8)) (i32.const 28)) (i32.const 17))
+    "#;
+    assert_eq!(run("", body).0, 0);
+}
+
+/// A set used through two descriptors, as mio does (it registers through a `dup` of the set
+/// and waits on the original): events carry the data registered through either.
+#[test]
+fn epoll_data_across_duplicate_descriptors() {
+    let body = r#"
+    ;; eventfd [0] with a count of 1, epoll set [4], its duplicate [12]
+    (call $ok (call $fd_event (i64.const 1) (i32.const 0) (i32.const 0)) (i32.const 1))
+    (call $ok (call $epoll_create (i32.const 4)) (i32.const 2))
+    (call $ok (call $fd_dup (i32.load (i32.const 4)) (i32.const 12)) (i32.const 3))
+    ;; event at 1000: EPOLLIN, data {ptr 0x11, fd, data1 0x22, data2 0x1234567890}
+    (i32.store (i32.const 1000) (i32.const 1))
+    (i32.store (i32.const 1008) (i32.const 0x11))
+    (i32.store (i32.const 1012) (i32.load (i32.const 0)))
+    (i32.store (i32.const 1016) (i32.const 0x22))
+    (i64.store (i32.const 1024) (i64.const 0x1234567890))
+    (call $ok (call $epoll_ctl (i32.load (i32.const 12)) (i32.const 1) (i32.load (i32.const 0)) (i32.const 1000)) (i32.const 4))
+    (call $ok (call $epoll_wait (i32.load (i32.const 4)) (i32.const 2000) (i32.const 4) (i64.const 0) (i32.const 8)) (i32.const 5))
+    (call $assert (i32.eq (i32.load (i32.const 8)) (i32.const 1)) (i32.const 6))
+    (call $assert (i32.eq (i32.load (i32.const 2008)) (i32.const 0x11)) (i32.const 7))
+    (call $assert (i32.eq (i32.load (i32.const 2016)) (i32.const 0x22)) (i32.const 8))
+    (call $assert (i64.eq (i64.load (i32.const 2024)) (i64.const 0x1234567890)) (i32.const 9))
+    ;; MOD through the original with new data, wait on the duplicate
+    (i64.store (i32.const 1024) (i64.const 0x77))
+    (call $ok (call $epoll_ctl (i32.load (i32.const 4)) (i32.const 3) (i32.load (i32.const 0)) (i32.const 1000)) (i32.const 10))
+    (call $ok (call $epoll_wait (i32.load (i32.const 12)) (i32.const 2000) (i32.const 4) (i64.const 0) (i32.const 8)) (i32.const 11))
+    (call $assert (i32.eq (i32.load (i32.const 8)) (i32.const 1)) (i32.const 12))
+    (call $assert (i64.eq (i64.load (i32.const 2024)) (i64.const 0x77)) (i32.const 13))
     "#;
     assert_eq!(run("", body).0, 0);
 }
