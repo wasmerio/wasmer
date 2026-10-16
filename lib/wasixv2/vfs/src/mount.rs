@@ -90,7 +90,8 @@ impl Mount {
     }
 
     /// A path for `node`, an object of this mount's filesystem that no directory holds, under
-    /// `name` (`d_alloc_pseudo`). `d_path` shows it as the filesystem's `dname` says.
+    /// `name` (`d_alloc_pseudo`). `d_path` shows it as the filesystem's `dname` says, or as
+    /// `/<name> (deleted)` (`simple_dname`).
     pub fn pseudo_path(self: &Arc<Self>, node: Arc<dyn Node>, name: &[u8]) -> Path {
         Path {
             mnt: self.clone(),

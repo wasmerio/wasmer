@@ -96,8 +96,12 @@ impl File {
         Ok(n)
     }
 
+    /// Writes at `offset`, as much of `data` as the file's seals allow.
     pub async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
         let handle = self.handle()?;
+        let inode = self.path.dentry.inode();
+        let _sealed = inode.seal_lock().await;
+        let data = inode.sealed_write(data, Some(offset)).await?;
         let n = handle.write_at(data, offset).await?;
         self.modified(n);
         Ok(n)
@@ -106,6 +110,9 @@ impl File {
     /// Writes at the end of the file (`O_APPEND`). Returns the offset after the data.
     pub async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {
         let handle = self.handle()?;
+        let inode = self.path.dentry.inode();
+        let _sealed = inode.seal_lock().await;
+        let data = inode.sealed_write(data, None).await?;
         let (at, n) = handle.append(data).await?;
         self.modified(n);
         Ok((at + n as u64, n))
@@ -130,7 +137,11 @@ impl File {
     }
 
     pub async fn allocate(&self, mode: crate::AllocMode, offset: u64, len: u64) -> FsResult<()> {
-        self.handle()?.allocate(mode, offset, len).await?;
+        let handle = self.handle()?;
+        let inode = self.path.dentry.inode();
+        let _sealed = inode.seal_lock().await;
+        inode.sealed_allocate(mode, offset, len).await?;
+        handle.allocate(mode, offset, len).await?;
         self.modified(1);
         Ok(())
     }

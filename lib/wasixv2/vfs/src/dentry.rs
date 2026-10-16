@@ -27,6 +27,8 @@ pub struct Dentry {
     inner: Mutex<Inner>,
     /// How many mounts sit on this dentry.
     mounts: AtomicU32,
+    /// Made by `pseudo`: an object of an internal mount that no directory holds.
+    pseudo: bool,
 }
 
 struct Inner {
@@ -51,12 +53,24 @@ impl Dentry {
         dentry
     }
 
-    /// A dentry with a name but no parent, for an object of an internal mount.
+    /// A dentry with a name but no parent, for an object of an internal mount
+    /// (`d_alloc_pseudo`). It is never in a directory, so it counts as removed.
     pub(crate) fn pseudo(sb: &Arc<Superblock>, node: Arc<dyn Node>, name: &[u8]) -> Arc<Self> {
-        Self::new(sb.iget(node), name.to_vec(), None)
+        let dentry = Self::build(sb.iget(node), name.to_vec(), None, true);
+        dentry.inner.lock().unwrap().unlinked = true;
+        dentry
     }
 
     fn new(inode: Arc<Inode>, name: Vec<u8>, parent: Option<Arc<Dentry>>) -> Arc<Self> {
+        Self::build(inode, name, parent, false)
+    }
+
+    fn build(
+        inode: Arc<Inode>,
+        name: Vec<u8>,
+        parent: Option<Arc<Dentry>>,
+        pseudo: bool,
+    ) -> Arc<Self> {
         let is_dir = inode.file_type() == FileType::Directory;
         let dentry = Arc::new(Self {
             inode,
@@ -67,6 +81,7 @@ impl Dentry {
                 unlinked: false,
             }),
             mounts: AtomicU32::new(0),
+            pseudo,
         });
         if is_dir {
             dentry.inode.set_alias(&dentry);
@@ -113,6 +128,11 @@ impl Dentry {
         if let (false, Some(parent)) = (inner.unlinked, &inner.parent) {
             f(parent, &inner.name);
         }
+    }
+
+    /// Whether this names an object of an internal mount; see [`Dentry::pseudo`].
+    pub fn is_pseudo(&self) -> bool {
+        self.pseudo
     }
 
     pub(crate) fn is_mountpoint(&self) -> bool {

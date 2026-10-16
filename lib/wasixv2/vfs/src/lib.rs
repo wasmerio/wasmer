@@ -15,6 +15,7 @@ mod mount;
 mod namei;
 mod notify;
 mod ops;
+mod seals;
 mod types;
 
 use std::sync::{
@@ -33,6 +34,7 @@ pub use mount::{Mount, MountFlags, Namespace, Path, Superblock};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
 pub use notify::{FsEvent, FsWatcher, Object as FsObject};
 pub use ops::{Ctx, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
+pub use seals::WRITE_SEALS;
 pub use types::*;
 pub use wasixv2_abi::Errno;
 

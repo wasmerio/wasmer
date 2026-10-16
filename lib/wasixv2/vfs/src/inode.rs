@@ -3,19 +3,27 @@
 //! A driver may hand out several `Node` values for one object (a host directory opens a new
 //! descriptor per lookup). The VFS interns them per `(superblock, ino)`, so everything it keeps
 //! per object lives in one place for as long as anything (a dentry, an open file) holds it: the
-//! directory lock, the removed-directory and linkable flags, a directory's single dentry, and the
-//! kernel object bound to it (a FIFO's pipe, a bound Unix socket).
+//! directory lock, the removed-directory and linkable flags, a directory's single dentry, a
+//! file's seals, and the kernel object bound to it (a FIFO's pipe, a bound Unix socket).
 
 use std::{
     any::Any,
-    sync::{Arc, Mutex, Weak},
+    sync::{Arc, Mutex, Weak, atomic::AtomicU32},
 };
 
 use futures_util::lock::{Mutex as AsyncMutex, OwnedMutexGuard};
 
-use crate::{dentry::Dentry, driver::Node, mount::Superblock, types::FileType};
+use wasixv2_abi::SealFlags;
 
-/// Held while a directory's entries are looked up or changed (`i_rwsem`).
+use crate::{
+    dentry::Dentry,
+    driver::Node,
+    mount::Superblock,
+    types::{FileType, TMPFS_MAGIC},
+};
+
+/// Held while a directory's entries are looked up or changed, or while a sealable file changes
+/// (`i_rwsem`).
 pub(crate) type DirLock = OwnedMutexGuard<()>;
 
 pub struct Inode {
@@ -23,6 +31,10 @@ pub struct Inode {
     sb: Arc<Superblock>,
     lock: Arc<AsyncMutex<()>>,
     state: Mutex<State>,
+    /// A regular file of tmpfs, which can have seals.
+    pub(crate) sealable: bool,
+    /// Its seals (`SealFlags`), changed only under `lock`; see the `seals` module.
+    pub(crate) seals: AtomicU32,
 }
 
 #[derive(Default)]
@@ -141,11 +153,14 @@ impl Superblock {
         if let Some(inode) = inodes.get(&ino).and_then(Weak::upgrade) {
             return inode;
         }
+        let sealable = self.info.magic == TMPFS_MAGIC && node.file_type() == FileType::Regular;
         let inode = Arc::new(Inode {
             node,
             sb: self.clone(),
             lock: Arc::default(),
             state: Mutex::default(),
+            sealable,
+            seals: AtomicU32::new(SealFlags::F_SEAL_SEAL.0),
         });
         inodes.insert(ino, Arc::downgrade(&inode));
         inode

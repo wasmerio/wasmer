@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use wasixv2_abi::{Errno, OpenFlags};
+use wasixv2_abi::{Errno, OpenFlags, SealFlags};
 
 use crate::{
     Vfs,
@@ -12,7 +12,7 @@ use crate::{
     driver::{Handle, Link, Node},
     file::File,
     inode::DirLock,
-    mount::Path,
+    mount::{Mount, Path},
     namei::{Last, LookupFlags, Walk, lookup_one},
     notify::{FsEvent, Object},
     types::{
@@ -260,7 +260,7 @@ impl Vfs {
                 ctime: Some(TimeSet::Now),
                 ..SetAttr::default()
             };
-            target.dentry.node().setattr(&attr).await?;
+            Self::notify_change(&target.dentry, &attr).await?;
         }
         self.notify_object(
             &target.dentry,
@@ -354,6 +354,37 @@ impl Vfs {
             .await?;
         self.finish_open(target, how.flags, true, false, Some(handle))
             .await
+    }
+
+    /// A new unnamed regular file on `mnt`, a mount outside the tree, open for reading and
+    /// writing (`shmem_file_setup`, `alloc_file_pseudo`). `new` is taken as given: no umask, no
+    /// permission check. `d_path` shows the file as `/<name> (deleted)`. It starts with `seals`
+    /// where its filesystem supports seals.
+    pub async fn open_unnamed(
+        self: &Arc<Self>,
+        mnt: &Arc<Mount>,
+        name: &[u8],
+        new: &NewNode<'_>,
+        seals: SealFlags,
+    ) -> FsResult<File> {
+        let options = OpenOptions {
+            read: true,
+            write: true,
+            noatime: false,
+            sync: false,
+            truncate: false,
+        };
+        let (node, handle) = mnt.root.node().create_unnamed(new, options).await?;
+        let path = mnt.pseudo_path(node, name);
+        path.dentry.inode().init_seals(seals);
+        Ok(File::new(
+            self.clone(),
+            path,
+            Some(handle),
+            true,
+            true,
+            false,
+        ))
     }
 
     /// Ownership and permission bits of a new object in `dir`: the umask applied, the group from
@@ -878,13 +909,23 @@ impl Vfs {
     }
 
     async fn setattr(&self, path: &Path, attr: SetAttr) -> FsResult<()> {
-        path.dentry.node().setattr(&attr).await?;
+        Self::notify_change(&path.dentry, &attr).await?;
         self.notify_object(
             &path.dentry,
             FsEvent::Attrib {
                 object: Self::object(&path.dentry),
             },
         );
+        Ok(())
+    }
+
+    /// `notify_change` from the point where the caller's checks passed: the file's seals, then
+    /// the driver.
+    async fn notify_change(dentry: &Dentry, attr: &SetAttr) -> FsResult<()> {
+        let inode = dentry.inode();
+        let _sealed = inode.seal_lock().await;
+        inode.sealed_setattr(attr).await?;
+        dentry.node().setattr(attr).await?;
         Ok(())
     }
 
@@ -1012,7 +1053,7 @@ impl Vfs {
             ctime: Some(TimeSet::Now),
             ..SetAttr::default()
         };
-        path.dentry.node().setattr(&set).await?;
+        Self::notify_change(&path.dentry, &set).await?;
         self.notify_object(
             &path.dentry,
             FsEvent::Modify {
@@ -1023,13 +1064,21 @@ impl Vfs {
     }
 
     /// `d_path`: the path of `path` as seen from `root`. Unreachable locations (outside a
-    /// chroot) get Linux's `(unreachable)` prefix; removed ones its ` (deleted)` suffix.
+    /// chroot) get Linux's `(unreachable)` prefix; removed ones its ` (deleted)` suffix. An
+    /// object of an internal mount is `/<name> (deleted)`.
     pub fn d_path(&self, path: &Path, root: &Path) -> Vec<u8> {
         if !path.is_mount_root() {
             let fs = &path.dentry.sb().fs;
             if let Some(name) = fs.dname(&path.dentry.name(), path.dentry.node().as_ref()) {
                 return name;
             }
+        }
+        // `simple_dname`, the `d_dname` of every pseudo dentry.
+        if path.dentry.is_pseudo() {
+            let mut out = b"/".to_vec();
+            out.extend_from_slice(&path.dentry.name());
+            out.extend_from_slice(b" (deleted)");
+            return out;
         }
         let mut parts: Vec<Vec<u8>> = Vec::new();
         let mut current = path.clone();
