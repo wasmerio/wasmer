@@ -5,7 +5,7 @@ use std::{
     collections::{HashMap, VecDeque},
     sync::{
         Arc, Mutex, Weak,
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
 };
 
@@ -48,6 +48,8 @@ type Watchers = Vec<(Weak<Instance>, i32)>;
 #[derive(Default)]
 pub(crate) struct Registry {
     watches: Mutex<HashMap<FsObject, Watchers>>,
+    /// `watches` is not empty, so the VFS's event fast path can tell without the lock.
+    watching: AtomicBool,
     cookie: AtomicU32,
 }
 
@@ -75,10 +77,20 @@ impl Registry {
         }
     }
 
+    /// Records whether anything is watched, after a change to `watches`.
+    fn changed(&self, watches: &HashMap<FsObject, Watchers>) {
+        self.watching.store(!watches.is_empty(), Ordering::Release);
+    }
+
     /// The object is gone: `IN_DELETE_SELF`, then `IN_IGNORED` as its watches go away.
     fn gone(&self, object: FsObject) {
         self.deliver(object, InotifyMask::IN_DELETE_SELF.0, 0, b"");
-        let removed = self.watches.lock().unwrap().remove(&object);
+        let removed = {
+            let mut watches = self.watches.lock().unwrap();
+            let removed = watches.remove(&object);
+            self.changed(&watches);
+            removed
+        };
         for (inotify, wd) in removed.into_iter().flatten() {
             if let Some(inotify) = inotify.upgrade() {
                 inotify.forget(wd);
@@ -95,10 +107,15 @@ impl Registry {
                 watches.remove(&object);
             }
         }
+        self.changed(&watches);
     }
 }
 
 impl FsWatcher for Registry {
+    fn is_watching(&self) -> bool {
+        self.watching.load(Ordering::Acquire)
+    }
+
     fn event(&self, event: &FsEvent<'_>) {
         let isdir = |is_dir: bool| if is_dir { IN_ISDIR } else { 0 };
         match *event {
@@ -309,6 +326,7 @@ impl Drop for Inotify {
                 }
             }
         }
+        self.registry.changed(&registry);
     }
 }
 
@@ -434,13 +452,12 @@ impl Kernel {
         let wd = state.last_wd;
         state.watches.insert(wd, Watch { object, mask });
         drop(state);
-        self.inotify
-            .watches
-            .lock()
-            .unwrap()
+        let mut watches = self.inotify.watches.lock().unwrap();
+        watches
             .entry(object)
             .or_default()
             .push((Arc::downgrade(&inotify), wd));
+        self.inotify.changed(&watches);
         Ok(wd)
     }
 

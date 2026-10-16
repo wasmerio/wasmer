@@ -529,7 +529,7 @@ impl Kernel {
         if inner.file_type() != FileType::Regular || !inner.writable {
             return Err(Errno::EINVAL.into());
         }
-        self.vfs.set_size(&inner.path, length as u64).await?;
+        inner.set_size(length as u64).await?;
         Ok(0)
     }
 
