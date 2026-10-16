@@ -289,6 +289,7 @@ impl Kernel {
         if thread.robust_list != 0 {
             self.exit_robust_list(caller, thread.robust_list, tid).await;
         }
+        self.exit_pi_state_list(caller, tid).await;
         if thread.clear_child_tid != 0 {
             let ptr = GuestPtrMut::<u32>::new(thread.clear_child_tid);
             if write_value(caller.memory(), ptr, &0).await.is_ok() {

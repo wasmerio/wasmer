@@ -605,6 +605,7 @@ fn prlimit_of_another_process_sets_its_descriptor_limit() {
 }
 
 mod cred;
+mod futex;
 mod ipc;
 mod mapping;
 mod net;
