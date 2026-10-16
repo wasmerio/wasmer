@@ -549,7 +549,8 @@ fn a_caught_timer_signal_ends_a_sleep_with_the_time_left() {
     let id = t.signal_timer(SIGUSR1, 0);
     t.arm(id, 10 * MS, Duration::ZERO);
     let (result, took) = t.nanosleep(Duration::from_secs(10));
-    assert_eq!(result, Err(SysErr::RestartNoHand));
+    // The handler makes it EINTR; without one, `restart_syscall` would sleep the rest.
+    assert_eq!(result, Err(SysErr::RestartBlock));
     assert!(took < Duration::from_secs(5));
     let left = i64::from_le_bytes(get(&t.memory, NEW, 8).try_into().unwrap());
     assert!((8..=10).contains(&left), "left {left} s");

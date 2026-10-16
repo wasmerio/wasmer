@@ -25,6 +25,7 @@ mod process;
 mod procfs;
 mod pseudo;
 mod resource;
+mod restart;
 mod sched;
 mod signal;
 mod signalfd;
@@ -36,6 +37,7 @@ mod time;
 mod timer;
 mod timerfd;
 mod unix;
+mod work;
 
 use std::{
     collections::HashMap,
@@ -65,7 +67,8 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
 use wasixv2_syscalls::{
-    Caller, Control, Errno, Fd, GuestAction, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut,
+    Caller, Control, Errno, Fd, GuestAction, LocalFuture, SysResult, Syscalls, TaskId, UserSlice,
+    UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -185,7 +188,10 @@ struct Task {
     files: Arc<Mutex<FdTable>>,
     /// Root, working directory and umask (`fs_struct`).
     fs: Arc<Mutex<FsContext>>,
-    pending: Option<GuestAction>,
+    /// What the execution layer does on the task's next return to the guest.
+    work: work::Work,
+    /// How an interrupted call goes on through `restart_syscall` (`restart_block`).
+    restart: Option<restart::Restart>,
     /// The task's name (`comm`), which `PR_SET_NAME` and `execve` set.
     comm: ident::Comm,
     /// Policy, priorities, affinity and timer slack: all per thread, as on Linux.
@@ -282,6 +288,7 @@ impl Kernel {
             exe: Mutex::new(None),
             group: thread::Group::new(),
         };
+        let flag = Arc::new(WorkFlag::default());
         let task = Task {
             comm,
             sched: sched::Sched::default(),
@@ -289,9 +296,10 @@ impl Kernel {
             mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
             fs: Arc::new(Mutex::new(FsContext::new(self.vfs.root()))),
-            pending: None,
+            work: work::Work::new(flag.clone()),
+            restart: None,
             thread: thread::ThreadState::default(),
-            signals: signal::Signals::new().attach(id, 0),
+            signals: signal::Signals::new().attach(id, 0, flag),
         };
         let process = task.process.clone();
         state.tasks.insert(id, task);
@@ -1797,6 +1805,9 @@ impl Syscalls for Kernel {
         self.sys_clock_nanosleep(caller, clock, flags, rqtp, rmtp)
             .await
     }
+    async fn restart_syscall(&self, caller: &Caller<'_>) -> SysResult<i32> {
+        self.sys_restart_syscall(caller).await
+    }
     async fn signalfd4(
         &self,
         caller: &Caller<'_>,
@@ -2339,29 +2350,59 @@ impl Syscalls for Kernel {
 
 impl Control for Kernel {
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
-        let pending = {
+        let (action, signals) = {
             let mut state = self.state.lock().unwrap();
             // ---- proc ----
             // A reaped process's task, still unwinding.
             let entry = state.tasks.get_mut(&task)?;
-            let pending = entry.pending.take();
-            // ---- thr ----
-            if entry.thread.reapable(pending) {
-                let entry = state.tasks.remove(&task).expect("task checked above");
-                entry.signals.detach();
-            }
-            pending
+            entry.work.flag().clear();
+            (entry.work.take(), entry.signals.clone())
         };
-        pending.or_else(|| self.take_signal(task))
+        match action {
+            // What made the task leave its wait is here.
+            Some(action) => {
+                signals.group().clear_notify(task);
+                Some(action)
+            }
+            None => self.take_signal(task, &signals),
+        }
+    }
+
+    fn work_flag(&self, task: TaskId) -> Arc<WorkFlag> {
+        let state = self.state.lock().unwrap();
+        match state.tasks.get(&task) {
+            Some(task) => task.work.flag().clone(),
+            None => Arc::new(WorkFlag::always()),
+        }
     }
 
     fn signal_return(&self, task: TaskId, mask: Option<u64>) {
         Kernel::signal_return(self, task, mask)
     }
 
+    fn fault(&self, task: TaskId, signal: i32) -> bool {
+        self.force_fatal_signal(task, signal)
+    }
+
+    fn release(&self, task: TaskId) {
+        self.release_task(task);
+    }
+
+    fn abort_thread(&self, task: TaskId) {
+        Kernel::abort_thread(self, task);
+    }
+
+    fn group_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
+        Box::pin(Kernel::group_wait(self, task))
+    }
+
     // ---- proc ----
     fn take_image(&self, task: TaskId) -> Option<Vec<u8>> {
         self.procs.take_image(task)
+    }
+
+    fn exec_wait(&self, task: TaskId) -> LocalFuture<'_, Result<(), i32>> {
+        Box::pin(Kernel::exec_wait(self, task))
     }
 }
 

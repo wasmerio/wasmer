@@ -6,7 +6,7 @@ use wasixv2_abi::{ClockId, ConstKernelTimespecPtr, KernelTimespec, KernelTimespe
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, read_value, write_value};
 
-use crate::Kernel;
+use crate::{Kernel, restart::Restart};
 
 const NANOS_PER_SEC: i64 = 1_000_000_000;
 /// `CLOCK_TAI`: the kernel's TAI offset is 0 until something sets it, as on a fresh Linux boot.
@@ -146,8 +146,6 @@ impl Kernel {
         }
     }
 
-    /// `clock_nanosleep`. An interrupted relative sleep writes the time left to `rmtp`
-    /// (`nanosleep_copyout`).
     pub(crate) async fn sys_clock_nanosleep(
         &self,
         caller: &Caller<'_>,
@@ -161,19 +159,23 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let request = from_timespec(read_value(caller.memory(), rqtp).await?)?;
-        let now = self.clock_now(caller, clock);
-        let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
-        // A signal ends the sleep. Without a handler it restarts with the same request.
-        // TODO: restart a relative sleep with the time left (`restart_block`).
+        if !flags.contains(TimerFlags::TIMER_ABSTIME) {
+            // Every clock advances at the monotonic clock's rate, so a relative sleep ends at a
+            // fixed point of it.
+            let deadline = self.host.monotonic().saturating_add(request);
+            return self.nanosleep_until(caller, deadline, rmtp).await;
+        }
+        // Interrupted, an absolute sleep reruns as it was, and `rmtp` is not written
+        // (`-ERESTARTNOHAND`).
         let interrupted = |_: wasixv2_wait::Interrupted| SysErr::RestartNoHand;
-        match (absolute, clock) {
-            (true, Clock::Monotonic) => self
+        match clock {
+            Clock::Monotonic => self
                 .interruptible_sleep(caller, self.host.sleep_until(request))
                 .await
                 .map_err(interrupted)?,
-            (true, _) => {
+            _ => {
                 // Re-check the clock: a realtime deadline is not a monotonic one.
-                let mut now = now;
+                let mut now = self.clock_now(caller, clock);
                 while now < request {
                     self.interruptible_sleep(caller, self.host.sleep(request - now))
                         .await
@@ -181,19 +183,27 @@ impl Kernel {
                     now = self.clock_now(caller, clock);
                 }
             }
-            // Relative sleeps run on the monotonic clock, whichever clock they name.
-            (false, _) => {
-                let deadline = self.host.monotonic().saturating_add(request);
-                let sleep = self.host.sleep_until(deadline);
-                if let Err(err) = self.interruptible_sleep(caller, sleep).await {
-                    if !rmtp.is_null() {
-                        let left = deadline.saturating_sub(self.host.monotonic());
-                        write_value(caller.memory(), rmtp, &to_timespec(left)).await?;
-                    }
-                    return Err(interrupted(err));
-                }
-            }
         }
         Ok(0)
+    }
+
+    /// The relative sleep of `clock_nanosleep`, until `deadline` on the monotonic clock.
+    /// Interrupted, it writes the time left to `rmtp` (`nanosleep_copyout`), and without a
+    /// handler `restart_syscall` sleeps the rest.
+    pub(crate) async fn nanosleep_until(
+        &self,
+        caller: &Caller<'_>,
+        deadline: Duration,
+        rmtp: KernelTimespecPtr,
+    ) -> SysResult<i32> {
+        let sleep = self.host.sleep_until(deadline);
+        if self.interruptible_sleep(caller, sleep).await.is_ok() {
+            return Ok(0);
+        }
+        if !rmtp.is_null() {
+            let left = deadline.saturating_sub(self.host.monotonic());
+            write_value(caller.memory(), rmtp, &to_timespec(left)).await?;
+        }
+        Err(self.restart_with(caller, Restart::Nanosleep { deadline, rmtp }))
     }
 }

@@ -23,7 +23,7 @@ use wasixv2_abi::{ConstKernelTimespecPtr, FutexOp, GuestPtr, U32Ptr, Ulong};
 use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, UserMemory, read_value};
 use wasixv2_wait::{PollMask, WaitQueue, Waiter, Wakeup};
 
-use crate::{Kernel, time};
+use crate::{Kernel, restart::Restart, time};
 
 /// `FUTEX_BITSET_MATCH_ANY`.
 const MATCH_ANY: u32 = u32::MAX;
@@ -175,12 +175,11 @@ impl Futexes {
     }
 }
 
-/// How long a futex operation may block.
-#[derive(Clone, Copy)]
-enum Timeout {
+/// How long a futex operation may block. A relative timeout is made absolute on entry, so a
+/// restarted wait goes on to the same deadline.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Timeout {
     Never,
-    /// Relative, on the monotonic clock.
-    After(Duration),
     /// Absolute, on the monotonic clock.
     Until(Duration),
     /// Absolute, on the realtime clock.
@@ -247,7 +246,7 @@ impl Kernel {
                 let ts = read_value(caller.memory(), ConstKernelTimespecPtr::new(ptr)).await?;
                 let ts = time::from_timespec(ts)?;
                 match cmd {
-                    FutexOp::FUTEX_WAIT => Timeout::After(ts),
+                    FutexOp::FUTEX_WAIT => Timeout::Until(self.host.monotonic().saturating_add(ts)),
                     FutexOp::FUTEX_LOCK_PI => Timeout::UntilRealtime(ts),
                     _ if realtime => Timeout::UntilRealtime(ts),
                     _ => Timeout::Until(ts),
@@ -365,12 +364,24 @@ impl Kernel {
     fn futex_timer(&self, timeout: Timeout) -> Option<wasixv2_host::LocalFuture<'_, ()>> {
         match timeout {
             Timeout::Never => None,
-            Timeout::After(d) => Some(self.host.sleep(d)),
             Timeout::Until(at) => Some(self.host.sleep_until(at)),
             Timeout::UntilRealtime(at) => {
                 Some(self.host.sleep(at.saturating_sub(self.host.realtime())))
             }
         }
+    }
+
+    /// `futex_wait_restart`: a timed wait a signal interrupted, going on to its deadline.
+    pub(crate) async fn futex_wait_restart(
+        &self,
+        caller: &Caller<'_>,
+        addr: u32,
+        val: u32,
+        bitset: u32,
+        timeout: Timeout,
+    ) -> SysResult<i32> {
+        let key = self.futex_key(caller, addr);
+        self.futex_wait(caller, key, val, bitset, timeout).await
     }
 
     async fn futex_wait(
@@ -432,11 +443,19 @@ impl Kernel {
                     if !self.futexes.dequeue(&entry) {
                         return Ok(0);
                     }
-                    // Linux restarts an untimed wait and fails a timed one with EINTR.
-                    return match timer {
-                        None => Err(SysErr::Restart),
-                        Some(_) => Err(Errno::EINTR.into()),
-                    };
+                    // An untimed wait reruns; a timed one goes on to the same deadline.
+                    return Err(match timeout {
+                        Timeout::Never => SysErr::Restart,
+                        timeout => self.restart_with(
+                            caller,
+                            Restart::FutexWait {
+                                addr: key.addr,
+                                val,
+                                bitset,
+                                timeout,
+                            },
+                        ),
+                    });
                 }
             }
         }

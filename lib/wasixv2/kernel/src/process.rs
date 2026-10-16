@@ -20,8 +20,8 @@ use wasixv2_abi::{
     Uptr, WaitOptions,
 };
 use wasixv2_syscalls::{
-    Caller, CstrError, Errno, Fd, GuestAction, LocalFuture, SysErr, SysResult, TaskId, read_cstr,
-    read_value, write_value,
+    Caller, CstrError, Errno, Fd, GuestAction, LocalFuture, SysErr, SysResult, TaskId, WorkFlag,
+    read_cstr, read_value, write_value,
 };
 use wasixv2_vfs::{FileType, LookupFlags, MAY_EXEC, OpenHow};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
@@ -32,6 +32,7 @@ use crate::{
     ident::Comm,
     signal::Signals,
     thread,
+    work::Work,
 };
 
 /// `MAX_ARG_STRLEN`: the longest single argument or environment string.
@@ -277,7 +278,7 @@ impl Kernel {
                 parent: parent_task,
                 child: task,
             };
-            self.with_task(task, |t| t.pending = Some(action));
+            self.queue(task, action);
         }
         if let Some(signals) = parent_signals
             && exit_signal != 0
@@ -393,7 +394,7 @@ impl Kernel {
             task: child,
             ret: 0,
         };
-        self.with_task(parent_task, |t| t.pending = Some(switch));
+        self.queue(parent_task, switch);
         Ok(0)
     }
 
@@ -428,7 +429,7 @@ impl Kernel {
             child_tid: set(CloneFlags::CLONE_CHILD_SETTID, child_tid.addr()),
             tls: set(CloneFlags::CLONE_SETTLS, tls),
         };
-        self.with_task(parent_task, |t| t.pending = Some(fork));
+        self.queue(parent_task, fork);
         Ok(child.0 as i32)
     }
 
@@ -474,11 +475,12 @@ impl Kernel {
                 true => task.fs.clone(),
                 false => Arc::new(Mutex::new(task.fs.lock().unwrap().clone())),
             };
-            let signals = task
-                .signals
-                .group()
-                .fork()
-                .attach(id, task.signals.blocked());
+            let flag = Arc::new(WorkFlag::default());
+            let signals =
+                task.signals
+                    .group()
+                    .fork()
+                    .attach(id, task.signals.blocked(), flag.clone());
             // A vfork child runs on its parent's memory, so it shares the address space; a fork
             // child gets a copy of its mappings and break over the memory the execution layer
             // copies.
@@ -491,7 +493,8 @@ impl Kernel {
                 mm,
                 files,
                 fs,
-                pending: None,
+                work: Work::new(flag),
+                restart: None,
                 comm: task.comm,
                 sched,
                 thread: task.thread.for_process(flags, tls, child_tid),
@@ -638,19 +641,20 @@ impl Kernel {
         Ok((bytes, binary))
     }
 
-    /// Past the point of no return (`begin_new_exec`): close-on-exec descriptors close, caught
-    /// signals reset, the vfork parent resumes, the new image's arguments, environment and
-    /// memory replace the old ones, and the credentials become what `binary` grants.
+    /// Past the point of no return (`begin_new_exec`): the other threads die and the image runs
+    /// as the group leader (`de_thread`), close-on-exec descriptors close, caught signals reset,
+    /// the vfork parent resumes, the new image's arguments, environment and memory replace the
+    /// old ones, and the credentials become what `binary` grants.
     fn exec_commit(
         &self,
-        task: TaskId,
+        caller: TaskId,
         name: &[u8],
         args: Vec<String>,
         env: Vec<String>,
         image: Vec<u8>,
         binary: Binary,
     ) {
-        // TODO: `de_thread`: kill the other threads, and take over the leader's pid.
+        let task = self.de_thread(caller);
         let process = self.process(task);
         let vfork_parent = {
             let mut tree = self.procs.tree.lock().unwrap();
@@ -660,11 +664,20 @@ impl Kernel {
             tree.images.insert(task, image);
             tree.vforks.remove(&task)
         };
-        // `unshare_files`, then `do_close_on_exec`.
-        let files = self.files(task);
-        let table = match Arc::strong_count(&files) {
-            1 => files,
-            _ => {
+        // `unshare_files`, then `do_close_on_exec`. The dying threads of the group do not
+        // count as sharing the table.
+        let table = {
+            let state = self.state.lock().unwrap();
+            let files = state.tasks[&task].files.clone();
+            let shared = state
+                .tasks
+                .values()
+                .any(|t| !Arc::ptr_eq(&t.process, &process) && Arc::ptr_eq(&t.files, &files));
+            (files, shared)
+        };
+        let table = match table {
+            (files, false) => files,
+            (files, true) => {
                 let copy = Arc::new(Mutex::new(copy_files(&files.lock().unwrap())));
                 self.with_task(task, |t| t.files = copy.clone());
                 copy
@@ -716,8 +729,8 @@ impl Kernel {
             // parent's untouched.
             t.mm = Arc::default();
             t.thread = thread::ThreadState::default();
-            t.pending = Some(GuestAction::Exec { vfork_parent });
         });
+        self.hand_image(task, vfork_parent);
     }
 
     // ---- wait ----

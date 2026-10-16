@@ -1,5 +1,6 @@
 //! Threads: `clone` for the thread case (through the `thread-spawn` extension), thread groups,
-//! `exit` versus `exit_group`, `set_tid_address` and robust futex lists.
+//! `exit` versus `exit_group`, `de_thread` for `execve`, releasing tasks the execution layer is
+//! done with, `set_tid_address` and robust futex lists.
 
 use std::sync::{Arc, Mutex};
 
@@ -7,10 +8,10 @@ use wasixv2_abi::{
     CloneFlags, GuestPtrMut, RobustListHeadPtr, RobustListHeadPtrPtr, S32Ptr, Ulong, Uptr, Usize,
     UsizePtr,
 };
-use wasixv2_syscalls::{Caller, Errno, GuestAction, SysResult, TaskId, write_value};
+use wasixv2_syscalls::{Caller, Errno, GuestAction, SysResult, TaskId, WorkFlag, write_value};
 use wasixv2_wait::{NoInterrupt, PollMask, WaitQueue, wait_event};
 
-use crate::{Kernel, Task};
+use crate::{Kernel, Process, State, Task, work::Work};
 
 /// `sizeof(struct robust_list_head)` on ILP32.
 const ROBUST_LIST_HEAD_SIZE: u32 = 12;
@@ -20,13 +21,16 @@ const ROBUST_LIST_HEAD_SIZE: u32 = 12;
 #[derive(Default)]
 pub(crate) struct Group {
     state: Mutex<GroupState>,
-    /// Woken once the group exits, for its tasks blocked in the kernel.
+    /// Woken once the group exits, for its tasks blocked in the kernel, and when an `execve`
+    /// hands the leader a new image.
     pub(crate) exited: WaitQueue,
+    /// Woken whenever one of the group's tasks is released, and when the group exits.
+    released: WaitQueue,
 }
 
 #[derive(Default)]
 struct GroupState {
-    /// Tasks that have not called `exit` yet.
+    /// Tasks that have not exited yet, in step with their `ThreadState::exited`.
     live: u32,
     /// The status of `exit_group`, or of the last task's `exit`.
     exit: Option<i32>,
@@ -59,19 +63,15 @@ pub(crate) struct ThreadState {
     robust_list: u32,
     /// The thread pointer `CLONE_SETTLS` gave the task.
     tls: u32,
-    /// The task called `exit`; it goes away once the execution layer saw that.
+    /// The task called `exit` or was killed with its thread; it goes away once the execution
+    /// layer releases it.
     exited: bool,
 }
 
 impl ThreadState {
-    /// The task called `exit` and is gone from its thread group.
+    /// The task called `exit` or was killed with its thread.
     pub(crate) fn exited(&self) -> bool {
         self.exited
-    }
-
-    /// Whether the task ended and its last pending action was taken, so it can be forgotten.
-    pub(crate) fn reapable(&self, pending: Option<GuestAction>) -> bool {
-        self.exited && matches!(pending, Some(GuestAction::Exit(_)))
     }
 
     /// The thread state of a new process's first task, made from the caller's (`copy_process`):
@@ -174,16 +174,21 @@ impl Kernel {
                 exited: false,
             };
             let id = TaskId(state.last_id + 1);
+            let flag = Arc::new(WorkFlag::default());
             let new = Task {
                 process,
                 mm: task.mm.clone(),
                 files: task.files.clone(),
                 fs: task.fs.clone(),
-                pending: None,
+                work: Work::new(flag.clone()),
+                restart: None,
                 comm: task.comm,
                 sched,
                 thread,
-                signals: task.signals.group().attach(id, task.signals.blocked()),
+                signals: task
+                    .signals
+                    .group()
+                    .attach(id, task.signals.blocked(), flag),
             };
             state.last_id += 1;
             state.tasks.insert(id, new);
@@ -201,8 +206,20 @@ impl Kernel {
             task: child,
             start_arg,
         };
-        self.with_task(parent, |task| task.pending = Some(start));
+        self.queue(parent, start);
         Ok(tid)
+    }
+
+    /// Leaves `action` for the execution layer on `task`'s next return to the guest.
+    pub(crate) fn queue(&self, task: TaskId, action: GuestAction) {
+        let mut state = self.state.lock().unwrap();
+        let unstarted = match state.tasks.get_mut(&task) {
+            Some(entry) => entry.work.push(action),
+            None => return,
+        };
+        for child in unstarted {
+            forget_task(&mut state, child);
+        }
     }
 
     /// `do_exit` for one task. The last task to exit ends its thread group with its status. The
@@ -213,6 +230,17 @@ impl Kernel {
         let (process, thread) = self.with_task(task, |t| (t.process.clone(), t.thread));
         self.exit_thread(caller, thread).await;
         let last = {
+            let mut state = self.state.lock().unwrap();
+            let entry = state
+                .tasks
+                .get_mut(&task)
+                .expect("syscall from an unknown task");
+            // Killed meanwhile by another thread's `execve`, which leaves an exit pending, or
+            // an `execve` handed the leader its image.
+            if entry.thread.exited || entry.work.has_exec() {
+                return Ok(());
+            }
+            entry.thread.exited = true;
             let mut group = process.group.state.lock().unwrap();
             group.live -= 1;
             group.live == 0
@@ -223,20 +251,23 @@ impl Kernel {
             return Ok(());
         }
         if task == process.pid {
+            // Until the group exits, or another thread's `execve` gives the leader its image.
             let status = wait_event(
                 &process.group.exited,
-                || process.group.status(),
+                || match process.group.status() {
+                    Some(status) => Some(Some(status)),
+                    None => self.with_task(task, |t| t.work.has_exec()).then_some(None),
+                },
                 &NoInterrupt,
             )
             .await
             .expect("NoInterrupt never interrupts");
-            self.with_task(task, |t| t.pending = Some(GuestAction::Exit(status)));
+            if let Some(status) = status {
+                self.queue(task, GuestAction::Exit(status));
+            }
             return Ok(());
         }
-        self.with_task(task, |t| {
-            t.thread.exited = true;
-            t.pending = Some(GuestAction::Exit(status & 0xff));
-        });
+        self.queue(task, GuestAction::Exit(status & 0xff));
         Ok(())
     }
 
@@ -247,7 +278,8 @@ impl Kernel {
     }
 
     /// `do_group_exit`: every task of the group exits with `status`. The first exit wins. Tasks
-    /// blocked in an interruptible wait notice; the others unwind on their next return to the guest.
+    /// blocked in an interruptible wait notice; the others unwind on their next return to the
+    /// guest or preemption point.
     pub(crate) fn do_group_exit(&self, task: TaskId, status: i32) {
         // Linux keeps only the low byte of the status.
         let status = status & 0xff;
@@ -261,11 +293,15 @@ impl Kernel {
             .exit
             .get_or_insert(status);
         let mut others = false;
+        let mut unstarted = Vec::new();
         for (&id, t) in state.tasks.iter_mut() {
             if Arc::ptr_eq(&t.process, &process) {
-                t.pending = Some(GuestAction::Exit(status));
+                unstarted.extend(t.work.push(GuestAction::Exit(status)));
                 others |= id != task;
             }
+        }
+        for child in unstarted {
+            forget_task(&mut state, child);
         }
         let signals = state.tasks[&task].signals.group().clone();
         drop(state);
@@ -276,14 +312,157 @@ impl Kernel {
         signals.cancel_real_timer();
         crate::posix_timer::exit_itimers(&signals);
         process.group.exited.wake(PollMask::empty());
-        // ---- ipc ----
-        // `exit_sem`, and `exit_mm` for what nobody could write back.
-        self.ipc_process_exited(process.pid.0);
+        // `exit_mm` for what nobody could write back.
         if !self.mm_shared_elsewhere(task) {
             self.mm(task).reset();
         }
-        // ---- proc ----
-        self.process_exited(&process, task, status);
+        process.group.released.wake(PollMask::empty());
+        self.exit_notify(&process);
+    }
+
+    /// `exit_notify` once the group has exited and none of its threads is left but the leader
+    /// (`thread_group_empty`, `delay_group_leader`): only then the process becomes a zombie,
+    /// its files close and its parent hears of it, so nothing of it runs after its exit is seen.
+    fn exit_notify(&self, process: &Arc<Process>) {
+        let Some(status) = process.group.status() else {
+            return;
+        };
+        let others = {
+            let state = self.state.lock().unwrap();
+            state
+                .tasks
+                .iter()
+                .any(|(&id, t)| id != process.pid && Arc::ptr_eq(&t.process, process))
+        };
+        if !others {
+            // ---- ipc ----
+            // `exit_sem`, by the group's last task.
+            self.ipc_process_exited(process.pid.0);
+            // ---- proc ----
+            self.process_exited(process, process.pid, status);
+        }
+    }
+
+    /// `release_task`: the execution layer is done with `task`, so it goes. A zombie process
+    /// lives on in the process tree.
+    pub(crate) fn release_task(&self, task: TaskId) {
+        let process = {
+            let mut state = self.state.lock().unwrap();
+            let (unstarted, process) = match state.tasks.get_mut(&task) {
+                Some(entry) => (entry.work.take_unstarted(), entry.process.clone()),
+                None => return,
+            };
+            for child in unstarted {
+                forget_task(&mut state, child);
+            }
+            forget_task(&mut state, task);
+            process
+        };
+        self.exit_notify(&process);
+    }
+
+    /// `thread-spawn` made `task`, but its thread never started.
+    pub(crate) fn abort_thread(&self, task: TaskId) {
+        let process = {
+            let mut state = self.state.lock().unwrap();
+            let Some(process) = state.tasks.get(&task).map(|t| t.process.clone()) else {
+                return;
+            };
+            forget_task(&mut state, task);
+            process
+        };
+        self.exit_notify(&process);
+    }
+
+    /// Waits until `task` is the only task of its thread group.
+    pub(crate) async fn group_wait(&self, task: TaskId) {
+        let process = self.process(task);
+        let alone = || {
+            let state = self.state.lock().unwrap();
+            let others = state
+                .tasks
+                .iter()
+                .any(|(&id, t)| id != task && Arc::ptr_eq(&t.process, &process));
+            (!others).then_some(())
+        };
+        wait_event(&process.group.released, alone, &NoInterrupt)
+            .await
+            .expect("NoInterrupt never interrupts")
+    }
+
+    /// `de_thread` at the point of no return of `execve` from `task`: every other task of the
+    /// thread group is killed, and the image runs as the group leader, which `task` becomes when
+    /// it is not already (Linux exchanges their pids). Returns the leader.
+    ///
+    /// The leader's new image starts once the others are gone ([`Kernel::exec_wait`]).
+    pub(crate) fn de_thread(&self, task: TaskId) -> TaskId {
+        let mut state = self.state.lock().unwrap();
+        let process = state.tasks[&task].process.clone();
+        let leader = process.pid;
+        let mut unstarted = Vec::new();
+        let mut killed = Vec::new();
+        for (&id, t) in state.tasks.iter_mut() {
+            if !Arc::ptr_eq(&t.process, &process) || id == leader {
+                continue;
+            }
+            t.thread.exited = true;
+            unstarted.extend(t.work.push(GuestAction::Exit(0)));
+            if id != task {
+                killed.push(t.signals.clone());
+            }
+        }
+        let group = state.tasks[&leader].signals.group().clone();
+        if task != leader {
+            // The leader takes over the caller's signal state; what it was doing ends here.
+            group.take_over(task, leader);
+            let entry = state.tasks.get_mut(&leader).expect("the leader is listed");
+            unstarted.extend(entry.work.take_unstarted());
+            entry.thread.exited = false;
+            entry.restart = None;
+        }
+        for child in unstarted {
+            forget_task(&mut state, child);
+        }
+        process.group.state.lock().unwrap().live = 1;
+        drop(state);
+        // `zap_other_threads`: SIGKILL for each, so blocked ones wake up.
+        for signals in killed {
+            signals.kill();
+        }
+        leader
+    }
+
+    /// Leaves the image of an `execve` for the leader `task`, and wakes it wherever it waits,
+    /// a zombie leader's wait for its group included.
+    pub(crate) fn hand_image(&self, task: TaskId, vfork_parent: Option<TaskId>) {
+        self.queue(task, GuestAction::Exec { vfork_parent });
+        let (process, signals) = self.with_task(task, |t| (t.process.clone(), t.signals.clone()));
+        signals.group().notify(task);
+        process.group.exited.wake(PollMask::empty());
+    }
+
+    /// Waits until `task` is the only task of its thread group, before the image `execve` loaded
+    /// starts. `Err(status)` when the group exited meanwhile; its exit is taken.
+    pub(crate) async fn exec_wait(&self, task: TaskId) -> Result<(), i32> {
+        let process = self.process(task);
+        let alone = || {
+            let mut state = self.state.lock().unwrap();
+            let Some(entry) = state.tasks.get_mut(&task) else {
+                return Some(Err(0));
+            };
+            if let Some(status) = entry.work.exit() {
+                while entry.work.take().is_some() {}
+                return Some(Err(status));
+            }
+            let others = state
+                .tasks
+                .iter()
+                .any(|(&id, t)| id != task && Arc::ptr_eq(&t.process, &process));
+            (!others).then_some(Ok(()))
+        };
+        wait_event(&process.group.released, alone, &NoInterrupt)
+            .await
+            .expect("NoInterrupt never interrupts")
     }
 
     /// `mm_release` and `exit_robust_list`: what a task's exit does to the memory it shared.
@@ -354,4 +533,17 @@ impl Kernel {
         write_value(caller.memory(), head_ptr, &RobustListHeadPtr::new(head)).await?;
         Ok(0)
     }
+}
+
+/// Removes `task` from the kernel, counting it out of its thread group if it was still alive.
+pub(crate) fn forget_task(state: &mut State, task: TaskId) {
+    let Some(entry) = state.tasks.remove(&task) else {
+        return;
+    };
+    entry.signals.detach();
+    let group = &entry.process.group;
+    if !entry.thread.exited {
+        group.state.lock().unwrap().live -= 1;
+    }
+    group.released.wake(PollMask::empty());
 }
