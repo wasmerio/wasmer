@@ -323,6 +323,10 @@ impl Socket for UdpSocket {
             Some(d) => d,
             None => return Err(Errno::EDESTADDRREQ),
         };
+        // `udpv6_sendmsg`: an IPv4 destination needs a dual-stack socket.
+        if self.domain == Domain::Inet6 && dst.is_ipv4() && g.opts.v6only {
+            return Err(Errno::ENETUNREACH);
+        }
         let max = if dst.is_ipv4() {
             MAX_V4_PAYLOAD
         } else {

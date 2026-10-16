@@ -148,6 +148,16 @@ fn buf_size(val: i32, max: u32, min: usize) -> usize {
     (v * 2).max(min)
 }
 
+/// `sk_sndbuf` after `setsockopt(SO_SNDBUF, val)`, for every socket family.
+pub fn sndbuf_from(val: i32) -> usize {
+    buf_size(val, WMEM_MAX, SOCK_MIN_SNDBUF)
+}
+
+/// `sk_rcvbuf` after `setsockopt(SO_RCVBUF, val)`, for every socket family.
+pub fn rcvbuf_from(val: i32) -> usize {
+    buf_size(val, RMEM_MAX, SOCK_MIN_RCVBUF)
+}
+
 impl SockOpts {
     pub fn new(ty: SocketKind, family: Domain) -> Self {
         let (sndbuf, rcvbuf) = match ty {

@@ -562,3 +562,285 @@ fn socket_level_options_come_from_the_kernel() {
     let read = block_on(kernel.read(&caller, fd, UserSliceMut::new(0x500, 4)));
     assert_eq!(errno(read), Errno::EAGAIN);
 }
+
+const SEQPACKET: i32 = 5;
+
+fn unix_pair(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory, r#type: i32) -> (Fd, Fd) {
+    let pair = wasixv2_abi::FdPair::new(0x100);
+    let made = block_on(kernel.socketpair(caller, AddressFamily::AF_UNIX, r#type, 0, pair));
+    assert_eq!(made, Ok(0));
+    let raw = get(memory, 0x100, 8);
+    let fd = |i: usize| Fd(i32::from_le_bytes(raw[i..i + 4].try_into().unwrap()));
+    (fd(0), fd(4))
+}
+
+fn send_bytes(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    fd: Fd,
+    at: u32,
+    len: u32,
+    flags: MsgFlags,
+) -> SysResult<u32> {
+    block_on(kernel.sendto(
+        caller,
+        fd,
+        UserSlice::new(at, len),
+        flags,
+        GuestPtr::NULL,
+        0,
+    ))
+}
+
+/// Whether SIGPIPE is pending (and blocked, as the test keeps it).
+fn sigpipe_pending(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) -> bool {
+    assert_eq!(
+        block_on(kernel.rt_sigpending(caller, GuestPtrMut::new(0x800), 8)),
+        Ok(0)
+    );
+    let set = u64::from_le_bytes(get(memory, 0x800, 8).try_into().unwrap());
+    set & (1 << 12) != 0
+}
+
+#[test]
+fn stream_sends_raise_sigpipe_unless_msg_nosignal() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    kernel.task_signals(task).replace_blocked(1 << 12);
+    let (a, _b) = unix_pair(&kernel, &caller, &memory, STREAM);
+    let shut = block_on(kernel.shutdown(&caller, a, wasixv2_abi::ShutdownHow::SHUT_WR));
+    assert_eq!(shut, Ok(0));
+    let quiet = send_bytes(&kernel, &caller, a, 0x400, 4, MsgFlags::MSG_NOSIGNAL);
+    assert_eq!(errno(quiet), Errno::EPIPE);
+    assert!(!sigpipe_pending(&kernel, &caller, &memory));
+    assert_eq!(
+        errno(send_bytes(&kernel, &caller, a, 0x400, 4, MsgFlags(0))),
+        Errno::EPIPE
+    );
+    assert!(sigpipe_pending(&kernel, &caller, &memory));
+
+    // Datagram sockets never raise it.
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    kernel.task_signals(task).replace_blocked(1 << 12);
+    let (a, _b) = unix_pair(&kernel, &caller, &memory, SEQPACKET);
+    block_on(kernel.shutdown(&caller, a, wasixv2_abi::ShutdownHow::SHUT_WR)).unwrap();
+    assert_eq!(
+        errno(send_bytes(&kernel, &caller, a, 0x400, 4, MsgFlags(0))),
+        Errno::EPIPE
+    );
+    assert!(!sigpipe_pending(&kernel, &caller, &memory));
+}
+
+#[test]
+fn unix_records_are_not_capped_at_64k() {
+    let (kernel, task, _) = machine();
+    let memory = FlatMemory(RefCell::new(vec![0; 1 << 20]));
+    let caller = Caller::new(task, &memory);
+    let (a, b) = unix_pair(&kernel, &caller, &memory, SEQPACKET);
+    let data: Vec<u8> = (0..100_000u32).map(|i| (i % 251) as u8).collect();
+    put(&memory, 0x1000, &data);
+    assert_eq!(
+        send_bytes(&kernel, &caller, a, 0x1000, 100_000, MsgFlags(0)),
+        Ok(100_000)
+    );
+    let got = block_on(kernel.recvfrom(
+        &caller,
+        b,
+        UserSliceMut::new(0x40000, 200_000),
+        MsgFlags(0),
+        GuestPtrMut::NULL,
+        GuestPtrMut::NULL,
+    ));
+    assert_eq!(got, Ok(100_000));
+    assert_eq!(get(&memory, 0x40000, 100_000), data);
+    // Past `SO_SNDBUF - 32`: EMSGSIZE, not a silent truncation.
+    let too_big = send_bytes(&kernel, &caller, a, 0x1000, 212_992 - 31, MsgFlags(0));
+    assert_eq!(errno(too_big), Errno::EMSGSIZE);
+}
+
+#[test]
+fn unix_sockets_honour_so_rcvtimeo() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (a, _b) = unix_pair(&kernel, &caller, &memory, STREAM);
+    put(&memory, 0x400, &2i64.to_le_bytes());
+    put(&memory, 0x408, &0i64.to_le_bytes());
+    let set = block_on(kernel.setsockopt(
+        &caller,
+        a,
+        SocketLevel::SOL_SOCKET,
+        SocketOption::SO_RCVTIMEO_NEW.0,
+        UserSlice::new(0x400, 16),
+    ));
+    assert_eq!(set, Ok(0));
+    put(&memory, 0x2f0, &16u32.to_le_bytes());
+    let got = block_on(kernel.getsockopt(
+        &caller,
+        a,
+        SocketLevel::SOL_SOCKET,
+        SocketOption::SO_RCVTIMEO_NEW.0,
+        GuestPtrMut::new(0x300),
+        GuestPtrMut::new(0x2f0),
+    ));
+    assert_eq!(got, Ok(0));
+    assert_eq!(get(&memory, 0x300, 8), 2i64.to_le_bytes());
+    // The test host's sleeps end at once: the blocking read times out.
+    let read = block_on(kernel.read(&caller, a, UserSliceMut::new(0x500, 4)));
+    assert_eq!(errno(read), Errno::EAGAIN);
+}
+
+/// A listening abstract Unix socket named `name` and a client connected to it.
+fn unix_listener(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    memory: &FlatMemory,
+    name: &[u8],
+) -> (Fd, Fd, u32) {
+    let mut addr = (AddressFamily::AF_UNIX.0 as u16).to_le_bytes().to_vec();
+    addr.push(0);
+    addr.extend(name);
+    put(memory, 0x200, &addr);
+    let len = addr.len() as u32;
+    let socket = |kernel: &Kernel| {
+        block_on(kernel.socket(caller, AddressFamily::AF_UNIX, STREAM, 0)).unwrap()
+    };
+    let listener = socket(kernel);
+    assert_eq!(
+        block_on(kernel.bind(caller, listener, GuestPtr::new(0x200), len)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.listen(caller, listener, 4)), Ok(0));
+    let client = socket(kernel);
+    assert_eq!(
+        block_on(kernel.connect(caller, client, GuestPtr::new(0x200), len)),
+        Ok(0)
+    );
+    (listener, client, len)
+}
+
+#[test]
+fn accept_at_the_descriptor_limit_keeps_the_connection_queued() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (listener, client, _) = unix_listener(&kernel, &caller, &memory, b"emfile");
+    let limit = kernel.files(task).lock().unwrap().end();
+    kernel.files(task).lock().unwrap().set_limit(limit);
+    let accept = || {
+        block_on(kernel.accept4(
+            &caller,
+            listener,
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL,
+            SocketFlags(0),
+        ))
+    };
+    assert_eq!(errno(accept()), Errno::EMFILE);
+    kernel.files(task).lock().unwrap().set_limit(limit + 1);
+    let server = accept().unwrap();
+    put(&memory, 0x400, b"ping");
+    assert_eq!(
+        send_bytes(&kernel, &caller, client, 0x400, 4, MsgFlags(0)),
+        Ok(4)
+    );
+    let read = block_on(kernel.read(&caller, server, UserSliceMut::new(0x500, 8)));
+    assert_eq!(read, Ok(4));
+}
+
+#[test]
+fn accept_that_faults_on_the_address_closes_the_connection() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (listener, client, _) = unix_listener(&kernel, &caller, &memory, b"efault");
+    // A negative address length: the accepted socket goes, and its client sees EOF.
+    put(&memory, 0x2f0, &(-1i32).to_le_bytes());
+    let accepted = block_on(kernel.accept4(
+        &caller,
+        listener,
+        GuestPtrMut::new(0x300),
+        GuestPtrMut::new(0x2f0),
+        SocketFlags(0),
+    ));
+    assert_eq!(errno(accepted), Errno::EINVAL);
+    let read = block_on(kernel.read(&caller, client, UserSliceMut::new(0x500, 8)));
+    assert_eq!(read, Ok(0));
+}
+
+#[test]
+fn ip_accept_at_the_descriptor_limit_keeps_the_connection_queued() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let listener = socket(&kernel, &caller, STREAM);
+    sockaddr(&memory, 0x200, 6100);
+    assert_eq!(
+        block_on(kernel.bind(&caller, listener, GuestPtr::new(0x200), 16)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.listen(&caller, listener, 4)), Ok(0));
+    let client = socket(&kernel, &caller, STREAM);
+    assert_eq!(
+        block_on(kernel.connect(&caller, client, GuestPtr::new(0x200), 16)),
+        Ok(0)
+    );
+    let limit = kernel.files(task).lock().unwrap().end();
+    kernel.files(task).lock().unwrap().set_limit(limit);
+    let accept = || {
+        block_on(kernel.accept4(
+            &caller,
+            listener,
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL,
+            SocketFlags(0),
+        ))
+    };
+    assert_eq!(errno(accept()), Errno::EMFILE);
+    kernel.files(task).lock().unwrap().set_limit(limit + 1);
+    assert!(accept().is_ok());
+}
+
+#[test]
+fn blocking_connect_on_a_connecting_socket_waits_instead_of_ealready() {
+    let net = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+    let (kernel, task, memory) = machine();
+    let kernel = kernel.with_network(net);
+    let caller = Caller::new(task, &memory);
+    let listener = socket(&kernel, &caller, STREAM);
+    sockaddr(&memory, 0x200, 6200);
+    assert_eq!(
+        block_on(kernel.bind(&caller, listener, GuestPtr::new(0x200), 16)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.listen(&caller, listener, 0)), Ok(0));
+    let first = socket(&kernel, &caller, STREAM);
+    let connect = |fd| block_on(kernel.connect(&caller, fd, GuestPtr::new(0x200), 16));
+    assert_eq!(connect(first), Ok(0));
+    // The accept queue is full: the second connection waits in SYN_SENT.
+    let second =
+        block_on(kernel.socket(&caller, AddressFamily::AF_INET, STREAM | 0x800, 0)).unwrap();
+    assert_eq!(errno(connect(second)), Errno::EINPROGRESS);
+    assert_eq!(errno(connect(second)), Errno::EALREADY);
+    // Blocking again, as a connect restarted after a signal is: it waits (here until its
+    // SO_SNDTIMEO, which the test host ends at once) rather than failing with EALREADY.
+    let setfl = block_on(kernel.fcntl64(&caller, second, wasixv2_abi::FcntlCmd::F_SETFL, 0));
+    assert_eq!(setfl, Ok(0));
+    put(&memory, 0x400, &1i64.to_le_bytes());
+    put(&memory, 0x408, &0i64.to_le_bytes());
+    let timeo = block_on(kernel.setsockopt(
+        &caller,
+        second,
+        SocketLevel::SOL_SOCKET,
+        SocketOption::SO_SNDTIMEO_NEW.0,
+        UserSlice::new(0x400, 16),
+    ));
+    assert_eq!(timeo, Ok(0));
+    assert_eq!(errno(connect(second)), Errno::EINPROGRESS);
+    let accepted = block_on(kernel.accept4(
+        &caller,
+        listener,
+        GuestPtrMut::NULL,
+        GuestPtrMut::NULL,
+        SocketFlags(0),
+    ));
+    assert!(accepted.is_ok());
+    assert_eq!(errno(connect(second)), Errno::EISCONN);
+}

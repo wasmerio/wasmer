@@ -1,5 +1,7 @@
-//! IP sockets as open-file objects: a `wasixv2_vnet::Socket` plus what the kernel owns about
-//! it (timeouts, blocking), and the guest `sockaddr` codec.
+//! The socket layer every family shares, as Linux's `struct sock` generic parts: the
+//! `SO_RCVTIMEO`/`SO_SNDTIMEO` timeouts and blocking built on them (`sk_wait_event`,
+//! `sock_intr_errno`). Then IP sockets as open-file objects (a `wasixv2_vnet::Socket` plus
+//! that layer), and the guest `sockaddr` codec.
 
 use std::{
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -11,7 +13,7 @@ use wasixv2_abi::{AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags};
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysErr, SysResult, write_value};
 use wasixv2_vnet::{Domain, RecvMsg, SendMsg, Socket, SocketKind};
-use wasixv2_wait::{PollMask, PollTable, PollWaiter, Pollable, Wakeup};
+use wasixv2_wait::{PollMask, PollTable, PollWaiter, Pollable, WaitQueue, Wakeup};
 
 use crate::file::{FileObject, Io};
 
@@ -22,110 +24,175 @@ const SOCKADDR_IN: usize = 16;
 const SOCKADDR_IN6_MIN: usize = 24;
 const SOCKADDR_IN6: usize = 28;
 
+pub(crate) const RCV: usize = 0;
+pub(crate) const SND: usize = 1;
+
+/// `sk_rcvtimeo` and `sk_sndtimeo` (indexed by [`RCV`] and [`SND`]); `None` waits forever.
+/// Every socket family has them.
+#[derive(Default)]
+pub(crate) struct Timeouts(Mutex<[Option<Duration>; 2]>);
+
+impl Timeouts {
+    pub(crate) fn get(&self, dir: usize) -> Option<Duration> {
+        self.0.lock().unwrap()[dir]
+    }
+
+    pub(crate) fn set(&self, dir: usize, timeout: Option<Duration>) {
+        self.0.lock().unwrap()[dir] = timeout;
+    }
+}
+
+/// What a blocked socket call sleeps on.
+#[derive(Clone, Copy)]
+pub(crate) enum WaitOn<'a> {
+    /// The queues `poll` registers on, for the events asked for.
+    Object(&'a dyn Pollable),
+    /// One queue, for any wakeup.
+    Queue(&'a WaitQueue),
+}
+
+/// One socket call's blocking: the `timeo` it computed once at the start (`sock_rcvtimeo`,
+/// `sock_sndtimeo`), counted down across every wait the call makes, as `tcp_sendmsg` and
+/// `tcp_recvmsg` do with `sk_stream_wait_memory` and `sk_wait_data`.
+pub(crate) struct Blocking<'a> {
+    io: Io<'a>,
+    timed: bool,
+    timer: Option<LocalFuture<'a, ()>>,
+    expired: bool,
+}
+
+impl<'a> Blocking<'a> {
+    /// `MSG_DONTWAIT` in `flags` makes the call non-blocking.
+    pub(crate) fn new(
+        host: &'a dyn Host,
+        io: Io<'a>,
+        flags: MsgFlags,
+        timeout: Option<Duration>,
+    ) -> Self {
+        let mut io = io;
+        if flags.contains(MsgFlags::MSG_DONTWAIT) {
+            io.flags |= wasixv2_abi::OpenFlags::O_NONBLOCK;
+        }
+        let timer = match io.nonblocking() {
+            true => None,
+            false => timeout.map(|timeout| host.sleep(timeout)),
+        };
+        Self {
+            io,
+            timed: timeout.is_some(),
+            timer,
+            expired: false,
+        }
+    }
+
+    pub(crate) fn nonblocking(&self) -> bool {
+        self.io.nonblocking()
+    }
+
+    /// `sk_wait_event` around a non-blocking operation: retries `op` while it fails with
+    /// `EAGAIN`, sleeping on `on` for one of `events` in between. The timeout running out
+    /// ends the wait with `EAGAIN`; a signal ends it with a restart, or with `EINTR` when a
+    /// timeout was set (`sock_intr_errno`).
+    pub(crate) async fn wait<T>(
+        &mut self,
+        on: WaitOn<'_>,
+        events: PollMask,
+        mut op: impl FnMut() -> Result<T, Errno>,
+    ) -> SysResult<T> {
+        let queue;
+        let (object, key): (&dyn Pollable, PollMask) = match on {
+            WaitOn::Object(object) => (object, events | PollMask::ERR | PollMask::HUP),
+            WaitOn::Queue(q) => {
+                queue = QueueOnly(q);
+                (&queue, PollMask::empty())
+            }
+        };
+        let mut waiter = PollWaiter::new();
+        let mut registered = false;
+        loop {
+            match op() {
+                Err(Errno::EAGAIN) if !self.io.nonblocking() && !self.expired => {}
+                result => return Ok(result?),
+            }
+            if !registered {
+                // On the queues before the retry, so no wakeup is lost.
+                waiter.poll(object, key, true);
+                registered = true;
+                continue;
+            }
+            if self.io.interrupt.pending() {
+                return Err(self.interrupted());
+            }
+            let timer = self.timer.as_mut().map(|timer| timer.as_mut());
+            match waiter.sleep(self.io.interrupt, timer).await {
+                Wakeup::Woken(_) => {}
+                Wakeup::TimedOut => {
+                    self.expired = true;
+                    return Err(Errno::EAGAIN.into());
+                }
+                Wakeup::Interrupted => return Err(self.interrupted()),
+            }
+        }
+    }
+
+    fn interrupted(&self) -> SysErr {
+        match self.timed {
+            true => SysErr::Errno(Errno::EINTR),
+            false => SysErr::Restart,
+        }
+    }
+}
+
+/// A bare queue as something to poll: registers on it and reports nothing.
+struct QueueOnly<'a>(&'a WaitQueue);
+
+impl Pollable for QueueOnly<'_> {
+    fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
+        wasixv2_wait::poll_wait(&mut table, self.0);
+        PollMask::empty()
+    }
+}
+
 /// The kernel's side of an IP socket.
 pub(crate) struct SocketFile {
     pub(crate) socket: Arc<dyn Socket>,
     host: Arc<dyn Host>,
-    /// `SO_RCVTIMEO` and `SO_SNDTIMEO`; `None` waits forever.
-    pub(crate) timeouts: Mutex<[Option<Duration>; 2]>,
+    pub(crate) timeouts: Timeouts,
 }
-
-pub(crate) const RCV: usize = 0;
-pub(crate) const SND: usize = 1;
 
 impl SocketFile {
     pub(crate) fn new(socket: Arc<dyn Socket>, host: Arc<dyn Host>) -> Self {
         Self {
             socket,
             host,
-            timeouts: Mutex::new([None, None]),
+            timeouts: Timeouts::default(),
         }
     }
 
-    /// `sk_wait_event` around a non-blocking operation: retries `op` while it fails with
-    /// `EAGAIN` until the socket reports one of `events`. A timeout ends the wait with
-    /// `EAGAIN`; a signal with a restart, or `EINTR` when a timeout was set
-    /// (`sock_intr_errno`).
-    pub(crate) async fn block<T>(
-        &self,
-        io: Io<'_>,
-        dir: usize,
-        events: PollMask,
-        mut op: impl FnMut() -> Result<T, Errno>,
-    ) -> SysResult<T> {
-        let timeout = self.timeouts.lock().unwrap()[dir];
-        let mut waiter = PollWaiter::new();
-        let mut timer = timeout.map(|timeout| self.host.sleep(timeout));
-        let mut registered = false;
-        let key = events | PollMask::ERR | PollMask::HUP;
-        loop {
-            match op() {
-                Err(Errno::EAGAIN) if !io.nonblocking() => {}
-                result => return Ok(result?),
-            }
-            if !registered {
-                // On the queues before the retry, so no wakeup is lost.
-                waiter.poll(&*self.socket, key, true);
-                registered = true;
-                continue;
-            }
-            let interrupted = || match timeout {
-                Some(_) => SysErr::Errno(Errno::EINTR),
-                None => SysErr::Restart,
-            };
-            if io.interrupt.pending() {
-                return Err(interrupted());
-            }
-            let timer = timer.as_mut().map(|timer| timer.as_mut());
-            match waiter.sleep(io.interrupt, timer).await {
-                Wakeup::Woken(_) => {}
-                Wakeup::TimedOut => return Err(Errno::EAGAIN.into()),
-                Wakeup::Interrupted => return Err(interrupted()),
-            }
-        }
+    /// The blocking of one call in direction `dir`.
+    pub(crate) fn blocking<'a>(&'a self, io: Io<'a>, dir: usize, flags: MsgFlags) -> Blocking<'a> {
+        Blocking::new(&*self.host, io, flags, self.timeouts.get(dir))
     }
 
-    /// Receives into `buf`, waiting unless non-blocking; with `MSG_WAITALL` on a stream, until
-    /// `buf` is full, the stream ends or an error.
+    /// One receive into `buf`, waiting for data unless non-blocking. `MSG_WAITALL` is the
+    /// caller's to loop on.
     pub(crate) async fn recv(
         &self,
-        io: Io<'_>,
+        wait: &mut Blocking<'_>,
         buf: &mut [u8],
         flags: MsgFlags,
     ) -> SysResult<RecvMsg> {
-        let io = dont_wait(io, flags);
         let socket = &self.socket;
         let proto_flags = flags & !(MsgFlags::MSG_WAITALL | MsgFlags::MSG_DONTWAIT);
-        let mut msg = self
-            .block(io, RCV, PollMask::READABLE, || {
-                socket.recv(buf, proto_flags)
-            })
-            .await?;
-        let waitall = flags.contains(MsgFlags::MSG_WAITALL)
-            && !flags.contains(MsgFlags::MSG_PEEK)
-            && socket.kind() == SocketKind::Stream;
-        while waitall && msg.len > 0 && msg.len < buf.len() {
-            let rest = &mut buf[msg.len..];
-            match self
-                .block(io, RCV, PollMask::READABLE, || {
-                    socket.recv(rest, proto_flags)
-                })
-                .await
-            {
-                Ok(more) if more.len > 0 => {
-                    msg.len += more.len;
-                    msg.full_len += more.full_len;
-                }
-                _ => break,
-            }
-        }
-        Ok(msg)
+        wait.wait(WaitOn::Object(&**socket), PollMask::READABLE, || {
+            socket.recv(buf, proto_flags)
+        })
+        .await
     }
 
     /// Sends `msg`, waiting for room unless non-blocking. A blocking stream send goes on until
     /// everything is sent, returning the partial count if it then fails.
-    pub(crate) async fn send(&self, io: Io<'_>, msg: SendMsg<'_>) -> SysResult<usize> {
-        let io = dont_wait(io, msg.flags);
+    pub(crate) async fn send(&self, wait: &mut Blocking<'_>, msg: SendMsg<'_>) -> SysResult<usize> {
         let socket = &self.socket;
         let flags = msg.flags & !(MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL);
         let stream = socket.kind() == SocketKind::Stream;
@@ -136,29 +203,21 @@ impl SocketFile {
                 flags,
                 ..msg
             };
-            match self
-                .block(io, SND, PollMask::WRITABLE, || socket.send(part))
+            match wait
+                .wait(WaitOn::Object(&**socket), PollMask::WRITABLE, || {
+                    socket.send(part)
+                })
                 .await
             {
                 Ok(n) => sent += n,
                 Err(_) if sent > 0 => return Ok(sent),
-                // TODO: raise SIGPIPE for EPIPE without MSG_NOSIGNAL once signals exist.
                 Err(err) => return Err(err),
             }
-            if !stream || io.nonblocking() || sent >= msg.data.len() {
+            if !stream || wait.nonblocking() || sent >= msg.data.len() {
                 return Ok(sent);
             }
         }
     }
-}
-
-/// `MSG_DONTWAIT` makes one call non-blocking.
-fn dont_wait(io: Io<'_>, flags: MsgFlags) -> Io<'_> {
-    let mut io = io;
-    if flags.contains(MsgFlags::MSG_DONTWAIT) {
-        io.flags |= wasixv2_abi::OpenFlags::O_NONBLOCK;
-    }
-    io
 }
 
 impl Pollable for SocketFile {
@@ -169,7 +228,10 @@ impl Pollable for SocketFile {
 
 impl FileObject for SocketFile {
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
-        Box::pin(async move { Ok(self.recv(io, buf, MsgFlags(0)).await?.len) })
+        Box::pin(async move {
+            let mut wait = self.blocking(io, RCV, MsgFlags(0));
+            Ok(self.recv(&mut wait, buf, MsgFlags(0)).await?.len)
+        })
     }
 
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
@@ -179,7 +241,10 @@ impl FileObject for SocketFile {
             flags: MsgFlags(0),
             control: &[],
         };
-        Box::pin(self.send(io, msg))
+        Box::pin(async move {
+            let mut wait = self.blocking(io, SND, MsgFlags(0));
+            self.send(&mut wait, msg).await
+        })
     }
 
     /// `SIOCINQ` (`FIONREAD`) and `SIOCOUTQ` (`TIOCOUTQ`).
@@ -234,6 +299,20 @@ pub(crate) fn decode(domain: Domain, raw: &[u8], unspec_any: bool) -> Result<Soc
                 _ => Err(Errno::EAFNOSUPPORT),
             }
         }
+    }
+}
+
+/// A datagram send's destination, as `udp_sendmsg` and `udpv6_sendmsg` read it: on an IPv6
+/// socket `AF_INET` goes the IPv4 way and `AF_UNSPEC` means no address (the connected peer).
+pub(crate) fn decode_dest(domain: Domain, raw: &[u8]) -> Result<Option<SocketAddr>, Errno> {
+    if domain == Domain::Inet {
+        return decode(domain, raw, true).map(Some);
+    }
+    match family(raw)? {
+        AddressFamily::AF_INET6 => decode(domain, raw, false).map(Some),
+        AddressFamily::AF_INET if raw.len() >= SOCKADDR_IN => Ok(Some(decode_v4(raw))),
+        AddressFamily::AF_UNSPEC => Ok(None),
+        _ => Err(Errno::EINVAL),
     }
 }
 

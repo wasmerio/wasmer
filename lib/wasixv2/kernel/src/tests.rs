@@ -52,7 +52,7 @@ impl UserMemory for FlatMemory {
 }
 
 /// Fixed clocks, sleeps that finish at once and predictable "random" bytes.
-struct TestHost;
+pub(crate) struct TestHost;
 
 impl Host for TestHost {
     fn realtime(&self) -> Duration {

@@ -1,9 +1,18 @@
 //! The socket syscalls, as Linux's `net/socket.c`: descriptor handling, guest struct decoding
-//! (`move_addr_to_kernel`, `move_addr_to_user`, msghdr and cmsg layouts), blocking and the
-//! `SOL_SOCKET` options the socket layer itself answers. IP protocol behaviour comes from the
-//! network namespace (`wasixv2_vnet::Network`); Unix sockets are not implemented yet.
+//! (`move_addr_to_kernel`, `move_addr_to_user`, msghdr and cmsg layouts), moving data between
+//! guest iovecs and sockets, and the `SOL_SOCKET` options the socket layer itself answers. IP
+//! protocol behaviour comes from the network namespace (`wasixv2_vnet::Network`); Unix and
+//! netlink sockets are kernel facilities of their own.
+//!
+//! Everything a guest hands in is checked as Linux checks it: lengths are validated before
+//! they are used and address arithmetic that would leave the address space is `EFAULT`, so no
+//! guest input can make the host panic.
 
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use wasixv2_abi::{
     AddressFamily, Buf, ConstSockaddrPtr, ConstUserMsghdrPtr, FdPair, GuestLayout, GuestPtr,
@@ -12,17 +21,19 @@ use wasixv2_abi::{
     Socklen, SocklenPtr, UserMsghdr, UserMsghdrPtr,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, Fd, SysErr, SysResult, UserSlice, UserSliceMut, read_value, write_value,
+    Caller, Errno, Fd, SysErr, SysResult, UserMemory, UserSlice, UserSliceMut, read_value,
+    write_value,
 };
 use wasixv2_vfs::Path;
 use wasixv2_vnet::{Control, Domain, SendMsg, Shutdown, SocketKind};
+use wasixv2_wait::PollMask;
 
 use crate::{
-    IO_CHUNK, Kernel,
+    Kernel,
     file::{Backing, OpenFile},
     fs::read_iovecs,
     netlink,
-    socket::{self, RCV, SND, SOCKADDR_STORAGE, SocketFile},
+    socket::{self, RCV, SND, SOCKADDR_STORAGE, SocketFile, Timeouts, WaitOn},
     unix::{self, UnixFile},
 };
 
@@ -34,9 +45,18 @@ const UIO_MAXIOV: u32 = 1024;
 const SOCK_TYPE_MASK: i32 = 0xf;
 /// `SOCK_MAX`.
 const SOCK_MAX: i32 = 11;
-/// `sizeof(struct cmsghdr)` and its alignment on wasm32.
+/// `sizeof(struct cmsghdr)` and its alignment on wasm32 (`CMSG_ALIGN`, `sizeof(long)`).
 const CMSG_HDR: usize = 12;
 const CMSG_ALIGN: usize = 4;
+/// `net.core.optmem_max`: the most control data one `sendmsg` may hand in.
+const OPTMEM_MAX: usize = 128 * 1024;
+/// `MAX_RW_COUNT`: the most one call transfers.
+const MAX_RW_COUNT: u32 = 0x7fff_f000;
+/// What a stream send or receive moves through kernel memory per step.
+const SOCK_CHUNK: usize = 256 * 1024;
+/// The largest IP datagram payload. A send copies one byte more, so the protocol sees an
+/// oversized datagram and reports `EMSGSIZE` in its own order.
+const IP_MAX_DATAGRAM: usize = 65535;
 
 /// An open socket: its open file and its socket state.
 type Sock = (Arc<OpenFile>, Arc<SocketFile>);
@@ -48,7 +68,33 @@ enum AnySock {
     Netlink(Arc<OpenFile>, Arc<netlink::NetlinkSocket>),
 }
 
-/// What one receive produced, for `recv_msghdr`.
+impl AnySock {
+    fn file(&self) -> &OpenFile {
+        match self {
+            AnySock::Inet((file, _)) | AnySock::Unix(file, _) | AnySock::Netlink(file, _) => file,
+        }
+    }
+
+    fn timeouts(&self) -> &Timeouts {
+        match self {
+            AnySock::Inet((_, sock)) => &sock.timeouts,
+            AnySock::Unix(_, sock) => &sock.timeouts,
+            AnySock::Netlink(_, nl) => &nl.timeouts,
+        }
+    }
+
+    /// Stream sockets raise `SIGPIPE` for `EPIPE` (`sk_stream_error`, `unix_stream_sendmsg`);
+    /// datagram ones never do.
+    fn raises_sigpipe(&self) -> bool {
+        match self {
+            AnySock::Inet((_, sock)) => sock.socket.kind() == SocketKind::Stream,
+            AnySock::Unix(_, sock) => sock.kind() == unix::Kind::Stream,
+            AnySock::Netlink(..) => false,
+        }
+    }
+}
+
+/// What one receive produced, for `recvfrom` and `recv_msghdr`.
 struct Got {
     len: usize,
     result: usize,
@@ -92,24 +138,17 @@ impl Kernel {
         Ok((file, socket))
     }
 
-    fn install_socket(
-        &self,
-        caller: &Caller<'_>,
-        socket: Arc<dyn wasixv2_vnet::Socket>,
-        flags: SocketFlags,
-    ) -> SysResult<Fd> {
+    /// An open file for the IP socket `socket`.
+    fn socket_file(&self, socket: Arc<dyn wasixv2_vnet::Socket>, flags: SocketFlags) -> OpenFile {
         let mut status = OpenFlags::O_RDWR;
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
         let object = SocketFile::new(socket, self.host.clone());
-        let file = OpenFile::new(
+        OpenFile::new(
             Backing::Stream(Arc::new(object), self.pseudo.socket()),
             status,
-        );
-        let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
-        let [fd] = self.install_files(caller, [file], cloexec)?;
-        Ok(fd)
+        )
     }
 
     /// `__sys_socket` and `__sock_create`.
@@ -141,10 +180,13 @@ impl Kernel {
         };
         let network = self.network.as_ref().ok_or(Errno::EAFNOSUPPORT)?;
         let socket = network.socket(domain, kind, protocol)?;
-        self.install_socket(caller, socket, flags)
+        let file = self.socket_file(socket, flags);
+        let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
+        let [fd] = self.install_files(caller, [file], cloexec)?;
+        Ok(fd)
     }
 
-    /// `__sys_socketpair`. Only Unix sockets have pairs, and they do not exist yet.
+    /// `__sys_socketpair`. Only Unix sockets have pairs.
     pub(crate) async fn sys_socketpair(
         &self,
         caller: &Caller<'_>,
@@ -215,7 +257,10 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `do_accept` and `inet_accept`: waits for a connection unless non-blocking.
+    /// `do_accept`: waits for a connection unless non-blocking. As Linux reserves the
+    /// descriptor before taking the connection (`get_unused_fd_flags`), a full table fails with
+    /// `EMFILE` and leaves the connection queued; a fault writing the peer's address afterwards
+    /// closes the accepted socket, which its peer sees.
     pub(crate) async fn sys_accept4(
         &self,
         caller: &Caller<'_>,
@@ -227,30 +272,83 @@ impl Kernel {
         if !(flags & !(SocketFlags::SOCK_CLOEXEC | SocketFlags::SOCK_NONBLOCK)).is_empty() {
             return Err(Errno::EINVAL.into());
         }
-        let (file, sock) = match self.any_socket(caller, fd)? {
-            AnySock::Inet(sock) => sock,
-            AnySock::Unix(file, sock) => {
-                let accepted = self.unix_accept(caller, &file, &sock).await?;
-                if !addr.is_null() {
-                    let raw = accepted.peer_addr().unwrap_or_default();
-                    move_addr_to_user(caller, &raw, addr, addrlen).await?;
-                }
-                return self.install_unix(caller, accepted, flags);
-            }
-            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
-        };
+        let any = self.any_socket(caller, fd)?;
+        let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let interrupt = self.interrupt(caller);
-        let io = Self::io(&*interrupt, &file);
-        let accepted = sock
-            .block(io, RCV, wasixv2_wait::PollMask::READABLE, || {
-                sock.socket.accept()
-            })
-            .await?;
-        if !addr.is_null() {
-            let raw = socket::encode(accepted.peer);
-            move_addr_to_user(caller, &raw, addr, addrlen).await?;
+        let io = Self::io(&*interrupt, any.file());
+        let (fd, file, peer) = match &any {
+            AnySock::Inet((_, sock)) => {
+                let mut wait = sock.blocking(io, RCV, MsgFlags(0));
+                let on = WaitOn::Object(&*sock.socket);
+                wait.wait(on, PollMask::READABLE, || {
+                    self.install_accepted(caller, cloexec, || {
+                        let accepted = sock.socket.accept()?;
+                        let peer = socket::encode(accepted.peer);
+                        Ok((self.socket_file(accepted.socket, flags), peer))
+                    })
+                })
+                .await?
+            }
+            AnySock::Unix(_, sock) => {
+                let mut wait = sock.blocking(io, RCV, MsgFlags(0));
+                wait.wait(WaitOn::Queue(sock.queue()), PollMask::READABLE, || {
+                    self.install_accepted(caller, cloexec, || {
+                        if sock.kind() == unix::Kind::Dgram {
+                            return Err(Errno::EOPNOTSUPP);
+                        }
+                        // The embryo is an open file at once, so every way out releases it.
+                        let embryo = sock.try_accept()?;
+                        let peer = embryo.peer_addr().unwrap_or_default();
+                        Ok((unix_file(embryo, flags, self.pseudo.socket()), peer))
+                    })
+                })
+                .await?
+            }
+            AnySock::Netlink(..) => {
+                self.install_accepted(caller, cloexec, || Err(Errno::EOPNOTSUPP))?
+            }
+        };
+        if !addr.is_null()
+            && let Err(err) = move_addr_to_user(caller, &peer, addr, addrlen).await
+        {
+            self.uninstall(caller, fd, &file);
+            return Err(err);
         }
-        self.install_socket(caller, accepted.socket, flags)
+        Ok(fd)
+    }
+
+    /// Takes a connection with `accept` and installs it, under the descriptor table's lock so
+    /// the slot checked free is the one used: `EMFILE` before anything is dequeued.
+    fn install_accepted(
+        &self,
+        caller: &Caller<'_>,
+        cloexec: bool,
+        accept: impl FnOnce() -> Result<(OpenFile, Vec<u8>), Errno>,
+    ) -> Result<(Fd, Arc<OpenFile>, Vec<u8>), Errno> {
+        let table = self.files(caller.task());
+        let mut table = table.lock().unwrap();
+        if !table.has_room(1) {
+            return Err(Errno::EMFILE);
+        }
+        let (file, peer) = accept()?;
+        let file = Arc::new(file);
+        let fd = table
+            .install(file.clone(), cloexec)
+            .expect("room checked above");
+        Ok((fd, file, peer))
+    }
+
+    /// Takes back a descriptor `install_accepted` installed, unless the guest replaced it.
+    fn uninstall(&self, caller: &Caller<'_>, fd: Fd, file: &Arc<OpenFile>) {
+        let removed = {
+            let table = self.files(caller.task());
+            let mut table = table.lock().unwrap();
+            match table.get(fd) {
+                Some(installed) if Arc::ptr_eq(&installed, file) => table.remove(fd),
+                _ => None,
+            }
+        };
+        drop(removed);
     }
 
     /// `__sys_connect`, `inet_stream_connect` and `inet_dgram_connect`.
@@ -274,23 +372,28 @@ impl Kernel {
             return Ok(0);
         }
         let socket = &sock.socket;
-        let addr = socket::decode(socket.domain(), &raw, false)?;
+        let addr = match socket.kind() {
+            // `ip6_datagram_connect` takes an IPv4 address too.
+            SocketKind::Datagram => {
+                socket::decode_dest(socket.domain(), &raw)?.ok_or(Errno::EAFNOSUPPORT)?
+            }
+            SocketKind::Stream => socket::decode(socket.domain(), &raw, false)?,
+        };
+        let interrupt = self.interrupt(caller);
+        let mut wait = sock.blocking(Self::io(&*interrupt, &file), SND, MsgFlags(0));
+        // `__inet_stream_connect`: a blocking socket waits for a connection under way, its
+        // own or one a restarted call left (`EALREADY`); a non-blocking one reports it.
         match socket.connect(addr) {
-            Err(Errno::EINPROGRESS) => {}
+            Err(Errno::EINPROGRESS | Errno::EALREADY) if !wait.nonblocking() => {}
             result => return Ok(result.map(|()| 0)?),
         }
-        let interrupt = self.interrupt(caller);
-        let io = Self::io(&*interrupt, &file);
-        if io.nonblocking() {
-            return Err(Errno::EINPROGRESS.into());
-        }
-        let finished = || match socket.take_error() {
-            Some(errno) => Err(errno),
-            None if socket.peer_addr().is_ok() => Ok(()),
-            None => Err(Errno::EAGAIN),
+        let finished = || match socket.connect(addr) {
+            Err(Errno::EALREADY | Errno::EINPROGRESS) => Err(Errno::EAGAIN),
+            Err(Errno::EISCONN) => Ok(()),
+            result => result,
         };
-        match sock
-            .block(io, SND, wasixv2_wait::PollMask::WRITABLE, finished)
+        match wait
+            .wait(WaitOn::Object(&**socket), PollMask::WRITABLE, finished)
             .await
         {
             // `inet_wait_for_connect` timed out.
@@ -343,43 +446,124 @@ impl Kernel {
         addr: ConstSockaddrPtr,
         len: Socklen,
     ) -> SysResult<u32> {
-        let (file, sock) = match self.any_socket(caller, fd)? {
-            AnySock::Inet(sock) => sock,
-            AnySock::Unix(file, sock) => {
-                let raw = match addr.is_null() {
-                    true => None,
-                    false => Some(move_addr_to_kernel(caller, addr, len).await?),
-                };
-                let to = self.unix_destination(caller, &sock, raw.as_deref()).await?;
-                let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
-                let interrupt = self.interrupt(caller);
-                let io = dont_wait(Self::io(&*interrupt, &file), flags);
-                let cred = self.ucred(caller);
-                let anc = unix::Ancillary::default();
-                return Ok(unix::send(&sock, io, &data, to, anc, cred).await? as u32);
-            }
-            AnySock::Netlink(_, nl) => {
-                let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
-                return Ok(nl.send(&data)? as u32);
-            }
-        };
+        let sock = self.any_socket(caller, fd)?;
         let to = match addr.is_null() {
             true => None,
-            false => {
-                let raw = move_addr_to_kernel(caller, addr, len).await?;
-                self.destination(&sock, &raw)?
+            false => Some(move_addr_to_kernel(caller, addr, len).await?),
+        };
+        let src = GuestIov::single(buf.addr, buf.len);
+        let sent = self
+            .send_from(caller, &sock, &src, to.as_deref(), &[], flags)
+            .await?;
+        Ok(sent as u32)
+    }
+
+    /// `sock_sendmsg` for every family: the data of `src`, to the address `to` if given.
+    /// Streams take it all unless non-blocking or interrupted, in steps through kernel memory;
+    /// a datagram is copied whole, up to one byte past the largest the protocol takes.
+    async fn send_from(
+        &self,
+        caller: &Caller<'_>,
+        sock: &AnySock,
+        src: &GuestIov,
+        to: Option<&[u8]>,
+        control: &[Control],
+        flags: MsgFlags,
+    ) -> SysResult<usize> {
+        let memory = caller.memory();
+        let interrupt = self.interrupt(caller);
+        let io = Self::io(&*interrupt, sock.file());
+        let result = match sock {
+            AnySock::Inet((_, sock)) => {
+                // `__sock_cmsg_send` ignores Unix-only control messages on IP sockets.
+                let control: Vec<Control> = control
+                    .iter()
+                    .filter(|c| {
+                        !(c.level == SocketLevel::SOL_SOCKET.0
+                            && matches!(c.kind, unix::SCM_RIGHTS | unix::SCM_CREDENTIALS))
+                    })
+                    .cloned()
+                    .collect();
+                let to = match to {
+                    Some(raw) => self.destination(sock, raw)?,
+                    None => None,
+                };
+                let mut wait = sock.blocking(io, SND, flags);
+                let mut scratch = Scratch::default();
+                let stream = sock.socket.kind() == SocketKind::Stream;
+                let mut sent = 0;
+                loop {
+                    let n = match stream {
+                        true => (src.len - sent).min(SOCK_CHUNK),
+                        false => src.len.min(IP_MAX_DATAGRAM + 1),
+                    };
+                    let buf = scratch.get(n);
+                    if let Err(err) = src.copy_in(memory, sent, buf).await {
+                        break if sent > 0 { Ok(sent) } else { Err(err) };
+                    }
+                    let msg = SendMsg {
+                        data: buf,
+                        to,
+                        flags,
+                        control: if sent == 0 { &control } else { &[] },
+                    };
+                    match sock.send(&mut wait, msg).await {
+                        Ok(k) => {
+                            sent += k;
+                            if !stream || k < n || sent >= src.len {
+                                break Ok(sent);
+                            }
+                        }
+                        Err(_) if sent > 0 => break Ok(sent),
+                        Err(err) => break Err(err),
+                    }
+                }
+            }
+            AnySock::Unix(_, sock) => {
+                let to = self.unix_destination(caller, sock, to).await?;
+                let anc = self.unix_ancillary(caller, control)?;
+                let cred = self.ucred(caller);
+                let mut wait = sock.blocking(io, SND, flags);
+                match sock.max_record() {
+                    Some(max) => {
+                        let mut data = vec![0; src.len.min(max.saturating_add(1))];
+                        src.copy_in(memory, 0, &mut data).await?;
+                        unix::send(sock, &mut wait, data, to, anc, cred).await
+                    }
+                    None => {
+                        let mut anc = Some(anc);
+                        let mut sent = 0;
+                        loop {
+                            let mut data = vec![0; (src.len - sent).min(SOCK_CHUNK)];
+                            let n = data.len();
+                            if let Err(err) = src.copy_in(memory, sent, &mut data).await {
+                                break if sent > 0 { Ok(sent) } else { Err(err) };
+                            }
+                            let anc = anc.take().unwrap_or_default();
+                            match unix::send(sock, &mut wait, data, None, anc, cred).await {
+                                Ok(k) => {
+                                    sent += k;
+                                    if k < n || sent >= src.len {
+                                        break Ok(sent);
+                                    }
+                                }
+                                Err(_) if sent > 0 => break Ok(sent),
+                                Err(err) => break Err(err),
+                            }
+                        }
+                    }
+                }
+            }
+            AnySock::Netlink(_, nl) => {
+                let mut data = vec![0; src.len.min(nl.max_request().saturating_add(1))];
+                src.copy_in(memory, 0, &mut data).await?;
+                Ok(nl.send(&data)?)
             }
         };
-        let data = buf.copy_in(caller.memory(), IO_CHUNK).await?;
-        let msg = SendMsg {
-            data: &data,
-            to,
-            flags,
-            control: &[],
-        };
-        Ok(sock
-            .send(Self::io(&*self.interrupt(caller), &file), msg)
-            .await? as u32)
+        match sock.raises_sigpipe() && !flags.contains(MsgFlags::MSG_NOSIGNAL) {
+            true => self.sigpipe(caller, result),
+            false => result,
+        }
     }
 
     /// A send's destination. Stream sockets ignore it, as TCP does.
@@ -387,7 +571,7 @@ impl Kernel {
         if sock.socket.kind() == SocketKind::Stream {
             return Ok(None);
         }
-        socket::decode(sock.socket.domain(), raw, true).map(Some)
+        socket::decode_dest(sock.socket.domain(), raw)
     }
 
     /// `__sys_recvfrom`.
@@ -400,45 +584,139 @@ impl Kernel {
         addr: SockaddrPtr,
         addrlen: SocklenPtr,
     ) -> SysResult<u32> {
-        let mut data = vec![0; (buf.len as usize).min(IO_CHUNK)];
-        let (file, sock) = match self.any_socket(caller, fd)? {
-            AnySock::Inet(sock) => sock,
-            AnySock::Unix(file, sock) => {
-                let msg = unix::recv(
-                    &sock,
-                    Self::io(&*self.interrupt(caller), &file),
-                    &mut data,
-                    flags,
-                )
-                .await?;
-                buf.copy_out(caller.memory(), &data[..msg.len]).await?;
-                if !addr.is_null() {
-                    let raw = msg.from.clone().unwrap_or_default();
-                    move_addr_to_user(caller, &raw, addr, addrlen).await?;
-                }
-                return Ok(unix_result(&sock, flags, &msg) as u32);
-            }
-            AnySock::Netlink(file, nl) => {
-                let interrupt = self.interrupt(caller);
-                let io = dont_wait(Self::io(&*interrupt, &file), flags);
-                let (len, full) = nl.recv(io, &mut data, flags).await?;
-                buf.copy_out(caller.memory(), &data[..len]).await?;
-                if !addr.is_null() {
-                    move_addr_to_user(caller, &netlink::kernel_addr(), addr, addrlen).await?;
-                }
-                let truncated = flags.contains(MsgFlags::MSG_TRUNC);
-                return Ok(if truncated { full } else { len } as u32);
-            }
-        };
-        let msg = sock
-            .recv(Self::io(&*self.interrupt(caller), &file), &mut data, flags)
-            .await?;
-        buf.copy_out(caller.memory(), &data[..msg.len]).await?;
+        let sock = self.any_socket(caller, fd)?;
+        let dst = GuestIov::single(buf.addr, buf.len);
+        let got = self.recv_into(caller, &sock, &dst, flags).await?;
         if !addr.is_null() {
-            let raw = msg.from.map(socket::encode).unwrap_or_default();
+            let raw = got.from.unwrap_or_default();
             move_addr_to_user(caller, &raw, addr, addrlen).await?;
         }
-        Ok(recv_result(&sock, flags, &msg) as u32)
+        Ok(got.result as u32)
+    }
+
+    /// `sock_recvmsg` for every family into `dst`: one record for datagram families; for
+    /// streams what is there, and with `MSG_WAITALL` until `dst` is full, the stream ends or
+    /// fails, in steps through kernel memory.
+    async fn recv_into(
+        &self,
+        caller: &Caller<'_>,
+        sock: &AnySock,
+        dst: &GuestIov,
+        flags: MsgFlags,
+    ) -> SysResult<Got> {
+        let memory = caller.memory();
+        let interrupt = self.interrupt(caller);
+        let io = Self::io(&*interrupt, sock.file());
+        let waitall = flags.contains(MsgFlags::MSG_WAITALL) && !flags.contains(MsgFlags::MSG_PEEK);
+        match sock {
+            AnySock::Inet((_, sock)) => {
+                let stream = sock.socket.kind() == SocketKind::Stream;
+                let mut wait = sock.blocking(io, RCV, flags);
+                let mut scratch = Scratch::default();
+                let n = match stream {
+                    true => dst.len.min(SOCK_CHUNK),
+                    false => dst.len.min(IP_MAX_DATAGRAM),
+                };
+                let buf = scratch.get(n);
+                let msg = sock.recv(&mut wait, buf, flags).await?;
+                dst.copy_out(memory, 0, &buf[..msg.len]).await?;
+                let mut got = Got {
+                    len: msg.len,
+                    result: recv_result(sock, flags, &msg),
+                    from: msg.from.map(socket::encode),
+                    flags: msg.flags,
+                    controls: msg.control,
+                    rights: Vec::new(),
+                };
+                while stream && waitall && got.len > 0 && got.len < dst.len {
+                    let buf = scratch.get((dst.len - got.len).min(SOCK_CHUNK));
+                    match sock.recv(&mut wait, buf, flags).await {
+                        Ok(more) if more.len > 0 => {
+                            if dst
+                                .copy_out(memory, got.len, &buf[..more.len])
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                            got.len += more.len;
+                        }
+                        _ => break,
+                    }
+                }
+                if stream {
+                    got.result = got.len;
+                }
+                Ok(got)
+            }
+            AnySock::Unix(_, sock) => {
+                let stream = sock.kind() == unix::Kind::Stream;
+                let mut wait = sock.blocking(io, RCV, flags);
+                let max = match stream {
+                    true => dst.len.min(SOCK_CHUNK),
+                    false => dst.len,
+                };
+                let msg = unix::recv(sock, &mut wait, max, flags).await?;
+                dst.copy_out(memory, 0, &msg.data).await?;
+                let controls = msg
+                    .cred
+                    .map(|cred| Control {
+                        level: SocketLevel::SOL_SOCKET.0,
+                        kind: unix::SCM_CREDENTIALS,
+                        data: cred.to_bytes(),
+                    })
+                    .into_iter()
+                    .collect();
+                let mut got = Got {
+                    len: msg.len(),
+                    result: unix_result(sock, flags, &msg),
+                    // An unnamed sender has an empty address.
+                    from: Some(msg.from.unwrap_or_default()),
+                    flags: msg.flags,
+                    controls,
+                    rights: msg.rights,
+                };
+                while stream && waitall && got.len > 0 && got.len < dst.len && got.rights.is_empty()
+                {
+                    let max = (dst.len - got.len).min(SOCK_CHUNK);
+                    match unix::recv(sock, &mut wait, max, flags).await {
+                        Ok(more) if more.len() > 0 => {
+                            if dst.copy_out(memory, got.len, &more.data).await.is_err() {
+                                break;
+                            }
+                            got.len += more.len();
+                            got.rights = more.rights;
+                        }
+                        _ => break,
+                    }
+                }
+                if stream {
+                    got.result = got.len;
+                }
+                Ok(got)
+            }
+            AnySock::Netlink(_, nl) => {
+                let mut wait = nl.blocking(io, RCV, flags);
+                let reply = nl.recv(&mut wait, flags).await?;
+                let len = reply.len().min(dst.len);
+                dst.copy_out(memory, 0, &reply[..len]).await?;
+                let mut out = MsgFlags(0);
+                if reply.len() > len {
+                    out |= MsgFlags::MSG_TRUNC;
+                }
+                Ok(Got {
+                    len,
+                    result: match flags.contains(MsgFlags::MSG_TRUNC) {
+                        true => reply.len(),
+                        false => len,
+                    },
+                    from: Some(netlink::kernel_addr()),
+                    flags: out,
+                    controls: Vec::new(),
+                    rights: Vec::new(),
+                })
+            }
+        }
     }
 
     /// `___sys_sendmsg`.
@@ -461,7 +739,6 @@ impl Kernel {
         hdr: &UserMsghdr,
         flags: MsgFlags,
     ) -> SysResult<usize> {
-        let memory = caller.memory();
         let namelen = msg_namelen(hdr)?;
         if hdr.msg_iovlen > UIO_MAXIOV {
             return Err(Errno::EMSGSIZE.into());
@@ -472,46 +749,10 @@ impl Kernel {
                 move_addr_to_kernel(caller, GuestPtr::new(hdr.msg_name.addr()), namelen).await?,
             ),
         };
+        let src = GuestIov::of(caller.memory(), hdr).await?;
         let control = read_cmsgs(caller, hdr).await?;
-        let mut data = Vec::new();
-        for iov in read_iovecs(memory, GuestPtr::new(hdr.msg_iov.addr()), hdr.msg_iovlen).await? {
-            let slice = UserSlice::new(iov.iov_base, iov.iov_len);
-            data.extend(slice.copy_in(memory, IO_CHUNK - data.len()).await?);
-        }
-        match sock {
-            AnySock::Inet((file, sock)) => {
-                // `SCM_RIGHTS` and `SCM_CREDENTIALS` only work on Unix sockets.
-                if control.iter().any(|c| {
-                    c.level == SocketLevel::SOL_SOCKET.0
-                        && matches!(c.kind, unix::SCM_RIGHTS | unix::SCM_CREDENTIALS)
-                }) {
-                    return Err(Errno::EINVAL.into());
-                }
-                let to = match &raw_to {
-                    Some(raw) => self.destination(sock, raw)?,
-                    None => None,
-                };
-                let msg = SendMsg {
-                    data: &data,
-                    to,
-                    flags,
-                    control: &control,
-                };
-                sock.send(Self::io(&*self.interrupt(caller), file), msg)
-                    .await
-            }
-            AnySock::Unix(file, sock) => {
-                let to = self
-                    .unix_destination(caller, sock, raw_to.as_deref())
-                    .await?;
-                let anc = self.unix_ancillary(caller, &control)?;
-                let interrupt = self.interrupt(caller);
-                let io = dont_wait(Self::io(&*interrupt, file), flags);
-                let cred = self.ucred(caller);
-                unix::send(sock, io, &data, to, anc, cred).await
-            }
-            AnySock::Netlink(_, nl) => Ok(nl.send(&data)?),
-        }
+        self.send_from(caller, sock, &src, raw_to.as_deref(), &control, flags)
+            .await
     }
 
     /// `___sys_recvmsg`.
@@ -540,73 +781,8 @@ impl Kernel {
         if hdr.msg_iovlen > UIO_MAXIOV {
             return Err(Errno::EMSGSIZE.into());
         }
-        let iovecs = read_iovecs(memory, GuestPtr::new(hdr.msg_iov.addr()), hdr.msg_iovlen).await?;
-        let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
-        let mut data = vec![0; total.min(IO_CHUNK)];
-        let got = match sock {
-            AnySock::Inet((file, sock)) => {
-                let msg = sock
-                    .recv(Self::io(&*self.interrupt(caller), file), &mut data, flags)
-                    .await?;
-                Got {
-                    len: msg.len,
-                    result: recv_result(sock, flags, &msg),
-                    from: msg.from.map(socket::encode),
-                    flags: msg.flags,
-                    controls: msg.control,
-                    rights: Vec::new(),
-                }
-            }
-            AnySock::Unix(file, sock) => {
-                let msg = unix::recv(
-                    sock,
-                    Self::io(&*self.interrupt(caller), file),
-                    &mut data,
-                    flags,
-                )
-                .await?;
-                let controls = msg
-                    .cred
-                    .map(|cred| Control {
-                        level: SocketLevel::SOL_SOCKET.0,
-                        kind: unix::SCM_CREDENTIALS,
-                        data: cred.to_bytes(),
-                    })
-                    .into_iter()
-                    .collect();
-                Got {
-                    len: msg.len,
-                    result: unix_result(sock, flags, &msg),
-                    // An unnamed sender has an empty address.
-                    from: Some(msg.from.unwrap_or_default()),
-                    flags: msg.flags,
-                    controls,
-                    rights: msg.rights,
-                }
-            }
-            AnySock::Netlink(file, nl) => {
-                let interrupt = self.interrupt(caller);
-                let io = dont_wait(Self::io(&*interrupt, file), flags);
-                let (len, full) = nl.recv(io, &mut data, flags).await?;
-                let mut out = MsgFlags(0);
-                if full > len {
-                    out |= MsgFlags::MSG_TRUNC;
-                }
-                Got {
-                    len,
-                    result: if flags.contains(MsgFlags::MSG_TRUNC) {
-                        full
-                    } else {
-                        len
-                    },
-                    from: Some(netlink::kernel_addr()),
-                    flags: out,
-                    controls: Vec::new(),
-                    rights: Vec::new(),
-                }
-            }
-        };
-        scatter(caller, &iovecs, &data[..got.len]).await?;
+        let dst = GuestIov::of(memory, &hdr).await?;
+        let got = self.recv_into(caller, sock, &dst, flags).await?;
 
         // The name: as much as fits, with the real length reported.
         hdr.msg_namelen = 0;
@@ -649,6 +825,7 @@ impl Kernel {
             *flags |= MsgFlags::MSG_CTRUNC;
             return Ok(0);
         }
+        let at = offset(hdr.msg_control.addr(), used)?;
         let total = rights.len();
         let wanted = fit.min(total);
         // `scm_detach_fds`: descriptors past the limit are dropped, and the message says so.
@@ -676,10 +853,7 @@ impl Kernel {
         for fd in fds {
             raw.extend(fd.0.to_le_bytes());
         }
-        caller
-            .memory()
-            .write(hdr.msg_control.addr() + used as u32, &raw)
-            .await?;
+        caller.memory().write(at, &raw).await?;
         Ok(len.next_multiple_of(CMSG_ALIGN).min(space))
     }
 
@@ -697,11 +871,11 @@ impl Kernel {
         let vlen = vlen.min(UIO_MAXIOV);
         let mut sent = 0;
         while sent < vlen {
-            let at = mmsg.addr() + sent * wasixv2_abi::Mmsghdr::SIZE as u32;
             let result = async {
+                let at = offset(mmsg.addr(), sent as usize * wasixv2_abi::Mmsghdr::SIZE)?;
                 let hdr: UserMsghdr = read_value(caller.memory(), GuestPtr::new(at)).await?;
                 let n = self.send_msghdr(caller, &sock, &hdr, flags).await?;
-                let len_at = GuestPtrMut::new(at + UserMsghdr::SIZE as u32);
+                let len_at = GuestPtrMut::new(offset(at, UserMsghdr::SIZE)?);
                 write_value(caller.memory(), len_at, &(n as u32)).await?;
                 SysResult::Ok(())
             }
@@ -730,10 +904,10 @@ impl Kernel {
         let mut flags = flags;
         let mut received = 0;
         while received < vlen {
-            let at = mmsg.addr() + received * wasixv2_abi::Mmsghdr::SIZE as u32;
             let result = async {
+                let at = offset(mmsg.addr(), received as usize * wasixv2_abi::Mmsghdr::SIZE)?;
                 let n = self.recv_msghdr(caller, &sock, at, flags).await?;
-                let len_at = GuestPtrMut::new(at + UserMsghdr::SIZE as u32);
+                let len_at = GuestPtrMut::new(offset(at, UserMsghdr::SIZE)?);
                 write_value(caller.memory(), len_at, &(n as u32)).await?;
                 SysResult::Ok(())
             }
@@ -778,7 +952,8 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `__sys_setsockopt`: the socket layer's own options, the rest to the protocol.
+    /// `__sys_setsockopt`: the socket layer's own options for every family, the rest to the
+    /// protocol.
     pub(crate) async fn sys_setsockopt(
         &self,
         caller: &Caller<'_>,
@@ -788,41 +963,39 @@ impl Kernel {
         value: UserSlice,
     ) -> SysResult<i32> {
         let value = value.copy_in(caller.memory(), 4096).await?;
-        let sock = match self.any_socket(caller, fd)? {
-            AnySock::Inet((_, sock)) => sock,
-            AnySock::Unix(_, sock) => {
-                if level != SocketLevel::SOL_SOCKET {
-                    return Err(Errno::EOPNOTSUPP.into());
-                }
-                if name == SocketOption::SO_PASSCRED.0 {
-                    let on = value.get(..4).ok_or(Errno::EINVAL)?;
-                    sock.set_passcred(i32::from_le_bytes(on.try_into().unwrap()) != 0);
-                }
-                // Buffer sizes, timeouts and the rest are accepted and not enforced.
-                return Ok(0);
-            }
-            // Netlink options (buffer sizes, groups, strict checking) are accepted as no-ops.
-            AnySock::Netlink(..) => return Ok(0),
-        };
+        let any = self.any_socket(caller, fd)?;
         if level == SocketLevel::SOL_SOCKET {
             match SocketOption(name) {
                 SocketOption::SO_RCVTIMEO_OLD | SocketOption::SO_RCVTIMEO_NEW => {
-                    sock.timeouts.lock().unwrap()[RCV] = parse_timeout(name, &value)?;
+                    any.timeouts().set(RCV, parse_timeout(name, &value)?);
                     return Ok(0);
                 }
                 SocketOption::SO_SNDTIMEO_OLD | SocketOption::SO_SNDTIMEO_NEW => {
-                    sock.timeouts.lock().unwrap()[SND] = parse_timeout(name, &value)?;
+                    any.timeouts().set(SND, parse_timeout(name, &value)?);
                     return Ok(0);
                 }
                 SocketOption::SO_TYPE
                 | SocketOption::SO_PROTOCOL
                 | SocketOption::SO_DOMAIN
                 | SocketOption::SO_ERROR
-                | SocketOption::SO_ACCEPTCONN => return Err(Errno::ENOPROTOOPT.into()),
+                | SocketOption::SO_ACCEPTCONN
+                | SocketOption::SO_PEERCRED => return Err(Errno::ENOPROTOOPT.into()),
                 _ => {}
             }
         }
-        sock.socket.set_option(level.0, name, &value)?;
+        match any {
+            AnySock::Inet((_, sock)) => sock.socket.set_option(level.0, name, &value)?,
+            // Unix sockets have no options of their own beyond `SOL_SOCKET`.
+            AnySock::Unix(..) if level != SocketLevel::SOL_SOCKET => {
+                return Err(Errno::EOPNOTSUPP.into());
+            }
+            AnySock::Unix(_, sock) => sock.set_option(name, &value)?,
+            AnySock::Netlink(_, nl) if level == SocketLevel::SOL_SOCKET => {
+                nl.set_option(name, &value)?
+            }
+            // `SOL_NETLINK` options (groups, strict checking) are accepted as no-ops.
+            AnySock::Netlink(..) => {}
+        }
         Ok(0)
     }
 
@@ -840,9 +1013,11 @@ impl Kernel {
         let any = self.any_socket(caller, fd)?;
         let len: i32 = read_value(caller.memory(), GuestPtr::new(optlen.addr())).await?;
         let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?.min(4096);
-        let mut out = vec![0; len];
         let fixed = match &any {
-            AnySock::Inet(_) => None,
+            _ if level == SocketLevel::SOL_SOCKET && timeout_option(name).is_some() => {
+                Some(timeout_value(any.timeouts(), name))
+            }
+            AnySock::Inet((_, sock)) => self.socket_option(sock, level, name)?,
             AnySock::Unix(_, sock) if level == SocketLevel::SOL_SOCKET => {
                 Some(self.unix_getsockopt(sock, name)?)
             }
@@ -851,29 +1026,24 @@ impl Kernel {
             }
             _ => return Err(Errno::EOPNOTSUPP.into()),
         };
-        if let Some(value) = fixed {
-            let n = value.len().min(len);
-            caller.memory().write(optval.addr(), &value[..n]).await?;
-            write_value(caller.memory(), optlen, &(n as u32)).await?;
-            return Ok(0);
-        }
-        let AnySock::Inet((_, sock)) = any else {
-            unreachable!("only IP sockets get here")
-        };
-        let n = match self.socket_option(&sock, level, name)? {
-            Some(value) => {
+        let (out, n) = match (fixed, &any) {
+            (Some(value), _) => {
                 let n = value.len().min(len);
-                out[..n].copy_from_slice(&value[..n]);
-                n
+                (value, n)
             }
-            None => sock.socket.get_option(level.0, name, &mut out)?,
+            (None, AnySock::Inet((_, sock))) => {
+                let mut out = vec![0; len];
+                let n = sock.socket.get_option(level.0, name, &mut out)?;
+                (out, n)
+            }
+            (None, _) => unreachable!("only IP sockets defer to the protocol"),
         };
         caller.memory().write(optval.addr(), &out[..n]).await?;
         write_value(caller.memory(), optlen, &(n as u32)).await?;
         Ok(0)
     }
 
-    /// The `SOL_SOCKET` options the socket layer answers itself.
+    /// The `SOL_SOCKET` options the socket layer answers itself for an IP socket.
     fn socket_option(
         &self,
         sock: &SocketFile,
@@ -896,36 +1066,6 @@ impl Kernel {
                 Domain::Inet6 => AddressFamily::AF_INET6.0,
             }),
             SocketOption::SO_ERROR => int(socket.take_error().map_or(0, |errno| errno.0)),
-            option @ (SocketOption::SO_RCVTIMEO_OLD
-            | SocketOption::SO_RCVTIMEO_NEW
-            | SocketOption::SO_SNDTIMEO_OLD
-            | SocketOption::SO_SNDTIMEO_NEW) => {
-                let dir = match option {
-                    SocketOption::SO_RCVTIMEO_OLD | SocketOption::SO_RCVTIMEO_NEW => RCV,
-                    _ => SND,
-                };
-                let timeout = sock.timeouts.lock().unwrap()[dir].unwrap_or_default();
-                let (sec, usec) = (timeout.as_secs() as i64, timeout.subsec_micros() as i64);
-                let mut raw;
-                if option == SocketOption::SO_RCVTIMEO_OLD
-                    || option == SocketOption::SO_SNDTIMEO_OLD
-                {
-                    let tv = KernelOldTimeval {
-                        tv_sec: sec as i32,
-                        tv_usec: usec as i32,
-                    };
-                    raw = vec![0; KernelOldTimeval::SIZE];
-                    tv.write_to(&mut raw);
-                } else {
-                    let tv = KernelSockTimeval {
-                        tv_sec: sec,
-                        tv_usec: usec,
-                    };
-                    raw = vec![0; KernelSockTimeval::SIZE];
-                    tv.write_to(&mut raw);
-                }
-                Ok(Some(raw))
-            }
             _ => Ok(None),
         }
     }
@@ -968,17 +1108,8 @@ fn socket_type(r#type: i32) -> Result<(SocketType, SocketFlags), Errno> {
 fn unix_result(sock: &unix::Sock, flags: MsgFlags, msg: &unix::Received) -> usize {
     match sock.kind() != unix::Kind::Stream && flags.contains(MsgFlags::MSG_TRUNC) {
         true => msg.full_len,
-        false => msg.len,
+        false => msg.len(),
     }
-}
-
-/// `MSG_DONTWAIT` makes one call non-blocking.
-fn dont_wait(io: crate::file::Io<'_>, flags: MsgFlags) -> crate::file::Io<'_> {
-    let mut io = io;
-    if flags.contains(MsgFlags::MSG_DONTWAIT) {
-        io.flags |= OpenFlags::O_NONBLOCK;
-    }
-    io
 }
 
 /// What a receive returns: the datagram's full length with `MSG_TRUNC`.
@@ -987,6 +1118,121 @@ fn recv_result(sock: &SocketFile, flags: MsgFlags, msg: &wasixv2_vnet::RecvMsg) 
     match datagram && flags.contains(MsgFlags::MSG_TRUNC) {
         true => msg.full_len,
         false => msg.len,
+    }
+}
+
+/// `base + off` as a guest address; `EFAULT` past the end of the address space.
+fn offset(base: u32, off: usize) -> Result<u32, Errno> {
+    u32::try_from(off)
+        .ok()
+        .and_then(|off| base.checked_add(off))
+        .ok_or(Errno::EFAULT)
+}
+
+/// A guest buffer as the iovecs it is made of (`iov_iter`), copied in and out in pieces.
+struct GuestIov {
+    iovecs: Vec<Iovec>,
+    len: usize,
+}
+
+impl GuestIov {
+    /// One buffer, as `import_ubuf` takes it: at most `MAX_RW_COUNT` bytes.
+    fn single(addr: u32, len: u32) -> Self {
+        let len = len.min(MAX_RW_COUNT);
+        Self {
+            iovecs: vec![Iovec {
+                iov_base: addr,
+                iov_len: len,
+            }],
+            len: len as usize,
+        }
+    }
+
+    /// A msghdr's iovecs (`import_iovec`), whose total `read_iovecs` bounds.
+    async fn of(memory: &dyn UserMemory, hdr: &UserMsghdr) -> SysResult<Self> {
+        let iovecs = read_iovecs(memory, GuestPtr::new(hdr.msg_iov.addr()), hdr.msg_iovlen).await?;
+        let len = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
+        Ok(Self { iovecs, len })
+    }
+
+    /// The guest ranges making up `[at, at + len)`.
+    fn ranges(&self, at: usize, len: usize) -> impl Iterator<Item = Result<(u32, usize), Errno>> {
+        let mut skip = at;
+        let mut left = len;
+        self.iovecs.iter().filter_map(move |iov| {
+            let iov_len = iov.iov_len as usize;
+            if left == 0 {
+                return None;
+            }
+            if skip >= iov_len {
+                skip -= iov_len;
+                return None;
+            }
+            let n = (iov_len - skip).min(left);
+            let addr = offset(iov.iov_base, skip);
+            skip = 0;
+            left -= n;
+            Some(addr.map(|addr| (addr, n)))
+        })
+    }
+
+    /// Copies the guest bytes at `[at, at + out.len())` into `out`.
+    async fn copy_in(&self, memory: &dyn UserMemory, at: usize, out: &mut [u8]) -> SysResult<()> {
+        let mut done = 0;
+        for range in self.ranges(at, out.len()) {
+            let (addr, n) = range?;
+            memory.read(addr, &mut out[done..done + n]).await?;
+            done += n;
+        }
+        Ok(())
+    }
+
+    /// Copies `data` to the guest bytes at `[at, at + data.len())`.
+    async fn copy_out(&self, memory: &dyn UserMemory, at: usize, data: &[u8]) -> SysResult<()> {
+        let mut done = 0;
+        for range in self.ranges(at, data.len()) {
+            let (addr, n) = range?;
+            memory.write(addr, &data[done..done + n]).await?;
+            done += n;
+        }
+        Ok(())
+    }
+}
+
+/// Bounce buffers for socket I/O. Guest memory is reached asynchronously while sockets work on
+/// byte slices, so data passes through kernel memory; reusing buffers spares allocating and
+/// zeroing one per call. What a buffer held before is never shown to a guest: a send fills it
+/// from guest memory first, a receive copies out only what the socket wrote.
+static SCRATCH: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
+/// How many idle buffers the pool keeps.
+const SCRATCH_KEEP: usize = 16;
+
+#[derive(Default)]
+struct Scratch(Vec<u8>);
+
+impl Scratch {
+    /// A buffer of `len` bytes.
+    fn get(&mut self, len: usize) -> &mut [u8] {
+        if self.0.capacity() == 0 {
+            self.0 = SCRATCH.lock().unwrap().pop().unwrap_or_default();
+        }
+        if self.0.len() < len {
+            self.0.resize(len, 0);
+        }
+        &mut self.0[..len]
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let buf = std::mem::take(&mut self.0);
+        if buf.capacity() == 0 || buf.len() > SOCK_CHUNK {
+            return;
+        }
+        let mut pool = SCRATCH.lock().unwrap();
+        if pool.len() < SCRATCH_KEEP {
+            pool.push(buf);
+        }
     }
 }
 
@@ -1036,31 +1282,41 @@ fn msg_namelen(hdr: &UserMsghdr) -> Result<u32, Errno> {
     Ok(len.min(SOCKADDR_STORAGE))
 }
 
-/// The control messages of a send, each as it is; the protocol interprets them.
+/// The control messages of a send, each as it is; the protocol interprets them. Lengths past
+/// `INT_MAX` or `optmem_max` are `ENOBUFS`, as `____sys_sendmsg` and `sock_kmalloc` decide.
 async fn read_cmsgs(caller: &Caller<'_>, hdr: &UserMsghdr) -> SysResult<Vec<Control>> {
     let len = hdr.msg_controllen as usize;
     if hdr.msg_control.is_null() || len == 0 {
         return Ok(Vec::new());
     }
-    if len > i32::MAX as usize {
+    if len > i32::MAX as usize || len > OPTMEM_MAX {
         return Err(Errno::ENOBUFS.into());
     }
-    let mut raw = vec![0; len.min(64 * 1024)];
+    let mut raw = vec![0; len];
     caller
         .memory()
         .read(hdr.msg_control.addr(), &mut raw)
         .await?;
+    Ok(parse_cmsgs(&raw)?)
+}
+
+/// `for_each_cmsghdr` with `CMSG_OK`: each header must fit with its `cmsg_len` inside the
+/// buffer (else `EINVAL`), and the walk ends once the next aligned header would not fit
+/// (`__cmsg_nxthdr`).
+fn parse_cmsgs(raw: &[u8]) -> Result<Vec<Control>, Errno> {
     let mut controls = Vec::new();
     let mut at = 0;
-    while raw.len() - at >= CMSG_HDR {
-        let word = |i: usize| u32::from_le_bytes(raw[at + i..at + i + 4].try_into().unwrap());
+    while let Some(rest) = raw.get(at..).filter(|rest| rest.len() >= CMSG_HDR) {
+        let word = |i: usize| u32::from_le_bytes(rest[i..i + 4].try_into().unwrap());
         let cmsg_len = word(0) as usize;
-        if cmsg_len < CMSG_HDR || cmsg_len > raw.len() - at {
-            return Err(Errno::EINVAL.into());
+        if cmsg_len < CMSG_HDR || cmsg_len > rest.len() {
+            return Err(Errno::EINVAL);
         }
-        let (level, kind) = (word(4) as i32, word(8) as i32);
-        let data = raw[at + CMSG_HDR..at + cmsg_len].to_vec();
-        controls.push(Control { level, kind, data });
+        controls.push(Control {
+            level: word(4) as i32,
+            kind: word(8) as i32,
+            data: rest[CMSG_HDR..cmsg_len].to_vec(),
+        });
         at += cmsg_len.next_multiple_of(CMSG_ALIGN);
     }
     Ok(controls)
@@ -1096,29 +1352,47 @@ async fn write_cmsgs(
         raw.extend(control.level.to_le_bytes());
         raw.extend(control.kind.to_le_bytes());
         raw.extend(&control.data[..len - CMSG_HDR]);
-        caller
-            .memory()
-            .write(hdr.msg_control.addr() + used as u32, &raw)
-            .await?;
+        let at = offset(hdr.msg_control.addr(), used)?;
+        caller.memory().write(at, &raw).await?;
         used += full.next_multiple_of(CMSG_ALIGN).min(left);
     }
     Ok(used)
 }
 
-/// Copies `data` out across the iovecs in order.
-async fn scatter(caller: &Caller<'_>, iovecs: &[Iovec], data: &[u8]) -> SysResult<()> {
-    let mut rest = data;
-    for iov in iovecs {
-        if rest.is_empty() {
-            break;
-        }
-        let (chunk, tail) = rest.split_at(rest.len().min(iov.iov_len as usize));
-        UserSliceMut::new(iov.iov_base, iov.iov_len)
-            .copy_out(caller.memory(), chunk)
-            .await?;
-        rest = tail;
+/// `SO_RCVTIMEO*` and `SO_SNDTIMEO*`: the direction, and whether the value is the old 32-bit
+/// `timeval`.
+fn timeout_option(name: i32) -> Option<(usize, bool)> {
+    match SocketOption(name) {
+        SocketOption::SO_RCVTIMEO_OLD => Some((RCV, true)),
+        SocketOption::SO_RCVTIMEO_NEW => Some((RCV, false)),
+        SocketOption::SO_SNDTIMEO_OLD => Some((SND, true)),
+        SocketOption::SO_SNDTIMEO_NEW => Some((SND, false)),
+        _ => None,
     }
-    Ok(())
+}
+
+/// `sock_get_timeout`: the timeout as the guest's `timeval`, zero for none.
+fn timeout_value(timeouts: &Timeouts, name: i32) -> Vec<u8> {
+    let (dir, old) = timeout_option(name).expect("a timeout option");
+    let timeout = timeouts.get(dir).unwrap_or_default();
+    let (sec, usec) = (timeout.as_secs() as i64, timeout.subsec_micros() as i64);
+    if old {
+        let tv = KernelOldTimeval {
+            tv_sec: sec as i32,
+            tv_usec: usec as i32,
+        };
+        let mut raw = vec![0; KernelOldTimeval::SIZE];
+        tv.write_to(&mut raw);
+        raw
+    } else {
+        let tv = KernelSockTimeval {
+            tv_sec: sec,
+            tv_usec: usec,
+        };
+        let mut raw = vec![0; KernelSockTimeval::SIZE];
+        tv.write_to(&mut raw);
+        raw
+    }
 }
 
 /// `sock_set_timeout`: an all-zero value means no timeout, a negative one an immediate one;
@@ -1219,11 +1493,101 @@ impl Kernel {
             IoctlRequest::SIOCGIFADDR => sockaddr(v4().ok_or(Errno::EADDRNOTAVAIL)?.0),
             _ => {
                 let (_, len) = v4().ok_or(Errno::EADDRNOTAVAIL)?;
-                let mask = u32::MAX.checked_shl(32 - len as u32).unwrap_or(0);
+                let mask = u32::MAX
+                    .checked_shl(32u32.saturating_sub(len.into()))
+                    .unwrap_or(0);
                 sockaddr(mask.into())
             }
         };
-        memory.write(arg + IFNAMSIZ as u32, &value).await?;
+        memory.write(offset(arg, IFNAMSIZ)?, &value).await?;
         Ok(0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cmsg(len: u32, level: i32, kind: i32, data: &[u8]) -> Vec<u8> {
+        let mut raw = len.to_le_bytes().to_vec();
+        raw.extend(level.to_le_bytes());
+        raw.extend(kind.to_le_bytes());
+        raw.extend(data);
+        raw
+    }
+
+    #[test]
+    fn cmsg_walk_stops_at_the_end_of_an_unaligned_buffer() {
+        // `msg_controllen` 13 with `cmsg_len` 13: one byte of data, then the end.
+        let raw = cmsg(13, 1, 1, &[7]);
+        let controls = parse_cmsgs(&raw).unwrap();
+        assert_eq!(controls.len(), 1);
+        assert_eq!(controls[0].data, [7]);
+        // Two messages, the second unaligned at the very end.
+        let mut raw = cmsg(16, 1, 1, &[1, 2, 3, 4]);
+        raw.extend(cmsg(14, 0, 2, &[5, 6]));
+        let controls = parse_cmsgs(&raw).unwrap();
+        assert_eq!(controls.len(), 2);
+        assert_eq!(controls[1].data, [5, 6]);
+        // A trailing piece too short for a header is ignored.
+        let mut raw = cmsg(12, 1, 1, &[]);
+        raw.extend([0xff; 11]);
+        assert_eq!(parse_cmsgs(&raw).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn bad_cmsg_lengths_are_einval() {
+        assert_eq!(parse_cmsgs(&cmsg(11, 1, 1, &[])), Err(Errno::EINVAL));
+        assert_eq!(parse_cmsgs(&cmsg(17, 1, 1, &[0; 4])), Err(Errno::EINVAL));
+        assert_eq!(
+            parse_cmsgs(&cmsg(u32::MAX, 1, 1, &[0; 4])),
+            Err(Errno::EINVAL)
+        );
+    }
+
+    #[test]
+    fn cmsg_parsing_never_panics() {
+        for seed in 0..5000u32 {
+            let len = (seed % 61) as usize;
+            let raw: Vec<u8> = (0..len)
+                .map(|i| {
+                    let x = seed.wrapping_mul(2_654_435_761) ^ (i as u32).wrapping_mul(40_503);
+                    // Small values often, so lengths land near the buffer's end.
+                    if i % 12 == 0 {
+                        (x % 32) as u8
+                    } else {
+                        (x >> 9) as u8
+                    }
+                })
+                .collect();
+            let _ = parse_cmsgs(&raw);
+        }
+    }
+
+    #[test]
+    fn iovec_ranges_skip_and_split() {
+        let iov = GuestIov {
+            iovecs: vec![
+                Iovec {
+                    iov_base: 100,
+                    iov_len: 4,
+                },
+                Iovec {
+                    iov_base: 200,
+                    iov_len: 0,
+                },
+                Iovec {
+                    iov_base: 300,
+                    iov_len: 8,
+                },
+            ],
+            len: 12,
+        };
+        let ranges: Vec<_> = iov.ranges(2, 6).map(Result::unwrap).collect();
+        assert_eq!(ranges, [(102, 2), (300, 4)]);
+        let past_end = GuestIov::single(u32::MAX - 1, 8);
+        let mut ranges = past_end.ranges(4, 2);
+        assert_eq!(ranges.next(), Some(Err(Errno::EFAULT)));
+        assert_eq!(offset(u32::MAX, 1), Err(Errno::EFAULT));
     }
 }

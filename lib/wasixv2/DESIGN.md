@@ -390,7 +390,7 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
   - `datagram` returns a `BackendDatagram`.
   - `publish` hands accepted host connections to an `InboundSink` and returns a `Publication`.
 
-  Backends wake the returned objects' queues from their own threads.
+  Backends wake, from their own threads, the queue of the guest socket an object serves, which is handed to them when the object is made: a socket has one wait queue for its whole life, so waiters that registered before the backend object existed are not lost.
 
 **Where a connection goes**
 
@@ -451,7 +451,7 @@ The kernel-facing traits are in `vnet/src/api.rs`. Traffic for a destination tha
 
 - Guest-side stream and datagram objects are buffers: 256 KiB per direction for streams, 256 KiB of queued datagrams. Guests read and write them without blocking.
 - The reactor moves bytes between the buffers and the host sockets. Guest activity marks a stream dirty and wakes the reactor through a `mio::Waker`. The reactor wakes guest wait queues from its own thread.
-- Host errors keep their Linux errno numbers. Dropping the guest's handle flushes and closes the host socket, or resets it when unread data or `SO_LINGER` zero call for that.
+- Host errors keep their Linux errno numbers. Dropping the guest's handle flushes and closes the host socket, or resets it when unread data or `SO_LINGER` zero call for that. An orphan still flushing is reset once its peer has taken nothing for 60 seconds (standing in for `tcp_fin_timeout` and the orphan retries) or its `SO_LINGER` time is up.
 
 ## Execution
 
