@@ -525,7 +525,9 @@ impl Kernel {
         ret
     }
 
-    /// Sleeps for `sleep` unless a signal interrupts it first.
+    /// Sleeps for `sleep` unless a signal interrupts it first. As in Linux's `do_nanosleep`,
+    /// only the timer or a pending signal ends the sleep: the signal queue's wakeup, which
+    /// comes before the signal is seen as pending, sleeps on.
     pub(crate) async fn interruptible_sleep(
         &self,
         caller: &Caller<'_>,
@@ -533,9 +535,13 @@ impl Kernel {
     ) -> Result<(), wasixv2_wait::Interrupted> {
         let signals = self.interrupt(caller);
         let mut sleep = sleep;
-        match Waiter::new().sleep(&*signals, Some(sleep.as_mut())).await {
-            Wakeup::Interrupted => Err(wasixv2_wait::Interrupted),
-            _ => Ok(()),
+        loop {
+            match Waiter::new().sleep(&*signals, Some(sleep.as_mut())).await {
+                Wakeup::Interrupted => return Err(wasixv2_wait::Interrupted),
+                Wakeup::TimedOut => return Ok(()),
+                Wakeup::Woken(_) if signals.pending() => return Err(wasixv2_wait::Interrupted),
+                Wakeup::Woken(_) => {}
+            }
         }
     }
 
