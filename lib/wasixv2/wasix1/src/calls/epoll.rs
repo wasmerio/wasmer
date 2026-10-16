@@ -1,8 +1,10 @@
 //! `epoll_create`, `epoll_ctl`, `epoll_wait` over Linux's epoll.
 //!
 //! v1's `epoll_data` (pointer, descriptor and two more words, 24 bytes) does not fit Linux's
-//! 64-bit `epoll_data`, so the kernel's item carries the watched descriptor, which is unique
-//! within an epoll set, and the compat layer keeps the guest's data in a side table.
+//! 64-bit `epoll_data`, so the compat layer keeps the guest's data in a side table and the
+//! kernel's item carries a handle to it. Events find their data by that handle alone: several
+//! descriptors may name one epoll set (mio `dup`s its set and registers through the copy while
+//! it waits on the original), and only the kernel knows which ones do.
 
 use std::{collections::HashMap, sync::Mutex, time::Duration};
 
@@ -53,34 +55,83 @@ fn from_linux(events: EpollEvents) -> EpollType {
     EpollType(out)
 }
 
-/// The guest's data of every watched descriptor, by (epoll set, descriptor).
+/// A registration's handle, the kernel item's data: the watched descriptor in the high half
+/// (so that an item the table does not know still reports its descriptor) and a counter in the
+/// low half (so that a re-registration never reuses a live handle).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct Handle(u64);
+
+impl Handle {
+    fn fd(self) -> Fd {
+        Fd((self.0 >> 32) as u32 as i32)
+    }
+}
+
+/// The guest's data of every registration, by handle.
+///
+/// The index by (epoll descriptor, watched descriptor) serves `EPOLL_CTL_MOD`/`DEL`, which
+/// replace or drop the data registered before. Every record belongs to exactly one index
+/// entry, so the table holds at most one record per pair the guest has used, also for items
+/// the kernel dropped on its own (the watched file's last close) or changed through another
+/// descriptor of the set.
 #[derive(Debug, Default)]
-pub struct Table(Mutex<HashMap<(Fd, Fd), EpollData>>);
+pub struct Table(Mutex<Registrations>);
+
+#[derive(Debug, Default)]
+struct Registrations {
+    data: HashMap<Handle, EpollData>,
+    index: HashMap<(Fd, Fd), Handle>,
+    next: u32,
+}
 
 impl Table {
-    fn set(&self, epfd: Fd, fd: Fd, data: EpollData) {
-        self.0.lock().unwrap().insert((epfd, fd), data);
+    /// A fresh handle for `fd`.
+    fn handle(&self, fd: Fd) -> Handle {
+        let mut regs = self.0.lock().unwrap();
+        regs.next = regs.next.wrapping_add(1);
+        Handle(u64::from(fd.0 as u32) << 32 | u64::from(regs.next))
+    }
+
+    /// Records `data` under `handle`, which the kernel's item for (`epfd`, `fd`) now carries.
+    fn set(&self, epfd: Fd, fd: Fd, handle: Handle, data: EpollData) {
+        let mut regs = self.0.lock().unwrap();
+        if let Some(old) = regs.index.insert((epfd, fd), handle) {
+            regs.data.remove(&old);
+        }
+        regs.data.insert(handle, data);
     }
 
     fn remove(&self, epfd: Fd, fd: Fd) {
-        self.0.lock().unwrap().remove(&(epfd, fd));
+        let mut regs = self.0.lock().unwrap();
+        if let Some(old) = regs.index.remove(&(epfd, fd)) {
+            regs.data.remove(&old);
+        }
     }
 
-    /// Forgets everything about `epfd`, a descriptor that now names a new epoll set.
+    /// Forgets everything registered through `epfd`, a descriptor that now names a new epoll
+    /// set.
     fn forget(&self, epfd: Fd) {
-        self.0.lock().unwrap().retain(|(set, _), _| *set != epfd);
+        let regs = &mut *self.0.lock().unwrap();
+        regs.index.retain(|(set, _), handle| {
+            let keep = *set != epfd;
+            if !keep {
+                regs.data.remove(handle);
+            }
+            keep
+        });
     }
 
-    /// The data registered for `fd`; just the descriptor if there is none (an item added
-    /// before the set's descriptor was renumbered).
-    fn get(&self, epfd: Fd, fd: Fd) -> EpollData {
+    /// The data registered under `handle`; just the descriptor if there is none (an item
+    /// this process image did not register, such as one inherited across `execve`).
+    fn get(&self, handle: Handle) -> EpollData {
         self.0
             .lock()
             .unwrap()
-            .get(&(epfd, fd))
+            .data
+            .get(&handle)
             .copied()
             .unwrap_or(EpollData {
-                fd: fd.0 as u32,
+                fd: handle.fd().0 as u32,
                 ..EpollData::ZERO
             })
     }
@@ -116,24 +167,25 @@ pub(crate) async fn epoll_ctl<S: Syscalls + Control + 'static>(
             EpollCtl::DEL => EpollCtlOp::EPOLL_CTL_DEL,
             _ => return shim::fail(Errno::INVAL),
         };
+        let table = &frame.proc().await?.net.epoll;
         let mut registered = None;
         let mut ptr = GuestPtr::NULL;
         if op != EpollCtlOp::EPOLL_CTL_DEL {
             let v1: EpollEvent = frame.read(event as u32).await?;
+            let handle = table.handle(fd);
             let linux = LinuxEvent {
                 events: to_linux(v1.events),
-                data: LinuxData((fd.0 as u32 as u64).to_le_bytes()),
+                data: LinuxData(handle.0.to_le_bytes()),
             };
             ptr = frame.mem.alloc(&linux)?;
-            registered = Some(v1.data);
+            registered = Some((handle, v1.data));
         }
         frame
             .syscalls
             .epoll_ctl(&frame.caller(), epfd, op, fd, ptr)
             .await?;
-        let table = &frame.proc().await?.net.epoll;
         match registered {
-            Some(data) => table.set(epfd, fd, data),
+            Some((handle, data)) => table.set(epfd, fd, handle, data),
             None => table.remove(epfd, fd),
         }
         Ok(())
@@ -187,10 +239,9 @@ pub(crate) async fn epoll_wait<S: Syscalls + Control + 'static>(
             let linux: LinuxEvent = frame
                 .mem
                 .take(GuestPtrMut::new(buf + i * LinuxEvent::SIZE as u32));
-            let fd = Fd(u64::from_le_bytes(linux.data.0) as u32 as i32);
             let event = EpollEvent {
                 events: from_linux(linux.events),
-                data: table.get(epfd, fd),
+                data: table.get(Handle(u64::from_le_bytes(linux.data.0))),
             };
             let addr = (events as u32).wrapping_add(i * EpollEvent::SIZE as u32);
             frame.write(addr, &event).await?;
@@ -218,19 +269,51 @@ mod tests {
         assert_ne!(EpollType::EPOLLRDHUP.0, EpollEvents::EPOLLRDHUP.0);
     }
 
+    fn data(n: u32) -> EpollData {
+        EpollData {
+            ptr: n,
+            fd: 5,
+            data1: n + 1,
+            data2: u64::from(n) << 40,
+        }
+    }
+
+    /// The data follows the handle, not the descriptor the set is used through.
     #[test]
     fn side_table() {
         let table = Table::default();
-        let data = EpollData {
-            ptr: 1,
-            fd: 5,
-            data1: 2,
-            data2: 3,
-        };
-        table.set(Fd(4), Fd(5), data);
-        assert_eq!(table.get(Fd(4), Fd(5)), data);
-        assert_eq!(table.get(Fd(9), Fd(5)).fd, 5);
-        table.forget(Fd(4));
-        assert_eq!(table.get(Fd(4), Fd(5)).data2, 0);
+        let (set, dup, fd) = (Fd(4), Fd(8), Fd(5));
+        let first = table.handle(fd);
+        assert_eq!(first.fd(), fd);
+        table.set(dup, fd, first, data(1));
+        assert_eq!(table.get(first), data(1));
+
+        // A MOD replaces the record: the old handle is gone, the new one has the new data.
+        let second = table.handle(fd);
+        assert_ne!(first, second);
+        table.set(dup, fd, second, data(2));
+        assert_eq!(table.get(second), data(2));
+        assert_eq!(
+            table.get(first),
+            EpollData {
+                fd: 5,
+                ..EpollData::ZERO
+            }
+        );
+
+        // An unknown handle still names its descriptor.
+        let unknown = table.handle(Fd(9));
+        assert_eq!(table.get(unknown).fd, 9);
+
+        // Registrations through another descriptor are separate index entries.
+        let third = table.handle(fd);
+        table.set(set, fd, third, data(3));
+        table.remove(dup, fd);
+        assert_eq!(table.get(second).data2, 0);
+        assert_eq!(table.get(third), data(3));
+        table.forget(set);
+        assert_eq!(table.get(third).data2, 0);
+        let regs = table.0.lock().unwrap();
+        assert!(regs.data.is_empty() && regs.index.is_empty());
     }
 }
