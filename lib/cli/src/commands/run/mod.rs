@@ -12,7 +12,7 @@ use colored::Colorize;
 use indicatif::ProgressBar;
 use wasmer::{Function, Imports, Instance, Module, RuntimeError, Store, Type, Value, wat2wasm};
 use wasmer_types::target::Target;
-use wasmer_wasix::Runtime;
+use wasmer_wasix::{Runtime, runtime::package_loader::builtin_loader::FileSystemCache};
 
 use crate::{
     backend::RuntimeOptions, commands::run::target::TargetOnDisk, config::WasmerEnv,
@@ -136,11 +136,10 @@ impl Run {
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
-        let monitoring_runtime = Arc::new(MonitoringRuntime::new(
-            runtime,
-            pb.clone(),
-            output.is_quiet_or_no_tty(),
-        ));
+        let monitoring_runtime = Arc::new(
+            MonitoringRuntime::new(runtime, pb.clone(), output.is_quiet_or_no_tty())
+                .with_checkouts(FileSystemCache::new(self.env.cache_dir().join("checkouts"))),
+        );
         let runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime.clone();
 
         let target = self.input.resolve_target(&runtime, &pb)?;

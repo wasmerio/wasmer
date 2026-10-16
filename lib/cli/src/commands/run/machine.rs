@@ -6,7 +6,7 @@ use std::{
     collections::{HashMap, hash_map::Entry},
     io,
     net::{Ipv4Addr, SocketAddr},
-    path::Path,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -190,11 +190,11 @@ impl Run {
                             mapping.package
                         )
                     })?;
-                    let local_file = match (&self.input, is_root) {
+                    let file = match (&self.input, is_root) {
                         (CliPackageSource::File(path), true) => Some(path.as_path()),
-                        _ => None,
+                        _ => tree.files.get(&mapping.package).map(PathBuf::as_path),
                     };
-                    entry.insert(Reader::open(&mapping.package, container, local_file)?)
+                    entry.insert(Reader::open(&mapping.package, container, file)?)
                 }
             };
             // A v2 mapping names the "atom" volume and a path in it, which migration made a
@@ -533,14 +533,11 @@ struct Reader {
 }
 
 impl Reader {
-    /// `container`, the package `id`, which was loaded from `local_file` if given. A webc v2
-    /// package is migrated, which needs its bytes, so it works for a local file only.
-    fn open(
-        id: &PackageId,
-        container: &Container,
-        local_file: Option<&Path>,
-    ) -> Result<Self, Error> {
-        let v3 = match (container.version(), local_file) {
+    /// `container`, the package `id`, which was loaded from `file` if known. The reader maps
+    /// the file; without one, only a container holding a v3 reader works. A webc v2 package
+    /// is migrated, which needs its bytes, so its file.
+    fn open(id: &PackageId, container: &Container, file: Option<&Path>) -> Result<Self, Error> {
+        let v3 = match (container.version(), file) {
             (webc::Version::V3, Some(path)) => OwnedReader::from_path(path)
                 .with_context(|| format!("Unable to read \"{}\"", path.display()))?,
             (webc::Version::V3, None) => {
@@ -567,8 +564,8 @@ impl Reader {
                 });
             }
             (webc::Version::V2, None) => bail!(
-                "the package \"{id}\" is webc v2, which the WASIX v2 kernel runs only from a local \
-                 file; the registry serves webc v3 unless WASMER_WEBC_VERSION=2 asks for v2"
+                "the package \"{id}\" is webc v2 and its file is unknown, so it cannot be \
+                 migrated to the webc v3 the WASIX v2 kernel needs"
             ),
             (other, _) => bail!("the package \"{id}\" has the unsupported webc version {other}"),
         };
