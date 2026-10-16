@@ -94,6 +94,9 @@ pub enum Done<T> {
     /// The instance runs as another task now, and the call returns this to it
     /// ([`Outcome::Switched`]).
     Switched(i32),
+    /// The guest's stack unwinds for asyncify ([`Outcome::Unwinding`]): the import returns
+    /// anything, and finds out how it ended when the guest rewinds into it.
+    Unwinding,
 }
 
 /// Runs `body` as one v1 call (see the module docs).
@@ -133,11 +136,14 @@ where
             Err(Error::V1(errno)) => (Ok(None), Some(errno)),
         };
         return Ok(match complete(env, &*syscalls, task, ret).await {
-            Outcome::Rerun => continue,
+            // A body cannot go on halfway, so a call that saved how to continue
+            // (`ERESTART_RESTARTBLOCK`) runs again from the start too.
+            Outcome::Rerun | Outcome::Restart => continue,
             Outcome::Return(Ok(Some(value))) => Done::Ok(value),
             Outcome::Return(Ok(None)) => Done::Err(own.expect("set with the `None` value")),
             Outcome::Return(Err(errno)) => Done::Err(Errno::from_linux(errno)),
             Outcome::Switched(value) => Done::Switched(value),
+            Outcome::Unwinding => Done::Unwinding,
             Outcome::Unwind(err) => return Err(err),
         });
     }
@@ -153,7 +159,7 @@ where
     S: Syscalls + Control + 'static,
 {
     Ok(match call(env, body).await? {
-        Done::Ok(()) | Done::Switched(_) => 0,
+        Done::Ok(()) | Done::Switched(_) | Done::Unwinding => 0,
         Done::Err(errno) => i32::from(errno.0),
     })
 }

@@ -182,6 +182,8 @@ const WASIX: &str = r#"
   (import "wasix_32v1" "thread_id" (func $thread_id (param i32) (result i32)))
   (import "wasix_32v1" "proc_id" (func $proc_id (param i32) (result i32)))
   (import "wasix_32v1" "proc_exit2" (func $proc_exit2 (param i32)))
+  (import "wasix_32v1" "proc_signals_sizes_get" (func $proc_signals_sizes_get (param i32) (result i32)))
+  (import "wasix_32v1" "proc_signals_get" (func $proc_signals_get (param i32) (result i32)))
   (memory (export "memory") 1)
   (func (export "_start")
     (if (i32.ne (call $port_addr_clear) (i32.const 58)) (then (call $proc_exit2 (i32.const 1))))
@@ -194,10 +196,43 @@ const WASIX: &str = r#"
     ;; the main thread's id is its pid
     (if (i32.ne (i32.load (i32.const 100)) (i32.load (i32.const 104)))
       (then (call $proc_exit2 (i32.const 6))))
+    ;; libc's startup fails hard unless these succeed; nothing is inherited as ignored here
+    (if (call $proc_signals_sizes_get (i32.const 108)) (then (call $proc_exit2 (i32.const 7))))
+    (if (i32.load (i32.const 108)) (then (call $proc_exit2 (i32.const 8))))
+    (if (call $proc_signals_get (i32.const 112)) (then (call $proc_exit2 (i32.const 9))))
     (call $proc_exit2 (i32.const 0))))
 "#;
 
 #[test]
 fn wasix_stubs_and_identity() {
     assert_eq!(block_on(WASIX, &["wasix"]).0, 0);
+}
+
+/// A module importing every entry of the import table with its declared signature links, so
+/// shims and stubs have the types the table (and wasix-libc) give them.
+#[test]
+fn every_import_links() {
+    use wasixv2_wasix1::imports::TABLE;
+
+    let ty = |ty: &wasmer::Type| match ty {
+        wasmer::Type::I32 => "i32",
+        wasmer::Type::I64 => "i64",
+        other => panic!("unexpected {other:?}"),
+    };
+    let mut wat = String::from("(module\n");
+    for entry in TABLE {
+        for module in entry.modules {
+            let params: Vec<_> = entry.params.iter().map(ty).collect();
+            let results: Vec<_> = entry.results.iter().map(ty).collect();
+            wat.push_str(&format!(
+                "  (import \"{}\" \"{}\" (func (param {}) (result {})))\n",
+                module.name(),
+                entry.name,
+                params.join(" "),
+                results.join(" "),
+            ));
+        }
+    }
+    wat.push_str("  (memory (export \"memory\") 1)\n  (func (export \"_start\")))\n");
+    assert_eq!(block_on(&wat, &["all"]).0, 0);
 }

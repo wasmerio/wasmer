@@ -9,9 +9,11 @@ use std::{
     },
 };
 
-use wasixv2_exec::{AbiInstance, EntryReturn, ExecEnv, Role, VforkResume};
+use wasixv2_exec::{
+    AbiInstance, Entry, EntryReturn, ExecEnv, Role, Sigreturn, VforkResume, call_guest,
+};
 use wasixv2_syscalls::{LocalFuture, SignalFrame, TaskId};
-use wasmer::{AsyncFunctionEnvMut, Function, Instance, RuntimeError, StoreAsync, Value};
+use wasmer::{AsyncFunctionEnvMut, Function, Instance, RuntimeError, Value};
 
 use crate::process::{ProcState, Procs};
 
@@ -83,18 +85,14 @@ impl Drop for Wasix1Instance {
     }
 }
 
-impl<S: 'static> AbiInstance<S> for Wasix1Instance {
-    fn start(&self, store: &StoreAsync) -> LocalFuture<'static, Result<(), RuntimeError>> {
-        let initialize = self
-            .initialize
-            .as_ref()
-            .map(|function| function.call_async(store, Vec::new()));
-        let start = self.entry.call_async(store, Vec::new());
+impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
+    /// `_initialize` cannot fork: a fork child resumes in `_start`.
+    fn start<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<(), RuntimeError>> {
         Box::pin(async move {
-            if let Some(initialize) = initialize {
-                initialize.await?;
+            if let Some(initialize) = &self.initialize {
+                entry.call_once(initialize, &[]).await?;
             }
-            start.await.map(drop)
+            entry.call(START, &self.entry, &[]).await.map(drop)
         })
     }
 
@@ -103,15 +101,14 @@ impl<S: 'static> AbiInstance<S> for Wasix1Instance {
         EntryReturn::Exit(0)
     }
 
-    fn start_thread(
-        &self,
-        store: &StoreAsync,
+    fn start_thread<'a>(
+        &'a self,
+        entry: &'a Entry<'a, S>,
         task: TaskId,
         start_arg: u32,
-    ) -> LocalFuture<'static, Result<(), RuntimeError>> {
-        let args = vec![Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
-        let call = self.entry.call_async(store, args);
-        Box::pin(async move { call.await.map(drop) })
+    ) -> LocalFuture<'a, Result<(), RuntimeError>> {
+        let args = [Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
+        Box::pin(async move { entry.call(THREAD_ENTRY, &self.entry, &args).await.map(drop) })
     }
 
     /// A v1 thread that returns from its entry exited cleanly.
@@ -121,20 +118,24 @@ impl<S: 'static> AbiInstance<S> for Wasix1Instance {
 
     /// libc keeps the dispositions and runs the handler from `__wasm_signal(sig)`; the host only
     /// decides that it runs. The mask in force before delivery is restored afterwards.
+    /// v1's handler has no frame to cancel a restart through, so `restart` stands.
     fn deliver_signal<'a>(
         &'a self,
         env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
         frame: &'a SignalFrame,
-    ) -> LocalFuture<'a, Result<Option<u64>, RuntimeError>> {
+        restart: bool,
+    ) -> LocalFuture<'a, Result<Sigreturn, RuntimeError>> {
         Box::pin(async move {
             let Some(callback) = &self.signal else {
                 return Err(RuntimeError::new(format!(
                     "a signal handler must run, but the guest has no `{SIGNAL_CALLBACK}`"
                 )));
             };
-            let args = vec![Value::I32(frame.signo())];
-            callback.call_async(&env.as_store_async(), args).await?;
-            Ok(Some(frame.mask))
+            call_guest(env, callback, &[Value::I32(frame.signo())]).await?;
+            Ok(Sigreturn {
+                mask: Some(frame.mask),
+                restart,
+            })
         })
     }
 
