@@ -412,7 +412,7 @@
 <a href=#412 id=412 data-nosnippet>412</a>
 <a href=#413 id=413 data-nosnippet>413</a>        <span class="kw">for </span>idx <span class="kw">in </span><span class="number">0</span>..archive.len() {
 <a href=#414 id=414 data-nosnippet>414</a>            <span class="kw">let </span>file = archive.by_index(idx)<span class="question-mark">?</span>;
-<a href=#415 id=415 data-nosnippet>415</a>            names.insert(file.name().to_string());
+<a href=#415 id=415 data-nosnippet>415</a>            names.insert(file.name()<span class="question-mark">?</span>.to_string());
 <a href=#416 id=416 data-nosnippet>416</a>        }
 <a href=#417 id=417 data-nosnippet>417</a>
 <a href=#418 id=418 data-nosnippet>418</a>        <span class="prelude-val">Ok</span>(names)
