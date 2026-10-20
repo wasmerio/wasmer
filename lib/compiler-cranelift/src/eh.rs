@@ -5,8 +5,7 @@
 //! the tables without any runtime changes.
 
 use cranelift_codegen::{
-    ExceptionContextLoc, FinalizedMachCallSite, FinalizedMachExceptionHandler,
-    isa::unwind::UnwindInst,
+    ExceptionContextLoc, MachCallSiteItem, MachExceptionHandler, isa::unwind::UnwindInst,
 };
 use cranelift_entity::EntityRef;
 use itertools::Itertools;
@@ -41,7 +40,7 @@ pub struct FunctionLsdaData {
 /// Build the LSDA for a single function given the finalized Cranelift
 /// call-site metadata.
 pub fn build_function_lsda<'a>(
-    call_sites: impl Iterator<Item = FinalizedMachCallSite<'a>>,
+    call_sites: impl Iterator<Item = MachCallSiteItem<'a>>,
     function_length: usize,
     pointer_bytes: u8,
     pcrel_type_table: bool,
@@ -56,17 +55,17 @@ pub fn build_function_lsda<'a>(
         // we use the latest landing pad.
         for handler in site.exception_handlers {
             match handler {
-                FinalizedMachExceptionHandler::Tag(tag, offset) => {
-                    landing_pad = Some(landing_pad.unwrap_or(*offset));
+                MachExceptionHandler::Tag(tag, offset) => {
+                    landing_pad = Some(landing_pad.unwrap_or(offset.as_offset()));
                     catches.push(ExceptionType::Tag {
                         tag: u32::try_from(tag.index()).expect("tag index fits in u32"),
                     });
                 }
-                FinalizedMachExceptionHandler::Default(offset) => {
-                    landing_pad = Some(landing_pad.unwrap_or(*offset));
+                MachExceptionHandler::Default(offset) => {
+                    landing_pad = Some(landing_pad.unwrap_or(offset.as_offset()));
                     catches.push(ExceptionType::CatchAll);
                 }
-                FinalizedMachExceptionHandler::Context(context) => {
+                MachExceptionHandler::Context(context) => {
                     // Context records are used by Cranelift to thread VMContext
                     // information through the landing pad. We emit the LSDA
                     // regardless of whether we see them; nothing to do here.
