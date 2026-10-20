@@ -137,7 +137,7 @@ wasmer-compiler = { version = "=7.5.0", path = "../compiler", features = [
 wasmer-compiler-cranelift = { version = "=7.5.0", path = "../compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=7.5.0", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=7.5.0", path = "../compiler-llvm", optional = true }
-wasmer-package.workspace = true
+wasmer-package = { workspace = true, features = ["authoring"] }
 wasmer-vm = { version = "=7.5.0", path = "../vm", optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.705.0", features = [
   "logging",
@@ -223,7 +223,7 @@ interfaces = { workspace = true, optional = true }
 
 uuid = { workspace = true, features = ["v4"] }
 time = { workspace = true, features = ["macros", "parsing"] }
-serde_yaml.workspace = true
+yaml_serde.workspace = true
 yaml-edit.workspace = true
 base64.workspace = true
 comfy-table.workspace = true

@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
 use crate::{
-    AsStoreMut, Memory,
+    AsStoreMut, Memory, MemoryError,
     error::AtomicsError,
     location::{MemoryLocation, SharedMemoryOps},
     vm::VMMemory,
     vm::VMSharedMemory,
 };
 
-/// A shared memory instance that can be shared across multiple stores and threads,
-/// not attached to any specific store.
+/// A detached handle to shared linear memory, attachable to multiple stores and threads.
+///
+/// This type never represents non-shared linear memory or an owned byte snapshot.
 pub struct SharedMemory {
     memory: VMSharedMemory,
     ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
@@ -63,9 +64,22 @@ impl SharedMemory {
     }
 
     /// Attach this shared memory to the provided store.
+    ///
+    /// # Panics
+    /// Panics where [`SharedMemory::try_attach`] fails.
     pub fn attach(self, store: &mut impl AsStoreMut) -> Memory {
-        let memory = self.memory.into_vm_memory(store);
-        Memory::new_from_existing(store, memory)
+        self.try_attach(store)
+            .unwrap_or_else(|err| panic!("failed to attach shared memory: {err}"))
+    }
+
+    /// Attach this shared memory to the provided store.
+    ///
+    /// On the `js` backend this fails if the memory has not been delivered to
+    /// the current worker (see `wasmer::js::receive_shared_object_message`).
+    /// Other backends always succeed.
+    pub fn try_attach(self, store: &mut impl AsStoreMut) -> Result<Memory, MemoryError> {
+        let memory = self.memory.try_into_vm_memory(store)?;
+        Ok(Memory::new_from_existing(store, memory))
     }
 
     /// Create an operations handle that does not keep the underlying memory alive.

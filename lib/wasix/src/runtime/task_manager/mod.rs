@@ -206,7 +206,10 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 })?;
                 Ok(Some(mem))
             }
-            SpawnType::AttachMemory(mem) => Ok(Some(mem.attach(store))),
+            SpawnType::AttachMemory(mem) => mem
+                .try_attach(store)
+                .map(Some)
+                .map_err(WasiThreadError::MemoryCreateFailed),
             SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup(..) => Ok(None),
         }
     }

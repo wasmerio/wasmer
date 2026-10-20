@@ -663,6 +663,10 @@ impl MemoryMappedBinary {
 #[cfg(unix)]
 impl Drop for MemoryMappedBinary {
     fn drop(&mut self) {
+        // Remove frame metadata before unmapping: another thread can reuse the
+        // address immediately and register its own code in the global registry.
+        drop(self.frame_info_registration.take());
+
         // The registered `.eh_frame` records point into this mmap, so deregister
         // them while the mapping is still live.
         drop(self.unwind_registry.take());
@@ -672,5 +676,65 @@ impl Drop for MemoryMappedBinary {
                 libc::munmap(self.base, self.size);
             }
         }
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+    use crate::engine::trap::{FunctionExtent, register_frame_info};
+    use std::sync::Barrier;
+    use wasmer_types::{ModuleInfo, entity::PrimaryMap};
+    use wasmer_vm::FunctionBodyPtr;
+
+    #[test]
+    fn concurrent_mapping_drop_deregisters_before_address_reuse() {
+        // Model the ELF artifact lifetime without compiling a module. Linux can
+        // immediately reuse a released mapping on another test thread.
+        let barrier = Barrier::new(8);
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                let barrier = &barrier;
+                scope.spawn(move || {
+                    barrier.wait();
+                    for _ in 0..2_000 {
+                        let size = 4096;
+                        let base = unsafe {
+                            libc::mmap(
+                                ptr::null_mut(),
+                                size,
+                                libc::PROT_READ | libc::PROT_WRITE,
+                                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+                                -1,
+                                0,
+                            )
+                        };
+                        assert_ne!(base, libc::MAP_FAILED);
+                        let mut mapping = MemoryMappedBinary {
+                            base,
+                            size,
+                            unwind_registry: None,
+                            frame_info_registration: None,
+                        };
+                        let mut functions = PrimaryMap::new();
+                        functions.push(FunctionExtent {
+                            ptr: FunctionBodyPtr(base.cast()),
+                            length: size,
+                        });
+                        mapping.register_frame_info(
+                            register_frame_info(
+                                Arc::new(ModuleInfo::new()),
+                                &functions.into_boxed_slice(),
+                                None,
+                                base as usize,
+                                None,
+                            )
+                            .unwrap(),
+                        );
+                        drop(mapping);
+                    }
+                });
+            }
+        });
     }
 }

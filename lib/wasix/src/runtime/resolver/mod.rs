@@ -11,7 +11,7 @@ pub(crate) mod utils;
 mod web_source;
 
 pub use self::{
-    backend_source::BackendSource,
+    backend_source::{BackendSource, QueryCache},
     filesystem_source::FileSystemSource,
     in_memory_source::InMemorySource,
     inputs::{

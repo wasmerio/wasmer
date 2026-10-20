@@ -47,6 +47,12 @@ pub enum IfElseState {
     Else,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum PhiLocation {
+    LoopHeader,
+    LoopExit,
+}
+
 impl<'ctx> ControlFrame<'ctx> {
     pub fn code_after(&self) -> &BasicBlock<'ctx> {
         match self {
@@ -66,25 +72,21 @@ impl<'ctx> ControlFrame<'ctx> {
         }
     }
 
-    pub fn phis(&self) -> &[PhiValue<'ctx>] {
+    pub fn phis(&self, location: PhiLocation) -> &[PhiValue<'ctx>] {
         match self {
-            ControlFrame::Block { phis, .. } | ControlFrame::Loop { phis, .. } => phis.as_slice(),
+            ControlFrame::Block { phis, .. } => phis.as_slice(),
+            ControlFrame::Loop {
+                phis,
+                loop_body_phis,
+                ..
+            } => match location {
+                PhiLocation::LoopHeader => loop_body_phis.as_slice(),
+                PhiLocation::LoopExit => phis.as_slice(),
+            },
             ControlFrame::IfElse { next_phis, .. } | ControlFrame::Landingpad { next_phis, .. } => {
                 next_phis.as_slice()
             }
         }
-    }
-
-    /// PHI nodes for stack values in the loop body.
-    pub fn loop_body_phis(&self) -> &[PhiValue<'ctx>] {
-        match self {
-            ControlFrame::Loop { loop_body_phis, .. } => loop_body_phis.as_slice(),
-            _ => &[],
-        }
-    }
-
-    pub fn is_loop(&self) -> bool {
-        matches!(self, ControlFrame::Loop { .. })
     }
 }
 

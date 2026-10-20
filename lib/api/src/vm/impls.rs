@@ -61,7 +61,7 @@ impl VMMemory {
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_shared().map(VMSharedMemory::V8),
             #[cfg(feature = "js")]
-            Self::Js(s) => s.try_clone().map(VMSharedMemory::Js),
+            Self::Js(s) => s.try_clone()?.try_into().map(VMSharedMemory::Js),
         }
     }
 }
@@ -75,15 +75,15 @@ impl VMSharedMemory {
             #[cfg(feature = "v8")]
             Self::V8(s) => Self::V8(s.clone()),
             #[cfg(feature = "js")]
-            Self::Js(s) => Self::Js(
-                s.try_clone()
-                    .expect("cloning JavaScript shared memory should not fail"),
-            ),
+            Self::Js(s) => Self::Js(s.clone()),
         }
     }
 
-    pub(crate) fn into_vm_memory(self, store: &mut impl AsStoreMut) -> VMMemory {
-        match self {
+    pub(crate) fn try_into_vm_memory(
+        self,
+        store: &mut impl AsStoreMut,
+    ) -> Result<VMMemory, wasmer_types::MemoryError> {
+        Ok(match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => VMMemory::Sys(s.into()),
             #[cfg(feature = "v8")]
@@ -92,8 +92,8 @@ impl VMSharedMemory {
                 VMMemory::V8(s.into_vm_memory(store.inner.store.as_v8_mut()))
             }
             #[cfg(feature = "js")]
-            Self::Js(s) => VMMemory::Js(s),
-        }
+            Self::Js(s) => VMMemory::Js(s.try_attach()?),
+        })
     }
 }
 

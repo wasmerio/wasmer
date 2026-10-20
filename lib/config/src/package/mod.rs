@@ -288,8 +288,8 @@ impl CommandV2 {
                         Ok(Some(json_to_cbor_value(&value)))
                     }
                     FileKind::Yaml => {
-                        let value: serde_yaml::Value =
-                            serde_yaml::from_str(&file).map_err(|e| {
+                        let value: yaml_serde::Value =
+                            yaml_serde::from_str(&file).map_err(|e| {
                                 format!(
                                     "Error reading {:?}.annotation ({:?}): {e}",
                                     self.name,
@@ -424,11 +424,11 @@ fn json_to_cbor_value(val: &serde_json::Value) -> ciborium::Value {
     }
 }
 
-fn yaml_to_cbor_value(val: &serde_yaml::Value) -> ciborium::Value {
+fn yaml_to_cbor_value(val: &yaml_serde::Value) -> ciborium::Value {
     match val {
-        serde_yaml::Value::Null => ciborium::Value::Null,
-        serde_yaml::Value::Bool(b) => ciborium::Value::Bool(*b),
-        serde_yaml::Value::Number(n) => {
+        yaml_serde::Value::Null => ciborium::Value::Null,
+        yaml_serde::Value::Bool(b) => ciborium::Value::Bool(*b),
+        yaml_serde::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 ciborium::Value::Integer(ciborium::value::Integer::from(i))
             } else if let Some(u) = n.as_u64() {
@@ -439,16 +439,16 @@ fn yaml_to_cbor_value(val: &serde_yaml::Value) -> ciborium::Value {
                 ciborium::Value::Null
             }
         }
-        serde_yaml::Value::String(s) => ciborium::Value::Text(s.clone()),
-        serde_yaml::Value::Sequence(sq) => {
+        yaml_serde::Value::String(s) => ciborium::Value::Text(s.clone()),
+        yaml_serde::Value::Sequence(sq) => {
             ciborium::Value::Array(sq.iter().map(yaml_to_cbor_value).collect())
         }
-        serde_yaml::Value::Mapping(m) => ciborium::Value::Map(
+        yaml_serde::Value::Mapping(m) => ciborium::Value::Map(
             m.iter()
                 .map(|(k, v)| (yaml_to_cbor_value(k), yaml_to_cbor_value(v)))
                 .collect(),
         ),
-        serde_yaml::Value::Tagged(tag) => yaml_to_cbor_value(&tag.value),
+        yaml_serde::Value::Tagged(tag) => yaml_to_cbor_value(&tag.value),
     }
 }
 
@@ -475,7 +475,7 @@ pub struct FileCommandAnnotations {
 /// The different formats that [`FileCommandAnnotations`] can be saved in.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Deserialize, Serialize)]
 pub enum FileKind {
-    /// A `*.yaml` file that will be deserialized using [`serde_yaml`].
+    /// A `*.yaml` file that will be deserialized using [`yaml_serde`].
     #[serde(rename = "yaml")]
     Yaml,
     /// A `*.json` file that will be deserialized using [`serde_json`].

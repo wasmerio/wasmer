@@ -5,9 +5,11 @@ use std::{
 
 use anyhow::Context;
 use once_cell::sync::OnceCell;
+#[cfg(feature = "package-authoring")]
 use sha2::Digest;
 use virtual_fs::{FileSystem, MountFileSystem};
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
+#[cfg(feature = "package-authoring")]
 use wasmer_package::package::Package;
 use webc::Container;
 use webc::compat::SharedBytes;
@@ -172,12 +174,12 @@ pub struct BinaryPackage {
     pub package_mounts: Option<Arc<BinaryPackageMounts>>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
-    pub file_system_memory_footprint: u64,
 
     pub additional_host_mapped_directories: Vec<MappedDirectory>,
 }
 
 impl BinaryPackage {
+    #[cfg(feature = "package-authoring")]
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_dir(
         dir: &Path,
@@ -344,7 +346,7 @@ impl BinaryPackage {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "package-authoring"))]
 mod tests {
     use sha2::Digest;
     use tempfile::TempDir;

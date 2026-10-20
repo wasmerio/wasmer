@@ -61,7 +61,7 @@ jobs:
             enable_v8: true
             enable_napi_v8: true
           - build: macos-arm
-            os: depot-macos-14
+            os: macos-15
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
             build_wasm: false
