@@ -241,7 +241,6 @@ symbolic-demangle = { version = "13", default-features = false, features = [
   "cpp",
   "msvc",
 ] }
-rustc_version = "0.4"
 rusty_pool = "1.0.0"
 saffron = "0.1.0"
 schemars = "1.1.0"
@@ -334,7 +333,6 @@ test-generator = { path = "tests/lib/test-generator" }
 build-deps.workspace = true
 anyhow.workspace = true
 glob.workspace = true
-rustc_version.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
