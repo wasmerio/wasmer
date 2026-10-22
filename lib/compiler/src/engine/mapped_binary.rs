@@ -170,7 +170,7 @@ pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_alloc_exception" => LibCall::AllocException,
     "wasmer_vm_read_exnref" => LibCall::ReadExnRef,
     "wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
-    "wasmer_eh_personality" => LibCall::EHPersonality,
+    "__gxx_personality_v0" => LibCall::EHPersonality,
     "wasmer_eh_personality2" => LibCall::EHPersonality2,
     "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
@@ -230,10 +230,8 @@ pub static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_alloc_exception" => LibCall::AllocException,
     "_wasmer_vm_read_exnref" => LibCall::ReadExnRef,
     "_wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
-    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
-    // will generate things differently than "normal", wreaking havoc.
-    //
-    // todo: find out if it is a bug in LLVM or it is expected.
+    // Note for macOS, we must use standard C++ personality name in order to trigger emission of the compact
+    // unwind format: https://github.com/llvm/llvm-project/blob/c75421484e8ff4efa83918d3c81300898e67df0f/llvm/lib/Target/AArch64/MCTargetDesc/AArch64AsmBackend.cpp#L593.
     "___gxx_personality_v0" => LibCall::EHPersonality,
     "_wasmer_eh_personality2" => LibCall::EHPersonality2,
     "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,

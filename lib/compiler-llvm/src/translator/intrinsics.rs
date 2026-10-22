@@ -841,13 +841,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 None,
             ),
             personality: add_function_with_attrs(
-                if matches!(binary_fmt, target_lexicon::BinaryFormat::Macho) {
-                    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
-                    // will generate things differently than "normal", wreaking havoc.
-                    "__gxx_personality_v0"
-                } else {
-                    "wasmer_eh_personality"
-                },
+                "__gxx_personality_v0",
                 i32_ty.fn_type(
                     &[
                         i32_ty.into(),
