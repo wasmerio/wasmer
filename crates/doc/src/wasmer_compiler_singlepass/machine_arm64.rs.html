@@ -4769,7 +4769,7 @@
 <a href=#4769 id=4769 data-nosnippet>4769</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#4770 id=4770 data-nosnippet>4770</a>
 <a href=#4771 id=4771 data-nosnippet>4771</a>        <span class="self">self</span>.assembler
-<a href=#4772 id=4772 data-nosnippet>4772</a>            .emit_cbz_label(Size::S64, src2, integer_division_by_zero)<span class="question-mark">?</span>;
+<a href=#4772 id=4772 data-nosnippet>4772</a>            .emit_cbz_label_far(Size::S64, src2, integer_division_by_zero)<span class="question-mark">?</span>;
 <a href=#4773 id=4773 data-nosnippet>4773</a>        <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
 <a href=#4774 id=4774 data-nosnippet>4774</a>        <span class="self">self</span>.assembler.emit_udiv(Size::S64, src1, src2, dest)<span class="question-mark">?</span>;
 <a href=#4775 id=4775 data-nosnippet>4775</a>        <span class="kw">if </span>ret != dest {
