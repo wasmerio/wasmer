@@ -261,7 +261,7 @@ serde_bytes = { version = "0.11" }
 serde_derive = "1"
 serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
-serde_yaml = { version = "0.9.34" }
+yaml_serde = { version = "0.10.7" }
 yaml-edit = { version = "0.3", default-features = false }
 serial_test = { version = "4.0.1", default-features = false }
 sha2 = "0.11.0"
@@ -312,18 +312,18 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.259.0", default-features = false, features = [
+wasm-encoder = { version = "0.262.0", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.259.0"
-wasmparser = { version = "0.259.0", default-features = false, features = [
+wasm-smith = "0.262.0"
+wasmparser = { version = "0.262.0", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.259.0"
-wast = "259.0.0"
-wat = "1.258.0"
+wasmprinter = "0.262.0"
+wast = "262.0.0"
+wat = "1.262.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
@@ -332,8 +332,10 @@ which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
-zip = { version = "8.1.0", default-features = false }
-libwild = { git = "https://github.com/wild-linker/wild.git", branch = "main", features = ["macho"] }
+zip = { version = "9.0.4", default-features = false }
+libwild = { git = "https://github.com/wild-linker/wild.git", branch = "main", features = [
+  "macho",
+] }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

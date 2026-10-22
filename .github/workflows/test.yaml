@@ -99,8 +99,6 @@ jobs:
             ~/.cargo/git/db
             ./target/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-
       - run: make lint
         env:
           ENABLE_CRANELIFT: "1"
@@ -170,8 +168,6 @@ jobs:
         with:
           path: *cargo-cache-paths
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-js-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-js-
       - name: make test-js
         run: |
           make test-js
@@ -196,7 +192,7 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
           - build: macos-arm
-            os: depot-macos-14
+            os: macos-15
         exclude:
           - skip_macos: true
             metadata:
@@ -245,8 +241,6 @@ jobs:
         with:
           path: *cargo-cache-paths
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.build-what.key }}-api-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.build-what.key }}-api-${{ matrix.metadata.build }}-
       - name: Lint ${{ matrix.build-what.key }}
         run: ${{ matrix.build-what.lint-cmd }}
       - name: Test V8 API
@@ -307,8 +301,6 @@ jobs:
         with:
           path: *cargo-cache-paths
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-build-docs-rs-linux-x64-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-build-docs-rs-linux-x64-
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
   build_linux_riscv64:
@@ -342,8 +334,6 @@ jobs:
         with:
           path: ./target/*
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-linux-riscv64-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-linux-riscv64-
       - name: Build cross image
         run: |
           docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
@@ -419,7 +409,7 @@ jobs:
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.zst"
             supports_v8: false
           - build: macos-arm
-            os: depot-macos-14
+            os: macos-15
             target: aarch64-apple-darwin
             exe: ""
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-aarch64.tar.zst"
@@ -561,8 +551,6 @@ jobs:
         with:
           path: *cargo-cache-paths
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}-
       - name: Cache (R2, non-aux runners)
         if: ${{ !startsWith(runner.name, 'aux-') }}
         uses: whywaita/actions-cache-s3@v2
@@ -684,7 +672,7 @@ jobs:
             wasix_rust_toolchain: true
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.zst"
           - build: macos-arm
-            os: depot-macos-14
+            os: macos-15
             target: aarch64-apple-darwin
             exe: ""
             wasix_rust_toolchain: true
@@ -830,8 +818,6 @@ jobs:
         with:
           path: *cargo-cache-paths
           key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}-
       - name: Cache (R2, non-aux runners)
         if: ${{ !startsWith(runner.name, 'aux-') }}
         uses: whywaita/actions-cache-s3@v2

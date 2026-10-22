@@ -147,14 +147,14 @@ impl AppConfigV1 {
     pub const KIND: &'static str = "wasmer.io/App.v0";
     pub const CANONICAL_FILE_NAME: &'static str = "app.yaml";
 
-    pub fn to_yaml_value(self) -> Result<serde_yaml::Value, serde_yaml::Error> {
+    pub fn to_yaml_value(self) -> Result<yaml_serde::Value, yaml_serde::Error> {
         // Need to do an annoying type dance to both insert the kind field
         // and also insert kind at the top.
-        let obj = match serde_yaml::to_value(self)? {
-            serde_yaml::Value::Mapping(m) => m,
+        let obj = match yaml_serde::to_value(self)? {
+            yaml_serde::Value::Mapping(m) => m,
             _ => unreachable!(),
         };
-        let mut m = serde_yaml::Mapping::new();
+        let mut m = yaml_serde::Mapping::new();
         m.insert("kind".into(), Self::KIND.into());
         for (k, v) in obj.into_iter() {
             m.insert(k, v);
@@ -162,12 +162,12 @@ impl AppConfigV1 {
         Ok(m.into())
     }
 
-    pub fn to_yaml(self) -> Result<String, serde_yaml::Error> {
-        serde_yaml::to_string(&self.to_yaml_value()?)
+    pub fn to_yaml(self) -> Result<String, yaml_serde::Error> {
+        yaml_serde::to_string(&self.to_yaml_value()?)
     }
 
     pub fn parse_yaml(value: &str) -> Result<Self, anyhow::Error> {
-        let raw = serde_yaml::from_str::<serde_yaml::Value>(value).context("invalid yaml")?;
+        let raw = yaml_serde::from_str::<yaml_serde::Value>(value).context("invalid yaml")?;
         let kind = raw
             .get("kind")
             .context("invalid app config: no 'kind' field found")?
@@ -183,7 +183,7 @@ impl AppConfigV1 {
             }
         }
 
-        let data = serde_yaml::from_value(raw).context("could not deserialize app config")?;
+        let data = yaml_serde::from_value(raw).context("could not deserialize app config")?;
         Ok(data)
     }
 }
