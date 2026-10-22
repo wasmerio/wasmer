@@ -7602,7 +7602,6 @@ name = "wasmer-compiler-llvm"
 version = "7.5.0"
 dependencies = [
  "byteorder",
- "cc",
  "crossbeam-channel",
  "enum-iterator",
  "enumset",
@@ -7612,9 +7611,6 @@ dependencies = [
  "object 0.40.0",
  "phf",
  "rayon",
- "regex",
- "rustc_version 0.4.1",
- "semver 1.0.28",
  "smallvec",
  "target-lexicon 0.13.5",
  "tracing",
@@ -7890,7 +7886,6 @@ version = "7.5.0"
 dependencies = [
  "backtrace",
  "bytesize",
- "cc",
  "corosensei",
  "crossbeam-queue",
  "dashmap",
@@ -7906,7 +7901,6 @@ dependencies = [
  "more-asserts",
  "parking_lot",
  "region",
- "rustversion",
  "scopeguard",
  "serde",
  "thiserror 2.0.21",
@@ -8066,7 +8060,6 @@ dependencies = [
  "glob",
  "itertools 0.15.0",
  "reqwest",
- "rustc_version 0.4.1",
  "serial_test",
  "tempfile",
  "test-generator",

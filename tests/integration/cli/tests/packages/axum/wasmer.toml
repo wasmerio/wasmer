@@ -1,8 +1,0 @@
-[[module]]
-name = "wasix-axum"
-source = "target/wasm32-wasmer-wasi/debug/wasix-axum.wasm"
-
-[[command]]
-name = "wasix-axum"
-module = "wasix-axum"
-runner = "wasi@unstable_"
