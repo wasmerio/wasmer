@@ -88,13 +88,7 @@ impl FuncTrampoline {
         let target_data: inkwell::targets::TargetData = target_machine.get_target_data();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(
-            &module,
-            &self.ctx,
-            &target_data,
-            &self.target_triple,
-            &self.binary_fmt,
-        );
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.target_triple);
 
         let m0_is_enabled = enable_m0_optimization(config, &compile_info.memory_styles);
         let (callee_ty, callee_attrs) =
@@ -258,13 +252,7 @@ impl FuncTrampoline {
         let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(
-            &module,
-            &self.ctx,
-            &target_data,
-            &self.target_triple,
-            &self.binary_fmt,
-        );
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.target_triple);
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi

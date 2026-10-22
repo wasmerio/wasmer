@@ -307,7 +307,6 @@ impl<'ctx> Intrinsics<'ctx> {
         context: &'ctx Context,
         target_data: &TargetData,
         target_triple: &Triple,
-        binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
         let is_riscv64 = matches!(target_triple.architecture, Architecture::Riscv64(..));
         let void_ty = context.void_type();
