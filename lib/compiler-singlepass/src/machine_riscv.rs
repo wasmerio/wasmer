@@ -228,8 +228,7 @@ impl MachineRiscv {
                 })?;
                 temps.push(tmp);
                 if read_val {
-                    self.assembler
-                        .emit_ld(sz, false, Location::SIMD(tmp), src)?;
+                    self.emit_relaxed_load(sz, false, Location::SIMD(tmp), src)?;
                 }
                 Ok(Location::SIMD(tmp))
             }
@@ -2412,7 +2411,7 @@ impl Machine for MachineRiscv {
                 dst
             }
             (_, _, Location::Memory(_, _)) => {
-                self.assembler.emit_ld(size_val, signed, dst, source)?;
+                self.emit_relaxed_load(size_val, signed, dst, source)?;
                 dst
             }
             _ => codegen_error!(
