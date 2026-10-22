@@ -632,7 +632,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         assert!(app_config_path.is_file());
 
         let config_str = std::fs::read_to_string(&app_config_path)
-            .with_context(|| format!("Could not read file '{}'", &app_config_path.display()))?;
+            .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
 
         // We want to allow the user to specify the app name interactively.
         let mut app_yaml: yaml_serde::Value = yaml_serde::from_str(&config_str)?;

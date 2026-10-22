@@ -8,7 +8,6 @@ use std::{os::fd::RawFd, ptr, slice};
 
 #[cfg(unix)]
 use itertools::Itertools;
-#[cfg(unix)]
 use object::{Object, ObjectSection, ReadRef};
 #[cfg(unix)]
 use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf, macho};

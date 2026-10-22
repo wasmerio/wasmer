@@ -36,7 +36,7 @@ macro_rules! impl_native_traits {
                  let params_list: Vec<_> = unsafe {
                      vec![ $( {
                          let raw = $x.to_native().into_raw(store);
-                         let value = Value::from_raw(&mut store, <$x::Native as NativeWasmType>::WASM_TYPE, raw);
+                         let value = Value::from_raw(&mut *store, <$x::Native as NativeWasmType>::WASM_TYPE, raw);
                          value.into_cv()
                      } ),* ]
                  };
