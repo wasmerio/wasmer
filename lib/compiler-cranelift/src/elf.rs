@@ -25,6 +25,8 @@ use object::{
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
 #[cfg(feature = "unwind")]
+use wasmer_compiler::constants::{WASMER_EH_TAGS_SECTION_NAME, WASMER_LSDA_SECTION_NAME};
+#[cfg(feature = "unwind")]
 use wasmer_compiler::dwarf::{EhRelocation, EhTarget, WriterRelocate};
 #[cfg(feature = "unwind")]
 use wasmer_compiler::elf::emit_eh_frame_section;
@@ -215,7 +217,7 @@ fn emit_eh_tag_section(
     object.append_section_data(section, &bytes, 4);
     let symbol = if object.format() == object::BinaryFormat::MachO {
         object.add_symbol(Symbol {
-            name: b"wasmer_eh_tags".to_vec(),
+            name: WASMER_EH_TAGS_SECTION_NAME.to_vec(),
             value: 0,
             size: bytes.len() as u64,
             kind: SymbolKind::Data,
@@ -316,7 +318,7 @@ pub(crate) fn emit_local_function(
                 object.append_section_data(gcc_section, &lsda.bytes, u64::from(pointer_bytes));
             let subtractor = macho_compact_unwind.then(|| {
                 object.add_symbol(Symbol {
-                    name: b"wasmer_lsda".to_vec(),
+                    name: WASMER_LSDA_SECTION_NAME.to_vec(),
                     value: lsda_offset,
                     size: lsda.bytes.len() as u64,
                     kind: SymbolKind::Data,
