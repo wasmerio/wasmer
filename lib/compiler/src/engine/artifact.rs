@@ -939,7 +939,7 @@ impl Artifact {
         let expected_offset_count = local_function_count
             .checked_add(signature_count)
             .and_then(|count| count.checked_add(dynamic_trampoline_count))
-            .ok_or_else(&corrupted_offsets)?;
+            .ok_or_else(corrupted_offsets)?;
         if function_offsets.len() != expected_offset_count {
             return Err(corrupted_offsets());
         }
@@ -953,7 +953,7 @@ impl Artifact {
             .skip(1)
             .take(local_function_count)
             .zip(function_offsets.iter())
-            .map(|(f1, f0)| f1.checked_sub(*f0).ok_or_else(&corrupted_offsets))
+            .map(|(f1, f0)| f1.checked_sub(*f0).ok_or_else(corrupted_offsets))
             .collect::<Result<Vec<_>, _>>()?;
 
         let signatures = {
