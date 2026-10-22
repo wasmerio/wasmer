@@ -171,6 +171,7 @@ pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_read_exnref" => LibCall::ReadExnRef,
     "wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
     "__gxx_personality_v0" => LibCall::EHPersonality,
+    "wasmer_eh_personality" => LibCall::EHPersonality,
     "wasmer_eh_personality2" => LibCall::EHPersonality2,
     "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
