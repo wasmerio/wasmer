@@ -412,7 +412,7 @@ mod tests {
 
         for idx in 0..archive.len() {
             let file = archive.by_index(idx)?;
-            names.insert(file.name().to_string());
+            names.insert(file.name()?.to_string());
         }
 
         Ok(names)

@@ -49,10 +49,6 @@ windows-sys = { workspace = true, features = [
   "Win32_System_Memory",
 ] }
 
-[build-dependencies]
-cc.workspace = true
-rustversion.workspace = true
-
 [badges]
 maintenance = { status = "actively-developed" }
 
