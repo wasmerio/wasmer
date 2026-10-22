@@ -24,7 +24,7 @@ use crate::{
     },
 };
 use cranelift_codegen::{
-    Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
+    Context, MachReloc, MachTrap, RelocTarget,
     ir::{self, ExternalName, UserFuncName},
 };
 
@@ -303,7 +303,7 @@ impl CraneliftCompiler {
             #[cfg(feature = "unwind")]
             let compact_unwind_encoding = if emit_macho_compact_unwind {
                 Some(
-                    compact_unwind_encoding_aarch64(&result.buffer.unwind_info).map_err(|error| {
+                    compact_unwind_encoding_aarch64(result.buffer.unwind_info()).map_err(|error| {
                         CompileError::Codegen(format!(
                             "failed to encode aarch64 Mach-O compact unwind for function {}: {error}",
                             i.index()
@@ -794,17 +794,17 @@ impl Compiler for CraneliftCompiler {
 fn mach_reloc_to_reloc(
     module: &ModuleInfo,
     func_index_map: &cranelift_entity::PrimaryMap<ir::UserExternalNameRef, ir::UserExternalName>,
-    reloc: &FinalizedMachReloc,
+    reloc: &MachReloc,
 ) -> Relocation {
-    let FinalizedMachReloc {
+    let MachReloc {
         offset,
         kind,
         addend,
         target,
     } = &reloc;
     let name = match target {
-        FinalizedRelocTarget::ExternalName(external_name) => external_name,
-        FinalizedRelocTarget::Func(_) => {
+        RelocTarget::ExternalName(external_name) => external_name,
+        RelocTarget::Label(_) => {
             unimplemented!("relocations to offset in the same function are not yet supported")
         }
     };
