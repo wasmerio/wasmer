@@ -233,12 +233,141 @@ pub(crate) struct RewindResult {
     pub rewind_result: RewindResultType,
 }
 
+/// Wakers of futures that wait for a signal to be delivered to a thread.
+#[derive(Debug, Default)]
+pub struct SignalWakers {
+    /// Anonymous subscriptions: woken and dropped on the next signal.
+    once: Vec<Waker>,
+    /// Subscriptions owned by a `SignalWaiter`: woken on every signal and
+    /// kept until the waiter is dropped.
+    waiters: Vec<(u64, Waker)>,
+    next_waiter_id: u64,
+}
+
+impl SignalWakers {
+    /// Returns the number of registered wakers.
+    pub fn len(&self) -> usize {
+        self.once.len() + self.waiters.len()
+    }
+
+    /// Returns true if no waker is registered.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    fn subscribe_once(&mut self, waker: &Waker) {
+        if !self.once.iter().any(|w| w.will_wake(waker)) {
+            self.once.push(waker.clone());
+        }
+    }
+
+    fn insert_waiter(&mut self, waker: &Waker) -> u64 {
+        let id = self.next_waiter_id;
+        self.next_waiter_id += 1;
+        self.waiters.push((id, waker.clone()));
+        id
+    }
+
+    /// Replaces the waker of slot `id` and returns the previous one, which
+    /// the caller should drop after releasing the signals lock.
+    fn update_waiter(&mut self, id: u64, waker: &Waker) -> Option<Waker> {
+        match self.waiters.iter_mut().find(|(i, _)| *i == id) {
+            Some((_, w)) => {
+                if w.will_wake(waker) {
+                    None
+                } else {
+                    Some(std::mem::replace(w, waker.clone()))
+                }
+            }
+            // Entries are only removed by their waiter, but re-adding is
+            // always safe.
+            None => {
+                self.waiters.push((id, waker.clone()));
+                None
+            }
+        }
+    }
+
+    fn remove_waiter(&mut self, id: u64) -> Option<Waker> {
+        let pos = self.waiters.iter().position(|(i, _)| *i == id)?;
+        Some(self.waiters.swap_remove(pos).1)
+    }
+
+    fn wake_all(&mut self) {
+        self.once.drain(..).for_each(|w| w.wake());
+        self.waiters.iter().for_each(|(_, w)| w.wake_by_ref());
+    }
+}
+
+/// Keeps a waker registered with a thread for as long as a future is blocked
+/// on it, so that a signal delivered to the thread wakes the future up.
+///
+/// The waker is registered on first use, updated when the future is polled
+/// with a different waker and removed when the waiter is dropped. Blocking
+/// operations that complete without being interrupted therefore do not leave
+/// stale wakers behind.
+#[derive(Debug, Default)]
+pub(crate) struct SignalWaiter {
+    registration: Option<(Weak<WasiThreadState>, u64)>,
+}
+
+impl SignalWaiter {
+    /// Registers `waker`, or updates the registered one. Returns the replaced
+    /// waker, if any, which should be dropped after releasing the signals lock
+    /// as dropping a waker can run arbitrary code.
+    #[must_use]
+    fn register(
+        &mut self,
+        state: &Arc<WasiThreadState>,
+        wakers: &mut SignalWakers,
+        waker: &Waker,
+    ) -> Option<Waker> {
+        match &self.registration {
+            Some((_, id)) => wakers.update_waiter(*id, waker),
+            None => {
+                let id = wakers.insert_waiter(waker);
+                self.registration = Some((Arc::downgrade(state), id));
+                None
+            }
+        }
+    }
+
+    /// Drops the registration unless it belongs to `state`.
+    fn release_unless_registered_with(&mut self, state: &Arc<WasiThreadState>) {
+        if let Some((registered, _)) = &self.registration
+            && !std::ptr::eq(registered.as_ptr(), Arc::as_ptr(state))
+        {
+            self.release();
+        }
+    }
+
+    fn release(&mut self) {
+        if let Some((state, id)) = self.registration.take()
+            && let Some(state) = state.upgrade()
+        {
+            let mut guard = state
+                .signals
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let waker = guard.1.remove_waiter(id);
+            drop(guard);
+            drop(waker);
+        }
+    }
+}
+
+impl Drop for SignalWaiter {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
 #[derive(Debug)]
 struct WasiThreadState {
     is_main: bool,
     pid: WasiProcessId,
     id: WasiThreadId,
-    signals: Mutex<(Vec<Signal>, Vec<Waker>)>,
+    signals: Mutex<(Vec<Signal>, SignalWakers)>,
     stack: Mutex<ThreadStack>,
     status: Arc<OwnedTaskStatus>,
     #[cfg(feature = "journal")]
@@ -268,7 +397,7 @@ impl WasiThread {
                 pid,
                 id,
                 status,
-                signals: Mutex::new((Vec::new(), Vec::new())),
+                signals: Mutex::new((Vec::new(), SignalWakers::default())),
                 stack: Mutex::new(ThreadStack::default()),
                 #[cfg(feature = "journal")]
                 check_pointing: AtomicBool::new(false),
@@ -302,7 +431,7 @@ impl WasiThread {
     }
 
     // TODO: this should be private, access should go through utility methods.
-    pub fn signals(&self) -> &Mutex<(Vec<Signal>, Vec<Waker>)> {
+    pub fn signals(&self) -> &Mutex<(Vec<Signal>, SignalWakers)> {
         &self.state.signals
     }
 
@@ -353,7 +482,7 @@ impl WasiThread {
         if !guard.0.contains(&signal) {
             guard.0.push(signal);
         }
-        guard.1.drain(..).for_each(|w| w.wake());
+        guard.1.wake_all();
     }
 
     /// Returns all the signals that are waiting to be processed
@@ -372,51 +501,100 @@ impl WasiThread {
         // This poller will process any signals when the main working function is idle
         struct SignalPoller<'a> {
             thread: &'a WasiThread,
+            waiter: SignalWaiter,
         }
         impl std::future::Future for SignalPoller<'_> {
             type Output = ();
             fn poll(
-                self: std::pin::Pin<&mut Self>,
+                mut self: std::pin::Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
             ) -> std::task::Poll<Self::Output> {
-                if self.thread.has_signals_or_subscribe(cx.waker()) {
+                let this = &mut *self;
+                if this
+                    .thread
+                    .has_signals_or_register(&mut this.waiter, cx.waker())
+                {
                     return std::task::Poll::Ready(());
                 }
                 std::task::Poll::Pending
             }
         }
-        SignalPoller { thread: self }.await
+        SignalPoller {
+            thread: self,
+            waiter: SignalWaiter::default(),
+        }
+        .await
+    }
+
+    /// Registers `waker` with `waiter`, so it is woken by every signal
+    /// delivered to this thread until `waiter` is dropped, and returns true
+    /// if there are signals waiting to be processed.
+    ///
+    /// The waker is registered even if signals are pending, so a caller that
+    /// processes them and keeps waiting does not miss the next one.
+    pub(crate) fn has_signals_or_register(&self, waiter: &mut SignalWaiter, waker: &Waker) -> bool {
+        waiter.release_unless_registered_with(&self.state);
+        let mut guard = self.state.signals.lock().unwrap();
+        let replaced = waiter.register(&self.state, &mut guard.1, waker);
+        let pending = !guard.0.is_empty();
+        drop(guard);
+        drop(replaced);
+        pending
+    }
+
+    /// Registers `waker` with `waiter`, so it is woken by every signal
+    /// delivered to this thread until `waiter` is dropped, and returns the
+    /// signals that are waiting to be processed, if any.
+    pub(crate) fn pop_signals_or_register(
+        &self,
+        waiter: &mut SignalWaiter,
+        waker: &Waker,
+    ) -> Option<Vec<Signal>> {
+        waiter.release_unless_registered_with(&self.state);
+        let mut guard = self.state.signals.lock().unwrap();
+        let replaced = waiter.register(&self.state, &mut guard.1, waker);
+        let signals = if guard.0.is_empty() {
+            None
+        } else {
+            Some(std::mem::take(&mut guard.0))
+        };
+        drop(guard);
+        drop(replaced);
+        signals
     }
 
     /// Returns all the signals that are waiting to be processed
+    ///
+    /// Otherwise `waker` is subscribed and stays registered until the next
+    /// signal is delivered, even if the caller stops waiting.
     pub fn pop_signals_or_subscribe(&self, waker: &Waker) -> Option<Vec<Signal>> {
         let mut guard = self.state.signals.lock().unwrap();
         let mut ret = Vec::new();
         std::mem::swap(&mut ret, &mut guard.0);
         match ret.is_empty() {
             true => {
-                if !guard.1.iter().any(|w| w.will_wake(waker)) {
-                    guard.1.push(waker.clone());
-                }
+                guard.1.subscribe_once(waker);
                 None
             }
             false => Some(ret),
         }
     }
 
+    /// Subscribes `waker` to be woken by the next signal.
     pub fn signals_subscribe(&self, waker: &Waker) {
         let mut guard = self.state.signals.lock().unwrap();
-        if !guard.1.iter().any(|w| w.will_wake(waker)) {
-            guard.1.push(waker.clone());
-        }
+        guard.1.subscribe_once(waker);
     }
 
-    /// Returns all the signals that are waiting to be processed
+    /// Returns true if there are signals waiting to be processed
+    ///
+    /// Otherwise `waker` is subscribed and stays registered until the next
+    /// signal is delivered, even if the caller stops waiting.
     pub fn has_signals_or_subscribe(&self, waker: &Waker) -> bool {
         let mut guard = self.state.signals.lock().unwrap();
         let has_signals = !guard.0.is_empty();
-        if !has_signals && !guard.1.iter().any(|w| w.will_wake(waker)) {
-            guard.1.push(waker.clone());
+        if !has_signals {
+            guard.1.subscribe_once(waker);
         }
         has_signals
     }
@@ -655,5 +833,199 @@ impl From<WasiThreadError> for Errno {
             WasiThreadError::InitFailed(_) => Errno::Noexec,
             WasiThreadError::InvalidWasmContext => Errno::Noexec,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        future::Future,
+        pin::pin,
+        sync::atomic::AtomicUsize,
+        task::{Context, Poll, Wake},
+    };
+
+    use crate::os::task::control_plane::WasiControlPlane;
+    use wasmer_types::ModuleHash;
+
+    use super::*;
+
+    /// Counts how often it was woken; every instance is a distinct waker.
+    #[derive(Default)]
+    struct CountingWaker(AtomicUsize);
+
+    impl CountingWaker {
+        fn new() -> (Arc<Self>, Waker) {
+            let counter = Arc::new(Self::default());
+            let waker = Waker::from(counter.clone());
+            (counter, waker)
+        }
+
+        fn wakes(&self) -> usize {
+            self.0.load(Ordering::SeqCst)
+        }
+    }
+
+    impl Wake for CountingWaker {
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
+
+        fn wake_by_ref(self: &Arc<Self>) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    fn registered_wakers(thread: &WasiThread) -> usize {
+        thread.signals().lock().unwrap().1.len()
+    }
+
+    fn poll_once<F: Future>(fut: std::pin::Pin<&mut F>, waker: &Waker) -> Poll<F::Output> {
+        fut.poll(&mut Context::from_waker(waker))
+    }
+
+    /// Every blocking operation polls with a fresh waker. Operations that
+    /// complete (or are cancelled) without a signal arriving must not leave
+    /// their waker behind, otherwise the list grows without bound and every
+    /// later poll pays for a linear scan over it.
+    #[test]
+    fn completed_signal_waits_do_not_accumulate_wakers() {
+        let plane = WasiControlPlane::default();
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+
+        for _ in 0..1_000 {
+            let (_counter, waker) = CountingWaker::new();
+            let mut wait = pin!(thread.wait_for_signal());
+            assert!(poll_once(wait.as_mut(), &waker).is_pending());
+        }
+
+        assert_eq!(registered_wakers(&thread), 0);
+    }
+
+    /// Pruning completed operations must not affect operations that are
+    /// still blocked: a signal has to wake every one of them.
+    #[test]
+    fn signal_wakes_every_pending_wait() {
+        let plane = WasiControlPlane::default();
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+
+        let (counter_a, waker_a) = CountingWaker::new();
+        let (counter_b, waker_b) = CountingWaker::new();
+        let mut wait_a = pin!(thread.wait_for_signal());
+        let mut wait_b = pin!(thread.wait_for_signal());
+        assert!(poll_once(wait_a.as_mut(), &waker_a).is_pending());
+        assert!(poll_once(wait_b.as_mut(), &waker_b).is_pending());
+
+        // Unrelated operations that come and go in between.
+        for _ in 0..100 {
+            let (_counter, waker) = CountingWaker::new();
+            let mut wait = pin!(thread.wait_for_signal());
+            assert!(poll_once(wait.as_mut(), &waker).is_pending());
+        }
+
+        thread.signal(Signal::Sigwakeup);
+        assert_eq!(counter_a.wakes(), 1);
+        assert_eq!(counter_b.wakes(), 1);
+        assert!(poll_once(wait_a.as_mut(), &waker_a).is_ready());
+        assert!(poll_once(wait_b.as_mut(), &waker_b).is_ready());
+    }
+
+    /// A wait that is re-polled with a different waker must be woken through
+    /// the most recent one, and stays registered across signal deliveries
+    /// that it did not consume.
+    #[test]
+    fn signal_wakes_latest_waker_of_pending_wait() {
+        let plane = WasiControlPlane::default();
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+
+        let (counter_a, waker_a) = CountingWaker::new();
+        let (counter_b, waker_b) = CountingWaker::new();
+        let mut wait = pin!(thread.wait_for_signal());
+        assert!(poll_once(wait.as_mut(), &waker_a).is_pending());
+        assert!(poll_once(wait.as_mut(), &waker_b).is_pending());
+        assert_eq!(registered_wakers(&thread), 1);
+
+        thread.signal(Signal::Sigwakeup);
+        assert_eq!(counter_a.wakes(), 0);
+        assert_eq!(counter_b.wakes(), 1);
+
+        // Someone else consumes the signal before the wait is polled again.
+        assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+        assert!(poll_once(wait.as_mut(), &waker_b).is_pending());
+
+        thread.signal(Signal::Sigwakeup);
+        assert_eq!(counter_b.wakes(), 2);
+        assert!(poll_once(wait.as_mut(), &waker_b).is_ready());
+    }
+
+    /// A blocking operation that finds signals pending, handles them and
+    /// keeps waiting must still be woken by the next signal.
+    #[test]
+    fn waiter_registers_while_signals_are_pending() {
+        let plane = WasiControlPlane::default();
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let (counter, waker) = CountingWaker::new();
+
+        let mut waiter = SignalWaiter::default();
+        thread.signal(Signal::Sigwakeup);
+        assert!(thread.has_signals_or_register(&mut waiter, &waker));
+        assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+        thread.signal(Signal::Sigwakeup);
+        assert_eq!(counter.wakes(), 1);
+
+        let mut other = SignalWaiter::default();
+        assert_eq!(
+            thread.pop_signals_or_register(&mut other, &waker),
+            Some(vec![Signal::Sigwakeup])
+        );
+        assert_eq!(thread.pop_signals_or_register(&mut other, &waker), None);
+        thread.signal(Signal::Sigwakeup);
+        assert_eq!(counter.wakes(), 3);
+
+        assert_eq!(registered_wakers(&thread), 2);
+        drop(waiter);
+        drop(other);
+        assert_eq!(registered_wakers(&thread), 0);
+    }
+
+    /// A waiter that is moved to another thread's signals must not stay
+    /// registered with the previous one.
+    #[test]
+    fn waiter_follows_thread() {
+        let plane = WasiControlPlane::default();
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread_a = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let thread_b = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let (counter, waker) = CountingWaker::new();
+
+        let mut waiter = SignalWaiter::default();
+        assert!(!thread_a.has_signals_or_register(&mut waiter, &waker));
+        assert!(!thread_b.has_signals_or_register(&mut waiter, &waker));
+        assert_eq!(registered_wakers(&thread_a), 0);
+        assert_eq!(registered_wakers(&thread_b), 1);
+
+        thread_a.signal(Signal::Sigwakeup);
+        assert_eq!(counter.wakes(), 0);
+        thread_b.signal(Signal::Sigwakeup);
+        assert_eq!(counter.wakes(), 1);
+
+        drop(waiter);
+        assert_eq!(registered_wakers(&thread_b), 0);
     }
 }
