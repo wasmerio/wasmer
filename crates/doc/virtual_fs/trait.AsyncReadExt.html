@@ -229,7 +229,8 @@ the specified buffer <code>buf</code>.</p>
 filling the buffer, it returns an error of the kind
 <a href="https://doc.rust-lang.org/1.96.1/std/io/error/enum.ErrorKind.html#variant.UnexpectedEof" title="variant std::io::error::ErrorKind::UnexpectedEof"><code>ErrorKind::UnexpectedEof</code></a>. The contents of <code>buf</code> are unspecified
 in this case.</p>
-<p>If any other read error is encountered then the operation
+<p>Errors of kind <a href="https://doc.rust-lang.org/1.96.1/std/io/error/enum.ErrorKind.html#variant.Interrupted" title="variant std::io::error::ErrorKind::Interrupted"><code>std::io::ErrorKind::Interrupted</code></a> are retried.
+If any other read error is encountered then the operation
 immediately returns. The contents of <code>buf</code> are unspecified in this
 case.</p>
 <p>If this operation returns an error, it is unspecified how many bytes
@@ -819,7 +820,8 @@ buffer <code>buf</code>. This function will continuously call <a href="trait.Asy
 append more data to <code>buf</code> until <a href="trait.AsyncReadExt.html#method.read" title="method virtual_fs::AsyncReadExt::read"><code>read()</code></a> returns <code>Ok(0)</code>.</p>
 <p>If successful, the total number of bytes read is returned.</p>
 <h5 id="errors-25"><a class="doc-anchor" href="#errors-25">§</a>Errors</h5>
-<p>If a read error is encountered then the <code>read_to_end</code> operation
+<p>Errors of kind <a href="https://doc.rust-lang.org/1.96.1/std/io/error/enum.ErrorKind.html#variant.Interrupted" title="variant std::io::error::ErrorKind::Interrupted"><code>std::io::ErrorKind::Interrupted</code></a> are retried.
+If another read error is encountered then the <code>read_to_end</code> operation
 immediately completes. Any bytes which have already been read will
 be appended to <code>buf</code>.</p>
 <h5 id="examples-26"><a class="doc-anchor" href="#examples-26">§</a>Examples</h5>

@@ -231,8 +231,9 @@ written to this <code>AsyncWrite</code>.</p>
 }</code></pre></div>
 <p>This method will continuously call <a href="trait.AsyncWriteExt.html#method.write" title="method wasmer_wasix::syscalls::AsyncWriteExt::write"><code>write</code></a> until
 <a href="bytes::Buf::has_remaining"><code>buf.has_remaining()</code></a> returns false. This method will not
-return until the entire buffer has been successfully written or an error occurs. The
-first error generated will be returned.</p>
+return until the entire buffer has been successfully written or an error occurs.
+Errors of kind <a href="io/enum.ErrorKind.html#variant.Interrupted" title="variant wasmer_wasix::syscalls::io::ErrorKind::Interrupted"><code>ErrorKind::Interrupted</code></a> are ignored and the write is retried. The first
+other error generated will be returned.</p>
 <p>The buffer is advanced after each chunk is successfully written. After failure,
 <code>src.chunk()</code> will return the chunk that failed to write.</p>
 <h5 id="cancel-safety-3"><a class="doc-anchor" href="#cancel-safety-3">§</a>Cancel safety</h5>
@@ -265,8 +266,9 @@ partially written.</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_all(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>This method will continuously call <a href="trait.AsyncWriteExt.html#method.write" title="method wasmer_wasix::syscalls::AsyncWriteExt::write"><code>write</code></a> until there is no more data
 to be written. This method will not return until the entire buffer
-has been successfully written or such an error occurs. The first
-error generated from this method will be returned.</p>
+has been successfully written or such an error occurs. Errors of kind
+<a href="io/enum.ErrorKind.html#variant.Interrupted" title="variant wasmer_wasix::syscalls::io::ErrorKind::Interrupted"><code>ErrorKind::Interrupted</code></a> are ignored and the write is retried. The first
+other error generated from this method will be returned.</p>
 <h5 id="cancel-safety-4"><a class="doc-anchor" href="#cancel-safety-4">§</a>Cancel safety</h5>
 <p>This method is not cancel safe. If it is used as a branch in
 <a href="crate::select"><code>tokio::select!</code></a> and another branch completes
@@ -274,7 +276,8 @@ first, then the provided buffer may have been
 partially written, but future calls to <code>write_all</code> will start over
 from the beginning of the buffer.</p>
 <h5 id="errors-2"><a class="doc-anchor" href="#errors-2">§</a>Errors</h5>
-<p>This function will return the first error that <a href="trait.AsyncWriteExt.html#method.write" title="method wasmer_wasix::syscalls::AsyncWriteExt::write"><code>write</code></a> returns.</p>
+<p>This function will ignore errors of kind <a href="io/enum.ErrorKind.html#variant.Interrupted" title="variant wasmer_wasix::syscalls::io::ErrorKind::Interrupted"><code>ErrorKind::Interrupted</code></a> and
+will otherwise return the first error that <a href="trait.AsyncWriteExt.html#method.write" title="method wasmer_wasix::syscalls::AsyncWriteExt::write"><code>write</code></a> returns.</p>
 <h5 id="examples-4"><a class="doc-anchor" href="#examples-4">§</a>Examples</h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tokio::io::{<span class="self">self</span>, AsyncWriteExt};
 <span class="kw">use </span>tokio::fs::File;
