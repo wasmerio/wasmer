@@ -76,13 +76,7 @@ pub fn add_undefined_symbol(object: &mut Object<'static>, name: String) -> Symbo
 /// loader through a dynamic relocation.
 pub fn add_libcall_symbol(object: &mut Object<'static>, libcall: LibCall) -> SymbolId {
     let name = if object.format() == object::BinaryFormat::MachO {
-        // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
-        // will generate things differently than "normal", wreaking havoc.
-        if libcall == LibCall::EHPersonality {
-            "___gxx_personality_v0".to_string()
-        } else {
-            format!("_{}", libcall.to_function_name())
-        }
+        format!("_{}", libcall.to_function_name())
     } else {
         libcall.to_function_name().to_string()
     };
