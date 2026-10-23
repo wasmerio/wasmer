@@ -230,13 +230,7 @@ impl FuncTranslator {
 
         let offsets =
             VMOffsets::try_new(self.pointer_width, wasm_module).map_err(CompileError::Resource)?;
-        let intrinsics = Intrinsics::declare(
-            &module,
-            &self.ctx,
-            &target_data,
-            &self.target_triple,
-            &self.binary_fmt,
-        );
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.target_triple);
         let (func_type, func_attrs) = self.abi.func_type_to_llvm(
             &self.ctx,
             &intrinsics,
@@ -248,7 +242,9 @@ impl FuncTranslator {
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
         func.as_global_value()
             .set_alignment(super::FUNCTION_ALIGNMENT);
-        let debug_info = if config.experimental_artifact {
+
+        // TODO: support dSYM debug info file creation and loading in the future
+        let debug_info = if matches!(target.binary_format, BinaryFormat::Elf) {
             let source_location = self.source_map.first_in_function(function_body);
             let debug_metadata_version = self
                 .ctx

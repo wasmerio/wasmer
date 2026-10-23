@@ -35,10 +35,10 @@ fn retrieve_alias_pathbuf(host_dir: &str, guest_dir: &str) -> Result<MappedDirec
     let host_dir_path = PathBuf::from(&host_dir).canonicalize()?;
     if let Ok(pb_metadata) = host_dir_path.metadata() {
         if !pb_metadata.is_dir() {
-            bail!("\"{}\" exists, but it is not a directory", &host_dir);
+            bail!("\"{host_dir}\" exists, but it is not a directory");
         }
     } else {
-        bail!("Directory \"{}\" does not exist", &host_dir);
+        bail!("Directory \"{host_dir}\" does not exist");
     }
     Ok(MappedDirectory {
         host: host_dir_path,
@@ -71,19 +71,16 @@ pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
     let entry = entry.trim();
 
     match entry.find('=') {
-        None => bail!(
-            "Environment variable must be of the form `<name>=<value>`; found `{}`",
-            &entry
-        ),
+        None => {
+            bail!("Environment variable must be of the form `<name>=<value>`; found `{entry}`",)
+        }
 
         Some(0) => bail!(
-            "Environment variable is not well formed, the `name` is missing in `<name>=<value>`; got `{}`",
-            &entry
+            "Environment variable is not well formed, the `name` is missing in `<name>=<value>`; got `{entry}`",
         ),
 
         Some(position) if position == entry.len() - 1 => bail!(
-            "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `{}`",
-            &entry
+            "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `{entry}`",
         ),
 
         Some(position) => Ok((entry[..position].into(), entry[position + 1..].into())),

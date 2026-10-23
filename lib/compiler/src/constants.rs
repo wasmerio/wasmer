@@ -55,3 +55,7 @@ pub const WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".w.trap_fnoffs";
 pub const WASMER_TRAPS_SECTION_NAME: &[u8] = b".w.traps";
 /// ELF's EH frame section name.
 pub const EH_FRAME_SECTION_NAME: &[u8] = b".eh_frame";
+/// Name of the section containing exception handling tags.
+pub const WASMER_EH_TAGS_SECTION_NAME: &[u8] = b"wasmer_eh_tags";
+/// Name of the section containing language-specific exception handling data.
+pub const WASMER_LSDA_SECTION_NAME: &[u8] = b"wasmer_lsda";
