@@ -2344,20 +2344,25 @@ impl Machine for MachineRiscv {
                 .assembler
                 .emit_mov_imm(dest, source.imm_value_scalar().unwrap()),
             (Location::GPR(_), Location::Memory(addr, offset)) => {
-                let addr = if ImmType::Bits12.compatible_imm(offset as _) {
-                    dest
+                if ImmType::Bits12.compatible_imm(offset as _) {
+                    self.assembler.emit_sd(size, source, dest)
                 } else {
+                    let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                    })?;
                     self.assembler
-                        .emit_mov_imm(Location::GPR(SCRATCH_REG), offset as _)?;
+                        .emit_mov_imm(Location::GPR(tmp), offset as _)?;
                     self.assembler.emit_add(
                         Size::S64,
                         Location::GPR(addr),
-                        Location::GPR(SCRATCH_REG),
-                        Location::GPR(SCRATCH_REG),
+                        Location::GPR(tmp),
+                        Location::GPR(tmp),
                     )?;
-                    Location::Memory(SCRATCH_REG, 0)
-                };
-                self.assembler.emit_sd(size, source, addr)
+                    self.assembler
+                        .emit_sd(size, source, Location::Memory(tmp, 0))?;
+                    self.release_gpr(tmp);
+                    Ok(())
+                }
             }
             (Location::SIMD(_), Location::Memory(..)) => {
                 let tmp = self.acquire_temp_gpr().ok_or_else(|| {
