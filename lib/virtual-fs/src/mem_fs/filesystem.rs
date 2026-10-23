@@ -86,7 +86,8 @@ impl FileSystem {
                 return Err(FsError::AlreadyExists);
             }
             Err(_) => {
-                // Root directory does not exist, so we can just mount.
+                // mount acquires the write lock.
+                drop(fs_lock);
                 return self.mount(target_path.to_path_buf(), other, source_path.to_path_buf());
             }
         };
@@ -184,73 +185,53 @@ impl FileSystem {
         other: &Arc<dyn crate::FileSystem + Send + Sync>,
         source_path: PathBuf,
     ) -> Result<()> {
-        if crate::FileSystem::read_dir(self, target_path.as_path()).is_ok() {
+        // Keep collision checks and insertion under one lock.
+        let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+        let path = fs.canonicalize_without_inode(target_path.as_path())?;
+        if fs.inode_of(&path).is_ok() {
             return Err(FsError::AlreadyExists);
         }
 
-        let (inode_of_parent, name_of_directory) = {
-            // Read lock.
-            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
-
-            // Canonicalize the path without checking the path exists,
-            // because it's about to be created.
-            let path = guard.canonicalize_without_inode(target_path.as_path())?;
-
-            // Check the path has a parent.
-            let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
-
-            // Check the directory name.
-            let name_of_directory = path
-                .file_name()
-                .ok_or(FsError::InvalidInput)?
-                .to_os_string();
-
-            // Find the parent inode.
-            let inode_of_parent = match guard.inode_of_parent(parent_of_path)? {
-                InodeResolution::Found(a) => a,
-                InodeResolution::Redirect(..) => {
-                    return Err(FsError::AlreadyExists);
-                }
-            };
-
-            (inode_of_parent, name_of_directory)
+        let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
+        let name_of_directory = path
+            .file_name()
+            .ok_or(FsError::InvalidInput)?
+            .to_os_string();
+        let inode_of_parent = match fs.inode_of_parent(parent_of_path)? {
+            InodeResolution::Found(a) => a,
+            InodeResolution::Redirect(..) => {
+                return Err(FsError::AlreadyExists);
+            }
         };
 
-        {
-            // Write lock.
-            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+        let inode_of_directory = fs.storage.vacant_entry().key();
+        let real_inode_of_directory = fs.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
+            inode: inode_of_directory,
+            name: name_of_directory,
+            fs: other.clone(),
+            path: source_path,
+            metadata: {
+                let time = time();
 
-            // Creating the directory in the storage.
-            let inode_of_directory = fs.storage.vacant_entry().key();
-            let real_inode_of_directory = fs.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
-                inode: inode_of_directory,
-                name: name_of_directory,
-                fs: other.clone(),
-                path: source_path,
-                metadata: {
-                    let time = time();
+                Metadata {
+                    ft: FileType {
+                        dir: true,
+                        ..Default::default()
+                    },
+                    accessed: time,
+                    created: time,
+                    modified: time,
+                    len: 0,
+                }
+            },
+        }));
 
-                    Metadata {
-                        ft: FileType {
-                            dir: true,
-                            ..Default::default()
-                        },
-                        accessed: time,
-                        created: time,
-                        modified: time,
-                        len: 0,
-                    }
-                },
-            }));
+        assert_eq!(
+            inode_of_directory, real_inode_of_directory,
+            "new directory inode should have been correctly calculated",
+        );
 
-            assert_eq!(
-                inode_of_directory, real_inode_of_directory,
-                "new directory inode should have been correctly calculated",
-            );
-
-            // Adding the new directory to its parent.
-            fs.add_child_to_node(inode_of_parent, inode_of_directory)?;
-        }
+        fs.add_child_to_node(inode_of_parent, inode_of_directory)?;
 
         Ok(())
     }
@@ -2061,6 +2042,73 @@ mod test_filesystem {
         assert_eq!(entries, vec![Path::new("/mnt/file.txt").to_path_buf()]);
     }
 
+    #[test]
+    fn mount_directory_entries_at_absent_destination_does_not_deadlock() {
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let fs = FileSystem::default();
+            let backing = FileSystem::default();
+            crate::ops::create_dir_all(&backing, "/source/subdir").unwrap();
+            let backing: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(backing);
+            let result =
+                fs.mount_directory_entries(Path::new("/mounted"), &backing, Path::new("/source"));
+            done_tx.send((fs, result)).unwrap();
+        });
+        let (fs, result) = done_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("mount_directory_entries must release its read lock before mounting");
+        worker.join().unwrap();
+        result.unwrap();
+        let entry = fs
+            .read_dir(Path::new("/mounted"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+        assert_eq!(entry.path, Path::new("/mounted/subdir"));
+        assert!(entry.metadata.unwrap().is_dir());
+        for path in ["/mounted", "/mounted/subdir"] {
+            for metadata in [
+                fs.metadata(Path::new(path)),
+                fs.symlink_metadata(Path::new(path)),
+            ] {
+                let metadata = metadata.unwrap();
+                assert!(metadata.is_dir());
+                assert!(!metadata.is_file());
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn mount_preserves_existing_entries() {
+        let fs = FileSystem::default();
+        fs.insert_ro_file(Path::new("/mounted"), OwnedBuffer::from_static(b"existing"))
+            .unwrap();
+        let backing: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(FileSystem::default());
+        fs.create_dir(Path::new("/dir")).unwrap();
+        fs.create_symlink(Path::new("/mounted"), Path::new("/link"))
+            .unwrap();
+        fs.mount("/arc".into(), &backing, "/".into()).unwrap();
+        for path in ["/mounted", "/dir", "/link", "/arc"] {
+            let before = fs.symlink_metadata(Path::new(path)).unwrap();
+            assert_eq!(
+                fs.mount(path.into(), &backing, "/".into()),
+                Err(FsError::AlreadyExists)
+            );
+            assert_eq!(fs.symlink_metadata(Path::new(path)).unwrap(), before);
+        }
+        assert_eq!(fs.read_dir(Path::new("/")).unwrap().count(), 4);
+        let mut contents = String::new();
+        fs.new_open_options()
+            .read(true)
+            .open(Path::new("/mounted"))
+            .unwrap()
+            .read_to_string(&mut contents)
+            .await
+            .unwrap();
+        assert_eq!(contents, "existing");
+    }
+
     #[tokio::test]
     async fn test_merge_flat() {
         let main = FileSystem::default();
@@ -2084,6 +2132,42 @@ mod test_filesystem {
 
         main.mount_directory_entries(Path::new("/"), &other, Path::new("/a"))
             .unwrap();
+
+        for metadata in [
+            main.metadata(Path::new("/x")),
+            main.symlink_metadata(Path::new("/x")),
+        ] {
+            let metadata = metadata.unwrap();
+            assert!(metadata.is_dir());
+            assert!(!metadata.is_file());
+        }
+
+        let entry = main
+            .read_dir(Path::new("/"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+        assert_eq!(entry.path, Path::new("/x"));
+        let entry_metadata = entry.metadata.unwrap();
+        assert!(entry_metadata.is_dir());
+        assert!(!entry_metadata.is_file());
+
+        let entries: Vec<_> = main
+            .read_dir(Path::new("/x"))
+            .unwrap()
+            .map(|entry| {
+                let entry = entry.unwrap();
+                let metadata = entry.metadata.unwrap();
+                assert!(metadata.is_file());
+                assert!(!metadata.is_dir());
+                entry.path
+            })
+            .collect();
+        assert_eq!(
+            entries,
+            ["/x/a.txt", "/x/b.txt", "/x/c.txt"].map(PathBuf::from)
+        );
 
         let mut buf = Vec::new();
 
