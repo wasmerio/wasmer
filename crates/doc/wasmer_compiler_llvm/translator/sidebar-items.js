@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["code","intrinsics","state","trampoline"]};
+window.SIDEBAR_ITEMS = {"constant":["FUNCTION_ALIGNMENT"],"mod":["code","intrinsics","state","trampoline"]};
