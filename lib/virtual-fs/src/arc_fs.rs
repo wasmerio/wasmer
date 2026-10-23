@@ -58,6 +58,16 @@ impl FileSystem for ArcFileSystem {
         self.fs.symlink_metadata(path)
     }
 
+    fn set_times(
+        &self,
+        path: &Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> Result<()> {
+        self.fs.set_times(path, atime, mtime, follow_symlinks)
+    }
+
     fn remove_file(&self, path: &Path) -> Result<()> {
         self.fs.remove_file(path)
     }

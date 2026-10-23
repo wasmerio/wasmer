@@ -580,6 +580,22 @@ where
         Err(FsError::EntryNotFound)
     }
 
+    fn set_times(
+        &self,
+        path: &Path,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+        follow_symlinks: bool,
+    ) -> Result<(), FsError> {
+        if ops::is_white_out(path).is_some() || ops::has_white_out(&self.primary, path) {
+            return Err(FsError::EntryNotFound);
+        }
+        match self.primary.set_times(path, atime, mtime, follow_symlinks) {
+            Err(FsError::EntryNotFound) => self.permission_error_or_not_found(path),
+            result => result,
+        }
+    }
+
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         // It is not possible to delete whiteout files directly, instead
         // one must delete the original file
