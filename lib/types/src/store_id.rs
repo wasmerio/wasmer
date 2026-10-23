@@ -25,6 +25,24 @@ impl StoreId {
     pub fn as_raw(&self) -> NonZeroUsize {
         self.0
     }
+
+    /// Rebuilds a [`StoreId`] from a value previously obtained with
+    /// [`Self::as_raw`].
+    ///
+    /// The `js` backend needs this because a host function's trampoline is
+    /// reached from JavaScript, which can only carry a number across the
+    /// boundary: the id identifies which store the trampoline should acquire
+    /// from this thread's context.
+    ///
+    /// Pass only a value that came from [`Self::as_raw`]. Ids are small,
+    /// sequential numbers, so a made-up one can easily match a live store; and
+    /// a mismatched id is not rejected gracefully either, since the store
+    /// context stack panics when asked for a store other than the one on top.
+    /// Ids are never reused, so a value that did come from [`Self::as_raw`]
+    /// cannot come to mean a different store later.
+    pub fn from_raw(raw: NonZeroUsize) -> Self {
+        Self(raw)
+    }
 }
 
 /// Number of IDs each thread reserves from the global counter at a time.

@@ -342,6 +342,7 @@ impl Linker {
 
         trace!(?dylink_section, "Loading main module");
 
+        crate::settle_capabilities(main_module, store, &func_env.env);
         let mut imports = import_object_for_all_wasi_versions(main_module, store, &func_env.env);
 
         let function_table_type = main_module_function_table_type(main_module)?;
@@ -690,6 +691,7 @@ impl Linker {
 
         let main_module = ls_write.main_module.clone();
 
+        crate::settle_capabilities(&main_module, store, &func_env.env);
         let mut imports = import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
 
         let memory = memory.try_attach(store)?;

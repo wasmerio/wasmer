@@ -1,8 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    AsStoreMut, AsStoreRef, LocalRwLock, LocalRwLockReadGuard, LocalRwLockWriteGuard, Store,
-    StoreContext, StoreInner, StoreMut, StorePtrWrapper, StoreRef,
+    AsStoreMut, AsStoreRef, LocalRwLock, LocalRwLockReadGuard, LocalRwLockWeak,
+    LocalRwLockWriteGuard, Store, StoreContext, StoreInner, StoreMut, StorePtrWrapper, StoreRef,
 };
 
 use wasmer_types::StoreId;
@@ -13,6 +13,44 @@ pub struct StoreAsync {
     pub(crate) id: StoreId,
     // We use a box inside the RW lock because the StoreInner shouldn't be moved
     pub(crate) inner: LocalRwLock<Box<StoreInner>>,
+}
+
+/// A handle to a [`StoreAsync`] that does not keep it alive.
+///
+/// Held by things that outlive the call that minted them — a host callback
+/// registered with a foreign runtime, say. A strong handle there would be a
+/// cycle whenever it is stored in the store's own data, which is exactly where
+/// such registrations live, so the store could never be reclaimed. The cost is
+/// that the store can go away underneath, which [`Self::upgrade`] reports rather
+/// than hides.
+#[derive(Clone)]
+pub struct WeakStoreAsync {
+    id: StoreId,
+    inner: LocalRwLockWeak<Box<StoreInner>>,
+}
+
+impl WeakStoreAsync {
+    /// The store this handle refers to, alive or not.
+    pub fn store_id(&self) -> StoreId {
+        self.id
+    }
+
+    /// The store, if it has not been reclaimed yet.
+    pub fn upgrade(&self) -> Option<StoreAsync> {
+        Some(StoreAsync {
+            id: self.id,
+            inner: self.inner.upgrade()?,
+        })
+    }
+}
+
+impl Debug for WeakStoreAsync {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WeakStoreAsync")
+            .field("id", &self.id)
+            .field("alive", &self.inner.upgrade().is_some())
+            .finish()
+    }
 }
 
 impl StoreAsync {
@@ -27,6 +65,14 @@ impl StoreAsync {
                 }),
             }),
             _ => None,
+        }
+    }
+
+    /// A handle to this store that does not keep it alive.
+    pub fn downgrade(&self) -> WeakStoreAsync {
+        WeakStoreAsync {
+            id: self.id,
+            inner: self.inner.downgrade(),
         }
     }
 
@@ -138,6 +184,15 @@ impl StoreAsyncWriteLock {
     pub(crate) async fn acquire(store: &StoreAsync) -> Self {
         let store_guard = store.inner.write().await;
         Self { inner: store_guard }
+    }
+}
+
+impl StoreAsyncWriteLock {
+    /// Takes the write lock if it is free, rather than waiting for it.
+    pub(crate) fn try_acquire(store: &StoreAsync) -> Option<Self> {
+        Some(Self {
+            inner: store.inner.try_write()?,
+        })
     }
 }
 

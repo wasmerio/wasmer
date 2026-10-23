@@ -99,6 +99,7 @@ impl WasiFunctionEnv {
         module: &Module,
     ) -> Result<Imports, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
+        crate::settle_capabilities(module, store, &self.env);
         Ok(crate::generate_import_object_from_env(
             store,
             &self.env,
@@ -311,6 +312,7 @@ impl WasiFunctionEnv {
     ) -> Result<Imports, WasiError> {
         let wasi_versions =
             get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
+        crate::settle_capabilities(module, store, &self.env);
 
         let mut resolver = Imports::new();
         for version in wasi_versions.iter() {

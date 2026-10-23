@@ -6,7 +6,7 @@ use crate::{
     os::task::thread::WasiMemoryLayout,
     runtime::{
         TaintReason,
-        task_manager::{TaskWasm, TaskWasmRunProperties},
+        task_manager::{LocalTaskSpawner, TaskWasm, TaskWasmRunProperties, WasmTaskFuture},
     },
     state::context_switching::ContextSwitchingEnvironment,
     syscalls::*,
@@ -149,9 +149,16 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     // calls into the process
     let mut execute_module = {
         let thread_handle = thread_handle;
-        move |ctx: WasiFunctionEnv, mut store: Store| {
+        move |ctx: WasiFunctionEnv, mut store: Store, local_tasks: LocalTaskSpawner| {
             // Call the thread
-            call_module::<M>(ctx, store, start_ptr_offset, thread_handle, rewind_state)
+            call_module::<M>(
+                ctx,
+                store,
+                start_ptr_offset,
+                thread_handle,
+                rewind_state,
+                local_tasks,
+            )
         }
     };
 
@@ -181,11 +188,13 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     // Now spawn a thread
     trace!("threading: spawning background thread");
     let run = move |props: TaskWasmRunProperties| {
-        execute_module(props.ctx, props.store);
+        let local_tasks = props.local_tasks;
+        let module = execute_module(props.ctx, props.store, local_tasks);
+        Box::pin(module) as WasmTaskFuture
     };
 
-    let mut task_wasm = TaskWasm::new(Box::new(run), thread_env, thread_module, false, false)
-        .with_memory(spawn_type);
+    let mut task_wasm =
+        TaskWasm::new(run, thread_env, thread_module, false, false).with_memory(spawn_type);
 
     tasks.task_wasm(task_wasm).map_err(Into::<Errno>::into)?;
 
@@ -194,10 +203,11 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 }
 
 // This function calls into the module
-fn call_module_internal<M: MemorySize>(
+async fn call_module_internal<M: MemorySize>(
     ctx: &WasiFunctionEnv,
     mut store: Store,
     start_ptr_offset: M::Offset,
+    local_tasks: LocalTaskSpawner,
 ) -> (Store, Result<Option<ExitCode>, DeepSleepWork>) {
     // Note: we ensure both unwraps can happen before getting to this point
     let spawn = ctx
@@ -220,7 +230,9 @@ fn call_module_internal<M: MemorySize>(
         store,
         spawn,
         vec![Value::I32(tid_i32), Value::I32(start_pointer_i32)],
-    );
+        local_tasks,
+    )
+    .await;
     let thread_result = thread_result.map(|_| ());
 
     trace!("callback finished (ret={:?})", thread_result);
@@ -294,12 +306,13 @@ fn handle_thread_result(
 }
 
 /// Calls the module
-fn call_module<M: MemorySize>(
+async fn call_module<M: MemorySize>(
     mut ctx: WasiFunctionEnv,
     mut store: Store,
     start_ptr_offset: M::Offset,
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<(RewindState, RewindResultType)>,
+    local_tasks: LocalTaskSpawner,
 ) {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
@@ -320,7 +333,8 @@ fn call_module<M: MemorySize>(
     }
 
     // Now invoke the module
-    let (mut store, ret) = call_module_internal::<M>(&ctx, store, start_ptr_offset);
+    let (mut store, ret) =
+        call_module_internal::<M>(&ctx, store, start_ptr_offset, local_tasks.clone()).await;
 
     // If it went to deep sleep then we need to handle that
     if let Err(deep) = ret {
@@ -328,15 +342,16 @@ fn call_module<M: MemorySize>(
         let rewind = deep.rewind;
         let respawn = {
             let tasks = tasks.clone();
-            move |ctx, store, trigger_res| {
+            move |ctx, store, trigger_res, local_tasks| {
                 // Call the thread
-                call_module::<M>(
+                Box::pin(call_module::<M>(
                     ctx,
                     store,
                     start_ptr_offset,
                     thread_handle,
                     Some((rewind, RewindResultType::RewindWithResult(trigger_res))),
-                );
+                    local_tasks,
+                )) as WasmTaskFuture
             }
         };
 

@@ -68,22 +68,24 @@ impl Function {
         let store_id = store.objects_mut().id();
         let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
+                // Keeps the entry borrowed, and so installed, for as long as
+                // the host function runs — but the borrow itself lives no
+                // longer than argument conversion. See `EnvStoreMut::Context`.
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
-                let mut store_mut = store_wrapper.as_mut();
                 let mut args = Vec::with_capacity(func_ty.params().len());
 
-                for (i, ty) in func_ty.params().iter().enumerate() {
-                    args.push(Value::from_raw(
-                        &mut store_mut,
-                        *ty,
-                        values_vec.add(i).read_unaligned(),
-                    ));
+                {
+                    let mut store_mut = store_wrapper.as_mut();
+                    for (i, ty) in func_ty.params().iter().enumerate() {
+                        args.push(Value::from_raw(
+                            &mut store_mut,
+                            *ty,
+                            values_vec.add(i).read_unaligned(),
+                        ));
+                    }
                 }
-                let env = env::FunctionEnvMut {
-                    store_mut,
-                    func_env: func_env.clone(),
-                }
-                .into();
+                let env = unsafe { env::FunctionEnvMut::from_context(store_id, func_env.clone()) }
+                    .into();
                 let sig = func_ty.clone();
                 let result = func(env, &args);
                 HostCallOutcome::Ready {
@@ -1074,16 +1076,26 @@ macro_rules! impl_host_function {
             {
                 let result = wasmer_vm::on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
+                        // Keeps the entry borrowed, and so installed, for as
+                        // long as the host function runs — but the borrow itself
+                        // lives no longer than argument conversion. See
+                        // `EnvStoreMut::Context`.
                         let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
-                        let mut store = store_wrapper.as_mut();
-                        $(
-                            let $x = unsafe {
+                        // The arguments are converted in a scope of their own so
+                        // the borrow ends there; for a function without any,
+                        // that is an empty tuple.
+                        #[allow(clippy::unused_unit)]
+                        let ( $($x,)* ) = {
+                            let mut store = store_wrapper.as_mut();
+                            ( $( unsafe {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
-                            };
-                        )*
-                        let f_env = crate::backend::sys::function::env::FunctionEnvMut {
-                            store_mut: store,
-                            func_env: env.env.as_sys().clone(),
+                            }, )* )
+                        };
+                        let f_env = unsafe {
+                            crate::backend::sys::function::env::FunctionEnvMut::from_context(
+                                env.store_id,
+                                env.env.as_sys().clone(),
+                            )
                         }.into();
                         to_invocation_result((env.func)(f_env, $($x),* ).into_result())
                     }))
