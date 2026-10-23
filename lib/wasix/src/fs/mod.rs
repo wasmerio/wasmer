@@ -35,6 +35,7 @@ use std::{
 
 use crate::{
     net::socket::InodeSocketKind,
+    os::epoll::{EpollState, EpollWatcher},
     state::{Stderr, Stdin, Stdout},
 };
 use futures::{Future, future::BoxFuture};
@@ -178,6 +179,10 @@ pub struct InodeGuard {
     // so we can know when to drop the file handle, which should result
     // in the backing file (which may be a host file) getting closed.
     open_handles: Arc<AtomicI32>,
+
+    // The epoll registrations watching this inode, so that the close of its
+    // last handle can remove them. See `release_epoll_registrations`.
+    epoll_watchers: Arc<Mutex<Vec<EpollWatcher>>>,
 }
 impl InodeGuard {
     pub fn ino(&self) -> Inode {
@@ -188,6 +193,7 @@ impl InodeGuard {
         InodeWeakGuard {
             ino: self.ino,
             open_handles: self.open_handles.clone(),
+            epoll_watchers: self.epoll_watchers.clone(),
             inner: Arc::downgrade(&self.inner),
         }
     }
@@ -198,6 +204,57 @@ impl InodeGuard {
 
     pub fn handle_count(&self) -> u32 {
         self.open_handles.load(Ordering::SeqCst) as u32
+    }
+
+    /// The identity of the object behind this inode, for telling it apart from
+    /// another that later takes the same descriptor number. A `Weak` rather than
+    /// an address: it keeps the allocation reserved, so the identity cannot be
+    /// reused by a new object while anything still compares against it.
+    pub(crate) fn identity(&self) -> Weak<InodeVal> {
+        Arc::downgrade(&self.inner)
+    }
+
+    /// Records that `epoll` watches this inode under descriptor number `fd`, so
+    /// that closing the inode's last handle removes the registration.
+    pub(crate) fn watch_epoll(&self, epoll: &Arc<EpollState>, fd: WasiFd) {
+        let epoll = Arc::downgrade(epoll);
+        let mut watchers = self.epoll_watchers.lock().unwrap();
+        // Bounded by the live (epoll, fd) pairs: repeated DEL and ADD of the same
+        // pair, or instances that have gone, do not accumulate.
+        watchers.retain(|watcher| watcher.epoll.strong_count() > 0);
+        if !watchers
+            .iter()
+            .any(|watcher| watcher.fd == fd && Weak::ptr_eq(&watcher.epoll, &epoll))
+        {
+            watchers.push(EpollWatcher { epoll, fd });
+        }
+    }
+
+    /// Removes this inode from every epoll interest list that watches it.
+    ///
+    /// Linux removes a registration when the last file descriptor referring to
+    /// the open file description is closed (epoll(7)), not when any one of them
+    /// is: a dup, or the copy a forked child holds, keeps it alive. The handle
+    /// count is shared by every descriptor naming this inode, across dups and
+    /// forks, so its reaching zero is exactly that point.
+    ///
+    /// Without this, a registration outlives its descriptor: its join guard keeps
+    /// the watched object alive (a socket keeps its host descriptor, and its port,
+    /// bound), and the descriptor number stays claimed in the interest list, so
+    /// the next `EPOLL_CTL_ADD` of that number answers `EEXIST`.
+    fn release_epoll_registrations(&self) {
+        let watchers = std::mem::take(&mut *self.epoll_watchers.lock().unwrap());
+        if watchers.is_empty() {
+            return;
+        }
+        let identity = self.identity();
+        for watcher in watchers {
+            if let Some(epoll) = watcher.epoll.upgrade()
+                && epoll.prune_closed(watcher.fd, &identity)
+            {
+                trace!(ino = %self.ino.0, fd = %watcher.fd, "closed inode left an epoll interest list");
+            }
+        }
     }
 
     pub fn acquire_handle(&self) {
@@ -214,6 +271,11 @@ impl InodeGuard {
         if prev_handles > 1 {
             return;
         }
+
+        // Before the object is closed below. Runs with the caller's fd table lock
+        // held, as the close itself does; it takes interest-list locks, released
+        // before the watched object's own, in the order a close already uses.
+        self.release_epoll_registrations();
 
         // ... otherwise, drop the VirtualFile reference
         let mut guard = self.inner.write();
@@ -266,6 +328,7 @@ pub struct InodeWeakGuard {
     // care too much when the AtomicI32 is dropped, so this is
     // a strong reference to keep things simple.
     open_handles: Arc<AtomicI32>,
+    epoll_watchers: Arc<Mutex<Vec<EpollWatcher>>>,
     inner: Weak<InodeVal>,
 }
 impl InodeWeakGuard {
@@ -274,6 +337,7 @@ impl InodeWeakGuard {
     }
     pub fn upgrade(&self) -> Option<InodeGuard> {
         Weak::upgrade(&self.inner).map(|inner| InodeGuard {
+            epoll_watchers: self.epoll_watchers.clone(),
             ino: self.ino,
             open_handles: self.open_handles.clone(),
             inner,
@@ -351,6 +415,7 @@ impl WasiInodes {
         InodeGuard {
             ino,
             open_handles,
+            epoll_watchers: Default::default(),
             inner: val,
         }
     }
