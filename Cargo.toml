@@ -71,7 +71,6 @@ members = [
   "tests/lib/wast",
   "tests/wasmer-argus",
 ]
-exclude = ["./lib/cli/tests/packages/axum", "lib/wild"]
 resolver = "2"
 
 [workspace.package]
@@ -86,9 +85,7 @@ version = "7.5.0"
 [workspace.dependencies]
 # Repo-local crates
 wasmer-package = { version = "0.705.0", path = "lib/package", default-features = false }
-wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
-wasmer-package-sdk = { path = "./lib/package-sdk" }
 
 # Wasmer-owned crates
 webc = { version = "=12.0.1", default-features = false, features = [
@@ -105,7 +102,6 @@ assert-panic = "1.0.1"
 assert_cmd = "2.2.0"
 async-trait = "0.1.68"
 async-tungstenite = "0.33.0"
-axum = { version = "=0.6.9", default-features = false }
 backtrace = "0.3"
 base64 = "0.23.0"
 bincode = "=2.0.1"
@@ -172,7 +168,6 @@ gimli = "0.34.0"
 git-version = "0.3.9"
 glob = "0.3"
 graphql-ws-client = "0.13.0"
-gumdrop = "0.8"
 harsh = "0.2.2"
 hashbrown = "0.17.0"
 heapless = "0.9.2"
@@ -188,7 +183,7 @@ ignore = "0.4"
 indicatif = "0.18.3"
 indexmap = "2"
 inline-c = "0.1.8"
-inkwell = { version = "0.10.0", default-features = false }
+inkwell = { version = "0.11.0", default-features = false }
 insta = "1.45.0"
 interfaces = "0.0.9"
 ipnet = "2.10.1"
@@ -212,7 +207,6 @@ memmap2 = { version = "0.9.9" }
 merge-streams = "0.1.2"
 mio = "1"
 more-asserts = "0.3.1"
-normpath = "1.5.0"
 num_enum = "0.7.3"
 object = { version = "0.40.0", features = ["read", "write"] }
 once_cell = "1.17.1"
@@ -221,7 +215,6 @@ parking = "2.2"
 parking_lot = "0.12.1"
 paste = "1.0.15"
 path-clean = "1.0.1"
-pathdiff = "0.2.1"
 petgraph = "0.8.3"
 phf = "0.14.0"
 pin-project = "1.0.12"
@@ -246,9 +239,7 @@ symbolic-demangle = { version = "13", default-features = false, features = [
   "cpp",
   "msvc",
 ] }
-rustc_version = "0.4"
 rusty_pool = "1.0.0"
-rustversion = "1.0"
 saffron = "0.1.0"
 schemars = "1.1.0"
 scopeguard = "1.1.0"
@@ -342,7 +333,6 @@ test-generator = { path = "tests/lib/test-generator" }
 build-deps.workspace = true
 anyhow.workspace = true
 glob.workspace = true
-rustc_version.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
