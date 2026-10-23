@@ -9,8 +9,8 @@ use std::vec::Vec;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::{
-    ExportIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalType, ImportIndex, MemoryIndex,
-    InitExpr, InitExprOp, MemoryType, ModuleInfo, Pages, SignatureHash, SignatureIndex,
+    ExportIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalType, ImportIndex, InitExpr,
+    InitExprOp, MemoryIndex, MemoryType, ModuleInfo, Pages, SignatureHash, SignatureIndex,
     TableIndex, TableInitializer, TableType, TagIndex, TagType, Type,
 };
 
@@ -508,9 +508,7 @@ fn parse_init_expr(
                     Type::I32 => operations.push(InitExprOp::GlobalGetI32(index)),
                     Type::I64 => operations.push(InitExprOp::GlobalGetI64(index)),
                     other => {
-                        return Err(format!(
-                            "unsupported {other:?} global in element offset"
-                        ));
+                        return Err(format!("unsupported {other:?} global in element offset"));
                     }
                 }
             }
@@ -521,9 +519,7 @@ fn parse_init_expr(
             Operator::I64Sub => operations.push(InitExprOp::I64Sub),
             Operator::I64Mul => operations.push(InitExprOp::I64Mul),
             other => {
-                return Err(format!(
-                    "unsupported operator in element offset: {other:?}"
-                ));
+                return Err(format!("unsupported operator in element offset: {other:?}"));
             }
         }
     }
@@ -862,7 +858,9 @@ pub fn parse_name_section(
             | wasmparser::Name::Data(_)
             | wasmparser::Name::Tag(_)
             | wasmparser::Name::Field(_)
-            | wasmparser::Name::Unknown { .. } => {}
+            | wasmparser::Name::Unknown { .. }
+            | wasmparser::Name::Parameter(..)
+            | wasmparser::Name::TagParameter(..) => {}
         };
     }
     Ok(())

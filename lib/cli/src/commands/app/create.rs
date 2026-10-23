@@ -688,7 +688,7 @@ impl CmdAppCreate {
                 .by_index(entry)
                 .context(format!("Getting the archive entry #{entry}"))?;
 
-            let path = entry.mangled_name();
+            let path = entry.mangled_name()?;
 
             // We skip the top-level directory, as Github archives always contain a top-level directory
             // named after the repository name and latest commit hash.
