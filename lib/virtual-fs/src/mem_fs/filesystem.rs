@@ -980,6 +980,7 @@ impl FileSystemInner {
                     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, name, .. })
                     | Node::CustomFile(CustomFileNode { inode, name, .. })
                     | Node::ArcFile(ArcFileNode { inode, name, .. })
+                    | Node::Symlink(SymlinkNode { inode, name, .. })
                         if name.as_os_str() == name_of =>
                     {
                         Some(Some((nth, InodeResolution::Found(*inode))))
@@ -1653,6 +1654,36 @@ mod test_filesystem {
                 "`hello2.txt` has been renamed to `world2.txt`",
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_rename_symlink() {
+        let fs = FileSystem::default();
+
+        assert_eq!(fs.create_dir(path!("/dir")), Ok(()));
+        assert_eq!(
+            fs.create_symlink(path!("target.txt"), path!("/link")),
+            Ok(())
+        );
+
+        assert_eq!(
+            fs.rename(path!("/link"), path!("/renamed")).await,
+            Ok(()),
+            "renaming a symlink in the same directory",
+        );
+        assert_eq!(fs.readlink(path!("/renamed")), Ok(path!(buf "target.txt")));
+        assert_eq!(fs.readlink(path!("/link")), Err(FsError::EntryNotFound));
+
+        assert_eq!(
+            fs.rename(path!("/renamed"), path!("/dir/moved")).await,
+            Ok(()),
+            "moving a symlink to another directory",
+        );
+        assert_eq!(
+            fs.readlink(path!("/dir/moved")),
+            Ok(path!(buf "target.txt"))
+        );
+        assert_eq!(fs.readlink(path!("/renamed")), Err(FsError::EntryNotFound));
     }
 
     #[tokio::test]
