@@ -1,19 +1,19 @@
 use super::*;
-use crate::fs::FlushPoller;
+use crate::fs::ShutdownPoller;
 use crate::syscalls::*;
 
-/// Best-effort flush of a file handle captured before fd removal.
-pub(crate) fn flush_captured_handle(
+/// Best-effort close-time drain of the final file handle returned by fd removal.
+pub(crate) fn shutdown_captured_handle(
     env: &WasiEnv,
-    flush_target: Option<
+    shutdown_target: Option<
         std::sync::Arc<std::sync::RwLock<Box<dyn virtual_fs::VirtualFile + Send + Sync>>>,
     >,
 ) -> Result<Errno, WasiError> {
-    let Some(file) = flush_target else {
+    let Some(file) = shutdown_target else {
         return Ok(Errno::Success);
     };
 
-    match __asyncify_light(env, None, FlushPoller { file })? {
+    match __asyncify_light(env, None, ShutdownPoller { file })? {
         Ok(_)
         | Err(Errno::Isdir)
         | Err(Errno::Io)
@@ -42,7 +42,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
-    let outcome = state.fs.close_fd_and_capture_flush(fd);
+    let outcome = state.fs.close_fd_and_capture_shutdown(fd);
 
     if outcome.skipped_preopen {
         trace!("Skipping fd_close for pre-opened FD ({})", fd);
@@ -53,7 +53,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
         return Ok(Errno::Badf);
     }
 
-    flush_captured_handle(env, outcome.flush_target)?;
+    shutdown_captured_handle(env, outcome.shutdown_target)?;
 
     #[cfg(feature = "journal")]
     if env.enable_journal {
