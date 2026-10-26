@@ -3240,8 +3240,9 @@ checksum = "0c6639b70a7ce854b79c70d7e83f16b5dc0137cc914f3d7d03803b513ecc67ac"
 
 [[package]]
 name = "libwild"
-version = "0.10.0"
-source = "git+https://github.com/wild-linker/wild.git?branch=main#f39116746cbdee9f7692b062e60f16c1a01a34d8"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d6b4972584a2cda476f03cca7e58899a96b93ac500fc6635b315289204accf3"
 dependencies = [
  "anyhow",
  "atomic-take",
@@ -3249,7 +3250,6 @@ dependencies = [
  "blake3",
  "bumpalo-herd",
  "bytesize",
- "cc",
  "colored",
  "colosseum",
  "crossbeam-queue",
@@ -3321,8 +3321,9 @@ dependencies = [
 
 [[package]]
 name = "linker-layout"
-version = "0.10.0"
-source = "git+https://github.com/wild-linker/wild.git?branch=main#f39116746cbdee9f7692b062e60f16c1a01a34d8"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e14f161bfacdac5e560fa4946ad0d911230a440e7b1f2b3b70a80e6374877f3e"
 dependencies = [
  "anyhow",
  "postcard",
@@ -3331,8 +3332,9 @@ dependencies = [
 
 [[package]]
 name = "linker-trace"
-version = "0.10.0"
-source = "git+https://github.com/wild-linker/wild.git?branch=main#f39116746cbdee9f7692b062e60f16c1a01a34d8"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ed2e42ba51e235e207fa59665ea41eb497d9e8c1e279b767c4056edb6b0b07c"
 dependencies = [
  "anyhow",
  "postcard",
@@ -3341,8 +3343,9 @@ dependencies = [
 
 [[package]]
 name = "linker-utils"
-version = "0.10.0"
-source = "git+https://github.com/wild-linker/wild.git?branch=main#f39116746cbdee9f7692b062e60f16c1a01a34d8"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ad02a04a6e183cd7087b82c4755556d9ff842a9fa448ec6be26e2d46b8c6972"
 dependencies = [
  "anyhow",
  "leb128",
