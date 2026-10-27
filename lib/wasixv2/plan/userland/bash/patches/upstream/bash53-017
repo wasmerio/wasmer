@@ -1,0 +1,62 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-017
+
+Bug-Reported-by:	Lennart Ackermans <lennart@ackermans.ch>
+Bug-Reference-ID:	<d6f36c30-633a-4e5e-8212-806db6441bf1@ackermans.ch>
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2026-05/msg00066.html
+
+Bug-Description:
+
+If readline is invoked with the cursor somewhere other than column 0, and
+the prompt contains multibyte characters, the display algorithm needs to
+use a buffer offset, instead of the physical prompt length, to determine
+whether or not to reprint the prompt from column 0 because the cursor is
+before the last invisible character in the prompt string.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/lib/readline/display.c	Thu Sep  4 11:55:37 2025
+--- lib/readline/display.c	Fri May 22 14:55:01 2026
+***************
+*** 1498,1502 ****
+  	     only need to reprint it if the cursor is before the last
+  	     invisible character in the prompt string. */
+- 	  /* XXX - why not use local_prompt_len? */
+  	  nleft = prompt_visible_length + wrap_offset;
+  	  if (cursor_linenum == prompt_last_screen_line)
+--- 1498,1501 ----
+***************
+*** 1510,1518 ****
+  	         buffer position, an index into curline
+  	         (local_prompt + pmt_offset) */
+! 	      cursor_bufpos = pmt_offset;
+! 	      if (mb_cur_max == 1 || rl_byte_oriented)
+! 		cursor_bufpos += _rl_last_c_pos;
+! 	      else
+! 		cursor_bufpos += _rl_last_c_pos + curline_invchars;
+  
+  	      if (local_prompt && local_prompt_invis_chars[cursor_linenum] &&
+--- 1509,1513 ----
+  	         buffer position, an index into curline
+  	         (local_prompt + pmt_offset) */
+! 	      cursor_bufpos = pmt_offset + local_prompt_len;
+  
+  	      if (local_prompt && local_prompt_invis_chars[cursor_linenum] &&
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 16
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 17
+  
+  #endif /* _PATCHLEVEL_H_ */

@@ -1,0 +1,51 @@
+{
+  "arch": "wasm32",
+  "binary-format": "wasm",
+  "data-layout": "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-i128:128-n32:64-S128-ni:1:10:20",
+  "llvm-target": "wasm32-unknown-wasixv2",
+  "target-pointer-width": 32,
+  "max-atomic-width": 64,
+  "os": "linux",
+  "env": "musl",
+  "vendor": "wasixv2",
+  "target-family": ["unix"],
+  "is-like-wasm": true,
+  "features": "+atomics,+bulk-memory,+mutable-globals,+sign-ext,+nontrapping-fptoint,+multivalue,+reference-types,+exception-handling",
+  "llvm-args": ["-wasm-use-legacy-eh=false"],
+  "has-thread-local": true,
+  "tls-model": "local-exec",
+  "relocation-model": "static",
+  "dynamic-linking": false,
+  "only-cdylib": true,
+  "crt-static-default": true,
+  "crt-static-respected": true,
+  "crt-static-allows-dylibs": true,
+  "crt-objects-fallback": "false",
+  "eh-frame-header": false,
+  "emit-debug-gdb-scripts": false,
+  "generate-arange-section": false,
+  "exe-suffix": ".wasm",
+  "dll-prefix": "",
+  "dll-suffix": ".wasm",
+  "main-needs-argc-argv": true,
+  "entry-name": "__main_argc_argv",
+  "panic-strategy": "@PANIC@",
+  "linker": "@LLVM@/bin/clang",
+  "linker-flavor": "wasm-lld-cc",
+  "lld-flavor": "wasm",
+  "linker-is-gnu": false,
+  "pre-link-args": {
+    "wasm-lld-cc": [
+      "--target=wasm32-wasixv2",
+      "--no-default-config",
+      "--sysroot=@SYSROOT@",
+      "-Wl,--no-demangle"
+    ]
+  },
+  "late-link-args": {
+    "wasm-lld-cc": [
+      "-lc",
+      "@SYSROOT@/lib/wasm32-wasixv2/libclang_rt.builtins.a"
+    ]
+  }
+}

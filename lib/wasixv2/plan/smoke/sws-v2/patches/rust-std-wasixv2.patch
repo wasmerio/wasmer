@@ -1,0 +1,247 @@
+diff --git a/library/Cargo.toml b/library/Cargo.toml
+index 788c990..cc60a0e 100644
+--- a/library/Cargo.toml
++++ b/library/Cargo.toml
+@@ -88,3 +88,6 @@ rustc-std-workspace-std = { path = 'rustc-std-workspace-std' }
+ 
+ # See comments in `library/windows-sys/Cargo.toml` for why this is patched
+ windows-sys = { path = 'windows-sys' }
++
++# WASIX v2: libc with the wasm32/musl/wasixv2 (riscv32-layout, time64) definitions.
++libc = { path = '../../libc' }
+diff --git a/library/backtrace/src/backtrace/mod.rs b/library/backtrace/src/backtrace/mod.rs
+index 2a36214..ecaa4cb 100644
+--- a/library/backtrace/src/backtrace/mod.rs
++++ b/library/backtrace/src/backtrace/mod.rs
+@@ -175,6 +175,7 @@ cfg_if::cfg_if! {
+             all(
+                 unix,
+                 not(target_os = "emscripten"),
++                not(target_vendor = "wasixv2"),
+                 not(all(target_os = "ios", target_arch = "arm")),
+             ),
+             all(
+diff --git a/library/backtrace/src/symbolize/mod.rs b/library/backtrace/src/symbolize/mod.rs
+index d221ce8..047b0ec 100644
+--- a/library/backtrace/src/symbolize/mod.rs
++++ b/library/backtrace/src/symbolize/mod.rs
+@@ -441,6 +441,7 @@ cfg_if::cfg_if! {
+         any(unix, all(windows, target_env = "gnu")),
+         not(target_vendor = "uwp"),
+         not(target_os = "emscripten"),
++                not(target_vendor = "wasixv2"),
+         any(not(backtrace_in_libstd), feature = "backtrace"),
+     ))] {
+         mod gimli;
+diff --git a/library/compiler-builtins/compiler-builtins/src/float/cmp.rs b/library/compiler-builtins/compiler-builtins/src/float/cmp.rs
+index a59365a..8691913 100644
+--- a/library/compiler-builtins/compiler-builtins/src/float/cmp.rs
++++ b/library/compiler-builtins/compiler-builtins/src/float/cmp.rs
+@@ -13,7 +13,7 @@ use crate::support::{Float, MinInt, cfg_if};
+ // [1]: https://github.com/llvm/llvm-project/blob/0cf3c437c18ed27d9663d87804a9a15ff6874af2/compiler-rt/lib/builtins/fp_compare_impl.inc#L11-L27
+ // [2]: https://gcc.gnu.org/onlinedocs/gccint/Soft-float-library-routines.html#Comparison-functions-1
+ cfg_if! {
+-    if #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec", target_family = "wasm"))] {
++    if #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec", target_family = "wasm", target_arch = "wasm32"))] {
+         // Aarch64 uses `int` rather than a pointer-sized value.
+         // `getCmpLibcallReturnType` for WASM is always set to i32.
+         pub type CmpResult = i32;
+diff --git a/library/compiler-builtins/compiler-builtins/src/int/specialized_div_rem/mod.rs b/library/compiler-builtins/compiler-builtins/src/int/specialized_div_rem/mod.rs
+index 902c191..646290e 100644
+--- a/library/compiler-builtins/compiler-builtins/src/int/specialized_div_rem/mod.rs
++++ b/library/compiler-builtins/compiler-builtins/src/int/specialized_div_rem/mod.rs
+@@ -142,6 +142,7 @@ fn u64_by_u64_div_rem(duo: u64, div: u64) -> (u64, u64) {
+ #[cfg(all(
+     any(
+         target_family = "wasm",
++        target_arch = "wasm32",
+         not(any(target_pointer_width = "16", target_pointer_width = "32")),
+     ),
+     not(all(feature = "arch", target_arch = "x86_64")),
+@@ -163,6 +164,7 @@ impl_trifecta!(
+ #[cfg(all(
+     not(any(
+         target_family = "wasm",
++        target_arch = "wasm32",
+         not(any(target_pointer_width = "16", target_pointer_width = "32")),
+     )),
+     not(all(feature = "arch", target_arch = "x86_64")),
+diff --git a/library/compiler-builtins/compiler-builtins/src/lib.rs b/library/compiler-builtins/compiler-builtins/src/lib.rs
+index 9e84720..4b64637 100644
+--- a/library/compiler-builtins/compiler-builtins/src/lib.rs
++++ b/library/compiler-builtins/compiler-builtins/src/lib.rs
+@@ -1,5 +1,5 @@
+ #![cfg_attr(feature = "compiler-builtins", compiler_builtins)]
+-#![cfg_attr(all(target_family = "wasm"), feature(wasm_numeric_instr))]
++#![cfg_attr(any(target_family = "wasm", target_arch = "wasm32"), feature(wasm_numeric_instr))]
+ #![feature(abi_custom)]
+ #![feature(abi_unadjusted)]
+ #![feature(asm_experimental_arch)]
+diff --git a/library/core/src/ffi/primitives.rs b/library/core/src/ffi/primitives.rs
+index 11dad9a..07c9bdd 100644
+--- a/library/core/src/ffi/primitives.rs
++++ b/library/core/src/ffi/primitives.rs
+@@ -139,8 +139,8 @@ mod c_long_definition {
+     crate::cfg_select! {
+         any(
+             all(target_pointer_width = "64", not(windows)),
+-            // wasm32 Linux ABI uses 64-bit long
+-            all(target_arch = "wasm32", target_os = "linux")
++            // wasm32 Linux ABI (WALI) uses 64-bit long; WASIX v2 is ILP32
++            all(target_arch = "wasm32", target_os = "linux", not(target_vendor = "wasixv2"))
+         ) => {
+             pub(super) type c_long = i64;
+             pub(super) type c_ulong = u64;
+diff --git a/library/std/src/lib.rs b/library/std/src/lib.rs
+index e1061af..5d3bf93 100644
+--- a/library/std/src/lib.rs
++++ b/library/std/src/lib.rs
+@@ -264,7 +264,7 @@
+     feature(slice_index_methods, coerce_unsized, sgx_platform)
+ )]
+ #![cfg_attr(all(test, target_os = "uefi"), feature(uefi_std))]
+-#![cfg_attr(target_family = "wasm", feature(stdarch_wasm_atomic_wait))]
++#![cfg_attr(any(target_family = "wasm", target_arch = "wasm32"), feature(stdarch_wasm_atomic_wait))]
+ #![cfg_attr(target_arch = "wasm64", feature(simd_wasm64))]
+ //
+ // Language features:
+diff --git a/library/std/src/os/fd/owned.rs b/library/std/src/os/fd/owned.rs
+index 4ed5c43..300068b 100644
+--- a/library/std/src/os/fd/owned.rs
++++ b/library/std/src/os/fd/owned.rs
+@@ -12,7 +12,7 @@ use crate::fs;
+ use crate::marker::PhantomData;
+ use crate::mem::ManuallyDrop;
+ #[cfg(not(any(
+-    all(target_arch = "wasm32", not(target_os = "emscripten")),
++    all(target_arch = "wasm32", not(target_os = "emscripten"), not(target_vendor = "wasixv2")),
+     target_env = "sgx",
+     target_os = "hermit",
+     target_os = "trusty",
+@@ -104,7 +104,7 @@ impl BorrowedFd<'_> {
+     /// Creates a new `OwnedFd` instance that shares the same underlying file
+     /// description as the existing `BorrowedFd` instance.
+     #[cfg(not(any(
+-        all(target_arch = "wasm32", not(target_os = "emscripten")),
++        all(target_arch = "wasm32", not(target_os = "emscripten"), not(target_vendor = "wasixv2")),
+         target_os = "hermit",
+         target_os = "trusty",
+         target_os = "motor"
+@@ -132,7 +132,7 @@ impl BorrowedFd<'_> {
+     /// Creates a new `OwnedFd` instance that shares the same underlying file
+     /// description as the existing `BorrowedFd` instance.
+     #[cfg(any(
+-        all(target_arch = "wasm32", not(target_os = "emscripten")),
++        all(target_arch = "wasm32", not(target_os = "emscripten"), not(target_vendor = "wasixv2")),
+         target_os = "hermit",
+         target_os = "trusty"
+     ))]
+diff --git a/library/std/src/os/unix/io/mod.rs b/library/std/src/os/unix/io/mod.rs
+index 618e0dc..676158f 100644
+--- a/library/std/src/os/unix/io/mod.rs
++++ b/library/std/src/os/unix/io/mod.rs
+@@ -215,7 +215,7 @@ fn replace_stdio_fd(this: BorrowedFd<'_>, other: OwnedFd) -> io::Result<()> {
+             cvt(unsafe { libc::__wasilibc_fd_renumber(other.as_raw_fd(), this.as_raw_fd()) }).map(|_| ())
+         }
+         not(any(
+-            all(target_arch = "wasm32", not(target_os = "emscripten")),
++            all(target_arch = "wasm32", not(target_os = "emscripten"), not(target_vendor = "wasixv2")),
+             target_os = "hermit",
+             target_os = "trusty",
+             target_os = "motor"
+diff --git a/library/std/src/sys/args/mod.rs b/library/std/src/sys/args/mod.rs
+index 2659750..bb3092f 100644
+--- a/library/std/src/sys/args/mod.rs
++++ b/library/std/src/sys/args/mod.rs
+@@ -15,7 +15,7 @@ mod common;
+ 
+ cfg_select! {
+     any(
+-        all(target_family = "unix", not(any(all(target_family = "wasm", target_os = "linux"), target_os = "espidf", target_os = "vita"))),
++        all(target_family = "unix", not(any(all(target_family = "wasm", target_os = "linux", not(target_vendor = "wasixv2")), target_os = "espidf", target_os = "vita"))),
+         target_os = "hermit",
+     ) => {
+         mod unix;
+diff --git a/library/std/src/sys/personality/mod.rs b/library/std/src/sys/personality/mod.rs
+index 3b363aa..ababeb7 100644
+--- a/library/std/src/sys/personality/mod.rs
++++ b/library/std/src/sys/personality/mod.rs
+@@ -14,7 +14,7 @@ mod dwarf;
+ 
+ #[cfg(not(any(test, doctest)))]
+ cfg_select! {
+-    any(target_env = "msvc", target_family = "wasm", target_os = "motor") => {
++    any(target_env = "msvc", target_family = "wasm", target_arch = "wasm32", target_os = "motor") => {
+         // This is required by the compiler to exist (e.g., it's a lang item),
+         // but it's never actually called by the compiler because
+         // __CxxFrameHandler3 (msvc) / __gxx_wasm_personality_v0 (wasm) is the
+diff --git a/library/stdarch/crates/core_arch/src/mod.rs b/library/stdarch/crates/core_arch/src/mod.rs
+index 2483d07..78667b4 100644
+--- a/library/stdarch/crates/core_arch/src/mod.rs
++++ b/library/stdarch/crates/core_arch/src/mod.rs
+@@ -221,7 +221,7 @@ pub mod arch {
+     /// Platform-specific intrinsics for the `wasm` target family.
+     ///
+     /// See the [module documentation](../index.html) for more details.
+-    #[cfg(any(target_family = "wasm", doc))]
++    #[cfg(any(target_family = "wasm", target_arch = "wasm32", target_arch = "wasm64", doc))]
+     #[doc(cfg(target_family = "wasm"))]
+     #[unstable(feature = "simd_wasm64", issue = "90599")]
+     pub mod wasm {
+@@ -357,7 +357,7 @@ mod riscv32;
+ #[doc(cfg(any(target_arch = "riscv64")))]
+ mod riscv64;
+ 
+-#[cfg(any(target_family = "wasm", doc))]
++#[cfg(any(target_family = "wasm", target_arch = "wasm32", target_arch = "wasm64", doc))]
+ #[doc(cfg(target_family = "wasm"))]
+ mod wasm32;
+ 
+diff --git a/library/unwind/src/lib.rs b/library/unwind/src/lib.rs
+index 3725375..83309c2 100644
+--- a/library/unwind/src/lib.rs
++++ b/library/unwind/src/lib.rs
+@@ -3,7 +3,7 @@
+ #![feature(link_cfg)]
+ #![feature(staged_api)]
+ #![cfg_attr(
+-    target_family = "wasm",
++    any(target_family = "wasm", target_arch = "wasm32"),
+     feature(link_llvm_intrinsics, simd_wasm64, asm_experimental_arch)
+ )]
+ #![allow(internal_features)]
+@@ -26,6 +26,12 @@ cfg_select! {
+     ) => {
+         // These "unix" family members do not have unwinder.
+     }
++    // WASIX v2 is unix but unwinds with wasm exception handling.
++    all(target_arch = "wasm32", target_vendor = "wasixv2") => {
++        mod types;
++        mod wasm;
++        pub use wasm::*;
++    }
+     any(
+         unix,
+         windows,
+@@ -62,7 +68,7 @@ cfg_select! {
+ #[link(name = "unwind")]
+ unsafe extern "C" {}
+ 
+-#[cfg(all(target_env = "musl", not(target_abi = "pauthtest")))]
++#[cfg(all(target_env = "musl", not(target_abi = "pauthtest"), not(target_vendor = "wasixv2")))]
+ cfg_select! {
+     all(feature = "llvm-libunwind", feature = "system-llvm-libunwind") => {
+         compile_error!("`llvm-libunwind` and `system-llvm-libunwind` cannot be enabled at the same time");
+diff --git a/library/unwind/src/types.rs b/library/unwind/src/types.rs
+index 413cd67..3ef3bb0 100644
+--- a/library/unwind/src/types.rs
++++ b/library/unwind/src/types.rs
+@@ -37,7 +37,7 @@ pub const unwinder_private_data_size: usize = cfg_select! {
+     any(target_arch = "sparc", target_arch = "sparc64") => 2,
+     any(target_arch = "riscv64", target_arch = "riscv32") => 2,
+     all(target_family = "wasm", target_os = "emscripten") => 20,
+-    target_family = "wasm" => 2,
++    any(target_family = "wasm", target_arch = "wasm32") => 2,
+     target_arch = "hexagon" => 5,
+     any(target_arch = "loongarch32", target_arch = "loongarch64") => 2,
+ };

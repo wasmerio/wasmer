@@ -1,0 +1,68 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-014
+
+Bug-Reported-by:	Grisha Levit <grishalevit@gmail.com>
+Bug-Reference-ID:
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2026-06/msg00022.html
+
+Bug-Description:
+
+Bash-5.3 patch 11 included an inadvertent extra line, which this patch
+removes. This also takes the opportunity to improve that patch, by looking
+up the variable each time through the line-reading loop only if there is
+a callback and it is invoked.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/builtins/mapfile.def	Sat Jun  6 13:31:02 2026
+--- builtins/mapfile.def	Sat Jun  6 13:51:55 2026
+***************
+*** 198,211 ****
+  
+  	  run_callback (callback, array_index, line);
+- 	}
+  
+!       /* Bad things can happen if the callback modifies ENTRY, e.g.,
+! 	 unsetting it or changing it to a non-indexed-array type, so we
+! 	 look it up again every time we need to assign something */
+!       entry = bind_array_variable (array_name, array_index, line, 0);
+!       if (entry == 0 || ASSIGN_DISALLOWED (entry, 0))
+! 	return EXECUTION_FAILURE;
+! 
+!       bind_array_element (entry, array_index, line, 0);
+  
+        /* Have we exceeded # of lines to store? */
+--- 198,211 ----
+  
+  	  run_callback (callback, array_index, line);
+  
+! 	  /* Bad things can happen if the callback modifies ENTRY, e.g.,
+! 	     unsetting it or changing it to a non-indexed-array type, so we
+! 	     look it up again every time we need to assign something */
+! 	  entry = bind_array_variable (array_name, array_index, line, 0);
+! 	  if (entry == 0 || ASSIGN_DISALLOWED (entry, 0))
+! 	    return EXECUTION_FAILURE;
+! 	}
+!       else
+! 	bind_array_element (entry, array_index, line, 0);
+  
+        /* Have we exceeded # of lines to store? */
+
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 13
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 14
+  
+  #endif /* _PATCHLEVEL_H_ */

@@ -1,0 +1,282 @@
+  0 DESIGN.md | -- **Unix sockets** stay a separate kernel facility. Their abstract na ‖ +- **Unix sockets** stay a separate kernel facility. Their abstract na
+  1 DESIGN.md | -- **Explicit bind** (`inet_bind_conflict`): two sockets conflict when ‖ +- **Explicit bind** (`inet_bind_conflict`): two sockets conflict when
+  2 DESIGN.md | -- **Ephemeral ports** come from `ip_local_port_range` (32768–60999) f ‖ +- **Ephemeral ports** come from `ip_local_port_range` (32768–60999) f
+  3 DESIGN.md | -- **UDP.** Datagrams are copied between receive queues. A queue drops ‖ +- **UDP.** Datagrams are copied between receive queues. A queue drops
+  4 DESIGN.md | -- **Publishing** (`Net::publish`, or auto-publishing of non-loopback  ‖ +- **Publishing** (`Net::publish`, or auto-publishing of non-loopback  ‖ +- **Options**: what a host socket acts on (`TCP_NODELAY`, keepalive a
+  5 DESIGN.md | -- Guest-side stream and datagram objects are buffers: 256 KiB per dir ‖ +- Guest-side stream and datagram objects are buffers: 256 KiB per dir
+  6 kernel/src/net.rs | -use std::{ ‖ -    net::SocketAddr, ‖ -    sync::{Arc, Mutex},
+  7 kernel/src/net.rs | +    cred::Cred,
+  8 kernel/src/net.rs | -        let socket = network.socket(domain, kind, protocol)?; ‖ +        // `sk_uid`: the inode owner `sock_alloc` gives the socket. ‖ +        let (uid, _) = self.cred(caller).fs_owner();
+  9 kernel/src/net.rs | -            AnySock::Unix(_, sock) => sock.listen(backlog)?, ‖ +            AnySock::Unix(_, sock) => sock.listen(backlog, self.peer_
+ 10 kernel/src/net.rs | -    /// `do_accept`: waits for a connection unless non-blocking. As L ‖ -    /// descriptor before taking the connection (`get_unused_fd_flags ‖ -    /// `EMFILE` and leaves the connection queued; a fault writing th
+ 11 kernel/src/net.rs | +        let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
+ 12 kernel/src/net.rs | -        let (fd, file, peer) = match &any { ‖ +        let (file, peer) = match &any {
+ 13 kernel/src/net.rs | -                    self.install_accepted(caller, cloexec, || { ‖ -                        let accepted = sock.socket.accept()?; ‖ -                        let peer = socket::encode(accepted.peer);
+ 14 kernel/src/net.rs | -                    self.install_accepted(caller, cloexec, || { ‖ -                        if sock.kind() == unix::Kind::Dgram { ‖ -                            return Err(Errno::EOPNOTSUPP);
+ 15 kernel/src/net.rs | -            AnySock::Netlink(..) => { ‖ -                self.install_accepted(caller, cloexec, || Err(Errno:: ‖ -            }
+ 16 kernel/src/net.rs | -        if !addr.is_null() ‖ -            && let Err(err) = move_addr_to_user(caller, &peer, addr,  ‖ -        {
+ 17 kernel/src/net.rs | -        let (file, peer) = accept()?; ‖ -        let file = Arc::new(file); ‖ -        let fd = table
+ 18 kernel/src/net.rs | -            AnySock::Netlink(..) => return Ok(0), ‖ +            AnySock::Netlink(_, nl) => { ‖ +                let net_admin = self.cred(caller).capable(Cap::NetAdm
+ 19 kernel/src/net.rs | -            AnySock::Netlink(..) => netlink::kernel_addr(), ‖ +            AnySock::Netlink(_, nl) => nl.peer_addr(),
+ 20 kernel/src/net.rs | -                // `__sock_cmsg_send` ignores Unix-only control messa ‖ -                let control: Vec<Control> = control ‖ -                    .iter()
+ 21 kernel/src/net.rs | +                let cred = self.cred(caller); ‖ +                let control = sock_cmsg_send(&cred, control)?; ‖ +                let net_raw = cred.capable(Cap::NetRaw);
+ 22 kernel/src/net.rs | +                        net_raw,
+ 23 kernel/src/net.rs | -                let msg = unix::recv(sock, &mut wait, max, flags).awa ‖ +                let msg = unix::recv(sock, &mut wait, max, flags, Non
+ 24 kernel/src/net.rs | +                // `unix_stream_read_generic` keeps waiting, but neve ‖ +                // `SO_PASSCRED`, never into another writer's data. ‖ +                let writer = msg.cred;
+ 25 kernel/src/net.rs | -                    match unix::recv(sock, &mut wait, max, flags).awa ‖ +                    match unix::recv(sock, &mut wait, max, flags, wri
+ 26 kernel/src/net.rs | -            AnySock::Netlink(..) => { ‖ -                unix::shutdown_mode(how.0)?; ‖ -                return Ok(0);
+ 27 kernel/src/net.rs | -            AnySock::Unix(_, sock) => sock.set_option(name, &value)?, ‖ +            AnySock::Unix(_, sock) => { ‖ +                let net_admin = self.cred(caller).capable(Cap::NetAdm
+ 28 kernel/src/net.rs | -        let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?.mi ‖ +        let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?; ‖ +        if level == SocketLevel::SOL_SOCKET && SocketOption(name) == 
+ 29 kernel/src/net.rs | +            // `cred_to_ucred` without peer credentials, which only U ‖ +            SocketOption::SO_PEERCRED => Ok(Some(unix::Ucred::NONE.to
+ 30 kernel/src/net.rs | +/// `SO_PEERGROUPS`: the supplementary groups of a socket's peer, `EN ‖ +/// Unix sockets have peer credentials); a buffer too short is `ERANG ‖ +/// needs written back.
+ 31 kernel/src/net.rs | -/// Bounce buffers for socket I/O. Guest memory is reached asynchrono ‖ -/// byte slices, so data passes through kernel memory; reusing buffer ‖ -/// zeroing one per call. What a buffer held before is never shown to
+ 32 kernel/src/net.rs | -            self.0 = SCRATCH.lock().unwrap().pop().unwrap_or_default( ‖ +            self.0 = SCRATCH ‖ +                .with_borrow_mut(|pool| pool.pop())
+ 33 kernel/src/net.rs | -        let mut pool = SCRATCH.lock().unwrap(); ‖ -        if pool.len() < SCRATCH_KEEP { ‖ -            pool.push(buf);
+ 34 kernel/src/net.rs | +/// `__sock_cmsg_send` for an IP socket: checks the `SOL_SOCKET` cont ‖ +/// shares and returns the others, which are the protocol's. `SCM_RIG ‖ +/// belong to Unix sockets and are ignored. What they ask for (a mark
+ 35 kernel/src/netlink.rs | +    /// `dst_portid` and `dst_group` after `connect`. ‖ +    dst: (u32, u32),
+ 36 kernel/src/netlink.rs | +    /// `netlink_getname(peer = 1)`: where `connect` pointed the sock ‖ +    pub(crate) fn peer_addr(&self) -> Vec<u8> { ‖ +        let (pid, group) = self.queue().dst;
+ 37 kernel/src/socket.rs | +            net_raw: false,
+ 38 kernel/src/tests/net.rs | -    fn socket(&self, _: Domain, kind: SocketKind, protocol: i32) -> R ‖ +    fn socket( ‖ +        &self,
+ 39 kernel/src/tests/net.rs | + ‖ +/// `sendmsg` of one byte from 0x400 with the control messages `cmsgs ‖ +/// laid out at 0xa00.
+ 40 kernel/src/unix.rs | +//! - Files in flight are charged to the sending user, and sockets th ‖ +//!   keep alive are collected (`gc`).
+ 41 kernel/src/unix.rs | -//! Not yet: `MSG_OOB`, `SO_PEEK_OFF`, garbage collection of sockets  ‖ -//! queues (in-flight files are only counted against `RLIMIT_NOFILE`) ‖ -//! `SO_PASSCRED`.
+ 42 kernel/src/unix.rs | -    sync::{ ‖ -        Arc, Mutex, MutexGuard, Weak, ‖ -        atomic::{AtomicUsize, Ordering},
+ 43 kernel/src/unix.rs | -use wasixv2_abi::{AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, ‖ +use wasixv2_abi::{ ‖ +    AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, SocketLevel, 
+ 44 kernel/src/unix.rs | +use wasixv2_vnet::{ ‖ +    SocketKind, ‖ +    opts::{self, Changed, SockOpts},
+ 45 kernel/src/unix.rs | +use gc::{InFlight, Inflight}; ‖ +
+ 46 kernel/src/unix.rs | -/// `SO_SNDBUF`'s and `SO_RCVBUF`'s default (`sysctl_wmem_default`, ` ‖ -pub(crate) const SNDBUF: usize = 212_992;
+ 47 kernel/src/unix.rs | +    /// `cred_to_ucred` without a peer: pid 0 and the invalid ids. ‖ +    pub(crate) const NONE: Self = Self { ‖ +        pid: 0,
+ 48 kernel/src/unix.rs | +/// What `SO_PEERCRED` and `SO_PEERGROUPS` report: the pid and creden ‖ +/// made the connection, called `socketpair` or listened (`sk_peer_pi ‖ +#[derive(Clone, PartialEq, Eq, Debug, Default)]
+ 49 kernel/src/unix.rs | -    /// `user->unix_inflight`: files queued in `SCM_RIGHTS` messages, ‖ -    inflight: Arc<AtomicUsize>, ‖ +    /// Files queued in `SCM_RIGHTS` messages, not yet received.
+ 50 kernel/src/unix.rs | -/// Files of one `SCM_RIGHTS` message while they sit in a queue, coun ‖ -/// [`Names::inflight`] until received or dropped (`unix_inflight`/`u ‖ -struct InFlight {
+ 51 kernel/src/unix.rs | -    passcred: bool, ‖ -    peer_cred: Option<Ucred>, ‖ +    peer_cred: Option<PeerCred>,
+ 52 kernel/src/unix.rs | -    /// `sk_sndbuf`: what this socket may have queued at its peer; a  ‖ -    sndbuf: usize, ‖ -    /// `sk_rcvbuf`, reported by `SO_RCVBUF`.
+ 53 kernel/src/unix.rs | -    /// The credentials of the task that created the socket (`sk_peer ‖ -    owner: Ucred, ‖ +    /// The credentials of the task that created the socket.
+ 54 kernel/src/unix.rs | +    /// The sender's real uid, charged for the rights (`fpl->user`). ‖ +    pub(crate) uid: u32,
+ 55 kernel/src/unix.rs | -        owner: Ucred, ‖ +        owner: PeerCred,
+ 56 kernel/src/unix.rs | +        let ty = match kind { ‖ +            Kind::Stream => SocketKind::Stream, ‖ +            Kind::Dgram | Kind::SeqPacket => SocketKind::Datagram,
+ 57 kernel/src/unix.rs | -                passcred: false,
+ 58 kernel/src/unix.rs | -                sndbuf: SNDBUF, ‖ -                rcvbuf: SNDBUF, ‖ +                opts: SockOpts::unix(ty),
+ 59 kernel/src/unix.rs | -            _ => Some(self.lock().sndbuf.saturating_sub(RECORD_OVERHE ‖ +            _ => Some(self.lock().opts.sndbuf.saturating_sub(RECORD_O
+ 60 kernel/src/unix.rs | -            inner.peer_cred = Some(y.owner); ‖ +            inner.peer_cred = Some(y.owner.clone());
+ 61 kernel/src/unix.rs | +        // `unix_schedule_gc(NULL)`: this may have left sockets only  ‖ +        self.names.inflight.released(); ‖ +    }
+ 62 kernel/src/unix.rs | -    /// `unix_listen`. ‖ -    pub(crate) fn listen(&self, backlog: u32) -> Result<(), Errno> { ‖ +    /// `unix_listen`. `cred` is the caller's, which `SO_PEERCRED` th
+ 63 kernel/src/unix.rs | +        inner.peer_cred = Some(cred);
+ 64 kernel/src/unix.rs | -    fn try_connect(&self, target: &Arc<Sock>, cred: Ucred) -> Result< ‖ +    fn try_connect(&self, target: &Arc<Sock>, cred: &PeerCred) -> Res
+ 65 kernel/src/unix.rs | -            target.owner, ‖ +            target.owner.clone(),
+ 66 kernel/src/unix.rs | -            e.peer_cred = Some(cred); ‖ -            e.passcred = listener.passcred; ‖ -            e.sndbuf = listener.sndbuf;
+ 67 kernel/src/unix.rs | +        // `copy_peercred`: the client's peer is whoever listened. ‖ +        let listener_cred = listener.peer_cred.clone();
+ 68 kernel/src/unix.rs | -        inner.peer_cred = Some(target.owner); ‖ +        inner.peer_cred = listener_cred;
+ 69 kernel/src/unix.rs | -        let mut inner = self.lock(); ‖ -        inner.peer = target.as_ref().map(Arc::downgrade); ‖ -        inner.peer_cred = target.as_ref().map(|t| t.owner);
+ 70 kernel/src/unix.rs | -                inner.sndbuf, ‖ +                inner.opts.sndbuf,
+ 71 kernel/src/unix.rs | -            rights: InFlight::new(std::mem::take(&mut anc.rights), &s ‖ +            rights: InFlight::new( ‖ +                std::mem::take(&mut anc.rights),
+ 72 kernel/src/unix.rs | -            (inner.addr.clone(), inner.sndbuf) ‖ +            (inner.addr.clone(), inner.opts.sndbuf)
+ 73 kernel/src/unix.rs | -            rights: InFlight::new(std::mem::take(&mut anc.rights), &s ‖ +            rights: InFlight::new( ‖ +                std::mem::take(&mut anc.rights),
+ 74 kernel/src/unix.rs | -    fn try_recv(&self, max: usize, flags: MsgFlags) -> Result<Receive ‖ +    fn try_recv( ‖ +        &self,
+ 75 kernel/src/unix.rs | -            Kind::Stream => stream_take(&mut inner, max, peek), ‖ +            Kind::Stream => stream_take(&mut inner, max, peek, writer
+ 76 kernel/src/unix.rs | -        let passcred = inner.passcred; ‖ +        let passcred = inner.passcred();
+ 77 kernel/src/unix.rs | +        if peek { ‖ +            self.names.inflight.peeked(&out.rights); ‖ +        }
+ 78 kernel/src/unix.rs | -    pub(crate) fn set_passcred(&self, on: bool) { ‖ -        self.lock().passcred = on; ‖ -    }
+ 79 kernel/src/unix.rs | -    /// `sock_setsockopt` for the `SOL_SOCKET` options a Unix socket  ‖ -    /// taken the timeouts and the read-only options already. The res ‖ -    /// no effect here, as most do on Linux.
+ 80 kernel/src/unix.rs | -            SocketOption::SO_RCVBUF | SocketOption::SO_RCVBUFFORCE => ‖ -                self.lock().rcvbuf = wasixv2_vnet::opts::rcvbuf_from( ‖ +            _ => {
+ 81 kernel/src/unix.rs | -            _ => {} ‖ +        }; ‖ +        drop(inner);
+ 82 kernel/src/unix.rs | -/// A stream read of at most `max` bytes: from consecutive messages,  ‖ -/// carried files. A whole unread message moves out without a copy. ‖ -fn stream_take(inner: &mut Inner, max: usize, peek: bool) -> Received
+ 83 kernel/src/unix.rs | -        if !out.data.is_empty() && (!msg.rights.is_empty() || Some(ms ‖ -            break; ‖ +        if check_creds {
+ 84 kernel/src/unix.rs | -        let sndbuf = inner.sndbuf; ‖ +        let sndbuf = inner.opts.sndbuf;
+ 85 kernel/src/unix.rs | -            let got = recv(&self.0, &mut wait, buf.len(), MsgFlags(0) ‖ +            let got = recv(&self.0, &mut wait, buf.len(), MsgFlags(0)
+ 86 kernel/src/unix.rs | -            let owner = self.0.owner; ‖ +            let owner = self.0.owner.ucred;
+ 87 kernel/src/unix.rs | -/// caller's to loop on. ‖ +/// caller's to loop on, passing as `writer` the credentials the read ‖ +/// `SO_PASSCRED` a stream read stops (with nothing) at another write
+ 88 kernel/src/unix.rs | +    writer: Option<Ucred>,
+ 89 kernel/src/unix.rs | -        sock.try_recv(max, flags) ‖ +        sock.try_recv(max, flags, writer)
+ 90 kernel/src/unix.rs | +    /// The caller as a socket's peer: what `SO_PEERCRED` and `SO_PEE ‖ +    /// (`prepare_peercred`). ‖ +    pub(crate) fn peer_cred(&self, caller: &Caller<'_>) -> PeerCred {
+ 91 kernel/src/unix.rs | -            self.ucred(caller), ‖ +            self.peer_cred(caller),
+ 92 kernel/src/unix.rs | -        let cred = self.ucred(caller); ‖ +        let cred = self.peer_cred(caller);
+ 93 kernel/src/unix.rs | -            sock.try_connect(&target, cred) ‖ +            sock.try_connect(&target, &cred)
+ 94 kernel/src/unix.rs | -        let mut anc = Ancillary::default(); ‖ -        let level = wasixv2_abi::SocketLevel::SOL_SOCKET.0; ‖ +        let mut anc = Ancillary {
+ 95 kernel/src/unix.rs | -                    if self.too_many_unix_fds(caller) { ‖ +                    if self.too_many_unix_fds(caller, anc.uid) {
+ 96 kernel/src/unix.rs | +        // `unix_schedule_gc(user)`: a user with many files in flight ‖ +        // collects first. ‖ +        let inflight = &self.unix_names.inflight;
+ 97 kernel/src/unix.rs | -    /// `too_many_unix_fds`: more files in flight than the sender's ` ‖ -    fn too_many_unix_fds(&self, caller: &Caller<'_>) -> bool { ‖ +    /// `too_many_unix_fds`: the sending user has more files in fligh
+ 98 kernel/src/unix.rs | -        self.unix_names.inflight.load(Ordering::Relaxed) > limit ‖ +        if self.unix_names.inflight.user(uid) <= limit { ‖ +            return false;
+ 99 kernel/src/unix.rs | -    /// The `SOL_SOCKET` options of a Unix socket, the timeouts aside ‖ +    /// `sk_getsockopt` for a Unix socket, the timeouts aside: what d ‖ +    /// peer's credentials, and the options `setsockopt` keeps. Value
+100 kernel/src/unix.rs | -            SocketOption::SO_PASSCRED => int(sock.passcred() as i32), ‖ -            SocketOption::SO_PEERCRED => { ‖ -                // Unconnected sockets report an invalid pid and the 
+101 kernel/src/unix.rs | -            SocketOption::SO_SNDBUF => int(sock.lock().sndbuf as i32) ‖ -            SocketOption::SO_RCVBUF => int(sock.lock().rcvbuf as i32) ‖ -            SocketOption::SO_REUSEADDR
+102 kernel/src/unix.rs | -        let a = Sock::new(kind, names.clone(), Ucred::default(), host ‖ -        let b = Sock::new(kind, names, Ucred::default(), host); ‖ +        let a = Sock::new(kind, names.clone(), PeerCred::default(), h
+103 kernel/src/unix.rs | +    fn cred(pid: i32) -> Ucred { ‖ +        Ucred { ‖ +            pid,
+104 kernel/src/unix.rs | -        assert_eq!(b.try_recv(16, MsgFlags(0)).err(), Some(Errno::EAG ‖ +        assert_eq!(b.try_recv(16, MsgFlags(0), None).err(), Some(Errn
+105 kernel/src/unix.rs | -        let peeked = b.try_recv(10, MsgFlags::MSG_PEEK).unwrap(); ‖ +        let peeked = b.try_recv(10, MsgFlags::MSG_PEEK, None).unwrap(
+106 kernel/src/unix.rs | -        let got = b.try_recv(1 << 20, MsgFlags(0)).unwrap(); ‖ +        let got = b.try_recv(1 << 20, MsgFlags(0), None).unwrap();
+107 kernel/src/unix.rs | -        let limit = SNDBUF - RECORD_OVERHEAD; ‖ +        // `wmem_default` less the skb's share. ‖ +        let limit = opts::UDP_BUF_DEFAULT - RECORD_OVERHEAD;
+108 kernel/src/unix.rs | -        let listener = Sock::new(Kind::Stream, names.clone(), Ucred:: ‖ +        let listener = Sock::new( ‖ +            Kind::Stream,
+109 kernel/src/unix.rs | -        listener.listen(4).unwrap(); ‖ -        let client = Sock::new(Kind::Stream, names, Ucred::default(), ‖ -        client.try_connect(&listener, Ucred::default()).unwrap();
+110 kernel/src/unix.rs | -            client.try_recv(4, MsgFlags(0)).err(), ‖ +            client.try_recv(4, MsgFlags(0), None).err(),
+111 kernel/src/unix.rs | -        assert_eq!(client.try_recv(4, MsgFlags(0)).unwrap().len(), 0) ‖ +        assert_eq!(client.try_recv(4, MsgFlags(0), None).unwrap().len
+112 kernel/src/unix.rs | -        let listener = Sock::new(Kind::Stream, names.clone(), Ucred:: ‖ +        let listener = Sock::new( ‖ +            Kind::Stream,
+113 kernel/src/unix.rs | -        listener.listen(4).unwrap(); ‖ -        let client = Sock::new(Kind::Stream, names, Ucred::default(), ‖ -        assert_eq!(client.try_connect(&listener, Ucred::default()), O
+114 kernel/src/unix.rs | -            client.try_connect(&listener, Ucred::default()), ‖ +            client.try_connect(&listener, &PeerCred::default()),
+115 kernel/src/unix/gc.rs | +//! Files in flight in `SCM_RIGHTS` messages and the collection of Un ‖ +//! messages keep alive (`net/unix/garbage.c`). ‖ +//!
+116 vnet-host/src/reactor.rs | -    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Pub ‖ +    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Pub
+117 vnet-host/src/reactor.rs | -use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue}; ‖ +use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitQueu
+118 vnet-host/src/reactor.rs | +/// How much room a guest read must open in a full receive buffer bef ‖ +/// from the host again, as `__tcp_cleanup_rbuf` reopens the window o ‖ +/// substantially rather than after every small read.
+119 vnet-host/src/reactor.rs | +    /// Publications whose guest listener made room since the reactor ‖ +    /// each is listed at most once, guarded by its `pending` flag. ‖ +    listeners: Mutex<Vec<Arc<ListenerShared>>>,
+120 vnet-host/src/reactor.rs | +            listeners: Mutex::new(Vec::new()),
+121 vnet-host/src/reactor.rs | -                Some(Entry::Datagram(d)) => d.receive_all(&mut buf), ‖ +                Some(Entry::Datagram(d)) => { ‖ +                    if ev.is_writable() || ev.is_error() {
+122 vnet-host/src/reactor.rs | +        let listeners = std::mem::take(&mut *shared.listeners.lock(). ‖ +        for l in listeners { ‖ +            l.pending.store(false, Ordering::Release);
+123 vnet-host/src/reactor.rs | +    keepalive: Keepalive, ‖ +} ‖ +
+124 vnet-host/src/reactor.rs | -                let was_full = st.rx.len() >= STREAM_BUF; ‖ +                let free_before = STREAM_BUF.saturating_sub(st.rx.len
+125 vnet-host/src/reactor.rs | -                if was_full { ‖ +                if free_before < RX_REOPEN && free_before + n >= RX_R
+126 vnet-host/src/reactor.rs | +    /// What the guest wrote that the host socket has not taken yet;  ‖ +    /// holds unacknowledged is not counted. ‖ +    fn output_len(&self) -> usize {
+127 vnet-host/src/reactor.rs | -            let _ = sock.set_keepalive(v != 0); ‖ +            let mut st = self.0.state(); ‖ +            st.keepalive.on = v != 0;
+128 vnet-host/src/reactor.rs | +        } else if level == SocketLevel::SOL_TCP.0 { ‖ +            // The guest validated the value; the host takes it when  ‖ +            // Linux's `tcp_sock_set_keep*` only rearm a running keep
+129 vnet-host/src/reactor.rs | +    /// Listed on `Shared::listeners`. ‖ +    pending: AtomicBool, ‖ +    /// Registrations on the guest listeners' room queues while their
+130 vnet-host/src/reactor.rs | -    fn accept_all(&self) { ‖ +    /// Takes connections off the host listener while the guest has r ‖ +    /// accept queue leaves them in the host's backlog, as Linux leav
+131 vnet-host/src/reactor.rs | +            let room = match self.sink.poll_room(None) { ‖ +                // On the room queues before looking again, so no wak ‖ +                Room::Full => self.poll_room_registered(),
+132 vnet-host/src/reactor.rs | +                Ok((sock, peer)) if room == Room::Gone => { ‖ +                    tracing::debug!(%peer, "published connection with ‖ +                    let _ = socket2::SockRef::from(&sock).set_linger(
+133 vnet-host/src/reactor.rs | + ‖ +    /// `poll_room` with a registration that brings the reactor back  ‖ +    fn poll_room_registered(self: &Arc<Self>) -> Room {
+134 vnet-host/src/reactor.rs | + ‖ +    fn set_backlog(&self, backlog: u32) { ‖ +        // `listen` again on a listening socket only changes its back
+135 vnet-host/src/reactor.rs | +        self.shared.room.lock().unwrap().clear();
+136 vnet-host/src/reactor.rs | -#[derive(Default)]
+137 vnet-host/src/reactor.rs | +    /// The host socket takes datagrams: false from a send's `EAGAIN` ‖ +    /// it writable again. ‖ +    host_writable: bool,
+138 vnet-host/src/reactor.rs | +    /// The host socket became writable: wake senders that met `EAGAI ‖ +    /// `sk_write_space`). ‖ +    fn writable(&self) {
+139 vnet-host/src/reactor.rs | +        // An error is reported once and then cleared (`sock_error`); ‖ +        // back is not a peer's report, and retrying it would starve  ‖ +        let mut failed = false;
+140 vnet-host/src/reactor.rs | +                    failed = false;
+141 vnet-host/src/reactor.rs | +                Err(e) if failed => { ‖ +                    tracing::warn!(error = %e, "receiving on a host d ‖ +                    break;
+142 vnet-host/src/reactor.rs | +                    failed = true;
+143 vnet-host/src/reactor.rs | -        let mut m = PollMask::OUT | PollMask::WRNORM;
+144 vnet-host/src/reactor.rs | +        let mut m = PollMask::empty(); ‖ +        if st.host_writable { ‖ +            m |= PollMask::OUT | PollMask::WRNORM;
+145 vnet-host/src/reactor.rs | +        // Under the state lock, so the reactor marks the socket writ ‖ +        // `EAGAIN` here has marked it full: no wakeup falls between  ‖ +        let mut st = self.0.state();
+146 vnet-host/src/reactor.rs | -        let connected = self.0.state().connected; ‖ -        let sent = match connected { ‖ +        let sent = match st.connected {
+147 vnet-host/src/reactor.rs | -        sent.map_err(|e| errno_from_io(&e)) ‖ +        match sent { ‖ +            Ok(n) => Ok(n),
+148 vnet-host/src/reactor.rs | -            st: Mutex::new(DgramState::default()), ‖ +            st: Mutex::new(DgramState { ‖ +                queue: VecDeque::new(),
+149 vnet-host/src/reactor.rs | -        if let Err(e) = self ‖ -            .shared ‖ -            .registry
+150 vnet-host/src/reactor.rs | +        backlog: u32,
+151 vnet-host/src/reactor.rs | -        let sock = TcpListener::bind(host)?; ‖ +        let sock = listen(host, backlog)?;
+152 vnet-host/src/reactor.rs | +            pending: AtomicBool::new(false), ‖ +            room: Mutex::new(Vec::new()),
+153 vnet-host/src/reactor.rs | + ‖ +/// A non-blocking host listener on `addr` with `backlog`, as `TcpLis ‖ +/// (`SO_REUSEADDR` on Unix, so a published port is free again at onc
+154 vnet-host/tests/host.rs | +        net_raw: false,
+155 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap(); ‖ +    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap
+156 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap(); ‖ +    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap
+157 vnet-host/tests/host.rs | -    let l = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap(); ‖ +    let l = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap
+158 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Datagram, 0).unwrap( ‖ +    let s = net ‖ +        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+159 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Datagram, 0).unwrap( ‖ +    let s = net ‖ +        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+160 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap(); ‖ +    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap
+161 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap(); ‖ +    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap
+162 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap(); ‖ +    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap
+163 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Datagram, 0).unwrap( ‖ +    let s = net ‖ +        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+164 vnet-host/tests/host.rs | -    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap(); ‖ +    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap
+165 vnet-host/tests/host.rs | + ‖ +#[test] ‖ +fn published_connections_wait_for_room_in_the_guest_accept_queue() {
+166 vnet/src/addr.rs | -    pub fn of(addr: &SocketAddr) -> Self { ‖ -        match addr { ‖ -            SocketAddr::V4(_) => Self::Inet,
+167 vnet/src/api.rs | -use wasixv2_wait::{Pollable, WaitQueue}; ‖ +use wasixv2_wait::{PollTable, Pollable, WaitQueue};
+168 vnet/src/api.rs | -    /// Control messages from `sendmsg`, such as `IP_PKTINFO` or `IP_ ‖ +    /// Control messages from `sendmsg`, such as `IP_PKTINFO` or `IP_ ‖ +    /// checked and removed the `SOL_SOCKET` ones (`__sock_cmsg_send`
+169 vnet/src/api.rs | +    /// The caller holds `CAP_NET_RAW`, which some control messages n ‖ +    pub net_raw: bool,
+170 vnet/src/api.rs | -    /// `EPROTONOSUPPORT` as Linux decides. `SOCK_RAW` never gets her ‖ +    /// `EPROTONOSUPPORT` as Linux decides. `SOCK_RAW` never gets her ‖ +    /// (`sk_uid`, the creator's filesystem uid, which accepted socke
+171 vnet/src/api.rs | +        uid: u32,
+172 vnet/src/api.rs | -    /// Publishing: accepts connections on `host` and hands each to ` ‖ -    /// stops publishing when dropped. Failure (a taken host port) is ‖ -    /// network logs it and never shows it to the guest.
+173 vnet/src/api.rs | +        backlog: u32,
+174 vnet/src/api.rs | +    /// `SIOCOUTQ`: bytes written but not yet taken by the peer, as f ‖ +    fn output_len(&self) -> usize { ‖ +        0
+175 vnet/src/api.rs | -/// A datagram endpoint through the backend. `poll` reports `IN` whil ‖ -/// `ERR` while an error is pending; like a stream's, it registers no ‖ +/// A datagram endpoint through the backend. `poll` reports `IN` whil
+176 vnet/src/api.rs | +/// Whether a guest listener can take a connection now (see [`Inbound ‖ +#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)] ‖ +pub enum Room {
+177 vnet/src/api.rs | +    /// Whether the guest listener for the published address could ta ‖ +    /// `poll` reports readiness: `table` registers on the listener's ‖ +    /// backend that sees `Full` hears when to try again. Called from
+178 vnet/src/api.rs | -    /// gone or its queue is full; the backend then drops the connect ‖ +    /// gone or its queue filled since `poll_room`; the backend then 
+179 vnet/src/api.rs | + ‖ +    /// The guest listener's `listen` backlog changed: the host liste ‖ +    fn set_backlog(&self, backlog: u32) {
+180 vnet/src/cmsg.rs | +//! Control messages of IP sends: `udp_cmsg_send`, `ip_cmsg_send` and ‖ +//! The kernel's socket layer has checked and removed the `SOL_SOCKET ‖ +//! (`__sock_cmsg_send`), so what reaches a socket is protocol-level.
+181 vnet/src/lib.rs | +mod cmsg;
+182 vnet/src/lib.rs | -    Network, PortEntry, Publication, RecvMsg, SendMsg, Shutdown, Sock ‖ +    Network, PortEntry, Publication, RecvMsg, Room, SendMsg, Shutdown ‖ +    StreamState,
+183 vnet/src/net.rs | -use wasixv2_wait::WaitQueue; ‖ +use wasixv2_wait::{PollTable, WaitQueue};
+184 vnet/src/net.rs | -    Publication, Socket, SocketKind, ‖ -    addr::canonical, ‖ +    Publication, Room, Socket, SocketKind,
+185 vnet/src/net.rs | -    tcp::TcpSocket, ‖ +    tcp::{Offer, TcpSocket},
+186 vnet/src/net.rs | +/// `net.core.somaxconn`'s default, the host backlog of an explicit p ‖ +const PUBLISH_BACKLOG: u32 = 4096; ‖ +
+187 vnet/src/net.rs | -    /// The interface and route tables, for netlink. ‖ -    pub fn interface_table(&self) -> Interfaces { ‖ -        self.state().ifaces.clone()
+188 vnet/src/net.rs | -    /// listener for `guest`. ‖ +    /// listener for `guest`. The host listener's backlog is `somaxco ‖ +    /// guest listener could ask for; connections wait there while th
+189 vnet/src/net.rs | -        backend.publish(host, self.inbound_sink(guest)) ‖ +        backend.publish(host, PUBLISH_BACKLOG, self.inbound_sink(gues
+190 vnet/src/net.rs | +        self.listener_group(dst, src).into_iter().next() ‖ +    } ‖ +
+191 vnet/src/net.rs | -        let live: Vec<_> = candidates.iter().filter_map(Weak::upgrade ‖ -        if live.is_empty() { ‖ -            return None;
+192 vnet/src/net.rs | -        let i = src.port() as usize % live.len(); ‖ -        live.into_iter().nth(i) ‖ +        live
+193 vnet/src/net.rs | -    /// Where a UDP datagram to `dst` goes, decided under one lock: t ‖ -    /// (bound with `autobind` first if `local` is `None` and there i ‖ -    /// namespace the receiving socket. Returns the sender's local ad
+194 vnet/src/net.rs | -        id: SockId, ‖ -        autobind: BindSpec, ‖ -        local: Option<SocketAddr>,
+195 vnet/src/net.rs | -        me: Weak<UdpSocket>, ‖ -    ) -> NetResult<(SocketAddr, UdpRoute)> { ‖ -        let (local, route) = {
+196 vnet/src/net.rs | -            }; ‖ -            (local, route) ‖ +            }
+197 vnet/src/net.rs | -        let route = match route { ‖ +        Ok(match route {
+198 vnet/src/net.rs | -        }; ‖ -        Ok((local, route)) ‖ +        })
+199 vnet/src/net.rs | +        uid: u32,
+200 vnet/src/net.rs | -            (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc ‖ -            (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self. ‖ +            (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc
+201 vnet/src/net.rs | -impl InboundSink for GuestListenerSink { ‖ -    fn incoming(&self, stream: Arc<dyn BackendStream>, wq: WaitQueue) ‖ -        let Some(net) = self.net.upgrade() else {
+202 vnet/src/net.rs | -        match net.find_listener(dst, peer) { ‖ -            Some(listener) => listener.incoming_remote(stream, wq, ds ‖ -            None => false,
+203 vnet/src/net.rs | +        false
+204 vnet/src/opts.rs | -    pub family: Domain, ‖ +    /// The IP family; `None` for a Unix socket, which only has the ` ‖ +    pub family: Option<Domain>,
+205 vnet/src/opts.rs | +/// The integer options a backend stream acts on, in the order they a ‖ +/// parameters before keepalive itself. ‖ +const BACKEND_INTS: &[(i32, i32)] = &[
+206 vnet/src/opts.rs | -            family, ‖ +            family: Some(family),
+207 vnet/src/opts.rs | +    /// The `SOL_SOCKET` options of a Unix socket (`sk_setsockopt` fo ‖ +    /// buffers default to `wmem_default` and `rmem_default`. `ty` is ‖ +    /// sockets and `Datagram` for datagram and seqpacket ones.
+208 vnet/src/opts.rs | +    /// The options a backend stream acts on (`TCP_NODELAY`, keepaliv ‖ +    /// `(level, name, value)` in guest layout, for each one the gues ‖ +    /// the sock whatever its state, so a stream made later (`connect
+209 vnet/src/opts.rs | -        match level { ‖ -            SOL_SOCKET | SOL_IP => Ok(()), ‖ -            SOL_IPV6 if self.family == Domain::Inet6 => Ok(()),
+210 vnet/src/opts.rs | +                if val != 0 && self.family.is_none() { ‖ +                    return Err(Errno::EOPNOTSUPP); ‖ +                }
+211 vnet/src/opts.rs | +            // TCP and UDP sockets support zerocopy sends, other fami ‖ +            (SOL_SOCKET, n) if n == So::SO_ZEROCOPY.0 => { ‖ +                if self.family.is_none() {
+212 vnet/src/opts.rs | -            (SOL_SOCKET, n) if n == So::SO_PROTOCOL.0 => match self.t ‖ -                SocketKind::Stream => 6, ‖ -                SocketKind::Datagram => 17,
+213 vnet/src/opts.rs | -            (SOL_SOCKET, n) if n == So::SO_DOMAIN.0 => self.family.ra ‖ +            (SOL_SOCKET, n) if n == So::SO_DOMAIN.0 => self.family.ma
+214 vnet/src/ports.rs | -                // `inet_csk_find_open_port`: SO_REUSEADDR sockets tr ‖ -                // other sockets the upper half, and odd offsets come ‖ -                if high - low >= 4 {
+215 vnet/src/ports.rs | -                    let (first, second) = if spec.reuseaddr { ‖ -                        ((low, half), (half, high)) ‖ -                    } else {
+216 vnet/src/ports.rs | -    pub fn is_bound(&self, port: u16) -> bool { ‖ -        self.buckets.contains_key(&port) ‖ -    }
+217 vnet/src/ports.rs | +    #[test] ‖ +    fn bind_autobind_halves_only_for_reuseaddr() { ‖ +        let (mut t, mut rng) = table(Proto::Tcp);
+218 vnet/src/tcp.rs | -    Accepted, BackendStream, Domain, NetResult, PortEntry, Publicatio ‖ -    Socket, SocketKind, StreamState, ‖ +    Accepted, BackendStream, Domain, NetResult, PortEntry, Publicatio
+219 vnet/src/tcp.rs | +/// What became of a published connection offered to a listener. ‖ +pub(crate) enum Offer { ‖ +    Queued,
+220 vnet/src/tcp.rs | +    /// `SOCK_BINDADDR_LOCK`: the address was chosen by `bind`, so a  ‖ +    addr_locked: bool,
+221 vnet/src/tcp.rs | +    /// `sk_uid`, for `SO_REUSEPORT`. ‖ +    uid: u32,
+222 vnet/src/tcp.rs | +    /// Woken when the accept queue makes room or the listener closes ‖ +    /// published connections back while it is full (see [`crate::Inb ‖ +    room: WaitQueue,
+223 vnet/src/tcp.rs | +/// Applies the options a backend stream acts on to a stream made aft ‖ +fn replay_options(stream: &dyn BackendStream, opts: &SockOpts) { ‖ +    for (level, name, value) in opts.backend_options() {
+224 vnet/src/tcp.rs | -    pub(crate) fn new(net: Arc<Net>, domain: Domain) -> Arc<Self> { ‖ +    pub(crate) fn new(net: Arc<Net>, domain: Domain, uid: u32) -> Arc
+225 vnet/src/tcp.rs | +            uid,
+226 vnet/src/tcp.rs | +        uid: u32,
+227 vnet/src/tcp.rs | +            uid,
+228 vnet/src/tcp.rs | +                addr_locked: local.is_some(),
+229 vnet/src/tcp.rs | -            uid: 0, ‖ +            uid: self.uid,
+230 vnet/src/tcp.rs | +        l.room.wake(PollMask::empty());
+231 vnet/src/tcp.rs | +    /// `tcp_disconnect` of a connection in progress or established:  ‖ +    /// `SYN_SENT` there is none yet), and unless the connection had  ‖ +    /// (`tcp_need_reset`, or `SYN_SENT`) the socket's own `sk_err` b
+232 vnet/src/tcp.rs | +            self.uid,
+233 vnet/src/tcp.rs | +    /// Whether the accept queue can take a published connection; `ta ‖ +    /// queue woken when that may have changed. ‖ +    pub(crate) fn poll_room(&self, table: Option<&mut PollTable<'_>>)
+234 vnet/src/tcp.rs | -    ) -> bool { ‖ +    ) -> Offer {
+235 vnet/src/tcp.rs | -            return false; ‖ +            return Offer::Declined(stream);
+236 vnet/src/tcp.rs | -                return false; ‖ +                return Offer::Declined(stream);
+237 vnet/src/tcp.rs | -        let child = self.new_child(local, peer, wq, |_, _| Transport: ‖ +        // `inet_csk_clone_lock` copies the listener's options into t ‖ +        let child = self.new_child(local, peer, wq, |_, opts| {
+238 vnet/src/tcp.rs | -            return false; ‖ +            return Offer::Dropped;
+239 vnet/src/tcp.rs | -        true ‖ +        Offer::Queued
+240 vnet/src/tcp.rs | +        self.room.wake(PollMask::empty());
+241 vnet/src/tcp.rs | +        g.addr_locked = !addr.ip().is_unspecified();
+242 vnet/src/tcp.rs | +                if let Some(p) = l.publication.lock().unwrap().as_ref ‖ +                    p.set_backlog(backlog); ‖ +                }
+243 vnet/src/tcp.rs | +            room: WaitQueue::new(),
+244 vnet/src/tcp.rs | -        self.auto_publish(&l, local); ‖ +        self.auto_publish(&l, local, backlog);
+245 vnet/src/tcp.rs | +                        replay_options(&*stream, &g.opts);
+246 vnet/src/tcp.rs | -        // `tcp_disconnect`: abort whatever is going on and return to ‖ +        // `tcp_disconnect`: abort whatever is going on and return to ‖ +        // an autobound port (`tcp_set_state` calls `inet_put_port`) 
+247 vnet/src/tcp.rs | -        if let State::Connecting(t, _) | State::Connected(t, _) = ‖ -            std::mem::replace(&mut g.state, State::Closed) ‖ -        {
+248 vnet/src/tcp.rs | +        self.reset_saddr(&mut g);
+249 vnet/src/tcp.rs | +            // `inet_shutdown` in `SYN_SENT` disconnects (`tcp_discon
+250 vnet/src/tcp.rs | -                if let State::Connecting(t, _) = std::mem::replace(&m ‖ -                    t.close(true); ‖ -                }
+251 vnet/src/tcp.rs | +            // A connection reset or refused is in CLOSE: the shutdow ‖ +            // answer is ENOTCONN. ‖ +            State::Connected(t, _) if t.is_done() => {
+252 vnet/src/tcp.rs | +            State::Connected(Transport::Remote(s), _) => Ok(s.output_
+253 vnet/src/tcp.rs | -    fn auto_publish(&self, l: &Listener, local: SocketAddr) { ‖ +    fn auto_publish(&self, l: &Listener, local: SocketAddr, backlog: 
+254 vnet/src/tcp.rs | -        match backend.publish(host, self.net.inbound_sink(local)) { ‖ +        match backend.publish(host, backlog, self.net.inbound_sink(lo
+255 vnet/src/tests.rs | +/// The uid sockets are made for unless a test says otherwise. ‖ +const UID: u32 = 1; ‖ +
+256 vnet/src/tests.rs | -    n.socket(Domain::Inet, SocketKind::Stream, 0).unwrap() ‖ +    n.socket(Domain::Inet, SocketKind::Stream, 0, UID).unwrap()
+257 vnet/src/tests.rs | -    n.socket(Domain::Inet, SocketKind::Datagram, 0).unwrap() ‖ +    n.socket(Domain::Inet, SocketKind::Datagram, 0, UID) ‖ +        .unwrap()
+258 vnet/src/tests.rs | +        net_raw: false,
+259 vnet/src/tests.rs | -    let six = n.socket(Domain::Inet6, SocketKind::Stream, 0).unwrap() ‖ +    let six = n.socket(Domain::Inet6, SocketKind::Stream, 0, UID).unw
+260 vnet/src/tests.rs | + ‖ +// ---- a recording backend ---- ‖ +
+261 vnet/src/udp.rs | +    cmsg,
+262 vnet/src/udp.rs | +/// The most `udp_sendmsg` takes at all, before the IP layer's own li ‖ +const MAX_SEND: usize = 0xFFFF;
+263 vnet/src/udp.rs | +    /// `sk_uid`, for `SO_REUSEPORT`. ‖ +    uid: u32,
+264 vnet/src/udp.rs | -    pub(crate) fn new(net: Arc<Net>, domain: Domain) -> Arc<Self> { ‖ +    pub(crate) fn new(net: Arc<Net>, domain: Domain, uid: u32) -> Arc
+265 vnet/src/udp.rs | +            uid,
+266 vnet/src/udp.rs | -            uid: 0, ‖ +            uid: self.uid,
+267 vnet/src/udp.rs | -        let mut m = PollMask::OUT | PollMask::WRNORM | PollMask::WRBA ‖ +        let mut m = PollMask::empty();
+268 vnet/src/udp.rs | +        // `sock_writeable`: datagrams inside the namespace never wai ‖ +        // is writable while the host would take a datagram. ‖ +        let mut writable = true;
+269 vnet/src/udp.rs | -            m |= b.poll(None) & (PollMask::IN | PollMask::RDNORM | Po ‖ +            let bm = b.poll(None); ‖ +            m |= bm & (PollMask::IN | PollMask::RDNORM | PollMask::ER
+270 vnet/src/udp.rs | +    /// `inet_sendmsg` and `udp_sendmsg`/`udpv6_sendmsg`, failing in  ‖ +    /// the size and flags, the destination, the control messages, th ‖ +    /// limit, then (`sock_alloc_send_pskb`) a pending error and a sh
+271 vnet/src/udp.rs | +        let mut g = self.lock(); ‖ +        // `inet_send_prepare`: an unbound socket is bound first, `EA ‖ +        let local = self.autobind(&mut g).map_err(|_| Errno::EAGAIN)?
+272 vnet/src/udp.rs | -        let mut g = self.lock(); ‖ -        if g.wr_shut { ‖ -            return Err(Errno::EPIPE);
+273 vnet/src/udp.rs | -            None => return Err(Errno::EDESTADDRREQ), ‖ +            None => g.peer.ok_or(Errno::EDESTADDRREQ)?,
+274 vnet/src/udp.rs | -        let max = if dst.is_ipv4() { ‖ -            MAX_V4_PAYLOAD ‖ -        } else {
+275 vnet/src/udp.rs | -        let autobind = self.spec(&g.opts, self.any()); ‖ -        let (local, route) = ‖ -            self.net
+276 vnet/src/udp.rs | -                    Some(target) => target.deliver(msg.data, from), ‖ +                    Some(target) => { ‖ +                        if msg.data.is_empty() {
+277 vnet/src/udp.rs | -                b.send_to(msg.data, host_dst) ‖ +                if msg.data.len() <= segment { ‖ +                    return b.send_to(msg.data, host_dst);
+278 vnet/src/udp.rs | -        let dgram = if peek { ‖ -            g.queue.front().map(|d| (d.data.clone(), d.from)) ‖ -        } else {
+279 vnet/src/udp.rs | -            None => { ‖ -                let backend = g.backend.clone(); ‖ -                let rd_shut = g.rd_shut;
+280 vnet/src/udp.rs | -                return Err(Errno::EAGAIN); ‖ +                Err(Errno::EAGAIN) => {} ‖ +                Err(e) => return Err(e),
+281 vnet/src/udp.rs | -        }; ‖ -        let len = buf.len().min(data.len()); ‖ -        buf[..len].copy_from_slice(&data[..len]);

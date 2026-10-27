@@ -1,0 +1,541 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 175a696..05a8e38 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -870,17 +870,6 @@ dependencies = [
+  "crypto-common 0.1.7",
+ ]
+ 
+-[[package]]
+-name = "displaydoc"
+-version = "0.2.7"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c6232dd377dcc64799954cbd3a9bb882e9cdc1308ccd87b1c098f1fb2eaf82a8"
+-dependencies = [
+- "proc-macro2",
+- "quote",
+- "syn 3.0.3",
+-]
+-
+ [[package]]
+ name = "dunce"
+ version = "1.0.5"
+@@ -1111,19 +1100,6 @@ dependencies = [
+  "r-efi 6.0.0",
+ ]
+ 
+-[[package]]
+-name = "git2"
+-version = "0.20.4"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "7b88256088d75a56f8ecfa070513a775dd9107f6530ef14919dac831af9cfe2b"
+-dependencies = [
+- "bitflags 2.13.1",
+- "libc",
+- "libgit2-sys",
+- "log",
+- "url",
+-]
+-
+ [[package]]
+ name = "glob"
+ version = "0.3.4"
+@@ -1324,109 +1300,6 @@ dependencies = [
+  "cc",
+ ]
+ 
+-[[package]]
+-name = "icu_collections"
+-version = "2.2.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "2984d1cd16c883d7935b9e07e44071dca8d917fd52ecc02c04d5fa0b5a3f191c"
+-dependencies = [
+- "displaydoc",
+- "potential_utf",
+- "utf8_iter",
+- "yoke",
+- "zerofrom",
+- "zerovec",
+-]
+-
+-[[package]]
+-name = "icu_locale_core"
+-version = "2.2.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "92219b62b3e2b4d88ac5119f8904c10f8f61bf7e95b640d25ba3075e6cac2c29"
+-dependencies = [
+- "displaydoc",
+- "litemap",
+- "tinystr",
+- "writeable",
+- "zerovec",
+-]
+-
+-[[package]]
+-name = "icu_normalizer"
+-version = "2.2.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c56e5ee99d6e3d33bd91c5d85458b6005a22140021cc324cea84dd0e72cff3b4"
+-dependencies = [
+- "icu_collections",
+- "icu_normalizer_data",
+- "icu_properties",
+- "icu_provider",
+- "smallvec",
+- "zerovec",
+-]
+-
+-[[package]]
+-name = "icu_normalizer_data"
+-version = "2.2.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "da3be0ae77ea334f4da67c12f149704f19f81d1adf7c51cf482943e84a2bad38"
+-
+-[[package]]
+-name = "icu_properties"
+-version = "2.2.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "bee3b67d0ea5c2cca5003417989af8996f8604e34fb9ddf96208a033901e70de"
+-dependencies = [
+- "icu_collections",
+- "icu_locale_core",
+- "icu_properties_data",
+- "icu_provider",
+- "zerotrie",
+- "zerovec",
+-]
+-
+-[[package]]
+-name = "icu_properties_data"
+-version = "2.2.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "8e2bbb201e0c04f7b4b3e14382af113e17ba4f63e2c9d2ee626b720cbce54a14"
+-
+-[[package]]
+-name = "icu_provider"
+-version = "2.2.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "139c4cf31c8b5f33d7e199446eff9c1e02decfc2f0eec2c8d71f65befa45b421"
+-dependencies = [
+- "displaydoc",
+- "icu_locale_core",
+- "writeable",
+- "yoke",
+- "zerofrom",
+- "zerotrie",
+- "zerovec",
+-]
+-
+-[[package]]
+-name = "idna"
+-version = "1.1.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3b0875f23caa03898994f6ddc501886a45c7d3d62d04d2d90788d47be1b1e4de"
+-dependencies = [
+- "idna_adapter",
+- "smallvec",
+- "utf8_iter",
+-]
+-
+-[[package]]
+-name = "idna_adapter"
+-version = "1.2.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "cb68373c0d6620ef8105e855e7745e18b0d00d3bdb07fb532e434244cdb9a714"
+-dependencies = [
+- "icu_normalizer",
+- "icu_properties",
+-]
+-
+ [[package]]
+ name = "indexmap"
+ version = "2.14.0"
+@@ -1582,20 +1455,6 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+ [[package]]
+ name = "libc"
+ version = "0.2.189"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+-
+-[[package]]
+-name = "libgit2-sys"
+-version = "0.18.7+1.9.6"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "23c7391e4b9f4ffab1a624223cc1d7385ff9a678f490768add717de7ea2f4d89"
+-dependencies = [
+- "cc",
+- "libc",
+- "libz-sys",
+- "pkg-config",
+-]
+ 
+ [[package]]
+ name = "libloading"
+@@ -1622,18 +1481,6 @@ version = "0.3.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "2e126dda6f34391ab7b444f9922055facc83c07a910da3eb16f1e4d9c45dc777"
+ 
+-[[package]]
+-name = "libz-sys"
+-version = "1.1.29"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "85bc9657773828b90eeb625adff10eeac83cc21bbfd8e23a03eaa8a33c9e28d9"
+-dependencies = [
+- "cc",
+- "libc",
+- "pkg-config",
+- "vcpkg",
+-]
+-
+ [[package]]
+ name = "linux-raw-sys"
+ version = "0.12.1"
+@@ -1651,12 +1498,6 @@ dependencies = [
+  "winapi",
+ ]
+ 
+-[[package]]
+-name = "litemap"
+-version = "0.8.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
+-
+ [[package]]
+ name = "lock_api"
+ version = "0.4.14"
+@@ -1938,15 +1779,6 @@ dependencies = [
+  "portable-atomic",
+ ]
+ 
+-[[package]]
+-name = "potential_utf"
+-version = "0.1.5"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "0103b1cef7ec0cf76490e969665504990193874ea05c85ff9bab8b911d0a0564"
+-dependencies = [
+- "zerovec",
+-]
+-
+ [[package]]
+ name = "powerfmt"
+ version = "0.2.0"
+@@ -2370,7 +2202,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "1dd39b4b2077bd36e60ca28c31d494046e747759cb9b507a7d177bb64787c39e"
+ dependencies = [
+  "const_format",
+- "git2",
+  "is_debug",
+  "jiff",
+ ]
+@@ -2482,12 +2313,6 @@ dependencies = [
+  "windows-sys 0.61.2",
+ ]
+ 
+-[[package]]
+-name = "stable_deref_trait"
+-version = "1.2.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+-
+ [[package]]
+ name = "static-web-server"
+ version = "2.44.0"
+@@ -2579,17 +2404,6 @@ dependencies = [
+  "unicode-ident",
+ ]
+ 
+-[[package]]
+-name = "synstructure"
+-version = "0.13.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "728a70f3dbaf5bab7f0c4b1ac8d7ae5ea60a4b5549c8a5914361c99147a709d2"
+-dependencies = [
+- "proc-macro2",
+- "quote",
+- "syn 2.0.119",
+-]
+-
+ [[package]]
+ name = "tagptr"
+ version = "0.2.0"
+@@ -2690,16 +2504,6 @@ dependencies = [
+  "time-core",
+ ]
+ 
+-[[package]]
+-name = "tinystr"
+-version = "0.8.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c8323304221c2a851516f22236c5722a72eaa19749016521d6dff0824447d96d"
+-dependencies = [
+- "displaydoc",
+- "zerovec",
+-]
+-
+ [[package]]
+ name = "tokio"
+ version = "1.53.1"
+@@ -2928,24 +2732,6 @@ version = "0.9.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+ 
+-[[package]]
+-name = "url"
+-version = "2.5.8"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "ff67a8a4397373c3ef660812acab3268222035010ab8680ec4215f38ba3d0eed"
+-dependencies = [
+- "form_urlencoded",
+- "idna",
+- "percent-encoding",
+- "serde",
+-]
+-
+-[[package]]
+-name = "utf8_iter"
+-version = "1.0.4"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
+-
+ [[package]]
+ name = "utf8parse"
+ version = "0.2.2"
+@@ -2974,12 +2760,6 @@ version = "1.13.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "068e763e8279de7ab94b6afebded2cb701678af094feb1c12ccb061b4783c1be"
+ 
+-[[package]]
+-name = "vcpkg"
+-version = "0.2.15"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+-
+ [[package]]
+ name = "version_check"
+ version = "0.9.5"
+@@ -3282,12 +3062,6 @@ version = "0.57.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
+ 
+-[[package]]
+-name = "writeable"
+-version = "0.6.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
+-
+ [[package]]
+ name = "xattr"
+ version = "0.2.3"
+@@ -3310,29 +3084,6 @@ dependencies = [
+  "serde",
+ ]
+ 
+-[[package]]
+-name = "yoke"
+-version = "0.8.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "709fe23a0424b6a435d82152b1bd3fdfb0833487d5fa90d05d42762a9891fef5"
+-dependencies = [
+- "stable_deref_trait",
+- "yoke-derive",
+- "zerofrom",
+-]
+-
+-[[package]]
+-name = "yoke-derive"
+-version = "0.8.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "de844c262c8848816172cef550288e7dc6c7b7814b4ee56b3e1553f275f1858e"
+-dependencies = [
+- "proc-macro2",
+- "quote",
+- "syn 2.0.119",
+- "synstructure",
+-]
+-
+ [[package]]
+ name = "zerocopy"
+ version = "0.8.55"
+@@ -3353,66 +3104,12 @@ dependencies = [
+  "syn 2.0.119",
+ ]
+ 
+-[[package]]
+-name = "zerofrom"
+-version = "0.1.8"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "0ec05a11813ea801ff6d75110ad09cd0824ddba17dfe17128ea0d5f68e6c5272"
+-dependencies = [
+- "zerofrom-derive",
+-]
+-
+-[[package]]
+-name = "zerofrom-derive"
+-version = "0.1.7"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "11532158c46691caf0f2593ea8358fed6bbf68a0315e80aae9bd41fbade684a1"
+-dependencies = [
+- "proc-macro2",
+- "quote",
+- "syn 2.0.119",
+- "synstructure",
+-]
+-
+ [[package]]
+ name = "zeroize"
+ version = "1.9.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "e13c156562582aa81c60cb29407084cdb54c4164760106ab78e6c5b0858cf64e"
+ 
+-[[package]]
+-name = "zerotrie"
+-version = "0.2.4"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "0f9152d31db0792fa83f70fb2f83148effb5c1f5b8c7686c3459e361d9bc20bf"
+-dependencies = [
+- "displaydoc",
+- "yoke",
+- "zerofrom",
+-]
+-
+-[[package]]
+-name = "zerovec"
+-version = "0.11.6"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "90f911cbc359ab6af17377d242225f4d75119aec87ea711a880987b18cd7b239"
+-dependencies = [
+- "yoke",
+- "zerofrom",
+- "zerovec-derive",
+-]
+-
+-[[package]]
+-name = "zerovec-derive"
+-version = "0.11.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "625dc425cab0dca6dc3c3319506e6593dcb08a9f387ea3b284dbd52a92c40555"
+-dependencies = [
+- "proc-macro2",
+- "quote",
+- "syn 2.0.119",
+-]
+-
+ [[package]]
+ name = "zmij"
+ version = "1.0.23"
+diff --git a/Cargo.toml b/Cargo.toml
+index 22f3fdf..e2952e6 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -103,7 +103,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
+ serde_ignored = "0.1"
+ serde_json = "1.0"
+ serde_repr = "0.1"
+-shadow-rs = "2.0.0"
++shadow-rs = { version = "2.0.0", default-features = false, features = ["build"] }
+ tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "fs", "io-util", "signal"] }
+ tokio-rustls = { version = "0.26", optional = true, default-features = false }
+ tokio-util = { version = "0.7", default-features = false, features = ["compat", "io"] }
+@@ -129,7 +129,7 @@ proptest = { version = "1.5", default-features = false, features = ["std"] }
+ tempfile = "3"
+ 
+ [build-dependencies]
+-shadow-rs = "2.0.0"
++shadow-rs = { version = "2.0.0", default-features = false, features = ["build"] }
+ 
+ [profile.release]
+ codegen-units = 1
+@@ -165,3 +165,7 @@ pre-build = [
+     "cp /tmp/netbsd/usr/lib/libexecinfo.so /usr/local/x86_64-unknown-netbsd/lib",
+     "rm -rf base.tar.xz /tmp/netbsd",
+ ]
++
++[patch.crates-io]
++# WASIX v2: wasm32/musl/wasixv2 (riscv32 layout, ILP32, time64) definitions.
++libc = { path = "../libc" }
+diff --git a/src/settings/mod.rs b/src/settings/mod.rs
+index e184131..e11357f 100644
+--- a/src/settings/mod.rs
++++ b/src/settings/mod.rs
+@@ -7,7 +7,7 @@
+ //!
+ 
+ use aho_corasick::AhoCorasick;
+-use clap::Parser;
++use clap::{CommandFactory, FromArgMatches, parser::ValueSource};
+ use globset::{Glob, GlobBuilder, GlobMatcher};
+ use headers::HeaderMap;
+ use hyper::StatusCode;
+@@ -127,10 +127,13 @@ impl Settings {
+     }
+ 
+     fn parse_from(log_init: bool, args: Option<&[&str]>) -> Result<Settings> {
+-        let opts = match args {
+-            Some(v) => General::parse_from(v),
+-            None => General::parse(),
++        let matches = match args {
++            Some(v) => General::command().get_matches_from(v),
++            None => General::command().get_matches(),
+         };
++        let explicit_config_file =
++            matches.value_source("config_file") != Some(ValueSource::DefaultValue);
++        let opts = General::from_arg_matches(&matches)?;
+ 
+         // Define the general CLI/file options
+         let version = opts.version;
+@@ -232,17 +235,20 @@ impl Settings {
+         // Define the advanced file options
+         let mut settings_advanced: Option<Advanced> = None;
+ 
+-        let to_use_config_file = match Path::new("./config.toml").is_file() {
+-            true => {
+-                eprintln!(
+-                    "Deprecated: 'config.toml' found, rename it to 'sws.toml' to prepare for future releases"
+-                );
+-                PathBuf::from("./config.toml")
+-            }
+-            false => opts.config_file.clone(),
++        let config_files = [
++            opts.config_file.as_path(),
++            Path::new("./config.toml"),
++            Path::new("/settings/config.toml"),
++        ];
++        let config_files = if explicit_config_file {
++            &config_files[..1]
++        } else {
++            &config_files[..]
+         };
+ 
+-        if let Some((settings, config_file_resolved)) = read_file_settings(&to_use_config_file)? {
++        if let Some((settings, config_file_resolved)) =
++            read_file_settings(config_files, explicit_config_file)?
++        {
+             config_file = config_file_resolved;
+ 
+             // File-based "general" options
+@@ -729,11 +735,20 @@ impl Settings {
+     }
+ }
+ 
+-fn read_file_settings(config_file: &Path) -> Result<Option<(FileSettings, PathBuf)>> {
+-    if config_file.is_file() {
+-        let file_path_resolved = config_file
+-            .canonicalize()
+-            .with_context(|| "unable to resolve toml config file path")?;
++fn read_file_settings(
++    config_files: &[&Path],
++    required: bool,
++) -> Result<Option<(FileSettings, PathBuf)>> {
++    for config_file in config_files {
++        let file_path_resolved = match config_file.canonicalize() {
++            Err(error) if !required && error.kind() == std::io::ErrorKind::NotFound => continue,
++            resolved => resolved.with_context(|| {
++                format!(
++                    "unable to resolve toml config file path: {}",
++                    config_file.display()
++                )
++            })?,
++        };
+ 
+         let settings = FileSettings::read(&file_path_resolved).with_context(
+             || "unable to read toml config file because has invalid format or unsupported options",

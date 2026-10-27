@@ -1,0 +1,54 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-013
+
+Bug-Reported-by:	Florian Schmaus <flo@geekplace.eu>
+Bug-Reference-ID:
+Bug-Reference-URL:	https://savannah.gnu.org/bugs/?67586
+
+Bug-Description:
+
+Comparing the value of a pointer returned from realloc/xrealloc to the
+original pointer passed is technically undefined behavior, which matters
+under some circumstances.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/builtins/read.def	Wed Jun 25 15:50:18 2025
+--- builtins/read.def	Thu Nov 20 15:10:20 2025
+***************
+*** 789,794 ****
+  	  x = (char *)xrealloc (input_string, size += 128);
+  
+! 	  /* Only need to change unwind-protect if input_string changes */
+  	  if (x != input_string)
+  	    {
+  	      input_string = x;
+--- 816,824 ----
+  	  x = (char *)xrealloc (input_string, size += 128);
+  
+! #if 0
+! 	  /* This is, in theory, undefined behavior, since input_string may
+! 	     have been freed. */
+  	  if (x != input_string)
++ #endif
+  	    {
+  	      input_string = x;
+
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 12
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 13
+  
+  #endif /* _PATCHLEVEL_H_ */

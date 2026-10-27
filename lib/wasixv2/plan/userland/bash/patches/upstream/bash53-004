@@ -1,0 +1,47 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-004
+
+Bug-Reported-by:	Emanuele Torre <torreemanuele6@gmail.com>
+Bug-Reference-ID:	<aHKS0uA8Sf_vMT25@ntoo>
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2025-07/msg00031.html
+
+Bug-Description:
+
+The Linux kernel reports incorrect sizes for files in /sys/block/*/uevent,
+leading bash to report a read error when the byte count does not agree
+with the file size from fstat(2).
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/builtins/evalfile.c	Fri Sep  6 15:42:40 2024
+--- builtins/evalfile.c	Fri Sep 12 11:38:57 2025
+***************
+*** 161,166 ****
+--- 161,168 ----
+        if (nr >= 0)
+  	string[nr] = '\0';
++ #if 0
+        if (nr != file_size)
+  	nr = -1;		/* XXX - didn't get the whole file */
++ #endif
+      }
+    else
+
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 3
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 4
+  
+  #endif /* _PATCHLEVEL_H_ */

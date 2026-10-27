@@ -1,0 +1,10 @@
+downloads/
+*/src/
+*/build/
+out/
+scratch/
+package/*.webc
+ltp-shell/linux-*/
+logs/
+package/modules/
+tests/repros/*.wasm

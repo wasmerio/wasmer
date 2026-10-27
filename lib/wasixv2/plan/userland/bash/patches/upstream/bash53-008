@@ -1,0 +1,231 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-008
+
+Bug-Reported-by:	Grisha Levit <grishalevit@gmail.com>
+Bug-Reference-ID:	<20251022174207.10518-1-grishalevit@gmail.com>
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2025-10/msg00145.html
+
+Bug-Description:
+
+Bash tries to consume entire multibyte characters when looking for backslash
+escapes in $'...' strings, and treats too many characters as potentially
+beginning a multibyte character in UTF-8 locales. Being more selective about
+when to call mbrtowc() can lead to optimized string processing and script
+speedups. This patch also handles the unlikely situation of a locale
+encoding null wide characters with non-null bytes.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/lib/sh/strtrans.c	Fri Oct 13 11:57:46 2023
+--- lib/sh/strtrans.c	Mon Oct 27 14:30:35 2025
+***************
+*** 56,60 ****
+    unsigned long v;
+    size_t clen;
+!   int mb_cur_max;
+  #if defined (HANDLE_MULTIBYTE)
+    wchar_t wc;
+--- 56,60 ----
+    unsigned long v;
+    size_t clen;
+!   size_t mb_cur_max;
+  #if defined (HANDLE_MULTIBYTE)
+    wchar_t wc;
+***************
+*** 64,68 ****
+      return ((char *)0);
+  
+!   mb_cur_max = MB_CUR_MAX;
+  #if defined (HANDLE_MULTIBYTE)
+    temp = 4*len + 4;
+--- 64,68 ----
+      return ((char *)0);
+  
+!   mb_cur_max = locale_mb_cur_max;
+  #if defined (HANDLE_MULTIBYTE)
+    temp = 4*len + 4;
+***************
+*** 80,87 ****
+  	  clen = 1;
+  #if defined (HANDLE_MULTIBYTE)
+! 	  if ((locale_utf8locale && (c & 0x80)) ||
+! 	      (locale_utf8locale == 0 && mb_cur_max > 0 && is_basic (c) == 0))
+  	    {
+  	      clen = mbrtowc (&wc, s - 1, mb_cur_max, 0);
+  	      if (MB_INVALIDCH (clen))
+  		clen = 1;
+--- 80,91 ----
+  	  clen = 1;
+  #if defined (HANDLE_MULTIBYTE)
+! 	  /* We read an entire multibyte character at a time if we are in a
+! 	     locale where a backslash can possibly appear as part of a
+! 	     multibyte character. UTF-8 encodings prohibit this. */
+! 	  if (locale_utf8locale == 0 && mb_cur_max > 1 && is_basic (c) == 0)
+  	    {
+  	      clen = mbrtowc (&wc, s - 1, mb_cur_max, 0);
++ 	      if (MB_NULLWCH (clen))
++ 		break;			/* it apparently can happen */
+  	      if (MB_INVALIDCH (clen))
+  		clen = 1;
+***************
+*** 228,237 ****
+    char *r, *ret;
+    const char  *s;
+-   size_t l, rsize;
+    unsigned char c;
+    size_t clen;
+    int b;
+- #if defined (HANDLE_MULTIBYTE)
+    wchar_t wc;
+  #endif
+  
+--- 232,241 ----
+    char *r, *ret;
+    const char  *s;
+    unsigned char c;
++ #if defined (HANDLE_MULTIBYTE)
+    size_t clen;
+    int b;
+    wchar_t wc;
++   DECLARE_MBSTATE;
+  #endif
+  
+***************
+*** 239,245 ****
+      return ((char *)0);
+  
+!   l = strlen (str);
+!   rsize = 4 * l + 4;
+!   r = ret = (char *)xmalloc (rsize);
+  
+    *r++ = '$';
+--- 243,247 ----
+      return ((char *)0);
+  
+!   r = ret = (char *)xmalloc (4 * strlen (str) + 4);
+  
+    *r++ = '$';
+***************
+*** 248,255 ****
+    for (s = str; c = *s; s++)
+      {
+-       b = 1;		/* 1 == add backslash; 0 == no backslash */
+-       l = 1;
+-       clen = 1;
+- 
+        switch (c)
+  	{
+--- 250,253 ----
+***************
+*** 267,303 ****
+  	default:
+  #if defined (HANDLE_MULTIBYTE)
+! 	  b = is_basic (c);
+! 	  /* XXX - clen comparison to 0 is dicey */
+! 	  if ((b == 0 && ((clen = mbrtowc (&wc, s, MB_CUR_MAX, 0)) < 0 || MB_INVALIDCH (clen) || iswprint (wc) == 0)) ||
+! 	      (b == 1 && ISPRINT (c) == 0))
+! #else
+! 	  if (ISPRINT (c) == 0)
+! #endif
+  	    {
+! 	      *r++ = '\\';
+! 	      *r++ = TOCHAR ((c >> 6) & 07);
+! 	      *r++ = TOCHAR ((c >> 3) & 07);
+! 	      *r++ = TOCHAR (c & 07);
+! 	      continue;
+  	    }
+! 	  l = 0;
+! 	  break;
+! 	}
+!       if (b == 0 && clen == 0)
+! 	break;
+  
+!       if (l)
+! 	*r++ = '\\';
+! 
+!       if (clen == 1)
+! 	*r++ = c;
+!       else
+! 	{
+! 	  for (b = 0; b < (int)clen; b++)
+! 	    *r++ = (unsigned char)s[b];
+! 	  s += clen - 1;	/* -1 because of the increment above */
+  	}
+      }
+  
+    *r++ = '\'';
+    *r = '\0';
+--- 265,304 ----
+  	default:
+  #if defined (HANDLE_MULTIBYTE)
+! 	  if ((locale_utf8locale && (c & 0x80)) ||
+! 	      (locale_utf8locale == 0 && locale_mb_cur_max > 1 && is_basic (c) == 0))
+  	    {
+! 	      clen = mbrtowc (&wc, s, locale_mb_cur_max, &state);
+! 	      if (MB_NULLWCH (clen))
+! 		goto quote_end;
+! 	      if (MB_INVALIDCH (clen))
+! 		INITIALIZE_MBSTATE;
+! 	      else if (iswprint (wc))
+! 		{
+! 		  for (b = 0; b < (int)clen; b++)
+! 		    *r++ = (unsigned char)s[b];
+! 		  s += clen - 1;	/* -1 because of the increment above */
+! 		  continue;
+! 		}
+  	    }
+! 	  else
+! #endif
+! 	    if (ISPRINT (c))
+! 	      {
+! 		*r++ = c;
+! 		continue;
+! 	      }
+  
+! 	  *r++ = '\\';
+! 	  *r++ = TOCHAR ((c >> 6) & 07);
+! 	  *r++ = TOCHAR ((c >> 3) & 07);
+! 	  *r++ = TOCHAR (c & 07);
+! 	  continue;
+  	}
++ 
++       *r++ = '\\';
++       *r++ = c;
+      }
+  
++ quote_end:
+    *r++ = '\'';
+    *r = '\0';
+***************
+*** 349,353 ****
+      {
+  #if defined (HANDLE_MULTIBYTE)
+!       if (is_basic (c) == 0)
+  	return (ansic_wshouldquote (s));
+  #endif
+--- 350,355 ----
+      {
+  #if defined (HANDLE_MULTIBYTE)
+!       if ((locale_utf8locale && (c & 0x80)) ||
+! 	  (locale_utf8locale == 0 && locale_mb_cur_max > 1 && is_basic (c) == 0))
+  	return (ansic_wshouldquote (s));
+  #endif
+
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 7
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 8
+  
+  #endif /* _PATCHLEVEL_H_ */

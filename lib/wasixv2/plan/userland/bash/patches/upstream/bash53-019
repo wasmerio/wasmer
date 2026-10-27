@@ -1,0 +1,133 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-019
+
+Bug-Reported-by:	zheng <charname@qq.com>
+Bug-Reference-ID:	<tencent_19D6EE3366FEA3EF2C5FD6C23DF303156D09@qq.com>
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2026-08/msg00010.html
+
+Bug-Description:
+
+On some systems, macOS in particular, isalpha(3) returns true for bytes
+between 128 and 255. Bash uses this to determine whether or not these
+characters are permitted to be part of a shell identifier, and can
+consume one byte too many when determining the end of a variable name.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/syntax.h	Mon Sep 14 10:20:05 2020
+--- syntax.h	Thu Aug  6 14:11:25 2026
+***************
+*** 64,67 ****
+--- 64,69 ----
+  #define CSUBSTOP	0x1000	/* values of OP for ${word[:]OPstuff} */
+  #define CBLANK		0x2000	/* whitespace (blank) character */
++ #define CNAME		0x4000	/* POSIX name character ([_0-9a-zA-Z]) */
++ #define CNAMESTART	0x8000	/* POSIX name start character ([_a-zA-Z]) */
+  
+  /* Defines for use by the rest of the shell. */
+*** ../bash-5.3-patched/mksyntax.c	Thu May 16 15:35:55 2024
+--- mksyntax.c	Wed Aug  5 15:27:45 2026
+***************
+*** 61,64 ****
+--- 61,66 ----
+  	{ CSUBSTOP,	"CSUBSTOP" },
+  	{ CBLANK,	"CBLANK" },
++ 	{ CNAME,	"CNAME" },
++ 	{ CNAMESTART,	"CNAMESTART" }
+  };
+  	
+***************
+*** 199,202 ****
+--- 201,243 ----
+  }
+  
++ static void
++ setnamechars(void)
++ {
++   lsyntax['_'] |= CNAME|CNAMESTART;
++ 
++   lsyntax['0'] |= CNAME; lsyntax['1'] |= CNAME; lsyntax['2'] |= CNAME;
++   lsyntax['3'] |= CNAME; lsyntax['4'] |= CNAME; lsyntax['5'] |= CNAME;
++   lsyntax['6'] |= CNAME; lsyntax['7'] |= CNAME; lsyntax['8'] |= CNAME;
++   lsyntax['9'] |= CNAME;
++ 
++   lsyntax['a'] |= CNAME|CNAMESTART; lsyntax['b'] |= CNAME|CNAMESTART;
++   lsyntax['c'] |= CNAME|CNAMESTART; lsyntax['d'] |= CNAME|CNAMESTART;
++   lsyntax['e'] |= CNAME|CNAMESTART; lsyntax['f'] |= CNAME|CNAMESTART;
++   lsyntax['g'] |= CNAME|CNAMESTART; lsyntax['h'] |= CNAME|CNAMESTART;
++   lsyntax['i'] |= CNAME|CNAMESTART; lsyntax['j'] |= CNAME|CNAMESTART;
++   lsyntax['k'] |= CNAME|CNAMESTART; lsyntax['l'] |= CNAME|CNAMESTART;
++   lsyntax['m'] |= CNAME|CNAMESTART; lsyntax['n'] |= CNAME|CNAMESTART;
++   lsyntax['o'] |= CNAME|CNAMESTART; lsyntax['p'] |= CNAME|CNAMESTART;
++   lsyntax['q'] |= CNAME|CNAMESTART; lsyntax['r'] |= CNAME|CNAMESTART;
++   lsyntax['s'] |= CNAME|CNAMESTART; lsyntax['t'] |= CNAME|CNAMESTART;
++   lsyntax['u'] |= CNAME|CNAMESTART; lsyntax['v'] |= CNAME|CNAMESTART;
++   lsyntax['w'] |= CNAME|CNAMESTART; lsyntax['x'] |= CNAME|CNAMESTART;
++   lsyntax['y'] |= CNAME|CNAMESTART; lsyntax['z'] |= CNAME|CNAMESTART;
++ 
++   lsyntax['A'] |= CNAME|CNAMESTART; lsyntax['B'] |= CNAME|CNAMESTART;
++   lsyntax['C'] |= CNAME|CNAMESTART; lsyntax['D'] |= CNAME|CNAMESTART;
++   lsyntax['E'] |= CNAME|CNAMESTART; lsyntax['F'] |= CNAME|CNAMESTART;
++   lsyntax['G'] |= CNAME|CNAMESTART; lsyntax['H'] |= CNAME|CNAMESTART;
++   lsyntax['I'] |= CNAME|CNAMESTART; lsyntax['J'] |= CNAME|CNAMESTART;
++   lsyntax['K'] |= CNAME|CNAMESTART; lsyntax['L'] |= CNAME|CNAMESTART;
++   lsyntax['M'] |= CNAME|CNAMESTART; lsyntax['N'] |= CNAME|CNAMESTART;
++   lsyntax['O'] |= CNAME|CNAMESTART; lsyntax['P'] |= CNAME|CNAMESTART;
++   lsyntax['Q'] |= CNAME|CNAMESTART; lsyntax['R'] |= CNAME|CNAMESTART;
++   lsyntax['S'] |= CNAME|CNAMESTART; lsyntax['T'] |= CNAME|CNAMESTART;
++   lsyntax['U'] |= CNAME|CNAMESTART; lsyntax['V'] |= CNAME|CNAMESTART;
++   lsyntax['W'] |= CNAME|CNAMESTART; lsyntax['X'] |= CNAME|CNAMESTART;
++   lsyntax['Y'] |= CNAME|CNAMESTART; lsyntax['Z'] |= CNAME|CNAMESTART;
++ }
++ 
+  /* load up the correct flag values in lsyntax */
+  static void
+***************
+*** 235,238 ****
+--- 276,281 ----
+  
+    addblanks ();
++ 
++   setnamechars ();
+  }
+  
+*** ../bash-5.3-patched/general.h	Tue Jul  7 11:13:48 2026
+--- general.h	Thu Aug  6 14:07:22 2026
+***************
+*** 111,116 ****
+  
+  /* Define exactly what a legal shell identifier consists of. */
+! #define legal_variable_starter(c) (ISALPHA(c) || (c == '_'))
+! #define legal_variable_char(c)	(ISALNUM(c) || c == '_')
+  
+  /* Definitions used in subst.c and by the `read' builtin for field
+--- 111,121 ----
+  
+  /* Define exactly what a legal shell identifier consists of. */
+! #if 0
+! #define legal_variable_starter(c) (c < 128 && (ISALPHA(c) || c == '_'))
+! #define legal_variable_char(c)	(c < 128 && (ISALNUM(c) || c == '_'))
+! #else
+! #define legal_variable_starter(c) (sh_syntaxtab[c] & CNAMESTART)
+! #define legal_variable_char(c)	(sh_syntaxtab[c] & CNAME)
+! #endif
+  
+  /* Definitions used in subst.c and by the `read' builtin for field
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 18
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 19
+  
+  #endif /* _PATCHLEVEL_H_ */

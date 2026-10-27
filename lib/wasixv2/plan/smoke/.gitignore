@@ -1,0 +1,11 @@
+logs-v1/
+work-v1/
+test-public/
+test-logs/
+test-cfg/
+logs-extras/
+sws-v2/static-web-server.wasm
+sws-v2/src/
+sws-v2/libc/
+sws-v2/rust-src/
+sws-v2/target-spec/wasm32-wasixv2.json

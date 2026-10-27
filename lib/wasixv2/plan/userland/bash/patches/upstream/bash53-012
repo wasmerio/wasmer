@@ -1,0 +1,80 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-012
+
+Bug-Reported-by:	earl_chew@yahoo.com
+Bug-Reference-ID:
+Bug-Reference-URL:	https://savannah.gnu.org/bugs/?67745
+
+Bug-Description:
+
+If a subshell with an inherited EXIT trap receives a fatal signal before
+it clears the exit trap, and before it restores its original signal
+handlers, it's possible for it to inappropriately run the inherited EXIT
+trap.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/execute_cmd.c	Thu Jun  5 11:02:01 2025
+--- execute_cmd.c	Fri Jan  9 10:21:30 2026
+***************
+*** 1644,1648 ****
+    if (user_subshell)
+      {
+!       subshell_environment = SUBSHELL_PAREN;	/* XXX */
+        if (asynchronous)
+  	subshell_environment |= SUBSHELL_ASYNC;
+--- 1681,1685 ----
+    if (user_subshell)
+      {
+!       subshell_environment = SUBSHELL_PAREN|SUBSHELL_IGNTRAP;	/* XXX */
+        if (asynchronous)
+  	subshell_environment |= SUBSHELL_ASYNC;
+***************
+*** 1650,1654 ****
+    else
+      {
+!       subshell_environment = 0;			/* XXX */
+        if (asynchronous)
+  	subshell_environment |= SUBSHELL_ASYNC;
+--- 1687,1691 ----
+    else
+      {
+!       subshell_environment = SUBSHELL_IGNTRAP;			/* XXX */
+        if (asynchronous)
+  	subshell_environment |= SUBSHELL_ASYNC;
+*** ../bash-5.3-patched/sig.c	Wed Dec 18 15:52:06 2024
+--- sig.c	Fri Jan  9 10:21:43 2026
+***************
+*** 639,643 ****
+    comsub_ignore_return = return_catch_flag = wait_intr_flag = 0;
+  
+!   run_exit_trap ();	/* XXX - run exit trap possibly in signal context? */
+  
+    kill_shell (sig);
+--- 645,652 ----
+    comsub_ignore_return = return_catch_flag = wait_intr_flag = 0;
+  
+!   /* Don't run the exit trap if we're supposed to be ignoring traps in a
+!      subshell environment. */
+!   if ((subshell_environment & SUBSHELL_IGNTRAP) == 0)
+!     run_exit_trap ();	/* XXX - run exit trap possibly in signal context? */
+  
+    kill_shell (sig);
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 11
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 12
+  
+  #endif /* _PATCHLEVEL_H_ */

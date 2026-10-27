@@ -1,0 +1,82 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-009
+
+Bug-Reported-by:	penguin p <tgckpg@gmail.com>
+Bug-Reference-ID:	<TYYPR01MB14049C63D4635628EE867664BFA37A@TYYPR01MB14049.jpnprd01.prod.outlook.com>
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2025-08/msg00080.html
+
+Bug-Description:
+
+A SIGINT during a reverse i-search can cause a segmentation fault due to
+accessing data freed by a signal handler.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-20250807/lib/readline/input.c	Tue Jul  8 15:37:13 2025
+--- lib/readline/input.c	Fri Aug 22 15:04:05 2025
+***************
+*** 976,984 ****
+        if (rl_signal_event_hook)
+  	(*rl_signal_event_hook) ();
+! #if defined (READLINE_CALLBACKS)
+!       else if (osig == SIGINT && (ostate & RL_STATE_CALLBACK) && (ostate & (RL_STATE_ISEARCH|RL_STATE_NSEARCH|RL_STATE_NUMERICARG)))
+          /* just these cases for now */
+          _rl_abort_internal ();
+- #endif
+      }
+  }
+--- 1004,1012 ----
+        if (rl_signal_event_hook)
+  	(*rl_signal_event_hook) ();
+!       /* If the application's SIGINT handler returns, make sure we abort out of
+! 	 searches and numeric arguments because we've freed necessary state. */
+!       if (osig == SIGINT && (ostate & (RL_STATE_ISEARCH|RL_STATE_NSEARCH|RL_STATE_NUMERICARG)))
+          /* just these cases for now */
+          _rl_abort_internal ();
+      }
+  }
+*** ../bash-20250807/lib/readline/isearch.c	Thu Jun  5 09:22:11 2025
+--- lib/readline/isearch.c	Tue Aug 19 14:55:55 2025
+***************
+*** 890,899 ****
+  _rl_isearch_cleanup (_rl_search_cxt *cxt, int r)
+  {
+    if (r >= 0)
+      _rl_isearch_fini (cxt);
+    _rl_scxt_dispose (cxt, 0);
+-   _rl_iscxt = 0;
+- 
+-   RL_UNSETSTATE(RL_STATE_ISEARCH);
+  
+    return (r != 0);
+--- 890,901 ----
+  _rl_isearch_cleanup (_rl_search_cxt *cxt, int r)
+  {
++   RL_UNSETSTATE(RL_STATE_ISEARCH);
++   if (cxt == 0)
++     return (r != 0);
++ 
++   _rl_iscxt = 0;
+    if (r >= 0)
+      _rl_isearch_fini (cxt);
+    _rl_scxt_dispose (cxt, 0);
+  
+    return (r != 0);
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 8
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 9
+  
+  #endif /* _PATCHLEVEL_H_ */

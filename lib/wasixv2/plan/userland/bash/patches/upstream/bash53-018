@@ -1,0 +1,71 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-018
+
+Bug-Reported-by:	Ben Kallus <benjamin.p.kallus.gr@dartmouth.edu>
+			Derek Schrock <dereks@lifeofadishwasher.com>
+Bug-Reference-ID:	<CAB6pCSaUPimkEbQwTTkxD5vV14ZJRGCeK2W1ur8RqT1rPrd+Gw@mail.gmail.com>
+			<ajC1pZAV_95J3vsJ@ircbsd.lifeofadishwasher.com>
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-readline/2026-06/msg00005.html
+			https://lists.gnu.org/archive/html/bug-readline/2026-06/msg00002.html
+
+Bug-Description:
+
+Patch (apply with `patch -p0'):
+
+This patch fixes two problems with the redisplay code. The first is a
+crash that results if the initial prompt contains more than 256 wrapped
+lines. The second is a fix to the redisplay code when the first several
+characters of the prompt string are identical, but the prompt has changed
+and needs to be redrawn. If these first few characters are part of an escape
+sequence, the entire sequence needs to be redrawn.
+
+*** ../bash-5.3-patched/lib/readline/display.c	Fri May 22 14:55:01 2026
+--- lib/readline/display.c	Fri Jun 26 11:08:53 2026
+***************
+*** 1025,1028 ****
+--- 1025,1029 ----
+  	{
+  	  temp = local_prompt_newlines[newlines+1];
++ 	  CHECK_INV_LBREAKS ();
+  	  inv_lbreaks[++newlines] = temp;
+  	}  
+***************
+*** 2262,2270 ****
+    nd = nfd - new;	/* nd, od are buffer indexes */
+    if (current_line == 0 && !_rl_horizontal_scroll_mode &&
+!       _rl_term_cr && lendiff > prompt_visible_length && _rl_last_c_pos > 0 &&
+        (((od > 0 || nd > 0) && (od <= prompt_last_invisible || nd <= prompt_last_invisible)) ||
+  		((od >= lendiff) && _rl_last_c_pos < PROMPT_ENDING_INDEX)))
+      {
+!       _rl_cr ();
+        if (modmark)
+  	_rl_output_some_chars ("*", 1);
+--- 2266,2275 ----
+    nd = nfd - new;	/* nd, od are buffer indexes */
+    if (current_line == 0 && !_rl_horizontal_scroll_mode &&
+!       _rl_term_cr && lendiff > prompt_visible_length && _rl_last_c_pos >= 0 &&
+        (((od > 0 || nd > 0) && (od <= prompt_last_invisible || nd <= prompt_last_invisible)) ||
+  		((od >= lendiff) && _rl_last_c_pos < PROMPT_ENDING_INDEX)))
+      {
+!       if (_rl_last_c_pos > 0)
+! 	_rl_cr ();
+        if (modmark)
+  	_rl_output_some_chars ("*", 1);
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 17
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 18
+  
+  #endif /* _PATCHLEVEL_H_ */

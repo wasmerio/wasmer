@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# clang for wasm32-wasixv2 C code built by the cc crate (zstd-sys, signal-hook, ...).
+# cc-rs passes --target=wasm32-wasixv2-linux-musl (derived from the custom target name), which
+# the wasix clang driver treats as a plain Linux toolchain; drop it and force the wasixv2 driver.
+args=()
+for a in "$@"; do
+  case "$a" in --target=*) ;; *) args+=("$a") ;; esac
+done
+exec "$WASIXV2_LLVM/bin/clang" --target=wasm32-wasixv2 --no-default-config --sysroot="$WASIXV2_SYSROOT" \
+  -pthread -ftls-model=local-exec -fwasm-exceptions -mllvm -wasm-use-legacy-eh=false -mllvm -wasm-enable-sjlj \
+  "${args[@]}"

@@ -1,0 +1,49 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-010
+
+Bug-Reported-by:	Aleksey Covacevice <aleksey.covacevice@gmail.com>
+Bug-Reference-ID:
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2026-01/msg00003.html
+
+Bug-Description:
+
+Patch (apply with `patch -p0'):
+
+Under some circumstances, a subshell or asynchronous job with an active
+EXIT trap that contains a call to `wait' can loop trying to wait for
+processes that are not its children. It usually inherits these jobs from
+its parent in the jobs list.
+
+*** ../bash-5.3-patched/jobs.c	Fri Jul 25 08:53:22 2025
+--- jobs.c	Fri Jan  9 10:21:03 2026
+***************
+*** 2840,2844 ****
+  	  ps->status = (r < 0 || r > 256) ? 127 : r;
+  	}
+!       if (r == -1 && errno == ECHILD)
+  	{
+  	  /* If we're mistaken about job state, compensate. */
+--- 2842,2846 ----
+  	  ps->status = (r < 0 || r > 256) ? 127 : r;
+  	}
+!       if ((r < 0 || r > 256) && errno == ECHILD)
+  	{
+  	  /* If we're mistaken about job state, compensate. */
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 9
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 10
+  
+  #endif /* _PATCHLEVEL_H_ */

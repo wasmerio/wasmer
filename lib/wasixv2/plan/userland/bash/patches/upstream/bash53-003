@@ -1,0 +1,82 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-003
+
+Bug-Reported-by:	Isabella Bosia <izaberina@gmail.com>
+Bug-Reference-ID:	<CAAZkfoJhQ1BJ7BGk3-ObctvCJJrW3rp_tWQXT=9rY7kGDvz4uw@mail.gmail.com>
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2025-06/msg00173.html
+
+Bug-Description:
+
+Bash leaves internal quoting in place when expanding array subscripts
+that appear inside array subscripts in an arithmetic context, causing
+expansion failures.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/subst.c	Sun May 18 15:00:13 2025
+--- subst.c	Fri Jul 11 09:48:44 2025
+***************
+*** 3796,3802 ****
+  #endif
+  
+! /* We don't perform process substitution in arithmetic expressions, so don't
+!    bother checking for it. */
+! #define ARITH_EXP_CHAR(s) (s == '$' || s == '`' || s == CTLESC || s == '~')
+  
+  /* If there are any characters in STRING that require full expansion,
+--- 3796,3802 ----
+  #endif
+  
+! /* We don't perform process substitution or tilde expansion in arithmetic
+!    expressions, so don't bother checking for them. */
+! #define ARITH_EXP_CHAR(s) (s == '$' || s == '`' || s == CTLESC)
+  
+  /* If there are any characters in STRING that require full expansion,
+***************
+*** 12216,12219 ****
+--- 12216,12227 ----
+  	      break;
+  	    }
++ #if defined (ARRAY_VARS)
++ 	  /* The only special characters that matter here are []~, since those
++ 	     are backslash-quoted in expand_array_subscript but not dequoted
++ 	     by the statement following this one. */
++ 	  if ((quoted & Q_ARITH) && (c == LBRACK || c == RBRACK || c == '~'))
++ 	    ;		/* placeholder here */
++ 	  else
++ #endif
+  	  if (((quoted & (Q_HERE_DOCUMENT|Q_DOUBLE_QUOTES)) || dquote) && (sh_syntaxtab[c] & CBSDQUOTE) == 0)
+  	    *r++ = '\\';
+*** ../bash-5.3/tests/quotearray.right	Thu Nov 10 10:39:56 2022
+--- tests/quotearray.right	Thu Jul 10 15:40:27 2025
+***************
+*** 45,49 ****
+  0
+  0
+! ./quotearray1.sub: line 68: 0\],b\[1: arithmetic syntax error: invalid arithmetic operator (error token is "\],b\[1")
+  declare -a array
+  0
+--- 45,49 ----
+  0
+  0
+! ./quotearray1.sub: line 68: 0],b[1: arithmetic syntax error: invalid arithmetic operator (error token is "],b[1")
+  declare -a array
+  0
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 2
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 3
+  
+  #endif /* _PATCHLEVEL_H_ */

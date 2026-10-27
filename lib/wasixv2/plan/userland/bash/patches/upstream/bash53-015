@@ -1,0 +1,79 @@
+			     BASH PATCH REPORT
+			     =================
+
+Bash-Release:	5.3
+Patch-ID:	bash53-015
+
+Bug-Reported-by:	Duncan Roe <duncan_roe@optusnet.com.au>
+			Grisha Levit <grishalevit@gmail.com>
+Bug-Reference-ID:
+Bug-Reference-URL:	https://lists.gnu.org/archive/html/bug-bash/2025-09/msg00162.html
+			https://lists.gnu.org/archive/html/bug-bash/2025-10/msg00013.html
+
+Bug-Description:
+
+There are circumstances under which index -1 is used to reference into
+the input buffer used by the `read' builtin.
+
+Patch (apply with `patch -p0'):
+
+*** ../bash-5.3-patched/builtins/read.def	Wed Jun 25 15:50:18 2025
+--- builtins/read.def	Thu Nov  6 16:51:14 2025
+***************
+*** 539,543 ****
+  	     protects, then restore input_string so we can use it later */
+  	  orig_input_string = 0;
+! 	  input_string[i] = '\0';	/* make sure it's terminated */
+  	  if (i == 0)
+  	    {
+--- 568,573 ----
+  	     protects, then restore input_string so we can use it later */
+  	  orig_input_string = 0;
+! 	  if (i >= 0)
+! 	    input_string[i] = '\0';	/* make sure it's terminated */
+  	  if (i == 0)
+  	    {
+***************
+*** 593,598 ****
+  
+  	  ttset = ttattrs;	  
+! 	  i = silent ? ttfd_cbreak (fd, &ttset) : ttfd_onechar (fd, &ttset);
+! 	  if (i < 0)
+  	    sh_ttyerror (1);
+  	  tty_modified = 1;
+--- 623,627 ----
+  
+  	  ttset = ttattrs;	  
+! 	  if ((silent ? ttfd_cbreak (fd, &ttset) : ttfd_onechar (fd, &ttset)) < 0)
+  	    sh_ttyerror (1);
+  	  tty_modified = 1;
+***************
+*** 610,615 ****
+  
+        ttset = ttattrs;
+!       i = ttfd_noecho (fd, &ttset);			/* ttnoecho (); */
+!       if (i < 0)
+  	sh_ttyerror (1);
+  
+--- 639,643 ----
+  
+        ttset = ttattrs;
+!       if (ttfd_noecho (fd, &ttset) < 0)
+  	sh_ttyerror (1);
+
+
+*** ../bash-5.3/patchlevel.h	2020-06-22 14:51:03.000000000 -0400
+--- patchlevel.h	2020-10-01 11:01:28.000000000 -0400
+***************
+*** 26,30 ****
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 14
+  
+  #endif /* _PATCHLEVEL_H_ */
+--- 26,30 ----
+     looks for to find the patch level (for the sccs version string). */
+  
+! #define PATCHLEVEL 15
+  
+  #endif /* _PATCHLEVEL_H_ */
