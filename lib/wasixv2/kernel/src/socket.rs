@@ -244,6 +244,7 @@ impl FileObject for SocketFile {
             to: None,
             flags: MsgFlags(0),
             control: &[],
+            net_raw: false,
         };
         Box::pin(async move {
             let mut wait = self.blocking(io, SND, MsgFlags(0));

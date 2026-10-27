@@ -37,6 +37,7 @@ fn send_to(s: &dyn Socket, data: &[u8], to: Option<SocketAddr>) -> Result<usize,
         to,
         flags: MsgFlags(0),
         control: &[],
+        net_raw: false,
     })
 }
 
@@ -321,11 +322,14 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU32, Ordering},
 };
 
-use wasixv2_abi::{SocketLevel, SocketOption, TcpOption};
+use wasixv2_abi::{IpOption, SocketLevel, SocketOption, TcpOption};
 use wasixv2_wait::{PollTable, Pollable, WaitEntry, WaitQueue};
 
-use crate::{Backend, BackendDatagram, BackendStream, InboundSink, Publication, Room, StreamState};
+use crate::{
+    Backend, BackendDatagram, BackendStream, Control, InboundSink, Publication, Room, StreamState,
+};
 
+/// A connected stream that records the options applied to it.
 struct FakeStream {
     peer: SocketAddr,
     options: Mutex<Vec<(i32, i32, Vec<u8>)>>,
@@ -640,6 +644,95 @@ fn shutdown_of_a_reset_connection_is_enotconn() {
     drop(s);
     assert!(c.poll(None).contains(PollMask::ERR));
     assert_eq!(c.shutdown(Shutdown::Write), Err(Errno::ENOTCONN));
+}
+
+#[test]
+fn udp_send_fails_in_linux_order() {
+    let n = net();
+    let s = udp(&n);
+    assert_eq!(s.shutdown(Shutdown::Write), Err(Errno::ENOTCONN));
+    // The address is checked before the shutdown, and the socket bound before either.
+    assert_eq!(send(&*s, b"x"), Err(Errno::EDESTADDRREQ));
+    assert_ne!(s.local_addr().unwrap().port(), 0);
+    assert_eq!(
+        send_to(&*s, b"x", Some(a("127.0.0.1:0"))),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(
+        send_to(&*s, b"x", Some(a("8.8.8.8:53"))),
+        Err(Errno::ENETUNREACH)
+    );
+    assert_eq!(
+        send_to(&*s, &[0; 65508], Some(a("127.0.0.1:9"))),
+        Err(Errno::EMSGSIZE)
+    );
+    assert_eq!(
+        send_to(&*s, b"x", Some(a("127.0.0.1:9"))),
+        Err(Errno::EPIPE)
+    );
+}
+
+fn send_ctl(
+    s: &dyn Socket,
+    data: &[u8],
+    to: SocketAddr,
+    control: &[Control],
+) -> Result<usize, Errno> {
+    s.send(SendMsg {
+        data,
+        to: Some(to),
+        flags: MsgFlags(0),
+        control,
+        net_raw: false,
+    })
+}
+
+#[test]
+fn udp_control_messages_are_checked_and_applied() {
+    let n = net();
+    let r = udp(&n);
+    r.bind(a("0.0.0.0:7500"), false).unwrap();
+    let s = udp(&n);
+    let to = a("127.0.0.1:7500");
+    let ctl = |level: i32, kind: i32, data: Vec<u8>| Control { level, kind, data };
+    let pktinfo = |index: u32, src: [u8; 4]| {
+        let mut v = index.to_le_bytes().to_vec();
+        v.extend(src);
+        v.extend([0; 4]);
+        ctl(0, IpOption::IP_PKTINFO.0, v)
+    };
+    // `IP_PKTINFO`'s address is the source the receiver sees.
+    assert_eq!(
+        send_ctl(&*s, b"a", to, &[pktinfo(0, [127, 0, 0, 2])]),
+        Ok(1)
+    );
+    let mut buf = [0u8; 16];
+    let m = r.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(m.from.unwrap().ip(), a("127.0.0.2:0").ip());
+    // Not the machine's address, no such interface, a bad hop limit, an unknown type.
+    assert_eq!(
+        send_ctl(&*s, b"a", to, &[pktinfo(0, [10, 9, 9, 9])]),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(
+        send_ctl(&*s, b"a", to, &[pktinfo(99, [0; 4])]),
+        Err(Errno::ENODEV)
+    );
+    let ttl = |v: i32| ctl(0, IpOption::IP_TTL.0, v.to_le_bytes().to_vec());
+    assert_eq!(send_ctl(&*s, b"a", to, &[ttl(0)]), Err(Errno::EINVAL));
+    assert_eq!(send_ctl(&*s, b"a", to, &[ttl(64)]), Ok(1));
+    assert_eq!(
+        send_ctl(&*s, b"a", to, &[ctl(0, 1234, Vec::new())]),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(r.recv(&mut buf, MsgFlags(0)).unwrap().len, 1);
+    // `UDP_SEGMENT` splits the payload into datagrams of that size.
+    let seg = ctl(17, 103, 4u16.to_le_bytes().to_vec());
+    assert_eq!(send_ctl(&*s, b"0123456789", to, &[seg]), Ok(10));
+    let lens: Vec<usize> = std::iter::from_fn(|| r.recv(&mut buf, MsgFlags(0)).ok())
+        .map(|m| m.len)
+        .collect();
+    assert_eq!(lens, [4, 4, 2]);
 }
 
 #[test]

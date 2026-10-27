@@ -71,8 +71,12 @@ pub struct SendMsg<'a> {
     /// honours the protocol's own (`MSG_MORE`, `MSG_OOB`, `MSG_EOR`, `MSG_CONFIRM`, ...) or
     /// fails as Linux does for flags the protocol rejects.
     pub flags: MsgFlags,
-    /// Control messages from `sendmsg`, such as `IP_PKTINFO` or `IP_TTL`.
+    /// Control messages from `sendmsg`, such as `IP_PKTINFO` or `IP_TTL`. The kernel has
+    /// checked and removed the `SOL_SOCKET` ones (`__sock_cmsg_send`); the socket validates the
+    /// rest as its protocol does and fails the send with `EINVAL` (or `EPERM`) as Linux would.
     pub control: &'a [Control],
+    /// The caller holds `CAP_NET_RAW`, which some control messages need (IPv6 option headers).
+    pub net_raw: bool,
 }
 
 /// What `Socket::recv` received.

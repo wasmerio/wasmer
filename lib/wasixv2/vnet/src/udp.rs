@@ -14,6 +14,7 @@ use crate::{
     Accepted, BackendDatagram, Domain, NetResult, PortEntry, RecvMsg, SendMsg, Shutdown, Socket,
     SocketKind,
     addr::{canonical, present, unbound},
+    cmsg,
     net::{Net, Path, UdpRoute},
     opts::{Changed, SockOpts},
     ports::{BindSpec, SockId},
@@ -23,6 +24,8 @@ use crate::{
 /// `truesize` overhead of a small skb on 64-bit Linux.
 const DGRAM_OVERHEAD: usize = 768;
 
+/// The most `udp_sendmsg` takes at all, before the IP layer's own limit below.
+const MAX_SEND: usize = 0xFFFF;
 /// Largest UDP payload: 65535 minus the IP and UDP headers.
 const MAX_V4_PAYLOAD: usize = 65507;
 const MAX_V6_PAYLOAD: usize = 65527;
@@ -322,36 +325,29 @@ impl Socket for UdpSocket {
         }
     }
 
+    /// `inet_sendmsg` and `udp_sendmsg`/`udpv6_sendmsg`, failing in their order: autobind,
+    /// the size and flags, the destination, the control messages, the route, the payload
+    /// limit, then (`sock_alloc_send_pskb`) a pending error and a shut down sender.
     fn send(&self, msg: SendMsg<'_>) -> NetResult<usize> {
+        let mut g = self.lock();
+        // `inet_send_prepare`: an unbound socket is bound first, `EAGAIN` if that fails.
+        let local = self.autobind(&mut g).map_err(|_| Errno::EAGAIN)?;
+        if msg.data.len() > MAX_SEND {
+            return Err(Errno::EMSGSIZE);
+        }
         if msg.flags.0 & MsgFlags::MSG_OOB.0 != 0 {
             return Err(Errno::EOPNOTSUPP);
         }
-        let mut g = self.lock();
-        if g.wr_shut {
-            return Err(Errno::EPIPE);
-        }
-        let dst = match msg.to.map(canonical).or(g.peer) {
+        let dst = match msg.to.map(canonical) {
+            Some(d) if d.port() == 0 => return Err(Errno::EINVAL),
             Some(d) => d,
-            None => return Err(Errno::EDESTADDRREQ),
+            None => g.peer.ok_or(Errno::EDESTADDRREQ)?,
         };
         // `udpv6_sendmsg`: an IPv4 destination needs a dual-stack socket.
         if self.domain == Domain::Inet6 && dst.is_ipv4() && g.opts.v6only {
             return Err(Errno::ENETUNREACH);
         }
-        let max = if dst.is_ipv4() {
-            MAX_V4_PAYLOAD
-        } else {
-            MAX_V6_PAYLOAD
-        };
-        if msg.data.len() > max {
-            return Err(Errno::EMSGSIZE);
-        }
-        if dst.port() == 0 {
-            return Err(Errno::EINVAL);
-        }
-        if let Some(e) = Self::take_err(&mut g) {
-            return Err(e);
-        }
+        let ctl = cmsg::udp(msg.control, self.domain, dst.is_ipv4(), msg.net_raw)?;
         if let IpAddr::V4(v4) = dst.ip()
             && (v4.is_broadcast() || dst.ip().is_multicast())
         {
@@ -365,17 +361,39 @@ impl Socket for UdpSocket {
             }
             return Ok(msg.data.len());
         }
-        let autobind = self.spec(&g.opts, self.any());
-        let (local, route) =
-            self.net
-                .udp_route(self.id, autobind, g.local, dst, self.me.clone())?;
-        g.local = Some(local);
+        let route = self.net.udp_route(local, dst, &ctl)?;
+        let max = if dst.is_ipv4() {
+            MAX_V4_PAYLOAD
+        } else {
+            MAX_V6_PAYLOAD
+        };
+        if msg.data.len() > max {
+            return Err(Errno::EMSGSIZE);
+        }
+        if let Some(size) = ctl.gso_size {
+            cmsg::check_segments(msg.data.len(), size)?;
+        }
+        if let Some(e) = Self::take_err(&mut g) {
+            return Err(e);
+        }
+        if g.wr_shut {
+            return Err(Errno::EPIPE);
+        }
+        // `UDP_SEGMENT`: the payload leaves as datagrams of the segment size.
+        let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
         let connected = g.peer.is_some();
         match route {
             UdpRoute::Local { from, to } => {
                 drop(g);
                 match to {
-                    Some(target) => target.deliver(msg.data, from),
+                    Some(target) => {
+                        if msg.data.is_empty() {
+                            target.deliver(msg.data, from);
+                        }
+                        for chunk in msg.data.chunks(segment) {
+                            target.deliver(chunk, from);
+                        }
+                    }
                     None if connected => {
                         // ICMP port unreachable reaches connected sockets as ECONNREFUSED.
                         self.lock().err = Some(Errno::ECONNREFUSED);
@@ -388,7 +406,19 @@ impl Socket for UdpSocket {
             UdpRoute::Backend { host_dst } => {
                 let b = self.backend_endpoint(&mut g)?;
                 drop(g);
-                b.send_to(msg.data, host_dst)
+                if msg.data.len() <= segment {
+                    return b.send_to(msg.data, host_dst);
+                }
+                // One GSO send is one skb on Linux: it fails whole or goes out whole.
+                for (i, chunk) in msg.data.chunks(segment).enumerate() {
+                    match b.send_to(chunk, host_dst) {
+                        Ok(_) => {}
+                        Err(e) if i == 0 => return Err(e),
+                        // The rest is lost on the way, as segments may be.
+                        Err(_) => break,
+                    }
+                }
+                Ok(msg.data.len())
             }
         }
     }

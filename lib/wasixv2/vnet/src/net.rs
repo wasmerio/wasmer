@@ -15,7 +15,8 @@ use wasixv2_wait::{PollTable, WaitQueue};
 use crate::{
     Backend, BackendStream, Domain, InboundSink, Interface, NetResult, Network, PortEntry,
     Publication, Room, Socket, SocketKind,
-    addr::canonical,
+    addr::{canonical, canonical_ip},
+    cmsg::SendCtl,
     iface::{Interfaces, Route, RouteDecision},
     ports::{BindSpec, PortRange, PortRng, PortTable, Proto, SockId},
     tcp::{Offer, TcpSocket},
@@ -353,30 +354,30 @@ impl Net {
         live
     }
 
-    /// Where a UDP datagram to `dst` goes, decided under one lock: the route, the sender's port
-    /// (bound with `autobind` first if `local` is `None` and there is a route), and inside the
-    /// namespace the receiving socket. Returns the sender's local address and the route.
+    /// Where a UDP datagram from the bound `local` to `dst` goes, decided under one lock: the
+    /// route (`ip_route_output_flow`, with the source and interface the control messages
+    /// chose) and inside the namespace the receiving socket.
     pub(crate) fn udp_route(
         &self,
-        id: SockId,
-        autobind: BindSpec,
-        local: Option<SocketAddr>,
+        local: SocketAddr,
         dst: SocketAddr,
-        me: Weak<UdpSocket>,
-    ) -> NetResult<(SocketAddr, UdpRoute)> {
-        let (local, route) = {
-            let mut st = self.state();
-            let st = &mut *st;
-            let path = self.path_in(st, dst, local.map(|l| l.ip()))?;
-            let local = match local {
-                Some(local) => local,
-                None => {
-                    let range = self.config.port_range;
-                    let port = st.udp.bind(id, autobind, 0, range, &mut st.rng, me)?;
-                    SocketAddr::new(autobind.addr, port)
-                }
-            };
-            let route = match path {
+        ctl: &SendCtl,
+    ) -> NetResult<UdpRoute> {
+        let route = {
+            let st = self.state();
+            // `ip_route_output_key_hash_rcu`: an unknown interface is ENODEV, a source address
+            // that is not the machine's EINVAL.
+            if ctl.oif != 0 && st.ifaces.link(ctl.oif).is_none() {
+                return Err(Errno::ENODEV);
+            }
+            let src = ctl.src.map(canonical_ip);
+            if let Some(src) = src
+                && !st.ifaces.is_local(src)
+            {
+                return Err(Errno::EINVAL);
+            }
+            let path = self.path_in(&st, dst, src.or(Some(local.ip())))?;
+            match path {
                 Path::Local { src } => {
                     let from = SocketAddr::new(src, local.port());
                     // Liveness without upgrading: a last reference must not drop under the lock.
@@ -387,17 +388,15 @@ impl Net {
                     Ok((from, to))
                 }
                 Path::Backend { host_dst, .. } => Err(host_dst),
-            };
-            (local, route)
+            }
         };
-        let route = match route {
+        Ok(match route {
             Ok((from, to)) => UdpRoute::Local {
                 from,
                 to: to.and_then(|w| w.upgrade()),
             },
             Err(host_dst) => UdpRoute::Backend { host_dst },
-        };
-        Ok((local, route))
+        })
     }
 }
 

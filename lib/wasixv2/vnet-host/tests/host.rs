@@ -51,6 +51,7 @@ fn send(s: &dyn Socket, data: &[u8], to: Option<SocketAddr>) -> Result<usize, Er
         to,
         flags: MsgFlags(0),
         control: &[],
+        net_raw: false,
     })
 }
 
