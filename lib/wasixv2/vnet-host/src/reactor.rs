@@ -846,9 +846,13 @@ impl DgramShared {
 
     fn receive_all(&self, buf: &mut [u8]) {
         let mut wake = PollMask::empty();
+        // An error is reported once and then cleared (`sock_error`); one that comes straight
+        // back is not a peer's report, and retrying it would starve every other socket.
+        let mut failed = false;
         loop {
             match self.sock.recv_from(buf) {
                 Ok((n, from)) => {
+                    failed = false;
                     let mut st = self.state();
                     // Like a full SO_RCVBUF: drop when the buffer is over its limit.
                     if st.queued <= DGRAM_BUF {
@@ -859,9 +863,14 @@ impl DgramShared {
                 }
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) if failed => {
+                    tracing::warn!(error = %e, "receiving on a host datagram socket");
+                    break;
+                }
                 // An ICMP error for a connected socket (`__udp4_lib_err`); unconnected ones
                 // never hear of them (no IP_RECVERR).
                 Err(e) => {
+                    failed = true;
                     let mut st = self.state();
                     if st.connected.is_some() {
                         st.err = Some(errno_from_io(&e));
@@ -1074,7 +1083,7 @@ fn listen(addr: SocketAddr, backlog: u32) -> io::Result<TcpListener> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc;
+    use std::{os::fd::FromRawFd, sync::mpsc};
 
     use super::*;
 
@@ -1152,5 +1161,46 @@ mod tests {
         shared.writable();
         assert!(rx.try_recv().unwrap().contains(PollMask::OUT));
         assert!(d.poll(None).contains(PollMask::OUT));
+    }
+
+    #[test]
+    fn a_persistent_receive_error_does_not_spin_the_reactor() {
+        let mut fds = [0; 2];
+        // SAFETY: `pipe` fills both descriptors.
+        assert_eq!(unsafe { libc_pipe(fds.as_mut_ptr()) }, 0);
+        // A descriptor that is not a socket fails every receive with ENOTSOCK.
+        // SAFETY: the read end is ours and closed when the socket drops.
+        let sock = unsafe { std::net::UdpSocket::from_raw_fd(fds[0]) };
+        let shared = DgramShared {
+            sock: UdpSocket::from_std(sock),
+            token: Token(1),
+            wq: WaitQueue::new(),
+            st: Mutex::new(DgramState {
+                queue: VecDeque::new(),
+                queued: 0,
+                err: None,
+                connected: Some("127.0.0.1:9".parse().unwrap()),
+                host_writable: true,
+            }),
+            backend: Weak::new(),
+        };
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            shared.receive_all(&mut [0u8; 64]);
+            let _ = tx.send(shared.state().err);
+        });
+        let err = rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("receive_all returns");
+        assert_eq!(err, Some(Errno::ENOTSOCK));
+        // SAFETY: the write end is still open and ours.
+        unsafe { libc_close(fds[1]) };
+    }
+
+    unsafe extern "C" {
+        #[link_name = "pipe"]
+        fn libc_pipe(fds: *mut i32) -> i32;
+        #[link_name = "close"]
+        fn libc_close(fd: i32) -> i32;
     }
 }
