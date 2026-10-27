@@ -230,13 +230,45 @@ fn path_open_internal_with_symlink_depth(
         Ok(fd) => fd,
         Err(err) => return Ok(Err(err)),
     };
-    let maybe_inode = state
-        .fs
-        .get_inode_at_path(inodes, effective_dirfd, path, follow_symlinks);
-    let working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
+    let maybe_owned_inode =
+        state
+            .fs
+            .get_owned_inode_at_path(inodes, effective_dirfd, path, follow_symlinks);
+    // A file that doesn't exist yet belongs to the preopen owning its parent.
+    // With no owner there is nothing to authorize against, so fail closed.
+    // The create branch reuses this parent, so it creates exactly where it
+    // was authorized even if the path changes in between.
+    let (owner, authorized_parent) = match &maybe_owned_inode {
+        Ok((_, owner)) => (owner.clone(), None),
+        Err(err) => match state.fs.get_owned_parent_inode_at_path(
+            inodes,
+            effective_dirfd,
+            Path::new(path),
+            follow_symlinks,
+        ) {
+            Ok((parent, owner, name)) => (owner, Some((parent, name))),
+            Err(parent_err) if o_flags.contains(Oflags::CREATE) => return Ok(Err(parent_err)),
+            Err(_) => return Ok(Err(*err)),
+        },
+    };
+    let maybe_inode = maybe_owned_inode.map(|(inode, _)| inode);
+    let ceiling = state.fs.preopen_ceiling(&owner);
+    let working_dir_rights = working_dir.inner.rights & ceiling;
+    let working_dir_rights_inheriting = working_dir.inner.rights_inheriting & ceiling;
 
     // ASSUMPTION: open rights apply recursively
-    if !working_dir.inner.rights.contains(Rights::PATH_OPEN) {
+    if !working_dir_rights.contains(Rights::PATH_OPEN) {
+        return Ok(Err(Errno::Access));
+    }
+    if o_flags.contains(Oflags::TRUNC)
+        && !working_dir_rights.contains(Rights::PATH_FILESTAT_SET_SIZE)
+    {
+        return Ok(Err(Errno::Access));
+    }
+    if o_flags.contains(Oflags::CREATE)
+        && maybe_inode.is_err()
+        && !working_dir_rights.contains(Rights::PATH_CREATE_FILE)
+    {
         return Ok(Err(Errno::Access));
     }
 
@@ -294,8 +326,8 @@ fn path_open_internal_with_symlink_depth(
     };
 
     let parent_rights = virtual_fs::OpenOptionsConfig {
-        read: working_dir.inner.rights.contains(Rights::FD_READ),
-        write: working_dir.inner.rights.contains(Rights::FD_WRITE),
+        read: working_dir_rights.contains(Rights::FD_READ),
+        write: working_dir_rights.contains(Rights::FD_WRITE),
         // The parent is a directory, which is why these options
         // aren't inherited from the parent (append / truncate doesn't work on directories)
         create_new: true,
@@ -621,13 +653,9 @@ fn path_open_internal_with_symlink_depth(
 
             // strip end file name
 
-            let (parent_inode, new_entity_name) =
-                wasi_try_ok_ok!(state.fs.get_parent_inode_at_path(
-                    inodes,
-                    effective_dirfd,
-                    &path_arg,
-                    follow_symlinks
-                ));
+            let Some((parent_inode, new_entity_name)) = authorized_parent else {
+                return Ok(Err(Errno::Noent));
+            };
             let new_file_host_path = {
                 let guard = parent_inode.read();
                 match guard.deref() {
