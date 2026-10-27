@@ -284,7 +284,8 @@ impl Kernel {
             && exit_signal != 0
             && !ignored
         {
-            signals.send_group(child_info(exit_signal, pid, exit));
+            // A realtime exit signal its parent has no room for is lost.
+            let _ = signals.send_group(child_info(exit_signal, pid, exit));
         }
         self.procs.changed.wake(PollMask::empty());
     }
@@ -476,11 +477,12 @@ impl Kernel {
                 false => Arc::new(Mutex::new(task.fs.lock().unwrap().clone())),
             };
             let flag = Arc::new(WorkFlag::default());
-            let signals =
-                task.signals
-                    .group()
-                    .fork()
-                    .attach(id, task.signals.inherit(flags), flag.clone());
+            let account = crate::signal::Account::new(self.sigqueue_users.clone(), &process);
+            let signals = task.signals.group().fork(account).attach(
+                id,
+                task.signals.inherit(flags),
+                flag.clone(),
+            );
             // A vfork child runs on its parent's memory, so it shares the address space; a fork
             // child gets a copy of its mappings and break over the memory the execution layer
             // copies.

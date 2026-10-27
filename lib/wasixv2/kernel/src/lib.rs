@@ -131,6 +131,9 @@ pub struct Kernel {
     epoll_nesting: Mutex<()>,
     /// Every armed timer: timerfds and interval timers.
     timers: timer::Timers,
+    // ---- sig ----
+    /// The signals queued for each user, against `RLIMIT_SIGPENDING`.
+    sigqueue_users: Arc<signal::SigqueueUsers>,
     // ---- base ----
     /// What [`Kernel::spawn`]ed processes run as.
     credentials: Credentials,
@@ -223,6 +226,7 @@ impl Kernel {
             ipc: ipc::Ipc::default(),
             procs: process::Procs::default(),
             epoll_nesting: Mutex::default(),
+            sigqueue_users: Arc::default(),
             credentials: Credentials::default(),
             uts: Arc::new(Mutex::new(Uname::default().to_utsname())),
         }
@@ -277,7 +281,7 @@ impl Kernel {
             .map(String::as_bytes)
             .unwrap_or_default();
         let comm = ident::Comm::from_path(name);
-        let process = Process {
+        let process = Arc::new(Process {
             pid: id,
             start: self.host.monotonic(),
             ident: Mutex::new(ident::Ident::new(id.0)),
@@ -287,19 +291,24 @@ impl Kernel {
             env: Mutex::new(config.env),
             exe: Mutex::new(None),
             group: thread::Group::new(),
-        };
+        });
         let flag = Arc::new(WorkFlag::default());
+        let account = signal::Account::new(self.sigqueue_users.clone(), &process);
         let task = Task {
             comm,
             sched: sched::Sched::default(),
-            process: Arc::new(process),
+            process,
             mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
             fs: Arc::new(Mutex::new(FsContext::new(self.vfs.root()))),
             work: work::Work::new(flag.clone()),
             restart: None,
             thread: thread::ThreadState::default(),
-            signals: signal::Signals::new().attach(id, signal::Inherited::none(), flag),
+            signals: signal::Signals::new(Some(account)).attach(
+                id,
+                signal::Inherited::none(),
+                flag,
+            ),
         };
         let process = task.process.clone();
         state.tasks.insert(id, task);

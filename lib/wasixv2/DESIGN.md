@@ -136,7 +136,7 @@ The kernel is plain async Rust with no wasm engine, no async runtime and no reco
 - **Credentials.** Real, effective and saved uid and gid, supplementary groups and capabilities. They are checked by the kernel, never by the host.
 - **Scheduling attributes.** Policy (`SCHED_OTHER`, `BATCH`, `IDLE`, `FIFO`, `RR`, `DEADLINE`), priorities, nice value, utilization clamps, CPU affinity, timer slack and name are per task, as on Linux, and follow `kernel/sched/syscalls.c`: the same validation, `CAP_SYS_NICE`, `RLIMIT_NICE` and `RLIMIT_RTPRIO` checks, deadline admission, `SCHED_RESET_ON_FORK`, and inheritance on clone and across `execve`. They are advisory: the host schedules guest threads, so none of them changes when or where a guest runs, and real-time policies give no real-time guarantees.
 - **Signals.**
-  - Pending sets per task and per thread group, masks, dispositions, `sigaltstack`, and queued realtime signals.
+  - Pending sets per task and per thread group, masks, dispositions, `sigaltstack`, and queued realtime signals, counted per user against `RLIMIT_SIGPENDING`.
   - Delivered on the return-to-guest path.
 - **Waiting and time.**
   - Wait queues; futexes keyed by memory object and offset, so shared mappings work across processes.

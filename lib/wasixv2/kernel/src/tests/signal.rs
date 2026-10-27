@@ -1,8 +1,11 @@
-//! Signals: the alternate stack.
+//! Signals: the alternate stack and `RLIMIT_SIGPENDING`.
 
 use std::cell::Cell;
 
-use wasixv2_abi::{CloneFlags, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags, Signal, Sigset};
+use wasixv2_abi::{
+    ClockId, CloneFlags, ConstRlimit64Ptr, KernelTimespec, Rlimit64Ptr, RlimitResource, SaFlags,
+    Sigaction, Sigaltstack, SigaltstackFlags, Siginfo, Signal, SigprocmaskHow, Sigset,
+};
 use wasixv2_syscalls::{SignalFrame, read_value, write_value};
 
 use super::{ipc::machine, proc::ForkableMemory, *};
@@ -54,6 +57,7 @@ const ALT_SP: u32 = 0x8000;
 const ALT_SIZE: u32 = 0x2000;
 const ALT_TOP: u32 = ALT_SP + ALT_SIZE;
 const AUTODISARM: u32 = SigaltstackFlags::SS_AUTODISARM.0;
+const SIGRTMIN: i32 = 32;
 
 fn err<T>(errno: Errno) -> SysResult<T> {
     Err(SysErr::Errno(errno))
@@ -103,6 +107,59 @@ fn deliver(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) -> SignalFrame {
         Some(GuestAction::Signal(frame)) => frame,
         other => panic!("expected a handler frame, got {other:?}"),
     }
+}
+
+fn sigset(mask: u64) -> Sigset {
+    Sigset {
+        sig: [mask as u32, (mask >> 32) as u32],
+    }
+}
+
+fn block(kernel: &Kernel, caller: &Caller<'_>, mask: u64) {
+    block_on(write_value(
+        caller.memory(),
+        GuestPtrMut::new(0x160),
+        &sigset(mask),
+    ))
+    .unwrap();
+    let how = SigprocmaskHow::SIG_BLOCK;
+    let set = kernel.rt_sigprocmask(caller, how, GuestPtr::new(0x160), GuestPtrMut::NULL, 8);
+    assert_eq!(block_on(set), Ok(0));
+}
+
+/// `sigtimedwait` for `sig` without waiting: the `siginfo` it takes, if one is pending.
+fn take(kernel: &Kernel, caller: &Caller<'_>, sig: i32) -> Option<Siginfo> {
+    let these = sigset(1 << (sig - 1));
+    let now = KernelTimespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    block_on(write_value(
+        caller.memory(),
+        GuestPtrMut::new(0x170),
+        &these,
+    ))
+    .unwrap();
+    block_on(write_value(caller.memory(), GuestPtrMut::new(0x178), &now)).unwrap();
+    let wait = kernel.rt_sigtimedwait_time64(
+        caller,
+        GuestPtr::new(0x170),
+        GuestPtrMut::new(0x200),
+        GuestPtr::new(0x178),
+        8,
+    );
+    match block_on(wait) {
+        Ok(got) => {
+            assert_eq!(got, sig);
+            Some(block_on(read_value(caller.memory(), GuestPtr::new(0x200))).unwrap())
+        }
+        Err(SysErr::Errno(Errno::EAGAIN)) => None,
+        Err(other) => panic!("sigtimedwait failed: {other:?}"),
+    }
+}
+
+fn sifield(info: &Siginfo, at: usize) -> u32 {
+    u32::from_le_bytes(info.sifields[at..at + 4].try_into().unwrap())
 }
 
 fn clone(kernel: &Kernel, caller: &Caller<'_>, flags: u32) -> SysResult<i32> {
@@ -277,4 +334,109 @@ fn a_fork_or_vfork_child_keeps_the_alternate_stack_and_a_thread_starts_without()
     let inherited = (ALT_SP, 0, ALT_SIZE);
     assert_eq!(altstack(&kernel, &Caller::new(forked, &memory)), inherited);
     assert_eq!(altstack(&kernel, &Caller::new(vforked, &memory)), inherited);
+}
+
+// ---- RLIMIT_SIGPENDING ----
+
+fn set_sigpending_limit(kernel: &Kernel, caller: &Caller<'_>, limit: u64) {
+    let rlimit = [limit.to_le_bytes(), limit.to_le_bytes()].concat();
+    block_on(caller.memory().write(0x180, &rlimit)).unwrap();
+    let set = kernel.prlimit64(
+        caller,
+        0,
+        RlimitResource::RLIMIT_SIGPENDING,
+        ConstRlimit64Ptr::new(0x180),
+        Rlimit64Ptr::new(0),
+    );
+    assert_eq!(block_on(set), Ok(0));
+}
+
+/// The `siginfo` `sigqueue` sends: `SI_QUEUE` with `si_value`.
+fn queue_info(sig: i32, value: u32) -> Siginfo {
+    let mut info = Siginfo {
+        si_signo: sig,
+        si_errno: 0,
+        si_code: wasixv2_abi::SiCode::SI_QUEUE.0,
+        sifields: [0; 116],
+    };
+    info.sifields[8..12].copy_from_slice(&value.to_le_bytes());
+    info
+}
+
+fn sigqueue(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    pid: Pid,
+    sig: i32,
+    value: u32,
+) -> SysResult<i32> {
+    let info = queue_info(sig, value);
+    block_on(write_value(caller.memory(), GuestPtrMut::new(0x400), &info)).unwrap();
+    block_on(kernel.rt_sigqueueinfo(caller, pid, Signal(sig), GuestPtr::new(0x400)))
+}
+
+#[test]
+fn realtime_signals_queue_up_to_rlimit_sigpending() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let me = task.0 as Pid;
+    set_sigpending_limit(&kernel, &caller, 2);
+    block(&kernel, &caller, 1 << (SIGRTMIN - 1));
+
+    assert_eq!(sigqueue(&kernel, &caller, me, SIGRTMIN, 1), Ok(0));
+    assert_eq!(sigqueue(&kernel, &caller, me, SIGRTMIN, 2), Ok(0));
+    assert_eq!(
+        sigqueue(&kernel, &caller, me, SIGRTMIN, 3),
+        err(Errno::EAGAIN)
+    );
+    // The timer's preallocated signal counts too.
+    let timer = kernel.timer_create(
+        &caller,
+        ClockId::CLOCK_MONOTONIC,
+        GuestPtr::NULL,
+        GuestPtrMut::new(0x500),
+    );
+    assert_eq!(block_on(timer), err(Errno::EAGAIN));
+    // `kill` is never refused: the signal is pending without its `siginfo`.
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, me, Signal(SIGRTMIN))),
+        Ok(0)
+    );
+
+    let first = take(&kernel, &caller, SIGRTMIN).unwrap();
+    assert_eq!(first.si_code, wasixv2_abi::SiCode::SI_QUEUE.0);
+    assert_eq!(sifield(&first, 8), 1, "si_value");
+    // Taking one makes room for one.
+    assert_eq!(sigqueue(&kernel, &caller, me, SIGRTMIN, 4), Ok(0));
+    assert_eq!(
+        sigqueue(&kernel, &caller, me, SIGRTMIN, 5),
+        err(Errno::EAGAIN)
+    );
+    let values: Vec<u32> = std::iter::from_fn(|| take(&kernel, &caller, SIGRTMIN))
+        .map(|info| sifield(&info, 8))
+        .collect();
+    assert_eq!(values, [2, 4]);
+    assert_eq!(take(&kernel, &caller, SIGRTMIN), None);
+}
+
+#[test]
+fn a_signal_without_room_for_its_siginfo_comes_from_pid_zero() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let me = task.0 as Pid;
+    set_sigpending_limit(&kernel, &caller, 0);
+    block(&kernel, &caller, 1 << (SIGRTMIN - 1));
+
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, me, Signal(SIGRTMIN))),
+        Ok(0)
+    );
+
+    let info = take(&kernel, &caller, SIGRTMIN).unwrap();
+    assert_eq!(info.si_code, wasixv2_abi::SiCode::SI_USER.0);
+    assert_eq!(
+        (sifield(&info, 0), sifield(&info, 4)),
+        (0, 0),
+        "si_pid, si_uid"
+    );
 }
