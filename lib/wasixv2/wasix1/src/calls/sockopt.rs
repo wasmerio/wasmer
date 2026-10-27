@@ -119,7 +119,7 @@ fn target(option: i32, kind: Kind) -> V1Result<Target> {
 
 /// The compat-side timeouts of each socket, by descriptor. Every new socket descriptor
 /// (`sock_open`, `sock_accept`, `sock_pair`) starts without, so a reused number does not
-/// inherit them.
+/// inherit them; a closed one forgets them, and a copy (`dup`, `dup2`) has its socket's.
 #[derive(Debug, Default)]
 pub struct Timeouts(Mutex<HashMap<Fd, [Option<Duration>; 2]>>);
 
@@ -148,6 +148,15 @@ impl Timeouts {
     /// A copy for a fork child.
     pub(crate) fn fork(&self) -> Self {
         Self(Mutex::new(self.0.lock().unwrap().clone()))
+    }
+
+    /// Gives `to`, a new copy of the descriptor `from`, `from`'s timeouts.
+    pub(crate) fn copy(&self, from: Fd, to: Fd) {
+        let mut map = self.0.lock().unwrap();
+        match map.get(&from).copied() {
+            Some(timeouts) => map.insert(to, timeouts),
+            None => map.remove(&to),
+        };
     }
 
     /// Forgets `fd`'s timeouts, for a descriptor that now names a new socket.

@@ -70,7 +70,8 @@ impl Handle {
 /// The guest's data of every registration, by handle.
 ///
 /// The index by (epoll descriptor, watched descriptor) serves `EPOLL_CTL_MOD`/`DEL`, which
-/// replace or drop the data registered before. Every record belongs to exactly one index
+/// replace or drop the data registered before. Like the descriptors it is keyed by, a record
+/// goes when its epoll descriptor is closed or comes to name another file (see [`forgotten`]). Every record belongs to exactly one index
 /// entry, so the table holds at most one record per pair the guest has used, also for items
 /// the kernel dropped on its own (the watched file's last close) or changed through another
 /// descriptor of the set.
@@ -113,8 +114,8 @@ impl Table {
         }
     }
 
-    /// Forgets everything registered through `epfd`, a descriptor that now names a new epoll
-    /// set.
+    /// Forgets everything registered through `epfd`, a descriptor that was closed or now names
+    /// another file, such as a new epoll set.
     fn forget(&self, epfd: Fd) {
         let regs = &mut *self.0.lock().unwrap();
         regs.index.retain(|(set, _), handle| {
@@ -140,6 +141,18 @@ impl Table {
                 ..EpollData::ZERO
             })
     }
+}
+
+/// Forgets what the process kept about the descriptor `fd`, which was closed or now names
+/// another file: its epoll registrations as a set, and its socket timeouts.
+pub(crate) async fn forgotten<S: Syscalls + Control + 'static>(
+    frame: &crate::shim::Frame<'_, S>,
+    fd: Fd,
+) -> crate::errno::V1Result<()> {
+    let proc = frame.proc().await?;
+    proc.net.epoll.forget(fd);
+    proc.net.timeouts.forget(fd);
+    Ok(())
 }
 
 pub(crate) async fn epoll_create<S: Syscalls + Control + 'static>(

@@ -767,6 +767,9 @@ pub(crate) async fn fd_renumber<S: Syscalls + Control + 'static>(
             .syscalls
             .dup3(&caller, Fd(from), Fd(to), OpenFlags(0))
             .await?;
+        // `to` names `from`'s file now.
+        super::epoll::forgotten(frame, Fd(to)).await?;
+        frame.proc().await?.net.timeouts.copy(Fd(from), Fd(to));
         if is_preopen(frame, to).await? {
             frame.proc().await?.fs.replaced.lock().unwrap().insert(to);
         }
@@ -782,6 +785,7 @@ pub(crate) async fn fd_dup<S: Syscalls + Control + 'static>(
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let new = frame.syscalls.dup(&frame.caller(), Fd(fd)).await?;
+        frame.proc().await?.net.timeouts.copy(Fd(fd), new);
         frame.write(out as u32, &(new.0 as u32)).await
     })
     .await
@@ -804,6 +808,7 @@ pub(crate) async fn fd_dup2<S: Syscalls + Control + 'static>(
             .syscalls
             .fcntl64(&frame.caller(), Fd(fd), cmd, min_fd as u32)
             .await?;
+        frame.proc().await?.net.timeouts.copy(Fd(fd), Fd(new));
         frame.write(out as u32, &(new as u32)).await
     })
     .await

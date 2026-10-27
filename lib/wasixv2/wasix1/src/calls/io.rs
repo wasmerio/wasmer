@@ -53,7 +53,7 @@ pub(crate) async fn fd_close<S: Syscalls + Control + 'static>(
             return Ok(());
         }
         frame.syscalls.close(&frame.caller(), Fd(fd)).await?;
-        Ok(())
+        crate::calls::epoll::forgotten(frame, Fd(fd)).await
     })
     .await
 }
