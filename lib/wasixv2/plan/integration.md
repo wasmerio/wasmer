@@ -233,3 +233,27 @@ Validated on a fresh toolchain (LLVM wasix-22.1.8 `3f3e05caa210`, wasixcc `82221
 Landed, fast-forward: tests `main` `b0861b8..6405893`; libc2 `main` `5d33ff2a..c26931b5`
 (`0006659a` without `wip:`); wasmer `feat/wasixv2` `bdcdb958bef..f98fc48fa5c` (`0269525c9eb`
 without `wip:`). `f71e0b1a38b` (wasix1 0777) kept, as decided.
+
+## 2026-10-27: train6 (WP3 futex + mm, WP5+6 net, WP9 signals) — LANDED
+
+wasmer `wasixv2/train6-land` on train 5: WP3 10 commits (rebased `--onto`, without the v1-sigterm
+commits; adds a fix for a host panic when a sibling is released during the `exit_group` futex walk,
+and a non-hanging wasix1 `atomic_waits` test), WP5+6 15 commits (the split of `70c542fa87b`; tree
+identical), WP9 8 commits (one per finding; tree identical to `8d686147337`), the tests bump, a fix
+(`f5492741a92`: a vfork parent whose group exited does not return from vfork; the kernel passes the
+pending exit in `VforkParent` on `VforkReturn`/`Exec` and the exec layer unwinds with it) and the
+re-bless bump. Conflicts: only the two documented ones (`real_timer_expired`, DESIGN vfork).
+
+- Gates: crate tests 580, clippy, fmt, release, CLI `--test run` 51/0/13.
+- First suite (two runs, before the fix): `proc-vfork-parent-exit` failed 5/5 (the exec layer
+  resumed the vfork parent before its queued exit). Fixed as above; 5/5 pass after.
+- Re-bless: `ltp/syscalls/mremap05` (WP3, H2) and `ltp/syscalls/tgkill02` (WP9, M-P4) come off;
+  hand-written reasons kept. No Open POSIX/LTP socket test newly passes from WP5+6.
+- Final unblessed suite: 2364 pass, 1229 expected failures, 0 unexpected, 454 ignored. All 13 new
+  tests pass.
+- Smoke: sws-v2 28/28; v1 8 + python expected-fail; v1 servers stop on SIGTERM with no panic. Their
+  exit status 127 is the guest's: v1 static-web-server has no SIGTERM handler on wasm, wasix-libc's
+  default action calls `abort()`, which ends in `_Exit(127)`.
+
+Landed, fast-forward: libc2 `main` `c26931b5..a524136a`; tests `main` `6405893..5af6416`; wasmer
+`feat/wasixv2` `f98fc48fa5c..53813911d17`.
