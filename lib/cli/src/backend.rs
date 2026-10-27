@@ -309,6 +309,16 @@ impl RuntimeOptions {
         required_features: &Features,
         target: &Target,
     ) -> Result<Engine> {
+        self.get_backend_for_features(required_features, target)?
+            .get_engine(target, self)
+    }
+
+    /// The backend [`RuntimeOptions::get_engine_for_features`] compiles with.
+    pub fn get_backend_for_features(
+        &self,
+        required_features: &Features,
+        target: &Target,
+    ) -> Result<BackendType> {
         let backends = self.get_available_backends()?;
         let filtered_backends =
             Self::filter_backends_by_features(backends.clone(), required_features, target);
@@ -335,7 +345,7 @@ impl RuntimeOptions {
                 );
             }
         }
-        filtered_backends.first().unwrap().get_engine(target, self)
+        Ok(filtered_backends[0])
     }
 
     #[cfg(feature = "compiler")]

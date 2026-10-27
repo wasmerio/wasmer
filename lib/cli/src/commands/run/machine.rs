@@ -7,18 +7,19 @@ use std::{
     io,
     net::{Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use anyhow::{Context, Error, bail};
-use wasixv2::{Credentials, Machine, ProcessConfig, Signaller, Stdio, Uname};
+use wasixv2::{
+    CommandDefaults, Credentials, LoadError, Loader, LocalFuture, Machine, OwnedBuffer,
+    ProcessConfig, Signaller, Stdio, Uname,
+};
 use wasmer::{Engine, Module};
 use wasmer_config::package::PackageId;
 use wasmer_types::target::Target;
 use wasmer_wasix::{
-    Runtime,
-    bin_factory::{BinaryPackage, BinaryPackageCommand},
-    runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
+    Runtime, bin_factory::BinaryPackage, runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runtime::module_cache::HashedModuleData,
 };
 use webc::{
@@ -31,17 +32,35 @@ use super::{
     CliPackageSource, GuestExit, Run, exit_with_wasi_exit_code, runtime::PackageTree,
     wasi::utf8_env_part,
 };
-use crate::backend::RuntimeOptions;
+use crate::backend::{BackendType, RuntimeOptions};
 
 /// What to start on the machine.
 pub(super) struct MachineProgram {
     argv0: String,
-    engine: Engine,
-    module: Module,
+    start: Start,
     /// The command's `wasi` annotation, for a package.
     wasi: Option<WasiAnnotation>,
     /// The package volumes to mount, each over the ones before it.
     volumes: Vec<PackageVolume>,
+    /// The package tree's commands, for `/bin` and `/usr/bin`.
+    commands: Vec<PackageCommand>,
+}
+
+/// How the program's process starts.
+enum Start {
+    /// A module compiled on the host, run as it is.
+    Module { engine: Engine, module: Module },
+    /// The guest file at this path, which the process `execve`s: a package command or a
+    /// script.
+    File(String),
+}
+
+/// A command of the package tree: `/bin/<name>` and `/usr/bin/<name>` hold its atom.
+struct PackageCommand {
+    name: String,
+    atom: OwnedBuffer,
+    /// What WASIX v1 programs that start it pass along, from its `wasi` annotation.
+    defaults: CommandDefaults,
 }
 
 /// A volume of a package in the tree, and where it goes.
@@ -56,15 +75,88 @@ impl MachineProgram {
     pub(super) fn module(path: &Path, engine: Engine, module: Module) -> Self {
         Self {
             argv0: path.display().to_string(),
-            engine,
-            module,
+            start: Start::Module { engine, module },
             wasi: None,
             volumes: Vec::new(),
+            commands: Vec::new(),
+        }
+    }
+
+    /// The `#!` script at `guest`, a guest path, which `execve` hands to its interpreter.
+    pub(super) fn script(guest: String) -> Self {
+        Self {
+            argv0: guest.clone(),
+            start: Start::File(guest),
+            wasi: None,
+            volumes: Vec::new(),
+            commands: Vec::new(),
         }
     }
 
     fn is_package(&self) -> bool {
         self.wasi.is_some()
+    }
+}
+
+/// Whether the host file at `path` is a `#!` script, which runs as its interpreter on the
+/// machine.
+pub(super) fn is_script(path: &Path) -> bool {
+    let mut magic = [0; 2];
+    std::fs::File::open(path)
+        .and_then(|mut file| io::Read::read_exact(&mut file, &mut magic))
+        .is_ok_and(|()| magic == *b"#!")
+}
+
+/// Compiles the images the machine's processes `execve`, and the package command it starts,
+/// as `wasmer run` compiles a module: on a backend with the WebAssembly features the image
+/// uses, through the runtime's compiled-module cache (keyed by a hash of the bytes), with the
+/// machine's preemption points ([`wasixv2::instrument`]).
+struct CachedLoader {
+    runtime: Arc<dyn Runtime + Send + Sync>,
+    options: RuntimeOptions,
+    /// One engine per backend, made when an image first needs it.
+    engines: Mutex<Vec<(BackendType, Engine)>>,
+}
+
+impl CachedLoader {
+    fn new(runtime: Arc<dyn Runtime + Send + Sync>, options: RuntimeOptions) -> Self {
+        Self {
+            runtime,
+            options,
+            engines: Mutex::default(),
+        }
+    }
+
+    /// The engine of the backend [`RuntimeOptions::get_engine_for_module`] picks for `wasm`.
+    fn engine_for(&self, wasm: &[u8]) -> Result<Engine, Error> {
+        let target = Target::default();
+        let features = self
+            .options
+            .detect_features_from_wasm(wasm)
+            .unwrap_or_default();
+        let backend = self.options.get_backend_for_features(&features, &target)?;
+        let mut engines = self.engines.lock().unwrap();
+        if let Some((_, engine)) = engines.iter().find(|(b, _)| *b == backend) {
+            return Ok(engine.clone());
+        }
+        let engine = backend.get_engine(&target, &self.options)?;
+        engines.push((backend, engine.clone()));
+        Ok(engine)
+    }
+}
+
+impl Loader for CachedLoader {
+    fn load<'a>(
+        &'a self,
+        _engine: &'a Engine,
+        image: &'a [u8],
+    ) -> LocalFuture<'a, Result<(Engine, Module), LoadError>> {
+        Box::pin(async move {
+            let engine = self.engine_for(image)?;
+            let wasm = HashedModuleData::new(wasixv2::instrument(image).into_owned());
+            let module = self.runtime.load_hashed_module(wasm, Some(&engine)).await?;
+            Ok((engine, module))
+        })
     }
 }
 
@@ -78,6 +170,46 @@ pub(super) fn compile(
 ) -> Result<Module, Error> {
     let wasm = wasixv2::instrument(wasm).into_owned();
     Ok(runtime.load_hashed_module_sync(HashedModuleData::new(wasm), Some(engine))?)
+}
+
+/// Fails unless the atom of the package command `name` is a program the machine runs: a
+/// module importing WASIX v2, WASIX v1 or WASI, or a script for `execve` to hand to its
+/// interpreter. Anything else `execve` refuses with `ENOEXEC`.
+fn check_command_atom(name: &str, atom: &[u8]) -> Result<(), Error> {
+    if !wasmer::is_wasm(atom) || wasixv2::is_wasixv2_module(atom) {
+        return Ok(());
+    }
+    match wasixv2::is_wasix1_module(atom) {
+        None => bail!("the \"{name}\" command's module imports neither WASIX nor WASI"),
+        Some(flavor) => match flavor.unsupported_reason() {
+            None => Ok(()),
+            Some(reason) => bail!("the \"{name}\" command cannot run: {reason}"),
+        },
+    }
+}
+
+/// The commands of the package tree, in the order the resolver gave them: it made each name
+/// that of the first package in the tree (the root, then its dependencies) that has it.
+fn package_commands(pkg: &BinaryPackage) -> Result<Vec<PackageCommand>, Error> {
+    pkg.commands
+        .iter()
+        .map(|cmd| {
+            let wasi = cmd
+                .metadata()
+                .annotation::<WasiAnnotation>(WasiAnnotation::KEY)
+                .with_context(|| format!("invalid annotations on the \"{}\" command", cmd.name()))?
+                .unwrap_or_else(|| WasiAnnotation::new(cmd.name()));
+            Ok(PackageCommand {
+                name: cmd.name().to_string(),
+                atom: cmd.atom(),
+                defaults: CommandDefaults {
+                    argv0: wasi.exec_name,
+                    args: wasi.main_args.unwrap_or_default(),
+                    env: wasi.env.unwrap_or_default(),
+                },
+            })
+        })
+        .collect()
 }
 
 /// Whether the machine runs `module`: one importing WASIX v2, or WASIX v1 or WASI preview1. A
@@ -102,7 +234,6 @@ impl Run {
         &self,
         pkg: &BinaryPackage,
         tree: &PackageTree,
-        runtime: &Arc<dyn Runtime + Send + Sync>,
     ) -> Result<MachineProgram, Error> {
         let name = match self.entrypoint.as_deref() {
             Some(name) => name,
@@ -117,44 +248,18 @@ impl Run {
                 cmd.metadata().runner
             );
         }
-        let engine = self.engine_for_command(cmd)?;
-        let module = compile(runtime, &engine, cmd.atom_ref())
-            .with_context(|| format!("Unable to compile the \"{name}\" command"))?;
-        if !runs_on_machine(&module)? {
-            bail!("the \"{name}\" command's module imports neither WASIX nor WASI");
-        }
+        check_command_atom(name, cmd.atom_ref())?;
         let wasi = cmd
             .metadata()
             .annotation::<WasiAnnotation>(WasiAnnotation::KEY)?
             .unwrap_or_else(|| WasiAnnotation::new(name));
         Ok(MachineProgram {
             argv0: wasi.exec_name.clone().unwrap_or_else(|| name.to_string()),
-            engine,
-            module,
+            start: Start::File(format!("/bin/{name}")),
             wasi: Some(wasi),
             volumes: self.package_volumes(tree)?,
+            commands: package_commands(pkg)?,
         })
-    }
-
-    /// The engine for `cmd`: one whose backend has the WebAssembly features the command's atom
-    /// declares, else the one the options pick.
-    fn engine_for_command(&self, cmd: &BinaryPackageCommand) -> Result<Engine, Error> {
-        let target = Target::default();
-        if let Some(features) = cmd.wasm_features() {
-            let backends = self.rt.get_available_backends()?;
-            let compatible =
-                RuntimeOptions::filter_backends_by_features(backends, &features, &target);
-            if let Some(backend) = compatible.first() {
-                tracing::info!(
-                    command = cmd.name(),
-                    ?features,
-                    %backend,
-                    "Picked a backend with the features the command needs",
-                );
-                return backend.get_engine(&target, &self.rt);
-            }
-        }
-        self.rt.get_engine(&target)
     }
 
     /// The volumes of the tree's filesystem table, each after the ones it obscures and parents
@@ -224,10 +329,13 @@ impl Run {
         Ok(volumes)
     }
 
+    /// Runs `program` on a machine whose images compile through `runtime`, driven on the tokio
+    /// runtime `handle`, and exits with its status.
     pub(super) fn execute_machine(
         &self,
         program: MachineProgram,
-        runtime: &tokio::runtime::Handle,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+        handle: &tokio::runtime::Handle,
     ) -> Result<(), Error> {
         self.reject_options_unsupported_by_the_machine(program.is_package())?;
 
@@ -240,7 +348,7 @@ impl Run {
             env: self.machine_env(wasi)?,
             stdio: Stdio::inherit(),
         };
-        let mut machine = self.machine()?;
+        let mut machine = self.machine(runtime)?;
         let (root_volumes, volumes): (Vec<_>, Vec<_>) = program
             .volumes
             .iter()
@@ -251,7 +359,7 @@ impl Run {
         let (root_dirs, host_dirs): (Vec<_>, Vec<_>) = host_dirs
             .into_iter()
             .partition(|dir| Path::new(&dir.guest) == Path::new("/"));
-        runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+        handle.block_on(tokio::task::LocalSet::new().run_until(async {
             for volume in root_volumes {
                 machine
                     .mount_root_lower(&volume.reader, &volume.name)
@@ -260,6 +368,15 @@ impl Run {
                         format!("cannot mount the package volume \"{}\" at /", volume.name)
                     })?;
             }
+            // Over the package's volumes, as v1 wrote them into the root after merging those.
+            let commands = program
+                .commands
+                .iter()
+                .map(|cmd| (cmd.name.clone(), cmd.atom.clone()));
+            machine
+                .install_commands(commands)
+                .await
+                .context("cannot install the package's commands in /bin and /usr/bin")?;
             for dir in root_dirs {
                 machine
                     .mount_root_lower_host_dir(&dir.host)
@@ -268,6 +385,13 @@ impl Run {
             }
             Ok::<_, Error>(())
         }))?;
+        let defaults = program
+            .commands
+            .iter()
+            .map(|cmd| (cmd.name.clone(), cmd.defaults.clone()));
+        machine
+            .set_wasix1_command_defaults(defaults)
+            .context("cannot configure the package's commands")?;
         // v1's precedence: the command's `cwd` annotation, then `--cwd`, then the mapped current
         // directory.
         let cwd = wasi
@@ -283,7 +407,7 @@ impl Run {
         }
         // The machine's host calls are not `Send`, so drive it on this thread, in a `LocalSet`
         // for the host work it spawns.
-        let run = runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+        let run = handle.block_on(tokio::task::LocalSet::new().run_until(async {
             for volume in volumes {
                 // Writable like v1's package mounts; changes stay in memory.
                 machine
@@ -324,13 +448,15 @@ impl Run {
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
             // Installed before the guest starts, so no signal takes the host's default action.
-            forward_signals(runtime, machine.signaller())
+            forward_signals(handle, machine.signaller())
                 .context("cannot install signal handlers")?;
-            Ok::<_, Error>(
-                machine
-                    .run_module(&program.engine, &program.module, config)
-                    .await,
-            )
+            let status = match &program.start {
+                Start::Module { engine, module } => {
+                    machine.run_module(engine, module, config).await
+                }
+                Start::File(path) => machine.run_file(&runtime.engine(), path, config).await,
+            };
+            Ok::<_, Error>(status)
         }));
         let result = match run {
             Ok(Ok(0)) => Ok(()),
@@ -343,10 +469,41 @@ impl Run {
         exit_with_wasi_exit_code(result)
     }
 
-    /// A machine configured by `--user` and the `uname` options.
-    fn machine(&self) -> Result<Machine, Error> {
+    /// The guest path of the host script at `path`: where the `--volume` mapping holding it
+    /// (the innermost one, for nested mappings) shows it.
+    pub(super) fn script_guest_path(&self, path: &Path) -> Result<String, Error> {
+        let script = path
+            .canonicalize()
+            .with_context(|| format!("Unable to find \"{}\"", path.display()))?;
+        let (_, mapped) = self.wasi.build_mapped_directories()?;
+        let (dir, rest) = mapped
+            .iter()
+            .filter_map(|dir| Some((dir, script.strip_prefix(&dir.host).ok()?)))
+            .max_by_key(|(dir, _)| dir.host.components().count())
+            .with_context(|| {
+                format!(
+                    "the script \"{}\" must be in a directory mapped with --volume, so that its \
+                     interpreter can read it",
+                    path.display()
+                )
+            })?;
+        let rest = rest
+            .to_str()
+            .with_context(|| format!("the path {} is not UTF-8", rest.display()))?;
+        let mut guest = dir.guest.trim_end_matches('/').to_string();
+        for part in rest.split(std::path::MAIN_SEPARATOR) {
+            guest.push('/');
+            guest.push_str(part);
+        }
+        Ok(guest)
+    }
+
+    /// A machine configured by `--user` and the `uname` options, whose images compile
+    /// through `runtime`.
+    fn machine(&self, runtime: &Arc<dyn Runtime + Send + Sync>) -> Result<Machine, Error> {
         let wasi = &self.wasi;
-        let mut builder = Machine::builder();
+        let loader = CachedLoader::new(runtime.clone(), self.rt.clone());
+        let mut builder = Machine::builder().loader(Arc::new(loader));
         if let Some(user) = wasi.user {
             builder = builder.user(Credentials::new(user.uid, user.gid));
         }
