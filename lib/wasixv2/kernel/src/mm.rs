@@ -370,6 +370,68 @@ fn check_aligned(addr: u32) -> Result<(), Errno> {
     }
 }
 
+/// The arguments of an `mremap` that passed `check_mremap_params`, with the lengths in whole
+/// pages.
+struct Remap {
+    addr: u64,
+    old_size: u64,
+    new_size: u64,
+    new_addr: Uptr,
+    may_move: bool,
+    fixed: bool,
+    dont_unmap: bool,
+}
+
+impl Remap {
+    /// `check_mremap_params`, in its order.
+    fn check(
+        addr: Uptr,
+        old_len: Ulong,
+        new_len: Ulong,
+        flags: MremapFlags,
+        new_addr: Uptr,
+    ) -> Result<Self, Errno> {
+        let known =
+            MremapFlags::MREMAP_MAYMOVE | MremapFlags::MREMAP_FIXED | MremapFlags::MREMAP_DONTUNMAP;
+        if !(flags & !known).is_empty() {
+            return Err(Errno::EINVAL);
+        }
+        check_aligned(addr)?;
+        let remap = Self {
+            addr: addr.into(),
+            old_size: u64::from(old_len).div_ceil(PAGE_SIZE) * PAGE_SIZE,
+            // A zero old length is the "duplicate" case; a zero new length is nonsense.
+            new_size: pages(new_len)? * PAGE_SIZE,
+            new_addr,
+            may_move: flags.contains(MremapFlags::MREMAP_MAYMOVE),
+            fixed: flags.contains(MremapFlags::MREMAP_FIXED),
+            dont_unmap: flags.contains(MremapFlags::MREMAP_DONTUNMAP),
+        };
+        if !remap.implies_new_addr() {
+            return Ok(remap);
+        }
+        let target = u64::from(new_addr);
+        if target + remap.new_size > 1 << 32 {
+            return Err(Errno::EINVAL);
+        }
+        check_aligned(new_addr)?;
+        if !remap.may_move || (remap.dont_unmap && remap.old_size != remap.new_size) {
+            return Err(Errno::EINVAL);
+        }
+        // `vrm_overlaps`: moving onto the source would copy what replacing the target zeroed.
+        if remap.addr < target + remap.new_size && target < remap.addr + remap.old_size {
+            return Err(Errno::EINVAL);
+        }
+        Ok(remap)
+    }
+
+    /// `vrm_implies_new_addr`: the mapping moves to `new_addr`, or with `MREMAP_DONTUNMAP` alone
+    /// anywhere (the address is a hint, which is ignored).
+    fn implies_new_addr(&self) -> bool {
+        self.fixed || self.dont_unmap
+    }
+}
+
 /// `MADV_*` values Linux's `madvise_behavior_valid` accepts.
 fn advice_valid(advice: MadviseAdvice) -> bool {
     matches!(advice.0, 0..=4 | 8..=25 | 100..=103)
@@ -607,6 +669,7 @@ impl Kernel {
         Ok(0)
     }
 
+    /// `do_mremap` (`mm/mremap.c`).
     pub(crate) async fn sys_mremap(
         &self,
         caller: &Caller<'_>,
@@ -616,33 +679,37 @@ impl Kernel {
         flags: MremapFlags,
         new_addr: Uptr,
     ) -> SysResult<i32> {
-        let known = MremapFlags::MREMAP_MAYMOVE | MremapFlags::MREMAP_FIXED;
-        let may_move = flags.contains(MremapFlags::MREMAP_MAYMOVE);
-        if !(flags & !known).is_empty() || (flags.contains(MremapFlags::MREMAP_FIXED) && !may_move)
-        {
-            return Err(Errno::EINVAL.into());
-        }
-        check_aligned(addr)?;
-        if new_len == 0 || old_len == 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        let (addr64, old_pages, new_pages) = (u64::from(addr), pages(old_len)?, pages(new_len)?);
-        let (old_size, new_size) = (old_pages * PAGE_SIZE, new_pages * PAGE_SIZE);
+        let remap = Remap::check(addr, old_len, new_len, flags, new_addr)?;
+        let (addr64, old_size, new_size) = (remap.addr, remap.old_size, remap.new_size);
+        let new_pages = new_size / PAGE_SIZE;
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        if old_size == 0 {
+            return self.mremap_duplicate(caller, &remap).await;
+        }
         self.check_mapped(caller, addr64, old_size)
             .await
             .map_err(|_| Errno::EFAULT)?;
-        let first = addr64 / PAGE_SIZE;
-        if flags.contains(MremapFlags::MREMAP_FIXED) {
-            let target = self.map_fixed(caller, new_addr, new_pages, false).await?;
-            let keep = old_size.min(new_size);
-            copy(caller.memory(), addr64, target.into(), keep).await?;
-            self.move_mappings(caller, addr64, old_size, target.into(), new_size)
+        if remap.implies_new_addr() {
+            let target = match remap.fixed {
+                true => u64::from(self.map_fixed(caller, new_addr, new_pages, false).await?),
+                false => self.map_anywhere(caller, new_pages).await?,
+            };
+            // `MREMAP_DONTUNMAP` leaves the source mapped, as it was before its pages moved.
+            let stay = match remap.dont_unmap {
+                true => mm.space().mappings.aliases(addr64, addr64 + old_size),
+                false => Vec::new(),
+            };
+            copy(caller.memory(), addr64, target, old_size.min(new_size)).await?;
+            self.move_mappings(caller, addr64, old_size, target, new_size)
                 .await?;
-            mm.space().unmap(addr64, old_size);
+            match remap.dont_unmap {
+                true => self.refault(caller, addr64, old_size, stay).await?,
+                false => mm.space().unmap(addr64, old_size),
+            }
             return Ok(target as i32);
         }
+        let (first, old_pages) = (addr64 / PAGE_SIZE, old_size / PAGE_SIZE);
         if new_pages <= old_pages {
             self.unmap_range(caller, addr64 + new_size, addr64 + old_size)
                 .await;
@@ -662,7 +729,7 @@ impl Kernel {
                 .await?;
             return Ok(addr as i32);
         }
-        if !may_move {
+        if !remap.may_move {
             return Err(Errno::ENOMEM.into());
         }
         let target = self.map_anywhere(caller, new_pages).await?;
@@ -671,6 +738,66 @@ impl Kernel {
             .await?;
         mm.space().unmap(addr64, old_size);
         Ok(target as i32)
+    }
+
+    /// `mremap` with an old length of 0: a second mapping of the shared mapping at `addr`
+    /// (Linux's "duplicate shm area"). Anonymous shared memory is private here (see `sys_mmap`),
+    /// so like a private mapping it cannot be duplicated. The caller holds `Mm::op`.
+    async fn mremap_duplicate(&self, caller: &Caller<'_>, remap: &Remap) -> SysResult<i32> {
+        let mm = self.mm(caller.task());
+        self.check_mapped(caller, remap.addr, 1)
+            .await
+            .map_err(|_| Errno::EFAULT)?;
+        let alias = |target: u64| {
+            let space = mm.space();
+            let mapping = space.mappings.containing(remap.addr)?;
+            mapping.shared()?;
+            Some(mapping.alias(remap.addr - mapping.start, target, remap.new_size))
+        };
+        if alias(0).is_none() {
+            return Err(Errno::EINVAL.into());
+        }
+        // Growing a mapping of nothing in place never fits: `addr` itself is mapped.
+        if !remap.may_move {
+            return Err(Errno::ENOMEM.into());
+        }
+        let pages = remap.new_size / PAGE_SIZE;
+        let target = match remap.fixed {
+            true => u64::from(self.map_fixed(caller, remap.new_addr, pages, false).await?),
+            false => self.map_anywhere(caller, pages).await?,
+        };
+        // A fixed target may have replaced the source (`vma_lookup` after `do_munmap`).
+        let Some(mut alias) = alias(target) else {
+            mm.space().unmap(target, remap.new_size);
+            return Err(Errno::EFAULT.into());
+        };
+        if let Err(errno) = alias.fill(caller.memory()).await {
+            mm.space().unmap(target, remap.new_size);
+            return Err(errno.into());
+        }
+        mm.insert(alias);
+        Ok(target as i32)
+    }
+
+    /// The source of a `MREMAP_DONTUNMAP` move after its pages left: anonymous memory reads as
+    /// zeroes, and the mappings that were there (`stay`) read as their source again, as the
+    /// page faults that follow would fill them. The caller holds `Mm::op`.
+    async fn refault(
+        &self,
+        caller: &Caller<'_>,
+        addr: u64,
+        len: u64,
+        stay: Vec<Mapping>,
+    ) -> Result<(), Errno> {
+        zero(caller.memory(), addr, len).await?;
+        let mut filled = Vec::with_capacity(stay.len());
+        let mut result = Ok(());
+        for mut mapping in stay {
+            result = result.and(mapping.fill(caller.memory()).await);
+            filled.push(mapping);
+        }
+        self.mm(caller.task()).restore(filled);
+        result
     }
 
     /// The mappings of `[from, from + old_len)` follow `mremap` to `to` with `new_len` bytes,
