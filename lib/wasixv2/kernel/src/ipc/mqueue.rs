@@ -426,11 +426,16 @@ impl Kernel {
     pub(crate) async fn sys_mq_unlink(&self, caller: &Caller<'_>, name: Cstr) -> SysResult<i32> {
         let name = read_name(caller, name).await?;
         check_name(&name)?;
-        let removed = lock(&self.ipc.mq.names).remove(&name);
-        match removed {
-            Some(_) => Ok(0),
-            None => Err(Errno::ENOENT.into()),
+        let cred = self.env(caller).cred;
+        let mut names = lock(&self.ipc.mq.names);
+        let queue = names.get(&name).ok_or(Errno::ENOENT)?;
+        // `may_delete` in the mqueue root, which is root's and sticky (`S_ISVTX`): only the
+        // queue's owner, root or `CAP_FOWNER` may remove a queue.
+        if cred.fsuid != queue.uid && cred.fsuid != 0 && !cred.capable(Cap::Fowner) {
+            return Err(Errno::EPERM.into());
         }
+        names.remove(&name);
+        Ok(0)
     }
 
     pub(crate) async fn sys_mq_timedsend(
