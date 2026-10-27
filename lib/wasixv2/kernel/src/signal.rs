@@ -1489,9 +1489,12 @@ impl Kernel {
         let (Some(sender), Some(target)) = (sender, self.procs.find(target as u32)) else {
             return true;
         };
-        sender.cred().may_signal(&target.cred())
-            || (sig == Signal::SIGCONT.0
-                && sender.ident.lock().unwrap().sid == target.ident.lock().unwrap().sid)
+        if sender.cred().may_signal(&target.cred()) {
+            return true;
+        }
+        // One process's lock at a time: two processes may check each other at once.
+        let sid = |process: &Process| process.ident.lock().unwrap().sid;
+        sig == Signal::SIGCONT.0 && sid(sender) == sid(&target)
     }
 
     /// Queues `info` for the thread group `pid` (`kill_pid_info`), if `sender` may signal it.
