@@ -20,7 +20,9 @@ use std::{
 };
 
 use wasixv2_abi::{ConstKernelTimespecPtr, FutexOp, GuestPtr, U32Ptr, Ulong};
-use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, UserMemory, read_value};
+use wasixv2_syscalls::{
+    AtomicWord, Caller, Errno, SysErr, SysResult, TaskId, UserMemory, read_value,
+};
 use wasixv2_wait::{PollMask, WaitQueue, Waiter, Wakeup};
 
 use crate::{Kernel, restart::Restart, time};
@@ -212,6 +214,20 @@ async fn get_word(memory: &dyn UserMemory, addr: u32) -> Result<u32, Errno> {
         .map_err(|_| Errno::EFAULT)
 }
 
+/// Whether the word at `addr` holds `expected`, read at its size. A torn 64-bit read only mixes
+/// in writes made after the waiter queued, whose wakes still reach it.
+async fn holds(memory: &dyn UserMemory, addr: u32, expected: AtomicWord) -> Result<bool, Errno> {
+    Ok(match expected {
+        AtomicWord::U32(val) => get_word(memory, addr).await? == val,
+        AtomicWord::U64(val) => {
+            let word = read_value(memory, GuestPtr::<u64>::new(addr))
+                .await
+                .map_err(|_| Errno::EFAULT)?;
+            word == val
+        }
+    })
+}
+
 /// What `futex_lock_pi_atomic` found.
 enum Attempt {
     /// The caller owns the lock now.
@@ -275,7 +291,8 @@ impl Kernel {
                 if bitset == 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                self.futex_wait(caller, key, val, bitset, timeout).await
+                self.futex_wait(caller, key, AtomicWord::U32(val), bitset, timeout)
+                    .await
             }
             FutexOp::FUTEX_WAKE => Ok(self.futexes.wake(key, val, MATCH_ANY)? as i32),
             FutexOp::FUTEX_WAKE_BITSET => match val3 {
@@ -371,12 +388,43 @@ impl Kernel {
         }
     }
 
+    /// `memory.atomic.wait32`/`wait64`: a private `FUTEX_WAIT` on a word of `expected`'s size.
+    pub(crate) async fn atomic_wait(
+        &self,
+        caller: &Caller<'_>,
+        addr: u32,
+        expected: AtomicWord,
+        timeout: Option<Duration>,
+    ) -> SysResult<i32> {
+        let timeout = match timeout {
+            None => Timeout::Never,
+            Some(timeout) => Timeout::Until(self.host.monotonic().saturating_add(timeout)),
+        };
+        let key = self.futex_key(caller, addr);
+        self.futex_wait(caller, key, expected, MATCH_ANY, timeout)
+            .await
+    }
+
+    /// `memory.atomic.notify`: a private `FUTEX_WAKE`, except that a count of 0 wakes none.
+    pub(crate) fn atomic_notify(&self, task: TaskId, addr: u32, count: u32) -> u32 {
+        if count == 0 {
+            return 0;
+        }
+        let key = Key {
+            mm: self.mm(task).id(),
+            addr,
+        };
+        // A `FUTEX_WAIT_REQUEUE_PI` waiter makes `FUTEX_WAKE` fail; the instruction cannot,
+        // and wakes none, as the syscall does.
+        self.futexes.wake(key, count, MATCH_ANY).unwrap_or(0)
+    }
+
     /// `futex_wait_restart`: a timed wait a signal interrupted, going on to its deadline.
     pub(crate) async fn futex_wait_restart(
         &self,
         caller: &Caller<'_>,
         addr: u32,
-        val: u32,
+        val: AtomicWord,
         bitset: u32,
         timeout: Timeout,
     ) -> SysResult<i32> {
@@ -388,7 +436,7 @@ impl Kernel {
         &self,
         caller: &Caller<'_>,
         key: Key,
-        val: u32,
+        val: AtomicWord,
         bitset: u32,
         timeout: Timeout,
     ) -> SysResult<i32> {
@@ -404,14 +452,14 @@ impl Kernel {
         let group = &process.group;
         let _exiting = waiter.register(&group.exited, PollMask::empty());
         self.futexes.enqueue(key, entry.clone());
-        let current = match get_word(caller.memory(), key.addr).await {
-            Ok(current) => current,
+        let holds = match holds(caller.memory(), key.addr, val).await {
+            Ok(holds) => holds,
             Err(fault) => {
                 self.futexes.dequeue(&entry);
                 return Err(fault.into());
             }
         };
-        if current != val {
+        if !holds {
             return match self.futexes.dequeue(&entry) {
                 true => Err(Errno::EAGAIN.into()),
                 false => Ok(0),

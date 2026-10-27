@@ -42,6 +42,7 @@ mod work;
 use std::{
     collections::HashMap,
     sync::{Arc, LockResult, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    time::Duration,
 };
 
 pub use cred::Credentials;
@@ -67,8 +68,8 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
 use wasixv2_syscalls::{
-    Caller, Control, Errno, Fd, GuestAction, LocalFuture, SysResult, Syscalls, TaskId, UserSlice,
-    UserSliceMut, WorkFlag,
+    AtomicWait, AtomicWord, Caller, Control, Errno, Fd, GuestAction, LocalFuture, SysResult,
+    Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -2418,6 +2419,22 @@ impl Control for Kernel {
 
     fn exec_wait(&self, task: TaskId) -> LocalFuture<'_, Result<(), i32>> {
         Box::pin(Kernel::exec_wait(self, task))
+    }
+}
+
+impl AtomicWait for Kernel {
+    fn atomic_wait<'a>(
+        &'a self,
+        caller: &'a Caller<'a>,
+        addr: u32,
+        expected: AtomicWord,
+        timeout: Option<Duration>,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(Kernel::atomic_wait(self, caller, addr, expected, timeout))
+    }
+
+    fn atomic_notify(&self, task: TaskId, addr: u32, count: u32) -> u32 {
+        Kernel::atomic_notify(self, task, addr, count)
     }
 }
 

@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use wasixv2_abi::KernelTimespecPtr;
-use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult};
+use wasixv2_syscalls::{AtomicWord, Caller, Errno, SysErr, SysResult};
 
 use crate::{Kernel, futex::Timeout};
 
@@ -18,10 +18,10 @@ pub(crate) enum Restart {
         deadline: Duration,
         rmtp: KernelTimespecPtr,
     },
-    /// `futex_wait_restart`: a timed `FUTEX_WAIT`.
+    /// `futex_wait_restart`: a timed `FUTEX_WAIT`, or a timed `memory.atomic.wait`.
     FutexWait {
         addr: u32,
-        val: u32,
+        val: AtomicWord,
         bitset: u32,
         timeout: Timeout,
     },

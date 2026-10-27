@@ -1,11 +1,18 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
 };
 
 use wasixv2_abi::Siginfo;
 
-use crate::{caller::TaskId, memory::LocalFuture};
+use crate::{
+    Layered, SysResult,
+    caller::{Caller, TaskId},
+    memory::LocalFuture,
+};
 
 /// Work the execution layer must do before control returns to the guest.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,7 +118,7 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control {
+pub trait Control: AtomicWait {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
@@ -171,5 +178,53 @@ pub trait Control {
     /// forgets it, as if `thread-spawn` had failed.
     fn abort_thread(&self, task: TaskId) {
         let _ = task;
+    }
+}
+
+/// The word a wasm `memory.atomic.wait32` or `memory.atomic.wait64` expects at its address.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AtomicWord {
+    U32(u32),
+    U64(u64),
+}
+
+/// Wasm's `memory.atomic.wait` and `memory.atomic.notify` instructions on the kernel's futexes.
+/// The execution layer turns the instructions into calls of these, so a guest blocked in one takes
+/// signals and its group's exit as one blocked in `futex` does, and the instructions and the
+/// syscall wake each other's waiters on the same address.
+pub trait AtomicWait {
+    /// `memory.atomic.wait32` or `wait64` of the calling task at `addr`, which is aligned to the
+    /// size of `expected` and in bounds: a private `FUTEX_WAIT` that compares a word of that
+    /// size, for `timeout` if given. 0 when woken, `EAGAIN` when the word does not hold
+    /// `expected`, `ETIMEDOUT`; a signal interrupts it as it does `FUTEX_WAIT`.
+    fn atomic_wait<'a>(
+        &'a self,
+        caller: &'a Caller<'a>,
+        addr: u32,
+        expected: AtomicWord,
+        timeout: Option<Duration>,
+    ) -> LocalFuture<'a, SysResult<i32>>;
+
+    /// `memory.atomic.notify` of `task` at `addr`: wakes up to `count` waiters there, of either
+    /// instruction or of `futex`, and returns how many it woke. Unlike `FUTEX_WAKE`, a count of
+    /// 0 wakes none.
+    fn atomic_notify(&self, task: TaskId, addr: u32, count: u32) -> u32;
+}
+
+// By hand rather than generated with the rest of `Layered`: the layers see syscalls, and these
+// are instructions.
+impl<L, S: AtomicWait> AtomicWait for Layered<L, S> {
+    fn atomic_wait<'a>(
+        &'a self,
+        caller: &'a Caller<'a>,
+        addr: u32,
+        expected: AtomicWord,
+        timeout: Option<Duration>,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        self.inner.atomic_wait(caller, addr, expected, timeout)
+    }
+
+    fn atomic_notify(&self, task: TaskId, addr: u32, count: u32) -> u32 {
+        self.inner.atomic_notify(task, addr, count)
     }
 }

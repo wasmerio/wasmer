@@ -1,8 +1,11 @@
-//! Priority-inheritance futexes between the threads of one process.
+//! Priority-inheritance futexes between the threads of one process, and wasm's atomic wait
+//! and notify on the same futexes.
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use wasixv2_abi::FutexOp;
+use futures::FutureExt as _;
+use wasixv2_abi::{FutexOp, Signal};
+use wasixv2_syscalls::{AtomicWait, AtomicWord};
 
 use super::{ipc::errno, *};
 
@@ -247,4 +250,105 @@ fn cmp_requeue_pi_hands_a_free_lock_to_the_waiter() {
         assert_eq!(futex(&kernel, &caller, COND, op, 1, 0, LOCK, 0), Ok(1));
     });
     assert_eq!(memory.word(LOCK), other.0);
+}
+
+const WORD: u32 = 0x100;
+
+#[test]
+fn atomic_wait_compares_a_word_of_its_size() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    memory.set(WORD, 1);
+    memory.set(WORD + 4, 2);
+    let wait = |expected| {
+        block_on(AtomicWait::atomic_wait(
+            &kernel,
+            &caller,
+            WORD,
+            expected,
+            Some(Duration::ZERO),
+        ))
+    };
+
+    assert_eq!(errno(wait(AtomicWord::U32(2))), Errno::EAGAIN);
+    // The test host's timers fire at once.
+    assert_eq!(errno(wait(AtomicWord::U32(1))), Errno::ETIMEDOUT);
+    assert_eq!(errno(wait(AtomicWord::U64(1))), Errno::EAGAIN);
+    assert_eq!(errno(wait(AtomicWord::U64(2 << 32 | 1))), Errno::ETIMEDOUT);
+}
+
+#[test]
+fn atomic_notify_and_futex_wake_wake_each_others_waiters() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+
+    // An instruction waiter, woken by the syscall.
+    let mut wait = AtomicWait::atomic_wait(&kernel, &caller, WORD, AtomicWord::U32(0), None);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    // A count of 0 wakes none.
+    assert_eq!(AtomicWait::atomic_notify(&kernel, other, WORD, 0), 0);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    let wake = FutexOp::FUTEX_WAKE_PRIVATE;
+    assert_eq!(futex(&kernel, &other_caller, WORD, wake, 1, 0, 0, 0), Ok(1));
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+
+    // A syscall waiter and a 64-bit instruction waiter, both woken by the instruction.
+    let op = FutexOp::FUTEX_WAIT_PRIVATE;
+    let (uaddr, null) = (GuestPtrMut::new(WORD), GuestPtrMut::NULL);
+    let mut syscall = Box::pin(kernel.futex_time64(&caller, uaddr, op, 0, 0, null, 0));
+    assert_eq!(syscall.as_mut().now_or_never(), None);
+    let mut wait64 =
+        AtomicWait::atomic_wait(&kernel, &other_caller, WORD, AtomicWord::U64(0), None);
+    assert_eq!(wait64.as_mut().now_or_never(), None);
+    assert_eq!(AtomicWait::atomic_notify(&kernel, task, WORD, u32::MAX), 2);
+    assert_eq!(syscall.now_or_never(), Some(Ok(0)));
+    assert_eq!(wait64.now_or_never(), Some(Ok(0)));
+}
+
+#[test]
+fn a_signal_interrupts_an_atomic_wait_as_it_does_futex_wait() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let mut wait = AtomicWait::atomic_wait(&kernel, &caller, WORD, AtomicWord::U32(0), None);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+
+    kernel.kill(task, Signal::SIGUSR1).unwrap();
+    assert_eq!(block_on(wait), Err(SysErr::Restart));
+
+    // A timed wait goes on to its deadline through `restart_syscall`.
+    let timed = AtomicWord::U64(0);
+    let wait = block_on(AtomicWait::atomic_wait(
+        &kernel,
+        &caller,
+        WORD,
+        timed,
+        Some(Duration::from_secs(1)),
+    ));
+    assert_eq!(wait, Err(SysErr::RestartBlock));
+    kernel.task_signals(task).replace_blocked(1 << 9);
+    assert_eq!(
+        errno(block_on(kernel.restart_syscall(&caller))),
+        Errno::ETIMEDOUT
+    );
+}
+
+#[test]
+fn the_group_exit_ends_an_atomic_wait() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    let mut wait = AtomicWait::atomic_wait(&kernel, &other_caller, WORD, AtomicWord::U32(0), None);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+
+    block_on(kernel.exit_group(&caller, 3)).unwrap();
+    // It returns, and the exit pending on the task unwinds it.
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+    assert_eq!(kernel.take_pending(other), Some(GuestAction::Exit(3)));
 }
