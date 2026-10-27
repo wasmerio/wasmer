@@ -811,11 +811,8 @@ impl Kernel {
         if inner.path.mnt.is_read_only() {
             return Err(Errno::EROFS.into());
         }
-        if file.flags().contains(OpenFlags::O_APPEND)
-            && !matches!(alloc, AllocMode::Allocate | AllocMode::AllocateKeepSize)
-        {
-            return Err(Errno::EPERM.into());
-        }
+        // Linux refuses all but plain allocation on an append-only inode (`IS_APPEND`, from
+        // `chattr +a`), which no filesystem here has; an `O_APPEND` descriptor is no such thing.
         self.sync_file_mappings(caller, &file).await;
         let allocated = inner.allocate(alloc, offset as u64, len as u64).await;
         self.sync_file_mappings(caller, &file).await;

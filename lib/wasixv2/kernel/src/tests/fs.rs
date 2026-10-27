@@ -190,3 +190,26 @@ fn pipes_are_flocked_through_their_inode() {
     assert_eq!(flock(w, try_ex), Ok(0));
     assert_eq!(flock(w, FlockOp::LOCK_UN), Ok(0));
 }
+
+#[test]
+fn fallocate_punches_holes_through_an_append_descriptor() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/f", &[1; 8192]);
+    let fd = t
+        .open("/f", OpenFlags::O_RDWR | OpenFlags::O_APPEND)
+        .unwrap();
+    // `vfs_fallocate` checks the inode's append-only flag, not the descriptor's O_APPEND.
+    let punch = FallocFlags::FALLOC_FL_PUNCH_HOLE | FallocFlags::FALLOC_FL_KEEP_SIZE;
+    assert_eq!(
+        block_on(kernel.fallocate(&t.caller, fd, punch, 0, 4096)),
+        Ok(0)
+    );
+    let zero = FallocFlags::FALLOC_FL_ZERO_RANGE;
+    assert_eq!(
+        block_on(kernel.fallocate(&t.caller, fd, zero, 4096, 4096)),
+        Ok(0)
+    );
+    let fd = t.open("/f", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(fd, 8192), Ok(vec![0; 8192]));
+}
