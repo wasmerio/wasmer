@@ -257,3 +257,22 @@ re-bless bump. Conflicts: only the two documented ones (`real_timer_expired`, DE
 
 Landed, fast-forward: libc2 `main` `c26931b5..a524136a`; tests `main` `6405893..5af6416`; wasmer
 `feat/wasixv2` `f98fc48fa5c..53813911d17`.
+
+## 2026-10-28: WP1 (exec/de_thread) — LANDED
+
+wasmer `wasixv2/wp1-exec-2`: H4, M-P2, H3, L-P2, M-P3, M-P1, M-P5 (rebased onto train 6; two
+mechanical conflicts in `thread.rs` `hand_image`), a design fix `f261286befb` (under H3 a non-leader
+`execve` hands the vfork-waiting leader an `Exec`, so `VforkParent` carries `resumes: bool` instead
+of the exit status: a parent with an `Exit` or `Exec` queued is not resumed; Linux
+`zap_other_threads` in `wait_for_vfork_done`), and the tests bump. H3 commits from the calling
+thread after the siblings are gone (Linux `de_thread`), not from the leader's side as the review
+suggested: the leader's side has no guest memory for the robust-list walk and `mm_release`.
+
+- Gates: crate tests 591, clippy, fmt, release, CLI 51/0/13.
+- Suite (two runs): 2369 pass, 1229 expected failures, 0 unexpected, 454 ignored; the 5 new tests
+  pass (`exec-execve-from-handler`, `exec-execve-cloexec-threads`, `exec-execve-mask-from-thread`,
+  `proc-execve-argv-bytes`, `proc-vfork-parent-exec`). No list change, no bless.
+- Smoke as train 6.
+
+Landed, fast-forward: libc2 `main` `a524136a..bb5d6d71`; tests `main` `5af6416..eac8874`; wasmer
+`feat/wasixv2` `53813911d17..e595aea505f`.

@@ -14,7 +14,7 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `53813911d17` (merge train 6; wasixv2-tests `5af6416`): 2364 pass, 1229
+Suite on `feat/wasixv2` `e595aea505f` (WP1; wasixv2-tests `eac8874`, two runs): 2369 pass, 1229
 expected failures, 0 unexpected, 454 ignored.
 
 | Suite | Pass | Expected failures | Ignored |
@@ -22,7 +22,7 @@ expected failures, 0 unexpected, 454 ignored.
 | Open POSIX | 1328 | 465 | 83 |
 | LTP | 466 | 736 | 370 |
 | libc-test | 393 | 28 | 0 |
-| wasixv2 suite (`suite/`) | 177 | 0 | 1 |
+| wasixv2 suite (`suite/`) | 182 | 0 | 1 |
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -33,8 +33,11 @@ python/python needs dynamic linking (owned by another team, out of scope for thi
 (futex + mm), WP5+6 (host network bridge, Unix sockets) and WP9 (signals), plus the vfork-parent
 exit fix. tests `main` = `5af6416`, libc2 `main` = `a524136a`.
 
-In flight: WP1 (§3) on wasmer `wasixv2/wp1-exec` `d96230231b2` (7 findings, gates green; last
-commit is a `wip:` tests bump to tests `wp1-exec` `4c360b8`); suite filters and landing pending.
+WP1 (exec/de_thread) has landed too: tests `main` = `eac8874`, libc2 `main` = `bb5d6d71`.
+
+In flight: WP4 (fs/vfs) on wasmer `wasixv2/wp4-fs` (18 findings, gates green, suite not yet run;
+last commit a `wip:` tests bump to tests `wp4-fs` `6898600`), based on train 6, to be rebased onto
+WP1.
 
 Follow-ups found while landing train 6 (not yet scheduled):
 - A fatal signal kills a group without releasing robust/PI futexes or writing back shared
@@ -48,6 +51,8 @@ Follow-ups found while landing train 6 (not yet scheduled):
 - L-F6 `TFD_TIMER_CANCEL_ON_SET`. Proposed: record the realtime-to-monotonic offset when an
   absolute CLOCK_REALTIME timerfd is armed; on expiry/read a changed offset gives ECANCELED. Needs
   agreement.
+- A non-leader `execve` while the leader waits in vfork waits for the vfork child (Linux doesn't);
+  same root as M-P9's "not killable" vfork wait.
 - WP3's L-F2, L-F8, L-F9 need no change (cited in the WP3 notes).
 
 ## Branch map
@@ -303,14 +308,14 @@ no critical findings, 12 high, ~35 medium, ~50 low. Its work packages (§3) and 
 
 | WP | Scope | Findings | Status |
 | --- | --- | --- | --- |
-| WP1 | exec/de_thread correctness | H3, H4, M-P1, M-P2, M-P3, M-P5, L-P2 | not started; M-P8 done in train 5 |
+| WP1 | exec/de_thread correctness | H3, H4, M-P1, M-P2, M-P3, M-P5, L-P2 | landed (`e595aea505f`); M-P8 in train 5 |
 | WP2 | loader as binfmt registry, exec cost | H10, M-CLI2, M-CLI3, M-W5, L-CLI3, L-CLI4, L-FS11 | H6, M-P8 done in train 5; rest not started |
-| WP3 | futex + mm | H2, M-F1..7, M-SIG1, L-F* | train 6 |
-| WP4 | fs/vfs | H1, M-FS1..5, L-FS1..10, L-FS12 | not started; M-FS6 done in train 5 |
-| WP5/6 | host network bridge, Unix sockets | H7, H8, H9, M-NET1..6, L-NET1..7 | train 6 |
+| WP3 | futex + mm | H2, M-F1..7, M-SIG1, L-F* | landed (train 6) |
+| WP4 | fs/vfs | H1, M-FS1..5, L-FS1..10, L-FS12 | `wasixv2/wp4-fs`, suite pending; M-FS6 in train 5 |
+| WP5/6 | host network bridge, Unix sockets | H7, H8, H9, M-NET1..6, L-NET1..7 | landed (train 6) |
 | WP7 | wasix1 correctness | H5, H11, H12, M-W1, M-W2, M-W4, L-W* | not started |
 | WP8 | syscall hot-path performance | M-W3, M-X2, M-X3 | not started |
-| WP9 | signals | M-P4, M-P6, M-P7, M-P9, L-P1, L-P3..5 | train 6 |
+| WP9 | signals | M-P4, M-P6, M-P7, M-P9, L-P1, L-P3..5 | landed (train 6) |
 | WP10 | facade/CLI | M-CLI1, M-CLI4..6, L-CLI* | not started |
 | WP11 | robustness | M-X1, M-X4, L-X1, L-X4, L-NET8, L-F11 | not started; L-F11 and the L-X4 contract are in WP3, L-NET8 dead code in WP5 |
 | WP12 | libc2 vfork | M-LIBC1 | done in train 5 |
