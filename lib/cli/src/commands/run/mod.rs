@@ -142,6 +142,16 @@ impl Run {
         );
         let runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime.clone();
 
+        // A `#!` script runs as its interpreter does on Linux: the kernel's `execve` reads the
+        // `#!` line and starts the interpreter it names, from the guest's filesystem.
+        if let CliPackageSource::File(path) = &self.input
+            && machine::is_script(path)
+        {
+            pb.finish_and_clear();
+            let program = MachineProgram::script(self.script_guest_path(path)?);
+            return self.execute_machine(program, &runtime, &handle);
+        }
+
         let target = self.input.resolve_target(&runtime, &pb)?;
 
         if let ExecutableTarget::Package(ref pkg) = target {
@@ -163,7 +173,7 @@ impl Run {
                         None => module,
                     };
                     let program = MachineProgram::module(&path, engine, module);
-                    self.execute_machine(program, &handle)
+                    self.execute_machine(program, &runtime, &handle)
                 } else {
                     self.execute_pure_wasm_module(&module)
                 }
@@ -175,8 +185,8 @@ impl Run {
                     );
                 }
                 let tree = monitoring_runtime.package_tree();
-                let program = self.machine_program(&pkg, &tree, &runtime)?;
-                self.execute_machine(program, &handle)
+                let program = self.machine_program(&pkg, &tree)?;
+                self.execute_machine(program, &runtime, &handle)
             }
         }
     }

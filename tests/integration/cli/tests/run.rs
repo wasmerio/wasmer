@@ -790,6 +790,227 @@ fn run_wasixv2_package_dir_maps_its_fs_table() {
     assert!(package.path().join("data/new.txt").exists());
 }
 
+/// Prints its arguments separated by spaces and ended by a newline, then `{suffix}`.
+const WASIXV2_ECHO_WAT: &str = r#"
+    (module
+      (import "wasixv2" "startup_size" (func $startup_size (result i32)))
+      (import "wasixv2" "startup_get" (func $startup_get (param i32 i32) (result i32)))
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 0) " \n")
+      (data (i32.const 16) "{suffix}")
+      (func $strlen (param $p i32) (result i32) (local $n i32)
+        (block $done (loop $next
+          (br_if $done (i32.eqz (i32.load8_u (i32.add (local.get $p) (local.get $n)))))
+          (local.set $n (i32.add (local.get $n) (i32.const 1)))
+          (br $next)))
+        (local.get $n))
+      (func (export "_start") (local $argc i32) (local $i i32) (local $arg i32)
+        (drop (call $startup_get (i32.const 1024) (call $startup_size)))
+        (local.set $argc (i32.load (i32.const 1024)))
+        (block $done (loop $next
+          (br_if $done (i32.ge_u (local.get $i) (local.get $argc)))
+          (if (local.get $i) (then (drop (call $write (i32.const 1) (i32.const 0) (i32.const 1)))))
+          (local.set $arg (i32.load (i32.add (i32.const 1028) (i32.shl (local.get $i) (i32.const 2)))))
+          (drop (call $write (i32.const 1) (local.get $arg) (call $strlen (local.get $arg))))
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+          (br $next)))
+        (drop (call $write (i32.const 1) (i32.const 1) (i32.const 1)))
+        (drop (call $write (i32.const 1) (i32.const 16) (call $strlen (i32.const 16))))
+        (call $exit_group (i32.const 0))
+        unreachable))
+"#;
+
+/// `execve(argv[1], &argv[1], NULL)`; exits with the errno when that fails.
+const WASIXV2_EXEC_WAT: &str = r#"
+    (module
+      (import "wasixv2" "startup_size" (func $startup_size (result i32)))
+      (import "wasixv2" "startup_get" (func $startup_get (param i32 i32) (result i32)))
+      (import "wasixv2" "execve" (func $execve (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+      (memory (export "memory") 1)
+      (func (export "_start")
+        (drop (call $startup_get (i32.const 1024) (call $startup_size)))
+        (call $exit_group (i32.sub (i32.const 0)
+          (call $execve (i32.load (i32.const 1032)) (i32.const 1032) (i32.const 0))))
+        unreachable))
+"#;
+
+/// Writes `contents` to `path` as an executable (`0755`), which `execve` requires.
+#[cfg(unix)]
+fn write_executable(path: &Path, contents: impl AsRef<[u8]>) {
+    use std::os::unix::fs::PermissionsExt;
+
+    std::fs::write(path, contents).unwrap();
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+fn wasixv2_echo(suffix: &str) -> Vec<u8> {
+    wat::parse_str(WASIXV2_ECHO_WAT.replace("{suffix}", suffix)).unwrap()
+}
+
+/// A package whose commands are `exec` ([`WASIXV2_EXEC_WAT`]), `echo-args`
+/// ([`WASIXV2_ECHO_WAT`]), `ls` (an echo that ends with `root`) and `script`, a `#!` script
+/// for `echo-args`. With `dependency`, it depends on that registry package too.
+fn wasixv2_commands_package(dependency: Option<&str>) -> TempDir {
+    let temp = TempDir::new().unwrap();
+    let path = temp.path();
+    std::fs::write(
+        path.join("exec.wasm"),
+        wat::parse_str(WASIXV2_EXEC_WAT).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(path.join("echo.wasm"), wasixv2_echo("")).unwrap();
+    std::fs::write(path.join("ls.wasm"), wasixv2_echo("root")).unwrap();
+    std::fs::write(path.join("script.sh"), "#!/bin/echo-args -x\nignored\n").unwrap();
+    let dependencies = match dependency {
+        Some(name) => format!("[dependencies]\n\"{name}\" = \"*\"\n"),
+        None => String::new(),
+    };
+    let mut manifest = dependencies;
+    for (name, source) in [
+        ("exec", "exec.wasm"),
+        ("echo-args", "echo.wasm"),
+        ("ls", "ls.wasm"),
+        ("script", "script.sh"),
+    ] {
+        manifest += &format!(
+            "[[module]]\nname = \"{name}\"\nsource = \"{source}\"\n\n\
+             [[command]]\nname = \"{name}\"\nmodule = \"{name}\"\nrunner = \"wasi\"\n\n"
+        );
+    }
+    std::fs::write(path.join("wasmer.toml"), manifest).unwrap();
+    temp
+}
+
+/// Every command is an executable at `/bin/<name>` and `/usr/bin/<name>`, which another
+/// command can `execve`.
+#[test]
+fn run_wasixv2_package_commands_are_in_bin_and_usr_bin() {
+    let package = wasixv2_commands_package(None);
+    for dir in ["/bin", "/usr/bin"] {
+        wasmer_command()
+            .arg("run")
+            .arg(package.path())
+            .arg("--entrypoint=exec")
+            .arg(format!("{dir}/echo-args"))
+            .arg("hello")
+            .assert()
+            .success()
+            .stdout(format!("{dir}/echo-args hello\n"));
+    }
+}
+
+/// A command that is a `#!` script runs its interpreter, here another command, with the
+/// arguments Linux passes: the interpreter, its argument, the script's path, then the rest.
+#[test]
+fn run_wasixv2_package_script_command_runs_its_interpreter() {
+    let package = wasixv2_commands_package(None);
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .arg("--entrypoint=script")
+        .arg("a")
+        .arg("b")
+        .assert()
+        .success()
+        .stdout("/bin/echo-args -x /bin/script a b\n");
+}
+
+/// The root package's commands win over a dependency's of the same name (`ls`), and a
+/// dependency's commands (`echo` of coreutils, a WASIX v1 program) run from the root's.
+#[test]
+fn run_wasixv2_package_with_dependency_commands() {
+    let package = wasixv2_commands_package(Some("wasmer/coreutils"));
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .arg("--registry=wasmer.io")
+        .arg("--entrypoint=exec")
+        .arg("/bin/ls")
+        .assert()
+        .success()
+        .stdout("/bin/ls\nroot");
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .arg("--registry=wasmer.io")
+        .arg("--entrypoint=exec")
+        .arg("/usr/bin/echo")
+        .arg("from")
+        .arg("coreutils")
+        .assert()
+        .success()
+        .stdout("from coreutils\n");
+}
+
+/// A host `#!` script inside a `--volume` runs as the interpreter it names, which is resolved
+/// in the guest's filesystem.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_host_script_runs_its_interpreter() {
+    let temp = TempDir::new().unwrap();
+    write_executable(&temp.path().join("echo.wasm"), wasixv2_echo(""));
+    let script = temp.path().join("script");
+    write_executable(&script, "#!/work/echo.wasm  -v \n");
+    wasmer_command()
+        .arg("run")
+        .arg(format!("--volume={}:/work", temp.path().display()))
+        .arg(&script)
+        .arg("x")
+        .assert()
+        .success()
+        .stdout("/work/echo.wasm -v /work/script x\n");
+}
+
+/// Five scripts may hand over in a row, as on Linux; a sixth fails with `ELOOP`. A script whose
+/// interpreter is neither WebAssembly nor a script fails with `ENOEXEC`, and a script outside
+/// every volume cannot run, since its interpreter could not read it.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_host_script_errors() {
+    let temp = TempDir::new().unwrap();
+    write_executable(&temp.path().join("echo.wasm"), wasixv2_echo(""));
+    write_executable(&temp.path().join("s6"), "#!/work/echo.wasm\n");
+    for n in 1..=5 {
+        let script = format!("#!/work/s{}\n", n + 1);
+        write_executable(&temp.path().join(format!("s{n}")), script);
+    }
+    write_executable(&temp.path().join("text"), "plain text\n");
+    write_executable(&temp.path().join("bad"), "#!/work/text\n");
+    let volume = format!("--volume={}:/work", temp.path().display());
+    wasmer_command()
+        .arg("run")
+        .arg(&volume)
+        .arg(temp.path().join("s2"))
+        .assert()
+        .success()
+        .stdout("/work/echo.wasm /work/s6 /work/s5 /work/s4 /work/s3 /work/s2\n");
+    wasmer_command()
+        .arg("run")
+        .arg(&volume)
+        .arg(temp.path().join("s1"))
+        .assert()
+        .failure()
+        .stderr(contains("cannot execute /work/s1"))
+        .stderr(contains("os error 40"));
+    wasmer_command()
+        .arg("run")
+        .arg(&volume)
+        .arg(temp.path().join("bad"))
+        .assert()
+        .failure()
+        .stderr(contains("cannot execute /work/bad"))
+        .stderr(contains("os error 8"));
+    wasmer_command()
+        .arg("run")
+        .arg(temp.path().join("s6"))
+        .assert()
+        .failure()
+        .stderr(contains("must be in a directory mapped with --volume"));
+}
+
 /// Prints `uname -n` and `uname -r`, space-separated, and exits with its effective uid.
 const WASIXV2_UNAME_WAT: &str = r#"
     (module
