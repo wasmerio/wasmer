@@ -17,6 +17,14 @@
 //!   error that discards the current stack up to that level, which then rewinds the saved one.
 //!   That is `longjmp`: memory stays as it is, and the frames from the level's entry to the
 //!   save point come back with their wasm locals as they were saved.
+//! - **Lifetime of a saved stack.** A save is named by a [`StackId`] with a generation unique
+//!   to the instance, which the import hands to the guest (inside its `jmp_buf`), so a copy of
+//!   those bytes restores the same save wherever the guest keeps it. A save stays restorable
+//!   until its frame returned, which the host sees in three ways: its level returned; a later
+//!   save of the level was made with the shadow stack pointer above it, so a frame that held
+//!   the save point was popped; or a later save to the same slot came from a stack of the same
+//!   shape (stack pointer and unwound size), which is the same `setjmp` run again or a sibling
+//!   call, as a nested frame always adds to the unwound stack. See [`Saved::dead_after`].
 //! - **Fork.** [`Request::Fork`] copies the instance (memory, exported mutable globals and the
 //!   unwound stack) into a [`ForkImage`] that a new instance rewinds as the child. Only the
 //!   outermost level can fork: the levels below would be host frames the copy cannot hold.
@@ -65,8 +73,8 @@ pub(crate) fn instrumented(module: &Module) -> bool {
 
 /// What an unwind is for, as the import that started it asked.
 pub(crate) enum Request {
-    /// Record the stack under `slot`, a guest address the import picks (such as its
-    /// `jmp_buf`); a later save to the same slot replaces it.
+    /// Record the stack, saved from `slot`, a guest address the import picks (such as its
+    /// `jmp_buf`).
     Save { slot: u32 },
     /// Copy the instance for the child task `child`. `tag` comes back to the import on both
     /// sides of the fork.
@@ -87,7 +95,8 @@ pub(crate) enum Resume {
     Forked { child: Option<TaskId>, tag: Tag },
 }
 
-/// Names one saved stack: its slot, which save to the slot it was, and its level.
+/// Names one saved stack: the slot it was saved from, its generation, unique in the instance,
+/// and its level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StackId {
     pub slot: u32,
@@ -101,6 +110,32 @@ pub(crate) struct Saved {
     id: StackId,
     data: Vec<u8>,
     stack_pointer: Value,
+}
+
+impl Saved {
+    /// Whether a later save of the same level, from `slot` with the shadow stack at
+    /// `stack_pointer` and `len` bytes unwound, shows that this save's frame returned.
+    ///
+    /// Both stack pointers are taken in the saving import, under the same guest function
+    /// (libc's `setjmp`), so they compare as the frames that called it. The shadow stack grows
+    /// down: a save above this one was made after the frame that held this save point was
+    /// popped. At the same stack pointer and slot, a nested frame would have added to the
+    /// unwound stack, so a stack of the same size is the same `setjmp` run again or a sibling
+    /// call of it.
+    fn dead_after(&self, slot: u32, stack_pointer: u64, len: usize) -> bool {
+        let own = address(&self.stack_pointer);
+        own < stack_pointer
+            || (own == stack_pointer && self.id.slot == slot && self.data.len() == len)
+    }
+}
+
+/// The address a stack pointer global holds.
+fn address(value: &Value) -> u64 {
+    match *value {
+        Value::I32(addr) => u64::from(addr as u32),
+        Value::I64(addr) => addr as u64,
+        _ => 0,
+    }
 }
 
 /// Raised to discard the stack up to the level that saved `saved`, which rewinds it.
@@ -126,7 +161,8 @@ pub(crate) struct Asyncify {
     depth: u32,
     unwinding: Option<Request>,
     resume: Option<Resume>,
-    saved: HashMap<u32, Arc<Saved>>,
+    /// Saved stacks by generation; see [`Saved::dead_after`] for when they go.
+    saved: HashMap<u64, Arc<Saved>>,
     generation: u64,
 }
 
@@ -331,7 +367,8 @@ async fn settle<S: 'static>(
     Ok(None)
 }
 
-/// Records the just unwound stack of `level` under `slot`.
+/// Records the just unwound stack of `level`, saved from `slot`, and drops the saves of the
+/// level whose frames this shows returned.
 async fn save<S: 'static>(
     cx: &impl Access<S>,
     level: u32,
@@ -355,8 +392,11 @@ async fn save<S: 'static>(
             level,
         };
         let stack_pointer = a.stack_pointer.get(store);
+        let sp = address(&stack_pointer);
+        a.saved
+            .retain(|_, old| old.id.level != level || !old.dead_after(slot, sp, data.len()));
         a.saved.insert(
-            slot,
+            id.generation,
             Arc::new(Saved {
                 id,
                 data,
@@ -470,7 +510,7 @@ pub(crate) async fn restore<S: 'static>(
     let saved = cx
         .with(|env, _| {
             let a = env.asyncify.as_ref()?;
-            let saved = a.saved.get(&id.slot)?;
+            let saved = a.saved.get(&id.generation)?;
             (saved.id == id && id.level <= a.depth).then(|| saved.clone())
         })
         .await;
@@ -496,7 +536,7 @@ pub(crate) struct ForkImage {
 /// The asyncify state a child takes over.
 struct ForkState {
     buffer: u32,
-    saved: HashMap<u32, Arc<Saved>>,
+    saved: HashMap<u64, Arc<Saved>>,
     generation: u64,
     tag: Tag,
 }
@@ -539,7 +579,7 @@ async fn snapshot<S: 'static>(
             .saved
             .iter()
             .filter(|(_, saved)| saved.id.level == 1)
-            .map(|(&slot, saved)| (slot, saved.clone()))
+            .map(|(&generation, saved)| (generation, saved.clone()))
             .collect();
         Ok(ForkImage {
             module,
@@ -622,7 +662,7 @@ pub mod import {
         }))
     }
 
-    /// Starts unwinding the stack to save it under `slot`; the import returns afterwards and
+    /// Starts unwinding the stack to save it from `slot`; the import returns afterwards and
     /// resumes with [`Resumed::Saved`].
     pub async fn save<S: 'static>(
         env: &AsyncFunctionEnvMut<ExecEnv<S>>,
@@ -645,5 +685,45 @@ pub mod import {
     /// in [`Resumed::Forked`].
     pub async fn set_fork_payload<S: 'static>(env: &AsyncFunctionEnvMut<ExecEnv<S>>, payload: Tag) {
         env.write().await.data_mut().fork_payload = Some(payload);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn saved(slot: u32, stack_pointer: i32, len: usize) -> Saved {
+        Saved {
+            id: StackId {
+                slot,
+                generation: 1,
+                level: 1,
+            },
+            data: vec![0; len],
+            stack_pointer: Value::I32(stack_pointer),
+        }
+    }
+
+    #[test]
+    fn a_save_from_an_outer_frame_outlives_nested_saves_of_its_slot() {
+        // bash's return_catch: the jmp_buf is copied aside and set again in a nested frame,
+        // deeper on the shadow stack or, without a frame of its own there, with more unwound.
+        let outer = saved(0x100, 0x8000, 64);
+        assert!(!outer.dead_after(0x100, 0x7f00, 64));
+        assert!(!outer.dead_after(0x100, 0x8000, 96));
+    }
+
+    #[test]
+    fn a_save_dies_once_its_frame_was_popped() {
+        let inner = saved(0x100, 0x7f00, 96);
+        assert!(inner.dead_after(0x200, 0x8000, 64));
+    }
+
+    #[test]
+    fn running_setjmp_again_replaces_the_save() {
+        let first = saved(0x100, 0x8000, 64);
+        assert!(first.dead_after(0x100, 0x8000, 64));
+        // Another jmp_buf set from the same frame does not.
+        assert!(!first.dead_after(0x200, 0x8000, 64));
     }
 }
