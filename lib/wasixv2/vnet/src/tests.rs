@@ -323,6 +323,53 @@ fn int(v: i32) -> [u8; 4] {
 const SOL_SOCKET: i32 = SocketLevel::SOL_SOCKET.0;
 
 #[test]
+fn disconnect_resets_the_connection_and_returns_port_and_address() {
+    let n = net();
+    let l = tcp(&n);
+    l.bind(a("127.0.0.1:7300"), false).unwrap();
+    l.listen(4).unwrap();
+    let c = tcp(&n);
+    c.connect(a("127.0.0.1:7300")).unwrap();
+    let s = l.accept().unwrap().socket;
+    let port = c.local_addr().unwrap().port();
+    c.disconnect().unwrap();
+    // `tcp_disconnect` from ESTABLISHED: RST to the peer, ECONNRESET on our own socket.
+    assert_eq!(c.take_error(), Some(Errno::ECONNRESET));
+    assert_eq!(recv(&*s, 4), Err(Errno::ECONNRESET));
+    // The autobound port went back (`inet_put_port`); the source address is the wildcard
+    // again (`inet_bhash2_reset_saddr`), the port still shows.
+    assert_eq!(
+        c.local_addr().unwrap(),
+        SocketAddr::new(a("0.0.0.0:0").ip(), port)
+    );
+    assert!(n.ports().iter().all(|p| p.local.port() != port));
+    // Disconnecting a closed socket sets nothing.
+    c.disconnect().unwrap();
+    assert_eq!(c.take_error(), None);
+    // A port and address chosen by bind stay.
+    let b = tcp(&n);
+    b.bind(a("127.0.0.1:7301"), false).unwrap();
+    b.connect(a("127.0.0.1:7300")).unwrap();
+    b.disconnect().unwrap();
+    assert_eq!(b.local_addr().unwrap(), a("127.0.0.1:7301"));
+}
+
+#[test]
+fn shutdown_of_a_reset_connection_is_enotconn() {
+    let n = net();
+    let l = tcp(&n);
+    l.bind(a("127.0.0.1:7400"), false).unwrap();
+    l.listen(4).unwrap();
+    let c = tcp(&n);
+    c.connect(a("127.0.0.1:7400")).unwrap();
+    let s = l.accept().unwrap().socket;
+    send(&*c, b"unread").unwrap();
+    drop(s);
+    assert!(c.poll(None).contains(PollMask::ERR));
+    assert_eq!(c.shutdown(Shutdown::Write), Err(Errno::ENOTCONN));
+}
+
+#[test]
 fn reuseport_groups_need_one_owner() {
     let n = net();
     let one = int(1);
