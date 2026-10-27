@@ -276,3 +276,14 @@ suggested: the leader's side has no guest memory for the robust-list walk and `m
 
 Landed, fast-forward: libc2 `main` `a524136a..bb5d6d71`; tests `main` `5af6416..eac8874`; wasmer
 `feat/wasixv2` `53813911d17..e595aea505f`.
+
+## 2026-10-28: WP4 (fs/vfs) — LANDED
+
+wasmer `wasixv2/wp4-fs-2`: 18 commits (H1 RESOLVE_IN_ROOT from `dfd` as Linux `path_init`; M-FS1..5;
+L-FS1..10, L-FS12 in part) rebased onto WP1 without conflicts, and the tests bump (13 suite-test
+commits). Gates: crate tests 605, clippy, fmt, release, CLI 51/0/13. Suite (two runs): 2380 pass,
+1229 expected failures, 0 unexpected, 454 ignored; no upstream test newly passes, no bless. Smoke as
+WP1.
+
+Landed, fast-forward: libc2 `main` `bb5d6d71..0bc9eed3`; tests `main` `eac8874..7fd6227`; wasmer
+`feat/wasixv2` `e595aea505f..9c147516805`.
