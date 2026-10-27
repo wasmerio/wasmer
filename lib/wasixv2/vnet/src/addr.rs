@@ -11,13 +11,6 @@ use crate::Domain;
 
 /// Domain-related helpers.
 impl Domain {
-    pub fn of(addr: &SocketAddr) -> Self {
-        match addr {
-            SocketAddr::V4(_) => Self::Inet,
-            SocketAddr::V6(_) => Self::Inet6,
-        }
-    }
-
     /// `AF_INET` / `AF_INET6`.
     pub fn raw(self) -> i32 {
         match self {

@@ -395,41 +395,34 @@ impl Socket for UdpSocket {
         if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
         }
-        let dgram = if peek {
-            g.queue.front().map(|d| (d.data.clone(), d.from))
-        } else {
-            g.queue.pop_front().map(|d| (d.data, d.from))
-        };
-        let (data, from) = match dgram {
-            Some((data, from)) => {
-                if !peek {
-                    g.queued -= data.len() + DGRAM_OVERHEAD;
-                }
-                (data, from)
+        if let Some(d) = g.queue.front() {
+            // Copied out under the lock, so a peek takes no copy of the datagram.
+            let (full, from) = (d.data.len(), d.from);
+            let len = buf.len().min(full);
+            buf[..len].copy_from_slice(&d.data[..len]);
+            if !peek {
+                g.queue.pop_front();
+                g.queued -= full + DGRAM_OVERHEAD;
             }
-            None => {
-                let backend = g.backend.clone();
-                let rd_shut = g.rd_shut;
-                drop(g);
-                if let Some(b) = backend {
-                    match b.recv_from(buf, peek) {
-                        Ok((len, full_len, from)) => {
-                            let from = self.net.guest_view(from);
-                            return Ok(dgram_result(self.domain, len, full_len, from));
-                        }
-                        Err(Errno::EAGAIN) => {}
-                        Err(e) => return Err(e),
-                    }
+            return Ok(dgram_result(self.domain, len, full, from));
+        }
+        let backend = g.backend.clone();
+        let rd_shut = g.rd_shut;
+        drop(g);
+        if let Some(b) = backend {
+            match b.recv_from(buf, peek) {
+                Ok((len, full_len, from)) => {
+                    let from = self.net.guest_view(from);
+                    return Ok(dgram_result(self.domain, len, full_len, from));
                 }
-                if rd_shut {
-                    return Ok(RecvMsg::default());
-                }
-                return Err(Errno::EAGAIN);
+                Err(Errno::EAGAIN) => {}
+                Err(e) => return Err(e),
             }
-        };
-        let len = buf.len().min(data.len());
-        buf[..len].copy_from_slice(&data[..len]);
-        Ok(dgram_result(self.domain, len, data.len(), from))
+        }
+        if rd_shut {
+            return Ok(RecvMsg::default());
+        }
+        Err(Errno::EAGAIN)
     }
 
     fn local_addr(&self) -> NetResult<SocketAddr> {
