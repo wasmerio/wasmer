@@ -473,3 +473,53 @@ fn posix_queues_order_by_priority_and_notify_once() {
     // The queue lives on while descriptors refer to it.
     assert_eq!(send(&caller_a, qa, b"still", 0), Ok(0));
 }
+
+#[test]
+fn only_the_owner_root_or_cap_fowner_unlink_a_posix_queue() {
+    let (kernel, root, memory_root) = super::cred::machine_as(0, 0);
+    let user = another_process(&kernel);
+    let memory_user = memory();
+    let (root_caller, user_caller) = (
+        Caller::new(root, &memory_root),
+        Caller::new(user, &memory_user),
+    );
+    assert_eq!(block_on(kernel.setuid(&user_caller, 1000)), Ok(0));
+    let create = OpenFlags::O_CREAT | OpenFlags::O_RDWR;
+    assert_eq!(
+        mq_open(&kernel, &root_caller, b"root", create, None).map(|_| ()),
+        Ok(())
+    );
+    assert!(mq_open(&kernel, &user_caller, b"user", create, None).is_ok());
+    let unlink = |caller: &Caller<'_>, name: &[u8]| {
+        let mut cname = name.to_vec();
+        cname.push(0);
+        block_on(caller.memory().write(0x800, &cname)).unwrap();
+        block_on(kernel.mq_unlink(caller, GuestPtr::new(0x800)))
+    };
+
+    // The mqueue root is sticky: another user's queue stays.
+    assert_eq!(errno(unlink(&user_caller, b"root")), Errno::EPERM);
+    assert_eq!(unlink(&user_caller, b"user"), Ok(0));
+    assert_eq!(errno(unlink(&user_caller, b"user")), Errno::ENOENT);
+    assert_eq!(unlink(&root_caller, b"root"), Ok(0));
+}
+
+#[test]
+fn ipcget_checks_the_size_before_the_permissions() {
+    let (kernel, root, memory_root) = super::cred::machine_as(0, 0);
+    let user = another_process(&kernel);
+    let memory_user = memory();
+    let (root_caller, user_caller) = (
+        Caller::new(root, &memory_root),
+        Caller::new(user, &memory_user),
+    );
+    assert_eq!(block_on(kernel.setuid(&user_caller, 1000)), Ok(0));
+    assert!(block_on(kernel.shmget(&root_caller, 7, 100, CREATE)).is_ok());
+
+    // `shm_more_checks` comes first: too large is EINVAL even for whom may not use it.
+    let read = 0o400;
+    let too_large = block_on(kernel.shmget(&user_caller, 7, 200, read));
+    assert_eq!(errno(too_large), Errno::EINVAL);
+    let fits = block_on(kernel.shmget(&user_caller, 7, 50, read));
+    assert_eq!(errno(fits), Errno::EACCES);
+}
