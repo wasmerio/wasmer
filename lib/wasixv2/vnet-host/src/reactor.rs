@@ -172,7 +172,14 @@ fn run(mut poll: Poll, shared: Arc<Shared>) {
                     pump(&s, &mut buf);
                 }
                 Some(Entry::Listener(l)) => l.accept_all(),
-                Some(Entry::Datagram(d)) => d.receive_all(&mut buf),
+                Some(Entry::Datagram(d)) => {
+                    if ev.is_writable() || ev.is_error() {
+                        d.writable();
+                    }
+                    if ev.is_readable() || ev.is_error() {
+                        d.receive_all(&mut buf);
+                    }
+                }
                 None => {}
             }
         }
@@ -801,7 +808,6 @@ impl Drop for HostPublication {
 
 // ---- datagrams ----
 
-#[derive(Default)]
 struct DgramState {
     queue: VecDeque<(Vec<u8>, SocketAddr)>,
     queued: usize,
@@ -809,6 +815,9 @@ struct DgramState {
     err: Option<Errno>,
     /// The host socket is connected (`connect`), so the host filters by its peer.
     connected: Option<SocketAddr>,
+    /// The host socket takes datagrams: false from a send's `EAGAIN` until the reactor sees
+    /// it writable again.
+    host_writable: bool,
 }
 
 struct DgramShared {
@@ -823,6 +832,16 @@ struct DgramShared {
 impl DgramShared {
     fn state(&self) -> MutexGuard<'_, DgramState> {
         self.st.lock().unwrap()
+    }
+
+    /// The host socket became writable: wake senders that met `EAGAIN` (`sock_wfree` waking
+    /// `sk_write_space`).
+    fn writable(&self) {
+        let was = std::mem::replace(&mut self.state().host_writable, true);
+        if !was {
+            self.wq
+                .wake(PollMask::OUT | PollMask::WRNORM | PollMask::WRBAND);
+        }
     }
 
     fn receive_all(&self, buf: &mut [u8]) {
@@ -871,8 +890,11 @@ impl Drop for HostDatagram {
 
 impl Pollable for HostDatagram {
     fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
-        let mut m = PollMask::OUT | PollMask::WRNORM;
         let st = self.0.state();
+        let mut m = PollMask::empty();
+        if st.host_writable {
+            m |= PollMask::OUT | PollMask::WRNORM;
+        }
         if !st.queue.is_empty() {
             m |= PollMask::IN | PollMask::RDNORM;
         }
@@ -885,13 +907,22 @@ impl Pollable for HostDatagram {
 
 impl BackendDatagram for HostDatagram {
     fn send_to(&self, data: &[u8], to: SocketAddr) -> Result<usize, Errno> {
+        // Under the state lock, so the reactor marks the socket writable only after an
+        // `EAGAIN` here has marked it full: no wakeup falls between the two.
+        let mut st = self.0.state();
         // `send` to the connected peer, so the host reports its errors on this socket.
-        let connected = self.0.state().connected;
-        let sent = match connected {
+        let sent = match st.connected {
             Some(peer) if peer == to => self.0.sock.send(data),
             _ => self.0.sock.send_to(data, to),
         };
-        sent.map_err(|e| errno_from_io(&e))
+        match sent {
+            Ok(n) => Ok(n),
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                st.host_writable = false;
+                Err(Errno::EAGAIN)
+            }
+            Err(e) => Err(errno_from_io(&e)),
+        }
     }
 
     fn recv_from(&self, buf: &mut [u8], peek: bool) -> Result<(usize, usize, SocketAddr), Errno> {
@@ -960,7 +991,13 @@ impl Backend for HostBackend {
             sock,
             token,
             wq,
-            st: Mutex::new(DgramState::default()),
+            st: Mutex::new(DgramState {
+                queue: VecDeque::new(),
+                queued: 0,
+                err: None,
+                connected: None,
+                host_writable: true,
+            }),
             backend: Arc::downgrade(&self.shared),
         });
         self.shared
@@ -969,11 +1006,12 @@ impl Backend for HostBackend {
             .unwrap()
             .insert(token, Entry::Datagram(shared.clone()));
         let fd = shared.sock.as_raw_fd();
-        if let Err(e) = self
-            .shared
-            .registry
-            .register(&mut SourceFd(&fd), token, Interest::READABLE)
-        {
+        // Writable too: a send that met `EAGAIN` waits for the host to take datagrams again.
+        if let Err(e) = self.shared.registry.register(
+            &mut SourceFd(&fd),
+            token,
+            Interest::READABLE | Interest::WRITABLE,
+        ) {
             self.shared.remove(token);
             return Err(errno_from_io(&e));
         }
@@ -1036,6 +1074,8 @@ fn listen(addr: SocketAddr, backlog: u32) -> io::Result<TcpListener> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::mpsc;
+
     use super::*;
 
     fn backend() -> Arc<HostBackend> {
@@ -1077,5 +1117,40 @@ mod tests {
         )
         .unwrap();
         assert!(!host_sock.keepalive().unwrap());
+    }
+
+    #[test]
+    fn a_datagram_endpoint_is_writable_until_the_host_is_full() {
+        let b = backend();
+        let wq = WaitQueue::new();
+        let d = b.datagram(Domain::Inet, wq.clone()).unwrap();
+        assert!(d.poll(None).contains(PollMask::OUT));
+        let (tx, rx) = mpsc::channel();
+        struct Signal(mpsc::Sender<PollMask>);
+        impl WaitEntry for Signal {
+            fn wake(&self, events: PollMask) -> bool {
+                let _ = self.0.send(events);
+                true
+            }
+        }
+        let _reg = wq.add(Arc::new(Signal(tx)));
+        // What a send meeting `EAGAIN` leaves.
+        let shared = b
+            .shared
+            .entries
+            .lock()
+            .unwrap()
+            .values()
+            .find_map(|e| match e {
+                Entry::Datagram(d) => Some(d.clone()),
+                _ => None,
+            });
+        let shared = shared.unwrap();
+        shared.state().host_writable = false;
+        assert!(!d.poll(None).intersects(PollMask::OUT | PollMask::WRNORM));
+        // The reactor's writable event wakes the guest socket's queue with OUT.
+        shared.writable();
+        assert!(rx.try_recv().unwrap().contains(PollMask::OUT));
+        assert!(d.poll(None).contains(PollMask::OUT));
     }
 }
