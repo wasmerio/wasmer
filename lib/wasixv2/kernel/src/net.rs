@@ -267,10 +267,11 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `do_accept`: waits for a connection unless non-blocking. As Linux reserves the
-    /// descriptor before taking the connection (`get_unused_fd_flags`), a full table fails with
-    /// `EMFILE` and leaves the connection queued; a fault writing the peer's address afterwards
-    /// closes the accepted socket, which its peer sees.
+    /// `do_accept`: waits for a connection unless non-blocking. As Linux, the descriptor is
+    /// reserved before the connection is taken (`get_unused_fd_flags`), so a full table fails
+    /// with `EMFILE` and leaves the connection queued, and installed only once the peer's
+    /// address is written (`fd_install` last): a fault there closes the accepted socket, which
+    /// its peer sees, and no other thread ever saw its descriptor.
     pub(crate) async fn sys_accept4(
         &self,
         caller: &Caller<'_>,
@@ -284,82 +285,40 @@ impl Kernel {
         }
         let any = self.any_socket(caller, fd)?;
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
+        let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
         let interrupt = self.interrupt(caller);
         let io = Self::io(&*interrupt, any.file());
-        let (fd, file, peer) = match &any {
+        let (file, peer) = match &any {
             AnySock::Inet((_, sock)) => {
                 let mut wait = sock.blocking(io, RCV, MsgFlags(0));
                 let on = WaitOn::Object(&*sock.socket);
                 wait.wait(on, PollMask::READABLE, || {
-                    self.install_accepted(caller, cloexec, || {
-                        let accepted = sock.socket.accept()?;
-                        let peer = socket::encode(accepted.peer);
-                        Ok((self.socket_file(caller, accepted.socket, flags), peer))
-                    })
+                    let accepted = sock.socket.accept()?;
+                    let peer = socket::encode(accepted.peer);
+                    Ok((self.socket_file(caller, accepted.socket, flags), peer))
                 })
                 .await?
             }
             AnySock::Unix(_, sock) => {
                 let mut wait = sock.blocking(io, RCV, MsgFlags(0));
                 wait.wait(WaitOn::Queue(sock.queue()), PollMask::READABLE, || {
-                    self.install_accepted(caller, cloexec, || {
-                        if sock.kind() == unix::Kind::Dgram {
-                            return Err(Errno::EOPNOTSUPP);
-                        }
-                        // The embryo is an open file at once, so every way out releases it.
-                        let embryo = sock.try_accept()?;
-                        let peer = embryo.peer_addr().unwrap_or_default();
-                        let owner = self.cred(caller).fs_owner();
-                        Ok((unix_file(embryo, flags, self.pseudo.socket(owner)), peer))
-                    })
+                    if sock.kind() == unix::Kind::Dgram {
+                        return Err(Errno::EOPNOTSUPP);
+                    }
+                    // The embryo is an open file at once, so every way out releases it.
+                    let embryo = sock.try_accept()?;
+                    let peer = embryo.peer_addr().unwrap_or_default();
+                    let owner = self.cred(caller).fs_owner();
+                    Ok((unix_file(embryo, flags, self.pseudo.socket(owner)), peer))
                 })
                 .await?
             }
-            AnySock::Netlink(..) => {
-                self.install_accepted(caller, cloexec, || Err(Errno::EOPNOTSUPP))?
-            }
+            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
-        if !addr.is_null()
-            && let Err(err) = move_addr_to_user(caller, &peer, addr, addrlen).await
-        {
-            self.uninstall(caller, fd, &file);
-            return Err(err);
+        if !addr.is_null() {
+            move_addr_to_user(caller, &peer, addr, addrlen).await?;
         }
-        Ok(fd)
-    }
-
-    /// Takes a connection with `accept` and installs it, under the descriptor table's lock so
-    /// the slot checked free is the one used: `EMFILE` before anything is dequeued.
-    fn install_accepted(
-        &self,
-        caller: &Caller<'_>,
-        cloexec: bool,
-        accept: impl FnOnce() -> Result<(OpenFile, Vec<u8>), Errno>,
-    ) -> Result<(Fd, Arc<OpenFile>, Vec<u8>), Errno> {
-        let table = self.files(caller.task());
-        let mut table = table.lock().unwrap();
-        if !table.has_room(1) {
-            return Err(Errno::EMFILE);
-        }
-        let (file, peer) = accept()?;
-        let file = Arc::new(file);
-        let fd = table
-            .install(file.clone(), cloexec)
-            .expect("room checked above");
-        Ok((fd, file, peer))
-    }
-
-    /// Takes back a descriptor `install_accepted` installed, unless the guest replaced it.
-    fn uninstall(&self, caller: &Caller<'_>, fd: Fd, file: &Arc<OpenFile>) {
-        let removed = {
-            let table = self.files(caller.task());
-            let mut table = table.lock().unwrap();
-            match table.get(fd) {
-                Some(installed) if Arc::ptr_eq(&installed, file) => table.remove(fd),
-                _ => None,
-            }
-        };
-        drop(removed);
+        Ok(slot.install(Arc::new(file)))
     }
 
     /// `__sys_connect`, `inet_stream_connect` and `inet_dgram_connect`.
