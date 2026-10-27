@@ -253,6 +253,12 @@ async fn run_new_image<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
+    // `de_thread`: the old image is gone from every thread before the new one starts.
+    if let Err(status) = syscalls.exec_wait(task).await {
+        syscalls.group_wait(task).await;
+        syscalls.release(task);
+        return Ok(status);
+    }
     let (engine, module) = match abis.loader().load(&engine, &image).await {
         Ok(loaded) => loaded,
         Err(err) => {

@@ -11,7 +11,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{
     Caller, Errno, GuestAction, SysResult, TaskId, VforkParent, WorkFlag, write_value,
 };
-use wasixv2_wait::{NoInterrupt, PollMask, WaitQueue, wait_event};
+use wasixv2_wait::{Interrupted, NoInterrupt, PollMask, WaitQueue, wait_event};
 
 use crate::{Kernel, Process, State, Task, work::Work};
 
@@ -34,11 +34,21 @@ pub(crate) struct Group {
 struct GroupState {
     /// Tasks that have not exited yet, in step with their `ThreadState::exited`.
     live: u32,
+    /// An `execve` between `de_thread`'s start and its commit (`group_exec_task`).
+    exec: Option<GroupExec>,
     /// The status of `exit_group`, or of the group's end when its last task called `exit`.
     exit: Option<i32>,
     /// The status of the leader's own `exit`, which is the group's when it ends without an
     /// `exit_group` (`wait_task_zombie` reads the leader's `exit_code`).
     leader_exit: Option<i32>,
+}
+
+/// An `execve` in progress in a thread group.
+#[derive(Clone, Copy)]
+struct GroupExec {
+    /// The leader, when it is not the task that calls `execve`, left its old image and waits
+    /// for the new one: what Linux's `de_thread` waits for as the leader's `exit_state`.
+    leader_parked: bool,
 }
 
 impl Group {
@@ -52,6 +62,13 @@ impl Group {
     /// The group is exiting or exited.
     pub(crate) fn exiting(&self) -> bool {
         self.state.lock().unwrap().exit.is_some()
+    }
+
+    /// `signal_group_exit`: the group is exiting, or one of its tasks is in an `execve` that
+    /// is ending the others. It starts no new tasks.
+    pub(crate) fn signal_group_exit(&self) -> bool {
+        let state = self.state.lock().unwrap();
+        state.exit.is_some() || state.exec.is_some()
     }
 
     fn status(&self) -> Option<i32> {
@@ -160,8 +177,9 @@ impl Kernel {
             let sched = task.sched.for_child()?;
             {
                 let mut group = process.group.state.lock().unwrap();
-                // A group on its way out starts nothing (Linux: fatal_signal_pending).
-                if group.exit.is_some() {
+                // A group on its way out, or in an `execve`, starts nothing (Linux:
+                // `fatal_signal_pending`, the leader's SIGKILL from `de_thread`).
+                if group.exit.is_some() || group.exec.is_some() {
                     return Err(Errno::EINTR.into());
                 }
                 group.live += 1;
@@ -402,31 +420,101 @@ impl Kernel {
             .expect("NoInterrupt never interrupts")
     }
 
-    /// `de_thread` at the point of no return of `execve` from `task`: every other task of the
-    /// thread group is killed, and the image runs as the group leader, which `task` becomes when
-    /// it is not already (Linux exchanges their pids). Returns the leader.
-    ///
-    /// The leader's new image starts once the others are gone ([`Kernel::exec_wait`]).
-    pub(crate) fn de_thread(&self, task: TaskId) -> TaskId {
+    /// `de_thread`'s start at the point of no return of `execve` from `task`
+    /// (`zap_other_threads`): every other task of the thread group but the leader exits and is
+    /// sent SIGKILL, so blocked ones wake up. Returns their futex state, which the caller
+    /// releases once they are gone ([`Kernel::de_thread`]), and the guard of the `execve`,
+    /// which the group is in until it goes. `EAGAIN` when the group is exiting or another
+    /// task's `execve` got there first.
+    pub(crate) fn zap_threads(
+        &self,
+        task: TaskId,
+    ) -> Result<(ExecGuard, Vec<(TaskId, ThreadState)>), Errno> {
+        let mut state = self.state.lock().unwrap();
+        let process = state.tasks[&task].process.clone();
+        let leader = process.pid;
+        {
+            let mut group = process.group.state.lock().unwrap();
+            if group.exit.is_some() || group.exec.is_some() {
+                return Err(Errno::EAGAIN);
+            }
+            group.exec = Some(GroupExec {
+                leader_parked: false,
+            });
+        }
+        let mut unstarted = Vec::new();
+        let mut killed = Vec::new();
+        let mut futexes = Vec::new();
+        for (&id, t) in state.tasks.iter_mut() {
+            if !Arc::ptr_eq(&t.process, &process) || id == task || id == leader {
+                continue;
+            }
+            if !t.thread.exited {
+                t.thread.exited = true;
+                futexes.push((id, take_futex_state(t)));
+            }
+            unstarted.extend(t.work.push(GuestAction::Exit(0)));
+            killed.push(t.signals.clone());
+        }
+        process.group.state.lock().unwrap().live -= futexes.len() as u32;
+        for child in unstarted {
+            forget_task(&mut state, child);
+        }
+        drop(state);
+        for signals in killed {
+            signals.kill();
+        }
+        Ok((ExecGuard(process), futexes))
+    }
+
+    /// `de_thread`'s wait, after [`Kernel::zap_threads`]: until the tasks it killed are gone and
+    /// the leader, when it is not `task`, has left its old image ([`Kernel::exec_wait`]), so no
+    /// thread runs the old image but `task` when the `execve` commits. Killable, as Linux's
+    /// (`TASK_KILLABLE`): a fatal signal ends the group, and the `execve` with EAGAIN; so does
+    /// an exit of the group meanwhile.
+    pub(crate) async fn de_thread(&self, task: TaskId) -> Result<(), Errno> {
+        let process = self.process(task);
+        let leader = process.pid;
+        let signals = self.task_signals(task);
+        let done = || {
+            let state = self.state.read().unwrap();
+            if state.tasks[&task].work.exit().is_some() {
+                return Some(false);
+            }
+            let others = state
+                .tasks
+                .iter()
+                .any(|(&id, t)| id != task && id != leader && Arc::ptr_eq(&t.process, &process));
+            let group = process.group.state.lock().unwrap();
+            let parked = task == leader || group.exec.is_some_and(|exec| exec.leader_parked);
+            (!others && parked).then_some(true)
+        };
+        let fatal = match wait_event(&process.group.released, done, &signals.killable()).await {
+            Ok(true) => return Ok(()),
+            Ok(false) => None,
+            Err(Interrupted) => signals.fatal_pending(),
+        };
+        // `complete_signal`: a fatal signal ends the whole group as it arrives.
+        if let Some(sig) = fatal {
+            self.force_fatal_signal(task, sig);
+        }
+        Err(Errno::EAGAIN)
+    }
+
+    /// `de_thread`'s end, once the old image is gone from every thread but `task`: the new
+    /// image runs as the group leader, which takes over `task`'s signal state when it is not
+    /// `task` itself (Linux exchanges their pids), and `task` exits. Returns the leader.
+    pub(crate) fn exec_leader(&self, task: TaskId) -> TaskId {
         let mut state = self.state.lock().unwrap();
         let process = state.tasks[&task].process.clone();
         let leader = process.pid;
         let mut unstarted = Vec::new();
-        let mut killed = Vec::new();
-        for (&id, t) in state.tasks.iter_mut() {
-            if !Arc::ptr_eq(&t.process, &process) || id == leader {
-                continue;
-            }
-            t.thread.exited = true;
-            unstarted.extend(t.work.push(GuestAction::Exit(0)));
-            if id != task {
-                killed.push(t.signals.clone());
-            }
-        }
-        let group = state.tasks[&leader].signals.group().clone();
         if task != leader {
-            // The leader takes over the caller's signal state; what it was doing ends here.
+            let group = state.tasks[&leader].signals.group().clone();
             group.take_over(task, leader);
+            let entry = state.tasks.get_mut(&task).expect("the caller is listed");
+            entry.thread.exited = true;
+            unstarted.extend(entry.work.push(GuestAction::Exit(0)));
             let entry = state.tasks.get_mut(&leader).expect("the leader is listed");
             unstarted.extend(entry.work.take_unstarted());
             entry.thread.exited = false;
@@ -436,17 +524,14 @@ impl Kernel {
             forget_task(&mut state, child);
         }
         process.group.state.lock().unwrap().live = 1;
-        drop(state);
-        // `zap_other_threads`: SIGKILL for each, so blocked ones wake up.
-        for signals in killed {
-            signals.kill();
-        }
         leader
     }
 
     /// Leaves the image of an `execve` for the leader `task`, and wakes it wherever it waits,
-    /// a zombie leader's wait for its group included.
-    pub(crate) fn hand_image(&self, task: TaskId, image: Vec<u8>, vfork_parent: Option<TaskId>) {
+    /// a zombie leader's wait for its group included. A vfork child's instance goes back to the
+    /// parent once it takes the image, unless the parent's exit is pending by then.
+    pub(crate) fn hand_image(&self, task: TaskId, image: Vec<u8>) {
+        let vfork_parent = self.procs.tree.lock().unwrap().vforks.remove(&task);
         let vfork_parent = vfork_parent.map(|task| VforkParent { task, exit: None });
         let (process, signals) = {
             let mut state = self.state.lock().unwrap();
@@ -462,10 +547,16 @@ impl Kernel {
         process.group.exited.wake(PollMask::empty());
     }
 
-    /// Waits until `task` is the only task of its thread group, before the image `execve` loaded
-    /// starts. `Err(status)` when the group exited meanwhile; its exit is taken.
+    /// Before the image `execve` loaded starts in `task`'s instance, which left the old one:
+    /// waits until the `execve` committed and `task` is the only task of its thread group.
+    /// `Err(status)` when the group exited meanwhile; its exit is taken.
     pub(crate) async fn exec_wait(&self, task: TaskId) -> Result<(), i32> {
         let process = self.process(task);
+        // An `execve` from another thread waits for the leader's old image to be gone.
+        if let Some(exec) = &mut process.group.state.lock().unwrap().exec {
+            exec.leader_parked = true;
+        }
+        process.group.released.wake(PollMask::empty());
         let alone = || {
             let mut state = self.state.lock().unwrap();
             let Some(entry) = state.tasks.get_mut(&task) else {
@@ -474,6 +565,9 @@ impl Kernel {
             if let Some(status) = entry.work.exit() {
                 while entry.work.take().is_some() {}
                 return Some(Err(status));
+            }
+            if process.group.state.lock().unwrap().exec.is_some() {
+                return None;
             }
             let others = state
                 .tasks
@@ -500,18 +594,30 @@ impl Kernel {
     /// written when the memory outlives the group (a vfork relative), as Linux writes it only
     /// while others use the memory.
     pub(crate) async fn group_exit_futexes(&self, caller: &Caller<'_>) {
-        // Taken all at once: a task that exits meanwhile can be released, and gone, before
-        // the caller reaches it.
-        let threads: Vec<(TaskId, ThreadState)> = {
-            let mut state = self.state.lock().unwrap();
-            let process = state.tasks[&caller.task()].process.clone();
-            state
-                .tasks
-                .iter_mut()
-                .filter(|(_, t)| Arc::ptr_eq(&t.process, &process) && !t.thread.exited)
-                .map(|(&id, t)| (id, take_futex_state(t)))
-                .collect()
-        };
+        let threads = self.take_group_futex_states(caller.task());
+        self.exit_futexes(caller, threads).await;
+    }
+
+    /// The futex state of every task of `task`'s thread group that has not exited. Taken all
+    /// at once: a task that exits meanwhile can be released, and gone, before the caller
+    /// reaches it.
+    pub(crate) fn take_group_futex_states(&self, task: TaskId) -> Vec<(TaskId, ThreadState)> {
+        let mut state = self.state.lock().unwrap();
+        let process = state.tasks[&task].process.clone();
+        state
+            .tasks
+            .iter_mut()
+            .filter(|(_, t)| Arc::ptr_eq(&t.process, &process) && !t.thread.exited)
+            .map(|(&id, t)| (id, take_futex_state(t)))
+            .collect()
+    }
+
+    /// [`Kernel::group_exit_futexes`] for the futex state of `threads`, the caller's group's.
+    pub(crate) async fn exit_futexes(
+        &self,
+        caller: &Caller<'_>,
+        threads: Vec<(TaskId, ThreadState)>,
+    ) {
         let clear_tid = self.mm_shared_elsewhere(caller.task());
         for (task, thread) in threads {
             self.exit_thread(caller, task, thread, clear_tid).await;
@@ -593,6 +699,19 @@ impl Kernel {
         write_value(caller.memory(), len_ptr, &ROBUST_LIST_HEAD_SIZE).await?;
         write_value(caller.memory(), head_ptr, &RobustListHeadPtr::new(head)).await?;
         Ok(0)
+    }
+}
+
+/// The `execve` [`Kernel::zap_threads`] started in a thread group (Linux's `group_exec_task`),
+/// until its commit or its failure, or until the call is dropped: the group may exit, exec and
+/// start tasks again once this goes.
+pub(crate) struct ExecGuard(Arc<Process>);
+
+impl Drop for ExecGuard {
+    fn drop(&mut self) {
+        let group = &self.0.group;
+        group.state.lock().unwrap().exec = None;
+        group.released.wake(PollMask::empty());
     }
 }
 
