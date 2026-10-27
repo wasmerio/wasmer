@@ -499,6 +499,11 @@ impl Machine {
         let image = match kernel.exec(task, path.as_bytes(), args, env).await {
             Ok(image) => image,
             Err(errno) => {
+                // Killed before its image started (`execve` of a dying group fails): it ends
+                // as the kill says.
+                if let Some(status) = killed(kernel, task) {
+                    return Ok(status);
+                }
                 abandon(kernel, task);
                 return Err(RunError::Execve {
                     path: path.to_string(),
@@ -648,6 +653,20 @@ fn abis(
         wasix1_commands,
     )));
     abis
+}
+
+/// When an exit is queued for `task`, a process that never ran an image: its status, and the
+/// task goes.
+fn killed(kernel: &Kernel, task: TaskId) -> Option<i32> {
+    use wasixv2_syscalls::{Control, GuestAction};
+
+    let mut status = None;
+    while let Some(action) = kernel.take_pending(task) {
+        if let GuestAction::Exit(exit) = action {
+            status.get_or_insert(exit);
+        }
+    }
+    status.inspect(|_| kernel.release(task))
 }
 
 /// Ends `task`, a process that never ran an image, with SIGKILL, and lets it go.

@@ -446,10 +446,18 @@ impl Kernel {
 
     /// Leaves the image of an `execve` for the leader `task`, and wakes it wherever it waits,
     /// a zombie leader's wait for its group included.
-    pub(crate) fn hand_image(&self, task: TaskId, vfork_parent: Option<TaskId>) {
+    pub(crate) fn hand_image(&self, task: TaskId, image: Vec<u8>, vfork_parent: Option<TaskId>) {
         let vfork_parent = vfork_parent.map(|task| VforkParent { task, exit: None });
-        self.queue(task, GuestAction::Exec { vfork_parent });
-        let (process, signals) = self.with_task(task, |t| (t.process.clone(), t.signals.clone()));
+        let (process, signals) = {
+            let mut state = self.state.lock().unwrap();
+            let entry = state.tasks.get_mut(&task).expect("the leader is listed");
+            let unstarted = entry.work.exec(image, vfork_parent);
+            let handed = (entry.process.clone(), entry.signals.clone());
+            for child in unstarted {
+                forget_task(&mut state, child);
+            }
+            handed
+        };
         signals.group().notify(task);
         process.group.exited.wake(PollMask::empty());
     }

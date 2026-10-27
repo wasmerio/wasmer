@@ -87,8 +87,6 @@ pub(crate) struct Tree {
     pub(crate) nodes: HashMap<u32, Node>,
     /// vfork children running in their parent's instance, to the parent task that waits.
     vforks: HashMap<TaskId, TaskId>,
-    /// Images an `execve` loaded, until the execution layer takes them.
-    images: HashMap<TaskId, Vec<u8>>,
 }
 
 pub(crate) struct Node {
@@ -151,10 +149,6 @@ impl Procs {
     pub(crate) fn find(&self, pid: u32) -> Option<Arc<Process>> {
         let tree = self.tree.lock().unwrap();
         tree.nodes.get(&pid).map(|node| node.process.clone())
-    }
-
-    pub(crate) fn take_image(&self, task: TaskId) -> Option<Vec<u8>> {
-        self.tree.lock().unwrap().images.remove(&task)
     }
 }
 
@@ -631,11 +625,8 @@ impl Kernel {
         // There is no guest to return to: the image goes to the caller, not through the work
         // queue. Only the execve's own action goes; whatever else is queued, such as an exit
         // the embedder asked for before the image started, stays, and so does the work flag.
-        let exec = self.with_task(task, |t| t.work.take_exec());
-        match (exec, self.procs.take_image(task)) {
-            (true, Some(image)) => Ok(image),
-            _ => Err(Errno::EINTR),
-        }
+        self.with_task(task, |t| t.work.take_exec())
+            .ok_or(Errno::EINTR)
     }
 
     /// `do_execveat_common` once the arguments are in the kernel.
@@ -698,6 +689,11 @@ impl Kernel {
                 return Err(Errno::ELOOP.into());
             }
         };
+        // `de_thread`: a group on its way out does not exec; the exit it is taking ends the
+        // caller on the way back.
+        if self.process(caller.task()).group.exiting() {
+            return Err(Errno::EAGAIN.into());
+        }
         // `mm_exit_exec_release`, for the caller and the threads `de_thread` ends.
         self.group_exit_futexes(caller).await;
         self.mm_release(caller).await;
@@ -778,7 +774,6 @@ impl Kernel {
             if let Some(node) = tree.nodes.get_mut(&process.pid.0) {
                 node.did_exec = true;
             }
-            tree.images.insert(task, image);
             tree.vforks.remove(&task)
         };
         // `unshare_files`, then `do_close_on_exec`. The dying threads of the group do not
@@ -852,7 +847,7 @@ impl Kernel {
             t.mm = Arc::default();
             t.thread = thread::ThreadState::default();
         });
-        self.hand_image(task, vfork_parent);
+        self.hand_image(task, image, vfork_parent);
     }
 
     // ---- wait ----

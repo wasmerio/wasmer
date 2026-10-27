@@ -4,12 +4,15 @@
 
 use std::{collections::VecDeque, sync::Arc};
 
-use wasixv2_syscalls::{GuestAction, TaskId, WorkFlag};
+use wasixv2_syscalls::{GuestAction, TaskId, VforkParent, WorkFlag};
 
 pub(crate) struct Work {
     queue: VecDeque<GuestAction>,
     /// Raised with every action queued, and by the signal state for signals.
     flag: Arc<WorkFlag>,
+    /// The image of the queued [`GuestAction::Exec`], until the execution layer takes it. It
+    /// goes with the task when the exec never runs (`bprm` freed with the exiting task).
+    image: Option<Vec<u8>>,
 }
 
 impl Work {
@@ -17,6 +20,7 @@ impl Work {
         Self {
             queue: VecDeque::new(),
             flag,
+            image: None,
         }
     }
 
@@ -75,13 +79,30 @@ impl Work {
             .any(|action| matches!(action, GuestAction::Exec { .. }))
     }
 
-    /// Takes the `execve`'s own action off the queue, leaving the rest as it was. Whether there
-    /// was one.
-    pub(crate) fn take_exec(&mut self) -> bool {
+    /// Queues the `execve` that runs `image`.
+    #[must_use]
+    pub(crate) fn exec(
+        &mut self,
+        image: Vec<u8>,
+        vfork_parent: Option<VforkParent>,
+    ) -> Vec<TaskId> {
+        self.image = Some(image);
+        self.push(GuestAction::Exec { vfork_parent })
+    }
+
+    /// The image of the queued `execve`, for the execution layer to run.
+    pub(crate) fn take_image(&mut self) -> Option<Vec<u8>> {
+        self.image.take()
+    }
+
+    /// Takes the `execve`'s own action off the queue, leaving the rest as it was, and returns
+    /// its image.
+    pub(crate) fn take_exec(&mut self) -> Option<Vec<u8>> {
         let before = self.queue.len();
         self.queue
             .retain(|action| !matches!(action, GuestAction::Exec { .. }));
-        self.queue.len() != before
+        let image = self.image.take();
+        (self.queue.len() != before).then_some(image).flatten()
     }
 
     /// Takes the threads the task was to start, which never will be.
@@ -101,8 +122,6 @@ impl Work {
 
 #[cfg(test)]
 mod tests {
-    use wasixv2_syscalls::VforkParent;
-
     use super::*;
 
     fn work() -> Work {
@@ -149,10 +168,9 @@ mod tests {
     fn taking_the_exec_leaves_what_was_queued_before_it() {
         let mut work = work();
         assert!(work.push(GuestAction::Exit(137)).is_empty());
-        let exec = GuestAction::Exec { vfork_parent: None };
-        assert!(work.push(exec).is_empty());
-        assert!(work.take_exec());
-        assert!(!work.take_exec());
+        assert!(work.exec(b"image".to_vec(), None).is_empty());
+        assert_eq!(work.take_exec().as_deref(), Some(&b"image"[..]));
+        assert_eq!(work.take_exec(), None);
         assert_eq!(work.take(), Some(GuestAction::Exit(137)));
         assert_eq!(work.take(), None);
     }
