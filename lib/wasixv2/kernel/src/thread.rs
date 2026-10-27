@@ -233,14 +233,36 @@ impl Kernel {
 
     /// Leaves `action` for the execution layer on `task`'s next return to the guest.
     pub(crate) fn queue(&self, task: TaskId, action: GuestAction) {
-        let mut state = self.state.lock().unwrap();
-        let unstarted = match state.tasks.get_mut(&task) {
-            Some(entry) => entry.work.push(action),
-            None => return,
+        let unstarted = {
+            let mut state = self.state.lock().unwrap();
+            match state.tasks.get_mut(&task) {
+                Some(entry) => entry.work.push(action),
+                None => return,
+            }
         };
         for child in unstarted {
-            forget_task(&mut state, child);
+            self.abort_unstarted(child);
         }
+    }
+
+    /// Forgets `child`, a task that was to start and never will: a thread, or the first task of
+    /// a process `clone` made, whose process also leaves the tree, as `copy_process` undoes a
+    /// child that cannot run (`bad_fork_*`).
+    fn abort_unstarted(&self, child: TaskId) {
+        let process = {
+            let state = self.state.read().unwrap();
+            match state.tasks.get(&child) {
+                Some(entry) => entry.process.clone(),
+                None => return,
+            }
+        };
+        if process.pid == child {
+            self.exit_files(&process);
+            let mut tree = self.procs.tree.lock().unwrap();
+            tree.nodes.remove(&child.0);
+            tree.vforks.remove(&child);
+        }
+        forget_task(&mut self.state.lock().unwrap(), child);
     }
 
     /// `do_exit` for one task. The last task to exit ends its thread group, with the leader's

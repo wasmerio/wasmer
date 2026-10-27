@@ -29,14 +29,16 @@ impl Work {
     }
 
     /// Queues `action` behind what is already there. A task's first exit is final: a later one is
-    /// dropped, and threads it has yet to start never will be. Returns those threads, which the
-    /// caller aborts.
+    /// dropped, and the tasks it has yet to start never will be: threads, and the children of a
+    /// fork or vfork queued behind the exit. Returns those tasks, which the caller aborts.
     #[must_use]
     pub(crate) fn push(&mut self, action: GuestAction) -> Vec<TaskId> {
         let exiting = self.exit().is_some();
         let unstarted = match action {
             GuestAction::Exit(_) if exiting => Vec::new(),
             GuestAction::StartThread { task, .. } if exiting => vec![task],
+            GuestAction::SwitchTask { task, .. } if exiting => vec![task],
+            GuestAction::Fork { child, .. } if exiting => vec![child],
             GuestAction::Exit(_) => {
                 let unstarted = self.take_unstarted();
                 self.queue.push_back(action);
@@ -157,6 +159,26 @@ mod tests {
         assert_eq!(work.push(start(5)), vec![TaskId(5)]);
         assert_eq!(work.exit(), Some(3));
         assert_eq!(work.take(), Some(GuestAction::Exit(3)));
+        assert_eq!(work.take(), None);
+    }
+
+    #[test]
+    fn a_fork_or_vfork_behind_an_exit_never_starts_its_child() {
+        let mut work = work();
+        assert!(work.push(GuestAction::Exit(9)).is_empty());
+        let switch = GuestAction::SwitchTask {
+            task: TaskId(2),
+            ret: 0,
+        };
+        let fork = GuestAction::Fork {
+            child: TaskId(3),
+            parent_tid: None,
+            child_tid: None,
+            tls: None,
+        };
+        assert_eq!(work.push(switch), vec![TaskId(2)]);
+        assert_eq!(work.push(fork), vec![TaskId(3)]);
+        assert_eq!(work.take(), Some(GuestAction::Exit(9)));
         assert_eq!(work.take(), None);
     }
 
