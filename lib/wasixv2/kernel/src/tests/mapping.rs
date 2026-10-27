@@ -185,3 +185,113 @@ fn madvise_dontneed_reloads_a_private_mapping_from_its_file() {
 
     assert_eq!(get(&memory, at, 8), b"original");
 }
+
+fn mremap(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    addr: u32,
+    old_len: u32,
+    new_len: u32,
+    flags: MremapFlags,
+    new_addr: u32,
+) -> SysResult<i32> {
+    block_on(kernel.mremap(caller, addr, old_len, new_len, flags, new_addr))
+}
+
+const MOVE: MremapFlags = MremapFlags::MREMAP_MAYMOVE;
+const FIXED: MremapFlags = MremapFlags(MOVE.0 | MremapFlags::MREMAP_FIXED.0);
+const DONTUNMAP: MremapFlags = MremapFlags(MOVE.0 | MremapFlags::MREMAP_DONTUNMAP.0);
+
+#[test]
+fn mremap_fixed_onto_its_own_source_fails_and_keeps_the_data() {
+    let (kernel, task, memory, _) = with_file(b"");
+    let caller = Caller::new(task, &memory);
+    let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    let at = mmap(&kernel, &caller, 2 * PAGE, anon, Fd(-1)).unwrap();
+    let far = mmap(&kernel, &caller, 3 * PAGE, anon, Fd(-1)).unwrap();
+    put(&memory, at, b"first");
+    put(&memory, at + PAGE, b"second");
+
+    // `vrm_overlaps`: the target may not overlap the source, from either side.
+    let overlaps = [at + PAGE, at, at.wrapping_sub(PAGE)];
+    for target in overlaps {
+        let moved = mremap(&kernel, &caller, at, 2 * PAGE, 2 * PAGE, FIXED, target);
+        assert_eq!(errno(moved), Errno::EINVAL, "target {target:#x}");
+    }
+    assert_eq!(get(&memory, at, 5), b"first");
+    assert_eq!(get(&memory, at + PAGE, 6), b"second");
+    // Parameters are checked before the source is looked at.
+    let unmapped = 0x7000_0000;
+    let moved = mremap(&kernel, &caller, unmapped, PAGE, PAGE, FIXED, unmapped);
+    assert_eq!(errno(moved), Errno::EINVAL);
+    let moved = mremap(&kernel, &caller, unmapped, PAGE, PAGE, FIXED, far);
+    assert_eq!(errno(moved), Errno::EFAULT);
+    let fixed_alone = MremapFlags::MREMAP_FIXED;
+    let moved = mremap(&kernel, &caller, at, PAGE, PAGE, fixed_alone, far);
+    assert_eq!(errno(moved), Errno::EINVAL);
+    let moved = mremap(&kernel, &caller, at, PAGE, PAGE, FIXED, far + 1);
+    assert_eq!(errno(moved), Errno::EINVAL);
+    let moved = mremap(
+        &kernel,
+        &caller,
+        at,
+        PAGE,
+        2 * PAGE,
+        FIXED,
+        u32::MAX - PAGE + 1,
+    );
+    assert_eq!(errno(moved), Errno::EINVAL);
+
+    let moved = mremap(&kernel, &caller, at, 2 * PAGE, 2 * PAGE, FIXED, far + PAGE);
+    assert_eq!(moved, Ok((far + PAGE) as i32));
+    assert_eq!(get(&memory, far + PAGE, 5), b"first");
+    assert_eq!(get(&memory, far + 2 * PAGE, 6), b"second");
+}
+
+#[test]
+fn mremap_dontunmap_moves_the_pages_and_leaves_the_source_mapped() {
+    let (kernel, task, memory, fd) = with_file(b"from the file");
+    let caller = Caller::new(task, &memory);
+    let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    let at = mmap(&kernel, &caller, PAGE, anon, Fd(-1)).unwrap();
+    put(&memory, at, b"anonymous");
+
+    let resized = mremap(&kernel, &caller, at, PAGE, 2 * PAGE, DONTUNMAP, 0);
+    assert_eq!(errno(resized), Errno::EINVAL);
+    let moved = mremap(&kernel, &caller, at, PAGE, PAGE, DONTUNMAP, 0).unwrap() as u32;
+    assert_ne!(moved, at);
+    assert_eq!(get(&memory, moved, 9), b"anonymous");
+    // The source is still mapped, and reads as fresh anonymous memory.
+    assert_eq!(get(&memory, at, 9), [0; 9]);
+    let dontneed = MadviseAdvice::MADV_DONTNEED;
+    assert_eq!(block_on(kernel.madvise(&caller, at, PAGE, dontneed)), Ok(0));
+
+    // A private file mapping's source reads as the file again.
+    let file = mmap(&kernel, &caller, PAGE, MapFlags::MAP_PRIVATE, fd).unwrap();
+    put(&memory, file, b"FROM");
+    let moved = mremap(&kernel, &caller, file, PAGE, PAGE, DONTUNMAP, 0).unwrap() as u32;
+    assert_eq!(get(&memory, moved, 13), b"FROM the file");
+    assert_eq!(get(&memory, file, 13), b"from the file");
+}
+
+#[test]
+fn mremap_of_no_bytes_duplicates_a_shared_mapping() {
+    let (kernel, task, memory, fd) = with_file(b"shared bytes");
+    let caller = Caller::new(task, &memory);
+    let shared = mmap(&kernel, &caller, PAGE, MapFlags::MAP_SHARED, fd).unwrap();
+    let private = mmap(&kernel, &caller, PAGE, MapFlags::MAP_PRIVATE, fd).unwrap();
+
+    let dup = mremap(&kernel, &caller, private, 0, PAGE, MOVE, 0);
+    assert_eq!(errno(dup), Errno::EINVAL);
+    let dup = mremap(&kernel, &caller, shared, 0, PAGE, MremapFlags(0), 0);
+    assert_eq!(errno(dup), Errno::ENOMEM);
+    let dup = mremap(&kernel, &caller, shared, 0, PAGE, MOVE, 0).unwrap() as u32;
+    assert_ne!(dup, shared);
+    assert_eq!(get(&memory, dup, 12), b"shared bytes");
+    // Both are mappings of the file: a change through one reaches the other at msync.
+    put(&memory, dup, b"SHARED");
+    let msync = |at| block_on(kernel.msync(&caller, at, PAGE, MsyncFlags::MS_SYNC));
+    assert_eq!(msync(dup), Ok(0));
+    assert_eq!(msync(shared), Ok(0));
+    assert_eq!(get(&memory, shared, 12), b"SHARED bytes");
+}
