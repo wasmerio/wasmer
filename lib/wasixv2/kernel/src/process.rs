@@ -574,16 +574,13 @@ impl Kernel {
                 _ => Errno::EINTR,
             })?;
         // There is no guest to return to: the image goes to the caller, not through the work
-        // queue. The work flag stays up for whatever else may be pending.
-        let action = self.with_task(task, |t| t.work.take());
-        debug_assert!(matches!(
-            action,
-            Some(GuestAction::Exec { vfork_parent: None })
-        ));
-        Ok(self
-            .procs
-            .take_image(task)
-            .expect("a committed execve leaves its image"))
+        // queue. Only the execve's own action goes; whatever else is queued, such as an exit
+        // the embedder asked for before the image started, stays, and so does the work flag.
+        let exec = self.with_task(task, |t| t.work.take_exec());
+        match (exec, self.procs.take_image(task)) {
+            (true, Some(image)) => Ok(image),
+            _ => Err(Errno::EINTR),
+        }
     }
 
     /// `do_execveat_common` once the arguments are in the kernel.

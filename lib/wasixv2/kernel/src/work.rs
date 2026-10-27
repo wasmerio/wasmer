@@ -75,6 +75,15 @@ impl Work {
             .any(|action| matches!(action, GuestAction::Exec { .. }))
     }
 
+    /// Takes the `execve`'s own action off the queue, leaving the rest as it was. Whether there
+    /// was one.
+    pub(crate) fn take_exec(&mut self) -> bool {
+        let before = self.queue.len();
+        self.queue
+            .retain(|action| !matches!(action, GuestAction::Exec { .. }));
+        self.queue.len() != before
+    }
+
     /// Takes the threads the task was to start, which never will be.
     #[must_use]
     pub(crate) fn take_unstarted(&mut self) -> Vec<TaskId> {
@@ -131,6 +140,18 @@ mod tests {
         assert_eq!(work.push(start(5)), vec![TaskId(5)]);
         assert_eq!(work.exit(), Some(3));
         assert_eq!(work.take(), Some(GuestAction::Exit(3)));
+        assert_eq!(work.take(), None);
+    }
+
+    #[test]
+    fn taking_the_exec_leaves_what_was_queued_before_it() {
+        let mut work = work();
+        assert!(work.push(GuestAction::Exit(137)).is_empty());
+        let exec = GuestAction::Exec { vfork_parent: None };
+        assert!(work.push(exec).is_empty());
+        assert!(work.take_exec());
+        assert!(!work.take_exec());
+        assert_eq!(work.take(), Some(GuestAction::Exit(137)));
         assert_eq!(work.take(), None);
     }
 

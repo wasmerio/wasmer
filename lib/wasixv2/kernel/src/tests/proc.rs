@@ -151,3 +151,29 @@ fn fork_fails_with_eagain_at_rlimit_nproc() {
     );
     assert_eq!(kernel.take_pending(task), None);
 }
+
+/// `kernel_execve` takes only the execve's own action off the task's queue: an exit queued
+/// before the image starts, as when the embedder kills the process, still ends it.
+#[test]
+fn kernel_execve_keeps_an_exit_queued_before_it() {
+    const IMAGE: &[u8] = b"\0asm\x01\0\0\0";
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; WASM_PAGE_SIZE as usize]));
+    let caller = Caller::new(task, &memory);
+    put(&memory, 32, b"/prog\0");
+    put(&memory, 16, IMAGE);
+    let create = OpenFlags::O_CREAT | OpenFlags::O_WRONLY;
+    let fd = block_on(kernel.openat(&caller, Fd(-100), GuestPtr::new(32), create, 0o755)).unwrap();
+    let written = block_on(kernel.write(&caller, fd, UserSlice::new(16, IMAGE.len() as u32)));
+    assert_eq!(written, Ok(IMAGE.len() as u32));
+    assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+
+    assert!(kernel.force_fatal_signal(task, Signal::SIGKILL.0));
+    let image = block_on(kernel.exec(task, b"/prog", vec!["prog".into()], Vec::new()));
+
+    assert_eq!(image.as_deref(), Ok(IMAGE));
+    assert_eq!(
+        kernel.take_pending(task),
+        Some(GuestAction::Exit(128 + Signal::SIGKILL.0))
+    );
+}
