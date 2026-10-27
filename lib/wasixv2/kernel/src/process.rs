@@ -305,7 +305,7 @@ impl Kernel {
 
     /// `exit_files`: the process's tasks let go of their descriptor tables, closing every file
     /// no one else holds.
-    fn exit_files(&self, process: &Arc<Process>) {
+    pub(crate) fn exit_files(&self, process: &Arc<Process>) {
         let tables: Vec<Arc<Mutex<FdTable>>> = {
             let mut state = self.state.lock().unwrap();
             state
@@ -315,8 +315,8 @@ impl Kernel {
                 .map(|t| std::mem::take(&mut t.files))
                 .collect()
         };
-        let memory = NoMemory;
-        let caller = Caller::new(process.pid, &memory);
+        // The tasks may be gone by now (another one releasing at the same time took the last),
+        // so the files close by the process's pid alone.
         for table in tables {
             let Ok(table) = Arc::try_unwrap(table) else {
                 continue;
@@ -324,7 +324,7 @@ impl Kernel {
             let mut table = table.into_inner().unwrap();
             for fd in (0..table.end()).map(|fd| Fd(fd as i32)) {
                 if let Some(file) = table.remove(fd) {
-                    self.closed(&caller, &file);
+                    self.closed_by(process.pid, &file);
                 }
             }
         }

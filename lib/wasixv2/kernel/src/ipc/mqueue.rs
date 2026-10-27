@@ -23,7 +23,7 @@ use wasixv2_abi::{
     MqAttrPtr, OpenFlags, RlimitResource, SiCode, SigevNotify, Siginfo, U32Ptr,
 };
 use wasixv2_syscalls::{
-    Caller, CstrError, Errno, Fd, LocalFuture, SysErr, SysResult, read_cstr, read_value,
+    Caller, CstrError, Errno, Fd, LocalFuture, SysErr, SysResult, TaskId, read_cstr, read_value,
     write_value,
 };
 use wasixv2_vfs::{Cap, Cred, MAY_READ, MAY_WRITE, Node};
@@ -662,12 +662,13 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `mqueue_flush_file`: closing any descriptor of a queue drops the closer's notification.
-    pub(crate) fn mq_flush(&self, caller: &Caller<'_>, file: &OpenFile) {
+    /// `mqueue_flush_file`: closing any descriptor of a queue drops the notification of the
+    /// closing thread group, `pid`.
+    pub(crate) fn mq_flush(&self, pid: TaskId, file: &OpenFile) {
         let Some(mq) = file.downcast::<MqFile>() else {
             return;
         };
-        let me = self.process(caller.task()).pid.0;
+        let me = pid.0;
         let mut state = mq.queue.state();
         if state.notify.as_ref().is_some_and(|n| n.owner == me) {
             state.remove_notification();

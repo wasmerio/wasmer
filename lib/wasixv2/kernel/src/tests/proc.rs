@@ -177,3 +177,26 @@ fn kernel_execve_keeps_an_exit_queued_before_it() {
         Some(GuestAction::Exit(128 + Signal::SIGKILL.0))
     );
 }
+
+/// An exited process's descriptors close by its pid alone. Two of its tasks released at once
+/// can leave one collecting the descriptor tables after the other took the leader's task away.
+#[test]
+fn exit_closes_the_files_after_the_leader_is_gone() {
+    const THREAD: u32 = (CloneFlags::CLONE_VM.0
+        | CloneFlags::CLONE_FS.0
+        | CloneFlags::CLONE_FILES.0
+        | CloneFlags::CLONE_SIGHAND.0
+        | CloneFlags::CLONE_THREAD.0) as u32;
+    let (kernel, leader, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; WASM_PAGE_SIZE as usize]));
+    let caller = Caller::new(leader, &memory);
+    put(&memory, 32, b"/f\0");
+    let create = OpenFlags::O_CREAT | OpenFlags::O_RDWR;
+    block_on(kernel.openat(&caller, Fd(-100), GuestPtr::new(32), create, 0o644)).unwrap();
+    let null = GuestPtrMut::new(0);
+    block_on(kernel.thread_spawn(&caller, THREAD, 0, null, 0, null)).unwrap();
+    let process = kernel.process(leader);
+
+    thread::forget_task(&mut kernel.state.lock().unwrap(), leader);
+    kernel.exit_files(&process);
+}

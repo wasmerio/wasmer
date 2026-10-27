@@ -411,12 +411,18 @@ impl Kernel {
     /// What closing a descriptor does besides dropping the reference: release the process's
     /// POSIX locks on the file (`filp_flush` → `locks_remove_posix`).
     pub(crate) fn closed(&self, caller: &Caller<'_>, file: &OpenFile) {
+        self.closed_by(self.process(caller.task()).pid, file);
+    }
+
+    /// [`Kernel::closed`] for the thread group `pid`, which needs none of its tasks: a process
+    /// whose last task is gone still closes its descriptors.
+    pub(crate) fn closed_by(&self, pid: TaskId, file: &OpenFile) {
         // ---- ipc ----
-        self.mq_flush(caller, file);
+        self.mq_flush(pid, file);
         if let Backing::Inode(file) = &file.backing
             && !file.path_only
         {
-            let owner = lock::process_owner(self, caller);
+            let owner = wasixv2_vfs::LockOwner::Process(u64::from(pid.0));
             self.vfs.locks.release_owner(file.lock_key(), owner);
         }
     }
