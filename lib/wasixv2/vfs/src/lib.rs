@@ -233,18 +233,23 @@ impl Vfs {
     }
 
     /// Reports an event on the object `dentry` names, to its own watches and then to its
-    /// parent directory's, with its name.
+    /// parent directory's, with its name; for a removed name, the directory it was in
+    /// (`fsnotify_parent` on a `d_unlinked` dentry).
     pub(crate) fn notify_object(&self, dentry: &Arc<Dentry>, event: FsEvent<'_>) {
         let Some(watcher) = self.watching() else {
             return;
         };
-        watcher.event(&event);
+        let unlinked = dentry.is_unlinked();
+        match unlinked {
+            true => watcher.unlinked_event(&event),
+            false => watcher.event(&event),
+        }
         dentry.with_parent(|parent, name| {
             let dir = notify::Object {
                 sb: parent.sb().id,
                 ino: parent.node().ino(),
             };
-            watcher.child_event(dir, name, &event);
+            watcher.child_event(dir, name, &event, unlinked);
         });
     }
 }

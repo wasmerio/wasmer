@@ -61,10 +61,17 @@ pub trait FsWatcher: Send + Sync {
         true
     }
 
+    /// An object event (`Modify`, `Attrib`, `Access`, `Open`, `Close`) on an object whose
+    /// name was removed while it stayed open (`d_unlinked`), for its own watches; inotify's
+    /// `IN_EXCL_UNLINK` watches skip it. Takes the place of `event` for such a change.
+    fn unlinked_event(&self, event: &FsEvent<'_>) {
+        self.event(event);
+    }
+
     /// An object event (`Modify`, `Attrib`, `Access`, `Open`, `Close`) as the directory the
-    /// object was reached through sees it, under its name there (`fsnotify_parent`). Follows
-    /// `event` for the same change.
-    fn child_event(&self, dir: Object, name: &[u8], event: &FsEvent<'_>) {
-        let _ = (dir, name, event);
+    /// object was reached through sees it, under its name there (`fsnotify_parent`), or the
+    /// directory and name it had, when `unlinked`. Follows `event` for the same change.
+    fn child_event(&self, dir: Object, name: &[u8], event: &FsEvent<'_>, unlinked: bool) {
+        let _ = (dir, name, event, unlinked);
     }
 }

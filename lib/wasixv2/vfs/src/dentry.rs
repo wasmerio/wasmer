@@ -121,11 +121,12 @@ impl Dentry {
         self.inner.lock().unwrap().unlinked
     }
 
-    /// Runs `f` with the parent directory and the name in it, unless the name was removed or
-    /// this is a filesystem root.
+    /// Runs `f` with the parent directory and the name in it, or the last ones it had if the
+    /// name was removed (`d_parent` of a `d_unlinked` dentry), unless this is a filesystem
+    /// root or an object that never had a name.
     pub(crate) fn with_parent(&self, f: impl FnOnce(&Arc<Dentry>, &[u8])) {
         let inner = self.inner.lock().unwrap();
-        if let (false, Some(parent)) = (inner.unlinked, &inner.parent) {
+        if let Some(parent) = &inner.parent {
             f(parent, &inner.name);
         }
     }
