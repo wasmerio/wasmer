@@ -190,9 +190,10 @@ struct TaskState {
     saved: Option<u64>,
     pending: Pending,
     altstack: AltStack,
-    /// One entry per handler running on this task, innermost last: whether it runs on the
-    /// alternate stack, and the alternate stack to re-arm afterwards (`SS_AUTODISARM`).
-    frames: Vec<(bool, Option<AltStack>)>,
+    /// The alternate stack each handler running on this task found, innermost last: what its
+    /// frame saved in `uc_stack`, which its sigreturn restores (`restore_altstack`), re-arming
+    /// a stack that `SS_AUTODISARM` disarmed for the handler.
+    frames: Vec<AltStack>,
 }
 
 impl TaskState {
@@ -207,17 +208,14 @@ impl TaskState {
             frames: Vec::new(),
         }
     }
-
-    fn on_altstack(&self) -> bool {
-        self.frames.iter().any(|(on, _)| *on)
-    }
 }
 
-#[derive(Clone, Copy)]
+/// `sas_ss_sp`, `sas_ss_size` and `sas_ss_flags`.
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct AltStack {
     sp: u32,
     size: u32,
-    /// `SS_DISABLE`, or `SS_AUTODISARM` for an armed stack.
+    /// As `sigaltstack` set them: the mode and `SS_AUTODISARM`.
     flags: u32,
 }
 
@@ -232,8 +230,23 @@ impl Default for AltStack {
 }
 
 impl AltStack {
-    fn enabled(&self) -> bool {
-        self.flags & SigaltstackFlags::SS_DISABLE.0 == 0
+    /// `on_sig_stack`: whether `sp` lies on the stack. An `SS_AUTODISARM` stack never does, as
+    /// delivery disarms it before anything runs on it.
+    fn holds(&self, sp: u32) -> bool {
+        self.flags & SigaltstackFlags::SS_AUTODISARM.0 == 0
+            && sp > self.sp
+            && sp - self.sp <= self.size
+    }
+
+    /// The `ss_flags` `sigaltstack` reports for a task at `sp`: `SS_DISABLE` without a stack,
+    /// `SS_ONSTACK` on it, and `SS_AUTODISARM` as set (`sas_ss_flags`).
+    fn reported_flags(&self, sp: u32) -> u32 {
+        let state = match (self.size, self.holds(sp)) {
+            (0, _) => SigaltstackFlags::SS_DISABLE.0,
+            (_, true) => SigaltstackFlags::SS_ONSTACK.0,
+            (_, false) => 0,
+        };
+        state | (self.flags & SigaltstackFlags::SS_AUTODISARM.0)
     }
 }
 
@@ -965,24 +978,14 @@ impl Kernel {
             };
             let task = state.task(task);
             let mask = task.saved.take().unwrap_or(task.blocked);
+            // The frame saves the alternate stack (`__save_altstack`), and the execution layer
+            // puts it there unless the guest runs on it already (`sigsp`). Delivery disarms an
+            // `SS_AUTODISARM` stack until the handler returns (`signal_delivered`).
             let alt = task.altstack;
-            let onstack =
-                action.flags & SaFlags::SA_ONSTACK.0 != 0 && alt.enabled() && !task.on_altstack();
-            let mut rearm = None;
-            if onstack && alt.flags & SigaltstackFlags::SS_AUTODISARM.0 != 0 {
-                rearm = Some(alt);
+            task.frames.push(alt);
+            if alt.flags & SigaltstackFlags::SS_AUTODISARM.0 != 0 {
                 task.altstack = AltStack::default();
             }
-            let altstack = (
-                alt.sp,
-                match (task.on_altstack() || onstack, alt.enabled()) {
-                    (true, _) => SigaltstackFlags::SS_ONSTACK.0 as i32,
-                    (false, true) => (alt.flags & SigaltstackFlags::SS_AUTODISARM.0) as i32,
-                    (false, false) => SigaltstackFlags::SS_DISABLE.0 as i32,
-                },
-                alt.size,
-            );
-            task.frames.push((onstack, rearm));
             let mut block = action.mask;
             if action.flags & SaFlags::SA_NODEFER.0 == 0 {
                 block |= bit(sig);
@@ -998,8 +1001,7 @@ impl Kernel {
                 handler: action.handler,
                 flags: action.flags,
                 mask,
-                stack_top: onstack.then(|| alt.sp.wrapping_add(alt.size)),
-                altstack,
+                altstack: (alt.sp, alt.flags as i32, alt.size),
             }));
         }
     }
@@ -1021,9 +1023,11 @@ impl Kernel {
     }
 
     /// `rt_sigreturn`: the innermost handler of `task` finished. A call it interrupted is not
-    /// restarted through `restart_syscall` any more (`do_no_restart_syscall`). A handler that
-    /// ended its thread (`pthread_exit`, a cancellation) unwinds through here after the task is
-    /// gone.
+    /// restarted through `restart_syscall` any more (`do_no_restart_syscall`), and the alternate
+    /// stack is again what the handler's frame saved (`restore_altstack`; a change the handler
+    /// made to `uc_stack` is not seen). A handler that did not return (`siglongjmp`, `mask` is
+    /// `None`) restores nothing, so a stack it disarmed stays disarmed. A handler that ended its
+    /// thread (`pthread_exit`, a cancellation) unwinds through here after the task is gone.
     pub(crate) fn signal_return(&self, task: TaskId, mask: Option<u64>) {
         let (signals, restart) = {
             let state = self.state.read().unwrap();
@@ -1036,10 +1040,11 @@ impl Kernel {
             task.restart = None;
         }
         signals.with(|task| {
-            if let Some((_, Some(alt))) = task.frames.pop() {
-                task.altstack = alt;
-            }
+            let saved = task.frames.pop();
             if let Some(mask) = mask {
+                if let Some(alt) = saved {
+                    task.altstack = alt;
+                }
                 task.blocked = mask & !UNBLOCKABLE;
                 task.flag.raise();
             }
@@ -1423,40 +1428,48 @@ impl Kernel {
             true => None,
             false => Some(read_value(caller.memory(), uss).await?),
         };
+        // `do_sigaltstack` at the caller's stack pointer.
+        let sp = caller.memory().stack_pointer().await;
         let signals = self.task_signals(caller.task());
         let old = signals.with(|task| -> Result<Sigaltstack, Errno> {
-            let on = task.on_altstack();
             let alt = task.altstack;
             let old = Sigaltstack {
                 ss_sp: alt.sp,
-                ss_flags: match on {
-                    true => SigaltstackFlags::SS_ONSTACK.0 as i32,
-                    false => alt.flags as i32,
-                },
+                ss_flags: alt.reported_flags(sp) as i32,
                 ss_size: alt.size,
             };
-            if let Some(new) = new {
-                if on {
-                    return Err(Errno::EPERM);
-                }
-                let flags = new.ss_flags as u32;
-                let autodisarm = flags & SigaltstackFlags::SS_AUTODISARM.0;
-                let mode = flags & !SigaltstackFlags::SS_AUTODISARM.0;
-                task.altstack = match SigaltstackFlags(mode) {
-                    SigaltstackFlags::SS_DISABLE => AltStack::default(),
-                    m if m.0 == 0 || m == SigaltstackFlags::SS_ONSTACK => {
-                        if new.ss_size < SignalLimits::MINSIGSTKSZ.0 {
-                            return Err(Errno::ENOMEM);
-                        }
-                        AltStack {
-                            sp: new.ss_sp,
-                            size: new.ss_size,
-                            flags: autodisarm,
-                        }
-                    }
-                    _ => return Err(Errno::EINVAL),
-                };
+            let Some(new) = new else {
+                return Ok(old);
+            };
+            if alt.holds(sp) {
+                return Err(Errno::EPERM);
             }
+            let flags = new.ss_flags as u32;
+            let mode = SigaltstackFlags(flags & !SigaltstackFlags::SS_AUTODISARM.0);
+            if !matches!(
+                mode,
+                SigaltstackFlags::SS_DISABLE | SigaltstackFlags::SS_ONSTACK
+            ) && mode.0 != 0
+            {
+                return Err(Errno::EINVAL);
+            }
+            let requested = AltStack {
+                sp: new.ss_sp,
+                size: new.ss_size,
+                flags,
+            };
+            if requested == alt {
+                return Ok(old);
+            }
+            task.altstack = match mode {
+                SigaltstackFlags::SS_DISABLE => AltStack {
+                    sp: 0,
+                    size: 0,
+                    flags,
+                },
+                _ if new.ss_size < SignalLimits::MINSIGSTKSZ.0 => return Err(Errno::ENOMEM),
+                _ => requested,
+            };
             Ok(old)
         })?;
         if !uoss.is_null() {

@@ -680,6 +680,7 @@ mod proc;
 mod procfs;
 mod ptimer;
 mod sched;
+mod signal;
 mod stdio;
 mod sysvipc;
 mod task;
