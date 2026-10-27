@@ -957,7 +957,10 @@ impl Kernel {
             AnySock::Unix(..) if level != SocketLevel::SOL_SOCKET => {
                 return Err(Errno::EOPNOTSUPP.into());
             }
-            AnySock::Unix(_, sock) => sock.set_option(name, &value)?,
+            AnySock::Unix(_, sock) => {
+                let net_admin = self.cred(caller).capable(Cap::NetAdmin);
+                sock.set_option(name, &value, net_admin)?
+            }
             AnySock::Netlink(_, nl) if level == SocketLevel::SOL_SOCKET => {
                 nl.set_option(name, &value)?
             }

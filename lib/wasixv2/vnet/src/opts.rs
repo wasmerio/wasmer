@@ -46,7 +46,8 @@ pub enum Changed {
 #[derive(Clone, Debug)]
 pub struct SockOpts {
     pub ty: SocketKind,
-    pub family: Domain,
+    /// The IP family; `None` for a Unix socket, which only has the `SOL_SOCKET` options.
+    pub family: Option<Domain>,
     pub reuseaddr: bool,
     pub reuseport: bool,
     pub v6only: bool,
@@ -176,7 +177,7 @@ impl SockOpts {
         };
         Self {
             ty,
-            family,
+            family: Some(family),
             reuseaddr: false,
             reuseport: false,
             v6only: false,
@@ -188,6 +189,18 @@ impl SockOpts {
             congestion: b"cubic".to_vec(),
             user_mss: 0,
             ints: BTreeMap::new(),
+        }
+    }
+
+    /// The `SOL_SOCKET` options of a Unix socket (`sk_setsockopt` for `PF_UNIX`), whose
+    /// buffers default to `wmem_default` and `rmem_default`. `ty` is `Stream` for stream
+    /// sockets and `Datagram` for datagram and seqpacket ones.
+    pub fn unix(ty: SocketKind) -> Self {
+        Self {
+            family: None,
+            sndbuf: UDP_BUF_DEFAULT,
+            rcvbuf: UDP_BUF_DEFAULT,
+            ..Self::new(ty, Domain::Inet)
         }
     }
 
@@ -233,10 +246,10 @@ impl SockOpts {
 
     /// Checks that `level` applies to this socket at all.
     fn check_level(&self, level: i32) -> NetResult<()> {
-        match level {
-            SOL_SOCKET | SOL_IP => Ok(()),
-            SOL_IPV6 if self.family == Domain::Inet6 => Ok(()),
-            SOL_TCP if self.ty == SocketKind::Stream => Ok(()),
+        match (level, self.family) {
+            (SOL_SOCKET, _) | (SOL_IP, Some(_)) => Ok(()),
+            (SOL_IPV6, Some(Domain::Inet6)) => Ok(()),
+            (SOL_TCP, Some(_)) if self.ty == SocketKind::Stream => Ok(()),
             _ => Err(Errno::ENOPROTOOPT),
         }
     }
@@ -277,8 +290,22 @@ impl SockOpts {
                 Ok(Changed::Reuse)
             }
             (SOL_SOCKET, n) if n == So::SO_REUSEPORT.0 => {
+                if val != 0 && self.family.is_none() {
+                    return Err(Errno::EOPNOTSUPP);
+                }
                 self.reuseport = val != 0;
                 Ok(Changed::Reuse)
+            }
+            // TCP and UDP sockets support zerocopy sends, other families do not.
+            (SOL_SOCKET, n) if n == So::SO_ZEROCOPY.0 => {
+                if self.family.is_none() {
+                    return Err(Errno::EOPNOTSUPP);
+                }
+                if !(0..=1).contains(&val) {
+                    return Err(Errno::EINVAL);
+                }
+                self.ints.insert((level, name), val);
+                Ok(Changed::Nothing)
             }
             (SOL_SOCKET, n) if n == So::SO_SNDBUF.0 => {
                 self.sndbuf = buf_size(val, WMEM_MAX, SOCK_MIN_SNDBUF);
@@ -399,11 +426,12 @@ impl SockOpts {
                 SocketKind::Stream => 1,
                 SocketKind::Datagram => 2,
             },
-            (SOL_SOCKET, n) if n == So::SO_PROTOCOL.0 => match self.ty {
-                SocketKind::Stream => 6,
-                SocketKind::Datagram => 17,
+            (SOL_SOCKET, n) if n == So::SO_PROTOCOL.0 => match (self.family, self.ty) {
+                (None, _) => 0,
+                (Some(_), SocketKind::Stream) => 6,
+                (Some(_), SocketKind::Datagram) => 17,
             },
-            (SOL_SOCKET, n) if n == So::SO_DOMAIN.0 => self.family.raw(),
+            (SOL_SOCKET, n) if n == So::SO_DOMAIN.0 => self.family.map_or(1, Domain::raw),
             (SOL_IP, n) if n == IpOption::IP_TTL.0 => match self.int(level, name) {
                 0 | -1 => 64,
                 v => v,
