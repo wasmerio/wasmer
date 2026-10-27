@@ -159,6 +159,8 @@ pub struct TcpSocket {
     net: Arc<Net>,
     id: SockId,
     domain: Domain,
+    /// `sk_uid`, for `SO_REUSEPORT`.
+    uid: u32,
     wq: WaitQueue,
     me: Weak<TcpSocket>,
     /// The listener while listening; a leaf lock so lookups under the network lock can reach
@@ -200,10 +202,11 @@ fn bufs(o: &SockOpts) -> Buffers {
 }
 
 impl TcpSocket {
-    pub(crate) fn new(net: Arc<Net>, domain: Domain) -> Arc<Self> {
+    pub(crate) fn new(net: Arc<Net>, domain: Domain, uid: u32) -> Arc<Self> {
         Self::with_state(
             net,
             domain,
+            uid,
             SockOpts::new(SocketKind::Stream, domain),
             None,
             State::Closed,
@@ -216,6 +219,7 @@ impl TcpSocket {
     fn with_state(
         net: Arc<Net>,
         domain: Domain,
+        uid: u32,
         opts: SockOpts,
         local: Option<SocketAddr>,
         state: State,
@@ -226,6 +230,7 @@ impl TcpSocket {
             net,
             id,
             domain,
+            uid,
             wq,
             me: me.clone(),
             listener: Mutex::new(None),
@@ -256,7 +261,7 @@ impl TcpSocket {
             v6only: o.v6only,
             reuseaddr: o.reuseaddr,
             reuseport: o.reuseport,
-            uid: 0,
+            uid: self.uid,
         }
     }
 
@@ -386,6 +391,7 @@ impl TcpSocket {
         let child = Self::with_state(
             self.net.clone(),
             self.domain,
+            self.uid,
             opts.clone(),
             Some(local),
             State::Closed,

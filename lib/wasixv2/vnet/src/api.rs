@@ -133,12 +133,15 @@ pub trait Network: Send + Sync {
     /// Linux's `inet_create`/`inet6_create`: a new, unbound socket. `protocol` is the guest's
     /// third `socket` argument: 0 picks the default; an unsupported value is
     /// `EPROTONOSUPPORT`, an unsupported kind/protocol pair `ESOCKTNOSUPPORT` or
-    /// `EPROTONOSUPPORT` as Linux decides. `SOCK_RAW` never gets here.
+    /// `EPROTONOSUPPORT` as Linux decides. `SOCK_RAW` never gets here. `uid` owns the socket
+    /// (`sk_uid`, the creator's filesystem uid, which accepted sockets inherit): sockets only
+    /// share a port through `SO_REUSEPORT` with sockets of the same owner.
     fn socket(
         &self,
         domain: Domain,
         kind: SocketKind,
         protocol: i32,
+        uid: u32,
     ) -> Result<Arc<dyn Socket>, Errno>;
 
     /// Every bound socket in the namespace.

@@ -15,12 +15,16 @@ fn a(s: &str) -> SocketAddr {
     s.parse().unwrap()
 }
 
+/// The uid sockets are made for unless a test says otherwise.
+const UID: u32 = 1;
+
 fn tcp(n: &Net) -> Arc<dyn Socket> {
-    n.socket(Domain::Inet, SocketKind::Stream, 0).unwrap()
+    n.socket(Domain::Inet, SocketKind::Stream, 0, UID).unwrap()
 }
 
 fn udp(n: &Net) -> Arc<dyn Socket> {
-    n.socket(Domain::Inet, SocketKind::Datagram, 0).unwrap()
+    n.socket(Domain::Inet, SocketKind::Datagram, 0, UID)
+        .unwrap()
 }
 
 fn send(s: &dyn Socket, data: &[u8]) -> Result<usize, Errno> {
@@ -163,7 +167,7 @@ fn bind_rules_through_sockets() {
     drop(s);
     t.bind(a("127.0.0.1:8000"), false).unwrap();
     // A dual-stack IPv6 listener takes the IPv4 port too.
-    let six = n.socket(Domain::Inet6, SocketKind::Stream, 0).unwrap();
+    let six = n.socket(Domain::Inet6, SocketKind::Stream, 0, UID).unwrap();
     assert_eq!(six.bind(a("[::]:8000"), false), Err(Errno::EADDRINUSE));
     six.bind(a("[::]:8002"), false).unwrap();
     six.listen(4).unwrap();
@@ -308,4 +312,47 @@ fn udp_reuseport_group_spreads_by_source_port() {
         .map(|s| std::iter::from_fn(|| recv(&**s, 4).ok()).count())
         .collect();
     assert_eq!(got.iter().sum::<usize>(), 8);
+}
+
+use wasixv2_abi::{SocketLevel, SocketOption};
+
+fn int(v: i32) -> [u8; 4] {
+    v.to_le_bytes()
+}
+
+const SOL_SOCKET: i32 = SocketLevel::SOL_SOCKET.0;
+
+#[test]
+fn reuseport_groups_need_one_owner() {
+    let n = net();
+    let one = int(1);
+    let as_uid = |uid: u32| {
+        let s = n
+            .socket(Domain::Inet, SocketKind::Datagram, 0, uid)
+            .unwrap();
+        s.set_option(SOL_SOCKET, SocketOption::SO_REUSEPORT.0, &one)
+            .unwrap();
+        s
+    };
+    let first = as_uid(1);
+    first.bind(a("127.0.0.1:7600"), false).unwrap();
+    assert_eq!(
+        as_uid(2).bind(a("127.0.0.1:7600"), false),
+        Err(Errno::EADDRINUSE)
+    );
+    as_uid(1).bind(a("127.0.0.1:7600"), false).unwrap();
+    // TCP the same, and the accepted socket keeps the listener's owner.
+    let l = n.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
+    l.set_option(SOL_SOCKET, SocketOption::SO_REUSEPORT.0, &one)
+        .unwrap();
+    l.bind(a("127.0.0.1:7601"), false).unwrap();
+    l.listen(1).unwrap();
+    let other = n.socket(Domain::Inet, SocketKind::Stream, 0, 2).unwrap();
+    other
+        .set_option(SOL_SOCKET, SocketOption::SO_REUSEPORT.0, &one)
+        .unwrap();
+    assert_eq!(
+        other.bind(a("127.0.0.1:7601"), false),
+        Err(Errno::EADDRINUSE)
+    );
 }
