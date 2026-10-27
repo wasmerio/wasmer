@@ -256,6 +256,11 @@ impl FileObject for SocketFile {
         self.socket.input_len().unwrap_or(0)
     }
 
+    /// `sock_splice_read`.
+    fn splice_read(&self) -> bool {
+        true
+    }
+
     /// `SIOCINQ` (`FIONREAD`) and `SIOCOUTQ` (`TIOCOUTQ`).
     fn ioctl<'a>(
         &'a self,

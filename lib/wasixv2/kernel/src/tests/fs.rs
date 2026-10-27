@@ -213,3 +213,35 @@ fn fallocate_punches_holes_through_an_append_descriptor() {
     let fd = t.open("/f", OpenFlags::O_RDONLY).unwrap();
     assert_eq!(t.read(fd, 8192), Ok(vec![0; 8192]));
 }
+
+#[test]
+fn sendfile_reads_sockets_without_an_offset_and_never_pipes() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let out = t
+        .open("/out", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    let pair = wasixv2_abi::FdPair::new(0x100);
+    let unix = wasixv2_abi::AddressFamily(1);
+    const SOCK_STREAM: i32 = 1;
+    let made = kernel.socketpair(&t.caller, unix, SOCK_STREAM, 0, pair);
+    assert_eq!(block_on(made), Ok(0));
+    let fd = |at| Fd(i32::from_le_bytes(get(&memory, at, 4).try_into().unwrap()));
+    let (a, b) = (fd(0x100), fd(0x104));
+    let (r, _w) = super::ipc::pipe(&kernel, &t.caller, OpenFlags(0));
+    put(&memory, 0x3000, &0i64.to_le_bytes());
+    let sendfile = |input, offset: u32, count| {
+        let offset = wasixv2_abi::LoffPtr::new(offset);
+        block_on(kernel.sendfile64(&t.caller, out, input, offset, count))
+    };
+
+    // `do_sendfile`: an offset needs FMODE_PREAD (ESPIPE); `do_splice_direct` needs an
+    // input with `splice_read`, which sockets have and pipes do not (EINVAL).
+    assert_eq!(errno(sendfile(b, 0x3000, 5)), Errno::ESPIPE);
+    assert_eq!(errno(sendfile(r, 0x3000, 5)), Errno::ESPIPE);
+    assert_eq!(errno(sendfile(r, 0, 5)), Errno::EINVAL);
+    assert_eq!(t.write(a, b"hello"), Ok(5));
+    assert_eq!(sendfile(b, 0, 5), Ok(5));
+    let back = t.open("/out", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(back, 16), Ok(b"hello".to_vec()));
+}

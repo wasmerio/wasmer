@@ -505,6 +505,11 @@ impl FileObject for NetlinkSocket {
         true
     }
 
+    /// `sock_splice_read`.
+    fn splice_read(&self) -> bool {
+        true
+    }
+
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let mut wait = self.blocking(io, RCV, MsgFlags(0));
