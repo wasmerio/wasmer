@@ -167,6 +167,15 @@ fn resolve_beneath_and_in_root_scope_the_walk() {
     // In-root: `..` and absolute targets stop at the jail.
     assert_eq!(scoped(b"../../secret", false).err(), Some(Errno::ENOENT));
     assert_eq!(scoped(b"abs", false).err(), Some(Errno::ENOENT));
+    // An absolute path starts at the jail, which must be a directory (`path_init`).
+    assert_eq!(scoped(b"/sub", false), scoped(b"sub", false));
+    let file = w.lookup(b"/secret", LookupFlags::follow()).unwrap();
+    let in_root = LookupFlags {
+        in_root: true,
+        ..LookupFlags::default()
+    };
+    let from_file = block_on(w.vfs.lookup(&w.cx(), &file, b"/", in_root));
+    assert_eq!(from_file.err(), Some(Errno::ENOTDIR));
 }
 
 #[test]

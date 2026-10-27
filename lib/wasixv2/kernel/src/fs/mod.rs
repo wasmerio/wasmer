@@ -183,7 +183,8 @@ impl Kernel {
         self.vfs.lookup(&env.cx(), &start, path, lookup).await
     }
 
-    /// `dfd` itself, for an empty path: the working directory for `AT_FDCWD`.
+    /// `dfd` itself, for an empty path or a walk rooted there: the working directory for
+    /// `AT_FDCWD`.
     fn start_or_fd(&self, caller: &Caller<'_>, env: &Env, dfd: Fd) -> Result<Path, Errno> {
         if dfd.0 == AtFd::AT_FDCWD.0 {
             return Ok(env.fs.cwd.clone());
@@ -329,7 +330,8 @@ impl Kernel {
 
         let path = read_path(caller.memory(), filename).await?;
         let env = self.env(caller);
-        let start = if path.is_empty() && lookup.empty {
+        // `path_init`: `LOOKUP_IN_ROOT` starts even an absolute path at `dfd`, its root.
+        let start = if (path.is_empty() && lookup.empty) || lookup.in_root {
             self.start_or_fd(caller, &env, dfd)?
         } else {
             self.start(caller, &env, dfd, &path)?
