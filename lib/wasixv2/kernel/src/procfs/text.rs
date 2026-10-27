@@ -322,10 +322,10 @@ pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<V
 }
 
 /// `cmdline` and `environ`: every string followed by a NUL.
-fn nul_joined(strings: &[String]) -> Vec<u8> {
+fn nul_joined(strings: &[Vec<u8>]) -> Vec<u8> {
     let mut out = Vec::new();
     for s in strings {
-        out.extend_from_slice(s.as_bytes());
+        out.extend_from_slice(s);
         out.push(0);
     }
     out

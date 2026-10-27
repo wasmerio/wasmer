@@ -582,8 +582,8 @@ impl Kernel {
         &self,
         task: TaskId,
         path: &[u8],
-        args: Vec<String>,
-        env: Vec<String>,
+        args: Vec<Vec<u8>>,
+        env: Vec<Vec<u8>>,
     ) -> Result<Vec<u8>, Errno> {
         let memory = NoMemory;
         let caller = Caller::new(task, &memory);
@@ -608,13 +608,13 @@ impl Kernel {
         caller: &Caller<'_>,
         dfd: Fd,
         path: Vec<u8>,
-        mut args: Vec<String>,
-        env: Vec<String>,
+        mut args: Vec<Vec<u8>>,
+        env: Vec<Vec<u8>>,
         flags: AtFlags,
     ) -> SysResult<i32> {
         // Linux 5.18+: an empty argv gets an empty argv[0], so argc is never 0.
         if args.is_empty() {
-            args.push(String::new());
+            args.push(Vec::new());
         }
         check_arg_size(&args, &env)?;
         // The name the binary is known by: what the caller passed, or `/dev/fd/N` for an fd.
@@ -648,10 +648,9 @@ impl Kernel {
                 return Err(Errno::ENOENT.into());
             }
             // argv[0] goes; the interpreter, its argument and the script's name come first.
-            let lossy = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
-            let mut front = vec![lossy(&interp)];
-            front.extend(arg.as_deref().map(lossy));
-            front.push(lossy(&script));
+            let mut front = vec![interp.clone()];
+            front.extend(arg);
+            front.push(script);
             args.splice(0..1, front);
             check_arg_size(&args, &env)?;
             let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
@@ -751,8 +750,8 @@ impl Kernel {
         &self,
         caller: TaskId,
         name: &[u8],
-        args: Vec<String>,
-        env: Vec<String>,
+        args: Vec<Vec<u8>>,
+        env: Vec<Vec<u8>>,
         image: Option<Vec<u8>>,
         binary: Binary,
     ) {
@@ -1158,7 +1157,7 @@ pub(crate) fn copy_files(table: &FdTable) -> FdTable {
 }
 
 /// Reads a NULL-terminated array of string pointers (`copy_strings`). A NULL array is empty.
-async fn read_strings(caller: &Caller<'_>, array: CstrArray) -> SysResult<Vec<String>> {
+async fn read_strings(caller: &Caller<'_>, array: CstrArray) -> SysResult<Vec<Vec<u8>>> {
     let mut out = Vec::new();
     if array.is_null() {
         return Ok(out);
@@ -1183,7 +1182,7 @@ async fn read_strings(caller: &Caller<'_>, array: CstrArray) -> SysResult<Vec<St
         if total > ARG_MAX {
             return Err(Errno::E2BIG.into());
         }
-        out.push(String::from_utf8_lossy(&bytes).into_owned());
+        out.push(bytes);
     }
 }
 
@@ -1236,7 +1235,7 @@ fn parse_shebang(bytes: &[u8]) -> Option<(Vec<u8>, Option<Vec<u8>>)> {
 }
 
 /// `E2BIG` when the strings of a new image do not fit `ARG_MAX`.
-fn check_arg_size(args: &[String], env: &[String]) -> SysResult<()> {
+fn check_arg_size(args: &[Vec<u8>], env: &[Vec<u8>]) -> SysResult<()> {
     let total: usize = args.iter().chain(env).map(|s| s.len() + 1 + 4).sum();
     if total > ARG_MAX {
         return Err(Errno::E2BIG.into());

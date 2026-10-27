@@ -171,9 +171,10 @@ impl TaskTable {
 struct Process {
     pid: TaskId,
     // ---- proc ----
-    /// `argv` and the environment of the current image; `execve` replaces them.
-    args: Mutex<Vec<String>>,
-    env: Mutex<Vec<String>>,
+    /// `argv` and the environment of the current image, as the bytes `execve` was given; it
+    /// replaces them.
+    args: Mutex<Vec<Vec<u8>>>,
+    env: Mutex<Vec<Vec<u8>>>,
     /// The file the image was loaded from (`mm->exe_file`); `None` for a process the embedder
     /// started from bytes.
     exe: Mutex<Option<wasixv2_vfs::Path>>,
@@ -304,8 +305,8 @@ impl Kernel {
             ident: Mutex::new(ident::Ident::new(id.0)),
             cred: Mutex::new(cred),
             resources: Mutex::default(),
-            args: Mutex::new(config.args),
-            env: Mutex::new(config.env),
+            args: Mutex::new(config.args.into_iter().map(String::into_bytes).collect()),
+            env: Mutex::new(config.env.into_iter().map(String::into_bytes).collect()),
             exe: Mutex::new(None),
             group: thread::Group::new(),
         });
@@ -347,7 +348,9 @@ impl Kernel {
         args: Vec<String>,
         env: Vec<String>,
     ) -> Result<Vec<u8>, Errno> {
-        self.kernel_execve(task, path, args, env).await
+        let bytes = |strings: Vec<String>| strings.into_iter().map(String::into_bytes).collect();
+        self.kernel_execve(task, path, bytes(args), bytes(env))
+            .await
     }
 
     fn file(&self, task: TaskId, fd: Fd) -> Result<Arc<OpenFile>, Errno> {
