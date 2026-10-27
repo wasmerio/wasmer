@@ -325,6 +325,8 @@ impl Kernel {
     /// `exit_notify` once the group has exited and none of its threads is left but the leader
     /// (`thread_group_empty`, `delay_group_leader`): only then the process becomes a zombie,
     /// its files close and its parent hears of it, so nothing of it runs after its exit is seen.
+    /// A leader waiting for its vfork child counts as running: its instance resumes it once the
+    /// child is done, and it unwinds through its exit from there.
     fn exit_notify(&self, process: &Arc<Process>) {
         let Some(status) = process.group.status() else {
             return;
@@ -336,7 +338,7 @@ impl Kernel {
                 .iter()
                 .any(|(&id, t)| id != process.pid && Arc::ptr_eq(&t.process, process))
         };
-        if !others {
+        if !others && !self.vfork_waits(process.pid) {
             // ---- ipc ----
             // `exit_sem`, by the group's last task.
             self.ipc_process_exited(process.pid.0);
