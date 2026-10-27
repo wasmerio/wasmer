@@ -3,13 +3,16 @@
 //!
 //! The state comes from Linux's terminal ioctls on descriptors 0, 1 and 2: `TIOCGWINSZ` says
 //! whether each is a terminal and how big the first one is, and `TCGETS`/`TCSETS` on the first
-//! one carry the modes v1 knows (`ECHO`, `ICANON`, and `IGNCR` as "line feeds"). Without a
-//! terminal, the modes are compat state that `tty_set` keeps, starting at v1's defaults, and
-//! the size is v1's default 80x25.
+//! one carry `ECHO` and `ICANON`. Without a terminal, those modes are compat state that
+//! `tty_set` keeps, starting at v1's defaults, and the size is v1's default 80x25.
+//!
+//! "Line feeds" is always compat state: wasix-libc derives it from `c_lflag & IGNCR`, an input
+//! flag's value tested against the local flags (where it is `NOFLSH`), so it says nothing about
+//! the terminal, and v1 never applied it. It round-trips for `tcgetattr` and nothing more.
 
 use std::sync::Mutex;
 
-use wasixv2_abi::{Fd, IoctlRequest, Termios, TermiosIflag, TermiosLflag, Winsize};
+use wasixv2_abi::{Fd, IoctlRequest, Termios, TermiosLflag, Winsize};
 use wasixv2_syscalls::{Control, SysErr, Syscalls};
 use wasmer::RuntimeError;
 
@@ -97,11 +100,12 @@ async fn tcgets<S: Syscalls + Control + 'static>(
     Ok(frame.mem.take(termios))
 }
 
-fn modes_of(termios: &Termios) -> Modes {
+/// The modes of a terminal in `termios`, with the compat state's `line_feeds`.
+fn modes_of(termios: &Termios, line_feeds: bool) -> Modes {
     Modes {
         echo: termios.c_lflag.0 & TermiosLflag::ECHO.0 != 0,
         line_buffered: termios.c_lflag.0 & TermiosLflag::ICANON.0 != 0,
-        line_feeds: termios.c_iflag.0 & TermiosIflag::IGNCR.0 != 0,
+        line_feeds,
     }
 }
 
@@ -113,17 +117,13 @@ fn set_flag(bits: &mut u32, flag: u32, on: bool) {
     }
 }
 
+/// `modes` on a terminal's `termios`; line feeds are not the terminal's.
 fn apply(termios: &mut Termios, modes: Modes) {
     set_flag(&mut termios.c_lflag.0, TermiosLflag::ECHO.0, modes.echo);
     set_flag(
         &mut termios.c_lflag.0,
         TermiosLflag::ICANON.0,
         modes.line_buffered,
-    );
-    set_flag(
-        &mut termios.c_iflag.0,
-        TermiosIflag::IGNCR.0,
-        modes.line_feeds,
     );
 }
 
@@ -166,9 +166,10 @@ pub(crate) async fn tty_get<S: Syscalls + Control + 'static>(
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let (ttys, first) = stdio(frame).await?;
+        let kept = *frame.proc().await?.proc.tty.modes.lock().unwrap();
         let modes = match &first {
-            Some((fd, _)) => modes_of(&tcgets(frame, *fd).await?),
-            None => *frame.proc().await?.proc.tty.modes.lock().unwrap(),
+            Some((fd, _)) => modes_of(&tcgets(frame, *fd).await?, kept.line_feeds),
+            None => kept,
         };
         let tty = tty_state(ttys, first.as_ref().map(|(_, ws)| ws), modes);
         frame.write(out as u32, &tty).await
@@ -197,6 +198,15 @@ pub(crate) async fn tty_set<S: Syscalls + Control + 'static>(
                     .syscalls
                     .ioctl(&frame.caller(), fd, IoctlRequest::TCSETS, termios.addr())
                     .await?;
+                frame
+                    .proc()
+                    .await?
+                    .proc
+                    .tty
+                    .modes
+                    .lock()
+                    .unwrap()
+                    .line_feeds = modes.line_feeds;
             }
             None => *frame.proc().await?.proc.tty.modes.lock().unwrap() = modes,
         }
@@ -207,7 +217,7 @@ pub(crate) async fn tty_set<S: Syscalls + Control + 'static>(
 
 #[cfg(test)]
 mod tests {
-    use wasixv2_abi::GuestLayout;
+    use wasixv2_abi::{GuestLayout, TermiosIflag};
 
     use super::*;
 
@@ -220,9 +230,27 @@ mod tests {
             line_feeds: true,
         };
         apply(&mut termios, modes);
-        assert_eq!(modes_of(&termios), modes);
+        assert_eq!(modes_of(&termios, true), modes);
         apply(&mut termios, Modes::default());
-        assert_eq!(modes_of(&termios), Modes::default());
+        assert_eq!(modes_of(&termios, true), Modes::default());
+    }
+
+    /// "Line feeds" never reaches the terminal: it set `IGNCR`, which makes the terminal drop
+    /// every carriage return the user types, whenever libc saw the local flag of that value.
+    #[test]
+    fn line_feeds_leave_the_terminal_alone() {
+        let mut termios = Termios::ZERO;
+        for line_feeds in [true, false] {
+            let modes = Modes {
+                line_feeds,
+                ..Modes::default()
+            };
+            apply(&mut termios, modes);
+            assert_eq!(termios.c_iflag.0 & TermiosIflag::IGNCR.0, 0);
+        }
+        termios.c_iflag.0 |= TermiosIflag::IGNCR.0;
+        apply(&mut termios, Modes::default());
+        assert_ne!(termios.c_iflag.0 & TermiosIflag::IGNCR.0, 0);
     }
 
     #[test]
