@@ -18,9 +18,7 @@ use wasixv2_abi::{
     ConstEpollEventPtr, ConstKernelTimespecPtr, ConstSigsetPtr, EpollCreateFlags, EpollCtlOp,
     EpollData, EpollEvent, EpollEventArray, EpollEvents, GuestLayout, OpenFlags,
 };
-use wasixv2_syscalls::{
-    Caller, Errno, Fd, LocalFuture, SysErr, SysResult, read_value, write_value,
-};
+use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysErr, SysResult, read_value};
 use wasixv2_wait::{
     PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistration, Waiter, Wakeup,
     poll_wait,
@@ -52,6 +50,14 @@ const EXCLUSIVE_OK_BITS: u32 = EpollEvents::EPOLLIN.0
 
 /// An item's key: the open file's address and the descriptor it was added with.
 type Key = (usize, i32);
+
+/// An event `send_events` harvested, with what undoes its harvest if it cannot be copied out.
+struct Sent {
+    key: Key,
+    event: EpollEvent,
+    /// A one-shot item's mask before the harvest disarmed it.
+    oneshot: Option<u32>,
+}
 
 thread_local! {
     /// How deep this thread is in wakes and polls of epolls inside epolls.
@@ -279,8 +285,10 @@ impl Ep {
         true
     }
 
-    /// `ep_send_events`: up to `max` events from the ready list, re-polling each item.
-    fn send_events(&self, max: usize) -> Vec<EpollEvent> {
+    /// `ep_send_events`: up to `max` events from the ready list, re-polling each item. One-shot
+    /// items are disarmed and edge-triggered ones leave the list; [`Ep::unsend`] undoes that
+    /// when the events cannot be copied out.
+    fn send_events(&self, max: usize) -> Vec<Sent> {
         let txlist: Vec<Key> = {
             let mut state = self.state.lock().unwrap();
             state.queued.clear();
@@ -300,15 +308,21 @@ impl Ep {
                 continue;
             }
             let mut event = item.event.lock().unwrap();
-            events.push(EpollEvent {
-                events: revents.into(),
-                data: event.1,
-            });
+            let mut sent = Sent {
+                key,
+                event: EpollEvent {
+                    events: revents.into(),
+                    data: event.1,
+                },
+                oneshot: None,
+            };
             if event.0 & EpollEvents::EPOLLONESHOT.0 != 0 {
+                sent.oneshot = Some(event.0);
                 event.0 &= PRIVATE_BITS;
             } else if event.0 & EpollEvents::EPOLLET.0 == 0 {
                 requeue.push(key);
             }
+            events.push(sent);
         }
         // `ep_done_scan`: unprocessed items go back to the front, level-triggered ones after
         // them, then whatever arrived meanwhile.
@@ -326,6 +340,33 @@ impl Ep {
             self.wq.wake(PollMask::empty());
         }
         events
+    }
+
+    /// Puts harvested items back at the front of the ready list, re-arming one-shot ones that
+    /// nobody re-armed meanwhile: their events faulted on the way out, and `ep_deliver_event`
+    /// keeps an item whose `epoll_put_uevent` failed for the next wait.
+    fn unsend(&self, sent: &[Sent]) {
+        for sent in sent {
+            let (Some(mask), Some(item)) = (sent.oneshot, self.find(sent.key)) else {
+                continue;
+            };
+            let mut event = item.event.lock().unwrap();
+            if event.0 == mask & PRIVATE_BITS {
+                event.0 = mask;
+            }
+        }
+        let mut state = self.state.lock().unwrap();
+        for sent in sent.iter().rev() {
+            if !state.items.contains_key(&sent.key) {
+                continue;
+            }
+            if !state.queued.insert(sent.key) {
+                state.ready.retain(|key| *key != sent.key);
+            }
+            state.ready.push_front(sent.key);
+        }
+        drop(state);
+        self.wake();
     }
 
     /// The epolls whose items watch this one.
@@ -687,10 +728,14 @@ impl Kernel {
                 Wakeup::Interrupted => return Err(SysErr::Errno(Errno::EINTR)),
             }
         };
-        // TODO: Linux puts events that could not be copied back on the ready list.
-        for (i, event) in events.iter().enumerate() {
-            let at = out.addr() + (i * EpollEvent::SIZE) as u32;
-            write_value(caller.memory(), wasixv2_abi::GuestPtrMut::new(at), event).await?;
+        // One copy of all events; if it faults, none is delivered and all go back.
+        let mut raw = vec![0; events.len() * EpollEvent::SIZE];
+        for (sent, slot) in events.iter().zip(raw.chunks_exact_mut(EpollEvent::SIZE)) {
+            sent.event.write_to(slot);
+        }
+        if caller.memory().write(out.addr(), &raw).await.is_err() {
+            ep.unsend(&events);
+            return Err(Errno::EFAULT.into());
         }
         Ok(events.len() as i32)
     }
