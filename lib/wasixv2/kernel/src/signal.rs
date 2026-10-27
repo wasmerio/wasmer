@@ -8,7 +8,10 @@
 
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{
+        Arc, Mutex, MutexGuard, Weak,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Duration,
 };
 
@@ -47,6 +50,71 @@ pub(crate) struct Signals {
     state: Mutex<GroupState>,
     /// Woken on every signal sent to the group or one of its tasks; blocked tasks recheck.
     queue: WaitQueue,
+    /// Whom the group's queued signals are charged to; `None` for a group that queues for
+    /// nobody (a zombie's).
+    account: Option<Account>,
+}
+
+/// The signals queued for each user, against `RLIMIT_SIGPENDING` (`UCOUNT_RLIMIT_SIGPENDING`).
+#[derive(Default)]
+pub(crate) struct SigqueueUsers(Mutex<HashMap<u32, Arc<AtomicU64>>>);
+
+/// The charge of one queued signal to its user (`sigqueue->ucounts`), given back when the
+/// signal leaves its queue or its timer goes.
+pub(crate) struct Charge(Arc<AtomicU64>);
+
+/// A user is at `RLIMIT_SIGPENDING`.
+pub(crate) struct Overflow;
+
+impl SigqueueUsers {
+    /// `inc_rlimit_get_ucounts`: charges one signal to `uid`, unless that takes it past `limit`.
+    /// `None` overrides the limit; the signal still counts.
+    pub(crate) fn charge(&self, uid: u32, limit: Option<u64>) -> Result<Charge, Overflow> {
+        let count = self.0.lock().unwrap().entry(uid).or_default().clone();
+        let queued = count.fetch_add(1, Ordering::Relaxed) + 1;
+        let charge = Charge(count);
+        match limit {
+            Some(limit) if queued > limit => Err(Overflow),
+            _ => Ok(charge),
+        }
+    }
+}
+
+impl Drop for Charge {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// Whom a group's queued signals count against: its process's real uid, up to the process's
+/// `RLIMIT_SIGPENDING` (`task_ucounts`, `task_rlimit`).
+pub(crate) struct Account {
+    users: Arc<SigqueueUsers>,
+    process: Weak<Process>,
+}
+
+impl Account {
+    pub(crate) fn new(users: Arc<SigqueueUsers>, process: &Arc<Process>) -> Self {
+        Self {
+            users,
+            process: Arc::downgrade(process),
+        }
+    }
+
+    /// `sig_get_ucounts` for `info`: kernel signals and `kill`'s standard ones go past the
+    /// limit (`override_rlimit`). SIGKILL is never queued, so it costs nothing.
+    fn charge(&self, info: &Siginfo) -> Result<Option<Charge>, Overflow> {
+        let sig = info.si_signo;
+        let Some(process) = self.process.upgrade().filter(|_| sig != Signal::SIGKILL.0) else {
+            return Ok(None);
+        };
+        let uid = process.cred.lock().unwrap().user.real;
+        let limit = match sig < SIGRTMIN && info.si_code >= 0 {
+            true => None,
+            false => Some(process.resources.lock().unwrap().sigpending()),
+        };
+        self.users.charge(uid, limit).map(Some)
+    }
 }
 
 struct GroupState {
@@ -103,21 +171,44 @@ struct Pending {
 
 /// One queued signal (`struct sigqueue`). A POSIX timer's signal names its timer, as the
 /// timer's preallocated `sigqueue` does on Linux: a timer is queued at most once, and it
-/// decides at dequeue whether its signal still counts (`posixtimer_deliver_signal`).
+/// decides at dequeue whether its signal still counts (`posixtimer_deliver_signal`); the timer
+/// holds its charge.
 struct Queued {
     info: Siginfo,
     timer: Option<Arc<PosixTimer>>,
+    /// Given back when the entry goes.
+    _charge: Option<Charge>,
 }
 
 impl Pending {
-    /// `__sigqueue_alloc` and `sigaddset`. Standard signals are not queued twice.
-    fn add(&mut self, info: Siginfo) {
+    /// `__send_signal_locked` from `legacy_queue` on: a standard signal is not queued twice,
+    /// and SIGKILL carries nothing. A signal its user has no room for (`charge`) is pending
+    /// without its `siginfo`, except a realtime one sent other than by `kill`, which fails with
+    /// `EAGAIN`.
+    fn add(
+        &mut self,
+        info: Siginfo,
+        charge: Result<Option<Charge>, Overflow>,
+    ) -> Result<(), Errno> {
         let sig = info.si_signo;
         if sig < SIGRTMIN && self.set & bit(sig) != 0 {
-            return;
+            return Ok(());
+        }
+        if sig != Signal::SIGKILL.0 {
+            match charge {
+                Ok(charge) => self.queue.push_back(Queued {
+                    info,
+                    timer: None,
+                    _charge: charge,
+                }),
+                Err(Overflow) if sig >= SIGRTMIN && info.si_code != SiCode::SI_USER.0 => {
+                    return Err(Errno::EAGAIN);
+                }
+                Err(Overflow) => {}
+            }
         }
         self.set |= bit(sig);
-        self.queue.push_back(Queued { info, timer: None });
+        Ok(())
     }
 
     /// `posixtimer_queue_sigqueue`: a timer's signal is queued even next to a pending
@@ -127,6 +218,7 @@ impl Pending {
         self.queue.push_back(Queued {
             info,
             timer: Some(timer),
+            _charge: None,
         });
     }
 
@@ -137,7 +229,7 @@ impl Pending {
     }
 
     /// `collect_signal`: takes the oldest instance of `sig`, and its timer if a POSIX timer
-    /// sent it.
+    /// sent it. A signal pending without its `siginfo` comes as `SI_USER` from pid 0.
     fn take(&mut self, sig: i32) -> (Siginfo, Option<Arc<PosixTimer>>) {
         let at = self.queue.iter().position(|q| q.info.si_signo == sig);
         let queued = at.and_then(|at| self.queue.remove(at));
@@ -146,7 +238,7 @@ impl Pending {
         }
         match queued {
             Some(queued) => (queued.info, queued.timer),
-            None => (kernel_info(sig), None),
+            None => (user_info(sig, SiCode::SI_USER, 0, 0), None),
         }
     }
 
@@ -344,10 +436,12 @@ fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
 }
 
 impl Signals {
-    pub(crate) fn new() -> Arc<Self> {
+    /// A group whose queued signals `account` pays for.
+    pub(crate) fn new(account: Option<Account>) -> Arc<Self> {
         Arc::new(Self {
             state: Mutex::default(),
             queue: WaitQueue::new(),
+            account,
         })
     }
 
@@ -367,10 +461,10 @@ impl Signals {
     }
 
     // ---- proc ----
-    /// `copy_sighand` and `copy_signal` for a new process: the dispositions and the trampoline,
-    /// with nothing pending and no timers.
-    pub(crate) fn fork(&self) -> Arc<Self> {
-        let new = Self::new();
+    /// `copy_sighand` and `copy_signal` for a new process, whose queued signals `account` pays
+    /// for: the dispositions and the trampoline, with nothing pending and no timers.
+    pub(crate) fn fork(&self, account: Account) -> Arc<Self> {
+        let new = Self::new(Some(account));
         {
             let state = self.state.lock().unwrap();
             let mut copy = new.state.lock().unwrap();
@@ -413,15 +507,16 @@ impl Signals {
     }
 
     /// Queues `info` for the whole group (`__group_send_sig_info`).
-    pub(crate) fn send_group(&self, info: Siginfo) {
-        self.send(None, info);
+    pub(crate) fn send_group(&self, info: Siginfo) -> Result<(), Errno> {
+        self.send(None, info)
     }
     // ---- end proc ----
 
     /// `zap_other_threads`: queues SIGKILL for the group, so every task blocked in an
     /// interruptible wait wakes up and unwinds through its pending exit.
     pub(crate) fn kill_all(&self) {
-        self.send(None, kernel_info(Signal::SIGKILL.0));
+        // SIGKILL needs no room in a queue.
+        let _ = self.send(None, kernel_info(Signal::SIGKILL.0));
     }
 
     /// Whether `sig` is pending for the group or one of its tasks.
@@ -465,17 +560,21 @@ impl Signals {
     }
 
     /// `send_signal`: queues `info` for the group, or for `task` alone, unless it would be
-    /// ignored, and wakes the group's waiters.
-    fn send(&self, task: Option<TaskId>, info: Siginfo) {
+    /// ignored, and wakes the group's waiters. `EAGAIN` when the target's user has no room for
+    /// a realtime signal that must keep its `siginfo`.
+    fn send(&self, task: Option<TaskId>, info: Siginfo) -> Result<(), Errno> {
+        // The charge reads the process's credentials and limits, which come before the group.
+        let charge = self.account.as_ref().map_or(Ok(None), |a| a.charge(&info));
         let mut state = self.state.lock().unwrap();
         if !state.prepare(task, info.si_signo) {
-            return;
+            return Ok(());
         }
         let target = task.filter(|task| state.tasks.contains_key(task));
-        state.pending(target).add(info);
+        state.pending(target).add(info, charge)?;
         state.raise(target, info.si_signo);
         drop(state);
         self.queue.wake(wasixv2_wait::PollMask::empty());
+        Ok(())
     }
 
     /// `posixtimer_send_sigqueue`: queues the signal of `timer`, which just expired, for its
@@ -800,7 +899,8 @@ impl TaskSignals {
 
     /// Queues SIGKILL for this task alone, as `zap_other_threads` does for each thread.
     pub(crate) fn kill(&self) {
-        self.group
+        let _ = self
+            .group
             .send(Some(self.task), kernel_info(Signal::SIGKILL.0));
     }
 
@@ -968,7 +1068,7 @@ impl Kernel {
             && pid > 0
             && self.procs.find(pid as u32).is_some()
         {
-            groups.push((pid, Signals::new()));
+            groups.push((pid, Signals::new(None)));
         }
         groups
     }
@@ -982,7 +1082,8 @@ impl Kernel {
         if ret.as_ref().err() == Some(&SysErr::Errno(Errno::EPIPE)) {
             let info = self.sender_info(caller, Signal::SIGPIPE.0, SiCode::SI_USER);
             let signals = self.task_signals(caller.task());
-            signals.group.send(Some(caller.task()), info);
+            // SIGPIPE needs no room in a queue.
+            let _ = signals.group.send(Some(caller.task()), info);
         }
         ret
     }
@@ -1354,10 +1455,10 @@ impl Kernel {
         if !self.may_signal(sender, pid, info.si_signo) {
             return Err(Errno::EPERM);
         }
-        if info.si_signo != 0 {
-            group.send(None, info);
+        match info.si_signo {
+            0 => Ok(()),
+            _ => group.send(None, info),
         }
-        Ok(())
     }
 
     /// Sends `sig` to the process `pid` from outside the machine, like `kill(2)` from a process
@@ -1381,7 +1482,8 @@ impl Kernel {
             return Err(Errno::ESRCH);
         }
         for (_, group) in groups {
-            group.send(None, kernel_info(sig));
+            // A kernel signal goes past the limit, or without its `siginfo`.
+            let _ = group.send(None, kernel_info(sig));
         }
         Ok(())
     }
@@ -1423,10 +1525,10 @@ impl Kernel {
         if !self.may_signal(sender, pid, info.si_signo) {
             return Err(Errno::EPERM);
         }
-        if info.si_signo != 0 {
-            group.send(Some(TaskId(tid as u32)), info);
+        match info.si_signo {
+            0 => Ok(()),
+            _ => group.send(Some(TaskId(tid as u32)), info),
         }
-        Ok(())
     }
 
     pub(crate) async fn sys_kill(
@@ -1461,7 +1563,8 @@ impl Kernel {
             }
             sent = true;
             if sig.0 != 0 {
-                group.send(None, info);
+                // `kill`'s signals are never refused for want of room (`SI_USER`).
+                let _ = group.send(None, info);
             }
         }
         // A process group or a single process none of which may be signalled is `EPERM`;
@@ -1651,7 +1754,8 @@ fn real_timer_expired(group: &Signals, now: Duration) -> Option<Duration> {
         }
         (real.deadline, real.expired) = (None, Some(deadline));
     }
-    group.send(None, kernel_info(Signal::SIGALRM.0));
+    // A kernel signal overrides RLIMIT_SIGPENDING (`SEND_SIG_PRIV`), so it cannot fail.
+    let _ = group.send(None, kernel_info(Signal::SIGALRM.0));
     None
 }
 

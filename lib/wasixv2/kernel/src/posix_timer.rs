@@ -29,7 +29,7 @@ use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, read_value, write_value
 
 use crate::{
     Kernel,
-    signal::Signals,
+    signal::{Charge, Signals},
     time::{self, Clock},
     timer::{self, Timer},
 };
@@ -136,6 +136,8 @@ pub(crate) struct PosixTimer {
     state: Mutex<State>,
     /// Calls [`PosixTimer::expired`] at the expiry.
     timer: Timer,
+    /// The preallocated signal's charge to the creator's user, held for the timer's life.
+    _charge: Charge,
 }
 
 /// The parameters of a new timer, before it has an id.
@@ -520,22 +522,19 @@ impl Kernel {
             }
             false => None,
         };
-        // Every timer holds a preallocated signal, which counts against RLIMIT_SIGPENDING.
-        // TODO: count per user, with the queued signals, once credentials exist.
-        let limit = self
-            .process(caller.task())
-            .resources
-            .lock()
-            .unwrap()
-            .sigpending();
-        let id = group.with_posix_timers(|table| {
-            if table.timers.len() as u64 >= limit {
-                return Err(Errno::EAGAIN);
-            }
-            table.reserve(requested)
-        })?;
+        // Every timer holds a preallocated signal, which counts against the caller's user's
+        // RLIMIT_SIGPENDING with the signals queued for it (`posixtimer_init_sigqueue`).
+        let charge = {
+            let process = self.process(caller.task());
+            let limit = process.resources.lock().unwrap().sigpending();
+            let uid = process.cred.lock().unwrap().user.real;
+            self.sigqueue_users
+                .charge(uid, Some(limit))
+                .map_err(|_| Errno::EAGAIN)?
+        };
+        let id = group.with_posix_timers(|table| table.reserve(requested))?;
         let made = self
-            .make_posix_timer(caller, &group, id, which_clock, event, created)
+            .make_posix_timer(caller, &group, id, which_clock, event, created, charge)
             .await;
         group.with_posix_timers(|table| match &made {
             Ok(timer) => {
@@ -547,6 +546,7 @@ impl Kernel {
     }
 
     /// The part of `do_timer_create` between reserving the id and publishing the timer.
+    #[allow(clippy::too_many_arguments)]
     async fn make_posix_timer(
         &self,
         caller: &Caller<'_>,
@@ -555,6 +555,7 @@ impl Kernel {
         clock_id: ClockId,
         event: Option<wasixv2_abi::Sigevent>,
         created: TimerIdPtr,
+        charge: Charge,
     ) -> SysResult<Arc<PosixTimer>> {
         let (sigev_none, thread, signo, value) = self.timer_notify(caller, event)?;
         write_value(caller.memory(), created, &id).await?;
@@ -569,7 +570,7 @@ impl Kernel {
             value,
         };
         let cpu_origin = self.process(caller.task()).start;
-        Ok(self.new_posix_timer(group, id, spec, cpu_origin))
+        Ok(self.new_posix_timer(group, id, spec, cpu_origin, charge))
     }
 
     fn new_posix_timer(
@@ -578,6 +579,7 @@ impl Kernel {
         id: TimerId,
         spec: Spec,
         cpu_origin: Duration,
+        charge: Charge,
     ) -> Arc<PosixTimer> {
         Arc::new_cyclic(|weak: &Weak<PosixTimer>| {
             let weak = weak.clone();
@@ -607,6 +609,7 @@ impl Kernel {
                     sigqueue_seq: 0,
                 }),
                 timer: self.timers.timer(Box::new(expired)),
+                _charge: charge,
             }
         })
     }
