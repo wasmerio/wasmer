@@ -448,6 +448,12 @@ fn eventfd_counts_and_semaphores() {
         Errno::EINVAL
     );
     put(&memory, 0x200, &5u64.to_le_bytes());
+    // `eventfd_write` takes exactly 8 bytes: more is EINVAL too, and adds nothing.
+    for len in [4, 16] {
+        let write = kernel.write(&caller, fd, UserSlice::new(0x200, len));
+        assert_eq!(errno(block_on(write)), Errno::EINVAL);
+    }
+    assert_eq!(errno(read()), Errno::EAGAIN);
     assert_eq!(
         block_on(kernel.write(&caller, fd, UserSlice::new(0x200, 8))),
         Ok(8)

@@ -42,12 +42,12 @@ impl EventFd {
         Ok(8)
     }
 
-    /// `eventfd_write`.
+    /// `eventfd_write`: exactly one 8-byte count.
     async fn write_count(&self, io: Io<'_>, data: &[u8]) -> SysResult<usize> {
-        let Some(bytes) = data.get(..8) else {
+        let Ok(bytes) = <[u8; 8]>::try_from(data) else {
             return Err(Errno::EINVAL.into());
         };
-        let value = u64::from_ne_bytes(bytes.try_into().unwrap());
+        let value = u64::from_ne_bytes(bytes);
         if value == MAX {
             return Err(Errno::EINVAL.into());
         }
