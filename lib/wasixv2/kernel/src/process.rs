@@ -43,8 +43,9 @@ const ARG_MAX: usize = 2 * 1024 * 1024;
 const MAX_ARG_STRINGS: usize = 0x7FFF_FFFF;
 /// `BINPRM_BUF_SIZE`: how much of a `#!` line the kernel looks at.
 const BINPRM_BUF_SIZE: usize = 256;
-/// How deep interpreters may nest (`#!` naming another script), as `search_binary_handler`.
-const MAX_INTERP_DEPTH: usize = 4;
+/// How many times a script may hand over to its interpreter, which may be a script itself, as
+/// `exec_binprm`'s five levels of rewrites.
+const MAX_REWRITES: usize = 5;
 const WASM_MAGIC: &[u8] = b"\0asm";
 
 /// `__WCLONE`: wait only for children that do not report with SIGCHLD.
@@ -533,55 +534,104 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let path = crate::fs::read_path(caller.memory(), filename).await?;
-        let mut args = read_strings(caller, argv).await?;
+        let args = read_strings(caller, argv).await?;
+        let env = read_strings(caller, envp).await?;
+        self.do_execveat(caller, dfd, path, args, env, flags).await
+    }
+
+    /// `kernel_execve`, as Linux starts init: `task`, a process that runs no image yet, executes
+    /// `path` (resolved from its working directory) with `args` and `env`, as `execve` would.
+    /// Returns the image to start, which the execution layer would otherwise take on the way
+    /// back to the guest.
+    pub(crate) async fn kernel_execve(
+        &self,
+        task: TaskId,
+        path: &[u8],
+        args: Vec<String>,
+        env: Vec<String>,
+    ) -> Result<Vec<u8>, Errno> {
+        let memory = NoMemory;
+        let caller = Caller::new(task, &memory);
+        let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
+        self.do_execveat(&caller, cwd, path.to_vec(), args, env, AtFlags(0))
+            .await
+            .map_err(|err| match err {
+                SysErr::Errno(errno) => errno,
+                // Nothing waits here for a signal to interrupt.
+                _ => Errno::EINTR,
+            })?;
+        // There is no guest to return to: the image goes to the caller, not through the work
+        // queue. The work flag stays up for whatever else may be pending.
+        let action = self.with_task(task, |t| t.work.take());
+        debug_assert!(matches!(
+            action,
+            Some(GuestAction::Exec { vfork_parent: None })
+        ));
+        Ok(self
+            .procs
+            .take_image(task)
+            .expect("a committed execve leaves its image"))
+    }
+
+    /// `do_execveat_common` once the arguments are in the kernel.
+    async fn do_execveat(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        path: Vec<u8>,
+        mut args: Vec<String>,
+        env: Vec<String>,
+        flags: AtFlags,
+    ) -> SysResult<i32> {
         // Linux 5.18+: an empty argv gets an empty argv[0], so argc is never 0.
         if args.is_empty() {
             args.push(String::new());
         }
-        let env = read_strings(caller, envp).await?;
-        let total: usize = args.iter().chain(&env).map(|s| s.len() + 1 + 4).sum();
-        if total > ARG_MAX {
-            return Err(Errno::E2BIG.into());
-        }
+        check_arg_size(&args, &env)?;
         // The name the binary is known by: what the caller passed, or `/dev/fd/N` for an fd.
-        let name = match (path.is_empty(), path.starts_with(b"/") || dfd.0 < 0) {
+        let fd_relative = !path.starts_with(b"/") && dfd.0 != wasixv2_abi::AtFd::AT_FDCWD.0;
+        let name = match (path.is_empty(), fd_relative) {
             (true, _) => format!("/dev/fd/{}", dfd.0).into_bytes(),
-            (false, true) => path.clone(),
-            (false, false) => format!("/dev/fd/{}/", dfd.0)
+            (false, false) => path.clone(),
+            (false, true) => format!("/dev/fd/{}/", dfd.0)
                 .into_bytes()
                 .into_iter()
                 .chain(path.iter().copied())
                 .collect(),
         };
-        let mut file = (dfd, path, flags);
-        let mut depth = 0;
+        // `BINPRM_FLAGS_PATH_INACCESSIBLE`: a script named through a close-on-exec descriptor
+        // could not be opened by its interpreter.
+        let inaccessible = (path.is_empty() || fd_relative)
+            && self.files(caller.task()).lock().unwrap().cloexec(dfd) == Some(true);
+        let (mut bytes, mut binary) = self.open_exec(caller, dfd, &path, flags).await?;
+        // `bprm->interp`: the name a script is passed to its interpreter by.
+        let mut script = name.clone();
+        let mut rewrites = 0;
         let (image, binary) = loop {
-            let (bytes, binary) = self.open_exec(caller, file.0, &file.1, file.2).await?;
             if bytes.starts_with(WASM_MAGIC) {
                 break (bytes, binary);
             }
+            // `load_script`.
             let Some((interp, arg)) = parse_shebang(&bytes) else {
                 return Err(Errno::ENOEXEC.into());
             };
-            depth += 1;
-            if depth > MAX_INTERP_DEPTH {
+            if inaccessible {
+                return Err(Errno::ENOENT.into());
+            }
+            // argv[0] goes; the interpreter, its argument and the script's name come first.
+            let lossy = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
+            let mut front = vec![lossy(&interp)];
+            front.extend(arg.as_deref().map(lossy));
+            front.push(lossy(&script));
+            args.splice(0..1, front);
+            check_arg_size(&args, &env)?;
+            let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
+            (bytes, binary) = self.open_exec(caller, cwd, &interp, AtFlags(0)).await?;
+            script = interp;
+            rewrites += 1;
+            if rewrites > MAX_REWRITES {
                 return Err(Errno::ELOOP.into());
             }
-            // `load_script`: argv[0] goes; the interpreter, its argument and the script's
-            // name come first.
-            let script = match depth {
-                1 => String::from_utf8_lossy(&name).into_owned(),
-                _ => args.first().cloned().unwrap_or_default(),
-            };
-            if !args.is_empty() {
-                args.remove(0);
-            }
-            let mut front = vec![String::from_utf8_lossy(&interp).into_owned()];
-            front.extend(arg.map(|arg| String::from_utf8_lossy(&arg).into_owned()));
-            front.push(script);
-            args.splice(0..0, front);
-            let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
-            file = (cwd, interp, AtFlags(0));
         };
         self.mm_release(caller).await;
         self.exec_commit(caller.task(), &name, args, env, image, binary);
@@ -1071,30 +1121,61 @@ async fn read_strings(caller: &Caller<'_>, array: CstrArray) -> SysResult<Vec<St
     }
 }
 
-/// `load_script`'s parse of `#!interpreter [argument]`: the first line, up to
-/// `BINPRM_BUF_SIZE`, with the argument being the rest of the line, trimmed.
+/// `load_script`'s parse of `#!interpreter [argument]` in the first `BINPRM_BUF_SIZE` bytes:
+/// the interpreter is the first word, the argument the rest of the line with surrounding spaces
+/// and tabs trimmed, and a NUL ends either. Only spaces and tabs separate (a `\r` stays part of
+/// the line). `None`, Linux's `ENOEXEC`, for a file that is no script, a line without an
+/// interpreter, or an interpreter path the buffer may have truncated: no newline in the buffer
+/// and nothing after the path that ends it.
 #[allow(clippy::type_complexity)]
 fn parse_shebang(bytes: &[u8]) -> Option<(Vec<u8>, Option<Vec<u8>>)> {
-    let line = bytes.strip_prefix(b"#!")?;
-    let head = &line[..line.len().min(BINPRM_BUF_SIZE - 2)];
-    let end = head.iter().position(|&b| b == b'\n').unwrap_or(head.len());
-    let line = &head[..end];
-    let blank = |b: &u8| *b == b' ' || *b == b'\t';
-    let start = line.iter().position(|b| !blank(b))?;
-    let line = &line[start..];
-    let interp_end = line.iter().position(blank).unwrap_or(line.len());
-    let interp = line[..interp_end].to_vec();
-    let rest = &line[interp_end..];
-    let rest_start = rest.iter().position(|b| !blank(b));
-    let arg = rest_start.map(|s| {
-        let rest = &rest[s..];
-        let end = rest
-            .iter()
-            .rposition(|b| !blank(b) && *b != b'\r')
-            .map_or(0, |e| e + 1);
-        rest[..end].to_vec()
-    });
-    Some((interp, arg.filter(|a| !a.is_empty())))
+    // `bprm->buf`, NUL-padded past the end of a shorter file.
+    let mut buf = [0; BINPRM_BUF_SIZE];
+    let len = bytes.len().min(BINPRM_BUF_SIZE);
+    buf[..len].copy_from_slice(&bytes[..len]);
+    if !buf.starts_with(b"#!") {
+        return None;
+    }
+    let spacetab = |b: u8| b == b' ' || b == b'\t';
+    // The first index in `first..=last` that is not a space or tab, or that ends a word.
+    let next_non_spacetab = |first: usize, last: usize| (first..=last).find(|&i| !spacetab(buf[i]));
+    let next_terminator =
+        |first: usize, last: usize| (first..=last).find(|&i| spacetab(buf[i]) || buf[i] == 0);
+    let buf_end = BINPRM_BUF_SIZE - 1;
+    let mut end = match buf.iter().position(|&b| b == b'\n') {
+        Some(newline) => newline,
+        None => {
+            let name = next_non_spacetab(2, buf_end)?;
+            next_terminator(name, buf_end)?;
+            buf_end
+        }
+    };
+    while spacetab(buf[end - 1]) {
+        end -= 1;
+    }
+    let name = next_non_spacetab(2, end).filter(|&name| name != end)?;
+    let sep = next_terminator(name, end);
+    let arg = sep
+        .filter(|&sep| buf[sep] != 0)
+        .and_then(|sep| next_non_spacetab(sep, end));
+    // The kernel ends both strings with a NUL at `sep` and `end`; an earlier one ends them first.
+    let string = |from: usize, to: usize| {
+        let s = &buf[from..to];
+        s[..s.iter().position(|&b| b == 0).unwrap_or(s.len())].to_vec()
+    };
+    Some((
+        string(name, sep.unwrap_or(end)),
+        arg.map(|arg| string(arg, end)),
+    ))
+}
+
+/// `E2BIG` when the strings of a new image do not fit `ARG_MAX`.
+fn check_arg_size(args: &[String], env: &[String]) -> SysResult<()> {
+    let total: usize = args.iter().chain(env).map(|s| s.len() + 1 + 4).sum();
+    if total > ARG_MAX {
+        return Err(Errno::E2BIG.into());
+    }
+    Ok(())
 }
 
 /// Memory for kernel work outside any syscall, where no guest pointer is followed.
@@ -1132,15 +1213,55 @@ mod tests {
 
     #[test]
     fn shebang_lines() {
+        let parse = |line: &[u8]| parse_shebang(line);
+        let interp = |name: &[u8]| Some((name.to_vec(), None));
+        let with_arg = |name: &[u8], arg: &[u8]| Some((name.to_vec(), Some(arg.to_vec())));
+        assert_eq!(parse(b"#!/bin/sh\necho"), interp(b"/bin/sh"));
+        assert_eq!(parse(b"#!/bin/sh"), interp(b"/bin/sh"));
         assert_eq!(
-            parse_shebang(b"#!/bin/sh\necho"),
-            Some((b"/bin/sh".to_vec(), None))
+            parse(b"#! /usr/bin/env  python3 -u \nx"),
+            with_arg(b"/usr/bin/env", b"python3 -u")
         );
+        assert_eq!(parse(b"#!\t/bin/sh\t-e\t\n"), with_arg(b"/bin/sh", b"-e"));
+        // Only spaces and tabs separate: a CRLF script names `sh\r`.
+        assert_eq!(parse(b"#!/bin/sh\r\n"), interp(b"/bin/sh\r"));
+        assert_eq!(parse(b"#!/bin/sh -e\r\n"), with_arg(b"/bin/sh", b"-e\r"));
+        // A NUL ends the interpreter and the argument.
+        assert_eq!(parse(b"#!/bin/sh\0 -e\n"), interp(b"/bin/sh"));
+        assert_eq!(parse(b"#!/bin/sh -e\0x\n"), with_arg(b"/bin/sh", b"-e"));
+        assert_eq!(parse(b"#!/bin/sh \0\n"), with_arg(b"/bin/sh", b""));
+        // No interpreter.
+        assert_eq!(parse(b"#!\n"), None);
+        assert_eq!(parse(b"#!  \t\n"), None);
+        // Without a newline the NUL padding ends an empty name, which execve fails with ENOENT.
+        assert_eq!(parse(b"#!"), interp(b""));
+        // Not a script.
+        assert_eq!(parse(b"\0asm"), None);
+        assert_eq!(parse(b"# !/bin/sh\n"), None);
+    }
+
+    #[test]
+    fn shebang_lines_past_the_buffer() {
+        // The line goes on past `BINPRM_BUF_SIZE`: the argument is cut, which the interpreter
+        // can live with, ...
+        let mut long = b"#!/bin/sh ".to_vec();
+        long.resize(1000, b'x');
+        let (interp, arg) = parse_shebang(&long).unwrap();
+        assert_eq!(interp, b"/bin/sh");
         assert_eq!(
-            parse_shebang(b"#! /usr/bin/env  python3 -u \nx"),
-            Some((b"/usr/bin/env".to_vec(), Some(b"python3 -u".to_vec())))
+            arg.unwrap().len(),
+            super::BINPRM_BUF_SIZE - 1 - b"#!/bin/sh ".len()
         );
-        assert_eq!(parse_shebang(b"#!\n"), None);
-        assert_eq!(parse_shebang(b"\0asm"), None);
+        // ... but not a path that may be cut.
+        let mut path = b"#!/".to_vec();
+        path.resize(1000, b'p');
+        assert_eq!(parse_shebang(&path), None);
+        // A path ending right at the buffer's end is cut too.
+        let mut path = b"#!/".to_vec();
+        path.resize(super::BINPRM_BUF_SIZE, b'p');
+        assert_eq!(parse_shebang(&path), None);
+        // A shorter file is padded with NULs, which end the path.
+        path.truncate(super::BINPRM_BUF_SIZE - 1);
+        assert_eq!(parse_shebang(&path).unwrap().0, &path[2..]);
     }
 }
