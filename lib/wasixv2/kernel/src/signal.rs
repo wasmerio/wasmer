@@ -476,7 +476,8 @@ impl Signals {
 
     /// `flush_signal_handlers` and `sas_ss_reset` at `execve`: caught signals go back to their
     /// default action, ignored ones stay ignored, and the trampoline and alternate stacks
-    /// belonged to the old image. Masks and pending signals stay.
+    /// belonged to the old image. Masks and pending signals stay; a temporary mask's end
+    /// (`sigsuspend`, `ppoll`) and a wakeup for kernel work were the old image's, and go.
     pub(crate) fn exec_reset(&self) {
         let mut state = self.state.lock().unwrap();
         for action in state.actions.iter_mut() {
@@ -492,6 +493,8 @@ impl Signals {
         for task in state.tasks.values_mut() {
             task.altstack = AltStack::default();
             task.frames.clear();
+            task.saved = None;
+            task.notify = false;
         }
     }
 
