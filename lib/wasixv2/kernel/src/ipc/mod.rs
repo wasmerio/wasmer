@@ -278,7 +278,8 @@ impl<T: Object> Ids<T> {
 }
 
 /// `ipcget`: finds the object `key` names or creates one. `check` runs on an existing object
-/// after the permission check (`more_checks`); `create` builds a new one from its permissions.
+/// before the permission check (`more_checks`, so a size that does not fit is `EINVAL` before
+/// `EACCES`); `create` builds a new one from its permissions.
 pub(crate) fn get_or_create<T: Object>(
     ids: &Mutex<Ids<T>>,
     key: i32,
@@ -296,13 +297,13 @@ pub(crate) fn get_or_create<T: Object>(
         if flags_bits.contains(IpcFlags::IPC_CREAT | IpcFlags::IPC_EXCL) {
             return Err(Errno::EEXIST);
         }
-        let id = {
-            let perm = object.perm();
-            perm.check(cred, flags as u32)?;
-            build_id(*ids.keys.get(&key).expect("found by key"), perm.seq)
-        };
         check(&object)?;
-        return Ok(id);
+        let perm = object.perm();
+        perm.check(cred, flags as u32)?;
+        return Ok(build_id(
+            *ids.keys.get(&key).expect("found by key"),
+            perm.seq,
+        ));
     }
     if key != IpcKey::IPC_PRIVATE.0 && !flags_bits.contains(IpcFlags::IPC_CREAT) {
         return Err(Errno::ENOENT);
