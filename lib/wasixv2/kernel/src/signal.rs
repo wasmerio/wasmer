@@ -897,6 +897,25 @@ impl TaskSignals {
         });
     }
 
+    /// The signal half of `rt_sigreturn` for the task's innermost handler (see
+    /// [`Kernel::signal_return`]). A task whose `execve` handed its signal state to the leader
+    /// (`de_thread`) has none left: its handler unwinds with the old image, and nothing of it
+    /// is restored.
+    fn sigreturn(&self, mask: Option<u64>) {
+        let mut state = self.group.state.lock().unwrap();
+        let Some(task) = state.tasks.get_mut(&self.task) else {
+            return;
+        };
+        let saved = task.frames.pop();
+        if let Some(mask) = mask {
+            if let Some(alt) = saved {
+                task.altstack = alt;
+            }
+            task.blocked = mask & !UNBLOCKABLE;
+            task.flag.raise();
+        }
+    }
+
     /// Queues SIGKILL for this task alone, as `zap_other_threads` does for each thread.
     pub(crate) fn kill(&self) {
         let _ = self
@@ -1213,16 +1232,7 @@ impl Kernel {
         if restart && let Some(task) = self.state.lock().unwrap().tasks.get_mut(&task) {
             task.restart = None;
         }
-        signals.with(|task| {
-            let saved = task.frames.pop();
-            if let Some(mask) = mask {
-                if let Some(alt) = saved {
-                    task.altstack = alt;
-                }
-                task.blocked = mask & !UNBLOCKABLE;
-                task.flag.raise();
-            }
-        });
+        signals.sigreturn(mask);
     }
 
     pub(crate) async fn sys_signal_callback_register(
