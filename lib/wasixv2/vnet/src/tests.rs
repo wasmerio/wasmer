@@ -314,13 +314,149 @@ fn udp_reuseport_group_spreads_by_source_port() {
     assert_eq!(got.iter().sum::<usize>(), 8);
 }
 
-use wasixv2_abi::{SocketLevel, SocketOption};
+// ---- a recording backend ----
+
+use std::sync::Mutex;
+
+use wasixv2_abi::{SocketLevel, SocketOption, TcpOption};
+use wasixv2_wait::{PollTable, Pollable, WaitQueue};
+
+use crate::{Backend, BackendDatagram, BackendStream, InboundSink, Publication, StreamState};
+
+struct FakeStream {
+    peer: SocketAddr,
+    options: Mutex<Vec<(i32, i32, Vec<u8>)>>,
+}
+
+impl FakeStream {
+    fn new(peer: SocketAddr) -> Arc<Self> {
+        Arc::new(Self {
+            peer,
+            options: Mutex::default(),
+        })
+    }
+
+    fn option(&self, level: i32, name: i32) -> Option<Vec<u8>> {
+        let options = self.options.lock().unwrap();
+        options
+            .iter()
+            .rev()
+            .find(|o| o.0 == level && o.1 == name)
+            .map(|o| o.2.clone())
+    }
+}
+
+impl Pollable for FakeStream {
+    fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
+        PollMask::OUT | PollMask::WRNORM
+    }
+}
+
+impl BackendStream for FakeStream {
+    fn state(&self) -> StreamState {
+        StreamState::Established
+    }
+    fn read(&self, _: &mut [u8], _: bool) -> Result<usize, Errno> {
+        Err(Errno::EAGAIN)
+    }
+    fn write(&self, data: &[u8]) -> Result<usize, Errno> {
+        Ok(data.len())
+    }
+    fn shutdown(&self, _: Shutdown) -> Result<(), Errno> {
+        Ok(())
+    }
+    fn take_error(&self) -> Option<Errno> {
+        None
+    }
+    fn peer_addr(&self) -> SocketAddr {
+        self.peer
+    }
+    fn input_len(&self) -> usize {
+        0
+    }
+    fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
+        self.options
+            .lock()
+            .unwrap()
+            .push((level, name, value.to_vec()));
+        Ok(())
+    }
+}
+
+/// A datagram endpoint whose host side is writable or not as the test says.
+#[derive(Default)]
+struct Recorder {
+    streams: Mutex<Vec<Arc<FakeStream>>>,
+}
+
+impl Backend for Recorder {
+    fn connect(&self, peer: SocketAddr, _: WaitQueue) -> Result<Arc<dyn BackendStream>, Errno> {
+        let s = FakeStream::new(peer);
+        self.streams.lock().unwrap().push(s.clone());
+        Ok(s)
+    }
+    fn datagram(&self, _: Domain, _: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
+        Err(Errno::ENETUNREACH)
+    }
+    fn publish(
+        &self,
+        _: SocketAddr,
+        _: Arc<dyn InboundSink>,
+    ) -> Result<Box<dyn Publication>, std::io::Error> {
+        Err(std::io::ErrorKind::Unsupported.into())
+    }
+}
+
+fn backed() -> (Arc<Net>, Arc<Recorder>) {
+    let rec = Arc::new(Recorder::default());
+    let config = NetConfig {
+        auto_publish: Some(a("0.0.0.0:0").ip()),
+        ..NetConfig::host_default()
+    };
+    (Net::new(config, Some(rec.clone())), rec)
+}
 
 fn int(v: i32) -> [u8; 4] {
     v.to_le_bytes()
 }
 
 const SOL_SOCKET: i32 = SocketLevel::SOL_SOCKET.0;
+const SOL_TCP: i32 = SocketLevel::SOL_TCP.0;
+
+#[test]
+fn options_set_before_connect_reach_the_backend_stream() {
+    let (n, rec) = backed();
+    let s = tcp(&n);
+    s.set_option(SOL_TCP, TcpOption::TCP_NODELAY.0, &int(1))
+        .unwrap();
+    s.set_option(SOL_TCP, TcpOption::TCP_KEEPIDLE.0, &int(30))
+        .unwrap();
+    s.set_option(SOL_SOCKET, SocketOption::SO_KEEPALIVE.0, &int(1))
+        .unwrap();
+    let linger = [int(1), int(5)].concat();
+    s.set_option(SOL_SOCKET, SocketOption::SO_LINGER.0, &linger)
+        .unwrap();
+    assert_eq!(s.connect(a("10.0.2.2:80")), Err(Errno::EINPROGRESS));
+    let stream = rec.streams.lock().unwrap()[0].clone();
+    assert_eq!(
+        stream.option(SOL_TCP, TcpOption::TCP_NODELAY.0),
+        Some(int(1).to_vec())
+    );
+    assert_eq!(
+        stream.option(SOL_TCP, TcpOption::TCP_KEEPIDLE.0),
+        Some(int(30).to_vec())
+    );
+    assert_eq!(
+        stream.option(SOL_SOCKET, SocketOption::SO_KEEPALIVE.0),
+        Some(int(1).to_vec())
+    );
+    assert_eq!(
+        stream.option(SOL_SOCKET, SocketOption::SO_LINGER.0),
+        Some(linger.clone())
+    );
+    // Options never set are left to the host's defaults.
+    assert_eq!(stream.option(SOL_TCP, TcpOption::TCP_KEEPCNT.0), None);
+}
 
 #[test]
 fn disconnect_resets_the_connection_and_returns_port_and_address() {

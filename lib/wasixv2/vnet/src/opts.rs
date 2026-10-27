@@ -121,6 +121,16 @@ const INT_OPTS: &[(i32, i32, i32, bool, bool)] = &[
     (SOL_TCP, 8 /* TCP_LINGER2 */, 60, false, true),
 ];
 
+/// The integer options a backend stream acts on, in the order they are replayed: keepalive's
+/// parameters before keepalive itself.
+const BACKEND_INTS: &[(i32, i32)] = &[
+    (SOL_TCP, Tcp::TCP_NODELAY.0),
+    (SOL_TCP, Tcp::TCP_KEEPIDLE.0),
+    (SOL_TCP, Tcp::TCP_KEEPINTVL.0),
+    (SOL_TCP, Tcp::TCP_KEEPCNT.0),
+    (SOL_SOCKET, So::SO_KEEPALIVE.0),
+];
+
 /// Reads an `int` option value (`copy_safe_from_sockptr` with `sizeof(int)`).
 pub fn read_int(value: &[u8]) -> NetResult<i32> {
     let bytes: [u8; 4] = value
@@ -185,6 +195,25 @@ impl SockOpts {
     /// the whole sock).
     pub fn inherit(&self) -> Self {
         self.clone()
+    }
+
+    /// The options a backend stream acts on (`TCP_NODELAY`, keepalive, `SO_LINGER`), as
+    /// `(level, name, value)` in guest layout, for each one the guest set. Linux keeps them in
+    /// the sock whatever its state, so a stream made later (`connect`, a published
+    /// connection) gets them replayed.
+    pub fn backend_options(&self) -> Vec<(i32, i32, Vec<u8>)> {
+        let mut out = Vec::new();
+        if let Some(secs) = self.linger {
+            let mut v = 1i32.to_le_bytes().to_vec();
+            v.extend(secs.to_le_bytes());
+            out.push((SOL_SOCKET, So::SO_LINGER.0, v));
+        }
+        for &(level, name) in BACKEND_INTS {
+            if let Some(v) = self.ints.get(&(level, name)) {
+                out.push((level, name, v.to_le_bytes().to_vec()));
+            }
+        }
+        out
     }
 
     fn int_opt(&self, level: i32, name: i32) -> Option<(i32, bool)> {
