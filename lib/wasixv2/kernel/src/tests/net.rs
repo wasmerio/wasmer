@@ -914,6 +914,105 @@ fn rights(fds: &[Fd]) -> (i32, i32, Vec<u8>) {
     (SocketLevel::SOL_SOCKET.0, crate::unix::SCM_RIGHTS, data)
 }
 
+fn close(kernel: &Kernel, caller: &Caller<'_>, fd: Fd) {
+    assert_eq!(block_on(kernel.close(caller, fd)), Ok(0));
+}
+
+#[test]
+fn unix_sockets_only_their_own_queues_hold_are_collected() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let inflight = kernel.unix_names.inflight.clone();
+    // `b` in flight in its own queue, then both descriptors closed: a cycle.
+    let (a, b) = unix_pair(&kernel, &caller, &memory, STREAM);
+    let sent = send_with_controls(&kernel, &caller, &memory, a, None, &[rights(&[b])]);
+    assert_eq!(sent, Ok(1));
+    assert_eq!(inflight.user(1), 1);
+    close(&kernel, &caller, a);
+    close(&kernel, &caller, b);
+    assert_eq!(inflight.user(1), 1, "nothing but its own queue holds b");
+    // The next Unix socket released runs the collector (`unix_release_sock`).
+    let (c, d) = unix_pair(&kernel, &caller, &memory, STREAM);
+    close(&kernel, &caller, c);
+    assert_eq!(inflight.user(1), 0);
+
+    // A socket in flight to a socket someone still holds is not garbage.
+    let (x, y) = unix_pair(&kernel, &caller, &memory, STREAM);
+    let sent = send_with_controls(&kernel, &caller, &memory, d, None, &[rights(&[x])]);
+    assert_eq!(sent, Err(SysErr::Errno(Errno::EPIPE)), "d's peer is gone");
+    let (p, q) = unix_pair(&kernel, &caller, &memory, STREAM);
+    let sent = send_with_controls(&kernel, &caller, &memory, p, None, &[rights(&[x])]);
+    assert_eq!(sent, Ok(1));
+    close(&kernel, &caller, x);
+    close(&kernel, &caller, d);
+    assert_eq!(inflight.user(1), 1);
+    // Received from q, x still works: its peer y hears from it.
+    let hdr = UserMsghdr {
+        msg_name: GuestPtrMut::NULL,
+        msg_namelen: 0,
+        msg_iov: GuestPtr::new(0x700),
+        msg_iovlen: 1,
+        msg_control: GuestPtrMut::new(0xb00),
+        msg_controllen: 64,
+        msg_flags: 0,
+    };
+    block_on(write_value(&memory, GuestPtrMut::new(0x900), &hdr)).unwrap();
+    let got = block_on(kernel.recvmsg(&caller, q, GuestPtrMut::new(0x900), MsgFlags(0)));
+    assert_eq!(got, Ok(1));
+    let x = Fd(i32::from_le_bytes(
+        get(&memory, 0xb0c, 4).try_into().unwrap(),
+    ));
+    assert_eq!(inflight.user(1), 0);
+    put(&memory, 0x400, b"z");
+    assert_eq!(
+        send_bytes(&kernel, &caller, x, 0x400, 1, MsgFlags(0)),
+        Ok(1)
+    );
+    let read = block_on(kernel.read(&caller, y, UserSliceMut::new(0x500, 4)));
+    assert_eq!(read, Ok(1));
+}
+
+#[test]
+fn files_in_flight_count_against_their_sender_only() {
+    let (kernel, first, memory) =
+        super::cred::machine_with(|kernel| kernel.with_credentials(Credentials::new(0, 0)));
+    let spawn = || {
+        kernel.spawn(ProcessConfig {
+            args: vec!["test".into()],
+            env: Vec::new(),
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+    };
+    let (alice, bob) = (spawn(), spawn());
+    for (task, uid) in [(alice, 1), (bob, 2)] {
+        let caller = Caller::new(task, &memory);
+        assert_eq!(block_on(kernel.setresuid(&caller, uid, uid, uid)), Ok(0));
+    }
+    // Room for the open descriptors and four more.
+    let fill = |task: TaskId| {
+        let caller = Caller::new(task, &memory);
+        let (a, _b) = unix_pair(&kernel, &caller, &memory, STREAM);
+        let limit = kernel.files(task).lock().unwrap().end() + 4;
+        kernel.files(task).lock().unwrap().set_limit(limit);
+        (0..limit + 4)
+            .map(|_| send_with_controls(&kernel, &caller, &memory, a, None, &[rights(&[a])]))
+            .position(|sent| sent.is_err())
+            .map(|at| (at, limit))
+    };
+    // `too_many_unix_fds`: more than RLIMIT_NOFILE in flight is ETOOMANYREFS.
+    let (at, limit) = fill(alice).unwrap();
+    assert_eq!(at, limit + 1);
+    // Alice's files are Alice's: Bob has his whole allowance.
+    let (at, limit) = fill(bob).unwrap();
+    assert_eq!(at, limit + 1);
+    // Root holds CAP_SYS_RESOURCE, which lifts the limit.
+    assert_eq!(fill(first), None);
+}
+
 #[test]
 fn ip_sends_check_socket_level_control_messages() {
     let (kernel, task, memory) = networked();
