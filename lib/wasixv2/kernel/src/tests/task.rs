@@ -199,6 +199,42 @@ fn an_execve_from_a_thread_revives_a_zombie_leader() {
     assert!(!kernel.process(leader).group.exiting());
 }
 
+/// A leader in `sigsuspend` while another thread's `execve` ends the old image: the end of its
+/// temporary mask does not put its own mask back over the one the new image inherits from the
+/// exec'ing thread.
+#[test]
+fn the_leaders_temporary_mask_does_not_outlive_another_threads_execve() {
+    const SIGUSR1: u64 = 1 << 9;
+    const SIGTERM: u64 = 1 << 14;
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let execing = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    kernel.task_signals(leader).replace_blocked(SIGTERM);
+    kernel.task_signals(execing).replace_blocked(SIGUSR1);
+    put(&memory, 0x160, &[0; 8]);
+    let mut suspend = Box::pin(kernel.rt_sigsuspend(&caller, GuestPtr::new(0x160), 8));
+    assert_eq!(suspend.as_mut().now_or_never(), None);
+    let thread = Caller::new(execing, &memory);
+    let mut exec = Box::pin(execve(&kernel, &thread));
+
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    assert!(suspend.as_mut().now_or_never().is_some());
+    let handed = GuestAction::Exec { vfork_parent: None };
+    assert_eq!(kernel.take_pending(leader), Some(handed));
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
+    kernel.release(execing);
+    assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
+
+    // The new image's first return to the guest has no temporary mask to end.
+    assert_eq!(kernel.take_pending(leader), None);
+    assert_eq!(kernel.task_signals(leader).blocked(), SIGUSR1);
+}
+
 const IMAGE: &[u8] = b"\0asm\x01\0\0\0";
 
 /// Writes an executable `/prog` holding [`IMAGE`], and `execve`'s arguments for it: the path
