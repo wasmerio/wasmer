@@ -387,6 +387,43 @@ impl BackendStream for FakeStream {
 }
 
 /// A datagram endpoint whose host side is writable or not as the test says.
+struct FakeDgram {
+    writable: AtomicBool,
+    wq: WaitQueue,
+    sent: Mutex<Vec<Vec<u8>>>,
+}
+
+impl Pollable for FakeDgram {
+    fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
+        match self.writable.load(Ordering::SeqCst) {
+            true => PollMask::OUT | PollMask::WRNORM,
+            false => PollMask::empty(),
+        }
+    }
+}
+
+impl BackendDatagram for FakeDgram {
+    fn send_to(&self, data: &[u8], _: SocketAddr) -> Result<usize, Errno> {
+        if !self.writable.load(Ordering::SeqCst) {
+            return Err(Errno::EAGAIN);
+        }
+        self.sent.lock().unwrap().push(data.to_vec());
+        Ok(data.len())
+    }
+    fn connect(&self, _: Option<SocketAddr>) -> Result<(), Errno> {
+        Ok(())
+    }
+    fn take_error(&self) -> Option<Errno> {
+        None
+    }
+    fn recv_from(&self, _: &mut [u8], _: bool) -> Result<(usize, usize, SocketAddr), Errno> {
+        Err(Errno::EAGAIN)
+    }
+    fn input_len(&self) -> usize {
+        0
+    }
+}
+
 struct FakePublication(Arc<AtomicU32>);
 
 impl Publication for FakePublication {
@@ -404,6 +441,7 @@ type Published = (Arc<dyn InboundSink>, Arc<AtomicU32>);
 #[derive(Default)]
 struct Recorder {
     streams: Mutex<Vec<Arc<FakeStream>>>,
+    dgrams: Mutex<Vec<Arc<FakeDgram>>>,
     /// Each publication's sink and host backlog.
     published: Mutex<Vec<Published>>,
 }
@@ -414,8 +452,14 @@ impl Backend for Recorder {
         self.streams.lock().unwrap().push(s.clone());
         Ok(s)
     }
-    fn datagram(&self, _: Domain, _: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
-        Err(Errno::ENETUNREACH)
+    fn datagram(&self, _: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
+        let d = Arc::new(FakeDgram {
+            writable: AtomicBool::new(true),
+            wq,
+            sent: Mutex::default(),
+        });
+        self.dgrams.lock().unwrap().push(d.clone());
+        Ok(d)
     }
     fn publish(
         &self,
@@ -524,6 +568,31 @@ fn published_connections_wait_on_the_host_while_the_accept_queue_is_full() {
     assert_eq!(backlog.load(Ordering::SeqCst), 5);
     drop(l);
     assert_eq!(sink.poll_room(None), Room::Gone);
+}
+
+#[test]
+fn backend_datagrams_are_writable_only_while_the_host_takes_them() {
+    let (n, rec) = backed();
+    let s = udp(&n);
+    let dst = a("10.0.2.2:53");
+    assert_eq!(send_to(&*s, b"one", Some(dst)), Ok(3));
+    let d = rec.dgrams.lock().unwrap()[0].clone();
+    assert!(s.poll(None).contains(PollMask::OUT));
+    d.writable.store(false, Ordering::SeqCst);
+    assert_eq!(send_to(&*s, b"two", Some(dst)), Err(Errno::EAGAIN));
+    assert!(!s.poll(None).intersects(PollMask::OUT | PollMask::WRNORM));
+    // A blocked sender sleeps on the socket's queue, which the endpoint wakes.
+    let woken = Arc::new(Flag(AtomicBool::new(false)));
+    let entry: Arc<dyn WaitEntry> = woken.clone();
+    let mut regs = Vec::new();
+    let mut proc = |q: &WaitQueue, _| regs.push(q.add(entry.clone()));
+    s.poll(Some(&mut PollTable::new(PollMask::OUT, &mut proc)));
+    d.writable.store(true, Ordering::SeqCst);
+    d.wq.wake(PollMask::OUT | PollMask::WRNORM);
+    assert!(woken.0.load(Ordering::SeqCst));
+    assert!(s.poll(None).contains(PollMask::OUT));
+    assert_eq!(send_to(&*s, b"two", Some(dst)), Ok(3));
+    assert_eq!(d.sent.lock().unwrap().len(), 2);
 }
 
 #[test]

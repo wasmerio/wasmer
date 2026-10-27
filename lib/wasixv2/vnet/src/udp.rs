@@ -181,7 +181,7 @@ impl Pollable for UdpSocket {
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.wq);
         let g = self.lock();
-        let mut m = PollMask::OUT | PollMask::WRNORM | PollMask::WRBAND;
+        let mut m = PollMask::empty();
         if g.err.is_some() {
             m |= PollMask::ERR;
         }
@@ -196,8 +196,16 @@ impl Pollable for UdpSocket {
         }
         let backend = g.backend.clone();
         drop(g);
+        // `sock_writeable`: datagrams inside the namespace never wait; the backend's endpoint
+        // is writable while the host would take a datagram.
+        let mut writable = true;
         if let Some(b) = backend {
-            m |= b.poll(None) & (PollMask::IN | PollMask::RDNORM | PollMask::ERR);
+            let bm = b.poll(None);
+            m |= bm & (PollMask::IN | PollMask::RDNORM | PollMask::ERR);
+            writable = bm.contains(PollMask::OUT);
+        }
+        if writable {
+            m |= PollMask::OUT | PollMask::WRNORM | PollMask::WRBAND;
         }
         m
     }
