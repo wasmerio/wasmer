@@ -1,14 +1,15 @@
-//! Signals: the alternate stack and `RLIMIT_SIGPENDING`.
+//! Signals: the alternate stack, `RLIMIT_SIGPENDING` and the parent-death signal.
 
 use std::cell::Cell;
 
 use wasixv2_abi::{
-    ClockId, CloneFlags, ConstRlimit64Ptr, KernelTimespec, Rlimit64Ptr, RlimitResource, SaFlags,
-    Sigaction, Sigaltstack, SigaltstackFlags, Siginfo, Signal, SigprocmaskHow, Sigset,
+    ClockId, CloneFlags, ConstRlimit64Ptr, KernelTimespec, PrctlOption, Rlimit64Ptr,
+    RlimitResource, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags, Siginfo, Signal,
+    SigprocmaskHow, Sigset,
 };
 use wasixv2_syscalls::{SignalFrame, read_value, write_value};
 
-use super::{ipc::machine, proc::ForkableMemory, *};
+use super::{cred::machine_as, ipc::machine, proc::ForkableMemory, *};
 
 /// Memory of a task whose stack pointer the test moves, as the guest's `__stack_pointer`.
 struct StackMemory {
@@ -439,4 +440,53 @@ fn a_signal_without_room_for_its_siginfo_comes_from_pid_zero() {
         (0, 0),
         "si_pid, si_uid"
     );
+}
+
+// ---- PR_SET_PDEATHSIG ----
+
+fn set_pdeathsig(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) {
+    let prctl = kernel.prctl(caller, PrctlOption::PR_SET_PDEATHSIG, sig.0 as u32, 0, 0, 0);
+    assert_eq!(block_on(prctl), Ok(0));
+}
+
+fn pdeathsig(kernel: &Kernel, caller: &Caller<'_>) -> i32 {
+    let prctl = kernel.prctl(caller, PrctlOption::PR_GET_PDEATHSIG, 0x190, 0, 0, 0);
+    assert_eq!(block_on(prctl), Ok(0));
+    block_on(read_value(caller.memory(), GuestPtr::<i32>::new(0x190))).unwrap()
+}
+
+#[test]
+fn the_parent_death_signal_comes_when_the_parent_exits() {
+    let (kernel, task, _) = machine();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let child = fork(&kernel, &caller);
+    let child_memory = forkable();
+    let child_caller = Caller::new(child, &child_memory);
+    set_pdeathsig(&kernel, &child_caller, Signal::SIGUSR1);
+    block(&kernel, &child_caller, 1 << (Signal::SIGUSR1.0 - 1));
+    assert_eq!(take(&kernel, &child_caller, Signal::SIGUSR1.0), None);
+
+    assert_eq!(block_on(kernel.exit_group(&caller, 0)), Ok(()));
+
+    let info = take(&kernel, &child_caller, Signal::SIGUSR1.0).expect("SIGUSR1");
+    assert_eq!(info.si_code, wasixv2_abi::SiCode::SI_USER.0);
+    assert_eq!(sifield(&info, 0), task.0, "si_pid");
+    assert_eq!(block_on(kernel.getppid(&child_caller)), Ok(0));
+}
+
+#[test]
+fn changing_credentials_forgets_the_parent_death_signal() {
+    let (kernel, task, memory) = machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    set_pdeathsig(&kernel, &caller, Signal::SIGTERM);
+    assert_eq!(pdeathsig(&kernel, &caller), Signal::SIGTERM.0);
+    // The real uid alone keeps it; the effective one forgets it.
+    assert_eq!(
+        block_on(kernel.setresuid(&caller, 5, u32::MAX, u32::MAX)),
+        Ok(0)
+    );
+    assert_eq!(pdeathsig(&kernel, &caller), Signal::SIGTERM.0);
+    assert_eq!(block_on(kernel.setuid(&caller, 5)), Ok(0));
+    assert_eq!(pdeathsig(&kernel, &caller), 0);
 }

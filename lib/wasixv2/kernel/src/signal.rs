@@ -427,7 +427,7 @@ fn kernel_info(sig: i32) -> Siginfo {
 
 /// A `siginfo` for a signal a process sent: `si_pid` and `si_uid` (its real uid) are its first
 /// fields.
-fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
+pub(crate) fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
     let mut info = kernel_info(sig);
     info.si_code = code.0;
     info.sifields[0..4].copy_from_slice(&pid.to_le_bytes());
