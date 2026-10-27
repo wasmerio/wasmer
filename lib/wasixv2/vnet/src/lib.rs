@@ -6,6 +6,7 @@
 
 mod addr;
 mod api;
+mod cmsg;
 pub mod iface;
 mod net;
 pub mod opts;
