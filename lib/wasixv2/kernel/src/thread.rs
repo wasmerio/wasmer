@@ -32,8 +32,11 @@ pub(crate) struct Group {
 struct GroupState {
     /// Tasks that have not exited yet, in step with their `ThreadState::exited`.
     live: u32,
-    /// The status of `exit_group`, or of the last task's `exit`.
+    /// The status of `exit_group`, or of the group's end when its last task called `exit`.
     exit: Option<i32>,
+    /// The status of the leader's own `exit`, which is the group's when it ends without an
+    /// `exit_group` (`wait_task_zombie` reads the leader's `exit_code`).
+    leader_exit: Option<i32>,
 }
 
 impl Group {
@@ -222,9 +225,9 @@ impl Kernel {
         }
     }
 
-    /// `do_exit` for one task. The last task to exit ends its thread group with its status. The
-    /// group leader stays until then, as a zombie leader does on Linux, so the group's status
-    /// reaches whoever started the process.
+    /// `do_exit` for one task. The last task to exit ends its thread group, with the leader's
+    /// status. The group leader stays until then, as a zombie leader does on Linux, so the
+    /// group's status reaches whoever started the process.
     pub(crate) async fn sys_exit(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
         let task = caller.task();
         let process = self.process(task);
@@ -243,10 +246,13 @@ impl Kernel {
             }
             entry.thread.exited = true;
             let mut group = process.group.state.lock().unwrap();
+            if task == process.pid {
+                group.leader_exit = Some(status & 0xff);
+            }
             group.live -= 1;
-            group.live == 0
+            (group.live == 0).then(|| group.leader_exit.unwrap_or(status))
         };
-        if last {
+        if let Some(status) = last {
             self.mm_release(caller).await;
             self.do_group_exit(task, status);
             return Ok(());
