@@ -1058,6 +1058,7 @@ impl Kernel {
         crate::file::Io {
             flags: file.flags(),
             interrupt,
+            broken: None,
         }
     }
 }
