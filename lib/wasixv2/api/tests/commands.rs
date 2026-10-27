@@ -476,6 +476,22 @@ async fn the_loader_compiles_every_image() {
     .await;
 }
 
+/// The program `run_file` starts goes through the one image loop `execve`'s images do: past the
+/// `execve`, a module the probe took that does not compile kills the process with SIGSEGV,
+/// rather than failing the run.
+#[tokio::test]
+async fn run_file_of_a_module_that_does_not_compile_dies_of_sigsegv() {
+    local(async {
+        let mut cut = echo("");
+        cut.truncate(cut.len() - 8);
+        let machine = machine_with(&[("cut", &cut)]).await;
+        let (status, _) = run_file(&machine, "/bin/cut", &["cut"]).await;
+        // 128 + SIGSEGV
+        assert_eq!(status.unwrap(), 139);
+    })
+    .await;
+}
+
 /// Prints its arguments as [`V1_ECHO`] does, then each environment string on a line.
 const V1_SHOW: &str = r#"
 (module

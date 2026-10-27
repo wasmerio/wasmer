@@ -10,6 +10,7 @@ use anyhow::{Context, Error, bail};
 use clap::Parser;
 use colored::Colorize;
 use indicatif::ProgressBar;
+use wasixv2::{Image, Loader as _};
 use wasmer::{Function, Imports, Instance, Module, RuntimeError, Store, Type, Value, wat2wasm};
 use wasmer_types::target::Target;
 use wasmer_wasix::{Runtime, runtime::package_loader::builtin_loader::FileSystemCache};
@@ -20,7 +21,7 @@ use crate::{
 };
 
 use self::{
-    machine::{MachineProgram, runs_on_machine},
+    machine::{CachedLoader, MachineProgram, runs_on_machine, wasm_runs_on_machine},
     package_source::CliPackageSource,
     runtime::MonitoringRuntime,
     target::ExecutableTarget,
@@ -104,19 +105,27 @@ impl Run {
 
         let _guard = handle.enter();
 
-        let engine = match self.module_bytes() {
+        let wasm = self.module_bytes();
+        let target = Target::default();
+        let backend = match &wasm {
             Some(wasm) => {
                 // Before compiling: a wasm64 module may not compile at all.
                 if let Some(reason) =
-                    wasixv2::is_wasix1_module(&wasm).and_then(|f| f.unsupported_reason())
+                    wasixv2::is_wasix1_module(wasm).and_then(|f| f.unsupported_reason())
                 {
                     bail!("{reason}");
                 }
                 tracing::info!("Attempting to detect WebAssembly features from binary");
-                self.rt.get_engine_for_module(&wasm, &Target::default())?
+                let features = self.rt.detect_features_from_wasm(wasm).unwrap_or_default();
+                self.rt.get_backend_for_features(&features, &target)?
             }
-            None => self.rt.get_engine(&Target::default())?,
+            None => *self
+                .rt
+                .get_available_backends()?
+                .first()
+                .context("no compiler backend enabled")?,
         };
+        let engine = backend.get_engine(&target, &self.rt)?;
         tracing::info!("Executing on backend {:?}", engine.deterministic_id());
 
         #[cfg(feature = "sys")]
@@ -141,6 +150,12 @@ impl Run {
                 .with_checkouts(FileSystemCache::new(self.env.cache_dir().join("checkouts"))),
         );
         let runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime.clone();
+        // Compiles everything the machine runs, starting with the engine picked here.
+        let loader = Arc::new(CachedLoader::new(
+            runtime.clone(),
+            self.rt.clone(),
+            (backend, engine.clone()),
+        ));
 
         // A `#!` script runs as its interpreter does on Linux: the kernel's `execve` reads the
         // `#!` line and starts the interpreter it names, from the guest's filesystem.
@@ -149,7 +164,22 @@ impl Run {
         {
             pb.finish_and_clear();
             let program = MachineProgram::script(self.script_guest_path(path)?);
-            return self.execute_machine(program, &runtime, &handle);
+            return self.execute_machine(program, loader, &engine, &handle);
+        }
+
+        // A module the machine runs compiles once, with its preemption points, as the images
+        // it `execve`s do.
+        if let (CliPackageSource::File(path), Some(wasm)) = (&self.input, wasm)
+            && wasm_runs_on_machine(&wasm)?
+        {
+            pb.set_message("Compiling to WebAssembly");
+            let image = Image::copied(wasm);
+            let (engine, module) = handle
+                .block_on(loader.load(&engine, &image))
+                .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
+            pb.finish_and_clear();
+            let program = MachineProgram::module(path, engine.clone(), module);
+            return self.execute_machine(program, loader, &engine, &handle);
         }
 
         let target = self.input.resolve_target(&runtime, &pb)?;
@@ -163,17 +193,12 @@ impl Run {
         pb.finish_and_clear();
 
         match target {
+            // A precompiled artifact runs as it is, without preemption points; anything else
+            // that reaches here is plain WebAssembly.
             ExecutableTarget::WebAssembly { module, path, .. } => {
                 if runs_on_machine(&module)? {
-                    // Again with preemption points, unless it is a precompiled artifact, which
-                    // runs as it is.
-                    let module = match self.module_bytes() {
-                        Some(wasm) => machine::compile(&runtime, &engine, &wasm)
-                            .with_context(|| format!("Unable to compile \"{}\"", path.display()))?,
-                        None => module,
-                    };
-                    let program = MachineProgram::module(&path, engine, module);
-                    self.execute_machine(program, &runtime, &handle)
+                    let program = MachineProgram::module(&path, engine.clone(), module);
+                    self.execute_machine(program, loader, &engine, &handle)
                 } else {
                     self.execute_pure_wasm_module(&module)
                 }
@@ -186,7 +211,7 @@ impl Run {
                 }
                 let tree = monitoring_runtime.package_tree();
                 let program = self.machine_program(&pkg, &tree)?;
-                self.execute_machine(program, &runtime, &handle)
+                self.execute_machine(program, loader, &engine, &handle)
             }
         }
     }

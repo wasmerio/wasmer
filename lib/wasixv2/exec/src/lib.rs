@@ -210,6 +210,28 @@ where
         .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
 }
 
+/// Runs `image`, which the kernel's `kernel_execve` made the image of `task`, a process that ran
+/// none before, as an `execve` of it would run: through `abis` and their loader, then every
+/// image it loads in turn, until it exits. Returns the exit status as [`run`] does; an image that
+/// does not load kills the process with SIGSEGV, as past `execve`'s point of no return.
+/// `engine` is the one the loader is told the process ran on.
+pub async fn run_exec<S>(
+    engine: Engine,
+    image: Image,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
+) -> Result<i32, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    let run = process::run_exec(engine, image, syscalls.clone(), task, host, abis);
+    catch_panic(run)
+        .await
+        .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
+}
+
 /// How one image's run ended.
 pub(crate) enum Ended {
     /// The task's thread group, or for a thread the task itself, exited.

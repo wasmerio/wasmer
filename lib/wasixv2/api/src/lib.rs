@@ -54,8 +54,6 @@ pub enum RunError {
     Exec(#[from] ExecError),
     #[error("cannot use the working directory: {0}")]
     WorkingDir(io::Error),
-    #[error("cannot load the program: {0}")]
-    Load(LoadError),
     #[error("cannot execute {path}: {err}")]
     Execve { path: String, err: io::Error },
 }
@@ -484,9 +482,10 @@ impl Machine {
     /// process `execve`s `path` with `config`'s arguments and environment, so everything
     /// `execve` checks and does applies. A `#!` script runs its interpreter, the image runs
     /// with the ABI it targets, compiled by the machine's [`Loader`] (given `engine` as the
-    /// engine the process ran on), and `/proc/self/exe` names the file. Returns the exit
-    /// status, or [`RunError::Execve`] with the errno `execve` failed with; the process is gone
-    /// then.
+    /// engine the process ran on), and `/proc/self/exe` names the file. Past the `execve`, the
+    /// process runs as any other's new image does: one that does not compile dies of SIGSEGV.
+    /// Returns the exit status, or [`RunError::Execve`] with the errno `execve` failed with;
+    /// the process is gone then.
     pub async fn run_file(
         &self,
         engine: &Engine,
@@ -512,16 +511,16 @@ impl Machine {
                 });
             }
         };
-        let loaded = self.abis.loader().load(engine, &image).await;
-        drop(image);
-        let (engine, module) = match loaded {
-            Ok(loaded) => loaded,
-            Err(err) => {
-                abandon(kernel, task);
-                return Err(RunError::Load(err));
-            }
-        };
-        self.run_image(Store::new(engine), &module, task).await
+        let (syscalls, abis) = (self.syscalls.clone(), self.abis.clone());
+        let run = wasixv2_exec::run_exec(
+            engine.clone(),
+            image,
+            syscalls,
+            task,
+            self.host.clone(),
+            abis,
+        );
+        Ok(run.await?)
     }
 
     /// Spawns the process `config` describes, in the working directory, and keeps it on

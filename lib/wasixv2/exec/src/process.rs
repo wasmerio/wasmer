@@ -163,6 +163,23 @@ where
     finish(engine, first, syscalls, task, host, abis).await
 }
 
+/// Runs `image`, which `kernel_execve` made `task`'s, then every image its `execve` calls load,
+/// until the process exits; releases the task then. `engine` is the engine the process would
+/// have run on, which the loader may compile with.
+pub(crate) async fn run_exec<S>(
+    engine: Engine,
+    image: Image,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
+) -> Result<i32, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    finish(engine, Ok(Ended::Exec(image)), syscalls, task, host, abis).await
+}
+
 /// Follows `task`'s process from the end of its first image's run through the images its
 /// `execve` calls load, until it exits; releases the task then. An image that cannot start kills
 /// the process with SIGSEGV.

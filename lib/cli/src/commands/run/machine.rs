@@ -107,16 +107,17 @@ pub(super) fn is_script(path: &Path) -> bool {
         .is_ok_and(|()| magic == *b"#!")
 }
 
-/// Compiles the images the machine's processes `execve`, and the package command it starts,
+/// Compiles the images the machine's processes `execve`, and the program `wasmer run` starts,
 /// as `wasmer run` compiles a module: on a backend with the WebAssembly features the image
 /// uses, with the machine's preemption points ([`wasixv2::instrument`]), through the runtime's
 /// compiled-module cache. Each image is instrumented and compiled once per run: later loads of
 /// the same image find the module by the image's identity (a package file's buffer) or, for a
 /// copy, by a hash of its bytes, without looking at them again.
-struct CachedLoader {
+pub(super) struct CachedLoader {
     runtime: Arc<dyn Runtime + Send + Sync>,
     options: RuntimeOptions,
-    /// One engine per backend, made when an image first needs it.
+    /// One engine per backend: the one `wasmer run` picked, and others made when an image
+    /// first needs them.
     engines: Mutex<Vec<(BackendType, Engine)>>,
     /// What each image compiled to.
     modules: Mutex<HashMap<ImageKey, Loaded>>,
@@ -137,11 +138,17 @@ struct Loaded {
 }
 
 impl CachedLoader {
-    fn new(runtime: Arc<dyn Runtime + Send + Sync>, options: RuntimeOptions) -> Self {
+    /// A loader that compiles on `engine`, the backend `wasmer run` picked, whatever needs
+    /// no other.
+    pub(super) fn new(
+        runtime: Arc<dyn Runtime + Send + Sync>,
+        options: RuntimeOptions,
+        engine: (BackendType, Engine),
+    ) -> Self {
         Self {
             runtime,
             options,
-            engines: Mutex::default(),
+            engines: Mutex::new(vec![engine]),
             modules: Mutex::default(),
         }
     }
@@ -200,34 +207,6 @@ impl Loader for CachedLoader {
     }
 }
 
-/// Compiles `wasm` for the machine, through the runtime's compiled-module cache, with the
-/// preemption points that let it deliver signals to a guest busy computing
-/// ([`wasixv2::instrument`]).
-pub(super) fn compile(
-    runtime: &Arc<dyn Runtime + Send + Sync>,
-    engine: &Engine,
-    wasm: &[u8],
-) -> Result<Module, Error> {
-    let wasm = wasixv2::instrument(wasm).into_owned();
-    Ok(runtime.load_hashed_module_sync(HashedModuleData::new(wasm), Some(engine))?)
-}
-
-/// Fails unless the atom of the package command `name` is a program the machine runs: a
-/// module importing WASIX v2, WASIX v1 or WASI, or a script for `execve` to hand to its
-/// interpreter. Anything else `execve` refuses with `ENOEXEC`.
-fn check_command_atom(name: &str, atom: &[u8]) -> Result<(), Error> {
-    if !wasmer::is_wasm(atom) || wasixv2::is_wasixv2_module(atom) {
-        return Ok(());
-    }
-    match wasixv2::is_wasix1_module(atom) {
-        None => bail!("the \"{name}\" command's module imports neither WASIX nor WASI"),
-        Some(flavor) => match flavor.unsupported_reason() {
-            None => Ok(()),
-            Some(reason) => bail!("the \"{name}\" command cannot run: {reason}"),
-        },
-    }
-}
-
 /// The commands of the package tree, in the order the resolver gave them: it made each name
 /// that of the first package in the tree (the root, then its dependencies) that has it.
 fn package_commands(pkg: &BinaryPackage) -> Result<Vec<PackageCommand>, Error> {
@@ -252,13 +231,28 @@ fn package_commands(pkg: &BinaryPackage) -> Result<Vec<PackageCommand>, Error> {
         .collect()
 }
 
-/// Whether the machine runs `module`: one importing WASIX v2, or WASIX v1 or WASI preview1. A
-/// module with neither is plain WebAssembly; a v1 flavour the kernel cannot serve is an error.
+/// Whether the machine runs `module`, a precompiled module: one importing WASIX v2, or WASIX v1
+/// or WASI preview1. A module with neither is plain WebAssembly; a v1 flavour the kernel
+/// cannot serve is an error.
 pub(super) fn runs_on_machine(module: &Module) -> Result<bool, Error> {
     if wasixv2::targets_wasixv2(module) {
         return Ok(true);
     }
     match wasixv2::wasix1_module_flavor(module) {
+        None => Ok(false),
+        Some(flavor) => match flavor.unsupported_reason() {
+            None => Ok(true),
+            Some(reason) => bail!("{reason}"),
+        },
+    }
+}
+
+/// [`runs_on_machine`] for `wasm`, a module not compiled yet, from its imports alone.
+pub(super) fn wasm_runs_on_machine(wasm: &[u8]) -> Result<bool, Error> {
+    if wasixv2::is_wasixv2_module(wasm) {
+        return Ok(true);
+    }
+    match wasixv2::is_wasix1_module(wasm) {
         None => Ok(false),
         Some(flavor) => match flavor.unsupported_reason() {
             None => Ok(true),
@@ -288,7 +282,6 @@ impl Run {
                 cmd.metadata().runner
             );
         }
-        check_command_atom(name, cmd.atom_ref())?;
         let wasi = cmd
             .metadata()
             .annotation::<WasiAnnotation>(WasiAnnotation::KEY)?
@@ -369,12 +362,14 @@ impl Run {
         Ok(volumes)
     }
 
-    /// Runs `program` on a machine whose images compile through `runtime`, driven on the tokio
-    /// runtime `handle`, and exits with its status.
+    /// Runs `program` on a machine whose images compile with `loader`, driven on the tokio
+    /// runtime `handle`, and exits with its status. A program started from a file runs as if
+    /// it had run on `engine` before.
     pub(super) fn execute_machine(
         &self,
         program: MachineProgram,
-        runtime: &Arc<dyn Runtime + Send + Sync>,
+        loader: Arc<CachedLoader>,
+        engine: &Engine,
         handle: &tokio::runtime::Handle,
     ) -> Result<(), Error> {
         self.reject_options_unsupported_by_the_machine(program.is_package())?;
@@ -388,7 +383,7 @@ impl Run {
             env: self.machine_env(wasi)?,
             stdio: Stdio::inherit(),
         };
-        let mut machine = self.machine(runtime)?;
+        let mut machine = self.machine(loader)?;
         let (root_volumes, volumes): (Vec<_>, Vec<_>) = program
             .volumes
             .iter()
@@ -494,7 +489,7 @@ impl Run {
                 Start::Module { engine, module } => {
                     machine.run_module(engine, module, config).await
                 }
-                Start::File(path) => machine.run_file(&runtime.engine(), path, config).await,
+                Start::File(path) => machine.run_file(engine, path, config).await,
             };
             Ok::<_, Error>(status)
         }));
@@ -538,12 +533,11 @@ impl Run {
         Ok(guest)
     }
 
-    /// A machine configured by `--user` and the `uname` options, whose images compile
-    /// through `runtime`.
-    fn machine(&self, runtime: &Arc<dyn Runtime + Send + Sync>) -> Result<Machine, Error> {
+    /// A machine configured by `--user` and the `uname` options, whose images compile with
+    /// `loader`.
+    fn machine(&self, loader: Arc<CachedLoader>) -> Result<Machine, Error> {
         let wasi = &self.wasi;
-        let loader = CachedLoader::new(runtime.clone(), self.rt.clone());
-        let mut builder = Machine::builder().loader(Arc::new(loader));
+        let mut builder = Machine::builder().loader(loader);
         if let Some(user) = wasi.user {
             builder = builder.user(Credentials::new(user.uid, user.gid));
         }
