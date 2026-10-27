@@ -2,7 +2,10 @@
 
 use std::{
     io,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     task::{Context, Poll},
     time::Duration,
 };
@@ -208,9 +211,17 @@ async fn a_busy_guest_takes_a_signal_at_a_preemption_point() {
     let wasm = wat::parse_str(module(r#"(func (export "_start") (loop (br 0)))"#)).unwrap();
     let machine = Machine::new();
     let signaller = machine.signaller();
-    let kill = std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(50));
-        signaller.signal(15).unwrap();
+    let ended = Arc::new(AtomicBool::new(false));
+    // A signal sent before the process starts (while its module compiles) reaches no one, so
+    // keep sending until the run ends.
+    let kill = std::thread::spawn({
+        let ended = ended.clone();
+        move || {
+            while !ended.load(Ordering::Relaxed) {
+                std::thread::sleep(Duration::from_millis(50));
+                signaller.signal(15).unwrap();
+            }
+        }
     });
     let stdio = Stdio {
         stdin: Arc::new(EmptySource),
@@ -220,6 +231,7 @@ async fn a_busy_guest_takes_a_signal_at_a_preemption_point() {
 
     let status = tokio::time::timeout(Duration::from_secs(10), machine.run(&wasm, stdio)).await;
 
+    ended.store(true, Ordering::Relaxed);
     kill.join().unwrap();
     assert_eq!(status.expect("the guest took the signal").unwrap(), SIGTERM);
 }
