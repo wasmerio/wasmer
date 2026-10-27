@@ -125,7 +125,7 @@ pub struct Kernel {
     /// SysV IPC objects and POSIX message queues.
     ipc: ipc::Ipc,
     // ---- proc ----
-    /// The process tree: parents, zombies, vfork relations and images waiting for `execve`.
+    /// The process tree: parents, zombies and vfork relations.
     procs: process::Procs,
     /// The formats `execve` starts besides scripts; by default anything with wasm's magic.
     binfmt: Arc<dyn Binfmt>,
@@ -2439,7 +2439,8 @@ impl Control for Kernel {
 
     // ---- proc ----
     fn take_image(&self, task: TaskId) -> Option<Vec<u8>> {
-        self.procs.take_image(task)
+        let mut state = self.state.lock().unwrap();
+        state.tasks.get_mut(&task)?.work.take_image()
     }
 
     fn exec_wait(&self, task: TaskId) -> LocalFuture<'_, Result<(), i32>> {

@@ -177,6 +177,27 @@ fn an_execve_from_a_threads_handler_unwinds_after_the_leader_took_over() {
     assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
 }
 
+/// `execve` in a group that is exiting fails before the point of no return (`de_thread`'s
+/// EAGAIN): nothing of the new image is committed, and the exit ends the caller.
+#[test]
+fn an_execve_in_an_exiting_group_fails_with_eagain() {
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let thread = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    kernel.do_group_exit(leader, 3);
+
+    let ret = block_on(execve(&kernel, &Caller::new(thread, &memory)));
+
+    assert_eq!(ret, Err(SysErr::Errno(Errno::EAGAIN)));
+    assert!(kernel.process(leader).exe.lock().unwrap().is_none());
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(3)));
+    assert_eq!(kernel.take_pending(thread), None);
+    assert_eq!(kernel.take_pending(leader), Some(GuestAction::Exit(3)));
+    assert_eq!(kernel.take_pending(leader), None);
+}
+
 #[test]
 fn an_interrupted_nanosleep_writes_the_time_left_and_restarts_with_it() {
     let (kernel, task, memory) = machine();

@@ -152,10 +152,10 @@ fn fork_fails_with_eagain_at_rlimit_nproc() {
     assert_eq!(kernel.take_pending(task), None);
 }
 
-/// `kernel_execve` takes only the execve's own action off the task's queue: an exit queued
-/// before the image starts, as when the embedder kills the process, still ends it.
+/// A process killed before its image starts, as when the embedder kills it, does not exec
+/// (`de_thread`'s EAGAIN), and the exit stays queued to end it.
 #[test]
-fn kernel_execve_keeps_an_exit_queued_before_it() {
+fn kernel_execve_of_a_killed_process_fails_and_keeps_the_exit() {
     const IMAGE: &[u8] = b"\0asm\x01\0\0\0";
     let (kernel, task, _) = setup(b"");
     let memory = FlatMemory(RefCell::new(vec![0; WASM_PAGE_SIZE as usize]));
@@ -171,7 +171,8 @@ fn kernel_execve_keeps_an_exit_queued_before_it() {
     assert!(kernel.force_fatal_signal(task, Signal::SIGKILL.0));
     let image = block_on(kernel.exec(task, b"/prog", vec!["prog".into()], Vec::new()));
 
-    assert_eq!(image.as_deref(), Ok(IMAGE));
+    assert_eq!(image, Err(Errno::EAGAIN));
+    assert!(kernel.process(task).exe.lock().unwrap().is_none());
     assert_eq!(
         kernel.take_pending(task),
         Some(GuestAction::Exit(128 + Signal::SIGKILL.0))
