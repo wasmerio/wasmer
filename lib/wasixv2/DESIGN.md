@@ -446,7 +446,7 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 
 - **Explicit bind** (`inet_bind_conflict`): two sockets conflict when their addresses overlap (equal, or either a wildcard that covers the other), unless both set `SO_REUSEADDR` and the existing one is not listening, or both set `SO_REUSEPORT` with the same owner. `listen` re-checks, so of two `SO_REUSEADDR` sockets on one port only one can listen. UDP shares with `SO_REUSEADDR` on both, whatever the state.
 - **Errors, in Linux's order:** `EADDRNOTAVAIL` for an address on no up interface (unless `IP_FREEBIND`), `EACCES` below `ip_unprivileged_port_start` (1024) without the capability the kernel passes in, `EINVAL` when already bound, `EADDRINUSE` on a conflict.
-- **Ephemeral ports** come from `ip_local_port_range` (32768–60999) from a seeded random offset. `bind` to port 0 tries odd ports first (SO_REUSEADDR sockets the lower half of the range, others the upper half) and fails with `EADDRINUSE`; `connect` tries even ports first, may share a port with other connected sockets that have a different peer, and fails with `EADDRNOTAVAIL`.
+- **Ephemeral ports** come from `ip_local_port_range` (32768–60999) from a seeded random offset. `bind` to port 0 tries odd ports first (SO_REUSEADDR sockets the lower half of the range before the upper one, others the whole range) and fails with `EADDRINUSE`; `connect` tries even ports first, may share a port with other connected sockets that have a different peer, and fails with `EADDRNOTAVAIL`.
 - Accepted sockets share the listener's port. Closing a socket frees its port at once: there is no `TIME_WAIT`.
 
 ### Streams and datagrams
