@@ -114,6 +114,7 @@ fn nested_mounted_paths() {
 // The test would be very slow on Windows or macOS
 #[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn run_python_create_temp_dir_in_subprocess() {
     let resources = resources().join("python").join("temp-dir-in-child");
 
@@ -189,6 +190,7 @@ fn issue_6835_run_wasi_forwards_non_utf8_host_env() {
 // The test would be very slow on Windows and macOS
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn test_wasmer_run_pirita_works() {
     let temp_dir = tempfile::TempDir::new().unwrap();
     let python_wasmer_path = temp_dir.path().join("python.wasmer");
@@ -209,6 +211,7 @@ fn test_wasmer_run_pirita_works() {
 // The test would be very slow on Windows or macOS
 #[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn test_wasmer_run_pirita_url_works() {
     let assert = wasmer_command()
         .arg("run")
@@ -260,6 +263,7 @@ fn test_wasmer_run_works_with_dir() {
 #[test]
 // The test would be very slow on Windows and macOS
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn test_wasmer_run_works() {
     let assert = wasmer_command()
         .arg(PYTHON_PACKAGE_WITH_VERSION)
@@ -325,6 +329,7 @@ const PYTHON_PACKAGE_WITH_VERSION: &str = "python/python@3.13.5";
 // The test would be very slow on Windows or macOS
 #[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn run_test_caching_works_for_packages() {
     // we're testing the cache, so we don't want to reuse the current user's
     // $WASMER_DIR
@@ -366,6 +371,7 @@ fn run_test_caching_works_for_packages() {
 // The test would be very slow on Windows or macOS
 #[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn run_test_caching_works_for_packages_with_versions() {
     let wasmer_dir = TempDir::new().unwrap();
 
@@ -405,6 +411,7 @@ fn run_test_caching_works_for_packages_with_versions() {
 // The test would be very slow on Windows or macOS
 #[cfg_attr(any(target_os = "macos", target_os = "windows"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn run_test_caching_works_for_urls() {
     let wasmer_dir = TempDir::new().unwrap();
 
@@ -1272,6 +1279,7 @@ fn wasi_runner_on_disk() {
 // The test would be very slow on Windows and macOS
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn wasi_runner_on_disk_mount_using_relative_directory_on_the_host() {
     let temp = TempDir::new_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
     std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -1374,6 +1382,7 @@ fn wasmer_run_wasix_wasm_c_api_guest_is_refused() {
 #[test]
 // The test would be very slow on Windows and macOS
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn wasi_runner_on_disk_with_mounted_directories_and_webc_volumes() {
     let temp = TempDir::new().unwrap();
     std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -1451,6 +1460,7 @@ fn webc_files_on_disk_with_multiple_commands_require_an_entrypoint_flag() {
 // The test would be very slow on Windows and macOS
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn wasi_runner_on_disk_with_env_vars() {
     let assert = wasmer_command()
         .arg("run")
@@ -1677,6 +1687,7 @@ fn run_a_package_that_uses_an_atom_from_a_dependency() {
 // The test would be very slow on Windows and macOS
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn local_package_has_write_access_to_its_volumes() {
     let temp = tempfile::tempdir().unwrap();
 
