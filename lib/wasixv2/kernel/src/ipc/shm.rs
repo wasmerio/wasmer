@@ -54,9 +54,17 @@ pub(crate) struct Segments {
 pub(crate) struct Segment {
     state: Mutex<State>,
     perm: Mutex<Perm>,
-    /// The bytes, by page; pages never written read as zeroes.
-    pages: Mutex<HashMap<usize, Box<[u8]>>>,
+    pages: Mutex<Pages>,
     size: usize,
+}
+
+/// A segment's bytes, by page; pages never written read as zeroes.
+#[derive(Default)]
+struct Pages {
+    map: HashMap<usize, Box<[u8]>>,
+    /// Counts the writes, so an attachment can tell whether anybody else wrote since it last
+    /// looked.
+    generation: u64,
 }
 
 impl Object for Segment {
@@ -86,28 +94,35 @@ impl Segment {
     }
 
     /// Copies out `buf.len()` bytes from `offset`; past the segment's pages they read as zero.
-    /// Returns how many were inside.
-    pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> usize {
+    /// Returns how many were inside, and the generation they are of.
+    pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> (usize, u64) {
         let pages = lock(&self.pages);
         let end = self.page_count() as usize * PAGE;
-        for (i, byte) in buf.iter_mut().enumerate() {
-            let at = offset as usize + i;
-            *byte = match at < end {
-                true => pages.get(&(at / PAGE)).map_or(0, |page| page[at % PAGE]),
-                false => 0,
-            };
+        let inside = end.saturating_sub(offset as usize).min(buf.len());
+        let (mut at, mut done) = (offset as usize, 0);
+        while done < inside {
+            let n = (PAGE - at % PAGE).min(inside - done);
+            let to = &mut buf[done..][..n];
+            match pages.map.get(&(at / PAGE)) {
+                Some(page) => to.copy_from_slice(&page[at % PAGE..][..n]),
+                None => to.fill(0),
+            }
+            (at, done) = (at + n, done + n);
         }
-        end.saturating_sub(offset as usize).min(buf.len())
+        buf[inside..].fill(0);
+        (inside, pages.generation)
     }
 
-    /// Copies `data` in at `offset`, up to the end of the segment's pages.
-    pub(crate) fn write(&self, offset: u64, data: &[u8]) {
+    /// Copies `data` in at `offset`, up to the end of the segment's pages. Returns the
+    /// generation the segment has now.
+    pub(crate) fn write(&self, offset: u64, data: &[u8]) -> u64 {
         let mut pages = lock(&self.pages);
         let end = self.page_count() as usize * PAGE;
         let mut at = offset as usize;
         let mut rest = &data[..end.saturating_sub(at).min(data.len())];
         while !rest.is_empty() {
             let page = pages
+                .map
                 .entry(at / PAGE)
                 .or_insert_with(|| vec![0; PAGE].into_boxed_slice());
             let n = (PAGE - at % PAGE).min(rest.len());
@@ -115,6 +130,13 @@ impl Segment {
             at += n;
             rest = &rest[n..];
         }
+        pages.generation += 1;
+        pages.generation
+    }
+
+    /// The segment's generation: how many writes it had.
+    pub(crate) fn generation(&self) -> u64 {
+        lock(&self.pages).generation
     }
 
     fn to_abi(&self, perm: &Perm) -> Shmid64Ds {
@@ -358,13 +380,7 @@ impl Kernel {
             pid,
             host: self.host.clone(),
         });
-        let shared = Shared {
-            object: mm::Object::Segment(attachment),
-            offset: 0,
-            shadow: Vec::new(),
-            writable: !readonly,
-            writer: None,
-        };
+        let shared = Shared::new(mm::Object::Segment(attachment), 0, !readonly, None);
         let len = segment.size as u64;
         let remap = flags.contains(ShmFlags::SHM_REMAP);
         let at = self.map_segment(caller, addr, len, remap, shared).await?;
@@ -405,7 +421,10 @@ impl Kernel {
                 let (used, max, rss) = {
                     let ids = lock(&segments.ids);
                     let all = ids.all();
-                    let rss: u64 = all.iter().map(|(_, s)| lock(&s.pages).len() as u64).sum();
+                    let rss: u64 = all
+                        .iter()
+                        .map(|(_, s)| lock(&s.pages).map.len() as u64)
+                        .sum();
                     (ids.in_use() as u32, ids.max_index(), rss)
                 };
                 let total = *lock(&segments.total) as u32;
