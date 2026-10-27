@@ -405,3 +405,69 @@ fn closed_stream_with_a_stalled_peer_is_reset_after_its_linger_time() {
     assert_eq!(end, Some(std::io::ErrorKind::ConnectionReset));
     assert!(got < total);
 }
+
+#[test]
+fn published_connections_wait_for_room_in_the_guest_accept_queue() {
+    let net = setup();
+    let l = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
+    l.bind("0.0.0.0:8081".parse().unwrap(), false).unwrap();
+    // Room for one connection (`sk_acceptq_is_full` is `> backlog`).
+    l.listen(0).unwrap();
+    let publication = net
+        .publish(
+            "127.0.0.1:0".parse().unwrap(),
+            "0.0.0.0:8081".parse().unwrap(),
+        )
+        .unwrap();
+    let mut first = TcpStream::connect(publication.host_addr()).unwrap();
+    first.write_all(b"one").unwrap();
+    wait_for(&*l, PollMask::IN);
+    // The second waits in the host's backlog: neither reset nor closed while the guest is
+    // full, as a SYN to a full Linux accept queue goes unanswered.
+    let mut second = TcpStream::connect(publication.host_addr()).unwrap();
+    second.write_all(b"two").unwrap();
+    second
+        .set_read_timeout(Some(Duration::from_millis(300)))
+        .unwrap();
+    let mut buf = [0u8; 8];
+    let early = second.read(&mut buf).map_err(|e| e.kind());
+    assert!(
+        matches!(
+            early,
+            Err(std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut)
+        ),
+        "the waiting connection ended early: {early:?}"
+    );
+    let a = l.accept().unwrap();
+    assert_eq!(recv_all(&*a.socket, 3), b"one");
+    // The accept made room: the reactor takes the waiting connection now.
+    let watch = register_once(&*l);
+    watch.until(&*l, PollMask::IN);
+    let b = l.accept().unwrap();
+    assert_eq!(recv_all(&*b.socket, 3), b"two");
+    send(&*b.socket, b"ok", None).unwrap();
+    second
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    second.read_exact(&mut buf[..2]).unwrap();
+    assert_eq!(&buf[..2], b"ok");
+    drop(first);
+}
+
+#[test]
+fn published_connection_without_a_guest_listener_is_reset() {
+    let net = setup();
+    let publication = net
+        .publish(
+            "127.0.0.1:0".parse().unwrap(),
+            "0.0.0.0:8082".parse().unwrap(),
+        )
+        .unwrap();
+    let mut client = TcpStream::connect(publication.host_addr()).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let mut buf = [0u8; 4];
+    let got = client.read(&mut buf).map_err(|e| e.kind());
+    assert_eq!(got, Err(std::io::ErrorKind::ConnectionReset));
+}
