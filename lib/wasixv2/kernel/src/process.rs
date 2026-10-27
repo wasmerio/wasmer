@@ -377,6 +377,11 @@ impl Kernel {
         if flags.contains(CloneFlags::CLONE_THREAD) || flags.contains(CloneFlags::CLONE_SIGHAND) {
             return Err(Errno::EINVAL.into());
         }
+        // No pidfd comes out of clone yet (`pidfd_open` gives one): failing beats a pidfd
+        // never written to `parent_tid`.
+        if flags.contains(CloneFlags::CLONE_PIDFD) {
+            return Err(Errno::EINVAL.into());
+        }
         if !flags.contains(CloneFlags::CLONE_VM) {
             return self
                 .fork(

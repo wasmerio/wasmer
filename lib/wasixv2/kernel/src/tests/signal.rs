@@ -1,5 +1,5 @@
-//! Signals: the alternate stack, `RLIMIT_SIGPENDING`, the parent-death signal, and how a thread
-//! group's end is reported.
+//! Signals: the alternate stack, `RLIMIT_SIGPENDING`, the parent-death signal, pidfds, and how
+//! a thread group's end is reported.
 
 use std::cell::Cell;
 
@@ -562,4 +562,18 @@ fn a_vfork_parent_whose_group_exits_is_no_zombie_while_its_child_runs() {
     assert_eq!(kernel.take_pending(parent), Some(GuestAction::Exit(3)));
     kernel.release(parent);
     assert_eq!(reap(&kernel, &init_caller, parent), Some(3));
+}
+
+// ---- clone and pidfds ----
+
+#[test]
+fn clone_pidfd_is_refused() {
+    let (kernel, task, _) = machine();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let pidfd = CloneFlags::CLONE_PIDFD.0 as u32;
+
+    assert_eq!(clone(&kernel, &caller, pidfd), err(Errno::EINVAL));
+    assert_eq!(clone(&kernel, &caller, VFORK | pidfd), err(Errno::EINVAL));
+    assert_eq!(kernel.take_pending(task), None);
 }
