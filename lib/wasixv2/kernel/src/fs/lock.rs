@@ -1,5 +1,7 @@
 //! `flock` and the `fcntl` record-lock commands (`fs/locks.c`).
 
+use std::sync::Arc;
+
 use wasixv2_abi::{FcntlCmd, Flock, Flock64, FlockOp, GuestLayout, LockType, SeekWhence};
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult};
 use wasixv2_vfs::{FlockOp as Op, LockKind, LockOwner, RangeLock};
@@ -56,7 +58,8 @@ impl Kernel {
     pub(crate) async fn fcntl_lock(
         &self,
         caller: &Caller<'_>,
-        file: &OpenFile,
+        fd: Fd,
+        file: &Arc<OpenFile>,
         cmd: FcntlCmd,
         arg: u32,
     ) -> SysResult<i32> {
@@ -152,6 +155,12 @@ impl Kernel {
                 };
                 self.lock_wait(caller, self.vfs.locks.set(key, lock, wait))
                     .await?;
+                // `fcntl_setlk`: a close of `fd` that raced with the wait released this
+                // process's locks before this one was set, so release it too.
+                if !ofd && !self.still_open(caller, fd, file) {
+                    self.vfs.locks.release_owner(key, owner);
+                    return Err(Errno::EBADF.into());
+                }
             }
         }
         Ok(0)
@@ -159,6 +168,13 @@ impl Kernel {
 }
 
 impl Kernel {
+    /// Whether `fd` still refers to `file`.
+    fn still_open(&self, caller: &Caller<'_>, fd: Fd, file: &Arc<OpenFile>) -> bool {
+        let files = self.files(caller.task());
+        let files = files.lock().unwrap();
+        files.get(fd).is_some_and(|open| Arc::ptr_eq(&open, file))
+    }
+
     /// A lock request that may wait for a conflicting lock to go. A signal ends the wait with
     /// a restart, as `wait_event_interruptible` does in `flock_lock_inode_wait` and
     /// `fcntl_setlk`; the lock manager forgets the request when it is dropped.

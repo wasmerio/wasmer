@@ -576,7 +576,7 @@ impl Kernel {
             FcntlCmd::F_ADD_SEALS | FcntlCmd::F_GET_SEALS => {
                 self.memfd_fcntl(&file, cmd, arg).await
             }
-            _ => self.fcntl_lock(caller, &file, cmd, arg).await,
+            _ => self.fcntl_lock(caller, fd, &file, cmd, arg).await,
         }
     }
 }
