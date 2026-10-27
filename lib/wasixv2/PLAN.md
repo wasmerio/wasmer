@@ -431,16 +431,20 @@ them as descriptions, not locations.
 | [smoke/](plan/smoke/) | `run-all.sh`, `sws-v2-test.sh`, `v1-packages.sh`, `train5-extras.sh`, the sws-v2 build kit |
 | [userland/](plan/userland/) | v2 userland and LTP shell library build scripts |
 
-## 7. Open decisions
+## 7. Decisions
 
-- wasix1 `0777` create mode (`f71e0b1a38b`, train 5): it lets v1 bash run scripts it wrote, but
-  also sets exec bits on files created in mapped host directories (L-W4). Keep it, or find what
-  bash asks for and match that in the compat layer.
-- Define `__linux__` for the `wasm32-wasixv2` target (gnulib and readline key on it), together
-  with `os = "linux"` for the Rust target.
-- libc2 visibility: public, or a deploy key, so the wasinix CI (wasix-org/wasinix#282) and other
-  machines can fetch it.
-- `--fpcast-emu` for function-pointer casts, or leave them trapping.
-- Run LTP's 905 root-only tests as uid 0.
-- A Machine option to run an init process as pid 1, and a 64 KiB guard at address 0.
-- The in-process DNS server for v1 programs (H11), or only the default resolv.conf.
+Decided by the user on 2026-10-27:
+
+- wasix1 `0777` create mode (`f71e0b1a38b`, train 5): kept for now. A WP7 follow-up finds what v1
+  bash asks for and matches that in the compat layer instead, which also fixes the exec bits on
+  files created in mapped host directories (L-W4).
+- `__linux__` for the `wasm32-wasixv2` target, together with `os = "linux"` for the Rust target:
+  yes. A work package of its own after train 6 (wasixcc, libc2, the Rust target).
+- DNS for v1 programs (H11): WP7 generates a default `/etc/resolv.conf` from the host nameservers,
+  with a fast-failing loopback fallback. **TODO, deferred but definite:** an in-process DNS server
+  for v1 programs.
+- `--fpcast-emu`: no. Calls through mismatched function pointers keep trapping.
+- libc2 visibility: deferred; machines with access build it locally.
+- LTP's 905 root-only tests: run them as uid 0 (a runner change in wasixv2-tests).
+- A Machine option to run an init process as pid 1, and a 64 KiB guard at address 0: both, as a
+  work package after WP11.
