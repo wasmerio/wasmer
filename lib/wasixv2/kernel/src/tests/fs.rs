@@ -171,3 +171,22 @@ fn a_posix_lock_won_after_its_descriptor_closed_is_released() {
     assert_eq!(lock(probe, FcntlCmd::F_OFD_GETLK), Ok(0));
     assert_eq!(get(&memory, 0x3000, 2), [2, 0], "F_UNLCK");
 }
+
+#[test]
+fn pipes_are_flocked_through_their_inode() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let (r, w) = super::ipc::pipe(&kernel, &t.caller, OpenFlags(0));
+    let flock = |fd, op| block_on(kernel.flock(&t.caller, fd, op));
+    let try_ex = FlockOp::LOCK_EX | FlockOp::LOCK_NB;
+
+    // Both ends are one inode, as on Linux, so their locks conflict.
+    assert_eq!(flock(r, FlockOp::LOCK_EX), Ok(0));
+    assert_eq!(errno(flock(w, try_ex)), Errno::EWOULDBLOCK);
+    let try_sh = FlockOp::LOCK_SH | FlockOp::LOCK_NB;
+    assert_eq!(errno(flock(w, try_sh)), Errno::EWOULDBLOCK);
+    // The last close of the locked end releases its lock.
+    t.close(r);
+    assert_eq!(flock(w, try_ex), Ok(0));
+    assert_eq!(flock(w, FlockOp::LOCK_UN), Ok(0));
+}

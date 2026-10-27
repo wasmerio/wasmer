@@ -87,7 +87,9 @@ impl Vfs {
         self.ns.root()
     }
 
-    pub(crate) fn next_id(&self) -> u64 {
+    /// A fresh identifier, unique in this VFS: an open file's ([`File::id`]), which owns its
+    /// `flock` and OFD locks.
+    pub fn next_id(&self) -> u64 {
         self.next_id.fetch_add(1, Ordering::Relaxed)
     }
 
