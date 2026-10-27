@@ -1,7 +1,7 @@
 //! Task lifetime: the work flag, releasing tasks, `de_thread`, faults and `restart_syscall`.
 
 use futures::FutureExt as _;
-use wasixv2_abi::{FutexOp, KernelTimespec, Signal};
+use wasixv2_abi::{FutexOp, KernelTimespec, Pid, Sigaction, Signal, Sigset};
 use wasixv2_syscalls::{read_value, write_value};
 
 use super::{ipc::machine, *};
@@ -107,6 +107,74 @@ fn execve_from_a_thread_kills_the_others_and_runs_as_the_leader() {
     // The leader is the only task left, and its exit ends the group.
     block_on(kernel.exit(&caller, 5)).unwrap();
     assert_eq!(kernel.take_pending(leader), Some(GuestAction::Exit(5)));
+}
+
+const IMAGE: &[u8] = b"\0asm\x01\0\0\0";
+
+/// Writes an executable `/prog` holding [`IMAGE`], and `execve`'s arguments for it: the path
+/// at 0x2000, argv (`prog`) at 0x2010, an empty envp at 0x2018.
+fn install_prog(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) {
+    put(memory, 0x2000, b"/prog\0");
+    put(memory, 0x2010, &0x2000u32.to_le_bytes());
+    put(memory, 0x2100, IMAGE);
+    let create = OpenFlags::O_CREAT | OpenFlags::O_WRONLY;
+    let open = kernel.openat(caller, Fd(-100), GuestPtr::new(0x2000), create, 0o755);
+    let fd = block_on(open).unwrap();
+    let write = kernel.write(caller, fd, UserSlice::new(0x2100, IMAGE.len() as u32));
+    assert_eq!(block_on(write), Ok(IMAGE.len() as u32));
+    assert_eq!(block_on(kernel.close(caller, fd)), Ok(0));
+}
+
+/// `execve("/prog", ["prog"], [])` from `caller`, after [`install_prog`].
+fn execve<'a>(
+    kernel: &'a Kernel,
+    caller: &'a Caller<'a>,
+) -> impl std::future::Future<Output = SysResult<i32>> + 'a {
+    kernel.execve(
+        caller,
+        GuestPtr::new(0x2000),
+        GuestPtr::new(0x2010),
+        GuestPtr::new(0x2018),
+    )
+}
+
+/// Installs handler 7 for `sig`, behind trampoline 3.
+fn handle(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) {
+    let act = Sigaction {
+        sa_handler: 7,
+        sa_flags: 0,
+        sa_mask: Sigset { sig: [0; 2] },
+    };
+    block_on(write_value(caller.memory(), GuestPtrMut::new(0x140), &act)).unwrap();
+    assert_eq!(block_on(kernel.signal_callback_register(caller, 3)), Ok(0));
+    let set = kernel.rt_sigaction(caller, sig, GuestPtr::new(0x140), GuestPtrMut::NULL, 8);
+    assert_eq!(block_on(set), Ok(0));
+}
+
+/// `execve` is async-signal-safe: a thread other than the leader calls it from a handler. The
+/// leader takes the thread's signal state over (`de_thread`), and the handler unwinds with the
+/// old image after that, which once panicked the host.
+#[test]
+fn an_execve_from_a_threads_handler_unwinds_after_the_leader_took_over() {
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let execing = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    handle(&kernel, &caller, Signal::SIGUSR1);
+    let pid = leader.0 as Pid;
+    let kill = kernel.tgkill(&caller, pid, execing.0 as Pid, Signal::SIGUSR1);
+    assert_eq!(block_on(kill), Ok(0));
+    assert!(matches!(
+        kernel.take_pending(execing),
+        Some(GuestAction::Signal(_))
+    ));
+    let thread = Caller::new(execing, &memory);
+
+    assert_eq!(block_on(execve(&kernel, &thread)), Ok(0));
+    Control::signal_return(&kernel, execing, None);
+
+    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
 }
 
 #[test]
