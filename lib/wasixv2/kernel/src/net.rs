@@ -26,6 +26,7 @@ use wasixv2_wait::PollMask;
 
 use crate::{
     Kernel,
+    cred::Cred,
     file::{Backing, OpenFile},
     fs::read_iovecs,
     netlink,
@@ -449,19 +450,13 @@ impl Kernel {
         let io = Self::io(&*interrupt, sock.file());
         let result = match sock {
             AnySock::Inet((_, sock)) => {
-                // `__sock_cmsg_send` ignores Unix-only control messages on IP sockets.
-                let control: Vec<Control> = control
-                    .iter()
-                    .filter(|c| {
-                        !(c.level == SocketLevel::SOL_SOCKET.0
-                            && matches!(c.kind, unix::SCM_RIGHTS | unix::SCM_CREDENTIALS))
-                    })
-                    .cloned()
-                    .collect();
                 let to = match to {
                     Some(raw) => self.destination(sock, raw)?,
                     None => None,
                 };
+                let cred = self.cred(caller);
+                let control = sock_cmsg_send(&cred, control)?;
+                let net_raw = cred.capable(Cap::NetRaw);
                 let mut wait = sock.blocking(io, SND, flags);
                 let mut scratch = Scratch::default();
                 let stream = sock.socket.kind() == SocketKind::Stream;
@@ -480,6 +475,7 @@ impl Kernel {
                         to,
                         flags,
                         control: if sent == 0 { &control } else { &[] },
+                        net_raw,
                     };
                     match sock.send(&mut wait, msg).await {
                         Ok(k) => {
@@ -1279,6 +1275,60 @@ async fn read_cmsgs(caller: &Caller<'_>, hdr: &UserMsghdr) -> SysResult<Vec<Cont
         .await?;
     Ok(parse_cmsgs(&raw)?)
 }
+
+/// `__sock_cmsg_send` for an IP socket: checks the `SOL_SOCKET` control messages every family
+/// shares and returns the others, which are the protocol's. `SCM_RIGHTS` and `SCM_CREDENTIALS`
+/// belong to Unix sockets and are ignored. What they ask for (a mark, a priority, transmit
+/// timestamps) has no effect without packets.
+fn sock_cmsg_send(cred: &Cred, controls: &[Control]) -> Result<Vec<Control>, Errno> {
+    let privileged = cred.capable(Cap::NetRaw) || cred.capable(Cap::NetAdmin);
+    let mut rest = Vec::new();
+    for c in controls {
+        if c.level != SocketLevel::SOL_SOCKET.0 {
+            rest.push(c.clone());
+            continue;
+        }
+        let word = <[u8; 4]>::try_from(c.data.as_slice()).map(u32::from_le_bytes);
+        match c.kind {
+            unix::SCM_RIGHTS | unix::SCM_CREDENTIALS => {}
+            SO_MARK => {
+                if !privileged {
+                    return Err(Errno::EPERM);
+                }
+                word.map_err(|_| Errno::EINVAL)?;
+            }
+            SO_TIMESTAMPING_OLD | SO_TIMESTAMPING_NEW => {
+                let flags = word.map_err(|_| Errno::EINVAL)?;
+                if flags & !SOF_TIMESTAMPING_TX_RECORD_MASK != 0 {
+                    return Err(Errno::EINVAL);
+                }
+            }
+            SO_PRIORITY => {
+                // `sk_set_prio_allowed`: `TC_PRIO_BESTEFFORT` to `TC_PRIO_INTERACTIVE` for all.
+                let prio = word.map_err(|_| Errno::EINVAL)?;
+                if prio > 6 && !privileged {
+                    return Err(Errno::EPERM);
+                }
+            }
+            SCM_DEVMEM_DMABUF => {
+                word.map_err(|_| Errno::EINVAL)?;
+            }
+            // `SCM_TXTIME` needs `SO_TXTIME` and `SCM_TS_OPT_ID` `SOF_TIMESTAMPING_OPT_ID`
+            // (and no TCP socket), options no socket here can have; the rest are unknown.
+            _ => return Err(Errno::EINVAL),
+        }
+    }
+    Ok(rest)
+}
+
+/// The `SOL_SOCKET` control message types of the generic socket ABI.
+const SO_PRIORITY: i32 = 12;
+const SO_MARK: i32 = 36;
+const SO_TIMESTAMPING_OLD: i32 = 37;
+const SO_TIMESTAMPING_NEW: i32 = 65;
+const SCM_DEVMEM_DMABUF: i32 = 79;
+/// `SOF_TIMESTAMPING_TX_RECORD_MASK`: the transmit timestamp requests a send may make.
+const SOF_TIMESTAMPING_TX_RECORD_MASK: u32 = (1 << 0) | (1 << 1) | (1 << 8) | (1 << 9) | (1 << 18);
 
 /// `for_each_cmsghdr` with `CMSG_OK`: each header must fit with its `cmsg_len` inside the
 /// buffer (else `EINVAL`), and the walk ends once the next aligned header would not fit

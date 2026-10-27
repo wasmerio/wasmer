@@ -874,6 +874,71 @@ fn blocking_connect_on_a_connecting_socket_waits_instead_of_ealready() {
     assert_eq!(errno(connect(second)), Errno::EISCONN);
 }
 
+/// `sendmsg` of one byte from 0x400 with the control messages `cmsgs` (level, type, data)
+/// laid out at 0xa00.
+fn send_with_controls(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    memory: &FlatMemory,
+    fd: Fd,
+    to: Option<(u32, u32)>,
+    cmsgs: &[(i32, i32, Vec<u8>)],
+) -> SysResult<i32> {
+    let mut raw = Vec::new();
+    for (level, kind, data) in cmsgs {
+        raw.extend(((12 + data.len()) as u32).to_le_bytes());
+        raw.extend(level.to_le_bytes());
+        raw.extend(kind.to_le_bytes());
+        raw.extend(data);
+        raw.resize(raw.len().next_multiple_of(4), 0);
+    }
+    put(memory, 0xa00, &raw);
+    put(memory, 0x700, &0x400u32.to_le_bytes());
+    put(memory, 0x704, &1u32.to_le_bytes());
+    let (name, namelen) = to.unwrap_or((0, 0));
+    let hdr = UserMsghdr {
+        msg_name: GuestPtrMut::new(name),
+        msg_namelen: namelen as i32,
+        msg_iov: GuestPtr::new(0x700),
+        msg_iovlen: 1,
+        msg_control: GuestPtrMut::new(if raw.is_empty() { 0 } else { 0xa00 }),
+        msg_controllen: raw.len() as u32,
+        msg_flags: 0,
+    };
+    block_on(write_value(memory, GuestPtrMut::new(0x900), &hdr)).unwrap();
+    block_on(kernel.sendmsg(caller, fd, GuestPtr::new(0x900), MsgFlags(0)))
+}
+
+fn rights(fds: &[Fd]) -> (i32, i32, Vec<u8>) {
+    let data = fds.iter().flat_map(|fd| fd.0.to_le_bytes()).collect();
+    (SocketLevel::SOL_SOCKET.0, crate::unix::SCM_RIGHTS, data)
+}
+
+#[test]
+fn ip_sends_check_socket_level_control_messages() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let fd = socket(&kernel, &caller, DGRAM);
+    sockaddr(&memory, 0x200, 7000);
+    let to = Some((0x200, 16));
+    let send = |cmsgs: &[(i32, i32, Vec<u8>)]| {
+        send_with_controls(&kernel, &caller, &memory, fd, to, cmsgs)
+    };
+    let sol = SocketLevel::SOL_SOCKET.0;
+    let word = |v: u32| v.to_le_bytes().to_vec();
+    // Unix-only messages are ignored on IP sockets.
+    assert_eq!(send(&[rights(&[fd])]), Ok(1));
+    // SO_MARK needs CAP_NET_RAW or CAP_NET_ADMIN; low priorities are anyone's.
+    assert_eq!(errno(send(&[(sol, 36, word(1))])), Errno::EPERM);
+    assert_eq!(send(&[(sol, 12, word(6))]), Ok(1));
+    assert_eq!(errno(send(&[(sol, 12, word(7))])), Errno::EPERM);
+    assert_eq!(errno(send(&[(sol, 12, vec![1])])), Errno::EINVAL);
+    // Timestamp requests for transmit only; unknown types fail.
+    assert_eq!(send(&[(sol, 37, word(1 << 1))]), Ok(1));
+    assert_eq!(errno(send(&[(sol, 37, word(1 << 3))])), Errno::EINVAL);
+    assert_eq!(errno(send(&[(sol, 4242, Vec::new())])), Errno::EINVAL);
+}
+
 #[test]
 fn netlink_connect_checks_its_address_and_shutdown_is_unsupported() {
     let (kernel, task, memory) = machine();
