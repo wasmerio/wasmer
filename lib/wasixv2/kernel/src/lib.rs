@@ -593,7 +593,7 @@ impl Syscalls for Kernel {
         offset: LoffPtr,
         count: Usize,
     ) -> SysResult<i32> {
-        self.sys_sendfile_signalled(caller, out_fd, in_fd, offset, count)
+        self.sys_sendfile(caller, out_fd, in_fd, offset, count)
             .await
     }
 

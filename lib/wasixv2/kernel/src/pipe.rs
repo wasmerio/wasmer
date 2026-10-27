@@ -218,7 +218,9 @@ impl PipeEnd {
     }
 
     /// `pipe_write`. Writes of at most `PIPE_BUF` bytes go in whole or wait; larger ones go in
-    /// as room appears and return early only when non-blocking or interrupted.
+    /// as room appears and return early only when non-blocking or interrupted. Finding no
+    /// reader is `EPIPE`, or the count so far, and is reported to `io` either way: Linux sends
+    /// `SIGPIPE` whenever `!pipe->readers`.
     async fn write_bytes(&self, io: Io<'_>, data: &[u8]) -> SysResult<usize> {
         if data.is_empty() {
             return Ok(0);
@@ -230,7 +232,7 @@ impl PipeEnd {
             let step = || {
                 let mut state = pipe.state.lock().unwrap();
                 if state.readers == 0 {
-                    // TODO: raise SIGPIPE once signals are delivered.
+                    io.set_broken();
                     return Some(Err(Errno::EPIPE));
                 }
                 let free = state.free();

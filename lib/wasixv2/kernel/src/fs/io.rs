@@ -9,6 +9,8 @@ use wasixv2_syscalls::{
 };
 use wasixv2_vfs::{AllocMode, DirEntry, DirSink, FileType};
 
+use std::cell::Cell;
+
 use wasixv2_wait::Interrupt;
 
 use crate::{
@@ -113,6 +115,8 @@ struct Target<'a> {
     append: bool,
     /// The offset the transfer started at, for files.
     start: u64,
+    /// A stream write found the reading side gone ([`crate::file::Io::broken`]).
+    broken: &'a Cell<bool>,
 }
 
 impl Target<'_> {
@@ -130,7 +134,7 @@ impl Target<'_> {
 
     async fn write(&self, data: &[u8], done: usize) -> SysResult<usize> {
         let Backing::Inode(inner) = &self.file.backing else {
-            return self.file.write(self.interrupt, data).await;
+            return self.file.write(self.interrupt, self.broken, data).await;
         };
         if self.append {
             let (end, n) = inner.append(data).await?;
@@ -176,6 +180,7 @@ impl Kernel {
                 At::Position => file.pos(),
                 At::Offset(offset) => offset,
             },
+            broken: &Cell::new(false),
         };
         let steps = file.fills_reads();
         let mut buf = vec![0; total.min(IO_CHUNK)];
@@ -208,6 +213,7 @@ impl Kernel {
     /// Writes the buffers in order, in steps, until all is written or an object takes less:
     /// a blocking write to a stream writes everything, as Linux's do, while a signal, a full
     /// non-blocking object or a fault ends it with the count so far. A datagram is one write.
+    /// A byte stream with no reader left raises `SIGPIPE`.
     async fn write_from_iovecs(
         &self,
         caller: &Caller<'_>,
@@ -215,6 +221,22 @@ impl Kernel {
         iovecs: &[Iovec],
         at: At,
         flags: RwfFlags,
+    ) -> SysResult<u32> {
+        let broken = Cell::new(false);
+        let ret = self
+            .write_steps(caller, file, iovecs, at, flags, &broken)
+            .await;
+        self.epipe(caller, file, ret, broken.get())
+    }
+
+    async fn write_steps(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        iovecs: &[Iovec],
+        at: At,
+        flags: RwfFlags,
+        broken: &Cell<bool>,
     ) -> SysResult<u32> {
         let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
         let messages = file.messages();
@@ -237,6 +259,7 @@ impl Kernel {
                 At::Position => file.pos(),
                 At::Offset(offset) => offset,
             },
+            broken,
         };
         let step = if messages { total } else { total.min(IO_CHUNK) };
         let mut buf = vec![0; step];
@@ -270,8 +293,7 @@ impl Kernel {
         Ok(done as u32)
     }
 
-    /// `write(2)` on `file`, from one guest buffer. `EPIPE` on a byte stream raises
-    /// `SIGPIPE`.
+    /// `write(2)` on `file`, from one guest buffer.
     pub(crate) async fn write_buf(
         &self,
         caller: &Caller<'_>,
@@ -283,10 +305,8 @@ impl Kernel {
             iov_base: buf.addr,
             iov_len: buf.len.min(MAX_RW_COUNT as u32),
         }];
-        let ret = self
-            .write_from_iovecs(caller, file, &iovec, at, RwfFlags(0))
-            .await;
-        self.epipe(caller, file, ret)
+        self.write_from_iovecs(caller, file, &iovec, at, RwfFlags(0))
+            .await
     }
 
     /// `read(2)` on `file`, into one guest buffer.
@@ -304,13 +324,19 @@ impl Kernel {
         self.read_into_iovecs(caller, file, &iovec, at).await
     }
 
-    /// `SIGPIPE` for an `EPIPE` from a byte stream; datagram and seqpacket sockets only fail.
-    pub(crate) fn epipe<T>(
+    /// `SIGPIPE` for an `EPIPE` from a byte stream (datagram and seqpacket sockets only
+    /// fail), or for a pipe write that found no reader (`broken`) whatever it returns.
+    fn epipe<T>(
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,
         ret: SysResult<T>,
+        broken: bool,
     ) -> SysResult<T> {
+        if broken {
+            self.send_sigpipe(caller);
+            return ret;
+        }
         match file.messages() {
             true => ret,
             false => self.sigpipe(caller, ret),
@@ -341,10 +367,8 @@ impl Kernel {
         let file = self.file(caller.task(), fd)?;
         file.check_writable()?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
-        let ret = self
-            .write_from_iovecs(caller, &file, &iovecs, At::Position, RwfFlags(0))
-            .await;
-        self.epipe(caller, &file, ret)
+        self.write_from_iovecs(caller, &file, &iovecs, At::Position, RwfFlags(0))
+            .await
     }
 
     pub(crate) async fn sys_pread(
@@ -415,10 +439,8 @@ impl Kernel {
         let at = self.rw_position(&file, pos)?;
         rw_flags(flags)?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
-        let ret = self
-            .write_from_iovecs(caller, &file, &iovecs, at, flags)
-            .await;
-        self.epipe(caller, &file, ret)
+        self.write_from_iovecs(caller, &file, &iovecs, at, flags)
+            .await
     }
 
     fn rw_position(&self, file: &OpenFile, pos: i64) -> Result<At, Errno> {
@@ -480,7 +502,8 @@ impl Kernel {
         Ok(sink.out.len() as i32)
     }
 
-    /// `sendfile`: from a file to anything writable, at `*offset` or the input's position.
+    /// `sendfile`: from a file to anything writable, at `*offset` or the input's position. A
+    /// byte stream with no reader left raises `SIGPIPE`.
     pub(crate) async fn sys_sendfile(
         &self,
         caller: &Caller<'_>,
@@ -497,6 +520,23 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         input.check_seekable().map_err(|_| Errno::EINVAL)?;
+        let broken = Cell::new(false);
+        let ret = self
+            .sendfile(caller, &input, &output, offset, count, &broken)
+            .await;
+        self.epipe(caller, &output, ret, broken.get())
+    }
+
+    /// The transfer of `sys_sendfile`; `broken` as for [`OpenFile::write`].
+    async fn sendfile(
+        &self,
+        caller: &Caller<'_>,
+        input: &OpenFile,
+        output: &OpenFile,
+        offset: LoffPtr,
+        count: u32,
+        broken: &Cell<bool>,
+    ) -> SysResult<i32> {
         let mut pos = match offset.is_null() {
             true => input.pos(),
             false => {
@@ -508,15 +548,15 @@ impl Kernel {
         let interrupt = self.interrupt(caller);
         let mut done = 0;
         let mut buf = vec![0; count.min(IO_CHUNK)];
-        self.sync_file_mappings(caller, &input).await;
-        self.sync_file_mappings(caller, &output).await;
+        self.sync_file_mappings(caller, input).await;
+        self.sync_file_mappings(caller, output).await;
         while done < count {
             let want = (count - done).min(buf.len());
             let n = input.read_at(&mut buf[..want], pos).await?;
             if n == 0 {
                 break;
             }
-            let written = match output.write(&*interrupt, &buf[..n]).await {
+            let written = match output.write(&*interrupt, broken, &buf[..n]).await {
                 Ok(written) => written,
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
@@ -527,31 +567,13 @@ impl Kernel {
                 break;
             }
         }
-        self.sync_file_mappings(caller, &output).await;
+        self.sync_file_mappings(caller, output).await;
         if offset.is_null() {
             input.set_pos(pos);
         } else {
             write_value(caller.memory(), offset, &(pos as i64)).await?;
         }
         Ok(done as i32)
-    }
-
-    /// `sendfile`, raising `SIGPIPE` when the output is a byte stream with no reader left.
-    pub(crate) async fn sys_sendfile_signalled(
-        &self,
-        caller: &Caller<'_>,
-        out_fd: Fd,
-        in_fd: Fd,
-        offset: LoffPtr,
-        count: u32,
-    ) -> SysResult<i32> {
-        let ret = self
-            .sys_sendfile(caller, out_fd, in_fd, offset, count)
-            .await;
-        match self.file(caller.task(), out_fd) {
-            Ok(output) => self.epipe(caller, &output, ret),
-            Err(_) => ret,
-        }
     }
 
     /// `copy_file_range` between regular files.

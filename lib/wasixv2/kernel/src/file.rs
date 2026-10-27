@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    cell::Cell,
     collections::BTreeSet,
     sync::{Arc, Mutex},
 };
@@ -17,12 +18,23 @@ use crate::epoll::EpollLink;
 pub struct Io<'a> {
     pub flags: OpenFlags,
     pub interrupt: &'a dyn Interrupt,
+    /// Where a write reports that it found the reading side gone, whatever it returns: the
+    /// caller then raises `SIGPIPE` even for a partial count, as `pipe_write` does. `None`
+    /// where nobody raises it (reads, and writes the caller signals by their `EPIPE`).
+    pub broken: Option<&'a Cell<bool>>,
 }
 
 impl Io<'_> {
     /// `O_NONBLOCK`: fail with `EAGAIN` instead of waiting.
     pub fn nonblocking(&self) -> bool {
         self.flags.contains(OpenFlags::O_NONBLOCK)
+    }
+
+    /// Reports that the reading side is gone (`!pipe->readers`); see [`Io::broken`].
+    pub fn set_broken(&self) {
+        if let Some(broken) = self.broken {
+            broken.set(true);
+        }
     }
 }
 
@@ -237,6 +249,7 @@ impl OpenFile {
         let io = Io {
             flags: self.flags(),
             interrupt,
+            broken: None,
         };
         let file = match &self.backing {
             Backing::Stream(object, _) => return object.read(io, buf).await,
@@ -251,10 +264,17 @@ impl OpenFile {
 
     /// `write` at the file position (or the end, for `O_APPEND`). A blocked write ends early
     /// with `SysErr::Restart`, or the bytes moved so far, when `interrupt` becomes pending.
-    pub(crate) async fn write(&self, interrupt: &dyn Interrupt, data: &[u8]) -> SysResult<usize> {
+    /// `broken` learns whether a stream found its reading side gone ([`Io::broken`]).
+    pub(crate) async fn write(
+        &self,
+        interrupt: &dyn Interrupt,
+        broken: &Cell<bool>,
+        data: &[u8],
+    ) -> SysResult<usize> {
         let io = Io {
             flags: self.flags(),
             interrupt,
+            broken: Some(broken),
         };
         let file = match &self.backing {
             Backing::Stream(object, _) => return object.write(io, data).await,
@@ -290,6 +310,7 @@ impl OpenFile {
         Io {
             flags: self.flags(),
             interrupt: &NoInterrupt,
+            broken: None,
         }
     }
 

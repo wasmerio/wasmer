@@ -131,7 +131,7 @@ fn blocking_pipe_read_waits_for_a_writer_on_another_thread() {
         scope.spawn(|| {
             std::thread::sleep(Duration::from_millis(20));
             assert_eq!(
-                block_on(writer.write(&wasixv2_wait::NoInterrupt, b"xy")),
+                block_on(writer.write(&wasixv2_wait::NoInterrupt, &Default::default(), b"xy")),
                 Ok(2)
             );
         });
@@ -234,6 +234,34 @@ fn epipe_raises_sigpipe_only_on_byte_streams() {
     let written = block_on(kernel.write(&caller, w, UserSlice::new(0, 4)));
     assert_eq!(errno(written), Errno::EPIPE);
     assert!(pending());
+}
+
+#[test]
+fn a_write_cut_short_by_the_last_reader_leaving_raises_sigpipe() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 1 << 17]));
+    let caller = Caller::new(task, &memory);
+    let sigpipe = 1 << (Signal::SIGPIPE.0 - 1);
+    let signals = kernel.task_signals(task);
+    // Each write fills the pipe and then waits for room, until the reader leaves: once inside
+    // one step of the object, once between the kernel's steps. Both return what went in and
+    // raise SIGPIPE, as `pipe_write` does whenever `!pipe->readers`.
+    for (size, len) in [(4096, 8192), (65536, 65536 + 100)] {
+        let (r, w) = pipe(&kernel, &caller, OpenFlags(0));
+        let set_size = kernel.fcntl64(&caller, w, FcntlCmd::F_SETPIPE_SZ, size);
+        assert_eq!(block_on(set_size), Ok(size as i32));
+        let written = std::thread::scope(|scope| {
+            scope.spawn(|| {
+                std::thread::sleep(Duration::from_millis(20));
+                drop(kernel.files(task).lock().unwrap().remove(r));
+            });
+            block_on(kernel.write(&caller, w, UserSlice::new(0, len)))
+        });
+        assert_eq!(written, Ok(size));
+        assert!(signals.has_pending(sigpipe), "pipe size {size}");
+        assert!(signals.dequeue_from(sigpipe).is_some());
+        assert_eq!(block_on(kernel.close(&caller, w)), Ok(0));
+    }
 }
 
 #[test]
@@ -503,7 +531,7 @@ fn ppoll_blocks_until_another_thread_writes() {
         scope.spawn(|| {
             std::thread::sleep(Duration::from_millis(20));
             assert_eq!(
-                block_on(writer.write(&wasixv2_wait::NoInterrupt, b"!")),
+                block_on(writer.write(&wasixv2_wait::NoInterrupt, &Default::default(), b"!")),
                 Ok(1)
             );
         });
@@ -840,7 +868,7 @@ mod epoll {
             scope.spawn(|| {
                 std::thread::sleep(Duration::from_millis(20));
                 assert_eq!(
-                    block_on(writer.write(&wasixv2_wait::NoInterrupt, b"!")),
+                    block_on(writer.write(&wasixv2_wait::NoInterrupt, &Default::default(), b"!")),
                     Ok(1)
                 );
             });

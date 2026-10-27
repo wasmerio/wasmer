@@ -1086,12 +1086,17 @@ impl Kernel {
     /// `send_sig(SIGPIPE, current, 0)` when a write failed with `EPIPE`.
     pub(crate) fn sigpipe<T>(&self, caller: &Caller<'_>, ret: SysResult<T>) -> SysResult<T> {
         if ret.as_ref().err() == Some(&SysErr::Errno(Errno::EPIPE)) {
-            let info = self.sender_info(caller, Signal::SIGPIPE.0, SiCode::SI_USER);
-            let signals = self.task_signals(caller.task());
-            // SIGPIPE needs no room in a queue.
-            let _ = signals.group.send(Some(caller.task()), info);
+            self.send_sigpipe(caller);
         }
         ret
+    }
+
+    /// `send_sig(SIGPIPE, current, 0)`.
+    pub(crate) fn send_sigpipe(&self, caller: &Caller<'_>) {
+        let info = self.sender_info(caller, Signal::SIGPIPE.0, SiCode::SI_USER);
+        let signals = self.task_signals(caller.task());
+        // SIGPIPE needs no room in a queue.
+        let _ = signals.group.send(Some(caller.task()), info);
     }
 
     /// Sleeps for `sleep` unless a signal interrupts it first.
