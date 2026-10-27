@@ -42,14 +42,9 @@ impl Kernel {
             op if op.contains(FlockOp::LOCK_MAND) => return Err(Errno::EOPNOTSUPP.into()),
             _ => return Err(Errno::EINVAL.into()),
         };
-        // TODO: streams (pipes, sockets) can be flocked on Linux too; they have no lock key yet.
-        let Backing::Inode(inner) = &file.backing else {
-            return Ok(0);
-        };
-        let lock = self
-            .vfs
-            .locks
-            .flock(inner.lock_key(), inner.id, op, nonblock);
+        // Pipes and sockets are locked through their pseudo inodes, as any file is.
+        let (key, owner) = file.flock_owner(&self.vfs);
+        let lock = self.vfs.locks.flock(key, owner, op, nonblock);
         self.lock_wait(caller, lock).await?;
         Ok(0)
     }

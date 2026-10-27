@@ -2,12 +2,12 @@ use std::{
     any::Any,
     cell::Cell,
     collections::BTreeSet,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use wasixv2_abi::{IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
-use wasixv2_vfs::{File, FileType, Path, SeekHole};
+use wasixv2_vfs::{File, FileType, LockKey, Path, SeekHole, Vfs};
 use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
 use crate::epoll::EpollLink;
@@ -139,6 +139,22 @@ pub(crate) struct OpenFile {
     pos_lock: futures_util::lock::Mutex<()>,
     /// The epoll items watching this file, removed when it goes away.
     pub(crate) epoll_links: Mutex<Vec<EpollLink>>,
+    /// A stream's `flock` identity, made by its first `flock`.
+    stream_flock: OnceLock<StreamFlock>,
+}
+
+/// What a stream (pipe, socket) is `flock`ed as: its pseudo inode, and an owner of its own as
+/// a VFS file has. Dropped with the open file, which releases the lock (`locks_remove_file`).
+pub(crate) struct StreamFlock {
+    vfs: Arc<Vfs>,
+    pub(crate) key: LockKey,
+    pub(crate) id: u64,
+}
+
+impl Drop for StreamFlock {
+    fn drop(&mut self) {
+        self.vfs.locks.release_file(self.key, self.id);
+    }
 }
 
 impl OpenFile {
@@ -150,6 +166,23 @@ impl OpenFile {
             pos: Mutex::new(0),
             pos_lock: futures_util::lock::Mutex::new(()),
             epoll_links: Mutex::default(),
+            stream_flock: OnceLock::new(),
+        }
+    }
+
+    /// The lock key and owner `flock` uses for this file: a VFS file's own, or for a stream
+    /// its inode's and one made now.
+    pub(crate) fn flock_owner(&self, vfs: &Arc<Vfs>) -> (LockKey, u64) {
+        match &self.backing {
+            Backing::Inode(file) => (file.lock_key(), file.id),
+            Backing::Stream(_, path) => {
+                let lock = self.stream_flock.get_or_init(|| StreamFlock {
+                    vfs: vfs.clone(),
+                    key: (path.dentry.sb().id, path.dentry.node().ino()),
+                    id: vfs.next_id(),
+                });
+                (lock.key, lock.id)
+            }
         }
     }
 
