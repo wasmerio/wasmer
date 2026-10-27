@@ -122,6 +122,11 @@ impl Wasix1Instance {
         found
     }
 
+    /// Whether the instance has a callback to run signal handlers through.
+    pub(crate) fn has_signal_callback(&self) -> bool {
+        self.signal.lock().unwrap().is_some()
+    }
+
     /// Whether the instance's thread holds signals back.
     pub(crate) fn blocked(&self) -> bool {
         self.blocked.load(Ordering::Relaxed)

@@ -203,6 +203,25 @@ fn signals_before_the_callback_terminate() {
     assert_eq!(status(wat), 128 + 15);
 }
 
+/// A module that names a callback it does not export, and has no `__wasm_signal` either, has
+/// nothing to run handlers through: its signals take their default action.
+#[test]
+fn signals_without_any_callback_terminate() {
+    let wat = r#"
+    (module
+      (import "wasix_32v1" "callback_signal" (func $callback (param i32 i32)))
+      (import "wasi_snapshot_preview1" "proc_raise" (func $raise (param i32) (result i32)))
+      (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 16) "no_such_export")
+      (func (export "_start")
+        (call $callback (i32.const 16) (i32.const 14))
+        (drop (call $raise (i32.const 15)))
+        (call $exit (i32.const 1))))
+    "#;
+    assert_eq!(status(wat), 128 + 15);
+}
+
 /// `proc_raise_interval` arms `ITIMER_REAL`: `SIGALRM` interrupts a sleep, which returns
 /// `INTR` (27) once the handler ran. Other signals are `NOTSUP` (58).
 #[test]

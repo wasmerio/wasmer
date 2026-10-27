@@ -199,9 +199,14 @@ pub(crate) async fn callback_signal<S: Syscalls + Control + 'static>(
 ) -> Result<(), RuntimeError> {
     shim::void(&env, "callback_signal", async |frame| {
         let name = read_bytes(frame, name as u32, name_len as u32).await?;
-        install(frame).await?;
         let deliver = std::str::from_utf8(&name)
             .is_ok_and(|name| frame.instance().select_signal_callback(name));
+        // A module with no callback at all cannot run a handler: signals keep their default
+        // actions, as before any `callback_signal`.
+        if !deliver && !frame.instance().has_signal_callback() {
+            return Ok(());
+        }
+        install(frame).await?;
         set_mask(frame, deliver).await
     })
     .await
