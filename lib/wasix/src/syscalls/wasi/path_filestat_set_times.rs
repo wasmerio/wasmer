@@ -80,24 +80,22 @@ pub(crate) fn path_filestat_set_times_internal(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let fd_entry = state.fs.get_fd(fd)?;
-    let fd_inode = fd_entry.inode;
-    if !fd_entry
-        .inner
-        .rights
-        .contains(Rights::PATH_FILESTAT_SET_TIMES)
-    {
-        return Err(Errno::Access);
-    }
+    let fd_inode = fd_entry.inode.clone();
     if (fst_flags.contains(Fstflags::SET_ATIM) && fst_flags.contains(Fstflags::SET_ATIM_NOW))
         || (fst_flags.contains(Fstflags::SET_MTIM) && fst_flags.contains(Fstflags::SET_MTIM_NOW))
     {
         return Err(Errno::Inval);
     }
 
-    let file_inode =
-        state
-            .fs
-            .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)?;
+    let (file_inode, owner) = state.fs.get_owned_inode_at_path(
+        inodes,
+        fd,
+        path,
+        flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+    )?;
+    state
+        .fs
+        .check_path_right(&fd_entry, &owner, Rights::PATH_FILESTAT_SET_TIMES)?;
     let stat = {
         let guard = file_inode.read();
         state.fs.get_stat_for_kind(guard.deref())?

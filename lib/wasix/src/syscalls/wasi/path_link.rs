@@ -83,26 +83,26 @@ pub(crate) fn path_link_internal(
     let source_fd = state.fs.get_fd(old_fd)?;
     let target_fd = state.fs.get_fd(new_fd)?;
 
-    if !source_fd.inner.rights.contains(Rights::PATH_LINK_SOURCE)
-        || !target_fd.inner.rights.contains(Rights::PATH_LINK_TARGET)
-    {
-        return Err(Errno::Access);
-    }
-
     Span::current().record("old_path", old_path);
     Span::current().record("new_path", new_path);
 
-    let source_inode = state.fs.get_inode_at_path(
+    let (source_inode, source_owner) = state.fs.get_owned_inode_at_path(
         inodes,
         old_fd,
         old_path,
         old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
     let target_path_arg = std::path::PathBuf::from(new_path);
-    let (target_parent_inode, new_entry_name) =
-        state
-            .fs
-            .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, true)?;
+    let (target_parent_inode, target_owner, new_entry_name) = state
+        .fs
+        .get_owned_parent_inode_at_path(inodes, new_fd, &target_path_arg, true)?;
+    state
+        .fs
+        .check_path_right(&source_fd, &source_owner, Rights::PATH_LINK_SOURCE)?;
+    state
+        .fs
+        .check_path_right(&target_fd, &target_owner, Rights::PATH_LINK_TARGET)?;
+    state.fs.check_cross_preopen(&source_owner, &target_owner)?;
 
     if source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
         return Err(Errno::Mlink);
