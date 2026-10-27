@@ -265,3 +265,94 @@ fn a_directory_that_contains_itself_is_rejected_at_mount() {
 
     assert!(matches!(mount(bytes), Err(PackageFsError::Malformed(_))));
 }
+
+fn files(paths: &[(&str, &'static [u8])]) -> Result<PackageFs, PackageFsError> {
+    let files = paths
+        .iter()
+        .map(|(path, data)| (path.to_string(), OwnedBuffer::from_static(data)));
+    PackageFs::from_files(files, 1, 2)
+}
+
+#[test]
+fn from_files_builds_the_directories_the_paths_imply() {
+    let fs = files(&[
+        ("bin/ls", b"\0asm ls"),
+        ("usr/bin/ls", b"\0asm ls"),
+        ("x", b""),
+    ])
+    .unwrap();
+    let names: Vec<_> = read_dir(&*fs.root(), 0, usize::MAX)
+        .into_iter()
+        .map(|e| (e.0, e.2))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            (b"bin".to_vec(), FileType::Directory),
+            (b"usr".to_vec(), FileType::Directory),
+            (b"x".to_vec(), FileType::Regular),
+        ]
+    );
+    let ls = lookup(&fs, "usr/bin/ls");
+    let attr = block_on(ls.getattr()).unwrap();
+    assert_eq!(
+        (attr.file_type, attr.mode, attr.uid, attr.gid, attr.size),
+        (FileType::Regular, 0o755, 1, 2, 7)
+    );
+    let handle = block_on(ls.open(OpenOptions {
+        read: true,
+        ..Default::default()
+    }))
+    .unwrap();
+    let mut buf = [0; 16];
+    assert_eq!(block_on(handle.read_at(&mut buf, 0)), Ok(7));
+    assert_eq!(&buf[..7], b"\0asm ls");
+    // `.`, the parent's entry and `..` of `bin`.
+    assert_eq!(block_on(lookup(&fs, "usr").getattr()).unwrap().nlink, 3);
+    assert!(fs.info().read_only);
+    assert_eq!(block_on(fs.root().unlink(b"x")), Err(Errno::EROFS));
+}
+
+#[test]
+fn from_files_numbers_every_object_once() {
+    let fs = files(&[("bin/a", b"a"), ("bin/b", b"b"), ("usr/bin/a", b"a")]).unwrap();
+    let mut all = vec![fs.root().ino()];
+    for path in ["bin", "bin/a", "bin/b", "usr", "usr/bin", "usr/bin/a"] {
+        let ino = lookup(&fs, path).ino();
+        assert_eq!(ino, lookup(&fs, path).ino(), "{path}");
+        all.push(ino);
+    }
+    let count = all.len();
+    all.sort_unstable();
+    all.dedup();
+    assert_eq!(all.len(), count);
+    let entries = read_dir(&*lookup(&fs, "bin"), 0, usize::MAX);
+    assert_eq!(entries[1].1, lookup(&fs, "bin/b").ino());
+}
+
+#[test]
+fn from_files_rejects_bad_and_clashing_paths() {
+    for path in [
+        "", "/bin/a", "bin/", "bin//a", "bin/./a", "bin/../a", "a\0b",
+    ] {
+        assert!(
+            matches!(files(&[(path, b"")]), Err(PackageFsError::InvalidPath(_))),
+            "{path:?}"
+        );
+    }
+    let long = "n".repeat(NAME_MAX + 1);
+    assert!(matches!(
+        files(&[(long.as_str(), b"")]).err(),
+        Some(PackageFsError::InvalidPath(_))
+    ));
+    for clash in [
+        &[("bin/a", &b""[..]), ("bin/a", b"")][..],
+        &[("bin", b""), ("bin/a", b"")],
+        &[("bin/a", b""), ("bin", b"")],
+    ] {
+        assert!(
+            matches!(files(clash), Err(PackageFsError::Conflict(_))),
+            "{clash:?}"
+        );
+    }
+}
