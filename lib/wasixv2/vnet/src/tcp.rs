@@ -142,6 +142,8 @@ struct Inner {
     local: Option<SocketAddr>,
     /// `SOCK_BINDPORT_LOCK`: the port was chosen by `bind`, so it survives a disconnect.
     port_locked: bool,
+    /// `SOCK_BINDADDR_LOCK`: the address was chosen by `bind`, so a disconnect keeps it.
+    addr_locked: bool,
     /// What `getsockname` reports once an autobound port went back to the table while
     /// unbound: `inet_put_port` clears `inet_num` but leaves `inet_sport`.
     put_back: Option<SocketAddr>,
@@ -238,6 +240,7 @@ impl TcpSocket {
                 opts,
                 local,
                 port_locked: local.is_some(),
+                addr_locked: local.is_some(),
                 put_back: None,
                 state,
                 err: None,
@@ -363,6 +366,32 @@ impl TcpSocket {
             child.release_inner(true);
         }
         self.wq.wake(PollMask::empty());
+    }
+
+    /// `tcp_disconnect` of a connection in progress or established: the peer is reset (from
+    /// `SYN_SENT` there is none yet), and unless the connection had already ended
+    /// (`tcp_need_reset`, or `SYN_SENT`) the socket's own `sk_err` becomes `ECONNRESET`.
+    fn abort_connection(&self, g: &mut Inner) {
+        if let State::Connecting(t, _) | State::Connected(t, _) =
+            std::mem::replace(&mut g.state, State::Closed)
+        {
+            if !t.is_done() {
+                g.err = Some(Errno::ECONNRESET);
+            }
+            t.close(true);
+        }
+    }
+
+    /// `inet_bhash2_reset_saddr`: back to the wildcard source address unless `bind` chose it.
+    fn reset_saddr(&self, g: &mut Inner) {
+        if g.addr_locked {
+            return;
+        }
+        if let Some(local) = g.local.filter(|l| !l.ip().is_unspecified()) {
+            let any = self.domain_any();
+            self.net.state().tcp.rehash(self.id, local.port(), any);
+            g.local = Some(SocketAddr::new(any, local.port()));
+        }
     }
 
     fn release_inner(&self, abort: bool) {
@@ -580,6 +609,7 @@ impl Socket for TcpSocket {
         )?;
         g.local = Some(SocketAddr::new(addr.ip(), port));
         g.port_locked = addr.port() != 0;
+        g.addr_locked = !addr.ip().is_unspecified();
         Ok(())
     }
 
@@ -683,17 +713,15 @@ impl Socket for TcpSocket {
     }
 
     fn disconnect(&self) -> NetResult<()> {
-        // `tcp_disconnect`: abort whatever is going on and return to CLOSE.
+        // `tcp_disconnect`: abort whatever is going on and return to CLOSE, which gives back
+        // an autobound port (`tcp_set_state` calls `inet_put_port`) and the source address.
         let mut g = self.lock();
         self.stop_listening(&mut g);
-        if let State::Connecting(t, _) | State::Connected(t, _) =
-            std::mem::replace(&mut g.state, State::Closed)
-        {
-            t.close(true);
-        }
+        self.abort_connection(&mut g);
         g.rd_shut = false;
         g.wr_shut = false;
         g.failed = false;
+        self.reset_saddr(&mut g);
         self.put_port(&mut g);
         drop(g);
         self.wq.wake(PollMask::empty());
@@ -709,14 +737,23 @@ impl Socket for TcpSocket {
                 }
                 Ok(())
             }
+            // `inet_shutdown` in `SYN_SENT` disconnects (`tcp_disconnect`).
             State::Connecting(..) => {
-                if let State::Connecting(t, _) = std::mem::replace(&mut g.state, State::Closed) {
-                    t.close(true);
-                }
+                self.abort_connection(&mut g);
+                self.reset_saddr(&mut g);
                 self.put_port(&mut g);
                 drop(g);
                 self.wq.wake(PollMask::empty());
                 Ok(())
+            }
+            // A connection reset or refused is in CLOSE: the shutdown is recorded, the
+            // answer is ENOTCONN.
+            State::Connected(t, _) if t.is_done() => {
+                let t = t.clone();
+                drop(g);
+                let _ = t.shutdown(how);
+                self.wq.wake(PollMask::empty());
+                Err(Errno::ENOTCONN)
             }
             State::Connected(t, _) => {
                 let t = t.clone();
