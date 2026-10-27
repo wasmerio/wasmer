@@ -251,7 +251,9 @@ impl Vfs {
             // device driver its number names (`chrdev_open`).
             (None, FileType::Fifo | FileType::CharDevice | FileType::BlockDevice) => None,
             // `sock_no_open`.
-            (None, FileType::Socket | FileType::Symlink) => return Err(Errno::ENXIO),
+            (None, FileType::Socket) => return Err(Errno::ENXIO),
+            // `may_open` refused it already.
+            (None, FileType::Symlink) => return Err(Errno::ELOOP),
         };
         if truncate {
             let attr = SetAttr {
