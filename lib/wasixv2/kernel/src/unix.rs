@@ -1077,6 +1077,10 @@ impl FileObject for UnixFile {
         })
     }
 
+    fn buffered(&self) -> usize {
+        self.0.input_len()
+    }
+
     /// `SIOCINQ` (`FIONREAD`) and `SIOCOUTQ` (`TIOCOUTQ`).
     fn ioctl<'a>(
         &'a self,

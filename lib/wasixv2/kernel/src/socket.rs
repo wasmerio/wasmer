@@ -252,6 +252,10 @@ impl FileObject for SocketFile {
         })
     }
 
+    fn buffered(&self) -> usize {
+        self.socket.input_len().unwrap_or(0)
+    }
+
     /// `SIOCINQ` (`FIONREAD`) and `SIOCOUTQ` (`TIOCOUTQ`).
     fn ioctl<'a>(
         &'a self,

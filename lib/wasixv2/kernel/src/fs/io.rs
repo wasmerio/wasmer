@@ -213,7 +213,8 @@ impl Kernel {
     /// Reads into the buffers in order. Files are read in steps until the buffers are full or
     /// the file ends, and so are objects that fill reads, which stop early at a signal with what
     /// they read so far; any other stream read returns what one read of the object gives, as
-    /// Linux's `pipe_read` and socket reads do. A blocked read ends on a signal.
+    /// Linux's `pipe_read` and socket reads do, into a buffer that holds what the object has
+    /// (`FileObject::buffered`). A blocked read ends on a signal.
     pub(crate) async fn read_into_iovecs(
         &self,
         caller: &Caller<'_>,
@@ -239,7 +240,11 @@ impl Kernel {
             broken: &Cell::new(false),
         };
         let steps = file.fills_reads();
-        let mut buf = Scratch::new(total.min(IO_CHUNK));
+        let step = match steps {
+            true => IO_CHUNK,
+            false => IO_CHUNK.max(file.buffered()),
+        };
+        let mut buf = Scratch::new(total.min(step));
         let mut cursor = Cursor::new(iovecs);
         let mut done = 0;
         self.sync_file_mappings(caller, file).await;

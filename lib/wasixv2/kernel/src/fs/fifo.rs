@@ -102,6 +102,10 @@ impl FileObject for FifoFile {
         }
     }
 
+    fn buffered(&self) -> usize {
+        self.read.as_ref().map_or(0, |end| end.buffered())
+    }
+
     fn ioctl<'a>(
         &'a self,
         caller: &'a Caller<'a>,
