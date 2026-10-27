@@ -16,7 +16,9 @@ use std::{
 
 pub use shared_buffer::OwnedBuffer;
 use wasixv2_exec::{Abis, Wasixv2};
-pub use wasixv2_exec::{Compile, ExecError, LoadError, Loader, instrument, load};
+pub use wasixv2_exec::{
+    Compile, ExecError, LoadError, Loader, instrument, is_wasixv2_module, load,
+};
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
 #[cfg(feature = "tokio")]
@@ -184,11 +186,12 @@ impl MachineBuilder {
         let owner = (user.uid(), user.gid());
         let network = default_network();
         let root = root.unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user));
-        let kernel = boot(&host, root.clone(), &network, &user, &uname);
+        let abis = Arc::new(abis(loader.clone(), Default::default()));
+        let kernel = boot(&host, root.clone(), &network, &user, &uname, abis.clone());
         now(mount_kernel_filesystems(&kernel, &host));
         Machine {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
-            abis: Arc::new(abis(loader.clone(), Default::default())),
+            abis,
             loader,
             network,
             host,
@@ -314,7 +317,11 @@ impl Machine {
                 table.entry(path).or_insert_with(|| defaults.clone());
             }
         }
-        self.abis = Arc::new(abis(self.loader.clone(), table));
+        let abis = Arc::new(abis(self.loader.clone(), table));
+        // Nothing holds the kernel but the machine before anything ran.
+        let syscalls = Arc::get_mut(&mut self.syscalls).ok_or_else(|| errno_to_io(Errno::EBUSY))?;
+        syscalls.inner.set_binfmt(abis.clone());
+        self.abis = abis;
         Ok(())
     }
 
@@ -329,7 +336,14 @@ impl Machine {
         let root = OverlayFs::new(Some(self.root_upper.clone()), self.root_lowers.clone());
         // Nothing lives in the kernel yet, so a new one on the new root replaces it, with the
         // kernel's filesystems mounted afresh; a host directory's layer answers asynchronously.
-        let kernel = boot(&self.host, root, &self.network, &self.user, &self.uname);
+        let kernel = boot(
+            &self.host,
+            root,
+            &self.network,
+            &self.user,
+            &self.uname,
+            self.abis.clone(),
+        );
         mount_kernel_filesystems(&kernel, &self.host).await;
         self.syscalls = Arc::new(Layered::new(Trace, kernel));
         Ok(())
@@ -597,16 +611,18 @@ impl Signaller {
     }
 }
 
-/// A kernel on `root` with the machine's network, user and names; its own filesystems are
-/// mounted next ([`mount_kernel_filesystems`]).
+/// A kernel on `root` with the machine's network, user and names, whose `execve` starts the
+/// images `abis` serve; its own filesystems are mounted next ([`mount_kernel_filesystems`]).
 fn boot(
     host: &Arc<dyn Host>,
     root: Arc<dyn Filesystem>,
     network: &Arc<Net>,
     user: &Credentials,
     uname: &Uname,
+    abis: Arc<Abis<Layered<Trace, Kernel>>>,
 ) -> Kernel {
     Kernel::new(host.clone(), root)
+        .with_binfmt(abis)
         .with_network(network.clone())
         .with_shm(shm_filesystem(host))
         .with_credentials(user.clone())
@@ -855,26 +871,4 @@ pub fn targets_wasixv2(module: &Module) -> bool {
     module
         .imports()
         .any(|import| import.module() == wasixv2_exec::IMPORT_MODULE)
-}
-
-/// Whether `wasm` targets this ABI: it imports something from the `wasixv2` module. Only the
-/// import section is parsed; a malformed module is `false`.
-pub fn is_wasixv2_module(wasm: &[u8]) -> bool {
-    use wasmparser::{Parser, Payload};
-
-    for payload in Parser::new(0).parse_all(wasm) {
-        match payload {
-            Ok(Payload::ImportSection(imports)) => {
-                return imports
-                    .into_imports()
-                    .any(|import| import.is_ok_and(|i| i.module == wasixv2_exec::IMPORT_MODULE));
-            }
-            // Sections are ordered, so the imports are behind us once code-related ones start.
-            Ok(Payload::FunctionSection(_) | Payload::CodeSectionStart { .. }) | Err(_) => {
-                return false;
-            }
-            Ok(_) => {}
-        }
-    }
-    false
 }

@@ -81,6 +81,10 @@ where
         module_flavor(module) == Some(V1Flavor::Wasm32)
     }
 
+    fn matches_image(&self, image: &[u8]) -> bool {
+        is_wasix1_module(image) == Some(V1Flavor::Wasm32)
+    }
+
     fn imports(
         &self,
         store: &mut Store,

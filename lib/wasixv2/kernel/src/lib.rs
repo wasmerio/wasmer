@@ -68,8 +68,8 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
 use wasixv2_syscalls::{
-    AtomicWait, AtomicWord, Caller, Control, Errno, Fd, GuestAction, LocalFuture, SysResult,
-    Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
+    AtomicWait, AtomicWord, Binfmt, Caller, Control, Errno, Fd, GuestAction, LocalFuture,
+    SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -127,6 +127,8 @@ pub struct Kernel {
     // ---- proc ----
     /// The process tree: parents, zombies, vfork relations and images waiting for `execve`.
     procs: process::Procs,
+    /// The formats `execve` starts besides scripts; by default anything with wasm's magic.
+    binfmt: Arc<dyn Binfmt>,
     // ---- ipc ----
     /// Serialises epoll nesting changes with their loop checks (`epnested_mutex`).
     epoll_nesting: Mutex<()>,
@@ -223,6 +225,7 @@ impl Kernel {
             futexes: futex::Futexes::default(),
             ipc: ipc::Ipc::default(),
             procs: process::Procs::default(),
+            binfmt: Arc::new(process::WasmMagic),
             epoll_nesting: Mutex::default(),
             credentials: Credentials::default(),
             uts: Arc::new(Mutex::new(Uname::default().to_utsname())),
@@ -252,6 +255,19 @@ impl Kernel {
     pub fn with_shm(mut self, fs: Arc<dyn Filesystem>) -> Self {
         self.shm = Some(self.vfs.kern_mount(fs));
         self
+    }
+
+    /// Makes `execve` start only the images `binfmt` recognises (and `#!` scripts), instead of
+    /// any file that starts with wasm's magic; anything else fails with the errno its probe
+    /// returns before the caller's image is replaced.
+    pub fn with_binfmt(mut self, binfmt: Arc<dyn Binfmt>) -> Self {
+        self.binfmt = binfmt;
+        self
+    }
+
+    /// [`Kernel::with_binfmt`] on a kernel already built.
+    pub fn set_binfmt(&mut self, binfmt: Arc<dyn Binfmt>) {
+        self.binfmt = binfmt;
     }
 
     /// The machine's VFS, for the embedder to mount filesystems.

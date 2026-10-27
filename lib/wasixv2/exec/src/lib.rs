@@ -33,7 +33,7 @@ pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;
 pub use process::VFORK_RETURN;
 pub use thread::THREAD_ENTRY;
-pub use wasixv2::Wasixv2;
+pub use wasixv2::{Wasixv2, is_wasixv2_module};
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
 use wasixv2_syscalls::{

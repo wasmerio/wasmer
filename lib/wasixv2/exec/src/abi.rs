@@ -4,13 +4,13 @@
 
 use std::sync::Arc;
 
-use wasixv2_syscalls::{Control, LocalFuture, SignalFrame, Syscalls, TaskId};
+use wasixv2_syscalls::{Binfmt, Control, Errno, LocalFuture, SignalFrame, Syscalls, TaskId};
 use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, Imports, Instance, Module, RuntimeError, Store,
     StoreAsync, Value,
 };
 
-use crate::{ExecEnv, ExecError, Loader, asyncify};
+use crate::{ExecEnv, ExecError, LoadError, Loader, asyncify};
 
 /// One guest ABI.
 pub trait Abi<S>: Send + Sync + 'static
@@ -22,6 +22,11 @@ where
 
     /// Whether `module` targets this ABI, decided from its imports.
     fn matches(&self, module: &Module) -> bool;
+
+    /// [`Abi::matches`] for `image`, a WebAssembly binary not yet compiled, from its import
+    /// section alone; a malformed binary matches no ABI. `execve` asks before the point of no
+    /// return, so an image no ABI serves fails with `ENOEXEC` (see [`Abis`]'s [`Binfmt`]).
+    fn matches_image(&self, image: &[u8]) -> bool;
 
     /// Every function import the ABI provides for an instance of `module`. The execution layer
     /// adds the memory import.
@@ -212,6 +217,28 @@ where
     #[allow(clippy::result_large_err)]
     pub(crate) fn require(&self, module: &Module) -> Result<Arc<dyn Abi<S>>, ExecError> {
         self.select(module).ok_or(ExecError::NoAbi)
+    }
+}
+
+/// The formats `execve` starts: images the loader takes ([`Loader::probe`]) that one of the ABIs
+/// serves ([`Abi::matches_image`]). A loader error other than [`LoadError::Format`] is `EIO`.
+impl<S> Binfmt for Abis<S>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    fn probe(&self, image: &[u8]) -> Result<(), Errno> {
+        match self.loader.probe(image) {
+            Ok(()) => {}
+            Err(LoadError::Format(errno)) => return Err(errno),
+            Err(LoadError::Other(err)) => {
+                tracing::warn!(%err, "the loader could not probe an image");
+                return Err(Errno::EIO);
+            }
+        }
+        match self.abis.iter().any(|abi| abi.matches_image(image)) {
+            true => Ok(()),
+            false => Err(Errno::ENOEXEC),
+        }
     }
 }
 

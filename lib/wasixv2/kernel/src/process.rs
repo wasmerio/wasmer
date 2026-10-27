@@ -20,8 +20,8 @@ use wasixv2_abi::{
     Uptr, WaitOptions,
 };
 use wasixv2_syscalls::{
-    Caller, CstrError, Errno, Fd, GuestAction, LocalFuture, SysErr, SysResult, TaskId, WorkFlag,
-    read_cstr, read_value, write_value,
+    Binfmt, Caller, CstrError, Errno, Fd, GuestAction, LocalFuture, SysErr, SysResult, TaskId,
+    WorkFlag, read_cstr, read_value, write_value,
 };
 use wasixv2_vfs::{FileType, LookupFlags, MAY_EXEC, OpenHow};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
@@ -47,6 +47,19 @@ const BINPRM_BUF_SIZE: usize = 256;
 /// `exec_binprm`'s five levels of rewrites.
 const MAX_REWRITES: usize = 5;
 const WASM_MAGIC: &[u8] = b"\0asm";
+
+/// The kernel's [`Binfmt`] until the embedder gives it one: any file that starts with wasm's
+/// magic is an image; what serves it is found only once it runs.
+pub(crate) struct WasmMagic;
+
+impl Binfmt for WasmMagic {
+    fn probe(&self, image: &[u8]) -> Result<(), Errno> {
+        match image.starts_with(WASM_MAGIC) {
+            true => Ok(()),
+            false => Err(Errno::ENOEXEC),
+        }
+    }
+}
 
 /// `__WCLONE`: wait only for children that do not report with SIGCHLD.
 const WCLONE: u32 = 0x8000_0000;
@@ -607,13 +620,13 @@ impl Kernel {
         // `bprm->interp`: the name a script is passed to its interpreter by.
         let mut script = name.clone();
         let mut rewrites = 0;
+        // `search_binary_handler`: a script hands over to its interpreter; anything else must
+        // be an image of one of the embedder's formats, decided before the point of no return.
         let (image, binary) = loop {
-            if bytes.starts_with(WASM_MAGIC) {
-                break (bytes, binary);
-            }
             // `load_script`.
             let Some((interp, arg)) = parse_shebang(&bytes) else {
-                return Err(Errno::ENOEXEC.into());
+                self.binfmt.probe(&bytes)?;
+                break (bytes, binary);
             };
             if inaccessible {
                 return Err(Errno::ENOENT.into());

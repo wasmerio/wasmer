@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use wasixv2_abi::Siginfo;
+use wasixv2_abi::{Errno, Siginfo};
 
 use crate::{
     Layered, SysResult,
@@ -209,6 +209,17 @@ pub trait AtomicWait {
     /// instruction or of `futex`, and returns how many it woke. Unlike `FUTEX_WAKE`, a count of
     /// 0 wakes none.
     fn atomic_notify(&self, task: TaskId, addr: u32, count: u32) -> u32;
+}
+
+/// The executable formats `execve` can start besides `#!` scripts, which the kernel handles
+/// itself: Linux's binary format handlers, as `search_binary_handler` asks them. The kernel asks
+/// before the point of no return, so an image nothing runs fails `execve` (with `ENOEXEC`) and
+/// leaves the caller's image in place, as an unknown binary does on Linux.
+pub trait Binfmt: Send + Sync {
+    /// Whether `image`, the contents of an executable file, is a program a handler starts, from
+    /// a cheap look at it (its header, its import section). The errno `execve` fails with when
+    /// it is not, normally `ENOEXEC`.
+    fn probe(&self, image: &[u8]) -> Result<(), Errno>;
 }
 
 // By hand rather than generated with the rest of `Layered`: the layers see syscalls, and these

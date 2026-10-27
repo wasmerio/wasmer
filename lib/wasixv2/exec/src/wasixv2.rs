@@ -18,6 +18,28 @@ use crate::{
 /// The `wasixv2` ABI: modules that import from [`crate::IMPORT_MODULE`].
 pub struct Wasixv2;
 
+/// Whether `wasm` targets the `wasixv2` ABI: it imports something from the `wasixv2` module. Only
+/// the import section is parsed; a malformed module is `false`.
+pub fn is_wasixv2_module(wasm: &[u8]) -> bool {
+    use wasmparser::{Parser, Payload};
+
+    for payload in Parser::new(0).parse_all(wasm) {
+        match payload {
+            Ok(Payload::ImportSection(imports)) => {
+                return imports
+                    .into_imports()
+                    .any(|import| import.is_ok_and(|i| i.module == generated::IMPORT_MODULE));
+            }
+            // Sections are ordered, so the imports are behind us once code-related ones start.
+            Ok(Payload::FunctionSection(_) | Payload::CodeSectionStart { .. }) | Err(_) => {
+                return false;
+            }
+            Ok(_) => {}
+        }
+    }
+    false
+}
+
 impl<S> Abi<S> for Wasixv2
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -30,6 +52,10 @@ where
         module
             .imports()
             .any(|import| import.module() == generated::IMPORT_MODULE)
+    }
+
+    fn matches_image(&self, image: &[u8]) -> bool {
+        is_wasixv2_module(image)
     }
 
     fn imports(

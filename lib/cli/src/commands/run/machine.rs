@@ -152,9 +152,13 @@ impl Loader for CachedLoader {
         image: &'a [u8],
     ) -> LocalFuture<'a, Result<(Engine, Module), LoadError>> {
         Box::pin(async move {
-            let engine = self.engine_for(image)?;
+            let engine = self.engine_for(image).map_err(LoadError::other)?;
             let wasm = HashedModuleData::new(wasixv2::instrument(image).into_owned());
-            let module = self.runtime.load_hashed_module(wasm, Some(&engine)).await?;
+            let module = self
+                .runtime
+                .load_hashed_module(wasm, Some(&engine))
+                .await
+                .map_err(LoadError::other)?;
             Ok((engine, module))
         })
     }

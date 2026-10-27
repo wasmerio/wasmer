@@ -280,6 +280,98 @@ async fn a_file_that_is_neither_wasm_nor_a_script_is_enoexec() {
     .await;
 }
 
+/// `execve(argv[1], &argv[1], NULL)`; when that fails, prints `kept` and exits with the errno,
+/// which shows that the caller's image survived.
+const EXEC_ARG: &str = r#"
+(module
+  (import "wasixv2" "startup_size" (func $startup_size (result i32)))
+  (import "wasixv2" "startup_get" (func $startup_get (param i32 i32) (result i32)))
+  (import "wasixv2" "execve" (func $execve (param i32 i32 i32) (result i32)))
+  (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+  (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "kept")
+  (func (export "_start") (local $ret i32)
+    (drop (call $startup_get (i32.const 1024) (call $startup_size)))
+    (local.set $ret (call $execve (i32.load (i32.const 1032)) (i32.const 1032) (i32.const 0)))
+    (drop (call $write (i32.const 1) (i32.const 0) (i32.const 4)))
+    (call $exit_group (i32.sub (i32.const 0) (local.get $ret)))
+    unreachable))
+"#;
+
+/// Images in no format the machine runs, by the name they are installed under: a module without imports of any ABI, a `wasix_64v1` module, a component and a module cut
+/// off inside its import section.
+fn unservable() -> Vec<(&'static str, Vec<u8>)> {
+    vec![
+        (
+            "bare",
+            wat(r#"(module (memory (export "memory") 1) (func (export "_start")))"#),
+        ),
+        (
+            "wa64",
+            wat(
+                r#"(module (import "wasix_64v1" "proc_exit" (func (param i32))) (func (export "_start")))"#,
+            ),
+        ),
+        ("comp", b"\0asm\x0d\0\x01\0".to_vec()),
+        ("trnc", b"\0asm\x01\0\0\0\x02\x7f\x01".to_vec()),
+    ]
+}
+
+/// `execve` refuses an image no ABI or loader serves with `ENOEXEC` before the point of no
+/// return, as Linux's `search_binary_handler` does: the caller goes on with its own image.
+#[tokio::test]
+async fn an_image_nothing_serves_fails_execve_with_enoexec() {
+    local(async {
+        let images = unservable();
+        let mut list: Vec<(&str, &[u8])> = images.iter().map(|(n, i)| (*n, i.as_slice())).collect();
+        let exec = wat(EXEC_ARG);
+        list.push(("exec", &exec));
+        let machine = machine_with(&list).await;
+        for (name, _) in &images {
+            let path = format!("/bin/{name}");
+            let (status, out) = run_file(&machine, "/bin/exec", &["exec", &path]).await;
+            assert_eq!((status.unwrap(), out.as_str()), (ENOEXEC, "kept"), "{name}");
+            let (status, _) = run_file(&machine, &path, &[name]).await;
+            assert_eq!(execve_errno(status), ENOEXEC, "{name}");
+        }
+    })
+    .await;
+}
+
+/// Refuses every image with `EACCES`, as a format handler may.
+struct Refusing;
+
+impl Loader for Refusing {
+    fn probe(&self, _image: &[u8]) -> Result<(), LoadError> {
+        Err(LoadError::Format(wasixv2_syscalls::Errno::EACCES))
+    }
+
+    fn load<'a>(
+        &'a self,
+        engine: &'a Engine,
+        image: &'a [u8],
+    ) -> LocalFuture<'a, Result<(Engine, Module), LoadError>> {
+        Compile.load(engine, image)
+    }
+}
+
+/// The loader's probe decides which images `execve` starts, and its errno is `execve`'s.
+#[tokio::test]
+async fn the_loader_probe_refuses_images_before_execve_commits() {
+    local(async {
+        let mut machine = Machine::builder().loader(Arc::new(Refusing)).build();
+        machine
+            .install_commands(commands(&[("echo", &echo(""))]))
+            .await
+            .unwrap();
+        let (status, _) = run_file(&machine, "/bin/echo", &["echo"]).await;
+        // EACCES
+        assert_eq!(execve_errno(status), 13);
+    })
+    .await;
+}
+
 fn root_volume(tool: &'static [u8]) -> OwnedReader {
     let mut bin = BTreeMap::new();
     for name in ["tool", "echo"] {
