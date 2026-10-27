@@ -284,7 +284,9 @@ async fn command_from_arrays<S: Syscalls + Control + 'static>(
 
 /// `execve`s `command`, searching its path as musl's `execvp` does: a missing file or
 /// directory tries the next candidate, a permission error is remembered, anything else ends
-/// the search. Returns only on failure, or on success with the image change pending.
+/// the search. A candidate that is a package command's path gets the command's
+/// [`CommandDefaults`](crate::CommandDefaults), as v1 started those. Returns only on failure,
+/// or on success with the image change pending.
 async fn exec<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
     command: &Command,
@@ -301,6 +303,17 @@ async fn exec<S: Syscalls + Control + 'static>(
     let mut denied = false;
     for candidate in command.candidates() {
         let file = frame.mem.alloc_cstr(&candidate)?;
+        let (argv, envp) = match frame.instance().procs().command(&candidate) {
+            Some(defaults) => {
+                let (mut args, mut env) = (command.args.clone(), env.clone());
+                defaults.apply(&mut args, &mut env);
+                (
+                    frame.mem.alloc_cstr_array(&slices(&args))?,
+                    frame.mem.alloc_cstr_array(&slices(&env))?,
+                )
+            }
+            None => (argv, envp),
+        };
         match frame
             .syscalls
             .execve(&frame.caller(), file, argv, envp)

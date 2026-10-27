@@ -38,9 +38,10 @@ pub mod memory;
 pub mod process;
 pub mod shim;
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 pub use instance::{SIGNAL_CALLBACK, THREAD_ENTRY};
+pub use process::CommandDefaults;
 use wasixv2_exec::{Abi, AbiInstance, ExecEnv, ExecError, Role};
 use wasixv2_syscalls::{Control, Syscalls, TaskId};
 use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
@@ -57,6 +58,14 @@ pub struct Wasix1 {
 impl Wasix1 {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The ABI for a machine with package commands: a v1 program that starts the guest path of
+    /// one of `commands` passes it the command's [`CommandDefaults`], as v1 did.
+    pub fn with_commands(commands: HashMap<Vec<u8>, CommandDefaults>) -> Self {
+        Self {
+            procs: Arc::new(Procs::with_commands(commands)),
+        }
     }
 }
 
