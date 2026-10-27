@@ -77,8 +77,10 @@ struct State {
     objects: HashMap<LockKey, ObjectLocks>,
     /// Process owners blocked in `F_SETLKW`, and on which lock, for deadlock detection.
     waiting: HashMap<LockOwner, RangeLock>,
+    /// Bumped by every change; a waiter that saw an older one looks again.
     generation: u64,
-    wakers: Vec<Waker>,
+    /// Waiters, by the object whose locks they wait on: a change wakes only its object's.
+    wakers: HashMap<LockKey, Vec<Waker>>,
 }
 
 /// The lock tables of one VFS.
@@ -117,7 +119,7 @@ impl LockManager {
             let had = locks.flocks.len();
             locks.flocks.retain(|(f, _)| *f != file);
             if locks.flocks.len() != had {
-                wake(&mut state);
+                wake(&mut state, key);
             }
         }
         loop {
@@ -137,7 +139,7 @@ impl LockManager {
                 }
                 state.generation
             };
-            self.changed(generation).await;
+            self.changed(key, generation).await;
         }
     }
 
@@ -158,7 +160,7 @@ impl LockManager {
                     None => {
                         insert_range(&mut locks.ranges, request);
                         state.waiting.remove(&request.owner);
-                        wake(&mut state);
+                        wake(&mut state, key);
                         return Ok(());
                     }
                     Some(_) if !wait => return Err(Errno::EAGAIN),
@@ -175,7 +177,7 @@ impl LockManager {
                 state.generation
             };
             let guard = WaitingGuard(self, request.owner);
-            self.changed(generation).await;
+            self.changed(key, generation).await;
             drop(guard);
         }
     }
@@ -210,21 +212,22 @@ impl LockManager {
         if locks.flocks.is_empty() && locks.ranges.is_empty() {
             state.objects.remove(&key);
         }
-        wake(&mut state);
+        wake(&mut state, key);
     }
 
-    /// Completes once anything changed after `generation`.
-    fn changed(&self, generation: u64) -> Changed<'_> {
+    /// Completes once `key`'s locks changed after `generation` (or, spuriously, others').
+    fn changed(&self, key: LockKey, generation: u64) -> Changed<'_> {
         Changed {
             manager: self,
+            key,
             generation,
         }
     }
 }
 
-fn wake(state: &mut State) {
+fn wake(state: &mut State, key: LockKey) {
     state.generation += 1;
-    for waker in state.wakers.drain(..) {
+    for waker in state.wakers.remove(&key).into_iter().flatten() {
         waker.wake();
     }
 }
@@ -296,6 +299,7 @@ impl Drop for WaitingGuard<'_> {
 
 struct Changed<'a> {
     manager: &'a LockManager,
+    key: LockKey,
     generation: u64,
 }
 
@@ -307,8 +311,10 @@ impl Future for Changed<'_> {
         if state.generation != self.generation {
             return Poll::Ready(());
         }
-        if !state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
-            state.wakers.push(cx.waker().clone());
+        let key = self.key;
+        let wakers = state.wakers.entry(key).or_default();
+        if !wakers.iter().any(|w| w.will_wake(cx.waker())) {
+            wakers.push(cx.waker().clone());
         }
         Poll::Pending
     }
@@ -377,6 +383,39 @@ mod tests {
         );
         locks.release_file(KEY, 7);
         assert_eq!(block_on(locks.flock(KEY, 8, FlockOp::Shared, true)), Ok(()));
+    }
+
+    #[test]
+    fn a_change_wakes_only_the_waiters_of_its_object() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+
+        struct Count(AtomicUsize);
+        impl futures::task::ArcWake for Count {
+            fn wake_by_ref(this: &Arc<Self>) {
+                this.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        const OTHER: LockKey = (1, 2);
+        let locks = LockManager::default();
+        let (a, b) = (LockOwner::Process(1), LockOwner::Process(2));
+        for key in [KEY, OTHER] {
+            block_on(locks.set(key, lock(a, LockKind::Write, 0, 0), false)).unwrap();
+        }
+        let count = Arc::new(Count(AtomicUsize::new(0)));
+        let waker = futures::task::waker(count.clone());
+        let mut waiter = Box::pin(locks.set(KEY, lock(b, LockKind::Write, 0, 0), true));
+        let mut cx = Context::from_waker(&waker);
+        assert!(waiter.as_mut().poll(&mut cx).is_pending());
+
+        locks.release_owner(OTHER, a);
+        assert_eq!(count.0.load(Ordering::SeqCst), 0);
+        locks.release_owner(KEY, a);
+        assert_eq!(count.0.load(Ordering::SeqCst), 1);
+        assert_eq!(waiter.as_mut().poll(&mut cx), Poll::Ready(Ok(())));
     }
 
     #[test]
