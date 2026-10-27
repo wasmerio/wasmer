@@ -30,7 +30,7 @@ use crate::{
     Kernel, Process, Task,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     ident::Comm,
-    signal::Signals,
+    signal::{Signals, user_info},
     thread,
     work::Work,
 };
@@ -234,7 +234,7 @@ impl Kernel {
         let (ignored, nocldwait) = parent_signals
             .as_ref()
             .map_or((true, true), |signals| signals.child_reaping());
-        let (exit, exit_signal, vfork_parent) = {
+        let (exit, exit_signal, vfork_parent, orphans) = {
             let mut tree = self.procs.tree.lock().unwrap();
             let reaper = tree.reaper(pid);
             let Some(node) = tree.nodes.get_mut(&pid) else {
@@ -263,16 +263,29 @@ impl Kernel {
             if autoreap {
                 tree.nodes.remove(&pid);
             }
-            let orphans: Vec<u32> = tree.children(pid).map(|(&child, _)| child).collect();
-            for child in orphans {
+            // `forget_original_parent`: the children go to the reaper, and those that asked for
+            // it hear of their parent's death.
+            let children: Vec<u32> = tree.children(pid).map(|(&child, _)| child).collect();
+            let mut orphans = Vec::new();
+            for child in children {
                 let node = tree.nodes.get_mut(&child).expect("listed above");
                 node.parent = reaper;
-                if reaper == 0 && node.exit.is_some() {
-                    tree.nodes.remove(&child);
+                let pdeathsig = node.process.ident.lock().unwrap().pdeathsig();
+                match node.exit {
+                    Some(_) if reaper == 0 => drop(tree.nodes.remove(&child)),
+                    None if pdeathsig != 0 => orphans.push((child, pdeathsig)),
+                    _ => {}
                 }
             }
-            (exit, exit_signal, tree.vforks.remove(&task))
+            (exit, exit_signal, tree.vforks.remove(&task), orphans)
         };
+        // `group_send_sig_info(pdeath_signal, SEND_SIG_NOINFO)`: from the parent, as `kill`.
+        for (child, sig) in orphans {
+            if let Some(signals) = self.group_signals(child) {
+                let info = user_info(sig, SiCode::SI_USER, pid as Pid, exit.uid);
+                let _ = signals.send_group(info);
+            }
+        }
         if let Some(parent_task) = vfork_parent {
             let action = GuestAction::VforkReturn {
                 parent: parent_task,
@@ -710,7 +723,8 @@ impl Kernel {
         *process.args.lock().unwrap() = args;
         *process.env.lock().unwrap() = env;
         let no_new_privs = process.ident.lock().unwrap().no_new_privs;
-        let (cred, secure) = process.cred().exec(
+        let old = process.cred();
+        let (cred, secure) = old.exec(
             binary.mode,
             binary.owner,
             !binary.nosuid && !no_new_privs,
@@ -718,12 +732,16 @@ impl Kernel {
         );
         let dumpable =
             cred.user.effective == cred.user.real && cred.group.effective == cred.group.real;
+        let privileged = secure || cred.drops_dumpable(&old);
         *process.cred.lock().unwrap() = cred;
         *process.exe.lock().unwrap() = Some(binary.path);
         {
             let mut ident = process.ident.lock().unwrap();
             ident.secure_exec = secure;
             ident.dumpable = dumpable;
+            if privileged {
+                ident.clear_pdeathsig();
+            }
         }
         self.with_task(task, |t| {
             t.comm = Comm::from_path(name);

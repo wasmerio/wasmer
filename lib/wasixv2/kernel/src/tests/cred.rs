@@ -35,7 +35,7 @@ pub(super) fn machine_with(
     (kernel, task, FlatMemory(RefCell::new(vec![0; 65536])))
 }
 
-fn machine_as(uid: u32, gid: u32) -> (Kernel, TaskId, FlatMemory) {
+pub(super) fn machine_as(uid: u32, gid: u32) -> (Kernel, TaskId, FlatMemory) {
     machine_with(|kernel| kernel.with_credentials(Credentials::new(uid, gid)))
 }
 
