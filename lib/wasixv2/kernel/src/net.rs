@@ -191,7 +191,9 @@ impl Kernel {
             _ => return Err(Errno::ESOCKTNOSUPPORT.into()),
         };
         let network = self.network.as_ref().ok_or(Errno::EAFNOSUPPORT)?;
-        let socket = network.socket(domain, kind, protocol)?;
+        // `sk_uid`: the inode owner `sock_alloc` gives the socket.
+        let (uid, _) = self.cred(caller).fs_owner();
+        let socket = network.socket(domain, kind, protocol, uid)?;
         let file = self.socket_file(caller, socket, flags);
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [fd] = self.install_files(caller, [file], cloexec)?;

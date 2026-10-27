@@ -54,18 +54,21 @@ pub struct UdpSocket {
     net: Arc<Net>,
     id: SockId,
     domain: Domain,
+    /// `sk_uid`, for `SO_REUSEPORT`.
+    uid: u32,
     wq: WaitQueue,
     me: Weak<UdpSocket>,
     inner: Mutex<Inner>,
 }
 
 impl UdpSocket {
-    pub(crate) fn new(net: Arc<Net>, domain: Domain) -> Arc<Self> {
+    pub(crate) fn new(net: Arc<Net>, domain: Domain, uid: u32) -> Arc<Self> {
         let id = net.next_id();
         Arc::new_cyclic(|me| Self {
             net,
             id,
             domain,
+            uid,
             wq: WaitQueue::new(),
             me: me.clone(),
             inner: Mutex::new(Inner {
@@ -95,7 +98,7 @@ impl UdpSocket {
             v6only: o.v6only,
             reuseaddr: o.reuseaddr,
             reuseport: o.reuseport,
-            uid: 0,
+            uid: self.uid,
         }
     }
 

@@ -73,7 +73,13 @@ impl FakeNet {
 }
 
 impl Network for FakeNet {
-    fn socket(&self, _: Domain, kind: SocketKind, protocol: i32) -> Result<Arc<dyn Socket>, Errno> {
+    fn socket(
+        &self,
+        _: Domain,
+        kind: SocketKind,
+        protocol: i32,
+        _: u32,
+    ) -> Result<Arc<dyn Socket>, Errno> {
         if protocol != 0 {
             return Err(Errno::EPROTONOSUPPORT);
         }
