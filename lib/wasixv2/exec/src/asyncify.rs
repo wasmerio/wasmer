@@ -43,12 +43,24 @@ const STOP_UNWIND: &str = "asyncify_stop_unwind";
 const START_REWIND: &str = "asyncify_start_rewind";
 const STOP_REWIND: &str = "asyncify_stop_rewind";
 
-/// Whether `module` was instrumented with binaryen's asyncify.
+/// The shadow stack pointer, which a saved stack restores and a fork child takes over.
+const STACK_POINTER: &str = "__stack_pointer";
+
+/// Whether `module` was instrumented with binaryen's asyncify in a way this machinery can use:
+/// it exports asyncify's functions and its shadow stack pointer, as libc-built modules do. A
+/// module that keeps the stack pointer to itself runs as an uninstrumented one, since neither
+/// a saved stack nor a fork child could get its stack pointer back.
 pub(crate) fn instrumented(module: &Module) -> bool {
     let has = |name: &str| module.exports().any(|export| export.name() == name);
-    [START_UNWIND, STOP_UNWIND, START_REWIND, STOP_REWIND]
-        .into_iter()
-        .all(has)
+    [
+        START_UNWIND,
+        STOP_UNWIND,
+        START_REWIND,
+        STOP_REWIND,
+        STACK_POINTER,
+    ]
+    .into_iter()
+    .all(has)
 }
 
 /// What an unwind is for, as the import that started it asked.
@@ -119,16 +131,15 @@ pub(crate) struct Asyncify {
 }
 
 impl Asyncify {
-    /// The asyncify state of `instance`, or `None` if its module is not instrumented. An
-    /// instrumented module must export `__stack_pointer`, as libc-built ones do.
+    /// The asyncify state of `instance`, or `None` if its module is not [`instrumented`].
     pub(crate) fn new(
         instance: &Instance,
         store: &mut impl AsStoreMut,
     ) -> Result<Option<Self>, wasmer::ExportError> {
-        let exports = &instance.exports;
-        if exports.get_function(START_UNWIND).is_err() {
+        if !instrumented(instance.module()) {
             return Ok(None);
         }
+        let exports = &instance.exports;
         let globals = exports
             .iter()
             .filter_map(|(name, export)| match export {
@@ -145,7 +156,7 @@ impl Asyncify {
             stop_unwind: exports.get_typed_function(store, STOP_UNWIND)?,
             start_rewind: exports.get_typed_function(store, START_REWIND)?,
             stop_rewind: exports.get_typed_function(store, STOP_REWIND)?,
-            stack_pointer: exports.get_global("__stack_pointer")?.clone(),
+            stack_pointer: exports.get_global(STACK_POINTER)?.clone(),
             globals,
             buffer: None,
             depth: 0,
