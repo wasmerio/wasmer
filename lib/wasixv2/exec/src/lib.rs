@@ -621,8 +621,8 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
     let mut switched: Option<i32> = None;
     // Once a handler ran: whether the call runs again. The first handler, the one that
     // interrupted the call, decides by its `SA_RESTART`, and any handler may cancel the restart
-    // through its frame. `ERESTARTNOHAND` and `ERESTART_RESTARTBLOCK` never restart after a
-    // handler.
+    // through its frame. `ERESTARTNOINTR` restarts whatever the handler's flags;
+    // `ERESTARTNOHAND` and `ERESTART_RESTARTBLOCK` never restart after a handler.
     let mut handled: Option<bool> = None;
     // Nothing to do unless the kernel raised the flag (`exit_to_user_mode_prepare`).
     let raised = env.read().await.data().work.is_raised();
@@ -681,8 +681,11 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 }
             }
             GuestAction::Signal(frame) => {
-                let restart =
-                    handled.get_or_insert(matches!(ret, Err(SysErr::Restart)) && frame.restarts());
+                let restart = handled.get_or_insert(match ret {
+                    Err(SysErr::RestartNoIntr) => true,
+                    Err(SysErr::Restart) => frame.restarts(),
+                    _ => false,
+                });
                 let Some(abi) = instance_abi(env).await else {
                     syscalls.signal_return(task, None);
                     return Outcome::Unwind(RuntimeError::new("signal delivery before bind"));
@@ -707,10 +710,11 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
         (Ok(value), _) => return Outcome::Return(Ok(value)),
         (Err(SysErr::Errno(errno)), _) => errno,
         (Err(SysErr::RestartBlock), None | Some(true)) => return Outcome::Restart,
-        (Err(SysErr::Restart | SysErr::RestartNoHand), None | Some(true)) => return Outcome::Rerun,
-        (Err(SysErr::Restart | SysErr::RestartNoHand | SysErr::RestartBlock), Some(false)) => {
-            Errno::EINTR
-        }
+        (
+            Err(SysErr::Restart | SysErr::RestartNoIntr | SysErr::RestartNoHand),
+            None | Some(true),
+        ) => return Outcome::Rerun,
+        (Err(_), Some(false)) => Errno::EINTR,
     };
     Outcome::Return(Err(errno))
 }
