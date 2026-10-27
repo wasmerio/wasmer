@@ -1,6 +1,7 @@
 //! `/proc` and the character devices: magic links, the pseudo inodes behind pipes and event
 //! descriptors, and device semantics.
 
+use futures::FutureExt as _;
 use wasixv2_abi::{EventfdFlags, ResolveFlags, Statx};
 use wasixv2_syscalls::read_value;
 use wasixv2_vfs::{FileType, MountFlags};
@@ -200,6 +201,37 @@ fn opening_a_pipes_fd_link_attaches_to_the_same_pipe() {
     assert_eq!(block_on(kernel.close(&t.caller, w)), Ok(0));
     assert_eq!(block_on(kernel.close(&t.caller, again)), Ok(0));
     assert_eq!(t.read_all(r), "via proc");
+}
+
+#[test]
+fn a_pipes_fd_link_opens_without_waiting_for_a_partner() {
+    // `fifo_open` waits for a partner only on a FIFO, not on a pipe's own inode: `cat <(...)`
+    // opens `/dev/fd/N` after the writer may have finished.
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let (r, w) = pipe(&kernel, &t.caller, OpenFlags(0));
+    assert_eq!(t.write(w, b"left"), Ok(4));
+    assert_eq!(block_on(kernel.close(&t.caller, w)), Ok(0));
+    let at = path(&memory, &format!("/proc/self/fd/{}", r.0));
+    let opened = kernel
+        .openat(&t.caller, CWD, at, OpenFlags::O_RDONLY, 0)
+        .now_or_never();
+    let again = opened.expect("the open waits for a writer").unwrap();
+    assert_eq!(t.read_all(again), "left");
+
+    // Nor does a writer wait for a reader, or get `ENXIO` without one: it gets `EPIPE`.
+    let (r, w) = pipe(&kernel, &t.caller, OpenFlags(0));
+    assert_eq!(block_on(kernel.close(&t.caller, r)), Ok(0));
+    for flags in [
+        OpenFlags::O_WRONLY,
+        OpenFlags::O_WRONLY | OpenFlags::O_NONBLOCK,
+    ] {
+        let at = path(&memory, &format!("/proc/self/fd/{}", w.0));
+        let opened = kernel.openat(&t.caller, CWD, at, flags, 0).now_or_never();
+        let again = opened.expect("the open waits for a reader").unwrap();
+        assert_eq!(errno(t.write(again, b"x")), Errno::EPIPE);
+    }
 }
 
 #[test]

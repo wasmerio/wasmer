@@ -1,5 +1,6 @@
 //! Named pipes (`fs/pipe.c`'s `fifo_open`): opening a FIFO inode attaches an end of the pipe
-//! bound to that inode, allocating it on the first open.
+//! bound to that inode, allocating it on the first open. A pipe's own inode on pipefs, opened
+//! again through `/proc/<pid>/fd`, attaches the same way but never waits for a partner.
 
 use wasixv2_abi::{IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult};
@@ -9,6 +10,7 @@ use wasixv2_wait::{Interrupt, PollMask, PollTable, Pollable};
 use crate::{
     file::{FileObject, Io},
     pipe::{Pipe, PipeEnd, fifo_pipe},
+    pseudo::PIPEFS_MAGIC,
 };
 
 /// An open FIFO: the pipe ends its access mode asks for, and the VFS file that keeps the inode
@@ -20,7 +22,9 @@ pub(crate) struct FifoFile {
 }
 
 /// `fifo_open`. Blocking opens wait for the other side; a non-blocking writer without readers
-/// is `ENXIO`; `O_RDWR` never waits. A signal interrupts the wait.
+/// is `ENXIO`; `O_RDWR` never waits. A signal interrupts the wait. None of this applies to a
+/// pipe's inode (`is_pipe`): its other side is whatever the pipe has now, so a reader after
+/// the last writer sees end of file and a writer after the last reader `EPIPE`.
 pub(crate) async fn open(
     file: File,
     flags: OpenFlags,
@@ -31,11 +35,12 @@ pub(crate) async fn open(
         .bound_or_bind(|| fifo_pipe())
         .downcast::<Pipe>()
         .map_err(|_| Errno::ENXIO)?;
+    let is_pipe = file.path.dentry.sb().info.magic == PIPEFS_MAGIC;
     let nonblock = flags.contains(OpenFlags::O_NONBLOCK);
     let (read, write) = match flags & OpenFlags::O_ACCMODE {
         OpenFlags::O_RDONLY => {
             let (mut end, writers) = PipeEnd::attach(&pipe, false);
-            if writers.open == 0 {
+            if !is_pipe && writers.open == 0 {
                 match nonblock {
                     true => end.hup_after_writer(writers),
                     false => pipe.wait_for_partner(true, writers, interrupt).await?,
@@ -44,11 +49,11 @@ pub(crate) async fn open(
             (Some(end), None)
         }
         OpenFlags::O_WRONLY => {
-            if nonblock && pipe.readers() == 0 {
+            if !is_pipe && nonblock && pipe.readers() == 0 {
                 return Err(Errno::ENXIO.into());
             }
             let (end, readers) = PipeEnd::attach(&pipe, true);
-            if !nonblock && readers.open == 0 {
+            if !is_pipe && !nonblock && readers.open == 0 {
                 pipe.wait_for_partner(false, readers, interrupt).await?;
             }
             (None, Some(end))
