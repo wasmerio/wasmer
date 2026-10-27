@@ -313,8 +313,10 @@ pub trait BackendStream: Pollable {
     }
 }
 
-/// A datagram endpoint through the backend. `poll` reports `IN` while datagrams are queued and
-/// `ERR` while an error is pending; like a stream's, it registers nothing.
+/// A datagram endpoint through the backend. `poll` reports `IN` while datagrams are queued,
+/// `OUT` while a send would not block (`sock_writeable`) and `ERR` while an error is pending;
+/// like a stream's, it registers nothing, and it wakes the guest socket's queue with `OUT` once
+/// a send that failed with `EAGAIN` would go through.
 pub trait BackendDatagram: Pollable {
     /// Sends one datagram; `EAGAIN` when the host would block.
     fn send_to(&self, data: &[u8], to: SocketAddr) -> Result<usize, Errno>;

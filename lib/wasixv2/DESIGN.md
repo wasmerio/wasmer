@@ -468,7 +468,7 @@ The kernel-facing traits are in `vnet/src/api.rs`. Traffic for a destination tha
 
 `wasixv2-vnet-host` runs one mio reactor thread per `HostBackend`, never tokio, and is Unix-only for now.
 
-- Guest-side stream and datagram objects are buffers: 256 KiB per direction for streams, 256 KiB of queued datagrams. Guests read and write them without blocking.
+- Guest-side stream and datagram objects are buffers: 256 KiB per direction for streams, 256 KiB of queued datagrams. Guests read and write them without blocking. Outgoing datagrams go straight to the host socket: one the host cannot take is `EAGAIN`, the socket stops polling `OUT`, and the reactor wakes it once the host socket is writable again.
 - The reactor moves bytes between the buffers and the host sockets. Guest activity marks a stream dirty and wakes the reactor through a `mio::Waker`. The reactor wakes guest wait queues from its own thread.
 - Host errors keep their Linux errno numbers. Dropping the guest's handle flushes and closes the host socket, or resets it when unread data or `SO_LINGER` zero call for that. An orphan still flushing is reset once its peer has taken nothing for 60 seconds (standing in for `tcp_fin_timeout` and the orphan retries) or its `SO_LINGER` time is up.
 
