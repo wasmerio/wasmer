@@ -245,3 +245,66 @@ fn sendfile_reads_sockets_without_an_offset_and_never_pipes() {
     let back = t.open("/out", OpenFlags::O_RDONLY).unwrap();
     assert_eq!(t.read(back, 16), Ok(b"hello".to_vec()));
 }
+
+/// The `(wd, mask, name)` of every event queued on the inotify instance `fd`.
+fn inotify_events(t: &T<'_>, fd: Fd) -> Vec<(i32, u32, String)> {
+    let Ok(raw) = t.read(fd, 4096) else {
+        return Vec::new();
+    };
+    let mut events = Vec::new();
+    let mut at = 0;
+    while at < raw.len() {
+        let word = |i: usize| u32::from_ne_bytes(raw[at + i..at + i + 4].try_into().unwrap());
+        let len = word(12) as usize;
+        let name = &raw[at + 16..at + 16 + len];
+        let name = name.split(|&b| b == 0).next().unwrap();
+        events.push((
+            word(0) as i32,
+            word(4),
+            String::from_utf8(name.to_vec()).unwrap(),
+        ));
+        at += 16 + len;
+    }
+    events
+}
+
+#[test]
+fn inotify_takes_flag_only_masks_and_honours_excl_unlink() {
+    use wasixv2_abi::{InotifyInitFlags, InotifyMask};
+    const IN_EXCL_UNLINK: u32 = 0x0400_0000;
+    const FS_EVENT_ON_CHILD: u32 = 0x0800_0000;
+
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/d");
+    t.create("/d/f", b"");
+    let init = || block_on(kernel.inotify_init1(&t.caller, InotifyInitFlags::IN_NONBLOCK)).unwrap();
+    let watch = |fd, at: &str, mask: u32| {
+        let name = t.path(at);
+        let add = kernel.inotify_add_watch(&t.caller, fd, name, InotifyMask(mask));
+        block_on(add)
+    };
+    let (plain, excl) = (init(), init());
+
+    // `ALL_INOTIFY_BITS`: flags alone make a watch; bits outside inotify's are EINVAL.
+    let dont_follow = InotifyMask::IN_DONT_FOLLOW.0;
+    assert_eq!(watch(plain, "/d/f", dont_follow), Ok(1));
+    let modify = InotifyMask::IN_MODIFY.0;
+    assert_eq!(
+        errno(watch(plain, "/d", modify | FS_EVENT_ON_CHILD)),
+        Errno::EINVAL
+    );
+
+    // A file written after its name is gone: the directory it was in still hears of it, unless
+    // the watch asked for IN_EXCL_UNLINK.
+    assert_eq!(watch(plain, "/d", modify), Ok(2));
+    assert_eq!(watch(excl, "/d", modify | IN_EXCL_UNLINK), Ok(1));
+    let fd = t.open("/d/f", OpenFlags::O_WRONLY).unwrap();
+    let name = t.path("/d/f");
+    let unlink = kernel.unlinkat(&t.caller, CWD, name, AtFlags(0));
+    assert_eq!(block_on(unlink), Ok(0));
+    inotify_events(&t, plain);
+    assert_eq!(t.write(fd, b"x"), Ok(1));
+    assert_eq!(inotify_events(&t, plain), [(2, modify, "f".to_string())]);
+    assert_eq!(inotify_events(&t, excl), []);
+}

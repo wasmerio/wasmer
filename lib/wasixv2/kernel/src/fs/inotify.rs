@@ -13,7 +13,7 @@ use wasixv2_abi::{
     AtFd, AtFlags, Cstr, GuestPtrMut, InotifyInitFlags, InotifyMask, IoctlRequest, OpenFlags,
 };
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysErr, SysResult, write_value};
-use wasixv2_vfs::{FileType, FsEvent, FsObject, FsWatcher, MAY_READ, Vfs};
+use wasixv2_vfs::{FileType, FsEvent, FsObject, FsWatcher, MAY_READ, Path, Vfs};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use super::read_path;
@@ -29,6 +29,9 @@ const IN_EXCL_UNLINK: u32 = 0x0400_0000;
 const IN_MASK_CREATE: u32 = 0x1000_0000;
 /// `ALL_INOTIFY_BITS`: what a watch's mask may hold.
 const ALL_BITS: u32 = InotifyMask::IN_ALL_EVENTS.0
+    | InotifyMask::IN_UNMOUNT.0
+    | InotifyMask::IN_Q_OVERFLOW.0
+    | InotifyMask::IN_IGNORED.0
     | InotifyMask::IN_ONLYDIR.0
     | InotifyMask::IN_DONT_FOLLOW.0
     | IN_EXCL_UNLINK
@@ -69,8 +72,9 @@ impl Registry {
         result
     }
 
-    /// Queues `mask` for every watch on `object` that wants it.
-    fn deliver(&self, object: FsObject, mask: u32, cookie: u32, name: &[u8]) {
+    /// Queues `mask` for every watch on `object` that wants it. An event about an object
+    /// whose name was removed (`unlinked`) skips `IN_EXCL_UNLINK` watches.
+    fn deliver(&self, object: FsObject, mask: u32, cookie: u32, name: &[u8], unlinked: bool) {
         let targets: Vec<(Arc<Instance>, i32)> = {
             let watches = self.watches.lock().unwrap();
             let Some(list) = watches.get(&object) else {
@@ -81,19 +85,26 @@ impl Registry {
                 .collect()
         };
         for (inotify, wd) in &targets {
-            inotify.event(self, *wd, mask, cookie, name);
+            inotify.event(self, *wd, mask, cookie, name, unlinked);
         }
     }
 
     /// The object is gone: `IN_DELETE_SELF`, then `IN_IGNORED` as its watches go away.
     fn gone(&self, object: FsObject) {
-        self.deliver(object, InotifyMask::IN_DELETE_SELF.0, 0, b"");
+        self.deliver(object, InotifyMask::IN_DELETE_SELF.0, 0, b"", false);
         let removed = self.update(|watches| watches.remove(&object));
         for (inotify, wd) in removed.into_iter().flatten() {
             if let Some(inotify) = inotify.upgrade() {
                 inotify.forget(wd);
                 inotify.push(wd, InotifyMask::IN_IGNORED.0, 0, b"");
             }
+        }
+    }
+
+    /// An object event for the object's own watches.
+    fn unlinked_or_not(&self, event: &FsEvent<'_>, unlinked: bool) {
+        if let Some((object, mask)) = object_event(event) {
+            self.deliver(object, mask, 0, b"", unlinked);
         }
     }
 
@@ -117,9 +128,13 @@ impl FsWatcher for Registry {
     fn event(&self, event: &FsEvent<'_>) {
         let isdir = |is_dir: bool| if is_dir { IN_ISDIR } else { 0 };
         match *event {
-            FsEvent::Create { dir, name, is_dir } => {
-                self.deliver(dir, InotifyMask::IN_CREATE.0 | isdir(is_dir), 0, name)
-            }
+            FsEvent::Create { dir, name, is_dir } => self.deliver(
+                dir,
+                InotifyMask::IN_CREATE.0 | isdir(is_dir),
+                0,
+                name,
+                false,
+            ),
             FsEvent::Delete {
                 dir,
                 name,
@@ -128,9 +143,15 @@ impl FsWatcher for Registry {
                 gone,
             } => {
                 if !gone {
-                    self.deliver(object, InotifyMask::IN_ATTRIB.0, 0, b"");
+                    self.deliver(object, InotifyMask::IN_ATTRIB.0, 0, b"", false);
                 }
-                self.deliver(dir, InotifyMask::IN_DELETE.0 | isdir(is_dir), 0, name);
+                self.deliver(
+                    dir,
+                    InotifyMask::IN_DELETE.0 | isdir(is_dir),
+                    0,
+                    name,
+                    false,
+                );
                 if gone {
                     self.gone(object);
                 }
@@ -150,21 +171,28 @@ impl FsWatcher for Registry {
                     InotifyMask::IN_MOVED_FROM.0 | flag,
                     cookie,
                     from_name,
+                    false,
                 );
-                self.deliver(to_dir, InotifyMask::IN_MOVED_TO.0 | flag, cookie, to_name);
-                self.deliver(object, InotifyMask::IN_MOVE_SELF.0, 0, b"");
+                self.deliver(
+                    to_dir,
+                    InotifyMask::IN_MOVED_TO.0 | flag,
+                    cookie,
+                    to_name,
+                    false,
+                );
+                self.deliver(object, InotifyMask::IN_MOVE_SELF.0, 0, b"", false);
             }
-            _ => {
-                if let Some((object, mask)) = object_event(event) {
-                    self.deliver(object, mask, 0, b"");
-                }
-            }
+            _ => self.unlinked_or_not(event, false),
         }
     }
 
-    fn child_event(&self, dir: FsObject, name: &[u8], event: &FsEvent<'_>) {
+    fn unlinked_event(&self, event: &FsEvent<'_>) {
+        self.unlinked_or_not(event, true);
+    }
+
+    fn child_event(&self, dir: FsObject, name: &[u8], event: &FsEvent<'_>, unlinked: bool) {
         if let Some((_, mask)) = object_event(event) {
-            self.deliver(dir, mask, 0, name);
+            self.deliver(dir, mask, 0, name, unlinked);
         }
     }
 }
@@ -189,6 +217,9 @@ fn object_event(event: &FsEvent<'_>) -> Option<(FsObject, u32)> {
 struct Watch {
     object: FsObject,
     mask: u32,
+    /// The watched inode, held as Linux's mark holds it (`fsnotify_add_inode_mark`), so its
+    /// number stays its own while the watch lasts.
+    _pin: Path,
 }
 
 #[derive(Default)]
@@ -215,13 +246,25 @@ struct Instance {
 }
 
 impl Instance {
-    fn event(&self, registry: &Registry, wd: i32, mask: u32, cookie: u32, name: &[u8]) {
+    fn event(
+        &self,
+        registry: &Registry,
+        wd: i32,
+        mask: u32,
+        cookie: u32,
+        name: &[u8],
+        unlinked: bool,
+    ) {
         let wanted = {
             let mut state = self.state.lock().unwrap();
             let Some(watch) = state.watches.get(&wd) else {
                 return;
             };
             if watch.mask & mask & InotifyMask::IN_ALL_EVENTS.0 == 0 {
+                return;
+            }
+            // `fsnotify_handle_inode_event`: `IN_EXCL_UNLINK` skips objects with no name.
+            if unlinked && watch.mask & IN_EXCL_UNLINK != 0 {
                 return;
             }
             let oneshot = watch.mask & IN_ONESHOT != 0;
@@ -400,8 +443,9 @@ impl Kernel {
         pathname: Cstr,
         mask: InotifyMask,
     ) -> SysResult<i32> {
+        // Only inotify's bits, and at least one of them: a mask of flags alone is a watch.
         let mask = mask.0;
-        if mask & ALL_BITS == 0 || mask & InotifyMask::IN_ALL_EVENTS.0 == 0 {
+        if mask & !ALL_BITS != 0 || mask & ALL_BITS == 0 {
             return Err(Errno::EINVAL.into());
         }
         if mask & IN_MASK_ADD != 0 && mask & IN_MASK_CREATE != 0 {
@@ -448,7 +492,12 @@ impl Kernel {
         }
         state.last_wd += 1;
         let wd = state.last_wd;
-        state.watches.insert(wd, Watch { object, mask });
+        let watch = Watch {
+            object,
+            mask,
+            _pin: target,
+        };
+        state.watches.insert(wd, watch);
         drop(state);
         self.inotify.update(|watches| {
             let list = watches.entry(object).or_default();
