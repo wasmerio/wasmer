@@ -361,3 +361,41 @@ fn getfl_keeps_open_flags_and_setfl_takes_o_direct_only_where_it_works() {
     assert_eq!(errno(setfl(event, OpenFlags::O_DIRECT)), Errno::EINVAL);
     assert_eq!(errno(setfl(dir, OpenFlags::O_DIRECT)), Errno::EINVAL);
 }
+
+#[test]
+fn generic_ioctls_give_block_size_bytes_used_and_refuse_async() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/f", &[1; 8192]);
+    let fd = t.open("/f", OpenFlags::O_RDONLY).unwrap();
+    let ioctl = |request, arg| block_on(kernel.ioctl(&t.caller, fd, request, arg));
+    let word = |at| i32::from_le_bytes(get(&memory, at, 4).try_into().unwrap());
+
+    assert_eq!(ioctl(IoctlRequest(2), 0x3000), Ok(0), "FIGETBSZ");
+    assert!(word(0x3000) > 0);
+    assert_eq!(ioctl(IoctlRequest::FIOQSIZE, 0x3000), Ok(0));
+    let bytes = i64::from_le_bytes(get(&memory, 0x3000, 8).try_into().unwrap());
+    let vfs = t.kernel.vfs().clone();
+    let path = block_on(vfs.lookup(
+        &wasixv2_vfs::Ctx {
+            cred: &wasixv2_vfs::Cred::root(),
+            root: &vfs.root(),
+            umask: 0,
+            task: 0,
+        },
+        &vfs.root(),
+        b"/f",
+        wasixv2_vfs::LookupFlags::follow(),
+    ))
+    .unwrap();
+    let blocks = block_on(path.dentry.node().getattr()).unwrap().blocks;
+    assert_eq!(bytes, blocks as i64 * 512);
+    // No file here has `fasync`: asking for what is already so is fine, a change is not.
+    put(&memory, 0x3000, &0i32.to_le_bytes());
+    assert_eq!(ioctl(IoctlRequest::FIOASYNC, 0x3000), Ok(0));
+    put(&memory, 0x3000, &1i32.to_le_bytes());
+    assert_eq!(errno(ioctl(IoctlRequest::FIOASYNC, 0x3000)), Errno::ENOTTY);
+    let (r, _w) = super::ipc::pipe(&kernel, &t.caller, OpenFlags(0));
+    let qsize = block_on(kernel.ioctl(&t.caller, r, IoctlRequest::FIOQSIZE, 0x3000));
+    assert_eq!(errno(qsize), Errno::ENOTTY);
+}

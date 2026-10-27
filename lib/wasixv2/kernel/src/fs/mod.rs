@@ -31,7 +31,7 @@ use crate::{
 pub(crate) const NOFILE: usize = 1024;
 
 /// `FASYNC` (`asm-generic/fcntl.h`).
-const FASYNC: u32 = 0o20000;
+pub(crate) const FASYNC: u32 = 0o20000;
 
 /// `VALID_OPEN_FLAGS`: what `open` keeps; everything else is ignored by `open` and rejected by
 /// `openat2`.
