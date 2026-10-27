@@ -42,6 +42,62 @@ pub(crate) enum At {
 /// any socket's send buffer. Bounds the host allocation a guest-chosen length causes.
 const MAX_MESSAGE: usize = 4 << 20;
 
+thread_local! {
+    /// This thread's buffer for the steps of reads and writes, kept between calls so that a
+    /// call neither allocates nor zeroes one. A call that finds it taken (by a call suspended
+    /// on this thread meanwhile) makes its own.
+    static SCRATCH: Cell<Vec<u8>> = const { Cell::new(Vec::new()) };
+}
+
+/// A host buffer of `len` bytes for the steps of one call, from this thread's scratch. Only
+/// bytes no call used before are zeroed; a step reads or writes just the part a transfer
+/// filled. Buffers larger than one step (a datagram's) are neither taken nor kept.
+struct Scratch {
+    buf: Vec<u8>,
+    len: usize,
+}
+
+impl Scratch {
+    fn new(len: usize) -> Self {
+        let mut buf = match len <= IO_CHUNK {
+            true => SCRATCH.take(),
+            false => Vec::new(),
+        };
+        if buf.len() < len {
+            buf.resize(len, 0);
+        }
+        Self { buf, len }
+    }
+}
+
+impl std::ops::Deref for Scratch {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        &self.buf[..self.len]
+    }
+}
+
+impl std::ops::DerefMut for Scratch {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[..self.len]
+    }
+}
+
+impl Drop for Scratch {
+    /// Gives the buffer back, unless the scratch holds a larger one again.
+    fn drop(&mut self) {
+        if self.buf.len() > IO_CHUNK {
+            return;
+        }
+        let kept = SCRATCH.take();
+        SCRATCH.set(match kept.len() >= self.buf.len() {
+            true => kept,
+            false => std::mem::take(&mut self.buf),
+        });
+    }
+}
+
 /// A position in a list of guest buffers, for transfers made in steps.
 struct Cursor<'a> {
     iovecs: &'a [Iovec],
@@ -183,7 +239,7 @@ impl Kernel {
             broken: &Cell::new(false),
         };
         let steps = file.fills_reads();
-        let mut buf = vec![0; total.min(IO_CHUNK)];
+        let mut buf = Scratch::new(total.min(IO_CHUNK));
         let mut cursor = Cursor::new(iovecs);
         let mut done = 0;
         self.sync_file_mappings(caller, file).await;
@@ -262,7 +318,7 @@ impl Kernel {
             broken,
         };
         let step = if messages { total } else { total.min(IO_CHUNK) };
-        let mut buf = vec![0; step];
+        let mut buf = Scratch::new(step);
         let mut cursor = Cursor::new(iovecs);
         let mut done = 0;
         self.sync_file_mappings(caller, file).await;
@@ -547,7 +603,7 @@ impl Kernel {
         let count = (count as usize).min(MAX_RW_COUNT);
         let interrupt = self.interrupt(caller);
         let mut done = 0;
-        let mut buf = vec![0; count.min(IO_CHUNK)];
+        let mut buf = Scratch::new(count.min(IO_CHUNK));
         self.sync_file_mappings(caller, input).await;
         self.sync_file_mappings(caller, output).await;
         while done < count {
@@ -616,7 +672,7 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let mut done = 0u64;
-        let mut buf = vec![0; (len as usize).min(IO_CHUNK)];
+        let mut buf = Scratch::new((len as usize).min(IO_CHUNK));
         self.sync_file_mappings(caller, &input).await;
         self.sync_file_mappings(caller, &output).await;
         while done < len {
@@ -894,4 +950,32 @@ pub(crate) async fn read_iovecs(
             Iovec { iov_len, ..iov }
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn steps_reuse_the_thread_scratch_without_zeroing_it_again() {
+        let mut first = Scratch::new(IO_CHUNK);
+        first.fill(7);
+        let at = first.as_ptr();
+        drop(first);
+
+        // The same buffer comes back, with what the last call left in it.
+        let second = Scratch::new(16);
+        assert_eq!(second.as_ptr(), at);
+        assert_eq!(second.len(), 16);
+        assert_eq!(second[..], [7; 16]);
+        // While it is taken, a call suspended meanwhile gets a buffer of its own.
+        let other = Scratch::new(16);
+        assert_ne!(other.as_ptr(), at);
+        assert_eq!(other[..], [0; 16]);
+        drop(second);
+        drop(other);
+        // The larger buffer stays, and a datagram-sized one does not displace it.
+        drop(Scratch::new(IO_CHUNK + 1));
+        assert_eq!(Scratch::new(1).as_ptr(), at);
+    }
 }
