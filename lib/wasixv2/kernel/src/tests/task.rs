@@ -351,6 +351,41 @@ fn an_execve_in_an_exiting_group_fails_with_eagain() {
     assert_eq!(kernel.take_pending(leader), None);
 }
 
+/// argv and envp are bytes: strings that are not UTF-8 reach the new image unchanged, through
+/// a script's `#!` line too.
+#[test]
+fn execve_keeps_arguments_and_environment_as_bytes() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory);
+    put(&memory, 0x2200, b"/script\0");
+    put(&memory, 0x2300, b"#!/prog \xe9x\n");
+    let create = OpenFlags::O_CREAT | OpenFlags::O_WRONLY;
+    let open = kernel.openat(&caller, Fd(-100), GuestPtr::new(0x2200), create, 0o755);
+    let fd = block_on(open).unwrap();
+    let write = kernel.write(&caller, fd, UserSlice::new(0x2300, 11));
+    assert_eq!(block_on(write), Ok(11));
+    assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+    put(&memory, 0x2400, b"caf\xe9\0X=\xff\0");
+    for (at, words) in [(0x2410, [0x2200, 0x2400, 0]), (0x2420, [0x2405, 0, 0])] {
+        let bytes: Vec<u8> = words.iter().flat_map(|w: &u32| w.to_le_bytes()).collect();
+        put(&memory, at, &bytes);
+    }
+
+    let exec = kernel.execve(
+        &caller,
+        GuestPtr::new(0x2200),
+        GuestPtr::new(0x2410),
+        GuestPtr::new(0x2420),
+    );
+    assert_eq!(block_on(exec), Ok(0));
+
+    let process = kernel.process(task);
+    let args: &[&[u8]] = &[b"/prog", b"\xe9x", b"/script", b"caf\xe9"];
+    assert_eq!(*process.args.lock().unwrap(), args);
+    assert_eq!(*process.env.lock().unwrap(), [b"X=\xff"]);
+}
+
 #[test]
 fn an_interrupted_nanosleep_writes_the_time_left_and_restarts_with_it() {
     let (kernel, task, memory) = machine();

@@ -32,13 +32,13 @@ pub(crate) struct Identity {
 
 /// Lays out argc, argv, envp, auxv, the `AT_RANDOM` bytes and the strings.
 pub(crate) struct Startup<'a> {
-    args: &'a [String],
-    env: &'a [String],
+    args: &'a [Vec<u8>],
+    env: &'a [Vec<u8>],
     identity: Identity,
 }
 
 impl<'a> Startup<'a> {
-    pub(crate) fn new(args: &'a [String], env: &'a [String], identity: Identity) -> Self {
+    pub(crate) fn new(args: &'a [Vec<u8>], env: &'a [Vec<u8>], identity: Identity) -> Self {
         Self {
             args,
             env,
@@ -52,7 +52,7 @@ impl<'a> Startup<'a> {
         (pointers + auxv) * WORD
     }
 
-    fn strings(&self) -> impl Iterator<Item = &'a String> {
+    fn strings(&self) -> impl Iterator<Item = &'a Vec<u8>> {
         self.args.iter().chain(self.env)
     }
 
@@ -77,7 +77,7 @@ impl<'a> Startup<'a> {
         for list in [self.args, self.env] {
             for s in list {
                 words.push(base + string_at as u32);
-                block[string_at..][..s.len()].copy_from_slice(s.as_bytes());
+                block[string_at..][..s.len()].copy_from_slice(s);
                 string_at += s.len() + 1;
             }
             words.push(0);
