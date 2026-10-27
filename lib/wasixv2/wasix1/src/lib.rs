@@ -38,10 +38,10 @@ pub mod memory;
 pub mod process;
 pub mod shim;
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::{Arc, RwLock};
 
 pub use instance::{SIGNAL_CALLBACK, THREAD_ENTRY};
-pub use process::CommandDefaults;
+pub use process::{CommandDefaults, Commands, FileId};
 use wasixv2_exec::{Abi, AbiInstance, ExecEnv, ExecError, Role};
 use wasixv2_syscalls::{Control, Syscalls, TaskId};
 use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
@@ -53,6 +53,7 @@ use crate::{imports::Module as V1Module, instance::Wasix1Instance, process::Proc
 #[derive(Default)]
 pub struct Wasix1 {
     procs: Arc<Procs>,
+    commands: Arc<RwLock<Commands>>,
 }
 
 impl Wasix1 {
@@ -60,11 +61,13 @@ impl Wasix1 {
         Self::default()
     }
 
-    /// The ABI for a machine with package commands: a v1 program that starts the guest path of
-    /// one of `commands` passes it the command's [`CommandDefaults`], as v1 did.
-    pub fn with_commands(commands: HashMap<Vec<u8>, CommandDefaults>) -> Self {
+    /// The ABI for a machine with package commands: a v1 program that starts one of the files
+    /// in `commands` passes it the command's [`CommandDefaults`], as v1 did. The embedder may
+    /// change `commands` at any time.
+    pub fn with_commands(commands: Arc<RwLock<Commands>>) -> Self {
         Self {
-            procs: Arc::new(Procs::with_commands(commands)),
+            procs: Arc::default(),
+            commands,
         }
     }
 }
@@ -101,7 +104,8 @@ where
         task: TaskId,
         role: Role,
     ) -> Result<Arc<dyn AbiInstance<S>>, ExecError> {
-        let bound = Wasix1Instance::bind(self.procs.clone(), instance, task, role)?;
+        let (procs, commands) = (self.procs.clone(), self.commands.clone());
+        let bound = Wasix1Instance::bind(procs, commands, instance, task, role)?;
         Ok(Arc::new(bound))
     }
 }

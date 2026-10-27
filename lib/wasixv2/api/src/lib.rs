@@ -78,8 +78,9 @@ pub struct Machine {
     syscalls: Arc<Layered<Trace, Kernel>>,
     /// The guest ABIs programs may target: `wasixv2`, then WASIX v1 with the `wasix1` feature.
     abis: Arc<Abis<Layered<Trace, Kernel>>>,
-    /// What compiles the images processes `execve`; kept to rebuild `abis`.
-    loader: Arc<dyn Loader>,
+    /// The package commands WASIX v1 programs start with their defaults.
+    #[cfg(feature = "wasix1")]
+    wasix1: Wasix1Commands,
     network: Arc<Net>,
     host: Arc<dyn Host>,
     /// The uid and gid processes start as and filesystems are owned by.
@@ -184,13 +185,20 @@ impl MachineBuilder {
         let owner = (user.uid(), user.gid());
         let network = default_network();
         let root = root.unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user));
-        let abis = Arc::new(abis(loader.clone(), Default::default()));
+        #[cfg(feature = "wasix1")]
+        let wasix1 = Wasix1Commands::default();
+        let abis = Arc::new(abis(
+            loader,
+            #[cfg(feature = "wasix1")]
+            &wasix1,
+        ));
         let kernel = boot(&host, root.clone(), &network, &user, &uname, abis.clone());
         now(mount_kernel_filesystems(&kernel, &host));
         Machine {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
             abis,
-            loader,
+            #[cfg(feature = "wasix1")]
+            wasix1,
             network,
             host,
             owner,
@@ -295,11 +303,12 @@ impl Machine {
         self.push_root_lower(Arc::new(layer)).await
     }
 
-    /// Gives WASIX v1 programs v1's package command semantics: a v1 program that starts
-    /// `/bin/<name>` or `/usr/bin/<name>` of a command in `commands` passes it the command's
-    /// [`CommandDefaults`] (its `wasi` annotation's `exec-name`, `main-args` and `env`), as v1
-    /// did. Programs of other ABIs start commands as Linux starts any file. Replaces what an
-    /// earlier call gave; fails with `EBUSY` once anything ran.
+    /// Gives WASIX v1 programs v1's package command semantics: a v1 program that starts the
+    /// file `/bin/<name>` or `/usr/bin/<name>` of a command in `commands`, by any name for it
+    /// (a relative path, a symlink), passes it the command's [`CommandDefaults`] (its `wasi`
+    /// annotation's `exec-name`, `main-args` and `env`), as v1 did. The files are those there
+    /// when the first process starts. Programs of other ABIs start commands as Linux starts any
+    /// file. Replaces what an earlier call gave; fails with `EBUSY` once anything ran.
     #[cfg(feature = "wasix1")]
     pub fn set_wasix1_command_defaults(
         &mut self,
@@ -308,19 +317,51 @@ impl Machine {
         if *self.in_use.get_mut() {
             return Err(errno_to_io(Errno::EBUSY));
         }
-        let mut table = std::collections::HashMap::new();
-        for (name, defaults) in commands {
+        *self.wasix1.names.lock().unwrap() = commands.into_iter().collect();
+        Ok(())
+    }
+
+    /// Fills the table of v1 package commands from the names registered, by the files they
+    /// name now. Once, at the first process: the root no longer changes then.
+    #[cfg(feature = "wasix1")]
+    async fn resolve_wasix1_commands(&self) {
+        let names = std::mem::take(&mut *self.wasix1.names.lock().unwrap());
+        if names.is_empty() {
+            return;
+        }
+        let vfs = self.vfs();
+        let cred = Cred::root();
+        let top = vfs.root();
+        let cx = Ctx {
+            cred: &cred,
+            root: &top,
+            umask: 0,
+            task: 0,
+        };
+        let mut table = wasixv2_wasix1::Commands::default();
+        for (name, defaults) in names {
             for dir in COMMAND_DIRS {
-                let path = format!("/{dir}/{name}").into_bytes();
-                table.entry(path).or_insert_with(|| defaults.clone());
+                let path = format!("/{dir}/{name}");
+                let file = match vfs
+                    .lookup(&cx, &top, path.as_bytes(), LookupFlags::follow())
+                    .await
+                {
+                    Ok(file) => file,
+                    // Hidden by a mount, or removed: nothing to start there.
+                    Err(_) => continue,
+                };
+                let Ok(attr) = vfs.stat(&file).await else {
+                    continue;
+                };
+                let dev = attr.dev.unwrap_or_default();
+                let id = wasixv2_wasix1::FileId {
+                    dev: (dev.major, dev.minor),
+                    ino: attr.ino,
+                };
+                table.insert(id, defaults.clone());
             }
         }
-        let abis = Arc::new(abis(self.loader.clone(), table));
-        // Nothing holds the kernel but the machine before anything ran.
-        let syscalls = Arc::get_mut(&mut self.syscalls).ok_or_else(|| errno_to_io(Errno::EBUSY))?;
-        syscalls.inner.set_binfmt(abis.clone());
-        self.abis = abis;
-        Ok(())
+        *self.wasix1.files.write().unwrap() = table;
     }
 
     async fn push_root_lower(&mut self, lower: Arc<dyn Filesystem>) -> io::Result<()> {
@@ -527,6 +568,8 @@ impl Machine {
     /// [`Machine::signal`]'s list while the returned guard lives.
     async fn start(&self, config: ProcessConfig) -> Result<(TaskId, Running<'_>), RunError> {
         self.in_use.store(true, Ordering::Relaxed);
+        #[cfg(feature = "wasix1")]
+        self.resolve_wasix1_commands().await;
         let task = self.syscalls.inner.spawn(config);
         self.running.lock().unwrap().push(task);
         let running = Running {
@@ -634,23 +677,26 @@ fn boot(
         .with_uname(uname)
 }
 
-/// Package commands by guest path, with what v1 programs that start them pass along.
+/// The package commands WASIX v1 programs start with their defaults: the names registered,
+/// until the first process resolves them to the files in `files`, which `Wasix1` reads.
 #[cfg(feature = "wasix1")]
-type Wasix1Commands = std::collections::HashMap<Vec<u8>, CommandDefaults>;
-#[cfg(not(feature = "wasix1"))]
-type Wasix1Commands = ();
+#[derive(Default)]
+struct Wasix1Commands {
+    names: Mutex<Vec<(String, CommandDefaults)>>,
+    files: Arc<std::sync::RwLock<wasixv2_wasix1::Commands>>,
+}
 
 /// The guest ABIs programs may target, `wasixv2` first, and how their images compile.
 fn abis(
     loader: Arc<dyn Loader>,
-    #[cfg_attr(not(feature = "wasix1"), allow(unused_variables))] wasix1_commands: Wasix1Commands,
+    #[cfg(feature = "wasix1")] wasix1: &Wasix1Commands,
 ) -> Abis<Layered<Trace, Kernel>> {
     let mut abis = Abis::new();
     abis.set_loader(loader);
     abis.push(Arc::new(Wasixv2));
     #[cfg(feature = "wasix1")]
     abis.push(Arc::new(wasixv2_wasix1::Wasix1::with_commands(
-        wasix1_commands,
+        wasix1.files.clone(),
     )));
     abis
 }

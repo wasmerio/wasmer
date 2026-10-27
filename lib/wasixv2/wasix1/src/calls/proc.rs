@@ -25,8 +25,8 @@ use std::sync::{
 };
 
 use wasixv2_abi::{
-    AtFd, FcntlCmd, Fd, GuestLayout, Idtype, OpenFlags, RusagePtr, S32Ptr, SaFlags, SiCode,
-    Siginfo, SignalHandler, WaitOptions,
+    AtFd, AtFlags, FcntlCmd, Fd, GuestLayout, Idtype, OpenFlags, RusagePtr, S32Ptr, SaFlags,
+    SiCode, Siginfo, SignalHandler, StatxMask, WaitOptions,
 };
 use wasixv2_exec::{
     AbiInstance,
@@ -47,7 +47,7 @@ use crate::{
     calls::{signal, tty},
     errno::{Error, V1Result},
     instance::{Vfork, Wasix1Instance},
-    process::ProcState,
+    process::{CommandDefaults, FileId, ProcState},
     shim::{self, Done, Env, Frame},
 };
 
@@ -284,7 +284,7 @@ async fn command_from_arrays<S: Syscalls + Control + 'static>(
 
 /// `execve`s `command`, searching its path as musl's `execvp` does: a missing file or
 /// directory tries the next candidate, a permission error is remembered, anything else ends
-/// the search. A candidate that is a package command's path gets the command's
+/// the search. A candidate that names a package command's file gets the command's
 /// [`CommandDefaults`](crate::CommandDefaults), as v1 started those. Returns only on failure,
 /// or on success with the image change pending.
 async fn exec<S: Syscalls + Control + 'static>(
@@ -303,7 +303,7 @@ async fn exec<S: Syscalls + Control + 'static>(
     let mut denied = false;
     for candidate in command.candidates() {
         let file = frame.mem.alloc_cstr(&candidate)?;
-        let (argv, envp) = match frame.instance().procs().command(&candidate) {
+        let (argv, envp) = match package_command(frame, file).await? {
             Some(defaults) => {
                 let (mut args, mut env) = (command.args.clone(), env.clone());
                 defaults.apply(&mut args, &mut env);
@@ -331,6 +331,29 @@ async fn exec<S: Syscalls + Control + 'static>(
         false => LinuxErrno::ENOENT,
     }
     .into())
+}
+
+/// The defaults of the package command `file` (a path, as `execve` resolves it) is, if any.
+async fn package_command<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    file: wasixv2_abi::Cstr,
+) -> V1Result<Option<CommandDefaults>> {
+    if frame.instance().commands().read().unwrap().is_empty() {
+        return Ok(None);
+    }
+    let cwd = Fd(AtFd::AT_FDCWD.0);
+    let mask = StatxMask::STATX_INO;
+    let stat = match super::fs::stat_at(frame, cwd, file, AtFlags(0), mask).await {
+        Ok(stat) => stat,
+        // Not there, or not reachable: `execve` says why.
+        Err(Error::Sys(SysErr::Errno(_))) => return Ok(None),
+        Err(err) => return Err(err),
+    };
+    let id = FileId {
+        dev: (stat.stx_dev_major, stat.stx_dev_minor),
+        ino: stat.stx_ino,
+    };
+    Ok(frame.instance().commands().read().unwrap().get(id).cloned())
 }
 
 /// `exec` for the calls without a result: a failure ends the process.

@@ -578,6 +578,53 @@ async fn v1_programs_start_commands_with_their_defaults() {
     .await;
 }
 
+/// [`V1_EXEC_SHOW`] with `./show`, which it does not search for.
+const V1_EXEC_RELATIVE: &str = r#"
+(module
+  (import "wasix_32v1" "proc_exec3" (func $exec (param i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "proc_exit" (func $proc_exit (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "./show")
+  (data (i32.const 16) "show\nuser")
+  (data (i32.const 32) "A=caller")
+  (func (export "_start")
+    (drop (call $exec (i32.const 0) (i32.const 6) (i32.const 16) (i32.const 9)
+      (i32.const 32) (i32.const 8) (i32.const 0) (i32.const 0) (i32.const 0)))
+    (call $proc_exit (i32.const 99))))
+"#;
+
+/// The defaults belong to the command's file, not to a path string: a v1 program in `/bin`
+/// that starts `./show` passes them too, and one that starts another file does not.
+#[tokio::test]
+async fn v1_defaults_follow_the_file_whatever_names_it() {
+    local(async {
+        let mut machine = machine_with(&[
+            ("main", &wat(V1_EXEC_RELATIVE)),
+            ("show", &wat(V1_SHOW)),
+            ("other", &wat(V1_SHOW)),
+        ])
+        .await;
+        machine
+            .set_wasix1_command_defaults([("other".to_string(), show_defaults())])
+            .unwrap();
+        machine.set_working_dir("/usr/bin");
+        let (status, out) = run_file(&machine, "/bin/main", &["main"]).await;
+        assert_eq!(out, "show user\nA=caller\n");
+        assert_eq!(status.unwrap(), 0);
+
+        let mut machine =
+            machine_with(&[("main", &wat(V1_EXEC_RELATIVE)), ("show", &wat(V1_SHOW))]).await;
+        machine
+            .set_wasix1_command_defaults([("show".to_string(), show_defaults())])
+            .unwrap();
+        machine.set_working_dir("/usr/bin");
+        let (status, out) = run_file(&machine, "/bin/main", &["main"]).await;
+        assert_eq!(out, "shown --main user\nA=caller\nB=default\n");
+        assert_eq!(status.unwrap(), 0);
+    })
+    .await;
+}
+
 /// The defaults are v1's: a native `execve` of the same command runs it as Linux runs any
 /// file.
 #[tokio::test]

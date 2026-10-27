@@ -61,12 +61,42 @@ impl Startup {
     }
 }
 
-/// The compat state of every process that runs v1 code, by pid, and the package commands
-/// v1 programs start with their defaults.
+/// The compat state of every process that runs v1 code, by pid.
 #[derive(Default)]
 pub struct Procs {
     procs: Mutex<HashMap<TaskId, Arc<ProcState>>>,
-    commands: HashMap<Vec<u8>, CommandDefaults>,
+}
+
+/// The package commands v1 programs start with their [`CommandDefaults`], by the file each
+/// command is. Keyed by the file rather than by a path, so a command started through any name
+/// for it (`/bin/python`, `./python` in `/bin`, a symlink to it) gets its defaults, and a file
+/// that only took a command's name does not. The embedder fills it once the files exist and
+/// shares it with [`crate::Wasix1`].
+#[derive(Debug, Default)]
+pub struct Commands(HashMap<FileId, CommandDefaults>);
+
+/// A file, as `statx` tells it: its device and inode number.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FileId {
+    pub dev: (u32, u32),
+    pub ino: u64,
+}
+
+impl Commands {
+    /// Makes `file` a command v1 programs start with `defaults`; the first registration of a
+    /// file wins.
+    pub fn insert(&mut self, file: FileId, defaults: CommandDefaults) {
+        self.0.entry(file).or_insert(defaults);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// The defaults v1 programs that start `file` pass it.
+    pub fn get(&self, file: FileId) -> Option<&CommandDefaults> {
+        self.0.get(&file)
+    }
 }
 
 /// What WASIX v1 adds when a v1 program starts a package command, from the command's `wasi`
@@ -106,20 +136,6 @@ impl CommandDefaults {
 }
 
 impl Procs {
-    /// No processes yet; v1 programs that start the guest path of one of `commands` (such as
-    /// `/bin/python`) pass it its [`CommandDefaults`].
-    pub fn with_commands(commands: HashMap<Vec<u8>, CommandDefaults>) -> Self {
-        Self {
-            procs: Mutex::default(),
-            commands,
-        }
-    }
-
-    /// The defaults v1 programs that start the file at `path` pass it.
-    pub fn command(&self, path: &[u8]) -> Option<&CommandDefaults> {
-        self.commands.get(path)
-    }
-
     /// The state of `pid`, created empty if the process has none yet (a vfork child before its
     /// parent's state was copied, a process whose image another ABI loaded).
     pub fn get_or_create(&self, pid: TaskId) -> Arc<ProcState> {

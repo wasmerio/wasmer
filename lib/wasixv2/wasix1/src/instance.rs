@@ -5,7 +5,7 @@ use std::{
     any::Any,
     collections::HashMap,
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, RwLock,
         atomic::{AtomicBool, Ordering},
     },
 };
@@ -17,7 +17,7 @@ use wasixv2_exec::{
 use wasixv2_syscalls::{LocalFuture, SignalFrame, TaskId};
 use wasmer::{AsyncFunctionEnvMut, Exports, Function, Instance, RuntimeError, Value};
 
-use crate::process::{ProcState, Procs};
+use crate::process::{Commands, ProcState, Procs};
 
 /// `_initialize`, which reactors and some commands export; it runs before `_start`.
 const INITIALIZE: &str = "_initialize";
@@ -29,6 +29,8 @@ pub const SIGNAL_CALLBACK: &str = "__wasm_signal";
 
 pub struct Wasix1Instance {
     procs: Arc<Procs>,
+    /// The package commands v1 programs start with their defaults.
+    commands: Arc<RwLock<Commands>>,
     /// For a process image: its pid and the compat state it started with (or took over from
     /// its parent, for a fork child).
     image: Mutex<Option<(TaskId, Arc<ProcState>)>>,
@@ -58,6 +60,7 @@ pub(crate) struct Vfork {
 impl Wasix1Instance {
     pub(crate) fn bind(
         procs: Arc<Procs>,
+        commands: Arc<RwLock<Commands>>,
         instance: &Instance,
         task: TaskId,
         role: Role,
@@ -74,6 +77,7 @@ impl Wasix1Instance {
         };
         Ok(Self {
             procs,
+            commands,
             image: Mutex::new(image),
             exports: exports.clone(),
             initialize: function(INITIALIZE).filter(|_| role == Role::Process),
@@ -86,6 +90,10 @@ impl Wasix1Instance {
 
     pub(crate) fn procs(&self) -> &Procs {
         &self.procs
+    }
+
+    pub(crate) fn commands(&self) -> &RwLock<Commands> {
+        &self.commands
     }
 
     pub(crate) fn started(&self) -> bool {
