@@ -316,7 +316,7 @@ impl Kernel {
             work: work::Work::new(flag.clone()),
             restart: None,
             thread: thread::ThreadState::default(),
-            signals: signal::Signals::new().attach(id, 0, flag),
+            signals: signal::Signals::new().attach(id, signal::Inherited::none(), flag),
         };
         let process = task.process.clone();
         state.tasks.insert(id, task);

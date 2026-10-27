@@ -494,7 +494,7 @@ impl Kernel {
                 task.signals
                     .group()
                     .fork()
-                    .attach(id, task.signals.blocked(), flag.clone());
+                    .attach(id, task.signals.inherit(flags), flag.clone());
             // A vfork child runs on its parent's memory, so it shares the address space; a fork
             // child gets a copy of its mappings and break over the memory the execution layer
             // copies.

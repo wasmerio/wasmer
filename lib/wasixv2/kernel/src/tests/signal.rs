@@ -2,10 +2,10 @@
 
 use std::cell::Cell;
 
-use wasixv2_abi::{SaFlags, Sigaction, Sigaltstack, SigaltstackFlags, Signal, Sigset};
+use wasixv2_abi::{CloneFlags, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags, Signal, Sigset};
 use wasixv2_syscalls::{SignalFrame, read_value, write_value};
 
-use super::{ipc::machine, *};
+use super::{ipc::machine, proc::ForkableMemory, *};
 
 /// Memory of a task whose stack pointer the test moves, as the guest's `__stack_pointer`.
 struct StackMemory {
@@ -34,6 +34,11 @@ impl UserMemory for StackMemory {
         let sp = self.sp.get();
         Box::pin(async move { sp })
     }
+}
+
+/// An address space the engine can duplicate, as the asyncify configuration's is.
+fn forkable() -> ForkableMemory {
+    ForkableMemory(FlatMemory(RefCell::new(vec![0; 0x1000])))
 }
 
 fn stack_memory() -> StackMemory {
@@ -98,6 +103,41 @@ fn deliver(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) -> SignalFrame {
         Some(GuestAction::Signal(frame)) => frame,
         other => panic!("expected a handler frame, got {other:?}"),
     }
+}
+
+fn clone(kernel: &Kernel, caller: &Caller<'_>, flags: u32) -> SysResult<i32> {
+    let flags = flags | Signal::SIGCHLD.0 as u32;
+    block_on(kernel.clone(caller, flags, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL))
+}
+
+/// Forks the caller and returns the child.
+fn fork(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
+    let child = TaskId(clone(kernel, caller, 0).expect("fork") as u32);
+    while kernel.take_pending(caller.task()).is_some() {}
+    child
+}
+
+const VFORK: u32 = CloneFlags::CLONE_VM.0 as u32 | CloneFlags::CLONE_VFORK.0 as u32;
+
+/// vforks the caller and returns the child, which its instance runs as from now on.
+fn vfork(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
+    assert_eq!(clone(kernel, caller, VFORK), Ok(0));
+    loop {
+        match kernel.take_pending(caller.task()) {
+            Some(GuestAction::SwitchTask { task, .. }) => return task,
+            Some(_) => {}
+            None => panic!("vfork left no task switch"),
+        }
+    }
+}
+
+const THREAD: u32 = 0x10f00;
+
+fn spawn_thread(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
+    let spawn = kernel.thread_spawn(caller, THREAD, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    let tid = block_on(spawn).unwrap();
+    while kernel.take_pending(caller.task()).is_some() {}
+    TaskId(tid as u32)
 }
 
 // ---- sigaltstack ----
@@ -219,4 +259,22 @@ fn ss_autodisarm_disarms_the_stack_for_the_handler_and_sigreturn_rearms_it() {
     deliver(&kernel, &caller, Signal::SIGUSR1);
     kernel.signal_return(task, None);
     assert_eq!(altstack(&kernel, &caller), (0, disable, 0));
+}
+
+#[test]
+fn a_fork_or_vfork_child_keeps_the_alternate_stack_and_a_thread_starts_without() {
+    let (kernel, task, _) = machine();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    assert_eq!(set_altstack(&kernel, &caller, ALT_SP, ALT_SIZE, 0), Ok(0));
+
+    let thread = spawn_thread(&kernel, &caller);
+    let forked = fork(&kernel, &caller);
+    let vforked = vfork(&kernel, &caller);
+
+    let disabled = (0, SigaltstackFlags::SS_DISABLE.0, 0);
+    assert_eq!(altstack(&kernel, &Caller::new(thread, &memory)), disabled);
+    let inherited = (ALT_SP, 0, ALT_SIZE);
+    assert_eq!(altstack(&kernel, &Caller::new(forked, &memory)), inherited);
+    assert_eq!(altstack(&kernel, &Caller::new(vforked, &memory)), inherited);
 }
