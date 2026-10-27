@@ -277,6 +277,17 @@ fn put_halves(bytes: &mut [u8], at: usize, value: u32) {
     bytes[at + 2..at + 4].copy_from_slice(&(value as u16).to_le_bytes());
 }
 
+/// The `sun_path` bytes in the payload of a Unix [`AddrPort`]: a path up to its NUL, or an
+/// abstract name (a leading NUL) up to its last non-NUL byte. wasix-libc copies `sun_path` into
+/// a zeroed payload and keeps no length, so an abstract name's trailing NULs are lost; one of
+/// only NULs is unnamed.
+fn unix_payload(p: &[u8]) -> &[u8] {
+    match p.first() {
+        Some(0) => &p[..p.iter().rposition(|&b| b != 0).map_or(0, |last| last + 1)],
+        _ => &p[..p.iter().position(|&b| b == 0).unwrap_or(p.len())],
+    }
+}
+
 impl AddrPort {
     /// The address, or `None` for a tag v1 does not define.
     pub fn decode(&self) -> Option<SockAddr> {
@@ -298,10 +309,7 @@ impl AddrPort {
                     halves_at(p, inet::SCOPE_ID),
                 )))
             }
-            Addressfamily::UNIX => {
-                let len = p.iter().position(|&b| b == 0).unwrap_or(p.len());
-                SockAddr::Unix(p[..len].to_vec())
-            }
+            Addressfamily::UNIX => SockAddr::Unix(unix_payload(p).to_vec()),
             Addressfamily::UNSPEC => SockAddr::Unspec,
             _ => return None,
         })

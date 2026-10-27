@@ -121,8 +121,9 @@ pub(crate) fn to_linux(addr: &SockAddr) -> V1Result<Vec<u8>> {
             let mut out = Vec::with_capacity(path.len() + 3);
             out.extend_from_slice(&family(AddressFamily::AF_UNIX));
             out.extend_from_slice(path);
-            // An empty path asks for autobind and has no NUL.
-            if !path.is_empty() {
+            // An empty path asks for autobind, and an abstract name (a leading NUL) is as long
+            // as it is: neither has a NUL after it.
+            if !path.is_empty() && path[0] != 0 {
                 out.push(0);
             }
             out
@@ -159,7 +160,11 @@ pub(crate) fn from_linux(bytes: &[u8]) -> SockAddr {
         }
         AddressFamily::AF_UNIX => {
             let path = &bytes[2..];
-            let len = path.iter().position(|&b| b == 0).unwrap_or(path.len());
+            // An abstract name is all the address's bytes; a path ends at its NUL.
+            let len = match path.first() {
+                Some(0) => path.len(),
+                _ => path.iter().position(|&b| b == 0).unwrap_or(path.len()),
+            };
             SockAddr::Unix(path[..len].to_vec())
         }
         _ => SockAddr::Unspec,
@@ -787,6 +792,8 @@ pub(crate) async fn sock_send_file<S: Syscalls + Control + 'static>(
 
 #[cfg(test)]
 mod tests {
+    use crate::abi::GuestLayout;
+
     use super::*;
 
     #[test]
@@ -800,10 +807,34 @@ mod tests {
                 3,
             ))),
             SockAddr::Unix(b"/run/x.sock".to_vec()),
+            SockAddr::Unix(b"\0abstract".to_vec()),
         ];
         for addr in addrs {
             assert_eq!(from_linux(&to_linux(&addr).unwrap()), addr);
         }
+    }
+
+    /// An abstract name keeps its leading NUL and its length, through v1's payload (where
+    /// wasix-libc zero-fills after it) and through Linux's `sockaddr_un` (no NUL appended).
+    #[test]
+    fn abstract_unix_addresses() {
+        let mut v1 = AddrPort::ZERO;
+        v1.tag = crate::abi::sock::Addressfamily::UNIX;
+        v1.payload[..5].copy_from_slice(b"\0a\0bc");
+        assert_eq!(v1.decode(), Some(SockAddr::Unix(b"\0a\0bc".to_vec())));
+        assert_eq!(AddrPort::encode(&SockAddr::Unix(b"\0a\0bc".to_vec())), v1);
+        let linux = to_linux(&SockAddr::Unix(b"\0a\0bc".to_vec())).unwrap();
+        assert_eq!(linux, [1, 0, 0, b'a', 0, b'b', b'c']);
+        // Unnamed and path addresses are as before.
+        assert_eq!(
+            AddrPort {
+                payload: [0; 108],
+                ..v1
+            }
+            .decode(),
+            Some(SockAddr::Unix(Vec::new()))
+        );
+        assert_eq!(from_linux(b"\x01\0/p\0\0"), SockAddr::Unix(b"/p".to_vec()));
     }
 
     #[test]
