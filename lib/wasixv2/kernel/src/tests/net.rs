@@ -1014,6 +1014,72 @@ fn files_in_flight_count_against_their_sender_only() {
 }
 
 #[test]
+fn unix_socket_options_read_back_what_was_set() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (a, _b) = unix_pair(&kernel, &caller, &memory, STREAM);
+    let set = |fd: Fd, name: SocketOption, value: &[u8]| {
+        put(&memory, 0x400, value);
+        block_on(kernel.setsockopt(
+            &caller,
+            fd,
+            SocketLevel::SOL_SOCKET,
+            name.0,
+            UserSlice::new(0x400, value.len() as u32),
+        ))
+    };
+    let get = |fd: Fd, name: SocketOption, len: u32| {
+        put(&memory, 0x2f0, &len.to_le_bytes());
+        let result = block_on(kernel.getsockopt(
+            &caller,
+            fd,
+            SocketLevel::SOL_SOCKET,
+            name.0,
+            GuestPtrMut::new(0x300),
+            GuestPtrMut::new(0x2f0),
+        ));
+        let len = u32::from_le_bytes(super::ipc::get(&memory, 0x2f0, 4).try_into().unwrap());
+        (result, super::ipc::get(&memory, 0x300, len as usize))
+    };
+    let linger = [1i32.to_le_bytes(), 5i32.to_le_bytes()].concat();
+    assert_eq!(set(a, SocketOption::SO_LINGER, &linger), Ok(0));
+    assert_eq!(get(a, SocketOption::SO_LINGER, 8), (Ok(0), linger));
+    assert_eq!(
+        set(a, SocketOption::SO_RCVLOWAT, &10i32.to_le_bytes()),
+        Ok(0)
+    );
+    assert_eq!(
+        get(a, SocketOption::SO_RCVLOWAT, 4),
+        (Ok(0), 10i32.to_le_bytes().to_vec())
+    );
+    assert_eq!(
+        set(a, SocketOption::SO_KEEPALIVE, &1i32.to_le_bytes()),
+        Ok(0)
+    );
+    assert_eq!(
+        get(a, SocketOption::SO_KEEPALIVE, 4),
+        (Ok(0), 1i32.to_le_bytes().to_vec())
+    );
+    assert_eq!(
+        set(a, SocketOption::SO_PASSCRED, &1i32.to_le_bytes()),
+        Ok(0)
+    );
+    assert_eq!(
+        get(a, SocketOption::SO_PASSCRED, 4),
+        (Ok(0), 1i32.to_le_bytes().to_vec())
+    );
+    // Only IP sockets share ports.
+    let reuseport = set(a, SocketOption::SO_REUSEPORT, &1i32.to_le_bytes());
+    assert_eq!(errno(reuseport), Errno::EOPNOTSUPP);
+    // An unknown option is ENOPROTOOPT both ways.
+    assert_eq!(
+        errno(set(a, SocketOption(9999), &[0; 4])),
+        Errno::ENOPROTOOPT
+    );
+    assert_eq!(errno(get(a, SocketOption(9999), 4).0), Errno::ENOPROTOOPT);
+}
+
+#[test]
 fn ip_sends_check_socket_level_control_messages() {
     let (kernel, task, memory) = networked();
     let caller = Caller::new(task, &memory);

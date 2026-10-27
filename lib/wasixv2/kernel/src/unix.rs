@@ -26,6 +26,10 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult, write_value};
 use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_WRITE};
+use wasixv2_vnet::{
+    SocketKind,
+    opts::{self, Changed, SockOpts},
+};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
@@ -39,8 +43,6 @@ use gc::{InFlight, Inflight};
 /// `offsetof(struct sockaddr_un, sun_path)` and `sizeof(struct sockaddr_un)`.
 const SUN_PATH: usize = 2;
 const SOCKADDR_UN: usize = 110;
-/// `SO_SNDBUF`'s and `SO_RCVBUF`'s default (`sysctl_wmem_default`, `sysctl_rmem_default`).
-pub(crate) const SNDBUF: usize = 212_992;
 /// What `unix_dgram_sendmsg` keeps of `SO_SNDBUF` for the skb itself: a record may be at most
 /// `sndbuf - 32` bytes.
 const RECORD_OVERHEAD: usize = 32;
@@ -180,13 +182,18 @@ struct Inner {
     accept: VecDeque<Arc<Sock>>,
     shutdown: u8,
     err: Option<Errno>,
-    passcred: bool,
     peer_cred: Option<Ucred>,
     released: bool,
-    /// `sk_sndbuf`: what this socket may have queued at its peer; a record's size limit.
-    sndbuf: usize,
-    /// `sk_rcvbuf`, reported by `SO_RCVBUF`.
-    rcvbuf: usize,
+    /// The `SOL_SOCKET` options. `sk_sndbuf` bounds what this socket may have queued at its
+    /// peer and a record's size; `SO_PASSCRED` asks for the sender's credentials.
+    opts: SockOpts,
+}
+
+impl Inner {
+    fn passcred(&self) -> bool {
+        self.opts
+            .flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_PASSCRED.0)
+    }
 }
 
 /// A Unix socket (`struct unix_sock`).
@@ -232,6 +239,10 @@ impl Sock {
         owner: Ucred,
         host: Arc<dyn Host>,
     ) -> Arc<Self> {
+        let ty = match kind {
+            Kind::Stream => SocketKind::Stream,
+            Kind::Dgram | Kind::SeqPacket => SocketKind::Datagram,
+        };
         Arc::new_cyclic(|me| Self {
             kind,
             inner: Mutex::new(Inner {
@@ -245,11 +256,9 @@ impl Sock {
                 accept: VecDeque::new(),
                 shutdown: 0,
                 err: None,
-                passcred: false,
                 peer_cred: None,
                 released: false,
-                sndbuf: SNDBUF,
-                rcvbuf: SNDBUF,
+                opts: SockOpts::unix(ty),
             }),
             wait: WaitQueue::new(),
             names,
@@ -282,7 +291,7 @@ impl Sock {
     pub(crate) fn max_record(&self) -> Option<usize> {
         match self.kind {
             Kind::Stream => None,
-            _ => Some(self.lock().sndbuf.saturating_sub(RECORD_OVERHEAD)),
+            _ => Some(self.lock().opts.sndbuf.saturating_sub(RECORD_OVERHEAD)),
         }
     }
 
@@ -492,9 +501,8 @@ impl Sock {
             e.addr = listener.addr.clone();
             e.peer = Some(self.me.clone());
             e.peer_cred = Some(cred);
-            e.passcred = listener.passcred;
-            e.sndbuf = listener.sndbuf;
-            e.rcvbuf = listener.rcvbuf;
+            // `sk_clone_lock` copies the listener's options.
+            e.opts = listener.opts.inherit();
         }
         listener.accept.push_back(embryo.clone());
         drop(listener);
@@ -560,7 +568,7 @@ impl Sock {
                 inner.peer.clone(),
                 inner.shutdown,
                 err,
-                inner.sndbuf,
+                inner.opts.sndbuf,
                 inner.addr.clone(),
             )
         };
@@ -627,7 +635,7 @@ impl Sock {
             if inner.shutdown & SEND_SHUTDOWN != 0 {
                 return Err(Errno::EPIPE);
             }
-            (inner.addr.clone(), inner.sndbuf)
+            (inner.addr.clone(), inner.opts.sndbuf)
         };
         if data.len() > sndbuf.saturating_sub(RECORD_OVERHEAD) {
             return Err(Errno::EMSGSIZE);
@@ -704,7 +712,7 @@ impl Sock {
             _ => record_take(&mut inner, max, peek),
         };
         let peer = inner.peer.as_ref().and_then(Weak::upgrade);
-        let passcred = inner.passcred;
+        let passcred = inner.passcred();
         drop(inner);
         if peek {
             self.names.inflight.peeked(&out.rights);
@@ -729,14 +737,6 @@ impl Sock {
             Kind::Stream => inner.rx_bytes,
             _ => inner.rx.front().map_or(0, |m| m.data.len()),
         }
-    }
-
-    pub(crate) fn set_passcred(&self, on: bool) {
-        self.lock().passcred = on;
-    }
-
-    pub(crate) fn passcred(&self) -> bool {
-        self.lock().passcred
     }
 
     pub(crate) fn peer_cred(&self) -> Option<Ucred> {
@@ -774,27 +774,36 @@ impl Sock {
         self.wait.wake(PollMask::empty());
     }
 
-    /// `sock_setsockopt` for the `SOL_SOCKET` options a Unix socket keeps; the socket layer has
-    /// taken the timeouts and the read-only options already. The rest are accepted and have
-    /// no effect here, as most do on Linux.
-    pub(crate) fn set_option(&self, name: i32, value: &[u8]) -> Result<(), Errno> {
-        let int = || {
-            value
-                .get(..4)
-                .map(|b| i32::from_le_bytes(b.try_into().unwrap()))
-                .ok_or(Errno::EINVAL)
+    /// `sk_setsockopt` for a Unix socket; the socket layer has taken the timeouts and the
+    /// read-only options already. `net_admin` is `CAP_NET_ADMIN`, which the forcing buffer
+    /// sizes need.
+    pub(crate) fn set_option(&self, name: i32, value: &[u8], net_admin: bool) -> Result<(), Errno> {
+        let level = SocketLevel::SOL_SOCKET.0;
+        let mut inner = self.lock();
+        let changed = match SocketOption(name) {
+            // `SO_SNDBUFFORCE`/`SO_RCVBUFFORCE` skip the `wmem_max`/`rmem_max` clamp.
+            SocketOption::SO_SNDBUFFORCE | SocketOption::SO_RCVBUFFORCE => {
+                if !net_admin {
+                    return Err(Errno::EPERM);
+                }
+                let val = opts::read_int(value)?.max(0) as usize;
+                match SocketOption(name) {
+                    SocketOption::SO_SNDBUFFORCE => {
+                        inner.opts.sndbuf = val.saturating_mul(2).max(opts::SOCK_MIN_SNDBUF)
+                    }
+                    _ => inner.opts.rcvbuf = val.saturating_mul(2).max(opts::SOCK_MIN_RCVBUF),
+                }
+                Changed::Buffers
+            }
+            _ => {
+                let bound = inner.addr.is_some();
+                inner.opts.set(level, name, value, bound)?
+            }
         };
-        match SocketOption(name) {
-            SocketOption::SO_PASSCRED => self.set_passcred(int()? != 0),
-            SocketOption::SO_SNDBUF | SocketOption::SO_SNDBUFFORCE => {
-                self.lock().sndbuf = wasixv2_vnet::opts::sndbuf_from(int()?);
-                // More room may be there now.
-                self.wait.wake(PollMask::WRITABLE);
-            }
-            SocketOption::SO_RCVBUF | SocketOption::SO_RCVBUFFORCE => {
-                self.lock().rcvbuf = wasixv2_vnet::opts::rcvbuf_from(int()?);
-            }
-            _ => {}
+        drop(inner);
+        if changed == Changed::Buffers {
+            // More room may be there now.
+            self.wait.wake(PollMask::WRITABLE);
         }
         Ok(())
     }
@@ -993,7 +1002,7 @@ impl Pollable for UnixFile {
         };
         let listening = inner.state == State::Listening;
         let shutdown_send = inner.shutdown & SEND_SHUTDOWN != 0;
-        let sndbuf = inner.sndbuf;
+        let sndbuf = inner.opts.sndbuf;
         drop(inner);
         if listening {
             return mask;
@@ -1371,7 +1380,9 @@ impl Kernel {
         !cred.capable(Cap::SysResource) && !cred.capable(Cap::SysAdmin)
     }
 
-    /// The `SOL_SOCKET` options of a Unix socket, the timeouts aside.
+    /// `sk_getsockopt` for a Unix socket, the timeouts aside: what describes the socket, its
+    /// peer's credentials, and the options `setsockopt` keeps. Values are written whole; the
+    /// caller truncates them to the guest's length.
     pub(crate) fn unix_getsockopt(&self, sock: &Sock, name: i32) -> Result<Vec<u8>, Errno> {
         let int = |v: i32| Ok(v.to_le_bytes().to_vec());
         match SocketOption(name) {
@@ -1380,7 +1391,6 @@ impl Kernel {
             SocketOption::SO_DOMAIN => int(AddressFamily::AF_UNIX.0),
             SocketOption::SO_ERROR => int(sock.take_error().map_or(0, |e| e.0)),
             SocketOption::SO_ACCEPTCONN => int(sock.is_listening() as i32),
-            SocketOption::SO_PASSCRED => int(sock.passcred() as i32),
             SocketOption::SO_PEERCRED => {
                 // Unconnected sockets report an invalid pid and the overflow ids.
                 let cred = sock.peer_cred().unwrap_or(Ucred {
@@ -1390,12 +1400,14 @@ impl Kernel {
                 });
                 Ok(cred.to_bytes())
             }
-            SocketOption::SO_SNDBUF => int(sock.lock().sndbuf as i32),
-            SocketOption::SO_RCVBUF => int(sock.lock().rcvbuf as i32),
-            SocketOption::SO_REUSEADDR
-            | SocketOption::SO_KEEPALIVE
-            | SocketOption::SO_BROADCAST => int(0),
-            _ => Err(Errno::ENOPROTOOPT),
+            _ => {
+                let mut out = [0u8; 64];
+                let n = sock
+                    .lock()
+                    .opts
+                    .get(SocketLevel::SOL_SOCKET.0, name, &mut out)?;
+                Ok(out[..n].to_vec())
+            }
         }
     }
 }
@@ -1457,7 +1469,8 @@ mod tests {
     fn oversized_datagram_is_emsgsize() {
         let (a, b) = pair(Kind::Dgram);
         let mut anc = Ancillary::default();
-        let limit = SNDBUF - RECORD_OVERHEAD;
+        // `wmem_default` less the skb's share.
+        let limit = opts::UDP_BUF_DEFAULT - RECORD_OVERHEAD;
         let mut data = vec![0u8; limit + 1];
         let sent = a.try_send_dgram(&b, &mut data, &mut anc, Ucred::default());
         assert_eq!(sent, Err(Errno::EMSGSIZE));
