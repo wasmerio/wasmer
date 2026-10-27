@@ -13,11 +13,11 @@ use std::{
 };
 
 use wasixv2_abi::{
-    ConstKernelOldItimervalPtr, ConstKernelTimespecPtr, ConstSigactionPtr, ConstSigaltstackPtr,
-    ConstSiginfoPtr, ConstSigsetPtr, ItimerWhich, KernelOldItimerval, KernelOldItimervalPtr,
-    KernelOldTimeval, Pid, SaFlags, SiCode, Sigaction, SigactionPtr, Sigaltstack, SigaltstackFlags,
-    SigaltstackPtr, Siginfo, SiginfoPtr, Signal, SignalHandler, SignalLimits, SigprocmaskHow,
-    Sigset, SigsetPtr,
+    CloneFlags, ConstKernelOldItimervalPtr, ConstKernelTimespecPtr, ConstSigactionPtr,
+    ConstSigaltstackPtr, ConstSiginfoPtr, ConstSigsetPtr, ItimerWhich, KernelOldItimerval,
+    KernelOldItimervalPtr, KernelOldTimeval, Pid, SaFlags, SiCode, Sigaction, SigactionPtr,
+    Sigaltstack, SigaltstackFlags, SigaltstackPtr, Siginfo, SiginfoPtr, Signal, SignalHandler,
+    SignalLimits, SigprocmaskHow, Sigset, SigsetPtr,
 };
 use wasixv2_syscalls::{
     Caller, Errno, GuestAction, SignalFrame, SysErr, SysResult, TaskId, WorkFlag, read_value,
@@ -197,15 +197,31 @@ struct TaskState {
 }
 
 impl TaskState {
-    fn new(blocked: u64, flag: Arc<WorkFlag>) -> Self {
+    fn new(inherited: Inherited, flag: Arc<WorkFlag>) -> Self {
         Self {
             flag,
             notify: false,
-            blocked,
+            blocked: inherited.blocked,
             saved: None,
             pending: Pending::default(),
-            altstack: AltStack::default(),
+            altstack: inherited.altstack,
             frames: Vec::new(),
+        }
+    }
+}
+
+/// What a new task takes over from the task that creates it (`copy_process`).
+pub(crate) struct Inherited {
+    blocked: u64,
+    altstack: AltStack,
+}
+
+impl Inherited {
+    /// A task that inherits nothing: no signal blocked, no alternate stack.
+    pub(crate) fn none() -> Self {
+        Self {
+            blocked: 0,
+            altstack: AltStack::default(),
         }
     }
 }
@@ -307,15 +323,15 @@ impl Signals {
         })
     }
 
-    /// Adds `task` to the group, with the mask it inherits and the work flag its signals raise.
+    /// Adds `task` to the group, with what it inherits and the work flag its signals raise.
     pub(crate) fn attach(
         self: &Arc<Self>,
         task: TaskId,
-        blocked: u64,
+        inherited: Inherited,
         flag: Arc<WorkFlag>,
     ) -> Arc<TaskSignals> {
         let mut state = self.state.lock().unwrap();
-        state.tasks.insert(task, TaskState::new(blocked, flag));
+        state.tasks.insert(task, TaskState::new(inherited, flag));
         Arc::new(TaskSignals {
             group: self.clone(),
             task,
@@ -697,6 +713,21 @@ impl TaskSignals {
 
     pub(crate) fn blocked(&self) -> u64 {
         self.with(|task| task.blocked)
+    }
+
+    /// What a task this one creates with `flags` inherits: the mask, and the alternate stack
+    /// unless the new task shares the address space and runs alongside (`sas_ss_reset` for
+    /// `CLONE_VM` without `CLONE_VFORK`: a thread).
+    pub(crate) fn inherit(&self, flags: CloneFlags) -> Inherited {
+        let thread =
+            flags.contains(CloneFlags::CLONE_VM) && !flags.contains(CloneFlags::CLONE_VFORK);
+        self.with(|task| Inherited {
+            blocked: task.blocked,
+            altstack: match thread {
+                true => AltStack::default(),
+                false => task.altstack,
+            },
+        })
     }
 
     /// The masks `/proc/<pid>/status` shows: pending for the task and for the group, blocked,

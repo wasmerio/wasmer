@@ -188,7 +188,7 @@ impl Kernel {
                 signals: task
                     .signals
                     .group()
-                    .attach(id, task.signals.blocked(), flag),
+                    .attach(id, task.signals.inherit(THREAD), flag),
             };
             state.last_id += 1;
             state.tasks.insert(id, new);
