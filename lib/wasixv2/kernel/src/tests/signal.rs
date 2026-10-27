@@ -1,11 +1,12 @@
-//! Signals: the alternate stack, `RLIMIT_SIGPENDING` and the parent-death signal.
+//! Signals: the alternate stack, `RLIMIT_SIGPENDING`, the parent-death signal, and how a thread
+//! group's end is reported.
 
 use std::cell::Cell;
 
 use wasixv2_abi::{
-    ClockId, CloneFlags, ConstRlimit64Ptr, KernelTimespec, PrctlOption, Rlimit64Ptr,
-    RlimitResource, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags, Siginfo, Signal,
-    SigprocmaskHow, Sigset,
+    ClockId, CloneFlags, ConstRlimit64Ptr, Idtype, KernelTimespec, PrctlOption, Rlimit64Ptr,
+    RlimitResource, RusagePtr, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags, Siginfo,
+    SiginfoPtr, Signal, SigprocmaskHow, Sigset, WaitOptions,
 };
 use wasixv2_syscalls::{SignalFrame, read_value, write_value};
 
@@ -187,6 +188,22 @@ fn vfork(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
             None => panic!("vfork left no task switch"),
         }
     }
+}
+
+/// `waitid(P_PID, pid, WEXITED | WNOHANG)`: the child's `si_status` once it is a zombie.
+fn reap(kernel: &Kernel, caller: &Caller<'_>, pid: TaskId) -> Option<u32> {
+    let options = WaitOptions(WaitOptions::WEXITED.0 | WaitOptions::WNOHANG.0);
+    let wait = kernel.waitid(
+        caller,
+        Idtype::P_PID,
+        pid.0 as Pid,
+        SiginfoPtr::new(0x300),
+        options,
+        RusagePtr::new(0),
+    );
+    assert_eq!(block_on(wait), Ok(0));
+    let info: Siginfo = block_on(read_value(caller.memory(), GuestPtr::new(0x300))).unwrap();
+    (info.si_signo != 0).then(|| sifield(&info, 8))
 }
 
 const THREAD: u32 = 0x10f00;
@@ -489,4 +506,42 @@ fn changing_credentials_forgets_the_parent_death_signal() {
     assert_eq!(pdeathsig(&kernel, &caller), Signal::SIGTERM.0);
     assert_eq!(block_on(kernel.setuid(&caller, 5)), Ok(0));
     assert_eq!(pdeathsig(&kernel, &caller), 0);
+}
+
+// ---- thread group ends ----
+
+#[test]
+fn a_vfork_parent_whose_group_exits_is_no_zombie_while_its_child_runs() {
+    let (kernel, init, _) = machine();
+    let init_memory = forkable();
+    let init_caller = Caller::new(init, &init_memory);
+    let parent = fork(&kernel, &init_caller);
+    let memory = FlatMemory(RefCell::new(vec![0; 0x1000]));
+    let caller = Caller::new(parent, &memory);
+    let thread = spawn_thread(&kernel, &caller);
+    let child = vfork(&kernel, &caller);
+
+    // Another thread ends the group while the parent's instance runs the child.
+    assert_eq!(
+        block_on(kernel.exit_group(&Caller::new(thread, &memory), 3)),
+        Ok(())
+    );
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(3)));
+    kernel.release(thread);
+    assert_eq!(reap(&kernel, &init_caller, parent), None);
+
+    // The child's end hands the instance back; the parent unwinds through its exit.
+    assert_eq!(
+        block_on(kernel.exit_group(&Caller::new(child, &memory), 0)),
+        Ok(())
+    );
+    assert_eq!(
+        kernel.take_pending(child),
+        Some(GuestAction::VforkReturn { parent, child })
+    );
+    kernel.release(child);
+    assert_eq!(reap(&kernel, &init_caller, parent), None);
+    assert_eq!(kernel.take_pending(parent), Some(GuestAction::Exit(3)));
+    kernel.release(parent);
+    assert_eq!(reap(&kernel, &init_caller, parent), Some(3));
 }
