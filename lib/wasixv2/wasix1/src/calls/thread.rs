@@ -29,11 +29,14 @@ const THREAD: CloneFlags = CloneFlags(
         | CloneFlags::CLONE_SYSVSEM.0,
 );
 
-/// Creates a thread that starts at `wasi_thread_start(tid, start_arg)`; returns its tid.
+/// Creates a thread that starts at `wasi_thread_start(tid, start_arg)`; returns its tid. A hold
+/// on signals that libc's `pthread_create` would never end goes first (see
+/// [`super::signal::end_spawn_hold`]).
 async fn spawn<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
     start_arg: u32,
 ) -> V1Result<i32> {
+    super::signal::end_spawn_hold(frame).await?;
     Ok(frame
         .syscalls
         .thread_spawn(

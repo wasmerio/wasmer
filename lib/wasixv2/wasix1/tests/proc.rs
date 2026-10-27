@@ -131,6 +131,63 @@ fn signals() {
     assert_eq!(status(SIGNALS), 0);
 }
 
+/// wasix-libc before v2026-07-30.1 holds signals back in `pthread_create` and never ends the
+/// hold (its `__restore_sigs` is compiled out). The spawn ends it, for the creating thread and
+/// the new one: both still take signals afterwards.
+const SPAWN_HOLD: &str = r#"
+(module
+  (import "env" "memory" (memory 1 1 shared))
+  (import "wasix_32v1" "callback_signal" (func $callback (param i32 i32)))
+  (import "wasix_32v1" "thread_spawn_v2" (func $spawn (param i32 i32) (result i32)))
+  (import "wasix_32v1" "thread_signal" (func $thread_signal (param i32 i32) (result i32)))
+  (import "wasix_32v1" "futex_wait" (func $wait (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "proc_raise" (func $raise (param i32) (result i32)))
+  (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+  (data (i32.const 16) "__wasm_signal")
+  (data (i32.const 48) "__wasm_signal_blocked")
+  ;; The signals each thread took, at 200 (main) and 204 (the thread).
+  (func (export "__wasm_signal") (param $sig i32)
+    (i32.store (i32.const 200) (local.get $sig)))
+  (func (export "wasi_thread_start") (param $tid i32) (param $arg i32)
+    (i32.atomic.store (i32.const 208) (local.get $tid))
+    (drop (memory.atomic.notify (i32.const 208) (i32.const 1)))
+    ;; Waits until the main thread signalled it; the handler's mark is the proof.
+    (block $done
+      (loop $again
+        (br_if $done (i32.load (i32.const 200)))
+        (drop (call $wait (i32.const 212) (i32.const 0) (i32.const 0) (i32.const 300)))
+        (br $again)))
+    (i32.atomic.store (i32.const 204) (i32.load (i32.const 200)))
+    (drop (memory.atomic.notify (i32.const 204) (i32.const 1))))
+  (func (export "_start")
+    (call $callback (i32.const 16) (i32.const 13))
+    ;; pthread_create's hold, then the spawn
+    (call $callback (i32.const 48) (i32.const 21))
+    (if (call $spawn (i32.const 100) (i32.const 104)) (then (call $exit (i32.const 1))))
+    (if (call $raise (i32.const 10)) (then (call $exit (i32.const 2))))
+    (if (i32.ne (i32.load (i32.const 200)) (i32.const 10)) (then (call $exit (i32.const 3))))
+    (i32.store (i32.const 200) (i32.const 0))
+    ;; the thread takes SIGUSR2
+    (block $started
+      (loop $again
+        (br_if $started (i32.atomic.load (i32.const 208)))
+        (drop (memory.atomic.wait32 (i32.const 208) (i32.const 0) (i64.const 1000000)))
+        (br $again)))
+    (if (call $thread_signal (i32.atomic.load (i32.const 208)) (i32.const 12)) (then (call $exit (i32.const 4))))
+    (block $taken
+      (loop $again
+        (br_if $taken (i32.atomic.load (i32.const 204)))
+        (drop (memory.atomic.wait32 (i32.const 204) (i32.const 0) (i64.const 1000000)))
+        (br $again)))
+    (if (i32.ne (i32.atomic.load (i32.const 204)) (i32.const 12)) (then (call $exit (i32.const 5))))
+    (call $exit (i32.const 0))))
+"#;
+
+#[test]
+fn the_spawn_ends_pthread_creates_hold_on_signals() {
+    assert_eq!(status(SPAWN_HOLD), 0);
+}
+
 /// Before libc names its callback, signals take their default action.
 #[test]
 fn signals_before_the_callback_terminate() {

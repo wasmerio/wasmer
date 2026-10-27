@@ -41,6 +41,9 @@ pub struct Wasix1Instance {
     /// The export `callback_signal` last named that exists: `__wasm_signal` unless libc
     /// named another.
     signal: Mutex<Option<Function>>,
+    /// Whether this instance's thread holds signals back: `callback_signal` named an export the
+    /// module does not have (see `calls::signal`).
+    blocked: AtomicBool,
     /// Whether this instance's process loaded its startup state.
     started: AtomicBool,
     /// The vfork children running in this instance, by tid.
@@ -83,6 +86,7 @@ impl Wasix1Instance {
             initialize: function(INITIALIZE).filter(|_| role == Role::Process),
             entry,
             signal: Mutex::new(function(SIGNAL_CALLBACK)),
+            blocked: AtomicBool::new(false),
             started: AtomicBool::new(false),
             vforks: Mutex::new(HashMap::new()),
         })
@@ -105,15 +109,22 @@ impl Wasix1Instance {
     }
 
     /// Makes `name` the signal callback if the instance exports a function by that name, and
-    /// says whether it does.
+    /// says whether it does; signals are held back while it does not.
     pub(crate) fn select_signal_callback(&self, name: &str) -> bool {
-        match self.exports.get_function(name) {
+        let found = match self.exports.get_function(name) {
             Ok(function) => {
                 *self.signal.lock().unwrap() = Some(function.clone());
                 true
             }
             Err(_) => false,
-        }
+        };
+        self.blocked.store(!found, Ordering::Relaxed);
+        found
+    }
+
+    /// Whether the instance's thread holds signals back.
+    pub(crate) fn blocked(&self) -> bool {
+        self.blocked.load(Ordering::Relaxed)
     }
 
     /// Makes `state`, a copy of the forking parent's, the compat state of this process image,

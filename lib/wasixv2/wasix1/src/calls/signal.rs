@@ -10,7 +10,8 @@
 //! for every signal libc may handle, so that each one reaches the guest as a handler run, which
 //! the instance turns into a call of the named export. Holding back is the calling thread's
 //! signal mask: v1 libc never sets one itself (its `sigprocmask` does nothing), so the mask is
-//! all-blocked or empty. Signals ignored at startup stay ignored in the kernel, so that `exec`
+//! all-blocked or empty. Old libcs leak one hold in `pthread_create`, which the spawn ends
+//! ([`end_spawn_hold`]). Signals ignored at startup stay ignored in the kernel, so that `exec`
 //! keeps them ignored as on Linux. Signals whose default action is to ignore them (`SIGCHLD`,
 //! `SIGCONT`, `SIGURG`, `SIGWINCH`) keep their default: v1 never delivered them, and a handler
 //! would turn every child's exit into `EINTR` in its parent's blocking calls.
@@ -201,24 +202,49 @@ pub(crate) async fn callback_signal<S: Syscalls + Control + 'static>(
         install(frame).await?;
         let deliver = std::str::from_utf8(&name)
             .is_ok_and(|name| frame.instance().select_signal_callback(name));
-        let mask = match deliver {
-            true => Sigset::ZERO,
-            false => all_blocked(),
-        };
-        let mask = frame.mem.alloc(&mask)?;
-        frame
-            .syscalls
-            .rt_sigprocmask(
-                &frame.caller(),
-                SigprocmaskHow::SIG_SETMASK,
-                ConstSigsetPtr::new(mask.addr()),
-                SigsetPtr::NULL,
-                Sigset::SIZE as u32,
-            )
-            .await?;
-        Ok(())
+        set_mask(frame, deliver).await
     })
     .await
+}
+
+/// Sets the calling thread's mask: nothing held back when `deliver`, everything otherwise.
+async fn set_mask<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    deliver: bool,
+) -> V1Result<()> {
+    let mask = match deliver {
+        true => Sigset::ZERO,
+        false => all_blocked(),
+    };
+    let mask = frame.mem.alloc(&mask)?;
+    frame
+        .syscalls
+        .rt_sigprocmask(
+            &frame.caller(),
+            SigprocmaskHow::SIG_SETMASK,
+            ConstSigsetPtr::new(mask.addr()),
+            SigsetPtr::NULL,
+            Sigset::SIZE as u32,
+        )
+        .await?;
+    Ok(())
+}
+
+/// Ends the hold `pthread_create` leaves behind in wasix-libc before v2026-07-30.1: it holds
+/// signals back (`__block_app_sigs`, which names `__wasm_signal_blocked`) before it spawns the
+/// thread, and its `__restore_sigs` is compiled out, so the calling thread, and the thread,
+/// which inherits the mask, would never take a signal again: no Ctrl-C, `kill` or `alarm`. As
+/// musl restores the caller's mask and starts the thread with it, the spawn restores delivery
+/// first, which is what that `__restore_sigs` would have done. Later libcs keep the mask
+/// themselves and never hold signals back through the host.
+pub(crate) async fn end_spawn_hold<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+) -> V1Result<()> {
+    let instance = frame.instance();
+    if !instance.blocked() || !instance.select_signal_callback(crate::SIGNAL_CALLBACK) {
+        return Ok(());
+    }
+    set_mask(frame, true).await
 }
 
 /// `proc_raise(sig)`: the calling thread, as `raise` does.
