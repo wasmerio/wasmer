@@ -2401,7 +2401,7 @@ impl Control for Kernel {
             let entry = state.tasks.get_mut(&task)?;
             entry.work.flag().clear();
             let (action, signals) = (entry.work.take(), entry.signals.clone());
-            let action = action.map(|action| process::vfork_parent_exit(&state, action));
+            let action = action.map(|action| process::vfork_parent_resumes(&state, action));
             (action, signals)
         };
         match action {

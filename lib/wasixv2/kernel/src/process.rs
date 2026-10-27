@@ -177,25 +177,28 @@ impl Tree {
 }
 
 /// `action` as the instance gets it from [`Control::take_pending`]: going back to a vfork
-/// parent, it says whether the parent's exit is pending by now. A group that exited while the
-/// parent waited in `wait_for_vfork_done` killed it there (`zap_other_threads`), so it never
-/// returns from vfork.
+/// parent, it says whether the parent returns from vfork. Not when its image ended by now: a
+/// group exit, or another thread's `execve` (`de_thread`), killed it in `wait_for_vfork_done`
+/// (`zap_other_threads`).
 ///
 /// [`Control::take_pending`]: wasixv2_syscalls::Control::take_pending
-pub(crate) fn vfork_parent_exit(state: &State, action: GuestAction) -> GuestAction {
-    let exit = |parent: VforkParent| VforkParent {
-        exit: state.tasks.get(&parent.task).and_then(|t| t.work.exit()),
+pub(crate) fn vfork_parent_resumes(state: &State, action: GuestAction) -> GuestAction {
+    let resumes = |parent: VforkParent| VforkParent {
+        resumes: !state
+            .tasks
+            .get(&parent.task)
+            .is_some_and(|t| t.work.ends_image()),
         ..parent
     };
     match action {
         GuestAction::VforkReturn { parent, child } => GuestAction::VforkReturn {
-            parent: exit(parent),
+            parent: resumes(parent),
             child,
         },
         GuestAction::Exec {
             vfork_parent: Some(parent),
         } => GuestAction::Exec {
-            vfork_parent: Some(exit(parent)),
+            vfork_parent: Some(resumes(parent)),
         },
         action => action,
     }
@@ -328,7 +331,7 @@ impl Kernel {
         if let Some(parent) = vfork_parent {
             let parent = VforkParent {
                 task: parent,
-                exit: None,
+                resumes: true,
             };
             let action = GuestAction::VforkReturn {
                 parent,

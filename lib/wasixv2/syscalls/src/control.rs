@@ -52,7 +52,7 @@ pub enum GuestAction {
     },
     /// The vfork child `child`, running in its parent's instance, ended: the instance runs as
     /// `parent` again, and the guest's `wasixv2_vfork_return(child)` export unwinds to the
-    /// vfork point, unless the parent's exit is pending.
+    /// vfork point, unless the parent's image ended meanwhile ([`VforkParent::resumes`]).
     VforkReturn { parent: VforkParent, child: TaskId },
 }
 
@@ -60,11 +60,13 @@ pub enum GuestAction {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VforkParent {
     pub task: TaskId,
-    /// The parent's pending exit, which [`Control::take_pending`] fills in when it hands out
-    /// the action: its thread group exited while it waited for the child. Such a parent never
-    /// returns from vfork, as Linux kills it in `wait_for_vfork_done`: the instance unwinds it
-    /// through its exit with this status instead of resuming it.
-    pub exit: Option<i32>,
+    /// Whether the parent returns from vfork, which [`Control::take_pending`] decides when it
+    /// hands out the action. Not when its image ended while it waited for the child: its thread
+    /// group exited, or another thread's `execve` handed it the new image. Linux kills such a
+    /// parent in `wait_for_vfork_done` (`zap_other_threads`). The instance then runs as the
+    /// parent without resuming it, and the parent's next work is the exit or the `execve` that
+    /// ended its image.
+    pub resumes: bool,
 }
 
 /// One signal handler invocation: what the execution layer writes into the guest's signal frame

@@ -602,7 +602,7 @@ fn a_vfork_parent_whose_group_exits_is_no_zombie_while_its_child_runs() {
     // instead of returning from vfork.
     let exited = VforkParent {
         task: parent,
-        exit: Some(3),
+        resumes: false,
     };
     assert_eq!(
         vforked.child_exits(),
@@ -651,7 +651,7 @@ fn a_vfork_parent_whose_group_exits_does_not_return_from_its_childs_execve() {
     // The new image runs on its own; the instance unwinds the parent through its exit.
     let vfork_parent = Some(VforkParent {
         task: *parent,
-        exit: Some(3),
+        resumes: false,
     });
     assert_eq!(
         kernel.take_pending(*child),
@@ -673,7 +673,7 @@ fn a_vfork_parent_whose_group_exits_after_its_child_ended_does_not_return() {
 
     let exited = VforkParent {
         task: vforked.parent,
-        exit: Some(4),
+        resumes: false,
     };
     assert_eq!(
         vforked.kernel.take_pending(vforked.child),
@@ -689,7 +689,7 @@ fn a_vfork_parent_with_no_exit_pending_returns_from_vfork() {
     let vforked = Vforked::new();
     let parent = VforkParent {
         task: vforked.parent,
-        exit: None,
+        resumes: true,
     };
     assert_eq!(
         vforked.child_exits(),

@@ -2,7 +2,7 @@
 
 use futures::FutureExt as _;
 use wasixv2_abi::{FutexOp, KernelTimespec, Pid, Sigaction, Signal, Sigset};
-use wasixv2_syscalls::{read_value, write_value};
+use wasixv2_syscalls::{VforkParent, read_value, write_value};
 
 use super::{ipc::machine, *};
 
@@ -253,6 +253,48 @@ fn the_leaders_temporary_mask_does_not_outlive_another_threads_execve() {
     // The new image's first return to the guest has no temporary mask to end.
     assert_eq!(kernel.take_pending(leader), None);
     assert_eq!(kernel.task_signals(leader).blocked(), SIGUSR1);
+}
+
+/// A leader waiting for its vfork child while another thread calls `execve`: Linux's
+/// `de_thread` kills it in `wait_for_vfork_done` (`zap_other_threads`), so it never returns
+/// from vfork. Here its instance runs the child; once the child ends, the instance goes back to
+/// the leader without resuming it, and the leader takes the new image.
+#[test]
+fn a_vfork_parent_handed_another_threads_image_does_not_return_from_vfork() {
+    const VFORK: u32 = 0x4000 | 0x100 | Signal::SIGCHLD.0 as u32;
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let execing = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    let vfork = kernel.clone(&caller, VFORK, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    assert_eq!(block_on(vfork), Ok(0));
+    let Some(GuestAction::SwitchTask { task: child, .. }) = kernel.take_pending(leader) else {
+        panic!("vfork left no task switch");
+    };
+    let thread = Caller::new(execing, &memory);
+    let mut exec = Box::pin(execve(&kernel, &thread));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+
+    // The child ends, and the instance goes back to the leader, which does not resume.
+    block_on(kernel.exit_group(&Caller::new(child, &memory), 0)).unwrap();
+    let parent = VforkParent {
+        task: leader,
+        resumes: false,
+    };
+    let back = GuestAction::VforkReturn { parent, child };
+    assert_eq!(kernel.take_pending(child), Some(back));
+    kernel.release(child);
+    // Its next work is the new image.
+    let handed = GuestAction::Exec { vfork_parent: None };
+    assert_eq!(kernel.take_pending(leader), Some(handed));
+    assert_eq!(kernel.take_image(leader).as_deref(), Some(IMAGE));
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
+    kernel.release(execing);
+    assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
 }
 
 const IMAGE: &[u8] = b"\0asm\x01\0\0\0";

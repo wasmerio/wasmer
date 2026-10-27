@@ -74,6 +74,14 @@ impl Work {
         })
     }
 
+    /// Whether the task's image ends on its next return to the guest: it exits, or an `execve`
+    /// left it a new image.
+    pub(crate) fn ends_image(&self) -> bool {
+        self.queue
+            .iter()
+            .any(|action| matches!(action, GuestAction::Exit(_) | GuestAction::Exec { .. }))
+    }
+
     /// Whether an `execve` left its image to run.
     pub(crate) fn has_exec(&self) -> bool {
         self.queue
@@ -202,7 +210,7 @@ mod tests {
         let mut work = work();
         let parent = VforkParent {
             task: TaskId(1),
-            exit: None,
+            resumes: true,
         };
         let resume = GuestAction::VforkReturn {
             parent,

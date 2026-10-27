@@ -551,10 +551,13 @@ impl Kernel {
 
     /// Leaves the image of an `execve` for the leader `task`, and wakes it wherever it waits,
     /// a zombie leader's wait for its group included. A vfork child's instance goes back to the
-    /// parent once it takes the image, unless the parent's exit is pending by then.
+    /// parent once it takes the image; the parent returns from vfork unless its image ended.
     pub(crate) fn hand_image(&self, task: TaskId, image: Vec<u8>) {
         let vfork_parent = self.procs.tree.lock().unwrap().vforks.remove(&task);
-        let vfork_parent = vfork_parent.map(|task| VforkParent { task, exit: None });
+        let vfork_parent = vfork_parent.map(|task| VforkParent {
+            task,
+            resumes: true,
+        });
         let (process, signals) = {
             let mut state = self.state.lock().unwrap();
             let entry = state.tasks.get_mut(&task).expect("the leader is listed");

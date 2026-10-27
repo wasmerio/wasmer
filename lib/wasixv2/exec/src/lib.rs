@@ -664,8 +664,10 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 };
                 process::spawn_image(env, task, image).await;
                 match vfork_resume(env, parent, task).await {
-                    VforkResume::Unwind(err) => return Outcome::Unwind(err),
-                    VforkResume::ReturnSuccess => (task, switched) = (parent.task, Some(0)),
+                    Some(VforkResume::Unwind(err)) => return Outcome::Unwind(err),
+                    Some(VforkResume::ReturnSuccess) => (task, switched) = (parent.task, Some(0)),
+                    // What ended the parent's image is its next work.
+                    None => task = parent.task,
                 }
             }
             GuestAction::Fork {
@@ -685,8 +687,9 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 // The child ended; nothing runs as it any more.
                 syscalls.release(child);
                 match vfork_resume(env, parent, child).await {
-                    VforkResume::Unwind(err) => return Outcome::Unwind(err),
-                    VforkResume::ReturnSuccess => (task, switched) = (parent.task, Some(0)),
+                    Some(VforkResume::Unwind(err)) => return Outcome::Unwind(err),
+                    Some(VforkResume::ReturnSuccess) => (task, switched) = (parent.task, Some(0)),
+                    None => task = parent.task,
                 }
             }
             GuestAction::Signal(frame) => {
@@ -734,22 +737,23 @@ async fn instance_abi<S: 'static>(
     env.read().await.data().abi.clone()
 }
 
-/// Switches the instance back to the vfork parent and lets its ABI resume it. A parent whose
-/// thread group exited while it waited never returns from vfork, as on Linux: it unwinds
-/// through its exit, so the instance ends and the parent becomes a zombie.
+/// Switches the instance back to the vfork parent and lets its ABI resume it. `None` when the
+/// parent does not return from vfork, as on Linux, because its image ended while it waited
+/// ([`VforkParent::resumes`]): the instance runs as the parent, whose queued exit or new image
+/// then unwinds it.
 async fn vfork_resume<S: Control + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     parent: VforkParent,
     child: TaskId,
-) -> VforkResume {
+) -> Option<VforkResume> {
     process::switch(env, parent.task).await;
-    if let Some(status) = parent.exit {
-        return VforkResume::Unwind(RuntimeError::user(Box::new(Exited(status))));
+    if !parent.resumes {
+        return None;
     }
-    match instance_abi(env).await {
+    Some(match instance_abi(env).await {
         Some(abi) => abi.vfork_resume(env, child).await,
         None => VforkResume::Unwind(RuntimeError::new("vfork resume before bind")),
-    }
+    })
 }
 
 /// [`complete`] for the generated `wasixv2` shims: the guest's return value (`-errno` on
