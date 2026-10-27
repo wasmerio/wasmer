@@ -24,10 +24,10 @@ use mio::{
 };
 use wasixv2_abi::{Errno, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
-    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, Shutdown,
+    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, Room, Shutdown,
     StreamState as Phase,
 };
-use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};
+use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistration};
 
 use crate::errno_from_io;
 
@@ -37,6 +37,10 @@ const STREAM_BUF: usize = 256 * 1024;
 /// Bytes of datagrams buffered for the guest.
 const DGRAM_BUF: usize = 256 * 1024;
 const READ_CHUNK: usize = 64 * 1024;
+/// How much room a guest read must open in a full receive buffer before the reactor reads
+/// from the host again, as `__tcp_cleanup_rbuf` reopens the window only once it can grow
+/// substantially rather than after every small read.
+const RX_REOPEN: usize = READ_CHUNK;
 /// How long a stream the guest closed may go without the host peer taking any of its unsent
 /// bytes before it is reset, standing in for `tcp_fin_timeout` and the orphan retransmission
 /// limit (`tcp_orphan_retries`) that bound an orphaned Linux socket.
@@ -55,6 +59,9 @@ struct Shared {
     /// Streams the guest side touched since the reactor last pumped them; each is listed at
     /// most once, guarded by its `dirty` flag.
     dirty: Mutex<Vec<Arc<StreamShared>>>,
+    /// Publications whose guest listener made room since the reactor last accepted for them;
+    /// each is listed at most once, guarded by its `pending` flag.
+    listeners: Mutex<Vec<Arc<ListenerShared>>>,
     next: AtomicUsize,
     stop: AtomicBool,
 }
@@ -104,6 +111,7 @@ impl HostBackend {
             waker,
             entries: Mutex::new(HashMap::new()),
             dirty: Mutex::new(Vec::new()),
+            listeners: Mutex::new(Vec::new()),
             next: AtomicUsize::new(1),
             stop: AtomicBool::new(false),
         });
@@ -164,7 +172,14 @@ fn run(mut poll: Poll, shared: Arc<Shared>) {
                     pump(&s, &mut buf);
                 }
                 Some(Entry::Listener(l)) => l.accept_all(),
-                Some(Entry::Datagram(d)) => d.receive_all(&mut buf),
+                Some(Entry::Datagram(d)) => {
+                    if ev.is_writable() || ev.is_error() {
+                        d.writable();
+                    }
+                    if ev.is_readable() || ev.is_error() {
+                        d.receive_all(&mut buf);
+                    }
+                }
                 None => {}
             }
         }
@@ -173,6 +188,11 @@ fn run(mut poll: Poll, shared: Arc<Shared>) {
             // Cleared before pumping: a guest write during the pump marks it again.
             s.dirty.store(false, Ordering::Release);
             pump(&s, &mut buf);
+        }
+        let listeners = std::mem::take(&mut *shared.listeners.lock().unwrap());
+        for l in listeners {
+            l.pending.store(false, Ordering::Release);
+            l.accept_all();
         }
         let now = Instant::now();
         let mut next: Option<Instant> = None;
@@ -221,6 +241,46 @@ struct StreamState {
     closed_at: Option<Instant>,
     /// Deregistered: the reactor is finished with it.
     gone: bool,
+    keepalive: Keepalive,
+}
+
+/// The guest's keepalive settings, which the host socket gets while keepalive is on.
+#[derive(Default)]
+struct Keepalive {
+    on: bool,
+    idle: Option<Duration>,
+    interval: Option<Duration>,
+    count: Option<u32>,
+}
+
+impl Keepalive {
+    fn apply(&self, sock: &socket2::SockRef<'_>) -> io::Result<()> {
+        if !self.on {
+            return sock.set_keepalive(false);
+        }
+        let mut params = socket2::TcpKeepalive::new();
+        if let Some(idle) = self.idle {
+            params = params.with_time(idle);
+        }
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "netbsd",
+        ))]
+        {
+            if let Some(interval) = self.interval {
+                params = params.with_interval(interval);
+            }
+            if let Some(count) = self.count {
+                params = params.with_retries(count);
+            }
+        }
+        // Turns keepalive on, then sets what the guest chose.
+        sock.set_tcp_keepalive(&params)
+    }
 }
 
 struct StreamShared {
@@ -507,10 +567,10 @@ impl BackendStream for HostStream {
             buf[..first].copy_from_slice(&a[..first]);
             buf[first..n].copy_from_slice(&b[..n - first]);
             if !peek {
-                let was_full = st.rx.len() >= STREAM_BUF;
+                let free_before = STREAM_BUF.saturating_sub(st.rx.len());
                 st.rx.drain(..n);
                 drop(st);
-                if was_full {
+                if free_before < RX_REOPEN && free_before + n >= RX_REOPEN {
                     self.0.kick();
                 }
             }
@@ -573,6 +633,12 @@ impl BackendStream for HostStream {
         self.0.state().rx.len()
     }
 
+    /// What the guest wrote that the host socket has not taken yet; what the host socket
+    /// holds unacknowledged is not counted.
+    fn output_len(&self) -> usize {
+        self.0.state().tx.len()
+    }
+
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
         let int = |at: usize| {
             value
@@ -592,9 +658,25 @@ impl BackendStream for HostStream {
                 (_, Some(secs)) => Some(Duration::from_secs(secs.max(0) as u64)),
             };
         } else if sol_socket && name == SocketOption::SO_KEEPALIVE.0 {
-            let _ = sock.set_keepalive(v != 0);
+            let mut st = self.0.state();
+            st.keepalive.on = v != 0;
+            let _ = st.keepalive.apply(&sock);
         } else if level == SocketLevel::SOL_TCP.0 && name == TcpOption::TCP_NODELAY.0 {
             let _ = sock.set_tcp_nodelay(v != 0);
+        } else if level == SocketLevel::SOL_TCP.0 {
+            // The guest validated the value; the host takes it when keepalive is on, as
+            // Linux's `tcp_sock_set_keep*` only rearm a running keepalive timer.
+            let mut st = self.0.state();
+            let secs = Duration::from_secs(v.max(1) as u64);
+            match TcpOption(name) {
+                TcpOption::TCP_KEEPIDLE => st.keepalive.idle = Some(secs),
+                TcpOption::TCP_KEEPINTVL => st.keepalive.interval = Some(secs),
+                TcpOption::TCP_KEEPCNT => st.keepalive.count = Some(v.max(1) as u32),
+                _ => return Ok(()),
+            }
+            if st.keepalive.on {
+                let _ = st.keepalive.apply(&sock);
+            }
         }
         Ok(())
     }
@@ -607,15 +689,35 @@ struct ListenerShared {
     token: Token,
     sink: Arc<dyn InboundSink>,
     backend: Weak<Shared>,
+    /// Listed on `Shared::listeners`.
+    pending: AtomicBool,
+    /// Registrations on the guest listeners' room queues while their accept queues are full.
+    room: Mutex<Vec<WaitRegistration>>,
 }
 
 impl ListenerShared {
-    fn accept_all(&self) {
+    /// Takes connections off the host listener while the guest has room for them. A full guest
+    /// accept queue leaves them in the host's backlog, as Linux leaves a SYN unanswered when
+    /// `sk_acceptq_is_full`, until the guest makes room and wakes [`RoomKick`]; with no guest
+    /// listener at all they are reset, as a SYN to a closed port is.
+    fn accept_all(self: &Arc<Self>) {
         let Some(backend) = self.backend.upgrade() else {
             return;
         };
         loop {
+            let room = match self.sink.poll_room(None) {
+                // On the room queues before looking again, so no wakeup is lost.
+                Room::Full => self.poll_room_registered(),
+                room => room,
+            };
+            if room == Room::Full {
+                return;
+            }
             match self.sock.accept() {
+                Ok((sock, peer)) if room == Room::Gone => {
+                    tracing::debug!(%peer, "published connection without a guest listener");
+                    let _ = socket2::SockRef::from(&sock).set_linger(Some(Duration::ZERO));
+                }
                 Ok((sock, peer)) => {
                     // The queue of the guest socket-to-be, which adopts it.
                     let wq = WaitQueue::new();
@@ -637,6 +739,40 @@ impl ListenerShared {
             }
         }
     }
+
+    /// `poll_room` with a registration that brings the reactor back to this listener.
+    fn poll_room_registered(self: &Arc<Self>) -> Room {
+        let entry: Arc<dyn WaitEntry> = Arc::new(RoomKick(Arc::downgrade(self)));
+        let mut regs = Vec::new();
+        let mut proc = |q: &WaitQueue, _| regs.push(q.add(entry.clone()));
+        let room = self
+            .sink
+            .poll_room(Some(&mut PollTable::new(PollMask::empty(), &mut proc)));
+        // The old registrations go outside the lock, which their queues' wakes never take.
+        let old = std::mem::replace(&mut *self.room.lock().unwrap(), regs);
+        drop(old);
+        room
+    }
+}
+
+/// Woken, under a guest listener's room queue lock, when its accept queue may have room:
+/// lists the publication for the reactor, which accepts for it.
+struct RoomKick(Weak<ListenerShared>);
+
+impl WaitEntry for RoomKick {
+    fn wake(&self, _: PollMask) -> bool {
+        let Some(listener) = self.0.upgrade() else {
+            return false;
+        };
+        let Some(backend) = listener.backend.upgrade() else {
+            return false;
+        };
+        if !listener.pending.swap(true, Ordering::AcqRel) {
+            backend.listeners.lock().unwrap().push(listener);
+            let _ = backend.waker.wake();
+        }
+        true
+    }
 }
 
 struct HostPublication {
@@ -649,10 +785,19 @@ impl Publication for HostPublication {
     fn host_addr(&self) -> SocketAddr {
         self.addr
     }
+
+    fn set_backlog(&self, backlog: u32) {
+        // `listen` again on a listening socket only changes its backlog.
+        let backlog = backlog.min(i32::MAX as u32) as i32;
+        if let Err(e) = socket2::SockRef::from(&self.shared.sock).listen(backlog) {
+            tracing::warn!(error = %e, "changing the backlog of a published port");
+        }
+    }
 }
 
 impl Drop for HostPublication {
     fn drop(&mut self) {
+        self.shared.room.lock().unwrap().clear();
         if let Some(b) = self.backend.upgrade() {
             let fd = self.shared.sock.as_raw_fd();
             let _ = b.registry.deregister(&mut SourceFd(&fd));
@@ -663,7 +808,6 @@ impl Drop for HostPublication {
 
 // ---- datagrams ----
 
-#[derive(Default)]
 struct DgramState {
     queue: VecDeque<(Vec<u8>, SocketAddr)>,
     queued: usize,
@@ -671,6 +815,9 @@ struct DgramState {
     err: Option<Errno>,
     /// The host socket is connected (`connect`), so the host filters by its peer.
     connected: Option<SocketAddr>,
+    /// The host socket takes datagrams: false from a send's `EAGAIN` until the reactor sees
+    /// it writable again.
+    host_writable: bool,
 }
 
 struct DgramShared {
@@ -687,11 +834,25 @@ impl DgramShared {
         self.st.lock().unwrap()
     }
 
+    /// The host socket became writable: wake senders that met `EAGAIN` (`sock_wfree` waking
+    /// `sk_write_space`).
+    fn writable(&self) {
+        let was = std::mem::replace(&mut self.state().host_writable, true);
+        if !was {
+            self.wq
+                .wake(PollMask::OUT | PollMask::WRNORM | PollMask::WRBAND);
+        }
+    }
+
     fn receive_all(&self, buf: &mut [u8]) {
         let mut wake = PollMask::empty();
+        // An error is reported once and then cleared (`sock_error`); one that comes straight
+        // back is not a peer's report, and retrying it would starve every other socket.
+        let mut failed = false;
         loop {
             match self.sock.recv_from(buf) {
                 Ok((n, from)) => {
+                    failed = false;
                     let mut st = self.state();
                     // Like a full SO_RCVBUF: drop when the buffer is over its limit.
                     if st.queued <= DGRAM_BUF {
@@ -702,9 +863,14 @@ impl DgramShared {
                 }
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) if failed => {
+                    tracing::warn!(error = %e, "receiving on a host datagram socket");
+                    break;
+                }
                 // An ICMP error for a connected socket (`__udp4_lib_err`); unconnected ones
                 // never hear of them (no IP_RECVERR).
                 Err(e) => {
+                    failed = true;
                     let mut st = self.state();
                     if st.connected.is_some() {
                         st.err = Some(errno_from_io(&e));
@@ -733,8 +899,11 @@ impl Drop for HostDatagram {
 
 impl Pollable for HostDatagram {
     fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
-        let mut m = PollMask::OUT | PollMask::WRNORM;
         let st = self.0.state();
+        let mut m = PollMask::empty();
+        if st.host_writable {
+            m |= PollMask::OUT | PollMask::WRNORM;
+        }
         if !st.queue.is_empty() {
             m |= PollMask::IN | PollMask::RDNORM;
         }
@@ -747,13 +916,22 @@ impl Pollable for HostDatagram {
 
 impl BackendDatagram for HostDatagram {
     fn send_to(&self, data: &[u8], to: SocketAddr) -> Result<usize, Errno> {
+        // Under the state lock, so the reactor marks the socket writable only after an
+        // `EAGAIN` here has marked it full: no wakeup falls between the two.
+        let mut st = self.0.state();
         // `send` to the connected peer, so the host reports its errors on this socket.
-        let connected = self.0.state().connected;
-        let sent = match connected {
+        let sent = match st.connected {
             Some(peer) if peer == to => self.0.sock.send(data),
             _ => self.0.sock.send_to(data, to),
         };
-        sent.map_err(|e| errno_from_io(&e))
+        match sent {
+            Ok(n) => Ok(n),
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                st.host_writable = false;
+                Err(Errno::EAGAIN)
+            }
+            Err(e) => Err(errno_from_io(&e)),
+        }
     }
 
     fn recv_from(&self, buf: &mut [u8], peek: bool) -> Result<(usize, usize, SocketAddr), Errno> {
@@ -822,7 +1000,13 @@ impl Backend for HostBackend {
             sock,
             token,
             wq,
-            st: Mutex::new(DgramState::default()),
+            st: Mutex::new(DgramState {
+                queue: VecDeque::new(),
+                queued: 0,
+                err: None,
+                connected: None,
+                host_writable: true,
+            }),
             backend: Arc::downgrade(&self.shared),
         });
         self.shared
@@ -831,11 +1015,12 @@ impl Backend for HostBackend {
             .unwrap()
             .insert(token, Entry::Datagram(shared.clone()));
         let fd = shared.sock.as_raw_fd();
-        if let Err(e) = self
-            .shared
-            .registry
-            .register(&mut SourceFd(&fd), token, Interest::READABLE)
-        {
+        // Writable too: a send that met `EAGAIN` waits for the host to take datagrams again.
+        if let Err(e) = self.shared.registry.register(
+            &mut SourceFd(&fd),
+            token,
+            Interest::READABLE | Interest::WRITABLE,
+        ) {
             self.shared.remove(token);
             return Err(errno_from_io(&e));
         }
@@ -845,9 +1030,10 @@ impl Backend for HostBackend {
     fn publish(
         &self,
         host: SocketAddr,
+        backlog: u32,
         sink: Arc<dyn InboundSink>,
     ) -> io::Result<Box<dyn Publication>> {
-        let sock = TcpListener::bind(host)?;
+        let sock = listen(host, backlog)?;
         let addr = sock.local_addr()?;
         let token = self.shared.token();
         let shared = Arc::new(ListenerShared {
@@ -855,6 +1041,8 @@ impl Backend for HostBackend {
             token,
             sink,
             backend: Arc::downgrade(&self.shared),
+            pending: AtomicBool::new(false),
+            room: Mutex::new(Vec::new()),
         });
         self.shared
             .entries
@@ -875,5 +1063,144 @@ impl Backend for HostBackend {
             backend: Arc::downgrade(&self.shared),
             addr,
         }))
+    }
+}
+
+/// A non-blocking host listener on `addr` with `backlog`, as `TcpListener::bind` makes one
+/// (`SO_REUSEADDR` on Unix, so a published port is free again at once after a restart).
+fn listen(addr: SocketAddr, backlog: u32) -> io::Result<TcpListener> {
+    let sock = socket2::Socket::new(
+        socket2::Domain::for_address(addr),
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )?;
+    sock.set_reuse_address(true)?;
+    sock.set_nonblocking(true)?;
+    sock.bind(&addr.into())?;
+    sock.listen(backlog.min(i32::MAX as u32) as i32)?;
+    Ok(TcpListener::from_std(sock.into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{os::fd::FromRawFd, sync::mpsc};
+
+    use super::*;
+
+    fn backend() -> Arc<HostBackend> {
+        HostBackend::new().unwrap()
+    }
+
+    #[test]
+    fn keepalive_parameters_reach_the_host_socket_once_keepalive_is_on() {
+        let b = backend();
+        let host = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let sock = TcpStream::connect(host.local_addr().unwrap()).unwrap();
+        let peer = sock.peer_addr().unwrap_or(host.local_addr().unwrap());
+        let s = HostStream::register(&b.shared, sock, peer, false, WaitQueue::new()).unwrap();
+        let int = |v: i32| v.to_le_bytes();
+        let tcp = SocketLevel::SOL_TCP.0;
+        s.set_option(tcp, TcpOption::TCP_KEEPIDLE.0, &int(42))
+            .unwrap();
+        let host_sock = socket2::SockRef::from(&s.0.sock);
+        // Stored, not applied, while keepalive is off.
+        assert!(!host_sock.keepalive().unwrap());
+        s.set_option(
+            SocketLevel::SOL_SOCKET.0,
+            SocketOption::SO_KEEPALIVE.0,
+            &int(1),
+        )
+        .unwrap();
+        assert!(host_sock.keepalive().unwrap());
+        assert_eq!(
+            host_sock.tcp_keepalive_time().unwrap(),
+            Duration::from_secs(42)
+        );
+        s.set_option(tcp, TcpOption::TCP_NODELAY.0, &int(1))
+            .unwrap();
+        assert!(host_sock.tcp_nodelay().unwrap());
+        s.set_option(
+            SocketLevel::SOL_SOCKET.0,
+            SocketOption::SO_KEEPALIVE.0,
+            &int(0),
+        )
+        .unwrap();
+        assert!(!host_sock.keepalive().unwrap());
+    }
+
+    #[test]
+    fn a_datagram_endpoint_is_writable_until_the_host_is_full() {
+        let b = backend();
+        let wq = WaitQueue::new();
+        let d = b.datagram(Domain::Inet, wq.clone()).unwrap();
+        assert!(d.poll(None).contains(PollMask::OUT));
+        let (tx, rx) = mpsc::channel();
+        struct Signal(mpsc::Sender<PollMask>);
+        impl WaitEntry for Signal {
+            fn wake(&self, events: PollMask) -> bool {
+                let _ = self.0.send(events);
+                true
+            }
+        }
+        let _reg = wq.add(Arc::new(Signal(tx)));
+        // What a send meeting `EAGAIN` leaves.
+        let shared = b
+            .shared
+            .entries
+            .lock()
+            .unwrap()
+            .values()
+            .find_map(|e| match e {
+                Entry::Datagram(d) => Some(d.clone()),
+                _ => None,
+            });
+        let shared = shared.unwrap();
+        shared.state().host_writable = false;
+        assert!(!d.poll(None).intersects(PollMask::OUT | PollMask::WRNORM));
+        // The reactor's writable event wakes the guest socket's queue with OUT.
+        shared.writable();
+        assert!(rx.try_recv().unwrap().contains(PollMask::OUT));
+        assert!(d.poll(None).contains(PollMask::OUT));
+    }
+
+    #[test]
+    fn a_persistent_receive_error_does_not_spin_the_reactor() {
+        let mut fds = [0; 2];
+        // SAFETY: `pipe` fills both descriptors.
+        assert_eq!(unsafe { libc_pipe(fds.as_mut_ptr()) }, 0);
+        // A descriptor that is not a socket fails every receive with ENOTSOCK.
+        // SAFETY: the read end is ours and closed when the socket drops.
+        let sock = unsafe { std::net::UdpSocket::from_raw_fd(fds[0]) };
+        let shared = DgramShared {
+            sock: UdpSocket::from_std(sock),
+            token: Token(1),
+            wq: WaitQueue::new(),
+            st: Mutex::new(DgramState {
+                queue: VecDeque::new(),
+                queued: 0,
+                err: None,
+                connected: Some("127.0.0.1:9".parse().unwrap()),
+                host_writable: true,
+            }),
+            backend: Weak::new(),
+        };
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            shared.receive_all(&mut [0u8; 64]);
+            let _ = tx.send(shared.state().err);
+        });
+        let err = rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("receive_all returns");
+        assert_eq!(err, Some(Errno::ENOTSOCK));
+        // SAFETY: the write end is still open and ours.
+        unsafe { libc_close(fds[1]) };
+    }
+
+    unsafe extern "C" {
+        #[link_name = "pipe"]
+        fn libc_pipe(fds: *mut i32) -> i32;
+        #[link_name = "close"]
+        fn libc_close(fd: i32) -> i32;
     }
 }

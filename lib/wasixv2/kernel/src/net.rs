@@ -8,11 +8,7 @@
 //! they are used and address arithmetic that would leave the address space is `EFAULT`, so no
 //! guest input can make the host panic.
 
-use std::{
-    net::SocketAddr,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, net::SocketAddr, sync::Arc, time::Duration};
 
 use wasixv2_abi::{
     AddressFamily, Buf, ConstSockaddrPtr, ConstUserMsghdrPtr, FdPair, GuestLayout, GuestPtr,
@@ -30,6 +26,7 @@ use wasixv2_wait::PollMask;
 
 use crate::{
     Kernel,
+    cred::Cred,
     file::{Backing, OpenFile},
     fs::read_iovecs,
     netlink,
@@ -191,7 +188,9 @@ impl Kernel {
             _ => return Err(Errno::ESOCKTNOSUPPORT.into()),
         };
         let network = self.network.as_ref().ok_or(Errno::EAFNOSUPPORT)?;
-        let socket = network.socket(domain, kind, protocol)?;
+        // `sk_uid`: the inode owner `sock_alloc` gives the socket.
+        let (uid, _) = self.cred(caller).fs_owner();
+        let socket = network.socket(domain, kind, protocol, uid)?;
         let file = self.socket_file(caller, socket, flags);
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [fd] = self.install_files(caller, [file], cloexec)?;
@@ -263,16 +262,17 @@ impl Kernel {
         let backlog = (backlog as u32).min(SOMAXCONN);
         match self.any_socket(caller, fd)? {
             AnySock::Inet((_, sock)) => sock.socket.listen(backlog)?,
-            AnySock::Unix(_, sock) => sock.listen(backlog)?,
+            AnySock::Unix(_, sock) => sock.listen(backlog, self.peer_cred(caller))?,
             AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
         }
         Ok(0)
     }
 
-    /// `do_accept`: waits for a connection unless non-blocking. As Linux reserves the
-    /// descriptor before taking the connection (`get_unused_fd_flags`), a full table fails with
-    /// `EMFILE` and leaves the connection queued; a fault writing the peer's address afterwards
-    /// closes the accepted socket, which its peer sees.
+    /// `do_accept`: waits for a connection unless non-blocking. As Linux, the descriptor is
+    /// reserved before the connection is taken (`get_unused_fd_flags`), so a full table fails
+    /// with `EMFILE` and leaves the connection queued, and installed only once the peer's
+    /// address is written (`fd_install` last): a fault there closes the accepted socket, which
+    /// its peer sees, and no other thread ever saw its descriptor.
     pub(crate) async fn sys_accept4(
         &self,
         caller: &Caller<'_>,
@@ -286,82 +286,40 @@ impl Kernel {
         }
         let any = self.any_socket(caller, fd)?;
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
+        let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
         let interrupt = self.interrupt(caller);
         let io = Self::io(&*interrupt, any.file());
-        let (fd, file, peer) = match &any {
+        let (file, peer) = match &any {
             AnySock::Inet((_, sock)) => {
                 let mut wait = sock.blocking(io, RCV, MsgFlags(0));
                 let on = WaitOn::Object(&*sock.socket);
                 wait.wait(on, PollMask::READABLE, || {
-                    self.install_accepted(caller, cloexec, || {
-                        let accepted = sock.socket.accept()?;
-                        let peer = socket::encode(accepted.peer);
-                        Ok((self.socket_file(caller, accepted.socket, flags), peer))
-                    })
+                    let accepted = sock.socket.accept()?;
+                    let peer = socket::encode(accepted.peer);
+                    Ok((self.socket_file(caller, accepted.socket, flags), peer))
                 })
                 .await?
             }
             AnySock::Unix(_, sock) => {
                 let mut wait = sock.blocking(io, RCV, MsgFlags(0));
                 wait.wait(WaitOn::Queue(sock.queue()), PollMask::READABLE, || {
-                    self.install_accepted(caller, cloexec, || {
-                        if sock.kind() == unix::Kind::Dgram {
-                            return Err(Errno::EOPNOTSUPP);
-                        }
-                        // The embryo is an open file at once, so every way out releases it.
-                        let embryo = sock.try_accept()?;
-                        let peer = embryo.peer_addr().unwrap_or_default();
-                        let owner = self.cred(caller).fs_owner();
-                        Ok((unix_file(embryo, flags, self.pseudo.socket(owner)), peer))
-                    })
+                    if sock.kind() == unix::Kind::Dgram {
+                        return Err(Errno::EOPNOTSUPP);
+                    }
+                    // The embryo is an open file at once, so every way out releases it.
+                    let embryo = sock.try_accept()?;
+                    let peer = embryo.peer_addr().unwrap_or_default();
+                    let owner = self.cred(caller).fs_owner();
+                    Ok((unix_file(embryo, flags, self.pseudo.socket(owner)), peer))
                 })
                 .await?
             }
-            AnySock::Netlink(..) => {
-                self.install_accepted(caller, cloexec, || Err(Errno::EOPNOTSUPP))?
-            }
+            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
-        if !addr.is_null()
-            && let Err(err) = move_addr_to_user(caller, &peer, addr, addrlen).await
-        {
-            self.uninstall(caller, fd, &file);
-            return Err(err);
+        if !addr.is_null() {
+            move_addr_to_user(caller, &peer, addr, addrlen).await?;
         }
-        Ok(fd)
-    }
-
-    /// Takes a connection with `accept` and installs it, under the descriptor table's lock so
-    /// the slot checked free is the one used: `EMFILE` before anything is dequeued.
-    fn install_accepted(
-        &self,
-        caller: &Caller<'_>,
-        cloexec: bool,
-        accept: impl FnOnce() -> Result<(OpenFile, Vec<u8>), Errno>,
-    ) -> Result<(Fd, Arc<OpenFile>, Vec<u8>), Errno> {
-        let table = self.files(caller.task());
-        let mut table = table.lock().unwrap();
-        if !table.has_room(1) {
-            return Err(Errno::EMFILE);
-        }
-        let (file, peer) = accept()?;
-        let file = Arc::new(file);
-        let fd = table
-            .install(file.clone(), cloexec)
-            .expect("room checked above");
-        Ok((fd, file, peer))
-    }
-
-    /// Takes back a descriptor `install_accepted` installed, unless the guest replaced it.
-    fn uninstall(&self, caller: &Caller<'_>, fd: Fd, file: &Arc<OpenFile>) {
-        let removed = {
-            let table = self.files(caller.task());
-            let mut table = table.lock().unwrap();
-            match table.get(fd) {
-                Some(installed) if Arc::ptr_eq(&installed, file) => table.remove(fd),
-                _ => None,
-            }
-        };
-        drop(removed);
+        Ok(slot.install(Arc::new(file)))
     }
 
     /// `__sys_connect`, `inet_stream_connect` and `inet_dgram_connect`.
@@ -378,7 +336,11 @@ impl Kernel {
             AnySock::Unix(file, sock) => {
                 return self.unix_connect(caller, &file, &sock, &raw).await;
             }
-            AnySock::Netlink(..) => return Ok(0),
+            AnySock::Netlink(_, nl) => {
+                let net_admin = self.cred(caller).capable(Cap::NetAdmin);
+                nl.connect(&raw, net_admin)?;
+                return Ok(0);
+            }
         };
         if socket::family(&raw)? == AddressFamily::AF_UNSPEC {
             sock.socket.disconnect()?;
@@ -443,7 +405,7 @@ impl Kernel {
         let raw = match self.any_socket(caller, fd)? {
             AnySock::Inet((_, sock)) => socket::encode(sock.socket.peer_addr()?),
             AnySock::Unix(_, sock) => sock.peer_addr()?,
-            AnySock::Netlink(..) => netlink::kernel_addr(),
+            AnySock::Netlink(_, nl) => nl.peer_addr(),
         };
         move_addr_to_user(caller, &raw, addr, addrlen).await?;
         Ok(0)
@@ -488,19 +450,13 @@ impl Kernel {
         let io = Self::io(&*interrupt, sock.file());
         let result = match sock {
             AnySock::Inet((_, sock)) => {
-                // `__sock_cmsg_send` ignores Unix-only control messages on IP sockets.
-                let control: Vec<Control> = control
-                    .iter()
-                    .filter(|c| {
-                        !(c.level == SocketLevel::SOL_SOCKET.0
-                            && matches!(c.kind, unix::SCM_RIGHTS | unix::SCM_CREDENTIALS))
-                    })
-                    .cloned()
-                    .collect();
                 let to = match to {
                     Some(raw) => self.destination(sock, raw)?,
                     None => None,
                 };
+                let cred = self.cred(caller);
+                let control = sock_cmsg_send(&cred, control)?;
+                let net_raw = cred.capable(Cap::NetRaw);
                 let mut wait = sock.blocking(io, SND, flags);
                 let mut scratch = Scratch::default();
                 let stream = sock.socket.kind() == SocketKind::Stream;
@@ -519,6 +475,7 @@ impl Kernel {
                         to,
                         flags,
                         control: if sent == 0 { &control } else { &[] },
+                        net_raw,
                     };
                     match sock.send(&mut wait, msg).await {
                         Ok(k) => {
@@ -669,7 +626,7 @@ impl Kernel {
                     true => dst.len.min(SOCK_CHUNK),
                     false => dst.len,
                 };
-                let msg = unix::recv(sock, &mut wait, max, flags).await?;
+                let msg = unix::recv(sock, &mut wait, max, flags, None).await?;
                 dst.copy_out(memory, 0, &msg.data).await?;
                 let controls = msg
                     .cred
@@ -689,10 +646,13 @@ impl Kernel {
                     controls,
                     rights: msg.rights,
                 };
+                // `unix_stream_read_generic` keeps waiting, but never past files and, with
+                // `SO_PASSCRED`, never into another writer's data.
+                let writer = msg.cred;
                 while stream && waitall && got.len > 0 && got.len < dst.len && got.rights.is_empty()
                 {
                     let max = (dst.len - got.len).min(SOCK_CHUNK);
-                    match unix::recv(sock, &mut wait, max, flags).await {
+                    match unix::recv(sock, &mut wait, max, flags, writer).await {
                         Ok(more) if more.len() > 0 => {
                             if dst.copy_out(memory, got.len, &more.data).await.is_err() {
                                 break;
@@ -950,10 +910,8 @@ impl Kernel {
                 sock.shutdown(unix::shutdown_mode(how.0)?);
                 return Ok(0);
             }
-            AnySock::Netlink(..) => {
-                unix::shutdown_mode(how.0)?;
-                return Ok(0);
-            }
+            // `sock_no_shutdown`.
+            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
         let how = match how {
             ShutdownHow::SHUT_RD => Shutdown::Read,
@@ -1002,7 +960,10 @@ impl Kernel {
             AnySock::Unix(..) if level != SocketLevel::SOL_SOCKET => {
                 return Err(Errno::EOPNOTSUPP.into());
             }
-            AnySock::Unix(_, sock) => sock.set_option(name, &value)?,
+            AnySock::Unix(_, sock) => {
+                let net_admin = self.cred(caller).capable(Cap::NetAdmin);
+                sock.set_option(name, &value, net_admin)?
+            }
             AnySock::Netlink(_, nl) if level == SocketLevel::SOL_SOCKET => {
                 nl.set_option(name, &value)?
             }
@@ -1025,7 +986,11 @@ impl Kernel {
     ) -> SysResult<i32> {
         let any = self.any_socket(caller, fd)?;
         let len: i32 = read_value(caller.memory(), GuestPtr::new(optlen.addr())).await?;
-        let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?.min(4096);
+        let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?;
+        if level == SocketLevel::SOL_SOCKET && SocketOption(name) == SocketOption::SO_PEERGROUPS {
+            return peer_groups(caller, &any, len, optval, optlen).await;
+        }
+        let len = len.min(4096);
         let fixed = match &any {
             _ if level == SocketLevel::SOL_SOCKET && timeout_option(name).is_some() => {
                 Some(timeout_value(any.timeouts(), name))
@@ -1079,6 +1044,8 @@ impl Kernel {
                 Domain::Inet6 => AddressFamily::AF_INET6.0,
             }),
             SocketOption::SO_ERROR => int(socket.take_error().map_or(0, |errno| errno.0)),
+            // `cred_to_ucred` without peer credentials, which only Unix sockets have.
+            SocketOption::SO_PEERCRED => Ok(Some(unix::Ucred::NONE.to_bytes())),
             _ => Ok(None),
         }
     }
@@ -1093,6 +1060,32 @@ impl Kernel {
             interrupt,
         }
     }
+}
+
+/// `SO_PEERGROUPS`: the supplementary groups of a socket's peer, `ENODATA` without one (only
+/// Unix sockets have peer credentials); a buffer too short is `ERANGE` with the length it
+/// needs written back.
+async fn peer_groups(
+    caller: &Caller<'_>,
+    any: &AnySock,
+    len: usize,
+    optval: Buf,
+    optlen: SocklenPtr,
+) -> SysResult<i32> {
+    let peer = match any {
+        AnySock::Unix(_, sock) => sock.peer_cred(),
+        _ => None,
+    };
+    let groups = peer.ok_or(Errno::ENODATA)?.groups;
+    let need = groups.len() * 4;
+    if len < need {
+        write_value(caller.memory(), optlen, &(need as u32)).await?;
+        return Err(Errno::ERANGE.into());
+    }
+    let raw: Vec<u8> = groups.iter().flat_map(|g| g.to_le_bytes()).collect();
+    caller.memory().write(optval.addr(), &raw).await?;
+    write_value(caller.memory(), optlen, &(need as u32)).await?;
+    Ok(0)
 }
 
 /// An open file for the Unix socket `sock`.
@@ -1212,13 +1205,16 @@ impl GuestIov {
     }
 }
 
-/// Bounce buffers for socket I/O. Guest memory is reached asynchronously while sockets work on
-/// byte slices, so data passes through kernel memory; reusing buffers spares allocating and
-/// zeroing one per call. What a buffer held before is never shown to a guest: a send fills it
-/// from guest memory first, a receive copies out only what the socket wrote.
-static SCRATCH: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
-/// How many idle buffers the pool keeps.
-const SCRATCH_KEEP: usize = 16;
+thread_local! {
+    /// Bounce buffers for socket I/O. Guest memory is reached asynchronously while sockets
+    /// work on byte slices, so data passes through kernel memory; reusing buffers spares
+    /// allocating and zeroing one per call. What a buffer held before is never shown to a
+    /// guest: a send fills it from guest memory first, a receive copies out only what the
+    /// socket wrote. The pool is per host thread, so machines in one process share no lock.
+    static SCRATCH: RefCell<Vec<Vec<u8>>> = const { RefCell::new(Vec::new()) };
+}
+/// How many idle buffers a thread's pool keeps.
+const SCRATCH_KEEP: usize = 4;
 
 #[derive(Default)]
 struct Scratch(Vec<u8>);
@@ -1227,7 +1223,9 @@ impl Scratch {
     /// A buffer of `len` bytes.
     fn get(&mut self, len: usize) -> &mut [u8] {
         if self.0.capacity() == 0 {
-            self.0 = SCRATCH.lock().unwrap().pop().unwrap_or_default();
+            self.0 = SCRATCH
+                .with_borrow_mut(|pool| pool.pop())
+                .unwrap_or_default();
         }
         if self.0.len() < len {
             self.0.resize(len, 0);
@@ -1242,10 +1240,13 @@ impl Drop for Scratch {
         if buf.capacity() == 0 || buf.len() > SOCK_CHUNK {
             return;
         }
-        let mut pool = SCRATCH.lock().unwrap();
-        if pool.len() < SCRATCH_KEEP {
-            pool.push(buf);
-        }
+        // `try_with`: a thread being torn down keeps nothing.
+        let _ = SCRATCH.try_with(|pool| {
+            let mut pool = pool.borrow_mut();
+            if pool.len() < SCRATCH_KEEP {
+                pool.push(buf);
+            }
+        });
     }
 }
 
@@ -1312,6 +1313,60 @@ async fn read_cmsgs(caller: &Caller<'_>, hdr: &UserMsghdr) -> SysResult<Vec<Cont
         .await?;
     Ok(parse_cmsgs(&raw)?)
 }
+
+/// `__sock_cmsg_send` for an IP socket: checks the `SOL_SOCKET` control messages every family
+/// shares and returns the others, which are the protocol's. `SCM_RIGHTS` and `SCM_CREDENTIALS`
+/// belong to Unix sockets and are ignored. What they ask for (a mark, a priority, transmit
+/// timestamps) has no effect without packets.
+fn sock_cmsg_send(cred: &Cred, controls: &[Control]) -> Result<Vec<Control>, Errno> {
+    let privileged = cred.capable(Cap::NetRaw) || cred.capable(Cap::NetAdmin);
+    let mut rest = Vec::new();
+    for c in controls {
+        if c.level != SocketLevel::SOL_SOCKET.0 {
+            rest.push(c.clone());
+            continue;
+        }
+        let word = <[u8; 4]>::try_from(c.data.as_slice()).map(u32::from_le_bytes);
+        match c.kind {
+            unix::SCM_RIGHTS | unix::SCM_CREDENTIALS => {}
+            SO_MARK => {
+                if !privileged {
+                    return Err(Errno::EPERM);
+                }
+                word.map_err(|_| Errno::EINVAL)?;
+            }
+            SO_TIMESTAMPING_OLD | SO_TIMESTAMPING_NEW => {
+                let flags = word.map_err(|_| Errno::EINVAL)?;
+                if flags & !SOF_TIMESTAMPING_TX_RECORD_MASK != 0 {
+                    return Err(Errno::EINVAL);
+                }
+            }
+            SO_PRIORITY => {
+                // `sk_set_prio_allowed`: `TC_PRIO_BESTEFFORT` to `TC_PRIO_INTERACTIVE` for all.
+                let prio = word.map_err(|_| Errno::EINVAL)?;
+                if prio > 6 && !privileged {
+                    return Err(Errno::EPERM);
+                }
+            }
+            SCM_DEVMEM_DMABUF => {
+                word.map_err(|_| Errno::EINVAL)?;
+            }
+            // `SCM_TXTIME` needs `SO_TXTIME` and `SCM_TS_OPT_ID` `SOF_TIMESTAMPING_OPT_ID`
+            // (and no TCP socket), options no socket here can have; the rest are unknown.
+            _ => return Err(Errno::EINVAL),
+        }
+    }
+    Ok(rest)
+}
+
+/// The `SOL_SOCKET` control message types of the generic socket ABI.
+const SO_PRIORITY: i32 = 12;
+const SO_MARK: i32 = 36;
+const SO_TIMESTAMPING_OLD: i32 = 37;
+const SO_TIMESTAMPING_NEW: i32 = 65;
+const SCM_DEVMEM_DMABUF: i32 = 79;
+/// `SOF_TIMESTAMPING_TX_RECORD_MASK`: the transmit timestamp requests a send may make.
+const SOF_TIMESTAMPING_TX_RECORD_MASK: u32 = (1 << 0) | (1 << 1) | (1 << 8) | (1 << 9) | (1 << 18);
 
 /// `for_each_cmsghdr` with `CMSG_OK`: each header must fit with its `cmsg_len` inside the
 /// buffer (else `EINVAL`), and the walk ends once the next aligned header would not fit

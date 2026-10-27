@@ -10,15 +10,16 @@ use std::{
 
 use wasixv2_abi::Errno;
 
-use wasixv2_wait::WaitQueue;
+use wasixv2_wait::{PollTable, WaitQueue};
 
 use crate::{
     Backend, BackendStream, Domain, InboundSink, Interface, NetResult, Network, PortEntry,
-    Publication, Socket, SocketKind,
-    addr::canonical,
+    Publication, Room, Socket, SocketKind,
+    addr::{canonical, canonical_ip},
+    cmsg::SendCtl,
     iface::{Interfaces, Route, RouteDecision},
     ports::{BindSpec, PortRange, PortRng, PortTable, Proto, SockId},
-    tcp::TcpSocket,
+    tcp::{Offer, TcpSocket},
     udp::UdpSocket,
 };
 
@@ -104,6 +105,9 @@ impl NetConfig {
     }
 }
 
+/// `net.core.somaxconn`'s default, the host backlog of an explicit publication.
+const PUBLISH_BACKLOG: u32 = 4096;
+
 pub(crate) struct NetState {
     pub tcp: PortTable<Weak<TcpSocket>>,
     pub udp: PortTable<Weak<UdpSocket>>,
@@ -180,11 +184,6 @@ impl Net {
         self.next_id.fetch_add(1, Ordering::Relaxed)
     }
 
-    /// The interface and route tables, for netlink.
-    pub fn interface_table(&self) -> Interfaces {
-        self.state().ifaces.clone()
-    }
-
     /// Changes the interface and route tables (`ip link`, `ip addr`, `ip route`).
     pub fn update_interfaces<R>(&self, f: impl FnOnce(&mut Interfaces) -> R) -> R {
         f(&mut self.state().ifaces)
@@ -205,7 +204,9 @@ impl Net {
     }
 
     /// Explicit publishing: connections the backend accepts on `host` go to the guest
-    /// listener for `guest`.
+    /// listener for `guest`. The host listener's backlog is `somaxconn`'s default, the most a
+    /// guest listener could ask for; connections wait there while the guest's accept queue
+    /// is full.
     pub fn publish(
         &self,
         host: SocketAddr,
@@ -214,7 +215,7 @@ impl Net {
         let backend = self.backend.as_ref().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::Unsupported, "network has no backend")
         })?;
-        backend.publish(host, self.inbound_sink(guest))
+        backend.publish(host, PUBLISH_BACKLOG, self.inbound_sink(guest))
     }
 
     pub(crate) fn inbound_sink(&self, guest: SocketAddr) -> Arc<dyn InboundSink> {
@@ -335,42 +336,48 @@ impl Net {
     /// The best listener for a connection to `dst` from `src`; a `SO_REUSEPORT` group is
     /// spread by the source port.
     pub(crate) fn find_listener(&self, dst: SocketAddr, src: SocketAddr) -> Option<Arc<TcpSocket>> {
+        self.listener_group(dst, src).into_iter().next()
+    }
+
+    /// Every listener a connection to `dst` from `src` may go to, the one `find_listener`
+    /// picks first and the rest of its `SO_REUSEPORT` group after it.
+    fn listener_group(&self, dst: SocketAddr, src: SocketAddr) -> Vec<Arc<TcpSocket>> {
         let candidates = self
             .state()
             .tcp
             .lookup(dst, Some(src), |_, listening| listening);
-        let live: Vec<_> = candidates.iter().filter_map(Weak::upgrade).collect();
-        if live.is_empty() {
-            return None;
+        let mut live: Vec<_> = candidates.iter().filter_map(Weak::upgrade).collect();
+        if !live.is_empty() {
+            let i = src.port() as usize % live.len();
+            live.rotate_left(i);
         }
-        let i = src.port() as usize % live.len();
-        live.into_iter().nth(i)
+        live
     }
 
-    /// Where a UDP datagram to `dst` goes, decided under one lock: the route, the sender's port
-    /// (bound with `autobind` first if `local` is `None` and there is a route), and inside the
-    /// namespace the receiving socket. Returns the sender's local address and the route.
+    /// Where a UDP datagram from the bound `local` to `dst` goes, decided under one lock: the
+    /// route (`ip_route_output_flow`, with the source and interface the control messages
+    /// chose) and inside the namespace the receiving socket.
     pub(crate) fn udp_route(
         &self,
-        id: SockId,
-        autobind: BindSpec,
-        local: Option<SocketAddr>,
+        local: SocketAddr,
         dst: SocketAddr,
-        me: Weak<UdpSocket>,
-    ) -> NetResult<(SocketAddr, UdpRoute)> {
-        let (local, route) = {
-            let mut st = self.state();
-            let st = &mut *st;
-            let path = self.path_in(st, dst, local.map(|l| l.ip()))?;
-            let local = match local {
-                Some(local) => local,
-                None => {
-                    let range = self.config.port_range;
-                    let port = st.udp.bind(id, autobind, 0, range, &mut st.rng, me)?;
-                    SocketAddr::new(autobind.addr, port)
-                }
-            };
-            let route = match path {
+        ctl: &SendCtl,
+    ) -> NetResult<UdpRoute> {
+        let route = {
+            let st = self.state();
+            // `ip_route_output_key_hash_rcu`: an unknown interface is ENODEV, a source address
+            // that is not the machine's EINVAL.
+            if ctl.oif != 0 && st.ifaces.link(ctl.oif).is_none() {
+                return Err(Errno::ENODEV);
+            }
+            let src = ctl.src.map(canonical_ip);
+            if let Some(src) = src
+                && !st.ifaces.is_local(src)
+            {
+                return Err(Errno::EINVAL);
+            }
+            let path = self.path_in(&st, dst, src.or(Some(local.ip())))?;
+            match path {
                 Path::Local { src } => {
                     let from = SocketAddr::new(src, local.port());
                     // Liveness without upgrading: a last reference must not drop under the lock.
@@ -381,17 +388,15 @@ impl Net {
                     Ok((from, to))
                 }
                 Path::Backend { host_dst, .. } => Err(host_dst),
-            };
-            (local, route)
+            }
         };
-        let route = match route {
+        Ok(match route {
             Ok((from, to)) => UdpRoute::Local {
                 from,
                 to: to.and_then(|w| w.upgrade()),
             },
             Err(host_dst) => UdpRoute::Backend { host_dst },
-        };
-        Ok((local, route))
+        })
     }
 }
 
@@ -423,11 +428,12 @@ impl Network for Net {
         domain: Domain,
         kind: SocketKind,
         protocol: i32,
+        uid: u32,
     ) -> Result<Arc<dyn Socket>, Errno> {
         // `inet_create`: 0 means the default; IPPROTO_TCP=6, IPPROTO_UDP=17.
         match (kind, protocol) {
-            (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc(), domain)),
-            (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain)),
+            (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc(), domain, uid)),
+            (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain, uid)),
             _ => Err(Errno::EPROTONOSUPPORT),
         }
     }
@@ -476,12 +482,10 @@ struct GuestListenerSink {
     guest: SocketAddr,
 }
 
-impl InboundSink for GuestListenerSink {
-    fn incoming(&self, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool {
-        let Some(net) = self.net.upgrade() else {
-            return false;
-        };
-        let peer = net.guest_view(stream.peer_addr());
+impl GuestListenerSink {
+    /// The guest address a connection from `peer` arrives at: the published one, or for a
+    /// wildcard the uplink address (or loopback) the guest sees it on.
+    fn destination(&self, net: &Net, peer: SocketAddr) -> SocketAddr {
         let mut dst = self.guest;
         if dst.ip().is_unspecified() {
             // The guest sees the connection arrive on its uplink address, or loopback.
@@ -498,9 +502,49 @@ impl InboundSink for GuestListenerSink {
                 });
             dst.set_ip(ip);
         }
-        match net.find_listener(dst, peer) {
-            Some(listener) => listener.incoming_remote(stream, wq, dst, peer),
-            None => false,
+        dst
+    }
+}
+
+impl InboundSink for GuestListenerSink {
+    fn poll_room(&self, table: Option<&mut PollTable<'_>>) -> Room {
+        let Some(net) = self.net.upgrade() else {
+            return Room::Gone;
+        };
+        // The peer is not known before the host accepts; the listener a wildcard
+        // publication reaches does not depend on it beyond the address family.
+        let any_peer = match self.guest {
+            SocketAddr::V4(_) => SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0),
+            SocketAddr::V6(_) => SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 0),
+        };
+        let dst = self.destination(&net, any_peer);
+        let mut table = table;
+        let mut room = Room::Gone;
+        for listener in net.listener_group(dst, any_peer) {
+            match listener.poll_room(table.as_deref_mut()) {
+                Room::Ready => return Room::Ready,
+                Room::Full => room = Room::Full,
+                Room::Gone => {}
+            }
         }
+        room
+    }
+
+    fn incoming(&self, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool {
+        let Some(net) = self.net.upgrade() else {
+            return false;
+        };
+        let peer = net.guest_view(stream.peer_addr());
+        let dst = self.destination(&net, peer);
+        // The listener the peer hashes to, else another of its group with room.
+        let mut stream = stream;
+        for listener in net.listener_group(dst, peer) {
+            match listener.incoming_remote(stream, wq.clone(), dst, peer) {
+                Offer::Queued => return true,
+                Offer::Dropped => return false,
+                Offer::Declined(back) => stream = back,
+            }
+        }
+        false
     }
 }

@@ -8,23 +8,28 @@
 //! - `SCM_RIGHTS` carries open files, `SCM_CREDENTIALS` the sender's pid, uid and gid.
 //! - Records (datagrams, seqpackets) move into the receiver's queue and out to the reader
 //!   without another copy.
+//! - Files in flight are charged to the sending user, and sockets that only messages in flight
+//!   keep alive are collected (`gc`).
 //!
-//! Not yet: `MSG_OOB`, `SO_PEEK_OFF`, garbage collection of sockets in flight in their own
-//! queues (in-flight files are only counted against `RLIMIT_NOFILE`), and autobind on
-//! `SO_PASSCRED`.
+//! Not yet: `MSG_OOB`, `SO_PEEK_OFF`, and autobind on `SO_PASSCRED`.
+
+mod gc;
 
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{
-        Arc, Mutex, MutexGuard, Weak,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, Mutex, MutexGuard, Weak},
 };
 
-use wasixv2_abi::{AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, SocketOption, SocketType};
+use wasixv2_abi::{
+    AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, SocketLevel, SocketOption, SocketType,
+};
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult, write_value};
 use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_WRITE};
+use wasixv2_vnet::{
+    SocketKind,
+    opts::{self, Changed, SockOpts},
+};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
@@ -33,11 +38,11 @@ use crate::{
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
 };
 
+use gc::{InFlight, Inflight};
+
 /// `offsetof(struct sockaddr_un, sun_path)` and `sizeof(struct sockaddr_un)`.
 const SUN_PATH: usize = 2;
 const SOCKADDR_UN: usize = 110;
-/// `SO_SNDBUF`'s and `SO_RCVBUF`'s default (`sysctl_wmem_default`, `sysctl_rmem_default`).
-pub(crate) const SNDBUF: usize = 212_992;
 /// What `unix_dgram_sendmsg` keeps of `SO_SNDBUF` for the skb itself: a record may be at most
 /// `sndbuf - 32` bytes.
 const RECORD_OVERHEAD: usize = 32;
@@ -89,6 +94,13 @@ impl Ucred {
         raw
     }
 
+    /// `cred_to_ucred` without a peer: pid 0 and the invalid ids.
+    pub(crate) const NONE: Self = Self {
+        pid: 0,
+        uid: u32::MAX,
+        gid: u32::MAX,
+    };
+
     fn from_bytes(raw: &[u8]) -> Option<Self> {
         let word = |i: usize| raw.get(i..i + 4).map(|b| b.try_into().unwrap());
         Some(Self {
@@ -97,6 +109,15 @@ impl Ucred {
             gid: u32::from_le_bytes(word(8)?),
         })
     }
+}
+
+/// What `SO_PEERCRED` and `SO_PEERGROUPS` report: the pid and credentials of the task that
+/// made the connection, called `socketpair` or listened (`sk_peer_pid`, `sk_peer_cred`).
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub(crate) struct PeerCred {
+    pub(crate) ucred: Ucred,
+    /// The supplementary groups, ascending.
+    pub(crate) groups: Arc<[u32]>,
 }
 
 /// Where a bound socket is found.
@@ -116,8 +137,8 @@ pub(crate) struct Names {
     map: Mutex<HashMap<Key, Weak<Sock>>>,
     /// The next autobind name.
     next: Mutex<u32>,
-    /// `user->unix_inflight`: files queued in `SCM_RIGHTS` messages, not yet received.
-    inflight: Arc<AtomicUsize>,
+    /// Files queued in `SCM_RIGHTS` messages, not yet received.
+    pub(crate) inflight: Arc<Inflight>,
 }
 
 impl Names {
@@ -143,40 +164,6 @@ impl Names {
         {
             map.remove(key);
         }
-    }
-}
-
-/// Files of one `SCM_RIGHTS` message while they sit in a queue, counted in
-/// [`Names::inflight`] until received or dropped (`unix_inflight`/`unix_notinflight`).
-struct InFlight {
-    files: Vec<Arc<OpenFile>>,
-    count: Arc<AtomicUsize>,
-}
-
-impl InFlight {
-    fn new(files: Vec<Arc<OpenFile>>, count: &Arc<AtomicUsize>) -> Self {
-        count.fetch_add(files.len(), Ordering::Relaxed);
-        Self {
-            files,
-            count: count.clone(),
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.files.is_empty()
-    }
-
-    /// Hands the files to the receiver.
-    fn take(&mut self) -> Vec<Arc<OpenFile>> {
-        let files = std::mem::take(&mut self.files);
-        self.count.fetch_sub(files.len(), Ordering::Relaxed);
-        files
-    }
-}
-
-impl Drop for InFlight {
-    fn drop(&mut self) {
-        self.count.fetch_sub(self.files.len(), Ordering::Relaxed);
     }
 }
 
@@ -211,13 +198,18 @@ struct Inner {
     accept: VecDeque<Arc<Sock>>,
     shutdown: u8,
     err: Option<Errno>,
-    passcred: bool,
-    peer_cred: Option<Ucred>,
+    peer_cred: Option<PeerCred>,
     released: bool,
-    /// `sk_sndbuf`: what this socket may have queued at its peer; a record's size limit.
-    sndbuf: usize,
-    /// `sk_rcvbuf`, reported by `SO_RCVBUF`.
-    rcvbuf: usize,
+    /// The `SOL_SOCKET` options. `sk_sndbuf` bounds what this socket may have queued at its
+    /// peer and a record's size; `SO_PASSCRED` asks for the sender's credentials.
+    opts: SockOpts,
+}
+
+impl Inner {
+    fn passcred(&self) -> bool {
+        self.opts
+            .flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_PASSCRED.0)
+    }
 }
 
 /// A Unix socket (`struct unix_sock`).
@@ -227,8 +219,8 @@ pub(crate) struct Sock {
     /// Woken when data arrives, room appears at the peer, or the state changes.
     wait: WaitQueue,
     names: Arc<Names>,
-    /// The credentials of the task that created the socket (`sk_peer_cred` at `listen`).
-    owner: Ucred,
+    /// The credentials of the task that created the socket.
+    owner: PeerCred,
     /// `SO_RCVTIMEO`/`SO_SNDTIMEO`.
     pub(crate) timeouts: Timeouts,
     host: Arc<dyn Host>,
@@ -252,15 +244,21 @@ pub(crate) struct Received {
 pub(crate) struct Ancillary {
     pub(crate) rights: Vec<Arc<OpenFile>>,
     pub(crate) cred: Option<Ucred>,
+    /// The sender's real uid, charged for the rights (`fpl->user`).
+    pub(crate) uid: u32,
 }
 
 impl Sock {
     pub(crate) fn new(
         kind: Kind,
         names: Arc<Names>,
-        owner: Ucred,
+        owner: PeerCred,
         host: Arc<dyn Host>,
     ) -> Arc<Self> {
+        let ty = match kind {
+            Kind::Stream => SocketKind::Stream,
+            Kind::Dgram | Kind::SeqPacket => SocketKind::Datagram,
+        };
         Arc::new_cyclic(|me| Self {
             kind,
             inner: Mutex::new(Inner {
@@ -274,11 +272,9 @@ impl Sock {
                 accept: VecDeque::new(),
                 shutdown: 0,
                 err: None,
-                passcred: false,
                 peer_cred: None,
                 released: false,
-                sndbuf: SNDBUF,
-                rcvbuf: SNDBUF,
+                opts: SockOpts::unix(ty),
             }),
             wait: WaitQueue::new(),
             names,
@@ -311,7 +307,7 @@ impl Sock {
     pub(crate) fn max_record(&self) -> Option<usize> {
         match self.kind {
             Kind::Stream => None,
-            _ => Some(self.lock().sndbuf.saturating_sub(RECORD_OVERHEAD)),
+            _ => Some(self.lock().opts.sndbuf.saturating_sub(RECORD_OVERHEAD)),
         }
     }
 
@@ -320,7 +316,7 @@ impl Sock {
         for (x, y) in [(a, b), (b, a)] {
             let mut inner = x.lock();
             inner.peer = Some(Arc::downgrade(y));
-            inner.peer_cred = Some(y.owner);
+            inner.peer_cred = Some(y.owner.clone());
             if x.kind.connection() {
                 inner.state = State::Connected;
             }
@@ -390,6 +386,37 @@ impl Sock {
         }
         self.wait.wake(PollMask::empty());
         drop(rx);
+        // `unix_schedule_gc(NULL)`: this may have left sockets only messages hold.
+        self.names.inflight.released();
+    }
+
+    /// The open files of the Unix sockets in flight in this socket's queue, and for a listener
+    /// in the queues of the connections it has not accepted (`scan_children`).
+    fn inflight_sockets(&self) -> Vec<usize> {
+        let (mut out, embryos) = {
+            let inner = self.lock();
+            (rights_keys(&inner.rx), inner.accept.clone())
+        };
+        for embryo in embryos {
+            out.extend(rights_keys(&embryo.lock().rx));
+        }
+        out
+    }
+
+    /// `unix_collect_skb`: the garbage collector found this socket unreachable; its queue (and
+    /// its embryos' queues) go to `hitlist`, to be dropped once no lock is held.
+    fn purge(&self, hitlist: &mut Vec<Msg>) {
+        let embryos = {
+            let mut inner = self.lock();
+            inner.rx_bytes = 0;
+            hitlist.extend(inner.rx.drain(..));
+            inner.accept.clone()
+        };
+        for embryo in embryos {
+            let mut e = embryo.lock();
+            e.rx_bytes = 0;
+            hitlist.extend(e.rx.drain(..));
+        }
     }
 
     /// `unix_bind` for a name already resolved to `key` and `addr`. The address is checked and
@@ -435,8 +462,9 @@ impl Sock {
         Err(Errno::ENOSPC)
     }
 
-    /// `unix_listen`.
-    pub(crate) fn listen(&self, backlog: u32) -> Result<(), Errno> {
+    /// `unix_listen`. `cred` is the caller's, which `SO_PEERCRED` then reports and connecting
+    /// clients get as their peer's (`update_peercred`).
+    pub(crate) fn listen(&self, backlog: u32, cred: PeerCred) -> Result<(), Errno> {
         if !self.kind.connection() {
             return Err(Errno::EOPNOTSUPP);
         }
@@ -449,6 +477,7 @@ impl Sock {
         }
         inner.state = State::Listening;
         inner.backlog = backlog as usize;
+        inner.peer_cred = Some(cred);
         drop(inner);
         self.wait.wake(PollMask::empty());
         Ok(())
@@ -457,7 +486,7 @@ impl Sock {
     /// `unix_stream_connect` up to the wait for room: queues a new server end on `target`.
     /// The state is checked and changed under this socket's lock, held while the listener's is
     /// taken, so two threads connecting one socket cannot both queue a connection.
-    fn try_connect(&self, target: &Arc<Sock>, cred: Ucred) -> Result<(), Errno> {
+    fn try_connect(&self, target: &Arc<Sock>, cred: &PeerCred) -> Result<(), Errno> {
         if target.kind != self.kind {
             return Err(Errno::EPROTOTYPE);
         }
@@ -481,7 +510,7 @@ impl Sock {
         let embryo = Sock::new(
             self.kind,
             self.names.clone(),
-            target.owner,
+            target.owner.clone(),
             target.host.clone(),
         );
         {
@@ -489,16 +518,17 @@ impl Sock {
             e.state = State::Connected;
             e.addr = listener.addr.clone();
             e.peer = Some(self.me.clone());
-            e.peer_cred = Some(cred);
-            e.passcred = listener.passcred;
-            e.sndbuf = listener.sndbuf;
-            e.rcvbuf = listener.rcvbuf;
+            e.peer_cred = Some(cred.clone());
+            // `sk_clone_lock` copies the listener's options.
+            e.opts = listener.opts.inherit();
         }
         listener.accept.push_back(embryo.clone());
+        // `copy_peercred`: the client's peer is whoever listened.
+        let listener_cred = listener.peer_cred.clone();
         drop(listener);
         inner.state = State::Connected;
         inner.peer = Some(Arc::downgrade(&embryo));
-        inner.peer_cred = Some(target.owner);
+        inner.peer_cred = listener_cred;
         drop(inner);
         target.wait.wake(PollMask::READABLE);
         Ok(())
@@ -524,9 +554,8 @@ impl Sock {
         {
             return Err(Errno::EPROTOTYPE);
         }
-        let mut inner = self.lock();
-        inner.peer = target.as_ref().map(Arc::downgrade);
-        inner.peer_cred = target.as_ref().map(|t| t.owner);
+        // `unix_dgram_connect` sets no peer credentials.
+        self.lock().peer = target.as_ref().map(Arc::downgrade);
         Ok(())
     }
 
@@ -558,7 +587,7 @@ impl Sock {
                 inner.peer.clone(),
                 inner.shutdown,
                 err,
-                inner.sndbuf,
+                inner.opts.sndbuf,
                 inner.addr.clone(),
             )
         };
@@ -599,7 +628,11 @@ impl Sock {
             data: bytes,
             read: 0,
             from,
-            rights: InFlight::new(std::mem::take(&mut anc.rights), &self.names.inflight),
+            rights: InFlight::new(
+                std::mem::take(&mut anc.rights),
+                anc.uid,
+                &self.names.inflight,
+            ),
             cred: anc.cred.unwrap_or(cred),
         });
         drop(target);
@@ -621,7 +654,7 @@ impl Sock {
             if inner.shutdown & SEND_SHUTDOWN != 0 {
                 return Err(Errno::EPIPE);
             }
-            (inner.addr.clone(), inner.sndbuf)
+            (inner.addr.clone(), inner.opts.sndbuf)
         };
         if data.len() > sndbuf.saturating_sub(RECORD_OVERHEAD) {
             return Err(Errno::EMSGSIZE);
@@ -658,7 +691,11 @@ impl Sock {
             data: std::mem::take(data),
             read: 0,
             from,
-            rights: InFlight::new(std::mem::take(&mut anc.rights), &self.names.inflight),
+            rights: InFlight::new(
+                std::mem::take(&mut anc.rights),
+                anc.uid,
+                &self.names.inflight,
+            ),
             cred: anc.cred.unwrap_or(cred),
         });
         drop(other);
@@ -668,7 +705,12 @@ impl Sock {
 
     /// One attempt to receive at most `max` bytes (`unix_stream_read_generic`,
     /// `__unix_dgram_recvmsg`).
-    fn try_recv(&self, max: usize, flags: MsgFlags) -> Result<Received, Errno> {
+    fn try_recv(
+        &self,
+        max: usize,
+        flags: MsgFlags,
+        writer: Option<Ucred>,
+    ) -> Result<Received, Errno> {
         let peek = flags.contains(MsgFlags::MSG_PEEK);
         let mut inner = self.lock();
         if self.kind == Kind::Stream && inner.state == State::Listening {
@@ -690,12 +732,15 @@ impl Sock {
             return Err(Errno::EAGAIN);
         }
         let out = match self.kind {
-            Kind::Stream => stream_take(&mut inner, max, peek),
+            Kind::Stream => stream_take(&mut inner, max, peek, writer),
             _ => record_take(&mut inner, max, peek),
         };
         let peer = inner.peer.as_ref().and_then(Weak::upgrade);
-        let passcred = inner.passcred;
+        let passcred = inner.passcred();
         drop(inner);
+        if peek {
+            self.names.inflight.peeked(&out.rights);
+        }
         if !peek {
             // Room at this socket: wake senders waiting on it or on their own queue.
             self.wait.wake(PollMask::WRITABLE);
@@ -718,16 +763,8 @@ impl Sock {
         }
     }
 
-    pub(crate) fn set_passcred(&self, on: bool) {
-        self.lock().passcred = on;
-    }
-
-    pub(crate) fn passcred(&self) -> bool {
-        self.lock().passcred
-    }
-
-    pub(crate) fn peer_cred(&self) -> Option<Ucred> {
-        self.lock().peer_cred
+    pub(crate) fn peer_cred(&self) -> Option<PeerCred> {
+        self.lock().peer_cred.clone()
     }
 
     pub(crate) fn take_error(&self) -> Option<Errno> {
@@ -761,27 +798,36 @@ impl Sock {
         self.wait.wake(PollMask::empty());
     }
 
-    /// `sock_setsockopt` for the `SOL_SOCKET` options a Unix socket keeps; the socket layer has
-    /// taken the timeouts and the read-only options already. The rest are accepted and have
-    /// no effect here, as most do on Linux.
-    pub(crate) fn set_option(&self, name: i32, value: &[u8]) -> Result<(), Errno> {
-        let int = || {
-            value
-                .get(..4)
-                .map(|b| i32::from_le_bytes(b.try_into().unwrap()))
-                .ok_or(Errno::EINVAL)
+    /// `sk_setsockopt` for a Unix socket; the socket layer has taken the timeouts and the
+    /// read-only options already. `net_admin` is `CAP_NET_ADMIN`, which the forcing buffer
+    /// sizes need.
+    pub(crate) fn set_option(&self, name: i32, value: &[u8], net_admin: bool) -> Result<(), Errno> {
+        let level = SocketLevel::SOL_SOCKET.0;
+        let mut inner = self.lock();
+        let changed = match SocketOption(name) {
+            // `SO_SNDBUFFORCE`/`SO_RCVBUFFORCE` skip the `wmem_max`/`rmem_max` clamp.
+            SocketOption::SO_SNDBUFFORCE | SocketOption::SO_RCVBUFFORCE => {
+                if !net_admin {
+                    return Err(Errno::EPERM);
+                }
+                let val = opts::read_int(value)?.max(0) as usize;
+                match SocketOption(name) {
+                    SocketOption::SO_SNDBUFFORCE => {
+                        inner.opts.sndbuf = val.saturating_mul(2).max(opts::SOCK_MIN_SNDBUF)
+                    }
+                    _ => inner.opts.rcvbuf = val.saturating_mul(2).max(opts::SOCK_MIN_RCVBUF),
+                }
+                Changed::Buffers
+            }
+            _ => {
+                let bound = inner.addr.is_some();
+                inner.opts.set(level, name, value, bound)?
+            }
         };
-        match SocketOption(name) {
-            SocketOption::SO_PASSCRED => self.set_passcred(int()? != 0),
-            SocketOption::SO_SNDBUF | SocketOption::SO_SNDBUFFORCE => {
-                self.lock().sndbuf = wasixv2_vnet::opts::sndbuf_from(int()?);
-                // More room may be there now.
-                self.wait.wake(PollMask::WRITABLE);
-            }
-            SocketOption::SO_RCVBUF | SocketOption::SO_RCVBUFFORCE => {
-                self.lock().rcvbuf = wasixv2_vnet::opts::rcvbuf_from(int()?);
-            }
-            _ => {}
+        drop(inner);
+        if changed == Changed::Buffers {
+            // More room may be there now.
+            self.wait.wake(PollMask::WRITABLE);
         }
         Ok(())
     }
@@ -804,15 +850,33 @@ impl Received {
     }
 }
 
-/// A stream read of at most `max` bytes: from consecutive messages, stopping after one that
-/// carried files. A whole unread message moves out without a copy.
-fn stream_take(inner: &mut Inner, max: usize, peek: bool) -> Received {
+/// The open files of the Unix sockets in flight in `rx`, once per message holding each.
+fn rights_keys(rx: &VecDeque<Msg>) -> Vec<usize> {
+    rx.iter()
+        .flat_map(|msg| &msg.rights.files)
+        .filter(|f| f.downcast::<UnixFile>().is_some())
+        .map(|f| Arc::as_ptr(f) as usize)
+        .collect()
+}
+
+/// A stream read of at most `max` bytes from consecutive messages
+/// (`unix_stream_read_generic`): it ends after a message that carried files, and with
+/// `SO_PASSCRED` it never glues messages of different writers, the first of them being
+/// `writer` when the read continues one (`MSG_WAITALL`). A whole unread message moves out
+/// without a copy.
+fn stream_take(inner: &mut Inner, max: usize, peek: bool, writer: Option<Ucred>) -> Received {
+    let check_creds = inner.passcred();
+    let mut writer = writer;
     let mut out = Received::eof();
     let mut index = 0;
     while out.data.len() < max && index < inner.rx.len() {
         let msg = &mut inner.rx[index];
-        if !out.data.is_empty() && (!msg.rights.is_empty() || Some(msg.cred) != out.cred) {
-            break;
+        if check_creds {
+            match writer {
+                Some(w) if w != msg.cred => break,
+                Some(_) => {}
+                None => writer = Some(msg.cred),
+            }
         }
         out.cred.get_or_insert(msg.cred);
         let had_rights = !msg.rights.is_empty();
@@ -971,7 +1035,7 @@ impl Pollable for UnixFile {
         };
         let listening = inner.state == State::Listening;
         let shutdown_send = inner.shutdown & SEND_SHUTDOWN != 0;
-        let sndbuf = inner.sndbuf;
+        let sndbuf = inner.opts.sndbuf;
         drop(inner);
         if listening {
             return mask;
@@ -998,7 +1062,7 @@ impl FileObject for UnixFile {
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let mut wait = self.0.blocking(io, RCV, MsgFlags(0));
-            let got = recv(&self.0, &mut wait, buf.len(), MsgFlags(0)).await?;
+            let got = recv(&self.0, &mut wait, buf.len(), MsgFlags(0), None).await?;
             buf[..got.len()].copy_from_slice(&got.data);
             Ok(got.len())
         })
@@ -1006,7 +1070,7 @@ impl FileObject for UnixFile {
 
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
-            let owner = self.0.owner;
+            let owner = self.0.owner.ucred;
             let mut wait = self.0.blocking(io, SND, MsgFlags(0));
             let anc = Ancillary::default();
             send(&self.0, &mut wait, data.to_vec(), None, anc, owner).await
@@ -1041,15 +1105,17 @@ impl FileObject for UnixFile {
 }
 
 /// One receive of at most `max` bytes, waiting unless non-blocking. `MSG_WAITALL` is the
-/// caller's to loop on.
+/// caller's to loop on, passing as `writer` the credentials the read so far carried: with
+/// `SO_PASSCRED` a stream read stops (with nothing) at another writer's data.
 pub(crate) async fn recv(
     sock: &Sock,
     wait: &mut Blocking<'_>,
     max: usize,
     flags: MsgFlags,
+    writer: Option<Ucred>,
 ) -> SysResult<Received> {
     wait.wait(WaitOn::Queue(&sock.wait), PollMask::READABLE, || {
-        sock.try_recv(max, flags)
+        sock.try_recv(max, flags, writer)
     })
     .await
 }
@@ -1117,6 +1183,15 @@ impl Kernel {
         }
     }
 
+    /// The caller as a socket's peer: what `SO_PEERCRED` and `SO_PEERGROUPS` report
+    /// (`prepare_peercred`).
+    pub(crate) fn peer_cred(&self, caller: &Caller<'_>) -> PeerCred {
+        PeerCred {
+            ucred: self.ucred(caller),
+            groups: self.process(caller.task()).cred().groups.as_slice().into(),
+        }
+    }
+
     /// `scm_check_creds`: a process may claim its own pid and any of its real, effective or
     /// saved ids, and others with `CAP_SYS_ADMIN`, `CAP_SETUID` and `CAP_SETGID`.
     fn may_claim(&self, caller: &Caller<'_>, claim: &Ucred) -> bool {
@@ -1147,7 +1222,7 @@ impl Kernel {
         Ok(Sock::new(
             kind,
             self.unix_names.clone(),
-            self.ucred(caller),
+            self.peer_cred(caller),
             self.host.clone(),
         ))
     }
@@ -1244,11 +1319,11 @@ impl Kernel {
             sock.connect_dgram(Some(target))?;
             return Ok(0);
         }
-        let cred = self.ucred(caller);
+        let cred = self.peer_cred(caller);
         let interrupt = self.interrupt(caller);
         let mut wait = sock.blocking(Self::io(&*interrupt, file), SND, MsgFlags(0));
         wait.wait(WaitOn::Queue(&target.wait), PollMask::WRITABLE, || {
-            sock.try_connect(&target, cred)
+            sock.try_connect(&target, &cred)
         })
         .await?;
         Ok(0)
@@ -1287,8 +1362,11 @@ impl Kernel {
         caller: &Caller<'_>,
         controls: &[wasixv2_vnet::Control],
     ) -> SysResult<Ancillary> {
-        let mut anc = Ancillary::default();
-        let level = wasixv2_abi::SocketLevel::SOL_SOCKET.0;
+        let mut anc = Ancillary {
+            uid: self.process(caller.task()).cred().user.real,
+            ..Ancillary::default()
+        };
+        let level = SocketLevel::SOL_SOCKET.0;
         for control in controls.iter().filter(|c| c.level == level) {
             match control.kind {
                 SCM_RIGHTS => {
@@ -1300,7 +1378,7 @@ impl Kernel {
                     if anc.rights.len() + count > SCM_MAX_FD {
                         return Err(Errno::EINVAL.into());
                     }
-                    if self.too_many_unix_fds(caller) {
+                    if self.too_many_unix_fds(caller, anc.uid) {
                         return Err(Errno::ETOOMANYREFS.into());
                     }
                     for fd in control.data.chunks_exact(4) {
@@ -1321,16 +1399,34 @@ impl Kernel {
                 _ => return Err(Errno::EINVAL.into()),
             }
         }
+        // `unix_schedule_gc(user)`: a user with many files in flight sending Unix sockets
+        // collects first.
+        let inflight = &self.unix_names.inflight;
+        if anc
+            .rights
+            .iter()
+            .any(|f| f.downcast::<UnixFile>().is_some())
+            && inflight.user(anc.uid) >= gc::SANE_USER
+        {
+            inflight.collect();
+        }
         Ok(anc)
     }
 
-    /// `too_many_unix_fds`: more files in flight than the sender's `RLIMIT_NOFILE`.
-    fn too_many_unix_fds(&self, caller: &Caller<'_>) -> bool {
+    /// `too_many_unix_fds`: the sending user has more files in flight than the sender's
+    /// `RLIMIT_NOFILE`, and is not exempt through `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN`.
+    fn too_many_unix_fds(&self, caller: &Caller<'_>, uid: u32) -> bool {
         let limit = self.files(caller.task()).lock().unwrap().limit();
-        self.unix_names.inflight.load(Ordering::Relaxed) > limit
+        if self.unix_names.inflight.user(uid) <= limit {
+            return false;
+        }
+        let cred = self.process(caller.task()).cred();
+        !cred.capable(Cap::SysResource) && !cred.capable(Cap::SysAdmin)
     }
 
-    /// The `SOL_SOCKET` options of a Unix socket, the timeouts aside.
+    /// `sk_getsockopt` for a Unix socket, the timeouts aside: what describes the socket, its
+    /// peer's credentials, and the options `setsockopt` keeps. Values are written whole; the
+    /// caller truncates them to the guest's length.
     pub(crate) fn unix_getsockopt(&self, sock: &Sock, name: i32) -> Result<Vec<u8>, Errno> {
         let int = |v: i32| Ok(v.to_le_bytes().to_vec());
         match SocketOption(name) {
@@ -1339,22 +1435,20 @@ impl Kernel {
             SocketOption::SO_DOMAIN => int(AddressFamily::AF_UNIX.0),
             SocketOption::SO_ERROR => int(sock.take_error().map_or(0, |e| e.0)),
             SocketOption::SO_ACCEPTCONN => int(sock.is_listening() as i32),
-            SocketOption::SO_PASSCRED => int(sock.passcred() as i32),
-            SocketOption::SO_PEERCRED => {
-                // Unconnected sockets report an invalid pid and the overflow ids.
-                let cred = sock.peer_cred().unwrap_or(Ucred {
-                    pid: 0,
-                    uid: 65534,
-                    gid: 65534,
-                });
-                Ok(cred.to_bytes())
+            // `cred_to_ucred`: without a peer, pid 0 and the invalid ids.
+            SocketOption::SO_PEERCRED => Ok(sock
+                .peer_cred()
+                .map_or(Ucred::NONE, |peer| peer.ucred)
+                .to_bytes()),
+            // `SO_PEERGROUPS` is answered by the socket layer, which may need `ERANGE`.
+            _ => {
+                let mut out = [0u8; 64];
+                let n = sock
+                    .lock()
+                    .opts
+                    .get(SocketLevel::SOL_SOCKET.0, name, &mut out)?;
+                Ok(out[..n].to_vec())
             }
-            SocketOption::SO_SNDBUF => int(sock.lock().sndbuf as i32),
-            SocketOption::SO_RCVBUF => int(sock.lock().rcvbuf as i32),
-            SocketOption::SO_REUSEADDR
-            | SocketOption::SO_KEEPALIVE
-            | SocketOption::SO_BROADCAST => int(0),
-            _ => Err(Errno::ENOPROTOOPT),
         }
     }
 }
@@ -1376,10 +1470,51 @@ mod tests {
     fn pair(kind: Kind) -> (Arc<Sock>, Arc<Sock>) {
         let names = Arc::new(Names::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let a = Sock::new(kind, names.clone(), Ucred::default(), host.clone());
-        let b = Sock::new(kind, names, Ucred::default(), host);
+        let a = Sock::new(kind, names.clone(), PeerCred::default(), host.clone());
+        let b = Sock::new(kind, names, PeerCred::default(), host);
         Sock::pair(&a, &b);
         (a, b)
+    }
+
+    fn cred(pid: i32) -> Ucred {
+        Ucred {
+            pid,
+            uid: 1,
+            gid: 1,
+        }
+    }
+
+    #[test]
+    fn stream_reads_never_glue_writers_with_so_passcred() {
+        let (a, b) = pair(Kind::Stream);
+        let send = |data: &[u8], pid| {
+            let mut data = data.to_vec();
+            let mut anc = Ancillary::default();
+            a.try_send_connected(&mut data, &mut anc, cred(pid))
+                .unwrap()
+        };
+        send(b"ab", 10);
+        send(b"cd", 11);
+        // Without SO_PASSCRED the writers' bytes run together.
+        let got = b.try_recv(16, MsgFlags::MSG_PEEK, None).unwrap();
+        assert_eq!(got.data, b"abcd");
+        b.lock()
+            .opts
+            .set(1, SocketOption::SO_PASSCRED.0, &1i32.to_le_bytes(), false)
+            .unwrap();
+        let first = b.try_recv(16, MsgFlags(0), None).unwrap();
+        assert_eq!(
+            (first.data.as_slice(), first.cred),
+            (&b"ab"[..], Some(cred(10)))
+        );
+        // `MSG_WAITALL` going on from the first writer stops at the second's data.
+        let more = b.try_recv(16, MsgFlags(0), first.cred).unwrap();
+        assert_eq!(more.len(), 0);
+        let second = b.try_recv(16, MsgFlags(0), None).unwrap();
+        assert_eq!(
+            (second.data.as_slice(), second.cred),
+            (&b"cd"[..], Some(cred(11)))
+        );
     }
 
     #[test]
@@ -1391,7 +1526,7 @@ mod tests {
             a.try_send_connected(&mut Vec::new(), &mut anc, Ucred::default()),
             Ok(0)
         );
-        assert_eq!(b.try_recv(16, MsgFlags(0)).err(), Some(Errno::EAGAIN));
+        assert_eq!(b.try_recv(16, MsgFlags(0), None).err(), Some(Errno::EAGAIN));
         drop(file);
     }
 
@@ -1405,10 +1540,10 @@ mod tests {
             Ok(100_000)
         );
         assert!(data.is_empty(), "the record moved into the queue");
-        let peeked = b.try_recv(10, MsgFlags::MSG_PEEK).unwrap();
+        let peeked = b.try_recv(10, MsgFlags::MSG_PEEK, None).unwrap();
         assert_eq!((peeked.len(), peeked.full_len), (10, 100_000));
         assert!(peeked.flags.contains(MsgFlags::MSG_TRUNC));
-        let got = b.try_recv(1 << 20, MsgFlags(0)).unwrap();
+        let got = b.try_recv(1 << 20, MsgFlags(0), None).unwrap();
         assert_eq!((got.len(), got.full_len), (100_000, 100_000));
     }
 
@@ -1416,7 +1551,8 @@ mod tests {
     fn oversized_datagram_is_emsgsize() {
         let (a, b) = pair(Kind::Dgram);
         let mut anc = Ancillary::default();
-        let limit = SNDBUF - RECORD_OVERHEAD;
+        // `wmem_default` less the skb's share.
+        let limit = opts::UDP_BUF_DEFAULT - RECORD_OVERHEAD;
         let mut data = vec![0u8; limit + 1];
         let sent = a.try_send_dgram(&b, &mut data, &mut anc, Ucred::default());
         assert_eq!(sent, Err(Errno::EMSGSIZE));
@@ -1431,34 +1567,44 @@ mod tests {
     fn closing_a_listener_resets_queued_clients() {
         let names = Arc::new(Names::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let listener = Sock::new(Kind::Stream, names.clone(), Ucred::default(), host.clone());
+        let listener = Sock::new(
+            Kind::Stream,
+            names.clone(),
+            PeerCred::default(),
+            host.clone(),
+        );
         listener
             .bind(Key::Abstract(b"l".to_vec()), b"\x01\x00\x00l".to_vec())
             .unwrap();
-        listener.listen(4).unwrap();
-        let client = Sock::new(Kind::Stream, names, Ucred::default(), host);
-        client.try_connect(&listener, Ucred::default()).unwrap();
+        listener.listen(4, PeerCred::default()).unwrap();
+        let client = Sock::new(Kind::Stream, names, PeerCred::default(), host);
+        client.try_connect(&listener, &PeerCred::default()).unwrap();
         listener.release(false);
         assert_eq!(
-            client.try_recv(4, MsgFlags(0)).err(),
+            client.try_recv(4, MsgFlags(0), None).err(),
             Some(Errno::ECONNRESET)
         );
-        assert_eq!(client.try_recv(4, MsgFlags(0)).unwrap().len(), 0);
+        assert_eq!(client.try_recv(4, MsgFlags(0), None).unwrap().len(), 0);
     }
 
     #[test]
     fn connecting_twice_queues_one_connection() {
         let names = Arc::new(Names::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let listener = Sock::new(Kind::Stream, names.clone(), Ucred::default(), host.clone());
+        let listener = Sock::new(
+            Kind::Stream,
+            names.clone(),
+            PeerCred::default(),
+            host.clone(),
+        );
         listener
             .bind(Key::Abstract(b"m".to_vec()), b"\x01\x00\x00m".to_vec())
             .unwrap();
-        listener.listen(4).unwrap();
-        let client = Sock::new(Kind::Stream, names, Ucred::default(), host);
-        assert_eq!(client.try_connect(&listener, Ucred::default()), Ok(()));
+        listener.listen(4, PeerCred::default()).unwrap();
+        let client = Sock::new(Kind::Stream, names, PeerCred::default(), host);
+        assert_eq!(client.try_connect(&listener, &PeerCred::default()), Ok(()));
         assert_eq!(
-            client.try_connect(&listener, Ucred::default()),
+            client.try_connect(&listener, &PeerCred::default()),
             Err(Errno::EISCONN)
         );
         assert!(listener.try_accept().is_ok());

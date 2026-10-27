@@ -196,17 +196,13 @@ impl<T: Clone> PortTable<T> {
             Proto::Udp => scan(range.low as u32, range.high as u32 + 1, rng, None, free),
             Proto::Tcp => {
                 let (low, high) = (range.low as u32, range.high as u32 + 1);
-                // `inet_csk_find_open_port`: SO_REUSEADDR sockets try the lower half first,
-                // other sockets the upper half, and odd offsets come first.
-                if high - low >= 4 {
+                // `inet_csk_find_open_port`: odd offsets come first; SO_REUSEADDR sockets try
+                // the lower half of the range before the upper one, other sockets scan it
+                // whole. Without `ip_autobind_reuse` (off by default) there is no relaxed pass.
+                if spec.reuseaddr && high - low >= 4 {
                     let half = low + (((high - low) >> 2) << 1);
-                    let (first, second) = if spec.reuseaddr {
-                        ((low, half), (half, high))
-                    } else {
-                        ((half, high), (low, half))
-                    };
-                    scan(first.0, first.1, rng, Some(1), free)
-                        .or_else(|| scan(second.0, second.1, rng, Some(1), free))
+                    scan(low, half, rng, Some(1), free)
+                        .or_else(|| scan(half, high, rng, Some(1), free))
                 } else {
                     scan(low, high, rng, Some(1), free)
                 }
@@ -308,10 +304,6 @@ impl<T: Clone> PortTable<T> {
                 self.buckets.remove(&port);
             }
         }
-    }
-
-    pub fn is_bound(&self, port: u16) -> bool {
-        self.buckets.contains_key(&port)
     }
 
     /// A wildcard-bound socket took a specific source address by connecting
@@ -607,6 +599,30 @@ mod tests {
                 .bind_connect(id, v4([127, 0, 0, 1]), remote, R, &mut rng, ())
                 .unwrap();
             assert_eq!(p % 2, 0, "connect autobind uses even ports first");
+        }
+    }
+
+    #[test]
+    fn bind_autobind_halves_only_for_reuseaddr() {
+        let (mut t, mut rng) = table(Proto::Tcp);
+        let half = 32768 + (((61000 - 32768) >> 2) << 1);
+        let reuse = BindSpec {
+            reuseaddr: true,
+            ..v4([0, 0, 0, 0])
+        };
+        let (mut lower, mut upper) = (0, 0);
+        for id in 0..200 {
+            let p = t.bind(id, v4([0, 0, 0, 0]), 0, R, &mut rng, ()).unwrap() as u32;
+            match p < half {
+                true => lower += 1,
+                false => upper += 1,
+            }
+        }
+        // `inet_csk_find_open_port` gives a plain socket any port of the range.
+        assert!(lower > 0 && upper > 0, "{lower} below, {upper} above");
+        for id in 1000..1050 {
+            let p = t.bind(id, reuse, 0, R, &mut rng, ()).unwrap() as u32;
+            assert!(p < half, "SO_REUSEADDR sockets take the lower half first");
         }
     }
 

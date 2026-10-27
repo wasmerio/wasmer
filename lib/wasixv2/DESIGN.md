@@ -390,7 +390,7 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
   - Nothing is turned into packets.
 - **Interfaces and routes** are kernel tables served over netlink, so `ip addr`, `getifaddrs` and routing lookups work. No frames sit behind them.
 - **Namespaces:** `unshare` of the network namespace gives a fresh port space with only loopback.
-- **Unix sockets** stay a separate kernel facility. Their abstract namespace is per network namespace.
+- **Unix sockets** stay a separate kernel facility. Their abstract namespace is per network namespace. Files passed with `SCM_RIGHTS` count against the sending user's `RLIMIT_NOFILE` until received (`CAP_SYS_RESOURCE` exempts), and sockets that only messages in flight keep alive are collected when a Unix socket is released, as Linux's `unix_gc` does.
 
 **The vnet interface** (`wasixv2-vnet`'s `api` module):
 
@@ -441,9 +441,9 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 
 `wasixv2-vnet`'s `Net` is one namespace. It keeps one port table per protocol, shared by IPv4 and IPv6 as Linux's bind hash is, so a dual-stack `[::]` socket collides with IPv4 sockets on its port unless it is `IPV6_V6ONLY`. IPv4-mapped addresses are stored as IPv4.
 
-- **Explicit bind** (`inet_bind_conflict`): two sockets conflict when their addresses overlap (equal, or either a wildcard that covers the other), unless both set `SO_REUSEADDR` and the existing one is not listening, or both set `SO_REUSEPORT` with the same owner. `listen` re-checks, so of two `SO_REUSEADDR` sockets on one port only one can listen. UDP shares with `SO_REUSEADDR` on both, whatever the state.
+- **Explicit bind** (`inet_bind_conflict`): two sockets conflict when their addresses overlap (equal, or either a wildcard that covers the other), unless both set `SO_REUSEADDR` and the existing one is not listening, or both set `SO_REUSEPORT` with the same owner (the creator's filesystem uid, which accepted sockets inherit). `listen` re-checks, so of two `SO_REUSEADDR` sockets on one port only one can listen. UDP shares with `SO_REUSEADDR` on both, whatever the state.
 - **Errors, in Linux's order:** `EADDRNOTAVAIL` for an address on no up interface (unless `IP_FREEBIND`), `EACCES` below `ip_unprivileged_port_start` (1024) without the capability the kernel passes in, `EINVAL` when already bound, `EADDRINUSE` on a conflict.
-- **Ephemeral ports** come from `ip_local_port_range` (32768–60999) from a seeded random offset. `bind` to port 0 tries odd ports first (SO_REUSEADDR sockets the lower half of the range, others the upper half) and fails with `EADDRINUSE`; `connect` tries even ports first, may share a port with other connected sockets that have a different peer, and fails with `EADDRNOTAVAIL`.
+- **Ephemeral ports** come from `ip_local_port_range` (32768–60999) from a seeded random offset. `bind` to port 0 tries odd ports first (SO_REUSEADDR sockets the lower half of the range before the upper one, others the whole range) and fails with `EADDRINUSE`; `connect` tries even ports first, may share a port with other connected sockets that have a different peer, and fails with `EADDRNOTAVAIL`.
 - Accepted sockets share the listener's port. Closing a socket frees its port at once: there is no `TIME_WAIT`.
 
 ### Streams and datagrams
@@ -452,19 +452,20 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 - **Buffering.** Each direction queues up to the receiver's `SO_RCVBUF` plus the sender's `SO_SNDBUF`, counted in payload bytes. `SO_SNDBUF` and `SO_RCVBUF` are doubled and clamped as Linux does. Writes are partial when the queue fills, then `EAGAIN`.
 - **Close and shutdown.** These follow `tcp_close` and `tcp_reset`. Closing with unread data or `SO_LINGER` zero resets the peer: its next call fails with `ECONNRESET`, or `EPIPE` once it has seen our FIN, and later calls see EOF or `EPIPE`. A write to a peer that closed normally succeeds once and then fails with `EPIPE`.
 - **Readiness** is `tcp_poll`'s: a fresh socket is `OUT|WRNORM|HUP`, `RDHUP` follows the peer's FIN, `HUP` needs both directions shut, and `ERR` shows while `SO_ERROR` is set.
-- **UDP.** Datagrams are copied between receive queues. A queue drops new datagrams once it holds more than `SO_RCVBUF`, charging each payload plus a fixed 768-byte overhead. Connected sockets only receive from their peer. A connected sender learns `ECONNREFUSED` when nobody is bound to its peer's port. `MSG_PEEK` and `MSG_TRUNC` work. Broadcast and multicast are accepted but not delivered.
+- **UDP.** Datagrams are copied between receive queues. A queue drops new datagrams once it holds more than `SO_RCVBUF`, charging each payload plus a fixed 768-byte overhead. Connected sockets only receive from their peer. A connected sender learns `ECONNREFUSED` when nobody is bound to its peer's port. `MSG_PEEK` and `MSG_TRUNC` work. Broadcast and multicast are accepted but not delivered. Sends fail in `udp_sendmsg`'s order (autobind first) and control messages are checked as `ip_cmsg_send` and `ip6_datagram_send_ctl` check them; `IP_PKTINFO`/`IPV6_PKTINFO` choose the source address and `UDP_SEGMENT` splits a send into datagrams, the rest describe packets and have no effect.
 
 ### Backends and the host bridge
 
 The kernel-facing traits are in `vnet/src/api.rs`. Traffic for a destination that is not local goes through a route on the uplink interface (by default `eth0`, 10.0.2.15/24 via gateway 10.0.2.2), so the guest's source address is the uplink address and a virtual ephemeral port. Without a route the error is `ENETUNREACH`.
 
 - The **gateway alias** (by default the gateway) maps to the host's loopback in both directions.
-- **Publishing** (`Net::publish`, or auto-publishing of non-loopback listeners) hands `Backend::publish` a sink that delivers each accepted host connection to whichever guest listener holds the address at that moment. `getpeername` reports the real host peer.
+- **Publishing** (`Net::publish`, or auto-publishing of non-loopback listeners) hands `Backend::publish` a sink that delivers each accepted host connection to whichever guest listener holds the address at that moment. `getpeername` reports the real host peer. The backend accepts on the host only while that listener's accept queue has room: a full queue leaves connections in the host's backlog until `accept` makes room, as Linux leaves a SYN to a full queue unanswered, and a connection with no guest listener at all is reset. An auto-published host listener takes the guest's `listen` backlog, an explicit one `somaxconn`'s default.
+- **Options**: what a host socket acts on (`TCP_NODELAY`, keepalive and its timers, `SO_LINGER`) follows the guest socket, including options set before `connect` or inherited from the listener.
 - **DNS**: `NetConfig::nameservers` makes up `resolv.conf`. `vnet-host::host_nameservers` derives them from the host's file and routes loopback resolvers through the alias.
 
 `wasixv2-vnet-host` runs one mio reactor thread per `HostBackend`, never tokio, and is Unix-only for now.
 
-- Guest-side stream and datagram objects are buffers: 256 KiB per direction for streams, 256 KiB of queued datagrams. Guests read and write them without blocking.
+- Guest-side stream and datagram objects are buffers: 256 KiB per direction for streams, 256 KiB of queued datagrams. Guests read and write them without blocking. Outgoing datagrams go straight to the host socket: one the host cannot take is `EAGAIN`, the socket stops polling `OUT`, and the reactor wakes it once the host socket is writable again.
 - The reactor moves bytes between the buffers and the host sockets. Guest activity marks a stream dirty and wakes the reactor through a `mio::Waker`. The reactor wakes guest wait queues from its own thread.
 - Host errors keep their Linux errno numbers. Dropping the guest's handle flushes and closes the host socket, or resets it when unread data or `SO_LINGER` zero call for that. An orphan still flushing is reset once its peer has taken nothing for 60 seconds (standing in for `tcp_fin_timeout` and the orphan retries) or its `SO_LINGER` time is up.
 

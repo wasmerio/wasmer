@@ -11,8 +11,8 @@ use wasixv2_abi::{Errno, MsgFlags, SocketLevel, SocketOption, TcpOption};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
-    Accepted, BackendStream, Domain, NetResult, PortEntry, Publication, RecvMsg, SendMsg, Shutdown,
-    Socket, SocketKind, StreamState,
+    Accepted, BackendStream, Domain, NetResult, PortEntry, Publication, RecvMsg, Room, SendMsg,
+    Shutdown, Socket, SocketKind, StreamState,
     addr::{canonical, connect_target, present, unbound},
     net::{Net, Path},
     opts::{self, Changed, SockOpts},
@@ -129,6 +129,15 @@ impl Transport {
     }
 }
 
+/// What became of a published connection offered to a listener.
+pub(crate) enum Offer {
+    Queued,
+    /// The queue filled or closed meanwhile; the connection was closed.
+    Dropped,
+    /// Not taken and untouched, for another listener.
+    Declined(Arc<dyn BackendStream>),
+}
+
 enum State {
     Closed,
     Listening(Arc<Listener>),
@@ -142,6 +151,8 @@ struct Inner {
     local: Option<SocketAddr>,
     /// `SOCK_BINDPORT_LOCK`: the port was chosen by `bind`, so it survives a disconnect.
     port_locked: bool,
+    /// `SOCK_BINDADDR_LOCK`: the address was chosen by `bind`, so a disconnect keeps it.
+    addr_locked: bool,
     /// What `getsockname` reports once an autobound port went back to the table while
     /// unbound: `inet_put_port` clears `inet_num` but leaves `inet_sport`.
     put_back: Option<SocketAddr>,
@@ -159,6 +170,8 @@ pub struct TcpSocket {
     net: Arc<Net>,
     id: SockId,
     domain: Domain,
+    /// `sk_uid`, for `SO_REUSEPORT`.
+    uid: u32,
     wq: WaitQueue,
     me: Weak<TcpSocket>,
     /// The listener while listening; a leaf lock so lookups under the network lock can reach
@@ -170,6 +183,9 @@ pub struct TcpSocket {
 /// A listening socket's queues (`inet_connection_sock`'s accept queue and SYN queue).
 pub(crate) struct Listener {
     wq: WaitQueue,
+    /// Woken when the accept queue makes room or the listener closes, for a backend holding
+    /// published connections back while it is full (see [`crate::InboundSink::poll_room`]).
+    room: WaitQueue,
     inner: Mutex<ListenerInner>,
     publication: Mutex<Option<Box<dyn Publication>>>,
 }
@@ -199,11 +215,19 @@ fn bufs(o: &SockOpts) -> Buffers {
     }
 }
 
+/// Applies the options a backend stream acts on to a stream made after they were set.
+fn replay_options(stream: &dyn BackendStream, opts: &SockOpts) {
+    for (level, name, value) in opts.backend_options() {
+        let _ = stream.set_option(level, name, &value);
+    }
+}
+
 impl TcpSocket {
-    pub(crate) fn new(net: Arc<Net>, domain: Domain) -> Arc<Self> {
+    pub(crate) fn new(net: Arc<Net>, domain: Domain, uid: u32) -> Arc<Self> {
         Self::with_state(
             net,
             domain,
+            uid,
             SockOpts::new(SocketKind::Stream, domain),
             None,
             State::Closed,
@@ -216,6 +240,7 @@ impl TcpSocket {
     fn with_state(
         net: Arc<Net>,
         domain: Domain,
+        uid: u32,
         opts: SockOpts,
         local: Option<SocketAddr>,
         state: State,
@@ -226,6 +251,7 @@ impl TcpSocket {
             net,
             id,
             domain,
+            uid,
             wq,
             me: me.clone(),
             listener: Mutex::new(None),
@@ -233,6 +259,7 @@ impl TcpSocket {
                 opts,
                 local,
                 port_locked: local.is_some(),
+                addr_locked: local.is_some(),
                 put_back: None,
                 state,
                 err: None,
@@ -256,7 +283,7 @@ impl TcpSocket {
             v6only: o.v6only,
             reuseaddr: o.reuseaddr,
             reuseport: o.reuseport,
-            uid: 0,
+            uid: self.uid,
         }
     }
 
@@ -357,7 +384,34 @@ impl TcpSocket {
             conn.refuse();
             child.release_inner(true);
         }
+        l.room.wake(PollMask::empty());
         self.wq.wake(PollMask::empty());
+    }
+
+    /// `tcp_disconnect` of a connection in progress or established: the peer is reset (from
+    /// `SYN_SENT` there is none yet), and unless the connection had already ended
+    /// (`tcp_need_reset`, or `SYN_SENT`) the socket's own `sk_err` becomes `ECONNRESET`.
+    fn abort_connection(&self, g: &mut Inner) {
+        if let State::Connecting(t, _) | State::Connected(t, _) =
+            std::mem::replace(&mut g.state, State::Closed)
+        {
+            if !t.is_done() {
+                g.err = Some(Errno::ECONNRESET);
+            }
+            t.close(true);
+        }
+    }
+
+    /// `inet_bhash2_reset_saddr`: back to the wildcard source address unless `bind` chose it.
+    fn reset_saddr(&self, g: &mut Inner) {
+        if g.addr_locked {
+            return;
+        }
+        if let Some(local) = g.local.filter(|l| !l.ip().is_unspecified()) {
+            let any = self.domain_any();
+            self.net.state().tcp.rehash(self.id, local.port(), any);
+            g.local = Some(SocketAddr::new(any, local.port()));
+        }
     }
 
     fn release_inner(&self, abort: bool) {
@@ -386,6 +440,7 @@ impl TcpSocket {
         let child = Self::with_state(
             self.net.clone(),
             self.domain,
+            self.uid,
             opts.clone(),
             Some(local),
             State::Closed,
@@ -403,6 +458,22 @@ impl TcpSocket {
         child
     }
 
+    /// Whether the accept queue can take a published connection; `table` registers on the
+    /// queue woken when that may have changed.
+    pub(crate) fn poll_room(&self, table: Option<&mut PollTable<'_>>) -> Room {
+        let Some(l) = self.listener.lock().unwrap().clone() else {
+            return Room::Gone;
+        };
+        let mut table = table;
+        poll_wait(&mut table, &l.room);
+        let li = l.inner.lock().unwrap();
+        match (li.closed, li.full()) {
+            (true, _) => Room::Gone,
+            (false, true) => Room::Full,
+            (false, false) => Room::Ready,
+        }
+    }
+
     /// A connection accepted by the backend for a published port; `wq` is the queue the stream
     /// wakes.
     pub(crate) fn incoming_remote(
@@ -411,27 +482,31 @@ impl TcpSocket {
         wq: WaitQueue,
         local: SocketAddr,
         peer: SocketAddr,
-    ) -> bool {
+    ) -> Offer {
         let Some(l) = self.listener.lock().unwrap().clone() else {
-            return false;
+            return Offer::Declined(stream);
         };
         {
             let li = l.inner.lock().unwrap();
             if li.closed || li.full() {
-                return false;
+                return Offer::Declined(stream);
             }
         }
-        let child = self.new_child(local, peer, wq, |_, _| Transport::Remote(stream));
+        // `inet_csk_clone_lock` copies the listener's options into the new sock.
+        let child = self.new_child(local, peer, wq, |_, opts| {
+            replay_options(&*stream, opts);
+            Transport::Remote(stream)
+        });
         let mut li = l.inner.lock().unwrap();
         if li.closed || li.full() {
             drop(li);
             child.release_inner(true);
-            return false;
+            return Offer::Dropped;
         }
         li.ready.push_back((child, peer));
         drop(li);
         l.wq.wake(PollMask::IN | PollMask::RDNORM);
-        true
+        Offer::Queued
     }
 
     /// Connects to a listener of this namespace.
@@ -504,6 +579,7 @@ impl Listener {
         for child in drop_list {
             child.release_inner(true);
         }
+        self.room.wake(PollMask::empty());
         Some(next)
     }
 }
@@ -574,6 +650,7 @@ impl Socket for TcpSocket {
         )?;
         g.local = Some(SocketAddr::new(addr.ip(), port));
         g.port_locked = addr.port() != 0;
+        g.addr_locked = !addr.ip().is_unspecified();
         Ok(())
     }
 
@@ -582,6 +659,11 @@ impl Socket for TcpSocket {
         match &g.state {
             State::Listening(l) => {
                 l.inner.lock().unwrap().backlog = backlog;
+                if let Some(p) = l.publication.lock().unwrap().as_ref() {
+                    p.set_backlog(backlog);
+                }
+                // A larger queue may have room for connections held back.
+                l.room.wake(PollMask::empty());
                 return Ok(());
             }
             State::Connecting(..) | State::Connected(..) => return Err(Errno::EINVAL),
@@ -592,6 +674,7 @@ impl Socket for TcpSocket {
         self.net.state().tcp.listen(self.id, local.port())?;
         let l = Arc::new(Listener {
             wq: self.wq.clone(),
+            room: WaitQueue::new(),
             inner: Mutex::new(ListenerInner {
                 backlog,
                 closed: false,
@@ -605,7 +688,7 @@ impl Socket for TcpSocket {
         g.rd_shut = false;
         g.wr_shut = false;
         drop(g);
-        self.auto_publish(&l, local);
+        self.auto_publish(&l, local, backlog);
         Ok(())
     }
 
@@ -664,6 +747,7 @@ impl Socket for TcpSocket {
                 let backend = self.net.backend.clone().ok_or(Errno::ENETUNREACH)?;
                 match backend.connect(host_dst, self.wq.clone()) {
                     Ok(stream) => {
+                        replay_options(&*stream, &g.opts);
                         g.state = State::Connecting(Transport::Remote(stream), dst);
                         Err(Errno::EINPROGRESS)
                     }
@@ -677,17 +761,15 @@ impl Socket for TcpSocket {
     }
 
     fn disconnect(&self) -> NetResult<()> {
-        // `tcp_disconnect`: abort whatever is going on and return to CLOSE.
+        // `tcp_disconnect`: abort whatever is going on and return to CLOSE, which gives back
+        // an autobound port (`tcp_set_state` calls `inet_put_port`) and the source address.
         let mut g = self.lock();
         self.stop_listening(&mut g);
-        if let State::Connecting(t, _) | State::Connected(t, _) =
-            std::mem::replace(&mut g.state, State::Closed)
-        {
-            t.close(true);
-        }
+        self.abort_connection(&mut g);
         g.rd_shut = false;
         g.wr_shut = false;
         g.failed = false;
+        self.reset_saddr(&mut g);
         self.put_port(&mut g);
         drop(g);
         self.wq.wake(PollMask::empty());
@@ -703,14 +785,23 @@ impl Socket for TcpSocket {
                 }
                 Ok(())
             }
+            // `inet_shutdown` in `SYN_SENT` disconnects (`tcp_disconnect`).
             State::Connecting(..) => {
-                if let State::Connecting(t, _) = std::mem::replace(&mut g.state, State::Closed) {
-                    t.close(true);
-                }
+                self.abort_connection(&mut g);
+                self.reset_saddr(&mut g);
                 self.put_port(&mut g);
                 drop(g);
                 self.wq.wake(PollMask::empty());
                 Ok(())
+            }
+            // A connection reset or refused is in CLOSE: the shutdown is recorded, the
+            // answer is ENOTCONN.
+            State::Connected(t, _) if t.is_done() => {
+                let t = t.clone();
+                drop(g);
+                let _ = t.shutdown(how);
+                self.wq.wake(PollMask::empty());
+                Err(Errno::ENOTCONN)
             }
             State::Connected(t, _) => {
                 let t = t.clone();
@@ -820,6 +911,7 @@ impl Socket for TcpSocket {
         match &g.state {
             State::Listening(_) => Err(Errno::EINVAL),
             State::Connected(Transport::Local(c, side), _) => Ok(c.output_len(*side)),
+            State::Connected(Transport::Remote(s), _) => Ok(s.output_len()),
             _ => Ok(0),
         }
     }
@@ -903,7 +995,7 @@ const TCP_INFO_LEN: usize = 248;
 
 impl TcpSocket {
     /// Auto-publishing: mirror a non-loopback listener on the host. Failure is logged only.
-    fn auto_publish(&self, l: &Listener, local: SocketAddr) {
+    fn auto_publish(&self, l: &Listener, local: SocketAddr, backlog: u32) {
         let (Some(host_ip), Some(backend)) =
             (self.net.config.auto_publish, self.net.backend.as_ref())
         else {
@@ -913,7 +1005,7 @@ impl TcpSocket {
             return;
         }
         let host = SocketAddr::new(host_ip, local.port());
-        match backend.publish(host, self.net.inbound_sink(local)) {
+        match backend.publish(host, backlog, self.net.inbound_sink(local)) {
             Ok(p) => *l.publication.lock().unwrap() = Some(p),
             Err(e) => tracing::warn!(%host, guest = %local, error = %e, "auto-publish failed"),
         }

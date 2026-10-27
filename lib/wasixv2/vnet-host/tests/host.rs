@@ -51,6 +51,7 @@ fn send(s: &dyn Socket, data: &[u8], to: Option<SocketAddr>) -> Result<usize, Er
         to,
         flags: MsgFlags(0),
         control: &[],
+        net_raw: false,
     })
 }
 
@@ -71,7 +72,7 @@ fn outbound_connect_through_gateway_alias() {
     let net = setup();
     let host = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = host.local_addr().unwrap().port();
-    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap();
+    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
     let dst: SocketAddr = format!("10.0.2.2:{port}").parse().unwrap();
     assert_eq!(s.connect(dst), Err(Errno::EINPROGRESS));
     let (mut peer, _) = host.accept().unwrap();
@@ -105,7 +106,7 @@ fn outbound_connect_refused() {
         .local_addr()
         .unwrap()
         .port();
-    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap();
+    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
     let dst: SocketAddr = format!("10.0.2.2:{port}").parse().unwrap();
     assert_eq!(s.connect(dst), Err(Errno::EINPROGRESS));
     assert!(wait_for(&*s, PollMask::ERR).contains(PollMask::HUP));
@@ -115,7 +116,7 @@ fn outbound_connect_refused() {
 #[test]
 fn published_port_reaches_guest_listener() {
     let net = setup();
-    let l = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap();
+    let l = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
     l.bind("0.0.0.0:8080".parse().unwrap(), false).unwrap();
     l.listen(8).unwrap();
     let publication = net
@@ -151,7 +152,9 @@ fn udp_through_the_backend() {
     let net = setup();
     let host = UdpSocket::bind("127.0.0.1:0").unwrap();
     let port = host.local_addr().unwrap().port();
-    let s = net.socket(Domain::Inet, SocketKind::Datagram, 0).unwrap();
+    let s = net
+        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+        .unwrap();
     let dst: SocketAddr = format!("10.0.2.2:{port}").parse().unwrap();
     assert_eq!(send(&*s, b"query", Some(dst)), Ok(5));
     let mut buf = [0u8; 16];
@@ -210,7 +213,9 @@ fn udp_waiter_registered_before_the_first_send_is_woken() {
     let dst: SocketAddr = format!("10.0.2.2:{}", host.local_addr().unwrap().port())
         .parse()
         .unwrap();
-    let s = net.socket(Domain::Inet, SocketKind::Datagram, 0).unwrap();
+    let s = net
+        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+        .unwrap();
     // As an event loop does: watch the socket first, send the query after.
     let watch = register_once(&*s);
     assert_eq!(send(&*s, b"query", Some(dst)), Ok(5));
@@ -229,7 +234,7 @@ fn tcp_waiter_registered_before_connect_is_woken() {
     let dst: SocketAddr = format!("10.0.2.2:{}", host.local_addr().unwrap().port())
         .parse()
         .unwrap();
-    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap();
+    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
     let watch = register_once(&*s);
     assert_eq!(s.connect(dst), Err(Errno::EINPROGRESS));
     let (mut peer, _) = host.accept().unwrap();
@@ -255,7 +260,7 @@ fn refused_host_connect_closes_the_socket() {
         .unwrap()
         .port();
     let dst: SocketAddr = format!("10.0.2.2:{port}").parse().unwrap();
-    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap();
+    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
     assert_eq!(s.connect(dst), Err(Errno::EINPROGRESS));
     let ephemeral = s.local_addr().unwrap().port();
     assert_ne!(ephemeral, 0);
@@ -284,7 +289,7 @@ fn reset_host_stream_has_no_peer() {
     let dst: SocketAddr = format!("10.0.2.2:{}", host.local_addr().unwrap().port())
         .parse()
         .unwrap();
-    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap();
+    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
     assert_eq!(s.connect(dst), Err(Errno::EINPROGRESS));
     let (peer, _) = host.accept().unwrap();
     wait_for(&*s, PollMask::OUT);
@@ -305,7 +310,9 @@ fn connected_udp_filters_the_source_and_learns_refusals() {
     let dst: SocketAddr = format!("10.0.2.2:{}", host.local_addr().unwrap().port())
         .parse()
         .unwrap();
-    let s = net.socket(Domain::Inet, SocketKind::Datagram, 0).unwrap();
+    let s = net
+        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+        .unwrap();
     s.connect(dst).unwrap();
     assert_eq!(send(&*s, b"query", None), Ok(5));
     let mut buf = [0u8; 16];
@@ -350,7 +357,7 @@ fn closed_stream_with_a_stalled_peer_is_reset_after_its_linger_time() {
     let dst: SocketAddr = format!("10.0.2.2:{}", host.local_addr().unwrap().port())
         .parse()
         .unwrap();
-    let s = net.socket(Domain::Inet, SocketKind::Stream, 0).unwrap();
+    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
     assert_eq!(s.connect(dst), Err(Errno::EINPROGRESS));
     let (mut peer, _) = host.accept().unwrap();
     socket2::SockRef::from(&peer)
@@ -398,4 +405,70 @@ fn closed_stream_with_a_stalled_peer_is_reset_after_its_linger_time() {
     };
     assert_eq!(end, Some(std::io::ErrorKind::ConnectionReset));
     assert!(got < total);
+}
+
+#[test]
+fn published_connections_wait_for_room_in_the_guest_accept_queue() {
+    let net = setup();
+    let l = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
+    l.bind("0.0.0.0:8081".parse().unwrap(), false).unwrap();
+    // Room for one connection (`sk_acceptq_is_full` is `> backlog`).
+    l.listen(0).unwrap();
+    let publication = net
+        .publish(
+            "127.0.0.1:0".parse().unwrap(),
+            "0.0.0.0:8081".parse().unwrap(),
+        )
+        .unwrap();
+    let mut first = TcpStream::connect(publication.host_addr()).unwrap();
+    first.write_all(b"one").unwrap();
+    wait_for(&*l, PollMask::IN);
+    // The second waits in the host's backlog: neither reset nor closed while the guest is
+    // full, as a SYN to a full Linux accept queue goes unanswered.
+    let mut second = TcpStream::connect(publication.host_addr()).unwrap();
+    second.write_all(b"two").unwrap();
+    second
+        .set_read_timeout(Some(Duration::from_millis(300)))
+        .unwrap();
+    let mut buf = [0u8; 8];
+    let early = second.read(&mut buf).map_err(|e| e.kind());
+    assert!(
+        matches!(
+            early,
+            Err(std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut)
+        ),
+        "the waiting connection ended early: {early:?}"
+    );
+    let a = l.accept().unwrap();
+    assert_eq!(recv_all(&*a.socket, 3), b"one");
+    // The accept made room: the reactor takes the waiting connection now.
+    let watch = register_once(&*l);
+    watch.until(&*l, PollMask::IN);
+    let b = l.accept().unwrap();
+    assert_eq!(recv_all(&*b.socket, 3), b"two");
+    send(&*b.socket, b"ok", None).unwrap();
+    second
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    second.read_exact(&mut buf[..2]).unwrap();
+    assert_eq!(&buf[..2], b"ok");
+    drop(first);
+}
+
+#[test]
+fn published_connection_without_a_guest_listener_is_reset() {
+    let net = setup();
+    let publication = net
+        .publish(
+            "127.0.0.1:0".parse().unwrap(),
+            "0.0.0.0:8082".parse().unwrap(),
+        )
+        .unwrap();
+    let mut client = TcpStream::connect(publication.host_addr()).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let mut buf = [0u8; 4];
+    let got = client.read(&mut buf).map_err(|e| e.kind());
+    assert_eq!(got, Err(std::io::ErrorKind::ConnectionReset));
 }

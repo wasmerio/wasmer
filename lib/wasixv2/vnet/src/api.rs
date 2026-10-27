@@ -20,7 +20,7 @@
 use std::{fmt, net::SocketAddr, sync::Arc};
 
 use wasixv2_abi::{Errno, MsgFlags};
-use wasixv2_wait::{Pollable, WaitQueue};
+use wasixv2_wait::{PollTable, Pollable, WaitQueue};
 
 /// The address family of an IP socket. Unix sockets never reach this crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -71,8 +71,12 @@ pub struct SendMsg<'a> {
     /// honours the protocol's own (`MSG_MORE`, `MSG_OOB`, `MSG_EOR`, `MSG_CONFIRM`, ...) or
     /// fails as Linux does for flags the protocol rejects.
     pub flags: MsgFlags,
-    /// Control messages from `sendmsg`, such as `IP_PKTINFO` or `IP_TTL`.
+    /// Control messages from `sendmsg`, such as `IP_PKTINFO` or `IP_TTL`. The kernel has
+    /// checked and removed the `SOL_SOCKET` ones (`__sock_cmsg_send`); the socket validates the
+    /// rest as its protocol does and fails the send with `EINVAL` (or `EPERM`) as Linux would.
     pub control: &'a [Control],
+    /// The caller holds `CAP_NET_RAW`, which some control messages need (IPv6 option headers).
+    pub net_raw: bool,
 }
 
 /// What `Socket::recv` received.
@@ -133,12 +137,15 @@ pub trait Network: Send + Sync {
     /// Linux's `inet_create`/`inet6_create`: a new, unbound socket. `protocol` is the guest's
     /// third `socket` argument: 0 picks the default; an unsupported value is
     /// `EPROTONOSUPPORT`, an unsupported kind/protocol pair `ESOCKTNOSUPPORT` or
-    /// `EPROTONOSUPPORT` as Linux decides. `SOCK_RAW` never gets here.
+    /// `EPROTONOSUPPORT` as Linux decides. `SOCK_RAW` never gets here. `uid` owns the socket
+    /// (`sk_uid`, the creator's filesystem uid, which accepted sockets inherit): sockets only
+    /// share a port through `SO_REUSEPORT` with sockets of the same owner.
     fn socket(
         &self,
         domain: Domain,
         kind: SocketKind,
         protocol: i32,
+        uid: u32,
     ) -> Result<Arc<dyn Socket>, Errno>;
 
     /// Every bound socket in the namespace.
@@ -256,12 +263,16 @@ pub trait Backend: Send + Sync {
     /// `wq`, the guest socket's queue, when datagrams or errors arrive.
     fn datagram(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno>;
 
-    /// Publishing: accepts connections on `host` and hands each to `sink`. The returned handle
-    /// stops publishing when dropped. Failure (a taken host port) is the host's problem: the
-    /// network logs it and never shows it to the guest.
+    /// Publishing: listens on `host` with `backlog` and hands each connection to `sink`, taking
+    /// a connection off the host listener only while [`InboundSink::poll_room`] says the guest
+    /// has room for it, as a full Linux accept queue leaves new connections unanswered
+    /// (`tcp_v4_syn_recv_sock` checks `sk_acceptq_is_full`). The returned handle stops
+    /// publishing when dropped. Failure (a taken host port) is the host's problem: the network
+    /// logs it and never shows it to the guest.
     fn publish(
         &self,
         host: SocketAddr,
+        backlog: u32,
         sink: Arc<dyn InboundSink>,
     ) -> Result<Box<dyn Publication>, std::io::Error>;
 }
@@ -294,6 +305,10 @@ pub trait BackendStream: Pollable {
     fn peer_addr(&self) -> SocketAddr;
     /// Bytes buffered for reading.
     fn input_len(&self) -> usize;
+    /// `SIOCOUTQ`: bytes written but not yet taken by the peer, as far as the backend knows.
+    fn output_len(&self) -> usize {
+        0
+    }
     /// Applies a socket option that changes host behaviour (`TCP_NODELAY`, keepalive). The
     /// default ignores it: the guest-visible value lives in the network.
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
@@ -302,8 +317,10 @@ pub trait BackendStream: Pollable {
     }
 }
 
-/// A datagram endpoint through the backend. `poll` reports `IN` while datagrams are queued and
-/// `ERR` while an error is pending; like a stream's, it registers nothing.
+/// A datagram endpoint through the backend. `poll` reports `IN` while datagrams are queued,
+/// `OUT` while a send would not block (`sock_writeable`) and `ERR` while an error is pending;
+/// like a stream's, it registers nothing, and it wakes the guest socket's queue with `OUT` once
+/// a send that failed with `EAGAIN` would go through.
 pub trait BackendDatagram: Pollable {
     /// Sends one datagram; `EAGAIN` when the host would block.
     fn send_to(&self, data: &[u8], to: SocketAddr) -> Result<usize, Errno>;
@@ -319,11 +336,28 @@ pub trait BackendDatagram: Pollable {
     fn input_len(&self) -> usize;
 }
 
+/// Whether a guest listener can take a connection now (see [`InboundSink::poll_room`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Room {
+    /// A connection offered now goes into the accept queue.
+    Ready,
+    /// The accept queue is full. The table, if given, was registered on a queue woken once
+    /// there is room again or the listener goes.
+    Full,
+    /// No guest listener holds the address: a connection would be refused.
+    Gone,
+}
+
 /// Receives the connections a `Backend` accepted for a published port.
 pub trait InboundSink: Send + Sync {
+    /// Whether the guest listener for the published address could take a connection, as
+    /// `poll` reports readiness: `table` registers on the listener's room queue first, so a
+    /// backend that sees `Full` hears when to try again. Called from the backend's thread.
+    fn poll_room(&self, table: Option<&mut PollTable<'_>>) -> Room;
+
     /// Called from the backend's thread. `wq` is the queue `stream` wakes; the guest socket
     /// made for the connection adopts it as its own. Returns `false` if the guest listener is
-    /// gone or its queue is full; the backend then drops the connection.
+    /// gone or its queue filled since `poll_room`; the backend then drops the connection.
     fn incoming(&self, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool;
 }
 
@@ -331,4 +365,9 @@ pub trait InboundSink: Send + Sync {
 pub trait Publication: Send + Sync {
     /// The host address actually bound (port 0 resolved).
     fn host_addr(&self) -> SocketAddr;
+
+    /// The guest listener's `listen` backlog changed: the host listener follows it.
+    fn set_backlog(&self, backlog: u32) {
+        let _ = backlog;
+    }
 }
