@@ -1081,6 +1081,11 @@ impl FileObject for UnixFile {
         self.0.input_len()
     }
 
+    /// `sock_splice_read`.
+    fn splice_read(&self) -> bool {
+        true
+    }
+
     /// `SIOCINQ` (`FIONREAD`) and `SIOCOUTQ` (`TIOCOUTQ`).
     fn ioctl<'a>(
         &'a self,

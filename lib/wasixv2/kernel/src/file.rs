@@ -92,6 +92,12 @@ pub trait FileObject: Pollable + Any {
         false
     }
 
+    /// Whether `sendfile` can read from the object (`f_op->splice_read`): sockets can; pipes
+    /// and event objects cannot.
+    fn splice_read(&self) -> bool {
+        false
+    }
+
     /// Bytes a read would find now (what `FIONREAD` reports): a stream's buffered data, a
     /// datagram socket's next message. Reads of other objects give at most one kernel step;
     /// a read of this one sizes its buffer to these bytes instead, so it takes all a pipe or

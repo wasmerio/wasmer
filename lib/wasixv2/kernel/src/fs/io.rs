@@ -563,8 +563,8 @@ impl Kernel {
         Ok(sink.out.len() as i32)
     }
 
-    /// `sendfile`: from a file to anything writable, at `*offset` or the input's position. A
-    /// byte stream with no reader left raises `SIGPIPE`.
+    /// `sendfile`: from a file to anything writable, at `*offset` or the input's position, or
+    /// from a socket without an offset. A byte stream with no reader left raises `SIGPIPE`.
     pub(crate) async fn sys_sendfile(
         &self,
         caller: &Caller<'_>,
@@ -575,12 +575,20 @@ impl Kernel {
     ) -> SysResult<i32> {
         let input = self.file(caller.task(), in_fd)?;
         input.check_readable()?;
+        // Only a file with a position takes an offset (`FMODE_PREAD`).
+        let positional = input.check_seekable().is_ok();
+        if !offset.is_null() && !positional {
+            return Err(Errno::ESPIPE.into());
+        }
         let output = self.file(caller.task(), out_fd)?;
         output.check_writable()?;
+        // `do_splice_direct`: no appending output, and an input `splice_read` can read.
         if output.flags().contains(OpenFlags::O_APPEND) {
             return Err(Errno::EINVAL.into());
         }
-        input.check_seekable().map_err(|_| Errno::EINVAL)?;
+        if !positional && !input.object().is_some_and(|object| object.splice_read()) {
+            return Err(Errno::EINVAL.into());
+        }
         let broken = Cell::new(false);
         let ret = self
             .sendfile(caller, &input, &output, offset, count, &broken)
@@ -598,6 +606,7 @@ impl Kernel {
         count: u32,
         broken: &Cell<bool>,
     ) -> SysResult<i32> {
+        let stream = input.check_seekable().is_err();
         let mut pos = match offset.is_null() {
             true => input.pos(),
             false => {
@@ -613,10 +622,16 @@ impl Kernel {
         self.sync_file_mappings(caller, output).await;
         while done < count {
             let want = (count - done).min(buf.len());
-            let n = input.read_at(&mut buf[..want], pos).await?;
-            if n == 0 {
-                break;
-            }
+            let read = match stream {
+                true => input.read(&*interrupt, &mut buf[..want]).await,
+                false => input.read_at(&mut buf[..want], pos).await,
+            };
+            let n = match read {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(_) if done > 0 => break,
+                Err(err) => return Err(err),
+            };
             let written = match output.write(&*interrupt, broken, &buf[..n]).await {
                 Ok(written) => written,
                 Err(_) if done > 0 => break,
@@ -629,10 +644,10 @@ impl Kernel {
             }
         }
         self.sync_file_mappings(caller, output).await;
-        if offset.is_null() {
-            input.set_pos(pos);
-        } else {
+        if !offset.is_null() {
             write_value(caller.memory(), offset, &(pos as i64)).await?;
+        } else if !stream {
+            input.set_pos(pos);
         }
         Ok(done as i32)
     }
