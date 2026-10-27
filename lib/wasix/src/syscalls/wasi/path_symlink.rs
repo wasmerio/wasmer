@@ -63,15 +63,14 @@ pub fn path_symlink_internal(
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let base_fd = state.fs.get_fd(fd)?;
-    if !base_fd.inner.rights.contains(Rights::PATH_SYMLINK) {
-        return Err(Errno::Access);
-    }
-
     let new_path_path = std::path::Path::new(new_path);
-    let (target_parent_inode, entry_name) =
+    let (target_parent_inode, owner, entry_name) =
         state
             .fs
-            .get_parent_inode_at_path(inodes, fd, new_path_path, true)?;
+            .get_owned_parent_inode_at_path(inodes, fd, new_path_path, true)?;
+    state
+        .fs
+        .check_path_right(&base_fd, &owner, Rights::PATH_SYMLINK)?;
 
     let symlink_path = {
         let guard = target_parent_inode.read();
@@ -92,7 +91,9 @@ pub fn path_symlink_internal(
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Err(Errno::Inval),
             Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => {
-                unreachable!("get_parent_inode_at_path returned something other than a Dir or Root")
+                unreachable!(
+                    "get_owned_parent_inode_at_path returned something other than a Dir or Root"
+                )
             }
         }
     };

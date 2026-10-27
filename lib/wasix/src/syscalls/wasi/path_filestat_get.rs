@@ -68,16 +68,15 @@ pub(crate) fn path_filestat_get_internal(
     path_string: &str,
 ) -> Result<Filestat, Errno> {
     let root_dir = state.fs.get_fd(fd)?;
-
-    if !root_dir.inner.rights.contains(Rights::PATH_FILESTAT_GET) {
-        return Err(Errno::Access);
-    }
-    let file_inode = state.fs.get_inode_at_path_from_inode(
+    let (file_inode, owner) = state.fs.get_owned_inode_at_path_from_inode(
         inodes,
-        root_dir.inode,
+        root_dir.inode.clone(),
         path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
+    state
+        .fs
+        .check_path_right(&root_dir, &owner, Rights::PATH_FILESTAT_GET)?;
 
     let st_ino = file_inode.ino().as_u64();
     let mut stat = if file_inode.is_preopened {
