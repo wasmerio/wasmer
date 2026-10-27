@@ -6,6 +6,7 @@
 
 pub mod abi;
 pub mod asyncify;
+mod atomics;
 mod fork;
 mod generated;
 mod loader;
@@ -152,14 +153,15 @@ pub async fn call_guest<S: 'static>(
 struct Exited(i32);
 
 /// Compiles `wasm` for [`run`], with the preemption points that let a busy guest notice signals
-/// and the exit of its thread group.
+/// and the exit of its thread group, and atomic waits that a signal interrupts.
 pub fn load(engine: &Engine, wasm: &[u8]) -> Result<Module, CompileError> {
     Module::new(engine, instrument(wasm))
 }
 
 /// `wasm` with the preemption points [`load`] adds, for an embedder that compiles (and caches)
 /// modules itself. A module compiled without them runs, but a guest that computes without
-/// making syscalls does not notice signals or its group's exit.
+/// making syscalls, or blocks in `memory.atomic.wait`, does not notice signals or its group's
+/// exit.
 pub fn instrument(wasm: &[u8]) -> Cow<'_, [u8]> {
     preempt::instrument(wasm)
 }
@@ -498,7 +500,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
     }
 }
 
-/// The imports of one instance of `module`: its ABI's, and the hook of the preemption points.
+/// The imports of one instance of `module`: its ABI's, the hook of the preemption points, and
+/// the imports its atomic waits and notifies became.
 fn imports<S>(
     abi: &dyn Abi<S>,
     store: &mut Store,
@@ -514,6 +517,7 @@ where
         preempt::HOOK_NAME,
         Function::new_typed_with_env_async(store, env, preempt_point::<S>),
     );
+    atomics::define(&mut imports, store, env);
     imports
 }
 

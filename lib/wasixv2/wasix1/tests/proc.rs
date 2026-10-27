@@ -237,6 +237,115 @@ fn threads_and_futexes() {
     assert_eq!(status(THREADS), 0);
 }
 
+/// `memory.atomic.wait32` and `wait64` wait on the kernel's futexes: `SIGALRM` interrupts an
+/// untimed wait, which returns as woken once the handler ran (v1's handlers do not restart), and
+/// timed waits and stale values return 2 and 1. A thread waiting in the instruction is woken by
+/// `futex_wake`, and one waiting in `futex_wait` by `memory.atomic.notify`, which also wakes the
+/// main thread's `futex_wait` on the thread's steps.
+const ATOMIC_WAITS: &str = r#"
+(module
+  (import "env" "memory" (memory 1 1 shared))
+  (import "wasix_32v1" "callback_signal" (func $callback (param i32 i32)))
+  (import "wasix_32v1" "proc_raise_interval" (func $interval (param i32 i64 i32) (result i32)))
+  (import "wasix_32v1" "thread_spawn_v2" (func $spawn (param i32 i32) (result i32)))
+  (import "wasix_32v1" "futex_wait" (func $wait (param i32 i32 i32 i32) (result i32)))
+  (import "wasix_32v1" "futex_wake" (func $wake (param i32 i32) (result i32)))
+  (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+  (data (i32.const 16) "__wasm_signal")
+  (global $last (mut i32) (i32.const 0))
+  (func (export "__wasm_signal") (param $sig i32) (global.set $last (local.get $sig)))
+  ;; Counts its steps at 200, and fails with a status left at 700.
+  (func $step (param $n i32)
+    (i32.atomic.store (i32.const 200) (local.get $n))
+    (drop (memory.atomic.notify (i32.const 200) (i32.const 1))))
+  (func (export "wasi_thread_start") (param $tid i32) (param $arg i32)
+    (call $step (i32.const 1))
+    (if (memory.atomic.wait32 offset=8 (i32.const 592) (i32.const 0) (i64.const -1))
+      (then (i32.atomic.store (i32.const 700) (i32.const 30))))
+    (call $step (i32.const 2))
+    (if (call $wait (i32.const 604) (i32.const 0) (i32.const 0) (i32.const 300))
+      (then (i32.atomic.store (i32.const 700) (i32.const 31))))
+    (call $step (i32.const 3)))
+  (func $await (param $n i32)
+    (block $done
+      (loop $again
+        (br_if $done (i32.ge_u (i32.atomic.load (i32.const 200)) (local.get $n)))
+        (drop (call $wait (i32.const 200) (i32.atomic.load (i32.const 200)) (i32.const 0) (i32.const 304)))
+        (br $again))))
+  (func (export "_start")
+    (call $callback (i32.const 16) (i32.const 13))
+    (if (call $interval (i32.const 14) (i64.const 1000000) (i32.const 0))
+      (then (call $exit (i32.const 1))))
+    (if (memory.atomic.wait32 (i32.const 400) (i32.const 0) (i64.const -1))
+      (then (call $exit (i32.const 2))))
+    (if (i32.ne (global.get $last) (i32.const 14)) (then (call $exit (i32.const 3))))
+    (if (i32.ne (memory.atomic.wait32 (i32.const 400) (i32.const 0) (i64.const 1000000)) (i32.const 2))
+      (then (call $exit (i32.const 4))))
+    (if (i32.ne (memory.atomic.wait32 (i32.const 400) (i32.const 1) (i64.const -1)) (i32.const 1))
+      (then (call $exit (i32.const 5))))
+    (i64.store (i32.const 408) (i64.const 0x100000000))
+    (if (i32.ne (memory.atomic.wait64 (i32.const 408) (i64.const 0x100000000) (i64.const 0)) (i32.const 2))
+      (then (call $exit (i32.const 6))))
+    (if (i32.ne (memory.atomic.wait64 (i32.const 408) (i64.const 0) (i64.const -1)) (i32.const 1))
+      (then (call $exit (i32.const 7))))
+    ;; nobody waits
+    (if (memory.atomic.notify (i32.const 400) (i32.const 1)) (then (call $exit (i32.const 8))))
+    (if (call $spawn (i32.const 100) (i32.const 104)) (then (call $exit (i32.const 9))))
+    (call $await (i32.const 1))
+    ;; the syscall wakes the instruction's waiter, once it waits
+    (block $woken
+      (loop $again
+        (if (call $wake (i32.const 600) (i32.const 304)) (then (call $exit (i32.const 10))))
+        (br_if $woken (i32.load8_u (i32.const 304)))
+        (br $again)))
+    (call $await (i32.const 2))
+    ;; and the instruction the syscall's
+    (block $woken
+      (loop $again
+        (br_if $woken (memory.atomic.notify (i32.const 604) (i32.const 1)))
+        (br $again)))
+    (call $await (i32.const 3))
+    (call $exit (i32.atomic.load (i32.const 700)))))
+"#;
+
+#[test]
+fn atomic_waits() {
+    assert_eq!(status(ATOMIC_WAITS), 0);
+}
+
+/// A thread blocked in `memory.atomic.wait32` ends with its group: by `proc_exit2`, and by a
+/// signal whose default action kills the process.
+#[test]
+fn the_group_ends_threads_blocked_in_atomic_waits() {
+    let wat = |end: &str| {
+        format!(
+            r#"
+    (module
+      (import "env" "memory" (memory 1 1 shared))
+      (import "wasix_32v1" "thread_spawn_v2" (func $spawn (param i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_raise" (func $raise (param i32) (result i32)))
+      (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+      (func (export "wasi_thread_start") (param $tid i32) (param $arg i32)
+        (i32.atomic.store (i32.const 200) (i32.const 1))
+        (drop (memory.atomic.wait32 (i32.const 400) (i32.const 0) (i64.const -1))))
+      (func (export "_start")
+        (if (call $spawn (i32.const 100) (i32.const 104)) (then (call $exit (i32.const 1))))
+        (block $started
+          (loop $again
+            (br_if $started (i32.atomic.load (i32.const 200)))
+            (br $again)))
+        {end}
+        (call $exit (i32.const 2))))
+    "#
+        )
+    };
+    assert_eq!(status(&wat("(call $exit (i32.const 7))")), 7);
+    assert_eq!(
+        status(&wat("(drop (call $raise (i32.const 15)))")),
+        128 + 15
+    );
+}
+
 /// `proc_fork_env` continues as the child, whose `proc_exit2` returns in the parent;
 /// `proc_join` then reports the child's status, and `CHILD` (12) once there are no children.
 #[test]

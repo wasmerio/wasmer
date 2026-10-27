@@ -5,9 +5,15 @@
 //! its thread group within a bounded number of steps, as DESIGN's "async signals only at
 //! interruption checks" describes; between checks it runs undisturbed.
 //!
-//! The rewrite only adds: one type, one function import after the others (so defined functions
-//! move up by one index), one global, and the check. The start function gets no checks, as it
-//! runs during instantiation, before the instance can take signals.
+//! The same pass turns wasm's `memory.atomic.wait32`, `wait64` and `notify` on a shared 32-bit
+//! memory into calls of imports that wait and wake on the kernel's futexes ([`crate::atomics`]).
+//! The engine would block the host thread in the instruction, where neither a signal nor the
+//! group's exit reaches the guest, and only another instruction could wake it.
+//!
+//! The rewrite only adds: four types, four function imports after the others (so defined
+//! functions move up by four indices), one global, the check, and a constant with each atomic's
+//! offset before the call that replaces it. The start function is left alone, as it runs during
+//! instantiation, before the instance can take signals or has threads to wait for.
 
 use std::{borrow::Cow, convert::Infallible};
 
@@ -21,9 +27,28 @@ use wasmparser::{
     TypeSectionReader,
 };
 
-/// The import the instrumentation adds; not part of the guest ABI.
+/// The imports the instrumentation adds; not part of the guest ABI.
 pub(crate) const HOOK_MODULE: &str = "wasixv2-exec";
 pub(crate) const HOOK_NAME: &str = "preempt";
+/// `(addr, expected, timeout, offset) -> result`, as the instructions with their offset last.
+pub(crate) const WAIT32_NAME: &str = "memory-atomic-wait32";
+pub(crate) const WAIT64_NAME: &str = "memory-atomic-wait64";
+/// `(addr, count, offset) -> woken`.
+pub(crate) const NOTIFY_NAME: &str = "memory-atomic-notify";
+
+/// The added imports in order, each with its parameters; all return an `i32`.
+const HOOKS: [(&str, &[ValType]); 4] = [
+    (HOOK_NAME, &[]),
+    (
+        WAIT32_NAME,
+        &[ValType::I32, ValType::I32, ValType::I64, ValType::I32],
+    ),
+    (
+        WAIT64_NAME,
+        &[ValType::I32, ValType::I64, ValType::I64, ValType::I32],
+    ),
+    (NOTIFY_NAME, &[ValType::I32, ValType::I32, ValType::I32]),
+];
 
 /// Checks between two calls of the hook. A check costs a few instructions, a call of the hook
 /// with nothing to do about a microsecond, so this keeps the overhead of the calls well below
@@ -46,11 +71,14 @@ pub(crate) fn instrument(module: &[u8]) -> Cow<'_, [u8]> {
 
 #[derive(Default)]
 struct Points {
-    /// Types seen so far, and then the hook's type.
+    /// Types seen so far, and then the first of the hooks' types.
     types: u32,
     hook_type: Option<u32>,
-    /// Function imports: the hook's index, and how far defined functions move.
+    /// Function imports: the first hook's index, and how far defined functions move.
     imported_funcs: Option<u32>,
+    /// Whether memory 0 is shared and 32-bit, so its atomics wait on the kernel's futexes; set
+    /// by the first memory type, which is memory 0's.
+    futex_memory: Option<bool>,
     imported_globals: u32,
     budget: Option<u32>,
     start: Option<u32>,
@@ -91,6 +119,7 @@ impl Points {
             .expect("the type section comes before the imports")
     }
 
+    /// The preemption hook's index; the atomics' follow it in [`HOOKS`]' order.
     fn hook(&self) -> u32 {
         self.imported_funcs
             .expect("the import section comes before the code")
@@ -98,15 +127,38 @@ impl Points {
 
     fn add_hook_type(&mut self, types: &mut TypeSection) {
         self.hook_type = Some(self.types);
-        types.ty().function([], [ValType::I32]);
+        for (_, params) in HOOKS {
+            types.ty().function(params.iter().copied(), [ValType::I32]);
+        }
     }
 
     fn add_hook(&mut self, imports: &mut ImportSection) {
-        imports.import(
-            HOOK_MODULE,
-            HOOK_NAME,
-            EntityType::Function(self.hook_type()),
-        );
+        for (at, (name, _)) in (0..).zip(HOOKS) {
+            imports.import(
+                HOOK_MODULE,
+                name,
+                EntityType::Function(self.hook_type() + at),
+            );
+        }
+    }
+
+    /// The call that replaces `instruction`, an atomic wait or notify on memory 0: its offset,
+    /// then the hook. `None` for every other instruction, and when memory 0 is not a shared
+    /// 32-bit memory, where the engine's own instruction is right (it traps, or wakes nobody).
+    fn atomic_call(&self, instruction: &Instruction<'_>) -> Option<[Instruction<'static>; 2]> {
+        let (at, memarg) = match instruction {
+            Instruction::MemoryAtomicWait32(memarg) => (1, memarg),
+            Instruction::MemoryAtomicWait64(memarg) => (2, memarg),
+            Instruction::MemoryAtomicNotify(memarg) => (3, memarg),
+            _ => return None,
+        };
+        let offset = u32::try_from(memarg.offset).ok()?;
+        (memarg.memory_index == 0 && self.futex_memory == Some(true)).then(|| {
+            [
+                Instruction::I32Const(offset as i32),
+                Instruction::Call(self.hook() + at),
+            ]
+        })
     }
 
     fn add_budget(&mut self, globals: &mut GlobalSection, index: u32) {
@@ -140,7 +192,11 @@ impl Reencode for Points {
 
     fn function_index(&mut self, func: u32) -> Result<u32, Error> {
         let imported = self.hook();
-        Ok(if func >= imported { func + 1 } else { func })
+        Ok(if func >= imported {
+            func + HOOKS.len() as u32
+        } else {
+            func
+        })
     }
 
     fn start_section(&mut self, start: u32) -> Result<u32, Error> {
@@ -156,6 +212,15 @@ impl Reencode for Points {
         utils::parse_type_section(self, types, section)?;
         self.add_hook_type(types);
         Ok(())
+    }
+
+    fn memory_type(
+        &mut self,
+        memory_ty: wasmparser::MemoryType,
+    ) -> Result<wasm_encoder::MemoryType, Error> {
+        self.futex_memory
+            .get_or_insert(memory_ty.shared && !memory_ty.memory64);
+        Ok(utils::memory_type(self, memory_ty))
     }
 
     fn parse_recursive_type_group(
@@ -214,7 +279,15 @@ impl Reencode for Points {
         while !reader.eof() {
             let instruction = self.parse_instruction(&mut reader)?;
             let header = matches!(instruction, Instruction::Loop(_));
-            f.instruction(&instruction);
+            match self.atomic_call(&instruction).filter(|_| checked) {
+                Some([offset, call]) => {
+                    f.instruction(&offset);
+                    f.instruction(&call);
+                }
+                None => {
+                    f.instruction(&instruction);
+                }
+            }
             if header && checked {
                 self.check(&mut f);
             }
@@ -278,10 +351,10 @@ mod tests {
             text.contains(r#"(import "wasixv2-exec" "preempt" (func (;1;) (type"#),
             "{text}"
         );
-        // The defined functions moved up by one; `$call` still calls `$spin`.
-        assert!(text.contains("call 2"), "{text}");
-        assert!(text.contains("(export \"spin\" (func 2))"), "{text}");
-        assert!(text.contains("(start 4)"), "{text}");
+        // The defined functions moved up by four; `$call` still calls `$spin`.
+        assert!(text.contains("call 5"), "{text}");
+        assert!(text.contains("(export \"spin\" (func 5))"), "{text}");
+        assert!(text.contains("(start 7)"), "{text}");
         assert_eq!(text.matches("call 1").count(), 3, "{text}");
         assert!(
             text.contains("(global (;0;) (mut i32) i32.const 65536)"),
@@ -300,6 +373,51 @@ mod tests {
             text.contains(r#"(import "wasixv2-exec" "preempt""#),
             "{text}"
         );
-        assert!(text.contains("(export \"_start\" (func 1))"), "{text}");
+        assert!(text.contains("(export \"_start\" (func 4))"), "{text}");
+    }
+
+    #[test]
+    fn atomics_on_a_shared_memory_become_calls_with_their_offset() {
+        let wasm = wat::parse_str(
+            r#"(module
+                (import "env" "memory" (memory 1 1 shared))
+                (func (export "f") (result i32)
+                  (memory.atomic.wait32 offset=8 (i32.const 0) (i32.const 0) (i64.const -1))
+                  (memory.atomic.wait64 (i32.const 0) (i64.const 0) (i64.const -1))
+                  (memory.atomic.notify offset=4 (i32.const 0) (i32.const 1))
+                  i32.add
+                  i32.add)
+                (start 1)
+                (func (drop (memory.atomic.notify (i32.const 0) (i32.const 1)))))"#,
+        )
+        .unwrap();
+        let out = instrument(&wasm);
+        wasmparser::validate(&out).unwrap();
+        let text = print(&out);
+        for name in [WAIT32_NAME, WAIT64_NAME, NOTIFY_NAME] {
+            assert!(
+                text.contains(&format!(r#"(import "wasixv2-exec" "{name}""#)),
+                "{text}"
+            );
+        }
+        assert!(text.contains("i32.const 8\n    call 1"), "{text}");
+        assert!(text.contains("i32.const 0\n    call 2"), "{text}");
+        assert!(text.contains("i32.const 4\n    call 3"), "{text}");
+        // The start function keeps its instruction.
+        assert_eq!(text.matches("memory.atomic.").count(), 1, "{text}");
+    }
+
+    #[test]
+    fn atomics_on_an_unshared_memory_stay() {
+        let wasm = wat::parse_str(
+            r#"(module
+                (memory 1)
+                (func (export "f") (result i32)
+                  (memory.atomic.notify (i32.const 0) (i32.const 1))))"#,
+        )
+        .unwrap();
+        let out = instrument(&wasm);
+        wasmparser::validate(&out).unwrap();
+        assert!(print(&out).contains("memory.atomic.notify"));
     }
 }
