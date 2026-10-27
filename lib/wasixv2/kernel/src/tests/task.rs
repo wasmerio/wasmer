@@ -66,6 +66,26 @@ fn released_tasks_are_forgotten() {
     assert!(kernel.state.lock().unwrap().tasks.is_empty());
 }
 
+/// A vfork whose caller's exit was queued first, as another thread's `exit_group` can between
+/// `clone`'s check and its queueing, never starts its child, which goes with its process.
+#[test]
+fn a_vfork_behind_an_exit_forgets_its_child() {
+    const VFORK: u32 = 0x4000 | 0x100 | Signal::SIGCHLD.0 as u32;
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    kernel.queue(task, GuestAction::Exit(9));
+
+    let vfork = kernel.clone(&caller, VFORK, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    assert_eq!(block_on(vfork), Ok(0));
+
+    let child = TaskId(task.0 + 1);
+    assert_eq!(kernel.take_pending(task), Some(GuestAction::Exit(9)));
+    assert_eq!(kernel.take_pending(task), None);
+    assert!(!live(&kernel, child));
+    assert!(kernel.procs.find(child.0).is_none());
+    assert!(!kernel.vfork_waits(task));
+}
+
 #[test]
 fn a_fault_kills_the_group_with_its_signal() {
     let (kernel, task, memory) = machine();
