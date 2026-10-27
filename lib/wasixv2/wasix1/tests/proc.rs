@@ -237,9 +237,10 @@ fn threads_and_futexes() {
     assert_eq!(status(THREADS), 0);
 }
 
-/// `memory.atomic.wait32` and `wait64` wait on the kernel's futexes: `SIGALRM` interrupts an
-/// untimed wait, which returns as woken once the handler ran (v1's handlers do not restart), and
-/// timed waits and stale values return 2 and 1. A thread waiting in the instruction is woken by
+/// `memory.atomic.wait32` and `wait64` wait on the kernel's futexes: `SIGALRM` interrupts a
+/// timed wait, which returns as woken once the handler ran (v1's handlers do not restart; an
+/// untimed wait would go on, as the instruction cannot fail), and timed waits and stale values
+/// return 2 and 1. A thread waiting in the instruction is woken by
 /// `futex_wake`, and one waiting in `futex_wait` by `memory.atomic.notify`, which also wakes the
 /// main thread's `futex_wait` on the thread's steps.
 const ATOMIC_WAITS: &str = r#"
@@ -276,7 +277,7 @@ const ATOMIC_WAITS: &str = r#"
     (call $callback (i32.const 16) (i32.const 13))
     (if (call $interval (i32.const 14) (i64.const 1000000) (i32.const 0))
       (then (call $exit (i32.const 1))))
-    (if (memory.atomic.wait32 (i32.const 400) (i32.const 0) (i64.const -1))
+    (if (memory.atomic.wait32 (i32.const 400) (i32.const 0) (i64.const 10000000000))
       (then (call $exit (i32.const 2))))
     (if (i32.ne (global.get $last) (i32.const 14)) (then (call $exit (i32.const 3))))
     (if (i32.ne (memory.atomic.wait32 (i32.const 400) (i32.const 0) (i64.const 1000000)) (i32.const 2))

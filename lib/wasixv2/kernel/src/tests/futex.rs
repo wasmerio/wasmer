@@ -318,7 +318,8 @@ fn a_signal_interrupts_an_atomic_wait_as_it_does_futex_wait() {
     assert_eq!(wait.as_mut().now_or_never(), None);
 
     kernel.kill(task, Signal::SIGUSR1).unwrap();
-    assert_eq!(block_on(wait), Err(SysErr::Restart));
+    // The instruction has no `EINTR`: an untimed wait reruns after any handler.
+    assert_eq!(block_on(wait), Err(SysErr::RestartNoIntr));
 
     // A timed wait goes on to its deadline through `restart_syscall`.
     let timed = AtomicWord::U64(0);
@@ -351,4 +352,105 @@ fn the_group_exit_ends_an_atomic_wait() {
     // It returns, and the exit pending on the task unwinds it.
     assert_eq!(wait.now_or_never(), Some(Ok(0)));
     assert_eq!(kernel.take_pending(other), Some(GuestAction::Exit(3)));
+}
+
+#[test]
+fn a_dropped_futex_wait_takes_no_later_wake() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    let op = FutexOp::FUTEX_WAIT_PRIVATE;
+    let (uaddr, null) = (GuestPtrMut::new(WORD), GuestPtrMut::NULL);
+
+    let mut dropped = Box::pin(kernel.futex_time64(&caller, uaddr, op, 0, 0, null, 0));
+    assert_eq!(dropped.as_mut().now_or_never(), None);
+    drop(dropped);
+    let mut stays = Box::pin(kernel.futex_time64(&other_caller, uaddr, op, 0, 0, null, 0));
+    assert_eq!(stays.as_mut().now_or_never(), None);
+
+    // The one wake goes to the waiter that is still there.
+    let wake = FutexOp::FUTEX_WAKE_PRIVATE;
+    assert_eq!(futex(&kernel, &caller, WORD, wake, 1, 0, 0, 0), Ok(1));
+    assert_eq!(stays.now_or_never(), Some(Ok(0)));
+}
+
+#[test]
+fn a_dropped_pi_waiter_is_passed_over() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let (gone, next) = (thread(&kernel, &caller), thread(&kernel, &caller));
+    let (gone_caller, next_caller) = (Caller::new(gone, &memory), Caller::new(next, &memory));
+    let (uaddr, null) = (GuestPtrMut::new(LOCK), GuestPtrMut::NULL);
+    let lock = |caller| {
+        let op = FutexOp::FUTEX_LOCK_PI;
+        Box::pin(kernel.futex_time64(caller, uaddr, op, 0, 0, null, 0))
+    };
+
+    assert_eq!(block_on(lock(&caller)), Ok(0));
+    let mut dropped = lock(&gone_caller);
+    assert_eq!(dropped.as_mut().now_or_never(), None);
+    drop(dropped);
+    let mut waits = lock(&next_caller);
+    assert_eq!(waits.as_mut().now_or_never(), None);
+
+    let unlock = futex(&kernel, &caller, LOCK, FutexOp::FUTEX_UNLOCK_PI, 0, 0, 0, 0);
+    assert_eq!(unlock, Ok(0));
+    assert_eq!(memory.word(LOCK), next.0 | WAITERS);
+    assert_eq!(waits.now_or_never(), Some(Ok(0)));
+}
+
+#[test]
+fn a_signal_restarts_a_pi_lock_whatever_the_handler() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let owner = thread(&kernel, &caller);
+    let owner_caller = Caller::new(owner, &memory);
+    let lock = FutexOp::FUTEX_LOCK_PI;
+    assert_eq!(futex(&kernel, &owner_caller, LOCK, lock, 0, 0, 0, 0), Ok(0));
+    let (uaddr, null) = (GuestPtrMut::new(LOCK), GuestPtrMut::NULL);
+    let mut waits = Box::pin(kernel.futex_time64(&caller, uaddr, lock, 0, 0, null, 0));
+    assert_eq!(waits.as_mut().now_or_never(), None);
+    assert_eq!(memory.word(LOCK), owner.0 | WAITERS);
+
+    // `ERESTARTNOINTR`: the call reruns even after a handler without `SA_RESTART`.
+    kernel.kill(task, Signal::SIGUSR1).unwrap();
+    assert_eq!(block_on(waits), Err(SysErr::RestartNoIntr));
+    // The waiter left, so the unlock finds nobody to hand the lock to.
+    let unlock = FutexOp::FUTEX_UNLOCK_PI;
+    assert_eq!(
+        futex(&kernel, &owner_caller, LOCK, unlock, 0, 0, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(memory.word(LOCK), 0);
+}
+
+#[test]
+fn cmp_requeue_compares_and_moves_waiters_to_the_second_futex() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    let op = FutexOp::FUTEX_WAIT_PRIVATE;
+    let (cond, null) = (GuestPtrMut::new(COND), GuestPtrMut::NULL);
+    let mut first = Box::pin(kernel.futex_time64(&caller, cond, op, 0, 0, null, 0));
+    let mut second = Box::pin(kernel.futex_time64(&other_caller, cond, op, 0, 0, null, 0));
+    assert_eq!(first.as_mut().now_or_never(), None);
+    assert_eq!(second.as_mut().now_or_never(), None);
+
+    let requeue = FutexOp::FUTEX_CMP_REQUEUE_PRIVATE;
+    let changed = futex(&kernel, &caller, COND, requeue, 1, 1, LOCK, 1);
+    assert_eq!(errno(changed), Errno::EAGAIN);
+    assert_eq!(first.as_mut().now_or_never(), None);
+    // One woken, one moved to the lock word, where a wake on it finds it.
+    assert_eq!(futex(&kernel, &caller, COND, requeue, 1, 1, LOCK, 0), Ok(2));
+    assert_eq!(first.now_or_never(), Some(Ok(0)));
+    let wake = FutexOp::FUTEX_WAKE_PRIVATE;
+    assert_eq!(futex(&kernel, &caller, COND, wake, 1, 0, 0, 0), Ok(0));
+    assert_eq!(futex(&kernel, &caller, LOCK, wake, 1, 0, 0, 0), Ok(1));
+    assert_eq!(second.now_or_never(), Some(Ok(0)));
 }
