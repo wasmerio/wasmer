@@ -686,11 +686,24 @@ impl Kernel {
         }
         let mut pos_in = read_offset(caller, off_in, &input).await?;
         let mut pos_out = read_offset(caller, off_out, &output).await?;
-        let len = u64::from(len).min(MAX_RW_COUNT as u64);
+        // `generic_copy_file_checks`: offsets must not wrap; the copy stops at the input's end
+        // and the largest file offset (EFBIG at it); only then may the ranges not overlap.
+        let len = u64::from(len);
+        if pos_in.checked_add(len).is_none() || pos_out.checked_add(len).is_none() {
+            return Err(Errno::EOVERFLOW.into());
+        }
+        let size_in = src.node().getattr().await?.size;
+        let len = len.min(size_in.saturating_sub(pos_in));
+        let max_size = i64::MAX as u64;
+        if pos_out >= max_size {
+            return Err(Errno::EFBIG.into());
+        }
+        let len = len.min(max_size - pos_out);
         let same = src.lock_key() == dst.lock_key();
         if same && pos_in < pos_out + len && pos_out < pos_in + len {
             return Err(Errno::EINVAL.into());
         }
+        let len = len.min(MAX_RW_COUNT as u64);
         let mut done = 0u64;
         let mut buf = Scratch::new((len as usize).min(IO_CHUNK));
         self.sync_file_mappings(caller, &input).await;

@@ -308,3 +308,27 @@ fn inotify_takes_flag_only_masks_and_honours_excl_unlink() {
     assert_eq!(inotify_events(&t, plain), [(2, modify, "f".to_string())]);
     assert_eq!(inotify_events(&t, excl), []);
 }
+
+#[test]
+fn copy_file_range_stops_at_the_input_end_before_checking_overlap() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/f", b"0123456789");
+    let fd = t.open("/f", OpenFlags::O_RDWR).unwrap();
+    let copy = |pos_in: i64, pos_out: i64, len| {
+        put(&memory, 0x3000, &pos_in.to_le_bytes());
+        put(&memory, 0x3008, &pos_out.to_le_bytes());
+        let (off_in, off_out) = (LoffPtr::new(0x3000), LoffPtr::new(0x3008));
+        block_on(kernel.copy_file_range(&t.caller, fd, off_in, fd, off_out, len, 0))
+    };
+
+    // Shortened to the 10 bytes there are, the copy to offset 10 does not overlap its source.
+    assert_eq!(copy(0, 10, 100), Ok(10));
+    assert_eq!(t.read(fd, 32), Ok(b"01234567890123456789".to_vec()));
+    // Ranges that still overlap after shortening are EINVAL.
+    assert_eq!(errno(copy(0, 5, 10)), Errno::EINVAL);
+    // At the largest file offset, nothing can be written: EFBIG.
+    assert_eq!(errno(copy(0, i64::MAX, 1)), Errno::EFBIG);
+    // From the input's end, nothing is copied.
+    assert_eq!(copy(20, 0, 5), Ok(0));
+}
