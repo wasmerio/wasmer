@@ -3,6 +3,7 @@
 
 use std::cell::Cell;
 
+use futures::FutureExt as _;
 use wasixv2_abi::{
     ClockId, CloneFlags, ConstRlimit64Ptr, Idtype, KernelTimespec, PrctlOption, Rlimit64Ptr,
     RlimitResource, RusagePtr, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags, Siginfo,
@@ -509,6 +510,23 @@ fn changing_credentials_forgets_the_parent_death_signal() {
 }
 
 // ---- thread group ends ----
+
+#[test]
+fn a_group_whose_leader_exited_first_ends_with_the_leaders_status() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let thread = spawn_thread(&kernel, &caller);
+    let thread_caller = Caller::new(thread, &memory);
+
+    // The leader waits as a zombie until the last thread exits.
+    let mut leader = Box::pin(kernel.exit(&caller, 5));
+    assert_eq!(leader.as_mut().now_or_never(), None);
+    assert_eq!(block_on(kernel.exit(&thread_caller, 7)), Ok(()));
+    assert_eq!(leader.as_mut().now_or_never(), Some(Ok(())));
+
+    assert_eq!(kernel.take_pending(task), Some(GuestAction::Exit(5)));
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(5)));
+}
 
 #[test]
 fn a_vfork_parent_whose_group_exits_is_no_zombie_while_its_child_runs() {
