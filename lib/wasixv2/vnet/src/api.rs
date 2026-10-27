@@ -297,6 +297,10 @@ pub trait BackendStream: Pollable {
     fn peer_addr(&self) -> SocketAddr;
     /// Bytes buffered for reading.
     fn input_len(&self) -> usize;
+    /// `SIOCOUTQ`: bytes written but not yet taken by the peer, as far as the backend knows.
+    fn output_len(&self) -> usize {
+        0
+    }
     /// Applies a socket option that changes host behaviour (`TCP_NODELAY`, keepalive). The
     /// default ignores it: the guest-visible value lives in the network.
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {

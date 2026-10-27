@@ -37,6 +37,10 @@ const STREAM_BUF: usize = 256 * 1024;
 /// Bytes of datagrams buffered for the guest.
 const DGRAM_BUF: usize = 256 * 1024;
 const READ_CHUNK: usize = 64 * 1024;
+/// How much room a guest read must open in a full receive buffer before the reactor reads
+/// from the host again, as `__tcp_cleanup_rbuf` reopens the window only once it can grow
+/// substantially rather than after every small read.
+const RX_REOPEN: usize = READ_CHUNK;
 /// How long a stream the guest closed may go without the host peer taking any of its unsent
 /// bytes before it is reset, standing in for `tcp_fin_timeout` and the orphan retransmission
 /// limit (`tcp_orphan_retries`) that bound an orphaned Linux socket.
@@ -507,10 +511,10 @@ impl BackendStream for HostStream {
             buf[..first].copy_from_slice(&a[..first]);
             buf[first..n].copy_from_slice(&b[..n - first]);
             if !peek {
-                let was_full = st.rx.len() >= STREAM_BUF;
+                let free_before = STREAM_BUF.saturating_sub(st.rx.len());
                 st.rx.drain(..n);
                 drop(st);
-                if was_full {
+                if free_before < RX_REOPEN && free_before + n >= RX_REOPEN {
                     self.0.kick();
                 }
             }
@@ -571,6 +575,12 @@ impl BackendStream for HostStream {
 
     fn input_len(&self) -> usize {
         self.0.state().rx.len()
+    }
+
+    /// What the guest wrote that the host socket has not taken yet; what the host socket
+    /// holds unacknowledged is not counted.
+    fn output_len(&self) -> usize {
+        self.0.state().tx.len()
     }
 
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
