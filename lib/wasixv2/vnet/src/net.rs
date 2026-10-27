@@ -423,11 +423,12 @@ impl Network for Net {
         domain: Domain,
         kind: SocketKind,
         protocol: i32,
+        uid: u32,
     ) -> Result<Arc<dyn Socket>, Errno> {
         // `inet_create`: 0 means the default; IPPROTO_TCP=6, IPPROTO_UDP=17.
         match (kind, protocol) {
-            (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc(), domain)),
-            (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain)),
+            (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc(), domain, uid)),
+            (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain, uid)),
             _ => Err(Errno::EPROTONOSUPPORT),
         }
     }
