@@ -566,6 +566,9 @@ impl Kernel {
                         return Err(Errno::EPERM.into());
                     }
                 }
+                if flags.contains(OpenFlags::O_DIRECT) && !file.can_direct() {
+                    return Err(Errno::EINVAL.into());
+                }
                 file.set_status_flags(flags);
                 Ok(0)
             }

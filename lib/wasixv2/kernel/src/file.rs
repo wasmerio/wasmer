@@ -128,9 +128,14 @@ const SETFL_MASK: OpenFlags = OpenFlags(
         | OpenFlags::O_NOATIME.0
         | OpenFlags::O_DIRECT.0,
 );
-/// Status flags `F_GETFL` reports besides the access mode and `SETFL_MASK`.
-const KEPT_FLAGS: OpenFlags = OpenFlags(
-    OpenFlags::O_DSYNC.0 | OpenFlags::__O_SYNC.0 | OpenFlags::O_PATH.0 | OpenFlags::O_LARGEFILE.0,
+/// Open flags an open file does not keep (`do_dentry_open`, and `build_open_flags` for
+/// `O_CLOEXEC`, which belongs to the descriptor): `F_GETFL` reports all the others.
+const OPEN_ONLY_FLAGS: OpenFlags = OpenFlags(
+    OpenFlags::O_CREAT.0
+        | OpenFlags::O_EXCL.0
+        | OpenFlags::O_NOCTTY.0
+        | OpenFlags::O_TRUNC.0
+        | OpenFlags::O_CLOEXEC.0,
 );
 
 /// An open file description: the part `dup` and `fork` share.
@@ -165,10 +170,9 @@ impl Drop for StreamFlock {
 
 impl OpenFile {
     pub(crate) fn new(backing: Backing, flags: OpenFlags) -> Self {
-        let kept = OpenFlags::O_ACCMODE | SETFL_MASK | KEPT_FLAGS;
         Self {
             backing,
-            flags: Mutex::new(flags & kept),
+            flags: Mutex::new(flags & !OPEN_ONLY_FLAGS),
             pos: Mutex::new(0),
             pos_lock: futures_util::lock::Mutex::new(()),
             epoll_links: Mutex::default(),
@@ -194,6 +198,15 @@ impl OpenFile {
 
     pub(crate) fn flags(&self) -> OpenFlags {
         *self.flags.lock().unwrap()
+    }
+
+    /// `F_SETFL`'s `O_DIRECT` check: only a pipe (packet mode) or a file whose data the
+    /// filesystem can move directly (`FMODE_CAN_ODIRECT`: regular files here) takes it.
+    pub(crate) fn can_direct(&self) -> bool {
+        match &self.backing {
+            Backing::Inode(file) => file.file_type() == FileType::Regular,
+            Backing::Stream(_, path) => path.dentry.file_type() == FileType::Fifo,
+        }
     }
 
     pub(crate) fn set_status_flags(&self, flags: OpenFlags) {

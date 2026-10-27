@@ -332,3 +332,32 @@ fn copy_file_range_stops_at_the_input_end_before_checking_overlap() {
     // From the input's end, nothing is copied.
     assert_eq!(copy(20, 0, 5), Ok(0));
 }
+
+#[test]
+fn getfl_keeps_open_flags_and_setfl_takes_o_direct_only_where_it_works() {
+    use wasixv2_abi::EventfdFlags;
+
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/d");
+    let getfl = |fd| block_on(kernel.fcntl64(&t.caller, fd, FcntlCmd::F_GETFL, 0)).unwrap() as u32;
+    let setfl =
+        |fd, flags: OpenFlags| block_on(kernel.fcntl64(&t.caller, fd, FcntlCmd::F_SETFL, flags.0));
+
+    // `f_flags` is the open flags but O_CREAT, O_EXCL, O_NOCTTY, O_TRUNC and O_CLOEXEC.
+    let dir_flags = OpenFlags::O_DIRECTORY | OpenFlags::O_NOFOLLOW;
+    let dir = t.open("/d", dir_flags | OpenFlags::O_CLOEXEC).unwrap();
+    assert_eq!(OpenFlags(getfl(dir)), dir_flags);
+    let created = OpenFlags::O_CREAT | OpenFlags::O_EXCL | OpenFlags::O_TRUNC;
+    let file = t.open("/f", created | OpenFlags::O_RDWR).unwrap();
+    assert_eq!(OpenFlags(getfl(file)), OpenFlags::O_RDWR);
+
+    // `setfl`: O_DIRECT needs a pipe or FMODE_CAN_ODIRECT.
+    assert_eq!(setfl(file, OpenFlags::O_DIRECT), Ok(0));
+    assert!(OpenFlags(getfl(file)).contains(OpenFlags::O_DIRECT));
+    let (r, _w) = super::ipc::pipe(&kernel, &t.caller, OpenFlags(0));
+    assert_eq!(setfl(r, OpenFlags::O_DIRECT), Ok(0));
+    let event = block_on(kernel.eventfd2(&t.caller, 0, EventfdFlags(0))).unwrap();
+    assert_eq!(errno(setfl(event, OpenFlags::O_DIRECT)), Errno::EINVAL);
+    assert_eq!(errno(setfl(dir, OpenFlags::O_DIRECT)), Errno::EINVAL);
+}
