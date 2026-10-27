@@ -309,6 +309,21 @@ impl Kernel {
         id
     }
 
+    /// Makes `task`, a process [`Kernel::spawn`] started that runs no image yet, execute the
+    /// file at `path`, resolved from its working directory, with `args` and `env` replacing
+    /// those it was spawned with: Linux's `kernel_execve`, which starts init. Everything
+    /// `execve` checks and does applies, scripts included. Returns the image to run as the
+    /// process; on failure the process is unchanged.
+    pub async fn exec(
+        &self,
+        task: TaskId,
+        path: &[u8],
+        args: Vec<String>,
+        env: Vec<String>,
+    ) -> Result<Vec<u8>, Errno> {
+        self.kernel_execve(task, path, args, env).await
+    }
+
     fn file(&self, task: TaskId, fd: Fd) -> Result<Arc<OpenFile>, Errno> {
         let file = self.files(task).lock().unwrap().get(fd);
         file.ok_or(Errno::EBADF)
