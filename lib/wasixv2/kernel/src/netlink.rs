@@ -80,6 +80,8 @@ struct Queue {
     err: Option<Errno>,
     sndbuf: usize,
     rcvbuf: usize,
+    /// `dst_portid` and `dst_group` after `connect`.
+    dst: (u32, u32),
 }
 
 pub(crate) struct NetlinkSocket {
@@ -276,6 +278,48 @@ impl NetlinkSocket {
 
     pub(crate) fn local_addr(&self) -> Vec<u8> {
         sockaddr_nl(self.port)
+    }
+
+    /// `netlink_getname(peer = 1)`: where `connect` pointed the socket, the kernel by default.
+    pub(crate) fn peer_addr(&self) -> Vec<u8> {
+        let (pid, group) = self.queue().dst;
+        let mut raw = sockaddr_nl(pid);
+        // `netlink_group_mask`.
+        let groups = match group {
+            0 => 0,
+            g => 1u32 << (g - 1),
+        };
+        raw[8..12].copy_from_slice(&groups.to_le_bytes());
+        raw
+    }
+
+    /// `netlink_connect`. Pointing a socket at a process or a multicast group needs
+    /// `CAP_NET_ADMIN` for rtnetlink, which has no `NL_CFG_F_NONROOT_SEND`.
+    // TODO: messages to another netlink socket; sends always reach the kernel.
+    pub(crate) fn connect(&self, raw: &[u8], net_admin: bool) -> Result<(), Errno> {
+        let family = match raw.get(..2) {
+            Some(f) => u16::from_le_bytes([f[0], f[1]]) as i32,
+            None => return Err(Errno::EINVAL),
+        };
+        if family == AddressFamily::AF_UNSPEC.0 {
+            self.queue().dst = (0, 0);
+            return Ok(());
+        }
+        if family != AddressFamily::AF_NETLINK.0 || raw.len() < SOCKADDR_NL {
+            return Err(Errno::EINVAL);
+        }
+        let pid = u32::from_le_bytes(raw[4..8].try_into().unwrap());
+        let groups = u32::from_le_bytes(raw[8..12].try_into().unwrap());
+        if (pid != 0 || groups != 0) && !net_admin {
+            return Err(Errno::EPERM);
+        }
+        // `ffs(nl_groups)`: the lowest group named.
+        let group = match groups {
+            0 => 0,
+            g => g.trailing_zeros() + 1,
+        };
+        self.queue().dst = (pid, group);
+        Ok(())
     }
 
     pub(crate) fn getsockopt(&self, name: i32) -> Result<Vec<u8>, Errno> {

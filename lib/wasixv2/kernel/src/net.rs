@@ -335,7 +335,11 @@ impl Kernel {
             AnySock::Unix(file, sock) => {
                 return self.unix_connect(caller, &file, &sock, &raw).await;
             }
-            AnySock::Netlink(..) => return Ok(0),
+            AnySock::Netlink(_, nl) => {
+                let net_admin = self.cred(caller).capable(Cap::NetAdmin);
+                nl.connect(&raw, net_admin)?;
+                return Ok(0);
+            }
         };
         if socket::family(&raw)? == AddressFamily::AF_UNSPEC {
             sock.socket.disconnect()?;
@@ -400,7 +404,7 @@ impl Kernel {
         let raw = match self.any_socket(caller, fd)? {
             AnySock::Inet((_, sock)) => socket::encode(sock.socket.peer_addr()?),
             AnySock::Unix(_, sock) => sock.peer_addr()?,
-            AnySock::Netlink(..) => netlink::kernel_addr(),
+            AnySock::Netlink(_, nl) => nl.peer_addr(),
         };
         move_addr_to_user(caller, &raw, addr, addrlen).await?;
         Ok(0)
@@ -907,10 +911,8 @@ impl Kernel {
                 sock.shutdown(unix::shutdown_mode(how.0)?);
                 return Ok(0);
             }
-            AnySock::Netlink(..) => {
-                unix::shutdown_mode(how.0)?;
-                return Ok(0);
-            }
+            // `sock_no_shutdown`.
+            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
         let how = match how {
             ShutdownHow::SHUT_RD => Shutdown::Read,
