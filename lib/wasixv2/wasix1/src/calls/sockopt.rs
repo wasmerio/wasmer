@@ -145,6 +145,11 @@ impl Timeouts {
         }
     }
 
+    /// A copy for a fork child.
+    pub(crate) fn fork(&self) -> Self {
+        Self(Mutex::new(self.0.lock().unwrap().clone()))
+    }
+
     /// Forgets `fd`'s timeouts, for a descriptor that now names a new socket.
     pub(crate) fn forget(&self, fd: Fd) {
         self.0.lock().unwrap().remove(&fd);

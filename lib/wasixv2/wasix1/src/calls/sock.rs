@@ -37,6 +37,17 @@ pub struct State {
     pub(crate) epoll: super::epoll::Table,
 }
 
+impl State {
+    /// A fork or vfork child's copy: it has the same descriptors, so the same sockets and epoll
+    /// sets, under the same numbers the tables are keyed by.
+    pub(crate) fn fork(&self) -> Self {
+        Self {
+            timeouts: self.timeouts.fork(),
+            epoll: self.epoll.fork(),
+        }
+    }
+}
+
 /// Room for any `sockaddr` the kernel returns (`sockaddr_un` is the largest, 110 bytes).
 const SOCKADDR_ROOM: u32 = 128;
 

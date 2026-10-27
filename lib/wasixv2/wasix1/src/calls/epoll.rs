@@ -77,7 +77,7 @@ impl Handle {
 #[derive(Debug, Default)]
 pub struct Table(Mutex<Registrations>);
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct Registrations {
     data: HashMap<Handle, EpollData>,
     index: HashMap<(Fd, Fd), Handle>,
@@ -85,6 +85,11 @@ struct Registrations {
 }
 
 impl Table {
+    /// A copy for a fork child, whose epoll sets carry the same handles.
+    pub(crate) fn fork(&self) -> Self {
+        Self(Mutex::new(self.0.lock().unwrap().clone()))
+    }
+
     /// A fresh handle for `fd`.
     fn handle(&self, fd: Fd) -> Handle {
         let mut regs = self.0.lock().unwrap();

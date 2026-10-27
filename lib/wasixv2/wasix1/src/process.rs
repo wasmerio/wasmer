@@ -22,8 +22,9 @@ pub struct ProcState {
 
 impl ProcState {
     /// The state of a child that `fork` or `vfork` makes of this process: it has the same
-    /// descriptors, so it announces the same preopens, and the same arguments. Families whose
-    /// state follows descriptors or dispositions copy theirs here.
+    /// descriptors, so it announces the same preopens and keeps what the families know about
+    /// them (renumbered preopens, epoll data, socket timeouts), and the same arguments,
+    /// dispositions and terminal.
     pub fn fork(&self) -> Self {
         let startup = OnceLock::new();
         if let Some(loaded) = self.startup.get() {
@@ -31,8 +32,8 @@ impl ProcState {
         }
         Self {
             startup,
-            fs: Default::default(),
-            net: Default::default(),
+            fs: self.fs.fork(),
+            net: self.net.fork(),
             proc: self.proc.fork(),
         }
     }

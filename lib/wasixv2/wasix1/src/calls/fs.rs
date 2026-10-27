@@ -35,6 +35,15 @@ pub struct State {
     replaced: Mutex<HashSet<i32>>,
 }
 
+impl State {
+    /// A fork or vfork child's copy: it has the same descriptors.
+    pub(crate) fn fork(&self) -> Self {
+        Self {
+            replaced: Mutex::new(self.replaced.lock().unwrap().clone()),
+        }
+    }
+}
+
 /// Whether `fd` still is one of the process's preopened directories. v1 kept them for the
 /// life of the process: wasix-libc routes paths to them, and closing one succeeds but leaves
 /// it open.

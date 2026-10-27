@@ -94,6 +94,8 @@ const PRELUDE: &str = r#"
   (import "wasix_32v1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
   (import "wasix_32v1" "fd_close" (func $fd_close (param i32) (result i32)))
   (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+  (import "wasix_32v1" "proc_fork_env" (func $vfork (param i32) (result i32)))
+  (import "wasix_32v1" "proc_join" (func $join (param i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   ;; Exits with `code` unless `errno` is 0.
   (func $ok (param $errno i32) (param $code i32)
@@ -412,6 +414,48 @@ fn compat_timeouts() {
     (call $ok (call $sock_listen (i32.load (i32.const 8)) (i32.const 1)) (i32.const 10))
     (call $ok (call $set_time (i32.load (i32.const 8)) (i32.const 22) (i32.const 1000)) (i32.const 11))
     (call $assert (i32.eq (call $sock_accept_v2 (i32.load (i32.const 8)) (i32.const 0) (i32.const 12) (i32.const 1400)) (i32.const 73)) (i32.const 12))
+    "#;
+    assert_eq!(run(&data, body).0, 0);
+}
+
+/// A vfork child has its parent's descriptors, and with them the compat state about them: the
+/// v1 data of its epoll registrations and the sockets' compat timeouts. The child checks them
+/// and exits with 0, or the number of the check that failed, which the parent exits with.
+#[test]
+fn a_vfork_child_keeps_the_epoll_data_and_timeouts() {
+    let data = format!(
+        r#"{LOOPBACK_ADDR}
+        ;; option_timestamp at 1100: Some(10 ms)
+        (data (i32.const 1100) "\01\00\00\00\00\00\00\00\80\96\98\00\00\00\00\00")"#
+    );
+    let body = r#"
+    ;; eventfd [0] with a count of 1, epoll set [4], data {ptr 0x11, fd, data1 0x22}
+    (call $ok (call $fd_event (i64.const 1) (i32.const 0) (i32.const 0)) (i32.const 1))
+    (call $ok (call $epoll_create (i32.const 4)) (i32.const 2))
+    (i32.store (i32.const 1000) (i32.const 1))
+    (i32.store (i32.const 1008) (i32.const 0x11))
+    (i32.store (i32.const 1012) (i32.load (i32.const 0)))
+    (i32.store (i32.const 1016) (i32.const 0x22))
+    (call $ok (call $epoll_ctl (i32.load (i32.const 4)) (i32.const 0) (i32.load (i32.const 0)) (i32.const 1000)) (i32.const 3))
+    ;; a listener [8] whose accepts time out after 10 ms
+    (call $ok (call $sock_open (i32.const 1) (i32.const 1) (i32.const 6) (i32.const 8)) (i32.const 4))
+    (call $ok (call $sock_bind (i32.load (i32.const 8)) (i32.const 1024)) (i32.const 5))
+    (call $ok (call $sock_listen (i32.load (i32.const 8)) (i32.const 1)) (i32.const 6))
+    (call $ok (call $set_time (i32.load (i32.const 8)) (i32.const 22) (i32.const 1100)) (i32.const 7))
+    (call $ok (call $vfork (i32.const 12)) (i32.const 8))
+    ;; the child
+    (call $ok (call $epoll_wait (i32.load (i32.const 4)) (i32.const 2000) (i32.const 4) (i64.const 0) (i32.const 16)) (i32.const 9))
+    (call $assert (i32.eq (i32.load (i32.const 16)) (i32.const 1)) (i32.const 10))
+    (call $assert (i32.eq (i32.load (i32.const 2008)) (i32.const 0x11)) (i32.const 11))
+    (call $assert (i32.eq (i32.load (i32.const 2016)) (i32.const 0x22)) (i32.const 12))
+    ;; TIMEDOUT
+    (call $assert (i32.eq (call $sock_accept_v2 (i32.load (i32.const 8)) (i32.const 0) (i32.const 20) (i32.const 1400)) (i32.const 73)) (i32.const 13))
+    (call $exit (i32.const 0))
+    ;; the parent: the child's status
+    (i32.store8 (i32.const 200) (i32.const 1))
+    (i32.store (i32.const 204) (i32.load (i32.const 12)))
+    (call $ok (call $join (i32.const 200) (i32.const 0) (i32.const 220)) (i32.const 14))
+    (call $exit (i32.load16_u (i32.const 222)))
     "#;
     assert_eq!(run(&data, body).0, 0);
 }
