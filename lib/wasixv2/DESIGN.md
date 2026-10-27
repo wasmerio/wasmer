@@ -390,7 +390,7 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
   - Nothing is turned into packets.
 - **Interfaces and routes** are kernel tables served over netlink, so `ip addr`, `getifaddrs` and routing lookups work. No frames sit behind them.
 - **Namespaces:** `unshare` of the network namespace gives a fresh port space with only loopback.
-- **Unix sockets** stay a separate kernel facility. Their abstract namespace is per network namespace.
+- **Unix sockets** stay a separate kernel facility. Their abstract namespace is per network namespace. Files passed with `SCM_RIGHTS` count against the sending user's `RLIMIT_NOFILE` until received (`CAP_SYS_RESOURCE` exempts), and sockets that only messages in flight keep alive are collected when a Unix socket is released, as Linux's `unix_gc` does.
 
 **The vnet interface** (`wasixv2-vnet`'s `api` module):
 

@@ -8,20 +8,21 @@
 //! - `SCM_RIGHTS` carries open files, `SCM_CREDENTIALS` the sender's pid, uid and gid.
 //! - Records (datagrams, seqpackets) move into the receiver's queue and out to the reader
 //!   without another copy.
+//! - Files in flight are charged to the sending user, and sockets that only messages in flight
+//!   keep alive are collected (`gc`).
 //!
-//! Not yet: `MSG_OOB`, `SO_PEEK_OFF`, garbage collection of sockets in flight in their own
-//! queues (in-flight files are only counted against `RLIMIT_NOFILE`), and autobind on
-//! `SO_PASSCRED`.
+//! Not yet: `MSG_OOB`, `SO_PEEK_OFF`, and autobind on `SO_PASSCRED`.
+
+mod gc;
 
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{
-        Arc, Mutex, MutexGuard, Weak,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, Mutex, MutexGuard, Weak},
 };
 
-use wasixv2_abi::{AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, SocketOption, SocketType};
+use wasixv2_abi::{
+    AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, SocketLevel, SocketOption, SocketType,
+};
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult, write_value};
 use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_WRITE};
@@ -32,6 +33,8 @@ use crate::{
     file::{FileObject, Io, OpenFile},
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
 };
+
+use gc::{InFlight, Inflight};
 
 /// `offsetof(struct sockaddr_un, sun_path)` and `sizeof(struct sockaddr_un)`.
 const SUN_PATH: usize = 2;
@@ -116,8 +119,8 @@ pub(crate) struct Names {
     map: Mutex<HashMap<Key, Weak<Sock>>>,
     /// The next autobind name.
     next: Mutex<u32>,
-    /// `user->unix_inflight`: files queued in `SCM_RIGHTS` messages, not yet received.
-    inflight: Arc<AtomicUsize>,
+    /// Files queued in `SCM_RIGHTS` messages, not yet received.
+    pub(crate) inflight: Arc<Inflight>,
 }
 
 impl Names {
@@ -143,40 +146,6 @@ impl Names {
         {
             map.remove(key);
         }
-    }
-}
-
-/// Files of one `SCM_RIGHTS` message while they sit in a queue, counted in
-/// [`Names::inflight`] until received or dropped (`unix_inflight`/`unix_notinflight`).
-struct InFlight {
-    files: Vec<Arc<OpenFile>>,
-    count: Arc<AtomicUsize>,
-}
-
-impl InFlight {
-    fn new(files: Vec<Arc<OpenFile>>, count: &Arc<AtomicUsize>) -> Self {
-        count.fetch_add(files.len(), Ordering::Relaxed);
-        Self {
-            files,
-            count: count.clone(),
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.files.is_empty()
-    }
-
-    /// Hands the files to the receiver.
-    fn take(&mut self) -> Vec<Arc<OpenFile>> {
-        let files = std::mem::take(&mut self.files);
-        self.count.fetch_sub(files.len(), Ordering::Relaxed);
-        files
-    }
-}
-
-impl Drop for InFlight {
-    fn drop(&mut self) {
-        self.count.fetch_sub(self.files.len(), Ordering::Relaxed);
     }
 }
 
@@ -252,6 +221,8 @@ pub(crate) struct Received {
 pub(crate) struct Ancillary {
     pub(crate) rights: Vec<Arc<OpenFile>>,
     pub(crate) cred: Option<Ucred>,
+    /// The sender's real uid, charged for the rights (`fpl->user`).
+    pub(crate) uid: u32,
 }
 
 impl Sock {
@@ -390,6 +361,37 @@ impl Sock {
         }
         self.wait.wake(PollMask::empty());
         drop(rx);
+        // `unix_schedule_gc(NULL)`: this may have left sockets only messages hold.
+        self.names.inflight.released();
+    }
+
+    /// The open files of the Unix sockets in flight in this socket's queue, and for a listener
+    /// in the queues of the connections it has not accepted (`scan_children`).
+    fn inflight_sockets(&self) -> Vec<usize> {
+        let (mut out, embryos) = {
+            let inner = self.lock();
+            (rights_keys(&inner.rx), inner.accept.clone())
+        };
+        for embryo in embryos {
+            out.extend(rights_keys(&embryo.lock().rx));
+        }
+        out
+    }
+
+    /// `unix_collect_skb`: the garbage collector found this socket unreachable; its queue (and
+    /// its embryos' queues) go to `hitlist`, to be dropped once no lock is held.
+    fn purge(&self, hitlist: &mut Vec<Msg>) {
+        let embryos = {
+            let mut inner = self.lock();
+            inner.rx_bytes = 0;
+            hitlist.extend(inner.rx.drain(..));
+            inner.accept.clone()
+        };
+        for embryo in embryos {
+            let mut e = embryo.lock();
+            e.rx_bytes = 0;
+            hitlist.extend(e.rx.drain(..));
+        }
     }
 
     /// `unix_bind` for a name already resolved to `key` and `addr`. The address is checked and
@@ -599,7 +601,11 @@ impl Sock {
             data: bytes,
             read: 0,
             from,
-            rights: InFlight::new(std::mem::take(&mut anc.rights), &self.names.inflight),
+            rights: InFlight::new(
+                std::mem::take(&mut anc.rights),
+                anc.uid,
+                &self.names.inflight,
+            ),
             cred: anc.cred.unwrap_or(cred),
         });
         drop(target);
@@ -658,7 +664,11 @@ impl Sock {
             data: std::mem::take(data),
             read: 0,
             from,
-            rights: InFlight::new(std::mem::take(&mut anc.rights), &self.names.inflight),
+            rights: InFlight::new(
+                std::mem::take(&mut anc.rights),
+                anc.uid,
+                &self.names.inflight,
+            ),
             cred: anc.cred.unwrap_or(cred),
         });
         drop(other);
@@ -696,6 +706,9 @@ impl Sock {
         let peer = inner.peer.as_ref().and_then(Weak::upgrade);
         let passcred = inner.passcred;
         drop(inner);
+        if peek {
+            self.names.inflight.peeked(&out.rights);
+        }
         if !peek {
             // Room at this socket: wake senders waiting on it or on their own queue.
             self.wait.wake(PollMask::WRITABLE);
@@ -802,6 +815,15 @@ impl Received {
     pub(crate) fn len(&self) -> usize {
         self.data.len()
     }
+}
+
+/// The open files of the Unix sockets in flight in `rx`, once per message holding each.
+fn rights_keys(rx: &VecDeque<Msg>) -> Vec<usize> {
+    rx.iter()
+        .flat_map(|msg| &msg.rights.files)
+        .filter(|f| f.downcast::<UnixFile>().is_some())
+        .map(|f| Arc::as_ptr(f) as usize)
+        .collect()
 }
 
 /// A stream read of at most `max` bytes: from consecutive messages, stopping after one that
@@ -1287,8 +1309,11 @@ impl Kernel {
         caller: &Caller<'_>,
         controls: &[wasixv2_vnet::Control],
     ) -> SysResult<Ancillary> {
-        let mut anc = Ancillary::default();
-        let level = wasixv2_abi::SocketLevel::SOL_SOCKET.0;
+        let mut anc = Ancillary {
+            uid: self.process(caller.task()).cred().user.real,
+            ..Ancillary::default()
+        };
+        let level = SocketLevel::SOL_SOCKET.0;
         for control in controls.iter().filter(|c| c.level == level) {
             match control.kind {
                 SCM_RIGHTS => {
@@ -1300,7 +1325,7 @@ impl Kernel {
                     if anc.rights.len() + count > SCM_MAX_FD {
                         return Err(Errno::EINVAL.into());
                     }
-                    if self.too_many_unix_fds(caller) {
+                    if self.too_many_unix_fds(caller, anc.uid) {
                         return Err(Errno::ETOOMANYREFS.into());
                     }
                     for fd in control.data.chunks_exact(4) {
@@ -1321,13 +1346,29 @@ impl Kernel {
                 _ => return Err(Errno::EINVAL.into()),
             }
         }
+        // `unix_schedule_gc(user)`: a user with many files in flight sending Unix sockets
+        // collects first.
+        let inflight = &self.unix_names.inflight;
+        if anc
+            .rights
+            .iter()
+            .any(|f| f.downcast::<UnixFile>().is_some())
+            && inflight.user(anc.uid) >= gc::SANE_USER
+        {
+            inflight.collect();
+        }
         Ok(anc)
     }
 
-    /// `too_many_unix_fds`: more files in flight than the sender's `RLIMIT_NOFILE`.
-    fn too_many_unix_fds(&self, caller: &Caller<'_>) -> bool {
+    /// `too_many_unix_fds`: the sending user has more files in flight than the sender's
+    /// `RLIMIT_NOFILE`, and is not exempt through `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN`.
+    fn too_many_unix_fds(&self, caller: &Caller<'_>, uid: u32) -> bool {
         let limit = self.files(caller.task()).lock().unwrap().limit();
-        self.unix_names.inflight.load(Ordering::Relaxed) > limit
+        if self.unix_names.inflight.user(uid) <= limit {
+            return false;
+        }
+        let cred = self.process(caller.task()).cred();
+        !cred.capable(Cap::SysResource) && !cred.capable(Cap::SysAdmin)
     }
 
     /// The `SOL_SOCKET` options of a Unix socket, the timeouts aside.
