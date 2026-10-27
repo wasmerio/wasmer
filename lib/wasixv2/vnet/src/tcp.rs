@@ -203,6 +203,13 @@ fn bufs(o: &SockOpts) -> Buffers {
     }
 }
 
+/// Applies the options a backend stream acts on to a stream made after they were set.
+fn replay_options(stream: &dyn BackendStream, opts: &SockOpts) {
+    for (level, name, value) in opts.backend_options() {
+        let _ = stream.set_option(level, name, &value);
+    }
+}
+
 impl TcpSocket {
     pub(crate) fn new(net: Arc<Net>, domain: Domain, uid: u32) -> Arc<Self> {
         Self::with_state(
@@ -456,7 +463,11 @@ impl TcpSocket {
                 return false;
             }
         }
-        let child = self.new_child(local, peer, wq, |_, _| Transport::Remote(stream));
+        // `inet_csk_clone_lock` copies the listener's options into the new sock.
+        let child = self.new_child(local, peer, wq, |_, opts| {
+            replay_options(&*stream, opts);
+            Transport::Remote(stream)
+        });
         let mut li = l.inner.lock().unwrap();
         if li.closed || li.full() {
             drop(li);
@@ -700,6 +711,7 @@ impl Socket for TcpSocket {
                 let backend = self.net.backend.clone().ok_or(Errno::ENETUNREACH)?;
                 match backend.connect(host_dst, self.wq.clone()) {
                     Ok(stream) => {
+                        replay_options(&*stream, &g.opts);
                         g.state = State::Connecting(Transport::Remote(stream), dst);
                         Err(Errno::EINPROGRESS)
                     }

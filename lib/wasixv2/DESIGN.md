@@ -460,6 +460,7 @@ The kernel-facing traits are in `vnet/src/api.rs`. Traffic for a destination tha
 
 - The **gateway alias** (by default the gateway) maps to the host's loopback in both directions.
 - **Publishing** (`Net::publish`, or auto-publishing of non-loopback listeners) hands `Backend::publish` a sink that delivers each accepted host connection to whichever guest listener holds the address at that moment. `getpeername` reports the real host peer.
+- **Options**: what a host socket acts on (`TCP_NODELAY`, keepalive and its timers, `SO_LINGER`) follows the guest socket, including options set before `connect` or inherited from the listener.
 - **DNS**: `NetConfig::nameservers` makes up `resolv.conf`. `vnet-host::host_nameservers` derives them from the host's file and routes loopback resolvers through the alias.
 
 `wasixv2-vnet-host` runs one mio reactor thread per `HostBackend`, never tokio, and is Unix-only for now.
