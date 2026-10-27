@@ -316,12 +316,15 @@ fn udp_reuseport_group_spreads_by_source_port() {
 
 // ---- a recording backend ----
 
-use std::sync::Mutex;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicBool, AtomicU32, Ordering},
+};
 
 use wasixv2_abi::{SocketLevel, SocketOption, TcpOption};
-use wasixv2_wait::{PollTable, Pollable, WaitQueue};
+use wasixv2_wait::{PollTable, Pollable, WaitEntry, WaitQueue};
 
-use crate::{Backend, BackendDatagram, BackendStream, InboundSink, Publication, StreamState};
+use crate::{Backend, BackendDatagram, BackendStream, InboundSink, Publication, Room, StreamState};
 
 struct FakeStream {
     peer: SocketAddr,
@@ -384,9 +387,25 @@ impl BackendStream for FakeStream {
 }
 
 /// A datagram endpoint whose host side is writable or not as the test says.
+struct FakePublication(Arc<AtomicU32>);
+
+impl Publication for FakePublication {
+    fn host_addr(&self) -> SocketAddr {
+        a("127.0.0.1:1")
+    }
+    fn set_backlog(&self, backlog: u32) {
+        self.0.store(backlog, Ordering::SeqCst);
+    }
+}
+
+/// A publication's sink and the host backlog it was given.
+type Published = (Arc<dyn InboundSink>, Arc<AtomicU32>);
+
 #[derive(Default)]
 struct Recorder {
     streams: Mutex<Vec<Arc<FakeStream>>>,
+    /// Each publication's sink and host backlog.
+    published: Mutex<Vec<Published>>,
 }
 
 impl Backend for Recorder {
@@ -401,9 +420,12 @@ impl Backend for Recorder {
     fn publish(
         &self,
         _: SocketAddr,
-        _: Arc<dyn InboundSink>,
+        backlog: u32,
+        sink: Arc<dyn InboundSink>,
     ) -> Result<Box<dyn Publication>, std::io::Error> {
-        Err(std::io::ErrorKind::Unsupported.into())
+        let b = Arc::new(AtomicU32::new(backlog));
+        self.published.lock().unwrap().push((sink, b.clone()));
+        Ok(Box::new(FakePublication(b)))
     }
 }
 
@@ -414,6 +436,15 @@ fn backed() -> (Arc<Net>, Arc<Recorder>) {
         ..NetConfig::host_default()
     };
     (Net::new(config, Some(rec.clone())), rec)
+}
+
+struct Flag(AtomicBool);
+
+impl WaitEntry for Flag {
+    fn wake(&self, _: PollMask) -> bool {
+        self.0.store(true, Ordering::SeqCst);
+        true
+    }
 }
 
 fn int(v: i32) -> [u8; 4] {
@@ -456,6 +487,43 @@ fn options_set_before_connect_reach_the_backend_stream() {
     );
     // Options never set are left to the host's defaults.
     assert_eq!(stream.option(SOL_TCP, TcpOption::TCP_KEEPCNT.0), None);
+}
+
+#[test]
+fn published_connections_wait_on_the_host_while_the_accept_queue_is_full() {
+    let (n, rec) = backed();
+    let l = tcp(&n);
+    l.set_option(SOL_TCP, TcpOption::TCP_NODELAY.0, &int(1))
+        .unwrap();
+    l.bind(a("0.0.0.0:8080"), false).unwrap();
+    l.listen(0).unwrap();
+    let (sink, backlog) = rec.published.lock().unwrap()[0].clone();
+    // The host listener takes the guest's backlog.
+    assert_eq!(backlog.load(Ordering::SeqCst), 0);
+    assert_eq!(sink.poll_room(None), Room::Ready);
+    let first = FakeStream::new(a("127.0.0.1:40000"));
+    assert!(sink.incoming(first.clone(), WaitQueue::new()));
+    // The accepted socket inherits the listener's options (`inet_csk_clone_lock`).
+    assert_eq!(
+        first.option(SOL_TCP, TcpOption::TCP_NODELAY.0),
+        Some(int(1).to_vec())
+    );
+    // Backlog 0 holds one connection: the next waits on the host, registered for room.
+    let woken = Arc::new(Flag(AtomicBool::new(false)));
+    let entry: Arc<dyn WaitEntry> = woken.clone();
+    let mut regs = Vec::new();
+    let mut proc = |q: &WaitQueue, _| regs.push(q.add(entry.clone()));
+    let mut table = PollTable::new(PollMask::empty(), &mut proc);
+    assert_eq!(sink.poll_room(Some(&mut table)), Room::Full);
+    assert!(!woken.0.load(Ordering::SeqCst));
+    l.accept().unwrap();
+    assert!(woken.0.load(Ordering::SeqCst), "accept makes room");
+    assert_eq!(sink.poll_room(None), Room::Ready);
+    // A second `listen` changes the backlog, on the host too.
+    l.listen(5).unwrap();
+    assert_eq!(backlog.load(Ordering::SeqCst), 5);
+    drop(l);
+    assert_eq!(sink.poll_room(None), Room::Gone);
 }
 
 #[test]

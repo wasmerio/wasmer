@@ -11,8 +11,8 @@ use wasixv2_abi::{Errno, MsgFlags, SocketLevel, SocketOption, TcpOption};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
-    Accepted, BackendStream, Domain, NetResult, PortEntry, Publication, RecvMsg, SendMsg, Shutdown,
-    Socket, SocketKind, StreamState,
+    Accepted, BackendStream, Domain, NetResult, PortEntry, Publication, RecvMsg, Room, SendMsg,
+    Shutdown, Socket, SocketKind, StreamState,
     addr::{canonical, connect_target, present, unbound},
     net::{Net, Path},
     opts::{self, Changed, SockOpts},
@@ -129,6 +129,15 @@ impl Transport {
     }
 }
 
+/// What became of a published connection offered to a listener.
+pub(crate) enum Offer {
+    Queued,
+    /// The queue filled or closed meanwhile; the connection was closed.
+    Dropped,
+    /// Not taken and untouched, for another listener.
+    Declined(Arc<dyn BackendStream>),
+}
+
 enum State {
     Closed,
     Listening(Arc<Listener>),
@@ -174,6 +183,9 @@ pub struct TcpSocket {
 /// A listening socket's queues (`inet_connection_sock`'s accept queue and SYN queue).
 pub(crate) struct Listener {
     wq: WaitQueue,
+    /// Woken when the accept queue makes room or the listener closes, for a backend holding
+    /// published connections back while it is full (see [`crate::InboundSink::poll_room`]).
+    room: WaitQueue,
     inner: Mutex<ListenerInner>,
     publication: Mutex<Option<Box<dyn Publication>>>,
 }
@@ -372,6 +384,7 @@ impl TcpSocket {
             conn.refuse();
             child.release_inner(true);
         }
+        l.room.wake(PollMask::empty());
         self.wq.wake(PollMask::empty());
     }
 
@@ -445,6 +458,22 @@ impl TcpSocket {
         child
     }
 
+    /// Whether the accept queue can take a published connection; `table` registers on the
+    /// queue woken when that may have changed.
+    pub(crate) fn poll_room(&self, table: Option<&mut PollTable<'_>>) -> Room {
+        let Some(l) = self.listener.lock().unwrap().clone() else {
+            return Room::Gone;
+        };
+        let mut table = table;
+        poll_wait(&mut table, &l.room);
+        let li = l.inner.lock().unwrap();
+        match (li.closed, li.full()) {
+            (true, _) => Room::Gone,
+            (false, true) => Room::Full,
+            (false, false) => Room::Ready,
+        }
+    }
+
     /// A connection accepted by the backend for a published port; `wq` is the queue the stream
     /// wakes.
     pub(crate) fn incoming_remote(
@@ -453,14 +482,14 @@ impl TcpSocket {
         wq: WaitQueue,
         local: SocketAddr,
         peer: SocketAddr,
-    ) -> bool {
+    ) -> Offer {
         let Some(l) = self.listener.lock().unwrap().clone() else {
-            return false;
+            return Offer::Declined(stream);
         };
         {
             let li = l.inner.lock().unwrap();
             if li.closed || li.full() {
-                return false;
+                return Offer::Declined(stream);
             }
         }
         // `inet_csk_clone_lock` copies the listener's options into the new sock.
@@ -472,12 +501,12 @@ impl TcpSocket {
         if li.closed || li.full() {
             drop(li);
             child.release_inner(true);
-            return false;
+            return Offer::Dropped;
         }
         li.ready.push_back((child, peer));
         drop(li);
         l.wq.wake(PollMask::IN | PollMask::RDNORM);
-        true
+        Offer::Queued
     }
 
     /// Connects to a listener of this namespace.
@@ -550,6 +579,7 @@ impl Listener {
         for child in drop_list {
             child.release_inner(true);
         }
+        self.room.wake(PollMask::empty());
         Some(next)
     }
 }
@@ -629,6 +659,11 @@ impl Socket for TcpSocket {
         match &g.state {
             State::Listening(l) => {
                 l.inner.lock().unwrap().backlog = backlog;
+                if let Some(p) = l.publication.lock().unwrap().as_ref() {
+                    p.set_backlog(backlog);
+                }
+                // A larger queue may have room for connections held back.
+                l.room.wake(PollMask::empty());
                 return Ok(());
             }
             State::Connecting(..) | State::Connected(..) => return Err(Errno::EINVAL),
@@ -639,6 +674,7 @@ impl Socket for TcpSocket {
         self.net.state().tcp.listen(self.id, local.port())?;
         let l = Arc::new(Listener {
             wq: self.wq.clone(),
+            room: WaitQueue::new(),
             inner: Mutex::new(ListenerInner {
                 backlog,
                 closed: false,
@@ -652,7 +688,7 @@ impl Socket for TcpSocket {
         g.rd_shut = false;
         g.wr_shut = false;
         drop(g);
-        self.auto_publish(&l, local);
+        self.auto_publish(&l, local, backlog);
         Ok(())
     }
 
@@ -959,7 +995,7 @@ const TCP_INFO_LEN: usize = 248;
 
 impl TcpSocket {
     /// Auto-publishing: mirror a non-loopback listener on the host. Failure is logged only.
-    fn auto_publish(&self, l: &Listener, local: SocketAddr) {
+    fn auto_publish(&self, l: &Listener, local: SocketAddr, backlog: u32) {
         let (Some(host_ip), Some(backend)) =
             (self.net.config.auto_publish, self.net.backend.as_ref())
         else {
@@ -969,7 +1005,7 @@ impl TcpSocket {
             return;
         }
         let host = SocketAddr::new(host_ip, local.port());
-        match backend.publish(host, self.net.inbound_sink(local)) {
+        match backend.publish(host, backlog, self.net.inbound_sink(local)) {
             Ok(p) => *l.publication.lock().unwrap() = Some(p),
             Err(e) => tracing::warn!(%host, guest = %local, error = %e, "auto-publish failed"),
         }

@@ -24,10 +24,10 @@ use mio::{
 };
 use wasixv2_abi::{Errno, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
-    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, Shutdown,
+    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, Room, Shutdown,
     StreamState as Phase,
 };
-use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};
+use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistration};
 
 use crate::errno_from_io;
 
@@ -59,6 +59,9 @@ struct Shared {
     /// Streams the guest side touched since the reactor last pumped them; each is listed at
     /// most once, guarded by its `dirty` flag.
     dirty: Mutex<Vec<Arc<StreamShared>>>,
+    /// Publications whose guest listener made room since the reactor last accepted for them;
+    /// each is listed at most once, guarded by its `pending` flag.
+    listeners: Mutex<Vec<Arc<ListenerShared>>>,
     next: AtomicUsize,
     stop: AtomicBool,
 }
@@ -108,6 +111,7 @@ impl HostBackend {
             waker,
             entries: Mutex::new(HashMap::new()),
             dirty: Mutex::new(Vec::new()),
+            listeners: Mutex::new(Vec::new()),
             next: AtomicUsize::new(1),
             stop: AtomicBool::new(false),
         });
@@ -177,6 +181,11 @@ fn run(mut poll: Poll, shared: Arc<Shared>) {
             // Cleared before pumping: a guest write during the pump marks it again.
             s.dirty.store(false, Ordering::Release);
             pump(&s, &mut buf);
+        }
+        let listeners = std::mem::take(&mut *shared.listeners.lock().unwrap());
+        for l in listeners {
+            l.pending.store(false, Ordering::Release);
+            l.accept_all();
         }
         let now = Instant::now();
         let mut next: Option<Instant> = None;
@@ -673,15 +682,35 @@ struct ListenerShared {
     token: Token,
     sink: Arc<dyn InboundSink>,
     backend: Weak<Shared>,
+    /// Listed on `Shared::listeners`.
+    pending: AtomicBool,
+    /// Registrations on the guest listeners' room queues while their accept queues are full.
+    room: Mutex<Vec<WaitRegistration>>,
 }
 
 impl ListenerShared {
-    fn accept_all(&self) {
+    /// Takes connections off the host listener while the guest has room for them. A full guest
+    /// accept queue leaves them in the host's backlog, as Linux leaves a SYN unanswered when
+    /// `sk_acceptq_is_full`, until the guest makes room and wakes [`RoomKick`]; with no guest
+    /// listener at all they are reset, as a SYN to a closed port is.
+    fn accept_all(self: &Arc<Self>) {
         let Some(backend) = self.backend.upgrade() else {
             return;
         };
         loop {
+            let room = match self.sink.poll_room(None) {
+                // On the room queues before looking again, so no wakeup is lost.
+                Room::Full => self.poll_room_registered(),
+                room => room,
+            };
+            if room == Room::Full {
+                return;
+            }
             match self.sock.accept() {
+                Ok((sock, peer)) if room == Room::Gone => {
+                    tracing::debug!(%peer, "published connection without a guest listener");
+                    let _ = socket2::SockRef::from(&sock).set_linger(Some(Duration::ZERO));
+                }
                 Ok((sock, peer)) => {
                     // The queue of the guest socket-to-be, which adopts it.
                     let wq = WaitQueue::new();
@@ -703,6 +732,40 @@ impl ListenerShared {
             }
         }
     }
+
+    /// `poll_room` with a registration that brings the reactor back to this listener.
+    fn poll_room_registered(self: &Arc<Self>) -> Room {
+        let entry: Arc<dyn WaitEntry> = Arc::new(RoomKick(Arc::downgrade(self)));
+        let mut regs = Vec::new();
+        let mut proc = |q: &WaitQueue, _| regs.push(q.add(entry.clone()));
+        let room = self
+            .sink
+            .poll_room(Some(&mut PollTable::new(PollMask::empty(), &mut proc)));
+        // The old registrations go outside the lock, which their queues' wakes never take.
+        let old = std::mem::replace(&mut *self.room.lock().unwrap(), regs);
+        drop(old);
+        room
+    }
+}
+
+/// Woken, under a guest listener's room queue lock, when its accept queue may have room:
+/// lists the publication for the reactor, which accepts for it.
+struct RoomKick(Weak<ListenerShared>);
+
+impl WaitEntry for RoomKick {
+    fn wake(&self, _: PollMask) -> bool {
+        let Some(listener) = self.0.upgrade() else {
+            return false;
+        };
+        let Some(backend) = listener.backend.upgrade() else {
+            return false;
+        };
+        if !listener.pending.swap(true, Ordering::AcqRel) {
+            backend.listeners.lock().unwrap().push(listener);
+            let _ = backend.waker.wake();
+        }
+        true
+    }
 }
 
 struct HostPublication {
@@ -715,10 +778,19 @@ impl Publication for HostPublication {
     fn host_addr(&self) -> SocketAddr {
         self.addr
     }
+
+    fn set_backlog(&self, backlog: u32) {
+        // `listen` again on a listening socket only changes its backlog.
+        let backlog = backlog.min(i32::MAX as u32) as i32;
+        if let Err(e) = socket2::SockRef::from(&self.shared.sock).listen(backlog) {
+            tracing::warn!(error = %e, "changing the backlog of a published port");
+        }
+    }
 }
 
 impl Drop for HostPublication {
     fn drop(&mut self) {
+        self.shared.room.lock().unwrap().clear();
         if let Some(b) = self.backend.upgrade() {
             let fd = self.shared.sock.as_raw_fd();
             let _ = b.registry.deregister(&mut SourceFd(&fd));
@@ -911,9 +983,10 @@ impl Backend for HostBackend {
     fn publish(
         &self,
         host: SocketAddr,
+        backlog: u32,
         sink: Arc<dyn InboundSink>,
     ) -> io::Result<Box<dyn Publication>> {
-        let sock = TcpListener::bind(host)?;
+        let sock = listen(host, backlog)?;
         let addr = sock.local_addr()?;
         let token = self.shared.token();
         let shared = Arc::new(ListenerShared {
@@ -921,6 +994,8 @@ impl Backend for HostBackend {
             token,
             sink,
             backend: Arc::downgrade(&self.shared),
+            pending: AtomicBool::new(false),
+            room: Mutex::new(Vec::new()),
         });
         self.shared
             .entries
@@ -942,6 +1017,21 @@ impl Backend for HostBackend {
             addr,
         }))
     }
+}
+
+/// A non-blocking host listener on `addr` with `backlog`, as `TcpListener::bind` makes one
+/// (`SO_REUSEADDR` on Unix, so a published port is free again at once after a restart).
+fn listen(addr: SocketAddr, backlog: u32) -> io::Result<TcpListener> {
+    let sock = socket2::Socket::new(
+        socket2::Domain::for_address(addr),
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )?;
+    sock.set_reuse_address(true)?;
+    sock.set_nonblocking(true)?;
+    sock.bind(&addr.into())?;
+    sock.listen(backlog.min(i32::MAX as u32) as i32)?;
+    Ok(TcpListener::from_std(sock.into()))
 }
 
 #[cfg(test)]

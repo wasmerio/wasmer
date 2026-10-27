@@ -20,7 +20,7 @@
 use std::{fmt, net::SocketAddr, sync::Arc};
 
 use wasixv2_abi::{Errno, MsgFlags};
-use wasixv2_wait::{Pollable, WaitQueue};
+use wasixv2_wait::{PollTable, Pollable, WaitQueue};
 
 /// The address family of an IP socket. Unix sockets never reach this crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -259,12 +259,16 @@ pub trait Backend: Send + Sync {
     /// `wq`, the guest socket's queue, when datagrams or errors arrive.
     fn datagram(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno>;
 
-    /// Publishing: accepts connections on `host` and hands each to `sink`. The returned handle
-    /// stops publishing when dropped. Failure (a taken host port) is the host's problem: the
-    /// network logs it and never shows it to the guest.
+    /// Publishing: listens on `host` with `backlog` and hands each connection to `sink`, taking
+    /// a connection off the host listener only while [`InboundSink::poll_room`] says the guest
+    /// has room for it, as a full Linux accept queue leaves new connections unanswered
+    /// (`tcp_v4_syn_recv_sock` checks `sk_acceptq_is_full`). The returned handle stops
+    /// publishing when dropped. Failure (a taken host port) is the host's problem: the network
+    /// logs it and never shows it to the guest.
     fn publish(
         &self,
         host: SocketAddr,
+        backlog: u32,
         sink: Arc<dyn InboundSink>,
     ) -> Result<Box<dyn Publication>, std::io::Error>;
 }
@@ -326,11 +330,28 @@ pub trait BackendDatagram: Pollable {
     fn input_len(&self) -> usize;
 }
 
+/// Whether a guest listener can take a connection now (see [`InboundSink::poll_room`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Room {
+    /// A connection offered now goes into the accept queue.
+    Ready,
+    /// The accept queue is full. The table, if given, was registered on a queue woken once
+    /// there is room again or the listener goes.
+    Full,
+    /// No guest listener holds the address: a connection would be refused.
+    Gone,
+}
+
 /// Receives the connections a `Backend` accepted for a published port.
 pub trait InboundSink: Send + Sync {
+    /// Whether the guest listener for the published address could take a connection, as
+    /// `poll` reports readiness: `table` registers on the listener's room queue first, so a
+    /// backend that sees `Full` hears when to try again. Called from the backend's thread.
+    fn poll_room(&self, table: Option<&mut PollTable<'_>>) -> Room;
+
     /// Called from the backend's thread. `wq` is the queue `stream` wakes; the guest socket
     /// made for the connection adopts it as its own. Returns `false` if the guest listener is
-    /// gone or its queue is full; the backend then drops the connection.
+    /// gone or its queue filled since `poll_room`; the backend then drops the connection.
     fn incoming(&self, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool;
 }
 
@@ -338,4 +359,9 @@ pub trait InboundSink: Send + Sync {
 pub trait Publication: Send + Sync {
     /// The host address actually bound (port 0 resolved).
     fn host_addr(&self) -> SocketAddr;
+
+    /// The guest listener's `listen` backlog changed: the host listener follows it.
+    fn set_backlog(&self, backlog: u32) {
+        let _ = backlog;
+    }
 }

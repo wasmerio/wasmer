@@ -459,7 +459,7 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 The kernel-facing traits are in `vnet/src/api.rs`. Traffic for a destination that is not local goes through a route on the uplink interface (by default `eth0`, 10.0.2.15/24 via gateway 10.0.2.2), so the guest's source address is the uplink address and a virtual ephemeral port. Without a route the error is `ENETUNREACH`.
 
 - The **gateway alias** (by default the gateway) maps to the host's loopback in both directions.
-- **Publishing** (`Net::publish`, or auto-publishing of non-loopback listeners) hands `Backend::publish` a sink that delivers each accepted host connection to whichever guest listener holds the address at that moment. `getpeername` reports the real host peer.
+- **Publishing** (`Net::publish`, or auto-publishing of non-loopback listeners) hands `Backend::publish` a sink that delivers each accepted host connection to whichever guest listener holds the address at that moment. `getpeername` reports the real host peer. The backend accepts on the host only while that listener's accept queue has room: a full queue leaves connections in the host's backlog until `accept` makes room, as Linux leaves a SYN to a full queue unanswered, and a connection with no guest listener at all is reset. An auto-published host listener takes the guest's `listen` backlog, an explicit one `somaxconn`'s default.
 - **Options**: what a host socket acts on (`TCP_NODELAY`, keepalive and its timers, `SO_LINGER`) follows the guest socket, including options set before `connect` or inherited from the listener.
 - **DNS**: `NetConfig::nameservers` makes up `resolv.conf`. `vnet-host::host_nameservers` derives them from the host's file and routes loopback resolvers through the alias.
 
