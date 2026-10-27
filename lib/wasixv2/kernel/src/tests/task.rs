@@ -82,31 +82,121 @@ fn a_fault_kills_the_group_with_its_signal() {
     );
 }
 
+/// `de_thread`: an `execve` from a thread kills the others, and commits only once no other
+/// thread runs the old image; the leader then runs the new one with the thread's signal state.
 #[test]
-fn execve_from_a_thread_kills_the_others_and_runs_as_the_leader() {
+fn execve_from_a_thread_commits_once_the_old_image_is_gone_and_runs_as_the_leader() {
     let (kernel, leader, memory) = machine();
     let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
     let execing = spawn_thread(&kernel, &caller);
     let other = spawn_thread(&kernel, &caller);
     while kernel.take_pending(leader).is_some() {}
     // The exec'ing thread blocks SIGUSR1; the leader goes on with that mask.
     kernel.task_signals(execing).replace_blocked(1 << 9);
+    let thread = Caller::new(execing, &memory);
+    let mut exec = Box::pin(execve(&kernel, &thread));
 
-    assert_eq!(kernel.de_thread(execing), leader);
-
-    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
+    // The others are killed, and the leader leaves its old image for the new one.
+    assert_eq!(exec.as_mut().now_or_never(), None);
     assert_eq!(kernel.take_pending(other), Some(GuestAction::Exit(0)));
-    assert_eq!(kernel.task_signals(leader).blocked(), 1 << 9);
-    // The image waits for the others to unwind.
+    let handed = GuestAction::Exec { vfork_parent: None };
+    assert_eq!(kernel.take_pending(leader), Some(handed));
+    assert_eq!(kernel.take_image(leader).as_deref(), Some(IMAGE));
+    // Nothing is committed while another thread may still run the old image.
+    kernel.release(other);
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    assert!(kernel.process(leader).exe.lock().unwrap().is_none());
     let mut wait = Box::pin(kernel.exec_wait(leader));
     assert_eq!(wait.as_mut().now_or_never(), None);
-    kernel.release(execing);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert!(kernel.process(leader).exe.lock().unwrap().is_some());
+    assert_eq!(kernel.task_signals(leader).blocked(), 1 << 9);
+    // The exec'ing thread is done, and the image starts once it is gone.
+    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
     assert_eq!(wait.as_mut().now_or_never(), None);
-    kernel.release(other);
+    kernel.release(execing);
     assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
     // The leader is the only task left, and its exit ends the group.
     block_on(kernel.exit(&caller, 5)).unwrap();
     assert_eq!(kernel.take_pending(leader), Some(GuestAction::Exit(5)));
+}
+
+/// The wait of an `execve` for the other threads is killable: a handled signal does not end
+/// it, a fatal one ends the group with that signal and the `execve` with EAGAIN.
+#[test]
+fn a_fatal_signal_ends_an_execve_waiting_for_the_other_threads() {
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    handle(&kernel, &caller, Signal::SIGUSR1);
+    let other = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    let mut exec = Box::pin(execve(&kernel, &caller));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+
+    kernel.kill(leader, Signal::SIGUSR1).unwrap();
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    kernel.kill(leader, Signal::SIGKILL).unwrap();
+
+    assert_eq!(
+        exec.as_mut().now_or_never(),
+        Some(Err(SysErr::Errno(Errno::EAGAIN)))
+    );
+    assert!(kernel.process(leader).exe.lock().unwrap().is_none());
+    assert_eq!(
+        kernel.take_pending(leader),
+        Some(GuestAction::Exit(128 + 9))
+    );
+    assert_eq!(kernel.take_pending(other), Some(GuestAction::Exit(0)));
+}
+
+/// While an `execve` kills the other threads, the leader still runs its old image, and the
+/// threads it would start now would outlive the exec (Linux's leader has SIGKILL pending).
+#[test]
+fn the_leader_starts_no_task_while_another_threads_execve_ends_the_old_image() {
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let execing = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    let thread = Caller::new(execing, &memory);
+    let mut exec = Box::pin(execve(&kernel, &thread));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+
+    let spawn = kernel.thread_spawn(&caller, THREAD, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    assert_eq!(block_on(spawn), Err(SysErr::Errno(Errno::EINTR)));
+    let vfork = 0x4000 | 0x100 | Signal::SIGCHLD.0 as u32;
+    let vfork = kernel.clone(&caller, vfork, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    assert_eq!(block_on(vfork), Err(SysErr::Errno(Errno::EINTR)));
+}
+
+/// A leader that called `exit` waits as a zombie for its group; another thread's `execve`
+/// gives it the new image instead.
+#[test]
+fn an_execve_from_a_thread_revives_a_zombie_leader() {
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let execing = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    let mut exit = Box::pin(kernel.exit(&caller, 7));
+    assert_eq!(exit.as_mut().now_or_never(), None);
+    let thread = Caller::new(execing, &memory);
+    let mut exec = Box::pin(execve(&kernel, &thread));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+
+    assert_eq!(exit.as_mut().now_or_never(), Some(Ok(())));
+    let handed = GuestAction::Exec { vfork_parent: None };
+    assert_eq!(kernel.take_pending(leader), Some(handed));
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
+    kernel.release(execing);
+
+    assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
+    assert!(!kernel.process(leader).group.exiting());
 }
 
 const IMAGE: &[u8] = b"\0asm\x01\0\0\0";
@@ -170,11 +260,18 @@ fn an_execve_from_a_threads_handler_unwinds_after_the_leader_took_over() {
         Some(GuestAction::Signal(_))
     ));
     let thread = Caller::new(execing, &memory);
+    let mut exec = Box::pin(execve(&kernel, &thread));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    let _ = kernel.take_pending(leader);
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), None);
 
-    assert_eq!(block_on(execve(&kernel, &thread)), Ok(0));
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
     Control::signal_return(&kernel, execing, None);
 
     assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
+    kernel.release(execing);
+    assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
 }
 
 /// `execve` in a group that is exiting fails before the point of no return (`de_thread`'s

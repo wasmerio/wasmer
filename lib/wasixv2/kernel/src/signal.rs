@@ -916,6 +916,30 @@ impl TaskSignals {
         }
     }
 
+    /// The fatal signal pending for the task, as a killable wait sees it
+    /// (`__fatal_signal_pending`): one the task does not block whose action is a default that
+    /// kills, SIGKILL among them, for the task or its group. Linux's `complete_signal` makes such
+    /// a signal a SIGKILL for every thread as it is sent.
+    pub(crate) fn fatal_pending(&self) -> Option<i32> {
+        let state = self.group.state.lock().unwrap();
+        let task = state.tasks.get(&self.task)?;
+        let mut pending = (task.pending.set | state.shared.set) & !task.blocked;
+        while pending != 0 {
+            let sig = pending.trailing_zeros() as i32 + 1;
+            let action = state.actions[sig as usize - 1];
+            if action.is_default() && matches!(default_action(sig), DefaultAction::Terminate) {
+                return Some(sig);
+            }
+            pending &= !bit(sig);
+        }
+        None
+    }
+
+    /// What ends a killable wait of the task (`TASK_KILLABLE`): a fatal signal only.
+    pub(crate) fn killable(&self) -> Killable<'_> {
+        Killable(self)
+    }
+
     /// Queues SIGKILL for this task alone, as `zap_other_threads` does for each thread.
     pub(crate) fn kill(&self) {
         let _ = self
@@ -991,6 +1015,19 @@ impl Interrupt for TaskSignals {
 
     fn queue(&self) -> Option<&WaitQueue> {
         Some(&self.group.queue)
+    }
+}
+
+/// See [`TaskSignals::killable`].
+pub(crate) struct Killable<'a>(&'a TaskSignals);
+
+impl Interrupt for Killable<'_> {
+    fn pending(&self) -> bool {
+        self.0.fatal_pending().is_some()
+    }
+
+    fn queue(&self) -> Option<&WaitQueue> {
+        Some(&self.0.group.queue)
     }
 }
 

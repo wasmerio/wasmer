@@ -157,9 +157,10 @@ pub trait Control: AtomicWait {
         None
     }
 
-    /// Before the image of a [`GuestAction::Exec`] starts: waits until `task` is the only task
-    /// left in its thread group, as `de_thread` does. `Err(status)` when the group exited
-    /// meanwhile, and the image must not start.
+    /// Before the image of a [`GuestAction::Exec`] starts, once the instance left the old one:
+    /// waits until the `execve` committed and `task` is the only task left in its thread group,
+    /// as `de_thread` does. `Err(status)` when the group exited meanwhile, and the image must
+    /// not start.
     fn exec_wait(&self, task: TaskId) -> LocalFuture<'_, Result<(), i32>> {
         let _ = task;
         Box::pin(async { Ok(()) })

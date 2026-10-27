@@ -86,7 +86,7 @@ pub(crate) struct Procs {
 pub(crate) struct Tree {
     pub(crate) nodes: HashMap<u32, Node>,
     /// vfork children running in their parent's instance, to the parent task that waits.
-    vforks: HashMap<TaskId, TaskId>,
+    pub(crate) vforks: HashMap<TaskId, TaskId>,
 }
 
 pub(crate) struct Node {
@@ -484,7 +484,9 @@ impl Kernel {
             if crate::resource::nproc_exceeded(&state, &parent) {
                 return Err(Errno::EAGAIN);
             }
-            if parent.group.exiting() {
+            // `fatal_signal_pending`: a group on its way out, or whose `execve` is killing its
+            // threads, starts nothing.
+            if parent.group.signal_group_exit() {
                 return Err(Errno::EINTR);
             }
             let sched = task.sched.for_child()?;
@@ -660,15 +662,30 @@ impl Kernel {
                 return Err(Errno::ELOOP.into());
             }
         };
-        // `de_thread`: a group on its way out does not exec; the exit it is taking ends the
-        // caller on the way back.
-        if self.process(caller.task()).group.exiting() {
-            return Err(Errno::EAGAIN.into());
-        }
-        // `mm_exit_exec_release`, for the caller and the threads `de_thread` ends.
-        self.group_exit_futexes(caller).await;
+        // `de_thread`: the other threads die before anything of the new image is committed. A
+        // group on its way out does not exec; the exit it is taking ends the caller on the way
+        // back.
+        let task = caller.task();
+        let (exec, zapped) = self.zap_threads(task)?;
+        let leader = self.process(task).pid;
+        // The leader leaves its old image for the new one, which runs once committed.
+        let image = match task == leader {
+            true => Some(image),
+            false => {
+                self.hand_image(leader, image);
+                None
+            }
+        };
+        self.de_thread(task).await?;
+        // `exec_mm_release`, for the caller and the threads `de_thread` ended, on the memory
+        // that is still theirs; then the old memory goes.
+        let mut threads = zapped;
+        threads.extend(self.take_group_futex_states(task));
+        self.exit_futexes(caller, threads).await;
         self.mm_release(caller).await;
-        self.exec_commit(caller.task(), &name, args, env, image, binary);
+        self.exec_commit(task, &name, args, env, image, binary);
+        // The `execve` is done, and the leader's new image may start.
+        drop(exec);
         Ok(0)
     }
 
@@ -725,28 +742,28 @@ impl Kernel {
         Ok((bytes, binary))
     }
 
-    /// Past the point of no return (`begin_new_exec`): the other threads die and the image runs
-    /// as the group leader (`de_thread`), close-on-exec descriptors close, caught signals reset,
-    /// the vfork parent resumes, the new image's arguments, environment and memory replace the
-    /// old ones, and the credentials become what `binary` grants.
+    /// Past the point of no return (`begin_new_exec`), once the other threads are gone: the
+    /// image runs as the group leader (the end of `de_thread`), close-on-exec descriptors close,
+    /// caught signals reset, the new image's arguments, environment and memory replace the old
+    /// ones, and the credentials become what `binary` grants. `image` goes to the leader now,
+    /// unless it has it already; a vfork parent resumes once the image starts.
     fn exec_commit(
         &self,
         caller: TaskId,
         name: &[u8],
         args: Vec<String>,
         env: Vec<String>,
-        image: Vec<u8>,
+        image: Option<Vec<u8>>,
         binary: Binary,
     ) {
-        let task = self.de_thread(caller);
+        let task = self.exec_leader(caller);
         let process = self.process(task);
-        let vfork_parent = {
+        {
             let mut tree = self.procs.tree.lock().unwrap();
             if let Some(node) = tree.nodes.get_mut(&process.pid.0) {
                 node.did_exec = true;
             }
-            tree.vforks.remove(&task)
-        };
+        }
         // `unshare_files`, then `do_close_on_exec`. The dying threads of the group do not
         // count as sharing the table.
         let table = {
@@ -818,7 +835,9 @@ impl Kernel {
             t.mm = Arc::default();
             t.thread = thread::ThreadState::default();
         });
-        self.hand_image(task, image, vfork_parent);
+        if let Some(image) = image {
+            self.hand_image(task, image);
+        }
     }
 
     // ---- wait ----
