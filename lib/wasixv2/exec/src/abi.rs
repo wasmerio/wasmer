@@ -10,7 +10,7 @@ use wasmer::{
     StoreAsync, Value,
 };
 
-use crate::{ExecEnv, ExecError, asyncify};
+use crate::{ExecEnv, ExecError, Loader, asyncify};
 
 /// One guest ABI.
 pub trait Abi<S>: Send + Sync + 'static
@@ -164,18 +164,22 @@ pub enum VforkResume {
 
 /// The registered ABIs, in order: the first one whose [`Abi::matches`] accepts a module serves
 /// it. Process images loaded by `execve` and the images of vfork children select through it
-/// too, so a program of one ABI may run a program of another.
+/// too, so a program of one ABI may run a program of another; its [`Loader`] compiles them.
 pub struct Abis<S> {
     abis: Vec<Arc<dyn Abi<S>>>,
+    loader: Arc<dyn Loader>,
 }
 
 impl<S> Abis<S>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    /// No ABIs; nothing runs until one is pushed.
+    /// No ABIs; nothing runs until one is pushed. Images compile with [`crate::Compile`].
     pub fn new() -> Self {
-        Self { abis: Vec::new() }
+        Self {
+            abis: Vec::new(),
+            loader: Arc::new(crate::Compile),
+        }
     }
 
     /// Only the native `wasixv2` ABI.
@@ -187,6 +191,16 @@ where
 
     pub fn push(&mut self, abi: Arc<dyn Abi<S>>) {
         self.abis.push(abi);
+    }
+
+    /// Makes `loader` compile the images `execve` loads.
+    pub fn set_loader(&mut self, loader: Arc<dyn Loader>) {
+        self.loader = loader;
+    }
+
+    /// What compiles the images `execve` loads.
+    pub fn loader(&self) -> &dyn Loader {
+        &*self.loader
     }
 
     /// The ABI that serves `module`, if any.

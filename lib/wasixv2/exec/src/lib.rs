@@ -8,6 +8,7 @@ pub mod abi;
 pub mod asyncify;
 mod fork;
 mod generated;
+mod loader;
 mod memory;
 mod preempt;
 mod process;
@@ -27,6 +28,7 @@ use std::{
 
 pub use abi::{Abi, AbiInstance, Abis, Entry, EntryReturn, Role, Sigreturn, VforkResume};
 pub use generated::IMPORT_MODULE;
+pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;
 pub use process::VFORK_RETURN;
 pub use thread::THREAD_ENTRY;

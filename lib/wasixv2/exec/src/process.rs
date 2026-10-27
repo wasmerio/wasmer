@@ -167,7 +167,7 @@ where
 /// `execve` calls load, until it exits; releases the task then. An image that cannot start kills
 /// the process with SIGSEGV.
 async fn finish<S>(
-    engine: Engine,
+    mut engine: Engine,
     first: Result<Ended, ExecError>,
     syscalls: Arc<S>,
     task: TaskId,
@@ -199,8 +199,11 @@ where
         if let Err(status) = syscalls.exec_wait(task).await {
             break status;
         }
-        ended = match crate::load(&engine, &image) {
-            Ok(module) => {
+        let loaded = abis.loader().load(&engine, &image).await;
+        drop(image);
+        ended = match loaded {
+            Ok((image_engine, module)) => {
+                engine = image_engine;
                 let store = Store::new(engine.clone());
                 let run = crate::run_image(
                     store,
@@ -250,8 +253,8 @@ async fn run_new_image<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    let module = match crate::load(&engine, &image) {
-        Ok(module) => module,
+    let (engine, module) = match abis.loader().load(&engine, &image).await {
+        Ok(loaded) => loaded,
         Err(err) => {
             tracing::warn!(tid = task.0, %err, "execve loaded a module that does not compile");
             let status = fault(&*syscalls, task, Signal::SIGSEGV.0);
@@ -259,6 +262,7 @@ where
             return Ok(status);
         }
     };
+    drop(image);
     crate::run_with_abis(Store::new(engine), &module, syscalls, task, host, abis).await
 }
 
