@@ -9,6 +9,10 @@ pub enum SysErr {
     /// Interrupted by a signal (`ERESTARTSYS`); the return-to-guest path reruns the call unless a
     /// handler without `SA_RESTART` ran, in which case it returns `EINTR`.
     Restart,
+    /// Interrupted by a signal (`ERESTARTNOINTR`): rerun, whatever the handler's `SA_RESTART`,
+    /// unless the handler cancels the restart through its frame. For calls that must not fail
+    /// with `EINTR`, such as taking a priority-inheritance futex.
+    RestartNoIntr,
     /// Interrupted by a signal (`ERESTARTNOHAND`): `EINTR` once any handler ran, whatever its
     /// `SA_RESTART`; rerun otherwise. For calls Linux never restarts after a handler, such as
     /// `poll`, `pause` and `sigsuspend`.
