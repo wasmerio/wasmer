@@ -39,8 +39,8 @@ use shared_buffer::OwnedBuffer;
 use wasixv2_abi::Errno;
 use wasixv2_vfs::{
     AllocMode, Attr, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult, Handle,
-    MAX_DIR_COOKIE, NAME_MAX, NewNode, Node, OpenOptions, RenameMode, SetAttr, StatFs, Timestamp,
-    XattrSet,
+    MAX_DIR_COOKIE, NAME_MAX, NewNode, Node, OpenOptions, PATH_MAX, RenameMode, SetAttr, StatFs,
+    Timestamp, XattrSet,
 };
 use webc::v3::read::{
     DirEntry as WebcEntry, Directory, OwnedReader, OwnedReaderError, VolumeHeaderError,
@@ -76,6 +76,8 @@ pub enum PackageFsError {
     Conflict(String),
     #[error("a directory has more entries than can be listed")]
     TooManyEntries,
+    #[error("a path of {0} bytes is longer than PATH_MAX allows")]
+    PathTooLong(usize),
 }
 
 /// One volume of a webc v3 package, mounted read-only.
@@ -143,8 +145,9 @@ impl PackageFs {
     /// `bin/ls`) and its contents, with the directories the paths imply. Every object is
     /// owned by `uid` and `gid` and has the modes a volume's do. Shares the buffers. Fails
     /// when a path has a component that is not a valid file name (empty, `.`, `..`, with a
-    /// NUL, or longer than `NAME_MAX`), when one path is given twice or both as a file and as
-    /// a directory, or when a directory would have more entries than `getdents` can number.
+    /// NUL, or longer than `NAME_MAX`), when a path is longer than a path argument may be
+    /// (`PATH_MAX` with its NUL), when one path is given twice or both as a file and as a
+    /// directory, or when a directory would have more entries than `getdents` can number.
     pub fn from_files(
         files: impl IntoIterator<Item = (String, OwnedBuffer)>,
         uid: u32,
@@ -178,6 +181,11 @@ enum TreeEntry {
 
 impl Tree {
     fn insert(&mut self, path: &str, data: OwnedBuffer) -> Result<(), PackageFsError> {
+        // The bound on the length bounds the depth, which building and dropping the tree
+        // recurse through.
+        if path.len() >= PATH_MAX {
+            return Err(PackageFsError::PathTooLong(path.len()));
+        }
         let invalid = || PackageFsError::InvalidPath(path.to_string());
         let conflict = || PackageFsError::Conflict(path.to_string());
         let names: Vec<&str> = path.split('/').collect();
@@ -206,39 +214,77 @@ impl Tree {
     }
 
     /// The directory's table, its entries numbered consecutively before those of its
-    /// subdirectories, as a parsed volume numbers them.
+    /// subdirectories, as a parsed volume numbers them. Iterative, so a deep tree cannot
+    /// exhaust the stack: directories are numbered in depth-first order, then built from the
+    /// deepest up.
     fn build(self, vol: &Arc<Volume>) -> Result<Arc<DirData>, PackageFsError> {
-        if self.0.len() as u64 > MAX_DIR_COOKIE {
-            return Err(PackageFsError::TooManyEntries);
+        enum Slot {
+            File(OwnedBuffer),
+            /// The index of the subdirectory's table in `tables`.
+            Dir(usize),
         }
-        let first = vol
-            .next_ino
-            .fetch_add(self.0.len() as u64, Ordering::Relaxed);
-        let mut entries = Vec::with_capacity(self.0.len());
-        let mut subdirs = 0;
-        for (ino, (name, entry)) in (first..).zip(self.0) {
-            let kind = match entry {
-                TreeEntry::File(data) => Kind::File(data),
-                TreeEntry::Dir(tree) => {
-                    subdirs += 1;
-                    Kind::Dir(tree.build(vol)?)
+        let mut tables: Vec<Vec<(String, u64, Slot)>> = Vec::new();
+        // A directory to number, and where its parent's table names it.
+        let mut pending = vec![(self, None::<(usize, usize)>)];
+        while let Some((tree, parent)) = pending.pop() {
+            if tree.0.len() as u64 > MAX_DIR_COOKIE {
+                return Err(PackageFsError::TooManyEntries);
+            }
+            let table = tables.len();
+            if let Some((at, entry)) = parent {
+                tables[at][entry].2 = Slot::Dir(table);
+            }
+            let first = vol
+                .next_ino
+                .fetch_add(tree.0.len() as u64, Ordering::Relaxed);
+            let mut entries = Vec::with_capacity(tree.0.len());
+            let mut subdirs = Vec::new();
+            for (i, (ino, (name, entry))) in (first..).zip(tree.0).enumerate() {
+                match entry {
+                    TreeEntry::File(data) => entries.push((name, ino, Slot::File(data))),
+                    TreeEntry::Dir(sub) => {
+                        entries.push((name, ino, Slot::Dir(usize::MAX)));
+                        subdirs.push((sub, Some((table, i))));
+                    }
                 }
-            };
-            entries.push(Child {
-                name: Cow::Owned(name),
-                ino,
-                kind,
-            });
+            }
+            tables.push(entries);
+            // The first subdirectory is numbered next, as a recursive walk would.
+            pending.extend(subdirs.into_iter().rev());
         }
-        let children = Children {
-            entries: entries.into_boxed_slice(),
-            subdirs,
-        };
-        Ok(Arc::new(DirData {
-            source: None,
-            children: OnceLock::from(Ok(children)),
-            vol: vol.clone(),
-        }))
+        // A subdirectory's table comes after its parent's, so building from the end finds
+        // every subdirectory built.
+        let mut built: Vec<Option<Arc<DirData>>> = (0..tables.len()).map(|_| None).collect();
+        for (at, entries) in tables.into_iter().enumerate().rev() {
+            let mut subdirs = 0;
+            let entries = entries
+                .into_iter()
+                .map(|(name, ino, slot)| {
+                    let kind = match slot {
+                        Slot::File(data) => Kind::File(data),
+                        Slot::Dir(table) => {
+                            subdirs += 1;
+                            Kind::Dir(built[table].take().expect("built before its parent"))
+                        }
+                    };
+                    Child {
+                        name: Cow::Owned(name),
+                        ino,
+                        kind,
+                    }
+                })
+                .collect::<Vec<_>>();
+            let children = Children {
+                entries: entries.into_boxed_slice(),
+                subdirs,
+            };
+            built[at] = Some(Arc::new(DirData {
+                source: None,
+                children: OnceLock::from(Ok(children)),
+                vol: vol.clone(),
+            }));
+        }
+        Ok(built[0].take().expect("the root is built"))
     }
 }
 

@@ -356,3 +356,22 @@ fn from_files_rejects_bad_and_clashing_paths() {
         );
     }
 }
+
+/// A path's length bounds the tree's depth: the deepest path that fits `PATH_MAX` builds,
+/// works and drops on a test thread's stack, and a deeper one is refused before anything
+/// recurses through it.
+#[test]
+fn from_files_bounds_the_depth() {
+    let deepest = format!("{}x", "d/".repeat((PATH_MAX - 2) / 2));
+    assert_eq!(deepest.len(), PATH_MAX - 1);
+    let fs = files(&[(deepest.as_str(), b"deep")]).unwrap();
+    let attr = block_on(lookup(&fs, &deepest).getattr()).unwrap();
+    assert_eq!(attr.size, 4);
+    drop(fs);
+
+    let hostile = format!("{}x", "d/".repeat(1 << 20));
+    assert!(matches!(
+        files(&[(hostile.as_str(), b"")]),
+        Err(PackageFsError::PathTooLong(len)) if len == hostile.len()
+    ));
+}
