@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::TryInto};
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 use js_sys::{
     Function as JsFunction,
@@ -35,11 +35,7 @@ pub trait AsJs: Sized {
 
 #[inline]
 /// Convert a JsValue into a wasmer Value
-pub fn js_value_to_wasmer(
-    store: &mut impl AsStoreMut,
-    ty: &Type,
-    js_val: &JsValue,
-) -> Value {
+pub fn js_value_to_wasmer(store: &mut impl AsStoreMut, ty: &Type, js_val: &JsValue) -> Value {
     match ty {
         Type::I32 => Value::I32(js_val.as_f64().unwrap() as _),
         Type::I64 => Value::I64(if js_val.is_bigint() {
@@ -265,7 +261,7 @@ impl AsJs for Instance {
         Ok(Self {
             _inner: crate::BackendInstance::Js(instance),
             module: module.clone(),
-            exports,
+            exports: Arc::new(exports),
         })
     }
 }
