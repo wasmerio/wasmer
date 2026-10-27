@@ -2,7 +2,10 @@ use std::{
     any::Any,
     cell::Cell,
     collections::BTreeSet,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{
+        Arc, Mutex, OnceLock,
+        atomic::{AtomicU32, Ordering},
+    },
 };
 
 use wasixv2_abi::{IoctlRequest, OpenFlags};
@@ -142,7 +145,7 @@ const OPEN_ONLY_FLAGS: OpenFlags = OpenFlags(
 pub(crate) struct OpenFile {
     pub(crate) backing: Backing,
     /// The access mode and status flags, as `F_GETFL` reports them.
-    flags: Mutex<OpenFlags>,
+    flags: AtomicU32,
     /// The file position; unused for streams.
     pos: Mutex<u64>,
     /// Held across a call that reads and then moves the position, so threads sharing the
@@ -172,7 +175,7 @@ impl OpenFile {
     pub(crate) fn new(backing: Backing, flags: OpenFlags) -> Self {
         Self {
             backing,
-            flags: Mutex::new(flags & !OPEN_ONLY_FLAGS),
+            flags: AtomicU32::new((flags & !OPEN_ONLY_FLAGS).0),
             pos: Mutex::new(0),
             pos_lock: futures_util::lock::Mutex::new(()),
             epoll_links: Mutex::default(),
@@ -196,8 +199,9 @@ impl OpenFile {
         }
     }
 
+    /// Read on every I/O call, so an atomic rather than a lock; `F_SETFL` is the only writer.
     pub(crate) fn flags(&self) -> OpenFlags {
-        *self.flags.lock().unwrap()
+        OpenFlags(self.flags.load(Ordering::Relaxed))
     }
 
     /// `F_SETFL`'s `O_DIRECT` check: only a pipe (packet mode) or a file whose data the
@@ -210,8 +214,10 @@ impl OpenFile {
     }
 
     pub(crate) fn set_status_flags(&self, flags: OpenFlags) {
-        let mut current = self.flags.lock().unwrap();
-        *current = (*current & !SETFL_MASK) | (flags & SETFL_MASK);
+        let keep = |current: u32| (current & !SETFL_MASK.0) | (flags & SETFL_MASK).0;
+        let _ = self
+            .flags
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |c| Some(keep(c)));
     }
 
     /// Serialises position updates for the duration of a call (`fdget_pos`).
