@@ -117,7 +117,9 @@ impl<'a> Walk<'a> {
         } else {
             root.clone()
         };
-        let absolute = path.starts_with(b"/");
+        // `RESOLVE_IN_ROOT` walks an absolute path from `start` too, as Linux's `path_init`
+        // does from `dfd`.
+        let absolute = path.starts_with(b"/") && !flags.in_root;
         if absolute && flags.beneath {
             return Err(Errno::EXDEV);
         }
