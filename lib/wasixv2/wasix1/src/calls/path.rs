@@ -21,8 +21,10 @@ use crate::{
     shim::{self, Env},
 };
 
-/// Mode bits for new files and directories; the umask applies.
-const FILE_MODE: u32 = 0o666;
+/// Mode bits for new files and directories; the umask applies. v1 has no mode bits and no
+/// `chmod`, and v1 started any file, so the files a v1 program creates are executable: a
+/// script it writes (an npm `.bin` entry, a shell's here-script) runs as on v1.
+const FILE_MODE: u32 = 0o777;
 const DIR_MODE: u32 = 0o777;
 
 /// `AT_SYMLINK_NOFOLLOW` unless `lookup` follows symlinks.
