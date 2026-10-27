@@ -326,6 +326,10 @@ impl FileObject for PipeEnd {
         Box::pin(self.write_bytes(io, data))
     }
 
+    fn buffered(&self) -> usize {
+        self.input_len()
+    }
+
     fn ioctl<'a>(
         &'a self,
         caller: &'a Caller<'a>,

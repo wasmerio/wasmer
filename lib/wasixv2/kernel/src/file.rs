@@ -92,6 +92,14 @@ pub trait FileObject: Pollable + Any {
         false
     }
 
+    /// Bytes a read would find now (what `FIONREAD` reports): a stream's buffered data, a
+    /// datagram socket's next message. Reads of other objects give at most one kernel step;
+    /// a read of this one sizes its buffer to these bytes instead, so it takes all a pipe or
+    /// stream socket holds (`pipe_read`, `tcp_recvmsg`) and a datagram whole.
+    fn buffered(&self) -> usize {
+        0
+    }
+
     /// `llseek` of a positional object, from the position `pos`; returns the new position.
     fn llseek(&self, pos: u64, base: SeekBase, offset: i64) -> Result<u64, Errno> {
         let _ = (pos, base, offset);
@@ -231,6 +239,11 @@ impl OpenFile {
     /// that [`FileObject::fills_reads`].
     pub(crate) fn fills_reads(&self) -> bool {
         self.object().is_none_or(|object| object.fills_reads())
+    }
+
+    /// What a read would find now; see `FileObject::buffered`.
+    pub(crate) fn buffered(&self) -> usize {
+        self.object().map_or(0, |object| object.buffered())
     }
 
     /// Whether writes to this file are messages; see `FileObject::messages`.

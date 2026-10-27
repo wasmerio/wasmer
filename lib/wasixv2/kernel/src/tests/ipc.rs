@@ -265,6 +265,37 @@ fn a_write_cut_short_by_the_last_reader_leaving_raises_sigpipe() {
 }
 
 #[test]
+fn a_stream_read_takes_all_that_is_buffered_and_a_datagram_whole() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 1 << 20]));
+    let caller = Caller::new(task, &memory);
+    // 200 KiB in a 1 MiB pipe come out in one read, as from `pipe_read`, not in 64 KiB steps.
+    let (r, w) = pipe(&kernel, &caller, OpenFlags::O_NONBLOCK);
+    let set_size = kernel.fcntl64(&caller, w, FcntlCmd::F_SETPIPE_SZ, 1 << 20);
+    assert_eq!(block_on(set_size), Ok(1 << 20));
+    const LEN: u32 = 200 << 10;
+    put(&memory, 0, &vec![b'p'; LEN as usize]);
+    let write = |fd| block_on(kernel.write(&caller, fd, UserSlice::new(0, LEN)));
+    assert_eq!(write(w), Ok(LEN));
+    let read = |fd| block_on(kernel.read(&caller, fd, UserSliceMut::new(LEN, 512 << 10)));
+    assert_eq!(read(r), Ok(LEN));
+    assert!(get(&memory, LEN, LEN as usize).iter().all(|&b| b == b'p'));
+
+    // A Unix datagram larger than one step is read whole.
+    let pair = FdPair::new(0x100);
+    let unix = wasixv2_abi::AddressFamily(1);
+    const SOCK_DGRAM: i32 = 2;
+    let made = kernel.socketpair(&caller, unix, SOCK_DGRAM, 0, pair);
+    assert_eq!(block_on(made), Ok(0));
+    let fd = |at| Fd(i32::from_le_bytes(get(&memory, at, 4).try_into().unwrap()));
+    let (a, b) = (fd(0x100), fd(0x104));
+    const DGRAM: u32 = 100 << 10;
+    let sent = block_on(kernel.write(&caller, a, UserSlice::new(0, DGRAM)));
+    assert_eq!(sent, Ok(DGRAM));
+    assert_eq!(read(b), Ok(DGRAM));
+}
+
+#[test]
 fn readv_copies_out_up_to_a_fault() {
     let (kernel, task, memory) = machine();
     let caller = Caller::new(task, &memory);
