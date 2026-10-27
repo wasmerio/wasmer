@@ -91,7 +91,7 @@ async fn push_frame<S: 'static>(
         .tls_base
         .as_ref()
         .map_or(0, |global| global_u32(global, store));
-    let top = match frame.stack_top {
+    let top = match frame.altstack_top(sp) {
         Some(top) => Some(top),
         None => sp.checked_sub(RED_ZONE),
     };

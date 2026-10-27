@@ -8,16 +8,19 @@
 
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{
+        Arc, Mutex, MutexGuard, Weak,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Duration,
 };
 
 use wasixv2_abi::{
-    ConstKernelOldItimervalPtr, ConstKernelTimespecPtr, ConstSigactionPtr, ConstSigaltstackPtr,
-    ConstSiginfoPtr, ConstSigsetPtr, ItimerWhich, KernelOldItimerval, KernelOldItimervalPtr,
-    KernelOldTimeval, Pid, SaFlags, SiCode, Sigaction, SigactionPtr, Sigaltstack, SigaltstackFlags,
-    SigaltstackPtr, Siginfo, SiginfoPtr, Signal, SignalHandler, SignalLimits, SigprocmaskHow,
-    Sigset, SigsetPtr,
+    CloneFlags, ConstKernelOldItimervalPtr, ConstKernelTimespecPtr, ConstSigactionPtr,
+    ConstSigaltstackPtr, ConstSiginfoPtr, ConstSigsetPtr, ItimerWhich, KernelOldItimerval,
+    KernelOldItimervalPtr, KernelOldTimeval, Pid, SaFlags, SiCode, Sigaction, SigactionPtr,
+    Sigaltstack, SigaltstackFlags, SigaltstackPtr, Siginfo, SiginfoPtr, Signal, SignalHandler,
+    SignalLimits, SigprocmaskHow, Sigset, SigsetPtr,
 };
 use wasixv2_syscalls::{
     Caller, Errno, GuestAction, SignalFrame, SysErr, SysResult, TaskId, WorkFlag, read_value,
@@ -46,6 +49,71 @@ pub(crate) struct Signals {
     state: Mutex<GroupState>,
     /// Woken on every signal sent to the group or one of its tasks; blocked tasks recheck.
     queue: WaitQueue,
+    /// Whom the group's queued signals are charged to; `None` for a group that queues for
+    /// nobody (a zombie's).
+    account: Option<Account>,
+}
+
+/// The signals queued for each user, against `RLIMIT_SIGPENDING` (`UCOUNT_RLIMIT_SIGPENDING`).
+#[derive(Default)]
+pub(crate) struct SigqueueUsers(Mutex<HashMap<u32, Arc<AtomicU64>>>);
+
+/// The charge of one queued signal to its user (`sigqueue->ucounts`), given back when the
+/// signal leaves its queue or its timer goes.
+pub(crate) struct Charge(Arc<AtomicU64>);
+
+/// A user is at `RLIMIT_SIGPENDING`.
+pub(crate) struct Overflow;
+
+impl SigqueueUsers {
+    /// `inc_rlimit_get_ucounts`: charges one signal to `uid`, unless that takes it past `limit`.
+    /// `None` overrides the limit; the signal still counts.
+    pub(crate) fn charge(&self, uid: u32, limit: Option<u64>) -> Result<Charge, Overflow> {
+        let count = self.0.lock().unwrap().entry(uid).or_default().clone();
+        let queued = count.fetch_add(1, Ordering::Relaxed) + 1;
+        let charge = Charge(count);
+        match limit {
+            Some(limit) if queued > limit => Err(Overflow),
+            _ => Ok(charge),
+        }
+    }
+}
+
+impl Drop for Charge {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// Whom a group's queued signals count against: its process's real uid, up to the process's
+/// `RLIMIT_SIGPENDING` (`task_ucounts`, `task_rlimit`).
+pub(crate) struct Account {
+    users: Arc<SigqueueUsers>,
+    process: Weak<Process>,
+}
+
+impl Account {
+    pub(crate) fn new(users: Arc<SigqueueUsers>, process: &Arc<Process>) -> Self {
+        Self {
+            users,
+            process: Arc::downgrade(process),
+        }
+    }
+
+    /// `sig_get_ucounts` for `info`: kernel signals and `kill`'s standard ones go past the
+    /// limit (`override_rlimit`). SIGKILL is never queued, so it costs nothing.
+    fn charge(&self, info: &Siginfo) -> Result<Option<Charge>, Overflow> {
+        let sig = info.si_signo;
+        let Some(process) = self.process.upgrade().filter(|_| sig != Signal::SIGKILL.0) else {
+            return Ok(None);
+        };
+        let uid = process.cred.lock().unwrap().user.real;
+        let limit = match sig < SIGRTMIN && info.si_code >= 0 {
+            true => None,
+            false => Some(process.resources.lock().unwrap().sigpending()),
+        };
+        self.users.charge(uid, limit).map(Some)
+    }
 }
 
 struct GroupState {
@@ -102,21 +170,44 @@ struct Pending {
 
 /// One queued signal (`struct sigqueue`). A POSIX timer's signal names its timer, as the
 /// timer's preallocated `sigqueue` does on Linux: a timer is queued at most once, and it
-/// decides at dequeue whether its signal still counts (`posixtimer_deliver_signal`).
+/// decides at dequeue whether its signal still counts (`posixtimer_deliver_signal`); the timer
+/// holds its charge.
 struct Queued {
     info: Siginfo,
     timer: Option<Arc<PosixTimer>>,
+    /// Given back when the entry goes.
+    _charge: Option<Charge>,
 }
 
 impl Pending {
-    /// `__sigqueue_alloc` and `sigaddset`. Standard signals are not queued twice.
-    fn add(&mut self, info: Siginfo) {
+    /// `__send_signal_locked` from `legacy_queue` on: a standard signal is not queued twice,
+    /// and SIGKILL carries nothing. A signal its user has no room for (`charge`) is pending
+    /// without its `siginfo`, except a realtime one sent other than by `kill`, which fails with
+    /// `EAGAIN`.
+    fn add(
+        &mut self,
+        info: Siginfo,
+        charge: Result<Option<Charge>, Overflow>,
+    ) -> Result<(), Errno> {
         let sig = info.si_signo;
         if sig < SIGRTMIN && self.set & bit(sig) != 0 {
-            return;
+            return Ok(());
+        }
+        if sig != Signal::SIGKILL.0 {
+            match charge {
+                Ok(charge) => self.queue.push_back(Queued {
+                    info,
+                    timer: None,
+                    _charge: charge,
+                }),
+                Err(Overflow) if sig >= SIGRTMIN && info.si_code != SiCode::SI_USER.0 => {
+                    return Err(Errno::EAGAIN);
+                }
+                Err(Overflow) => {}
+            }
         }
         self.set |= bit(sig);
-        self.queue.push_back(Queued { info, timer: None });
+        Ok(())
     }
 
     /// `posixtimer_queue_sigqueue`: a timer's signal is queued even next to a pending
@@ -126,6 +217,7 @@ impl Pending {
         self.queue.push_back(Queued {
             info,
             timer: Some(timer),
+            _charge: None,
         });
     }
 
@@ -136,7 +228,7 @@ impl Pending {
     }
 
     /// `collect_signal`: takes the oldest instance of `sig`, and its timer if a POSIX timer
-    /// sent it.
+    /// sent it. A signal pending without its `siginfo` comes as `SI_USER` from pid 0.
     fn take(&mut self, sig: i32) -> (Siginfo, Option<Arc<PosixTimer>>) {
         let at = self.queue.iter().position(|q| q.info.si_signo == sig);
         let queued = at.and_then(|at| self.queue.remove(at));
@@ -145,7 +237,7 @@ impl Pending {
         }
         match queued {
             Some(queued) => (queued.info, queued.timer),
-            None => (kernel_info(sig), None),
+            None => (user_info(sig, SiCode::SI_USER, 0, 0), None),
         }
     }
 
@@ -190,34 +282,48 @@ struct TaskState {
     saved: Option<u64>,
     pending: Pending,
     altstack: AltStack,
-    /// One entry per handler running on this task, innermost last: whether it runs on the
-    /// alternate stack, and the alternate stack to re-arm afterwards (`SS_AUTODISARM`).
-    frames: Vec<(bool, Option<AltStack>)>,
+    /// The alternate stack each handler running on this task found, innermost last: what its
+    /// frame saved in `uc_stack`, which its sigreturn restores (`restore_altstack`), re-arming
+    /// a stack that `SS_AUTODISARM` disarmed for the handler.
+    frames: Vec<AltStack>,
 }
 
 impl TaskState {
-    fn new(blocked: u64, flag: Arc<WorkFlag>) -> Self {
+    fn new(inherited: Inherited, flag: Arc<WorkFlag>) -> Self {
         Self {
             flag,
             notify: false,
-            blocked,
+            blocked: inherited.blocked,
             saved: None,
             pending: Pending::default(),
-            altstack: AltStack::default(),
+            altstack: inherited.altstack,
             frames: Vec::new(),
         }
     }
+}
 
-    fn on_altstack(&self) -> bool {
-        self.frames.iter().any(|(on, _)| *on)
+/// What a new task takes over from the task that creates it (`copy_process`).
+pub(crate) struct Inherited {
+    blocked: u64,
+    altstack: AltStack,
+}
+
+impl Inherited {
+    /// A task that inherits nothing: no signal blocked, no alternate stack.
+    pub(crate) fn none() -> Self {
+        Self {
+            blocked: 0,
+            altstack: AltStack::default(),
+        }
     }
 }
 
-#[derive(Clone, Copy)]
+/// `sas_ss_sp`, `sas_ss_size` and `sas_ss_flags`.
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct AltStack {
     sp: u32,
     size: u32,
-    /// `SS_DISABLE`, or `SS_AUTODISARM` for an armed stack.
+    /// As `sigaltstack` set them: the mode and `SS_AUTODISARM`.
     flags: u32,
 }
 
@@ -232,8 +338,23 @@ impl Default for AltStack {
 }
 
 impl AltStack {
-    fn enabled(&self) -> bool {
-        self.flags & SigaltstackFlags::SS_DISABLE.0 == 0
+    /// `on_sig_stack`: whether `sp` lies on the stack. An `SS_AUTODISARM` stack never does, as
+    /// delivery disarms it before anything runs on it.
+    fn holds(&self, sp: u32) -> bool {
+        self.flags & SigaltstackFlags::SS_AUTODISARM.0 == 0
+            && sp > self.sp
+            && sp - self.sp <= self.size
+    }
+
+    /// The `ss_flags` `sigaltstack` reports for a task at `sp`: `SS_DISABLE` without a stack,
+    /// `SS_ONSTACK` on it, and `SS_AUTODISARM` as set (`sas_ss_flags`).
+    fn reported_flags(&self, sp: u32) -> u32 {
+        let state = match (self.size, self.holds(sp)) {
+            (0, _) => SigaltstackFlags::SS_DISABLE.0,
+            (_, true) => SigaltstackFlags::SS_ONSTACK.0,
+            (_, false) => 0,
+        };
+        state | (self.flags & SigaltstackFlags::SS_AUTODISARM.0)
     }
 }
 
@@ -278,7 +399,7 @@ fn kernel_info(sig: i32) -> Siginfo {
 
 /// A `siginfo` for a signal a process sent: `si_pid` and `si_uid` (its real uid) are its first
 /// fields.
-fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
+pub(crate) fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
     let mut info = kernel_info(sig);
     info.si_code = code.0;
     info.sifields[0..4].copy_from_slice(&pid.to_le_bytes());
@@ -287,22 +408,24 @@ fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
 }
 
 impl Signals {
-    pub(crate) fn new() -> Arc<Self> {
+    /// A group whose queued signals `account` pays for.
+    pub(crate) fn new(account: Option<Account>) -> Arc<Self> {
         Arc::new(Self {
             state: Mutex::default(),
             queue: WaitQueue::new(),
+            account,
         })
     }
 
-    /// Adds `task` to the group, with the mask it inherits and the work flag its signals raise.
+    /// Adds `task` to the group, with what it inherits and the work flag its signals raise.
     pub(crate) fn attach(
         self: &Arc<Self>,
         task: TaskId,
-        blocked: u64,
+        inherited: Inherited,
         flag: Arc<WorkFlag>,
     ) -> Arc<TaskSignals> {
         let mut state = self.state.lock().unwrap();
-        state.tasks.insert(task, TaskState::new(blocked, flag));
+        state.tasks.insert(task, TaskState::new(inherited, flag));
         Arc::new(TaskSignals {
             group: self.clone(),
             task,
@@ -310,10 +433,10 @@ impl Signals {
     }
 
     // ---- proc ----
-    /// `copy_sighand` and `copy_signal` for a new process: the dispositions and the trampoline,
-    /// with nothing pending and no timers.
-    pub(crate) fn fork(&self) -> Arc<Self> {
-        let new = Self::new();
+    /// `copy_sighand` and `copy_signal` for a new process, whose queued signals `account` pays
+    /// for: the dispositions and the trampoline, with nothing pending and no timers.
+    pub(crate) fn fork(&self, account: Account) -> Arc<Self> {
+        let new = Self::new(Some(account));
         {
             let state = self.state.lock().unwrap();
             let mut copy = new.state.lock().unwrap();
@@ -356,15 +479,16 @@ impl Signals {
     }
 
     /// Queues `info` for the whole group (`__group_send_sig_info`).
-    pub(crate) fn send_group(&self, info: Siginfo) {
-        self.send(None, info);
+    pub(crate) fn send_group(&self, info: Siginfo) -> Result<(), Errno> {
+        self.send(None, info)
     }
     // ---- end proc ----
 
     /// `zap_other_threads`: queues SIGKILL for the group, so every task blocked in an
     /// interruptible wait wakes up and unwinds through its pending exit.
     pub(crate) fn kill_all(&self) {
-        self.send(None, kernel_info(Signal::SIGKILL.0));
+        // SIGKILL needs no room in a queue.
+        let _ = self.send(None, kernel_info(Signal::SIGKILL.0));
     }
 
     /// Whether `sig` is pending for the group or one of its tasks.
@@ -408,17 +532,21 @@ impl Signals {
     }
 
     /// `send_signal`: queues `info` for the group, or for `task` alone, unless it would be
-    /// ignored, and wakes the group's waiters.
-    fn send(&self, task: Option<TaskId>, info: Siginfo) {
+    /// ignored, and wakes the group's waiters. `EAGAIN` when the target's user has no room for
+    /// a realtime signal that must keep its `siginfo`.
+    fn send(&self, task: Option<TaskId>, info: Siginfo) -> Result<(), Errno> {
+        // The charge reads the process's credentials and limits, which come before the group.
+        let charge = self.account.as_ref().map_or(Ok(None), |a| a.charge(&info));
         let mut state = self.state.lock().unwrap();
         if !state.prepare(task, info.si_signo) {
-            return;
+            return Ok(());
         }
         let target = task.filter(|task| state.tasks.contains_key(task));
-        state.pending(target).add(info);
+        state.pending(target).add(info, charge)?;
         state.raise(target, info.si_signo);
         drop(state);
         self.queue.wake(wasixv2_wait::PollMask::empty());
+        Ok(())
     }
 
     /// `posixtimer_send_sigqueue`: queues the signal of `timer`, which just expired, for its
@@ -686,6 +814,21 @@ impl TaskSignals {
         self.with(|task| task.blocked)
     }
 
+    /// What a task this one creates with `flags` inherits: the mask, and the alternate stack
+    /// unless the new task shares the address space and runs alongside (`sas_ss_reset` for
+    /// `CLONE_VM` without `CLONE_VFORK`: a thread).
+    pub(crate) fn inherit(&self, flags: CloneFlags) -> Inherited {
+        let thread =
+            flags.contains(CloneFlags::CLONE_VM) && !flags.contains(CloneFlags::CLONE_VFORK);
+        self.with(|task| Inherited {
+            blocked: task.blocked,
+            altstack: match thread {
+                true => AltStack::default(),
+                false => task.altstack,
+            },
+        })
+    }
+
     /// The masks `/proc/<pid>/status` shows: pending for the task and for the group, blocked,
     /// ignored and caught.
     pub(crate) fn proc_status(&self) -> [u64; 5] {
@@ -720,7 +863,8 @@ impl TaskSignals {
 
     /// Queues SIGKILL for this task alone, as `zap_other_threads` does for each thread.
     pub(crate) fn kill(&self) {
-        self.group
+        let _ = self
+            .group
             .send(Some(self.task), kernel_info(Signal::SIGKILL.0));
     }
 
@@ -815,6 +959,12 @@ impl Interrupt for WaitFor<'_> {
     }
 }
 
+/// `si_code_reserved_to_kernel`: codes only the kernel sends, `SI_USER` and `SI_KERNEL` among
+/// them, and `tkill`'s.
+pub(crate) fn reserved_to_kernel(code: i32) -> bool {
+    code >= 0 || code == SiCode::SI_TKILL.0
+}
+
 fn check_sigsetsize(size: u32) -> Result<(), Errno> {
     match size as usize == Sigset::SIZE {
         true => Ok(()),
@@ -888,7 +1038,7 @@ impl Kernel {
             && pid > 0
             && self.procs.find(pid as u32).is_some()
         {
-            groups.push((pid, Signals::new()));
+            groups.push((pid, Signals::new(None)));
         }
         groups
     }
@@ -902,7 +1052,8 @@ impl Kernel {
         if ret.as_ref().err() == Some(&SysErr::Errno(Errno::EPIPE)) {
             let info = self.sender_info(caller, Signal::SIGPIPE.0, SiCode::SI_USER);
             let signals = self.task_signals(caller.task());
-            signals.group.send(Some(caller.task()), info);
+            // SIGPIPE needs no room in a queue.
+            let _ = signals.group.send(Some(caller.task()), info);
         }
         ret
     }
@@ -965,24 +1116,14 @@ impl Kernel {
             };
             let task = state.task(task);
             let mask = task.saved.take().unwrap_or(task.blocked);
+            // The frame saves the alternate stack (`__save_altstack`), and the execution layer
+            // puts it there unless the guest runs on it already (`sigsp`). Delivery disarms an
+            // `SS_AUTODISARM` stack until the handler returns (`signal_delivered`).
             let alt = task.altstack;
-            let onstack =
-                action.flags & SaFlags::SA_ONSTACK.0 != 0 && alt.enabled() && !task.on_altstack();
-            let mut rearm = None;
-            if onstack && alt.flags & SigaltstackFlags::SS_AUTODISARM.0 != 0 {
-                rearm = Some(alt);
+            task.frames.push(alt);
+            if alt.flags & SigaltstackFlags::SS_AUTODISARM.0 != 0 {
                 task.altstack = AltStack::default();
             }
-            let altstack = (
-                alt.sp,
-                match (task.on_altstack() || onstack, alt.enabled()) {
-                    (true, _) => SigaltstackFlags::SS_ONSTACK.0 as i32,
-                    (false, true) => (alt.flags & SigaltstackFlags::SS_AUTODISARM.0) as i32,
-                    (false, false) => SigaltstackFlags::SS_DISABLE.0 as i32,
-                },
-                alt.size,
-            );
-            task.frames.push((onstack, rearm));
             let mut block = action.mask;
             if action.flags & SaFlags::SA_NODEFER.0 == 0 {
                 block |= bit(sig);
@@ -998,8 +1139,7 @@ impl Kernel {
                 handler: action.handler,
                 flags: action.flags,
                 mask,
-                stack_top: onstack.then(|| alt.sp.wrapping_add(alt.size)),
-                altstack,
+                altstack: (alt.sp, alt.flags as i32, alt.size),
             }));
         }
     }
@@ -1021,9 +1161,11 @@ impl Kernel {
     }
 
     /// `rt_sigreturn`: the innermost handler of `task` finished. A call it interrupted is not
-    /// restarted through `restart_syscall` any more (`do_no_restart_syscall`). A handler that
-    /// ended its thread (`pthread_exit`, a cancellation) unwinds through here after the task is
-    /// gone.
+    /// restarted through `restart_syscall` any more (`do_no_restart_syscall`), and the alternate
+    /// stack is again what the handler's frame saved (`restore_altstack`; a change the handler
+    /// made to `uc_stack` is not seen). A handler that did not return (`siglongjmp`, `mask` is
+    /// `None`) restores nothing, so a stack it disarmed stays disarmed. A handler that ended its
+    /// thread (`pthread_exit`, a cancellation) unwinds through here after the task is gone.
     pub(crate) fn signal_return(&self, task: TaskId, mask: Option<u64>) {
         let (signals, restart) = {
             let state = self.state.read().unwrap();
@@ -1036,10 +1178,11 @@ impl Kernel {
             task.restart = None;
         }
         signals.with(|task| {
-            if let Some((_, Some(alt))) = task.frames.pop() {
-                task.altstack = alt;
-            }
+            let saved = task.frames.pop();
             if let Some(mask) = mask {
+                if let Some(alt) = saved {
+                    task.altstack = alt;
+                }
                 task.blocked = mask & !UNBLOCKABLE;
                 task.flag.raise();
             }
@@ -1234,10 +1377,8 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         // Only the kernel may claim to be the kernel or `tkill`, except towards the calling
-        // thread itself (`si_code_reserved_to_kernel`).
-        if (info.si_code >= 0 || info.si_code == SiCode::SI_TKILL.0)
-            && tid.unwrap_or(tgid) != caller.task().0 as Pid
-        {
+        // thread itself.
+        if reserved_to_kernel(info.si_code) && tid.unwrap_or(tgid) != caller.task().0 as Pid {
             return Err(Errno::EPERM.into());
         }
         let sender = Some(&*self.process(caller.task()));
@@ -1249,7 +1390,7 @@ impl Kernel {
     }
 
     /// A `siginfo` naming the caller's process as the sender.
-    fn sender_info(&self, caller: &Caller<'_>, sig: i32, code: SiCode) -> Siginfo {
+    pub(crate) fn sender_info(&self, caller: &Caller<'_>, sig: i32, code: SiCode) -> Siginfo {
         let process = self.process(caller.task());
         let uid = process.cred().user.real;
         user_info(sig, code, process.pid.0 as Pid, uid)
@@ -1282,10 +1423,10 @@ impl Kernel {
         if !self.may_signal(sender, pid, info.si_signo) {
             return Err(Errno::EPERM);
         }
-        if info.si_signo != 0 {
-            group.send(None, info);
+        match info.si_signo {
+            0 => Ok(()),
+            _ => group.send(None, info),
         }
-        Ok(())
     }
 
     /// Sends `sig` to the process `pid` from outside the machine, like `kill(2)` from a process
@@ -1309,7 +1450,8 @@ impl Kernel {
             return Err(Errno::ESRCH);
         }
         for (_, group) in groups {
-            group.send(None, kernel_info(sig));
+            // A kernel signal goes past the limit, or without its `siginfo`.
+            let _ = group.send(None, kernel_info(sig));
         }
         Ok(())
     }
@@ -1351,10 +1493,10 @@ impl Kernel {
         if !self.may_signal(sender, pid, info.si_signo) {
             return Err(Errno::EPERM);
         }
-        if info.si_signo != 0 {
-            group.send(Some(TaskId(tid as u32)), info);
+        match info.si_signo {
+            0 => Ok(()),
+            _ => group.send(Some(TaskId(tid as u32)), info),
         }
-        Ok(())
     }
 
     pub(crate) async fn sys_kill(
@@ -1389,7 +1531,8 @@ impl Kernel {
             }
             sent = true;
             if sig.0 != 0 {
-                group.send(None, info);
+                // `kill`'s signals are never refused for want of room (`SI_USER`).
+                let _ = group.send(None, info);
             }
         }
         // A process group or a single process none of which may be signalled is `EPERM`;
@@ -1423,40 +1566,48 @@ impl Kernel {
             true => None,
             false => Some(read_value(caller.memory(), uss).await?),
         };
+        // `do_sigaltstack` at the caller's stack pointer.
+        let sp = caller.memory().stack_pointer().await;
         let signals = self.task_signals(caller.task());
         let old = signals.with(|task| -> Result<Sigaltstack, Errno> {
-            let on = task.on_altstack();
             let alt = task.altstack;
             let old = Sigaltstack {
                 ss_sp: alt.sp,
-                ss_flags: match on {
-                    true => SigaltstackFlags::SS_ONSTACK.0 as i32,
-                    false => alt.flags as i32,
-                },
+                ss_flags: alt.reported_flags(sp) as i32,
                 ss_size: alt.size,
             };
-            if let Some(new) = new {
-                if on {
-                    return Err(Errno::EPERM);
-                }
-                let flags = new.ss_flags as u32;
-                let autodisarm = flags & SigaltstackFlags::SS_AUTODISARM.0;
-                let mode = flags & !SigaltstackFlags::SS_AUTODISARM.0;
-                task.altstack = match SigaltstackFlags(mode) {
-                    SigaltstackFlags::SS_DISABLE => AltStack::default(),
-                    m if m.0 == 0 || m == SigaltstackFlags::SS_ONSTACK => {
-                        if new.ss_size < SignalLimits::MINSIGSTKSZ.0 {
-                            return Err(Errno::ENOMEM);
-                        }
-                        AltStack {
-                            sp: new.ss_sp,
-                            size: new.ss_size,
-                            flags: autodisarm,
-                        }
-                    }
-                    _ => return Err(Errno::EINVAL),
-                };
+            let Some(new) = new else {
+                return Ok(old);
+            };
+            if alt.holds(sp) {
+                return Err(Errno::EPERM);
             }
+            let flags = new.ss_flags as u32;
+            let mode = SigaltstackFlags(flags & !SigaltstackFlags::SS_AUTODISARM.0);
+            if !matches!(
+                mode,
+                SigaltstackFlags::SS_DISABLE | SigaltstackFlags::SS_ONSTACK
+            ) && mode.0 != 0
+            {
+                return Err(Errno::EINVAL);
+            }
+            let requested = AltStack {
+                sp: new.ss_sp,
+                size: new.ss_size,
+                flags,
+            };
+            if requested == alt {
+                return Ok(old);
+            }
+            task.altstack = match mode {
+                SigaltstackFlags::SS_DISABLE => AltStack {
+                    sp: 0,
+                    size: 0,
+                    flags,
+                },
+                _ if new.ss_size < SignalLimits::MINSIGSTKSZ.0 => return Err(Errno::ENOMEM),
+                _ => requested,
+            };
             Ok(old)
         })?;
         if !uoss.is_null() {
@@ -1568,7 +1719,7 @@ fn real_timer_expired(group: &Signals, now: Duration) -> Option<Duration> {
             false => timer::forward(deadline, real.interval, now).1,
         };
     }
-    group.send(None, kernel_info(Signal::SIGALRM.0));
+    let _ = group.send(None, kernel_info(Signal::SIGALRM.0));
     group.state.lock().unwrap().real_timer.deadline
 }
 

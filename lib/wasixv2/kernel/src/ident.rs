@@ -216,6 +216,17 @@ impl Ident {
         self.child_subreaper
     }
 
+    /// `PR_SET_PDEATHSIG`: the signal the process gets when its parent exits, 0 for none.
+    pub(crate) fn pdeathsig(&self) -> i32 {
+        self.pdeathsig as i32
+    }
+
+    /// Forgets the parent-death signal, so a parent cannot signal a process that became more
+    /// privileged than it (`commit_creds`, and a set-user-ID `execve`).
+    pub(crate) fn clear_pdeathsig(&mut self) {
+        self.pdeathsig = 0;
+    }
+
     /// What a new process inherits (`copy_process`): everything but the parent-death signal
     /// and the subreaper flag.
     pub(crate) fn for_child(&self) -> Self {
@@ -244,12 +255,15 @@ impl Process {
         self.cred.lock().unwrap().clone()
     }
 
-    /// `commit_creds`: installs `new`, and makes the process non-dumpable if that changed its
-    /// effective or filesystem ids or gave it capabilities.
+    /// `commit_creds`: installs `new`, and makes the process non-dumpable and forgets its
+    /// parent-death signal if that changed its effective or filesystem ids or gave it
+    /// capabilities.
     pub(crate) fn commit_cred(&self, new: Cred) {
         let mut cred = self.cred.lock().unwrap();
         if new.drops_dumpable(&cred) {
-            self.ident.lock().unwrap().dumpable = false;
+            let mut ident = self.ident.lock().unwrap();
+            ident.dumpable = false;
+            ident.clear_pdeathsig();
         }
         *cred = new;
     }

@@ -37,8 +37,8 @@ use wasixv2_syscalls::{
     Caller, Control, Errno, GuestAction, SysErr, SysResult, Syscalls, TaskId, WorkFlag,
 };
 use wasmer::{
-    AsyncFunctionEnvMut, CompileError, Engine, Function, FunctionEnv, Imports, Instance, Memory,
-    MemoryError, Module, Pages, RuntimeError, Store, Value,
+    AsyncFunctionEnvMut, CompileError, Engine, Function, FunctionEnv, Global, Imports, Instance,
+    Memory, MemoryError, Module, Pages, RuntimeError, Store, Value,
 };
 use wasmer_types::TrapCode;
 
@@ -74,6 +74,8 @@ pub struct ExecEnv<S> {
     /// `task`'s work flag, read on every return to the guest.
     work: Arc<WorkFlag>,
     memory: Option<Memory>,
+    /// The guest's shadow stack pointer, `__stack_pointer`, which libc-built modules export.
+    stack_pointer: Option<Global>,
     /// The instance's half of its ABI; set once the instance exists.
     abi: Option<Arc<dyn AbiInstance<S>>>,
     // ---- thr ----
@@ -95,6 +97,7 @@ impl<S: Control> ExecEnv<S> {
             syscalls,
             task,
             memory: None,
+            stack_pointer: None,
             abi: None,
             threads: None,
             proc,
@@ -423,6 +426,7 @@ where
     });
     let data = env.as_mut(&mut store);
     data.memory = Some(memory);
+    data.stack_pointer = stack_pointer(&instance);
     data.abi = Some(bound.clone());
     data.threads = threads;
     data.proc.set_module(module);
@@ -433,6 +437,11 @@ where
         instance,
         abi: bound,
     })
+}
+
+/// The instance's `__stack_pointer`, if it exports it.
+pub(crate) fn stack_pointer(instance: &Instance) -> Option<Global> {
+    instance.exports.get_global("__stack_pointer").ok().cloned()
 }
 
 /// Fills a fresh instance with a forked parent's memory and globals.

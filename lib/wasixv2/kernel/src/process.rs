@@ -30,7 +30,7 @@ use crate::{
     Kernel, Process, Task,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     ident::Comm,
-    signal::Signals,
+    signal::{Signals, user_info},
     thread,
     work::Work,
 };
@@ -198,6 +198,12 @@ impl Kernel {
         tree.nodes.get(&pid).map_or(0, |node| node.parent as Pid)
     }
 
+    /// Whether `task` waits for a vfork child that runs in its instance.
+    pub(crate) fn vfork_waits(&self, task: TaskId) -> bool {
+        let tree = self.procs.tree.lock().unwrap();
+        tree.vforks.values().any(|&parent| parent == task)
+    }
+
     /// The signal state of the thread group led by `pid`.
     fn group_signals(&self, pid: u32) -> Option<Arc<Signals>> {
         let state = self.state.lock().unwrap();
@@ -234,7 +240,7 @@ impl Kernel {
         let (ignored, nocldwait) = parent_signals
             .as_ref()
             .map_or((true, true), |signals| signals.child_reaping());
-        let (exit, exit_signal, vfork_parent) = {
+        let (exit, exit_signal, vfork_parent, orphans) = {
             let mut tree = self.procs.tree.lock().unwrap();
             let reaper = tree.reaper(pid);
             let Some(node) = tree.nodes.get_mut(&pid) else {
@@ -263,16 +269,29 @@ impl Kernel {
             if autoreap {
                 tree.nodes.remove(&pid);
             }
-            let orphans: Vec<u32> = tree.children(pid).map(|(&child, _)| child).collect();
-            for child in orphans {
+            // `forget_original_parent`: the children go to the reaper, and those that asked for
+            // it hear of their parent's death.
+            let children: Vec<u32> = tree.children(pid).map(|(&child, _)| child).collect();
+            let mut orphans = Vec::new();
+            for child in children {
                 let node = tree.nodes.get_mut(&child).expect("listed above");
                 node.parent = reaper;
-                if reaper == 0 && node.exit.is_some() {
-                    tree.nodes.remove(&child);
+                let pdeathsig = node.process.ident.lock().unwrap().pdeathsig();
+                match node.exit {
+                    Some(_) if reaper == 0 => drop(tree.nodes.remove(&child)),
+                    None if pdeathsig != 0 => orphans.push((child, pdeathsig)),
+                    _ => {}
                 }
             }
-            (exit, exit_signal, tree.vforks.remove(&task))
+            (exit, exit_signal, tree.vforks.remove(&task), orphans)
         };
+        // `group_send_sig_info(pdeath_signal, SEND_SIG_NOINFO)`: from the parent, as `kill`.
+        for (child, sig) in orphans {
+            if let Some(signals) = self.group_signals(child) {
+                let info = user_info(sig, SiCode::SI_USER, pid as Pid, exit.uid);
+                let _ = signals.send_group(info);
+            }
+        }
         if let Some(parent_task) = vfork_parent {
             let action = GuestAction::VforkReturn {
                 parent: parent_task,
@@ -284,7 +303,8 @@ impl Kernel {
             && exit_signal != 0
             && !ignored
         {
-            signals.send_group(child_info(exit_signal, pid, exit));
+            // A realtime exit signal its parent has no room for is lost.
+            let _ = signals.send_group(child_info(exit_signal, pid, exit));
         }
         self.procs.changed.wake(PollMask::empty());
     }
@@ -355,6 +375,11 @@ impl Kernel {
         }
         // Threads start through `thread-spawn`; a process sharing handlers is not supported.
         if flags.contains(CloneFlags::CLONE_THREAD) || flags.contains(CloneFlags::CLONE_SIGHAND) {
+            return Err(Errno::EINVAL.into());
+        }
+        // No pidfd comes out of clone yet (`pidfd_open` gives one): failing beats a pidfd
+        // never written to `parent_tid`.
+        if flags.contains(CloneFlags::CLONE_PIDFD) {
             return Err(Errno::EINVAL.into());
         }
         if !flags.contains(CloneFlags::CLONE_VM) {
@@ -476,11 +501,12 @@ impl Kernel {
                 false => Arc::new(Mutex::new(task.fs.lock().unwrap().clone())),
             };
             let flag = Arc::new(WorkFlag::default());
-            let signals =
-                task.signals
-                    .group()
-                    .fork()
-                    .attach(id, task.signals.blocked(), flag.clone());
+            let account = crate::signal::Account::new(self.sigqueue_users.clone(), &process);
+            let signals = task.signals.group().fork(account).attach(
+                id,
+                task.signals.inherit(flags),
+                flag.clone(),
+            );
             // A vfork child runs on its parent's memory, so it shares the address space; a fork
             // child gets a copy of its mappings and break over the memory the execution layer
             // copies.
@@ -708,7 +734,8 @@ impl Kernel {
         *process.args.lock().unwrap() = args;
         *process.env.lock().unwrap() = env;
         let no_new_privs = process.ident.lock().unwrap().no_new_privs;
-        let (cred, secure) = process.cred().exec(
+        let old = process.cred();
+        let (cred, secure) = old.exec(
             binary.mode,
             binary.owner,
             !binary.nosuid && !no_new_privs,
@@ -716,12 +743,16 @@ impl Kernel {
         );
         let dumpable =
             cred.user.effective == cred.user.real && cred.group.effective == cred.group.real;
+        let privileged = secure || cred.drops_dumpable(&old);
         *process.cred.lock().unwrap() = cred;
         *process.exe.lock().unwrap() = Some(binary.path);
         {
             let mut ident = process.ident.lock().unwrap();
             ident.secure_exec = secure;
             ident.dumpable = dumpable;
+            if privileged {
+                ident.clear_pdeathsig();
+            }
         }
         self.with_task(task, |t| {
             t.comm = Comm::from_path(name);
@@ -986,16 +1017,25 @@ impl Kernel {
             Errno::EINVAL => Errno::EBADF,
             err => err,
         })?;
-        let alive = {
-            let tree = self.procs.tree.lock().unwrap();
-            tree.nodes.get(&pid).is_some_and(|node| node.exit.is_none())
+        // `kill_pid_info_type`: a zombie takes the signal and does nothing with it; a reaped
+        // process is `ESRCH`.
+        let info = match info.is_null() {
+            true => self.sender_info(caller, sig.0, SiCode::SI_USER),
+            false => {
+                let info = read_value(caller.memory(), info).await?;
+                if info.si_signo != sig.0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                // Only the caller itself may be sent a `siginfo` that claims to be the kernel's.
+                if caller.task().0 != pid && crate::signal::reserved_to_kernel(info.si_code) {
+                    return Err(Errno::EPERM.into());
+                }
+                info
+            }
         };
-        if !alive {
-            return Err(Errno::ESRCH.into());
-        }
-        // TODO: send the caller's `info` as `rt_sigqueueinfo` does.
-        let _ = info;
-        self.sys_kill(caller, pid as Pid, sig).await
+        let sender = self.process(caller.task());
+        self.send_to_group(Some(&sender), pid as Pid, info)?;
+        Ok(0)
     }
 }
 

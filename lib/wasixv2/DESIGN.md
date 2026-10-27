@@ -136,7 +136,7 @@ The kernel is plain async Rust with no wasm engine, no async runtime and no reco
 - **Credentials.** Real, effective and saved uid and gid, supplementary groups and capabilities. They are checked by the kernel, never by the host.
 - **Scheduling attributes.** Policy (`SCHED_OTHER`, `BATCH`, `IDLE`, `FIFO`, `RR`, `DEADLINE`), priorities, nice value, utilization clamps, CPU affinity, timer slack and name are per task, as on Linux, and follow `kernel/sched/syscalls.c`: the same validation, `CAP_SYS_NICE`, `RLIMIT_NICE` and `RLIMIT_RTPRIO` checks, deadline admission, `SCHED_RESET_ON_FORK`, and inheritance on clone and across `execve`. They are advisory: the host schedules guest threads, so none of them changes when or where a guest runs, and real-time policies give no real-time guarantees.
 - **Signals.**
-  - Pending sets per task and per thread group, masks, dispositions, `sigaltstack`, and queued realtime signals.
+  - Pending sets per task and per thread group, masks, dispositions, `sigaltstack`, and queued realtime signals, counted per user against `RLIMIT_SIGPENDING`.
   - Delivered on the return-to-guest path.
 - **Waiting and time.**
   - Wait queues; futexes keyed by memory object and offset, so shared mappings work across processes.
@@ -495,7 +495,7 @@ The execution crate is the only layer below the facade that knows about the wasm
   - tear down on exit
 - **Signal frames.** The interrupted wasm call stack stays intact under the handler, so the frame is small.
   - **`mcontext_t`** holds only guest state a handler can clobber, such as the shadow stack pointer and the TLS base.
-  - **`sigaltstack`** moves only the shadow stack.
+  - **`sigaltstack`** moves only the shadow stack. Whether the guest runs on its alternate stack is read from the shadow stack pointer, as Linux's `on_sig_stack` reads the user stack pointer, so a handler that switches to another context and never returns leaves nothing behind.
   - **The frame goes below LLVM's 128-byte red zone** under the shadow stack pointer, where a function that calls nothing keeps its locals without moving the pointer, as x86-64's `get_sigframe` does. Delivery at a preemption point can land in such a function.
   - **The trampoline calls the handler through its actual type.** The host writes the handler's parameter count into the frame, and libc's trampoline passes that many of `signo`, `info` and `uctx`. A native handler ignores the arguments it does not declare, so a mismatch with `SA_SIGINFO` is not fatal.
   - **`rt_sigreturn`** is the trampoline's return: the host restores the mask, the shadow stack pointer and the TLS base from the frame.
@@ -517,6 +517,8 @@ The execution crate is the only layer below the facade that knows about the wasm
   3. The exec layer switches the instance's current task to the child, so later syscalls run as the child.
   4. When the child calls `execve`, the new image starts in its own instance. When it calls `exit` or a signal kills it, it becomes a zombie.
   5. Either way, the instance switches back to the parent task, and the host calls libc's exported `wasixv2_vfork_return(child)` from within the child's last call. It `longjmp`s to the vfork point, which returns the child's pid; the exception unwinds through the call as a `siglongjmp` out of a handler does.
+
+  The parent's wait is not killable, unlike Linux's `wait_for_vfork_done`: its instance runs the child, so a signal that kills the parent takes effect once the child execs or exits. When the parent's thread group exits meanwhile (another thread's `exit_group`), the parent becomes a zombie only once its instance has unwound it.
 
   wasixv1 is brittle because it swaps its whole environment object in place and threads vfork state through exit, exec and process startup. Here a task switch is one pointer in the exec layer, and the kernel tracks the vfork relationship. The child shares the parent's address space, so its mappings and futexes are the parent's. libc keeps the stack of vfork points per thread, so threads vfork independently. As on Linux, returning from the function that called `vfork` is undefined. Because `vfork` is a macro, its address cannot be taken. libc has no `vfork` function, so a call that bypasses the macro, such as one through FFI, fails to link instead of failing at run time.
 - **Preemption.** The loader adds interruption checks to every module: each function entry and loop header counts down a budget in a global of the instance, and when it runs out the guest calls a hook import that runs the return-to-guest path and hands out a new budget. A busy guest thus takes signals, `SIGKILL` and its group's exit within a bounded number of steps, on every engine backend. The start function gets no checks. A kernel work flag per task, set whenever work is queued for it, lets the hook and every syscall return skip the kernel when there is nothing to do.

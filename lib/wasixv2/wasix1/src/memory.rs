@@ -197,6 +197,10 @@ impl<S: 'static> UserMemory for CompatMemory<'_, S> {
         self.guest.can_duplicate()
     }
 
+    fn stack_pointer(&self) -> LocalFuture<'_, u32> {
+        self.guest.stack_pointer()
+    }
+
     /// Grows the guest's memory, but never into the scratch window.
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(async move {

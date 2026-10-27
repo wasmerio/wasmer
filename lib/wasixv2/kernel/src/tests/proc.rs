@@ -8,7 +8,7 @@ use wasixv2_abi::{
 use super::*;
 
 /// An address space the engine can duplicate, as the asyncify configuration's is.
-struct ForkableMemory(FlatMemory);
+pub(super) struct ForkableMemory(pub(super) FlatMemory);
 
 impl UserMemory for ForkableMemory {
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
@@ -32,7 +32,7 @@ impl UserMemory for ForkableMemory {
     }
 }
 
-fn forkable() -> ForkableMemory {
+pub(super) fn forkable() -> ForkableMemory {
     ForkableMemory(FlatMemory(RefCell::new(vec![0; 256])))
 }
 

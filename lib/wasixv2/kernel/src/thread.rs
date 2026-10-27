@@ -32,8 +32,11 @@ pub(crate) struct Group {
 struct GroupState {
     /// Tasks that have not exited yet, in step with their `ThreadState::exited`.
     live: u32,
-    /// The status of `exit_group`, or of the last task's `exit`.
+    /// The status of `exit_group`, or of the group's end when its last task called `exit`.
     exit: Option<i32>,
+    /// The status of the leader's own `exit`, which is the group's when it ends without an
+    /// `exit_group` (`wait_task_zombie` reads the leader's `exit_code`).
+    leader_exit: Option<i32>,
 }
 
 impl Group {
@@ -188,7 +191,7 @@ impl Kernel {
                 signals: task
                     .signals
                     .group()
-                    .attach(id, task.signals.blocked(), flag),
+                    .attach(id, task.signals.inherit(THREAD), flag),
             };
             state.last_id += 1;
             state.tasks.insert(id, new);
@@ -222,9 +225,9 @@ impl Kernel {
         }
     }
 
-    /// `do_exit` for one task. The last task to exit ends its thread group with its status. The
-    /// group leader stays until then, as a zombie leader does on Linux, so the group's status
-    /// reaches whoever started the process.
+    /// `do_exit` for one task. The last task to exit ends its thread group, with the leader's
+    /// status. The group leader stays until then, as a zombie leader does on Linux, so the
+    /// group's status reaches whoever started the process.
     pub(crate) async fn sys_exit(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
         let task = caller.task();
         let (process, thread) = self.with_task(task, |t| (t.process.clone(), t.thread));
@@ -242,10 +245,13 @@ impl Kernel {
             }
             entry.thread.exited = true;
             let mut group = process.group.state.lock().unwrap();
+            if task == process.pid {
+                group.leader_exit = Some(status & 0xff);
+            }
             group.live -= 1;
-            group.live == 0
+            (group.live == 0).then(|| group.leader_exit.unwrap_or(status))
         };
-        if last {
+        if let Some(status) = last {
             self.mm_release(caller).await;
             self.do_group_exit(task, status);
             return Ok(());
@@ -323,6 +329,8 @@ impl Kernel {
     /// `exit_notify` once the group has exited and none of its threads is left but the leader
     /// (`thread_group_empty`, `delay_group_leader`): only then the process becomes a zombie,
     /// its files close and its parent hears of it, so nothing of it runs after its exit is seen.
+    /// A leader waiting for its vfork child counts as running: its instance resumes it once the
+    /// child is done, and it unwinds through its exit from there.
     fn exit_notify(&self, process: &Arc<Process>) {
         let Some(status) = process.group.status() else {
             return;
@@ -334,7 +342,7 @@ impl Kernel {
                 .iter()
                 .any(|(&id, t)| id != process.pid && Arc::ptr_eq(&t.process, process))
         };
-        if !others {
+        if !others && !self.vfork_waits(process.pid) {
             // ---- ipc ----
             // `exit_sem`, by the group's last task.
             self.ipc_process_exited(process.pid.0);
