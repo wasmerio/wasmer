@@ -7,27 +7,32 @@ Update it when a step lands.
 
 ## State
 
-`feat/wasixv2` at `bdcdb958bef` contains the kernel, exec, VFS, networking, fork/exec/vfork,
-signals, threads, memory mappings and IPC, memfd, POSIX timers, fix-exec (traps as signals,
-preemption, task lifetime), the exec `Abi` registry and the WASIX v1 compat layer
-(`lib/wasixv2/wasix1`). `wasmer run` runs WASIX v2, WASIX v1 and WASI modules on the v2 kernel;
-the legacy `lib/wasix` run path is gone from the CLI.
+`feat/wasixv2` at `f98fc48fa5c` (merge train 5) contains the kernel, exec, VFS, networking,
+fork/exec/vfork, signals, threads, memory mappings and IPC, memfd, POSIX timers, fix-exec (traps as
+signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compat layer
+(`lib/wasixv2/wasix1`), package commands in `/bin` with `#!` and the cached image loader, atomic
+waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
+modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` (wasixv2-tests `b0861b8`): 2338 pass, 1233 expected failures, 0 unexpected.
-Suite on merge train 5 (wasixv2-tests `6405893`, two runs): 2349 pass, 1231 expected failures,
-0 unexpected failures, 0 unexpected passes, 454 ignored. The failure sets equal the in-tree lists,
-so train 5 needs no bless commit.
+Suite on `feat/wasixv2` `f98fc48fa5c` (wasixv2-tests `6405893`, two runs): 2349 pass, 1231 expected
+failures, 0 unexpected, 454 ignored.
 
-| Suite | Pass | Expected failures | Ignored | train 5 vs `b0861b8` |
-| --- | --- | --- | --- | --- |
-| Open POSIX | 1328 | 465 | 83 | = |
-| LTP | 464 | 738 | 370 | = |
-| libc-test | 393 | 28 | 0 | = |
-| wasixv2 suite (`suite/`) | 165 | 0 | 1 | +5 new, all pass |
+| Suite | Pass | Expected failures | Ignored |
+| --- | --- | --- | --- |
+| Open POSIX | 1328 | 465 | 83 |
+| LTP | 464 | 738 | 370 |
+| libc-test | 393 | 28 | 0 |
+| wasixv2 suite (`suite/`) | 165 | 0 | 1 |
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
-quickjs. python/python needs dynamic linking (owned by another team, out of scope for this plan).
+quickjs; SIGTERM of v1 servers without the host panic; `wasmer/bash` with commands in `/bin`.
+python/python needs dynamic linking (owned by another team, out of scope for this plan).
+
+**Merge train 5 (§1) has landed** (see integration.md). Train 6 (§2) is assembled as wasmer
+`wasixv2/train6` `59f52628a08` (WP3 10 commits from `wasixv2/review-futex-mm-2`, WP5+6 15 from
+`wasixv2/review-net-2`, WP9 8 from `wasixv2/review-signals-split`, tests bump) and tests `train6`
+`de30e29`: crate tests 577, clippy, fmt, release and CLI (51/0/13) pass; the suite round is next.
 
 ## Branch map
 
@@ -391,11 +396,15 @@ Toolchain from scratch:
    `make wasixv2-sysroot` and after it `make wasixv2-sysroot-asyncify`. They build
    `build-wasixv2/sysroot-wasixv2` and `sysroot-wasixv2-asyncify`, which `WASIXCC_SYSROOT_PREFIX`
    points at.
-6. CLI integration tests: `wasixccenv download-sysroot v2026-05-12.1` (the released v1 sysroot,
+   The sysroot build runs one job per core whatever `-j` says: use
+   `MAKEFLAGS= OMP_NUM_THREADS=3 nice -n 19 make …` on a shared machine. The sysroot has no libc++,
+   so C++ programs can't target `wasm32-wasixv2` yet (a gap).
+6. CLI integration tests: `wasixccenv download-sysroot v2026-05-12.1` (with `WASIXCC_SYSROOT_PREFIX`
+   unset, or it lands in libc2's build directory) (the released v1 sysroot,
    in `~/.wasixcc/sysroot-v2026-05-12.1`).
 7. wasmer: check out the branch, then
-   `git submodule update --init lib/napi lib/wasixv2/codegen tests/wasixv2` (cargo needs
-   `lib/napi` for workspace metadata) and `git -C tests/wasixv2 submodule update --init` (the
+   `git submodule update --init lib/napi lib/wasixv2/codegen tests/wasixv2 wasmer-test-files` (cargo needs
+   `lib/napi` for workspace metadata; the CLI `--test run` tests need `wasmer-test-files`) and `git -C tests/wasixv2 submodule update --init` (the
    external suites: LTP, Open POSIX, libc-test; without them the runner skips those suites).
 
 Gates and runs (rules 8 and 12: `-j3`, `nice -n 19`, one heavy command at a time):

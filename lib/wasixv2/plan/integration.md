@@ -111,7 +111,7 @@ No new failures. Cause changes: 4 posix tests "guest trapped: unreachable" -> ex
 - env.sh: add autotools to PATH; reconsider the 20 s timeout for blessing (60 s default).
 - wasix1 C tests (tests/c) need a v1 wasixcc via WASIX1_TEST_CC/WASIX1_WASIXCC to run.
 
-## 2026-10-27: train5 (bin-commands, v1-sigterm, userland-fixes) — STOPPED before landing
+## 2026-10-27: train5 (bin-commands, v1-sigterm, userland-fixes) — LANDED
 
 Stopped on user request before landing. Nothing was pushed to feat/wasixv2 or any main branch.
 The work is on backup branches only:
@@ -210,3 +210,26 @@ Worktrees: wasmer `/home/theduke/dev/github.com/wasmerio/wasmer-train5` (branch
 5. The user still has to decide on the v1 0777 create-mode commit (f71e0b1a38b).
 6. WP2's remainder (H10 exec cost, identity-keyed cache, run_file single compile, the CLI's
    check_command_atom now overlaps the kernel probe) belongs to another agent.
+
+### Landing (2026-10-27, second machine)
+
+Validated on a fresh toolchain (LLVM wasix-22.1.8 `3f3e05caa210`, wasixcc `8222197`, libc2 `train5`
+`0006659a`, binaryen 129) with the final tree (`926bb24cc9f` included):
+
+- `gates.sh release` EXIT 0.
+- Two full unblessed suite runs, both 2349 pass, 1231 expected failures, 0 unexpected failures,
+  0 unexpected passes, 454 ignored (Open POSIX 1328/465/83, LTP 464/738/370, libc-test 393/28/0,
+  wasixv2 165/0/1). The `ef` diffs differ from the lists only in a temp path and one hand-written
+  reason: no bless commit.
+- Smoke: sws-v2 28/28; v1 8 pass, python expected-fail. Extras: v1 sws and `php -S` stop on SIGTERM
+  (exit 127) with no "syscall from an unknown task" panic; `wasmer/bash` prints 85, `hi`,
+  `/usr/bin/readlink`; the userland package and `out/bin` pass.
+- Exec cost against `feat/wasixv2` `bdcdb958bef` (3 runs each, warm and cold):
+  `exec-exit-with-threads` 0.7–1.2 s vs 6.9–9.6 s; `proc-` 1.0–1.6 s vs 3.6–4.3 s (the base fails
+  one `proc-` test, a test train 5 added). The module cache makes exec about 10× cheaper.
+- The first suite attempts failed with ENOSPC (each worktree `target/` is ~20 GB): keep about
+  60 GB free before a full suite run.
+
+Landed, fast-forward: tests `main` `b0861b8..6405893`; libc2 `main` `5d33ff2a..c26931b5`
+(`0006659a` without `wip:`); wasmer `feat/wasixv2` `bdcdb958bef..f98fc48fa5c` (`0269525c9eb`
+without `wip:`). `f71e0b1a38b` (wasix1 0777) kept, as decided.
