@@ -129,6 +129,24 @@ impl Waiter {
         }))
     }
 
+    /// A handle that wakes this waiter directly, as Linux's `wake_up_process` does for the task
+    /// a `futex_q` names, for waits that keep their own record of the sleeper instead of a
+    /// `WaitQueue` entry.
+    pub fn handle(&self) -> WakeHandle {
+        WakeHandle(self.state.clone())
+    }
+
+    /// Puts the waiter on `interrupt`'s queue once, for a wait that sleeps many times: sleeping
+    /// with the result registers nothing more.
+    pub fn watch<'a>(&self, interrupt: &'a dyn Interrupt) -> Watched<'a> {
+        Watched {
+            interrupt,
+            _registration: interrupt
+                .queue()
+                .map(|queue| self.register(queue, PollMask::empty())),
+        }
+    }
+
     /// Clears and returns the events of wakeups not yet consumed, if there were any.
     pub fn take_wakeup(&self) -> Option<PollMask> {
         let mut inner = self.state.inner.lock().unwrap();
@@ -172,6 +190,36 @@ impl Waiter {
             Poll::Pending
         })
         .await
+    }
+}
+
+/// Wakes one [`Waiter`]; see [`Waiter::handle`].
+#[derive(Clone)]
+pub struct WakeHandle(Arc<TaskState>);
+
+impl WakeHandle {
+    /// Wakes the waiter, as a queue it is on would with no events. Returns whether it was not
+    /// woken yet.
+    pub fn wake(&self) -> bool {
+        self.0.wake(PollMask::empty())
+    }
+}
+
+/// An [`Interrupt`] whose queue a waiter is on for as long as this lives; see
+/// [`Waiter::watch`].
+pub struct Watched<'a> {
+    interrupt: &'a dyn Interrupt,
+    _registration: Option<WaitRegistration>,
+}
+
+impl Interrupt for Watched<'_> {
+    fn pending(&self) -> bool {
+        self.interrupt.pending()
+    }
+
+    /// Registered already.
+    fn queue(&self) -> Option<&WaitQueue> {
+        None
     }
 }
 

@@ -364,3 +364,36 @@ fn interruptible_ends_a_foreign_wait_on_a_signal() {
     // A wait that can complete does, even with a signal pending.
     assert_eq!(block_on(interruptible(async { 7 }, &signals)), Ok(7));
 }
+
+#[test]
+fn a_handle_wakes_its_waiter_and_a_watched_interrupt_registers_once() {
+    let signals = Signals {
+        pending: AtomicBool::new(false),
+        queue: WaitQueue::new(),
+    };
+    let waiter = Waiter::new();
+    let watched = waiter.watch(&signals);
+    assert!(signals.queue.is_active());
+
+    let handle = waiter.handle();
+    assert!(handle.wake());
+    // A second wake before the waiter ran finds it woken already.
+    assert!(!handle.wake());
+    assert_eq!(
+        block_on(waiter.sleep(&watched, None)),
+        Wakeup::Woken(PollMask::empty())
+    );
+
+    {
+        let mut sleep = pin!(waiter.sleep(&watched, None));
+        assert!(poll_once(sleep.as_mut()).is_pending());
+        // The registration `watch` made wakes the sleep.
+        signals.pending.store(true, Ordering::SeqCst);
+        signals.queue.wake(PollMask::empty());
+        let woken = poll_once(sleep.as_mut());
+        assert_eq!(woken, Poll::Ready(Wakeup::Woken(PollMask::empty())));
+    }
+    assert_eq!(block_on(waiter.sleep(&watched, None)), Wakeup::Interrupted);
+    drop(watched);
+    assert!(!signals.queue.is_active());
+}
