@@ -2,6 +2,7 @@
 //! execution engine into a machine, and boots it.
 
 use std::{
+    collections::HashSet,
     future::Future,
     io,
     path::Path,
@@ -13,8 +14,9 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
+pub use shared_buffer::OwnedBuffer;
 use wasixv2_exec::{Abis, Wasixv2};
-pub use wasixv2_exec::{ExecError, instrument, load};
+pub use wasixv2_exec::{Compile, ExecError, LoadError, Loader, instrument, load};
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
 #[cfg(feature = "tokio")]
@@ -29,13 +31,15 @@ use wasixv2_kernel::{HostClock, Kernel};
 use wasixv2_syscalls::{Layered, TaskId};
 use wasixv2_trace::Trace;
 pub use wasixv2_vfs::Filesystem;
-use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, Vfs};
+use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, NAME_MAX, Vfs};
 use wasixv2_vfs_mem::MemFs;
 use wasixv2_vfs_overlay::{MAX_LOWERS, OverlayFs};
 use wasixv2_vfs_package::PackageFs;
 pub use wasixv2_vnet::{Net, NetConfig};
 #[cfg(feature = "wasix1")]
-pub use wasixv2_wasix1::{V1Flavor, is_wasix1_module, module_flavor as wasix1_module_flavor};
+pub use wasixv2_wasix1::{
+    CommandDefaults, V1Flavor, is_wasix1_module, module_flavor as wasix1_module_flavor,
+};
 pub use wasmer::Engine;
 use wasmer::{Module, Store};
 use webc::v3::read::OwnedReader;
@@ -48,7 +52,14 @@ pub enum RunError {
     Exec(#[from] ExecError),
     #[error("cannot use the working directory: {0}")]
     WorkingDir(io::Error),
+    #[error("cannot load the program: {0}")]
+    Load(LoadError),
+    #[error("cannot execute {path}: {err}")]
+    Execve { path: String, err: io::Error },
 }
+
+/// The directories [`Machine::install_commands`] puts commands in, relative to the root.
+const COMMAND_DIRS: [&str; 2] = ["bin", "usr/bin"];
 
 /// One kernel and the processes it runs.
 ///
@@ -67,6 +78,8 @@ pub struct Machine {
     syscalls: Arc<Layered<Trace, Kernel>>,
     /// The guest ABIs programs may target: `wasixv2`, then WASIX v1 with the `wasix1` feature.
     abis: Arc<Abis<Layered<Trace, Kernel>>>,
+    /// What compiles the images processes `execve`; kept to rebuild `abis`.
+    loader: Arc<dyn Loader>,
     network: Arc<Net>,
     host: Arc<dyn Host>,
     /// The uid and gid processes start as and filesystems are owned by.
@@ -111,6 +124,7 @@ pub struct MachineBuilder {
     user: Credentials,
     uname: Uname,
     root: Option<Arc<dyn Filesystem>>,
+    loader: Arc<dyn Loader>,
 }
 
 impl MachineBuilder {
@@ -121,6 +135,7 @@ impl MachineBuilder {
             user: Credentials::default(),
             uname: Uname::default(),
             root: None,
+            loader: Arc::new(Compile),
         }
     }
 
@@ -150,12 +165,21 @@ impl MachineBuilder {
         self
     }
 
+    /// What compiles the images processes `execve`, and the program [`Machine::run_file`]
+    /// starts: by default [`Compile`], with the engine the process ran on and no cache. An
+    /// embedder's loader picks the engine per image and caches compiled modules.
+    pub fn loader(mut self, loader: Arc<dyn Loader>) -> Self {
+        self.loader = loader;
+        self
+    }
+
     pub fn build(self) -> Machine {
         let Self {
             host,
             user,
             uname,
             root,
+            loader,
         } = self;
         let owner = (user.uid(), user.gid());
         let network = default_network();
@@ -164,7 +188,8 @@ impl MachineBuilder {
         now(mount_kernel_filesystems(&kernel, &host));
         Machine {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
-            abis: Arc::new(default_abis()),
+            abis: Arc::new(abis(loader.clone(), Default::default())),
+            loader,
             network,
             host,
             owner,
@@ -230,6 +255,67 @@ impl Machine {
         };
         let lower = wasixv2_vfs_host::open(host_dir, self.host.clone(), options)?;
         self.push_root_lower(lower).await
+    }
+
+    /// Makes each of `commands`, a name and the program's bytes, an executable file at
+    /// `/bin/<name>` and `/usr/bin/<name>`, as a package tree's commands are. The files are a
+    /// read-only layer of the root filesystem over the ones earlier calls added (package
+    /// volumes), so `/bin` and `/usr/bin` keep what those have there and a command hides a
+    /// file of its name; the guest can still add, replace and remove entries, and the changes
+    /// stay in memory. Every file is a regular `0755` file owned by the machine's user, whose
+    /// contents are the bytes, shared with the buffer; `execve` loads it like any other file.
+    /// Of several commands with one name, the first wins.
+    ///
+    /// Fails with `EINVAL` for a name that cannot be a file name (empty, `.`, `..`, or with
+    /// `/` or NUL), `ENAMETOOLONG` for one longer than `NAME_MAX`, and, like
+    /// [`Machine::mount_root_lower`], with `EBUSY` after anything was mounted or run.
+    pub async fn install_commands(
+        &mut self,
+        commands: impl IntoIterator<Item = (String, OwnedBuffer)>,
+    ) -> io::Result<()> {
+        let mut seen = HashSet::new();
+        let mut files = Vec::new();
+        for (name, image) in commands {
+            if matches!(name.as_str(), "" | "." | "..") || name.contains(['/', '\0']) {
+                return Err(errno_to_io(Errno::EINVAL));
+            }
+            if name.len() > NAME_MAX {
+                return Err(errno_to_io(Errno::ENAMETOOLONG));
+            }
+            if !seen.insert(name.clone()) {
+                continue;
+            }
+            for dir in COMMAND_DIRS {
+                files.push((format!("{dir}/{name}"), image.clone()));
+            }
+        }
+        let (uid, gid) = self.owner;
+        let layer = PackageFs::from_files(files, uid, gid).map_err(io::Error::other)?;
+        self.push_root_lower(Arc::new(layer)).await
+    }
+
+    /// Gives WASIX v1 programs v1's package command semantics: a v1 program that starts
+    /// `/bin/<name>` or `/usr/bin/<name>` of a command in `commands` passes it the command's
+    /// [`CommandDefaults`] (its `wasi` annotation's `exec-name`, `main-args` and `env`), as v1
+    /// did. Programs of other ABIs start commands as Linux starts any file. Replaces what an
+    /// earlier call gave; fails with `EBUSY` once anything ran.
+    #[cfg(feature = "wasix1")]
+    pub fn set_wasix1_command_defaults(
+        &mut self,
+        commands: impl IntoIterator<Item = (String, CommandDefaults)>,
+    ) -> io::Result<()> {
+        if *self.in_use.get_mut() {
+            return Err(errno_to_io(Errno::EBUSY));
+        }
+        let mut table = std::collections::HashMap::new();
+        for (name, defaults) in commands {
+            for dir in COMMAND_DIRS {
+                let path = format!("/{dir}/{name}").into_bytes();
+                table.entry(path).or_insert_with(|| defaults.clone());
+            }
+        }
+        self.abis = Arc::new(abis(self.loader.clone(), table));
+        Ok(())
     }
 
     async fn push_root_lower(&mut self, lower: Arc<dyn Filesystem>) -> io::Result<()> {
@@ -365,18 +451,66 @@ impl Machine {
     }
 
     /// Starts `module`, compiled by `engine` with [`load`], as a new process and waits for it to
-    /// exit. Returns its exit status. Threads and the images the process `execve`s are compiled
-    /// by `engine` too, so an embedder picks the compiler and can cache compiled modules.
+    /// exit. Returns its exit status. Threads are compiled by `engine` too, and the images the
+    /// process `execve`s by the machine's [`Loader`], so an embedder picks the compiler and can
+    /// cache compiled modules.
     pub async fn run_module(
         &self,
         engine: &Engine,
         module: &Module,
         config: ProcessConfig,
     ) -> Result<i32, RunError> {
+        let (task, _running) = self.start(config).await?;
+        self.run_image(Store::new(engine.clone()), module, task)
+            .await
+    }
+
+    /// Starts the program at `path`, a guest path resolved from the working directory, as a
+    /// new process and waits for it to exit, the way Linux starts init (`kernel_execve`): the
+    /// process `execve`s `path` with `config`'s arguments and environment, so everything
+    /// `execve` checks and does applies. A `#!` script runs its interpreter, the image runs
+    /// with the ABI it targets, compiled by the machine's [`Loader`] (given `engine` as the
+    /// engine the process ran on), and `/proc/self/exe` names the file. Returns the exit
+    /// status, or [`RunError::Execve`] with the errno `execve` failed with; the process is gone
+    /// then.
+    pub async fn run_file(
+        &self,
+        engine: &Engine,
+        path: &str,
+        config: ProcessConfig,
+    ) -> Result<i32, RunError> {
+        let (args, env) = (config.args.clone(), config.env.clone());
+        let (task, _running) = self.start(config).await?;
+        let kernel = &self.syscalls.inner;
+        let image = match kernel.exec(task, path.as_bytes(), args, env).await {
+            Ok(image) => image,
+            Err(errno) => {
+                abandon(kernel, task);
+                return Err(RunError::Execve {
+                    path: path.to_string(),
+                    err: errno_to_io(errno),
+                });
+            }
+        };
+        let loaded = self.abis.loader().load(engine, &image).await;
+        drop(image);
+        let (engine, module) = match loaded {
+            Ok(loaded) => loaded,
+            Err(err) => {
+                abandon(kernel, task);
+                return Err(RunError::Load(err));
+            }
+        };
+        self.run_image(Store::new(engine), &module, task).await
+    }
+
+    /// Spawns the process `config` describes, in the working directory, and keeps it on
+    /// [`Machine::signal`]'s list while the returned guard lives.
+    async fn start(&self, config: ProcessConfig) -> Result<(TaskId, Running<'_>), RunError> {
         self.in_use.store(true, Ordering::Relaxed);
         let task = self.syscalls.inner.spawn(config);
         self.running.lock().unwrap().push(task);
-        let _running = Running {
+        let running = Running {
             machine: self,
             task,
         };
@@ -387,7 +521,15 @@ impl Machine {
                 .await
                 .map_err(|errno| RunError::WorkingDir(errno_to_io(errno)))?;
         }
-        let store = Store::new(engine.clone());
+        Ok((task, running))
+    }
+
+    async fn run_image(
+        &self,
+        store: Store,
+        module: &Module,
+        task: TaskId,
+    ) -> Result<i32, RunError> {
         let host = self.host.clone();
         let (syscalls, abis) = (self.syscalls.clone(), self.abis.clone());
         Ok(wasixv2_exec::run_with_abis(store, module, syscalls, task, host, abis).await?)
@@ -471,12 +613,33 @@ fn boot(
         .with_uname(uname)
 }
 
-fn default_abis() -> Abis<Layered<Trace, Kernel>> {
+/// Package commands by guest path, with what v1 programs that start them pass along.
+#[cfg(feature = "wasix1")]
+type Wasix1Commands = std::collections::HashMap<Vec<u8>, CommandDefaults>;
+#[cfg(not(feature = "wasix1"))]
+type Wasix1Commands = ();
+
+/// The guest ABIs programs may target, `wasixv2` first, and how their images compile.
+fn abis(
+    loader: Arc<dyn Loader>,
+    #[cfg_attr(not(feature = "wasix1"), allow(unused_variables))] wasix1_commands: Wasix1Commands,
+) -> Abis<Layered<Trace, Kernel>> {
     let mut abis = Abis::new();
+    abis.set_loader(loader);
     abis.push(Arc::new(Wasixv2));
     #[cfg(feature = "wasix1")]
-    abis.push(Arc::new(wasixv2_wasix1::Wasix1::new()));
+    abis.push(Arc::new(wasixv2_wasix1::Wasix1::with_commands(
+        wasix1_commands,
+    )));
     abis
+}
+
+/// Ends `task`, a process that never ran an image, with SIGKILL, and lets it go.
+fn abandon(kernel: &Kernel, task: TaskId) {
+    use wasixv2_syscalls::Control;
+
+    kernel.fault(task, wasixv2_abi::Signal::SIGKILL.0);
+    kernel.release(task);
 }
 
 /// Takes a process off [`Machine::signal`]'s list however `run_process` ends.

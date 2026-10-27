@@ -31,6 +31,7 @@ wasixv2-exec = { path = "../exec", default-features = false }
 wasixv2-dylink = { path = "../dylink", default-features = false }
 wasixv2-wasix1 = { path = "../wasix1", default-features = false, optional = true }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
+shared-buffer.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 wasmparser.workspace = true
