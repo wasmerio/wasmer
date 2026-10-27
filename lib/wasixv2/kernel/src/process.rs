@@ -20,8 +20,8 @@ use wasixv2_abi::{
     Uptr, WaitOptions,
 };
 use wasixv2_syscalls::{
-    Binfmt, Caller, CstrError, Errno, Fd, GuestAction, LocalFuture, SysErr, SysResult, TaskId,
-    VforkParent, WorkFlag, read_cstr, read_value, write_value,
+    BINPRM_BUF_SIZE, Binfmt, Caller, CstrError, Errno, Fd, GuestAction, Image, LocalFuture, SysErr,
+    SysResult, TaskId, VforkParent, WorkFlag, read_cstr, read_value, write_value,
 };
 use wasixv2_vfs::{FileType, LookupFlags, MAY_EXEC, OpenHow};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
@@ -41,8 +41,6 @@ const MAX_ARG_STRLEN: usize = 32 * 4096;
 const ARG_MAX: usize = 2 * 1024 * 1024;
 /// `MAX_ARG_STRINGS`.
 const MAX_ARG_STRINGS: usize = 0x7FFF_FFFF;
-/// `BINPRM_BUF_SIZE`: how much of a `#!` line the kernel looks at.
-const BINPRM_BUF_SIZE: usize = 256;
 /// How many times a script may hand over to its interpreter, which may be a script itself, as
 /// `exec_binprm`'s five levels of rewrites.
 const MAX_REWRITES: usize = 5;
@@ -53,8 +51,8 @@ const WASM_MAGIC: &[u8] = b"\0asm";
 pub(crate) struct WasmMagic;
 
 impl Binfmt for WasmMagic {
-    fn probe(&self, image: &[u8]) -> Result<(), Errno> {
-        match image.starts_with(WASM_MAGIC) {
+    fn probe(&self, header: &[u8]) -> Result<(), Errno> {
+        match header.starts_with(WASM_MAGIC) {
             true => Ok(()),
             false => Err(Errno::ENOEXEC),
         }
@@ -117,6 +115,8 @@ struct Binary {
     owner: (u32, u32),
     /// On a `nosuid` mount, whose set-user-ID and set-group-ID bits do not apply.
     nosuid: bool,
+    /// Its size when it was opened.
+    size: u64,
 }
 
 /// How a process ended, as `waitid` reports it.
@@ -606,17 +606,19 @@ impl Kernel {
         self.do_execveat(caller, dfd, path, args, env, flags).await
     }
 
-    /// `kernel_execve`, as Linux starts init: `task`, a process that runs no image yet, executes
-    /// `path` (resolved from its working directory) with `args` and `env`, as `execve` would.
-    /// Returns the image to start, which the execution layer would otherwise take on the way
-    /// back to the guest.
-    pub(crate) async fn kernel_execve(
+    /// `kernel_execve`, as Linux starts init: makes `task`, a process [`Kernel::spawn`] started
+    /// that runs no image yet, execute the file at `path`, resolved from its working
+    /// directory, with `args` and `env` replacing those it was spawned with. Everything
+    /// `execve` checks and does applies, scripts included. Returns the image to run as the
+    /// process, which the execution layer would otherwise take on the way back to the guest;
+    /// on failure the process is unchanged.
+    pub async fn exec(
         &self,
         task: TaskId,
         path: &[u8],
         args: Vec<Vec<u8>>,
         env: Vec<Vec<u8>>,
-    ) -> Result<Vec<u8>, Errno> {
+    ) -> Result<Image, Errno> {
         let memory = NoMemory;
         let caller = Caller::new(task, &memory);
         let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
@@ -664,17 +666,21 @@ impl Kernel {
         // could not be opened by its interpreter.
         let inaccessible = (path.is_empty() || fd_relative)
             && self.files(caller.task()).lock().unwrap().cloexec(dfd) == Some(true);
-        let (mut bytes, mut binary) = self.open_exec(caller, dfd, &path, flags).await?;
+        let (mut file, mut binary) = self.open_exec(caller, dfd, &path, flags).await?;
         // `bprm->interp`: the name a script is passed to its interpreter by.
         let mut script = name.clone();
         let mut rewrites = 0;
         // `search_binary_handler`: a script hands over to its interpreter; anything else must
         // be an image of one of the embedder's formats, decided before the point of no return.
         let (image, binary) = loop {
+            // `prepare_binprm`: the first bytes tell the format.
+            let header = read_header(&file).await?;
             // `load_script`.
-            let Some((interp, arg)) = parse_shebang(&bytes) else {
-                self.binfmt.probe(&bytes)?;
-                break (bytes, binary);
+            let Some((interp, arg)) = parse_shebang(&header) else {
+                self.binfmt.probe(&header)?;
+                let image = read_image(&file, binary.size).await?;
+                self.binfmt.check(&image)?;
+                break (image, binary);
             };
             if inaccessible {
                 return Err(Errno::ENOENT.into());
@@ -686,7 +692,7 @@ impl Kernel {
             args.splice(0..1, front);
             check_arg_size(&args, &env)?;
             let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
-            (bytes, binary) = self.open_exec(caller, cwd, &interp, AtFlags(0)).await?;
+            (file, binary) = self.open_exec(caller, cwd, &interp, AtFlags(0)).await?;
             script = interp;
             rewrites += 1;
             if rewrites > MAX_REWRITES {
@@ -721,14 +727,14 @@ impl Kernel {
     }
 
     /// `do_open_execat`: the file must be a regular file with an execute bit the caller may
-    /// use, on a mount that allows execution. Returns its contents and the binary.
+    /// use, on a mount that allows execution. Returns it open for reading, and the binary.
     async fn open_exec(
         &self,
         caller: &Caller<'_>,
         dfd: Fd,
         path: &[u8],
         flags: AtFlags,
-    ) -> SysResult<(Vec<u8>, Binary)> {
+    ) -> SysResult<(wasixv2_vfs::File, Binary)> {
         if path.is_empty() && !flags.contains(AtFlags::AT_EMPTY_PATH) {
             return Err(Errno::ENOENT.into());
         }
@@ -755,22 +761,14 @@ impl Kernel {
             },
         };
         let file = self.vfs.open(&env.cx(), &target, b"", &how).await?;
-        let mut bytes = vec![0; attr.size as usize];
-        let mut at = 0;
-        while at < bytes.len() {
-            match file.read_at(&mut bytes[at..], at as u64).await? {
-                0 => break,
-                n => at += n,
-            }
-        }
-        bytes.truncate(at);
         let binary = Binary {
             mode: attr.mode,
             owner: (attr.uid, attr.gid),
             nosuid: target.mnt.flags.nosuid,
+            size: attr.size,
             path: target,
         };
-        Ok((bytes, binary))
+        Ok((file, binary))
     }
 
     /// Past the point of no return (`begin_new_exec`), once the other threads are gone: the
@@ -784,7 +782,7 @@ impl Kernel {
         name: &[u8],
         args: Vec<Vec<u8>>,
         env: Vec<Vec<u8>>,
-        image: Option<Vec<u8>>,
+        image: Option<Image>,
         binary: Binary,
     ) {
         let task = self.exec_leader(caller);
@@ -1216,6 +1214,42 @@ async fn read_strings(caller: &Caller<'_>, array: CstrArray) -> SysResult<Vec<Ve
         }
         out.push(bytes);
     }
+}
+
+/// `prepare_binprm`'s read of the first `BINPRM_BUF_SIZE` bytes of `file`, fewer when it is
+/// shorter.
+async fn read_header(file: &wasixv2_vfs::File) -> SysResult<Vec<u8>> {
+    let mut header = vec![0; BINPRM_BUF_SIZE];
+    let mut at = 0;
+    while at < header.len() {
+        match file.read_at(&mut header[at..], at as u64).await? {
+            0 => break,
+            n => at += n,
+        }
+    }
+    header.truncate(at);
+    Ok(header)
+}
+
+/// The whole of `file`, which was `size` bytes when opened: the contents its filesystem
+/// shares, or else a copy. `ENOMEM` when there is no room for the copy.
+async fn read_image(file: &wasixv2_vfs::File, size: u64) -> SysResult<Image> {
+    if let Some(contents) = file.shared_contents().await {
+        return Ok(Image::shared(contents));
+    }
+    let size = usize::try_from(size).map_err(|_| Errno::ENOMEM)?;
+    let mut bytes = Vec::new();
+    bytes.try_reserve_exact(size).map_err(|_| Errno::ENOMEM)?;
+    bytes.resize(size, 0);
+    let mut at = 0;
+    while at < bytes.len() {
+        match file.read_at(&mut bytes[at..], at as u64).await? {
+            0 => break,
+            n => at += n,
+        }
+    }
+    bytes.truncate(at);
+    Ok(Image::copied(bytes))
 }
 
 /// `load_script`'s parse of `#!interpreter [argument]` in the first `BINPRM_BUF_SIZE` bytes:

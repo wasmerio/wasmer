@@ -39,6 +39,7 @@ use wasixv2_host::Host;
 use wasixv2_syscalls::{
     Caller, Control, Errno, GuestAction, SysErr, SysResult, Syscalls, TaskId, VforkParent, WorkFlag,
 };
+pub use wasixv2_syscalls::{Image, ImageId};
 use wasmer::{
     AsyncFunctionEnvMut, CompileError, Engine, Function, FunctionEnv, Global, Imports, Instance,
     Memory, MemoryError, Module, Pages, RuntimeError, Store, Value,
@@ -214,7 +215,7 @@ pub(crate) enum Ended {
     /// The task's thread group, or for a thread the task itself, exited.
     Exited(i32),
     /// `execve` replaced the image.
-    Exec(Vec<u8>),
+    Exec(Image),
     /// The guest trapped while the instance ran as `task`: a hardware fault, signal `signal`.
     /// `report` says what happened, for the host when the fault kills the process.
     Fault {
@@ -658,7 +659,11 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 switched = Some(value);
             }
             GuestAction::Exec { vfork_parent } => {
-                let image = syscalls.take_image(task).unwrap_or_default();
+                // The kernel queues the image with the action; without one, the empty image
+                // fails to load and the process dies as past any `execve`'s point of no return.
+                let image = syscalls
+                    .take_exec_image(task)
+                    .unwrap_or_else(|| Image::copied(Vec::new()));
                 let Some(parent) = vfork_parent else {
                     return Outcome::Unwind(RuntimeError::user(Box::new(process::ExecNew(image))));
                 };

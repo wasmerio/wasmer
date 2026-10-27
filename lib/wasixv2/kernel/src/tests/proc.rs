@@ -169,9 +169,9 @@ fn kernel_execve_of_a_killed_process_fails_and_keeps_the_exit() {
     assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
 
     assert!(kernel.force_fatal_signal(task, Signal::SIGKILL.0));
-    let image = block_on(kernel.exec(task, b"/prog", vec!["prog".into()], Vec::new()));
+    let image = block_on(kernel.exec(task, b"/prog", vec![b"prog".to_vec()], Vec::new()));
 
-    assert_eq!(image, Err(Errno::EAGAIN));
+    assert_eq!(image.err(), Some(Errno::EAGAIN));
     assert!(kernel.process(task).exe.lock().unwrap().is_none());
     assert_eq!(
         kernel.take_pending(task),
@@ -200,4 +200,66 @@ fn exit_closes_the_files_after_the_leader_is_gone() {
 
     thread::forget_task(&mut kernel.state.lock().unwrap(), leader);
     kernel.exit_files(&process);
+}
+
+/// Records what `execve` shows a format handler, and refuses what it is told to.
+struct Recording {
+    refuse_header: bool,
+    seen: Mutex<Vec<(&'static str, usize)>>,
+}
+
+impl wasixv2_syscalls::Binfmt for Recording {
+    fn probe(&self, header: &[u8]) -> Result<(), Errno> {
+        self.seen.lock().unwrap().push(("probe", header.len()));
+        match self.refuse_header {
+            true => Err(Errno::ENOEXEC),
+            false => Ok(()),
+        }
+    }
+
+    fn check(&self, image: &wasixv2_syscalls::Image) -> Result<(), Errno> {
+        self.seen
+            .lock()
+            .unwrap()
+            .push(("check", image.bytes().len()));
+        Err(Errno::ENOEXEC)
+    }
+}
+
+/// `search_binary_handler`: a handler first sees the file's first `BINPRM_BUF_SIZE` bytes, and
+/// the whole file is read only for one that takes them; either may refuse it before the point
+/// of no return.
+#[test]
+fn execve_probes_the_header_before_it_reads_the_image() {
+    let image = [b"\0asm\x01\0\0\0".as_slice(), &[7; 5000]].concat();
+    for refuse_header in [true, false] {
+        let (mut kernel, task, _) = setup(b"");
+        let binfmt = Arc::new(Recording {
+            refuse_header,
+            seen: Mutex::default(),
+        });
+        kernel.set_binfmt(binfmt.clone());
+        let memory = FlatMemory(RefCell::new(vec![0; 2 * WASM_PAGE_SIZE as usize]));
+        let caller = Caller::new(task, &memory);
+        put(&memory, 32, b"/prog\0");
+        put(&memory, 4096, &image);
+        let create = OpenFlags::O_CREAT | OpenFlags::O_WRONLY;
+        let fd =
+            block_on(kernel.openat(&caller, Fd(-100), GuestPtr::new(32), create, 0o755)).unwrap();
+        let slice = UserSlice::new(4096, image.len() as u32);
+        assert_eq!(
+            block_on(kernel.write(&caller, fd, slice)),
+            Ok(image.len() as u32)
+        );
+        assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+
+        let ran = block_on(kernel.exec(task, b"/prog", vec![b"prog".to_vec()], Vec::new()));
+
+        assert_eq!(ran.err(), Some(Errno::ENOEXEC));
+        let seen = binfmt.seen.lock().unwrap().clone();
+        match refuse_header {
+            true => assert_eq!(seen, [("probe", BINPRM_BUF_SIZE)]),
+            false => assert_eq!(seen, [("probe", BINPRM_BUF_SIZE), ("check", image.len())]),
+        }
+    }
 }

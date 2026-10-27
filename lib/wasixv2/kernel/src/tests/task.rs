@@ -2,7 +2,7 @@
 
 use futures::FutureExt as _;
 use wasixv2_abi::{FutexOp, KernelTimespec, Pid, Sigaction, Signal, Sigset};
-use wasixv2_syscalls::{VforkParent, read_value, write_value};
+use wasixv2_syscalls::{ExecImage, Image, VforkParent, read_value, write_value};
 
 use super::{ipc::machine, *};
 
@@ -122,7 +122,8 @@ fn execve_from_a_thread_commits_once_the_old_image_is_gone_and_runs_as_the_leade
     assert_eq!(kernel.take_pending(other), Some(GuestAction::Exit(0)));
     let handed = GuestAction::Exec { vfork_parent: None };
     assert_eq!(kernel.take_pending(leader), Some(handed));
-    assert_eq!(kernel.take_image(leader).as_deref(), Some(IMAGE));
+    let image = kernel.take_exec_image(leader);
+    assert_eq!(image.as_ref().map(Image::bytes), Some(IMAGE));
     // Nothing is committed while another thread may still run the old image.
     kernel.release(other);
     assert_eq!(exec.as_mut().now_or_never(), None);
@@ -288,7 +289,8 @@ fn a_vfork_parent_handed_another_threads_image_does_not_return_from_vfork() {
     // Its next work is the new image.
     let handed = GuestAction::Exec { vfork_parent: None };
     assert_eq!(kernel.take_pending(leader), Some(handed));
-    assert_eq!(kernel.take_image(leader).as_deref(), Some(IMAGE));
+    let image = kernel.take_exec_image(leader);
+    assert_eq!(image.as_ref().map(Image::bytes), Some(IMAGE));
     let mut wait = Box::pin(kernel.exec_wait(leader));
     assert_eq!(wait.as_mut().now_or_never(), None);
     assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));

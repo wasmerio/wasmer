@@ -4,7 +4,7 @@
 
 use std::{collections::VecDeque, sync::Arc};
 
-use wasixv2_syscalls::{GuestAction, TaskId, VforkParent, WorkFlag};
+use wasixv2_syscalls::{GuestAction, Image, TaskId, VforkParent, WorkFlag};
 
 pub(crate) struct Work {
     queue: VecDeque<GuestAction>,
@@ -12,7 +12,7 @@ pub(crate) struct Work {
     flag: Arc<WorkFlag>,
     /// The image of the queued [`GuestAction::Exec`], until the execution layer takes it. It
     /// goes with the task when the exec never runs (`bprm` freed with the exiting task).
-    image: Option<Vec<u8>>,
+    image: Option<Image>,
 }
 
 impl Work {
@@ -91,23 +91,19 @@ impl Work {
 
     /// Queues the `execve` that runs `image`.
     #[must_use]
-    pub(crate) fn exec(
-        &mut self,
-        image: Vec<u8>,
-        vfork_parent: Option<VforkParent>,
-    ) -> Vec<TaskId> {
+    pub(crate) fn exec(&mut self, image: Image, vfork_parent: Option<VforkParent>) -> Vec<TaskId> {
         self.image = Some(image);
         self.push(GuestAction::Exec { vfork_parent })
     }
 
     /// The image of the queued `execve`, for the execution layer to run.
-    pub(crate) fn take_image(&mut self) -> Option<Vec<u8>> {
+    pub(crate) fn take_image(&mut self) -> Option<Image> {
         self.image.take()
     }
 
     /// Takes the `execve`'s own action off the queue, leaving the rest as it was, and returns
     /// its image.
-    pub(crate) fn take_exec(&mut self) -> Option<Vec<u8>> {
+    pub(crate) fn take_exec(&mut self) -> Option<Image> {
         let before = self.queue.len();
         self.queue
             .retain(|action| !matches!(action, GuestAction::Exec { .. }));
@@ -198,9 +194,12 @@ mod tests {
     fn taking_the_exec_leaves_what_was_queued_before_it() {
         let mut work = work();
         assert!(work.push(GuestAction::Exit(137)).is_empty());
-        assert!(work.exec(b"image".to_vec(), None).is_empty());
-        assert_eq!(work.take_exec().as_deref(), Some(&b"image"[..]));
-        assert_eq!(work.take_exec(), None);
+        assert!(work.exec(Image::copied(b"image".to_vec()), None).is_empty());
+        assert_eq!(
+            work.take_exec().as_ref().map(Image::bytes),
+            Some(&b"image"[..])
+        );
+        assert!(work.take_exec().is_none());
         assert_eq!(work.take(), Some(GuestAction::Exit(137)));
         assert_eq!(work.take(), None);
     }

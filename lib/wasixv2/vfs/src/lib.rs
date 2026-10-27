@@ -25,7 +25,7 @@ use std::sync::{
 
 pub use cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission};
 pub use dentry::Dentry;
-pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node};
+pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents};
 pub use file::{DIR_POS_EOD, File};
 pub use inode::{Bound, Inode};
 pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};

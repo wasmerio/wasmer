@@ -11,7 +11,7 @@ use std::{
 };
 
 use wasixv2::{
-    ByteSink, CommandDefaults, Compile, EmptySource, Engine, LoadError, Loader, LocalFuture,
+    ByteSink, CommandDefaults, Compile, EmptySource, Engine, Image, LoadError, Loader, LocalFuture,
     Machine, OwnedBuffer, ProcessConfig, RunError, Stdio,
 };
 use wasmer::Module;
@@ -343,14 +343,14 @@ async fn an_image_nothing_serves_fails_execve_with_enoexec() {
 struct Refusing;
 
 impl Loader for Refusing {
-    fn probe(&self, _image: &[u8]) -> Result<(), LoadError> {
+    fn probe(&self, _header: &[u8]) -> Result<(), LoadError> {
         Err(LoadError::Format(wasixv2_syscalls::Errno::EACCES))
     }
 
     fn load<'a>(
         &'a self,
         engine: &'a Engine,
-        image: &'a [u8],
+        image: &'a Image,
     ) -> LocalFuture<'a, Result<(Engine, Module), LoadError>> {
         Compile.load(engine, image)
     }
@@ -440,17 +440,18 @@ async fn names_that_are_no_file_names_are_refused() {
     .await;
 }
 
-/// Counts the images it compiles.
+/// Counts the images it compiles, and records whether each came shared by its filesystem.
 #[derive(Default)]
-struct Counting(AtomicUsize);
+struct Counting(AtomicUsize, Mutex<Vec<bool>>);
 
 impl Loader for Counting {
     fn load<'a>(
         &'a self,
         engine: &'a Engine,
-        image: &'a [u8],
+        image: &'a Image,
     ) -> LocalFuture<'a, Result<(Engine, Module), LoadError>> {
         self.0.fetch_add(1, Ordering::Relaxed);
+        self.1.lock().unwrap().push(image.identity().is_some());
         Compile.load(engine, image)
     }
 }
@@ -468,6 +469,9 @@ async fn the_loader_compiles_every_image() {
         let (status, _) = run_file(&machine, "/bin/main", &["main"]).await;
         assert_eq!(status.unwrap(), 0);
         assert_eq!(loader.0.load(Ordering::Relaxed), 2);
+        // Commands are package files: `execve` shares their bytes instead of copying them, so
+        // a loader can tell them apart without reading them.
+        assert_eq!(*loader.1.lock().unwrap(), [true, true]);
     })
     .await;
 }

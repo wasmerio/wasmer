@@ -33,7 +33,8 @@ use futures::lock::Mutex as AsyncMutex;
 use wasixv2_abi::Errno;
 use wasixv2_vfs::{
     AllocMode, Attr, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult, Handle,
-    NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole, SetAttr, StatFs, TimeSet, XattrSet,
+    NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole, SetAttr, SharedContents, StatFs,
+    TimeSet, XattrSet,
 };
 
 /// `OVERLAYFS_SUPER_MAGIC`.
@@ -1463,6 +1464,11 @@ impl Handle for FileHandle {
 
     async fn seek_hole(&self, offset: u64, size: u64, which: SeekHole) -> FsResult<u64> {
         self.current().await?.seek_hole(offset, size, which).await
+    }
+
+    /// The lower file's, until a copy-up makes the upper one current.
+    async fn shared_contents(&self) -> Option<SharedContents> {
+        self.current().await.ok()?.shared_contents().await
     }
 }
 

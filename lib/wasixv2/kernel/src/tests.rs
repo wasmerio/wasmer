@@ -10,7 +10,7 @@ use std::{
 use futures::executor::block_on;
 use wasixv2_abi::{GuestPtr, GuestPtrMut};
 use wasixv2_host::{ByteSink, ByteSource, Executor, LocalFuture};
-use wasixv2_syscalls::{Fault, SysErr, UserMemory, WASM_PAGE_SIZE};
+use wasixv2_syscalls::{BINPRM_BUF_SIZE, Fault, SysErr, UserMemory, WASM_PAGE_SIZE};
 use wasixv2_vfs_mem::MemFs;
 
 use super::*;

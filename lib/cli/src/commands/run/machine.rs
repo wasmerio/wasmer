@@ -12,12 +12,12 @@ use std::{
 
 use anyhow::{Context, Error, bail};
 use wasixv2::{
-    CommandDefaults, Credentials, LoadError, Loader, LocalFuture, Machine, OwnedBuffer,
-    ProcessConfig, Signaller, Stdio, Uname,
+    CommandDefaults, Credentials, Image, ImageId, LoadError, Loader, LocalFuture, Machine,
+    OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname,
 };
 use wasmer::{Engine, Module};
 use wasmer_config::package::PackageId;
-use wasmer_types::target::Target;
+use wasmer_types::{ModuleHash, target::Target};
 use wasmer_wasix::{
     Runtime, bin_factory::BinaryPackage, runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runtime::module_cache::HashedModuleData,
@@ -109,13 +109,31 @@ pub(super) fn is_script(path: &Path) -> bool {
 
 /// Compiles the images the machine's processes `execve`, and the package command it starts,
 /// as `wasmer run` compiles a module: on a backend with the WebAssembly features the image
-/// uses, through the runtime's compiled-module cache (keyed by a hash of the bytes), with the
-/// machine's preemption points ([`wasixv2::instrument`]).
+/// uses, with the machine's preemption points ([`wasixv2::instrument`]), through the runtime's
+/// compiled-module cache. Each image is instrumented and compiled once per run: later loads of
+/// the same image find the module by the image's identity (a package file's buffer) or, for a
+/// copy, by a hash of its bytes, without looking at them again.
 struct CachedLoader {
     runtime: Arc<dyn Runtime + Send + Sync>,
     options: RuntimeOptions,
     /// One engine per backend, made when an image first needs it.
     engines: Mutex<Vec<(BackendType, Engine)>>,
+    /// What each image compiled to.
+    modules: Mutex<HashMap<ImageKey, Loaded>>,
+}
+
+/// What tells an image apart in [`CachedLoader`]'s modules.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum ImageKey {
+    Shared(ImageId),
+    Bytes(ModuleHash),
+}
+
+struct Loaded {
+    engine: Engine,
+    module: Module,
+    /// The bytes of a [`ImageKey::Shared`] image, which keep its identity theirs.
+    _image: Option<Image>,
 }
 
 impl CachedLoader {
@@ -124,6 +142,7 @@ impl CachedLoader {
             runtime,
             options,
             engines: Mutex::default(),
+            modules: Mutex::default(),
         }
     }
 
@@ -143,22 +162,39 @@ impl CachedLoader {
         engines.push((backend, engine.clone()));
         Ok(engine)
     }
+
+    async fn compile(&self, wasm: &[u8]) -> Result<(Engine, Module), Error> {
+        let engine = self.engine_for(wasm)?;
+        let wasm = HashedModuleData::new(wasixv2::instrument(wasm).into_owned());
+        let module = self.runtime.load_hashed_module(wasm, Some(&engine)).await?;
+        Ok((engine, module))
+    }
 }
 
 impl Loader for CachedLoader {
     fn load<'a>(
         &'a self,
         _engine: &'a Engine,
-        image: &'a [u8],
+        image: &'a Image,
     ) -> LocalFuture<'a, Result<(Engine, Module), LoadError>> {
         Box::pin(async move {
-            let engine = self.engine_for(image).map_err(LoadError::other)?;
-            let wasm = HashedModuleData::new(wasixv2::instrument(image).into_owned());
-            let module = self
-                .runtime
-                .load_hashed_module(wasm, Some(&engine))
+            let key = match image.identity() {
+                Some(id) => ImageKey::Shared(id),
+                None => ImageKey::Bytes(ModuleHash::new(image.bytes())),
+            };
+            if let Some(loaded) = self.modules.lock().unwrap().get(&key) {
+                return Ok((loaded.engine.clone(), loaded.module.clone()));
+            }
+            let (engine, module) = self
+                .compile(image.bytes())
                 .await
                 .map_err(LoadError::other)?;
+            let loaded = Loaded {
+                engine: engine.clone(),
+                module: module.clone(),
+                _image: matches!(key, ImageKey::Shared(_)).then(|| image.clone()),
+            };
+            self.modules.lock().unwrap().insert(key, loaded);
             Ok((engine, module))
         })
     }

@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use wasixv2_syscalls::{Binfmt, Control, Errno, LocalFuture, SignalFrame, Syscalls, TaskId};
+use wasixv2_syscalls::{Binfmt, Control, Errno, Image, LocalFuture, SignalFrame, Syscalls, TaskId};
 use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, Imports, Instance, Module, RuntimeError, Store,
     StoreAsync, Value,
@@ -220,22 +220,26 @@ where
     }
 }
 
-/// The formats `execve` starts: images the loader takes ([`Loader::probe`]) that one of the ABIs
-/// serves ([`Abi::matches_image`]). A loader error other than [`LoadError::Format`] is `EIO`.
+/// The formats `execve` starts: images the loader takes ([`Loader::probe`], from the header)
+/// that one of the ABIs serves ([`Abi::matches_image`], from the whole image). A loader error
+/// other than [`LoadError::Format`] is `EIO`.
 impl<S> Binfmt for Abis<S>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    fn probe(&self, image: &[u8]) -> Result<(), Errno> {
-        match self.loader.probe(image) {
-            Ok(()) => {}
-            Err(LoadError::Format(errno)) => return Err(errno),
+    fn probe(&self, header: &[u8]) -> Result<(), Errno> {
+        match self.loader.probe(header) {
+            Ok(()) => Ok(()),
+            Err(LoadError::Format(errno)) => Err(errno),
             Err(LoadError::Other(err)) => {
                 tracing::warn!(%err, "the loader could not probe an image");
-                return Err(Errno::EIO);
+                Err(Errno::EIO)
             }
         }
-        match self.abis.iter().any(|abi| abi.matches_image(image)) {
+    }
+
+    fn check(&self, image: &Image) -> Result<(), Errno> {
+        match self.abis.iter().any(|abi| abi.matches_image(image.bytes())) {
             true => Ok(()),
             false => Err(Errno::ENOEXEC),
         }

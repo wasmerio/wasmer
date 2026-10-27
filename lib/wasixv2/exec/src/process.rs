@@ -8,7 +8,7 @@ use std::{future::Future, sync::Arc};
 
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Control, GuestAction, Syscalls, TaskId};
+use wasixv2_syscalls::{Control, GuestAction, Image, Syscalls, TaskId};
 use wasmer::{AsyncFunctionEnvMut, Engine, Function, Module, RuntimeError, Store, Value};
 
 use crate::{Ended, ExecEnv, ExecError, abi::Abis, asyncify};
@@ -16,13 +16,13 @@ use crate::{Ended, ExecEnv, ExecError, abi::Abis, asyncify};
 /// Raised from an import to unwind the old image after `execve`, carrying the new one.
 #[derive(Debug, thiserror::Error)]
 #[error("execve replaced the image")]
-pub(crate) struct ExecNew(pub(crate) Vec<u8>);
+pub(crate) struct ExecNew(pub(crate) Image);
 
 /// Starts the processes an instance creates on instances of their own: the image of a vfork
 /// child that called `execve`, and a fork child; the type-erased part of the execution layer
 /// that the return-to-guest path can reach.
 pub(crate) trait Spawn: Send + Sync {
-    fn spawn(&self, task: TaskId, image: Vec<u8>);
+    fn spawn(&self, task: TaskId, image: Image);
     fn fork(&self, task: TaskId, image: asyncify::ForkImage);
 }
 
@@ -55,7 +55,7 @@ impl<S> Spawn for Spawner<S>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    fn spawn(&self, task: TaskId, image: Vec<u8>) {
+    fn spawn(&self, task: TaskId, image: Image) {
         let (engine, syscalls, host, abis) = (
             self.engine.clone(),
             self.syscalls.clone(),
@@ -241,10 +241,10 @@ where
     Ok(status)
 }
 
-/// The image of a vfork child's `execve`, from its bytes.
+/// The image of a vfork child's `execve`.
 async fn run_new_image<S>(
     engine: Engine,
-    image: Vec<u8>,
+    image: Image,
     syscalls: Arc<S>,
     task: TaskId,
     host: Arc<dyn Host>,
@@ -259,7 +259,9 @@ where
         syscalls.release(task);
         return Ok(status);
     }
-    let (engine, module) = match abis.loader().load(&engine, &image).await {
+    let loaded = abis.loader().load(&engine, &image).await;
+    drop(image);
+    let (engine, module) = match loaded {
         Ok(loaded) => loaded,
         Err(err) => {
             tracing::warn!(tid = task.0, %err, "execve loaded a module that does not compile");
@@ -268,7 +270,6 @@ where
             return Ok(status);
         }
     };
-    drop(image);
     crate::run_with_abis(Store::new(engine), &module, syscalls, task, host, abis).await
 }
 
@@ -325,7 +326,7 @@ pub(crate) async fn switch<S: Control + 'static>(
 pub(crate) async fn spawn_image<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     task: TaskId,
-    image: Vec<u8>,
+    image: Image,
 ) {
     let spawner = env.read().await.data().proc.spawner.clone();
     spawner.spawn(task, image);

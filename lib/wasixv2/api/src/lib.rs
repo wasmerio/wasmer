@@ -17,7 +17,7 @@ use std::{
 pub use shared_buffer::OwnedBuffer;
 use wasixv2_exec::{Abis, Wasixv2};
 pub use wasixv2_exec::{
-    Compile, ExecError, LoadError, Loader, instrument, is_wasixv2_module, load,
+    Compile, ExecError, Image, ImageId, LoadError, Loader, instrument, is_wasixv2_module, load,
 };
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
@@ -493,7 +493,8 @@ impl Machine {
         path: &str,
         config: ProcessConfig,
     ) -> Result<i32, RunError> {
-        let (args, env) = (config.args.clone(), config.env.clone());
+        let bytes = |strings: &[String]| strings.iter().map(|s| s.as_bytes().to_vec()).collect();
+        let (args, env) = (bytes(&config.args), bytes(&config.env));
         let (task, _running) = self.start(config).await?;
         let kernel = &self.syscalls.inner;
         let image = match kernel.exec(task, path.as_bytes(), args, env).await {

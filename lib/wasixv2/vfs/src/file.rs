@@ -6,7 +6,7 @@ use wasixv2_abi::Errno;
 
 use crate::{
     Vfs,
-    driver::{Handle, Node},
+    driver::{Handle, Node, SharedContents},
     locks::LockKey,
     mount::Path,
     notify::{FsEvent, Object},
@@ -94,6 +94,19 @@ impl File {
             },
         );
         Ok(n)
+    }
+
+    /// The file's contents as its driver shares them, if it does ([`Handle::shared_contents`]):
+    /// a read of the whole file without a copy.
+    pub async fn shared_contents(&self) -> Option<SharedContents> {
+        let contents = self.handle().ok()?.shared_contents().await?;
+        self.vfs.notify_object(
+            &self.path.dentry,
+            FsEvent::Access {
+                object: self.object(),
+            },
+        );
+        Some(contents)
     }
 
     /// Writes at `offset`, as much of `data` as the file's seals allow.

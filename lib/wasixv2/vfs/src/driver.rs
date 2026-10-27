@@ -235,6 +235,13 @@ pub trait Handle: Send + Sync {
         })
     }
 
+    /// The file's whole contents, when the driver keeps them in memory that never changes for
+    /// as long as anyone holds them, such as a read-only image's: `execve` shares them instead
+    /// of reading the file into a copy. `None` (the default) for everything else.
+    async fn shared_contents(&self) -> Option<SharedContents> {
+        None
+    }
+
     /// Reads entries starting at `cookie` (0 is the start) into `sink` until it is full or the
     /// directory ends. Never produces `.` or `..`, which the VFS adds. Cookies are opaque, at
     /// most `MAX_DIR_COOKIE`, and resume correctly while entries are added and removed: an
@@ -243,6 +250,9 @@ pub trait Handle: Send + Sync {
         Err(Errno::ENOTDIR)
     }
 }
+
+/// Contents a driver shares rather than copies (see [`Handle::shared_contents`]).
+pub type SharedContents = Arc<dyn AsRef<[u8]> + Send + Sync>;
 
 /// Largest cookie a driver may hand out: `telldir` returns a `long`, 32 bits on wasm32, and the
 /// VFS reserves 0..=2 for its own positions.

@@ -13,7 +13,8 @@ mod result;
 
 pub use caller::{Caller, TaskId};
 pub use control::{
-    AtomicWait, AtomicWord, Binfmt, Control, GuestAction, SignalFrame, VforkParent, WorkFlag,
+    AtomicWait, AtomicWord, BINPRM_BUF_SIZE, Binfmt, Control, ExecImage, GuestAction, Image,
+    ImageId, SignalFrame, VforkParent, WorkFlag,
 };
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{

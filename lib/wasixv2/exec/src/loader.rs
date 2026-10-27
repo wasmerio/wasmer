@@ -1,12 +1,13 @@
-//! Turning the bytes of a process image into a compiled module: the images `execve` loads and
-//! those of vfork children that called it. An embedder plugs in a [`Loader`] to pick the engine
-//! per image and to cache compiled modules, as Linux's binary format handlers load the formats
-//! they recognise.
+//! Turning the process images `execve` loads into compiled modules. An embedder plugs in a
+//! [`Loader`] to pick the engine per image and to cache compiled modules. With the ABIs it
+//! serves, the loader is what Linux's binary format handlers are: [`Abis`](crate::Abis) answers
+//! the kernel's [`Binfmt`](wasixv2_syscalls::Binfmt) questions from the loader's
+//! [`Loader::probe`] and the ABIs' import checks, before `execve`'s point of no return.
 
 use std::error::Error;
 
 use wasixv2_host::LocalFuture;
-use wasixv2_syscalls::Errno;
+use wasixv2_syscalls::{Errno, Image};
 use wasmer::{CompileError, Engine, Module};
 
 /// Why a [`Loader`] could not produce a module.
@@ -38,23 +39,26 @@ impl From<CompileError> for LoadError {
 /// [`crate::load`] does (see [`crate::instrument`]), or the guest cannot notice signals while
 /// it computes.
 pub trait Loader: Send + Sync {
-    /// Whether `image`, a file `execve` is about to start, is in a format [`Loader::load`]
-    /// handles, from a cheap look at it: `execve` asks before the point of no return, so an
-    /// image this refuses with [`LoadError::Format`] fails `execve` instead of killing the
-    /// process. By default, a WebAssembly binary: wasm's magic and version 1.
-    fn probe(&self, image: &[u8]) -> Result<(), LoadError> {
-        match image.starts_with(WASM_HEADER) {
+    /// Whether an image whose file starts with `header` (its first
+    /// [`BINPRM_BUF_SIZE`](wasixv2_syscalls::BINPRM_BUF_SIZE) bytes, or all of a shorter file)
+    /// is in a format [`Loader::load`] handles. `execve` asks before it reads the rest of the
+    /// file, so an image this refuses with [`LoadError::Format`] fails `execve` instead of
+    /// killing the process. By default, a WebAssembly binary: wasm's magic and version 1.
+    fn probe(&self, header: &[u8]) -> Result<(), LoadError> {
+        match header.starts_with(WASM_HEADER) {
             true => Ok(()),
             false => Err(LoadError::Format(Errno::ENOEXEC)),
         }
     }
 
-    /// The module for `image`, a WebAssembly binary the kernel loaded for a process that ran on
-    /// `engine` until now, and the engine that compiled it, which the image's instances run on.
+    /// The module for `image`, a WebAssembly binary the kernel loaded for a process that ran
+    /// on `engine` until now, and the engine that compiled it, which the image's instances
+    /// run on. A loader that caches can tell images apart by [`Image::identity`] without
+    /// looking at their bytes.
     fn load<'a>(
         &'a self,
         engine: &'a Engine,
-        image: &'a [u8],
+        image: &'a Image,
     ) -> LocalFuture<'a, Result<(Engine, Module), LoadError>>;
 }
 
@@ -69,8 +73,8 @@ impl Loader for Compile {
     fn load<'a>(
         &'a self,
         engine: &'a Engine,
-        image: &'a [u8],
+        image: &'a Image,
     ) -> LocalFuture<'a, Result<(Engine, Module), LoadError>> {
-        Box::pin(async move { Ok((engine.clone(), crate::load(engine, image)?)) })
+        Box::pin(async move { Ok((engine.clone(), crate::load(engine, image.bytes())?)) })
     }
 }

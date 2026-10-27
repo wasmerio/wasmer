@@ -9,7 +9,7 @@ use wasixv2_abi::{
     UsizePtr,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, GuestAction, SysResult, TaskId, VforkParent, WorkFlag, write_value,
+    Caller, Errno, GuestAction, Image, SysResult, TaskId, VforkParent, WorkFlag, write_value,
 };
 use wasixv2_wait::{Interrupted, NoInterrupt, PollMask, WaitQueue, wait_event};
 
@@ -552,7 +552,7 @@ impl Kernel {
     /// Leaves the image of an `execve` for the leader `task`, and wakes it wherever it waits,
     /// a zombie leader's wait for its group included. A vfork child's instance goes back to the
     /// parent once it takes the image; the parent returns from vfork unless its image ended.
-    pub(crate) fn hand_image(&self, task: TaskId, image: Vec<u8>) {
+    pub(crate) fn hand_image(&self, task: TaskId, image: Image) {
         let vfork_parent = self.procs.tree.lock().unwrap().vforks.remove(&task);
         let vfork_parent = vfork_parent.map(|task| VforkParent {
             task,

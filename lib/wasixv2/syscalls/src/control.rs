@@ -27,7 +27,7 @@ pub enum GuestAction {
     /// [`Control::signal_return`].
     Signal(SignalFrame),
     // ---- proc ----
-    /// The task replaced its image (`execve`): run the module [`Control::take_image`] hands
+    /// The task replaced its image (`execve`): run the module [`ExecImage::take_exec_image`] hands
     /// out as the same task, in a new instance with new memory, from `_start`. With
     /// `vfork_parent`, the task was a vfork child running in its parent's instance: the new
     /// instance runs on its own, and this one goes back to the parent as for
@@ -146,7 +146,7 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control: AtomicWait {
+pub trait Control: AtomicWait + ExecImage {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
@@ -164,7 +164,9 @@ pub trait Control: AtomicWait {
         let _ = (task, mask);
     }
 
-    /// The module bytes `task`'s pending [`GuestAction::Exec`] runs.
+    /// Superseded by [`ExecImage::take_exec_image`], which shares the image instead of
+    /// copying it; nothing calls this. It stays until the generator of `Layered`'s forwarding
+    /// (`wasixv2-codegen`) drops it.
     fn take_image(&self, task: TaskId) -> Option<Vec<u8>> {
         let _ = task;
         None
@@ -245,10 +247,102 @@ pub trait AtomicWait {
 /// before the point of no return, so an image nothing runs fails `execve` (with `ENOEXEC`) and
 /// leaves the caller's image in place, as an unknown binary does on Linux.
 pub trait Binfmt: Send + Sync {
-    /// Whether `image`, the contents of an executable file, is a program a handler starts, from
-    /// a cheap look at it (its header, its import section). The errno `execve` fails with when
-    /// it is not, normally `ENOEXEC`.
-    fn probe(&self, image: &[u8]) -> Result<(), Errno>;
+    /// Whether `header`, the first [`BINPRM_BUF_SIZE`] bytes of an executable file (all of it
+    /// when it is shorter; Linux's `bprm->buf`), starts an image a handler may start, such as
+    /// by its magic. The kernel asks before it reads the rest of the file. The errno `execve`
+    /// fails with when it does not, normally `ENOEXEC`.
+    fn probe(&self, header: &[u8]) -> Result<(), Errno>;
+
+    /// Whether a handler starts `image`, the whole file, once [`Binfmt::probe`] took its
+    /// header: a closer look a handler takes as it loads, such as at a module's imports. Still
+    /// before the point of no return. Accepts everything by default.
+    fn check(&self, image: &Image) -> Result<(), Errno> {
+        let _ = image;
+        Ok(())
+    }
+}
+
+/// `BINPRM_BUF_SIZE`: how much of an executable file the kernel reads to tell its format (and
+/// a `#!` line) before it reads the rest.
+pub const BINPRM_BUF_SIZE: usize = 256;
+
+/// The contents of the executable file an `execve` loaded, for the execution layer to run.
+/// Cheap to clone: the bytes are shared.
+#[derive(Clone)]
+pub struct Image {
+    bytes: Arc<dyn AsRef<[u8]> + Send + Sync>,
+    /// Whether `bytes` are the file's contents as its filesystem keeps them, unchanging.
+    shared: bool,
+}
+
+impl Image {
+    /// An image read into memory of its own.
+    pub fn copied(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes: Arc::new(bytes),
+            shared: false,
+        }
+    }
+
+    /// An image whose bytes its filesystem shares and never changes while anyone holds them,
+    /// such as a file of a package volume.
+    pub fn shared(bytes: Arc<dyn AsRef<[u8]> + Send + Sync>) -> Self {
+        Self {
+            bytes,
+            shared: true,
+        }
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        (*self.bytes).as_ref()
+    }
+
+    /// What tells these contents apart from any others without reading them, for a cache of
+    /// what was made of them: for shared bytes, their address and length, which name the same
+    /// bytes for as long as someone holds [`Image::keep_alive`]. `None` for a copy, which only
+    /// its bytes identify.
+    pub fn identity(&self) -> Option<ImageId> {
+        let bytes = self.bytes();
+        self.shared.then_some(ImageId {
+            addr: bytes.as_ptr() as usize,
+            len: bytes.len(),
+        })
+    }
+
+    /// Holds the bytes, and so keeps [`Image::identity`] theirs alone.
+    pub fn keep_alive(&self) -> Arc<dyn AsRef<[u8]> + Send + Sync> {
+        self.bytes.clone()
+    }
+}
+
+impl std::fmt::Debug for Image {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Image")
+            .field("len", &self.bytes().len())
+            .field("shared", &self.shared)
+            .finish()
+    }
+}
+
+/// The identity of an [`Image`]'s shared bytes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ImageId {
+    addr: usize,
+    len: usize,
+}
+
+/// The images `execve` loaded, which the execution layer runs.
+pub trait ExecImage {
+    /// The image `task`'s pending [`GuestAction::Exec`] runs.
+    fn take_exec_image(&self, task: TaskId) -> Option<Image>;
+}
+
+// By hand rather than generated with the rest of `Layered`: the layers see syscalls, and these
+// are not.
+impl<L, S: ExecImage> ExecImage for Layered<L, S> {
+    fn take_exec_image(&self, task: TaskId) -> Option<Image> {
+        self.inner.take_exec_image(task)
+    }
 }
 
 // By hand rather than generated with the rest of `Layered`: the layers see syscalls, and these

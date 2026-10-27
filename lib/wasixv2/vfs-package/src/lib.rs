@@ -39,8 +39,8 @@ use shared_buffer::OwnedBuffer;
 use wasixv2_abi::Errno;
 use wasixv2_vfs::{
     AllocMode, Attr, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult, Handle,
-    MAX_DIR_COOKIE, NAME_MAX, NewNode, Node, OpenOptions, PATH_MAX, RenameMode, SetAttr, StatFs,
-    Timestamp, XattrSet,
+    MAX_DIR_COOKIE, NAME_MAX, NewNode, Node, OpenOptions, PATH_MAX, RenameMode, SetAttr,
+    SharedContents, StatFs, Timestamp, XattrSet,
 };
 use webc::v3::read::{
     DirEntry as WebcEntry, Directory, OwnedReader, OwnedReaderError, VolumeHeaderError,
@@ -637,6 +637,11 @@ impl Handle for FileHandle {
         let n = rest.len().min(buf.len());
         buf[..n].copy_from_slice(&rest[..n]);
         Ok(n)
+    }
+
+    /// The buffer itself: a volume never changes.
+    async fn shared_contents(&self) -> Option<SharedContents> {
+        Some(Arc::new(self.0.clone()))
     }
 
     async fn write_at(&self, _data: &[u8], _offset: u64) -> FsResult<usize> {
