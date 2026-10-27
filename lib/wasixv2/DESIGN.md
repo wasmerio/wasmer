@@ -192,6 +192,7 @@ The crate `wasixv2-wait` holds what the VFS, the network and the kernel all need
 - `read` and `write`, which take an `Io` holding the open file's flags as the call began plus the interrupt hook. They block asynchronously unless `O_NONBLOCK` is set, in which case they return `EAGAIN`.
 - `ioctl`, which defaults to `ENOTTY`. The kernel handles `FIOCLEX`, `FIONCLEX`, `FIONBIO`, and `FIONREAD` on regular files, before calling the object.
 - `can_poll`, which is `file_can_poll`.
+- `fills_reads`, for objects whose reads fill the buffer, as the memory and random devices' do (`read_iter_zero`): the kernel reads them in steps until the buffer is full, as it reads files, and stops early at a signal. A read of any other object returns what one read of it gives.
 
 Dropping the object is Linux's `release`. Inode-backed open files poll as `DEFAULT_POLLMASK` and are `EPERM` for epoll.
 

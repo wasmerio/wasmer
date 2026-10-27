@@ -151,8 +151,9 @@ impl Target<'_> {
 
 impl Kernel {
     /// Reads into the buffers in order. Files are read in steps until the buffers are full or
-    /// the file ends; a stream read returns what one read of the object gives, as Linux's
-    /// `pipe_read` and socket reads do. A blocked read ends on a signal.
+    /// the file ends, and so are objects that fill reads, which stop early at a signal with what
+    /// they read so far; any other stream read returns what one read of the object gives, as
+    /// Linux's `pipe_read` and socket reads do. A blocked read ends on a signal.
     pub(crate) async fn read_into_iovecs(
         &self,
         caller: &Caller<'_>,
@@ -176,7 +177,7 @@ impl Kernel {
                 At::Offset(offset) => offset,
             },
         };
-        let stream = file.object().is_some();
+        let steps = file.fills_reads();
         let mut buf = vec![0; total.min(IO_CHUNK)];
         let mut cursor = Cursor::new(iovecs);
         let mut done = 0;
@@ -193,7 +194,11 @@ impl Kernel {
                 return Err(Errno::EFAULT.into());
             }
             done += copied;
-            if stream || faulted || n < want || done == total {
+            if !steps || faulted || n < want || done == total {
+                break;
+            }
+            // `read_zero` and `get_random_bytes_user` look for a signal after each page.
+            if file.object().is_some() && interrupt.pending() {
                 break;
             }
         }

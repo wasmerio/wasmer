@@ -345,3 +345,26 @@ fn memory_devices_read_write_and_seek_like_linux() {
     // No process has a controlling terminal.
     assert_eq!(errno(t.open("/dev/tty", rw)), Errno::ENXIO);
 }
+
+#[test]
+fn memory_and_random_devices_fill_reads_larger_than_one_step() {
+    // `dd bs=1M` counts on it: `read_iter_zero` and `urandom_read_iter` fill the whole buffer.
+    let (kernel, task, _) = machine();
+    let memory = FlatMemory(RefCell::new(vec![0; 3 << 20]));
+    let t = T::new(&kernel, task, &memory);
+    let len = 1 << 20;
+    for (at, fill) in [("/dev/zero", 0), ("/dev/urandom", 0x5a)] {
+        let fd = t.open(at, OpenFlags::O_RDONLY).unwrap();
+        put(&memory, 0x10000, &vec![7; len as usize]);
+        let read = block_on(kernel.read(&t.caller, fd, UserSliceMut::new(0x10000, len)));
+        assert_eq!(read, Ok(len), "{at}");
+        assert!(
+            get(&memory, 0x10000, len as usize)
+                .iter()
+                .all(|&b| b == fill),
+            "{at}"
+        );
+        let pread = kernel.pread64(&t.caller, fd, UserSliceMut::new(0x10000, len), 0);
+        assert_eq!(block_on(pread), Ok(len), "{at}");
+    }
+}
