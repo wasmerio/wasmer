@@ -101,6 +101,8 @@ impl Work {
 
 #[cfg(test)]
 mod tests {
+    use wasixv2_syscalls::VforkParent;
+
     use super::*;
 
     fn work() -> Work {
@@ -158,8 +160,12 @@ mod tests {
     #[test]
     fn a_vfork_childs_end_resumes_the_parent_instead_of_unwinding() {
         let mut work = work();
+        let parent = VforkParent {
+            task: TaskId(1),
+            exit: None,
+        };
         let resume = GuestAction::VforkReturn {
-            parent: TaskId(1),
+            parent,
             child: TaskId(2),
         };
         assert!(work.push(GuestAction::Exit(127)).is_empty());

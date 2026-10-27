@@ -9,7 +9,7 @@ use wasixv2_abi::{
     Rlimit64Ptr, RlimitResource, RusagePtr, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags,
     Siginfo, SiginfoPtr, Signal, SigprocmaskHow, Sigset, WaitOptions,
 };
-use wasixv2_syscalls::{SignalFrame, read_value, write_value};
+use wasixv2_syscalls::{SignalFrame, VforkParent, read_value, write_value};
 
 use super::{cred::machine_as, ipc::machine, proc::ForkableMemory, *};
 
@@ -528,40 +528,176 @@ fn a_group_whose_leader_exited_first_ends_with_the_leaders_status() {
     assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(5)));
 }
 
+/// A process with a second thread, forked from `init`, whose instance runs its vfork child.
+struct Vforked {
+    kernel: Kernel,
+    init: TaskId,
+    init_memory: ForkableMemory,
+    memory: FlatMemory,
+    parent: TaskId,
+    thread: TaskId,
+    child: TaskId,
+}
+
+impl Vforked {
+    fn new() -> Self {
+        let (kernel, init, _) = machine();
+        let init_memory = forkable();
+        let parent = fork(&kernel, &Caller::new(init, &init_memory));
+        let memory = FlatMemory(RefCell::new(vec![0; 0x1000]));
+        let caller = Caller::new(parent, &memory);
+        let thread = spawn_thread(&kernel, &caller);
+        let child = vfork(&kernel, &caller);
+        Self {
+            kernel,
+            init,
+            init_memory,
+            memory,
+            parent,
+            thread,
+            child,
+        }
+    }
+
+    /// The parent's other thread ends the group with `status` and unwinds.
+    fn exit_group(&self, status: i32) {
+        let caller = Caller::new(self.thread, &self.memory);
+        assert_eq!(block_on(self.kernel.exit_group(&caller, status)), Ok(()));
+        assert_eq!(
+            self.kernel.take_pending(self.thread),
+            Some(GuestAction::Exit(status))
+        );
+        self.kernel.release(self.thread);
+    }
+
+    fn reap_parent(&self) -> Option<u32> {
+        let caller = Caller::new(self.init, &self.init_memory);
+        reap(&self.kernel, &caller, self.parent)
+    }
+
+    /// What the instance goes back to once the child exited.
+    fn child_exits(&self) -> GuestAction {
+        let caller = Caller::new(self.child, &self.memory);
+        assert_eq!(block_on(self.kernel.exit_group(&caller, 0)), Ok(()));
+        self.kernel.take_pending(self.child).unwrap()
+    }
+}
+
 #[test]
 fn a_vfork_parent_whose_group_exits_is_no_zombie_while_its_child_runs() {
-    let (kernel, init, _) = machine();
-    let init_memory = forkable();
-    let init_caller = Caller::new(init, &init_memory);
-    let parent = fork(&kernel, &init_caller);
-    let memory = FlatMemory(RefCell::new(vec![0; 0x1000]));
-    let caller = Caller::new(parent, &memory);
-    let thread = spawn_thread(&kernel, &caller);
-    let child = vfork(&kernel, &caller);
+    let vforked = Vforked::new();
+    let Vforked {
+        kernel,
+        parent,
+        child,
+        ..
+    } = &vforked;
+    let (parent, child) = (*parent, *child);
 
     // Another thread ends the group while the parent's instance runs the child.
-    assert_eq!(
-        block_on(kernel.exit_group(&Caller::new(thread, &memory), 3)),
-        Ok(())
-    );
-    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(3)));
-    kernel.release(thread);
-    assert_eq!(reap(&kernel, &init_caller, parent), None);
+    vforked.exit_group(3);
+    assert_eq!(vforked.reap_parent(), None);
 
-    // The child's end hands the instance back; the parent unwinds through its exit.
+    // The child's end hands the instance back, and the parent unwinds through its exit
+    // instead of returning from vfork.
+    let exited = VforkParent {
+        task: parent,
+        exit: Some(3),
+    };
     assert_eq!(
-        block_on(kernel.exit_group(&Caller::new(child, &memory), 0)),
-        Ok(())
-    );
-    assert_eq!(
-        kernel.take_pending(child),
-        Some(GuestAction::VforkReturn { parent, child })
+        vforked.child_exits(),
+        GuestAction::VforkReturn {
+            parent: exited,
+            child
+        }
     );
     kernel.release(child);
-    assert_eq!(reap(&kernel, &init_caller, parent), None);
-    assert_eq!(kernel.take_pending(parent), Some(GuestAction::Exit(3)));
+    assert_eq!(vforked.reap_parent(), None);
     kernel.release(parent);
-    assert_eq!(reap(&kernel, &init_caller, parent), Some(3));
+    assert_eq!(vforked.reap_parent(), Some(3));
+}
+
+#[test]
+fn a_vfork_parent_whose_group_exits_does_not_return_from_its_childs_execve() {
+    const IMAGE: &[u8] = b"\0asm\x01\0\0\0";
+    let vforked = Vforked::new();
+    let Vforked {
+        kernel,
+        memory,
+        parent,
+        child,
+        ..
+    } = &vforked;
+    let caller = Caller::new(*child, memory);
+    put(memory, 0x100, b"/prog\0");
+    put(memory, 0x110, IMAGE);
+    let create = OpenFlags::O_CREAT | OpenFlags::O_WRONLY;
+    let fd = block_on(kernel.openat(&caller, Fd(-100), Cstr::new(0x100), create, 0o755)).unwrap();
+    let written = block_on(kernel.write(&caller, fd, UserSlice::new(0x110, IMAGE.len() as u32)));
+    assert_eq!(written, Ok(IMAGE.len() as u32));
+    assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+    // argv = { "/prog", NULL }, envp = { NULL }.
+    put(memory, 0x120, &0x100u32.to_le_bytes());
+
+    vforked.exit_group(3);
+    let execve = kernel.execve(
+        &caller,
+        Cstr::new(0x100),
+        GuestPtr::new(0x120),
+        GuestPtr::new(0x124),
+    );
+    assert_eq!(block_on(execve), Ok(0));
+
+    // The new image runs on its own; the instance unwinds the parent through its exit.
+    let vfork_parent = Some(VforkParent {
+        task: *parent,
+        exit: Some(3),
+    });
+    assert_eq!(
+        kernel.take_pending(*child),
+        Some(GuestAction::Exec { vfork_parent })
+    );
+    kernel.release(*parent);
+    assert_eq!(vforked.reap_parent(), Some(3));
+}
+
+/// The exit that counts is the one pending when the instance goes back to the parent: one
+/// that came after the child's end was queued kills the parent all the same.
+#[test]
+fn a_vfork_parent_whose_group_exits_after_its_child_ended_does_not_return() {
+    let vforked = Vforked::new();
+    let caller = Caller::new(vforked.child, &vforked.memory);
+    assert_eq!(block_on(vforked.kernel.exit_group(&caller, 0)), Ok(()));
+
+    vforked.exit_group(4);
+
+    let exited = VforkParent {
+        task: vforked.parent,
+        exit: Some(4),
+    };
+    assert_eq!(
+        vforked.kernel.take_pending(vforked.child),
+        Some(GuestAction::VforkReturn {
+            parent: exited,
+            child: vforked.child
+        })
+    );
+}
+
+#[test]
+fn a_vfork_parent_with_no_exit_pending_returns_from_vfork() {
+    let vforked = Vforked::new();
+    let parent = VforkParent {
+        task: vforked.parent,
+        exit: None,
+    };
+    assert_eq!(
+        vforked.child_exits(),
+        GuestAction::VforkReturn {
+            parent,
+            child: vforked.child
+        }
+    );
 }
 
 // ---- clone and pidfds ----

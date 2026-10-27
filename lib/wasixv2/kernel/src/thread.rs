@@ -8,7 +8,9 @@ use wasixv2_abi::{
     CloneFlags, GuestPtrMut, RobustListHeadPtr, RobustListHeadPtrPtr, S32Ptr, Ulong, Uptr, Usize,
     UsizePtr,
 };
-use wasixv2_syscalls::{Caller, Errno, GuestAction, SysResult, TaskId, WorkFlag, write_value};
+use wasixv2_syscalls::{
+    Caller, Errno, GuestAction, SysResult, TaskId, VforkParent, WorkFlag, write_value,
+};
 use wasixv2_wait::{NoInterrupt, PollMask, WaitQueue, wait_event};
 
 use crate::{Kernel, Process, State, Task, work::Work};
@@ -445,6 +447,7 @@ impl Kernel {
     /// Leaves the image of an `execve` for the leader `task`, and wakes it wherever it waits,
     /// a zombie leader's wait for its group included.
     pub(crate) fn hand_image(&self, task: TaskId, vfork_parent: Option<TaskId>) {
+        let vfork_parent = vfork_parent.map(|task| VforkParent { task, exit: None });
         self.queue(task, GuestAction::Exec { vfork_parent });
         let (process, signals) = self.with_task(task, |t| (t.process.clone(), t.signals.clone()));
         signals.group().notify(task);

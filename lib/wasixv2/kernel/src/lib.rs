@@ -2397,7 +2397,9 @@ impl Control for Kernel {
             // A reaped process's task, still unwinding.
             let entry = state.tasks.get_mut(&task)?;
             entry.work.flag().clear();
-            (entry.work.take(), entry.signals.clone())
+            let (action, signals) = (entry.work.take(), entry.signals.clone());
+            let action = action.map(|action| process::vfork_parent_exit(&state, action));
+            (action, signals)
         };
         match action {
             // What made the task leave its wait is here.

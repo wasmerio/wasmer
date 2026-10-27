@@ -21,13 +21,13 @@ use wasixv2_abi::{
 };
 use wasixv2_syscalls::{
     Binfmt, Caller, CstrError, Errno, Fd, GuestAction, LocalFuture, SysErr, SysResult, TaskId,
-    WorkFlag, read_cstr, read_value, write_value,
+    VforkParent, WorkFlag, read_cstr, read_value, write_value,
 };
 use wasixv2_vfs::{FileType, LookupFlags, MAY_EXEC, OpenHow};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
-    Kernel, Process, Task,
+    Kernel, Process, State, Task,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     ident::Comm,
     signal::{Signals, user_info},
@@ -182,6 +182,31 @@ impl Tree {
     }
 }
 
+/// `action` as the instance gets it from [`Control::take_pending`]: going back to a vfork
+/// parent, it says whether the parent's exit is pending by now. A group that exited while the
+/// parent waited in `wait_for_vfork_done` killed it there (`zap_other_threads`), so it never
+/// returns from vfork.
+///
+/// [`Control::take_pending`]: wasixv2_syscalls::Control::take_pending
+pub(crate) fn vfork_parent_exit(state: &State, action: GuestAction) -> GuestAction {
+    let exit = |parent: VforkParent| VforkParent {
+        exit: state.tasks.get(&parent.task).and_then(|t| t.work.exit()),
+        ..parent
+    };
+    match action {
+        GuestAction::VforkReturn { parent, child } => GuestAction::VforkReturn {
+            parent: exit(parent),
+            child,
+        },
+        GuestAction::Exec {
+            vfork_parent: Some(parent),
+        } => GuestAction::Exec {
+            vfork_parent: Some(exit(parent)),
+        },
+        action => action,
+    }
+}
+
 /// The `siginfo` of SIGCHLD and `waitid`: `si_pid`, `si_uid` (the child's real uid),
 /// `si_status`.
 fn child_info(signo: i32, pid: u32, exit: Exit) -> Siginfo {
@@ -306,9 +331,13 @@ impl Kernel {
                 let _ = signals.send_group(info);
             }
         }
-        if let Some(parent_task) = vfork_parent {
+        if let Some(parent) = vfork_parent {
+            let parent = VforkParent {
+                task: parent,
+                exit: None,
+            };
             let action = GuestAction::VforkReturn {
-                parent: parent_task,
+                parent,
                 child: task,
             };
             self.queue(task, action);

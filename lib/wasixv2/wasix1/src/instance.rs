@@ -135,6 +135,10 @@ impl Drop for Wasix1Instance {
         if let Some((pid, state)) = self.image.get_mut().unwrap().take() {
             self.procs.remove(pid, &state);
         }
+        // A vfork parent that exited instead of resuming leaves its child's vfork here.
+        for (child, vfork) in self.vforks.get_mut().unwrap().drain() {
+            self.procs.remove(child, &vfork.state);
+        }
     }
 }
 

@@ -30,9 +30,9 @@ pub enum GuestAction {
     /// The task replaced its image (`execve`): run the module [`Control::take_image`] hands
     /// out as the same task, in a new instance with new memory, from `_start`. With
     /// `vfork_parent`, the task was a vfork child running in its parent's instance: the new
-    /// instance runs on its own, and this one resumes the parent as for
+    /// instance runs on its own, and this one goes back to the parent as for
     /// [`GuestAction::VforkReturn`].
-    Exec { vfork_parent: Option<TaskId> },
+    Exec { vfork_parent: Option<VforkParent> },
     /// The instance runs as `task` from now on, and the current call returns `ret`: `clone`
     /// returning 0 to a vfork child.
     SwitchTask { task: TaskId, ret: i32 },
@@ -52,8 +52,19 @@ pub enum GuestAction {
     },
     /// The vfork child `child`, running in its parent's instance, ended: the instance runs as
     /// `parent` again, and the guest's `wasixv2_vfork_return(child)` export unwinds to the
-    /// vfork point.
-    VforkReturn { parent: TaskId, child: TaskId },
+    /// vfork point, unless the parent's exit is pending.
+    VforkReturn { parent: VforkParent, child: TaskId },
+}
+
+/// The vfork parent an instance goes back to once the child running in it ends.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct VforkParent {
+    pub task: TaskId,
+    /// The parent's pending exit, which [`Control::take_pending`] fills in when it hands out
+    /// the action: its thread group exited while it waited for the child. Such a parent never
+    /// returns from vfork, as Linux kills it in `wait_for_vfork_done`: the instance unwinds it
+    /// through its exit with this status instead of resuming it.
+    pub exit: Option<i32>,
 }
 
 /// One signal handler invocation: what the execution layer writes into the guest's signal frame

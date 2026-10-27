@@ -12,7 +12,9 @@ mod memory;
 mod result;
 
 pub use caller::{Caller, TaskId};
-pub use control::{AtomicWait, AtomicWord, Binfmt, Control, GuestAction, SignalFrame, WorkFlag};
+pub use control::{
+    AtomicWait, AtomicWord, Binfmt, Control, GuestAction, SignalFrame, VforkParent, WorkFlag,
+};
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{
     CstrError, Fault, LocalFuture, UserMemory, UserSlice, UserSliceMut, WASM_PAGE_SIZE, read_cstr,
