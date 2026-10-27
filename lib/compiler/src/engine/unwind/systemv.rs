@@ -126,11 +126,7 @@ impl UnwindRegistry {
             let mut current = 0;
             let mut last_len = 0;
             let using_libunwind = using_libunwind();
-            while current < eh_frame.len() {
-                assert!(
-                    eh_frame.len() - current >= size_of::<u32>(),
-                    "truncated frame length"
-                );
+            while current <= (eh_frame.len() - size_of::<u32>()) {
                 // If a CFI or a FDE starts with 0u32 it is a terminator.
                 let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
                 if len == 0 {
@@ -138,14 +134,8 @@ impl UnwindRegistry {
                     last_len = 0;
                     continue;
                 }
-                assert!(
-                    len >= 4 && len as usize <= eh_frame.len() - current - 4,
-                    "truncated frame record"
-                );
-                // A zero CIE ID identifies a CIE; consecutive object files can
-                // contribute multiple CIEs without intervening terminators.
-                let is_cie = eh_frame[current + 4..current + 8] == [0; 4];
-                let first_record = last_len == 0;
+                // The first record after a terminator is always a CIE.
+                let is_cie = last_len == 0;
                 last_len = len;
                 let record = eh_frame.as_ptr() as usize + current;
                 current = current + len as usize + 4;
@@ -158,20 +148,16 @@ impl UnwindRegistry {
                     }
                 } else {
                     // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
-                    if first_record {
+                    if is_cie {
                         records_to_register.push(record);
                     }
                 }
             }
 
-            // libunwind registers individual FDEs, so a bounded Mach-O section
-            // does not need the terminator required by libgcc's table interface.
-            if !using_libunwind {
-                assert_eq!(
-                    last_len, 0,
-                    "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
-                );
-            }
+            assert_eq!(
+                last_len, 0,
+                "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
+            );
             assert_eq!(
                 current,
                 eh_frame.len(),
