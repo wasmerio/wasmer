@@ -710,6 +710,31 @@ mod epoll {
     }
 
     #[test]
+    fn events_that_fault_on_the_way_out_stay_for_the_next_wait() {
+        let t = Fixture::new();
+        let (r1, w1) = pipe(&t.kernel, &t.caller(), OpenFlags::O_NONBLOCK);
+        let (r2, w2) = pipe(&t.kernel, &t.caller(), OpenFlags::O_NONBLOCK);
+        let ep = t.create();
+        t.add(ep, r1, IN | ONESHOT);
+        t.add(ep, r2, IN | ET);
+        t.write(w1, 1);
+        t.write(w2, 1);
+        // The array lies past the end of memory: nothing is copied out, and nothing is lost.
+        let past_end = GuestPtrMut::new(65536 - 8);
+        let caller = t.caller();
+        let wait = t
+            .kernel
+            .epoll_pwait(&caller, ep, past_end, 8, 0, GuestPtr::NULL, 8);
+        assert_eq!(errno(block_on(wait)), Errno::EFAULT);
+
+        let mut got = t.wait(ep, 0);
+        got.sort();
+        assert_eq!(got, [(IN, r1.0 as u64), (IN, r2.0 as u64)]);
+        // Delivered now: the one-shot item is disarmed and the edge has passed.
+        assert_eq!(t.wait(ep, 0), []);
+    }
+
+    #[test]
     fn level_triggered_items_stay_ready_and_edge_triggered_ones_fire_once() {
         let t = Fixture::new();
         let (r1, w1) = pipe(&t.kernel, &t.caller(), OpenFlags::O_NONBLOCK);
