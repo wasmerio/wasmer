@@ -705,7 +705,12 @@ impl Sock {
 
     /// One attempt to receive at most `max` bytes (`unix_stream_read_generic`,
     /// `__unix_dgram_recvmsg`).
-    fn try_recv(&self, max: usize, flags: MsgFlags) -> Result<Received, Errno> {
+    fn try_recv(
+        &self,
+        max: usize,
+        flags: MsgFlags,
+        writer: Option<Ucred>,
+    ) -> Result<Received, Errno> {
         let peek = flags.contains(MsgFlags::MSG_PEEK);
         let mut inner = self.lock();
         if self.kind == Kind::Stream && inner.state == State::Listening {
@@ -727,7 +732,7 @@ impl Sock {
             return Err(Errno::EAGAIN);
         }
         let out = match self.kind {
-            Kind::Stream => stream_take(&mut inner, max, peek),
+            Kind::Stream => stream_take(&mut inner, max, peek, writer),
             _ => record_take(&mut inner, max, peek),
         };
         let peer = inner.peer.as_ref().and_then(Weak::upgrade);
@@ -854,15 +859,24 @@ fn rights_keys(rx: &VecDeque<Msg>) -> Vec<usize> {
         .collect()
 }
 
-/// A stream read of at most `max` bytes: from consecutive messages, stopping after one that
-/// carried files. A whole unread message moves out without a copy.
-fn stream_take(inner: &mut Inner, max: usize, peek: bool) -> Received {
+/// A stream read of at most `max` bytes from consecutive messages
+/// (`unix_stream_read_generic`): it ends after a message that carried files, and with
+/// `SO_PASSCRED` it never glues messages of different writers, the first of them being
+/// `writer` when the read continues one (`MSG_WAITALL`). A whole unread message moves out
+/// without a copy.
+fn stream_take(inner: &mut Inner, max: usize, peek: bool, writer: Option<Ucred>) -> Received {
+    let check_creds = inner.passcred();
+    let mut writer = writer;
     let mut out = Received::eof();
     let mut index = 0;
     while out.data.len() < max && index < inner.rx.len() {
         let msg = &mut inner.rx[index];
-        if !out.data.is_empty() && (!msg.rights.is_empty() || Some(msg.cred) != out.cred) {
-            break;
+        if check_creds {
+            match writer {
+                Some(w) if w != msg.cred => break,
+                Some(_) => {}
+                None => writer = Some(msg.cred),
+            }
         }
         out.cred.get_or_insert(msg.cred);
         let had_rights = !msg.rights.is_empty();
@@ -1048,7 +1062,7 @@ impl FileObject for UnixFile {
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let mut wait = self.0.blocking(io, RCV, MsgFlags(0));
-            let got = recv(&self.0, &mut wait, buf.len(), MsgFlags(0)).await?;
+            let got = recv(&self.0, &mut wait, buf.len(), MsgFlags(0), None).await?;
             buf[..got.len()].copy_from_slice(&got.data);
             Ok(got.len())
         })
@@ -1091,15 +1105,17 @@ impl FileObject for UnixFile {
 }
 
 /// One receive of at most `max` bytes, waiting unless non-blocking. `MSG_WAITALL` is the
-/// caller's to loop on.
+/// caller's to loop on, passing as `writer` the credentials the read so far carried: with
+/// `SO_PASSCRED` a stream read stops (with nothing) at another writer's data.
 pub(crate) async fn recv(
     sock: &Sock,
     wait: &mut Blocking<'_>,
     max: usize,
     flags: MsgFlags,
+    writer: Option<Ucred>,
 ) -> SysResult<Received> {
     wait.wait(WaitOn::Queue(&sock.wait), PollMask::READABLE, || {
-        sock.try_recv(max, flags)
+        sock.try_recv(max, flags, writer)
     })
     .await
 }
@@ -1460,6 +1476,47 @@ mod tests {
         (a, b)
     }
 
+    fn cred(pid: i32) -> Ucred {
+        Ucred {
+            pid,
+            uid: 1,
+            gid: 1,
+        }
+    }
+
+    #[test]
+    fn stream_reads_never_glue_writers_with_so_passcred() {
+        let (a, b) = pair(Kind::Stream);
+        let send = |data: &[u8], pid| {
+            let mut data = data.to_vec();
+            let mut anc = Ancillary::default();
+            a.try_send_connected(&mut data, &mut anc, cred(pid))
+                .unwrap()
+        };
+        send(b"ab", 10);
+        send(b"cd", 11);
+        // Without SO_PASSCRED the writers' bytes run together.
+        let got = b.try_recv(16, MsgFlags::MSG_PEEK, None).unwrap();
+        assert_eq!(got.data, b"abcd");
+        b.lock()
+            .opts
+            .set(1, SocketOption::SO_PASSCRED.0, &1i32.to_le_bytes(), false)
+            .unwrap();
+        let first = b.try_recv(16, MsgFlags(0), None).unwrap();
+        assert_eq!(
+            (first.data.as_slice(), first.cred),
+            (&b"ab"[..], Some(cred(10)))
+        );
+        // `MSG_WAITALL` going on from the first writer stops at the second's data.
+        let more = b.try_recv(16, MsgFlags(0), first.cred).unwrap();
+        assert_eq!(more.len(), 0);
+        let second = b.try_recv(16, MsgFlags(0), None).unwrap();
+        assert_eq!(
+            (second.data.as_slice(), second.cred),
+            (&b"cd"[..], Some(cred(11)))
+        );
+    }
+
     #[test]
     fn zero_length_stream_send_queues_nothing() {
         let (a, b) = pair(Kind::Stream);
@@ -1469,7 +1526,7 @@ mod tests {
             a.try_send_connected(&mut Vec::new(), &mut anc, Ucred::default()),
             Ok(0)
         );
-        assert_eq!(b.try_recv(16, MsgFlags(0)).err(), Some(Errno::EAGAIN));
+        assert_eq!(b.try_recv(16, MsgFlags(0), None).err(), Some(Errno::EAGAIN));
         drop(file);
     }
 
@@ -1483,10 +1540,10 @@ mod tests {
             Ok(100_000)
         );
         assert!(data.is_empty(), "the record moved into the queue");
-        let peeked = b.try_recv(10, MsgFlags::MSG_PEEK).unwrap();
+        let peeked = b.try_recv(10, MsgFlags::MSG_PEEK, None).unwrap();
         assert_eq!((peeked.len(), peeked.full_len), (10, 100_000));
         assert!(peeked.flags.contains(MsgFlags::MSG_TRUNC));
-        let got = b.try_recv(1 << 20, MsgFlags(0)).unwrap();
+        let got = b.try_recv(1 << 20, MsgFlags(0), None).unwrap();
         assert_eq!((got.len(), got.full_len), (100_000, 100_000));
     }
 
@@ -1524,10 +1581,10 @@ mod tests {
         client.try_connect(&listener, &PeerCred::default()).unwrap();
         listener.release(false);
         assert_eq!(
-            client.try_recv(4, MsgFlags(0)).err(),
+            client.try_recv(4, MsgFlags(0), None).err(),
             Some(Errno::ECONNRESET)
         );
-        assert_eq!(client.try_recv(4, MsgFlags(0)).unwrap().len(), 0);
+        assert_eq!(client.try_recv(4, MsgFlags(0), None).unwrap().len(), 0);
     }
 
     #[test]

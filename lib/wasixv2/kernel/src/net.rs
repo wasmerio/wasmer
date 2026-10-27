@@ -626,7 +626,7 @@ impl Kernel {
                     true => dst.len.min(SOCK_CHUNK),
                     false => dst.len,
                 };
-                let msg = unix::recv(sock, &mut wait, max, flags).await?;
+                let msg = unix::recv(sock, &mut wait, max, flags, None).await?;
                 dst.copy_out(memory, 0, &msg.data).await?;
                 let controls = msg
                     .cred
@@ -646,10 +646,13 @@ impl Kernel {
                     controls,
                     rights: msg.rights,
                 };
+                // `unix_stream_read_generic` keeps waiting, but never past files and, with
+                // `SO_PASSCRED`, never into another writer's data.
+                let writer = msg.cred;
                 while stream && waitall && got.len > 0 && got.len < dst.len && got.rights.is_empty()
                 {
                     let max = (dst.len - got.len).min(SOCK_CHUNK);
-                    match unix::recv(sock, &mut wait, max, flags).await {
+                    match unix::recv(sock, &mut wait, max, flags, writer).await {
                         Ok(more) if more.len() > 0 => {
                             if dst.copy_out(memory, got.len, &more.data).await.is_err() {
                                 break;
