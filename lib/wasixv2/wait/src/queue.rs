@@ -15,8 +15,11 @@ use crate::PollMask;
 pub trait WaitEntry: Send + Sync {
     /// Called from `WaitQueue::wake`, possibly on another thread (a host reactor, say), with
     /// the queue's lock held, as Linux runs wake functions under `wq_head->lock`. Must not
-    /// block, and must not add to, query or wake the queue being woken; it may drop its own (or
-    /// any other) registration on it. `events` is the wake key; empty means "anything may have
+    /// block, and must not add to, query or wake the queue being woken. It may drop
+    /// registrations, its own or others, on any queue: one on the queue being woken is gone
+    /// before the next entry runs, and one on another queue once this wake released its lock,
+    /// since taking that queue's lock here would invert the order against a wake of that queue
+    /// that drops a registration on this one. `events` is the wake key; empty means "anything may have
     /// changed", like Linux's `wake_up` with a NULL key, and every entry must treat it as a
     /// match.
     ///
@@ -48,10 +51,18 @@ struct Inner {
 }
 
 thread_local! {
-    /// The queues this thread is waking, innermost last, each with the registrations dropped
-    /// from inside one of its entries. Such a drop cannot take the lock the wake holds, so the
-    /// wake removes those entries itself.
-    static WAKING: RefCell<Vec<(*const Inner, Vec<u64>)>> = const { RefCell::new(Vec::new()) };
+    /// The queues this thread is waking, innermost last, with the registrations their entries
+    /// dropped. Such a drop takes no queue lock while a wake holds one: the wake removes those
+    /// on its own queue itself, and those on other queues once it released its lock.
+    static WAKING: RefCell<Vec<Frame>> = const { RefCell::new(Vec::new()) };
+}
+
+struct Frame {
+    queue: *const Inner,
+    /// Registrations on `queue`.
+    dropped: Vec<u64>,
+    /// Registrations on queues that no wake of this thread holds.
+    foreign: Vec<(Weak<Inner>, u64)>,
 }
 
 /// This thread's `WAKING` frame for one wake; popped on drop, also when an entry panics.
@@ -59,14 +70,29 @@ struct WakingFrame;
 
 impl WakingFrame {
     fn push(queue: *const Inner) -> Self {
-        WAKING.with(|waking| waking.borrow_mut().push((queue, Vec::new())));
+        WAKING.with(|waking| {
+            waking.borrow_mut().push(Frame {
+                queue,
+                dropped: Vec::new(),
+                foreign: Vec::new(),
+            })
+        });
         Self
     }
 
-    /// The registrations dropped from inside entries since the last call.
+    /// The registrations on the queue being woken dropped from inside entries since the last
+    /// call.
     fn take_dropped(&self) -> Vec<u64> {
         WAKING.with(|waking| match waking.borrow_mut().last_mut() {
-            Some((_, ids)) => std::mem::take(ids),
+            Some(frame) => std::mem::take(&mut frame.dropped),
+            None => Vec::new(),
+        })
+    }
+
+    /// The registrations on other queues dropped from inside entries.
+    fn take_foreign(&self) -> Vec<(Weak<Inner>, u64)> {
+        WAKING.with(|waking| match waking.borrow_mut().last_mut() {
+            Some(frame) => std::mem::take(&mut frame.foreign),
             None => Vec::new(),
         })
     }
@@ -134,10 +160,14 @@ impl WaitQueue {
                 break;
             }
         }
+        let foreign = frame.take_foreign();
         drop(frame);
         drop(entries);
         // Entries may own registrations on this queue, so they go once the lock is released.
         drop(removed);
+        for (queue, id) in foreign {
+            drop(WaitRegistration { queue, id });
+        }
     }
 
     /// `waitqueue_active`: whether any entry is registered.
@@ -177,12 +207,19 @@ impl WaitRegistration {
 impl Drop for WaitRegistration {
     fn drop(&mut self) {
         // Dropped from inside an entry while this thread wakes the queue: the wake holds the
-        // lock, and removes the entry before it runs another one.
+        // lock, and removes the entry before it runs another one. Dropped while it wakes
+        // another queue: that wake removes it once it released its lock.
         let queue = self.queue.as_ptr();
         let deferred = WAKING.with(|waking| {
             let mut waking = waking.borrow_mut();
-            let frame = waking.iter_mut().rev().find(|(waking, _)| *waking == queue);
-            frame.map(|(_, ids)| ids.push(self.id)).is_some()
+            if let Some(frame) = waking.iter_mut().rev().find(|frame| frame.queue == queue) {
+                frame.dropped.push(self.id);
+                return true;
+            }
+            let frame = waking.last_mut();
+            frame
+                .map(|frame| frame.foreign.push((self.queue.clone(), self.id)))
+                .is_some()
         });
         if deferred {
             return;
@@ -315,6 +352,39 @@ mod tests {
         queue.wake(PollMask::IN);
 
         assert!(!queue.is_active());
+    }
+
+    /// Drops a registration on another queue from inside `wake`, noting whether that queue
+    /// still had it right after.
+    struct DropsForeign {
+        registration: Mutex<Option<WaitRegistration>>,
+        other: WaitQueue,
+        still_there: Mutex<Option<bool>>,
+    }
+
+    impl WaitEntry for DropsForeign {
+        fn wake(&self, _: PollMask) -> bool {
+            self.registration.lock().unwrap().take();
+            *self.still_there.lock().unwrap() = Some(self.other.is_active());
+            true
+        }
+    }
+
+    #[test]
+    fn a_registration_on_another_queue_goes_once_the_wake_released_its_lock() {
+        let (queue, other) = (WaitQueue::new(), WaitQueue::new());
+        let entry = Arc::new(DropsForeign {
+            registration: Mutex::new(Some(other.add(counter(false, true)))),
+            other: other.clone(),
+            still_there: Mutex::new(None),
+        });
+        let _registration = queue.add(entry.clone());
+
+        queue.wake(PollMask::IN);
+
+        // Not removed under the woken queue's lock, but by the time the wake returned.
+        assert_eq!(*entry.still_there.lock().unwrap(), Some(true));
+        assert!(!other.is_active());
     }
 
     #[test]
