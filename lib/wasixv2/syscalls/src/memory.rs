@@ -174,9 +174,64 @@ impl UserSliceMut {
         Self { addr, len }
     }
 
-    /// Copies `data` out to the start of the buffer. `data` must fit in it.
+    /// Copies `data` out to the start of the buffer. More than fits faults rather than write
+    /// past the buffer.
     pub async fn copy_out(self, memory: &dyn UserMemory, data: &[u8]) -> Result<(), Fault> {
-        debug_assert!(data.len() <= self.len as usize);
+        if data.len() > self.len as usize {
+            return Err(Fault);
+        }
         memory.write(self.addr, data).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use super::*;
+
+    struct Flat(RefCell<Vec<u8>>);
+
+    impl UserMemory for Flat {
+        fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            let memory = self.0.borrow();
+            let result = memory
+                .get(addr as usize..addr as usize + buf.len())
+                .map(|src| buf.copy_from_slice(src))
+                .ok_or(Fault);
+            Box::pin(async move { result })
+        }
+
+        fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            let mut memory = self.0.borrow_mut();
+            let result = memory
+                .get_mut(addr as usize..addr as usize + data.len())
+                .map(|dst| dst.copy_from_slice(data))
+                .ok_or(Fault);
+            Box::pin(async move { result })
+        }
+
+        fn size(&self) -> LocalFuture<'_, u64> {
+            let size = self.0.borrow().len() as u64;
+            Box::pin(async move { size })
+        }
+
+        fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
+            Box::pin(async { None })
+        }
+    }
+
+    #[test]
+    fn copy_out_faults_instead_of_writing_past_the_buffer() {
+        let memory = Flat(RefCell::new(vec![0; 8]));
+        let buf = UserSliceMut::new(0, 2);
+        let copy = |data: &[u8]| {
+            let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+            std::pin::pin!(buf.copy_out(&memory, data)).poll(&mut cx)
+        };
+        assert_eq!(copy(b"abc"), std::task::Poll::Ready(Err(Fault)));
+        assert_eq!(*memory.0.borrow(), [0; 8]);
+        assert_eq!(copy(b"ab"), std::task::Poll::Ready(Ok(())));
+        assert_eq!(memory.0.borrow()[..3], *b"ab\0");
     }
 }

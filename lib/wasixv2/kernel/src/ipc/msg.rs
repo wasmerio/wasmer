@@ -32,6 +32,12 @@ const MSGMAP: i32 = MSGMNB;
 const MSGSSZ: i32 = 16;
 const MSGSEG: u16 = 0xffff;
 
+/// Where the text of the `struct msgbuf` at `msgp` starts, after its `long mtype`. A buffer at
+/// the top of memory faults, as reading on past it would.
+fn mtext(msgp: u32) -> Result<u32, Errno> {
+    msgp.checked_add(4).ok_or(Errno::EFAULT)
+}
+
 /// The namespace's message queues.
 #[derive(Default)]
 pub(crate) struct Queues {
@@ -233,7 +239,7 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let mut text = vec![0; msgsz as usize];
-        caller.memory().read(msgp.addr() + 4, &mut text).await?;
+        caller.memory().read(mtext(msgp.addr())?, &mut text).await?;
         let cred = self.env(caller).cred;
         let pid = self.process(caller.task()).pid.0;
         let queue = self.ipc.msg.get(msqid)?;
@@ -339,7 +345,7 @@ impl Kernel {
         .await?;
         caller
             .memory()
-            .write(msgp.addr() + 4, &message.text[..n])
+            .write(mtext(msgp.addr())?, &message.text[..n])
             .await?;
         Ok(n as i32)
     }
@@ -437,5 +443,16 @@ impl Kernel {
             }
             _ => Err(Errno::EINVAL.into()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_message_buffer_at_the_top_of_memory_faults() {
+        assert_eq!(mtext(0x100), Ok(0x104));
+        assert_eq!(mtext(u32::MAX - 3), Err(Errno::EFAULT));
     }
 }
