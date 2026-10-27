@@ -555,3 +555,56 @@ fn a_caught_timer_signal_ends_a_sleep_with_the_time_left() {
     let left = i64::from_le_bytes(get(&t.memory, NEW, 8).try_into().unwrap());
     assert!((8..=10).contains(&left), "left {left} s");
 }
+
+/// `setitimer(ITIMER_REAL)` with (value, interval).
+fn setitimer(t: &Fixture, value: Duration, interval: Duration) {
+    let fields = [interval, value]
+        .iter()
+        .flat_map(|d| [d.as_secs() as i32, d.subsec_micros() as i32])
+        .flat_map(i32::to_le_bytes)
+        .collect::<Vec<u8>>();
+    put(&t.memory, NEW, &fields);
+    let caller = t.caller();
+    let real = wasixv2_abi::ItimerWhich::ITIMER_REAL;
+    let set = t
+        .kernel
+        .setitimer(&caller, real, GuestPtr::new(NEW), GuestPtrMut::NULL);
+    assert_eq!(block_on(set), Ok(0));
+}
+
+/// `getitimer(ITIMER_REAL)` as (value, interval).
+fn getitimer(t: &Fixture) -> (Duration, Duration) {
+    let caller = t.caller();
+    let real = wasixv2_abi::ItimerWhich::ITIMER_REAL;
+    assert_eq!(
+        block_on(t.kernel.getitimer(&caller, real, GuestPtrMut::new(OLD))),
+        Ok(0)
+    );
+    let field = |i: u32| u64::from(word(&t.memory, OLD + i * 4));
+    let timeval = |i: u32| Duration::from_secs(field(i)) + Duration::from_micros(field(i + 1));
+    (timeval(2), timeval(0))
+}
+
+#[test]
+fn a_periodic_itimer_goes_on_once_its_sigalrm_is_dequeued() {
+    let t = Fixture::new();
+    t.block(SIGALRM);
+    setitimer(&t, 5 * MS, 5 * MS);
+    std::thread::sleep(40 * MS);
+
+    // Expired with its signal pending: not running until the signal is taken.
+    assert_eq!(getitimer(&t), (Duration::ZERO, 5 * MS));
+    assert_eq!(
+        t.wait(SIGALRM, Duration::ZERO).map(|info| info[0]),
+        Ok(SIGALRM)
+    );
+    let (left, interval) = getitimer(&t);
+    assert!(!left.is_zero() && left <= 5 * MS, "{left:?}");
+    assert_eq!(interval, 5 * MS);
+    // The periods missed meanwhile were one signal.
+    assert_eq!(errno(t.wait(SIGALRM, Duration::ZERO)), Errno::EAGAIN);
+
+    // A zero value disarms the timer and forgets its interval.
+    setitimer(&t, Duration::ZERO, 5 * MS);
+    assert_eq!(getitimer(&t), (Duration::ZERO, Duration::ZERO));
+}

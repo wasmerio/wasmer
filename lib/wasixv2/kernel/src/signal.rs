@@ -19,6 +19,7 @@ use wasixv2_abi::{
     SigaltstackPtr, Siginfo, SiginfoPtr, Signal, SignalHandler, SignalLimits, SigprocmaskHow,
     Sigset, SigsetPtr,
 };
+use wasixv2_host::Host;
 use wasixv2_syscalls::{
     Caller, Errno, GuestAction, SignalFrame, SysErr, SysResult, TaskId, WorkFlag, read_value,
     write_value,
@@ -240,11 +241,38 @@ impl AltStack {
 /// `ITIMER_REAL`.
 #[derive(Default)]
 struct RealTimer {
-    /// On the host's monotonic clock.
+    /// On the host's monotonic clock; `None` while disarmed, and from an expiry until its
+    /// SIGALRM is dequeued.
     deadline: Option<Duration>,
+    /// `it_real_incr`: zero for a one-shot timer.
     interval: Duration,
-    /// Sends SIGALRM at `deadline` (`it_real_fn`); made at the first arming.
-    timer: Option<Timer>,
+    /// The deadline that last expired, which a periodic timer moves on from.
+    expired: Option<Duration>,
+    /// Sends SIGALRM at `deadline` (`it_real_fn`), on the host's clock; made at the first
+    /// arming.
+    timer: Option<(Timer, Arc<dyn Host>)>,
+}
+
+impl RealTimer {
+    /// `posixtimer_rearm_itimer`, as SIGALRM is dequeued: a periodic timer that expired goes on
+    /// to its first period after now. Re-arming here rather than at the expiry keeps a timer
+    /// whose SIGALRM is blocked or ignored from running meanwhile, as on Linux.
+    fn rearm(&mut self) {
+        let (Some(expired), Some((timer, host))) = (self.expired, &self.timer) else {
+            return;
+        };
+        if self.deadline.is_some() || self.interval.is_zero() {
+            return;
+        }
+        let now = host.monotonic();
+        self.deadline = match expired <= now {
+            true => timer::forward(expired, self.interval, now).1,
+            false => Some(expired),
+        };
+        if let Some(deadline) = self.deadline {
+            timer.start(deadline);
+        }
+    }
 }
 
 /// What a signal does by default (`sig_kernel_*` in `include/linux/signal.h`).
@@ -497,8 +525,8 @@ impl Signals {
     pub(crate) fn cancel_real_timer(&self) {
         let mut state = self.state.lock().unwrap();
         let real = &mut state.real_timer;
-        real.deadline = None;
-        if let Some(timer) = &real.timer {
+        (real.deadline, real.expired) = (None, None);
+        if let Some((timer, _)) = &real.timer {
             timer.cancel();
         }
     }
@@ -649,10 +677,18 @@ impl GroupState {
         }
         let shared = self.shared.set & wanted;
         if shared != 0 {
-            let sig = shared.trailing_zeros() as i32 + 1;
-            return Some(self.shared.take(sig));
+            return Some(self.take_shared(shared.trailing_zeros() as i32 + 1));
         }
         None
+    }
+
+    /// Takes `sig` from the group's pending set; SIGALRM re-arms a periodic `ITIMER_REAL`.
+    fn take_shared(&mut self, sig: i32) -> (Siginfo, Option<Arc<PosixTimer>>) {
+        let taken = self.shared.take(sig);
+        if sig == Signal::SIGALRM.0 {
+            self.real_timer.rearm();
+        }
+        taken
     }
 }
 
@@ -743,7 +779,7 @@ impl TaskSignals {
             if shared == 0 {
                 return None;
             }
-            let (mut info, timer) = state.shared.take(shared.trailing_zeros() as i32 + 1);
+            let (mut info, timer) = state.take_shared(shared.trailing_zeros() as i32 + 1);
             let Some(timer) = timer else {
                 return Some(info);
             };
@@ -1534,16 +1570,21 @@ impl Kernel {
             return old;
         };
         let real = &mut state.real_timer;
-        real.interval = interval;
+        // A zero value disarms, and forgets the interval too (`do_setitimer`).
+        real.interval = match value.is_zero() {
+            true => Duration::ZERO,
+            false => interval,
+        };
         real.deadline = (!value.is_zero()).then(|| now.saturating_add(value));
-        let timer = real.timer.get_or_insert_with(|| {
+        real.expired = None;
+        let (timer, _) = real.timer.get_or_insert_with(|| {
             let group = Arc::downgrade(group);
             let host = self.host.clone();
             let fire = move || {
                 let group = group.upgrade()?;
                 real_timer_expired(&group, host.monotonic())
             };
-            self.timers.timer(Box::new(fire))
+            (self.timers.timer(Box::new(fire)), self.host.clone())
         });
         match real.deadline {
             Some(deadline) => timer.start(deadline),
@@ -1553,8 +1594,9 @@ impl Kernel {
     }
 }
 
-/// `it_real_fn`: sends SIGALRM, and moves a periodic timer past `now`; missed periods
-/// collapse into the one signal. Returns the deadline to re-arm at.
+/// `it_real_fn`: sends SIGALRM. A periodic timer goes on once the signal is dequeued
+/// ([`RealTimer::rearm`]), so missed periods collapse into the one signal. Returns the deadline
+/// to re-arm at, for a timer that fired early.
 fn real_timer_expired(group: &Signals, now: Duration) -> Option<Duration> {
     {
         let mut state = group.state.lock().unwrap();
@@ -1563,13 +1605,10 @@ fn real_timer_expired(group: &Signals, now: Duration) -> Option<Duration> {
         if deadline > now {
             return Some(deadline);
         }
-        real.deadline = match real.interval.is_zero() {
-            true => None,
-            false => timer::forward(deadline, real.interval, now).1,
-        };
+        (real.deadline, real.expired) = (None, Some(deadline));
     }
     group.send(None, kernel_info(Signal::SIGALRM.0));
-    group.state.lock().unwrap().real_timer.deadline
+    None
 }
 
 fn real_timer_value(timer: &RealTimer, now: Duration) -> (Duration, Duration) {
