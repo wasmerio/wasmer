@@ -8,11 +8,7 @@
 //! they are used and address arithmetic that would leave the address space is `EFAULT`, so no
 //! guest input can make the host panic.
 
-use std::{
-    net::SocketAddr,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, net::SocketAddr, sync::Arc, time::Duration};
 
 use wasixv2_abi::{
     AddressFamily, Buf, ConstSockaddrPtr, ConstUserMsghdrPtr, FdPair, GuestLayout, GuestPtr,
@@ -1214,13 +1210,16 @@ impl GuestIov {
     }
 }
 
-/// Bounce buffers for socket I/O. Guest memory is reached asynchronously while sockets work on
-/// byte slices, so data passes through kernel memory; reusing buffers spares allocating and
-/// zeroing one per call. What a buffer held before is never shown to a guest: a send fills it
-/// from guest memory first, a receive copies out only what the socket wrote.
-static SCRATCH: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
-/// How many idle buffers the pool keeps.
-const SCRATCH_KEEP: usize = 16;
+thread_local! {
+    /// Bounce buffers for socket I/O. Guest memory is reached asynchronously while sockets
+    /// work on byte slices, so data passes through kernel memory; reusing buffers spares
+    /// allocating and zeroing one per call. What a buffer held before is never shown to a
+    /// guest: a send fills it from guest memory first, a receive copies out only what the
+    /// socket wrote. The pool is per host thread, so machines in one process share no lock.
+    static SCRATCH: RefCell<Vec<Vec<u8>>> = const { RefCell::new(Vec::new()) };
+}
+/// How many idle buffers a thread's pool keeps.
+const SCRATCH_KEEP: usize = 4;
 
 #[derive(Default)]
 struct Scratch(Vec<u8>);
@@ -1229,7 +1228,9 @@ impl Scratch {
     /// A buffer of `len` bytes.
     fn get(&mut self, len: usize) -> &mut [u8] {
         if self.0.capacity() == 0 {
-            self.0 = SCRATCH.lock().unwrap().pop().unwrap_or_default();
+            self.0 = SCRATCH
+                .with_borrow_mut(|pool| pool.pop())
+                .unwrap_or_default();
         }
         if self.0.len() < len {
             self.0.resize(len, 0);
@@ -1244,10 +1245,13 @@ impl Drop for Scratch {
         if buf.capacity() == 0 || buf.len() > SOCK_CHUNK {
             return;
         }
-        let mut pool = SCRATCH.lock().unwrap();
-        if pool.len() < SCRATCH_KEEP {
-            pool.push(buf);
-        }
+        // `try_with`: a thread being torn down keeps nothing.
+        let _ = SCRATCH.try_with(|pool| {
+            let mut pool = pool.borrow_mut();
+            if pool.len() < SCRATCH_KEEP {
+                pool.push(buf);
+            }
+        });
     }
 }
 

@@ -826,6 +826,7 @@ impl Socket for TcpSocket {
         match &g.state {
             State::Listening(_) => Err(Errno::EINVAL),
             State::Connected(Transport::Local(c, side), _) => Ok(c.output_len(*side)),
+            State::Connected(Transport::Remote(s), _) => Ok(s.output_len()),
             _ => Ok(0),
         }
     }

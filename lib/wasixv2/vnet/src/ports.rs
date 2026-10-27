@@ -306,10 +306,6 @@ impl<T: Clone> PortTable<T> {
         }
     }
 
-    pub fn is_bound(&self, port: u16) -> bool {
-        self.buckets.contains_key(&port)
-    }
-
     /// A wildcard-bound socket took a specific source address by connecting
     /// (`inet_bhash2_update_saddr`).
     pub fn rehash(&mut self, id: SockId, port: u16, addr: IpAddr) {

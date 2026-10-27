@@ -180,11 +180,6 @@ impl Net {
         self.next_id.fetch_add(1, Ordering::Relaxed)
     }
 
-    /// The interface and route tables, for netlink.
-    pub fn interface_table(&self) -> Interfaces {
-        self.state().ifaces.clone()
-    }
-
     /// Changes the interface and route tables (`ip link`, `ip addr`, `ip route`).
     pub fn update_interfaces<R>(&self, f: impl FnOnce(&mut Interfaces) -> R) -> R {
         f(&mut self.state().ifaces)
