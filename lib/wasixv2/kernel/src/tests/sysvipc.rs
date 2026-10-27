@@ -304,6 +304,41 @@ fn shared_memory_hands_data_over_at_detach_and_attach() {
     assert_eq!(errno(stat(&caller_a, &memory_a)), Errno::EINVAL);
 }
 
+#[test]
+fn segment_attachments_merge_both_sides_changes_at_every_sync() {
+    let (kernel, a, _) = setup(b"");
+    let b = another_process(&kernel);
+    let (memory_a, memory_b) = (memory(), memory());
+    let (caller_a, caller_b) = (Caller::new(a, &memory_a), Caller::new(b, &memory_b));
+    // Two pages, so the copies cross a page of the segment.
+    let size = 2 * WASM_PAGE_SIZE as u32;
+    let id = block_on(kernel.shmget(&caller_a, 6, size, CREATE)).unwrap();
+    let at_a = block_on(kernel.shmat(&caller_a, id, 0, 0)).unwrap() as u32;
+    let at_b = block_on(kernel.shmat(&caller_b, id, 0, 0)).unwrap() as u32;
+    let sem = block_on(kernel.semget(&caller_a, IpcKey::IPC_PRIVATE.0, 1, CREATE)).unwrap();
+    let sync = |caller| assert_eq!(semop(&kernel, caller, sem, &[(0, 1, 0)]), Ok(0));
+    let edge = WASM_PAGE_SIZE as u32 - 2;
+
+    put(&memory_a, at_a + edge, b"a:1");
+    sync(&caller_a);
+    sync(&caller_b);
+    assert_eq!(get(&memory_b, at_b + edge, 3), b"a:1");
+    // Nothing changed on either side: syncing again keeps what both hold.
+    sync(&caller_a);
+    sync(&caller_b);
+    assert_eq!(get(&memory_a, at_a + edge, 3), b"a:1");
+    assert_eq!(get(&memory_b, at_b + edge, 3), b"a:1");
+    // Changes on both sides meet; A sees B's after its own sync published nothing new.
+    put(&memory_b, at_b, b"b:2");
+    put(&memory_a, at_a + size - 3, b"a:3");
+    sync(&caller_b);
+    sync(&caller_a);
+    sync(&caller_b);
+    assert_eq!(get(&memory_a, at_a, 3), b"b:2");
+    assert_eq!(get(&memory_b, at_b + size - 3, 3), b"a:3");
+    assert_eq!(get(&memory_a, at_a + edge, 3), b"a:1");
+}
+
 fn mq_open(
     kernel: &Kernel,
     caller: &Caller<'_>,
