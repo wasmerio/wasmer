@@ -1,7 +1,11 @@
 //! Priority-inheritance futexes between the threads of one process, and wasm's atomic wait
 //! and notify on the same futexes.
 
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::{
+    cell::Cell,
+    sync::atomic::{AtomicU32, Ordering},
+    task::Poll,
+};
 
 use futures::FutureExt as _;
 use wasixv2_abi::{FutexOp, Signal};
@@ -453,4 +457,123 @@ fn cmp_requeue_compares_and_moves_waiters_to_the_second_futex() {
     assert_eq!(futex(&kernel, &caller, COND, wake, 1, 0, 0, 0), Ok(0));
     assert_eq!(futex(&kernel, &caller, LOCK, wake, 1, 0, 0, 0), Ok(1));
     assert_eq!(second.now_or_never(), Some(Ok(0)));
+}
+
+#[test]
+fn exit_group_releases_the_robust_futexes_of_every_thread() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    // `other`'s robust list: the head, then one mutex whose word sits 4 bytes into its entry.
+    const HEAD: u32 = 0x200;
+    const ENTRY: u32 = 0x210;
+    memory.set(HEAD, ENTRY);
+    memory.set(HEAD + 4, 4);
+    memory.set(ENTRY, HEAD);
+    memory.set(ENTRY + 4, other.0);
+    let head = wasixv2_abi::RobustListHeadPtr::new(HEAD);
+    assert_eq!(
+        block_on(kernel.set_robust_list(&other_caller, head, 12)),
+        Ok(0)
+    );
+
+    // Another thread's `exit_group` ends `other` too, which held the mutex.
+    block_on(kernel.exit_group(&caller, 0)).unwrap();
+    assert_eq!(memory.word(ENTRY + 4), OWNER_DIED);
+}
+
+/// Memory whose first read, once armed, leaves the call that makes it suspended for a poll.
+struct PausingMemory {
+    memory: SharedMemory,
+    armed: Cell<bool>,
+    paused_at: Cell<Option<u32>>,
+}
+
+impl UserMemory for PausingMemory {
+    fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        let pause = self.armed.replace(false);
+        if pause {
+            self.paused_at.set(Some(addr));
+        }
+        let read = self.memory.read(addr, buf);
+        Box::pin(async move {
+            if pause {
+                let mut paused = false;
+                std::future::poll_fn(|cx| {
+                    if std::mem::replace(&mut paused, true) {
+                        return Poll::Ready(());
+                    }
+                    cx.waker().wake_by_ref();
+                    Poll::Pending
+                })
+                .await;
+            }
+            read.await
+        })
+    }
+
+    fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.memory.write(addr, data)
+    }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        self.memory.size()
+    }
+
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        self.memory.grow(pages)
+    }
+
+    fn compare_exchange_u32(
+        &self,
+        addr: u32,
+        expected: u32,
+        new: u32,
+    ) -> LocalFuture<'_, Result<u32, Fault>> {
+        self.memory.compare_exchange_u32(addr, expected, new)
+    }
+}
+
+/// While `exit_group` walks one thread's robust list, the group's other threads can exit and
+/// be released (by other host threads): their futexes were taken with everyone's, so they
+/// still go to their waiters, and nothing looks the released tasks up again.
+#[test]
+fn exit_group_releases_the_futexes_of_threads_released_meanwhile() {
+    let (kernel, task, _) = setup(b"");
+    let memory = PausingMemory {
+        memory: SharedMemory::new(),
+        armed: Cell::new(false),
+        paused_at: Cell::new(None),
+    };
+    let caller = Caller::new(task, &memory);
+    let tasks = [task, thread(&kernel, &caller), thread(&kernel, &caller)];
+    // Each task's robust list: the head, then one mutex whose word sits 4 bytes into its entry.
+    let head = |i: usize| 0x200 + 0x100 * i as u32;
+    for (i, &t) in tasks.iter().enumerate() {
+        let entry = head(i) + 0x10;
+        memory.memory.set(head(i), entry);
+        memory.memory.set(head(i) + 4, 4);
+        memory.memory.set(entry, head(i));
+        memory.memory.set(entry + 4, t.0);
+        let list = wasixv2_abi::RobustListHeadPtr::new(head(i));
+        let t_caller = Caller::new(t, &memory);
+        assert_eq!(block_on(kernel.set_robust_list(&t_caller, list, 12)), Ok(0));
+    }
+
+    memory.armed.set(true);
+    let mut exit = Box::pin(kernel.exit_group(&caller, 0));
+    assert!(exit.as_mut().now_or_never().is_none());
+    // The walk waits in one task's list; the other threads go.
+    let walked = tasks[((memory.paused_at.get().unwrap() - head(0)) / 0x100) as usize];
+    for &t in &tasks[1..] {
+        if t != walked {
+            thread::forget_task(&mut kernel.state.lock().unwrap(), t);
+        }
+    }
+    block_on(exit).unwrap();
+    for i in 0..tasks.len() {
+        assert_eq!(memory.memory.word(head(i) + 0x14), OWNER_DIED);
+    }
 }

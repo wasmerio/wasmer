@@ -643,6 +643,8 @@ impl Kernel {
                 return Err(Errno::ELOOP.into());
             }
         };
+        // `mm_exit_exec_release`, for the caller and the threads `de_thread` ends.
+        self.group_exit_futexes(caller).await;
         self.mm_release(caller).await;
         self.exec_commit(caller.task(), &name, args, env, image, binary);
         Ok(0)
