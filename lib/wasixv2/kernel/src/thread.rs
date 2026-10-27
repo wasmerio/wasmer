@@ -227,8 +227,9 @@ impl Kernel {
     /// reaches whoever started the process.
     pub(crate) async fn sys_exit(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
         let task = caller.task();
-        let (process, thread) = self.with_task(task, |t| (t.process.clone(), t.thread));
-        self.exit_thread(caller, thread).await;
+        let process = self.process(task);
+        let thread = self.take_futex_state(task);
+        self.exit_thread(caller, task, thread, true).await;
         let last = {
             let mut state = self.state.lock().unwrap();
             let entry = state
@@ -272,6 +273,7 @@ impl Kernel {
     }
 
     pub(crate) async fn sys_exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
+        self.group_exit_futexes(caller).await;
         self.mm_release(caller).await;
         self.do_group_exit(caller.task(), status);
         Ok(())
@@ -465,14 +467,57 @@ impl Kernel {
             .expect("NoInterrupt never interrupts")
     }
 
-    /// `mm_release` and `exit_robust_list`: what a task's exit does to the memory it shared.
-    async fn exit_thread(&self, caller: &Caller<'_>, thread: ThreadState) {
-        let tid = caller.task().0;
+    /// The futex state `task` leaves behind, which its exit releases once: Linux clears
+    /// `robust_list` and `clear_child_tid` as it handles them.
+    fn take_futex_state(&self, task: TaskId) -> ThreadState {
+        self.with_task(task, |t| {
+            let thread = t.thread;
+            (t.thread.robust_list, t.thread.clear_child_tid) = (0, 0);
+            thread
+        })
+    }
+
+    /// `futex_exit_release` and `mm_release` for every task of the caller's thread group, run
+    /// by the caller while the memory is still there. `exit_group` and `execve` end the group's
+    /// other tasks (`zap_other_threads`, `de_thread`), and the end of the memory, which writes
+    /// back its shared mappings, comes before those tasks unwind; so their robust and PI futexes
+    /// go to their waiters here, as each task's own `do_exit` would. A `clear_child_tid` is only
+    /// written when the memory outlives the group (a vfork relative), as Linux writes it only
+    /// while others use the memory.
+    pub(crate) async fn group_exit_futexes(&self, caller: &Caller<'_>) {
+        let tasks: Vec<TaskId> = {
+            let state = self.state.lock().unwrap();
+            let process = &state.tasks[&caller.task()].process;
+            state
+                .tasks
+                .iter()
+                .filter(|(_, t)| Arc::ptr_eq(&t.process, process) && !t.thread.exited)
+                .map(|(&id, _)| id)
+                .collect()
+        };
+        let clear_tid = self.mm_shared_elsewhere(caller.task());
+        for task in tasks {
+            let thread = self.take_futex_state(task);
+            self.exit_thread(caller, task, thread, clear_tid).await;
+        }
+    }
+
+    /// `futex_exit_release` and `mm_release` for `task`, on the memory it runs on: releases
+    /// the robust futexes it holds and hands its PI futexes on, then, with `clear_tid`, zeroes
+    /// its `clear_child_tid` and wakes a waiter there.
+    async fn exit_thread(
+        &self,
+        caller: &Caller<'_>,
+        task: TaskId,
+        thread: ThreadState,
+        clear_tid: bool,
+    ) {
+        let tid = task.0;
         if thread.robust_list != 0 {
             self.exit_robust_list(caller, thread.robust_list, tid).await;
         }
         self.exit_pi_state_list(caller, tid).await;
-        if thread.clear_child_tid != 0 {
+        if clear_tid && thread.clear_child_tid != 0 {
             let ptr = GuestPtrMut::<u32>::new(thread.clear_child_tid);
             if write_value(caller.memory(), ptr, &0).await.is_ok() {
                 let key = crate::futex::Key {

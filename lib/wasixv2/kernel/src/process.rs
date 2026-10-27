@@ -583,6 +583,8 @@ impl Kernel {
             let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
             file = (cwd, interp, AtFlags(0));
         };
+        // `mm_exit_exec_release`, for the caller and the threads `de_thread` ends.
+        self.group_exit_futexes(caller).await;
         self.mm_release(caller).await;
         self.exec_commit(caller.task(), &name, args, env, image, binary);
         Ok(0)

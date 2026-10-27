@@ -454,3 +454,28 @@ fn cmp_requeue_compares_and_moves_waiters_to_the_second_futex() {
     assert_eq!(futex(&kernel, &caller, LOCK, wake, 1, 0, 0, 0), Ok(1));
     assert_eq!(second.now_or_never(), Some(Ok(0)));
 }
+
+#[test]
+fn exit_group_releases_the_robust_futexes_of_every_thread() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    // `other`'s robust list: the head, then one mutex whose word sits 4 bytes into its entry.
+    const HEAD: u32 = 0x200;
+    const ENTRY: u32 = 0x210;
+    memory.set(HEAD, ENTRY);
+    memory.set(HEAD + 4, 4);
+    memory.set(ENTRY, HEAD);
+    memory.set(ENTRY + 4, other.0);
+    let head = wasixv2_abi::RobustListHeadPtr::new(HEAD);
+    assert_eq!(
+        block_on(kernel.set_robust_list(&other_caller, head, 12)),
+        Ok(0)
+    );
+
+    // Another thread's `exit_group` ends `other` too, which held the mutex.
+    block_on(kernel.exit_group(&caller, 0)).unwrap();
+    assert_eq!(memory.word(ENTRY + 4), OWNER_DIED);
+}
