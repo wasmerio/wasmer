@@ -225,6 +225,46 @@ struct StreamState {
     closed_at: Option<Instant>,
     /// Deregistered: the reactor is finished with it.
     gone: bool,
+    keepalive: Keepalive,
+}
+
+/// The guest's keepalive settings, which the host socket gets while keepalive is on.
+#[derive(Default)]
+struct Keepalive {
+    on: bool,
+    idle: Option<Duration>,
+    interval: Option<Duration>,
+    count: Option<u32>,
+}
+
+impl Keepalive {
+    fn apply(&self, sock: &socket2::SockRef<'_>) -> io::Result<()> {
+        if !self.on {
+            return sock.set_keepalive(false);
+        }
+        let mut params = socket2::TcpKeepalive::new();
+        if let Some(idle) = self.idle {
+            params = params.with_time(idle);
+        }
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "netbsd",
+        ))]
+        {
+            if let Some(interval) = self.interval {
+                params = params.with_interval(interval);
+            }
+            if let Some(count) = self.count {
+                params = params.with_retries(count);
+            }
+        }
+        // Turns keepalive on, then sets what the guest chose.
+        sock.set_tcp_keepalive(&params)
+    }
 }
 
 struct StreamShared {
@@ -602,9 +642,25 @@ impl BackendStream for HostStream {
                 (_, Some(secs)) => Some(Duration::from_secs(secs.max(0) as u64)),
             };
         } else if sol_socket && name == SocketOption::SO_KEEPALIVE.0 {
-            let _ = sock.set_keepalive(v != 0);
+            let mut st = self.0.state();
+            st.keepalive.on = v != 0;
+            let _ = st.keepalive.apply(&sock);
         } else if level == SocketLevel::SOL_TCP.0 && name == TcpOption::TCP_NODELAY.0 {
             let _ = sock.set_tcp_nodelay(v != 0);
+        } else if level == SocketLevel::SOL_TCP.0 {
+            // The guest validated the value; the host takes it when keepalive is on, as
+            // Linux's `tcp_sock_set_keep*` only rearm a running keepalive timer.
+            let mut st = self.0.state();
+            let secs = Duration::from_secs(v.max(1) as u64);
+            match TcpOption(name) {
+                TcpOption::TCP_KEEPIDLE => st.keepalive.idle = Some(secs),
+                TcpOption::TCP_KEEPINTVL => st.keepalive.interval = Some(secs),
+                TcpOption::TCP_KEEPCNT => st.keepalive.count = Some(v.max(1) as u32),
+                _ => return Ok(()),
+            }
+            if st.keepalive.on {
+                let _ = st.keepalive.apply(&sock);
+            }
         }
         Ok(())
     }
@@ -885,5 +941,51 @@ impl Backend for HostBackend {
             backend: Arc::downgrade(&self.shared),
             addr,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn backend() -> Arc<HostBackend> {
+        HostBackend::new().unwrap()
+    }
+
+    #[test]
+    fn keepalive_parameters_reach_the_host_socket_once_keepalive_is_on() {
+        let b = backend();
+        let host = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let sock = TcpStream::connect(host.local_addr().unwrap()).unwrap();
+        let peer = sock.peer_addr().unwrap_or(host.local_addr().unwrap());
+        let s = HostStream::register(&b.shared, sock, peer, false, WaitQueue::new()).unwrap();
+        let int = |v: i32| v.to_le_bytes();
+        let tcp = SocketLevel::SOL_TCP.0;
+        s.set_option(tcp, TcpOption::TCP_KEEPIDLE.0, &int(42))
+            .unwrap();
+        let host_sock = socket2::SockRef::from(&s.0.sock);
+        // Stored, not applied, while keepalive is off.
+        assert!(!host_sock.keepalive().unwrap());
+        s.set_option(
+            SocketLevel::SOL_SOCKET.0,
+            SocketOption::SO_KEEPALIVE.0,
+            &int(1),
+        )
+        .unwrap();
+        assert!(host_sock.keepalive().unwrap());
+        assert_eq!(
+            host_sock.tcp_keepalive_time().unwrap(),
+            Duration::from_secs(42)
+        );
+        s.set_option(tcp, TcpOption::TCP_NODELAY.0, &int(1))
+            .unwrap();
+        assert!(host_sock.tcp_nodelay().unwrap());
+        s.set_option(
+            SocketLevel::SOL_SOCKET.0,
+            SocketOption::SO_KEEPALIVE.0,
+            &int(0),
+        )
+        .unwrap();
+        assert!(!host_sock.keepalive().unwrap());
     }
 }
