@@ -87,7 +87,8 @@ pub struct Machine {
     owner: (u32, u32),
     /// Where new processes start; `/` if unset.
     working_dir: Option<String>,
-    /// The processes [`Machine::run_process`] started that are still running.
+    /// The processes [`Machine::run`], [`Machine::run_process`], [`Machine::run_module`] and
+    /// [`Machine::run_file`] started that are still running.
     running: Arc<Mutex<Vec<TaskId>>>,
     /// Who the processes start as and what `uname` reports, for a kernel booted on a new root.
     user: Credentials,
@@ -168,7 +169,10 @@ impl MachineBuilder {
 
     /// What compiles the images processes `execve`, and the program [`Machine::run_file`]
     /// starts: by default [`Compile`], with the engine the process ran on and no cache. An
-    /// embedder's loader picks the engine per image and caches compiled modules.
+    /// embedder's loader picks the engine per image and caches compiled modules, telling images
+    /// apart by [`Image::identity`] or their bytes. With the machine's ABIs it is the machine's
+    /// set of binary formats: what its [`Loader::probe`] refuses, or no ABI serves, fails
+    /// `execve` with `ENOEXEC`.
     pub fn loader(mut self, loader: Arc<dyn Loader>) -> Self {
         self.loader = loader;
         self
@@ -478,8 +482,9 @@ impl Machine {
         self.run_process(wasm, config).await
     }
 
-    /// Sends the signal `sig` to every process started with [`Machine::run`] or
-    /// [`Machine::run_process`] that is still running; see [`Signaller::signal`].
+    /// Sends the signal `sig` to every process started with [`Machine::run`],
+    /// [`Machine::run_process`], [`Machine::run_module`] or [`Machine::run_file`] that is still
+    /// running; see [`Signaller::signal`].
     pub fn signal(&self, sig: i32) -> io::Result<()> {
         self.signaller().signal(sig)
     }
@@ -607,8 +612,9 @@ pub struct Signaller {
 }
 
 impl Signaller {
-    /// Sends the signal `sig` to every process started with [`Machine::run`] or
-    /// [`Machine::run_process`] that is still running, as a signal from outside the machine
+    /// Sends the signal `sig` to every process started with [`Machine::run`],
+    /// [`Machine::run_process`], [`Machine::run_module`] or [`Machine::run_file`] that is still
+    /// running, as a signal from outside the machine
     /// (`SI_USER` with `si_pid` 0), as `kill` of the host process does. It goes through the
     /// kernel's normal signal generation: the guest's handler runs if it installed one, and
     /// otherwise the default action does, so e.g. an unhandled `SIGTERM` ends the process with

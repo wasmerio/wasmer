@@ -34,7 +34,9 @@ const TICK: Duration = Duration::from_millis(250);
 ///
 /// WASIX and WASI programs run on the WASIX v2 kernel: WASIX v2 modules natively, WASIX v1 and
 /// WASI preview1 modules through its v1 compatibility ABI. A module with neither ABI's imports
-/// runs as plain WebAssembly.
+/// runs as plain WebAssembly. A precompiled module (`wasmer compile` output) runs as it was
+/// compiled, without the preemption points the kernel adds to modules: a busy loop in it takes
+/// no signals, and only the third Ctrl-C in a row interrupts it.
 #[derive(Debug, Parser)]
 pub struct Run {
     #[clap(flatten)]
@@ -46,7 +48,7 @@ pub struct Run {
     /// Set the default stack size (default is 1048576)
     #[clap(long = "stack-size")]
     stack_size: Option<usize>,
-    /// The entrypoint module for webc packages.
+    /// The command of a webc package to run, instead of its entrypoint.
     #[clap(short, long, aliases = &["command", "command-name"])]
     entrypoint: Option<String>,
     /// The function to invoke. WASIX and WASI programs always start at `_start`.
