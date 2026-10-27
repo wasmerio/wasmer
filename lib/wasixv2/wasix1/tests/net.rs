@@ -27,13 +27,22 @@ impl ByteSink for Capture {
 
 /// Runs `wasm` and returns its exit status, stdout and stderr.
 fn run_wasm(wasm: &[u8], args: &[&str]) -> (i32, String, String) {
+    run_wasm_on(Machine::new, wasm, args)
+}
+
+/// [`run_wasm`] on the machine `machine` makes.
+fn run_wasm_on(
+    machine: impl FnOnce() -> Machine,
+    wasm: &[u8],
+    args: &[&str],
+) -> (i32, String, String) {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap();
     let local = tokio::task::LocalSet::new();
     local.block_on(&runtime, async {
-        let machine = Machine::new();
+        let machine = machine();
         let stdout = Arc::new(Capture::default());
         let stderr = Arc::new(Capture::default());
         let config = ProcessConfig {
@@ -428,6 +437,27 @@ fn resolve_hosts_and_numeric() {
     (call $assert (i32.eq (i32.load (i32.const 1002)) (i32.const 0x0302010a)) (i32.const 11))
     "#;
     assert_eq!(run(data, body).0, 0);
+}
+
+/// Without name servers in `/etc/resolv.conf`, `resolve` asks the local host, as libc
+/// resolvers do; nothing listens there, so the refused queries end the lookup at once
+/// instead of after each try's timeout.
+#[test]
+fn resolve_without_name_servers_fails_fast() {
+    let data = r#"(data (i32.const 100) "name.invalid")"#;
+    let body = r#"
+    (call $exit (call $resolve (i32.const 100) (i32.const 12) (i32.const 0) (i32.const 1000) (i32.const 4) (i32.const 8)))
+    "#;
+    let no_resolv_conf = || {
+        let host: Arc<dyn wasixv2::Host> = Arc::new(wasixv2::TokioHost::default());
+        let root = wasixv2::default_root(&host, "", &wasixv2::Credentials::default());
+        Machine::with_root(host, root)
+    };
+    let started = std::time::Instant::now();
+    let (status, _, _) = run_wasm_on(no_resolv_conf, &guest(data, body), &["net"]);
+    // TIMEDOUT
+    assert_eq!(status, 73);
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
 }
 
 /// `port_addr_list` lists the loopback interface's address, with its prefix.

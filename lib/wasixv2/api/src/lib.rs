@@ -756,8 +756,12 @@ fn default_network() -> Arc<Net> {
     };
     let mut config = NetConfig::host_default();
     let host_resolv = std::fs::read_to_string("/etc/resolv.conf").unwrap_or_default();
-    config.nameservers =
-        wasixv2_vnet_host::host_nameservers(&host_resolv, config.host_loopback_alias);
+    let upstream = std::fs::read_to_string(wasixv2_vnet_host::SYSTEMD_RESOLVED_UPSTREAM).ok();
+    config.nameservers = wasixv2_vnet_host::host_nameservers(
+        &host_resolv,
+        upstream.as_deref(),
+        config.host_loopback_alias,
+    );
     Net::new(config, Some(backend))
 }
 
