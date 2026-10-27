@@ -71,6 +71,15 @@ pub trait FileObject: Pollable + Any {
         false
     }
 
+    /// Whether a read fills the whole buffer unless it fails, as the memory and random devices
+    /// do (`read_iter_zero`, `urandom_read_iter`). A read larger than one kernel step then goes
+    /// on in steps, ending early only at a signal. Other objects give what one read of them
+    /// has, which may be less than asked: a pipe's or socket's data so far, one message, one
+    /// event.
+    fn fills_reads(&self) -> bool {
+        false
+    }
+
     /// `llseek` of a positional object, from the position `pos`; returns the new position.
     fn llseek(&self, pos: u64, base: SeekBase, offset: i64) -> Result<u64, Errno> {
         let _ = (pos, base, offset);
@@ -204,6 +213,12 @@ impl OpenFile {
     pub(crate) fn downcast<T: FileObject>(&self) -> Option<&T> {
         let object: &dyn Any = &**self.object()?;
         object.downcast_ref()
+    }
+
+    /// Whether a read goes on in steps until the buffer is full: a file's does, and an object's
+    /// that [`FileObject::fills_reads`].
+    pub(crate) fn fills_reads(&self) -> bool {
+        self.object().is_none_or(|object| object.fills_reads())
     }
 
     /// Whether writes to this file are messages; see `FileObject::messages`.

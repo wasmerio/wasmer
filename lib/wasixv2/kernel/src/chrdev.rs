@@ -149,6 +149,10 @@ impl FileObject for MemDevice {
         true
     }
 
+    fn fills_reads(&self) -> bool {
+        true
+    }
+
     /// `null_lseek`: every seek lands at 0.
     fn llseek(&self, _: u64, _: SeekBase, _: i64) -> Result<u64, Errno> {
         Ok(0)
@@ -174,6 +178,10 @@ impl FileObject for RandomDevice {
     }
 
     fn positional(&self) -> bool {
+        true
+    }
+
+    fn fills_reads(&self) -> bool {
         true
     }
 
