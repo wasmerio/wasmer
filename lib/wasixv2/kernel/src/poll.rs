@@ -58,9 +58,9 @@ impl Kernel {
         Ok(Some(self.task_signals(caller.task()).replace_blocked(set)))
     }
 
-    /// `restore_saved_sigmask_unless`. Nothing delivers signals yet, so the mask is restored
-    /// at once even when the call was interrupted.
-    // TODO: keep the temporary mask until delivery when interrupted (TIF_RESTORE_SIGMASK).
+    /// `restore_saved_sigmask_unless`: the old mask comes back now, or, when the call was
+    /// interrupted, once the handler's frame is built (`TIF_RESTORE_SIGMASK`), so the signal is
+    /// taken under the temporary mask.
     pub(crate) fn restore_sigmask(
         &self,
         caller: &Caller<'_>,
