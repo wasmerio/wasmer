@@ -1017,16 +1017,25 @@ impl Kernel {
             Errno::EINVAL => Errno::EBADF,
             err => err,
         })?;
-        let alive = {
-            let tree = self.procs.tree.lock().unwrap();
-            tree.nodes.get(&pid).is_some_and(|node| node.exit.is_none())
+        // `kill_pid_info_type`: a zombie takes the signal and does nothing with it; a reaped
+        // process is `ESRCH`.
+        let info = match info.is_null() {
+            true => self.sender_info(caller, sig.0, SiCode::SI_USER),
+            false => {
+                let info = read_value(caller.memory(), info).await?;
+                if info.si_signo != sig.0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                // Only the caller itself may be sent a `siginfo` that claims to be the kernel's.
+                if caller.task().0 != pid && crate::signal::reserved_to_kernel(info.si_code) {
+                    return Err(Errno::EPERM.into());
+                }
+                info
+            }
         };
-        if !alive {
-            return Err(Errno::ESRCH.into());
-        }
-        // TODO: send the caller's `info` as `rt_sigqueueinfo` does.
-        let _ = info;
-        self.sys_kill(caller, pid as Pid, sig).await
+        let sender = self.process(caller.task());
+        self.send_to_group(Some(&sender), pid as Pid, info)?;
+        Ok(0)
     }
 }
 

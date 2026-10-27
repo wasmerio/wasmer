@@ -959,6 +959,12 @@ impl Interrupt for WaitFor<'_> {
     }
 }
 
+/// `si_code_reserved_to_kernel`: codes only the kernel sends, `SI_USER` and `SI_KERNEL` among
+/// them, and `tkill`'s.
+pub(crate) fn reserved_to_kernel(code: i32) -> bool {
+    code >= 0 || code == SiCode::SI_TKILL.0
+}
+
 fn check_sigsetsize(size: u32) -> Result<(), Errno> {
     match size as usize == Sigset::SIZE {
         true => Ok(()),
@@ -1371,10 +1377,8 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         // Only the kernel may claim to be the kernel or `tkill`, except towards the calling
-        // thread itself (`si_code_reserved_to_kernel`).
-        if (info.si_code >= 0 || info.si_code == SiCode::SI_TKILL.0)
-            && tid.unwrap_or(tgid) != caller.task().0 as Pid
-        {
+        // thread itself.
+        if reserved_to_kernel(info.si_code) && tid.unwrap_or(tgid) != caller.task().0 as Pid {
             return Err(Errno::EPERM.into());
         }
         let sender = Some(&*self.process(caller.task()));
@@ -1386,7 +1390,7 @@ impl Kernel {
     }
 
     /// A `siginfo` naming the caller's process as the sender.
-    fn sender_info(&self, caller: &Caller<'_>, sig: i32, code: SiCode) -> Siginfo {
+    pub(crate) fn sender_info(&self, caller: &Caller<'_>, sig: i32, code: SiCode) -> Siginfo {
         let process = self.process(caller.task());
         let uid = process.cred().user.real;
         user_info(sig, code, process.pid.0 as Pid, uid)
