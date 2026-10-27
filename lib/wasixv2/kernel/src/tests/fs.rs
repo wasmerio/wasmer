@@ -141,3 +141,33 @@ fn resolve_in_root_walks_absolute_paths_and_dotdot_from_dfd() {
     let fd = t.openat2(CWD, "/etc/passwd", OpenFlags::O_RDONLY, in_root);
     assert_eq!(t.read(fd.unwrap(), 16), Ok(b"jail".to_vec()));
 }
+
+#[test]
+fn a_posix_lock_won_after_its_descriptor_closed_is_released() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/l", b"");
+    let open = || t.open("/l", OpenFlags::O_RDWR).unwrap();
+    let (waiter, holder, probe) = (open(), open(), open());
+    // flock64 { l_type = F_WRLCK, l_whence = SEEK_SET, l_start = 0, l_len = 0 } at 0x3000.
+    put(&memory, 0x3000, &[1, 0, 0, 0]);
+    let lock = |fd, cmd| block_on(kernel.fcntl64(&t.caller, fd, cmd, 0x3000));
+    assert_eq!(lock(holder, FcntlCmd::F_OFD_SETLK), Ok(0));
+
+    // While `waiter` waits for the OFD lock, another thread closes it and then the holder.
+    let pid = kernel.process(task).pid;
+    let set = std::thread::scope(|scope| {
+        scope.spawn(|| {
+            std::thread::sleep(Duration::from_millis(20));
+            let closed = kernel.files(task).lock().unwrap().remove(waiter).unwrap();
+            kernel.closed_by(pid, &closed);
+            drop(kernel.files(task).lock().unwrap().remove(holder));
+        });
+        lock(waiter, FcntlCmd::F_SETLKW64)
+    });
+
+    // `fcntl_setlk` notices the close and drops the lock it won, which nobody could release.
+    assert_eq!(errno(set), Errno::EBADF);
+    assert_eq!(lock(probe, FcntlCmd::F_OFD_GETLK), Ok(0));
+    assert_eq!(get(&memory, 0x3000, 2), [2, 0], "F_UNLCK");
+}
