@@ -12,7 +12,10 @@
 //!   the object's bytes as of the last synchronisation. Synchronising writes back every byte
 //!   the memory changed since then (memory differs from the shadow), then copies in every byte
 //!   the object changed (object differs from the shadow), so changes made on both sides since
-//!   the last point merge byte by byte; where both changed a byte, the object wins.
+//!   the last point merge byte by byte; where both changed a byte, the object wins. Comparing
+//!   the memory with the shadow costs a read of the mapping each time; the object is only read
+//!   again when it may have changed: always for a file, and for a segment only when somebody
+//!   else wrote it since (it counts its writes).
 //!
 //! Bytes of a file mapping past the end of the file are never written back and keep what the
 //! memory holds, as on Linux, where they live only in the last page cache page. Pages wholly
@@ -52,12 +55,39 @@ pub(crate) struct Shared {
     pub(crate) offset: u64,
     /// The object's bytes under the mapping as of the last synchronisation.
     pub(crate) shadow: Vec<u8>,
+    /// For an object that counts its writes (a segment), the count the shadow is of. While
+    /// the object still has it, nobody changed the object since, and synchronising need not
+    /// read it.
+    generation: Option<u64>,
     /// Whether memory changes reach the object: a shared file mapping of a descriptor not open
     /// for writing only ever reads, as Linux then clears `VM_SHARED`.
     pub(crate) writable: bool,
     /// For a writable shared file mapping, its count in the file's writable mappings, which
     /// `F_SEAL_WRITE` waits on.
     pub(crate) writer: Option<Writer>,
+}
+
+impl Shared {
+    pub(crate) fn new(object: Object, offset: u64, writable: bool, writer: Option<Writer>) -> Self {
+        Self {
+            object,
+            offset,
+            shadow: Vec::new(),
+            generation: None,
+            writable,
+            writer,
+        }
+    }
+
+    /// The same object from `skip` bytes further on, of which nothing is known yet.
+    fn part(&self, skip: u64) -> Self {
+        Self::new(
+            self.object.clone(),
+            self.offset + skip,
+            self.writable,
+            self.writer.clone(),
+        )
+    }
 }
 
 /// One writable shared mapping of a file, counted on its inode (`mapping_map_writable`) while it
@@ -94,22 +124,31 @@ pub(crate) enum Object {
 
 impl Object {
     /// Fills `buf` from `offset`; bytes past the end of the object read as zero. Returns how
-    /// many bytes lay inside the object.
-    async fn read(&self, offset: u64, buf: &mut [u8]) -> Result<usize, Errno> {
+    /// many bytes lay inside the object, and its generation, if it counts them.
+    async fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(usize, Option<u64>), Errno> {
         match self {
-            Object::File(file) => read_file(file, offset, buf).await,
-            Object::Segment(attachment) => Ok(attachment.segment().read(offset, buf)),
+            Object::File(file) => Ok((read_file(file, offset, buf).await?, None)),
+            Object::Segment(attachment) => {
+                let (inside, generation) = attachment.segment().read(offset, buf);
+                Ok((inside, Some(generation)))
+            }
         }
     }
 
-    /// Writes the bytes of `data` that lie inside the object at `offset`.
-    async fn write(&self, offset: u64, data: &[u8]) -> Result<(), Errno> {
+    /// Writes the bytes of `data` that lie inside the object at `offset`. Returns the object's
+    /// generation after the write, if it counts them.
+    async fn write(&self, offset: u64, data: &[u8]) -> Result<Option<u64>, Errno> {
         match self {
-            Object::File(file) => write_file(file, offset, data).await,
-            Object::Segment(attachment) => {
-                attachment.segment().write(offset, data);
-                Ok(())
-            }
+            Object::File(file) => write_file(file, offset, data).await.map(|()| None),
+            Object::Segment(attachment) => Ok(Some(attachment.segment().write(offset, data))),
+        }
+    }
+
+    /// How many writes the object had, if it counts them.
+    fn generation(&self) -> Option<u64> {
+        match self {
+            Object::File(_) => None,
+            Object::Segment(attachment) => Some(attachment.segment().generation()),
         }
     }
 
@@ -163,9 +202,16 @@ async fn write_file(file: &OpenFile, offset: u64, data: &[u8]) -> Result<(), Err
 
 /// The runs where `a` and `b` differ, with nearby runs merged.
 fn differences(a: &[u8], b: &[u8]) -> Vec<Range<usize>> {
+    /// Equal stretches are skipped this many bytes at a time, which compiles to a `memcmp`.
+    const STRIDE: usize = 64;
     let mut runs: Vec<Range<usize>> = Vec::new();
     let mut at = 0;
     while at < a.len() {
+        let stride = (at + STRIDE).min(a.len());
+        if a[at..stride] == b[at..stride] {
+            at = stride;
+            continue;
+        }
         if a[at] == b[at] {
             at += 1;
             continue;
@@ -203,11 +249,9 @@ impl Mapping {
                 offset: *offset + cut,
             },
             Source::Shared(shared) => Source::Shared(Shared {
-                object: shared.object.clone(),
-                offset: shared.offset + cut,
                 shadow: shared.shadow.split_off(cut as usize),
-                writable: shared.writable,
-                writer: shared.writer.clone(),
+                generation: shared.generation,
+                ..shared.part(cut)
             }),
         };
         let rest = Mapping {
@@ -231,7 +275,8 @@ impl Mapping {
     }
 
     /// Writes back what the memory changed since the last synchronisation, as `munmap`, `msync`
-    /// and the end of the address space do.
+    /// and the end of the address space do. Afterwards a writable mapping's memory holds its
+    /// shadow.
     pub(crate) async fn write_back(&mut self, memory: &dyn UserMemory) -> Result<(), Errno> {
         let Source::Shared(shared) = &self.source else {
             return Ok(());
@@ -244,10 +289,16 @@ impl Mapping {
             unreachable!("checked above");
         };
         for run in differences(&local, &shared.shadow) {
-            shared
+            let after = shared
                 .object
                 .write(shared.offset + run.start as u64, &local[run.clone()])
                 .await?;
+            // Only while each write is the next one the object had does it still match the
+            // shadow everywhere else.
+            shared.generation = match (shared.generation, after) {
+                (Some(seen), Some(after)) if after == seen + 1 => Some(after),
+                _ => None,
+            };
             shared.shadow[run.clone()].copy_from_slice(&local[run]);
         }
         Ok(())
@@ -255,26 +306,37 @@ impl Mapping {
 
     /// Writes back the memory's changes, then copies in the object's.
     pub(crate) async fn sync(&mut self, memory: &dyn UserMemory) -> Result<(), Errno> {
-        if self.shared().is_none() {
+        let Some(shared) = self.shared() else {
             return Ok(());
-        }
+        };
+        let writable = shared.writable;
         self.write_back(memory).await?;
-        let local = self.snapshot(memory).await?;
+        // A mapping that never writes back may still differ from its shadow.
+        let snapshot = match writable {
+            true => None,
+            false => Some(self.snapshot(memory).await?),
+        };
+        let (start, len) = (self.start, self.len as usize);
         let Source::Shared(shared) = &mut self.source else {
             unreachable!("checked above");
         };
-        let mut fresh = vec![0; self.len as usize];
-        let inside = shared.object.read(shared.offset, &mut fresh).await?;
+        if shared.generation.is_some() && shared.generation == shared.object.generation() {
+            return Ok(());
+        }
+        let mut fresh = vec![0; len];
+        let (inside, generation) = shared.object.read(shared.offset, &mut fresh).await?;
+        let local = snapshot.as_deref().unwrap_or(&shared.shadow);
         // Past the end of the object the memory keeps what it holds.
         fresh[inside..].copy_from_slice(&local[inside..]);
-        for run in differences(&fresh, &local) {
-            let at = (self.start + run.start as u64) as u32;
+        for run in differences(&fresh, local) {
+            let at = (start + run.start as u64) as u32;
             memory
                 .write(at, &fresh[run])
                 .await
                 .map_err(|_| Errno::EFAULT)?;
         }
         shared.shadow = fresh;
+        shared.generation = generation;
         Ok(())
     }
 
@@ -287,7 +349,7 @@ impl Mapping {
                 read_file(file, *offset, &mut data).await?;
             }
             Source::Shared(shared) => {
-                shared.object.read(shared.offset, &mut data).await?;
+                (_, shared.generation) = shared.object.read(shared.offset, &mut data).await?;
                 shared.shadow = data.clone();
             }
         }
@@ -304,13 +366,7 @@ impl Mapping {
                 file: file.clone(),
                 offset: offset + skip,
             },
-            Source::Shared(shared) => Source::Shared(Shared {
-                object: shared.object.clone(),
-                offset: shared.offset + skip,
-                shadow: Vec::new(),
-                writable: shared.writable,
-                writer: shared.writer.clone(),
-            }),
+            Source::Shared(shared) => Source::Shared(shared.part(skip)),
         };
         Mapping { start, len, source }
     }
@@ -322,6 +378,9 @@ impl Mapping {
         tail.fill(memory).await?;
         if let (Source::Shared(shared), Source::Shared(tail)) = (&mut self.source, tail.source) {
             shared.shadow.extend(tail.shadow);
+            shared.generation = shared
+                .generation
+                .filter(|&seen| tail.generation == Some(seen));
         }
         self.len += extra;
         Ok(())
@@ -449,6 +508,7 @@ impl Mappings {
                         },
                         offset: shared.offset,
                         shadow: shared.shadow.clone(),
+                        generation: shared.generation,
                         writable: shared.writable,
                         writer: shared.writer.clone(),
                     }),

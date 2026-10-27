@@ -1217,13 +1217,8 @@ fn check_file_mapping(
         true => Some(Writer::new(inode.path.dentry.inode().clone())?),
         false => None,
     };
-    Ok(Source::Shared(Shared {
-        object: Object::File(file),
-        offset,
-        shadow: Vec::new(),
-        writable,
-        writer,
-    }))
+    let shared = Shared::new(Object::File(file), offset, writable, writer);
+    Ok(Source::Shared(shared))
 }
 
 #[cfg(test)]
