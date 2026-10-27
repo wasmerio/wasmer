@@ -5,9 +5,9 @@ use std::cell::Cell;
 
 use futures::FutureExt as _;
 use wasixv2_abi::{
-    ClockId, CloneFlags, ConstRlimit64Ptr, Idtype, KernelTimespec, PrctlOption, Rlimit64Ptr,
-    RlimitResource, RusagePtr, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags, Siginfo,
-    SiginfoPtr, Signal, SigprocmaskHow, Sigset, WaitOptions,
+    ClockId, CloneFlags, ConstRlimit64Ptr, ConstSiginfoPtr, Idtype, KernelTimespec, PrctlOption,
+    Rlimit64Ptr, RlimitResource, RusagePtr, SaFlags, Sigaction, Sigaltstack, SigaltstackFlags,
+    Siginfo, SiginfoPtr, Signal, SigprocmaskHow, Sigset, WaitOptions,
 };
 use wasixv2_syscalls::{SignalFrame, read_value, write_value};
 
@@ -576,4 +576,44 @@ fn clone_pidfd_is_refused() {
     assert_eq!(clone(&kernel, &caller, pidfd), err(Errno::EINVAL));
     assert_eq!(clone(&kernel, &caller, VFORK | pidfd), err(Errno::EINVAL));
     assert_eq!(kernel.take_pending(task), None);
+}
+
+#[test]
+fn pidfd_send_signal_passes_its_siginfo_and_reaches_a_zombie() {
+    let (kernel, task, _) = machine();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let child = fork(&kernel, &caller);
+    let child_memory = forkable();
+    let child_caller = Caller::new(child, &child_memory);
+    block(&kernel, &child_caller, 1 << (SIGRTMIN - 1));
+    let pidfd = block_on(kernel.pidfd_open(&caller, child.0 as Pid, 0)).unwrap();
+    let send = |sig: i32, info: u32| {
+        let info = ConstSiginfoPtr::new(info);
+        block_on(kernel.pidfd_send_signal(&caller, pidfd, Signal(sig), info, 0))
+    };
+    let mut info = queue_info(SIGRTMIN, 42);
+    block_on(write_value(&memory, GuestPtrMut::new(0x400), &info)).unwrap();
+
+    assert_eq!(send(SIGRTMIN, 0x400), Ok(0));
+    let got = take(&kernel, &child_caller, SIGRTMIN).unwrap();
+    assert_eq!(got.si_code, wasixv2_abi::SiCode::SI_QUEUE.0);
+    assert_eq!(sifield(&got, 8), 42);
+    assert_eq!(
+        send(SIGRTMIN + 1, 0x400),
+        err(Errno::EINVAL),
+        "si_signo differs"
+    );
+    info.si_code = wasixv2_abi::SiCode::SI_USER.0;
+    block_on(write_value(&memory, GuestPtrMut::new(0x400), &info)).unwrap();
+    assert_eq!(
+        send(SIGRTMIN, 0x400),
+        err(Errno::EPERM),
+        "the kernel's code"
+    );
+
+    assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
+    assert_eq!(send(Signal::SIGTERM.0, 0), Ok(0), "a zombie");
+    assert_eq!(reap(&kernel, &caller, child), Some(0));
+    assert_eq!(send(Signal::SIGTERM.0, 0), err(Errno::ESRCH), "reaped");
 }
