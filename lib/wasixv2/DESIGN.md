@@ -503,7 +503,7 @@ The execution crate is the only layer below the facade that knows about the wasm
   - tear down on exit
 - **Signal frames.** The interrupted wasm call stack stays intact under the handler, so the frame is small.
   - **`mcontext_t`** holds only guest state a handler can clobber, such as the shadow stack pointer and the TLS base.
-  - **`sigaltstack`** moves only the shadow stack.
+  - **`sigaltstack`** moves only the shadow stack. Whether the guest runs on its alternate stack is read from the shadow stack pointer, as Linux's `on_sig_stack` reads the user stack pointer, so a handler that switches to another context and never returns leaves nothing behind.
   - **The frame goes below LLVM's 128-byte red zone** under the shadow stack pointer, where a function that calls nothing keeps its locals without moving the pointer, as x86-64's `get_sigframe` does. Delivery at a preemption point can land in such a function.
   - **The trampoline calls the handler through its actual type.** The host writes the handler's parameter count into the frame, and libc's trampoline passes that many of `signo`, `info` and `uctx`. A native handler ignores the arguments it does not declare, so a mismatch with `SA_SIGINFO` is not fatal.
   - **`rt_sigreturn`** is the trampoline's return: the host restores the mask, the shadow stack pointer and the TLS base from the frame.

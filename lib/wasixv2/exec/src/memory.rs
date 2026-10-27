@@ -56,6 +56,15 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
         Box::pin(crate::asyncify::whole_stack(self.env))
     }
 
+    fn stack_pointer(&self) -> LocalFuture<'_, u32> {
+        Box::pin(async move {
+            let mut env = self.env.write().await;
+            let (data, mut store) = env.data_and_store_mut();
+            let global = data.stack_pointer.as_ref();
+            global.map_or(0, |global| global.get(&mut store).i32().unwrap_or(0) as u32)
+        })
+    }
+
     /// An atomic compare-and-exchange on the memory itself, so guest threads running at the same
     /// time on other host threads see the futex word change as one step.
     #[cfg(feature = "sys")]

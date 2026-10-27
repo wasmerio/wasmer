@@ -26,6 +26,13 @@ pub trait UserMemory {
         Box::pin(async { false })
     }
 
+    /// The calling task's stack pointer as the call found it (`current_user_stack_pointer`):
+    /// the guest's shadow stack pointer, which tells whether it runs on its alternate signal
+    /// stack. 0 for memory no guest call runs on.
+    fn stack_pointer(&self) -> LocalFuture<'_, u32> {
+        Box::pin(async { 0 })
+    }
+
     /// Replaces the `u32` at `addr`, which is 4-byte aligned, with `new` if it holds `expected`,
     /// and returns what it held (`futex_atomic_cmpxchg_inatomic`). The futex code relies on
     /// this to change a futex word under the feet of guest threads.

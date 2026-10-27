@@ -154,6 +154,7 @@ where
         let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
         let data = env.as_mut(&mut store);
         data.memory = Some(memory);
+        data.stack_pointer = crate::stack_pointer(&instance);
         data.abi = Some(abi.clone());
         data.threads = Some(self.clone());
         data.proc.set_module(&self.module);

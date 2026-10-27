@@ -70,11 +70,9 @@ pub struct SignalFrame {
     /// The mask in force before delivery, which the guest finds in `uc_sigmask`; bit `n - 1` is
     /// signal `n`.
     pub mask: u64,
-    /// Where the frame goes: the top of the alternate stack, or `None` for below the interrupted
-    /// stack pointer.
-    pub stack_top: Option<u32>,
-    /// The alternate stack settings as `sigaltstack` reports them: `ss_sp`, `ss_flags`,
-    /// `ss_size`.
+    /// The task's alternate stack as delivery found it, which the guest finds in `uc_stack`
+    /// (`__save_altstack`): `ss_sp`, `ss_flags` as `sigaltstack` set them, `ss_size`. The frame
+    /// goes on it as [`SignalFrame::altstack_top`] says.
     pub altstack: (u32, i32, u32),
 }
 
@@ -86,6 +84,23 @@ impl SignalFrame {
     /// `SA_RESTART`: an interrupted call restarts instead of failing with `EINTR`.
     pub fn restarts(&self) -> bool {
         self.flags & wasixv2_abi::SaFlags::SA_RESTART.0 != 0
+    }
+
+    /// `on_sig_stack`: whether the stack pointer `sp` lies on the alternate stack. A stack armed
+    /// with `SS_AUTODISARM` never counts: delivery disarms it, so nothing runs on it armed.
+    pub fn on_altstack(&self, sp: u32) -> bool {
+        let (ss_sp, flags, size) = self.altstack;
+        let autodisarm = flags as u32 & wasixv2_abi::SigaltstackFlags::SS_AUTODISARM.0 != 0;
+        !autodisarm && sp > ss_sp && sp - ss_sp <= size
+    }
+
+    /// `sigsp`: where the frame goes for a guest interrupted with stack pointer `sp`. The top of
+    /// the alternate stack when the handler asked for it (`SA_ONSTACK`), one is set and the
+    /// guest is not on it already; `None` for below `sp`.
+    pub fn altstack_top(&self, sp: u32) -> Option<u32> {
+        let (ss_sp, _, size) = self.altstack;
+        let onstack = self.flags & wasixv2_abi::SaFlags::SA_ONSTACK.0 != 0;
+        (onstack && size != 0 && !self.on_altstack(sp)).then(|| ss_sp.wrapping_add(size))
     }
 }
 
