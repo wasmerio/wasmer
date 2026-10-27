@@ -1,4 +1,5 @@
-//! Read-only filesystem driver over a webc v3 package volume, after Linux's squashfs and erofs.
+//! Read-only filesystem driver over a webc v3 package volume, after Linux's squashfs and erofs,
+//! or over files given as byte buffers, such as a package's commands.
 //!
 //! Only the v3 reader is used. A directory's entries are parsed the first time it is looked up
 //! or read, into a table shared by every node for it; lookups then binary-search the table, which
@@ -18,8 +19,14 @@
 //! whose entries cannot be decoded, whose names are not valid file names, or whose directories
 //! are shared or loop, as squashfs and erofs reject corrupt metadata instead of trusting it.
 
+//!
+//! [`PackageFs::from_files`] builds the same kind of tree from paths and buffers, with the
+//! directories their paths imply; it is how a package tree's commands appear in `/bin`.
+
 use std::{
     any::Any,
+    borrow::Cow,
+    collections::{BTreeMap, btree_map},
     panic::AssertUnwindSafe,
     sync::{
         Arc, OnceLock,
@@ -63,6 +70,12 @@ pub enum PackageFsError {
     Header(#[from] VolumeHeaderError),
     #[error("the volume is malformed: {0}")]
     Malformed(&'static str),
+    #[error("\"{0}\" is not a relative path of names that are valid file names")]
+    InvalidPath(String),
+    #[error("\"{0}\" is given twice, or both as a file and as a directory")]
+    Conflict(String),
+    #[error("a directory has more entries than can be listed")]
+    TooManyEntries,
 }
 
 /// One volume of a webc v3 package, mounted read-only.
@@ -75,7 +88,8 @@ pub struct PackageFs {
 /// holding such a borrow also holds an `Arc` of this, declared after the borrow so it drops last.
 struct Volume {
     // Never read: it owns the header bytes that `Directory<'static>` and names point into.
-    _section: VolumeSection,
+    // `None` for a tree built from buffers, which own their data.
+    _section: Option<VolumeSection>,
     size: u64,
     /// The uid and gid every object reports.
     owner: (u32, u32),
@@ -116,13 +130,115 @@ impl PackageFs {
         let root = unsafe { std::mem::transmute::<Directory<'_>, Directory<'static>>(root) };
         validate(&root, size)?;
         let vol = Arc::new(Volume {
-            _section: section,
+            _section: Some(section),
             size,
             owner: (uid, gid),
             next_ino: AtomicU64::new(ROOT_INO + 1),
         });
         let root = Arc::new(DirData::new(root, vol.clone()));
         Ok(Self { root, vol })
+    }
+
+    /// A read-only tree of the regular files `files`, each a relative path (such as
+    /// `bin/ls`) and its contents, with the directories the paths imply. Every object is
+    /// owned by `uid` and `gid` and has the modes a volume's do. Shares the buffers. Fails
+    /// when a path has a component that is not a valid file name (empty, `.`, `..`, with a
+    /// NUL, or longer than `NAME_MAX`), when one path is given twice or both as a file and as
+    /// a directory, or when a directory would have more entries than `getdents` can number.
+    pub fn from_files(
+        files: impl IntoIterator<Item = (String, OwnedBuffer)>,
+        uid: u32,
+        gid: u32,
+    ) -> Result<Self, PackageFsError> {
+        let mut tree = Tree::default();
+        let mut size = 0;
+        for (path, data) in files {
+            size += data.len() as u64;
+            tree.insert(&path, data)?;
+        }
+        let vol = Arc::new(Volume {
+            _section: None,
+            size,
+            owner: (uid, gid),
+            next_ino: AtomicU64::new(ROOT_INO + 1),
+        });
+        let root = tree.build(&vol)?;
+        Ok(Self { root, vol })
+    }
+}
+
+/// The directories of [`PackageFs::from_files`] while they are collected.
+#[derive(Default)]
+struct Tree(BTreeMap<String, TreeEntry>);
+
+enum TreeEntry {
+    Dir(Tree),
+    File(OwnedBuffer),
+}
+
+impl Tree {
+    fn insert(&mut self, path: &str, data: OwnedBuffer) -> Result<(), PackageFsError> {
+        let invalid = || PackageFsError::InvalidPath(path.to_string());
+        let conflict = || PackageFsError::Conflict(path.to_string());
+        let names: Vec<&str> = path.split('/').collect();
+        if !names.iter().all(|name| valid_name(name)) {
+            return Err(invalid());
+        }
+        let (file, dirs) = names.split_last().ok_or_else(invalid)?;
+        let mut dir = self;
+        for name in dirs {
+            let entry = dir
+                .0
+                .entry(name.to_string())
+                .or_insert_with(|| TreeEntry::Dir(Tree::default()));
+            dir = match entry {
+                TreeEntry::Dir(tree) => tree,
+                TreeEntry::File(_) => return Err(conflict()),
+            };
+        }
+        match dir.0.entry(file.to_string()) {
+            btree_map::Entry::Vacant(entry) => {
+                entry.insert(TreeEntry::File(data));
+                Ok(())
+            }
+            btree_map::Entry::Occupied(_) => Err(conflict()),
+        }
+    }
+
+    /// The directory's table, its entries numbered consecutively before those of its
+    /// subdirectories, as a parsed volume numbers them.
+    fn build(self, vol: &Arc<Volume>) -> Result<Arc<DirData>, PackageFsError> {
+        if self.0.len() as u64 > MAX_DIR_COOKIE {
+            return Err(PackageFsError::TooManyEntries);
+        }
+        let first = vol
+            .next_ino
+            .fetch_add(self.0.len() as u64, Ordering::Relaxed);
+        let mut entries = Vec::with_capacity(self.0.len());
+        let mut subdirs = 0;
+        for (ino, (name, entry)) in (first..).zip(self.0) {
+            let kind = match entry {
+                TreeEntry::File(data) => Kind::File(data),
+                TreeEntry::Dir(tree) => {
+                    subdirs += 1;
+                    Kind::Dir(tree.build(vol)?)
+                }
+            };
+            entries.push(Child {
+                name: Cow::Owned(name),
+                ino,
+                kind,
+            });
+        }
+        let children = Children {
+            entries: entries.into_boxed_slice(),
+            subdirs,
+        };
+        Ok(Arc::new(DirData {
+            source: None,
+            children: OnceLock::from(Ok(children)),
+            vol: vol.clone(),
+        }))
     }
 }
 
@@ -166,7 +282,8 @@ impl Filesystem for PackageFs {
 
 /// A directory and, once parsed, its entries.
 struct DirData {
-    dir: Directory<'static>,
+    /// The volume's directory, `None` for one built with its entries.
+    source: Option<Directory<'static>>,
     children: OnceLock<Result<Children, Errno>>,
     vol: Arc<Volume>,
 }
@@ -178,7 +295,8 @@ struct Children {
 }
 
 struct Child {
-    name: &'static str,
+    /// Borrowed from the volume header, or owned for a built tree.
+    name: Cow<'static, str>,
     ino: u64,
     kind: Kind,
 }
@@ -203,7 +321,7 @@ impl Kind {
 impl DirData {
     fn new(dir: Directory<'static>, vol: Arc<Volume>) -> Self {
         Self {
-            dir,
+            source: Some(dir),
             children: OnceLock::new(),
             vol,
         }
@@ -219,8 +337,10 @@ impl DirData {
     fn parse(&self) -> FsResult<Children> {
         let mut entries = Vec::new();
         let mut subdirs = 0;
-        // Mounting decoded every directory already; this cannot fail on the same bytes.
-        let parsed = decode(&self.dir).map_err(|_| Errno::EIO)?;
+        // A built directory has its table from the start, so only volume directories get here;
+        // mounting decoded every one of them already, so this cannot fail on the same bytes.
+        let dir = self.source.as_ref().ok_or(Errno::EIO)?;
+        let parsed = decode(dir).map_err(|_| Errno::EIO)?;
         // `children` runs this once per directory, so each entry gets its number exactly once.
         let first = self
             .vol
@@ -235,7 +355,11 @@ impl DirData {
                 WebcEntry::File(file) => Kind::File(file.bytes().clone()),
                 WebcEntry::Symlink(link) => Kind::Symlink(link.target()),
             };
-            entries.push(Child { name, ino, kind });
+            entries.push(Child {
+                name: Cow::Borrowed(name),
+                ino,
+                kind,
+            });
         }
         Ok(Children {
             entries: entries.into_boxed_slice(),
