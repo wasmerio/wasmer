@@ -4,9 +4,10 @@
 //! signal interrupts it, its handler runs on the return-to-guest path, and the group's exit ends
 //! it.
 //!
-//! A handler that restarts calls makes an untimed wait go on; a timed wait, or one whose handler
-//! does not restart, returns as woken, the result that has its caller look at the word again,
-//! as `futex` failing with `EINTR` has.
+//! An untimed wait goes on after any handler (`ERESTARTNOINTR`), since the instruction cannot
+//! fail. A timed wait goes on to its deadline unless a handler ran; one a handler ended returns
+//! as woken, the result that has its caller look at the word again, as `futex` failing with
+//! `EINTR` has.
 //!
 //! [`AtomicWait`]: wasixv2_syscalls::AtomicWait
 
