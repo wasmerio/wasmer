@@ -1077,6 +1077,58 @@ fn unix_socket_options_read_back_what_was_set() {
         Errno::ENOPROTOOPT
     );
     assert_eq!(errno(get(a, SocketOption(9999), 4).0), Errno::ENOPROTOOPT);
+
+    // The peer of a pair is the caller; groups come with it.
+    let ucred = |pid: i32, uid: u32, gid: u32| {
+        [pid.to_le_bytes(), uid.to_le_bytes(), gid.to_le_bytes()].concat()
+    };
+    let pid = kernel.process(task).pid.0 as i32;
+    assert_eq!(
+        get(a, SocketOption::SO_PEERCRED, 12),
+        (Ok(0), ucred(pid, 1, 1))
+    );
+    assert_eq!(
+        get(a, SocketOption::SO_PEERGROUPS, 4),
+        (Ok(0), 1u32.to_le_bytes().to_vec())
+    );
+    let (short, _) = get(a, SocketOption::SO_PEERGROUPS, 0);
+    assert_eq!(errno(short), Errno::ERANGE);
+    assert_eq!(super::ipc::get(&memory, 0x2f0, 4), 4u32.to_le_bytes());
+
+    // Without a peer: pid 0 and the invalid ids, and no groups.
+    let lone = block_on(kernel.socket(&caller, AddressFamily::AF_UNIX, STREAM, 0)).unwrap();
+    assert_eq!(
+        get(lone, SocketOption::SO_PEERCRED, 12),
+        (Ok(0), ucred(0, u32::MAX, u32::MAX))
+    );
+    assert_eq!(
+        errno(get(lone, SocketOption::SO_PEERGROUPS, 64).0),
+        Errno::ENODATA
+    );
+    // A listener reports whoever listened; a connected datagram socket has no peer.
+    let (listener, _client, _) = unix_listener(&kernel, &caller, &memory, b"peercred");
+    assert_eq!(
+        get(listener, SocketOption::SO_PEERCRED, 12),
+        (Ok(0), ucred(pid, 1, 1))
+    );
+    let dgram = block_on(kernel.socket(&caller, AddressFamily::AF_UNIX, DGRAM, 0)).unwrap();
+    let target = block_on(kernel.socket(&caller, AddressFamily::AF_UNIX, DGRAM, 0)).unwrap();
+    let mut addr = (AddressFamily::AF_UNIX.0 as u16).to_le_bytes().to_vec();
+    addr.extend(b"\0dgram-peer");
+    put(&memory, 0x200, &addr);
+    let len = addr.len() as u32;
+    assert_eq!(
+        block_on(kernel.bind(&caller, target, GuestPtr::new(0x200), len)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.connect(&caller, dgram, GuestPtr::new(0x200), len)),
+        Ok(0)
+    );
+    assert_eq!(
+        get(dgram, SocketOption::SO_PEERCRED, 12),
+        (Ok(0), ucred(0, u32::MAX, u32::MAX))
+    );
 }
 
 #[test]
