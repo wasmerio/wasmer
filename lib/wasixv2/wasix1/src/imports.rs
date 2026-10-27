@@ -215,7 +215,8 @@ table! {
     "sock_leave_multicast_v6" WASIX (I32 I32 I32) -> (I32) Shim;
     "sock_bind" WASIX (I32 I32) -> (I32) Shim;
     "sock_listen" WASIX (I32 I32) -> (I32) Shim;
-    // `wasix_32v1`'s `sock_accept` is the v2 form.
+    // `wasix_32v1`'s `sock_accept` is the v2 form: wasix-libc imported it under that name until
+    // it became `sock_accept_v2` (wasix-libc 528c2ec), and modules built before still do.
     "sock_accept" WASIX (I32 I32 I32 I32) -> (I32) Shim;
     "sock_accept_v2" WASIX (I32 I32 I32 I32) -> (I32) Shim;
     "sock_connect" WASIX (I32 I32) -> (I32) Shim;
