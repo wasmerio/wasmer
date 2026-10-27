@@ -296,26 +296,29 @@ impl Mapping {
         Ok(())
     }
 
+    /// A mapping of the same source as the part of this one from `skip` on, at `start` for
+    /// `len` bytes (which may reach past this one's end), not filled yet.
+    pub(crate) fn alias(&self, skip: u64, start: u64, len: u64) -> Mapping {
+        let source = match &self.source {
+            Source::Private { file, offset } => Source::Private {
+                file: file.clone(),
+                offset: offset + skip,
+            },
+            Source::Shared(shared) => Source::Shared(Shared {
+                object: shared.object.clone(),
+                offset: shared.offset + skip,
+                shadow: Vec::new(),
+                writable: shared.writable,
+                writer: shared.writer.clone(),
+            }),
+        };
+        Mapping { start, len, source }
+    }
+
     /// Grows the mapping by `extra` bytes at its end, which `mremap` already took, and fills
     /// them from the source.
     pub(crate) async fn grow(&mut self, memory: &dyn UserMemory, extra: u64) -> Result<(), Errno> {
-        let mut tail = Mapping {
-            start: self.end(),
-            len: extra,
-            source: match &self.source {
-                Source::Private { file, offset } => Source::Private {
-                    file: file.clone(),
-                    offset: offset + self.len,
-                },
-                Source::Shared(shared) => Source::Shared(Shared {
-                    object: shared.object.clone(),
-                    offset: shared.offset + self.len,
-                    shadow: Vec::new(),
-                    writable: shared.writable,
-                    writer: shared.writer.clone(),
-                }),
-            },
-        };
+        let mut tail = self.alias(self.len, self.end(), extra);
         tail.fill(memory).await?;
         if let (Source::Shared(shared), Source::Shared(tail)) = (&mut self.source, tail.source) {
             shared.shadow.extend(tail.shadow);
@@ -386,6 +389,24 @@ impl Mappings {
 
     pub(crate) fn any_shared(&self) -> bool {
         self.list.iter().any(|m| m.shared().is_some())
+    }
+
+    /// The mapping `addr` lies in, if any.
+    pub(crate) fn containing(&self, addr: u64) -> Option<&Mapping> {
+        self.list.iter().find(|m| m.start <= addr && addr < m.end())
+    }
+
+    /// Unfilled mappings of the same sources as the parts of mappings inside `[start, end)`, at
+    /// the same addresses.
+    pub(crate) fn aliases(&self, start: u64, end: u64) -> Vec<Mapping> {
+        self.list
+            .iter()
+            .filter(|m| m.start < end && m.end() > start)
+            .map(|m| {
+                let (from, to) = (m.start.max(start), m.end().min(end));
+                m.alias(from - m.start, from, to - from)
+            })
+            .collect()
     }
 
     /// The mapping that starts at `start`, if any.
