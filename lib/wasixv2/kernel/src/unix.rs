@@ -94,6 +94,13 @@ impl Ucred {
         raw
     }
 
+    /// `cred_to_ucred` without a peer: pid 0 and the invalid ids.
+    pub(crate) const NONE: Self = Self {
+        pid: 0,
+        uid: u32::MAX,
+        gid: u32::MAX,
+    };
+
     fn from_bytes(raw: &[u8]) -> Option<Self> {
         let word = |i: usize| raw.get(i..i + 4).map(|b| b.try_into().unwrap());
         Some(Self {
@@ -102,6 +109,15 @@ impl Ucred {
             gid: u32::from_le_bytes(word(8)?),
         })
     }
+}
+
+/// What `SO_PEERCRED` and `SO_PEERGROUPS` report: the pid and credentials of the task that
+/// made the connection, called `socketpair` or listened (`sk_peer_pid`, `sk_peer_cred`).
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub(crate) struct PeerCred {
+    pub(crate) ucred: Ucred,
+    /// The supplementary groups, ascending.
+    pub(crate) groups: Arc<[u32]>,
 }
 
 /// Where a bound socket is found.
@@ -182,7 +198,7 @@ struct Inner {
     accept: VecDeque<Arc<Sock>>,
     shutdown: u8,
     err: Option<Errno>,
-    peer_cred: Option<Ucred>,
+    peer_cred: Option<PeerCred>,
     released: bool,
     /// The `SOL_SOCKET` options. `sk_sndbuf` bounds what this socket may have queued at its
     /// peer and a record's size; `SO_PASSCRED` asks for the sender's credentials.
@@ -203,8 +219,8 @@ pub(crate) struct Sock {
     /// Woken when data arrives, room appears at the peer, or the state changes.
     wait: WaitQueue,
     names: Arc<Names>,
-    /// The credentials of the task that created the socket (`sk_peer_cred` at `listen`).
-    owner: Ucred,
+    /// The credentials of the task that created the socket.
+    owner: PeerCred,
     /// `SO_RCVTIMEO`/`SO_SNDTIMEO`.
     pub(crate) timeouts: Timeouts,
     host: Arc<dyn Host>,
@@ -236,7 +252,7 @@ impl Sock {
     pub(crate) fn new(
         kind: Kind,
         names: Arc<Names>,
-        owner: Ucred,
+        owner: PeerCred,
         host: Arc<dyn Host>,
     ) -> Arc<Self> {
         let ty = match kind {
@@ -300,7 +316,7 @@ impl Sock {
         for (x, y) in [(a, b), (b, a)] {
             let mut inner = x.lock();
             inner.peer = Some(Arc::downgrade(y));
-            inner.peer_cred = Some(y.owner);
+            inner.peer_cred = Some(y.owner.clone());
             if x.kind.connection() {
                 inner.state = State::Connected;
             }
@@ -446,8 +462,9 @@ impl Sock {
         Err(Errno::ENOSPC)
     }
 
-    /// `unix_listen`.
-    pub(crate) fn listen(&self, backlog: u32) -> Result<(), Errno> {
+    /// `unix_listen`. `cred` is the caller's, which `SO_PEERCRED` then reports and connecting
+    /// clients get as their peer's (`update_peercred`).
+    pub(crate) fn listen(&self, backlog: u32, cred: PeerCred) -> Result<(), Errno> {
         if !self.kind.connection() {
             return Err(Errno::EOPNOTSUPP);
         }
@@ -460,6 +477,7 @@ impl Sock {
         }
         inner.state = State::Listening;
         inner.backlog = backlog as usize;
+        inner.peer_cred = Some(cred);
         drop(inner);
         self.wait.wake(PollMask::empty());
         Ok(())
@@ -468,7 +486,7 @@ impl Sock {
     /// `unix_stream_connect` up to the wait for room: queues a new server end on `target`.
     /// The state is checked and changed under this socket's lock, held while the listener's is
     /// taken, so two threads connecting one socket cannot both queue a connection.
-    fn try_connect(&self, target: &Arc<Sock>, cred: Ucred) -> Result<(), Errno> {
+    fn try_connect(&self, target: &Arc<Sock>, cred: &PeerCred) -> Result<(), Errno> {
         if target.kind != self.kind {
             return Err(Errno::EPROTOTYPE);
         }
@@ -492,7 +510,7 @@ impl Sock {
         let embryo = Sock::new(
             self.kind,
             self.names.clone(),
-            target.owner,
+            target.owner.clone(),
             target.host.clone(),
         );
         {
@@ -500,15 +518,17 @@ impl Sock {
             e.state = State::Connected;
             e.addr = listener.addr.clone();
             e.peer = Some(self.me.clone());
-            e.peer_cred = Some(cred);
+            e.peer_cred = Some(cred.clone());
             // `sk_clone_lock` copies the listener's options.
             e.opts = listener.opts.inherit();
         }
         listener.accept.push_back(embryo.clone());
+        // `copy_peercred`: the client's peer is whoever listened.
+        let listener_cred = listener.peer_cred.clone();
         drop(listener);
         inner.state = State::Connected;
         inner.peer = Some(Arc::downgrade(&embryo));
-        inner.peer_cred = Some(target.owner);
+        inner.peer_cred = listener_cred;
         drop(inner);
         target.wait.wake(PollMask::READABLE);
         Ok(())
@@ -534,9 +554,8 @@ impl Sock {
         {
             return Err(Errno::EPROTOTYPE);
         }
-        let mut inner = self.lock();
-        inner.peer = target.as_ref().map(Arc::downgrade);
-        inner.peer_cred = target.as_ref().map(|t| t.owner);
+        // `unix_dgram_connect` sets no peer credentials.
+        self.lock().peer = target.as_ref().map(Arc::downgrade);
         Ok(())
     }
 
@@ -739,8 +758,8 @@ impl Sock {
         }
     }
 
-    pub(crate) fn peer_cred(&self) -> Option<Ucred> {
-        self.lock().peer_cred
+    pub(crate) fn peer_cred(&self) -> Option<PeerCred> {
+        self.lock().peer_cred.clone()
     }
 
     pub(crate) fn take_error(&self) -> Option<Errno> {
@@ -1037,7 +1056,7 @@ impl FileObject for UnixFile {
 
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
-            let owner = self.0.owner;
+            let owner = self.0.owner.ucred;
             let mut wait = self.0.blocking(io, SND, MsgFlags(0));
             let anc = Ancillary::default();
             send(&self.0, &mut wait, data.to_vec(), None, anc, owner).await
@@ -1148,6 +1167,15 @@ impl Kernel {
         }
     }
 
+    /// The caller as a socket's peer: what `SO_PEERCRED` and `SO_PEERGROUPS` report
+    /// (`prepare_peercred`).
+    pub(crate) fn peer_cred(&self, caller: &Caller<'_>) -> PeerCred {
+        PeerCred {
+            ucred: self.ucred(caller),
+            groups: self.process(caller.task()).cred().groups.as_slice().into(),
+        }
+    }
+
     /// `scm_check_creds`: a process may claim its own pid and any of its real, effective or
     /// saved ids, and others with `CAP_SYS_ADMIN`, `CAP_SETUID` and `CAP_SETGID`.
     fn may_claim(&self, caller: &Caller<'_>, claim: &Ucred) -> bool {
@@ -1178,7 +1206,7 @@ impl Kernel {
         Ok(Sock::new(
             kind,
             self.unix_names.clone(),
-            self.ucred(caller),
+            self.peer_cred(caller),
             self.host.clone(),
         ))
     }
@@ -1275,11 +1303,11 @@ impl Kernel {
             sock.connect_dgram(Some(target))?;
             return Ok(0);
         }
-        let cred = self.ucred(caller);
+        let cred = self.peer_cred(caller);
         let interrupt = self.interrupt(caller);
         let mut wait = sock.blocking(Self::io(&*interrupt, file), SND, MsgFlags(0));
         wait.wait(WaitOn::Queue(&target.wait), PollMask::WRITABLE, || {
-            sock.try_connect(&target, cred)
+            sock.try_connect(&target, &cred)
         })
         .await?;
         Ok(0)
@@ -1391,15 +1419,12 @@ impl Kernel {
             SocketOption::SO_DOMAIN => int(AddressFamily::AF_UNIX.0),
             SocketOption::SO_ERROR => int(sock.take_error().map_or(0, |e| e.0)),
             SocketOption::SO_ACCEPTCONN => int(sock.is_listening() as i32),
-            SocketOption::SO_PEERCRED => {
-                // Unconnected sockets report an invalid pid and the overflow ids.
-                let cred = sock.peer_cred().unwrap_or(Ucred {
-                    pid: 0,
-                    uid: 65534,
-                    gid: 65534,
-                });
-                Ok(cred.to_bytes())
-            }
+            // `cred_to_ucred`: without a peer, pid 0 and the invalid ids.
+            SocketOption::SO_PEERCRED => Ok(sock
+                .peer_cred()
+                .map_or(Ucred::NONE, |peer| peer.ucred)
+                .to_bytes()),
+            // `SO_PEERGROUPS` is answered by the socket layer, which may need `ERANGE`.
             _ => {
                 let mut out = [0u8; 64];
                 let n = sock
@@ -1429,8 +1454,8 @@ mod tests {
     fn pair(kind: Kind) -> (Arc<Sock>, Arc<Sock>) {
         let names = Arc::new(Names::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let a = Sock::new(kind, names.clone(), Ucred::default(), host.clone());
-        let b = Sock::new(kind, names, Ucred::default(), host);
+        let a = Sock::new(kind, names.clone(), PeerCred::default(), host.clone());
+        let b = Sock::new(kind, names, PeerCred::default(), host);
         Sock::pair(&a, &b);
         (a, b)
     }
@@ -1485,13 +1510,18 @@ mod tests {
     fn closing_a_listener_resets_queued_clients() {
         let names = Arc::new(Names::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let listener = Sock::new(Kind::Stream, names.clone(), Ucred::default(), host.clone());
+        let listener = Sock::new(
+            Kind::Stream,
+            names.clone(),
+            PeerCred::default(),
+            host.clone(),
+        );
         listener
             .bind(Key::Abstract(b"l".to_vec()), b"\x01\x00\x00l".to_vec())
             .unwrap();
-        listener.listen(4).unwrap();
-        let client = Sock::new(Kind::Stream, names, Ucred::default(), host);
-        client.try_connect(&listener, Ucred::default()).unwrap();
+        listener.listen(4, PeerCred::default()).unwrap();
+        let client = Sock::new(Kind::Stream, names, PeerCred::default(), host);
+        client.try_connect(&listener, &PeerCred::default()).unwrap();
         listener.release(false);
         assert_eq!(
             client.try_recv(4, MsgFlags(0)).err(),
@@ -1504,15 +1534,20 @@ mod tests {
     fn connecting_twice_queues_one_connection() {
         let names = Arc::new(Names::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let listener = Sock::new(Kind::Stream, names.clone(), Ucred::default(), host.clone());
+        let listener = Sock::new(
+            Kind::Stream,
+            names.clone(),
+            PeerCred::default(),
+            host.clone(),
+        );
         listener
             .bind(Key::Abstract(b"m".to_vec()), b"\x01\x00\x00m".to_vec())
             .unwrap();
-        listener.listen(4).unwrap();
-        let client = Sock::new(Kind::Stream, names, Ucred::default(), host);
-        assert_eq!(client.try_connect(&listener, Ucred::default()), Ok(()));
+        listener.listen(4, PeerCred::default()).unwrap();
+        let client = Sock::new(Kind::Stream, names, PeerCred::default(), host);
+        assert_eq!(client.try_connect(&listener, &PeerCred::default()), Ok(()));
         assert_eq!(
-            client.try_connect(&listener, Ucred::default()),
+            client.try_connect(&listener, &PeerCred::default()),
             Err(Errno::EISCONN)
         );
         assert!(listener.try_accept().is_ok());

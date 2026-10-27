@@ -262,7 +262,7 @@ impl Kernel {
         let backlog = (backlog as u32).min(SOMAXCONN);
         match self.any_socket(caller, fd)? {
             AnySock::Inet((_, sock)) => sock.socket.listen(backlog)?,
-            AnySock::Unix(_, sock) => sock.listen(backlog)?,
+            AnySock::Unix(_, sock) => sock.listen(backlog, self.peer_cred(caller))?,
             AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
         }
         Ok(0)
@@ -983,7 +983,11 @@ impl Kernel {
     ) -> SysResult<i32> {
         let any = self.any_socket(caller, fd)?;
         let len: i32 = read_value(caller.memory(), GuestPtr::new(optlen.addr())).await?;
-        let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?.min(4096);
+        let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?;
+        if level == SocketLevel::SOL_SOCKET && SocketOption(name) == SocketOption::SO_PEERGROUPS {
+            return peer_groups(caller, &any, len, optval, optlen).await;
+        }
+        let len = len.min(4096);
         let fixed = match &any {
             _ if level == SocketLevel::SOL_SOCKET && timeout_option(name).is_some() => {
                 Some(timeout_value(any.timeouts(), name))
@@ -1037,6 +1041,8 @@ impl Kernel {
                 Domain::Inet6 => AddressFamily::AF_INET6.0,
             }),
             SocketOption::SO_ERROR => int(socket.take_error().map_or(0, |errno| errno.0)),
+            // `cred_to_ucred` without peer credentials, which only Unix sockets have.
+            SocketOption::SO_PEERCRED => Ok(Some(unix::Ucred::NONE.to_bytes())),
             _ => Ok(None),
         }
     }
@@ -1051,6 +1057,32 @@ impl Kernel {
             interrupt,
         }
     }
+}
+
+/// `SO_PEERGROUPS`: the supplementary groups of a socket's peer, `ENODATA` without one (only
+/// Unix sockets have peer credentials); a buffer too short is `ERANGE` with the length it
+/// needs written back.
+async fn peer_groups(
+    caller: &Caller<'_>,
+    any: &AnySock,
+    len: usize,
+    optval: Buf,
+    optlen: SocklenPtr,
+) -> SysResult<i32> {
+    let peer = match any {
+        AnySock::Unix(_, sock) => sock.peer_cred(),
+        _ => None,
+    };
+    let groups = peer.ok_or(Errno::ENODATA)?.groups;
+    let need = groups.len() * 4;
+    if len < need {
+        write_value(caller.memory(), optlen, &(need as u32)).await?;
+        return Err(Errno::ERANGE.into());
+    }
+    let raw: Vec<u8> = groups.iter().flat_map(|g| g.to_le_bytes()).collect();
+    caller.memory().write(optval.addr(), &raw).await?;
+    write_value(caller.memory(), optlen, &(need as u32)).await?;
+    Ok(0)
 }
 
 /// An open file for the Unix socket `sock`.
