@@ -83,26 +83,26 @@
 <a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">let </span>source_fd = state.fs.get_fd(old_fd)<span class="question-mark">?</span>;
 <a href=#84 id=84 data-nosnippet>84</a>    <span class="kw">let </span>target_fd = state.fs.get_fd(new_fd)<span class="question-mark">?</span>;
 <a href=#85 id=85 data-nosnippet>85</a>
-<a href=#86 id=86 data-nosnippet>86</a>    <span class="kw">if </span>!source_fd.inner.rights.contains(Rights::PATH_LINK_SOURCE)
-<a href=#87 id=87 data-nosnippet>87</a>        || !target_fd.inner.rights.contains(Rights::PATH_LINK_TARGET)
-<a href=#88 id=88 data-nosnippet>88</a>    {
-<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
-<a href=#90 id=90 data-nosnippet>90</a>    }
-<a href=#91 id=91 data-nosnippet>91</a>
-<a href=#92 id=92 data-nosnippet>92</a>    Span::current().record(<span class="string">"old_path"</span>, old_path);
-<a href=#93 id=93 data-nosnippet>93</a>    Span::current().record(<span class="string">"new_path"</span>, new_path);
-<a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">let </span>source_inode = state.fs.get_inode_at_path(
-<a href=#96 id=96 data-nosnippet>96</a>        inodes,
-<a href=#97 id=97 data-nosnippet>97</a>        old_fd,
-<a href=#98 id=98 data-nosnippet>98</a>        old_path,
-<a href=#99 id=99 data-nosnippet>99</a>        old_flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>,
-<a href=#100 id=100 data-nosnippet>100</a>    )<span class="question-mark">?</span>;
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">let </span>target_path_arg = std::path::PathBuf::from(new_path);
-<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">let </span>(target_parent_inode, new_entry_name) =
-<a href=#103 id=103 data-nosnippet>103</a>        state
-<a href=#104 id=104 data-nosnippet>104</a>            .fs
-<a href=#105 id=105 data-nosnippet>105</a>            .get_parent_inode_at_path(inodes, new_fd, <span class="kw-2">&amp;</span>target_path_arg, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+<a href=#86 id=86 data-nosnippet>86</a>    Span::current().record(<span class="string">"old_path"</span>, old_path);
+<a href=#87 id=87 data-nosnippet>87</a>    Span::current().record(<span class="string">"new_path"</span>, new_path);
+<a href=#88 id=88 data-nosnippet>88</a>
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">let </span>(source_inode, source_owner) = state.fs.get_owned_inode_at_path(
+<a href=#90 id=90 data-nosnippet>90</a>        inodes,
+<a href=#91 id=91 data-nosnippet>91</a>        old_fd,
+<a href=#92 id=92 data-nosnippet>92</a>        old_path,
+<a href=#93 id=93 data-nosnippet>93</a>        old_flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>,
+<a href=#94 id=94 data-nosnippet>94</a>    )<span class="question-mark">?</span>;
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">let </span>target_path_arg = std::path::PathBuf::from(new_path);
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">let </span>(target_parent_inode, target_owner, new_entry_name) = state
+<a href=#97 id=97 data-nosnippet>97</a>        .fs
+<a href=#98 id=98 data-nosnippet>98</a>        .get_owned_parent_inode_at_path(inodes, new_fd, <span class="kw-2">&amp;</span>target_path_arg, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+<a href=#99 id=99 data-nosnippet>99</a>    state
+<a href=#100 id=100 data-nosnippet>100</a>        .fs
+<a href=#101 id=101 data-nosnippet>101</a>        .check_path_right(<span class="kw-2">&amp;</span>source_fd, <span class="kw-2">&amp;</span>source_owner, Rights::PATH_LINK_SOURCE)<span class="question-mark">?</span>;
+<a href=#102 id=102 data-nosnippet>102</a>    state
+<a href=#103 id=103 data-nosnippet>103</a>        .fs
+<a href=#104 id=104 data-nosnippet>104</a>        .check_path_right(<span class="kw-2">&amp;</span>target_fd, <span class="kw-2">&amp;</span>target_owner, Rights::PATH_LINK_TARGET)<span class="question-mark">?</span>;
+<a href=#105 id=105 data-nosnippet>105</a>    state.fs.check_cross_preopen(<span class="kw-2">&amp;</span>source_owner, <span class="kw-2">&amp;</span>target_owner)<span class="question-mark">?</span>;
 <a href=#106 id=106 data-nosnippet>106</a>
 <a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">if </span>source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
 <a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Mlink);

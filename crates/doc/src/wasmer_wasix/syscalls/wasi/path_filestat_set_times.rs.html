@@ -80,46 +80,44 @@
 <a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span>env = ctx.data();
 <a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 <a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">let </span>fd_inode = fd_entry.inode;
-<a href=#84 id=84 data-nosnippet>84</a>    <span class="kw">if </span>!fd_entry
-<a href=#85 id=85 data-nosnippet>85</a>        .inner
-<a href=#86 id=86 data-nosnippet>86</a>        .rights
-<a href=#87 id=87 data-nosnippet>87</a>        .contains(Rights::PATH_FILESTAT_SET_TIMES)
-<a href=#88 id=88 data-nosnippet>88</a>    {
-<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
-<a href=#90 id=90 data-nosnippet>90</a>    }
-<a href=#91 id=91 data-nosnippet>91</a>    <span class="kw">if </span>(fst_flags.contains(Fstflags::SET_ATIM) &amp;&amp; fst_flags.contains(Fstflags::SET_ATIM_NOW))
-<a href=#92 id=92 data-nosnippet>92</a>        || (fst_flags.contains(Fstflags::SET_MTIM) &amp;&amp; fst_flags.contains(Fstflags::SET_MTIM_NOW))
-<a href=#93 id=93 data-nosnippet>93</a>    {
-<a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
-<a href=#95 id=95 data-nosnippet>95</a>    }
-<a href=#96 id=96 data-nosnippet>96</a>
-<a href=#97 id=97 data-nosnippet>97</a>    <span class="kw">let </span>file_inode =
-<a href=#98 id=98 data-nosnippet>98</a>        state
-<a href=#99 id=99 data-nosnippet>99</a>            .fs
-<a href=#100 id=100 data-nosnippet>100</a>            .get_inode_at_path(inodes, fd, path, flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>)<span class="question-mark">?</span>;
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">let </span>stat = {
-<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">let </span>guard = file_inode.read();
-<a href=#103 id=103 data-nosnippet>103</a>        state.fs.get_stat_for_kind(guard.deref())<span class="question-mark">?
-<a href=#104 id=104 data-nosnippet>104</a>    </span>};
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">if </span>fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
-<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">let </span>time_to_set = <span class="kw">if </span>fst_flags.contains(Fstflags::SET_ATIM) {
-<a href=#108 id=108 data-nosnippet>108</a>            st_atim
-<a href=#109 id=109 data-nosnippet>109</a>        } <span class="kw">else </span>{
-<a href=#110 id=110 data-nosnippet>110</a>            get_current_time_in_nanos()<span class="question-mark">?
-<a href=#111 id=111 data-nosnippet>111</a>        </span>};
-<a href=#112 id=112 data-nosnippet>112</a>        fd_inode.stat.write().unwrap().st_atim = time_to_set;
-<a href=#113 id=113 data-nosnippet>113</a>    }
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">if </span>fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
-<a href=#115 id=115 data-nosnippet>115</a>        <span class="kw">let </span>time_to_set = <span class="kw">if </span>fst_flags.contains(Fstflags::SET_MTIM) {
-<a href=#116 id=116 data-nosnippet>116</a>            st_mtim
-<a href=#117 id=117 data-nosnippet>117</a>        } <span class="kw">else </span>{
-<a href=#118 id=118 data-nosnippet>118</a>            get_current_time_in_nanos()<span class="question-mark">?
-<a href=#119 id=119 data-nosnippet>119</a>        </span>};
-<a href=#120 id=120 data-nosnippet>120</a>        fd_inode.stat.write().unwrap().st_mtim = time_to_set;
-<a href=#121 id=121 data-nosnippet>121</a>    }
-<a href=#122 id=122 data-nosnippet>122</a>
-<a href=#123 id=123 data-nosnippet>123</a>    <span class="prelude-val">Ok</span>(())
-<a href=#124 id=124 data-nosnippet>124</a>}
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">let </span>fd_inode = fd_entry.inode.clone();
+<a href=#84 id=84 data-nosnippet>84</a>    <span class="kw">if </span>(fst_flags.contains(Fstflags::SET_ATIM) &amp;&amp; fst_flags.contains(Fstflags::SET_ATIM_NOW))
+<a href=#85 id=85 data-nosnippet>85</a>        || (fst_flags.contains(Fstflags::SET_MTIM) &amp;&amp; fst_flags.contains(Fstflags::SET_MTIM_NOW))
+<a href=#86 id=86 data-nosnippet>86</a>    {
+<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
+<a href=#88 id=88 data-nosnippet>88</a>    }
+<a href=#89 id=89 data-nosnippet>89</a>
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">let </span>(file_inode, owner) = state.fs.get_owned_inode_at_path(
+<a href=#91 id=91 data-nosnippet>91</a>        inodes,
+<a href=#92 id=92 data-nosnippet>92</a>        fd,
+<a href=#93 id=93 data-nosnippet>93</a>        path,
+<a href=#94 id=94 data-nosnippet>94</a>        flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>,
+<a href=#95 id=95 data-nosnippet>95</a>    )<span class="question-mark">?</span>;
+<a href=#96 id=96 data-nosnippet>96</a>    state
+<a href=#97 id=97 data-nosnippet>97</a>        .fs
+<a href=#98 id=98 data-nosnippet>98</a>        .check_path_right(<span class="kw-2">&amp;</span>fd_entry, <span class="kw-2">&amp;</span>owner, Rights::PATH_FILESTAT_SET_TIMES)<span class="question-mark">?</span>;
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">let </span>stat = {
+<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span>guard = file_inode.read();
+<a href=#101 id=101 data-nosnippet>101</a>        state.fs.get_stat_for_kind(guard.deref())<span class="question-mark">?
+<a href=#102 id=102 data-nosnippet>102</a>    </span>};
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">if </span>fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>time_to_set = <span class="kw">if </span>fst_flags.contains(Fstflags::SET_ATIM) {
+<a href=#106 id=106 data-nosnippet>106</a>            st_atim
+<a href=#107 id=107 data-nosnippet>107</a>        } <span class="kw">else </span>{
+<a href=#108 id=108 data-nosnippet>108</a>            get_current_time_in_nanos()<span class="question-mark">?
+<a href=#109 id=109 data-nosnippet>109</a>        </span>};
+<a href=#110 id=110 data-nosnippet>110</a>        fd_inode.stat.write().unwrap().st_atim = time_to_set;
+<a href=#111 id=111 data-nosnippet>111</a>    }
+<a href=#112 id=112 data-nosnippet>112</a>    <span class="kw">if </span>fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="kw">let </span>time_to_set = <span class="kw">if </span>fst_flags.contains(Fstflags::SET_MTIM) {
+<a href=#114 id=114 data-nosnippet>114</a>            st_mtim
+<a href=#115 id=115 data-nosnippet>115</a>        } <span class="kw">else </span>{
+<a href=#116 id=116 data-nosnippet>116</a>            get_current_time_in_nanos()<span class="question-mark">?
+<a href=#117 id=117 data-nosnippet>117</a>        </span>};
+<a href=#118 id=118 data-nosnippet>118</a>        fd_inode.stat.write().unwrap().st_mtim = time_to_set;
+<a href=#119 id=119 data-nosnippet>119</a>    }
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="prelude-val">Ok</span>(())
+<a href=#122 id=122 data-nosnippet>122</a>}
 </code></pre></div></section></main></body></html>

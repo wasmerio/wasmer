@@ -56,79 +56,77 @@
 <a href=#56 id=56 data-nosnippet>56</a>    <span class="kw">let </span>env = ctx.data();
 <a href=#57 id=57 data-nosnippet>57</a>    <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 <a href=#58 id=58 data-nosnippet>58</a>    <span class="kw">let </span>working_dir = state.fs.get_fd(fd)<span class="question-mark">?</span>;
-<a href=#59 id=59 data-nosnippet>59</a>
-<a href=#60 id=60 data-nosnippet>60</a>    <span class="kw">if </span>!working_dir
-<a href=#61 id=61 data-nosnippet>61</a>        .inner
-<a href=#62 id=62 data-nosnippet>62</a>        .rights
-<a href=#63 id=63 data-nosnippet>63</a>        .contains(Rights::PATH_CREATE_DIRECTORY)
-<a href=#64 id=64 data-nosnippet>64</a>    {
-<a href=#65 id=65 data-nosnippet>65</a>        <span class="macro">trace!</span>(<span class="string">"working directory (fd={fd}) has no rights to create a directory"</span>);
-<a href=#66 id=66 data-nosnippet>66</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
-<a href=#67 id=67 data-nosnippet>67</a>    }
-<a href=#68 id=68 data-nosnippet>68</a>
-<a href=#69 id=69 data-nosnippet>69</a>    <span class="kw">let </span>(parent_inode, dir_name) =
-<a href=#70 id=70 data-nosnippet>70</a>        state
-<a href=#71 id=71 data-nosnippet>71</a>            .fs
-<a href=#72 id=72 data-nosnippet>72</a>            .get_parent_inode_at_path(inodes, fd, Path::new(path), <span class="bool-val">true</span>)<span class="question-mark">?</span>;
-<a href=#73 id=73 data-nosnippet>73</a>
-<a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">let </span><span class="kw-2">mut </span>guard = parent_inode.write();
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="kw">match </span>guard.deref_mut() {
-<a href=#76 id=76 data-nosnippet>76</a>        Kind::Dir { entries, path, .. } =&gt; {
-<a href=#77 id=77 data-nosnippet>77</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(child) = entries.get(<span class="kw-2">&amp;</span>dir_name) {
-<a href=#78 id=78 data-nosnippet>78</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
-<a href=#79 id=79 data-nosnippet>79</a>            }
-<a href=#80 id=80 data-nosnippet>80</a>
-<a href=#81 id=81 data-nosnippet>81</a>            <span class="kw">let </span><span class="kw-2">mut </span>new_dir_path = path.clone();
-<a href=#82 id=82 data-nosnippet>82</a>            new_dir_path.push(<span class="kw-2">&amp;</span>dir_name);
+<a href=#59 id=59 data-nosnippet>59</a>    <span class="kw">let </span>(parent_inode, owner, dir_name) =
+<a href=#60 id=60 data-nosnippet>60</a>        state
+<a href=#61 id=61 data-nosnippet>61</a>            .fs
+<a href=#62 id=62 data-nosnippet>62</a>            .get_owned_parent_inode_at_path(inodes, fd, Path::new(path), <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+<a href=#63 id=63 data-nosnippet>63</a>
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = state
+<a href=#65 id=65 data-nosnippet>65</a>        .fs
+<a href=#66 id=66 data-nosnippet>66</a>        .check_path_right(<span class="kw-2">&amp;</span>working_dir, <span class="kw-2">&amp;</span>owner, Rights::PATH_CREATE_DIRECTORY)
+<a href=#67 id=67 data-nosnippet>67</a>    {
+<a href=#68 id=68 data-nosnippet>68</a>        <span class="macro">trace!</span>(<span class="string">"working directory (fd={fd}) has no rights to create a directory"</span>);
+<a href=#69 id=69 data-nosnippet>69</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(err);
+<a href=#70 id=70 data-nosnippet>70</a>    }
+<a href=#71 id=71 data-nosnippet>71</a>
+<a href=#72 id=72 data-nosnippet>72</a>    <span class="kw">let </span><span class="kw-2">mut </span>guard = parent_inode.write();
+<a href=#73 id=73 data-nosnippet>73</a>    <span class="kw">match </span>guard.deref_mut() {
+<a href=#74 id=74 data-nosnippet>74</a>        Kind::Dir { entries, path, .. } =&gt; {
+<a href=#75 id=75 data-nosnippet>75</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(child) = entries.get(<span class="kw-2">&amp;</span>dir_name) {
+<a href=#76 id=76 data-nosnippet>76</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
+<a href=#77 id=77 data-nosnippet>77</a>            }
+<a href=#78 id=78 data-nosnippet>78</a>
+<a href=#79 id=79 data-nosnippet>79</a>            <span class="kw">let </span><span class="kw-2">mut </span>new_dir_path = path.clone();
+<a href=#80 id=80 data-nosnippet>80</a>            new_dir_path.push(<span class="kw-2">&amp;</span>dir_name);
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>            drop(guard);
 <a href=#83 id=83 data-nosnippet>83</a>
-<a href=#84 id=84 data-nosnippet>84</a>            drop(guard);
-<a href=#85 id=85 data-nosnippet>85</a>
-<a href=#86 id=86 data-nosnippet>86</a>            <span class="comment">// TODO: This condition should already have been checked by the entries.get check
-<a href=#87 id=87 data-nosnippet>87</a>            // above, but it was in the code before my refactor and I'm keeping it just in case.
-<a href=#88 id=88 data-nosnippet>88</a>            </span><span class="kw">if </span>path_filestat_get_internal(
-<a href=#89 id=89 data-nosnippet>89</a>                <span class="kw-2">&amp;</span>memory,
-<a href=#90 id=90 data-nosnippet>90</a>                state,
-<a href=#91 id=91 data-nosnippet>91</a>                inodes,
-<a href=#92 id=92 data-nosnippet>92</a>                fd,
-<a href=#93 id=93 data-nosnippet>93</a>                <span class="number">0</span>,
-<a href=#94 id=94 data-nosnippet>94</a>                <span class="kw-2">&amp;</span>new_dir_path.to_string_lossy(),
-<a href=#95 id=95 data-nosnippet>95</a>            )
-<a href=#96 id=96 data-nosnippet>96</a>            .is_ok()
-<a href=#97 id=97 data-nosnippet>97</a>            {
-<a href=#98 id=98 data-nosnippet>98</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
-<a href=#99 id=99 data-nosnippet>99</a>            }
+<a href=#84 id=84 data-nosnippet>84</a>            <span class="comment">// TODO: This condition should already have been checked by the entries.get check
+<a href=#85 id=85 data-nosnippet>85</a>            // above, but it was in the code before my refactor and I'm keeping it just in case.
+<a href=#86 id=86 data-nosnippet>86</a>            </span><span class="kw">if </span>path_filestat_get_internal(
+<a href=#87 id=87 data-nosnippet>87</a>                <span class="kw-2">&amp;</span>memory,
+<a href=#88 id=88 data-nosnippet>88</a>                state,
+<a href=#89 id=89 data-nosnippet>89</a>                inodes,
+<a href=#90 id=90 data-nosnippet>90</a>                fd,
+<a href=#91 id=91 data-nosnippet>91</a>                <span class="number">0</span>,
+<a href=#92 id=92 data-nosnippet>92</a>                <span class="kw-2">&amp;</span>new_dir_path.to_string_lossy(),
+<a href=#93 id=93 data-nosnippet>93</a>            )
+<a href=#94 id=94 data-nosnippet>94</a>            .is_ok()
+<a href=#95 id=95 data-nosnippet>95</a>            {
+<a href=#96 id=96 data-nosnippet>96</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
+<a href=#97 id=97 data-nosnippet>97</a>            }
+<a href=#98 id=98 data-nosnippet>98</a>
+<a href=#99 id=99 data-nosnippet>99</a>            state.fs_create_dir(<span class="kw-2">&amp;</span>new_dir_path)<span class="question-mark">?</span>;
 <a href=#100 id=100 data-nosnippet>100</a>
-<a href=#101 id=101 data-nosnippet>101</a>            state.fs_create_dir(<span class="kw-2">&amp;</span>new_dir_path)<span class="question-mark">?</span>;
-<a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a>            <span class="kw">let </span>kind = Kind::Dir {
-<a href=#104 id=104 data-nosnippet>104</a>                parent: parent_inode.downgrade(),
-<a href=#105 id=105 data-nosnippet>105</a>                path: new_dir_path,
-<a href=#106 id=106 data-nosnippet>106</a>                entries: Default::default(),
-<a href=#107 id=107 data-nosnippet>107</a>            };
-<a href=#108 id=108 data-nosnippet>108</a>            <span class="kw">let </span>new_inode = state
-<a href=#109 id=109 data-nosnippet>109</a>                .fs
-<a href=#110 id=110 data-nosnippet>110</a>                .create_inode(inodes, kind, <span class="bool-val">false</span>, dir_name.clone())<span class="question-mark">?</span>;
-<a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a>            <span class="comment">// reborrow to insert
-<a href=#113 id=113 data-nosnippet>113</a>            </span>{
-<a href=#114 id=114 data-nosnippet>114</a>                <span class="kw">let </span><span class="kw-2">mut </span>guard = parent_inode.write();
-<a href=#115 id=115 data-nosnippet>115</a>                <span class="kw">let </span>Kind::Dir { entries, .. } = guard.deref_mut() <span class="kw">else </span>{
-<a href=#116 id=116 data-nosnippet>116</a>                    <span class="macro">unreachable!</span>();
-<a href=#117 id=117 data-nosnippet>117</a>                };
-<a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a>                entries.insert(dir_name, new_inode.clone());
-<a href=#120 id=120 data-nosnippet>120</a>            }
-<a href=#121 id=121 data-nosnippet>121</a>        }
-<a href=#122 id=122 data-nosnippet>122</a>        Kind::Root { .. } =&gt; {
-<a href=#123 id=123 data-nosnippet>123</a>            <span class="macro">trace!</span>(<span class="string">"the root node can only contain pre-opened directories"</span>);
-<a href=#124 id=124 data-nosnippet>124</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
-<a href=#125 id=125 data-nosnippet>125</a>        }
-<a href=#126 id=126 data-nosnippet>126</a>        <span class="kw">_ </span>=&gt; {
-<a href=#127 id=127 data-nosnippet>127</a>            <span class="macro">trace!</span>(<span class="string">"path is not a directory"</span>);
-<a href=#128 id=128 data-nosnippet>128</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir);
-<a href=#129 id=129 data-nosnippet>129</a>        }
-<a href=#130 id=130 data-nosnippet>130</a>    }
-<a href=#131 id=131 data-nosnippet>131</a>
-<a href=#132 id=132 data-nosnippet>132</a>    <span class="prelude-val">Ok</span>(())
-<a href=#133 id=133 data-nosnippet>133</a>}
+<a href=#101 id=101 data-nosnippet>101</a>            <span class="kw">let </span>kind = Kind::Dir {
+<a href=#102 id=102 data-nosnippet>102</a>                parent: parent_inode.downgrade(),
+<a href=#103 id=103 data-nosnippet>103</a>                path: new_dir_path,
+<a href=#104 id=104 data-nosnippet>104</a>                entries: Default::default(),
+<a href=#105 id=105 data-nosnippet>105</a>            };
+<a href=#106 id=106 data-nosnippet>106</a>            <span class="kw">let </span>new_inode = state
+<a href=#107 id=107 data-nosnippet>107</a>                .fs
+<a href=#108 id=108 data-nosnippet>108</a>                .create_inode(inodes, kind, <span class="bool-val">false</span>, dir_name.clone())<span class="question-mark">?</span>;
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>            <span class="comment">// reborrow to insert
+<a href=#111 id=111 data-nosnippet>111</a>            </span>{
+<a href=#112 id=112 data-nosnippet>112</a>                <span class="kw">let </span><span class="kw-2">mut </span>guard = parent_inode.write();
+<a href=#113 id=113 data-nosnippet>113</a>                <span class="kw">let </span>Kind::Dir { entries, .. } = guard.deref_mut() <span class="kw">else </span>{
+<a href=#114 id=114 data-nosnippet>114</a>                    <span class="macro">unreachable!</span>();
+<a href=#115 id=115 data-nosnippet>115</a>                };
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a>                entries.insert(dir_name, new_inode.clone());
+<a href=#118 id=118 data-nosnippet>118</a>            }
+<a href=#119 id=119 data-nosnippet>119</a>        }
+<a href=#120 id=120 data-nosnippet>120</a>        Kind::Root { .. } =&gt; {
+<a href=#121 id=121 data-nosnippet>121</a>            <span class="macro">trace!</span>(<span class="string">"the root node can only contain pre-opened directories"</span>);
+<a href=#122 id=122 data-nosnippet>122</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
+<a href=#123 id=123 data-nosnippet>123</a>        }
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">_ </span>=&gt; {
+<a href=#125 id=125 data-nosnippet>125</a>            <span class="macro">trace!</span>(<span class="string">"path is not a directory"</span>);
+<a href=#126 id=126 data-nosnippet>126</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir);
+<a href=#127 id=127 data-nosnippet>127</a>        }
+<a href=#128 id=128 data-nosnippet>128</a>    }
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a>    <span class="prelude-val">Ok</span>(())
+<a href=#131 id=131 data-nosnippet>131</a>}
 </code></pre></div></section></main></body></html>
