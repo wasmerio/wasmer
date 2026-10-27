@@ -19,7 +19,7 @@ use wasixv2_vfs::{
 };
 
 /// `PIPEFS_MAGIC`, `SOCKFS_MAGIC` and `ANON_INODE_FS_MAGIC`.
-const PIPEFS_MAGIC: u32 = 0x5049_5045;
+pub(crate) const PIPEFS_MAGIC: u32 = 0x5049_5045;
 const SOCKFS_MAGIC: u32 = 0x534f_434b;
 pub(crate) const ANON_INODE_FS_MAGIC: u32 = 0x0904_1934;
 /// `MQUEUE_MAGIC`.
