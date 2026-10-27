@@ -202,6 +202,52 @@ fn root_bypasses_file_permissions_and_others_do_not() {
     }
 }
 
+/// SIGCONT between processes of different users compares their sessions. Sent both ways at
+/// once, the comparison must not hold one process's lock while it waits for the other's.
+#[test]
+fn sigcont_both_ways_between_users_does_not_deadlock() {
+    let (kernel, a, memory) = machine_as(0, 0);
+    let b = kernel.spawn(ProcessConfig {
+        args: vec!["b".into()],
+        env: Vec::new(),
+        stdio: Stdio {
+            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+            stdout: Arc::new(Capture::default()),
+            stderr: Arc::new(Capture::default()),
+        },
+    });
+    assert_eq!(
+        block_on(kernel.setuid(&Caller::new(b, &memory), 2000)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.setuid(&Caller::new(a, &memory), 1000)),
+        Ok(0)
+    );
+    let kernel = Arc::new(kernel);
+    let (done, finished) = std::sync::mpsc::channel();
+
+    for (from, to) in [(a, b), (b, a)] {
+        let (kernel, done) = (kernel.clone(), done.clone());
+        std::thread::spawn(move || {
+            let memory = FlatMemory(RefCell::new(vec![0; 64]));
+            let caller = Caller::new(from, &memory);
+            for _ in 0..20_000 {
+                let kill = Syscalls::kill(&*kernel, &caller, to.0 as Pid, Signal::SIGCONT);
+                assert_eq!(errno(block_on(kill)), Errno::EPERM);
+            }
+            done.send(()).unwrap();
+        });
+    }
+
+    for _ in 0..2 {
+        let timeout = std::time::Duration::from_secs(60);
+        finished
+            .recv_timeout(timeout)
+            .expect("the senders deadlocked");
+    }
+}
+
 #[test]
 fn signals_need_a_shared_uid_or_cap_kill() {
     let (kernel, a, memory) = machine_as(0, 0);
