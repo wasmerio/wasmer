@@ -873,3 +873,31 @@ fn blocking_connect_on_a_connecting_socket_waits_instead_of_ealready() {
     assert!(accepted.is_ok());
     assert_eq!(errno(connect(second)), Errno::EISCONN);
 }
+
+#[test]
+fn netlink_connect_checks_its_address_and_shutdown_is_unsupported() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let fd = block_on(kernel.socket(&caller, AddressFamily::AF_NETLINK, 3, 0)).unwrap();
+    let connect = |family: u16, pid: u32, groups: u32, len: u32| {
+        let mut raw = family.to_le_bytes().to_vec();
+        raw.extend([0, 0]);
+        raw.extend(pid.to_le_bytes());
+        raw.extend(groups.to_le_bytes());
+        put(&memory, 0x200, &raw);
+        block_on(kernel.connect(&caller, fd, GuestPtr::new(0x200), len))
+    };
+    let netlink = AddressFamily::AF_NETLINK.0 as u16;
+    assert_eq!(connect(netlink, 0, 0, 12), Ok(0));
+    assert_eq!(errno(connect(netlink, 0, 0, 8)), Errno::EINVAL);
+    assert_eq!(
+        errno(connect(AddressFamily::AF_INET.0 as u16, 0, 0, 16)),
+        Errno::EINVAL
+    );
+    // Another process or a group needs CAP_NET_ADMIN.
+    assert_eq!(errno(connect(netlink, 42, 0, 12)), Errno::EPERM);
+    assert_eq!(errno(connect(netlink, 0, 1, 12)), Errno::EPERM);
+    assert_eq!(connect(0, 0, 0, 2), Ok(0));
+    let shut = block_on(kernel.shutdown(&caller, fd, wasixv2_abi::ShutdownHow::SHUT_RDWR));
+    assert_eq!(errno(shut), Errno::EOPNOTSUPP);
+}
