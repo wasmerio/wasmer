@@ -549,6 +549,11 @@ where
         preempt::HOOK_NAME,
         Function::new_typed_with_env_async(store, env, preempt_point::<S>),
     );
+    imports.define(
+        preempt::HOOK_MODULE,
+        preempt::GROW_NAME,
+        Function::new_typed_with_env_async(store, env, memory_grow::<S>),
+    );
     atomics::define(&mut imports, store, env);
     imports
 }
@@ -599,6 +604,32 @@ where
         }
     }
     Ok(preempt::BUDGET)
+}
+
+/// `memory.grow` of memory 0 by `delta` pages, as the instruction does it (the previous size in
+/// pages, or -1), but never past the instance's [`AbiInstance::memory_limit`].
+async fn memory_grow<S>(
+    env: AsyncFunctionEnvMut<ExecEnv<S>>,
+    delta: i32,
+) -> Result<i32, RuntimeError>
+where
+    S: Syscalls + Control + 'static,
+{
+    let mut env = env.write().await;
+    let (data, store) = env.data_and_store_mut();
+    let limit = data.abi.as_ref().map_or(1 << 32, |abi| abi.memory_limit());
+    let Some(memory) = data.memory.as_ref() else {
+        return Ok(-1);
+    };
+    let size = memory.view(&*store).data_size();
+    let grown = size + u64::from(delta as u32) * wasixv2_syscalls::WASM_PAGE_SIZE;
+    if grown > limit {
+        return Ok(-1);
+    }
+    Ok(match memory.grow(store, delta as u32) {
+        Ok(previous) => previous.0 as i32,
+        Err(_) => -1,
+    })
 }
 
 /// Pending once, so the executor polls its other work before the guest goes on.

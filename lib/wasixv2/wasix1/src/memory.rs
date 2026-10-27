@@ -15,7 +15,8 @@ use wasixv2_syscalls::{
 };
 
 /// Start of the scratch window: the top 16 MiB of the 32-bit address space, which the guest's
-/// memory never reaches (see [`CompatMemory::grow`]).
+/// memory never reaches: neither the kernel's growth ([`CompatMemory::grow`]) nor the guest's own
+/// `memory.grow` (the instance's `memory_limit`) takes it past here.
 pub const SCRATCH_BASE: u32 = 0xFF00_0000;
 /// Size of the scratch window.
 pub const SCRATCH_SIZE: u32 = 0x0100_0000;
@@ -131,10 +132,11 @@ impl<'a, S: 'static> CompatMemory<'a, S> {
         f(&mut self.scratch.borrow_mut()[start..start + len]);
     }
 
-    /// The window offsets `addr..addr + len`, or `None` if `addr` is below the window. The
-    /// whole window reads as zeroes where nothing was allocated, as an anonymous mapping
-    /// would, since the kernel reads strings in aligned chunks; a range past its end faults.
-    fn scratch_range(addr: u32, len: usize) -> Option<Result<(usize, usize), Fault>> {
+    /// The window offsets `addr..addr + len`, or `None` if `addr` is below the window. Only
+    /// what this call allocated is there: a range that starts past it faults, as an address
+    /// the guest's memory does not reach would. A read that starts inside an allocation and
+    /// runs past its end reads zeroes there, since the kernel reads strings in aligned chunks.
+    fn scratch_range(addr: u32, len: usize, held: usize) -> Option<Result<(usize, usize), Fault>> {
         if addr < SCRATCH_BASE {
             return None;
         }
@@ -142,7 +144,7 @@ impl<'a, S: 'static> CompatMemory<'a, S> {
         Some(
             start
                 .checked_add(len)
-                .filter(|&end| end <= SCRATCH_SIZE as usize)
+                .filter(|&end| end <= SCRATCH_SIZE as usize && (start < held || len == 0))
                 .map(|end| (start, end))
                 .ok_or(Fault),
         )
@@ -156,13 +158,14 @@ fn straddles(addr: u32, len: usize) -> bool {
 
 impl<S: 'static> UserMemory for CompatMemory<'_, S> {
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
-        match Self::scratch_range(addr, buf.len()) {
+        let held = self.scratch.borrow().len();
+        match Self::scratch_range(addr, buf.len(), held) {
             Some(range) => {
                 let result = range.map(|(start, end)| {
                     let scratch = self.scratch.borrow();
-                    let held = end.min(scratch.len()).max(start);
-                    let (from_scratch, zeroes) = buf.split_at_mut(held - start);
-                    from_scratch.copy_from_slice(&scratch[start..held]);
+                    let copied = end.min(held);
+                    let (from_scratch, zeroes) = buf.split_at_mut(copied - start);
+                    from_scratch.copy_from_slice(&scratch[start..copied]);
                     zeroes.fill(0);
                 });
                 Box::pin(async move { result })
@@ -172,15 +175,17 @@ impl<S: 'static> UserMemory for CompatMemory<'_, S> {
         }
     }
 
+    /// Writes into scratch only where this call allocated: nothing else is there.
     fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
-        match Self::scratch_range(addr, data.len()) {
+        let held = self.scratch.borrow().len();
+        match Self::scratch_range(addr, data.len(), held) {
             Some(range) => {
-                let result = range.map(|(start, end)| {
-                    let mut scratch = self.scratch.borrow_mut();
-                    if scratch.len() < end {
-                        scratch.resize(end, 0);
+                let result = range.and_then(|(start, end)| {
+                    if end > held {
+                        return Err(Fault);
                     }
-                    scratch[start..end].copy_from_slice(data);
+                    self.scratch.borrow_mut()[start..end].copy_from_slice(data);
+                    Ok(())
                 });
                 Box::pin(async move { result })
             }

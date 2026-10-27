@@ -228,6 +228,11 @@ impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
         })
     }
 
+    /// Below the scratch window, which the shims hand the kernel for translated values.
+    fn memory_limit(&self) -> u64 {
+        u64::from(crate::memory::SCRATCH_BASE)
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

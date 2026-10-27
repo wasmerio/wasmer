@@ -93,6 +93,13 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         child: TaskId,
     ) -> LocalFuture<'a, VforkResume>;
 
+    /// How large the instance's memory may grow, in bytes, by the guest's own `memory.grow`
+    /// and by the kernel's mappings: an ABI that uses addresses near the top of the 32-bit
+    /// address space for itself keeps the memory below them. All of it by default.
+    fn memory_limit(&self) -> u64 {
+        1 << 32
+    }
+
     /// The ABI's own state, for its import shims to downcast.
     fn as_any(&self) -> &dyn std::any::Any;
 }

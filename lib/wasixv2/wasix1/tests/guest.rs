@@ -239,3 +239,51 @@ fn every_import_links() {
     wat.push_str("  (memory (export \"memory\") 1)\n  (func (export \"_start\")))\n");
     assert_eq!(block_on(&wat, &["all"]).0, 0);
 }
+
+/// Addresses in the compat layer's scratch window (`0xff00_0000` and up) are beyond any v1
+/// guest's memory: a buffer there is a bad address for every call. Reading one panicked the
+/// host, and writing one succeeded into nowhere. v1's errno for a bad address is
+/// `MEMVIOLATION`.
+#[test]
+fn addresses_in_the_scratch_window_fault() {
+    let wat = r#"
+    (module
+      (import "wasi_snapshot_preview1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "random_get" (func $random_get (param i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $proc_exit (param i32)))
+      (memory (export "memory") 1)
+      ;; An iovec pointing into the window.
+      (data (i32.const 8) "\00\10\00\ff\04\00\00\00")
+      (func $expect_fault (param $errno i32) (param $code i32)
+        ;; MEMVIOLATION, v1's EFAULT
+        (if (i32.ne (local.get $errno) (i32.const 78)) (then (call $proc_exit (local.get $code)))))
+      (func (export "_start")
+        ;; The iovec array itself in the window.
+        (call $expect_fault (call $fd_write (i32.const 1) (i32.const 0xff001000) (i32.const 1) (i32.const 32)) (i32.const 1))
+        ;; Data in the window.
+        (call $expect_fault (call $fd_write (i32.const 1) (i32.const 8) (i32.const 1) (i32.const 32)) (i32.const 2))
+        ;; The kernel writing there.
+        (call $expect_fault (call $random_get (i32.const 0xff001000) (i32.const 16)) (i32.const 3))
+        (call $proc_exit (i32.const 0))))
+    "#;
+    let (status, stdout) = block_on(wat, &["window"]);
+    assert_eq!((status, stdout.as_slice()), (0, &b""[..]));
+}
+
+/// A v1 guest's own `memory.grow` stops below the scratch window, as the kernel's growth of
+/// its memory does.
+#[test]
+fn memory_grows_no_further_than_the_scratch_window() {
+    let wat = r#"
+    (module
+      (import "wasi_snapshot_preview1" "proc_exit" (func $proc_exit (param i32)))
+      ;; One page short of the window.
+      (memory (export "memory") 0xfeff)
+      (func (export "_start")
+        (if (i32.ne (memory.grow (i32.const 1)) (i32.const 0xfeff)) (then (call $proc_exit (i32.const 1))))
+        (if (i32.ne (memory.grow (i32.const 1)) (i32.const -1)) (then (call $proc_exit (i32.const 2))))
+        (if (i32.ne (memory.size) (i32.const 0xff00)) (then (call $proc_exit (i32.const 3))))
+        (call $proc_exit (i32.const 0))))
+    "#;
+    assert_eq!(block_on(wat, &["grow"]).0, 0);
+}

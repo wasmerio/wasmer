@@ -10,8 +10,12 @@
 //! The engine would block the host thread in the instruction, where neither a signal nor the
 //! group's exit reaches the guest, and only another instruction could wake it.
 //!
-//! The rewrite only adds: four types, four function imports after the others (so defined
-//! functions move up by four indices), one global, the check, and a constant with each atomic's
+//! The same pass turns `memory.grow` of a 32-bit memory 0 into a call of an import that grows it
+//! no further than the instance's ABI allows ([`crate::AbiInstance::memory_limit`]): an ABI may
+//! keep the top of the address space for itself, as WASIX v1's compat layer does.
+//!
+//! The rewrite only adds: five types, five function imports after the others (so defined
+//! functions move up by five indices), one global, the check, and a constant with each atomic's
 //! offset before the call that replaces it. The start function is left alone, as it runs during
 //! instantiation, before the instance can take signals or has threads to wait for.
 
@@ -35,9 +39,11 @@ pub(crate) const WAIT32_NAME: &str = "memory-atomic-wait32";
 pub(crate) const WAIT64_NAME: &str = "memory-atomic-wait64";
 /// `(addr, count, offset) -> woken`.
 pub(crate) const NOTIFY_NAME: &str = "memory-atomic-notify";
+/// `(delta) -> previous size in pages, or -1`, as `memory.grow` on memory 0.
+pub(crate) const GROW_NAME: &str = "memory-grow";
 
 /// The added imports in order, each with its parameters; all return an `i32`.
-const HOOKS: [(&str, &[ValType]); 4] = [
+const HOOKS: [(&str, &[ValType]); 5] = [
     (HOOK_NAME, &[]),
     (
         WAIT32_NAME,
@@ -48,6 +54,7 @@ const HOOKS: [(&str, &[ValType]); 4] = [
         &[ValType::I32, ValType::I64, ValType::I64, ValType::I32],
     ),
     (NOTIFY_NAME, &[ValType::I32, ValType::I32, ValType::I32]),
+    (GROW_NAME, &[ValType::I32]),
 ];
 
 /// Checks between two calls of the hook. A check costs a few instructions, a call of the hook
@@ -79,6 +86,8 @@ struct Points {
     /// Whether memory 0 is shared and 32-bit, so its atomics wait on the kernel's futexes; set
     /// by the first memory type, which is memory 0's.
     futex_memory: Option<bool>,
+    /// Whether memory 0 is 32-bit, so its growth goes through the grow hook.
+    memory32: Option<bool>,
     imported_globals: u32,
     budget: Option<u32>,
     start: Option<u32>,
@@ -161,6 +170,14 @@ impl Points {
         })
     }
 
+    /// The call that replaces `memory.grow` of a 32-bit memory 0: the grow hook, which takes the
+    /// same operand and leaves the same result, so the execution layer can keep the memory
+    /// below what the instance's ABI reserves.
+    fn grow_call(&self, instruction: &Instruction<'_>) -> Option<Instruction<'static>> {
+        let grow = matches!(instruction, Instruction::MemoryGrow(0));
+        (grow && self.memory32 == Some(true)).then(|| Instruction::Call(self.hook() + 4))
+    }
+
     fn add_budget(&mut self, globals: &mut GlobalSection, index: u32) {
         let ty = GlobalType {
             val_type: ValType::I32,
@@ -220,6 +237,7 @@ impl Reencode for Points {
     ) -> Result<wasm_encoder::MemoryType, Error> {
         self.futex_memory
             .get_or_insert(memory_ty.shared && !memory_ty.memory64);
+        self.memory32.get_or_insert(!memory_ty.memory64);
         Ok(utils::memory_type(self, memory_ty))
     }
 
@@ -284,9 +302,14 @@ impl Reencode for Points {
                     f.instruction(&offset);
                     f.instruction(&call);
                 }
-                None => {
-                    f.instruction(&instruction);
-                }
+                None => match self.grow_call(&instruction).filter(|_| checked) {
+                    Some(call) => {
+                        f.instruction(&call);
+                    }
+                    None => {
+                        f.instruction(&instruction);
+                    }
+                },
             }
             if header && checked {
                 self.check(&mut f);
@@ -351,10 +374,10 @@ mod tests {
             text.contains(r#"(import "wasixv2-exec" "preempt" (func (;1;) (type"#),
             "{text}"
         );
-        // The defined functions moved up by four; `$call` still calls `$spin`.
-        assert!(text.contains("call 5"), "{text}");
-        assert!(text.contains("(export \"spin\" (func 5))"), "{text}");
-        assert!(text.contains("(start 7)"), "{text}");
+        // The defined functions moved up by five; `$call` still calls `$spin`.
+        assert!(text.contains("call 6"), "{text}");
+        assert!(text.contains("(export \"spin\" (func 6))"), "{text}");
+        assert!(text.contains("(start 8)"), "{text}");
         assert_eq!(text.matches("call 1").count(), 3, "{text}");
         assert!(
             text.contains("(global (;0;) (mut i32) i32.const 65536)"),
@@ -373,7 +396,7 @@ mod tests {
             text.contains(r#"(import "wasixv2-exec" "preempt""#),
             "{text}"
         );
-        assert!(text.contains("(export \"_start\" (func 4))"), "{text}");
+        assert!(text.contains("(export \"_start\" (func 5))"), "{text}");
     }
 
     #[test]
@@ -405,6 +428,39 @@ mod tests {
         assert!(text.contains("i32.const 4\n    call 3"), "{text}");
         // The start function keeps its instruction.
         assert_eq!(text.matches("memory.atomic.").count(), 1, "{text}");
+    }
+
+    /// `memory.grow` of a 32-bit memory 0 calls the grow hook (import 4 here) with its operand,
+    /// except in the start function; other memories grow as they do.
+    #[test]
+    fn memory_grow_becomes_a_call_of_the_grow_hook() {
+        let wasm = wat::parse_str(
+            r#"(module
+                (memory 1)
+                (memory $other 1)
+                (func (export "f") (result i32)
+                  (drop (memory.grow $other (i32.const 1)))
+                  (memory.grow (i32.const 2)))
+                (start 1)
+                (func (drop (memory.grow (i32.const 1)))))"#,
+        )
+        .unwrap();
+        let out = instrument(&wasm);
+        wasmparser::validate(&out).unwrap();
+        let text = print(&out);
+        assert!(
+            text.contains(&format!(r#"(import "wasixv2-exec" "{GROW_NAME}""#)),
+            "{text}"
+        );
+        assert!(text.contains("i32.const 2\n    call 4"), "{text}");
+        assert_eq!(text.matches("memory.grow").count(), 2, "{text}");
+
+        let wasm64 = wat::parse_str(
+            r#"(module (memory i64 1) (func (export "f") (result i64) (memory.grow (i64.const 1))))"#,
+        )
+        .unwrap();
+        let text = print(&instrument(&wasm64));
+        assert!(text.contains("memory.grow"), "{text}");
     }
 
     #[test]
