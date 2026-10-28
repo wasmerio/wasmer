@@ -43,6 +43,9 @@ struct State {
 
 struct Entry {
     callback: Weak<Callback>,
+    /// The timer runs on the realtime clock, so its monotonic deadline is only an estimate
+    /// that a set of the clock changes ([`Timer::clock_was_set`]).
+    realtime: bool,
     deadline: Option<Duration>,
     /// Bumped by every `start` and `cancel`, so a callback that returns after its timer was
     /// re-armed or cancelled does not re-arm it.
@@ -62,6 +65,16 @@ impl Timers {
 
     /// A new, disarmed timer (`hrtimer_setup`).
     pub(crate) fn timer(&self, callback: Callback) -> Timer {
+        self.new_timer(callback, false)
+    }
+
+    /// A new, disarmed timer for a deadline on the realtime clock (`CLOCK_REALTIME` bases),
+    /// whose callback checks that clock again when it runs.
+    pub(crate) fn realtime_timer(&self, callback: Callback) -> Timer {
+        self.new_timer(callback, true)
+    }
+
+    fn new_timer(&self, callback: Callback, realtime: bool) -> Timer {
         let callback = Arc::new(callback);
         let mut state = self.shared.state.lock().unwrap();
         state.last_id += 1;
@@ -70,6 +83,7 @@ impl Timers {
             id,
             Entry {
                 callback: Arc::downgrade(&callback),
+                realtime,
                 deadline: None,
                 generation: 0,
             },
@@ -125,6 +139,16 @@ impl Timer {
             shared.state.lock().unwrap().disarm(self.id);
         }
     }
+
+    /// `clock_was_set`, from whoever noticed that the realtime clock was set: the machine's
+    /// armed realtime timers run their callbacks now, which fire those whose deadline the clock
+    /// passed and re-arm the others for their new monotonic deadline
+    /// (`retrigger_next_event`). Their callbacks must not block, and may call this again.
+    pub(crate) fn clock_was_set(&self) {
+        if let Some(shared) = self.shared.upgrade() {
+            shared.clock_was_set();
+        }
+    }
 }
 
 impl Drop for Timer {
@@ -159,6 +183,39 @@ impl State {
 }
 
 impl Shared {
+    /// [`Timer::clock_was_set`]. The timers leave the queue before their callbacks run, so a
+    /// nested call does not run them again.
+    fn clock_was_set(&self) {
+        let armed: Vec<_> = {
+            let mut state = self.state.lock().unwrap();
+            let ids: Vec<u64> = state
+                .timers
+                .iter()
+                .filter(|(_, entry)| entry.realtime && entry.deadline.is_some())
+                .map(|(&id, _)| id)
+                .collect();
+            ids.into_iter()
+                .filter_map(|id| {
+                    state.disarm(id);
+                    let entry = &state.timers[&id];
+                    let callback = entry.callback.upgrade()?;
+                    Some((id, entry.generation, callback))
+                })
+                .collect()
+        };
+        for (id, generation, callback) in armed {
+            let Some(next) = callback() else { continue };
+            let earliest = {
+                let mut state = self.state.lock().unwrap();
+                let current = state.timers.get(&id).map(|entry| entry.generation);
+                current == Some(generation) && state.arm(id, next)
+            };
+            if earliest {
+                self.changed.wake(PollMask::empty());
+            }
+        }
+    }
+
     /// Runs every timer whose deadline has passed and returns the next deadline.
     fn run_expired(&self) -> Option<Duration> {
         loop {

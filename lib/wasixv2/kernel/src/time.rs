@@ -95,6 +95,39 @@ pub(crate) fn read(host: &dyn Host, clock: Clock, process_start: Duration) -> Du
     }
 }
 
+/// What a reading of [`ClockOffset`] may be off by beyond its bracket: the coarsest host wall
+/// clock counts milliseconds (a browser's `Date.now`). A set by less goes unnoticed.
+const OFFSET_SLACK: i128 = 1_000_000;
+
+/// The realtime clock's offset from the monotonic one (`ktime_mono_to_real(0)`), in
+/// nanoseconds, as the host lets it be read: one realtime reading between two monotonic ones
+/// gives a range. The offset moves only when the realtime clock is set, by a step or a leap
+/// second (slewing moves both clocks alike), or when the host slept, the events after which
+/// Linux runs `clock_was_set`; the wall clock is the host's, so nothing in the machine sets
+/// it, and a set is seen by comparing readings.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ClockOffset {
+    low: i128,
+    high: i128,
+}
+
+impl ClockOffset {
+    pub(crate) fn read(host: &dyn Host) -> Self {
+        let before = host.monotonic().as_nanos() as i128;
+        let real = host.realtime().as_nanos() as i128;
+        let after = host.monotonic().as_nanos() as i128;
+        Self {
+            low: real - after,
+            high: real - before,
+        }
+    }
+
+    /// Whether the realtime clock was set between this reading and `now`.
+    pub(crate) fn moved(&self, now: &Self) -> bool {
+        now.low > self.high + OFFSET_SLACK || now.high + OFFSET_SLACK < self.low
+    }
+}
+
 impl Kernel {
     pub(crate) fn clock(&self, caller: &Caller<'_>, id: ClockId) -> Result<Clock, Errno> {
         let pid = self.process(caller.task()).pid.0 as i32;
