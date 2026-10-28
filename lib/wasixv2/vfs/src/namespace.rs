@@ -13,6 +13,7 @@ use crate::{
     Vfs,
     dentry::Dentry,
     driver::Filesystem,
+    file::File,
     mount::{MntNs, Mount, MountFlags, Path, Superblock, TreeState, is_path_reachable},
     pnode::{CopyFlags, Propagation},
     types::FsResult,
@@ -31,7 +32,8 @@ pub enum MountOp {
     /// Mounts the tree at `source` again, with what is mounted below it if `recursive`
     /// (`do_loopback`, `MS_BIND` and `MS_REC`).
     Bind { source: Path, recursive: bool },
-    /// Moves the mount whose root `source` is (`do_move_mount_old`, `MS_MOVE`).
+    /// Moves the mount whose root `source` is (`do_move_mount_old`, `MS_MOVE`), or attaches
+    /// the detached tree whose root it is.
     Move { source: Path },
     /// Changes the filesystem's read-only state and the mount's flags (`do_remount`).
     Remount { read_only: bool, flags: MountFlags },
@@ -88,9 +90,34 @@ fn check_mnt(state: &TreeState, ns: &MntNs, mount: &Mount) -> bool {
     state.ns_of(mount.id) == Some(ns.id())
 }
 
+/// `check_anonymous_mnt`: `mount` is in an anonymous namespace copied from the caller's, or
+/// from none.
+fn check_anonymous_mnt(state: &TreeState, ns: &MntNs, mount: &Mount) -> bool {
+    let Some(anon) = state.ns_of(mount.id) else {
+        return false;
+    };
+    state
+        .anon_ns
+        .get(&anon)
+        .is_some_and(|&origin| origin == 0 || origin == ns.id())
+}
+
+/// `may_use_mount`: a mount of the caller's namespace, or of a detached tree it may use.
+fn may_use_mount(state: &TreeState, ns: &MntNs, mount: &Mount) -> bool {
+    check_mnt(state, ns, mount) || check_anonymous_mnt(state, ns, mount)
+}
+
 /// `set_mount_attributes`: the flags a user can set, all replaced.
 fn set_mount_attributes(mount: &Mount, flags: MountFlags) {
     mount.set_flags(flags);
+}
+
+/// `anon_ns_root`: `mount` is the root of a detached tree.
+fn anon_ns_root(state: &TreeState, mount: &Mount) -> bool {
+    mount.parent().is_none()
+        && state
+            .ns_of(mount.id)
+            .is_some_and(|ns| state.anon_ns.contains_key(&ns))
 }
 
 /// The mount `mount` is attached on, or itself for a root (`mnt_parent`).
@@ -123,7 +150,7 @@ impl Vfs {
                 sb_read_only,
             } => self.new_mount(ns, target, fs, source, flags, sb_read_only),
             MountOp::Bind { source, recursive } => self.loopback(ns, target, &source, recursive),
-            MountOp::Move { source } => self.move_mount(ns, &source, target),
+            MountOp::Move { source } => self.move_mount(ns, &source, target, false),
             MountOp::Remount { read_only, flags } => {
                 let state = self.tree.lock();
                 if !check_mnt(&state, ns, &target.mnt) || !target.is_mount_root() {
@@ -222,20 +249,25 @@ impl Vfs {
         if moving {
             state.detach(source);
         }
-        state.attach(source, at);
-        state.set_ns(&tree, ns);
-        for (place, copy) in copies {
+        // The original goes first, then each copy, in the same way (`commit_tree`).
+        let originals = std::iter::once((at.clone(), source.clone()));
+        for (place, child) in originals.chain(copies) {
             let covering = state.mounted_on(&place);
             if let Some(covering) = &covering {
                 state.detach(covering);
             }
-            state.attach(&copy, &place);
-            let copied = state.subtree(&copy);
-            let place_ns = state.ns_of(place.mnt.id).unwrap_or(0);
-            state.set_ns(&copied, place_ns);
-            // What was there goes on top of the copy (`mnt_change_mountpoint`).
+            state.attach(&child, &place);
+            let attached = state.subtree(&child);
+            let place_ns = match Arc::ptr_eq(&child, source) {
+                true => ns,
+                false => state.ns_of(place.mnt.id).unwrap_or(0),
+            };
+            state.set_ns(&attached, place_ns);
+            // What was there goes on top of the new tree's topmost mount: a receiver's mount
+            // slides over the copy, the mount a move goes beneath over the moved tree
+            // (`mnt_change_mountpoint`).
             if let Some(covering) = covering {
-                let top = state.topmost(&copy);
+                let top = state.topmost(&child);
                 state.attach(&covering, &top.root_path());
             }
         }
@@ -249,26 +281,7 @@ impl Vfs {
         if !check_mnt(&state, ns, &at.mnt) {
             return Err(Errno::EINVAL);
         }
-        // `__do_loopback`: the source must be in the caller's namespace, bindable, and not an
-        // object without a name.
-        let old = &source.mnt;
-        if state.is_unbindable(old) || !check_mnt(&state, ns, old) || source.dentry.is_pseudo() {
-            return Err(Errno::EINVAL);
-        }
-        let mount = match recursive {
-            true => {
-                let flags = CopyFlags::default();
-                state
-                    .copy_tree(&self.tree.next_id, old, &source.dentry, flags)?
-                    .0
-            }
-            false => state.clone_mnt(
-                &self.tree.next_id,
-                old,
-                source.dentry.clone(),
-                CopyFlags::default(),
-            ),
-        };
+        let mount = self.copy_for_loopback(&mut state, ns, source, recursive)?;
         let result = self.graft_tree(&mut state, &mount, &at);
         if result.is_err() {
             state.umount_tree(&mount, false);
@@ -276,8 +289,60 @@ impl Vfs {
         result
     }
 
-    /// `do_move_mount` for a mount of the caller's namespace.
-    fn move_mount(&self, ns: &MntNs, source: &Path, target: &Path) -> FsResult<()> {
+    /// `__do_loopback`: a copy of the tree at `source` (with what is mounted below it if
+    /// `recursive`), attached nowhere. The source must be bindable, a mount of the caller's
+    /// namespace or of a detached tree it may use (`may_copy_tree`), and not an object without
+    /// a name.
+    fn copy_for_loopback(
+        &self,
+        state: &mut TreeState,
+        ns: &MntNs,
+        source: &Path,
+        recursive: bool,
+    ) -> FsResult<Arc<Mount>> {
+        let old = &source.mnt;
+        if state.is_unbindable(old) || !may_use_mount(state, ns, old) || source.dentry.is_pseudo() {
+            return Err(Errno::EINVAL);
+        }
+        // What is below a mount no longer in any tree is not known.
+        if recursive && state.ns_of(old.id).is_none() {
+            return Err(Errno::EINVAL);
+        }
+        let flags = CopyFlags::default();
+        match recursive {
+            true => Ok(state
+                .copy_tree(&self.tree.next_id, old, &source.dentry, flags)?
+                .0),
+            false => Ok(state.clone_mnt(&self.tree.next_id, old, source.dentry.clone(), flags)),
+        }
+    }
+
+    /// `do_lock_mount` with `beneath`: the place under the topmost mount stacked on the mount
+    /// whose root `target` is, with that mount (`where_to_mount`).
+    fn lock_mount_beneath(&self, state: &TreeState, target: &Path) -> FsResult<(Path, Arc<Mount>)> {
+        if !target.is_mount_root() {
+            return Err(Errno::EINVAL);
+        }
+        let over = state.topmost(&target.mnt);
+        // Nothing can go beneath a namespace's root.
+        let at = over.parent().ok_or(Errno::EINVAL)?;
+        if cant_mount(&at.dentry) {
+            return Err(Errno::ENOENT);
+        }
+        Ok((at, over))
+    }
+
+    /// `do_move_mount`: moves the mount whose root `source` is, with its tree, onto `target`,
+    /// or beneath the topmost mount on it (`MOVE_MOUNT_BENEATH`). A mount of the caller's
+    /// namespace moves within it; the root of a detached tree (`open_tree`, `fsmount`) is
+    /// attached, its whole tree leaving its anonymous namespace.
+    pub fn move_mount(
+        &self,
+        ns: &MntNs,
+        source: &Path,
+        target: &Path,
+        beneath: bool,
+    ) -> FsResult<()> {
         if !source.is_mount_root() {
             return Err(Errno::EINVAL);
         }
@@ -285,19 +350,38 @@ impl Vfs {
             return Err(Errno::EINVAL);
         }
         let mut state = self.tree.lock();
-        let at = self.lock_mount(&state, target)?;
-        let old = &source.mnt;
-        // Only a mount of the caller's namespace that has a parent, which does not propagate,
-        // moves, and only within the namespace. (Detached trees of `open_tree` would be the
-        // other case.)
-        if !check_mnt(&state, ns, old) {
-            return Err(Errno::EINVAL);
-        }
-        let Some(from) = old.parent() else {
-            return Err(Errno::EINVAL);
+        let (at, over) = match beneath {
+            true => {
+                let (at, over) = self.lock_mount_beneath(&state, target)?;
+                (at, Some(over))
+            }
+            false => (self.lock_mount(&state, target)?, None),
         };
-        if state.is_shared(&from.mnt) || !check_mnt(&state, ns, &at.mnt) {
-            return Err(Errno::EINVAL);
+        let old = &source.mnt;
+        if state.ns_of(at.mnt.id).is_none() {
+            return Err(Errno::ENOENT);
+        }
+        if check_mnt(&state, ns, old) {
+            // A mount of the caller's namespace: it must have a parent, which must not
+            // propagate, and stay in the namespace.
+            let Some(from) = old.parent() else {
+                return Err(Errno::EINVAL);
+            };
+            if state.is_shared(&from.mnt) || !check_mnt(&state, ns, &at.mnt) {
+                return Err(Errno::EINVAL);
+            }
+        } else {
+            // Otherwise the root of a detached tree, going into another namespace the caller
+            // may use.
+            if !anon_ns_root(&state, old) || state.ns_of(old.id) == state.ns_of(at.mnt.id) {
+                return Err(Errno::EINVAL);
+            }
+            if !may_use_mount(&state, ns, &at.mnt) {
+                return Err(Errno::EINVAL);
+            }
+        }
+        if let Some(over) = &over {
+            can_move_mount_beneath(&state, ns, old, over, &at)?;
         }
         let tree = state.subtree(old);
         if state.is_shared(&at.mnt) && tree.iter().any(|m| state.is_unbindable(m)) {
@@ -306,7 +390,84 @@ impl Vfs {
         if mount_is_ancestor(old, &at.mnt) {
             return Err(Errno::ELOOP);
         }
-        self.attach_recursive(&mut state, old, &at, true)
+        let moving = old.parent().is_some();
+        self.attach_recursive(&mut state, old, &at, moving)
+    }
+
+    /// `do_set_group` (`MOVE_MOUNT_SET_GROUP`): the private mount whose root `to` is joins the
+    /// peer group of the mount whose root `from` is, and receives from its master.
+    pub fn set_group(&self, from: &Path, to: &Path) -> FsResult<()> {
+        let mut state = self.tree.lock();
+        // `may_change_propagation`.
+        if state.ns_of(from.mnt.id).is_none() || state.ns_of(to.mnt.id).is_none() {
+            return Err(Errno::EINVAL);
+        }
+        if !from.is_mount_root() || !to.is_mount_root() {
+            return Err(Errno::EINVAL);
+        }
+        if !Arc::ptr_eq(from.mnt.sb(), to.mnt.sb()) {
+            return Err(Errno::EINVAL);
+        }
+        // From's root must be wider than to's.
+        if !from.mnt.root.is_ancestor_of(&to.mnt.root) {
+            return Err(Errno::EINVAL);
+        }
+        let (to_group, to_master, to_unbindable) = state.propagation_of(&to.mnt);
+        if to_group != 0 || to_master != 0 || to_unbindable {
+            return Err(Errno::EINVAL);
+        }
+        let (group, master, _) = state.propagation_of(&from.mnt);
+        if group == 0 && master == 0 {
+            return Err(Errno::EINVAL);
+        }
+        state.set_propagation(&to.mnt, group, master);
+        self.tree.seq.bump();
+        Ok(())
+    }
+
+    /// `open_detached_copy` (`open_tree(OPEN_TREE_CLONE)`): a copy of the tree at `path`, with
+    /// what is mounted below it if `recursive`, in an anonymous namespace of its own, as an
+    /// `O_PATH` file at its root. Closing the file unmounts the copy unless `move_mount`
+    /// attached it.
+    pub fn open_tree(self: &Arc<Self>, ns: &MntNs, path: &Path, recursive: bool) -> FsResult<File> {
+        let detached = {
+            let mut state = self.tree.lock();
+            // `seq_origin`: the namespace the tree comes from, or the one its own came from.
+            let origin = match state.ns_of(path.mnt.id) {
+                Some(from) => state.anon_ns.get(&from).copied().unwrap_or(from),
+                None => 0,
+            };
+            let mount = self.copy_for_loopback(&mut state, ns, path, recursive)?;
+            let anon = MntNs::new(&self.tree, &mut state, mount.clone(), Some(origin));
+            let tree = state.subtree(&mount);
+            state.set_ns(&tree, anon.id());
+            anon
+        };
+        Ok(File::detached(self.clone(), detached))
+    }
+
+    /// `fsmount`: a new mount of `fs` made from `source`, with `flags`, as the only mount of an
+    /// anonymous namespace, as an `O_PATH` file at its root (see [`Vfs::open_tree`]). The
+    /// filesystem is read-only if `sb_read_only` and it is not mounted already.
+    pub fn create_mount(
+        self: &Arc<Self>,
+        fs: Arc<dyn Filesystem>,
+        source: Vec<u8>,
+        flags: MountFlags,
+        sb_read_only: bool,
+    ) -> File {
+        let (root, new) = self.fs_root(fs);
+        if new {
+            root.sb().set_read_only(sb_read_only);
+        }
+        let mount = Arc::new(Mount::new(self.tree.next_id(), root, flags, source));
+        let detached = {
+            let mut state = self.tree.lock();
+            let anon = MntNs::new(&self.tree, &mut state, mount.clone(), Some(0));
+            state.add_link(&mount, anon.id());
+            anon
+        };
+        File::detached(self.clone(), detached)
     }
 
     /// `do_change_type`, and the propagation part of `mount_setattr`: `kind` for the mount
@@ -531,6 +692,31 @@ impl Vfs {
     }
 }
 
+/// `can_move_mount_beneath`: `old` can go under `over`, the topmost mount on `at`, without
+/// propagation putting a copy of it on top of `over` or of itself.
+fn can_move_mount_beneath(
+    state: &TreeState,
+    ns: &MntNs,
+    old: &Arc<Mount>,
+    over: &Arc<Mount>,
+    at: &Path,
+) -> FsResult<()> {
+    // No shadow mounts: nothing may be on top of the moved mount.
+    if state.mounted_on(&old.root_path()).is_some() {
+        return Err(Errno::EINVAL);
+    }
+    if mount_is_ancestor(over, old) {
+        return Err(Errno::EINVAL);
+    }
+    if state.propagation_would_overmount(&at.mnt, over, &at.dentry) {
+        return Err(Errno::EINVAL);
+    }
+    if check_mnt(state, ns, old) && state.propagation_would_overmount(&at.mnt, old, &at.dentry) {
+        return Err(Errno::EINVAL);
+    }
+    Ok(())
+}
+
 /// `recalc_flags`.
 fn recalc_flags(old: MountFlags, attr: &MountAttr) -> MountFlags {
     let pick = |old: bool, clear: bool, set: bool| (old && !clear) || set;
@@ -561,7 +747,7 @@ impl MntNs {
         let (root, copies) = state
             .copy_tree(&self.tree.next_id, &source, &source.root, flags)
             .expect("copying unbindable mounts too, a whole tree copies");
-        let ns = MntNs::new(&self.tree, root);
+        let ns = MntNs::new(&self.tree, &mut state, root, None);
         let copied: Vec<_> = copies.iter().map(|(_, copy)| copy.clone()).collect();
         state.set_ns(&copied, ns.id());
         for path in paths {

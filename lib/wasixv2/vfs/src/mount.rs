@@ -123,6 +123,13 @@ impl Mount {
         }
     }
 
+    /// The id `statx(STATX_MNT_ID_UNIQUE)`, `statmount` and `listmount` use (`mnt_id_unique`):
+    /// past the reused ids, from `MNT_UNIQUE_ID_OFFSET`. Mount ids are never reused here, so
+    /// the unique id is the id moved past that offset.
+    pub fn unique_id(&self) -> u64 {
+        MNT_UNIQUE_ID_OFFSET + self.id
+    }
+
     pub fn sb(&self) -> &Arc<Superblock> {
         self.root.sb()
     }
@@ -169,6 +176,10 @@ impl Mount {
     }
 }
 
+/// `MNT_UNIQUE_ID_OFFSET`: unique mount ids are above it, so they never look like the ids
+/// `mountinfo` shows.
+pub const MNT_UNIQUE_ID_OFFSET: u64 = 1 << 31;
+
 /// A location in the tree: a mount and a dentry inside it.
 #[derive(Clone)]
 pub struct Path {
@@ -213,16 +224,40 @@ pub struct MntNs {
     id: u64,
     root: Arc<Mount>,
     pub(crate) tree: Arc<Tree>,
+    /// An anonymous namespace (`is_anon`), holding a detached tree that `open_tree` copied or
+    /// `fsmount` made, with the namespace that tree came from (`seq_origin`; 0 for none).
+    anon: Option<u64>,
 }
 
 impl MntNs {
-    pub(crate) fn new(tree: &Arc<Tree>, root: Arc<Mount>) -> Arc<Self> {
+    /// A namespace whose tree starts at `root`, anonymous if `anon` names its origin.
+    pub(crate) fn new(
+        tree: &Arc<Tree>,
+        state: &mut TreeState,
+        root: Arc<Mount>,
+        anon: Option<u64>,
+    ) -> Arc<Self> {
         let id = tree.next_id.fetch_add(1, Ordering::Relaxed);
-        Arc::new(Self {
+        let ns = Arc::new(Self {
             id,
             root,
             tree: tree.clone(),
-        })
+            anon,
+        });
+        match anon {
+            Some(origin) => {
+                state.anon_ns.insert(id, origin);
+            }
+            None => {
+                state.namespaces.insert(id, Arc::downgrade(&ns));
+            }
+        }
+        ns
+    }
+
+    /// Whether this is a detached tree's namespace (`is_anon_ns`).
+    pub fn is_anon(&self) -> bool {
+        self.anon.is_some()
     }
 
     /// The namespace's identifier, unique in its VFS (`mnt_namespace.ns.ns_id`).
@@ -247,11 +282,18 @@ impl MntNs {
 }
 
 impl Drop for MntNs {
+    /// `put_mnt_ns`, and for an anonymous namespace `dissolve_on_fput`: what is still in the
+    /// namespace goes. A detached tree that was attached somewhere has left it.
     fn drop(&mut self) {
         // The mounts go after the lock: dropping one may drop paths that hold others.
         let _gone = {
             let mut state = self.tree.lock();
-            state.umount_tree(&self.root, false)
+            state.namespaces.remove(&self.id);
+            state.anon_ns.remove(&self.id);
+            match state.ns_of(self.root.id) == Some(self.id) {
+                true => state.umount_tree(&self.root, false),
+                false => Vec::new(),
+            }
         };
         self.tree.seq.bump();
     }
@@ -311,6 +353,10 @@ pub(crate) struct TreeState {
     pub(crate) children: HashMap<MountKey, Arc<Mount>>,
     /// The namespace and propagation of every mount in a tree, attached or being built, by id.
     pub(crate) links: HashMap<u64, Link>,
+    /// The namespaces that are not anonymous, by id (`mnt_ns_tree`).
+    pub(crate) namespaces: HashMap<u64, Weak<MntNs>>,
+    /// The anonymous namespaces, by id, with the namespace each was copied from (`seq_origin`).
+    pub(crate) anon_ns: HashMap<u64, u64>,
 }
 
 impl TreeState {

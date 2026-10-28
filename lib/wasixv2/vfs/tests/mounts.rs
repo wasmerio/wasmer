@@ -574,3 +574,187 @@ fn a_dropped_namespace_unmounts_its_tree() {
     assert!(held.mnt.parent().is_none(), "detached");
     assert_eq!(v.mount_count(), 1);
 }
+
+impl View {
+    /// `open_tree(OPEN_TREE_CLONE)`: an `O_PATH` file at the root of a detached copy.
+    fn open_tree(&self, at: &str, recursive: bool) -> Result<File, Errno> {
+        let path = self.path(at)?;
+        self.vfs.open_tree(&self.ns, &path, recursive)
+    }
+
+    /// `move_mount` of what `from` is the root of onto `to`, or beneath what is there.
+    fn move_mount(&self, from: &Path, to: &str, beneath: bool) -> Result<(), Errno> {
+        let to = self.path(to)?;
+        self.vfs.move_mount(&self.ns, from, &to, beneath)
+    }
+
+    fn walk_from(&self, file: &File, name: &str) -> Result<Path, Errno> {
+        let cx = self.cx();
+        block_on(
+            self.vfs
+                .lookup(&cx, &file.path, name.as_bytes(), LookupFlags::follow()),
+        )
+    }
+}
+
+#[test]
+fn open_tree_copies_a_detached_tree_that_its_last_close_unmounts() {
+    let (_vfs, v) = world();
+    for dir in ["/src", "/src/m"] {
+        v.mkdir(dir);
+    }
+    v.mount_tmpfs("/src");
+    v.mkdir("/src/m");
+    v.mount_tmpfs("/src/m");
+    v.touch("/src/m/inner");
+
+    let plain = v.open_tree("/src", false).unwrap();
+    assert!(v.walk_from(&plain, "m").is_ok());
+    assert!(
+        v.walk_from(&plain, "m/inner").is_err(),
+        "a plain clone leaves mounts out"
+    );
+    let recursive = v.open_tree("/src", true).unwrap();
+    assert!(v.walk_from(&recursive, "m/inner").is_ok());
+    assert_eq!(v.mount_count(), 3, "detached trees are in no namespace");
+    assert!(!v.ns.contains(&recursive.path.mnt));
+
+    let copy = recursive.path.mnt.clone();
+    let inner = v.walk_from(&recursive, "m").unwrap().mnt;
+    drop(recursive);
+    assert!(copy.parent().is_none());
+    assert!(inner.parent().is_none(), "the last close unmounts the tree");
+    drop(plain);
+    // An unbindable mount is not copied.
+    v.propagation("/src", Propagation::Unbindable);
+    assert_eq!(v.open_tree("/src", false).err(), Some(Errno::EINVAL));
+}
+
+#[test]
+fn move_mount_attaches_a_detached_tree_which_then_moves_as_any_mount() {
+    let (_vfs, v) = world();
+    for dir in ["/src", "/dst", "/other"] {
+        v.mkdir(dir);
+    }
+    v.mount_tmpfs("/src");
+    v.mkdir("/src/m");
+    v.mount_tmpfs("/src/m");
+    v.touch("/src/m/inner");
+
+    let tree = v.open_tree("/src", true).unwrap();
+    v.move_mount(&tree.path, "/dst", false).unwrap();
+    assert!(v.exists("/dst/m/inner"));
+    assert_eq!(v.mount_count(), 5);
+    assert!(v.ns.contains(&v.path("/dst/m").unwrap().mnt));
+    // Its root is a mount of the namespace now: it moves, and closing the file leaves it.
+    v.move_mount(&tree.path, "/other", false).unwrap();
+    drop(tree);
+    assert!(v.exists("/other/m/inner"));
+    assert!(!v.exists("/dst/m"));
+    v.umount("/other/m", UmountFlags::default()).unwrap();
+    v.umount("/other", UmountFlags::default()).unwrap();
+    assert_eq!(v.mount_count(), 3);
+    // A detached tree goes to no place in its own namespace.
+    let tree = v.open_tree("/src", false).unwrap();
+    let inside = v.walk_from(&tree, "m").unwrap();
+    assert_eq!(
+        v.vfs.move_mount(&v.ns, &tree.path, &inside, false),
+        Err(Errno::EINVAL)
+    );
+    // Another detached tree it may use is a place.
+    let other = v.open_tree("/src", false).unwrap();
+    let into = v.walk_from(&other, "m").unwrap();
+    v.vfs.move_mount(&v.ns, &tree.path, &into, false).unwrap();
+    assert!(v.walk_from(&other, "m/m").is_ok());
+    drop((tree, inside, into));
+    assert!(
+        v.walk_from(&other, "m/m").is_ok(),
+        "now part of the other tree"
+    );
+    drop(other);
+
+    // A new mount made detached, as `fsmount` makes one.
+    let fs = v
+        .vfs
+        .create_mount(tmpfs(), b"made".to_vec(), MountFlags::default(), false);
+    assert_eq!(v.mount_count(), 3);
+    v.move_mount(&fs.path, "/other", false).unwrap();
+    assert_eq!(v.path("/other").unwrap().mnt.devname(), b"made");
+    assert_eq!(v.mount_count(), 4);
+}
+
+#[test]
+fn move_mount_beneath_slides_the_tree_under_the_top_mount() {
+    // move_mount03: A and B are mounted; a copy of A goes beneath B; unmounting B shows it.
+    let (_vfs, v) = world();
+    for dir in ["/a", "/b"] {
+        v.mkdir(dir);
+    }
+    v.mount_tmpfs("/a");
+    v.mount_tmpfs("/b");
+    v.touch("/a/A");
+    v.touch("/b/B");
+
+    let a = v.open_tree("/a", false).unwrap();
+    v.move_mount(&a.path, "/b", true).unwrap();
+    drop(a);
+    assert!(v.exists("/b/B"));
+    assert!(v.exists("/a/A"));
+    assert!(!v.exists("/b/A"));
+
+    v.umount("/b", UmountFlags::default()).unwrap();
+    assert!(v.exists("/b/A"));
+    v.umount("/b", UmountFlags::default()).unwrap();
+    v.umount("/a", UmountFlags::default()).unwrap();
+    assert_eq!(v.mount_count(), 1);
+
+    // Beneath needs a mount root, and a place under it: not the namespace's root.
+    let c = v.open_tree("/a", false).unwrap();
+    assert_eq!(v.move_mount(&c.path, "/a", true), Err(Errno::EINVAL));
+    assert_eq!(v.move_mount(&c.path, "/", true), Err(Errno::EINVAL));
+}
+
+#[test]
+fn unmounting_a_tree_takes_its_copies_and_what_is_on_a_copy_takes_its_place() {
+    let (_vfs, v) = world();
+    for dir in ["/a", "/b"] {
+        v.mkdir(dir);
+    }
+    v.mount_tmpfs("/a");
+    v.propagation("/a", Propagation::Shared);
+    v.mkdir("/a/x");
+    v.bind("/a", "/b", false).unwrap();
+    v.propagation("/b", Propagation::Slave);
+
+    // A tree on /a/x is copied, whole, to the slave.
+    v.mount_tmpfs("/a/x");
+    v.mkdir("/a/x/y");
+    v.mount_tmpfs("/a/x/y");
+    v.touch("/a/x/y/deep");
+    // In use, a copy keeps the tree mounted.
+    let user = v.path("/b/x/y/deep").unwrap();
+    assert_eq!(
+        v.umount("/a/x/y", UmountFlags::default()),
+        Err(Errno::EBUSY)
+    );
+    drop(user);
+    // The slave's own mount on the copy's root.
+    v.mount_tmpfs("/b/x");
+    v.touch("/b/x/own");
+
+    let detach = UmountFlags {
+        detach: true,
+        ..UmountFlags::default()
+    };
+    v.umount("/a/x", detach).unwrap();
+    assert!(!v.exists("/a/x/y"));
+    assert!(
+        v.exists("/b/x/own"),
+        "the slave's own mount took the copy's place"
+    );
+    assert_eq!(
+        v.path("/b/x").unwrap().mnt.parent().unwrap().mnt.id,
+        v.path("/b").unwrap().mnt.id
+    );
+    assert_eq!(v.mount_count(), 4);
+}
