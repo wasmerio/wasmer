@@ -803,6 +803,22 @@ impl GroupState {
         (state.pending.set | self.shared.set) & wanted
     }
 
+    /// Whether `task` could take one of `hidden` now, the signals a call it makes would block
+    /// or discard. If so its work flag is raised, so that it takes the signal before the call,
+    /// which runs again after the handler (`ERESTARTNOINTR`). Linux delivers a signal to a task
+    /// in user mode at once (`signal_wake_up` kicks it), before it gets to its next syscall;
+    /// here the signal waits for the task's next interruption check, and a call that hid it
+    /// could keep it from the task for good, as when a thread blocks every signal on its way out
+    /// and no other thread takes it.
+    fn take_first(&mut self, task: TaskId, hidden: u64) -> bool {
+        let blocked = self.tasks[&task].blocked;
+        if self.deliverable(task, hidden & !blocked) == 0 {
+            return false;
+        }
+        self.task(task).flag.raise();
+        true
+    }
+
     /// `dequeue_signal`: the lowest-numbered signal in `wanted`, from the task's own pending
     /// set first, then the group's. A POSIX timer's signal comes with its timer, which the
     /// caller asks, with the group unlocked, whether the signal still counts.
@@ -853,6 +869,21 @@ impl TaskSignals {
             task.flag.raise();
             std::mem::replace(&mut task.blocked, blocked & !UNBLOCKABLE)
         })
+    }
+
+    /// [`TaskSignals::replace_blocked`] for `sigprocmask`, unless the new mask blocks a signal
+    /// the task could take now: then `None`, the mask stays, and the task takes that signal
+    /// before it makes the call again ([`GroupState::take_first`]).
+    pub(crate) fn block_after_pending(&self, blocked: u64) -> Option<u64> {
+        let mut state = self.group.state.lock().unwrap();
+        let blocked = blocked & !UNBLOCKABLE;
+        let newly = blocked & !state.task(self.task).blocked;
+        if state.take_first(self.task, newly) {
+            return None;
+        }
+        let task = state.task(self.task);
+        task.flag.raise();
+        Some(std::mem::replace(&mut task.blocked, blocked))
     }
 
     pub(crate) fn blocked(&self) -> u64 {
@@ -1325,6 +1356,10 @@ impl Kernel {
                 };
                 // POSIX: setting a disposition to ignore discards the pending signal.
                 if state.ignores(sig) {
+                    if state.take_first(caller.task(), bit(sig)) {
+                        state.actions[sig as usize - 1] = old;
+                        return Err(SysErr::RestartNoIntr);
+                    }
                     state.flush(bit(sig));
                 } else if old.is_ignore() {
                     state.unignore_timers(sig);
@@ -1363,7 +1398,9 @@ impl Kernel {
                 SigprocmaskHow::SIG_SETMASK => set,
                 _ => return Err(Errno::EINVAL.into()),
             };
-            signals.replace_blocked(mask);
+            if signals.block_after_pending(mask).is_none() {
+                return Err(SysErr::RestartNoIntr);
+            }
         }
         if !oset.is_null() {
             write_value(caller.memory(), oset, &to_sigset(old)).await?;
