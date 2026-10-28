@@ -167,14 +167,14 @@ impl PidSpace {
     }
 
     /// `idr_alloc` (`tid` asked for) or `idr_alloc_cyclic` from the cursor, for `id`. The
-    /// first number of a namespace must be 1 (its init), and becomes its reaper.
-    fn alloc(&self, id: u32, tid: Option<u32>, innermost: bool) -> Result<u32, Errno> {
+    /// first number of a namespace must be 1, its init's.
+    fn alloc(&self, id: u32, tid: Option<u32>) -> Result<u32, Errno> {
         let mut state = self.state.lock_or_recover();
         if !state.adding {
             return Err(Errno::ENOMEM);
         }
-        // The previous attempt to start the init failed.
-        if state.used.is_empty() && state.reaper.is_none() {
+        // None is in use: the previous attempt to start the init failed.
+        if state.used.is_empty() {
             state.cursor = 0;
         }
         let max = state.pid_max;
@@ -203,9 +203,6 @@ impl PidSpace {
         state.used.insert(nr, id);
         if tid.is_none() {
             state.cursor = nr + 1;
-        }
-        if innermost && nr == 1 {
-            state.reaper = Some(id);
         }
         Ok(nr)
     }
@@ -304,7 +301,7 @@ impl Pids {
         }
         let mut taken: Vec<Upid> = Vec::with_capacity(chain.len());
         for (depth, space) in chain.iter().enumerate() {
-            match space.alloc(id, asked.get(depth).copied(), depth == 0) {
+            match space.alloc(id, asked.get(depth).copied()) {
                 Ok(nr) => taken.push(Upid {
                     nr,
                     ns: space.clone(),
@@ -316,6 +313,10 @@ impl Pids {
                     return Err(errno);
                 }
             }
+        }
+        // `is_child_reaper`: pid 1 of its own namespace is the namespace's init.
+        if taken[0].nr == 1 {
+            ns.state.lock_or_recover().reaper = Some(id);
         }
         taken.reverse();
         let entry = Entry {

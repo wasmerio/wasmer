@@ -793,3 +793,39 @@ fn the_execution_layer_gets_the_pid_each_side_sees() {
         other => panic!("{other:?}"),
     }
 }
+
+#[test]
+fn an_init_whose_pids_could_not_all_be_made_is_no_init() {
+    let (kernel, parent) = machine();
+    let (init, _) = fork(&kernel, &parent, NEWPID).unwrap();
+    // The init's namespace has no pid left: 1 to 300 are taken.
+    assert_eq!(
+        echo(&kernel, &init, "/proc/sys/kernel/pid_max", "301"),
+        Ok(3)
+    );
+    let children: Vec<(P, Pid)> = (2..=300)
+        .map(|_| fork(&kernel, &init, 0).unwrap())
+        .collect();
+    assert_eq!(children.last().map(|(_, pid)| *pid), Some(300));
+    assert_eq!(block_on(kernel.unshare(&init.caller(), NEWPID)), Ok(0));
+
+    // The new namespace's pid 1 is made, the one around it is not.
+    assert_eq!(
+        fork(&kernel, &init, 0).err(),
+        Some(SysErr::Errno(Errno::EAGAIN))
+    );
+    // Room for more.
+    assert_eq!(echo(&kernel, &init, "/proc/sys/kernel/pid_max", "400"), Ok(3));
+
+    let (nested, outside) = fork(&kernel, &init, 0).unwrap();
+    assert_eq!(outside, 301);
+    assert_eq!(getpid(&kernel, &nested), 1, "the next try makes the init");
+    let (orphan_parent, _) = fork(&kernel, &nested, 0).unwrap();
+    let (orphan, _) = fork(&kernel, &orphan_parent, 0).unwrap();
+    exit(&kernel, &orphan_parent, 0);
+    assert_eq!(
+        getppid(&kernel, &orphan),
+        1,
+        "and adopts the namespace's orphans"
+    );
+}
