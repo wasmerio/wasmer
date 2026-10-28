@@ -14,8 +14,8 @@ use wasixv2_abi::{
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
-    Accepted, BackendDatagram, Control, Domain, NetResult, PortEntry, QueuedError, RecvMsg,
-    SendMsg, Shutdown, Socket, SocketKind,
+    Accepted, BackendDatagram, Control, Domain, NetResult, PortEntry, Publication, QueuedError,
+    RecvMsg, SendMsg, Shutdown, Socket, SocketKind,
     addr::{canonical, present, sockaddr_bytes, unbound},
     cmsg,
     net::{Net, Path, UdpRoute},
@@ -69,7 +69,11 @@ struct Inner {
     errqueue: VecDeque<QueuedError>,
     rd_shut: bool,
     wr_shut: bool,
+    /// The endpoint for traffic leaving the namespace, while the socket has one.
     backend: Option<Arc<dyn BackendDatagram>>,
+    /// The publication the socket serves (its id and endpoint), whose endpoint is `backend`
+    /// unless the socket is connected inside the namespace.
+    published: Option<(u64, Arc<dyn BackendDatagram>)>,
 }
 
 /// A UDP socket of a [`Net`].
@@ -82,6 +86,8 @@ pub struct UdpSocket {
     wq: WaitQueue,
     me: Weak<UdpSocket>,
     inner: Mutex<Inner>,
+    /// The auto-publication of the bound port, for as long as the socket lives.
+    auto_publication: Mutex<Option<Box<dyn Publication>>>,
 }
 
 impl UdpSocket {
@@ -107,7 +113,9 @@ impl UdpSocket {
                 rd_shut: false,
                 wr_shut: false,
                 backend: None,
+                published: None,
             }),
+            auto_publication: Mutex::new(None),
         })
     }
 
@@ -177,11 +185,115 @@ impl UdpSocket {
         if let Some(b) = &g.backend {
             return Ok(b.clone());
         }
+        if let Some((_, ep)) = g.published.clone() {
+            ep.attach(Some(self.wq.clone()))?;
+            Self::forward_options(&g.opts, &*ep);
+            g.backend = Some(ep.clone());
+            return Ok(ep);
+        }
         let backend = self.net.backend.as_ref().ok_or(Errno::ENETUNREACH)?;
         let b = backend.datagram(self.domain, self.wq.clone())?;
         Self::forward_options(&g.opts, &*b);
         g.backend = Some(b.clone());
         Ok(b)
+    }
+
+    /// Takes a publication that reaches the socket's bound address, if one is free (`id`, or
+    /// any). The socket's lock is held.
+    fn claim_publication(&self, g: &mut Inner, id: Option<u64>) -> bool {
+        let Some(local) = g.local.filter(|_| g.published.is_none()) else {
+            return false;
+        };
+        let sock = (self.id, self.me.clone());
+        let Some((id, ep)) = self
+            .net
+            .claim_udp_publication(local, g.opts.v6only, sock, id)
+        else {
+            return false;
+        };
+        g.published = Some((id, ep));
+        self.activate_publication(g);
+        true
+    }
+
+    /// Offered publication `id` by the network: takes it if it reaches the bound address.
+    pub(crate) fn adopt_publication(&self, id: u64) -> bool {
+        self.claim_publication(&mut self.lock(), Some(id))
+    }
+
+    /// Publication `id` ended.
+    pub(crate) fn lose_publication(&self, id: u64) {
+        let mut g = self.lock();
+        let Some((held, ep)) = g.published.take() else {
+            return;
+        };
+        if held != id {
+            g.published = Some((held, ep));
+            return;
+        }
+        if g.backend.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ep)) {
+            g.backend = None;
+        }
+        drop(g);
+        let _ = ep.attach(None);
+    }
+
+    /// Gives up the publication when the socket unbinds; the caller offers it on once no
+    /// socket lock is held.
+    fn release_publication(&self, g: &mut Inner) -> Option<u64> {
+        let (id, ep) = g.published.take()?;
+        if g.backend.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ep)) {
+            g.backend = None;
+        }
+        let _ = ep.attach(None);
+        self.net.release_udp_publication(id, self.id);
+        Some(id)
+    }
+
+    /// Makes the published endpoint serve the socket as fits its peer: unconnected, or
+    /// connected outside the namespace (the endpoint then connected to the host's view of the
+    /// peer), it is the socket's way in and out; connected inside the namespace, nothing from
+    /// outside is for the socket, so the endpoint drops what arrives.
+    fn activate_publication(&self, g: &mut Inner) {
+        let Some((_, ep)) = g.published.clone() else {
+            return;
+        };
+        let host_peer = match g.peer.map(|p| self.net.path(p, g.local.map(|l| l.ip()))) {
+            None => None,
+            Some(Ok(Path::Backend { host_dst, .. })) => Some(host_dst),
+            Some(_) => {
+                let _ = ep.attach(None);
+                return;
+            }
+        };
+        if let Err(e) = ep.attach(Some(self.wq.clone())) {
+            tracing::warn!(error = ?e, "attaching a published UDP endpoint");
+            return;
+        }
+        Self::forward_options(&g.opts, &*ep);
+        if let Some(peer) = host_peer
+            && let Err(e) = ep.connect(Some(peer))
+        {
+            tracing::debug!(error = ?e, "connecting a published UDP endpoint");
+        }
+        g.backend = Some(ep);
+    }
+
+    /// Auto-publishing: mirror an explicitly bound, non-loopback socket's port on the host.
+    /// Failure is logged only.
+    fn auto_publish(&self, local: SocketAddr) {
+        let (Some(host_ip), Some(_)) = (self.net.config.auto_publish, self.net.backend.as_ref())
+        else {
+            return;
+        };
+        if local.ip().is_loopback() || self.lock().published.is_some() {
+            return;
+        }
+        let host = SocketAddr::new(host_ip, local.port());
+        match self.net.publish_udp(host, local) {
+            Ok(p) => *self.auto_publication.lock().unwrap() = Some(p),
+            Err(e) => tracing::warn!(%host, guest = %local, error = %e, "auto-publish failed"),
+        }
     }
 
     /// Hands the options a backend endpoint acts on to one made after they were set.
@@ -300,9 +412,17 @@ impl UdpSocket {
 
 impl Drop for UdpSocket {
     fn drop(&mut self) {
-        let local = self.inner.get_mut().unwrap().local.take();
+        let g = self.inner.get_mut().unwrap();
+        let local = g.local.take();
+        let published = g.published.take();
         if let Some(local) = local {
             self.net.state().udp.unbind(self.id, local.port());
+        }
+        // The next socket bound where the publication reaches takes it over.
+        if let Some((id, ep)) = published {
+            let _ = ep.attach(None);
+            self.net.release_udp_publication(id, self.id);
+            self.net.offer_udp_publication(id);
         }
     }
 }
@@ -373,9 +493,13 @@ impl Socket for UdpSocket {
             addr.port(),
             self.me.clone(),
         )?;
-        g.local = Some(SocketAddr::new(addr.ip(), port));
+        let local = SocketAddr::new(addr.ip(), port);
+        g.local = Some(local);
         g.addr_locked = !addr.ip().is_unspecified();
         g.port_locked = addr.port() != 0;
+        self.claim_publication(&mut g, None);
+        drop(g);
+        self.auto_publish(local);
         Ok(())
     }
 
@@ -411,7 +535,12 @@ impl Socket for UdpSocket {
                 self.backend_endpoint(&mut g)?.connect(Some(host_dst))?
             }
             // The association moved inside the namespace: nothing from outside is for us now.
-            Path::Local { .. } => g.backend = None,
+            Path::Local { .. } => {
+                g.backend = None;
+                if let Some((_, ep)) = &g.published {
+                    let _ = ep.attach(None);
+                }
+            }
         }
         g.peer = Some(dst);
         Ok(())
@@ -424,16 +553,28 @@ impl Socket for UdpSocket {
         if let Some(b) = &g.backend {
             b.connect(None)?;
         }
+        let mut released = None;
         if let Some(local) = g.local {
             let mut st = self.net.state();
             st.udp.set_remote(self.id, local.port(), None);
             if !g.port_locked {
                 st.udp.unbind(self.id, local.port());
                 g.local = None;
+                drop(st);
+                released = self.release_publication(&mut g);
             } else if !g.addr_locked {
                 st.udp.rehash(self.id, local.port(), self.any());
                 g.local = Some(SocketAddr::new(self.any(), local.port()));
             }
+        }
+        // Unconnected again, a socket whose publication was detached while connected inside
+        // the namespace hears from outside again; one connected outside kept its queue.
+        if g.published.is_some() && g.backend.is_none() {
+            self.activate_publication(&mut g);
+        }
+        drop(g);
+        if let Some(id) = released {
+            self.net.offer_udp_publication(id);
         }
         Ok(())
     }

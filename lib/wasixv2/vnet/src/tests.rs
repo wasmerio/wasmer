@@ -391,31 +391,73 @@ impl BackendStream for FakeStream {
     }
 }
 
-/// A datagram endpoint whose host side is writable or not as the test says, and whose error
-/// queue holds what the test puts there.
+/// A datagram endpoint whose host side is writable or not as the test says, and whose
+/// receive and error queues hold what the test puts there. A published one records whom it
+/// is attached to.
 struct FakeDgram {
     writable: AtomicBool,
     wq: WaitQueue,
-    sent: Mutex<Vec<Vec<u8>>>,
+    sent: Mutex<Vec<(Vec<u8>, SocketAddr)>>,
     options: Mutex<Vec<(i32, i32, Vec<u8>)>>,
     errors: Mutex<std::collections::VecDeque<QueuedError>>,
+    inbound: Mutex<std::collections::VecDeque<(Vec<u8>, SocketAddr)>>,
+    /// `Some` for a published endpoint: the queue it wakes, if attached.
+    attached: Option<Mutex<Option<WaitQueue>>>,
 }
 
-impl Pollable for FakeDgram {
-    fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
-        match self.writable.load(Ordering::SeqCst) {
-            true => PollMask::OUT | PollMask::WRNORM,
-            false => PollMask::empty(),
+impl FakeDgram {
+    fn new(wq: WaitQueue, published: bool) -> Arc<Self> {
+        Arc::new(Self {
+            writable: AtomicBool::new(true),
+            wq,
+            sent: Mutex::default(),
+            options: Mutex::default(),
+            errors: Mutex::default(),
+            inbound: Mutex::default(),
+            attached: published.then(Mutex::default),
+        })
+    }
+
+    fn is_attached(&self) -> bool {
+        self.attached.as_ref().unwrap().lock().unwrap().is_some()
+    }
+
+    /// A datagram from `from` arrives from the host.
+    fn arrive(&self, data: &[u8], from: SocketAddr) {
+        let wq = match &self.attached {
+            Some(a) => a.lock().unwrap().clone(),
+            None => Some(self.wq.clone()),
+        };
+        // Detached, it is dropped.
+        if let Some(wq) = wq {
+            self.inbound
+                .lock()
+                .unwrap()
+                .push_back((data.to_vec(), from));
+            wq.wake(PollMask::IN);
         }
     }
 }
 
+impl Pollable for FakeDgram {
+    fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
+        let mut m = match self.writable.load(Ordering::SeqCst) {
+            true => PollMask::OUT | PollMask::WRNORM,
+            false => PollMask::empty(),
+        };
+        if !self.inbound.lock().unwrap().is_empty() {
+            m |= PollMask::IN;
+        }
+        m
+    }
+}
+
 impl BackendDatagram for FakeDgram {
-    fn send_to(&self, data: &[u8], _: SocketAddr) -> Result<usize, Errno> {
+    fn send_to(&self, data: &[u8], to: SocketAddr) -> Result<usize, Errno> {
         if !self.writable.load(Ordering::SeqCst) {
             return Err(Errno::EAGAIN);
         }
-        self.sent.lock().unwrap().push(data.to_vec());
+        self.sent.lock().unwrap().push((data.to_vec(), to));
         Ok(data.len())
     }
     fn connect(&self, _: Option<SocketAddr>) -> Result<(), Errno> {
@@ -424,11 +466,23 @@ impl BackendDatagram for FakeDgram {
     fn take_error(&self) -> Option<Errno> {
         None
     }
-    fn recv_from(&self, _: &mut [u8], _: bool) -> Result<(usize, usize, SocketAddr), Errno> {
-        Err(Errno::EAGAIN)
+    fn recv_from(&self, buf: &mut [u8], _: bool) -> Result<(usize, usize, SocketAddr), Errno> {
+        let (data, from) = self
+            .inbound
+            .lock()
+            .unwrap()
+            .pop_front()
+            .ok_or(Errno::EAGAIN)?;
+        let n = buf.len().min(data.len());
+        buf[..n].copy_from_slice(&data[..n]);
+        Ok((n, data.len(), from))
     }
     fn input_len(&self) -> usize {
-        0
+        self.inbound
+            .lock()
+            .unwrap()
+            .front()
+            .map_or(0, |d| d.0.len())
     }
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
         self.options
@@ -439,6 +493,13 @@ impl BackendDatagram for FakeDgram {
     }
     fn take_queued_error(&self) -> Option<QueuedError> {
         self.errors.lock().unwrap().pop_front()
+    }
+    fn attach(&self, wq: Option<WaitQueue>) -> Result<(), Errno> {
+        let attached = self.attached.as_ref().ok_or(Errno::EOPNOTSUPP)?;
+        *attached.lock().unwrap() = wq;
+        self.inbound.lock().unwrap().clear();
+        self.options.lock().unwrap().clear();
+        Ok(())
     }
 }
 
@@ -462,6 +523,8 @@ struct Recorder {
     dgrams: Mutex<Vec<Arc<FakeDgram>>>,
     /// Each publication's sink and host backlog.
     published: Mutex<Vec<Published>>,
+    /// Each UDP publication's host address and endpoint.
+    published_dgrams: Mutex<Vec<(SocketAddr, Arc<FakeDgram>)>>,
 }
 
 impl Backend for Recorder {
@@ -471,15 +534,20 @@ impl Backend for Recorder {
         Ok(s)
     }
     fn datagram(&self, _: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
-        let d = Arc::new(FakeDgram {
-            writable: AtomicBool::new(true),
-            wq,
-            sent: Mutex::default(),
-            options: Mutex::default(),
-            errors: Mutex::default(),
-        });
+        let d = FakeDgram::new(wq, false);
         self.dgrams.lock().unwrap().push(d.clone());
         Ok(d)
+    }
+    fn publish_datagram(
+        &self,
+        host: SocketAddr,
+    ) -> Result<crate::PublishedDatagram, std::io::Error> {
+        let d = FakeDgram::new(WaitQueue::new(), true);
+        self.published_dgrams
+            .lock()
+            .unwrap()
+            .push((host, d.clone()));
+        Ok((d, Box::new(FakePublication(Arc::default()))))
     }
     fn publish(
         &self,
@@ -494,11 +562,14 @@ impl Backend for Recorder {
 }
 
 fn backed() -> (Arc<Net>, Arc<Recorder>) {
-    let rec = Arc::new(Recorder::default());
-    let config = NetConfig {
+    backed_with(NetConfig {
         auto_publish: Some(a("0.0.0.0:0").ip()),
         ..NetConfig::host_default()
-    };
+    })
+}
+
+fn backed_with(config: NetConfig) -> (Arc<Net>, Arc<Recorder>) {
+    let rec = Arc::new(Recorder::default());
     (Net::new(config, Some(rec.clone())), rec)
 }
 
@@ -939,4 +1010,115 @@ fn backend_errors_queue_behind_local_ones_in_the_guest_view() {
     s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(0))
         .unwrap();
     assert_eq!(d.options.lock().unwrap().len(), 2);
+}
+
+#[test]
+fn a_published_udp_port_serves_the_first_socket_bound_where_it_reaches() {
+    let (n, rec) = backed_with(NetConfig::host_default());
+    let p = n
+        .publish_udp(a("127.0.0.1:5353"), a("0.0.0.0:5300"))
+        .unwrap();
+    let (host, d) = rec.published_dgrams.lock().unwrap()[0].clone();
+    assert_eq!(host, a("127.0.0.1:5353"));
+    assert!(!d.is_attached());
+    // A wildcard publication arrives on the uplink address, which loopback is not.
+    let lo = udp(&n);
+    lo.set_option(SOL_SOCKET, SocketOption::SO_REUSEADDR.0, &int(1))
+        .unwrap();
+    lo.bind(a("127.0.0.1:5300"), false).unwrap();
+    assert!(!d.is_attached());
+
+    let s = udp(&n);
+    s.set_option(SOL_SOCKET, SocketOption::SO_REUSEADDR.0, &int(1))
+        .unwrap();
+    s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(1))
+        .unwrap();
+    s.bind(a("0.0.0.0:5300"), false).unwrap();
+    assert!(d.is_attached());
+    // The endpoint learns the options set before it served the socket.
+    assert_eq!(
+        d.options.lock().unwrap()[..],
+        [(SOL_IP, IpOption::IP_RECVERR.0, int(1).to_vec())]
+    );
+    // A query from the host's loopback, which the guest sees as the gateway alias.
+    d.arrive(b"query", a("127.0.0.1:40000"));
+    assert!(s.poll(None).contains(PollMask::IN));
+    let mut buf = [0u8; 16];
+    let m = s.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(&buf[..m.len], b"query");
+    assert_eq!(m.from, Some(a("10.0.2.2:40000")));
+    // The reply leaves from the published endpoint, not a fresh one.
+    assert_eq!(send_to(&*s, b"answer", m.from), Ok(6));
+    assert_eq!(
+        d.sent.lock().unwrap()[..],
+        [(b"answer".to_vec(), a("127.0.0.1:40000"))]
+    );
+    assert!(rec.dgrams.lock().unwrap().is_empty());
+
+    // A second socket on the port waits until the first goes.
+    let next = udp(&n);
+    next.set_option(SOL_SOCKET, SocketOption::SO_REUSEADDR.0, &int(1))
+        .unwrap();
+    next.bind(a("10.0.2.15:5300"), false).unwrap();
+    d.arrive(b"one", a("127.0.0.1:40000"));
+    assert!(!next.poll(None).contains(PollMask::IN));
+    drop(s);
+    assert!(d.is_attached());
+    assert!(
+        !next.poll(None).contains(PollMask::IN),
+        "dropped on the switch"
+    );
+    d.arrive(b"two", a("127.0.0.1:40000"));
+    assert_eq!(recv(&*next, 16).unwrap(), b"two");
+
+    // Ending the publication leaves the socket with an endpoint of its own.
+    drop(p);
+    assert!(!d.is_attached());
+    assert_eq!(send_to(&*next, b"x", Some(a("10.0.2.2:53"))), Ok(1));
+    assert_eq!(rec.dgrams.lock().unwrap().len(), 1);
+    assert!(n.state().udp_pubs.is_empty());
+}
+
+#[test]
+fn a_udp_publication_follows_binds_and_connections() {
+    let (n, rec) = backed_with(NetConfig::host_default());
+    // Bound before the publication: it takes it when it is made.
+    let s = udp(&n);
+    s.bind(a("10.0.2.15:5400"), false).unwrap();
+    let _p = n
+        .publish_udp(a("127.0.0.1:5454"), a("10.0.2.15:5400"))
+        .unwrap();
+    let d = rec.published_dgrams.lock().unwrap()[0].1.clone();
+    assert!(d.is_attached());
+    // Connected inside the namespace, nothing from outside is for the socket.
+    let peer = udp(&n);
+    peer.bind(a("10.0.2.15:5401"), false).unwrap();
+    s.connect(a("10.0.2.15:5401")).unwrap();
+    assert!(!d.is_attached());
+    s.disconnect().unwrap();
+    assert!(d.is_attached());
+    d.arrive(b"back", a("127.0.0.1:40000"));
+    assert_eq!(recv(&*s, 16).unwrap(), b"back");
+    // Connected outside, the published endpoint carries the association.
+    s.connect(a("10.0.2.2:53")).unwrap();
+    assert!(d.is_attached());
+    assert_eq!(send(&*s, b"q"), Ok(1));
+    assert_eq!(d.sent.lock().unwrap().len(), 1);
+    assert!(rec.dgrams.lock().unwrap().is_empty());
+}
+
+#[test]
+fn explicitly_bound_udp_sockets_are_auto_published() {
+    let (n, rec) = backed();
+    let s = udp(&n);
+    s.bind(a("0.0.0.0:6000"), false).unwrap();
+    let (host, d) = rec.published_dgrams.lock().unwrap()[0].clone();
+    assert_eq!(host, a("0.0.0.0:6000"));
+    assert!(d.is_attached());
+    // Loopback stays private, and an implicit bind publishes nothing.
+    udp(&n).bind(a("127.0.0.1:6001"), false).unwrap();
+    send_to(&*udp(&n), b"x", Some(a("10.0.2.2:53"))).unwrap();
+    assert_eq!(rec.published_dgrams.lock().unwrap().len(), 1);
+    drop(s);
+    assert!(n.state().udp_pubs.is_empty());
 }
