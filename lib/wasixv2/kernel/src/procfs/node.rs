@@ -81,6 +81,7 @@ const STATIC: &[(usize, &str, Static)] = &[
         "overcommit_memory",
         Static::File(text::Global::Overcommit),
     ),
+    (14, "mmap_min_addr", Static::File(text::Global::MmapMinAddr)),
     (15, "file-max", Static::File(text::Global::FileMax)),
     (15, "nr_open", Static::File(text::Global::NrOpen)),
     (15, "pipe-max-size", Static::File(text::Global::PipeMaxSize)),

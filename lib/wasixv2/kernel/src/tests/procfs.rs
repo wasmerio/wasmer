@@ -317,6 +317,20 @@ fn proc_lists_processes_and_their_descriptors() {
 }
 
 #[test]
+fn vm_tunables_show_the_memory_model() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+
+    let fd = t
+        .open("/proc/sys/vm/mmap_min_addr", OpenFlags::O_RDONLY)
+        .unwrap();
+    assert_eq!(t.read_all(fd), "65536\n");
+    let vm = t.list("/proc/sys/vm");
+    assert!(vm.contains(&"mmap_min_addr".to_string()), "{vm:?}");
+}
+
+#[test]
 fn memory_devices_read_write_and_seek_like_linux() {
     let (kernel, task, _) = machine();
     let memory = memory();
