@@ -287,3 +287,24 @@ WP1.
 
 Landed, fast-forward: libc2 `main` `bb5d6d71..0bc9eed3`; tests `main` `eac8874..7fd6227`; wasmer
 `feat/wasixv2` `e595aea505f..9c147516805`.
+
+## 2026-10-28: WP2 (rest) + WP7 (wasix1) — LANDED
+
+wasmer `wasixv2/wp2-wp7-land`: L-FS11; H10/M-CLI3 (256-byte probe before the whole file, shared
+package images, a cache keyed on identity or a raw-bytes hash, instrumentation on a miss only);
+M-CLI2/L-CLI3 (`run_file` = `Kernel::exec` + the image loop, one compile in `wasmer run`); M-W5
+(v1 command defaults keyed by the command file); L-CLI4 + docs; H11 (systemd-resolved upstreams for
+v1 DNS); H5 (scratch window faults; v1 `memory.grow` stops below it via a `wasixv2-exec::memory-grow`
+hook, not guest ABI); H12 (end the signal hold old wasix-libc leaks in `pthread_create`); M-W1; M-W4;
+L-W5; L-W2; L-W3; docs for M-W2, L-W1, L-W4 (0777 kept), L-W6. 14 commits plus the tests bump.
+
+- Gates: crate tests 620, clippy, fmt, release, CLI 51/0/13.
+- Suite: two copy runs 2381/1229/0/454, identical; check run against the new lists 2380/1229/0/455.
+  No test newly passes. `pthread_once/6-1` marked flaky: hangs 3/40 on the base and 4/40 on the
+  branch (main thread stuck in `pthread_join` after every thread exited).
+- Smoke: sws-v2 28/28; v1 8 + python expected-fail (python now exits 139, see PLAN follow-ups);
+  extras as before; v1 `gethostbynamel` works on a systemd-resolved host. Exec bench: 4.9 s to
+  0.40 s for 100 fork+exec of `/bin/true` from v2 bash.
+
+Landed, fast-forward: libc2 `main` `0bc9eed3..f216f303`; tests `main` `7fd6227..d54b93c`; wasmer
+`feat/wasixv2` `9c147516805..783b2cfcf2f`.

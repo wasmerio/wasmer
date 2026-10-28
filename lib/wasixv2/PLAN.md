@@ -14,15 +14,15 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `9c147516805` (WP4; wasixv2-tests `7fd6227`, two runs): 2380 pass, 1229
-expected failures, 0 unexpected, 454 ignored.
+Suite on `feat/wasixv2` `783b2cfcf2f` (WP2 + WP7; wasixv2-tests `d54b93c`): 2380 pass, 1229
+expected failures, 0 unexpected, 455 ignored (`pthread_once/6-1` now in flaky.txt).
 
 | Suite | Pass | Expected failures | Ignored |
 | --- | --- | --- | --- |
-| Open POSIX | 1328 | 465 | 83 |
+| Open POSIX | 1327 | 465 | 84 |
 | LTP | 466 | 736 | 370 |
 | libc-test | 393 | 28 | 0 |
-| wasixv2 suite (`suite/`) | 193 | 0 | 1 |
+| wasixv2 suite (`suite/`) | 194 | 0 | 1 |
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -39,7 +39,25 @@ WP4 (fs/vfs, 18 findings) has landed too: tests `main` = `7fd6227`, libc2 `main`
 WP4 left open: L-FS12's single-reference position-lock skip and per-step attribute cache (VFS design
 changes), and FIGETBSZ belongs in wasixv2-abi (defined locally in the kernel for now).
 
-In flight: WP2 rest + WP7 in one branch, `wasixv2/wp2-wp7`.
+WP2 (rest) and WP7 have landed too: tests `main` = `d54b93c`, libc2 `main` = `f216f303`. A v2 bash
+fork+exec loop is about 12x cheaper (49 ms to 4 ms per `/bin/true`). v1 DNS works on
+systemd-resolved hosts (H11, no in-process server). The wasix1 0777 create mode stays: v1
+wasix-libc never passes a mode and its `chmod`/`umask` are no-ops, so there is nothing to match
+(documented, L-W4).
+
+Next: WP8 (performance), WP10 (facade/CLI), WP11 (robustness); the `__linux__` work package
+(design ready, waiting for agreement); the init/pid-1 + guard WP after WP11.
+
+Follow-ups from WP2/WP7:
+- `pthread_once/6-1` hangs about 1 in 10 runs (before WP2/WP7 too): all threads `Exit`, the main
+  thread never returns from `pthread_join` — probably a lost futex wake at thread exit. In
+  flaky.txt until fixed.
+- A first program that fails to instantiate now exits 139 with "killing it with SIGSEGV"
+  (python/python) instead of a plain load error: `run_file` goes through the execve image loop
+  (M-CLI2). Report a plain load error for the first image (WP10).
+- wasixv2-abi codegen: `Control::take_image` should return `Image`, then drop the `ExecImage`
+  supertrait (ABI repo first, rules 6).
+- v1 command defaults don't apply to a command used as a `#!` interpreter.
 
 Follow-ups found while landing train 6 (not yet scheduled):
 - A fatal signal kills a group without releasing robust/PI futexes or writing back shared
@@ -311,11 +329,11 @@ no critical findings, 12 high, ~35 medium, ~50 low. Its work packages (§3) and 
 | WP | Scope | Findings | Status |
 | --- | --- | --- | --- |
 | WP1 | exec/de_thread correctness | H3, H4, M-P1, M-P2, M-P3, M-P5, L-P2 | landed (`e595aea505f`); M-P8 in train 5 |
-| WP2 | loader as binfmt registry, exec cost | H10, M-CLI2, M-CLI3, M-W5, L-CLI3, L-CLI4, L-FS11 | H6, M-P8 done in train 5; rest not started |
+| WP2 | loader as binfmt registry, exec cost | H10, M-CLI2, M-CLI3, M-W5, L-CLI3, L-CLI4, L-FS11 | landed (`783b2cfcf2f`); H6, M-P8 in train 5 |
 | WP3 | futex + mm | H2, M-F1..7, M-SIG1, L-F* | landed (train 6) |
 | WP4 | fs/vfs | H1, M-FS1..5, L-FS1..10, L-FS12 | landed (`9c147516805`); M-FS6 in train 5; L-FS12 partly |
 | WP5/6 | host network bridge, Unix sockets | H7, H8, H9, M-NET1..6, L-NET1..7 | landed (train 6) |
-| WP7 | wasix1 correctness | H5, H11, H12, M-W1, M-W2, M-W4, L-W* | not started |
+| WP7 | wasix1 correctness | H5, H11, H12, M-W1, M-W2, M-W4, L-W* | landed (`783b2cfcf2f`) |
 | WP8 | syscall hot-path performance | M-W3, M-X2, M-X3 | not started |
 | WP9 | signals | M-P4, M-P6, M-P7, M-P9, L-P1, L-P3..5 | landed (train 6) |
 | WP10 | facade/CLI | M-CLI1, M-CLI4..6, L-CLI* | not started |
