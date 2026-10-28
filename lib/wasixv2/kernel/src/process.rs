@@ -708,7 +708,7 @@ impl Kernel {
         // group on its way out does not exec; the exit it is taking ends the caller on the way
         // back.
         let task = caller.task();
-        let (exec, zapped) = self.zap_threads(task)?;
+        let exec = self.zap_threads(task)?;
         let leader = self.process(task).pid;
         // The leader leaves its old image for the new one, which runs once committed.
         let image = match task == leader {
@@ -719,10 +719,10 @@ impl Kernel {
             }
         };
         self.de_thread(task).await?;
-        // `exec_mm_release`, for the caller and the threads `de_thread` ended, on the memory
-        // that is still theirs; then the old memory goes.
-        let mut threads = zapped;
-        threads.extend(self.take_group_futex_states(task));
+        // `exec_mm_release` for the caller, and for the leader when that is another task, on
+        // the memory that is still theirs; the threads `de_thread` ended left it as each went.
+        // Then the old memory goes.
+        let threads = self.take_group_futex_states(task);
         self.exit_futexes(caller, threads).await;
         self.mm_release(caller).await;
         self.exec_commit(task, &name, args, env, image, binary);

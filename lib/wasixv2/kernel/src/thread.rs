@@ -324,9 +324,10 @@ impl Kernel {
         Ok(())
     }
 
+    /// `do_group_exit`, then the caller's own `exit_mm`. The other tasks leave the memory each
+    /// in its own exit, once it stopped running, so a robust lock one takes after the call is
+    /// released too.
     pub(crate) async fn sys_exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
-        self.group_exit_futexes(caller).await;
-        self.mm_release(caller).await;
         self.do_group_exit(caller.task(), status);
         self.exit_mm(caller).await;
         Ok(())
@@ -502,14 +503,11 @@ impl Kernel {
 
     /// `de_thread`'s start at the point of no return of `execve` from `task`
     /// (`zap_other_threads`): every other task of the thread group but the leader exits and is
-    /// sent SIGKILL, so blocked ones wake up. Returns their futex state, which the caller
-    /// releases once they are gone ([`Kernel::de_thread`]), and the guard of the `execve`,
-    /// which the group is in until it goes. `EAGAIN` when the group is exiting or another
-    /// task's `execve` got there first.
-    pub(crate) fn zap_threads(
-        &self,
-        task: TaskId,
-    ) -> Result<(ExecGuard, Vec<(TaskId, ThreadState)>), Errno> {
+    /// sent SIGKILL, so blocked ones wake up. Each leaves the memory in its own exit
+    /// ([`Kernel::exit_mm`]), before it is gone ([`Kernel::de_thread`]). Returns the guard of
+    /// the `execve`, which the group is in until it goes. `EAGAIN` when the group is exiting or
+    /// another task's `execve` got there first.
+    pub(crate) fn zap_threads(&self, task: TaskId) -> Result<ExecGuard, Errno> {
         let mut state = self.state.lock().unwrap();
         let process = state.tasks[&task].process.clone();
         let leader = process.pid;
@@ -524,19 +522,19 @@ impl Kernel {
         }
         let mut unstarted = Vec::new();
         let mut killed = Vec::new();
-        let mut futexes = Vec::new();
+        let mut ended = 0;
         for (&id, t) in state.tasks.iter_mut() {
             if !Arc::ptr_eq(&t.process, &process) || id == task || id == leader {
                 continue;
             }
             if !t.thread.exited {
                 t.thread.exited = true;
-                futexes.push((id, take_futex_state(t)));
+                ended += 1;
             }
             unstarted.extend(t.work.push(GuestAction::Exit(0)));
             killed.push(t.signals.clone());
         }
-        process.group.state.lock().unwrap().live -= futexes.len() as u32;
+        process.group.state.lock().unwrap().live -= ended;
         for child in unstarted {
             forget_task(&mut state, child);
         }
@@ -544,7 +542,7 @@ impl Kernel {
         for signals in killed {
             signals.kill();
         }
-        Ok((ExecGuard(process), futexes))
+        Ok(ExecGuard(process))
     }
 
     /// `de_thread`'s wait, after [`Kernel::zap_threads`]: until the tasks it killed are gone and
@@ -663,18 +661,6 @@ impl Kernel {
             .expect("NoInterrupt never interrupts")
     }
 
-    /// `futex_exit_release` and `mm_release` for every task of the caller's thread group, run
-    /// by the caller while the memory is still there. `exit_group` and `execve` end the group's
-    /// other tasks (`zap_other_threads`, `de_thread`), and the end of the memory, which writes
-    /// back its shared mappings, comes before those tasks unwind; so their robust and PI futexes
-    /// go to their waiters here, as each task's own `do_exit` would. A `clear_child_tid` is only
-    /// written when the memory outlives the group (a vfork relative), as Linux writes it only
-    /// while others use the memory.
-    pub(crate) async fn group_exit_futexes(&self, caller: &Caller<'_>) {
-        let threads = self.take_group_futex_states(caller.task());
-        self.exit_futexes(caller, threads).await;
-    }
-
     /// The futex state of every task of `task`'s thread group that has not exited. Taken all
     /// at once: a task that exits meanwhile can be released, and gone, before the caller
     /// reaches it.
@@ -689,7 +675,10 @@ impl Kernel {
             .collect()
     }
 
-    /// [`Kernel::group_exit_futexes`] for the futex state of `threads`, the caller's group's.
+    /// `exec_mm_release` for the futex state of `threads`, tasks of the caller's group that
+    /// stopped running the old image: their robust and PI futexes go to their waiters, and a
+    /// `clear_child_tid` is only written when the memory outlives the group (a vfork relative),
+    /// as Linux writes it only while others use the memory.
     pub(crate) async fn exit_futexes(
         &self,
         caller: &Caller<'_>,
