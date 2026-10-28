@@ -140,6 +140,8 @@ pub struct Kernel {
     // ---- base ----
     /// What [`Kernel::spawn`]ed processes run as.
     credentials: Credentials,
+    /// The kernel's own init, pid 1, which [`Kernel::spawn`]ed processes are children of.
+    init: Option<TaskId>,
     /// The UTS names (one UTS namespace per kernel), shared with the process filesystems.
     uts: Arc<Mutex<wasixv2_abi::NewUtsname>>,
 }
@@ -233,6 +235,7 @@ impl Kernel {
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
             credentials: Credentials::default(),
+            init: None,
             uts: Arc::new(Mutex::new(Uname::default().to_utsname())),
         }
     }
@@ -280,8 +283,25 @@ impl Kernel {
         &self.vfs
     }
 
+    /// Boots the kernel with its own init as pid 1, before any [`Kernel::spawn`], as Linux
+    /// starts its first task: a process that runs no guest code, every spawned process is a
+    /// child of and orphans are handed to. It ignores SIGCHLD, so whatever it inherits is reaped
+    /// as it exits, and no signal kills it (`SIGNAL_UNKILLABLE`). It runs as the credentials
+    /// given so far, so [`Kernel::with_credentials`] comes first. Without one, spawned processes
+    /// have no parent (`getppid` is 0) and orphans no reaper.
+    pub fn with_init(mut self) -> Self {
+        assert!(
+            self.state.read().unwrap().last_id == 0,
+            "init is the first process"
+        );
+        let init = self.new_process(vec!["init".to_string()], Vec::new(), FdTable::default(), 0);
+        self.task_signals(init).group().make_init();
+        self.init = Some(init);
+        self
+    }
+
     /// Starts a process with a single task whose descriptors 0, 1 and 2 are `config.stdio`,
-    /// running as the kernel's [`Credentials`].
+    /// running as the kernel's [`Credentials`], as a child of init when the kernel has one.
     pub fn spawn(&self, config: ProcessConfig) -> TaskId {
         let cred = cred::Cred::new(&self.credentials);
         let mut files = FdTable::default();
@@ -290,14 +310,24 @@ impl Kernel {
                 .install(Arc::new(file), false)
                 .expect("a new table has room for stdio");
         }
+        let parent = self.init.map_or(0, |init| init.0);
+        self.new_process(config.args, config.env, files, parent)
+    }
+
+    /// A process with a single task, `args`, `env` and the descriptors `files`, running as the
+    /// kernel's [`Credentials`], entered into the tree under `parent` (0 for none).
+    fn new_process(
+        &self,
+        args: Vec<String>,
+        env: Vec<String>,
+        files: FdTable,
+        parent: u32,
+    ) -> TaskId {
+        let cred = cred::Cred::new(&self.credentials);
         let mut state = self.state.lock().unwrap();
         state.last_id += 1;
         let id = TaskId(state.last_id);
-        let name = config
-            .args
-            .first()
-            .map(String::as_bytes)
-            .unwrap_or_default();
+        let name = args.first().map(String::as_bytes).unwrap_or_default();
         let comm = ident::Comm::from_path(name);
         let process = Arc::new(Process {
             pid: id,
@@ -305,8 +335,8 @@ impl Kernel {
             ident: Mutex::new(ident::Ident::new(id.0)),
             cred: Mutex::new(cred),
             resources: Mutex::default(),
-            args: Mutex::new(config.args.into_iter().map(String::into_bytes).collect()),
-            env: Mutex::new(config.env.into_iter().map(String::into_bytes).collect()),
+            args: Mutex::new(args.into_iter().map(String::into_bytes).collect()),
+            env: Mutex::new(env.into_iter().map(String::into_bytes).collect()),
             exe: Mutex::new(None),
             group: thread::Group::new(),
         });
@@ -332,8 +362,13 @@ impl Kernel {
         state.tasks.insert(id, task);
         drop(state);
         // ---- proc ----
-        self.procs.add(process, 0, Signal::SIGCHLD.0);
+        self.procs.add(process, parent, Signal::SIGCHLD.0);
         id
+    }
+
+    /// Whether `process` is the kernel's init, which outlives everything the kernel runs.
+    fn is_init(&self, process: &Process) -> bool {
+        self.init == Some(process.pid)
     }
 
     fn file(&self, task: TaskId, fd: Fd) -> Result<Arc<OpenFile>, Errno> {

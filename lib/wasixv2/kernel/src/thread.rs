@@ -426,8 +426,8 @@ impl Kernel {
         self.exit_notify(&process);
     }
 
-    /// Sends SIGKILL to every process of the machine, as `kill(-1, SIGKILL)` from outside it
-    /// does, with no init to spare: each thread group dies at its next interruption point.
+    /// Sends SIGKILL to every process of the machine but the kernel's init, as `kill(-1,
+    /// SIGKILL)` from outside it does: each thread group dies at its next interruption point.
     pub fn kill_all(&self) {
         for (_, signals) in self.live_processes() {
             signals.kill_all();
@@ -462,11 +462,15 @@ impl Kernel {
         }
     }
 
-    /// Every process that has a task, with its thread group's signals.
+    /// Every process that has a task, with its thread group's signals; not the kernel's init,
+    /// which has no instance to end.
     fn live_processes(&self) -> Vec<(Arc<Process>, Arc<Signals>)> {
         let state = self.state.lock().unwrap();
         let mut processes: Vec<(Arc<Process>, Arc<Signals>)> = Vec::new();
         for task in state.tasks.values() {
+            if self.is_init(&task.process) {
+                continue;
+            }
             if !processes.iter().any(|(p, _)| Arc::ptr_eq(p, &task.process)) {
                 processes.push((task.process.clone(), task.signals.group().clone()));
             }

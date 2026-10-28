@@ -129,6 +129,9 @@ struct GroupState {
     /// Periodic POSIX timers whose signal was ignored when it fired; they are queued again
     /// once the signal is no longer ignored (`ignored_posix_timers`).
     ignored_timers: Vec<Arc<PosixTimer>>,
+    /// The kernel's init: a signal whose action is the default is dropped as it is sent,
+    /// SIGKILL and SIGSTOP included (`SIGNAL_UNKILLABLE`, `is_global_init`).
+    unkillable: bool,
 }
 
 impl Default for GroupState {
@@ -141,6 +144,7 @@ impl Default for GroupState {
             real_timer: RealTimer::default(),
             posix_timers: posix_timer::Table::default(),
             ignored_timers: Vec::new(),
+            unkillable: false,
         }
     }
 }
@@ -509,6 +513,14 @@ impl Signals {
         )
     }
 
+    /// Makes the group the kernel's init's: SIGCHLD is ignored, so its children are reaped as
+    /// they exit, and no signal with the default action reaches it.
+    pub(crate) fn make_init(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.actions[Signal::SIGCHLD.0 as usize - 1].handler = SignalHandler::SIG_IGN.0 as u32;
+        state.unkillable = true;
+    }
+
     /// Queues `info` for the whole group (`__group_send_sig_info`).
     pub(crate) fn send_group(&self, info: Siginfo) -> Result<(), Errno> {
         self.send(None, info)
@@ -781,12 +793,16 @@ impl GroupState {
         }
     }
 
-    /// `sig_task_ignored`: the disposition throws the signal away. SIGKILL and SIGSTOP never are.
+    /// `sig_task_ignored`: the disposition throws the signal away. SIGKILL and SIGSTOP never are,
+    /// but for init, which takes only the signals it has handlers for.
     fn ignores(&self, sig: i32) -> bool {
+        let action = &self.actions[sig as usize - 1];
+        if self.unkillable && action.is_default() {
+            return true;
+        }
         if UNBLOCKABLE & bit(sig) != 0 {
             return false;
         }
-        let action = &self.actions[sig as usize - 1];
         action.is_ignore()
             || (action.is_default() && matches!(default_action(sig), DefaultAction::Ignore))
     }
