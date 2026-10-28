@@ -2064,14 +2064,13 @@ impl Syscalls for Kernel {
         self.sys_mlock(caller, start, len, flags).await
     }
     async fn munlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
-        self.sys_mlock(caller, start, len, MlockFlags::empty())
-            .await
+        self.sys_munlock(caller, start, len).await
     }
-    async fn mlockall(&self, _: &Caller<'_>, flags: MclFlags) -> SysResult<i32> {
-        self.sys_mlockall(flags)
+    async fn mlockall(&self, caller: &Caller<'_>, flags: MclFlags) -> SysResult<i32> {
+        self.sys_mlockall(caller, flags).await
     }
-    async fn munlockall(&self, _: &Caller<'_>) -> SysResult<i32> {
-        Ok(0)
+    async fn munlockall(&self, caller: &Caller<'_>) -> SysResult<i32> {
+        self.sys_munlockall(caller).await
     }
     async fn memfd_create(
         &self,

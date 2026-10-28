@@ -1,5 +1,6 @@
 //! File mappings: private copies, shared mappings kept coherent with the file, and `mmap`'s
-//! checks; `MADV_WIPEONFORK`, which only anonymous memory takes.
+//! checks; `MADV_WIPEONFORK`, which only anonymous memory takes; memory locks and
+//! `RLIMIT_MEMLOCK`.
 
 use super::{
     ipc::{errno, get, put},
@@ -479,4 +480,192 @@ fn wipeonfork_stays_with_its_pages_until_they_are_unmapped_or_the_image_changes(
     assert_eq!(madvise(&kernel, &child_caller, at, PAGE, WIPE), Ok(0));
     assert_eq!(block_on(kernel.munmap(&child_caller, at, PAGE)), Ok(0));
     assert!(kernel.wipe_on_fork(child).is_empty());
+}
+
+// ---- mlock ----
+
+/// How many pages `task` has locked (`locked_vm`).
+fn locked(kernel: &Kernel, task: TaskId) -> u64 {
+    kernel.mm(task).locked() / u64::from(PAGE)
+}
+
+/// Sets the caller's soft `RLIMIT_MEMLOCK` to `pages` pages, under the default hard limit.
+fn set_memlock(kernel: &Kernel, caller: &Caller<'_>, pages: u32) {
+    let (soft, hard) = (u64::from(pages * PAGE), 8u64 << 20);
+    let limit = [soft.to_le_bytes(), hard.to_le_bytes()].concat();
+    block_on(caller.memory().write(0x40, &limit)).unwrap();
+    let set = kernel.prlimit64(
+        caller,
+        0,
+        RlimitResource::RLIMIT_MEMLOCK,
+        ConstRlimit64Ptr::new(0x40),
+        Rlimit64Ptr::new(0),
+    );
+    assert_eq!(block_on(set), Ok(0));
+}
+
+/// A kernel whose one task runs as the default user, without `CAP_IPC_LOCK`, with `pages`
+/// pages of memory and room to grow.
+fn unprivileged(pages: u32) -> (Kernel, TaskId, FlatMemory) {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; (pages * PAGE) as usize]));
+    (kernel, task, memory)
+}
+
+const ANON: MapFlags = MapFlags(MapFlags::MAP_PRIVATE.0 | MapFlags::MAP_ANONYMOUS.0);
+
+/// `do_mlock`: the pages locked count against `RLIMIT_MEMLOCK`, those already locked in the
+/// range once; a range with a hole locks the pages before it and fails; a limit of 0 forbids
+/// locking but not unlocking.
+#[test]
+fn mlock_counts_locked_pages_against_rlimit_memlock() {
+    let (kernel, task, memory) = unprivileged(1);
+    let caller = Caller::new(task, &memory);
+    let at = mmap(&kernel, &caller, 4 * PAGE, ANON, Fd(-1)).unwrap();
+    let mlock = |at: u32, len: u32| block_on(kernel.mlock(&caller, at, len));
+    let munlock = |at: u32, len: u32| block_on(kernel.munlock(&caller, at, len));
+    set_memlock(&kernel, &caller, 2);
+
+    assert_eq!(mlock(at, 2 * PAGE), Ok(0));
+    assert_eq!(locked(&kernel, task), 2);
+    assert_eq!(errno(mlock(at, 3 * PAGE)), Errno::ENOMEM, "a third page");
+    assert_eq!(mlock(at + PAGE, 1), Ok(0), "already locked");
+    assert_eq!(locked(&kernel, task), 2);
+    assert_eq!(munlock(at + 100, 1), Ok(0), "a byte unlocks its page");
+    assert_eq!(locked(&kernel, task), 1);
+    let flags = MlockFlags::MLOCK_ONFAULT;
+    assert_eq!(
+        block_on(kernel.mlock2(&caller, at + 3 * PAGE, PAGE, flags)),
+        Ok(0)
+    );
+    assert_eq!(locked(&kernel, task), 2);
+    assert_eq!(block_on(kernel.munlockall(&caller)), Ok(0));
+    assert_eq!(locked(&kernel, task), 0);
+
+    // Past the end of memory: the page before the hole is locked all the same.
+    assert_eq!(errno(mlock(at + 3 * PAGE, 2 * PAGE)), Errno::ENOMEM);
+    assert_eq!(locked(&kernel, task), 1);
+    assert_eq!(errno(munlock(at + 3 * PAGE, 2 * PAGE)), Errno::ENOMEM);
+    assert_eq!(locked(&kernel, task), 0);
+
+    // A limit of 0: no locking at all (`can_do_mlock`), unlocking still works.
+    set_memlock(&kernel, &caller, 0);
+    assert_eq!(errno(mlock(at, PAGE)), Errno::EPERM);
+    assert_eq!(munlock(at, PAGE), Ok(0));
+    let mlockall = |flags: MclFlags| block_on(kernel.mlockall(&caller, flags));
+    assert_eq!(errno(mlockall(MclFlags::MCL_FUTURE)), Errno::EPERM);
+    let map_locked = MapFlags(ANON.0 | MapFlags::MAP_LOCKED.0);
+    assert_eq!(
+        errno(mmap(&kernel, &caller, PAGE, map_locked, Fd(-1))),
+        Errno::EPERM
+    );
+}
+
+/// `mlockall`: `MCL_CURRENT` needs all of memory in use under the limit (mlockall03);
+/// `MCL_FUTURE` locks new mappings, which must fit (`mlock_future_ok`'s `EAGAIN`, and a break
+/// that stays where it is), until `munlockall`.
+#[test]
+fn mlockall_locks_what_is_mapped_and_what_comes() {
+    let (kernel, task, memory) = unprivileged(2);
+    let caller = Caller::new(task, &memory);
+    let mlockall = |flags: MclFlags| block_on(kernel.mlockall(&caller, flags));
+    let onfault = MclFlags::MCL_ONFAULT;
+    assert_eq!(errno(mlockall(onfault)), Errno::EINVAL);
+    assert_eq!(errno(mlockall(MclFlags(!0))), Errno::EINVAL);
+
+    set_memlock(&kernel, &caller, 1);
+    assert_eq!(errno(mlockall(MclFlags::MCL_CURRENT)), Errno::ENOMEM);
+    set_memlock(&kernel, &caller, 3);
+    assert_eq!(mlockall(MclFlags::MCL_CURRENT), Ok(0));
+    assert_eq!(locked(&kernel, task), 2);
+    // A new mapping is not locked without MCL_FUTURE.
+    let at = mmap(&kernel, &caller, PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(locked(&kernel, task), 2);
+    assert_eq!(block_on(kernel.munmap(&caller, at, PAGE)), Ok(0));
+
+    // MCL_FUTURE alone leaves the current locks.
+    assert_eq!(mlockall(MclFlags::MCL_FUTURE | onfault), Ok(0));
+    assert_eq!(locked(&kernel, task), 2);
+    assert_eq!(
+        errno(mmap(&kernel, &caller, 2 * PAGE, ANON, Fd(-1))),
+        Errno::EAGAIN
+    );
+    let at = mmap(&kernel, &caller, PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(locked(&kernel, task), 3);
+    let brk = block_on(kernel.brk(&caller, 0)).unwrap() as u32;
+    assert_eq!(block_on(kernel.brk(&caller, brk + PAGE)), Ok(brk as i32));
+    assert_eq!(block_on(kernel.munmap(&caller, at, PAGE)), Ok(0));
+    assert_eq!(locked(&kernel, task), 2);
+    assert_eq!(
+        block_on(kernel.brk(&caller, brk + PAGE)),
+        Ok((brk + PAGE) as i32)
+    );
+    assert_eq!(locked(&kernel, task), 3);
+
+    assert_eq!(block_on(kernel.munlockall(&caller)), Ok(0));
+    assert_eq!(locked(&kernel, task), 0);
+    let at = mmap(&kernel, &caller, 4 * PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(locked(&kernel, task), 0);
+    assert_eq!(block_on(kernel.munmap(&caller, at, 4 * PAGE)), Ok(0));
+}
+
+/// `mremap` carries the lock along and grows it, within the limit (`resize_is_valid`); the
+/// source of an `MREMAP_DONTUNMAP` move is unlocked.
+#[test]
+fn mremap_moves_and_grows_locks() {
+    let (kernel, task, memory) = unprivileged(1);
+    let caller = Caller::new(task, &memory);
+    set_memlock(&kernel, &caller, 3);
+    let at = mmap(&kernel, &caller, PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(block_on(kernel.mlock(&caller, at, PAGE)), Ok(0));
+
+    assert_eq!(
+        mremap(&kernel, &caller, at, PAGE, 2 * PAGE, MremapFlags(0), 0),
+        Ok(at as i32)
+    );
+    assert_eq!(locked(&kernel, task), 2);
+    assert_eq!(
+        errno(mremap(&kernel, &caller, at, 2 * PAGE, 4 * PAGE, MOVE, 0)),
+        Errno::EAGAIN
+    );
+    let moved = mremap(
+        &kernel,
+        &caller,
+        at,
+        2 * PAGE,
+        2 * PAGE,
+        DONTUNMAP,
+        8 * PAGE,
+    );
+    let moved = moved.unwrap() as u32;
+    assert_ne!(moved, at);
+    assert_eq!(locked(&kernel, task), 2, "only the target is locked");
+    assert_eq!(block_on(kernel.munlock(&caller, moved, 2 * PAGE)), Ok(0));
+    assert_eq!(locked(&kernel, task), 0);
+}
+
+/// `CAP_IPC_LOCK` lifts the limit; a fork child and a new image start with nothing locked.
+#[test]
+fn cap_ipc_lock_lifts_the_limit_and_locks_are_not_inherited() {
+    let root = test_kernel().with_credentials(Credentials::new(0, 0));
+    let (kernel, task, _) = spawn_on(root, Arc::new(Input(Mutex::new(Vec::new()))), &[], &[]);
+    let memory = super::proc::ForkableMemory(FlatMemory(RefCell::new(vec![0; PAGE as usize])));
+    let caller = Caller::new(task, &memory);
+    super::task::install_prog(&kernel, &caller, &memory.0);
+    set_memlock(&kernel, &caller, 0);
+    let at = mmap(&kernel, &caller, 2 * PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(block_on(kernel.mlock(&caller, at, 2 * PAGE)), Ok(0));
+    let all = MclFlags::MCL_CURRENT | MclFlags::MCL_FUTURE;
+    assert_eq!(block_on(kernel.mlockall(&caller, all)), Ok(0));
+    let total = locked(&kernel, task);
+    assert!(total >= 3, "{total}");
+
+    let child = super::proc::fork_child(&kernel, &caller);
+    assert_eq!(locked(&kernel, child), 0);
+    let child_caller = Caller::new(child, &memory);
+    mmap(&kernel, &child_caller, PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(locked(&kernel, child), 0, "nor MCL_FUTURE");
+
+    assert_eq!(block_on(super::task::execve(&kernel, &caller)), Ok(0));
+    assert_eq!(locked(&kernel, task), 0);
 }
