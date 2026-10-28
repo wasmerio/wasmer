@@ -73,9 +73,9 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 pub use wasixv2_host::{Console, Stdio, WindowSize};
 use wasixv2_syscalls::{
-    AtomicWait, AtomicWord, Binfmt, Caller, Control, Errno, ExitMm, Fd, GroupStop, GuestAction,
-    Image, LocalFuture, SharedMapping, SharedMappings, SysResult, Syscalls, TaskId, UserSlice,
-    UserSliceMut, WorkFlag,
+    AtomicWait, AtomicWord, Binfmt, Caller, Control, CpuTime, Errno, ExitMm, Fd, GroupStop,
+    GuestAction, Image, LocalFuture, SharedMapping, SharedMappings, SysResult, Syscalls, TaskId,
+    UserSlice, UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -2562,6 +2562,9 @@ impl Control for Kernel {
         Box::pin(Kernel::exec_wait(self, task))
     }
 }
+
+// The kernel keeps no accounts yet: what the execution layer charges goes nowhere.
+impl CpuTime for Kernel {}
 
 impl GroupStop for Kernel {
     fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {

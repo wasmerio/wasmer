@@ -583,7 +583,7 @@ mod tests {
 
     use wasixv2_host::{Executor, LocalFuture};
     use wasixv2_syscalls::{
-        AtomicWait, AtomicWord, Caller, ExitMm, GroupStop, SharedMapping, SharedMappings,
+        AtomicWait, AtomicWord, Caller, CpuTime, ExitMm, GroupStop, SharedMapping, SharedMappings,
         SysResult, VforkParent,
     };
 
@@ -625,6 +625,8 @@ mod tests {
             self.released.lock().unwrap().push(task);
         }
     }
+
+    impl CpuTime for Recorder {}
 
     impl ExitMm for Recorder {
         fn exit_mm<'a>(&'a self, _: &'a Caller<'a>) -> LocalFuture<'a, ()> {

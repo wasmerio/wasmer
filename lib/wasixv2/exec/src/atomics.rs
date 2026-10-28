@@ -92,7 +92,11 @@ where
     S: Syscalls + Control + 'static,
 {
     let addr = effective_address(&env, addr, offset, 4).await?;
-    let (syscalls, task) = caller_parts(&env).await;
+    // No syscall: the wake is all there is, with no return to the guest after it.
+    let (syscalls, task) = {
+        let env = env.read().await;
+        (env.data().syscalls.clone(), env.data().task)
+    };
     Ok(syscalls.atomic_notify(task, addr, count as u32) as i32)
 }
 

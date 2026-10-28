@@ -817,6 +817,10 @@ mod tests {
                 proc: crate::process::ProcExports::new(Arc::new(NoSpawn), Arc::default()),
                 asyncify: None,
                 fork_payload: None,
+                cpu: crate::cputime::CpuSample::new(
+                    Arc::new(crate::cputime::tests::Clocks::default()),
+                    Arc::new(wasixv2_syscalls::CpuAccount::detached()),
+                ),
             },
         );
         let imports = wasmer::imports! {

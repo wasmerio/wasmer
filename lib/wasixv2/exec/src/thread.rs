@@ -163,6 +163,7 @@ where
                 self.syscalls.clone(),
                 task,
                 process::ProcExports::new(spawner, self.handoff.clone()),
+                self.host.clone(),
             ),
         );
         let mut imports = crate::imports(&*self.abi, &mut store, &env, &self.module);
