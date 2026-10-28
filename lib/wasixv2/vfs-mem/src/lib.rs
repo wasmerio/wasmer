@@ -119,9 +119,11 @@ impl Shared {
 /// The space a filesystem has used and may use (`shmem_sb_info`'s `used_blocks` and
 /// `free_ispace`).
 pub(crate) struct Space {
-    max_blocks: Option<u64>,
+    /// The block limit; 0 for none. A remount changes it.
+    max_blocks: AtomicU64,
     blocks: AtomicU64,
-    max_inodes: Option<u64>,
+    /// The inode limit; 0 for none.
+    max_inodes: AtomicU64,
     /// Inode space used, in bytes: [`INODE_SIZE`] per inode and extra link, plus xattrs.
     ispace: AtomicU64,
 }
@@ -129,14 +131,19 @@ pub(crate) struct Space {
 impl Space {
     fn new(limits: Limits) -> Self {
         Self {
-            max_blocks: limits
-                .max_bytes
-                .map(|bytes| bytes / BLOCK)
-                .filter(|&n| n > 0),
+            max_blocks: AtomicU64::new(limits.max_bytes.map_or(0, |bytes| bytes / BLOCK)),
             blocks: AtomicU64::new(0),
-            max_inodes: limits.max_inodes.filter(|&n| n > 0),
+            max_inodes: AtomicU64::new(limits.max_inodes.unwrap_or(0)),
             ispace: AtomicU64::new(0),
         }
+    }
+
+    fn max_blocks(&self) -> Option<u64> {
+        Some(self.max_blocks.load(Ordering::Relaxed)).filter(|&n| n > 0)
+    }
+
+    fn max_inodes(&self) -> Option<u64> {
+        Some(self.max_inodes.load(Ordering::Relaxed)).filter(|&n| n > 0)
     }
 
     /// Takes `n` from `used` unless that would pass `max`.
@@ -150,7 +157,7 @@ impl Space {
     }
 
     pub(crate) fn charge_blocks(&self, n: u64) -> FsResult<()> {
-        Self::charge(&self.blocks, self.max_blocks, n)
+        Self::charge(&self.blocks, self.max_blocks(), n)
     }
 
     pub(crate) fn release_blocks(&self, n: u64) {
@@ -158,7 +165,7 @@ impl Space {
     }
 
     fn max_ispace(&self) -> Option<u64> {
-        self.max_inodes.map(|n| n.saturating_mul(INODE_SIZE))
+        self.max_inodes().map(|n| n.saturating_mul(INODE_SIZE))
     }
 
     fn charge_ispace(&self, bytes: u64) -> FsResult<()> {
@@ -212,6 +219,33 @@ impl MemFs {
         Self { shared, root }
     }
 
+    /// Changes the limits a remount names (`shmem_reconfigure`): `max_bytes` and `max_inodes`
+    /// where they are `Some`, 0 lifting the limit. A filesystem without a limit cannot be given
+    /// one, nor one below what it uses (`EINVAL`). Charges taken meanwhile may pass the new
+    /// limit once, as the checks and the change are not atomic together.
+    pub fn set_limits(&self, limits: Limits) -> FsResult<()> {
+        let space = &self.shared.space;
+        let blocks = limits.max_bytes.map(|bytes| bytes.div_ceil(BLOCK));
+        if let Some(blocks) = blocks.filter(|&n| n > 0)
+            && (space.max_blocks().is_none() || space.blocks.load(Ordering::Relaxed) > blocks)
+        {
+            return Err(Errno::EINVAL);
+        }
+        if let Some(inodes) = limits.max_inodes.filter(|&n| n > 0)
+            && (space.max_inodes().is_none()
+                || space.ispace.load(Ordering::Relaxed) > inodes.saturating_mul(INODE_SIZE))
+        {
+            return Err(Errno::EINVAL);
+        }
+        if let Some(blocks) = blocks {
+            space.max_blocks.store(blocks, Ordering::Relaxed);
+        }
+        if let Some(inodes) = limits.max_inodes {
+            space.max_inodes.store(inodes, Ordering::Relaxed);
+        }
+        Ok(())
+    }
+
     /// Keeps the data of regular files created from now on in shared memory objects from
     /// `provider`, which `MAP_SHARED` mappings show directly, as the memfd and `/dev/shm`
     /// tmpfs of a Linux system keep theirs in shmem. A file whose object cannot be made keeps
@@ -249,11 +283,11 @@ impl Filesystem for MemFs {
             fragment_size: BLOCK as u32,
             ..StatFs::default()
         };
-        if let Some(max) = space.max_blocks {
+        if let Some(max) = space.max_blocks() {
             let free = max.saturating_sub(space.blocks.load(Ordering::Relaxed));
             (stat.blocks, stat.blocks_free, stat.blocks_avail) = (max, free, free);
         }
-        if let (Some(max), Some(max_ispace)) = (space.max_inodes, space.max_ispace()) {
+        if let (Some(max), Some(max_ispace)) = (space.max_inodes(), space.max_ispace()) {
             let free = max_ispace.saturating_sub(space.ispace.load(Ordering::Relaxed));
             (stat.files, stat.files_free) = (max, free / INODE_SIZE);
         }
