@@ -338,6 +338,21 @@ fn madvise_dontneed_keeps_a_mapped_objects_contents() {
 }
 
 #[test]
+fn madvise_does_not_know_memory_failure_advice() {
+    let (kernel, task) = shared_machine();
+    let memory = MappedMemory::new(2, false);
+    let caller = Caller::new(task, &memory);
+    let a = mmap_shared(&kernel, &caller, PAGE);
+    for advice in [MadviseAdvice::MADV_HWPOISON, MadviseAdvice::MADV_SOFT_OFFLINE] {
+        assert_eq!(
+            block_on(kernel.madvise(&caller, a, PAGE, advice)),
+            Err(Errno::EINVAL.into()),
+            "{advice:?}"
+        );
+    }
+}
+
+#[test]
 fn memory_that_cannot_show_pages_keeps_shared_anonymous_memory_private() {
     // The host has objects, but the memory cannot place them: the mapping is ordinary memory,
     // which cannot be duplicated.
