@@ -62,3 +62,36 @@ pub fn connect_target(addr: SocketAddr) -> SocketAddr {
     };
     SocketAddr::new(ip, addr.port())
 }
+
+/// `sockaddr_in` or `sockaddr_in6` in guest layout, as a socket of `family` reports `addr`
+/// (presented, so an IPv6 socket sees an IPv4 address mapped); `None` is the zeroed address
+/// of `AF_UNSPEC`, in the same size (`SO_EE_OFFENDER` of an error no node reported).
+pub fn sockaddr_bytes(family: Domain, addr: Option<SocketAddr>) -> Vec<u8> {
+    let mut raw = vec![
+        0;
+        match family {
+            Domain::Inet => 16,
+            Domain::Inet6 => 28,
+        }
+    ];
+    let Some(addr) = addr else {
+        return raw;
+    };
+    match (family, present(family, canonical(addr))) {
+        (Domain::Inet, SocketAddr::V4(a)) => {
+            raw[..2].copy_from_slice(&(Domain::Inet.raw() as u16).to_le_bytes());
+            raw[2..4].copy_from_slice(&a.port().to_be_bytes());
+            raw[4..8].copy_from_slice(&a.ip().octets());
+        }
+        (Domain::Inet6, SocketAddr::V6(a)) => {
+            raw[..2].copy_from_slice(&(Domain::Inet6.raw() as u16).to_le_bytes());
+            raw[2..4].copy_from_slice(&a.port().to_be_bytes());
+            raw[4..8].copy_from_slice(&a.flowinfo().to_be_bytes());
+            raw[8..24].copy_from_slice(&a.ip().octets());
+            raw[24..28].copy_from_slice(&a.scope_id().to_le_bytes());
+        }
+        // An IPv4 socket never holds an IPv6 address.
+        _ => {}
+    }
+    raw
+}

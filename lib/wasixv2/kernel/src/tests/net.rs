@@ -560,6 +560,83 @@ fn a_blocking_error_queue_read_never_waits() {
 }
 
 #[test]
+fn error_queue_entries_arrive_as_ip_recverr_control_messages() {
+    let net = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+    let (kernel, task, memory) = machine();
+    let kernel = kernel.with_network(net);
+    let caller = Caller::new(task, &memory);
+    let sock = socket(&kernel, &caller, DGRAM);
+    put(&memory, 0x400, &1i32.to_le_bytes());
+    let set = block_on(kernel.setsockopt(
+        &caller,
+        sock,
+        SocketLevel::SOL_IP,
+        wasixv2_abi::IpOption::IP_RECVERR.0,
+        UserSlice::new(0x400, 4),
+    ));
+    assert_eq!(set, Ok(0));
+    sockaddr(&memory, 0x200, 9);
+    put(&memory, 0x410, b"ping");
+    let sent = block_on(kernel.sendto(
+        &caller,
+        sock,
+        UserSlice::new(0x410, 4),
+        MsgFlags(0),
+        GuestPtr::new(0x200),
+        16,
+    ));
+    assert_eq!(sent, Ok(4));
+    let iov = [0x600u32, 16];
+    put(&memory, 0x700, &iov[0].to_le_bytes());
+    put(&memory, 0x704, &iov[1].to_le_bytes());
+    let hdr = UserMsghdr {
+        msg_name: GuestPtrMut::new(0x300),
+        msg_namelen: 16,
+        msg_iov: GuestPtr::new(0x700),
+        msg_iovlen: 1,
+        msg_control: GuestPtrMut::new(0x800),
+        msg_controllen: 64,
+        msg_flags: 0,
+    };
+    block_on(write_value(&memory, GuestPtrMut::new(0x900), &hdr)).unwrap();
+    let n = block_on(kernel.recvmsg(
+        &caller,
+        sock,
+        GuestPtrMut::new(0x900),
+        MsgFlags::MSG_ERRQUEUE,
+    ));
+    assert_eq!(n, Ok(4));
+    assert_eq!(get(&memory, 0x600, 4), b"ping");
+    let hdr: UserMsghdr = block_on(read_value(&memory, GuestPtr::new(0x900))).unwrap();
+    assert_eq!(MsgFlags(hdr.msg_flags), MsgFlags::MSG_ERRQUEUE);
+    // The address is the refused datagram's destination.
+    assert_eq!(hdr.msg_namelen, 16);
+    assert_eq!(
+        read_sockaddr(&memory, 0x300),
+        "127.0.0.1:9".parse().unwrap()
+    );
+    // One cmsghdr (12 bytes) with `struct sock_extended_err` and the offender's sockaddr_in.
+    assert_eq!(hdr.msg_controllen, 12 + 16 + 16);
+    let cmsg = get(&memory, 0x800, 44);
+    assert_eq!(cmsg[..4], 44u32.to_le_bytes());
+    assert_eq!(cmsg[4..8], 0i32.to_le_bytes());
+    assert_eq!(cmsg[8..12], 11i32.to_le_bytes());
+    assert_eq!(cmsg[12..16], (Errno::ECONNREFUSED.0 as u32).to_le_bytes());
+    // SO_EE_ORIGIN_ICMP, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, pad, then ee_info and ee_data.
+    assert_eq!(cmsg[16..28], [2, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(cmsg[28..36], [2, 0, 0, 0, 127, 0, 0, 1]);
+    // Read once; a blocking read of the empty queue fails at once.
+    let again = Box::pin(kernel.recvmsg(
+        &caller,
+        sock,
+        GuestPtrMut::new(0x900),
+        MsgFlags::MSG_ERRQUEUE,
+    ))
+    .now_or_never();
+    assert_eq!(again.map(errno), Some(Errno::EAGAIN));
+}
+
+#[test]
 fn socket_level_options_come_from_the_kernel() {
     let (kernel, task, memory) = networked();
     let caller = Caller::new(task, &memory);
