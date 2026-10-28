@@ -2412,6 +2412,8 @@ impl Syscalls for Kernel {
 
 impl Control for Kernel {
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
+        // ---- proc ----
+        self.kill_vfork_parent(task);
         let (action, signals) = {
             let mut state = self.state.lock().unwrap();
             // ---- proc ----
