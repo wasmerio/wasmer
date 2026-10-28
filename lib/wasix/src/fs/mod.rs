@@ -2748,11 +2748,10 @@ impl WasiFs {
                     .set_times(path, atime, mtime, true)
                     .map_err(fs_error_into_wasi_err)?;
             }
-            Kind::Root { .. } => {
-                self.root_fs
-                    .set_times(Path::new("/"), atime, mtime, true)
-                    .map_err(fs_error_into_wasi_err)?;
-            }
+            // The virtual root holds the preopens; it is not the backing
+            // filesystem's `/`, which the guest may not have been given, or
+            // only to read. Its times stay in the inode.
+            Kind::Root { .. } => {}
             Kind::Symlink {
                 path_to_symlink, ..
             } => {
@@ -2779,18 +2778,16 @@ impl WasiFs {
         let kind = inode.read();
         let mut stat = *inode.stat.read().unwrap();
         stat.st_ino = inode.ino().as_u64();
-        // Synthetic descriptors have no backing metadata. File/directory
-        // descriptors must reflect changes made through paths and other processes.
+        // Synthetic descriptors, the virtual root among them, have no backing
+        // metadata. File/directory descriptors must reflect changes made
+        // through paths and other processes.
         if matches!(
             &*kind,
-            Kind::File { .. } | Kind::Dir { .. } | Kind::Root { .. } | Kind::Symlink { .. }
+            Kind::File { .. } | Kind::Dir { .. } | Kind::Symlink { .. }
         ) {
             let current = self.get_stat_for_kind(&kind)?;
             if stat.st_filetype == Filetype::Unknown
-                || matches!(
-                    &*kind,
-                    Kind::Dir { .. } | Kind::Root { .. } | Kind::Symlink { .. }
-                )
+                || matches!(&*kind, Kind::Dir { .. } | Kind::Symlink { .. })
             {
                 stat.st_filetype = current.st_filetype;
             }
@@ -2826,10 +2823,6 @@ impl WasiFs {
             Kind::Dir { path, .. } => self
                 .root_fs
                 .metadata(path)
-                .map_err(fs_error_into_wasi_err)?,
-            Kind::Root { .. } => self
-                .root_fs
-                .metadata(Path::new("/"))
                 .map_err(fs_error_into_wasi_err)?,
             Kind::Symlink {
                 path_to_symlink,
