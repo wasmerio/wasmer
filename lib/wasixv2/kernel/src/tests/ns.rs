@@ -1,6 +1,6 @@
 //! Namespaces: `/proc/<pid>/ns`, nsfs files and their `NS_GET_*` requests.
 
-use wasixv2_abi::{CloneFlags, IoctlRequest, NewUtsname, Statx, StatxMask};
+use wasixv2_abi::{AddressFamily, CloneFlags, IoctlRequest, NewUtsname, Statx, StatxMask};
 use wasixv2_syscalls::read_value;
 use wasixv2_vfs::MountFlags;
 
@@ -667,5 +667,125 @@ fn proc_net_is_the_callers_own_net_directory() {
     assert_eq!(
         errno(open(&kernel, &caller, "/proc/self/net/nope")),
         Errno::ENOENT
+    );
+}
+
+/// A kernel with `/proc`, an IP network in the initial namespace and a fresh loopback-only one
+/// for each namespace made later, and one process running as root.
+fn networked() -> (Kernel, TaskId, ForkableMemory) {
+    let loopback = || wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+    let (kernel, task, _) = super::cred::machine_with(|kernel| {
+        kernel
+            .with_network(loopback())
+            .with_network_factory(loopback)
+            .with_credentials(Credentials::new(0, 0))
+    });
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    (
+        kernel,
+        task,
+        ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536]))),
+    )
+}
+
+const STREAM: i32 = 1;
+
+/// Binds a new TCP socket to 127.0.0.1:`port` and listens on it.
+fn listen_tcp(kernel: &Kernel, caller: &Caller<'_>, port: u16) -> SysResult<Fd> {
+    let fd = block_on(kernel.socket(caller, AddressFamily::AF_INET, STREAM, 0))?;
+    let addr = std::net::SocketAddr::new([127, 0, 0, 1].into(), port);
+    block_on(caller.memory().write(0x700, &crate::socket::encode(addr))).unwrap();
+    block_on(kernel.bind(caller, fd, GuestPtr::new(0x700), 16))?;
+    block_on(kernel.listen(caller, fd, 4))?;
+    Ok(fd)
+}
+
+#[test]
+fn a_new_network_namespace_has_a_port_space_of_its_own() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    assert!(listen_tcp(&kernel, &caller, 8080).is_ok());
+    let child = fork(&kernel, &caller, CloneFlags(0));
+    let child_caller = Caller::new(child, &memory);
+
+    assert_eq!(
+        unshare(&kernel, &child_caller, CloneFlags::CLONE_NEWNET),
+        Ok(0)
+    );
+
+    assert!(
+        listen_tcp(&kernel, &child_caller, 8080).is_ok(),
+        "free here"
+    );
+    assert_eq!(errno(listen_tcp(&kernel, &caller, 8080)), Errno::EADDRINUSE);
+    assert_eq!(ns_ino(&kernel, &child_caller, "net"), FIRST_DYNAMIC_INO);
+    let lo_only = read_text(&kernel, &child_caller, "/proc/net/dev");
+    assert_eq!(lo_only.lines().skip(2).count(), 1, "{lo_only}");
+    // Each task's /proc/<pid>/net shows its own namespace's sockets.
+    let listening = |pid: TaskId| {
+        let tcp = read_text(&kernel, &caller, &format!("/proc/{}/net/tcp", pid.0));
+        tcp.lines().filter(|l| l.contains(":1F90 ")).count()
+    };
+    assert_eq!((listening(task), listening(child)), (1, 1));
+}
+
+#[test]
+fn without_a_factory_a_new_network_namespace_has_no_ip_network() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWNET), Ok(0));
+
+    let socket = block_on(kernel.socket(&caller, AddressFamily::AF_INET, STREAM, 0));
+    assert_eq!(errno(socket), Errno::EAFNOSUPPORT);
+    let unix = block_on(kernel.socket(&caller, AddressFamily::AF_UNIX, STREAM, 0));
+    assert!(unix.is_ok());
+}
+
+/// A `sockaddr_un` at 0x900 for `name` (abstract when it starts with NUL), and its length.
+fn sun(memory: &dyn UserMemory, name: &[u8]) -> u32 {
+    let mut addr = (AddressFamily::AF_UNIX.0 as u16).to_le_bytes().to_vec();
+    addr.extend(name);
+    block_on(memory.write(0x900, &addr)).unwrap();
+    addr.len() as u32
+}
+
+fn unix_listen(kernel: &Kernel, caller: &Caller<'_>, name: &[u8]) -> SysResult<Fd> {
+    let fd = block_on(kernel.socket(caller, AddressFamily::AF_UNIX, STREAM, 0))?;
+    let len = sun(caller.memory(), name);
+    block_on(kernel.bind(caller, fd, GuestPtr::new(0x900), len))?;
+    block_on(kernel.listen(caller, fd, 4))?;
+    Ok(fd)
+}
+
+fn unix_connect(kernel: &Kernel, caller: &Caller<'_>, name: &[u8]) -> SysResult<i32> {
+    let fd = block_on(kernel.socket(caller, AddressFamily::AF_UNIX, STREAM, 0))?;
+    let len = sun(caller.memory(), name);
+    block_on(kernel.connect(caller, fd, GuestPtr::new(0x900), len))
+}
+
+#[test]
+fn abstract_unix_names_are_per_network_namespace_and_paths_are_not() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    assert!(unix_listen(&kernel, &caller, b"\0ltp").is_ok());
+    assert!(unix_listen(&kernel, &caller, b"/sock").is_ok());
+    // Made before the unshare, a socket stays in the namespace it was made in.
+    let early = block_on(kernel.socket(&caller, AddressFamily::AF_UNIX, STREAM, 0)).unwrap();
+
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWNET), Ok(0));
+
+    assert_eq!(
+        errno(unix_connect(&kernel, &caller, b"\0ltp")),
+        Errno::ECONNREFUSED
+    );
+    assert_eq!(unix_connect(&kernel, &caller, b"/sock"), Ok(0));
+    let len = sun(&memory, b"\0ltp");
+    let connect = block_on(kernel.connect(&caller, early, GuestPtr::new(0x900), len));
+    assert_eq!(connect, Ok(0));
+    assert!(
+        unix_listen(&kernel, &caller, b"\0ltp").is_ok(),
+        "free in the new namespace"
     );
 }

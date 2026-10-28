@@ -36,6 +36,7 @@ use crate::{
     Kernel,
     file::{FileObject, Io, OpenFile},
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
+    sync::MutexExt,
 };
 
 use gc::{InFlight, Inflight};
@@ -129,25 +130,50 @@ pub(crate) enum Key {
     Inode(u64, u64),
 }
 
-/// The bound Unix sockets of a network namespace (Linux's `unix_socket_table`), and the files
-/// in flight between them.
+/// Where bound Unix sockets are found: a network namespace's by abstract name (Linux's
+/// `net->unx.table`), the machine's by socket inode (`bsd_socket_buckets`, which no namespace
+/// separates: a path is reached through the mount tree), and the files in flight between all
+/// of them (`unix_tot_inflight`, `user->unix_inflight`), which no namespace separates either.
 #[derive(Default)]
 pub(crate) struct Names {
-    map: Mutex<HashMap<Key, Weak<Sock>>>,
+    abstract_names: Table,
     /// The next autobind name.
     next: Mutex<u32>,
+    paths: Arc<Table>,
     /// Files queued in `SCM_RIGHTS` messages, not yet received.
     pub(crate) inflight: Arc<Inflight>,
 }
 
+/// Bound sockets by key.
+#[derive(Default)]
+struct Table(Mutex<HashMap<Key, Weak<Sock>>>);
+
 impl Names {
+    /// The names of a new network namespace (`unix_net_init`): no abstract names yet, and the
+    /// machine's sockets bound to paths and files in flight.
+    pub(crate) fn for_new_net(&self) -> Self {
+        Self {
+            abstract_names: Table::default(),
+            next: Mutex::default(),
+            paths: self.paths.clone(),
+            inflight: self.inflight.clone(),
+        }
+    }
+
+    fn table(&self, key: &Key) -> &Table {
+        match key {
+            Key::Abstract(_) => &self.abstract_names,
+            Key::Inode(..) => &self.paths,
+        }
+    }
+
     fn find(&self, key: &Key) -> Option<Arc<Sock>> {
-        self.map.lock().unwrap().get(key)?.upgrade()
+        self.table(key).0.lock_or_recover().get(key)?.upgrade()
     }
 
     /// Claims `key` for `sock`; `EADDRINUSE` if a live socket holds it.
     fn insert(&self, key: Key, sock: &Arc<Sock>) -> Result<(), Errno> {
-        let mut map = self.map.lock().unwrap();
+        let mut map = self.table(&key).0.lock_or_recover();
         if map.get(&key).is_some_and(|old| old.strong_count() > 0) {
             return Err(Errno::EADDRINUSE);
         }
@@ -156,7 +182,7 @@ impl Names {
     }
 
     fn remove(&self, key: &Key, sock: &Sock) {
-        let mut map = self.map.lock().unwrap();
+        let mut map = self.table(key).0.lock_or_recover();
         if map
             .get(key)
             .is_some_and(|old| std::ptr::eq(old.as_ptr(), sock))
@@ -1235,13 +1261,17 @@ impl Kernel {
         ))
     }
 
-    /// Finds the socket a name refers to (`unix_find_other`).
-    async fn unix_find(&self, caller: &Caller<'_>, name: &Name) -> SysResult<Arc<Sock>> {
+    /// Finds the socket a name refers to for `sock` (`unix_find_other`): an abstract name in
+    /// the network namespace `sock` was made in, a path wherever the caller's walk leads.
+    async fn unix_find(
+        &self,
+        caller: &Caller<'_>,
+        sock: &Sock,
+        name: &Name,
+    ) -> SysResult<Arc<Sock>> {
         match name {
-            Name::Abstract(name) => Ok(self
-                .ns(caller)
-                .net
-                .unix_names
+            Name::Abstract(name) => Ok(sock
+                .names
                 .find(&Key::Abstract(name.clone()))
                 .ok_or(Errno::ECONNREFUSED)?),
             Name::Path(path) => {
@@ -1256,13 +1286,7 @@ impl Kernel {
                     return Err(Errno::ECONNREFUSED.into());
                 }
                 let key = Key::Inode(found.dentry.sb().id, found.dentry.node().ino());
-                let sock = self
-                    .ns(caller)
-                    .net
-                    .unix_names
-                    .find(&key)
-                    .ok_or(Errno::ECONNREFUSED)?;
-                Ok(sock)
+                Ok(sock.names.find(&key).ok_or(Errno::ECONNREFUSED)?)
             }
         }
     }
@@ -1329,7 +1353,7 @@ impl Kernel {
             return Ok(0);
         }
         let name = Name::decode(raw)?.ok_or(Errno::EINVAL)?;
-        let target = self.unix_find(caller, &name).await?;
+        let target = self.unix_find(caller, sock, &name).await?;
         if sock.kind == Kind::Dgram {
             sock.connect_dgram(Some(target))?;
             return Ok(0);
@@ -1368,7 +1392,7 @@ impl Kernel {
             .into());
         }
         let name = Name::decode(raw)?.ok_or(Errno::EINVAL)?;
-        Ok(Some(self.unix_find(caller, &name).await?))
+        Ok(Some(self.unix_find(caller, sock, &name).await?))
     }
 
     /// `__scm_send` for a Unix socket: `SCM_RIGHTS` and `SCM_CREDENTIALS`.
@@ -1601,6 +1625,44 @@ mod tests {
             Some(Errno::ECONNRESET)
         );
         assert_eq!(client.try_recv(4, MsgFlags(0), None).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn a_new_network_namespace_has_its_own_abstract_names_only() {
+        let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
+        let names = Arc::new(Names::default());
+        let new = Arc::new(names.for_new_net());
+        let sock = |names: &Arc<Names>| {
+            Sock::new(
+                Kind::Dgram,
+                names.clone(),
+                PeerCred::default(),
+                host.clone(),
+            )
+        };
+        let (old_abstract, old_path) = (sock(&names), sock(&names));
+        let abstract_name = Key::Abstract(b"a".to_vec());
+        let path = Key::Inode(1, 2);
+        old_abstract
+            .bind(abstract_name.clone(), b"\x01\x00\x00a".to_vec())
+            .unwrap();
+        old_path.bind(path.clone(), b"\x01\x00/s".to_vec()).unwrap();
+
+        assert!(new.find(&abstract_name).is_none());
+        assert!(Arc::ptr_eq(&new.find(&path).unwrap(), &old_path));
+        assert!(Arc::ptr_eq(&new.inflight, &names.inflight));
+        let mine = sock(&new);
+        assert_eq!(
+            mine.bind(abstract_name.clone(), b"\x01\x00\x00a".to_vec()),
+            Ok(())
+        );
+        let taken = sock(&new).bind(path, b"\x01\x00/s".to_vec());
+        assert_eq!(taken, Err(Errno::EADDRINUSE), "one path table");
+        assert!(Arc::ptr_eq(
+            &names.find(&abstract_name).unwrap(),
+            &old_abstract
+        ));
+        assert!(Arc::ptr_eq(&new.find(&abstract_name).unwrap(), &mine));
     }
 
     #[test]

@@ -3,8 +3,8 @@
 //! shares or copies, `unshare` replaces and `setns` changes, as Linux's `struct nsproxy`.
 //!
 //! The initial namespaces have the inode numbers Linux gives those (`linux/nsfs.h`); those made
-//! later get theirs from [`Inums`]. UTS and IPC namespaces can be made; a request for a new one
-//! of a kind that cannot is refused with `EPERM`, as a container's policy refuses it. Code
+//! later get theirs from [`Inums`]. UTS, IPC and network namespaces can be made; a request for
+//! a new one of a kind that cannot is refused with `EPERM`, as a container's policy refuses it. Code
 //! reaches every namespaced object through the caller's proxy ([`Kernel::ns`]), never through
 //! the kernel, so a kind becomes real by making [`NsProxy::make`] create it.
 
@@ -215,6 +215,9 @@ impl<T> Deref for Ns<T> {
 
 /// A mount namespace. There is one, the VFS's mount tree.
 pub(crate) struct Mnt;
+
+/// Makes the IP network of a network namespace made after boot.
+pub(crate) type NetworkFactory = Arc<dyn Fn() -> Arc<dyn wasixv2_vnet::Network> + Send + Sync>;
 
 /// What a network namespace holds besides its port space: the IP network, without which
 /// `socket` fails with `EAFNOSUPPORT`, and the bound Unix sockets.
@@ -471,8 +474,9 @@ impl NsProxy {
     /// Puts a new namespace of `kind` in place of the proxy's (`copy_mnt_ns`, `copy_utsname`,
     /// `copy_ipcs`, `copy_pid_ns`, `copy_cgroup_ns`, `copy_net_ns`, `copy_time_ns`,
     /// `create_user_ns`), owned by the proxy's user namespace. A new UTS namespace starts
-    /// with a copy of the names (`clone_uts_ns`), a new IPC namespace empty (`create_ipc_ns`).
-    /// Mount, network, pid, user, cgroup and time namespaces cannot be made yet.
+    /// with a copy of the names (`clone_uts_ns`), a new IPC namespace empty (`create_ipc_ns`),
+    /// a new network namespace with the network the kernel's factory makes and no abstract Unix
+    /// names (`setup_net`). Mount, pid, user, cgroup and time namespaces cannot be made yet.
     fn make(&mut self, kernel: &Kernel, kind: NsKind) -> Result<(), Errno> {
         let inums = &kernel.ns_inums;
         let owner = self.user.clone();
@@ -482,12 +486,16 @@ impl NsProxy {
                 self.uts = Ns::new(kind, owner, Mutex::new(names), inums)?;
             }
             NsKind::Ipc => self.ipc = Ns::new(kind, owner, ipc::Ipc::default(), inums)?,
-            NsKind::Mnt
-            | NsKind::Net
-            | NsKind::Pid
-            | NsKind::User
-            | NsKind::Cgroup
-            | NsKind::Time => return Err(Errno::EPERM),
+            NsKind::Net => {
+                let net = Net {
+                    network: kernel.network_factory.as_ref().map(|make| make()),
+                    unix_names: Arc::new(self.net.unix_names.for_new_net()),
+                };
+                self.net = Ns::new(kind, owner, net, inums)?;
+            }
+            NsKind::Mnt | NsKind::Pid | NsKind::User | NsKind::Cgroup | NsKind::Time => {
+                return Err(Errno::EPERM);
+            }
         }
         Ok(())
     }
