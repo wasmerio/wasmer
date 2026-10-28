@@ -432,12 +432,13 @@ async fn rewind_saved<S: 'static>(
     let (start_rewind, buffer) = cx
         .with(|env, store| {
             let memory = env.memory.clone().expect("an instance has memory");
-            let low_guard = env.low_guard;
+            let (low_guard, read_only) = (env.low_guard, env.read_only.clone());
             let a = env.asyncify.as_mut().expect("saved stacks are asyncify's");
             let buffer = a.buffer.expect("a saved stack went through the buffer");
             let end = buffer + HEADER + saved.data.len() as u32;
             let write = |addr: u32, bytes: &[u8]| {
-                crate::memory::write(&memory, low_guard, &*store, addr, bytes).map_err(fault)
+                crate::memory::write(&memory, low_guard, &read_only, &*store, addr, bytes)
+                    .map_err(fault)
             };
             let mut header = [0u8; HEADER as usize];
             header[..4].copy_from_slice(&end.to_le_bytes());
@@ -800,6 +801,7 @@ mod tests {
                 work: Arc::new(wasixv2_syscalls::WorkFlag::always()),
                 memory: None,
                 low_guard: 0,
+                read_only: Arc::default(),
                 stack_pointer: None,
                 abi: None,
                 threads: None,

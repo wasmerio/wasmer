@@ -65,6 +65,12 @@ pub trait UserMemory {
     /// once. What the range held is gone. `pages` must be at least `offset + len` bytes long for
     /// as long as the range shows it.
     ///
+    /// Without `writable` the range is a read-only view of the object (a `SHM_RDONLY`
+    /// attachment, a shared mapping of a file not open for writing): it still shows every
+    /// other process's stores, but a store by the guest into it faults (`SIGSEGV`), and
+    /// [`UserMemory::write`] and every other write into it fail with [`Fault`], until the range
+    /// is mapped again.
+    ///
     /// `EOPNOTSUPP` from memory that cannot share pages with other memories, which is the
     /// default: wasm alone cannot, and only a host that places pages inside a linear memory
     /// can. The kernel then keeps copies instead, synchronised at defined points.
@@ -74,13 +80,15 @@ pub trait UserMemory {
         len: u64,
         pages: &'a dyn SharedPages,
         offset: u64,
+        writable: bool,
     ) -> LocalFuture<'a, Result<(), Errno>> {
-        let _ = (addr, len, pages, offset);
+        let _ = (addr, len, pages, offset, writable);
         Box::pin(async { Err(Errno::EOPNOTSUPP) })
     }
 
     /// Ends what [`UserMemory::map_shared`] made of `[addr, addr + len)`: the range holds
-    /// private zeroed pages again, as fresh anonymous memory reads.
+    /// private zeroed pages again, as fresh anonymous memory reads, writable whether or not the
+    /// object's were.
     fn unmap_shared(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Errno>> {
         let _ = (addr, len);
         Box::pin(async { Err(Errno::EOPNOTSUPP) })

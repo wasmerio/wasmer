@@ -114,7 +114,7 @@ async fn push_frame<S: 'static>(
     put(&mut bytes, MC_RESTART, restart as u32);
     put(&mut bytes, MC_NPARAMS, nparams);
     frame.info.write_to(&mut bytes[UCONTEXT_SIZE as usize..]);
-    crate::memory::write(memory, data.low_guard, &*store, uc, &bytes)
+    crate::memory::write(memory, data.low_guard, &data.read_only, &*store, uc, &bytes)
         .map_err(|_| RuntimeError::new("signal frame outside guest memory"))?;
 
     let trampoline = match table.get(&mut *store, frame.trampoline) {

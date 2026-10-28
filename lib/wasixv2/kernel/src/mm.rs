@@ -23,10 +23,11 @@
 //! ([`Host::shared_pages`]) whose pages the memory itself shows ([`UserMemory::map_shared`]), so
 //! a fork child and its parent see each other's stores at once, as on Linux. Where the host or
 //! the memory cannot do that, it is ordinary memory of the address space, which a fork child
-//! gets a copy of. A writable shared mapping of a file that its filesystem keeps in such an
-//! object (memfd and `/dev/shm` files, [`wasixv2_vfs::Node::shared_pages`]) shows the object
-//! the same way, so it needs none of the synchronisation above: `read` and `write` reach the
-//! very pages every mapping shows. Where the memory cannot show them, it is a copy as above.
+//! gets a copy of. A shared mapping of a file that its filesystem keeps in such an object
+//! (memfd and `/dev/shm` files, [`wasixv2_vfs::Node::shared_pages`]) shows the object the same
+//! way, read-only if it may never be written, so it needs none of the synchronisation above:
+//! `read` and `write` reach the very pages every mapping shows. Where the memory cannot show
+//! them, it is a copy as above.
 //!
 //! [`Host::shared_pages`]: wasixv2_host::Host::shared_pages
 
@@ -1159,6 +1160,7 @@ impl Kernel {
                 len: mapping.len,
                 pages: mapped.pages.clone(),
                 offset: mapped.offset,
+                writable: mapped.writable,
             })
             .collect()
     }
@@ -1283,8 +1285,8 @@ impl Kernel {
 }
 
 /// The file checks of `do_mmap`, in its order, and the source of the mapping: the file's own
-/// pages for a writable shared mapping of a file kept in a shared memory object, a copy
-/// otherwise.
+/// pages for a shared mapping of a file kept in a shared memory object (read-only where the
+/// mapping may never be written), a copy otherwise.
 fn check_file_mapping(
     file: &Arc<OpenFile>,
     offset: Loff,
@@ -1343,11 +1345,7 @@ fn check_file_mapping(
     };
     // The object reaches past the end of the mapping, however far past the end of the file
     // that is, so the host never faults where Linux would raise SIGBUS: the pages read zero.
-    let pages = match writable {
-        true => inode.node().shared_pages(offset + pages * PAGE_SIZE)?,
-        false => None,
-    };
-    if let Some(pages) = pages {
+    if let Some(pages) = inode.node().shared_pages(offset + pages * PAGE_SIZE)? {
         return Ok(Source::Mapped(Mapped {
             pages,
             offset,

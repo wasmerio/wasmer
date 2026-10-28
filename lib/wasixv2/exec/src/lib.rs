@@ -92,6 +92,9 @@ pub struct ExecEnv<S> {
     /// Bytes at the bottom of `memory` that are read-only, where stores fault
     /// ([`memory::LOW_GUARD`]), or 0.
     low_guard: u32,
+    /// The ranges of `memory` that show shared objects read-only, which every thread of the
+    /// process shares.
+    read_only: Arc<memory::ReadOnly>,
     /// The guest's shadow stack pointer, `__stack_pointer`, which libc-built modules export.
     stack_pointer: Option<Global>,
     /// The instance's half of its ABI; set once the instance exists.
@@ -116,6 +119,7 @@ impl<S: Control> ExecEnv<S> {
             task,
             memory: None,
             low_guard: 0,
+            read_only: Arc::default(),
             stack_pointer: None,
             abi: None,
             threads: None,
@@ -497,9 +501,10 @@ where
     // Decided from the module's own globals, before a fork child's copy replaces them.
     let guarded = abi.low_guard() && memory::guardable(&instance, &mut store);
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
+    let read_only = Arc::<memory::ReadOnly>::default();
     if let Some(image) = fork {
         let guard = if guarded { memory::LOW_GUARD } else { 0 };
-        copy_image(&mut store, &instance, &memory, image, guard)?;
+        copy_image(&mut store, &instance, &memory, image, (guard, &read_only))?;
         if let Some(asyncify) = &mut asyncify {
             image.adopt(asyncify);
         }
@@ -511,14 +516,16 @@ where
     let bound = abi.bind(&instance, &mut store, task, Role::Process)?;
     // ---- thr ----
     let threads = memory.as_shared(&store).map(|shared| {
+        let protected = (low_guard, read_only.clone());
         let image = thread::Image::new(
-            &store, module, shared, low_guard, syscalls, host, abi, abis, handoff,
+            &store, module, shared, protected, syscalls, host, abi, abis, handoff,
         );
         image as Arc<dyn thread::Start>
     });
     let data = env.as_mut(&mut store);
     data.memory = Some(memory);
     data.low_guard = low_guard;
+    data.read_only = read_only;
     data.stack_pointer = stack_pointer(&instance);
     data.abi = Some(bound.clone());
     data.threads = threads;
@@ -538,15 +545,15 @@ pub(crate) fn stack_pointer(instance: &Instance) -> Option<Global> {
 }
 
 /// Fills a fresh instance with a forked parent's memory and globals, and makes its memory show
-/// the parent's shared objects where the parent's does. The instance's own low guard of `guard`
-/// bytes is not protected yet: mapping an object resets the protection of its range, so the
-/// guard is protected after.
+/// the parent's shared objects where the parent's does, read-only where the parent's are, as
+/// recorded in `read_only`. The instance's own low guard of `guard` bytes is not protected yet:
+/// mapping an object resets the protection of its range, so the guard is protected after.
 fn copy_image(
     store: &mut Store,
     instance: &Instance,
     memory: &Memory,
     image: &asyncify::ForkImage,
-    guard: u32,
+    (guard, read_only): (u32, &memory::ReadOnly),
 ) -> Result<(), ExecError> {
     let size = memory.view(&*store).data_size();
     let missing = image.memory.size().saturating_sub(size);
@@ -558,7 +565,7 @@ fn copy_image(
         .memory
         .restore(memory, &*store)
         .map_err(|err| ExecError::Fork(err.to_string()))?;
-    map_inherited(memory, guard, &*store, &image.shared)?;
+    map_inherited(memory, (guard, read_only), &*store, &image.shared)?;
     for (name, value) in &image.globals {
         let global = instance.exports.get_global(name)?;
         global
@@ -573,7 +580,7 @@ fn copy_image(
 #[cfg(all(unix, feature = "sys"))]
 fn map_inherited(
     memory: &Memory,
-    guard: u32,
+    (guard, read_only): (u32, &memory::ReadOnly),
     store: &impl wasmer::AsStoreRef,
     shared: &[wasixv2_syscalls::SharedMapping],
 ) -> Result<(), ExecError> {
@@ -582,11 +589,12 @@ fn map_inherited(
         memory::map_shared(
             memory,
             guard,
+            read_only,
             store,
-            addr,
-            len,
+            (addr, len),
             &*mapping.pages,
             mapping.offset,
+            mapping.writable,
         )
         .map_err(|errno| {
             ExecError::Fork(format!(
@@ -601,7 +609,7 @@ fn map_inherited(
 #[cfg(not(all(unix, feature = "sys")))]
 fn map_inherited(
     _memory: &Memory,
-    _guard: u32,
+    _protected: (u32, &memory::ReadOnly),
     _store: &impl wasmer::AsStoreRef,
     shared: &[wasixv2_syscalls::SharedMapping],
 ) -> Result<(), ExecError> {

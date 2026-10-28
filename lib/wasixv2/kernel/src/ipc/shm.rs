@@ -3,7 +3,8 @@
 //! Where the host has shared memory objects ([`Host::shared_pages`]), a segment is one, as
 //! Linux's is a shmem file (`shmem_kernel_file_setup` in `newseg`), and every attachment maps
 //! its pages into the attaching process's memory ([`UserMemory::map_shared`]): all attachments,
-//! in any process, are the same memory, and a futex in the segment works across them.
+//! in any process, are the same memory, and a futex in the segment works across them. A
+//! `SHM_RDONLY` attachment shows them read-only: a store by the guest faults with `SIGSEGV`.
 //!
 //! [`Host::shared_pages`]: wasixv2_host::Host::shared_pages
 //! [`UserMemory::map_shared`]: wasixv2_syscalls::UserMemory::map_shared

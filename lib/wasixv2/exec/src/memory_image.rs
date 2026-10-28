@@ -312,7 +312,7 @@ mod tests {
     fn a_fork_leaves_out_shared_objects_and_the_child_maps_them_again() {
         use wasixv2_pages::{Memfd, SharedPages};
 
-        use crate::memory::{LOW_GUARD, map_shared};
+        use crate::memory::{LOW_GUARD, ReadOnly, map_shared};
 
         let Some(pagemap) = Pagemap::get() else {
             eprintln!("skipped: this host has no usable /proc/self/pagemap");
@@ -323,7 +323,12 @@ mod tests {
         let parent = memory(&mut store, 8);
         let pages = Memfd::new(2 * WASM_PAGE).unwrap();
         let (at, len) = (4 * WASM_PAGE, 2 * WASM_PAGE);
-        map_shared(&parent, LOW_GUARD, &store, at as u32, len, &pages, 0).unwrap();
+        let range = (at as u32, len);
+        let read_only = ReadOnly::default();
+        map_shared(
+            &parent, LOW_GUARD, &read_only, &store, range, &pages, 0, true,
+        )
+        .unwrap();
         let view = parent.view(&store);
         view.write(WASM_PAGE, b"private").unwrap();
         view.write(at + 10, b"shared").unwrap();
@@ -343,7 +348,11 @@ mod tests {
 
         let child = memory(&mut store, 8);
         image.restore(&child, &store).unwrap();
-        map_shared(&child, LOW_GUARD, &store, at as u32, len, &pages, 0).unwrap();
+        let read_only = ReadOnly::default();
+        map_shared(
+            &child, LOW_GUARD, &read_only, &store, range, &pages, 0, true,
+        )
+        .unwrap();
         let view = child.view(&store);
         let mut buf = [0; 7];
         view.read(WASM_PAGE, &mut buf).unwrap();
