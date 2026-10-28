@@ -8,7 +8,7 @@ use std::{
     path::Path,
     pin::pin,
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, PoisonError, Weak,
         atomic::{AtomicBool, Ordering},
     },
     task::{Context, Poll, Waker},
@@ -878,9 +878,6 @@ fn boot(
         .with_shm(shm_filesystem(host))
         .with_credentials(user.clone())
         .with_uname(uname);
-    kernel
-        .register_filesystem("tmpfs", Arc::new(Tmpfs(host.clone())))
-        .expect("a new kernel has no tmpfs yet");
     if init {
         kernel = kernel.with_init();
     }
@@ -1026,29 +1023,36 @@ fn shared_tmpfs(host: &Arc<dyn Host>, mode: u32) -> MemFs {
 }
 
 /// `tmpfs`, the filesystem type `mount -t tmpfs` makes: a memory filesystem whose files live in
-/// host shared memory as [`shared_tmpfs`]'s, with `mm/shmem.c`'s options.
-struct Tmpfs(Arc<dyn Host>);
+/// host shared memory as [`shared_tmpfs`]'s, with `mm/shmem.c`'s options. It keeps track of
+/// its instances to change their limits on remount.
+struct Tmpfs {
+    host: Arc<dyn Host>,
+    instances: Mutex<Vec<Weak<MemFs>>>,
+}
 
-/// What a tmpfs mount's options ask for (`struct shmem_options`).
+/// The options a tmpfs mount or remount names (`struct shmem_options`); `None` for one it
+/// leaves out.
+#[derive(Default)]
 struct TmpfsOptions {
-    limits: Limits,
-    mode: u32,
-    uid: u32,
-    gid: u32,
+    max_bytes: Option<u64>,
+    max_inodes: Option<u64>,
+    mode: Option<u32>,
+    uid: Option<u32>,
+    gid: Option<u32>,
 }
 
 impl Tmpfs {
-    /// `shmem_parse_one` over `params`, from the defaults: half the machine's memory and an
-    /// inode per two of its pages, a sticky world-writable root owned by the mounter
-    /// (`shmem_init_fs_context`).
-    fn options(params: &[FsParam<'_>], cred: &Cred) -> Result<TmpfsOptions, Errno> {
+    fn new(host: Arc<dyn Host>) -> Self {
+        Self {
+            host,
+            instances: Mutex::default(),
+        }
+    }
+
+    /// `shmem_parse_one` over `params`.
+    fn options(params: &[FsParam<'_>]) -> Result<TmpfsOptions, Errno> {
         let memory = Limits::DEFAULT_MEMORY;
-        let mut options = TmpfsOptions {
-            limits: Limits::for_memory(memory),
-            mode: 0o1777,
-            uid: cred.fsuid,
-            gid: cred.fsgid,
-        };
+        let mut options = TmpfsOptions::default();
         for param in params {
             let value = || param.value.ok_or(Errno::EINVAL);
             match param.key {
@@ -1059,20 +1063,20 @@ impl Tmpfs {
                         b"%" => size.saturating_mul(memory) / 100,
                         _ => return Err(Errno::EINVAL),
                     };
-                    options.limits.max_bytes = Some(size.div_ceil(PAGE) * PAGE);
+                    options.max_bytes = Some(size.div_ceil(PAGE) * PAGE);
                 }
                 b"nr_blocks" => {
                     let blocks = memparse_all(value()?)?;
-                    options.limits.max_bytes = Some(blocks.checked_mul(PAGE).ok_or(Errno::EINVAL)?);
+                    options.max_bytes = Some(blocks.checked_mul(PAGE).ok_or(Errno::EINVAL)?);
                 }
-                b"nr_inodes" => options.limits.max_inodes = Some(memparse_all(value()?)?),
+                b"nr_inodes" => options.max_inodes = Some(memparse_all(value()?)?),
                 b"mode" => {
                     let mode = std::str::from_utf8(value()?).map_err(|_| Errno::EINVAL)?;
-                    options.mode =
-                        u32::from_str_radix(mode, 8).map_err(|_| Errno::EINVAL)? & 0o7777;
+                    let mode = u32::from_str_radix(mode, 8).map_err(|_| Errno::EINVAL)?;
+                    options.mode = Some(mode & 0o7777);
                 }
-                b"uid" => options.uid = id(value()?)?,
-                b"gid" => options.gid = id(value()?)?,
+                b"uid" => options.uid = Some(id(value()?)?),
+                b"gid" => options.gid = Some(id(value()?)?),
                 // No transparent huge pages: only `never` is supported.
                 b"huge" if value()? == b"never" => {}
                 b"inode32" | b"inode64" | b"noswap" if param.value.is_none() => {}
@@ -1080,6 +1084,39 @@ impl Tmpfs {
             }
         }
         Ok(options)
+    }
+
+    /// A new instance as `options` say, from the defaults: half the machine's memory and an
+    /// inode per two of its pages, and a sticky world-writable root owned by the mounter
+    /// (`shmem_init_fs_context`).
+    fn make(&self, options: &TmpfsOptions, cred: &Cred) -> Arc<MemFs> {
+        let defaults = Limits::for_memory(Limits::DEFAULT_MEMORY);
+        let limits = Limits {
+            max_bytes: options.max_bytes.or(defaults.max_bytes),
+            max_inodes: options.max_inodes.or(defaults.max_inodes),
+        };
+        let clock = Arc::new(HostClock(self.host.clone()));
+        let mode = options.mode.unwrap_or(0o1777);
+        let uid = options.uid.unwrap_or(cred.fsuid);
+        let gid = options.gid.unwrap_or(cred.fsgid);
+        let mut fs = MemFs::with_limits(clock, mode, uid, gid, limits);
+        if cfg!(any(target_os = "linux", target_os = "android")) {
+            fs = fs.with_shared_pages(Arc::new(HostPages(self.host.clone())));
+        }
+        let fs = Arc::new(fs);
+        self.adopt(&fs);
+        fs
+    }
+
+    /// Counts `fs`, a memory filesystem made elsewhere, as an instance, so that a remount can
+    /// change its limits.
+    fn adopt(&self, fs: &Arc<MemFs>) {
+        let mut instances = self
+            .instances
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        instances.retain(|instance| instance.strong_count() > 0);
+        instances.push(Arc::downgrade(fs));
     }
 }
 
@@ -1090,21 +1127,32 @@ impl FilesystemType for Tmpfs {
         params: &[FsParam<'_>],
         cred: &Cred,
     ) -> Result<Arc<dyn Filesystem>, Errno> {
-        let options = Self::options(params, cred)?;
-        let clock = Arc::new(HostClock(self.0.clone()));
-        let fs = MemFs::with_limits(
-            clock,
-            options.mode,
-            options.uid,
-            options.gid,
-            options.limits,
-        );
-        if cfg!(any(target_os = "linux", target_os = "android")) {
-            return Ok(Arc::new(
-                fs.with_shared_pages(Arc::new(HostPages(self.0.clone()))),
-            ));
-        }
-        Ok(Arc::new(fs))
+        let options = Self::options(params)?;
+        Ok(self.make(&options, cred))
+    }
+
+    /// `shmem_reconfigure`: the size and inode limits change; the root's mode and owner are
+    /// the mount's alone.
+    fn reconfigure(&self, fs: &Arc<dyn Filesystem>, params: &[FsParam<'_>]) -> Result<(), Errno> {
+        let options = Self::options(params)?;
+        let instances = self
+            .instances
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let instance = instances
+            .iter()
+            .filter_map(Weak::upgrade)
+            .find(|instance| std::ptr::addr_eq(Arc::as_ptr(instance), Arc::as_ptr(fs)));
+        let Some(instance) = instance else {
+            return match params.is_empty() {
+                true => Ok(()),
+                false => Err(Errno::EINVAL),
+            };
+        };
+        instance.set_limits(Limits {
+            max_bytes: options.max_bytes,
+            max_inodes: options.max_inodes,
+        })
     }
 }
 
@@ -1117,11 +1165,11 @@ impl FilesystemType for Devtmpfs {
         &self,
         _source: &[u8],
         params: &[FsParam<'_>],
-        cred: &Cred,
+        _cred: &Cred,
     ) -> Result<Arc<dyn Filesystem>, Errno> {
         // devtmpfs is a tmpfs: it takes tmpfs's options, which change nothing of the existing
         // instance.
-        Tmpfs::options(params, cred)?;
+        Tmpfs::options(params)?;
         Ok(self.0.clone())
     }
 }
@@ -1313,12 +1361,20 @@ fn group(gid: u32) -> String {
 /// Mounts the kernel's filesystems as a Linux system has them: `/proc`, `/dev` (a memory
 /// filesystem with the device nodes, as devtmpfs is, and the conventional links into
 /// `/proc/self/fd`), memory filesystems at `/dev/shm` for POSIX shared memory and at `/tmp`,
-/// world-writable and sticky, and the pty filesystem at `/dev/pts`.
+/// world-writable and sticky, and the pty filesystem at `/dev/pts`. The memory filesystems are
+/// instances of `tmpfs`, which `mount` can make more of, and `/dev` is `devtmpfs`.
 async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
     let vfs = kernel.vfs();
-    let tmpfs = |mode| -> Arc<dyn Filesystem> {
-        Arc::new(MemFs::new(Arc::new(HostClock(host.clone())), mode, 0, 0))
+    let tmpfs_type = Arc::new(Tmpfs::new(host.clone()));
+    kernel
+        .register_filesystem("tmpfs", tmpfs_type.clone())
+        .expect("a new kernel has no tmpfs yet");
+    let adopt = |fs: MemFs| -> Arc<dyn Filesystem> {
+        let fs = Arc::new(fs);
+        tmpfs_type.adopt(&fs);
+        fs
     };
+    let tmpfs = |mode| adopt(MemFs::new(Arc::new(HostClock(host.clone())), mode, 0, 0));
     let flags = |nodev, noexec| MountFlags {
         nosuid: true,
         nodev,
@@ -1363,7 +1419,7 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
                 vfs.symlink(&cx, target.as_bytes(), &top, link.as_bytes())
                     .await?;
             }
-            let shm = Arc::new(shared_tmpfs(host, 0o1777));
+            let shm = adopt(shared_tmpfs(host, 0o1777));
             mount("/dev/shm", shm, flags(true, false)).await;
             mount("/dev/pts", kernel.devpts(), flags(false, true)).await;
         }
@@ -1409,6 +1465,15 @@ mod tests {
             .collect()
     }
 
+    fn tmpfs() -> Tmpfs {
+        Tmpfs::new(Arc::new(TokioHost::default()))
+    }
+
+    /// The bytes `fs` may hold.
+    fn size(fs: &Arc<dyn Filesystem>) -> u64 {
+        now(fs.statfs()).unwrap().blocks * PAGE
+    }
+
     #[test]
     fn memparse_takes_c_numbers_and_size_suffixes() {
         assert_eq!(memparse(b"10"), Ok((10, b"".as_slice())));
@@ -1424,13 +1489,14 @@ mod tests {
     #[test]
     fn tmpfs_options_are_shmems() {
         let cred = Cred::user(5, 6);
-        let defaults = Tmpfs::options(&[], &cred).unwrap();
+        let defaults: Arc<dyn Filesystem> = tmpfs().make(&Tmpfs::options(&[]).unwrap(), &cred);
+        let root = now(defaults.root().getattr()).unwrap();
+        assert_eq!((root.mode & 0o7777, root.uid, root.gid), (0o1777, 5, 6));
         assert_eq!(
-            defaults.limits,
-            Limits::default(),
+            Some(size(&defaults)),
+            Limits::default().max_bytes,
             "half the machine's memory"
         );
-        assert_eq!((defaults.mode, defaults.uid, defaults.gid), (0o1777, 5, 6));
 
         let set = params(&[
             ("size", Some("10001")),
@@ -1441,13 +1507,15 @@ mod tests {
             ("huge", Some("never")),
             ("inode64", None),
         ]);
-        let options = Tmpfs::options(&set, &cred).unwrap();
-        assert_eq!(options.limits.max_bytes, Some(3 * PAGE), "whole pages");
-        assert_eq!(options.limits.max_inodes, Some(1024));
-        assert_eq!((options.mode, options.uid, options.gid), (0o1755, 7, 8));
-
-        let half = Tmpfs::options(&params(&[("size", Some("50%"))]), &cred).unwrap();
-        assert_eq!(half.limits.max_bytes, Some(Limits::DEFAULT_MEMORY / 2));
+        let options = Tmpfs::options(&set).unwrap();
+        assert_eq!(options.max_bytes, Some(3 * PAGE), "whole pages");
+        assert_eq!(options.max_inodes, Some(1024));
+        assert_eq!(
+            (options.mode, options.uid, options.gid),
+            (Some(0o1755), Some(7), Some(8))
+        );
+        let half = Tmpfs::options(&params(&[("size", Some("50%"))])).unwrap();
+        assert_eq!(half.max_bytes, Some(Limits::DEFAULT_MEMORY / 2));
 
         for bad in [
             ("size", Some("1x")),
@@ -1460,10 +1528,31 @@ mod tests {
             ("bogus", None),
         ] {
             assert_eq!(
-                Tmpfs::options(&params(&[bad]), &cred).err(),
+                Tmpfs::options(&params(&[bad])).err(),
                 Some(Errno::EINVAL),
                 "{bad:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_tmpfs_remount_changes_the_limits_of_that_instance() {
+        let tmpfs = tmpfs();
+        let cred = Cred::root();
+        let options = Tmpfs::options(&params(&[("size", Some("1m"))])).unwrap();
+        let fs: Arc<dyn Filesystem> = tmpfs.make(&options, &cred);
+        let other: Arc<dyn Filesystem> = tmpfs.make(&options, &cred);
+        let resize = params(&[("size", Some("2m")), ("mode", Some("0700"))]);
+        assert_eq!(tmpfs.reconfigure(&fs, &resize), Ok(()));
+        assert_eq!(size(&fs), 2 << 20);
+        assert_eq!(size(&other), 1 << 20);
+        let root = now(fs.root().getattr()).unwrap();
+        assert_eq!(root.mode & 0o7777, 0o1777, "the mode is the mount's");
+
+        let host: Arc<dyn Host> = Arc::new(TokioHost::default());
+        let unknown: Arc<dyn Filesystem> =
+            Arc::new(MemFs::new(Arc::new(HostClock(host)), 0o755, 0, 0));
+        assert_eq!(tmpfs.reconfigure(&unknown, &[]), Ok(()));
+        assert_eq!(tmpfs.reconfigure(&unknown, &resize), Err(Errno::EINVAL));
     }
 }
