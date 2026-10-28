@@ -68,8 +68,8 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
 use wasixv2_syscalls::{
-    AtomicWait, AtomicWord, Binfmt, Caller, Control, Errno, ExecImage, Fd, GuestAction, Image,
-    LocalFuture, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
+    AtomicWait, AtomicWord, Binfmt, Caller, Control, Errno, Fd, GuestAction, Image, LocalFuture,
+    SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -2426,15 +2426,13 @@ impl Control for Kernel {
     }
 
     // ---- proc ----
-    fn exec_wait(&self, task: TaskId) -> LocalFuture<'_, Result<(), i32>> {
-        Box::pin(Kernel::exec_wait(self, task))
-    }
-}
-
-impl ExecImage for Kernel {
-    fn take_exec_image(&self, task: TaskId) -> Option<Image> {
+    fn take_image(&self, task: TaskId) -> Option<Image> {
         let mut state = self.state.lock().unwrap();
         state.tasks.get_mut(&task)?.work.take_image()
+    }
+
+    fn exec_wait(&self, task: TaskId) -> LocalFuture<'_, Result<(), i32>> {
+        Box::pin(Kernel::exec_wait(self, task))
     }
 }
 

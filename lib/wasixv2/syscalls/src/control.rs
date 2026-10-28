@@ -27,8 +27,8 @@ pub enum GuestAction {
     /// [`Control::signal_return`].
     Signal(SignalFrame),
     // ---- proc ----
-    /// The task replaced its image (`execve`): run the module [`ExecImage::take_exec_image`] hands
-    /// out as the same task, in a new instance with new memory, from `_start`. With
+    /// The task replaced its image (`execve`): run the module [`Control::take_image`] hands out
+    /// as the same task, in a new instance with new memory, from `_start`. With
     /// `vfork_parent`, the task was a vfork child running in its parent's instance: the new
     /// instance runs on its own, and this one goes back to the parent as for
     /// [`GuestAction::VforkReturn`].
@@ -146,7 +146,7 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control: AtomicWait + ExecImage {
+pub trait Control: AtomicWait {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
@@ -164,13 +164,8 @@ pub trait Control: AtomicWait + ExecImage {
         let _ = (task, mask);
     }
 
-    /// Superseded by [`ExecImage::take_exec_image`], which shares the image instead of
-    /// copying it; nothing calls this. It stays until the generator of `Layered`'s forwarding
-    /// (`wasixv2-codegen`) drops it.
-    fn take_image(&self, task: TaskId) -> Option<Vec<u8>> {
-        let _ = task;
-        None
-    }
+    /// The image `task`'s pending [`GuestAction::Exec`] runs, which `execve` loaded.
+    fn take_image(&self, task: TaskId) -> Option<Image>;
 
     /// Before the image of a [`GuestAction::Exec`] starts, once the instance left the old one:
     /// waits until the `execve` committed and `task` is the only task left in its thread group,
@@ -329,20 +324,6 @@ impl std::fmt::Debug for Image {
 pub struct ImageId {
     addr: usize,
     len: usize,
-}
-
-/// The images `execve` loaded, which the execution layer runs.
-pub trait ExecImage {
-    /// The image `task`'s pending [`GuestAction::Exec`] runs.
-    fn take_exec_image(&self, task: TaskId) -> Option<Image>;
-}
-
-// By hand rather than generated with the rest of `Layered`: the layers see syscalls, and these
-// are not.
-impl<L, S: ExecImage> ExecImage for Layered<L, S> {
-    fn take_exec_image(&self, task: TaskId) -> Option<Image> {
-        self.inner.take_exec_image(task)
-    }
 }
 
 // By hand rather than generated with the rest of `Layered`: the layers see syscalls, and these

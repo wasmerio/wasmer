@@ -64,7 +64,7 @@ where
         env: &FunctionEnv<ExecEnv<S>>,
         module: &Module,
     ) -> Imports {
-        let mut imports = generated::imports(store, env);
+        let mut imports = generated::imports(store, env, module);
         if asyncify::instrumented(module) {
             fork::imports(store, env, &mut imports);
         }

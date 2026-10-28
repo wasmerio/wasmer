@@ -720,7 +720,7 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 // The kernel queues the image with the action; without one, the empty image
                 // fails to load and the process dies as past any `execve`'s point of no return.
                 let image = syscalls
-                    .take_exec_image(task)
+                    .take_image(task)
                     .unwrap_or_else(|| Image::copied(Vec::new()));
                 let Some(parent) = vfork_parent else {
                     return Outcome::Unwind(RuntimeError::user(Box::new(process::ExecNew(image))));

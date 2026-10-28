@@ -34,1688 +34,488 @@ use wasixv2_abi::{
     XattrArgsPtr, XattrFlags,
 };
 use wasixv2_syscalls::{Caller, Control, Syscalls, TaskId, UserSlice, UserSliceMut};
-use wasmer::{AsyncFunctionEnvMut, Function, FunctionEnv, Imports, RuntimeError, Store};
+use wasmer::{AsyncFunctionEnvMut, Function, FunctionEnv, Imports, Module, RuntimeError, Store};
 
 use crate::{ExecEnv, memory::GuestMemory, return_to_guest};
 
 /// Name of the import module that holds every syscall and extension.
 pub const IMPORT_MODULE: &str = "wasixv2";
 
-pub(crate) fn imports<S>(store: &mut Store, env: &FunctionEnv<ExecEnv<S>>) -> Imports
+/// The functions of [`IMPORT_MODULE`] that `module` imports, for an instance whose environment
+/// is `env`. Only those: every instance (each thread, each image) defines its own. An import
+/// no syscall answers to stays undefined, and the module fails to link.
+pub(crate) fn imports<S>(
+    store: &mut Store,
+    env: &FunctionEnv<ExecEnv<S>>,
+    module: &Module,
+) -> Imports
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let mut imports = Imports::new();
-    imports.define(
-        IMPORT_MODULE,
-        "startup_size",
-        Function::new_typed_with_env_async(store, env, startup_size::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "startup_get",
-        Function::new_typed_with_env_async(store, env, startup_get::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "thread_spawn",
-        Function::new_typed_with_env_async(store, env, thread_spawn::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "signal_callback_register",
-        Function::new_typed_with_env_async(store, env, signal_callback_register::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "call_dynamic",
-        Function::new_typed_with_env_async(store, env, call_dynamic::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "reflect_signature",
-        Function::new_typed_with_env_async(store, env, reflect_signature::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "closure_allocate",
-        Function::new_typed_with_env_async(store, env, closure_allocate::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "closure_prepare",
-        Function::new_typed_with_env_async(store, env, closure_prepare::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "closure_free",
-        Function::new_typed_with_env_async(store, env, closure_free::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "checkpoint",
-        Function::new_typed_with_env_async(store, env, checkpoint::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "stack_save",
-        Function::new_typed_with_env_async(store, env, stack_save::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "stack_restore",
-        Function::new_typed_with_env_async(store, env, stack_restore::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "context_create",
-        Function::new_typed_with_env_async(store, env, context_create::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "context_switch",
-        Function::new_typed_with_env_async(store, env, context_switch::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "context_destroy",
-        Function::new_typed_with_env_async(store, env, context_destroy::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "dl_open",
-        Function::new_typed_with_env_async(store, env, dl_open::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "dl_sym",
-        Function::new_typed_with_env_async(store, env, dl_sym::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "dl_close",
-        Function::new_typed_with_env_async(store, env, dl_close::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "dl_next_init",
-        Function::new_typed_with_env_async(store, env, dl_next_init::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "openat",
-        Function::new_typed_with_env_async(store, env, openat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "openat2",
-        Function::new_typed_with_env_async(store, env, openat2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "close",
-        Function::new_typed_with_env_async(store, env, close::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "close_range",
-        Function::new_typed_with_env_async(store, env, close_range::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "dup",
-        Function::new_typed_with_env_async(store, env, dup::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "dup3",
-        Function::new_typed_with_env_async(store, env, dup3::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fcntl64",
-        Function::new_typed_with_env_async(store, env, fcntl64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "flock",
-        Function::new_typed_with_env_async(store, env, flock::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "ioctl",
-        Function::new_typed_with_env_async(store, env, ioctl::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "read",
-        Function::new_typed_with_env_async(store, env, read::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "write",
-        Function::new_typed_with_env_async(store, env, write::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "readv",
-        Function::new_typed_with_env_async(store, env, readv::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "writev",
-        Function::new_typed_with_env_async(store, env, writev::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pread64",
-        Function::new_typed_with_env_async(store, env, pread64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pwrite64",
-        Function::new_typed_with_env_async(store, env, pwrite64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "preadv",
-        Function::new_typed_with_env_async(store, env, preadv::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pwritev",
-        Function::new_typed_with_env_async(store, env, pwritev::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "preadv2",
-        Function::new_typed_with_env_async(store, env, preadv2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pwritev2",
-        Function::new_typed_with_env_async(store, env, pwritev2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "lseek",
-        Function::new_typed_with_env_async(store, env, lseek::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sendfile64",
-        Function::new_typed_with_env_async(store, env, sendfile64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "splice",
-        Function::new_typed_with_env_async(store, env, splice::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "tee",
-        Function::new_typed_with_env_async(store, env, tee::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "vmsplice",
-        Function::new_typed_with_env_async(store, env, vmsplice::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "copy_file_range",
-        Function::new_typed_with_env_async(store, env, copy_file_range::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "truncate64",
-        Function::new_typed_with_env_async(store, env, truncate64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "ftruncate64",
-        Function::new_typed_with_env_async(store, env, ftruncate64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fallocate",
-        Function::new_typed_with_env_async(store, env, fallocate::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fadvise64_64",
-        Function::new_typed_with_env_async(store, env, fadvise64_64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "readahead",
-        Function::new_typed_with_env_async(store, env, readahead::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sync",
-        Function::new_typed_with_env_async(store, env, sync::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fsync",
-        Function::new_typed_with_env_async(store, env, fsync::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fdatasync",
-        Function::new_typed_with_env_async(store, env, fdatasync::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "syncfs",
-        Function::new_typed_with_env_async(store, env, syncfs::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sync_file_range",
-        Function::new_typed_with_env_async(store, env, sync_file_range::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getdents64",
-        Function::new_typed_with_env_async(store, env, getdents64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mkdirat",
-        Function::new_typed_with_env_async(store, env, mkdirat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mknodat",
-        Function::new_typed_with_env_async(store, env, mknodat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "unlinkat",
-        Function::new_typed_with_env_async(store, env, unlinkat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "symlinkat",
-        Function::new_typed_with_env_async(store, env, symlinkat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "linkat",
-        Function::new_typed_with_env_async(store, env, linkat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "renameat2",
-        Function::new_typed_with_env_async(store, env, renameat2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "readlinkat",
-        Function::new_typed_with_env_async(store, env, readlinkat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "faccessat",
-        Function::new_typed_with_env_async(store, env, faccessat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "faccessat2",
-        Function::new_typed_with_env_async(store, env, faccessat2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "chdir",
-        Function::new_typed_with_env_async(store, env, chdir::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fchdir",
-        Function::new_typed_with_env_async(store, env, fchdir::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "chroot",
-        Function::new_typed_with_env_async(store, env, chroot::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fchroot",
-        Function::new_typed_with_env_async(store, env, fchroot::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getcwd",
-        Function::new_typed_with_env_async(store, env, getcwd::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fchmod",
-        Function::new_typed_with_env_async(store, env, fchmod::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fchmodat",
-        Function::new_typed_with_env_async(store, env, fchmodat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fchmodat2",
-        Function::new_typed_with_env_async(store, env, fchmodat2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fchown",
-        Function::new_typed_with_env_async(store, env, fchown::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fchownat",
-        Function::new_typed_with_env_async(store, env, fchownat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "statx",
-        Function::new_typed_with_env_async(store, env, statx::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "statfs64",
-        Function::new_typed_with_env_async(store, env, statfs64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fstatfs64",
-        Function::new_typed_with_env_async(store, env, fstatfs64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "utimensat_time64",
-        Function::new_typed_with_env_async(store, env, utimensat_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pipe2",
-        Function::new_typed_with_env_async(store, env, pipe2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "memfd_create",
-        Function::new_typed_with_env_async(store, env, memfd_create::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "memfd_secret",
-        Function::new_typed_with_env_async(store, env, memfd_secret::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "name_to_handle_at",
-        Function::new_typed_with_env_async(store, env, name_to_handle_at::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "open_by_handle_at",
-        Function::new_typed_with_env_async(store, env, open_by_handle_at::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "cachestat",
-        Function::new_typed_with_env_async(store, env, cachestat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "file_getattr",
-        Function::new_typed_with_env_async(store, env, file_getattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "file_setattr",
-        Function::new_typed_with_env_async(store, env, file_setattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "quotactl",
-        Function::new_typed_with_env_async(store, env, quotactl::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "quotactl_fd",
-        Function::new_typed_with_env_async(store, env, quotactl_fd::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setxattr",
-        Function::new_typed_with_env_async(store, env, setxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "lsetxattr",
-        Function::new_typed_with_env_async(store, env, lsetxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fsetxattr",
-        Function::new_typed_with_env_async(store, env, fsetxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getxattr",
-        Function::new_typed_with_env_async(store, env, getxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "lgetxattr",
-        Function::new_typed_with_env_async(store, env, lgetxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fgetxattr",
-        Function::new_typed_with_env_async(store, env, fgetxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "listxattr",
-        Function::new_typed_with_env_async(store, env, listxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "llistxattr",
-        Function::new_typed_with_env_async(store, env, llistxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "flistxattr",
-        Function::new_typed_with_env_async(store, env, flistxattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "removexattr",
-        Function::new_typed_with_env_async(store, env, removexattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "lremovexattr",
-        Function::new_typed_with_env_async(store, env, lremovexattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fremovexattr",
-        Function::new_typed_with_env_async(store, env, fremovexattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setxattrat",
-        Function::new_typed_with_env_async(store, env, setxattrat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getxattrat",
-        Function::new_typed_with_env_async(store, env, getxattrat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "listxattrat",
-        Function::new_typed_with_env_async(store, env, listxattrat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "removexattrat",
-        Function::new_typed_with_env_async(store, env, removexattrat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "epoll_create1",
-        Function::new_typed_with_env_async(store, env, epoll_create1::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "epoll_ctl",
-        Function::new_typed_with_env_async(store, env, epoll_ctl::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "epoll_pwait",
-        Function::new_typed_with_env_async(store, env, epoll_pwait::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "epoll_pwait2",
-        Function::new_typed_with_env_async(store, env, epoll_pwait2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "ppoll_time64",
-        Function::new_typed_with_env_async(store, env, ppoll_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pselect6_time64",
-        Function::new_typed_with_env_async(store, env, pselect6_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "eventfd2",
-        Function::new_typed_with_env_async(store, env, eventfd2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "signalfd4",
-        Function::new_typed_with_env_async(store, env, signalfd4::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "timerfd_create",
-        Function::new_typed_with_env_async(store, env, timerfd_create::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "timerfd_settime64",
-        Function::new_typed_with_env_async(store, env, timerfd_settime64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "timerfd_gettime64",
-        Function::new_typed_with_env_async(store, env, timerfd_gettime64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "inotify_init1",
-        Function::new_typed_with_env_async(store, env, inotify_init1::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "inotify_add_watch",
-        Function::new_typed_with_env_async(store, env, inotify_add_watch::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "inotify_rm_watch",
-        Function::new_typed_with_env_async(store, env, inotify_rm_watch::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fanotify_init",
-        Function::new_typed_with_env_async(store, env, fanotify_init::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fanotify_mark",
-        Function::new_typed_with_env_async(store, env, fanotify_mark::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rt_sigaction",
-        Function::new_typed_with_env_async(store, env, rt_sigaction::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rt_sigprocmask",
-        Function::new_typed_with_env_async(store, env, rt_sigprocmask::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rt_sigpending",
-        Function::new_typed_with_env_async(store, env, rt_sigpending::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rt_sigsuspend",
-        Function::new_typed_with_env_async(store, env, rt_sigsuspend::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rt_sigtimedwait_time64",
-        Function::new_typed_with_env_async(store, env, rt_sigtimedwait_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rt_sigqueueinfo",
-        Function::new_typed_with_env_async(store, env, rt_sigqueueinfo::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rt_tgsigqueueinfo",
-        Function::new_typed_with_env_async(store, env, rt_tgsigqueueinfo::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rt_sigreturn",
-        Function::new_typed_with_env_async(store, env, rt_sigreturn::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sigaltstack",
-        Function::new_typed_with_env_async(store, env, sigaltstack::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "kill",
-        Function::new_typed_with_env_async(store, env, kill::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "tkill",
-        Function::new_typed_with_env_async(store, env, tkill::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "tgkill",
-        Function::new_typed_with_env_async(store, env, tgkill::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pidfd_send_signal",
-        Function::new_typed_with_env_async(store, env, pidfd_send_signal::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "restart_syscall",
-        Function::new_typed_with_env_async(store, env, restart_syscall::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "clone",
-        Function::new_typed_with_env_async(store, env, clone::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "clone3",
-        Function::new_typed_with_env_async(store, env, clone3::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "execve",
-        Function::new_typed_with_env_async(store, env, execve::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "execveat",
-        Function::new_typed_with_env_async(store, env, execveat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "exit",
-        Function::new_typed_with_env_async(store, env, exit::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "exit_group",
-        Function::new_typed_with_env_async(store, env, exit_group::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "waitid",
-        Function::new_typed_with_env_async(store, env, waitid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "set_tid_address",
-        Function::new_typed_with_env_async(store, env, set_tid_address::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "unshare",
-        Function::new_typed_with_env_async(store, env, unshare::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setns",
-        Function::new_typed_with_env_async(store, env, setns::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getpid",
-        Function::new_typed_with_env_async(store, env, getpid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getppid",
-        Function::new_typed_with_env_async(store, env, getppid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "gettid",
-        Function::new_typed_with_env_async(store, env, gettid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getpgid",
-        Function::new_typed_with_env_async(store, env, getpgid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setpgid",
-        Function::new_typed_with_env_async(store, env, setpgid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getsid",
-        Function::new_typed_with_env_async(store, env, getsid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setsid",
-        Function::new_typed_with_env_async(store, env, setsid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pidfd_open",
-        Function::new_typed_with_env_async(store, env, pidfd_open::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pidfd_getfd",
-        Function::new_typed_with_env_async(store, env, pidfd_getfd::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "process_mrelease",
-        Function::new_typed_with_env_async(store, env, process_mrelease::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "kcmp",
-        Function::new_typed_with_env_async(store, env, kcmp::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "personality",
-        Function::new_typed_with_env_async(store, env, personality::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "prctl",
-        Function::new_typed_with_env_async(store, env, prctl::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "ptrace",
-        Function::new_typed_with_env_async(store, env, ptrace::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "process_vm_readv",
-        Function::new_typed_with_env_async(store, env, process_vm_readv::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "process_vm_writev",
-        Function::new_typed_with_env_async(store, env, process_vm_writev::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "seccomp",
-        Function::new_typed_with_env_async(store, env, seccomp::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rseq",
-        Function::new_typed_with_env_async(store, env, rseq::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "rseq_slice_yield",
-        Function::new_typed_with_env_async(store, env, rseq_slice_yield::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "set_robust_list",
-        Function::new_typed_with_env_async(store, env, set_robust_list::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "get_robust_list",
-        Function::new_typed_with_env_async(store, env, get_robust_list::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getuid",
-        Function::new_typed_with_env_async(store, env, getuid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "geteuid",
-        Function::new_typed_with_env_async(store, env, geteuid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getgid",
-        Function::new_typed_with_env_async(store, env, getgid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getegid",
-        Function::new_typed_with_env_async(store, env, getegid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setuid",
-        Function::new_typed_with_env_async(store, env, setuid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setgid",
-        Function::new_typed_with_env_async(store, env, setgid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setreuid",
-        Function::new_typed_with_env_async(store, env, setreuid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setregid",
-        Function::new_typed_with_env_async(store, env, setregid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setresuid",
-        Function::new_typed_with_env_async(store, env, setresuid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getresuid",
-        Function::new_typed_with_env_async(store, env, getresuid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setresgid",
-        Function::new_typed_with_env_async(store, env, setresgid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getresgid",
-        Function::new_typed_with_env_async(store, env, getresgid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setfsuid",
-        Function::new_typed_with_env_async(store, env, setfsuid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setfsgid",
-        Function::new_typed_with_env_async(store, env, setfsgid::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getgroups",
-        Function::new_typed_with_env_async(store, env, getgroups::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setgroups",
-        Function::new_typed_with_env_async(store, env, setgroups::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "capget",
-        Function::new_typed_with_env_async(store, env, capget::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "capset",
-        Function::new_typed_with_env_async(store, env, capset::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_setparam",
-        Function::new_typed_with_env_async(store, env, sched_setparam::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_getparam",
-        Function::new_typed_with_env_async(store, env, sched_getparam::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_setscheduler",
-        Function::new_typed_with_env_async(store, env, sched_setscheduler::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_getscheduler",
-        Function::new_typed_with_env_async(store, env, sched_getscheduler::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_setattr",
-        Function::new_typed_with_env_async(store, env, sched_setattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_getattr",
-        Function::new_typed_with_env_async(store, env, sched_getattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_setaffinity",
-        Function::new_typed_with_env_async(store, env, sched_setaffinity::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_getaffinity",
-        Function::new_typed_with_env_async(store, env, sched_getaffinity::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_yield",
-        Function::new_typed_with_env_async(store, env, sched_yield::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_get_priority_max",
-        Function::new_typed_with_env_async(store, env, sched_get_priority_max::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_get_priority_min",
-        Function::new_typed_with_env_async(store, env, sched_get_priority_min::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sched_rr_get_interval_time64",
-        Function::new_typed_with_env_async(store, env, sched_rr_get_interval_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getpriority",
-        Function::new_typed_with_env_async(store, env, getpriority::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setpriority",
-        Function::new_typed_with_env_async(store, env, setpriority::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getrusage",
-        Function::new_typed_with_env_async(store, env, getrusage::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "prlimit64",
-        Function::new_typed_with_env_async(store, env, prlimit64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "times",
-        Function::new_typed_with_env_async(store, env, times::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "ioprio_set",
-        Function::new_typed_with_env_async(store, env, ioprio_set::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "ioprio_get",
-        Function::new_typed_with_env_async(store, env, ioprio_get::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getcpu",
-        Function::new_typed_with_env_async(store, env, getcpu::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sysinfo",
-        Function::new_typed_with_env_async(store, env, sysinfo::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "uname",
-        Function::new_typed_with_env_async(store, env, uname::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sethostname",
-        Function::new_typed_with_env_async(store, env, sethostname::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setdomainname",
-        Function::new_typed_with_env_async(store, env, setdomainname::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "umask",
-        Function::new_typed_with_env_async(store, env, umask::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getrandom",
-        Function::new_typed_with_env_async(store, env, getrandom::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "membarrier",
-        Function::new_typed_with_env_async(store, env, membarrier::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "futex_time64",
-        Function::new_typed_with_env_async(store, env, futex_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "futex_waitv",
-        Function::new_typed_with_env_async(store, env, futex_waitv::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "futex_wake",
-        Function::new_typed_with_env_async(store, env, futex_wake::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "futex_wait",
-        Function::new_typed_with_env_async(store, env, futex_wait::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "futex_requeue",
-        Function::new_typed_with_env_async(store, env, futex_requeue::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "brk",
-        Function::new_typed_with_env_async(store, env, brk::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mmap",
-        Function::new_typed_with_env_async(store, env, mmap::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "munmap",
-        Function::new_typed_with_env_async(store, env, munmap::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mremap",
-        Function::new_typed_with_env_async(store, env, mremap::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mprotect",
-        Function::new_typed_with_env_async(store, env, mprotect::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pkey_mprotect",
-        Function::new_typed_with_env_async(store, env, pkey_mprotect::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pkey_alloc",
-        Function::new_typed_with_env_async(store, env, pkey_alloc::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pkey_free",
-        Function::new_typed_with_env_async(store, env, pkey_free::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "msync",
-        Function::new_typed_with_env_async(store, env, msync::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "madvise",
-        Function::new_typed_with_env_async(store, env, madvise::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "process_madvise",
-        Function::new_typed_with_env_async(store, env, process_madvise::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mincore",
-        Function::new_typed_with_env_async(store, env, mincore::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mlock",
-        Function::new_typed_with_env_async(store, env, mlock::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mlock2",
-        Function::new_typed_with_env_async(store, env, mlock2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "munlock",
-        Function::new_typed_with_env_async(store, env, munlock::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mlockall",
-        Function::new_typed_with_env_async(store, env, mlockall::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "munlockall",
-        Function::new_typed_with_env_async(store, env, munlockall::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "remap_file_pages",
-        Function::new_typed_with_env_async(store, env, remap_file_pages::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mbind",
-        Function::new_typed_with_env_async(store, env, mbind::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "get_mempolicy",
-        Function::new_typed_with_env_async(store, env, get_mempolicy::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "set_mempolicy",
-        Function::new_typed_with_env_async(store, env, set_mempolicy::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "set_mempolicy_home_node",
-        Function::new_typed_with_env_async(store, env, set_mempolicy_home_node::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "migrate_pages",
-        Function::new_typed_with_env_async(store, env, migrate_pages::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "move_pages",
-        Function::new_typed_with_env_async(store, env, move_pages::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mseal",
-        Function::new_typed_with_env_async(store, env, mseal::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "map_shadow_stack",
-        Function::new_typed_with_env_async(store, env, map_shadow_stack::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "userfaultfd",
-        Function::new_typed_with_env_async(store, env, userfaultfd::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "clock_gettime64",
-        Function::new_typed_with_env_async(store, env, clock_gettime64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "clock_settime64",
-        Function::new_typed_with_env_async(store, env, clock_settime64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "clock_getres_time64",
-        Function::new_typed_with_env_async(store, env, clock_getres_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "clock_nanosleep_time64",
-        Function::new_typed_with_env_async(store, env, clock_nanosleep_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "clock_adjtime64",
-        Function::new_typed_with_env_async(store, env, clock_adjtime64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getitimer",
-        Function::new_typed_with_env_async(store, env, getitimer::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setitimer",
-        Function::new_typed_with_env_async(store, env, setitimer::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "timer_create",
-        Function::new_typed_with_env_async(store, env, timer_create::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "timer_settime64",
-        Function::new_typed_with_env_async(store, env, timer_settime64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "timer_gettime64",
-        Function::new_typed_with_env_async(store, env, timer_gettime64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "timer_getoverrun",
-        Function::new_typed_with_env_async(store, env, timer_getoverrun::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "timer_delete",
-        Function::new_typed_with_env_async(store, env, timer_delete::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "socket",
-        Function::new_typed_with_env_async(store, env, socket::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "socketpair",
-        Function::new_typed_with_env_async(store, env, socketpair::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "bind",
-        Function::new_typed_with_env_async(store, env, bind::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "listen",
-        Function::new_typed_with_env_async(store, env, listen::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "accept",
-        Function::new_typed_with_env_async(store, env, accept::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "accept4",
-        Function::new_typed_with_env_async(store, env, accept4::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "connect",
-        Function::new_typed_with_env_async(store, env, connect::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getsockname",
-        Function::new_typed_with_env_async(store, env, getsockname::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getpeername",
-        Function::new_typed_with_env_async(store, env, getpeername::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sendto",
-        Function::new_typed_with_env_async(store, env, sendto::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "recvfrom",
-        Function::new_typed_with_env_async(store, env, recvfrom::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "setsockopt",
-        Function::new_typed_with_env_async(store, env, setsockopt::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "getsockopt",
-        Function::new_typed_with_env_async(store, env, getsockopt::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "shutdown",
-        Function::new_typed_with_env_async(store, env, shutdown::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sendmsg",
-        Function::new_typed_with_env_async(store, env, sendmsg::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "recvmsg",
-        Function::new_typed_with_env_async(store, env, recvmsg::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "sendmmsg",
-        Function::new_typed_with_env_async(store, env, sendmmsg::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "recvmmsg_time64",
-        Function::new_typed_with_env_async(store, env, recvmmsg_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "msgget",
-        Function::new_typed_with_env_async(store, env, msgget::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "msgctl",
-        Function::new_typed_with_env_async(store, env, msgctl::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "msgrcv",
-        Function::new_typed_with_env_async(store, env, msgrcv::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "msgsnd",
-        Function::new_typed_with_env_async(store, env, msgsnd::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "semget",
-        Function::new_typed_with_env_async(store, env, semget::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "semctl",
-        Function::new_typed_with_env_async(store, env, semctl::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "semop",
-        Function::new_typed_with_env_async(store, env, semop::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "semtimedop_time64",
-        Function::new_typed_with_env_async(store, env, semtimedop_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "shmget",
-        Function::new_typed_with_env_async(store, env, shmget::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "shmctl",
-        Function::new_typed_with_env_async(store, env, shmctl::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "shmat",
-        Function::new_typed_with_env_async(store, env, shmat::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "shmdt",
-        Function::new_typed_with_env_async(store, env, shmdt::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mq_open",
-        Function::new_typed_with_env_async(store, env, mq_open::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mq_unlink",
-        Function::new_typed_with_env_async(store, env, mq_unlink::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mq_timedsend_time64",
-        Function::new_typed_with_env_async(store, env, mq_timedsend_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mq_timedreceive_time64",
-        Function::new_typed_with_env_async(store, env, mq_timedreceive_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mq_notify",
-        Function::new_typed_with_env_async(store, env, mq_notify::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mq_getsetattr",
-        Function::new_typed_with_env_async(store, env, mq_getsetattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "io_setup",
-        Function::new_typed_with_env_async(store, env, io_setup::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "io_destroy",
-        Function::new_typed_with_env_async(store, env, io_destroy::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "io_submit",
-        Function::new_typed_with_env_async(store, env, io_submit::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "io_cancel",
-        Function::new_typed_with_env_async(store, env, io_cancel::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "io_pgetevents_time64",
-        Function::new_typed_with_env_async(store, env, io_pgetevents_time64::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "io_uring_setup",
-        Function::new_typed_with_env_async(store, env, io_uring_setup::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "io_uring_enter",
-        Function::new_typed_with_env_async(store, env, io_uring_enter::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "io_uring_register",
-        Function::new_typed_with_env_async(store, env, io_uring_register::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mount",
-        Function::new_typed_with_env_async(store, env, mount::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "umount2",
-        Function::new_typed_with_env_async(store, env, umount2::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "pivot_root",
-        Function::new_typed_with_env_async(store, env, pivot_root::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "open_tree",
-        Function::new_typed_with_env_async(store, env, open_tree::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "open_tree_attr",
-        Function::new_typed_with_env_async(store, env, open_tree_attr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "move_mount",
-        Function::new_typed_with_env_async(store, env, move_mount::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fsopen",
-        Function::new_typed_with_env_async(store, env, fsopen::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fsconfig",
-        Function::new_typed_with_env_async(store, env, fsconfig::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fsmount",
-        Function::new_typed_with_env_async(store, env, fsmount::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "fspick",
-        Function::new_typed_with_env_async(store, env, fspick::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "mount_setattr",
-        Function::new_typed_with_env_async(store, env, mount_setattr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "statmount",
-        Function::new_typed_with_env_async(store, env, statmount::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "listmount",
-        Function::new_typed_with_env_async(store, env, listmount::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "listns",
-        Function::new_typed_with_env_async(store, env, listns::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "landlock_create_ruleset",
-        Function::new_typed_with_env_async(store, env, landlock_create_ruleset::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "landlock_add_rule",
-        Function::new_typed_with_env_async(store, env, landlock_add_rule::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "landlock_restrict_self",
-        Function::new_typed_with_env_async(store, env, landlock_restrict_self::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "lsm_get_self_attr",
-        Function::new_typed_with_env_async(store, env, lsm_get_self_attr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "lsm_set_self_attr",
-        Function::new_typed_with_env_async(store, env, lsm_set_self_attr::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "lsm_list_modules",
-        Function::new_typed_with_env_async(store, env, lsm_list_modules::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "add_key",
-        Function::new_typed_with_env_async(store, env, add_key::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "request_key",
-        Function::new_typed_with_env_async(store, env, request_key::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "keyctl",
-        Function::new_typed_with_env_async(store, env, keyctl::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "bpf",
-        Function::new_typed_with_env_async(store, env, bpf::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "perf_event_open",
-        Function::new_typed_with_env_async(store, env, perf_event_open::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "reboot",
-        Function::new_typed_with_env_async(store, env, reboot::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "acct",
-        Function::new_typed_with_env_async(store, env, acct::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "swapon",
-        Function::new_typed_with_env_async(store, env, swapon::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "swapoff",
-        Function::new_typed_with_env_async(store, env, swapoff::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "syslog",
-        Function::new_typed_with_env_async(store, env, syslog::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "vhangup",
-        Function::new_typed_with_env_async(store, env, vhangup::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "kexec_load",
-        Function::new_typed_with_env_async(store, env, kexec_load::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "kexec_file_load",
-        Function::new_typed_with_env_async(store, env, kexec_file_load::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "init_module",
-        Function::new_typed_with_env_async(store, env, init_module::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "finit_module",
-        Function::new_typed_with_env_async(store, env, finit_module::<S>),
-    );
-    imports.define(
-        IMPORT_MODULE,
-        "delete_module",
-        Function::new_typed_with_env_async(store, env, delete_module::<S>),
-    );
+    for import in module.imports().functions() {
+        if import.module() != IMPORT_MODULE {
+            continue;
+        }
+        let function = match import.name() {
+            "startup_size" => Function::new_typed_with_env_async(store, env, startup_size::<S>),
+            "startup_get" => Function::new_typed_with_env_async(store, env, startup_get::<S>),
+            "thread_spawn" => Function::new_typed_with_env_async(store, env, thread_spawn::<S>),
+            "signal_callback_register" => {
+                Function::new_typed_with_env_async(store, env, signal_callback_register::<S>)
+            }
+            "call_dynamic" => Function::new_typed_with_env_async(store, env, call_dynamic::<S>),
+            "reflect_signature" => {
+                Function::new_typed_with_env_async(store, env, reflect_signature::<S>)
+            }
+            "closure_allocate" => {
+                Function::new_typed_with_env_async(store, env, closure_allocate::<S>)
+            }
+            "closure_prepare" => {
+                Function::new_typed_with_env_async(store, env, closure_prepare::<S>)
+            }
+            "closure_free" => Function::new_typed_with_env_async(store, env, closure_free::<S>),
+            "checkpoint" => Function::new_typed_with_env_async(store, env, checkpoint::<S>),
+            "stack_save" => Function::new_typed_with_env_async(store, env, stack_save::<S>),
+            "stack_restore" => Function::new_typed_with_env_async(store, env, stack_restore::<S>),
+            "context_create" => Function::new_typed_with_env_async(store, env, context_create::<S>),
+            "context_switch" => Function::new_typed_with_env_async(store, env, context_switch::<S>),
+            "context_destroy" => {
+                Function::new_typed_with_env_async(store, env, context_destroy::<S>)
+            }
+            "dl_open" => Function::new_typed_with_env_async(store, env, dl_open::<S>),
+            "dl_sym" => Function::new_typed_with_env_async(store, env, dl_sym::<S>),
+            "dl_close" => Function::new_typed_with_env_async(store, env, dl_close::<S>),
+            "dl_next_init" => Function::new_typed_with_env_async(store, env, dl_next_init::<S>),
+            "openat" => Function::new_typed_with_env_async(store, env, openat::<S>),
+            "openat2" => Function::new_typed_with_env_async(store, env, openat2::<S>),
+            "close" => Function::new_typed_with_env_async(store, env, close::<S>),
+            "close_range" => Function::new_typed_with_env_async(store, env, close_range::<S>),
+            "dup" => Function::new_typed_with_env_async(store, env, dup::<S>),
+            "dup3" => Function::new_typed_with_env_async(store, env, dup3::<S>),
+            "fcntl64" => Function::new_typed_with_env_async(store, env, fcntl64::<S>),
+            "flock" => Function::new_typed_with_env_async(store, env, flock::<S>),
+            "ioctl" => Function::new_typed_with_env_async(store, env, ioctl::<S>),
+            "read" => Function::new_typed_with_env_async(store, env, read::<S>),
+            "write" => Function::new_typed_with_env_async(store, env, write::<S>),
+            "readv" => Function::new_typed_with_env_async(store, env, readv::<S>),
+            "writev" => Function::new_typed_with_env_async(store, env, writev::<S>),
+            "pread64" => Function::new_typed_with_env_async(store, env, pread64::<S>),
+            "pwrite64" => Function::new_typed_with_env_async(store, env, pwrite64::<S>),
+            "preadv" => Function::new_typed_with_env_async(store, env, preadv::<S>),
+            "pwritev" => Function::new_typed_with_env_async(store, env, pwritev::<S>),
+            "preadv2" => Function::new_typed_with_env_async(store, env, preadv2::<S>),
+            "pwritev2" => Function::new_typed_with_env_async(store, env, pwritev2::<S>),
+            "lseek" => Function::new_typed_with_env_async(store, env, lseek::<S>),
+            "sendfile64" => Function::new_typed_with_env_async(store, env, sendfile64::<S>),
+            "splice" => Function::new_typed_with_env_async(store, env, splice::<S>),
+            "tee" => Function::new_typed_with_env_async(store, env, tee::<S>),
+            "vmsplice" => Function::new_typed_with_env_async(store, env, vmsplice::<S>),
+            "copy_file_range" => {
+                Function::new_typed_with_env_async(store, env, copy_file_range::<S>)
+            }
+            "truncate64" => Function::new_typed_with_env_async(store, env, truncate64::<S>),
+            "ftruncate64" => Function::new_typed_with_env_async(store, env, ftruncate64::<S>),
+            "fallocate" => Function::new_typed_with_env_async(store, env, fallocate::<S>),
+            "fadvise64_64" => Function::new_typed_with_env_async(store, env, fadvise64_64::<S>),
+            "readahead" => Function::new_typed_with_env_async(store, env, readahead::<S>),
+            "sync" => Function::new_typed_with_env_async(store, env, sync::<S>),
+            "fsync" => Function::new_typed_with_env_async(store, env, fsync::<S>),
+            "fdatasync" => Function::new_typed_with_env_async(store, env, fdatasync::<S>),
+            "syncfs" => Function::new_typed_with_env_async(store, env, syncfs::<S>),
+            "sync_file_range" => {
+                Function::new_typed_with_env_async(store, env, sync_file_range::<S>)
+            }
+            "getdents64" => Function::new_typed_with_env_async(store, env, getdents64::<S>),
+            "mkdirat" => Function::new_typed_with_env_async(store, env, mkdirat::<S>),
+            "mknodat" => Function::new_typed_with_env_async(store, env, mknodat::<S>),
+            "unlinkat" => Function::new_typed_with_env_async(store, env, unlinkat::<S>),
+            "symlinkat" => Function::new_typed_with_env_async(store, env, symlinkat::<S>),
+            "linkat" => Function::new_typed_with_env_async(store, env, linkat::<S>),
+            "renameat2" => Function::new_typed_with_env_async(store, env, renameat2::<S>),
+            "readlinkat" => Function::new_typed_with_env_async(store, env, readlinkat::<S>),
+            "faccessat" => Function::new_typed_with_env_async(store, env, faccessat::<S>),
+            "faccessat2" => Function::new_typed_with_env_async(store, env, faccessat2::<S>),
+            "chdir" => Function::new_typed_with_env_async(store, env, chdir::<S>),
+            "fchdir" => Function::new_typed_with_env_async(store, env, fchdir::<S>),
+            "chroot" => Function::new_typed_with_env_async(store, env, chroot::<S>),
+            "fchroot" => Function::new_typed_with_env_async(store, env, fchroot::<S>),
+            "getcwd" => Function::new_typed_with_env_async(store, env, getcwd::<S>),
+            "fchmod" => Function::new_typed_with_env_async(store, env, fchmod::<S>),
+            "fchmodat" => Function::new_typed_with_env_async(store, env, fchmodat::<S>),
+            "fchmodat2" => Function::new_typed_with_env_async(store, env, fchmodat2::<S>),
+            "fchown" => Function::new_typed_with_env_async(store, env, fchown::<S>),
+            "fchownat" => Function::new_typed_with_env_async(store, env, fchownat::<S>),
+            "statx" => Function::new_typed_with_env_async(store, env, statx::<S>),
+            "statfs64" => Function::new_typed_with_env_async(store, env, statfs64::<S>),
+            "fstatfs64" => Function::new_typed_with_env_async(store, env, fstatfs64::<S>),
+            "utimensat_time64" => {
+                Function::new_typed_with_env_async(store, env, utimensat_time64::<S>)
+            }
+            "pipe2" => Function::new_typed_with_env_async(store, env, pipe2::<S>),
+            "memfd_create" => Function::new_typed_with_env_async(store, env, memfd_create::<S>),
+            "memfd_secret" => Function::new_typed_with_env_async(store, env, memfd_secret::<S>),
+            "name_to_handle_at" => {
+                Function::new_typed_with_env_async(store, env, name_to_handle_at::<S>)
+            }
+            "open_by_handle_at" => {
+                Function::new_typed_with_env_async(store, env, open_by_handle_at::<S>)
+            }
+            "cachestat" => Function::new_typed_with_env_async(store, env, cachestat::<S>),
+            "file_getattr" => Function::new_typed_with_env_async(store, env, file_getattr::<S>),
+            "file_setattr" => Function::new_typed_with_env_async(store, env, file_setattr::<S>),
+            "quotactl" => Function::new_typed_with_env_async(store, env, quotactl::<S>),
+            "quotactl_fd" => Function::new_typed_with_env_async(store, env, quotactl_fd::<S>),
+            "setxattr" => Function::new_typed_with_env_async(store, env, setxattr::<S>),
+            "lsetxattr" => Function::new_typed_with_env_async(store, env, lsetxattr::<S>),
+            "fsetxattr" => Function::new_typed_with_env_async(store, env, fsetxattr::<S>),
+            "getxattr" => Function::new_typed_with_env_async(store, env, getxattr::<S>),
+            "lgetxattr" => Function::new_typed_with_env_async(store, env, lgetxattr::<S>),
+            "fgetxattr" => Function::new_typed_with_env_async(store, env, fgetxattr::<S>),
+            "listxattr" => Function::new_typed_with_env_async(store, env, listxattr::<S>),
+            "llistxattr" => Function::new_typed_with_env_async(store, env, llistxattr::<S>),
+            "flistxattr" => Function::new_typed_with_env_async(store, env, flistxattr::<S>),
+            "removexattr" => Function::new_typed_with_env_async(store, env, removexattr::<S>),
+            "lremovexattr" => Function::new_typed_with_env_async(store, env, lremovexattr::<S>),
+            "fremovexattr" => Function::new_typed_with_env_async(store, env, fremovexattr::<S>),
+            "setxattrat" => Function::new_typed_with_env_async(store, env, setxattrat::<S>),
+            "getxattrat" => Function::new_typed_with_env_async(store, env, getxattrat::<S>),
+            "listxattrat" => Function::new_typed_with_env_async(store, env, listxattrat::<S>),
+            "removexattrat" => Function::new_typed_with_env_async(store, env, removexattrat::<S>),
+            "epoll_create1" => Function::new_typed_with_env_async(store, env, epoll_create1::<S>),
+            "epoll_ctl" => Function::new_typed_with_env_async(store, env, epoll_ctl::<S>),
+            "epoll_pwait" => Function::new_typed_with_env_async(store, env, epoll_pwait::<S>),
+            "epoll_pwait2" => Function::new_typed_with_env_async(store, env, epoll_pwait2::<S>),
+            "ppoll_time64" => Function::new_typed_with_env_async(store, env, ppoll_time64::<S>),
+            "pselect6_time64" => {
+                Function::new_typed_with_env_async(store, env, pselect6_time64::<S>)
+            }
+            "eventfd2" => Function::new_typed_with_env_async(store, env, eventfd2::<S>),
+            "signalfd4" => Function::new_typed_with_env_async(store, env, signalfd4::<S>),
+            "timerfd_create" => Function::new_typed_with_env_async(store, env, timerfd_create::<S>),
+            "timerfd_settime64" => {
+                Function::new_typed_with_env_async(store, env, timerfd_settime64::<S>)
+            }
+            "timerfd_gettime64" => {
+                Function::new_typed_with_env_async(store, env, timerfd_gettime64::<S>)
+            }
+            "inotify_init1" => Function::new_typed_with_env_async(store, env, inotify_init1::<S>),
+            "inotify_add_watch" => {
+                Function::new_typed_with_env_async(store, env, inotify_add_watch::<S>)
+            }
+            "inotify_rm_watch" => {
+                Function::new_typed_with_env_async(store, env, inotify_rm_watch::<S>)
+            }
+            "fanotify_init" => Function::new_typed_with_env_async(store, env, fanotify_init::<S>),
+            "fanotify_mark" => Function::new_typed_with_env_async(store, env, fanotify_mark::<S>),
+            "rt_sigaction" => Function::new_typed_with_env_async(store, env, rt_sigaction::<S>),
+            "rt_sigprocmask" => Function::new_typed_with_env_async(store, env, rt_sigprocmask::<S>),
+            "rt_sigpending" => Function::new_typed_with_env_async(store, env, rt_sigpending::<S>),
+            "rt_sigsuspend" => Function::new_typed_with_env_async(store, env, rt_sigsuspend::<S>),
+            "rt_sigtimedwait_time64" => {
+                Function::new_typed_with_env_async(store, env, rt_sigtimedwait_time64::<S>)
+            }
+            "rt_sigqueueinfo" => {
+                Function::new_typed_with_env_async(store, env, rt_sigqueueinfo::<S>)
+            }
+            "rt_tgsigqueueinfo" => {
+                Function::new_typed_with_env_async(store, env, rt_tgsigqueueinfo::<S>)
+            }
+            "rt_sigreturn" => Function::new_typed_with_env_async(store, env, rt_sigreturn::<S>),
+            "sigaltstack" => Function::new_typed_with_env_async(store, env, sigaltstack::<S>),
+            "kill" => Function::new_typed_with_env_async(store, env, kill::<S>),
+            "tkill" => Function::new_typed_with_env_async(store, env, tkill::<S>),
+            "tgkill" => Function::new_typed_with_env_async(store, env, tgkill::<S>),
+            "pidfd_send_signal" => {
+                Function::new_typed_with_env_async(store, env, pidfd_send_signal::<S>)
+            }
+            "restart_syscall" => {
+                Function::new_typed_with_env_async(store, env, restart_syscall::<S>)
+            }
+            "clone" => Function::new_typed_with_env_async(store, env, clone::<S>),
+            "clone3" => Function::new_typed_with_env_async(store, env, clone3::<S>),
+            "execve" => Function::new_typed_with_env_async(store, env, execve::<S>),
+            "execveat" => Function::new_typed_with_env_async(store, env, execveat::<S>),
+            "exit" => Function::new_typed_with_env_async(store, env, exit::<S>),
+            "exit_group" => Function::new_typed_with_env_async(store, env, exit_group::<S>),
+            "waitid" => Function::new_typed_with_env_async(store, env, waitid::<S>),
+            "set_tid_address" => {
+                Function::new_typed_with_env_async(store, env, set_tid_address::<S>)
+            }
+            "unshare" => Function::new_typed_with_env_async(store, env, unshare::<S>),
+            "setns" => Function::new_typed_with_env_async(store, env, setns::<S>),
+            "getpid" => Function::new_typed_with_env_async(store, env, getpid::<S>),
+            "getppid" => Function::new_typed_with_env_async(store, env, getppid::<S>),
+            "gettid" => Function::new_typed_with_env_async(store, env, gettid::<S>),
+            "getpgid" => Function::new_typed_with_env_async(store, env, getpgid::<S>),
+            "setpgid" => Function::new_typed_with_env_async(store, env, setpgid::<S>),
+            "getsid" => Function::new_typed_with_env_async(store, env, getsid::<S>),
+            "setsid" => Function::new_typed_with_env_async(store, env, setsid::<S>),
+            "pidfd_open" => Function::new_typed_with_env_async(store, env, pidfd_open::<S>),
+            "pidfd_getfd" => Function::new_typed_with_env_async(store, env, pidfd_getfd::<S>),
+            "process_mrelease" => {
+                Function::new_typed_with_env_async(store, env, process_mrelease::<S>)
+            }
+            "kcmp" => Function::new_typed_with_env_async(store, env, kcmp::<S>),
+            "personality" => Function::new_typed_with_env_async(store, env, personality::<S>),
+            "prctl" => Function::new_typed_with_env_async(store, env, prctl::<S>),
+            "ptrace" => Function::new_typed_with_env_async(store, env, ptrace::<S>),
+            "process_vm_readv" => {
+                Function::new_typed_with_env_async(store, env, process_vm_readv::<S>)
+            }
+            "process_vm_writev" => {
+                Function::new_typed_with_env_async(store, env, process_vm_writev::<S>)
+            }
+            "seccomp" => Function::new_typed_with_env_async(store, env, seccomp::<S>),
+            "rseq" => Function::new_typed_with_env_async(store, env, rseq::<S>),
+            "rseq_slice_yield" => {
+                Function::new_typed_with_env_async(store, env, rseq_slice_yield::<S>)
+            }
+            "set_robust_list" => {
+                Function::new_typed_with_env_async(store, env, set_robust_list::<S>)
+            }
+            "get_robust_list" => {
+                Function::new_typed_with_env_async(store, env, get_robust_list::<S>)
+            }
+            "getuid" => Function::new_typed_with_env_async(store, env, getuid::<S>),
+            "geteuid" => Function::new_typed_with_env_async(store, env, geteuid::<S>),
+            "getgid" => Function::new_typed_with_env_async(store, env, getgid::<S>),
+            "getegid" => Function::new_typed_with_env_async(store, env, getegid::<S>),
+            "setuid" => Function::new_typed_with_env_async(store, env, setuid::<S>),
+            "setgid" => Function::new_typed_with_env_async(store, env, setgid::<S>),
+            "setreuid" => Function::new_typed_with_env_async(store, env, setreuid::<S>),
+            "setregid" => Function::new_typed_with_env_async(store, env, setregid::<S>),
+            "setresuid" => Function::new_typed_with_env_async(store, env, setresuid::<S>),
+            "getresuid" => Function::new_typed_with_env_async(store, env, getresuid::<S>),
+            "setresgid" => Function::new_typed_with_env_async(store, env, setresgid::<S>),
+            "getresgid" => Function::new_typed_with_env_async(store, env, getresgid::<S>),
+            "setfsuid" => Function::new_typed_with_env_async(store, env, setfsuid::<S>),
+            "setfsgid" => Function::new_typed_with_env_async(store, env, setfsgid::<S>),
+            "getgroups" => Function::new_typed_with_env_async(store, env, getgroups::<S>),
+            "setgroups" => Function::new_typed_with_env_async(store, env, setgroups::<S>),
+            "capget" => Function::new_typed_with_env_async(store, env, capget::<S>),
+            "capset" => Function::new_typed_with_env_async(store, env, capset::<S>),
+            "sched_setparam" => Function::new_typed_with_env_async(store, env, sched_setparam::<S>),
+            "sched_getparam" => Function::new_typed_with_env_async(store, env, sched_getparam::<S>),
+            "sched_setscheduler" => {
+                Function::new_typed_with_env_async(store, env, sched_setscheduler::<S>)
+            }
+            "sched_getscheduler" => {
+                Function::new_typed_with_env_async(store, env, sched_getscheduler::<S>)
+            }
+            "sched_setattr" => Function::new_typed_with_env_async(store, env, sched_setattr::<S>),
+            "sched_getattr" => Function::new_typed_with_env_async(store, env, sched_getattr::<S>),
+            "sched_setaffinity" => {
+                Function::new_typed_with_env_async(store, env, sched_setaffinity::<S>)
+            }
+            "sched_getaffinity" => {
+                Function::new_typed_with_env_async(store, env, sched_getaffinity::<S>)
+            }
+            "sched_yield" => Function::new_typed_with_env_async(store, env, sched_yield::<S>),
+            "sched_get_priority_max" => {
+                Function::new_typed_with_env_async(store, env, sched_get_priority_max::<S>)
+            }
+            "sched_get_priority_min" => {
+                Function::new_typed_with_env_async(store, env, sched_get_priority_min::<S>)
+            }
+            "sched_rr_get_interval_time64" => {
+                Function::new_typed_with_env_async(store, env, sched_rr_get_interval_time64::<S>)
+            }
+            "getpriority" => Function::new_typed_with_env_async(store, env, getpriority::<S>),
+            "setpriority" => Function::new_typed_with_env_async(store, env, setpriority::<S>),
+            "getrusage" => Function::new_typed_with_env_async(store, env, getrusage::<S>),
+            "prlimit64" => Function::new_typed_with_env_async(store, env, prlimit64::<S>),
+            "times" => Function::new_typed_with_env_async(store, env, times::<S>),
+            "ioprio_set" => Function::new_typed_with_env_async(store, env, ioprio_set::<S>),
+            "ioprio_get" => Function::new_typed_with_env_async(store, env, ioprio_get::<S>),
+            "getcpu" => Function::new_typed_with_env_async(store, env, getcpu::<S>),
+            "sysinfo" => Function::new_typed_with_env_async(store, env, sysinfo::<S>),
+            "uname" => Function::new_typed_with_env_async(store, env, uname::<S>),
+            "sethostname" => Function::new_typed_with_env_async(store, env, sethostname::<S>),
+            "setdomainname" => Function::new_typed_with_env_async(store, env, setdomainname::<S>),
+            "umask" => Function::new_typed_with_env_async(store, env, umask::<S>),
+            "getrandom" => Function::new_typed_with_env_async(store, env, getrandom::<S>),
+            "membarrier" => Function::new_typed_with_env_async(store, env, membarrier::<S>),
+            "futex_time64" => Function::new_typed_with_env_async(store, env, futex_time64::<S>),
+            "futex_waitv" => Function::new_typed_with_env_async(store, env, futex_waitv::<S>),
+            "futex_wake" => Function::new_typed_with_env_async(store, env, futex_wake::<S>),
+            "futex_wait" => Function::new_typed_with_env_async(store, env, futex_wait::<S>),
+            "futex_requeue" => Function::new_typed_with_env_async(store, env, futex_requeue::<S>),
+            "brk" => Function::new_typed_with_env_async(store, env, brk::<S>),
+            "mmap" => Function::new_typed_with_env_async(store, env, mmap::<S>),
+            "munmap" => Function::new_typed_with_env_async(store, env, munmap::<S>),
+            "mremap" => Function::new_typed_with_env_async(store, env, mremap::<S>),
+            "mprotect" => Function::new_typed_with_env_async(store, env, mprotect::<S>),
+            "pkey_mprotect" => Function::new_typed_with_env_async(store, env, pkey_mprotect::<S>),
+            "pkey_alloc" => Function::new_typed_with_env_async(store, env, pkey_alloc::<S>),
+            "pkey_free" => Function::new_typed_with_env_async(store, env, pkey_free::<S>),
+            "msync" => Function::new_typed_with_env_async(store, env, msync::<S>),
+            "madvise" => Function::new_typed_with_env_async(store, env, madvise::<S>),
+            "process_madvise" => {
+                Function::new_typed_with_env_async(store, env, process_madvise::<S>)
+            }
+            "mincore" => Function::new_typed_with_env_async(store, env, mincore::<S>),
+            "mlock" => Function::new_typed_with_env_async(store, env, mlock::<S>),
+            "mlock2" => Function::new_typed_with_env_async(store, env, mlock2::<S>),
+            "munlock" => Function::new_typed_with_env_async(store, env, munlock::<S>),
+            "mlockall" => Function::new_typed_with_env_async(store, env, mlockall::<S>),
+            "munlockall" => Function::new_typed_with_env_async(store, env, munlockall::<S>),
+            "remap_file_pages" => {
+                Function::new_typed_with_env_async(store, env, remap_file_pages::<S>)
+            }
+            "mbind" => Function::new_typed_with_env_async(store, env, mbind::<S>),
+            "get_mempolicy" => Function::new_typed_with_env_async(store, env, get_mempolicy::<S>),
+            "set_mempolicy" => Function::new_typed_with_env_async(store, env, set_mempolicy::<S>),
+            "set_mempolicy_home_node" => {
+                Function::new_typed_with_env_async(store, env, set_mempolicy_home_node::<S>)
+            }
+            "migrate_pages" => Function::new_typed_with_env_async(store, env, migrate_pages::<S>),
+            "move_pages" => Function::new_typed_with_env_async(store, env, move_pages::<S>),
+            "mseal" => Function::new_typed_with_env_async(store, env, mseal::<S>),
+            "map_shadow_stack" => {
+                Function::new_typed_with_env_async(store, env, map_shadow_stack::<S>)
+            }
+            "userfaultfd" => Function::new_typed_with_env_async(store, env, userfaultfd::<S>),
+            "clock_gettime64" => {
+                Function::new_typed_with_env_async(store, env, clock_gettime64::<S>)
+            }
+            "clock_settime64" => {
+                Function::new_typed_with_env_async(store, env, clock_settime64::<S>)
+            }
+            "clock_getres_time64" => {
+                Function::new_typed_with_env_async(store, env, clock_getres_time64::<S>)
+            }
+            "clock_nanosleep_time64" => {
+                Function::new_typed_with_env_async(store, env, clock_nanosleep_time64::<S>)
+            }
+            "clock_adjtime64" => {
+                Function::new_typed_with_env_async(store, env, clock_adjtime64::<S>)
+            }
+            "getitimer" => Function::new_typed_with_env_async(store, env, getitimer::<S>),
+            "setitimer" => Function::new_typed_with_env_async(store, env, setitimer::<S>),
+            "timer_create" => Function::new_typed_with_env_async(store, env, timer_create::<S>),
+            "timer_settime64" => {
+                Function::new_typed_with_env_async(store, env, timer_settime64::<S>)
+            }
+            "timer_gettime64" => {
+                Function::new_typed_with_env_async(store, env, timer_gettime64::<S>)
+            }
+            "timer_getoverrun" => {
+                Function::new_typed_with_env_async(store, env, timer_getoverrun::<S>)
+            }
+            "timer_delete" => Function::new_typed_with_env_async(store, env, timer_delete::<S>),
+            "socket" => Function::new_typed_with_env_async(store, env, socket::<S>),
+            "socketpair" => Function::new_typed_with_env_async(store, env, socketpair::<S>),
+            "bind" => Function::new_typed_with_env_async(store, env, bind::<S>),
+            "listen" => Function::new_typed_with_env_async(store, env, listen::<S>),
+            "accept" => Function::new_typed_with_env_async(store, env, accept::<S>),
+            "accept4" => Function::new_typed_with_env_async(store, env, accept4::<S>),
+            "connect" => Function::new_typed_with_env_async(store, env, connect::<S>),
+            "getsockname" => Function::new_typed_with_env_async(store, env, getsockname::<S>),
+            "getpeername" => Function::new_typed_with_env_async(store, env, getpeername::<S>),
+            "sendto" => Function::new_typed_with_env_async(store, env, sendto::<S>),
+            "recvfrom" => Function::new_typed_with_env_async(store, env, recvfrom::<S>),
+            "setsockopt" => Function::new_typed_with_env_async(store, env, setsockopt::<S>),
+            "getsockopt" => Function::new_typed_with_env_async(store, env, getsockopt::<S>),
+            "shutdown" => Function::new_typed_with_env_async(store, env, shutdown::<S>),
+            "sendmsg" => Function::new_typed_with_env_async(store, env, sendmsg::<S>),
+            "recvmsg" => Function::new_typed_with_env_async(store, env, recvmsg::<S>),
+            "sendmmsg" => Function::new_typed_with_env_async(store, env, sendmmsg::<S>),
+            "recvmmsg_time64" => {
+                Function::new_typed_with_env_async(store, env, recvmmsg_time64::<S>)
+            }
+            "msgget" => Function::new_typed_with_env_async(store, env, msgget::<S>),
+            "msgctl" => Function::new_typed_with_env_async(store, env, msgctl::<S>),
+            "msgrcv" => Function::new_typed_with_env_async(store, env, msgrcv::<S>),
+            "msgsnd" => Function::new_typed_with_env_async(store, env, msgsnd::<S>),
+            "semget" => Function::new_typed_with_env_async(store, env, semget::<S>),
+            "semctl" => Function::new_typed_with_env_async(store, env, semctl::<S>),
+            "semop" => Function::new_typed_with_env_async(store, env, semop::<S>),
+            "semtimedop_time64" => {
+                Function::new_typed_with_env_async(store, env, semtimedop_time64::<S>)
+            }
+            "shmget" => Function::new_typed_with_env_async(store, env, shmget::<S>),
+            "shmctl" => Function::new_typed_with_env_async(store, env, shmctl::<S>),
+            "shmat" => Function::new_typed_with_env_async(store, env, shmat::<S>),
+            "shmdt" => Function::new_typed_with_env_async(store, env, shmdt::<S>),
+            "mq_open" => Function::new_typed_with_env_async(store, env, mq_open::<S>),
+            "mq_unlink" => Function::new_typed_with_env_async(store, env, mq_unlink::<S>),
+            "mq_timedsend_time64" => {
+                Function::new_typed_with_env_async(store, env, mq_timedsend_time64::<S>)
+            }
+            "mq_timedreceive_time64" => {
+                Function::new_typed_with_env_async(store, env, mq_timedreceive_time64::<S>)
+            }
+            "mq_notify" => Function::new_typed_with_env_async(store, env, mq_notify::<S>),
+            "mq_getsetattr" => Function::new_typed_with_env_async(store, env, mq_getsetattr::<S>),
+            "io_setup" => Function::new_typed_with_env_async(store, env, io_setup::<S>),
+            "io_destroy" => Function::new_typed_with_env_async(store, env, io_destroy::<S>),
+            "io_submit" => Function::new_typed_with_env_async(store, env, io_submit::<S>),
+            "io_cancel" => Function::new_typed_with_env_async(store, env, io_cancel::<S>),
+            "io_pgetevents_time64" => {
+                Function::new_typed_with_env_async(store, env, io_pgetevents_time64::<S>)
+            }
+            "io_uring_setup" => Function::new_typed_with_env_async(store, env, io_uring_setup::<S>),
+            "io_uring_enter" => Function::new_typed_with_env_async(store, env, io_uring_enter::<S>),
+            "io_uring_register" => {
+                Function::new_typed_with_env_async(store, env, io_uring_register::<S>)
+            }
+            "mount" => Function::new_typed_with_env_async(store, env, mount::<S>),
+            "umount2" => Function::new_typed_with_env_async(store, env, umount2::<S>),
+            "pivot_root" => Function::new_typed_with_env_async(store, env, pivot_root::<S>),
+            "open_tree" => Function::new_typed_with_env_async(store, env, open_tree::<S>),
+            "open_tree_attr" => Function::new_typed_with_env_async(store, env, open_tree_attr::<S>),
+            "move_mount" => Function::new_typed_with_env_async(store, env, move_mount::<S>),
+            "fsopen" => Function::new_typed_with_env_async(store, env, fsopen::<S>),
+            "fsconfig" => Function::new_typed_with_env_async(store, env, fsconfig::<S>),
+            "fsmount" => Function::new_typed_with_env_async(store, env, fsmount::<S>),
+            "fspick" => Function::new_typed_with_env_async(store, env, fspick::<S>),
+            "mount_setattr" => Function::new_typed_with_env_async(store, env, mount_setattr::<S>),
+            "statmount" => Function::new_typed_with_env_async(store, env, statmount::<S>),
+            "listmount" => Function::new_typed_with_env_async(store, env, listmount::<S>),
+            "listns" => Function::new_typed_with_env_async(store, env, listns::<S>),
+            "landlock_create_ruleset" => {
+                Function::new_typed_with_env_async(store, env, landlock_create_ruleset::<S>)
+            }
+            "landlock_add_rule" => {
+                Function::new_typed_with_env_async(store, env, landlock_add_rule::<S>)
+            }
+            "landlock_restrict_self" => {
+                Function::new_typed_with_env_async(store, env, landlock_restrict_self::<S>)
+            }
+            "lsm_get_self_attr" => {
+                Function::new_typed_with_env_async(store, env, lsm_get_self_attr::<S>)
+            }
+            "lsm_set_self_attr" => {
+                Function::new_typed_with_env_async(store, env, lsm_set_self_attr::<S>)
+            }
+            "lsm_list_modules" => {
+                Function::new_typed_with_env_async(store, env, lsm_list_modules::<S>)
+            }
+            "add_key" => Function::new_typed_with_env_async(store, env, add_key::<S>),
+            "request_key" => Function::new_typed_with_env_async(store, env, request_key::<S>),
+            "keyctl" => Function::new_typed_with_env_async(store, env, keyctl::<S>),
+            "bpf" => Function::new_typed_with_env_async(store, env, bpf::<S>),
+            "perf_event_open" => {
+                Function::new_typed_with_env_async(store, env, perf_event_open::<S>)
+            }
+            "reboot" => Function::new_typed_with_env_async(store, env, reboot::<S>),
+            "acct" => Function::new_typed_with_env_async(store, env, acct::<S>),
+            "swapon" => Function::new_typed_with_env_async(store, env, swapon::<S>),
+            "swapoff" => Function::new_typed_with_env_async(store, env, swapoff::<S>),
+            "syslog" => Function::new_typed_with_env_async(store, env, syslog::<S>),
+            "vhangup" => Function::new_typed_with_env_async(store, env, vhangup::<S>),
+            "kexec_load" => Function::new_typed_with_env_async(store, env, kexec_load::<S>),
+            "kexec_file_load" => {
+                Function::new_typed_with_env_async(store, env, kexec_file_load::<S>)
+            }
+            "init_module" => Function::new_typed_with_env_async(store, env, init_module::<S>),
+            "finit_module" => Function::new_typed_with_env_async(store, env, finit_module::<S>),
+            "delete_module" => Function::new_typed_with_env_async(store, env, delete_module::<S>),
+            _ => continue,
+        };
+        imports.define(IMPORT_MODULE, import.name(), function);
+    }
     imports
 }
 
