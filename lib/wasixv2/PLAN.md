@@ -62,21 +62,23 @@ unhelpful or wrong: `nbytes = 0` (v1 libc's FIONREAD reads it), one `rt_sigactio
 scratch, an errno table. Benchmark kept under `logs/wp8/bench` on the orchestration machine; proposed
 home `bench/syscalls/` in wasixv2-tests.
 
-Next: an ABI-codegen package in wasixv2-abi: generated v2 imports filtered by `module.imports()` (measured: v2 thread
-create+join 344 to 113 us, spawn 652 to 264 us) and `Control::take_image` returning `Image`.
+The ABI-codegen package has landed too (abi `main` `832bb78`, pinned by wasmer `dba44c5eba2` and
+libc2 `main` `3bcd192c`): generated v2 imports are built only for what a module imports (v2 thread
+create+join 358 to 91 us, v2 spawn 620 to 259 us), and `Control::take_image` returns an `Image`
+(the `ExecImage` supertrait is gone). Host code only: the libc2 sysroots are identical.
 
 Next: WP11 (robustness); the `__linux__` work package (design ready, waiting for agreement); the
 init/pid-1 + guard WP after WP11.
 
 Follow-ups from WP2/WP7:
+- `timer_getoverrun/2-2` fails about half the time alone ("0 overruns sent; expected 75"), on
+  every binary; usually passes under suite load. Flaky-list candidate.
 - `pthread_once/6-1` hangs about 1 in 10 runs (before WP2/WP7 too): all threads `Exit`, the main
   thread never returns from `pthread_join` — probably a lost futex wake at thread exit. In
   flaky.txt until fixed.
 - A first program that fails to instantiate now exits 139 with "killing it with SIGSEGV"
   (python/python) instead of a plain load error: `run_file` goes through the execve image loop
   (M-CLI2). Report a plain load error for the first image (WP10).
-- wasixv2-abi codegen: `Control::take_image` should return `Image`, then drop the `ExecImage`
-  supertrait (ABI repo first, rules 6).
 - v1 command defaults don't apply to a command used as a `#!` interpreter.
 
 Follow-ups found while landing train 6 (not yet scheduled):

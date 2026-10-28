@@ -331,3 +331,17 @@ getpid 449→426 ns, read 790→712, write 827→732; v2 read 585→557; v1 thre
 v1 spawn 498→318 us. Suite (two runs): 2380/1229/0/455. Smoke as WP10.
 
 Landed, fast-forward: wasmer `feat/wasixv2` `11d0ae2781b..9d04b0b7899`.
+
+## 2026-10-28: ABI codegen (imports filtered by module, `take_image` → `Image`) — LANDED
+
+wasixv2-abi `exec-imports`: generated `imports(store, env, module)` defines only the `wasixv2`
+functions the module imports; `Control::take_image` returns `Option<Image>`. wasmer one commit
+(bump, regeneration, `ExecImage` removed); libc2 a pointer-only bump (its generated C is unchanged;
+both sysroots rebuilt and identical apart from musl's version string). Gates: crate tests 634, CLI
+59/0/12. A/B against `9d04b0b7899`: v2 thread create+join 358→91 us, v2 spawn 620→259 us, v2 read
+592→558 ns; v1 unchanged. Suite: run 1 2380/1229/0/455; run 2 broken by a mid-run swap of the
+shared clang (420 compile failures, "Failed to run command clang"); rerun 2379/1229/1/455 with
+`timer_getoverrun/2-2` flaky on every binary (9/20 vs 11/20 alone). Smoke as WP8.
+
+Landed, fast-forward: abi `main` `bcd7622..832bb78`; libc2 `main` `f216f303..3bcd192c`; wasmer
+`feat/wasixv2` `9d04b0b7899..dba44c5eba2`.
