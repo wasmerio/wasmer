@@ -20,11 +20,13 @@ use crate::{
 
 /// What `mount(2)` does to its target (`path_mount`'s dispatch).
 pub enum MountOp {
-    /// Mounts a new filesystem instance, made from `source` (`do_new_mount`).
+    /// Mounts `fs`, made from `source` (`do_new_mount`), read-only as a filesystem if
+    /// `sb_read_only` (`SB_RDONLY`) and it is not mounted already.
     New {
         fs: Arc<dyn Filesystem>,
         source: Vec<u8>,
         flags: MountFlags,
+        sb_read_only: bool,
     },
     /// Mounts the tree at `source` again, with what is mounted below it if `recursive`
     /// (`do_loopback`, `MS_BIND` and `MS_REC`).
@@ -114,7 +116,12 @@ impl Vfs {
     /// Mounts on `target` as `op` says (`path_mount`).
     pub fn do_mount(&self, ns: &MntNs, target: &Path, op: MountOp) -> FsResult<()> {
         match op {
-            MountOp::New { fs, source, flags } => self.new_mount(ns, target, fs, source, flags),
+            MountOp::New {
+                fs,
+                source,
+                flags,
+                sb_read_only,
+            } => self.new_mount(ns, target, fs, source, flags, sb_read_only),
             MountOp::Bind { source, recursive } => self.loopback(ns, target, &source, recursive),
             MountOp::Move { source } => self.move_mount(ns, &source, target),
             MountOp::Remount { read_only, flags } => {
@@ -148,9 +155,12 @@ impl Vfs {
         fs: Arc<dyn Filesystem>,
         source: Vec<u8>,
         flags: MountFlags,
+        sb_read_only: bool,
     ) -> FsResult<()> {
-        let sb = self.new_superblock(fs);
-        let root = Dentry::root(&sb, sb.fs.root());
+        let (root, new) = self.fs_root(fs);
+        if new {
+            root.sb().set_read_only(sb_read_only);
+        }
         let mount = Arc::new(Mount::new(self.tree.next_id(), root, flags, source));
         let mut state = self.tree.lock();
         let at = self.lock_mount(&state, target)?;

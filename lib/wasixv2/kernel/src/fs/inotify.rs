@@ -13,7 +13,7 @@ use wasixv2_abi::{
     AtFd, AtFlags, Cstr, GuestPtrMut, InotifyInitFlags, InotifyMask, IoctlRequest, OpenFlags,
 };
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysErr, SysResult, write_value};
-use wasixv2_vfs::{FileType, FsEvent, FsObject, FsWatcher, MAY_READ, Path, Vfs};
+use wasixv2_vfs::{Dentry, FileType, FsEvent, FsObject, FsWatcher, MAY_READ, Vfs};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use super::read_path;
@@ -219,8 +219,9 @@ struct Watch {
     object: FsObject,
     mask: u32,
     /// The watched inode, held as Linux's mark holds it (`fsnotify_add_inode_mark`), so its
-    /// number stays its own while the watch lasts.
-    _pin: Path,
+    /// number stays its own while the watch lasts. Not the mount: a watch does not keep a
+    /// filesystem from being unmounted.
+    _pin: Arc<Dentry>,
 }
 
 #[derive(Default)]
@@ -496,7 +497,7 @@ impl Kernel {
         let watch = Watch {
             object,
             mask,
-            _pin: target,
+            _pin: target.dentry,
         };
         state.watches.insert(wd, watch);
         drop(state);

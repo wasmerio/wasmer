@@ -53,7 +53,10 @@ use std::{
 
 pub use cred::Credentials;
 pub use file::{FileObject, Io, SeekBase};
-pub use fs::HostClock;
+pub use fs::{
+    HostClock,
+    mount::{FilesystemType, FsParam},
+};
 pub use ident::{Uname, UnameError};
 use wasixv2_abi::{
     AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstBuf, ConstFileHandlePtr,
@@ -128,6 +131,8 @@ pub struct Kernel {
     shm: Option<Arc<Mount>>,
     /// inotify watches, fed by the VFS's change notifications.
     inotify: Arc<fs::inotify::Registry>,
+    /// The filesystem types `mount` makes instances of.
+    filesystems: Arc<fs::mount::Registry>,
     // ---- thr ----
     futexes: futex::Futexes,
     // ---- proc ----
@@ -264,6 +269,7 @@ impl Kernel {
             ns_inums: Arc::default(),
             network_factory: None,
             inotify: fs::inotify::Registry::install(&vfs),
+            filesystems: fs::mount::Registry::new(),
             shm: None,
             vfs,
             futexes: futex::Futexes::default(),
@@ -1345,6 +1351,50 @@ impl Syscalls for Kernel {
 
     async fn unshare(&self, caller: &Caller<'_>, unshare_flags: Ulong) -> SysResult<i32> {
         self.sys_unshare(caller, unshare_flags)
+    }
+
+    async fn mount(
+        &self,
+        caller: &Caller<'_>,
+        dev_name: Cstr,
+        dir_name: Cstr,
+        r#type: Cstr,
+        flags: wasixv2_abi::MountFlags,
+        data: wasixv2_abi::ConstVoidPtr,
+    ) -> SysResult<i32> {
+        self.sys_mount(caller, dev_name, dir_name, r#type, flags, data)
+            .await
+    }
+
+    async fn umount2(
+        &self,
+        caller: &Caller<'_>,
+        name: Cstr,
+        flags: wasixv2_abi::UmountFlags,
+    ) -> SysResult<i32> {
+        self.sys_umount2(caller, name, flags).await
+    }
+
+    async fn pivot_root(
+        &self,
+        caller: &Caller<'_>,
+        new_root: Cstr,
+        put_old: Cstr,
+    ) -> SysResult<i32> {
+        self.sys_pivot_root(caller, new_root, put_old).await
+    }
+
+    async fn mount_setattr(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        path: Cstr,
+        flags: AtFlags,
+        uattr: wasixv2_abi::ConstMountAttrPtr,
+        usize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_mount_setattr(caller, dfd, path, flags, uattr, usize)
+            .await
     }
 
     async fn setns(&self, caller: &Caller<'_>, fd: Fd, flags: i32) -> SysResult<i32> {

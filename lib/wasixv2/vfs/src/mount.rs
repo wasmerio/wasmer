@@ -42,6 +42,9 @@ pub struct Superblock {
     pub(crate) inodes: Mutex<HashMap<u64, Weak<Inode>>>,
     /// The `st_dev` given to each device the driver reports per object (`Attr::dev`).
     pub(crate) sub_devs: Mutex<HashMap<Device, Device>>,
+    /// The dentry of the filesystem's root while something holds it (`s_root`), so every
+    /// mount of the filesystem starts at the same one.
+    pub(crate) root: Mutex<Weak<Dentry>>,
 }
 
 impl Superblock {
