@@ -318,7 +318,10 @@ impl Kernel {
     /// `wait_for_vfork_done` is killable: when the vfork parent of `child`, the task its
     /// instance runs, has a fatal signal pending, the parent's thread group dies now, as
     /// though the parent had taken it, while the child goes on. The instance goes back to the
-    /// parent only once the child ends, to unwind it.
+    /// parent only once the child ends, to unwind it. A parent whose exit is queued already
+    /// has nothing left to take: a group exit reached it, or another thread's `execve` killed
+    /// it alone (`zap_other_threads`; `do_group_exit` with `group_exec_task` set ends only the
+    /// thread that takes the SIGKILL).
     pub(crate) fn kill_vfork_parent(&self, child: TaskId) {
         let Some(parent) = self
             .procs
@@ -332,11 +335,19 @@ impl Kernel {
         };
         let signals = {
             let state = self.state.read_or_recover();
-            state.tasks.get(&parent).map(|task| task.signals.clone())
+            let task = state.tasks.get(&parent);
+            let alive = task.filter(|task| task.work.exit().is_none());
+            alive.map(|task| task.signals.clone())
         };
         if let Some(sig) = signals.and_then(|signals| signals.fatal_pending()) {
             self.force_fatal_signal(parent, sig);
         }
+    }
+
+    /// The tasks that wait for a vfork child running in their instance.
+    pub(crate) fn vfork_parents(&self) -> Vec<TaskId> {
+        let tree = self.procs.tree.lock_or_recover();
+        tree.vforks.values().copied().collect()
     }
 
     /// Whether `task` waits for a vfork child running in its instance.
