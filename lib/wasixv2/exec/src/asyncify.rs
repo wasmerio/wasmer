@@ -37,7 +37,7 @@ use wasmer::{
     Mutability, RuntimeError, StoreAsync, StoreMut, TypedFunction, Value,
 };
 
-use crate::ExecEnv;
+use crate::{ExecEnv, memory_image::MemoryImage};
 
 /// Pages of linear memory an instance takes, on its first unwind, for its unwound stacks. An
 /// unwind that needs more traps.
@@ -530,7 +530,7 @@ pub(crate) async fn restore<S: 'static>(
 pub(crate) struct ForkImage {
     pub(crate) module: Module,
     /// Linear memory, unwound stack included.
-    pub(crate) memory: Vec<u8>,
+    pub(crate) memory: MemoryImage,
     /// Exported mutable globals and their values.
     pub(crate) globals: Vec<(String, Value)>,
     /// The entry point the child calls to rewind, and its arguments.
@@ -574,9 +574,7 @@ async fn snapshot<S: 'static>(
             .ok_or_else(|| RuntimeError::new("fork needs the instance's module"))?;
         let memory = env.memory.clone().expect("an instance has memory");
         let a = env.asyncify.as_ref().expect("unwound above");
-        let bytes = memory
-            .view(&*store)
-            .copy_to_vec()
+        let image = MemoryImage::capture(&memory, &*store)
             .map_err(|_| RuntimeError::new("cannot copy guest memory"))?;
         let globals = a
             .globals
@@ -592,7 +590,7 @@ async fn snapshot<S: 'static>(
             .collect();
         Ok(ForkImage {
             module,
-            memory: bytes,
+            memory: image,
             globals,
             entry,
             args: args.to_vec(),
