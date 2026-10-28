@@ -484,6 +484,63 @@ fn a_vfork_child_that_ends_before_the_sibling_execve_commits_hands_the_leader_ba
     assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
 }
 
+/// A leader that is itself a vfork child takes the new image in its instance, where its own
+/// vfork parent waits to resume: no other instance may start the image, which would lose
+/// that resume. Its `execve` from another thread so waits for its own vfork child, as
+/// before.
+#[test]
+fn a_leader_that_is_a_vfork_child_takes_the_image_in_its_instance() {
+    const VFORK: u32 = 0x4000 | 0x100 | Signal::SIGCHLD.0 as u32;
+    let (kernel, grandparent, memory) = machine();
+    let caller = Caller::new(grandparent, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let vfork = |caller: &Caller<'_>| {
+        let clone = kernel.clone(caller, VFORK, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+        assert_eq!(block_on(clone), Ok(0));
+        match kernel.take_pending(caller.task()) {
+            Some(GuestAction::SwitchTask { task, .. }) => task,
+            other => panic!("vfork left no task switch: {other:?}"),
+        }
+    };
+    let leader = vfork(&caller);
+    let leader_caller = Caller::new(leader, &memory);
+    let execing = spawn_thread(&kernel, &leader_caller);
+    while kernel.take_pending(leader).is_some() {}
+    let child = vfork(&leader_caller);
+    let thread = Caller::new(execing, &memory);
+    let mut exec = Box::pin(execve(&kernel, &thread));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    let dead = GuestAction::ExitMm { task: leader };
+    assert_eq!(kernel.take_pending(child), Some(dead));
+    block_on(kernel.exit_mm(&leader_caller));
+    assert_eq!(
+        exec.as_mut().now_or_never(),
+        None,
+        "waits for the leader's child"
+    );
+
+    block_on(kernel.exit_group(&Caller::new(child, &memory), 0)).unwrap();
+    let parent = VforkParent {
+        task: leader,
+        resumes: Resume::Dies,
+    };
+    let back = GuestAction::VforkReturn { parent, child };
+    assert_eq!(kernel.take_pending(child), Some(back));
+    kernel.release(child);
+    let vfork_parent = Some(VforkParent {
+        task: grandparent,
+        resumes: Resume::Returns,
+    });
+    let handed = GuestAction::Exec { vfork_parent };
+    assert_eq!(kernel.take_pending(leader), Some(handed));
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
+    kernel.release(execing);
+    assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
+}
+
 /// A fatal signal, or another thread's `exit_group`, while the `execve` waits for the leader:
 /// the `execve` fails, the leader's instance still leaves the leader's memory for it, and the
 /// child's end hands the instance back to the dead leader.
