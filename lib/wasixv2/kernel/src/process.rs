@@ -160,7 +160,7 @@ impl Tree {
     }
 
     /// `find_new_reaper`: the nearest living ancestor that set `PR_SET_CHILD_SUBREAPER`, else
-    /// the first process, else nobody.
+    /// the first process (the kernel's init, when it has one), else nobody.
     fn reaper(&self, dying: u32) -> u32 {
         let mut at = self.nodes.get(&dying).map_or(0, |node| node.parent);
         while let Some(node) = self.nodes.get(&at) {

@@ -132,11 +132,25 @@ fn spawn_with_stdin(
     args: &[&str],
     env: &[&str],
 ) -> (Kernel, TaskId, Arc<Capture>) {
+    spawn_on(test_kernel(), stdin, args, env)
+}
+
+/// A kernel on a memory root, with no init.
+fn test_kernel() -> Kernel {
     let host: Arc<dyn Host> = Arc::new(TestHost);
     let clock = Arc::new(HostClock(host.clone()));
     let root = MemFs::new(clock.clone(), 0o755, 1, 1);
     let shm = MemFs::new(clock, 0o1777, 0, 0);
-    let kernel = Kernel::new(host, Arc::new(root)).with_shm(Arc::new(shm));
+    Kernel::new(host, Arc::new(root)).with_shm(Arc::new(shm))
+}
+
+/// Spawns a process on `kernel`.
+fn spawn_on(
+    kernel: Kernel,
+    stdin: Arc<dyn ByteSource>,
+    args: &[&str],
+    env: &[&str],
+) -> (Kernel, TaskId, Arc<Capture>) {
     let stdout = Arc::new(Capture::default());
     let task = kernel.spawn(ProcessConfig {
         args: args.iter().map(|s| s.to_string()).collect(),

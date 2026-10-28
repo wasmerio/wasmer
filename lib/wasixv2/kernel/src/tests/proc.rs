@@ -1,4 +1,4 @@
-//! fork: clone without `CLONE_VM`.
+//! fork: clone without `CLONE_VM`; the kernel's init.
 
 use wasixv2_abi::{
     CloneFlags, ConstRlimit64Ptr, Idtype, Pid, PrctlOption, Rlimit64Ptr, RlimitResource, RusagePtr,
@@ -312,4 +312,116 @@ fn a_zombie_handed_to_a_subreaper_is_reported_and_stays() {
     ));
     assert_eq!(waited, Ok(0));
     assert_eq!(word(&memory.0, 32 + 20), 4, "si_status");
+}
+
+// ---- init ----
+
+/// A kernel booted with its init, and a process it spawned.
+fn setup_with_init() -> (Kernel, TaskId) {
+    let stdin = Arc::new(Input(Mutex::new(Vec::new())));
+    let (kernel, task, _) = spawn_on(test_kernel().with_init(), stdin, &[], &[]);
+    (kernel, task)
+}
+
+const INIT: TaskId = TaskId(1);
+
+#[test]
+fn spawned_processes_are_children_of_init_when_the_kernel_has_one() {
+    let (kernel, task) = setup_with_init();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    assert_eq!(task, TaskId(2));
+    assert_eq!(block_on(kernel.getppid(&caller)), Ok(1));
+    assert_eq!(block_on(kernel.getpid(&caller)), Ok(2));
+
+    let (kernel, task, _) = setup(b"");
+    let caller = Caller::new(task, &memory);
+    assert_eq!(task, TaskId(1));
+    assert_eq!(block_on(kernel.getppid(&caller)), Ok(0));
+}
+
+/// `forget_original_parent`: the children of a process that exits go to init, which reaps
+/// those that are zombies already at once, and the others as they exit.
+#[test]
+fn orphans_go_to_init_which_reaps_them() {
+    let (kernel, task) = setup_with_init();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let running = fork_child(&kernel, &caller);
+    let zombie = fork_child(&kernel, &caller);
+    let (running_memory, zombie_memory) = (forkable(), forkable());
+    let running_caller = Caller::new(running, &running_memory);
+    let zombie_caller = Caller::new(zombie, &zombie_memory);
+    assert_eq!(block_on(kernel.exit_group(&zombie_caller, 3)), Ok(()));
+    kernel.release(zombie);
+    assert!(
+        kernel.procs.find(zombie.0).is_some(),
+        "a zombie of its parent"
+    );
+
+    assert_eq!(block_on(kernel.exit_group(&caller, 0)), Ok(()));
+
+    assert!(
+        kernel.procs.find(task.0).is_none(),
+        "init reaped the parent"
+    );
+    assert!(
+        kernel.procs.find(zombie.0).is_none(),
+        "init reaped the zombie"
+    );
+    assert_eq!(block_on(kernel.getppid(&running_caller)), Ok(1));
+    assert_eq!(block_on(kernel.exit_group(&running_caller, 0)), Ok(()));
+    assert!(
+        kernel.procs.find(running.0).is_none(),
+        "init reaped the orphan"
+    );
+    assert!(kernel.procs.find(INIT.0).is_some());
+}
+
+/// `SIGNAL_UNKILLABLE`: a signal init has no handler for is dropped as it is sent, SIGKILL
+/// included, and `kill(-1)` passes init by.
+#[test]
+fn init_takes_no_signal_it_has_no_handler_for() {
+    let (kernel, task) = setup_with_init();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let child = fork_child(&kernel, &caller);
+
+    for sig in [Signal::SIGKILL, Signal::SIGTERM, Signal::SIGSTOP] {
+        assert_eq!(block_on(kernel.sys_kill(&caller, 1, sig)), Ok(0));
+    }
+    assert_eq!(Kernel::kill(&kernel, INIT, Signal::SIGKILL), Ok(()));
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, -1, Signal::SIGTERM)),
+        Ok(0)
+    );
+
+    assert_eq!(kernel.take_pending(INIT), None);
+    assert!(!kernel.process(INIT).group.exiting());
+    assert_eq!(
+        kernel.take_pending(child),
+        Some(GuestAction::Exit(128 + 15))
+    );
+    assert_eq!(
+        kernel.take_pending(task),
+        None,
+        "kill(-1) spares the caller"
+    );
+}
+
+/// `terminate` ends every process but init, which has no instance to release.
+#[test]
+fn terminate_returns_while_init_lives_on() {
+    use futures::FutureExt as _;
+
+    let (kernel, task) = setup_with_init();
+    let mut terminate = std::pin::pin!(kernel.terminate());
+    assert!(terminate.as_mut().now_or_never().is_none());
+    assert!(matches!(
+        kernel.take_pending(task),
+        Some(GuestAction::Exit(_))
+    ));
+    kernel.release(task);
+    assert_eq!(terminate.now_or_never(), Some(()));
+    assert!(kernel.procs.find(INIT.0).is_some());
 }
