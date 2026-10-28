@@ -34,6 +34,11 @@ export HOST BUILD
 # memory) grows down. On Linux targets gnulib's sigsegv module needs the
 # direction to find the stack's VMA.
 export sv_cv_stack_direction=-1 sv_cv_stack_direction_msg="grows down"
+# Autoconf's AC_FUNC_MALLOC/AC_FUNC_REALLOC can't run their test program when
+# cross compiling and then ask for an rpl_malloc/rpl_realloc the package must
+# provide (procps-ng, psmisc don't). libc2's (musl's) malloc(0) and
+# realloc(p, 0) return unique pointers.
+export ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes
 
 # fetch <url> <sha256>: download into downloads/ once and verify the checksum.
 fetch() {
