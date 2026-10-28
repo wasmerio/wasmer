@@ -626,7 +626,7 @@ pub trait Executor: Send + Sync {
 
 | Implementation | Feature | Clocks | Timers | Entropy | Executor |
 | --- | --- | --- | --- | --- | --- |
-| `TokioHost` | `tokio` (facade default) | `SystemTime`, tokio `Instant` | tokio timers | OS (`getrandom`) | `spawn_local` needs a `LocalSet`; blocking work on tokio's blocking pool |
+| `TokioHost` | `tokio` (facade default) | `SystemTime`, tokio `Instant` | tokio timers | OS (`getrandom`) | `spawn_local` needs a `LocalSet`; blocking work on tokio's blocking pool; guest threads on the starting thread's multi-thread runtime, each in a `LocalSet` (a current-thread runtime of their own otherwise) |
 | `WebHost` | `web`, `wasm32-unknown-unknown` | `Date.now()`, `performance.now()` | `setTimeout`, re-armed until the deadline | `crypto.getRandomValues` | `wasm_bindgen_futures::spawn_local`; blocking work runs inline and stalls the event loop |
 
 `Stdio::from_fns` wires stdout and stderr to callbacks with stdin at end of stream, which is enough for a browser console. A richer browser stdin is the embedder's own `ByteSource`.

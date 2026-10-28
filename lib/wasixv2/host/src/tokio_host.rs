@@ -6,6 +6,7 @@ use std::{
 
 use tokio::{
     io::{AsyncWrite, AsyncWriteExt},
+    runtime::{Handle, RuntimeFlavor},
     sync::Mutex,
     task::LocalSet,
     time::Instant,
@@ -18,8 +19,12 @@ use crate::{BlockingSource, ByteSink, Executor, Host, LocalFuture, Stdio, Thread
 ///
 /// [`Executor::spawn_local`] uses `tokio::task::spawn_local`, so the kernel must be driven inside
 /// a `tokio::task::LocalSet` (for example `LocalSet::block_on`). Blocking work runs on tokio's
-/// blocking pool. Each guest thread gets its own OS thread, with a current-thread runtime and a
-/// `LocalSet` of its own, since the futures that run guests are not `Send`.
+/// blocking pool. Each guest thread gets its own OS thread with a `LocalSet` of its own, since
+/// the futures that run guests are not `Send`, driven on the runtime of the thread that started
+/// it when that is a multi-thread runtime, whose workers drive its timers and I/O for every
+/// thread, so all guest threads share one runtime, its timers, I/O driver and blocking pool. A
+/// current-thread runtime drives them only while its own thread waits in it, so on one (or
+/// outside any runtime) a guest thread gets a current-thread runtime of its own.
 pub struct TokioHost {
     // tokio's clock, so sleeps and `monotonic` agree, also when tests pause time.
     start: Instant,
@@ -84,14 +89,35 @@ impl Executor for TokioHost {
     }
 
     fn spawn_thread(&self, start: ThreadStart) -> io::Result<()> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
+        let runtime = match Handle::try_current() {
+            Ok(handle) if handle.runtime_flavor() == RuntimeFlavor::MultiThread => {
+                GuestRuntime::Shared(handle)
+            }
+            _ => GuestRuntime::Own(
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()?,
+            ),
+        };
         std::thread::Builder::new()
             .name("wasixv2-guest".into())
-            .spawn(move || LocalSet::new().block_on(&runtime, start()))?;
+            .spawn(move || {
+                let local = LocalSet::new();
+                match runtime {
+                    GuestRuntime::Shared(handle) => handle.block_on(local.run_until(start())),
+                    GuestRuntime::Own(runtime) => local.block_on(&runtime, start()),
+                }
+            })?;
         Ok(())
     }
+}
+
+/// The runtime a guest thread's `LocalSet` runs on; see [`TokioHost`].
+enum GuestRuntime {
+    /// The multi-thread runtime of the thread that started it.
+    Shared(Handle),
+    /// One of its own.
+    Own(tokio::runtime::Runtime),
 }
 
 impl Stdio {
@@ -175,6 +201,23 @@ mod tests {
         .unwrap();
         let thread = finished.recv_timeout(Duration::from_secs(10)).unwrap();
         assert_ne!(thread, caller);
+    }
+
+    /// On a multi-thread runtime, a guest thread runs on that runtime, not one of its own.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn spawn_thread_shares_a_multi_thread_runtime() {
+        let host = Arc::new(TokioHost::default());
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let thread_host = host.clone();
+        host.spawn_thread(Box::new(move || {
+            Box::pin(async move {
+                thread_host.sleep(Duration::from_millis(1)).await;
+                tx.send(Handle::current().runtime_flavor()).unwrap();
+            })
+        }))
+        .unwrap();
+        let flavor = tokio::time::timeout(Duration::from_secs(10), rx).await;
+        assert_eq!(flavor.unwrap().unwrap(), RuntimeFlavor::MultiThread);
     }
 
     #[tokio::test]
