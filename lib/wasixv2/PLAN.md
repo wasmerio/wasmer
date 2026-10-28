@@ -14,15 +14,15 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `b75d9d49205` (merge train 8; wasixv2-tests `e08d138`, libc2 `2c3c3d4f`,
-wasixcc `d6373e5`): 3006 pass, 769 expected failures, 0 unexpected, 935 ignored.
+Suite on `feat/wasixv2` `0bd23caafbb` (merge train 9; wasixv2-tests `89a2785`, libc2 `449e092e`,
+abi `f9958c7`, wasixcc `7ab1ffb`): 3053 pass, 725 expected failures, 0 unexpected, 940 ignored.
 
 | Suite | Pass | Expected failures | Ignored |
 | --- | --- | --- | --- |
-| Open POSIX | 1518 | 273 | 85 |
-| LTP | 855 | 474 | 849 |
-| libc-test | 399 | 22 | 0 |
-| wasixv2 suite (`suite/`) | 235 | 0 | 1 |
+| Open POSIX | 1519 | 272 | 85 |
+| LTP | 894 | 431 | 853 |
+| libc-test | 397 | 22 | 2 |
+| wasixv2 suite (`suite/`) | 243 | 0 | 0 |
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -87,14 +87,22 @@ the sparse fork copy (pagemap), and shared memory across processes (shared anony
 segments, memfd and /dev/shm files on host shared pages; futex keys on shared objects; LTP branch
 `wasixv2-shared`). Designs: `~/wasixv2-orch/notes/design-*.md` on the orchestration machine.
 
-Merge train 9 (queued, implemented and pushed): follow-ups 4-6 (`wasixv2/followups-6`, on top of
-followups-5/4: read-only shared views mapped read-only, a non-leader thread parked in vfork does not
-block a sibling's execve, futexes in the low guard fault, MADV_WIPEONFORK/KEEPONFORK; tests runner:
-LTP tests run as non-leaders through a launcher; LTP fork branch `wasixv2-ipc`: IPC as upstream),
-gap A (`wasixv2/udp-errqueue`: inbound UDP, `--publish host:port/udp`, the socket error queue; ABI
-`sock-extended-err`), and when done gap B (real CPU time) and gap P (namespace scaffolding; ABI
-`ns-ioctls`). Then mounts and the UTS/IPC/net namespaces, then pid namespaces (design
-`notes/design-gaps.md` on the orchestration machine).
+Merge train 9 has landed (`0bd23caafbb`): read-only shared views, a non-leader thread parked in vfork
+no longer blocks a sibling's execve, futexes in the low guard fault, MADV_WIPEONFORK/KEEPONFORK, LTP
+tests run as non-leaders (runner launcher) with LTP's IPC as upstream (LTP fork `wasixv2-ipc`),
+inbound UDP and `--publish host:port/udp` and the socket error queue, namespace scaffolding
+(NsProxy, nsfs, `/proc/<pid>/ns`, unshare/setns/clone3, `NS_GET_*`), real CPU time accounting
+(rusage, times, CPU itimers, RLIMIT_CPU, CPU-clock timers; sampling at 1/256 syscalls and preemption
+points), and wasixcc's clone3 asyncify fix. Flaky (with reasons): nice05, epoll_wait16, malloc-brk-fail
+and setenv-oom (host memory; fixed on `wasixv2/vmfill-commit`), tgkill01 (LTP in-process heartbeat
+SIGUSR1; being fixed), fs_inod01 (timeout under load).
+
+Merge train 10 (next): UTS/IPC/net namespaces, mount(2) family + mount namespaces + the new mount
+API, copy-on-write fork, `userland-3` (util-linux mount, tar/gzip/cpio/unzip, procps, psmisc; host
+triplet linux-musl), follow-ups 7 and 8 (pidfd on /proc dirs, RLIMIT_MEMLOCK, socket-netns ioctls,
+/proc/net/unix, console drain, lo down in new netns, kernel copies honour page protections,
+CLONE_PIDFD), runner asyncify detection for raw clone, the vmfill host-memory fix, the tgkill fix.
+Then pid namespaces.
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`

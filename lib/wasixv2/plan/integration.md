@@ -395,3 +395,27 @@ sysroots. wasixcc: `wasix++` for wasixv2.
 
 Landed, fast-forward: libc2 `main` `22a372c9..2c3c3d4f`; tests `main` `c08bcd5..e08d138`; wasixcc
 `feat/wasixv2` `8222197..d6373e5`; wasmer `feat/wasixv2` `c4c59c64f70..b75d9d49205`.
+
+## 2026-10-28: merge train 9 — LANDED
+
+abi `train9` (sock-extended-err, ns-ioctls, cpu-time codegen), wasmer `wasixv2/train9` (19 commits on
+`b75d9d49205`: follow-ups 4-6, gap A UDP/errqueue, gap P namespace scaffolding, gap B CPU time, one
+combined ABI bump), tests `train9` (fixtures, the LTP launcher, `upstream/ltp` -> `wasixv2-ipc`, the
+re-bless, flakes), libc2 `train9` (abi pin), wasixcc `train9` (clone3 asyncify), plan (UDP smoke).
+
+- Conflicts: mostly train 7's lock sweep; `SharedMappings` gained `wipe_on_fork` in the exec test
+  Recorder; ns vs cpu-time in `process.rs`/procfs; the LTP launcher only on the non-shell path.
+- Gates: crate tests 866, clippy, fmt, release, CLI 59/0/12, run_tty 6/6.
+- Suite #1: 43 newly pass (madvise10, 9 pty tests, pty02, setpgid01, futex_wait02-04,
+  futex_wake01-03, futex_cmp_requeue02, cve-2018-6927, times03, setitimer01, setrlimit06, fork/8-1,
+  ioctl_ns02-04, unshare02, openat202, recv01, recvfrom01, execl01/le01/lp01/v01/ve01/ve06/vp01,
+  cve-2021-4034, setpgid03, shmat01). No regressions.
+- OOM: four libc-test OOM tests commit 4.2 GB each (also on feat): the kernel zeroed reused pages by
+  writing; fixed on `wasixv2/vmfill-commit` (train 10); two of them flaky meanwhile.
+- tgkill01: a wrong-thread SIGUSR1 caused by the LTP fork's in-process heartbeat (being fixed).
+- Final check: 3053/725/0/0/940. Smoke: sws-v2 28/28 (classic, `__linux__`), v1 8 + python,
+  UDP publish 6/6, C++ 9/9, pty bash 11/11, `--publish 15353:53/udp` with `--user 0`.
+
+Landed, fast-forward: abi `main` `832bb78..f9958c7`; libc2 `main` `2c3c3d4f..449e092e`; tests `main`
+`e08d138..89a2785`; wasixcc `feat/wasixv2` `d6373e5..7ab1ffb`; wasmer `feat/wasixv2`
+`b75d9d49205..0bd23caafbb`; plan `50acb462dc9..043df85f084`.
