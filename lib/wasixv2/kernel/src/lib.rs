@@ -114,6 +114,8 @@ pub struct Kernel {
     // ---- ns ----
     /// The initial namespaces (`init_nsproxy`), which [`Kernel::spawn`]ed processes start in.
     init_ns: Arc<ns::NsProxy>,
+    /// The inode numbers of namespaces made after boot.
+    ns_inums: Arc<ns::Inums>,
     // ---- fs ----
     vfs: Arc<Vfs>,
     /// The inodes of pipes, sockets and anonymous files.
@@ -252,6 +254,7 @@ impl Kernel {
             host,
             state,
             init_ns: Arc::new(ns::NsProxy::initial(Uname::default().to_utsname(), None)),
+            ns_inums: Arc::default(),
             inotify: fs::inotify::Registry::install(&vfs),
             shm: None,
             vfs,

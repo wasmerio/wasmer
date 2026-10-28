@@ -2,13 +2,14 @@
 //! users, cgroups and clocks a task sees. Every task points at an [`NsProxy`], which `clone`
 //! shares or copies, `unshare` replaces and `setns` changes, as Linux's `struct nsproxy`.
 //!
-//! The machine has one namespace of each kind so far, the initial one, with the inode numbers
-//! Linux gives those (`linux/nsfs.h`); a request for a new one is refused with `EPERM`, as a
-//! container's policy refuses it, until the kind exists. Code reaches every namespaced object
-//! through the caller's proxy ([`Kernel::ns`]), never through the kernel, so a kind becomes
-//! real by making [`NsProxy::make`] create it.
+//! The initial namespaces have the inode numbers Linux gives those (`linux/nsfs.h`); those made
+//! later get theirs from [`Inums`]. UTS and IPC namespaces can be made; a request for a new one
+//! of a kind that cannot is refused with `EPERM`, as a container's policy refuses it. Code
+//! reaches every namespaced object through the caller's proxy ([`Kernel::ns`]), never through
+//! the kernel, so a kind becomes real by making [`NsProxy::make`] create it.
 
 use std::{
+    collections::BTreeSet,
     ops::Deref,
     sync::{Arc, Mutex, Weak},
 };
@@ -109,6 +110,57 @@ pub(crate) struct Common {
     /// Its nsfs inode while one is in use (`stashed`), so every open of the namespace finds
     /// the same inode.
     pub(crate) stashed: Mutex<Weak<crate::nsfs::NsNode>>,
+    /// Where `ino` goes back when the namespace is gone; none for an initial namespace.
+    inums: Option<Arc<Inums>>,
+}
+
+impl Drop for Common {
+    /// `ns_common_free`: the inode number is free again.
+    fn drop(&mut self) {
+        if let Some(inums) = &self.inums {
+            inums.free(self.ino);
+        }
+    }
+}
+
+/// `PROC_DYNAMIC_FIRST`: the first inode number of a namespace made after boot.
+const DYNAMIC_FIRST: u32 = 0xF000_0000;
+
+/// `proc_alloc_inum`: the inode numbers of the namespaces made after boot, from
+/// [`DYNAMIC_FIRST`] up, the lowest free one first (`proc_inum_ida`).
+#[derive(Default)]
+pub(crate) struct Inums {
+    state: Mutex<InumState>,
+}
+
+#[derive(Default)]
+struct InumState {
+    /// Offsets from [`DYNAMIC_FIRST`]: every one below `next` is in use unless in `free`.
+    next: u32,
+    free: BTreeSet<u32>,
+}
+
+impl Inums {
+    /// A free inode number; `ENOSPC` when none is left below `u32::MAX`.
+    fn alloc(&self) -> Result<u32, Errno> {
+        let mut state = self.state.lock_or_recover();
+        let offset = match state.free.pop_first() {
+            Some(offset) => offset,
+            None if state.next <= u32::MAX - DYNAMIC_FIRST => {
+                state.next += 1;
+                state.next - 1
+            }
+            None => return Err(Errno::ENOSPC),
+        };
+        Ok(DYNAMIC_FIRST + offset)
+    }
+
+    fn free(&self, ino: u32) {
+        self.state
+            .lock_or_recover()
+            .free
+            .insert(ino - DYNAMIC_FIRST);
+    }
 }
 
 /// A namespace: what nsfs knows of it, and the objects it holds.
@@ -126,9 +178,30 @@ impl<T> Ns<T> {
                 ino: kind.initial_ino(),
                 owner,
                 stashed: Mutex::default(),
+                inums: None,
             },
             inner,
         })
+    }
+
+    /// A namespace of `kind` made after boot (`ns_common_init`), owned by `owner`, with an
+    /// inode number from `inums`.
+    pub(crate) fn new(
+        kind: NsKind,
+        owner: Arc<UserNs>,
+        inner: T,
+        inums: &Arc<Inums>,
+    ) -> Result<Arc<Self>, Errno> {
+        Ok(Arc::new(Self {
+            common: Common {
+                kind,
+                ino: inums.alloc()?,
+                owner: Some(owner),
+                stashed: Mutex::default(),
+                inums: Some(inums.clone()),
+            },
+            inner,
+        }))
     }
 }
 
@@ -322,7 +395,12 @@ impl NsProxy {
     /// go with `CLONE_SYSVSEM`, which would share semaphore adjustments across namespaces. A
     /// child with its own memory starts in the time namespace for children
     /// (`timens_on_fork`).
-    pub(crate) fn copy(self: &Arc<Self>, flags: u64, cred: &Cred) -> Result<Arc<Self>, Errno> {
+    pub(crate) fn copy(
+        self: &Arc<Self>,
+        kernel: &Kernel,
+        flags: u64,
+        cred: &Cred,
+    ) -> Result<Arc<Self>, Errno> {
         let vm = flags & CloneFlags::CLONE_VM.0 != 0;
         if flags & CLONE_NS_ALL == 0 {
             if vm || Arc::ptr_eq(&self.time, &self.time_for_children) {
@@ -332,7 +410,7 @@ impl NsProxy {
             new.time = new.time_for_children.clone();
             return Ok(Arc::new(new));
         }
-        let mut new = self.copy_user(flags)?;
+        let mut new = self.copy_user(kernel, flags)?;
         if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 != 0 {
             if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
                 return Err(Errno::EPERM);
@@ -341,7 +419,7 @@ impl NsProxy {
             if flags & ipc_sysvsem == ipc_sysvsem {
                 return Err(Errno::EINVAL);
             }
-            new.create(flags)?;
+            new.create(kernel, flags)?;
         }
         if !vm {
             new.time = new.time_for_children.clone();
@@ -351,35 +429,40 @@ impl NsProxy {
 
     /// `unshare_userns` and `unshare_nsproxy_namespaces`: the caller's namespaces with new ones
     /// where `flags` asks, or `None` if it asks for none.
-    pub(crate) fn unshare(&self, flags: u64, cred: &Cred) -> Result<Option<Self>, Errno> {
+    pub(crate) fn unshare(
+        &self,
+        kernel: &Kernel,
+        flags: u64,
+        cred: &Cred,
+    ) -> Result<Option<Self>, Errno> {
         if flags & CLONE_NS_ALL == 0 {
             return Ok(None);
         }
-        let mut new = self.copy_user(flags)?;
+        let mut new = self.copy_user(kernel, flags)?;
         if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 != 0 {
             if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
                 return Err(Errno::EPERM);
             }
-            new.create(flags)?;
+            new.create(kernel, flags)?;
         }
         Ok(Some(new))
     }
 
     /// A copy of the proxy, in a new user namespace if `flags` asks (`copy_creds`,
     /// `unshare_userns`).
-    fn copy_user(&self, flags: u64) -> Result<Self, Errno> {
+    fn copy_user(&self, kernel: &Kernel, flags: u64) -> Result<Self, Errno> {
         let mut new = self.clone();
         if flags & CloneFlags::CLONE_NEWUSER.0 != 0 {
-            new.make(NsKind::User)?;
+            new.make(kernel, NsKind::User)?;
         }
         Ok(new)
     }
 
     /// `create_new_namespaces`: a new namespace of each kind `flags` asks for.
-    fn create(&mut self, flags: u64) -> Result<(), Errno> {
+    fn create(&mut self, kernel: &Kernel, flags: u64) -> Result<(), Errno> {
         for kind in NsKind::PROXIED {
             if flags & kind.flag() != 0 {
-                self.make(kind)?;
+                self.make(kernel, kind)?;
             }
         }
         Ok(())
@@ -387,18 +470,26 @@ impl NsProxy {
 
     /// Puts a new namespace of `kind` in place of the proxy's (`copy_mnt_ns`, `copy_utsname`,
     /// `copy_ipcs`, `copy_pid_ns`, `copy_cgroup_ns`, `copy_net_ns`, `copy_time_ns`,
-    /// `create_user_ns`). No kind can be made yet.
-    fn make(&mut self, kind: NsKind) -> Result<(), Errno> {
+    /// `create_user_ns`), owned by the proxy's user namespace. A new UTS namespace starts
+    /// with a copy of the names (`clone_uts_ns`), a new IPC namespace empty (`create_ipc_ns`).
+    /// Mount, network, pid, user, cgroup and time namespaces cannot be made yet.
+    fn make(&mut self, kernel: &Kernel, kind: NsKind) -> Result<(), Errno> {
+        let inums = &kernel.ns_inums;
+        let owner = self.user.clone();
         match kind {
+            NsKind::Uts => {
+                let names = *self.uts.lock_or_recover();
+                self.uts = Ns::new(kind, owner, Mutex::new(names), inums)?;
+            }
+            NsKind::Ipc => self.ipc = Ns::new(kind, owner, ipc::Ipc::default(), inums)?,
             NsKind::Mnt
-            | NsKind::Uts
-            | NsKind::Ipc
             | NsKind::Net
             | NsKind::Pid
             | NsKind::User
             | NsKind::Cgroup
-            | NsKind::Time => Err(Errno::EPERM),
+            | NsKind::Time => return Err(Errno::EPERM),
         }
+        Ok(())
     }
 }
 
@@ -565,7 +656,7 @@ impl Kernel {
                 &files.lock_or_recover(),
             )))
         });
-        let new_ns = ns.unshare(flags, &process.cred())?;
+        let new_ns = ns.unshare(self, flags, &process.cred())?;
         let ipc_or_sysvsem = CloneFlags::CLONE_NEWIPC.0 | CloneFlags::CLONE_SYSVSEM.0;
         if flags & ipc_or_sysvsem != 0 {
             self.exit_sem(&process);

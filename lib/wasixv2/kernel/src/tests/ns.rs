@@ -1,6 +1,6 @@
 //! Namespaces: `/proc/<pid>/ns`, nsfs files and their `NS_GET_*` requests.
 
-use wasixv2_abi::{CloneFlags, IoctlRequest, Statx, StatxMask};
+use wasixv2_abi::{CloneFlags, IoctlRequest, NewUtsname, Statx, StatxMask};
 use wasixv2_syscalls::read_value;
 use wasixv2_vfs::MountFlags;
 
@@ -183,7 +183,7 @@ fn ns_get_userns_opens_the_owning_user_namespace() {
         readlink(&kernel, &caller, &format!("/proc/self/fd/{}", owner.0)),
         Ok(format!("user:[{USER_INO}]"))
     );
-    assert!(kernel.files(task).lock().unwrap().cloexec(owner).unwrap());
+    assert!(kernel.files(task).lock_or_recover().cloexec(owner).unwrap());
     assert_eq!(
         ioctl(&kernel, &caller, owner, IoctlRequest::NS_GET_NSTYPE),
         Ok(CloneFlags::CLONE_NEWUSER.0 as i32)
@@ -430,4 +430,181 @@ fn setns_into_a_mount_namespace_moves_to_its_root() {
     let len = block_on(kernel.getcwd(&caller, UserSliceMut::new(0x600, 64)));
     assert_eq!(len, Ok(2));
     assert_eq!(get(&memory.0, 0x600, 2), b"/\0");
+}
+
+/// `PROC_DYNAMIC_FIRST`: the inode number of the first namespace made after boot.
+const FIRST_DYNAMIC_INO: u32 = 0xF000_0000;
+
+/// Forks the caller, and returns the child.
+fn fork(kernel: &Kernel, caller: &Caller<'_>, flags: CloneFlags) -> TaskId {
+    let null = GuestPtrMut::NULL;
+    let flags = Signal::SIGCHLD.0 as u32 | flags.0 as u32;
+    let child = block_on(kernel.clone(caller, flags, 0, null, 0, null)).unwrap();
+    TaskId(child as u32)
+}
+
+fn sethostname(kernel: &Kernel, caller: &Caller<'_>, name: &str) -> SysResult<i32> {
+    block_on(caller.memory().write(0x1800, name.as_bytes())).unwrap();
+    block_on(kernel.sethostname(caller, GuestPtr::new(0x1800), name.len() as i32))
+}
+
+/// The caller's node name, as `uname` reports it.
+fn nodename(kernel: &Kernel, caller: &Caller<'_>) -> String {
+    let at = GuestPtrMut::new(0x4000);
+    assert_eq!(block_on(kernel.uname(caller, at)), Ok(0));
+    let names: NewUtsname = block_on(read_value(caller.memory(), GuestPtr::new(0x4000))).unwrap();
+    let len = names.nodename.iter().position(|&b| b == 0).unwrap();
+    String::from_utf8(names.nodename[..len].to_vec()).unwrap()
+}
+
+/// The inode number `/proc/self/ns/<link>` names.
+fn ns_ino(kernel: &Kernel, caller: &Caller<'_>, link: &str) -> u32 {
+    let target = readlink(kernel, caller, &format!("/proc/self/ns/{link}")).unwrap();
+    let (_, ino) = target.split_once(":[").unwrap();
+    ino.trim_end_matches(']').parse().unwrap()
+}
+
+#[test]
+fn unshare_newuts_gives_the_caller_a_copy_of_the_names() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+    assert_eq!(sethostname(&kernel, &caller, "before"), Ok(0));
+    let child = fork(&kernel, &caller, CloneFlags(0));
+    let child_caller = Caller::new(child, &memory);
+
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWUTS), Ok(0));
+
+    assert_eq!(nodename(&kernel, &caller), "before", "a copy");
+    assert_eq!(ns_ino(&kernel, &caller, "uts"), FIRST_DYNAMIC_INO);
+    assert_eq!(ns_ino(&kernel, &child_caller, "uts"), UTS_INO);
+    assert_eq!(sethostname(&kernel, &caller, "mine"), Ok(0));
+    assert_eq!(sethostname(&kernel, &child_caller, "theirs"), Ok(0));
+    assert_eq!(nodename(&kernel, &caller), "mine");
+    assert_eq!(nodename(&kernel, &child_caller), "theirs");
+    let (ns, child_ns) = (kernel.task_ns(task), kernel.task_ns(child));
+    assert!(
+        Arc::ptr_eq(&ns.ipc, &child_ns.ipc),
+        "only the UTS namespace"
+    );
+}
+
+#[test]
+fn clone_newuts_gives_the_child_its_own_names() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+    let child = fork(&kernel, &caller, CloneFlags::CLONE_NEWUTS);
+    let child_caller = Caller::new(child, &memory);
+
+    assert_eq!(sethostname(&kernel, &child_caller, "LTP_HOSTNAME"), Ok(0));
+
+    assert_eq!(nodename(&kernel, &child_caller), "LTP_HOSTNAME");
+    assert_eq!(nodename(&kernel, &caller), "localhost");
+    assert_eq!(ns_ino(&kernel, &child_caller, "uts"), FIRST_DYNAMIC_INO);
+}
+
+#[test]
+fn namespace_inode_numbers_are_free_again_when_the_namespace_is_gone() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWUTS), Ok(0));
+    let held = open(&kernel, &caller, "/proc/self/ns/uts").unwrap();
+    let both = CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWIPC;
+    assert_eq!(unshare(&kernel, &caller, both), Ok(0));
+    let (uts, ipc) = (
+        ns_ino(&kernel, &caller, "uts"),
+        ns_ino(&kernel, &caller, "ipc"),
+    );
+    assert_eq!((uts, ipc), (FIRST_DYNAMIC_INO + 1, FIRST_DYNAMIC_INO + 2));
+    // The first UTS namespace lives on in the descriptor, the second goes with this unshare.
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWUTS), Ok(0));
+    assert_eq!(ns_ino(&kernel, &caller, "uts"), FIRST_DYNAMIC_INO + 3);
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWUTS), Ok(0));
+    assert_eq!(ns_ino(&kernel, &caller, "uts"), FIRST_DYNAMIC_INO + 1);
+
+    assert_eq!(block_on(kernel.close(&caller, held)), Ok(0));
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWUTS), Ok(0));
+    assert_eq!(
+        ns_ino(&kernel, &caller, "uts"),
+        FIRST_DYNAMIC_INO,
+        "the lowest free"
+    );
+}
+
+#[test]
+fn setns_enters_a_uts_namespace_another_process_made() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+    let child = fork(&kernel, &caller, CloneFlags::CLONE_NEWUTS);
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(sethostname(&kernel, &child_caller, "inside"), Ok(0));
+    let uts = open(&kernel, &caller, &format!("/proc/{}/ns/uts", child.0)).unwrap();
+
+    assert_eq!(
+        setns(&kernel, &caller, uts, CloneFlags::CLONE_NEWUTS),
+        Ok(0)
+    );
+
+    assert_eq!(nodename(&kernel, &caller), "inside");
+    assert_eq!(sethostname(&kernel, &caller, "shared"), Ok(0));
+    assert_eq!(nodename(&kernel, &child_caller), "shared");
+}
+
+const IPC_CREAT: i32 = 0o1000;
+
+/// `mq_open` of `name`, which libc passes without its leading slash.
+fn mq_open(kernel: &Kernel, caller: &Caller<'_>, name: &str, flags: OpenFlags) -> SysResult<i32> {
+    let name = path(caller.memory(), name);
+    let flags = flags | OpenFlags::O_RDWR;
+    block_on(kernel.mq_open(caller, name, flags, 0o600, GuestPtr::NULL))
+}
+
+#[test]
+fn a_new_ipc_namespace_starts_without_objects() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+    let key = 0x1234;
+    let sem = block_on(kernel.semget(&caller, key, 1, IPC_CREAT | 0o600)).unwrap();
+    let msg = block_on(kernel.msgget(&caller, key, IPC_CREAT | 0o600)).unwrap();
+    let shm = block_on(kernel.shmget(&caller, key, 4096, IPC_CREAT | 0o600)).unwrap();
+    assert!(mq_open(&kernel, &caller, "q", OpenFlags::O_CREAT).is_ok());
+    let child = fork(&kernel, &caller, CloneFlags(0));
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(block_on(kernel.semget(&child_caller, key, 0, 0)), Ok(sem));
+
+    assert_eq!(
+        unshare(&kernel, &child_caller, CloneFlags::CLONE_NEWIPC),
+        Ok(0)
+    );
+
+    let in_child = |caller: &Caller<'_>| {
+        [
+            block_on(kernel.semget(caller, key, 0, 0)),
+            block_on(kernel.msgget(caller, key, 0)),
+            block_on(kernel.shmget(caller, key, 0, 0)),
+            mq_open(&kernel, caller, "q", OpenFlags(0)),
+        ]
+        .map(errno)
+    };
+    assert_eq!(in_child(&child_caller), [Errno::ENOENT; 4]);
+    // The child's objects are its namespace's, and the parent's stay.
+    let theirs = block_on(kernel.msgget(&child_caller, key, IPC_CREAT | 0o600)).unwrap();
+    assert_eq!(theirs, 0, "the first id of an empty namespace");
+    assert_eq!(block_on(kernel.msgget(&caller, key, 0)), Ok(msg));
+    assert_eq!(block_on(kernel.shmget(&caller, key, 0, 0)), Ok(shm));
+    assert!(mq_open(&kernel, &caller, "q", OpenFlags(0)).is_ok());
+}
+
+#[test]
+fn clone_newipc_cannot_share_semaphore_adjustments() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+    let null = GuestPtrMut::NULL;
+    let flags = Signal::SIGCHLD.0 as u32
+        | CloneFlags::CLONE_NEWIPC.0 as u32
+        | CloneFlags::CLONE_SYSVSEM.0 as u32;
+
+    let clone = block_on(kernel.clone(&caller, flags, 0, null, 0, null));
+
+    assert_eq!(errno(clone), Errno::EINVAL);
 }
