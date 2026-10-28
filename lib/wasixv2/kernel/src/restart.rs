@@ -21,6 +21,8 @@ pub(crate) enum Restart {
     /// `futex_wait_restart`: a timed `FUTEX_WAIT`, or a timed `memory.atomic.wait`.
     FutexWait {
         addr: u32,
+        /// `FUTEX_PRIVATE_FLAG`, which names the futex with the address.
+        private: bool,
         val: AtomicWord,
         bitset: u32,
         timeout: Timeout,
@@ -44,11 +46,12 @@ impl Kernel {
             }
             Some(Restart::FutexWait {
                 addr,
+                private,
                 val,
                 bitset,
                 timeout,
             }) => {
-                self.futex_wait_restart(caller, addr, val, bitset, timeout)
+                self.futex_wait_restart(caller, (addr, private), val, bitset, timeout)
                     .await
             }
         }

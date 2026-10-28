@@ -762,10 +762,8 @@ impl Kernel {
         if clear_tid && thread.clear_child_tid != 0 {
             let ptr = GuestPtrMut::<u32>::new(thread.clear_child_tid);
             if write_value(caller.memory(), ptr, &0).await.is_ok() {
-                let key = crate::futex::Key {
-                    mm: self.mm(caller.task()).id(),
-                    addr: thread.clear_child_tid,
-                };
+                // A shared `FUTEX_WAKE`, as `mm_release` makes it.
+                let key = self.futex_key(caller.task(), thread.clear_child_tid, false);
                 let _ = self.futexes.wake(key, 1, u32::MAX);
             }
         }
