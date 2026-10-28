@@ -2,6 +2,8 @@ mod machine;
 mod package_source;
 mod runtime;
 mod target;
+#[cfg(unix)]
+mod terminal;
 mod wasi;
 
 use std::{io::Write, path::PathBuf, sync::Arc, time::Duration};
