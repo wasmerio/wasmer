@@ -116,6 +116,9 @@ pub struct Kernel {
     init_ns: Arc<ns::NsProxy>,
     /// The inode numbers of namespaces made after boot.
     ns_inums: Arc<ns::Inums>,
+    /// Makes the IP network of each network namespace made after boot; without it, they have
+    /// none.
+    network_factory: Option<ns::NetworkFactory>,
     // ---- fs ----
     vfs: Arc<Vfs>,
     /// The inodes of pipes, sockets and anonymous files.
@@ -255,6 +258,7 @@ impl Kernel {
             state,
             init_ns: Arc::new(ns::NsProxy::initial(Uname::default().to_utsname(), None)),
             ns_inums: Arc::default(),
+            network_factory: None,
             inotify: fs::inotify::Registry::install(&vfs),
             shm: None,
             vfs,
@@ -291,6 +295,19 @@ impl Kernel {
         );
         let uname = *self.init_ns.uts.lock_or_recover();
         self.init_ns = Arc::new(ns::NsProxy::initial(uname, Some(network)));
+        self
+    }
+
+    /// Gives each network namespace a process makes (`CLONE_NEWNET`) the network `factory`
+    /// makes: Linux starts one with nothing but loopback (`copy_net_ns`). Without a factory, a
+    /// new network namespace has no IP network, and IP sockets in it fail with `EAFNOSUPPORT`.
+    pub fn with_network_factory<N: wasixv2_vnet::Network + 'static>(
+        mut self,
+        factory: impl Fn() -> Arc<N> + Send + Sync + 'static,
+    ) -> Self {
+        self.network_factory = Some(Arc::new(move || -> Arc<dyn wasixv2_vnet::Network> {
+            factory()
+        }));
         self
     }
 
