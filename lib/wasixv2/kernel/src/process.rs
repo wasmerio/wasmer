@@ -312,6 +312,12 @@ impl Kernel {
         }
     }
 
+    /// Whether `task` waits for a vfork child running in its instance.
+    pub(crate) fn vfork_waits(&self, task: TaskId) -> bool {
+        let tree = self.procs.tree.lock_or_recover();
+        tree.vforks.values().any(|&parent| parent == task)
+    }
+
     /// Whether `task` is a vfork child running in the instance of its parent, which waits.
     pub(crate) fn vfork_child(&self, task: TaskId) -> bool {
         self.procs.tree.lock_or_recover().vforks.contains_key(&task)

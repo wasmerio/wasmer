@@ -2472,6 +2472,10 @@ impl Control for Kernel {
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
         // ---- proc ----
         self.kill_vfork_parent(task);
+        if let Some(parent) = self.dead_vfork_parent(task) {
+            self.task_signals(task).group().clear_notify(task);
+            return Some(GuestAction::ExitMm { task: parent });
+        }
         let (action, signals) = {
             let mut state = self.state.lock_or_recover();
             // ---- proc ----
