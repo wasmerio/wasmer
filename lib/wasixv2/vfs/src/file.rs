@@ -8,7 +8,7 @@ use crate::{
     Vfs,
     driver::{Handle, Node, SharedContents},
     locks::LockKey,
-    mount::Path,
+    mount::{MntNs, Path},
     notify::{FsEvent, Object},
     types::{DirEntry, DirSink, FileType, FsResult},
 };
@@ -29,6 +29,10 @@ pub struct File {
     /// Opened with `O_PATH`: only usable as a location.
     pub path_only: bool,
     vfs: Arc<Vfs>,
+    /// The anonymous namespace of the detached tree whose root this is (`FMODE_NEED_UNMOUNT`):
+    /// the last close unmounts the tree unless it was attached somewhere since
+    /// (`dissolve_on_fput`).
+    detached: Option<Arc<MntNs>>,
 }
 
 impl File {
@@ -48,7 +52,16 @@ impl File {
             writable,
             path_only,
             vfs,
+            detached: None,
         }
+    }
+
+    /// An `O_PATH` file at the root of the detached tree in `ns`, which it keeps until its
+    /// last close.
+    pub(crate) fn detached(vfs: Arc<Vfs>, ns: Arc<MntNs>) -> Self {
+        let mut file = Self::new(vfs, ns.root(), None, false, false, true);
+        file.detached = Some(ns);
+        file
     }
 
     pub fn node(&self) -> &Arc<dyn Node> {

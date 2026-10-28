@@ -32,7 +32,7 @@ pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents}
 pub use file::{DIR_POS_EOD, File};
 pub use inode::{Bound, Inode};
 pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};
-pub use mount::{MntNs, Mount, MountFlags, Path, Superblock};
+pub use mount::{MNT_UNIQUE_ID_OFFSET, MntNs, Mount, MountFlags, Path, Superblock};
 use mount::{Tree, TreeSeq};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
 pub use namespace::{MountAttr, MountInfo, MountOp, UmountFlags};
@@ -79,8 +79,12 @@ impl Vfs {
             MountFlags::default(),
             devname,
         ));
-        let ns = MntNs::new(&tree, mount.clone());
-        tree.lock().add_link(&mount, ns.id());
+        let ns = {
+            let mut state = tree.lock();
+            let ns = MntNs::new(&tree, &mut state, mount.clone(), None);
+            state.add_link(&mount, ns.id());
+            ns
+        };
         Arc::new(Self {
             tree,
             ns,
