@@ -296,6 +296,28 @@ fn a_remount_changes_the_limits_within_what_is_used() {
 }
 
 #[test]
+fn options_show_what_is_not_tmpfs_s_default() {
+    let options = |fs: &MemFs| {
+        let mut out = Vec::new();
+        fs.show_options(&mut out);
+        String::from_utf8(out).unwrap()
+    };
+    let defaults = MemFs::new(Arc::new(FixedClock), 0o1777, 0, 0);
+    assert_eq!(options(&defaults), "");
+    let fs = limited(Limits {
+        max_bytes: Some(4 * BLOCK),
+        max_inodes: Some(3),
+    });
+    assert_eq!(options(&fs), ",size=16k,nr_inodes=3,mode=755,uid=1,gid=1");
+    fs.set_limits(Limits {
+        max_bytes: Some(0),
+        max_inodes: None,
+    })
+    .unwrap();
+    assert!(options(&fs).starts_with(",size=0k,nr_inodes=3,"));
+}
+
+#[test]
 fn an_empty_write_past_the_end_does_not_extend() {
     let fs = fs();
     let (file, handle) = open_file(&fs, b"f");
