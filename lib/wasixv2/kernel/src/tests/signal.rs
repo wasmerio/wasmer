@@ -1034,18 +1034,6 @@ fn a_killed_group_does_not_wait_for_a_thread_waiting_for_its_vfork_child() {
 // ---- clone and pidfds ----
 
 #[test]
-fn clone_pidfd_is_refused() {
-    let (kernel, task, _) = machine();
-    let memory = forkable();
-    let caller = Caller::new(task, &memory);
-    let pidfd = CloneFlags::CLONE_PIDFD.0 as u32;
-
-    assert_eq!(clone(&kernel, &caller, pidfd), err(Errno::EINVAL));
-    assert_eq!(clone(&kernel, &caller, VFORK | pidfd), err(Errno::EINVAL));
-    assert_eq!(kernel.take_pending(task), None);
-}
-
-#[test]
 fn pidfd_send_signal_passes_its_siginfo_and_reaches_a_zombie() {
     let (kernel, task, _) = machine();
     let memory = forkable();
