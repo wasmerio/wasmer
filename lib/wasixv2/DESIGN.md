@@ -139,7 +139,7 @@ The kernel is plain async Rust with no wasm engine, no async runtime and no reco
 - **Signals.**
   - Pending sets per task and per thread group, masks, dispositions, `sigaltstack`, and queued realtime signals, counted per user against `RLIMIT_SIGPENDING`.
   - Delivered on the return-to-guest path.
-  - Job control as in `kernel/signal.c`: a stop signal's default action stops every task of the thread group on its way back to the guest, where its instance waits until SIGCONT, SIGKILL, an exit or an `execve` ends the stop. The parent hears of stops and continues through SIGCHLD (unless `SA_NOCLDSTOP`) and `waitid`'s `WSTOPPED` and `WCONTINUED`.
+  - Job control as in `kernel/signal.c`: a stop signal's default action stops every task of the thread group on its way back to the guest, where its instance waits until SIGCONT, SIGKILL, an exit or an `execve` ends the stop. The parent hears of stops and continues through SIGCHLD (unless `SA_NOCLDSTOP`) and `waitid`'s `WSTOPPED` and `WCONTINUED`. In an orphaned process group SIGTSTP, SIGTTIN and SIGTTOU do nothing, and a group that an exit orphans with a stopped process in it gets SIGHUP and SIGCONT.
 - **Waiting and time.**
   - Wait queues; futexes keyed by address space and address, as Linux keys private futexes, so every task on one memory (threads, a vfork child) meets on them. Shared mappings are copies, so a futex in one works only within its process (see [Mappings without an MMU](#mappings-without-an-mmu)).
   - Wasm's `memory.atomic.wait32`, `wait64` and `notify` are futex operations on the same queues (`AtomicWait`), so the instructions and `futex` wake each other's waiters.
