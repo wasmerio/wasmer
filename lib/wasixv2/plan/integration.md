@@ -370,3 +370,28 @@ re-bless (`9408271`) and flakes (`c08bcd5`). libc2 `train7`: linux-uapi rebased 
 
 Landed, fast-forward: libc2 `main` `3bcd192c..22a372c9`; tests `main` `d54b93c..c08bcd5`; wasmer
 `feat/wasixv2` `dba44c5eba2..c4c59c64f70`.
+
+## 2026-10-28: merge train 8 — LANDED
+
+wasmer `wasixv2/train8` (37 commits on `c4c59c64f70`): kernel follow-ups 2 (faulting reads keep data,
+FICLONE*, uname 7.2.0, splice/tee/vmsplice), job control 1-3 (stop/continue, console tty on
+`/dev/hvc0` with raw mode and `--no-tty`, ptys and devpts), kernel follow-ups 3b (other processes'
+CPU clocks, ExitMm at kill, vfork phase B with review fixes), sparse fork copy, shared anonymous
+mappings, SysV segments and memfd//dev/shm files on host shared pages, futex keys on shared objects.
+tests `train8`: their fixtures, LTP shell tests (`WASIXV2_TESTS_USERLAND`), 11 C++ fixtures, the LTP
+pointer to `wasixv2-shared`, the re-bless. libc2 `train8`: libc++/libc++abi/libunwind in both
+sysroots. wasixcc: `wasix++` for wasixv2.
+
+- Conflicts: mostly train 7's lock sweep (applied to the branches' code); `Io.task` vs `read_to`
+  unified as `OpenFile::io(task, interrupt)`; duplicate `TaskTable` helpers dropped.
+- Gates: crate tests 805, clippy, fmt, release, CLI 59/0/12, `run_tty` 6/6.
+- Suite #1: 187 newly pass (posix 41, ltp 146), 218 LTP entries now skip (shell tests, missing `ip`,
+  `mount`, `ifconfig`), 11 newly run and fail (9 pty tests: the test runs as session leader, as on
+  Linux; ldd01_sh; mlockall03), 1 regression that was always a failure (madvise10: the child's TFAIL
+  now reaches the parent through the shared LTP IPC region).
+- Bless: 408 off, 12 on with hand-written reasons. Suite #2: 3006/769/0/935.
+- Smoke: sws-v2 28/28 (classic and `__linux__`), v1 8 + python expected-fail, C++ programs on both
+  sysroots, `wasmer run bash` on a host pty 11/11 (bg, jobs, fg, ^Z, ^C, exit status), `--no-tty`.
+
+Landed, fast-forward: libc2 `main` `22a372c9..2c3c3d4f`; tests `main` `c08bcd5..e08d138`; wasixcc
+`feat/wasixv2` `8222197..d6373e5`; wasmer `feat/wasixv2` `c4c59c64f70..b75d9d49205`.

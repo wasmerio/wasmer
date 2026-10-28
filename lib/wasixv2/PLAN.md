@@ -14,17 +14,15 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `c4c59c64f70` (merge train 7; wasixv2-tests `c08bcd5`, libc2 `22a372c9`,
-the local clang with `__linux__`): 2781 pass, 1165 expected failures, 0 unexpected, 714 ignored.
-LTP's root-only tests now run as uid 0, upstream tests that fork are built for asyncify, and each
-test runs in its own memory-capped systemd scope (`WASIXV2_TESTS_WRAPPER`).
+Suite on `feat/wasixv2` `b75d9d49205` (merge train 8; wasixv2-tests `e08d138`, libc2 `2c3c3d4f`,
+wasixcc `d6373e5`): 3006 pass, 769 expected failures, 0 unexpected, 935 ignored.
 
 | Suite | Pass | Expected failures | Ignored |
 | --- | --- | --- | --- |
-| Open POSIX | 1477 | 315 | 84 |
-| LTP | 702 | 828 | 629 |
+| Open POSIX | 1518 | 273 | 85 |
+| LTP | 855 | 474 | 849 |
 | libc-test | 399 | 22 | 0 |
-| wasixv2 suite (`suite/`) | 204 | 0 | 1 |
+| wasixv2 suite (`suite/`) | 235 | 0 | 1 |
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -80,7 +78,7 @@ branch `wasixv2-train7` (`bee8e8197`); its `wasixv2` branch should be fast-forwa
 `__linux__` needs a release of the wasix-org LLVM fork (branch `wasixv2-linux-macro`, `3dfdb0509`)
 by its owners before downloaded toolchains have it; this machine uses a local build.
 
-Merge train 8 (in progress): C++ for the v2 sysroots (libc2 `libcxx`, wasixcc `cxx-v2`; exceptions
+Merge train 8 has landed (`b75d9d49205`; wasixcc `feat/wasixv2` `d6373e5`): C++ for the v2 sysroots (libc2 `libcxx`, wasixcc `cxx-v2`; exceptions
 in the EH sysroot, none in asyncify), kernel follow-ups 2 (faulting reads keep data, FICLONE*,
 uname 7.2.0, splice/tee/vmsplice), job control phases 1-3 (stop/continue, console tty with raw mode
 and `--no-tty`, ptys), LTP shell tests in the runner (`WASIXV2_TESTS_USERLAND`), kernel follow-ups 3
@@ -89,12 +87,21 @@ the sparse fork copy (pagemap), and shared memory across processes (shared anony
 segments, memfd and /dev/shm files on host shared pages; futex keys on shared objects; LTP branch
 `wasixv2-shared`). Designs: `~/wasixv2-orch/notes/design-*.md` on the orchestration machine.
 
-Open follow-ups: memory accounting (commit limit, RLIMIT_AS/DATA; implemented on a local branch,
-paused by the user), fork copy-on-write (memory design phase 2b), `mmap/24-1` peaks at 8 GB,
-read-only shared views writable (follow-ups 4, in progress), a non-leader thread parked in vfork
-blocks a sibling's execve (follow-ups 4), the LTP library's remaining wasixv2 IPC special cases
-(follow-ups 4), `pthread_join`-style flakes (`aio_suspend/1-1`, `fcntl14`, `timer_getoverrun/2-2` in
-flaky.txt), the guard as PROT_NONE once the LLVM null-va_list issue is fixed, Windows guard.
+Merge train 9 (queued, implemented and pushed): follow-ups 4-6 (`wasixv2/followups-6`, on top of
+followups-5/4: read-only shared views mapped read-only, a non-leader thread parked in vfork does not
+block a sibling's execve, futexes in the low guard fault, MADV_WIPEONFORK/KEEPONFORK; tests runner:
+LTP tests run as non-leaders through a launcher; LTP fork branch `wasixv2-ipc`: IPC as upstream),
+gap A (`wasixv2/udp-errqueue`: inbound UDP, `--publish host:port/udp`, the socket error queue; ABI
+`sock-extended-err`), and when done gap B (real CPU time) and gap P (namespace scaffolding; ABI
+`ns-ioctls`). Then mounts and the UTS/IPC/net namespaces, then pid namespaces (design
+`notes/design-gaps.md` on the orchestration machine).
+
+Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
+design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
+in the userland, the guard as PROT_NONE once the LLVM null-va_list issue is fixed (and LLVM fork
+releases for `__linux__` and that fix, by its owners), Windows guard, the LTP fork's `wasixv2`
+branch to be fast-forwarded by its owners, C++ in released sysroots needs the fork's clang in libc2
+CI. Flaky: `aio_suspend/1-1`, `fcntl14`, `timer_getoverrun/2-2`.
 
 Follow-ups from WP2/WP7:
 - `timer_getoverrun/2-2` fails about half the time alone ("0 overruns sent; expected 75"), on
