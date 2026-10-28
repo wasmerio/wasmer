@@ -87,7 +87,9 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
         tls,
         payload,
     });
-    match asyncify::unwind(env, Request::Fork { child, tag }).await {
+    let shared = syscalls.shared_mappings(child);
+    let request = Request::Fork { child, tag, shared };
+    match asyncify::unwind(env, request).await {
         Ok(()) => Ok(()),
         Err(err) => {
             // The kernel made the child already; it never runs.

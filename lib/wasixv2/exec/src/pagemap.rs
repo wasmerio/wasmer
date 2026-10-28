@@ -14,7 +14,8 @@
 //!   huge zero page), which `vm_normal_page` does not count as a normal page, so it is present
 //!   but not marked as a file page: an entry cannot tell it from a written page, the content can.
 //! - **File or shared (bit 61):** the page belongs to a file or to shared memory, whose content
-//!   the page tables do not hold. Linear memory has none, so a caller seeing one falls back.
+//!   the page tables do not hold. Linear memory has such pages only where it shows a shared
+//!   object, which a fork leaves out of its copy; a caller seeing one elsewhere falls back.
 
 use std::{fs::File, io, os::unix::fs::FileExt, sync::OnceLock};
 

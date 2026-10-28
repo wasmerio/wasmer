@@ -539,6 +539,13 @@ impl Mappings {
         self.list.iter().any(|m| m.shared().is_some())
     }
 
+    /// The mappings that show shared objects' pages, lowest first.
+    pub(crate) fn mapped(&self) -> impl Iterator<Item = (&Mapping, &Mapped)> {
+        self.list
+            .iter()
+            .filter_map(|m| m.mapped().map(|mapped| (m, mapped)))
+    }
+
     /// The mapping `addr` lies in, if any.
     pub(crate) fn containing(&self, addr: u64) -> Option<&Mapping> {
         self.list.iter().find(|m| m.start <= addr && addr < m.end())
@@ -566,9 +573,10 @@ impl Mappings {
         std::mem::take(&mut self.list)
     }
 
-    /// `dup_mmap`'s copies for the fork child `pid`: the same files and shadows, and an
-    /// attachment of its own for each segment the parent has attached (`shm_open`), shared by
-    /// the parts of that attachment.
+    /// `dup_mmap`'s copies for the fork child `pid`: the same files, shadows and mapped objects,
+    /// and an attachment of its own for each segment the parent has attached (`shm_open`),
+    /// shared by the parts of that attachment. The child's memory shows the mapped objects
+    /// again once the execution layer copied it ([`wasixv2_syscalls::SharedMappings`]).
     pub(crate) fn dup(&self, pid: u32) -> Self {
         let mut attachments: Vec<(Arc<Attachment>, Arc<Attachment>)> = Vec::new();
         let mut segment = |parent: &Arc<Attachment>| {

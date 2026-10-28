@@ -7,6 +7,7 @@ use std::{
 };
 
 use wasixv2_abi::{Errno, Siginfo};
+use wasixv2_pages::SharedPages;
 
 use crate::{
     Layered, SysResult,
@@ -179,7 +180,7 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control: AtomicWait + ExitMm + GroupStop {
+pub trait Control: AtomicWait + ExitMm + GroupStop + SharedMappings {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
@@ -257,6 +258,41 @@ pub trait GroupStop {
     /// SIGCONT continues its thread group or SIGKILL, an exit or an `execve` of the group ends
     /// the stop.
     fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()>;
+}
+
+/// A range of a process's memory that shows a shared object ([`UserMemory::map_shared`]).
+///
+/// [`UserMemory::map_shared`]: crate::UserMemory::map_shared
+#[derive(Clone)]
+pub struct SharedMapping {
+    pub addr: u32,
+    pub len: u64,
+    pub pages: Arc<dyn SharedPages>,
+    /// Where in the object the range starts.
+    pub offset: u64,
+}
+
+impl std::fmt::Debug for SharedMapping {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedMapping")
+            .field("addr", &self.addr)
+            .field("len", &self.len)
+            .field("object", &self.pages.id())
+            .field("offset", &self.offset)
+            .finish()
+    }
+}
+
+/// The kernel's part of fork that the execution layer needs besides the memory: a fork child's
+/// shared mappings show the same objects as its parent's (`dup_mmap` keeps `VM_SHARED` areas on
+/// their file), so the child's copy of the memory shows them again in the same ranges.
+pub trait SharedMappings {
+    /// The ranges of `task`'s memory that show shared objects, lowest first. For a fork child,
+    /// asked before it runs: the execution layer maps each over the child's copy of the memory
+    /// with [`UserMemory::map_shared`], and leaves them out of the copy.
+    ///
+    /// [`UserMemory::map_shared`]: crate::UserMemory::map_shared
+    fn shared_mappings(&self, task: TaskId) -> Vec<SharedMapping>;
 }
 
 /// The word a wasm `memory.atomic.wait32` or `memory.atomic.wait64` expects at its address.
@@ -391,6 +427,14 @@ impl<L, S: ExitMm> ExitMm for Layered<L, S> {
 impl<L, S: GroupStop> GroupStop for Layered<L, S> {
     fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
         self.inner.stop_wait(task)
+    }
+}
+
+// By hand rather than generated with the rest of `Layered`: the layers see syscalls, and this
+// is not one.
+impl<L, S: SharedMappings> SharedMappings for Layered<L, S> {
+    fn shared_mappings(&self, task: TaskId) -> Vec<SharedMapping> {
+        self.inner.shared_mappings(task)
     }
 }
 

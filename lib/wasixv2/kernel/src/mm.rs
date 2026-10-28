@@ -42,7 +42,9 @@ use wasixv2_abi::{
     Buf, Fd, Loff, MadviseAdvice, MapFlags, MclFlags, MlockFlags, MremapFlags, MsyncFlags,
     OpenFlags, ProtFlags, Ulong, Uptr, Usize,
 };
-use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, UserMemory, WASM_PAGE_SIZE};
+use wasixv2_syscalls::{
+    Caller, Errno, SharedMapping, SysResult, TaskId, UserMemory, WASM_PAGE_SIZE,
+};
 use wasixv2_vfs::{FileType, WRITE_SEALS};
 
 use crate::{Kernel, file::OpenFile, sync::MutexExt};
@@ -1092,6 +1094,30 @@ impl Kernel {
             let _ = mapping.sync(caller.memory()).await;
         }
         mm.restore(mappings);
+    }
+
+    /// The ranges of `task`'s memory that show shared objects' pages, lowest first: what a fork
+    /// child's memory must show again over its copy (`dup_mmap` keeps a shared mapping on its
+    /// object, `mm/mmap.c`). None for a task that is gone.
+    pub(crate) fn shared_mappings(&self, task: TaskId) -> Vec<SharedMapping> {
+        let mm = {
+            let state = self.state.read_or_recover();
+            match state.tasks.get(&task) {
+                Some(task) => task.mm.clone(),
+                None => return Vec::new(),
+            }
+        };
+        let space = mm.space();
+        space
+            .mappings
+            .mapped()
+            .map(|(mapping, mapped)| SharedMapping {
+                addr: mapping.start as u32,
+                len: mapping.len,
+                pages: mapped.pages.clone(),
+                offset: mapped.offset,
+            })
+            .collect()
     }
 
     /// Whether a live process other than `task`'s runs on `task`'s address space: a vfork

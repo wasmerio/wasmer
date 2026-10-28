@@ -582,7 +582,8 @@ mod tests {
 
     use wasixv2_host::{Executor, LocalFuture};
     use wasixv2_syscalls::{
-        AtomicWait, AtomicWord, Caller, ExitMm, GroupStop, SysResult, VforkParent,
+        AtomicWait, AtomicWord, Caller, ExitMm, GroupStop, SharedMapping, SharedMappings,
+        SysResult, VforkParent,
     };
 
     use super::*;
@@ -649,6 +650,12 @@ mod tests {
 
         fn atomic_notify(&self, _: TaskId, _: u32, _: u32) -> u32 {
             0
+        }
+    }
+
+    impl SharedMappings for Recorder {
+        fn shared_mappings(&self, _: TaskId) -> Vec<SharedMapping> {
+            Vec::new()
         }
     }
 
