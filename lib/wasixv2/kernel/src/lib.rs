@@ -1397,6 +1397,59 @@ impl Syscalls for Kernel {
             .await
     }
 
+    async fn open_tree(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_open_tree(caller, dfd, filename, flags).await
+    }
+
+    async fn move_mount(
+        &self,
+        caller: &Caller<'_>,
+        from_dfd: Fd,
+        from_pathname: Cstr,
+        to_dfd: Fd,
+        to_pathname: Cstr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_move_mount(caller, from_dfd, from_pathname, to_dfd, to_pathname, flags)
+            .await
+    }
+
+    async fn fsopen(&self, caller: &Caller<'_>, fs_name: Cstr, flags: u32) -> SysResult<i32> {
+        self.sys_fsopen(caller, fs_name, flags).await
+    }
+
+    async fn fsconfig(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        cmd: u32,
+        key: Cstr,
+        value: wasixv2_abi::ConstVoidPtr,
+        aux: i32,
+    ) -> SysResult<i32> {
+        self.sys_fsconfig(caller, fd, cmd, key, value, aux).await
+    }
+
+    async fn fsmount(
+        &self,
+        caller: &Caller<'_>,
+        fs_fd: Fd,
+        flags: u32,
+        attr_flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_fsmount(caller, fs_fd, flags, attr_flags).await
+    }
+
+    async fn fspick(&self, caller: &Caller<'_>, dfd: Fd, path: Cstr, flags: u32) -> SysResult<i32> {
+        self.sys_fspick(caller, dfd, path, flags).await
+    }
+
     async fn setns(&self, caller: &Caller<'_>, fd: Fd, flags: i32) -> SysResult<i32> {
         self.sys_setns(caller, fd, flags)
     }
