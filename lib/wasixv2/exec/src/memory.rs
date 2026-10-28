@@ -197,6 +197,66 @@ pub(crate) fn write(
         .map_err(|_| Fault)
 }
 
+/// Makes `[addr, addr + len)` of `memory`, whole pages of its own private memory, read zero
+/// ([`UserMemory::zero_pages`]); a fault where [`write`] would fault. `low_guard`, `read_only`
+/// and `base` are the memory's layout, as for [`map_shared`]. On a Linux host the pages past the
+/// frozen image are dropped, since the memory is a private anonymous mapping there (wasmer's sys
+/// backend reserves it so): a page no one wrote is not touched; those over the image are mapped
+/// from it again ([`Base::clear`]). Elsewhere zeros are written.
+pub(crate) fn zero_pages(
+    memory: &Memory,
+    (low_guard, read_only, base): (u32, &ReadOnly, Option<&Base>),
+    store: &impl AsStoreRef,
+    addr: u32,
+    len: u64,
+) -> Result<(), Fault> {
+    let view = memory.view(store);
+    let len = usize::try_from(len).map_err(|_| Fault)?;
+    let inside = u64::from(addr)
+        .checked_add(len as u64)
+        .is_some_and(|end| end <= view.data_size());
+    let read_only = read_only.ranges();
+    if !inside || in_guard(low_guard, addr, len) || in_read_only(&read_only, addr, len) {
+        return Err(Fault);
+    }
+    #[cfg(all(unix, feature = "sys"))]
+    {
+        // SAFETY: in bounds, checked above.
+        let ptr = unsafe { view.data_ptr().add(addr as usize) };
+        // Over the frozen image the memory stays a view of it: dropping those pages would show
+        // the image's data again, so they are mapped from the file again with zeros over its
+        // data ([`Base::clear`]). Past the image it is its own private anonymous mapping.
+        let over_base = base.map_or(0, |base| {
+            (base.len().saturating_sub(u64::from(addr)) as usize).min(len)
+        });
+        // SAFETY: the range lies inside the memory, outside the guard and every read-only view
+        // (which stay so while `read_only` is held), and holds no shared object's pages, as the
+        // caller promises; the host reaches the memory only through views, by copies, so nothing
+        // refers into it. Past the base the memory is a private anonymous mapping, which never
+        // moves.
+        let cleared = match (base, over_base) {
+            (Some(base), 1..) => unsafe { clear_from(base, ptr, addr, over_base as u64) }.is_ok(),
+            _ => true,
+        };
+        if cleared
+            && (over_base == len
+                || unsafe { wasixv2_pages::drop_private(ptr.add(over_base), len - over_base) }
+                    .is_ok())
+        {
+            return Ok(());
+        }
+    }
+    let zeroes = vec![0; len.min(1 << 16)];
+    let mut done = 0;
+    while done < len {
+        let n = (len - done).min(zeroes.len());
+        let at = u64::from(addr) + done as u64;
+        view.write(at, &zeroes[..n]).map_err(|_| Fault)?;
+        done += n;
+    }
+    Ok(())
+}
+
 /// Makes `[addr, addr + len)` of `memory`, whose low guard is `low_guard` bytes, whose
 /// read-only views are `read_only` and whose frozen image is `base`, show `len` bytes of `pages`
 /// from `offset`, read-only unless `writable` ([`UserMemory::map_shared`]). `EINVAL` for a range
@@ -365,6 +425,18 @@ impl<S> ExecEnv<S> {
         let memory = self.memory.as_ref().ok_or(Fault)?;
         write(memory, self.low_guard, &self.read_only, store, addr, bytes)
     }
+
+    /// [`zero_pages`] of the instance's memory.
+    pub(crate) fn zero_memory(
+        &self,
+        store: &impl AsStoreRef,
+        addr: u32,
+        len: u64,
+    ) -> Result<(), Fault> {
+        let memory = self.memory.as_ref().ok_or(Fault)?;
+        let layout = (self.low_guard, &*self.read_only, self.base.as_deref());
+        zero_pages(memory, layout, store, addr, len)
+    }
 }
 
 /// The calling instance's linear memory, reached through its async function environment.
@@ -413,6 +485,14 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
             Some(env) => copied(write_at(&env, addr, bytes)),
             None => Box::pin(async move { write_at(&self.env.read().await, addr, bytes) }),
         }
+    }
+
+    fn zero_pages(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Fault>> {
+        Box::pin(async move {
+            let env = self.env.read().await;
+            let (data, store) = env.data_and_store();
+            data.zero_memory(&store, addr, len)
+        })
     }
 
     fn size(&self) -> LocalFuture<'_, u64> {
@@ -526,6 +606,13 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
         Box::pin(
             self.cx
                 .with(move |data, store| data.write_memory(&*store, addr, bytes)),
+        )
+    }
+
+    fn zero_pages(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Fault>> {
+        Box::pin(
+            self.cx
+                .with(move |data, store| data.zero_memory(&*store, addr, len)),
         )
     }
 
@@ -751,6 +838,102 @@ mod tests {
         store_at.call(&mut store, at + PAGE as u32).unwrap();
         assert!(store_at.call(&mut store, at + 8).is_err());
         assert_eq!(memory.view(&store).read_u8(u64::from(at) + 8).unwrap(), 0);
+    }
+
+    #[cfg(all(target_os = "linux", feature = "sys"))]
+    #[test]
+    fn zeroed_pages_are_dropped_and_untouched_ones_stay_untouched() {
+        use wasixv2_pages::Memfd;
+        use wasmer::{MemoryType, Store};
+
+        use crate::pagemap::{Page, Pagemap};
+
+        const PAGE: u64 = 65536;
+        let Some(pagemap) = Pagemap::get() else {
+            eprintln!("skipped: this host has no usable /proc/self/pagemap");
+            return;
+        };
+        let host_pages = PAGE as usize / pagemap.page_size();
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(5, None, false)).unwrap();
+        let read_only = ReadOnly::default();
+        // Whether the host holds memory for any of the host pages of the page at `addr`.
+        let held = |addr: u64| {
+            let ptr = memory.view(&store).data_ptr() as usize + addr as usize;
+            let pages = pagemap.pages(ptr, host_pages).unwrap();
+            pages.iter().any(|page| *page != Page::Untouched)
+        };
+        let put = |addr: u32, bytes: &[u8]| {
+            write(&memory, LOW_GUARD, &read_only, &store, addr, bytes).unwrap()
+        };
+        put(2 * PAGE as u32 + 9, b"x");
+        assert!(held(2 * PAGE));
+
+        let zero = |addr: u64, len: u64| {
+            zero_pages(
+                &memory,
+                (LOW_GUARD, &read_only, None),
+                &store,
+                addr as u32,
+                len,
+            )
+        };
+        zero(PAGE, 2 * PAGE).unwrap();
+        // The written page holds nothing any more, and dropping the untouched one did not
+        // touch it.
+        assert!(!held(PAGE) && !held(2 * PAGE));
+        let mut buf = [1];
+        read(&memory, &store, 2 * PAGE as u32 + 9, &mut buf).unwrap();
+        assert_eq!(buf, [0]);
+        // Still the memory's own writable pages.
+        put(2 * PAGE as u32, b"y");
+
+        // Never inside the guard, a read-only view or past the end, as a write.
+        assert_eq!(zero(0, PAGE), Err(Fault));
+        assert_eq!(zero(4 * PAGE, 2 * PAGE), Err(Fault));
+        let pages = Memfd::new(PAGE).unwrap();
+        let at = 3 * PAGE as u32;
+        let range = (at, PAGE);
+        let layout = (LOW_GUARD, &read_only, None);
+        map_shared(&memory, layout, &store, range, &pages, 0, false).unwrap();
+        assert_eq!(zero(2 * PAGE, 2 * PAGE), Err(Fault));
+        read(&memory, &store, 2 * PAGE as u32, &mut buf).unwrap();
+        assert_eq!(buf, *b"y");
+    }
+
+    #[cfg(all(target_os = "linux", feature = "sys"))]
+    #[test]
+    fn zeroed_pages_over_the_frozen_image_read_zero_not_the_image() {
+        use wasmer::{MemoryType, Store};
+
+        use crate::pagemap::Pagemap;
+
+        const PAGE: u64 = 65536;
+        if Pagemap::get().is_none() {
+            eprintln!("skipped: this host has no usable /proc/self/pagemap");
+            return;
+        }
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(2, None, false)).unwrap();
+        memory.view(&store).write(PAGE + 3, b"image").unwrap();
+        let base = Base::freeze(&memory, &store).unwrap().expect("a base");
+        memory.grow(&mut store, 1).unwrap();
+        let view = memory.view(&store);
+        view.write(PAGE + 3, b"IMAGE").unwrap();
+        view.write(2 * PAGE + 3, b"past!").unwrap();
+        let read_only = ReadOnly::default();
+
+        // Across the end of the image. Dropping the page over it would show the image's
+        // bytes again instead of zeros.
+        let layout = (0, &read_only, Some(&*base));
+        zero_pages(&memory, layout, &store, PAGE as u32, 2 * PAGE).unwrap();
+        for addr in [PAGE + 3, 2 * PAGE + 3] {
+            let mut buf = [1; 5];
+            read(&memory, &store, addr as u32, &mut buf).unwrap();
+            assert_eq!(buf, [0; 5], "at {addr}");
+        }
+        // Still writable, and the image's file keeps its bytes for other views.
+        write(&memory, 0, &read_only, &store, PAGE as u32 + 3, b"again").unwrap();
     }
 
     #[cfg(all(unix, feature = "sys"))]
