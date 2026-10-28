@@ -143,6 +143,41 @@ fn execve_from_a_thread_commits_once_the_old_image_is_gone_and_runs_as_the_leade
     assert_eq!(kernel.take_pending(leader), Some(GuestAction::Exit(5)));
 }
 
+/// The threads an `execve` ends release their robust futexes each in its own exit, once it
+/// stopped running the old image, as their `do_exit` does before `de_thread` sees them gone: a
+/// lock one took after the `execve` killed it goes to its waiters by then.
+#[test]
+fn the_threads_an_execve_ends_release_their_robust_futexes_as_they_go() {
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let other = spawn_thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    while kernel.take_pending(leader).is_some() {}
+    // `other`'s robust list: the head, empty, with the word 4 bytes into each entry.
+    const HEAD: u32 = 0x3000;
+    const ENTRY: u32 = 0x3010;
+    put(&memory, HEAD, &HEAD.to_le_bytes());
+    put(&memory, HEAD + 4, &4u32.to_le_bytes());
+    let head = wasixv2_abi::RobustListHeadPtr::new(HEAD);
+    assert_eq!(
+        block_on(kernel.set_robust_list(&other_caller, head, 12)),
+        Ok(0)
+    );
+    let mut exec = Box::pin(execve(&kernel, &caller));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+
+    // Killed, `other` takes a mutex before it notices.
+    put(&memory, ENTRY, &HEAD.to_le_bytes());
+    put(&memory, ENTRY + 4, &other.0.to_le_bytes());
+    put(&memory, HEAD, &ENTRY.to_le_bytes());
+    assert_eq!(kernel.take_pending(other), Some(GuestAction::Exit(0)));
+    block_on(kernel.exit_mm(&other_caller));
+    assert_eq!(word(&memory, ENTRY + 4), 0x4000_0000, "FUTEX_OWNER_DIED");
+    kernel.release(other);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+}
+
 /// The wait of an `execve` for the other threads is killable: a handled signal does not end
 /// it, a fatal one ends the group with that signal and the `execve` with EAGAIN.
 #[test]
