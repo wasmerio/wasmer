@@ -268,10 +268,10 @@ impl Kernel {
     /// zombie, hands its children to a reaper, tells the parent, and releases a vfork parent.
     pub(crate) fn process_exited(&self, process: &Arc<Process>, task: TaskId, status: i32) {
         let pid = process.pid.0;
-        let parent = {
+        let (parent, reaper) = {
             let tree = self.procs.tree.lock().unwrap();
             match tree.nodes.get(&pid) {
-                Some(node) if node.exit.is_none() => node.parent,
+                Some(node) if node.exit.is_none() => (node.parent, tree.reaper(pid)),
                 _ => return,
             }
         };
@@ -281,9 +281,19 @@ impl Kernel {
         let (ignored, nocldwait) = parent_signals
             .as_ref()
             .map_or((true, true), |signals| signals.child_reaping());
-        let (exit, exit_signal, vfork_parent, orphans) = {
+        // The same for the children that are zombies already, under their new parent.
+        let reaper_signals = (reaper != 0).then(|| self.group_signals(reaper)).flatten();
+        let reaper_reaps = reaper_signals
+            .as_ref()
+            .map(|signals| signals.child_reaping());
+        let (exit, exit_signal, vfork_parent, orphans, inherited) = {
             let mut tree = self.procs.tree.lock().unwrap();
-            let reaper = tree.reaper(pid);
+            // A reaper that went meanwhile is replaced, and it is not known how the new one
+            // treats SIGCHLD: its zombies stay, as a parent that waits keeps them.
+            let (reaper, reaper_reaps) = match tree.reaper(pid) {
+                now if now == reaper => (reaper, reaper_reaps),
+                now => (now, None),
+            };
             let Some(node) = tree.nodes.get_mut(&pid) else {
                 return;
             };
@@ -311,21 +321,39 @@ impl Kernel {
                 tree.nodes.remove(&pid);
             }
             // `forget_original_parent`: the children go to the reaper, and those that asked for
-            // it hear of their parent's death.
+            // it hear of their parent's death. A zombie among them is reported to the reaper
+            // (`reparent_leader`), which reaps it there and then when it ignores SIGCHLD or
+            // nobody takes it.
             let children: Vec<u32> = tree.children(pid).map(|(&child, _)| child).collect();
             let mut orphans = Vec::new();
+            let mut inherited = Vec::new();
             for child in children {
                 let node = tree.nodes.get_mut(&child).expect("listed above");
                 node.parent = reaper;
+                // "We don't want people slaying init."
+                node.exit_signal = Signal::SIGCHLD.0;
                 let pdeathsig = node.process.ident.lock().unwrap().pdeathsig();
-                match node.exit {
-                    Some(_) if reaper == 0 => drop(tree.nodes.remove(&child)),
-                    None if pdeathsig != 0 => orphans.push((child, pdeathsig)),
+                match (node.exit, reaper_reaps) {
+                    (Some(_), _) if reaper == 0 => drop(tree.nodes.remove(&child)),
+                    (Some(_), Some((true, _) | (_, true))) => drop(tree.nodes.remove(&child)),
+                    (Some(exit), Some(_)) => inherited.push((child, exit)),
+                    (None, _) if pdeathsig != 0 => orphans.push((child, pdeathsig)),
                     _ => {}
                 }
             }
-            (exit, exit_signal, tree.vforks.remove(&task), orphans)
+            (
+                exit,
+                exit_signal,
+                tree.vforks.remove(&task),
+                orphans,
+                inherited,
+            )
         };
+        if let Some(signals) = reaper_signals {
+            for (child, exit) in inherited {
+                let _ = signals.send_group(child_info(Signal::SIGCHLD.0, child, exit));
+            }
+        }
         // `group_send_sig_info(pdeath_signal, SEND_SIG_NOINFO)`: from the parent, as `kill`.
         for (child, sig) in orphans {
             if let Some(signals) = self.group_signals(child) {

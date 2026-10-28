@@ -1,8 +1,8 @@
 //! fork: clone without `CLONE_VM`.
 
 use wasixv2_abi::{
-    CloneFlags, ConstRlimit64Ptr, Idtype, Pid, Rlimit64Ptr, RlimitResource, RusagePtr, S32Ptr,
-    SiginfoPtr, Signal, WaitOptions,
+    CloneFlags, ConstRlimit64Ptr, Idtype, Pid, PrctlOption, Rlimit64Ptr, RlimitResource, RusagePtr,
+    S32Ptr, SiginfoPtr, Signal, WaitOptions,
 };
 
 use super::*;
@@ -262,4 +262,54 @@ fn execve_probes_the_header_before_it_reads_the_image() {
             false => assert_eq!(seen, [("probe", BINPRM_BUF_SIZE), ("check", image.len())]),
         }
     }
+}
+
+// ---- reparenting ----
+
+fn fork_child(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
+    let child = TaskId(clone(kernel, caller, SIGCHLD, 0).expect("fork") as u32);
+    while kernel.take_pending(caller.task()).is_some() {}
+    child
+}
+
+/// A zombie handed to a subreaper that waits for its children is reported to it with SIGCHLD
+/// (`reparent_leader`) and stays until reaped.
+#[test]
+fn a_zombie_handed_to_a_subreaper_is_reported_and_stays() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let subreaper = kernel.prctl(&caller, PrctlOption::PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0);
+    assert_eq!(block_on(subreaper), Ok(0));
+    // A SIGCHLD with the default action is dropped unless blocked.
+    let sigchld = 1 << (Signal::SIGCHLD.0 - 1);
+    kernel.task_signals(task).replace_blocked(sigchld);
+    let middle = fork_child(&kernel, &caller);
+    let middle_memory = forkable();
+    let middle_caller = Caller::new(middle, &middle_memory);
+    let zombie = fork_child(&kernel, &middle_caller);
+    let zombie_memory = forkable();
+    assert_eq!(
+        block_on(kernel.exit_group(&Caller::new(zombie, &zombie_memory), 4)),
+        Ok(())
+    );
+    kernel.release(zombie);
+
+    assert_eq!(block_on(kernel.exit_group(&middle_caller, 0)), Ok(()));
+
+    // The zombie's report comes first; the middle process's own SIGCHLD finds it pending.
+    let signals = kernel.task_signals(task);
+    let info = signals.dequeue_from(sigchld).expect("SIGCHLD");
+    let si_pid = i32::from_le_bytes(info.sifields[0..4].try_into().unwrap());
+    assert_eq!(si_pid, zombie.0 as Pid);
+    let waited = block_on(kernel.waitid(
+        &caller,
+        Idtype::P_PID,
+        zombie.0 as Pid,
+        SiginfoPtr::new(32),
+        WaitOptions::WEXITED,
+        RusagePtr::new(0),
+    ));
+    assert_eq!(waited, Ok(0));
+    assert_eq!(word(&memory.0, 32 + 20), 4, "si_status");
 }
