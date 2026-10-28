@@ -20,8 +20,8 @@ use wasixv2_abi::{
     Uptr, WaitOptions,
 };
 use wasixv2_syscalls::{
-    BINPRM_BUF_SIZE, Binfmt, Caller, CstrError, Errno, Fd, GuestAction, Image, LocalFuture, SysErr,
-    SysResult, TaskId, VforkParent, WorkFlag, read_cstr, read_value, write_value,
+    BINPRM_BUF_SIZE, Binfmt, Caller, CstrError, Errno, Fd, GuestAction, Image, LocalFuture, Resume,
+    SysErr, SysResult, TaskId, VforkParent, WorkFlag, read_cstr, read_value, write_value,
 };
 use wasixv2_vfs::{FileType, LookupFlags, MAY_EXEC, OpenHow};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
@@ -86,6 +86,31 @@ pub(crate) struct Tree {
     pub(crate) nodes: HashMap<u32, Node>,
     /// vfork children running in their parent's instance, to the parent task that waits.
     pub(crate) vforks: HashMap<TaskId, TaskId>,
+    /// vfork children running in their parent's instance whose parent waits no more because
+    /// its image went on in another instance (another thread's `execve` gave the leader the new
+    /// image): the instance ends with the child ([`Resume::Gone`]). To the parent task.
+    pub(crate) detached: HashMap<TaskId, TaskId>,
+}
+
+impl Tree {
+    /// The vfork child `child` is done with its parent's instance: the parent the instance
+    /// goes back to, which returns from vfork unless [`vfork_parent_resumes`] finds its image
+    /// ended, or is gone from the instance.
+    pub(crate) fn end_vfork(&mut self, child: TaskId) -> Option<VforkParent> {
+        let (task, resumes) = match self.vforks.remove(&child) {
+            Some(task) => (task, Resume::Returns),
+            None => (self.detached.remove(&child)?, Resume::Gone),
+        };
+        Some(VforkParent { task, resumes })
+    }
+
+    /// The vfork child running in the instance of `parent`, which waits for it.
+    pub(crate) fn waited_for_by(&self, parent: TaskId) -> Option<TaskId> {
+        let mut children = self.vforks.iter();
+        children
+            .find(|&(_, &waiting)| waiting == parent)
+            .map(|(&child, _)| child)
+    }
 }
 
 pub(crate) struct Node {
@@ -222,15 +247,17 @@ impl Tree {
 /// `action` as the instance gets it from [`Control::take_pending`]: going back to a vfork
 /// parent, it says whether the parent returns from vfork. Not when its image ended by now: a
 /// group exit, or another thread's `execve` (`de_thread`), killed it in `wait_for_vfork_done`
-/// (`zap_other_threads`).
+/// (`zap_other_threads`); and not when it is gone from the instance.
 ///
 /// [`Control::take_pending`]: wasixv2_syscalls::Control::take_pending
 pub(crate) fn vfork_parent_resumes(state: &State, action: GuestAction) -> GuestAction {
+    let ended = |task: TaskId| state.tasks.get(&task).is_some_and(|t| t.work.ends_image());
     let resumes = |parent: VforkParent| VforkParent {
-        resumes: !state
-            .tasks
-            .get(&parent.task)
-            .is_some_and(|t| t.work.ends_image()),
+        resumes: match parent.resumes {
+            Resume::Gone => Resume::Gone,
+            _ if ended(parent.task) => Resume::Dies,
+            _ => Resume::Returns,
+        },
         ..parent
     };
     match action {
@@ -318,9 +345,27 @@ impl Kernel {
         tree.vforks.values().any(|&parent| parent == task)
     }
 
-    /// Whether `task` is a vfork child running in the instance of its parent, which waits.
+    /// Whether `task` is a vfork child running in the instance of its parent, which waits or
+    /// went on elsewhere.
     pub(crate) fn vfork_child(&self, task: TaskId) -> bool {
-        self.procs.tree.lock_or_recover().vforks.contains_key(&task)
+        let tree = self.procs.tree.lock_or_recover();
+        tree.vforks.contains_key(&task) || tree.detached.contains_key(&task)
+    }
+
+    /// Makes the vfork child that `parent` waits for, which runs in `parent`'s instance, leave
+    /// an interruptible wait for kernel work: `parent` died, and its instance has its
+    /// `exit_mm` to run ([`GuestAction::ExitMm`]).
+    pub(crate) fn notify_vfork_child(&self, parent: TaskId) {
+        let Some(child) = self.procs.tree.lock_or_recover().waited_for_by(parent) else {
+            return;
+        };
+        let signals = {
+            let state = self.state.read_or_recover();
+            state.tasks.get(&child).map(|t| t.signals.clone())
+        };
+        if let Some(signals) = signals {
+            signals.group().notify(child);
+        }
     }
 
     /// The signal state of the thread group led by `pid`.
@@ -438,7 +483,7 @@ impl Kernel {
             (
                 exit,
                 exit_signal,
-                tree.vforks.remove(&task),
+                tree.end_vfork(task),
                 orphans,
                 inherited,
                 orphaned_pgrps,
@@ -460,11 +505,10 @@ impl Kernel {
             }
         }
         if let Some(parent) = vfork_parent {
-            self.vfork_done(parent);
-            let parent = VforkParent {
-                task: parent,
-                resumes: true,
-            };
+            // A parent gone from the instance waits for nothing.
+            if parent.resumes != Resume::Gone {
+                self.vfork_done(parent.task);
+            }
             let action = GuestAction::VforkReturn {
                 parent,
                 child: task,

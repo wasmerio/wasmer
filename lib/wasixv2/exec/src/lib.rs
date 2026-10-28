@@ -37,7 +37,8 @@ pub use wasixv2::{Wasixv2, is_wasixv2_module};
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
 use wasixv2_syscalls::{
-    Caller, Control, Errno, GuestAction, SysErr, SysResult, Syscalls, TaskId, VforkParent, WorkFlag,
+    Caller, Control, Errno, GuestAction, Resume, SysErr, SysResult, Syscalls, TaskId, VforkParent,
+    WorkFlag,
 };
 pub use wasixv2_syscalls::{Image, ImageId};
 use wasmer::{
@@ -277,6 +278,10 @@ pub(crate) enum Ended {
         signal: i32,
         report: String,
     },
+    /// The instance ended with a vfork child whose parent, the task the run belongs to, went
+    /// on in another instance ([`Resume::Gone`]): the run goes on there, and `handoff` gives
+    /// its end.
+    Detached(Arc<process::Handoff>),
 }
 
 /// How an image's run ended, from how the call of its entry point in the instance behind `cx`
@@ -305,6 +310,10 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
         Ok(process::ExecNew(image)) => return Ended::Exec(image),
         Err(err) => err,
     };
+    if err.downcast_ref::<process::Detached>().is_some() {
+        let handoff = cx.with(|env, _| env.proc.handoff.clone()).await;
+        return Ended::Detached(handoff);
+    }
     let (syscalls, task) = cx.with(|env, _| (env.syscalls.clone(), env.task)).await;
     // The trap's signal ends the task: `exit_mm` while the memory is still there.
     let memory = memory::OutsideMemory { cx };
@@ -461,10 +470,9 @@ where
         host.clone(),
         abis.clone(),
     );
-    let env = FunctionEnv::new(
-        &mut store,
-        ExecEnv::new(syscalls.clone(), task, process::ProcExports::new(spawner)),
-    );
+    let handoff = Arc::new(process::Handoff::default());
+    let proc = process::ProcExports::new(spawner, handoff.clone());
+    let env = FunctionEnv::new(&mut store, ExecEnv::new(syscalls.clone(), task, proc));
     let mut imports = imports(&*abi, &mut store, &env, module);
     let size = fork.map(|image| image.memory.len() as u64);
     let imported = import_memory(&mut store, module, &mut imports, size)?;
@@ -489,8 +497,9 @@ where
     let bound = abi.bind(&instance, &mut store, task, Role::Process)?;
     // ---- thr ----
     let threads = memory.as_shared(&store).map(|shared| {
-        let image =
-            thread::Image::new(&store, module, shared, low_guard, syscalls, host, abi, abis);
+        let image = thread::Image::new(
+            &store, module, shared, low_guard, syscalls, host, abi, abis, handoff,
+        );
         image as Arc<dyn thread::Start>
     });
     let data = env.as_mut(&mut store);
@@ -807,6 +816,14 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                     None => task = parent.task,
                 }
             }
+            GuestAction::StartImage { task: leader } => {
+                // Without an image, the empty one fails to load and the process dies as past
+                // any `execve`'s point of no return.
+                let image = syscalls
+                    .take_image(leader)
+                    .unwrap_or_else(|| Image::copied(Vec::new()));
+                process::take_over(env, leader, image).await;
+            }
             GuestAction::ExitMm { task: dead } => {
                 let memory = GuestMemory { env };
                 syscalls.exit_mm(&Caller::new(dead, &memory)).await;
@@ -862,14 +879,19 @@ async fn instance_abi<S: 'static>(
 /// Switches the instance back to the vfork parent and lets its ABI resume it. `None` when the
 /// parent does not return from vfork, as on Linux, because its image ended while it waited
 /// ([`VforkParent::resumes`]): the instance runs as the parent, whose queued exit or new image
-/// then unwinds it.
+/// then unwinds it. A parent gone from the instance gets nothing: the instance unwinds and
+/// ends ([`Ended::Detached`]).
 async fn vfork_resume<S: Control + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     parent: VforkParent,
     child: TaskId,
 ) -> Option<VforkResume> {
+    if parent.resumes == Resume::Gone {
+        let detached = RuntimeError::user(Box::new(process::Detached));
+        return Some(VforkResume::Unwind(detached));
+    }
     process::switch(env, parent.task).await;
-    if !parent.resumes {
+    if parent.resumes == Resume::Dies {
         return None;
     }
     Some(match instance_abi(env).await {
