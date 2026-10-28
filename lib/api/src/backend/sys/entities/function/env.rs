@@ -299,6 +299,34 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         }
     }
 
+    /// A read-only handle to the function environment if the store lock
+    /// is free for reading now, without waiting.
+    pub fn try_read(&self) -> Option<AsyncFunctionEnvHandle<T>> {
+        let read_lock = match &self.store {
+            AsyncFunctionEnvMutStore::Async(store) => StoreAsyncReadLock::try_acquire(store)?,
+            // We can never acquire a store lock in a sync context
+            AsyncFunctionEnvMutStore::Sync(_) => return None,
+        };
+        Some(AsyncFunctionEnvHandle {
+            read_lock,
+            func_env: self.func_env.clone(),
+        })
+    }
+
+    /// A mutable handle to the function environment if the store lock is
+    /// free now, without waiting.
+    pub fn try_write(&self) -> Option<AsyncFunctionEnvHandleMut<T>> {
+        let write_lock = match &self.store {
+            AsyncFunctionEnvMutStore::Async(store) => StoreAsyncWriteLock::try_acquire(store)?,
+            // We can never acquire a store lock in a sync context
+            AsyncFunctionEnvMutStore::Sync(_) => return None,
+        };
+        Some(AsyncFunctionEnvHandleMut {
+            write_lock,
+            func_env: self.func_env.clone(),
+        })
+    }
+
     /// Borrows a new immmutable reference
     pub fn as_ref(&self) -> FunctionEnv<T> {
         self.func_env.clone()

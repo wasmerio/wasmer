@@ -146,6 +146,18 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         AsyncFunctionEnvHandleMut(self.0.write().await)
     }
 
+    /// A read-only handle to the function environment if the store lock
+    /// is free for reading now, without waiting.
+    pub fn try_read(&self) -> Option<AsyncFunctionEnvHandle<T>> {
+        self.0.try_read().map(AsyncFunctionEnvHandle)
+    }
+
+    /// A mutable handle to the function environment if the store lock is
+    /// free now, without waiting.
+    pub fn try_write(&self) -> Option<AsyncFunctionEnvHandleMut<T>> {
+        self.0.try_write().map(AsyncFunctionEnvHandleMut)
+    }
+
     /// Borrows a new immmutable reference
     pub fn as_ref(&self) -> FunctionEnv<T> {
         FunctionEnv(self.0.as_ref())
