@@ -859,7 +859,9 @@ impl Signaller {
 /// A kernel on `root` with the machine's network, user, names, init and console, whose
 /// `execve` starts the images `abis` serve; its own filesystems are mounted next
 /// ([`mount_kernel_filesystems`]). A network namespace a guest makes gets a fresh loopback-only
-/// network, with no backend: nothing in it reaches the host.
+/// network, with no backend: nothing in it reaches the host. Its `lo` starts down, as
+/// `copy_net_ns` leaves it on Linux, until the guest brings it up (`SIOCSIFFLAGS`,
+/// `RTM_NEWLINK`).
 #[allow(clippy::too_many_arguments)]
 fn boot(
     host: &Arc<dyn Host>,
@@ -874,7 +876,13 @@ fn boot(
     let mut kernel = Kernel::new(host.clone(), root)
         .with_binfmt(abis)
         .with_network(network.clone())
-        .with_network_factory(|| Net::new(NetConfig::default(), None))
+        .with_network_factory(|| {
+            let config = NetConfig {
+                loopback_up: false,
+                ..NetConfig::default()
+            };
+            Net::new(config, None)
+        })
         .with_shm(shm_filesystem(host))
         .with_credentials(user.clone())
         .with_uname(uname);

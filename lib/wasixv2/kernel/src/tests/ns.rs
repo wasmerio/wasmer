@@ -671,13 +671,20 @@ fn proc_net_is_the_callers_own_net_directory() {
 }
 
 /// A kernel with `/proc`, an IP network in the initial namespace and a fresh loopback-only one
-/// for each namespace made later, and one process running as root.
+/// for each namespace made later, whose `lo` starts down as on Linux, and one process running
+/// as root.
 fn networked() -> (Kernel, TaskId, ForkableMemory) {
-    let loopback = || wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+    let loopback = |up| {
+        let config = wasixv2_vnet::NetConfig {
+            loopback_up: up,
+            ..wasixv2_vnet::NetConfig::default()
+        };
+        wasixv2_vnet::Net::new(config, None)
+    };
     let (kernel, task, _) = super::cred::machine_with(|kernel| {
         kernel
-            .with_network(loopback())
-            .with_network_factory(loopback)
+            .with_network(loopback(true))
+            .with_network_factory(move || loopback(false))
             .with_credentials(Credentials::new(0, 0))
     });
     let vfs = kernel.vfs().clone();
@@ -713,6 +720,8 @@ fn a_new_network_namespace_has_a_port_space_of_its_own() {
         unshare(&kernel, &child_caller, CloneFlags::CLONE_NEWNET),
         Ok(0)
     );
+    let socket = block_on(kernel.socket(&child_caller, AddressFamily::AF_INET, STREAM, 0));
+    set_lo_flags(&kernel, &child_caller, socket.unwrap(), IFF_UP).unwrap();
 
     assert!(
         listen_tcp(&kernel, &child_caller, 8080).is_ok(),
@@ -728,6 +737,86 @@ fn a_new_network_namespace_has_a_port_space_of_its_own() {
         tcp.lines().filter(|l| l.contains(":1F90 ")).count()
     };
     assert_eq!((listening(task), listening(child)), (1, 1));
+}
+
+/// `IFF_UP`, `IFF_LOOPBACK` and `IFF_RUNNING`.
+const IFF_UP: i16 = 0x1;
+const IFF_LOOPBACK: i16 = 0x8;
+const IFF_RUNNING: i16 = 0x40;
+
+/// `lo`'s flags through `SIOCGIFFLAGS` on `fd`.
+fn lo_flags(kernel: &Kernel, caller: &Caller<'_>, fd: Fd) -> i16 {
+    block_on(caller.memory().write(0x400, b"lo\0")).unwrap();
+    ioctl(kernel, caller, fd, IoctlRequest::SIOCGIFFLAGS).unwrap();
+    let mut flags = [0; 2];
+    block_on(caller.memory().read(0x410, &mut flags)).unwrap();
+    i16::from_le_bytes(flags)
+}
+
+/// `SIOCSIFFLAGS` of `lo` through `fd`, as `ip link set lo up` without netlink does.
+fn set_lo_flags(kernel: &Kernel, caller: &Caller<'_>, fd: Fd, flags: i16) -> SysResult<i32> {
+    block_on(caller.memory().write(0x400, &[b'l', b'o', 0, 0])).unwrap();
+    block_on(caller.memory().write(0x410, &flags.to_le_bytes())).unwrap();
+    ioctl(kernel, caller, fd, IoctlRequest::SIOCSIFFLAGS)
+}
+
+/// A namespace a process makes starts with `lo` down and without addresses (`copy_net_ns`,
+/// `loopback_net_init`), so nothing binds or reaches 127.0.0.1 until `SIOCSIFFLAGS` brings it
+/// up, which gives it 127.0.0.1/8 and ::1.
+#[test]
+fn a_new_network_namespace_starts_with_loopback_down() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWNET), Ok(0));
+
+    let fd = block_on(kernel.socket(&caller, AddressFamily::AF_INET, STREAM, 0)).unwrap();
+    assert_eq!(lo_flags(&kernel, &caller, fd), IFF_LOOPBACK);
+    assert_eq!(
+        errno(listen_tcp(&kernel, &caller, 80)),
+        Errno::EADDRNOTAVAIL
+    );
+    // An alias names its interface; IFF_LOOPBACK and IFF_RUNNING are the device's own.
+    put(&memory.0, 0x400, b"lo:1\0");
+    put(&memory.0, 0x410, &IFF_UP.to_le_bytes());
+    assert_eq!(
+        ioctl(&kernel, &caller, fd, IoctlRequest::SIOCSIFFLAGS),
+        Ok(0)
+    );
+    assert_eq!(
+        lo_flags(&kernel, &caller, fd),
+        IFF_UP | IFF_LOOPBACK | IFF_RUNNING
+    );
+    assert!(listen_tcp(&kernel, &caller, 80).is_ok());
+    assert_eq!(set_lo_flags(&kernel, &caller, fd, 0), Ok(0));
+    assert_eq!(lo_flags(&kernel, &caller, fd), IFF_LOOPBACK);
+    put(&memory.0, 0x400, b"eth9\0");
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, fd, IoctlRequest::SIOCSIFFLAGS)),
+        Errno::ENODEV
+    );
+}
+
+/// `SIOCSIFFLAGS` needs `CAP_NET_ADMIN`, checked before the interface is looked up.
+#[test]
+fn changing_interface_flags_needs_cap_net_admin() {
+    let (kernel, task, _) = super::cred::machine_with(|kernel| {
+        let loopback = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+        kernel
+            .with_network(loopback)
+            .with_credentials(Credentials::new(1, 1))
+    });
+    let memory = ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536])));
+    let caller = Caller::new(task, &memory);
+    let fd = block_on(kernel.socket(&caller, AddressFamily::AF_INET, STREAM, 0)).unwrap();
+
+    assert_eq!(errno(set_lo_flags(&kernel, &caller, fd, 0)), Errno::EPERM);
+    put(&memory.0, 0x400, b"eth9\0");
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, fd, IoctlRequest::SIOCSIFFLAGS)),
+        Errno::EPERM
+    );
+    assert_eq!(lo_flags(&kernel, &caller, fd) & IFF_UP, IFF_UP);
 }
 
 #[test]
