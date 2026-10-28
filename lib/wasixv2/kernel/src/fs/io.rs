@@ -5,7 +5,8 @@ use wasixv2_abi::{
     LinuxDirent64Ptr, LoffPtr, OpenFlags, RwfFlags, SeekWhence, SyncFileRangeFlags,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, Fd, SysResult, UserMemory, UserSlice, UserSliceMut, read_value, write_value,
+    Caller, Errno, Fd, LocalFuture, SysResult, UserMemory, UserSlice, UserSliceMut, read_value,
+    write_value,
 };
 use wasixv2_vfs::{AllocMode, DirEntry, DirSink, FileType};
 
@@ -15,7 +16,7 @@ use wasixv2_wait::Interrupt;
 
 use crate::{
     IO_CHUNK, Kernel, MAX_RW_COUNT,
-    file::{Backing, OpenFile, SeekBase, check_file_size},
+    file::{Backing, OpenFile, ReadSink, SeekBase, check_file_size, delivered},
 };
 
 /// Most iovecs one `readv` or `writev` takes, as Linux's `UIO_MAXIOV`.
@@ -160,6 +161,18 @@ impl<'a> Cursor<'a> {
     }
 }
 
+/// Guest buffers as a [`ReadSink`].
+struct CopyOut<'a> {
+    cursor: Cursor<'a>,
+    memory: &'a dyn UserMemory,
+}
+
+impl ReadSink for CopyOut<'_> {
+    fn copy_out<'a>(&'a mut self, data: &'a [u8]) -> LocalFuture<'a, usize> {
+        Box::pin(async move { self.cursor.copy_out(self.memory, data).await.0 })
+    }
+}
+
 /// Where the steps of one read or write go. A transfer at the file position holds the
 /// position lock throughout (`fdget_pos`), so threads sharing the description never interleave
 /// within one call.
@@ -176,16 +189,27 @@ struct Target<'a> {
 }
 
 impl Target<'_> {
-    async fn read(&self, buf: &mut [u8], done: usize) -> SysResult<usize> {
-        let Backing::Inode(inner) = &self.file.backing else {
-            return self.file.read(self.interrupt, buf).await;
+    /// Reads at most `buf.len()` bytes through `buf` to `to`; how many arrived. A file's
+    /// position moves by what arrived, and a stream gives up only what arrived.
+    async fn read_to(
+        &self,
+        buf: &mut [u8],
+        done: usize,
+        to: &mut dyn ReadSink,
+    ) -> SysResult<usize> {
+        let inner = match &self.file.backing {
+            Backing::Inode(inner) => inner,
+            Backing::Stream(object, _) => {
+                return object.read_to(self.file.io(self.interrupt), buf, to).await;
+            }
         };
         let offset = self.start + done as u64;
         let n = inner.read_at(buf, offset).await?;
+        let copied = to.copy_out(&buf[..n]).await;
         if matches!(self.at, At::Position) {
-            self.file.set_pos(offset + n as u64);
+            self.file.set_pos(offset + copied as u64);
         }
-        Ok(n)
+        delivered(n, copied)
     }
 
     async fn write(&self, data: &[u8], done: usize) -> SysResult<usize> {
@@ -245,22 +269,22 @@ impl Kernel {
             false => IO_CHUNK.max(file.buffered()),
         };
         let mut buf = Scratch::new(total.min(step));
-        let mut cursor = Cursor::new(iovecs);
+        let mut to = CopyOut {
+            cursor: Cursor::new(iovecs),
+            memory: caller.memory(),
+        };
         let mut done = 0;
         self.sync_file_mappings(caller, file).await;
         loop {
             let want = (total - done).min(buf.len());
-            let n = match target.read(&mut buf[..want], done).await {
-                Ok(n) => n,
+            let copied = match target.read_to(&mut buf[..want], done, &mut to).await {
+                Ok(copied) => copied,
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
             };
-            let (copied, faulted) = cursor.copy_out(caller.memory(), &buf[..n]).await;
-            if copied == 0 && n > 0 && done == 0 {
-                return Err(Errno::EFAULT.into());
-            }
             done += copied;
-            if !steps || faulted || n < want || done == total {
+            // Short: the end of the data, or a fault.
+            if !steps || copied < want || done == total {
                 break;
             }
             // `read_zero` and `get_random_bytes_user` look for a signal after each page.

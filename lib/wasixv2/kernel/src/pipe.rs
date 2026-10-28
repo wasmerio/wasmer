@@ -12,7 +12,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_eve
 
 use crate::{
     Kernel,
-    file::{Backing, FileObject, Io, OpenFile},
+    file::{Backing, FileObject, Io, OpenFile, ReadSink, taken},
     sync::MutexExt,
 };
 
@@ -28,6 +28,9 @@ const MAX_SIZE: usize = 1024 * 1024;
 
 pub(crate) struct Pipe {
     state: Mutex<State>,
+    /// Held by a reader from looking at the data until it consumed it (`pipe->mutex` around
+    /// `copy_page_to_iter`), so what it leaves behind on a fault is still first. Never held while waiting: readers wait on `rd_wait` first.
+    io_lock: futures_util::lock::Mutex<()>,
     /// Readers wait here for data or the last writer to leave.
     rd_wait: WaitQueue,
     /// Writers wait here for room or the last reader to leave.
@@ -87,6 +90,7 @@ fn new_pipe() -> Arc<Pipe> {
             r_counter: 1,
             w_counter: 1,
         }),
+        io_lock: futures_util::lock::Mutex::new(()),
         rd_wait: WaitQueue::new(),
         wr_wait: WaitQueue::new(),
     })
@@ -189,33 +193,54 @@ impl PipeEnd {
 }
 
 impl PipeEnd {
-    /// `pipe_read`.
-    async fn read_bytes(&self, io: Io<'_>, buf: &mut [u8]) -> SysResult<usize> {
+    /// `pipe_read`: copies at most `buf.len()` bytes to `to`, or into `buf` itself without
+    /// one, and consumes them only once all arrived ([`taken`]). Waits for data without the I/O lock, then takes
+    /// the lock and looks again, since another reader may have emptied the pipe meanwhile.
+    async fn read_bytes(
+        &self,
+        io: Io<'_>,
+        buf: &mut [u8],
+        mut to: Option<&mut dyn ReadSink>,
+    ) -> SysResult<usize> {
         if buf.is_empty() {
             return Ok(0);
         }
         let pipe = &self.pipe;
-        let try_read = || {
-            let mut state = pipe.state.lock_or_recover();
-            if !state.buf.is_empty() {
-                let n = buf.len().min(state.buf.len());
-                for (dst, src) in buf.iter_mut().zip(state.buf.drain(..n)) {
-                    *dst = src;
+        loop {
+            let ready = || {
+                let state = pipe.state.lock_or_recover();
+                if !state.buf.is_empty() || state.writers == 0 {
+                    return Some(Ok(()));
                 }
-                return Some(Ok(n));
-            }
-            if state.writers == 0 {
-                return Some(Ok(0));
-            }
-            io.nonblocking().then_some(Err(Errno::EAGAIN))
-        };
-        let result = wait_event(&pipe.rd_wait, try_read, io.interrupt)
-            .await
-            .map_err(|_| SysErr::Restart)?;
-        if matches!(result, Ok(n) if n > 0) {
+                io.nonblocking().then_some(Err(Errno::EAGAIN))
+            };
+            wait_event(&pipe.rd_wait, ready, io.interrupt)
+                .await
+                .map_err(|_| SysErr::Restart)??;
+            let _io = pipe.io_lock.lock().await;
+            let n = {
+                let state = pipe.state.lock_or_recover();
+                if state.buf.is_empty() {
+                    match state.writers {
+                        0 => return Ok(0),
+                        _ => continue,
+                    }
+                }
+                let n = buf.len().min(state.buf.len());
+                for (dst, src) in buf.iter_mut().zip(state.buf.range(..n)) {
+                    *dst = *src;
+                }
+                n
+            };
+            let copied = match to.as_mut() {
+                Some(to) => to.copy_out(&buf[..n]).await,
+                None => n,
+            };
+            let n = taken(n, copied)?;
+            pipe.state.lock_or_recover().buf.drain(..n);
             pipe.wr_wait.wake(PollMask::WRITABLE);
+            return Ok(n);
         }
-        Ok(result?)
     }
 
     /// `pipe_write`. Writes of at most `PIPE_BUF` bytes go in whole or wait; larger ones go in
@@ -320,7 +345,16 @@ impl Pollable for PipeEnd {
 
 impl FileObject for PipeEnd {
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
-        Box::pin(self.read_bytes(io, buf))
+        Box::pin(self.read_bytes(io, buf, None))
+    }
+
+    fn read_to<'a>(
+        &'a self,
+        io: Io<'a>,
+        buf: &'a mut [u8],
+        to: &'a mut dyn ReadSink,
+    ) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(self.read_bytes(io, buf, Some(to)))
     }
 
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {

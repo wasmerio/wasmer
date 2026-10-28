@@ -17,8 +17,8 @@ use wasixv2_abi::{
     Socklen, SocklenPtr, UserMsghdr, UserMsghdrPtr,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, Fd, SysErr, SysResult, UserMemory, UserSlice, UserSliceMut, read_value,
-    write_value,
+    Caller, Errno, Fd, LocalFuture, SysErr, SysResult, UserMemory, UserSlice, UserSliceMut,
+    read_value, write_value,
 };
 use wasixv2_vfs::{Cap, Path};
 use wasixv2_vnet::{Control, Domain, SendMsg, Shutdown, SocketKind};
@@ -27,7 +27,7 @@ use wasixv2_wait::PollMask;
 use crate::{
     Kernel,
     cred::Cred,
-    file::{Backing, OpenFile},
+    file::{Backing, OpenFile, ReadSink},
     fs::read_iovecs,
     netlink,
     socket::{self, RCV, SND, SOCKADDR_STORAGE, SocketFile, Timeouts, WaitOn},
@@ -582,6 +582,7 @@ impl Kernel {
         match sock {
             AnySock::Inet((_, sock)) => {
                 let stream = sock.socket.kind() == SocketKind::Stream;
+                let keeps = stream && !flags.intersects(TCP_OTHER_READS);
                 let mut wait = sock.blocking(io, RCV, flags);
                 let mut scratch = Scratch::default();
                 let n = match stream {
@@ -589,8 +590,17 @@ impl Kernel {
                     false => dst.len.min(IP_MAX_DATAGRAM),
                 };
                 let buf = scratch.get(n);
-                let msg = sock.recv(&mut wait, buf, flags).await?;
-                dst.copy_out(memory, 0, &buf[..msg.len]).await?;
+                let msg = match keeps {
+                    true => {
+                        let mut to = IovOut::new(memory, dst, 0);
+                        sock.recv_stream_to(&mut wait, buf, flags, &mut to).await?
+                    }
+                    false => {
+                        let msg = sock.recv(&mut wait, buf, flags).await?;
+                        dst.copy_out(memory, 0, &buf[..msg.len]).await?;
+                        msg
+                    }
+                };
                 let mut got = Got {
                     len: msg.len,
                     result: recv_result(sock, flags, &msg),
@@ -601,17 +611,22 @@ impl Kernel {
                 };
                 while stream && waitall && got.len > 0 && got.len < dst.len {
                     let buf = scratch.get((dst.len - got.len).min(SOCK_CHUNK));
-                    match sock.recv(&mut wait, buf, flags).await {
-                        Ok(more) if more.len > 0 => {
-                            if dst
-                                .copy_out(memory, got.len, &buf[..more.len])
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
-                            got.len += more.len;
+                    let more = match keeps {
+                        true => {
+                            let mut to = IovOut::new(memory, dst, got.len);
+                            sock.recv_stream_to(&mut wait, buf, flags, &mut to).await
                         }
+                        false => match sock.recv(&mut wait, buf, flags).await {
+                            Ok(more) => match dst.copy_out(memory, got.len, &buf[..more.len]).await
+                            {
+                                Ok(()) => Ok(more),
+                                Err(err) => Err(err),
+                            },
+                            Err(err) => Err(err),
+                        },
+                    };
+                    match more {
+                        Ok(more) if more.len > 0 => got.len += more.len,
                         _ => break,
                     }
                 }
@@ -622,13 +637,23 @@ impl Kernel {
             }
             AnySock::Unix(_, sock) => {
                 let stream = sock.kind() == unix::Kind::Stream;
+                let keeps = stream && !flags.contains(MsgFlags::MSG_PEEK);
                 let mut wait = sock.blocking(io, RCV, flags);
                 let max = match stream {
                     true => dst.len.min(SOCK_CHUNK),
                     false => dst.len,
                 };
-                let msg = unix::recv(sock, &mut wait, max, flags, None).await?;
-                dst.copy_out(memory, 0, &msg.data).await?;
+                let msg = match keeps {
+                    true => {
+                        let mut to = IovOut::new(memory, dst, 0);
+                        unix::recv_stream_to(sock, &mut wait, max, None, &mut to).await?
+                    }
+                    false => {
+                        let msg = unix::recv(sock, &mut wait, max, flags, None).await?;
+                        dst.copy_out(memory, 0, &msg.data).await?;
+                        msg
+                    }
+                };
                 let controls = msg
                     .cred
                     .map(|cred| Control {
@@ -653,11 +678,9 @@ impl Kernel {
                 while stream && waitall && got.len > 0 && got.len < dst.len && got.rights.is_empty()
                 {
                     let max = (dst.len - got.len).min(SOCK_CHUNK);
-                    match unix::recv(sock, &mut wait, max, flags, writer).await {
+                    let mut to = IovOut::new(memory, dst, got.len);
+                    match unix::recv_stream_to(sock, &mut wait, max, writer, &mut to).await {
                         Ok(more) if more.len() > 0 => {
-                            if dst.copy_out(memory, got.len, &more.data).await.is_err() {
-                                break;
-                            }
                             got.len += more.len();
                             got.rights = more.rights;
                         }
@@ -1204,6 +1227,48 @@ impl GuestIov {
             done += n;
         }
         Ok(())
+    }
+}
+
+/// The receive flags under which a TCP read is not one that takes only what reached the user:
+/// `MSG_PEEK` leaves the data anyway, `MSG_TRUNC` discards it uncopied, and `MSG_OOB` and
+/// `MSG_ERRQUEUE` read other things.
+const TCP_OTHER_READS: MsgFlags = MsgFlags(
+    MsgFlags::MSG_PEEK.0 | MsgFlags::MSG_TRUNC.0 | MsgFlags::MSG_OOB.0 | MsgFlags::MSG_ERRQUEUE.0,
+);
+
+/// The guest buffers of a receive from byte `at` on, as a [`ReadSink`].
+struct IovOut<'a> {
+    memory: &'a dyn UserMemory,
+    iov: &'a GuestIov,
+    at: usize,
+}
+
+impl<'a> IovOut<'a> {
+    fn new(memory: &'a dyn UserMemory, iov: &'a GuestIov, at: usize) -> Self {
+        Self { memory, iov, at }
+    }
+}
+
+impl ReadSink for IovOut<'_> {
+    fn copy_out<'a>(&'a mut self, data: &'a [u8]) -> LocalFuture<'a, usize> {
+        Box::pin(async move {
+            let mut done = 0;
+            for range in self.iov.ranges(self.at, data.len()) {
+                let Ok((addr, n)) = range else { break };
+                if self
+                    .memory
+                    .write(addr, &data[done..done + n])
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+                done += n;
+            }
+            self.at += done;
+            done
+        })
     }
 }
 

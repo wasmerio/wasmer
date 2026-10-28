@@ -42,6 +42,14 @@ impl Io<'_> {
     }
 }
 
+/// Where a read's data goes, as Linux's `iov_iter`: the caller's buffers in guest memory, which
+/// a fault may cut short.
+pub trait ReadSink {
+    /// Copies `data` to the next bytes and returns how many arrived; fewer than `data.len()`
+    /// means a fault ended the copy.
+    fn copy_out<'a>(&'a mut self, data: &'a [u8]) -> LocalFuture<'a, usize>;
+}
+
 /// The object behind an open file that is not an inode: a pipe, a socket, an event source, a
 /// host stream. Linux's `file_operations`: one trait for read, write, poll and ioctl.
 ///
@@ -55,6 +63,24 @@ impl Io<'_> {
 pub trait FileObject: Pollable + Any {
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>>;
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>>;
+
+    /// `read_iter`: reads at most `buf.len()` bytes, with `buf` as the kernel's buffer, copies
+    /// them to `to` and returns how many arrived there; `EFAULT` if there was data and none
+    /// arrived. This default reads with `read` and copies what it got, so a fault loses what
+    /// did not arrive, as Linux's objects that take their data before copying it out do
+    /// (eventfd, timerfd, signalfd, inotify, datagram sockets). Streams override it to take
+    /// nothing a fault kept from the user ([`taken`]).
+    fn read_to<'a>(
+        &'a self,
+        io: Io<'a>,
+        buf: &'a mut [u8],
+        to: &'a mut dyn ReadSink,
+    ) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move {
+            let n = self.read(io, buf).await?;
+            delivered(n, to.copy_out(&buf[..n]).await)
+        })
+    }
 
     /// Requests the generic ioctl code did not handle. Linux answers unknown requests with
     /// `ENOTTY`.
@@ -114,6 +140,27 @@ pub trait FileObject: Pollable + Any {
     fn llseek(&self, pos: u64, base: SeekBase, offset: i64) -> Result<u64, Errno> {
         let _ = (pos, base, offset);
         Err(Errno::ESPIPE)
+    }
+}
+
+/// What a read that had `n` bytes returns once `copied` of them arrived: the count, or `EFAULT`
+/// when none did (`copy_page_to_iter` short in `pipe_read`, `-EFAULT` from a recv actor).
+pub(crate) fn delivered(n: usize, copied: usize) -> SysResult<usize> {
+    match copied == 0 && n > 0 {
+        true => Err(Errno::EFAULT.into()),
+        false => Ok(copied),
+    }
+}
+
+/// What a stream read that copied `copied` of the `n` bytes it looked at returns, and takes:
+/// all of them, or on a fault none with `EFAULT`. Linux's streams take data a buffer or an
+/// skb at a time and give up a whole one only once all of it was copied (`pipe_read` checks
+/// `copy_page_to_iter` for a short copy, `unix_stream_read_actor` and `tcp_recvmsg` for a
+/// failed `skb_copy_datagram_msg`); a read here takes one step, so the step is that unit.
+pub(crate) fn taken(n: usize, copied: usize) -> SysResult<usize> {
+    match copied == n {
+        true => Ok(n),
+        false => Err(Errno::EFAULT.into()),
     }
 }
 
@@ -318,13 +365,8 @@ impl OpenFile {
     /// `read` at the file position. A blocked read ends early with `SysErr::Restart` when
     /// `interrupt` becomes pending, as every blocking read does on Linux, vectored or not.
     pub(crate) async fn read(&self, interrupt: &dyn Interrupt, buf: &mut [u8]) -> SysResult<usize> {
-        let io = Io {
-            flags: self.flags(),
-            interrupt,
-            broken: None,
-        };
         let file = match &self.backing {
-            Backing::Stream(object, _) => return object.read(io, buf).await,
+            Backing::Stream(object, _) => return object.read(self.io(interrupt), buf).await,
             Backing::Inode(file) => file,
         };
         let _pos = self.lock_pos().await;
@@ -332,6 +374,16 @@ impl OpenFile {
         let n = file.read_at(buf, pos).await?;
         *self.pos.lock_or_recover() = pos + n as u64;
         Ok(n)
+    }
+
+    /// What an object's call made now needs to know: the status flags and how to notice a
+    /// signal.
+    pub(crate) fn io<'a>(&self, interrupt: &'a dyn Interrupt) -> Io<'a> {
+        Io {
+            flags: self.flags(),
+            interrupt,
+            broken: None,
+        }
     }
 
     /// `write` at the file position (or the end, for `O_APPEND`). A blocked write ends early
@@ -368,7 +420,7 @@ impl OpenFile {
     /// Reads at `offset` without moving the file position, as `pread` does.
     pub(crate) async fn read_at(&self, buf: &mut [u8], offset: u64) -> SysResult<usize> {
         if let Some(object) = self.positional() {
-            return object.read(self.io(), buf).await;
+            return object.read(self.io(&NoInterrupt), buf).await;
         }
         Ok(self.inode()?.read_at(buf, offset).await?)
     }
@@ -376,14 +428,6 @@ impl OpenFile {
     /// The object of a positional non-inode file (a device).
     fn positional(&self) -> Option<&Arc<dyn FileObject>> {
         self.object().filter(|object| object.positional())
-    }
-
-    fn io(&self) -> Io<'_> {
-        Io {
-            flags: self.flags(),
-            interrupt: &NoInterrupt,
-            broken: None,
-        }
     }
 
     pub(crate) fn pos(&self) -> u64 {
