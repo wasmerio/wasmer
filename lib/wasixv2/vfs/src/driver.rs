@@ -12,6 +12,7 @@ use std::{any::Any, sync::Arc};
 
 use async_trait::async_trait;
 use wasixv2_abi::Errno;
+use wasixv2_pages::SharedPages;
 
 use crate::{
     mount::Path,
@@ -164,6 +165,16 @@ pub trait Node: Send + Sync + Any {
 
     /// Opens a regular file or directory for data access.
     async fn open(&self, options: OpenOptions) -> FsResult<Box<dyn Handle>>;
+
+    /// The shared memory object that holds this regular file's data, so that a `MAP_SHARED`
+    /// mapping can show its pages instead of a copy, as every mapping of a tmpfs file shows the
+    /// file's shmem pages (`shmem_mmap`). The object is made at least `end` bytes long and
+    /// never shrinks below that while the node lives, whatever the file's size becomes, so a
+    /// mapping up to `end` never reaches past it. `None` where the data lives elsewhere: such
+    /// a file's mappings are copies.
+    fn shared_pages(&self, _end: u64) -> FsResult<Option<Arc<dyn SharedPages>>> {
+        Ok(None)
+    }
 
     /// The value of extended attribute `name` (full name, including the namespace prefix);
     /// `ENODATA` if it is not set.
