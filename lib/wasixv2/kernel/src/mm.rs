@@ -50,9 +50,9 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{
     Caller, Errno, SharedMapping, SysResult, TaskId, UserMemory, WASM_PAGE_SIZE,
 };
-use wasixv2_vfs::{FileType, WRITE_SEALS};
+use wasixv2_vfs::{Cap, FileType, WRITE_SEALS};
 
-use crate::{Kernel, file::OpenFile};
+use crate::{Kernel, file::OpenFile, sync::MutexExt};
 
 /// The page size the guest sees in `AT_PAGESZ` and the unit of every mapping.
 pub(crate) const PAGE_SIZE: u64 = WASM_PAGE_SIZE;
@@ -165,6 +165,11 @@ impl Mm {
         self.space().seen
     }
 
+    /// How many bytes are locked (`locked_vm`).
+    pub(crate) fn locked(&self) -> u64 {
+        self.space().locked_vm() * PAGE_SIZE
+    }
+
     fn insert(&self, mapping: Mapping) {
         let mut space = self.space();
         space.mappings.insert(mapping);
@@ -219,9 +224,81 @@ pub(crate) struct AddressSpace {
     seen: u64,
     /// Mappings of files and segments; pages not in one are anonymous.
     mappings: shared::Mappings,
-    /// `VM_WIPEONFORK` for each page from address 0, as far as any page has it: the private
-    /// anonymous pages `MADV_WIPEONFORK` marked, which a fork child gets zeroed.
-    wipe_on_fork: Vec<bool>,
+    /// `VM_WIPEONFORK`: the private anonymous pages `MADV_WIPEONFORK` marked, which a fork
+    /// child gets zeroed.
+    wipe_on_fork: PageFlags,
+    /// `VM_LOCKED`: the pages `mlock`, `mlockall` and `MAP_LOCKED` locked, which `locked_vm`
+    /// counts. Memory is never paged out, so locking changes nothing else.
+    locked: PageFlags,
+    /// `VM_LOCKED` in `def_flags`: every new mapping is locked (`mlockall(MCL_FUTURE)`).
+    lock_future: bool,
+}
+
+/// A flag of each page from address 0, as far as any page has it: a `vm_flags` bit of the
+/// area the page lies in.
+#[derive(Clone, Default)]
+struct PageFlags(Vec<bool>);
+
+impl PageFlags {
+    fn get(&self, page: u64) -> bool {
+        let page = usize::try_from(page).unwrap_or(usize::MAX);
+        self.0.get(page).copied().unwrap_or(false)
+    }
+
+    /// Sets or clears the flag on the pages `[first, end)`.
+    fn set(&mut self, first: u64, end: u64, on: bool) {
+        let (first, mut end) = (first as usize, end as usize);
+        if on && self.0.len() < end {
+            self.0.resize(end, false);
+        }
+        end = end.min(self.0.len());
+        if first < end {
+            self.0[first..end].fill(on);
+        }
+        if !on {
+            let last = self.0.iter().rposition(|&on| on);
+            self.0.truncate(last.map_or(0, |last| last + 1));
+        }
+    }
+
+    /// How many of the pages `[first, end)` have the flag.
+    fn count(&self, first: u64, end: u64) -> u64 {
+        let end = (end as usize).min(self.0.len());
+        let first = (first as usize).min(end);
+        self.0[first..end].iter().filter(|&&on| on).count() as u64
+    }
+
+    /// `mremap`: the `new_len` bytes at `to` take the flags of the `old_len` bytes at `from`,
+    /// and pages past the old length that of its last page, as the area grows or is copied
+    /// with its flags (`vma_expand`, `copy_vma`). The source keeps its own.
+    fn remap(&mut self, from: u64, old_len: u64, to: u64, new_len: u64) {
+        let from = from / PAGE_SIZE;
+        let old: Vec<bool> = (from..from + old_len / PAGE_SIZE)
+            .map(|page| self.get(page))
+            .collect();
+        let grown = old.last().copied().unwrap_or(false);
+        let to = to / PAGE_SIZE;
+        for (index, page) in (to..to + new_len / PAGE_SIZE).enumerate() {
+            let on = old.get(index).copied().unwrap_or(grown);
+            self.set(page, page + 1, on);
+        }
+    }
+
+    /// The byte ranges whose pages have the flag, lowest first.
+    fn ranges(&self) -> Vec<Range<u64>> {
+        let mut ranges: Vec<Range<u64>> = Vec::new();
+        for (page, &on) in self.0.iter().enumerate() {
+            if !on {
+                continue;
+            }
+            let (start, end) = (page as u64 * PAGE_SIZE, (page as u64 + 1) * PAGE_SIZE);
+            match ranges.last_mut() {
+                Some(last) if last.end == start => last.end = end,
+                _ => ranges.push(start..end),
+            }
+        }
+        ranges
+    }
 }
 
 /// Where a new mapping goes.
@@ -242,6 +319,10 @@ impl AddressSpace {
             seen: self.seen,
             mappings: self.mappings.dup(pid),
             wipe_on_fork: self.wipe_on_fork.clone(),
+            // `dup_mmap` clears `VM_LOCKED_MASK`, and `mm_init` keeps no `VM_LOCKED` of
+            // `def_flags`: locks are not inherited.
+            locked: PageFlags::default(),
+            lock_future: false,
         }
     }
 
@@ -280,61 +361,65 @@ impl AddressSpace {
     pub(crate) fn unmap(&mut self, addr: u64, len: u64) {
         let (first, end) = (addr / PAGE_SIZE, (addr + len).div_ceil(PAGE_SIZE));
         self.set_pages(first, end, false);
-        self.set_wipe_on_fork(first, end, false);
+        self.wipe_on_fork.set(first, end, false);
+        self.locked.set(first, end, false);
     }
 
-    fn wipes_on_fork(&self, page: u64) -> bool {
-        let page = usize::try_from(page).unwrap_or(usize::MAX);
-        self.wipe_on_fork.get(page).copied().unwrap_or(false)
+    /// `mremap`'s flags: the `new_len` bytes at `to` take those of the `old_len` bytes at
+    /// `from` (see [`PageFlags::remap`]).
+    fn remap_flags(&mut self, from: u64, old_len: u64, to: u64, new_len: u64) {
+        self.wipe_on_fork.remap(from, old_len, to, new_len);
+        self.locked.remap(from, old_len, to, new_len);
     }
 
-    /// Sets or clears `VM_WIPEONFORK` on the pages `[first, end)`.
-    fn set_wipe_on_fork(&mut self, first: u64, end: u64, wipe: bool) {
-        let (first, mut end) = (first as usize, end as usize);
-        if wipe && self.wipe_on_fork.len() < end {
-            self.wipe_on_fork.resize(end, false);
-        }
-        end = end.min(self.wipe_on_fork.len());
-        if first < end {
-            self.wipe_on_fork[first..end].fill(wipe);
-        }
-        if !wipe {
-            let last = self.wipe_on_fork.iter().rposition(|&wipe| wipe);
-            self.wipe_on_fork.truncate(last.map_or(0, |last| last + 1));
-        }
+    /// `locked_vm`: how many pages are locked.
+    fn locked_vm(&self) -> u64 {
+        self.locked.count(0, u64::MAX)
     }
 
-    /// `mremap`'s `VM_WIPEONFORK`: the `new_len` bytes at `to` take the flags of the `old_len`
-    /// bytes at `from`, and pages past the old length that of its last page, as the area grows
-    /// or is copied with its flags (`vma_expand`, `copy_vma`). The source keeps its own until it
-    /// is unmapped.
-    fn remap_wipe_on_fork(&mut self, from: u64, old_len: u64, to: u64, new_len: u64) {
-        let from = from / PAGE_SIZE;
-        let old: Vec<bool> = (from..from + old_len / PAGE_SIZE)
-            .map(|page| self.wipes_on_fork(page))
-            .collect();
-        let grown = old.last().copied().unwrap_or(false);
-        let to = to / PAGE_SIZE;
-        for (index, page) in (to..to + new_len / PAGE_SIZE).enumerate() {
-            let wipe = old.get(index).copied().unwrap_or(grown);
-            self.set_wipe_on_fork(page, page + 1, wipe);
-        }
+    /// `total_vm`: how many pages are in use below the end of memory, `mem_pages`.
+    fn total_vm(&self, mem_pages: u64) -> u64 {
+        (0..mem_pages)
+            .filter(|&page| self.page_mapped(page, mem_pages))
+            .count() as u64
     }
 
-    /// The ranges a fork child gets zeroed, lowest first.
-    fn wipe_on_fork_ranges(&self) -> Vec<Range<u64>> {
-        let mut ranges: Vec<Range<u64>> = Vec::new();
-        for (page, &wipe) in self.wipe_on_fork.iter().enumerate() {
-            if !wipe {
-                continue;
-            }
-            let (start, end) = (page as u64 * PAGE_SIZE, (page as u64 + 1) * PAGE_SIZE);
-            match ranges.last_mut() {
-                Some(last) if last.end == start => last.end = end,
-                _ => ranges.push(start..end),
+    /// `apply_mlockall_flags`: `MCL_FUTURE` locks the mappings to come, or no longer does;
+    /// `MCL_CURRENT` locks every page in use, and without it every page is unlocked, unless
+    /// `MCL_FUTURE` alone leaves them as they are.
+    fn lock_all(&mut self, flags: MclFlags) {
+        self.lock_future = flags.contains(MclFlags::MCL_FUTURE);
+        if self.lock_future && !flags.contains(MclFlags::MCL_CURRENT) {
+            return;
+        }
+        self.locked = PageFlags::default();
+        if flags.contains(MclFlags::MCL_CURRENT) {
+            let mem_pages = self.seen / PAGE_SIZE;
+            let mut pages = 0..mem_pages;
+            while let Some(first) = pages.find(|&page| self.page_mapped(page, mem_pages)) {
+                let end = pages
+                    .find(|&page| !self.page_mapped(page, mem_pages))
+                    .unwrap_or(mem_pages);
+                self.locked.set(first, end, true);
             }
         }
-        ranges
+    }
+
+    /// `apply_vma_lock_flags`: locks or unlocks the pages `[first, end)` in order, up to the
+    /// first that is not in use (`ENOMEM`, the pages before it changed).
+    fn lock_pages(
+        &mut self,
+        first: u64,
+        end: u64,
+        lock: bool,
+        mem_pages: u64,
+    ) -> Result<(), Errno> {
+        let hole = (first..end).find(|&page| !self.page_mapped(page, mem_pages));
+        self.locked.set(first, hole.unwrap_or(end), lock);
+        match hole {
+            Some(_) => Err(Errno::ENOMEM),
+            None => Ok(()),
+        }
     }
 
     /// Marks the allocator's pages in `[first, end)` as mapped or not.
@@ -464,6 +549,16 @@ pub(crate) fn pages(len: u32) -> Result<u64, Errno> {
     }
 }
 
+/// The pages `mlock` and `munlock` cover: from the one `start` is in through the one the last
+/// byte is in.
+fn lock_range(start: Uptr, len: Usize) -> (u64, u64) {
+    let start = u64::from(start);
+    (
+        start / PAGE_SIZE,
+        (start + u64::from(len)).div_ceil(PAGE_SIZE),
+    )
+}
+
 fn check_aligned(addr: u32) -> Result<(), Errno> {
     match u64::from(addr).is_multiple_of(PAGE_SIZE) {
         true => Ok(()),
@@ -538,7 +633,74 @@ fn advice_valid(advice: MadviseAdvice) -> bool {
     matches!(advice.0, 0..=4 | 8..=25 | 100..=103)
 }
 
+/// What a caller may lock: its soft `RLIMIT_MEMLOCK`, and whether `CAP_IPC_LOCK` lifts it.
+struct LockLimit {
+    bytes: u64,
+    exempt: bool,
+}
+
+impl LockLimit {
+    /// `can_do_mlock`: a limit of 0 forbids locking at all.
+    fn can_lock(&self) -> bool {
+        self.bytes != 0 || self.exempt
+    }
+
+    /// The limit in pages.
+    fn pages(&self) -> u64 {
+        self.bytes / PAGE_SIZE
+    }
+
+    /// `mlock_future_ok`: whether `bytes` more of a mapping that is `locked` fit beside the
+    /// `locked_vm` pages already locked.
+    fn future_ok(&self, locked: bool, locked_vm: u64, bytes: u64) -> bool {
+        !locked || self.exempt || bytes / PAGE_SIZE + locked_vm <= self.pages()
+    }
+}
+
 impl Kernel {
+    fn lock_limit(&self, caller: &Caller<'_>) -> LockLimit {
+        let process = self.process(caller.task());
+        let bytes = process
+            .resources
+            .lock_or_recover()
+            .soft(wasixv2_abi::RlimitResource::RLIMIT_MEMLOCK);
+        LockLimit {
+            bytes,
+            exempt: process.cred().capable(Cap::IpcLock),
+        }
+    }
+
+    /// `mlock_future_ok` for a new mapping of `len` bytes, locked if `MAP_LOCKED` asks or
+    /// `mlockall(MCL_FUTURE)` did: `EAGAIN` if it does not fit. Returns whether it is locked.
+    fn check_lock_new(
+        &self,
+        caller: &Caller<'_>,
+        map_locked: bool,
+        len: u64,
+    ) -> Result<bool, Errno> {
+        let limit = self.lock_limit(caller);
+        let mm = self.mm(caller.task());
+        let space = mm.space();
+        let locked = map_locked || space.lock_future;
+        match limit.future_ok(locked, space.locked_vm(), len) {
+            true => Ok(locked),
+            false => Err(Errno::EAGAIN),
+        }
+    }
+
+    /// `resize_is_valid`'s `mlock_future_ok`: the area at `addr` grows by `delta` bytes, which
+    /// must fit if it is locked (`EAGAIN`). Returns whether it is.
+    fn check_lock_growth(&self, caller: &Caller<'_>, addr: u64, delta: u64) -> Result<bool, Errno> {
+        let limit = self.lock_limit(caller);
+        let mm = self.mm(caller.task());
+        let space = mm.space();
+        let locked = space.locked.get(addr / PAGE_SIZE);
+        match limit.future_ok(locked, space.locked_vm(), delta) {
+            true => Ok(locked),
+            false => Err(Errno::EAGAIN),
+        }
+    }
+
     pub(crate) async fn mem_size(&self, caller: &Caller<'_>) -> u64 {
         let size = caller.memory().size().await;
         self.mm(caller.task()).space().seen = size;
@@ -600,10 +762,16 @@ impl Kernel {
         }
         let (old_end, new_end) = (current.div_ceil(PAGE_SIZE), new.div_ceil(PAGE_SIZE));
         if new_end > old_end {
+            // `check_brk_limits`.
             let free = mm.space().pages_free(old_end, new_end, size / PAGE_SIZE);
+            let len = (new_end - old_end) * PAGE_SIZE;
+            let Ok(locked) = self.check_lock_new(caller, false, len) else {
+                return Ok(current as i32);
+            };
             if !free || self.take_pages(caller, old_end, new_end).await.is_err() {
                 return Ok(current as i32);
             }
+            mm.space().locked.set(old_end, new_end, locked);
         } else {
             let (from, to) = (new_end * PAGE_SIZE, old_end * PAGE_SIZE);
             mm.space().unmap(from, to - from);
@@ -636,6 +804,13 @@ impl Kernel {
             return Err(Errno::EACCES.into());
         }
         let pages = pages(len)?;
+        let map_locked = flags.contains(MapFlags::MAP_LOCKED);
+        if map_locked && !self.lock_limit(caller).can_lock() {
+            return Err(Errno::EPERM.into());
+        }
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let locked = self.check_lock_new(caller, map_locked, pages * PAGE_SIZE)?;
         let kind = flags & MapFlags::MAP_TYPE;
         let source = match &file {
             None => match kind {
@@ -645,14 +820,14 @@ impl Kernel {
             },
             Some(file) => Some(check_file_mapping(file, offset, pages, prot, flags)?),
         };
-        let mm = self.mm(caller.task());
-        let _op = mm.op.lock().await;
         let start = if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
             let noreplace = !flags.contains(MapFlags::MAP_FIXED);
             self.map_fixed(caller, addr, pages, noreplace).await?
         } else {
             self.map_anywhere(caller, pages).await? as Uptr
         };
+        let first = u64::from(start) / PAGE_SIZE;
+        mm.space().locked.set(first, first + pages, locked);
         let Some(source) = source else {
             return Ok(start);
         };
@@ -828,6 +1003,9 @@ impl Kernel {
         self.check_mapped(caller, addr64, old_size)
             .await
             .map_err(|_| Errno::EFAULT)?;
+        if new_size > old_size {
+            self.check_lock_growth(caller, addr64, new_size - old_size)?;
+        }
         if remap.implies_new_addr() {
             let target = match remap.fixed {
                 true => u64::from(self.map_fixed(caller, new_addr, new_pages, false).await?),
@@ -839,12 +1017,18 @@ impl Kernel {
                 false => Vec::new(),
             };
             copy(caller.memory(), addr64, target, old_size.min(new_size)).await?;
-            mm.space()
-                .remap_wipe_on_fork(addr64, old_size, target, new_size);
+            mm.space().remap_flags(addr64, old_size, target, new_size);
             self.move_mappings(caller, addr64, old_size, target, new_size)
                 .await?;
             match remap.dont_unmap {
-                true => self.refault(caller, addr64, old_size, stay).await?,
+                true => {
+                    // `dontunmap_complete`: the source is never locked after the move.
+                    let first = addr64 / PAGE_SIZE;
+                    mm.space()
+                        .locked
+                        .set(first, first + old_size / PAGE_SIZE, false);
+                    self.refault(caller, addr64, old_size, stay).await?
+                }
                 false => mm.space().unmap(addr64, old_size),
             }
             return Ok(target as i32);
@@ -865,8 +1049,7 @@ impl Kernel {
                 .await
                 .is_ok()
         {
-            mm.space()
-                .remap_wipe_on_fork(addr64, old_size, addr64, new_size);
+            mm.space().remap_flags(addr64, old_size, addr64, new_size);
             self.move_mappings(caller, addr64, old_size, addr64, new_size)
                 .await?;
             return Ok(addr as i32);
@@ -876,8 +1059,7 @@ impl Kernel {
         }
         let target = self.map_anywhere(caller, new_pages).await?;
         copy(caller.memory(), addr64, target, old_size).await?;
-        mm.space()
-            .remap_wipe_on_fork(addr64, old_size, target, new_size);
+        mm.space().remap_flags(addr64, old_size, target, new_size);
         self.move_mappings(caller, addr64, old_size, target, new_size)
             .await?;
         mm.space().unmap(addr64, old_size);
@@ -903,6 +1085,7 @@ impl Kernel {
         if alias(0).is_none() {
             return Err(Errno::EINVAL.into());
         }
+        let locked = self.check_lock_growth(caller, remap.addr, remap.new_size)?;
         // Growing a mapping of nothing in place never fits: `addr` itself is mapped.
         if !remap.may_move {
             return Err(Errno::ENOMEM.into());
@@ -922,6 +1105,10 @@ impl Kernel {
             return Err(errno.into());
         }
         mm.insert(alias);
+        let first = target / PAGE_SIZE;
+        mm.space()
+            .locked
+            .set(first, first + remap.new_size / PAGE_SIZE, locked);
         Ok(target as i32)
     }
 
@@ -1170,7 +1357,9 @@ impl Kernel {
             false => None,
         };
         let marked_end = refused.unwrap_or(end);
-        space.set_wipe_on_fork(start / PAGE_SIZE, marked_end / PAGE_SIZE, wipe);
+        space
+            .wipe_on_fork
+            .set(start / PAGE_SIZE, marked_end / PAGE_SIZE, wipe);
         match refused {
             Some(_) => Err(Errno::EINVAL),
             None => Ok(()),
@@ -1188,10 +1377,11 @@ impl Kernel {
             }
         };
         let space = mm.space();
-        space.wipe_on_fork_ranges()
+        space.wipe_on_fork.ranges()
     }
 
-    /// Memory is never paged out, so locking only checks the range.
+    /// `do_mlock` for `mlock` and `mlock2`. Memory is never paged out, so locking only
+    /// accounts the pages against `RLIMIT_MEMLOCK` (`MLOCK_ONFAULT` changes nothing).
     pub(crate) async fn sys_mlock(
         &self,
         caller: &Caller<'_>,
@@ -1202,18 +1392,74 @@ impl Kernel {
         if !(flags & !MlockFlags::MLOCK_ONFAULT).is_empty() {
             return Err(Errno::EINVAL.into());
         }
-        let first = u64::from(start) / PAGE_SIZE * PAGE_SIZE;
-        let len = u64::from(start) + u64::from(len) - first;
-        self.check_mapped(caller, first, len).await?;
+        let limit = self.lock_limit(caller);
+        if !limit.can_lock() {
+            return Err(Errno::EPERM.into());
+        }
+        let (first, end) = lock_range(start, len);
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
+        let mut space = mm.space();
+        let mut locked = end - first + space.locked_vm();
+        if locked > limit.pages() && !limit.exempt {
+            // Pages already locked in the range are not locked again.
+            locked -= space.locked.count(first, end);
+        }
+        if locked > limit.pages() && !limit.exempt {
+            return Err(Errno::ENOMEM.into());
+        }
+        space.lock_pages(first, end, true, mem_pages)?;
         Ok(0)
     }
 
-    pub(crate) fn sys_mlockall(&self, flags: MclFlags) -> SysResult<i32> {
+    pub(crate) async fn sys_munlock(
+        &self,
+        caller: &Caller<'_>,
+        start: Uptr,
+        len: Usize,
+    ) -> SysResult<i32> {
+        let (first, end) = lock_range(start, len);
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
+        mm.space().lock_pages(first, end, false, mem_pages)?;
+        Ok(0)
+    }
+
+    /// `mlockall`: `MCL_CURRENT` locks every page in use, which must all fit under
+    /// `RLIMIT_MEMLOCK`; `MCL_FUTURE` locks every mapping made from then on.
+    pub(crate) async fn sys_mlockall(
+        &self,
+        caller: &Caller<'_>,
+        flags: MclFlags,
+    ) -> SysResult<i32> {
         let known = MclFlags::MCL_CURRENT | MclFlags::MCL_FUTURE | MclFlags::MCL_ONFAULT;
         let lock = MclFlags::MCL_CURRENT | MclFlags::MCL_FUTURE;
         if !(flags & !known).is_empty() || !flags.intersects(lock) {
             return Err(Errno::EINVAL.into());
         }
+        let limit = self.lock_limit(caller);
+        if !limit.can_lock() {
+            return Err(Errno::EPERM.into());
+        }
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
+        let mut space = mm.space();
+        let current = flags.contains(MclFlags::MCL_CURRENT);
+        if current && space.total_vm(mem_pages) > limit.pages() && !limit.exempt {
+            return Err(Errno::ENOMEM.into());
+        }
+        space.lock_all(flags);
+        Ok(0)
+    }
+
+    /// `munlockall`.
+    pub(crate) async fn sys_munlockall(&self, caller: &Caller<'_>) -> SysResult<i32> {
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        mm.space().lock_all(MclFlags::empty());
         Ok(0)
     }
 
@@ -1338,6 +1584,7 @@ impl Kernel {
         let pages = len.div_ceil(PAGE_SIZE);
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        let locked = self.check_lock_new(caller, false, pages * PAGE_SIZE)?;
         let start = match addr {
             0 => self.map_anywhere(caller, pages).await? as Uptr,
             addr => {
@@ -1375,6 +1622,8 @@ impl Kernel {
             return Err(errno);
         }
         mm.insert(mapping);
+        let first = u64::from(start) / PAGE_SIZE;
+        mm.space().locked.set(first, first + pages, locked);
         Ok(start)
     }
 

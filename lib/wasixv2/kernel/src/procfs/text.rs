@@ -642,6 +642,7 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         .unwrap_or_default();
     let pid = scope.tid.unwrap_or(scope.pid);
     let kb = task.as_ref().map_or(0, |task| task.mm.size()) / 1024;
+    let locked_kb = task.as_ref().map_or(0, |task| task.mm.locked()) / 1024;
     let threads = source.threads(scope.pid).len().max(1);
     let (letter, state_name) = state(info, task.as_ref());
     let cred = process.cred();
@@ -660,7 +661,7 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         "Name:\t{}\nUmask:\t{umask:04o}\nState:\t{letter} ({state_name})\nTgid:\t{}\nNgid:\t0\nPid:\t{pid}\nPPid:\t{}\nTracerPid:\t0\n\
          Uid:\t{}\t{}\t{}\t{}\nGid:\t{}\t{}\t{}\t{}\nFDSize:\t{fd_size}\nGroups:\t{groups}\n\
          NStgid:\t{}\nNSpid:\t{pid}\nNSpgid:\t{}\nNSsid:\t{}\n\
-         VmPeak:\t{kb:8} kB\nVmSize:\t{kb:8} kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t{kb:8} kB\nVmRSS:\t{kb:8} kB\n\
+         VmPeak:\t{kb:8} kB\nVmSize:\t{kb:8} kB\nVmLck:\t{locked_kb:8} kB\nVmPin:\t       0 kB\nVmHWM:\t{kb:8} kB\nVmRSS:\t{kb:8} kB\n\
          RssAnon:\t{kb:8} kB\nRssFile:\t       0 kB\nRssShmem:\t       0 kB\nVmData:\t{kb:8} kB\nVmStk:\t       0 kB\nVmExe:\t       0 kB\nVmLib:\t       0 kB\nVmPTE:\t       0 kB\nVmSwap:\t       0 kB\n\
          Threads:\t{threads}\nSigQ:\t0/4096\nSigPnd:\t{:016x}\nShdPnd:\t{:016x}\nSigBlk:\t{:016x}\nSigIgn:\t{:016x}\nSigCgt:\t{:016x}\n\
          CapInh:\t{:016x}\nCapPrm:\t{:016x}\nCapEff:\t{:016x}\nCapBnd:\t{:016x}\nCapAmb:\t{:016x}\n\
