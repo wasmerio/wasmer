@@ -442,6 +442,7 @@ impl Kernel {
                 offset: 0,
                 segment: Some(attachment),
                 writable: !readonly,
+                writer: None,
             }),
             None => {
                 let object = mm::Object::Segment(attachment);

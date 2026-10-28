@@ -23,7 +23,10 @@
 //! ([`Host::shared_pages`]) whose pages the memory itself shows ([`UserMemory::map_shared`]), so
 //! a fork child and its parent see each other's stores at once, as on Linux. Where the host or
 //! the memory cannot do that, it is ordinary memory of the address space, which a fork child
-//! gets a copy of.
+//! gets a copy of. A writable shared mapping of a file that its filesystem keeps in such an
+//! object (memfd and `/dev/shm` files, [`wasixv2_vfs::Node::shared_pages`]) shows the object
+//! the same way, so it needs none of the synchronisation above: `read` and `write` reach the
+//! very pages every mapping shows. Where the memory cannot show them, it is a copy as above.
 //!
 //! [`Host::shared_pages`]: wasixv2_host::Host::shared_pages
 
@@ -570,7 +573,7 @@ impl Kernel {
         }
         let pages = pages(len)?;
         let kind = flags & MapFlags::MAP_TYPE;
-        let source = match file {
+        let source = match &file {
             None => match kind {
                 MapFlags::MAP_SHARED => self.shared_anonymous(pages)?,
                 MapFlags::MAP_PRIVATE => None,
@@ -594,7 +597,18 @@ impl Kernel {
             len: pages * PAGE_SIZE,
             source,
         };
-        match mapping.fill(caller.memory()).await {
+        let mut filled = mapping.fill(caller.memory()).await;
+        if filled == Err(Errno::EOPNOTSUPP)
+            && let Some(file) = file
+            && let Source::Mapped(mapped) = &mut mapping.source
+        {
+            // Memory that cannot show a file's pages gets a copy of them.
+            let (offset, writer) = (mapped.offset, mapped.writer.take());
+            let shared = Shared::new(Object::File(file), offset, mapped.writable, writer);
+            mapping.source = Source::Shared(shared);
+            filled = mapping.fill(caller.memory()).await;
+        }
+        match filled {
             Ok(()) => mm.insert(mapping),
             // Memory that cannot show the object's pages keeps the zeroed pages it has, shared
             // only within the address space.
@@ -617,6 +631,7 @@ impl Kernel {
                 offset: 0,
                 segment: None,
                 writable: true,
+                writer: None,
             }))),
             Err(err) if err.kind() == io::ErrorKind::Unsupported => Ok(None),
             Err(_) => Err(Errno::ENOMEM),
@@ -1267,9 +1282,11 @@ impl Kernel {
     }
 }
 
-/// The file checks of `do_mmap`, in its order, and the source the mapping copies.
+/// The file checks of `do_mmap`, in its order, and the source of the mapping: the file's own
+/// pages for a writable shared mapping of a file kept in a shared memory object, a copy
+/// otherwise.
 fn check_file_mapping(
-    file: Arc<OpenFile>,
+    file: &Arc<OpenFile>,
     offset: Loff,
     pages: u64,
     prot: ProtFlags,
@@ -1307,6 +1324,7 @@ fn check_file_mapping(
         _ => return Err(Errno::ENODEV),
     };
     if !shared {
+        let file = file.clone();
         return Ok(Source::Private { file, offset });
     }
     // `memfd_check_seals_mmap`: a write-sealed file takes no writable shared mapping, and a
@@ -1323,7 +1341,22 @@ fn check_file_mapping(
         true => Some(Writer::new(inode.path.dentry.inode().clone())?),
         false => None,
     };
-    let shared = Shared::new(Object::File(file), offset, writable, writer);
+    // The object reaches past the end of the mapping, however far past the end of the file
+    // that is, so the host never faults where Linux would raise SIGBUS: the pages read zero.
+    let pages = match writable {
+        true => inode.node().shared_pages(offset + pages * PAGE_SIZE)?,
+        false => None,
+    };
+    if let Some(pages) = pages {
+        return Ok(Source::Mapped(Mapped {
+            pages,
+            offset,
+            segment: None,
+            writable,
+            writer,
+        }));
+    }
+    let shared = Shared::new(Object::File(file.clone()), offset, writable, writer);
     Ok(Source::Shared(shared))
 }
 

@@ -26,8 +26,14 @@
 //! A **mapped** object is the exception: where the host can place a shared object's pages
 //! inside a linear memory ([`UserMemory::map_shared`]), a mapping of it is those very pages, as
 //! every other mapping of it in any process is, and there is nothing to copy or synchronise. So
-//! are `MAP_SHARED | MAP_ANONYMOUS` mappings (Linux's `shmem_zero_setup`). Making, moving and
-//! removing such a mapping places the object's pages in the range and takes them out again.
+//! are `MAP_SHARED | MAP_ANONYMOUS` mappings (Linux's `shmem_zero_setup`), SysV segments, and
+//! writable shared mappings of files whose filesystem keeps them in shared memory objects (the
+//! memfd and `/dev/shm` tmpfs, [`wasixv2_vfs::Node::shared_pages`]). Making, moving and removing
+//! such a mapping places the object's pages in the range and takes them out again.
+//!
+//! A shared file mapping that may never be written (its file is not open for writing, or is
+//! write-sealed) stays a copy even then: wasm cannot protect the pages, and a mapping of the
+//! object would let the guest change a file it may only read.
 
 use std::{ops::Range, sync::Arc};
 
@@ -69,6 +75,9 @@ pub(crate) struct Mapped {
     /// Whether the mapping may be written (`SHM_RDONLY` clears it). The memory is writable all
     /// the same, as wasm enforces no protection; only `mprotect` tells.
     pub(crate) writable: bool,
+    /// For a shared mapping of a file, its count in the file's writable mappings, which
+    /// `F_SEAL_WRITE` waits on; every part and fork copy counts on its own, as a vma does.
+    pub(crate) writer: Option<Writer>,
 }
 
 impl Mapped {
