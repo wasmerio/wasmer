@@ -54,8 +54,15 @@ real Ctrl-C (job control), webc's `Container::downcast` (never succeeds in webc 
 `st_dev` for two mounts of one layer. `train5-extras.sh`'s bash line now prints `/bin/readlink`
 (the default PATH searches `/bin` first).
 
-In flight: WP8 (performance) on `wasixv2/wp8-perf`, gates green, landing next. Then an ABI-codegen
-package in wasixv2-abi: generated v2 imports filtered by `module.imports()` (measured: v2 thread
+WP8 (performance) has landed too (`9d04b0b7899`): v1 pid cache, guest copies without allocation, v1
+host functions only for what a module imports, and `AsyncFunctionEnvMut::try_read`/`try_write` in
+`lib/api` (js backend not compiled here). Measured against WP10: v1 read −10%, write −11%, getpid
+−5%, v2 read −5%, v1 thread create+join 190 to 59 us, v1 spawn 498 to 318 us. Dropped as
+unhelpful or wrong: `nbytes = 0` (v1 libc's FIONREAD reads it), one `rt_sigaction` pass, a reusable
+scratch, an errno table. Benchmark kept under `logs/wp8/bench` on the orchestration machine; proposed
+home `bench/syscalls/` in wasixv2-tests.
+
+Next: an ABI-codegen package in wasixv2-abi: generated v2 imports filtered by `module.imports()` (measured: v2 thread
 create+join 344 to 113 us, spawn 652 to 264 us) and `Control::take_image` returning `Image`.
 
 Next: WP11 (robustness); the `__linux__` work package (design ready, waiting for agreement); the
@@ -347,7 +354,7 @@ no critical findings, 12 high, ~35 medium, ~50 low. Its work packages (§3) and 
 | WP4 | fs/vfs | H1, M-FS1..5, L-FS1..10, L-FS12 | landed (`9c147516805`); M-FS6 in train 5; L-FS12 partly |
 | WP5/6 | host network bridge, Unix sockets | H7, H8, H9, M-NET1..6, L-NET1..7 | landed (train 6) |
 | WP7 | wasix1 correctness | H5, H11, H12, M-W1, M-W2, M-W4, L-W* | landed (`783b2cfcf2f`) |
-| WP8 | syscall hot-path performance | M-W3, M-X2, M-X3 | not started |
+| WP8 | syscall hot-path performance | M-W3, M-X2, M-X3 | landed (`9d04b0b7899`); v2 import filter needs codegen |
 | WP9 | signals | M-P4, M-P6, M-P7, M-P9, L-P1, L-P3..5 | landed (train 6) |
 | WP10 | facade/CLI | M-CLI1, M-CLI4..6, L-CLI* | landed (`11d0ae2781b`); real Ctrl-C needs job control |
 | WP11 | robustness | M-X1, M-X4, L-X1, L-X4, L-NET8, L-F11 | not started; L-F11 and the L-X4 contract are in WP3, L-NET8 dead code in WP5 |

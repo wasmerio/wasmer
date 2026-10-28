@@ -321,3 +321,13 @@ no tests-repo change. Gates: crate tests, clippy, fmt, release, CLI 59/12. Suite
 python expected-fail (exit 1, "instantiation failed"); extras pass (bash prints `/bin/readlink`).
 
 Landed, fast-forward: wasmer `feat/wasixv2` `783b2cfcf2f..11d0ae2781b`.
+
+## 2026-10-28: WP8 (syscall hot-path performance) — LANDED
+
+wasmer `wasixv2/wp8-perf-2`: pid cache per v1 instance, `AsyncFunctionEnvMut::try_read`/`try_write`
+(lib/api, with sys tests), guest copies under a read lock without a boxed future (M-X2), v1 imports
+filtered by module (M-W3). Gates green. Interleaved A/B against `11d0ae2781b` (7 runs, median): v1
+getpid 449→426 ns, read 790→712, write 827→732; v2 read 585→557; v1 thread create+join 190→59 us;
+v1 spawn 498→318 us. Suite (two runs): 2380/1229/0/455. Smoke as WP10.
+
+Landed, fast-forward: wasmer `feat/wasixv2` `11d0ae2781b..9d04b0b7899`.
