@@ -427,8 +427,9 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
   - `connect` returns a `BackendStream`.
   - `datagram` returns a `BackendDatagram`.
   - `publish` hands accepted host connections to an `InboundSink` and returns a `Publication`.
+  - `publish_datagram` returns a `BackendDatagram` bound to a host port, which serves whichever guest socket it is attached to.
 
-  Backends wake, from their own threads, the queue of the guest socket an object serves, which is handed to them when the object is made: a socket has one wait queue for its whole life, so waiters that registered before the backend object existed are not lost.
+  Backends wake, from their own threads, the queue of the guest socket an object serves, which is handed to them when the object is made: a socket has one wait queue for its whole life, so waiters that registered before the backend object existed are not lost. A published datagram endpoint exists before any socket, so attaching it switches the endpoint's queue, never the socket's.
 
 **Where a connection goes**
 
@@ -442,7 +443,8 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 **Publishing** is the only place host and guest ports meet.
 
 - **Explicit publishing:** the embedder maps a host port to a guest address and port. Each connection the host accepts is handed to the guest listener.
-- **Auto-publishing (opt-in):** the kernel watches `listen` and mirrors the port on the host.
+- **UDP publishing:** a host UDP socket bound to the published port serves the first guest socket bound where the publication reaches. Datagrams arriving there go to that socket, and its datagrams to outside addresses leave from the published port, so resolvers and NAT'd clients see replies from the address they asked. Other sockets sharing the port (`SO_REUSEADDR`, `SO_REUSEPORT`) hear from outside only once the first goes. With no socket attached, arriving datagrams are dropped, as Linux drops a datagram for a port nobody holds.
+- **Auto-publishing (opt-in):** the kernel watches `listen`, and explicit UDP `bind`s, and mirrors the port on the host. Sockets bound only to loopback stay private.
 - **Failure is the host's problem.** A host port that is already taken is a logged publishing failure, never an error returned to the guest.
 
 **Policies:**

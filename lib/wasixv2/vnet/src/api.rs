@@ -277,6 +277,9 @@ pub trait Socket: Pollable {
     fn get_option(&self, level: i32, name: i32, out: &mut [u8]) -> Result<usize, Errno>;
 }
 
+/// A published UDP port: the endpoint bound to it and the handle that keeps it published.
+pub type PublishedDatagram = (Arc<dyn BackendDatagram>, Box<dyn Publication>);
+
 /// Where traffic for destinations outside the namespace goes: host sockets, a virtual switch.
 /// Implementations do their I/O off the guest's thread (a reactor).
 ///
@@ -294,6 +297,16 @@ pub trait Backend: Send + Sync {
     /// A datagram endpoint for traffic to outside addresses, of the given family. It wakes
     /// `wq`, the guest socket's queue, when datagrams or errors arrive.
     fn datagram(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno>;
+
+    /// Publishing a UDP port: a datagram endpoint bound to `host`, so replies leave from the
+    /// published port. It serves no guest socket until [`BackendDatagram::attach`]ed, and drops
+    /// what arrives meanwhile, as Linux drops a datagram for a port no socket holds. The
+    /// endpoint stays bound while it or the returned handle lives. Failure (a taken host port)
+    /// is the host's problem, as for [`Backend::publish`].
+    fn publish_datagram(&self, host: SocketAddr) -> Result<PublishedDatagram, std::io::Error> {
+        let _ = host;
+        Err(std::io::ErrorKind::Unsupported.into())
+    }
 
     /// Publishing: listens on `host` with `backlog` and hands each connection to `sink`, taking
     /// a connection off the host listener only while [`InboundSink::poll_room`] says the guest
@@ -382,6 +395,15 @@ pub trait BackendDatagram: Pollable {
     /// one, and none once the ICMP entries are gone.
     fn take_queued_error(&self) -> Option<QueuedError> {
         None
+    }
+    /// A published endpoint (see [`Backend::publish_datagram`]) serves the guest socket whose
+    /// queue is `wq`, or with `None` no socket and drops what arrives. Either way it starts
+    /// afresh: nothing queued, no pending error, unconnected and without `IP_RECVERR`. The
+    /// guest socket keeps one queue for life, so the endpoint switches queues, never the
+    /// socket. Other endpoints belong to one socket from the start: `EOPNOTSUPP`.
+    fn attach(&self, wq: Option<WaitQueue>) -> Result<(), Errno> {
+        let _ = wq;
+        Err(Errno::EOPNOTSUPP)
     }
 }
 

@@ -20,8 +20,8 @@ mod tests;
 
 pub use api::{
     Accepted, Backend, BackendDatagram, BackendStream, Control, Domain, InboundSink, Interface,
-    Network, PortEntry, Publication, QueuedError, RecvMsg, Room, SendMsg, Shutdown, Socket,
-    SocketKind, StreamState,
+    Network, PortEntry, Publication, PublishedDatagram, QueuedError, RecvMsg, Room, SendMsg,
+    Shutdown, Socket, SocketKind, StreamState,
 };
 pub use net::{Net, NetConfig, Uplink};
 pub use tcp::TcpSocket;

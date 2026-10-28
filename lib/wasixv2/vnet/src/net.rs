@@ -13,8 +13,8 @@ use wasixv2_abi::Errno;
 use wasixv2_wait::{PollTable, WaitQueue};
 
 use crate::{
-    Backend, BackendStream, Domain, InboundSink, Interface, NetResult, Network, PortEntry,
-    Publication, Room, Socket, SocketKind,
+    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Interface, NetResult, Network,
+    PortEntry, Publication, Room, Socket, SocketKind,
     addr::{canonical, canonical_ip},
     cmsg::SendCtl,
     iface::{Interfaces, Route, RouteDecision},
@@ -66,8 +66,9 @@ pub struct NetConfig {
     /// Gateway alias policy: a guest address whose traffic goes to the host's loopback
     /// (`127.0.0.1` / `::1`) through the backend.
     pub host_loopback_alias: Option<IpAddr>,
-    /// Auto-publishing (opt-in): mirror each guest listener on this host address, same port.
-    /// Listeners bound only to a loopback address stay private.
+    /// Auto-publishing (opt-in): mirror each guest listener, and each UDP socket the guest
+    /// binds explicitly, on this host address, same port. Sockets bound only to a loopback
+    /// address stay private.
     pub auto_publish: Option<IpAddr>,
     /// DNS policy: the name servers `resolv.conf` lists.
     pub nameservers: Vec<IpAddr>,
@@ -111,8 +112,19 @@ const PUBLISH_BACKLOG: u32 = 4096;
 pub(crate) struct NetState {
     pub tcp: PortTable<Weak<TcpSocket>>,
     pub udp: PortTable<Weak<UdpSocket>>,
+    pub udp_pubs: Vec<UdpPublication>,
     pub ifaces: Interfaces,
     pub rng: PortRng,
+}
+
+/// A published UDP port: the backend endpoint bound to the host port, and the guest socket
+/// it serves, the first one bound to an address the publication reaches.
+pub(crate) struct UdpPublication {
+    id: u64,
+    /// Canonical.
+    guest: SocketAddr,
+    endpoint: Arc<dyn BackendDatagram>,
+    attached: Option<(SockId, Weak<UdpSocket>)>,
 }
 
 /// Where a destination goes.
@@ -162,6 +174,7 @@ impl Net {
             state: Mutex::new(NetState {
                 tcp: PortTable::new(Proto::Tcp),
                 udp: PortTable::new(Proto::Udp),
+                udp_pubs: Vec::new(),
                 ifaces,
                 rng: PortRng::new(seed),
             }),
@@ -216,6 +229,110 @@ impl Net {
             std::io::Error::new(std::io::ErrorKind::Unsupported, "network has no backend")
         })?;
         backend.publish(host, PUBLISH_BACKLOG, self.inbound_sink(guest))
+    }
+
+    /// Explicit publishing of a UDP port: datagrams the backend receives on `host` go to the
+    /// guest socket bound to `guest` (for a wildcard, to the address the guest sees them
+    /// arrive on, as for [`Net::publish`]), and that socket's datagrams to outside addresses
+    /// leave from `host`, so replies come from the published port. Of several sockets sharing
+    /// the port (`SO_REUSEADDR`, `SO_REUSEPORT`) the first bound is served, the next once it
+    /// goes.
+    pub fn publish_udp(
+        &self,
+        host: SocketAddr,
+        guest: SocketAddr,
+    ) -> std::io::Result<Box<dyn Publication>> {
+        let backend = self.backend.as_ref().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::Unsupported, "network has no backend")
+        })?;
+        let (endpoint, host) = backend.publish_datagram(host)?;
+        let id = self.next_id();
+        self.state().udp_pubs.push(UdpPublication {
+            id,
+            guest: canonical(guest),
+            endpoint,
+            attached: None,
+        });
+        self.offer_udp_publication(id);
+        Ok(Box::new(UdpPublished {
+            net: self.me.clone(),
+            id,
+            host,
+        }))
+    }
+
+    /// Hands publication `id`, if unattached, to a socket already bound where it reaches.
+    /// Called without socket locks held.
+    pub(crate) fn offer_udp_publication(&self, id: u64) {
+        let socks: Vec<_> = {
+            let st = self.state();
+            st.udp.entries().map(|(_, w)| w.clone()).collect()
+        };
+        for sock in socks.iter().filter_map(Weak::upgrade) {
+            if sock.adopt_publication(id) {
+                return;
+            }
+        }
+    }
+
+    /// Called with the socket's lock held, for a socket bound to `local`: attaches it to a
+    /// publication that reaches it (`id`, or any) and no socket holds.
+    pub(crate) fn claim_udp_publication(
+        &self,
+        local: SocketAddr,
+        v6only: bool,
+        sock: (SockId, Weak<UdpSocket>),
+        id: Option<u64>,
+    ) -> Option<(u64, Arc<dyn BackendDatagram>)> {
+        let mut st = self.state();
+        let i = st.udp_pubs.iter().position(|p| {
+            p.attached.is_none()
+                && id.is_none_or(|id| id == p.id)
+                && serves(local, v6only, self.inbound_destination(&st, p.guest, None))
+        })?;
+        let p = &mut st.udp_pubs[i];
+        p.attached = Some(sock);
+        Some((p.id, p.endpoint.clone()))
+    }
+
+    /// Socket `sock` no longer serves publication `id` (it unbound or went).
+    pub(crate) fn release_udp_publication(&self, id: u64, sock: SockId) {
+        let mut st = self.state();
+        if let Some(p) = st.udp_pubs.iter_mut().find(|p| p.id == id)
+            && p.attached.as_ref().is_some_and(|(s, _)| *s == sock)
+        {
+            p.attached = None;
+        }
+    }
+
+    /// The guest address traffic through a publication for `guest` arrives at: `guest`, or
+    /// for a wildcard the uplink address the guest reaches `peer` (any peer if unknown) from,
+    /// else loopback.
+    fn inbound_destination(
+        &self,
+        st: &NetState,
+        guest: SocketAddr,
+        peer: Option<SocketAddr>,
+    ) -> SocketAddr {
+        let mut dst = guest;
+        if dst.ip().is_unspecified() {
+            let any: IpAddr = match guest {
+                SocketAddr::V4(_) => Ipv4Addr::UNSPECIFIED.into(),
+                SocketAddr::V6(_) => Ipv6Addr::UNSPECIFIED.into(),
+            };
+            let ip = st
+                .ifaces
+                .route(peer.map_or(any, |p| p.ip()))
+                .filter(|d| !d.local)
+                .map(|d| d.src)
+                .unwrap_or(if dst.is_ipv4() {
+                    Ipv4Addr::LOCALHOST.into()
+                } else {
+                    Ipv6Addr::LOCALHOST.into()
+                });
+            dst.set_ip(ip);
+        }
+        dst
     }
 
     pub(crate) fn inbound_sink(&self, guest: SocketAddr) -> Arc<dyn InboundSink> {
@@ -400,6 +517,52 @@ impl Net {
     }
 }
 
+/// Whether a UDP socket bound to `local` receives datagrams for `dst` (`compute_score`'s
+/// address match: the same address, or a wildcard of a family that takes it).
+fn serves(local: SocketAddr, v6only: bool, dst: SocketAddr) -> bool {
+    local.port() == dst.port()
+        && match local.ip() {
+            ip if ip == dst.ip() => true,
+            IpAddr::V4(v4) => v4.is_unspecified() && dst.is_ipv4(),
+            IpAddr::V6(v6) => v6.is_unspecified() && (dst.is_ipv6() || !v6only),
+        }
+}
+
+/// The handle [`Net::publish_udp`] returns: dropping it ends the publication, detaching the
+/// socket it served.
+struct UdpPublished {
+    net: Weak<Net>,
+    id: u64,
+    /// The backend's handle, for the bound host address.
+    host: Box<dyn Publication>,
+}
+
+impl Publication for UdpPublished {
+    fn host_addr(&self) -> SocketAddr {
+        self.host.host_addr()
+    }
+}
+
+impl Drop for UdpPublished {
+    fn drop(&mut self) {
+        let Some(net) = self.net.upgrade() else {
+            return;
+        };
+        let removed = {
+            let mut st = net.state();
+            let i = st.udp_pubs.iter().position(|p| p.id == self.id);
+            i.map(|i| st.udp_pubs.remove(i))
+        };
+        // The socket and the endpoint, possibly their last references, go outside the lock.
+        let Some(p) = removed else {
+            return;
+        };
+        if let Some(sock) = p.attached.and_then(|(_, w)| w.upgrade()) {
+            sock.lose_publication(p.id);
+        }
+    }
+}
+
 /// Where one UDP datagram goes (see [`Net::udp_route`]).
 pub(crate) enum UdpRoute {
     /// Inside the namespace, from `from`, to the socket bound for it if any.
@@ -486,23 +649,7 @@ impl GuestListenerSink {
     /// The guest address a connection from `peer` arrives at: the published one, or for a
     /// wildcard the uplink address (or loopback) the guest sees it on.
     fn destination(&self, net: &Net, peer: SocketAddr) -> SocketAddr {
-        let mut dst = self.guest;
-        if dst.ip().is_unspecified() {
-            // The guest sees the connection arrive on its uplink address, or loopback.
-            let ip = net
-                .state()
-                .ifaces
-                .route(peer.ip())
-                .filter(|d| !d.local)
-                .map(|d| d.src)
-                .unwrap_or(if dst.is_ipv4() {
-                    Ipv4Addr::LOCALHOST.into()
-                } else {
-                    Ipv6Addr::LOCALHOST.into()
-                });
-            dst.set_ip(ip);
-        }
-        dst
+        net.inbound_destination(&net.state(), self.guest, Some(peer))
     }
 }
 
