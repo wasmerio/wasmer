@@ -4,6 +4,8 @@
 
 use std::{collections::VecDeque, sync::Arc};
 
+#[cfg(test)]
+use wasixv2_syscalls::Resume;
 use wasixv2_syscalls::{GuestAction, Image, TaskId, VforkParent, WorkFlag};
 
 pub(crate) struct Work {
@@ -111,6 +113,13 @@ impl Work {
         (self.queue.len() != before).then_some(image).flatten()
     }
 
+    /// Takes the `execve`'s own action off the queue and keeps its image for
+    /// [`Work::take_image`]: the image starts in another instance than the task's.
+    pub(crate) fn detach_exec(&mut self) {
+        self.queue
+            .retain(|action| !matches!(action, GuestAction::Exec { .. }));
+    }
+
     /// Takes the threads the task was to start, which never will be.
     #[must_use]
     pub(crate) fn take_unstarted(&mut self) -> Vec<TaskId> {
@@ -209,7 +218,7 @@ mod tests {
         let mut work = work();
         let parent = VforkParent {
             task: TaskId(1),
-            resumes: true,
+            resumes: Resume::Returns,
         };
         let resume = GuestAction::VforkReturn {
             parent,

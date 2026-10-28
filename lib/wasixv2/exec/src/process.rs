@@ -3,8 +3,18 @@
 //! starts from a copy of its parent's instance.
 //!
 //! A task switch is one field, [`ExecEnv::task`], which every import reads on entry.
+//!
+//! A process's run usually follows it from instance to instance until it exits. One `execve`
+//! moves it to another host thread: a thread's, while the leader waits for its vfork child
+//! ([`GuestAction::StartImage`]). The new image then runs on its own, and the instance the
+//! leader's old image ran in ends with the child ([`Ended::Detached`]); its run returns the
+//! status of the run that took over, which it gets through the image's [`Handoff`].
 
-use std::{future::Future, sync::Arc};
+use std::{
+    future::{Future, poll_fn},
+    sync::{Arc, Mutex, PoisonError},
+    task::{Poll, Waker},
+};
 
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
@@ -18,12 +28,89 @@ use crate::{Ended, ExecEnv, ExecError, abi::Abis, asyncify};
 #[error("execve replaced the image")]
 pub(crate) struct ExecNew(pub(crate) Image);
 
+/// Raised from an import to end an instance whose vfork child is done after the task the
+/// instance's run belongs to went on in another instance ([`Resume::Gone`]).
+///
+/// [`Resume::Gone`]: wasixv2_syscalls::Resume::Gone
+#[derive(Debug, thiserror::Error)]
+#[error("the vfork parent's image went on in another instance")]
+pub(crate) struct Detached;
+
+/// Where the run that takes over a process leaves its result for the run it took over from,
+/// shared by the instances of one process image: the process instance and its threads'. Only
+/// one run takes over from an image, as the image is dead to every thread once it did.
+#[derive(Default)]
+pub(crate) struct Handoff(Mutex<HandoffState>);
+
+#[derive(Default)]
+struct HandoffState {
+    result: Option<Result<i32, ExecError>>,
+    /// The result was taken.
+    taken: bool,
+    waker: Option<Waker>,
+}
+
+impl Handoff {
+    /// The run that took over ended with `result`; only the first result counts.
+    fn complete(&self, result: Result<i32, ExecError>) {
+        let waker = {
+            let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+            if state.taken || state.result.is_some() {
+                return;
+            }
+            state.result = Some(result);
+            state.waker.take()
+        };
+        if let Some(waker) = waker {
+            waker.wake();
+        }
+    }
+
+    /// Waits for the run that took over to end, and returns how it ended.
+    pub(crate) async fn wait(&self) -> Result<i32, ExecError> {
+        poll_fn(|cx| {
+            let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+            match state.result.take() {
+                Some(result) => {
+                    state.taken = true;
+                    Poll::Ready(result)
+                }
+                None => {
+                    state.waker = Some(cx.waker().clone());
+                    Poll::Pending
+                }
+            }
+        })
+        .await
+    }
+}
+
+/// The run that takes over a process, with the [`Handoff`] it reports to. Dropped before it
+/// reports, as when the host drops or never starts the run, it reports the process killed.
+struct Takeover(Arc<Handoff>);
+
+impl Takeover {
+    fn report(self, result: Result<i32, ExecError>) {
+        self.0.complete(result);
+    }
+}
+
+impl Drop for Takeover {
+    fn drop(&mut self) {
+        self.0.complete(Ok(128 + Signal::SIGKILL.0));
+    }
+}
+
 /// Starts the processes an instance creates on instances of their own: the image of a vfork
-/// child that called `execve`, and a fork child; the type-erased part of the execution layer
-/// that the return-to-guest path can reach.
+/// child that called `execve`, a fork child, and the new image of a leader that waits for its
+/// vfork child; the type-erased part of the execution layer that the return-to-guest path can
+/// reach.
 pub(crate) trait Spawn: Send + Sync {
     fn spawn(&self, task: TaskId, image: Image);
     fn fork(&self, task: TaskId, image: asyncify::ForkImage);
+    /// Starts `image` as `task`, whose run goes on there, and reports how it ends to
+    /// `handoff`.
+    fn take_over(&self, task: TaskId, image: Image, handoff: Arc<Handoff>);
 }
 
 pub(crate) struct Spawner<S> {
@@ -63,7 +150,8 @@ where
             self.abis.clone(),
         );
         self.start(task, move || {
-            run_new_image(engine, image, syscalls, task, host, abis)
+            let run = run_new_image(engine, image, syscalls, task, host, abis);
+            async move { report_failure(task, run.await) }
         });
     }
 
@@ -77,11 +165,33 @@ where
         self.start(task, move || {
             let run = run_forked(engine, image, syscalls.clone(), task, host, abis);
             async move {
-                crate::catch_panic(run)
+                let result = crate::catch_panic(run)
                     .await
-                    .unwrap_or_else(|panic| Err(crate::host_panicked(&*syscalls, task, panic)))
+                    .unwrap_or_else(|panic| Err(crate::host_panicked(&*syscalls, task, panic)));
+                report_failure(task, result);
             }
         });
+    }
+
+    fn take_over(&self, task: TaskId, image: Image, handoff: Arc<Handoff>) {
+        let (engine, syscalls, host, abis) = (
+            self.engine.clone(),
+            self.syscalls.clone(),
+            self.host.clone(),
+            self.abis.clone(),
+        );
+        let takeover = Takeover(handoff);
+        self.start(task, move || {
+            let run = run_new_image(engine, image, syscalls, task, host, abis);
+            async move { takeover.report(run.await) }
+        });
+    }
+}
+
+/// Logs a process image that failed; its run ended the process.
+fn report_failure(task: TaskId, result: Result<i32, ExecError>) {
+    if let Err(err) = result {
+        tracing::warn!(tid = task.0, %err, "process image failed");
     }
 }
 
@@ -94,15 +204,9 @@ where
     fn start<F, R>(&self, task: TaskId, run: R)
     where
         R: FnOnce() -> F + Send + 'static,
-        F: Future<Output = Result<i32, ExecError>> + 'static,
+        F: Future<Output = ()> + 'static,
     {
-        let start = Box::new(move || {
-            Box::pin(async move {
-                if let Err(err) = run().await {
-                    tracing::warn!(tid = task.0, %err, "process image failed");
-                }
-            }) as wasixv2_host::LocalFuture<'static, ()>
-        });
+        let start = Box::new(move || Box::pin(run()) as wasixv2_host::LocalFuture<'static, ()>);
         if let Err(err) = self.host.executor().spawn_thread(start) {
             tracing::warn!(%err, "cannot start a process on a thread of its own");
             fault(&*self.syscalls, task, Signal::SIGSEGV.0);
@@ -232,6 +336,8 @@ where
     };
     let status = loop {
         let image = match ended {
+            // The task runs on in the instance that took over, which releases it.
+            Ended::Detached(handoff) => return handoff.wait().await,
             Ended::Exited(status) => break status,
             Ended::Fault {
                 task: at,
@@ -377,18 +483,37 @@ pub(crate) async fn spawn_image<S: 'static>(
     spawner.spawn(task, image);
 }
 
+/// Starts `image`, which an `execve` of the task the instance behind `env` runs as gave the
+/// leader `task` while the leader waited for its vfork child, as `task` on an instance of its
+/// own. The run of the leader's old image goes on there.
+pub(crate) async fn take_over<S: 'static>(
+    env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+    task: TaskId,
+    image: Image,
+) {
+    let (spawner, handoff) = {
+        let env = env.read().await;
+        let proc = &env.data().proc;
+        (proc.spawner.clone(), proc.handoff.clone())
+    };
+    spawner.take_over(task, image, handoff);
+}
+
 /// What the execution layer needs of an instance for processes.
 pub(crate) struct ProcExports {
     pub(crate) spawner: Arc<dyn Spawn>,
     /// The instance's module, which a fork child instantiates.
     pub(crate) module: Option<Module>,
+    /// The handoff of the instance's process image ([`Handoff`]).
+    pub(crate) handoff: Arc<Handoff>,
 }
 
 impl ProcExports {
-    pub(crate) fn new(spawner: Arc<dyn Spawn>) -> Self {
+    pub(crate) fn new(spawner: Arc<dyn Spawn>, handoff: Arc<Handoff>) -> Self {
         Self {
             spawner,
             module: None,
+            handoff,
         }
     }
 

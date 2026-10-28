@@ -36,6 +36,8 @@ pub(crate) struct Image<S> {
     abi: Arc<dyn Abi<S>>,
     /// What the processes the threads start select their ABI from.
     abis: Arc<Abis<S>>,
+    /// The process image's handoff ([`process::Handoff`]).
+    handoff: Arc<process::Handoff>,
 }
 
 impl<S> Image<S> {
@@ -49,6 +51,7 @@ impl<S> Image<S> {
         host: Arc<dyn Host>,
         abi: Arc<dyn Abi<S>>,
         abis: Arc<Abis<S>>,
+        handoff: Arc<process::Handoff>,
     ) -> Arc<Self> {
         Arc::new(Self {
             engine: store.engine().clone(),
@@ -59,6 +62,7 @@ impl<S> Image<S> {
             host,
             abi,
             abis,
+            handoff,
         })
     }
 }
@@ -118,6 +122,11 @@ where
                 process::fault_in(&*syscalls, &*host, task, at, signal, &report);
                 syscalls.release(task);
             }
+            // Only a vfork parent's instance can end so, and a leader's run took over: the
+            // leader's, which a thread's run is not.
+            Ok(Ok(Ended::Detached(_))) => {
+                tracing::warn!(tid = task.0, "a thread's instance ended without its task");
+            }
             // A thread never runs `execve`'s image: the kernel hands it to the leader.
             Ok(Ok(Ended::Exec(_))) => {
                 tracing::warn!(tid = task.0, "a thread was given a process image");
@@ -146,7 +155,7 @@ where
             ExecEnv::new(
                 self.syscalls.clone(),
                 task,
-                process::ProcExports::new(spawner),
+                process::ProcExports::new(spawner, self.handoff.clone()),
             ),
         );
         let mut imports = crate::imports(&*self.abi, &mut store, &env, &self.module);

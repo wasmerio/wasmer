@@ -779,6 +779,9 @@ mod tests {
         fn fork(&self, _: TaskId, _: ForkImage) {
             unreachable!("the test forks nothing")
         }
+        fn take_over(&self, _: TaskId, _: crate::Image, _: Arc<crate::process::Handoff>) {
+            unreachable!("the test starts no image")
+        }
     }
 
     async fn save(env: AsyncFunctionEnvMut<ExecEnv<()>>) -> Result<(), RuntimeError> {
@@ -800,7 +803,7 @@ mod tests {
                 stack_pointer: None,
                 abi: None,
                 threads: None,
-                proc: crate::process::ProcExports::new(Arc::new(NoSpawn)),
+                proc: crate::process::ProcExports::new(Arc::new(NoSpawn), Arc::default()),
                 asyncify: None,
                 fork_payload: None,
             },
