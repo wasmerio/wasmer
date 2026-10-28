@@ -695,6 +695,7 @@ mod net;
 mod proc;
 mod procfs;
 mod ptimer;
+mod pty;
 mod sched;
 mod signal;
 mod stdio;

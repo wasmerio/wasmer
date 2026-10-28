@@ -86,6 +86,7 @@ impl Tty {
     fn console(&self) -> &Console {
         match &self.driver {
             Driver::Console(console) => console,
+            _ => unreachable!("the console's terminal"),
         }
     }
 }
@@ -153,7 +154,14 @@ impl Kernel {
             major: HVC_MAJOR,
             minor: 0,
         };
-        let tty = Tty::new(device, size, driver, self.jobs.clone(), self.host.clone());
+        let tty = Tty::new(
+            device,
+            super::ldisc::std_termios(),
+            size,
+            driver,
+            self.jobs.clone(),
+            self.host.clone(),
+        );
         self.console = Some(Arc::new(tty));
         self
     }

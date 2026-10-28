@@ -2,14 +2,17 @@
 //! output processing to the device, and the job control a controlling terminal adds (Linux's
 //! `drivers/tty`: `tty_io.c`, `tty_ioctl.c`, `tty_jobctrl.c`, `n_tty.c`).
 //!
-//! The only device so far is the host's console ([`console`]); it is a terminal like a serial
-//! line or a virtual console, with job control, not Linux's `/dev/console` redirection, which
-//! has none.
+//! The devices are the host's console ([`console`]), a terminal like a serial line or a
+//! virtual console, with job control, not Linux's `/dev/console` redirection, which has none;
+//! and pseudo-terminals ([`pty`]), whose slaves are such terminals too and whose masters play
+//! their devices.
 
 mod console;
+mod devpts;
 mod ioctl;
 mod jobctl;
 pub(crate) mod ldisc;
+mod pty;
 
 use std::{
     io,
@@ -21,9 +24,12 @@ use std::{
 };
 
 pub(crate) use console::{Console, HVC_MAJOR};
+pub(crate) use devpts::Ptys;
 pub(crate) use ioctl::encode_dev;
 pub(crate) use jobctl::Jobs;
-use wasixv2_abi::{Signal, Termios, Winsize};
+pub(crate) use pty::{PTMX, PTY_SLAVE_MAJOR};
+use pty::{Pty, Side};
+use wasixv2_abi::{Signal, Termios, TermiosCflag, TiocpktFlags, Winsize};
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Errno, LocalFuture, SysErr, SysResult};
 use wasixv2_vfs::Device;
@@ -80,36 +86,130 @@ pub(crate) struct Ctrl {
 /// The device under the terminal (`tty_driver` and `tty_operations`).
 pub(crate) enum Driver {
     Console(Console),
+    /// A pty's master: its device is the slave's discipline.
+    PtyMaster(Arc<Pty>),
+    /// A pty's slave: its device is the master's discipline.
+    PtySlave(Arc<Pty>),
 }
 
 impl Driver {
+    fn pty(&self) -> Option<(&Pty, Side)> {
+        match self {
+            Driver::Console(_) => None,
+            Driver::PtyMaster(pty) => Some((pty, Side::Master)),
+            Driver::PtySlave(pty) => Some((pty, Side::Slave)),
+        }
+    }
+
     /// `tty->ops->write`, all of `data`.
     async fn write(&self, data: &[u8]) -> io::Result<()> {
         match self {
             Driver::Console(console) => console.write(data).await,
+            Driver::PtyMaster(pty) => {
+                pty.write(Side::Master, data).await;
+                Ok(())
+            }
+            Driver::PtySlave(pty) => {
+                pty.write(Side::Slave, data).await;
+                Ok(())
+            }
         }
+    }
+
+    /// `tty_write_room` is not 0: the device takes a write step now. The console's does
+    /// whenever the host does.
+    fn write_room(&self) -> bool {
+        self.pty().is_none_or(|(pty, side)| pty.write_room(side))
     }
 
     /// The discipline took input, so the device may hand it more (`tty_unthrottle`).
     fn unthrottle(&self) {
         match self {
             Driver::Console(console) => console.unthrottle(),
+            Driver::PtyMaster(pty) => pty.unthrottle(Side::Master),
+            Driver::PtySlave(pty) => pty.unthrottle(Side::Slave),
+        }
+    }
+
+    /// `tty_driver_flush_buffer`: what was written and the device has not sent on is gone.
+    fn flush_buffer(&self) {
+        if let Some((pty, side)) = self.pty() {
+            pty.flush_buffer(side);
+        }
+    }
+
+    /// `tty_buffer_flush`: what the device received and the discipline has not taken is gone.
+    fn flush_incoming(&self) {
+        if let Some((pty, side)) = self.pty() {
+            pty.flush_incoming(side);
+        }
+    }
+
+    /// The discipline dropped its unread input (`n_tty_packet_mode_flush`).
+    fn input_flushed(&self) {
+        if let Some((pty, side)) = self.pty() {
+            pty.input_flushed(side);
+        }
+    }
+
+    /// Output stopped or started (`tty->ops->stop`, `start`).
+    fn flow(&self, stopped: bool) {
+        if let Some((pty, side)) = self.pty() {
+            pty.flow(side, stopped);
+        }
+    }
+
+    /// `tty->ops->set_termios` after the termios changed from `old` to `new`.
+    fn termios_changed(&self, old: &Termios, new: &Termios) {
+        if let Some((pty, Side::Slave)) = self.pty() {
+            pty.termios_changed(old, new);
         }
     }
 
     /// Whether the device keeps its own hardware settings in `c_cflag`, as a driver without
     /// `set_termios` does (`tty_termios_copy_hw`).
     fn copies_hw(&self) -> bool {
-        match self {
-            Driver::Console(_) => true,
-        }
+        self.pty().is_none()
     }
 
     /// Whether a session leader's exit hangs the terminal up (`disassociate_ctty`): a pty
     /// slave's only signals its foreground group.
     fn hangs_up_on_exit(&self) -> bool {
+        self.pty().is_none()
+    }
+
+    /// `TTY_OTHER_CLOSED`: the other side of a pty closed, so a read that finds no input
+    /// fails with `EIO`.
+    fn other_closed(&self) -> bool {
+        self.pty().is_some_and(|(pty, side)| pty.other_closed(side))
+    }
+
+    /// `tty->link && !tty->link->count`: a pty slave whose master closed takes no writes.
+    /// (The master holds a count of its slave, so its own writes go on.)
+    fn link_gone(&self) -> bool {
         match self {
-            Driver::Console(_) => true,
+            Driver::PtySlave(pty) => pty.other_closed(Side::Slave),
+            _ => false,
+        }
+    }
+
+    /// `tty->ops->open`, for each new file.
+    fn open(&self) -> Result<(), Errno> {
+        self.pty().map_or(Ok(()), |(pty, side)| pty.open(side))
+    }
+
+    /// `tty->ops->close`, for each file that goes.
+    fn release(&self) {
+        if let Some((pty, side)) = self.pty() {
+            pty.release(side);
+        }
+    }
+
+    /// A pty master's pair, whose packet mode its reads and polls follow.
+    fn packet(&self) -> Option<&Pty> {
+        match self {
+            Driver::PtyMaster(pty) => Some(pty),
+            _ => None,
         }
     }
 }
@@ -117,6 +217,7 @@ impl Driver {
 impl Tty {
     fn new(
         device: Device,
+        termios: Termios,
         winsize: Winsize,
         driver: Driver,
         jobs: Jobs,
@@ -124,7 +225,7 @@ impl Tty {
     ) -> Self {
         Self {
             device,
-            ldisc: Mutex::new(Ldisc::new(ldisc::std_termios())),
+            ldisc: Mutex::new(Ldisc::new(termios)),
             winsize: Mutex::new(winsize),
             ctrl: Mutex::default(),
             hangups: AtomicU64::new(0),
@@ -158,6 +259,7 @@ impl Tty {
         if opens > 0 && self.exclusive.load(Ordering::Relaxed) && !admin {
             return Err(Errno::EBUSY);
         }
+        self.driver.open()?;
         self.opens.fetch_add(1, Ordering::Relaxed);
         self.hupped.store(false, Ordering::Relaxed);
         Ok(TtyFile {
@@ -179,10 +281,19 @@ impl Tty {
         taken
     }
 
-    /// Acts on what the discipline did: signals (`isig`) and wakeups.
+    /// Acts on what the discipline did: signals (`isig`) with their flush of what waits to be
+    /// sent, flow control, and wakeups.
     fn received(&self, received: Received) {
+        if received.flushed {
+            self.driver.flush_buffer();
+            self.driver.input_flushed();
+        }
         for sig in received.signals {
             self.signal_pgrp(sig);
+        }
+        if received.stopped || received.started {
+            let stopped = self.ldisc.lock_or_recover().stopped();
+            self.driver.flow(stopped);
         }
         if received.readable {
             self.read_wait.wake(PollMask::READABLE);
@@ -190,6 +301,15 @@ impl Tty {
         if received.started {
             self.write_wait.wake(PollMask::WRITABLE);
         }
+    }
+
+    /// `n_tty_flush_buffer` with `tty_buffer_flush`: the unread input is gone, and what the
+    /// device received but the discipline had not taken yet.
+    fn flush_input(&self) {
+        self.driver.flush_incoming();
+        self.ldisc.lock_or_recover().flush_input();
+        self.driver.input_flushed();
+        self.driver.unthrottle();
     }
 
     /// `__isig`: `sig` to the foreground process group, from the kernel. Returns whether some
@@ -244,15 +364,34 @@ impl Tty {
             (false, minimum, true) => (minimum, None, None),
             (false, minimum, false) => (minimum, None, Some(time)),
         };
+        // A master in packet mode: each read is a status byte or `TIOCPKT_DATA` and data.
+        let packet = self.driver.packet().filter(|pty| pty.packet());
         let waiter = Waiter::new();
         let _registration = waiter.register(&self.read_wait, PollMask::READABLE);
         let mut done = 0;
         while done < buf.len() {
+            if let Some(pty) = packet
+                && pty.has_status()
+            {
+                if done > 0 {
+                    break;
+                }
+                if let Some(status) = pty.take_status() {
+                    buf[0] = status;
+                    done = 1;
+                    break;
+                }
+            }
             let copied = {
                 let mut ldisc = self.ldisc.lock_or_recover();
-                ldisc
-                    .input_available(false)
-                    .then(|| ldisc.read(&mut buf[done..]))
+                ldisc.input_available(false).then(|| {
+                    let mut n = 0;
+                    if packet.is_some() && done == 0 {
+                        buf[0] = TiocpktFlags::TIOCPKT_DATA.0 as u8;
+                        n = 1;
+                    }
+                    n + ldisc.read(&mut buf[done + n..])
+                })
             };
             if let Some(n) = copied {
                 done += n;
@@ -266,6 +405,12 @@ impl Tty {
                 continue;
             }
             // `n_tty_wait_for_input`.
+            if self.driver.other_closed() {
+                return match done {
+                    0 => Err(Errno::EIO.into()),
+                    _ => Ok(done),
+                };
+            }
             if file.hung_up() || deadline.is_some_and(|at| self.host.monotonic() >= at) {
                 break;
             }
@@ -287,6 +432,8 @@ impl Tty {
                 deadline = Some(Duration::ZERO);
             }
         }
+        // Taking more of a pty's buffered input may have left echoes to write.
+        self.flush_echoes().await;
         Ok(done)
     }
 
@@ -312,14 +459,17 @@ impl Tty {
         let mut done = 0;
         let mut out = Vec::new();
         loop {
-            if file.hung_up() {
+            if file.hung_up() || self.driver.link_gone() {
                 break;
             }
             // Not held while output is stopped, so the input that starts it can still echo.
             let output = self.output.lock().await;
+            // Checked before taking the discipline's lock: a pty's buffer is taken before the
+            // discipline that receives from it.
+            let room = self.driver.write_room();
             let step = {
                 let mut ldisc = self.ldisc.lock_or_recover();
-                (!ldisc.stopped()).then(|| {
+                (room && !ldisc.stopped()).then(|| {
                     out.clear();
                     ldisc.take_echoes(&mut out);
                     let n = (data.len() - done).min(WRITE_CHUNK);
@@ -341,14 +491,14 @@ impl Tty {
                 continue;
             }
             drop(output);
-            // Output is stopped: wait for it to start again.
+            // Output is stopped, or the device has no room: wait for it to go on.
             if io.nonblocking() || io.interrupt.pending() {
                 break;
             }
             waiter.sleep(io.interrupt, None).await;
         }
         match done {
-            0 if file.hung_up() => Err(Errno::EIO.into()),
+            0 if file.hung_up() || self.driver.link_gone() => Err(Errno::EIO.into()),
             0 if io.nonblocking() => Err(Errno::EAGAIN.into()),
             0 => Err(SysErr::Restart),
             _ => Ok(done),
@@ -361,9 +511,15 @@ impl Tty {
         self.ldisc.lock_or_recover().termios
     }
 
-    /// `tty_set_termios`: a device without its own `set_termios` keeps its hardware settings.
+    /// `tty_set_termios`: a device without its own `set_termios` keeps its hardware settings;
+    /// a pty is always 8 bits without parity, receiving (`pty_set_termios`).
     fn set_termios(&self, mut termios: Termios) {
         let mut ldisc = self.ldisc.lock_or_recover();
+        let old = ldisc.termios;
+        if self.driver.pty().is_some() {
+            termios.c_cflag.0 &= !(TermiosCflag::CSIZE.0 | TermiosCflag::PARENB.0);
+            termios.c_cflag.0 |= TermiosCflag::CS8.0 | TermiosCflag::CREAD.0;
+        }
         if self.driver.copies_hw() {
             let old = ldisc.termios.c_cflag.0;
             // `tty_termios_copy_hw`: only HUPCL, CREAD and CLOCAL may change.
@@ -375,6 +531,7 @@ impl Tty {
         let received = ldisc.set_termios(termios);
         drop(ldisc);
         self.received(received);
+        self.driver.termios_changed(&old, &termios);
         self.write_wait.wake(PollMask::WRITABLE);
     }
 
@@ -411,26 +568,34 @@ impl Tty {
         if exit_session && let Some(pgrp) = pgrp {
             self.jobs.kill_pgrp(pgrp, Signal::SIGHUP.0);
         }
+        // `tty_ldisc_hangup`: the discipline's input and the device's output are flushed.
+        self.driver.flush_incoming();
         {
             let mut ldisc = self.ldisc.lock_or_recover();
             ldisc.flush_input();
             ldisc.start();
         }
+        self.driver.input_flushed();
+        self.driver.flush_buffer();
         *self.ctrl.lock_or_recover() = Ctrl::default();
         let hup = PollMask(PollMask::HUP.0 | PollMask::ERR.0);
         self.read_wait.wake(hup);
         self.write_wait.wake(hup);
+        // Input arriving from now on signals no group of the old session.
         self.driver.unthrottle();
     }
 
     /// Called as an open file goes (`tty_release`); the last one resets what lasts only while
-    /// the terminal is open: exclusivity and unread input.
+    /// the terminal is open: exclusivity, and unread input, unless the other side of a pty
+    /// keeps the pair, and so the slave's discipline, alive.
     fn release(&self) {
         if self.opens.fetch_sub(1, Ordering::Relaxed) == 1 {
             self.exclusive.store(false, Ordering::Relaxed);
-            self.ldisc.lock_or_recover().flush_input();
-            self.driver.unthrottle();
+            if self.driver.pty().is_none() {
+                self.flush_input();
+            }
         }
+        self.driver.release();
     }
 }
 
@@ -459,20 +624,32 @@ impl Drop for TtyFile {
 }
 
 impl Pollable for TtyFile {
-    /// `n_tty_poll`: readable once a read would find input; writable unless output is
-    /// stopped. A hung-up file is everything at once (`hung_up_tty_poll`).
+    /// `n_tty_poll`: readable once a read would find input, and `POLLPRI` too while a pty
+    /// master in packet mode has a status to read; writable unless output is stopped or a
+    /// pty's buffer is full; `POLLHUP` once the other side of a pty closed. A hung-up file is
+    /// everything at once (`hung_up_tty_poll`).
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         wasixv2_wait::poll_wait(&mut table, &self.tty.read_wait);
         wasixv2_wait::poll_wait(&mut table, &self.tty.write_wait);
         if self.hung_up() {
             return PollMask::DEFAULT | PollMask::ERR | PollMask::HUP;
         }
-        let ldisc = self.tty.ldisc.lock_or_recover();
+        let driver = &self.tty.driver;
         let mut mask = PollMask::empty();
-        if ldisc.input_available(true) {
-            mask |= PollMask::READABLE;
+        let stopped = {
+            let ldisc = self.tty.ldisc.lock_or_recover();
+            if ldisc.input_available(true) {
+                mask |= PollMask::READABLE;
+            }
+            ldisc.stopped()
+        };
+        if driver.packet().is_some_and(|pty| pty.has_status()) {
+            mask |= PollMask::PRI | PollMask::READABLE;
         }
-        if !ldisc.stopped() {
+        if driver.other_closed() {
+            mask |= PollMask::HUP;
+        }
+        if !stopped && driver.write_room() {
             mask |= PollMask::WRITABLE;
         }
         mask

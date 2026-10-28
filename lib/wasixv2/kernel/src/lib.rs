@@ -158,6 +158,8 @@ pub struct Kernel {
     jobs: tty::Jobs,
     /// The host's console, if the embedder gave one ([`Kernel::with_console`]).
     console: Option<Arc<tty::Tty>>,
+    /// The pseudo-terminals, and their filesystem's nodes.
+    ptys: Arc<tty::Ptys>,
 }
 
 #[derive(Default)]
@@ -236,6 +238,7 @@ impl Kernel {
         let procs = process::Procs::default();
         let jobs = tty::Jobs::new(&state, &procs.tree);
         Self {
+            ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             timers: timer::Timers::new(host.clone()),
             host,
