@@ -143,7 +143,9 @@ pub struct Wasi {
     #[clap(long = "no-init")]
     pub(crate) no_init: bool,
 
-    /// Disables the TTY bridge (no effect: the WASIX v2 kernel has none)
+    /// Keeps standard input, output and error plain streams even on a terminal. By default a
+    /// terminal on standard input becomes the guest's console: the terminal is in raw mode while
+    /// the guest runs, and the guest's line discipline does echo, line editing and `^C`.
     #[clap(long = "no-tty")]
     pub no_tty: bool,
 

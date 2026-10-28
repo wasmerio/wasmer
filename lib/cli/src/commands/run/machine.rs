@@ -12,8 +12,8 @@ use std::{
 
 use anyhow::{Context, Error, bail};
 use wasixv2::{
-    CommandDefaults, Credentials, Image, ImageId, Layer, LoadError, Loader, LocalFuture, Machine,
-    OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname,
+    CommandDefaults, Console, Credentials, Image, ImageId, Layer, LoadError, Loader, LocalFuture,
+    Machine, OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname,
 };
 use wasmer::{Engine, Module};
 use wasmer_config::package::{PackageId, PackageSource};
@@ -30,6 +30,8 @@ use webc::{
     v3::read::OwnedReader,
 };
 
+#[cfg(unix)]
+use super::terminal::{self, HostTerminal};
 use super::{
     CliPackageSource, GuestExit, Run, exit_with_wasi_exit_code,
     runtime::{MonitoringRuntime, PackageTree},
@@ -477,14 +479,25 @@ impl Run {
         self.reject_options_unsupported_by_the_machine(program.is_package())?;
 
         let wasi = program.wasi.as_ref();
-        let mut machine = self.machine(loader)?;
+        let stdio = Stdio::inherit();
+        // A terminal on standard input becomes the guest's console, unless `--no-tty`.
+        #[cfg(unix)]
+        let terminal = (!self.wasi.no_tty).then(HostTerminal::detect).flatten();
+        #[cfg(unix)]
+        let console = terminal
+            .map(|terminal| terminal.console(&stdio))
+            .transpose()
+            .context("cannot use the terminal as the guest's console")?;
+        #[cfg(not(unix))]
+        let console = None;
+        let mut machine = self.machine(loader, console)?;
         let config = ProcessConfig {
             args: std::iter::once(program.argv0.clone())
                 .chain(wasi.and_then(|w| w.main_args.clone()).unwrap_or_default())
                 .chain(self.args.iter().cloned())
                 .collect(),
             env: self.machine_env(machine.default_env(), wasi)?,
-            stdio: Stdio::inherit(),
+            stdio,
         };
         let (root_volumes, volumes): (Vec<_>, Vec<_>) = program
             .volumes
@@ -600,8 +613,18 @@ impl Run {
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
             // Installed before the guest starts, so no signal takes the host's default action.
+            #[cfg(unix)]
+            forward_signals(handle, machine.signaller(), terminal)
+                .context("cannot install signal handlers")?;
+            #[cfg(not(unix))]
             forward_signals(handle, machine.signaller())
                 .context("cannot install signal handlers")?;
+            // Restored when the run ends, before `wasmer` reports anything or exits.
+            #[cfg(unix)]
+            let _raw = terminal
+                .map(|terminal| terminal.raw())
+                .transpose()
+                .context("cannot put the terminal in raw mode")?;
             let status = match &program.start {
                 Start::Module { engine, module } => {
                     machine.run_module(engine, module, config).await
@@ -658,10 +681,17 @@ impl Run {
     }
 
     /// A machine configured by `--user`, `--no-init` and the `uname` options, whose images
-    /// compile with `loader`.
-    fn machine(&self, loader: Arc<CachedLoader>) -> Result<Machine, Error> {
+    /// compile with `loader`, with `console` if given.
+    fn machine(
+        &self,
+        loader: Arc<CachedLoader>,
+        console: Option<(Console, [bool; 3])>,
+    ) -> Result<Machine, Error> {
         let wasi = &self.wasi;
         let mut builder = Machine::builder().loader(loader).init(!wasi.no_init);
+        if let Some((console, fds)) = console {
+            builder = builder.console(console, fds);
+        }
         if let Some(user) = wasi.user {
             builder = builder.user(Credentials::new(user.uid, user.gid));
         }
@@ -798,16 +828,17 @@ fn explain_hidden_command(
     }
 }
 
-/// After how many `SIGINT`s (Ctrl-C) in a row that the guest leaves unanswered `wasmer run` gives
-/// up on it and exits by itself. A press is unanswered when the next one finds it still pending,
+/// Without a console, after how many `SIGINT`s (Ctrl-C) in a row that the guest leaves
+/// unanswered `wasmer run` gives up on it and exits by itself. A press is unanswered when the next one finds it still pending,
 /// or the kernel discarded it because every process it went to ignores `SIGINT`. A press that
 /// finds the previous one taken starts the count again, so a guest that handles every Ctrl-C,
 /// such as a shell or a REPL, is never cut short; one that ignores SIGINT, keeps it blocked, or
 /// is stuck where it cannot take it, goes on the third.
 ///
-/// Ctrl-C goes to the process group of the process `wasmer run` started, as there are no
-/// terminals with a foreground group yet: a job a guest shell moved to a group of its own does
-/// not get it, and does not count.
+/// Ctrl-C goes to the process group of the process `wasmer run` started, as standard input is
+/// not the guest's terminal: a job a guest shell moved to a group of its own does not get it,
+/// and does not count. On a console, `^C` is the guest's own: the terminal is raw, and the
+/// console's line discipline sends SIGINT to its foreground process group.
 const SIGINTS_TO_FORCE_EXIT: u32 = 3;
 
 /// The guest ABI's `SIGINT` (Linux's numbering).
@@ -846,10 +877,19 @@ impl Interrupts {
 /// `kill` and a hangup would. A guest without a handler for a signal dies of it, and `wasmer run`
 /// then exits with the guest's status, 128 + the signal.
 ///
+/// With the host's `terminal` as the guest's console, the terminal is raw, so these come from
+/// `kill` only: SIGINT and SIGQUIT go to the console's foreground group as its `^C` and `^\`
+/// would, and SIGHUP hangs the console up, as the terminal went away. A new window size goes to
+/// the console, and `wasmer` gives the terminal its settings back while it is stopped.
+///
 /// The handlers listen on the runtime's worker threads, so they work even when the thread driving
-/// the guest is stuck; [`SIGINTS_TO_FORCE_EXIT`] is the way out then.
+/// the guest is stuck; without a console, [`SIGINTS_TO_FORCE_EXIT`] is the way out then.
 #[cfg(unix)]
-fn forward_signals(runtime: &tokio::runtime::Handle, signaller: Signaller) -> io::Result<()> {
+fn forward_signals(
+    runtime: &tokio::runtime::Handle,
+    signaller: Signaller,
+    terminal: Option<HostTerminal>,
+) -> io::Result<()> {
     use tokio::signal::unix::{SignalKind, signal};
 
     // Host signal, its number in the guest's ABI, and whether a terminal sends it.
@@ -863,20 +903,63 @@ fn forward_signals(runtime: &tokio::runtime::Handle, signaller: Signaller) -> io
     ];
 
     let _context = runtime.enter();
-    for (host, guest, terminal) in FORWARDED {
+    let console = terminal.is_some();
+    for (host, guest, from_terminal) in FORWARDED {
         let mut stream = signal(SignalKind::from_raw(host))?;
         let signaller = signaller.clone();
         runtime.spawn(async move {
             let mut interrupts = Interrupts::default();
             while stream.recv().await.is_some() {
-                if guest != GUEST_SIGINT {
-                    forward(&signaller, guest, terminal);
+                if console && host == libc::SIGHUP {
+                    signaller.console_hangup();
+                    continue;
+                }
+                if console || guest != GUEST_SIGINT {
+                    forward(&signaller, guest, from_terminal);
                     continue;
                 }
                 if interrupts.press(&signaller) {
                     std::process::exit(128 + GUEST_SIGINT);
                 }
                 interrupts.forward(&signaller);
+            }
+        });
+    }
+    if let Some(terminal) = terminal {
+        forward_terminal_changes(runtime, signaller, terminal)?;
+    }
+    Ok(())
+}
+
+/// What happens to the host's `terminal` while the guest has it as its console: a new window
+/// size goes to the console (SIGWINCH), and a stop of `wasmer` (SIGTSTP) gives the terminal
+/// its settings back until `wasmer` is continued (SIGCONT), when it is raw again, at the size
+/// it has then.
+#[cfg(unix)]
+fn forward_terminal_changes(
+    runtime: &tokio::runtime::Handle,
+    signaller: Signaller,
+    terminal: HostTerminal,
+) -> io::Result<()> {
+    use tokio::signal::unix::{SignalKind, signal};
+
+    for host in [libc::SIGWINCH, libc::SIGTSTP, libc::SIGCONT] {
+        let mut stream = signal(SignalKind::from_raw(host))?;
+        let signaller = signaller.clone();
+        runtime.spawn(async move {
+            while stream.recv().await.is_some() {
+                if host == libc::SIGTSTP {
+                    terminal::suspend();
+                    // The stop SIGTSTP would have been, now that the terminal is restored. To
+                    // this thread, which stops before it goes on to raw mode again: a signal
+                    // to the process might be taken by another thread, later.
+                    // SAFETY: a signal to the calling thread.
+                    unsafe { libc::raise(libc::SIGSTOP) };
+                }
+                if host != libc::SIGWINCH {
+                    terminal::resume();
+                }
+                signaller.console_resize(terminal.size());
             }
         });
     }
