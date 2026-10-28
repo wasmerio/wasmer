@@ -64,7 +64,7 @@ const COMMAND_DIRS: [&str; 2] = ["bin", "usr/bin"];
 /// One kernel and the processes it runs.
 ///
 /// The root filesystem is in memory and laid out as a small Linux system (see
-/// [`default_root`]); [`MachineBuilder::root`] takes another, and [`Machine::mount_root_lower`]
+/// [`default_root`]); [`MachineBuilder::root`] takes another, and [`Machine::mount_root_layers`]
 /// stacks read-only layers, such as package volumes, under it. Either way the kernel's own
 /// filesystems are mounted on it: `/proc`, `/dev` with the device nodes, and memory
 /// filesystems at `/dev/shm` and `/tmp`. The network is one namespace; with the `host-network`
@@ -95,7 +95,7 @@ pub struct Machine {
     uname: Uname,
     /// The root filesystem's writable top layer: the [`default_root`] or the embedder's.
     root_upper: Arc<dyn Filesystem>,
-    /// Read-only layers under `root_upper`, topmost first; see [`Machine::mount_root_lower`].
+    /// Read-only layers under `root_upper`, topmost first; see [`Machine::mount_root_layers`].
     root_lowers: Vec<Arc<dyn Filesystem>>,
     /// Set by the first mount, process or [`Signaller`]: from then on the root filesystem is
     /// fixed.
@@ -244,48 +244,41 @@ impl Machine {
         MachineBuilder::new(host).root(root).build()
     }
 
-    /// Makes the volume `volume` of the webc v3 package `reader` a read-only layer of the root
-    /// filesystem, under its top layer (the [`default_root`] or the embedder's root), which holds
-    /// `/etc` and every change, and over the layers earlier calls added. Objects in the volume
-    /// appear owned by the machine's user. This is how a package's volume at `/` is mounted. The
-    /// kernel's filesystems are mounted on the new root as on the old one.
-    ///
-    /// The root can only change on a fresh machine: this fails with `EBUSY` after anything was
-    /// mounted or run, or a [`Signaller`] was handed out.
-    pub async fn mount_root_lower(&mut self, reader: &OwnedReader, volume: &str) -> io::Result<()> {
+    /// The volume `volume` of the webc v3 package `reader` as a [`Layer`], sharing the reader's
+    /// buffer. Objects in the volume appear owned by the machine's user. Making it checks every
+    /// directory of the volume, so mount clones of one layer rather than making it again.
+    pub fn package_layer(&self, reader: &OwnedReader, volume: &str) -> io::Result<Layer> {
         let (uid, gid) = self.owner;
-        let lower = PackageFs::with_owner(reader, volume, uid, gid).map_err(io::Error::other)?;
-        self.push_root_lower(Arc::new(lower)).await
+        let fs = PackageFs::with_owner(reader, volume, uid, gid).map_err(io::Error::other)?;
+        Ok(Layer(Arc::new(fs)))
     }
 
-    /// [`Machine::mount_root_lower`] for the host directory `host_dir`, which the guest sees
-    /// through the root but never changes: changes stay in the top layer. This is how a
-    /// host directory mapped to `/` is mounted, since nothing can be mounted over the root.
-    pub async fn mount_root_lower_host_dir(&mut self, host_dir: &Path) -> io::Result<()> {
+    /// The host directory `host_dir` as a [`Layer`], which the guest sees but never changes;
+    /// files the host user owns appear as owned by the machine's user.
+    pub fn host_dir_layer(&self, host_dir: &Path) -> io::Result<Layer> {
         let options = wasixv2_vfs_host::Options {
             read_only: true,
             owner: self.owner,
         };
-        let lower = wasixv2_vfs_host::open(host_dir, self.host.clone(), options)?;
-        self.push_root_lower(lower).await
+        Ok(Layer(wasixv2_vfs_host::open(
+            host_dir,
+            self.host.clone(),
+            options,
+        )?))
     }
 
-    /// Makes each of `commands`, a name and the program's bytes, an executable file at
-    /// `/bin/<name>` and `/usr/bin/<name>`, as a package tree's commands are. The files are a
-    /// read-only layer of the root filesystem over the ones earlier calls added (package
-    /// volumes), so `/bin` and `/usr/bin` keep what those have there and a command hides a
-    /// file of its name; the guest can still add, replace and remove entries, and the changes
-    /// stay in memory. Every file is a regular `0755` file owned by the machine's user, whose
-    /// contents are the bytes, shared with the buffer; `execve` loads it like any other file.
-    /// Of several commands with one name, the first wins.
+    /// `commands`, each a name and the program's bytes, as a [`Layer`] that holds the
+    /// executable files `bin/<name>` and `usr/bin/<name>` of each, as a package tree's commands
+    /// are, or `None` when there are no commands. Every file is a regular `0755` file owned by
+    /// the machine's user, whose contents are the bytes, shared with the buffer; `execve` loads
+    /// it like any other file. Of several commands with one name, the first wins.
     ///
     /// Fails with `EINVAL` for a name that cannot be a file name (empty, `.`, `..`, or with
-    /// `/` or NUL), `ENAMETOOLONG` for one longer than `NAME_MAX`, and, like
-    /// [`Machine::mount_root_lower`], with `EBUSY` after anything was mounted or run.
-    pub async fn install_commands(
-        &mut self,
+    /// `/` or NUL), and `ENAMETOOLONG` for one longer than `NAME_MAX`.
+    pub fn commands_layer(
+        &self,
         commands: impl IntoIterator<Item = (String, OwnedBuffer)>,
-    ) -> io::Result<()> {
+    ) -> io::Result<Option<Layer>> {
         let mut seen = HashSet::new();
         let mut files = Vec::new();
         for (name, image) in commands {
@@ -302,9 +295,84 @@ impl Machine {
                 files.push((format!("{dir}/{name}"), image.clone()));
             }
         }
+        if files.is_empty() {
+            return Ok(None);
+        }
         let (uid, gid) = self.owner;
         let layer = PackageFs::from_files(files, uid, gid).map_err(io::Error::other)?;
-        self.push_root_lower(Arc::new(layer)).await
+        Ok(Some(Layer(Arc::new(layer))))
+    }
+
+    /// Stacks `layers` under the root filesystem's top layer (the [`default_root`] or the
+    /// embedder's root), which holds `/etc` and every change: each layer over the ones before
+    /// it, and all of them over the layers earlier calls added. The kernel's filesystems are
+    /// mounted on the new root as on the old one, once per call, so a root of several layers
+    /// is best stacked in one.
+    ///
+    /// The root can only change on a fresh machine: this fails with `EBUSY` after anything was
+    /// mounted or run, or a [`Signaller`] was handed out.
+    pub async fn mount_root_layers(
+        &mut self,
+        layers: impl IntoIterator<Item = Layer>,
+    ) -> io::Result<()> {
+        if *self.in_use.get_mut() {
+            return Err(errno_to_io(Errno::EBUSY));
+        }
+        let layers: Vec<Layer> = layers.into_iter().collect();
+        if layers.is_empty() {
+            return Ok(());
+        }
+        if self.root_lowers.len() + layers.len() > MAX_LOWERS {
+            return Err(io::Error::other("too many layers stacked under the root"));
+        }
+        for Layer(lower) in layers {
+            self.root_lowers.insert(0, lower);
+        }
+        let root = OverlayFs::new(Some(self.root_upper.clone()), self.root_lowers.clone());
+        // Nothing lives in the kernel yet, so a new one on the new root replaces it, with the
+        // kernel's filesystems mounted afresh; a host directory's layer answers asynchronously.
+        let kernel = boot(
+            &self.host,
+            root,
+            &self.network,
+            &self.user,
+            &self.uname,
+            self.abis.clone(),
+        );
+        mount_kernel_filesystems(&kernel, &self.host).await;
+        self.syscalls = Arc::new(Layered::new(Trace, kernel));
+        Ok(())
+    }
+
+    /// Makes the volume `volume` of the webc v3 package `reader` a read-only layer of the root
+    /// filesystem ([`Machine::package_layer`], stacked with [`Machine::mount_root_layers`]).
+    /// This is how a package's volume at `/` is mounted.
+    pub async fn mount_root_lower(&mut self, reader: &OwnedReader, volume: &str) -> io::Result<()> {
+        let layer = self.package_layer(reader, volume)?;
+        self.mount_root_layers([layer]).await
+    }
+
+    /// Makes the host directory `host_dir` a read-only layer of the root filesystem
+    /// ([`Machine::host_dir_layer`], stacked with [`Machine::mount_root_layers`]): the guest
+    /// sees it through the root but never changes it, and changes stay in the top layer. This
+    /// is how a host directory mapped to `/` is mounted, since nothing can be mounted over the
+    /// root.
+    pub async fn mount_root_lower_host_dir(&mut self, host_dir: &Path) -> io::Result<()> {
+        let layer = self.host_dir_layer(host_dir)?;
+        self.mount_root_layers([layer]).await
+    }
+
+    /// Makes each of `commands` an executable file at `/bin/<name>` and `/usr/bin/<name>`
+    /// ([`Machine::commands_layer`], stacked with [`Machine::mount_root_layers`]), so `/bin`
+    /// and `/usr/bin` keep what the layers under it (package volumes) have there and a command
+    /// hides a file of its name; the guest can still add, replace and remove entries, and the
+    /// changes stay in memory. No commands add no layer.
+    pub async fn install_commands(
+        &mut self,
+        commands: impl IntoIterator<Item = (String, OwnedBuffer)>,
+    ) -> io::Result<()> {
+        let layer = self.commands_layer(commands)?;
+        self.mount_root_layers(layer).await
     }
 
     /// Gives WASIX v1 programs v1's package command semantics: a v1 program that starts the
@@ -368,30 +436,6 @@ impl Machine {
         *self.wasix1.files.write().unwrap() = table;
     }
 
-    async fn push_root_lower(&mut self, lower: Arc<dyn Filesystem>) -> io::Result<()> {
-        if *self.in_use.get_mut() {
-            return Err(errno_to_io(Errno::EBUSY));
-        }
-        if self.root_lowers.len() == MAX_LOWERS {
-            return Err(io::Error::other("too many layers stacked under the root"));
-        }
-        self.root_lowers.insert(0, lower);
-        let root = OverlayFs::new(Some(self.root_upper.clone()), self.root_lowers.clone());
-        // Nothing lives in the kernel yet, so a new one on the new root replaces it, with the
-        // kernel's filesystems mounted afresh; a host directory's layer answers asynchronously.
-        let kernel = boot(
-            &self.host,
-            root,
-            &self.network,
-            &self.user,
-            &self.uname,
-            self.abis.clone(),
-        );
-        mount_kernel_filesystems(&kernel, &self.host).await;
-        self.syscalls = Arc::new(Layered::new(Trace, kernel));
-        Ok(())
-    }
-
     /// The machine's network namespace, e.g. to [`Net::publish`] a host port to a guest
     /// listener.
     pub fn network(&self) -> &Arc<Net> {
@@ -438,21 +482,15 @@ impl Machine {
         self.mount(guest, fs, read_only).await
     }
 
-    /// Mounts the volume `volume` of the webc v3 package `reader` at `guest`, sharing the
-    /// reader's buffer. With `writable`, the volume is the lower layer of an overlay whose upper
-    /// layer is in memory, so changes work and are lost with the machine; otherwise the mount is
-    /// read-only. Objects in the volume appear owned by the machine's user.
-    pub async fn mount_package_volume(
-        &self,
-        guest: &str,
-        reader: &OwnedReader,
-        volume: &str,
-        writable: bool,
-    ) -> io::Result<()> {
-        let (uid, gid) = self.owner;
-        let lower: Arc<dyn Filesystem> =
-            Arc::new(PackageFs::with_owner(reader, volume, uid, gid).map_err(io::Error::other)?);
+    /// Mounts `layer` at `guest` (an absolute guest path), creating missing directories on the
+    /// way, over whatever is there. With `writable`, the layer is the lower layer of an overlay
+    /// whose upper layer is in memory, so changes work and are lost with the machine; otherwise
+    /// the mount is read-only. A layer mounted at several paths shares its files, which were
+    /// made and checked once; each writable mount has changes of its own.
+    pub async fn mount_layer(&self, guest: &str, layer: &Layer, writable: bool) -> io::Result<()> {
+        let lower = layer.0.clone();
         let fs = if writable {
+            let (uid, gid) = self.owner;
             let upper: Arc<dyn Filesystem> = Arc::new(MemFs::new(
                 Arc::new(HostClock(self.host.clone())),
                 0o755,
@@ -464,6 +502,19 @@ impl Machine {
             lower
         };
         self.mount(guest, fs, !writable).await
+    }
+
+    /// Mounts the volume `volume` of the webc v3 package `reader` at `guest`
+    /// ([`Machine::package_layer`], mounted with [`Machine::mount_layer`]).
+    pub async fn mount_package_volume(
+        &self,
+        guest: &str,
+        reader: &OwnedReader,
+        volume: &str,
+        writable: bool,
+    ) -> io::Result<()> {
+        let layer = self.package_layer(reader, volume)?;
+        self.mount_layer(guest, &layer, writable).await
     }
 
     /// The environment of a login as the machine's user on the [`default_root`], for an
@@ -615,6 +666,14 @@ impl Machine {
         Ok(wasixv2_exec::run_with_abis(store, module, syscalls, task, host, abis).await?)
     }
 }
+
+/// A read-only filesystem for a [`Machine`]'s root or a mount, made once by
+/// [`Machine::package_layer`], [`Machine::host_dir_layer`] or [`Machine::commands_layer`]:
+/// stack it under the root with [`Machine::mount_root_layers`], or mount it at a path with
+/// [`Machine::mount_layer`]. A clone shares the files, so a layer used in several places is
+/// made and checked once.
+#[derive(Clone)]
+pub struct Layer(Arc<dyn Filesystem>);
 
 /// Sends signals to the processes a [`Machine`] runs, from any thread; see
 /// [`Machine::signaller`].

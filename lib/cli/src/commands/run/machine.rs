@@ -12,7 +12,7 @@ use std::{
 
 use anyhow::{Context, Error, bail};
 use wasixv2::{
-    CommandDefaults, Credentials, Image, ImageId, LoadError, Loader, LocalFuture, Machine,
+    CommandDefaults, Credentials, Image, ImageId, Layer, LoadError, Loader, LocalFuture, Machine,
     OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname,
 };
 use wasmer::{Engine, Module};
@@ -471,32 +471,36 @@ impl Run {
         let (root_dirs, host_dirs): (Vec<_>, Vec<_>) = host_dirs
             .into_iter()
             .partition(|dir| Path::new(&dir.guest) == Path::new("/"));
-        handle.block_on(tokio::task::LocalSet::new().run_until(async {
-            for volume in root_volumes {
-                machine
-                    .mount_root_lower(&volume.reader, &volume.name)
-                    .await
-                    .with_context(|| {
-                        format!("cannot mount the package volume \"{}\" at /", volume.name)
-                    })?;
-            }
-            // Over the package's volumes, as v1 wrote them into the root after merging those.
-            let commands = program
-                .commands
-                .iter()
-                .map(|cmd| (cmd.name.clone(), cmd.atom.clone()));
+        // Each volume becomes a filesystem once, wherever it is mounted.
+        let mut layers = VolumeLayers::default();
+        let mut root_layers = Vec::new();
+        for volume in root_volumes {
+            let layer = layers.get(&machine, volume).with_context(|| {
+                format!("cannot mount the package volume \"{}\" at /", volume.name)
+            })?;
+            root_layers.push(layer);
+        }
+        // Over the package's volumes, as v1 wrote them into the root after merging those.
+        let commands = program
+            .commands
+            .iter()
+            .map(|cmd| (cmd.name.clone(), cmd.atom.clone()));
+        root_layers.extend(
             machine
-                .install_commands(commands)
-                .await
-                .context("cannot install the package's commands in /bin and /usr/bin")?;
-            for dir in root_dirs {
-                machine
-                    .mount_root_lower_host_dir(&dir.host)
-                    .await
-                    .with_context(|| format!("cannot map {} to /", dir.host.display()))?;
-            }
-            Ok::<_, Error>(())
-        }))?;
+                .commands_layer(commands)
+                .context("cannot install the package's commands in /bin and /usr/bin")?,
+        );
+        for dir in root_dirs {
+            let layer = machine
+                .host_dir_layer(&dir.host)
+                .with_context(|| format!("cannot map {} to /", dir.host.display()))?;
+            root_layers.push(layer);
+        }
+        handle
+            .block_on(
+                tokio::task::LocalSet::new().run_until(machine.mount_root_layers(root_layers)),
+            )
+            .context("cannot stack the root filesystem's layers")?;
         let defaults = program
             .commands
             .iter()
@@ -521,16 +525,18 @@ impl Run {
         // for the host work it spawns.
         let run = handle.block_on(tokio::task::LocalSet::new().run_until(async {
             for volume in volumes {
+                let context = || {
+                    format!(
+                        "cannot mount the package volume \"{}\" at {}",
+                        volume.name, volume.mount_path
+                    )
+                };
+                let layer = layers.get(&machine, volume).with_context(context)?;
                 // Writable like v1's package mounts; changes stay in memory.
                 machine
-                    .mount_package_volume(&volume.mount_path, &volume.reader, &volume.name, true)
+                    .mount_layer(&volume.mount_path, &layer, true)
                     .await
-                    .with_context(|| {
-                        format!(
-                            "cannot mount the package volume \"{}\" at {}",
-                            volume.name, volume.mount_path
-                        )
-                    })?;
+                    .with_context(context)?;
             }
             // `--volume`s go on top, so they win over a package volume at the same path.
             for dir in &host_dirs {
@@ -861,6 +867,23 @@ fn forward(signaller: &Signaller, sig: i32, terminal: bool) -> bool {
     })
 }
 
+/// The layer of each package volume mounted so far, by its package's reader and its name.
+#[derive(Default)]
+struct VolumeLayers(HashMap<(*const OwnedReader, String), Layer>);
+
+impl VolumeLayers {
+    /// The layer of `volume`, made the first time.
+    fn get(&mut self, machine: &Machine, volume: &PackageVolume) -> Result<Layer, Error> {
+        let key = (Arc::as_ptr(&volume.reader), volume.name.clone());
+        if let Some(layer) = self.0.get(&key) {
+            return Ok(layer.clone());
+        }
+        let layer = machine.package_layer(&volume.reader, &volume.name)?;
+        self.0.insert(key, layer.clone());
+        Ok(layer)
+    }
+}
+
 /// A package's webc v3 reader, which the machine's package volumes need.
 struct Reader {
     v3: Arc<OwnedReader>,
@@ -872,6 +895,11 @@ impl Reader {
     /// `container`, the package `id`, which was loaded from `file` if known. The reader maps
     /// the file; without one, only a container holding a v3 reader works. A webc v2 package
     /// is migrated, which needs its bytes, so its file.
+    ///
+    /// The file is mapped and its index parsed again although the container holds a parsed
+    /// reader: webc 12.0.1's `Container::downcast` tests the type of the `Container` itself,
+    /// not of the reader inside it, so it never yields that reader (and the branch without a
+    /// file always fails). Share the container's reader once webc fixes that.
     fn open(id: &PackageId, container: &Container, file: Option<&Path>) -> Result<Self, Error> {
         let v3 = match (container.version(), file) {
             (webc::Version::V3, Some(path)) => OwnedReader::from_path(path)

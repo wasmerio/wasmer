@@ -763,3 +763,21 @@ async fn a_v1_program_runs_a_script_it_wrote() {
     })
     .await;
 }
+
+/// No commands add no layer under the root: the layers' limit is not used up by empty lists.
+#[tokio::test]
+async fn no_commands_add_no_layer() {
+    local(async {
+        let mut machine = Machine::new();
+        for _ in 0..300 {
+            machine.install_commands(commands(&[])).await.unwrap();
+        }
+        machine
+            .install_commands(commands(&[("echo", &echo(""))]))
+            .await
+            .unwrap();
+        let (status, out) = run_file(&machine, "/bin/echo", &["echo", "ok"]).await;
+        assert_eq!((status.unwrap(), out.as_str()), (0, "echo ok\n"));
+    })
+    .await;
+}
