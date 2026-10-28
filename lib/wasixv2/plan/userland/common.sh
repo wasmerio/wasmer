@@ -2,7 +2,9 @@
 #
 # Every package is built out of tree against the libc2 asyncify sysroot
 # (WASIXCC_WASM_EXCEPTIONS=no): fork() and setjmp/longjmp both need the asyncify
-# pass, and using one configuration for all packages keeps them uniform.
+# pass, and using one configuration for all packages keeps them uniform. The
+# target is Linux to the sources (clang defines __linux__ for wasm32-wasixv2),
+# and the sysroot ships the Linux UAPI headers.
 set -euo pipefail
 
 USERLAND=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -22,6 +24,11 @@ export CC_FOR_BUILD=${CC_FOR_BUILD:-cc}
 HOST=wasm32-unknown-wasi
 BUILD=$(cc -dumpmachine)
 export HOST BUILD
+# gnulib's stack-direction check knows no wasm32 and cannot run a test program
+# when cross compiling, so it leaves STACK_DIRECTION 0. The stack (in linear
+# memory) grows down. On Linux targets gnulib's sigsegv module needs the
+# direction to find the stack's VMA.
+export sv_cv_stack_direction=-1 sv_cv_stack_direction_msg="grows down"
 
 # fetch <url> <sha256>: download into downloads/ once and verify the checksum.
 fetch() {
@@ -58,18 +65,4 @@ apply_patches() {
 install_wasm() {
   mkdir -p "$OUT/bin"
   install -m 0755 "$1" "$OUT/bin/$2"
-}
-
-# gnulib_musl_port <getlocalename_l-unsafe.c>: gnulib recognises musl only via
-# __linux__, which the wasixv2 target does not define, and #errors on
-# "unknown" platforms. libc2 is musl, so take gnulib's musl arm
-# (nl_langinfo_l(NL_LOCALE_NAME(cat), loc)) on __wasixv2__ as well.
-gnulib_musl_port() {
-  local f=$1
-  grep -q '__wasixv2__' "$f" && return 0
-  sed -i \
-    -e 's/(defined __linux__ && HAVE_LANGINFO_H)/((defined __linux__ || defined __wasixv2__) \&\& HAVE_LANGINFO_H)/' \
-    -e 's/^#elif defined __linux__ && HAVE_LANGINFO_H && defined NL_LOCALE_NAME/#elif (defined __linux__ || defined __wasixv2__) \&\& HAVE_LANGINFO_H \&\& defined NL_LOCALE_NAME/' \
-    "$f"
-  [ "$(grep -c '__wasixv2__' "$f")" -eq 2 ] || { echo "gnulib_musl_port: $f did not match" >&2; exit 1; }
 }

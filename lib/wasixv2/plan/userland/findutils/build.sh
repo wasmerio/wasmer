@@ -11,7 +11,6 @@ SRC=$PKG/src
 BLD=$PKG/build
 unpack "$TARBALL" "$SRC"
 apply_patches "$SRC" "$PKG/patches"
-gnulib_musl_port "$SRC/gl/lib/getlocalename_l-unsafe.c"
 
 rm -rf "$BLD" && mkdir -p "$BLD" && cd "$BLD"
 # See coreutils/build.sh for the vfork cache variables.

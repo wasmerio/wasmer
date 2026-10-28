@@ -4,32 +4,17 @@
 # the wasix-org/ltp fork at the commit wasixv2-tests pins under upstream/ltp.
 # Installs into out/ltp (an $LTPROOT: testcases/bin holds scripts and helpers).
 #
-# Mirrors wasixv2-tests' src/upstream/ltp.rs: riscv UAPI headers from Linux
-# v7.2 with asm/unistd.h replaced by libc2's syscall numbers, and the same
-# configure. LTP needs autotools on the host (run via nix shell if missing).
+# Mirrors wasixv2-tests' src/upstream/ltp.rs: the same configure, with the
+# Linux UAPI headers the libc2 sysroot ships. LTP needs autotools on the host
+# (run via nix shell if missing).
 source "$(dirname "$0")/../common.sh"
 PKG=$USERLAND/ltp-shell
 COMMIT=759bb31bfa649320d24b07170756d5418498b074
-LINUX_TAG=v7.2
 TARBALL=$(fetch https://github.com/wasix-org/ltp/archive/$COMMIT.tar.gz \
   6a10c64d45f568505f5893119602810f7845d03a88a7da5589a0254ccee9a277)
 
 if ! command -v autoreconf >/dev/null; then
   exec nix shell nixpkgs#autoconf nixpkgs#automake nixpkgs#m4 nixpkgs#libtool -c "$0" "$@"
-fi
-
-# Linux UAPI headers (riscv: wasixv2's struct layouts and constants follow riscv32).
-UAPI=$PKG/linux-uapi-$LINUX_TAG
-if [ ! -f "$UAPI/.ready" ]; then
-  LINUX=$PKG/linux-$LINUX_TAG
-  rm -rf "$LINUX" "$UAPI"
-  git clone -q --depth 1 --branch "$LINUX_TAG" --filter=blob:none --sparse \
-    https://github.com/torvalds/linux.git "$LINUX"
-  git -C "$LINUX" sparse-checkout set include arch/riscv scripts usr tools/include
-  make -s -C "$LINUX" ARCH=riscv headers_install INSTALL_HDR_PATH="$UAPI"
-  printf '/* wasixv2: syscall numbers are libc2'"'"'s, which are the wasixv2 ABI'"'"'s. */\n#include <sys/syscall.h>\n' \
-    > "$UAPI/include/asm/unistd.h"
-  touch "$UAPI/.ready"
 fi
 
 # LTP's makefiles build in the source tree; build in a fresh copy of the tarball.
@@ -41,8 +26,7 @@ export WASIXCC_DISCARD_UNSUPPORTED_FLAGS=yes
 make autotools
 WASIXCC_AUTOCONF_WORKAROUNDS=yes ./configure \
   --host=wasm32-unknown-wasixv2 --prefix=/opt/ltp \
-  CC=wasixcc AR=wasixar RANLIB=wasixranlib NM=wasixnm HOSTCC=cc \
-  CPPFLAGS="-isystem $UAPI/include"
+  CC=wasixcc AR=wasixar RANLIB=wasixranlib NM=wasixnm HOSTCC=cc
 make -C lib -j"$JOBS"
 make -C libs -j"$JOBS"
 make -C testcases/lib -j"$JOBS"

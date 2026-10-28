@@ -11,7 +11,6 @@ SRC=$PKG/src
 BLD=$PKG/build
 unpack "$TARBALL" "$SRC"
 apply_patches "$SRC" "$PKG/patches"
-[ -f "$SRC/lib/getlocalename_l-unsafe.c" ] && gnulib_musl_port "$SRC/lib/getlocalename_l-unsafe.c"
 
 rm -rf "$BLD" && mkdir -p "$BLD" && cd "$BLD"
 # See coreutils/build.sh for the vfork cache variables. gnulib's strcasecmp

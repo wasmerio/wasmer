@@ -20,9 +20,6 @@ rm -rf "$BLD" && mkdir -p "$BLD" && cd "$BLD"
 # Cache variables: configure cannot run wasm test programs while cross compiling.
 #  - bash_cv_dev_fd: the kernel provides /dev/fd/N.
 #  - bash_cv_termcap_lib=gnutermcap: use bash's bundled termcap for readline.
-#    The bundled termcap defines PC/BC/UP; NEED_EXTERN_PC is readline's knob
-#    for making its own copies extern declarations (it only skips them by
-#    itself on __linux__, which the wasixv2 target does not define).
 #  - bash_cv_getenv_redef=no: bash's getenv.o would redefine libc's
 #    getenv/setenv/putenv, which wasm-ld rejects as duplicates.
 "$SRC/configure" \
@@ -34,8 +31,7 @@ rm -rf "$BLD" && mkdir -p "$BLD" && cd "$BLD"
   bash_cv_dev_fd=standard \
   bash_cv_termcap_lib=gnutermcap \
   bash_cv_getenv_redef=no \
-  CFLAGS="-std=gnu17 -g -O2" \
-  CPPFLAGS="-DNEED_EXTERN_PC"
+  CFLAGS="-std=gnu17 -g -O2"
 
 make -j"$JOBS" CC_FOR_BUILD="$CC_FOR_BUILD -std=gnu17"
 install_wasm bash bash
