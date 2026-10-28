@@ -187,6 +187,20 @@ fn read_copies_out_only_what_arrived() {
 }
 
 #[test]
+fn a_stdin_read_that_faults_leaves_the_input_for_the_next() {
+    let (kernel, task, _) = setup(b"abc");
+    let memory = FlatMemory(RefCell::new(vec![b'-'; 8]));
+    let caller = Caller::new(task, &memory);
+
+    let fault = block_on(kernel.read(&caller, Fd(0), UserSliceMut::new(6, 3)));
+    let n = block_on(kernel.read(&caller, Fd(0), UserSliceMut::new(1, 6)));
+
+    assert_eq!(fault, Err(SysErr::Errno(Errno::EFAULT)));
+    assert_eq!(n, Ok(3));
+    assert_eq!(*memory.0.borrow(), b"-abc----");
+}
+
+#[test]
 fn bad_descriptor_wins_over_bad_pointer() {
     let (kernel, task, _) = setup(b"");
     let memory = FlatMemory(RefCell::new(vec![0; 8]));

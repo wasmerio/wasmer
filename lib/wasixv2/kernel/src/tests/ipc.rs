@@ -295,8 +295,10 @@ fn a_stream_read_takes_all_that_is_buffered_and_a_datagram_whole() {
     assert_eq!(read(b), Ok(DGRAM));
 }
 
+/// `pipe_read` gives up a buffer only once `copy_page_to_iter` copied all of it: a readv
+/// whose second buffer faults is `EFAULT`, though the first was written, and takes nothing.
 #[test]
-fn readv_copies_out_up_to_a_fault() {
+fn readv_that_faults_part_way_takes_nothing() {
     let (kernel, task, memory) = machine();
     let caller = Caller::new(task, &memory);
     let (r, w) = pipe(&kernel, &caller, OpenFlags::O_NONBLOCK);
@@ -308,8 +310,60 @@ fn readv_copies_out_up_to_a_fault() {
     // Three bytes fit the first buffer; the second lies outside guest memory.
     let vec = iovec(&memory, 0x80, 0x300, 3);
     iovec(&memory, 0x88, 1 << 30, 3);
-    assert_eq!(block_on(kernel.readv(&caller, r, vec, 2)), Ok(3));
+    assert_eq!(
+        errno(block_on(kernel.readv(&caller, r, vec, 2))),
+        Errno::EFAULT
+    );
     assert_eq!(get(&memory, 0x300, 3), b"abc");
+    assert_eq!(
+        block_on(kernel.read(&caller, r, UserSliceMut::new(0x400, 9))),
+        Ok(6)
+    );
+    assert_eq!(get(&memory, 0x400, 6), b"abcdef");
+}
+
+/// A read whose buffer faults is `EFAULT` and takes nothing, from a pipe or a FIFO.
+#[test]
+fn a_read_that_faults_leaves_the_pipe_data_in_place() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (pipe_r, pipe_w) = pipe(&kernel, &caller, OpenFlags::O_NONBLOCK);
+    put(&memory, 0x40, b"fifo\0");
+    let mode: Mode = 0o010600;
+    assert_eq!(
+        block_on(kernel.mknodat(&caller, Fd(-100), GuestPtr::new(0x40), mode, 0)),
+        Ok(0)
+    );
+    let open = |flags: OpenFlags| {
+        block_on(kernel.openat(&caller, Fd(-100), GuestPtr::new(0x40), flags, 0)).unwrap()
+    };
+    let fifo_r = open(OpenFlags::O_RDONLY | OpenFlags::O_NONBLOCK);
+    let fifo_w = open(OpenFlags::O_WRONLY | OpenFlags::O_NONBLOCK);
+    put(&memory, 0x200, b"abcdef");
+
+    for (r, w) in [(pipe_r, pipe_w), (fifo_r, fifo_w)] {
+        assert_eq!(
+            block_on(kernel.write(&caller, w, UserSlice::new(0x200, 6))),
+            Ok(6)
+        );
+        let outside = UserSliceMut::new(1 << 30, 6);
+        assert_eq!(
+            errno(block_on(kernel.read(&caller, r, outside))),
+            Errno::EFAULT
+        );
+        let vec = iovec(&memory, 0x80, 1 << 30, 6);
+        assert_eq!(
+            errno(block_on(kernel.readv(&caller, r, vec, 1))),
+            Errno::EFAULT
+        );
+        let len = kernel.file(task, r).unwrap().buffered();
+        assert_eq!(len, 6);
+        assert_eq!(
+            block_on(kernel.read(&caller, r, UserSliceMut::new(0x300, 9))),
+            Ok(6)
+        );
+        assert_eq!(get(&memory, 0x300, 6), b"abcdef");
+    }
 }
 
 #[test]

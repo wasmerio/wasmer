@@ -1183,3 +1183,78 @@ fn netlink_connect_checks_its_address_and_shutdown_is_unsupported() {
     let shut = block_on(kernel.shutdown(&caller, fd, wasixv2_abi::ShutdownHow::SHUT_RDWR));
     assert_eq!(errno(shut), Errno::EOPNOTSUPP);
 }
+
+/// `w` sends "abcdef" to the non-blocking stream `r`. A receive whose buffer faults, even
+/// part-way, takes nothing, as `unix_stream_read_generic` and `tcp_recvmsg` consume an skb
+/// only once all of it was copied.
+fn stream_reads_that_fault_keep_the_data(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    memory: &FlatMemory,
+    w: Fd,
+    r: Fd,
+) {
+    put(memory, 0x400, b"abcdef");
+    assert_eq!(send_bytes(kernel, caller, w, 0x400, 6, MsgFlags(0)), Ok(6));
+    let recv = |at, len, flags| {
+        block_on(kernel.recvfrom(
+            caller,
+            r,
+            UserSliceMut::new(at, len),
+            flags,
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL,
+        ))
+    };
+    let outside = 1 << 30;
+    assert_eq!(errno(recv(outside, 6, MsgFlags(0))), Errno::EFAULT);
+    assert_eq!(
+        errno(recv(outside, 6, MsgFlags::MSG_WAITALL)),
+        Errno::EFAULT
+    );
+    let read = block_on(kernel.read(caller, r, UserSliceMut::new(outside, 6)));
+    assert_eq!(errno(read), Errno::EFAULT);
+
+    // Two bytes fit the first buffer; the second lies outside guest memory.
+    put(memory, 0x80, &0x500u32.to_le_bytes());
+    put(memory, 0x84, &2u32.to_le_bytes());
+    put(memory, 0x88, &outside.to_le_bytes());
+    put(memory, 0x8c, &4u32.to_le_bytes());
+    let readv = block_on(kernel.readv(caller, r, GuestPtr::new(0x80), 2));
+    assert_eq!(errno(readv), Errno::EFAULT);
+    assert_eq!(recv(0x600, 9, MsgFlags(0)), Ok(6));
+    assert_eq!(get(memory, 0x600, 6), b"abcdef");
+}
+
+#[test]
+fn unix_stream_reads_that_fault_keep_the_data() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (a, b) = unix_pair(&kernel, &caller, &memory, STREAM | 0x800);
+    stream_reads_that_fault_keep_the_data(&kernel, &caller, &memory, a, b);
+}
+
+#[test]
+fn tcp_reads_that_fault_keep_the_data() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let listener = socket(&kernel, &caller, STREAM);
+    sockaddr(&memory, 0x200, 6001);
+    assert_eq!(
+        block_on(kernel.bind(&caller, listener, GuestPtr::new(0x200), 16)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.listen(&caller, listener, 1)), Ok(0));
+    let client = socket(&kernel, &caller, STREAM);
+    let connect = block_on(kernel.connect(&caller, client, GuestPtr::new(0x200), 16));
+    assert_eq!(connect, Ok(0));
+    let accept = block_on(kernel.accept4(
+        &caller,
+        listener,
+        GuestPtrMut::NULL,
+        GuestPtrMut::NULL,
+        SocketFlags::SOCK_NONBLOCK,
+    ));
+    let server = accept.unwrap();
+    stream_reads_that_fault_keep_the_data(&kernel, &caller, &memory, client, server);
+}

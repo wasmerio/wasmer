@@ -34,7 +34,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
     Kernel,
-    file::{FileObject, Io, OpenFile},
+    file::{FileObject, Io, OpenFile, ReadSink, delivered, taken},
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
 };
 
@@ -225,6 +225,10 @@ pub(crate) struct Sock {
     pub(crate) timeouts: Timeouts,
     host: Arc<dyn Host>,
     me: Weak<Sock>,
+    /// Held by a stream reader from looking at the data until it took it (`u->iolock`), so
+    /// what it leaves behind on a fault is still first. Never held while
+    /// waiting for data.
+    io_lock: futures_util::lock::Mutex<()>,
 }
 
 /// What a receive returns.
@@ -282,6 +286,7 @@ impl Sock {
             timeouts: Timeouts::default(),
             host,
             me: me.clone(),
+            io_lock: futures_util::lock::Mutex::new(()),
         })
     }
 
@@ -711,7 +716,14 @@ impl Sock {
         flags: MsgFlags,
         writer: Option<Ucred>,
     ) -> Result<Received, Errno> {
-        let peek = flags.contains(MsgFlags::MSG_PEEK);
+        let take = match flags.contains(MsgFlags::MSG_PEEK) {
+            true => Take::Peek,
+            false => Take::Consume,
+        };
+        self.try_take(max, take, writer)
+    }
+
+    fn try_take(&self, max: usize, take: Take, writer: Option<Ucred>) -> Result<Received, Errno> {
         let mut inner = self.lock();
         if self.kind == Kind::Stream && inner.state == State::Listening {
             return Err(Errno::EINVAL);
@@ -732,16 +744,16 @@ impl Sock {
             return Err(Errno::EAGAIN);
         }
         let out = match self.kind {
-            Kind::Stream => stream_take(&mut inner, max, peek, writer),
-            _ => record_take(&mut inner, max, peek),
+            Kind::Stream => stream_take(&mut inner, max, take, writer),
+            _ => record_take(&mut inner, max, take != Take::Consume),
         };
         let peer = inner.peer.as_ref().and_then(Weak::upgrade);
         let passcred = inner.passcred();
         drop(inner);
-        if peek {
+        if take == Take::Peek {
             self.names.inflight.peeked(&out.rights);
         }
-        if !peek {
+        if take == Take::Consume {
             // Room at this socket: wake senders waiting on it or on their own queue.
             self.wait.wake(PollMask::WRITABLE);
             if let Some(peer) = peer {
@@ -859,12 +871,23 @@ fn rights_keys(rx: &VecDeque<Msg>) -> Vec<usize> {
         .collect()
 }
 
+/// What a receive does with the data it finds.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Take {
+    /// Takes it, with the files it carries.
+    Consume,
+    /// `MSG_PEEK`: copies it and the files, and leaves both queued.
+    Peek,
+    /// Copies the data only, for a reader that takes it once it reached the user.
+    Look,
+}
+
 /// A stream read of at most `max` bytes from consecutive messages
 /// (`unix_stream_read_generic`): it ends after a message that carried files, and with
 /// `SO_PASSCRED` it never glues messages of different writers, the first of them being
 /// `writer` when the read continues one (`MSG_WAITALL`). A whole unread message moves out
 /// without a copy.
-fn stream_take(inner: &mut Inner, max: usize, peek: bool, writer: Option<Ucred>) -> Received {
+fn stream_take(inner: &mut Inner, max: usize, take: Take, writer: Option<Ucred>) -> Received {
     let check_creds = inner.passcred();
     let mut writer = writer;
     let mut out = Received::eof();
@@ -882,9 +905,11 @@ fn stream_take(inner: &mut Inner, max: usize, peek: bool, writer: Option<Ucred>)
         let had_rights = !msg.rights.is_empty();
         let avail = msg.data.len() - msg.read;
         let n = avail.min(max - out.data.len());
-        if peek {
+        if take != Take::Consume {
             out.data.extend(&msg.data[msg.read..msg.read + n]);
-            out.rights.extend(msg.rights.files.iter().cloned());
+            if take == Take::Peek {
+                out.rights.extend(msg.rights.files.iter().cloned());
+            }
             index += 1;
         } else {
             out.rights.append(&mut msg.rights.take());
@@ -1068,6 +1093,23 @@ impl FileObject for UnixFile {
         })
     }
 
+    fn read_to<'a>(
+        &'a self,
+        io: Io<'a>,
+        buf: &'a mut [u8],
+        to: &'a mut dyn ReadSink,
+    ) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move {
+            let mut wait = self.0.blocking(io, RCV, MsgFlags(0));
+            if self.0.kind != Kind::Stream {
+                let got = recv(&self.0, &mut wait, buf.len(), MsgFlags(0), None).await?;
+                return delivered(got.len(), to.copy_out(&got.data).await);
+            }
+            let got = recv_stream_to(&self.0, &mut wait, buf.len(), None, to).await?;
+            Ok(got.len())
+        })
+    }
+
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let owner = self.0.owner.ucred;
@@ -1127,6 +1169,37 @@ pub(crate) async fn recv(
         sock.try_recv(max, flags, writer)
     })
     .await
+}
+
+/// A stream receive of at most `max` bytes into `to` that takes them only once all arrived
+/// there, as `unix_stream_read_generic` consumes an skb only once `unix_stream_read_actor`
+/// copied it: a fault is `EFAULT` with everything still queued ([`taken`]).
+/// Waits without the I/O lock (`unix_stream_data_wait`), then looks again under it. `writer`
+/// is as for [`recv`].
+pub(crate) async fn recv_stream_to(
+    sock: &Sock,
+    wait: &mut Blocking<'_>,
+    max: usize,
+    writer: Option<Ucred>,
+    to: &mut dyn ReadSink,
+) -> SysResult<Received> {
+    loop {
+        wait.wait(WaitOn::Queue(&sock.wait), PollMask::READABLE, || {
+            sock.try_take(0, Take::Look, writer)
+        })
+        .await?;
+        let _io = sock.io_lock.lock().await;
+        let look = match sock.try_take(max, Take::Look, writer) {
+            Err(Errno::EAGAIN) => continue,
+            Err(err) => return Err(err.into()),
+            Ok(look) if look.data.is_empty() => return Ok(look),
+            Ok(look) => look,
+        };
+        let n = taken(look.len(), to.copy_out(&look.data).await)?;
+        let got = sock.try_take(n, Take::Consume, writer)?;
+        debug_assert_eq!(got.len(), n, "the I/O lock keeps the data in place");
+        return Ok(got);
+    }
 }
 
 /// Sends `data`, to `to` for an unconnected datagram socket. A blocking stream send goes on

@@ -12,7 +12,7 @@ use wasixv2_vfs::{Bound, File};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
-    file::{Backing, FileObject, Io, OpenFile},
+    file::{Backing, FileObject, Io, OpenFile, ReadSink, taken},
     pseudo::Pseudo,
 };
 
@@ -79,6 +79,9 @@ struct HostInput {
     /// Readers and pollers wait here; the source wakes it through `waker`.
     wait: WaitQueue,
     waker: Waker,
+    /// Held by a reader from looking at the data until it consumed it, as a pipe's
+    /// (`pipe->mutex`); never while waiting.
+    io_lock: futures_util::lock::Mutex<()>,
 }
 
 #[derive(Default)]
@@ -110,6 +113,7 @@ impl HostInput {
             state: Mutex::default(),
             waker: Waker::from(Arc::new(QueueWaker(wait.clone()))),
             wait,
+            io_lock: futures_util::lock::Mutex::new(()),
         }
     }
 
@@ -129,29 +133,52 @@ impl HostInput {
         }
     }
 
-    async fn read_input(&self, io: Io<'_>, buf: &mut [u8]) -> SysResult<usize> {
+    /// Copies at most `buf.len()` bytes to `to`, or into `buf` itself without one, and
+    /// consumes them only once all arrived, as a pipe's reads do ([`taken`]).
+    async fn read_input(
+        &self,
+        io: Io<'_>,
+        buf: &mut [u8],
+        mut to: Option<&mut dyn ReadSink>,
+    ) -> SysResult<usize> {
         if buf.is_empty() {
             return Ok(0);
         }
-        let take = || {
-            let mut state = self.state.lock().unwrap();
-            self.fill(&mut state);
-            if !state.data.is_empty() {
-                let n = buf.len().min(state.data.len());
-                for (dst, src) in buf.iter_mut().zip(state.data.drain(..n)) {
-                    *dst = src;
+        loop {
+            let ready = || {
+                let mut state = self.state.lock().unwrap();
+                self.fill(&mut state);
+                if !state.data.is_empty() || state.end.is_some() {
+                    return Some(Ok(()));
                 }
-                return Some(Ok(n));
-            }
-            if let Some(end) = state.end.take() {
-                return Some(end.map(|()| 0));
-            }
-            io.nonblocking().then_some(Err(Errno::EAGAIN))
-        };
-        let result = wait_event(&self.wait, take, io.interrupt)
-            .await
-            .map_err(|_| SysErr::Restart)?;
-        Ok(result?)
+                io.nonblocking().then_some(Err(Errno::EAGAIN))
+            };
+            wait_event(&self.wait, ready, io.interrupt)
+                .await
+                .map_err(|_| SysErr::Restart)??;
+            let _io = self.io_lock.lock().await;
+            let n = {
+                let mut state = self.state.lock().unwrap();
+                if state.data.is_empty() {
+                    match state.end.take() {
+                        Some(end) => return Ok(end.map(|()| 0)?),
+                        None => continue,
+                    }
+                }
+                let n = buf.len().min(state.data.len());
+                for (dst, src) in buf.iter_mut().zip(state.data.range(..n)) {
+                    *dst = *src;
+                }
+                n
+            };
+            let copied = match to.as_mut() {
+                Some(to) => to.copy_out(&buf[..n]).await,
+                None => n,
+            };
+            let n = taken(n, copied)?;
+            self.state.lock().unwrap().data.drain(..n);
+            return Ok(n);
+        }
     }
 }
 
@@ -170,7 +197,16 @@ impl Pollable for HostInput {
 
 impl FileObject for HostInput {
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
-        Box::pin(self.read_input(io, buf))
+        Box::pin(self.read_input(io, buf, None))
+    }
+
+    fn read_to<'a>(
+        &'a self,
+        io: Io<'a>,
+        buf: &'a mut [u8],
+        to: &'a mut dyn ReadSink,
+    ) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(self.read_input(io, buf, Some(to)))
     }
 
     fn write<'a>(&'a self, _: Io<'a>, _: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {

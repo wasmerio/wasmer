@@ -15,7 +15,7 @@ use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysErr, SysResult, write_valu
 use wasixv2_vnet::{Domain, RecvMsg, SendMsg, Socket, SocketKind};
 use wasixv2_wait::{PollMask, PollTable, PollWaiter, Pollable, WaitQueue, Wakeup};
 
-use crate::file::{FileObject, Io};
+use crate::file::{FileObject, Io, ReadSink, delivered, taken};
 
 /// `sizeof(struct sockaddr_storage)`, the most `move_addr_to_kernel` takes.
 pub(crate) const SOCKADDR_STORAGE: u32 = 128;
@@ -158,6 +158,10 @@ pub(crate) struct SocketFile {
     pub(crate) socket: Arc<dyn Socket>,
     host: Arc<dyn Host>,
     pub(crate) timeouts: Timeouts,
+    /// Held by a stream reader from peeking at the data until it took it (`lock_sock` in
+    /// `tcp_recvmsg`), so what it leaves behind on a fault is still first.
+    /// Never held while waiting for data.
+    io_lock: futures_util::lock::Mutex<()>,
 }
 
 impl SocketFile {
@@ -166,6 +170,7 @@ impl SocketFile {
             socket,
             host,
             timeouts: Timeouts::default(),
+            io_lock: futures_util::lock::Mutex::new(()),
         }
     }
 
@@ -188,6 +193,48 @@ impl SocketFile {
             socket.recv(buf, proto_flags)
         })
         .await
+    }
+
+    /// A stream receive into `to` through `buf` that takes the data only once all of it
+    /// arrived, as `tcp_recvmsg` moves `copied_seq` past an skb only once
+    /// `skb_copy_datagram_msg` copied it: a fault is `EFAULT` with everything still queued
+    /// ([`taken`]). Waits without the I/O lock (`sk_wait_data` releases the socket), then
+    /// peeks under it, copies and takes.
+    pub(crate) async fn recv_stream_to(
+        &self,
+        wait: &mut Blocking<'_>,
+        buf: &mut [u8],
+        flags: MsgFlags,
+        to: &mut dyn ReadSink,
+    ) -> SysResult<RecvMsg> {
+        let socket = &self.socket;
+        let flags = flags & !(MsgFlags::MSG_WAITALL | MsgFlags::MSG_DONTWAIT);
+        let peek = flags | MsgFlags::MSG_PEEK;
+        if buf.is_empty() {
+            return Ok(socket.recv(buf, flags)?);
+        }
+        loop {
+            let mut probe = [0];
+            let ready = wait
+                .wait(WaitOn::Object(&**socket), PollMask::READABLE, || {
+                    socket.recv(&mut probe, peek)
+                })
+                .await?;
+            if ready.len == 0 {
+                return Ok(ready);
+            }
+            let _io = self.io_lock.lock().await;
+            let look = match socket.recv(buf, peek) {
+                Err(Errno::EAGAIN) => continue,
+                Err(err) => return Err(err.into()),
+                Ok(look) if look.len == 0 => return Ok(look),
+                Ok(look) => look,
+            };
+            let n = taken(look.len, to.copy_out(&buf[..look.len]).await)?;
+            let got = socket.recv(&mut buf[..n], flags)?;
+            debug_assert_eq!(got.len, n, "the I/O lock keeps the data in place");
+            return Ok(got);
+        }
     }
 
     /// Sends `msg`, waiting for room unless non-blocking. A blocking stream send goes on until
@@ -235,6 +282,23 @@ impl FileObject for SocketFile {
         Box::pin(async move {
             let mut wait = self.blocking(io, RCV, MsgFlags(0));
             Ok(self.recv(&mut wait, buf, MsgFlags(0)).await?.len)
+        })
+    }
+
+    fn read_to<'a>(
+        &'a self,
+        io: Io<'a>,
+        buf: &'a mut [u8],
+        to: &'a mut dyn ReadSink,
+    ) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move {
+            let mut wait = self.blocking(io, RCV, MsgFlags(0));
+            if self.socket.kind() != SocketKind::Stream {
+                let n = self.recv(&mut wait, buf, MsgFlags(0)).await?.len;
+                return delivered(n, to.copy_out(&buf[..n]).await);
+            }
+            let got = self.recv_stream_to(&mut wait, buf, MsgFlags(0), to).await?;
+            Ok(got.len)
         })
     }
 

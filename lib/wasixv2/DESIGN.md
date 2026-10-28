@@ -191,6 +191,7 @@ The crate `wasixv2-wait` holds what the VFS, the network and the kernel all need
 `FileObject` (kernel `file.rs`) extends `Pollable` with:
 
 - `read` and `write`, which take an `Io` holding the open file's flags as the call began plus the interrupt hook. They block asynchronously unless `O_NONBLOCK` is set, in which case they return `EAGAIN`.
+- `read_to` (`read_iter`): a read that copies to the caller's buffers itself through a `ReadSink`. Streams (pipes and FIFOs, host stdin, Unix and TCP stream sockets) look at their data under a per-object I/O lock (`pipe->mutex`, `u->iolock`, `lock_sock`), copy it out and take it only once all of it arrived, so a read whose buffer faults is `EFAULT` and leaves the data queued, as Linux takes a pipe buffer or an skb only once it was copied. The lock is never held while waiting for data. Other objects take their data first, and lose what a fault kept from the reader, as eventfd, timerfd, signalfd, inotify and datagram sockets do on Linux.
 - `ioctl`, which defaults to `ENOTTY`. The kernel handles `FIOCLEX`, `FIONCLEX`, `FIONBIO`, and `FIONREAD` on regular files, before calling the object.
 - `can_poll`, which is `file_can_poll`.
 - `fills_reads`, for objects whose reads fill the buffer, as the memory and random devices' do (`read_iter_zero`): the kernel reads them in steps until the buffer is full, as it reads files, and stops early at a signal. A read of any other object returns what one read of it gives.

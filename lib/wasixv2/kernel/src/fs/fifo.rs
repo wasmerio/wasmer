@@ -8,7 +8,7 @@ use wasixv2_vfs::File;
 use wasixv2_wait::{Interrupt, PollMask, PollTable, Pollable};
 
 use crate::{
-    file::{FileObject, Io},
+    file::{FileObject, Io, ReadSink},
     pipe::{Pipe, PipeEnd, fifo_pipe},
     pseudo::PIPEFS_MAGIC,
 };
@@ -91,6 +91,18 @@ impl FileObject for FifoFile {
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         match &self.read {
             Some(end) => end.read(io, buf),
+            None => Box::pin(async { Err(Errno::EBADF.into()) }),
+        }
+    }
+
+    fn read_to<'a>(
+        &'a self,
+        io: Io<'a>,
+        buf: &'a mut [u8],
+        to: &'a mut dyn ReadSink,
+    ) -> LocalFuture<'a, SysResult<usize>> {
+        match &self.read {
+            Some(end) => end.read_to(io, buf, to),
             None => Box::pin(async { Err(Errno::EBADF.into()) }),
         }
     }
