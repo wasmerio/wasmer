@@ -7068,6 +7068,7 @@ dependencies = [
  "wasixv2-exec",
  "wasixv2-host",
  "wasixv2-kernel",
+ "wasixv2-pages",
  "wasixv2-policy",
  "wasixv2-record",
  "wasixv2-syscalls",
