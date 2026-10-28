@@ -7146,6 +7146,7 @@ version = "0.0.0"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",
+ "libc",
  "tokio",
  "wasixv2-pages",
  "wasm-bindgen",

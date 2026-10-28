@@ -273,6 +273,14 @@ pub trait Host: Send + Sync {
             }
         })
     }
+    /// The CPU time the calling host thread has used so far, user and system time together
+    /// (`CLOCK_THREAD_CPUTIME_ID`). Every guest thread runs on a host thread of its own, so the
+    /// execution layer charges a guest thread with what this clock advances while it runs.
+    /// `None` by default, and from hosts without such a clock, whose guests are charged with the
+    /// wall-clock time they run instead.
+    fn thread_cpu_time(&self) -> Option<Duration> {
+        None
+    }
     /// Fills `buf` with cryptographically secure random bytes.
     fn random(&self, buf: &mut [u8]);
     /// Where host work runs: background futures and blocking calls.

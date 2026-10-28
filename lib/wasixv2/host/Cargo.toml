@@ -24,6 +24,9 @@ tokio = { workspace = true, optional = true, features = [
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true, optional = true }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "test-util", "time"] }
 
@@ -32,6 +35,6 @@ wasm-bindgen-test.workspace = true
 
 [features]
 default = []
-tokio = ["dep:tokio", "dep:getrandom"]
+tokio = ["dep:tokio", "dep:getrandom", "dep:libc"]
 # A host on the JavaScript event loop, for wasm32-unknown-unknown in browsers and node.
 web = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]

@@ -62,6 +62,17 @@ impl Host for TokioHost {
         }
     }
 
+    #[cfg(unix)]
+    fn thread_cpu_time(&self) -> Option<Duration> {
+        let mut ts = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        // SAFETY: `ts` is a valid timespec to write, and the clock id is a constant.
+        let ret = unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut ts) };
+        (ret == 0).then(|| Duration::new(ts.tv_sec as u64, ts.tv_nsec as u32))
+    }
+
     fn random(&self, buf: &mut [u8]) {
         getrandom::fill(buf).expect("the host entropy source failed");
     }
@@ -225,6 +236,24 @@ mod tests {
         .unwrap();
         let flavor = tokio::time::timeout(Duration::from_secs(10), rx).await;
         assert_eq!(flavor.unwrap().unwrap(), RuntimeFlavor::MultiThread);
+    }
+
+    /// The thread CPU clock advances while the thread computes, and hardly while it sleeps.
+    #[cfg(unix)]
+    #[test]
+    fn thread_cpu_time_counts_computing_not_sleeping() {
+        let host = TokioHost::default();
+        let start = host.thread_cpu_time().unwrap();
+        let wall = std::time::Instant::now();
+        let mut x = 0u64;
+        while wall.elapsed() < Duration::from_millis(30) {
+            x = std::hint::black_box(x.wrapping_mul(31).wrapping_add(7));
+        }
+        let computed = host.thread_cpu_time().unwrap() - start;
+        assert!(computed >= Duration::from_millis(10), "{computed:?}");
+        std::thread::sleep(Duration::from_millis(50));
+        let slept = host.thread_cpu_time().unwrap() - start - computed;
+        assert!(slept < Duration::from_millis(10), "{slept:?}");
     }
 
     #[tokio::test]
