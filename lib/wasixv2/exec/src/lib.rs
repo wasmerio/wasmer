@@ -11,6 +11,9 @@ mod fork;
 mod generated;
 mod loader;
 mod memory;
+mod memory_image;
+#[cfg(all(target_os = "linux", feature = "sys"))]
+mod pagemap;
 mod preempt;
 mod process;
 mod signal;
@@ -466,7 +469,7 @@ where
         ExecEnv::new(syscalls.clone(), task, process::ProcExports::new(spawner)),
     );
     let mut imports = imports(&*abi, &mut store, &env, module);
-    let size = fork.map(|image| image.memory.len() as u64);
+    let size = fork.map(|image| image.memory.size());
     let imported = import_memory(&mut store, module, &mut imports, size)?;
     let instance = Instance::new(&mut store, module, &imports)?;
     let memory = match imported {
@@ -523,14 +526,14 @@ fn copy_image(
     image: &asyncify::ForkImage,
 ) -> Result<(), ExecError> {
     let size = memory.view(&*store).data_size();
-    let missing = (image.memory.len() as u64).saturating_sub(size);
+    let missing = image.memory.size().saturating_sub(size);
     if missing > 0 {
         let pages = missing.div_ceil(wasixv2_syscalls::WASM_PAGE_SIZE) as u32;
         memory.grow(&mut *store, pages)?;
     }
-    memory
-        .view(&*store)
-        .write(0, &image.memory)
+    image
+        .memory
+        .restore(memory, &*store)
         .map_err(|err| ExecError::Fork(err.to_string()))?;
     for (name, value) in &image.globals {
         let global = instance.exports.get_global(name)?;
