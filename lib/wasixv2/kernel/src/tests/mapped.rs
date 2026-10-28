@@ -343,7 +343,10 @@ fn madvise_does_not_know_memory_failure_advice() {
     let memory = MappedMemory::new(2, false);
     let caller = Caller::new(task, &memory);
     let a = mmap_shared(&kernel, &caller, PAGE);
-    for advice in [MadviseAdvice::MADV_HWPOISON, MadviseAdvice::MADV_SOFT_OFFLINE] {
+    for advice in [
+        MadviseAdvice::MADV_HWPOISON,
+        MadviseAdvice::MADV_SOFT_OFFLINE,
+    ] {
         assert_eq!(
             block_on(kernel.madvise(&caller, a, PAGE, advice)),
             Err(Errno::EINVAL.into()),
