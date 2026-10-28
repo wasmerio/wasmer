@@ -529,9 +529,10 @@ impl Machine {
     /// `execve` checks and does applies. A `#!` script runs its interpreter, the image runs
     /// with the ABI it targets, compiled by the machine's [`Loader`] (given `engine` as the
     /// engine the process ran on), and `/proc/self/exe` names the file. Past the `execve`, the
-    /// process runs as any other's new image does: one that does not compile dies of SIGSEGV.
-    /// Returns the exit status, or [`RunError::Execve`] with the errno `execve` failed with;
-    /// the process is gone then.
+    /// process runs as any other's new image does, and the images it `execve`s that do not
+    /// start kill it with SIGSEGV. Returns the exit status; [`RunError::Execve`] with the errno
+    /// `execve` failed with; or, when the program itself does not compile or instantiate,
+    /// [`RunError::Exec`], as [`Machine::run_module`] fails. The process is gone then.
     pub async fn run_file(
         &self,
         engine: &Engine,

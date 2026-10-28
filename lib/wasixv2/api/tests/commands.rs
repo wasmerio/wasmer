@@ -11,8 +11,8 @@ use std::{
 };
 
 use wasixv2::{
-    ByteSink, CommandDefaults, Compile, EmptySource, Engine, Image, LoadError, Loader, LocalFuture,
-    Machine, OwnedBuffer, ProcessConfig, RunError, Stdio,
+    ByteSink, CommandDefaults, Compile, EmptySource, Engine, ExecError, Image, LoadError, Loader,
+    LocalFuture, Machine, OwnedBuffer, ProcessConfig, RunError, Stdio,
 };
 use wasmer::Module;
 use webc::v3::{
@@ -476,18 +476,57 @@ async fn the_loader_compiles_every_image() {
     .await;
 }
 
-/// The program `run_file` starts goes through the one image loop `execve`'s images do: past the
-/// `execve`, a module the probe took that does not compile kills the process with SIGSEGV,
-/// rather than failing the run.
+/// A module the probe takes that does not compile: wasm's header, then a cut-off import
+/// section.
+fn cut_off() -> Vec<u8> {
+    let mut cut = echo("");
+    cut.truncate(cut.len() - 8);
+    cut
+}
+
+/// A module that compiles but cannot instantiate: it imports a function no ABI has.
+const UNKNOWN_IMPORT: &str = r#"
+(module
+  (import "wasixv2" "no_such_call" (func))
+  (memory (export "memory") 1)
+  (func (export "_start")))
+"#;
+
+/// Past `execve`'s point of no return, an image the probe took that does not compile or
+/// instantiate kills the process with SIGSEGV, as a corrupt ELF does on Linux.
 #[tokio::test]
-async fn run_file_of_a_module_that_does_not_compile_dies_of_sigsegv() {
+async fn an_execve_image_that_does_not_start_dies_of_sigsegv() {
     local(async {
-        let mut cut = echo("");
-        cut.truncate(cut.len() - 8);
-        let machine = machine_with(&[("cut", &cut)]).await;
+        let (cut, unknown) = (cut_off(), wat(UNKNOWN_IMPORT));
+        let exec = wat(EXEC_ARG);
+        let list: [(&str, &[u8]); 3] = [("cut", &cut), ("unknown", &unknown), ("exec", &exec)];
+        let machine = machine_with(&list).await;
+        for path in ["/bin/cut", "/bin/unknown"] {
+            let (status, out) = run_file(&machine, "/bin/exec", &["exec", path]).await;
+            // 128 + SIGSEGV
+            assert_eq!((status.unwrap(), out.as_str()), (139, ""), "{path}");
+        }
+    })
+    .await;
+}
+
+/// The program `run_file` starts is the embedder's: when it does not compile or instantiate,
+/// the run fails with the error, as `run_module` does, instead of reporting a SIGSEGV.
+#[tokio::test]
+async fn run_file_of_a_program_that_does_not_start_fails() {
+    local(async {
+        let (cut, unknown) = (cut_off(), wat(UNKNOWN_IMPORT));
+        let machine = machine_with(&[("cut", &cut), ("unknown", &unknown)]).await;
         let (status, _) = run_file(&machine, "/bin/cut", &["cut"]).await;
-        // 128 + SIGSEGV
-        assert_eq!(status.unwrap(), 139);
+        assert!(
+            matches!(status, Err(RunError::Exec(ExecError::Load(_)))),
+            "{status:?}"
+        );
+        let (status, _) = run_file(&machine, "/bin/unknown", &["unknown"]).await;
+        assert!(
+            matches!(status, Err(RunError::Exec(ExecError::Instantiate(_)))),
+            "{status:?}"
+        );
     })
     .await;
 }

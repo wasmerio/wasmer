@@ -166,8 +166,12 @@ where
 /// Runs `image`, which `kernel_execve` made `task`'s, then every image its `execve` calls load,
 /// until the process exits; releases the task then. `engine` is the engine the process would
 /// have run on, which the loader may compile with.
+///
+/// Only the images the process's own `execve` calls load die of SIGSEGV when they do not start:
+/// `image` is the embedder's program, so it fails as [`run`]'s module does, with the error, the
+/// process killed.
 pub(crate) async fn run_exec<S>(
-    engine: Engine,
+    mut engine: Engine,
     image: Image,
     syscalls: Arc<S>,
     task: TaskId,
@@ -177,7 +181,31 @@ pub(crate) async fn run_exec<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    finish(engine, Ok(Ended::Exec(image)), syscalls, task, host, abis).await
+    let first = match syscalls.exec_wait(task).await {
+        // Killed meanwhile: it ends as the kill says.
+        Err(status) => Ok(Ended::Exited(status)),
+        Ok(()) => {
+            let loaded = abis.loader().load(&engine, &image).await;
+            drop(image);
+            match loaded {
+                Ok((image_engine, module)) => {
+                    engine = image_engine;
+                    let store = Store::new(engine.clone());
+                    let run = crate::run_image(
+                        store,
+                        &module,
+                        syscalls.clone(),
+                        task,
+                        host.clone(),
+                        abis.clone(),
+                    );
+                    run.await
+                }
+                Err(err) => Err(ExecError::Load(err)),
+            }
+        }
+    };
+    finish(engine, first, syscalls, task, host, abis).await
 }
 
 /// Follows `task`'s process from the end of its first image's run through the images its

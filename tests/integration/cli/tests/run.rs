@@ -918,6 +918,31 @@ fn run_wasixv2_package_script_command_runs_its_interpreter() {
         .stdout("/bin/echo-args -x /bin/script a b\n");
 }
 
+/// A package command that cannot instantiate is a plain error of `wasmer run`, exit status 1,
+/// not the SIGSEGV an image the guest `execve`s dies of.
+#[test]
+fn run_wasixv2_package_command_that_does_not_instantiate_is_an_error() {
+    let temp = TempDir::new().unwrap();
+    let wat = r#"(module (import "wasixv2" "no_such_call" (func)) (memory (export "memory") 1)
+                 (func (export "_start")))"#;
+    std::fs::write(temp.path().join("bad.wasm"), wat::parse_str(wat).unwrap()).unwrap();
+    std::fs::write(
+        temp.path().join("wasmer.toml"),
+        "[[module]]\nname = \"bad\"\nsource = \"bad.wasm\"\n\n\
+         [[command]]\nname = \"bad\"\nmodule = \"bad\"\nrunner = \"wasi\"\n",
+    )
+    .unwrap();
+    let output = wasmer_command()
+        .arg("run")
+        .arg(temp.path())
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert!(stderr.contains("instantiation failed"), "{stderr}");
+    assert!(!stderr.contains("SIGSEGV"), "{stderr}");
+}
+
 /// The root package's commands win over a dependency's of the same name (`ls`), and a
 /// dependency's commands (`echo` of coreutils, a WASIX v1 program) run from the root's.
 #[test]

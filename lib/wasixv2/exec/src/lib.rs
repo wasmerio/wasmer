@@ -58,6 +58,9 @@ pub enum ExecError {
     Memory(#[from] MemoryError),
     #[error("no registered ABI serves this module")]
     NoAbi,
+    /// The machine's [`Loader`] could not compile the program a process started with.
+    #[error("cannot load the program: {0}")]
+    Load(LoadError),
     #[error("cannot copy a forked process's instance: {0}")]
     Fork(String),
     /// The host panicked while running the process; its thread group was killed.
@@ -212,9 +215,11 @@ where
 
 /// Runs `image`, which the kernel's `kernel_execve` made the image of `task`, a process that ran
 /// none before, as an `execve` of it would run: through `abis` and their loader, then every
-/// image it loads in turn, until it exits. Returns the exit status as [`run`] does; an image that
-/// does not load kills the process with SIGSEGV, as past `execve`'s point of no return.
-/// `engine` is the one the loader is told the process ran on.
+/// image it loads in turn, until it exits. Returns the exit status as [`run`] does. An image the
+/// process's `execve` loads that does not start kills it with SIGSEGV, as past `execve`'s point
+/// of no return; `image` itself is the embedder's program, and when it does not compile
+/// ([`ExecError::Load`]) or instantiate, the process is killed and the error returned, as
+/// [`run`] returns its module's. `engine` is the one the loader is told the process ran on.
 pub async fn run_exec<S>(
     engine: Engine,
     image: Image,
