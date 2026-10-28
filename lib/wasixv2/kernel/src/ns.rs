@@ -108,8 +108,9 @@ pub(crate) struct Common {
     /// which the initial one does not have.
     owner: Option<Arc<UserNs>>,
     /// Its nsfs inode while one is in use (`stashed`), so every open of the namespace finds
-    /// the same inode.
-    pub(crate) stashed: Mutex<Weak<crate::nsfs::NsNode>>,
+    /// the same inode. Held as the VFS sees it: a namespace's own type does not reach back to
+    /// every other namespace through the inode's.
+    pub(crate) stashed: Mutex<Weak<dyn wasixv2_vfs::Node>>,
     /// Where `ino` goes back when the namespace is gone; none for an initial namespace.
     inums: Option<Arc<Inums>>,
 }
@@ -177,7 +178,7 @@ impl<T> Ns<T> {
                 kind,
                 ino: kind.initial_ino(),
                 owner,
-                stashed: Mutex::default(),
+                stashed: Mutex::new(Weak::<crate::nsfs::NsNode>::new()),
                 inums: None,
             },
             inner,
@@ -197,7 +198,7 @@ impl<T> Ns<T> {
                 kind,
                 ino: inums.alloc()?,
                 owner: Some(owner),
-                stashed: Mutex::default(),
+                stashed: Mutex::new(Weak::<crate::nsfs::NsNode>::new()),
                 inums: Some(inums.clone()),
             },
             inner,

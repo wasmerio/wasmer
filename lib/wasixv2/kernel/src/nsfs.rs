@@ -54,7 +54,7 @@ impl Nsfs {
         let node = match stashed.upgrade() {
             Some(node) => node,
             None => {
-                let node = Arc::new(NsNode::new(ns.clone(), self.clock.clone()));
+                let node: Arc<dyn Node> = Arc::new(NsNode::new(ns.clone(), self.clock.clone()));
                 *stashed = Arc::downgrade(&node);
                 node
             }
