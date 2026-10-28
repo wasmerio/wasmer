@@ -18,15 +18,26 @@
 //!
 //! Another process sees a change once both sides passed such a point. A process killed by a
 //! signal writes nothing back: its memory is gone before the kernel could read it.
+//!
+//! `MAP_SHARED | MAP_ANONYMOUS` memory lives in a shared object of the host's
+//! ([`Host::shared_pages`]) whose pages the memory itself shows ([`UserMemory::map_shared`]), so
+//! a fork child and its parent see each other's stores at once, as on Linux. Where the host or
+//! the memory cannot do that, it is ordinary memory of the address space, which a fork child
+//! gets a copy of.
+//!
+//! [`Host::shared_pages`]: wasixv2_host::Host::shared_pages
 
 mod shared;
 
-use std::sync::{
-    Arc, Mutex, MutexGuard,
-    atomic::{AtomicBool, AtomicU64, Ordering},
+use std::{
+    io,
+    sync::{
+        Arc, Mutex, MutexGuard,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
 };
 
-pub(crate) use shared::{Mapping, Object, Shared, Source, Writer};
+pub(crate) use shared::{Mapped, Mapping, Object, Shared, Source, Writer};
 use wasixv2_abi::{
     Buf, Fd, Loff, MadviseAdvice, MapFlags, MclFlags, MlockFlags, MremapFlags, MsyncFlags,
     OpenFlags, ProtFlags, Ulong, Uptr, Usize,
@@ -536,9 +547,8 @@ impl Kernel {
         let kind = flags & MapFlags::MAP_TYPE;
         let source = match file {
             None => match kind {
-                // Shared anonymous memory is ordinary memory within one address space. Wasm
-                // modules cannot share part of their memory, so no other process sees it.
-                MapFlags::MAP_SHARED | MapFlags::MAP_PRIVATE => None,
+                MapFlags::MAP_SHARED => self.shared_anonymous(pages)?,
+                MapFlags::MAP_PRIVATE => None,
                 _ => return Err(Errno::EINVAL.into()),
             },
             Some(file) => Some(check_file_mapping(file, offset, pages, prot, flags)?),
@@ -559,12 +569,28 @@ impl Kernel {
             len: pages * PAGE_SIZE,
             source,
         };
-        if let Err(errno) = mapping.fill(caller.memory()).await {
-            mm.space().unmap(start.into(), pages * PAGE_SIZE);
-            return Err(errno.into());
+        match mapping.fill(caller.memory()).await {
+            Ok(()) => mm.insert(mapping),
+            // Memory that cannot show the object's pages keeps the zeroed pages it has, shared
+            // only within the address space.
+            Err(Errno::EOPNOTSUPP) if mapping.mapped().is_some() => {}
+            Err(errno) => {
+                mm.space().unmap(start.into(), pages * PAGE_SIZE);
+                return Err(errno.into());
+            }
         }
-        mm.insert(mapping);
         Ok(start)
+    }
+
+    /// The object of a new `MAP_SHARED | MAP_ANONYMOUS` mapping of `pages` pages
+    /// (`shmem_zero_setup`), or `None` from a host without shared memory objects: the mapping
+    /// is then ordinary memory of the address space, which no other process sees.
+    fn shared_anonymous(&self, pages: u64) -> Result<Option<Source>, Errno> {
+        match self.host.shared_pages(pages * PAGE_SIZE) {
+            Ok(pages) => Ok(Some(Source::Mapped(Mapped { pages, offset: 0 }))),
+            Err(err) if err.kind() == io::ErrorKind::Unsupported => Ok(None),
+            Err(_) => Err(Errno::ENOMEM),
+        }
     }
 
     /// The open file `mmap` maps: `EBADF` unless `fd` is open, and not just as a location.
@@ -643,13 +669,13 @@ impl Kernel {
         Ok(addr)
     }
 
-    /// `do_vmi_munmap`: writes back the shared mappings in `[start, end)`, drops every mapping
-    /// there and frees the pages. The caller holds `Mm::op`.
+    /// `do_vmi_munmap`: writes back the shared mappings in `[start, end)`, takes mapped objects'
+    /// pages out, drops every mapping there and frees the pages. The caller holds `Mm::op`.
     async fn unmap_range(&self, caller: &Caller<'_>, start: u64, end: u64) {
         let mm = self.mm(caller.task());
         for mut mapping in mm.take_range(start, end) {
             // munmap cannot fail once the range is valid; a file that refuses the data loses it.
-            let _ = mapping.write_back(caller.memory()).await;
+            let _ = mapping.release(caller.memory()).await;
         }
         mm.space().unmap(start, end - start);
     }
@@ -744,8 +770,9 @@ impl Kernel {
     }
 
     /// `mremap` with an old length of 0: a second mapping of the shared mapping at `addr`
-    /// (Linux's "duplicate shm area"). Anonymous shared memory is private here (see `sys_mmap`),
-    /// so like a private mapping it cannot be duplicated. The caller holds `Mm::op`.
+    /// (Linux's "duplicate shm area"). Anonymous shared memory the host could not give an object
+    /// is private here (see `sys_mmap`), so like a private mapping it cannot be duplicated. The
+    /// caller holds `Mm::op`.
     async fn mremap_duplicate(&self, caller: &Caller<'_>, remap: &Remap) -> SysResult<i32> {
         let mm = self.mm(caller.task());
         self.check_mapped(caller, remap.addr, 1)
@@ -754,8 +781,9 @@ impl Kernel {
         let alias = |target: u64| {
             let space = mm.space();
             let mapping = space.mappings.containing(remap.addr)?;
-            mapping.shared()?;
-            Some(mapping.alias(remap.addr - mapping.start, target, remap.new_size))
+            mapping
+                .is_shared()
+                .then(|| mapping.alias(remap.addr - mapping.start, target, remap.new_size))
         };
         if alias(0).is_none() {
             return Err(Errno::EINVAL.into());
@@ -805,8 +833,8 @@ impl Kernel {
 
     /// The mappings of `[from, from + old_len)` follow `mremap` to `to` with `new_len` bytes,
     /// whose memory already holds the old contents: parts past the new length are written back
-    /// and dropped, and a mapping that ended at the old end grows with more of its source. The
-    /// caller holds `Mm::op`.
+    /// and dropped, mapped objects' pages move along, and a mapping that ended at the old end
+    /// grows with more of its source. The caller holds `Mm::op`.
     async fn move_mappings(
         &self,
         caller: &Caller<'_>,
@@ -819,26 +847,31 @@ impl Kernel {
         let mut moved = mm.take_range(from, from + old_len);
         let keep = old_len.min(new_len);
         let mut kept = Vec::new();
+        let mut result = Ok(());
         for mut mapping in moved.drain(..) {
             if mapping.start >= from + keep {
-                let _ = mapping.write_back(caller.memory()).await;
+                let _ = mapping.release(caller.memory()).await;
                 continue;
             }
             if mapping.end() > from + keep {
                 let mut tail = mapping.split_off(from + keep);
-                let _ = tail.write_back(caller.memory()).await;
+                let _ = tail.release(caller.memory()).await;
             }
+            let old = mapping.start;
             mapping.start = mapping.start - from + to;
+            if mapping.start != old {
+                result = result.and(mapping.relocate(caller.memory(), old).await);
+            }
             kept.push(mapping);
         }
         if new_len > old_len
             && let Some(last) = kept.last_mut()
             && last.end() == to + old_len
         {
-            last.grow(caller.memory(), new_len - old_len).await?;
+            result = result.and(last.grow(caller.memory(), new_len - old_len).await);
         }
         mm.restore(kept);
-        Ok(())
+        result
     }
 
     pub(crate) async fn sys_mprotect(
@@ -881,8 +914,8 @@ impl Kernel {
     }
 
     /// `MADV_DONTNEED` drops the pages: anonymous memory reads as zeroes again, a private file
-    /// mapping as the file, and a shared mapping keeps its contents, which are synchronised.
-    /// Every other advice changes nothing.
+    /// mapping as the file, and a shared mapping keeps its contents, which are synchronised
+    /// unless the memory shows the object's pages itself. Every other advice changes nothing.
     pub(crate) async fn sys_madvise(
         &self,
         caller: &Caller<'_>,
@@ -974,9 +1007,10 @@ impl Kernel {
             if mapping.start > at {
                 result = result.and(zero(caller.memory(), at, mapping.start - at).await);
             }
-            let refreshed = match mapping.shared() {
-                Some(_) => mapping.sync(caller.memory()).await,
-                None => mapping.fill(caller.memory()).await,
+            let refreshed = match &mapping.source {
+                Source::Shared(_) => mapping.sync(caller.memory()).await,
+                Source::Mapped(_) => Ok(()),
+                Source::Private { .. } => mapping.fill(caller.memory()).await,
             };
             result = result.and(refreshed);
             at = mapping.end();
@@ -1161,7 +1195,7 @@ impl Kernel {
         };
         let parts = mm.space().mappings.take_where(same);
         for mut part in parts {
-            let _ = part.write_back(caller.memory()).await;
+            let _ = part.release(caller.memory()).await;
             mm.space().unmap(part.start, part.len);
         }
         let any = mm.space().mappings.any_shared();

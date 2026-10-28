@@ -22,9 +22,16 @@
 //! past the end read as zeroes instead of raising `SIGBUS`.
 //!
 //! Where synchronisation happens is described with the callers in `mm.rs` and `ipc/shm.rs`.
+//!
+//! A **mapped** object is the exception: where the host can place a shared object's pages
+//! inside a linear memory ([`UserMemory::map_shared`]), a mapping of it is those very pages, as
+//! every other mapping of it in any process is, and there is nothing to copy or synchronise. So
+//! are `MAP_SHARED | MAP_ANONYMOUS` mappings (Linux's `shmem_zero_setup`). Making, moving and
+//! removing such a mapping places the object's pages in the range and takes them out again.
 
 use std::{ops::Range, sync::Arc};
 
+use wasixv2_pages::SharedPages;
 use wasixv2_syscalls::{Errno, UserMemory};
 
 use wasixv2_vfs::Inode;
@@ -47,6 +54,31 @@ pub(crate) enum Source {
     Private { file: Arc<OpenFile>, offset: u64 },
     /// A mapping the object's other users see changes of.
     Shared(Shared),
+    /// A shared object whose pages the memory shows itself.
+    Mapped(Mapped),
+}
+
+/// A mapping of a shared object's pages ([`UserMemory::map_shared`]).
+#[derive(Clone)]
+pub(crate) struct Mapped {
+    pub(crate) pages: Arc<dyn SharedPages>,
+    /// Where in the object the mapping starts.
+    pub(crate) offset: u64,
+}
+
+impl Mapped {
+    fn part(&self, skip: u64) -> Self {
+        Self {
+            pages: self.pages.clone(),
+            offset: self.offset + skip,
+        }
+    }
+
+    /// Places `len` bytes of the object from the mapping's offset at `start`.
+    async fn attach(&self, memory: &dyn UserMemory, start: u64, len: u64) -> Result<(), Errno> {
+        let at = u32::try_from(start).map_err(|_| Errno::ENOMEM)?;
+        memory.map_shared(at, len, &*self.pages, self.offset).await
+    }
 }
 
 pub(crate) struct Shared {
@@ -233,11 +265,53 @@ impl Mapping {
         self.start + self.len
     }
 
+    /// The synchronised side of a shared mapping kept as a copy.
     pub(crate) fn shared(&self) -> Option<&Shared> {
         match &self.source {
             Source::Shared(shared) => Some(shared),
-            Source::Private { .. } => None,
+            Source::Private { .. } | Source::Mapped(_) => None,
         }
+    }
+
+    pub(crate) fn mapped(&self) -> Option<&Mapped> {
+        match &self.source {
+            Source::Mapped(mapped) => Some(mapped),
+            Source::Private { .. } | Source::Shared(_) => None,
+        }
+    }
+
+    /// Whether the mapping shows an object other mappings share, copied or mapped.
+    pub(crate) fn is_shared(&self) -> bool {
+        !matches!(self.source, Source::Private { .. })
+    }
+
+    /// What `munmap` does with the mapping's memory before the pages are free: a copied shared
+    /// mapping is written back, and a mapped object's pages leave the range, which holds
+    /// zeroed private pages again.
+    pub(crate) async fn release(&mut self, memory: &dyn UserMemory) -> Result<(), Errno> {
+        match &self.source {
+            Source::Private { .. } => Ok(()),
+            Source::Shared(_) => self.write_back(memory).await,
+            Source::Mapped(_) => {
+                let at = u32::try_from(self.start).map_err(|_| Errno::EFAULT)?;
+                memory.unmap_shared(at, self.len).await
+            }
+        }
+    }
+
+    /// The mapping moved here from `from` (`mremap`), with its memory copied over. A mapped
+    /// object's pages follow it: they are placed at the new address, and leave the old one.
+    pub(crate) async fn relocate(
+        &mut self,
+        memory: &dyn UserMemory,
+        from: u64,
+    ) -> Result<(), Errno> {
+        let Source::Mapped(mapped) = &self.source else {
+            return Ok(());
+        };
+        mapped.attach(memory, self.start, self.len).await?;
+        let at = u32::try_from(from).map_err(|_| Errno::EFAULT)?;
+        memory.unmap_shared(at, self.len).await
     }
 
     /// Splits off the part from `at` on, which must lie inside the mapping.
@@ -253,6 +327,7 @@ impl Mapping {
                 generation: shared.generation,
                 ..shared.part(cut)
             }),
+            Source::Mapped(mapped) => Source::Mapped(mapped.part(cut)),
         };
         let rest = Mapping {
             start: at,
@@ -341,7 +416,8 @@ impl Mapping {
     }
 
     /// Fills the mapping's memory from its source, as a new mapping, or pages a private mapping
-    /// dropped, read.
+    /// dropped, read. A mapped object's pages are placed in the range instead, which fails with
+    /// `EOPNOTSUPP` where the memory cannot show them.
     pub(crate) async fn fill(&mut self, memory: &dyn UserMemory) -> Result<(), Errno> {
         let mut data = vec![0; self.len as usize];
         match &mut self.source {
@@ -352,6 +428,7 @@ impl Mapping {
                 (_, shared.generation) = shared.object.read(shared.offset, &mut data).await?;
                 shared.shadow = data.clone();
             }
+            Source::Mapped(mapped) => return mapped.attach(memory, self.start, self.len).await,
         }
         let at = u32::try_from(self.start).map_err(|_| Errno::ENOMEM)?;
         memory.write(at, &data).await.map_err(|_| Errno::EFAULT)?;
@@ -367,13 +444,25 @@ impl Mapping {
                 offset: offset + skip,
             },
             Source::Shared(shared) => Source::Shared(shared.part(skip)),
+            Source::Mapped(mapped) => Source::Mapped(mapped.part(skip)),
         };
         Mapping { start, len, source }
     }
 
     /// Grows the mapping by `extra` bytes at its end, which `mremap` already took, and fills
-    /// them from the source.
+    /// them from the source. A mapped object grows only as far as the object reaches: the
+    /// pages past its end stay anonymous memory that reads zero, where Linux raises `SIGBUS`.
     pub(crate) async fn grow(&mut self, memory: &dyn UserMemory, extra: u64) -> Result<(), Errno> {
+        let extra = match &self.source {
+            Source::Mapped(mapped) => {
+                let left = mapped.pages.size().saturating_sub(mapped.offset + self.len);
+                extra.min(left)
+            }
+            Source::Private { .. } | Source::Shared(_) => extra,
+        };
+        if extra == 0 {
+            return Ok(());
+        }
         let mut tail = self.alias(self.len, self.end(), extra);
         tail.fill(memory).await?;
         if let (Source::Shared(shared), Source::Shared(tail)) = (&mut self.source, tail.source) {
@@ -512,6 +601,7 @@ impl Mappings {
                         writable: shared.writable,
                         writer: shared.writer.clone(),
                     }),
+                    Source::Mapped(mapped) => Source::Mapped(mapped.clone()),
                 },
             })
             .collect();
