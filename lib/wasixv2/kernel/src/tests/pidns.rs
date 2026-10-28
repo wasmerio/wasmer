@@ -815,7 +815,10 @@ fn an_init_whose_pids_could_not_all_be_made_is_no_init() {
         Some(SysErr::Errno(Errno::EAGAIN))
     );
     // Room for more.
-    assert_eq!(echo(&kernel, &init, "/proc/sys/kernel/pid_max", "400"), Ok(3));
+    assert_eq!(
+        echo(&kernel, &init, "/proc/sys/kernel/pid_max", "400"),
+        Ok(3)
+    );
 
     let (nested, outside) = fork(&kernel, &init, 0).unwrap();
     assert_eq!(outside, 301);
