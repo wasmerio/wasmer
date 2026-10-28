@@ -16,7 +16,11 @@
 //! through a mapping are not charged to the filesystem's space, as there is no page fault to
 //! charge them at.
 
-use std::{collections::BTreeMap, io, sync::Arc};
+use std::{
+    collections::{BTreeMap, btree_map::Entry},
+    io,
+    sync::Arc,
+};
 
 use wasixv2_abi::Errno;
 use wasixv2_pages::{Provider, Seek, SharedPages};
@@ -198,14 +202,16 @@ impl Data {
         let Store::Heap(blocks) = &mut self.store else {
             return None;
         };
-        if !blocks.contains_key(&index) {
-            if !self.alloc.contains(index) {
-                space.charge_blocks(1).ok()?;
-                self.alloc.insert(index, index + 1);
+        match blocks.entry(index) {
+            Entry::Occupied(block) => Some(block.into_mut()),
+            Entry::Vacant(block) => {
+                if !self.alloc.contains(index) {
+                    space.charge_blocks(1).ok()?;
+                    self.alloc.insert(index, index + 1);
+                }
+                Some(block.insert(vec![0; BLOCK as usize].into_boxed_slice()))
             }
-            blocks.insert(index, vec![0; BLOCK as usize].into_boxed_slice());
         }
-        blocks.get_mut(&index)
     }
 
     /// The size grows to `size`: in a shared object, whole pages past the old end that a
