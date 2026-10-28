@@ -297,7 +297,8 @@ impl Kernel {
     ) -> Result<std::sync::Arc<Process>, Errno> {
         match pid {
             0 => Ok(self.process(caller.task())),
-            pid if pid < 0 => Err(Errno::EINVAL),
+            // `find_task_by_vpid`: no process has a negative pid.
+            pid if pid < 0 => Err(Errno::ESRCH),
             // ---- proc ----
             pid => self.procs.find(pid as u32).ok_or(Errno::ESRCH),
         }
