@@ -36,7 +36,7 @@ pub use memfd::Memfd;
 #[cfg(unix)]
 mod map;
 #[cfg(unix)]
-pub use map::{map_at, map_private_at};
+pub use map::{drop_private, map_at, map_private_at};
 
 /// A shared memory object: bytes several processes map, which stay as long as anyone holds the
 /// object.

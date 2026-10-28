@@ -2,9 +2,12 @@
 //!
 //! Linear memory only grows, so `brk` and `mmap` hand out pages above everything the image owns
 //! (its data, stack and heap) and grow memory when no unmapped run fits. `munmap` returns pages
-//! for reuse by later mappings, which are zeroed then. Wasm has no page protection: unmapped
-//! pages stay accessible and `mprotect` changes nothing, except that executable memory is
-//! refused, since wasm cannot run code generated at run time.
+//! for reuse by later mappings, which are zeroed then, by dropping them where the memory can
+//! ([`UserMemory::zero_pages`]), so a page no one wrote takes no host memory however often it is
+//! mapped, as on Linux, where even a large `PROT_NONE` mapping costs nothing until it is
+//! touched. Wasm has no page protection: unmapped pages stay accessible and `mprotect` changes
+//! nothing, except that executable memory is refused, since wasm cannot run code generated at
+//! run time.
 //!
 //! File mappings and SysV segment attachments are copies kept coherent at defined points (see
 //! [`shared`]). A shared file mapping is synchronised with its file:
@@ -420,20 +423,12 @@ impl AddressSpace {
     }
 }
 
-/// Zeroes `[addr, addr + len)`, as a fresh anonymous mapping must read.
+/// Zeroes `[addr, addr + len)`, private pages of the address space, as a fresh anonymous mapping
+/// must read. Where the memory can, the pages are dropped rather than written
+/// ([`UserMemory::zero_pages`]), so reusing pages no one touched commits no host memory.
 pub(crate) async fn zero(memory: &dyn UserMemory, addr: u64, len: u64) -> Result<(), Errno> {
-    let zeroes = vec![0; PAGE_SIZE as usize];
-    let mut pos = addr;
-    while pos < addr + len {
-        let n = (addr + len - pos).min(PAGE_SIZE);
-        let at = u32::try_from(pos).map_err(|_| Errno::ENOMEM)?;
-        memory
-            .write(at, &zeroes[..n as usize])
-            .await
-            .map_err(|_| Errno::ENOMEM)?;
-        pos += n;
-    }
-    Ok(())
+    let at = u32::try_from(addr).map_err(|_| Errno::ENOMEM)?;
+    memory.zero_pages(at, len).await.map_err(|_| Errno::ENOMEM)
 }
 
 /// Copies `len` bytes from `from` to `to`, which do not overlap.

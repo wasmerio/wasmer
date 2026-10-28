@@ -103,6 +103,28 @@ pub trait UserMemory {
         Box::pin(async { Err(Errno::EOPNOTSUPP) })
     }
 
+    /// Makes `[addr, addr + len)`, whole pages of the memory's own private memory (no shared
+    /// object shows there), read zero, as fresh anonymous pages do. Fails with [`Fault`] where
+    /// [`UserMemory::write`] would.
+    ///
+    /// The default writes zeros. Memory that can give the range fresh pages instead does
+    /// (`MADV_DONTNEED` on a Linux host), so pages no one wrote never take host memory: a
+    /// mapping that reuses unmapped pages costs no more than one that grows memory.
+    fn zero_pages(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Fault>> {
+        Box::pin(async move {
+            let zeroes = vec![0; WASM_PAGE_SIZE as usize];
+            let end = u64::from(addr) + len;
+            let mut pos = u64::from(addr);
+            while pos < end {
+                let n = (end - pos).min(WASM_PAGE_SIZE);
+                let at = u32::try_from(pos).map_err(|_| Fault)?;
+                self.write(at, &zeroes[..n as usize]).await?;
+                pos += n;
+            }
+            Ok(())
+        })
+    }
+
     /// Replaces the `u32` at `addr`, which is 4-byte aligned, with `new` if it holds `expected`,
     /// and returns what it held (`futex_atomic_cmpxchg_inatomic`). The futex code relies on
     /// this to change a futex word under the feet of guest threads.
