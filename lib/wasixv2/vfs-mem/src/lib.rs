@@ -101,6 +101,9 @@ struct Shared {
     space: Space,
     /// Makes the shared memory objects regular files keep their data in, if they do.
     pages: OnceLock<Arc<dyn Provider>>,
+    /// The root's permission bits and owner as the filesystem was made with them
+    /// (`shmem_sb_info`'s `mode`, `uid` and `gid`), which its options show.
+    root_owner: (u32, u32, u32),
 }
 
 impl Shared {
@@ -206,6 +209,7 @@ impl MemFs {
             next_ino: AtomicU64::new(1),
             space: Space::new(limits),
             pages: OnceLock::new(),
+            root_owner: (mode & 0o7777, uid, gid),
         });
         let root = NewNode {
             kind: NewKind::Directory,
@@ -292,6 +296,31 @@ impl Filesystem for MemFs {
             (stat.files, stat.files_free) = (max, free / INODE_SIZE);
         }
         Ok(stat)
+    }
+
+    /// `shmem_show_options`: the size and inode limits that are not the defaults, and the
+    /// root's mode and owner that are not `1777` and root's.
+    fn show_options(&self, out: &mut Vec<u8>) {
+        let space = &self.shared.space;
+        let defaults = Limits::default();
+        let max_bytes = space.max_blocks.load(Ordering::Relaxed) * BLOCK;
+        if Some(max_bytes) != defaults.max_bytes {
+            out.extend_from_slice(format!(",size={}k", max_bytes / 1024).as_bytes());
+        }
+        let max_inodes = space.max_inodes.load(Ordering::Relaxed);
+        if Some(max_inodes) != defaults.max_inodes {
+            out.extend_from_slice(format!(",nr_inodes={max_inodes}").as_bytes());
+        }
+        let (mode, uid, gid) = self.shared.root_owner;
+        if mode != 0o1777 {
+            out.extend_from_slice(format!(",mode={mode:03o}").as_bytes());
+        }
+        if uid != 0 {
+            out.extend_from_slice(format!(",uid={uid}").as_bytes());
+        }
+        if gid != 0 {
+            out.extend_from_slice(format!(",gid={gid}").as_bytes());
+        }
     }
 }
 

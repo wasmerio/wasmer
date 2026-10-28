@@ -38,6 +38,11 @@ pub trait Filesystem: Send + Sync {
         Ok(())
     }
 
+    /// Appends the filesystem's own options, each as `,key[=value]`, as `mountinfo`,
+    /// `/proc/<pid>/mounts` and `statmount` show them (`show_options`). By default there are
+    /// none.
+    fn show_options(&self, _out: &mut Vec<u8>) {}
+
     /// The name `d_path` gives an object of this filesystem instead of its path (`d_dname`),
     /// for filesystems that are mounted nowhere, whose objects have no path: `pipe:[ino]`,
     /// `anon_inode:[eventfd]`. `name` is the name the object was given when its path was made.
