@@ -833,3 +833,95 @@ fn terminate_kills_every_process_and_waits_for_their_tasks() {
     kernel.release_task(task);
     assert_eq!(terminate.now_or_never(), Some(()));
 }
+
+// ---- a signal before the call that would hide it ----
+
+/// A process signal that only a thread on its way out takes (`pthread_exit` blocks every
+/// signal first) reaches that thread before its mask hides it: the `sigprocmask` makes way for
+/// the handler and runs again after it, as Linux's kick of a running task would have run the
+/// handler before the call. Otherwise nothing takes the signal (`pthread_once/6-1` hung on it,
+/// its sender waiting for the handler forever).
+#[test]
+fn sigprocmask_lets_a_pending_signal_it_would_block_be_taken_first() {
+    let (kernel, task, _) = machine();
+    let memory = stack_memory();
+    let caller = Caller::new(task, &memory);
+    let usr1 = 1 << (Signal::SIGUSR1.0 - 1);
+    handle(&kernel, &caller, Signal::SIGUSR1, 0);
+    let thread = spawn_thread(&kernel, &caller);
+    let thread_caller = Caller::new(thread, &memory);
+    block(&kernel, &caller, usr1);
+    let me = task.0 as Pid;
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, me, Signal::SIGUSR1)),
+        Ok(0)
+    );
+
+    block_on(write_value(&memory, GuestPtrMut::new(0x160), &sigset(usr1))).unwrap();
+    let block_usr1 = || {
+        let how = SigprocmaskHow::SIG_BLOCK;
+        let set = GuestPtr::new(0x160);
+        block_on(kernel.rt_sigprocmask(&thread_caller, how, set, GuestPtrMut::NULL, 8))
+    };
+    assert_eq!(block_usr1(), Err(SysErr::RestartNoIntr));
+    assert!(kernel.work_flag(thread).is_raised());
+    let frame = match kernel.take_pending(thread) {
+        Some(GuestAction::Signal(frame)) => frame,
+        other => panic!("expected the handler first, got {other:?}"),
+    };
+    assert_eq!(frame.signo(), Signal::SIGUSR1.0);
+    kernel.signal_return(thread, Some(frame.mask));
+
+    assert_eq!(block_usr1(), Ok(0), "nothing pending any more");
+    assert_eq!(kernel.task_signals(thread).blocked(), usr1);
+    // A signal sent once the mask hides it waits, as on Linux.
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, me, Signal::SIGUSR1)),
+        Ok(0)
+    );
+    assert_eq!(block_usr1(), Ok(0));
+}
+
+/// The same for `sigaction` setting `SIG_IGN`, which discards the pending signal: the handler
+/// it replaces takes the signal first.
+#[test]
+fn ignoring_a_signal_the_caller_could_take_lets_its_handler_run_first() {
+    let (kernel, task, _) = machine();
+    let memory = stack_memory();
+    let caller = Caller::new(task, &memory);
+    handle(&kernel, &caller, Signal::SIGUSR1, 0);
+    let me = task.0 as Pid;
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, me, Signal::SIGUSR1)),
+        Ok(0)
+    );
+
+    let act = Sigaction {
+        sa_handler: wasixv2_abi::SignalHandler::SIG_IGN.0 as u32,
+        sa_flags: 0,
+        sa_mask: Sigset { sig: [0; 2] },
+    };
+    block_on(write_value(&memory, GuestPtrMut::new(0x180), &act)).unwrap();
+    let set_ignore = || {
+        let set = GuestPtr::new(0x180);
+        block_on(kernel.rt_sigaction(&caller, Signal::SIGUSR1, set, GuestPtrMut::NULL, 8))
+    };
+    assert_eq!(set_ignore(), Err(SysErr::RestartNoIntr));
+    assert!(matches!(
+        kernel.take_pending(task),
+        Some(GuestAction::Signal(SignalFrame { handler: 7, .. }))
+    ));
+    kernel.signal_return(task, Some(0));
+    assert_eq!(set_ignore(), Ok(0));
+
+    // Blocked, the signal is the caller's to discard.
+    let usr1 = 1 << (Signal::SIGUSR1.0 - 1);
+    block(&kernel, &caller, usr1);
+    handle(&kernel, &caller, Signal::SIGUSR1, 0);
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, me, Signal::SIGUSR1)),
+        Ok(0)
+    );
+    assert_eq!(set_ignore(), Ok(0));
+    assert!(take(&kernel, &caller, Signal::SIGUSR1.0).is_none());
+}
