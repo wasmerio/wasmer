@@ -265,9 +265,14 @@ impl Kernel {
         };
         if process.pid == child {
             self.exit_files(&process);
-            let mut tree = self.procs.tree.lock().unwrap();
-            tree.nodes.remove(&child.0);
-            tree.vforks.remove(&child);
+            let vfork_parent = {
+                let mut tree = self.procs.tree.lock().unwrap();
+                tree.nodes.remove(&child.0);
+                tree.vforks.remove(&child)
+            };
+            if let Some(parent) = vfork_parent {
+                self.vfork_done(parent);
+            }
         }
         forget_task(&mut self.state.lock().unwrap(), child);
     }
@@ -379,25 +384,35 @@ impl Kernel {
     /// is seen, and its shared mappings are written back by then. A vfork child's leader is the
     /// exception: its memory is its parent's, which it never writes back, and its end runs in
     /// the parent's instance as the parent's return ([`GuestAction::VforkReturn`]), which
-    /// releases its memory there. A leader waiting for its vfork child counts as running: its
-    /// instance resumes it once the child is done, and it unwinds through its exit from there.
+    /// releases its memory there. A task waiting for its vfork child whose image ended is gone
+    /// already, as Linux's killable `wait_for_vfork_done` lets it exit: its instance runs the
+    /// child, and once the child is done goes back to the task, which leaves the memory as it
+    /// unwinds through its exit. A task waiting for its vfork child otherwise counts as running.
     fn exit_notify(&self, process: &Arc<Process>) {
         let Some(status) = process.group.status() else {
             return;
         };
-        let (others, leader_in_memory) = {
-            let state = self.state.lock().unwrap();
-            let others = state
-                .tasks
-                .iter()
-                .any(|(&id, t)| id != process.pid && Arc::ptr_eq(&t.process, process));
-            let leader = state.tasks.get(&process.pid);
-            let leader_in_memory =
-                leader.is_some_and(|t| Arc::ptr_eq(&t.process, process) && !t.thread.left_mm);
-            (others, leader_in_memory)
+        let waiting: Vec<TaskId> = {
+            let tree = self.procs.tree.lock().unwrap();
+            tree.vforks.values().copied().collect()
         };
-        let leader_running = leader_in_memory && !self.vfork_child(process.pid);
-        if !others && !leader_running && !self.vfork_waits(process.pid) {
+        let vfork_child = self.vfork_child(process.pid);
+        let (others, leader_runs) = {
+            let state = self.state.lock().unwrap();
+            let gone = |id: &TaskId, t: &Task| waiting.contains(id) && t.work.ends_image();
+            let others = state.tasks.iter().any(|(id, t)| {
+                *id != process.pid && Arc::ptr_eq(&t.process, process) && !gone(id, t)
+            });
+            let leader_runs = state.tasks.get(&process.pid).is_some_and(|t| {
+                if waiting.contains(&process.pid) {
+                    !gone(&process.pid, t)
+                } else {
+                    Arc::ptr_eq(&t.process, process) && !t.thread.left_mm && !vfork_child
+                }
+            });
+            (others, leader_runs)
+        };
+        if !others && !leader_runs {
             // ---- ipc ----
             // `exit_sem`, by the group's last task.
             self.ipc_process_exited(process.pid.0);
@@ -614,6 +629,9 @@ impl Kernel {
     /// parent once it takes the image; the parent returns from vfork unless its image ended.
     pub(crate) fn hand_image(&self, task: TaskId, image: Image) {
         let vfork_parent = self.procs.tree.lock().unwrap().vforks.remove(&task);
+        if let Some(parent) = vfork_parent {
+            self.vfork_done(parent);
+        }
         let vfork_parent = vfork_parent.map(|task| VforkParent {
             task,
             resumes: true,

@@ -83,7 +83,7 @@ fn a_vfork_behind_an_exit_forgets_its_child() {
     assert_eq!(kernel.take_pending(task), None);
     assert!(!live(&kernel, child));
     assert!(kernel.procs.find(child.0).is_none());
-    assert!(!kernel.vfork_waits(task));
+    assert!(kernel.procs.tree.lock().unwrap().vforks.is_empty());
 }
 
 #[test]

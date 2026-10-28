@@ -291,6 +291,10 @@ struct TaskState {
     /// frame saved in `uc_stack`, which its sigreturn restores (`restore_altstack`), re-arming
     /// a stack that `SS_AUTODISARM` disarmed for the handler.
     frames: Vec<AltStack>,
+    /// The vfork child running in this task's instance while the task waits for it, with the
+    /// child's signal state: a fatal signal for the task wakes the child, whose next return to
+    /// the guest ends this task's group (`wait_for_vfork_done` is `TASK_KILLABLE`).
+    vfork_child: Option<(Arc<Signals>, TaskId)>,
 }
 
 impl TaskState {
@@ -303,6 +307,7 @@ impl TaskState {
             pending: Pending::default(),
             altstack: inherited.altstack,
             frames: Vec::new(),
+            vfork_child: None,
         }
     }
 }
@@ -593,8 +598,12 @@ impl Signals {
         let target = task.filter(|task| state.tasks.contains_key(task));
         state.pending(target).add(info, charge)?;
         state.raise(target, info.si_signo);
+        let vfork_children = state.killed_vfork_children(target, info.si_signo);
         drop(state);
         self.queue.wake(wasixv2_wait::PollMask::empty());
+        for (signals, child) in vfork_children {
+            signals.notify(child);
+        }
         Ok(true)
     }
 
@@ -773,6 +782,21 @@ impl GroupState {
                 }
             }
         }
+    }
+
+    /// The vfork children to wake for `sig`, just queued for `task` or for the group with
+    /// `None`: those of the tasks it kills while they wait for them, as a fatal signal ends a
+    /// killable wait.
+    fn killed_vfork_children(&self, task: Option<TaskId>, sig: i32) -> Vec<(Arc<Signals>, TaskId)> {
+        let action = self.actions[sig as usize - 1];
+        if !action.is_default() || !matches!(default_action(sig), DefaultAction::Terminate) {
+            return Vec::new();
+        }
+        self.tasks
+            .iter()
+            .filter(|(id, t)| task.is_none_or(|task| task == **id) && t.blocked & bit(sig) == 0)
+            .filter_map(|(_, t)| t.vfork_child.clone())
+            .collect()
     }
 
     /// `posixtimer_sig_unignore`: `sig` is caught again, so the periodic timers that fired
@@ -1001,6 +1025,13 @@ impl TaskSignals {
         let _ = self
             .group
             .send(Some(self.task), kernel_info(Signal::SIGKILL.0));
+    }
+
+    /// Records the vfork child the task waits for, or with `None` that it waits no more.
+    pub(crate) fn set_vfork_child(&self, child: Option<(Arc<Signals>, TaskId)>) {
+        if let Some(task) = self.group.state.lock().unwrap().tasks.get_mut(&self.task) {
+            task.vfork_child = child;
+        }
     }
 
     /// Removes the task from its group once it is gone (`__exit_signal`).
