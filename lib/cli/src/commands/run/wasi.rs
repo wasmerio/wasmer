@@ -125,8 +125,9 @@ pub struct Wasi {
     #[clap(long = "domainname")]
     pub(crate) domainname: Option<String>,
 
-    /// The kernel release the guest sees (`uname -r`), e.g. for programs that insist on a
-    /// Linux version. The default is the WASIX v2 ABI version.
+    /// The kernel release the guest sees (`uname -r`), e.g. for programs that insist on
+    /// another Linux version. The default is the Linux version of the UAPI headers WASIX v2's
+    /// libc ships.
     #[clap(long = "uname-release")]
     pub(crate) uname_release: Option<String>,
 
