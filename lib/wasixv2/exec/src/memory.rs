@@ -404,8 +404,41 @@ impl<S> ExecEnv<S> {
         unmap_shared(memory, layout, store, addr, len)
     }
 
-    /// [`read`] of the instance's memory.
+    /// Whether the kernel may copy `len` bytes at `addr`, reading or with `write` writing, as
+    /// its address space's page map says ([`wasixv2_syscalls::PageAccess::check`]).
+    #[inline]
+    fn check_access(&self, addr: u32, len: usize, write: bool) -> Result<(), Fault> {
+        match &self.page_access {
+            Some(access) => access.check(addr, len, write),
+            None => Ok(()),
+        }
+    }
+
+    /// [`read`] of the instance's memory, where the page map allows it.
     pub(crate) fn read_memory(
+        &self,
+        store: &impl AsStoreRef,
+        addr: u32,
+        buf: &mut [u8],
+    ) -> Result<(), Fault> {
+        self.check_access(addr, buf.len(), false)?;
+        self.force_read_memory(store, addr, buf)
+    }
+
+    /// [`write`] to the instance's memory, where the page map allows it.
+    pub(crate) fn write_memory(
+        &self,
+        store: &impl AsStoreRef,
+        addr: u32,
+        bytes: &[u8],
+    ) -> Result<(), Fault> {
+        self.check_access(addr, bytes.len(), true)?;
+        self.force_write_memory(store, addr, bytes)
+    }
+
+    /// [`read`] of the instance's memory whatever the page map says
+    /// ([`UserMemory::force_read`]).
+    pub(crate) fn force_read_memory(
         &self,
         store: &impl AsStoreRef,
         addr: u32,
@@ -415,8 +448,9 @@ impl<S> ExecEnv<S> {
         read(memory, store, addr, buf)
     }
 
-    /// [`write`] to the instance's memory.
-    pub(crate) fn write_memory(
+    /// [`write`] to the instance's memory whatever the page map says
+    /// ([`UserMemory::force_write`]).
+    pub(crate) fn force_write_memory(
         &self,
         store: &impl AsStoreRef,
         addr: u32,
@@ -470,6 +504,26 @@ fn write_at<S: 'static>(
     data.write_memory(&store, addr, bytes)
 }
 
+/// [`read_at`] whatever the page map says.
+fn force_read_at<S: 'static>(
+    env: &AsyncFunctionEnvHandle<ExecEnv<S>>,
+    addr: u32,
+    buf: &mut [u8],
+) -> Result<(), Fault> {
+    let (data, store) = env.data_and_store();
+    data.force_read_memory(&store, addr, buf)
+}
+
+/// [`write_at`] whatever the page map says.
+fn force_write_at<S: 'static>(
+    env: &AsyncFunctionEnvHandle<ExecEnv<S>>,
+    addr: u32,
+    bytes: &[u8],
+) -> Result<(), Fault> {
+    let (data, store) = env.data_and_store();
+    data.force_write_memory(&store, addr, bytes)
+}
+
 /// Copies happen at once when the store is free, as it is while the guest waits for its own
 /// import, so they allocate nothing ([`copied`]); they wait for the store otherwise.
 impl<S: 'static> UserMemory for GuestMemory<'_, S> {
@@ -493,6 +547,24 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
             let (data, store) = env.data_and_store();
             data.zero_memory(&store, addr, len)
         })
+    }
+
+    fn force_read<'a>(
+        &'a self,
+        addr: u32,
+        buf: &'a mut [u8],
+    ) -> LocalFuture<'a, Result<(), Fault>> {
+        match self.env.try_read() {
+            Some(env) => copied(force_read_at(&env, addr, buf)),
+            None => Box::pin(async move { force_read_at(&self.env.read().await, addr, buf) }),
+        }
+    }
+
+    fn force_write<'a>(&'a self, addr: u32, bytes: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        match self.env.try_read() {
+            Some(env) => copied(force_write_at(&env, addr, bytes)),
+            None => Box::pin(async move { force_write_at(&self.env.read().await, addr, bytes) }),
+        }
     }
 
     fn size(&self) -> LocalFuture<'_, u64> {
@@ -537,6 +609,7 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
             let (data, store) = env.data_and_store_mut();
             let memory = data.memory.as_ref().ok_or(Fault)?;
             let view = memory.view(&*store);
+            data.check_access(addr, 4, true)?;
             let outside = u64::from(addr) + 4 > view.data_size();
             let read_only = data.read_only.ranges();
             let protected = in_guard(data.low_guard, addr, 4) || in_read_only(&read_only, addr, 4);
@@ -613,6 +686,24 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
         Box::pin(
             self.cx
                 .with(move |data, store| data.zero_memory(&*store, addr, len)),
+        )
+    }
+
+    fn force_read<'a>(
+        &'a self,
+        addr: u32,
+        buf: &'a mut [u8],
+    ) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(
+            self.cx
+                .with(move |data, store| data.force_read_memory(&*store, addr, buf)),
+        )
+    }
+
+    fn force_write<'a>(&'a self, addr: u32, bytes: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(
+            self.cx
+                .with(move |data, store| data.force_write_memory(&*store, addr, bytes)),
         )
     }
 

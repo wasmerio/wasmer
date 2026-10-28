@@ -1,6 +1,11 @@
 use std::{
     future::Future,
+    ops::Range,
     pin::Pin,
+    sync::{
+        PoisonError, RwLock,
+        atomic::{AtomicBool, Ordering},
+    },
     task::{Context, Poll},
 };
 
@@ -35,10 +40,29 @@ impl<const OK: bool> Future for Copied<OK> {
     }
 }
 
-/// The calling task's address space, read and written the way Linux's `copy_{from,to}_user` do.
+/// The calling task's address space, read and written the way Linux's `copy_{from,to}_user` do:
+/// a copy that touches a page its address space's [`PageAccess`] keeps from it faults.
 pub trait UserMemory {
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>>;
     fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>>;
+
+    /// [`UserMemory::read`] whatever the pages' protection, as the kernel reads a mapping's
+    /// pages on its own behalf (`FOLL_FORCE`): to write a file mapping back, to move pages.
+    /// Only what lies outside the memory faults.
+    fn force_read<'a>(
+        &'a self,
+        addr: u32,
+        buf: &'a mut [u8],
+    ) -> LocalFuture<'a, Result<(), Fault>> {
+        self.read(addr, buf)
+    }
+
+    /// [`UserMemory::write`] whatever the pages' protection (`FOLL_FORCE`): to fill a mapping
+    /// with its file, to move pages. What the host itself cannot write (the low guard, a
+    /// read-only view of a shared object) still faults.
+    fn force_write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.write(addr, data)
+    }
     /// Size of the address space in bytes.
     fn size(&self) -> LocalFuture<'_, u64>;
     /// Grows the address space by `pages` wasm pages of 64 KiB and returns its previous size in
@@ -104,8 +128,9 @@ pub trait UserMemory {
     }
 
     /// Makes `[addr, addr + len)`, whole pages of the memory's own private memory (no shared
-    /// object shows there), read zero, as fresh anonymous pages do. Fails with [`Fault`] where
-    /// [`UserMemory::write`] would.
+    /// object shows there), read zero, as fresh anonymous pages do, whatever their protection
+    /// (the kernel's own fill, as [`UserMemory::force_write`]). Fails with [`Fault`] where
+    /// [`UserMemory::force_write`] would.
     ///
     /// The default writes zeros. Memory that can give the range fresh pages instead does
     /// (`MADV_DONTNEED` on a Linux host), so pages no one wrote never take host memory: a
@@ -118,7 +143,7 @@ pub trait UserMemory {
             while pos < end {
                 let n = (end - pos).min(WASM_PAGE_SIZE);
                 let at = u32::try_from(pos).map_err(|_| Fault)?;
-                self.write(at, &zeroes[..n as usize]).await?;
+                self.force_write(at, &zeroes[..n as usize]).await?;
                 pos += n;
             }
             Ok(())
@@ -147,6 +172,75 @@ pub trait UserMemory {
             }
             Ok(current)
         })
+    }
+}
+
+/// What the kernel's copies may do with the pages of an address space: the page map's verdict,
+/// which the kernel keeps up to date and every [`UserMemory`] of the address space checks
+/// before a copy, as Linux's `copy_from_user` and `copy_to_user` fault on a page that is not
+/// mapped or whose protection forbids the access. Only the ranges the kernel knows to be
+/// restricted are recorded: pages it never handed out, such as memory the guest grew itself,
+/// are readable and writable. The guest's own loads and stores are not checked, as wasm has no
+/// page protection.
+#[derive(Debug, Default)]
+pub struct PageAccess {
+    /// Whether any range is restricted, so the common case takes no lock.
+    restricted: AtomicBool,
+    /// The restricted ranges, lowest first and apart.
+    ranges: RwLock<Vec<Restricted>>,
+}
+
+/// A run of pages with less than read and write access.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Restricted {
+    pub range: Range<u64>,
+    /// Whether reads may go there: a mapping without `PROT_WRITE`. Otherwise nothing may (not
+    /// mapped, or `PROT_NONE`).
+    pub readable: bool,
+}
+
+impl PageAccess {
+    /// Replaces what is restricted with `ranges`, lowest first and apart.
+    pub fn set(&self, ranges: Vec<Restricted>) {
+        let mut held = self.ranges.write().unwrap_or_else(PoisonError::into_inner);
+        self.restricted.store(!ranges.is_empty(), Ordering::Release);
+        *held = ranges;
+    }
+
+    /// The restricted ranges, lowest first.
+    pub fn ranges(&self) -> Vec<Restricted> {
+        self.ranges
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Whether `len` bytes at `addr` may be read, or written with `write`. An empty access
+    /// touches nothing, as a copy of 0 bytes never faults. Inlined into every copy: while
+    /// nothing is restricted, it is one load.
+    #[inline]
+    pub fn check(&self, addr: u32, len: usize, write: bool) -> Result<(), Fault> {
+        if len == 0 || !self.restricted.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        self.check_ranges(addr, len, write)
+    }
+
+    /// [`PageAccess::check`] against the restricted ranges.
+    #[cold]
+    #[inline(never)]
+    fn check_ranges(&self, addr: u32, len: usize, write: bool) -> Result<(), Fault> {
+        let (start, end) = (u64::from(addr), u64::from(addr) + len as u64);
+        let ranges = self.ranges.read().unwrap_or_else(PoisonError::into_inner);
+        let first = ranges.partition_point(|r| r.range.end <= start);
+        let denied = ranges[first..]
+            .iter()
+            .take_while(|r| r.range.start < end)
+            .any(|r| write || !r.readable);
+        match denied {
+            true => Err(Fault),
+            false => Ok(()),
+        }
     }
 }
 
@@ -336,6 +430,43 @@ mod tests {
 
     /// A finished copy reports its outcome, and its future is zero-sized: boxing it allocates
     /// nothing.
+    #[test]
+    fn page_access_faults_where_the_page_map_says() {
+        let access = PageAccess::default();
+        assert_eq!(access.check(0, 1 << 20, true), Ok(()), "nothing restricted");
+        access.set(vec![
+            Restricted {
+                range: 0x1_0000..0x2_0000,
+                readable: false,
+            },
+            Restricted {
+                range: 0x3_0000..0x4_0000,
+                readable: true,
+            },
+        ]);
+        assert_eq!(
+            access.check(0xff00, 0x100, true),
+            Ok(()),
+            "ends where it starts"
+        );
+        assert_eq!(access.check(0xff00, 0x101, false), Err(Fault));
+        assert_eq!(access.check(0x1_8000, 0, false), Ok(()), "an empty copy");
+        assert_eq!(access.check(0x2_0000, 0x1_0000, true), Ok(()));
+        assert_eq!(access.check(0x3_0000, 8, false), Ok(()), "read-only reads");
+        assert_eq!(
+            access.check(0x3_fff8, 16, true),
+            Err(Fault),
+            "read-only writes"
+        );
+        assert_eq!(
+            access.check(0x1000, 0x10_0000, false),
+            Err(Fault),
+            "spanning"
+        );
+        access.set(Vec::new());
+        assert_eq!(access.check(0x1_0000, 8, true), Ok(()));
+    }
+
     #[test]
     fn copied_needs_no_allocation() {
         assert_eq!(size_of::<Copied<true>>(), 0);

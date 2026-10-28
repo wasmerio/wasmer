@@ -813,6 +813,7 @@ mod tests {
                 low_guard: 0,
                 read_only: Arc::default(),
                 base: None,
+                page_access: None,
                 stack_pointer: None,
                 abi: None,
                 threads: None,
