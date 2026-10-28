@@ -148,6 +148,53 @@ fn published_port_reaches_guest_listener() {
 }
 
 #[test]
+fn published_udp_port_reaches_the_guest_socket_and_replies_leave_from_it() {
+    let net = setup();
+    let s = net
+        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+        .unwrap();
+    s.bind("0.0.0.0:5300".parse().unwrap(), false).unwrap();
+    let publication = net
+        .publish_udp(
+            "127.0.0.1:0".parse().unwrap(),
+            "0.0.0.0:5300".parse().unwrap(),
+        )
+        .unwrap();
+    let published = publication.host_addr();
+    let client = UdpSocket::bind("127.0.0.1:0").unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    client.send_to(b"query", published).unwrap();
+    wait_for(&*s, PollMask::IN);
+    let mut buf = [0u8; 16];
+    let r = s.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(&buf[..r.len], b"query");
+    // The host peer is on the host's loopback, which the guest knows as the gateway alias.
+    let peer = r.from.unwrap();
+    assert_eq!(peer.ip().to_string(), "10.0.2.2");
+    assert_eq!(peer.port(), client.local_addr().unwrap().port());
+    // The reply comes from the published port.
+    assert_eq!(send(&*s, b"answer", Some(peer)), Ok(6));
+    let (n, from) = client.recv_from(&mut buf).unwrap();
+    assert_eq!(&buf[..n], b"answer");
+    assert_eq!(from, published);
+
+    // With the socket gone, what arrives is dropped, not kept for the next one.
+    drop(s);
+    client.send_to(b"stale", published).unwrap();
+    std::thread::sleep(Duration::from_millis(50));
+    let next = net
+        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+        .unwrap();
+    next.bind("0.0.0.0:5300".parse().unwrap(), false).unwrap();
+    client.send_to(b"fresh", published).unwrap();
+    wait_for(&*next, PollMask::IN);
+    let r = next.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(&buf[..r.len], b"fresh");
+}
+
+#[test]
 fn udp_through_the_backend() {
     let net = setup();
     let host = UdpSocket::bind("127.0.0.1:0").unwrap();

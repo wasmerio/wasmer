@@ -6,7 +6,7 @@
 use std::{
     collections::{HashMap, VecDeque},
     io::{self, Read, Write},
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6},
     sync::{
         Arc, Mutex, MutexGuard, Weak,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -24,8 +24,8 @@ use mio::{
 };
 use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
-    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, QueuedError, Room,
-    Shutdown, StreamState as Phase,
+    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, PublishedDatagram,
+    QueuedError, Room, Shutdown, StreamState as Phase,
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistration};
 
@@ -830,13 +830,35 @@ struct DgramState {
     /// The host socket takes datagrams: false from a send's `EAGAIN` until the reactor sees
     /// it writable again.
     host_writable: bool,
+    /// A guest socket is served. Always for an endpoint made for one; a published endpoint
+    /// drops what arrives while detached.
+    attached: bool,
+}
+
+impl DgramState {
+    fn new(attached: bool) -> Self {
+        Self {
+            queue: VecDeque::new(),
+            queued: 0,
+            err: None,
+            recverr: [false; 2],
+            errqueue: VecDeque::new(),
+            connected: None,
+            host_writable: true,
+            attached,
+        }
+    }
 }
 
 struct DgramShared {
     sock: UdpSocket,
     token: Token,
-    /// The guest socket's queue.
-    wq: WaitQueue,
+    /// The host socket is IPv6, so IPv4 peers are reached through mapped addresses.
+    v6: bool,
+    /// Bound to a published port, and attached to guest sockets as they come and go.
+    published: bool,
+    /// The guest socket's queue; a published endpoint's changes when it is attached.
+    wq: Mutex<WaitQueue>,
     st: Mutex<DgramState>,
     backend: Weak<Shared>,
 }
@@ -846,13 +868,28 @@ impl DgramShared {
         self.st.lock().unwrap()
     }
 
+    /// Wakes the guest socket's queue, outside the lock that holds it.
+    fn wake(&self, events: PollMask) {
+        let wq = self.wq.lock().unwrap().clone();
+        wq.wake(events);
+    }
+
+    /// `to` as the host socket's family addresses it.
+    fn host_addr(&self, to: SocketAddr) -> SocketAddr {
+        match (self.v6, to) {
+            (true, SocketAddr::V4(v4)) => {
+                SocketAddrV6::new(v4.ip().to_ipv6_mapped(), v4.port(), 0, 0).into()
+            }
+            _ => to,
+        }
+    }
+
     /// The host socket became writable: wake senders that met `EAGAIN` (`sock_wfree` waking
     /// `sk_write_space`).
     fn writable(&self) {
         let was = std::mem::replace(&mut self.state().host_writable, true);
         if !was {
-            self.wq
-                .wake(PollMask::OUT | PollMask::WRNORM | PollMask::WRBAND);
+            self.wake(PollMask::OUT | PollMask::WRNORM | PollMask::WRBAND);
         }
     }
 
@@ -863,7 +900,7 @@ impl DgramShared {
             wake |= self.receive_errors(buf);
         }
         if !wake.is_empty() {
-            self.wq.wake(wake);
+            self.wake(wake);
         }
     }
 
@@ -876,7 +913,7 @@ impl DgramShared {
             match errqueue::recv(&self.sock, buf) {
                 Ok(Some(e)) => {
                     let mut st = self.state();
-                    if st.queued <= DGRAM_BUF {
+                    if st.attached && st.queued <= DGRAM_BUF {
                         st.queued += e.payload.len();
                         st.errqueue.push_back(e);
                         wake |= PollMask::ERR;
@@ -902,8 +939,8 @@ impl DgramShared {
                 Ok((n, from)) => {
                     failed = false;
                     let mut st = self.state();
-                    // Like a full SO_RCVBUF: drop when the buffer is over its limit.
-                    if st.queued <= DGRAM_BUF {
+                    // Like a full SO_RCVBUF, or no socket at all: dropped.
+                    if st.attached && st.queued <= DGRAM_BUF {
                         st.queued += n;
                         st.queue.push_back((buf[..n].to_vec(), from));
                         wake |= PollMask::IN | PollMask::RDNORM;
@@ -920,7 +957,7 @@ impl DgramShared {
                 Err(e) => {
                     failed = true;
                     let mut st = self.state();
-                    if st.connected.is_some() || st.recverr.contains(&true) {
+                    if st.attached && (st.connected.is_some() || st.recverr.contains(&true)) {
                         st.err = Some(errno_from_io(&e));
                         wake |= PollMask::ERR;
                     }
@@ -966,6 +1003,7 @@ impl BackendDatagram for HostDatagram {
         // `EAGAIN` here has marked it full: no wakeup falls between the two.
         let mut st = self.0.state();
         // `send` to the connected peer, so the host reports its errors on this socket.
+        let to = self.0.host_addr(to);
         let sent = match st.connected {
             Some(peer) if peer == to => self.0.sock.send(data),
             _ => self.0.sock.send_to(data, to),
@@ -998,6 +1036,7 @@ impl BackendDatagram for HostDatagram {
     }
 
     fn connect(&self, peer: Option<SocketAddr>) -> Result<(), Errno> {
+        let peer = peer.map(|p| self.0.host_addr(p));
         let sock = socket2::SockRef::from(&self.0.sock);
         match peer {
             Some(peer) => sock.connect(&peer.into()),
@@ -1017,6 +1056,27 @@ impl BackendDatagram for HostDatagram {
         let mut st = self.0.state();
         st.connected = peer;
         st.err = None;
+        Ok(())
+    }
+
+    fn attach(&self, wq: Option<WaitQueue>) -> Result<(), Errno> {
+        if !self.0.published {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        // Afresh: unconnected, without IP_RECVERR (which purges the host's queue) and with
+        // no error the last socket left pending on the host.
+        if self.0.state().connected.is_some() {
+            self.connect(None)?;
+        }
+        for (i, (level, name)) in RECVERR.into_iter().enumerate() {
+            if self.0.state().recverr[i] {
+                self.set_option(level, name, &0i32.to_le_bytes())?;
+            }
+        }
+        let _ = self.0.sock.take_error();
+        let attached = wq.is_some();
+        *self.0.wq.lock().unwrap() = wq.unwrap_or_default();
+        *self.0.state() = DgramState::new(attached);
         Ok(())
     }
 
@@ -1070,39 +1130,16 @@ impl Backend for HostBackend {
             Domain::Inet => (Ipv4Addr::UNSPECIFIED, 0).into(),
             Domain::Inet6 => (Ipv6Addr::UNSPECIFIED, 0).into(),
         };
-        let sock = UdpSocket::bind(any).map_err(|e| errno_from_io(&e))?;
-        let token = self.shared.token();
-        let shared = Arc::new(DgramShared {
-            sock,
-            token,
-            wq,
-            st: Mutex::new(DgramState {
-                queue: VecDeque::new(),
-                queued: 0,
-                err: None,
-                recverr: [false; 2],
-                errqueue: VecDeque::new(),
-                connected: None,
-                host_writable: true,
-            }),
-            backend: Arc::downgrade(&self.shared),
-        });
-        self.shared
-            .entries
-            .lock()
-            .unwrap()
-            .insert(token, Entry::Datagram(shared.clone()));
-        let fd = shared.sock.as_raw_fd();
-        // Writable too: a send that met `EAGAIN` waits for the host to take datagrams again.
-        if let Err(e) = self.shared.registry.register(
-            &mut SourceFd(&fd),
-            token,
-            Interest::READABLE | Interest::WRITABLE,
-        ) {
-            self.shared.remove(token);
-            return Err(errno_from_io(&e));
-        }
-        Ok(Arc::new(HostDatagram(shared)))
+        let d = self
+            .datagram_on(any, Some(wq))
+            .map_err(|e| errno_from_io(&e))?;
+        Ok(d)
+    }
+
+    fn publish_datagram(&self, host: SocketAddr) -> io::Result<PublishedDatagram> {
+        let d = self.datagram_on(host, None)?;
+        let addr = d.0.sock.local_addr()?;
+        Ok((d, Box::new(DatagramPublication { addr })))
     }
 
     fn publish(
@@ -1141,6 +1178,58 @@ impl Backend for HostBackend {
             backend: Arc::downgrade(&self.shared),
             addr,
         }))
+    }
+}
+
+impl HostBackend {
+    /// A datagram endpoint on a host socket bound to `addr`, serving the guest socket whose
+    /// queue is `wq`, or for a publication (`None`) none until attached.
+    fn datagram_on(
+        &self,
+        addr: SocketAddr,
+        wq: Option<WaitQueue>,
+    ) -> io::Result<Arc<HostDatagram>> {
+        // No SO_REUSEADDR: a published port another host socket holds stays its own.
+        let sock = UdpSocket::bind(addr)?;
+        let v6 = sock.local_addr()?.is_ipv6();
+        let token = self.shared.token();
+        let published = wq.is_none();
+        let shared = Arc::new(DgramShared {
+            sock,
+            token,
+            v6,
+            published,
+            wq: Mutex::new(wq.unwrap_or_default()),
+            st: Mutex::new(DgramState::new(!published)),
+            backend: Arc::downgrade(&self.shared),
+        });
+        self.shared
+            .entries
+            .lock()
+            .unwrap()
+            .insert(token, Entry::Datagram(shared.clone()));
+        let fd = shared.sock.as_raw_fd();
+        // Writable too: a send that met `EAGAIN` waits for the host to take datagrams again.
+        if let Err(e) = self.shared.registry.register(
+            &mut SourceFd(&fd),
+            token,
+            Interest::READABLE | Interest::WRITABLE,
+        ) {
+            self.shared.remove(token);
+            return Err(e);
+        }
+        Ok(Arc::new(HostDatagram(shared)))
+    }
+}
+
+/// The handle of a published UDP port; the endpoint itself keeps the host socket bound.
+struct DatagramPublication {
+    addr: SocketAddr,
+}
+
+impl Publication for DatagramPublication {
+    fn host_addr(&self) -> SocketAddr {
+        self.addr
     }
 }
 
@@ -1390,15 +1479,12 @@ mod tests {
         let shared = DgramShared {
             sock: UdpSocket::from_std(sock),
             token: Token(1),
-            wq: WaitQueue::new(),
+            v6: false,
+            published: false,
+            wq: Mutex::new(WaitQueue::new()),
             st: Mutex::new(DgramState {
-                queue: VecDeque::new(),
-                queued: 0,
-                err: None,
-                recverr: [false; 2],
-                errqueue: VecDeque::new(),
                 connected: Some("127.0.0.1:9".parse().unwrap()),
-                host_writable: true,
+                ..DgramState::new(true)
             }),
             backend: Weak::new(),
         };
