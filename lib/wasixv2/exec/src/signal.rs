@@ -114,9 +114,7 @@ async fn push_frame<S: 'static>(
     put(&mut bytes, MC_RESTART, restart as u32);
     put(&mut bytes, MC_NPARAMS, nparams);
     frame.info.write_to(&mut bytes[UCONTEXT_SIZE as usize..]);
-    memory
-        .view(&*store)
-        .write(uc.into(), &bytes)
+    crate::memory::write(memory, data.low_guard, &*store, uc, &bytes)
         .map_err(|_| RuntimeError::new("signal frame outside guest memory"))?;
 
     let trampoline = match table.get(&mut *store, frame.trampoline) {
@@ -158,14 +156,8 @@ async fn pop_frame<S: 'static>(
 ) -> Result<(u64, u32), RuntimeError> {
     let mut guard = env.write().await;
     let (data, store) = guard.data_and_store_mut();
-    let memory = data
-        .memory
-        .as_ref()
-        .expect("checked when the frame was pushed");
     let mut bytes = [0u8; MC_RESTART + 4];
-    memory
-        .view(&*store)
-        .read(uc.into(), &mut bytes)
+    data.read_memory(&*store, uc, &mut bytes)
         .map_err(|_| RuntimeError::new("signal frame outside guest memory"))?;
     let mask = u64::from_le_bytes(bytes[UC_SIGMASK..UC_SIGMASK + 8].try_into().unwrap());
     let get = |at: usize| u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap());

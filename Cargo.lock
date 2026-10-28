@@ -7124,6 +7124,7 @@ name = "wasixv2-exec"
 version = "0.0.0"
 dependencies = [
  "futures",
+ "libc",
  "thiserror 2.0.21",
  "tracing",
  "wasixv2-abi",

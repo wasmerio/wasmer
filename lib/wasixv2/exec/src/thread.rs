@@ -28,6 +28,8 @@ pub(crate) struct Image<S> {
     engine: Engine,
     module: Module,
     memory: SharedMemory,
+    /// The low guard the process image protected in `memory` ([`crate::memory::LOW_GUARD`]).
+    low_guard: u32,
     syscalls: Arc<S>,
     host: Arc<dyn Host>,
     /// The ABI of `module`.
@@ -37,10 +39,12 @@ pub(crate) struct Image<S> {
 }
 
 impl<S> Image<S> {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         store: &Store,
         module: &Module,
         memory: SharedMemory,
+        low_guard: u32,
         syscalls: Arc<S>,
         host: Arc<dyn Host>,
         abi: Arc<dyn Abi<S>>,
@@ -50,6 +54,7 @@ impl<S> Image<S> {
             engine: store.engine().clone(),
             module: module.clone(),
             memory,
+            low_guard,
             syscalls,
             host,
             abi,
@@ -154,6 +159,7 @@ where
         let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
         let data = env.as_mut(&mut store);
         data.memory = Some(memory);
+        data.low_guard = self.low_guard;
         data.stack_pointer = crate::stack_pointer(&instance);
         data.abi = Some(abi.clone());
         data.threads = Some(self.clone());

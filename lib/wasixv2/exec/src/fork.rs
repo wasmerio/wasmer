@@ -115,19 +115,17 @@ async fn fork_returned<S: 'static>(
         .downcast_ref::<Writes>()
         .ok_or_else(|| RuntimeError::new("clone resumed from another ABI's fork"))?;
     env.with(|data, store| {
-        let memory = data.memory.clone().expect("an instance has memory");
-        let view = memory.view(&*store);
         // Linux ignores faults on both writes.
         match child {
             Some(child) => {
                 if let Some(addr) = writes.parent_tid {
-                    let _ = view.write(addr.into(), &child.0.to_le_bytes());
+                    let _ = data.write_memory(&*store, addr, &child.0.to_le_bytes());
                 }
                 Ok(child.0 as i32)
             }
             None => {
                 if let Some(addr) = writes.child_tid {
-                    let _ = view.write(addr.into(), &data.task.0.to_le_bytes());
+                    let _ = data.write_memory(&*store, addr, &data.task.0.to_le_bytes());
                 }
                 let tls_base = data.abi.as_ref().and_then(|abi| {
                     let instance = abi
@@ -201,10 +199,7 @@ async fn write<S: 'static>(
     bytes: &[u8],
 ) -> Result<(), RuntimeError> {
     env.with(|data, store| {
-        let memory = data.memory.clone().expect("an instance has memory");
-        memory
-            .view(&*store)
-            .write(addr.into(), bytes)
+        data.write_memory(&*store, addr, bytes)
             .map_err(|_| RuntimeError::new("stack snapshot outside guest memory"))
     })
     .await
@@ -216,10 +211,7 @@ async fn read<S: 'static>(
     bytes: &mut [u8],
 ) -> Result<(), RuntimeError> {
     env.with(|data, store| {
-        let memory = data.memory.clone().expect("an instance has memory");
-        memory
-            .view(&*store)
-            .read(addr.into(), bytes)
+        data.read_memory(&*store, addr, bytes)
             .map_err(|_| RuntimeError::new("stack snapshot outside guest memory"))
     })
     .await
