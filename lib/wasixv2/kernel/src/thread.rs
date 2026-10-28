@@ -71,6 +71,11 @@ impl Group {
         state.exit.is_some() || state.exec.is_some()
     }
 
+    /// No task of the group but the caller is still running (`thread_group_empty`).
+    pub(crate) fn single_threaded(&self) -> bool {
+        self.state.lock_or_recover().live <= 1
+    }
+
     fn status(&self) -> Option<i32> {
         self.state.lock_or_recover().exit
     }

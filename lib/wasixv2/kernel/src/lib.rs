@@ -1294,6 +1294,14 @@ impl Syscalls for Kernel {
             .await
     }
 
+    async fn unshare(&self, caller: &Caller<'_>, unshare_flags: Ulong) -> SysResult<i32> {
+        self.sys_unshare(caller, unshare_flags)
+    }
+
+    async fn setns(&self, caller: &Caller<'_>, fd: Fd, flags: i32) -> SysResult<i32> {
+        self.sys_setns(caller, fd, flags)
+    }
+
     async fn execve(
         &self,
         caller: &Caller<'_>,
