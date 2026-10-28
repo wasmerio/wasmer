@@ -914,7 +914,7 @@ fn shm_filesystem(host: &Arc<dyn Host>) -> Arc<dyn Filesystem> {
 /// The default root filesystem: a memory filesystem whose top directory `user` owns, laid out
 /// as a small Linux system. It has empty `/bin`, `/usr/bin` and `/usr/lib` for packages and
 /// mounts to fill, `/root` and the user's home `/home/user`, and in `/etc` `passwd` and `group`
-/// naming root and the user, `hostname`, `hosts` and, when there are name servers,
+/// naming root, `nobody` and the user, `hostname`, `hosts` and, when there are name servers,
 /// `resolv.conf`. `/proc`, `/dev` and `/tmp` are mount points.
 pub fn default_root(
     host: &Arc<dyn Host>,
@@ -984,27 +984,46 @@ pub fn default_root(
 /// musl's `_PATH_DEFPATH`, what `execvp` searches without a `PATH`.
 const DEFAULT_PATH: &str = "/usr/local/bin:/bin:/usr/bin";
 
+/// The accounts every [`default_root`] has, as Debian's base-passwd names them: root, and
+/// `nobody`, the unprivileged user that programs and test suites (LTP's root-only tests)
+/// switch to, with the overflow id 65534. `(name, uid, gid, home, shell)`. Debian's other
+/// system accounts are left out: the default user is uid 1, `daemon`'s there.
+const SYSTEM_USERS: [(&str, u32, u32, &str, &str); 2] = [
+    ("root", 0, 0, "/root", "/bin/sh"),
+    ("nobody", 65534, 65534, "/nonexistent", "/usr/sbin/nologin"),
+];
+
+/// The groups every [`default_root`] has, as Debian's base-passwd names them: root's,
+/// `users` for ordinary users, which programs look up by name, and `nobody`'s, `nogroup`.
+const SYSTEM_GROUPS: [(&str, u32); 3] = [("root", 0), ("users", 100), ("nogroup", 65534)];
+
 /// The home directory of `uid` in the [`default_root`]'s `/etc/passwd`.
 fn home_dir(uid: u32) -> &'static str {
-    match uid {
-        0 => "/root",
-        _ => "/home/user",
+    match SYSTEM_USERS.iter().find(|user| user.1 == uid) {
+        Some(user) => user.3,
+        None => "/home/user",
     }
 }
 
-/// `/etc/passwd`: root, and the user processes run as unless that is root.
+/// `/etc/passwd`: the system accounts, and the user processes run as unless it is one of them.
 fn passwd(uid: u32, gid: u32) -> String {
-    let mut passwd = format!("root:x:0:0:root:{}:/bin/sh\n", home_dir(0));
-    if uid != 0 {
+    let mut passwd = String::new();
+    for (name, uid, gid, home, shell) in SYSTEM_USERS {
+        passwd += &format!("{name}:x:{uid}:{gid}:{name}:{home}:{shell}\n");
+    }
+    if !SYSTEM_USERS.iter().any(|user| user.1 == uid) {
         passwd += &format!("user:x:{uid}:{gid}:user:{}:/bin/sh\n", home_dir(uid));
     }
     passwd
 }
 
-/// `/etc/group`: root's group, and the user's unless that is root's.
+/// `/etc/group`: the system groups, and the user's unless it is one of them.
 fn group(gid: u32) -> String {
-    let mut group = String::from("root:x:0:\n");
-    if gid != 0 {
+    let mut group = String::new();
+    for (name, gid) in SYSTEM_GROUPS {
+        group += &format!("{name}:x:{gid}:\n");
+    }
+    if !SYSTEM_GROUPS.iter().any(|group| group.1 == gid) {
         group += &format!("user:x:{gid}:\n");
     }
     group
