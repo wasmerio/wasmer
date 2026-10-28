@@ -13,10 +13,41 @@ use crate::NetResult;
 pub mod flags {
     pub const IFF_UP: u32 = 0x1;
     pub const IFF_BROADCAST: u32 = 0x2;
+    pub const IFF_DEBUG: u32 = 0x4;
     pub const IFF_LOOPBACK: u32 = 0x8;
+    pub const IFF_POINTOPOINT: u32 = 0x10;
+    pub const IFF_NOTRAILERS: u32 = 0x20;
     pub const IFF_RUNNING: u32 = 0x40;
+    pub const IFF_NOARP: u32 = 0x80;
+    pub const IFF_PROMISC: u32 = 0x100;
+    pub const IFF_ALLMULTI: u32 = 0x200;
+    pub const IFF_MASTER: u32 = 0x400;
+    pub const IFF_SLAVE: u32 = 0x800;
     pub const IFF_MULTICAST: u32 = 0x1000;
+    pub const IFF_PORTSEL: u32 = 0x2000;
+    pub const IFF_AUTOMEDIA: u32 = 0x4000;
+    pub const IFF_DYNAMIC: u32 = 0x8000;
     pub const IFF_LOWER_UP: u32 = 0x10000;
+    pub const IFF_DORMANT: u32 = 0x20000;
+    pub const IFF_ECHO: u32 = 0x40000;
+    /// The device's own state, which no request changes (`IFF_VOLATILE`).
+    pub const IFF_VOLATILE: u32 = IFF_LOOPBACK
+        | IFF_POINTOPOINT
+        | IFF_BROADCAST
+        | IFF_ECHO
+        | IFF_MASTER
+        | IFF_SLAVE
+        | IFF_RUNNING
+        | IFF_LOWER_UP
+        | IFF_DORMANT;
+    /// What a request sets as it asks (`__dev_change_flags`).
+    pub const IFF_SETTABLE: u32 = IFF_DEBUG
+        | IFF_NOTRAILERS
+        | IFF_NOARP
+        | IFF_DYNAMIC
+        | IFF_MULTICAST
+        | IFF_PORTSEL
+        | IFF_AUTOMEDIA;
 }
 
 /// `RT_SCOPE_*` of an address.
@@ -209,6 +240,26 @@ impl Interfaces {
         Ok(())
     }
 
+    /// `__dev_change_flags`, what `SIOCSIFFLAGS` and `RTM_NEWLINK` do: the flags a request
+    /// owns come from `flags`, the device's own state stays, and a change of `IFF_UP` brings
+    /// the interface up or down ([`Interfaces::set_up`]). `IFF_PROMISC` and `IFF_ALLMULTI`
+    /// follow `flags`, as no one else asks for them here.
+    pub fn change_flags(&mut self, index: u32, flags: u32) -> NetResult<()> {
+        let link = self
+            .links
+            .iter_mut()
+            .find(|l| l.index == index)
+            .ok_or(Errno::ENODEV)?;
+        let old = link.flags;
+        let kept = flags::IFF_UP | flags::IFF_VOLATILE;
+        let listening = flags::IFF_PROMISC | flags::IFF_ALLMULTI;
+        link.flags = (flags & (flags::IFF_SETTABLE | listening)) | (old & kept);
+        if (old ^ flags) & flags::IFF_UP != 0 {
+            self.set_up(index, flags & flags::IFF_UP != 0)?;
+        }
+        Ok(())
+    }
+
     /// `ip addr add`; also installs the prefix route, as Linux does for a new address.
     pub fn add_addr(&mut self, index: u32, addr: IpAddr, prefix_len: u8) -> NetResult<()> {
         let max = if addr.is_ipv4() { 32 } else { 128 };
@@ -361,6 +412,27 @@ mod tests {
         assert!(!t.links()[0].is_up());
         assert!(t.links()[0].addrs.is_empty());
         assert_eq!(t.route(ip("127.0.0.1")), None);
+    }
+
+    #[test]
+    fn changing_flags_brings_lo_up_and_keeps_the_devices_own_state() {
+        let mut t = Interfaces::loopback_only(false);
+        t.change_flags(LOOPBACK_INDEX, flags::IFF_UP | flags::IFF_NOARP)
+            .unwrap();
+        let lo = &t.links()[0];
+        let want = flags::IFF_UP
+            | flags::IFF_LOOPBACK
+            | flags::IFF_RUNNING
+            | flags::IFF_LOWER_UP
+            | flags::IFF_NOARP;
+        assert_eq!(lo.flags, want);
+        assert!(t.is_local(ip("127.0.0.1")));
+        // Clearing IFF_LOOPBACK or IFF_RUNNING asks for nothing; IFF_UP left out takes it down.
+        t.change_flags(LOOPBACK_INDEX, flags::IFF_PROMISC).unwrap();
+        let lo = &t.links()[0];
+        assert_eq!(lo.flags, flags::IFF_LOOPBACK | flags::IFF_PROMISC);
+        assert_eq!(t.route(ip("127.0.0.1")), None);
+        assert_eq!(t.change_flags(9, flags::IFF_UP), Err(Errno::ENODEV));
     }
 
     #[test]
