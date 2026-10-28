@@ -268,6 +268,34 @@ fn inodes_and_extra_links_are_limited() {
 }
 
 #[test]
+fn a_remount_changes_the_limits_within_what_is_used() {
+    let fs = limited(Limits {
+        max_bytes: Some(4 * BLOCK),
+        max_inodes: Some(3),
+    });
+    let (_file, handle) = open_file(&fs, b"f");
+    block_on(handle.write_at(&vec![7; 2 * BLOCK as usize], 0)).unwrap();
+    let limits = |max_bytes, max_inodes| Limits {
+        max_bytes,
+        max_inodes,
+    };
+
+    assert_eq!(fs.set_limits(limits(Some(BLOCK), None)), Err(Errno::EINVAL));
+    assert_eq!(fs.set_limits(limits(None, Some(1))), Err(Errno::EINVAL));
+    assert_eq!(fs.set_limits(limits(Some(2 * BLOCK + 1), Some(2))), Ok(()));
+    let stat = block_on(fs.statfs()).unwrap();
+    assert_eq!((stat.blocks, stat.blocks_free, stat.files), (3, 1, 2));
+    // Nothing named, nothing changes; 0 lifts a limit, which cannot come back.
+    assert_eq!(fs.set_limits(limits(None, None)), Ok(()));
+    assert_eq!(fs.set_limits(limits(Some(0), None)), Ok(()));
+    assert_eq!(block_on(fs.statfs()).unwrap().blocks, 0);
+    assert_eq!(
+        fs.set_limits(limits(Some(8 * BLOCK), None)),
+        Err(Errno::EINVAL)
+    );
+}
+
+#[test]
 fn an_empty_write_past_the_end_does_not_extend() {
     let fs = fs();
     let (file, handle) = open_file(&fs, b"f");
