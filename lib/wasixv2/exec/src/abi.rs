@@ -43,6 +43,13 @@ where
         task: TaskId,
         role: Role,
     ) -> Result<Arc<dyn AbiInstance<S>>, ExecError>;
+
+    /// Whether the ABI's modules may get the low guard, the first 64 KiB of linear memory made
+    /// inaccessible when the module's layout keeps nothing there (see [`crate::memory`]). Only
+    /// an ABI whose libc never touches those addresses says yes; no by default.
+    fn low_guard(&self) -> bool {
+        false
+    }
 }
 
 /// What an instance is for.

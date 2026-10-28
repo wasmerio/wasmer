@@ -287,3 +287,27 @@ fn memory_grows_no_further_than_the_scratch_window() {
     "#;
     assert_eq!(block_on(wat, &["grow"]).0, 0);
 }
+
+/// v1 guests never get the v2 low guard. Rust's v1 programs are laid out stack-first and export
+/// `__stack_pointer` (coreutils: a 1 MiB stack at 0, then data), the layout that gives a v2
+/// program the guard; v1 libc makes no promise about the addresses below it.
+#[test]
+fn address_zero_stays_usable_in_a_stack_first_v1_guest() {
+    let wat = r#"
+    (module
+      (import "wasi_snapshot_preview1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $proc_exit (param i32)))
+      (memory (export "memory") 17)
+      (global (export "__stack_pointer") (mut i32) (i32.const 0x100000))
+      (global (export "__data_end") i32 (i32.const 0x100010))
+      (func (export "_start")
+        (i32.store (i32.const 0) (i32.const 0x0a6b6f))
+        ;; An iovec at 8 for the 3 bytes at 0, nwritten at 32.
+        (i32.store (i32.const 8) (i32.const 0))
+        (i32.store (i32.const 12) (i32.const 3))
+        (if (call $fd_write (i32.const 1) (i32.const 8) (i32.const 1) (i32.const 32))
+          (then (call $proc_exit (i32.const 1))))
+        (call $proc_exit (i32.sub (i32.load (i32.const 32)) (i32.const 3)))))
+    "#;
+    assert_eq!(block_on(wat, &["zero"]), (0, b"ok\n".to_vec()));
+}
