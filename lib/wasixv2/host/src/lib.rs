@@ -1,4 +1,5 @@
-//! What the kernel needs from the host: an executor, clocks, timers and entropy.
+//! What the kernel needs from the host: an executor, clocks, timers, entropy and shared memory
+//! objects.
 //!
 //! The kernel only sees the [`Host`] and [`Executor`] traits and never names an async runtime.
 //! Two implementations ship here: [`TokioHost`] for native embedders (feature `tokio`) and
@@ -20,6 +21,7 @@ use std::{
 
 #[cfg(feature = "tokio")]
 pub use tokio_host::TokioHost;
+use wasixv2_pages::SharedPages;
 #[cfg(feature = "web")]
 pub use web_host::WebHost;
 
@@ -250,7 +252,7 @@ impl<F: Fn(&[u8]) + Send + Sync> ByteSink for FnSink<F> {
     }
 }
 
-/// Clocks, timers, entropy and the executor that runs host work.
+/// Clocks, timers, entropy, shared memory and the executor that runs host work.
 pub trait Host: Send + Sync {
     /// Time since the Unix epoch, for `CLOCK_REALTIME`.
     fn realtime(&self) -> Duration;
@@ -279,6 +281,15 @@ pub trait Host: Send + Sync {
     /// trap; the kernel log (`dmesg`) of a Linux system. Goes to the host's stderr by default.
     fn report(&self, message: &str) {
         eprintln!("{message}");
+    }
+
+    /// A new shared memory object of `size` bytes, all zero, which processes map into their
+    /// memories at once: what Linux's shmem gives `MAP_SHARED | MAP_ANONYMOUS` and SysV segments
+    /// (`shmem_kernel_file_setup`). [`io::ErrorKind::Unsupported`] by default, and from hosts
+    /// that have none, whose processes then keep copies of shared memory instead.
+    fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn SharedPages>> {
+        let _ = size;
+        Err(io::ErrorKind::Unsupported.into())
     }
 }
 

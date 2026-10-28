@@ -4,7 +4,8 @@ use std::{
     task::{Context, Poll},
 };
 
-use wasixv2_abi::{GuestLayout, GuestPtr, GuestPtrMut};
+use wasixv2_abi::{Errno, GuestLayout, GuestPtr, GuestPtrMut};
+use wasixv2_pages::SharedPages;
 
 /// Boxed future without a `Send` bound; wasmer's async host calls are not `Send`.
 pub type LocalFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
@@ -56,6 +57,33 @@ pub trait UserMemory {
     /// stack. 0 for memory no guest call runs on.
     fn stack_pointer(&self) -> LocalFuture<'_, u32> {
         Box::pin(async { 0 })
+    }
+
+    /// Makes `[addr, addr + len)`, whole pages inside the memory and above any guard, show `len`
+    /// bytes of `pages` from `offset`, the same pages every other mapping of the object shows
+    /// (`MAP_SHARED`): from then on a store by any process that maps them is seen by all at
+    /// once. What the range held is gone. `pages` must be at least `offset + len` bytes long for
+    /// as long as the range shows it.
+    ///
+    /// `EOPNOTSUPP` from memory that cannot share pages with other memories, which is the
+    /// default: wasm alone cannot, and only a host that places pages inside a linear memory
+    /// can. The kernel then keeps copies instead, synchronised at defined points.
+    fn map_shared<'a>(
+        &'a self,
+        addr: u32,
+        len: u64,
+        pages: &'a dyn SharedPages,
+        offset: u64,
+    ) -> LocalFuture<'a, Result<(), Errno>> {
+        let _ = (addr, len, pages, offset);
+        Box::pin(async { Err(Errno::EOPNOTSUPP) })
+    }
+
+    /// Ends what [`UserMemory::map_shared`] made of `[addr, addr + len)`: the range holds
+    /// private zeroed pages again, as fresh anonymous memory reads.
+    fn unmap_shared(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Errno>> {
+        let _ = (addr, len);
+        Box::pin(async { Err(Errno::EOPNOTSUPP) })
     }
 
     /// Replaces the `u32` at `addr`, which is 4-byte aligned, with `new` if it holds `expected`,
