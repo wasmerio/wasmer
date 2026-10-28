@@ -95,6 +95,12 @@ pub struct ExecEnv<S> {
     /// The ranges of `memory` that show shared objects read-only, which every thread of the
     /// process shares.
     read_only: Arc<memory::ReadOnly>,
+    /// What the kernel's copies may do with the pages of `task`'s address space
+    /// ([`SharedMappings::page_access`]), which every copy of [`UserMemory`] checks.
+    ///
+    /// [`SharedMappings::page_access`]: wasixv2_syscalls::SharedMappings::page_access
+    /// [`UserMemory`]: wasixv2_syscalls::UserMemory
+    page_access: Option<Arc<wasixv2_syscalls::PageAccess>>,
     /// The guest's shadow stack pointer, `__stack_pointer`, which libc-built modules export.
     stack_pointer: Option<Global>,
     /// The instance's half of its ABI; set once the instance exists.
@@ -115,6 +121,7 @@ impl<S: Control> ExecEnv<S> {
     pub(crate) fn new(syscalls: Arc<S>, task: TaskId, proc: process::ProcExports) -> Self {
         Self {
             work: syscalls.work_flag(task),
+            page_access: syscalls.page_access(task),
             syscalls,
             task,
             memory: None,
@@ -132,6 +139,7 @@ impl<S: Control> ExecEnv<S> {
     /// The instance runs as `task` from now on.
     pub(crate) fn switch(&mut self, task: TaskId) {
         self.work = self.syscalls.work_flag(task);
+        self.page_access = self.syscalls.page_access(task);
         self.task = task;
     }
 }

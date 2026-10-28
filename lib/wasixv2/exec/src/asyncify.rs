@@ -811,6 +811,7 @@ mod tests {
                 memory: None,
                 low_guard: 0,
                 read_only: Arc::default(),
+                page_access: None,
                 stack_pointer: None,
                 abi: None,
                 threads: None,

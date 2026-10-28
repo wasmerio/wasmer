@@ -2573,6 +2573,10 @@ impl SharedMappings for Kernel {
     fn wipe_on_fork(&self, task: TaskId) -> Vec<Range<u64>> {
         Kernel::wipe_on_fork(self, task)
     }
+
+    fn page_access(&self, task: TaskId) -> Option<Arc<wasixv2_syscalls::PageAccess>> {
+        Some(self.mm(task).access().clone())
+    }
 }
 
 impl AtomicWait for Kernel {

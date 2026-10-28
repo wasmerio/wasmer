@@ -18,8 +18,8 @@ pub use control::{
 };
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{
-    CstrError, Fault, LocalFuture, UserMemory, UserSlice, UserSliceMut, WASM_PAGE_SIZE, copied,
-    read_cstr, read_value, write_value,
+    CstrError, Fault, LocalFuture, PageAccess, Restricted, UserMemory, UserSlice, UserSliceMut,
+    WASM_PAGE_SIZE, copied, read_cstr, read_value, write_value,
 };
 pub use result::{SysErr, SysResult};
 pub use wasixv2_abi::{Errno, Fd};

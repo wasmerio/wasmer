@@ -195,6 +195,25 @@ impl<S: 'static> UserMemory for CompatMemory<'_, S> {
         }
     }
 
+    /// The kernel's own access to the guest's pages; scratch holds no mapping.
+    fn force_read<'a>(
+        &'a self,
+        addr: u32,
+        buf: &'a mut [u8],
+    ) -> LocalFuture<'a, Result<(), Fault>> {
+        match addr >= SCRATCH_BASE || straddles(addr, buf.len()) {
+            true => self.read(addr, buf),
+            false => self.guest.force_read(addr, buf),
+        }
+    }
+
+    fn force_write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        match addr >= SCRATCH_BASE || straddles(addr, data.len()) {
+            true => self.write(addr, data),
+            false => self.guest.force_write(addr, data),
+        }
+    }
+
     fn size(&self) -> LocalFuture<'_, u64> {
         self.guest.size()
     }

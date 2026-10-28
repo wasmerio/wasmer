@@ -13,7 +13,7 @@ use wasixv2_pages::SharedPages;
 use crate::{
     Layered, SysResult,
     caller::{Caller, TaskId},
-    memory::LocalFuture,
+    memory::{LocalFuture, PageAccess},
 };
 
 /// Work the execution layer must do before control returns to the guest.
@@ -307,6 +307,17 @@ pub trait SharedMappings {
     /// first and apart from the shared mappings. For a fork child, asked before it runs: the
     /// execution layer leaves them out of the child's copy of the memory.
     fn wipe_on_fork(&self, task: TaskId) -> Vec<Range<u64>>;
+
+    /// What the kernel's copies may do with the pages of `task`'s address space, which the
+    /// kernel keeps up to date: the execution layer checks every copy of an instance against it
+    /// ([`UserMemory::read`]), asking when the instance starts as `task`, a fork child or a new
+    /// image included. `None` leaves every page readable and writable.
+    ///
+    /// [`UserMemory::read`]: crate::UserMemory::read
+    fn page_access(&self, task: TaskId) -> Option<Arc<PageAccess>> {
+        let _ = task;
+        None
+    }
 }
 
 /// The word a wasm `memory.atomic.wait32` or `memory.atomic.wait64` expects at its address.
@@ -454,6 +465,10 @@ impl<L, S: SharedMappings> SharedMappings for Layered<L, S> {
 
     fn wipe_on_fork(&self, task: TaskId) -> Vec<Range<u64>> {
         self.inner.wipe_on_fork(task)
+    }
+
+    fn page_access(&self, task: TaskId) -> Option<Arc<PageAccess>> {
+        self.inner.page_access(task)
     }
 }
 
