@@ -140,7 +140,7 @@ const WAIT_WAT: &str = r#"
         (br $forever))))
 "#;
 
-/// `^C` typed on the console kills a program with SIGINT's default action.
+/// `^C` typed on the console kills a program with SIGINT's default action, and is echoed.
 #[tokio::test]
 async fn ctrl_c_on_the_console_interrupts_the_program() {
     let screen = Arc::new(Capture::default());
@@ -150,6 +150,9 @@ async fn ctrl_c_on_the_console_interrupts_the_program() {
     let typing = async {
         shown(&screen, b"ready\r\n").await;
         keys.send(b"\x03".to_vec()).unwrap();
+        // The discipline signals the foreground group before it writes the echo, as Linux's
+        // n_tty does (`isig`, then `echo_char`), so the program can be gone before it shows.
+        shown(&screen, b"^C").await;
     };
     let (status, ()) = tokio::time::timeout(Duration::from_secs(30), async {
         tokio::join!(machine.run(&wasm, stdio), typing)
