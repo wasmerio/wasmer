@@ -235,3 +235,119 @@ async fn a_busy_guest_takes_a_signal_at_a_preemption_point() {
     kill.join().unwrap();
     assert_eq!(status.expect("the guest took the signal").unwrap(), SIGTERM);
 }
+
+/// A module laid out as lld's `--stack-first` does, as libc2 programs are: the main stack from
+/// 0 up to `__stack_pointer` at 128 KiB, the data above it.
+fn stack_first(body: &str) -> String {
+    format!(
+        r#"(module
+          (import "wasixv2" "read" (func $read (param i32 i32 i32) (result i32)))
+          (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+          (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+          (memory (export "memory") 3)
+          (global (export "__stack_pointer") (mut i32) (i32.const 0x20000))
+          (global (export "__data_end") i32 (i32.const 0x20010))
+          (data (i32.const 0x20000) "ok\n")
+          {body})"#
+    )
+}
+
+// The first 64 KiB of a stack-first module's memory are a read-only guard, where Linux leaves the
+// pages below `mmap_min_addr` unmapped: a store through a null pointer kills the guest. Loads
+// read zeros, since clang's wasm32 backend passes a null va_list buffer to variadic calls
+// without variadic arguments and musl reads it anyway (DESIGN.md, "Guard page at 0").
+#[tokio::test]
+async fn a_stack_first_guest_faults_on_a_store_through_a_null_pointer() {
+    let trap = |body: &str| stack_first(&format!(r#"(func (export "_start") {body} unreachable)"#));
+
+    let store = run(&trap("(i32.store (i32.const 0) (i32.const 1))")).await;
+    let last = run(&trap("(i32.store (i32.const 0xfffc) (i32.const 1))")).await;
+    let load = run(&stack_first(
+        r#"(func (export "_start")
+          (call $exit_group (i32.or (i32.load (i32.const 0)) (i32.load (i32.const 0xfffc))))
+          unreachable)"#,
+    ))
+    .await;
+    let data = run(&stack_first(
+        r#"(func (export "_start")
+          (drop (call $write (i32.const 1) (i32.const 0x20000) (i32.const 3)))
+          (call $exit_group (i32.const 0))
+          unreachable)"#,
+    ))
+    .await;
+
+    assert_eq!(store.status.unwrap(), SIGSEGV);
+    assert_eq!(last.status.unwrap(), SIGSEGV);
+    assert_eq!(load.status.unwrap(), 0);
+    assert_eq!(data.status.unwrap(), 0);
+    assert_eq!(data.stdout, b"ok\n");
+}
+
+// Syscalls that write to a buffer in the guard fail with EFAULT, as on a buffer below
+// `mmap_min_addr`; reading one succeeds, as the guest's own loads do.
+#[tokio::test]
+async fn syscalls_fail_with_efault_writing_into_the_guard() {
+    const EFAULT: i32 = 14;
+    let errno_of = |call: &str| {
+        stack_first(&format!(
+            r#"(func (export "_start")
+              (call $exit_group (i32.sub (i32.const 0) {call}))
+              unreachable)"#
+        ))
+    };
+    // stdin is open and empty, so `read` reaches the buffer only once data arrives.
+    let read_into = |addr: u32, len: u32| {
+        let (input, stdin) = mpsc::unbounded_channel();
+        input.send(b"xyz".to_vec()).unwrap();
+        let call = format!("(call $read (i32.const 0) (i32.const {addr}) (i32.const {len}))");
+        (errno_of(&call), stdin)
+    };
+
+    let (wat, stdin) = read_into(0, 1);
+    let read = run_with_stdin(&wat, stdin).await;
+    let (wat, stdin) = read_into(0xfffe, 4);
+    let straddling = run_with_stdin(&wat, stdin).await;
+    // An empty buffer is never touched.
+    let (wat, stdin) = read_into(0, 0);
+    let empty = run_with_stdin(&wat, stdin).await;
+    // The kernel reading from the guard: `write` returns 1, so the guest exits with -1.
+    let write = run(&errno_of(
+        "(call $write (i32.const 1) (i32.const 4096) (i32.const 1))",
+    ))
+    .await;
+
+    assert_eq!(read.status.unwrap(), EFAULT);
+    assert_eq!(straddling.status.unwrap(), EFAULT);
+    assert_eq!(empty.status.unwrap(), 0);
+    assert_eq!(write.status.unwrap(), 255);
+    assert_eq!(write.stdout, [0]);
+}
+
+// A module with its data first, or with a stack too small to spare 64 KiB, keeps address 0
+// usable: something may live there.
+#[tokio::test]
+async fn other_layouts_keep_address_zero() {
+    let at_zero = |stack_pointer: u32, data_end: u32| {
+        format!(
+            r#"(module
+              (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+              (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+              (memory (export "memory") 3)
+              (global (export "__stack_pointer") (mut i32) (i32.const {stack_pointer}))
+              (global (export "__data_end") i32 (i32.const {data_end}))
+              (func (export "_start")
+                (i32.store (i32.const 0) (i32.const 0x0a6b6f))
+                (drop (call $write (i32.const 1) (i32.const 0) (i32.const 3)))
+                (call $exit_group (i32.load (i32.const 0x1000)))
+                unreachable))"#
+        )
+    };
+
+    let data_first = run(&at_zero(0x20000 + 0x1000, 0x1000)).await;
+    let small_stack = run(&at_zero(0x10000, 0x10010)).await;
+
+    for run in [data_first, small_stack] {
+        assert_eq!(run.status.unwrap(), 0);
+        assert_eq!(run.stdout, b"ok\n");
+    }
+}

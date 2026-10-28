@@ -81,6 +81,9 @@ pub struct ExecEnv<S> {
     /// `task`'s work flag, read on every return to the guest.
     work: Arc<WorkFlag>,
     memory: Option<Memory>,
+    /// Bytes at the bottom of `memory` that are protected and fault on any access
+    /// ([`memory::LOW_GUARD`]), or 0.
+    low_guard: u32,
     /// The guest's shadow stack pointer, `__stack_pointer`, which libc-built modules export.
     stack_pointer: Option<Global>,
     /// The instance's half of its ABI; set once the instance exists.
@@ -104,6 +107,7 @@ impl<S: Control> ExecEnv<S> {
             syscalls,
             task,
             memory: None,
+            low_guard: 0,
             stack_pointer: None,
             abi: None,
             threads: None,
@@ -443,6 +447,8 @@ where
         Some(memory) => memory,
         None => instance.exports.get_memory("memory")?.clone(),
     };
+    // Decided from the module's own globals, before a fork child's copy replaces them.
+    let guarded = memory::guardable(&instance, &mut store);
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
     if let Some(image) = fork {
         copy_image(&mut store, &instance, &memory, image)?;
@@ -450,14 +456,20 @@ where
             image.adopt(asyncify);
         }
     }
+    let low_guard = match guarded {
+        true => memory::protect_low(&memory, &store),
+        false => 0,
+    };
     let bound = abi.bind(&instance, &mut store, task, Role::Process)?;
     // ---- thr ----
     let threads = memory.as_shared(&store).map(|shared| {
-        let image = thread::Image::new(&store, module, shared, syscalls, host, abi, abis);
+        let image =
+            thread::Image::new(&store, module, shared, low_guard, syscalls, host, abi, abis);
         image as Arc<dyn thread::Start>
     });
     let data = env.as_mut(&mut store);
     data.memory = Some(memory);
+    data.low_guard = low_guard;
     data.stack_pointer = stack_pointer(&instance);
     data.abi = Some(bound.clone());
     data.threads = threads;
@@ -476,7 +488,8 @@ pub(crate) fn stack_pointer(instance: &Instance) -> Option<Global> {
     instance.exports.get_global("__stack_pointer").ok().cloned()
 }
 
-/// Fills a fresh instance with a forked parent's memory and globals.
+/// Fills a fresh instance with a forked parent's memory and globals. The instance's own low
+/// guard is not protected yet.
 fn copy_image(
     store: &mut Store,
     instance: &Instance,
@@ -631,7 +644,14 @@ where
     if grown > limit {
         return Ok(-1);
     }
-    Ok(match memory.grow(store, delta as u32) {
+    let base = memory.view(&*store).data_ptr();
+    let previous = memory.grow(&mut *store, delta as u32);
+    // The low guard is protected once, at the base the memory had then.
+    debug_assert!(
+        data.low_guard == 0 || memory.view(&*store).data_ptr() == base,
+        "a guarded memory moved as it grew"
+    );
+    Ok(match previous {
         Ok(previous) => previous.0 as i32,
         Err(_) => -1,
     })

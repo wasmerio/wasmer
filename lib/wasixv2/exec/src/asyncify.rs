@@ -378,13 +378,14 @@ async fn save<S: 'static>(
         let memory = env.memory.clone().expect("an instance has memory");
         let a = env.asyncify.as_mut().expect("unwound above");
         let buffer = a.buffer.expect("an unwind has a buffer");
-        let view = memory.view(&*store);
+        let read = |addr: u32, buf: &mut [u8]| {
+            crate::memory::read(&memory, &*store, addr, buf).map_err(fault)
+        };
         let mut header = [0u8; 4];
-        view.read(buffer.into(), &mut header).map_err(fault)?;
+        read(buffer, &mut header)?;
         let end = u32::from_le_bytes(header);
         let mut data = vec![0; end.saturating_sub(buffer + HEADER) as usize];
-        view.read((buffer + HEADER).into(), &mut data)
-            .map_err(fault)?;
+        read(buffer + HEADER, &mut data)?;
         a.generation += 1;
         let id = StackId {
             slot,
@@ -418,16 +419,18 @@ async fn rewind_saved<S: 'static>(
     let (start_rewind, buffer) = cx
         .with(|env, store| {
             let memory = env.memory.clone().expect("an instance has memory");
+            let low_guard = env.low_guard;
             let a = env.asyncify.as_mut().expect("saved stacks are asyncify's");
             let buffer = a.buffer.expect("a saved stack went through the buffer");
             let end = buffer + HEADER + saved.data.len() as u32;
-            let view = memory.view(&*store);
+            let write = |addr: u32, bytes: &[u8]| {
+                crate::memory::write(&memory, low_guard, &*store, addr, bytes).map_err(fault)
+            };
             let mut header = [0u8; HEADER as usize];
             header[..4].copy_from_slice(&end.to_le_bytes());
             header[4..].copy_from_slice(&(buffer + BUFFER_SIZE).to_le_bytes());
-            view.write(buffer.into(), &header).map_err(fault)?;
-            view.write((buffer + HEADER).into(), &saved.data)
-                .map_err(fault)?;
+            write(buffer, &header)?;
+            write(buffer + HEADER, &saved.data)?;
             a.stack_pointer.set(store, saved.stack_pointer.clone())?;
             a.resume = Some(Resume::Restored(val));
             Ok::<_, RuntimeError>((a.start_rewind.clone(), buffer))
@@ -445,15 +448,11 @@ pub(crate) async fn unwind<S: 'static>(
     let buffer = buffer(cx).await?;
     let start_unwind = cx
         .with(|env, store| {
-            let memory = env.memory.clone().expect("an instance has memory");
-            let a = env.asyncify.as_mut().ok_or_else(not_instrumented)?;
             let mut header = [0u8; HEADER as usize];
             header[..4].copy_from_slice(&(buffer + HEADER).to_le_bytes());
             header[4..].copy_from_slice(&(buffer + BUFFER_SIZE).to_le_bytes());
-            memory
-                .view(&*store)
-                .write(buffer.into(), &header)
-                .map_err(fault)?;
+            env.write_memory(&*store, buffer, &header).map_err(fault)?;
+            let a = env.asyncify.as_mut().ok_or_else(not_instrumented)?;
             a.unwinding = Some(request);
             Ok::<_, RuntimeError>(a.start_unwind.clone())
         })
@@ -568,7 +567,10 @@ async fn snapshot<S: 'static>(
             .ok_or_else(|| RuntimeError::new("fork needs the instance's module"))?;
         let memory = env.memory.clone().expect("an instance has memory");
         let a = env.asyncify.as_ref().expect("unwound above");
-        let bytes = memory.view(&*store).copy_to_vec().map_err(fault)?;
+        let bytes = memory
+            .view(&*store)
+            .copy_to_vec()
+            .map_err(|_| RuntimeError::new("cannot copy guest memory"))?;
         let globals = a
             .globals
             .iter()
@@ -611,8 +613,8 @@ pub(crate) async fn start_rewind<S: 'static>(
     start_rewind.call_async(&cx.store(), buffer as i32).await
 }
 
-fn fault(err: impl std::fmt::Display) -> RuntimeError {
-    RuntimeError::new(format!("unwind buffer outside guest memory: {err}"))
+fn fault(_: wasixv2_syscalls::Fault) -> RuntimeError {
+    RuntimeError::new("unwind buffer outside guest memory")
 }
 
 fn not_instrumented() -> RuntimeError {
