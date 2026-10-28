@@ -615,7 +615,8 @@ impl Machine {
     }
 
     /// Starts `wasm` as a new process and waits for it to exit. Returns its exit status: that of
-    /// `exit_group`, or 128 + the signal that killed it, a trap of the guest included.
+    /// `exit_group`, or 128 + the signal that killed it, a trap of the guest included. Every run
+    /// returns once the console's output, when the machine has one, reached the host.
     pub async fn run_process(&self, wasm: &[u8], config: ProcessConfig) -> Result<i32, RunError> {
         let engine = Engine::default();
         let module = load(&engine, wasm)?;
@@ -637,6 +638,7 @@ impl Machine {
             .run_image(Store::new(engine.clone()), module, task)
             .await;
         running.released();
+        self.console_sent().await;
         status
     }
 
@@ -661,7 +663,16 @@ impl Machine {
         let (task, running) = self.start(config).await?;
         let status = self.exec_file(engine, task, path, args, env).await;
         running.released();
+        self.console_sent().await;
         status
+    }
+
+    /// A run's end: what the console holds for the host reaches it before the run returns, so
+    /// an embedder that exits then loses none of it, such as the echo of the `^C` that ended
+    /// the program ([`Kernel::console_wait_until_sent`], bounded as Linux's close of a console
+    /// is).
+    async fn console_sent(&self) {
+        self.syscalls.inner.console_wait_until_sent().await;
     }
 
     /// The rest of [`Machine::run_file`] for `task`, which it releases however it ends.

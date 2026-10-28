@@ -325,16 +325,34 @@ impl Tty {
             return;
         }
         let _output = self.output.lock().await;
+        self.write_echoes().await;
+    }
+
+    /// [`Tty::flush_echoes`] for a caller that holds `output`.
+    async fn write_echoes(&self) {
         let mut out = Vec::new();
         {
             let mut ldisc = self.ldisc.lock_or_recover();
-            if ldisc.stopped() {
+            if ldisc.stopped() || !ldisc.has_echoes() {
                 return;
             }
             ldisc.take_echoes(&mut out);
         }
         // Echo has nobody to report a failing device to.
         let _ = self.driver.write(&out).await;
+    }
+
+    /// `tty_wait_until_sent`: waits, at most `timeout`, until nothing the terminal holds for the
+    /// device is unsent: the step under way (a write, or echoes the device's input queued) ends,
+    /// and echoes still pending are written. Output that is stopped stays where it is.
+    pub(crate) async fn wait_until_sent(&self, timeout: Duration) {
+        let deadline = self.host.monotonic() + timeout;
+        let sent = async {
+            let _output = self.output.lock().await;
+            self.write_echoes().await;
+        };
+        let timer = self.host.sleep_until(deadline);
+        futures_util::future::select(std::pin::pin!(sent), timer).await;
     }
 
     // ---- reading and writing ----

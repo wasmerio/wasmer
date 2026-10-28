@@ -161,6 +161,53 @@ async fn ctrl_c_on_the_console_interrupts_the_program() {
     assert_eq!(screen.contents(), b"ready\r\n^C");
 }
 
+/// A terminal that shows each write only `delay` after it was made, as a slow line does.
+struct SlowScreen {
+    shown: Capture,
+    delay: Duration,
+}
+
+impl ByteSink for SlowScreen {
+    fn write<'a>(&'a self, data: &'a [u8]) -> LocalFuture<'a, io::Result<usize>> {
+        Box::pin(async move {
+            tokio::time::sleep(self.delay).await;
+            self.shown.write(data).await
+        })
+    }
+}
+
+/// The echo of the `^C` that ends a program reaches the host before the run returns, however
+/// slowly the host takes it, as Linux's close of a console waits for its output to be sent
+/// (`hvc_close`, `tty_wait_until_sent`): an embedder that exits right after loses nothing.
+#[tokio::test]
+async fn the_run_ends_once_the_echo_of_ctrl_c_is_shown() {
+    let screen = Arc::new(SlowScreen {
+        shown: Capture::default(),
+        delay: Duration::from_millis(300),
+    });
+    let (keys, input) = mpsc::unbounded_channel();
+    let console = Console {
+        input: Arc::new(Keyboard(Mutex::new(input))),
+        output: screen.clone(),
+        size: WindowSize::default(),
+    };
+    let machine = Machine::builder().console(console, [true; 3]).build();
+    let wasm = wat::parse_str(WAIT_WAT).unwrap();
+    let (stdio, _) = unused_stdio();
+    let typing = async {
+        shown(&screen.shown, b"ready\r\n").await;
+        keys.send(b"\x03".to_vec()).unwrap();
+    };
+    let (status, ()) = tokio::time::timeout(Duration::from_secs(30), async {
+        tokio::join!(machine.run(&wasm, stdio), typing)
+    })
+    .await
+    .expect("the program died");
+
+    assert_eq!(status.unwrap(), 128 + 2);
+    assert_eq!(screen.shown.contents(), b"ready\r\n^C");
+}
+
 /// The signaller's terminal signals go to the console's foreground process group, and a
 /// hangup of the console sends its session leader SIGHUP.
 #[tokio::test]

@@ -13,6 +13,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     task::{Context, Poll, Waker},
+    time::Duration,
 };
 
 use wasixv2_abi::{OpenFlags, Signal, Winsize};
@@ -30,6 +31,10 @@ const NAME: &str = "hvc0";
 
 /// How much of the host's input the pump takes at once.
 const INPUT_CHUNK: usize = 4096;
+
+/// How long a run's end waits for the console's output to reach the host: `tty_port`'s
+/// default `closing_wait` (`drivers/tty/tty_port.c`: `tty_port_init`), 30 seconds.
+const CLOSING_WAIT: Duration = Duration::from_secs(30);
 
 /// The console's device: the host streams.
 pub(crate) struct Console {
@@ -262,6 +267,19 @@ impl Kernel {
             .pgrp_groups(pgrp as i32)
             .iter()
             .any(|(_, group)| group.is_pending(sig.0))
+    }
+
+    /// Waits until what the console holds for the host has reached it: the write under way
+    /// and the echoes of input the console received, such as the `^C` whose signal ended the
+    /// program, which the input pump writes after it signals, as Linux's line discipline does.
+    /// An embedder calls this when a run ends, before it exits, as Linux's `hvc_close` waits
+    /// (`drivers/tty/hvc/hvc_console.c`, `tty_wait_until_sent`); the wait is bounded by
+    /// `tty_port`'s default closing wait, 30 seconds, for a host that takes nothing. Returns at
+    /// once without a console.
+    pub async fn console_wait_until_sent(&self) {
+        if let Some(tty) = &self.console {
+            tty.wait_until_sent(CLOSING_WAIT).await;
+        }
     }
 
     /// Whether the kernel has a console.
