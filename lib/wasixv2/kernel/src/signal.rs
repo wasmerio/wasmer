@@ -129,6 +129,12 @@ struct GroupState {
     trampoline: Option<u32>,
     shared: Pending,
     tasks: HashMap<TaskId, TaskState>,
+    /// The task a signal for the whole group is offered first: the leader, which `kill` and
+    /// the group's other senders name (`pid_task(pid, PIDTYPE_TGID)`).
+    leader: Option<TaskId>,
+    /// Where the search for a task to take a group signal the leader does not take starts
+    /// (`signal_struct::curr_target`).
+    curr_target: Option<TaskId>,
     real_timer: RealTimer,
     /// The group's POSIX timers (`signal_struct::posix_timers`).
     posix_timers: posix_timer::Table,
@@ -168,6 +174,8 @@ impl Default for GroupState {
             trampoline: None,
             shared: Pending::default(),
             tasks: HashMap::new(),
+            leader: None,
+            curr_target: None,
             real_timer: RealTimer::default(),
             posix_timers: posix_timer::Table::default(),
             ignored_timers: Vec::new(),
@@ -309,6 +317,14 @@ struct TaskState {
     flag: Arc<WorkFlag>,
     /// Kernel work makes the task leave a blocking wait without a signal (`TIF_NOTIFY_SIGNAL`).
     notify: bool,
+    /// A signal waits for this task to take it (`TIF_SIGPENDING`): one sent to it, or a group
+    /// signal it was picked to take ([`GroupState::complete`]), or one its own mask lets through
+    /// ([`GroupState::recalc_sigpending`]). Only then does it leave an interruptible wait or
+    /// dequeue on its way back to the guest, so a group signal reaches the one task picked
+    /// for it rather than whichever task gets there first.
+    sigpending: bool,
+    /// The task is on its way out and takes no more signals (`PF_EXITING`).
+    exiting: bool,
     blocked: u64,
     /// The mask to restore once a `sigsuspend` or `ppoll` mask has served its signal
     /// (`TIF_RESTORE_SIGMASK` and `saved_sigmask`).
@@ -339,6 +355,8 @@ impl TaskState {
         Self {
             flag,
             notify: false,
+            sigpending: false,
+            exiting: false,
             blocked: inherited.blocked,
             saved: None,
             pending: Pending::default(),
@@ -349,6 +367,13 @@ impl TaskState {
             stop_dequeued: false,
             stopped: false,
         }
+    }
+
+    /// `signal_wake_up`: the task has a signal to take, and leaves its interruptible wait for
+    /// it once the caller wakes the group's queue.
+    fn signal_wake_up(&mut self) {
+        self.sigpending = true;
+        self.flag.raise();
     }
 }
 
@@ -510,6 +535,10 @@ impl Signals {
             new.flag.raise();
         }
         state.tasks.insert(task, new);
+        // The group's first task is its leader (`copy_signal`'s `curr_target`).
+        if state.leader.is_none() {
+            (state.leader, state.curr_target) = (Some(task), Some(task));
+        }
         Arc::new(TaskSignals {
             group: self.clone(),
             task,
@@ -722,7 +751,7 @@ impl Signals {
         }
         let target = task.filter(|task| state.tasks.contains_key(task));
         state.pending(target).add(info, charge)?;
-        state.raise(target, info.si_signo);
+        state.complete(target, info.si_signo);
         // `complete_signal`: SIGKILL wakes even stopped tasks, which go on to their end.
         if info.si_signo == Signal::SIGKILL.0 {
             state.cancel_stop(false);
@@ -778,7 +807,7 @@ impl Signals {
             state.ignored_timers.swap_remove(at);
         }
         state.pending(target).add_timer(info, timer.clone());
-        state.raise(target, info.si_signo);
+        state.complete(target, info.si_signo);
         drop(state);
         self.queue.wake(wasixv2_wait::PollMask::empty());
     }
@@ -925,7 +954,11 @@ impl GroupState {
             self.jobctl.group_stop_count = count;
         }
         let completed = self.participate(task);
-        self.task(task).stopped = true;
+        let me = self.task(task);
+        me.stopped = true;
+        // Once continued, the task goes on in `get_signal`'s loop, and dequeues what came for
+        // the group while it was stopped and passed by (`wants_signal`).
+        me.sigpending = true;
         Some(completed)
     }
 
@@ -980,19 +1013,114 @@ impl GroupState {
         }
     }
 
-    /// `signal_wake_up` for `sig`, just queued for `task` or for the group with `None`: raises
-    /// the work flag of the task that takes it, or of every task that may (`complete_signal`).
-    fn raise(&mut self, task: Option<TaskId>, sig: i32) {
-        match task.and_then(|task| self.tasks.get(&task)) {
-            Some(task) => task.flag.raise(),
-            None => {
-                for task in self.tasks.values() {
-                    if task.blocked & bit(sig) == 0 {
-                        task.flag.raise();
-                    }
+    /// `complete_signal` for `sig`, just queued for `task` or for the group with `None`: picks
+    /// the task to take it and wakes that one alone (`signal_wake_up`), while the others go on
+    /// undisturbed. A signal for a task is its own, taken once it can. A group signal goes to
+    /// the leader if it takes it now, or else to the next task that does, from where the last
+    /// search ended (`curr_target`); with none, it waits until a task unblocks it. One that
+    /// kills the group wakes every task that could take it, as Linux queues SIGKILL for each.
+    /// Every task counts as running (`task_curr`), as the kernel does not know which are.
+    fn complete(&mut self, task: Option<TaskId>, sig: i32) {
+        let chosen = match task {
+            Some(task) => self.wants_signal(task, sig).then_some(task),
+            None => self.pick(sig),
+        };
+        let Some(chosen) = chosen else {
+            return;
+        };
+        if task.is_none() && self.kills_group(sig) {
+            for task in self.tasks.values_mut() {
+                if task.blocked & bit(sig) == 0 {
+                    task.signal_wake_up();
                 }
             }
+            return;
         }
+        self.task(chosen).signal_wake_up();
+    }
+
+    /// `wants_signal`: `task` could take `sig` now. A stopped task takes only SIGKILL.
+    fn wants_signal(&self, task: TaskId, sig: i32) -> bool {
+        self.tasks.get(&task).is_some_and(|t| {
+            t.blocked & bit(sig) == 0 && !t.exiting && (sig == Signal::SIGKILL.0 || !t.stopped)
+        })
+    }
+
+    /// `complete_signal`'s choice of a task for the group signal `sig`: the leader, or the
+    /// next task in thread id order from `curr_target` on that takes it, which becomes
+    /// `curr_target`.
+    fn pick(&mut self, sig: i32) -> Option<TaskId> {
+        if let Some(leader) = self.leader.filter(|&leader| self.wants_signal(leader, sig)) {
+            return Some(leader);
+        }
+        let mut ids: Vec<TaskId> = self.tasks.keys().copied().collect();
+        ids.sort_unstable_by_key(|task| task.0);
+        let from = self
+            .curr_target
+            .map_or(0, |target| ids.partition_point(|task| task.0 < target.0));
+        let (after, before) = ids.split_at(from);
+        let chosen = before
+            .iter()
+            .chain(after)
+            .copied()
+            .find(|&task| self.wants_signal(task, sig))?;
+        self.curr_target = Some(chosen);
+        Some(chosen)
+    }
+
+    /// `sig_fatal`: the default action of `sig` kills the group.
+    fn kills_group(&self, sig: i32) -> bool {
+        let action = self.actions[sig as usize - 1];
+        sig == Signal::SIGKILL.0
+            || (action.is_default() && matches!(default_action(sig), DefaultAction::Terminate))
+    }
+
+    /// `recalc_sigpending` for `task`, in its own context: whether a signal waits for it is
+    /// whether it could take one now, from its own pending set or the group's.
+    fn recalc_sigpending(&mut self, task: TaskId) {
+        let blocked = self.tasks[&task].blocked;
+        let pending = self.deliverable(task, !blocked) != 0;
+        let task = self.task(task);
+        task.sigpending = pending;
+        if pending {
+            task.flag.raise();
+        }
+    }
+
+    /// `__set_task_blocked`: `task` blocks `blocked` from now on. The group signals it was to
+    /// take and now blocks go to other tasks (`retarget_shared_pending`), and what it can still
+    /// take is recalculated. Returns whether another task was woken, whose wait the caller
+    /// ends by waking the group's queue.
+    fn set_blocked(&mut self, task: TaskId, blocked: u64) -> bool {
+        let blocked = blocked & !UNBLOCKABLE;
+        let me = &self.tasks[&task];
+        let newly = blocked & !me.blocked;
+        let woke = me.sigpending && self.retarget(task, newly);
+        self.task(task).blocked = blocked;
+        self.recalc_sigpending(task);
+        woke
+    }
+
+    /// `retarget_shared_pending`: the group's pending signals among `which`, which `task` will
+    /// not take, each go to another task that takes it, woken unless a signal waits for it
+    /// already. Returns whether a task was woken.
+    fn retarget(&mut self, task: TaskId, which: u64) -> bool {
+        let mut retarget = self.shared.set & which;
+        let mut woke = false;
+        for (&id, t) in self.tasks.iter_mut() {
+            if retarget == 0 {
+                break;
+            }
+            if id == task || t.exiting || retarget & !t.blocked == 0 {
+                continue;
+            }
+            retarget &= t.blocked;
+            if !t.sigpending {
+                t.signal_wake_up();
+                woke = true;
+            }
+        }
+        woke
     }
 
     /// The vfork children to wake for `sig`, just queued for `task` or for the group with
@@ -1024,7 +1152,7 @@ impl GroupState {
             }
             let info = timer.info();
             self.pending(target).add_timer(info, timer);
-            self.raise(target, sig);
+            self.complete(target, sig);
         }
     }
 
@@ -1077,8 +1205,9 @@ impl GroupState {
     /// could keep it from the task for good, as when a thread blocks every signal on its way out
     /// and no other thread takes it.
     fn take_first(&mut self, task: TaskId, hidden: u64) -> bool {
-        let blocked = self.tasks[&task].blocked;
-        if self.deliverable(task, hidden & !blocked) == 0 {
+        let me = &self.tasks[&task];
+        // Only a signal that waits for the task: Linux kicks the task a signal was given to.
+        if !me.sigpending || self.deliverable(task, hidden & !me.blocked) == 0 {
             return false;
         }
         self.task(task).flag.raise();
@@ -1086,19 +1215,20 @@ impl GroupState {
     }
 
     /// `dequeue_signal`: the lowest-numbered signal in `wanted`, from the task's own pending
-    /// set first, then the group's. A POSIX timer's signal comes with its timer, which the
-    /// caller asks, with the group unlocked, whether the signal still counts.
+    /// set first, then the group's, after which the task is pending only for what is left
+    /// (`recalc_sigpending`). A POSIX timer's signal comes with its timer, which the caller
+    /// asks, with the group unlocked, whether the signal still counts.
     fn dequeue(&mut self, task: TaskId, wanted: u64) -> Option<(Siginfo, Option<Arc<PosixTimer>>)> {
         let own = self.task(task).pending.set & wanted;
-        if own != 0 {
+        let taken = if own != 0 {
             let sig = own.trailing_zeros() as i32 + 1;
-            return Some(self.task(task).pending.take(sig));
-        }
-        let shared = self.shared.set & wanted;
-        if shared != 0 {
-            return Some(self.take_shared(shared.trailing_zeros() as i32 + 1));
-        }
-        None
+            Some(self.task(task).pending.take(sig))
+        } else {
+            let shared = self.shared.set & wanted;
+            (shared != 0).then(|| self.take_shared(shared.trailing_zeros() as i32 + 1))
+        };
+        self.recalc_sigpending(task);
+        taken
     }
 
     /// Takes `sig` from the group's pending set; SIGALRM re-arms a periodic `ITIMER_REAL`.
@@ -1131,10 +1261,19 @@ impl TaskSignals {
     /// previous mask. A signal it unblocks is delivered on the way back to the guest
     /// (`recalc_sigpending`).
     pub(crate) fn replace_blocked(&self, blocked: u64) -> u64 {
-        self.with(|task| {
-            task.flag.raise();
-            std::mem::replace(&mut task.blocked, blocked & !UNBLOCKABLE)
-        })
+        let mut state = self.group.state.lock_or_recover();
+        let old = state.task(self.task).blocked;
+        let woke = state.set_blocked(self.task, blocked);
+        drop(state);
+        self.wake_if(woke);
+        old
+    }
+
+    /// Ends the waits of the tasks a mask change handed the group's signals to.
+    fn wake_if(&self, woke: bool) {
+        if woke {
+            self.group.queue.wake(wasixv2_wait::PollMask::empty());
+        }
     }
 
     /// [`TaskSignals::replace_blocked`] for `sigprocmask`, unless the new mask blocks a signal
@@ -1143,13 +1282,14 @@ impl TaskSignals {
     pub(crate) fn block_after_pending(&self, blocked: u64) -> Option<u64> {
         let mut state = self.group.state.lock_or_recover();
         let blocked = blocked & !UNBLOCKABLE;
-        let newly = blocked & !state.task(self.task).blocked;
-        if state.take_first(self.task, newly) {
+        let old = state.task(self.task).blocked;
+        if state.take_first(self.task, blocked & !old) {
             return None;
         }
-        let task = state.task(self.task);
-        task.flag.raise();
-        Some(std::mem::replace(&mut task.blocked, blocked))
+        let woke = state.set_blocked(self.task, blocked);
+        drop(state);
+        self.wake_if(woke);
+        Some(old)
     }
 
     pub(crate) fn blocked(&self) -> u64 {
@@ -1201,13 +1341,16 @@ impl TaskSignals {
     /// was interrupted, the temporary mask stays until the handler's frame is built, whose
     /// `uc_sigmask` then holds `saved` (`restore_saved_sigmask_unless`).
     pub(crate) fn restore_blocked(&self, saved: u64, interrupted: bool) {
-        self.with(|task| {
-            task.flag.raise();
-            match interrupted {
-                true => task.saved = Some(saved),
-                false => task.blocked = saved,
-            }
-        });
+        let mut state = self.group.state.lock_or_recover();
+        let task = state.task(self.task);
+        task.flag.raise();
+        if interrupted {
+            task.saved = Some(saved);
+            return;
+        }
+        let woke = state.set_blocked(self.task, saved);
+        drop(state);
+        self.wake_if(woke);
     }
 
     /// The signal half of `rt_sigreturn` for the task's innermost handler (see
@@ -1220,13 +1363,16 @@ impl TaskSignals {
             return;
         };
         let saved = task.frames.pop();
-        if let Some(mask) = mask {
-            if let Some(alt) = saved {
-                task.altstack = alt;
-            }
-            task.blocked = mask & !UNBLOCKABLE;
-            task.flag.raise();
+        let Some(mask) = mask else {
+            return;
+        };
+        if let Some(alt) = saved {
+            task.altstack = alt;
         }
+        task.flag.raise();
+        let woke = state.set_blocked(self.task, mask);
+        drop(state);
+        self.wake_if(woke);
     }
 
     /// The fatal signal pending for the task, as a killable wait sees it
@@ -1264,9 +1410,18 @@ impl TaskSignals {
     /// [`Kernel::exit_signals`]).
     pub(crate) fn detach(&self) -> bool {
         let mut state = self.group.state.lock_or_recover();
-        let pending = state.tasks.get(&self.task).is_some_and(|t| t.stop_pending);
+        let Some(me) = state.tasks.get(&self.task) else {
+            return false;
+        };
+        // A task that never got to its exit (one that never started) hands on the group
+        // signals it was to take, as [`Kernel::exit_signals`] does for the others.
+        let (pending, retarget, unblocked) =
+            (me.stop_pending, me.sigpending && !me.exiting, !me.blocked);
+        let woke = retarget && state.retarget(self.task, unblocked);
         let completed = pending && state.participate(self.task);
         state.tasks.remove(&self.task);
+        drop(state);
+        self.wake_if(woke);
         completed
     }
 
@@ -1335,7 +1490,7 @@ impl Interrupt for TaskSignals {
             return true;
         };
         // A group stop sets `TIF_SIGPENDING` too.
-        task.notify || task.stop_pending || state.deliverable(self.task, !task.blocked) != 0
+        task.notify || task.stop_pending || task.sigpending
     }
 
     fn queue(&self) -> Option<&WaitQueue> {
@@ -1368,10 +1523,12 @@ impl Interrupt for WaitFor<'_> {
         let Some(task) = state.tasks.get(&self.signals.task) else {
             return true;
         };
-        // A group stop ends the wait too, which then fails with EINTR, as on Linux.
+        // A group stop ends the wait too, which then fails with EINTR, as on Linux. The signals
+        // waited for count while blocked, as Linux unblocks them for the wait.
         task.notify
             || task.stop_pending
-            || state.deliverable(self.signals.task, self.these | !task.blocked) != 0
+            || task.sigpending
+            || state.deliverable(self.signals.task, self.these) != 0
     }
 
     fn queue(&self) -> Option<&WaitQueue> {
@@ -1531,16 +1688,23 @@ impl Kernel {
                     return Some(self.stopped(&process, signals, completed));
                 }
             }
-            let blocked = state.task(task).blocked;
-            let info;
-            (state, info) = signals.group.dequeue(state, task, !blocked);
+            let me = state.task(task);
+            let (blocked, sigpending) = (me.blocked, me.sigpending);
+            // Only a task a signal waits for dequeues (`get_signal` runs on `TIF_SIGPENDING`):
+            // one woken for another reason leaves the group's signals to the task picked.
+            let mut info = None;
+            if sigpending {
+                (state, info) = signals.group.dequeue(state, task, !blocked);
+            }
             let Some(info) = info else {
-                // `restore_saved_sigmask`: no handler took the temporary mask's signal.
-                let task = state.task(task);
-                if let Some(saved) = task.saved.take() {
-                    // What the old mask unblocks is delivered on the next return.
-                    task.blocked = saved;
-                    task.flag.raise();
+                // `restore_saved_sigmask`: no handler took the temporary mask's signal. What the
+                // old mask unblocks is delivered on the next return.
+                if let Some(saved) = state.task(task).saved.take() {
+                    let woke = state.set_blocked(task, saved);
+                    drop(state);
+                    if woke {
+                        signals.group.queue.wake(wasixv2_wait::PollMask::empty());
+                    }
                 }
                 return None;
             };
@@ -1589,24 +1753,30 @@ impl Kernel {
                     }
                 }
             };
-            let task = state.task(task);
-            let mask = task.saved.take().unwrap_or(task.blocked);
+            let me = state.task(task);
+            let mask = me.saved.take().unwrap_or(me.blocked);
             // The frame saves the alternate stack (`__save_altstack`), and the execution layer
             // puts it there unless the guest runs on it already (`sigsp`). Delivery disarms an
             // `SS_AUTODISARM` stack until the handler returns (`signal_delivered`).
-            let alt = task.altstack;
-            task.frames.push(alt);
+            let alt = me.altstack;
+            me.frames.push(alt);
             if alt.flags & SigaltstackFlags::SS_AUTODISARM.0 != 0 {
-                task.altstack = AltStack::default();
+                me.altstack = AltStack::default();
             }
             let mut block = action.mask;
             if action.flags & SaFlags::SA_NODEFER.0 == 0 {
                 block |= bit(sig);
             }
-            task.blocked = (task.blocked | block) & !UNBLOCKABLE;
+            // `signal_delivered`'s `set_current_blocked`.
+            let blocked = me.blocked | block;
+            let woke = state.set_blocked(task, blocked);
             // `SA_ONESHOT` resets only the handler; the flags and mask stay.
             if action.flags & SaFlags::SA_RESETHAND.0 != 0 {
                 state.actions[sig as usize - 1].handler = SignalHandler::SIG_DFL.0 as u32;
+            }
+            drop(state);
+            if woke {
+                signals.group.queue.wake(wasixv2_wait::PollMask::empty());
             }
             return Some(GuestAction::Signal(SignalFrame {
                 trampoline,
@@ -1642,16 +1812,29 @@ impl Kernel {
             .expect("NoInterrupt never interrupts");
     }
 
-    /// `exit_signals` for `task`, which leaves its thread group while the group goes on: its
-    /// part in a group stop under way is taken.
+    /// `exit_signals` for `task`, which leaves its thread group: it takes no more signals
+    /// (`PF_EXITING`), and if the group goes on, the group's signals it was to take go to other
+    /// tasks and its part in a group stop under way is taken.
     pub(crate) fn exit_signals(&self, task: TaskId, signals: &TaskSignals) {
         let process = self.process(task);
         let mut state = signals.group.state.lock_or_recover();
-        let Some(me) = state.tasks.get(&task) else {
+        let Some(me) = state.tasks.get_mut(&task) else {
             return;
         };
-        if me.stop_pending && !process.group.signal_group_exit() && state.participate(task) {
-            drop(state);
+        me.exiting = true;
+        // Lock order: the signal state, then the thread group's.
+        if process.group.signal_group_exit() {
+            return;
+        }
+        // The group's signals the task was to take go to the others (`retarget_shared_pending`).
+        let (sigpending, unblocked, stop_pending) = (me.sigpending, !me.blocked, me.stop_pending);
+        let woke = sigpending && state.retarget(task, unblocked);
+        let completed = stop_pending && state.participate(task);
+        drop(state);
+        if woke {
+            signals.group.queue.wake(wasixv2_wait::PollMask::empty());
+        }
+        if completed {
             self.notify_parent_cldstop(&process, SiCode::CLD_STOPPED, signals.group.stop_status());
         }
     }
