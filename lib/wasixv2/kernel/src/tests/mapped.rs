@@ -1,6 +1,6 @@
-//! Shared objects whose pages the memory shows itself: `MAP_SHARED | MAP_ANONYMOUS` memory and
-//! SysV segments on a host that has shared memory, over memory that can place an object's
-//! pages, as the execution layer's on Unix.
+//! Shared objects whose pages the memory shows itself: `MAP_SHARED | MAP_ANONYMOUS` memory,
+//! SysV segments and memfd files on a host that has shared memory, over memory that can place
+//! an object's pages, as the execution layer's on Unix.
 
 use std::{
     cell::Cell,
@@ -8,8 +8,11 @@ use std::{
 };
 
 use futures::FutureExt as _;
-use wasixv2_abi::{FutexOp, IpcCmd, MadviseAdvice, MapFlags, MremapFlags, ProtFlags, Shmid64Ds};
-use wasixv2_pages::{Memfd, SharedPages, map_at, map_private_at};
+use wasixv2_abi::{
+    Cstr, FcntlCmd, FutexOp, IpcCmd, MadviseAdvice, MapFlags, MemfdFlags, MremapFlags, MsyncFlags,
+    ProtFlags, SealFlags, Shmid64Ds,
+};
+use wasixv2_pages::{Memfd, Provider, SharedPages, map_at, map_private_at};
 use wasixv2_syscalls::{AtomicWait, AtomicWord, read_value};
 
 use super::{ipc::errno, *};
@@ -195,12 +198,21 @@ impl Host for SharedHost {
     }
 }
 
-/// A kernel on [`SharedHost`] with one task.
+/// Keeps the files of a memory filesystem in memfds, as `/dev/shm` and the memfd filesystem
+/// do on such a host.
+impl Provider for SharedHost {
+    fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn SharedPages>> {
+        Host::shared_pages(self, size)
+    }
+}
+
+/// A kernel on [`SharedHost`] with one task, whose memfds live in host shared memory.
 pub(super) fn shared_machine() -> (Kernel, TaskId) {
     let host: Arc<dyn Host> = Arc::new(SharedHost);
     let clock = Arc::new(HostClock(host.clone()));
-    let root = MemFs::new(clock, 0o755, 1, 1);
-    let kernel = Kernel::new(host, Arc::new(root));
+    let root = MemFs::new(clock.clone(), 0o755, 1, 1);
+    let shm = MemFs::new(clock, 0o1777, 0, 0).with_shared_pages(Arc::new(SharedHost));
+    let kernel = Kernel::new(host, Arc::new(root)).with_shm(Arc::new(shm));
     let stdin = Arc::new(Input(Mutex::new(Vec::new())));
     let (kernel, task, _) = spawn_on(kernel, stdin, &[], &[]);
     (kernel, task)
@@ -562,4 +574,138 @@ fn a_read_only_mapped_attachment_never_becomes_writable() {
         errno(block_on(kernel.mprotect(&caller, at, PAGE, write))),
         Errno::EACCES
     );
+}
+
+const NAME: u32 = 0x100;
+const DATA: u32 = 0x1000;
+
+fn memfd(kernel: &Kernel, caller: &Caller<'_>, flags: MemfdFlags) -> Fd {
+    block_on(caller.memory().write(NAME, b"shm\0")).unwrap();
+    block_on(kernel.memfd_create(caller, Cstr::new(NAME), flags)).unwrap()
+}
+
+fn map_file(kernel: &Kernel, caller: &Caller<'_>, fd: Fd, len: u32, prot: ProtFlags) -> u32 {
+    let mapped = kernel.mmap(caller, 0, len, prot, MapFlags::MAP_SHARED, fd, 0);
+    block_on(mapped).unwrap()
+}
+
+fn pwrite(kernel: &Kernel, caller: &Caller<'_>, fd: Fd, data: &[u8], pos: i64) {
+    block_on(caller.memory().write(DATA, data)).unwrap();
+    let slice = UserSlice::new(DATA, data.len() as u32);
+    let written = block_on(kernel.pwrite64(caller, fd, slice, pos));
+    assert_eq!(written, Ok(data.len() as u32));
+}
+
+fn pread(kernel: &Kernel, caller: &Caller<'_>, fd: Fd, len: u32, pos: i64) -> Vec<u8> {
+    let read = block_on(kernel.pread64(caller, fd, UserSliceMut::new(DATA, len), pos));
+    let mut buf = vec![0; read.unwrap() as usize];
+    block_on(caller.memory().read(DATA, &mut buf)).unwrap();
+    buf
+}
+
+fn ftruncate(kernel: &Kernel, caller: &Caller<'_>, fd: Fd, len: i64) {
+    assert_eq!(block_on(kernel.ftruncate64(caller, fd, len)), Ok(0));
+}
+
+fn add_seals(kernel: &Kernel, caller: &Caller<'_>, fd: Fd, seals: SealFlags) -> SysResult<i32> {
+    block_on(kernel.fcntl64(caller, fd, FcntlCmd::F_ADD_SEALS, seals.0))
+}
+
+#[test]
+fn a_memfd_mapping_is_the_files_pages_in_every_process() {
+    let (kernel, parent) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let fd = memfd(&kernel, &caller, MemfdFlags::empty());
+    ftruncate(&kernel, &caller, fd, 2 * i64::from(PAGE));
+    let at = map_file(&kernel, &caller, fd, 2 * PAGE, RW);
+    assert_eq!(kernel.shared_mappings(parent).len(), 1);
+
+    // write() and the mapping are the same bytes, with no synchronisation point in between.
+    pwrite(&kernel, &caller, fd, b"written", 8);
+    assert_eq!(memory.get(at + 8, 7), b"written");
+    memory.put(at + PAGE, b"stored");
+    assert_eq!(pread(&kernel, &caller, fd, 6, PAGE.into()), b"stored");
+
+    let child = fork(&kernel, &caller);
+    let child_memory = memory.fork(&kernel.shared_mappings(child));
+    child_memory.put(at, b"child");
+    assert_eq!(memory.get(at, 5), b"child");
+    memory.put(at + 2 * PAGE - 6, b"parent");
+    assert_eq!(child_memory.get(at + 2 * PAGE - 6, 6), b"parent");
+}
+
+#[test]
+fn ftruncate_under_a_mapping_zeroes_the_tail_and_keeps_it_mapped() {
+    let (kernel, task) = shared_machine();
+    let memory = MappedMemory::new(2, false);
+    let caller = Caller::new(task, &memory);
+    let fd = memfd(&kernel, &caller, MemfdFlags::empty());
+    // Mapped past the end of an empty file: Linux would raise SIGBUS there; here the pages
+    // are backed and read zero.
+    let at = map_file(&kernel, &caller, fd, 2 * PAGE, RW);
+    assert_eq!(memory.get(at + PAGE, 4), [0; 4]);
+
+    ftruncate(&kernel, &caller, fd, 2 * i64::from(PAGE));
+    memory.put(at, &[7; 16]);
+    memory.put(at + PAGE, b"tail");
+    ftruncate(&kernel, &caller, fd, 4);
+    assert_eq!(memory.get(at, 6), [7, 7, 7, 7, 0, 0]);
+    assert_eq!(memory.get(at + PAGE, 4), [0; 4]);
+
+    // Growing again shows zeros, and the mapping still is the file.
+    ftruncate(&kernel, &caller, fd, 2 * i64::from(PAGE));
+    assert_eq!(memory.get(at + PAGE, 4), [0; 4]);
+    memory.put(at + PAGE, b"again");
+    assert_eq!(pread(&kernel, &caller, fd, 5, PAGE.into()), b"again");
+}
+
+#[test]
+fn a_write_seal_waits_for_every_writable_mapping_in_every_process() {
+    let (kernel, parent) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let fd = memfd(&kernel, &caller, MemfdFlags::MFD_ALLOW_SEALING);
+    ftruncate(&kernel, &caller, fd, PAGE.into());
+    let at = map_file(&kernel, &caller, fd, PAGE, RW);
+    let child = fork(&kernel, &caller);
+    let child_memory = memory.fork(&kernel.shared_mappings(child));
+    let child_caller = Caller::new(child, &child_memory);
+
+    let write = SealFlags::F_SEAL_WRITE;
+    assert_eq!(errno(add_seals(&kernel, &caller, fd, write)), Errno::EBUSY);
+    assert_eq!(block_on(kernel.munmap(&caller, at, PAGE)), Ok(0));
+    // The child's copy of the mapping still counts.
+    assert_eq!(errno(add_seals(&kernel, &caller, fd, write)), Errno::EBUSY);
+    assert_eq!(block_on(kernel.munmap(&child_caller, at, PAGE)), Ok(0));
+    assert_eq!(add_seals(&kernel, &caller, fd, write), Ok(0));
+
+    let mapped = kernel.mmap(&caller, 0, PAGE, RW, MapFlags::MAP_SHARED, fd, 0);
+    assert_eq!(errno(block_on(mapped)), Errno::EPERM);
+    // A read-only mapping of the sealed file is a copy: stores to it never reach the file.
+    let read_only = map_file(&kernel, &caller, fd, PAGE, ProtFlags::PROT_READ);
+    assert!(kernel.shared_mappings(parent).is_empty());
+    memory.put(read_only, b"sealed?");
+    let synced = kernel.msync(&caller, read_only, PAGE, MsyncFlags::MS_SYNC);
+    assert_eq!(block_on(synced), Ok(0));
+    assert_eq!(pread(&kernel, &caller, fd, 7, 0), [0; 7]);
+}
+
+#[test]
+fn memory_that_cannot_show_pages_copies_a_memfd_mapping() {
+    let (kernel, task) = shared_machine();
+    let memory = FlatMemory(RefCell::new(vec![0; 2 * PAGE as usize]));
+    let caller = Caller::new(task, &memory);
+    let fd = memfd(&kernel, &caller, MemfdFlags::empty());
+    ftruncate(&kernel, &caller, fd, PAGE.into());
+    let at = map_file(&kernel, &caller, fd, PAGE, RW);
+    assert!(kernel.shared_mappings(task).is_empty());
+
+    // The copy meets the file at its synchronisation points, as any file mapping.
+    block_on(memory.write(at + 4, b"copied")).unwrap();
+    assert_eq!(pread(&kernel, &caller, fd, 6, 4), b"copied");
+    pwrite(&kernel, &caller, fd, b"back", 0);
+    let mut buf = [0; 4];
+    block_on(memory.read(at, &mut buf)).unwrap();
+    assert_eq!(&buf, b"back");
 }
