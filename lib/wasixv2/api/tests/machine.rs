@@ -139,6 +139,63 @@ async fn the_default_environment_has_the_users_home_and_a_path() {
     assert_eq!(root.default_env(), ["HOME=/root", path]);
 }
 
+/// Prints `/etc/passwd`, then `/etc/group`; exits with 1 if it cannot open one.
+const ACCOUNTS_WAT: &str = r#"
+  (module
+    (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+    (import "wasixv2" "read" (func $read (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+    (memory (export "memory") 1)
+    (data (i32.const 16) "/etc/passwd\00")
+    (data (i32.const 32) "/etc/group\00")
+
+    (func $cat (param $path i32) (local $fd i32) (local $n i32)
+      (local.set $fd (call $openat (i32.const -100) (local.get $path) (i32.const 0) (i32.const 0)))
+      (if (i32.lt_s (local.get $fd) (i32.const 0))
+        (then (call $exit_group (i32.const 1)) unreachable))
+      (loop $more
+        (local.set $n (call $read (local.get $fd) (i32.const 1024) (i32.const 4096)))
+        (if (i32.gt_s (local.get $n) (i32.const 0))
+          (then
+            (drop (call $write (i32.const 1) (i32.const 1024) (local.get $n)))
+            (br $more)))))
+
+    (func (export "_start")
+      (call $cat (i32.const 16))
+      (call $cat (i32.const 32))
+      (call $exit_group (i32.const 0))
+      unreachable))
+"#;
+
+/// The default root has Debian's names for root and the unprivileged `nobody` (LTP's root-only
+/// tests switch to it) and for the `users` group, besides the user's own entries; a user that
+/// is one of those accounts gets no second entry.
+#[tokio::test]
+async fn the_default_root_names_root_nobody_and_the_user() {
+    let system_users = "root:x:0:0:root:/root:/bin/sh\n\
+                        nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin\n";
+    let system_groups = "root:x:0:\nusers:x:100:\nnogroup:x:65534:\n";
+
+    let (status, out) = run(Machine::new(), ACCOUNTS_WAT).await;
+    let expected =
+        format!("{system_users}user:x:1:1:user:/home/user:/bin/sh\n{system_groups}user:x:1:\n");
+    assert_eq!((status, String::from_utf8(out).unwrap()), (0, expected));
+
+    let root = Machine::builder().user(Credentials::new(0, 0)).build();
+    let (status, out) = run(root, ACCOUNTS_WAT).await;
+    let expected = format!("{system_users}{system_groups}");
+    assert_eq!((status, String::from_utf8(out).unwrap()), (0, expected));
+
+    let nobody = Machine::builder()
+        .user(Credentials::new(65534, 100))
+        .build();
+    assert_eq!(nobody.default_env()[0], "HOME=/nonexistent");
+    let (status, out) = run(nobody, ACCOUNTS_WAT).await;
+    let expected = format!("{system_users}{system_groups}");
+    assert_eq!((status, String::from_utf8(out).unwrap()), (0, expected));
+}
+
 /// Prints `ready`, then waits in `ppoll` with nothing to poll and no timeout, forever.
 const BLOCK_WAT: &str = r#"
   (module
