@@ -17,12 +17,9 @@ modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 Suite on `feat/wasixv2` `0bd23caafbb` (merge train 9; wasixv2-tests `89a2785`, libc2 `449e092e`,
 abi `f9958c7`, wasixcc `7ab1ffb`): 3053 pass, 725 expected failures, 0 unexpected, 940 ignored.
 
-| Suite | Pass | Expected failures | Ignored |
-| --- | --- | --- | --- |
-| Open POSIX | 1519 | 272 | 85 |
-| LTP | 894 | 431 | 853 |
-| libc-test | 397 | 22 | 2 |
-| wasixv2 suite (`suite/`) | 243 | 0 | 0 |
+Per suite (train 9's suite #2, before the last six flaky entries; pass / expected failures /
+unexpected): Open POSIX 1519/272/0, LTP 897/432/1 (nice05), libc-test 397/22/1 (malloc-brk-fail, host
+OOM), wasixv2 243/0/0.
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
