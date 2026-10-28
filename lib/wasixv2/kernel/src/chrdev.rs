@@ -1,15 +1,17 @@
 //! Character devices: the drivers behind device nodes, found by device number when a node is
 //! opened (`chrdev_open`). The memory devices follow `drivers/char/mem.c`, the random devices
-//! `drivers/char/random.c`; `/dev/tty` is `tty_open` without a controlling terminal.
+//! `drivers/char/random.c`; `/dev/tty` is the opener's controlling terminal (`tty_open`), and
+//! the host's console is a terminal of its own (see `tty`).
 //!
 //! The nodes themselves live on an ordinary filesystem, as on Linux, where devtmpfs is a tmpfs:
 //! [`Kernel::create_device_nodes`] makes the standard ones.
 
 use std::sync::Arc;
 
+use wasixv2_abi::OpenFlags;
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Errno, LocalFuture, SysResult};
-use wasixv2_vfs::{Cred, Ctx, Device, File, FileType, FsResult, Vfs};
+use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult};
+use wasixv2_vfs::{Cap, Cred, Ctx, Device, File, FileType, FsResult, Vfs};
 use wasixv2_wait::{PollMask, PollTable, Pollable};
 
 use crate::{
@@ -21,6 +23,8 @@ use crate::{
 const MEM_MAJOR: u32 = 1;
 /// `TTYAUX_MAJOR`, with `/dev/tty` (and `/dev/console`, which has no driver here).
 const TTYAUX_MAJOR: u32 = 5;
+/// The mode of a terminal's node once its user logged in on it (`login`'s `chmod 0620`).
+const TTY_MODE: u32 = 0o620;
 
 /// The device nodes `devtmpfs` would create for the drivers here: name, minor numbers, mode.
 const NODES: [(&str, Device, u32); 6] = [
@@ -58,12 +62,20 @@ struct RandomDevice {
 
 impl Kernel {
     /// `chrdev_open`: the driver the node's device number names; `ENXIO` if there is none. A
-    /// block device has no driver at all.
-    pub(crate) async fn open_device(&self, file: File) -> SysResult<Arc<dyn FileObject>> {
+    /// block device has no driver at all. `flags` are the open's.
+    pub(crate) async fn open_device(
+        &self,
+        caller: &Caller<'_>,
+        file: File,
+        flags: OpenFlags,
+    ) -> SysResult<Arc<dyn FileObject>> {
         if file.file_type() != FileType::CharDevice {
             return Err(Errno::ENXIO.into());
         }
         let rdev = file.node().getattr().await?.rdev;
+        if let Some(tty) = self.open_tty(caller, rdev, flags)? {
+            return Ok(tty);
+        }
         let object: Arc<dyn FileObject> = match (rdev.major, rdev.minor) {
             (MEM_MAJOR, 3) => mem(Mem::Null, file),
             (MEM_MAJOR, 5) => mem(Mem::Zero, file),
@@ -72,18 +84,95 @@ impl Kernel {
                 host: self.host.clone(),
                 _file: file,
             }),
-            // `tty_open_current_tty`: no process has a controlling terminal.
             _ => return Err(Errno::ENXIO.into()),
         };
         Ok(object)
+    }
+
+    /// `tty_open` for the terminal devices: `/dev/tty` is the caller's controlling terminal
+    /// (`ENXIO` without one), the console is itself, and opening a terminal without
+    /// `O_NOCTTY` gives a session leader without one its controlling terminal. `None` for
+    /// other devices.
+    fn open_tty(
+        &self,
+        caller: &Caller<'_>,
+        rdev: Device,
+        flags: OpenFlags,
+    ) -> SysResult<Option<Arc<dyn FileObject>>> {
+        let process = self.process(caller.task());
+        let (tty, noctty) = match (rdev.major, rdev.minor) {
+            // `tty_open_current_tty`.
+            (TTYAUX_MAJOR, 0) => {
+                let tty = process.ident.lock().unwrap().tty.clone();
+                (tty.ok_or(Errno::ENXIO)?, true)
+            }
+            (crate::tty::HVC_MAJOR, 0) => match self.console() {
+                Some(tty) => (tty.clone(), flags.contains(OpenFlags::O_NOCTTY)),
+                // `hvc_open` of a console nobody provides.
+                None => return Err(Errno::ENODEV.into()),
+            },
+            _ => return Ok(None),
+        };
+        let admin = self.cred(caller).capable(Cap::SysAdmin);
+        let file = tty.open(admin)?;
+        if !noctty {
+            let readable = matches!(
+                flags & OpenFlags::O_ACCMODE,
+                OpenFlags::O_RDONLY | OpenFlags::O_RDWR
+            );
+            tty.open_set_ctty(&process, readable);
+        }
+        Ok(Some(Arc::new(file)))
     }
 
     /// Creates the nodes of the devices the kernel has in the directory `at` (resolved from the
     /// root, which must exist), as devtmpfs populates `/dev`: owned by root, with Linux's
     /// numbers and modes.
     pub async fn create_device_nodes(&self, at: &[u8]) -> FsResult<()> {
-        create_nodes(&self.vfs, at).await
+        create_nodes(&self.vfs, at).await?;
+        if let Some((name, device)) = self.console_node(at) {
+            // The console's user is logged in on it: the node is theirs, as `login` leaves a
+            // terminal.
+            let owner = crate::cred::Cred::new(&self.credentials).fs_owner();
+            create_tty_node(&self.vfs, at, name, device, owner).await?;
+        }
+        Ok(())
     }
+}
+
+/// Makes the node of the terminal `device` named `name` in `at`, owned by `owner`.
+async fn create_tty_node(
+    vfs: &Vfs,
+    at: &[u8],
+    name: &str,
+    device: Device,
+    owner: (u32, u32),
+) -> FsResult<()> {
+    let cred = Cred::root();
+    let root = vfs.root();
+    let cx = Ctx {
+        cred: &cred,
+        root: &root,
+        umask: 0,
+        task: 0,
+    };
+    let dir = vfs
+        .lookup(&cx, &root, at, wasixv2_vfs::LookupFlags::follow())
+        .await?;
+    let mode = FileType::CharDevice.mode_bits() | TTY_MODE;
+    match vfs.mknod(&cx, &dir, name.as_bytes(), mode, device).await {
+        Ok(()) | Err(Errno::EEXIST) => {}
+        Err(errno) => return Err(errno),
+    }
+    let node = vfs
+        .lookup(
+            &cx,
+            &dir,
+            name.as_bytes(),
+            wasixv2_vfs::LookupFlags::default(),
+        )
+        .await?;
+    vfs.chown(&cx, &node, Some(owner.0), Some(owner.1)).await
 }
 
 async fn create_nodes(vfs: &Vfs, at: &[u8]) -> FsResult<()> {

@@ -90,7 +90,7 @@ struct InputState {
 }
 
 /// Turns the source's readiness into a wake of the input's queue.
-struct QueueWaker(WaitQueue);
+pub(crate) struct QueueWaker(pub(crate) WaitQueue);
 
 impl Wake for QueueWaker {
     fn wake(self: Arc<Self>) {
@@ -199,7 +199,7 @@ impl FileObject for HostOutput {
     }
 }
 
-fn io_errno(err: io::Error) -> Errno {
+pub(crate) fn io_errno(err: io::Error) -> Errno {
     match err.kind() {
         io::ErrorKind::BrokenPipe => Errno::EPIPE,
         io::ErrorKind::WouldBlock => Errno::EAGAIN,

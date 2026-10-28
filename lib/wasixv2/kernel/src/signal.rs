@@ -625,6 +625,13 @@ impl Signals {
         self.state.lock_or_recover().jobctl.stopped
     }
 
+    /// Sends `sig` from the kernel (`SI_KERNEL`) to the whole group, as a terminal's `isig`
+    /// does; returns whether it is pending now, `false` when the group ignores it.
+    pub(crate) fn generate_kernel(&self, sig: i32) -> bool {
+        // A kernel signal goes past the limit, or without its `siginfo`.
+        matches!(self.generate(None, kernel_info(sig)), Ok(true))
+    }
+
     /// Sends `sig` from the kernel (`SEND_SIG_PRIV`, `SI_KERNEL`) to the whole group.
     pub(crate) fn send_kernel(&self, sig: i32) {
         // A kernel signal goes past the limit, or without its `siginfo`.
@@ -646,7 +653,7 @@ impl Signals {
     }
 
     /// Whether `sig` is pending for the group or one of its tasks.
-    fn is_pending(&self, sig: i32) -> bool {
+    pub(crate) fn is_pending(&self, sig: i32) -> bool {
         let state = self.state.lock().unwrap();
         (state.shared.set | state.tasks.values().fold(0, |set, t| set | t.pending.set)) & bit(sig)
             != 0
@@ -1142,6 +1149,13 @@ impl TaskSignals {
         self.with(|task| task.blocked)
     }
 
+    /// `is_ignored` of `tty_jobctrl.c`: the task blocks `sig`, or its group ignores it.
+    pub(crate) fn ignores_or_blocks(&self, sig: i32) -> bool {
+        let mut state = self.group.state.lock_or_recover();
+        let ignored = state.actions[sig as usize - 1].is_ignore();
+        ignored || state.task(self.task).blocked & bit(sig) != 0
+    }
+
     /// What a task this one creates with `flags` inherits: the mask, and the alternate stack
     /// unless the new task shares the address space and runs alongside (`sas_ss_reset` for
     /// `CLONE_VM` without `CLONE_VFORK`: a thread).
@@ -1371,7 +1385,7 @@ fn check_sigsetsize(size: u32) -> Result<(), Errno> {
     }
 }
 
-fn check_signal(sig: Signal) -> Result<i32, Errno> {
+pub(crate) fn check_signal(sig: Signal) -> Result<i32, Errno> {
     match sig.0 {
         1..=NSIG => Ok(sig.0),
         _ => Err(Errno::EINVAL),

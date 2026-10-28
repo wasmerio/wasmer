@@ -44,6 +44,7 @@ mod thread;
 mod time;
 mod timer;
 mod timerfd;
+mod tty;
 mod unix;
 mod work;
 
@@ -74,7 +75,7 @@ use wasixv2_abi::{
     UlongArray, Uptr, Usize, UsizePtr, VoidPtr, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
-pub use wasixv2_host::Stdio;
+pub use wasixv2_host::{Console, Stdio, WindowSize};
 use wasixv2_syscalls::{
     AtomicWait, AtomicWord, Binfmt, Caller, Control, Errno, ExitMm, Fd, GroupStop, GuestAction,
     Image, LocalFuture, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
@@ -152,6 +153,11 @@ pub struct Kernel {
     init: Option<TaskId>,
     /// The UTS names (one UTS namespace per kernel), shared with the process filesystems.
     uts: Arc<Mutex<wasixv2_abi::NewUtsname>>,
+    // ---- tty ----
+    /// Process groups and sessions, as terminals and the kernel signal them.
+    jobs: tty::Jobs,
+    /// The host's console, if the embedder gave one ([`Kernel::with_console`]).
+    console: Option<Arc<tty::Tty>>,
 }
 
 #[derive(Default)]
@@ -226,11 +232,14 @@ impl Kernel {
     pub fn new(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
         let vfs = Vfs::new(root);
         let clock = Arc::new(fs::HostClock(host.clone()));
+        let state = Arc::default();
+        let procs = process::Procs::default();
+        let jobs = tty::Jobs::new(&state, &procs.tree);
         Self {
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             timers: timer::Timers::new(host.clone()),
             host,
-            state: Arc::default(),
+            state,
             network: None,
             unix_names: Arc::default(),
             inotify: fs::inotify::Registry::install(&vfs),
@@ -238,13 +247,15 @@ impl Kernel {
             vfs,
             futexes: futex::Futexes::default(),
             ipc: ipc::Ipc::default(),
-            procs: process::Procs::default(),
+            procs,
             binfmt: Arc::new(process::WasmMagic),
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
             credentials: Credentials::default(),
             init: None,
             uts: Arc::new(Mutex::new(Uname::default().to_utsname())),
+            jobs,
+            console: None,
         }
     }
 

@@ -164,7 +164,7 @@ impl Tree {
     /// parent in another group of the same session, so nothing outside the group can bring it
     /// back from a stop (POSIX's orphaned process group). Children of init, or of nobody, keep
     /// no group from being orphaned.
-    fn will_become_orphaned_pgrp(&self, pgid: u32, ignored: Option<u32>) -> bool {
+    pub(crate) fn will_become_orphaned_pgrp(&self, pgid: u32, ignored: Option<u32>) -> bool {
         !self.nodes.iter().any(|(&pid, node)| {
             if Some(pid) == ignored || node.is_zombie() || matches!(node.parent, 0 | 1) {
                 return false;
@@ -312,9 +312,7 @@ impl Kernel {
 
     /// The signal state of the thread group led by `pid`.
     fn group_signals(&self, pid: u32) -> Option<Arc<Signals>> {
-        let state = self.state.lock().unwrap();
-        let task = state.tasks.get(&TaskId(pid))?;
-        Some(task.signals.group().clone())
+        self.jobs.group_signals(pid)
     }
 
     /// Records that a signal's default action is killing the process `task` belongs to, so its
@@ -341,6 +339,8 @@ impl Kernel {
             }
         };
         self.exit_files(process);
+        // `do_exit`'s `disassociate_ctty(1)` for a session leader, after its files closed.
+        self.disassociate_ctty(process, true);
         // `do_notify_parent`: how the parent treats SIGCHLD decides whether a zombie stays.
         let parent_signals = (parent != 0).then(|| self.group_signals(parent)).flatten();
         let (ignored, nocldwait) = parent_signals
@@ -484,10 +484,7 @@ impl Kernel {
     /// Whether the process group of `process` is orphaned (`is_current_pgrp_orphaned`).
     pub(crate) fn is_pgrp_orphaned(&self, process: &Process) -> bool {
         let pgid = process.ident.lock_or_recover().pgid;
-        self.procs
-            .tree
-            .lock_or_recover()
-            .will_become_orphaned_pgrp(pgid, None)
+        self.jobs.is_pgrp_orphaned(pgid)
     }
 
     /// `do_notify_parent_cldstop`: `process` stopped (`CLD_STOPPED`, `status` the signal) or
@@ -1193,20 +1190,7 @@ impl Kernel {
 
     /// The thread groups in process group `pgid` that have not exited.
     pub(crate) fn pgrp_groups(&self, pgid: Pid) -> Vec<(Pid, Arc<Signals>)> {
-        let members: Vec<u32> = {
-            let tree = self.procs.tree.lock().unwrap();
-            tree.nodes
-                .iter()
-                .filter(|(_, node)| {
-                    node.exit.is_none() && node.process.ident.lock().unwrap().pgid as Pid == pgid
-                })
-                .map(|(&pid, _)| pid)
-                .collect()
-        };
-        members
-            .into_iter()
-            .filter_map(|pid| Some((pid as Pid, self.group_signals(pid)?)))
-            .collect()
+        self.jobs.pgrp_groups(pgid)
     }
 
     /// `setpgid`: the caller or one of its children that has not run `execve`, in the caller's
@@ -1274,6 +1258,8 @@ impl Kernel {
         }
         ident.pgid = me;
         ident.sid = me;
+        // `proc_clear_tty`: a new session starts without a controlling terminal.
+        ident.tty = None;
         Ok(me as Pid)
     }
 
@@ -1521,7 +1507,7 @@ fn check_arg_size(args: &[Vec<u8>], env: &[Vec<u8>]) -> SysResult<()> {
 }
 
 /// Memory for kernel work outside any syscall, where no guest pointer is followed.
-struct NoMemory;
+pub(crate) struct NoMemory;
 
 impl wasixv2_syscalls::UserMemory for NoMemory {
     fn read<'a>(
