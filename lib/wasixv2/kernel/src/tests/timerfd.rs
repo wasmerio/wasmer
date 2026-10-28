@@ -101,15 +101,17 @@ impl Fixture {
         let dyn_host: Arc<dyn Host> = host.clone();
         let root = MemFs::new(Arc::new(HostClock(dyn_host.clone())), 0o755, 1, 1);
         let kernel = Kernel::new(dyn_host, Arc::new(root));
-        let task = kernel.spawn(ProcessConfig {
-            args: vec![],
-            env: vec![],
-            stdio: Stdio {
-                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-                stdout: Arc::new(Capture::default()),
-                stderr: Arc::new(Capture::default()),
-            },
-        });
+        let task = kernel
+            .spawn(ProcessConfig {
+                args: vec![],
+                env: vec![],
+                stdio: Stdio {
+                    stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                    stdout: Arc::new(Capture::default()),
+                    stderr: Arc::new(Capture::default()),
+                },
+            })
+            .unwrap();
         let memory = FlatMemory(RefCell::new(vec![0; 4096]));
         Self {
             host,

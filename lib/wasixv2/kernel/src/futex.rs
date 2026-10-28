@@ -672,7 +672,7 @@ impl Kernel {
         }
         let word = self.futex_word(caller, uaddr.addr(), private);
         let key = word.key;
-        let tid = caller.task().0;
+        let tid = self.own_tid(caller.task()) as u32;
         let memory = caller.memory();
         match cmd {
             FutexOp::FUTEX_WAIT | FutexOp::FUTEX_WAIT_BITSET => {
@@ -902,12 +902,15 @@ impl Kernel {
         }
     }
 
-    /// Whether `tid` is a task that has not exited (`find_get_task_by_vpid`).
-    fn task_alive(&self, tid: u32) -> bool {
+    /// Whether the caller's `tid` is a task that has not exited (`find_get_task_by_vpid`).
+    fn task_alive(&self, caller: &Caller<'_>, tid: u32) -> bool {
+        let Some(id) = self.find_vpid(caller, tid as i32) else {
+            return false;
+        };
         let state = self.state.lock_or_recover();
         state
             .tasks
-            .get(&wasixv2_syscalls::TaskId(tid))
+            .get(&wasixv2_syscalls::TaskId(id))
             .is_some_and(|task| !task.thread.exited())
     }
 
@@ -915,12 +918,13 @@ impl Kernel {
     /// `FUTEX_WAITERS` and makes sure the kernel state names the owner.
     async fn futex_lock_pi_atomic(
         &self,
-        memory: &dyn UserMemory,
+        caller: &Caller<'_>,
         table: &mut HashMap<Key, PiState>,
         futex: Word,
         tid: u32,
     ) -> Result<Attempt, Errno> {
         let (key, addr) = (futex.key, futex.addr);
+        let memory = caller.memory();
         loop {
             let word = get_word(memory, addr).await?;
             let owner = word & FUTEX_TID_MASK;
@@ -957,7 +961,7 @@ impl Kernel {
                 continue;
             }
             // `attach_to_pi_owner`: the owner must exist (`handle_exit_race`).
-            if !self.task_alive(owner) {
+            if !self.task_alive(caller, owner) {
                 let now = get_word(memory, addr).await?;
                 if now != word | FUTEX_WAITERS {
                     continue;
@@ -978,7 +982,7 @@ impl Kernel {
     async fn futex_trylock_pi(&self, caller: &Caller<'_>, word: Word, tid: u32) -> SysResult<i32> {
         let mut table = self.futexes.pi.lock().await;
         let attempt = self
-            .futex_lock_pi_atomic(caller.memory(), &mut table, word, tid)
+            .futex_lock_pi_atomic(caller, &mut table, word, tid)
             .await?;
         drop_idle(&mut table, word.key);
         match attempt {
@@ -1001,7 +1005,7 @@ impl Kernel {
         {
             let mut table = self.futexes.pi.lock().await;
             let attempt = self
-                .futex_lock_pi_atomic(caller.memory(), &mut table, word, tid)
+                .futex_lock_pi_atomic(caller, &mut table, word, tid)
                 .await;
             match attempt {
                 Ok(Attempt::Acquired) => {
@@ -1205,7 +1209,7 @@ impl Kernel {
                 continue;
             }
             let attempt = self
-                .futex_lock_pi_atomic(caller.memory(), &mut table, futex, requeue.pi.tid)
+                .futex_lock_pi_atomic(caller, &mut table, futex, requeue.pi.tid)
                 .await;
             let acquired = match attempt {
                 Ok(Attempt::Acquired) => true,

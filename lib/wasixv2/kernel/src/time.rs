@@ -200,14 +200,20 @@ impl Kernel {
             (0, true) => (me, Some(caller.task())),
             (0, false) => (me, None),
             // A thread clock names a thread of the caller's own group.
-            (tid, true) if self.same_thread_group(caller, tid) => (me, Some(TaskId(tid as u32))),
-            (_, true) => return Err(Errno::EINVAL),
-            (pid, false) if gettime && pid as u32 == caller.task().0 => (me, None),
-            // A process clock names a thread group by its leader's pid.
-            (pid, false) => match self.procs.find(pid as u32) {
-                Some(process) if process.pid.0 == pid as u32 => (process, None),
-                _ => return Err(Errno::EINVAL),
+            (tid, true) => match self.same_thread_group(caller, tid) {
+                Some(thread) => (me, Some(thread)),
+                None => return Err(Errno::EINVAL),
             },
+            (pid, false) if gettime && pid == self.own_tid(caller.task()) => (me, None),
+            // A process clock names a thread group by its leader's pid, in the caller's pid
+            // namespace.
+            (pid, false) => {
+                let id = self.find_vpid(caller, pid).ok_or(Errno::EINVAL)?;
+                match self.procs.find(id) {
+                    Some(process) if process.pid.0 == id => (process, None),
+                    _ => return Err(Errno::EINVAL),
+                }
+            }
         };
         // The clock holds the thread's account, as Linux holds the pid: it reads the time the
         // thread was charged with even after it exited.
@@ -227,14 +233,13 @@ impl Kernel {
         })
     }
 
-    /// Whether `tid` is a live thread of the caller's thread group (`same_thread_group`).
-    pub(crate) fn same_thread_group(&self, caller: &Caller<'_>, tid: i32) -> bool {
+    /// The live thread of the caller's thread group its `tid` names (`same_thread_group`).
+    pub(crate) fn same_thread_group(&self, caller: &Caller<'_>, tid: i32) -> Option<TaskId> {
+        let id = TaskId(self.find_vpid(caller, tid)?);
         let state = self.state.read_or_recover();
         let me = &state.tasks[&caller.task()];
-        u32::try_from(tid)
-            .ok()
-            .and_then(|tid| state.tasks.get(&TaskId(tid)))
-            .is_some_and(|t| Arc::ptr_eq(&t.process, &me.process) && !t.thread.exited())
+        let thread = state.tasks.get(&id)?;
+        (Arc::ptr_eq(&thread.process, &me.process) && !thread.thread.exited()).then_some(id)
     }
 
     /// The current value of `clock` for the caller, who sees its own CPU time up to now

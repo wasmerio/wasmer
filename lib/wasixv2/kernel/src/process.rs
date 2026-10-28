@@ -31,7 +31,9 @@ use crate::{
     Kernel, Process, State, Task,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     fs::FdReservation,
-    ident::Comm,
+    ident::{Comm, Ident},
+    ns::PidNs,
+    pid::{PidType, Pids},
     signal::{Signals, user_info},
     sync::MutexExt,
     thread,
@@ -98,14 +100,38 @@ pub(crate) struct Tree {
     /// The CPU time of every process reaped so far, which the machine's counts with the live
     /// ones' (`/proc/stat`).
     pub(crate) reaped: CpuTimes,
+    /// The kernel's pid numbers, which a process in the tree holds for its thread group,
+    /// process group and session.
+    pub(crate) pids: Arc<Pids>,
 }
 
 impl Tree {
-    /// Takes `pid` out of the tree, as it is reaped (`release_task`).
+    /// Takes `pid` out of the tree, as it is reaped (`release_task`): its thread group's id,
+    /// process group and session hold its pids no more.
     pub(crate) fn reap(&mut self, pid: u32) -> Option<Node> {
         let node = self.nodes.remove(&pid)?;
         self.reaped = self.reaped.saturating_add(node.process.cpu.times());
+        let (pgid, sid) = {
+            let ident = node.process.ident.lock_or_recover();
+            (ident.pgid, ident.sid)
+        };
+        self.pids.detach(pid, PidType::Tgid);
+        self.pids.detach(pgid, PidType::Pgid);
+        self.pids.detach(sid, PidType::Sid);
         Some(node)
+    }
+
+    /// Moves `process`, in the tree, to the process group `pgid` and, with `sid`, the session
+    /// (`change_pid`).
+    fn set_pgrp(&self, ident: &mut Ident, pgid: u32, sid: Option<u32>) {
+        self.pids.attach(pgid, PidType::Pgid);
+        self.pids
+            .detach(std::mem::replace(&mut ident.pgid, pgid), PidType::Pgid);
+        if let Some(sid) = sid {
+            self.pids.attach(sid, PidType::Sid);
+            self.pids
+                .detach(std::mem::replace(&mut ident.sid, sid), PidType::Sid);
+        }
     }
 
     /// The vfork child `child` is done with its parent's instance: the parent the instance
@@ -171,10 +197,29 @@ struct Exit {
 }
 
 impl Procs {
-    /// Enters `process` into the tree under `parent` (0 for none).
+    pub(crate) fn new(pids: Arc<Pids>) -> Self {
+        Self {
+            tree: Arc::new(Mutex::new(Tree {
+                pids,
+                ..Tree::default()
+            })),
+            changed: Arc::default(),
+        }
+    }
+
+    /// Enters `process` into the tree under `parent` (0 for none), where it holds the pids of
+    /// its thread group, process group and session.
     pub(crate) fn add(&self, process: Arc<Process>, parent: u32, exit_signal: i32) {
         let pid = process.pid.0;
-        self.tree.lock_or_recover().nodes.insert(
+        let (pgid, sid) = {
+            let ident = process.ident.lock_or_recover();
+            (ident.pgid, ident.sid)
+        };
+        let mut tree = self.tree.lock_or_recover();
+        tree.pids.attach(pid, PidType::Tgid);
+        tree.pids.attach(pgid, PidType::Pgid);
+        tree.pids.attach(sid, PidType::Sid);
+        tree.nodes.insert(
             pid,
             Node {
                 process,
@@ -243,20 +288,45 @@ impl Tree {
             .filter(move |(_, node)| node.parent == pid)
     }
 
-    /// `find_new_reaper`: the nearest living ancestor that set `PR_SET_CHILD_SUBREAPER`, else
-    /// the first process (the kernel's init, when it has one), else nobody.
+    /// `find_new_reaper`: the nearest living ancestor in the same pid namespace that set
+    /// `PR_SET_CHILD_SUBREAPER`, else the namespace's init (`child_reaper`: in the initial
+    /// namespace the first process, the kernel's init when it has one), else nobody. A dying
+    /// init has no reaper: its namespace is empty by then.
     fn reaper(&self, dying: u32) -> u32 {
-        let mut at = self.nodes.get(&dying).map_or(0, |node| node.parent);
+        let Some(node) = self.nodes.get(&dying) else {
+            return 0;
+        };
+        let ns = &node.process.pid_ns;
+        let mut at = node.parent;
         while let Some(node) = self.nodes.get(&at) {
+            // A parent in another pid namespace was injected by `setns` and `fork`.
+            if node.process.pid_ns.level() != ns.level() {
+                break;
+            }
             if node.exit.is_none() && node.process.ident.lock_or_recover().child_subreaper() {
                 return at;
             }
             at = node.parent;
         }
-        match self.nodes.get(&1) {
-            Some(init) if dying != 1 && init.exit.is_none() => 1,
+        match ns.reaper() {
+            Some(init)
+                if init != dying && self.nodes.get(&init).is_some_and(|n| n.exit.is_none()) =>
+            {
+                init
+            }
             _ => 0,
         }
+    }
+
+    /// The pid namespace of the process `pid`, while it is in the tree.
+    fn pid_ns_of(&self, pid: u32) -> Option<Arc<PidNs>> {
+        Some(self.nodes.get(&pid)?.process.pid_ns.clone())
+    }
+
+    /// `task_pid_nr_ns(id, task_active_pid_ns(viewer))`: the id `id` as the process `viewer`
+    /// sees it.
+    fn nr_for(&self, viewer: u32, id: u32) -> Pid {
+        self.pid_ns_of(viewer).map_or(0, |ns| self.pids.nr(&ns, id))
     }
 }
 
@@ -290,16 +360,16 @@ pub(crate) fn vfork_parent_resumes(state: &State, action: GuestAction) -> GuestA
     }
 }
 
-/// The `siginfo` of SIGCHLD and `waitid`: `si_pid`, `si_uid` (the child's real uid),
-/// `si_status`.
-fn child_info(signo: i32, pid: u32, exit: Exit) -> Siginfo {
+/// The `siginfo` of SIGCHLD and `waitid`: `si_pid` (the child's pid as the parent sees it),
+/// `si_uid` (the child's real uid), `si_status`.
+fn child_info(signo: i32, pid: Pid, exit: Exit) -> Siginfo {
     let mut info = Siginfo {
         si_signo: signo,
         si_errno: 0,
         si_code: exit.code.0,
         sifields: [0; 116],
     };
-    info.sifields[0..4].copy_from_slice(&(pid as i32).to_le_bytes());
+    info.sifields[0..4].copy_from_slice(&pid.to_le_bytes());
     info.sifields[4..8].copy_from_slice(&exit.uid.to_le_bytes());
     info.sifields[8..12].copy_from_slice(&exit.status.to_le_bytes());
     info
@@ -314,10 +384,13 @@ enum Which {
 }
 
 impl Kernel {
+    /// `task_tgid_vnr(current->real_parent)`: 0 for a parent outside the caller's pid
+    /// namespace, as its init's is.
     pub(crate) fn sys_getppid(&self, caller: &Caller<'_>) -> Pid {
-        let pid = self.process(caller.task()).pid.0;
+        let process = self.process(caller.task());
         let tree = self.procs.tree.lock_or_recover();
-        tree.nodes.get(&pid).map_or(0, |node| node.parent as Pid)
+        let parent = tree.nodes.get(&process.pid.0).map_or(0, |node| node.parent);
+        tree.pids.nr(&process.pid_ns, parent)
     }
 
     /// The vfork child running in `parent`'s instance is done with it: `parent` waits no more.
@@ -432,10 +505,14 @@ impl Kernel {
             .as_ref()
             .map_or((true, true), |signals| signals.child_reaping());
         // The same for the children that are zombies already, under their new parent.
+        // A reaper whose tasks are all gone, a pid namespace's init waiting for its namespace to
+        // empty, waits for nothing: its zombies are reaped, as the init's ignoring SIGCHLD
+        // makes them on Linux.
         let reaper_signals = (reaper != 0).then(|| self.group_signals(reaper)).flatten();
-        let reaper_reaps = reaper_signals
-            .as_ref()
-            .map(|signals| signals.child_reaping());
+        let reaper_reaps = match &reaper_signals {
+            Some(signals) => Some(signals.child_reaping()),
+            None => (reaper != 0).then_some((true, true)),
+        };
         let (exit, exit_signal, vfork_parent, orphans, inherited, orphaned_pgrps) = {
             let mut tree = self.procs.tree.lock_or_recover();
             // A reaper that went meanwhile is replaced, and it is not known how the new one
@@ -465,6 +542,8 @@ impl Kernel {
             };
             node.exit = Some(exit);
             let exit_signal = node.exit_signal;
+            // `do_notify_parent`: the pid as the parent sees it, before the pid can go.
+            let pid_for_parent = tree.nr_for(parent, pid);
             let father = tree.pgrp_sid(pid);
             let autoreap = parent_signals.is_none()
                 || (exit_signal == Signal::SIGCHLD.0 && (ignored || nocldwait));
@@ -479,6 +558,9 @@ impl Kernel {
             let mut orphans = Vec::new();
             let mut inherited = Vec::new();
             for &child in &children {
+                // Each as its new parent, or itself, sees the other.
+                let child_for_reaper = tree.nr_for(reaper, child);
+                let parent_for_child = tree.nr_for(child, pid);
                 let node = tree.nodes.get_mut(&child).expect("listed above");
                 node.parent = reaper;
                 // "We don't want people slaying init."
@@ -487,8 +569,10 @@ impl Kernel {
                 match (node.exit, reaper_reaps) {
                     (Some(_), _) if reaper == 0 => drop(tree.reap(child)),
                     (Some(_), Some((true, _) | (_, true))) => drop(tree.reap(child)),
-                    (Some(exit), Some(_)) => inherited.push((child, exit)),
-                    (None, _) if pdeathsig != 0 => orphans.push((child, pdeathsig)),
+                    (Some(exit), Some(_)) => inherited.push((child_for_reaper, exit)),
+                    (None, _) if pdeathsig != 0 => {
+                        orphans.push((child, pdeathsig, parent_for_child));
+                    }
                     _ => {}
                 }
             }
@@ -507,13 +591,14 @@ impl Kernel {
             orphaned_pgrps.dedup();
             (
                 exit,
-                exit_signal,
+                (exit_signal, pid_for_parent),
                 tree.end_vfork(task),
                 orphans,
                 inherited,
                 orphaned_pgrps,
             )
         };
+        let (exit_signal, pid_for_parent) = exit_signal;
         for pgid in orphaned_pgrps {
             self.kill_orphaned_pgrp(pgid);
         }
@@ -522,11 +607,12 @@ impl Kernel {
                 let _ = signals.send_group(child_info(Signal::SIGCHLD.0, child, exit));
             }
         }
-        // `group_send_sig_info(pdeath_signal, SEND_SIG_NOINFO)`: from the parent, as `kill`.
-        for (child, sig) in orphans {
+        // `group_send_sig_info(pdeath_signal, SEND_SIG_NOINFO)`: from the parent, as `kill`;
+        // from outside the child's pid namespace when it has no pid there.
+        for (child, sig, parent_pid) in orphans {
             if let Some(signals) = self.group_signals(child) {
-                let info = user_info(sig, SiCode::SI_USER, pid as Pid, exit.uid);
-                let _ = signals.send_group(info);
+                let info = user_info(sig, SiCode::SI_USER, parent_pid, exit.uid);
+                let _ = signals.send_from(None, info, parent_pid == 0);
             }
         }
         if let Some(parent) = vfork_parent {
@@ -545,16 +631,17 @@ impl Kernel {
             && !ignored
         {
             // A realtime exit signal its parent has no room for is lost.
-            let _ = signals.send_group(child_info(exit_signal, pid, exit));
+            let _ = signals.send_group(child_info(exit_signal, pid_for_parent, exit));
         }
         self.procs.changed.wake(PollMask::empty());
+        self.pid_ns_progress();
     }
 
     /// `kill_orphaned_pgrp`'s end: the process group `pgid` was just orphaned, and if one of its
     /// processes is stopped, nothing outside could ever continue it: every process gets SIGHUP,
     /// then SIGCONT (`SEND_SIG_PRIV`), so the stopped ones go on and, by default, die.
     fn kill_orphaned_pgrp(&self, pgid: u32) {
-        let groups = self.pgrp_groups(pgid as Pid);
+        let groups = self.pgrp_groups(pgid);
         if !groups.iter().any(|(_, signals)| signals.is_stopped()) {
             return;
         }
@@ -575,10 +662,10 @@ impl Kernel {
     /// SIGCONT continued it (`CLD_CONTINUED`, `status` SIGCONT). Its parent gets SIGCHLD unless
     /// it ignores it or set `SA_NOCLDSTOP`, and its waiters look again either way.
     pub(crate) fn notify_parent_cldstop(&self, process: &Process, why: SiCode, status: i32) {
-        let pid = process.pid.0;
-        let parent = {
+        let (parent, pid) = {
             let tree = self.procs.tree.lock_or_recover();
-            tree.nodes.get(&pid).map_or(0, |node| node.parent)
+            let parent = tree.nodes.get(&process.pid.0).map_or(0, |node| node.parent);
+            (parent, tree.nr_for(parent, process.pid.0))
         };
         let parent_signals = (parent != 0).then(|| self.group_signals(parent)).flatten();
         if let Some(signals) = parent_signals
@@ -774,18 +861,6 @@ impl Kernel {
         if flags.contains(CloneFlags::CLONE_INTO_CGROUP) {
             return Err(Errno::EBADF.into());
         }
-        // `alloc_pid`: a chosen pid needs `CAP_CHECKPOINT_RESTORE` in the pid namespace, and
-        // then would be taken as asked, which the kernel's single pid counter cannot do.
-        if !args.set_tid.is_empty() {
-            if args.set_tid.len() > 1 || args.set_tid[0] < 1 {
-                return Err(Errno::EINVAL.into());
-            }
-            let cred = self.cred(caller);
-            if !cred.capable(Cap::CheckpointRestore) && !cred.capable(Cap::SysAdmin) {
-                return Err(Errno::EPERM.into());
-            }
-            return Err(Errno::EINVAL.into());
-        }
         // Threads start through `thread-spawn`; a process sharing handlers is not supported.
         if flags.contains(CloneFlags::CLONE_THREAD) || flags.contains(CloneFlags::CLONE_SIGHAND) {
             return Err(Errno::EINVAL.into());
@@ -807,7 +882,9 @@ impl Kernel {
                 tls,
                 child_tid,
             };
-            return self.fork(caller, flags, exit_signal, newsp, writes).await;
+            return self
+                .fork(caller, flags, exit_signal, newsp, writes, &args.set_tid)
+                .await;
         }
         // Only vfork can run the child: it takes over the caller's instance.
         if !flags.contains(CloneFlags::CLONE_VFORK) || newsp != 0 {
@@ -818,22 +895,33 @@ impl Kernel {
             false => None,
         };
         let parent_task = caller.task();
-        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid)?;
+        let child = self.copy_process(
+            parent_task,
+            flags,
+            exit_signal,
+            tls,
+            child_tid,
+            &args.set_tid,
+        )?;
         if let Some((reservation, _)) = pidfd {
             reservation.install(Arc::new(self.pidfd_file(child.0, OpenFlags::O_RDWR)));
         }
-        let tid = child.0 as i32;
-        // Linux ignores faults on both writes.
+        // Linux ignores faults on both writes: the parent's is the child's pid as the parent
+        // sees it, the child's (`schedule_tail`) as the child does, which differ when it starts
+        // a pid namespace.
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
+            let tid = self.vnr(caller, child.0);
             let _ = write_value(caller.memory(), GuestPtrMut::new(parent_tid), &tid).await;
         }
         if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
+            let tid = self.own_tid(child);
             let _ = write_value(caller.memory(), GuestPtrMut::new(child_tid), &tid).await;
         }
+        let pid = self.vnr(caller, child.0);
         {
             let mut tree = self.procs.tree.lock_or_recover();
             tree.vforks.insert(child, parent_task);
-            tree.vfork_pids.insert(child, tid);
+            tree.vfork_pids.insert(child, pid);
         }
         let child_signals = self.task_signals(child).group().clone();
         self.task_signals(parent_task)
@@ -892,8 +980,13 @@ impl Kernel {
 
     /// The parent's pidfd of the process `pid` (`pidfd_prepare`).
     fn pidfd_file(&self, pid: u32, status: OpenFlags) -> OpenFile {
+        let pid_ns = match self.procs.find(pid) {
+            Some(process) => process.pid_ns.clone(),
+            None => self.init_ns.pid_for_children.clone(),
+        };
         let object = PidFd {
             pid,
+            pid_ns,
             tree: self.procs.tree.clone(),
             changed: self.procs.changed.clone(),
         };
@@ -913,6 +1006,7 @@ impl Kernel {
         exit_signal: i32,
         newsp: Uptr,
         writes: ForkWrites,
+        set_tid: &[i32],
     ) -> SysResult<i32> {
         let ForkWrites {
             parent_tid,
@@ -929,28 +1023,31 @@ impl Kernel {
             return Err(Errno::ENOSYS.into());
         }
         let parent_task = caller.task();
-        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid)?;
+        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid, set_tid)?;
         let pidfd = pidfd.map(|(reservation, at)| {
             let file = self.pidfd_file(child.0, OpenFlags::O_RDWR);
             (at, reservation.install(Arc::new(file)).0)
         });
         let set = |flag: CloneFlags, addr: u32| flags.contains(flag).then_some(addr);
+        let pid = self.vnr(caller, child.0);
         let fork = GuestAction::Fork {
             child,
-            pid: child.0 as i32,
-            tid: child.0 as i32,
+            pid,
+            tid: self.own_tid(child),
             parent_tid: set(CloneFlags::CLONE_PARENT_SETTID, parent_tid),
             pidfd,
             child_tid: set(CloneFlags::CLONE_CHILD_SETTID, child_tid),
             tls: set(CloneFlags::CLONE_SETTLS, tls),
         };
         self.queue(parent_task, fork);
-        Ok(child.0 as i32)
+        Ok(pid)
     }
 
     /// `copy_process` for a new thread group: the child gets copies of what `flags` does not
-    /// share, the caller's mask, and a place in the tree. Without `CLONE_VM`, that includes the
-    /// address space's mappings and break (`dup_mm`).
+    /// share, the caller's mask, a pid in its pid namespace and each one above (those
+    /// `set_tid` asks for, from the innermost), and a place in the tree. Without `CLONE_VM`,
+    /// that includes the address space's mappings and break (`dup_mm`). The first process of
+    /// a pid namespace is its init, which only signals it handles reach from inside.
     fn copy_process(
         &self,
         parent_task: TaskId,
@@ -958,11 +1055,17 @@ impl Kernel {
         exit_signal: i32,
         tls: u32,
         child_tid: u32,
+        set_tid: &[i32],
     ) -> Result<TaskId, Errno> {
         let (id, process, parent_pid) = {
             let mut state = self.state.lock_or_recover();
             let task = &state.tasks[&parent_task];
             let parent = task.process.clone();
+            // Siblings of an init would not be reaped by their parent, as nothing is above it
+            // in its namespace.
+            if flags.contains(CloneFlags::CLONE_PARENT) && task.signals.group().unkillable() {
+                return Err(Errno::EINVAL);
+            }
             if crate::resource::nproc_exceeded(&state, &parent) {
                 return Err(Errno::EAGAIN);
             }
@@ -976,14 +1079,24 @@ impl Kernel {
             // (`copy_fs` before `copy_namespaces`); `CLONE_NEWNS` never goes with `CLONE_FS`.
             let mut own_fs =
                 (!flags.contains(CloneFlags::CLONE_FS)).then(|| task.fs.lock_or_recover().clone());
-            let ns = task
-                .ns
-                .copy(self, flags.0, &parent.cred(), own_fs.as_mut())?;
+            let ns = task.ns.copy(
+                self,
+                flags.0,
+                &parent.cred(),
+                &parent.pid_ns,
+                own_fs.as_mut(),
+            )?;
             let mut ident = parent.ident.lock_or_recover().for_child();
             if flags.contains(CloneFlags::CLONE_NNP) {
                 ident.no_new_privs = true;
             }
             let id = TaskId(state.last_id + 1);
+            // `checkpoint_restore_ns_capable`.
+            let cred = parent.cred();
+            let may_set = cred.capable(Cap::CheckpointRestore) || cred.capable(Cap::SysAdmin);
+            state
+                .pids
+                .alloc(id.0, &ns.pid_for_children, set_tid, may_set)?;
             let process = Arc::new(Process {
                 pid: id,
                 args: Mutex::new(parent.args.lock_or_recover().clone()),
@@ -1015,6 +1128,10 @@ impl Kernel {
             let group = task.signals.group().fork(account);
             if flags.contains(CloneFlags::CLONE_CLEAR_SIGHAND) {
                 group.flush_handlers();
+            }
+            // `is_child_reaper`.
+            if process.pid_ns.reaper() == Some(id.0) && process.pid_ns.level() > 0 {
+                group.make_unkillable();
             }
             let signals = group.attach(id, task.signals.inherit(flags), flag.clone());
             // A vfork child runs on its parent's memory, so it shares the address space; a fork
@@ -1362,11 +1479,13 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let me = self.process(caller.task());
+        // `find_get_pid`: a pid outside the caller's namespace names no child (id 0 is none).
+        let find = |nr: Pid| self.find_vpid(caller, nr).unwrap_or(0);
         let which = match which {
             Idtype::P_ALL => Which::All,
-            Idtype::P_PID if upid > 0 => Which::Pid(upid as u32),
+            Idtype::P_PID if upid > 0 => Which::Pid(find(upid)),
             Idtype::P_PGID if upid == 0 => Which::Pgid(me.ident.lock_or_recover().pgid),
-            Idtype::P_PGID if upid > 0 => Which::Pgid(upid as u32),
+            Idtype::P_PGID if upid > 0 => Which::Pgid(find(upid)),
             Idtype::P_PIDFD => Which::Pid(self.pidfd_pid(caller, Fd(upid))?),
             _ => return Err(Errno::EINVAL.into()),
         };
@@ -1378,6 +1497,8 @@ impl Kernel {
         )
         .await
         .map_err(|_| SysErr::Restart)??;
+        // A child the wait reaped may leave a pid namespace's dying init nothing to wait for.
+        self.pid_ns_progress();
         let (info, usage) = match found {
             Some((pid, exit, child)) => {
                 let usage = child.usage_both();
@@ -1408,13 +1529,14 @@ impl Kernel {
     /// reported yet (`wait_task_stopped`), and for `WCONTINUED` a continued one
     /// (`wait_task_continued`). `WNOWAIT` leaves what it reports to be reported again.
     /// A reaped zombie's time and its reaped children's go to `me`'s `cutime` and `cstime`.
+    /// The child's pid is as `me` sees it (`task_pid_vnr`).
     #[allow(clippy::type_complexity)]
     fn wait_once(
         &self,
         me: &Process,
         which: Which,
         options: u32,
-    ) -> Option<Result<Option<(u32, Exit, Arc<Process>)>, Errno>> {
+    ) -> Option<Result<Option<(Pid, Exit, Arc<Process>)>, Errno>> {
         let mut tree = self.procs.tree.lock_or_recover();
         let mut any = false;
         let mut ready = None;
@@ -1443,7 +1565,10 @@ impl Kernel {
                 None => live.push((pid, node.process.clone())),
             }
         }
-        if let Some((pid, _, child)) = &ready
+        // The pid as `me` sees it, before reaping frees it.
+        let mut ready =
+            ready.map(|(pid, exit, child)| (pid, tree.pids.nr(&me.pid_ns, pid), exit, child));
+        if let Some((pid, _, _, child)) = &ready
             && options & WaitOptions::WNOWAIT.0 == 0
         {
             tree.reap(*pid);
@@ -1454,9 +1579,11 @@ impl Kernel {
             // The group's signal state comes after the tree, with the tree unlocked.
             live.sort_by_key(|(pid, _)| *pid);
             ready = live.into_iter().find_map(|(pid, process)| {
-                Some((pid, self.stop_event(&process, options)?, process))
+                let nr = self.pids.nr(&me.pid_ns, pid);
+                Some((pid, nr, self.stop_event(&process, options)?, process))
             });
         }
+        let ready = ready.map(|(_, nr, exit, child)| (nr, exit, child));
         match (ready, any) {
             (Some(found), _) => Some(Ok(Some(found))),
             (None, false) => Some(Err(Errno::ECHILD)),
@@ -1494,15 +1621,16 @@ impl Kernel {
 
     // ---- process groups and sessions ----
 
-    pub(crate) fn pgid_of(&self, pid: Pid) -> Pid {
-        match self.procs.find(pid as u32) {
-            Some(process) => process.ident.lock_or_recover().pgid as Pid,
+    /// The process group of the process `pid`, by ids.
+    pub(crate) fn pgid_of(&self, pid: u32) -> u32 {
+        match self.procs.find(pid) {
+            Some(process) => process.ident.lock_or_recover().pgid,
             None => pid,
         }
     }
 
     /// The thread groups in process group `pgid` that have not exited.
-    pub(crate) fn pgrp_groups(&self, pgid: Pid) -> Vec<(Pid, Arc<Signals>)> {
+    pub(crate) fn pgrp_groups(&self, pgid: u32) -> Vec<(u32, Arc<Signals>)> {
         self.jobs.pgrp_groups(pgid)
     }
 
@@ -1514,13 +1642,18 @@ impl Kernel {
         }
         let me = self.process(caller.task());
         let my_sid = me.ident.lock_or_recover().sid;
-        let pid = match pid {
-            0 => me.pid.0,
-            // `find_task_by_vpid`: no process has a negative pid.
-            pid if pid < 0 => return Err(Errno::ESRCH.into()),
-            pid => pid as u32,
+        let (pid, pgid) = match (pid, pgid) {
+            (0, 0) => (me.pid.0, me.pid.0),
+            (0, pgid) => (me.pid.0, self.find_vpid(caller, pgid).unwrap_or(0)),
+            (pid, pgid) => {
+                // `find_task_by_vpid`.
+                let pid = self.find_vpid(caller, pid).ok_or(Errno::ESRCH)?;
+                match pgid {
+                    0 => (pid, pid),
+                    pgid => (pid, self.find_vpid(caller, pgid).unwrap_or(0)),
+                }
+            }
         };
-        let pgid = if pgid == 0 { pid } else { pgid as u32 };
         let tree = self.procs.tree.lock_or_recover();
         let node = tree.nodes.get(&pid).ok_or(Errno::ESRCH)?;
         if pid != me.pid.0 {
@@ -1538,22 +1671,24 @@ impl Kernel {
         if ident.sid == pid {
             return Err(Errno::EPERM.into());
         }
+        // A group named by a pid outside the caller's namespace does not exist for it.
         if pgid != pid {
-            let exists = tree.nodes.iter().any(|(&other, n)| {
-                n.exit.is_none()
-                    && match other == pid {
-                        true => ident.pgid == pgid,
-                        false => {
-                            let id = n.process.ident.lock_or_recover();
-                            id.pgid == pgid && id.sid == my_sid
+            let exists = pgid != 0
+                && tree.nodes.iter().any(|(&other, n)| {
+                    n.exit.is_none()
+                        && match other == pid {
+                            true => ident.pgid == pgid,
+                            false => {
+                                let id = n.process.ident.lock_or_recover();
+                                id.pgid == pgid && id.sid == my_sid
+                            }
                         }
-                    }
-            });
+                });
             if !exists {
                 return Err(Errno::EPERM.into());
             }
         }
-        ident.pgid = pgid;
+        tree.set_pgrp(&mut ident, pgid, None);
         Ok(0)
     }
 
@@ -1569,11 +1704,12 @@ impl Kernel {
         if ident.pgid == me || taken {
             return Err(Errno::EPERM.into());
         }
-        ident.pgid = me;
-        ident.sid = me;
+        tree.set_pgrp(&mut ident, me, Some(me));
         // `proc_clear_tty`: a new session starts without a controlling terminal.
         ident.tty = None;
-        Ok(me as Pid)
+        drop(ident);
+        drop(tree);
+        Ok(self.vnr(caller, me))
     }
 
     // ---- pidfd ----
@@ -1587,7 +1723,8 @@ impl Kernel {
         if flags & !PIDFD_NONBLOCK != 0 || pid <= 0 {
             return Err(Errno::EINVAL.into());
         }
-        let pid = pid as u32;
+        // `find_get_pid`, in the caller's pid namespace.
+        let pid = self.find_vpid(caller, pid).ok_or(Errno::ESRCH)?;
         {
             let tree = self.procs.tree.lock_or_recover();
             if !tree.nodes.contains_key(&pid) {
@@ -1625,6 +1762,15 @@ impl Kernel {
         let pid = pidfd_target(&file)
             .or_else(|| crate::procfs::tgid_dir(file.path()))
             .ok_or(Errno::EBADF)?;
+        // `access_pidfd_pidns`: only a process in the caller's pid namespace or below.
+        let target_ns = match file.downcast::<PidFd>() {
+            Some(pidfd) => Some(pidfd.pid_ns.clone()),
+            None => self.procs.find(pid).map(|process| process.pid_ns.clone()),
+        };
+        let active = self.active_pid_ns(caller.task());
+        if target_ns.is_some_and(|ns| !crate::ns::pid_ns_descends(&ns, &active)) {
+            return Err(Errno::EINVAL.into());
+        }
         // `kill_pid_info_type`: a zombie takes the signal and does nothing with it; a reaped
         // process is `ESRCH`.
         let info = match info.is_null() {
@@ -1642,7 +1788,7 @@ impl Kernel {
             }
         };
         let sender = self.process(caller.task());
-        self.send_to_group(Some(&sender), pid as Pid, info)?;
+        self.send_to_group(Some(&sender), pid, info)?;
         Ok(0)
     }
 }
@@ -1655,6 +1801,8 @@ pub(crate) fn pidfd_target(file: &OpenFile) -> Option<u32> {
 /// A process descriptor (`pidfd_open`): readable once the process exited.
 struct PidFd {
     pid: u32,
+    /// The process's pid namespace (`ns_of_pid`), which outlives its pids.
+    pid_ns: Arc<PidNs>,
     tree: Arc<Mutex<Tree>>,
     pub(crate) changed: Arc<WaitQueue>,
 }
@@ -1719,8 +1867,6 @@ async fn copy_clone_args(
 ) -> SysResult<(CloneArgs, Vec<i32>)> {
     const VER0: u32 = CloneArgsSize::CLONE_ARGS_SIZE_VER0.0;
     const VER2: u32 = CloneArgsSize::CLONE_ARGS_SIZE_VER2.0;
-    /// `MAX_PID_NS_LEVEL`.
-    const MAX_PID_NS_LEVEL: u64 = 32;
     if size > crate::mm::PAGE_SIZE as u32 {
         return Err(Errno::E2BIG.into());
     }
@@ -1736,7 +1882,7 @@ async fn copy_clone_args(
         return Err(Errno::E2BIG.into());
     }
     let args = CloneArgs::read_from(&bytes[..VER2 as usize]).ok_or(Errno::EFAULT)?;
-    if args.set_tid_size > MAX_PID_NS_LEVEL
+    if args.set_tid_size > crate::pid::MAX_PID_NS_LEVEL as u64
         || (args.set_tid == 0) != (args.set_tid_size == 0)
         || args.exit_signal & !CloneFlags::CSIGNAL.0 != 0
         || (args.flags.contains(CloneFlags::CLONE_INTO_CGROUP)

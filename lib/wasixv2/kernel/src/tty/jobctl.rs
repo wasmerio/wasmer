@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex, Weak};
 
-use wasixv2_abi::{Pid, Signal};
+use wasixv2_abi::Signal;
 use wasixv2_syscalls::{Errno, SysErr, SysResult, TaskId};
 
 use super::{Ctrl, Tty};
@@ -54,13 +54,13 @@ impl Jobs {
     }
 
     /// The thread groups in process group `pgid` that have not exited.
-    pub(crate) fn pgrp_groups(&self, pgid: Pid) -> Vec<(Pid, Arc<Signals>)> {
-        let members = self.members(|ident| ident.pgid as Pid == pgid);
+    pub(crate) fn pgrp_groups(&self, pgid: u32) -> Vec<(u32, Arc<Signals>)> {
+        let members = self.members(|ident| ident.pgid == pgid);
         members
             .into_iter()
             .filter_map(|process| {
                 let pid = process.pid.0;
-                Some((pid as Pid, self.group_signals(pid)?))
+                Some((pid, self.group_signals(pid)?))
             })
             .collect()
     }
@@ -83,7 +83,7 @@ impl Jobs {
     /// it, so it was discarded where it was generated.
     pub(crate) fn kill_pgrp(&self, pgid: u32, sig: i32) -> bool {
         let mut pending = false;
-        for (_, signals) in self.pgrp_groups(pgid as Pid) {
+        for (_, signals) in self.pgrp_groups(pgid) {
             pending |= signals.generate_kernel(sig);
         }
         pending
@@ -219,11 +219,9 @@ impl Tty {
         Ok(())
     }
 
-    /// `tiocspgrp`: the caller's session moves its group `pgrp` to the foreground.
-    pub(crate) fn set_pgrp(&self, process: &Process, pgrp: i32) -> Result<(), Errno> {
-        if pgrp < 0 {
-            return Err(Errno::EINVAL);
-        }
+    /// `tiocspgrp`: the caller's session moves its group `pgrp` to the foreground; `None` for a
+    /// number naming nothing (`ESRCH`).
+    pub(crate) fn set_pgrp(&self, process: &Process, pgrp: Option<u32>) -> Result<(), Errno> {
         let sid = {
             let ident = process.ident.lock_or_recover();
             let session = self.ctrl.lock_or_recover().session;
@@ -232,7 +230,7 @@ impl Tty {
             }
             ident.sid
         };
-        let pgrp = pgrp as u32;
+        let pgrp = pgrp.ok_or(Errno::ESRCH)?;
         match self.jobs.session_of_pgrp(pgrp) {
             None => Err(Errno::ESRCH),
             Some(other) if other != sid => Err(Errno::EPERM),

@@ -12,7 +12,7 @@ use wasixv2_abi::{
     AtFlags, ConstMountAttrPtr, ConstVoidPtr, Cstr, MountAttrFlags, MountFlags as MsFlags,
     MoveMountFlags, OpenFlags, OpenTreeFlags, UmountFlags as UmountFlagBits, Usize,
 };
-use wasixv2_syscalls::{Caller, CstrError, Errno, Fd, SysResult, read_cstr};
+use wasixv2_syscalls::{Caller, CstrError, Errno, Fd, SysResult, TaskId, read_cstr};
 use wasixv2_vfs::{
     Cap, Cred, Filesystem, LookupFlags, MountAttr, MountFlags, MountOp, PATH_MAX, Path,
     Propagation, UmountFlags,
@@ -391,8 +391,9 @@ impl Kernel {
         let mut source = dev_name;
         let params = parse_options(data, &mut read_only, &mut source)?;
         let fs = match ty {
+            // `proc_init_fs_context`: the instance shows the mounter's pid namespace.
             FsType::Proc => match params.is_empty() {
-                true => self.procfs(),
+                true => self.procfs_in(self.active_pid_ns(TaskId(env.task))),
                 false => return Err(Errno::EINVAL),
             },
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,

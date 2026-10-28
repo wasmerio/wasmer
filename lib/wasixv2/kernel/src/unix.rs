@@ -81,7 +81,8 @@ impl Kind {
     }
 }
 
-/// `struct ucred`.
+/// `struct ucred`, with the kernel's id of the process (`struct pid`): each reader sees its
+/// own pid for it ([`Kernel::ucred_bytes`]).
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(crate) struct Ucred {
     pub(crate) pid: i32,
@@ -1412,6 +1413,13 @@ impl Kernel {
         }
     }
 
+    /// `cred_to_ucred` and `scm_recv`'s `pid_vnr`: `cred` as the caller reads it, with the pid
+    /// it sees for the process (0 outside its pid namespace).
+    pub(crate) fn ucred_bytes(&self, caller: &Caller<'_>, cred: Ucred) -> Vec<u8> {
+        let pid = self.vnr(caller, cred.pid as u32);
+        Ucred { pid, ..cred }.to_bytes()
+    }
+
     /// The caller as a socket's peer: what `SO_PEERCRED` and `SO_PEERGROUPS` report
     /// (`prepare_peercred`).
     pub(crate) fn peer_cred(&self, caller: &Caller<'_>) -> PeerCred {
@@ -1426,7 +1434,7 @@ impl Kernel {
     fn may_claim(&self, caller: &Caller<'_>, claim: &Ucred) -> bool {
         let process = self.process(caller.task());
         let cred = process.cred();
-        (claim.pid == process.pid.0 as i32 || cred.capable(Cap::SysAdmin))
+        (claim.pid == self.pids.own_nr(process.pid.0) || cred.capable(Cap::SysAdmin))
             && (cred.user.holds(claim.uid) || cred.capable(Cap::Setuid))
             && (cred.group.holds(claim.gid) || cred.capable(Cap::Setgid))
     }
@@ -1628,7 +1636,12 @@ impl Kernel {
                     if !self.may_claim(caller, &cred) {
                         return Err(Errno::EPERM.into());
                     }
-                    anc.cred = Some(cred);
+                    // `find_get_pid`: the claimed process, in the caller's pid namespace.
+                    let pid = self.find_vpid(caller, cred.pid).ok_or(Errno::ESRCH)?;
+                    anc.cred = Some(Ucred {
+                        pid: pid as i32,
+                        ..cred
+                    });
                 }
                 _ => return Err(Errno::EINVAL.into()),
             }
@@ -1662,7 +1675,12 @@ impl Kernel {
     /// `sk_getsockopt` for a Unix socket, the timeouts aside: what describes the socket, its
     /// peer's credentials, and the options `setsockopt` keeps. Values are written whole; the
     /// caller truncates them to the guest's length.
-    pub(crate) fn unix_getsockopt(&self, sock: &Sock, name: i32) -> Result<Vec<u8>, Errno> {
+    pub(crate) fn unix_getsockopt(
+        &self,
+        caller: &Caller<'_>,
+        sock: &Sock,
+        name: i32,
+    ) -> Result<Vec<u8>, Errno> {
         let int = |v: i32| Ok(v.to_le_bytes().to_vec());
         match SocketOption(name) {
             SocketOption::SO_TYPE => int(sock.kind.socket_type().0),
@@ -1671,10 +1689,10 @@ impl Kernel {
             SocketOption::SO_ERROR => int(sock.take_error().map_or(0, |e| e.0)),
             SocketOption::SO_ACCEPTCONN => int(sock.is_listening() as i32),
             // `cred_to_ucred`: without a peer, pid 0 and the invalid ids.
-            SocketOption::SO_PEERCRED => Ok(sock
-                .peer_cred()
-                .map_or(Ucred::NONE, |peer| peer.ucred)
-                .to_bytes()),
+            SocketOption::SO_PEERCRED => {
+                let peer = sock.peer_cred().map_or(Ucred::NONE, |peer| peer.ucred);
+                Ok(self.ucred_bytes(caller, peer))
+            }
             // `SO_PEERGROUPS` is answered by the socket layer, which may need `ERANGE`.
             _ => {
                 let mut out = [0u8; 64];

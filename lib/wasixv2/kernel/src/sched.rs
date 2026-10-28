@@ -206,6 +206,12 @@ fn deadline_valid(attr: &SchedAttr) -> bool {
 }
 
 /// CPUs the host offers (`nr_cpu_ids`).
+/// The pid namespace of the caller (`task_active_pid_ns(current)`), from the task table its
+/// caller holds.
+fn caller_pid_ns<'a>(state: &'a State, caller: &Caller<'_>) -> &'a crate::ns::PidNs {
+    &state.tasks[&caller.task()].process.pid_ns
+}
+
 pub(crate) fn cpus() -> u32 {
     std::thread::available_parallelism().map_or(1, |n| n.get().min(1024) as u32)
 }
@@ -678,13 +684,12 @@ impl Kernel {
             && self.procs.find(process.pid.0).is_some()
     }
 
-    /// `find_process_by_pid`: the task `pid` names (a thread id, so any thread), or the caller
-    /// for 0.
+    /// `find_process_by_pid`: the task `pid` names in the caller's pid namespace (a thread id,
+    /// so any thread), or the caller for 0.
     fn find_task(&self, state: &State, caller: &Caller<'_>, pid: Pid) -> Result<TaskId, Errno> {
         let id = match pid {
             0 => return Ok(caller.task()),
-            ..0 => return Err(Errno::ESRCH),
-            pid => TaskId(pid as u32),
+            pid => TaskId(caller_pid_ns(state, caller).find(pid).ok_or(Errno::ESRCH)?),
         };
         match self.nameable(state, id) {
             true => Ok(id),
@@ -966,9 +971,10 @@ impl Kernel {
             PrioWhich::PRIO_PROCESS => self.find_task(state, caller, who).into_iter().collect(),
             PrioWhich::PRIO_PGRP => {
                 let me = &state.tasks[&caller.task()].process;
+                // A group outside the caller's pid namespace has no members for it.
                 let pgrp = match who {
                     0 => me.ident.lock_or_recover().pgid,
-                    who => who as u32,
+                    who => caller_pid_ns(state, caller).find(who).unwrap_or(0),
                 };
                 state
                     .tasks
@@ -983,11 +989,14 @@ impl Kernel {
                     0 => state.tasks[&caller.task()].process.cred().user.real,
                     who => who as u32,
                 };
+                // Only the tasks the caller sees (`task_pid_vnr(p)`).
+                let ns = caller_pid_ns(state, caller);
                 state
                     .tasks
                     .iter()
                     .filter(|(_, task)| task.process.cred().user.real == uid)
                     .map(|(&id, _)| id)
+                    .filter(|id| self.pids.nr(ns, id.0) != 0)
                     .filter(alive)
                     .collect()
             }

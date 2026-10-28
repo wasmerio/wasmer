@@ -124,9 +124,10 @@ impl Kernel {
                     } else {
                         (lock.end - lock.start + 1) as i64
                     },
+                    // `locks_translate_pid`: the holder as the caller sees it.
                     l_pid: match lock.owner {
                         LockOwner::File(_) => -1,
-                        LockOwner::Process(_) => lock.pid,
+                        LockOwner::Process(_) => self.vnr(caller, lock.pid as u32),
                     },
                 },
             };

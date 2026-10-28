@@ -61,6 +61,8 @@ pub enum RunError {
     Execve { path: String, err: io::Error },
     #[error("cannot open the console: {0}")]
     Console(io::Error),
+    #[error("cannot start the process: {0}")]
+    Spawn(io::Error),
 }
 
 /// The directories [`Machine::install_commands`] puts commands in, relative to the root.
@@ -729,7 +731,8 @@ impl Machine {
         self.in_use.store(true, Ordering::Relaxed);
         #[cfg(feature = "wasix1")]
         self.resolve_wasix1_commands().await;
-        let task = self.syscalls.inner.spawn(config);
+        let task = (self.syscalls.inner.spawn(config))
+            .map_err(|errno| RunError::Spawn(errno_to_io(errno)))?;
         self.running.lock().unwrap().push(task);
         let running = Running {
             machine: self,

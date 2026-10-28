@@ -3,7 +3,7 @@
 //! shares or copies, `unshare` replaces and `setns` changes, as Linux's `struct nsproxy`.
 //!
 //! The initial namespaces have the inode numbers Linux gives those (`linux/nsfs.h`); those made
-//! later get theirs from [`Inums`]. Mount, UTS, IPC and network namespaces can be made; a
+//! later get theirs from [`Inums`]. Mount, UTS, IPC, network and pid namespaces can be made; a
 //! request for a new one of a kind that cannot is refused with `EPERM`, as a container's policy
 //! refuses it. Code reaches every namespaced object through the caller's proxy ([`Kernel::ns`]),
 //! never through the kernel, so a kind becomes real by making [`NsProxy::make`] create it.
@@ -18,7 +18,10 @@ use wasixv2_abi::{CloneFlags, NewUtsname, Ulong};
 use wasixv2_syscalls::{Caller, Errno, Fd, SysResult, TaskId};
 use wasixv2_vfs::{Cap, Path};
 
-use crate::{Kernel, Process, cred::Cred, fs::FsContext, ipc, nsfs::NsFile, sync::MutexExt, unix};
+use crate::{
+    Kernel, Process, cred::Cred, fs::FsContext, ipc, nsfs::NsFile, pid::PidSpace, sync::MutexExt,
+    unix,
+};
 
 /// `CLONE_NS_ALL`: the flags that ask for new namespaces.
 pub(crate) const CLONE_NS_ALL: u64 = CloneFlags::CLONE_NEWCGROUP.0
@@ -229,11 +232,6 @@ pub(crate) struct Net {
     pub(crate) unix_names: Arc<unix::Names>,
 }
 
-/// A pid namespace's place in the hierarchy.
-pub(crate) struct Pid {
-    parent: Option<Arc<PidNs>>,
-}
-
 /// A user namespace's creator.
 pub(crate) struct User {
     /// The effective uid that made it (`owner`); root's for the initial one.
@@ -250,7 +248,7 @@ pub(crate) type MntNs = Ns<Mnt>;
 pub(crate) type UtsNs = Ns<Mutex<NewUtsname>>;
 pub(crate) type IpcNs = Ns<ipc::Ipc>;
 pub(crate) type NetNs = Ns<Net>;
-pub(crate) type PidNs = Ns<Pid>;
+pub(crate) type PidNs = Ns<PidSpace>;
 pub(crate) type UserNs = Ns<User>;
 pub(crate) type CgroupNs = Ns<Cgroup>;
 pub(crate) type TimeNs = Ns<Time>;
@@ -315,7 +313,7 @@ impl Namespace {
     ) -> Result<Namespace, Errno> {
         match self {
             Namespace::Pid(ns) => {
-                let parent = ns.parent.clone().ok_or(Errno::EPERM)?;
+                let parent = ns.parent().cloned().ok_or(Errno::EPERM)?;
                 if !pid_ns_descends(&parent, active_pid) {
                     return Err(Errno::EPERM);
                 }
@@ -336,13 +334,13 @@ impl Namespace {
 }
 
 /// `pidns_is_ancestor`: whether `ns` is `ancestor` or below it.
-fn pid_ns_descends(ns: &Arc<PidNs>, ancestor: &Arc<PidNs>) -> bool {
+pub(crate) fn pid_ns_descends(ns: &Arc<PidNs>, ancestor: &Arc<PidNs>) -> bool {
     let mut at = Some(ns.clone());
     while let Some(ns) = at {
         if Arc::ptr_eq(&ns, ancestor) {
             return true;
         }
-        at = ns.parent.clone();
+        at = ns.parent().cloned();
     }
     false
 }
@@ -389,7 +387,7 @@ impl NsProxy {
                     unix_names: Arc::default(),
                 },
             ),
-            pid_for_children: Ns::initial(NsKind::Pid, owner.clone(), Pid { parent: None }),
+            pid_for_children: Ns::initial(NsKind::Pid, owner.clone(), PidSpace::initial()),
             cgroup: Ns::initial(NsKind::Cgroup, owner, Cgroup),
             time_for_children: time.clone(),
             time,
@@ -398,7 +396,7 @@ impl NsProxy {
     }
 
     /// `copy_namespaces` for a process `clone` makes with `flags`, on behalf of a caller with
-    /// `cred`: the caller's namespaces, or new ones where `flags` asks (`CAP_SYS_ADMIN`, or a
+    /// `cred` in the pid namespace `active_pid`: the caller's namespaces, or new ones where `flags` asks (`CAP_SYS_ADMIN`, or a
     /// new user namespace, in which its creator holds every capability). `CLONE_NEWIPC` cannot
     /// go with `CLONE_SYSVSEM`, which would share semaphore adjustments across namespaces. A
     /// child with its own memory starts in the time namespace for children
@@ -408,6 +406,7 @@ impl NsProxy {
         kernel: &Kernel,
         flags: u64,
         cred: &Cred,
+        active_pid: &Arc<PidNs>,
         fs: Option<&mut FsContext>,
     ) -> Result<Arc<Self>, Errno> {
         let vm = flags & CloneFlags::CLONE_VM.0 != 0;
@@ -428,7 +427,7 @@ impl NsProxy {
             if flags & ipc_sysvsem == ipc_sysvsem {
                 return Err(Errno::EINVAL);
             }
-            new.create(kernel, flags, fs)?;
+            new.create(kernel, flags, active_pid, fs)?;
         }
         if !vm {
             new.time = new.time_for_children.clone();
@@ -436,13 +435,14 @@ impl NsProxy {
         Ok(Arc::new(new))
     }
 
-    /// `unshare_userns` and `unshare_nsproxy_namespaces`: the caller's namespaces with new ones
-    /// where `flags` asks, or `None` if it asks for none.
+    /// `unshare_userns` and `unshare_nsproxy_namespaces`: the namespaces of a caller in the pid
+    /// namespace `active_pid` with new ones where `flags` asks, or `None` if it asks for none.
     pub(crate) fn unshare(
         &self,
         kernel: &Kernel,
         flags: u64,
         cred: &Cred,
+        active_pid: &Arc<PidNs>,
         fs: Option<&mut FsContext>,
     ) -> Result<Option<Self>, Errno> {
         if flags & CLONE_NS_ALL == 0 {
@@ -453,7 +453,7 @@ impl NsProxy {
             if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
                 return Err(Errno::EPERM);
             }
-            new.create(kernel, flags, fs)?;
+            new.create(kernel, flags, active_pid, fs)?;
         }
         Ok(Some(new))
     }
@@ -463,7 +463,7 @@ impl NsProxy {
     fn copy_user(&self, kernel: &Kernel, flags: u64) -> Result<Self, Errno> {
         let mut new = self.clone();
         if flags & CloneFlags::CLONE_NEWUSER.0 != 0 {
-            new.make(kernel, NsKind::User, None)?;
+            new.make(kernel, NsKind::User, None, None)?;
         }
         Ok(new)
     }
@@ -473,11 +473,12 @@ impl NsProxy {
         &mut self,
         kernel: &Kernel,
         flags: u64,
+        active_pid: &Arc<PidNs>,
         mut fs: Option<&mut FsContext>,
     ) -> Result<(), Errno> {
         for kind in NsKind::PROXIED {
             if flags & kind.flag() != 0 {
-                self.make(kernel, kind, fs.as_deref_mut())?;
+                self.make(kernel, kind, Some(active_pid), fs.as_deref_mut())?;
             }
         }
         Ok(())
@@ -490,11 +491,14 @@ impl NsProxy {
     /// mounts (`copy_mnt_ns`). A new UTS namespace starts
     /// with a copy of the names (`clone_uts_ns`), a new IPC namespace empty (`create_ipc_ns`),
     /// a new network namespace with the network the kernel's factory makes and no abstract Unix
-    /// names (`setup_net`). Pid, user, cgroup and time namespaces cannot be made yet.
+    /// names (`setup_net`). A new pid namespace goes below the one for children, which must be
+    /// the maker's own, `active_pid` (`copy_pid_ns`), and is for the children only. User,
+    /// cgroup and time namespaces cannot be made yet.
     fn make(
         &mut self,
         kernel: &Kernel,
         kind: NsKind,
+        active_pid: Option<&Arc<PidNs>>,
         fs: Option<&mut FsContext>,
     ) -> Result<(), Errno> {
         let inums = &kernel.ns_inums;
@@ -519,7 +523,15 @@ impl NsProxy {
                 };
                 self.mnt = Ns::new(kind, owner, Mnt { tree }, inums)?;
             }
-            NsKind::Pid | NsKind::User | NsKind::Cgroup | NsKind::Time => {
+            NsKind::Pid => {
+                let parent = &self.pid_for_children;
+                if !active_pid.is_some_and(|active| Arc::ptr_eq(active, parent)) {
+                    return Err(Errno::EINVAL);
+                }
+                let space = PidSpace::child_of(parent)?;
+                self.pid_for_children = Ns::new(kind, owner, space, inums)?;
+            }
+            NsKind::User | NsKind::Cgroup | NsKind::Time => {
                 return Err(Errno::EPERM);
             }
         }
@@ -692,7 +704,13 @@ impl Kernel {
                 &files.lock_or_recover(),
             )))
         });
-        let new_ns = ns.unshare(self, flags, &process.cred(), new_fs.as_mut())?;
+        let new_ns = ns.unshare(
+            self,
+            flags,
+            &process.cred(),
+            &process.pid_ns,
+            new_fs.as_mut(),
+        )?;
         let ipc_or_sysvsem = CloneFlags::CLONE_NEWIPC.0 | CloneFlags::CLONE_SYSVSEM.0;
         if flags & ipc_or_sysvsem != 0 {
             self.exit_sem(&process);

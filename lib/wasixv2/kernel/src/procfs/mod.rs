@@ -27,8 +27,9 @@ use crate::{
     fs::{FsContext, HostClock},
     ident::Comm,
     mm::Mm,
-    ns::NsProxy,
+    ns::{NsProxy, PidNs},
     nsfs::Nsfs,
+    pid::{Pids, Upid},
     process::Tree,
     sched::Sched,
     signal::TaskSignals,
@@ -39,13 +40,22 @@ use crate::{
 const PROC_SUPER_MAGIC: u32 = 0x9fa0;
 
 impl Kernel {
-    /// A process filesystem for this kernel, to mount at `/proc`.
+    /// A process filesystem for this kernel, to mount at `/proc`, showing the initial pid
+    /// namespace.
     pub fn procfs(&self) -> Arc<dyn Filesystem> {
+        self.procfs_in(self.init_ns.pid_for_children.clone())
+    }
+
+    /// A process filesystem showing the processes of `pid_ns` and below, by their pids there
+    /// (`proc_fill_super` with the mounter's `pid_ns`).
+    pub(crate) fn procfs_in(&self, pid_ns: Arc<PidNs>) -> Arc<dyn Filesystem> {
         let source = Source {
             state: Arc::downgrade(&self.state),
             tree: Arc::downgrade(&self.procs.tree),
             vfs: Arc::downgrade(&self.vfs),
             host: self.host.clone(),
+            pid_ns,
+            pids: self.pids.clone(),
             ns: self.init_ns.clone(),
             nsfs: self.pseudo.nsfs.clone(),
             filesystems: self.filesystems.clone(),
@@ -108,6 +118,9 @@ struct Source {
     tree: Weak<Mutex<Tree>>,
     vfs: Weak<Vfs>,
     host: Arc<dyn Host>,
+    /// The pid namespace whose processes the instance shows, by their pids there.
+    pid_ns: Arc<PidNs>,
+    pids: Arc<Pids>,
     /// The initial namespaces, which the system files show the embedder.
     ns: Arc<NsProxy>,
     /// Where `/proc/<pid>/ns` links lead.
@@ -152,27 +165,58 @@ impl Source {
         })
     }
 
-    /// Every process, zombies included, lowest pid first.
-    fn pids(&self) -> Vec<u32> {
+    /// `pid_nr_ns` in the instance's pid namespace: the pid shown for the id `id`, 0 for one
+    /// outside it.
+    fn nr(&self, id: u32) -> i32 {
+        self.pids.nr(&self.pid_ns, id)
+    }
+
+    /// The id the instance shows as `nr` (`find_pid_ns`).
+    fn find(&self, nr: u32) -> Option<u32> {
+        self.pid_ns.find(i32::try_from(nr).ok()?)
+    }
+
+    /// The numbers of the id `id` in each pid namespace from the instance's down to its own.
+    fn upids(&self, id: u32) -> Vec<Upid> {
+        self.pids.upids_from(&self.pid_ns, id)
+    }
+
+    /// The id of every process of the machine, whatever its pid namespace.
+    fn all_pids(&self) -> Vec<u32> {
         let Some(tree) = self.tree.upgrade() else {
             return Vec::new();
         };
-        let mut pids: Vec<u32> = tree.lock_or_recover().nodes.keys().copied().collect();
-        pids.sort_unstable();
-        pids
+        let tree = tree.lock_or_recover();
+        tree.nodes.keys().copied().collect()
     }
 
-    /// The threads of process `pid`, lowest tid first.
-    fn threads(&self, pid: u32) -> Vec<u32> {
+    /// Every process in the instance's pid namespace, zombies included, by the id it has
+    /// there, lowest first (`next_tgid`), with its id.
+    fn pids(&self) -> Vec<(u32, u32)> {
+        let Some(tree) = self.tree.upgrade() else {
+            return Vec::new();
+        };
+        let tree = tree.lock_or_recover();
+        self.pid_ns
+            .members()
+            .into_iter()
+            .filter(|(_, id)| tree.nodes.contains_key(id))
+            .collect()
+    }
+
+    /// The threads of process `pid`, by tid in the instance's pid namespace, lowest first,
+    /// with their ids.
+    fn threads(&self, pid: u32) -> Vec<(u32, u32)> {
         let Some(state) = self.state.upgrade() else {
             return Vec::new();
         };
         let state = state.read_or_recover();
-        let mut tids: Vec<u32> = state
+        let mut tids: Vec<(u32, u32)> = state
             .tasks
             .iter()
             .filter(|(_, task)| task.process.pid.0 == pid)
-            .map(|(tid, _)| tid.0)
+            .map(|(tid, _)| (self.nr(tid.0) as u32, tid.0))
+            .filter(|&(nr, _)| nr != 0)
             .collect();
         tids.sort_unstable();
         tids
@@ -183,7 +227,7 @@ impl Source {
     fn task(&self, pid: u32, tid: Option<u32>) -> Option<TaskInfo> {
         let tid = match tid {
             Some(tid) => tid,
-            None => *self.threads(pid).first()?,
+            None => self.threads(pid).first()?.1,
         };
         let state = self.state.upgrade()?;
         let state = state.read_or_recover();
@@ -217,7 +261,7 @@ impl Source {
     fn set_comm(&self, pid: u32, tid: Option<u32>, name: &[u8]) -> Option<()> {
         let tid = match tid {
             Some(tid) => tid,
-            None => *self.threads(pid).first()?,
+            None => self.threads(pid).first()?.1,
         };
         let state = self.state.upgrade()?;
         let mut state = state.lock_or_recover();
@@ -245,6 +289,20 @@ impl Source {
         ns.unwrap_or_else(|| self.ns.clone())
     }
 
+    /// Whether the task `tid` may set where its pid namespace's next pid search starts
+    /// (`checkpoint_restore_ns_capable`).
+    fn may_checkpoint_restore(&self, tid: u32) -> bool {
+        let Some(state) = self.state.upgrade() else {
+            return false;
+        };
+        let state = state.read_or_recover();
+        state.tasks.get(&TaskId(tid)).is_some_and(|task| {
+            let cred = task.process.cred();
+            cred.capable(wasixv2_vfs::Cap::SysAdmin)
+                || cred.capable(wasixv2_vfs::Cap::CheckpointRestore)
+        })
+    }
+
     /// The thread group of the task `tid`.
     fn tgid_of(&self, tid: u32) -> Option<u32> {
         let state = self.state.upgrade()?;
@@ -252,11 +310,22 @@ impl Source {
         Some(state.tasks.get(&TaskId(tid))?.process.pid.0)
     }
 
-    /// How many tasks run, and the last pid handed out.
+    /// How many tasks run, and how many were ever started (`total_forks`).
     fn task_counts(&self) -> (usize, u32) {
         self.state.upgrade().map_or((0, 0), |state| {
             let state = state.read_or_recover();
             (state.tasks.len(), state.last_id)
         })
+    }
+
+    /// The pid namespace of the task `tid`, which the system files of pids show it: its
+    /// process's (`task_active_pid_ns(current)`). The embedder, and a task gone meanwhile, see
+    /// the initial one.
+    fn pid_ns_of(&self, tid: u32) -> Arc<PidNs> {
+        let ns = self.state.upgrade().and_then(|state| {
+            let state = state.read_or_recover();
+            Some(state.tasks.get(&TaskId(tid))?.process.pid_ns.clone())
+        });
+        ns.unwrap_or_else(|| self.ns.pid_for_children.clone())
     }
 }

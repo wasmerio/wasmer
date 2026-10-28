@@ -285,7 +285,7 @@ impl Kernel {
                 if Arc::ptr_eq(tty, real) && !tty.is_ctty_of(&process) {
                     return Err(Errno::ENOTTY.into());
                 }
-                put_int(real.pgrp().map_or(0, |pgrp| pgrp as i32)).await
+                put_int(real.pgrp().map_or(0, |pgrp| self.vnr(caller, pgrp))).await
             }
             IoctlRequest::TIOCSPGRP => {
                 match real.check_change(task, Signal::SIGTTOU) {
@@ -293,7 +293,11 @@ impl Kernel {
                     result => result?,
                 }
                 let pgrp: i32 = read_value(memory, GuestPtr::new(arg)).await?;
-                real.set_pgrp(&process, pgrp)?;
+                if pgrp < 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                // `find_vpid`: a group outside the caller's pid namespace does not exist for it.
+                real.set_pgrp(&process, self.find_vpid(caller, pgrp))?;
                 Ok(0)
             }
             IoctlRequest::TIOCGSID => {
@@ -301,7 +305,7 @@ impl Kernel {
                     return Err(Errno::ENOTTY.into());
                 }
                 let sid = real.session().ok_or(Errno::ENOTTY)?;
-                put_int(sid as i32).await
+                put_int(self.vnr(caller, sid)).await
             }
             // ---- a pty master's (`pty_unix98_ioctl`, `ptm_open_peer`) ----
             IoctlRequest::TIOCGPTPEER => match &tty.driver {

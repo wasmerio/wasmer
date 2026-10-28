@@ -251,7 +251,7 @@ impl Kernel {
         let sig = crate::signal::check_signal(sig)?;
         let tty = self.console.as_ref().ok_or(Errno::ESRCH)?;
         let pgrp = tty.pgrp().ok_or(Errno::ESRCH)?;
-        if tty.jobs.pgrp_groups(pgrp as i32).is_empty() {
+        if tty.jobs.pgrp_groups(pgrp).is_empty() {
             return Err(Errno::ESRCH);
         }
         Ok(tty.jobs.kill_pgrp(pgrp, sig))
@@ -264,7 +264,7 @@ impl Kernel {
             return false;
         };
         self.jobs
-            .pgrp_groups(pgrp as i32)
+            .pgrp_groups(pgrp)
             .iter()
             .any(|(_, group)| group.is_pending(sig.0))
     }

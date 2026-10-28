@@ -595,6 +595,8 @@ impl Kernel {
                 Ok(0)
             }
             IpcCmd::GETVAL | IpcCmd::GETPID | IpcCmd::GETNCNT | IpcCmd::GETZCNT => {
+                // The last operator as the caller sees it (`pid_vnr`).
+                let pid_ns = self.active_pid_ns(caller.task());
                 let set = sems.get(semid)?;
                 set.perm().check(&cred, READ)?;
                 let state = set.state();
@@ -604,7 +606,7 @@ impl Kernel {
                     .ok_or(Errno::EINVAL)?;
                 Ok(match IpcCmd(cmd) {
                     IpcCmd::GETVAL => state.sems[num].value,
-                    IpcCmd::GETPID => state.sems[num].pid as i32,
+                    IpcCmd::GETPID => self.pids.nr(&pid_ns, state.sems[num].pid),
                     IpcCmd::GETNCNT => state.count_waiting(num, false),
                     _ => state.count_waiting(num, true),
                 })
