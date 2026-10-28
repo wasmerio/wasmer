@@ -91,19 +91,34 @@ pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
     }
 }
 
-/// A host port that forwards connections to a guest port (`--publish`).
+/// A host port that forwards connections or datagrams to a guest port (`--publish`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PublishedPort {
     pub host: SocketAddr,
     pub guest_port: u16,
+    pub protocol: PublishedProtocol,
 }
 
-/// Parses `[HOST_IP:]HOST_PORT:GUEST_PORT`, the format of `docker run --publish`, except that
-/// the host address defaults to loopback instead of every interface.
+/// What a published port carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PublishedProtocol {
+    Tcp,
+    Udp,
+}
+
+/// Parses `[HOST_IP:]HOST_PORT:GUEST_PORT[/PROTOCOL]`, the format of `docker run --publish`
+/// (`tcp`, the default, or `udp`), except that the host address defaults to loopback instead
+/// of every interface.
 pub fn parse_publish(entry: &str) -> Result<PublishedPort> {
-    let (host, guest_port) = entry
-        .rsplit_once(':')
-        .with_context(|| format!("expected [HOST_IP:]HOST_PORT:GUEST_PORT, got `{entry}`"))?;
+    let (ports, protocol) = match entry.rsplit_once('/') {
+        Some((ports, "tcp")) => (ports, PublishedProtocol::Tcp),
+        Some((ports, "udp")) => (ports, PublishedProtocol::Udp),
+        Some((_, other)) => bail!("unknown protocol `{other}` in `{entry}`: expected tcp or udp"),
+        None => (entry, PublishedProtocol::Tcp),
+    };
+    let (host, guest_port) = ports.rsplit_once(':').with_context(|| {
+        format!("expected [HOST_IP:]HOST_PORT:GUEST_PORT[/PROTOCOL], got `{entry}`")
+    })?;
     let guest_port = guest_port
         .parse()
         .with_context(|| format!("invalid guest port in `{entry}`"))?;
@@ -123,6 +138,7 @@ pub fn parse_publish(entry: &str) -> Result<PublishedPort> {
     Ok(PublishedPort {
         host: SocketAddr::new(ip, host_port),
         guest_port,
+        protocol,
     })
 }
 
@@ -263,6 +279,11 @@ c: c
         let port = |host: &str, guest_port| PublishedPort {
             host: host.parse().unwrap(),
             guest_port,
+            protocol: PublishedProtocol::Tcp,
+        };
+        let udp = |host: &str, guest_port| PublishedPort {
+            protocol: PublishedProtocol::Udp,
+            ..port(host, guest_port)
         };
         assert_eq!(
             parse_publish("8080:80").unwrap(),
@@ -276,6 +297,19 @@ c: c
             parse_publish("[::1]:8080:80").unwrap(),
             port("[::1]:8080", 80)
         );
+        assert_eq!(
+            parse_publish("5353:53/udp").unwrap(),
+            udp("127.0.0.1:5353", 53)
+        );
+        assert_eq!(
+            parse_publish("[::]:5353:53/udp").unwrap(),
+            udp("[::]:5353", 53)
+        );
+        assert_eq!(
+            parse_publish("8080:80/tcp").unwrap(),
+            port("127.0.0.1:8080", 80)
+        );
+        assert!(parse_publish("8080:80/sctp").is_err());
         assert!(parse_publish("8080").is_err());
         assert!(parse_publish("x:8080:80").is_err());
         assert!(parse_publish("8080:70000").is_err());

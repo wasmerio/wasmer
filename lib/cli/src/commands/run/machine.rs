@@ -38,6 +38,7 @@ use super::{
     wasi::utf8_env_part,
 };
 use crate::backend::{BackendType, RuntimeOptions};
+use crate::utils::PublishedProtocol;
 
 /// What to start on the machine.
 pub(super) struct MachineProgram {
@@ -601,15 +602,17 @@ impl Run {
                 .iter()
                 .map(|port| {
                     let guest = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), port.guest_port);
-                    machine
-                        .network()
-                        .publish(port.host, guest)
-                        .with_context(|| {
-                            format!(
-                                "cannot publish {} to guest port {}",
-                                port.host, port.guest_port
-                            )
-                        })
+                    let network = machine.network();
+                    match port.protocol {
+                        PublishedProtocol::Tcp => network.publish(port.host, guest),
+                        PublishedProtocol::Udp => network.publish_udp(port.host, guest),
+                    }
+                    .with_context(|| {
+                        format!(
+                            "cannot publish {} to guest port {}",
+                            port.host, port.guest_port
+                        )
+                    })
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
             // Installed before the guest starts, so no signal takes the host's default action.

@@ -107,8 +107,14 @@ pub struct Wasi {
     pub networking: Option<Option<String>>,
 
     /// Forward connections to a host port to a port the guest listens on, as
-    /// `[HOST_IP:]HOST_PORT:GUEST_PORT`. The host address defaults to 127.0.0.1.
-    #[clap(long = "publish", name = "[HOST_IP:]HOST_PORT:GUEST_PORT", value_parser = parse_publish)]
+    /// `[HOST_IP:]HOST_PORT:GUEST_PORT`, or with `/udp` datagrams to the UDP socket the guest
+    /// binds there, whose replies leave from the host port. The host address defaults to
+    /// 127.0.0.1.
+    #[clap(
+        long = "publish",
+        name = "[HOST_IP:]HOST_PORT:GUEST_PORT[/udp]",
+        value_parser = parse_publish
+    )]
     pub(crate) publish: Vec<PublishedPort>,
 
     /// Run the guest as `UID[:GID]` (numeric; the gid defaults to the uid), which also owns
