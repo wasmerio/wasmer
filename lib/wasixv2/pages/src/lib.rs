@@ -12,14 +12,18 @@
 //! exists: a `memfd_create` file on Linux, an unlinked `shm_open` object on macOS. Elsewhere
 //! there is none, and the kernel keeps its copies synchronised at defined points instead.
 //! [`map_at`] and [`map_private_at`] are what the execution layer does with an object's
-//! descriptor inside a linear memory.
+//! descriptor inside a linear memory. A [`Provider`] makes objects for whoever keeps data in
+//! them, such as a memory filesystem whose files processes map.
 //!
 //! A separate crate because the VFS, the syscall interface, the kernel, the host and the
 //! execution layer all need it, and none of them may depend on another for it.
 
 use std::{
     io,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 #[cfg(unix)]
@@ -64,11 +68,43 @@ pub trait SharedPages: Send + Sync {
     /// Bytes of host memory the object holds now (`shm_rss`).
     fn allocated(&self) -> u64;
 
+    /// `lseek` with `SEEK_DATA` or `SEEK_HOLE`: the first offset at or after `offset` that holds
+    /// data, or that is a hole. Pages never written, and those [`punch_hole`] freed, are holes,
+    /// and so is the end of the object. `None` when `offset` is at or past the end, or for
+    /// [`Seek::Data`] when no data follows it (`ENXIO`). By default the whole object is data.
+    ///
+    /// [`punch_hole`]: SharedPages::punch_hole
+    fn seek(&self, offset: u64, which: Seek) -> io::Result<Option<u64>> {
+        let size = self.size();
+        Ok((offset < size).then_some(match which {
+            Seek::Data => offset,
+            Seek::Hole => size,
+        }))
+    }
+
     /// The descriptor that maps the object, if the host can map it into linear memory.
     #[cfg(unix)]
     fn fd(&self) -> Option<BorrowedFd<'_>> {
         None
     }
+}
+
+/// What [`SharedPages::seek`] looks for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Seek {
+    /// `SEEK_DATA`.
+    Data,
+    /// `SEEK_HOLE`.
+    Hole,
+}
+
+/// Makes shared memory objects for something that keeps data in them, so that mappings of that
+/// data show the object itself: a memory filesystem's files, as tmpfs keeps every file in
+/// shmem (`mm/shmem.c`).
+pub trait Provider: Send + Sync {
+    /// A new object of `size` bytes, all zero. [`io::ErrorKind::Unsupported`] where the host
+    /// has none.
+    fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn SharedPages>>;
 }
 
 /// A fresh [`SharedPages::id`].
