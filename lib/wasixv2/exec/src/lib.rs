@@ -448,7 +448,7 @@ where
         None => instance.exports.get_memory("memory")?.clone(),
     };
     // Decided from the module's own globals, before a fork child's copy replaces them.
-    let guarded = memory::guardable(&instance, &mut store);
+    let guarded = abi.low_guard() && memory::guardable(&instance, &mut store);
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
     if let Some(image) = fork {
         copy_image(&mut store, &instance, &memory, image)?;

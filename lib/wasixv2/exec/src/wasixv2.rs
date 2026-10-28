@@ -89,6 +89,11 @@ where
             vfork_return: exports.get_function(process::VFORK_RETURN).ok().cloned(),
         }))
     }
+
+    /// libc2 keeps nothing below its stack, and wasixcc links stack-first.
+    fn low_guard(&self) -> bool {
+        true
+    }
 }
 
 pub(crate) struct Wasixv2Instance {
