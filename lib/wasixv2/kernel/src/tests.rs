@@ -689,6 +689,8 @@ mod fs;
 mod futex;
 mod ipc;
 mod jobctl;
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+mod mapped;
 mod mapping;
 mod memfd;
 mod net;
