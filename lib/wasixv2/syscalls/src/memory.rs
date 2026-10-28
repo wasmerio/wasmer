@@ -1,4 +1,8 @@
-use std::{future::Future, pin::Pin};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use wasixv2_abi::{GuestLayout, GuestPtr, GuestPtrMut};
 
@@ -8,6 +12,27 @@ pub type LocalFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 /// A guest address outside of mapped memory.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Fault;
+
+/// The future of a copy that already happened, as [`UserMemory::read`] and
+/// [`UserMemory::write`] return it. Both outcomes are zero-sized futures, whose box allocates
+/// nothing, so a memory that can copy without waiting costs no allocation per copy.
+pub fn copied(result: Result<(), Fault>) -> LocalFuture<'static, Result<(), Fault>> {
+    match result {
+        Ok(()) => Box::pin(Copied::<true>),
+        Err(Fault) => Box::pin(Copied::<false>),
+    }
+}
+
+/// A finished copy: `OK` or a [`Fault`].
+struct Copied<const OK: bool>;
+
+impl<const OK: bool> Future for Copied<OK> {
+    type Output = Result<(), Fault>;
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Poll::Ready(if OK { Ok(()) } else { Err(Fault) })
+    }
+}
 
 /// The calling task's address space, read and written the way Linux's `copy_{from,to}_user` do.
 pub trait UserMemory {
@@ -240,5 +265,19 @@ mod tests {
         assert_eq!(*memory.0.borrow(), [0; 8]);
         assert_eq!(copy(b"ab"), std::task::Poll::Ready(Ok(())));
         assert_eq!(memory.0.borrow()[..3], *b"ab\0");
+    }
+
+    /// A finished copy reports its outcome, and its future is zero-sized: boxing it allocates
+    /// nothing.
+    #[test]
+    fn copied_needs_no_allocation() {
+        assert_eq!(size_of::<Copied<true>>(), 0);
+        assert_eq!(size_of::<Copied<false>>(), 0);
+        let mut cx = Context::from_waker(std::task::Waker::noop());
+        assert_eq!(copied(Ok(())).as_mut().poll(&mut cx), Poll::Ready(Ok(())));
+        assert_eq!(
+            copied(Err(Fault)).as_mut().poll(&mut cx),
+            Poll::Ready(Err(Fault))
+        );
     }
 }

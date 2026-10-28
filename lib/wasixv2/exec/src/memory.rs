@@ -1,5 +1,5 @@
-use wasixv2_syscalls::{Fault, LocalFuture, UserMemory};
-use wasmer::AsyncFunctionEnvMut;
+use wasixv2_syscalls::{Fault, LocalFuture, UserMemory, copied};
+use wasmer::{AsyncFunctionEnvHandle, AsyncFunctionEnvMut};
 
 use crate::{
     ExecEnv,
@@ -17,29 +17,46 @@ impl<'a, S: 'static> GuestMemory<'a, S> {
     }
 }
 
+/// Copies `addr..` of the instance's linear memory into `buf`.
+fn read_at<S: 'static>(
+    env: &AsyncFunctionEnvHandle<ExecEnv<S>>,
+    addr: u32,
+    buf: &mut [u8],
+) -> Result<(), Fault> {
+    let (data, store) = env.data_and_store();
+    let memory = data.memory.as_ref().ok_or(Fault)?;
+    memory.view(store).read(addr.into(), buf).map_err(|_| Fault)
+}
+
+/// Copies `bytes` to `addr..` of the instance's linear memory.
+fn write_at<S: 'static>(
+    env: &AsyncFunctionEnvHandle<ExecEnv<S>>,
+    addr: u32,
+    bytes: &[u8],
+) -> Result<(), Fault> {
+    let (data, store) = env.data_and_store();
+    let memory = data.memory.as_ref().ok_or(Fault)?;
+    memory
+        .view(store)
+        .write(addr.into(), bytes)
+        .map_err(|_| Fault)
+}
+
+/// Copies happen at once when the store is free, as it is while the guest waits for its own
+/// import, so they allocate nothing ([`copied`]); they wait for the store otherwise.
 impl<S: 'static> UserMemory for GuestMemory<'_, S> {
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
-        Box::pin(async move {
-            let mut env = self.env.write().await;
-            let (data, store) = env.data_and_store_mut();
-            let memory = data.memory.as_ref().ok_or(Fault)?;
-            memory
-                .view(&*store)
-                .read(addr.into(), buf)
-                .map_err(|_| Fault)
-        })
+        match self.env.try_read() {
+            Some(env) => copied(read_at(&env, addr, buf)),
+            None => Box::pin(async move { read_at(&self.env.read().await, addr, buf) }),
+        }
     }
 
     fn write<'a>(&'a self, addr: u32, bytes: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
-        Box::pin(async move {
-            let mut env = self.env.write().await;
-            let (data, store) = env.data_and_store_mut();
-            let memory = data.memory.as_ref().ok_or(Fault)?;
-            memory
-                .view(&*store)
-                .write(addr.into(), bytes)
-                .map_err(|_| Fault)
-        })
+        match self.env.try_read() {
+            Some(env) => copied(write_at(&env, addr, bytes)),
+            None => Box::pin(async move { write_at(&self.env.read().await, addr, bytes) }),
+        }
     }
 
     fn size(&self) -> LocalFuture<'_, u64> {

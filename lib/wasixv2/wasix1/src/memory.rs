@@ -12,6 +12,7 @@ use wasixv2_abi::{Cstr, CstrArray, GuestLayout, GuestPtr, GuestPtrMut};
 use wasixv2_exec::GuestMemory;
 use wasixv2_syscalls::{
     Errno, Fault, LocalFuture, SysResult, UserMemory, UserSlice, UserSliceMut, WASM_PAGE_SIZE,
+    copied,
 };
 
 /// Start of the scratch window: the top 16 MiB of the 32-bit address space, which the guest's
@@ -168,9 +169,9 @@ impl<S: 'static> UserMemory for CompatMemory<'_, S> {
                     from_scratch.copy_from_slice(&scratch[start..copied]);
                     zeroes.fill(0);
                 });
-                Box::pin(async move { result })
+                copied(result)
             }
-            None if straddles(addr, buf.len()) => Box::pin(async { Err(Fault) }),
+            None if straddles(addr, buf.len()) => copied(Err(Fault)),
             None => self.guest.read(addr, buf),
         }
     }
@@ -187,9 +188,9 @@ impl<S: 'static> UserMemory for CompatMemory<'_, S> {
                     self.scratch.borrow_mut()[start..end].copy_from_slice(data);
                     Ok(())
                 });
-                Box::pin(async move { result })
+                copied(result)
             }
-            None if straddles(addr, data.len()) => Box::pin(async { Err(Fault) }),
+            None if straddles(addr, data.len()) => copied(Err(Fault)),
             None => self.guest.write(addr, data),
         }
     }
