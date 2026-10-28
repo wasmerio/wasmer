@@ -316,3 +316,45 @@ async fn run_on(machine: &Machine, wat: &str) -> (i32, Vec<u8>) {
     let stdout = stdout.0.lock().unwrap().clone();
     (status, stdout)
 }
+
+/// Maps a page `PROT_NONE`, then exits with the first check that went wrong, or 0: `write` from
+/// it and `uname` into it fail with `EFAULT`, the guest's own store there goes through (wasm
+/// has no page protection), and once `mprotect` makes it read-only, `write` from it works and
+/// `uname` into it still faults.
+const PROT_NONE_WAT: &str = r#"
+  (module
+    (import "wasixv2" "mmap" (func $mmap (param i32 i32 i32 i32 i32 i64) (result i32)))
+    (import "wasixv2" "mprotect" (func $mprotect (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "uname" (func $uname (param i32) (result i32)))
+    (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+    (memory (export "memory") 1)
+    (func $check (param $got i32) (param $want i32) (param $code i32)
+      (if (i32.ne (local.get $got) (local.get $want))
+        (then (call $exit_group (local.get $code)))))
+    (func (export "_start") (local $page i32)
+      ;; PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS.
+      (local.set $page
+        (call $mmap (i32.const 0) (i32.const 65536) (i32.const 0) (i32.const 0x22)
+          (i32.const -1) (i64.const 0)))
+      (call $check (i32.lt_s (local.get $page) (i32.const 0)) (i32.const 0) (i32.const 1))
+      (call $check (call $write (i32.const 1) (local.get $page) (i32.const 4)) (i32.const -14)
+        (i32.const 2))
+      (call $check (call $uname (local.get $page)) (i32.const -14) (i32.const 3))
+      (i32.store (local.get $page) (i32.const 0x6b6f))
+      (call $check (call $mprotect (local.get $page) (i32.const 65536) (i32.const 1))
+        (i32.const 0) (i32.const 4))
+      (call $check (call $write (i32.const 1) (local.get $page) (i32.const 2)) (i32.const 2)
+        (i32.const 5))
+      (call $check (call $uname (local.get $page)) (i32.const -14) (i32.const 6))
+      (call $exit_group (i32.const 0))
+      unreachable))
+"#;
+
+/// The kernel's copies fault on pages the address space keeps from them, as Linux's
+/// `copy_from_user` and `copy_to_user` do; the guest's own loads and stores do not.
+#[tokio::test]
+async fn copies_fault_on_pages_the_page_map_keeps_from_them() {
+    let (status, out) = run(Machine::new(), PROT_NONE_WAT).await;
+    assert_eq!((status, out.as_slice()), (0, &b"ok"[..]));
+}

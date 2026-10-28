@@ -103,6 +103,12 @@ pub struct ExecEnv<S> {
     read_only: Arc<memory::ReadOnly>,
     /// The frozen image `memory` is a private view of, which fork children share ([`base`]).
     base: Option<Arc<base::Base>>,
+    /// What the kernel's copies may do with the pages of `task`'s address space
+    /// ([`SharedMappings::page_access`]), which every copy of [`UserMemory`] checks.
+    ///
+    /// [`SharedMappings::page_access`]: wasixv2_syscalls::SharedMappings::page_access
+    /// [`UserMemory`]: wasixv2_syscalls::UserMemory
+    page_access: Option<Arc<wasixv2_syscalls::PageAccess>>,
     /// The guest's shadow stack pointer, `__stack_pointer`, which libc-built modules export.
     stack_pointer: Option<Global>,
     /// The instance's half of its ABI; set once the instance exists.
@@ -132,6 +138,7 @@ impl<S: Control> ExecEnv<S> {
         Self {
             work: syscalls.work_flag(task),
             cpu: cputime::CpuSample::new(host, syscalls.cpu_account(task)),
+            page_access: syscalls.page_access(task),
             syscalls,
             task,
             memory: None,
@@ -154,6 +161,7 @@ impl<S: Control> ExecEnv<S> {
             self.syscalls.cpu_timers(self.task);
         }
         self.work = self.syscalls.work_flag(task);
+        self.page_access = self.syscalls.page_access(task);
         self.task = task;
     }
 

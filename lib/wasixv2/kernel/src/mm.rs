@@ -5,9 +5,11 @@
 //! for reuse by later mappings, which are zeroed then, by dropping them where the memory can
 //! ([`UserMemory::zero_pages`]), so a page no one wrote takes no host memory however often it is
 //! mapped, as on Linux, where even a large `PROT_NONE` mapping costs nothing until it is
-//! touched. Wasm has no page protection: unmapped pages stay accessible and `mprotect` changes
-//! nothing, except that executable memory is refused, since wasm cannot run code generated at
-//! run time.
+//! touched. Wasm has no page protection: the guest's own loads and stores reach unmapped and
+//! protected pages alike. The kernel's copies do not: the page map and the protections `mmap`
+//! and `mprotect` set are published in the address space's [`PageAccess`], which every copy
+//! checks, so a syscall faults on them as on Linux (DESIGN.md, "Page protection"). Executable
+//! memory is refused, since wasm cannot run code generated at run time.
 //!
 //! File mappings and SysV segment attachments are copies kept coherent at defined points (see
 //! [`shared`]). A shared file mapping is synchronised with its file:
@@ -38,7 +40,7 @@ mod shared;
 
 use std::{
     io,
-    ops::Range,
+    ops::{Deref, DerefMut, Range},
     sync::{
         Arc, Mutex, MutexGuard,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -51,7 +53,8 @@ use wasixv2_abi::{
     OpenFlags, ProtFlags, Ulong, Uptr, Usize,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, SharedMapping, SysResult, TaskId, UserMemory, WASM_PAGE_SIZE,
+    Caller, Errno, PageAccess, Restricted, SharedMapping, SysResult, TaskId, UserMemory,
+    WASM_PAGE_SIZE,
 };
 use wasixv2_vfs::{Cap, FileType, WRITE_SEALS};
 
@@ -97,8 +100,42 @@ pub(crate) struct Mm {
     /// threads interleave their growths and each other's checks.
     op: futures_util::lock::Mutex<()>,
     space: Mutex<AddressSpace>,
+    /// What the kernel's copies may do with each page, as `space` says: every change to the
+    /// page map reaches it ([`Space`]), and the execution layer checks every copy against it.
+    access: Arc<PageAccess>,
     /// Whether any shared mapping exists, so file I/O skips the mapping table otherwise.
     shared: AtomicBool,
+}
+
+/// The page map, locked. A change through it reaches the address space's [`PageAccess`] when
+/// it is let go, still under the lock, so the two never disagree for a copy that comes after.
+pub(crate) struct Space<'a> {
+    space: MutexGuard<'a, AddressSpace>,
+    access: &'a PageAccess,
+    changed: bool,
+}
+
+impl Deref for Space<'_> {
+    type Target = AddressSpace;
+
+    fn deref(&self) -> &AddressSpace {
+        &self.space
+    }
+}
+
+impl DerefMut for Space<'_> {
+    fn deref_mut(&mut self) -> &mut AddressSpace {
+        self.changed = true;
+        &mut self.space
+    }
+}
+
+impl Drop for Space<'_> {
+    fn drop(&mut self) {
+        if self.changed {
+            self.access.set(self.space.restricted());
+        }
+    }
 }
 
 impl Default for Mm {
@@ -110,12 +147,20 @@ impl Default for Mm {
 impl Mm {
     fn with_space(space: AddressSpace) -> Self {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+        let access = PageAccess::default();
+        access.set(space.restricted());
         Self {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             op: Default::default(),
             shared: AtomicBool::new(space.mappings.any_shared()),
             space: Mutex::new(space),
+            access: Arc::new(access),
         }
+    }
+
+    /// What the kernel's copies may do with each page of the address space.
+    pub(crate) fn access(&self) -> &Arc<PageAccess> {
+        &self.access
     }
 
     pub(crate) fn id(&self) -> u64 {
@@ -130,8 +175,12 @@ impl Mm {
 
     /// The page map. A panic elsewhere while it was held must not wedge every other thread of
     /// the process, so poisoning is ignored.
-    fn space(&self) -> MutexGuard<'_, AddressSpace> {
-        self.space.lock_or_recover()
+    fn space(&self) -> Space<'_> {
+        Space {
+            space: self.space.lock_or_recover(),
+            access: &self.access,
+            changed: false,
+        }
     }
 
     /// The address space as `/proc/<pid>/maps` lists it, lowest first, as far as the kernel
@@ -235,6 +284,10 @@ pub(crate) struct AddressSpace {
     locked: PageFlags,
     /// `VM_LOCKED` in `def_flags`: every new mapping is locked (`mlockall(MCL_FUTURE)`).
     lock_future: bool,
+    /// Pages mapped `PROT_NONE`: no `VM_READ`, `VM_WRITE` or `VM_EXEC`.
+    no_access: PageFlags,
+    /// Pages mapped readable but not `PROT_WRITE`.
+    read_only: PageFlags,
 }
 
 /// A flag of each page from address 0, as far as any page has it: a `vm_flags` bit of the
@@ -326,7 +379,60 @@ impl AddressSpace {
             // `def_flags`: locks are not inherited.
             locked: PageFlags::default(),
             lock_future: false,
+            no_access: self.no_access.clone(),
+            read_only: self.read_only.clone(),
         }
+    }
+
+    /// Gives the pages `[first, end)` the protection `prot` (`vm_flags`' `VM_READ` and
+    /// `VM_WRITE`): `PROT_WRITE` lets copies write, and implies reading, as on x86 and arm64;
+    /// `PROT_READ` alone only reading; neither nothing.
+    pub(crate) fn set_prot(&mut self, first: u64, end: u64, prot: ProtFlags) {
+        let write = prot.contains(ProtFlags::PROT_WRITE);
+        let read = write || prot.contains(ProtFlags::PROT_READ);
+        self.no_access.set(first, end, !read);
+        self.read_only.set(first, end, read && !write);
+    }
+
+    /// What the kernel's copies may not do, lowest first: nothing on the allocator's pages
+    /// that are not mapped, or that are `PROT_NONE`, and no writes where `PROT_WRITE` is
+    /// missing. Pages nobody handed out, which the guest grew itself, and the image's are
+    /// readable and writable unless `mprotect` said otherwise.
+    fn restricted(&self) -> Vec<Restricted> {
+        let tracked = self.base.map_or(0, |base| base + self.mapped.len() as u64);
+        let end = tracked
+            .max(self.no_access.0.len() as u64)
+            .max(self.read_only.0.len() as u64);
+        let mut out: Vec<Restricted> = Vec::new();
+        for page in 0..end {
+            let mapped = match self.base {
+                Some(base) if page >= base => self
+                    .mapped
+                    .get((page - base) as usize)
+                    .copied()
+                    .unwrap_or(true),
+                _ => true,
+            };
+            let readable = match (
+                mapped && !self.no_access.get(page),
+                self.read_only.get(page),
+            ) {
+                (false, _) => false,
+                (true, true) => true,
+                (true, false) => continue,
+            };
+            let (start, stop) = (page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+            match out.last_mut() {
+                Some(last) if last.range.end == start && last.readable == readable => {
+                    last.range.end = stop;
+                }
+                _ => out.push(Restricted {
+                    range: start..stop,
+                    readable,
+                }),
+            }
+        }
+        out
     }
 
     /// Picks the first unmapped run of `pages` pages, marking it mapped.
@@ -366,6 +472,8 @@ impl AddressSpace {
         self.set_pages(first, end, false);
         self.wipe_on_fork.set(first, end, false);
         self.locked.set(first, end, false);
+        self.no_access.set(first, end, false);
+        self.read_only.set(first, end, false);
     }
 
     /// `mremap`'s flags: the `new_len` bytes at `to` take those of the `old_len` bytes at
@@ -373,6 +481,8 @@ impl AddressSpace {
     fn remap_flags(&mut self, from: u64, old_len: u64, to: u64, new_len: u64) {
         self.wipe_on_fork.remap(from, old_len, to, new_len);
         self.locked.remap(from, old_len, to, new_len);
+        self.no_access.remap(from, old_len, to, new_len);
+        self.read_only.remap(from, old_len, to, new_len);
     }
 
     /// `locked_vm`: how many pages are locked.
@@ -524,11 +634,11 @@ async fn copy(memory: &dyn UserMemory, from: u64, to: u64, len: u64) -> Result<(
         let n = (len - done).min(PAGE_SIZE) as usize;
         let fault = |_| Errno::EFAULT;
         memory
-            .read((from + done) as u32, &mut buf[..n])
+            .force_read((from + done) as u32, &mut buf[..n])
             .await
             .map_err(fault)?;
         memory
-            .write((to + done) as u32, &buf[..n])
+            .force_write((to + done) as u32, &buf[..n])
             .await
             .map_err(fault)?;
         done += n as u64;
@@ -824,7 +934,11 @@ impl Kernel {
             self.map_anywhere(caller, pages).await? as Uptr
         };
         let first = u64::from(start) / PAGE_SIZE;
-        mm.space().locked.set(first, first + pages, locked);
+        {
+            let mut space = mm.space();
+            space.locked.set(first, first + pages, locked);
+            space.set_prot(first, first + pages, prot);
+        }
         let Some(source) = source else {
             return Ok(start);
         };
@@ -1200,15 +1314,12 @@ impl Kernel {
         }
         // Write access a shared mapping could never have (`VM_MAYWRITE`).
         let (start, end) = (u64::from(start), u64::from(start) + u64::from(len));
-        if prot.contains(ProtFlags::PROT_WRITE)
-            && self
-                .mm(caller.task())
-                .space()
-                .mappings
-                .read_only_shared_in(start, end)
-        {
+        let mm = self.mm(caller.task());
+        let mut space = mm.space();
+        if prot.contains(ProtFlags::PROT_WRITE) && space.mappings.read_only_shared_in(start, end) {
             return Err(Errno::EACCES.into());
         }
+        space.set_prot(start / PAGE_SIZE, end.div_ceil(PAGE_SIZE), prot);
         Ok(0)
     }
 
@@ -1578,6 +1689,14 @@ impl Kernel {
         source: Source,
     ) -> Result<Uptr, Errno> {
         let pages = len.div_ceil(PAGE_SIZE);
+        // `do_shmat`: `PROT_READ`, and `PROT_WRITE` unless `SHM_RDONLY`.
+        let prot = match &source {
+            Source::Mapped(Mapped {
+                writable: false, ..
+            }) => ProtFlags::PROT_READ,
+            Source::Shared(shared) if !shared.writable => ProtFlags::PROT_READ,
+            _ => ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+        };
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         let locked = self.check_lock_new(caller, false, pages * PAGE_SIZE)?;
@@ -1619,7 +1738,9 @@ impl Kernel {
         }
         mm.insert(mapping);
         let first = u64::from(start) / PAGE_SIZE;
-        mm.space().locked.set(first, first + pages, locked);
+        let mut space = mm.space();
+        space.locked.set(first, first + pages, locked);
+        space.set_prot(first, first + pages, prot);
         Ok(start)
     }
 

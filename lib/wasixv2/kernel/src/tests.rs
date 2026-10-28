@@ -787,6 +787,7 @@ fn prlimit_of_another_process_sets_its_descriptor_limit() {
     assert_eq!(dup(task), Some(Fd(3)));
 }
 
+mod access;
 mod cred;
 mod fs;
 mod futex;

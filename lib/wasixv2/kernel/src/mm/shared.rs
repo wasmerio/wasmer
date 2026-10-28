@@ -369,7 +369,7 @@ impl Mapping {
         let mut local = vec![0; self.len as usize];
         let at = u32::try_from(self.start).map_err(|_| Errno::EFAULT)?;
         memory
-            .read(at, &mut local)
+            .force_read(at, &mut local)
             .await
             .map_err(|_| Errno::EFAULT)?;
         Ok(local)
@@ -432,7 +432,7 @@ impl Mapping {
         for run in differences(&fresh, local) {
             let at = (start + run.start as u64) as u32;
             memory
-                .write(at, &fresh[run])
+                .force_write(at, &fresh[run])
                 .await
                 .map_err(|_| Errno::EFAULT)?;
         }
@@ -457,7 +457,10 @@ impl Mapping {
             Source::Mapped(mapped) => return mapped.attach(memory, self.start, self.len).await,
         }
         let at = u32::try_from(self.start).map_err(|_| Errno::ENOMEM)?;
-        memory.write(at, &data).await.map_err(|_| Errno::EFAULT)?;
+        memory
+            .force_write(at, &data)
+            .await
+            .map_err(|_| Errno::EFAULT)?;
         Ok(())
     }
 
