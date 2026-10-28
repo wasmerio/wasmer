@@ -219,8 +219,15 @@ impl CachedLoader {
 
     async fn compile(&self, wasm: &[u8]) -> Result<(Engine, Module), Error> {
         let engine = self.engine_for(wasm)?;
-        let wasm = HashedModuleData::new(wasixv2::instrument(wasm).into_owned());
+        let (instrumented, failed) = match wasixv2::instrument(wasm) {
+            Ok(instrumented) => (instrumented, None),
+            Err(err) => (wasm.to_vec(), Some(err)),
+        };
+        let wasm = HashedModuleData::new(instrumented);
         let module = self.runtime.load_hashed_module(wasm, Some(&engine)).await?;
+        if let Some(err) = failed {
+            wasixv2::warn_not_preemptible(&err);
+        }
         Ok((engine, module))
     }
 }

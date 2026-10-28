@@ -19,7 +19,7 @@
 //! offset before the call that replaces it. The start function is left alone, as it runs during
 //! instantiation, before the instance can take signals or has threads to wait for.
 
-use std::{borrow::Cow, convert::Infallible};
+use std::convert::Infallible;
 
 use wasm_encoder::{
     BlockType, CodeSection, ConstExpr, EntityType, Function, GlobalSection, GlobalType,
@@ -62,18 +62,27 @@ const HOOKS: [(&str, &[ValType]); 5] = [
 /// one percent while a busy loop still notices a signal within a millisecond or so.
 pub(crate) const BUDGET: i32 = 1 << 16;
 
-/// `module` with preemption points, or as it is when it cannot be parsed, so that compiling it
-/// reports what is wrong with it.
-pub(crate) fn instrument(module: &[u8]) -> Cow<'_, [u8]> {
+/// Why [`instrument`] could not rewrite a module: it is not valid, or uses something the rewrite
+/// does not know.
+#[derive(Debug, thiserror::Error)]
+#[error("cannot add preemption points to the module: {0}")]
+pub struct InstrumentError(String);
+
+/// `module` with preemption points.
+pub(crate) fn instrument(module: &[u8]) -> Result<Vec<u8>, InstrumentError> {
     let mut out = Module::new();
     let mut points = Points::default();
     match points.parse_core_module(&mut out, Parser::new(0), module) {
-        Ok(()) => Cow::Owned(out.finish()),
-        Err(err) => {
-            tracing::debug!(%err, "cannot add preemption points to the module");
-            Cow::Borrowed(module)
-        }
+        Ok(()) => Ok(out.finish()),
+        Err(err) => Err(InstrumentError(err.to_string())),
     }
+}
+
+/// Whether `module` was compiled with preemption points.
+pub(crate) fn instrumented(module: &wasmer::Module) -> bool {
+    module
+        .imports()
+        .any(|import| import.module() == HOOK_MODULE && import.name() == HOOK_NAME)
 }
 
 #[derive(Default)]
@@ -367,7 +376,7 @@ mod tests {
                 (func))"#,
         )
         .unwrap();
-        let out = instrument(&wasm);
+        let out = instrument(&wasm).unwrap();
         wasmparser::validate(&out).unwrap();
         let text = print(&out);
         assert!(
@@ -389,7 +398,7 @@ mod tests {
     fn a_module_without_imports_or_globals_gets_them() {
         let wasm =
             wat::parse_str(r#"(module (memory 1) (func (export "_start") (loop)))"#).unwrap();
-        let out = instrument(&wasm);
+        let out = instrument(&wasm).unwrap();
         wasmparser::validate(&out).unwrap();
         let text = print(&out);
         assert!(
@@ -414,7 +423,7 @@ mod tests {
                 (func (drop (memory.atomic.notify (i32.const 0) (i32.const 1)))))"#,
         )
         .unwrap();
-        let out = instrument(&wasm);
+        let out = instrument(&wasm).unwrap();
         wasmparser::validate(&out).unwrap();
         let text = print(&out);
         for name in [WAIT32_NAME, WAIT64_NAME, NOTIFY_NAME] {
@@ -445,7 +454,7 @@ mod tests {
                 (func (drop (memory.grow (i32.const 1)))))"#,
         )
         .unwrap();
-        let out = instrument(&wasm);
+        let out = instrument(&wasm).unwrap();
         wasmparser::validate(&out).unwrap();
         let text = print(&out);
         assert!(
@@ -459,8 +468,38 @@ mod tests {
             r#"(module (memory i64 1) (func (export "f") (result i64) (memory.grow (i64.const 1))))"#,
         )
         .unwrap();
-        let text = print(&instrument(&wasm64));
+        let text = print(&instrument(&wasm64).unwrap());
         assert!(text.contains("memory.grow"), "{text}");
+    }
+
+    /// `wasm` with a `name` section whose function names subsection claims more bytes than
+    /// there are: engines skip a bad name section, the rewrite cannot carry it over.
+    fn with_bad_name_section(mut wasm: Vec<u8>) -> Vec<u8> {
+        wasm.extend_from_slice(&[0, 7, 4, b'n', b'a', b'm', b'e', 1, 0x7f]);
+        wasm
+    }
+
+    #[test]
+    fn a_module_the_rewrite_cannot_handle_loads_as_it_is_without_preemption() {
+        let wasm = wat::parse_str(r#"(module (func (export "_start") (loop)))"#).unwrap();
+        let engine = wasmer::Engine::default();
+        assert!(crate::is_preemptible(&crate::load(&engine, &wasm).unwrap()));
+
+        let bad = with_bad_name_section(wasm);
+        let err = instrument(&bad).unwrap_err();
+        assert!(
+            err.to_string().starts_with("cannot add preemption points"),
+            "{err}"
+        );
+        let module = crate::load(&engine, &bad).unwrap();
+        assert!(!crate::is_preemptible(&module));
+    }
+
+    #[test]
+    fn an_invalid_module_fails_to_load() {
+        let engine = wasmer::Engine::default();
+        assert!(instrument(b"\0asm\x01\0\0\0\x7f").is_err());
+        assert!(crate::load(&engine, b"\0asm\x01\0\0\0\x7f").is_err());
     }
 
     #[test]
@@ -472,7 +511,7 @@ mod tests {
                   (memory.atomic.notify (i32.const 0) (i32.const 1))))"#,
         )
         .unwrap();
-        let out = instrument(&wasm);
+        let out = instrument(&wasm).unwrap();
         wasmparser::validate(&out).unwrap();
         assert!(print(&out).contains("memory.atomic.notify"));
     }
