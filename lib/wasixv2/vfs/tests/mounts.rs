@@ -102,6 +102,7 @@ impl View {
             fs: tmpfs(),
             source: b"none".to_vec(),
             flags: MountFlags::default(),
+            sb_read_only: false,
         };
         self.op(at, op).unwrap();
     }

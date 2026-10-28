@@ -31,13 +31,13 @@ pub use wasixv2_host::{
     WindowSize,
 };
 pub use wasixv2_kernel::{Credentials, ProcessConfig, Stdio, Uname, UnameError};
-use wasixv2_kernel::{HostClock, Kernel};
+use wasixv2_kernel::{FilesystemType, FsParam, HostClock, Kernel};
 use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_syscalls::{Layered, TaskId};
 use wasixv2_trace::Trace;
 pub use wasixv2_vfs::Filesystem;
 use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, NAME_MAX, Vfs};
-use wasixv2_vfs_mem::MemFs;
+use wasixv2_vfs_mem::{Limits, MemFs};
 use wasixv2_vfs_overlay::{MAX_LOWERS, OverlayFs};
 use wasixv2_vfs_package::PackageFs;
 pub use wasixv2_vnet::{Net, NetConfig};
@@ -876,6 +876,9 @@ fn boot(
         .with_shm(shm_filesystem(host))
         .with_credentials(user.clone())
         .with_uname(uname);
+    kernel
+        .register_filesystem("tmpfs", Arc::new(Tmpfs(host.clone())))
+        .expect("a new kernel has no tmpfs yet");
     if init {
         kernel = kernel.with_init();
     }
@@ -1018,6 +1021,164 @@ fn shared_tmpfs(host: &Arc<dyn Host>, mode: u32) -> MemFs {
         return fs.with_shared_pages(Arc::new(HostPages(host.clone())));
     }
     fs
+}
+
+/// `tmpfs`, the filesystem type `mount -t tmpfs` makes: a memory filesystem whose files live in
+/// host shared memory as [`shared_tmpfs`]'s, with `mm/shmem.c`'s options.
+struct Tmpfs(Arc<dyn Host>);
+
+/// What a tmpfs mount's options ask for (`struct shmem_options`).
+struct TmpfsOptions {
+    limits: Limits,
+    mode: u32,
+    uid: u32,
+    gid: u32,
+}
+
+impl Tmpfs {
+    /// `shmem_parse_one` over `params`, from the defaults: half the machine's memory and an
+    /// inode per two of its pages, a sticky world-writable root owned by the mounter
+    /// (`shmem_init_fs_context`).
+    fn options(params: &[FsParam<'_>], cred: &Cred) -> Result<TmpfsOptions, Errno> {
+        let memory = Limits::DEFAULT_MEMORY;
+        let mut options = TmpfsOptions {
+            limits: Limits::for_memory(memory),
+            mode: 0o1777,
+            uid: cred.fsuid,
+            gid: cred.fsgid,
+        };
+        for param in params {
+            let value = || param.value.ok_or(Errno::EINVAL);
+            match param.key {
+                b"size" => {
+                    let (size, rest) = memparse(value()?)?;
+                    let size = match rest {
+                        b"" => size,
+                        b"%" => size.saturating_mul(memory) / 100,
+                        _ => return Err(Errno::EINVAL),
+                    };
+                    options.limits.max_bytes = Some(size.div_ceil(PAGE) * PAGE);
+                }
+                b"nr_blocks" => {
+                    let blocks = memparse_all(value()?)?;
+                    options.limits.max_bytes = Some(blocks.checked_mul(PAGE).ok_or(Errno::EINVAL)?);
+                }
+                b"nr_inodes" => options.limits.max_inodes = Some(memparse_all(value()?)?),
+                b"mode" => {
+                    let mode = std::str::from_utf8(value()?).map_err(|_| Errno::EINVAL)?;
+                    options.mode =
+                        u32::from_str_radix(mode, 8).map_err(|_| Errno::EINVAL)? & 0o7777;
+                }
+                b"uid" => options.uid = id(value()?)?,
+                b"gid" => options.gid = id(value()?)?,
+                // No transparent huge pages: only `never` is supported.
+                b"huge" if value()? == b"never" => {}
+                b"inode32" | b"inode64" | b"noswap" if param.value.is_none() => {}
+                _ => return Err(Errno::EINVAL),
+            }
+        }
+        Ok(options)
+    }
+}
+
+impl FilesystemType for Tmpfs {
+    fn mount(
+        &self,
+        _source: &[u8],
+        params: &[FsParam<'_>],
+        cred: &Cred,
+    ) -> Result<Arc<dyn Filesystem>, Errno> {
+        let options = Self::options(params, cred)?;
+        let clock = Arc::new(HostClock(self.0.clone()));
+        let fs = MemFs::with_limits(
+            clock,
+            options.mode,
+            options.uid,
+            options.gid,
+            options.limits,
+        );
+        if cfg!(any(target_os = "linux", target_os = "android")) {
+            return Ok(Arc::new(
+                fs.with_shared_pages(Arc::new(HostPages(self.0.clone()))),
+            ));
+        }
+        Ok(Arc::new(fs))
+    }
+}
+
+/// `devtmpfs`: the one instance mounted at `/dev`, wherever it is mounted again
+/// (`devtmpfs_get_tree`).
+struct Devtmpfs(Arc<dyn Filesystem>);
+
+impl FilesystemType for Devtmpfs {
+    fn mount(
+        &self,
+        _source: &[u8],
+        params: &[FsParam<'_>],
+        cred: &Cred,
+    ) -> Result<Arc<dyn Filesystem>, Errno> {
+        // devtmpfs is a tmpfs: it takes tmpfs's options, which change nothing of the existing
+        // instance.
+        Tmpfs::options(params, cred)?;
+        Ok(self.0.clone())
+    }
+}
+
+/// The page size tmpfs counts in.
+const PAGE: u64 = 4096;
+
+/// `memparse`: a number in C notation (`0x` hex, leading `0` octal) with an optional `K`, `M`,
+/// `G`, `T`, `P` or `E` suffix, and what follows it.
+fn memparse(text: &[u8]) -> Result<(u64, &[u8]), Errno> {
+    let (radix, digits) = match text {
+        [b'0', b'x' | b'X', rest @ ..] => (16, rest),
+        [b'0', rest @ ..] if !rest.is_empty() => (8, rest),
+        _ => (10, text),
+    };
+    let end = digits
+        .iter()
+        .position(|&b| !(b as char).is_digit(radix))
+        .unwrap_or(digits.len());
+    if end == 0 && radix != 8 {
+        return Err(Errno::EINVAL);
+    }
+    let number = std::str::from_utf8(&digits[..end]).map_err(|_| Errno::EINVAL)?;
+    let mut value = match number {
+        "" => 0,
+        number => u64::from_str_radix(number, radix).map_err(|_| Errno::EINVAL)?,
+    };
+    let mut rest = &digits[end..];
+    let shift = match rest.first().map(u8::to_ascii_uppercase) {
+        Some(b'K') => 10,
+        Some(b'M') => 20,
+        Some(b'G') => 30,
+        Some(b'T') => 40,
+        Some(b'P') => 50,
+        Some(b'E') => 60,
+        _ => 0,
+    };
+    if shift != 0 {
+        value = value.checked_shl(shift).ok_or(Errno::EINVAL)?;
+        rest = &rest[1..];
+    }
+    Ok((value, rest))
+}
+
+/// `memparse` of a whole value.
+fn memparse_all(text: &[u8]) -> Result<u64, Errno> {
+    match memparse(text)? {
+        (value, b"") => Ok(value),
+        _ => Err(Errno::EINVAL),
+    }
+}
+
+/// A user or group id option (`fsparam_uid`): decimal, and not `-1`.
+fn id(text: &[u8]) -> Result<u32, Errno> {
+    let text = std::str::from_utf8(text).map_err(|_| Errno::EINVAL)?;
+    match text.parse::<u32>() {
+        Ok(u32::MAX) | Err(_) => Err(Errno::EINVAL),
+        Ok(id) => Ok(id),
+    }
 }
 
 /// The host's shared memory objects, for a memory filesystem to keep files in.
@@ -1185,7 +1346,11 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
     };
     let mounts = async {
         mount("/proc", kernel.procfs(), flags(true, true)).await;
-        if mount("/dev", tmpfs(0o755), flags(false, false)).await {
+        let dev = tmpfs(0o755);
+        kernel
+            .register_filesystem("devtmpfs", Arc::new(Devtmpfs(dev.clone())))
+            .expect("a new kernel has no devtmpfs yet");
+        if mount("/dev", dev, flags(false, false)).await {
             kernel.create_device_nodes(b"/dev").await?;
             for (link, target) in [
                 ("/dev/fd", "/proc/self/fd"),
@@ -1226,4 +1391,77 @@ pub fn targets_wasixv2(module: &Module) -> bool {
     module
         .imports()
         .any(|import| import.module() == wasixv2_exec::IMPORT_MODULE)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn params(options: &[(&'static str, Option<&'static str>)]) -> Vec<FsParam<'static>> {
+        options
+            .iter()
+            .map(|&(key, value)| FsParam {
+                key: key.as_bytes(),
+                value: value.map(str::as_bytes),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn memparse_takes_c_numbers_and_size_suffixes() {
+        assert_eq!(memparse(b"10"), Ok((10, b"".as_slice())));
+        assert_eq!(memparse(b"0x10k"), Ok((16 << 10, b"".as_slice())));
+        assert_eq!(memparse(b"010"), Ok((8, b"".as_slice())));
+        assert_eq!(memparse(b"2G%"), Ok((2 << 30, b"%".as_slice())));
+        assert_eq!(memparse(b"0"), Ok((0, b"".as_slice())));
+        assert_eq!(memparse(b"k"), Err(Errno::EINVAL));
+        assert_eq!(memparse_all(b"1m"), Ok(1 << 20));
+        assert_eq!(memparse_all(b"1mb"), Err(Errno::EINVAL));
+    }
+
+    #[test]
+    fn tmpfs_options_are_shmems() {
+        let cred = Cred::user(5, 6);
+        let defaults = Tmpfs::options(&[], &cred).unwrap();
+        assert_eq!(
+            defaults.limits,
+            Limits::default(),
+            "half the machine's memory"
+        );
+        assert_eq!((defaults.mode, defaults.uid, defaults.gid), (0o1777, 5, 6));
+
+        let set = params(&[
+            ("size", Some("10001")),
+            ("nr_inodes", Some("1k")),
+            ("mode", Some("01755")),
+            ("uid", Some("7")),
+            ("gid", Some("8")),
+            ("huge", Some("never")),
+            ("inode64", None),
+        ]);
+        let options = Tmpfs::options(&set, &cred).unwrap();
+        assert_eq!(options.limits.max_bytes, Some(3 * PAGE), "whole pages");
+        assert_eq!(options.limits.max_inodes, Some(1024));
+        assert_eq!((options.mode, options.uid, options.gid), (0o1755, 7, 8));
+
+        let half = Tmpfs::options(&params(&[("size", Some("50%"))]), &cred).unwrap();
+        assert_eq!(half.limits.max_bytes, Some(Limits::DEFAULT_MEMORY / 2));
+
+        for bad in [
+            ("size", Some("1x")),
+            ("size", None),
+            ("mode", Some("9")),
+            ("uid", Some("-1")),
+            ("huge", Some("always")),
+            ("mpol", Some("default")),
+            ("inode64", Some("1")),
+            ("bogus", None),
+        ] {
+            assert_eq!(
+                Tmpfs::options(&params(&[bad]), &cred).err(),
+                Some(Errno::EINVAL),
+                "{bad:?}"
+            );
+        }
+    }
 }

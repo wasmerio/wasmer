@@ -204,17 +204,13 @@ fn stat(source: &Source) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// The kernel's own filesystem types, then those of what is mounted.
+/// The kernel's internal filesystem types, then those `mount` can make, none of which needs a
+/// device (`filesystems_proc_show`).
 fn filesystems(source: &Source) -> Vec<u8> {
-    let mut names = vec!["anon_inodefs", "pipefs", "sockfs", "proc"];
-    if let Some(vfs) = source.vfs.upgrade() {
-        for sb in vfs.superblocks() {
-            let name = sb.info.name;
-            if !names.contains(&name) {
-                names.push(name);
-            }
-        }
-    }
+    let mut names: Vec<String> = ["anon_inodefs", "pipefs", "sockfs"]
+        .map(String::from)
+        .into();
+    names.extend(source.filesystems.names());
     let mut out = String::new();
     for name in names {
         let _ = writeln!(out, "nodev\t{name}");

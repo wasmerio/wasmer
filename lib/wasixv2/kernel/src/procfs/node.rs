@@ -385,6 +385,11 @@ impl Node for ProcNode {
         self
     }
 
+    /// `proc_splice_unmountable`: nothing is mounted on a descriptor's link or its `fdinfo`.
+    fn unmountable(&self) -> bool {
+        matches!(self.entry, Entry::Fd(..) | Entry::FdInfo(..))
+    }
+
     async fn getattr(&self) -> FsResult<Attr> {
         let file_type = self.file_type();
         let (uid, gid) = self.owner();
