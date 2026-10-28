@@ -7167,6 +7167,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasixv2-pages"
+version = "0.0.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "wasixv2-policy"
 version = "0.0.0"
 dependencies = [

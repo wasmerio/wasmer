@@ -1,0 +1,14 @@
+[package]
+name = "wasixv2-pages"
+version = "0.0.0"
+description = "Host memory objects that several WASIX processes map at once"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true, features = ["std"] }
