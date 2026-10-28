@@ -1124,8 +1124,8 @@ fn group(gid: u32) -> String {
 
 /// Mounts the kernel's filesystems as a Linux system has them: `/proc`, `/dev` (a memory
 /// filesystem with the device nodes, as devtmpfs is, and the conventional links into
-/// `/proc/self/fd`), and memory filesystems at `/dev/shm` for POSIX shared memory and at
-/// `/tmp`, world-writable and sticky.
+/// `/proc/self/fd`), memory filesystems at `/dev/shm` for POSIX shared memory and at `/tmp`,
+/// world-writable and sticky, and the pty filesystem at `/dev/pts`.
 async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
     let vfs = kernel.vfs();
     let tmpfs = |mode| -> Arc<dyn Filesystem> {
@@ -1172,6 +1172,7 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
                     .await?;
             }
             mount("/dev/shm", tmpfs(0o1777), flags(true, false)).await;
+            mount("/dev/pts", kernel.devpts(), flags(false, true)).await;
         }
         mount("/tmp", tmpfs(0o1777), flags(true, false)).await;
         Ok::<_, Errno>(())
