@@ -437,7 +437,7 @@ fn bind_move_and_remount() {
     let ro_bind = MsFlags(MsFlags::MS_REMOUNT.0 | MsFlags::MS_BIND.0 | MsFlags::MS_RDONLY.0);
     assert_eq!(m.mount(None, "/b", None, ro_bind, None), Ok(0));
     assert_eq!(errno(m.create("/b/g")), Errno::EROFS);
-    assert!(m.create("/a/g").is_ok(), "the other mount stays writable");
+    let writer = m.create("/a/g").expect("the other mount stays writable");
 
     assert_eq!(
         m.mount(Some("/b"), "/c", None, MsFlags::MS_MOVE, None),
@@ -447,6 +447,12 @@ fn bind_move_and_remount() {
     assert!(!m.exists("/b/f"));
 
     let remount_ro = MsFlags(MsFlags::MS_REMOUNT.0 | MsFlags::MS_RDONLY.0);
+    assert_eq!(
+        errno(m.mount(None, "/a", None, remount_ro, None)),
+        Errno::EBUSY,
+        "while a file is open for writing"
+    );
+    m.close(writer);
     assert_eq!(m.mount(None, "/a", None, remount_ro, None), Ok(0));
     assert_eq!(errno(m.create("/a/h")), Errno::EROFS);
     assert!(m.mountinfo("/a").unwrap().ends_with(" - tmpfs none ro"));
