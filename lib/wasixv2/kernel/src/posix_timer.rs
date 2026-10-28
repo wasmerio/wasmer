@@ -608,7 +608,10 @@ impl Kernel {
                     signal_seq: 0,
                     sigqueue_seq: 0,
                 }),
-                timer: self.timers.timer(Box::new(expired)),
+                timer: match spec.clock {
+                    Clock::Realtime => self.timers.realtime_timer(Box::new(expired)),
+                    _ => self.timers.timer(Box::new(expired)),
+                },
                 _charge: charge,
             }
         })
