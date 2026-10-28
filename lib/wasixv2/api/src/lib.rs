@@ -126,7 +126,8 @@ pub struct MachineBuilder {
     user: Credentials,
     uname: Uname,
     root: Option<Arc<dyn Filesystem>>,
-    loader: Arc<dyn Loader>,
+    /// The embedder's loader; the ABIs' own default otherwise.
+    loader: Option<Arc<dyn Loader>>,
 }
 
 impl MachineBuilder {
@@ -137,7 +138,7 @@ impl MachineBuilder {
             user: Credentials::default(),
             uname: Uname::default(),
             root: None,
-            loader: Arc::new(Compile),
+            loader: None,
         }
     }
 
@@ -174,7 +175,7 @@ impl MachineBuilder {
     /// set of binary formats: what its [`Loader::probe`] refuses, or no ABI serves, fails
     /// `execve` with `ENOEXEC`.
     pub fn loader(mut self, loader: Arc<dyn Loader>) -> Self {
-        self.loader = loader;
+        self.loader = Some(loader);
         self
     }
 
@@ -798,13 +799,16 @@ struct Wasix1Commands {
     files: Arc<std::sync::RwLock<wasixv2_wasix1::Commands>>,
 }
 
-/// The guest ABIs programs may target, `wasixv2` first, and how their images compile.
+/// The guest ABIs programs may target, `wasixv2` first, and how their images compile: by
+/// `loader`, or [`Compile`].
 fn abis(
-    loader: Arc<dyn Loader>,
+    loader: Option<Arc<dyn Loader>>,
     #[cfg(feature = "wasix1")] wasix1: &Wasix1Commands,
 ) -> Abis<Layered<Trace, Kernel>> {
     let mut abis = Abis::new();
-    abis.set_loader(loader);
+    if let Some(loader) = loader {
+        abis.set_loader(loader);
+    }
     abis.push(Arc::new(Wasixv2));
     #[cfg(feature = "wasix1")]
     abis.push(Arc::new(wasixv2_wasix1::Wasix1::with_commands(
