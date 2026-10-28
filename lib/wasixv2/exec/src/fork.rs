@@ -1,7 +1,7 @@
 //! The wasixv2 imports of the asyncify build configuration, on top of [`crate::asyncify`]:
-//! fork (`clone` without `CLONE_VM`), and `stack-save` and `stack-restore`, which are libc's
-//! `setjmp` and `longjmp` there. Modules in other configurations keep the generated imports,
-//! whose calls the kernel answers with `ENOSYS`.
+//! fork (`clone` or `clone3` without `CLONE_VM`), and `stack-save` and `stack-restore`, which are
+//! libc's `setjmp` and `longjmp` there. Modules in other configurations keep the generated
+//! imports, whose calls the kernel answers with `ENOSYS`.
 
 use std::sync::Arc;
 
@@ -37,8 +37,11 @@ pub(crate) fn imports<S>(store: &mut Store, env: &FunctionEnv<ExecEnv<S>>, impor
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    // The rewinding guest calls clone again; the kernel must see it only once.
-    if let Some(wasmer::Extern::Function(clone)) = imports.get_export(IMPORT_MODULE, "clone") {
+    // The rewinding guest calls clone (or clone3) again; the kernel must see it only once.
+    for name in ["clone", "clone3"] {
+        let Some(wasmer::Extern::Function(clone)) = imports.get_export(IMPORT_MODULE, name) else {
+            continue;
+        };
         let ty = clone.ty(store);
         let resumable = Function::new_with_env_async(store, env, ty, move |env, args| {
             let clone = clone.clone();
@@ -53,7 +56,7 @@ where
                     .into_vec())
             }
         });
-        imports.define(IMPORT_MODULE, "clone", resumable);
+        imports.define(IMPORT_MODULE, name, resumable);
     }
     imports.define(
         IMPORT_MODULE,
