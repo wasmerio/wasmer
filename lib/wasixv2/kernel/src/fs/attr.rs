@@ -68,7 +68,7 @@ impl Kernel {
             .resolve_at(caller, &env, dfd, &path, flags, true)
             .await?;
         let attr = self.vfs.stat(&target).await?;
-        write_value(caller.memory(), buffer, &statx(&target, &attr)).await?;
+        write_value(caller.memory(), buffer, &statx(&target, &attr, mask)).await?;
         Ok(0)
     }
 
@@ -505,9 +505,15 @@ fn st_mode(path: &Path, attr: &Attr) -> u32 {
     }
 }
 
-fn statx(path: &Path, attr: &Attr) -> Statx {
+/// `statx`'s result. The mount id is the unique one if `request` asks for it
+/// (`STATX_MNT_ID_UNIQUE`), else the one `mountinfo` shows.
+fn statx(path: &Path, attr: &Attr, request: StatxMask) -> Statx {
     let dev = attr.dev.unwrap_or_default();
-    let mut mask = StatxMask::STATX_BASIC_STATS | StatxMask::STATX_MNT_ID;
+    let (mnt_id, mnt_mask) = match request.contains(StatxMask::STATX_MNT_ID_UNIQUE) {
+        true => (path.mnt.unique_id(), StatxMask::STATX_MNT_ID_UNIQUE),
+        false => (path.mnt.id, StatxMask::STATX_MNT_ID),
+    };
+    let mut mask = StatxMask::STATX_BASIC_STATS | mnt_mask;
     if attr.btime.is_some() {
         mask |= StatxMask::STATX_BTIME;
     }
@@ -537,7 +543,7 @@ fn statx(path: &Path, attr: &Attr) -> Statx {
         stx_rdev_minor: attr.rdev.minor,
         stx_dev_major: dev.major,
         stx_dev_minor: dev.minor,
-        stx_mnt_id: path.mnt.id,
+        stx_mnt_id: mnt_id,
         ..Statx::default()
     }
 }

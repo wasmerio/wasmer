@@ -1,10 +1,12 @@
 //! Mount namespaces, the `mount` family of syscalls and `/proc/<pid>/mountinfo`.
 
 use wasixv2_abi::{
-    CloneFlags, FsconfigCommand, FsopenFlags, MountAttrFlags, MountFlags as MsFlags,
-    MoveMountFlags, OpenTreeFlags, UmountFlags as UmountBits,
+    CloneFlags, FsconfigCommand, FsopenFlags, GuestLayout, ListmountMntId, MntIdReq,
+    MountAttrFlags, MountFlags as MsFlags, MoveMountFlags, OpenTreeFlags, Statmount, StatmountMask,
+    Statx, StatxMask, UmountFlags as UmountBits,
 };
-use wasixv2_vfs::{Cred, Ctx, LookupFlags, MountFlags, MountOp, Propagation};
+use wasixv2_syscalls::read_value;
+use wasixv2_vfs::{Cred, Ctx, LookupFlags, MNT_UNIQUE_ID_OFFSET, MountFlags, MountOp, Propagation};
 use wasixv2_vfs_mem::MemFs;
 
 use super::{
@@ -684,6 +686,65 @@ impl Machine {
                 .fsconfig(&self.caller(), fd, cmd.0, key, value, 0),
         )
     }
+
+    /// The `stx_mnt_id` `statx` reports for `at` when asked for `mask`.
+    fn mnt_id(&self, at: &str, mask: StatxMask) -> u64 {
+        let name = self.cstr(0x1000, at);
+        let out = GuestPtrMut::new(0x3000);
+        let flags = AtFlags(0);
+        block_on(
+            self.kernel
+                .statx(&self.caller(), CWD, name, flags, mask, out),
+        )
+        .unwrap();
+        let statx: Statx = block_on(read_value(&self.memory.0, GuestPtr::new(0x3000))).unwrap();
+        assert!(statx.stx_mask.contains(mask));
+        statx.stx_mnt_id
+    }
+
+    /// Puts a `struct mnt_id_req` (version 0) at 0x5000.
+    fn mnt_id_req(&self, mnt_id: u64, param: u64) -> GuestPtr<MntIdReq> {
+        let mut bytes = Vec::new();
+        bytes.extend(24u32.to_le_bytes());
+        bytes.extend(0u32.to_le_bytes());
+        bytes.extend(mnt_id.to_le_bytes());
+        bytes.extend(param.to_le_bytes());
+        put(&self.memory.0, 0x5000, &bytes);
+        GuestPtr::new(0x5000)
+    }
+
+    /// `statmount` into a buffer of `size` bytes at 0x6000: the record and its strings.
+    fn statmount(
+        &self,
+        mnt_id: u64,
+        mask: StatmountMask,
+        size: u32,
+    ) -> SysResult<(Statmount, Vec<u8>)> {
+        let req = self.mnt_id_req(mnt_id, mask.0);
+        let buf = GuestPtrMut::new(0x6000);
+        block_on(self.kernel.statmount(&self.caller(), req, buf, size, 0))?;
+        let bytes = get(&self.memory.0, 0x6000, size as usize);
+        let sm = Statmount::read_from(&bytes).unwrap();
+        Ok((sm, bytes[Statmount::SIZE..].to_vec()))
+    }
+
+    fn listmount(&self, mnt_id: u64, last: u64) -> SysResult<Vec<u64>> {
+        let req = self.mnt_id_req(mnt_id, last);
+        let out = GuestPtrMut::new(0x6000);
+        let n = block_on(self.kernel.listmount(&self.caller(), req, out, 32, 0))?;
+        let bytes = get(&self.memory.0, 0x6000, n as usize * 8);
+        Ok(bytes
+            .chunks(8)
+            .map(|id| u64::from_le_bytes(id.try_into().unwrap()))
+            .collect())
+    }
+}
+
+/// The NUL-terminated string at `offset` of `statmount`'s strings.
+fn sm_string(strings: &[u8], offset: u32) -> String {
+    let rest = &strings[offset as usize..];
+    let end = rest.iter().position(|&b| b == 0).unwrap();
+    String::from_utf8(rest[..end].to_vec()).unwrap()
 }
 
 const OPEN_TREE_CLONE: u32 = OpenTreeFlags::OPEN_TREE_CLONE.0;
@@ -854,6 +915,153 @@ fn a_filesystem_context_creates_mounts_and_reconfigures() {
     assert_eq!(
         errno(block_on(m.kernel.fspick(&caller, CWD, inner, 0))),
         Errno::EINVAL
+    );
+}
+
+/// `statmount03`: the basic fields of a bind mount for each propagation type, with the ids
+/// `statx` gives.
+#[test]
+fn statmount_reports_ids_and_propagation_as_statmount03() {
+    let m = Machine::as_uid(0);
+    for dir in ["/a", "/b"] {
+        m.mkdir(dir);
+    }
+    assert_eq!(m.unshare(CloneFlags::CLONE_NEWNS), Ok(0));
+    let rprivate = MsFlags(MsFlags::MS_REC.0 | MsFlags::MS_PRIVATE.0);
+    assert_eq!(m.mount(Some("none"), "/", None, rprivate, None), Ok(0));
+    assert_eq!(
+        m.mount(Some("/b"), "/b", None, MsFlags::MS_BIND, None),
+        Ok(0)
+    );
+    assert_eq!(
+        m.mount(Some("none"), "/b", None, MsFlags::MS_SHARED, None),
+        Ok(0)
+    );
+    let parent_old = m.mnt_id("/a", StatxMask::STATX_MNT_ID);
+    let parent = m.mnt_id("/a", StatxMask::STATX_MNT_ID_UNIQUE);
+    assert_eq!(parent, parent_old + MNT_UNIQUE_ID_OFFSET);
+    let group = |line: String, tag: &str| -> u64 {
+        let field = line.split(' ').find(|f| f.starts_with(tag)).unwrap();
+        field[tag.len()..].parse().unwrap()
+    };
+    let b_group = group(m.mountinfo("/b").unwrap(), "shared:");
+
+    for kind in [
+        MsFlags::MS_PRIVATE,
+        MsFlags::MS_SHARED,
+        MsFlags::MS_SLAVE,
+        MsFlags::MS_UNBINDABLE,
+    ] {
+        assert_eq!(
+            m.mount(Some("/b"), "/a", None, MsFlags::MS_BIND, None),
+            Ok(0)
+        );
+        assert_eq!(m.mount(Some("none"), "/a", None, kind, None), Ok(0));
+        let id_old = m.mnt_id("/a", StatxMask::STATX_MNT_ID);
+        let id = m.mnt_id("/a", StatxMask::STATX_MNT_ID_UNIQUE);
+        let basic = StatmountMask::STATMOUNT_MNT_BASIC;
+        let (sm, _) = m.statmount(id, basic, Statmount::SIZE as u32).unwrap();
+        assert_eq!(m.umount2("/a", UmountBits(0)), Ok(0));
+        assert_eq!(sm.mask, basic.0);
+        assert_eq!(sm.size as usize, Statmount::SIZE);
+        assert_eq!((sm.mnt_id, sm.mnt_id_old as u64), (id, id_old));
+        assert_eq!(
+            (sm.mnt_parent_id, sm.mnt_parent_id_old as u64),
+            (parent, parent_old)
+        );
+        assert_eq!(sm.mnt_propagation & u64::from(kind.0), u64::from(kind.0));
+        let shared = kind == MsFlags::MS_SHARED;
+        let slave = kind == MsFlags::MS_SLAVE;
+        assert_eq!(sm.mnt_peer_group, if shared { b_group } else { 0 });
+        assert_eq!(sm.mnt_master, if slave { b_group } else { 0 });
+    }
+    // Ids below the unique ones are not mount ids.
+    let basic = StatmountMask::STATMOUNT_MNT_BASIC;
+    assert_eq!(
+        errno(m.statmount(parent_old, basic, 512).map(drop)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(m.statmount(parent + 1000, basic, 512).map(drop)),
+        Errno::ENOENT
+    );
+}
+
+#[test]
+fn statmount_strings_follow_the_record() {
+    let m = Machine::as_uid(0);
+    m.mkdir("/t");
+    m.tmpfs("/t");
+    m.mkdir("/t/d");
+    m.mkdir("/u");
+    assert_eq!(
+        m.mount(Some("/t/d"), "/u", None, MsFlags::MS_BIND, None),
+        Ok(0)
+    );
+    let id = m.mnt_id("/u", StatxMask::STATX_MNT_ID_UNIQUE);
+    let mask = StatmountMask(
+        StatmountMask::STATMOUNT_FS_TYPE.0
+            | StatmountMask::STATMOUNT_MNT_ROOT.0
+            | StatmountMask::STATMOUNT_MNT_POINT.0
+            | StatmountMask::STATMOUNT_SB_SOURCE.0
+            | StatmountMask::STATMOUNT_SB_BASIC.0
+            | StatmountMask::STATMOUNT_SUPPORTED_MASK.0,
+    );
+    assert_eq!(
+        errno(m.statmount(id, mask, Statmount::SIZE as u32).map(drop)),
+        Errno::EOVERFLOW
+    );
+    let (sm, strings) = m.statmount(id, mask, 2048).unwrap();
+    assert_eq!(sm.mask, mask.0);
+    assert_eq!(sm_string(&strings, sm.fs_type), "tmpfs");
+    assert_eq!(sm_string(&strings, sm.mnt_root), "/d");
+    assert_eq!(sm_string(&strings, sm.mnt_point), "/u");
+    assert_eq!(sm_string(&strings, sm.sb_source), "none");
+    assert_eq!(sm.sb_magic, 0x0102_1994);
+    assert_eq!(
+        sm.size as usize,
+        Statmount::SIZE + strings.iter().rposition(|&b| b != 0).unwrap() + 2
+    );
+    assert_ne!(sm.supported_mask & StatmountMask::STATMOUNT_MNT_BASIC.0, 0);
+    // No room for the strings.
+    assert_eq!(
+        errno(m.statmount(id, mask, Statmount::SIZE as u32 + 4).map(drop)),
+        Errno::EOVERFLOW
+    );
+}
+
+/// `statmount08` and `listmount03`: after `chroot`, a mount outside the new root is not shown
+/// to a caller without `CAP_SYS_ADMIN`.
+#[test]
+fn statmount_and_listmount_hide_mounts_outside_the_root_from_users() {
+    let m = Machine::as_uid(0);
+    m.mkdir("/jail");
+    m.mkdir("/jail/in");
+    m.tmpfs("/jail/in");
+    let root_id = m.mnt_id("/", StatxMask::STATX_MNT_ID_UNIQUE);
+    let in_id = m.mnt_id("/jail/in", StatxMask::STATX_MNT_ID_UNIQUE);
+    let all = m.listmount(ListmountMntId::LSMT_ROOT.0, 0).unwrap();
+    assert!(all.contains(&root_id) && all.contains(&in_id));
+    assert_eq!(
+        m.listmount(root_id, in_id).unwrap(),
+        Vec::<u64>::new(),
+        "after the last"
+    );
+
+    let jail = m.cstr(0x1000, "/jail");
+    assert_eq!(block_on(m.kernel.chroot(&m.caller(), jail)), Ok(0));
+    let basic = StatmountMask::STATMOUNT_SB_BASIC;
+    assert!(m.statmount(root_id, basic, 512).is_ok(), "root may look");
+    assert_eq!(block_on(m.kernel.setuid(&m.caller(), 65534)), Ok(0));
+    assert_eq!(
+        errno(m.statmount(root_id, basic, 512).map(drop)),
+        Errno::EPERM
+    );
+    assert_eq!(errno(m.listmount(root_id, 0)), Errno::EPERM);
+    assert!(m.statmount(in_id, basic, 512).is_ok());
+    assert_eq!(
+        m.listmount(ListmountMntId::LSMT_ROOT.0, 0).unwrap(),
+        vec![in_id]
     );
 }
 

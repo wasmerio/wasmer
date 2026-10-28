@@ -522,7 +522,7 @@ fn mount_options(flags: MountFlags, read_only: bool) -> String {
 }
 
 /// Where a mount's tree starts inside its filesystem, for `mountinfo`'s root field.
-fn root_in_fs(mount: &Mount) -> Vec<u8> {
+pub(crate) fn root_in_fs(mount: &Mount) -> Vec<u8> {
     let mut parts = Vec::new();
     let mut dentry = mount.root.clone();
     while let Some(parent) = dentry.parent() {

@@ -10,6 +10,7 @@ mod lock;
 pub(crate) mod mount;
 mod path;
 mod splice;
+mod statmount;
 
 pub(crate) use fifo::FifoFile;
 pub(crate) use io::{At, read_iovecs};
