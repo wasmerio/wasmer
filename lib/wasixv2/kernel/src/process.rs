@@ -1409,6 +1409,11 @@ impl Kernel {
     }
 }
 
+/// The process a pidfd refers to (`pidfd_pid`), if `file` is one.
+pub(crate) fn pidfd_target(file: &OpenFile) -> Option<u32> {
+    file.downcast::<PidFd>().map(|pidfd| pidfd.pid)
+}
+
 /// A process descriptor (`pidfd_open`): readable once the process exited.
 struct PidFd {
     pid: u32,

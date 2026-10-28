@@ -13,11 +13,11 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
-use wasixv2_abi::{CloneFlags, NewUtsname};
-use wasixv2_syscalls::{Caller, Errno, TaskId};
-use wasixv2_vfs::Cap;
+use wasixv2_abi::{CloneFlags, NewUtsname, Ulong};
+use wasixv2_syscalls::{Caller, Errno, Fd, SysResult, TaskId};
+use wasixv2_vfs::{Cap, Path};
 
-use crate::{Kernel, cred::Cred, ipc, unix};
+use crate::{Kernel, Process, cred::Cred, ipc, nsfs::NsFile, sync::MutexExt, unix};
 
 /// `CLONE_NS_ALL`: the flags that ask for new namespaces.
 pub(crate) const CLONE_NS_ALL: u64 = CloneFlags::CLONE_NEWCGROUP.0
@@ -349,6 +349,22 @@ impl NsProxy {
         Ok(Arc::new(new))
     }
 
+    /// `unshare_userns` and `unshare_nsproxy_namespaces`: the caller's namespaces with new ones
+    /// where `flags` asks, or `None` if it asks for none.
+    pub(crate) fn unshare(&self, flags: u64, cred: &Cred) -> Result<Option<Self>, Errno> {
+        if flags & CLONE_NS_ALL == 0 {
+            return Ok(None);
+        }
+        let mut new = self.copy_user(flags)?;
+        if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 != 0 {
+            if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
+                return Err(Errno::EPERM);
+            }
+            new.create(flags)?;
+        }
+        Ok(Some(new))
+    }
+
     /// A copy of the proxy, in a new user namespace if `flags` asks (`copy_creds`,
     /// `unshare_userns`).
     fn copy_user(&self, flags: u64) -> Result<Self, Errno> {
@@ -448,6 +464,26 @@ impl NsLink {
     }
 }
 
+/// `struct nsset`: the caller's namespaces as `setns` changes them, before it commits.
+struct Nsset {
+    flags: u64,
+    proxy: NsProxy,
+    /// The root and working directory entering a mount namespace gives.
+    root: Option<Path>,
+}
+
+/// Who calls `setns`.
+struct Joiner<'a> {
+    process: &'a Process,
+    cred: Cred,
+    /// No other task runs in the caller's thread group (`thread_group_empty`).
+    alone: bool,
+    /// Nor on its memory (`current_is_single_threaded`).
+    single: bool,
+    /// Another task shares the caller's root and working directory (`fs->users != 1`).
+    fs_shared: bool,
+}
+
 impl Kernel {
     /// The namespaces the caller is in. Everything namespaced is reached through them.
     pub(crate) fn ns(&self, caller: &Caller<'_>) -> Arc<NsProxy> {
@@ -457,5 +493,285 @@ impl Kernel {
     /// The namespaces `task` is in.
     pub(crate) fn task_ns(&self, task: TaskId) -> Arc<NsProxy> {
         self.task_ref(task, |task| task.ns.clone())
+    }
+
+    /// `exit_sem` for a process that changes IPC namespace or stops sharing its semaphore
+    /// adjustments: they apply now, unless another of its tasks still shares them
+    /// (`sem_undo_list.refcnt`).
+    fn exit_sem(&self, process: &Process) {
+        if process.group.single_threaded() {
+            let ipc = process.sysvsem.lock_or_recover().clone();
+            ipc.sem.exit(process.pid.0, self.ipc_now());
+        }
+    }
+
+    /// `ksys_unshare`: the caller stops sharing what `flags` names with other tasks: its
+    /// descriptor table (`CLONE_FILES`), root and working directory (`CLONE_FS`), semaphore
+    /// adjustments (`CLONE_SYSVSEM`), and namespaces (`CLONE_NEW*`). Unsharing what only a
+    /// thread group shares (`CLONE_THREAD`, `CLONE_SIGHAND`, `CLONE_VM`) is not implemented,
+    /// as on Linux, and works only when nothing shares it (`check_unshare_flags`).
+    pub(crate) fn sys_unshare(&self, caller: &Caller<'_>, flags: Ulong) -> SysResult<i32> {
+        let mut flags = u64::from(flags);
+        if flags & CloneFlags::CLONE_NEWUSER.0 != 0 {
+            flags |= CloneFlags::CLONE_THREAD.0 | CloneFlags::CLONE_FS.0;
+        }
+        if flags & CloneFlags::CLONE_VM.0 != 0 {
+            flags |= CloneFlags::CLONE_SIGHAND.0;
+        }
+        if flags & CloneFlags::CLONE_SIGHAND.0 != 0 {
+            flags |= CloneFlags::CLONE_THREAD.0;
+        }
+        if flags & CloneFlags::CLONE_NEWNS.0 != 0 {
+            flags |= CloneFlags::CLONE_FS.0;
+        }
+        let known = CloneFlags::CLONE_THREAD.0
+            | CloneFlags::CLONE_FS.0
+            | CloneFlags::CLONE_SIGHAND.0
+            | CloneFlags::CLONE_VM.0
+            | CloneFlags::CLONE_FILES.0
+            | CloneFlags::CLONE_SYSVSEM.0
+            | CLONE_NS_ALL;
+        if flags & !known != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let task = caller.task();
+        let (process, files, fs, ns) = self.task_ref(task, |t| {
+            (
+                t.process.clone(),
+                t.files.clone(),
+                t.fs.clone(),
+                t.ns.clone(),
+            )
+        });
+        let thread_group =
+            CloneFlags::CLONE_THREAD.0 | CloneFlags::CLONE_SIGHAND.0 | CloneFlags::CLONE_VM.0;
+        // Handlers are shared only within a thread group here, so the first check also covers
+        // `sighand->count`.
+        if flags & thread_group != 0 && !process.group.single_threaded() {
+            return Err(Errno::EINVAL.into());
+        }
+        if flags & CloneFlags::CLONE_VM.0 != 0 && self.mm_shared_elsewhere(task) {
+            return Err(Errno::EINVAL.into());
+        }
+        // The task's reference and ours: anything above is another task's.
+        let shared = |count: usize| count > 2;
+        let new_fs = (flags & CloneFlags::CLONE_FS.0 != 0
+            && (flags & CloneFlags::CLONE_NEWNS.0 != 0 || shared(Arc::strong_count(&fs))))
+        .then(|| Arc::new(Mutex::new(fs.lock_or_recover().clone())));
+        let new_files = (flags & CloneFlags::CLONE_FILES.0 != 0
+            && shared(Arc::strong_count(&files)))
+        .then(|| {
+            Arc::new(Mutex::new(crate::process::copy_files(
+                &files.lock_or_recover(),
+            )))
+        });
+        let new_ns = ns.unshare(flags, &process.cred())?;
+        let ipc_or_sysvsem = CloneFlags::CLONE_NEWIPC.0 | CloneFlags::CLONE_SYSVSEM.0;
+        if flags & ipc_or_sysvsem != 0 {
+            self.exit_sem(&process);
+        }
+        if let Some(new) = &new_ns
+            && flags & CloneFlags::CLONE_NEWIPC.0 != 0
+        {
+            *process.sysvsem.lock_or_recover() = new.ipc.clone();
+        }
+        self.with_task(task, |t| {
+            if let Some(fs) = new_fs {
+                t.fs = fs;
+            }
+            if let Some(ns) = new_ns {
+                t.ns = Arc::new(ns);
+            }
+            if let Some(files) = new_files {
+                t.files = files;
+            }
+        });
+        Ok(0)
+    }
+
+    /// `setns`: the caller enters the namespace an nsfs descriptor stands for (`flags`, if not
+    /// 0, must be its kind), or those of the kinds `flags` names that the process a pidfd
+    /// refers to is in. Every namespace is checked before any is entered.
+    pub(crate) fn sys_setns(&self, caller: &Caller<'_>, fd: Fd, flags: i32) -> SysResult<i32> {
+        let file = self.io_file(caller, fd)?;
+        let flags = u64::from(flags as u32);
+        enum Target {
+            One(Namespace),
+            Process(u32),
+        }
+        let (flags, target) = if let Some(ns) = file.downcast::<NsFile>() {
+            let kind = ns.namespace().kind().flag();
+            if flags != 0 && flags != kind {
+                return Err(Errno::EINVAL.into());
+            }
+            (kind, Target::One(ns.namespace().clone()))
+        } else if let Some(pid) = crate::process::pidfd_target(&file) {
+            // `check_setns_flags`.
+            if flags == 0 || flags & !CLONE_NS_ALL != 0 {
+                return Err(Errno::EINVAL.into());
+            }
+            (flags, Target::Process(pid))
+        } else {
+            return Err(Errno::EINVAL.into());
+        };
+        let task = caller.task();
+        let (process, fs, ns) =
+            self.task_ref(task, |t| (t.process.clone(), t.fs.clone(), t.ns.clone()));
+        let joiner = Joiner {
+            process: &process,
+            cred: process.cred(),
+            alone: process.group.single_threaded(),
+            single: process.group.single_threaded() && !self.mm_shared_elsewhere(task),
+            fs_shared: Arc::strong_count(&fs) > 2,
+        };
+        let mut set = Nsset {
+            flags,
+            proxy: (*ns).clone(),
+            root: None,
+        };
+        match target {
+            Target::One(ns) => self.install_ns(&mut set, &joiner, ns)?,
+            Target::Process(pid) => self.install_ns_of(&mut set, &joiner, pid)?,
+        }
+        // `commit_nsset`.
+        if let Some(root) = set.root.take() {
+            let mut fs = fs.lock_or_recover();
+            fs.cwd = root.clone();
+            fs.root = root;
+        }
+        if flags & CloneFlags::CLONE_NEWIPC.0 != 0 {
+            self.exit_sem(&process);
+            *process.sysvsem.lock_or_recover() = set.proxy.ipc.clone();
+        }
+        let proxy = Arc::new(set.proxy);
+        self.with_task(task, |t| t.ns = proxy);
+        Ok(0)
+    }
+
+    /// `validate_nsset`: installs the namespaces of the kinds `set.flags` names that process
+    /// `pid` is in, user namespace first. The process must be alive and the caller allowed to
+    /// read its state (`PTRACE_MODE_READ_REALCREDS`).
+    fn install_ns_of(&self, set: &mut Nsset, joiner: &Joiner<'_>, pid: u32) -> Result<(), Errno> {
+        let target = {
+            let state = self.state.read_or_recover();
+            state
+                .tasks
+                .get(&TaskId(pid))
+                .filter(|t| t.process.pid.0 == pid && !t.thread.exited())
+                .map(|t| (t.process.clone(), t.ns.clone()))
+        };
+        let (process, ns) = target.ok_or(Errno::ESRCH)?;
+        let dumpable = process.ident.lock_or_recover().dumpable;
+        if !std::ptr::eq(&*process, joiner.process)
+            && !joiner.cred.may_read_task(&process.cred(), dumpable, false)
+        {
+            return Err(Errno::EPERM);
+        }
+        let order = [
+            NsKind::User,
+            NsKind::Mnt,
+            NsKind::Uts,
+            NsKind::Ipc,
+            NsKind::Pid,
+            NsKind::Cgroup,
+            NsKind::Net,
+            NsKind::Time,
+        ];
+        for kind in order {
+            if set.flags & kind.flag() == 0 {
+                continue;
+            }
+            let theirs = match kind {
+                NsKind::Mnt => Namespace::Mnt(ns.mnt.clone()),
+                NsKind::Uts => Namespace::Uts(ns.uts.clone()),
+                NsKind::Ipc => Namespace::Ipc(ns.ipc.clone()),
+                NsKind::Net => Namespace::Net(ns.net.clone()),
+                NsKind::Pid => Namespace::Pid(process.pid_ns.clone()),
+                NsKind::User => Namespace::User(ns.user.clone()),
+                NsKind::Cgroup => Namespace::Cgroup(ns.cgroup.clone()),
+                NsKind::Time => Namespace::Time(ns.time.clone()),
+            };
+            self.install_ns(set, joiner, theirs)?;
+        }
+        Ok(())
+    }
+
+    /// `ns->ops->install`: puts `ns` in `set`, if the caller may enter it. Entering needs
+    /// `CAP_SYS_ADMIN` (every namespace is owned by the initial user namespace, where the
+    /// process's capabilities apply).
+    fn install_ns(&self, set: &mut Nsset, joiner: &Joiner<'_>, ns: Namespace) -> Result<(), Errno> {
+        let admin = joiner.cred.capable(Cap::SysAdmin);
+        match ns {
+            // `userns_install`: entering one's own user namespace would regain capabilities.
+            Namespace::User(ns) => {
+                if Arc::ptr_eq(&ns, &set.proxy.user) || !joiner.alone || joiner.fs_shared {
+                    return Err(Errno::EINVAL);
+                }
+                if !admin {
+                    return Err(Errno::EPERM);
+                }
+                set.proxy.user = ns;
+            }
+            // `mntns_install`: the root and working directory become the namespace's root. Only
+            // a caller entering nothing else checks its own `fs_struct`; otherwise Linux checks
+            // a private copy.
+            Namespace::Mnt(ns) => {
+                if !admin || !joiner.cred.capable(Cap::SysChroot) {
+                    return Err(Errno::EPERM);
+                }
+                if set.flags == CloneFlags::CLONE_NEWNS.0 && joiner.fs_shared {
+                    return Err(Errno::EINVAL);
+                }
+                set.proxy.mnt = ns;
+                set.root = Some(self.vfs.root());
+            }
+            Namespace::Uts(ns) => {
+                if !admin {
+                    return Err(Errno::EPERM);
+                }
+                set.proxy.uts = ns;
+            }
+            Namespace::Ipc(ns) => {
+                if !admin {
+                    return Err(Errno::EPERM);
+                }
+                set.proxy.ipc = ns;
+            }
+            Namespace::Net(ns) => {
+                if !admin {
+                    return Err(Errno::EPERM);
+                }
+                set.proxy.net = ns;
+            }
+            // `pidns_install`: only the caller's active pid namespace or one below it, so its
+            // children stay visible to it.
+            Namespace::Pid(ns) => {
+                if !admin {
+                    return Err(Errno::EPERM);
+                }
+                if !pid_ns_descends(&ns, &joiner.process.pid_ns) {
+                    return Err(Errno::EINVAL);
+                }
+                set.proxy.pid_for_children = ns;
+            }
+            Namespace::Cgroup(ns) => {
+                if !admin {
+                    return Err(Errno::EPERM);
+                }
+                set.proxy.cgroup = ns;
+            }
+            // `timens_install`: the clocks change under every task of the memory.
+            Namespace::Time(ns) => {
+                if !joiner.single {
+                    return Err(Errno::EUSERS);
+                }
+                if !admin {
+                    return Err(Errno::EPERM);
+                }
+                set.proxy.time = ns.clone();
+                set.proxy.time_for_children = ns;
+            }
+        }
+        Ok(())
     }
 }
