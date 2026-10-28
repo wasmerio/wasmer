@@ -110,6 +110,18 @@ impl MachineProgram {
         self.wasi.is_some()
     }
 
+    /// Of the guest paths `mounts` lists, the last that covers the directory of the package's
+    /// command (`/bin`), which then holds whatever that mount has there.
+    fn mount_hiding_the_command(&self, mounts: impl Iterator<Item = String>) -> Option<String> {
+        let (Start::File(path), true) = (&self.start, self.is_package()) else {
+            return None;
+        };
+        let dir = Path::new(path).parent()?;
+        mounts
+            .filter(|mount| Path::new(mount) != Path::new("/") && dir.starts_with(mount))
+            .last()
+    }
+
     /// Adds the packages `--use` names, in order, under the program's own: their commands
     /// after the program's package's, so a name that has stays its, and their volumes before
     /// its volumes, which obscure them.
@@ -477,6 +489,9 @@ impl Run {
         let (root_dirs, host_dirs): (Vec<_>, Vec<_>) = host_dirs
             .into_iter()
             .partition(|dir| Path::new(&dir.guest) == Path::new("/"));
+        let mounts = volumes.iter().map(|v| v.mount_path.clone());
+        let hiding = program
+            .mount_hiding_the_command(mounts.chain(host_dirs.iter().map(|d| d.guest.clone())));
         // Each volume becomes a filesystem once, wherever it is mounted.
         let mut layers = VolumeLayers::default();
         let mut root_layers = Vec::new();
@@ -591,7 +606,7 @@ impl Run {
         let result = match run {
             Ok(Ok(0)) => Ok(()),
             Ok(Ok(status)) => Err(GuestExit(status).into()),
-            Ok(Err(err)) => Err(err.into()),
+            Ok(Err(err)) => Err(explain_hidden_command(err, &program, hiding)),
             Err(err) => Err(err),
         };
         // Exit before the tokio runtime is dropped: a guest blocked reading stdin leaves an
@@ -754,6 +769,25 @@ impl Run {
             );
         }
         Ok(())
+    }
+}
+
+/// Says why the package's command could not be found when the mount `hiding` covers its
+/// directory: the kernel only knows that the file is missing.
+fn explain_hidden_command(
+    err: wasixv2::RunError,
+    program: &MachineProgram,
+    hiding: Option<String>,
+) -> Error {
+    let not_found = matches!(
+        &err,
+        wasixv2::RunError::Execve { err, .. } if err.kind() == io::ErrorKind::NotFound
+    );
+    match (hiding, &program.start) {
+        (Some(mount), Start::File(path)) if not_found => Error::from(err).context(format!(
+            "the package's command {path} is hidden by the volume mounted at {mount}"
+        )),
+        _ => err.into(),
     }
 }
 

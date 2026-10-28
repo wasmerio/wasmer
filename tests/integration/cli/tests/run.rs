@@ -918,6 +918,24 @@ fn run_wasixv2_package_script_command_runs_its_interpreter() {
         .stdout("/bin/echo-args -x /bin/script a b\n");
 }
 
+/// A `--volume` at `/bin` hides the package's commands there: `wasmer run` says so.
+#[test]
+fn run_wasixv2_package_command_hidden_by_a_volume_is_explained() {
+    let package = wasixv2_commands_package(None);
+    let empty = TempDir::new().unwrap();
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .arg(format!("--volume={}:/bin", empty.path().display()))
+        .arg("--entrypoint=echo-args")
+        .assert()
+        .failure()
+        .stderr(contains(
+            "the package's command /bin/echo-args is hidden by the volume mounted at /bin",
+        ))
+        .stderr(contains("os error 2"));
+}
+
 /// Commands of every runner are files in `/bin`: a WCGI command's atom is a WASI program and
 /// runs, a WASM-4 cartridge serves no ABI and `execve` fails with `ENOEXEC`.
 #[test]
