@@ -118,9 +118,12 @@ where
                 task: at,
                 signal,
                 report,
+                ..
             })) => {
-                process::fault_in(&*syscalls, &*host, task, at, signal, &report);
-                syscalls.release(task);
+                // A thread's own task never goes on elsewhere (only a leader's does).
+                if process::fault_in(&*syscalls, &*host, task, at, signal, &report).is_some() {
+                    syscalls.release(task);
+                }
             }
             // Only a vfork parent's instance can end so, and a leader's run took over: the
             // leader's, which a thread's run is not.
