@@ -265,6 +265,32 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
         }
     }
 
+    /// A read-only handle to the function environment if the store lock
+    /// is free for reading now, without waiting.
+    pub fn try_read(&self) -> Option<BackendAsyncFunctionEnvHandle<T>> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => f.try_read().map(BackendAsyncFunctionEnvHandle::Sys),
+            #[cfg(feature = "js")]
+            Self::Js(f) => f.try_read().map(BackendAsyncFunctionEnvHandle::Js),
+            #[cfg(feature = "v8")]
+            _ => unsupported_async_backend(),
+        }
+    }
+
+    /// A mutable handle to the function environment if the store lock is
+    /// free now, without waiting.
+    pub fn try_write(&self) -> Option<BackendAsyncFunctionEnvHandleMut<T>> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => f.try_write().map(BackendAsyncFunctionEnvHandleMut::Sys),
+            #[cfg(feature = "js")]
+            Self::Js(f) => f.try_write().map(BackendAsyncFunctionEnvHandleMut::Js),
+            #[cfg(feature = "v8")]
+            _ => unsupported_async_backend(),
+        }
+    }
+
     /// Borrows a new immutable reference
     pub fn as_ref(&self) -> BackendFunctionEnv<T> {
         match self {

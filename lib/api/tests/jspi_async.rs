@@ -187,6 +187,95 @@ fn typed_async_host_and_calls_work() -> Result<()> {
     Ok(())
 }
 
+/// `try_read` and `try_write` take the store lock at once when it is free and follow its
+/// rules: readers share it, a writer holds it alone.
+#[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
+fn try_read_and_try_write_take_a_free_store_lock() -> Result<()> {
+    let wasm = wat::parse_str(
+        r#"
+        (module
+          (import "host" "bump" (func $bump (result i32)))
+          (func (export "run") (result i32) call $bump))
+        "#,
+    )?;
+    let mut store = Store::default();
+    let module = Module::new(&store, wasm)?;
+    let env = FunctionEnv::new(&mut store, 41i32);
+    let bump = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async move |env: AsyncFunctionEnvMut<i32>| {
+            {
+                let read = env.try_read().expect("the store is free");
+                assert_eq!(*read.data(), 41);
+                assert!(env.try_read().is_some(), "readers share the lock");
+                assert!(env.try_write().is_none(), "a reader holds the lock");
+            }
+            {
+                let mut write = env.try_write().expect("the readers are gone");
+                *write.data_mut() += 1;
+                assert!(env.try_read().is_none(), "a writer holds the lock");
+                assert!(env.try_write().is_none(), "a writer holds the lock");
+            }
+            *env.try_read().expect("the writer is gone").data()
+        },
+    );
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "host" => { "bump" => bump } },
+    )?;
+    let run: TypedFunction<(), i32> = instance.exports.get_typed_function(&store, "run")?;
+    let store_async = store.into_async();
+    let result = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
+        .block_on(run.call_async(&store_async))?;
+    assert_eq!(result, 42);
+    Ok(())
+}
+
+/// Called without `call_async`, an async import has no store lock to take: `try_read` and
+/// `try_write` say so instead of waiting forever as `read` and `write` would.
+#[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
+fn try_read_and_try_write_fail_in_a_sync_call() -> Result<()> {
+    let wasm = wat::parse_str(
+        r#"
+        (module
+          (import "host" "probe" (func $probe (result i32)))
+          (func (export "run") (result i32) call $probe))
+        "#,
+    )?;
+    let mut store = Store::default();
+    let module = Module::new(&store, wasm)?;
+    let env = FunctionEnv::new(&mut store, ());
+    let probe = Function::new_with_env_async(
+        &mut store,
+        &env,
+        FunctionType::new(vec![], vec![Type::I32]),
+        |env: AsyncFunctionEnvMut<()>, _values| {
+            let failed = i32::from(env.try_read().is_none()) + i32::from(env.try_write().is_none());
+            async move { Ok(vec![Value::I32(failed)]) }
+        },
+    );
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "host" => { "probe" => probe } },
+    )?;
+    let run: TypedFunction<(), i32> = instance.exports.get_typed_function(&store, "run")?;
+    assert_eq!(run.call(&mut store)?, 2);
+    Ok(())
+}
+
 #[test]
 #[cfg_attr(
     feature = "v8-default",

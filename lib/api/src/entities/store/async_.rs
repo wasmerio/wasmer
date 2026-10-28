@@ -121,6 +121,10 @@ impl StoreAsyncReadLock {
         let store_ref = store.inner.read().await;
         Self { inner: store_ref }
     }
+
+    pub(crate) fn try_acquire(store: &StoreAsync) -> Option<Self> {
+        store.inner.try_read().map(|inner| Self { inner })
+    }
 }
 
 impl AsStoreRef for StoreAsyncReadLock {
@@ -138,6 +142,10 @@ impl StoreAsyncWriteLock {
     pub(crate) async fn acquire(store: &StoreAsync) -> Self {
         let store_guard = store.inner.write().await;
         Self { inner: store_guard }
+    }
+
+    pub(crate) fn try_acquire(store: &StoreAsync) -> Option<Self> {
+        store.inner.try_write().map(|inner| Self { inner })
     }
 }
 

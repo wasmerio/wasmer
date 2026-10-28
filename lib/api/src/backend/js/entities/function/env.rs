@@ -281,6 +281,20 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         }
     }
 
+    pub fn try_read(&self) -> Option<AsyncFunctionEnvHandle<T>> {
+        Some(AsyncFunctionEnvHandle {
+            read_lock: StoreAsyncReadLock::try_acquire(&self.store)?,
+            func_env: self.func_env.clone(),
+        })
+    }
+
+    pub fn try_write(&self) -> Option<AsyncFunctionEnvHandleMut<T>> {
+        Some(AsyncFunctionEnvHandleMut {
+            write_lock: StoreAsyncWriteLock::try_acquire(&self.store)?,
+            func_env: self.func_env.clone(),
+        })
+    }
+
     pub fn as_ref(&self) -> FunctionEnv<T> {
         self.func_env.clone()
     }
