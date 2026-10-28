@@ -27,7 +27,8 @@ pub use wasixv2_host::TokioHost;
 #[cfg(feature = "web")]
 pub use wasixv2_host::WebHost;
 pub use wasixv2_host::{
-    ByteSink, ByteSource, EmptySource, Executor, FnSink, Host, LocalFuture, ThreadStart,
+    ByteSink, ByteSource, Console, EmptySource, Executor, FnSink, Host, LocalFuture, ThreadStart,
+    WindowSize,
 };
 pub use wasixv2_kernel::{Credentials, ProcessConfig, Stdio, Uname, UnameError};
 use wasixv2_kernel::{HostClock, Kernel};
@@ -57,6 +58,8 @@ pub enum RunError {
     WorkingDir(io::Error),
     #[error("cannot execute {path}: {err}")]
     Execve { path: String, err: io::Error },
+    #[error("cannot open the console: {0}")]
+    Console(io::Error),
 }
 
 /// The directories [`Machine::install_commands`] puts commands in, relative to the root.
@@ -103,6 +106,8 @@ pub struct Machine {
     /// Set by the first mount, process or [`Signaller`]: from then on the root filesystem is
     /// fixed.
     in_use: AtomicBool,
+    /// The host's console, and which descriptors of a new process are on it.
+    console: Option<(Console, [bool; 3])>,
 }
 
 #[cfg(feature = "tokio")]
@@ -132,6 +137,7 @@ pub struct MachineBuilder {
     init: bool,
     /// The embedder's loader; the ABIs' own default otherwise.
     loader: Option<Arc<dyn Loader>>,
+    console: Option<(Console, [bool; 3])>,
 }
 
 impl MachineBuilder {
@@ -144,6 +150,7 @@ impl MachineBuilder {
             root: None,
             init: true,
             loader: None,
+            console: None,
         }
     }
 
@@ -194,6 +201,18 @@ impl MachineBuilder {
         self
     }
 
+    /// Gives the machine the host's terminal as its console, a terminal device (`/dev/hvc0`)
+    /// whose line discipline is the kernel's: `console` is the host's side of it, in raw mode.
+    /// Each program the machine starts has the descriptors `fds` names of 0, 1 and 2 open on
+    /// it instead of its [`Stdio`] streams, as getty opens a terminal for a login, and starts
+    /// a session that has it as its controlling terminal unless another session has it, so a
+    /// shell gets job control. [`Signaller::console_resize`] and
+    /// [`Signaller::console_hangup`] pass on what happens to the host's terminal.
+    pub fn console(mut self, console: Console, fds: [bool; 3]) -> Self {
+        self.console = Some((console, fds));
+        self
+    }
+
     pub fn build(self) -> Machine {
         let Self {
             host,
@@ -202,6 +221,7 @@ impl MachineBuilder {
             root,
             init,
             loader,
+            console,
         } = self;
         let owner = (user.uid(), user.gid());
         let network = default_network();
@@ -220,6 +240,7 @@ impl MachineBuilder {
             &user,
             &uname,
             init,
+            console.as_ref().map(|(console, _)| console),
             abis.clone(),
         );
         now(mount_kernel_filesystems(&kernel, &host));
@@ -239,6 +260,7 @@ impl MachineBuilder {
             root_upper: root,
             root_lowers: Vec::new(),
             in_use: AtomicBool::new(false),
+            console,
         }
     }
 }
@@ -364,6 +386,7 @@ impl Machine {
             &self.user,
             &self.uname,
             self.init,
+            self.console.as_ref().map(|(console, _)| console),
             self.abis.clone(),
         );
         mount_kernel_filesystems(&kernel, &self.host).await;
@@ -708,6 +731,13 @@ impl Machine {
                 .await
                 .map_err(|errno| RunError::WorkingDir(errno_to_io(errno)))?;
         }
+        if let Some((_, fds)) = &self.console {
+            self.syscalls
+                .inner
+                .attach_console(task, *fds)
+                .await
+                .map_err(|errno| RunError::Console(errno_to_io(errno)))?;
+        }
         Ok((task, running))
     }
 
@@ -753,12 +783,22 @@ impl Signaller {
         self.each(sig, |kernel, task, sig| kernel.kill(task, sig))
     }
 
-    /// Sends `sig` to the process groups of those processes, as a terminal sends the signals of
-    /// `^C` and `^\` to its foreground process group, so the children of a guest shell get
+    /// Sends `sig` to the foreground process group, as a terminal sends the signals of `^C`
+    /// and `^\`: the console's, when the machine has one ([`MachineBuilder::console`]),
+    /// otherwise the process groups of those processes, so the children of a guest shell get
     /// them too. Returns whether some process has it pending now: `false` when every process
     /// of the groups ignores it, so the kernel discarded it, as when no process runs. A
     /// pending signal is taken once [`Signaller::foreground_pending`] says so.
     pub fn signal_foreground(&self, sig: i32) -> io::Result<bool> {
+        let kernel = &self.syscalls.inner;
+        if kernel.has_console() {
+            return match kernel.console_signal(wasixv2_abi::Signal(sig)) {
+                Ok(pending) => Ok(pending),
+                // Nothing is in the foreground.
+                Err(Errno::ESRCH) => Ok(false),
+                Err(errno) => Err(errno_to_io(errno)),
+            };
+        }
         let mut pending = false;
         self.each(sig, |kernel, task, sig| {
             pending |= kernel.kill_process_group(task, sig)?;
@@ -770,12 +810,29 @@ impl Signaller {
     /// Whether a `sig` sent with [`Signaller::signal_foreground`] is still pending, not yet
     /// taken by any process of those groups.
     pub fn foreground_pending(&self, sig: i32) -> bool {
+        let kernel = &self.syscalls.inner;
+        if kernel.has_console() {
+            return kernel.console_signal_pending(wasixv2_abi::Signal(sig));
+        }
         let running = self.running.lock().unwrap().clone();
         running.into_iter().any(|task| {
             self.syscalls
                 .inner
                 .process_group_pending(task, wasixv2_abi::Signal(sig))
         })
+    }
+
+    /// The host's terminal changed its size to `size`: the console's foreground process
+    /// group gets SIGWINCH. Nothing without a console.
+    pub fn console_resize(&self, size: WindowSize) {
+        self.syscalls.inner.console_resize(size);
+    }
+
+    /// The host's terminal went away: the console hangs up, as a terminal whose line drops.
+    /// The leader of the session it controls gets SIGHUP and SIGCONT, and the files open on
+    /// it end. Nothing without a console.
+    pub fn console_hangup(&self) {
+        self.syscalls.inner.console_hangup();
     }
 
     fn each(
@@ -798,8 +855,10 @@ impl Signaller {
     }
 }
 
-/// A kernel on `root` with the machine's network, user, names and init, whose `execve` starts
-/// the images `abis` serve; its own filesystems are mounted next ([`mount_kernel_filesystems`]).
+/// A kernel on `root` with the machine's network, user, names, init and console, whose
+/// `execve` starts the images `abis` serve; its own filesystems are mounted next
+/// ([`mount_kernel_filesystems`]).
+#[allow(clippy::too_many_arguments)]
 fn boot(
     host: &Arc<dyn Host>,
     root: Arc<dyn Filesystem>,
@@ -807,17 +866,21 @@ fn boot(
     user: &Credentials,
     uname: &Uname,
     init: bool,
+    console: Option<&Console>,
     abis: Arc<Abis<Layered<Trace, Kernel>>>,
 ) -> Kernel {
-    let kernel = Kernel::new(host.clone(), root)
+    let mut kernel = Kernel::new(host.clone(), root)
         .with_binfmt(abis)
         .with_network(network.clone())
         .with_shm(shm_filesystem(host))
         .with_credentials(user.clone())
         .with_uname(uname);
-    match init {
-        true => kernel.with_init(),
-        false => kernel,
+    if init {
+        kernel = kernel.with_init();
+    }
+    match console {
+        Some(console) => kernel.with_console(console.clone()),
+        None => kernel,
     }
 }
 
