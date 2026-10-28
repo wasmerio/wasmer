@@ -59,6 +59,15 @@ pub trait UserMemory {
         Box::pin(async { 0 })
     }
 
+    /// Bytes at the bottom of the address space the host keeps as the low guard, 0 for none:
+    /// they stand for the pages below `mmap_min_addr` that Linux never maps. Writes there fail
+    /// with [`Fault`]; reads go through, as the guest's own loads read zeros there (see
+    /// DESIGN.md, "Guard page at 0"), so a kernel path that Linux would fault on a read checks
+    /// this itself.
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        Box::pin(async { 0 })
+    }
+
     /// Makes `[addr, addr + len)`, whole pages inside the memory and above any guard, show `len`
     /// bytes of `pages` from `offset`, the same pages every other mapping of the object shows
     /// (`MAP_SHARED`): from then on a store by any process that maps them is seen by all at

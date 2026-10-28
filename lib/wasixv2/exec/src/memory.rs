@@ -409,6 +409,10 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
         })
     }
 
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        Box::pin(async move { self.env.read().await.data().low_guard })
+    }
+
     /// An atomic compare-and-exchange on the memory itself, so guest threads running at the same
     /// time on other host threads see the futex word change as one step.
     #[cfg(feature = "sys")]
@@ -502,6 +506,10 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
                 .as_ref()
                 .map_or(0, |memory| memory.view(&*store).data_size())
         }))
+    }
+
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        Box::pin(self.cx.with(|data, _| data.low_guard))
     }
 
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {

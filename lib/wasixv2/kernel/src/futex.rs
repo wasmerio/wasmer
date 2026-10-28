@@ -26,6 +26,14 @@
 //! from robust list cleanup. The kernel keeps, per contended PI futex, the owner it believes in
 //! and its waiters in arrival order; unlocking hands the lock straight to the first waiter.
 //! Every task runs at the same priority here, so inheritance itself changes nothing.
+//!
+//! The memory's low guard ([`UserMemory::low_guard`]) stands for the pages below
+//! `mmap_min_addr` that Linux never maps, so futexes there fault as Linux's do: `EFAULT` where
+//! Linux reads or changes the word (`futex_get_value_locked`, `get_user`) or finds the page of a
+//! futex without `FUTEX_PRIVATE_FLAG` (`get_futex_key`'s `get_user_pages_fast`). A private
+//! futex's key is its address alone, which `access_ok` allows down to 0, so a private
+//! `FUTEX_WAKE` or `FUTEX_REQUEUE` there wakes nobody without a fault. Wasm's atomic wait and
+//! notify are guest accesses rather than syscalls, and read the guard as the guest's loads do.
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -43,7 +51,7 @@ use wasixv2_syscalls::{
 };
 use wasixv2_wait::{Interrupt, PollMask, WaitRegistration, Waiter, WakeHandle, Wakeup, Watched};
 
-use crate::{Kernel, Process, restart::Restart, sync::MutexExt, time};
+use crate::{Kernel, Process, mm::MMAP_MIN_ADDR, restart::Restart, sync::MutexExt, time};
 
 /// `FUTEX_BITSET_MATCH_ANY`.
 const MATCH_ANY: u32 = u32::MAX;
@@ -553,6 +561,35 @@ async fn get_word(memory: &dyn UserMemory, addr: u32) -> Result<u32, Errno> {
         .map_err(|_| Errno::EFAULT)
 }
 
+/// Whether the word at `addr` lies in the memory's low guard, which Linux leaves unmapped. The
+/// guard never reaches past `mmap_min_addr`, so only words below it ask the memory.
+async fn in_low_guard(memory: &dyn UserMemory, addr: u32) -> bool {
+    u64::from(addr) < MMAP_MIN_ADDR && addr < memory.low_guard().await
+}
+
+/// The faults Linux raises for the futex at `addr` where nothing is mapped: always for a
+/// futex whose word the operation reads or changes (`touched`), and for any futex without
+/// `private`, whose page `get_futex_key` looks up.
+async fn check_mapped(
+    memory: &dyn UserMemory,
+    addr: u32,
+    private: bool,
+    touched: bool,
+) -> Result<(), Errno> {
+    match (!private || touched) && in_low_guard(memory, addr).await {
+        true => Err(Errno::EFAULT),
+        false => Ok(()),
+    }
+}
+
+/// `get_user` of the futex word or robust list entry at `addr`, which faults in the low guard.
+async fn get_user_word(memory: &dyn UserMemory, addr: u32) -> Result<u32, Errno> {
+    if in_low_guard(memory, addr).await {
+        return Err(Errno::EFAULT);
+    }
+    get_word(memory, addr).await
+}
+
 /// Whether the word at `addr` holds `expected`, read at its size. A torn 64-bit read only mixes
 /// in writes made after the waiter queued, whose wakes still reach it.
 async fn holds(memory: &dyn UserMemory, addr: u32, expected: AtomicWord) -> Result<bool, Errno> {
@@ -636,6 +673,7 @@ impl Kernel {
         let word = self.futex_word(caller, uaddr.addr(), private);
         let key = word.key;
         let tid = caller.task().0;
+        let memory = caller.memory();
         match cmd {
             FutexOp::FUTEX_WAIT | FutexOp::FUTEX_WAIT_BITSET => {
                 let bitset = match cmd {
@@ -645,37 +683,48 @@ impl Kernel {
                 if bitset == 0 {
                     return Err(Errno::EINVAL.into());
                 }
+                check_mapped(memory, word.addr, private, true).await?;
                 let val = AtomicWord::U32(val);
                 self.futex_wait(caller, word, private, val, bitset, timeout)
                     .await
             }
-            FutexOp::FUTEX_WAKE => Ok(self.futexes.wake(key, val, MATCH_ANY)? as i32),
-            FutexOp::FUTEX_WAKE_BITSET => match val3 {
-                0 => Err(Errno::EINVAL.into()),
-                bitset => Ok(self.futexes.wake(key, val, bitset)? as i32),
-            },
+            FutexOp::FUTEX_WAKE | FutexOp::FUTEX_WAKE_BITSET => {
+                let bitset = match cmd {
+                    FutexOp::FUTEX_WAKE => MATCH_ANY,
+                    _ => val3,
+                };
+                if bitset == 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                check_mapped(memory, word.addr, private, false).await?;
+                Ok(self.futexes.wake(key, val, bitset)? as i32)
+            }
             FutexOp::FUTEX_REQUEUE | FutexOp::FUTEX_CMP_REQUEUE => {
                 // `val2` arrives in the timeout slot.
                 let (n_wake, n_requeue) = (val as i32, utime as i32);
                 if n_wake < 0 || n_requeue < 0 {
                     return Err(Errno::EINVAL.into());
                 }
+                let compare = cmd == FutexOp::FUTEX_CMP_REQUEUE;
+                check_mapped(memory, word.addr, private, compare).await?;
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
                 }
+                check_mapped(memory, uaddr2.addr(), private, false).await?;
                 let to = self.futex_key(caller.task(), uaddr2.addr(), private);
-                let expected = (cmd == FutexOp::FUTEX_CMP_REQUEUE).then_some(val3);
+                let expected = compare.then_some(val3);
                 let counts = (n_wake as u32, n_requeue as u32);
-                let memory = caller.memory();
                 let requeue = || self.futexes.requeue(memory, word, to, counts, expected);
                 Ok(with_word_locked(memory, word.addr, requeue).await? as i32)
             }
             FutexOp::FUTEX_WAKE_OP => {
+                check_mapped(memory, word.addr, private, false).await?;
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
                 }
+                // The operation changes the second word.
+                check_mapped(memory, uaddr2.addr(), private, true).await?;
                 let word2 = self.futex_word(caller, uaddr2.addr(), private);
-                let memory = caller.memory();
                 let wake_op = || {
                     self.futexes
                         .wake_op(memory, (key, val), (word2, utime), val3)
@@ -683,10 +732,17 @@ impl Kernel {
                 Ok(with_word_locked(memory, word2.addr, wake_op).await? as i32)
             }
             FutexOp::FUTEX_LOCK_PI | FutexOp::FUTEX_LOCK_PI2 => {
+                check_mapped(memory, word.addr, private, true).await?;
                 self.futex_lock_pi(caller, word, tid, timeout).await
             }
-            FutexOp::FUTEX_TRYLOCK_PI => self.futex_trylock_pi(caller, word, tid).await,
-            FutexOp::FUTEX_UNLOCK_PI => self.futex_unlock_pi(caller, word, tid).await,
+            FutexOp::FUTEX_TRYLOCK_PI => {
+                check_mapped(memory, word.addr, private, true).await?;
+                self.futex_trylock_pi(caller, word, tid).await
+            }
+            FutexOp::FUTEX_UNLOCK_PI => {
+                check_mapped(memory, word.addr, private, true).await?;
+                self.futex_unlock_pi(caller, word, tid).await
+            }
             FutexOp::FUTEX_WAIT_REQUEUE_PI => {
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
@@ -695,6 +751,8 @@ impl Kernel {
                 if target == key {
                     return Err(Errno::EINVAL.into());
                 }
+                check_mapped(memory, uaddr2.addr(), private, false).await?;
+                check_mapped(memory, word.addr, private, true).await?;
                 self.futex_wait_requeue_pi(caller, word, val, timeout, target, tid)
                     .await
             }
@@ -710,6 +768,9 @@ impl Kernel {
                 if target.key == key || n_wake != 1 {
                     return Err(Errno::EINVAL.into());
                 }
+                // The lock may be taken for the waiter on the second word.
+                check_mapped(memory, word.addr, private, true).await?;
+                check_mapped(memory, target.addr, private, true).await?;
                 self.futex_cmp_requeue_pi(caller, word, target, n_requeue as u32, val3)
                     .await
             }
@@ -1194,7 +1255,7 @@ impl Kernel {
         }
         let memory = caller.memory();
         loop {
-            let Ok(word) = get_word(memory, addr).await else {
+            let Ok(word) = get_user_word(memory, addr).await else {
                 return;
             };
             let owner = word & FUTEX_TID_MASK;
@@ -1226,7 +1287,7 @@ impl Kernel {
     pub(crate) async fn exit_robust_list(&self, caller: &Caller<'_>, head: u32, tid: u32) {
         // A head at the top of memory faults, as reading past it would.
         let read = |addr: Option<u32>| async move {
-            get_word(caller.memory(), addr.ok_or(Errno::EFAULT)?).await
+            get_user_word(caller.memory(), addr.ok_or(Errno::EFAULT)?).await
         };
         let (Ok(mut entry), Ok(offset), Ok(pending)) = (
             read(Some(head)).await,
