@@ -15001,6 +15001,76 @@ impl GuestLayout for Ipv6Mreq {
         self.ipv6mr_ifindex.write_to(&mut out[16..]);
     }
 }
+/// An error-queue entry (`struct sock_extended_err`, UAPI `linux/errqueue.h`): the payload of
+/// the `IP_RECVERR`/`IPV6_RECVERR` control message `recvmsg(MSG_ERRQUEUE)` returns, followed
+/// by the offender's `sockaddr_in`/`sockaddr_in6` (`SO_EE_OFFENDER`). `ee-data` shares its
+/// 4 bytes with `struct sock_ee_data_rfc4884` in the kernel's union.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockExtendedErr {
+    pub ee_errno: u32,
+    /// `so-ee-origin`.
+    pub ee_origin: u8,
+    /// The ICMP type for ICMP origins.
+    pub ee_type: u8,
+    /// The ICMP code for ICMP origins.
+    pub ee_code: u8,
+    pub ee_pad: u8,
+    pub ee_info: u32,
+    pub ee_data: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockExtendedErr>() == 16);
+    assert!(core::mem::align_of::<SockExtendedErr>() == 4);
+    assert!(core::mem::offset_of!(SockExtendedErr, ee_errno) == 0);
+    assert!(core::mem::offset_of!(SockExtendedErr, ee_origin) == 4);
+    assert!(core::mem::offset_of!(SockExtendedErr, ee_type) == 5);
+    assert!(core::mem::offset_of!(SockExtendedErr, ee_code) == 6);
+    assert!(core::mem::offset_of!(SockExtendedErr, ee_pad) == 7);
+    assert!(core::mem::offset_of!(SockExtendedErr, ee_info) == 8);
+    assert!(core::mem::offset_of!(SockExtendedErr, ee_data) == 12);
+};
+impl Default for SockExtendedErr {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockExtendedErr {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ee_errno: <u32 as GuestLayout>::ZERO,
+        ee_origin: <u8 as GuestLayout>::ZERO,
+        ee_type: <u8 as GuestLayout>::ZERO,
+        ee_code: <u8 as GuestLayout>::ZERO,
+        ee_pad: <u8 as GuestLayout>::ZERO,
+        ee_info: <u32 as GuestLayout>::ZERO,
+        ee_data: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ee_errno: GuestLayout::read_from(&bytes[0..])?,
+            ee_origin: GuestLayout::read_from(&bytes[4..])?,
+            ee_type: GuestLayout::read_from(&bytes[5..])?,
+            ee_code: GuestLayout::read_from(&bytes[6..])?,
+            ee_pad: GuestLayout::read_from(&bytes[7..])?,
+            ee_info: GuestLayout::read_from(&bytes[8..])?,
+            ee_data: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ee_errno.write_to(&mut out[0..]);
+        self.ee_origin.write_to(&mut out[4..]);
+        self.ee_type.write_to(&mut out[5..]);
+        self.ee_code.write_to(&mut out[6..]);
+        self.ee_pad.write_to(&mut out[7..]);
+        self.ee_info.write_to(&mut out[8..]);
+        self.ee_data.write_to(&mut out[12..]);
+    }
+}
 /// Address/protocol families (`AF_*`, `PF_*`).
 /// Not in the UAPI headers; values follow the kernel's `include/linux/socket.h`.
 ///
@@ -16869,6 +16939,66 @@ impl GuestLayout for Ipv6PreferSrcFlags {
     const ZERO: Self = Self(0);
     fn read_from(bytes: &[u8]) -> Option<Self> {
         <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `sock_extended_err.ee_origin` (`SO_EE_ORIGIN_*`, UAPI `linux/errqueue.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SoEeOrigin(pub u8);
+impl SoEeOrigin {
+    pub const SO_EE_ORIGIN_NONE: Self = Self(0);
+    pub const SO_EE_ORIGIN_LOCAL: Self = Self(1);
+    pub const SO_EE_ORIGIN_ICMP: Self = Self(2);
+    pub const SO_EE_ORIGIN_ICMP6: Self = Self(3);
+    pub const SO_EE_ORIGIN_TXSTATUS: Self = Self(4);
+    pub const SO_EE_ORIGIN_TIMESTAMPING: Self = Self(4);
+    pub const SO_EE_ORIGIN_ZEROCOPY: Self = Self(5);
+    pub const SO_EE_ORIGIN_TXTIME: Self = Self(6);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SO_EE_ORIGIN_NONE", Self::SO_EE_ORIGIN_NONE),
+        ("SO_EE_ORIGIN_LOCAL", Self::SO_EE_ORIGIN_LOCAL),
+        ("SO_EE_ORIGIN_ICMP", Self::SO_EE_ORIGIN_ICMP),
+        ("SO_EE_ORIGIN_ICMP6", Self::SO_EE_ORIGIN_ICMP6),
+        ("SO_EE_ORIGIN_TXSTATUS", Self::SO_EE_ORIGIN_TXSTATUS),
+        ("SO_EE_ORIGIN_TIMESTAMPING", Self::SO_EE_ORIGIN_TIMESTAMPING),
+        ("SO_EE_ORIGIN_ZEROCOPY", Self::SO_EE_ORIGIN_ZEROCOPY),
+        ("SO_EE_ORIGIN_TXTIME", Self::SO_EE_ORIGIN_TXTIME),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SO_EE_ORIGIN_NONE"),
+            1 => Some("SO_EE_ORIGIN_LOCAL"),
+            2 => Some("SO_EE_ORIGIN_ICMP"),
+            3 => Some("SO_EE_ORIGIN_ICMP6"),
+            4 => Some("SO_EE_ORIGIN_TXSTATUS"),
+            5 => Some("SO_EE_ORIGIN_ZEROCOPY"),
+            6 => Some("SO_EE_ORIGIN_TXTIME"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SoEeOrigin {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SoEeOrigin({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SoEeOrigin {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
     }
     fn write_to(&self, out: &mut [u8]) {
         self.0.write_to(out);
@@ -18906,8 +19036,9 @@ impl GuestLayout for Winsize {
         self.ws_ypixel.write_to(&mut out[6..]);
     }
 }
-/// `ioctl` requests for terminals, sockets and timerfd
-/// (`asm-generic/ioctls.h`, `asm-generic/sockios.h`, `linux/sockios.h`, `linux/timerfd.h`).
+/// `ioctl` requests for terminals, sockets, timerfd and namespace files
+/// (`asm-generic/ioctls.h`, `asm-generic/sockios.h`, `linux/sockios.h`, `linux/timerfd.h`,
+/// `linux/nsfs.h`).
 ///
 /// C: `unsigned`
 #[repr(transparent)]
@@ -19059,6 +19190,10 @@ impl IoctlRequest {
     pub const SIOCGHWTSTAMP: Self = Self(35249);
     pub const SIOCPROTOPRIVATE: Self = Self(35296);
     pub const SIOCDEVPRIVATE: Self = Self(35312);
+    pub const NS_GET_USERNS: Self = Self(46849);
+    pub const NS_GET_PARENT: Self = Self(46850);
+    pub const NS_GET_NSTYPE: Self = Self(46851);
+    pub const NS_GET_OWNER_UID: Self = Self(46852);
     pub const TIOCSPTLCK: Self = Self(1074025521);
     pub const TIOCSIG: Self = Self(1074025526);
     pub const TFD_IOC_SET_TICKS: Self = Self(1074287616);
@@ -19218,6 +19353,10 @@ impl IoctlRequest {
         ("SIOCGHWTSTAMP", Self::SIOCGHWTSTAMP),
         ("SIOCPROTOPRIVATE", Self::SIOCPROTOPRIVATE),
         ("SIOCDEVPRIVATE", Self::SIOCDEVPRIVATE),
+        ("NS_GET_USERNS", Self::NS_GET_USERNS),
+        ("NS_GET_PARENT", Self::NS_GET_PARENT),
+        ("NS_GET_NSTYPE", Self::NS_GET_NSTYPE),
+        ("NS_GET_OWNER_UID", Self::NS_GET_OWNER_UID),
         ("TIOCSPTLCK", Self::TIOCSPTLCK),
         ("TIOCSIG", Self::TIOCSIG),
         ("TFD_IOC_SET_TICKS", Self::TFD_IOC_SET_TICKS),
@@ -19378,6 +19517,10 @@ impl IoctlRequest {
             35249 => Some("SIOCGHWTSTAMP"),
             35296 => Some("SIOCPROTOPRIVATE"),
             35312 => Some("SIOCDEVPRIVATE"),
+            46849 => Some("NS_GET_USERNS"),
+            46850 => Some("NS_GET_PARENT"),
+            46851 => Some("NS_GET_NSTYPE"),
+            46852 => Some("NS_GET_OWNER_UID"),
             1074025521 => Some("TIOCSPTLCK"),
             1074025526 => Some("TIOCSIG"),
             1074287616 => Some("TFD_IOC_SET_TICKS"),
