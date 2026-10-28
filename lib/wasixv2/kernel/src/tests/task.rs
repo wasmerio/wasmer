@@ -338,7 +338,7 @@ const IMAGE: &[u8] = b"\0asm\x01\0\0\0";
 
 /// Writes an executable `/prog` holding [`IMAGE`], and `execve`'s arguments for it: the path
 /// at 0x2000, argv (`prog`) at 0x2010, an empty envp at 0x2018.
-fn install_prog(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) {
+pub(super) fn install_prog(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) {
     put(memory, 0x2000, b"/prog\0");
     put(memory, 0x2010, &0x2000u32.to_le_bytes());
     put(memory, 0x2100, IMAGE);
@@ -351,7 +351,7 @@ fn install_prog(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) {
 }
 
 /// `execve("/prog", ["prog"], [])` from `caller`, after [`install_prog`].
-fn execve<'a>(
+pub(super) fn execve<'a>(
     kernel: &'a Kernel,
     caller: &'a Caller<'a>,
 ) -> impl std::future::Future<Output = SysResult<i32>> + 'a {
@@ -364,7 +364,7 @@ fn execve<'a>(
 }
 
 /// Installs handler 7 for `sig`, behind trampoline 3.
-fn handle(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) {
+pub(super) fn handle(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) {
     let act = Sigaction {
         sa_handler: 7,
         sa_flags: 0,

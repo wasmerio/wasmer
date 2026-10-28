@@ -366,6 +366,8 @@ impl Kernel {
         }
         let signals = state.tasks[&task].signals.group().clone();
         drop(state);
+        // `SIGNAL_GROUP_EXIT`: no task stops any more, and stopped ones go on to their exit.
+        signals.cancel_stop(true);
         if others {
             signals.kill_all();
         }
@@ -557,7 +559,10 @@ impl Kernel {
         for child in unstarted {
             forget_task(&mut state, child);
         }
+        let group = state.tasks[&task].signals.group().clone();
         drop(state);
+        // No task stops any more, and a stopped leader goes on to take the new image.
+        group.cancel_stop(false);
         for signals in killed {
             signals.kill();
         }

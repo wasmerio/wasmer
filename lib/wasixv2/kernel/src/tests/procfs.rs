@@ -162,6 +162,34 @@ fn self_names_the_callers_process() {
     assert_eq!(line.split(' ').count(), 52, "{line}");
 }
 
+/// A task that took its part in a group stop is `T (stopped)`; one yet to take it is not.
+#[test]
+fn a_stopped_task_shows_as_stopped() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let caller = Caller::new(task, &memory);
+    let spawn = kernel.thread_spawn(&caller, 0x10f00, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    let thread = block_on(spawn).unwrap();
+    while kernel.take_pending(task).is_some() {}
+
+    kernel.kill(task, Signal::SIGSTOP).unwrap();
+    assert_eq!(
+        kernel.take_pending(TaskId(thread as u32)),
+        Some(GuestAction::Stopped)
+    );
+
+    let stat = format!("/proc/{0}/task/{thread}/stat", task.0);
+    let fd = t.open(&stat, OpenFlags::O_RDONLY).unwrap();
+    let line = t.read_all(fd);
+    assert!(line.starts_with(&format!("{thread} () T ")), "{line}");
+    let status = format!("/proc/{0}/task/{thread}/status", task.0);
+    let fd = t.open(&status, OpenFlags::O_RDONLY).unwrap();
+    assert!(t.read_all(fd).contains("State:\tT (stopped)\n"));
+    let fd = t.open("/proc/self/status", OpenFlags::O_RDONLY).unwrap();
+    assert!(t.read_all(fd).contains("State:\tS (sleeping)\n"));
+}
+
 #[test]
 fn fd_links_name_files_and_pseudo_inodes() {
     let (kernel, task, _) = machine();

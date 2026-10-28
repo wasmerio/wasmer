@@ -513,11 +513,12 @@ fn escape(path: &[u8]) -> Vec<u8> {
     out
 }
 
-/// The task's state letter: a zombie, or sleeping (a task reading its own state is running,
-/// but a file does not know who reads it).
-fn state(info: &super::ProcessInfo) -> (char, &'static str) {
+/// The task's state letter: a zombie, stopped by a stop signal, or sleeping (a task reading
+/// its own state is running, but a file does not know who reads it).
+fn state(info: &super::ProcessInfo, task: Option<&super::TaskInfo>) -> (char, &'static str) {
     match info.zombie {
         true => ('Z', "zombie"),
+        false if task.is_some_and(|task| task.signals.is_stopped()) => ('T', "stopped"),
         false => ('S', "sleeping"),
     }
 }
@@ -544,7 +545,7 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
         .task(scope.pid, scope.tid)
         .map(|task| task.signals.proc_status())
         .unwrap_or_default();
-    let (letter, _) = state(info);
+    let (letter, _) = state(info, source.task(scope.pid, scope.tid).as_ref());
     let fields: Vec<String> = [
         info.parent as i128,               // ppid
         ident.pgid as i128,                // pgrp
@@ -620,7 +621,7 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
     let pid = scope.tid.unwrap_or(scope.pid);
     let kb = task.as_ref().map_or(0, |task| task.mm.size()) / 1024;
     let threads = source.threads(scope.pid).len().max(1);
-    let (letter, state_name) = state(info);
+    let (letter, state_name) = state(info, task.as_ref());
     let cred = process.cred();
     let (user, group) = (&cred.user, &cred.group);
     let comm = task

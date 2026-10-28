@@ -721,8 +721,8 @@ pub enum Outcome<T> {
 }
 
 /// The return-to-guest path: runs the work the kernel left for `task` (exit, thread start,
-/// task switches, new images, signal handlers), then decides how the syscall that returned
-/// `ret` ends. Every import, of any ABI, calls this after each syscall.
+/// task switches, new images, signal handlers, group stops), then decides how the syscall that
+/// returned `ret` ends. Every import, of any ABI, calls this after each syscall.
 pub async fn complete<S: Syscalls + Control + 'static, T>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     syscalls: &S,
@@ -807,6 +807,9 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                     None => task = parent.task,
                 }
             }
+            // `do_signal_stop`'s `schedule`: the instance waits, and the call it interrupted
+            // goes on as before the stop once the group continues.
+            GuestAction::Stopped => syscalls.stop_wait(task).await,
             GuestAction::Signal(frame) => {
                 let restart = handled.get_or_insert(match ret {
                     Err(SysErr::RestartNoIntr) => true,
