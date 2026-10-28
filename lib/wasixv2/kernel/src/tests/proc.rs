@@ -292,7 +292,7 @@ fn a_negative_pid_names_no_process() {
 
 // ---- reparenting ----
 
-fn fork_child(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
+pub(super) fn fork_child(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
     let child = TaskId(clone(kernel, caller, SIGCHLD, 0).expect("fork") as u32);
     while kernel.take_pending(caller.task()).is_some() {}
     child

@@ -88,7 +88,13 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
         payload,
     });
     let shared = syscalls.shared_mappings(child);
-    let request = Request::Fork { child, tag, shared };
+    let wiped = syscalls.wipe_on_fork(child);
+    let request = Request::Fork {
+        child,
+        tag,
+        shared,
+        wiped,
+    };
     match asyncify::unwind(env, request).await {
         Ok(()) => Ok(()),
         Err(err) => {

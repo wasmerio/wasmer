@@ -43,6 +43,7 @@ mod work;
 
 use std::{
     collections::HashMap,
+    ops::Range,
     sync::{Arc, LockResult, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Duration,
 };
@@ -2525,6 +2526,10 @@ impl ExitMm for Kernel {
 impl SharedMappings for Kernel {
     fn shared_mappings(&self, task: TaskId) -> Vec<SharedMapping> {
         Kernel::shared_mappings(self, task)
+    }
+
+    fn wipe_on_fork(&self, task: TaskId) -> Vec<Range<u64>> {
+        Kernel::wipe_on_fork(self, task)
     }
 }
 

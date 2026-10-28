@@ -35,6 +35,7 @@ mod shared;
 
 use std::{
     io,
+    ops::Range,
     sync::{
         Arc, Mutex, MutexGuard, PoisonError,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -218,6 +219,9 @@ pub(crate) struct AddressSpace {
     seen: u64,
     /// Mappings of files and segments; pages not in one are anonymous.
     mappings: shared::Mappings,
+    /// `VM_WIPEONFORK` for each page from address 0, as far as any page has it: the private
+    /// anonymous pages `MADV_WIPEONFORK` marked, which a fork child gets zeroed.
+    wipe_on_fork: Vec<bool>,
 }
 
 /// Where a new mapping goes.
@@ -237,6 +241,7 @@ impl AddressSpace {
             brk: self.brk,
             seen: self.seen,
             mappings: self.mappings.dup(pid),
+            wipe_on_fork: self.wipe_on_fork.clone(),
         }
     }
 
@@ -270,9 +275,66 @@ impl AddressSpace {
         self.mapped[index..end].fill(true);
     }
 
-    /// Unmaps the pages of `[addr, addr + len)` that the allocator handed out.
+    /// Unmaps the pages of `[addr, addr + len)` that the allocator handed out. Whatever comes
+    /// there next is a new mapping, without the flags of the old one.
     pub(crate) fn unmap(&mut self, addr: u64, len: u64) {
-        self.set_pages(addr / PAGE_SIZE, (addr + len).div_ceil(PAGE_SIZE), false);
+        let (first, end) = (addr / PAGE_SIZE, (addr + len).div_ceil(PAGE_SIZE));
+        self.set_pages(first, end, false);
+        self.set_wipe_on_fork(first, end, false);
+    }
+
+    fn wipes_on_fork(&self, page: u64) -> bool {
+        let page = usize::try_from(page).unwrap_or(usize::MAX);
+        self.wipe_on_fork.get(page).copied().unwrap_or(false)
+    }
+
+    /// Sets or clears `VM_WIPEONFORK` on the pages `[first, end)`.
+    fn set_wipe_on_fork(&mut self, first: u64, end: u64, wipe: bool) {
+        let (first, mut end) = (first as usize, end as usize);
+        if wipe && self.wipe_on_fork.len() < end {
+            self.wipe_on_fork.resize(end, false);
+        }
+        end = end.min(self.wipe_on_fork.len());
+        if first < end {
+            self.wipe_on_fork[first..end].fill(wipe);
+        }
+        if !wipe {
+            let last = self.wipe_on_fork.iter().rposition(|&wipe| wipe);
+            self.wipe_on_fork.truncate(last.map_or(0, |last| last + 1));
+        }
+    }
+
+    /// `mremap`'s `VM_WIPEONFORK`: the `new_len` bytes at `to` take the flags of the `old_len`
+    /// bytes at `from`, and pages past the old length that of its last page, as the area grows
+    /// or is copied with its flags (`vma_expand`, `copy_vma`). The source keeps its own until it
+    /// is unmapped.
+    fn remap_wipe_on_fork(&mut self, from: u64, old_len: u64, to: u64, new_len: u64) {
+        let from = from / PAGE_SIZE;
+        let old: Vec<bool> = (from..from + old_len / PAGE_SIZE)
+            .map(|page| self.wipes_on_fork(page))
+            .collect();
+        let grown = old.last().copied().unwrap_or(false);
+        let to = to / PAGE_SIZE;
+        for (index, page) in (to..to + new_len / PAGE_SIZE).enumerate() {
+            let wipe = old.get(index).copied().unwrap_or(grown);
+            self.set_wipe_on_fork(page, page + 1, wipe);
+        }
+    }
+
+    /// The ranges a fork child gets zeroed, lowest first.
+    fn wipe_on_fork_ranges(&self) -> Vec<Range<u64>> {
+        let mut ranges: Vec<Range<u64>> = Vec::new();
+        for (page, &wipe) in self.wipe_on_fork.iter().enumerate() {
+            if !wipe {
+                continue;
+            }
+            let (start, end) = (page as u64 * PAGE_SIZE, (page as u64 + 1) * PAGE_SIZE);
+            match ranges.last_mut() {
+                Some(last) if last.end == start => last.end = end,
+                _ => ranges.push(start..end),
+            }
+        }
+        ranges
     }
 
     /// Marks the allocator's pages in `[first, end)` as mapped or not.
@@ -543,7 +605,8 @@ impl Kernel {
                 return Ok(current as i32);
             }
         } else {
-            mm.space().set_pages(new_end, old_end, false);
+            let (from, to) = (new_end * PAGE_SIZE, old_end * PAGE_SIZE);
+            mm.space().unmap(from, to - from);
         }
         mm.space().brk = Some((start, new));
         Ok(new as i32)
@@ -776,6 +839,8 @@ impl Kernel {
                 false => Vec::new(),
             };
             copy(caller.memory(), addr64, target, old_size.min(new_size)).await?;
+            mm.space()
+                .remap_wipe_on_fork(addr64, old_size, target, new_size);
             self.move_mappings(caller, addr64, old_size, target, new_size)
                 .await?;
             match remap.dont_unmap {
@@ -800,6 +865,8 @@ impl Kernel {
                 .await
                 .is_ok()
         {
+            mm.space()
+                .remap_wipe_on_fork(addr64, old_size, addr64, new_size);
             self.move_mappings(caller, addr64, old_size, addr64, new_size)
                 .await?;
             return Ok(addr as i32);
@@ -809,6 +876,8 @@ impl Kernel {
         }
         let target = self.map_anywhere(caller, new_pages).await?;
         copy(caller.memory(), addr64, target, old_size).await?;
+        mm.space()
+            .remap_wipe_on_fork(addr64, old_size, target, new_size);
         self.move_mappings(caller, addr64, old_size, target, new_size)
             .await?;
         mm.space().unmap(addr64, old_size);
@@ -961,7 +1030,8 @@ impl Kernel {
 
     /// `MADV_DONTNEED` drops the pages: anonymous memory reads as zeroes again, a private file
     /// mapping as the file, and a shared mapping keeps its contents, which are synchronised
-    /// unless the memory shows the object's pages itself. Every other advice changes nothing.
+    /// unless the memory shows the object's pages itself. `MADV_WIPEONFORK` and
+    /// `MADV_KEEPONFORK` set and clear `VM_WIPEONFORK`. Every other advice changes nothing.
     pub(crate) async fn sys_madvise(
         &self,
         caller: &Caller<'_>,
@@ -981,6 +1051,14 @@ impl Kernel {
         match advice {
             MadviseAdvice::MADV_DONTNEED => self.drop_pages(caller, start.into(), len).await?,
             MadviseAdvice::MADV_REMOVE => return Err(Errno::EINVAL.into()),
+            MadviseAdvice::MADV_WIPEONFORK => {
+                self.madvise_wipe_on_fork(caller, start.into(), len, true)
+                    .await?
+            }
+            MadviseAdvice::MADV_KEEPONFORK => {
+                self.madvise_wipe_on_fork(caller, start.into(), len, false)
+                    .await?
+            }
             MadviseAdvice(100 | 101) => return Err(Errno::EPERM.into()),
             _ => {}
         }
@@ -1066,6 +1144,51 @@ impl Kernel {
         }
         mm.restore(mappings);
         result
+    }
+
+    /// `MADV_WIPEONFORK` (`wipe`) or `MADV_KEEPONFORK` over `[start, start + len)`. Only
+    /// private anonymous memory can be wiped: `madvise_update_vma` goes through the areas in
+    /// order, so the pages before the first file or shared mapping in the range take the flag,
+    /// and that mapping fails with `EINVAL`. Anonymous shared memory the host could not give an
+    /// object is private memory here (see `sys_mmap`), and takes it too.
+    async fn madvise_wipe_on_fork(
+        &self,
+        caller: &Caller<'_>,
+        start: u64,
+        len: u64,
+        wipe: bool,
+    ) -> Result<(), Errno> {
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let mut space = mm.space();
+        let end = start + len;
+        let refused = match wipe {
+            true => space
+                .mappings
+                .first_in(start, end)
+                .map(|m| m.start.max(start)),
+            false => None,
+        };
+        let marked_end = refused.unwrap_or(end);
+        space.set_wipe_on_fork(start / PAGE_SIZE, marked_end / PAGE_SIZE, wipe);
+        match refused {
+            Some(_) => Err(Errno::EINVAL),
+            None => Ok(()),
+        }
+    }
+
+    /// The ranges of `task`'s memory a fork child gets zeroed (`VM_WIPEONFORK`), lowest first:
+    /// the execution layer leaves them out of the child's copy. None for a task that is gone.
+    pub(crate) fn wipe_on_fork(&self, task: TaskId) -> Vec<Range<u64>> {
+        let mm = {
+            let state = self.state.read().unwrap_or_else(PoisonError::into_inner);
+            match state.tasks.get(&task) {
+                Some(task) => task.mm.clone(),
+                None => return Vec::new(),
+            }
+        };
+        let space = mm.space();
+        space.wipe_on_fork_ranges()
     }
 
     /// Memory is never paged out, so locking only checks the range.

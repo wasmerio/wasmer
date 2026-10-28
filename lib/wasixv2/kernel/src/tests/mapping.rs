@@ -1,5 +1,5 @@
 //! File mappings: private copies, shared mappings kept coherent with the file, and `mmap`'s
-//! checks.
+//! checks; `MADV_WIPEONFORK`, which only anonymous memory takes.
 
 use super::{
     ipc::{errno, get, put},
@@ -365,4 +365,117 @@ fn a_fatal_signal_writes_back_shared_mappings_once_the_last_task_leaves_the_memo
     block_on(kernel.exit_mm(&caller));
     assert_eq!(contents(), b"HELLO file");
     assert!(exited(&kernel, task));
+}
+
+fn madvise(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    at: u32,
+    len: u32,
+    advice: MadviseAdvice,
+) -> SysResult<i32> {
+    block_on(kernel.madvise(caller, at, len, advice))
+}
+
+const WIPE: MadviseAdvice = MadviseAdvice::MADV_WIPEONFORK;
+const KEEP: MadviseAdvice = MadviseAdvice::MADV_KEEPONFORK;
+
+/// `[at, at + pages pages)`, as [`Kernel::wipe_on_fork`] lists ranges.
+fn pages_at(at: u32, pages: u32) -> std::ops::Range<u64> {
+    u64::from(at)..u64::from(at + pages * PAGE)
+}
+
+#[test]
+fn madvise_wipeonfork_takes_only_private_anonymous_memory() {
+    let (kernel, task, memory, fd) = with_file(b"file");
+    let caller = Caller::new(task, &memory);
+    let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    let at = mmap(&kernel, &caller, 3 * PAGE, anon, Fd(-1)).unwrap();
+    let private = mmap(&kernel, &caller, PAGE, MapFlags::MAP_PRIVATE, fd).unwrap();
+    let shared = mmap(&kernel, &caller, PAGE, MapFlags::MAP_SHARED, fd).unwrap();
+    assert_eq!(private, at + 3 * PAGE);
+
+    // File mappings, private or shared, refuse it; marking them "keep" is harmless.
+    assert_eq!(
+        errno(madvise(&kernel, &caller, private, PAGE, WIPE)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(madvise(&kernel, &caller, shared, PAGE, WIPE)),
+        Errno::EINVAL
+    );
+    assert_eq!(madvise(&kernel, &caller, shared, PAGE, KEEP), Ok(0));
+    assert_eq!(madvise(&kernel, &caller, at, 0, WIPE), Ok(0));
+    assert!(kernel.wipe_on_fork(task).is_empty());
+
+    // Over anonymous memory and on into a file mapping: the anonymous areas before it take the
+    // flag, as `madvise_walk_vmas` changes them in order, and the file mapping fails.
+    assert_eq!(
+        errno(madvise(&kernel, &caller, at, 4 * PAGE, WIPE)),
+        Errno::EINVAL
+    );
+    assert_eq!(kernel.wipe_on_fork(task), [pages_at(at, 3)]);
+    // KEEPONFORK clears it again, here splitting the area; a length rounds up to a page.
+    assert_eq!(madvise(&kernel, &caller, at + PAGE, 100, KEEP), Ok(0));
+    assert_eq!(
+        kernel.wipe_on_fork(task),
+        [pages_at(at, 1), pages_at(at + 2 * PAGE, 1)]
+    );
+}
+
+#[test]
+fn wipeonfork_stays_with_its_pages_until_they_are_unmapped_or_the_image_changes() {
+    let (kernel, task, _) = setup(b"");
+    let memory = super::proc::ForkableMemory(FlatMemory(RefCell::new(vec![0; PAGE as usize])));
+    let caller = Caller::new(task, &memory);
+    super::task::install_prog(&kernel, &caller, &memory.0);
+    let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    let at = mmap(&kernel, &caller, PAGE, anon, Fd(-1)).unwrap();
+    assert_eq!(madvise(&kernel, &caller, at, PAGE, WIPE), Ok(0));
+
+    // Growing in place extends the area, and the flag with it.
+    assert_eq!(
+        mremap(&kernel, &caller, at, PAGE, 2 * PAGE, MremapFlags(0), 0),
+        Ok(at as i32)
+    );
+    assert_eq!(kernel.wipe_on_fork(task), [pages_at(at, 2)]);
+    // Moving it moves the flag; with MREMAP_DONTUNMAP the source keeps its own.
+    let moved = mremap(&kernel, &caller, at, 2 * PAGE, 3 * PAGE, FIXED, 8 * PAGE).unwrap() as u32;
+    assert_eq!(kernel.wipe_on_fork(task), [pages_at(moved, 3)]);
+    let anywhere = mremap(&kernel, &caller, moved, PAGE, PAGE, DONTUNMAP, 0).unwrap() as u32;
+    let mut expected = vec![pages_at(moved, 3), pages_at(anywhere, 1)];
+    expected.sort_by_key(|range| range.start);
+    assert_eq!(kernel.wipe_on_fork(task), expected);
+    assert_eq!(block_on(kernel.munmap(&caller, anywhere, PAGE)), Ok(0));
+    // Shrinking unmaps the tail, flag and all; a new mapping there starts without it.
+    assert_eq!(
+        mremap(&kernel, &caller, moved, 3 * PAGE, PAGE, MremapFlags(0), 0),
+        Ok(moved as i32)
+    );
+    assert_eq!(kernel.wipe_on_fork(task), [pages_at(moved, 1)]);
+    let fixed = MapFlags(anon.0 | MapFlags::MAP_FIXED.0);
+    let refilled = block_on(kernel.mmap(&caller, moved + PAGE, PAGE, RW, fixed, Fd(-1), 0));
+    assert_eq!(refilled, Ok(moved + PAGE));
+    assert_eq!(kernel.wipe_on_fork(task), [pages_at(moved, 1)]);
+
+    // A fork child's areas keep it (`dup_mmap` copies the flags), so its own children's do too.
+    let child = super::proc::fork_child(&kernel, &caller);
+    assert_eq!(kernel.wipe_on_fork(child), [pages_at(moved, 1)]);
+    let child_caller = Caller::new(child, &memory);
+    let grandchild = super::proc::fork_child(&kernel, &child_caller);
+    assert_eq!(kernel.wipe_on_fork(grandchild), [pages_at(moved, 1)]);
+    // The child's changes are its own.
+    assert_eq!(madvise(&kernel, &child_caller, moved, PAGE, KEEP), Ok(0));
+    assert!(kernel.wipe_on_fork(child).is_empty());
+    assert_eq!(kernel.wipe_on_fork(task), [pages_at(moved, 1)]);
+
+    // A new image starts with a new address space.
+    assert_eq!(block_on(super::task::execve(&kernel, &caller)), Ok(0));
+    assert!(kernel.wipe_on_fork(task).is_empty());
+
+    // So does a munmap.
+    let at = mmap(&kernel, &child_caller, PAGE, anon, Fd(-1)).unwrap();
+    assert_eq!(madvise(&kernel, &child_caller, at, PAGE, WIPE), Ok(0));
+    assert_eq!(block_on(kernel.munmap(&child_caller, at, PAGE)), Ok(0));
+    assert!(kernel.wipe_on_fork(child).is_empty());
 }

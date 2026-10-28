@@ -29,9 +29,10 @@
 //!   unwound stack) into a [`ForkImage`] that a new instance rewinds as the child. Only the
 //!   outermost level can fork: the levels below would be host frames the copy cannot hold.
 //!   Ranges of memory that show a shared object are not copied: the child's memory shows the
-//!   same object there.
+//!   same object there. Ranges `MADV_WIPEONFORK` marked are not copied either: they read zero
+//!   in the child.
 
-use std::{any::Any, collections::HashMap, future::Future, sync::Arc};
+use std::{any::Any, collections::HashMap, future::Future, ops::Range, sync::Arc};
 
 use wasixv2_syscalls::{SharedMapping, TaskId};
 use wasmer::{
@@ -79,11 +80,13 @@ pub(crate) enum Request {
     /// `jmp_buf`).
     Save { slot: u32 },
     /// Copy the instance for the child task `child`, whose memory shows the objects of `shared`
-    /// where the parent's does. `tag` comes back to the import on both sides of the fork.
+    /// where the parent's does and reads zero in `wiped`. `tag` comes back to the import on both
+    /// sides of the fork.
     Fork {
         child: TaskId,
         tag: Tag,
         shared: Vec<SharedMapping>,
+        wiped: Vec<Range<u64>>,
     },
 }
 
@@ -356,11 +359,16 @@ async fn settle<S: 'static>(
     stop_unwind.call_async(&cx.store()).await?;
     let resume = match request {
         Request::Save { slot } => Resume::Saved(save(cx, level, slot).await?),
-        Request::Fork { child, tag, shared } => {
+        Request::Fork {
+            child,
+            tag,
+            shared,
+            wiped,
+        } => {
             let entry = entry.filter(|_| level == 1).ok_or_else(|| {
                 RuntimeError::new("fork from a guest call that is not the entry point")
             })?;
-            let image = snapshot(cx, entry, args, tag.clone(), shared).await?;
+            let image = snapshot(cx, entry, args, tag.clone(), shared, &wiped).await?;
             let spawner = cx.with(|env, _| env.proc.spawner.clone()).await;
             spawner.fork(child, image);
             Resume::Forked {
@@ -569,13 +577,14 @@ impl ForkImage {
 }
 
 /// Copies the instance behind `cx`, whose outermost level just unwound, but for the ranges of
-/// memory that show the objects of `shared`.
+/// memory that show the objects of `shared`, and with `wiped` reading zero.
 async fn snapshot<S: 'static>(
     cx: &impl Access<S>,
     entry: &'static str,
     args: &[Value],
     tag: Tag,
     shared: Vec<SharedMapping>,
+    wiped: &[Range<u64>],
 ) -> Result<ForkImage, RuntimeError> {
     cx.with(|env, store| {
         let module = env
@@ -592,7 +601,7 @@ async fn snapshot<S: 'static>(
                 start..start + mapping.len
             })
             .collect();
-        let image = MemoryImage::capture(&memory, &*store, &ranges)
+        let image = MemoryImage::capture(&memory, &*store, &ranges, wiped)
             .map_err(|_| RuntimeError::new("cannot copy guest memory"))?;
         let globals = a
             .globals

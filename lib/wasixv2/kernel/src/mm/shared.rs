@@ -578,6 +578,11 @@ impl Mappings {
             .filter_map(|m| m.mapped().map(|mapped| (m, mapped)))
     }
 
+    /// The lowest mapping that overlaps `[start, end)`, if any.
+    pub(crate) fn first_in(&self, start: u64, end: u64) -> Option<&Mapping> {
+        self.list.iter().find(|m| m.start < end && m.end() > start)
+    }
+
     /// The mapping `addr` lies in, if any.
     pub(crate) fn containing(&self, addr: u64) -> Option<&Mapping> {
         self.list.iter().find(|m| m.start <= addr && addr < m.end())
