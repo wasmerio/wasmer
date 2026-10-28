@@ -400,3 +400,64 @@ fn generic_ioctls_give_block_size_bytes_used_and_refuse_async() {
     let qsize = block_on(kernel.ioctl(&t.caller, r, IoctlRequest::FIOQSIZE, 0x3000));
     assert_eq!(errno(qsize), Errno::ENOTTY);
 }
+
+/// `FICLONE`, `FICLONERANGE` and `FIDEDUPERANGE` make `ioctl_file_clone`'s and
+/// `vfs_dedupe_file_range`'s checks, then fail with `EOPNOTSUPP`: no filesystem here shares
+/// extents (`remap_file_range`), so `cp --reflink=always` reports that, not "Not a tty".
+#[test]
+fn clone_and_dedupe_ioctls_check_their_files_then_are_unsupported() {
+    const FICLONE: IoctlRequest = IoctlRequest(0x4004_9409);
+    const FICLONERANGE: IoctlRequest = IoctlRequest(0x4020_940d);
+    const FIDEDUPERANGE: IoctlRequest = IoctlRequest(0xc018_9436);
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/src", b"data");
+    t.mkdir("/d");
+    let src = t.open("/src", OpenFlags::O_RDONLY).unwrap();
+    let wronly = t.open("/src", OpenFlags::O_WRONLY).unwrap();
+    let dst = t
+        .open("/dst", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    let rdonly = t.open("/dst", OpenFlags::O_RDONLY).unwrap();
+    let append = t
+        .open("/dst", OpenFlags::O_WRONLY | OpenFlags::O_APPEND)
+        .unwrap();
+    let dir = t
+        .open("/d", OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY)
+        .unwrap();
+    let (pipe_r, _pipe_w) = super::ipc::pipe(&kernel, &t.caller, OpenFlags(0));
+    let ioctl = |fd, request, arg| errno(block_on(kernel.ioctl(&t.caller, fd, request, arg)));
+    let clone = |dst, src: Fd| ioctl(dst, FICLONE, src.0 as u32);
+
+    assert_eq!(clone(dst, src), Errno::EOPNOTSUPP);
+    assert_eq!(clone(dst, Fd(99)), Errno::EBADF);
+    assert_eq!(clone(dst, pipe_r), Errno::EXDEV);
+    assert_eq!(clone(dst, dir), Errno::EISDIR);
+    assert_eq!(clone(dst, wronly), Errno::EBADF);
+    assert_eq!(clone(rdonly, src), Errno::EBADF);
+    assert_eq!(clone(append, src), Errno::EBADF);
+
+    let range: Vec<u8> = [i64::from(src.0), 0, 4, 0]
+        .iter()
+        .flat_map(|v| v.to_le_bytes())
+        .collect();
+    put(&memory, 0x3000, &range);
+    assert_eq!(ioctl(dst, FICLONERANGE, 0x3000), Errno::EOPNOTSUPP);
+    assert_eq!(ioctl(dst, FICLONERANGE, 1 << 30), Errno::EFAULT);
+
+    // One destination: a 24-byte header and a 32-byte element.
+    let mut dedupe = vec![0; 56];
+    dedupe[8..16].copy_from_slice(&4u64.to_le_bytes());
+    dedupe[16..18].copy_from_slice(&1u16.to_le_bytes());
+    dedupe[24..32].copy_from_slice(&i64::from(dst.0).to_le_bytes());
+    put(&memory, 0x3000, &dedupe);
+    assert_eq!(ioctl(src, FIDEDUPERANGE, 0x3000), Errno::EOPNOTSUPP);
+    assert_eq!(ioctl(wronly, FIDEDUPERANGE, 0x3000), Errno::EINVAL);
+    assert_eq!(ioctl(dir, FIDEDUPERANGE, 0x3000), Errno::EISDIR);
+    assert_eq!(ioctl(src, FIDEDUPERANGE, 1 << 30), Errno::EFAULT);
+    put(&memory, 0x3012, &1u16.to_le_bytes());
+    assert_eq!(ioctl(src, FIDEDUPERANGE, 0x3000), Errno::EINVAL);
+    // More elements than a page holds.
+    put(&memory, 0x3010, &200u16.to_le_bytes());
+    assert_eq!(ioctl(src, FIDEDUPERANGE, 0x3000), Errno::ENOMEM);
+}
