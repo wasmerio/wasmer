@@ -22,10 +22,10 @@ use mio::{
     net::{TcpListener, TcpStream, UdpSocket},
     unix::SourceFd,
 };
-use wasixv2_abi::{Errno, SocketLevel, SocketOption, TcpOption};
+use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
-    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, Room, Shutdown,
-    StreamState as Phase,
+    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, QueuedError, Room,
+    Shutdown, StreamState as Phase,
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistration};
 
@@ -808,11 +808,23 @@ impl Drop for HostPublication {
 
 // ---- datagrams ----
 
+/// The options that make the host queue ICMP errors, as the guest names them.
+const RECVERR: [(i32, i32); 2] = [
+    (SocketLevel::SOL_IP.0, IpOption::IP_RECVERR.0),
+    (SocketLevel::SOL_IPV6.0, Ipv6Option::IPV6_RECVERR.0),
+];
+
 struct DgramState {
     queue: VecDeque<(Vec<u8>, SocketAddr)>,
+    /// Bytes of datagrams and of queued errors' payloads.
     queued: usize,
-    /// `sk_err` of the host socket: what an ICMP error to a connected peer left.
+    /// `sk_err` of the host socket: what an ICMP error to a connected peer left, or with
+    /// `IP_RECVERR` to any peer.
     err: Option<Errno>,
+    /// `IP_RECVERR` and `IPV6_RECVERR` as set on the host socket.
+    recverr: [bool; 2],
+    /// The host socket's error queue, as far as the reactor has read it.
+    errqueue: VecDeque<QueuedError>,
     /// The host socket is connected (`connect`), so the host filters by its peer.
     connected: Option<SocketAddr>,
     /// The host socket takes datagrams: false from a send's `EAGAIN` until the reactor sees
@@ -845,6 +857,42 @@ impl DgramShared {
     }
 
     fn receive_all(&self, buf: &mut [u8]) {
+        let mut wake = self.receive_datagrams(buf);
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        if self.state().recverr.contains(&true) {
+            wake |= self.receive_errors(buf);
+        }
+        if !wake.is_empty() {
+            self.wq.wake(wake);
+        }
+    }
+
+    /// Reads the host socket's error queue into the endpoint's, which holds as much as its
+    /// receive buffer (`sock_queue_err_skb`).
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn receive_errors(&self, buf: &mut [u8]) -> PollMask {
+        let mut wake = PollMask::empty();
+        loop {
+            match errqueue::recv(&self.sock, buf) {
+                Ok(Some(e)) => {
+                    let mut st = self.state();
+                    if st.queued <= DGRAM_BUF {
+                        st.queued += e.payload.len();
+                        st.errqueue.push_back(e);
+                        wake |= PollMask::ERR;
+                    }
+                }
+                Ok(None) => return wake,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => {
+                    tracing::warn!(error = %e, "reading a host datagram socket's error queue");
+                    return wake;
+                }
+            }
+        }
+    }
+
+    fn receive_datagrams(&self, buf: &mut [u8]) -> PollMask {
         let mut wake = PollMask::empty();
         // An error is reported once and then cleared (`sock_error`); one that comes straight
         // back is not a peer's report, and retrying it would starve every other socket.
@@ -867,21 +915,19 @@ impl DgramShared {
                     tracing::warn!(error = %e, "receiving on a host datagram socket");
                     break;
                 }
-                // An ICMP error for a connected socket (`__udp4_lib_err`); unconnected ones
-                // never hear of them (no IP_RECVERR).
+                // An ICMP error (`__udp4_lib_err`): for a connected socket, or with
+                // IP_RECVERR for any; without it an unconnected socket never hears of them.
                 Err(e) => {
                     failed = true;
                     let mut st = self.state();
-                    if st.connected.is_some() {
+                    if st.connected.is_some() || st.recverr.contains(&true) {
                         st.err = Some(errno_from_io(&e));
                         wake |= PollMask::ERR;
                     }
                 }
             }
         }
-        if !wake.is_empty() {
-            self.wq.wake(wake);
-        }
+        wake
     }
 }
 
@@ -907,7 +953,7 @@ impl Pollable for HostDatagram {
         if !st.queue.is_empty() {
             m |= PollMask::IN | PollMask::RDNORM;
         }
-        if st.err.is_some() {
+        if st.err.is_some() || !st.errqueue.is_empty() {
             m |= PollMask::ERR;
         }
         m
@@ -977,6 +1023,36 @@ impl BackendDatagram for HostDatagram {
     fn take_error(&self) -> Option<Errno> {
         self.0.state().err.take()
     }
+
+    fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
+        let Some(i) = RECVERR.iter().position(|&o| o == (level, name)) else {
+            return Ok(());
+        };
+        let on = value.iter().any(|&b| b != 0);
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        errqueue::set_recverr(&self.0.sock, i == 1, on).map_err(|e| errno_from_io(&e))?;
+        let mut st = self.0.state();
+        st.recverr[i] = on;
+        if !on {
+            // The host purged its queue (`skb_errqueue_purge`); so does the endpoint.
+            let purged: usize = st.errqueue.drain(..).map(|e| e.payload.len()).sum();
+            st.queued -= purged;
+        }
+        Ok(())
+    }
+
+    fn take_queued_error(&self) -> Option<QueuedError> {
+        let mut st = self.0.state();
+        let e = st.errqueue.pop_front()?;
+        st.queued -= e.payload.len();
+        // `sock_dequeue_err_skb`.
+        match st.errqueue.front() {
+            Some(next) if next.is_icmp() => st.err = Some(next.errno),
+            _ if e.is_icmp() => st.err = None,
+            _ => {}
+        }
+        Some(e)
+    }
 }
 
 // ---- the backend ----
@@ -1004,6 +1080,8 @@ impl Backend for HostBackend {
                 queue: VecDeque::new(),
                 queued: 0,
                 err: None,
+                recverr: [false; 2],
+                errqueue: VecDeque::new(),
                 connected: None,
                 host_writable: true,
             }),
@@ -1079,6 +1157,144 @@ fn listen(addr: SocketAddr, backlog: u32) -> io::Result<TcpListener> {
     sock.bind(&addr.into())?;
     sock.listen(backlog.min(i32::MAX as u32) as i32)?;
     Ok(TcpListener::from_std(sock.into()))
+}
+
+/// The host's socket error queue (Linux's `IP_RECVERR`), which socket2 has no API for.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+mod errqueue {
+    use std::{io, mem, os::fd::AsRawFd, ptr};
+
+    use mio::net::UdpSocket;
+    use wasixv2_abi::{Errno, SoEeOrigin};
+    use wasixv2_vnet::QueuedError;
+
+    /// `IP_RECVERR`, or `IPV6_RECVERR` for `v6`, on the host socket.
+    pub(super) fn set_recverr(sock: &UdpSocket, v6: bool, on: bool) -> io::Result<()> {
+        let (level, name) = match v6 {
+            false => (libc::SOL_IP, libc::IP_RECVERR),
+            true => (libc::SOL_IPV6, libc::IPV6_RECVERR),
+        };
+        let value = libc::c_int::from(on);
+        // SAFETY: an int option, passed with its size, on a descriptor the socket owns.
+        let r = unsafe {
+            libc::setsockopt(
+                sock.as_raw_fd(),
+                level,
+                name,
+                ptr::from_ref(&value).cast(),
+                mem::size_of::<libc::c_int>() as libc::socklen_t,
+            )
+        };
+        match r {
+            0 => Ok(()),
+            _ => Err(io::Error::last_os_error()),
+        }
+    }
+
+    /// Takes one entry off the host socket's error queue (`recvmsg(MSG_ERRQUEUE)`), its quoted
+    /// payload read through `buf`; `None` once the queue is empty. Entries without an
+    /// `IP_RECVERR`/`IPV6_RECVERR` message are skipped.
+    pub(super) fn recv(sock: &UdpSocket, buf: &mut [u8]) -> io::Result<Option<QueuedError>> {
+        loop {
+            // Room for the largest message: the extended error and a sockaddr_in6.
+            let mut control = [0u64; 16];
+            let mut iov = libc::iovec {
+                iov_base: buf.as_mut_ptr().cast(),
+                iov_len: buf.len(),
+            };
+            // SAFETY: `recvmsg` writes at most `len` bytes of address into the storage and
+            // the lengths it reports back; every buffer outlives the call.
+            let received = unsafe {
+                socket2::SockAddr::try_init(|storage, len| {
+                    let mut msg: libc::msghdr = mem::zeroed();
+                    msg.msg_name = storage.cast();
+                    msg.msg_namelen = *len;
+                    msg.msg_iov = &mut iov;
+                    msg.msg_iovlen = 1;
+                    msg.msg_control = control.as_mut_ptr().cast();
+                    msg.msg_controllen = mem::size_of_val(&control) as _;
+                    let flags = libc::MSG_ERRQUEUE | libc::MSG_DONTWAIT;
+                    let n = libc::recvmsg(sock.as_raw_fd(), &mut msg, flags);
+                    if n < 0 {
+                        return Err(io::Error::last_os_error());
+                    }
+                    *len = msg.msg_namelen;
+                    Ok((n as usize, msg))
+                })
+            };
+            let ((n, msg), dst) = match received {
+                Ok(r) => r,
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(None),
+                Err(e) => return Err(e),
+            };
+            let payload = buf[..n.min(buf.len())].to_vec();
+            // SAFETY: `msg` describes `control`, which `recvmsg` filled.
+            if let Some(e) = unsafe { extended_err(&msg) } {
+                return Ok(Some(QueuedError {
+                    dst: dst.as_socket(),
+                    payload,
+                    ..e
+                }));
+            }
+        }
+    }
+
+    /// The `IP_RECVERR`/`IPV6_RECVERR` message among `msg`'s control messages, without the
+    /// address and payload.
+    ///
+    /// # Safety
+    ///
+    /// `msg` must describe control messages `recvmsg` filled in.
+    unsafe fn extended_err(msg: &libc::msghdr) -> Option<QueuedError> {
+        const EE_LEN: usize = mem::size_of::<libc::sock_extended_err>();
+        // SAFETY: the caller's; the walk stays inside `msg_controllen`.
+        unsafe {
+            let mut cmsg = libc::CMSG_FIRSTHDR(msg);
+            while !cmsg.is_null() {
+                let h = &*cmsg;
+                let ours = (h.cmsg_level == libc::SOL_IP && h.cmsg_type == libc::IP_RECVERR)
+                    || (h.cmsg_level == libc::SOL_IPV6 && h.cmsg_type == libc::IPV6_RECVERR);
+                let data = libc::CMSG_DATA(cmsg);
+                let len =
+                    (h.cmsg_len as usize).saturating_sub(data.offset_from(cmsg.cast()) as usize);
+                if ours && len >= EE_LEN {
+                    let ee: libc::sock_extended_err = ptr::read_unaligned(data.cast());
+                    return Some(QueuedError {
+                        errno: Errno(ee.ee_errno as i32),
+                        origin: SoEeOrigin(ee.ee_origin),
+                        type_: ee.ee_type,
+                        code: ee.ee_code,
+                        info: ee.ee_info,
+                        data: ee.ee_data,
+                        offender: sockaddr(data.add(EE_LEN), len - EE_LEN),
+                        dst: None,
+                        payload: Vec::new(),
+                    });
+                }
+                cmsg = libc::CMSG_NXTHDR(msg, cmsg);
+            }
+        }
+        None
+    }
+
+    /// The socket address of `len` bytes at `raw`; `None` for `AF_UNSPEC` (no offender).
+    ///
+    /// # Safety
+    ///
+    /// `raw` must be readable for `len` bytes.
+    unsafe fn sockaddr(raw: *const u8, len: usize) -> Option<std::net::SocketAddr> {
+        let len = len.min(mem::size_of::<libc::sockaddr_storage>());
+        // SAFETY: at most the storage's size is copied, from the caller's readable bytes.
+        let (_, addr) = unsafe {
+            socket2::SockAddr::try_init(|storage, l| {
+                ptr::copy_nonoverlapping(raw, storage.cast::<u8>(), len);
+                *l = len as libc::socklen_t;
+                Ok(())
+            })
+        }
+        .ok()?;
+        addr.as_socket()
+    }
 }
 
 #[cfg(test)]
@@ -1179,6 +1395,8 @@ mod tests {
                 queue: VecDeque::new(),
                 queued: 0,
                 err: None,
+                recverr: [false; 2],
+                errqueue: VecDeque::new(),
                 connected: Some("127.0.0.1:9".parse().unwrap()),
                 host_writable: true,
             }),
@@ -1195,6 +1413,53 @@ mod tests {
         assert_eq!(err, Some(Errno::ENOTSOCK));
         // SAFETY: the write end is still open and ours.
         unsafe { libc_close(fds[1]) };
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn a_port_unreachable_queues_one_error_with_ip_recverr() {
+        let b = backend();
+        let wq = WaitQueue::new();
+        let (tx, rx) = mpsc::channel();
+        struct Signal(mpsc::Sender<PollMask>);
+        impl WaitEntry for Signal {
+            fn wake(&self, events: PollMask) -> bool {
+                let _ = self.0.send(events);
+                true
+            }
+        }
+        let _reg = wq.add(Arc::new(Signal(tx)));
+        let d = b.datagram(Domain::Inet, wq).unwrap();
+        d.set_option(
+            SocketLevel::SOL_IP.0,
+            IpOption::IP_RECVERR.0,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+        // A loopback port nobody holds.
+        let closed = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        let dst = closed.local_addr().unwrap();
+        drop(closed);
+        assert_eq!(d.send_to(b"ping", dst), Ok(4));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !rx
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .expect("the error wakes the guest socket")
+            .contains(PollMask::ERR)
+        {}
+        assert!(d.poll(None).contains(PollMask::ERR));
+        // Unconnected, the error is still pending with IP_RECVERR.
+        assert_eq!(d.take_error(), Some(Errno::ECONNREFUSED));
+        let e = d.take_queued_error().expect("one queued error");
+        assert_eq!(e.errno, Errno::ECONNREFUSED);
+        assert_eq!(e.origin, wasixv2_abi::SoEeOrigin::SO_EE_ORIGIN_ICMP);
+        // ICMP_DEST_UNREACH, ICMP_PORT_UNREACH.
+        assert_eq!((e.type_, e.code), (3, 3));
+        assert_eq!(e.dst, Some(dst));
+        assert_eq!(e.offender.map(|o| o.ip()), Some(dst.ip()));
+        assert_eq!(e.payload, b"ping");
+        assert_eq!(d.take_queued_error(), None);
+        assert!(!d.poll(None).contains(PollMask::ERR));
     }
 
     unsafe extern "C" {
