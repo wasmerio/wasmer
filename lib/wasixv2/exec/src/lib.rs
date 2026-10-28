@@ -7,6 +7,7 @@
 pub mod abi;
 pub mod asyncify;
 mod atomics;
+mod cputime;
 mod fork;
 mod generated;
 mod loader;
@@ -109,12 +110,21 @@ pub struct ExecEnv<S> {
     /// What the ABI's import that forks hands its resumption in the child
     /// ([`asyncify::import::set_fork_payload`]).
     fork_payload: Option<asyncify::Tag>,
+    /// Process accounting for `task`.
+    cpu: cputime::CpuSample,
 }
 
 impl<S: Control> ExecEnv<S> {
-    pub(crate) fn new(syscalls: Arc<S>, task: TaskId, proc: process::ProcExports) -> Self {
+    /// The environment of an instance that runs as `task`, made on the host thread that runs it.
+    pub(crate) fn new(
+        syscalls: Arc<S>,
+        task: TaskId,
+        proc: process::ProcExports,
+        host: Arc<dyn Host>,
+    ) -> Self {
         Self {
             work: syscalls.work_flag(task),
+            cpu: cputime::CpuSample::new(host, syscalls.cpu_account(task)),
             syscalls,
             task,
             memory: None,
@@ -129,10 +139,22 @@ impl<S: Control> ExecEnv<S> {
         }
     }
 
-    /// The instance runs as `task` from now on.
+    /// The instance runs as `task` from now on. The task it ran as so far is charged with its
+    /// CPU time up to here.
     pub(crate) fn switch(&mut self, task: TaskId) {
+        if self.cpu.switch(self.syscalls.cpu_account(task)) {
+            self.syscalls.cpu_timers(self.task);
+        }
         self.work = self.syscalls.work_flag(task);
         self.task = task;
+    }
+
+    /// Charges the task with its CPU time up to here ([`cputime`]), and runs the CPU timers
+    /// that charge made expire, so what they send is pending before the guest goes on.
+    fn sample_cpu(&self) {
+        if self.cpu.sample() {
+            self.syscalls.cpu_timers(self.task);
+        }
     }
 }
 
@@ -152,11 +174,23 @@ impl<S> ExecEnv<S> {
     }
 }
 
+impl<S> ExecEnv<S> {
+    /// A syscall enters. Every import that makes syscalls calls this once as it starts, before
+    /// it runs the first and [`complete`] after each: process accounting tells the time the
+    /// guest ran its own code from the time the kernel ran for it by these ([`cputime`]).
+    /// [`caller_parts`] calls it.
+    pub fn enter(&self) {
+        self.cpu.enter();
+    }
+}
+
 /// The syscalls object and the current task of the instance behind `env`, which every import
-/// reads on entry.
+/// that makes syscalls reads on entry; marks the entry ([`ExecEnv::enter`]).
 pub async fn caller_parts<S: 'static>(env: &AsyncFunctionEnvMut<ExecEnv<S>>) -> (Arc<S>, TaskId) {
     let env = env.read().await;
-    (env.data().syscalls.clone(), env.data().task)
+    let data = env.data();
+    data.enter();
+    (data.syscalls.clone(), data.task)
 }
 
 /// Calls `function` in the instance behind `env` from inside one of its imports, such as a
@@ -306,6 +340,8 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
     on_return: EntryReturn,
     role: Role,
 ) -> Ended {
+    // The task is charged with its time up to its end.
+    cx.with(|env, _| env.sample_cpu()).await;
     let err = match (result, on_return) {
         (Ok(()), EntryReturn::Exit(status)) => return exit_on_return(cx, role, status).await,
         // Linux kills a process whose entry point returns with SIGSEGV, as it runs into
@@ -489,7 +525,10 @@ where
     );
     let handoff = Arc::new(process::Handoff::default());
     let proc = process::ProcExports::new(spawner, handoff.clone());
-    let env = FunctionEnv::new(&mut store, ExecEnv::new(syscalls.clone(), task, proc));
+    let env = FunctionEnv::new(
+        &mut store,
+        ExecEnv::new(syscalls.clone(), task, proc, host.clone()),
+    );
     let mut imports = imports(&*abi, &mut store, &env, module);
     let size = fork.map(|image| image.memory.size());
     let imported = import_memory(&mut store, module, &mut imports, size)?;
@@ -712,6 +751,10 @@ where
     let (syscalls, task, ready) = {
         let env = env.read().await;
         let data = env.data();
+        // The timer tick of Linux's accounting: the guest ran its own code up to here.
+        if data.cpu.preempt() {
+            data.syscalls.cpu_timers(data.task);
+        }
         // Still instantiating: nothing can be delivered yet. Nor while asyncify unwinds or
         // rewinds the stack: the checks were added after its instrumentation, so they run on
         // the way, and a handler called then would find the instance mid-rewind.
@@ -816,11 +859,22 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
     // through its frame. `ERESTARTNOINTR` restarts whatever the handler's flags;
     // `ERESTARTNOHAND` and `ERESTART_RESTARTBLOCK` never restart after a handler.
     let mut handled: Option<bool> = None;
-    // Nothing to do unless the kernel raised the flag (`exit_to_user_mode_prepare`).
-    let raised = env.read().await.data().work.is_raised();
+    // The syscall's end, for process accounting; a CPU timer the sample made expire leaves
+    // its work before the flag is read.
+    let raised = {
+        let env = env.read().await;
+        let data = env.data();
+        if data.cpu.exit() {
+            data.syscalls.cpu_timers(data.task);
+        }
+        // Nothing to do unless the kernel raised the flag (`exit_to_user_mode_prepare`).
+        data.work.is_raised()
+    };
     while let Some(action) = raised.then(|| syscalls.take_pending(task)).flatten() {
         match action {
             GuestAction::Exit(status) => {
+                // All its time is charged before its exit can be seen.
+                env.read().await.data().sample_cpu();
                 // `do_exit`'s `exit_mm`, while the memory is still there.
                 let memory = GuestMemory { env };
                 syscalls.exit_mm(&Caller::new(task, &memory)).await;
@@ -874,8 +928,9 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 };
             }
             GuestAction::VforkReturn { parent, child } => {
-                // The child ended; nothing runs as it any more. Its memory is the parent's,
-                // which stays.
+                // The child ended; nothing runs as it any more, and all its time is charged.
+                // Its memory is the parent's, which stays.
+                env.read().await.data().sample_cpu();
                 let memory = GuestMemory { env };
                 syscalls.exit_mm(&Caller::new(child, &memory)).await;
                 syscalls.release(child);

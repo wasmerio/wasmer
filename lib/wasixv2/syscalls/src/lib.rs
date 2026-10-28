@@ -7,6 +7,7 @@
 
 mod caller;
 mod control;
+mod cputime;
 mod generated;
 mod memory;
 mod result;
@@ -16,6 +17,7 @@ pub use control::{
     AtomicWait, AtomicWord, BINPRM_BUF_SIZE, Binfmt, Control, ExitMm, GroupStop, GuestAction,
     Image, ImageId, Resume, SharedMapping, SharedMappings, SignalFrame, VforkParent, WorkFlag,
 };
+pub use cputime::{CpuAccount, CpuBase, CpuTime, CpuTimes, Expiry, GroupCpu};
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{
     CstrError, Fault, LocalFuture, UserMemory, UserSlice, UserSliceMut, WASM_PAGE_SIZE, copied,

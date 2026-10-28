@@ -122,6 +122,7 @@ where
     let (syscalls, task, abi) = {
         let guard = env.read().await;
         let data = guard.data();
+        data.enter();
         let abi = data
             .abi()
             .cloned()

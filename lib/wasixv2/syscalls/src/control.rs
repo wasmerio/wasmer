@@ -10,7 +10,7 @@ use wasixv2_abi::{Errno, Siginfo};
 use wasixv2_pages::SharedPages;
 
 use crate::{
-    Layered, SysResult,
+    CpuTime, Layered, SysResult,
     caller::{Caller, TaskId},
     memory::LocalFuture,
 };
@@ -180,7 +180,7 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control: AtomicWait + ExitMm + GroupStop + SharedMappings {
+pub trait Control: AtomicWait + CpuTime + ExitMm + GroupStop + SharedMappings {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
