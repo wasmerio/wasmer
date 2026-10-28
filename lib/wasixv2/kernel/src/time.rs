@@ -1,34 +1,56 @@
-//! Clocks, sleeps and their timespec conversions.
+//! Clocks, sleeps and their timespec conversions, after Linux's `kernel/time/posix-timers.c`
+//! and, for the CPU-time clocks of any process or thread, `posix-cpu-timers.c`.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use wasixv2_abi::{ClockId, ConstKernelTimespecPtr, KernelTimespec, KernelTimespecPtr, TimerFlags};
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, read_value, write_value};
+use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, TaskId, read_value, write_value};
+use wasixv2_wait::{Interrupted, wait_event, wait_event_timeout};
 
-use crate::{Kernel, restart::Restart};
+use crate::{Kernel, Process, restart::Restart};
 
 const NANOS_PER_SEC: i64 = 1_000_000_000;
 /// `CLOCK_TAI`: the kernel's TAI offset is 0 until something sets it, as on a fresh Linux boot.
 const CLOCK_TAI: ClockId = ClockId(11);
 /// Resolution of the coarse clocks: one tick at `HZ=250`.
 const COARSE_RES: Duration = Duration::from_millis(4);
+/// `CPUCLOCK_SCHED`, the CPU clock `clock_getcpuclockid` and `pthread_getcpuclockid` build.
+/// `CPUCLOCK_PROF` (0) and `CPUCLOCK_VIRT` (1) count in ticks; 3 is `CPUCLOCK_MAX`.
+const CPUCLOCK_SCHED: i32 = 2;
+const CPUCLOCK_MAX: i32 = 3;
 
 /// What a clock id reads.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Clock {
     Realtime,
     Monotonic,
-    /// CPU time of the process or one of its threads. A guest is charged for all the time it
-    /// exists, as the host cannot tell CPU time from waiting.
+    /// CPU time of a process or one of its threads. A guest is charged for all the time it
+    /// exists, as the host cannot tell CPU time from waiting, so a thread's clock reads its
+    /// process's; see [`Process::cpu_time`].
     // TODO: subtract time spent blocked in the kernel.
     ProcessCpu,
     ThreadCpu,
 }
 
-/// Decodes `id`, including the per-pid and per-thread CPU clock ids `clock_getcpuclockid` and
-/// `pthread_getcpuclockid` build (`CPUCLOCK_PID`, `CPUCLOCK_PERTHREAD`, `CPUCLOCK_WHICH`).
-pub(crate) fn resolve(id: ClockId, pid: i32, tid: i32) -> Result<Clock, Errno> {
+/// The owner a CPU clock id names: `CPUCLOCK_PID` (0 for the caller) and
+/// `CPUCLOCK_PERTHREAD`.
+#[derive(Clone, Copy)]
+struct CpuOwner {
+    pid: i32,
+    thread: bool,
+    which: i32,
+}
+
+/// Decodes `id` (`clockid_to_kclock`), including the per-pid and per-thread CPU clock ids
+/// `clock_getcpuclockid` and `pthread_getcpuclockid` build (`CPUCLOCK_PID`,
+/// `CPUCLOCK_PERTHREAD`, `CPUCLOCK_WHICH`). The caller's own CPU clocks are those of pid 0.
+fn decode(id: ClockId) -> Result<(Clock, Option<CpuOwner>), Errno> {
+    let own = |thread| CpuOwner {
+        pid: 0,
+        thread,
+        which: CPUCLOCK_SCHED,
+    };
     let clock = match id {
         ClockId::CLOCK_REALTIME
         | ClockId::CLOCK_REALTIME_COARSE
@@ -39,32 +61,57 @@ pub(crate) fn resolve(id: ClockId, pid: i32, tid: i32) -> Result<Clock, Errno> {
         | ClockId::CLOCK_MONOTONIC_COARSE
         | ClockId::CLOCK_BOOTTIME
         | ClockId::CLOCK_BOOTTIME_ALARM => Clock::Monotonic,
-        ClockId::CLOCK_PROCESS_CPUTIME_ID => Clock::ProcessCpu,
-        ClockId::CLOCK_THREAD_CPUTIME_ID => Clock::ThreadCpu,
+        ClockId::CLOCK_PROCESS_CPUTIME_ID => return Ok((Clock::ProcessCpu, Some(own(false)))),
+        ClockId::CLOCK_THREAD_CPUTIME_ID => return Ok((Clock::ThreadCpu, Some(own(true)))),
+        // Dynamic (`CLOCKFD`) clocks come out as `CPUCLOCK_MAX`, which no clock has.
         ClockId(raw) if raw < 0 => {
-            let owner = !(raw >> 3);
-            if raw & 3 == 3 {
+            let owner = CpuOwner {
+                pid: !(raw >> 3),
+                thread: raw & 4 != 0,
+                which: raw & 3,
+            };
+            if owner.which >= CPUCLOCK_MAX {
                 return Err(Errno::EINVAL);
             }
-            let thread = raw & 4 != 0;
-            let me = if thread { tid } else { pid };
-            if owner != 0 && owner != me {
-                return Err(Errno::EINVAL);
-            }
-            if thread {
-                Clock::ThreadCpu
-            } else {
-                Clock::ProcessCpu
-            }
+            let clock = match owner.thread {
+                true => Clock::ThreadCpu,
+                false => Clock::ProcessCpu,
+            };
+            return Ok((clock, Some(owner)));
         }
         _ => return Err(Errno::EINVAL),
     };
-    Ok(clock)
+    Ok((clock, None))
 }
 
-fn resolution(id: ClockId) -> Duration {
+/// A clock id resolved for its caller: what it reads, and for a CPU clock whose.
+#[derive(Clone)]
+pub(crate) struct ClockRef {
+    pub(crate) clock: Clock,
+    /// For a CPU clock, the process whose CPU time it counts (`it.cpu.pid`, held as Linux holds
+    /// the pid).
+    pub(crate) cpu: Option<Arc<Process>>,
+    /// For a thread CPU clock, the thread, a task of the caller's thread group.
+    pub(crate) thread: Option<TaskId>,
+    /// `CPUCLOCK_WHICH` of a CPU clock, which only its resolution depends on.
+    which: i32,
+}
+
+impl Process {
+    /// The process's CPU time so far, which its CPU clocks read: approximated as the time it
+    /// existed, until it exited ([`Clock::ProcessCpu`]), as a zombie runs no more.
+    pub(crate) fn cpu_time(&self, host: &dyn Host) -> Duration {
+        let now = self.stop.get().copied().unwrap_or_else(|| host.monotonic());
+        now.saturating_sub(self.start)
+    }
+}
+
+/// `clock_getres`: the coarse clocks and the tick-based CPU clocks (`CPUCLOCK_PROF`,
+/// `CPUCLOCK_VIRT`) count in ticks, everything else in nanoseconds.
+fn resolution(id: ClockId, clock: &ClockRef) -> Duration {
     match id {
         ClockId::CLOCK_REALTIME_COARSE | ClockId::CLOCK_MONOTONIC_COARSE => COARSE_RES,
+        _ if clock.cpu.is_some() && clock.which != CPUCLOCK_SCHED => COARSE_RES,
         _ => Duration::from_nanos(1),
     }
 }
@@ -86,12 +133,12 @@ pub(crate) fn from_timespec(ts: KernelTimespec) -> Result<Duration, Errno> {
     Ok(Duration::new(ts.tv_sec as u64, nanos as u32))
 }
 
-/// The host clock behind `clock` for the calling process.
-pub(crate) fn read(host: &dyn Host, clock: Clock, process_start: Duration) -> Duration {
+/// The host clock behind `clock`; `cpu` is the process a CPU clock counts the time of.
+pub(crate) fn read(host: &dyn Host, clock: Clock, cpu: Option<&Process>) -> Duration {
     match clock {
         Clock::Realtime => host.realtime(),
         Clock::Monotonic => host.monotonic(),
-        Clock::ProcessCpu | Clock::ThreadCpu => host.monotonic().saturating_sub(process_start),
+        Clock::ProcessCpu | Clock::ThreadCpu => cpu.map_or(Duration::ZERO, |p| p.cpu_time(host)),
     }
 }
 
@@ -129,14 +176,66 @@ impl ClockOffset {
 }
 
 impl Kernel {
-    pub(crate) fn clock(&self, caller: &Caller<'_>, id: ClockId) -> Result<Clock, Errno> {
-        let pid = self.process(caller.task()).pid.0 as i32;
-        resolve(id, pid, caller.task().0 as i32)
+    /// Resolves `id` for the caller, as `clock_gettime` does: a process CPU clock may also
+    /// name the process by the caller's own thread id (`pid_for_clock` with `gettime`).
+    pub(crate) fn clock(&self, caller: &Caller<'_>, id: ClockId) -> Result<ClockRef, Errno> {
+        self.resolve_clock(caller, id, true)
     }
 
-    /// The current value of `clock` for the caller.
-    pub(crate) fn clock_now(&self, caller: &Caller<'_>, clock: Clock) -> Duration {
-        read(&*self.host, clock, self.process(caller.task()).start)
+    /// Resolves `id` for the caller. A CPU clock names the caller (pid 0), a thread of its
+    /// thread group, or any process, a zombie included, by its pid; anything else is `EINVAL`
+    /// (`pid_for_clock`, `validate_clock_permissions`). Reading another process's CPU time
+    /// needs no permission on Linux.
+    pub(crate) fn resolve_clock(
+        &self,
+        caller: &Caller<'_>,
+        id: ClockId,
+        gettime: bool,
+    ) -> Result<ClockRef, Errno> {
+        let (clock, owner) = decode(id)?;
+        let Some(owner) = owner else {
+            return Ok(ClockRef {
+                clock,
+                cpu: None,
+                thread: None,
+                which: 0,
+            });
+        };
+        let me = self.process(caller.task());
+        let (process, thread) = match (owner.pid, owner.thread) {
+            (0, true) => (me, Some(caller.task())),
+            (0, false) => (me, None),
+            // A thread clock names a thread of the caller's own group.
+            (tid, true) if self.same_thread_group(caller, tid) => (me, Some(TaskId(tid as u32))),
+            (_, true) => return Err(Errno::EINVAL),
+            (pid, false) if gettime && pid as u32 == caller.task().0 => (me, None),
+            // A process clock names a thread group by its leader's pid.
+            (pid, false) => match self.procs.find(pid as u32) {
+                Some(process) if process.pid.0 == pid as u32 => (process, None),
+                _ => return Err(Errno::EINVAL),
+            },
+        };
+        Ok(ClockRef {
+            clock,
+            cpu: Some(process),
+            thread,
+            which: owner.which,
+        })
+    }
+
+    /// Whether `tid` is a live thread of the caller's thread group (`same_thread_group`).
+    pub(crate) fn same_thread_group(&self, caller: &Caller<'_>, tid: i32) -> bool {
+        let state = self.state.read_or_recover();
+        let me = &state.tasks[&caller.task()];
+        u32::try_from(tid)
+            .ok()
+            .and_then(|tid| state.tasks.get(&TaskId(tid)))
+            .is_some_and(|t| Arc::ptr_eq(&t.process, &me.process) && !t.thread.exited())
+    }
+
+    /// The current value of `clock`.
+    pub(crate) fn clock_now(&self, clock: &ClockRef) -> Duration {
+        read(&*self.host, clock.clock, clock.cpu.as_deref())
     }
 
     pub(crate) async fn sys_clock_gettime(
@@ -145,7 +244,7 @@ impl Kernel {
         id: ClockId,
         tp: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        let now = self.clock_now(caller, self.clock(caller, id)?);
+        let now = self.clock_now(&self.clock(caller, id)?);
         write_value(caller.memory(), tp, &to_timespec(now)).await?;
         Ok(0)
     }
@@ -156,27 +255,36 @@ impl Kernel {
         id: ClockId,
         tp: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        self.clock(caller, id)?;
+        let clock = self.resolve_clock(caller, id, false)?;
         if !tp.is_null() {
-            write_value(caller.memory(), tp, &to_timespec(resolution(id))).await?;
+            write_value(caller.memory(), tp, &to_timespec(resolution(id, &clock))).await?;
         }
         Ok(0)
     }
 
+    /// Only `CLOCK_REALTIME` and the CPU clocks named by a pid have a `clock_set`; the others
+    /// are `EINVAL` before the timespec is read.
     pub(crate) async fn sys_clock_settime(
         &self,
         caller: &Caller<'_>,
         id: ClockId,
         tp: ConstKernelTimespecPtr,
     ) -> SysResult<i32> {
-        let clock = self.clock(caller, id)?;
-        from_timespec(read_value(caller.memory(), tp).await?)?;
-        match clock {
-            // Setting the wall clock needs CAP_SYS_TIME, and the wall clock is the host's, so
-            // not even that is enough.
-            Clock::Realtime if id == ClockId::CLOCK_REALTIME => Err(Errno::EPERM.into()),
-            _ => Err(Errno::EINVAL.into()),
+        let (_, cpu) = decode(id)?;
+        let pid_clock = id.0 < 0 && cpu.is_some();
+        if id != ClockId::CLOCK_REALTIME && !pid_clock {
+            return Err(Errno::EINVAL.into());
         }
+        let ts = read_value(caller.memory(), tp).await?;
+        if pid_clock {
+            // "You can never reset a CPU clock" (`posix_cpu_clock_set`), once it names one.
+            self.resolve_clock(caller, id, false)?;
+            return Err(Errno::EPERM.into());
+        }
+        from_timespec(ts)?;
+        // Setting the wall clock needs CAP_SYS_TIME, and the wall clock is the host's, so not
+        // even that is enough.
+        Err(Errno::EPERM.into())
     }
 
     pub(crate) async fn sys_clock_nanosleep(
@@ -187,37 +295,106 @@ impl Kernel {
         rqtp: ConstKernelTimespecPtr,
         rmtp: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        let clock = self.clock(caller, id)?;
-        if clock == Clock::ThreadCpu {
+        decode(id)?;
+        // The clocks without `nsleep`.
+        if let ClockId::CLOCK_THREAD_CPUTIME_ID
+        | ClockId::CLOCK_MONOTONIC_RAW
+        | ClockId::CLOCK_REALTIME_COARSE
+        | ClockId::CLOCK_MONOTONIC_COARSE = id
+        {
+            return Err(Errno::EOPNOTSUPP.into());
+        }
+        let clock = self.resolve_clock(caller, id, false)?;
+        // `posix_cpu_nsleep`: a thread cannot sleep on its own CPU clock.
+        if clock.clock == Clock::ThreadCpu && clock.thread == Some(caller.task()) {
             return Err(Errno::EINVAL.into());
         }
         let request = from_timespec(read_value(caller.memory(), rqtp).await?)?;
-        if !flags.contains(TimerFlags::TIMER_ABSTIME) {
-            // Every clock advances at the monotonic clock's rate, so a relative sleep ends at a
-            // fixed point of it.
+        let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
+        if let Some(process) = &clock.cpu {
+            let expires = match absolute {
+                true => request,
+                false => process.cpu_time(&*self.host).saturating_add(request),
+            };
+            let rmtp = (!absolute).then_some(rmtp);
+            return self.cpu_nanosleep(caller, id, process, expires, rmtp).await;
+        }
+        if !absolute {
+            // Realtime and monotonic clocks advance at the same rate, so a relative sleep
+            // ends at a fixed point of the monotonic clock.
             let deadline = self.host.monotonic().saturating_add(request);
             return self.nanosleep_until(caller, deadline, rmtp).await;
         }
         // Interrupted, an absolute sleep reruns as it was, and `rmtp` is not written
         // (`-ERESTARTNOHAND`).
-        let interrupted = |_: wasixv2_wait::Interrupted| SysErr::RestartNoHand;
-        match clock {
+        let interrupted = |_: Interrupted| SysErr::RestartNoHand;
+        match clock.clock {
             Clock::Monotonic => self
                 .interruptible_sleep(caller, self.host.sleep_until(request))
                 .await
                 .map_err(interrupted)?,
             _ => {
                 // Re-check the clock: a realtime deadline is not a monotonic one.
-                let mut now = self.clock_now(caller, clock);
+                let mut now = self.clock_now(&clock);
                 while now < request {
                     self.interruptible_sleep(caller, self.host.sleep(request - now))
                         .await
                         .map_err(interrupted)?;
-                    now = self.clock_now(caller, clock);
+                    now = self.clock_now(&clock);
                 }
             }
         }
         Ok(0)
+    }
+
+    /// `do_cpu_nanosleep`: sleeps until the CPU clock `id` of `process` reaches `expires`.
+    /// Interrupted, an absolute sleep (no `rmtp`) reruns as it was; a relative one writes the
+    /// time left to `rmtp` and goes on through `restart_syscall` as an absolute sleep on the
+    /// same clock (`posix_cpu_nsleep_restart`), which looks the clock up again.
+    pub(crate) async fn cpu_nanosleep(
+        &self,
+        caller: &Caller<'_>,
+        id: ClockId,
+        process: &Process,
+        expires: Duration,
+        rmtp: Option<KernelTimespecPtr>,
+    ) -> SysResult<i32> {
+        if self.cpu_sleep(caller, process, expires).await.is_ok() {
+            return Ok(0);
+        }
+        let Some(rmtp) = rmtp else {
+            return Err(SysErr::RestartNoHand);
+        };
+        if !rmtp.is_null() {
+            let left = expires.saturating_sub(process.cpu_time(&*self.host));
+            write_value(caller.memory(), rmtp, &to_timespec(left)).await?;
+        }
+        let restart = Restart::CpuNanosleep {
+            clock: id,
+            expires,
+            rmtp,
+        };
+        Err(self.restart_with(caller, restart))
+    }
+
+    /// Waits until the CPU time of `process` reaches `expires`. The clock runs with the
+    /// monotonic clock while the process lives and stops when it exits, after which only a
+    /// signal ends the wait, as no CPU timer of a dead process fires on Linux.
+    async fn cpu_sleep(
+        &self,
+        caller: &Caller<'_>,
+        process: &Process,
+        expires: Duration,
+    ) -> Result<(), Interrupted> {
+        let interrupt = self.interrupt(caller);
+        let deadline = process.start.saturating_add(expires);
+        let exited = || process.stop.get().map(drop);
+        let sleep = self.host.sleep_until(deadline);
+        let woken = wait_event_timeout(&self.procs.changed, exited, &*interrupt, sleep).await?;
+        if woken.is_none() || process.cpu_time(&*self.host) >= expires {
+            return Ok(());
+        }
+        wait_event(&self.procs.changed, || None::<()>, &*interrupt).await
     }
 
     /// The relative sleep of `clock_nanosleep`, until `deadline` on the monotonic clock.
