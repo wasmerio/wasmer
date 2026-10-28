@@ -483,6 +483,146 @@ fn a_vfork_child_that_ends_before_the_sibling_execve_commits_hands_the_leader_ba
     assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
 }
 
+/// A thread that is not the leader, waiting for its vfork child, which its instance runs, while
+/// another task of its group is in `execve` of `/prog`.
+struct ThreadInVfork {
+    kernel: Kernel,
+    memory: FlatMemory,
+    leader: TaskId,
+    thread: TaskId,
+    child: TaskId,
+}
+
+impl ThreadInVfork {
+    fn new() -> Self {
+        const VFORK: u32 = 0x4000 | 0x100 | Signal::SIGCHLD.0 as u32;
+        let (kernel, leader, memory) = machine();
+        let caller = Caller::new(leader, &memory);
+        install_prog(&kernel, &caller, &memory);
+        let thread = spawn_thread(&kernel, &caller);
+        while kernel.take_pending(leader).is_some() {}
+        let parent = Caller::new(thread, &memory);
+        let vfork = kernel.clone(&parent, VFORK, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+        assert_eq!(block_on(vfork), Ok(0));
+        let Some(GuestAction::SwitchTask { task: child, .. }) = kernel.take_pending(thread) else {
+            panic!("vfork left no task switch");
+        };
+        kernel.work_flag(child).clear();
+        Self {
+            kernel,
+            memory,
+            leader,
+            thread,
+            child,
+        }
+    }
+
+    fn caller(&self, task: TaskId) -> Caller<'_> {
+        Caller::new(task, &self.memory)
+    }
+
+    /// The `execve` killed the thread: the child's instance takes the thread's `exit_mm` and
+    /// runs it.
+    fn leave_threads_memory(&self) {
+        assert!(
+            self.kernel.work_flag(self.child).is_raised(),
+            "the child leaves its wait"
+        );
+        let dead = GuestAction::ExitMm { task: self.thread };
+        assert_eq!(self.kernel.take_pending(self.child), Some(dead));
+        block_on(self.kernel.exit_mm(&self.caller(self.thread)));
+    }
+
+    /// The child ends: the instance goes back to the thread, which does not return from vfork
+    /// but unwinds through its exit, and goes.
+    fn end_child(&self) {
+        let (kernel, thread, child) = (&self.kernel, self.thread, self.child);
+        block_on(kernel.exit_group(&self.caller(child), 0)).unwrap();
+        let parent = VforkParent {
+            task: thread,
+            resumes: Resume::Dies,
+        };
+        let back = GuestAction::VforkReturn { parent, child };
+        assert_eq!(kernel.take_pending(child), Some(back));
+        kernel.release(child);
+        assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(0)));
+        kernel.release(thread);
+        assert!(!live(kernel, thread));
+    }
+}
+
+/// `zap_other_threads` kills a thread waiting in `wait_for_vfork_done`, which is killable, and
+/// `de_thread` waits only for it to exit, not for its vfork child: the leader's `execve`
+/// commits once the child's instance left the thread's memory for it, and the new image starts
+/// while the child runs on.
+#[test]
+fn an_execve_does_not_wait_for_a_threads_vfork_child() {
+    let t = ThreadInVfork::new();
+    let (kernel, leader) = (&t.kernel, t.leader);
+    let caller = t.caller(leader);
+    let mut exec = Box::pin(execve(kernel, &caller));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    t.leave_threads_memory();
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert!(kernel.process(leader).exe.lock().unwrap().is_some());
+    let handed = GuestAction::Exec { vfork_parent: None };
+    assert_eq!(kernel.take_pending(leader), Some(handed));
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
+    t.end_child();
+    assert_eq!(kernel.take_pending(leader), None);
+}
+
+/// The same for an `execve` from a third thread: the leader takes the new image, which starts
+/// once the exec'ing thread is gone, whatever the vfork child does.
+#[test]
+fn a_sibling_execve_does_not_wait_for_another_threads_vfork_child() {
+    let t = ThreadInVfork::new();
+    let (kernel, leader) = (&t.kernel, t.leader);
+    let execing = spawn_thread(kernel, &t.caller(leader));
+    while kernel.take_pending(leader).is_some() {}
+    let caller = t.caller(execing);
+    let mut exec = Box::pin(execve(kernel, &caller));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    let handed = GuestAction::Exec { vfork_parent: None };
+    assert_eq!(kernel.take_pending(leader), Some(handed));
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    t.leave_threads_memory();
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    kernel.release(execing);
+    assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
+    t.end_child();
+}
+
+/// Until the child's instance left the thread's memory, the thread still runs the old image as
+/// far as `de_thread` knows, so the `execve` waits; a child that ends first hands the instance
+/// back to the thread, which unwinds and goes, and the `execve` commits then.
+#[test]
+fn an_execve_waits_for_a_vfork_parent_thread_until_it_left_its_memory() {
+    let t = ThreadInVfork::new();
+    let (kernel, leader, thread, child) = (&t.kernel, t.leader, t.thread, t.child);
+    let caller = t.caller(leader);
+    let mut exec = Box::pin(execve(kernel, &caller));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    block_on(kernel.exit_group(&t.caller(child), 0)).unwrap();
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    let parent = VforkParent {
+        task: thread,
+        resumes: Resume::Dies,
+    };
+    let back = GuestAction::VforkReturn { parent, child };
+    assert_eq!(kernel.take_pending(child), Some(back));
+    kernel.release(child);
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(0)));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    block_on(kernel.exit_mm(&t.caller(thread)));
+    kernel.release(thread);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+}
+
 /// A leader that is itself a vfork child takes the new image in its instance, where its own
 /// vfork parent waits to resume: no other instance may start the image, which would lose
 /// that resume. Its `execve` from another thread so waits for its own vfork child, as

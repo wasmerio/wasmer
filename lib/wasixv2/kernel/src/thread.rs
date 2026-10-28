@@ -401,16 +401,11 @@ impl Kernel {
         let Some(status) = process.group.status() else {
             return;
         };
-        let waiting: Vec<TaskId> = {
-            let tree = self.procs.tree.lock().unwrap();
-            tree.vforks.values().copied().collect()
-        };
+        let waiting = self.vfork_parents();
         let vfork_child = self.vfork_child(process.pid);
         let (others, leader_runs) = {
             let state = self.state.lock().unwrap();
-            let gone = |id: &TaskId, t: &Task| {
-                waiting.contains(id) && t.work.ends_image() && t.thread.left_mm
-            };
+            let gone = |id: &TaskId, t: &Task| gone_in_vfork(&waiting, *id, t);
             let others = state.tasks.iter().any(|(id, t)| {
                 *id != process.pid && Arc::ptr_eq(&t.process, process) && !gone(id, t)
             });
@@ -608,7 +603,8 @@ impl Kernel {
     /// the leader, when it is not `task`, has left its old image ([`Kernel::exec_wait`]), so no
     /// thread runs the old image but `task` when the `execve` commits. A leader that waits for
     /// its vfork child left its old image once it left its memory, as Linux's `de_thread` waits
-    /// for the leader killed in `wait_for_vfork_done` to be a zombie, not for the child.
+    /// for the leader killed in `wait_for_vfork_done` to be a zombie, not for the child; and
+    /// another thread that waits for its vfork child is gone once it left its memory.
     /// Killable, as Linux's (`TASK_KILLABLE`): a fatal signal ends the group, and the `execve`
     /// with EAGAIN; so does an exit of the group meanwhile.
     pub(crate) async fn de_thread(&self, task: TaskId) -> Result<(), Errno> {
@@ -616,14 +612,20 @@ impl Kernel {
         let leader = process.pid;
         let signals = self.task_signals(task);
         let done = || {
+            let waiting = self.vfork_parents();
             let state = self.state.read().unwrap();
             if state.tasks[&task].work.exit().is_some() {
                 return Some(false);
             }
-            let others = state
-                .tasks
-                .iter()
-                .any(|(&id, t)| id != task && id != leader && Arc::ptr_eq(&t.process, &process));
+            // A thread killed while it waited for its vfork child is gone once it left its
+            // memory, whose instance runs the child on (`zap_other_threads` kills it in
+            // `wait_for_vfork_done`, which is killable).
+            let others = state.tasks.iter().any(|(&id, t)| {
+                id != task
+                    && id != leader
+                    && Arc::ptr_eq(&t.process, &process)
+                    && !gone_in_vfork(&waiting, id, t)
+            });
             // A leader that is a vfork child itself takes the image where its own vfork
             // parent waits (`Exec { vfork_parent }`), so it does not leave its old image
             // before its child is done.
@@ -725,7 +727,8 @@ impl Kernel {
     }
 
     /// Before the image `execve` loaded starts in `task`'s instance, which left the old one:
-    /// waits until the `execve` committed and `task` is the only task of its thread group.
+    /// waits until the `execve` committed and `task` is the only task of its thread group, but
+    /// for threads killed in vfork whose instances run their children on ([`gone_in_vfork`]).
     /// `Err(status)` when the group exited meanwhile; its exit is taken.
     pub(crate) async fn exec_wait(&self, task: TaskId) -> Result<(), i32> {
         let process = self.process(task);
@@ -735,6 +738,7 @@ impl Kernel {
         }
         process.group.released.wake(PollMask::empty());
         let alone = || {
+            let waiting = self.vfork_parents();
             let mut state = self.state.lock().unwrap();
             let Some(entry) = state.tasks.get_mut(&task) else {
                 return Some(Err(0));
@@ -746,10 +750,9 @@ impl Kernel {
             if process.group.state.lock().unwrap().exec.is_some() {
                 return None;
             }
-            let others = state
-                .tasks
-                .iter()
-                .any(|(&id, t)| id != task && Arc::ptr_eq(&t.process, &process));
+            let others = state.tasks.iter().any(|(&id, t)| {
+                id != task && Arc::ptr_eq(&t.process, &process) && !gone_in_vfork(&waiting, id, t)
+            });
             (!others).then_some(Ok(()))
         };
         wait_event(&process.group.released, alone, &NoInterrupt)
@@ -965,6 +968,14 @@ fn mm_users(state: &State, task: TaskId) -> usize {
         .values()
         .filter(|t| Arc::ptr_eq(&t.mm, mm) && !t.thread.left_mm)
         .count()
+}
+
+/// Whether `t`, listed as `id`, is gone from its thread group though its instance runs on: it
+/// died while it waited for its vfork child (`waiting` lists the tasks that wait), and left
+/// its memory there ([`GuestAction::ExitMm`]), as Linux's killable `wait_for_vfork_done` lets
+/// it exit. The instance goes back to it only to unwind it, once the child is done.
+fn gone_in_vfork(waiting: &[TaskId], id: TaskId, t: &Task) -> bool {
+    waiting.contains(&id) && t.work.ends_image() && t.thread.left_mm
 }
 
 /// Removes `task` from the kernel, counting it out of its thread group if it was still alive.
