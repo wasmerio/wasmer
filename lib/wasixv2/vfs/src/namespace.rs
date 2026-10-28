@@ -621,6 +621,12 @@ impl Vfs {
         from.copy(paths)
     }
 
+    /// Makes `sb` read-only or writable as a reconfiguration says (`reconfigure_super`):
+    /// `EBUSY` while a file is open for writing on it.
+    pub fn reconfigure_read_only(&self, sb: &Superblock, read_only: bool) -> FsResult<()> {
+        self.tree.set_sb_read_only(sb, read_only)
+    }
+
     /// The mounts of `ns`, oldest first, with their propagation as seen from `root`.
     pub fn mount_info(&self, ns: &MntNs, root: &Path) -> Vec<MountInfo> {
         let state = self.tree.lock();

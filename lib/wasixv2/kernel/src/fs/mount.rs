@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use wasixv2_abi::{
     AtFlags, ConstMountAttrPtr, ConstVoidPtr, Cstr, MountAttrFlags, MountFlags as MsFlags,
-    UmountFlags as UmountFlagBits, Usize,
+    MoveMountFlags, OpenFlags, OpenTreeFlags, UmountFlags as UmountFlagBits, Usize,
 };
 use wasixv2_syscalls::{Caller, CstrError, Errno, Fd, SysResult, read_cstr};
 use wasixv2_vfs::{
@@ -19,7 +19,12 @@ use wasixv2_vfs::{
 };
 
 use super::{Env, read_path};
-use crate::{Kernel, nsfs::NsFile, sync::MutexExt};
+use crate::{
+    Kernel,
+    file::{Backing, OpenFile},
+    nsfs::NsFile,
+    sync::MutexExt,
+};
 
 /// One `key[=value]` of a mount's options (`struct fs_parameter`), after the options every
 /// filesystem takes are taken out.
@@ -41,6 +46,13 @@ pub trait FilesystemType: Send + Sync {
         cred: &Cred,
     ) -> Result<Arc<dyn Filesystem>, Errno>;
 
+    /// Checks one parameter as `fsconfig` gives it (`parse_param`), before the instance is
+    /// made from all of them. By default every parameter is taken, and [`Self::mount`]
+    /// decides.
+    fn parse_param(&self, _param: &FsParam<'_>) -> Result<(), Errno> {
+        Ok(())
+    }
+
     /// Changes `fs`, an instance of this type, as a remount's `params` say (`reconfigure`).
     /// By default a type takes no options on remount.
     fn reconfigure(&self, _fs: &Arc<dyn Filesystem>, params: &[FsParam<'_>]) -> Result<(), Errno> {
@@ -53,7 +65,7 @@ pub trait FilesystemType: Send + Sync {
 
 /// A registered filesystem type: one of the kernel's own, or one the embedder provides.
 #[derive(Clone)]
-enum FsType {
+pub(super) enum FsType {
     /// procfs: every mount is a new instance over the same kernel.
     Proc,
     Other(Arc<dyn FilesystemType>),
@@ -72,7 +84,7 @@ impl Registry {
         })
     }
 
-    fn get(&self, name: &[u8]) -> Option<FsType> {
+    pub(super) fn get(&self, name: &[u8]) -> Option<FsType> {
         let types = self.types.lock_or_recover();
         types
             .iter()
@@ -227,7 +239,7 @@ const SETATTR_VALID: u64 = MountAttrFlags::MOUNT_ATTR_RDONLY.0
     | MountAttrFlags::MOUNT_ATTR_NOSYMFOLLOW.0;
 
 /// `attr_flags_to_mnt_flags`.
-fn attr_flags(attr: u64) -> MountFlags {
+pub(super) fn attr_flags(attr: u64) -> MountFlags {
     let has = |flag: MountAttrFlags| attr & flag.0 != 0;
     MountFlags {
         read_only: has(MountAttrFlags::MOUNT_ATTR_RDONLY),
@@ -258,7 +270,7 @@ impl Kernel {
 
     /// `may_mount`: `CAP_SYS_ADMIN` (in the user namespace that owns the caller's mount
     /// namespace, which is always the initial one).
-    fn may_mount(env: &Env) -> Result<(), Errno> {
+    pub(super) fn may_mount(env: &Env) -> Result<(), Errno> {
         match env.cred.capable(Cap::SysAdmin) {
             true => Ok(()),
             false => Err(Errno::EPERM),
@@ -628,6 +640,141 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         Err(Errno::EPERM)
+    }
+}
+
+impl Kernel {
+    /// `open_tree`: an `O_PATH` file at `filename`, or with `OPEN_TREE_CLONE` at the root of a
+    /// detached copy of the tree there (with `AT_RECURSIVE`, of what is mounted below too).
+    pub(crate) async fn sys_open_tree(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        let clone = OpenTreeFlags::OPEN_TREE_CLONE.0;
+        let recursive = AtFlags::AT_RECURSIVE.0;
+        // `OPEN_TREE_NAMESPACE` (a new mount namespace around the copy) is not supported.
+        let known = AtFlags::AT_EMPTY_PATH.0
+            | AtFlags::AT_NO_AUTOMOUNT.0
+            | recursive
+            | AtFlags::AT_SYMLINK_NOFOLLOW.0
+            | clone
+            | OpenFlags::O_CLOEXEC.0;
+        if flags & !known != 0 || flags & (recursive | clone) == recursive {
+            return Err(Errno::EINVAL.into());
+        }
+        let env = self.env(caller);
+        if flags & clone != 0 {
+            Self::may_mount(&env)?;
+        }
+        let name = read_path(caller.memory(), filename).await?;
+        let at = AtFlags(flags & (AtFlags::AT_EMPTY_PATH.0 | AtFlags::AT_SYMLINK_NOFOLLOW.0));
+        let path = self.resolve_at(caller, &env, dfd, &name, at, true).await?;
+        let file = match flags & clone != 0 {
+            true => {
+                let ns = self.ns(caller).mnt.tree.clone();
+                let copy = self.vfs.open_tree(&ns, &path, flags & recursive != 0)?;
+                OpenFile::new(Backing::Inode(copy), OpenFlags::O_PATH)
+            }
+            false => self.open_path(&env, &path).await?,
+        };
+        let cloexec = flags & OpenFlags::O_CLOEXEC.0 != 0;
+        let [fd] = self.install_files(caller, [file], cloexec)?;
+        Ok(fd.0)
+    }
+
+    /// `move_mount`: moves the mount at `from` (or `from_dfd`'s, with an empty path) onto
+    /// `to`, or attaches the detached tree it is the root of; with `MOVE_MOUNT_BENEATH` under
+    /// the topmost mount there, and with `MOVE_MOUNT_SET_GROUP` makes `to` a peer of `from`
+    /// instead.
+    pub(crate) async fn sys_move_mount(
+        &self,
+        caller: &Caller<'_>,
+        from_dfd: Fd,
+        from: Cstr,
+        to_dfd: Fd,
+        to: Cstr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        let env = self.env(caller);
+        Self::may_mount(&env)?;
+        let has = |flag: MoveMountFlags| flags & flag.0 != 0;
+        if flags & !MoveMountFlags::MOVE_MOUNT__MASK.0 != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        if has(MoveMountFlags::MOVE_MOUNT_BENEATH) && has(MoveMountFlags::MOVE_MOUNT_SET_GROUP) {
+            return Err(Errno::EINVAL.into());
+        }
+        let to = self
+            .move_mount_path(
+                caller,
+                &env,
+                to_dfd,
+                to,
+                has(MoveMountFlags::MOVE_MOUNT_T_EMPTY_PATH),
+                has(MoveMountFlags::MOVE_MOUNT_T_SYMLINKS),
+            )
+            .await?;
+        let from = self
+            .move_mount_path(
+                caller,
+                &env,
+                from_dfd,
+                from,
+                has(MoveMountFlags::MOVE_MOUNT_F_EMPTY_PATH),
+                has(MoveMountFlags::MOVE_MOUNT_F_SYMLINKS),
+            )
+            .await?;
+        if has(MoveMountFlags::MOVE_MOUNT_SET_GROUP) {
+            self.vfs.set_group(&from, &to)?;
+            return Ok(0);
+        }
+        let ns = self.ns(caller).mnt.tree.clone();
+        let beneath = has(MoveMountFlags::MOVE_MOUNT_BENEATH);
+        self.vfs.move_mount(&ns, &from, &to, beneath)?;
+        Ok(0)
+    }
+
+    /// One end of `move_mount`: `dfd`'s file for an empty path with `*_EMPTY_PATH`
+    /// (`filename_maybe_null`), else the path resolved from `dfd`, following a final symlink
+    /// only with `*_SYMLINKS`.
+    async fn move_mount_path(
+        &self,
+        caller: &Caller<'_>,
+        env: &Env,
+        dfd: Fd,
+        name: Cstr,
+        empty: bool,
+        follow: bool,
+    ) -> Result<Path, Errno> {
+        let name = match empty && name.is_null() {
+            true => Vec::new(),
+            false => read_path_empty(caller, name, empty).await?,
+        };
+        if name.is_empty() && dfd.0 >= 0 {
+            return self.fd_path(caller, dfd);
+        }
+        let mut at = AtFlags(0);
+        if empty {
+            at |= AtFlags::AT_EMPTY_PATH;
+        }
+        if !follow {
+            at |= AtFlags::AT_SYMLINK_NOFOLLOW;
+        }
+        self.resolve_at(caller, env, dfd, &name, at, true).await
+    }
+}
+
+/// A path argument that may be empty when `empty` allows it (`getname_flags` with
+/// `LOOKUP_EMPTY`): `ENOENT` for an empty one otherwise.
+async fn read_path_empty(caller: &Caller<'_>, name: Cstr, empty: bool) -> Result<Vec<u8>, Errno> {
+    match read_cstr(caller.memory(), name, PATH_MAX).await {
+        Ok(name) if name.is_empty() && !empty => Err(Errno::ENOENT),
+        Ok(name) => Ok(name),
+        Err(CstrError::Fault) => Err(Errno::EFAULT),
+        Err(CstrError::TooLong) => Err(Errno::ENAMETOOLONG),
     }
 }
 
