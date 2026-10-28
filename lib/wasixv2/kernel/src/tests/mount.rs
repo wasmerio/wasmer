@@ -640,3 +640,39 @@ fn a_mount_in_one_namespace_is_not_in_the_other() {
     );
     assert!(m.mountinfo("/mnt").is_none());
 }
+
+#[test]
+fn mountinfo_shows_a_tmpfs_s_options() {
+    let m = Machine::as_uid(0);
+    m.kernel
+        .register_filesystem("sized", Arc::new(SizedTmpfs))
+        .unwrap();
+    m.mkdir("/s");
+    assert_eq!(
+        m.mount(Some("none"), "/s", Some("sized"), MsFlags(0), None),
+        Ok(0)
+    );
+    let line = m.mountinfo("/s").unwrap();
+    assert!(
+        line.ends_with(" - tmpfs none rw,size=4k,nr_inodes=8,mode=700"),
+        "{line}"
+    );
+    assert!(
+        m.cat("/proc/self/mounts")
+            .contains("none /s tmpfs rw,relatime,size=4k,nr_inodes=8,mode=700 0 0")
+    );
+}
+
+/// A tmpfs of 4 KiB and 8 inodes with a private root, whatever the options.
+struct SizedTmpfs;
+
+impl FilesystemType for SizedTmpfs {
+    fn mount(&self, _: &[u8], _: &[FsParam<'_>], _: &Cred) -> Result<Arc<dyn Filesystem>, Errno> {
+        let clock = Arc::new(HostClock(Arc::new(TestHost) as Arc<dyn Host>));
+        let limits = wasixv2_vfs_mem::Limits {
+            max_bytes: Some(4096),
+            max_inodes: Some(8),
+        };
+        Ok(Arc::new(MemFs::with_limits(clock, 0o700, 0, 0, limits)))
+    }
+}
