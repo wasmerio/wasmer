@@ -856,6 +856,18 @@ impl Kernel {
     /// ([`GuestAction::ExitMm`]). Linux's parent leaves the memory in its own `do_exit`, before
     /// it is a zombie, while the child keeps the memory (`wait_for_vfork_done` is killable).
     pub(crate) fn dead_vfork_parent(&self, child: TaskId) -> Option<TaskId> {
+        // Most tasks are no vfork child: they take no lock but the tree's.
+        if !self
+            .procs
+            .tree
+            .lock_or_recover()
+            .vforks
+            .contains_key(&child)
+        {
+            return None;
+        }
+        // Looked up again with the task table locked, as `exec_leader` moves the child
+        // between the two under it.
         let mut state = self.state.lock_or_recover();
         let parent = self
             .procs
