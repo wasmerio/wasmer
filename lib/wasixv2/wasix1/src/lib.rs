@@ -92,9 +92,9 @@ where
         &self,
         store: &mut Store,
         env: &FunctionEnv<ExecEnv<S>>,
-        _module: &Module,
+        module: &Module,
     ) -> Imports {
-        imports::imports(store, env)
+        imports::imports(store, env, module)
     }
 
     fn bind(
