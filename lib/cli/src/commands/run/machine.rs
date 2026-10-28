@@ -44,7 +44,14 @@ pub(super) struct MachineProgram {
     volumes: Vec<PackageVolume>,
     /// The package tree's commands, for `/bin` and `/usr/bin`.
     commands: Vec<PackageCommand>,
+    /// A host directory to map read-only to [`SCRIPT_DIR`]: that of a host script no
+    /// `--volume` holds.
+    script_dir: Option<PathBuf>,
 }
+
+/// Where `wasmer run` maps the directory of a host script outside every `--volume`, so its
+/// interpreter can read it.
+const SCRIPT_DIR: &str = "/run/wasmer/script";
 
 /// How the program's process starts.
 enum Start {
@@ -79,17 +86,20 @@ impl MachineProgram {
             wasi: None,
             volumes: Vec::new(),
             commands: Vec::new(),
+            script_dir: None,
         }
     }
 
-    /// The `#!` script at `guest`, a guest path, which `execve` hands to its interpreter.
-    pub(super) fn script(guest: String) -> Self {
+    /// The `#!` script at `guest`, a guest path, which `execve` hands to its interpreter, and
+    /// the host directory to map to [`SCRIPT_DIR`] for it, if any.
+    pub(super) fn script((guest, script_dir): (String, Option<PathBuf>)) -> Self {
         Self {
             argv0: guest.clone(),
             start: Start::File(guest),
             wasi: None,
             volumes: Vec::new(),
             commands: Vec::new(),
+            script_dir,
         }
     }
 
@@ -292,6 +302,7 @@ impl Run {
             wasi: Some(wasi),
             volumes: self.package_volumes(tree)?,
             commands: package_commands(pkg)?,
+            script_dir: None,
         })
     }
 
@@ -464,6 +475,12 @@ impl Run {
                         format!("cannot map {} to {}", dir.host.display(), dir.guest)
                     })?;
             }
+            if let Some(dir) = &program.script_dir {
+                machine
+                    .mount_host_dir(SCRIPT_DIR, dir, true)
+                    .await
+                    .with_context(|| format!("cannot map {} to {SCRIPT_DIR}", dir.display()))?;
+            }
             // Each publication lasts as long as its handle.
             let _publications = self
                 .wasi
@@ -505,32 +522,39 @@ impl Run {
     }
 
     /// The guest path of the host script at `path`: where the `--volume` mapping holding it
-    /// (the innermost one, for nested mappings) shows it.
-    pub(super) fn script_guest_path(&self, path: &Path) -> Result<String, Error> {
+    /// (the innermost one, for nested mappings) shows it, or else in [`SCRIPT_DIR`], with its
+    /// directory, which is returned too, to map there.
+    pub(super) fn script_guest_path(
+        &self,
+        path: &Path,
+    ) -> Result<(String, Option<PathBuf>), Error> {
         let script = path
             .canonicalize()
             .with_context(|| format!("Unable to find \"{}\"", path.display()))?;
         let (_, mapped) = self.wasi.build_mapped_directories()?;
-        let (dir, rest) = mapped
+        let in_volume = mapped
             .iter()
             .filter_map(|dir| Some((dir, script.strip_prefix(&dir.host).ok()?)))
-            .max_by_key(|(dir, _)| dir.host.components().count())
-            .with_context(|| {
-                format!(
-                    "the script \"{}\" must be in a directory mapped with --volume, so that its \
-                     interpreter can read it",
-                    path.display()
-                )
-            })?;
+            .max_by_key(|(dir, _)| dir.host.components().count());
+        let (guest_dir, rest, script_dir) = match in_volume {
+            Some((dir, rest)) => (dir.guest.as_str(), rest, None),
+            None => {
+                let dir = script
+                    .parent()
+                    .context("a script is a file in a directory")?;
+                let name = script.strip_prefix(dir)?;
+                (SCRIPT_DIR, name, Some(dir.to_path_buf()))
+            }
+        };
         let rest = rest
             .to_str()
             .with_context(|| format!("the path {} is not UTF-8", rest.display()))?;
-        let mut guest = dir.guest.trim_end_matches('/').to_string();
+        let mut guest = guest_dir.trim_end_matches('/').to_string();
         for part in rest.split(std::path::MAIN_SEPARATOR) {
             guest.push('/');
             guest.push_str(part);
         }
-        Ok(guest)
+        Ok((guest, script_dir))
     }
 
     /// A machine configured by `--user` and the `uname` options, whose images compile with

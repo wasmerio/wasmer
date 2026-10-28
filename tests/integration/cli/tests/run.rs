@@ -990,8 +990,8 @@ fn run_wasixv2_host_script_runs_its_interpreter() {
 }
 
 /// Five scripts may hand over in a row, as on Linux; a sixth fails with `ELOOP`. A script whose
-/// interpreter is neither WebAssembly nor a script fails with `ENOEXEC`, and a script outside
-/// every volume cannot run, since its interpreter could not read it.
+/// interpreter is neither WebAssembly nor a script fails with `ENOEXEC`, and one whose
+/// interpreter is not in the guest's filesystem with `ENOENT`.
 #[cfg(unix)]
 #[test]
 fn run_wasixv2_host_script_errors() {
@@ -1033,7 +1033,28 @@ fn run_wasixv2_host_script_errors() {
         .arg(temp.path().join("s6"))
         .assert()
         .failure()
-        .stderr(contains("must be in a directory mapped with --volume"));
+        .stderr(contains("cannot execute /run/wasmer/script/s6"))
+        .stderr(contains("os error 2"));
+}
+
+/// A host script outside every `--volume` is read from its directory, which `wasmer run` maps
+/// read-only to `/run/wasmer/script`; its interpreter comes from the guest's filesystem.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_host_script_outside_every_volume_runs() {
+    let tools = TempDir::new().unwrap();
+    write_executable(&tools.path().join("echo.wasm"), wasixv2_echo(""));
+    let scripts = TempDir::new().unwrap();
+    let script = scripts.path().join("script");
+    write_executable(&script, "#!/work/echo.wasm -v\n");
+    wasmer_command()
+        .arg("run")
+        .arg(format!("--volume={}:/work", tools.path().display()))
+        .arg(&script)
+        .arg("x")
+        .assert()
+        .success()
+        .stdout("/work/echo.wasm -v /run/wasmer/script/script x\n");
 }
 
 /// Prints `uname -n` and `uname -r`, space-separated, and exits with its effective uid.
