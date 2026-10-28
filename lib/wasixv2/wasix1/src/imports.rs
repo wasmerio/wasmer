@@ -248,21 +248,31 @@ pub fn entry(module: Module, name: &str) -> Option<&'static Entry> {
         .find(|entry| entry.name == name && entry.modules.contains(&module))
 }
 
-/// Every function of every v1 module, ready for an instance whose environment is `env`.
-pub(crate) fn imports<S>(store: &mut Store, env: &FunctionEnv<ExecEnv<S>>) -> Imports
+/// The v1 functions `wasm` imports, ready for an instance whose environment is `env`. Only
+/// those: every instance (each thread, each image) defines its own. An import the table does
+/// not have stays undefined, and the module fails to link.
+pub(crate) fn imports<S>(
+    store: &mut Store,
+    env: &FunctionEnv<ExecEnv<S>>,
+    wasm: &wasmer::Module,
+) -> Imports
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let mut imports = Imports::new();
-    for entry in TABLE {
-        for &module in entry.modules {
-            let function = match entry.stub {
-                Shim => shim(store, env, module, entry.name)
-                    .unwrap_or_else(|| panic!("`{}` is marked as a shim but has none", entry.name)),
-                stub => stub_function(store, entry, stub),
-            };
-            imports.define(module.name(), entry.name, function);
-        }
+    for import in wasm.imports().functions() {
+        let Some(module) = Module::from_name(import.module()) else {
+            continue;
+        };
+        let Some(entry) = entry(module, import.name()) else {
+            continue;
+        };
+        let function = match entry.stub {
+            Shim => shim(store, env, module, entry.name)
+                .unwrap_or_else(|| panic!("`{}` is marked as a shim but has none", entry.name)),
+            stub => stub_function(store, entry, stub),
+        };
+        imports.define(module.name(), entry.name, function);
     }
     imports
 }
