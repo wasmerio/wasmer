@@ -289,7 +289,7 @@ impl Kernel {
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
         let interrupt = self.interrupt(caller);
-        let io = Self::io(&*interrupt, any.file());
+        let io = Self::io(caller, &*interrupt, any.file());
         let (file, peer) = match &any {
             AnySock::Inet((_, sock)) => {
                 let mut wait = sock.blocking(io, RCV, MsgFlags(0));
@@ -356,7 +356,7 @@ impl Kernel {
             SocketKind::Stream => socket::decode(socket.domain(), &raw, false)?,
         };
         let interrupt = self.interrupt(caller);
-        let mut wait = sock.blocking(Self::io(&*interrupt, &file), SND, MsgFlags(0));
+        let mut wait = sock.blocking(Self::io(caller, &*interrupt, &file), SND, MsgFlags(0));
         // `__inet_stream_connect`: a blocking socket waits for a connection under way, its
         // own or one a restarted call left (`EALREADY`); a non-blocking one reports it.
         match socket.connect(addr) {
@@ -448,7 +448,7 @@ impl Kernel {
     ) -> SysResult<usize> {
         let memory = caller.memory();
         let interrupt = self.interrupt(caller);
-        let io = Self::io(&*interrupt, sock.file());
+        let io = Self::io(caller, &*interrupt, sock.file());
         let result = match sock {
             AnySock::Inet((_, sock)) => {
                 let to = match to {
@@ -577,7 +577,7 @@ impl Kernel {
     ) -> SysResult<Got> {
         let memory = caller.memory();
         let interrupt = self.interrupt(caller);
-        let io = Self::io(&*interrupt, sock.file());
+        let io = Self::io(caller, &*interrupt, sock.file());
         let waitall = flags.contains(MsgFlags::MSG_WAITALL) && !flags.contains(MsgFlags::MSG_PEEK);
         match sock {
             AnySock::Inet((_, sock)) => {
@@ -1076,10 +1076,12 @@ impl Kernel {
 
     /// The call context for an operation on `file`.
     pub(crate) fn io<'a>(
+        caller: &Caller<'_>,
         interrupt: &'a dyn wasixv2_wait::Interrupt,
         file: &OpenFile,
     ) -> crate::file::Io<'a> {
         crate::file::Io {
+            task: caller.task(),
             flags: file.flags(),
             interrupt,
             broken: None,

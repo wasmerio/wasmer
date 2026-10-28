@@ -7,7 +7,7 @@ use std::{cell::Cell, sync::Arc};
 
 use wasixv2_abi::{ConstIovecArray, GuestPtr, Iovec, LoffPtr, OpenFlags, SpliceFlags};
 use wasixv2_syscalls::{
-    Caller, Errno, Fd, LocalFuture, SysErr, SysResult, read_value, write_value,
+    Caller, Errno, Fd, LocalFuture, SysErr, SysResult, TaskId, read_value, write_value,
 };
 use wasixv2_vfs::FileType;
 use wasixv2_wait::Interrupt;
@@ -292,6 +292,7 @@ impl Kernel {
         let interrupt = self.interrupt(caller);
         let broken = Cell::new(false);
         let mut out = SpliceOut {
+            task: caller.task(),
             output,
             pos: &mut at.pos,
             interrupt: &*interrupt,
@@ -337,9 +338,9 @@ impl Kernel {
             self.sync_file_mappings(caller, input).await;
             let n = match (inode, positional) {
                 (Some(file), _) => file.read_at(&mut buf, at.pos).await?,
-                (None, true) => input.read_at(&mut buf, at.pos).await?,
+                (None, true) => input.read_at(caller.task(), &mut buf, at.pos).await?,
                 (None, false) => {
-                    let mut io = input.io(&*interrupt);
+                    let mut io = input.io(caller.task(), &*interrupt);
                     if nonblock {
                         io.flags |= OpenFlags::O_NONBLOCK;
                     }
@@ -424,6 +425,7 @@ async fn user_offset(caller: &Caller<'_>, ptr: LoffPtr) -> Result<Option<i64>, E
 /// A splice's output as a pipe consumer: a regular file written at `pos`, which moves, or a
 /// socket or device written as `write` does (`iter_file_splice_write`, `splice_to_socket`).
 struct SpliceOut<'a> {
+    task: TaskId,
     output: &'a OpenFile,
     pos: &'a mut u64,
     interrupt: &'a dyn Interrupt,
@@ -434,7 +436,10 @@ impl Consumer for SpliceOut<'_> {
     fn take<'a>(&'a mut self, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let Backing::Inode(file) = &self.output.backing else {
-                return self.output.write(self.interrupt, self.broken, data).await;
+                return self
+                    .output
+                    .write(self.task, self.interrupt, self.broken, data)
+                    .await;
             };
             check_file_size(*self.pos, data.len())?;
             let n = file.write_at(data, *self.pos).await?;

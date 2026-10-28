@@ -1409,7 +1409,7 @@ impl Kernel {
         }
         let cred = self.peer_cred(caller);
         let interrupt = self.interrupt(caller);
-        let mut wait = sock.blocking(Self::io(&*interrupt, file), SND, MsgFlags(0));
+        let mut wait = sock.blocking(Self::io(caller, &*interrupt, file), SND, MsgFlags(0));
         wait.wait(WaitOn::Queue(&target.wait), PollMask::WRITABLE, || {
             sock.try_connect(&target, &cred)
         })
