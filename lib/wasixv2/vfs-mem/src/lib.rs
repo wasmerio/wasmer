@@ -11,18 +11,23 @@
 //! Like tmpfs, a filesystem has a size limit for data (`size=`) and one for inodes
 //! (`nr_inodes=`), by default half of the memory the machine is given (see [`Limits`]). Past
 //! them, writes and creation fail with `ENOSPC`.
+//!
+//! A filesystem given host shared memory ([`MemFs::with_shared_pages`]) keeps each regular
+//! file's data in a shared memory object, as tmpfs keeps its files in shmem, so the kernel can
+//! map a file's own pages into every process that maps it ([`Node::shared_pages`]).
 
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap},
     sync::{
-        Arc, Mutex, MutexGuard, Weak,
+        Arc, Mutex, MutexGuard, OnceLock, Weak,
         atomic::{AtomicU64, Ordering},
     },
 };
 
 use async_trait::async_trait;
 use wasixv2_abi::Errno;
+use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_vfs::{
     AllocMode, Attr, Clock, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult,
     Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole,
@@ -94,6 +99,8 @@ struct Shared {
     clock: Arc<dyn Clock>,
     next_ino: AtomicU64,
     space: Space,
+    /// Makes the shared memory objects regular files keep their data in, if they do.
+    pages: OnceLock<Arc<dyn Provider>>,
 }
 
 impl Shared {
@@ -191,6 +198,7 @@ impl MemFs {
             clock,
             next_ino: AtomicU64::new(1),
             space: Space::new(limits),
+            pages: OnceLock::new(),
         });
         let root = NewNode {
             kind: NewKind::Directory,
@@ -202,6 +210,15 @@ impl MemFs {
         let root = MemNode::new(&shared, &root).expect("an empty filesystem has room for its root");
         root.meta().nlink = 2;
         Self { shared, root }
+    }
+
+    /// Keeps the data of regular files created from now on in shared memory objects from
+    /// `provider`, which `MAP_SHARED` mappings show directly, as the memfd and `/dev/shm`
+    /// tmpfs of a Linux system keep theirs in shmem. A file whose object cannot be made keeps
+    /// its data on the heap, and its mappings are copies. Only the first provider counts.
+    pub fn with_shared_pages(self, provider: Arc<dyn Provider>) -> Self {
+        let _ = self.shared.pages.set(provider);
+        self
     }
 }
 
@@ -321,7 +338,10 @@ impl MemNode {
         shared.space.reserve_inode()?;
         let now = shared.now();
         let (content, rdev) = match new.kind {
-            NewKind::Regular => (Content::File(Mutex::default()), Device::default()),
+            NewKind::Regular => {
+                let data = Data::new(shared.pages.get().cloned());
+                (Content::File(Mutex::new(data)), Device::default())
+            }
             NewKind::Directory => (Content::Dir(Mutex::default()), Device::default()),
             NewKind::Symlink(target) => (Content::Symlink(target.to_vec()), Device::default()),
             NewKind::CharDevice(dev) | NewKind::BlockDevice(dev) => (Content::Special, dev),
@@ -429,6 +449,14 @@ impl MemNode {
             _ => 0,
         }
     }
+
+    /// Blocks of memory the object holds, for `st_blocks`.
+    fn blocks(&self) -> u64 {
+        match &self.content {
+            Content::File(data) => data.lock().unwrap().blocks(),
+            _ => 0,
+        }
+    }
 }
 
 impl Drop for MemNode {
@@ -476,7 +504,7 @@ impl Node for MemNode {
 
     async fn getattr(&self) -> FsResult<Attr> {
         let size = self.size();
-        let blocks = self.allocated() * (BLOCK / 512);
+        let blocks = self.blocks() * (BLOCK / 512);
         let meta = self.meta();
         Ok(Attr {
             ino: self.ino,
@@ -502,7 +530,7 @@ impl Node for MemNode {
             if size > MAX_SIZE {
                 return Err(Errno::EFBIG);
             }
-            self.data()?.truncate(&self.shared.space, size);
+            self.data()?.truncate(&self.shared.space, size)?;
         }
         {
             let mut meta = self.meta();
@@ -649,6 +677,13 @@ impl Node for MemNode {
                 noatime: options.noatime,
             })),
             _ => Err(Errno::ENXIO),
+        }
+    }
+
+    fn shared_pages(&self, end: u64) -> FsResult<Option<Arc<dyn SharedPages>>> {
+        match &self.content {
+            Content::File(_) => self.data()?.shared_pages(end),
+            _ => Ok(None),
         }
     }
 
@@ -816,7 +851,7 @@ impl MemHandle {
 #[async_trait(?Send)]
 impl Handle for MemHandle {
     async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
-        let n = self.node.data()?.read(buf, offset);
+        let n = self.node.data()?.read(buf, offset)?;
         self.read_done();
         Ok(n)
     }
@@ -851,18 +886,12 @@ impl Handle for MemHandle {
             let mut file = self.node.data()?;
             match mode {
                 AllocMode::Allocate | AllocMode::AllocateKeepSize => {
-                    file.allocate(space, offset, end)?;
-                    if mode == AllocMode::Allocate {
-                        file.size = file.size.max(end);
-                    }
+                    file.allocate(space, offset, end, mode == AllocMode::Allocate)?;
                 }
-                AllocMode::PunchHole => file.punch(space, offset, end),
+                AllocMode::PunchHole => file.punch(space, offset, end)?,
                 AllocMode::ZeroRange { keep_size } => {
-                    file.punch(space, offset, end);
-                    file.allocate(space, offset, end)?;
-                    if !keep_size {
-                        file.size = file.size.max(end);
-                    }
+                    file.punch(space, offset, end)?;
+                    file.allocate(space, offset, end, !keep_size)?;
                 }
             }
         }
@@ -874,7 +903,7 @@ impl Handle for MemHandle {
         if size > MAX_SIZE {
             return Err(Errno::EFBIG);
         }
-        self.node.data()?.truncate(&self.node.shared.space, size);
+        self.node.data()?.truncate(&self.node.shared.space, size)?;
         self.node.touch();
         Ok(())
     }
