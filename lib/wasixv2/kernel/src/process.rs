@@ -1225,7 +1225,8 @@ impl Kernel {
         let my_sid = me.ident.lock_or_recover().sid;
         let pid = match pid {
             0 => me.pid.0,
-            pid if pid < 0 => return Err(Errno::EINVAL.into()),
+            // `find_task_by_vpid`: no process has a negative pid.
+            pid if pid < 0 => return Err(Errno::ESRCH.into()),
             pid => pid as u32,
         };
         let pgid = if pgid == 0 { pid } else { pgid as u32 };

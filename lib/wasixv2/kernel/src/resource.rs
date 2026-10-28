@@ -129,7 +129,7 @@ impl Kernel {
             true => None,
             false => Some(read_value(caller.memory(), new).await?),
         };
-        let process = self.lookup_pid(caller, pid).map_err(|_| Errno::ESRCH)?;
+        let process = self.lookup_pid(caller, pid)?;
         let index = usize::try_from(resource.0)
             .ok()
             .filter(|&i| i < NLIMITS)

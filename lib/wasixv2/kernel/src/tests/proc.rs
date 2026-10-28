@@ -264,6 +264,32 @@ fn execve_probes_the_header_before_it_reads_the_image() {
     }
 }
 
+// ---- process groups ----
+
+/// `getpgid`, `getsid` and `setpgid` look a negative pid up as any other that no process has
+/// (`find_task_by_vpid`): `ESRCH`. A negative group is `EINVAL`, and a group that does not
+/// exist in the caller's session `EPERM`.
+#[test]
+fn a_negative_pid_names_no_process() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let esrch = Err(SysErr::Errno(Errno::ESRCH));
+
+    assert_eq!(block_on(kernel.getpgid(&caller, -99)), esrch);
+    assert_eq!(block_on(kernel.getsid(&caller, -99)), esrch);
+    assert_eq!(block_on(kernel.setpgid(&caller, -1, 0)), esrch);
+    assert_eq!(block_on(kernel.setpgid(&caller, 99, 0)), esrch);
+    assert_eq!(
+        block_on(kernel.setpgid(&caller, 0, -1)),
+        Err(SysErr::Errno(Errno::EINVAL))
+    );
+    assert_eq!(
+        block_on(kernel.setpgid(&caller, 0, 4_194_304)),
+        Err(SysErr::Errno(Errno::EPERM))
+    );
+}
+
 // ---- reparenting ----
 
 fn fork_child(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
