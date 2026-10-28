@@ -16,11 +16,13 @@ use wasixv2::{
     OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname,
 };
 use wasmer::{Engine, Module};
-use wasmer_config::package::PackageId;
+use wasmer_config::package::{PackageId, PackageSource};
 use wasmer_types::{ModuleHash, target::Target};
 use wasmer_wasix::{
-    Runtime, bin_factory::BinaryPackage, runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
-    runtime::module_cache::HashedModuleData,
+    Runtime,
+    bin_factory::BinaryPackage,
+    runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
+    runtime::{module_cache::HashedModuleData, task_manager::VirtualTaskManagerExt as _},
 };
 use webc::{
     Container,
@@ -29,7 +31,8 @@ use webc::{
 };
 
 use super::{
-    CliPackageSource, GuestExit, Run, exit_with_wasi_exit_code, runtime::PackageTree,
+    CliPackageSource, GuestExit, Run, exit_with_wasi_exit_code,
+    runtime::{MonitoringRuntime, PackageTree},
     wasi::utf8_env_part,
 };
 use crate::backend::{BackendType, RuntimeOptions};
@@ -106,6 +109,28 @@ impl MachineProgram {
     fn is_package(&self) -> bool {
         self.wasi.is_some()
     }
+
+    /// Adds the packages `--use` names, in order, under the program's own: their commands
+    /// after the program's package's, so a name that has stays its, and their volumes before
+    /// its volumes, which obscure them.
+    pub(super) fn using(mut self, used: Vec<UsedPackage>) -> Self {
+        let mut volumes = Vec::new();
+        for package in used {
+            volumes.extend(package.volumes);
+            self.commands.extend(package.commands);
+        }
+        volumes.append(&mut self.volumes);
+        // A stable sort keeps the obscuring order among mounts at the same depth.
+        volumes.sort_by_key(|v| Path::new(&v.mount_path).components().count());
+        self.volumes = volumes;
+        self
+    }
+}
+
+/// A package `--use` names: its tree's commands and volumes.
+pub(super) struct UsedPackage {
+    volumes: Vec<PackageVolume>,
+    commands: Vec<PackageCommand>,
 }
 
 /// Whether the host file at `path` is a `#!` script, which runs as its interpreter on the
@@ -296,20 +321,61 @@ impl Run {
             .metadata()
             .annotation::<WasiAnnotation>(WasiAnnotation::KEY)?
             .unwrap_or_else(|| WasiAnnotation::new(name));
+        let file = match &self.input {
+            CliPackageSource::File(path) => Some(path.as_path()),
+            _ => None,
+        };
         Ok(MachineProgram {
             argv0: wasi.exec_name.clone().unwrap_or_else(|| name.to_string()),
             start: Start::File(format!("/bin/{name}")),
             wasi: Some(wasi),
-            volumes: self.package_volumes(tree)?,
+            volumes: self.package_volumes(tree, file)?,
             commands: package_commands(pkg)?,
             script_dir: None,
         })
     }
 
+    /// The packages `--use` names, loaded through `runtime`, each with its dependencies, as
+    /// v1 loaded them.
+    pub(super) fn used_packages<R>(
+        &self,
+        runtime: &Arc<MonitoringRuntime<R>>,
+    ) -> Result<Vec<UsedPackage>, Error>
+    where
+        R: Runtime + Send + Sync + 'static,
+    {
+        let mut used = Vec::new();
+        for name in &self.wasi.uses {
+            let specifier = name
+                .parse::<PackageSource>()
+                .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
+            let rt = runtime.clone();
+            let pkg = runtime
+                .task_manager()
+                .spawn_and_block_on(async move {
+                    BinaryPackage::from_registry(&specifier, rt.as_ref()).await
+                })
+                .with_context(|| format!("Unable to load \"{name}\""))?
+                .with_context(|| format!("Unable to load \"{name}\""))?;
+            // The tree the runtime loaded last is this package's.
+            let tree = runtime.package_tree();
+            used.push(UsedPackage {
+                volumes: self.package_volumes(&tree, None)?,
+                commands: package_commands(&pkg)?,
+            });
+        }
+        Ok(used)
+    }
+
     /// The volumes of the tree's filesystem table, each after the ones it obscures and parents
     /// before what is mounted inside them. A package directory's own table maps host
-    /// directories instead; they arrive as `--volume`s.
-    fn package_volumes(&self, tree: &PackageTree) -> Result<Vec<PackageVolume>, Error> {
+    /// directories instead; they arrive as `--volume`s. `file` is the file the tree's root was
+    /// loaded from, when it was not downloaded.
+    fn package_volumes(
+        &self,
+        tree: &PackageTree,
+        file: Option<&Path>,
+    ) -> Result<Vec<PackageVolume>, Error> {
         let mut volumes = Vec::new();
         let mut readers: HashMap<&PackageId, Reader> = HashMap::new();
         // Mappings earlier in the table obscure later ones, so they are mounted last.
@@ -339,8 +405,8 @@ impl Run {
                             mapping.package
                         )
                     })?;
-                    let file = match (&self.input, is_root) {
-                        (CliPackageSource::File(path), true) => Some(path.as_path()),
+                    let file = match (file, is_root) {
+                        (Some(path), true) => Some(path),
                         _ => tree.files.get(&mapping.package).map(PathBuf::as_path),
                     };
                     entry.insert(Reader::open(&mapping.package, container, file)?)
@@ -634,7 +700,6 @@ impl Run {
         let wasi = &self.wasi;
         #[allow(unused_mut)]
         let mut given = vec![
-            ("--use", !wasi.uses.is_empty()),
             ("--map-command", !wasi.map_commands.is_empty()),
             (
                 "network rulesets (--net=<RULES>)",

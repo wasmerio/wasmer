@@ -74,7 +74,8 @@ pub struct Wasi {
     #[clap(long, env)]
     pub(crate) forward_host_env: bool,
 
-    /// List of other containers this module depends on
+    /// A package whose commands go in /bin and /usr/bin and whose volumes are mounted, under
+    /// the program's own (repeatable; earlier ones win)
     #[clap(long = "use", name = "USE")]
     pub(crate) uses: Vec<String>,
 

@@ -943,6 +943,81 @@ fn run_wasixv2_package_command_that_does_not_instantiate_is_an_error() {
     assert!(!stderr.contains("SIGSEGV"), "{stderr}");
 }
 
+/// Builds a package `wasmer-tests/tools` into `out`, laid out as a local registry that
+/// `--include-webc` takes: the command `echo-args`
+/// ([`WASIXV2_ECHO_WAT`] ending with `tools`), and in the volume at `/opt` a `#!` script for it, `/opt/hello`.
+fn wasixv2_tools_registry(out: &Path) -> std::path::PathBuf {
+    let package = TempDir::new().unwrap();
+    let path = package.path();
+    std::fs::write(path.join("echo.wasm"), wasixv2_echo("tools")).unwrap();
+    std::fs::create_dir(path.join("opt")).unwrap();
+    write_executable(&path.join("opt/hello"), "#!/bin/echo-args\n");
+    std::fs::write(
+        path.join("wasmer.toml"),
+        "[package]\nname = \"wasmer-tests/tools\"\nversion = \"0.1.0\"\n\n\
+         [[module]]\nname = \"echo-args\"\nsource = \"echo.wasm\"\n\n\
+         [fs]\n\"/opt\" = \"opt\"\n\n\
+         [[command]]\nname = \"echo-args\"\nmodule = \"echo-args\"\nrunner = \"wasi\"\n",
+    )
+    .unwrap();
+    let registry = out.join("registry");
+    std::fs::create_dir_all(registry.join("wasmer-tests/tools")).unwrap();
+    let webc = registry.join("wasmer-tests/tools/0.1.0.webc");
+    wasmer_command()
+        .arg("-q")
+        .arg("package")
+        .arg("build")
+        .arg(path)
+        .arg("-o")
+        .arg(&webc)
+        .assert()
+        .success();
+    registry
+}
+
+/// `--use` adds a package's commands to `/bin` and `/usr/bin` and mounts its volumes, for a
+/// module as for a package, under the package's own commands.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_use_adds_a_packages_commands_and_volumes() {
+    let out = TempDir::new().unwrap();
+    let registry = wasixv2_tools_registry(out.path());
+    let exec = out.path().join("exec.wasm");
+    std::fs::write(&exec, wat::parse_str(WASIXV2_EXEC_WAT).unwrap()).unwrap();
+    let use_tools = |cmd: &mut Command| {
+        cmd.arg("run")
+            .arg("--offline")
+            .arg("--include-webc")
+            .arg(&registry)
+            .arg("--use=wasmer-tests/tools");
+    };
+    let mut cmd = wasmer_command();
+    use_tools(&mut cmd);
+    cmd.arg(&exec)
+        .arg("/usr/bin/echo-args")
+        .arg("hi")
+        .assert()
+        .success()
+        .stdout("/usr/bin/echo-args hi\ntools");
+    let mut cmd = wasmer_command();
+    use_tools(&mut cmd);
+    cmd.arg(&exec)
+        .arg("/opt/hello")
+        .assert()
+        .success()
+        .stdout("/bin/echo-args /opt/hello\ntools");
+    // A package's own `echo-args` wins over the used one's.
+    let package = wasixv2_commands_package(None);
+    let mut cmd = wasmer_command();
+    use_tools(&mut cmd);
+    cmd.arg(package.path())
+        .arg("--entrypoint=exec")
+        .arg("/bin/echo-args")
+        .assert()
+        .success()
+        .stdout("/bin/echo-args\n");
+}
+
 /// The root package's commands win over a dependency's of the same name (`ls`), and a
 /// dependency's commands (`echo` of coreutils, a WASIX v1 program) run from the root's.
 #[test]
@@ -1851,7 +1926,7 @@ fn issue_3794_unable_to_mount_relative_paths() {
 }
 
 #[test]
-#[ignore = "`--use` (injecting packages into the filesystem) is not supported on the WASIX v2 kernel yet"]
+#[ignore = "python/python is dynamically linked, which the WASIX v2 kernel does not support yet"]
 fn merged_filesystem_contains_all_files() {
     let assert = wasmer_command()
         .arg("run")
@@ -1988,7 +2063,6 @@ fn run_quickjs_via_url() {
 }
 
 #[test]
-#[ignore = "`--use` (injecting packages into the filesystem) is not supported on the WASIX v2 kernel yet"]
 fn run_bash_using_coreutils() {
     let assert = wasmer_command()
         .arg("run")

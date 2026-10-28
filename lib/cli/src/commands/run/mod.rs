@@ -159,13 +159,16 @@ impl Run {
             (backend, engine.clone()),
         ));
 
+        // `--use`: packages whose commands and volumes join the program's.
+        let used = self.used_packages(&monitoring_runtime)?;
+
         // A `#!` script runs as its interpreter does on Linux: the kernel's `execve` reads the
         // `#!` line and starts the interpreter it names, from the guest's filesystem.
         if let CliPackageSource::File(path) = &self.input
             && machine::is_script(path)
         {
             pb.finish_and_clear();
-            let program = MachineProgram::script(self.script_guest_path(path)?);
+            let program = MachineProgram::script(self.script_guest_path(path)?).using(used);
             return self.execute_machine(program, loader, &engine, &handle);
         }
 
@@ -180,7 +183,7 @@ impl Run {
                 .block_on(loader.load(&engine, &image))
                 .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
             pb.finish_and_clear();
-            let program = MachineProgram::module(path, engine.clone(), module);
+            let program = MachineProgram::module(path, engine.clone(), module).using(used);
             return self.execute_machine(program, loader, &engine, &handle);
         }
 
@@ -199,7 +202,7 @@ impl Run {
             // that reaches here is plain WebAssembly.
             ExecutableTarget::WebAssembly { module, path, .. } => {
                 if runs_on_machine(&module)? {
-                    let program = MachineProgram::module(&path, engine.clone(), module);
+                    let program = MachineProgram::module(&path, engine.clone(), module).using(used);
                     self.execute_machine(program, loader, &engine, &handle)
                 } else {
                     self.execute_pure_wasm_module(&module)
@@ -212,7 +215,7 @@ impl Run {
                     );
                 }
                 let tree = monitoring_runtime.package_tree();
-                let program = self.machine_program(&pkg, &tree)?;
+                let program = self.machine_program(&pkg, &tree)?.using(used);
                 self.execute_machine(program, loader, &engine, &handle)
             }
         }
