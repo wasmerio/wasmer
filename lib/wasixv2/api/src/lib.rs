@@ -32,6 +32,7 @@ pub use wasixv2_host::{
 };
 pub use wasixv2_kernel::{Credentials, ProcessConfig, Stdio, Uname, UnameError};
 use wasixv2_kernel::{HostClock, Kernel};
+use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_syscalls::{Layered, TaskId};
 use wasixv2_trace::Trace;
 pub use wasixv2_vfs::Filesystem;
@@ -999,9 +1000,33 @@ const HOSTS: &str = "127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loop
 const HOSTNAME: &str = "localhost\n";
 
 /// The kernel's internal tmpfs for `memfd_create` (`shm_mnt`): its root is root's, mode 1777,
-/// and like Linux's internal mount it has no size limit of its own.
+/// and like Linux's internal mount it has no size limit of its own. Its files live in host
+/// shared memory, as `/dev/shm`'s do.
 fn shm_filesystem(host: &Arc<dyn Host>) -> Arc<dyn Filesystem> {
-    Arc::new(MemFs::new(Arc::new(HostClock(host.clone())), 0o1777, 0, 0))
+    Arc::new(shared_tmpfs(host, 0o1777))
+}
+
+/// A memory filesystem whose files processes share by mapping them, `/dev/shm` and the memfd
+/// filesystem: its regular files live in the host's shared memory objects
+/// ([`Host::shared_pages`]), so every `MAP_SHARED` mapping of one shows the same pages, as
+/// tmpfs keeps its files in shmem. Only on Linux, where an object can change its size: a macOS
+/// object's size is fixed once set, so there the files stay in the filesystem's own memory and
+/// their mappings are copies kept in sync at syscalls.
+fn shared_tmpfs(host: &Arc<dyn Host>, mode: u32) -> MemFs {
+    let fs = MemFs::new(Arc::new(HostClock(host.clone())), mode, 0, 0);
+    if cfg!(any(target_os = "linux", target_os = "android")) {
+        return fs.with_shared_pages(Arc::new(HostPages(host.clone())));
+    }
+    fs
+}
+
+/// The host's shared memory objects, for a memory filesystem to keep files in.
+struct HostPages(Arc<dyn Host>);
+
+impl Provider for HostPages {
+    fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn SharedPages>> {
+        self.0.shared_pages(size)
+    }
 }
 
 /// The default root filesystem: a memory filesystem whose top directory `user` owns, laid out
@@ -1171,7 +1196,8 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
                 vfs.symlink(&cx, target.as_bytes(), &top, link.as_bytes())
                     .await?;
             }
-            mount("/dev/shm", tmpfs(0o1777), flags(true, false)).await;
+            let shm = Arc::new(shared_tmpfs(host, 0o1777));
+            mount("/dev/shm", shm, flags(true, false)).await;
             mount("/dev/pts", kernel.devpts(), flags(false, true)).await;
         }
         mount("/tmp", tmpfs(0o1777), flags(true, false)).await;

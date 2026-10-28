@@ -26,6 +26,7 @@ wasixv2-vnet = { path = "../vnet" }
 wasixv2-vnet-host = { path = "../vnet-host", optional = true }
 wasixv2-vnet-switch = { path = "../vnet-switch" }
 wasixv2-kernel = { path = "../kernel" }
+wasixv2-pages = { path = "../pages" }
 wasixv2-checkpoint = { path = "../checkpoint" }
 wasixv2-exec = { path = "../exec", default-features = false }
 wasixv2-dylink = { path = "../dylink", default-features = false }
