@@ -16,8 +16,11 @@
 mod gc;
 
 use std::{
-    collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex, MutexGuard, Weak},
+    collections::{BTreeMap, HashMap, VecDeque},
+    sync::{
+        Arc, Mutex, MutexGuard, Weak,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use wasixv2_abi::{
@@ -135,9 +138,13 @@ pub(crate) enum Key {
 /// `net->unx.table`), the machine's by socket inode (`bsd_socket_buckets`, which no namespace
 /// separates: a path is reached through the mount tree), and the files in flight between all
 /// of them (`unix_tot_inflight`, `user->unix_inflight`), which no namespace separates either.
+/// The namespace also lists every socket made in it, bound or not, until it is released, as
+/// its table hashes them all (`unix_insert_unbound_socket`); `/proc/net/unix` shows them.
 #[derive(Default)]
 pub(crate) struct Names {
     abstract_names: Table,
+    /// The namespace's live sockets, by [`Sock::id`].
+    sockets: Mutex<BTreeMap<u64, Weak<Sock>>>,
     /// The next autobind name.
     next: Mutex<u32>,
     paths: Arc<Table>,
@@ -155,10 +162,17 @@ impl Names {
     pub(crate) fn for_new_net(&self) -> Self {
         Self {
             abstract_names: Table::default(),
+            sockets: Mutex::default(),
             next: Mutex::default(),
             paths: self.paths.clone(),
             inflight: self.inflight.clone(),
         }
+    }
+
+    /// The namespace's live sockets, oldest first.
+    pub(crate) fn sockets(&self) -> Vec<Arc<Sock>> {
+        let sockets = self.sockets.lock_or_recover();
+        sockets.values().filter_map(Weak::upgrade).collect()
     }
 
     fn table(&self, key: &Key) -> &Table {
@@ -226,6 +240,11 @@ struct Inner {
     err: Option<Errno>,
     peer_cred: Option<PeerCred>,
     released: bool,
+    /// For a datagram socket, `sk_state == TCP_ESTABLISHED`: it connected, or another
+    /// socket connected to it, and has not disconnected since (`unix_dgram_connect`).
+    established: bool,
+    /// The inode of the socket's file once it has one (`sock_graft`; `sock_i_ino`).
+    ino: u64,
     /// The `SOL_SOCKET` options. `sk_sndbuf` bounds what this socket may have queued at its
     /// peer and a record's size; `SO_PASSCRED` asks for the sender's credentials.
     opts: SockOpts,
@@ -240,6 +259,8 @@ impl Inner {
 
 /// A Unix socket (`struct unix_sock`).
 pub(crate) struct Sock {
+    /// Orders the namespace's list of sockets; never reused.
+    id: u64,
     kind: Kind,
     inner: Mutex<Inner>,
     /// Woken when data arrives, room appears at the peer, or the state changes.
@@ -252,6 +273,27 @@ pub(crate) struct Sock {
     pub(crate) timeouts: Timeouts,
     host: Arc<dyn Host>,
     me: Weak<Sock>,
+}
+
+impl Drop for Sock {
+    fn drop(&mut self) {
+        self.unlist();
+    }
+}
+
+/// A line of `/proc/net/unix`: what `unix_seq_show` reads of a socket.
+pub(crate) struct SeqEntry {
+    /// `sk_refcnt`.
+    pub(crate) refs: usize,
+    /// `sk_state == TCP_LISTEN`.
+    pub(crate) listening: bool,
+    pub(crate) socket_type: SocketType,
+    /// `sk_state == TCP_ESTABLISHED`.
+    pub(crate) established: bool,
+    /// The inode of the socket's file, 0 while it has none (`sk_socket`).
+    pub(crate) ino: u64,
+    /// The bound address, family included.
+    pub(crate) addr: Option<Vec<u8>>,
 }
 
 /// What a receive returns.
@@ -286,7 +328,10 @@ impl Sock {
             Kind::Stream => SocketKind::Stream,
             Kind::Dgram | Kind::SeqPacket => SocketKind::Datagram,
         };
-        Arc::new_cyclic(|me| Self {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let sock = Arc::new_cyclic(|me| Self {
+            id,
             kind,
             inner: Mutex::new(Inner {
                 state: State::Unconnected,
@@ -301,6 +346,8 @@ impl Sock {
                 err: None,
                 peer_cred: None,
                 released: false,
+                established: false,
+                ino: 0,
                 opts: SockOpts::unix(ty),
             }),
             wait: WaitQueue::new(),
@@ -309,7 +356,39 @@ impl Sock {
             timeouts: Timeouts::default(),
             host,
             me: me.clone(),
-        })
+        });
+        let mut sockets = sock.names().sockets.lock_or_recover();
+        sockets.insert(id, Arc::downgrade(&sock));
+        drop(sockets);
+        sock
+    }
+
+    /// Takes the socket off its namespace's list (`unix_remove_socket`).
+    fn unlist(&self) {
+        self.names().sockets.lock_or_recover().remove(&self.id);
+    }
+
+    /// The socket has a file, whose inode is `ino` (`sock_graft`).
+    pub(crate) fn graft(&self, ino: u64) {
+        self.lock().ino = ino;
+    }
+
+    /// The socket as `/proc/net/unix` shows it (`unix_seq_show`); `refs` counts the
+    /// references to it besides the caller's.
+    pub(crate) fn seq_entry(&self, refs: usize) -> SeqEntry {
+        let inner = self.lock();
+        let established = match self.kind {
+            Kind::Dgram => inner.established,
+            Kind::Stream | Kind::SeqPacket => inner.state == State::Connected,
+        };
+        SeqEntry {
+            refs,
+            listening: inner.state == State::Listening,
+            socket_type: self.kind.socket_type(),
+            established,
+            ino: inner.ino,
+            addr: inner.addr.clone(),
+        }
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
@@ -354,8 +433,9 @@ impl Sock {
             let mut inner = x.lock();
             inner.peer = Some(Arc::downgrade(y));
             inner.peer_cred = Some(y.owner.clone());
-            if x.kind.connection() {
-                inner.state = State::Connected;
+            match x.kind.connection() {
+                true => inner.state = State::Connected,
+                false => inner.established = true,
             }
         }
     }
@@ -393,6 +473,7 @@ impl Sock {
             }
             inner.released = true;
             inner.state = State::Unconnected;
+            inner.established = false;
             inner.shutdown = RCV_SHUTDOWN | SEND_SHUTDOWN;
             let unread = !inner.rx.is_empty();
             inner.rx_bytes = 0;
@@ -404,6 +485,7 @@ impl Sock {
                 unread,
             )
         };
+        self.unlist();
         if let Some(key) = key {
             self.names().remove(&key, self);
         }
@@ -591,8 +673,31 @@ impl Sock {
         {
             return Err(Errno::EPROTOTYPE);
         }
-        // `unix_dgram_connect` sets no peer credentials.
-        self.lock().peer = target.as_ref().map(Arc::downgrade);
+        // `unix_dgram_connect` sets no peer credentials. Connecting makes both ends
+        // established; disconnecting closes this end, and the old peer if it has no peer.
+        if let Some(target) = &target {
+            target.lock().established = true;
+        }
+        let old = {
+            let mut inner = self.lock();
+            let old = std::mem::replace(&mut inner.peer, target.as_ref().map(Arc::downgrade));
+            match &target {
+                Some(_) => inner.established = true,
+                None if old.is_some() => inner.established = false,
+                None => {}
+            }
+            old.and_then(|old| old.upgrade())
+        };
+        if let Some(old) = old
+            && target
+                .as_ref()
+                .is_none_or(|target| !Arc::ptr_eq(target, &old))
+        {
+            let mut old = old.lock();
+            if old.peer.is_none() {
+                old.established = false;
+            }
+        }
         Ok(())
     }
 
@@ -707,6 +812,7 @@ impl Sock {
                 .is_some_and(|p| std::ptr::eq(p.as_ptr(), Arc::as_ptr(target)))
             {
                 inner.peer = None;
+                inner.established = false;
             }
             return Err(Errno::ECONNREFUSED);
         }

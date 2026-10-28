@@ -824,3 +824,71 @@ fn interface_requests_look_at_the_sockets_network_namespace() {
     let fresh = socket(AddressFamily::AF_UNIX);
     assert_eq!(errno(index_of_lo(fresh)), Errno::ENODEV);
 }
+
+/// `/proc/net/unix` lists every Unix socket of the reader's network namespace, bound or not,
+/// with its type, state, inode and name (`unix_seq_show`): a connection nobody accepted yet
+/// has no inode and shows as connecting, and a datagram socket another connected to is
+/// established like its peer.
+#[test]
+fn proc_net_unix_lists_the_namespaces_sockets() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let ino = |fd: Fd| {
+        let link = readlink(&kernel, &caller, &format!("/proc/self/fd/{}", fd.0)).unwrap();
+        link.trim_start_matches("socket:[")
+            .trim_end_matches(']')
+            .to_string()
+    };
+    let abstract_listener = unix_listen(&kernel, &caller, b"\0ltp").unwrap();
+    let path_listener = unix_listen(&kernel, &caller, b"/sock").unwrap();
+    assert_eq!(unix_connect(&kernel, &caller, b"/sock"), Ok(0));
+    let dgram =
+        |kernel: &Kernel| block_on(kernel.socket(&caller, AddressFamily::AF_UNIX, 2, 0)).unwrap();
+    let (server, client) = (dgram(&kernel), dgram(&kernel));
+    let len = sun(&memory, b"\0d\0x");
+    assert_eq!(
+        block_on(kernel.bind(&caller, server, GuestPtr::new(0x900), len)),
+        Ok(0)
+    );
+    let connect = kernel.connect(&caller, client, GuestPtr::new(0x900), len);
+    assert_eq!(block_on(connect), Ok(0));
+
+    let text = read_text(&kernel, &caller, "/proc/net/unix");
+    let mut lines = text.lines();
+    assert_eq!(
+        lines.next(),
+        Some("Num       RefCount Protocol Flags    Type St Inode Path")
+    );
+    // Flags, type, state, inode and name of each; the client of the stream connection is the
+    // socket after the listener, its unaccepted server end the one after that.
+    let rows: Vec<Vec<String>> = lines
+        .map(|line| {
+            assert!(line.starts_with("00000000: "), "{line}");
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            assert_eq!(fields[2], "00000000", "{line}");
+            fields[3..].iter().map(|f| f.to_string()).collect()
+        })
+        .collect();
+    let row = |fields: &[&str]| fields.iter().map(|f| f.to_string()).collect::<Vec<_>>();
+    let (listening, none) = ("00010000", "00000000");
+    let expected = [
+        row(&[listening, "0001", "01", &ino(abstract_listener), "@ltp"]),
+        row(&[listening, "0001", "01", &ino(path_listener), "/sock"]),
+        row(&[none, "0001", "03", &ino(Fd(path_listener.0 + 1))]),
+        row(&[none, "0001", "02", "0", "/sock"]),
+        row(&[none, "0002", "03", &ino(server), "@d@x"]),
+        row(&[none, "0002", "03", &ino(client)]),
+    ];
+    assert_eq!(rows, expected, "{text}");
+
+    // Another namespace lists only its own; a closed socket is gone.
+    assert_eq!(block_on(kernel.close(&caller, client)), Ok(0));
+    let text = read_text(&kernel, &caller, "/proc/net/unix");
+    assert_eq!(text.lines().count(), 6, "{text}");
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWNET), Ok(0));
+    let fresh = dgram(&kernel);
+    let text = read_text(&kernel, &caller, "/proc/net/unix");
+    let only = format!(" 0002 01 {:>5}", ino(fresh));
+    assert_eq!(text.lines().skip(1).collect::<Vec<_>>().len(), 1, "{text}");
+    assert!(text.lines().nth(1).unwrap().ends_with(&only), "{text}");
+}

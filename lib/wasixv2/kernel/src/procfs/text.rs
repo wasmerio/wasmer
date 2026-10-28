@@ -1,7 +1,7 @@
 //! The contents of the process filesystem's files, in the formats of `fs/proc` and
 //! `Documentation/filesystems/proc.rst`.
 
-use std::{fmt::Write as _, net::SocketAddr, time::Duration};
+use std::{fmt::Write as _, net::SocketAddr, sync::Arc, time::Duration};
 
 use wasixv2_abi::OpenFlags;
 use wasixv2_syscalls::Errno;
@@ -136,7 +136,7 @@ pub(super) fn net(ns: &NetNs, file: Net) -> Vec<u8> {
     match file {
         Net::Tcp(v6) => sockets(ns, SocketKind::Stream, v6),
         Net::Udp(v6) => sockets(ns, SocketKind::Datagram, v6),
-        Net::Unix => b"Num       RefCount Protocol Flags    Type St Inode Path\n".to_vec(),
+        Net::Unix => unix_sockets(ns),
         Net::Dev => net_dev(ns),
     }
 }
@@ -291,6 +291,46 @@ fn hex_addr(addr: SocketAddr) -> String {
     };
     let mut out: String = words.iter().map(|w| format!("{w:08X}")).collect();
     let _ = write!(out, ":{:04X}", addr.port());
+    out
+}
+
+/// `unix_seq_show`: every Unix socket of the namespace.
+fn unix_sockets(ns: &NetNs) -> Vec<u8> {
+    /// `__SO_ACCEPTCON`, and `SS_UNCONNECTED` through `SS_DISCONNECTING`.
+    const ACCEPTCON: u32 = 1 << 16;
+    const UNCONNECTED: u8 = 1;
+    const CONNECTING: u8 = 2;
+    const CONNECTED: u8 = 3;
+    const DISCONNECTING: u8 = 4;
+    let mut out = b"Num       RefCount Protocol Flags    Type St Inode Path\n".to_vec();
+    for sock in ns.unix_names.sockets() {
+        // Less the reference held here.
+        let entry = sock.seq_entry(Arc::strong_count(&sock) - 1);
+        let flags = if entry.listening { ACCEPTCON } else { 0 };
+        let state = match (entry.ino != 0, entry.established) {
+            (true, true) => CONNECTED,
+            (true, false) => UNCONNECTED,
+            (false, true) => CONNECTING,
+            (false, false) => DISCONNECTING,
+        };
+        let line = format!(
+            "{:08}: {:08X} {:08X} {flags:08X} {:04X} {state:02X} {:5}",
+            0, entry.refs, 0, entry.socket_type.0, entry.ino
+        );
+        out.extend(line.as_bytes());
+        if let Some(addr) = entry.addr {
+            out.push(b' ');
+            let path = &addr[2..];
+            match path.first() {
+                Some(0) => {
+                    out.push(b'@');
+                    out.extend(path[1..].iter().map(|&b| if b == 0 { b'@' } else { b }));
+                }
+                _ => out.extend(path.iter().take(path.len().saturating_sub(1))),
+            }
+        }
+        out.push(b'\n');
+    }
     out
 }
 
