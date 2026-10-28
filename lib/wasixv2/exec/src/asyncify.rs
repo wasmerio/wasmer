@@ -300,6 +300,13 @@ pub(crate) async fn call<S: 'static>(
     cx.with(|env, _| {
         let a = env.asyncify.as_mut().expect("entered above");
         a.depth -= 1;
+        if result.is_err() {
+            // An unwind or rewind the error cut short (a trap on the way, an unwound stack
+            // that did not fit) never finishes; left set, it would keep the preemption points
+            // from delivering for the rest of the instance's life.
+            a.unwinding = None;
+            a.resume = None;
+        }
         // Stacks saved in this level cannot be restored once it returned.
         a.saved.retain(|_, saved| saved.id.level < level);
     })
@@ -725,5 +732,81 @@ mod tests {
         assert!(first.dead_after(0x100, 0x8000, 64));
         // Another jmp_buf set from the same frame does not.
         assert!(!first.dead_after(0x200, 0x8000, 64));
+    }
+
+    /// asyncify's exports, with `run` calling an import that asks to save the stack and then
+    /// trapping where an instrumented guest would unwind, as one whose unwound stack does not
+    /// fit the buffer does.
+    const TRAP_WHILE_UNWINDING: &str = r#"
+      (module
+        (import "test" "save" (func $save))
+        (memory (export "memory") 1)
+        (global $state (mut i32) (i32.const 0))
+        (global (export "__stack_pointer") (mut i32) (i32.const 1024))
+        (func (export "asyncify_start_unwind") (param i32) (global.set $state (i32.const 1)))
+        (func (export "asyncify_stop_unwind") (global.set $state (i32.const 0)))
+        (func (export "asyncify_start_rewind") (param i32) (global.set $state (i32.const 2)))
+        (func (export "asyncify_stop_rewind") (global.set $state (i32.const 0)))
+        (func (export "run")
+          (call $save)
+          (if (i32.eq (global.get $state) (i32.const 1)) (then unreachable))))
+    "#;
+
+    struct NoSpawn;
+
+    impl crate::process::Spawn for NoSpawn {
+        fn spawn(&self, _: TaskId, _: crate::Image) {
+            unreachable!("the test spawns nothing")
+        }
+        fn fork(&self, _: TaskId, _: ForkImage) {
+            unreachable!("the test forks nothing")
+        }
+    }
+
+    async fn save(env: AsyncFunctionEnvMut<ExecEnv<()>>) -> Result<(), RuntimeError> {
+        unwind(&env, Request::Save { slot: 0 }).await
+    }
+
+    #[test]
+    fn a_level_that_fails_while_unwinding_leaves_the_instance_still() {
+        let mut store = wasmer::Store::default();
+        let module = Module::new(&store, wat::parse_str(TRAP_WHILE_UNWINDING).unwrap()).unwrap();
+        let env = FunctionEnv::new(
+            &mut store,
+            ExecEnv {
+                syscalls: Arc::new(()),
+                task: TaskId(1),
+                work: Arc::new(wasixv2_syscalls::WorkFlag::always()),
+                memory: None,
+                stack_pointer: None,
+                abi: None,
+                threads: None,
+                proc: crate::process::ProcExports::new(Arc::new(NoSpawn)),
+                asyncify: None,
+                fork_payload: None,
+            },
+        );
+        let imports = wasmer::imports! {
+            "test" => { "save" => Function::new_typed_with_env_async(&mut store, &env, save) },
+        };
+        let instance = Instance::new(&mut store, &module, &imports).unwrap();
+        let asyncify = Asyncify::new(&instance, &mut store).unwrap();
+        assert!(asyncify.is_some(), "the module looks instrumented");
+        let data = env.as_mut(&mut store);
+        data.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
+        data.asyncify = asyncify;
+        let run = instance.exports.get_function("run").unwrap().clone();
+
+        let store = store.into_async();
+        let cx = Outside {
+            env: &env,
+            store: &store,
+        };
+        let result = futures::executor::block_on(call(&cx, None, &run, &[]));
+        assert!(result.is_err(), "the guest trapped");
+        let moving = futures::executor::block_on(
+            cx.with(|env, _| env.asyncify.as_ref().map(Asyncify::moving)),
+        );
+        assert_eq!(moving, Some(false));
     }
 }
