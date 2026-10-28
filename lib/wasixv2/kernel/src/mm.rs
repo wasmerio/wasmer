@@ -535,7 +535,9 @@ impl Remap {
 
 /// `MADV_*` values Linux's `madvise_behavior_valid` accepts.
 fn advice_valid(advice: MadviseAdvice) -> bool {
-    matches!(advice.0, 0..=4 | 8..=25 | 100..=103)
+    // `MADV_HWPOISON` and `MADV_SOFT_OFFLINE` (100, 101) poison or offline a page, which needs
+    // `CONFIG_MEMORY_FAILURE`: without it Linux does not know them (`madvise_behavior_valid`).
+    matches!(advice.0, 0..=4 | 8..=25 | 102..=103)
 }
 
 impl Kernel {
@@ -1059,7 +1061,6 @@ impl Kernel {
                 self.madvise_wipe_on_fork(caller, start.into(), len, false)
                     .await?
             }
-            MadviseAdvice(100 | 101) => return Err(Errno::EPERM.into()),
             _ => {}
         }
         Ok(0)
