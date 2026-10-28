@@ -1121,6 +1121,7 @@ async fn peer_groups(
 
 /// An open file for the Unix socket `sock`.
 fn unix_file(sock: Arc<unix::Sock>, flags: SocketFlags, path: Path) -> OpenFile {
+    sock.graft(path.dentry.node().ino());
     let mut status = OpenFlags::O_RDWR;
     if flags.contains(SocketFlags::SOCK_NONBLOCK) {
         status |= OpenFlags::O_NONBLOCK;
