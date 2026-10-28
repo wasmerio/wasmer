@@ -70,6 +70,10 @@ pub enum ExecError {
     /// The host panicked while running the process; its thread group was killed.
     #[error("the host panicked: {0}")]
     Panic(String),
+    /// The host dropped the run the process went on in, after a thread's `execve` gave its
+    /// leader a new image ([`GuestAction::StartImage`]), before that run ended.
+    #[error("the host dropped the run the process went on in")]
+    Dropped,
 }
 
 impl From<wasmer::InstantiationError> for ExecError {
@@ -280,6 +284,9 @@ pub(crate) enum Ended {
         task: TaskId,
         signal: i32,
         report: String,
+        /// The image's handoff, when the trap was in an instance: the trapping task may be a
+        /// vfork child whose parent went on elsewhere.
+        handoff: Option<Arc<process::Handoff>>,
     },
     /// The instance ended with a vfork child whose parent, the task the run belongs to, went
     /// on in another instance ([`Resume::Gone`]): the run goes on there, and `handoff` gives
@@ -317,7 +324,9 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
         let handoff = cx.with(|env, _| env.proc.handoff.clone()).await;
         return Ended::Detached(handoff);
     }
-    let (syscalls, task) = cx.with(|env, _| (env.syscalls.clone(), env.task)).await;
+    let (syscalls, task, handoff) = cx
+        .with(|env, _| (env.syscalls.clone(), env.task, env.proc.handoff.clone()))
+        .await;
     // The trap's signal ends the task: `exit_mm` while the memory is still there.
     let memory = memory::OutsideMemory { cx };
     syscalls.exit_mm(&Caller::new(task, &memory)).await;
@@ -333,6 +342,7 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
         task,
         signal,
         report,
+        handoff: Some(handoff),
     }
 }
 

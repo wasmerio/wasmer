@@ -18,7 +18,7 @@ use std::{
 
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Control, GuestAction, Image, Syscalls, TaskId};
+use wasixv2_syscalls::{Control, GuestAction, Image, Resume, Syscalls, TaskId};
 use wasmer::{AsyncFunctionEnvMut, Engine, Function, Module, RuntimeError, Store, Value};
 
 use crate::{Ended, ExecEnv, ExecError, abi::Abis, asyncify};
@@ -85,8 +85,9 @@ impl Handoff {
     }
 }
 
-/// The run that takes over a process, with the [`Handoff`] it reports to. Dropped before it
-/// reports, as when the host drops or never starts the run, it reports the process killed.
+/// The run that takes over a process, once it runs, with the [`Handoff`] it reports to. A run
+/// the host drops before it ends reports [`ExecError::Dropped`]. (One the host never starts
+/// reports what killing the process gave; see [`Spawner::take_over`].)
 struct Takeover(Arc<Handoff>);
 
 impl Takeover {
@@ -97,7 +98,7 @@ impl Takeover {
 
 impl Drop for Takeover {
     fn drop(&mut self) {
-        self.0.complete(Ok(128 + Signal::SIGKILL.0));
+        self.0.complete(Err(ExecError::Dropped));
     }
 }
 
@@ -149,7 +150,8 @@ where
             self.host.clone(),
             self.abis.clone(),
         );
-        self.start(task, move || {
+        // Without a thread the process died; nothing waits for its status.
+        let _ = self.start(task, move || {
             let run = run_new_image(engine, image, syscalls, task, host, abis);
             async move { report_failure(task, run.await) }
         });
@@ -162,7 +164,8 @@ where
             self.host.clone(),
             self.abis.clone(),
         );
-        self.start(task, move || {
+        // Without a thread the process died; nothing waits for its status.
+        let _ = self.start(task, move || {
             let run = run_forked(engine, image, syscalls.clone(), task, host, abis);
             async move {
                 let result = crate::catch_panic(run)
@@ -180,11 +183,16 @@ where
             self.host.clone(),
             self.abis.clone(),
         );
-        let takeover = Takeover(handoff);
-        self.start(task, move || {
+        let done = handoff.clone();
+        let started = self.start(task, move || {
+            let takeover = Takeover(done);
             let run = run_new_image(engine, image, syscalls, task, host, abis);
             async move { takeover.report(run.await) }
         });
+        // The process died of SIGSEGV, as one whose image cannot start does.
+        if let Err(status) = started {
+            handoff.complete(Ok(status));
+        }
     }
 }
 
@@ -200,8 +208,9 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     /// Runs the process `task` on a host thread of its own. The run ends the process itself when
-    /// its image fails; when no thread can start, the process dies of SIGSEGV here.
-    fn start<F, R>(&self, task: TaskId, run: R)
+    /// its image fails; when no thread can start, the process dies of SIGSEGV here, and
+    /// `Err` has its status.
+    fn start<F, R>(&self, task: TaskId, run: R) -> Result<(), i32>
     where
         R: FnOnce() -> F + Send + 'static,
         F: Future<Output = ()> + 'static,
@@ -209,9 +218,11 @@ where
         let start = Box::new(move || Box::pin(run()) as wasixv2_host::LocalFuture<'static, ()>);
         if let Err(err) = self.host.executor().spawn_thread(start) {
             tracing::warn!(%err, "cannot start a process on a thread of its own");
-            fault(&*self.syscalls, task, Signal::SIGSEGV.0);
+            let status = fault(&*self.syscalls, task, Signal::SIGSEGV.0);
             self.syscalls.release(task);
+            return Err(status);
         }
+        Ok(())
     }
 }
 
@@ -343,7 +354,15 @@ where
                 task: at,
                 signal,
                 report,
-            } => break fault_in(&*syscalls, &*host, task, at, signal, &report),
+                handoff,
+            } => match fault_in(&*syscalls, &*host, task, at, signal, &report) {
+                Some(status) => break status,
+                // The trap was the vfork child's whose parent went on elsewhere.
+                None => {
+                    let handoff = handoff.expect("only an instance's trap leaves a vfork parent");
+                    return handoff.wait().await;
+                }
+            },
             Ended::Exec(image) => image,
         };
         // `de_thread`: the old image is gone from every thread before the new one starts.
@@ -366,6 +385,7 @@ where
                 );
                 run.await.unwrap_or_else(|err| Ended::Fault {
                     task,
+                    handoff: None,
                     signal: Signal::SIGSEGV.0,
                     report: format!(
                         "wasixv2: cannot start the image process {} loaded with execve, \
@@ -377,6 +397,7 @@ where
             // Past the point of no return, a binary that does not load is a SIGSEGV.
             Err(err) => Ended::Fault {
                 task,
+                handoff: None,
                 signal: Signal::SIGSEGV.0,
                 report: format!(
                     "wasixv2: process {} loaded a module with execve that does not compile, \
@@ -432,9 +453,11 @@ pub(crate) fn fault<S: Control>(syscalls: &S, task: TaskId, signal: i32) -> i32 
 
 /// A trap of the instance of `task` while it ran as `at`: `task` itself, or a vfork child
 /// running in its instance. The child dies of the fault; the parent's stack went with the
-/// instance, so it cannot resume either and dies of SIGSEGV. `report` goes to `host` when the
-/// fault kills a process: a trap while its group is exiting anyway is part of tearing it down.
-/// Returns `task`'s exit status.
+/// instance, so it cannot resume either and dies of SIGSEGV, unless the parent went on in
+/// another instance ([`Resume::Gone`]), where it is not touched: then `None`, and the run
+/// ends with the one that took over. `report` goes to `host` when the fault kills a process:
+/// a trap while its group is exiting anyway is part of tearing it down. Returns `task`'s exit
+/// status.
 pub(crate) fn fault_in<S: Control>(
     syscalls: &S,
     host: &dyn Host,
@@ -442,16 +465,22 @@ pub(crate) fn fault_in<S: Control>(
     at: TaskId,
     signal: i32,
     report: &str,
-) -> i32 {
+) -> Option<i32> {
     if syscalls.fault(at, signal) {
         host.report(report);
     }
     if at == task {
-        return exit_status(syscalls, task);
+        return Some(exit_status(syscalls, task));
     }
-    exit_status(syscalls, at);
+    // The child's end, which its exit queued, says what becomes of the parent.
+    let mut gone = false;
+    while let Some(action) = syscalls.take_pending(at) {
+        if let GuestAction::VforkReturn { parent, .. } = action {
+            gone |= parent.resumes == Resume::Gone;
+        }
+    }
     syscalls.release(at);
-    fault(syscalls, task, Signal::SIGSEGV.0)
+    (!gone).then(|| fault(syscalls, task, Signal::SIGSEGV.0))
 }
 
 /// The status of the exit pending on `task`, taking everything else that is.
@@ -541,5 +570,189 @@ pub(crate) async fn vfork_return<S: 'static>(
     match asyncify::call(env, None, function, &args).await {
         Err(err) => err,
         Ok(_) => RuntimeError::new(format!("`{VFORK_RETURN}` returned")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        collections::{HashMap, VecDeque},
+        time::Duration,
+    };
+
+    use wasixv2_host::{Executor, LocalFuture};
+    use wasixv2_syscalls::{
+        AtomicWait, AtomicWord, Caller, ExitMm, GroupStop, SharedMapping, SharedMappings,
+        SysResult, VforkParent,
+    };
+
+    use super::*;
+
+    /// Control that records faults and releases; a fault leaves the exit it causes pending.
+    #[derive(Default)]
+    struct Recorder {
+        pending: Mutex<HashMap<TaskId, VecDeque<GuestAction>>>,
+        faulted: Mutex<Vec<(TaskId, i32)>>,
+        released: Mutex<Vec<TaskId>>,
+    }
+
+    impl Recorder {
+        fn queue(&self, task: TaskId, action: GuestAction) {
+            let mut pending = self.pending.lock().unwrap();
+            pending.entry(task).or_default().push_back(action);
+        }
+    }
+
+    impl Syscalls for Recorder {}
+
+    impl Control for Recorder {
+        fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
+            self.pending.lock().unwrap().get_mut(&task)?.pop_front()
+        }
+
+        fn take_image(&self, _: TaskId) -> Option<Image> {
+            None
+        }
+
+        fn fault(&self, task: TaskId, signal: i32) -> bool {
+            self.faulted.lock().unwrap().push((task, signal));
+            self.queue(task, GuestAction::Exit(128 + signal));
+            true
+        }
+
+        fn release(&self, task: TaskId) {
+            self.released.lock().unwrap().push(task);
+        }
+    }
+
+    impl ExitMm for Recorder {
+        fn exit_mm<'a>(&'a self, _: &'a Caller<'a>) -> LocalFuture<'a, ()> {
+            Box::pin(async {})
+        }
+    }
+
+    impl GroupStop for Recorder {
+        fn stop_wait(&self, _: TaskId) -> LocalFuture<'_, ()> {
+            Box::pin(async {})
+        }
+    }
+
+    impl SharedMappings for Recorder {
+        fn shared_mappings(&self, _: TaskId) -> Vec<SharedMapping> {
+            Vec::new()
+        }
+    }
+
+    impl AtomicWait for Recorder {
+        fn atomic_wait<'a>(
+            &'a self,
+            _: &'a Caller<'a>,
+            _: u32,
+            _: AtomicWord,
+            _: Option<Duration>,
+        ) -> LocalFuture<'a, SysResult<i32>> {
+            Box::pin(async { Ok(0) })
+        }
+
+        fn atomic_notify(&self, _: TaskId, _: u32, _: u32) -> u32 {
+            0
+        }
+    }
+
+    /// A host that cannot start threads.
+    struct NoThreads;
+
+    impl Host for NoThreads {
+        fn realtime(&self) -> Duration {
+            Duration::ZERO
+        }
+
+        fn monotonic(&self) -> Duration {
+            Duration::ZERO
+        }
+
+        fn sleep(&self, _: Duration) -> LocalFuture<'_, ()> {
+            Box::pin(async {})
+        }
+
+        fn random(&self, _: &mut [u8]) {}
+
+        fn executor(&self) -> &dyn Executor {
+            self
+        }
+
+        fn report(&self, _: &str) {}
+    }
+
+    impl Executor for NoThreads {
+        fn spawn_local(&self, _: LocalFuture<'static, ()>) {
+            unreachable!("nothing runs in the background")
+        }
+
+        fn spawn_blocking(&self, work: Box<dyn FnOnce() + Send>) -> LocalFuture<'static, ()> {
+            Box::pin(async move { work() })
+        }
+    }
+
+    const PARENT: TaskId = TaskId(2);
+    const CHILD: TaskId = TaskId(3);
+
+    /// A trap of a vfork child whose parent's image went on in another instance ends the child
+    /// alone: the parent is neither killed nor released here, as the run that took it over
+    /// owns it.
+    #[test]
+    fn a_trap_of_a_detached_vfork_child_leaves_its_parent_alone() {
+        let control = Recorder::default();
+        let parent = VforkParent {
+            task: PARENT,
+            resumes: Resume::Gone,
+        };
+        control.queue(
+            CHILD,
+            GuestAction::VforkReturn {
+                parent,
+                child: CHILD,
+            },
+        );
+        let sigill = Signal::SIGILL.0;
+        let ended = fault_in(&control, &NoThreads, PARENT, CHILD, sigill, "trap");
+        assert_eq!(ended, None);
+        assert_eq!(*control.faulted.lock().unwrap(), [(CHILD, sigill)]);
+        assert_eq!(*control.released.lock().unwrap(), [CHILD]);
+
+        // A parent that waits dies with its stack.
+        let control = Recorder::default();
+        let parent = VforkParent {
+            resumes: Resume::Returns,
+            ..parent
+        };
+        control.queue(
+            CHILD,
+            GuestAction::VforkReturn {
+                parent,
+                child: CHILD,
+            },
+        );
+        let ended = fault_in(&control, &NoThreads, PARENT, CHILD, sigill, "trap");
+        assert_eq!(ended, Some(128 + Signal::SIGSEGV.0));
+    }
+
+    /// A take-over that gets no thread kills the process as an image that cannot start does,
+    /// releases it, and reports that status to the run it took over from.
+    #[test]
+    fn a_take_over_without_a_thread_reports_the_kill() {
+        let control = Arc::new(Recorder::default());
+        let abis = Arc::new(Abis::wasixv2());
+        let spawner = spawner(
+            Engine::default(),
+            control.clone(),
+            Arc::new(NoThreads),
+            abis,
+        );
+        let handoff = Arc::new(Handoff::default());
+        spawner.take_over(PARENT, Image::copied(Vec::new()), handoff.clone());
+        let status = futures::executor::block_on(handoff.wait());
+        assert_eq!(status.ok(), Some(128 + Signal::SIGSEGV.0));
+        assert_eq!(*control.released.lock().unwrap(), [PARENT]);
     }
 }
