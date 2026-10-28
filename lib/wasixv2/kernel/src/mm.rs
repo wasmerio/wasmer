@@ -39,6 +39,13 @@ use crate::{Kernel, file::OpenFile};
 /// The page size the guest sees in `AT_PAGESZ` and the unit of every mapping.
 pub(crate) const PAGE_SIZE: u64 = WASM_PAGE_SIZE;
 
+/// `mmap_min_addr`: no mapping may start below it, so a null pointer dereference cannot reach
+/// mapped memory. The execution layer makes the memory below it read-only where the program's
+/// layout allows. Linux's default on x86 and arm64 (`mm/Kconfig`, `DEFAULT_MMAP_MIN_ADDR`;
+/// `security/Kconfig`, `LSM_MMAP_MIN_ADDR`), and like the LSM minimum
+/// (`security/min_addr.c`) no capability lowers it.
+pub(crate) const MMAP_MIN_ADDR: u64 = 65536;
+
 /// `LEGACY_MAP_MASK`: the flags `MAP_SHARED_VALIDATE` accepts for a file.
 const LEGACY_MAP_MASK: MapFlags = MapFlags(
     MapFlags::MAP_SHARED.0
@@ -596,8 +603,9 @@ impl Kernel {
     }
 
     /// `MAP_FIXED` works over pages the allocator owns and past the end of memory; the image's
-    /// own pages cannot be replaced. Mappings it replaces are unmapped first. The caller holds
-    /// `Mm::op`.
+    /// own pages cannot be replaced, and nothing goes below [`MMAP_MIN_ADDR`] (`EPERM`, as
+    /// `security_mmap_addr` refuses it once `get_unmapped_area` checked the range). Mappings it
+    /// replaces are unmapped first. The caller holds `Mm::op`.
     async fn map_fixed(
         &self,
         caller: &Caller<'_>,
@@ -610,6 +618,9 @@ impl Kernel {
         let end = first + pages;
         if end * PAGE_SIZE > 1 << 32 {
             return Err(Errno::ENOMEM.into());
+        }
+        if u64::from(addr) < MMAP_MIN_ADDR {
+            return Err(Errno::EPERM.into());
         }
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
         let mm = self.mm(caller.task());

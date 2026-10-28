@@ -39,6 +39,7 @@ pub(super) enum Global {
     Osrelease,
     PidMax,
     Overcommit,
+    MmapMinAddr,
     FileMax,
     NrOpen,
     PipeMaxSize,
@@ -57,6 +58,7 @@ impl Global {
             | Self::Domainname
             | Self::PidMax
             | Self::Overcommit
+            | Self::MmapMinAddr
             | Self::FileMax
             | Self::NrOpen
             | Self::PipeMaxSize => 0o644,
@@ -114,6 +116,7 @@ pub(super) fn global(source: &Source, file: Global) -> FsResult<Vec<u8>> {
         Global::PidMax => line(&PID_MAX.to_string()),
         // `OVERCOMMIT_GUESS`.
         Global::Overcommit => line("0"),
+        Global::MmapMinAddr => line(&crate::mm::MMAP_MIN_ADDR.to_string()),
         Global::FileMax => line(&i64::MAX.to_string()),
         Global::NrOpen => line(&NR_OPEN.to_string()),
         Global::PipeMaxSize => line(&PIPE_MAX_SIZE.to_string()),

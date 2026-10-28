@@ -248,6 +248,32 @@ fn mremap_fixed_onto_its_own_source_fails_and_keeps_the_data() {
     assert_eq!(get(&memory, far + 2 * PAGE, 6), b"second");
 }
 
+// `mmap_min_addr`: no mapping starts below it, whatever the flags, once the range itself was
+// checked; the caller is root, and no capability lowers it.
+#[test]
+fn fixed_mappings_below_mmap_min_addr_fail_with_eperm() {
+    let (kernel, task, memory, fd) = with_file(b"");
+    let caller = Caller::new(task, &memory);
+    let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    let fixed = |flags: MapFlags, addr: u32, fd: Fd| {
+        block_on(kernel.mmap(&caller, addr, PAGE, RW, flags, fd, 0))
+    };
+
+    let replace = fixed(anon | MapFlags::MAP_FIXED, 0, Fd(-1));
+    assert_eq!(errno(replace), Errno::EPERM);
+    let noreplace = fixed(anon | MapFlags::MAP_FIXED_NOREPLACE, 0, Fd(-1));
+    assert_eq!(errno(noreplace), Errno::EPERM);
+    let file = fixed(MapFlags::MAP_SHARED | MapFlags::MAP_FIXED, 0, fd);
+    assert_eq!(errno(file), Errno::EPERM);
+    // An address off a page boundary is `EINVAL` first.
+    let unaligned = fixed(anon | MapFlags::MAP_FIXED, 0x1000, Fd(-1));
+    assert_eq!(errno(unaligned), Errno::EINVAL);
+    let at = mmap(&kernel, &caller, PAGE, anon, Fd(-1)).unwrap();
+    assert!(u64::from(at) >= crate::mm::MMAP_MIN_ADDR);
+    let moved = mremap(&kernel, &caller, at, PAGE, PAGE, FIXED, 0);
+    assert_eq!(errno(moved), Errno::EPERM);
+}
+
 #[test]
 fn mremap_dontunmap_moves_the_pages_and_leaves_the_source_mapped() {
     let (kernel, task, memory, fd) = with_file(b"from the file");
