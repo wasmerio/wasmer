@@ -107,7 +107,15 @@ impl Vfs {
         let flags = how.flags;
         if flags.contains(OpenFlags::O_PATH) {
             let path = self.lookup(cx, start, path, how.lookup).await?;
-            return Ok(File::new(self.clone(), path, None, false, false, true));
+            return Ok(File::new(
+                self.clone(),
+                path,
+                None,
+                false,
+                None,
+                false,
+                true,
+            ));
         }
         let access = flags & OpenFlags::O_ACCMODE;
         let mut acc_mode = match access {
@@ -210,18 +218,6 @@ impl Vfs {
         }
         self.may_open(cx.cred, &target, acc_mode, flags).await?;
         let writable = access != OpenFlags::O_RDONLY;
-        // `do_dentry_open` takes write access only for what a read-only mount protects: a FIFO
-        // or device node is not written through the filesystem.
-        if writable
-            && created.is_none()
-            && target.mnt.is_read_only()
-            && matches!(
-                file_type,
-                FileType::Regular | FileType::Directory | FileType::Symlink
-            )
-        {
-            return Err(Errno::EROFS);
-        }
         self.finish_open(target, flags, writable, truncate, created)
             .await
     }
@@ -237,6 +233,16 @@ impl Vfs {
     ) -> FsResult<File> {
         let access = flags & OpenFlags::O_ACCMODE;
         let readable = access != OpenFlags::O_WRONLY;
+        // `do_dentry_open` takes write access only for what a read-only mount protects
+        // (`special_file`): a FIFO or device node is not written through the filesystem.
+        let special = matches!(
+            target.dentry.file_type(),
+            FileType::Fifo | FileType::CharDevice | FileType::BlockDevice | FileType::Socket
+        );
+        let write = match writable && !special {
+            true => Some(self.tree.get_write_access(&target.mnt)?),
+            false => None,
+        };
         let handle = match (handle, target.dentry.file_type()) {
             (Some(handle), _) => Some(handle),
             (None, FileType::Regular | FileType::Directory) => {
@@ -275,6 +281,7 @@ impl Vfs {
             target,
             handle,
             readable,
+            write,
             writable,
             false,
         ))
@@ -330,9 +337,9 @@ impl Vfs {
         };
         let dir = self.lookup(cx, start, path, lookup).await?;
         self.permission(cx.cred, &dir, MAY_WRITE | MAY_EXEC).await?;
-        if dir.mnt.is_read_only() {
-            return Err(Errno::EROFS);
-        }
+        // Held while the file is made (`mnt_want_write` in `do_o_tmpfile`); the open takes its
+        // own.
+        let _write = self.tree.get_write_access(&dir.mnt)?;
         let new = NewNode {
             kind: NewKind::Regular,
             ..self
@@ -376,6 +383,7 @@ impl Vfs {
             sync: false,
             truncate: false,
         };
+        let write = self.tree.get_write_access(mnt)?;
         let (node, handle) = mnt.root.node().create_unnamed(new, options).await?;
         let path = mnt.pseudo_path(node, name);
         path.dentry.inode().init_seals(seals);
@@ -384,6 +392,7 @@ impl Vfs {
             path,
             Some(handle),
             true,
+            Some(write),
             true,
             false,
         ))

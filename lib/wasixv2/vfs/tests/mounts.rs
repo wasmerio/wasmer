@@ -715,6 +715,56 @@ fn move_mount_beneath_slides_the_tree_under_the_top_mount() {
 }
 
 #[test]
+fn files_open_for_writing_keep_their_mount_and_filesystem_writable() {
+    let (_vfs, v) = world();
+    v.mkdir("/a");
+    v.mkdir("/b");
+    v.mount_tmpfs("/a");
+    v.bind("/a", "/b", false).unwrap();
+    let ro = MountFlags {
+        read_only: true,
+        ..MountFlags::default()
+    };
+    let remount = MountOp::Remount {
+        read_only: true,
+        flags: ro,
+    };
+    let writer = v.touch("/b/f");
+    assert_eq!(v.op("/a", remount), Err(Errno::EBUSY), "the filesystem");
+    assert_eq!(
+        v.op("/b", MountOp::Reconfigure { flags: ro }),
+        Err(Errno::EBUSY),
+        "the mount written through"
+    );
+    let setattr = MountAttr {
+        set: ro,
+        ..MountAttr::default()
+    };
+    let b = v.path("/b").unwrap();
+    assert_eq!(v.vfs.mount_setattr(&v.ns, &b, &setattr), Err(Errno::EBUSY));
+    v.op("/a", MountOp::Reconfigure { flags: ro }).unwrap();
+    assert!(
+        v.path("/a").unwrap().mnt.is_read_only(),
+        "another mount can"
+    );
+    drop(writer);
+
+    let remount = MountOp::Remount {
+        read_only: true,
+        flags: ro,
+    };
+    v.op("/b", remount).unwrap();
+    let how = OpenHow {
+        flags: OpenFlags::O_RDWR,
+        mode: 0,
+        lookup: LookupFlags::follow(),
+    };
+    let cx = v.cx();
+    let opened = block_on(v.vfs.open(&cx, &v.root, b"/b/f", &how));
+    assert_eq!(opened.err(), Some(Errno::EROFS));
+}
+
+#[test]
 fn unmounting_a_tree_takes_its_copies_and_what_is_on_a_copy_takes_its_place() {
     let (_vfs, v) = world();
     for dir in ["/a", "/b"] {
