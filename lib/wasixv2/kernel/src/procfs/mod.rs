@@ -27,6 +27,7 @@ use crate::{
     process::Tree,
     sched::Sched,
     signal::TaskSignals,
+    sync::MutexExt,
 };
 
 /// `PROC_SUPER_MAGIC`.
@@ -119,7 +120,7 @@ struct TaskInfo {
 impl Source {
     fn process(&self, pid: u32) -> Option<ProcessInfo> {
         let tree = self.tree.upgrade()?;
-        let tree = tree.lock().unwrap();
+        let tree = tree.lock_or_recover();
         let node = tree.nodes.get(&pid)?;
         Some(ProcessInfo {
             process: node.process.clone(),
@@ -134,7 +135,7 @@ impl Source {
         let Some(tree) = self.tree.upgrade() else {
             return Vec::new();
         };
-        let mut pids: Vec<u32> = tree.lock().unwrap().nodes.keys().copied().collect();
+        let mut pids: Vec<u32> = tree.lock_or_recover().nodes.keys().copied().collect();
         pids.sort_unstable();
         pids
     }
@@ -144,7 +145,7 @@ impl Source {
         let Some(state) = self.state.upgrade() else {
             return Vec::new();
         };
-        let state = state.read().unwrap();
+        let state = state.read_or_recover();
         let mut tids: Vec<u32> = state
             .tasks
             .iter()
@@ -163,7 +164,7 @@ impl Source {
             None => *self.threads(pid).first()?,
         };
         let state = self.state.upgrade()?;
-        let state = state.read().unwrap();
+        let state = state.read_or_recover();
         let task = state.tasks.get(&TaskId(tid))?;
         if task.process.pid.0 != pid {
             return None;
@@ -185,7 +186,7 @@ impl Source {
             None => *self.threads(pid).first()?,
         };
         let state = self.state.upgrade()?;
-        let mut state = state.lock().unwrap();
+        let mut state = state.lock_or_recover();
         let task = state.tasks.get_mut(&TaskId(tid))?;
         if task.process.pid.0 != pid {
             return None;
@@ -203,14 +204,14 @@ impl Source {
     /// The thread group of the task `tid`.
     fn tgid_of(&self, tid: u32) -> Option<u32> {
         let state = self.state.upgrade()?;
-        let state = state.read().unwrap();
+        let state = state.read_or_recover();
         Some(state.tasks.get(&TaskId(tid))?.process.pid.0)
     }
 
     /// How many tasks run, and the last pid handed out.
     fn task_counts(&self) -> (usize, u32) {
         self.state.upgrade().map_or((0, 0), |state| {
-            let state = state.read().unwrap();
+            let state = state.read_or_recover();
             (state.tasks.len(), state.last_id)
         })
     }

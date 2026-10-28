@@ -25,6 +25,7 @@ use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
     socket::{Blocking, RCV, Timeouts, WaitOn},
+    sync::MutexExt,
 };
 
 const NETLINK_ROUTE: i32 = 0;
@@ -103,7 +104,7 @@ struct Header {
 
 impl NetlinkSocket {
     fn queue(&self) -> MutexGuard<'_, Queue> {
-        self.queue.lock().unwrap()
+        self.queue.lock_or_recover()
     }
 
     /// The largest request a send may carry; one more byte is copied to tell it is too long.

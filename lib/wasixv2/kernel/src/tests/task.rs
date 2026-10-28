@@ -5,6 +5,7 @@ use wasixv2_abi::{FutexOp, KernelTimespec, Pid, Sigaction, Signal, Sigset};
 use wasixv2_syscalls::{Image, VforkParent, read_value, write_value};
 
 use super::{ipc::machine, *};
+use crate::sync::MutexExt;
 
 /// The flags `pthread_create` passes.
 const THREAD: u32 = 0x10f00;
@@ -17,7 +18,7 @@ fn spawn_thread(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
 }
 
 fn live(kernel: &Kernel, task: TaskId) -> bool {
-    kernel.state.lock().unwrap().tasks.contains_key(&task)
+    kernel.state.lock_or_recover().tasks.contains_key(&task)
 }
 
 #[test]
@@ -63,7 +64,7 @@ fn released_tasks_are_forgotten() {
     block_on(kernel.exit_group(&caller, 0)).unwrap();
     kernel.release(task);
 
-    assert!(kernel.state.lock().unwrap().tasks.is_empty());
+    assert!(kernel.state.lock_or_recover().tasks.is_empty());
 }
 
 /// A vfork whose caller's exit was queued first, as another thread's `exit_group` can between
@@ -83,7 +84,7 @@ fn a_vfork_behind_an_exit_forgets_its_child() {
     assert_eq!(kernel.take_pending(task), None);
     assert!(!live(&kernel, child));
     assert!(kernel.procs.find(child.0).is_none());
-    assert!(kernel.procs.tree.lock().unwrap().vforks.is_empty());
+    assert!(kernel.procs.tree.lock_or_recover().vforks.is_empty());
 }
 
 #[test]
@@ -127,11 +128,11 @@ fn execve_from_a_thread_commits_once_the_old_image_is_gone_and_runs_as_the_leade
     // Nothing is committed while another thread may still run the old image.
     kernel.release(other);
     assert_eq!(exec.as_mut().now_or_never(), None);
-    assert!(kernel.process(leader).exe.lock().unwrap().is_none());
+    assert!(kernel.process(leader).exe.lock_or_recover().is_none());
     let mut wait = Box::pin(kernel.exec_wait(leader));
     assert_eq!(wait.as_mut().now_or_never(), None);
     assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
-    assert!(kernel.process(leader).exe.lock().unwrap().is_some());
+    assert!(kernel.process(leader).exe.lock_or_recover().is_some());
     assert_eq!(kernel.task_signals(leader).blocked(), 1 << 9);
     // The exec'ing thread is done, and the image starts once it is gone.
     assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
@@ -199,7 +200,7 @@ fn a_fatal_signal_ends_an_execve_waiting_for_the_other_threads() {
         exec.as_mut().now_or_never(),
         Some(Err(SysErr::Errno(Errno::EAGAIN)))
     );
-    assert!(kernel.process(leader).exe.lock().unwrap().is_none());
+    assert!(kernel.process(leader).exe.lock_or_recover().is_none());
     assert_eq!(
         kernel.take_pending(leader),
         Some(GuestAction::Exit(128 + 9))
@@ -423,7 +424,7 @@ fn an_execve_in_an_exiting_group_fails_with_eagain() {
     let ret = block_on(execve(&kernel, &Caller::new(thread, &memory)));
 
     assert_eq!(ret, Err(SysErr::Errno(Errno::EAGAIN)));
-    assert!(kernel.process(leader).exe.lock().unwrap().is_none());
+    assert!(kernel.process(leader).exe.lock_or_recover().is_none());
     assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(3)));
     assert_eq!(kernel.take_pending(thread), None);
     assert_eq!(kernel.take_pending(leader), Some(GuestAction::Exit(3)));
@@ -461,8 +462,8 @@ fn execve_keeps_arguments_and_environment_as_bytes() {
 
     let process = kernel.process(task);
     let args: &[&[u8]] = &[b"/prog", b"\xe9x", b"/script", b"caf\xe9"];
-    assert_eq!(*process.args.lock().unwrap(), args);
-    assert_eq!(*process.env.lock().unwrap(), [b"X=\xff"]);
+    assert_eq!(*process.args.lock_or_recover(), args);
+    assert_eq!(*process.env.lock_or_recover(), [b"X=\xff"]);
 }
 
 #[test]

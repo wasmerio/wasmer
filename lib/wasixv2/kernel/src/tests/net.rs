@@ -17,6 +17,7 @@ use super::{
     ipc::{errno, get, machine, put},
     *,
 };
+use crate::sync::MutexExt;
 
 /// IPv4 only. Stream connects complete at once but report `EINPROGRESS` first; every
 /// received message carries one control message (level 0, type 2, an int 64: `IP_TTL`).
@@ -63,7 +64,7 @@ impl FakeNet {
     }
 
     fn lookup(&self, addr: SocketAddr) -> Option<Arc<FakeSocket>> {
-        let bound = self.bound.lock().unwrap();
+        let bound = self.bound.lock_or_recover();
         let any = SocketAddr::new([0, 0, 0, 0].into(), addr.port());
         bound
             .get(&addr)
@@ -95,28 +96,27 @@ impl FakeSocket {
     fn register(&self, mut addr: SocketAddr) -> Result<SocketAddr, Errno> {
         let net = self.net();
         if addr.port() == 0 {
-            let mut next = net.next_port.lock().unwrap();
+            let mut next = net.next_port.lock_or_recover();
             addr.set_port(*next);
             *next += 1;
         }
-        let mut bound = net.bound.lock().unwrap();
+        let mut bound = net.bound.lock_or_recover();
         if bound.get(&addr).is_some_and(|s| s.strong_count() > 0) {
             return Err(Errno::EADDRINUSE);
         }
         bound.insert(addr, self.me.clone());
-        self.state.lock().unwrap().local = Some(addr);
+        self.state.lock_or_recover().local = Some(addr);
         Ok(addr)
     }
 
     fn autobind(&self) -> SocketAddr {
-        let local = self.state.lock().unwrap().local;
+        let local = self.state.lock_or_recover().local;
         local.unwrap_or_else(|| self.register("127.0.0.1:0".parse().unwrap()).unwrap())
     }
 
     fn deliver(&self, data: &[u8], from: SocketAddr) {
         self.state
-            .lock()
-            .unwrap()
+            .lock_or_recover()
             .rx
             .push_back((data.to_vec(), from));
         self.queue.wake(PollMask::READABLE);
@@ -126,7 +126,7 @@ impl FakeSocket {
 impl Pollable for FakeSocket {
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.queue);
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         let mut mask = PollMask::WRITABLE;
         if !state.rx.is_empty() || !state.backlog.is_empty() {
             mask |= PollMask::READABLE;
@@ -155,7 +155,7 @@ impl Socket for FakeSocket {
         if (1..1024).contains(&addr.port()) && !privileged {
             return Err(Errno::EACCES);
         }
-        if self.state.lock().unwrap().local.is_some() {
+        if self.state.lock_or_recover().local.is_some() {
             return Err(Errno::EINVAL);
         }
         self.register(addr).map(drop)
@@ -167,42 +167,46 @@ impl Socket for FakeSocket {
     }
 
     fn accept(&self) -> Result<Accepted, Errno> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         state.backlog.pop_front().ok_or(Errno::EAGAIN)
     }
 
     fn connect(&self, addr: SocketAddr) -> Result<(), Errno> {
         let local = self.autobind();
         if self.kind == SocketKind::Datagram {
-            self.state.lock().unwrap().peer = Some(addr);
+            self.state.lock_or_recover().peer = Some(addr);
             return Ok(());
         }
-        if self.state.lock().unwrap().peer.is_some() {
+        if self.state.lock_or_recover().peer.is_some() {
             return Err(Errno::EISCONN);
         }
         let listener = self.net().lookup(addr).ok_or(Errno::ECONNREFUSED)?;
         let server = self.net().new_socket(SocketKind::Stream);
         {
-            let mut state = server.state.lock().unwrap();
+            let mut state = server.state.lock_or_recover();
             state.local = Some(addr);
             state.peer = Some(local);
             state.peer_socket = self.me.clone();
         }
         {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             state.peer = Some(addr);
             state.peer_socket = Arc::downgrade(&server);
         }
-        listener.state.lock().unwrap().backlog.push_back(Accepted {
-            socket: server,
-            peer: local,
-        });
+        listener
+            .state
+            .lock_or_recover()
+            .backlog
+            .push_back(Accepted {
+                socket: server,
+                peer: local,
+            });
         listener.queue.wake(PollMask::READABLE);
         Err(Errno::EINPROGRESS)
     }
 
     fn disconnect(&self) -> Result<(), Errno> {
-        self.state.lock().unwrap().peer = None;
+        self.state.lock_or_recover().peer = None;
         Ok(())
     }
 
@@ -213,7 +217,7 @@ impl Socket for FakeSocket {
     fn send(&self, msg: SendMsg<'_>) -> Result<usize, Errno> {
         let from = self.autobind();
         let (peer, peer_socket) = {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock_or_recover();
             (state.peer, state.peer_socket.upgrade())
         };
         let target = match (self.kind, msg.to.or(peer)) {
@@ -229,7 +233,7 @@ impl Socket for FakeSocket {
     }
 
     fn recv(&self, buf: &mut [u8], flags: MsgFlags) -> Result<RecvMsg, Errno> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let (data, from) = state.rx.front().cloned().ok_or(Errno::EAGAIN)?;
         let len = data.len().min(buf.len());
         if !flags.contains(MsgFlags::MSG_PEEK) {
@@ -258,12 +262,12 @@ impl Socket for FakeSocket {
     }
 
     fn local_addr(&self) -> Result<SocketAddr, Errno> {
-        let local = self.state.lock().unwrap().local;
+        let local = self.state.lock_or_recover().local;
         Ok(local.unwrap_or("0.0.0.0:0".parse().unwrap()))
     }
 
     fn peer_addr(&self) -> Result<SocketAddr, Errno> {
-        self.state.lock().unwrap().peer.ok_or(Errno::ENOTCONN)
+        self.state.lock_or_recover().peer.ok_or(Errno::ENOTCONN)
     }
 
     fn take_error(&self) -> Option<Errno> {
@@ -271,7 +275,7 @@ impl Socket for FakeSocket {
     }
 
     fn input_len(&self) -> Result<usize, Errno> {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         Ok(state.rx.front().map_or(0, |(data, _)| data.len()))
     }
 
@@ -328,7 +332,7 @@ fn socket_checks_type_flags_and_families() {
     let fd = fd.unwrap();
     let file = kernel.file(task, fd).unwrap();
     assert!(file.flags().contains(OpenFlags::O_NONBLOCK));
-    assert_eq!(kernel.files(task).lock().unwrap().cloexec(fd), Some(true));
+    assert_eq!(kernel.files(task).lock_or_recover().cloexec(fd), Some(true));
 
     // A pipe is not a socket.
     let (r, _) = super::ipc::pipe(&kernel, &caller, OpenFlags(0));
@@ -753,8 +757,8 @@ fn accept_at_the_descriptor_limit_keeps_the_connection_queued() {
     let (kernel, task, memory) = machine();
     let caller = Caller::new(task, &memory);
     let (listener, client, _) = unix_listener(&kernel, &caller, &memory, b"emfile");
-    let limit = kernel.files(task).lock().unwrap().end();
-    kernel.files(task).lock().unwrap().set_limit(limit);
+    let limit = kernel.files(task).lock_or_recover().end();
+    kernel.files(task).lock_or_recover().set_limit(limit);
     let accept = || {
         block_on(kernel.accept4(
             &caller,
@@ -765,7 +769,7 @@ fn accept_at_the_descriptor_limit_keeps_the_connection_queued() {
         ))
     };
     assert_eq!(errno(accept()), Errno::EMFILE);
-    kernel.files(task).lock().unwrap().set_limit(limit + 1);
+    kernel.files(task).lock_or_recover().set_limit(limit + 1);
     let server = accept().unwrap();
     put(&memory, 0x400, b"ping");
     assert_eq!(
@@ -811,8 +815,8 @@ fn ip_accept_at_the_descriptor_limit_keeps_the_connection_queued() {
         block_on(kernel.connect(&caller, client, GuestPtr::new(0x200), 16)),
         Ok(0)
     );
-    let limit = kernel.files(task).lock().unwrap().end();
-    kernel.files(task).lock().unwrap().set_limit(limit);
+    let limit = kernel.files(task).lock_or_recover().end();
+    kernel.files(task).lock_or_recover().set_limit(limit);
     let accept = || {
         block_on(kernel.accept4(
             &caller,
@@ -823,7 +827,7 @@ fn ip_accept_at_the_descriptor_limit_keeps_the_connection_queued() {
         ))
     };
     assert_eq!(errno(accept()), Errno::EMFILE);
-    kernel.files(task).lock().unwrap().set_limit(limit + 1);
+    kernel.files(task).lock_or_recover().set_limit(limit + 1);
     assert!(accept().is_ok());
 }
 
@@ -996,8 +1000,8 @@ fn files_in_flight_count_against_their_sender_only() {
     let fill = |task: TaskId| {
         let caller = Caller::new(task, &memory);
         let (a, _b) = unix_pair(&kernel, &caller, &memory, STREAM);
-        let limit = kernel.files(task).lock().unwrap().end() + 4;
-        kernel.files(task).lock().unwrap().set_limit(limit);
+        let limit = kernel.files(task).lock_or_recover().end() + 4;
+        kernel.files(task).lock_or_recover().set_limit(limit);
         (0..limit + 4)
             .map(|_| send_with_controls(&kernel, &caller, &memory, a, None, &[rights(&[a])]))
             .position(|sent| sent.is_err())

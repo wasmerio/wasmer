@@ -12,6 +12,7 @@ use std::{
     time::Duration,
 };
 
+use crate::sync::MutexExt;
 use wasixv2_host::Host;
 use wasixv2_wait::{NoInterrupt, PollMask, WaitQueue, Waiter};
 
@@ -76,7 +77,7 @@ impl Timers {
 
     fn new_timer(&self, callback: Callback, realtime: bool) -> Timer {
         let callback = Arc::new(callback);
-        let mut state = self.shared.state.lock().unwrap();
+        let mut state = self.shared.state.lock_or_recover();
         state.last_id += 1;
         let id = state.last_id;
         state.timers.insert(
@@ -119,7 +120,7 @@ impl Timer {
             return;
         };
         let (earliest, start_driver) = {
-            let mut state = shared.state.lock().unwrap();
+            let mut state = shared.state.lock_or_recover();
             state.disarm(self.id);
             let earliest = state.arm(self.id, deadline);
             let start_driver = !std::mem::replace(&mut state.driver_started, true);
@@ -136,7 +137,7 @@ impl Timer {
     /// the timer.
     pub(crate) fn cancel(&self) {
         if let Some(shared) = self.shared.upgrade() {
-            shared.state.lock().unwrap().disarm(self.id);
+            shared.state.lock_or_recover().disarm(self.id);
         }
     }
 
@@ -154,7 +155,7 @@ impl Timer {
 impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(shared) = self.shared.upgrade() {
-            let mut state = shared.state.lock().unwrap();
+            let mut state = shared.state.lock_or_recover();
             state.disarm(self.id);
             state.timers.remove(&self.id);
         }
@@ -187,7 +188,7 @@ impl Shared {
     /// nested call does not run them again.
     fn clock_was_set(&self) {
         let armed: Vec<_> = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let ids: Vec<u64> = state
                 .timers
                 .iter()
@@ -206,7 +207,7 @@ impl Shared {
         for (id, generation, callback) in armed {
             let Some(next) = callback() else { continue };
             let earliest = {
-                let mut state = self.state.lock().unwrap();
+                let mut state = self.state.lock_or_recover();
                 let current = state.timers.get(&id).map(|entry| entry.generation);
                 current == Some(generation) && state.arm(id, next)
             };
@@ -221,7 +222,7 @@ impl Shared {
         loop {
             let now = self.host.monotonic();
             let expired: Vec<_> = {
-                let mut state = self.state.lock().unwrap();
+                let mut state = self.state.lock_or_recover();
                 let mut expired = Vec::new();
                 while let Some(&(deadline, id)) = state.queue.first()
                     && deadline <= now
@@ -240,7 +241,7 @@ impl Shared {
             };
             for (id, generation, callback) in expired {
                 let Some(next) = callback() else { continue };
-                let mut state = self.state.lock().unwrap();
+                let mut state = self.state.lock_or_recover();
                 let current = state.timers.get(&id).map(|entry| entry.generation);
                 if current == Some(generation) {
                     state.arm(id, next);
@@ -401,10 +402,10 @@ mod tests {
         for _ in 0..10_000 {
             timer.start(host.monotonic() + Duration::from_secs(30));
         }
-        assert_eq!(timers.shared.state.lock().unwrap().queue.len(), 1);
+        assert_eq!(timers.shared.state.lock_or_recover().queue.len(), 1);
         timer.start(host.monotonic() + Duration::from_millis(5));
         wait_for(&count, 1);
-        assert!(timers.shared.state.lock().unwrap().queue.is_empty());
+        assert!(timers.shared.state.lock_or_recover().queue.is_empty());
     }
 
     #[test]
@@ -425,7 +426,7 @@ mod tests {
         wait_for(&witness, 1);
         assert_eq!(cancelled.load(Ordering::SeqCst), 0);
         assert_eq!(dropped.load(Ordering::SeqCst), 0);
-        assert!(timers.shared.state.lock().unwrap().timers.len() == 2);
+        assert!(timers.shared.state.lock_or_recover().timers.len() == 2);
     }
 
     #[test]

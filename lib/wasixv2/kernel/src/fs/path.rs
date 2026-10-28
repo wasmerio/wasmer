@@ -7,6 +7,7 @@ use wasixv2_vfs::{Cap, Device, LookupFlags, MAY_EXEC, RenameMode};
 
 use super::read_path;
 use crate::Kernel;
+use crate::sync::MutexExt;
 
 impl Kernel {
     pub(crate) async fn sys_mkdirat(
@@ -195,7 +196,7 @@ impl Kernel {
         };
         let dir = self.vfs.lookup(&env.cx(), &start, &path, lookup).await?;
         self.vfs.permission(&env.cred, &dir, MAY_EXEC).await?;
-        self.with_task(caller.task(), |task| task.fs.lock().unwrap().cwd = dir);
+        self.with_task(caller.task(), |task| task.fs.lock_or_recover().cwd = dir);
         Ok(0)
     }
 
@@ -206,7 +207,7 @@ impl Kernel {
         }
         let env = self.env(caller);
         self.vfs.permission(&env.cred, &dir, MAY_EXEC).await?;
-        self.with_task(caller.task(), |task| task.fs.lock().unwrap().cwd = dir);
+        self.with_task(caller.task(), |task| task.fs.lock_or_recover().cwd = dir);
         Ok(0)
     }
 
@@ -227,7 +228,7 @@ impl Kernel {
         if !env.cred.capable(Cap::SysChroot) {
             return Err(Errno::EPERM.into());
         }
-        self.with_task(caller.task(), |task| task.fs.lock().unwrap().root = dir);
+        self.with_task(caller.task(), |task| task.fs.lock_or_recover().root = dir);
         Ok(0)
     }
 
@@ -252,7 +253,7 @@ impl Kernel {
 
     pub(crate) fn sys_umask(&self, caller: &Caller<'_>, mask: i32) -> SysResult<i32> {
         let old = self.with_task(caller.task(), |task| {
-            let mut fs = task.fs.lock().unwrap();
+            let mut fs = task.fs.lock_or_recover();
             std::mem::replace(&mut fs.umask, mask as u32 & 0o777)
         });
         Ok(old as i32)

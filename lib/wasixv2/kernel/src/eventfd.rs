@@ -9,6 +9,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_eve
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
+    sync::MutexExt,
 };
 
 const MAX: u64 = u64::MAX;
@@ -26,7 +27,7 @@ impl EventFd {
             return Err(Errno::EINVAL.into());
         }
         let take = || {
-            let mut count = self.count.lock().unwrap();
+            let mut count = self.count.lock_or_recover();
             if *count == 0 {
                 return io.nonblocking().then_some(Err(Errno::EAGAIN));
             }
@@ -52,7 +53,7 @@ impl EventFd {
             return Err(Errno::EINVAL.into());
         }
         let add = || {
-            let mut count = self.count.lock().unwrap();
+            let mut count = self.count.lock_or_recover();
             if MAX - *count > value {
                 *count += value;
                 return Some(Ok(()));
@@ -73,7 +74,7 @@ impl Pollable for EventFd {
     /// `eventfd_poll`.
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.wait);
-        let count = *self.count.lock().unwrap();
+        let count = *self.count.lock_or_recover();
         let mut mask = PollMask::empty();
         if count > 0 {
             mask |= PollMask::READABLE;

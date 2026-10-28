@@ -17,8 +17,8 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, SysResult, read_value, write_value};
 use wasixv2_wait::{PollMask, WaitQueue, wait_event, wait_event_timeout};
 
-use super::{Ids, Object, Perm, READ, WRITE, get_or_create, lock, split_time};
-use crate::{Kernel, time};
+use super::{Ids, Object, Perm, READ, WRITE, get_or_create, split_time};
+use crate::{Kernel, sync::MutexExt, time};
 
 /// `SEMMSL`: semaphores per set.
 pub(crate) const SEMMSL: i32 = 32000;
@@ -52,7 +52,7 @@ pub(crate) struct SemSet {
 
 impl Object for SemSet {
     fn perm(&self) -> MutexGuard<'_, Perm> {
-        lock(&self.perm)
+        self.perm.lock_or_recover()
     }
 }
 
@@ -150,7 +150,7 @@ impl State {
                 let pending = self.pending[at].clone();
                 let result = match self.apply(&pending.sops, pending.pid) {
                     Err(Stop::Block(index)) => {
-                        *lock(&pending.blocking) = index;
+                        *pending.blocking.lock_or_recover() = index;
                         at += 1;
                         continue;
                     }
@@ -163,7 +163,7 @@ impl State {
                 if result.is_ok() {
                     self.otime = now;
                 }
-                *lock(&pending.status) = Some(result);
+                *pending.status.lock_or_recover() = Some(result);
                 if altered {
                     continue 'scan;
                 }
@@ -176,7 +176,7 @@ impl State {
     /// or reach zero.
     fn count_waiting(&self, num: usize, zero: bool) -> i32 {
         let blocked = |pending: &&Arc<Pending>| {
-            let sop = pending.sops[*lock(&pending.blocking)];
+            let sop = pending.sops[*pending.blocking.lock_or_recover()];
             sop.sem_num as usize == num && (sop.sem_op == 0) == zero && sop.sem_op <= 0
         };
         self.pending.iter().filter(blocked).count() as i32
@@ -197,7 +197,7 @@ impl State {
 
 impl SemSet {
     fn state(&self) -> MutexGuard<'_, State> {
-        lock(&self.state)
+        self.state.lock_or_recover()
     }
 }
 
@@ -211,7 +211,7 @@ impl Queued<'_> {
     /// The result another operation left, or `None` after taking the entry off the queue.
     fn finish(&self) -> Option<Result<(), Errno>> {
         let mut state = self.set.state();
-        if let Some(result) = lock(&self.pending.status).take() {
+        if let Some(result) = self.pending.status.lock_or_recover().take() {
             return Some(result);
         }
         state.pending.retain(|p| !Arc::ptr_eq(p, &self.pending));
@@ -248,13 +248,13 @@ fn seminfo(sets: i32, sems: i32, info: bool) -> [i32; 10] {
 
 impl Sems {
     fn get(&self, id: i32) -> Result<Arc<SemSet>, Errno> {
-        lock(&self.ids).get(id).ok_or(Errno::EINVAL)
+        self.ids.lock_or_recover().get(id).ok_or(Errno::EINVAL)
     }
 
     /// `exit_sem`: applies the adjustments process `pid` accumulated, clamped to the valid
     /// range, and wakes what they allow.
     pub(crate) fn exit(&self, pid: u32, now: u64) {
-        let sets = lock(&self.ids).all();
+        let sets = self.ids.lock_or_recover().all();
         for (_, set) in sets {
             let mut state = set.state();
             let Some(adj) = state.undo.remove(&pid) else {
@@ -278,7 +278,8 @@ impl Sems {
         reason = "the provider for /proc/sysvipc/sem, for procfs to read"
     )]
     pub(crate) fn list(&self) -> Vec<SemInfo> {
-        lock(&self.ids)
+        self.ids
+            .lock_or_recover()
             .all()
             .into_iter()
             .map(|(id, set)| {
@@ -319,7 +320,9 @@ impl Kernel {
         let cred = self.env(caller).cred;
         let now = self.ipc_now();
         let sems = &self.ipc.sem;
-        let used: i32 = lock(&sems.ids)
+        let used: i32 = sems
+            .ids
+            .lock_or_recover()
             .all()
             .iter()
             .map(|(_, set)| set.state().sems.len() as i32)
@@ -425,7 +428,7 @@ impl Kernel {
             }
         };
         let queued = Queued { set: &set, pending };
-        let ready = || lock(&queued.pending.status).take();
+        let ready = || queued.pending.status.lock_or_recover().take();
         let interrupt = self.interrupt(caller);
         let woken = match timeout {
             None => wait_event(&set.queue, ready, &*interrupt).await.map(Some),
@@ -461,7 +464,7 @@ impl Kernel {
         match IpcCmd(cmd) {
             IpcCmd::IPC_INFO | IpcCmd::SEM_INFO => {
                 let (info, max) = {
-                    let ids = lock(&sems.ids);
+                    let ids = sems.ids.lock_or_recover();
                     let all = ids.all();
                     let used = all.iter().map(|(_, s)| s.state().sems.len() as i32).sum();
                     let sets = ids.in_use() as i32;
@@ -475,7 +478,7 @@ impl Kernel {
                 let (id, set) = match IpcCmd(cmd) {
                     IpcCmd::IPC_STAT => (semid, sems.get(semid)?),
                     _ => {
-                        let set = lock(&sems.ids).at(semid).ok_or(Errno::EINVAL)?;
+                        let set = sems.ids.lock_or_recover().at(semid).ok_or(Errno::EINVAL)?;
                         let id = super::build_id(semid as usize, set.perm().seq);
                         (id, set)
                     }
@@ -515,7 +518,7 @@ impl Kernel {
                 Ok(0)
             }
             IpcCmd::IPC_RMID => {
-                let mut ids = lock(&sems.ids);
+                let mut ids = sems.ids.lock_or_recover();
                 let set = ids.get(semid).ok_or(Errno::EINVAL)?;
                 set.perm().check_owner(&cred)?;
                 ids.remove(semid);
@@ -524,7 +527,7 @@ impl Kernel {
                 let mut state = set.state();
                 state.removed = true;
                 for pending in std::mem::take(&mut state.pending) {
-                    *lock(&pending.status) = Some(Err(Errno::EIDRM));
+                    *pending.status.lock_or_recover() = Some(Err(Errno::EIDRM));
                 }
                 state.undo.clear();
                 drop(state);

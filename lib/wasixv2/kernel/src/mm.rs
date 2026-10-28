@@ -22,7 +22,7 @@
 mod shared;
 
 use std::sync::{
-    Arc, Mutex, MutexGuard, PoisonError,
+    Arc, Mutex, MutexGuard,
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
@@ -34,7 +34,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, UserMemory, WASM_PAGE_SIZE};
 use wasixv2_vfs::{FileType, WRITE_SEALS};
 
-use crate::{Kernel, file::OpenFile};
+use crate::{Kernel, file::OpenFile, sync::MutexExt};
 
 /// The page size the guest sees in `AT_PAGESZ` and the unit of every mapping.
 pub(crate) const PAGE_SIZE: u64 = WASM_PAGE_SIZE;
@@ -110,7 +110,7 @@ impl Mm {
     /// The page map. A panic elsewhere while it was held must not wedge every other thread of
     /// the process, so poisoning is ignored.
     fn space(&self) -> MutexGuard<'_, AddressSpace> {
-        self.space.lock().unwrap_or_else(PoisonError::into_inner)
+        self.space.lock_or_recover()
     }
 
     /// The address space as `/proc/<pid>/maps` lists it, lowest first, as far as the kernel
@@ -1063,7 +1063,7 @@ impl Kernel {
     /// Whether a live process other than `task`'s runs on `task`'s address space: a vfork
     /// parent or child (`mm_users` above what the group holds).
     pub(crate) fn mm_shared_elsewhere(&self, task: TaskId) -> bool {
-        let state = self.state.read().unwrap();
+        let state = self.state.read_or_recover();
         let Some(me) = state.tasks.get(&task) else {
             return false;
         };

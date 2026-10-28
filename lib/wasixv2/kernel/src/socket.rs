@@ -16,6 +16,7 @@ use wasixv2_vnet::{Domain, RecvMsg, SendMsg, Socket, SocketKind};
 use wasixv2_wait::{PollMask, PollTable, PollWaiter, Pollable, WaitQueue, Wakeup};
 
 use crate::file::{FileObject, Io};
+use crate::sync::MutexExt;
 
 /// `sizeof(struct sockaddr_storage)`, the most `move_addr_to_kernel` takes.
 pub(crate) const SOCKADDR_STORAGE: u32 = 128;
@@ -34,11 +35,11 @@ pub(crate) struct Timeouts(Mutex<[Option<Duration>; 2]>);
 
 impl Timeouts {
     pub(crate) fn get(&self, dir: usize) -> Option<Duration> {
-        self.0.lock().unwrap()[dir]
+        self.0.lock_or_recover()[dir]
     }
 
     pub(crate) fn set(&self, dir: usize, timeout: Option<Duration>) {
-        self.0.lock().unwrap()[dir] = timeout;
+        self.0.lock_or_recover()[dir] = timeout;
     }
 }
 

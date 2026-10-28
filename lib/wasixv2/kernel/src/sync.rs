@@ -7,14 +7,30 @@
 
 use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-/// `Mutex::lock` that takes over the guard of a lock a panicking thread held.
+/// `Mutex::lock`, `get_mut` and `into_inner` that take over the data of a lock a panicking
+/// thread held.
 pub(crate) trait MutexExt<T: ?Sized> {
     fn lock_or_recover(&self) -> MutexGuard<'_, T>;
+    fn get_mut_or_recover(&mut self) -> &mut T;
+    fn into_inner_or_recover(self) -> T
+    where
+        T: Sized;
 }
 
 impl<T: ?Sized> MutexExt<T> for Mutex<T> {
     fn lock_or_recover(&self) -> MutexGuard<'_, T> {
         self.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn get_mut_or_recover(&mut self) -> &mut T {
+        self.get_mut().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn into_inner_or_recover(self) -> T
+    where
+        T: Sized,
+    {
+        self.into_inner().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -54,6 +70,9 @@ mod tests {
         assert!(result.is_err());
         assert!(mutex.is_poisoned());
         assert_eq!(*mutex.lock_or_recover(), 2);
+        let mut mutex = Arc::try_unwrap(mutex).unwrap();
+        *mutex.get_mut_or_recover() = 3;
+        assert_eq!(mutex.into_inner_or_recover(), 3);
     }
 
     #[test]

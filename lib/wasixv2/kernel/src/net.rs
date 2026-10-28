@@ -31,6 +31,7 @@ use crate::{
     fs::read_iovecs,
     netlink,
     socket::{self, RCV, SND, SOCKADDR_STORAGE, SocketFile, Timeouts, WaitOn},
+    sync::MutexExt,
     unix::{self, UnixFile},
 };
 
@@ -804,7 +805,7 @@ impl Kernel {
         // `scm_detach_fds`: descriptors past the limit are dropped, and the message says so.
         let fds: Vec<Fd> = {
             let table = self.files(caller.task());
-            let mut table = table.lock().unwrap();
+            let mut table = table.lock_or_recover();
             rights
                 .into_iter()
                 .take(wanted)

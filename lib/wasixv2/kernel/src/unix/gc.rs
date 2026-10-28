@@ -29,6 +29,7 @@ use std::{
 
 use super::{Msg, Sock, UnixFile};
 use crate::file::OpenFile;
+use crate::sync::MutexExt;
 
 /// `UNIX_INFLIGHT_SANE_USER`: a sender with more files in flight than this collects before
 /// sending more Unix sockets.
@@ -68,8 +69,7 @@ impl Inflight {
     /// `user->unix_inflight` of `uid`.
     pub(crate) fn user(&self, uid: u32) -> usize {
         self.state
-            .lock()
-            .unwrap()
+            .lock_or_recover()
             .users
             .get(&uid)
             .copied()
@@ -78,12 +78,12 @@ impl Inflight {
 
     /// Whether any Unix socket is in flight, so that a release may have left a cycle.
     fn has_sockets(&self) -> bool {
-        !self.state.lock().unwrap().sockets.is_empty()
+        !self.state.lock_or_recover().sockets.is_empty()
     }
 
     /// `unix_add_edges`: `files` were queued in a message from `uid`.
     fn add(&self, files: &[Arc<OpenFile>], uid: u32) {
-        let mut st = self.state.lock().unwrap();
+        let mut st = self.state.lock_or_recover();
         *st.users.entry(uid).or_default() += files.len();
         let mut changed = false;
         for file in files.iter().filter(|f| unix_socket(f).is_some()) {
@@ -101,7 +101,7 @@ impl Inflight {
         if files.is_empty() {
             return;
         }
-        let mut st = self.state.lock().unwrap();
+        let mut st = self.state.lock_or_recover();
         if let Some(n) = st.users.get_mut(&uid) {
             *n -= files.len();
             if *n == 0 {
@@ -125,7 +125,7 @@ impl Inflight {
     /// show.
     pub(super) fn peeked(&self, files: &[Arc<OpenFile>]) {
         if files.iter().any(|f| unix_socket(f).is_some()) {
-            self.state.lock().unwrap().generation += 1;
+            self.state.lock_or_recover().generation += 1;
         }
     }
 
@@ -158,7 +158,7 @@ impl Inflight {
     /// changed while the graph was read.
     fn walk(&self) -> Option<Vec<Msg>> {
         let (generation, vertices) = {
-            let st = self.state.lock().unwrap();
+            let st = self.state.lock_or_recover();
             let vertices: Vec<_> = st
                 .sockets
                 .iter()
@@ -208,7 +208,7 @@ impl Inflight {
                 }
             }
         }
-        if self.state.lock().unwrap().generation != generation {
+        if self.state.lock_or_recover().generation != generation {
             return None;
         }
         let mut hitlist = Vec::new();

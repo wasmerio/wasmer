@@ -12,7 +12,7 @@ use wasixv2_syscalls::{Caller, Errno, SysResult, UserSliceMut, read_value, write
 
 use wasixv2_vfs::Cap;
 
-use crate::{Kernel, Process, State, mm::PAGE_SIZE, time};
+use crate::{Kernel, Process, State, mm::PAGE_SIZE, sync::MutexExt, time};
 
 const INFINITY: u64 = u64::MAX;
 /// `RLIM_NLIMITS`.
@@ -74,7 +74,7 @@ pub(crate) fn nproc_exceeded(state: &State, process: &Process) -> bool {
         .values()
         .filter(|task| task.process.cred().user.real == uid)
         .count();
-    process.resources.lock().unwrap().nproc_reached(tasks)
+    process.resources.lock_or_recover().nproc_reached(tasks)
 }
 
 impl Resources {
@@ -141,7 +141,7 @@ impl Kernel {
             return Err(Errno::EPERM.into());
         }
         let previous = {
-            let mut resources = process.resources.lock().unwrap();
+            let mut resources = process.resources.lock_or_recover();
             let previous = resources.limits[index];
             if let Some(new) = new {
                 if new.rlim_cur > new.rlim_max {
@@ -158,11 +158,11 @@ impl Kernel {
         };
         if new.is_some() && resource == RlimitResource::RLIMIT_NOFILE {
             // The limit is the target's, not the caller's: every descriptor table its tasks use.
-            let limit = process.resources.lock().unwrap().nofile();
-            let state = self.state.read().unwrap();
+            let limit = process.resources.lock_or_recover().nofile();
+            let state = self.state.read_or_recover();
             let tasks = state.tasks.values();
             for task in tasks.filter(|task| std::sync::Arc::ptr_eq(&task.process, &process)) {
-                task.files.lock().unwrap().set_limit(limit);
+                task.files.lock_or_recover().set_limit(limit);
             }
         }
         if !old.is_null() {
@@ -219,7 +219,7 @@ impl Kernel {
         let uptime = self.host.monotonic();
         let total = ADDRESS_SPACE / PAGE_SIZE;
         let used = caller.memory().size().await / PAGE_SIZE;
-        let procs = self.state.read().unwrap().tasks.len();
+        let procs = self.state.read_or_recover().tasks.len();
         let si = Sysinfo {
             uptime: (uptime.as_secs() + u64::from(uptime.subsec_nanos() > 0)) as i32,
             totalram: total as u32,
@@ -282,7 +282,7 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let process = self.process(caller.task());
-        let mut resources = process.resources.lock().unwrap();
+        let mut resources = process.resources.lock_or_recover();
         match cmd.0 {
             0 => Ok(SUPPORTED),
             1 | 2 | 4 => Ok(0),

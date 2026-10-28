@@ -14,6 +14,7 @@ use wasixv2_syscalls::{BINPRM_BUF_SIZE, Fault, SysErr, UserMemory, WASM_PAGE_SIZ
 use wasixv2_vfs_mem::MemFs;
 
 use super::*;
+use crate::sync::MutexExt;
 
 struct FlatMemory(RefCell<Vec<u8>>);
 
@@ -97,7 +98,7 @@ struct Capture(Mutex<Vec<u8>>);
 
 impl ByteSink for Capture {
     fn write<'a>(&'a self, data: &'a [u8]) -> LocalFuture<'a, io::Result<usize>> {
-        self.0.lock().unwrap().extend_from_slice(data);
+        self.0.lock_or_recover().extend_from_slice(data);
         Box::pin(async move { Ok(data.len()) })
     }
 }
@@ -110,7 +111,7 @@ impl ByteSource for Input {
         _: &mut std::task::Context<'_>,
         buf: &mut [u8],
     ) -> std::task::Poll<io::Result<usize>> {
-        let mut input = self.0.lock().unwrap();
+        let mut input = self.0.lock_or_recover();
         let n = input.len().min(buf.len());
         buf[..n].copy_from_slice(&input[..n]);
         input.drain(..n);
@@ -185,7 +186,7 @@ fn write_copies_from_guest_memory() {
     let n = block_on(kernel.write(&caller, Fd(1), UserSlice::new(2, 5)));
 
     assert_eq!(n, Ok(5));
-    assert_eq!(*stdout.0.lock().unwrap(), b"hello");
+    assert_eq!(*stdout.0.lock_or_recover(), b"hello");
 }
 
 #[test]
@@ -678,7 +679,7 @@ fn prlimit_of_another_process_sets_its_descriptor_limit() {
     set_nofile(&kernel, &caller, &memory, other.0 as i32, 3);
     let dup = |task| {
         let stdin = kernel.file(task, Fd(0)).unwrap();
-        kernel.files(task).lock().unwrap().install(stdin, false)
+        kernel.files(task).lock_or_recover().install(stdin, false)
     };
     assert_eq!(dup(other), None);
     assert_eq!(dup(task), Some(Fd(3)));

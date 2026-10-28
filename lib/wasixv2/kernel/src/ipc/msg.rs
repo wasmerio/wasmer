@@ -17,8 +17,9 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, read_value, write_value};
 use wasixv2_wait::{PollMask, WaitQueue, wait_event};
 
-use super::{CAP_SYS_RESOURCE, Ids, Object, Perm, READ, WRITE, capable, get_or_create, lock};
+use super::{CAP_SYS_RESOURCE, Ids, Object, Perm, READ, WRITE, capable, get_or_create};
 use crate::Kernel;
+use crate::sync::MutexExt;
 
 /// `MSGMNI`: queues in the namespace.
 pub(crate) const MSGMNI: i32 = 32000;
@@ -53,7 +54,7 @@ pub(crate) struct MsgQueue {
 
 impl Object for MsgQueue {
     fn perm(&self) -> MutexGuard<'_, Perm> {
-        lock(&self.perm)
+        self.perm.lock_or_recover()
     }
 }
 
@@ -142,13 +143,13 @@ impl State {
 
 impl MsgQueue {
     fn state(&self) -> MutexGuard<'_, State> {
-        lock(&self.state)
+        self.state.lock_or_recover()
     }
 }
 
 impl Queues {
     fn get(&self, id: i32) -> Result<Arc<MsgQueue>, Errno> {
-        lock(&self.ids).get(id).ok_or(Errno::EINVAL)
+        self.ids.lock_or_recover().get(id).ok_or(Errno::EINVAL)
     }
 
     /// Rows of `/proc/sysvipc/msg`.
@@ -157,7 +158,8 @@ impl Queues {
         reason = "the provider for /proc/sysvipc/msg, for procfs to read"
     )]
     pub(crate) fn list(&self) -> Vec<MsgInfo> {
-        lock(&self.ids)
+        self.ids
+            .lock_or_recover()
             .all()
             .into_iter()
             .map(|(id, queue)| {
@@ -365,7 +367,7 @@ impl Kernel {
         match IpcCmd(cmd) {
             IpcCmd::IPC_INFO | IpcCmd::MSG_INFO => {
                 let ((pool, map, tql), max) = {
-                    let ids = lock(&queues.ids);
+                    let ids = queues.ids.lock_or_recover();
                     let totals = match IpcCmd(cmd) == IpcCmd::MSG_INFO {
                         true => {
                             let all = ids.all();
@@ -390,7 +392,11 @@ impl Kernel {
                 let (id, queue) = match IpcCmd(cmd) {
                     IpcCmd::IPC_STAT => (msqid, queues.get(msqid)?),
                     _ => {
-                        let queue = lock(&queues.ids).at(msqid).ok_or(Errno::EINVAL)?;
+                        let queue = queues
+                            .ids
+                            .lock_or_recover()
+                            .at(msqid)
+                            .ok_or(Errno::EINVAL)?;
                         let id = super::build_id(msqid as usize, queue.perm().seq);
                         (id, queue)
                     }
@@ -427,7 +433,7 @@ impl Kernel {
                 Ok(0)
             }
             IpcCmd::IPC_RMID => {
-                let mut ids = lock(&queues.ids);
+                let mut ids = queues.ids.lock_or_recover();
                 let queue = ids.get(msqid).ok_or(Errno::EINVAL)?;
                 queue.perm().check_owner(&cred)?;
                 ids.remove(msqid);

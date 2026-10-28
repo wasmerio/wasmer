@@ -14,6 +14,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_eve
 use crate::{
     file::{Backing, FileObject, Io, OpenFile},
     pseudo::Pseudo,
+    sync::MutexExt,
 };
 
 /// The open files behind descriptors 0, 1 and 2. Each host stream looks like a pipe, with an
@@ -134,7 +135,7 @@ impl HostInput {
             return Ok(0);
         }
         let take = || {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             self.fill(&mut state);
             if !state.data.is_empty() {
                 let n = buf.len().min(state.data.len());
@@ -159,7 +160,7 @@ impl Pollable for HostInput {
     /// Readable while input (or its end) waits to be read, as a pipe's read end.
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.wait);
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         self.fill(&mut state);
         match !state.data.is_empty() || state.end.is_some() {
             true => PollMask::READABLE,

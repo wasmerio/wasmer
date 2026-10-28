@@ -32,6 +32,7 @@ use wasixv2_wait::{Interrupt, WaitQueue, Waiter, Wakeup};
 use crate::{
     Kernel, Process,
     posix_timer::{self, PosixTimer},
+    sync::MutexExt,
     time,
     timer::{self, Timer},
 };
@@ -70,7 +71,7 @@ impl SigqueueUsers {
     /// `inc_rlimit_get_ucounts`: charges one signal to `uid`, unless that takes it past `limit`.
     /// `None` overrides the limit; the signal still counts.
     pub(crate) fn charge(&self, uid: u32, limit: Option<u64>) -> Result<Charge, Overflow> {
-        let count = self.0.lock().unwrap().entry(uid).or_default().clone();
+        let count = self.0.lock_or_recover().entry(uid).or_default().clone();
         let queued = count.fetch_add(1, Ordering::Relaxed) + 1;
         let charge = Charge(count);
         match limit {
@@ -108,10 +109,10 @@ impl Account {
         let Some(process) = self.process.upgrade().filter(|_| sig != Signal::SIGKILL.0) else {
             return Ok(None);
         };
-        let uid = process.cred.lock().unwrap().user.real;
+        let uid = process.cred.lock_or_recover().user.real;
         let limit = match sig < SIGRTMIN && info.si_code >= 0 {
             true => None,
-            false => Some(process.resources.lock().unwrap().sigpending()),
+            false => Some(process.resources.lock_or_recover().sigpending()),
         };
         self.users.charge(uid, limit).map(Some)
     }
@@ -461,7 +462,7 @@ impl Signals {
         inherited: Inherited,
         flag: Arc<WorkFlag>,
     ) -> Arc<TaskSignals> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         state.tasks.insert(task, TaskState::new(inherited, flag));
         Arc::new(TaskSignals {
             group: self.clone(),
@@ -475,8 +476,8 @@ impl Signals {
     pub(crate) fn fork(&self, account: Account) -> Arc<Self> {
         let new = Self::new(Some(account));
         {
-            let state = self.state.lock().unwrap();
-            let mut copy = new.state.lock().unwrap();
+            let state = self.state.lock_or_recover();
+            let mut copy = new.state.lock_or_recover();
             copy.actions = state.actions;
             copy.trampoline = state.trampoline;
         }
@@ -488,7 +489,7 @@ impl Signals {
     /// belonged to the old image. Masks and pending signals stay; a temporary mask's end
     /// (`sigsuspend`, `ppoll`) and a wakeup for kernel work were the old image's, and go.
     pub(crate) fn exec_reset(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         for action in state.actions.iter_mut() {
             *action = match action.is_ignore() {
                 true => Action {
@@ -510,7 +511,7 @@ impl Signals {
     /// How the group treats its children's exits: SIGCHLD is ignored (`SIG_IGN`), and
     /// `SA_NOCLDWAIT` is set.
     pub(crate) fn child_reaping(&self) -> (bool, bool) {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         let action = state.actions[Signal::SIGCHLD.0 as usize - 1];
         (
             action.is_ignore(),
@@ -521,7 +522,7 @@ impl Signals {
     /// Makes the group the kernel's init's: SIGCHLD is ignored, so its children are reaped as
     /// they exit, and no signal with the default action reaches it.
     pub(crate) fn make_init(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         state.actions[Signal::SIGCHLD.0 as usize - 1].handler = SignalHandler::SIG_IGN.0 as u32;
         state.unkillable = true;
     }
@@ -541,13 +542,13 @@ impl Signals {
 
     /// Whether `sig` is pending for the group or one of its tasks.
     fn is_pending(&self, sig: i32) -> bool {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         (state.shared.set | state.tasks.values().fold(0, |set, t| set | t.pending.set)) & bit(sig)
             != 0
     }
 
     pub(crate) fn clear_notify(&self, task: TaskId) {
-        if let Some(task) = self.state.lock().unwrap().tasks.get_mut(&task) {
+        if let Some(task) = self.state.lock_or_recover().tasks.get_mut(&task) {
             task.notify = false;
         }
     }
@@ -555,7 +556,7 @@ impl Signals {
     /// Makes `task` leave an interruptible wait for kernel work, without a signal
     /// (`task_work_add` with `TWA_SIGNAL`).
     pub(crate) fn notify(&self, task: TaskId) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let Some(task) = state.tasks.get_mut(&task) else {
             return;
         };
@@ -568,7 +569,7 @@ impl Signals {
     /// `de_thread` after an `execve` from `from`: `to`, the leader, goes on with `from`'s mask
     /// and pending signals, and `from` is gone from the group.
     pub(crate) fn take_over(&self, from: TaskId, to: TaskId) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let Some(mut moved) = state.tasks.remove(&from) else {
             return;
         };
@@ -591,7 +592,7 @@ impl Signals {
     fn generate(&self, task: Option<TaskId>, info: Siginfo) -> Result<bool, Errno> {
         // The charge reads the process's credentials and limits, which come before the group.
         let charge = self.account.as_ref().map_or(Ok(None), |a| a.charge(&info));
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         if !state.prepare(task, info.si_signo) {
             return Ok(false);
         }
@@ -613,7 +614,7 @@ impl Signals {
     pub(crate) fn send_timer(&self, timer: &Arc<PosixTimer>, periodic: bool) {
         let target = timer.target_thread();
         let info = timer.info();
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         // `task_can_queue_signal`: a target thread that is gone takes nothing.
         if target.is_some_and(|task| !state.tasks.contains_key(&task)) {
             return;
@@ -654,7 +655,7 @@ impl Signals {
     /// `posix_timer_delete`'s signal half: `timer` stops being a timer of the group. A
     /// signal of it still queued stays, and is dropped when it is dequeued.
     pub(crate) fn unlink_timer(&self, timer: &Arc<PosixTimer>, id: i32) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         timer.invalidate();
         state.posix_timers.remove(id);
         state.ignored_timers.retain(|t| !Arc::ptr_eq(t, timer));
@@ -662,17 +663,17 @@ impl Signals {
 
     /// Runs `f` on the group's POSIX timer table, with the group locked.
     pub(crate) fn with_posix_timers<R>(&self, f: impl FnOnce(&mut posix_timer::Table) -> R) -> R {
-        f(&mut self.state.lock().unwrap().posix_timers)
+        f(&mut self.state.lock_or_recover().posix_timers)
     }
 
     /// Whether `task` still belongs to the group.
     pub(crate) fn has_task(&self, task: TaskId) -> bool {
-        self.state.lock().unwrap().tasks.contains_key(&task)
+        self.state.lock_or_recover().tasks.contains_key(&task)
     }
 
     /// `flush_itimer_signals` at `execve`: the old image's POSIX timer signals go.
     pub(crate) fn flush_timer_signals(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         state.shared.flush_timers();
         for task in state.tasks.values_mut() {
             task.pending.flush_timers();
@@ -681,7 +682,7 @@ impl Signals {
 
     /// `hrtimer_cancel(&sig->real_timer)` once the group is dead.
     pub(crate) fn cancel_real_timer(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let real = &mut state.real_timer;
         (real.deadline, real.expired) = (None, None);
         if let Some((timer, _)) = &real.timer {
@@ -707,7 +708,7 @@ impl Signals {
             };
             drop(state);
             let counts = timer.deliver(&mut info);
-            state = self.state.lock().unwrap();
+            state = self.state.lock_or_recover();
             if counts {
                 return (state, Some(info));
             }
@@ -897,7 +898,7 @@ impl TaskSignals {
     }
 
     fn with<R>(&self, f: impl FnOnce(&mut TaskState) -> R) -> R {
-        let mut state = self.group.state.lock().unwrap();
+        let mut state = self.group.state.lock_or_recover();
         f(state.task(self.task))
     }
 
@@ -915,7 +916,7 @@ impl TaskSignals {
     /// the task could take now: then `None`, the mask stays, and the task takes that signal
     /// before it makes the call again ([`GroupState::take_first`]).
     pub(crate) fn block_after_pending(&self, blocked: u64) -> Option<u64> {
-        let mut state = self.group.state.lock().unwrap();
+        let mut state = self.group.state.lock_or_recover();
         let blocked = blocked & !UNBLOCKABLE;
         let newly = blocked & !state.task(self.task).blocked;
         if state.take_first(self.task, newly) {
@@ -948,7 +949,7 @@ impl TaskSignals {
     /// The masks `/proc/<pid>/status` shows: pending for the task and for the group, blocked,
     /// ignored and caught.
     pub(crate) fn proc_status(&self) -> [u64; 5] {
-        let state = self.group.state.lock().unwrap();
+        let state = self.group.state.lock_or_recover();
         let task = state.tasks.get(&self.task);
         let (pending, blocked) = task.map_or((0, 0), |task| (task.pending.set, task.blocked));
         let mut ignored = 0;
@@ -982,7 +983,7 @@ impl TaskSignals {
     /// (`de_thread`) has none left: its handler unwinds with the old image, and nothing of it
     /// is restored.
     fn sigreturn(&self, mask: Option<u64>) {
-        let mut state = self.group.state.lock().unwrap();
+        let mut state = self.group.state.lock_or_recover();
         let Some(task) = state.tasks.get_mut(&self.task) else {
             return;
         };
@@ -1001,7 +1002,7 @@ impl TaskSignals {
     /// kills, SIGKILL among them, for the task or its group. Linux's `complete_signal` makes such
     /// a signal a SIGKILL for every thread as it is sent.
     pub(crate) fn fatal_pending(&self) -> Option<i32> {
-        let state = self.group.state.lock().unwrap();
+        let state = self.group.state.lock_or_recover();
         let task = state.tasks.get(&self.task)?;
         let mut pending = (task.pending.set | state.shared.set) & !task.blocked;
         while pending != 0 {
@@ -1029,21 +1030,21 @@ impl TaskSignals {
 
     /// Records the vfork child the task waits for, or with `None` that it waits no more.
     pub(crate) fn set_vfork_child(&self, child: Option<(Arc<Signals>, TaskId)>) {
-        if let Some(task) = self.group.state.lock().unwrap().tasks.get_mut(&self.task) {
+        if let Some(task) = self.group.state.lock_or_recover().tasks.get_mut(&self.task) {
             task.vfork_child = child;
         }
     }
 
     /// Removes the task from its group once it is gone (`__exit_signal`).
     pub(crate) fn detach(&self) {
-        self.group.state.lock().unwrap().tasks.remove(&self.task);
+        self.group.state.lock_or_recover().tasks.remove(&self.task);
     }
 
     // ---- ipc: signalfd ----
     /// `dequeue_signal` for a signalfd: the next signal in `wanted` pending for the task or its
     /// group, blocked or not. Once the task is gone, only the group's.
     pub(crate) fn dequeue_from(&self, wanted: u64) -> Option<Siginfo> {
-        let mut state = self.group.state.lock().unwrap();
+        let mut state = self.group.state.lock_or_recover();
         if state.tasks.contains_key(&self.task) {
             return self.group.dequeue(state, self.task, wanted).1;
         }
@@ -1061,13 +1062,13 @@ impl TaskSignals {
             if timer.deliver(&mut info) {
                 return Some(info);
             }
-            state = self.group.state.lock().unwrap();
+            state = self.group.state.lock_or_recover();
         }
     }
 
     /// Whether a signal in `wanted` is pending for the task or its group.
     pub(crate) fn has_pending(&self, wanted: u64) -> bool {
-        let state = self.group.state.lock().unwrap();
+        let state = self.group.state.lock_or_recover();
         let own = state
             .tasks
             .get(&self.task)
@@ -1092,7 +1093,7 @@ impl TaskSignals {
 
 impl Interrupt for TaskSignals {
     fn pending(&self) -> bool {
-        let state = self.group.state.lock().unwrap();
+        let state = self.group.state.lock_or_recover();
         // A task taken over by an `execve` from another thread has nothing left to wait for.
         let Some(task) = state.tasks.get(&self.task) else {
             return true;
@@ -1126,7 +1127,7 @@ struct WaitFor<'a> {
 
 impl Interrupt for WaitFor<'_> {
     fn pending(&self) -> bool {
-        let state = self.signals.group.state.lock().unwrap();
+        let state = self.signals.group.state.lock_or_recover();
         let Some(task) = state.tasks.get(&self.signals.task) else {
             return true;
         };
@@ -1193,7 +1194,7 @@ impl Kernel {
     /// any thread's id names its whole group, and the group id still does once its leader thread
     /// has exited.
     fn groups(&self, pid: Option<Pid>) -> Vec<(Pid, Arc<Signals>)> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read_or_recover();
         let mut groups: Vec<(Pid, Arc<Signals>)> = Vec::new();
         for (id, task) in &state.tasks {
             let leader = task.process.pid.0 as Pid;
@@ -1265,7 +1266,7 @@ impl Kernel {
     /// The return-to-guest half of `get_signal`: dequeues the next signal `task` takes and
     /// either applies its default action or prepares its handler's frame (`handle_signal`).
     pub(crate) fn take_signal(&self, task: TaskId, signals: &TaskSignals) -> Option<GuestAction> {
-        let mut state = signals.group.state.lock().unwrap();
+        let mut state = signals.group.state.lock_or_recover();
         state.tasks.get_mut(&task)?.notify = false;
         loop {
             let blocked = state.task(task).blocked;
@@ -1352,13 +1353,13 @@ impl Kernel {
     /// thread (`pthread_exit`, a cancellation) unwinds through here after the task is gone.
     pub(crate) fn signal_return(&self, task: TaskId, mask: Option<u64>) {
         let (signals, restart) = {
-            let state = self.state.read().unwrap();
+            let state = self.state.read_or_recover();
             match state.tasks.get(&task) {
                 Some(task) => (task.signals.clone(), task.restart.is_some()),
                 None => return,
             }
         };
-        if restart && let Some(task) = self.state.lock().unwrap().tasks.get_mut(&task) {
+        if restart && let Some(task) = self.state.lock_or_recover().tasks.get_mut(&task) {
             task.restart = None;
         }
         signals.sigreturn(mask);
@@ -1370,7 +1371,7 @@ impl Kernel {
         callback: u32,
     ) -> SysResult<i32> {
         let signals = self.task_signals(caller.task());
-        signals.group.state.lock().unwrap().trampoline = Some(callback);
+        signals.group.state.lock_or_recover().trampoline = Some(callback);
         Ok(0)
     }
 
@@ -1393,7 +1394,7 @@ impl Kernel {
         }
         let signals = self.task_signals(caller.task());
         let old = {
-            let mut state = signals.group.state.lock().unwrap();
+            let mut state = signals.group.state.lock_or_recover();
             let old = state.actions[sig as usize - 1];
             if let Some(new) = new {
                 state.actions[sig as usize - 1] = Action {
@@ -1464,7 +1465,7 @@ impl Kernel {
         check_sigsetsize(sigsetsize)?;
         let signals = self.task_signals(caller.task());
         let pending = {
-            let state = signals.group.state.lock().unwrap();
+            let state = signals.group.state.lock_or_recover();
             let blocked = state.tasks[&caller.task()].blocked;
             state.deliverable(caller.task(), blocked)
         };
@@ -1507,7 +1508,7 @@ impl Kernel {
         let take = || {
             let group = &signals.group;
             group
-                .dequeue(group.state.lock().unwrap(), caller.task(), these)
+                .dequeue(group.state.lock_or_recover(), caller.task(), these)
                 .1
         };
         let info = match take() {
@@ -1588,7 +1589,7 @@ impl Kernel {
             return true;
         }
         // One process's lock at a time: two processes may check each other at once.
-        let sid = |process: &Process| process.ident.lock().unwrap().sid;
+        let sid = |process: &Process| process.ident.lock_or_recover().sid;
         sig == Signal::SIGCONT.0 && sid(sender) == sid(&target)
     }
 
@@ -1664,7 +1665,7 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let target = {
-            let state = self.state.read().unwrap();
+            let state = self.state.read_or_recover();
             state
                 .tasks
                 .get(&TaskId(tid as u32))
@@ -1845,7 +1846,7 @@ impl Kernel {
         let current = match which {
             ItimerWhich::ITIMER_REAL => {
                 let signals = self.task_signals(caller.task());
-                let state = signals.group.state.lock().unwrap();
+                let state = signals.group.state.lock_or_recover();
                 real_timer_value(&state.real_timer, self.host.monotonic())
             }
             ItimerWhich::ITIMER_VIRTUAL | ItimerWhich::ITIMER_PROF => {
@@ -1865,7 +1866,7 @@ impl Kernel {
         new: Option<(Duration, Duration)>,
     ) -> (Duration, Duration) {
         let now = self.host.monotonic();
-        let mut state = group.state.lock().unwrap();
+        let mut state = group.state.lock_or_recover();
         let old = real_timer_value(&state.real_timer, now);
         let Some((value, interval)) = new else {
             return old;
@@ -1900,7 +1901,7 @@ impl Kernel {
 /// to re-arm at, for a timer that fired early.
 fn real_timer_expired(group: &Signals, now: Duration) -> Option<Duration> {
     {
-        let mut state = group.state.lock().unwrap();
+        let mut state = group.state.lock_or_recover();
         let real = &mut state.real_timer;
         let deadline = real.deadline?;
         if deadline > now {

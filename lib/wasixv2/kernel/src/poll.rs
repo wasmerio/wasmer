@@ -10,7 +10,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, read_value, write_value};
 use wasixv2_wait::{Interrupt, PollMask, PollWaiter, Wakeup};
 
-use crate::{Kernel, file::FdTable, sigset_bits, time};
+use crate::{Kernel, file::FdTable, sigset_bits, sync::MutexExt, time};
 
 /// When a wait gives up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,7 +135,7 @@ impl Kernel {
         deadline: Deadline,
     ) -> SysResult<i32> {
         // `RLIMIT_NOFILE` bounds `nfds`.
-        let limit = self.files(caller.task()).lock().unwrap().limit();
+        let limit = self.files(caller.task()).lock_or_recover().limit();
         if nfds as usize > limit {
             return Err(Errno::EINVAL.into());
         }
@@ -222,7 +222,7 @@ impl Kernel {
         deadline: Deadline,
     ) -> SysResult<i32> {
         let n = usize::try_from(n).map_err(|_| Errno::EINVAL)?;
-        let n = n.min(self.files(caller.task()).lock().unwrap().max_fds());
+        let n = n.min(self.files(caller.task()).lock_or_recover().max_fds());
         let bytes = n.div_ceil(32) * 4;
         let mut input = [vec![0u8; bytes], vec![0u8; bytes], vec![0u8; bytes]];
         for (set, ptr) in input.iter_mut().zip(sets) {
@@ -257,7 +257,7 @@ impl Kernel {
             let mut count = 0;
             // Looked up again on every pass, as Linux does.
             for (fd, want) in &wanted {
-                let Some(file) = files.lock().unwrap().get(Fd(*fd as i32)) else {
+                let Some(file) = files.lock_or_recover().get(Fd(*fd as i32)) else {
                     continue;
                 };
                 let key = (0..3)
@@ -309,7 +309,7 @@ fn do_pollfd(
     if pollfd.fd.0 < 0 {
         return PollMask::empty();
     }
-    let file = files.lock().unwrap().get(pollfd.fd);
+    let file = files.lock_or_recover().get(pollfd.fd);
     let mask = match file {
         None => PollMask::NVAL,
         Some(file) => {

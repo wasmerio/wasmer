@@ -14,6 +14,7 @@ use crate::{
     mm::{Mm, PAGE_SIZE, RegionKind},
     resource::{ADDRESS_SPACE, TICKS},
     sched::cpus,
+    sync::MutexExt,
 };
 
 /// `PID_MAX_LIMIT` on 64-bit Linux; pids are never reused here, so any value below it works.
@@ -84,7 +85,7 @@ pub(super) enum PerPid {
 
 pub(super) fn global(source: &Source, file: Global) -> FsResult<Vec<u8>> {
     let line = |s: &str| format!("{s}\n").into_bytes();
-    let names = *source.uts.lock().unwrap();
+    let names = *source.uts.lock_or_recover();
     let uts = |field: &[u8; 65]| {
         let len = field.iter().position(|&b| b == 0).unwrap_or(field.len());
         String::from_utf8_lossy(&field[..len]).into_owned()
@@ -300,8 +301,8 @@ pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<V
     let info = source.process(scope.pid).ok_or(Errno::ESRCH)?;
     let process = &info.process;
     Ok(match file {
-        PerPid::Cmdline => nul_joined(&process.args.lock().unwrap()),
-        PerPid::Environ => nul_joined(&process.env.lock().unwrap()),
+        PerPid::Cmdline => nul_joined(&process.args.lock_or_recover()),
+        PerPid::Environ => nul_joined(&process.env.lock_or_recover()),
         PerPid::Comm => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
             let mut comm = task.comm.name().to_vec();
@@ -312,7 +313,7 @@ pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<V
         PerPid::Maps => maps(source.mm(scope).as_deref()),
         PerPid::Mounts | PerPid::Mountinfo => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
-            let root = task.fs.lock().unwrap().root.clone();
+            let root = task.fs.lock_or_recover().root.clone();
             mounts(source, &root, file == PerPid::Mountinfo)
         }
         PerPid::Stat => stat_line(source, scope, &info),
@@ -354,7 +355,7 @@ fn limits(process: &crate::Process) -> Vec<u8> {
         ("Max realtime priority", ""),
         ("Max realtime timeout", "us"),
     ];
-    let limits = *process.resources.lock().unwrap().limits();
+    let limits = *process.resources.lock_or_recover().limits();
     let value = |v: u64| match v {
         u64::MAX => "unlimited".to_string(),
         v => v.to_string(),
@@ -526,7 +527,7 @@ fn state(info: &super::ProcessInfo) -> (char, &'static str) {
 fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
     let process = &info.process;
     let pid = scope.tid.unwrap_or(scope.pid);
-    let ident = process.ident.lock().unwrap().clone();
+    let ident = process.ident.lock_or_recover().clone();
     let task = source.task(scope.pid, scope.tid);
     let comm = task
         .as_ref()
@@ -605,14 +606,14 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
 /// `proc_pid_status`.
 fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
     let process = &info.process;
-    let ident = process.ident.lock().unwrap().clone();
+    let ident = process.ident.lock_or_recover().clone();
     let task = source.task(scope.pid, scope.tid);
     let umask = task
         .as_ref()
-        .map_or(0o022, |task| task.fs.lock().unwrap().umask);
+        .map_or(0o022, |task| task.fs.lock_or_recover().umask);
     let fd_size = task
         .as_ref()
-        .map_or(0, |task| task.files.lock().unwrap().max_fds());
+        .map_or(0, |task| task.files.lock_or_recover().max_fds());
     let signals = task
         .as_ref()
         .map(|task| task.signals.proc_status())

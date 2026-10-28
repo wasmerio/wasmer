@@ -28,6 +28,7 @@ use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
     poll::Deadline,
+    sync::MutexExt,
 };
 
 /// Most epolls nested inside each other (`EP_MAX_NESTS`).
@@ -121,7 +122,7 @@ struct Item {
 
 impl Item {
     fn events(&self) -> u32 {
-        self.event.lock().unwrap().0
+        self.event.lock_or_recover().0
     }
 }
 
@@ -180,17 +181,17 @@ impl Ep {
     }
 
     fn find(&self, key: Key) -> Option<Arc<Item>> {
-        self.state.lock().unwrap().items.get(&key).cloned()
+        self.state.lock_or_recover().items.get(&key).cloned()
     }
 
     /// `ep_events_available`.
     fn has_ready(&self) -> bool {
-        !self.state.lock().unwrap().ready.is_empty()
+        !self.state.lock_or_recover().ready.is_empty()
     }
 
     /// Appends items to the ready list unless already on it.
     fn queue_ready(&self, keys: &[Key]) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         for &key in keys {
             if state.items.contains_key(&key) && state.queued.insert(key) {
                 state.ready.push_back(key);
@@ -220,7 +221,7 @@ impl Ep {
                 registrations.push(queue.add(Arc::new(entry)));
             };
             let mask = file.poll(Some(&mut PollTable::new(PollMask(events), &mut queue_proc)));
-            item.registrations.lock().unwrap().extend(registrations);
+            item.registrations.lock_or_recover().extend(registrations);
             mask
         } else {
             file.poll(None)
@@ -237,8 +238,8 @@ impl Ep {
             event: Mutex::new(event),
             registrations: Mutex::default(),
         });
-        self.state.lock().unwrap().items.insert(key, item.clone());
-        file.epoll_links.lock().unwrap().push(EpollLink {
+        self.state.lock_or_recover().items.insert(key, item.clone());
+        file.epoll_links.lock_or_recover().push(EpollLink {
             ep: Arc::downgrade(self),
             fd: key.1,
         });
@@ -250,7 +251,7 @@ impl Ep {
 
     /// `ep_modify`.
     fn modify(&self, item: &Arc<Item>, event: (u32, EpollData)) {
-        *item.event.lock().unwrap() = event;
+        *item.event.lock_or_recover() = event;
         if !Self::item_poll(item, false).is_empty() {
             self.queue_ready(&[item.key]);
             self.wake();
@@ -260,13 +261,13 @@ impl Ep {
     /// Drops an item without touching its file, which is gone or being dropped.
     fn forget(&self, key: Key) -> Option<Arc<Item>> {
         let item = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             if state.queued.remove(&key) {
                 state.ready.retain(|k| *k != key);
             }
             state.items.remove(&key)
         }?;
-        item.registrations.lock().unwrap().clear();
+        item.registrations.lock_or_recover().clear();
         Some(item)
     }
 
@@ -278,8 +279,7 @@ impl Ep {
         if let Some(file) = item.file.upgrade() {
             let me = Arc::as_ptr(self);
             file.epoll_links
-                .lock()
-                .unwrap()
+                .lock_or_recover()
                 .retain(|link| !(link.ep.as_ptr() == me && link.fd == key.1));
         }
         true
@@ -290,7 +290,7 @@ impl Ep {
     /// when the events cannot be copied out.
     fn send_events(&self, max: usize) -> Vec<Sent> {
         let txlist: Vec<Key> = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             state.queued.clear();
             state.ready.drain(..).collect()
         };
@@ -307,7 +307,7 @@ impl Ep {
             if revents.is_empty() {
                 continue;
             }
-            let mut event = item.event.lock().unwrap();
+            let mut event = item.event.lock_or_recover();
             let mut sent = Sent {
                 key,
                 event: EpollEvent {
@@ -326,7 +326,7 @@ impl Ep {
         }
         // `ep_done_scan`: unprocessed items go back to the front, level-triggered ones after
         // them, then whatever arrived meanwhile.
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let arrived: Vec<Key> = state.ready.drain(..).collect();
         state.queued.clear();
         for key in txlist[done..].iter().chain(&requeue).chain(&arrived) {
@@ -350,12 +350,12 @@ impl Ep {
             let (Some(mask), Some(item)) = (sent.oneshot, self.find(sent.key)) else {
                 continue;
             };
-            let mut event = item.event.lock().unwrap();
+            let mut event = item.event.lock_or_recover();
             if event.0 == mask & PRIVATE_BITS {
                 event.0 = mask;
             }
         }
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         for sent in sent.iter().rev() {
             if !state.items.contains_key(&sent.key) {
                 continue;
@@ -374,13 +374,19 @@ impl Ep {
         let Some(file) = self.file.get().and_then(Weak::upgrade) else {
             return Vec::new();
         };
-        let links = file.epoll_links.lock().unwrap();
+        let links = file.epoll_links.lock_or_recover();
         links.iter().filter_map(|link| link.ep.upgrade()).collect()
     }
 
     /// The epolls this one's items watch.
     fn children(&self) -> Vec<Arc<Ep>> {
-        let items: Vec<_> = self.state.lock().unwrap().items.values().cloned().collect();
+        let items: Vec<_> = self
+            .state
+            .lock_or_recover()
+            .items
+            .values()
+            .cloned()
+            .collect();
         items
             .iter()
             .filter_map(|item| item.file.upgrade())
@@ -438,8 +444,7 @@ impl Drop for Epoll {
         let keys: Vec<Key> = self
             .ep
             .state
-            .lock()
-            .unwrap()
+            .lock_or_recover()
             .items
             .keys()
             .copied()
@@ -465,8 +470,7 @@ impl Epoll {
         let ready: Vec<Key> = self
             .ep
             .state
-            .lock()
-            .unwrap()
+            .lock_or_recover()
             .ready
             .iter()
             .copied()
@@ -483,7 +487,7 @@ impl Epoll {
             }
             stale.push(key);
         }
-        let mut state = self.ep.state.lock().unwrap();
+        let mut state = self.ep.state.lock_or_recover();
         for key in stale {
             if state.queued.remove(&key) {
                 state.ready.retain(|k| *k != key);
@@ -570,7 +574,7 @@ impl Kernel {
         // `epnested_mutex`: the loop check and the insert it allows are one step, or two
         // concurrent ADDs could each pass and together build a cycle.
         let _nesting = (op == EpollCtlOp::EPOLL_CTL_ADD && target_ep.is_some())
-            .then(|| self.epoll_nesting.lock().unwrap());
+            .then(|| self.epoll_nesting.lock_or_recover());
         if op == EpollCtlOp::EPOLL_CTL_ADD
             && let Some(to) = &target_ep
             && !loop_check(&ep, to)

@@ -5,6 +5,7 @@ use super::{
     ipc::{errno, get, put},
     *,
 };
+use crate::sync::MutexExt;
 
 const PAGE: u32 = WASM_PAGE_SIZE as u32;
 const RW: ProtFlags = ProtFlags(3);
@@ -324,7 +325,7 @@ fn mremap_of_no_bytes_duplicates_a_shared_mapping() {
 
 /// Whether `pid` is seen to have exited: a zombie, or reaped already.
 fn exited(kernel: &Kernel, pid: TaskId) -> bool {
-    let tree = kernel.procs.tree.lock().unwrap();
+    let tree = kernel.procs.tree.lock_or_recover();
     tree.nodes.get(&pid.0).is_none_or(|node| node.is_zombie())
 }
 

@@ -27,10 +27,11 @@ use wasixv2_abi::{GuestPtr, GuestPtrMut, IpcCmd, RlimitResource, ShmFlags, Shmid
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, SysResult, read_value, write_value};
 
-use super::{CAP_IPC_LOCK, Ids, Object, Perm, READ, WRITE, capable, get_or_create, lock};
+use super::{CAP_IPC_LOCK, Ids, Object, Perm, READ, WRITE, capable, get_or_create};
 use crate::{
     Kernel,
     mm::{self, PAGE_SIZE, Shared},
+    sync::MutexExt,
 };
 
 /// `SHMMIN`, `SHMMNI` and `SHMMAX`/`SHMALL` for a 32-bit `unsigned long`.
@@ -69,7 +70,7 @@ struct Pages {
 
 impl Object for Segment {
     fn perm(&self) -> MutexGuard<'_, Perm> {
-        lock(&self.perm)
+        self.perm.lock_or_recover()
     }
 }
 
@@ -86,7 +87,7 @@ struct State {
 
 impl Segment {
     fn state(&self) -> MutexGuard<'_, State> {
-        lock(&self.state)
+        self.state.lock_or_recover()
     }
 
     fn page_count(&self) -> u64 {
@@ -96,7 +97,7 @@ impl Segment {
     /// Copies out `buf.len()` bytes from `offset`; past the segment's pages they read as zero.
     /// Returns how many were inside, and the generation they are of.
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> (usize, u64) {
-        let pages = lock(&self.pages);
+        let pages = self.pages.lock_or_recover();
         let end = self.page_count() as usize * PAGE;
         let inside = end.saturating_sub(offset as usize).min(buf.len());
         let (mut at, mut done) = (offset as usize, 0);
@@ -116,7 +117,7 @@ impl Segment {
     /// Copies `data` in at `offset`, up to the end of the segment's pages. Returns the
     /// generation the segment has now.
     pub(crate) fn write(&self, offset: u64, data: &[u8]) -> u64 {
-        let mut pages = lock(&self.pages);
+        let mut pages = self.pages.lock_or_recover();
         let end = self.page_count() as usize * PAGE;
         let mut at = offset as usize;
         let mut rest = &data[..end.saturating_sub(at).min(data.len())];
@@ -136,7 +137,7 @@ impl Segment {
 
     /// The segment's generation: how many writes it had.
     pub(crate) fn generation(&self) -> u64 {
-        lock(&self.pages).generation
+        self.pages.lock_or_recover().generation
     }
 
     fn to_abi(&self, perm: &Perm) -> Shmid64Ds {
@@ -212,12 +213,12 @@ impl Drop for Attachment {
 
 impl Segments {
     fn get(&self, id: i32) -> Result<Arc<Segment>, Errno> {
-        lock(&self.ids).get(id).ok_or(Errno::EINVAL)
+        self.ids.lock_or_recover().get(id).ok_or(Errno::EINVAL)
     }
 
     /// `shm_destroy`.
     fn destroy(&self, id: i32, segment: &Segment) {
-        let mut ids = lock(&self.ids);
+        let mut ids = self.ids.lock_or_recover();
         let mut state = segment.state();
         if state.gone {
             return;
@@ -226,7 +227,7 @@ impl Segments {
         if ids.get(id).is_some_and(|s| std::ptr::eq(&*s, segment)) {
             ids.remove(id);
         }
-        *lock(&self.total) -= segment.page_count();
+        *self.total.lock_or_recover() -= segment.page_count();
     }
 
     /// Rows of `/proc/sysvipc/shm`.
@@ -235,7 +236,8 @@ impl Segments {
         reason = "the provider for /proc/sysvipc/shm, for procfs to read"
     )]
     pub(crate) fn list(&self) -> Vec<ShmInfo> {
-        lock(&self.ids)
+        self.ids
+            .lock_or_recover()
             .all()
             .into_iter()
             .map(|(id, segment)| {
@@ -291,7 +293,7 @@ impl Kernel {
                 return Err(Errno::EINVAL);
             }
             let pages = u64::from(size).div_ceil(PAGE_SIZE);
-            let mut total = lock(&segments.total);
+            let mut total = segments.total.lock_or_recover();
             if *total + pages > u64::from(SHMALL) {
                 return Err(Errno::ENOSPC);
             }
@@ -412,22 +414,22 @@ impl Kernel {
         let segments = &self.ipc.shm;
         match IpcCmd(cmd) {
             IpcCmd::IPC_INFO => {
-                let max = lock(&segments.ids).max_index();
+                let max = segments.ids.lock_or_recover().max_index();
                 let info = [SHMMAX, SHMMIN, SHMMNI, SHMMNI, SHMALL, 0, 0, 0, 0];
                 write_words(caller, buf, &info).await?;
                 Ok(max)
             }
             IpcCmd::SHM_INFO => {
                 let (used, max, rss) = {
-                    let ids = lock(&segments.ids);
+                    let ids = segments.ids.lock_or_recover();
                     let all = ids.all();
                     let rss: u64 = all
                         .iter()
-                        .map(|(_, s)| lock(&s.pages).map.len() as u64)
+                        .map(|(_, s)| s.pages.lock_or_recover().map.len() as u64)
                         .sum();
                     (ids.in_use() as u32, ids.max_index(), rss)
                 };
-                let total = *lock(&segments.total) as u32;
+                let total = *segments.total.lock_or_recover() as u32;
                 let info = [used, total, rss as u32, 0, 0, 0];
                 write_words(caller, buf, &info).await?;
                 Ok(max)
@@ -436,7 +438,11 @@ impl Kernel {
                 let (id, segment) = match IpcCmd(cmd) {
                     IpcCmd::IPC_STAT => (shmid, segments.get(shmid)?),
                     _ => {
-                        let segment = lock(&segments.ids).at(shmid).ok_or(Errno::EINVAL)?;
+                        let segment = segments
+                            .ids
+                            .lock_or_recover()
+                            .at(shmid)
+                            .ok_or(Errno::EINVAL)?;
                         let id = super::build_id(shmid as usize, segment.perm().seq);
                         (id, segment)
                     }
@@ -463,7 +469,7 @@ impl Kernel {
                 Ok(0)
             }
             IpcCmd::IPC_RMID => {
-                let mut ids = lock(&segments.ids);
+                let mut ids = segments.ids.lock_or_recover();
                 let segment = ids.get(shmid).ok_or(Errno::EINVAL)?;
                 segment.perm().check_owner(&cred)?;
                 // `do_shm_rmid`: attached segments only lose their key until the last detach.
@@ -491,8 +497,7 @@ impl Kernel {
                     let memlock = self
                         .process(caller.task())
                         .resources
-                        .lock()
-                        .unwrap()
+                        .lock_or_recover()
                         .soft(RlimitResource::RLIMIT_MEMLOCK);
                     if IpcCmd(cmd) == IpcCmd::SHM_LOCK && memlock == 0 {
                         return Err(Errno::EPERM.into());

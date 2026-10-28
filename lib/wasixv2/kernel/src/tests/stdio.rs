@@ -6,6 +6,7 @@ use wasixv2_abi::FcntlCmd;
 use wasixv2_wait::{PollMask, Pollable};
 
 use super::*;
+use crate::sync::MutexExt;
 use crate::tests::ipc::errno;
 
 /// Host input the test hands over piece by piece; until then reads find nothing.
@@ -22,7 +23,7 @@ struct FeedState {
 impl Feed {
     fn update(&self, f: impl FnOnce(&mut FeedState)) {
         let waker = {
-            let mut state = self.0.lock().unwrap();
+            let mut state = self.0.lock_or_recover();
             f(&mut state);
             state.waker.take()
         };
@@ -42,7 +43,7 @@ impl Feed {
 
 impl ByteSource for Feed {
     fn poll_read(&self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
-        let mut state = self.0.lock().unwrap();
+        let mut state = self.0.lock_or_recover();
         if !state.data.is_empty() {
             let n = buf.len().min(state.data.len());
             buf[..n].copy_from_slice(&state.data[..n]);

@@ -30,6 +30,7 @@ use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, read_value, write_value
 use crate::{
     Kernel,
     signal::{Charge, Signals},
+    sync::MutexExt,
     time::{self, Clock},
     timer::{self, Timer},
 };
@@ -264,7 +265,7 @@ impl PosixTimer {
     /// `posix_timer_fn`, on the kernel timer's thread. Returns the monotonic deadline to
     /// check again at when the timer's clock has not reached the expiry yet.
     fn expired(self: &Arc<Self>) -> Option<Duration> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         if state.status != Status::Armed {
             return None;
         }
@@ -284,7 +285,7 @@ impl PosixTimer {
     /// dequeued signal still counts. A periodic timer re-arms here and reports the periods it
     /// missed in `si_overrun`.
     pub(crate) fn deliver(self: &Arc<Self>, info: &mut Siginfo) -> bool {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         // Re-armed, disarmed or deleted since the signal was queued.
         if state.signal_seq != state.sigqueue_seq || !self.is_valid() {
             return false;
@@ -378,7 +379,7 @@ impl PosixTimer {
     /// `posix_timer_delete`: the timer stops and leaves the group. A signal of it still
     /// queued is dropped when it is dequeued.
     fn delete(self: &Arc<Self>, group: &Signals) -> Result<(), Errno> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         if !self.is_valid() {
             return Err(Errno::EINVAL);
         }
@@ -442,7 +443,7 @@ impl Kernel {
 
     /// Whether `tid` is a live thread of the caller's thread group.
     fn same_thread_group(&self, caller: &Caller<'_>, tid: i32) -> bool {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         let me = &state.tasks[&caller.task()];
         u32::try_from(tid)
             .ok()
@@ -526,8 +527,8 @@ impl Kernel {
         // RLIMIT_SIGPENDING with the signals queued for it (`posixtimer_init_sigqueue`).
         let charge = {
             let process = self.process(caller.task());
-            let limit = process.resources.lock().unwrap().sigpending();
-            let uid = process.cred.lock().unwrap().user.real;
+            let limit = process.resources.lock_or_recover().sigpending();
+            let uid = process.cred.lock_or_recover().user.real;
             self.sigqueue_users
                 .charge(uid, Some(limit))
                 .map_err(|_| Errno::EAGAIN)?
@@ -633,7 +634,7 @@ impl Kernel {
         let value = time::from_timespec(new.it_value)?;
         let timer = self.posix_timer(caller, id)?;
         let previous = {
-            let mut state = timer.state.lock().unwrap();
+            let mut state = timer.state.lock_or_recover();
             if !timer.is_valid() {
                 return Err(Errno::EINVAL.into());
             }
@@ -662,14 +663,14 @@ impl Kernel {
         setting: KernelItimerspecPtr,
     ) -> SysResult<i32> {
         let timer = self.posix_timer(caller, id)?;
-        let current = timer.get(&mut timer.state.lock().unwrap());
+        let current = timer.get(&mut timer.state.lock_or_recover());
         write_value(caller.memory(), setting, &current).await?;
         Ok(0)
     }
 
     pub(crate) fn sys_timer_getoverrun(&self, caller: &Caller<'_>, id: TimerId) -> SysResult<i32> {
         let timer = self.posix_timer(caller, id)?;
-        let overrun = timer.state.lock().unwrap().overrun_last;
+        let overrun = timer.state.lock_or_recover().overrun_last;
         Ok(overrun_to_int(overrun))
     }
 

@@ -31,11 +31,12 @@ use wasixv2_wait::{
     PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event, wait_event_timeout,
 };
 
-use super::{CAP_SYS_RESOURCE, capable, lock};
+use super::{CAP_SYS_RESOURCE, capable};
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
     netlink::NetlinkSocket,
+    sync::MutexExt,
     time,
 };
 
@@ -148,7 +149,7 @@ impl State {
 
 impl Mqueue {
     fn state(&self) -> MutexGuard<'_, State> {
-        lock(&self.state)
+        self.state.lock_or_recover()
     }
 
     /// `inode_permission` on the queue's inode.
@@ -167,14 +168,11 @@ impl Mqueue {
 impl Drop for Mqueue {
     /// `mqueue_evict_inode`: the last reference is gone; the queue no longer counts.
     fn drop(&mut self) {
-        *lock(&self.owner.count) -= 1;
-        if let Some(charged) = lock(&self.owner.charged).get_mut(&self.uid) {
+        *self.owner.count.lock_or_recover() -= 1;
+        if let Some(charged) = self.owner.charged.lock_or_recover().get_mut(&self.uid) {
             *charged -= self.charge;
         }
-        self.state
-            .get_mut()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .remove_notification();
+        self.state.get_mut_or_recover().remove_notification();
     }
 }
 
@@ -224,7 +222,7 @@ impl Pollable for MqFile {
 impl FileObject for MqFile {
     fn read<'a>(&'a self, _io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         let status = self.status();
-        let mut pos = lock(&self.read_pos);
+        let mut pos = self.read_pos.lock_or_recover();
         let rest = status.get(*pos..).unwrap_or_default();
         let n = rest.len().min(buf.len());
         buf[..n].copy_from_slice(&rest[..n]);
@@ -311,7 +309,7 @@ impl Kernel {
         };
         let name = read_name(caller, name).await?;
         // The descriptor comes first (`FD_ADD`): no queue is made for a full table.
-        if !self.files(caller.task()).lock().unwrap().has_room(1) {
+        if !self.files(caller.task()).lock_or_recover().has_room(1) {
             return Err(Errno::EMFILE.into());
         }
         check_name(&name)?;
@@ -319,7 +317,7 @@ impl Kernel {
         let cred = &env.cred;
         let mqueues = &self.ipc.mq;
         let queue = {
-            let mut names = lock(&mqueues.names);
+            let mut names = mqueues.names.lock_or_recover();
             match names.get(&name) {
                 None => {
                     if !oflag.contains(OpenFlags::O_CREAT) {
@@ -329,8 +327,7 @@ impl Kernel {
                     let limit = self
                         .process(caller.task())
                         .resources
-                        .lock()
-                        .unwrap()
+                        .lock_or_recover()
                         .soft(RlimitResource::RLIMIT_MSGQUEUE);
                     let queue = self.mq_create(cred, mode, attr, limit)?;
                     names.insert(name.clone(), queue.clone());
@@ -374,7 +371,7 @@ impl Kernel {
     ) -> Result<Arc<Mqueue>, Errno> {
         let mqueues = &self.ipc.mq;
         let resource = capable(cred, CAP_SYS_RESOURCE);
-        let mut count = lock(&mqueues.count);
+        let mut count = mqueues.count.lock_or_recover();
         if *count >= QUEUES_MAX && !resource {
             return Err(Errno::ENOSPC);
         }
@@ -395,7 +392,7 @@ impl Kernel {
         let (maxmsg, msgsize) = (maxmsg as u64, msgsize as u64);
         let charge = maxmsg * (msgsize + MSG_OVERHEAD);
         {
-            let mut charged = lock(&mqueues.charged);
+            let mut charged = mqueues.charged.lock_or_recover();
             let user = charged.entry(cred.uid).or_default();
             if *user + charge > limit {
                 return Err(Errno::EMFILE);
@@ -427,7 +424,7 @@ impl Kernel {
         let name = read_name(caller, name).await?;
         check_name(&name)?;
         let cred = self.env(caller).cred;
-        let mut names = lock(&self.ipc.mq.names);
+        let mut names = self.ipc.mq.names.lock_or_recover();
         let queue = names.get(&name).ok_or(Errno::ENOENT)?;
         // `may_delete` in the mqueue root, which is root's and sticky (`S_ISVTX`): only the
         // queue's owner, root or `CAP_FOWNER` may remove a queue.
@@ -682,7 +679,7 @@ impl Kernel {
 
     /// Whether thread group `pid` still has a task.
     fn process_alive(&self, pid: u32) -> bool {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         state
             .tasks
             .values()

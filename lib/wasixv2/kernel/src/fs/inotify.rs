@@ -20,6 +20,7 @@ use super::read_path;
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
+    sync::MutexExt,
 };
 
 const IN_ISDIR: u32 = 0x4000_0000;
@@ -66,7 +67,7 @@ impl Registry {
 
     /// Changes the watch table, keeping `watched` in step.
     fn update<R>(&self, f: impl FnOnce(&mut HashMap<FsObject, Watchers>) -> R) -> R {
-        let mut watches = self.watches.lock().unwrap();
+        let mut watches = self.watches.lock_or_recover();
         let result = f(&mut watches);
         self.watched.store(!watches.is_empty(), Ordering::Release);
         result
@@ -76,7 +77,7 @@ impl Registry {
     /// whose name was removed (`unlinked`) skips `IN_EXCL_UNLINK` watches.
     fn deliver(&self, object: FsObject, mask: u32, cookie: u32, name: &[u8], unlinked: bool) {
         let targets: Vec<(Arc<Instance>, i32)> = {
-            let watches = self.watches.lock().unwrap();
+            let watches = self.watches.lock_or_recover();
             let Some(list) = watches.get(&object) else {
                 return;
             };
@@ -256,7 +257,7 @@ impl Instance {
         unlinked: bool,
     ) {
         let wanted = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let Some(watch) = state.watches.get(&wd) else {
                 return;
             };
@@ -282,7 +283,7 @@ impl Instance {
     }
 
     fn forget(&self, wd: i32) {
-        self.state.lock().unwrap().watches.remove(&wd);
+        self.state.lock_or_recover().watches.remove(&wd);
     }
 
     /// Queues one event, merging it into an identical last one (`inotify_merge`).
@@ -299,7 +300,7 @@ impl Instance {
         record.extend_from_slice(name);
         record.resize(EVENT_SIZE + len, 0);
         {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             if state.queue.back() == Some(&record) {
                 return;
             }
@@ -319,7 +320,7 @@ impl Instance {
     /// `inotify_read`: whole events only; `EINVAL` if the first does not fit.
     async fn read_events(&self, io: Io<'_>, buf: &mut [u8]) -> SysResult<usize> {
         let take = || {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let Some(first) = state.queue.front() else {
                 return io.nonblocking().then_some(Err(Errno::EAGAIN));
             };
@@ -357,7 +358,7 @@ fn overflow_record() -> Vec<u8> {
 
 impl Drop for Inotify {
     fn drop(&mut self) {
-        let watches = std::mem::take(&mut self.inner.state.lock().unwrap().watches);
+        let watches = std::mem::take(&mut self.inner.state.lock_or_recover().watches);
         self.registry.update(|registry| {
             for watch in watches.values() {
                 if let Some(list) = registry.get_mut(&watch.object) {
@@ -374,7 +375,7 @@ impl Drop for Inotify {
 impl Pollable for Inotify {
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.inner.wait);
-        match self.inner.state.lock().unwrap().queue.is_empty() {
+        match self.inner.state.lock_or_recover().queue.is_empty() {
             true => PollMask::empty(),
             false => PollMask::READABLE,
         }
@@ -400,7 +401,7 @@ impl FileObject for Inotify {
             if request != IoctlRequest::FIONREAD {
                 return Err(Errno::ENOTTY.into());
             }
-            let queued = self.inner.state.lock().unwrap().queued as i32;
+            let queued = self.inner.state.lock_or_recover().queued as i32;
             write_value(caller.memory(), GuestPtrMut::new(arg), &queued).await?;
             Ok(0)
         })
@@ -473,7 +474,7 @@ impl Kernel {
             sb: target.dentry.sb().id,
             ino: target.dentry.node().ino(),
         };
-        let mut state = inotify.state.lock().unwrap();
+        let mut state = inotify.state.lock_or_recover();
         let existing = state
             .watches
             .iter()
@@ -516,8 +517,7 @@ impl Kernel {
         let inotify = &file.downcast::<Inotify>().ok_or(Errno::EINVAL)?.inner;
         let watch = inotify
             .state
-            .lock()
-            .unwrap()
+            .lock_or_recover()
             .watches
             .remove(&wd)
             .ok_or(Errno::EINVAL)?;

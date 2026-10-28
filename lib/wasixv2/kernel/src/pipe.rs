@@ -13,6 +13,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_eve
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
+    sync::MutexExt,
 };
 
 /// Writes up to this size are atomic: all or nothing.
@@ -64,7 +65,7 @@ impl Drop for PipeEnd {
     /// `pipe_release`: wakes everybody, so they see EOF or EPIPE.
     fn drop(&mut self) {
         {
-            let mut state = self.pipe.state.lock().unwrap();
+            let mut state = self.pipe.state.lock_or_recover();
             match self.writer {
                 true => state.writers -= 1,
                 false => state.readers -= 1,
@@ -117,7 +118,7 @@ pub(crate) struct Partner {
 impl Pipe {
     /// The number of open read ends.
     pub(crate) fn readers(&self) -> usize {
-        self.state.lock().unwrap().readers
+        self.state.lock_or_recover().readers
     }
 
     /// `wait_for_partner`: waits until an end of the other side has been attached since
@@ -129,7 +130,7 @@ impl Pipe {
         interrupt: &dyn wasixv2_wait::Interrupt,
     ) -> SysResult<()> {
         let check = || {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock_or_recover();
             let counter = if writers {
                 state.w_counter
             } else {
@@ -148,7 +149,7 @@ impl PipeEnd {
     /// it was then.
     pub(crate) fn attach(pipe: &Arc<Pipe>, writer: bool) -> (Self, Partner) {
         let partner = {
-            let mut state = pipe.state.lock().unwrap();
+            let mut state = pipe.state.lock_or_recover();
             match writer {
                 true => {
                     state.writers += 1;
@@ -195,7 +196,7 @@ impl PipeEnd {
         }
         let pipe = &self.pipe;
         let try_read = || {
-            let mut state = pipe.state.lock().unwrap();
+            let mut state = pipe.state.lock_or_recover();
             if !state.buf.is_empty() {
                 let n = buf.len().min(state.buf.len());
                 for (dst, src) in buf.iter_mut().zip(state.buf.drain(..n)) {
@@ -230,7 +231,7 @@ impl PipeEnd {
         let mut written = 0;
         loop {
             let step = || {
-                let mut state = pipe.state.lock().unwrap();
+                let mut state = pipe.state.lock_or_recover();
                 if state.readers == 0 {
                     io.set_broken();
                     return Some(Err(Errno::EPIPE));
@@ -264,7 +265,7 @@ impl PipeEnd {
     }
 
     fn input_len(&self) -> usize {
-        self.pipe.state.lock().unwrap().buf.len()
+        self.pipe.state.lock_or_recover().buf.len()
     }
 
     /// `pipe_set_size` with `round_pipe_size`.
@@ -279,7 +280,7 @@ impl PipeEnd {
         if size > MAX_SIZE && !privileged {
             return Err(Errno::EPERM);
         }
-        let mut state = self.pipe.state.lock().unwrap();
+        let mut state = self.pipe.state.lock_or_recover();
         if state.buf.len() > size {
             return Err(Errno::EBUSY);
         }
@@ -295,7 +296,7 @@ impl Pollable for PipeEnd {
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.pipe.rd_wait);
         poll_wait(&mut table, &self.pipe.wr_wait);
-        let state = self.pipe.state.lock().unwrap();
+        let state = self.pipe.state.lock_or_recover();
         let mut mask = PollMask::empty();
         if !self.writer {
             if !state.buf.is_empty() {
@@ -352,7 +353,7 @@ impl FileObject for PipeEnd {
 pub(crate) fn fcntl(file: &OpenFile, cmd: FcntlCmd, arg: u32, privileged: bool) -> SysResult<i32> {
     let end = file.downcast::<PipeEnd>().ok_or(Errno::EBADF)?;
     let size = match cmd {
-        FcntlCmd::F_GETPIPE_SZ => end.pipe.state.lock().unwrap().capacity,
+        FcntlCmd::F_GETPIPE_SZ => end.pipe.state.lock_or_recover().capacity,
         _ => end.set_size(arg, privileged)?,
     };
     Ok(size as i32)

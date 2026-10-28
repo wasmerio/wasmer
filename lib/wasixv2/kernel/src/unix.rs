@@ -38,6 +38,7 @@ use crate::{
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
 };
 
+use crate::sync::MutexExt;
 use gc::{InFlight, Inflight};
 
 /// `offsetof(struct sockaddr_un, sun_path)` and `sizeof(struct sockaddr_un)`.
@@ -143,12 +144,12 @@ pub(crate) struct Names {
 
 impl Names {
     fn find(&self, key: &Key) -> Option<Arc<Sock>> {
-        self.map.lock().unwrap().get(key)?.upgrade()
+        self.map.lock_or_recover().get(key)?.upgrade()
     }
 
     /// Claims `key` for `sock`; `EADDRINUSE` if a live socket holds it.
     fn insert(&self, key: Key, sock: &Arc<Sock>) -> Result<(), Errno> {
-        let mut map = self.map.lock().unwrap();
+        let mut map = self.map.lock_or_recover();
         if map.get(&key).is_some_and(|old| old.strong_count() > 0) {
             return Err(Errno::EADDRINUSE);
         }
@@ -157,7 +158,7 @@ impl Names {
     }
 
     fn remove(&self, key: &Key, sock: &Sock) {
-        let mut map = self.map.lock().unwrap();
+        let mut map = self.map.lock_or_recover();
         if map
             .get(key)
             .is_some_and(|old| std::ptr::eq(old.as_ptr(), sock))
@@ -286,7 +287,7 @@ impl Sock {
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
-        self.inner.lock().unwrap()
+        self.inner.lock_or_recover()
     }
 
     pub(crate) fn kind(&self) -> Kind {
@@ -444,7 +445,7 @@ impl Sock {
         }
         for _ in 0..0x100000 {
             let n = {
-                let mut next = self.names.next.lock().unwrap();
+                let mut next = self.names.next.lock_or_recover();
                 *next = (*next + 1) & 0xfffff;
                 *next
             };
@@ -1425,7 +1426,7 @@ impl Kernel {
     /// `too_many_unix_fds`: the sending user has more files in flight than the sender's
     /// `RLIMIT_NOFILE`, and is not exempt through `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN`.
     fn too_many_unix_fds(&self, caller: &Caller<'_>, uid: u32) -> bool {
-        let limit = self.files(caller.task()).lock().unwrap().limit();
+        let limit = self.files(caller.task()).lock_or_recover().limit();
         if self.unix_names.inflight.user(uid) <= limit {
             return false;
         }

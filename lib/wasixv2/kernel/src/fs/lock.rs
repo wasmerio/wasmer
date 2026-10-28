@@ -10,6 +10,7 @@ use wasixv2_wait::{Interrupted, interruptible};
 use crate::{
     Kernel,
     file::{Backing, OpenFile},
+    sync::MutexExt,
 };
 
 /// The POSIX lock owner of the calling process.
@@ -166,7 +167,7 @@ impl Kernel {
     /// Whether `fd` still refers to `file`.
     fn still_open(&self, caller: &Caller<'_>, fd: Fd, file: &Arc<OpenFile>) -> bool {
         let files = self.files(caller.task());
-        let files = files.lock().unwrap();
+        let files = files.lock_or_recover();
         files.get(fd).is_some_and(|open| Arc::ptr_eq(&open, file))
     }
 

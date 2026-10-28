@@ -32,13 +32,6 @@ mod signalfd;
 mod socket;
 mod startup;
 mod stdio;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the kernel's locks move to it in one sweep (M-X1)"
-    )
-)]
 mod sync;
 mod thread;
 mod time;
@@ -49,7 +42,7 @@ mod work;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, LockResult, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Duration,
 };
 
@@ -87,6 +80,7 @@ use crate::{
     fs::FsContext,
     mm::Mm,
     startup::Startup,
+    sync::{MutexExt, RwLockExt},
 };
 
 /// Most bytes one step of a `read` or `write` moves through the kernel; larger transfers go
@@ -167,14 +161,14 @@ struct State {
 struct TaskTable(RwLock<State>);
 
 impl TaskTable {
-    /// Exclusive access.
-    fn lock(&self) -> LockResult<RwLockWriteGuard<'_, State>> {
-        self.0.write()
+    /// Exclusive access, taken over from a panicking holder as [`sync`]'s helpers do.
+    fn lock_or_recover(&self) -> RwLockWriteGuard<'_, State> {
+        self.0.write_or_recover()
     }
 
     /// Shared access, for lookups.
-    fn read(&self) -> LockResult<RwLockReadGuard<'_, State>> {
-        self.0.read()
+    fn read_or_recover(&self) -> RwLockReadGuard<'_, State> {
+        self.0.read_or_recover()
     }
 }
 
@@ -256,7 +250,7 @@ impl Kernel {
 
     /// Makes `uname` report `uname`.
     pub fn with_uname(self, uname: &Uname) -> Self {
-        *self.uts.lock().unwrap() = uname.to_utsname();
+        *self.uts.lock_or_recover() = uname.to_utsname();
         self
     }
 
@@ -299,7 +293,7 @@ impl Kernel {
     /// have no parent (`getppid` is 0) and orphans no reaper.
     pub fn with_init(mut self) -> Self {
         assert!(
-            self.state.read().unwrap().last_id == 0,
+            self.state.read_or_recover().last_id == 0,
             "init is the first process"
         );
         let init = self.new_process(vec!["init".to_string()], Vec::new(), FdTable::default(), 0);
@@ -332,7 +326,7 @@ impl Kernel {
         parent: u32,
     ) -> TaskId {
         let cred = cred::Cred::new(&self.credentials);
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         state.last_id += 1;
         let id = TaskId(state.last_id);
         let name = args.first().map(String::as_bytes).unwrap_or_default();
@@ -380,7 +374,7 @@ impl Kernel {
     }
 
     fn file(&self, task: TaskId, fd: Fd) -> Result<Arc<OpenFile>, Errno> {
-        let file = self.files(task).lock().unwrap().get(fd);
+        let file = self.files(task).lock_or_recover().get(fd);
         file.ok_or(Errno::EBADF)
     }
 
@@ -394,7 +388,7 @@ impl Kernel {
 
     /// Reads `task`'s entry under the shared lock.
     fn task_ref<R>(&self, task: TaskId, f: impl FnOnce(&Task) -> R) -> R {
-        let state = self.state.read().unwrap();
+        let state = self.state.read_or_recover();
         f(state
             .tasks
             .get(&task)
@@ -406,7 +400,7 @@ impl Kernel {
     }
 
     fn with_task<R>(&self, task: TaskId, f: impl FnOnce(&mut Task) -> R) -> R {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let task = state
             .tasks
             .get_mut(&task)
@@ -418,7 +412,10 @@ impl Kernel {
 impl Syscalls for Kernel {
     async fn startup_size(&self, caller: &Caller<'_>) -> SysResult<u32> {
         let process = self.process(caller.task());
-        let (args, env) = (process.args.lock().unwrap(), process.env.lock().unwrap());
+        let (args, env) = (
+            process.args.lock_or_recover(),
+            process.env.lock_or_recover(),
+        );
         Ok(Startup::new(&args, &env, process.identity()).size()?)
     }
 
@@ -428,8 +425,8 @@ impl Syscalls for Kernel {
         }
         let process = self.process(caller.task());
         let (args, env) = (
-            process.args.lock().unwrap().clone(),
-            process.env.lock().unwrap().clone(),
+            process.args.lock_or_recover().clone(),
+            process.env.lock_or_recover().clone(),
         );
         let startup = Startup::new(&args, &env, process.identity());
         // The address space starts out as the image left it.
@@ -2423,7 +2420,7 @@ impl Control for Kernel {
         // ---- proc ----
         self.kill_vfork_parent(task);
         let (action, signals) = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             // ---- proc ----
             // A reaped process's task, still unwinding.
             let entry = state.tasks.get_mut(&task)?;
@@ -2443,7 +2440,7 @@ impl Control for Kernel {
     }
 
     fn work_flag(&self, task: TaskId) -> Arc<WorkFlag> {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         match state.tasks.get(&task) {
             Some(task) => task.work.flag().clone(),
             None => Arc::new(WorkFlag::always()),
@@ -2472,7 +2469,7 @@ impl Control for Kernel {
 
     // ---- proc ----
     fn take_image(&self, task: TaskId) -> Option<Image> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         state.tasks.get_mut(&task)?.work.take_image()
     }
 

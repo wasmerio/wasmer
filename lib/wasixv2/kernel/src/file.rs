@@ -14,6 +14,7 @@ use wasixv2_vfs::{File, FileType, LockKey, Path, SeekHole, Vfs};
 use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
 use crate::epoll::EpollLink;
+use crate::sync::MutexExt;
 
 /// What an object needs to know about the call it serves: the open file's status flags as the
 /// call began (Linux reads `f_flags` once) and how to notice a signal while blocked.
@@ -227,7 +228,7 @@ impl OpenFile {
 
     /// The file position.
     pub(crate) fn position(&self) -> u64 {
-        *self.pos.lock().unwrap()
+        *self.pos.lock_or_recover()
     }
 
     fn access(&self) -> OpenFlags {
@@ -327,9 +328,9 @@ impl OpenFile {
             Backing::Inode(file) => file,
         };
         let _pos = self.lock_pos().await;
-        let pos = *self.pos.lock().unwrap();
+        let pos = *self.pos.lock_or_recover();
         let n = file.read_at(buf, pos).await?;
-        *self.pos.lock().unwrap() = pos + n as u64;
+        *self.pos.lock_or_recover() = pos + n as u64;
         Ok(n)
     }
 
@@ -354,13 +355,13 @@ impl OpenFile {
         let _pos = self.lock_pos().await;
         if self.flags().contains(OpenFlags::O_APPEND) {
             let (end, n) = file.append(data).await?;
-            *self.pos.lock().unwrap() = end;
+            *self.pos.lock_or_recover() = end;
             return Ok(n);
         }
-        let pos = *self.pos.lock().unwrap();
+        let pos = *self.pos.lock_or_recover();
         check_file_size(pos, data.len())?;
         let n = file.write_at(data, pos).await?;
-        *self.pos.lock().unwrap() = pos + n as u64;
+        *self.pos.lock_or_recover() = pos + n as u64;
         Ok(n)
     }
 
@@ -386,11 +387,11 @@ impl OpenFile {
     }
 
     pub(crate) fn pos(&self) -> u64 {
-        *self.pos.lock().unwrap()
+        *self.pos.lock_or_recover()
     }
 
     pub(crate) fn set_pos(&self, pos: u64) {
-        *self.pos.lock().unwrap() = pos;
+        *self.pos.lock_or_recover() = pos;
     }
 
     /// Moves the file position, as `lseek` does, and returns the new one.
@@ -437,7 +438,7 @@ impl OpenFile {
 impl Drop for OpenFile {
     /// `eventpoll_release`: the last reference is gone, so no epoll watches the file any more.
     fn drop(&mut self) {
-        let links = std::mem::take(self.epoll_links.get_mut().unwrap());
+        let links = std::mem::take(self.epoll_links.get_mut_or_recover());
         crate::epoll::release(self, links);
     }
 }

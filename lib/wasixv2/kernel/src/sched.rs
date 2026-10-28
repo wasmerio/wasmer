@@ -19,7 +19,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, read_value, write_value};
 use wasixv2_vfs::Cap;
 
-use crate::{Kernel, State, mm::PAGE_SIZE, time};
+use crate::{Kernel, State, mm::PAGE_SIZE, sync::MutexExt, time};
 
 /// `MAX_RT_PRIO`: real-time priorities run from 1 to `MAX_RT_PRIO - 1`.
 const MAX_RT_PRIO: u32 = 100;
@@ -699,7 +699,7 @@ impl Kernel {
         pid: Pid,
         f: impl FnOnce(&mut Sched) -> R,
     ) -> Result<R, Errno> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let id = self.find_task(&state, caller, pid)?;
         Ok(f(&mut state.tasks.get_mut(&id).expect("found above").sched))
     }
@@ -713,7 +713,7 @@ impl Kernel {
         request: impl FnOnce(&Sched) -> (SchedAttr, bool),
     ) -> SysResult<i32> {
         let cred = self.cred(caller);
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let id = self.find_task(&state, caller, pid)?;
         let dl_others = state
             .tasks
@@ -725,7 +725,7 @@ impl Kernel {
             .sum();
         let task = state.tasks.get_mut(&id).expect("found above");
         let adm = {
-            let resources = task.process.resources.lock().unwrap();
+            let resources = task.process.resources.lock_or_recover();
             Admission {
                 nice_limit: resources.soft(RlimitResource::RLIMIT_NICE),
                 rtprio_limit: resources.soft(RlimitResource::RLIMIT_RTPRIO),
@@ -967,13 +967,13 @@ impl Kernel {
             PrioWhich::PRIO_PGRP => {
                 let me = &state.tasks[&caller.task()].process;
                 let pgrp = match who {
-                    0 => me.ident.lock().unwrap().pgid,
+                    0 => me.ident.lock_or_recover().pgid,
                     who => who as u32,
                 };
                 state
                     .tasks
                     .iter()
-                    .filter(|(_, task)| task.process.ident.lock().unwrap().pgid == pgrp)
+                    .filter(|(_, task)| task.process.ident.lock_or_recover().pgid == pgrp)
                     .map(|(&id, _)| id)
                     .filter(alive)
                     .collect()
@@ -1003,7 +1003,7 @@ impl Kernel {
         which: PrioWhich,
         who: i32,
     ) -> SysResult<i32> {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         let targets = self.priority_targets(&state, caller, which, who)?;
         let best = targets
             .iter()
@@ -1026,7 +1026,7 @@ impl Kernel {
         let nice = nice.clamp(MIN_NICE, MAX_NICE);
         let cred = self.cred(caller);
         let capable = cred.capable(Cap::SysNice);
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let targets = self.priority_targets(&state, caller, which, who)?;
         let mut error = Some(Errno::ESRCH);
         for id in targets {
@@ -1038,8 +1038,7 @@ impl Kernel {
             let limit = task
                 .process
                 .resources
-                .lock()
-                .unwrap()
+                .lock_or_recover()
                 .soft(RlimitResource::RLIMIT_NICE);
             if nice < task.sched.nice && !nice_allowed(nice, limit) && !capable {
                 error = Some(Errno::EACCES);

@@ -33,7 +33,7 @@ use wasixv2_syscalls::{
 };
 use wasixv2_wait::{Interrupt, PollMask, WaitRegistration, Waiter, WakeHandle, Wakeup, Watched};
 
-use crate::{Kernel, Process, restart::Restart, time};
+use crate::{Kernel, Process, restart::Restart, sync::MutexExt, time};
 
 /// `FUTEX_BITSET_MATCH_ANY`.
 const MATCH_ANY: u32 = u32::MAX;
@@ -226,14 +226,14 @@ impl Futexes {
     }
 
     fn lock(&self, key: Key) -> MutexGuard<'_, Chain> {
-        self.buckets[self.index(key)].lock().unwrap()
+        self.buckets[self.index(key)].lock_or_recover()
     }
 
     /// `double_lock_hb`: the buckets of `a` and `b`, locked in a fixed order. The second is
     /// `None` when both keys hash to the same bucket.
     fn lock_pair(&self, a: Key, b: Key) -> (MutexGuard<'_, Chain>, Option<MutexGuard<'_, Chain>>) {
         let (i, j) = (self.index(a), self.index(b));
-        let lock = |index: usize| self.buckets[index].lock().unwrap();
+        let lock = |index: usize| self.buckets[index].lock_or_recover();
         match i.cmp(&j) {
             std::cmp::Ordering::Equal => (lock(i), None),
             std::cmp::Ordering::Less => {
@@ -772,7 +772,7 @@ impl Kernel {
 
     /// Whether `tid` is a task that has not exited (`find_get_task_by_vpid`).
     fn task_alive(&self, tid: u32) -> bool {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         state
             .tasks
             .get(&wasixv2_syscalls::TaskId(tid))

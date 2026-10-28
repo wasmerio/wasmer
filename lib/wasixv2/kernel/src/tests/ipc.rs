@@ -4,6 +4,7 @@ use wasixv2_abi::{EventfdFlags, FdPair};
 use wasixv2_wait::{PollMask, Pollable};
 
 use super::*;
+use crate::sync::MutexExt;
 
 pub(super) fn errno<T: std::fmt::Debug>(result: SysResult<T>) -> Errno {
     match result {
@@ -253,7 +254,7 @@ fn a_write_cut_short_by_the_last_reader_leaving_raises_sigpipe() {
         let written = std::thread::scope(|scope| {
             scope.spawn(|| {
                 std::thread::sleep(Duration::from_millis(20));
-                drop(kernel.files(task).lock().unwrap().remove(r));
+                drop(kernel.files(task).lock_or_recover().remove(r));
             });
             block_on(kernel.write(&caller, w, UserSlice::new(0, len)))
         });
@@ -711,7 +712,7 @@ mod epoll {
         fn dup(&self, fd: Fd) -> Fd {
             let file = self.kernel.file(self.task, fd).unwrap();
             let files = self.kernel.files(self.task);
-            files.lock().unwrap().install(file, false).unwrap()
+            files.lock_or_recover().install(file, false).unwrap()
         }
     }
 
@@ -915,7 +916,7 @@ mod epoll {
         // The pipe's queues hold no entries for the dead epoll; writing must not panic.
         t.write(w, 1);
         let file = t.kernel.file(t.task, r).unwrap();
-        assert!(file.epoll_links.lock().unwrap().is_empty());
+        assert!(file.epoll_links.lock_or_recover().is_empty());
     }
 
     #[test]

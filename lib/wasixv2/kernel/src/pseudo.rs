@@ -11,6 +11,7 @@ use std::{
     },
 };
 
+use crate::sync::MutexExt;
 use async_trait::async_trait;
 use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{
@@ -221,11 +222,11 @@ impl PseudoNode {
 #[async_trait(?Send)]
 impl Node for PseudoNode {
     fn ino(&self) -> u64 {
-        self.attr.lock().unwrap().ino
+        self.attr.lock_or_recover().ino
     }
 
     fn file_type(&self) -> FileType {
-        self.attr.lock().unwrap().file_type
+        self.attr.lock_or_recover().file_type
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -233,7 +234,7 @@ impl Node for PseudoNode {
     }
 
     async fn getattr(&self) -> FsResult<Attr> {
-        Ok(self.attr.lock().unwrap().clone())
+        Ok(self.attr.lock_or_recover().clone())
     }
 
     /// `simple_setattr` for pipes and sockets; anonymous inodes refuse
@@ -243,7 +244,7 @@ impl Node for PseudoNode {
             return Err(Errno::EOPNOTSUPP);
         }
         let now = self.clock.now();
-        let mut attr = self.attr.lock().unwrap();
+        let mut attr = self.attr.lock_or_recover();
         let time = |t: TimeSet| match t {
             TimeSet::At(t) => t,
             TimeSet::Now => now,

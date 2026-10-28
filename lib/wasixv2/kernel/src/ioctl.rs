@@ -4,7 +4,7 @@ use wasixv2_abi::{GuestPtr, GuestPtrMut, IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, Fd, SysResult, read_value, write_value};
 use wasixv2_vfs::FileType;
 
-use crate::{Kernel, file::Backing, fs::FASYNC};
+use crate::{Kernel, file::Backing, fs::FASYNC, sync::MutexExt};
 
 /// `FIGETBSZ` (`_IO(0x00, 2)`, `linux/fs.h`): the filesystem's block size. Not among the ABI's
 /// request names.
@@ -35,7 +35,7 @@ impl Kernel {
             IoctlRequest::FIOCLEX | IoctlRequest::FIONCLEX => {
                 let cloexec = request == IoctlRequest::FIOCLEX;
                 let files = self.files(caller.task());
-                files.lock().unwrap().set_cloexec(fd, cloexec);
+                files.lock_or_recover().set_cloexec(fd, cloexec);
                 Ok(0)
             }
             // `ioctl_fioasync`: no object here has `fasync`, so turning it on (or off, once

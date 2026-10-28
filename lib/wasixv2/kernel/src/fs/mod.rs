@@ -25,6 +25,7 @@ use wasixv2_vfs::{Clock, Cred, Ctx, LookupFlags, MODE_PERM, PATH_MAX, Path, Time
 use crate::{
     Kernel,
     file::{Backing, FdTable, OpenFile},
+    sync::MutexExt,
 };
 
 /// The soft `RLIMIT_NOFILE` every process has until resource limits exist.
@@ -122,7 +123,7 @@ impl Kernel {
 
     fn task_env(&self, task: TaskId) -> Env {
         let (fs, process) = self.task_ref(task, |task| {
-            (task.fs.lock().unwrap().clone(), task.process.clone())
+            (task.fs.lock_or_recover().clone(), task.process.clone())
         });
         Env {
             fs,
@@ -207,7 +208,7 @@ impl Kernel {
         self.vfs
             .permission(&env.cred, &dir, wasixv2_vfs::MAY_EXEC)
             .await?;
-        self.with_task(task, |task| task.fs.lock().unwrap().cwd = dir);
+        self.with_task(task, |task| task.fs.lock_or_recover().cwd = dir);
         Ok(())
     }
 
@@ -385,7 +386,7 @@ impl Kernel {
         cloexec: bool,
     ) -> SysResult<Fd> {
         let files = self.files(caller.task());
-        let mut files = files.lock().unwrap();
+        let mut files = files.lock_or_recover();
         Ok(files.install(file, cloexec).ok_or(Errno::EMFILE)?)
     }
 
@@ -397,7 +398,7 @@ impl Kernel {
         cloexec: bool,
     ) -> Result<[FdReservation; N], Errno> {
         let table = self.files(caller.task());
-        let mut files = table.lock().unwrap();
+        let mut files = table.lock_or_recover();
         if !files.has_room(N) {
             return Err(Errno::EMFILE);
         }
@@ -431,7 +432,7 @@ impl Kernel {
 
     pub(crate) fn sys_close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
         let files = self.files(caller.task());
-        let file = files.lock().unwrap().remove(fd).ok_or(Errno::EBADF)?;
+        let file = files.lock_or_recover().remove(fd).ok_or(Errno::EBADF)?;
         self.closed(caller, &file);
         Ok(0)
     }
@@ -452,13 +453,13 @@ impl Kernel {
         // caller's descriptors close. The task and this function hold one reference each.
         if flags.contains(CloseRangeFlags::CLOSE_RANGE_UNSHARE) && Arc::strong_count(&files) > 2 {
             let copy = Arc::new(Mutex::new(crate::process::copy_files(
-                &files.lock().unwrap(),
+                &files.lock_or_recover(),
             )));
             self.with_task(caller.task(), |task| task.files = copy.clone());
             files = copy;
         }
         let closed: Vec<Arc<OpenFile>> = {
-            let mut table = files.lock().unwrap();
+            let mut table = files.lock_or_recover();
             let end = table.end().min(last as usize + 1);
             let range = (first as usize..end).map(|index| Fd(index as i32));
             match flags.contains(CloseRangeFlags::CLOSE_RANGE_CLOEXEC) {
@@ -498,7 +499,7 @@ impl Kernel {
         // `do_dup2` under `file_lock`: the lookup and the install are one step, so a
         // concurrent close of `old` cannot be undone.
         let files = self.files(caller.task());
-        let mut table = files.lock().unwrap();
+        let mut table = files.lock_or_recover();
         if new.0 < 0 || new.0 as usize >= table.limit() {
             return Err(Errno::EBADF.into());
         }
@@ -529,7 +530,7 @@ impl Kernel {
         let files = self.files(caller.task());
         match cmd {
             FcntlCmd::F_DUPFD | FcntlCmd::F_DUPFD_CLOEXEC => {
-                let mut table = files.lock().unwrap();
+                let mut table = files.lock_or_recover();
                 if arg as usize >= table.limit() {
                     return Err(Errno::EINVAL.into());
                 }
@@ -540,7 +541,7 @@ impl Kernel {
                 Ok(fd.0)
             }
             FcntlCmd::F_GETFD => {
-                let cloexec = files.lock().unwrap().cloexec(fd).unwrap_or_default();
+                let cloexec = files.lock_or_recover().cloexec(fd).unwrap_or_default();
                 Ok(if cloexec {
                     FdFlags::FD_CLOEXEC.0 as i32
                 } else {
@@ -549,7 +550,7 @@ impl Kernel {
             }
             FcntlCmd::F_SETFD => {
                 let cloexec = arg & FdFlags::FD_CLOEXEC.0 != 0;
-                files.lock().unwrap().set_cloexec(fd, cloexec);
+                files.lock_or_recover().set_cloexec(fd, cloexec);
                 Ok(0)
             }
             FcntlCmd::F_GETFL => Ok(file.flags().0 as i32),
@@ -600,7 +601,7 @@ impl FdReservation {
     /// Installs `file` at the reserved descriptor (`fd_install`).
     pub(crate) fn install(mut self, file: Arc<OpenFile>) -> Fd {
         let table = self.table.take().expect("installed once");
-        table.lock().unwrap().fill(self.fd, file, self.cloexec);
+        table.lock_or_recover().fill(self.fd, file, self.cloexec);
         self.fd
     }
 }
@@ -608,7 +609,7 @@ impl FdReservation {
 impl Drop for FdReservation {
     fn drop(&mut self) {
         if let Some(table) = &self.table {
-            table.lock().unwrap().release(self.fd);
+            table.lock_or_recover().release(self.fd);
         }
     }
 }

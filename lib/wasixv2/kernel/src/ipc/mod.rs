@@ -17,12 +17,14 @@ pub(crate) mod shm;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use wasixv2_abi::{Ipc64Perm, IpcCmd, IpcFlags, IpcKey};
 use wasixv2_syscalls::Errno;
 use wasixv2_vfs::Cred;
+
+use crate::sync::MutexExt;
 
 /// `IPCMNI`: indices of one kind of object stay below it.
 const IPCMNI: usize = 32768;
@@ -290,7 +292,7 @@ pub(crate) fn get_or_create<T: Object>(
     create: impl FnOnce(Perm) -> Result<T, Errno>,
 ) -> Result<i32, Errno> {
     let flags_bits = IpcFlags(flags as u32);
-    let mut ids = lock(ids);
+    let mut ids = ids.lock_or_recover();
     if key != IpcKey::IPC_PRIVATE.0
         && let Some(object) = ids.find_key(key)
     {
@@ -321,11 +323,6 @@ impl crate::Kernel {
     pub(crate) fn ipc_now(&self) -> u64 {
         self.host.realtime().as_secs()
     }
-}
-
-/// A table lock. A panic elsewhere while it was held must not wedge IPC for the whole machine.
-pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 /// Seconds of `CLOCK_REALTIME`, split as the 32-bit `*_ds` structures store them.

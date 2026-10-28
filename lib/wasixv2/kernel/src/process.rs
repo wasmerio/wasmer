@@ -31,6 +31,7 @@ use crate::{
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     ident::Comm,
     signal::{Signals, user_info},
+    sync::MutexExt,
     thread,
     work::Work,
 };
@@ -132,7 +133,7 @@ impl Procs {
     /// Enters `process` into the tree under `parent` (0 for none).
     pub(crate) fn add(&self, process: Arc<Process>, parent: u32, exit_signal: i32) {
         let pid = process.pid.0;
-        self.tree.lock().unwrap().nodes.insert(
+        self.tree.lock_or_recover().nodes.insert(
             pid,
             Node {
                 process,
@@ -147,7 +148,7 @@ impl Procs {
 
     /// The process `pid`, zombies included.
     pub(crate) fn find(&self, pid: u32) -> Option<Arc<Process>> {
-        let tree = self.tree.lock().unwrap();
+        let tree = self.tree.lock_or_recover();
         tree.nodes.get(&pid).map(|node| node.process.clone())
     }
 }
@@ -164,7 +165,7 @@ impl Tree {
     fn reaper(&self, dying: u32) -> u32 {
         let mut at = self.nodes.get(&dying).map_or(0, |node| node.parent);
         while let Some(node) = self.nodes.get(&at) {
-            if node.exit.is_none() && node.process.ident.lock().unwrap().child_subreaper() {
+            if node.exit.is_none() && node.process.ident.lock_or_recover().child_subreaper() {
                 return at;
             }
             at = node.parent;
@@ -230,14 +231,14 @@ enum Which {
 impl Kernel {
     pub(crate) fn sys_getppid(&self, caller: &Caller<'_>) -> Pid {
         let pid = self.process(caller.task()).pid.0;
-        let tree = self.procs.tree.lock().unwrap();
+        let tree = self.procs.tree.lock_or_recover();
         tree.nodes.get(&pid).map_or(0, |node| node.parent as Pid)
     }
 
     /// The vfork child running in `parent`'s instance is done with it: `parent` waits no more.
     pub(crate) fn vfork_done(&self, parent: TaskId) {
         let signals = {
-            let state = self.state.read().unwrap();
+            let state = self.state.read_or_recover();
             state.tasks.get(&parent).map(|task| task.signals.clone())
         };
         if let Some(signals) = signals {
@@ -250,11 +251,18 @@ impl Kernel {
     /// though the parent had taken it, while the child goes on. The instance goes back to the
     /// parent only once the child ends, to unwind it.
     pub(crate) fn kill_vfork_parent(&self, child: TaskId) {
-        let Some(parent) = self.procs.tree.lock().unwrap().vforks.get(&child).copied() else {
+        let Some(parent) = self
+            .procs
+            .tree
+            .lock_or_recover()
+            .vforks
+            .get(&child)
+            .copied()
+        else {
             return;
         };
         let signals = {
-            let state = self.state.read().unwrap();
+            let state = self.state.read_or_recover();
             state.tasks.get(&parent).map(|task| task.signals.clone())
         };
         if let Some(sig) = signals.and_then(|signals| signals.fatal_pending()) {
@@ -264,12 +272,12 @@ impl Kernel {
 
     /// Whether `task` is a vfork child running in the instance of its parent, which waits.
     pub(crate) fn vfork_child(&self, task: TaskId) -> bool {
-        self.procs.tree.lock().unwrap().vforks.contains_key(&task)
+        self.procs.tree.lock_or_recover().vforks.contains_key(&task)
     }
 
     /// The signal state of the thread group led by `pid`.
     fn group_signals(&self, pid: u32) -> Option<Arc<Signals>> {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         let task = state.tasks.get(&TaskId(pid))?;
         Some(task.signals.group().clone())
     }
@@ -278,7 +286,7 @@ impl Kernel {
     /// parent sees `WIFSIGNALED`.
     pub(crate) fn note_killed(&self, task: TaskId, sig: i32) {
         let pid = self.process(task).pid.0;
-        let mut tree = self.procs.tree.lock().unwrap();
+        let mut tree = self.procs.tree.lock_or_recover();
         if let Some(node) = tree.nodes.get_mut(&pid)
             && node.exit.is_none()
         {
@@ -291,7 +299,7 @@ impl Kernel {
     pub(crate) fn process_exited(&self, process: &Arc<Process>, task: TaskId, status: i32) {
         let pid = process.pid.0;
         let (parent, reaper) = {
-            let tree = self.procs.tree.lock().unwrap();
+            let tree = self.procs.tree.lock_or_recover();
             match tree.nodes.get(&pid) {
                 Some(node) if node.exit.is_none() => (node.parent, tree.reaper(pid)),
                 _ => return,
@@ -309,7 +317,7 @@ impl Kernel {
             .as_ref()
             .map(|signals| signals.child_reaping());
         let (exit, exit_signal, vfork_parent, orphans, inherited) = {
-            let mut tree = self.procs.tree.lock().unwrap();
+            let mut tree = self.procs.tree.lock_or_recover();
             // A reaper that went meanwhile is replaced, and it is not known how the new one
             // treats SIGCHLD: its zombies stay, as a parent that waits keeps them.
             let (reaper, reaper_reaps) = match tree.reaper(pid) {
@@ -354,7 +362,7 @@ impl Kernel {
                 node.parent = reaper;
                 // "We don't want people slaying init."
                 node.exit_signal = Signal::SIGCHLD.0;
-                let pdeathsig = node.process.ident.lock().unwrap().pdeathsig();
+                let pdeathsig = node.process.ident.lock_or_recover().pdeathsig();
                 match (node.exit, reaper_reaps) {
                     (Some(_), _) if reaper == 0 => drop(tree.nodes.remove(&child)),
                     (Some(_), Some((true, _) | (_, true))) => drop(tree.nodes.remove(&child)),
@@ -409,7 +417,7 @@ impl Kernel {
     /// no one else holds.
     pub(crate) fn exit_files(&self, process: &Arc<Process>) {
         let tables: Vec<Arc<Mutex<FdTable>>> = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             state
                 .tasks
                 .values_mut()
@@ -423,7 +431,7 @@ impl Kernel {
             let Ok(table) = Arc::try_unwrap(table) else {
                 continue;
             };
-            let mut table = table.into_inner().unwrap();
+            let mut table = table.into_inner_or_recover();
             for fd in (0..table.end()).map(|fd| Fd(fd as i32)) {
                 if let Some(file) = table.remove(fd) {
                     self.closed_by(process.pid, &file);
@@ -507,8 +515,7 @@ impl Kernel {
         }
         self.procs
             .tree
-            .lock()
-            .unwrap()
+            .lock_or_recover()
             .vforks
             .insert(child, parent_task);
         let child_signals = self.task_signals(child).group().clone();
@@ -569,7 +576,7 @@ impl Kernel {
         child_tid: u32,
     ) -> Result<TaskId, Errno> {
         let (id, process, parent_pid) = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let task = &state.tasks[&parent_task];
             let parent = task.process.clone();
             if crate::resource::nproc_exceeded(&state, &parent) {
@@ -584,22 +591,22 @@ impl Kernel {
             let id = TaskId(state.last_id + 1);
             let process = Arc::new(Process {
                 pid: id,
-                args: Mutex::new(parent.args.lock().unwrap().clone()),
-                env: Mutex::new(parent.env.lock().unwrap().clone()),
-                exe: Mutex::new(parent.exe.lock().unwrap().clone()),
+                args: Mutex::new(parent.args.lock_or_recover().clone()),
+                env: Mutex::new(parent.env.lock_or_recover().clone()),
+                exe: Mutex::new(parent.exe.lock_or_recover().clone()),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
-                ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
+                ident: Mutex::new(parent.ident.lock_or_recover().for_child()),
                 cred: Mutex::new(parent.cred()),
-                resources: Mutex::new(parent.resources.lock().unwrap().clone()),
+                resources: Mutex::new(parent.resources.lock_or_recover().clone()),
             });
             let files = match flags.contains(CloneFlags::CLONE_FILES) {
                 true => task.files.clone(),
-                false => Arc::new(Mutex::new(copy_files(&task.files.lock().unwrap()))),
+                false => Arc::new(Mutex::new(copy_files(&task.files.lock_or_recover()))),
             };
             let fs = match flags.contains(CloneFlags::CLONE_FS) {
                 true => task.fs.clone(),
-                false => Arc::new(Mutex::new(task.fs.lock().unwrap().clone())),
+                false => Arc::new(Mutex::new(task.fs.lock_or_recover().clone())),
             };
             let flag = Arc::new(WorkFlag::default());
             let account = crate::signal::Account::new(self.sigqueue_users.clone(), &process);
@@ -633,7 +640,7 @@ impl Kernel {
         };
         let parent = match flags.contains(CloneFlags::CLONE_PARENT) {
             true => {
-                let tree = self.procs.tree.lock().unwrap();
+                let tree = self.procs.tree.lock_or_recover();
                 tree.nodes.get(&parent_pid).map_or(0, |node| node.parent)
             }
             false => parent_pid,
@@ -724,7 +731,7 @@ impl Kernel {
         // `BINPRM_FLAGS_PATH_INACCESSIBLE`: a script named through a close-on-exec descriptor
         // could not be opened by its interpreter.
         let inaccessible = (path.is_empty() || fd_relative)
-            && self.files(caller.task()).lock().unwrap().cloexec(dfd) == Some(true);
+            && self.files(caller.task()).lock_or_recover().cloexec(dfd) == Some(true);
         let (mut file, mut binary) = self.open_exec(caller, dfd, &path, flags).await?;
         // `bprm->interp`: the name a script is passed to its interpreter by.
         let mut script = name.clone();
@@ -847,7 +854,7 @@ impl Kernel {
         let task = self.exec_leader(caller);
         let process = self.process(task);
         {
-            let mut tree = self.procs.tree.lock().unwrap();
+            let mut tree = self.procs.tree.lock_or_recover();
             if let Some(node) = tree.nodes.get_mut(&process.pid.0) {
                 node.did_exec = true;
             }
@@ -855,7 +862,7 @@ impl Kernel {
         // `unshare_files`, then `do_close_on_exec`. The dying threads of the group do not
         // count as sharing the table.
         let table = {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock_or_recover();
             let files = state.tasks[&task].files.clone();
             let shared = state
                 .tasks
@@ -866,13 +873,13 @@ impl Kernel {
         let table = match table {
             (files, false) => files,
             (files, true) => {
-                let copy = Arc::new(Mutex::new(copy_files(&files.lock().unwrap())));
+                let copy = Arc::new(Mutex::new(copy_files(&files.lock_or_recover())));
                 self.with_task(task, |t| t.files = copy.clone());
                 copy
             }
         };
         let closing: Vec<Arc<OpenFile>> = {
-            let mut table = table.lock().unwrap();
+            let mut table = table.lock_or_recover();
             let cloexec: Vec<Fd> = (0..table.end())
                 .map(|fd| Fd(fd as i32))
                 .filter(|&fd| table.cloexec(fd) == Some(true))
@@ -893,9 +900,9 @@ impl Kernel {
         crate::posix_timer::exit_itimers(signals.group());
         signals.group().flush_timer_signals();
         signals.group().exec_reset();
-        *process.args.lock().unwrap() = args;
-        *process.env.lock().unwrap() = env;
-        let no_new_privs = process.ident.lock().unwrap().no_new_privs;
+        *process.args.lock_or_recover() = args;
+        *process.env.lock_or_recover() = env;
+        let no_new_privs = process.ident.lock_or_recover().no_new_privs;
         let old = process.cred();
         let (cred, secure) = old.exec(
             binary.mode,
@@ -906,10 +913,10 @@ impl Kernel {
         let dumpable =
             cred.user.effective == cred.user.real && cred.group.effective == cred.group.real;
         let privileged = secure || cred.drops_dumpable(&old);
-        *process.cred.lock().unwrap() = cred;
-        *process.exe.lock().unwrap() = Some(binary.path);
+        *process.cred.lock_or_recover() = cred;
+        *process.exe.lock_or_recover() = Some(binary.path);
         {
-            let mut ident = process.ident.lock().unwrap();
+            let mut ident = process.ident.lock_or_recover();
             ident.secure_exec = secure;
             ident.dumpable = dumpable;
             if privileged {
@@ -952,7 +959,7 @@ impl Kernel {
         let which = match which {
             Idtype::P_ALL => Which::All,
             Idtype::P_PID if upid > 0 => Which::Pid(upid as u32),
-            Idtype::P_PGID if upid == 0 => Which::Pgid(me.ident.lock().unwrap().pgid),
+            Idtype::P_PGID if upid == 0 => Which::Pgid(me.ident.lock_or_recover().pgid),
             Idtype::P_PGID if upid > 0 => Which::Pgid(upid as u32),
             Idtype::P_PIDFD => Which::Pid(self.pidfd_pid(caller, Fd(upid))?),
             _ => return Err(Errno::EINVAL.into()),
@@ -993,14 +1000,14 @@ impl Kernel {
         which: Which,
         options: u32,
     ) -> Option<Result<Option<(u32, Exit)>, Errno>> {
-        let mut tree = self.procs.tree.lock().unwrap();
+        let mut tree = self.procs.tree.lock_or_recover();
         let mut any = false;
         let mut ready = None;
         for (&pid, node) in tree.children(me) {
             let matches = match which {
                 Which::All => true,
                 Which::Pid(want) => pid == want,
-                Which::Pgid(pgid) => node.process.ident.lock().unwrap().pgid == pgid,
+                Which::Pgid(pgid) => node.process.ident.lock_or_recover().pgid == pgid,
             };
             // `eligible_child`: `__WCLONE` picks the children that report with another
             // signal than SIGCHLD; `__WALL` takes both.
@@ -1035,7 +1042,7 @@ impl Kernel {
 
     pub(crate) fn pgid_of(&self, pid: Pid) -> Pid {
         match self.procs.find(pid as u32) {
-            Some(process) => process.ident.lock().unwrap().pgid as Pid,
+            Some(process) => process.ident.lock_or_recover().pgid as Pid,
             None => pid,
         }
     }
@@ -1043,11 +1050,11 @@ impl Kernel {
     /// The thread groups in process group `pgid` that have not exited.
     pub(crate) fn pgrp_groups(&self, pgid: Pid) -> Vec<(Pid, Arc<Signals>)> {
         let members: Vec<u32> = {
-            let tree = self.procs.tree.lock().unwrap();
+            let tree = self.procs.tree.lock_or_recover();
             tree.nodes
                 .iter()
                 .filter(|(_, node)| {
-                    node.exit.is_none() && node.process.ident.lock().unwrap().pgid as Pid == pgid
+                    node.exit.is_none() && node.process.ident.lock_or_recover().pgid as Pid == pgid
                 })
                 .map(|(&pid, _)| pid)
                 .collect()
@@ -1065,27 +1072,27 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let me = self.process(caller.task());
-        let my_sid = me.ident.lock().unwrap().sid;
+        let my_sid = me.ident.lock_or_recover().sid;
         let pid = match pid {
             0 => me.pid.0,
             pid if pid < 0 => return Err(Errno::EINVAL.into()),
             pid => pid as u32,
         };
         let pgid = if pgid == 0 { pid } else { pgid as u32 };
-        let tree = self.procs.tree.lock().unwrap();
+        let tree = self.procs.tree.lock_or_recover();
         let node = tree.nodes.get(&pid).ok_or(Errno::ESRCH)?;
         if pid != me.pid.0 {
             if node.parent != me.pid.0 || node.exit.is_some() {
                 return Err(Errno::ESRCH.into());
             }
-            if node.process.ident.lock().unwrap().sid != my_sid {
+            if node.process.ident.lock_or_recover().sid != my_sid {
                 return Err(Errno::EPERM.into());
             }
             if node.did_exec {
                 return Err(Errno::EACCES.into());
             }
         }
-        let mut ident = node.process.ident.lock().unwrap();
+        let mut ident = node.process.ident.lock_or_recover();
         if ident.sid == pid {
             return Err(Errno::EPERM.into());
         }
@@ -1095,7 +1102,7 @@ impl Kernel {
                     && match other == pid {
                         true => ident.pgid == pgid,
                         false => {
-                            let id = n.process.ident.lock().unwrap();
+                            let id = n.process.ident.lock_or_recover();
                             id.pgid == pgid && id.sid == my_sid
                         }
                     }
@@ -1112,11 +1119,11 @@ impl Kernel {
     pub(crate) fn sys_setsid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
         let process = self.process(caller.task());
         let me = process.pid.0;
-        let tree = self.procs.tree.lock().unwrap();
+        let tree = self.procs.tree.lock_or_recover();
         let taken = tree.nodes.iter().any(|(&pid, node)| {
-            pid != me && node.exit.is_none() && node.process.ident.lock().unwrap().pgid == me
+            pid != me && node.exit.is_none() && node.process.ident.lock_or_recover().pgid == me
         });
-        let mut ident = process.ident.lock().unwrap();
+        let mut ident = process.ident.lock_or_recover();
         if ident.pgid == me || taken {
             return Err(Errno::EPERM.into());
         }
@@ -1138,7 +1145,7 @@ impl Kernel {
         }
         let pid = pid as u32;
         {
-            let tree = self.procs.tree.lock().unwrap();
+            let tree = self.procs.tree.lock_or_recover();
             if !tree.nodes.contains_key(&pid) {
                 return Err(Errno::ESRCH.into());
             }
@@ -1214,7 +1221,7 @@ impl Pollable for PidFd {
     /// `pidfd_poll`.
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.changed);
-        let tree = self.tree.lock().unwrap();
+        let tree = self.tree.lock_or_recover();
         match tree.nodes.get(&self.pid) {
             Some(node) if node.exit.is_none() => PollMask::empty(),
             _ => PollMask::READABLE | PollMask::HUP,

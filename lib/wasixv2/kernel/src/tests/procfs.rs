@@ -8,6 +8,7 @@ use wasixv2_vfs::{FileType, MountFlags};
 
 use super::ipc::{errno, get, pipe, put};
 use super::*;
+use crate::sync::MutexExt;
 
 const CWD: Fd = Fd(-100);
 
@@ -242,7 +243,7 @@ fn opening_stdouts_fd_link_reaches_the_same_stream() {
     let fd = t.open("/proc/self/fd/1", OpenFlags::O_WRONLY).unwrap();
 
     assert_eq!(t.write(fd, b"out"), Ok(3));
-    assert_eq!(*stdout.0.lock().unwrap(), b"out");
+    assert_eq!(*stdout.0.lock_or_recover(), b"out");
     // Anonymous files do not open again: the shared inode is root's, `0600`, so `may_open`
     // refuses a user before `no_open` would.
     let event = block_on(kernel.eventfd2(&t.caller, 0, EventfdFlags(0))).unwrap();

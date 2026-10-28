@@ -5,6 +5,7 @@ use wasixv2_abi::ResolveFlags;
 
 use super::ipc::{errno, get, machine, put};
 use super::*;
+use crate::sync::MutexExt;
 
 const CWD: Fd = Fd(-100);
 
@@ -159,9 +160,9 @@ fn a_posix_lock_won_after_its_descriptor_closed_is_released() {
     let set = std::thread::scope(|scope| {
         scope.spawn(|| {
             std::thread::sleep(Duration::from_millis(20));
-            let closed = kernel.files(task).lock().unwrap().remove(waiter).unwrap();
+            let closed = kernel.files(task).lock_or_recover().remove(waiter).unwrap();
             kernel.closed_by(pid, &closed);
-            drop(kernel.files(task).lock().unwrap().remove(holder));
+            drop(kernel.files(task).lock_or_recover().remove(holder));
         });
         lock(waiter, FcntlCmd::F_SETLKW64)
     });

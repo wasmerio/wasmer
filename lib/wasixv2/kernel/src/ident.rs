@@ -17,6 +17,7 @@ use crate::{
     Kernel, Process,
     cred::{Cred, IdChange, IdKind, NGROUPS_MAX, secure},
     startup::Identity,
+    sync::MutexExt,
 };
 
 /// `TASK_COMM_LEN`.
@@ -252,16 +253,16 @@ fn cap_valid(cap: Ulong) -> bool {
 impl Process {
     /// A snapshot of the process's credentials.
     pub(crate) fn cred(&self) -> Cred {
-        self.cred.lock().unwrap().clone()
+        self.cred.lock_or_recover().clone()
     }
 
     /// `commit_creds`: installs `new`, and makes the process non-dumpable and forgets its
     /// parent-death signal if that changed its effective or filesystem ids or gave it
     /// capabilities.
     pub(crate) fn commit_cred(&self, new: Cred) {
-        let mut cred = self.cred.lock().unwrap();
+        let mut cred = self.cred.lock_or_recover();
         if new.drops_dumpable(&cred) {
-            let mut ident = self.ident.lock().unwrap();
+            let mut ident = self.ident.lock_or_recover();
             ident.dumpable = false;
             ident.clear_pdeathsig();
         }
@@ -276,7 +277,7 @@ impl Process {
             euid: cred.user.effective,
             gid: cred.group.real,
             egid: cred.group.effective,
-            secure: self.ident.lock().unwrap().secure_exec,
+            secure: self.ident.lock_or_recover().secure_exec,
         }
     }
 
@@ -481,11 +482,11 @@ impl Kernel {
     }
 
     pub(crate) fn sys_getpgid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
-        Ok(self.lookup_pid(caller, pid)?.ident.lock().unwrap().pgid as Pid)
+        Ok(self.lookup_pid(caller, pid)?.ident.lock_or_recover().pgid as Pid)
     }
 
     pub(crate) fn sys_getsid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
-        Ok(self.lookup_pid(caller, pid)?.ident.lock().unwrap().sid as Pid)
+        Ok(self.lookup_pid(caller, pid)?.ident.lock_or_recover().sid as Pid)
     }
 
     pub(crate) async fn sys_uname(
@@ -493,7 +494,7 @@ impl Kernel {
         caller: &Caller<'_>,
         name: NewUtsnamePtr,
     ) -> SysResult<i32> {
-        let uts = *self.uts.lock().unwrap();
+        let uts = *self.uts.lock_or_recover();
         write_value(caller.memory(), name, &uts).await?;
         Ok(0)
     }
@@ -515,7 +516,7 @@ impl Kernel {
             .ok_or(Errno::EINVAL)?;
         let mut value = vec![0; len];
         caller.memory().read(name.addr(), &mut value).await?;
-        let mut uts = self.uts.lock().unwrap();
+        let mut uts = self.uts.lock_or_recover();
         let field = match domain {
             true => &mut uts.domainname,
             false => &mut uts.nodename,
@@ -526,7 +527,7 @@ impl Kernel {
 
     pub(crate) fn sys_personality(&self, caller: &Caller<'_>, personality: u32) -> SysResult<i32> {
         let process = self.process(caller.task());
-        let mut ident = process.ident.lock().unwrap();
+        let mut ident = process.ident.lock_or_recover();
         let old = ident.personality;
         if personality != u32::MAX {
             ident.personality = personality;
@@ -569,30 +570,30 @@ impl Kernel {
                 memory.write(arg2, &comm).await?;
             }
             PrctlOption::PR_GET_DUMPABLE => {
-                return Ok(process.ident.lock().unwrap().dumpable as i32);
+                return Ok(process.ident.lock_or_recover().dumpable as i32);
             }
-            PrctlOption::PR_SET_DUMPABLE => process.ident.lock().unwrap().dumpable = flag(arg2)?,
+            PrctlOption::PR_SET_DUMPABLE => process.ident.lock_or_recover().dumpable = flag(arg2)?,
             PrctlOption::PR_SET_PDEATHSIG => {
                 if arg2 > NSIG {
                     return Err(Errno::EINVAL.into());
                 }
-                process.ident.lock().unwrap().pdeathsig = arg2;
+                process.ident.lock_or_recover().pdeathsig = arg2;
             }
             PrctlOption::PR_GET_PDEATHSIG => {
-                let sig = process.ident.lock().unwrap().pdeathsig;
+                let sig = process.ident.lock_or_recover().pdeathsig;
                 put_int(sig).await?;
             }
             PrctlOption::PR_SET_NO_NEW_PRIVS => {
                 if arg2 != 1 || arg3 | arg4 | arg5 != 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                process.ident.lock().unwrap().no_new_privs = true;
+                process.ident.lock_or_recover().no_new_privs = true;
             }
             PrctlOption::PR_GET_NO_NEW_PRIVS => {
                 if arg2 | arg3 | arg4 | arg5 != 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                return Ok(process.ident.lock().unwrap().no_new_privs as i32);
+                return Ok(process.ident.lock_or_recover().no_new_privs as i32);
             }
             PrctlOption::PR_SET_TIMERSLACK => {
                 self.with_task(caller.task(), |t| t.sched.set_timer_slack(arg2.into()));
@@ -603,10 +604,10 @@ impl Kernel {
                 return Ok(slack.min(i32::MAX as u64) as i32);
             }
             PrctlOption::PR_SET_CHILD_SUBREAPER => {
-                process.ident.lock().unwrap().child_subreaper = arg2 != 0;
+                process.ident.lock_or_recover().child_subreaper = arg2 != 0;
             }
             PrctlOption::PR_GET_CHILD_SUBREAPER => {
-                let reaper = process.ident.lock().unwrap().child_subreaper;
+                let reaper = process.ident.lock_or_recover().child_subreaper;
                 put_int(reaper as u32).await?;
             }
             PrctlOption::PR_TIMER_CREATE_RESTORE_IDS => {

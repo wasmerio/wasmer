@@ -11,6 +11,7 @@ use wasixv2_vfs::{
 };
 
 use super::{Source, text};
+use crate::sync::MutexExt;
 
 /// A directory, file or link of the process filesystem.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -213,8 +214,7 @@ impl ProcNode {
                         .ok_or(Errno::ENOENT)?;
                     let fds: Vec<u32> = task
                         .files
-                        .lock()
-                        .unwrap()
+                        .lock_or_recover()
                         .iter()
                         .map(|(fd, _, _)| fd.0 as u32)
                         .collect();
@@ -239,7 +239,7 @@ impl ProcNode {
             .source
             .task(scope.pid, scope.tid)
             .ok_or(Errno::ENOENT)?;
-        let files = task.files.lock().unwrap();
+        let files = task.files.lock_or_recover();
         let fd = Fd(fd as i32);
         let file = files.get(fd).ok_or(Errno::ENOENT)?;
         Ok((file, files.cloexec(fd).unwrap_or_default()))
@@ -283,7 +283,7 @@ impl ProcNode {
             return (0, 0);
         };
         let process = info.process;
-        if !process.ident.lock().unwrap().dumpable {
+        if !process.ident.lock_or_recover().dumpable {
             return (0, 0);
         }
         let cred = process.cred();
@@ -457,12 +457,12 @@ impl Node for ProcNode {
         let path = match kind {
             PidEntry::Exe => {
                 let process = self.source.process(scope.pid).ok_or(Errno::ENOENT)?;
-                process.process.exe.lock().unwrap().clone()
+                process.process.exe.lock_or_recover().clone()
             }
             PidEntry::Cwd | PidEntry::Root => {
                 let task = self.source.task(scope.pid, scope.tid);
                 task.map(|task| {
-                    let fs = task.fs.lock().unwrap();
+                    let fs = task.fs.lock_or_recover();
                     match kind {
                         PidEntry::Cwd => fs.cwd.clone(),
                         _ => fs.root.clone(),

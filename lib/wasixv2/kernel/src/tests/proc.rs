@@ -6,6 +6,7 @@ use wasixv2_abi::{
 };
 
 use super::*;
+use crate::sync::MutexExt;
 
 /// An address space the engine can duplicate, as the asyncify configuration's is.
 pub(super) struct ForkableMemory(pub(super) FlatMemory);
@@ -172,7 +173,7 @@ fn kernel_execve_of_a_killed_process_fails_and_keeps_the_exit() {
     let image = block_on(kernel.exec(task, b"/prog", vec![b"prog".to_vec()], Vec::new()));
 
     assert_eq!(image.err(), Some(Errno::EAGAIN));
-    assert!(kernel.process(task).exe.lock().unwrap().is_none());
+    assert!(kernel.process(task).exe.lock_or_recover().is_none());
     assert_eq!(
         kernel.take_pending(task),
         Some(GuestAction::Exit(128 + Signal::SIGKILL.0))
@@ -198,7 +199,7 @@ fn exit_closes_the_files_after_the_leader_is_gone() {
     block_on(kernel.thread_spawn(&caller, THREAD, 0, null, 0, null)).unwrap();
     let process = kernel.process(leader);
 
-    thread::forget_task(&mut kernel.state.lock().unwrap(), leader);
+    thread::forget_task(&mut kernel.state.lock_or_recover(), leader);
     kernel.exit_files(&process);
 }
 
@@ -210,7 +211,7 @@ struct Recording {
 
 impl wasixv2_syscalls::Binfmt for Recording {
     fn probe(&self, header: &[u8]) -> Result<(), Errno> {
-        self.seen.lock().unwrap().push(("probe", header.len()));
+        self.seen.lock_or_recover().push(("probe", header.len()));
         match self.refuse_header {
             true => Err(Errno::ENOEXEC),
             false => Ok(()),
@@ -219,8 +220,7 @@ impl wasixv2_syscalls::Binfmt for Recording {
 
     fn check(&self, image: &wasixv2_syscalls::Image) -> Result<(), Errno> {
         self.seen
-            .lock()
-            .unwrap()
+            .lock_or_recover()
             .push(("check", image.bytes().len()));
         Err(Errno::ENOEXEC)
     }
@@ -256,7 +256,7 @@ fn execve_probes_the_header_before_it_reads_the_image() {
         let ran = block_on(kernel.exec(task, b"/prog", vec![b"prog".to_vec()], Vec::new()));
 
         assert_eq!(ran.err(), Some(Errno::ENOEXEC));
-        let seen = binfmt.seen.lock().unwrap().clone();
+        let seen = binfmt.seen.lock_or_recover().clone();
         match refuse_header {
             true => assert_eq!(seen, [("probe", BINPRM_BUF_SIZE)]),
             false => assert_eq!(seen, [("probe", BINPRM_BUF_SIZE), ("check", image.len())]),

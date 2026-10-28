@@ -30,6 +30,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_eve
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
+    sync::MutexExt,
     time::{self, Clock, ClockOffset},
     timer::{self, Timer},
 };
@@ -143,7 +144,7 @@ impl Inner {
     /// canceled the timer. Until then (a realtime deadline the clock has not reached yet) the
     /// timer goes on.
     fn expired(&self) -> Option<Duration> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let set = self.clock_was_set(&mut state);
         let next = match self.readable(&mut state) {
             true => None,
@@ -179,7 +180,7 @@ impl TimerFd {
         }
         let take = || {
             let (taken, set) = {
-                let mut state = self.0.state.lock().unwrap();
+                let mut state = self.0.state.lock_or_recover();
                 let set = self.0.clock_was_set(&mut state);
                 (self.take_ticks(&mut state, io.nonblocking()), set)
             };
@@ -221,7 +222,7 @@ impl TimerFd {
 impl Pollable for TimerFd {
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
         poll_wait(&mut table, &self.0.wait);
-        let mut state = self.0.state.lock().unwrap();
+        let mut state = self.0.state.lock_or_recover();
         // Polls run under other objects' locks; a set found here re-derives no other timer.
         self.0.clock_was_set(&mut state);
         match self.0.readable(&mut state) {
@@ -326,7 +327,7 @@ impl Kernel {
         let timer = &file.downcast::<TimerFd>().unwrap().0;
         let absolute = flags.contains(TimerfdSettimeFlags::TFD_TIMER_ABSTIME);
         let (previous, set, canceled) = {
-            let mut state = timer.state.lock().unwrap();
+            let mut state = timer.state.lock_or_recover();
             // A set the old setting cancels on marks the timer, as it did when it happened.
             let set = timer.clock_was_set(&mut state);
             let previous = timer.setting(&mut state);
@@ -372,7 +373,7 @@ impl Kernel {
     ) -> SysResult<i32> {
         let file = self.timerfd(caller, fd)?;
         let timer = &file.downcast::<TimerFd>().unwrap().0;
-        let setting = timer.setting(&mut timer.state.lock().unwrap());
+        let setting = timer.setting(&mut timer.state.lock_or_recover());
         write_value(caller.memory(), out, &setting).await?;
         Ok(0)
     }

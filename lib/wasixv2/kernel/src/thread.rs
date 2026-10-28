@@ -13,7 +13,7 @@ use wasixv2_syscalls::{
 };
 use wasixv2_wait::{Interrupted, NoInterrupt, PollMask, WaitQueue, wait_event};
 
-use crate::{Kernel, Process, State, Task, signal::Signals, work::Work};
+use crate::{Kernel, Process, State, Task, signal::Signals, sync::MutexExt, work::Work};
 
 /// `sizeof(struct robust_list_head)` on ILP32.
 const ROBUST_LIST_HEAD_SIZE: u32 = 12;
@@ -55,24 +55,24 @@ impl Group {
     /// A group with its first task.
     pub(crate) fn new() -> Self {
         let group = Self::default();
-        group.state.lock().unwrap().live = 1;
+        group.state.lock_or_recover().live = 1;
         group
     }
 
     /// The group is exiting or exited.
     pub(crate) fn exiting(&self) -> bool {
-        self.state.lock().unwrap().exit.is_some()
+        self.state.lock_or_recover().exit.is_some()
     }
 
     /// `signal_group_exit`: the group is exiting, or one of its tasks is in an `execve` that
     /// is ending the others. It starts no new tasks.
     pub(crate) fn signal_group_exit(&self) -> bool {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         state.exit.is_some() || state.exec.is_some()
     }
 
     fn status(&self) -> Option<i32> {
-        self.state.lock().unwrap().exit
+        self.state.lock_or_recover().exit
     }
 }
 
@@ -169,7 +169,7 @@ impl Kernel {
         }
         let parent = caller.task();
         let child = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let task = state
                 .tasks
                 .get(&parent)
@@ -180,7 +180,7 @@ impl Kernel {
             }
             let sched = task.sched.for_child()?;
             {
-                let mut group = process.group.state.lock().unwrap();
+                let mut group = process.group.state.lock_or_recover();
                 // A group on its way out, or in an `execve`, starts nothing (Linux:
                 // `fatal_signal_pending`, the leader's SIGKILL from `de_thread`).
                 if group.exit.is_some() || group.exec.is_some() {
@@ -241,7 +241,7 @@ impl Kernel {
     /// Leaves `action` for the execution layer on `task`'s next return to the guest.
     pub(crate) fn queue(&self, task: TaskId, action: GuestAction) {
         let unstarted = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             match state.tasks.get_mut(&task) {
                 Some(entry) => entry.work.push(action),
                 None => return,
@@ -257,7 +257,7 @@ impl Kernel {
     /// child that cannot run (`bad_fork_*`).
     fn abort_unstarted(&self, child: TaskId) {
         let process = {
-            let state = self.state.read().unwrap();
+            let state = self.state.read_or_recover();
             match state.tasks.get(&child) {
                 Some(entry) => entry.process.clone(),
                 None => return,
@@ -266,7 +266,7 @@ impl Kernel {
         if process.pid == child {
             self.exit_files(&process);
             let vfork_parent = {
-                let mut tree = self.procs.tree.lock().unwrap();
+                let mut tree = self.procs.tree.lock_or_recover();
                 tree.nodes.remove(&child.0);
                 tree.vforks.remove(&child)
             };
@@ -274,7 +274,7 @@ impl Kernel {
                 self.vfork_done(parent);
             }
         }
-        forget_task(&mut self.state.lock().unwrap(), child);
+        forget_task(&mut self.state.lock_or_recover(), child);
     }
 
     /// `do_exit` for one task: its memory goes first ([`Kernel::exit_mm`]). The last task to
@@ -286,7 +286,7 @@ impl Kernel {
         let process = self.process(task);
         self.exit_mm(caller).await;
         let last = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let entry = state
                 .tasks
                 .get_mut(&task)
@@ -297,7 +297,7 @@ impl Kernel {
                 return Ok(());
             }
             entry.thread.exited = true;
-            let mut group = process.group.state.lock().unwrap();
+            let mut group = process.group.state.lock_or_recover();
             if task == process.pid {
                 group.leader_exit = Some(status & 0xff);
             }
@@ -344,13 +344,12 @@ impl Kernel {
     pub(crate) fn do_group_exit(&self, task: TaskId, status: i32) {
         // Linux keeps only the low byte of the status.
         let status = status & 0xff;
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let process = state.tasks[&task].process.clone();
         let status = *process
             .group
             .state
-            .lock()
-            .unwrap()
+            .lock_or_recover()
             .exit
             .get_or_insert(status);
         let mut others = false;
@@ -393,12 +392,12 @@ impl Kernel {
             return;
         };
         let waiting: Vec<TaskId> = {
-            let tree = self.procs.tree.lock().unwrap();
+            let tree = self.procs.tree.lock_or_recover();
             tree.vforks.values().copied().collect()
         };
         let vfork_child = self.vfork_child(process.pid);
         let (others, leader_runs) = {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock_or_recover();
             let gone = |id: &TaskId, t: &Task| waiting.contains(id) && t.work.ends_image();
             let others = state.tasks.iter().any(|(id, t)| {
                 *id != process.pid && Arc::ptr_eq(&t.process, process) && !gone(id, t)
@@ -425,7 +424,7 @@ impl Kernel {
     /// lives on in the process tree.
     pub(crate) fn release_task(&self, task: TaskId) {
         let process = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let (unstarted, process) = match state.tasks.get_mut(&task) {
                 Some(entry) => (entry.work.take_unstarted(), entry.process.clone()),
                 None => return,
@@ -442,7 +441,7 @@ impl Kernel {
     /// `thread-spawn` made `task`, but its thread never started.
     pub(crate) fn abort_thread(&self, task: TaskId) {
         let process = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let Some(process) = state.tasks.get(&task).map(|t| t.process.clone()) else {
                 return;
             };
@@ -474,7 +473,7 @@ impl Kernel {
             }
             for (process, _) in processes {
                 let gone = || {
-                    let state = self.state.lock().unwrap();
+                    let state = self.state.lock_or_recover();
                     let left = state
                         .tasks
                         .values()
@@ -491,7 +490,7 @@ impl Kernel {
     /// Every process that has a task, with its thread group's signals; not the kernel's init,
     /// which has no instance to end.
     fn live_processes(&self) -> Vec<(Arc<Process>, Arc<Signals>)> {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock_or_recover();
         let mut processes: Vec<(Arc<Process>, Arc<Signals>)> = Vec::new();
         for task in state.tasks.values() {
             if self.is_init(&task.process) {
@@ -508,7 +507,7 @@ impl Kernel {
     pub(crate) async fn group_wait(&self, task: TaskId) {
         let process = self.process(task);
         let alone = || {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock_or_recover();
             let others = state
                 .tasks
                 .iter()
@@ -527,11 +526,11 @@ impl Kernel {
     /// the `execve`, which the group is in until it goes. `EAGAIN` when the group is exiting or
     /// another task's `execve` got there first.
     pub(crate) fn zap_threads(&self, task: TaskId) -> Result<ExecGuard, Errno> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let process = state.tasks[&task].process.clone();
         let leader = process.pid;
         {
-            let mut group = process.group.state.lock().unwrap();
+            let mut group = process.group.state.lock_or_recover();
             if group.exit.is_some() || group.exec.is_some() {
                 return Err(Errno::EAGAIN);
             }
@@ -553,7 +552,7 @@ impl Kernel {
             unstarted.extend(t.work.push(GuestAction::Exit(0)));
             killed.push(t.signals.clone());
         }
-        process.group.state.lock().unwrap().live -= ended;
+        process.group.state.lock_or_recover().live -= ended;
         for child in unstarted {
             forget_task(&mut state, child);
         }
@@ -574,7 +573,7 @@ impl Kernel {
         let leader = process.pid;
         let signals = self.task_signals(task);
         let done = || {
-            let state = self.state.read().unwrap();
+            let state = self.state.read_or_recover();
             if state.tasks[&task].work.exit().is_some() {
                 return Some(false);
             }
@@ -582,7 +581,7 @@ impl Kernel {
                 .tasks
                 .iter()
                 .any(|(&id, t)| id != task && id != leader && Arc::ptr_eq(&t.process, &process));
-            let group = process.group.state.lock().unwrap();
+            let group = process.group.state.lock_or_recover();
             let parked = task == leader || group.exec.is_some_and(|exec| exec.leader_parked);
             (!others && parked).then_some(true)
         };
@@ -602,7 +601,7 @@ impl Kernel {
     /// image runs as the group leader, which takes over `task`'s signal state when it is not
     /// `task` itself (Linux exchanges their pids), and `task` exits. Returns the leader.
     pub(crate) fn exec_leader(&self, task: TaskId) -> TaskId {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let process = state.tasks[&task].process.clone();
         let leader = process.pid;
         let mut unstarted = Vec::new();
@@ -620,7 +619,7 @@ impl Kernel {
         for child in unstarted {
             forget_task(&mut state, child);
         }
-        process.group.state.lock().unwrap().live = 1;
+        process.group.state.lock_or_recover().live = 1;
         leader
     }
 
@@ -628,7 +627,7 @@ impl Kernel {
     /// a zombie leader's wait for its group included. A vfork child's instance goes back to the
     /// parent once it takes the image; the parent returns from vfork unless its image ended.
     pub(crate) fn hand_image(&self, task: TaskId, image: Image) {
-        let vfork_parent = self.procs.tree.lock().unwrap().vforks.remove(&task);
+        let vfork_parent = self.procs.tree.lock_or_recover().vforks.remove(&task);
         if let Some(parent) = vfork_parent {
             self.vfork_done(parent);
         }
@@ -637,7 +636,7 @@ impl Kernel {
             resumes: true,
         });
         let (process, signals) = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let entry = state.tasks.get_mut(&task).expect("the leader is listed");
             let unstarted = entry.work.exec(image, vfork_parent);
             let handed = (entry.process.clone(), entry.signals.clone());
@@ -656,12 +655,12 @@ impl Kernel {
     pub(crate) async fn exec_wait(&self, task: TaskId) -> Result<(), i32> {
         let process = self.process(task);
         // An `execve` from another thread waits for the leader's old image to be gone.
-        if let Some(exec) = &mut process.group.state.lock().unwrap().exec {
+        if let Some(exec) = &mut process.group.state.lock_or_recover().exec {
             exec.leader_parked = true;
         }
         process.group.released.wake(PollMask::empty());
         let alone = || {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let Some(entry) = state.tasks.get_mut(&task) else {
                 return Some(Err(0));
             };
@@ -669,7 +668,7 @@ impl Kernel {
                 while entry.work.take().is_some() {}
                 return Some(Err(status));
             }
-            if process.group.state.lock().unwrap().exec.is_some() {
+            if process.group.state.lock_or_recover().exec.is_some() {
                 return None;
             }
             let others = state
@@ -687,7 +686,7 @@ impl Kernel {
     /// at once: a task that exits meanwhile can be released, and gone, before the caller
     /// reaches it.
     pub(crate) fn take_group_futex_states(&self, task: TaskId) -> Vec<(TaskId, ThreadState)> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let process = state.tasks[&task].process.clone();
         state
             .tasks
@@ -748,7 +747,7 @@ impl Kernel {
     pub(crate) async fn exit_mm(&self, caller: &Caller<'_>) {
         let task = caller.task();
         let (thread, users) = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let Some(entry) = state.tasks.get_mut(&task) else {
                 return;
             };
@@ -760,7 +759,7 @@ impl Kernel {
         };
         self.exit_thread(caller, task, thread, users > 1).await;
         let (last, process) = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock_or_recover();
             let Some(entry) = state.tasks.get_mut(&task) else {
                 return;
             };
@@ -805,7 +804,7 @@ impl Kernel {
         len_ptr: UsizePtr,
     ) -> SysResult<i32> {
         let head = {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock_or_recover();
             let me = &state.tasks[&caller.task()];
             let target = match pid {
                 0 => Some(me),
@@ -836,7 +835,7 @@ pub(crate) struct ExecGuard(Arc<Process>);
 impl Drop for ExecGuard {
     fn drop(&mut self) {
         let group = &self.0.group;
-        group.state.lock().unwrap().exec = None;
+        group.state.lock_or_recover().exec = None;
         group.released.wake(PollMask::empty());
     }
 }
@@ -867,7 +866,7 @@ pub(crate) fn forget_task(state: &mut State, task: TaskId) {
     entry.signals.detach();
     let group = &entry.process.group;
     if !entry.thread.exited {
-        group.state.lock().unwrap().live -= 1;
+        group.state.lock_or_recover().live -= 1;
     }
     group.released.wake(PollMask::empty());
 }
