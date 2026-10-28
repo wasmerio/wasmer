@@ -91,7 +91,7 @@ struct Source {
     tree: Weak<Mutex<Tree>>,
     vfs: Weak<Vfs>,
     host: Arc<dyn Host>,
-    /// The namespaces the system files show: the initial ones.
+    /// The initial namespaces, which the system files show the embedder.
     ns: Arc<NsProxy>,
     /// Where `/proc/<pid>/ns` links lead.
     nsfs: Nsfs,
@@ -202,6 +202,16 @@ impl Source {
     /// it; `None` once the process is a zombie.
     fn mm(&self, scope: node::Scope) -> Option<Arc<Mm>> {
         self.task(scope.pid, scope.tid).map(|task| task.mm)
+    }
+
+    /// The namespaces of task `tid`, which the system files show it: those of `current` for
+    /// Linux's handlers. The embedder, and a task gone meanwhile, see the initial ones.
+    fn ns_of(&self, tid: u32) -> Arc<NsProxy> {
+        let ns = self.state.upgrade().and_then(|state| {
+            let state = state.read().unwrap();
+            Some(state.tasks.get(&TaskId(tid))?.ns.clone())
+        });
+        ns.unwrap_or_else(|| self.ns.clone())
     }
 
     /// The thread group of the task `tid`.

@@ -12,6 +12,7 @@ use super::{Source, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
+    ns::{NetNs, NsProxy},
     resource::{ADDRESS_SPACE, TICKS},
     sched::cpus,
     sync::MutexExt,
@@ -44,11 +45,16 @@ pub(super) enum Global {
     FileMax,
     NrOpen,
     PipeMaxSize,
-    /// `/proc/net/tcp`, or `tcp6`.
+}
+
+/// The files of a network namespace (`/proc/<pid>/net`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Net {
+    /// `tcp`, or `tcp6`.
     Tcp(bool),
     Udp(bool),
     Unix,
-    NetDev,
+    Dev,
 }
 
 impl Global {
@@ -83,9 +89,10 @@ pub(super) enum PerPid {
     Status,
 }
 
-pub(super) fn global(source: &Source, file: Global) -> FsResult<Vec<u8>> {
+/// A system file as a reader in the namespaces `ns` sees it.
+pub(super) fn global(source: &Source, ns: &NsProxy, file: Global) -> FsResult<Vec<u8>> {
     let line = |s: &str| format!("{s}\n").into_bytes();
-    let names = *source.ns.uts.lock_or_recover();
+    let names = *ns.uts.lock_or_recover();
     let uts = |field: &[u8; 65]| {
         let len = field.iter().position(|&b| b == 0).unwrap_or(field.len());
         String::from_utf8_lossy(&field[..len]).into_owned()
@@ -121,11 +128,17 @@ pub(super) fn global(source: &Source, file: Global) -> FsResult<Vec<u8>> {
         Global::FileMax => line(&i64::MAX.to_string()),
         Global::NrOpen => line(&NR_OPEN.to_string()),
         Global::PipeMaxSize => line(&PIPE_MAX_SIZE.to_string()),
-        Global::Tcp(v6) => sockets(source, SocketKind::Stream, v6),
-        Global::Udp(v6) => sockets(source, SocketKind::Datagram, v6),
-        Global::Unix => b"Num       RefCount Protocol Flags    Type St Inode Path\n".to_vec(),
-        Global::NetDev => net_dev(source),
     })
+}
+
+/// A file of the network namespace `ns`.
+pub(super) fn net(ns: &NetNs, file: Net) -> Vec<u8> {
+    match file {
+        Net::Tcp(v6) => sockets(ns, SocketKind::Stream, v6),
+        Net::Udp(v6) => sockets(ns, SocketKind::Datagram, v6),
+        Net::Unix => b"Num       RefCount Protocol Flags    Type St Inode Path\n".to_vec(),
+        Net::Dev => net_dev(ns),
+    }
 }
 
 /// Seconds with two decimals, as `uptime` shows them.
@@ -223,7 +236,7 @@ fn filesystems(source: &Source) -> Vec<u8> {
 }
 
 /// `tcp4_seq_show` and `udp4_seq_show` (and their v6 forms) over the port table.
-fn sockets(source: &Source, kind: SocketKind, v6: bool) -> Vec<u8> {
+fn sockets(ns: &NetNs, kind: SocketKind, v6: bool) -> Vec<u8> {
     let mut out = String::new();
     let addr_width = if v6 { 32 } else { 8 };
     let _ = writeln!(
@@ -233,9 +246,7 @@ fn sockets(source: &Source, kind: SocketKind, v6: bool) -> Vec<u8> {
         "rem_address",
         w = addr_width + 5
     );
-    let ports = source
-        .ns
-        .net
+    let ports = ns
         .network
         .as_ref()
         .map(|net| net.ports())
@@ -284,13 +295,11 @@ fn hex_addr(addr: SocketAddr) -> String {
 }
 
 /// `dev_seq_show`: the interfaces, with no traffic counted.
-fn net_dev(source: &Source) -> Vec<u8> {
+fn net_dev(ns: &NetNs) -> Vec<u8> {
     let mut out = String::from(
         "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n",
     );
-    let interfaces = source
-        .ns
-        .net
+    let interfaces = ns
         .network
         .as_ref()
         .map(|net| net.interfaces())

@@ -608,3 +608,64 @@ fn clone_newipc_cannot_share_semaphore_adjustments() {
 
     assert_eq!(errno(clone), Errno::EINVAL);
 }
+
+/// The contents of the file `at`, read whole.
+fn read_text(kernel: &Kernel, caller: &Caller<'_>, at: &str) -> String {
+    let fd = open(kernel, caller, at).unwrap();
+    let mut out = Vec::new();
+    loop {
+        let n = block_on(kernel.read(caller, fd, UserSliceMut::new(0x5000, 4096))).unwrap();
+        if n == 0 {
+            break;
+        }
+        let mut chunk = vec![0; n as usize];
+        block_on(caller.memory().read(0x5000, &mut chunk)).unwrap();
+        out.extend(chunk);
+    }
+    assert_eq!(block_on(kernel.close(caller, fd)), Ok(0));
+    String::from_utf8(out).unwrap()
+}
+
+#[test]
+fn proc_sys_kernel_shows_the_readers_uts_namespace() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+    let child = fork(&kernel, &caller, CloneFlags::CLONE_NEWUTS);
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(sethostname(&kernel, &child_caller, "inside"), Ok(0));
+    let domain = "lab";
+    block_on(memory.write(0x1800, domain.as_bytes())).unwrap();
+    let set = kernel.setdomainname(&child_caller, GuestPtr::new(0x1800), domain.len() as i32);
+    assert_eq!(block_on(set), Ok(0));
+
+    let theirs =
+        |file: &str| read_text(&kernel, &child_caller, &format!("/proc/sys/kernel/{file}"));
+    let mine = |file: &str| read_text(&kernel, &caller, &format!("/proc/sys/kernel/{file}"));
+
+    assert_eq!(theirs("hostname"), "inside\n");
+    assert_eq!(theirs("domainname"), "lab\n");
+    assert_eq!(mine("hostname"), "localhost\n");
+    assert_eq!(mine("domainname"), "(none)\n");
+}
+
+#[test]
+fn proc_net_is_the_callers_own_net_directory() {
+    let (kernel, task, memory) = machine_as(1);
+    let caller = Caller::new(task, &memory);
+
+    assert_eq!(
+        readlink(&kernel, &caller, "/proc/net"),
+        Ok("self/net".into())
+    );
+    let dev = read_text(&kernel, &caller, "/proc/net/dev");
+    let own = read_text(&kernel, &caller, &format!("/proc/{}/net/dev", task.0));
+    let thread = read_text(&kernel, &caller, "/proc/thread-self/net/tcp");
+
+    assert!(dev.starts_with("Inter-|"), "{dev}");
+    assert_eq!(own, dev);
+    assert!(thread.starts_with("  sl  local_address"), "{thread}");
+    assert_eq!(
+        errno(open(&kernel, &caller, "/proc/self/net/nope")),
+        Errno::ENOENT
+    );
+}

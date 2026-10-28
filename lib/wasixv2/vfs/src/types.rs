@@ -235,6 +235,10 @@ pub struct OpenOptions {
     /// The VFS truncates the file to 0 right after opening it (`O_TRUNC`), so a driver may skip
     /// work for the old data (an overlay's copy-up).
     pub truncate: bool,
+    /// The opening task, as [`Ctx::task`](crate::Ctx::task) numbers it, for pseudo filesystems
+    /// whose files show what the opener sees, as Linux's handlers read `current` (the host name
+    /// in `/proc/sys/kernel/hostname` is the opener's UTS namespace's); 0 for the embedder.
+    pub task: u32,
 }
 
 /// `fallocate` modes the VFS passes through.

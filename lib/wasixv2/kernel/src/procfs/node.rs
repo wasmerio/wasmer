@@ -29,6 +29,8 @@ pub(super) enum Entry {
     FdInfo(Scope, u32),
     /// `ns/<name>`, one of [`NsLink::ALL`] by index.
     Ns(Scope, usize),
+    /// `net/<name>`, one of [`NET_ENTRIES`] by index.
+    Net(Scope, usize),
 }
 
 /// Whose directory: a process (`/proc/<pid>`) or one of its threads
@@ -67,7 +69,7 @@ const STATIC: &[(usize, &str, Static)] = &[
     (ROOT, "filesystems", Static::File(text::Global::Filesystems)),
     (ROOT, "cmdline", Static::File(text::Global::Cmdline)),
     (ROOT, "sys", Static::Dir),
-    (ROOT, "net", Static::Dir),
+    (ROOT, "net", Static::Link(b"self/net")),
     // 13
     (11, "kernel", Static::Dir),
     (11, "vm", Static::Dir),
@@ -88,12 +90,6 @@ const STATIC: &[(usize, &str, Static)] = &[
     (15, "file-max", Static::File(text::Global::FileMax)),
     (15, "nr_open", Static::File(text::Global::NrOpen)),
     (15, "pipe-max-size", Static::File(text::Global::PipeMaxSize)),
-    (12, "tcp", Static::File(text::Global::Tcp(false))),
-    (12, "tcp6", Static::File(text::Global::Tcp(true))),
-    (12, "udp", Static::File(text::Global::Udp(false))),
-    (12, "udp6", Static::File(text::Global::Udp(true))),
-    (12, "unix", Static::File(text::Global::Unix)),
-    (12, "dev", Static::File(text::Global::NetDev)),
 ];
 
 /// What an entry of a process or thread directory is.
@@ -107,8 +103,9 @@ pub(super) enum PidEntry {
     Exe,
     Cwd,
     Root,
-    /// `ns/`.
+    /// `ns/`, `net/`.
     Namespaces,
+    Net,
     File(text::PerPid),
 }
 
@@ -122,6 +119,7 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("cwd", PidEntry::Cwd, 0o777),
     ("root", PidEntry::Root, 0o777),
     ("ns", PidEntry::Namespaces, 0o511),
+    ("net", PidEntry::Net, 0o555),
     ("cmdline", PidEntry::File(text::PerPid::Cmdline), 0o444),
     ("comm", PidEntry::File(text::PerPid::Comm), 0o644),
     ("environ", PidEntry::File(text::PerPid::Environ), 0o400),
@@ -132,6 +130,16 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("stat", PidEntry::File(text::PerPid::Stat), 0o444),
     ("statm", PidEntry::File(text::PerPid::Statm), 0o444),
     ("status", PidEntry::File(text::PerPid::Status), 0o444),
+];
+
+/// The files of `/proc/<pid>/net`, which show the task's network namespace.
+const NET_ENTRIES: &[(&str, text::Net)] = &[
+    ("tcp", text::Net::Tcp(false)),
+    ("tcp6", text::Net::Tcp(true)),
+    ("udp", text::Net::Udp(false)),
+    ("udp6", text::Net::Udp(true)),
+    ("unix", text::Net::Unix),
+    ("dev", text::Net::Dev),
 ];
 
 /// Where pids start in the root's directory positions, after the static entries.
@@ -239,9 +247,24 @@ impl ProcNode {
                         out.push((index as u64, name, Entry::Ns(scope, index)));
                     }
                 }
+                // `proc_tgid_net_readdir`: nothing once the task has no namespaces.
+                PidEntry::Net => {
+                    self.source
+                        .task(scope.pid, scope.tid)
+                        .ok_or(Errno::ENOENT)?;
+                    for (index, (name, _)) in NET_ENTRIES.iter().enumerate() {
+                        out.push((
+                            index as u64,
+                            name.as_bytes().to_vec(),
+                            Entry::Net(scope, index),
+                        ));
+                    }
+                }
                 _ => return Err(Errno::ENOTDIR),
             },
-            Entry::Fd(..) | Entry::FdInfo(..) | Entry::Ns(..) => return Err(Errno::ENOTDIR),
+            Entry::Fd(..) | Entry::FdInfo(..) | Entry::Ns(..) | Entry::Net(..) => {
+                return Err(Errno::ENOTDIR);
+            }
         }
         Ok(out)
     }
@@ -267,7 +290,7 @@ impl ProcNode {
                 Static::Link(_) | Static::SelfLink | Static::ThreadSelf => 0o777,
             },
             Entry::Pid(_, index) => PID_ENTRIES[index].2,
-            Entry::FdInfo(..) => 0o444,
+            Entry::FdInfo(..) | Entry::Net(..) => 0o444,
             Entry::Ns(..) => 0o777,
             Entry::Fd(scope, fd) => {
                 // The link's mode shows how the file is open (`tid_fd_update_inode`).
@@ -292,7 +315,8 @@ impl ProcNode {
             | Entry::Pid(scope, _)
             | Entry::Fd(scope, _)
             | Entry::FdInfo(scope, _)
-            | Entry::Ns(scope, _) => scope,
+            | Entry::Ns(scope, _)
+            | Entry::Net(scope, _) => scope,
         };
         let Some(info) = self.source.process(scope.pid) else {
             return (0, 0);
@@ -348,6 +372,7 @@ fn ino(entry: Entry) -> u64 {
         Entry::Fd(scope, fd) => scoped(scope, (1 << 29) | u64::from(fd)),
         Entry::FdInfo(scope, fd) => scoped(scope, (1 << 28) | u64::from(fd)),
         Entry::Ns(scope, index) => scoped(scope, (1 << 27) | index as u64),
+        Entry::Net(scope, index) => scoped(scope, (1 << 26) | index as u64),
     }
 }
 
@@ -360,14 +385,16 @@ fn file_type(entry: Entry) -> FileType {
             Static::Link(_) | Static::SelfLink | Static::ThreadSelf => FileType::Symlink,
         },
         Entry::Pid(_, index) => match PID_ENTRIES[index].1 {
-            PidEntry::Fds | PidEntry::FdInfos | PidEntry::Tasks | PidEntry::Namespaces => {
-                FileType::Directory
-            }
+            PidEntry::Fds
+            | PidEntry::FdInfos
+            | PidEntry::Tasks
+            | PidEntry::Namespaces
+            | PidEntry::Net => FileType::Directory,
             PidEntry::Exe | PidEntry::Cwd | PidEntry::Root => FileType::Symlink,
             PidEntry::File(_) => FileType::Regular,
         },
         Entry::Fd(..) | Entry::Ns(..) => FileType::Symlink,
-        Entry::FdInfo(..) => FileType::Regular,
+        Entry::FdInfo(..) | Entry::Net(..) => FileType::Regular,
     }
 }
 
@@ -524,7 +551,10 @@ impl Node for ProcNode {
         }
         let (data, comm) = match self.entry {
             Entry::Static(index) => match STATIC[index].2 {
-                Static::File(file) => (text::global(&self.source, file)?, None),
+                Static::File(file) => {
+                    let ns = self.source.ns_of(options.task);
+                    (text::global(&self.source, &ns, file)?, None)
+                }
                 _ => return Err(Errno::ENXIO),
             },
             Entry::Pid(scope, index) => match PID_ENTRIES[index].1 {
@@ -537,6 +567,13 @@ impl Node for ProcNode {
             Entry::FdInfo(scope, fd) => {
                 let (file, cloexec) = self.open_file(scope, fd)?;
                 (text::fdinfo(&file, cloexec), None)
+            }
+            Entry::Net(scope, index) => {
+                let task = self
+                    .source
+                    .task(scope.pid, scope.tid)
+                    .ok_or(Errno::ENOENT)?;
+                (text::net(&task.ns.net, NET_ENTRIES[index].1), None)
             }
             _ => return Err(Errno::ENXIO),
         };

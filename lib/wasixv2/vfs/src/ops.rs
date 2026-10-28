@@ -165,7 +165,7 @@ impl Vfs {
                             .new_node_attrs(cx, &dir, how.mode & MODE_PERM, false)
                             .await?
                     };
-                    let options = open_options(flags, &dir);
+                    let options = open_options(flags, &dir, cx.task);
                     match self.create_open(cx, &dir, &name, &new, options).await {
                         Ok((dentry, handle)) => {
                             created = Some(handle);
@@ -222,13 +222,15 @@ impl Vfs {
         {
             return Err(Errno::EROFS);
         }
-        self.finish_open(target, flags, writable, truncate, created)
+        self.finish_open(cx.task, target, flags, writable, truncate, created)
             .await
     }
 
-    /// Opens `target`, or takes the handle its creation returned, and builds the open file.
+    /// Opens `target` for `task`, or takes the handle its creation returned, and builds the open
+    /// file.
     async fn finish_open(
         self: &Arc<Self>,
+        task: u32,
         target: Path,
         flags: OpenFlags,
         writable: bool,
@@ -243,7 +245,7 @@ impl Vfs {
                 let options = OpenOptions {
                     write: writable,
                     truncate,
-                    ..open_options(flags, &target)
+                    ..open_options(flags, &target, task)
                 };
                 Some(target.dentry.node().open(options).await?)
             }
@@ -341,7 +343,7 @@ impl Vfs {
         };
         let options = OpenOptions {
             write: true,
-            ..open_options(how.flags, &dir)
+            ..open_options(how.flags, &dir, cx.task)
         };
         let (node, handle) = dir.dentry.node().create_unnamed(&new, options).await?;
         let target = Path {
@@ -354,7 +356,7 @@ impl Vfs {
             .set_linkable(!how.flags.contains(OpenFlags::O_EXCL));
         self.may_open(cx.cred, &target, acc_mode & !MAY_WRITE, how.flags)
             .await?;
-        self.finish_open(target, how.flags, true, false, Some(handle))
+        self.finish_open(cx.task, target, how.flags, true, false, Some(handle))
             .await
     }
 
@@ -375,6 +377,7 @@ impl Vfs {
             noatime: false,
             sync: false,
             truncate: false,
+            task: 0,
         };
         let (node, handle) = mnt.root.node().create_unnamed(new, options).await?;
         let path = mnt.pseudo_path(node, name);
@@ -1266,8 +1269,8 @@ async fn lock_rename(old_dir: &Path, new_dir: &Path) -> (DirLock, Option<DirLock
     (first, Some(second.lock().await))
 }
 
-/// The data-access options of an open with `flags` on `at`'s mount.
-fn open_options(flags: OpenFlags, at: &Path) -> OpenOptions {
+/// The data-access options of an open by `task` with `flags` on `at`'s mount.
+fn open_options(flags: OpenFlags, at: &Path, task: u32) -> OpenOptions {
     let access = flags & OpenFlags::O_ACCMODE;
     OpenOptions {
         read: access != OpenFlags::O_WRONLY,
@@ -1275,6 +1278,7 @@ fn open_options(flags: OpenFlags, at: &Path) -> OpenOptions {
         noatime: flags.contains(OpenFlags::O_NOATIME) || at.mnt.flags.noatime,
         sync: flags.contains(OpenFlags::O_DSYNC),
         truncate: false,
+        task,
     }
 }
 
