@@ -65,17 +65,6 @@ pub fn path_rename_internal(
 
     let mut moved_ephemeral_symlink = false;
 
-    {
-        let source_fd = wasi_try_ok!(state.fs.get_fd(source_fd));
-        if !source_fd.inner.rights.contains(Rights::PATH_RENAME_SOURCE) {
-            return Ok(Errno::Access);
-        }
-        let target_fd = wasi_try_ok!(state.fs.get_fd(target_fd));
-        if !target_fd.inner.rights.contains(Rights::PATH_RENAME_TARGET) {
-            return Ok(Errno::Access);
-        }
-    }
-
     // this is to be sure the source file is fetched from the filesystem if needed
     let source_inode = wasi_try_ok!(state.fs.get_inode_at_path(
         inodes,
@@ -87,18 +76,31 @@ pub fn path_rename_internal(
     let _ = state
         .fs
         .get_inode_at_path(inodes, target_fd, target_path, true);
-    let (source_parent_inode, source_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
-        inodes,
-        source_fd,
-        Path::new(source_path),
-        true
-    ));
-    let (target_parent_inode, target_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
-        inodes,
-        target_fd,
-        Path::new(target_path),
-        true
-    ));
+    let (source_parent_inode, source_owner, source_entry_name) = wasi_try_ok!(
+        state
+            .fs
+            .get_owned_parent_inode_at_path(inodes, source_fd, Path::new(source_path), true)
+    );
+    let (target_parent_inode, target_owner, target_entry_name) = wasi_try_ok!(
+        state
+            .fs
+            .get_owned_parent_inode_at_path(inodes, target_fd, Path::new(target_path), true)
+    );
+    {
+        let source_fd = wasi_try_ok!(state.fs.get_fd(source_fd));
+        wasi_try_ok!(state.fs.check_path_right(
+            &source_fd,
+            &source_owner,
+            Rights::PATH_RENAME_SOURCE
+        ));
+        let target_fd = wasi_try_ok!(state.fs.get_fd(target_fd));
+        wasi_try_ok!(state.fs.check_path_right(
+            &target_fd,
+            &target_owner,
+            Rights::PATH_RENAME_TARGET
+        ));
+        wasi_try_ok!(state.fs.check_cross_preopen(&source_owner, &target_owner));
+    }
     let source_guest_path = {
         let guard = source_parent_inode.read();
         match guard.deref() {

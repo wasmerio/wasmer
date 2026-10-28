@@ -174,7 +174,6 @@ pub struct BinaryPackage {
     pub package_mounts: Option<Arc<BinaryPackageMounts>>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
-    pub file_system_memory_footprint: u64,
 
     pub additional_host_mapped_directories: Vec<MappedDirectory>,
 }

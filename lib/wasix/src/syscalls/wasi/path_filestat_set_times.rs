@@ -80,18 +80,16 @@ pub(crate) fn path_filestat_set_times_internal(
     let env = ctx.data();
     let (state, inodes) = env.get_wasi_state_and_inodes();
     let fd_entry = state.fs.get_fd(fd)?;
-    if !fd_entry
-        .inner
-        .rights
-        .contains(Rights::PATH_FILESTAT_SET_TIMES)
-    {
-        return Err(Errno::Access);
-    }
     let (atime, mtime) = timestamp_updates(st_atim, st_mtim, fst_flags)?;
-    let file_inode =
-        state
-            .fs
-            .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)?;
+    let (file_inode, owner) = state.fs.get_owned_inode_at_path(
+        inodes,
+        fd,
+        path,
+        flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+    )?;
+    state
+        .fs
+        .check_path_right(&fd_entry, &owner, Rights::PATH_FILESTAT_SET_TIMES)?;
     state.fs.set_times_for_inode(&file_inode, atime, mtime)
 }
 

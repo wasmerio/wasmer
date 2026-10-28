@@ -22,10 +22,6 @@ pub fn path_unlink_file<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let base_dir = wasi_try_ok!(state.fs.get_fd(fd));
-    if !base_dir.inner.rights.contains(Rights::PATH_UNLINK_FILE) {
-        return Ok(Errno::Access);
-    }
     let path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
@@ -55,13 +51,19 @@ pub(crate) fn path_unlink_file_internal(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
+    let base_dir = wasi_try_ok!(state.fs.get_fd(fd));
     let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
-    let (parent_inode, child_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
+    let (parent_inode, owner, child_name) = wasi_try_ok!(state.fs.get_owned_parent_inode_at_path(
         inodes,
         fd,
         std::path::Path::new(path),
         false
     ));
+    wasi_try_ok!(
+        state
+            .fs
+            .check_path_right(&base_dir, &owner, Rights::PATH_UNLINK_FILE)
+    );
     let host_adjusted_path = {
         let guard = parent_inode.read();
         match guard.deref() {

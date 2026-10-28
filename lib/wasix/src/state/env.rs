@@ -1414,7 +1414,6 @@ mod tests {
             package_mounts: None,
             commands: vec![command],
             uses: vec![],
-            file_system_memory_footprint: 0,
             additional_host_mapped_directories: vec![],
         };
 

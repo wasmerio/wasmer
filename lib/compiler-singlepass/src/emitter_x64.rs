@@ -1423,9 +1423,7 @@ impl EmitterX64 for AssemblerX64 {
                 dynasm!(self ; movzx Rq(dst), WORD [Rq(src) + disp]);
             }
             (Size::S32, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                if src != dst {
-                    dynasm!(self ; mov Rd(dst), Rd(src));
-                }
+                dynasm!(self ; mov Rd(dst), Rd(src));
             }
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; mov Rd(dst), DWORD [Rq(src) + disp]);
@@ -1439,7 +1437,7 @@ impl EmitterX64 for AssemblerX64 {
             (Size::S32, Location::Imm32(imm), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; mov Rq(dst), imm as i32);
             }
-            (Size::S8, Location::Imm64(imm), Size::S32, Location::GPR(dst)) => {
+            (Size::S8, Location::Imm64(imm), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; mov Rq(dst), imm as i32);
             }
             (Size::S16, Location::Imm64(imm), Size::S64, Location::GPR(dst)) => {

@@ -184,22 +184,6 @@ impl CanonicalizeType {
             CanonicalizeType::None => None,
         }
     }
-
-    fn promote(self) -> Result<Self, CompileError> {
-        match self {
-            CanonicalizeType::None => Ok(CanonicalizeType::None),
-            CanonicalizeType::F32 => Ok(CanonicalizeType::F64),
-            CanonicalizeType::F64 => codegen_error!("cannot promote F64"),
-        }
-    }
-
-    fn demote(self) -> Result<Self, CompileError> {
-        match self {
-            CanonicalizeType::None => Ok(CanonicalizeType::None),
-            CanonicalizeType::F32 => codegen_error!("cannot demote F64"),
-            CanonicalizeType::F64 => Ok(CanonicalizeType::F32),
-        }
-    }
 }
 
 trait WpTypeExt {
@@ -783,7 +767,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .take(return_value_sizes.len())
             .copied()
             .collect_vec();
-        let mut return_values = used_stack_params.clone();
+        // Reuse argument locations, not their pending canonicalization metadata.
+        let mut return_values = used_stack_params
+            .iter()
+            .map(|(loc, _)| (*loc, CanonicalizeType::None))
+            .collect_vec();
         let extra_return_values = (0..return_value_sizes.len().saturating_sub(stack_params.len()))
             .map(|_| -> Result<_, CompileError> {
                 Ok((self.acquire_location_on_stack()?, CanonicalizeType::None))
@@ -1138,9 +1126,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .rev()
             .copied()
             .collect();
-        for (i, (stack_value, _)) in params.into_iter().enumerate() {
+        for (i, (stack_value, canonicalize)) in params.into_iter().enumerate() {
             let dst = self.value_stack[value_stack_depth_after + i].0;
-            self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
+            if let Some(canonicalize_size) = canonicalize.to_size()
+                && self.config.enable_nan_canonicalization
+            {
+                self.machine
+                    .canonicalize_nan(canonicalize_size, stack_value, dst)?;
+            } else {
+                self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
+            }
             self.ensure_output_size_within_limit()?;
         }
 
@@ -1875,23 +1870,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
 
             Operator::F32Abs => {
-                // Preserve canonicalization state.
-
-                let loc = self.pop_value_released()?.0;
+                let (loc, canonicalize) = self.pop_value_released()?;
                 let ret = self.acquire_location(&WpType::F32)?;
-                self.value_stack.push((ret, CanonicalizeType::None));
+                self.value_stack.push((ret, canonicalize));
 
                 self.machine.f32_abs(loc, ret)?;
             }
 
             Operator::F32Neg => {
-                // Preserve canonicalization state.
-
-                let loc = self.pop_value_released()?.0;
+                let (loc, mut canonicalize) = self.pop_value_released()?;
                 let ret = self.acquire_location(&WpType::F32)?;
-                self.value_stack.push((ret, CanonicalizeType::None));
 
-                self.machine.f32_neg(loc, ret)?;
+                if self.config.enable_nan_canonicalization
+                    && let Some(canonicalize_size) = canonicalize.to_size()
+                {
+                    self.machine.canonicalize_nan(canonicalize_size, loc, ret)?;
+                    self.machine.f32_neg(ret, ret)?;
+                    canonicalize = CanonicalizeType::None;
+                } else {
+                    self.machine.f32_neg(loc, ret)?;
+                }
+                self.value_stack.push((ret, canonicalize));
             }
 
             Operator::F64Const { value } => {
@@ -2041,14 +2040,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::F64PromoteF32 => {
                 let (loc, canonicalize) = self.pop_value_released()?;
                 let ret = self.acquire_location(&WpType::F64)?;
-                self.value_stack.push((ret, canonicalize.promote()?));
-                self.machine.convert_f64_f32(loc, ret)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
+                if self.config.enable_nan_canonicalization
+                    && let Some(canonicalize_size) = canonicalize.to_size()
+                {
+                    self.machine.canonicalize_nan(canonicalize_size, loc, ret)?;
+                    self.machine.convert_f64_f32(ret, ret)?;
+                } else {
+                    self.machine.convert_f64_f32(loc, ret)?;
+                }
             }
             Operator::F32DemoteF64 => {
                 let (loc, canonicalize) = self.pop_value_released()?;
-                let ret = self.acquire_location(&WpType::F64)?;
-                self.value_stack.push((ret, canonicalize.demote()?));
-                self.machine.convert_f32_f64(loc, ret)?;
+                let ret = self.acquire_location(&WpType::F32)?;
+                self.value_stack.push((ret, CanonicalizeType::None));
+                if self.config.enable_nan_canonicalization
+                    && let Some(canonicalize_size) = canonicalize.to_size()
+                {
+                    self.machine.canonicalize_nan(canonicalize_size, loc, ret)?;
+                    self.machine.convert_f32_f64(ret, ret)?;
+                } else {
+                    self.machine.convert_f32_f64(loc, ret)?;
+                }
             }
 
             Operator::I32ReinterpretF32 => {
@@ -2750,8 +2763,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .drain((self.value_stack.len() - params_count)..)
                     .collect_vec();
                 for (param, phi_param) in params.iter().rev().zip(self.value_stack.iter().rev()) {
-                    self.machine
-                        .emit_relaxed_mov(Size::S64, param.0, phi_param.0)?;
+                    if let Some(canonicalize_size) = param.1.to_size()
+                        && self.config.enable_nan_canonicalization
+                    {
+                        self.machine
+                            .canonicalize_nan(canonicalize_size, param.0, phi_param.0)?;
+                    } else {
+                        self.machine
+                            .emit_relaxed_mov(Size::S64, param.0, phi_param.0)?;
+                    }
                 }
                 self.release_locations(&params)?;
 

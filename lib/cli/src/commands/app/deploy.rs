@@ -148,7 +148,7 @@ pub struct CmdAppDeploy {
 struct RemoteBuildInput {
     app_config: AppConfigV1,
     owner: String,
-    original_config: Option<serde_yaml::Value>,
+    original_config: Option<yaml_serde::Value>,
     config_path: Option<PathBuf>,
 }
 
@@ -193,14 +193,14 @@ impl CmdAppDeploy {
     async fn get_owner(
         &self,
         client: &WasmerClient,
-        app: &mut serde_yaml::Value,
+        app: &mut yaml_serde::Value,
         maybe_edge_app: Option<&DeployApp>,
     ) -> anyhow::Result<String> {
         if let Some(owner) = &self.owner {
             return Ok(owner.clone());
         }
 
-        if let Some(serde_yaml::Value::String(owner)) = &app.get("owner") {
+        if let Some(yaml_serde::Value::String(owner)) = &app.get("owner") {
             return Ok(owner.clone());
         }
 
@@ -369,7 +369,7 @@ impl CmdAppDeploy {
         let config_str = std::fs::read_to_string(app_config_path)
             .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
 
-        let mut app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+        let mut app_yaml: yaml_serde::Value = yaml_serde::from_str(&config_str)?;
         let maybe_edge_app = if let Some(app_id) = app_yaml.get("app_id").and_then(|s| s.as_str()) {
             wasmer_backend_api::query::get_app_by_id(client, app_id.to_owned())
                 .await
@@ -431,7 +431,7 @@ impl CmdAppDeploy {
             }
         }
 
-        let current_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())?;
+        let current_config: AppConfigV1 = yaml_serde::from_value(app_yaml.clone())?;
         let new_config_raw = crate::utils::yaml::apply_app_config_to_yaml(
             &config_str,
             &current_config.clone().to_yaml_value()?,
@@ -635,7 +635,7 @@ impl AsyncCliCommand for CmdAppDeploy {
             .with_context(|| format!("Could not read file '{}'", &app_config_path.display()))?;
 
         // We want to allow the user to specify the app name interactively.
-        let mut app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+        let mut app_yaml: yaml_serde::Value = yaml_serde::from_str(&config_str)?;
         let maybe_edge_app = if let Some(app_id) = app_yaml.get("app_id").and_then(|s| s.as_str()) {
             wasmer_backend_api::query::get_app_by_id(&client, app_id.to_owned())
                 .await
@@ -728,7 +728,7 @@ impl AsyncCliCommand for CmdAppDeploy {
             }
         }
 
-        let original_app_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())?;
+        let original_app_config: AppConfigV1 = yaml_serde::from_value(app_yaml.clone())?;
         let new_config_raw = crate::utils::yaml::apply_app_config_to_yaml(
             &config_str,
             &original_app_config.clone().to_yaml_value()?,
@@ -1036,7 +1036,7 @@ pub struct DeployAppOpts<'a> {
     // Original raw yaml config.
     // Present here to enable forwarding unknown fields to the backend, which
     // preserves forwards-compatibility for schema changes.
-    pub original_config: Option<serde_yaml::value::Value>,
+    pub original_config: Option<yaml_serde::value::Value>,
     /// Optional dotenv file overlaid on the app configuration for deployment.
     pub env_file: Option<PathBuf>,
     #[allow(dead_code)]
@@ -1139,7 +1139,7 @@ pub async fn deploy_app(
     } else {
         config_value
     };
-    let mut raw_config = serde_yaml::to_string(&final_config)?.trim().to_string();
+    let mut raw_config = yaml_serde::to_string(&final_config)?.trim().to_string();
     raw_config.push('\n');
 
     // TODO: respect allow_create flag

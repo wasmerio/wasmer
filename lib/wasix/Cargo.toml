@@ -43,7 +43,7 @@ dashmap.workspace = true
 fnv.workspace = true
 base64.workspace = true
 webc = { workspace = true, features = ["v3"] }
-serde_yaml.workspace = true
+yaml_serde.workspace = true
 rkyv.workspace = true
 shared-buffer.workspace = true
 hyper = { workspace = true, features = ["server"], optional = true }

@@ -63,6 +63,7 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
             wasmparser::Dylink0Subsection::RuntimePath(path) => {
                 runtime_path.extend(path.into_iter().map(|path| path.to_string()));
             }
+            wasmparser::Dylink0Subsection::TargetArch(..) => {}
         }
     }
 
