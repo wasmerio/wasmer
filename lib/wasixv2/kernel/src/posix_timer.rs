@@ -504,10 +504,7 @@ impl Kernel {
             SigevNotify::SIGEV_SIGNAL | SigevNotify::SIGEV_THREAD => None,
             SigevNotify::SIGEV_THREAD_ID => {
                 let tid = event.sigev_un.tid();
-                if !self.same_thread_group(caller, tid) {
-                    return Err(Errno::EINVAL);
-                }
-                Some(TaskId(tid as u32))
+                Some(self.same_thread_group(caller, tid).ok_or(Errno::EINVAL)?)
             }
             _ => return Err(Errno::EINVAL),
         };

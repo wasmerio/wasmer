@@ -194,15 +194,17 @@ fn ns_get_userns_opens_the_owning_user_namespace() {
 #[test]
 fn another_users_ns_links_are_not_for_reading() {
     let (kernel, root, memory) = machine_as(0);
-    let other = kernel.spawn(ProcessConfig {
-        args: vec!["other".into()],
-        env: Vec::new(),
-        stdio: Stdio {
-            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-            stdout: Arc::new(Capture::default()),
-            stderr: Arc::new(Capture::default()),
-        },
-    });
+    let other = kernel
+        .spawn(ProcessConfig {
+            args: vec!["other".into()],
+            env: Vec::new(),
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap();
     let caller = Caller::new(other, &memory);
     assert_eq!(block_on(kernel.setresuid(&caller, 1000, 1000, 1000)), Ok(0));
 

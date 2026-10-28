@@ -12,14 +12,12 @@ use super::{Source, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
-    ns::{NetNs, NsProxy},
+    ns::{NetNs, NsProxy, PidNs},
     resource::{ADDRESS_SPACE, TICKS},
     sched::cpus,
     sync::MutexExt,
 };
 
-/// `PID_MAX_LIMIT` on 64-bit Linux; pids are never reused here, so any value below it works.
-const PID_MAX: u32 = 4_194_304;
 /// `fs.nr_open` and `fs.pipe-max-size`, Linux's defaults.
 const NR_OPEN: u32 = 1 << 20;
 const PIPE_MAX_SIZE: u32 = 1 << 20;
@@ -40,6 +38,7 @@ pub(super) enum Global {
     Ostype,
     Osrelease,
     PidMax,
+    NsLastPid,
     Overcommit,
     MmapMinAddr,
     FileMax,
@@ -69,6 +68,8 @@ impl Global {
             | Self::FileMax
             | Self::NrOpen
             | Self::PipeMaxSize => 0o644,
+            // Writing it needs `CAP_CHECKPOINT_RESTORE` instead.
+            Self::NsLastPid => 0o666,
             _ => 0o444,
         }
     }
@@ -89,8 +90,13 @@ pub(super) enum PerPid {
     Status,
 }
 
-/// A system file as a reader in the namespaces `ns` sees it.
-pub(super) fn global(source: &Source, ns: &NsProxy, file: Global) -> FsResult<Vec<u8>> {
+/// A system file as a reader in the namespaces `ns`, and the pid namespace `pid_ns`, sees it.
+pub(super) fn global(
+    source: &Source,
+    ns: &NsProxy,
+    pid_ns: &PidNs,
+    file: Global,
+) -> FsResult<Vec<u8>> {
     let line = |s: &str| format!("{s}\n").into_bytes();
     let names = *ns.uts.lock_or_recover();
     let uts = |field: &[u8; 65]| {
@@ -104,8 +110,10 @@ pub(super) fn global(source: &Source, ns: &NsProxy, file: Global) -> FsResult<Ve
             let up = source.host.monotonic();
             line(&format!("{} 0.00", centis(up)))
         }
+        // The last pid is the reader's pid namespace's.
         Global::Loadavg => {
-            let (tasks, last) = source.task_counts();
+            let (tasks, _) = source.task_counts();
+            let last = pid_ns.last_pid();
             line(&format!("0.00 0.00 0.00 1/{tasks} {last}"))
         }
         Global::Stat => stat(source),
@@ -121,7 +129,8 @@ pub(super) fn global(source: &Source, ns: &NsProxy, file: Global) -> FsResult<Ve
         Global::Domainname => line(&uts(&names.domainname)),
         Global::Ostype => line(&uts(&names.sysname)),
         Global::Osrelease => line(&uts(&names.release)),
-        Global::PidMax => line(&PID_MAX.to_string()),
+        Global::PidMax => line(&pid_ns.pid_max().to_string()),
+        Global::NsLastPid => line(&pid_ns.last_pid().to_string()),
         // `OVERCOMMIT_GUESS`.
         Global::Overcommit => line("0"),
         Global::MmapMinAddr => line(&crate::mm::MMAP_MIN_ADDR.to_string()),
@@ -162,7 +171,7 @@ fn cpuinfo() -> Vec<u8> {
 /// counts it.
 fn meminfo(source: &Source) -> Vec<u8> {
     let used: u64 = source
-        .pids()
+        .all_pids()
         .into_iter()
         .filter_map(|pid| source.mm(Scope { pid, tid: None }))
         .map(|mm| mm.size())
@@ -605,7 +614,7 @@ fn state(info: &super::ProcessInfo, task: Option<&super::TaskInfo>) -> (char, &'
 /// `do_task_stat`.
 fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
     let process = &info.process;
-    let pid = scope.tid.unwrap_or(scope.pid);
+    let pid = source.nr(scope.tid.unwrap_or(scope.pid));
     let ident = process.ident.lock_or_recover().clone();
     let task = source.task(scope.pid, scope.tid);
     let comm = task
@@ -635,14 +644,15 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
         Some(tty) => {
             let device = tty.device();
             let tty_nr = crate::tty::encode_dev(device.major, device.minor);
-            (i128::from(tty_nr), tty.pgrp().map_or(0, i128::from))
+            let tpgid = tty.pgrp().map_or(0, |pgrp| source.nr(pgrp));
+            (i128::from(tty_nr), i128::from(tpgid))
         }
         None => (0, -1),
     };
     let fields: Vec<String> = [
-        info.parent as i128,               // ppid
-        ident.pgid as i128,                // pgrp
-        ident.sid as i128,                 // session
+        source.nr(info.parent) as i128,    // ppid
+        source.nr(ident.pgid) as i128,     // pgrp
+        source.nr(ident.sid) as i128,      // session
         tty_nr,                            // tty_nr
         tpgid,                             // tpgid
         0x0040_0000,                       // flags: PF_RANDOMIZE
@@ -711,7 +721,14 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         .as_ref()
         .map(|task| task.signals.proc_status())
         .unwrap_or_default();
-    let pid = scope.tid.unwrap_or(scope.pid);
+    let pid = source.nr(scope.tid.unwrap_or(scope.pid));
+    // Each pid from the instance's pid namespace down to the task's own.
+    let upids = source.upids(scope.tid.unwrap_or(scope.pid));
+    let in_each = |id: u32| -> String {
+        let nrs = upids.iter().map(|upid| source.pids.nr(&upid.ns, id));
+        nrs.map(|nr| nr.to_string()).collect::<Vec<_>>().join("\t")
+    };
+    let ns_pid: Vec<String> = upids.iter().map(|upid| upid.nr.to_string()).collect();
     let kb = task.as_ref().map_or(0, |task| task.mm.size()) / 1024;
     let locked_kb = task.as_ref().map_or(0, |task| task.mm.locked()) / 1024;
     let threads = source.threads(scope.pid).len().max(1);
@@ -731,7 +748,7 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         out,
         "Name:\t{}\nUmask:\t{umask:04o}\nState:\t{letter} ({state_name})\nTgid:\t{}\nNgid:\t0\nPid:\t{pid}\nPPid:\t{}\nTracerPid:\t0\n\
          Uid:\t{}\t{}\t{}\t{}\nGid:\t{}\t{}\t{}\t{}\nFDSize:\t{fd_size}\nGroups:\t{groups}\n\
-         NStgid:\t{}\nNSpid:\t{pid}\nNSpgid:\t{}\nNSsid:\t{}\n\
+         NStgid:\t{}\nNSpid:\t{}\nNSpgid:\t{}\nNSsid:\t{}\n\
          VmPeak:\t{kb:8} kB\nVmSize:\t{kb:8} kB\nVmLck:\t{locked_kb:8} kB\nVmPin:\t       0 kB\nVmHWM:\t{kb:8} kB\nVmRSS:\t{kb:8} kB\n\
          RssAnon:\t{kb:8} kB\nRssFile:\t       0 kB\nRssShmem:\t       0 kB\nVmData:\t{kb:8} kB\nVmStk:\t       0 kB\nVmExe:\t       0 kB\nVmLib:\t       0 kB\nVmPTE:\t       0 kB\nVmSwap:\t       0 kB\n\
          Threads:\t{threads}\nSigQ:\t0/4096\nSigPnd:\t{:016x}\nShdPnd:\t{:016x}\nSigBlk:\t{:016x}\nSigIgn:\t{:016x}\nSigCgt:\t{:016x}\n\
@@ -739,8 +756,8 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
          NoNewPrivs:\t{}\nSeccomp:\t0\nCpus_allowed:\t{}\nCpus_allowed_list:\t{}\n\
          voluntary_ctxt_switches:\t0\nnonvoluntary_ctxt_switches:\t0\n",
         String::from_utf8_lossy(&comm),
-        scope.pid,
-        info.parent,
+        source.nr(scope.pid),
+        source.nr(info.parent),
         user.real,
         user.effective,
         user.saved,
@@ -749,9 +766,10 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         group.effective,
         group.saved,
         group.fs,
-        scope.pid,
-        ident.pgid,
-        ident.sid,
+        in_each(scope.pid),
+        ns_pid.join("\t"),
+        in_each(ident.pgid),
+        in_each(ident.sid),
         signals[0],
         signals[1],
         signals[2],

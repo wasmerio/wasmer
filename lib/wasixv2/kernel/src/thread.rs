@@ -193,11 +193,14 @@ impl Kernel {
                 return Err(Errno::EAGAIN.into());
             }
             let sched = task.sched.for_child()?;
+            let id = TaskId(state.last_id + 1);
+            state.pids.alloc(id.0, &process.pid_ns, &[], false)?;
             {
                 let mut group = process.group.state.lock_or_recover();
                 // A group on its way out, or in an `execve`, starts nothing (Linux:
                 // `fatal_signal_pending`, the leader's SIGKILL from `de_thread`).
                 if group.exit.is_some() || group.exec.is_some() {
+                    state.pids.detach(id.0, crate::pid::PidType::Pid);
                     return Err(Errno::EINTR.into());
                 }
                 group.live += 1;
@@ -216,7 +219,6 @@ impl Kernel {
                 left_mm: false,
                 exit_mm_handed: false,
             };
-            let id = TaskId(state.last_id + 1);
             let flag = Arc::new(WorkFlag::default());
             let new = Task {
                 cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
@@ -239,7 +241,8 @@ impl Kernel {
             state.tasks.insert(id, new);
             id
         };
-        let tid = child.0 as i32;
+        // A thread is in its group's pid namespace, the caller's.
+        let tid = self.own_tid(child);
         // Linux ignores faults on both writes.
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
             let _ = write_value(caller.memory(), GuestPtrMut::new(parent_tid.addr()), &tid).await;
@@ -295,6 +298,7 @@ impl Kernel {
         }
         let stopped = forget_task(&mut self.state.lock_or_recover(), child);
         self.report_group_stop(stopped);
+        self.pid_ns_progress();
     }
 
     /// `do_exit` for one task: its memory goes first ([`Kernel::exit_mm`]). The last task to
@@ -396,6 +400,7 @@ impl Kernel {
         process.group.exited.wake(PollMask::empty());
         process.group.released.wake(PollMask::empty());
         self.exit_notify(&process);
+        self.pid_ns_progress();
     }
 
     /// `exit_notify` once the group has exited, none of its threads is left but the leader
@@ -410,7 +415,7 @@ impl Kernel {
     /// instance runs the child, which leaves the memory for it ([`GuestAction::ExitMm`]), and
     /// once the child is done goes back to the task only to unwind it. A task waiting for its
     /// vfork child otherwise counts as running.
-    fn exit_notify(&self, process: &Arc<Process>) {
+    pub(crate) fn exit_notify(&self, process: &Arc<Process>) {
         let Some(status) = process.group.status() else {
             return;
         };
@@ -432,6 +437,11 @@ impl Kernel {
             (others, leader_runs)
         };
         if !others && !leader_runs {
+            // ---- ns ----
+            // A pid namespace's init is a zombie only once the namespace is empty.
+            if self.zap_pid_ns(process) {
+                return;
+            }
             // ---- ipc ----
             // `exit_sem`, by the group's last task.
             self.ipc_process_exited(process);
@@ -458,6 +468,7 @@ impl Kernel {
         };
         self.report_group_stop(stopped);
         self.exit_notify(&process);
+        self.pid_ns_progress();
     }
 
     /// Tells the parent of the group stop that [`forget_task`] completed for `process`.
@@ -492,6 +503,7 @@ impl Kernel {
         };
         self.report_group_stop(stopped);
         self.exit_notify(&process);
+        self.pid_ns_progress();
     }
 
     /// Sends SIGKILL to every process of the machine but the kernel's init, as `kill(-1,
@@ -770,17 +782,17 @@ impl Kernel {
             .expect("NoInterrupt never interrupts")
     }
 
-    /// The futex state of every task of `task`'s thread group that has not exited. Taken all
-    /// at once: a task that exits meanwhile can be released, and gone, before the caller
-    /// reaches it.
-    pub(crate) fn take_group_futex_states(&self, task: TaskId) -> Vec<(TaskId, ThreadState)> {
+    /// The futex state of every task of `task`'s thread group that has not exited, with its
+    /// tid. Taken all at once: a task that exits meanwhile can be released, and gone with its
+    /// tid, before the caller reaches it.
+    pub(crate) fn take_group_futex_states(&self, task: TaskId) -> Vec<(u32, ThreadState)> {
         let mut state = self.state.lock_or_recover();
         let process = state.tasks[&task].process.clone();
         state
             .tasks
             .iter_mut()
             .filter(|(_, t)| Arc::ptr_eq(&t.process, &process) && !t.thread.exited)
-            .map(|(&id, t)| (id, take_futex_state(t)))
+            .map(|(&id, t)| (self.own_tid(id) as u32, take_futex_state(t)))
             .collect()
     }
 
@@ -788,28 +800,23 @@ impl Kernel {
     /// stopped running the old image: their robust and PI futexes go to their waiters, and a
     /// `clear_child_tid` is only written when the memory outlives the group (a vfork relative),
     /// as Linux writes it only while others use the memory.
-    pub(crate) async fn exit_futexes(
-        &self,
-        caller: &Caller<'_>,
-        threads: Vec<(TaskId, ThreadState)>,
-    ) {
+    pub(crate) async fn exit_futexes(&self, caller: &Caller<'_>, threads: Vec<(u32, ThreadState)>) {
         let clear_tid = self.mm_shared_elsewhere(caller.task());
-        for (task, thread) in threads {
-            self.exit_thread(caller, task, thread, clear_tid).await;
+        for (tid, thread) in threads {
+            self.exit_thread(caller, tid, thread, clear_tid).await;
         }
     }
 
-    /// `futex_exit_release` and `mm_release` for `task`, on the memory it runs on: releases
-    /// the robust futexes it holds and hands its PI futexes on, then, with `clear_tid`, zeroes
-    /// its `clear_child_tid` and wakes a waiter there.
+    /// `futex_exit_release` and `mm_release` for the task whose tid is `tid`, on the memory it
+    /// runs on: releases the robust futexes it holds and hands its PI futexes on, then, with
+    /// `clear_tid`, zeroes its `clear_child_tid` and wakes a waiter there.
     async fn exit_thread(
         &self,
         caller: &Caller<'_>,
-        task: TaskId,
+        tid: u32,
         thread: ThreadState,
         clear_tid: bool,
     ) {
-        let tid = task.0;
         if thread.robust_list != 0 {
             self.exit_robust_list(caller, thread.robust_list, tid).await;
         }
@@ -843,7 +850,8 @@ impl Kernel {
             let thread = take_futex_state(entry);
             (thread, mm_users(&state, task))
         };
-        self.exit_thread(caller, task, thread, users > 1).await;
+        let tid = self.own_tid(task) as u32;
+        self.exit_thread(caller, tid, thread, users > 1).await;
         let (last, process) = {
             let mut state = self.state.lock_or_recover();
             let Some(entry) = state.tasks.get_mut(&task) else {
@@ -902,7 +910,7 @@ impl Kernel {
 
     pub(crate) fn sys_set_tid_address(&self, caller: &Caller<'_>, tidptr: S32Ptr) -> i32 {
         self.with_task(caller.task(), |t| t.thread.clear_child_tid = tidptr.addr());
-        caller.task().0 as i32
+        self.own_tid(caller.task())
     }
 
     pub(crate) fn sys_set_robust_list(
@@ -927,16 +935,17 @@ impl Kernel {
         head_ptr: RobustListHeadPtrPtr,
         len_ptr: UsizePtr,
     ) -> SysResult<i32> {
+        // `find_task_by_vpid`.
+        let target = match pid {
+            0 => Some(caller.task()),
+            pid => self.find_vpid(caller, pid).map(TaskId),
+        };
         let head = {
             let state = self.state.lock_or_recover();
             let me = &state.tasks[&caller.task()];
-            let target = match pid {
-                0 => Some(me),
-                pid => state
-                    .tasks
-                    .get(&TaskId(pid as u32))
-                    .filter(|t| !t.thread.exited),
-            };
+            let target = target
+                .and_then(|id| state.tasks.get(&id))
+                .filter(|t| pid == 0 || !t.thread.exited);
             match target {
                 None => return Err(Errno::ESRCH.into()),
                 Some(t) if !Arc::ptr_eq(&t.process, &me.process) => {
@@ -996,6 +1005,7 @@ fn gone_in_vfork(waiting: &[TaskId], id: TaskId, t: &Task) -> bool {
 /// ([`Kernel::report_group_stop`]).
 pub(crate) fn forget_task(state: &mut State, task: TaskId) -> Option<Arc<Process>> {
     let entry = state.tasks.remove(&task)?;
+    state.pids.detach(task.0, crate::pid::PidType::Pid);
     let completed = entry.signals.detach();
     let group = &entry.process.group;
     if !entry.thread.exited {

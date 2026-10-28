@@ -306,7 +306,8 @@ impl Process {
 }
 
 impl Kernel {
-    /// The process `pid` names for the caller: 0 is the caller's own.
+    /// The process of the task `pid` names for the caller (`find_task_by_vpid`): 0 is the
+    /// caller's own. A thread's tid names its process too.
     pub(crate) fn lookup_pid(
         &self,
         caller: &Caller<'_>,
@@ -314,10 +315,16 @@ impl Kernel {
     ) -> Result<std::sync::Arc<Process>, Errno> {
         match pid {
             0 => Ok(self.process(caller.task())),
-            // `find_task_by_vpid`: no process has a negative pid.
-            pid if pid < 0 => Err(Errno::ESRCH),
-            // ---- proc ----
-            pid => self.procs.find(pid as u32).ok_or(Errno::ESRCH),
+            pid => {
+                let id = self.find_vpid(caller, pid).ok_or(Errno::ESRCH)?;
+                // ---- proc ----
+                if let Some(process) = self.procs.find(id) {
+                    return Ok(process);
+                }
+                let state = self.state.read_or_recover();
+                let task = state.tasks.get(&wasixv2_syscalls::TaskId(id));
+                task.map(|task| task.process.clone()).ok_or(Errno::ESRCH)
+            }
         }
     }
 
@@ -432,15 +439,12 @@ impl Kernel {
         if data.is_null() {
             return Ok(0);
         }
-        let mut hdr: UserCapHeaderStruct =
+        let hdr: UserCapHeaderStruct =
             read_value(caller.memory(), GuestPtr::new(header.addr())).await?;
         if hdr.pid < 0 {
             return Err(Errno::EINVAL.into());
         }
-        if hdr.pid == 0 {
-            hdr.pid = self.process(caller.task()).pid.0 as Pid;
-        }
-        let cred = self.procs.find(hdr.pid as u32).ok_or(Errno::ESRCH)?.cred();
+        let cred = self.lookup_pid(caller, hdr.pid)?.cred();
         for word in 0..words {
             let shift = 32 * word;
             let set = UserCapDataStruct {
@@ -465,7 +469,7 @@ impl Kernel {
         let hdr: UserCapHeaderStruct =
             read_value(caller.memory(), GuestPtr::new(header.addr())).await?;
         let process = self.process(caller.task());
-        if hdr.pid != 0 && hdr.pid != process.pid.0 as Pid {
+        if hdr.pid != 0 && hdr.pid != self.own_tid(caller.task()) {
             return Err(Errno::EPERM.into());
         }
         let (mut effective, mut permitted, mut inheritable) = (0, 0, 0);
@@ -498,12 +502,16 @@ impl Kernel {
         }
     }
 
+    /// The process group as the caller sees it: 0 for one outside its pid namespace.
     pub(crate) fn sys_getpgid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
-        Ok(self.lookup_pid(caller, pid)?.ident.lock_or_recover().pgid as Pid)
+        let pgid = self.lookup_pid(caller, pid)?.ident.lock_or_recover().pgid;
+        Ok(self.vnr(caller, pgid))
     }
 
+    /// The session as the caller sees it: 0 for one outside its pid namespace.
     pub(crate) fn sys_getsid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
-        Ok(self.lookup_pid(caller, pid)?.ident.lock_or_recover().sid as Pid)
+        let sid = self.lookup_pid(caller, pid)?.ident.lock_or_recover().sid;
+        Ok(self.vnr(caller, sid))
     }
 
     pub(crate) async fn sys_uname(

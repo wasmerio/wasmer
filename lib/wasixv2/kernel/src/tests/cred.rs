@@ -23,15 +23,17 @@ pub(super) fn machine_with(
     let host: Arc<dyn Host> = Arc::new(TestHost);
     let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1);
     let kernel = configure(Kernel::new(host, Arc::new(root)));
-    let task = kernel.spawn(ProcessConfig {
-        args: vec!["test".into()],
-        env: Vec::new(),
-        stdio: Stdio {
-            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-            stdout: Arc::new(Capture::default()),
-            stderr: Arc::new(Capture::default()),
-        },
-    });
+    let task = kernel
+        .spawn(ProcessConfig {
+            args: vec!["test".into()],
+            env: Vec::new(),
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap();
     (kernel, task, FlatMemory(RefCell::new(vec![0; 65536])))
 }
 
@@ -207,15 +209,17 @@ fn root_bypasses_file_permissions_and_others_do_not() {
 #[test]
 fn sigcont_both_ways_between_users_does_not_deadlock() {
     let (kernel, a, memory) = machine_as(0, 0);
-    let b = kernel.spawn(ProcessConfig {
-        args: vec!["b".into()],
-        env: Vec::new(),
-        stdio: Stdio {
-            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-            stdout: Arc::new(Capture::default()),
-            stderr: Arc::new(Capture::default()),
-        },
-    });
+    let b = kernel
+        .spawn(ProcessConfig {
+            args: vec!["b".into()],
+            env: Vec::new(),
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap();
     assert_eq!(
         block_on(kernel.setuid(&Caller::new(b, &memory), 2000)),
         Ok(0)
@@ -251,15 +255,17 @@ fn sigcont_both_ways_between_users_does_not_deadlock() {
 #[test]
 fn signals_need_a_shared_uid_or_cap_kill() {
     let (kernel, a, memory) = machine_as(0, 0);
-    let b = kernel.spawn(ProcessConfig {
-        args: vec!["b".into()],
-        env: Vec::new(),
-        stdio: Stdio {
-            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-            stdout: Arc::new(Capture::default()),
-            stderr: Arc::new(Capture::default()),
-        },
-    });
+    let b = kernel
+        .spawn(ProcessConfig {
+            args: vec!["b".into()],
+            env: Vec::new(),
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap();
     let (a_caller, b_caller) = (Caller::new(a, &memory), Caller::new(b, &memory));
     let b_pid = b.0 as Pid;
 
@@ -361,15 +367,17 @@ fn scheduling_another_users_task_needs_cap_sys_nice() {
     use wasixv2_abi::PrioWhich;
 
     let (kernel, a, memory) = machine_as(0, 0);
-    let b = kernel.spawn(ProcessConfig {
-        args: vec!["b".into()],
-        env: Vec::new(),
-        stdio: Stdio {
-            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-            stdout: Arc::new(Capture::default()),
-            stderr: Arc::new(Capture::default()),
-        },
-    });
+    let b = kernel
+        .spawn(ProcessConfig {
+            args: vec!["b".into()],
+            env: Vec::new(),
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap();
     let (a_caller, b_caller) = (Caller::new(a, &memory), Caller::new(b, &memory));
     let b_pid = b.0 as i32;
     assert_eq!(block_on(kernel.setuid(&b_caller, 2000)), Ok(0));

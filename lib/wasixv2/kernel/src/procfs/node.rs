@@ -11,7 +11,10 @@ use wasixv2_vfs::{
 };
 
 use super::{Source, text};
-use crate::{ns::NsLink, sync::MutexExt};
+use crate::{
+    ns::{NsLink, PidNs},
+    sync::MutexExt,
+};
 
 /// A directory, file or link of the process filesystem.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -81,6 +84,7 @@ const STATIC: &[(usize, &str, Static)] = &[
     (13, "osrelease", Static::File(text::Global::Osrelease)),
     (13, "version", Static::File(text::Global::Version)),
     (13, "pid_max", Static::File(text::Global::PidMax)),
+    (13, "ns_last_pid", Static::File(text::Global::NsLastPid)),
     (
         14,
         "overcommit_memory",
@@ -197,10 +201,10 @@ impl ProcNode {
                     }
                 }
                 if self.entry == Entry::Root {
-                    for pid in self.source.pids() {
+                    for (nr, pid) in self.source.pids() {
                         let scope = Scope { pid, tid: None };
-                        let name = pid.to_string().into_bytes();
-                        out.push((FIRST_PID_POS + u64::from(pid), name, Entry::Dir(scope)));
+                        let name = nr.to_string().into_bytes();
+                        out.push((FIRST_PID_POS + u64::from(nr), name, Entry::Dir(scope)));
                     }
                 }
             }
@@ -219,13 +223,13 @@ impl ProcNode {
             }
             Entry::Pid(scope, index) => match PID_ENTRIES[index].1 {
                 PidEntry::Tasks => {
-                    for tid in self.source.threads(scope.pid) {
+                    for (nr, tid) in self.source.threads(scope.pid) {
                         let thread = Scope {
                             pid: scope.pid,
                             tid: Some(tid),
                         };
-                        let name = tid.to_string().into_bytes();
-                        out.push((u64::from(tid), name, Entry::Dir(thread)));
+                        let name = nr.to_string().into_bytes();
+                        out.push((u64::from(nr), name, Entry::Dir(thread)));
                     }
                 }
                 kind @ (PidEntry::Fds | PidEntry::FdInfos) => {
@@ -460,13 +464,15 @@ impl Node for ProcNode {
         if self.file_type() != FileType::Directory {
             return Err(Errno::ENOTDIR);
         }
-        // Process and descriptor directories are looked up by number, not by listing them.
+        // Process and descriptor directories are looked up by number, not by listing them;
+        // pids are the instance's pid namespace's.
         let number = std::str::from_utf8(name)
             .ok()
             .filter(|s| !s.starts_with('0') || *s == "0")
             .and_then(|s| s.parse::<u32>().ok());
         match (self.entry, number) {
-            (Entry::Root, Some(pid)) => {
+            (Entry::Root, Some(nr)) => {
+                let pid = self.source.find(nr).ok_or(Errno::ENOENT)?;
                 let scope = Scope { pid, tid: None };
                 self.alive(scope)?;
                 return Ok(self.node(Entry::Dir(scope)));
@@ -474,9 +480,10 @@ impl Node for ProcNode {
             (Entry::Pid(scope, index), Some(n)) => {
                 let entry = match PID_ENTRIES[index].1 {
                     PidEntry::Tasks => {
+                        let tid = self.source.find(n).ok_or(Errno::ENOENT)?;
                         let thread = Scope {
                             pid: scope.pid,
-                            tid: Some(n),
+                            tid: Some(tid),
                         };
                         self.alive(thread)?;
                         Entry::Dir(thread)
@@ -516,13 +523,21 @@ impl Node for ProcNode {
         let entry = match self.entry {
             Entry::Static(index) => match STATIC[index].2 {
                 Static::Link(body) => return Ok(Link::Body(body.to_vec())),
+                // The caller as the instance's pid namespace sees it: nothing for one outside
+                // it (`proc_self_get_link`).
                 Static::SelfLink => {
                     let tgid = self.source.tgid_of(cx.task).ok_or(Errno::ENOENT)?;
+                    let tgid = Some(self.source.nr(tgid)).filter(|&nr| nr != 0);
+                    let tgid = tgid.ok_or(Errno::ENOENT)?;
                     return Ok(Link::Body(tgid.to_string().into_bytes()));
                 }
                 Static::ThreadSelf => {
                     let tgid = self.source.tgid_of(cx.task).ok_or(Errno::ENOENT)?;
-                    let body = format!("{tgid}/task/{}", cx.task);
+                    let (tgid, tid) = (self.source.nr(tgid), self.source.nr(cx.task));
+                    if tgid == 0 || tid == 0 {
+                        return Err(Errno::ENOENT);
+                    }
+                    let body = format!("{tgid}/task/{tid}");
                     return Ok(Link::Body(body.into_bytes()));
                 }
                 _ => return Err(Errno::EINVAL),
@@ -565,13 +580,25 @@ impl Node for ProcNode {
             Entry::Static(index) => match STATIC[index].2 {
                 Static::File(file) => {
                     let ns = self.source.ns_of(options.task);
-                    (text::global(&self.source, &ns, file)?, None)
+                    let pid_ns = self.source.pid_ns_of(options.task);
+                    let data = text::global(&self.source, &ns, &pid_ns, file)?;
+                    let write = match file {
+                        _ if !options.write => None,
+                        text::Global::PidMax => Some(Write::PidMax(pid_ns)),
+                        text::Global::NsLastPid => {
+                            let may = self.source.may_checkpoint_restore(options.task);
+                            Some(Write::NsLastPid(pid_ns, may))
+                        }
+                        _ => None,
+                    };
+                    (data, write)
                 }
                 _ => return Err(Errno::ENXIO),
             },
             Entry::Pid(scope, index) => match PID_ENTRIES[index].1 {
                 PidEntry::File(file) => {
-                    let comm = (file == text::PerPid::Comm && options.write).then_some(scope);
+                    let comm = (file == text::PerPid::Comm && options.write)
+                        .then(|| Write::Comm(self.source.clone(), scope));
                     (text::per_pid(&self.source, scope, file)?, comm)
                 }
                 _ => return Err(Errno::ENXIO),
@@ -589,10 +616,7 @@ impl Node for ProcNode {
             }
             _ => return Err(Errno::ENXIO),
         };
-        Ok(Box::new(FileHandle {
-            data,
-            comm: comm.map(|scope| (self.source.clone(), scope)),
-        }))
+        Ok(Box::new(FileHandle { data, write: comm }))
     }
 }
 
@@ -619,10 +643,27 @@ impl Handle for DirHandle {
     }
 }
 
-/// An open file: its contents as they were at open. `comm` is writable.
+/// An open file: its contents as they were at open, and what a write to it changes.
 struct FileHandle {
     data: Vec<u8>,
-    comm: Option<(Arc<Source>, Scope)>,
+    write: Option<Write>,
+}
+
+/// What a writable file sets.
+enum Write {
+    /// A task's name.
+    Comm(Arc<Source>, Scope),
+    /// `kernel.pid_max` of the opener's pid namespace.
+    PidMax(Arc<PidNs>),
+    /// `kernel.ns_last_pid` of the opener's pid namespace, if it may
+    /// (`checkpoint_restore_ns_capable`).
+    NsLastPid(Arc<PidNs>, bool),
+}
+
+/// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
+fn sysctl_int(data: &[u8]) -> Result<u32, Errno> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    text.trim().parse().map_err(|_| Errno::EINVAL)
 }
 
 #[async_trait(?Send)]
@@ -636,12 +677,19 @@ impl Handle for FileHandle {
         Ok(n)
     }
 
-    /// `comm_write`: the new name, cut to fit.
+    /// `comm_write`: the new name, cut to fit; or a sysctl's new value.
     async fn write_at(&self, data: &[u8], _: u64) -> FsResult<usize> {
-        let (source, scope) = self.comm.as_ref().ok_or(Errno::EINVAL)?;
-        source
-            .set_comm(scope.pid, scope.tid, data)
-            .ok_or(Errno::ESRCH)?;
+        match self.write.as_ref().ok_or(Errno::EINVAL)? {
+            Write::Comm(source, scope) => {
+                source
+                    .set_comm(scope.pid, scope.tid, data)
+                    .ok_or(Errno::ESRCH)?;
+            }
+            Write::PidMax(ns) => ns.set_pid_max(sysctl_int(data)?)?,
+            // `pid_ns_ctl_handler`.
+            Write::NsLastPid(_, false) => return Err(Errno::EPERM),
+            Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
+        }
         Ok(data.len())
     }
 

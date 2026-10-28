@@ -664,7 +664,7 @@ impl Kernel {
                     .map(|cred| Control {
                         level: SocketLevel::SOL_SOCKET.0,
                         kind: unix::SCM_CREDENTIALS,
-                        data: cred.to_bytes(),
+                        data: self.ucred_bytes(caller, cred),
                     })
                     .into_iter()
                     .collect();
@@ -1026,7 +1026,7 @@ impl Kernel {
             }
             AnySock::Inet((_, sock)) => self.socket_option(sock, level, name)?,
             AnySock::Unix(_, sock) if level == SocketLevel::SOL_SOCKET => {
-                Some(self.unix_getsockopt(sock, name)?)
+                Some(self.unix_getsockopt(caller, sock, name)?)
             }
             AnySock::Netlink(_, nl) if level == SocketLevel::SOL_SOCKET => {
                 Some(nl.getsockopt(name)?)

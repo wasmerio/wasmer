@@ -154,15 +154,17 @@ fn spawn_on(
     env: &[&str],
 ) -> (Kernel, TaskId, Arc<Capture>) {
     let stdout = Arc::new(Capture::default());
-    let task = kernel.spawn(ProcessConfig {
-        args: args.iter().map(|s| s.to_string()).collect(),
-        env: env.iter().map(|s| s.to_string()).collect(),
-        stdio: Stdio {
-            stdin,
-            stdout: stdout.clone(),
-            stderr: Arc::new(Capture::default()),
-        },
-    });
+    let task = kernel
+        .spawn(ProcessConfig {
+            args: args.iter().map(|s| s.to_string()).collect(),
+            env: env.iter().map(|s| s.to_string()).collect(),
+            stdio: Stdio {
+                stdin,
+                stdout: stdout.clone(),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap();
     (kernel, task, stdout)
 }
 
@@ -773,11 +775,13 @@ fn prlimit_of_another_process_sets_its_descriptor_limit() {
     let (kernel, task, _) = setup(b"");
     let memory = FlatMemory(RefCell::new(vec![0; 512]));
     let caller = Caller::new(task, &memory);
-    let other = kernel.spawn(ProcessConfig {
-        args: vec!["other".into()],
-        env: Vec::new(),
-        stdio: Stdio::from_fns(|_| {}, |_| {}),
-    });
+    let other = kernel
+        .spawn(ProcessConfig {
+            args: vec!["other".into()],
+            env: Vec::new(),
+            stdio: Stdio::from_fns(|_| {}, |_| {}),
+        })
+        .unwrap();
     set_nofile(&kernel, &caller, &memory, other.0 as i32, 3);
     let dup = |task| {
         let stdin = kernel.file(task, Fd(0)).unwrap();
@@ -800,6 +804,7 @@ mod memfd;
 mod mount;
 mod net;
 mod ns;
+mod pidns;
 mod proc;
 mod procfs;
 mod ptimer;

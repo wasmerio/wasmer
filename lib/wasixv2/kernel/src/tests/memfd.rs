@@ -110,11 +110,13 @@ fn memfd_create_needs_a_shm_filesystem() {
     let host: Arc<dyn Host> = Arc::new(TestHost);
     let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 0, 0);
     let kernel = Kernel::new(host, Arc::new(root));
-    let task = kernel.spawn(ProcessConfig {
-        args: Vec::new(),
-        env: Vec::new(),
-        stdio: Stdio::from_fns(|_| {}, |_| {}),
-    });
+    let task = kernel
+        .spawn(ProcessConfig {
+            args: Vec::new(),
+            env: Vec::new(),
+            stdio: Stdio::from_fns(|_| {}, |_| {}),
+        })
+        .unwrap();
     let memory = FlatMemory(RefCell::new(vec![0; 65536]));
     let caller = Caller::new(task, &memory);
 

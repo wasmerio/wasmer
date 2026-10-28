@@ -519,6 +519,12 @@ impl Kernel {
                     perm.check(&cred, READ)?;
                 }
                 let ds = segment.to_abi(&perm);
+                // The creator and last user as the caller sees them (`pid_vnr`).
+                let ds = Shmid64Ds {
+                    shm_cpid: self.vnr(caller, ds.shm_cpid as u32),
+                    shm_lpid: self.vnr(caller, ds.shm_lpid as u32),
+                    ..ds
+                };
                 write_value(caller.memory(), GuestPtrMut::new(buf), &ds).await?;
                 Ok(match IpcCmd(cmd) {
                     IpcCmd::IPC_STAT => 0,

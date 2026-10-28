@@ -1078,15 +1078,17 @@ fn files_in_flight_count_against_their_sender_only() {
     let (kernel, first, memory) =
         super::cred::machine_with(|kernel| kernel.with_credentials(Credentials::new(0, 0)));
     let spawn = || {
-        kernel.spawn(ProcessConfig {
-            args: vec!["test".into()],
-            env: Vec::new(),
-            stdio: Stdio {
-                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-                stdout: Arc::new(Capture::default()),
-                stderr: Arc::new(Capture::default()),
-            },
-        })
+        kernel
+            .spawn(ProcessConfig {
+                args: vec!["test".into()],
+                env: Vec::new(),
+                stdio: Stdio {
+                    stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                    stdout: Arc::new(Capture::default()),
+                    stderr: Arc::new(Capture::default()),
+                },
+            })
+            .unwrap()
     };
     let (alice, bob) = (spawn(), spawn());
     for (task, uid) in [(alice, 1), (bob, 2)] {

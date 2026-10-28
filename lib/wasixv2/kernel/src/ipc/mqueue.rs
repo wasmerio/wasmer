@@ -558,11 +558,16 @@ impl Kernel {
                     si_code: SiCode::SI_MESGQ.0,
                     sifields: [0; 116],
                 };
-                info.sifields[0..4].copy_from_slice(&pid.to_le_bytes());
+                // The sender's pid as the owner sees it (`task_tgid_nr_ns(current,
+                // ns_of_pid(notify_owner))`).
+                let owner = self.procs.find(notify.owner);
+                let nr = owner.map_or(0, |owner| self.pids.nr(&owner.pid_ns, pid));
+                info.sifields[0..4].copy_from_slice(&nr.to_le_bytes());
                 info.sifields[4..8].copy_from_slice(&uid.to_le_bytes());
                 info.sifields[8..12].copy_from_slice(&value);
                 // The owner may be gone; nobody hears of it then.
-                let _ = self.send_to_group(None, notify.owner as i32, info);
+                let sender = self.procs.find(pid);
+                let _ = self.send_on_behalf(sender.as_deref(), notify.owner, info);
             }
             How::Thread { socket, mut cookie } => {
                 cookie[COOKIE_LEN - 1] = NOTIFY_WOKENUP;

@@ -14,7 +14,7 @@ use wasixv2_abi::{
     AtFd, ConstVoidPtr, Cstr, FsconfigCommand, FsmountFlags, FsopenFlags, FspickFlags,
     MountAttrFlags, OpenFlags,
 };
-use wasixv2_syscalls::{Caller, CstrError, Errno, Fd, LocalFuture, SysResult, read_cstr};
+use wasixv2_syscalls::{Caller, CstrError, Errno, Fd, LocalFuture, SysResult, TaskId, read_cstr};
 use wasixv2_vfs::{Cap, Cred, Filesystem, LookupFlags, OpenHow, Path};
 use wasixv2_wait::{PollMask, PollTable, Pollable};
 
@@ -61,6 +61,8 @@ struct Context {
     picked: Option<Path>,
     /// The credentials of the opener (`fc->cred`).
     cred: Cred,
+    /// The opener's pid namespace, which a proc instance shows (`proc_init_fs_context`).
+    pid_ns: Arc<crate::ns::PidNs>,
 }
 
 /// An open filesystem context (`fscontext_fops`).
@@ -96,7 +98,7 @@ enum Value {
 }
 
 impl Context {
-    fn new(ty: FsType, phase: Phase, cred: Cred) -> Self {
+    fn new(ty: FsType, phase: Phase, cred: Cred, pid_ns: Arc<crate::ns::PidNs>) -> Self {
         Self {
             ty,
             phase,
@@ -106,6 +108,7 @@ impl Context {
             fs: None,
             picked: None,
             cred,
+            pid_ns,
         }
     }
 
@@ -197,7 +200,8 @@ impl Kernel {
         }
         let name = copy_string(caller, fs_name, crate::mm::PAGE_SIZE as usize).await?;
         let ty = self.filesystems.get(&name).ok_or(Errno::ENODEV)?;
-        let context = Context::new(ty, Phase::CreateParams, env.cred);
+        let pid_ns = self.active_pid_ns(TaskId(env.task));
+        let context = Context::new(ty, Phase::CreateParams, env.cred, pid_ns);
         let cloexec = flags & FsopenFlags::FSOPEN_CLOEXEC.0 != 0;
         self.install_context(caller, context, cloexec)
     }
@@ -237,7 +241,8 @@ impl Kernel {
             .filesystems
             .get(sb.info.name.as_bytes())
             .ok_or(Errno::EINVAL)?;
-        let mut context = Context::new(ty, Phase::ReconfParams, env.cred);
+        let pid_ns = self.active_pid_ns(TaskId(env.task));
+        let mut context = Context::new(ty, Phase::ReconfParams, env.cred, pid_ns);
         context.fs = Some(sb.fs.clone());
         context.picked = Some(target);
         let cloexec = has(FspickFlags::FSPICK_CLOEXEC);
@@ -342,7 +347,7 @@ impl Kernel {
             return Err(Errno::EPERM);
         }
         let made = match &context.ty {
-            FsType::Proc => Ok(self.procfs()),
+            FsType::Proc => Ok(self.procfs_in(context.pid_ns.clone())),
             FsType::Other(ty) => {
                 let source = context.source.clone().unwrap_or_default();
                 ty.mount(&source, &context.params(), &context.cred)

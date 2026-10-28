@@ -21,6 +21,7 @@ mod net;
 mod netlink;
 mod ns;
 mod nsfs;
+mod pid;
 mod pipe;
 mod poll;
 mod posix_timer;
@@ -138,6 +139,8 @@ pub struct Kernel {
     // ---- proc ----
     /// The process tree: parents, zombies and vfork relations.
     procs: process::Procs,
+    /// The numbers of every task in the pid namespaces it is in.
+    pids: Arc<pid::Pids>,
     /// The formats `execve` starts besides scripts; by default anything with wasm's magic.
     binfmt: Arc<dyn Binfmt>,
     // ---- ipc ----
@@ -166,6 +169,8 @@ pub struct Kernel {
 struct State {
     last_id: u32,
     tasks: HashMap<TaskId, Task>,
+    /// The kernel's [`Kernel::pids`], which a task leaving the table detaches from.
+    pids: Arc<pid::Pids>,
 }
 
 /// The task table. Syscalls only read it, to find the caller's descriptor table, signals,
@@ -252,8 +257,12 @@ impl Kernel {
     pub fn new(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
         let vfs = Vfs::new(root);
         let clock = Arc::new(fs::HostClock(host.clone()));
-        let state = Arc::default();
-        let procs = process::Procs::default();
+        let pids = Arc::new(pid::Pids::default());
+        let state = Arc::new(TaskTable(RwLock::new(State {
+            pids: pids.clone(),
+            ..State::default()
+        })));
+        let procs = process::Procs::new(pids.clone());
         let jobs = tty::Jobs::new(&state, &procs.tree);
         Self {
             ptys: tty::Ptys::new(clock.clone()),
@@ -274,6 +283,7 @@ impl Kernel {
             vfs,
             futexes: futex::Futexes::default(),
             procs,
+            pids,
             binfmt: Arc::new(process::WasmMagic),
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
@@ -358,15 +368,18 @@ impl Kernel {
             self.state.read_or_recover().last_id == 0,
             "init is the first process"
         );
-        let init = self.new_process(vec!["init".to_string()], Vec::new(), FdTable::default(), 0);
+        let init = self
+            .new_process(vec!["init".to_string()], Vec::new(), FdTable::default(), 0)
+            .expect("the first process gets pid 1");
         self.task_signals(init).group().make_init();
         self.init = Some(init);
         self
     }
 
     /// Starts a process with a single task whose descriptors 0, 1 and 2 are `config.stdio`,
-    /// running as the kernel's [`Credentials`], as a child of init when the kernel has one.
-    pub fn spawn(&self, config: ProcessConfig) -> TaskId {
+    /// running as the kernel's [`Credentials`], as a child of init when the kernel has one, in
+    /// the initial namespaces. `EAGAIN` when the initial pid namespace has no pid left.
+    pub fn spawn(&self, config: ProcessConfig) -> Result<TaskId, Errno> {
         let cred = cred::Cred::new(&self.credentials);
         let mut files = FdTable::default();
         for file in stdio::open_files(config.stdio, &self.pseudo, cred.fs_owner()) {
@@ -386,11 +399,13 @@ impl Kernel {
         env: Vec<String>,
         files: FdTable,
         parent: u32,
-    ) -> TaskId {
+    ) -> Result<TaskId, Errno> {
         let cred = cred::Cred::new(&self.credentials);
+        let pid_ns = self.init_ns.pid_for_children.clone();
         let mut state = self.state.lock_or_recover();
+        let id = TaskId(state.last_id + 1);
+        state.pids.alloc(id.0, &pid_ns, &[], false)?;
         state.last_id += 1;
-        let id = TaskId(state.last_id);
         let name = args.first().map(String::as_bytes).unwrap_or_default();
         let comm = ident::Comm::from_path(name);
         let process = Arc::new(Process {
@@ -403,7 +418,7 @@ impl Kernel {
             ident: Mutex::new(ident::Ident::new(id.0)),
             cred: Mutex::new(cred),
             resources: Mutex::default(),
-            pid_ns: self.init_ns.pid_for_children.clone(),
+            pid_ns,
             sysvsem: Mutex::new(self.init_ns.ipc.clone()),
             args: Mutex::new(args.into_iter().map(String::into_bytes).collect()),
             env: Mutex::new(env.into_iter().map(String::into_bytes).collect()),
@@ -436,7 +451,7 @@ impl Kernel {
         drop(state);
         // ---- proc ----
         self.procs.add(process, parent, Signal::SIGCHLD.0);
-        id
+        Ok(id)
     }
 
     /// Whether `process` is the kernel's init, which outlives everything the kernel runs.
@@ -1532,12 +1547,13 @@ impl Syscalls for Kernel {
     }
     // ---- end proc ----
 
+    /// `task_tgid_vnr(current)`: the leader is in the caller's own pid namespace.
     async fn getpid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Ok(self.process(caller.task()).pid.0 as Pid)
+        Ok(self.pids.own_nr(self.process(caller.task()).pid.0))
     }
 
     async fn gettid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Ok(caller.task().0 as Pid)
+        Ok(self.own_tid(caller.task()))
     }
 
     // ---- sig ----
@@ -2745,6 +2761,14 @@ impl PidView for Kernel {
     fn tgid(&self, task: TaskId) -> TaskId {
         let state = self.state.read_or_recover();
         state.tasks.get(&task).map_or(task, |t| t.process.pid)
+    }
+
+    fn pid_in(&self, viewer: TaskId, task: TaskId) -> i32 {
+        let state = self.state.read_or_recover();
+        let Some(viewer) = state.tasks.get(&viewer) else {
+            return 0;
+        };
+        self.pids.nr(&viewer.process.pid_ns, task.0)
     }
 }
 

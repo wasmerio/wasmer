@@ -80,15 +80,17 @@ struct Fixture {
 
 /// A process of `kernel` with no input and discarded output.
 fn spawn_quiet(kernel: &Kernel) -> TaskId {
-    kernel.spawn(ProcessConfig {
-        args: vec![],
-        env: vec![],
-        stdio: Stdio {
-            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-            stdout: Arc::new(Capture::default()),
-            stderr: Arc::new(Capture::default()),
-        },
-    })
+    kernel
+        .spawn(ProcessConfig {
+            args: vec![],
+            env: vec![],
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap()
 }
 
 impl Fixture {

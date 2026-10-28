@@ -637,7 +637,8 @@ impl Kernel {
             wait: WaitQueue::new(),
             opener_net_admin: self.cred(caller).capable(Cap::NetAdmin),
             net,
-            port: self.process(caller.task()).pid.0,
+            // `netlink_autobind`: the process's pid as it sees it.
+            port: self.pids.own_nr(self.process(caller.task()).pid.0) as u32,
             timeouts: Timeouts::default(),
             host: self.host.clone(),
         };

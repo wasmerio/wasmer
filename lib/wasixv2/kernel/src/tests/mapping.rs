@@ -35,15 +35,17 @@ fn with_file(contents: &[u8]) -> (Kernel, TaskId, FlatMemory, Fd) {
 
 /// A second process on `kernel`, with empty stdio.
 pub(super) fn another_process(kernel: &Kernel) -> TaskId {
-    kernel.spawn(ProcessConfig {
-        args: vec!["other".into()],
-        env: Vec::new(),
-        stdio: Stdio {
-            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-            stdout: Arc::new(Capture::default()),
-            stderr: Arc::new(Capture::default()),
-        },
-    })
+    kernel
+        .spawn(ProcessConfig {
+            args: vec!["other".into()],
+            env: Vec::new(),
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap()
 }
 
 pub(super) fn open(kernel: &Kernel, caller: &Caller<'_>, path: &[u8], flags: OpenFlags) -> Fd {

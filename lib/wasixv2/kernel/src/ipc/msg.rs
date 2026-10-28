@@ -411,6 +411,12 @@ impl Kernel {
                     }
                     state.to_abi(&perm)
                 };
+                // The last sender and receiver as the caller sees them (`pid_vnr`).
+                let ds = Msqid64Ds {
+                    msg_lspid: self.vnr(caller, ds.msg_lspid as u32),
+                    msg_lrpid: self.vnr(caller, ds.msg_lrpid as u32),
+                    ..ds
+                };
                 write_value(caller.memory(), GuestPtrMut::new(buf), &ds).await?;
                 Ok(match IpcCmd(cmd) {
                     IpcCmd::IPC_STAT => 0,

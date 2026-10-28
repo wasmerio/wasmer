@@ -141,9 +141,11 @@ struct GroupState {
     /// Periodic POSIX timers whose signal was ignored when it fired; they are queued again
     /// once the signal is no longer ignored (`ignored_posix_timers`).
     ignored_timers: Vec<Arc<PosixTimer>>,
-    /// The kernel's init: a signal whose action is the default is dropped as it is sent,
-    /// SIGKILL and SIGSTOP included (`SIGNAL_UNKILLABLE`, `is_global_init`).
+    /// The init of a pid namespace: a signal whose action is the default is dropped, but for
+    /// SIGKILL and SIGSTOP from the kernel or from an ancestor namespace (`SIGNAL_UNKILLABLE`).
     unkillable: bool,
+    /// The kernel's init, which not even those reach (`is_global_init`).
+    global_init: bool,
     jobctl: JobCtl,
 }
 
@@ -180,6 +182,7 @@ impl Default for GroupState {
             posix_timers: posix_timer::Table::default(),
             ignored_timers: Vec::new(),
             unkillable: false,
+            global_init: false,
             jobctl: JobCtl::default(),
         }
     }
@@ -607,6 +610,28 @@ impl Signals {
         let mut state = self.state.lock_or_recover();
         state.actions[Signal::SIGCHLD.0 as usize - 1].handler = SignalHandler::SIG_IGN.0 as u32;
         state.unkillable = true;
+        state.global_init = true;
+    }
+
+    /// Whether the group is an init (`SIGNAL_UNKILLABLE`).
+    pub(crate) fn unkillable(&self) -> bool {
+        self.state.lock_or_recover().unkillable
+    }
+
+    /// Makes the group a pid namespace's init (`SIGNAL_UNKILLABLE`): only the signals it has
+    /// handlers for reach it from inside its namespace.
+    pub(crate) fn make_unkillable(&self) {
+        self.state.lock_or_recover().unkillable = true;
+    }
+
+    /// `zap_pid_ns_processes`: the dying init of a pid namespace ignores SIGCHLD, so its
+    /// children are reaped as they exit.
+    pub(crate) fn ignore_sigchld(&self) {
+        let mut state = self.state.lock_or_recover();
+        state.actions[Signal::SIGCHLD.0 as usize - 1] = Action {
+            handler: SignalHandler::SIG_IGN.0 as u32,
+            ..Action::default()
+        };
     }
 
     /// Queues `info` for the whole group (`__group_send_sig_info`).
@@ -665,7 +690,7 @@ impl Signals {
     /// does; returns whether it is pending now, `false` when the group ignores it.
     pub(crate) fn generate_kernel(&self, sig: i32) -> bool {
         // A kernel signal goes past the limit, or without its `siginfo`.
-        matches!(self.generate(None, kernel_info(sig)), Ok(true))
+        matches!(self.generate(None, kernel_info(sig), false), Ok(true))
     }
 
     /// Sends `sig` from the kernel (`SEND_SIG_PRIV`, `SI_KERNEL`) to the whole group.
@@ -732,16 +757,31 @@ impl Signals {
     /// ignored, and wakes the group's waiters. `EAGAIN` when the target's user has no room for
     /// a realtime signal that must keep its `siginfo`.
     fn send(&self, task: Option<TaskId>, info: Siginfo) -> Result<(), Errno> {
-        self.generate(task, info).map(drop)
+        self.generate(task, info, false).map(drop)
+    }
+
+    /// [`Signals::send`] from a sender outside the pid namespace of the group, which a
+    /// namespace's init takes SIGKILL and SIGSTOP from (`send_signal_locked`'s `force`); the
+    /// sender's pid in `info` is the caller's to clear.
+    pub(crate) fn send_from(
+        &self,
+        task: Option<TaskId>,
+        info: Siginfo,
+        outside: bool,
+    ) -> Result<(), Errno> {
+        self.generate(task, info, outside).map(drop)
     }
 
     /// [`Signals::send`], saying whether the signal is pending now: `false` when the group
-    /// ignores it and it was discarded (`prepare_signal` failing).
-    fn generate(&self, task: Option<TaskId>, info: Siginfo) -> Result<bool, Errno> {
+    /// ignores it and it was discarded (`prepare_signal` failing). A signal from the kernel
+    /// (`SI_KERNEL`), or from outside the group's pid namespace, is forced on a namespace's
+    /// init.
+    fn generate(&self, task: Option<TaskId>, info: Siginfo, outside: bool) -> Result<bool, Errno> {
+        let force = outside || info.si_code == SiCode::SI_KERNEL.0;
         // The charge reads the process's credentials and limits, which come before the group.
         let charge = self.account.as_ref().map_or(Ok(None), |a| a.charge(&info));
         let mut state = self.state.lock_or_recover();
-        if !state.prepare(task, info.si_signo) {
+        if !state.prepare(task, info.si_signo, force) {
             drop(state);
             // A SIGCONT continues the group though it is discarded.
             if info.si_signo == Signal::SIGCONT.0 {
@@ -782,7 +822,7 @@ impl Signals {
             .ignored_timers
             .iter()
             .position(|t| Arc::ptr_eq(t, timer));
-        if !state.prepare(target, info.si_signo) {
+        if !state.prepare(target, info.si_signo, true) {
             if info.si_signo == Signal::SIGCONT.0 {
                 self.queue.wake(wasixv2_wait::PollMask::empty());
             }
@@ -882,7 +922,7 @@ impl GroupState {
     /// `task`, or for the group with `None`. A blocked signal is never ignored, since the
     /// handler may change before it is unblocked (`sig_ignored`). The caller wakes the group's
     /// queue after a SIGCONT, queued or not.
-    fn prepare(&mut self, task: Option<TaskId>, sig: i32) -> bool {
+    fn prepare(&mut self, task: Option<TaskId>, sig: i32, force: bool) -> bool {
         let cancelled = match Signal(sig) {
             Signal::SIGCONT => STOP_SIGNALS,
             _ if STOP_SIGNALS & bit(sig) != 0 => bit(Signal::SIGCONT.0),
@@ -901,7 +941,7 @@ impl GroupState {
                 .is_some_and(|t| t.blocked & bit(sig) != 0),
             None => self.tasks.values().all(|t| t.blocked & bit(sig) != 0),
         };
-        blocked || !self.ignores(sig)
+        blocked || !self.ignores(sig, force)
     }
 
     /// `prepare_signal`'s SIGCONT: every task goes on, and a group that was stopped, or was
@@ -1157,10 +1197,15 @@ impl GroupState {
     }
 
     /// `sig_task_ignored`: the disposition throws the signal away. SIGKILL and SIGSTOP never are,
-    /// but for init, which takes only the signals it has handlers for.
-    fn ignores(&self, sig: i32) -> bool {
+    /// but for an init, which takes only the signals it has handlers for, and SIGKILL and
+    /// SIGSTOP when they are `force`d on a namespace's init.
+    fn ignores(&self, sig: i32, force: bool) -> bool {
         let action = &self.actions[sig as usize - 1];
-        if self.unkillable && action.is_default() {
+        let kernel_only = UNBLOCKABLE & bit(sig) != 0;
+        if self.global_init && kernel_only {
+            return true;
+        }
+        if self.unkillable && action.is_default() && !(force && kernel_only) {
             return true;
         }
         if UNBLOCKABLE & bit(sig) != 0 {
@@ -1177,7 +1222,11 @@ impl GroupState {
         while pending != 0 {
             let sig = pending.trailing_zeros() as i32 + 1;
             let action = self.actions[sig as usize - 1];
-            if action.is_default() && matches!(default_action(sig), DefaultAction::Terminate) {
+            let kills = !self.unkillable || UNBLOCKABLE & bit(sig) != 0;
+            if action.is_default()
+                && kills
+                && matches!(default_action(sig), DefaultAction::Terminate)
+            {
                 return Some(sig);
             }
             pending &= !bit(sig);
@@ -1542,6 +1591,18 @@ pub(crate) fn reserved_to_kernel(code: i32) -> bool {
     code >= 0 || code == SiCode::SI_TKILL.0
 }
 
+/// `has_si_pid_and_uid`: whether `info`'s layout carries the sender's pid and uid
+/// (`SIL_KILL`, `SIL_CHLD`, `SIL_RT` of `siginfo_layout`).
+fn has_si_pid_and_uid(info: &Siginfo) -> bool {
+    let code = info.si_code;
+    match code {
+        _ if code == SiCode::SI_TIMER.0 || code == SiCode::SI_SIGIO.0 => false,
+        _ if code <= 0 || code == SiCode::SI_KERNEL.0 => true,
+        // The codes of a child's state change carry the child's.
+        _ => info.si_signo == Signal::SIGCHLD.0,
+    }
+}
+
 fn check_sigsetsize(size: u32) -> Result<(), Errno> {
     match size as usize == Sigset::SIZE {
         true => Ok(()),
@@ -1587,21 +1648,21 @@ impl Kernel {
         self.task_signals(caller.task())
     }
 
-    /// The thread group `pid` names, or every group for `None`. As for Linux's `kill_pid_info`,
-    /// any thread's id names its whole group, and the group id still does once its leader thread
-    /// has exited.
-    fn groups(&self, pid: Option<Pid>) -> Vec<(Pid, Arc<Signals>)> {
+    /// The thread group the id `pid` names, or every group for `None`, by its leader's id. As
+    /// for Linux's `kill_pid_info`, any thread's id names its whole group, and the group id still
+    /// does once its leader thread has exited.
+    fn groups(&self, pid: Option<u32>) -> Vec<(u32, Arc<Signals>)> {
         let state = self.state.read_or_recover();
-        let mut groups: Vec<(Pid, Arc<Signals>)> = Vec::new();
+        let mut groups: Vec<(u32, Arc<Signals>)> = Vec::new();
         for (id, task) in &state.tasks {
-            let leader = task.process.pid.0 as Pid;
-            let named = pid.is_none_or(|pid| pid == leader || pid == id.0 as Pid);
+            let leader = task.process.pid.0;
+            let named = pid.is_none_or(|pid| pid == leader || pid == id.0);
             if !named || groups.iter().any(|(p, _)| *p == leader) {
                 continue;
             }
             // ---- proc ----
             // A reaped process's tasks may linger while their instance unwinds.
-            if self.procs.find(leader as u32).is_none() {
+            if self.procs.find(leader).is_none() {
                 continue;
             }
             groups.push((leader, task.signals.group().clone()));
@@ -1612,16 +1673,34 @@ impl Kernel {
         // goes nowhere.
         if let Some(pid) = pid
             && groups.is_empty()
-            && pid > 0
-            && self.procs.find(pid as u32).is_some()
+            && self.procs.find(pid).is_some()
         {
             groups.push((pid, Signals::new(None)));
         }
         groups
     }
 
-    fn tgid(&self, task: TaskId) -> Pid {
-        self.process(task).pid.0 as Pid
+    /// `send_signal_locked`'s view of a signal from `sender` (`None`: from outside the machine)
+    /// to the process `target`: a sender that has no pid in the target's pid namespace is
+    /// outside it, so it shows as pid 0 and forces SIGKILL and SIGSTOP on the namespace's
+    /// init. Queues `info` for the group, or for `task` alone.
+    fn deliver(
+        &self,
+        sender: Option<&Process>,
+        target: u32,
+        group: &Signals,
+        task: Option<TaskId>,
+        mut info: Siginfo,
+    ) -> Result<(), Errno> {
+        let outside = match (sender, self.procs.find(target)) {
+            (Some(sender), Some(target)) => self.pids.nr(&target.pid_ns, sender.pid.0) == 0,
+            (Some(_), None) => false,
+            (None, _) => true,
+        };
+        if outside && has_si_pid_and_uid(&info) {
+            info.sifields[0..4].copy_from_slice(&0i32.to_le_bytes());
+        }
+        group.send_from(task, info, outside)
     }
 
     /// `send_sig(SIGPIPE, current, 0)` when a write failed with `EPIPE`.
@@ -1718,6 +1797,11 @@ impl Kernel {
             }
             let trampoline = state.trampoline;
             let (false, Some(trampoline)) = (action.is_default(), trampoline) else {
+                // An init takes no default action but SIGKILL's and SIGSTOP's, which were
+                // forced on it.
+                if state.unkillable && UNBLOCKABLE & bit(sig) == 0 {
+                    continue;
+                }
                 match default_action(sig) {
                     DefaultAction::Ignore => continue,
                     DefaultAction::Stop => {
@@ -1913,7 +1997,7 @@ impl Kernel {
                     mask: sigset_bits(new.sa_mask) & !UNBLOCKABLE,
                 };
                 // POSIX: setting a disposition to ignore discards the pending signal.
-                if state.ignores(sig) {
+                if state.ignores(sig, false) {
                     if state.take_first(caller.task(), bit(sig)) {
                         state.actions[sig as usize - 1] = old;
                         return Err(SysErr::RestartNoIntr);
@@ -2070,29 +2154,34 @@ impl Kernel {
         }
         // Only the kernel may claim to be the kernel or `tkill`, except towards the calling
         // thread itself.
-        if reserved_to_kernel(info.si_code) && tid.unwrap_or(tgid) != caller.task().0 as Pid {
+        if reserved_to_kernel(info.si_code) && tid.unwrap_or(tgid) != self.own_tid(caller.task()) {
             return Err(Errno::EPERM.into());
         }
         let sender = Some(&*self.process(caller.task()));
         match tid {
-            Some(tid) => self.send_to_task(sender, Some(tgid), tid, info)?,
-            None => self.send_to_group(sender, tgid, info)?,
+            Some(tid) => self.send_to_task(caller, sender, Some(tgid), tid, info)?,
+            None => {
+                // `kill_proc_info`: a pid outside the caller's namespace names nothing.
+                let pid = self.find_vpid(caller, tgid).ok_or(Errno::ESRCH)?;
+                self.send_to_group(sender, pid, info)?
+            }
         }
         Ok(0)
     }
 
-    /// A `siginfo` naming the caller's process as the sender.
+    /// A `siginfo` naming the caller's process as the sender, by its pid as it sees it
+    /// (`task_tgid_vnr(current)`).
     pub(crate) fn sender_info(&self, caller: &Caller<'_>, sig: i32, code: SiCode) -> Siginfo {
         let process = self.process(caller.task());
         let uid = process.cred().user.real;
-        user_info(sig, code, process.pid.0 as Pid, uid)
+        user_info(sig, code, self.pids.own_nr(process.pid.0), uid)
     }
 
     /// `check_kill_permission` for a signal from `sender` (`None`: from outside the machine,
     /// which may signal anything) to the process `target`: `kill_ok_by_cred`, or `SIGCONT`
     /// within the sender's session.
-    fn may_signal(&self, sender: Option<&Process>, target: Pid, sig: i32) -> bool {
-        let (Some(sender), Some(target)) = (sender, self.procs.find(target as u32)) else {
+    fn may_signal(&self, sender: Option<&Process>, target: u32, sig: i32) -> bool {
+        let (Some(sender), Some(target)) = (sender, self.procs.find(target)) else {
             return true;
         };
         if sender.cred().may_signal(&target.cred()) {
@@ -2103,24 +2192,39 @@ impl Kernel {
         sig == Signal::SIGCONT.0 && sid(sender) == sid(&target)
     }
 
-    /// Queues `info` for the thread group `pid` (`kill_pid_info`), if `sender` may signal it.
-    pub(crate) fn send_to_group(
+    /// Queues `info`, which the kernel makes on behalf of `sender`, for the thread group of the
+    /// id `pid`, which `sender` needs no permission to signal. `info`'s pid is the sender's as
+    /// the target sees it.
+    pub(crate) fn send_on_behalf(
         &self,
         sender: Option<&Process>,
-        pid: Pid,
+        pid: u32,
         info: Siginfo,
     ) -> Result<(), Errno> {
         let groups = self.groups(Some(pid));
-        let Some((_, group)) = groups.first() else {
+        let (leader, group) = groups.first().ok_or(Errno::ESRCH)?;
+        self.deliver(sender, *leader, group, None, info)
+    }
+
+    /// Queues `info` for the thread group of the id `pid` (`kill_pid_info`), if `sender` may
+    /// signal it.
+    pub(crate) fn send_to_group(
+        &self,
+        sender: Option<&Process>,
+        pid: u32,
+        info: Siginfo,
+    ) -> Result<(), Errno> {
+        let groups = self.groups(Some(pid));
+        let Some((leader, group)) = groups.first() else {
             return Err(Errno::ESRCH);
         };
         check_sendable(info.si_signo)?;
-        if !self.may_signal(sender, pid, info.si_signo) {
+        if !self.may_signal(sender, *leader, info.si_signo) {
             return Err(Errno::EPERM);
         }
         match info.si_signo {
             0 => Ok(()),
-            _ => group.send(None, info),
+            _ => self.deliver(sender, *leader, group, None, info),
         }
     }
 
@@ -2131,7 +2235,7 @@ impl Kernel {
     /// return from a syscall, or a preemption point of the execution layer.
     pub fn kill(&self, pid: TaskId, sig: Signal) -> Result<(), Errno> {
         let sig = check_signal(sig)?;
-        self.send_to_group(None, pid.0 as Pid, user_info(sig, SiCode::SI_USER, 0, 0))
+        self.send_to_group(None, pid.0, user_info(sig, SiCode::SI_USER, 0, 0))
     }
 
     /// Sends `sig` to every process in the process group of `pid`, as a terminal's line
@@ -2141,14 +2245,14 @@ impl Kernel {
     // TODO: the terminal's foreground group, once the kernel has terminals.
     pub fn kill_process_group(&self, pid: TaskId, sig: Signal) -> Result<bool, Errno> {
         let sig = check_signal(sig)?;
-        let groups = self.pgrp_groups(self.pgid_of(pid.0 as Pid));
+        let groups = self.pgrp_groups(self.pgid_of(pid.0));
         if groups.is_empty() {
             return Err(Errno::ESRCH);
         }
         let mut pending = false;
         for (_, group) in groups {
             // A kernel signal goes past the limit, or without its `siginfo`.
-            pending |= matches!(group.generate(None, kernel_info(sig)), Ok(true));
+            pending |= matches!(group.generate(None, kernel_info(sig), false), Ok(true));
         }
         Ok(pending)
     }
@@ -2159,13 +2263,14 @@ impl Kernel {
         let Ok(sig) = check_signal(sig) else {
             return false;
         };
-        let groups = self.pgrp_groups(self.pgid_of(pid.0 as Pid));
+        let groups = self.pgrp_groups(self.pgid_of(pid.0));
         groups.iter().any(|(_, group)| group.is_pending(sig))
     }
 
-    /// `do_tkill`: `tgid` must own `tid` when given.
+    /// `do_tkill`: the caller's `tgid` must own its `tid` when given (`find_task_by_vpid`).
     fn send_to_task(
         &self,
+        caller: &Caller<'_>,
         sender: Option<&Process>,
         tgid: Option<Pid>,
         tid: Pid,
@@ -2174,16 +2279,21 @@ impl Kernel {
         if tid <= 0 || tgid.is_some_and(|tgid| tgid <= 0) {
             return Err(Errno::EINVAL);
         }
+        let tid = self.find_vpid(caller, tid).ok_or(Errno::ESRCH)?;
+        let tgid = match tgid {
+            Some(tgid) => Some(self.find_vpid(caller, tgid).ok_or(Errno::ESRCH)?),
+            None => None,
+        };
         let target = {
             let state = self.state.read_or_recover();
             state
                 .tasks
-                .get(&TaskId(tid as u32))
-                .filter(|task| tgid.is_none_or(|tgid| task.process.pid.0 as Pid == tgid))
+                .get(&TaskId(tid))
+                .filter(|task| tgid.is_none_or(|tgid| task.process.pid.0 == tgid))
                 // A thread that exited is gone, though its instance may still be unwinding; a
                 // zombie leader stays until its group ends.
-                .filter(|task| !task.thread.exited() || task.process.pid.0 as Pid == tid)
-                .map(|task| (task.process.pid.0 as Pid, task.signals.group().clone()))
+                .filter(|task| !task.thread.exited() || task.process.pid.0 == tid)
+                .map(|task| (task.process.pid.0, task.signals.group().clone()))
         };
         let (pid, group) = target.ok_or(Errno::ESRCH)?;
         check_sendable(info.si_signo)?;
@@ -2192,7 +2302,7 @@ impl Kernel {
         }
         match info.si_signo {
             0 => Ok(()),
-            _ => group.send(Some(TaskId(tid as u32)), info),
+            _ => self.deliver(sender, pid, &group, Some(TaskId(tid)), info),
         }
     }
 
@@ -2202,19 +2312,27 @@ impl Kernel {
         pid: Pid,
         sig: Signal,
     ) -> SysResult<i32> {
-        let me = self.tgid(caller.task());
+        let me = self.process(caller.task()).pid.0;
         let info = self.sender_info(caller, sig.0, SiCode::SI_USER);
-        let targets: Vec<_> = match pid {
+        let ns = self.active_pid_ns(caller.task());
+        let targets: Vec<(u32, Arc<Signals>)> = match pid {
             // ---- proc ----
             0 => self.pgrp_groups(self.pgid_of(me)),
-            // Every process but init and the caller.
+            // Every process of the caller's pid namespace (and below) but its init and the
+            // caller (`task_pid_vnr(p) > 1`).
             -1 => self
                 .groups(None)
                 .into_iter()
-                .filter(|(pid, _)| *pid > 1 && *pid != me)
+                .filter(|(pid, _)| *pid != me && self.pids.nr(&ns, *pid) > 1)
                 .collect(),
-            pid if pid < 0 => self.pgrp_groups(pid.checked_abs().unwrap_or(0)),
-            pid => self.groups(Some(pid)),
+            pid if pid < 0 => match ns.find(pid.checked_abs().unwrap_or(0)) {
+                Some(pgid) => self.pgrp_groups(pgid),
+                None => Vec::new(),
+            },
+            pid => match ns.find(pid) {
+                Some(pid) => self.groups(Some(pid)),
+                None => Vec::new(),
+            },
         };
         if targets.is_empty() {
             return Err(Errno::ESRCH.into());
@@ -2229,7 +2347,7 @@ impl Kernel {
             sent = true;
             if sig.0 != 0 {
                 // `kill`'s signals are never refused for want of room (`SI_USER`).
-                let _ = group.send(None, info);
+                let _ = self.deliver(Some(&sender), target, &group, None, info);
             }
         }
         // A process group or a single process none of which may be signalled is `EPERM`;
@@ -2249,7 +2367,7 @@ impl Kernel {
     ) -> SysResult<i32> {
         let info = self.sender_info(caller, sig.0, SiCode::SI_TKILL);
         let sender = self.process(caller.task());
-        self.send_to_task(Some(&sender), tgid, tid, info)?;
+        self.send_to_task(caller, Some(&sender), tgid, tid, info)?;
         Ok(0)
     }
 
