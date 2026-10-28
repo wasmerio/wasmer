@@ -3,6 +3,7 @@
 
 mod attr;
 mod fifo;
+mod fsopen;
 pub(crate) mod inotify;
 mod io;
 mod lock;

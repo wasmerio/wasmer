@@ -1,6 +1,9 @@
 //! Mount namespaces, the `mount` family of syscalls and `/proc/<pid>/mountinfo`.
 
-use wasixv2_abi::{CloneFlags, MountAttrFlags, MountFlags as MsFlags, UmountFlags as UmountBits};
+use wasixv2_abi::{
+    CloneFlags, FsconfigCommand, FsopenFlags, MountAttrFlags, MountFlags as MsFlags,
+    MoveMountFlags, OpenTreeFlags, UmountFlags as UmountBits,
+};
 use wasixv2_vfs::{Cred, Ctx, LookupFlags, MountFlags, MountOp, Propagation};
 use wasixv2_vfs_mem::MemFs;
 
@@ -639,6 +642,219 @@ fn a_mount_in_one_namespace_is_not_in_the_other() {
             .any(|line| line.split(' ').nth(4) == Some("/mnt"))
     );
     assert!(m.mountinfo("/mnt").is_none());
+}
+
+impl Machine {
+    fn open_path(&self, at: &str) -> Fd {
+        let name = self.cstr(0x1000, at);
+        block_on(
+            self.kernel
+                .openat(&self.caller(), CWD, name, OpenFlags::O_PATH, 0),
+        )
+        .unwrap()
+    }
+
+    fn open_tree(&self, at: &str, flags: u32) -> SysResult<i32> {
+        let name = self.cstr(0x1000, at);
+        block_on(self.kernel.open_tree(&self.caller(), CWD, name, flags))
+    }
+
+    fn move_mount(&self, from: (Fd, &str), to: (Fd, &str), flags: u32) -> SysResult<i32> {
+        let from_name = self.cstr(0x1100, from.1);
+        let to_name = self.cstr(0x1200, to.1);
+        block_on(
+            self.kernel
+                .move_mount(&self.caller(), from.0, from_name, to.0, to_name, flags),
+        )
+    }
+
+    /// `fsconfig` with a string value, or none.
+    fn fsconfig(
+        &self,
+        fd: Fd,
+        cmd: FsconfigCommand,
+        key: Option<&str>,
+        value: Option<&str>,
+    ) -> SysResult<i32> {
+        let key = key.map_or(GuestPtr::NULL, |key| self.cstr(0x1100, key));
+        let value = value.map_or(GuestPtr::NULL, |value| self.cstr(0x1200, value));
+        let value = GuestPtr::new(value.addr());
+        block_on(
+            self.kernel
+                .fsconfig(&self.caller(), fd, cmd.0, key, value, 0),
+        )
+    }
+}
+
+const OPEN_TREE_CLONE: u32 = OpenTreeFlags::OPEN_TREE_CLONE.0;
+
+/// `move_mount03`: a copy of A goes beneath B, and shows once B is unmounted.
+#[test]
+fn move_mount_beneath_as_move_mount03() {
+    let m = Machine::as_uid(0);
+    for dir in ["/a", "/b"] {
+        m.mkdir(dir);
+    }
+    m.tmpfs("/a");
+    m.tmpfs("/b");
+    m.close(m.create("/a/A").unwrap());
+    m.close(m.create("/b/B").unwrap());
+
+    let clone = OPEN_TREE_CLONE | OpenFlags::O_CLOEXEC.0;
+    let a = Fd(m.open_tree("/a", clone).unwrap());
+    let b = m.open_path("/b");
+    let flags = MoveMountFlags::MOVE_MOUNT_BENEATH.0
+        | MoveMountFlags::MOVE_MOUNT_F_EMPTY_PATH.0
+        | MoveMountFlags::MOVE_MOUNT_T_EMPTY_PATH.0;
+    assert_eq!(m.move_mount((a, ""), (b, ""), flags), Ok(0));
+    m.close(a);
+    m.close(b);
+    assert!(m.exists("/b/B"));
+    assert!(m.exists("/a/A"));
+    assert!(!m.exists("/b/A"));
+
+    assert_eq!(m.umount2("/b", UmountBits(0)), Ok(0));
+    assert!(m.exists("/b/A"));
+    assert_eq!(m.umount2("/b", UmountBits(0)), Ok(0));
+    assert_eq!(m.umount2("/a", UmountBits(0)), Ok(0));
+}
+
+#[test]
+fn open_tree_and_move_mount_check_their_flags() {
+    let m = Machine::as_uid(0);
+    m.mkdir("/a");
+    m.tmpfs("/a");
+    let recursive = AtFlags::AT_RECURSIVE.0;
+    assert_eq!(errno(m.open_tree("/a", recursive)), Errno::EINVAL);
+    assert_eq!(errno(m.open_tree("/a", 1 << 30)), Errno::EINVAL);
+    // Without OPEN_TREE_CLONE, an O_PATH file of the place itself.
+    let plain = Fd(m.open_tree("/a", 0).unwrap());
+    let ids = m.mount_ids();
+    m.close(plain);
+    let copy = Fd(m.open_tree("/a", OPEN_TREE_CLONE | recursive).unwrap());
+    assert_eq!(m.mount_ids(), ids, "a detached copy is in no namespace");
+    let both = MoveMountFlags::MOVE_MOUNT_BENEATH.0 | MoveMountFlags::MOVE_MOUNT_SET_GROUP.0;
+    assert_eq!(
+        errno(m.move_mount((copy, ""), (CWD, "/a"), both)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(m.move_mount((copy, ""), (CWD, "/a"), 1 << 20)),
+        Errno::EINVAL
+    );
+    // An empty path is a path without *_EMPTY_PATH.
+    assert_eq!(
+        errno(m.move_mount((copy, ""), (CWD, "/a"), 0)),
+        Errno::ENOENT
+    );
+    m.close(copy);
+
+    let user = Machine::as_uid(1);
+    user.mkdir("/tmp");
+    assert_eq!(errno(user.open_tree("/tmp", OPEN_TREE_CLONE)), Errno::EPERM);
+    assert_eq!(
+        errno(user.move_mount((CWD, "/tmp"), (CWD, "/tmp"), 0)),
+        Errno::EPERM
+    );
+}
+
+/// `fsopen`, `fsconfig`, `fsmount` and `move_mount` make a mount as `mount` would; `fspick`
+/// reconfigures it.
+#[test]
+fn a_filesystem_context_creates_mounts_and_reconfigures() {
+    let m = Machine::as_uid(0);
+    m.mkdir("/m");
+    let name = m.cstr(0x1000, "tmpfs");
+    let caller = m.caller();
+    let fs = Fd(block_on(
+        m.kernel
+            .fsopen(&caller, name, FsopenFlags::FSOPEN_CLOEXEC.0),
+    )
+    .unwrap());
+    let none = m.cstr(0x1000, "nosuchfs");
+    assert_eq!(
+        errno(block_on(m.kernel.fsopen(&caller, none, 0))),
+        Errno::ENODEV
+    );
+    let read = block_on(m.kernel.read(&caller, fs, UserSliceMut::new(0x4000, 64)));
+    assert_eq!(errno(read), Errno::ENODATA);
+
+    use FsconfigCommand as C;
+    assert_eq!(errno(m.fsconfig(fs, C(99), None, None)), Errno::EOPNOTSUPP);
+    assert_eq!(
+        errno(m.fsconfig(fs, C::FSCONFIG_SET_FLAG, Some("ro"), Some("x"))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        m.fsconfig(fs, C::FSCONFIG_SET_STRING, Some("source"), Some("made")),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(m.fsconfig(fs, C::FSCONFIG_SET_STRING, Some("source"), Some("again"))),
+        Errno::EINVAL
+    );
+    // Not created yet.
+    assert_eq!(
+        errno(block_on(m.kernel.fsmount(&caller, fs, 0, 0))),
+        Errno::EINVAL
+    );
+    assert_eq!(m.fsconfig(fs, C::FSCONFIG_CMD_CREATE, None, None), Ok(0));
+    assert_eq!(
+        errno(m.fsconfig(fs, C::FSCONFIG_SET_FLAG, Some("rw"), None)),
+        Errno::EBUSY
+    );
+    assert_eq!(
+        errno(m.fsconfig(fs, C::FSCONFIG_CMD_CREATE, None, None)),
+        Errno::EBUSY
+    );
+
+    let nodev = MountAttrFlags::MOUNT_ATTR_NODEV.0 as u32;
+    let mnt = Fd(block_on(m.kernel.fsmount(&caller, fs, 0, nodev)).unwrap());
+    assert_eq!(
+        errno(block_on(m.kernel.fsmount(&caller, fs, 0, 0))),
+        Errno::EBUSY
+    );
+    let from_fd = MoveMountFlags::MOVE_MOUNT_F_EMPTY_PATH.0;
+    assert_eq!(m.move_mount((mnt, ""), (CWD, "/m"), from_fd), Ok(0));
+    m.close(mnt);
+    let line = m.mountinfo("/m").unwrap();
+    assert!(line.contains(" rw,nodev,relatime "), "{line}");
+    assert!(line.ends_with(" - tmpfs made rw"), "{line}");
+
+    // After fsmount the context reconfigures the instance.
+    assert_eq!(
+        m.fsconfig(fs, C::FSCONFIG_SET_FLAG, Some("ro"), None),
+        Ok(0)
+    );
+    assert_eq!(
+        m.fsconfig(fs, C::FSCONFIG_CMD_RECONFIGURE, None, None),
+        Ok(0)
+    );
+    assert!(m.mountinfo("/m").unwrap().ends_with(" - tmpfs made ro"));
+    m.close(fs);
+
+    let path = m.cstr(0x1000, "/m");
+    let pick = Fd(block_on(m.kernel.fspick(&caller, CWD, path, 0)).unwrap());
+    assert_eq!(
+        errno(m.fsconfig(pick, C::FSCONFIG_CMD_CREATE, None, None)),
+        Errno::EBUSY
+    );
+    assert_eq!(
+        m.fsconfig(pick, C::FSCONFIG_SET_FLAG, Some("rw"), None),
+        Ok(0)
+    );
+    assert_eq!(
+        m.fsconfig(pick, C::FSCONFIG_CMD_RECONFIGURE, None, None),
+        Ok(0)
+    );
+    assert!(m.mountinfo("/m").unwrap().ends_with(" - tmpfs made rw"));
+    m.close(pick);
+    m.mkdir("/m/d");
+    let inner = m.cstr(0x1000, "/m/d");
+    assert_eq!(
+        errno(block_on(m.kernel.fspick(&caller, CWD, inner, 0))),
+        Errno::EINVAL
+    );
 }
 
 #[test]

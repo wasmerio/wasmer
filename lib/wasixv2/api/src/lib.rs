@@ -1129,6 +1129,11 @@ impl FilesystemType for Tmpfs {
         Ok(self.make(&options, cred))
     }
 
+    /// `shmem_parse_one`.
+    fn parse_param(&self, param: &FsParam<'_>) -> Result<(), Errno> {
+        Self::options(std::slice::from_ref(param)).map(drop)
+    }
+
     /// `shmem_reconfigure`: the size and inode limits change; the root's mode and owner are
     /// the mount's alone.
     fn reconfigure(&self, fs: &Arc<dyn Filesystem>, params: &[FsParam<'_>]) -> Result<(), Errno> {
@@ -1169,6 +1174,10 @@ impl FilesystemType for Devtmpfs {
         // instance.
         Tmpfs::options(params)?;
         Ok(self.0.clone())
+    }
+
+    fn parse_param(&self, param: &FsParam<'_>) -> Result<(), Errno> {
+        Tmpfs::options(std::slice::from_ref(param)).map(drop)
     }
 }
 
