@@ -624,7 +624,13 @@ impl Kernel {
                 .tasks
                 .iter()
                 .any(|(&id, t)| id != task && id != leader && Arc::ptr_eq(&t.process, &process));
-            let left = state.tasks.get(&leader).is_some_and(|t| t.thread.left_mm);
+            // A leader that is a vfork child itself takes the image where its own vfork
+            // parent waits (`Exec { vfork_parent }`), so it does not leave its old image
+            // before its child is done.
+            let left = state
+                .tasks
+                .get(&leader)
+                .is_some_and(|t| t.thread.left_mm && !t.work.exec_resumes_vfork_parent());
             let dead_in_vfork = left && self.vfork_waits(leader);
             let group = process.group.state.lock().unwrap();
             let parked = task == leader
@@ -656,7 +662,8 @@ impl Kernel {
         let leader = process.pid;
         let mut unstarted = Vec::new();
         if task != leader {
-            let detached = {
+            let nested = state.tasks[&leader].work.exec_resumes_vfork_parent();
+            let detached = !nested && {
                 let mut tree = self.procs.tree.lock_or_recover();
                 let child = tree.waited_for_by(leader);
                 if let Some(child) = child {

@@ -46,6 +46,18 @@ impl Work {
                 self.queue.push_back(action);
                 unstarted
             }
+            // The image a dying leader's take-over starts is what ends the leader (its run
+            // takes the exit there, releases the leader and reports the group's end to the run
+            // it took over from), so it goes ahead of the exit.
+            GuestAction::StartImage { .. } if exiting => {
+                let at = self
+                    .queue
+                    .iter()
+                    .position(|action| matches!(action, GuestAction::Exit(_)))
+                    .expect("an exit is queued");
+                self.queue.insert(at, action);
+                Vec::new()
+            }
             // A vfork child's end runs in its parent's instance, which its exit must not unwind:
             // resuming the parent is all that is left to do.
             GuestAction::VforkReturn { .. } => {
@@ -89,6 +101,19 @@ impl Work {
         self.queue
             .iter()
             .any(|action| matches!(action, GuestAction::Exec { .. }))
+    }
+
+    /// Whether the queued `execve`'s image goes back to a vfork parent: the task is a vfork
+    /// child, whose new image starts on its own while its instance returns to the parent.
+    pub(crate) fn exec_resumes_vfork_parent(&self) -> bool {
+        self.queue.iter().any(|action| {
+            matches!(
+                action,
+                GuestAction::Exec {
+                    vfork_parent: Some(_)
+                }
+            )
+        })
     }
 
     /// Queues the `execve` that runs `image`.
@@ -209,6 +234,20 @@ mod tests {
             Some(&b"image"[..])
         );
         assert!(work.take_exec().is_none());
+        assert_eq!(work.take(), Some(GuestAction::Exit(137)));
+        assert_eq!(work.take(), None);
+    }
+
+    /// A thread whose `execve` gave its dying leader the new image starts it before it exits:
+    /// that start is what ends the leader and reports its group's end.
+    #[test]
+    fn an_image_start_goes_ahead_of_a_pending_exit() {
+        let mut work = work();
+        assert!(work.push(GuestAction::Exit(137)).is_empty());
+        let start = GuestAction::StartImage { task: TaskId(1) };
+        assert!(work.push(start).is_empty());
+        assert!(work.push(GuestAction::Exit(0)).is_empty());
+        assert_eq!(work.take(), Some(start));
         assert_eq!(work.take(), Some(GuestAction::Exit(137)));
         assert_eq!(work.take(), None);
     }
