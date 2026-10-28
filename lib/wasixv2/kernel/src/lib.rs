@@ -32,6 +32,14 @@ mod signalfd;
 mod socket;
 mod startup;
 mod stdio;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the kernel's locks move to it in one sweep (M-X1)"
+    )
+)]
+mod sync;
 mod thread;
 mod time;
 mod timer;
