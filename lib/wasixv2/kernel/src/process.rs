@@ -653,7 +653,7 @@ impl Kernel {
         uargs: ConstCloneArgsPtr,
         size: Usize,
     ) -> SysResult<i32> {
-        let args = copy_clone_args(caller, uargs, size).await?;
+        let (args, set_tid) = copy_clone_args(caller, uargs, size).await?;
         let flags = args.flags.0;
         let known = CLONE_LEGACY_FLAGS
             | CloneFlags::CLONE_CLEAR_SIGHAND.0
@@ -691,17 +691,6 @@ impl Kernel {
             u32::try_from(args.tls),
         ) else {
             return Err(Errno::EFAULT.into());
-        };
-        let set_tid = match args.set_tid {
-            0 => Vec::new(),
-            addr => {
-                let addr = u32::try_from(addr).map_err(|_| Errno::EFAULT)?;
-                let mut raw = vec![0; args.set_tid_size as usize * 4];
-                caller.memory().read(addr, &mut raw).await?;
-                raw.chunks(4)
-                    .map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-                    .collect()
-            }
         };
         let args = KernelClone {
             flags: args.flags,
@@ -1645,13 +1634,15 @@ struct KernelClone {
     set_tid: Vec<i32>,
 }
 
-/// `copy_clone_args_from_user`: a `struct clone_args` of `size` bytes. Sizes below the first
-/// version are `EINVAL`; bytes past the version the kernel knows must be zero (`E2BIG`).
+/// `copy_clone_args_from_user`: a `struct clone_args` of `size` bytes, and the pids its
+/// `set_tid` asks for. Sizes below the first version are `EINVAL`; bytes past the version the
+/// kernel knows must be zero (`E2BIG`). Everything is read before `clone3_args_valid` looks at
+/// the flags, so a fault there comes first.
 async fn copy_clone_args(
     caller: &Caller<'_>,
     uargs: ConstCloneArgsPtr,
     size: Usize,
-) -> SysResult<CloneArgs> {
+) -> SysResult<(CloneArgs, Vec<i32>)> {
     const VER0: u32 = CloneArgsSize::CLONE_ARGS_SIZE_VER0.0;
     const VER2: u32 = CloneArgsSize::CLONE_ARGS_SIZE_VER2.0;
     /// `MAX_PID_NS_LEVEL`.
@@ -1679,7 +1670,18 @@ async fn copy_clone_args(
     {
         return Err(Errno::EINVAL.into());
     }
-    Ok(args)
+    let set_tid = match args.set_tid {
+        0 => Vec::new(),
+        addr => {
+            let addr = u32::try_from(addr).map_err(|_| Errno::EFAULT)?;
+            let mut raw = vec![0; args.set_tid_size as usize * 4];
+            memory.read(addr, &mut raw).await?;
+            raw.chunks(4)
+                .map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect()
+        }
+    };
+    Ok((args, set_tid))
 }
 
 /// `dup_fd`: the same open files at the same numbers, close-on-exec flags included.
