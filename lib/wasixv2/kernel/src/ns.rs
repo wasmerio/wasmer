@@ -2,13 +2,14 @@
 //! users, cgroups and clocks a task sees. Every task points at an [`NsProxy`], which `clone`
 //! shares or copies, `unshare` replaces and `setns` changes, as Linux's `struct nsproxy`.
 //!
-//! The machine has one namespace of each kind so far, the initial one, with the inode numbers
-//! Linux gives those (`linux/nsfs.h`); a request for a new one is refused with `EPERM`, as a
-//! container's policy refuses it, until the kind exists. Code reaches every namespaced object
-//! through the caller's proxy ([`Kernel::ns`]), never through the kernel, so a kind becomes
-//! real by making [`NsProxy::make`] create it.
+//! The initial namespaces have the inode numbers Linux gives those (`linux/nsfs.h`), new ones
+//! numbers from `0xF0000000` up. Mount namespaces can be made; a request for a new namespace
+//! of another kind is refused with `EPERM`, as a container's policy refuses it, until the kind
+//! exists. Code reaches every namespaced object through the caller's proxy ([`Kernel::ns`]),
+//! never through the kernel, so a kind becomes real by making [`NsProxy::make`] create it.
 
 use std::{
+    collections::BTreeSet,
     ops::Deref,
     sync::{Arc, Mutex, Weak},
 };
@@ -17,7 +18,7 @@ use wasixv2_abi::{CloneFlags, NewUtsname, Ulong};
 use wasixv2_syscalls::{Caller, Errno, Fd, SysResult, TaskId};
 use wasixv2_vfs::{Cap, Path};
 
-use crate::{Kernel, Process, cred::Cred, ipc, nsfs::NsFile, sync::MutexExt, unix};
+use crate::{Kernel, Process, cred::Cred, fs::FsContext, ipc, nsfs::NsFile, sync::MutexExt, unix};
 
 /// `CLONE_NS_ALL`: the flags that ask for new namespaces.
 pub(crate) const CLONE_NS_ALL: u64 = CloneFlags::CLONE_NEWCGROUP.0
@@ -98,6 +99,39 @@ impl NsKind {
     }
 }
 
+/// `PROC_DYNAMIC_FIRST`: the first inode number of a namespace made at run time.
+const DYNAMIC_FIRST: u32 = 0xF000_0000;
+
+/// The inode numbers of namespaces made at run time (`proc_inum_ida`): the lowest free one
+/// from [`DYNAMIC_FIRST`]. One allocator for the process, as numbers only need to differ.
+static DYNAMIC_INOS: Mutex<Inos> = Mutex::new(Inos {
+    next: DYNAMIC_FIRST,
+    free: BTreeSet::new(),
+});
+
+struct Inos {
+    /// Above every number given out.
+    next: u32,
+    /// Numbers given back below `next`.
+    free: BTreeSet<u32>,
+}
+
+/// `proc_alloc_inum`.
+fn alloc_ino() -> Result<u32, Errno> {
+    let mut inos = DYNAMIC_INOS.lock_or_recover();
+    if let Some(ino) = inos.free.pop_first() {
+        return Ok(ino);
+    }
+    let ino = inos.next;
+    inos.next = ino.checked_add(1).ok_or(Errno::ENOSPC)?;
+    Ok(ino)
+}
+
+/// `proc_free_inum`.
+fn free_ino(ino: u32) {
+    DYNAMIC_INOS.lock_or_recover().free.insert(ino);
+}
+
 /// What every namespace has (`struct ns_common`).
 pub(crate) struct Common {
     kind: NsKind,
@@ -117,7 +151,28 @@ pub(crate) struct Ns<T> {
     inner: T,
 }
 
+impl Drop for Common {
+    fn drop(&mut self) {
+        if self.ino >= DYNAMIC_FIRST {
+            free_ino(self.ino);
+        }
+    }
+}
+
 impl<T> Ns<T> {
+    /// A new namespace of `kind`, owned by `owner` (`ns_common_init`).
+    fn new(kind: NsKind, owner: Arc<UserNs>, inner: T) -> Result<Arc<Self>, Errno> {
+        Ok(Arc::new(Self {
+            common: Common {
+                kind,
+                ino: alloc_ino()?,
+                owner: Some(owner),
+                stashed: Mutex::default(),
+            },
+            inner,
+        }))
+    }
+
     /// The initial namespace of `kind`, owned by `owner`.
     fn initial(kind: NsKind, owner: Option<Arc<UserNs>>, inner: T) -> Arc<Self> {
         Arc::new(Self {
@@ -140,8 +195,10 @@ impl<T> Deref for Ns<T> {
     }
 }
 
-/// A mount namespace. There is one, the VFS's mount tree.
-pub(crate) struct Mnt;
+/// A mount namespace: a tree of the VFS's mounts.
+pub(crate) struct Mnt {
+    pub(crate) tree: Arc<wasixv2_vfs::MntNs>,
+}
 
 /// What a network namespace holds besides its port space: the IP network, without which
 /// `socket` fails with `EAFNOSUPPORT`, and the bound Unix sockets.
@@ -287,9 +344,11 @@ pub(crate) struct NsProxy {
 }
 
 impl NsProxy {
-    /// `init_nsproxy`: the initial namespaces, with the UTS names `uname`, the network
-    /// `network`, and owned by the initial user namespace, which root made.
+    /// `init_nsproxy`: the initial namespaces, with the mount tree `mnt`, the UTS names
+    /// `uname`, the network `network`, and owned by the initial user namespace, which root
+    /// made.
     pub(crate) fn initial(
+        mnt: Arc<wasixv2_vfs::MntNs>,
         uname: NewUtsname,
         network: Option<Arc<dyn wasixv2_vnet::Network>>,
     ) -> Self {
@@ -297,7 +356,7 @@ impl NsProxy {
         let owner = Some(user.clone());
         let time = Ns::initial(NsKind::Time, owner.clone(), Time);
         Self {
-            mnt: Ns::initial(NsKind::Mnt, owner.clone(), Mnt),
+            mnt: Ns::initial(NsKind::Mnt, owner.clone(), Mnt { tree: mnt }),
             uts: Ns::initial(NsKind::Uts, owner.clone(), Mutex::new(uname)),
             ipc: Ns::initial(NsKind::Ipc, owner.clone(), ipc::Ipc::default()),
             net: Ns::initial(
@@ -321,8 +380,14 @@ impl NsProxy {
     /// new user namespace, in which its creator holds every capability). `CLONE_NEWIPC` cannot
     /// go with `CLONE_SYSVSEM`, which would share semaphore adjustments across namespaces. A
     /// child with its own memory starts in the time namespace for children
-    /// (`timens_on_fork`).
-    pub(crate) fn copy(self: &Arc<Self>, flags: u64, cred: &Cred) -> Result<Arc<Self>, Errno> {
+    /// (`timens_on_fork`). A new mount namespace moves `fs`, the child's own root and working
+    /// directory, to the copies of their mounts.
+    pub(crate) fn copy(
+        self: &Arc<Self>,
+        flags: u64,
+        cred: &Cred,
+        fs: Option<&mut FsContext>,
+    ) -> Result<Arc<Self>, Errno> {
         let vm = flags & CloneFlags::CLONE_VM.0 != 0;
         if flags & CLONE_NS_ALL == 0 {
             if vm || Arc::ptr_eq(&self.time, &self.time_for_children) {
@@ -341,7 +406,7 @@ impl NsProxy {
             if flags & ipc_sysvsem == ipc_sysvsem {
                 return Err(Errno::EINVAL);
             }
-            new.create(flags)?;
+            new.create(flags, fs)?;
         }
         if !vm {
             new.time = new.time_for_children.clone();
@@ -350,8 +415,14 @@ impl NsProxy {
     }
 
     /// `unshare_userns` and `unshare_nsproxy_namespaces`: the caller's namespaces with new ones
-    /// where `flags` asks, or `None` if it asks for none.
-    pub(crate) fn unshare(&self, flags: u64, cred: &Cred) -> Result<Option<Self>, Errno> {
+    /// where `flags` asks, or `None` if it asks for none. A new mount namespace moves `fs`,
+    /// the caller's new root and working directory, to the copies of their mounts.
+    pub(crate) fn unshare(
+        &self,
+        flags: u64,
+        cred: &Cred,
+        fs: Option<&mut FsContext>,
+    ) -> Result<Option<Self>, Errno> {
         if flags & CLONE_NS_ALL == 0 {
             return Ok(None);
         }
@@ -360,7 +431,7 @@ impl NsProxy {
             if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
                 return Err(Errno::EPERM);
             }
-            new.create(flags)?;
+            new.create(flags, fs)?;
         }
         Ok(Some(new))
     }
@@ -370,16 +441,16 @@ impl NsProxy {
     fn copy_user(&self, flags: u64) -> Result<Self, Errno> {
         let mut new = self.clone();
         if flags & CloneFlags::CLONE_NEWUSER.0 != 0 {
-            new.make(NsKind::User)?;
+            new.make(NsKind::User, None)?;
         }
         Ok(new)
     }
 
     /// `create_new_namespaces`: a new namespace of each kind `flags` asks for.
-    fn create(&mut self, flags: u64) -> Result<(), Errno> {
+    fn create(&mut self, flags: u64, mut fs: Option<&mut FsContext>) -> Result<(), Errno> {
         for kind in NsKind::PROXIED {
             if flags & kind.flag() != 0 {
-                self.make(kind)?;
+                self.make(kind, fs.as_deref_mut())?;
             }
         }
         Ok(())
@@ -387,11 +458,19 @@ impl NsProxy {
 
     /// Puts a new namespace of `kind` in place of the proxy's (`copy_mnt_ns`, `copy_utsname`,
     /// `copy_ipcs`, `copy_pid_ns`, `copy_cgroup_ns`, `copy_net_ns`, `copy_time_ns`,
-    /// `create_user_ns`). No kind can be made yet.
-    fn make(&mut self, kind: NsKind) -> Result<(), Errno> {
+    /// `create_user_ns`). `fs` is the root and working directory a new mount namespace moves
+    /// to its copies.
+    fn make(&mut self, kind: NsKind, fs: Option<&mut FsContext>) -> Result<(), Errno> {
         match kind {
-            NsKind::Mnt
-            | NsKind::Uts
+            NsKind::Mnt => {
+                let tree = match fs {
+                    Some(fs) => self.mnt.tree.copy(&mut [&mut fs.root, &mut fs.cwd]),
+                    None => self.mnt.tree.copy(&mut []),
+                };
+                self.mnt = Ns::new(NsKind::Mnt, self.user.clone(), Mnt { tree })?;
+                Ok(())
+            }
+            NsKind::Uts
             | NsKind::Ipc
             | NsKind::Net
             | NsKind::Pid
@@ -555,9 +634,11 @@ impl Kernel {
         }
         // The task's reference and ours: anything above is another task's.
         let shared = |count: usize| count > 2;
-        let new_fs = (flags & CloneFlags::CLONE_FS.0 != 0
+        // A new mount namespace moves the root and working directory, so the caller gets its
+        // own copy of them whether or not another task shares them.
+        let mut new_fs = (flags & CloneFlags::CLONE_FS.0 != 0
             && (flags & CloneFlags::CLONE_NEWNS.0 != 0 || shared(Arc::strong_count(&fs))))
-        .then(|| Arc::new(Mutex::new(fs.lock_or_recover().clone())));
+        .then(|| fs.lock_or_recover().clone());
         let new_files = (flags & CloneFlags::CLONE_FILES.0 != 0
             && shared(Arc::strong_count(&files)))
         .then(|| {
@@ -565,7 +646,7 @@ impl Kernel {
                 &files.lock_or_recover(),
             )))
         });
-        let new_ns = ns.unshare(flags, &process.cred())?;
+        let new_ns = ns.unshare(flags, &process.cred(), new_fs.as_mut())?;
         let ipc_or_sysvsem = CloneFlags::CLONE_NEWIPC.0 | CloneFlags::CLONE_SYSVSEM.0;
         if flags & ipc_or_sysvsem != 0 {
             self.exit_sem(&process);
@@ -577,7 +658,7 @@ impl Kernel {
         }
         self.with_task(task, |t| {
             if let Some(fs) = new_fs {
-                t.fs = fs;
+                t.fs = Arc::new(Mutex::new(fs));
             }
             if let Some(ns) = new_ns {
                 t.ns = Arc::new(ns);
@@ -722,8 +803,8 @@ impl Kernel {
                 if set.flags == CloneFlags::CLONE_NEWNS.0 && joiner.fs_shared {
                     return Err(Errno::EINVAL);
                 }
+                set.root = Some(ns.tree.entry_root());
                 set.proxy.mnt = ns;
-                set.root = Some(self.vfs.root());
             }
             Namespace::Uts(ns) => {
                 if !admin {

@@ -897,7 +897,11 @@ impl Kernel {
                 return Err(Errno::EINTR);
             }
             let sched = task.sched.for_child()?;
-            let ns = task.ns.copy(flags.0, &parent.cred())?;
+            // The child's own root and working directory, which a new mount namespace moves
+            // (`copy_fs` before `copy_namespaces`); `CLONE_NEWNS` never goes with `CLONE_FS`.
+            let mut own_fs =
+                (!flags.contains(CloneFlags::CLONE_FS)).then(|| task.fs.lock().unwrap().clone());
+            let ns = task.ns.copy(flags.0, &parent.cred(), own_fs.as_mut())?;
             let mut ident = parent.ident.lock().unwrap().for_child();
             if flags.contains(CloneFlags::CLONE_NNP) {
                 ident.no_new_privs = true;
@@ -921,9 +925,9 @@ impl Kernel {
                 true => task.files.clone(),
                 false => Arc::new(Mutex::new(copy_files(&task.files.lock().unwrap()))),
             };
-            let fs = match flags.contains(CloneFlags::CLONE_FS) {
-                true => task.fs.clone(),
-                false => Arc::new(Mutex::new(task.fs.lock().unwrap().clone())),
+            let fs = match own_fs {
+                None => task.fs.clone(),
+                Some(fs) => Arc::new(Mutex::new(fs)),
             };
             let flag = Arc::new(WorkFlag::default());
             let account = crate::signal::Account::new(self.sigqueue_users.clone(), &process);

@@ -251,7 +251,11 @@ impl Kernel {
             timers: timer::Timers::new(host.clone()),
             host,
             state,
-            init_ns: Arc::new(ns::NsProxy::initial(Uname::default().to_utsname(), None)),
+            init_ns: Arc::new(ns::NsProxy::initial(
+                vfs.namespace().clone(),
+                Uname::default().to_utsname(),
+                None,
+            )),
             inotify: fs::inotify::Registry::install(&vfs),
             shm: None,
             vfs,
@@ -287,7 +291,8 @@ impl Kernel {
             "the network comes before the first process"
         );
         let uname = *self.init_ns.uts.lock_or_recover();
-        self.init_ns = Arc::new(ns::NsProxy::initial(uname, Some(network)));
+        let mnt = self.vfs.namespace().clone();
+        self.init_ns = Arc::new(ns::NsProxy::initial(mnt, uname, Some(network)));
         self
     }
 

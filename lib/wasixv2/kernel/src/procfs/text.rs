@@ -5,7 +5,7 @@ use std::{fmt::Write as _, net::SocketAddr, time::Duration};
 
 use wasixv2_abi::OpenFlags;
 use wasixv2_syscalls::Errno;
-use wasixv2_vfs::{FsResult, Mount, MountFlags, Path};
+use wasixv2_vfs::{FsResult, MntNs, Mount, MountFlags, Path};
 use wasixv2_vnet::SocketKind;
 
 use super::{Source, node::Scope};
@@ -318,7 +318,7 @@ pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<V
         PerPid::Mounts | PerPid::Mountinfo => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
             let root = task.fs.lock().unwrap().root.clone();
-            mounts(source, &root, file == PerPid::Mountinfo)
+            mounts(source, &task.ns.mnt.tree, &root, file == PerPid::Mountinfo)
         }
         PerPid::Stat => stat_line(source, scope, &info),
         PerPid::Statm => {
@@ -400,46 +400,65 @@ fn maps(mm: Option<&Mm>) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// `show_vfsmnt` and `show_mountinfo` for the mounts the process's root reaches.
-fn mounts(source: &Source, root: &Path, info: bool) -> Vec<u8> {
+/// `show_vfsmnt` and `show_mountinfo` for the mounts of the namespace `ns` that the process's
+/// root reaches.
+fn mounts(source: &Source, ns: &MntNs, root: &Path, info: bool) -> Vec<u8> {
     let Some(vfs) = source.vfs.upgrade() else {
         return Vec::new();
     };
     let mut out = Vec::new();
-    for mount in vfs.namespace().mounts() {
-        let at = Path {
-            mnt: mount.clone(),
-            dentry: mount.root.clone(),
-        };
-        let point = vfs.d_path(&at, root);
+    for entry in vfs.mount_info(ns, root) {
+        let mount = &entry.mount;
+        let point = vfs.d_path(&mount.root_path(), root);
         if point.starts_with(b"(unreachable)") {
             continue;
         }
         let sb = mount.sb();
-        let options = mount_options(&mount);
-        let fs_options = if sb.is_read_only() { "ro" } else { "rw" };
+        let devname = match mount.devname() {
+            b"" => b"none".as_slice(),
+            name => name,
+        };
         if info {
-            let parent = mount.parent().map_or(mount.id, |parent| parent.mnt.id);
             let _ = write!(
                 out_string(&mut out),
-                "{} {parent} {}:{} ",
+                "{} {} {}:{} ",
                 mount.id,
+                entry.parent,
                 sb.dev.major,
                 sb.dev.minor
             );
-            out.extend_from_slice(&escape(&root_in_fs(&mount)));
+            out.extend_from_slice(&escape(&root_in_fs(mount)));
             out.push(b' ');
             out.extend_from_slice(&escape(&point));
-            let _ = writeln!(
+            let flags = mount.flags();
+            let _ = write!(
                 out_string(&mut out),
-                " {options} - {} {} {fs_options}",
-                sb.info.name,
-                sb.info.name
+                " {}",
+                mount_options(flags, flags.read_only)
             );
+            // The tagged fields.
+            let tags = [
+                ("shared", entry.shared),
+                ("master", entry.master),
+                ("propagate_from", entry.propagate_from),
+            ];
+            for (tag, group) in tags {
+                if let Some(group) = group {
+                    let _ = write!(out_string(&mut out), " {tag}:{group}");
+                }
+            }
+            if entry.unbindable {
+                out.extend_from_slice(b" unbindable");
+            }
+            let _ = write!(out_string(&mut out), " - {} ", sb.info.name);
+            out.extend_from_slice(&escape(devname));
+            let fs_options = if sb.is_read_only() { "ro" } else { "rw" };
+            let _ = writeln!(out_string(&mut out), " {fs_options}");
         } else {
-            out.extend_from_slice(sb.info.name.as_bytes());
+            out.extend_from_slice(&escape(devname));
             out.push(b' ');
             out.extend_from_slice(&escape(&point));
+            let options = mount_options(mount.flags(), mount.is_read_only());
             let _ = writeln!(out_string(&mut out), " {} {options} 0 0", sb.info.name);
         }
     }
@@ -458,10 +477,11 @@ fn out_string(out: &mut Vec<u8>) -> impl std::fmt::Write + '_ {
     Bytes(out)
 }
 
-/// `show_mnt_opts`: the mount's read-only state and flags.
-fn mount_options(mount: &Mount) -> String {
+/// `show_mnt_opts` after `ro` or `rw` as `read_only` says: `/proc/<pid>/mounts` shows the
+/// mount or its filesystem read-only (`__mnt_is_readonly`), `mountinfo` the mount's flag.
+fn mount_options(flags: MountFlags, read_only: bool) -> String {
     let MountFlags {
-        read_only,
+        read_only: _,
         nosuid,
         nodev,
         noexec,
@@ -469,12 +489,8 @@ fn mount_options(mount: &Mount) -> String {
         nodiratime,
         strictatime,
         nosymfollow,
-    } = mount.flags();
-    let mut options = vec![if read_only || mount.sb().is_read_only() {
-        "ro"
-    } else {
-        "rw"
-    }];
+    } = flags;
+    let mut options = vec![if read_only { "ro" } else { "rw" }];
     // `show_mnt_opts`'s order.
     for (set, name) in [
         (nosuid, "nosuid"),
