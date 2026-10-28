@@ -577,6 +577,7 @@ pub(crate) async fn vfork_return<S: 'static>(
 mod tests {
     use std::{
         collections::{HashMap, VecDeque},
+        ops::Range,
         time::Duration,
     };
 
@@ -655,6 +656,10 @@ mod tests {
 
     impl SharedMappings for Recorder {
         fn shared_mappings(&self, _: TaskId) -> Vec<SharedMapping> {
+            Vec::new()
+        }
+
+        fn wipe_on_fork(&self, _: TaskId) -> Vec<Range<u64>> {
             Vec::new()
         }
     }

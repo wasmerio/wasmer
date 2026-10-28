@@ -1,4 +1,5 @@
 use std::{
+    ops::Range,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -291,7 +292,9 @@ impl std::fmt::Debug for SharedMapping {
 
 /// The kernel's part of fork that the execution layer needs besides the memory: a fork child's
 /// shared mappings show the same objects as its parent's (`dup_mmap` keeps `VM_SHARED` areas on
-/// their file), so the child's copy of the memory shows them again in the same ranges.
+/// their file), so the child's copy of the memory shows them again in the same ranges; and its
+/// `MADV_WIPEONFORK` ranges start out zeroed (`dup_mmap` copies no pages of a `VM_WIPEONFORK`
+/// area).
 pub trait SharedMappings {
     /// The ranges of `task`'s memory that show shared objects, lowest first. For a fork child,
     /// asked before it runs: the execution layer maps each over the child's copy of the memory
@@ -299,6 +302,11 @@ pub trait SharedMappings {
     ///
     /// [`UserMemory::map_shared`]: crate::UserMemory::map_shared
     fn shared_mappings(&self, task: TaskId) -> Vec<SharedMapping>;
+
+    /// The ranges of `task`'s memory that a fork child gets zeroed (`VM_WIPEONFORK`), lowest
+    /// first and apart from the shared mappings. For a fork child, asked before it runs: the
+    /// execution layer leaves them out of the child's copy of the memory.
+    fn wipe_on_fork(&self, task: TaskId) -> Vec<Range<u64>>;
 }
 
 /// The word a wasm `memory.atomic.wait32` or `memory.atomic.wait64` expects at its address.
@@ -442,6 +450,10 @@ impl<L, S: GroupStop> GroupStop for Layered<L, S> {
 impl<L, S: SharedMappings> SharedMappings for Layered<L, S> {
     fn shared_mappings(&self, task: TaskId) -> Vec<SharedMapping> {
         self.inner.shared_mappings(task)
+    }
+
+    fn wipe_on_fork(&self, task: TaskId) -> Vec<Range<u64>> {
+        self.inner.wipe_on_fork(task)
     }
 }
 
