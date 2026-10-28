@@ -244,6 +244,12 @@ impl Loader for CachedLoader {
 
 /// The commands of the package tree, in the order the resolver gave them: it made each name
 /// that of the first package in the tree (the root, then its dependencies) that has it.
+///
+/// Every command becomes a file, whatever its runner, as v1 installed them: running one is
+/// `execve` of the file, which starts what some ABI serves and fails with `ENOEXEC` for
+/// anything else, as Linux's binary formats decide. A WCGI command's atom is a WASI program
+/// and runs as one, as a CGI program run by hand does; a WASM-4 cartridge is `ENOEXEC`. Only
+/// the program `wasmer run` starts itself must have the WASI runner.
 fn package_commands(pkg: &BinaryPackage) -> Result<Vec<PackageCommand>, Error> {
     pkg.commands
         .iter()

@@ -918,6 +918,39 @@ fn run_wasixv2_package_script_command_runs_its_interpreter() {
         .stdout("/bin/echo-args -x /bin/script a b\n");
 }
 
+/// Commands of every runner are files in `/bin`: a WCGI command's atom is a WASI program and
+/// runs, a WASM-4 cartridge serves no ABI and `execve` fails with `ENOEXEC`.
+#[test]
+fn run_wasixv2_package_commands_of_other_runners_run_by_their_format() {
+    let package = wasixv2_commands_package(None);
+    let path = package.path();
+    let cartridge = r#"(module (memory (export "memory") 1) (func (export "start")))"#;
+    std::fs::write(path.join("game.wasm"), wat::parse_str(cartridge).unwrap()).unwrap();
+    let mut manifest = std::fs::read_to_string(path.join("wasmer.toml")).unwrap();
+    manifest += "[[module]]\nname = \"game\"\nsource = \"game.wasm\"\n\n\
+                 [[command]]\nname = \"game\"\nmodule = \"game\"\nrunner = \"wasm4\"\n\n\
+                 [[command]]\nname = \"cgi\"\nmodule = \"echo-args\"\nrunner = \"wcgi\"\n";
+    std::fs::write(path.join("wasmer.toml"), manifest).unwrap();
+    wasmer_command()
+        .arg("run")
+        .arg(path)
+        .arg("--entrypoint=exec")
+        .arg("/bin/cgi")
+        .arg("x")
+        .assert()
+        .success()
+        .stdout("/bin/cgi x\n");
+    // ENOEXEC
+    wasmer_command()
+        .arg("run")
+        .arg(path)
+        .arg("--entrypoint=exec")
+        .arg("/bin/game")
+        .assert()
+        .code(8)
+        .stdout("");
+}
+
 /// A package command that cannot instantiate is a plain error of `wasmer run`, exit status 1,
 /// not the SIGSEGV an image the guest `execve`s dies of.
 #[test]
