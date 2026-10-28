@@ -4094,8 +4094,7 @@ pub trait Syscalls {
 
     /// Kernel: `sys_statmount(const struct mnt_id_req * req, struct statmount * buf, size_t bufsize,
     /// unsigned int flags)`.
-    /// variable-size struct statmount.
-    /// Untyped: buf: `struct statmount` (512+ bytes, size-versioned, not modelled).
+    /// `buf` holds a `statmount` record followed by its strings, `bufsize` bytes in all.
     ///
     /// Wasm import `wasixv2.statmount` (riscv32 nr 457).
     async fn statmount(

@@ -21034,6 +21034,214 @@ impl GuestLayout for MntIdReq {
         self.mnt_ns_id.write_to(&mut out[24..]);
     }
 }
+/// The fixed part of `statmount`'s result (`struct statmount`, UAPI `linux/mount.h`). The
+/// strings follow it in the caller's buffer (`str[]`); each `[str]` field is the offset of its
+/// NUL-terminated string from there. `size` is the whole result, strings included. `mask`
+/// says which fields were filled (`statmount-mask`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Statmount {
+    pub size: u32,
+    /// [str] The mount's and the superblock's options, comma separated (`STATMOUNT_MNT_OPTS`).
+    pub mnt_opts: u32,
+    pub mask: u64,
+    pub sb_dev_major: u32,
+    pub sb_dev_minor: u32,
+    pub sb_magic: u64,
+    /// `SB_RDONLY`, `SB_SYNCHRONOUS`, `SB_DIRSYNC`, `SB_LAZYTIME`.
+    pub sb_flags: u32,
+    /// [str]
+    pub fs_type: u32,
+    /// The mount's unique id (`STATX_MNT_ID_UNIQUE`).
+    pub mnt_id: u64,
+    /// The parent's unique id; its own for a namespace root.
+    pub mnt_parent_id: u64,
+    /// The ids `/proc/<pid>/mountinfo` shows.
+    pub mnt_id_old: u32,
+    pub mnt_parent_id_old: u32,
+    /// `MOUNT_ATTR_*`.
+    pub mnt_attr: u64,
+    /// `MS_SHARED`, `MS_SLAVE`, `MS_PRIVATE`, `MS_UNBINDABLE`.
+    pub mnt_propagation: u64,
+    pub mnt_peer_group: u64,
+    pub mnt_master: u64,
+    pub propagate_from: u64,
+    /// [str] The mount's root, relative to its filesystem's root.
+    pub mnt_root: u32,
+    /// [str] The mountpoint, relative to the caller's root.
+    pub mnt_point: u32,
+    pub mnt_ns_id: u64,
+    /// [str]
+    pub fs_subtype: u32,
+    /// [str]
+    pub sb_source: u32,
+    pub opt_num: u32,
+    /// [str] `opt-num` NUL-terminated filesystem options.
+    pub opt_array: u32,
+    pub opt_sec_num: u32,
+    /// [str]
+    pub opt_sec_array: u32,
+    pub supported_mask: u64,
+    pub mnt_uidmap_num: u32,
+    /// [str]
+    pub mnt_uidmap: u32,
+    pub mnt_gidmap_num: u32,
+    /// [str]
+    pub mnt_gidmap: u32,
+    pub spare2: [u64; 43],
+}
+const _: () = {
+    assert!(core::mem::size_of::<Statmount>() == 512);
+    assert!(core::mem::align_of::<Statmount>() == 8);
+    assert!(core::mem::offset_of!(Statmount, size) == 0);
+    assert!(core::mem::offset_of!(Statmount, mnt_opts) == 4);
+    assert!(core::mem::offset_of!(Statmount, mask) == 8);
+    assert!(core::mem::offset_of!(Statmount, sb_dev_major) == 16);
+    assert!(core::mem::offset_of!(Statmount, sb_dev_minor) == 20);
+    assert!(core::mem::offset_of!(Statmount, sb_magic) == 24);
+    assert!(core::mem::offset_of!(Statmount, sb_flags) == 32);
+    assert!(core::mem::offset_of!(Statmount, fs_type) == 36);
+    assert!(core::mem::offset_of!(Statmount, mnt_id) == 40);
+    assert!(core::mem::offset_of!(Statmount, mnt_parent_id) == 48);
+    assert!(core::mem::offset_of!(Statmount, mnt_id_old) == 56);
+    assert!(core::mem::offset_of!(Statmount, mnt_parent_id_old) == 60);
+    assert!(core::mem::offset_of!(Statmount, mnt_attr) == 64);
+    assert!(core::mem::offset_of!(Statmount, mnt_propagation) == 72);
+    assert!(core::mem::offset_of!(Statmount, mnt_peer_group) == 80);
+    assert!(core::mem::offset_of!(Statmount, mnt_master) == 88);
+    assert!(core::mem::offset_of!(Statmount, propagate_from) == 96);
+    assert!(core::mem::offset_of!(Statmount, mnt_root) == 104);
+    assert!(core::mem::offset_of!(Statmount, mnt_point) == 108);
+    assert!(core::mem::offset_of!(Statmount, mnt_ns_id) == 112);
+    assert!(core::mem::offset_of!(Statmount, fs_subtype) == 120);
+    assert!(core::mem::offset_of!(Statmount, sb_source) == 124);
+    assert!(core::mem::offset_of!(Statmount, opt_num) == 128);
+    assert!(core::mem::offset_of!(Statmount, opt_array) == 132);
+    assert!(core::mem::offset_of!(Statmount, opt_sec_num) == 136);
+    assert!(core::mem::offset_of!(Statmount, opt_sec_array) == 140);
+    assert!(core::mem::offset_of!(Statmount, supported_mask) == 144);
+    assert!(core::mem::offset_of!(Statmount, mnt_uidmap_num) == 152);
+    assert!(core::mem::offset_of!(Statmount, mnt_uidmap) == 156);
+    assert!(core::mem::offset_of!(Statmount, mnt_gidmap_num) == 160);
+    assert!(core::mem::offset_of!(Statmount, mnt_gidmap) == 164);
+    assert!(core::mem::offset_of!(Statmount, spare2) == 168);
+};
+impl Default for Statmount {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Statmount {
+    const SIZE: usize = 512;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        size: <u32 as GuestLayout>::ZERO,
+        mnt_opts: <u32 as GuestLayout>::ZERO,
+        mask: <u64 as GuestLayout>::ZERO,
+        sb_dev_major: <u32 as GuestLayout>::ZERO,
+        sb_dev_minor: <u32 as GuestLayout>::ZERO,
+        sb_magic: <u64 as GuestLayout>::ZERO,
+        sb_flags: <u32 as GuestLayout>::ZERO,
+        fs_type: <u32 as GuestLayout>::ZERO,
+        mnt_id: <u64 as GuestLayout>::ZERO,
+        mnt_parent_id: <u64 as GuestLayout>::ZERO,
+        mnt_id_old: <u32 as GuestLayout>::ZERO,
+        mnt_parent_id_old: <u32 as GuestLayout>::ZERO,
+        mnt_attr: <u64 as GuestLayout>::ZERO,
+        mnt_propagation: <u64 as GuestLayout>::ZERO,
+        mnt_peer_group: <u64 as GuestLayout>::ZERO,
+        mnt_master: <u64 as GuestLayout>::ZERO,
+        propagate_from: <u64 as GuestLayout>::ZERO,
+        mnt_root: <u32 as GuestLayout>::ZERO,
+        mnt_point: <u32 as GuestLayout>::ZERO,
+        mnt_ns_id: <u64 as GuestLayout>::ZERO,
+        fs_subtype: <u32 as GuestLayout>::ZERO,
+        sb_source: <u32 as GuestLayout>::ZERO,
+        opt_num: <u32 as GuestLayout>::ZERO,
+        opt_array: <u32 as GuestLayout>::ZERO,
+        opt_sec_num: <u32 as GuestLayout>::ZERO,
+        opt_sec_array: <u32 as GuestLayout>::ZERO,
+        supported_mask: <u64 as GuestLayout>::ZERO,
+        mnt_uidmap_num: <u32 as GuestLayout>::ZERO,
+        mnt_uidmap: <u32 as GuestLayout>::ZERO,
+        mnt_gidmap_num: <u32 as GuestLayout>::ZERO,
+        mnt_gidmap: <u32 as GuestLayout>::ZERO,
+        spare2: <[u64; 43] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            size: GuestLayout::read_from(&bytes[0..])?,
+            mnt_opts: GuestLayout::read_from(&bytes[4..])?,
+            mask: GuestLayout::read_from(&bytes[8..])?,
+            sb_dev_major: GuestLayout::read_from(&bytes[16..])?,
+            sb_dev_minor: GuestLayout::read_from(&bytes[20..])?,
+            sb_magic: GuestLayout::read_from(&bytes[24..])?,
+            sb_flags: GuestLayout::read_from(&bytes[32..])?,
+            fs_type: GuestLayout::read_from(&bytes[36..])?,
+            mnt_id: GuestLayout::read_from(&bytes[40..])?,
+            mnt_parent_id: GuestLayout::read_from(&bytes[48..])?,
+            mnt_id_old: GuestLayout::read_from(&bytes[56..])?,
+            mnt_parent_id_old: GuestLayout::read_from(&bytes[60..])?,
+            mnt_attr: GuestLayout::read_from(&bytes[64..])?,
+            mnt_propagation: GuestLayout::read_from(&bytes[72..])?,
+            mnt_peer_group: GuestLayout::read_from(&bytes[80..])?,
+            mnt_master: GuestLayout::read_from(&bytes[88..])?,
+            propagate_from: GuestLayout::read_from(&bytes[96..])?,
+            mnt_root: GuestLayout::read_from(&bytes[104..])?,
+            mnt_point: GuestLayout::read_from(&bytes[108..])?,
+            mnt_ns_id: GuestLayout::read_from(&bytes[112..])?,
+            fs_subtype: GuestLayout::read_from(&bytes[120..])?,
+            sb_source: GuestLayout::read_from(&bytes[124..])?,
+            opt_num: GuestLayout::read_from(&bytes[128..])?,
+            opt_array: GuestLayout::read_from(&bytes[132..])?,
+            opt_sec_num: GuestLayout::read_from(&bytes[136..])?,
+            opt_sec_array: GuestLayout::read_from(&bytes[140..])?,
+            supported_mask: GuestLayout::read_from(&bytes[144..])?,
+            mnt_uidmap_num: GuestLayout::read_from(&bytes[152..])?,
+            mnt_uidmap: GuestLayout::read_from(&bytes[156..])?,
+            mnt_gidmap_num: GuestLayout::read_from(&bytes[160..])?,
+            mnt_gidmap: GuestLayout::read_from(&bytes[164..])?,
+            spare2: GuestLayout::read_from(&bytes[168..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.size.write_to(&mut out[0..]);
+        self.mnt_opts.write_to(&mut out[4..]);
+        self.mask.write_to(&mut out[8..]);
+        self.sb_dev_major.write_to(&mut out[16..]);
+        self.sb_dev_minor.write_to(&mut out[20..]);
+        self.sb_magic.write_to(&mut out[24..]);
+        self.sb_flags.write_to(&mut out[32..]);
+        self.fs_type.write_to(&mut out[36..]);
+        self.mnt_id.write_to(&mut out[40..]);
+        self.mnt_parent_id.write_to(&mut out[48..]);
+        self.mnt_id_old.write_to(&mut out[56..]);
+        self.mnt_parent_id_old.write_to(&mut out[60..]);
+        self.mnt_attr.write_to(&mut out[64..]);
+        self.mnt_propagation.write_to(&mut out[72..]);
+        self.mnt_peer_group.write_to(&mut out[80..]);
+        self.mnt_master.write_to(&mut out[88..]);
+        self.propagate_from.write_to(&mut out[96..]);
+        self.mnt_root.write_to(&mut out[104..]);
+        self.mnt_point.write_to(&mut out[108..]);
+        self.mnt_ns_id.write_to(&mut out[112..]);
+        self.fs_subtype.write_to(&mut out[120..]);
+        self.sb_source.write_to(&mut out[124..]);
+        self.opt_num.write_to(&mut out[128..]);
+        self.opt_array.write_to(&mut out[132..]);
+        self.opt_sec_num.write_to(&mut out[136..]);
+        self.opt_sec_array.write_to(&mut out[140..]);
+        self.supported_mask.write_to(&mut out[144..]);
+        self.mnt_uidmap_num.write_to(&mut out[152..]);
+        self.mnt_uidmap.write_to(&mut out[156..]);
+        self.mnt_gidmap_num.write_to(&mut out[160..]);
+        self.mnt_gidmap.write_to(&mut out[164..]);
+        self.spare2.write_to(&mut out[168..]);
+    }
+}
 /// `listns` request (`struct ns_id_req`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -22114,6 +22322,498 @@ impl core::ops::BitXorAssign for FspickFlags {
 }
 
 impl GuestLayout for FspickFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `fsconfig` commands (`FSCONFIG_*`, UAPI `linux/mount.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FsconfigCommand(pub u32);
+impl FsconfigCommand {
+    pub const FSCONFIG_SET_FLAG: Self = Self(0);
+    pub const FSCONFIG_SET_STRING: Self = Self(1);
+    pub const FSCONFIG_SET_BINARY: Self = Self(2);
+    pub const FSCONFIG_SET_PATH: Self = Self(3);
+    pub const FSCONFIG_SET_PATH_EMPTY: Self = Self(4);
+    pub const FSCONFIG_SET_FD: Self = Self(5);
+    pub const FSCONFIG_CMD_CREATE: Self = Self(6);
+    pub const FSCONFIG_CMD_RECONFIGURE: Self = Self(7);
+    pub const FSCONFIG_CMD_CREATE_EXCL: Self = Self(8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FSCONFIG_SET_FLAG", Self::FSCONFIG_SET_FLAG),
+        ("FSCONFIG_SET_STRING", Self::FSCONFIG_SET_STRING),
+        ("FSCONFIG_SET_BINARY", Self::FSCONFIG_SET_BINARY),
+        ("FSCONFIG_SET_PATH", Self::FSCONFIG_SET_PATH),
+        ("FSCONFIG_SET_PATH_EMPTY", Self::FSCONFIG_SET_PATH_EMPTY),
+        ("FSCONFIG_SET_FD", Self::FSCONFIG_SET_FD),
+        ("FSCONFIG_CMD_CREATE", Self::FSCONFIG_CMD_CREATE),
+        ("FSCONFIG_CMD_RECONFIGURE", Self::FSCONFIG_CMD_RECONFIGURE),
+        ("FSCONFIG_CMD_CREATE_EXCL", Self::FSCONFIG_CMD_CREATE_EXCL),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("FSCONFIG_SET_FLAG"),
+            1 => Some("FSCONFIG_SET_STRING"),
+            2 => Some("FSCONFIG_SET_BINARY"),
+            3 => Some("FSCONFIG_SET_PATH"),
+            4 => Some("FSCONFIG_SET_PATH_EMPTY"),
+            5 => Some("FSCONFIG_SET_FD"),
+            6 => Some("FSCONFIG_CMD_CREATE"),
+            7 => Some("FSCONFIG_CMD_RECONFIGURE"),
+            8 => Some("FSCONFIG_CMD_CREATE_EXCL"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for FsconfigCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "FsconfigCommand({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for FsconfigCommand {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `statmount` request and result mask (`STATMOUNT_*`, UAPI `linux/mount.h`): `mnt_id_req.param`
+/// and `statmount.mask`.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct StatmountMask(pub u64);
+impl StatmountMask {
+    pub const STATMOUNT_SB_BASIC: Self = Self(0x1);
+    pub const STATMOUNT_MNT_BASIC: Self = Self(0x2);
+    pub const STATMOUNT_PROPAGATE_FROM: Self = Self(0x4);
+    pub const STATMOUNT_MNT_ROOT: Self = Self(0x8);
+    pub const STATMOUNT_MNT_POINT: Self = Self(0x10);
+    pub const STATMOUNT_FS_TYPE: Self = Self(0x20);
+    pub const STATMOUNT_MNT_NS_ID: Self = Self(0x40);
+    pub const STATMOUNT_MNT_OPTS: Self = Self(0x80);
+    pub const STATMOUNT_FS_SUBTYPE: Self = Self(0x100);
+    pub const STATMOUNT_SB_SOURCE: Self = Self(0x200);
+    pub const STATMOUNT_OPT_ARRAY: Self = Self(0x400);
+    pub const STATMOUNT_OPT_SEC_ARRAY: Self = Self(0x800);
+    pub const STATMOUNT_SUPPORTED_MASK: Self = Self(0x1000);
+    pub const STATMOUNT_MNT_UIDMAP: Self = Self(0x2000);
+    pub const STATMOUNT_MNT_GIDMAP: Self = Self(0x4000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("STATMOUNT_SB_BASIC", Self::STATMOUNT_SB_BASIC),
+        ("STATMOUNT_MNT_BASIC", Self::STATMOUNT_MNT_BASIC),
+        ("STATMOUNT_PROPAGATE_FROM", Self::STATMOUNT_PROPAGATE_FROM),
+        ("STATMOUNT_MNT_ROOT", Self::STATMOUNT_MNT_ROOT),
+        ("STATMOUNT_MNT_POINT", Self::STATMOUNT_MNT_POINT),
+        ("STATMOUNT_FS_TYPE", Self::STATMOUNT_FS_TYPE),
+        ("STATMOUNT_MNT_NS_ID", Self::STATMOUNT_MNT_NS_ID),
+        ("STATMOUNT_MNT_OPTS", Self::STATMOUNT_MNT_OPTS),
+        ("STATMOUNT_FS_SUBTYPE", Self::STATMOUNT_FS_SUBTYPE),
+        ("STATMOUNT_SB_SOURCE", Self::STATMOUNT_SB_SOURCE),
+        ("STATMOUNT_OPT_ARRAY", Self::STATMOUNT_OPT_ARRAY),
+        ("STATMOUNT_OPT_SEC_ARRAY", Self::STATMOUNT_OPT_SEC_ARRAY),
+        ("STATMOUNT_SUPPORTED_MASK", Self::STATMOUNT_SUPPORTED_MASK),
+        ("STATMOUNT_MNT_UIDMAP", Self::STATMOUNT_MNT_UIDMAP),
+        ("STATMOUNT_MNT_GIDMAP", Self::STATMOUNT_MNT_GIDMAP),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for StatmountMask {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("StatmountMask(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for StatmountMask {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for StatmountMask {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for StatmountMask {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for StatmountMask {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for StatmountMask {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for StatmountMask {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for StatmountMask {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for StatmountMask {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `statmount` flags (UAPI `linux/mount.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct StatmountFlags(pub u32);
+impl StatmountFlags {
+    /// `mnt_id_req.mnt_fd` names the mount instead of `mnt_id`.
+    pub const STATMOUNT_BY_FD: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("STATMOUNT_BY_FD", Self::STATMOUNT_BY_FD)];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for StatmountFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("StatmountFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for StatmountFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for StatmountFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for StatmountFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for StatmountFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for StatmountFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for StatmountFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for StatmountFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for StatmountFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `listmount` flags (UAPI `linux/mount.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct ListmountFlags(pub u32);
+impl ListmountFlags {
+    pub const LISTMOUNT_REVERSE: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("LISTMOUNT_REVERSE", Self::LISTMOUNT_REVERSE)];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for ListmountFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("ListmountFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for ListmountFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for ListmountFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for ListmountFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for ListmountFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for ListmountFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for ListmountFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for ListmountFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for ListmountFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `mnt_id_req.mnt_id` values with a meaning of their own (UAPI `linux/mount.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct ListmountMntId(pub u64);
+impl ListmountMntId {
+    /// The namespace's root mount.
+    pub const LSMT_ROOT: Self = Self(18446744073709551615);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[("LSMT_ROOT", Self::LSMT_ROOT)];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            18446744073709551615 => Some("LSMT_ROOT"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for ListmountMntId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "ListmountMntId({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for ListmountMntId {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `mnt_id_req.size` of each published version (`MNT_ID_REQ_SIZE_VER*`, UAPI `linux/mount.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct MntIdReqSize(pub u32);
+impl MntIdReqSize {
+    pub const MNT_ID_REQ_SIZE_VER0: Self = Self(24);
+    pub const MNT_ID_REQ_SIZE_VER1: Self = Self(32);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("MNT_ID_REQ_SIZE_VER0", Self::MNT_ID_REQ_SIZE_VER0),
+        ("MNT_ID_REQ_SIZE_VER1", Self::MNT_ID_REQ_SIZE_VER1),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            24 => Some("MNT_ID_REQ_SIZE_VER0"),
+            32 => Some("MNT_ID_REQ_SIZE_VER1"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for MntIdReqSize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "MntIdReqSize({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for MntIdReqSize {
     const SIZE: usize = <u32 as GuestLayout>::SIZE;
     const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
     const ZERO: Self = Self(0);
