@@ -10,9 +10,11 @@ use std::{
     collections::HashMap,
     sync::{
         Arc, Mutex, MutexGuard, RwLock, Weak,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
 };
+
+use wasixv2_abi::Errno;
 
 use crate::{
     dentry::Dentry,
@@ -45,6 +47,9 @@ pub struct Superblock {
     /// The dentry of the filesystem's root while something holds it (`s_root`), so every
     /// mount of the filesystem starts at the same one.
     pub(crate) root: Mutex<Weak<Dentry>>,
+    /// Write accesses held on any mount of the filesystem (the sum of its mounts'
+    /// `mnt_writers`), which a remount read-only waits for none of (`sb_prepare_remount_readonly`).
+    pub(crate) writers: AtomicUsize,
 }
 
 impl Superblock {
@@ -109,6 +114,8 @@ pub struct Mount {
     pub(crate) parent: Mutex<Option<Path>>,
     /// `MNT_EXPIRE` marked it (`mnt_expiry_mark`).
     pub(crate) expiry_mark: AtomicBool,
+    /// Write accesses held through it (`mnt_writers`): files open for writing.
+    pub(crate) writers: AtomicUsize,
 }
 
 impl Mount {
@@ -120,6 +127,7 @@ impl Mount {
             devname,
             parent: Mutex::new(None),
             expiry_mark: AtomicBool::new(false),
+            writers: AtomicUsize::new(0),
         }
     }
 
@@ -179,6 +187,18 @@ impl Mount {
 /// `MNT_UNIQUE_ID_OFFSET`: unique mount ids are above it, so they never look like the ids
 /// `mountinfo` shows.
 pub const MNT_UNIQUE_ID_OFFSET: u64 = 1 << 31;
+
+/// Write access to a mount's filesystem, held by a file open for writing (`FMODE_WRITER`) from
+/// `mnt_get_write_access` to `mnt_put_write_access`. While any is held, the mount cannot become
+/// read-only, nor can its filesystem.
+pub(crate) struct WriteAccess(Arc<Mount>);
+
+impl Drop for WriteAccess {
+    fn drop(&mut self) {
+        self.0.writers.fetch_sub(1, Ordering::SeqCst);
+        self.0.sb().writers.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 
 /// A location in the tree: a mount and a dentry inside it.
 #[derive(Clone)]
@@ -305,6 +325,9 @@ pub(crate) struct Tree {
     pub(crate) seq: Arc<TreeSeq>,
     /// Identifiers of mounts, superblocks, namespaces and open files.
     pub(crate) next_id: AtomicU64,
+    /// Held while a write access is taken, and while a mount or filesystem is made read-only
+    /// after checking it has none (`MNT_WRITE_HOLD`), so neither misses the other.
+    write_hold: Mutex<()>,
 }
 
 impl Tree {
@@ -313,7 +336,52 @@ impl Tree {
             state: Mutex::default(),
             seq,
             next_id: AtomicU64::new(1),
+            write_hold: Mutex::new(()),
         })
+    }
+
+    /// `mnt_get_write_access`: `EROFS` if the mount or its filesystem is read-only.
+    pub(crate) fn get_write_access(&self, mount: &Arc<Mount>) -> Result<WriteAccess, Errno> {
+        let _hold = self.write_hold.lock_or_recover();
+        if mount.is_read_only() {
+            return Err(Errno::EROFS);
+        }
+        mount.writers.fetch_add(1, Ordering::SeqCst);
+        mount.sb().writers.fetch_add(1, Ordering::SeqCst);
+        Ok(WriteAccess(mount.clone()))
+    }
+
+    /// Makes `sb` read-only or writable (`reconfigure_super`); `EBUSY` if it would become
+    /// read-only while a file is open for writing on it (`sb_prepare_remount_readonly`).
+    pub(crate) fn set_sb_read_only(&self, sb: &Superblock, read_only: bool) -> Result<(), Errno> {
+        let _hold = self.write_hold.lock_or_recover();
+        if read_only && !sb.is_read_only() && sb.writers.load(Ordering::SeqCst) > 0 {
+            return Err(Errno::EBUSY);
+        }
+        sb.set_read_only(read_only);
+        Ok(())
+    }
+
+    /// Gives each of `mounts` the flags `change` makes of its own, all or none: `EBUSY` if one
+    /// would become read-only while a file is open for writing through it
+    /// (`mnt_hold_writers`, `mnt_make_readonly`).
+    pub(crate) fn set_mount_flags(
+        &self,
+        mounts: &[Arc<Mount>],
+        change: impl Fn(MountFlags) -> MountFlags,
+    ) -> Result<(), Errno> {
+        let _hold = self.write_hold.lock_or_recover();
+        let busy = mounts.iter().any(|mount| {
+            let old = mount.flags();
+            change(old).read_only && !old.read_only && mount.writers.load(Ordering::SeqCst) > 0
+        });
+        if busy {
+            return Err(Errno::EBUSY);
+        }
+        for mount in mounts {
+            mount.set_flags(change(mount.flags()));
+        }
+        Ok(())
     }
 
     pub(crate) fn next_id(&self) -> u64 {
