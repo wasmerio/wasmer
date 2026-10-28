@@ -1,4 +1,14 @@
-//! Futexes (`kernel/futex`): wait queues keyed by address, for the tasks of one address space.
+//! Futexes (`kernel/futex`): wait queues keyed by the futex word, as `get_futex_key` names it.
+//!
+//! A word in private memory is named by its address space and address, so the tasks of one
+//! address space find each other there. A word in a mapping of a shared object
+//! ([`Mapped`](crate::mm::Mapped)) is named, unless the call says `FUTEX_PRIVATE_FLAG`, by the
+//! object and the word's offset in it, so every process that maps the object finds the same
+//! waiters wherever it mapped it: process-shared mutexes, condition variables and semaphores in
+//! `MAP_SHARED` memory or a SysV segment work across processes as on Linux. A shared futex in
+//! private memory is the private one here (Linux marks it `FUT_OFF_MMSHARED`, which keeps it
+//! apart from a private futex on the same word), so `memory.atomic.wait` and `notify`, which say
+//! neither, meet `futex` calls of both kinds there.
 //!
 //! As on Linux, waiters sit on the chains of a fixed table of hash buckets, each with its own
 //! lock, and a waiter's entry records its key, so a wait, a wake and a waiter leaving only lock
@@ -21,7 +31,7 @@ use std::{
     collections::{HashMap, VecDeque},
     sync::{
         Arc, Mutex, MutexGuard,
-        atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -43,23 +53,59 @@ const FUTEX_TID_MASK: u32 = 0x3fff_ffff;
 /// `ROBUST_LIST_LIMIT`: how many entries a robust list walk visits at most.
 const ROBUST_LIST_LIMIT: usize = 2048;
 
-/// A futex: the address space ([`Mm::id`](crate::mm::Mm::id)) and the address of the word. As
-/// Linux keys private futexes by `mm`, every task on the same memory, a vfork child included,
-/// finds the same queue.
+/// A futex (`union futex_key`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct Key {
-    pub(crate) mm: u64,
+pub(crate) enum Key {
+    /// A word of an address space's own memory: the address space
+    /// ([`Mm::id`](crate::mm::Mm::id)) and the word's address. As Linux keys private futexes by
+    /// `mm`, every task on the same memory, a vfork child included, finds the same queue.
+    Private { mm: u64, addr: u32 },
+    /// A word of a shared object ([`SharedPages::id`](wasixv2_pages::SharedPages::id)), at
+    /// `offset` in it (Linux's inode-based key).
+    Shared { object: u64, offset: u64 },
+}
+
+/// The bit of [`Key::parts`]'s first half that tells a shared key from a private one.
+const SHARED_KEY: u64 = 1 << 63;
+
+impl Key {
+    /// The key as two words, as an [`Entry`] keeps it.
+    fn parts(self) -> (u64, u64) {
+        match self {
+            Key::Private { mm, addr } => (mm, u64::from(addr)),
+            Key::Shared { object, offset } => (object | SHARED_KEY, offset),
+        }
+    }
+
+    fn from_parts(space: u64, word: u64) -> Self {
+        match space & SHARED_KEY {
+            0 => Key::Private {
+                mm: space,
+                addr: word as u32,
+            },
+            _ => Key::Shared {
+                object: space & !SHARED_KEY,
+                offset: word,
+            },
+        }
+    }
+}
+
+/// A futex word as an operation finds it: its key, and its address in the caller's memory.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Word {
+    pub(crate) key: Key,
     pub(crate) addr: u32,
 }
 
 /// One blocked `FUTEX_WAIT` or `FUTEX_WAIT_REQUEUE_PI` (`futex_q`), on the chain of its key's
 /// bucket while `queued`.
 struct Entry {
-    /// The address space of the key; a requeue stays within it.
-    mm: u64,
-    /// The address of the key. A requeue changes it holding the locks of both buckets, so it is
-    /// stable under the lock of the bucket it names (`futex_q::lock_ptr`).
-    addr: AtomicU32,
+    /// The key, as [`Key::parts`]. A requeue changes it holding the locks of both buckets, so it
+    /// is stable under the lock of the bucket it names (`futex_q::lock_ptr`); read without that
+    /// lock, its halves may come from two keys.
+    space: AtomicU64,
+    word: AtomicU64,
     bitset: u32,
     /// On a chain. Whoever takes the entry off clears it under the bucket lock: a wake, a requeue
     /// onto a PI futex, or the waiter leaving (`plist_node_empty`).
@@ -72,9 +118,10 @@ struct Entry {
 
 impl Entry {
     fn new(key: Key, bitset: u32, task: WakeHandle, requeue: Option<Arc<Requeue>>) -> Arc<Self> {
+        let (space, word) = key.parts();
         Arc::new(Self {
-            mm: key.mm,
-            addr: AtomicU32::new(key.addr),
+            space: AtomicU64::new(space),
+            word: AtomicU64::new(word),
             bitset,
             queued: AtomicBool::new(true),
             task,
@@ -84,10 +131,16 @@ impl Entry {
 
     /// The key; stable while the caller holds the lock of the entry's bucket.
     fn key(&self) -> Key {
-        Key {
-            mm: self.mm,
-            addr: self.addr.load(Ordering::Acquire),
-        }
+        let space = self.space.load(Ordering::Acquire);
+        Key::from_parts(space, self.word.load(Ordering::Acquire))
+    }
+
+    /// `requeue_futex`: moves the entry to `key`. The caller holds the locks of the buckets of
+    /// both keys.
+    fn set_key(&self, key: Key) {
+        let (space, word) = key.parts();
+        self.space.store(space, Ordering::Release);
+        self.word.store(word, Ordering::Release);
     }
 
     /// `futex_wake_mark`: the caller took the entry off its chain; it was woken.
@@ -221,7 +274,8 @@ impl Futexes {
     fn index(&self, key: Key) -> usize {
         // Fibonacci hashing of both halves of the key (Linux hashes with `jhash2`).
         const MULTIPLIER: u64 = 0x9e37_79b9_7f4a_7c15;
-        let hash = (key.mm.wrapping_mul(MULTIPLIER) ^ u64::from(key.addr)).wrapping_mul(MULTIPLIER);
+        let (space, word) = key.parts();
+        let hash = (space.wrapping_mul(MULTIPLIER) ^ word).wrapping_mul(MULTIPLIER);
         (hash >> 32) as usize & (self.buckets.len() - 1)
     }
 
@@ -257,14 +311,12 @@ impl Futexes {
             if !entry.queued.load(Ordering::Acquire) {
                 return false;
             }
-            let key = entry.key();
-            let mut chain = self.lock(key);
-            // A requeue moved it before the lock was ours; its new bucket has it.
-            if entry.addr.load(Ordering::Acquire) != key.addr {
-                continue;
-            }
+            let mut chain = self.lock(entry.key());
+            // Not there while queued: a requeue moved it before the lock was ours, or is moving
+            // it (whose key read half old, half new). Its key names its chain once it is done.
+            // A wake takes it off under the lock of the chain it is on, and clears `queued`.
             let Some(at) = chain.iter().position(|e| Arc::ptr_eq(e, entry)) else {
-                return false;
+                continue;
             };
             chain.remove(at);
             entry.queued.store(false, Ordering::Release);
@@ -285,20 +337,21 @@ impl Futexes {
     }
 
     /// `futex_requeue` for plain futexes, holding both buckets: wakes up to `n_wake` waiters on
-    /// `from` and moves up to `n_requeue` of the rest to `to`. With `expected`, the word at
-    /// `from` must hold it (`FUTEX_CMP_REQUEUE`), or nothing happens and the result is `EAGAIN`.
+    /// `from` and moves up to `n_requeue` of the rest to `to`. With `expected`, the word `from`
+    /// must hold it (`FUTEX_CMP_REQUEUE`), or nothing happens and the result is `EAGAIN`.
     /// Returns the number woken plus the number moved.
     fn requeue(
         &self,
         memory: &dyn UserMemory,
-        from: Key,
+        from: Word,
         to: Key,
         (n_wake, n_requeue): (u32, u32),
         expected: Option<u32>,
     ) -> Locked<u32> {
+        let (addr, from) = (from.addr, from.key);
         let (mut chain, mut other) = self.lock_pair(from, to);
         if let Some(expected) = expected {
-            match get_word(memory, from.addr).now_or_never() {
+            match get_word(memory, addr).now_or_never() {
                 None => return Err(WouldBlock),
                 Some(Err(errno)) => return Ok(Err(errno)),
                 Some(Ok(word)) if word != expected => return Ok(Err(Errno::EAGAIN)),
@@ -320,8 +373,7 @@ impl Futexes {
                 woken += 1;
                 continue;
             }
-            // `requeue_futex`
-            chain[at].addr.store(to.addr, Ordering::Release);
+            chain[at].set_key(to);
             match &mut other {
                 Some(other) => other.push(chain.remove(at)),
                 None => at += 1,
@@ -331,20 +383,21 @@ impl Futexes {
         Ok(Ok(woken + moved))
     }
 
-    /// `futex_wake_op`, holding both buckets: applies the operation `encoded` to the word at
-    /// `key2`, wakes up to `n` waiters on `key`, and if the word's old value passed the
-    /// operation's comparison, up to `n2` on `key2`.
+    /// `futex_wake_op`, holding both buckets: applies the operation `encoded` to the word
+    /// `word2`, wakes up to `n` waiters on `key`, and if the word's old value passed the
+    /// operation's comparison, up to `n2` on `word2`.
     fn wake_op(
         &self,
         memory: &dyn UserMemory,
         (key, n): (Key, u32),
-        (key2, n2): (Key, u32),
+        (word2, n2): (Word, u32),
         encoded: u32,
     ) -> Locked<u32> {
+        let key2 = word2.key;
         let (mut chain, mut other) = self.lock_pair(key, key2);
         // `futex_atomic_op_inuser`: retried until the word did not change under us.
         let matches = loop {
-            let old = match get_word(memory, key2.addr).now_or_never() {
+            let old = match get_word(memory, word2.addr).now_or_never() {
                 None => return Err(WouldBlock),
                 Some(Err(errno)) => return Ok(Err(errno)),
                 Some(Ok(old)) => old,
@@ -353,7 +406,7 @@ impl Futexes {
                 Ok(op) => op,
                 Err(errno) => return Ok(Err(errno)),
             };
-            match cmpxchg(memory, key2.addr, old, new).now_or_never() {
+            match cmpxchg(memory, word2.addr, old, new).now_or_never() {
                 None => return Err(WouldBlock),
                 Some(Err(errno)) => return Ok(Err(errno)),
                 Some(Ok(current)) if current == old => break matches,
@@ -523,9 +576,22 @@ enum Attempt {
 }
 
 impl Kernel {
-    fn futex_key(&self, caller: &Caller<'_>, addr: u32) -> Key {
-        Key {
-            mm: self.mm(caller.task()).id(),
+    /// `get_futex_key` for the word at `addr` of `task`'s memory: in a mapping of a shared
+    /// object, unless `private` (`FUTEX_PRIVATE_FLAG`), the object and the word's offset in it;
+    /// otherwise the address space and the address.
+    pub(crate) fn futex_key(&self, task: TaskId, addr: u32, private: bool) -> Key {
+        let mm = self.mm(task);
+        let shared = match private {
+            true => None,
+            false => mm.shared_futex_key(addr),
+        };
+        shared.unwrap_or(Key::Private { mm: mm.id(), addr })
+    }
+
+    /// The futex word at `addr` of the caller's memory.
+    fn futex_word(&self, caller: &Caller<'_>, addr: u32, private: bool) -> Word {
+        Word {
+            key: self.futex_key(caller.task(), addr, private),
             addr,
         }
     }
@@ -543,6 +609,7 @@ impl Kernel {
     ) -> SysResult<i32> {
         let cmd = FutexOp(op.0 & FutexOp::FUTEX_CMD_MASK.0);
         let realtime = op.0 & FutexOp::FUTEX_CLOCK_REALTIME.0 != 0;
+        let private = op.0 & FutexOp::FUTEX_PRIVATE_FLAG.0 != 0;
         let timeout = match utime {
             ptr if ptr != 0 && has_timeout(cmd) => {
                 let ts = read_value(caller.memory(), ConstKernelTimespecPtr::new(ptr)).await?;
@@ -566,7 +633,8 @@ impl Kernel {
         if !uaddr.addr().is_multiple_of(4) {
             return Err(Errno::EINVAL.into());
         }
-        let key = self.futex_key(caller, uaddr.addr());
+        let word = self.futex_word(caller, uaddr.addr(), private);
+        let key = word.key;
         let tid = caller.task().0;
         match cmd {
             FutexOp::FUTEX_WAIT | FutexOp::FUTEX_WAIT_BITSET => {
@@ -577,7 +645,8 @@ impl Kernel {
                 if bitset == 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                self.futex_wait(caller, key, AtomicWord::U32(val), bitset, timeout)
+                let val = AtomicWord::U32(val);
+                self.futex_wait(caller, word, private, val, bitset, timeout)
                     .await
             }
             FutexOp::FUTEX_WAKE => Ok(self.futexes.wake(key, val, MATCH_ANY)? as i32),
@@ -594,39 +663,39 @@ impl Kernel {
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
                 }
-                let to = self.futex_key(caller, uaddr2.addr());
+                let to = self.futex_key(caller.task(), uaddr2.addr(), private);
                 let expected = (cmd == FutexOp::FUTEX_CMP_REQUEUE).then_some(val3);
                 let counts = (n_wake as u32, n_requeue as u32);
                 let memory = caller.memory();
-                let requeue = || self.futexes.requeue(memory, key, to, counts, expected);
-                Ok(with_word_locked(memory, key.addr, requeue).await? as i32)
+                let requeue = || self.futexes.requeue(memory, word, to, counts, expected);
+                Ok(with_word_locked(memory, word.addr, requeue).await? as i32)
             }
             FutexOp::FUTEX_WAKE_OP => {
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
                 }
-                let key2 = self.futex_key(caller, uaddr2.addr());
+                let word2 = self.futex_word(caller, uaddr2.addr(), private);
                 let memory = caller.memory();
                 let wake_op = || {
                     self.futexes
-                        .wake_op(memory, (key, val), (key2, utime), val3)
+                        .wake_op(memory, (key, val), (word2, utime), val3)
                 };
-                Ok(with_word_locked(memory, key2.addr, wake_op).await? as i32)
+                Ok(with_word_locked(memory, word2.addr, wake_op).await? as i32)
             }
             FutexOp::FUTEX_LOCK_PI | FutexOp::FUTEX_LOCK_PI2 => {
-                self.futex_lock_pi(caller, key, tid, timeout).await
+                self.futex_lock_pi(caller, word, tid, timeout).await
             }
-            FutexOp::FUTEX_TRYLOCK_PI => self.futex_trylock_pi(caller, key, tid).await,
-            FutexOp::FUTEX_UNLOCK_PI => self.futex_unlock_pi(caller, key, tid).await,
+            FutexOp::FUTEX_TRYLOCK_PI => self.futex_trylock_pi(caller, word, tid).await,
+            FutexOp::FUTEX_UNLOCK_PI => self.futex_unlock_pi(caller, word, tid).await,
             FutexOp::FUTEX_WAIT_REQUEUE_PI => {
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
                 }
-                let target = self.futex_key(caller, uaddr2.addr());
+                let target = self.futex_key(caller.task(), uaddr2.addr(), private);
                 if target == key {
                     return Err(Errno::EINVAL.into());
                 }
-                self.futex_wait_requeue_pi(caller, key, val, timeout, target, tid)
+                self.futex_wait_requeue_pi(caller, word, val, timeout, target, tid)
                     .await
             }
             FutexOp::FUTEX_CMP_REQUEUE_PI => {
@@ -637,11 +706,11 @@ impl Kernel {
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
                 }
-                let target = self.futex_key(caller, uaddr2.addr());
-                if target == key || n_wake != 1 {
+                let target = self.futex_word(caller, uaddr2.addr(), private);
+                if target.key == key || n_wake != 1 {
                     return Err(Errno::EINVAL.into());
                 }
-                self.futex_cmp_requeue_pi(caller, key, target, n_requeue as u32, val3)
+                self.futex_cmp_requeue_pi(caller, word, target, n_requeue as u32, val3)
                     .await
             }
             // FUTEX_FD is gone since 2.6.26.
@@ -660,7 +729,8 @@ impl Kernel {
         }
     }
 
-    /// `memory.atomic.wait32`/`wait64`: a private `FUTEX_WAIT` on a word of `expected`'s size.
+    /// `memory.atomic.wait32`/`wait64`: a `FUTEX_WAIT` on a word of `expected`'s size, shared
+    /// where the word lies in a shared object, since the instruction cannot say.
     pub(crate) async fn atomic_wait(
         &self,
         caller: &Caller<'_>,
@@ -672,8 +742,8 @@ impl Kernel {
             None => Timeout::Never,
             Some(timeout) => Timeout::Until(self.host.monotonic().saturating_add(timeout)),
         };
-        let key = self.futex_key(caller, addr);
-        let waited = self.futex_wait(caller, key, expected, MATCH_ANY, timeout);
+        let word = self.futex_word(caller, addr, false);
+        let waited = self.futex_wait(caller, word, false, expected, MATCH_ANY, timeout);
         // The instruction has no `EINTR`: an untimed wait goes on after any handler.
         waited.await.map_err(|err| match err {
             SysErr::Restart => SysErr::RestartNoIntr,
@@ -681,15 +751,13 @@ impl Kernel {
         })
     }
 
-    /// `memory.atomic.notify`: a private `FUTEX_WAKE`, except that a count of 0 wakes none.
+    /// `memory.atomic.notify`: a `FUTEX_WAKE`, shared as [`Kernel::atomic_wait`] is, except
+    /// that a count of 0 wakes none.
     pub(crate) fn atomic_notify(&self, task: TaskId, addr: u32, count: u32) -> u32 {
         if count == 0 {
             return 0;
         }
-        let key = Key {
-            mm: self.mm(task).id(),
-            addr,
-        };
+        let key = self.futex_key(task, addr, false);
         // A `FUTEX_WAIT_REQUEUE_PI` waiter makes `FUTEX_WAKE` fail; the instruction cannot,
         // and wakes none, as the syscall does.
         self.futexes.wake(key, count, MATCH_ANY).unwrap_or(0)
@@ -699,20 +767,22 @@ impl Kernel {
     pub(crate) async fn futex_wait_restart(
         &self,
         caller: &Caller<'_>,
-        addr: u32,
+        (addr, private): (u32, bool),
         val: AtomicWord,
         bitset: u32,
         timeout: Timeout,
     ) -> SysResult<i32> {
-        let key = self.futex_key(caller, addr);
-        self.futex_wait(caller, key, val, bitset, timeout).await
+        let word = self.futex_word(caller, addr, private);
+        self.futex_wait(caller, word, private, val, bitset, timeout)
+            .await
     }
 
-    /// `futex_wait`.
+    /// `futex_wait`, on a word found with `private`.
     async fn futex_wait(
         &self,
         caller: &Caller<'_>,
-        key: Key,
+        word: Word,
+        private: bool,
         val: AtomicWord,
         bitset: u32,
         timeout: Timeout,
@@ -722,9 +792,9 @@ impl Kernel {
         let sleeper = Sleeper::new(&waiter, &process, &*signals);
         let queued = Queued::new(
             &self.futexes,
-            Entry::new(key, bitset, waiter.handle(), None),
+            Entry::new(word.key, bitset, waiter.handle(), None),
         );
-        match holds(caller.memory(), key.addr, val).await {
+        match holds(caller.memory(), word.addr, val).await {
             Ok(true) => {}
             Ok(false) => {
                 return match queued.leave() {
@@ -758,7 +828,8 @@ impl Kernel {
                         timeout => self.restart_with(
                             caller,
                             Restart::FutexWait {
-                                addr: key.addr,
+                                addr: word.addr,
+                                private,
                                 val,
                                 bitset,
                                 timeout,
@@ -785,11 +856,12 @@ impl Kernel {
         &self,
         memory: &dyn UserMemory,
         table: &mut HashMap<Key, PiState>,
-        key: Key,
+        futex: Word,
         tid: u32,
     ) -> Result<Attempt, Errno> {
+        let (key, addr) = (futex.key, futex.addr);
         loop {
-            let word = get_word(memory, key.addr).await?;
+            let word = get_word(memory, addr).await?;
             let owner = word & FUTEX_TID_MASK;
             if owner == tid {
                 return Err(Errno::EDEADLK);
@@ -806,7 +878,7 @@ impl Kernel {
                     return Err(Errno::EINVAL);
                 }
                 if word & FUTEX_WAITERS == 0
-                    && cmpxchg(memory, key.addr, word, word | FUTEX_WAITERS).await? != word
+                    && cmpxchg(memory, addr, word, word | FUTEX_WAITERS).await? != word
                 {
                     continue;
                 }
@@ -815,17 +887,17 @@ impl Kernel {
             if owner == 0 {
                 // Free, perhaps after its owner died: take it, keeping `FUTEX_OWNER_DIED`.
                 let new = (word & FUTEX_OWNER_DIED) | tid;
-                if cmpxchg(memory, key.addr, word, new).await? != word {
+                if cmpxchg(memory, addr, word, new).await? != word {
                     continue;
                 }
                 return Ok(Attempt::Acquired);
             }
-            if cmpxchg(memory, key.addr, word, word | FUTEX_WAITERS).await? != word {
+            if cmpxchg(memory, addr, word, word | FUTEX_WAITERS).await? != word {
                 continue;
             }
             // `attach_to_pi_owner`: the owner must exist (`handle_exit_race`).
             if !self.task_alive(owner) {
-                let now = get_word(memory, key.addr).await?;
+                let now = get_word(memory, addr).await?;
                 if now != word | FUTEX_WAITERS {
                     continue;
                 }
@@ -842,12 +914,12 @@ impl Kernel {
         }
     }
 
-    async fn futex_trylock_pi(&self, caller: &Caller<'_>, key: Key, tid: u32) -> SysResult<i32> {
+    async fn futex_trylock_pi(&self, caller: &Caller<'_>, word: Word, tid: u32) -> SysResult<i32> {
         let mut table = self.futexes.pi.lock().await;
         let attempt = self
-            .futex_lock_pi_atomic(caller.memory(), &mut table, key, tid)
+            .futex_lock_pi_atomic(caller.memory(), &mut table, word, tid)
             .await?;
-        drop_idle(&mut table, key);
+        drop_idle(&mut table, word.key);
         match attempt {
             Attempt::Acquired => Ok(0),
             Attempt::Wait => Err(Errno::EAGAIN.into()),
@@ -858,16 +930,17 @@ impl Kernel {
     async fn futex_lock_pi(
         &self,
         caller: &Caller<'_>,
-        key: Key,
+        word: Word,
         tid: u32,
         timeout: Timeout,
     ) -> SysResult<i32> {
+        let key = word.key;
         let waiter = Waiter::new();
         let pi = PiGuard(PiWaiter::new(tid, waiter.handle()));
         {
             let mut table = self.futexes.pi.lock().await;
             let attempt = self
-                .futex_lock_pi_atomic(caller.memory(), &mut table, key, tid)
+                .futex_lock_pi_atomic(caller.memory(), &mut table, word, tid)
                 .await;
             match attempt {
                 Ok(Attempt::Acquired) => {
@@ -929,21 +1002,22 @@ impl Kernel {
     }
 
     /// `futex_unlock_pi`.
-    async fn futex_unlock_pi(&self, caller: &Caller<'_>, key: Key, tid: u32) -> SysResult<i32> {
+    async fn futex_unlock_pi(&self, caller: &Caller<'_>, futex: Word, tid: u32) -> SysResult<i32> {
+        let (key, addr) = (futex.key, futex.addr);
         let memory = caller.memory();
         let mut table = self.futexes.pi.lock().await;
         loop {
-            let word = get_word(memory, key.addr).await?;
+            let word = get_word(memory, addr).await?;
             if word & FUTEX_TID_MASK != tid {
                 return Err(Errno::EPERM.into());
             }
-            match pass_on(memory, &mut table, key, word, 0).await? {
+            match pass_on(memory, &mut table, futex, word, 0).await? {
                 Handover::Granted => return Ok(0),
                 Handover::Changed(current) if current & FUTEX_TID_MASK == tid => continue,
                 Handover::Changed(_) => return Err(Errno::EINVAL.into()),
                 Handover::Nobody(word) => {
                     // No waiters: the word may still say there are, from a waiter that left.
-                    if cmpxchg(memory, key.addr, word, 0).await? != word {
+                    if cmpxchg(memory, addr, word, 0).await? != word {
                         continue;
                     }
                     drop_idle(&mut table, key);
@@ -959,7 +1033,7 @@ impl Kernel {
     async fn futex_wait_requeue_pi(
         &self,
         caller: &Caller<'_>,
-        key: Key,
+        word: Word,
         val: u32,
         timeout: Timeout,
         target: Key,
@@ -974,13 +1048,13 @@ impl Kernel {
             pi: pi.0.clone(),
             moved: AtomicBool::new(false),
         });
-        let entry = Entry::new(key, MATCH_ANY, waiter.handle(), Some(requeue.clone()));
+        let entry = Entry::new(word.key, MATCH_ANY, waiter.handle(), Some(requeue.clone()));
         // The PI table orders this against a requeue that already looked at the queue.
         let queued = {
             let _table = self.futexes.pi.lock().await;
             Queued::new(&self.futexes, entry)
         };
-        let early = match get_word(caller.memory(), key.addr).await {
+        let early = match get_word(caller.memory(), word.addr).await {
             Ok(current) if current == val => None,
             Ok(_) => Some(SysErr::from(Errno::EAGAIN)),
             Err(errno) => Some(errno.into()),
@@ -1036,19 +1110,20 @@ impl Kernel {
         queued.leave()
     }
 
-    /// `futex_requeue` with `requeue_pi`: takes the PI futex `target` for the first waiter on
-    /// `key` if it is free, and moves up to `n_requeue` waiters (one more if the lock was not
+    /// `futex_requeue` with `requeue_pi`: takes the PI futex `futex` for the first waiter on
+    /// `word` if it is free, and moves up to `n_requeue` waiters (one more if the lock was not
     /// free) onto it.
     async fn futex_cmp_requeue_pi(
         &self,
         caller: &Caller<'_>,
-        key: Key,
-        target: Key,
+        word: Word,
+        futex: Word,
         n_requeue: u32,
         val3: u32,
     ) -> SysResult<i32> {
+        let (key, target) = (word.key, futex.key);
         let mut table = self.futexes.pi.lock().await;
-        let current = get_word(caller.memory(), key.addr).await?;
+        let current = get_word(caller.memory(), word.addr).await?;
         if current != val3 {
             return Err(Errno::EAGAIN.into());
         }
@@ -1069,7 +1144,7 @@ impl Kernel {
                 continue;
             }
             let attempt = self
-                .futex_lock_pi_atomic(caller.memory(), &mut table, target, requeue.pi.tid)
+                .futex_lock_pi_atomic(caller.memory(), &mut table, futex, requeue.pi.tid)
                 .await;
             let acquired = match attempt {
                 Ok(Attempt::Acquired) => true,
@@ -1125,9 +1200,9 @@ impl Kernel {
             let owner = word & FUTEX_TID_MASK;
             if owner != tid {
                 if pending && !pi && (owner == 0 || word & FUTEX_WAITERS == 0) {
-                    let _ = self
-                        .futexes
-                        .wake(self.futex_key(caller, addr), 1, MATCH_ANY);
+                    let _ =
+                        self.futexes
+                            .wake(self.futex_key(caller.task(), addr, false), 1, MATCH_ANY);
                 }
                 return;
             }
@@ -1140,7 +1215,7 @@ impl Kernel {
             if !pi && word & FUTEX_WAITERS != 0 {
                 let _ = self
                     .futexes
-                    .wake(self.futex_key(caller, addr), 1, MATCH_ANY);
+                    .wake(self.futex_key(caller.task(), addr, false), 1, MATCH_ANY);
             }
             return;
         }
@@ -1192,24 +1267,34 @@ impl Kernel {
     }
 
     /// `exit_pi_state_list`: every contended PI futex the exiting task `tid` owns goes to its
-    /// first waiter, which sees `FUTEX_OWNER_DIED` if the robust list set it.
+    /// first waiter, which sees `FUTEX_OWNER_DIED` if the robust list set it. A shared futex's
+    /// word is found where the caller's memory maps its object; where it no longer does, as for a
+    /// word that faults, the waiter gets the lock without the word.
     pub(crate) async fn exit_pi_state_list(&self, caller: &Caller<'_>, tid: u32) {
         let memory = caller.memory();
-        let mm = self.mm(caller.task()).id();
+        let mm = self.mm(caller.task());
         let mut table = self.futexes.pi.lock().await;
-        let owned: Vec<Key> = table
+        let owned: Vec<(Key, Option<u32>)> = table
             .iter()
-            .filter(|(key, state)| key.mm == mm && state.owner == tid)
-            .map(|(key, _)| *key)
+            .filter(|(_, state)| state.owner == tid)
+            .filter_map(|(&key, _)| match key {
+                Key::Private { mm: id, addr } => (id == mm.id()).then_some((key, Some(addr))),
+                Key::Shared { object, offset } => Some((key, mm.address_of(object, offset))),
+            })
             .collect();
-        for key in owned {
+        for (key, addr) in owned {
             loop {
-                let Ok(word) = get_word(memory, key.addr).await else {
+                let word = match addr {
+                    Some(addr) => get_word(memory, addr).await.ok().map(|word| (addr, word)),
+                    None => None,
+                };
+                let Some((addr, word)) = word else {
                     // The word is gone; the waiter still gets the lock rather than wait forever.
                     hand_over(&mut table, key);
                     break;
                 };
-                match pass_on(memory, &mut table, key, word, FUTEX_OWNER_DIED).await {
+                let futex = Word { key, addr };
+                match pass_on(memory, &mut table, futex, word, FUTEX_OWNER_DIED).await {
                     Ok(Handover::Changed(_)) => continue,
                     Ok(Handover::Granted | Handover::Nobody(_)) => break,
                     Err(_) => {
@@ -1258,23 +1343,24 @@ enum Handover {
     Changed(u32),
 }
 
-/// `wake_futex_pi`, with the PI table held: the first waiter of `key` becomes the owner. The
+/// `wake_futex_pi`, with the PI table held: the first waiter of `futex` becomes the owner. The
 /// word, which held `word`, names it with `FUTEX_WAITERS`, keeping the bits of `word` in
 /// `keep`, before the waiter learns it owns the lock. A waiter that leaves in between is
 /// skipped.
 async fn pass_on(
     memory: &dyn UserMemory,
     table: &mut HashMap<Key, PiState>,
-    key: Key,
+    futex: Word,
     mut word: u32,
     keep: u32,
 ) -> Result<Handover, Errno> {
+    let key = futex.key;
     loop {
         let Some(next) = table.get_mut(&key).and_then(PiState::first) else {
             return Ok(Handover::Nobody(word));
         };
         let new = (word & keep) | FUTEX_WAITERS | next.tid;
-        let current = cmpxchg(memory, key.addr, word, new).await?;
+        let current = cmpxchg(memory, futex.addr, word, new).await?;
         if current != word {
             return Ok(Handover::Changed(current));
         }
@@ -1367,9 +1453,9 @@ mod tests {
     use wasixv2_syscalls::{Fault, LocalFuture};
 
     /// One futex word, at address 0.
-    struct Word(std::cell::Cell<u32>);
+    struct One(std::cell::Cell<u32>);
 
-    impl UserMemory for Word {
+    impl UserMemory for One {
         fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
             let result = match (addr, buf.len()) {
                 (0, 4) => {
@@ -1401,9 +1487,9 @@ mod tests {
     #[test]
     fn wake_counts_and_requeue_moves() {
         let futexes = Futexes::default();
-        let memory = Word(std::cell::Cell::new(7));
-        let a = Key { mm: 1, addr: 0 };
-        let b = Key { mm: 1, addr: 8 };
+        let memory = One(std::cell::Cell::new(7));
+        let a = Key::Private { mm: 1, addr: 0 };
+        let b = Key::Private { mm: 1, addr: 8 };
         let waiters: Vec<_> = (0..4).map(|_| Waiter::new()).collect();
         let entries: Vec<_> = waiters
             .iter()
@@ -1418,7 +1504,8 @@ mod tests {
         assert!(!entries[0].queued.load(Ordering::Acquire));
         assert!(waiters[0].take_wakeup().is_some());
         // `FUTEX_CMP_REQUEUE` compares under the bucket locks, and changes nothing on a mismatch.
-        let requeue = |expected| futexes.requeue(&memory, a, b, (1, 1), expected);
+        let from = Word { key: a, addr: 0 };
+        let requeue = |expected| futexes.requeue(&memory, from, b, (1, 1), expected);
         assert!(matches!(requeue(Some(8)), Ok(Err(Errno::EAGAIN))));
         assert!(waiters[1].take_wakeup().is_none());
         assert!(matches!(requeue(Some(7)), Ok(Ok(2))));
@@ -1436,7 +1523,10 @@ mod tests {
             buckets: vec![Mutex::default()].into_boxed_slice(),
             pi: Default::default(),
         };
-        let (a, b) = (Key { mm: 1, addr: 0 }, Key { mm: 2, addr: 0 });
+        let (a, b) = (
+            Key::Private { mm: 1, addr: 0 },
+            Key::Private { mm: 2, addr: 0 },
+        );
         let (on_a, on_b) = (Waiter::new(), Waiter::new());
         let (entry_a, entry_b) = (entry(a, &on_a), entry(b, &on_b));
         futexes.enqueue(&entry_a);
@@ -1445,9 +1535,15 @@ mod tests {
         assert_eq!(futexes.wake(b, 1, MATCH_ANY), Ok(1));
         assert!(on_b.take_wakeup().is_some() && on_a.take_wakeup().is_none());
         // A requeue within the bucket only renames the key.
-        let c = Key { mm: 1, addr: 4 };
+        let c = Key::Private { mm: 1, addr: 4 };
         assert!(matches!(
-            futexes.requeue(&Word(Default::default()), a, c, (0, 1), None),
+            futexes.requeue(
+                &One(Default::default()),
+                Word { key: a, addr: 0 },
+                c,
+                (0, 1),
+                None
+            ),
             Ok(Ok(1))
         ));
         assert_eq!(futexes.wake(a, 1, MATCH_ANY), Ok(0));
@@ -1458,7 +1554,7 @@ mod tests {
     #[test]
     fn a_dropped_wait_leaves_its_chain() {
         let futexes = Futexes::default();
-        let key = Key { mm: 1, addr: 0 };
+        let key = Key::Private { mm: 1, addr: 0 };
         let (dropped, stays) = (Waiter::new(), Waiter::new());
         let queued = Queued::new(&futexes, entry(key, &dropped));
         let _stays = Queued::new(&futexes, entry(key, &stays));

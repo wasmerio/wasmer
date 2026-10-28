@@ -308,8 +308,9 @@ pub enum AtomicWord {
 /// syscall wake each other's waiters on the same address.
 pub trait AtomicWait {
     /// `memory.atomic.wait32` or `wait64` of the calling task at `addr`, which is aligned to the
-    /// size of `expected` and in bounds: a private `FUTEX_WAIT` that compares a word of that
-    /// size, for `timeout` if given. 0 when woken, `EAGAIN` when the word does not hold
+    /// size of `expected` and in bounds: a `FUTEX_WAIT` that compares a word of that size, for
+    /// `timeout` if given. Shared, as the instruction cannot say otherwise: in memory that shows
+    /// a shared object it meets the waits and wakes of other processes there. 0 when woken, `EAGAIN` when the word does not hold
     /// `expected`, `ETIMEDOUT`; a signal interrupts it as it does `FUTEX_WAIT`.
     fn atomic_wait<'a>(
         &'a self,

@@ -132,6 +132,29 @@ impl Mm {
         self.space().regions()
     }
 
+    /// The futex key of the word at `addr` when it lies in a mapping of a shared object: the
+    /// object and the word's offset in it (`get_futex_key`'s inode-based key).
+    pub(crate) fn shared_futex_key(&self, addr: u32) -> Option<crate::futex::Key> {
+        let space = self.space();
+        let mapping = space.mappings.containing(addr.into())?;
+        let mapped = mapping.mapped()?;
+        Some(crate::futex::Key::Shared {
+            object: mapped.pages.id(),
+            offset: mapped.offset + (u64::from(addr) - mapping.start),
+        })
+    }
+
+    /// Where this address space maps byte `offset` of the shared object `object`, if it does:
+    /// the lowest such address.
+    pub(crate) fn address_of(&self, object: u64, offset: u64) -> Option<u32> {
+        let space = self.space();
+        space.mappings.mapped().find_map(|(mapping, mapped)| {
+            let inside = mapped.pages.id() == object
+                && (mapped.offset..mapped.offset + mapping.len).contains(&offset);
+            inside.then(|| (mapping.start + offset - mapped.offset) as u32)
+        })
+    }
+
     /// The size of memory when a memory call last looked (`total_vm`).
     pub(crate) fn size(&self) -> u64 {
         self.space().seen

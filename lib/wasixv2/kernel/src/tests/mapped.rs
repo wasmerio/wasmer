@@ -7,8 +7,10 @@ use std::{
     sync::atomic::{AtomicU32, Ordering},
 };
 
-use wasixv2_abi::{MadviseAdvice, MapFlags, MremapFlags, ProtFlags};
+use futures::FutureExt as _;
+use wasixv2_abi::{FutexOp, MadviseAdvice, MapFlags, MremapFlags, ProtFlags};
 use wasixv2_pages::{Memfd, SharedPages, map_at, map_private_at};
+use wasixv2_syscalls::{AtomicWait, AtomicWord};
 
 use super::{ipc::errno, *};
 
@@ -360,4 +362,108 @@ fn shared_anonymous_memory_stays_shared_across_fork() {
     memory.put(shared, b"still");
     assert_eq!(child_memory.get(shared, 5), [0; 5]);
     assert_eq!(kernel.shared_mappings(parent).len(), 1);
+}
+
+/// `futex` with no timeout and no second address, to poll.
+fn futex<'a>(
+    kernel: &'a Kernel,
+    caller: &'a Caller<'a>,
+    addr: u32,
+    op: FutexOp,
+    val: u32,
+) -> LocalFuture<'a, SysResult<i32>> {
+    let (uaddr, null) = (GuestPtrMut::new(addr), GuestPtrMut::NULL);
+    Box::pin(kernel.futex_time64(caller, uaddr, op, val, 0, null, 0))
+}
+
+#[test]
+fn futex_wake_crosses_processes_on_a_shared_mapping() {
+    let (kernel, parent) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let word = mmap_shared(&kernel, &caller, PAGE) + 64;
+    let child = fork(&kernel, &caller);
+    let child_memory = memory.fork(&kernel.shared_mappings(child));
+    let child_caller = Caller::new(child, &child_memory);
+
+    let mut wait = futex(&kernel, &child_caller, word, FutexOp::FUTEX_WAIT, 0);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    // A private wake looks in the parent's own address space only.
+    let private = futex(&kernel, &caller, word, FutexOp::FUTEX_WAKE_PRIVATE, 1);
+    assert_eq!(private.now_or_never(), Some(Ok(0)));
+    assert_eq!(
+        futex(&kernel, &caller, word, FutexOp::FUTEX_WAKE, 1).now_or_never(),
+        Some(Ok(1))
+    );
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+
+    // The instructions meet the syscall there too.
+    let mut wait = AtomicWait::atomic_wait(&kernel, &caller, word, AtomicWord::U32(0), None);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(AtomicWait::atomic_notify(&kernel, child, word, 1), 1);
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+}
+
+#[test]
+fn a_private_futex_on_a_shared_mapping_stays_in_its_address_space() {
+    let (kernel, parent) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let word = mmap_shared(&kernel, &caller, PAGE);
+    let child = fork(&kernel, &caller);
+    let child_memory = memory.fork(&kernel.shared_mappings(child));
+    let child_caller = Caller::new(child, &child_memory);
+
+    let mut wait = futex(&kernel, &child_caller, word, FutexOp::FUTEX_WAIT_PRIVATE, 0);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    for op in [FutexOp::FUTEX_WAKE, FutexOp::FUTEX_WAKE_PRIVATE] {
+        assert_eq!(
+            futex(&kernel, &caller, word, op, 1).now_or_never(),
+            Some(Ok(0))
+        );
+    }
+    let wake = FutexOp::FUTEX_WAKE_PRIVATE;
+    let woken = futex(&kernel, &child_caller, word, wake, 1).now_or_never();
+    assert_eq!(woken, Some(Ok(1)));
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+}
+
+#[test]
+fn one_object_mapped_at_two_addresses_is_one_futex() {
+    let (kernel, task) = shared_machine();
+    let memory = MappedMemory::new(2, false);
+    let caller = Caller::new(task, &memory);
+    let a = mmap_shared(&kernel, &caller, PAGE);
+    let b = duplicate(&kernel, &caller, a, PAGE).unwrap() as u32;
+
+    let mut wait = futex(&kernel, &caller, a + 8, FutexOp::FUTEX_WAIT, 0);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    let woken = futex(&kernel, &caller, b + 8, FutexOp::FUTEX_WAKE, 1).now_or_never();
+    assert_eq!(woken, Some(Ok(1)));
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+}
+
+#[test]
+fn a_pi_futex_is_handed_over_across_processes() {
+    let (kernel, parent) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let lock = mmap_shared(&kernel, &caller, PAGE);
+    let child = fork(&kernel, &caller);
+    let child_memory = memory.fork(&kernel.shared_mappings(child));
+    let child_caller = Caller::new(child, &child_memory);
+
+    let locked = futex(&kernel, &caller, lock, FutexOp::FUTEX_LOCK_PI, 0).now_or_never();
+    assert_eq!(locked, Some(Ok(0)));
+    assert_eq!(child_memory.get(lock, 4), parent.0.to_le_bytes());
+    let mut wait = futex(&kernel, &child_caller, lock, FutexOp::FUTEX_LOCK_PI, 0);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    let waiters = 0x8000_0000 | parent.0;
+    assert_eq!(memory.get(lock, 4), waiters.to_le_bytes());
+
+    let unlocked = futex(&kernel, &caller, lock, FutexOp::FUTEX_UNLOCK_PI, 0).now_or_never();
+    assert_eq!(unlocked, Some(Ok(0)));
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+    let owner = 0x8000_0000 | child.0;
+    assert_eq!(memory.get(lock, 4), owner.to_le_bytes());
 }
