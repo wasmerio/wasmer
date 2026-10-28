@@ -15,8 +15,11 @@ use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysErr, SysResult, write_valu
 use wasixv2_vnet::{Domain, RecvMsg, SendMsg, Socket, SocketKind};
 use wasixv2_wait::{PollMask, PollTable, PollWaiter, Pollable, WaitQueue, Wakeup};
 
-use crate::file::{FileObject, Io, ReadSink, delivered, taken};
-use crate::sync::MutexExt;
+use crate::{
+    file::{FileObject, Io, ReadSink, delivered, taken},
+    ns::NetNs,
+    sync::MutexExt,
+};
 
 /// `sizeof(struct sockaddr_storage)`, the most `move_addr_to_kernel` takes.
 pub(crate) const SOCKADDR_STORAGE: u32 = 128;
@@ -157,6 +160,8 @@ impl Pollable for QueueOnly<'_> {
 /// The kernel's side of an IP socket.
 pub(crate) struct SocketFile {
     pub(crate) socket: Arc<dyn Socket>,
+    /// The network namespace the socket was made in (`sock_net`).
+    pub(crate) net: Arc<NetNs>,
     host: Arc<dyn Host>,
     pub(crate) timeouts: Timeouts,
     /// Held by a stream reader from peeking at the data until it took it (`lock_sock` in
@@ -166,9 +171,10 @@ pub(crate) struct SocketFile {
 }
 
 impl SocketFile {
-    pub(crate) fn new(socket: Arc<dyn Socket>, host: Arc<dyn Host>) -> Self {
+    pub(crate) fn new(socket: Arc<dyn Socket>, net: Arc<NetNs>, host: Arc<dyn Host>) -> Self {
         Self {
             socket,
+            net,
             host,
             timeouts: Timeouts::default(),
             io_lock: futures_util::lock::Mutex::new(()),

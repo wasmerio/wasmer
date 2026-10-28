@@ -171,7 +171,7 @@ pub(crate) struct Ns<T> {
 
 impl<T> Ns<T> {
     /// The initial namespace of `kind`, owned by `owner`.
-    fn initial(kind: NsKind, owner: Option<Arc<UserNs>>, inner: T) -> Arc<Self> {
+    pub(crate) fn initial(kind: NsKind, owner: Option<Arc<UserNs>>, inner: T) -> Arc<Self> {
         Arc::new(Self {
             common: Common {
                 kind,
