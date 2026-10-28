@@ -345,3 +345,28 @@ shared clang (420 compile failures, "Failed to run command clang"); rerun 2379/1
 
 Landed, fast-forward: abi `main` `bcd7622..832bb78`; libc2 `main` `f216f303..3bcd192c`; wasmer
 `feat/wasixv2` `9d04b0b7899..dba44c5eba2`.
+
+## 2026-10-28: merge train 7 — LANDED
+
+wasmer `wasixv2/train7` (23 commits on `dba44c5eba2`): kernel-followups, init-vfork (+ a combined
+vfork/ExitMm test), wp11-robust, low-guard, DESIGN `__linux__`, the lock sweep. tests `train7`:
+runner-uid0-asyncify, kernel-followups, init-vfork, low-guard fixtures, bounded capture
+(`9089eb0`), `WASIXV2_TESTS_WRAPPER` (`868b636`), the LTP heartbeat fix pointer (`5cd2035`), the
+re-bless (`9408271`) and flakes (`c08bcd5`). libc2 `train7`: linux-uapi rebased + tests bump.
+
+- Conflicts: ExitMm vs the removed ExecImage; `exit_notify` (vfork "gone" vs `left_mm`); Cargo.lock;
+  the CLI spawn snapshot now prints "Child pid: 3" (init).
+- OOM: suite #1 died four times. Causes: unbounded output capture of a spinning fork test's trace
+  rerun (850 MB), and fork tests with 1000-2000 processes (8 MiB each, full copy). Fixed in the
+  runner (bounded capture; per-test systemd scope, 10 GB, inside an 11 GB slice).
+- 398 regressions before the LTP fix: 395 LTP heartbeat (`getppid() == 1` sees init in the fork's
+  in-process mode), `mmap/24-1` (cap), `clock_getcpuclockid/1-2` (expected failure, pid 1's CPU
+  clock). After: one (the clock test).
+- Bless: 257 off (posix 152, ltp 99, libc-test 6), 194 on (posix 1, ltp 193). Flaky: timer_getoverrun/2-2,
+  aio_suspend/1-1, fcntl14, fcntl14_64.
+- Gates (after the sweep): crate tests 669, clippy, fmt, release, CLI 59/0/12. Suite #3:
+  2781/1165/0/714. Smoke: sws-v2 28/28 (also the `__linux__` build), v1 8 + python expected-fail,
+  extras as before; programs run as pid 2 with ppid 1.
+
+Landed, fast-forward: libc2 `main` `3bcd192c..22a372c9`; tests `main` `d54b93c..c08bcd5`; wasmer
+`feat/wasixv2` `dba44c5eba2..c4c59c64f70`.

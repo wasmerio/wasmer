@@ -14,15 +14,17 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `783b2cfcf2f` (WP2 + WP7; wasixv2-tests `d54b93c`): 2380 pass, 1229
-expected failures, 0 unexpected, 455 ignored (`pthread_once/6-1` now in flaky.txt).
+Suite on `feat/wasixv2` `c4c59c64f70` (merge train 7; wasixv2-tests `c08bcd5`, libc2 `22a372c9`,
+the local clang with `__linux__`): 2781 pass, 1165 expected failures, 0 unexpected, 714 ignored.
+LTP's root-only tests now run as uid 0, upstream tests that fork are built for asyncify, and each
+test runs in its own memory-capped systemd scope (`WASIXV2_TESTS_WRAPPER`).
 
 | Suite | Pass | Expected failures | Ignored |
 | --- | --- | --- | --- |
-| Open POSIX | 1327 | 465 | 84 |
-| LTP | 466 | 736 | 370 |
-| libc-test | 393 | 28 | 0 |
-| wasixv2 suite (`suite/`) | 194 | 0 | 1 |
+| Open POSIX | 1477 | 315 | 84 |
+| LTP | 702 | 828 | 629 |
+| libc-test | 399 | 22 | 0 |
+| wasixv2 suite (`suite/`) | 204 | 0 | 1 |
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -67,8 +69,32 @@ libc2 `main` `3bcd192c`): generated v2 imports are built only for what a module 
 create+join 358 to 91 us, v2 spawn 620 to 259 us), and `Control::take_image` returns an `Image`
 (the `ExecImage` supertrait is gone). Host code only: the libc2 sysroots are identical.
 
-Next: WP11 (robustness); the `__linux__` work package (design ready, waiting for agreement); the
-init/pid-1 + guard WP after WP11.
+Merge train 7 has landed too (`c4c59c64f70`): kernel follow-ups (fatal-signal futex/mm release,
+`clear_child_tid`, robust-list order, the `sigprocmask` lost-signal fix behind `pthread_once/6-1`,
+`TFD_TIMER_CANCEL_ON_SET`), init as pid 1 (`--no-init`), killable vfork phase A, WP11 (incl. the lock
+sweep: poisoned locks recover), a read-only 64 KiB guard at address 0 (`mmap_min_addr`),
+`/etc/passwd`/`group` with `nobody`, `__linux__` (DESIGN; libc2 ships Linux's UAPI headers) and the
+runner changes (uid 0, asyncify for forking tests, sysroot UAPI headers, per-test memory scopes,
+bounded output capture, `bench/syscalls`). LTP's wasix-org fork carries a heartbeat fix for init on
+branch `wasixv2-train7` (`bee8e8197`); its `wasixv2` branch should be fast-forwarded by its owners.
+`__linux__` needs a release of the wasix-org LLVM fork (branch `wasixv2-linux-macro`, `3dfdb0509`)
+by its owners before downloaded toolchains have it; this machine uses a local build.
+
+Merge train 8 (in progress): C++ for the v2 sysroots (libc2 `libcxx`, wasixcc `cxx-v2`; exceptions
+in the EH sysroot, none in asyncify), kernel follow-ups 2 (faulting reads keep data, FICLONE*,
+uname 7.2.0, splice/tee/vmsplice), job control phases 1-3 (stop/continue, console tty with raw mode
+and `--no-tty`, ptys), LTP shell tests in the runner (`WASIXV2_TESTS_USERLAND`), kernel follow-ups 3
+(other processes' CPU clocks, a killed vfork parent's exit_mm at kill time, vfork phase B, reviewed),
+the sparse fork copy (pagemap), and shared memory across processes (shared anonymous mappings, SysV
+segments, memfd and /dev/shm files on host shared pages; futex keys on shared objects; LTP branch
+`wasixv2-shared`). Designs: `~/wasixv2-orch/notes/design-*.md` on the orchestration machine.
+
+Open follow-ups: memory accounting (commit limit, RLIMIT_AS/DATA; implemented on a local branch,
+paused by the user), fork copy-on-write (memory design phase 2b), `mmap/24-1` peaks at 8 GB,
+read-only shared views writable (follow-ups 4, in progress), a non-leader thread parked in vfork
+blocks a sibling's execve (follow-ups 4), the LTP library's remaining wasixv2 IPC special cases
+(follow-ups 4), `pthread_join`-style flakes (`aio_suspend/1-1`, `fcntl14`, `timer_getoverrun/2-2` in
+flaky.txt), the guard as PROT_NONE once the LLVM null-va_list issue is fixed, Windows guard.
 
 Follow-ups from WP2/WP7:
 - `timer_getoverrun/2-2` fails about half the time alone ("0 overruns sent; expected 75"), on
@@ -359,7 +385,7 @@ no critical findings, 12 high, ~35 medium, ~50 low. Its work packages (§3) and 
 | WP8 | syscall hot-path performance | M-W3, M-X2, M-X3 | landed (`9d04b0b7899`); v2 import filter needs codegen |
 | WP9 | signals | M-P4, M-P6, M-P7, M-P9, L-P1, L-P3..5 | landed (train 6) |
 | WP10 | facade/CLI | M-CLI1, M-CLI4..6, L-CLI* | landed (`11d0ae2781b`); real Ctrl-C needs job control |
-| WP11 | robustness | M-X1, M-X4, L-X1, L-X4, L-NET8, L-F11 | not started; L-F11 and the L-X4 contract are in WP3, L-NET8 dead code in WP5 |
+| WP11 | robustness | M-X1, M-X4, L-X1, L-X4, L-NET8, L-F11 | landed in train 7 (lock sweep included) |
 | WP12 | libc2 vfork | M-LIBC1 | done in train 5 |
 
 Each WP is one agent on its own branch from `feat/wasixv2` after train 6, with kernel tests and
