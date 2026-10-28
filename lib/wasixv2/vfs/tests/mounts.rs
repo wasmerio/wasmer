@@ -808,3 +808,238 @@ fn unmounting_a_tree_takes_its_copies_and_what_is_on_a_copy_takes_its_place() {
     );
     assert_eq!(v.mount_count(), 4);
 }
+
+/// Runs one of LTP's `fs_bind` shell tests in a private sandbox at `/s`: each line is a
+/// command of the script (`mount --bind`, `--rbind`, `--make-*`, `umount`, `mkdir`, and
+/// `fs_bind_makedir` as `make-TYPE dir`), all of which must pass, and at the end nothing but
+/// the sandbox is mounted (`_fs_bind_cleanup_test`).
+fn fs_bind(script: &str) {
+    let (_vfs, v) = world();
+    v.mkdir("/s");
+    v.bind("/s", "/s", false).unwrap();
+    v.propagation("/s", Propagation::Private);
+    for (disk, dirs) in [
+        ("disk1", "abc"),
+        ("disk2", "def"),
+        ("disk3", "ghi"),
+        ("disk4", "jkl"),
+    ] {
+        v.mkdir(&format!("/s/{disk}"));
+        for dir in dirs.chars() {
+            v.mkdir(&format!("/s/{disk}/{dir}"));
+        }
+    }
+    let kind = |name: &str| match name {
+        "shared" | "rshared" => Propagation::Shared,
+        "private" | "rprivate" => Propagation::Private,
+        "slave" | "rslave" => Propagation::Slave,
+        "runbindable" => Propagation::Unbindable,
+        other => panic!("unknown type {other}"),
+    };
+    for line in script.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        let words: Vec<_> = line.split_whitespace().collect();
+        let at = |n: usize| format!("/s/{}", words[n]);
+        let result = match words[0] {
+            "mkdir" => {
+                v.mkdir(&at(1));
+                Ok(())
+            }
+            "bind" => v.bind(&at(1), &at(2), false),
+            "rbind" => v.bind(&at(1), &at(2), true),
+            "umount" => v.umount(&at(1), UmountFlags::default()),
+            make if make.starts_with("make-") => {
+                let name = &make["make-".len()..];
+                v.mkdir(&at(1));
+                v.bind(&at(1), &at(1), false).unwrap();
+                let recursive = name.starts_with('r');
+                v.op(
+                    &at(1),
+                    MountOp::Propagation {
+                        kind: kind(name),
+                        recursive,
+                    },
+                )
+            }
+            "set" => {
+                let op = MountOp::Propagation {
+                    kind: kind(words[1]),
+                    recursive: words[1].starts_with('r'),
+                };
+                v.op(&at(2), op)
+            }
+            other => panic!("unknown command {other}"),
+        };
+        assert_eq!(result, Ok(()), "{line}");
+    }
+    assert_eq!(v.mount_count(), 2, "only the sandbox is left");
+}
+
+#[test]
+fn fs_bind01_shared_child_to_shared_parent() {
+    fs_bind(
+        "make-rshared parent1
+        make-rshared parent2
+        make-rshared share2
+        make-rshared parent1/child1
+        bind disk1 parent1/child1
+        mkdir parent2/child2
+        bind parent2 share2
+        bind parent1/child1 parent2/child2
+        bind disk2 parent1/child1/a
+        bind disk3 parent2/child2/b
+        umount parent1/child1/a
+        umount parent1/child1/b
+        umount parent2/child2
+        umount parent1/child1
+        umount parent1/child1
+        umount share2
+        umount share2
+        umount parent2
+        umount parent1",
+    );
+}
+
+#[test]
+fn fs_bind02_shared_child_to_private_parent() {
+    fs_bind(
+        "make-rshared parent1
+        make-private parent2
+        make-rshared share1
+        make-rshared parent1/child1
+        bind disk1 parent1/child1
+        mkdir parent2/child2
+        bind parent1/child1 share1
+        bind parent1/child1 parent2/child2
+        bind disk2 parent1/child1/a
+        bind disk3 parent2/child2/b
+        umount parent1/child1/a
+        umount parent1/child1/b
+        umount parent1/child1
+        umount parent1/child1
+        umount share1
+        umount share1
+        umount parent2/child2
+        umount parent2
+        umount parent1",
+    );
+}
+
+/// fs_bind03, and with `rbind` fs_bind_rbind03.
+fn shared_child_to_slave_parent(bind: &str) {
+    fs_bind(&format!(
+        "make-rshared parent1
+        make-rshared share1
+        make-rshared share2
+        make-rshared parent1/child1
+        mkdir parent2
+        {bind} parent1/child1 share1
+        {bind} disk1 parent1/child1
+        {bind} disk2 share2
+        {bind} share2 parent2
+        set rslave parent2
+        mkdir parent2/child2
+        {bind} parent1/child1 share1
+        {bind} parent1/child1 parent2/child2
+        {bind} disk3 parent1/child1/a
+        {bind} disk3 parent2/child2/b
+        umount parent1/child1/a
+        umount parent1/child1/b
+        umount parent2/child2
+        umount parent1/child1
+        umount parent1/child1
+        umount parent1/child1
+        umount share2
+        umount share2
+        umount share1
+        umount share1
+        umount parent1
+        umount parent2"
+    ));
+}
+
+#[test]
+fn fs_bind03_shared_child_to_slave_parent() {
+    shared_child_to_slave_parent("bind");
+}
+
+#[test]
+fn fs_bind_rbind03_shared_child_to_slave_parent() {
+    shared_child_to_slave_parent("rbind");
+}
+
+#[test]
+fn fs_bind04_shared_child_to_unbindable_parent() {
+    fs_bind(
+        "make-rshared parent1
+        make-runbindable parent2
+        make-rshared share1
+        make-rshared parent1/child1
+        bind disk1 parent1/child1
+        mkdir parent2/child2
+        bind parent1/child1 share1
+        bind parent1/child1 parent2/child2
+        bind disk2 parent1/child1/a
+        bind disk3 parent2/child2/b
+        bind disk4 share1/c
+        umount parent1/child1/a
+        umount parent1/child1/b
+        umount parent1/child1/c
+        umount parent2/child2
+        umount parent1/child1
+        umount parent1/child1
+        umount share1
+        umount share1
+        umount parent2
+        umount parent1",
+    );
+}
+
+#[test]
+fn fs_bind_rbind01_shared_child_to_shared_parent() {
+    fs_bind(
+        "make-rshared parent1
+        make-rshared parent2
+        make-rshared share2
+        make-rshared parent1/child1
+        rbind disk1 parent1/child1
+        mkdir parent2/child2
+        rbind parent2 share2
+        rbind parent1/child1 parent2/child2
+        rbind disk2 parent1/child1/a
+        rbind disk3 parent2/child2/b
+        umount parent1/child1/a
+        umount parent1/child1/b
+        umount parent2/child2
+        umount parent1/child1
+        umount parent1/child1
+        umount share2
+        umount share2
+        umount parent2
+        umount parent1",
+    );
+}
+
+#[test]
+fn fs_bind_rbind02_shared_child_to_private_parent() {
+    fs_bind(
+        "make-rshared parent1
+        make-private parent2
+        make-rshared share1
+        make-rshared parent1/child1
+        rbind disk1 parent1/child1
+        mkdir parent2/child2
+        rbind parent1/child1 share1
+        rbind parent1/child1 parent2/child2
+        rbind disk2 parent1/child1/a
+        rbind disk3 parent2/child2/b
+        umount parent2/child2/b
+        umount parent1/child1/a
+        umount parent2/child2
+        umount share1
+        umount parent1/child1
+        umount parent1/child1
+        umount share1
+        umount parent2
+        umount parent1",
+    );
+}
