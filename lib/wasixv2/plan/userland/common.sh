@@ -21,7 +21,12 @@ export WASIXCC_WASM_EXCEPTIONS=no
 export CC=wasixcc CXX=wasixcc++ AR=wasixar RANLIB=wasixranlib NM=wasixnm
 # Programs that run on the build host during the build (bash's mkbuiltins etc).
 export CC_FOR_BUILD=${CC_FOR_BUILD:-cc}
-HOST=wasm32-unknown-wasi
+# Configure's host: Linux with musl, which is what the target is to the sources
+# and what libc2 derives from. Cross-compiling configure scripts can't run test
+# programs and fall back to per-OS guesses: gnulib's for linux-musl match the
+# target, its pessimistic ones for an unknown OS replaced working libc
+# functions, and util-linux builds mount, unshare etc. only for Linux hosts.
+HOST=wasm32-unknown-linux-musl
 BUILD=$(cc -dumpmachine)
 export HOST BUILD
 # gnulib's stack-direction check knows no wasm32 and cannot run a test program
