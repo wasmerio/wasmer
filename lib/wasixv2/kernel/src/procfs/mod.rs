@@ -10,6 +10,8 @@
 mod node;
 mod text;
 
+pub(crate) use text::root_in_fs;
+
 use std::sync::{Arc, Mutex, Weak};
 
 use async_trait::async_trait;

@@ -1386,6 +1386,29 @@ impl Syscalls for Kernel {
         self.sys_fspick(caller, dfd, path, flags).await
     }
 
+    async fn statmount(
+        &self,
+        caller: &Caller<'_>,
+        req: wasixv2_abi::ConstMntIdReqPtr,
+        buf: wasixv2_abi::VoidPtr,
+        bufsize: Usize,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_statmount(caller, req, buf, bufsize, flags).await
+    }
+
+    async fn listmount(
+        &self,
+        caller: &Caller<'_>,
+        req: wasixv2_abi::ConstMntIdReqPtr,
+        mnt_ids: wasixv2_abi::U64Array,
+        nr_mnt_ids: Usize,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_listmount(caller, req, mnt_ids, nr_mnt_ids, flags)
+            .await
+    }
+
     async fn setns(&self, caller: &Caller<'_>, fd: Fd, flags: i32) -> SysResult<i32> {
         self.sys_setns(caller, fd, flags)
     }

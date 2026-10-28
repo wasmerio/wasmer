@@ -295,6 +295,17 @@ impl MntNs {
         self.tree.lock().mounts_in(self.id)
     }
 
+    /// The mount of this namespace whose unique id is `id` (`lookup_mnt_in_ns`).
+    pub fn mount_by_unique_id(&self, id: u64) -> Option<Arc<Mount>> {
+        let mount = id.checked_sub(MNT_UNIQUE_ID_OFFSET)?;
+        let state = self.tree.lock();
+        state
+            .links
+            .get(&mount)
+            .filter(|link| link.ns == self.id)
+            .and_then(|link| link.mount.upgrade())
+    }
+
     /// Whether `mount` is attached in this namespace (`check_mnt`).
     pub fn contains(&self, mount: &Mount) -> bool {
         self.tree.lock().ns_of(mount.id) == Some(self.id)

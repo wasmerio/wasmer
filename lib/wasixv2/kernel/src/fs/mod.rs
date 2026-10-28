@@ -9,6 +9,7 @@ mod io;
 mod lock;
 pub(crate) mod mount;
 mod path;
+mod statmount;
 
 pub(crate) use io::{At, read_iovecs};
 

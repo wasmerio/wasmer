@@ -78,6 +78,9 @@ pub struct MountInfo {
     /// `propagate_from:N`: the closest group it gets events from that has a member under the
     /// reader's root, when that is not its master.
     pub propagate_from: Option<u32>,
+    /// That group, whether or not it is the master (`get_dominating_id`, as `statmount`'s
+    /// `propagate_from` reports it).
+    pub dominating: Option<u32>,
     pub unbindable: bool,
 }
 
@@ -621,33 +624,72 @@ impl Vfs {
         from.copy(paths)
     }
 
-    /// Makes `sb` read-only or writable as a reconfiguration says (`reconfigure_super`):
-    /// `EBUSY` while a file is open for writing on it.
-    pub fn reconfigure_read_only(&self, sb: &Superblock, read_only: bool) -> FsResult<()> {
-        self.tree.set_sb_read_only(sb, read_only)
-    }
-
     /// The mounts of `ns`, oldest first, with their propagation as seen from `root`.
     pub fn mount_info(&self, ns: &MntNs, root: &Path) -> Vec<MountInfo> {
         let state = self.tree.lock();
         state
             .mounts_in(ns.id())
             .into_iter()
-            .map(|mount| {
-                let (group, master, unbindable) = state.propagation_of(&mount);
-                let dominating = match master {
-                    0 => 0,
-                    _ => state.dominating_group(&mount, root),
-                };
-                MountInfo {
-                    parent: mount.parent().map_or(mount.id, |at| at.mnt.id),
-                    shared: (group != 0).then_some(group),
-                    master: (master != 0).then_some(master),
-                    propagate_from: (dominating != 0 && dominating != master).then_some(dominating),
-                    unbindable,
-                    mount,
-                }
+            .map(|mount| mount_info(&state, mount, root))
+            .collect()
+    }
+
+    /// `mount`'s place and propagation as seen from `root`, as `statmount` reports it.
+    pub fn stat_mount(&self, mount: &Arc<Mount>, root: &Path) -> MountInfo {
+        mount_info(&self.tree.lock(), mount.clone(), root)
+    }
+
+    /// Makes `sb` read-only or writable as a reconfiguration says (`reconfigure_super`):
+    /// `EBUSY` while a file is open for writing on it.
+    pub fn reconfigure_read_only(&self, sb: &Superblock, read_only: bool) -> FsResult<()> {
+        self.tree.set_sb_read_only(sb, read_only)
+    }
+
+    /// The namespace `mount` is attached in (`mnt_ns`), if any.
+    pub fn ns_of(&self, mount: &Mount) -> Option<u64> {
+        self.tree.lock().ns_of(mount.id)
+    }
+
+    /// The namespace, not a detached tree's, whose id is `id` (`lookup_mnt_ns`).
+    pub fn lookup_ns(&self, id: u64) -> Option<Arc<MntNs>> {
+        let ns = self.tree.lock().namespaces.get(&id).cloned();
+        ns?.upgrade()
+    }
+
+    /// `is_path_reachable`: whether `dentry` of `mount` is at or below `root`.
+    pub fn is_path_reachable(&self, mount: &Arc<Mount>, dentry: &Arc<Dentry>, root: &Path) -> bool {
+        let _state = self.tree.lock();
+        is_path_reachable(mount, dentry, root)
+    }
+
+    /// `do_listmount`'s walk: the unique ids of the mounts of `ns` below `under` (the mount
+    /// whose unique id is `skip` aside), in the order of their ids, from after `last` (from
+    /// the first if 0), backwards if `reverse`, at most `max` of them.
+    pub fn list_mounts(
+        &self,
+        ns: &MntNs,
+        under: &Path,
+        skip: u64,
+        last: u64,
+        reverse: bool,
+        max: usize,
+    ) -> Vec<u64> {
+        let state = self.tree.lock();
+        let mut mounts = state.mounts_in(ns.id());
+        if reverse {
+            mounts.reverse();
+        }
+        mounts
+            .iter()
+            .filter(|mount| match (last, reverse) {
+                (0, _) => true,
+                (_, false) => mount.unique_id() > last,
+                (_, true) => mount.unique_id() < last,
             })
+            .filter(|mount| mount.unique_id() != skip)
+            .filter(|mount| is_path_reachable(mount, &mount.root, under))
+            .take(max)
+            .map(|mount| mount.unique_id())
             .collect()
     }
 
@@ -694,6 +736,24 @@ impl Vfs {
                 .flat_map(|mount| state.umount_tree(mount, true))
                 .collect()
         };
+    }
+}
+
+/// `show_mountinfo`'s view of `mount` from `root`.
+fn mount_info(state: &TreeState, mount: Arc<Mount>, root: &Path) -> MountInfo {
+    let (group, master, unbindable) = state.propagation_of(&mount);
+    let dominating = match master {
+        0 => 0,
+        _ => state.dominating_group(&mount, root),
+    };
+    MountInfo {
+        parent: mount.parent().map_or(mount.id, |at| at.mnt.id),
+        shared: (group != 0).then_some(group),
+        master: (master != 0).then_some(master),
+        propagate_from: (dominating != 0 && dominating != master).then_some(dominating),
+        dominating: (dominating != 0).then_some(dominating),
+        unbindable,
+        mount,
     }
 }
 
