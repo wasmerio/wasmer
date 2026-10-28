@@ -24,6 +24,10 @@ wasm-encoder = { workspace = true, features = ["wasmparser"] }
 wasmparser.workspace = true
 
 [dev-dependencies]
+futures.workspace = true
+wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
+  "cranelift",
+] }
 wasmprinter.workspace = true
 wat.workspace = true
 
