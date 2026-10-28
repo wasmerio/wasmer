@@ -709,6 +709,7 @@ mod jobctl;
 mod mapped;
 mod mapping;
 mod memfd;
+mod mount;
 mod net;
 mod ns;
 mod proc;

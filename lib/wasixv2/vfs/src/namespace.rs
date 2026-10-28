@@ -446,31 +446,9 @@ impl Vfs {
         Ok(())
     }
 
-    /// `copy_mnt_ns`: a new namespace holding a copy of every mount of `from`, shared mounts
-    /// joining their originals' peer groups and slaves their masters. Each of `paths` (the new
-    /// root and working directory) moves to the copy of its mount.
+    /// `copy_mnt_ns`: see [`MntNs::copy`].
     pub fn copy_mnt_ns(&self, from: &MntNs, paths: &mut [&mut Path]) -> Arc<MntNs> {
-        let mut state = self.tree.lock();
-        let flags = CopyFlags {
-            copy_unbindable: true,
-            ..CopyFlags::default()
-        };
-        let source = from.root().mnt;
-        let (root, copies) = state
-            .copy_tree(&self.tree.next_id, &source, &source.root, flags)
-            .expect("copying unbindable mounts too, a whole tree copies");
-        let ns = MntNs::new(&self.tree, root);
-        let copied: Vec<_> = copies.iter().map(|(_, copy)| copy.clone()).collect();
-        state.set_ns(&copied, ns.id());
-        for path in paths {
-            if let Some((_, copy)) = copies
-                .iter()
-                .find(|(original, _)| Arc::ptr_eq(original, &path.mnt))
-            {
-                path.mnt = copy.clone();
-            }
-        }
-        ns
+        from.copy(paths)
     }
 
     /// The mounts of `ns`, oldest first, with their propagation as seen from `root`.
@@ -556,5 +534,42 @@ fn recalc_flags(old: MountFlags, attr: &MountAttr) -> MountFlags {
         nodiratime: pick(old.nodiratime, clear.nodiratime, set.nodiratime),
         strictatime: pick(old.strictatime, clear.strictatime, set.strictatime),
         nosymfollow: pick(old.nosymfollow, clear.nosymfollow, set.nosymfollow),
+    }
+}
+
+impl MntNs {
+    /// `copy_mnt_ns`: a new namespace holding a copy of every mount of this one, shared mounts
+    /// joining their originals' peer groups and slaves their masters. Each of `paths` (the new
+    /// root and working directory) moves to the copy of its mount.
+    pub fn copy(&self, paths: &mut [&mut Path]) -> Arc<MntNs> {
+        let mut state = self.tree.lock();
+        let flags = CopyFlags {
+            copy_unbindable: true,
+            ..CopyFlags::default()
+        };
+        let source = self.root().mnt;
+        let (root, copies) = state
+            .copy_tree(&self.tree.next_id, &source, &source.root, flags)
+            .expect("copying unbindable mounts too, a whole tree copies");
+        let ns = MntNs::new(&self.tree, root);
+        let copied: Vec<_> = copies.iter().map(|(_, copy)| copy.clone()).collect();
+        state.set_ns(&copied, ns.id());
+        for path in paths {
+            if let Some((_, copy)) = copies
+                .iter()
+                .find(|(original, _)| Arc::ptr_eq(original, &path.mnt))
+            {
+                path.mnt = copy.clone();
+            }
+        }
+        ns
+    }
+
+    /// The root a process entering the namespace gets: the namespace's root, below whatever
+    /// is mounted on it (`mntns_install`'s `follow_down_one` loop).
+    pub fn entry_root(&self) -> Path {
+        let mut root = self.root();
+        self.tree.follow_mounts(&mut root);
+        root
     }
 }
