@@ -1315,6 +1315,25 @@ const WASIXV2_DEAF_WAT: &str = r#"
           (br $forever))))
 "#;
 
+/// Ignores `SIGINT`, prints `ready`, then waits in `ppoll` forever: the kernel discards every
+/// Ctrl-C.
+const WASIXV2_IGNORE_SIGINT_WAT: &str = r#"
+    (module
+      (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+      (import "wasixv2" "rt_sigaction" (func $sigaction (param i32 i32 i32 i32) (result i32)))
+      (import "wasixv2" "ppoll_time64" (func $ppoll (param i32 i32 i32 i32 i32) (result i32)))
+      (memory (export "memory") 1)
+      ;; struct sigaction with SIG_IGN.
+      (data (i32.const 32) "\01\00\00\00")
+      (data (i32.const 16) "ready\n")
+      (func (export "_start")
+        (drop (call $sigaction (i32.const 2) (i32.const 32) (i32.const 0) (i32.const 8)))
+        (drop (call $write (i32.const 1) (i32.const 16) (i32.const 6)))
+        (loop $forever
+          (drop (call $ppoll (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 8)))
+          (br $forever))))
+"#;
+
 /// Blocks `SIGINT`, prints `ready`, then takes four `SIGINT`s one by one with `rt_sigtimedwait`
 /// and exits with 4, or 100 + errno.
 const WASIXV2_SIGWAIT_FOUR_WAT: &str = r#"
@@ -1426,6 +1445,18 @@ fn run_wasixv2_exits_on_the_third_sigint() {
 
     let sigints = [libc::SIGINT; 3];
     let status = run_wasixv2_and_signal(WASIXV2_DEAF_WAT, &sigints);
+    assert_eq!(status.signal(), None, "wasmer died of the signal: {status}");
+    assert_eq!(status.code(), Some(130));
+}
+
+/// A guest that ignores `SIGINT` never takes a Ctrl-C either: the third ends `wasmer` with 130.
+#[cfg(unix)]
+#[test]
+fn run_wasixv2_exits_on_the_third_sigint_a_guest_ignores() {
+    use std::os::unix::process::ExitStatusExt as _;
+
+    let sigints = [libc::SIGINT; 3];
+    let status = run_wasixv2_and_signal(WASIXV2_IGNORE_SIGINT_WAT, &sigints);
     assert_eq!(status.signal(), None, "wasmer died of the signal: {status}");
     assert_eq!(status.code(), Some(130));
 }

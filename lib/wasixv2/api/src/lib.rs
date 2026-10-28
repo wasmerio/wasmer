@@ -628,11 +628,16 @@ impl Signaller {
 
     /// Sends `sig` to the process groups of those processes, as a terminal sends the signals of
     /// `^C` and `^\` to its foreground process group, so the children of a guest shell get
-    /// them too.
-    pub fn signal_foreground(&self, sig: i32) -> io::Result<()> {
+    /// them too. Returns whether some process has it pending now: `false` when every process
+    /// of the groups ignores it, so the kernel discarded it, as when no process runs. A
+    /// pending signal is taken once [`Signaller::foreground_pending`] says so.
+    pub fn signal_foreground(&self, sig: i32) -> io::Result<bool> {
+        let mut pending = false;
         self.each(sig, |kernel, task, sig| {
-            kernel.kill_process_group(task, sig)
-        })
+            pending |= kernel.kill_process_group(task, sig)?;
+            Ok(())
+        })?;
+        Ok(pending)
     }
 
     /// Whether a `sig` sent with [`Signaller::signal_foreground`] is still pending, not yet
@@ -649,7 +654,7 @@ impl Signaller {
     fn each(
         &self,
         sig: i32,
-        send: impl Fn(&Kernel, TaskId, wasixv2_abi::Signal) -> Result<(), Errno>,
+        mut send: impl FnMut(&Kernel, TaskId, wasixv2_abi::Signal) -> Result<(), Errno>,
     ) -> io::Result<()> {
         if !(1..=64).contains(&sig) {
             return Err(errno_to_io(Errno::EINVAL));

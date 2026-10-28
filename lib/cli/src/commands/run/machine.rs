@@ -651,14 +651,47 @@ impl Run {
     }
 }
 
-/// After how many `SIGINT`s (Ctrl-C) in a row that the guest leaves pending `wasmer run` gives up
-/// on it and exits by itself. A press that finds the previous one taken starts the count again,
-/// so a guest that handles every Ctrl-C, such as a shell or a REPL, is never cut short; one that
-/// keeps SIGINT blocked, or is stuck where it cannot take it, goes on the third.
+/// After how many `SIGINT`s (Ctrl-C) in a row that the guest leaves unanswered `wasmer run` gives
+/// up on it and exits by itself. A press is unanswered when the next one finds it still pending,
+/// or the kernel discarded it because every process it went to ignores `SIGINT`. A press that
+/// finds the previous one taken starts the count again, so a guest that handles every Ctrl-C,
+/// such as a shell or a REPL, is never cut short; one that ignores SIGINT, keeps it blocked, or
+/// is stuck where it cannot take it, goes on the third.
+///
+/// Ctrl-C goes to the process group of the process `wasmer run` started, as there are no
+/// terminals with a foreground group yet: a job a guest shell moved to a group of its own does
+/// not get it, and does not count.
 const SIGINTS_TO_FORCE_EXIT: u32 = 3;
 
 /// The guest ABI's `SIGINT` (Linux's numbering).
 const GUEST_SIGINT: i32 = 2;
+
+/// Counts the Ctrl-Cs in a row the guest left unanswered; see [`SIGINTS_TO_FORCE_EXIT`].
+#[derive(Default)]
+struct Interrupts {
+    unanswered: u32,
+    /// Whether the kernel left the last press pending, rather than discarding it.
+    pending: bool,
+}
+
+impl Interrupts {
+    /// A new Ctrl-C: whether it is the last one, so `wasmer run` exits instead of forwarding
+    /// it.
+    fn press(&mut self, signaller: &Signaller) -> bool {
+        let previous_unanswered =
+            self.unanswered > 0 && (!self.pending || signaller.foreground_pending(GUEST_SIGINT));
+        self.unanswered = match previous_unanswered {
+            true => self.unanswered + 1,
+            false => 1,
+        };
+        self.unanswered >= SIGINTS_TO_FORCE_EXIT
+    }
+
+    /// Forwards the press to the guest.
+    fn forward(&mut self, signaller: &Signaller) {
+        self.pending = forward(signaller, GUEST_SIGINT, true);
+    }
+}
 
 /// Forwards the signals a terminal or supervisor sends `wasmer run` to the guest, as signals from
 /// outside the machine. `^C` and `^\` go to the foreground process group as a terminal sends
@@ -687,18 +720,16 @@ fn forward_signals(runtime: &tokio::runtime::Handle, signaller: Signaller) -> io
         let mut stream = signal(SignalKind::from_raw(host))?;
         let signaller = signaller.clone();
         runtime.spawn(async move {
-            let mut unanswered = 0;
+            let mut interrupts = Interrupts::default();
             while stream.recv().await.is_some() {
-                if guest == GUEST_SIGINT {
-                    unanswered = match signaller.foreground_pending(guest) {
-                        true => unanswered + 1,
-                        false => 1,
-                    };
-                    if unanswered >= SIGINTS_TO_FORCE_EXIT {
-                        std::process::exit(128 + GUEST_SIGINT);
-                    }
+                if guest != GUEST_SIGINT {
+                    forward(&signaller, guest, terminal);
+                    continue;
                 }
-                forward(&signaller, guest, terminal);
+                if interrupts.press(&signaller) {
+                    std::process::exit(128 + GUEST_SIGINT);
+                }
+                interrupts.forward(&signaller);
             }
         });
     }
@@ -711,30 +742,29 @@ fn forward_signals(runtime: &tokio::runtime::Handle, signaller: Signaller) -> io
     let _context = runtime.enter();
     let mut ctrl_c = tokio::signal::windows::ctrl_c()?;
     runtime.spawn(async move {
-        let mut unanswered = 0;
+        let mut interrupts = Interrupts::default();
         while ctrl_c.recv().await.is_some() {
-            unanswered = match signaller.foreground_pending(GUEST_SIGINT) {
-                true => unanswered + 1,
-                false => 1,
-            };
-            if unanswered >= SIGINTS_TO_FORCE_EXIT {
+            if interrupts.press(&signaller) {
                 std::process::exit(3);
             }
-            forward(&signaller, GUEST_SIGINT, true);
+            interrupts.forward(&signaller);
         }
     });
     Ok(())
 }
 
-fn forward(signaller: &Signaller, sig: i32, terminal: bool) {
+/// Sends `sig` to the guest; for a terminal's signal, returns whether some process has it
+/// pending now.
+fn forward(signaller: &Signaller, sig: i32, terminal: bool) -> bool {
     tracing::debug!(sig, "forwarding a host signal to the guest");
     let sent = match terminal {
         true => signaller.signal_foreground(sig),
-        false => signaller.signal(sig),
+        false => signaller.signal(sig).map(|()| false),
     };
-    if let Err(err) = sent {
+    sent.unwrap_or_else(|err| {
         tracing::warn!(sig, %err, "cannot forward a signal to the guest");
-    }
+        false
+    })
 }
 
 /// A package's webc v3 reader, which the machine's package volumes need.

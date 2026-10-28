@@ -753,3 +753,54 @@ fn pidfd_send_signal_passes_its_siginfo_and_reaches_a_zombie() {
     assert_eq!(reap(&kernel, &caller, child), Some(0));
     assert_eq!(send(Signal::SIGTERM.0, 0), err(Errno::ESRCH), "reaped");
 }
+
+/// Makes the caller's process ignore `sig`.
+fn ignore(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) {
+    let act = Sigaction {
+        sa_handler: wasixv2_abi::SignalHandler::SIG_IGN.0 as u32,
+        sa_flags: 0,
+        sa_mask: Sigset { sig: [0; 2] },
+    };
+    block_on(write_value(caller.memory(), GuestPtrMut::new(0x140), &act)).unwrap();
+    let set = kernel.rt_sigaction(caller, sig, GuestPtr::new(0x140), GuestPtrMut::NULL, 8);
+    assert_eq!(block_on(set), Ok(0));
+}
+
+/// A terminal's signal to a process group says whether some process has it pending: one that
+/// every process ignores is discarded where it is generated, one that a process handles, or
+/// blocks though it ignores it, is pending.
+#[test]
+fn a_process_group_signal_says_whether_it_is_pending() {
+    let (kernel, task, _) = machine();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let child = fork(&kernel, &caller);
+    let child_memory = forkable();
+    let child_caller = Caller::new(child, &child_memory);
+    let sigint = Signal::SIGINT;
+    ignore(&kernel, &caller, sigint);
+    ignore(&kernel, &child_caller, sigint);
+
+    assert_eq!(
+        kernel.kill_process_group(task, sigint),
+        Ok(false),
+        "ignored"
+    );
+    assert!(!kernel.process_group_pending(task, sigint));
+
+    block(&kernel, &child_caller, 1 << (sigint.0 - 1));
+    assert_eq!(
+        kernel.kill_process_group(child, sigint),
+        Ok(true),
+        "blocked"
+    );
+    assert!(kernel.process_group_pending(task, sigint));
+    assert!(take(&kernel, &child_caller, sigint.0).is_some());
+
+    handle(&kernel, &caller, sigint, 0);
+    assert_eq!(kernel.kill_process_group(task, sigint), Ok(true), "handled");
+    assert!(matches!(
+        kernel.take_pending(task),
+        Some(GuestAction::Signal(_))
+    ));
+}

@@ -566,18 +566,24 @@ impl Signals {
     /// ignored, and wakes the group's waiters. `EAGAIN` when the target's user has no room for
     /// a realtime signal that must keep its `siginfo`.
     fn send(&self, task: Option<TaskId>, info: Siginfo) -> Result<(), Errno> {
+        self.generate(task, info).map(drop)
+    }
+
+    /// [`Signals::send`], saying whether the signal is pending now: `false` when the group
+    /// ignores it and it was discarded (`prepare_signal` failing).
+    fn generate(&self, task: Option<TaskId>, info: Siginfo) -> Result<bool, Errno> {
         // The charge reads the process's credentials and limits, which come before the group.
         let charge = self.account.as_ref().map_or(Ok(None), |a| a.charge(&info));
         let mut state = self.state.lock().unwrap();
         if !state.prepare(task, info.si_signo) {
-            return Ok(());
+            return Ok(false);
         }
         let target = task.filter(|task| state.tasks.contains_key(task));
         state.pending(target).add(info, charge)?;
         state.raise(target, info.si_signo);
         drop(state);
         self.queue.wake(wasixv2_wait::PollMask::empty());
-        Ok(())
+        Ok(true)
     }
 
     /// `posixtimer_send_sigqueue`: queues the signal of `timer`, which just expired, for its
@@ -1535,19 +1541,21 @@ impl Kernel {
 
     /// Sends `sig` to every process in the process group of `pid`, as a terminal's line
     /// discipline sends `^C` and `^\` to its foreground group (`isig`, `kill_pgrp` with
-    /// `SI_KERNEL`).
+    /// `SI_KERNEL`). Returns whether some process of the group has it pending now; `false`
+    /// when each one ignores it, so it was discarded where it was generated.
     // TODO: the terminal's foreground group, once the kernel has terminals.
-    pub fn kill_process_group(&self, pid: TaskId, sig: Signal) -> Result<(), Errno> {
+    pub fn kill_process_group(&self, pid: TaskId, sig: Signal) -> Result<bool, Errno> {
         let sig = check_signal(sig)?;
         let groups = self.pgrp_groups(self.pgid_of(pid.0 as Pid));
         if groups.is_empty() {
             return Err(Errno::ESRCH);
         }
+        let mut pending = false;
         for (_, group) in groups {
             // A kernel signal goes past the limit, or without its `siginfo`.
-            let _ = group.send(None, kernel_info(sig));
+            pending |= matches!(group.generate(None, kernel_info(sig)), Ok(true));
         }
-        Ok(())
+        Ok(pending)
     }
 
     /// Whether `sig` is still pending, not yet taken by any task, for a process in the
