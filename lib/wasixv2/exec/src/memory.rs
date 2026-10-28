@@ -17,7 +17,18 @@
 //! Every host write to guest memory goes through [`write`], which faults inside the guard
 //! instead of touching the protected pages, which would kill the host; [`read`] reads there as
 //! the guest does.
+//!
+//! A range of memory can show a shared object's pages instead of its own ([`map_shared`]): the
+//! host maps the object over the range, inside the memory's reservation, which never moves.
+//! Every process that maps the object then sees the same bytes at once. The range is mapped
+//! read-write whatever the guest asked for, as wasm enforces no page protection and a host write
+//! into a read-only page would kill the host; and never over the low guard, which `MAP_FIXED`
+//! would make writable again.
 
+#[cfg(all(unix, feature = "sys"))]
+use wasixv2_pages::SharedPages;
+#[cfg(all(unix, feature = "sys"))]
+use wasixv2_syscalls::Errno;
 use wasixv2_syscalls::{Fault, LocalFuture, UserMemory, copied};
 use wasmer::{
     AsStoreMut, AsStoreRef, AsyncFunctionEnvHandle, AsyncFunctionEnvMut, Instance, Memory,
@@ -119,7 +130,100 @@ pub(crate) fn write(
         .map_err(|_| Fault)
 }
 
+/// Makes `[addr, addr + len)` of `memory`, whose low guard is `low_guard` bytes, show `len`
+/// bytes of `pages` from `offset` ([`UserMemory::map_shared`]). `EINVAL` for a range outside the
+/// memory, inside the guard or not page aligned, or past the end of the object.
+#[cfg(all(unix, feature = "sys"))]
+pub(crate) fn map_shared(
+    memory: &Memory,
+    low_guard: u32,
+    store: &impl AsStoreRef,
+    addr: u32,
+    len: u64,
+    pages: &dyn SharedPages,
+    offset: u64,
+) -> Result<(), Errno> {
+    let ptr = shared_range(memory, low_guard, store, addr, len)?;
+    // SAFETY: the range lies inside the memory's own mapping, which never moves (memories are
+    // reserved to their maximum) and which the host reaches only through views, by copies.
+    let mapped = unsafe { wasixv2_pages::map_at(ptr, len as usize, pages, offset) };
+    mapped.map_err(|err| host_errno(&err))
+}
+
+/// Gives `[addr, addr + len)` of `memory` its own zeroed pages again
+/// ([`UserMemory::unmap_shared`]).
+#[cfg(all(unix, feature = "sys"))]
+pub(crate) fn unmap_shared(
+    memory: &Memory,
+    low_guard: u32,
+    store: &impl AsStoreRef,
+    addr: u32,
+    len: u64,
+) -> Result<(), Errno> {
+    let ptr = shared_range(memory, low_guard, store, addr, len)?;
+    // SAFETY: as in `map_shared`.
+    let unmapped = unsafe { wasixv2_pages::map_private_at(ptr, len as usize) };
+    unmapped.map_err(|err| host_errno(&err))
+}
+
+/// The host address of `[addr, addr + len)` of `memory`, a range a shared object may cover:
+/// inside the memory and above its low guard.
+#[cfg(all(unix, feature = "sys"))]
+fn shared_range(
+    memory: &Memory,
+    low_guard: u32,
+    store: &impl AsStoreRef,
+    addr: u32,
+    len: u64,
+) -> Result<*mut u8, Errno> {
+    let view = memory.view(store);
+    let inside = u64::from(addr)
+        .checked_add(len)
+        .is_some_and(|end| end <= view.data_size());
+    if !inside || len == 0 || addr < low_guard {
+        return Err(Errno::EINVAL);
+    }
+    // SAFETY: in bounds, checked above.
+    Ok(unsafe { view.data_ptr().add(addr as usize) })
+}
+
+/// The errno for a host error placing pages: `EOPNOTSUPP` for an object the host cannot map,
+/// `EINVAL` for a range it refused, `ENOMEM` for anything else (out of mappings or memory).
+#[cfg(all(unix, feature = "sys"))]
+fn host_errno(err: &std::io::Error) -> Errno {
+    match (err.kind(), err.raw_os_error()) {
+        (std::io::ErrorKind::Unsupported, _) => Errno::EOPNOTSUPP,
+        (_, Some(libc::EINVAL)) => Errno::EINVAL,
+        _ => Errno::ENOMEM,
+    }
+}
+
 impl<S> ExecEnv<S> {
+    /// [`map_shared`] of the instance's memory.
+    #[cfg(all(unix, feature = "sys"))]
+    pub(crate) fn map_shared_memory(
+        &self,
+        store: &impl AsStoreRef,
+        (addr, len): (u32, u64),
+        pages: &dyn SharedPages,
+        offset: u64,
+    ) -> Result<(), Errno> {
+        let memory = self.memory.as_ref().ok_or(Errno::EFAULT)?;
+        map_shared(memory, self.low_guard, store, addr, len, pages, offset)
+    }
+
+    /// [`unmap_shared`] of the instance's memory.
+    #[cfg(all(unix, feature = "sys"))]
+    pub(crate) fn unmap_shared_memory(
+        &self,
+        store: &impl AsStoreRef,
+        addr: u32,
+        len: u64,
+    ) -> Result<(), Errno> {
+        let memory = self.memory.as_ref().ok_or(Errno::EFAULT)?;
+        unmap_shared(memory, self.low_guard, store, addr, len)
+    }
+
     /// [`read`] of the instance's memory.
     pub(crate) fn read_memory(
         &self,
@@ -250,6 +354,30 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
             Some(previous.bytes().0 as u64)
         })
     }
+
+    #[cfg(all(unix, feature = "sys"))]
+    fn map_shared<'a>(
+        &'a self,
+        addr: u32,
+        len: u64,
+        pages: &'a dyn SharedPages,
+        offset: u64,
+    ) -> LocalFuture<'a, Result<(), Errno>> {
+        Box::pin(async move {
+            let mut env = self.env.write().await;
+            let (data, store) = env.data_and_store_mut();
+            data.map_shared_memory(&*store, (addr, len), pages, offset)
+        })
+    }
+
+    #[cfg(all(unix, feature = "sys"))]
+    fn unmap_shared(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Errno>> {
+        Box::pin(async move {
+            let mut env = self.env.write().await;
+            let (data, store) = env.data_and_store_mut();
+            data.unmap_shared_memory(&*store, addr, len)
+        })
+    }
 }
 
 /// The linear memory of an instance seen from outside any guest call, for the calls the
@@ -287,6 +415,29 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
             Some(previous.bytes().0 as u64)
         }))
     }
+
+    #[cfg(all(unix, feature = "sys"))]
+    fn map_shared<'a>(
+        &'a self,
+        addr: u32,
+        len: u64,
+        pages: &'a dyn SharedPages,
+        offset: u64,
+    ) -> LocalFuture<'a, Result<(), Errno>> {
+        Box::pin(
+            self.cx.with(move |data, store| {
+                data.map_shared_memory(&*store, (addr, len), pages, offset)
+            }),
+        )
+    }
+
+    #[cfg(all(unix, feature = "sys"))]
+    fn unmap_shared(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Errno>> {
+        Box::pin(
+            self.cx
+                .with(move |data, store| data.unmap_shared_memory(&*store, addr, len)),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -314,6 +465,59 @@ mod tests {
     fn a_stack_too_small_to_spare_the_guard_does_not() {
         assert!(!guardable_layout(2 * LOW_GUARD - 16, 2 * LOW_GUARD));
         assert!(!guardable_layout(LOW_GUARD, 1 << 20));
+    }
+
+    #[cfg(all(
+        feature = "sys",
+        any(target_os = "linux", target_os = "android", target_os = "macos")
+    ))]
+    #[test]
+    fn two_memories_mapping_one_object_share_its_pages() {
+        use wasixv2_pages::{Memfd, SharedPages};
+        use wasmer::{MemoryType, Store};
+
+        const PAGE: u64 = 65536;
+        let mut store = Store::default();
+        let mut memory = || Memory::new(&mut store, MemoryType::new(4, None, true)).unwrap();
+        let (a, b) = (memory(), memory());
+        let pages = Memfd::new(2 * PAGE).unwrap();
+        a.view(&store).write(2 * PAGE, b"private").unwrap();
+        map_shared(&a, LOW_GUARD, &store, 2 * PAGE as u32, 2 * PAGE, &pages, 0).unwrap();
+        map_shared(&b, LOW_GUARD, &store, PAGE as u32, PAGE, &pages, PAGE).unwrap();
+        // The object's zeros replaced the private bytes.
+        assert_eq!(a.view(&store).read_u8(2 * PAGE).unwrap(), 0);
+        write(&a, LOW_GUARD, &store, 3 * PAGE as u32 + 8, b"seen").unwrap();
+        let mut buf = [0; 4];
+        read(&b, &store, PAGE as u32 + 8, &mut buf).unwrap();
+        assert_eq!(&buf, b"seen");
+        pages.read_at(&mut buf, PAGE + 8).unwrap();
+        assert_eq!(&buf, b"seen");
+
+        unmap_shared(&a, LOW_GUARD, &store, 3 * PAGE as u32, PAGE).unwrap();
+        read(&a, &store, 3 * PAGE as u32 + 8, &mut buf).unwrap();
+        assert_eq!(buf, [0; 4]);
+        read(&b, &store, PAGE as u32 + 8, &mut buf).unwrap();
+        assert_eq!(&buf, b"seen");
+    }
+
+    #[cfg(all(
+        feature = "sys",
+        any(target_os = "linux", target_os = "android", target_os = "macos")
+    ))]
+    #[test]
+    fn shared_pages_never_cover_the_guard_or_reach_past_memory() {
+        use wasixv2_pages::Memfd;
+        use wasmer::{MemoryType, Store};
+
+        const PAGE: u64 = 65536;
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(2, None, false)).unwrap();
+        let pages = Memfd::new(2 * PAGE).unwrap();
+        let map =
+            |addr: u32, len: u64| map_shared(&memory, LOW_GUARD, &store, addr, len, &pages, 0);
+        assert_eq!(map(0, PAGE), Err(Errno::EINVAL));
+        assert_eq!(map(PAGE as u32, 2 * PAGE), Err(Errno::EINVAL));
+        assert_eq!(map(PAGE as u32, PAGE), Ok(()));
     }
 
     #[test]

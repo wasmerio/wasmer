@@ -11,6 +11,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+wasixv2-pages = { path = "../pages" }
 getrandom = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = [

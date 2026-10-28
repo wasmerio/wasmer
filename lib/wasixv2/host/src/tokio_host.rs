@@ -69,6 +69,13 @@ impl Host for TokioHost {
     fn executor(&self) -> &dyn Executor {
         self
     }
+
+    /// A memfd on Linux and an unlinked POSIX shared memory object on macOS
+    /// ([`wasixv2_pages::Memfd`]); none elsewhere.
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+    fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn wasixv2_pages::SharedPages>> {
+        Ok(Arc::new(wasixv2_pages::Memfd::new(size)?))
+    }
 }
 
 impl Executor for TokioHost {

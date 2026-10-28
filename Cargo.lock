@@ -7129,6 +7129,7 @@ dependencies = [
  "tracing",
  "wasixv2-abi",
  "wasixv2-host",
+ "wasixv2-pages",
  "wasixv2-syscalls",
  "wasm-encoder 0.259.0",
  "wasmer",
@@ -7145,6 +7146,7 @@ dependencies = [
  "getrandom 0.4.3",
  "js-sys",
  "tokio",
+ "wasixv2-pages",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -7192,6 +7194,7 @@ name = "wasixv2-syscalls"
 version = "0.0.0"
 dependencies = [
  "wasixv2-abi",
+ "wasixv2-pages",
 ]
 
 [[package]]
