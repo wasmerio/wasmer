@@ -11,7 +11,6 @@ SRC=$PKG/src
 BLD=$PKG/build
 unpack "$TARBALL" "$SRC"
 apply_patches "$SRC" "$PKG/patches"
-gnulib_musl_port "$SRC/lib/getlocalename_l-unsafe.c"
 
 rm -rf "$BLD" && mkdir -p "$BLD" && cd "$BLD"
 # ac_cv_func_vfork{,_works}=yes: libc2's vfork() is a macro (no linkable
