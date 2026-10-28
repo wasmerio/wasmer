@@ -16,7 +16,6 @@ use async_trait::async_trait;
 use wasixv2_host::Host;
 use wasixv2_syscalls::TaskId;
 use wasixv2_vfs::{Clock, Filesystem, FsInfo, FsResult, NAME_MAX, Node, StatFs, Timestamp, Vfs};
-use wasixv2_vnet::Network;
 
 use crate::{
     Kernel, Process, TaskTable,
@@ -24,6 +23,8 @@ use crate::{
     fs::{FsContext, HostClock},
     ident::Comm,
     mm::Mm,
+    ns::NsProxy,
+    nsfs::Nsfs,
     process::Tree,
     sched::Sched,
     signal::TaskSignals,
@@ -41,8 +42,8 @@ impl Kernel {
             tree: Arc::downgrade(&self.procs.tree),
             vfs: Arc::downgrade(&self.vfs),
             host: self.host.clone(),
-            network: self.network.clone(),
-            uts: self.uts.clone(),
+            ns: self.init_ns.clone(),
+            nsfs: self.pseudo.nsfs.clone(),
             mounted: HostClock(self.host.clone()).now(),
         };
         Arc::new(ProcFs {
@@ -91,9 +92,10 @@ struct Source {
     tree: Weak<Mutex<Tree>>,
     vfs: Weak<Vfs>,
     host: Arc<dyn Host>,
-    network: Option<Arc<dyn Network>>,
-    /// The UTS names, for `/proc/version` and `/proc/sys/kernel`.
-    uts: Arc<Mutex<wasixv2_abi::NewUtsname>>,
+    /// The namespaces the system files show: the initial ones.
+    ns: Arc<NsProxy>,
+    /// Where `/proc/<pid>/ns` links lead.
+    nsfs: Nsfs,
     /// Every node's timestamps: when the filesystem was made.
     mounted: Timestamp,
 }
@@ -115,6 +117,7 @@ struct TaskInfo {
     mm: Arc<Mm>,
     comm: Comm,
     sched: Sched,
+    ns: Arc<NsProxy>,
 }
 
 impl Source {
@@ -176,6 +179,7 @@ impl Source {
             mm: task.mm.clone(),
             comm: task.comm,
             sched: task.sched.clone(),
+            ns: task.ns.clone(),
         })
     }
 

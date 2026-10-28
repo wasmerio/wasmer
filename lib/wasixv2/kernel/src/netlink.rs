@@ -547,6 +547,8 @@ impl Kernel {
             return Err(Errno::EPROTONOSUPPORT.into());
         }
         let interfaces = self
+            .ns(caller)
+            .net
             .network
             .as_ref()
             .map(|net| net.interfaces())

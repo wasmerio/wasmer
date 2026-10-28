@@ -338,7 +338,8 @@ impl Kernel {
         let cred = self.env(caller).cred;
         let now = self.ipc_now();
         let pid = self.process(caller.task()).pid.0;
-        let segments = &self.ipc.shm;
+        let ns = self.ns(caller);
+        let segments = &ns.ipc.shm;
         let check = |segment: &Segment| match segment.size < size as usize {
             true => Err(Errno::EINVAL),
             false => Ok(()),
@@ -418,7 +419,7 @@ impl Kernel {
         }
         let cred = self.env(caller).cred;
         let pid = self.process(caller.task()).pid.0;
-        let segment = self.ipc.shm.get(shmid)?;
+        let segment = self.ns(caller).ipc.shm.get(shmid)?;
         {
             let mut state = segment.state();
             segment.perm().check(&cred, access)?;
@@ -434,7 +435,7 @@ impl Kernel {
         let attachment = Arc::new(Attachment {
             segment: segment.clone(),
             id: shmid,
-            table: self.ipc.shm.clone(),
+            table: self.ns(caller).ipc.shm.clone(),
             pid,
             host: self.host.clone(),
         });
@@ -479,7 +480,8 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let cred = self.env(caller).cred;
-        let segments = &self.ipc.shm;
+        let ns = self.ns(caller);
+        let segments = &ns.ipc.shm;
         match IpcCmd(cmd) {
             IpcCmd::IPC_INFO => {
                 let max = segments.ids.lock_or_recover().max_index();

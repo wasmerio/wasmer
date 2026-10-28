@@ -8,6 +8,7 @@ use crate::{
     Kernel,
     file::{Backing, OpenFile},
     fs::FASYNC,
+    nsfs::NsFile,
     sync::MutexExt,
     tty::TtyFile,
 };
@@ -120,6 +121,9 @@ impl Kernel {
             _ => match file.object() {
                 Some(_) if let Some(tty) = file.downcast::<TtyFile>() => {
                     self.tty_ioctl(caller, &file, tty, request, arg).await
+                }
+                Some(_) if let Some(ns) = file.downcast::<NsFile>() => {
+                    self.ns_ioctl(caller, ns, request, arg).await
                 }
                 Some(object) => object.ioctl(caller, request, arg).await,
                 None => Err(Errno::ENOTTY.into()),

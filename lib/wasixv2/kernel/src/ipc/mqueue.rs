@@ -315,7 +315,8 @@ impl Kernel {
         check_name(&name)?;
         let env = self.env(caller);
         let cred = &env.cred;
-        let mqueues = &self.ipc.mq;
+        let ns = self.ns(caller);
+        let mqueues = &ns.ipc.mq;
         let queue = {
             let mut names = mqueues.names.lock_or_recover();
             match names.get(&name) {
@@ -329,7 +330,7 @@ impl Kernel {
                         .resources
                         .lock_or_recover()
                         .soft(RlimitResource::RLIMIT_MSGQUEUE);
-                    let queue = self.mq_create(cred, mode, attr, limit)?;
+                    let queue = self.mq_create(mqueues, cred, mode, attr, limit)?;
                     names.insert(name.clone(), queue.clone());
                     queue
                 }
@@ -364,12 +365,12 @@ impl Kernel {
     /// `mqueue_get_inode` for a new queue, with `mqueue_create_attr`'s count limit.
     fn mq_create(
         &self,
+        mqueues: &Arc<Mqueues>,
         cred: &Cred,
         mode: u32,
         attr: Option<MqAttr>,
         limit: u64,
     ) -> Result<Arc<Mqueue>, Errno> {
-        let mqueues = &self.ipc.mq;
         let resource = capable(cred, CAP_SYS_RESOURCE);
         let mut count = mqueues.count.lock_or_recover();
         if *count >= QUEUES_MAX && !resource {
@@ -424,7 +425,8 @@ impl Kernel {
         let name = read_name(caller, name).await?;
         check_name(&name)?;
         let cred = self.env(caller).cred;
-        let mut names = self.ipc.mq.names.lock_or_recover();
+        let ns = self.ns(caller);
+        let mut names = ns.ipc.mq.names.lock_or_recover();
         let queue = names.get(&name).ok_or(Errno::ENOENT)?;
         // `may_delete` in the mqueue root, which is root's and sticky (`S_ISVTX`): only the
         // queue's owner, root or `CAP_FOWNER` may remove a queue.

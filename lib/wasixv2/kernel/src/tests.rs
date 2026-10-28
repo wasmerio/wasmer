@@ -710,6 +710,7 @@ mod mapped;
 mod mapping;
 mod memfd;
 mod net;
+mod ns;
 mod proc;
 mod procfs;
 mod ptimer;

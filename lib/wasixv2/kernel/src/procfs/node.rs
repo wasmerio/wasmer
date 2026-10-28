@@ -11,7 +11,7 @@ use wasixv2_vfs::{
 };
 
 use super::{Source, text};
-use crate::sync::MutexExt;
+use crate::{ns::NsLink, sync::MutexExt};
 
 /// A directory, file or link of the process filesystem.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,6 +27,8 @@ pub(super) enum Entry {
     Fd(Scope, u32),
     /// `fdinfo/<n>`.
     FdInfo(Scope, u32),
+    /// `ns/<name>`, one of [`NsLink::ALL`] by index.
+    Ns(Scope, usize),
 }
 
 /// Whose directory: a process (`/proc/<pid>`) or one of its threads
@@ -105,6 +107,8 @@ pub(super) enum PidEntry {
     Exe,
     Cwd,
     Root,
+    /// `ns/`.
+    Namespaces,
     File(text::PerPid),
 }
 
@@ -117,6 +121,7 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("exe", PidEntry::Exe, 0o777),
     ("cwd", PidEntry::Cwd, 0o777),
     ("root", PidEntry::Root, 0o777),
+    ("ns", PidEntry::Namespaces, 0o511),
     ("cmdline", PidEntry::File(text::PerPid::Cmdline), 0o444),
     ("comm", PidEntry::File(text::PerPid::Comm), 0o644),
     ("environ", PidEntry::File(text::PerPid::Environ), 0o400),
@@ -226,9 +231,16 @@ impl ProcNode {
                         out.push((u64::from(fd), fd.to_string().into_bytes(), entry));
                     }
                 }
+                PidEntry::Namespaces => {
+                    self.alive(scope)?;
+                    for (index, link) in NsLink::ALL.iter().enumerate() {
+                        let name = link.name().as_bytes().to_vec();
+                        out.push((index as u64, name, Entry::Ns(scope, index)));
+                    }
+                }
                 _ => return Err(Errno::ENOTDIR),
             },
-            Entry::Fd(..) | Entry::FdInfo(..) => return Err(Errno::ENOTDIR),
+            Entry::Fd(..) | Entry::FdInfo(..) | Entry::Ns(..) => return Err(Errno::ENOTDIR),
         }
         Ok(out)
     }
@@ -255,6 +267,7 @@ impl ProcNode {
             },
             Entry::Pid(_, index) => PID_ENTRIES[index].2,
             Entry::FdInfo(..) => 0o444,
+            Entry::Ns(..) => 0o777,
             Entry::Fd(scope, fd) => {
                 // The link's mode shows how the file is open (`tid_fd_update_inode`).
                 match self.open_file(scope, fd) {
@@ -277,7 +290,8 @@ impl ProcNode {
             Entry::Dir(scope)
             | Entry::Pid(scope, _)
             | Entry::Fd(scope, _)
-            | Entry::FdInfo(scope, _) => scope,
+            | Entry::FdInfo(scope, _)
+            | Entry::Ns(scope, _) => scope,
         };
         let Some(info) = self.source.process(scope.pid) else {
             return (0, 0);
@@ -288,6 +302,30 @@ impl ProcNode {
         }
         let cred = process.cred();
         (cred.user.effective, cred.group.effective)
+    }
+
+    /// `proc_ns_get_link`: the namespace's nsfs inode, for a caller that may read the task's
+    /// state (`PTRACE_MODE_READ_FSCREDS`, `EACCES`).
+    fn ns_link(&self, cx: &Ctx<'_>, scope: Scope, link: NsLink) -> FsResult<Link> {
+        let target = self.source.process(scope.pid).ok_or(Errno::ENOENT)?;
+        let task = self
+            .source
+            .task(scope.pid, scope.tid)
+            .ok_or(Errno::ENOENT)?;
+        let caller = self
+            .source
+            .tgid_of(cx.task)
+            .and_then(|tgid| self.source.process(tgid))
+            .ok_or(Errno::EACCES)?;
+        if !Arc::ptr_eq(&caller.process, &target.process) {
+            let dumpable = target.process.ident.lock_or_recover().dumpable;
+            let cred = caller.process.cred();
+            if !cred.may_read_task(&target.process.cred(), dumpable, true) {
+                return Err(Errno::EACCES);
+            }
+        }
+        let ns = link.get(&task.ns, &target.process.pid_ns);
+        Ok(Link::Jump(self.source.nsfs.path(&ns)))
     }
 }
 
@@ -308,6 +346,7 @@ fn ino(entry: Entry) -> u64 {
         Entry::Pid(scope, index) => scoped(scope, 1 + index as u64),
         Entry::Fd(scope, fd) => scoped(scope, (1 << 29) | u64::from(fd)),
         Entry::FdInfo(scope, fd) => scoped(scope, (1 << 28) | u64::from(fd)),
+        Entry::Ns(scope, index) => scoped(scope, (1 << 27) | index as u64),
     }
 }
 
@@ -320,11 +359,13 @@ fn file_type(entry: Entry) -> FileType {
             Static::Link(_) | Static::SelfLink | Static::ThreadSelf => FileType::Symlink,
         },
         Entry::Pid(_, index) => match PID_ENTRIES[index].1 {
-            PidEntry::Fds | PidEntry::FdInfos | PidEntry::Tasks => FileType::Directory,
+            PidEntry::Fds | PidEntry::FdInfos | PidEntry::Tasks | PidEntry::Namespaces => {
+                FileType::Directory
+            }
             PidEntry::Exe | PidEntry::Cwd | PidEntry::Root => FileType::Symlink,
             PidEntry::File(_) => FileType::Regular,
         },
-        Entry::Fd(..) => FileType::Symlink,
+        Entry::Fd(..) | Entry::Ns(..) => FileType::Symlink,
         Entry::FdInfo(..) => FileType::Regular,
     }
 }
@@ -450,6 +491,7 @@ impl Node for ProcNode {
                 let (file, _) = self.open_file(scope, fd)?;
                 return Ok(Link::Jump(file.path().clone()));
             }
+            Entry::Ns(scope, index) => return self.ns_link(cx, scope, NsLink::ALL[index]),
             Entry::Pid(scope, index) => (scope, PID_ENTRIES[index].1),
             _ => return Err(Errno::EINVAL),
         };

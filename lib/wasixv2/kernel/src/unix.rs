@@ -132,7 +132,6 @@ pub(crate) enum Key {
 
 /// The bound Unix sockets of a network namespace (Linux's `unix_socket_table`), and the files
 /// in flight between them.
-// TODO: one per network namespace once namespaces exist.
 #[derive(Default)]
 pub(crate) struct Names {
     map: Mutex<HashMap<Key, Weak<Sock>>>,
@@ -1309,7 +1308,7 @@ impl Kernel {
         };
         Ok(Sock::new(
             kind,
-            self.unix_names.clone(),
+            self.ns(caller).net.unix_names.clone(),
             self.peer_cred(caller),
             self.host.clone(),
         ))
@@ -1319,6 +1318,8 @@ impl Kernel {
     async fn unix_find(&self, caller: &Caller<'_>, name: &Name) -> SysResult<Arc<Sock>> {
         match name {
             Name::Abstract(name) => Ok(self
+                .ns(caller)
+                .net
                 .unix_names
                 .find(&Key::Abstract(name.clone()))
                 .ok_or(Errno::ECONNREFUSED)?),
@@ -1334,7 +1335,12 @@ impl Kernel {
                     return Err(Errno::ECONNREFUSED.into());
                 }
                 let key = Key::Inode(found.dentry.sb().id, found.dentry.node().ino());
-                let sock = self.unix_names.find(&key).ok_or(Errno::ECONNREFUSED)?;
+                let sock = self
+                    .ns(caller)
+                    .net
+                    .unix_names
+                    .find(&key)
+                    .ok_or(Errno::ECONNREFUSED)?;
                 Ok(sock)
             }
         }
@@ -1489,7 +1495,8 @@ impl Kernel {
         }
         // `unix_schedule_gc(user)`: a user with many files in flight sending Unix sockets
         // collects first.
-        let inflight = &self.unix_names.inflight;
+        let ns = self.ns(caller);
+        let inflight = &ns.net.unix_names.inflight;
         if anc
             .rights
             .iter()
@@ -1505,7 +1512,7 @@ impl Kernel {
     /// `RLIMIT_NOFILE`, and is not exempt through `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN`.
     fn too_many_unix_fds(&self, caller: &Caller<'_>, uid: u32) -> bool {
         let limit = self.files(caller.task()).lock_or_recover().limit();
-        if self.unix_names.inflight.user(uid) <= limit {
+        if self.ns(caller).net.unix_names.inflight.user(uid) <= limit {
             return false;
         }
         let cred = self.process(caller.task()).cred();

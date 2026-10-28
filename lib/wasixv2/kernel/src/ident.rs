@@ -511,7 +511,7 @@ impl Kernel {
         caller: &Caller<'_>,
         name: NewUtsnamePtr,
     ) -> SysResult<i32> {
-        let uts = *self.uts.lock_or_recover();
+        let uts = *self.ns(caller).uts.lock_or_recover();
         write_value(caller.memory(), name, &uts).await?;
         Ok(0)
     }
@@ -533,7 +533,8 @@ impl Kernel {
             .ok_or(Errno::EINVAL)?;
         let mut value = vec![0; len];
         caller.memory().read(name.addr(), &mut value).await?;
-        let mut uts = self.uts.lock_or_recover();
+        let ns = self.ns(caller);
+        let mut uts = ns.uts.lock_or_recover();
         let field = match domain {
             true => &mut uts.domainname,
             false => &mut uts.nodename,

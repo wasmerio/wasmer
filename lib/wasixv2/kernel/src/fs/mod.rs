@@ -365,6 +365,13 @@ impl Kernel {
             return Ok(Backing::Inode(file));
         }
         let path = file.path.clone();
+        // A namespace's inode opens as the namespace (`ns_file_operations`).
+        if let Some(ns) = crate::nsfs::namespace(&path) {
+            return Ok(Backing::Stream(
+                Arc::new(crate::nsfs::NsFile::new(ns)),
+                path,
+            ));
+        }
         let object: Arc<dyn crate::FileObject> = match file.file_type() {
             wasixv2_vfs::FileType::Fifo => {
                 if let Some(object) = crate::stdio::reopen(&file) {

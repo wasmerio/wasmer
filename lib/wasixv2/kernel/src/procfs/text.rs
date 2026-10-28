@@ -85,7 +85,7 @@ pub(super) enum PerPid {
 
 pub(super) fn global(source: &Source, file: Global) -> FsResult<Vec<u8>> {
     let line = |s: &str| format!("{s}\n").into_bytes();
-    let names = *source.uts.lock_or_recover();
+    let names = *source.ns.uts.lock_or_recover();
     let uts = |field: &[u8; 65]| {
         let len = field.iter().position(|&b| b == 0).unwrap_or(field.len());
         String::from_utf8_lossy(&field[..len]).into_owned()
@@ -234,6 +234,8 @@ fn sockets(source: &Source, kind: SocketKind, v6: bool) -> Vec<u8> {
         w = addr_width + 5
     );
     let ports = source
+        .ns
+        .net
         .network
         .as_ref()
         .map(|net| net.ports())
@@ -287,6 +289,8 @@ fn net_dev(source: &Source) -> Vec<u8> {
         "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n",
     );
     let interfaces = source
+        .ns
+        .net
         .network
         .as_ref()
         .map(|net| net.interfaces())
