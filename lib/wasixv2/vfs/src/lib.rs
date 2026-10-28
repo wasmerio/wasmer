@@ -40,6 +40,7 @@ pub use notify::{FsEvent, FsWatcher, Object as FsObject};
 pub use ops::{Ctx, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
 pub use pnode::Propagation;
 pub use seals::WRITE_SEALS;
+use sync::MutexExt;
 pub use types::*;
 pub use wasixv2_abi::Errno;
 
@@ -56,6 +57,8 @@ pub struct Vfs {
     pub(crate) tree_seq: Arc<TreeSeq>,
     /// Minor numbers of anonymous devices (Linux's `get_anon_bdev`).
     next_anon: AtomicU32,
+    /// Every filesystem instance in use (`super_blocks`).
+    supers: std::sync::Mutex<Vec<std::sync::Weak<Superblock>>>,
     pub locks: LockManager,
     watcher: std::sync::OnceLock<Arc<dyn FsWatcher>>,
 }
@@ -68,6 +71,7 @@ impl Vfs {
         let next_anon = AtomicU32::new(1);
         let sb = new_superblock(&tree, &next_anon, root);
         let root_dentry = Dentry::root(&sb, sb.fs.root());
+        *sb.root.lock_or_recover() = Arc::downgrade(&root_dentry);
         let devname = sb.info.name.as_bytes().to_vec();
         let mount = Arc::new(Mount::new(
             tree.next_id(),
@@ -82,6 +86,7 @@ impl Vfs {
             ns,
             tree_seq,
             next_anon,
+            supers: std::sync::Mutex::new(vec![Arc::downgrade(&sb)]),
             locks: LockManager::default(),
             watcher: std::sync::OnceLock::new(),
         })
@@ -103,8 +108,31 @@ impl Vfs {
         self.tree.next_id()
     }
 
-    pub(crate) fn new_superblock(&self, fs: Arc<dyn Filesystem>) -> Arc<Superblock> {
-        new_superblock(&self.tree, &self.next_anon, fs)
+    /// The root dentry of `fs`'s instance: the one in use if `fs` is mounted already (`sget`
+    /// of a filesystem with a single instance, as devtmpfs), else a new one. Returns whether it
+    /// is new.
+    pub(crate) fn fs_root(&self, fs: Arc<dyn Filesystem>) -> (Arc<Dentry>, bool) {
+        let mut supers = self.supers.lock_or_recover();
+        supers.retain(|sb| sb.strong_count() > 0);
+        let same = |sb: &Superblock| std::ptr::addr_eq(Arc::as_ptr(&sb.fs), Arc::as_ptr(&fs));
+        if let Some(sb) = supers
+            .iter()
+            .filter_map(|sb| sb.upgrade())
+            .find(|sb| same(sb))
+        {
+            let mut root = sb.root.lock_or_recover();
+            if let Some(dentry) = root.upgrade() {
+                return (dentry, false);
+            }
+            let dentry = Dentry::root(&sb, sb.fs.root());
+            *root = Arc::downgrade(&dentry);
+            return (dentry, false);
+        }
+        let sb = new_superblock(&self.tree, &self.next_anon, fs);
+        let dentry = Dentry::root(&sb, sb.fs.root());
+        *sb.root.lock_or_recover() = Arc::downgrade(&dentry);
+        supers.push(Arc::downgrade(&sb));
+        (dentry, true)
     }
 
     /// Mounts `fs` on the directory `at` of the initial namespace (resolved from its root with
@@ -119,18 +147,24 @@ impl Vfs {
     ) -> FsResult<()> {
         let source = fs.info().name.as_bytes().to_vec();
         let target = self.embedder_target(at, create).await?;
-        self.do_mount(&self.ns, &target, MountOp::New { fs, source, flags })
+        let op = MountOp::New {
+            fs,
+            source,
+            flags,
+            sb_read_only: false,
+        };
+        self.do_mount(&self.ns, &target, op)
     }
 
     /// Mounts `fs` outside the mount tree (`kern_mount`), for filesystems whose objects have no
     /// name: those behind pipes, sockets and event descriptors. Their paths come from
     /// [`Mount::pseudo_path`].
     pub fn kern_mount(&self, fs: Arc<dyn Filesystem>) -> Arc<Mount> {
-        let sb = self.new_superblock(fs);
-        let devname = sb.info.name.as_bytes().to_vec();
+        let (root, _) = self.fs_root(fs);
+        let devname = root.sb().info.name.as_bytes().to_vec();
         Arc::new(Mount::new(
             self.next_id(),
-            Dentry::root(&sb, sb.fs.root()),
+            root,
             MountFlags::default(),
             devname,
         ))
@@ -274,5 +308,6 @@ fn new_superblock(tree: &Tree, next_anon: &AtomicU32, fs: Arc<dyn Filesystem>) -
         tree_seq: tree.seq.clone(),
         inodes: Default::default(),
         sub_devs: Default::default(),
+        root: Default::default(),
     })
 }

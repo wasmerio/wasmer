@@ -6,6 +6,7 @@ mod fifo;
 pub(crate) mod inotify;
 mod io;
 mod lock;
+pub(crate) mod mount;
 mod path;
 mod splice;
 
