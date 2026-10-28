@@ -528,7 +528,7 @@ The execution crate is the only layer below the facade that knows about the wasm
   - **Exception handling plus PIC.** For programs that need dynamic linking.
   - **Asyncify.** For programs that need `fork`, which today means bash, and for guests that will be checkpointed. Binaryen's asyncify cannot be combined with wasm exceptions, so in this configuration `setjmp`/`longjmp` use the `stack-save` and `stack-restore` extensions, v1's `stack_checkpoint` and `stack_restore`, which only libc calls. Modules in other configurations get `ENOSYS` from them.
     - libc2 builds a second sysroot for it, `sysroot-wasixv2-asyncify`, without wasm exception handling; there `setjmp` is a function on `stack-save`, and `longjmp` one on `stack-restore`.
-    - wasixcc selects it with `WASM_EXCEPTIONS=no`, as for wasixv1, and runs `wasm-opt --asyncify` with `asyncify-imports` naming the imports that unwind (`clone`, `stack-save`, `checkpoint`), so only code that can reach them is instrumented.
+    - wasixcc selects it with `WASM_EXCEPTIONS=no`, as for wasixv1, and runs `wasm-opt --asyncify` with `asyncify-imports` naming the imports that unwind (`clone`, `clone3`, `stack-save`, `checkpoint`), so only code that can reach them is instrumented.
     - The execution layer recognizes an instrumented module by its `asyncify_*` exports and needs `__stack_pointer` exported, as libc-built modules do.
 - **Return to guest.** After every syscall and at every preemption point, the hook runs pending work:
   - deliver signals: build the frame, run the handler, and have `rt_sigreturn` restore state
