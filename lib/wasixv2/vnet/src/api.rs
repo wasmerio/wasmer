@@ -157,6 +157,14 @@ pub trait Network: Send + Sync {
     fn interfaces(&self) -> Vec<Interface> {
         Vec::new()
     }
+
+    /// `dev_change_flags` on the interface `index` (`SIOCSIFFLAGS`, `RTM_NEWLINK`), with
+    /// `flags` as `__dev_change_flags` takes them: `IFF_UP` brings it up or down. `ENODEV` for
+    /// no such interface, `EOPNOTSUPP` from a network whose interfaces never change.
+    fn change_flags(&self, index: u32, flags: u32) -> Result<(), Errno> {
+        let _ = (index, flags);
+        Err(Errno::EOPNOTSUPP)
+    }
 }
 
 /// An IP socket. The kernel wraps it as an open-file object; `poll` must report exactly what

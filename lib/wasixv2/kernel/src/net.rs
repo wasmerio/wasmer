@@ -531,7 +531,8 @@ impl Kernel {
             AnySock::Netlink(_, nl) => {
                 let mut data = vec![0; src.len.min(nl.max_request().saturating_add(1))];
                 src.copy_in(memory, 0, &mut data).await?;
-                Ok(nl.send(&data)?)
+                let net_admin = self.cred(caller).capable(Cap::NetAdmin);
+                Ok(nl.send(&data, net_admin)?)
             }
         };
         match sock.raises_sigpipe() && !flags.contains(MsgFlags::MSG_NOSIGNAL) {
@@ -1504,6 +1505,7 @@ pub(crate) fn is_dev_ioctl(request: IoctlRequest) -> bool {
         IoctlRequest::SIOCGIFINDEX
             | IoctlRequest::SIOCGIFNAME
             | IoctlRequest::SIOCGIFFLAGS
+            | IoctlRequest::SIOCSIFFLAGS
             | IoctlRequest::SIOCGIFMTU
             | IoctlRequest::SIOCGIFADDR
             | IoctlRequest::SIOCGIFNETMASK
@@ -1528,8 +1530,8 @@ impl Kernel {
         Some(netlink.net.clone())
     }
 
-    /// `dev_ioctl`: `SIOCGIF*` on the interface table of `net`, the socket's namespace
-    /// (`sock_ioctl` passes `sock_net(sk)`), not the caller's.
+    /// `dev_ioctl`: `SIOCGIF*` and `SIOCSIFFLAGS` on the interface table of `net`, the
+    /// socket's namespace (`sock_ioctl` passes `sock_net(sk)`), not the caller's.
     pub(crate) async fn sys_dev_ioctl(
         &self,
         caller: &Caller<'_>,
@@ -1549,14 +1551,26 @@ impl Kernel {
             let index = i32::from_le_bytes(ifr[IFNAMSIZ..IFNAMSIZ + 4].try_into().unwrap());
             interfaces.iter().find(|i| i.index as i32 == index)
         } else {
-            let end = ifr[..IFNAMSIZ]
+            // The name ends at the last byte, and an alias (`lo:1`) names its interface.
+            let end = ifr[..IFNAMSIZ - 1]
                 .iter()
-                .position(|&b| b == 0)
-                .unwrap_or(IFNAMSIZ);
+                .position(|&b| b == 0 || b == b':')
+                .unwrap_or(IFNAMSIZ - 1);
             let name = &ifr[..end];
+            // Changes need `CAP_NET_ADMIN` before the interface is looked up.
+            if request == IoctlRequest::SIOCSIFFLAGS && !self.cred(caller).capable(Cap::NetAdmin) {
+                return Err(Errno::EPERM.into());
+            }
             interfaces.iter().find(|i| i.name.as_bytes() == name)
         };
         let iface = iface.ok_or(Errno::ENODEV)?;
+        if request == IoctlRequest::SIOCSIFFLAGS {
+            // `ifr_flags` is a short, which `dev_change_flags` takes sign-extended.
+            let flags = i16::from_le_bytes([ifr[IFNAMSIZ], ifr[IFNAMSIZ + 1]]) as i32 as u32;
+            let network = net.network.as_ref().ok_or(Errno::ENODEV)?;
+            network.change_flags(iface.index, flags)?;
+            return Ok(0);
+        }
         let v4 = || {
             iface.addresses.iter().find_map(|&(ip, len)| match ip {
                 std::net::IpAddr::V4(v4) => Some((v4, len)),

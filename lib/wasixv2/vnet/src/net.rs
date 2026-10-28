@@ -474,6 +474,10 @@ impl Network for Net {
             })
             .collect()
     }
+
+    fn change_flags(&self, index: u32, flags: u32) -> Result<(), Errno> {
+        self.state().ifaces.change_flags(index, flags)
+    }
 }
 
 /// Hands backend connections to whichever guest listener holds `guest` at the time.
