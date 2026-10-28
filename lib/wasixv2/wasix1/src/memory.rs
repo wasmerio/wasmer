@@ -195,6 +195,15 @@ impl<S: 'static> UserMemory for CompatMemory<'_, S> {
         }
     }
 
+    /// The kernel zeroes only the guest's own pages, never scratch.
+    fn zero_pages(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Fault>> {
+        let end = u64::from(addr).checked_add(len);
+        if end.is_none_or(|end| end > u64::from(SCRATCH_BASE)) {
+            return copied(Err(Fault));
+        }
+        self.guest.zero_pages(addr, len)
+    }
+
     fn size(&self) -> LocalFuture<'_, u64> {
         self.guest.size()
     }

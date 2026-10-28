@@ -16,6 +16,7 @@ use wasixv2_vfs_mem::MemFs;
 use super::*;
 use crate::sync::MutexExt;
 
+#[derive(Default)]
 struct FlatMemory(RefCell<Vec<u8>>);
 
 impl UserMemory for FlatMemory {
@@ -331,6 +332,92 @@ fn mmap_grows_memory_and_reuses_unmapped_pages_zeroed() {
     assert_eq!(mmap(0), Err(SysErr::Errno(Errno::EINVAL)));
     let unaligned = block_on(kernel.mmap(&caller, 0, 10, ProtFlags(3), anon, Fd(-1), 4096));
     assert_eq!(unaligned, Err(SysErr::Errno(Errno::EINVAL)));
+}
+
+/// A [`FlatMemory`] that drops pages on [`UserMemory::zero_pages`], as a Linux host does, and
+/// counts the bytes the kernel writes and drops.
+#[derive(Default)]
+struct DroppingMemory {
+    flat: FlatMemory,
+    written: std::cell::Cell<u64>,
+    dropped: std::cell::Cell<u64>,
+}
+
+impl UserMemory for DroppingMemory {
+    fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.flat.read(addr, buf)
+    }
+
+    fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.written.set(self.written.get() + data.len() as u64);
+        self.flat.write(addr, data)
+    }
+
+    fn zero_pages(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Fault>> {
+        let range = addr as usize..(u64::from(addr) + len) as usize;
+        let result = match self.flat.0.borrow_mut().get_mut(range) {
+            Some(pages) => {
+                pages.fill(0);
+                self.dropped.set(self.dropped.get() + len);
+                Ok(())
+            }
+            None => Err(Fault),
+        };
+        Box::pin(async move { result })
+    }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        self.flat.size()
+    }
+
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        self.flat.grow(pages)
+    }
+}
+
+/// libc-test's `t_vmfill`: probing for the largest mapping grows memory once, and every later
+/// mapping reuses the probed pages. They are dropped, never written, so a `PROT_NONE` fill of
+/// the address space takes no host memory.
+#[test]
+fn reused_pages_are_dropped_not_written() {
+    let (kernel, task, _) = setup(b"");
+    let memory = DroppingMemory::default();
+    memory
+        .flat
+        .0
+        .borrow_mut()
+        .resize(WASM_PAGE_SIZE as usize, 0);
+    let caller = Caller::new(task, &memory);
+    let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    let page = WASM_PAGE_SIZE as u32;
+    let mmap = |len, prot, flags, addr| {
+        block_on(kernel.mmap(&caller, addr, len, prot, flags, Fd(-1), 0)).unwrap()
+    };
+    let munmap = |addr, len| assert_eq!(block_on(kernel.munmap(&caller, addr, len)), Ok(0));
+
+    let probe = mmap(8 * page, ProtFlags(0), anon, 0);
+    munmap(probe, 8 * page);
+    assert_eq!(memory.dropped.get(), 0);
+    let filled = mmap(6 * page, ProtFlags(0), anon, 0);
+    assert_eq!(filled, probe);
+    assert_eq!(memory.dropped.get(), 6 * WASM_PAGE_SIZE);
+
+    // Pages the guest wrote before they were unmapped read zero once mapped again, whichever
+    // way they are taken.
+    let written = filled as usize + 2 * WASM_PAGE_SIZE as usize;
+    memory.flat.0.borrow_mut()[written] = 7;
+    munmap(filled, 6 * page);
+    let fixed = MapFlags::MAP_FIXED | anon;
+    assert_eq!(mmap(4 * page, ProtFlags(3), fixed, filled), filled);
+    assert_eq!(memory.flat.0.borrow()[written], 0);
+    memory.flat.0.borrow_mut()[written] = 7;
+    assert_eq!(
+        mmap(page, ProtFlags(3), fixed, filled + 2 * page),
+        filled + 2 * page
+    );
+    assert_eq!(memory.flat.0.borrow()[written], 0);
+    assert_eq!(memory.dropped.get(), 11 * WASM_PAGE_SIZE);
+    assert_eq!(memory.written.get(), 0);
 }
 
 #[test]

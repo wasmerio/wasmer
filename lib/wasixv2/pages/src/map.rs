@@ -90,6 +90,36 @@ pub unsafe fn map_private_at(addr: *mut u8, len: usize) -> io::Result<()> {
     }
 }
 
+/// Drops the pages of `addr..addr + len`, a range of a private anonymous mapping, so it reads
+/// zero again and holds no host memory until it is written (`MADV_DONTNEED`); a range nothing
+/// wrote stays untouched. Unlike [`map_private_at`] the mapping itself stays as it is.
+///
+/// Only Linux drops private anonymous pages that way; [`io::ErrorKind::Unsupported`] elsewhere,
+/// where `MADV_DONTNEED` may keep the contents. `EINVAL` when the range is not page aligned.
+///
+/// # Safety
+///
+/// `addr..addr + len` must lie inside a private anonymous mapping the caller owns, whose contents
+/// may be replaced: nothing may hold a Rust reference into it. Inside a private mapping of a
+/// file, the file's contents would show instead of zeros.
+pub unsafe fn drop_private(addr: *mut u8, len: usize) -> io::Result<()> {
+    let page = host_page_size();
+    if !(addr as usize).is_multiple_of(page) || !len.is_multiple_of(page) {
+        return Err(invalid());
+    }
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        // SAFETY: the caller owns the range and lets its contents go.
+        let ret = unsafe { libc::madvise(addr.cast(), len, libc::MADV_DONTNEED) };
+        match ret {
+            0 => Ok(()),
+            _ => Err(io::Error::last_os_error()),
+        }
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    Err(io::Error::from(io::ErrorKind::Unsupported))
+}
+
 #[cfg(all(
     test,
     any(target_os = "linux", target_os = "android", target_os = "macos")
@@ -179,6 +209,40 @@ mod tests {
         let mut byte = [0];
         pages.read_at(&mut byte, 0).unwrap();
         assert_eq!(byte, [1]);
+    }
+
+    /// Whether the host holds memory for each of the first `pages` pages at `ptr` (`mincore`).
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn resident(ptr: *mut u8, pages: usize) -> Vec<bool> {
+        let host_pages = PAGE / host_page_size();
+        let mut vec = vec![0u8; pages * host_pages];
+        // SAFETY: a page-aligned range of a mapping the caller owns, one byte per host page.
+        let ret = unsafe { libc::mincore(ptr.cast(), pages * PAGE, vec.as_mut_ptr().cast()) };
+        assert_eq!(ret, 0);
+        vec.chunks(host_pages)
+            .map(|page| page.iter().any(|byte| byte & 1 != 0))
+            .collect()
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn dropped_private_pages_read_zero_and_hold_no_memory() {
+        let region = Region::new(3);
+        region.set(0, 0, 1);
+        region.set(1, 7, 2);
+        assert_eq!(resident(region.page(0), 3), [true, true, false]);
+        // SAFETY: inside a region this test owns.
+        unsafe { drop_private(region.page(1), 2 * PAGE).unwrap() };
+        // The written page is gone, the untouched one was not touched to drop it.
+        assert_eq!(resident(region.page(0), 3), [true, false, false]);
+        assert_eq!((region.get(0, 0), region.get(1, 7)), (1, 0));
+        // The range stays part of the mapping, writable.
+        region.set(1, 7, 3);
+        assert_eq!(region.get(1, 7), 3);
+        // SAFETY: as above; the call fails before it drops anything.
+        let err = unsafe { drop_private(region.page(1).add(1), PAGE) }.unwrap_err();
+        assert_eq!(err.raw_os_error(), Some(libc::EINVAL));
+        assert_eq!(region.get(1, 7), 3);
     }
 
     /// Whether the kernel may store into `ptr`: `read(2)` from a pipe into it fails with
