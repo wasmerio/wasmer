@@ -78,7 +78,7 @@ const PIDFD_NONBLOCK: u32 = OpenFlags::O_NONBLOCK.0;
 pub(crate) struct Procs {
     pub(crate) tree: Arc<Mutex<Tree>>,
     /// Woken whenever a process exits; waiters and pidfd pollers recheck (`wait_chldexit`).
-    changed: Arc<WaitQueue>,
+    pub(crate) changed: Arc<WaitQueue>,
 }
 
 #[derive(Default)]
@@ -379,6 +379,8 @@ impl Kernel {
                 },
             };
             node.exit = Some(exit);
+            // A zombie runs no more: its CPU clocks stop.
+            let _ = process.stop.set(self.host.monotonic());
             let exit_signal = node.exit_signal;
             let father = tree.pgrp_sid(pid);
             let autoreap = parent_signals.is_none()
@@ -696,6 +698,7 @@ impl Kernel {
                 exe: Mutex::new(parent.exe.lock().unwrap().clone()),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
+                stop: std::sync::OnceLock::new(),
                 ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
                 cred: Mutex::new(parent.cred()),
                 resources: Mutex::new(parent.resources.lock().unwrap().clone()),
@@ -1345,7 +1348,7 @@ impl Kernel {
 struct PidFd {
     pid: u32,
     tree: Arc<Mutex<Tree>>,
-    changed: Arc<WaitQueue>,
+    pub(crate) changed: Arc<WaitQueue>,
 }
 
 impl Pollable for PidFd {

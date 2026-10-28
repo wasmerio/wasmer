@@ -1,4 +1,5 @@
-//! POSIX timers, on a host with real clocks and threads so the kernel's timer driver runs.
+//! POSIX timers and CPU clocks, on a host with real clocks and threads so the kernel's timer
+//! driver runs.
 
 use std::time::Instant;
 
@@ -75,20 +76,37 @@ struct Fixture {
     memory: FlatMemory,
 }
 
+/// A process of `kernel` with no input and discarded output.
+fn spawn_quiet(kernel: &Kernel) -> TaskId {
+    kernel.spawn(ProcessConfig {
+        args: vec![],
+        env: vec![],
+        stdio: Stdio {
+            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+            stdout: Arc::new(Capture::default()),
+            stderr: Arc::new(Capture::default()),
+        },
+    })
+}
+
 impl Fixture {
     fn new() -> Self {
+        Self::on(Self::kernel())
+    }
+
+    /// A fixture whose kernel has init as pid 1.
+    fn with_init() -> Self {
+        Self::on(Self::kernel().with_init())
+    }
+
+    fn kernel() -> Kernel {
         let host: Arc<dyn Host> = Arc::new(RealHost(Instant::now()));
         let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1);
-        let kernel = Kernel::new(host, Arc::new(root));
-        let task = kernel.spawn(ProcessConfig {
-            args: vec![],
-            env: vec![],
-            stdio: Stdio {
-                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
-                stdout: Arc::new(Capture::default()),
-                stderr: Arc::new(Capture::default()),
-            },
-        });
+        Kernel::new(host, Arc::new(root))
+    }
+
+    fn on(kernel: Kernel) -> Self {
+        let task = spawn_quiet(&kernel);
         let memory = FlatMemory(RefCell::new(vec![0; 65536]));
         Self {
             kernel,
@@ -607,4 +625,275 @@ fn a_periodic_itimer_goes_on_once_its_sigalrm_is_dequeued() {
     // A zero value disarms the timer and forgets its interval.
     setitimer(&t, Duration::ZERO, 5 * MS);
     assert_eq!(getitimer(&t), (Duration::ZERO, Duration::ZERO));
+}
+
+// ---- CPU clocks of other processes and threads ----
+
+/// `make_process_cpuclock(pid, CPUCLOCK_SCHED)`, as `clock_getcpuclockid` builds it.
+fn process_clock(pid: TaskId) -> ClockId {
+    ClockId((!(pid.0 as i32) << 3) | 2)
+}
+
+/// `make_thread_cpuclock(tid, CPUCLOCK_SCHED)`, as `pthread_getcpuclockid` builds it.
+fn thread_clock(tid: TaskId) -> ClockId {
+    ClockId((!(tid.0 as i32) << 3) | 6)
+}
+
+fn duration(memory: &FlatMemory, addr: u32) -> Duration {
+    let raw = get(memory, addr, 16);
+    let field = |i: usize| i64::from_le_bytes(raw[i * 8..][..8].try_into().unwrap()) as u64;
+    Duration::new(field(0), field(1) as u32)
+}
+
+impl Fixture {
+    /// `clock_gettime(clock)` from `caller`.
+    fn read_clock(&self, caller: &Caller<'_>, clock: ClockId) -> SysResult<Duration> {
+        block_on(
+            self.kernel
+                .clock_gettime64(caller, clock, GuestPtrMut::new(NEW)),
+        )?;
+        Ok(duration(&self.memory, NEW))
+    }
+
+    /// `clock_getres(clock)` from `caller`.
+    fn resolution(&self, caller: &Caller<'_>, clock: ClockId) -> SysResult<Duration> {
+        block_on(
+            self.kernel
+                .clock_getres_time64(caller, clock, GuestPtrMut::new(NEW)),
+        )?;
+        Ok(duration(&self.memory, NEW))
+    }
+
+    /// A `clock_nanosleep` on `clock`; returns its result and how long it took.
+    fn sleep_on(
+        &self,
+        clock: ClockId,
+        flags: TimerFlags,
+        request: Duration,
+    ) -> (SysResult<i32>, Duration) {
+        let ts = [request.as_secs() as i64, i64::from(request.subsec_nanos())];
+        put(&self.memory, TIMEOUT, &ts.map(i64::to_le_bytes).concat());
+        let start = Instant::now();
+        let caller = self.caller();
+        let result = block_on(self.kernel.clock_nanosleep_time64(
+            &caller,
+            clock,
+            flags,
+            GuestPtr::new(TIMEOUT),
+            GuestPtrMut::new(OLD),
+        ));
+        (result, start.elapsed())
+    }
+
+    /// Forks the fixture's process; the child is its own until it is reaped.
+    fn fork(&self) -> TaskId {
+        let memory = super::proc::forkable();
+        let caller = Caller::new(self.task, &memory);
+        let flags = Signal::SIGCHLD.0 as u32;
+        let clone = self
+            .kernel
+            .clone(&caller, flags, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+        let child = TaskId(block_on(clone).expect("fork") as u32);
+        while self.kernel.take_pending(self.task).is_some() {}
+        child
+    }
+
+    /// `exit_group(0)` of the single-threaded process `task`.
+    fn exit(&self, task: TaskId) {
+        let memory = FlatMemory(RefCell::new(vec![0; 256]));
+        let caller = Caller::new(task, &memory);
+        assert_eq!(block_on(self.kernel.exit_group(&caller, 0)), Ok(()));
+        self.kernel.release(task);
+    }
+
+    /// `waitid(P_PID, child, WEXITED)` from the fixture's process.
+    fn reap(&self, child: TaskId) {
+        let caller = self.caller();
+        let options = wasixv2_abi::WaitOptions::WEXITED;
+        let wait = self.kernel.waitid(
+            &caller,
+            wasixv2_abi::Idtype::P_PID,
+            child.0 as Pid,
+            wasixv2_abi::SiginfoPtr::new(INFO),
+            options,
+            wasixv2_abi::RusagePtr::new(0),
+        );
+        assert_eq!(block_on(wait), Ok(0));
+    }
+}
+
+/// `pid_for_clock`: a CPU clock names any process by its pid, init included, or a thread of
+/// the caller's own group; a process clock may name the caller's process by the caller's own
+/// thread id, but only for `clock_gettime`. Nothing else is a clock (`EINVAL`), and a CPU clock
+/// cannot be set (`EPERM`).
+#[test]
+fn cpu_clocks_name_any_process_and_threads_of_the_callers_group() {
+    let t = Fixture::with_init();
+    let caller = t.caller();
+    let init = TaskId(1);
+    let other = spawn_quiet(&t.kernel);
+    std::thread::sleep(20 * MS);
+    for pid in [init, other, t.task] {
+        let time = t.read_clock(&caller, process_clock(pid)).unwrap();
+        assert!(time >= 20 * MS, "pid {}: {time:?}", pid.0);
+        assert_eq!(
+            t.resolution(&caller, process_clock(pid)),
+            Ok(Duration::from_nanos(1))
+        );
+    }
+    // CPUCLOCK_PROF counts ticks of HZ=250.
+    let prof = ClockId(!(other.0 as i32) << 3);
+    assert_eq!(t.resolution(&caller, prof), Ok(4 * MS));
+    let before = t.read_clock(&caller, process_clock(other)).unwrap();
+    std::thread::sleep(5 * MS);
+    assert!(t.read_clock(&caller, process_clock(other)).unwrap() > before);
+
+    // No such process, a thread of another process, CPUCLOCK_MAX.
+    let nobody = TaskId(999);
+    for clock in [
+        process_clock(nobody),
+        thread_clock(nobody),
+        thread_clock(other),
+        ClockId((!(other.0 as i32) << 3) | 3),
+        ClockId((!(other.0 as i32) << 3) | 7),
+    ] {
+        assert_eq!(errno(t.read_clock(&caller, clock)), Errno::EINVAL);
+        assert_eq!(errno(t.resolution(&caller, clock)), Errno::EINVAL);
+    }
+
+    let thread = spawn_thread(&t.kernel, &caller);
+    let thread_caller = Caller::new(thread, &t.memory);
+    assert!(t.read_clock(&caller, thread_clock(thread)).is_ok());
+    assert!(t.read_clock(&thread_caller, thread_clock(t.task)).is_ok());
+    // A thread's id names its process only to itself, and only for clock_gettime.
+    assert!(t.read_clock(&thread_caller, process_clock(thread)).is_ok());
+    assert_eq!(
+        errno(t.resolution(&thread_caller, process_clock(thread))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(t.read_clock(&caller, process_clock(thread))),
+        Errno::EINVAL
+    );
+
+    put(&t.memory, NEW, &[0; 16]);
+    let set = |clock| block_on(t.kernel.clock_settime64(&caller, clock, GuestPtr::new(NEW)));
+    assert_eq!(errno(set(process_clock(other))), Errno::EPERM);
+    assert_eq!(errno(set(process_clock(nobody))), Errno::EINVAL);
+    // CLOCK_PROCESS_CPUTIME_ID and CLOCK_THREAD_CPUTIME_ID have no `clock_set`.
+    assert_eq!(errno(set(ClockId::CLOCK_THREAD_CPUTIME_ID)), Errno::EINVAL);
+}
+
+fn spawn_thread(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
+    const THREAD: u32 = 0x10f00;
+    let spawn = kernel.thread_spawn(caller, THREAD, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    let tid = block_on(spawn).unwrap();
+    while kernel.take_pending(caller.task()).is_some() {}
+    TaskId(tid as u32)
+}
+
+/// A zombie's CPU clock reads the time it ran and stops there; once it is reaped, its pid
+/// names no clock.
+#[test]
+fn a_zombies_cpu_clock_stops_and_a_reaped_process_has_none() {
+    let t = Fixture::new();
+    let caller = t.caller();
+    let child = t.fork();
+    std::thread::sleep(10 * MS);
+    t.exit(child);
+    let ran = t.read_clock(&caller, process_clock(child)).unwrap();
+    assert!(ran >= 10 * MS, "{ran:?}");
+    std::thread::sleep(10 * MS);
+    assert_eq!(t.read_clock(&caller, process_clock(child)), Ok(ran));
+    t.reap(child);
+    assert_eq!(
+        errno(t.read_clock(&caller, process_clock(child))),
+        Errno::EINVAL
+    );
+}
+
+/// A timer may run on another process's CPU clock; its signal goes to its creator. It stops
+/// when that process exits, and once it is reaped, setting the timer fails with ESRCH.
+#[test]
+fn a_timer_on_another_processs_cpu_clock_signals_its_creator() {
+    let t = Fixture::new();
+    t.block(SIGUSR1);
+    let other = spawn_quiet(&t.kernel);
+    let event = [5, SIGUSR1, wasixv2_abi::SigevNotify::SIGEV_SIGNAL.0, 0];
+    let id = t.create(process_clock(other), Some(event)).unwrap();
+    t.arm(id, 20 * MS, Duration::ZERO);
+    let (left, _) = t.gettime(id).unwrap();
+    assert!(left > 0 && left <= 20_000_000, "{left}");
+    assert_eq!(
+        t.wait(SIGUSR1, Duration::from_secs(5)),
+        Ok([SIGUSR1, SI_TIMER, id, 0, 5])
+    );
+
+    // Its process exits (and, without a parent, is reaped) before the timer expires.
+    t.arm(id, 30 * MS, Duration::ZERO);
+    t.exit(other);
+    assert_eq!(errno(t.wait(SIGUSR1, 80 * MS)), Errno::EAGAIN);
+    assert_eq!(
+        errno(t.settime(id, TimerFlags(0), MS, Duration::ZERO)),
+        Errno::ESRCH
+    );
+    // A thread clock of another process, or a pid that names nothing, makes no timer.
+    assert_eq!(
+        errno(t.create(thread_clock(other), Some(event))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(t.create(process_clock(other), Some(event))),
+        Errno::EINVAL
+    );
+}
+
+/// `clock_nanosleep` on a CPU clock waits for that clock: another process's, or another
+/// thread's of the caller's group, but never the caller's own thread clock (`EINVAL`).
+#[test]
+fn clock_nanosleep_sleeps_on_another_tasks_cpu_clock() {
+    let t = Fixture::new();
+    let relative = TimerFlags(0);
+    assert_eq!(
+        errno(t.sleep_on(thread_clock(t.task), relative, MS).0),
+        Errno::EINVAL
+    );
+    // CLOCK_THREAD_CPUTIME_ID has no `nsleep` (libc makes it EINVAL).
+    assert_eq!(
+        errno(t.sleep_on(ClockId::CLOCK_THREAD_CPUTIME_ID, relative, MS).0),
+        Errno::EOPNOTSUPP
+    );
+    let other = spawn_quiet(&t.kernel);
+    let (result, took) = t.sleep_on(process_clock(other), relative, 20 * MS);
+    assert_eq!(result, Ok(0));
+    assert!(took >= 20 * MS, "slept {took:?}");
+
+    let thread = spawn_thread(&t.kernel, &t.caller());
+    let (result, took) = t.sleep_on(thread_clock(thread), relative, 20 * MS);
+    assert_eq!(result, Ok(0));
+    assert!(took >= 20 * MS, "slept {took:?}");
+
+    // An absolute expiry the clock passed already.
+    let caller = t.caller();
+    let now = t.read_clock(&caller, process_clock(other)).unwrap();
+    let absolute = TimerFlags::TIMER_ABSTIME;
+    let (result, took) = t.sleep_on(process_clock(other), absolute, now);
+    assert_eq!(result, Ok(0));
+    assert!(took < 20 * MS, "slept {took:?}");
+}
+
+/// The clock of a process that exited stops, so a sleep on it only ends with a signal; a
+/// relative one then goes on through `restart_syscall` with the time left written out.
+#[test]
+fn a_sleep_on_a_dead_processs_cpu_clock_ends_only_with_a_signal() {
+    let t = Fixture::new();
+    let child = t.fork();
+    t.exit(child);
+    t.sigaction(SIGUSR1, 0x1234);
+    let id = t.signal_timer(SIGUSR1, 0);
+    t.arm(id, 50 * MS, Duration::ZERO);
+    let (result, took) = t.sleep_on(process_clock(child), TimerFlags(0), 10 * MS);
+    assert_eq!(result, Err(SysErr::RestartBlock));
+    assert!(took >= 40 * MS, "slept {took:?}");
+    assert_eq!(duration(&t.memory, OLD), 10 * MS);
 }

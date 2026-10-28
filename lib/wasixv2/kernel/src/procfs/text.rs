@@ -536,8 +536,7 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
     let sched = task.map(|task| task.sched).unwrap_or_default();
     let nice = sched.nice();
     let threads = source.threads(scope.pid).len().max(1);
-    let now = source.host.monotonic();
-    let cpu = ticks(now.saturating_sub(process.start));
+    let cpu = ticks(process.cpu_time(&*source.host));
     let start = ticks(process.start);
     let vsize = source.mm(scope).map_or(0, |mm| mm.size());
     let rss = vsize / PAGE_SIZE;

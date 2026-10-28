@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use wasixv2_abi::KernelTimespecPtr;
+use wasixv2_abi::{ClockId, KernelTimespecPtr};
 use wasixv2_syscalls::{AtomicWord, Caller, Errno, SysErr, SysResult};
 
 use crate::{Kernel, futex::Timeout};
@@ -16,6 +16,13 @@ pub(crate) enum Restart {
     /// `hrtimer_nanosleep_restart`: a relative sleep, with where to write the time left.
     Nanosleep {
         deadline: Duration,
+        rmtp: KernelTimespecPtr,
+    },
+    /// `posix_cpu_nsleep_restart`: a relative sleep on a CPU clock, which goes on as an
+    /// absolute one until the clock reaches `expires`.
+    CpuNanosleep {
+        clock: ClockId,
+        expires: Duration,
         rmtp: KernelTimespecPtr,
     },
     /// `futex_wait_restart`: a timed `FUTEX_WAIT`, or a timed `memory.atomic.wait`.
@@ -43,6 +50,16 @@ impl Kernel {
             None => Err(Errno::EINTR.into()),
             Some(Restart::Nanosleep { deadline, rmtp }) => {
                 self.nanosleep_until(caller, deadline, rmtp).await
+            }
+            Some(Restart::CpuNanosleep {
+                clock,
+                expires,
+                rmtp,
+            }) => {
+                let cpu = self.resolve_clock(caller, clock, false)?.cpu;
+                let process = cpu.expect("a CPU clock counts a process's time");
+                self.cpu_nanosleep(caller, clock, &process, expires, Some(rmtp))
+                    .await
             }
             Some(Restart::FutexWait {
                 addr,

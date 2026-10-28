@@ -89,6 +89,7 @@ use crate::{
     fs::FsContext,
     mm::Mm,
     startup::Startup,
+    sync::RwLockExt,
 };
 
 /// Most bytes one step of a `read` or `write` moves through the kernel; larger transfers go
@@ -185,6 +186,11 @@ impl TaskTable {
     fn read(&self) -> LockResult<RwLockReadGuard<'_, State>> {
         self.0.read()
     }
+
+    /// [`TaskTable::read`], taking over the table from a panicking holder ([`sync`]).
+    fn read_or_recover(&self) -> RwLockReadGuard<'_, State> {
+        self.0.read_or_recover()
+    }
 }
 
 struct Process {
@@ -202,6 +208,8 @@ struct Process {
     // ---- base ----
     /// Monotonic time the process started, the origin of its CPU clocks.
     start: std::time::Duration,
+    /// Monotonic time the process exited, where its CPU clocks stop ([`Process::cpu_time`]).
+    stop: std::sync::OnceLock<std::time::Duration>,
     ident: Mutex<ident::Ident>,
     cred: Mutex<cred::Cred>,
     resources: Mutex<resource::Resources>,
@@ -355,6 +363,7 @@ impl Kernel {
         let process = Arc::new(Process {
             pid: id,
             start: self.host.monotonic(),
+            stop: std::sync::OnceLock::new(),
             ident: Mutex::new(ident::Ident::new(id.0)),
             cred: Mutex::new(cred),
             resources: Mutex::default(),
