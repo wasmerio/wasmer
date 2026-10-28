@@ -124,6 +124,29 @@ impl SharedPages for Memfd {
         self.file.metadata().map_or(0, |meta| meta.blocks() * 512)
     }
 
+    /// The host's own answer: a memfd's holes are its shmem holes (`shmem_file_llseek`).
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn seek(&self, offset: u64, which: crate::Seek) -> io::Result<Option<u64>> {
+        use crate::Seek;
+        use std::os::fd::AsRawFd;
+        let whence = match which {
+            Seek::Data => libc::SEEK_DATA,
+            Seek::Hole => libc::SEEK_HOLE,
+        };
+        // Only the result matters: every other access is positioned (`pread`, `pwrite`), so
+        // the descriptor's own offset is never used.
+        // SAFETY: the object's own descriptor.
+        let at = unsafe { libc::lseek(self.file.as_raw_fd(), to_off(offset)?, whence) };
+        if at < 0 {
+            let err = io::Error::last_os_error();
+            return match err.raw_os_error() {
+                Some(libc::ENXIO) => Ok(None),
+                _ => Err(err),
+            };
+        }
+        Ok(Some(at as u64))
+    }
+
     fn fd(&self) -> Option<BorrowedFd<'_>> {
         Some(self.file.as_fd())
     }
@@ -183,6 +206,24 @@ mod tests {
     fn every_object_has_an_id_of_its_own() {
         let (a, b) = (Memfd::new(PAGE).unwrap(), Memfd::new(PAGE).unwrap());
         assert_ne!(a.id(), b.id());
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn seek_finds_written_pages_between_holes() {
+        use crate::Seek;
+        let pages = Memfd::new(4 * PAGE).unwrap();
+        pages.write_at(&[1; PAGE as usize], PAGE).unwrap();
+        pages.write_at(&[7; PAGE as usize], 3 * PAGE).unwrap();
+        pages.punch_hole(3 * PAGE, PAGE).unwrap();
+        assert_eq!(pages.seek(0, Seek::Data).unwrap(), Some(PAGE));
+        assert_eq!(pages.seek(PAGE + 5, Seek::Data).unwrap(), Some(PAGE + 5));
+        assert_eq!(pages.seek(PAGE, Seek::Hole).unwrap(), Some(2 * PAGE));
+        assert_eq!(pages.seek(0, Seek::Hole).unwrap(), Some(0));
+        // The punched page is a hole again, up to the end.
+        assert_eq!(pages.seek(2 * PAGE, Seek::Data).unwrap(), None);
+        assert_eq!(pages.seek(3 * PAGE, Seek::Hole).unwrap(), Some(3 * PAGE));
+        assert_eq!(pages.seek(4 * PAGE, Seek::Hole).unwrap(), None);
     }
 
     #[cfg(any(target_os = "linux", target_os = "android"))]
