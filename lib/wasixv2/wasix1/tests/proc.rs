@@ -617,6 +617,45 @@ fn tty() {
     assert_eq!(status(wat), 0);
 }
 
+/// The compat state a shim finds is the calling process's, though the parent's pid is cached
+/// in the instance its vfork children run in: each child changes the terminal modes of its own
+/// copy, and the parent and its next child still see the parent's.
+#[test]
+fn vfork_children_have_their_own_compat_state() {
+    let wat = r#"
+    (module
+      (import "wasix_32v1" "tty_get" (func $get (param i32) (result i32)))
+      (import "wasix_32v1" "tty_set" (func $set (param i32) (result i32)))
+      (import "wasix_32v1" "proc_fork_env" (func $vfork (param i32) (result i32)))
+      (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      ;; A vfork child: sees the parent's echo, turns it off in its own state and exits.
+      (func $child
+        (if (call $get (i32.const 300)) (then (call $exit (i32.const 20))))
+        (if (i32.ne (i32.load8_u (i32.const 319)) (i32.const 1)) (then (call $exit (i32.const 21))))
+        (i32.store8 (i32.const 319) (i32.const 0))
+        (if (call $set (i32.const 300)) (then (call $exit (i32.const 22))))
+        (if (call $get (i32.const 300)) (then (call $exit (i32.const 23))))
+        (if (i32.load8_u (i32.const 319)) (then (call $exit (i32.const 24))))
+        (call $exit (i32.const 0)))
+      (func (export "_start")
+        (if (call $get (i32.const 100)) (then (call $exit (i32.const 1))))
+        (i32.store8 (i32.const 119) (i32.const 1))
+        (if (call $set (i32.const 100)) (then (call $exit (i32.const 2))))
+        (if (call $vfork (i32.const 200)) (then (call $exit (i32.const 3))))
+        ;; the parent resumes from the child's `proc_exit2`, at the end of `$child`
+        (call $child)
+        (if (call $get (i32.const 100)) (then (call $exit (i32.const 4))))
+        (if (i32.ne (i32.load8_u (i32.const 119)) (i32.const 1)) (then (call $exit (i32.const 5))))
+        (if (call $vfork (i32.const 200)) (then (call $exit (i32.const 6))))
+        (call $child)
+        (if (call $get (i32.const 100)) (then (call $exit (i32.const 7))))
+        (if (i32.ne (i32.load8_u (i32.const 119)) (i32.const 1)) (then (call $exit (i32.const 8))))
+        (call $exit (i32.const 0))))
+    "#;
+    assert_eq!(status(wat), 0);
+}
+
 /// `stack_checkpoint` needs the asyncify build configuration: `NOTSUP` (58) otherwise, and so
 /// is `proc_fork` without a memory copy; a real fork is the kernel's `NOSYS` (52).
 #[test]
