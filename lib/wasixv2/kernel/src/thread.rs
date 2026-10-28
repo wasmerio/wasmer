@@ -9,7 +9,7 @@ use wasixv2_abi::{
     Usize, UsizePtr,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, GuestAction, Image, SysResult, TaskId, VforkParent, WorkFlag, write_value,
+    Caller, Errno, GuestAction, Image, Resume, SysResult, TaskId, WorkFlag, write_value,
 };
 use wasixv2_wait::{Interrupted, NoInterrupt, PollMask, WaitQueue, wait_event};
 
@@ -606,9 +606,11 @@ impl Kernel {
 
     /// `de_thread`'s wait, after [`Kernel::zap_threads`]: until the tasks it killed are gone and
     /// the leader, when it is not `task`, has left its old image ([`Kernel::exec_wait`]), so no
-    /// thread runs the old image but `task` when the `execve` commits. Killable, as Linux's
-    /// (`TASK_KILLABLE`): a fatal signal ends the group, and the `execve` with EAGAIN; so does
-    /// an exit of the group meanwhile.
+    /// thread runs the old image but `task` when the `execve` commits. A leader that waits for
+    /// its vfork child left its old image once it left its memory, as Linux's `de_thread` waits
+    /// for the leader killed in `wait_for_vfork_done` to be a zombie, not for the child.
+    /// Killable, as Linux's (`TASK_KILLABLE`): a fatal signal ends the group, and the `execve`
+    /// with EAGAIN; so does an exit of the group meanwhile.
     pub(crate) async fn de_thread(&self, task: TaskId) -> Result<(), Errno> {
         let process = self.process(task);
         let leader = process.pid;
@@ -622,8 +624,12 @@ impl Kernel {
                 .tasks
                 .iter()
                 .any(|(&id, t)| id != task && id != leader && Arc::ptr_eq(&t.process, &process));
+            let left = state.tasks.get(&leader).is_some_and(|t| t.thread.left_mm);
+            let dead_in_vfork = left && self.vfork_waits(leader);
             let group = process.group.state.lock().unwrap();
-            let parked = task == leader || group.exec.is_some_and(|exec| exec.leader_parked);
+            let parked = task == leader
+                || dead_in_vfork
+                || group.exec.is_some_and(|exec| exec.leader_parked);
             (!others && parked).then_some(true)
         };
         let fatal = match wait_event(&process.group.released, done, &signals.killable()).await {
@@ -640,19 +646,37 @@ impl Kernel {
 
     /// `de_thread`'s end, once the old image is gone from every thread but `task`: the new
     /// image runs as the group leader, which takes over `task`'s signal state when it is not
-    /// `task` itself (Linux exchanges their pids), and `task` exits. Returns the leader.
+    /// `task` itself (Linux exchanges their pids), and `task` exits. A leader that waits for
+    /// its vfork child waits no more: its instance goes on running the child and ends with it
+    /// ([`Resume::Gone`]), and `task` starts the new image in an instance of its own
+    /// ([`GuestAction::StartImage`]) before it exits. Returns the leader.
     pub(crate) fn exec_leader(&self, task: TaskId) -> TaskId {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock_or_recover();
         let process = state.tasks[&task].process.clone();
         let leader = process.pid;
         let mut unstarted = Vec::new();
         if task != leader {
+            let detached = {
+                let mut tree = self.procs.tree.lock_or_recover();
+                let child = tree.waited_for_by(leader);
+                if let Some(child) = child {
+                    tree.vforks.remove(&child);
+                    tree.detached.insert(child, leader);
+                }
+                child.is_some()
+            };
             let group = state.tasks[&leader].signals.group().clone();
             group.take_over(task, leader);
             let entry = state.tasks.get_mut(&task).expect("the caller is listed");
             entry.thread.exited = true;
+            if detached {
+                unstarted.extend(entry.work.push(GuestAction::StartImage { task: leader }));
+            }
             unstarted.extend(entry.work.push(GuestAction::Exit(0)));
             let entry = state.tasks.get_mut(&leader).expect("the leader is listed");
+            if detached {
+                entry.work.detach_exec();
+            }
             unstarted.extend(entry.work.take_unstarted());
             entry.thread.exited = false;
             entry.restart = None;
@@ -667,15 +691,17 @@ impl Kernel {
     /// Leaves the image of an `execve` for the leader `task`, and wakes it wherever it waits,
     /// a zombie leader's wait for its group included. A vfork child's instance goes back to the
     /// parent once it takes the image; the parent returns from vfork unless its image ended.
+    /// A leader that waits for its own vfork child is dead to its old image, as `de_thread`
+    /// kills it in `wait_for_vfork_done`: the child, which runs in its instance, is woken to
+    /// leave the leader's memory for it ([`GuestAction::ExitMm`]), and the image starts in
+    /// another instance once the `execve` is done ([`Kernel::exec_leader`]).
     pub(crate) fn hand_image(&self, task: TaskId, image: Image) {
-        let vfork_parent = self.procs.tree.lock().unwrap().vforks.remove(&task);
-        if let Some(parent) = vfork_parent {
-            self.vfork_done(parent);
+        let vfork_parent = self.procs.tree.lock_or_recover().end_vfork(task);
+        if let Some(parent) = vfork_parent
+            && parent.resumes != Resume::Gone
+        {
+            self.vfork_done(parent.task);
         }
-        let vfork_parent = vfork_parent.map(|task| VforkParent {
-            task,
-            resumes: true,
-        });
         let (process, signals) = {
             let mut state = self.state.lock().unwrap();
             let entry = state.tasks.get_mut(&task).expect("the leader is listed");
@@ -688,6 +714,7 @@ impl Kernel {
         };
         signals.group().notify(task);
         process.group.exited.wake(PollMask::empty());
+        self.notify_vfork_child(task);
     }
 
     /// Before the image `execve` loaded starts in `task`'s instance, which left the old one:
