@@ -17,6 +17,7 @@ use wasmer::{AsyncFunctionEnvMut, Engine, FunctionEnv, Instance, Module, SharedM
 use crate::{
     Ended, ExecEnv, ExecError,
     abi::{Abi, Abis, Entry, Role},
+    base::Base,
     memory::ReadOnly,
     process,
 };
@@ -33,6 +34,8 @@ pub(crate) struct Image<S> {
     low_guard: u32,
     /// The ranges of `memory` that show shared objects read-only, for every thread.
     read_only: Arc<ReadOnly>,
+    /// The frozen image `memory` is a private view of ([`crate::base`]).
+    base: Option<Arc<Base>>,
     syscalls: Arc<S>,
     host: Arc<dyn Host>,
     /// The ABI of `module`.
@@ -49,7 +52,7 @@ impl<S> Image<S> {
         store: &Store,
         module: &Module,
         memory: SharedMemory,
-        (low_guard, read_only): (u32, Arc<ReadOnly>),
+        (low_guard, read_only, base): (u32, Arc<ReadOnly>, Option<Arc<Base>>),
         syscalls: Arc<S>,
         host: Arc<dyn Host>,
         abi: Arc<dyn Abi<S>>,
@@ -62,6 +65,7 @@ impl<S> Image<S> {
             memory,
             low_guard,
             read_only,
+            base,
             syscalls,
             host,
             abi,
@@ -178,6 +182,7 @@ where
         data.memory = Some(memory);
         data.low_guard = self.low_guard;
         data.read_only = self.read_only.clone();
+        data.base = self.base.clone();
         data.stack_pointer = crate::stack_pointer(&instance);
         data.abi = Some(abi.clone());
         data.threads = Some(self.clone());
