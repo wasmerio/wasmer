@@ -1294,6 +1294,15 @@ impl Syscalls for Kernel {
             .await
     }
 
+    async fn clone3(
+        &self,
+        caller: &Caller<'_>,
+        uargs: wasixv2_abi::ConstCloneArgsPtr,
+        size: Usize,
+    ) -> SysResult<i32> {
+        self.sys_clone3(caller, uargs, size).await
+    }
+
     async fn unshare(&self, caller: &Caller<'_>, unshare_flags: Ulong) -> SysResult<i32> {
         self.sys_unshare(caller, unshare_flags)
     }

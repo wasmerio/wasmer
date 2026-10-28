@@ -1,11 +1,15 @@
-//! fork: clone without `CLONE_VM`; the kernel's init.
+//! fork: clone and clone3 without `CLONE_VM`; the kernel's init.
 
 use wasixv2_abi::{
-    CloneFlags, ConstRlimit64Ptr, Idtype, Pid, PrctlOption, Rlimit64Ptr, RlimitResource, RusagePtr,
-    S32Ptr, SiginfoPtr, Signal, WaitOptions,
+    CloneArgs, CloneArgsSize, CloneFlags, ConstRlimit64Ptr, Idtype, Pid, PrctlOption, Rlimit64Ptr,
+    RlimitResource, RusagePtr, S32Ptr, Sigaction, SiginfoPtr, Signal, Sigset, WaitOptions,
 };
+use wasixv2_syscalls::{read_value, write_value};
 
-use super::*;
+use super::{
+    ipc::{errno, put},
+    *,
+};
 use crate::sync::MutexExt;
 
 /// An address space the engine can duplicate, as the asyncify configuration's is.
@@ -450,4 +454,271 @@ fn terminate_returns_while_init_lives_on() {
     kernel.release(task);
     assert_eq!(terminate.now_or_never(), Some(()));
     assert!(kernel.procs.find(INIT.0).is_some());
+}
+
+/// `clone3` with `args` at 0x8000, passing `size`.
+fn clone3(kernel: &Kernel, caller: &Caller<'_>, args: &CloneArgs, size: u32) -> SysResult<i32> {
+    block_on(write_value(caller.memory(), GuestPtrMut::new(0x8000), args)).unwrap();
+    block_on(kernel.clone3(caller, GuestPtr::new(0x8000), size))
+}
+
+fn big_forkable() -> ForkableMemory {
+    ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536])))
+}
+
+const ARGS_SIZE: u32 = CloneArgsSize::CLONE_ARGS_SIZE_VER2.0;
+
+#[test]
+fn clone3_forks_as_clone_does() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let args = CloneArgs {
+        flags: CloneFlags::CLONE_PARENT_SETTID,
+        parent_tid: 8,
+        exit_signal: u64::from(SIGCHLD),
+        ..CloneArgs::default()
+    };
+
+    let child = TaskId(clone3(&kernel, &caller, &args, ARGS_SIZE).expect("fork") as u32);
+
+    assert_eq!(
+        kernel.take_pending(task),
+        Some(GuestAction::Fork {
+            child,
+            parent_tid: Some(8),
+            child_tid: None,
+            tls: None,
+        })
+    );
+    let node = kernel.procs.tree.lock().unwrap().nodes[&child.0].exit_signal;
+    assert_eq!(node, SIGCHLD as i32);
+}
+
+#[test]
+fn clone3_takes_any_size_of_its_arguments_with_zeros_past_what_it_knows() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let args = CloneArgs {
+        exit_signal: u64::from(SIGCHLD),
+        ..CloneArgs::default()
+    };
+    let size = |size| clone3(&kernel, &caller, &args, size);
+
+    assert_eq!(errno(size(63)), Errno::EINVAL, "below the first version");
+    assert_eq!(errno(size(70_000)), Errno::E2BIG, "beyond a page");
+    assert!(size(64).is_ok(), "the first version");
+    put(&memory.0, 0x8000 + ARGS_SIZE, &[0; 8]);
+    assert!(size(ARGS_SIZE + 8).is_ok(), "zeros past the known version");
+    put(&memory.0, 0x8000 + ARGS_SIZE + 4, &[1]);
+    assert_eq!(errno(size(ARGS_SIZE + 8)), Errno::E2BIG);
+    let end = memory.0.0.borrow().len() as u32;
+    let at_end = block_on(kernel.clone3(&caller, GuestPtr::new(end - 64), 128));
+    assert_eq!(errno(at_end), Errno::EFAULT);
+}
+
+#[test]
+fn clone3_rejects_what_clone3_args_valid_does() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let fork = CloneArgs {
+        exit_signal: u64::from(SIGCHLD),
+        ..CloneArgs::default()
+    };
+    let cases = [
+        (
+            "signal past CSIGNAL",
+            CloneArgs {
+                exit_signal: 0x100,
+                ..fork
+            },
+        ),
+        (
+            "signal past _NSIG",
+            CloneArgs {
+                exit_signal: 65,
+                ..fork
+            },
+        ),
+        (
+            "signal byte in flags",
+            CloneArgs {
+                flags: CloneFlags(0x11),
+                ..fork
+            },
+        ),
+        (
+            "CLONE_DETACHED",
+            CloneArgs {
+                flags: CloneFlags::CLONE_DETACHED,
+                ..fork
+            },
+        ),
+        (
+            "a stack without a size",
+            CloneArgs {
+                stack: 0x1000,
+                ..fork
+            },
+        ),
+        (
+            "a size without a stack",
+            CloneArgs {
+                stack_size: 4,
+                ..fork
+            },
+        ),
+        (
+            "an unknown flag",
+            CloneArgs {
+                flags: CloneFlags(1 << 40),
+                ..fork
+            },
+        ),
+        (
+            "set_tid without a size",
+            CloneArgs {
+                set_tid: 0x100,
+                ..fork
+            },
+        ),
+        (
+            "CLONE_SIGHAND with CLONE_CLEAR_SIGHAND",
+            CloneArgs {
+                flags: CloneFlags::CLONE_SIGHAND
+                    | CloneFlags::CLONE_VM
+                    | CloneFlags::CLONE_CLEAR_SIGHAND,
+                ..fork
+            },
+        ),
+        (
+            "an exit signal with CLONE_PARENT",
+            CloneArgs {
+                flags: CloneFlags::CLONE_PARENT,
+                ..fork
+            },
+        ),
+        (
+            "CLONE_NEWNS with CLONE_FS",
+            CloneArgs {
+                flags: CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_FS,
+                ..fork
+            },
+        ),
+        (
+            "CLONE_NEWUSER with CLONE_FS",
+            CloneArgs {
+                flags: CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_FS,
+                ..fork
+            },
+        ),
+    ];
+    for (what, args) in cases {
+        assert_eq!(
+            errno(clone3(&kernel, &caller, &args, ARGS_SIZE)),
+            Errno::EINVAL,
+            "{what}"
+        );
+    }
+    assert_eq!(kernel.take_pending(task), None);
+}
+
+#[test]
+fn clone3_new_namespaces_chosen_pids_and_cgroups_are_refused() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let fork = CloneArgs {
+        exit_signal: u64::from(SIGCHLD),
+        ..CloneArgs::default()
+    };
+    put(&memory.0, 0x100, &1i32.to_le_bytes());
+
+    let uts = CloneArgs {
+        flags: CloneFlags::CLONE_NEWUTS,
+        ..fork
+    };
+    let set_tid = CloneArgs {
+        set_tid: 0x100,
+        set_tid_size: 1,
+        ..fork
+    };
+    let cgroup = CloneArgs {
+        flags: CloneFlags::CLONE_INTO_CGROUP,
+        cgroup: 0,
+        ..fork
+    };
+
+    assert_eq!(
+        errno(clone3(&kernel, &caller, &uts, ARGS_SIZE)),
+        Errno::EPERM
+    );
+    assert_eq!(
+        errno(clone3(&kernel, &caller, &set_tid, ARGS_SIZE)),
+        Errno::EPERM,
+        "a chosen pid needs CAP_CHECKPOINT_RESTORE"
+    );
+    assert_eq!(
+        errno(clone3(&kernel, &caller, &cgroup, ARGS_SIZE)),
+        Errno::EBADF,
+        "no descriptor is a cgroup"
+    );
+    assert_eq!(kernel.take_pending(task), None);
+}
+
+#[test]
+fn clone3_clear_sighand_gives_the_child_default_handlers() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let action = |handler: u32| Sigaction {
+        sa_handler: handler,
+        sa_flags: 0,
+        sa_mask: Sigset { sig: [0; 2] },
+    };
+    assert_eq!(block_on(kernel.signal_callback_register(&caller, 3)), Ok(0));
+    for (sig, handler) in [(Signal::SIGUSR1, 7), (Signal::SIGUSR2, 1)] {
+        block_on(write_value(
+            &memory,
+            GuestPtrMut::new(0x140),
+            &action(handler),
+        ))
+        .unwrap();
+        let set = kernel.rt_sigaction(&caller, sig, GuestPtr::new(0x140), GuestPtrMut::NULL, 8);
+        assert_eq!(block_on(set), Ok(0));
+    }
+    let args = CloneArgs {
+        flags: CloneFlags::CLONE_CLEAR_SIGHAND,
+        exit_signal: u64::from(SIGCHLD),
+        ..CloneArgs::default()
+    };
+
+    let child = TaskId(clone3(&kernel, &caller, &args, ARGS_SIZE).unwrap() as u32);
+
+    let child_memory = big_forkable();
+    let child_caller = Caller::new(child, &child_memory);
+    let handler = |caller: &Caller<'_>, sig: Signal| {
+        let old = GuestPtrMut::new(0x200);
+        let get = kernel.rt_sigaction(caller, sig, GuestPtr::NULL, old, 8);
+        assert_eq!(block_on(get), Ok(0));
+        block_on(read_value::<Sigaction>(
+            caller.memory(),
+            GuestPtr::new(0x200),
+        ))
+        .unwrap()
+        .sa_handler
+    };
+    assert_eq!(
+        handler(&child_caller, Signal::SIGUSR1),
+        0,
+        "caught: default"
+    );
+    assert_eq!(
+        handler(&child_caller, Signal::SIGUSR2),
+        1,
+        "ignored: still ignored"
+    );
+    assert_eq!(handler(&caller, Signal::SIGUSR1), 7, "the parent's stay");
 }

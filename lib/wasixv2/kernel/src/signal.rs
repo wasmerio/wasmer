@@ -530,11 +530,9 @@ impl Signals {
         new
     }
 
-    /// `flush_signal_handlers` and `sas_ss_reset` at `execve`: caught signals go back to their
-    /// default action, ignored ones stay ignored, and the trampoline and alternate stacks
-    /// belonged to the old image. Masks and pending signals stay; a temporary mask's end
-    /// (`sigsuspend`, `ppoll`) and a wakeup for kernel work were the old image's, and go.
-    pub(crate) fn exec_reset(&self) {
+    /// `flush_signal_handlers`: caught signals go back to their default action and ignored
+    /// ones stay ignored, as at `execve` and for a `CLONE_CLEAR_SIGHAND` child.
+    pub(crate) fn flush_handlers(&self) {
         let mut state = self.state.lock_or_recover();
         for action in state.actions.iter_mut() {
             *action = match action.is_ignore() {
@@ -545,6 +543,15 @@ impl Signals {
                 false => Action::default(),
             };
         }
+    }
+
+    /// `flush_signal_handlers` and `sas_ss_reset` at `execve`: caught signals go back to their
+    /// default action, ignored ones stay ignored, and the trampoline and alternate stacks
+    /// belonged to the old image. Masks and pending signals stay; a temporary mask's end
+    /// (`sigsuspend`, `ppoll`) and a wakeup for kernel work were the old image's, and go.
+    pub(crate) fn exec_reset(&self) {
+        self.flush_handlers();
+        let mut state = self.state.lock_or_recover();
         state.trampoline = None;
         for task in state.tasks.values_mut() {
             task.altstack = AltStack::default();
