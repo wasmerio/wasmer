@@ -781,3 +781,59 @@ async fn no_commands_add_no_layer() {
     })
     .await;
 }
+
+/// Handing out a `Signaller` fixes the root: it signals the kernel booted now.
+#[tokio::test]
+async fn the_root_is_fixed_once_a_signaller_is_handed_out() {
+    local(async {
+        let mut machine = Machine::new();
+        let _signaller = machine.signaller();
+        let err = machine
+            .install_commands(commands(&[("echo", &echo(""))]))
+            .await
+            .unwrap_err();
+        // EBUSY
+        assert_eq!(err.raw_os_error(), Some(16));
+    })
+    .await;
+}
+
+/// Opens `/proc/1` and `/proc/2` and exits with 0 when neither exists, or the number of the
+/// one that does; `/proc/3`, its own, must exist (else 3).
+const NO_PIDS_1_2: &str = r#"
+(module
+  (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+  (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 16) "/proc/1\00")
+  (data (i32.const 32) "/proc/2\00")
+  (data (i32.const 48) "/proc/3\00")
+  (func (export "_start")
+    (if (i32.lt_s (call $openat (i32.const -100) (i32.const 48) (i32.const 0x10000) (i32.const 0)) (i32.const 0))
+      (then (call $exit_group (i32.const 3))))
+    ;; O_RDONLY | O_DIRECTORY; anything but ENOENT means the process is there.
+    (if (i32.ne (call $openat (i32.const -100) (i32.const 16) (i32.const 0x10000) (i32.const 0)) (i32.const -2))
+      (then (call $exit_group (i32.const 1))))
+    (if (i32.ne (call $openat (i32.const -100) (i32.const 32) (i32.const 0x10000) (i32.const 0)) (i32.const -2))
+      (then (call $exit_group (i32.const 2))))
+    (call $exit_group (i32.const 0))
+    unreachable))
+"#;
+
+/// A process `run_file` started is gone once the run returns, whether its `execve` failed
+/// (pid 1) or it ran and exited (pid 2): no zombie is left in `/proc`.
+#[tokio::test]
+async fn run_file_leaves_no_zombie() {
+    local(async {
+        let check = wat(NO_PIDS_1_2);
+        let machine = machine_with(&[("echo", &echo("")), ("check", &check)]).await;
+        let (status, _) = run_file(&machine, "/bin/missing", &["missing"]).await;
+        // ENOENT
+        assert_eq!(execve_errno(status), 2);
+        let (status, _) = run_file(&machine, "/bin/echo", &["echo"]).await;
+        assert_eq!(status.unwrap(), 0);
+        let (status, _) = run_file(&machine, "/bin/check", &["check"]).await;
+        assert_eq!(status.unwrap(), 0);
+    })
+    .await;
+}

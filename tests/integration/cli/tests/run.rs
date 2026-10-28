@@ -995,20 +995,26 @@ fn run_wasixv2_package_command_that_does_not_instantiate_is_an_error() {
 }
 
 /// Builds a package `wasmer-tests/tools` into `out`, laid out as a local registry that
-/// `--include-webc` takes: the command `echo-args`
+/// `--include-webc` takes: the commands `ls` and `v1-echo` ([`WASI_ECHO_WAT`], a WASI program),
+/// the command `echo-args`
 /// ([`WASIXV2_ECHO_WAT`] ending with `tools`), and in the volume at `/opt` a `#!` script for it, `/opt/hello`.
 fn wasixv2_tools_registry(out: &Path) -> std::path::PathBuf {
     let package = TempDir::new().unwrap();
     let path = package.path();
     std::fs::write(path.join("echo.wasm"), wasixv2_echo("tools")).unwrap();
+    let v1_echo = wat::parse_str(WASI_ECHO_WAT).unwrap();
+    std::fs::write(path.join("v1-echo.wasm"), v1_echo).unwrap();
     std::fs::create_dir(path.join("opt")).unwrap();
     write_executable(&path.join("opt/hello"), "#!/bin/echo-args\n");
     std::fs::write(
         path.join("wasmer.toml"),
         "[package]\nname = \"wasmer-tests/tools\"\nversion = \"0.1.0\"\n\n\
          [[module]]\nname = \"echo-args\"\nsource = \"echo.wasm\"\n\n\
+         [[module]]\nname = \"v1-echo\"\nsource = \"v1-echo.wasm\"\n\n\
          [fs]\n\"/opt\" = \"opt\"\n\n\
-         [[command]]\nname = \"echo-args\"\nmodule = \"echo-args\"\nrunner = \"wasi\"\n",
+         [[command]]\nname = \"echo-args\"\nmodule = \"echo-args\"\nrunner = \"wasi\"\n\n\
+         [[command]]\nname = \"ls\"\nmodule = \"echo-args\"\nrunner = \"wasi\"\n\n\
+         [[command]]\nname = \"v1-echo\"\nmodule = \"v1-echo\"\nrunner = \"wasi\"\n",
     )
     .unwrap();
     let registry = out.join("registry");
@@ -1069,31 +1075,63 @@ fn run_wasixv2_use_adds_a_packages_commands_and_volumes() {
         .stdout("/bin/echo-args\n");
 }
 
+/// Prints its arguments after argv[0], separated by spaces and ended by a newline (WASI
+/// preview1, which the v1 compatibility ABI serves).
+const WASI_ECHO_WAT: &str = r#"
+    (module
+      (import "wasi_snapshot_preview1" "args_sizes_get" (func $sizes (param i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "args_get" (func $args (param i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 8) " \n")
+      (func $print (param $p i32) (param $len i32)
+        (i32.store (i32.const 16) (local.get $p))
+        (i32.store (i32.const 20) (local.get $len))
+        (drop (call $fd_write (i32.const 1) (i32.const 16) (i32.const 1) (i32.const 24))))
+      (func $strlen (param $p i32) (result i32) (local $n i32)
+        (block $done (loop $next
+          (br_if $done (i32.eqz (i32.load8_u (i32.add (local.get $p) (local.get $n)))))
+          (local.set $n (i32.add (local.get $n) (i32.const 1)))
+          (br $next)))
+        (local.get $n))
+      (func (export "_start") (local $i i32) (local $arg i32)
+        (drop (call $sizes (i32.const 0) (i32.const 4)))
+        (drop (call $args (i32.const 1024) (i32.const 2048)))
+        (local.set $i (i32.const 1))
+        (block $done (loop $next
+          (br_if $done (i32.ge_u (local.get $i) (i32.load (i32.const 0))))
+          (if (i32.gt_u (local.get $i) (i32.const 1)) (then (call $print (i32.const 8) (i32.const 1))))
+          (local.set $arg (i32.load (i32.add (i32.const 1024) (i32.shl (local.get $i) (i32.const 2)))))
+          (call $print (local.get $arg) (call $strlen (local.get $arg)))
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+          (br $next)))
+        (call $print (i32.const 9) (i32.const 1))))
+"#;
+
 /// The root package's commands win over a dependency's of the same name (`ls`), and a
-/// dependency's commands (`echo` of coreutils, a WASIX v1 program) run from the root's.
+/// dependency's commands (`v1-echo`, a WASI program) run from the root's. The dependency comes
+/// from a local registry, offline.
+#[cfg(unix)]
 #[test]
 fn run_wasixv2_package_with_dependency_commands() {
-    let package = wasixv2_commands_package(Some("wasmer/coreutils"));
-    wasmer_command()
-        .arg("run")
-        .arg(package.path())
-        .arg("--registry=wasmer.io")
-        .arg("--entrypoint=exec")
-        .arg("/bin/ls")
-        .assert()
+    let out = TempDir::new().unwrap();
+    let registry = wasixv2_tools_registry(out.path());
+    let package = wasixv2_commands_package(Some("wasmer-tests/tools"));
+    let run = |args: &[&str]| {
+        let mut cmd = wasmer_command();
+        cmd.arg("run")
+            .arg("--offline")
+            .arg("--include-webc")
+            .arg(&registry)
+            .arg(package.path())
+            .arg("--entrypoint=exec")
+            .args(args);
+        cmd.assert()
+    };
+    run(&["/bin/ls"]).success().stdout("/bin/ls\nroot");
+    run(&["/usr/bin/v1-echo", "from", "tools"])
         .success()
-        .stdout("/bin/ls\nroot");
-    wasmer_command()
-        .arg("run")
-        .arg(package.path())
-        .arg("--registry=wasmer.io")
-        .arg("--entrypoint=exec")
-        .arg("/usr/bin/echo")
-        .arg("from")
-        .arg("coreutils")
-        .assert()
-        .success()
-        .stdout("from coreutils\n");
+        .stdout("from tools\n");
 }
 
 /// A host `#!` script inside a `--volume` runs as the interpreter it names, which is resolved
