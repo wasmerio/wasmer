@@ -234,10 +234,32 @@ impl Kernel {
         tree.nodes.get(&pid).map_or(0, |node| node.parent as Pid)
     }
 
-    /// Whether `task` waits for a vfork child that runs in its instance.
-    pub(crate) fn vfork_waits(&self, task: TaskId) -> bool {
-        let tree = self.procs.tree.lock().unwrap();
-        tree.vforks.values().any(|&parent| parent == task)
+    /// The vfork child running in `parent`'s instance is done with it: `parent` waits no more.
+    pub(crate) fn vfork_done(&self, parent: TaskId) {
+        let signals = {
+            let state = self.state.read().unwrap();
+            state.tasks.get(&parent).map(|task| task.signals.clone())
+        };
+        if let Some(signals) = signals {
+            signals.set_vfork_child(None);
+        }
+    }
+
+    /// `wait_for_vfork_done` is killable: when the vfork parent of `child`, the task its
+    /// instance runs, has a fatal signal pending, the parent's thread group dies now, as
+    /// though the parent had taken it, while the child goes on. The instance goes back to the
+    /// parent only once the child ends, to unwind it.
+    pub(crate) fn kill_vfork_parent(&self, child: TaskId) {
+        let Some(parent) = self.procs.tree.lock().unwrap().vforks.get(&child).copied() else {
+            return;
+        };
+        let signals = {
+            let state = self.state.read().unwrap();
+            state.tasks.get(&parent).map(|task| task.signals.clone())
+        };
+        if let Some(sig) = signals.and_then(|signals| signals.fatal_pending()) {
+            self.force_fatal_signal(parent, sig);
+        }
     }
 
     /// The signal state of the thread group led by `pid`.
@@ -357,6 +379,7 @@ impl Kernel {
             }
         }
         if let Some(parent) = vfork_parent {
+            self.vfork_done(parent);
             let parent = VforkParent {
                 task: parent,
                 resumes: true,
@@ -483,6 +506,9 @@ impl Kernel {
             .unwrap()
             .vforks
             .insert(child, parent_task);
+        let child_signals = self.task_signals(child).group().clone();
+        self.task_signals(parent_task)
+            .set_vfork_child(Some((child_signals, child)));
         let switch = GuestAction::SwitchTask {
             task: child,
             ret: 0,

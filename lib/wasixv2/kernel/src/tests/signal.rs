@@ -583,11 +583,14 @@ impl Vforked {
     }
 }
 
+/// `wait_for_vfork_done` is killable: a parent whose group another thread ends is a zombie
+/// at once, while its instance still runs the child, which goes to the reaper.
 #[test]
-fn a_vfork_parent_whose_group_exits_is_no_zombie_while_its_child_runs() {
+fn a_vfork_parent_whose_group_exits_is_a_zombie_while_its_child_runs() {
     let vforked = Vforked::new();
     let Vforked {
         kernel,
+        memory,
         parent,
         child,
         ..
@@ -596,7 +599,12 @@ fn a_vfork_parent_whose_group_exits_is_no_zombie_while_its_child_runs() {
 
     // Another thread ends the group while the parent's instance runs the child.
     vforked.exit_group(3);
-    assert_eq!(vforked.reap_parent(), None);
+    assert_eq!(vforked.reap_parent(), Some(3));
+    let child_caller = Caller::new(child, memory);
+    assert_eq!(
+        block_on(kernel.getppid(&child_caller)),
+        Ok(vforked.init.0 as Pid)
+    );
 
     // The child's end hands the instance back, and the parent unwinds through its exit
     // instead of returning from vfork.
@@ -612,9 +620,8 @@ fn a_vfork_parent_whose_group_exits_is_no_zombie_while_its_child_runs() {
         }
     );
     kernel.release(child);
-    assert_eq!(vforked.reap_parent(), None);
+    assert_eq!(kernel.take_pending(parent), Some(GuestAction::Exit(3)));
     kernel.release(parent);
-    assert_eq!(vforked.reap_parent(), Some(3));
 }
 
 #[test]
@@ -697,6 +704,198 @@ fn a_vfork_parent_with_no_exit_pending_returns_from_vfork() {
             parent,
             child: vforked.child
         }
+    );
+}
+
+/// A process forked from `init` whose single thread waits for its vfork child.
+struct Parked {
+    kernel: Kernel,
+    init: TaskId,
+    init_memory: ForkableMemory,
+    memory: FlatMemory,
+    parent: TaskId,
+    child: TaskId,
+}
+
+impl Parked {
+    fn new() -> Self {
+        let (kernel, init, _) = machine();
+        let init_memory = forkable();
+        let parent = fork(&kernel, &Caller::new(init, &init_memory));
+        let memory = FlatMemory(RefCell::new(vec![0; 0x1000]));
+        let child = vfork(&kernel, &Caller::new(parent, &memory));
+        Self {
+            kernel,
+            init,
+            init_memory,
+            memory,
+            parent,
+            child,
+        }
+    }
+
+    fn init_caller(&self) -> Caller<'_> {
+        Caller::new(self.init, &self.init_memory)
+    }
+
+    /// `waitid(P_PID, parent, WEXITED | WNOHANG)` from `init`: `si_code` and `si_status`.
+    fn reap_parent(&self) -> Option<(i32, u32)> {
+        let caller = self.init_caller();
+        let status = reap(&self.kernel, &caller, self.parent)?;
+        let info: Siginfo = block_on(read_value(&self.init_memory, GuestPtr::new(0x300))).unwrap();
+        Some((info.si_code, status))
+    }
+
+    /// Whether the child's instance was told to look at its work.
+    fn child_notified(&self) -> bool {
+        self.kernel.work_flag(self.child).is_raised()
+    }
+}
+
+/// `wait_for_vfork_done` is `TASK_KILLABLE`: SIGKILL to a parent waiting for its vfork child
+/// kills it at the child's next return to the guest. Its parent reaps it while the child goes
+/// on in its instance, which unwinds it once the child is done.
+#[test]
+fn a_vfork_parent_killed_while_its_child_runs_dies_at_once() {
+    let parked = Parked::new();
+    let Parked {
+        kernel,
+        memory,
+        parent,
+        child,
+        ..
+    } = &parked;
+    let (parent, child) = (*parent, *child);
+    let child_caller = Caller::new(child, memory);
+    kernel.work_flag(child).clear();
+
+    let init_caller = parked.init_caller();
+    let kill = kernel.sys_kill(&init_caller, parent.0 as Pid, Signal::SIGKILL);
+    assert_eq!(block_on(kill), Ok(0));
+    assert!(parked.child_notified(), "the child leaves its wait");
+    assert_eq!(parked.reap_parent(), None, "nothing ran for the child yet");
+
+    assert_eq!(kernel.take_pending(child), None, "the child goes on");
+    let killed = wasixv2_abi::SiCode::CLD_KILLED.0;
+    assert_eq!(parked.reap_parent(), Some((killed, 9)));
+    assert_eq!(
+        block_on(kernel.getppid(&child_caller)),
+        Ok(parked.init.0 as Pid)
+    );
+
+    let exited = VforkParent {
+        task: parent,
+        resumes: false,
+    };
+    assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
+    assert_eq!(
+        kernel.take_pending(child),
+        Some(GuestAction::VforkReturn {
+            parent: exited,
+            child
+        })
+    );
+    kernel.release(child);
+    assert_eq!(
+        kernel.take_pending(parent),
+        Some(GuestAction::Exit(128 + 9))
+    );
+    kernel.release(parent);
+}
+
+/// Only a signal that kills the parent ends its wait: one it ignores, blocks or handles waits
+/// until the parent runs again.
+#[test]
+fn a_vfork_parent_keeps_waiting_through_signals_that_do_not_kill_it() {
+    for case in ["ignored", "blocked", "handled"] {
+        let parked = Parked::new();
+        let Parked {
+            kernel,
+            memory,
+            parent,
+            child,
+            ..
+        } = &parked;
+        let parent_caller = Caller::new(*parent, memory);
+        match case {
+            "ignored" => {
+                let act = Sigaction {
+                    sa_handler: wasixv2_abi::SignalHandler::SIG_IGN.0 as u32,
+                    sa_flags: 0,
+                    sa_mask: sigset(0),
+                };
+                block_on(write_value(memory, GuestPtrMut::new(0x140), &act)).unwrap();
+                let set = kernel.rt_sigaction(
+                    &parent_caller,
+                    Signal::SIGTERM,
+                    GuestPtr::new(0x140),
+                    GuestPtrMut::NULL,
+                    8,
+                );
+                assert_eq!(block_on(set), Ok(0));
+            }
+            "blocked" => block(kernel, &parent_caller, 1 << (Signal::SIGTERM.0 - 1)),
+            _ => handle(kernel, &parent_caller, Signal::SIGTERM, 0),
+        }
+        kernel.work_flag(*child).clear();
+
+        let init_caller = parked.init_caller();
+        let kill = kernel.sys_kill(&init_caller, parent.0 as Pid, Signal::SIGTERM);
+        assert_eq!(block_on(kill), Ok(0));
+
+        assert!(!parked.child_notified(), "{case}");
+        assert_eq!(kernel.take_pending(*child), None, "{case}");
+        assert_eq!(parked.reap_parent(), None, "{case}");
+        let resumes = VforkParent {
+            task: *parent,
+            resumes: true,
+        };
+        let child_caller = Caller::new(*child, memory);
+        assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
+        assert_eq!(
+            kernel.take_pending(*child),
+            Some(GuestAction::VforkReturn {
+                parent: resumes,
+                child: *child
+            }),
+            "{case}"
+        );
+    }
+}
+
+/// A thread other than the leader waiting for its vfork child does not keep its killed group
+/// from becoming a zombie either.
+#[test]
+fn a_killed_group_does_not_wait_for_a_thread_waiting_for_its_vfork_child() {
+    let (kernel, init, _) = machine();
+    let init_memory = forkable();
+    let init_caller = Caller::new(init, &init_memory);
+    let parent = fork(&kernel, &init_caller);
+    let memory = FlatMemory(RefCell::new(vec![0; 0x1000]));
+    let thread = spawn_thread(&kernel, &Caller::new(parent, &memory));
+    let child = vfork(&kernel, &Caller::new(thread, &memory));
+
+    let kill = kernel.sys_kill(&init_caller, parent.0 as Pid, Signal::SIGKILL);
+    assert_eq!(block_on(kill), Ok(0));
+    assert_eq!(
+        kernel.take_pending(parent),
+        Some(GuestAction::Exit(128 + 9))
+    );
+    kernel.release(parent);
+    assert_eq!(reap(&kernel, &init_caller, parent), Some(9));
+
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
+    let exited = VforkParent {
+        task: thread,
+        resumes: false,
+    };
+    assert_eq!(
+        kernel.take_pending(child),
+        Some(GuestAction::VforkReturn {
+            parent: exited,
+            child
+        })
     );
 }
 
