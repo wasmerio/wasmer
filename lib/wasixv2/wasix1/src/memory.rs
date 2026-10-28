@@ -207,6 +207,10 @@ impl<S: 'static> UserMemory for CompatMemory<'_, S> {
         self.guest.stack_pointer()
     }
 
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        self.guest.low_guard()
+    }
+
     /// Grows the guest's memory, but never into the scratch window.
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(async move {

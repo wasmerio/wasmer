@@ -9,20 +9,29 @@ use wasixv2_syscalls::{AtomicWait, AtomicWord};
 
 use super::{ipc::errno, *};
 
-/// Memory several threads use at once, with a real compare-and-exchange.
-struct SharedMemory(Vec<AtomicU32>);
+/// Memory several threads use at once, with a real compare-and-exchange, and a low guard of
+/// `low_guard` bytes.
+struct SharedMemory {
+    words: Vec<AtomicU32>,
+    low_guard: u32,
+}
 
 impl SharedMemory {
     fn new() -> Self {
-        Self((0..1024).map(|_| AtomicU32::new(0)).collect())
+        Self::guarded(0)
+    }
+
+    fn guarded(low_guard: u32) -> Self {
+        let words = (0..1024).map(|_| AtomicU32::new(0)).collect();
+        Self { words, low_guard }
     }
 
     fn word(&self, addr: u32) -> u32 {
-        self.0[addr as usize / 4].load(Ordering::SeqCst)
+        self.words[addr as usize / 4].load(Ordering::SeqCst)
     }
 
     fn set(&self, addr: u32, value: u32) {
-        self.0[addr as usize / 4].store(value, Ordering::SeqCst);
+        self.words[addr as usize / 4].store(value, Ordering::SeqCst);
     }
 }
 
@@ -31,7 +40,7 @@ impl UserMemory for SharedMemory {
         let result = (|| {
             for (i, byte) in buf.iter_mut().enumerate() {
                 let at = addr as usize + i;
-                let word = self.0.get(at / 4).ok_or(Fault)?.load(Ordering::SeqCst);
+                let word = self.words.get(at / 4).ok_or(Fault)?.load(Ordering::SeqCst);
                 *byte = word.to_le_bytes()[at % 4];
             }
             Ok(())
@@ -43,7 +52,7 @@ impl UserMemory for SharedMemory {
         let result = (|| {
             for (i, &byte) in data.iter().enumerate() {
                 let at = addr as usize + i;
-                let word = self.0.get(at / 4).ok_or(Fault)?;
+                let word = self.words.get(at / 4).ok_or(Fault)?;
                 let mut bytes = word.load(Ordering::SeqCst).to_le_bytes();
                 bytes[at % 4] = byte;
                 word.store(u32::from_le_bytes(bytes), Ordering::SeqCst);
@@ -54,12 +63,17 @@ impl UserMemory for SharedMemory {
     }
 
     fn size(&self) -> LocalFuture<'_, u64> {
-        let size = self.0.len() as u64 * 4;
+        let size = self.words.len() as u64 * 4;
         Box::pin(async move { size })
     }
 
     fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(async { None })
+    }
+
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        let low_guard = self.low_guard;
+        Box::pin(async move { low_guard })
     }
 
     fn compare_exchange_u32(
@@ -68,7 +82,7 @@ impl UserMemory for SharedMemory {
         expected: u32,
         new: u32,
     ) -> LocalFuture<'_, Result<u32, Fault>> {
-        let word = &self.0[addr as usize / 4];
+        let word = &self.words[addr as usize / 4];
         let current = word.compare_exchange(expected, new, Ordering::SeqCst, Ordering::SeqCst);
         Box::pin(async move { Ok(current.unwrap_or_else(|actual| actual)) })
     }
@@ -527,4 +541,81 @@ fn exit_writes_clear_child_tid_only_while_another_task_uses_the_memory() {
     assert_eq!(memory.word(OTHER_TID), 0, "the leader uses the memory");
     block_on(kernel.exit(&caller, 0)).unwrap();
     assert_eq!(memory.word(LEADER_TID), task.0, "nobody uses the memory");
+}
+
+/// The low guard stands for Linux's unmapped pages below `mmap_min_addr`: a futex call faults
+/// there wherever Linux's would, which is where it reads or changes the word, or looks up the
+/// page of a shared futex (`get_futex_key`); a private key is the address alone, so a private
+/// wake there wakes nobody. LTP's `futex_supported_by_kernel` relies on `futex(NULL,
+/// FUTEX_WAIT, 0)` failing rather than sleeping. Without a guard, address 0 is ordinary memory.
+#[test]
+fn futexes_in_the_low_guard_fault_as_in_unmapped_memory() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::guarded(WORD);
+    let caller = Caller::new(task, &memory);
+    let call = |addr, op, val, val2, addr2, val3| {
+        let (uaddr, uaddr2) = (GuestPtrMut::new(addr), GuestPtrMut::new(addr2));
+        let call = kernel.futex_time64(&caller, uaddr, op, val, val2, uaddr2, val3);
+        Box::pin(call).now_or_never().expect("the call slept")
+    };
+    let faults = |ret| errno(ret) == Errno::EFAULT;
+
+    assert!(faults(call(0, FutexOp::FUTEX_WAIT, 0, 0, 0, 0)));
+    assert!(faults(call(0, FutexOp::FUTEX_WAIT_PRIVATE, 0, 0, 0, 0)));
+    assert!(faults(call(0, FutexOp::FUTEX_WAKE, 1, 0, 0, 0)));
+    assert_eq!(call(0, FutexOp::FUTEX_WAKE_PRIVATE, 1, 0, 0, 0), Ok(0));
+    assert!(faults(call(4, FutexOp::FUTEX_WAKE_BITSET, 1, 0, 0, 1)));
+    let requeue = FutexOp::FUTEX_REQUEUE_PRIVATE;
+    assert_eq!(call(0, requeue, 1, 1, WORD, 0), Ok(0));
+    assert!(faults(call(WORD, FutexOp::FUTEX_REQUEUE, 1, 1, 0, 0)));
+    let cmp_requeue = FutexOp::FUTEX_CMP_REQUEUE_PRIVATE;
+    assert!(faults(call(0, cmp_requeue, 1, 1, WORD, 0)));
+    let wake_op = FutexOp::FUTEX_WAKE_OP_PRIVATE;
+    assert!(faults(call(WORD, wake_op, 1, 1, 8, 0)));
+    let lock_pi = FutexOp::FUTEX_LOCK_PI_PRIVATE;
+    assert!(faults(call(0, lock_pi, 0, 0, 0, 0)));
+    // Above the guard, a word that changed.
+    assert_eq!(
+        errno(call(WORD, FutexOp::FUTEX_WAIT, 1, 0, 0, 0)),
+        Errno::EAGAIN
+    );
+    // The instruction reads the guard as the guest's loads do.
+    let wait = AtomicWait::atomic_wait(&kernel, &caller, 0, AtomicWord::U32(1), None);
+    assert_eq!(errno(block_on(wait)), Errno::EAGAIN);
+
+    let unguarded = SharedMemory::new();
+    let caller = Caller::new(task, &unguarded);
+    let (null, op) = (GuestPtrMut::NULL, FutexOp::FUTEX_WAIT);
+    let wait = kernel.futex_time64(&caller, null, op, 1, 0, null, 0);
+    assert_eq!(errno(block_on(wait)), Errno::EAGAIN);
+}
+
+/// The robust list walk reads its entries with `get_user`, which faults in the low guard as in
+/// unmapped memory: a pending entry there is left alone rather than woken.
+#[test]
+fn the_robust_list_walk_faults_in_the_low_guard() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::guarded(WORD);
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    // `other`'s robust list: the head, empty, with the word 4 bytes into each entry, and a
+    // pending entry in the guard.
+    const HEAD: u32 = 0x200;
+    const PENDING: u32 = 0x10;
+    memory.set(HEAD, HEAD);
+    memory.set(HEAD + 4, 4);
+    memory.set(HEAD + 8, PENDING);
+    let head = wasixv2_abi::RobustListHeadPtr::new(HEAD);
+    assert_eq!(
+        block_on(kernel.set_robust_list(&other_caller, head, 12)),
+        Ok(0)
+    );
+    let mut wait = AtomicWait::atomic_wait(&kernel, &caller, PENDING + 4, AtomicWord::U32(0), None);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+
+    block_on(kernel.exit(&other_caller, 0)).unwrap();
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(AtomicWait::atomic_notify(&kernel, task, PENDING + 4, 1), 1);
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
 }
