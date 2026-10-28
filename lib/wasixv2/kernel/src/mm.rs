@@ -612,7 +612,12 @@ impl Kernel {
     /// is then ordinary memory of the address space, which no other process sees.
     fn shared_anonymous(&self, pages: u64) -> Result<Option<Source>, Errno> {
         match self.host.shared_pages(pages * PAGE_SIZE) {
-            Ok(pages) => Ok(Some(Source::Mapped(Mapped { pages, offset: 0 }))),
+            Ok(pages) => Ok(Some(Source::Mapped(Mapped {
+                pages,
+                offset: 0,
+                segment: None,
+                writable: true,
+            }))),
             Err(err) if err.kind() == io::ErrorKind::Unsupported => Ok(None),
             Err(_) => Err(Errno::ENOMEM),
         }
@@ -1180,14 +1185,15 @@ impl Kernel {
     }
 
     /// Maps a SysV segment attachment of `len` bytes at `addr`, or anywhere for 0, replacing
-    /// what is there only with `remap`. Returns the address.
+    /// what is there only with `remap`. Returns the address. An attachment the memory cannot
+    /// show the segment's pages in becomes a copy.
     pub(crate) async fn map_segment(
         &self,
         caller: &Caller<'_>,
         addr: Uptr,
         len: u64,
         remap: bool,
-        shared: Shared,
+        source: Source,
     ) -> Result<Uptr, Errno> {
         let pages = len.div_ceil(PAGE_SIZE);
         let mm = self.mm(caller.task());
@@ -1212,9 +1218,19 @@ impl Kernel {
         let mut mapping = Mapping {
             start: start.into(),
             len: pages * PAGE_SIZE,
-            source: Source::Shared(shared),
+            source,
         };
-        if let Err(errno) = mapping.fill(caller.memory()).await {
+        let mut filled = mapping.fill(caller.memory()).await;
+        if filled == Err(Errno::EOPNOTSUPP)
+            && let Source::Mapped(mapped) = &mapping.source
+            && let Some(attachment) = &mapped.segment
+        {
+            let object = Object::Segment(attachment.clone());
+            let shared = Shared::new(object, mapped.offset, mapped.writable, None);
+            mapping.source = Source::Shared(shared);
+            filled = mapping.fill(caller.memory()).await;
+        }
+        if let Err(errno) = filled {
             mm.space().unmap(start.into(), pages * PAGE_SIZE);
             return Err(errno);
         }
@@ -1230,17 +1246,15 @@ impl Kernel {
         let attachment = {
             let space = mm.space();
             let mapping = space.mappings.starting_at(addr.into());
-            match mapping
-                .and_then(Mapping::shared)
-                .map(|shared| &shared.object)
-            {
-                Some(Object::Segment(attachment)) => attachment.clone(),
-                _ => return Err(Errno::EINVAL),
+            match mapping.and_then(Mapping::attachment) {
+                Some(attachment) => attachment.clone(),
+                None => return Err(Errno::EINVAL),
             }
         };
         let same = |mapping: &Mapping| {
-            matches!(mapping.shared().map(|s| &s.object),
-                Some(Object::Segment(other)) if Arc::ptr_eq(other, &attachment))
+            mapping
+                .attachment()
+                .is_some_and(|other| Arc::ptr_eq(other, &attachment))
         };
         let parts = mm.space().mappings.take_where(same);
         for mut part in parts {
