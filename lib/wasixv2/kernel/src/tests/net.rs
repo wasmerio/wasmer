@@ -6,6 +6,7 @@ use std::{
     sync::Weak,
 };
 
+use futures::FutureExt as _;
 use wasixv2_abi::{AddressFamily, MsgFlags, SocketFlags, SocketLevel, SocketOption, UserMsghdr};
 use wasixv2_syscalls::{read_value, write_value};
 use wasixv2_vnet::{
@@ -534,6 +535,28 @@ fn datagrams_report_sender_truncation_and_control_messages() {
     let ioctl_none = block_on(kernel.ioctl(&caller, receiver, IoctlRequest::FIONREAD, 0x980));
     assert_eq!(ioctl_none, Ok(0));
     assert_eq!(get(&memory, 0x980, 4), 0u32.to_le_bytes());
+}
+
+#[test]
+fn a_blocking_error_queue_read_never_waits() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let sock = socket(&kernel, &caller, DGRAM);
+    sockaddr(&memory, 0x200, 7000);
+    assert_eq!(
+        block_on(kernel.bind(&caller, sock, GuestPtr::new(0x200), 16)),
+        Ok(0)
+    );
+    // `udp_recvmsg` reads the error queue before it would wait for data.
+    let mut read = Box::pin(kernel.recvfrom(
+        &caller,
+        sock,
+        UserSliceMut::new(0x500, 16),
+        MsgFlags::MSG_ERRQUEUE,
+        GuestPtrMut::new(0),
+        GuestPtrMut::new(0),
+    ));
+    assert_eq!(read.as_mut().now_or_never().map(errno), Some(Errno::EAGAIN));
 }
 
 #[test]
