@@ -331,7 +331,11 @@ mod tests {
         // Without the range, the shared pages make the copy a full one, as before.
         let image = MemoryImage::capture(&parent, &store, &[]).unwrap();
         assert!(matches!(image, MemoryImage::Full(_)));
-        let image = MemoryImage::capture(&parent, &store, &[at..at + len]).unwrap();
+        let shared = Range {
+            start: at,
+            end: at + len,
+        };
+        let image = MemoryImage::capture(&parent, &store, &[shared]).unwrap();
         let MemoryImage::Sparse(sparse) = &image else {
             panic!("expected a sparse copy");
         };
