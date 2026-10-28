@@ -298,3 +298,174 @@ fn readdir_resumes_across_batches() {
     }
     assert_eq!(seen, names);
 }
+
+/// Files kept in host shared memory objects, as the memfd and `/dev/shm` filesystems keep them.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+mod shared {
+    use std::io;
+
+    use wasixv2_pages::{Memfd, Provider, SharedPages};
+
+    use super::*;
+
+    struct Memfds;
+
+    impl Provider for Memfds {
+        fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn SharedPages>> {
+            Ok(Arc::new(Memfd::new(size)?))
+        }
+    }
+
+    struct Unsupported;
+
+    impl Provider for Unsupported {
+        fn shared_pages(&self, _: u64) -> io::Result<Arc<dyn SharedPages>> {
+            Err(io::ErrorKind::Unsupported.into())
+        }
+    }
+
+    fn shared_fs() -> MemFs {
+        fs().with_shared_pages(Arc::new(Memfds))
+    }
+
+    fn object(file: &Arc<dyn Node>, end: u64) -> Arc<dyn SharedPages> {
+        file.shared_pages(end)
+            .unwrap()
+            .expect("a file in shared memory")
+    }
+
+    #[test]
+    fn writes_and_mapped_stores_are_the_same_bytes() {
+        let fs = shared_fs();
+        let (file, handle) = open_file(&fs, b"f");
+        block_on(handle.write_at(b"written", 10)).unwrap();
+
+        let pages = object(&file, 2 * BLOCK);
+        let mut buf = [0; 7];
+        pages.read_at(&mut buf, 10).unwrap();
+        assert_eq!(&buf, b"written");
+        // A store through a mapping is what read() returns, with no copy in between.
+        pages.write_at(b"mapped", 2).unwrap();
+        let mut buf = [0; 6];
+        block_on(handle.read_at(&mut buf, 2)).unwrap();
+        assert_eq!(&buf, b"mapped");
+        // The same object every time.
+        assert_eq!(object(&file, 0).id(), pages.id());
+    }
+
+    #[test]
+    fn the_object_covers_every_mapping_whatever_the_size() {
+        let fs = shared_fs();
+        let (file, handle) = open_file(&fs, b"f");
+        block_on(handle.write_at(&[7; 3 * BLOCK as usize], 0)).unwrap();
+        let pages = object(&file, 16 * BLOCK);
+        assert_eq!(pages.size(), 16 * BLOCK);
+
+        // Shrinking frees the pages past the new size but keeps the object's length, so a
+        // mapping of all 16 blocks stays backed on the host.
+        block_on(handle.set_size(1)).unwrap();
+        assert_eq!(pages.size(), 16 * BLOCK);
+        let mut buf = [1; 2];
+        pages.read_at(&mut buf, 0).unwrap();
+        assert_eq!(buf, [7, 0]);
+        let attr = block_on(file.getattr()).unwrap();
+        assert_eq!((attr.size, attr.blocks), (1, BLOCK / 512));
+    }
+
+    #[test]
+    fn growing_clears_what_a_mapping_stored_past_the_end() {
+        let fs = shared_fs();
+        let (file, handle) = open_file(&fs, b"f");
+        block_on(handle.write_at(b"ab", 0)).unwrap();
+        let pages = object(&file, 4 * BLOCK);
+        // Past the end of the file, where Linux would raise SIGBUS.
+        pages.write_at(b"stale", 2 * BLOCK).unwrap();
+
+        block_on(handle.set_size(3 * BLOCK)).unwrap();
+        let mut buf = [1; 5];
+        block_on(handle.read_at(&mut buf, 2 * BLOCK)).unwrap();
+        assert_eq!(buf, [0; 5]);
+        block_on(handle.read_at(&mut buf[..2], 0)).unwrap();
+        assert_eq!(&buf[..2], b"ab");
+    }
+
+    #[test]
+    fn holes_and_data_come_from_the_object() {
+        let fs = shared_fs();
+        let (file, handle) = open_file(&fs, b"f");
+        let far = 1 << 33;
+        block_on(handle.write_at(b"hello", 0)).unwrap();
+        block_on(handle.write_at(b"X", far)).unwrap();
+        let size = far + 1;
+
+        assert_eq!(
+            block_on(handle.seek_hole(0, size, SeekHole::Hole)),
+            Ok(BLOCK)
+        );
+        assert_eq!(
+            block_on(handle.seek_hole(BLOCK, size, SeekHole::Data)),
+            Ok(far / BLOCK * BLOCK)
+        );
+        assert_eq!(
+            block_on(handle.seek_hole(far, size, SeekHole::Hole)),
+            Ok(size)
+        );
+        // Punched blocks are holes again; allocated ones never were data.
+        block_on(handle.allocate(AllocMode::PunchHole, far / BLOCK * BLOCK, BLOCK)).unwrap();
+        assert_eq!(
+            block_on(handle.seek_hole(BLOCK, size, SeekHole::Data)),
+            Err(Errno::ENXIO)
+        );
+        block_on(handle.allocate(AllocMode::AllocateKeepSize, BLOCK, BLOCK)).unwrap();
+        assert_eq!(
+            block_on(handle.seek_hole(BLOCK, size, SeekHole::Hole)),
+            Ok(BLOCK)
+        );
+        assert_eq!(block_on(file.getattr()).unwrap().blocks, 2 * BLOCK / 512);
+    }
+
+    #[test]
+    fn writes_stop_at_the_size_limit() {
+        let fs = limited(Limits {
+            max_bytes: Some(2 * BLOCK),
+            max_inodes: None,
+        })
+        .with_shared_pages(Arc::new(Memfds));
+        let (_file, handle) = open_file(&fs, b"f");
+
+        let data = vec![7; 3 * BLOCK as usize];
+        assert_eq!(
+            block_on(handle.write_at(&data, 10)),
+            Ok(2 * BLOCK as usize - 10)
+        );
+        assert_eq!(
+            block_on(handle.write_at(&data, 2 * BLOCK)),
+            Err(Errno::ENOSPC)
+        );
+        let mut buf = [0; 2];
+        block_on(handle.read_at(&mut buf, 2 * BLOCK - 11)).unwrap();
+        assert_eq!(buf, [7, 7]);
+    }
+
+    #[test]
+    fn a_file_without_an_object_stays_on_the_heap() {
+        let fs = fs().with_shared_pages(Arc::new(Unsupported));
+        let (file, handle) = open_file(&fs, b"f");
+        block_on(handle.write_at(b"heap", 0)).unwrap();
+
+        assert!(file.shared_pages(BLOCK).unwrap().is_none());
+        let mut buf = [0; 4];
+        block_on(handle.read_at(&mut buf, 0)).unwrap();
+        assert_eq!(&buf, b"heap");
+    }
+
+    #[test]
+    fn only_regular_files_have_objects() {
+        let fs = shared_fs();
+        let dir = block_on(fs.root().create(b"d", &new(NewKind::Directory))).unwrap();
+        assert!(dir.shared_pages(BLOCK).unwrap().is_none());
+        // Nor do files of a filesystem without shared memory.
+        let (file, _) = open_file(&super::fs(), b"f");
+        assert!(file.shared_pages(BLOCK).unwrap().is_none());
+    }
+}

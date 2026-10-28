@@ -13,6 +13,7 @@ rust-version.workspace = true
 [dependencies]
 wasixv2-vfs = { path = "../vfs" }
 wasixv2-abi = { path = "../abi" }
+wasixv2-pages = { path = "../pages" }
 async-trait.workspace = true
 
 [dev-dependencies]
