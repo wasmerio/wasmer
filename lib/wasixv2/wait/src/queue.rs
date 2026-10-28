@@ -19,9 +19,14 @@ pub trait WaitEntry: Send + Sync {
     /// registrations, its own or others, on any queue: one on the queue being woken is gone
     /// before the next entry runs, and one on another queue once this wake released its lock,
     /// since taking that queue's lock here would invert the order against a wake of that queue
-    /// that drops a registration on this one. `events` is the wake key; empty means "anything may have
-    /// changed", like Linux's `wake_up` with a NULL key, and every entry must treat it as a
-    /// match.
+    /// that drops a registration on this one. Objects may wake their queues with their own
+    /// locks held (a TCP listener's queue is woken under the connecting socket's), so an entry
+    /// must not take a lock that is ever held across a wake, a socket's state lock included:
+    /// only locks no wake runs under, such as a waiter's state, an epoll's ready list or a
+    /// reactor's work list, and an entry that wakes a queue of its own (an epoll's, nested)
+    /// does so with none of them held. It records the wakeup for the task that then looks at
+    /// the object. `events` is the wake key; empty means "anything may have changed", like
+    /// Linux's `wake_up` with a NULL key, and every entry must treat it as a match.
     ///
     /// Returns whether the entry took the wakeup. Only exclusive entries' answers matter: the
     /// walk stops at the first exclusive entry that took it. An entry that cannot use the
