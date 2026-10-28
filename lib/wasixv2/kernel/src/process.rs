@@ -751,6 +751,7 @@ impl Kernel {
                 return Err(Errno::EINTR);
             }
             let sched = task.sched.for_child()?;
+            let ns = task.ns.copy(flags.0, &parent.cred())?;
             let id = TaskId(state.last_id + 1);
             let process = Arc::new(Process {
                 pid: id,
@@ -763,6 +764,8 @@ impl Kernel {
                 ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
                 cred: Mutex::new(parent.cred()),
                 resources: Mutex::new(parent.resources.lock().unwrap().clone()),
+                pid_ns: ns.pid_for_children.clone(),
+                sysvsem: Mutex::new(ns.ipc.clone()),
             });
             let files = match flags.contains(CloneFlags::CLONE_FILES) {
                 true => task.files.clone(),
@@ -791,6 +794,7 @@ impl Kernel {
                 mm,
                 files,
                 fs,
+                ns,
                 work: Work::new(flag),
                 restart: None,
                 comm: task.comm,

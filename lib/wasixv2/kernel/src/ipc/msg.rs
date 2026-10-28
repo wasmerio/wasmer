@@ -213,7 +213,8 @@ impl Kernel {
                 queue: WaitQueue::new(),
             })
         };
-        let ids = &self.ipc.msg.ids;
+        let ns = self.ns(caller);
+        let ids = &ns.ipc.msg.ids;
         let limit = MSGMNI as usize;
         Ok(get_or_create(
             ids,
@@ -242,7 +243,7 @@ impl Kernel {
         caller.memory().read(mtext(msgp.addr())?, &mut text).await?;
         let cred = self.env(caller).cred;
         let pid = self.process(caller.task()).pid.0;
-        let queue = self.ipc.msg.get(msqid)?;
+        let queue = self.ns(caller).ipc.msg.get(msqid)?;
         let nowait = IpcFlags(msgflg as u32).contains(IpcFlags::IPC_NOWAIT);
         let mut message = Some(Message { mtype, text });
         let send = || -> Option<Result<(), Errno>> {
@@ -301,7 +302,7 @@ impl Kernel {
         let noerror = flags.contains(MsgrcvFlags::MSG_NOERROR);
         let cred = self.env(caller).cred;
         let pid = self.process(caller.task()).pid.0;
-        let queue = self.ipc.msg.get(msqid)?;
+        let queue = self.ns(caller).ipc.msg.get(msqid)?;
         let receive = || -> Option<Result<Message, Errno>> {
             let mut state = queue.state();
             if let Err(errno) = queue.perm().check(&cred, READ) {
@@ -361,7 +362,8 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let cred = self.env(caller).cred;
-        let queues = &self.ipc.msg;
+        let ns = self.ns(caller);
+        let queues = &ns.ipc.msg;
         match IpcCmd(cmd) {
             IpcCmd::IPC_INFO | IpcCmd::MSG_INFO => {
                 let ((pool, map, tql), max) = {

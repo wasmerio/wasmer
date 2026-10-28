@@ -285,8 +285,7 @@ impl Socket for FakeSocket {
 }
 
 fn networked() -> (Kernel, TaskId, FlatMemory) {
-    let (kernel, task, memory) = machine();
-    (kernel.with_network(FakeNet::new()), task, memory)
+    super::cred::machine_with(|kernel| kernel.with_network(FakeNet::new()))
 }
 
 const STREAM: i32 = 1;
@@ -830,8 +829,7 @@ fn ip_accept_at_the_descriptor_limit_keeps_the_connection_queued() {
 #[test]
 fn blocking_connect_on_a_connecting_socket_waits_instead_of_ealready() {
     let net = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
-    let (kernel, task, memory) = machine();
-    let kernel = kernel.with_network(net);
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| kernel.with_network(net));
     let caller = Caller::new(task, &memory);
     let listener = socket(&kernel, &caller, STREAM);
     sockaddr(&memory, 0x200, 6200);
@@ -922,7 +920,7 @@ fn close(kernel: &Kernel, caller: &Caller<'_>, fd: Fd) {
 fn unix_sockets_only_their_own_queues_hold_are_collected() {
     let (kernel, task, memory) = machine();
     let caller = Caller::new(task, &memory);
-    let inflight = kernel.unix_names.inflight.clone();
+    let inflight = kernel.task_ns(task).net.unix_names.inflight.clone();
     // `b` in flight in its own queue, then both descriptors closed: a cycle.
     let (a, b) = unix_pair(&kernel, &caller, &memory, STREAM);
     let sent = send_with_controls(&kernel, &caller, &memory, a, None, &[rights(&[b])]);

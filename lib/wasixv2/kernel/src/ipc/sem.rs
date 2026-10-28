@@ -18,7 +18,7 @@ use wasixv2_syscalls::{Caller, Errno, SysResult, read_value, write_value};
 use wasixv2_wait::{PollMask, WaitQueue, wait_event, wait_event_timeout};
 
 use super::{Ids, Object, Perm, READ, WRITE, get_or_create, lock, split_time};
-use crate::{Kernel, time};
+use crate::{Kernel, Process, sync::MutexExt, time};
 
 /// `SEMMSL`: semaphores per set.
 pub(crate) const SEMMSL: i32 = 32000;
@@ -318,7 +318,8 @@ impl Kernel {
         }
         let cred = self.env(caller).cred;
         let now = self.ipc_now();
-        let sems = &self.ipc.sem;
+        let ns = self.ns(caller);
+        let sems = &ns.ipc.sem;
         let used: i32 = lock(&sems.ids)
             .all()
             .iter()
@@ -389,7 +390,7 @@ impl Kernel {
         let cred = self.env(caller).cred;
         let pid = self.process(caller.task()).pid.0;
         let now = self.ipc_now();
-        let set = self.ipc.sem.get(semid)?;
+        let set = self.ns(caller).ipc.sem.get(semid)?;
         let pending = {
             let mut state = set.state();
             if max >= state.sems.len() {
@@ -457,7 +458,8 @@ impl Kernel {
         let cred = self.env(caller).cred;
         let now = self.ipc_now();
         let pid = self.process(caller.task()).pid.0;
-        let sems = &self.ipc.sem;
+        let ns = self.ns(caller);
+        let sems = &ns.ipc.sem;
         match IpcCmd(cmd) {
             IpcCmd::IPC_INFO | IpcCmd::SEM_INFO => {
                 let (info, max) = {
@@ -608,9 +610,10 @@ impl Kernel {
         }
     }
 
-    /// `exit_sem` for a process that is gone.
-    pub(crate) fn ipc_process_exited(&self, pid: u32) {
-        self.ipc.sem.exit(pid, self.ipc_now());
+    /// `exit_sem` for a process that is gone, in the IPC namespace its adjustments are in.
+    pub(crate) fn ipc_process_exited(&self, process: &Process) {
+        let ipc = process.sysvsem.lock_or_recover().clone();
+        ipc.sem.exit(process.pid.0, self.ipc_now());
     }
 }
 

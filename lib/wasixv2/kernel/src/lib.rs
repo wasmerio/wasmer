@@ -18,6 +18,8 @@ mod memfd;
 mod mm;
 mod net;
 mod netlink;
+mod ns;
+mod nsfs;
 mod pipe;
 mod poll;
 mod posix_timer;
@@ -83,7 +85,7 @@ use crate::{
     fs::FsContext,
     mm::Mm,
     startup::Startup,
-    sync::RwLockExt,
+    sync::{MutexExt, RwLockExt},
 };
 
 /// Most bytes one step of a `read` or `write` moves through the kernel; larger transfers go
@@ -108,13 +110,9 @@ pub struct Kernel {
     host: Arc<dyn Host>,
     /// Shared with the process filesystems, which read it.
     state: Arc<TaskTable>,
-    // ---- net ----
-    /// The network namespace IP sockets live in; without one, `socket` fails with
-    /// `EAFNOSUPPORT`.
-    // TODO: one per network namespace once namespaces exist.
-    network: Option<Arc<dyn wasixv2_vnet::Network>>,
-    /// Bound Unix socket names (the abstract namespace and socket inodes).
-    unix_names: Arc<unix::Names>,
+    // ---- ns ----
+    /// The initial namespaces (`init_nsproxy`), which [`Kernel::spawn`]ed processes start in.
+    init_ns: Arc<ns::NsProxy>,
     // ---- fs ----
     vfs: Arc<Vfs>,
     /// The inodes of pipes, sockets and anonymous files.
@@ -126,9 +124,6 @@ pub struct Kernel {
     inotify: Arc<fs::inotify::Registry>,
     // ---- thr ----
     futexes: futex::Futexes,
-    // ---- ipc ----
-    /// SysV IPC objects and POSIX message queues.
-    ipc: ipc::Ipc,
     // ---- proc ----
     /// The process tree: parents, zombies and vfork relations.
     procs: process::Procs,
@@ -147,8 +142,6 @@ pub struct Kernel {
     credentials: Credentials,
     /// The kernel's own init, pid 1, which [`Kernel::spawn`]ed processes are children of.
     init: Option<TaskId>,
-    /// The UTS names (one UTS namespace per kernel), shared with the process filesystems.
-    uts: Arc<Mutex<wasixv2_abi::NewUtsname>>,
     // ---- tty ----
     /// Process groups and sessions, as terminals and the kernel signal them.
     jobs: tty::Jobs,
@@ -212,6 +205,11 @@ struct Process {
     ident: Mutex<ident::Ident>,
     cred: Mutex<cred::Cred>,
     resources: Mutex<resource::Resources>,
+    // ---- ns ----
+    /// The pid namespace the process is in (`task_active_pid_ns`), for its whole life.
+    pid_ns: Arc<ns::PidNs>,
+    /// The IPC namespace whose semaphores the process's adjustments are for (`sysvsem`).
+    sysvsem: Mutex<Arc<ns::IpcNs>>,
 }
 
 struct Task {
@@ -221,6 +219,8 @@ struct Task {
     files: Arc<Mutex<FdTable>>,
     /// Root, working directory and umask (`fs_struct`).
     fs: Arc<Mutex<FsContext>>,
+    /// The namespaces the task is in (`nsproxy`).
+    ns: Arc<ns::NsProxy>,
     /// What the execution layer does on the task's next return to the guest.
     work: work::Work,
     /// How an interrupted call goes on through `restart_syscall` (`restart_block`).
@@ -251,20 +251,17 @@ impl Kernel {
             timers: timer::Timers::new(host.clone()),
             host,
             state,
-            network: None,
-            unix_names: Arc::default(),
+            init_ns: Arc::new(ns::NsProxy::initial(Uname::default().to_utsname(), None)),
             inotify: fs::inotify::Registry::install(&vfs),
             shm: None,
             vfs,
             futexes: futex::Futexes::default(),
-            ipc: ipc::Ipc::default(),
             procs,
             binfmt: Arc::new(process::WasmMagic),
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
             credentials: Credentials::default(),
             init: None,
-            uts: Arc::new(Mutex::new(Uname::default().to_utsname())),
             jobs,
             console: None,
         }
@@ -276,15 +273,21 @@ impl Kernel {
         self
     }
 
-    /// Makes `uname` report `uname`.
+    /// Makes `uname` report `uname` in the initial UTS namespace.
     pub fn with_uname(self, uname: &Uname) -> Self {
-        *self.uts.lock().unwrap() = uname.to_utsname();
+        *self.init_ns.uts.lock_or_recover() = uname.to_utsname();
         self
     }
 
-    /// Gives the kernel a network for IP sockets.
+    /// Gives the initial network namespace `network` for IP sockets, before the first process
+    /// starts in it.
     pub fn with_network(mut self, network: Arc<dyn wasixv2_vnet::Network>) -> Self {
-        self.network = Some(network);
+        assert!(
+            self.state.read_or_recover().tasks.is_empty(),
+            "the network comes before the first process"
+        );
+        let uname = *self.init_ns.uts.lock_or_recover();
+        self.init_ns = Arc::new(ns::NsProxy::initial(uname, Some(network)));
         self
     }
 
@@ -366,6 +369,8 @@ impl Kernel {
             ident: Mutex::new(ident::Ident::new(id.0)),
             cred: Mutex::new(cred),
             resources: Mutex::default(),
+            pid_ns: self.init_ns.pid_for_children.clone(),
+            sysvsem: Mutex::new(self.init_ns.ipc.clone()),
             args: Mutex::new(args.into_iter().map(String::into_bytes).collect()),
             env: Mutex::new(env.into_iter().map(String::into_bytes).collect()),
             exe: Mutex::new(None),
@@ -380,6 +385,7 @@ impl Kernel {
             mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
             fs: Arc::new(Mutex::new(FsContext::new(self.vfs.root()))),
+            ns: self.init_ns.clone(),
             work: work::Work::new(flag.clone()),
             restart: None,
             thread: thread::ThreadState::default(),

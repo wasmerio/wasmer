@@ -213,6 +213,7 @@ impl Kernel {
                 mm: task.mm.clone(),
                 files: task.files.clone(),
                 fs: task.fs.clone(),
+                ns: task.ns.clone(),
                 work: Work::new(flag.clone()),
                 restart: None,
                 comm: task.comm,
@@ -421,7 +422,7 @@ impl Kernel {
         if !others && !leader_runs {
             // ---- ipc ----
             // `exit_sem`, by the group's last task.
-            self.ipc_process_exited(process.pid.0);
+            self.ipc_process_exited(process);
             // ---- proc ----
             self.process_exited(process, process.pid, status);
         }

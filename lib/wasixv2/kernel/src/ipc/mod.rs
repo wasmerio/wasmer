@@ -54,8 +54,8 @@ pub(crate) fn capable(cred: &Cred, cap: u32) -> bool {
     cred.caps & (1 << cap) != 0
 }
 
-/// The IPC namespace: every SysV object and POSIX message queue of the machine.
-// TODO: one per IPC namespace once `CLONE_NEWIPC` exists.
+/// What an IPC namespace holds ([`crate::ns::IpcNs`]): its SysV objects and POSIX message
+/// queues.
 #[derive(Default)]
 pub(crate) struct Ipc {
     pub(crate) sem: sem::Sems,

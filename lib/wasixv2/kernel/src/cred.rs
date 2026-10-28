@@ -336,6 +336,24 @@ impl Cred {
             || self.capable(Cap::SysResource)
     }
 
+    /// `__ptrace_may_access` in a read mode, for a process outside the caller's thread group
+    /// with `target`'s ids: its real, effective and saved uids and gids all are the caller's
+    /// (its filesystem ids with `fscreds`, else its real ids), and it is `dumpable`; or the
+    /// caller has `CAP_SYS_PTRACE`.
+    pub(crate) fn may_read_task(&self, target: &Cred, dumpable: bool, fscreds: bool) -> bool {
+        let (uid, gid) = match fscreds {
+            true => (self.user.fs, self.group.fs),
+            false => (self.user.real, self.group.real),
+        };
+        let all = |ids: &Ids, id: u32| {
+            [ids.real, ids.effective, ids.saved]
+                .iter()
+                .all(|&x| x == id)
+        };
+        let ptrace = self.capable(Cap::SysPtrace);
+        ptrace || (all(&target.user, uid) && all(&target.group, gid) && dumpable)
+    }
+
     /// One of `setuid`, `setreuid`, `setresuid` or their gid twins.
     pub(crate) fn change_ids(&self, kind: IdKind, change: IdChange) -> Result<Self, Errno> {
         let mut new = self.clone();

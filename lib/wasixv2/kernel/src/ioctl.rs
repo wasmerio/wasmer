@@ -4,7 +4,7 @@ use wasixv2_abi::{GuestPtr, GuestPtrMut, IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, Fd, SysResult, read_value, write_value};
 use wasixv2_vfs::FileType;
 
-use crate::{Kernel, file::Backing, fs::FASYNC, tty::TtyFile};
+use crate::{Kernel, file::Backing, fs::FASYNC, nsfs::NsFile, tty::TtyFile};
 
 /// `FIGETBSZ` (`_IO(0x00, 2)`, `linux/fs.h`): the filesystem's block size. Not among the ABI's
 /// request names.
@@ -88,6 +88,9 @@ impl Kernel {
             _ => match file.object() {
                 Some(_) if let Some(tty) = file.downcast::<TtyFile>() => {
                     self.tty_ioctl(caller, &file, tty, request, arg).await
+                }
+                Some(_) if let Some(ns) = file.downcast::<NsFile>() => {
+                    self.ns_ioctl(caller, ns, request, arg).await
                 }
                 Some(object) => object.ioctl(caller, request, arg).await,
                 None => Err(Errno::ENOTTY.into()),

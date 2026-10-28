@@ -187,7 +187,8 @@ impl Kernel {
             }
             _ => return Err(Errno::ESOCKTNOSUPPORT.into()),
         };
-        let network = self.network.as_ref().ok_or(Errno::EAFNOSUPPORT)?;
+        let ns = self.ns(caller);
+        let network = ns.net.network.as_ref().ok_or(Errno::EAFNOSUPPORT)?;
         // `sk_uid`: the inode owner `sock_alloc` gives the socket.
         let (uid, _) = self.cred(caller).fs_owner();
         let socket = network.socket(domain, kind, protocol, uid)?;
@@ -1527,6 +1528,8 @@ impl Kernel {
         let mut ifr = [0u8; IFREQ];
         memory.read(arg, &mut ifr).await?;
         let interfaces = self
+            .ns(caller)
+            .net
             .network
             .as_ref()
             .map(|net| net.interfaces())

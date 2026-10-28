@@ -34,6 +34,8 @@ pub(crate) struct Pseudo {
     mqueue: (Arc<Mount>, Arc<PseudoFs>),
     /// The one inode every anonymous file shares (`anon_inode_inode`); only its name differs.
     anon_inode: Arc<dyn Node>,
+    /// The namespace filesystem (`nsfs_mnt`).
+    pub(crate) nsfs: crate::nsfs::Nsfs,
 }
 
 impl Pseudo {
@@ -51,6 +53,7 @@ impl Pseudo {
         // root owns it.
         let anon_inode = anon_fs.new_node(FileType::Regular, 0o600, (0, 0));
         Self {
+            nsfs: crate::nsfs::Nsfs::new(vfs, clock),
             pipe,
             socket,
             anon,
