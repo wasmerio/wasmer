@@ -57,6 +57,13 @@ pub enum GuestAction {
     /// `parent` again, and the guest's `wasixv2_vfork_return(child)` export unwinds to the
     /// vfork point, unless the parent's image ended meanwhile ([`VforkParent::resumes`]).
     VforkReturn { parent: VforkParent, child: TaskId },
+    /// The vfork parent `task`, which waits for the child this instance runs as, died (a fatal
+    /// signal, its group's exit, another thread's `execve`): it leaves its memory now, on the
+    /// memory it shares with the child, as its own `do_exit` would on Linux, while the child
+    /// keeps the memory. Run [`ExitMm::exit_mm`] with a caller of `task` on this instance's
+    /// memory, then go on as before. The instance goes back to `task` only once the child is
+    /// done, if at all ([`VforkParent::resumes`]).
+    ExitMm { task: TaskId },
 }
 
 /// The vfork parent an instance goes back to once the child running in it ends.

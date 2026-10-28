@@ -807,6 +807,10 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                     None => task = parent.task,
                 }
             }
+            GuestAction::ExitMm { task: dead } => {
+                let memory = GuestMemory { env };
+                syscalls.exit_mm(&Caller::new(dead, &memory)).await;
+            }
             // `do_signal_stop`'s `schedule`: the instance waits, and the call it interrupted
             // goes on as before the stop once the group continues.
             GuestAction::Stopped => syscalls.stop_wait(task).await,

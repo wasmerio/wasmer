@@ -32,13 +32,6 @@ mod signalfd;
 mod socket;
 mod startup;
 mod stdio;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the kernel's locks move to it in one sweep (M-X1)"
-    )
-)]
 mod sync;
 mod thread;
 mod time;
@@ -184,6 +177,11 @@ impl TaskTable {
     /// Shared access, for lookups.
     fn read(&self) -> LockResult<RwLockReadGuard<'_, State>> {
         self.0.read()
+    }
+
+    /// [`TaskTable::lock`], taking over the table from a panicking holder ([`sync`]).
+    fn lock_or_recover(&self) -> RwLockWriteGuard<'_, State> {
+        self.0.write_or_recover()
     }
 
     /// [`TaskTable::read`], taking over the table from a panicking holder ([`sync`]).
@@ -2445,6 +2443,10 @@ impl Control for Kernel {
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
         // ---- proc ----
         self.kill_vfork_parent(task);
+        if let Some(parent) = self.dead_vfork_parent(task) {
+            self.task_signals(task).group().clear_notify(task);
+            return Some(GuestAction::ExitMm { task: parent });
+        }
         let (action, signals) = {
             let mut state = self.state.lock().unwrap();
             // ---- proc ----
