@@ -240,6 +240,11 @@ impl Kernel {
         tree.vforks.values().any(|&parent| parent == task)
     }
 
+    /// Whether `task` is a vfork child running in the instance of its parent, which waits.
+    pub(crate) fn vfork_child(&self, task: TaskId) -> bool {
+        self.procs.tree.lock().unwrap().vforks.contains_key(&task)
+    }
+
     /// The signal state of the thread group led by `pid`.
     fn group_signals(&self, pid: u32) -> Option<Arc<Signals>> {
         let state = self.state.lock().unwrap();

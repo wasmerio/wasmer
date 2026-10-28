@@ -328,12 +328,13 @@ impl Kernel {
         self.group_exit_futexes(caller).await;
         self.mm_release(caller).await;
         self.do_group_exit(caller.task(), status);
+        self.exit_mm(caller).await;
         Ok(())
     }
 
     /// `do_group_exit`: every task of the group exits with `status`. The first exit wins. Tasks
     /// blocked in an interruptible wait notice; the others unwind on their next return to the
-    /// guest or preemption point.
+    /// guest or preemption point, each through its own [`Kernel::exit_mm`].
     pub(crate) fn do_group_exit(&self, task: TaskId, status: i32) {
         // Linux keeps only the low byte of the status.
         let status = status & 0xff;
@@ -366,31 +367,36 @@ impl Kernel {
         signals.cancel_real_timer();
         crate::posix_timer::exit_itimers(&signals);
         process.group.exited.wake(PollMask::empty());
-        // `exit_mm` for what nobody could write back.
-        if !self.mm_shared_elsewhere(task) {
-            self.mm(task).reset();
-        }
         process.group.released.wake(PollMask::empty());
         self.exit_notify(&process);
     }
 
-    /// `exit_notify` once the group has exited and none of its threads is left but the leader
-    /// (`thread_group_empty`, `delay_group_leader`): only then the process becomes a zombie,
-    /// its files close and its parent hears of it, so nothing of it runs after its exit is seen.
-    /// A leader waiting for its vfork child counts as running: its instance resumes it once the
-    /// child is done, and it unwinds through its exit from there.
+    /// `exit_notify` once the group has exited, none of its threads is left but the leader
+    /// (`thread_group_empty`, `delay_group_leader`), and the leader is done with its memory
+    /// (its `do_exit` ran `exit_mm` before `exit_notify`): only then the process becomes a
+    /// zombie, its files close and its parent hears of it, so nothing of it runs after its exit
+    /// is seen, and its shared mappings are written back by then. A vfork child's leader is the
+    /// exception: its memory is its parent's, which it never writes back, and its end runs in
+    /// the parent's instance as the parent's return ([`GuestAction::VforkReturn`]), which
+    /// releases its memory there. A leader waiting for its vfork child counts as running: its
+    /// instance resumes it once the child is done, and it unwinds through its exit from there.
     fn exit_notify(&self, process: &Arc<Process>) {
         let Some(status) = process.group.status() else {
             return;
         };
-        let others = {
+        let (others, leader_in_memory) = {
             let state = self.state.lock().unwrap();
-            state
+            let others = state
                 .tasks
                 .iter()
-                .any(|(&id, t)| id != process.pid && Arc::ptr_eq(&t.process, process))
+                .any(|(&id, t)| id != process.pid && Arc::ptr_eq(&t.process, process));
+            let leader = state.tasks.get(&process.pid);
+            let leader_in_memory =
+                leader.is_some_and(|t| Arc::ptr_eq(&t.process, process) && !t.thread.left_mm);
+            (others, leader_in_memory)
         };
-        if !others && !self.vfork_waits(process.pid) {
+        let leader_running = leader_in_memory && !self.vfork_child(process.pid);
+        if !others && !leader_running && !self.vfork_waits(process.pid) {
             // ---- ipc ----
             // `exit_sem`, by the group's last task.
             self.ipc_process_exited(process.pid.0);
@@ -742,16 +748,21 @@ impl Kernel {
             (thread, mm_users(&state, task))
         };
         self.exit_thread(caller, task, thread, users > 1).await;
-        let last = {
+        let (last, process) = {
             let mut state = self.state.lock().unwrap();
             let Some(entry) = state.tasks.get_mut(&task) else {
                 return;
             };
             entry.thread.left_mm = true;
-            mm_users(&state, task) == 0
+            let process = entry.process.clone();
+            (mm_users(&state, task) == 0, process)
         };
         if last {
             self.exit_mmap(caller).await;
+        }
+        // A leader whose group exited was all its exit waited for.
+        if task == process.pid {
+            self.exit_notify(&process);
         }
     }
 
