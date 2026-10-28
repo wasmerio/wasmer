@@ -626,7 +626,7 @@ fn send_bytes(
 }
 
 /// Whether SIGPIPE is pending (and blocked, as the test keeps it).
-fn sigpipe_pending(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) -> bool {
+pub(super) fn sigpipe_pending(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) -> bool {
     assert_eq!(
         block_on(kernel.rt_sigpending(caller, GuestPtrMut::new(0x800), 8)),
         Ok(0)

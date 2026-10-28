@@ -7,7 +7,9 @@ pub(crate) mod inotify;
 mod io;
 mod lock;
 mod path;
+mod splice;
 
+pub(crate) use fifo::FifoFile;
 pub(crate) use io::{At, read_iovecs};
 
 use std::sync::{Arc, Mutex};

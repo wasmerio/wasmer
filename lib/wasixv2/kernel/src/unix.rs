@@ -1129,6 +1129,11 @@ impl FileObject for UnixFile {
         true
     }
 
+    /// `splice_to_socket`.
+    fn splice_write(&self) -> bool {
+        true
+    }
+
     /// `SIOCINQ` (`FIONREAD`) and `SIOCOUTQ` (`TIOCOUTQ`).
     fn ioctl<'a>(
         &'a self,

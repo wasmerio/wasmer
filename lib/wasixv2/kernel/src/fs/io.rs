@@ -100,14 +100,14 @@ impl Drop for Scratch {
 }
 
 /// A position in a list of guest buffers, for transfers made in steps.
-struct Cursor<'a> {
+pub(super) struct Cursor<'a> {
     iovecs: &'a [Iovec],
     index: usize,
     offset: usize,
 }
 
 impl<'a> Cursor<'a> {
-    fn new(iovecs: &'a [Iovec]) -> Self {
+    pub(super) fn new(iovecs: &'a [Iovec]) -> Self {
         Self {
             iovecs,
             index: 0,
@@ -136,7 +136,11 @@ impl<'a> Cursor<'a> {
 
     /// Copies the next bytes in from the guest, up to `buf.len()`. A fault ends the copy:
     /// the count before it and `true`.
-    async fn copy_in(&mut self, memory: &dyn UserMemory, buf: &mut [u8]) -> (usize, bool) {
+    pub(super) async fn copy_in(
+        &mut self,
+        memory: &dyn UserMemory,
+        buf: &mut [u8],
+    ) -> (usize, bool) {
         let mut n = 0;
         for (addr, len) in self.take(buf.len()) {
             if memory.read(addr, &mut buf[n..n + len]).await.is_err() {
@@ -162,9 +166,9 @@ impl<'a> Cursor<'a> {
 }
 
 /// Guest buffers as a [`ReadSink`].
-struct CopyOut<'a> {
-    cursor: Cursor<'a>,
-    memory: &'a dyn UserMemory,
+pub(super) struct CopyOut<'a> {
+    pub(super) cursor: Cursor<'a>,
+    pub(super) memory: &'a dyn UserMemory,
 }
 
 impl ReadSink for CopyOut<'_> {
@@ -411,7 +415,7 @@ impl Kernel {
 
     /// `SIGPIPE` for an `EPIPE` from a byte stream (datagram and seqpacket sockets only
     /// fail), or for a pipe write that found no reader (`broken`) whatever it returns.
-    fn epipe<T>(
+    pub(super) fn epipe<T>(
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,
