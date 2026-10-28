@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 pkgs=("$@")
-[ ${#pkgs[@]} -gt 0 ] || pkgs=(bash coreutils grep sed gawk findutils diffutils which ltp-shell)
+[ ${#pkgs[@]} -gt 0 ] || pkgs=(bash coreutils grep sed gawk findutils diffutils which util-linux gzip bzip2 tar cpio unzip procps-ng psmisc ltp-shell)
 mkdir -p logs
 for p in "${pkgs[@]}"; do
   echo "== $p"
