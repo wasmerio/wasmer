@@ -174,6 +174,7 @@ mod tests {
         assert!(!work.flag().is_raised());
         let start = GuestAction::StartThread {
             task: TaskId(2),
+            tid: 2,
             start_arg: 0,
         };
         let switch = GuestAction::SwitchTask {
@@ -193,6 +194,7 @@ mod tests {
         let mut work = work();
         let start = |n| GuestAction::StartThread {
             task: TaskId(n),
+            tid: n as i32,
             start_arg: 0,
         };
         assert!(work.push(start(2)).is_empty());
@@ -214,6 +216,8 @@ mod tests {
         };
         let fork = GuestAction::Fork {
             child: TaskId(3),
+            pid: 3,
+            tid: 3,
             parent_tid: None,
             pidfd: None,
             child_tid: None,
@@ -259,6 +263,7 @@ mod tests {
         let parent = VforkParent {
             task: TaskId(1),
             resumes: Resume::Returns,
+            pid: 2,
         };
         let resume = GuestAction::VforkReturn {
             parent,

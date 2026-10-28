@@ -58,22 +58,27 @@ impl<'a, S: Syscalls + Control + 'static> Frame<'a, S> {
             .expect("v1 imports run in v1 instances")
     }
 
-    /// The calling task's pid, which it asks the kernel for only the first time in its
-    /// instance (see [`Wasix1Instance::cached_pid`]).
-    pub async fn pid(&self) -> V1Result<TaskId> {
+    /// The calling task's pid, as it sees it (`getpid`).
+    pub async fn pid(&self) -> V1Result<i32> {
+        Ok(self.syscalls.getpid(&self.caller()).await?)
+    }
+
+    /// The calling task's process, by the kernel's id for it, whatever pid it has: what its
+    /// compat state is kept under. Asked for only the first time in the instance (see
+    /// [`Wasix1Instance::cached_process`]).
+    pub fn process(&self) -> TaskId {
         let instance = self.instance();
-        if let Some(pid) = instance.cached_pid(self.task) {
-            return Ok(pid);
+        if let Some(process) = instance.cached_process(self.task) {
+            return process;
         }
-        let pid = TaskId(self.syscalls.getpid(&self.caller()).await? as u32);
-        instance.cache_pid(self.task, pid);
-        Ok(pid)
+        let process = self.syscalls.tgid(self.task);
+        instance.cache_process(self.task, process);
+        process
     }
 
     /// The compat state of the calling task's process.
     pub async fn proc(&self) -> V1Result<Arc<ProcState>> {
-        let pid = self.pid().await?;
-        Ok(self.instance().procs().get_or_create(pid))
+        Ok(self.instance().procs().get_or_create(self.process()))
     }
 
     /// The process's arguments, environment and preopens, loaded on first use.

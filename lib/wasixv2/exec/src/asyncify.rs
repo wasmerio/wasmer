@@ -670,10 +670,11 @@ pub mod import {
         Saved(StackId),
         /// [`restore`] rewound a saved stack with this value.
         Restored(i32),
-        /// A fork copied the instance: `child` is the child in the parent and `None` in the
-        /// child; `payload` is what the import gave [`set_fork_payload`] before it forked.
+        /// A fork copied the instance: `child` is the child in the parent, with its pid as the
+        /// parent sees it, and `None` in the child; `payload` is what the import gave
+        /// [`set_fork_payload`] before it forked.
         Forked {
-            child: Option<TaskId>,
+            child: Option<(TaskId, i32)>,
             payload: Option<Tag>,
         },
     }
@@ -692,7 +693,7 @@ pub mod import {
             Resume::Saved(id) => Resumed::Saved(id),
             Resume::Restored(val) => Resumed::Restored(val),
             Resume::Forked { child, tag } => Resumed::Forked {
-                child,
+                child: child.map(|child| (child, crate::fork::child_pid(&tag).unwrap_or_default())),
                 payload: crate::fork::payload(&tag),
             },
         }))

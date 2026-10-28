@@ -905,9 +905,10 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
             }
             GuestAction::StartThread {
                 task: child,
+                tid,
                 start_arg,
             } => {
-                if !thread::start(env, syscalls, child, start_arg).await {
+                if !thread::start(env, syscalls, child, tid, start_arg).await {
                     ret = Err(SysErr::Errno(Errno::EAGAIN));
                 }
             }
@@ -939,14 +940,17 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
             }
             GuestAction::Fork {
                 child,
+                pid,
+                tid,
                 parent_tid,
                 pidfd,
                 child_tid,
                 tls,
             } => {
                 // The guest unwinds now; the import that forked resumes once it rewinds.
-                let parent = (parent_tid, pidfd);
-                return match fork::start(env, syscalls, child, parent, child_tid, tls).await {
+                let parent = (pid, parent_tid, pidfd);
+                let child_side = (tid, child_tid, tls);
+                return match fork::start(env, syscalls, child, parent, child_side).await {
                     Ok(()) => Outcome::Unwinding,
                     Err(SysErr::Errno(errno)) => Outcome::Return(Err(errno)),
                     Err(_) => unreachable!("fork fails with an errno"),
@@ -1044,7 +1048,7 @@ async fn vfork_resume<S: Control + 'static>(
         return None;
     }
     Some(match instance_abi(env).await {
-        Some(abi) => abi.vfork_resume(env, child).await,
+        Some(abi) => abi.vfork_resume(env, child, parent.pid).await,
         None => VforkResume::Unwind(RuntimeError::new("vfork resume before bind")),
     })
 }

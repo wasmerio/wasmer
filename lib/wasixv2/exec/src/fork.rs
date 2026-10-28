@@ -19,6 +19,10 @@ use crate::{
 ///
 /// [`GuestAction::Fork`]: wasixv2_syscalls::GuestAction::Fork
 struct Writes {
+    /// The child's pid as the parent sees it, which clone returns there.
+    pid: i32,
+    /// The child's tid as it sees it itself.
+    tid: i32,
     parent_tid: Option<u32>,
     /// Where the parent's pidfd goes, and its number.
     pidfd: Option<(u32, i32)>,
@@ -31,6 +35,11 @@ struct Writes {
 /// The payload of a fork's `tag`.
 pub(crate) fn payload(tag: &asyncify::Tag) -> Option<asyncify::Tag> {
     tag.downcast_ref::<Writes>()?.payload.clone()
+}
+
+/// The child's pid as the parent sees it, of a fork's `tag`.
+pub(crate) fn child_pid(tag: &asyncify::Tag) -> Option<i32> {
+    Some(tag.downcast_ref::<Writes>()?.pid)
 }
 
 /// Replaces the imports that unwind the stack with their asyncify versions, for an instrumented
@@ -81,12 +90,13 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     syscalls: &S,
     child: TaskId,
-    (parent_tid, pidfd): (Option<u32>, Option<(u32, i32)>),
-    child_tid: Option<u32>,
-    tls: Option<u32>,
+    (pid, parent_tid, pidfd): (i32, Option<u32>, Option<(u32, i32)>),
+    (tid, child_tid, tls): (i32, Option<u32>, Option<u32>),
 ) -> SysResult<()> {
     let payload = env.write().await.data_mut().fork_payload.take();
     let tag = Arc::new(Writes {
+        pid,
+        tid,
         parent_tid,
         pidfd,
         child_tid,
@@ -131,18 +141,18 @@ async fn fork_returned<S: 'static>(
     env.with(|data, store| {
         // Linux ignores faults on the tid writes; the kernel checked the pidfd's would land.
         match child {
-            Some(child) => {
+            Some(_) => {
                 if let Some(addr) = writes.parent_tid {
-                    let _ = data.write_memory(&*store, addr, &child.0.to_le_bytes());
+                    let _ = data.write_memory(&*store, addr, &writes.pid.to_le_bytes());
                 }
                 if let Some((addr, fd)) = writes.pidfd {
                     let _ = data.write_memory(&*store, addr, &fd.to_le_bytes());
                 }
-                Ok(child.0 as i32)
+                Ok(writes.pid)
             }
             None => {
                 if let Some(addr) = writes.child_tid {
-                    let _ = data.write_memory(&*store, addr, &data.task.0.to_le_bytes());
+                    let _ = data.write_memory(&*store, addr, &writes.tid.to_le_bytes());
                 }
                 let tls_base = data.abi.as_ref().and_then(|abi| {
                     let instance = abi

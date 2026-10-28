@@ -516,10 +516,13 @@ async fn in_vfork_child<S: 'static>(env: &Env<S>) -> Result<bool, RuntimeError> 
 /// Returns the parent's compat state, or the errno of a failed `clone`.
 async fn vfork<S: Syscalls + Control + 'static>(
     env: &Env<S>,
-) -> Result<Result<Arc<ProcState>, i32>, RuntimeError> {
+) -> Result<Result<Parent, i32>, RuntimeError> {
     let mut parent = None;
     let done = shim::call(env, async |frame| {
-        parent = Some(frame.proc().await?);
+        parent = Some(Parent {
+            state: frame.proc().await?,
+            task: frame.task,
+        });
         frame
             .syscalls
             .clone(&frame.caller(), VFORK, 0, S32Ptr::NULL, 0, S32Ptr::NULL)
@@ -536,18 +539,24 @@ async fn vfork<S: Syscalls + Control + 'static>(
     }
 }
 
+/// The vfork parent, as the child knows it: its compat state and its task.
+struct Parent {
+    state: Arc<ProcState>,
+    task: TaskId,
+}
+
 /// In a vfork child that just started: registers its copy of `parent`'s compat state, and
-/// how the parent resumes. Returns the child's pid.
+/// how the parent resumes. Returns the child, and its pid as the parent sees it.
 fn start_vfork_child<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    parent: &ProcState,
+    parent: &Parent,
     resume: Option<wasixv2_exec::asyncify::StackId>,
-) -> TaskId {
+) -> (TaskId, i32) {
     let child = frame.task;
-    let state = Arc::new(parent.fork());
+    let state = Arc::new(parent.state.fork());
     frame.instance().procs().replace(child, state.clone());
     frame.instance().add_vfork(child, Vfork { state, resume });
-    child
+    (child, frame.syscalls.pid_in(parent.task, child))
 }
 
 /// `proc_fork_env(pid_out)`: vfork without moving control flow (see the module docs). Returns
@@ -564,8 +573,8 @@ pub(crate) async fn proc_fork_env<S: Syscalls + Control + 'static>(
         Err(errno) => return Ok(errno),
     };
     shim::errno(&env, async |frame| {
-        let child = start_vfork_child(frame, &parent, None);
-        frame.write(pid_out as u32, &child.0).await
+        let (_, pid) = start_vfork_child(frame, &parent, None);
+        frame.write(pid_out as u32, &pid).await
     })
     .await
 }
@@ -585,8 +594,9 @@ pub(crate) async fn proc_fork<S: Syscalls + Control + 'static>(
         None => {}
         // The fork parent, with the child running on its own copy.
         Some(Resumed::Forked {
-            child: Some(child), ..
-        }) => return write_pid(child.0).await,
+            child: Some((_, pid)),
+            ..
+        }) => return write_pid(pid as u32).await,
         // The fork child, on a fresh instance holding the parent's memory and stack.
         Some(Resumed::Forked {
             child: None,
@@ -599,9 +609,9 @@ pub(crate) async fn proc_fork<S: Syscalls + Control + 'static>(
             with_instance(&env, |instance| instance.set_started()).await?;
             let state = Some(state);
             return shim::errno(&env, async |frame| {
-                let pid = frame.pid().await?;
+                let process = frame.process();
                 if let Some(state) = &state {
-                    frame.instance().adopt(pid, state.clone());
+                    frame.instance().adopt(process, state.clone());
                 }
                 frame.write(pid_out, &0u32).await
             })
@@ -832,14 +842,11 @@ async fn spawn<S: Syscalls + Control + 'static>(
         spawn_child(frame, &request).await
     })
     .await?;
-    let child = child.expect("set as the child");
+    let (_, pid) = child.expect("set as the child");
     match done {
         // `execve` succeeded and the parent resumed.
         Done::Switched(_) => {
-            shim::errno(env, async |frame| {
-                frame.write(pid_out as u32, &child.0).await
-            })
-            .await
+            shim::errno(env, async |frame| frame.write(pid_out as u32, &pid).await).await
         }
         // Still the child: end it, which resumes the parent, and reap it.
         Done::Err(errno) => {
@@ -861,7 +868,7 @@ async fn spawn<S: Syscalls + Control + 'static>(
                     .waitid(
                         &frame.caller(),
                         Idtype::P_PID,
-                        child.0 as i32,
+                        pid,
                         info,
                         WaitOptions::WEXITED,
                         RusagePtr::NULL,
@@ -1028,7 +1035,7 @@ pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        if frame.pid().await?.0 as i32 != pid {
+        if frame.pid().await? != pid {
             return shim::fail(Errno::NOTSUP);
         }
         let parent = frame.syscalls.getppid(&frame.caller()).await?;

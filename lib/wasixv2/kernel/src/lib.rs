@@ -78,8 +78,8 @@ use wasixv2_host::Host;
 pub use wasixv2_host::{Console, Stdio, WindowSize};
 use wasixv2_syscalls::{
     AtomicWait, AtomicWord, Binfmt, Caller, Control, CpuAccount, CpuTime, Errno, ExitMm, Fd,
-    GroupCpu, GroupStop, GuestAction, Image, LocalFuture, SharedMapping, SharedMappings, SysResult,
-    Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
+    GroupCpu, GroupStop, GuestAction, Image, LocalFuture, PidView, SharedMapping, SharedMappings,
+    SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -2737,6 +2737,14 @@ impl CpuTime for Kernel {
 
     fn cpu_timers(&self, task: TaskId) {
         self.run_cpu_timers(task);
+    }
+}
+
+impl PidView for Kernel {
+    /// The process's id: its leader's (`task->group_leader`), which outlives the task.
+    fn tgid(&self, task: TaskId) -> TaskId {
+        let state = self.state.read_or_recover();
+        state.tasks.get(&task).map_or(task, |t| t.process.pid)
     }
 }
 
