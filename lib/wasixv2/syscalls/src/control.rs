@@ -146,7 +146,7 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control: AtomicWait + ExecImage {
+pub trait Control: AtomicWait + ExecImage + ExitMm {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
@@ -210,6 +210,17 @@ pub trait Control: AtomicWait + ExecImage {
     fn abort_thread(&self, task: TaskId) {
         let _ = task;
     }
+}
+
+/// The kernel's part of a task's end that needs the task's memory.
+pub trait ExitMm {
+    /// The task of `caller` is done with its memory, which is still there: it unwinds through
+    /// a [`GuestAction::Exit`], or its instance trapped. The kernel releases what the task
+    /// leaves in the memory (its robust and PI futexes, `clear_child_tid`) and, when no other
+    /// task uses the memory any more, writes back its shared mappings: Linux's `exit_mm`, which
+    /// every task runs in its own `do_exit`, whatever ended it (its `exit`, another thread's
+    /// `exit_group` or `execve`, a fatal signal). Calls after the first do nothing.
+    fn exit_mm<'a>(&'a self, caller: &'a Caller<'a>) -> LocalFuture<'a, ()>;
 }
 
 /// The word a wasm `memory.atomic.wait32` or `memory.atomic.wait64` expects at its address.
@@ -342,6 +353,14 @@ pub trait ExecImage {
 impl<L, S: ExecImage> ExecImage for Layered<L, S> {
     fn take_exec_image(&self, task: TaskId) -> Option<Image> {
         self.inner.take_exec_image(task)
+    }
+}
+
+// By hand rather than generated with the rest of `Layered`: the layers see syscalls, and this
+// is not one.
+impl<L, S: ExitMm> ExitMm for Layered<L, S> {
+    fn exit_mm<'a>(&'a self, caller: &'a Caller<'a>) -> LocalFuture<'a, ()> {
+        self.inner.exit_mm(caller)
     }
 }
 

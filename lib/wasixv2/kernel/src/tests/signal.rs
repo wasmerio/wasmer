@@ -700,6 +700,27 @@ fn a_vfork_parent_with_no_exit_pending_returns_from_vfork() {
     );
 }
 
+/// A vfork child that a signal kills hands the instance back to its parent, as its exit does:
+/// the kill must not unwind the parent's stack, which the child runs on. Its process is seen to
+/// exit at once, as its memory is the parent's.
+#[test]
+fn a_vfork_child_killed_by_a_signal_hands_the_instance_back_to_its_parent() {
+    let vforked = Vforked::new();
+    let (kernel, child) = (&vforked.kernel, vforked.child);
+    let caller = Caller::new(child, &vforked.memory);
+    let kill = kernel.sys_kill(&caller, child.0 as Pid, Signal::SIGKILL);
+    assert_eq!(block_on(kill), Ok(0));
+
+    let parent = VforkParent {
+        task: vforked.parent,
+        resumes: true,
+    };
+    assert_eq!(
+        kernel.take_pending(child),
+        Some(GuestAction::VforkReturn { parent, child })
+    );
+}
+
 // ---- clone and pidfds ----
 
 #[test]

@@ -295,3 +295,48 @@ fn mremap_of_no_bytes_duplicates_a_shared_mapping() {
     assert_eq!(msync(shared), Ok(0));
     assert_eq!(get(&memory, shared, 12), b"SHARED bytes");
 }
+
+/// Whether `pid` is seen to have exited: a zombie, or reaped already.
+fn exited(kernel: &Kernel, pid: TaskId) -> bool {
+    let tree = kernel.procs.tree.lock().unwrap();
+    tree.nodes.get(&pid.0).is_none_or(|node| node.is_zombie())
+}
+
+/// A fatal signal ends the group as an exit does: each task leaves the memory as the execution
+/// layer unwinds it ([`Kernel::exit_mm`]), the last one writes back the shared mappings, and
+/// only after that is the process seen to exit (`do_exit`: `exit_mm`, then `exit_notify`).
+#[test]
+fn a_fatal_signal_writes_back_shared_mappings_once_the_last_task_leaves_the_memory() {
+    let (kernel, task, memory, fd) = with_file(b"hello file");
+    let caller = Caller::new(task, &memory);
+    let at = mmap(&kernel, &caller, PAGE, MapFlags::MAP_SHARED, fd).unwrap();
+    let null = GuestPtrMut::NULL;
+    let spawn = kernel.thread_spawn(&caller, 0x10f00, 0, null, 0, null);
+    let thread = TaskId(block_on(spawn).unwrap() as u32);
+    let thread_caller = Caller::new(thread, &memory);
+    while kernel.take_pending(task).is_some() {}
+    put(&memory, at, b"HELLO");
+    let reader = another_process(&kernel);
+    let reader_memory = FlatMemory(RefCell::new(vec![0; 2 * PAGE as usize]));
+    let reader_caller = Caller::new(reader, &reader_memory);
+    let reader_fd = open(&kernel, &reader_caller, b"/f", OpenFlags::O_RDONLY);
+    let contents = || pread(&kernel, &reader_caller, reader_fd, 10, 0);
+
+    kernel.kill(task, Signal::SIGTERM).unwrap();
+    for t in [task, thread] {
+        assert_eq!(kernel.take_pending(t), Some(GuestAction::Exit(128 + 15)));
+    }
+    assert!(!exited(&kernel, task));
+
+    block_on(kernel.exit_mm(&thread_caller));
+    assert_eq!(
+        contents(),
+        b"hello file",
+        "the leader still uses the memory"
+    );
+    kernel.release_task(thread);
+    assert!(!exited(&kernel, task), "the leader is still in its memory");
+    block_on(kernel.exit_mm(&caller));
+    assert_eq!(contents(), b"HELLO file");
+    assert!(exited(&kernel, task));
+}

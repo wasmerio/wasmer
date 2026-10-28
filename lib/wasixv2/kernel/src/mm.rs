@@ -117,14 +117,6 @@ impl Mm {
         self.space().seen
     }
 
-    /// Forgets every mapping and the break, for a process that is gone. Shared mappings are
-    /// dropped without writing back, since the memory may be gone.
-    pub(crate) fn reset(&self) {
-        let old = std::mem::take(&mut *self.space());
-        self.shared.store(false, Ordering::Release);
-        drop(old);
-    }
-
     fn insert(&self, mapping: Mapping) {
         let mut space = self.space();
         space.mappings.insert(mapping);

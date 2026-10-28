@@ -278,7 +278,10 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
         Ok(process::ExecNew(image)) => return Ended::Exec(image),
         Err(err) => err,
     };
-    let task = cx.with(|env, _| env.task).await;
+    let (syscalls, task) = cx.with(|env, _| (env.syscalls.clone(), env.task)).await;
+    // The trap's signal ends the task: `exit_mm` while the memory is still there.
+    let memory = memory::OutsideMemory { cx };
+    syscalls.exit_mm(&Caller::new(task, &memory)).await;
     let message = err.to_string();
     let signal = fault_signal(err);
     tracing::debug!(tid = task.0, signal, "guest trapped: {message}");
@@ -697,6 +700,9 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
     while let Some(action) = raised.then(|| syscalls.take_pending(task)).flatten() {
         match action {
             GuestAction::Exit(status) => {
+                // `do_exit`'s `exit_mm`, while the memory is still there.
+                let memory = GuestMemory { env };
+                syscalls.exit_mm(&Caller::new(task, &memory)).await;
                 return Outcome::Unwind(RuntimeError::user(Box::new(Exited(status))));
             }
             GuestAction::StartThread {
@@ -747,7 +753,10 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 };
             }
             GuestAction::VforkReturn { parent, child } => {
-                // The child ended; nothing runs as it any more.
+                // The child ended; nothing runs as it any more. Its memory is the parent's,
+                // which stays.
+                let memory = GuestMemory { env };
+                syscalls.exit_mm(&Caller::new(child, &memory)).await;
                 syscalls.release(child);
                 match vfork_resume(env, parent, child).await {
                     Some(VforkResume::Unwind(err)) => return Outcome::Unwind(err),
