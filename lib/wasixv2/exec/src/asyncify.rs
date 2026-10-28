@@ -28,10 +28,12 @@
 //! - **Fork.** [`Request::Fork`] copies the instance (memory, exported mutable globals and the
 //!   unwound stack) into a [`ForkImage`] that a new instance rewinds as the child. Only the
 //!   outermost level can fork: the levels below would be host frames the copy cannot hold.
+//!   Ranges of memory that show a shared object are not copied: the child's memory shows the
+//!   same object there.
 
 use std::{any::Any, collections::HashMap, future::Future, sync::Arc};
 
-use wasixv2_syscalls::TaskId;
+use wasixv2_syscalls::{SharedMapping, TaskId};
 use wasmer::{
     AsStoreAsync, AsStoreMut, AsyncFunctionEnvMut, Function, FunctionEnv, Global, Instance, Module,
     Mutability, RuntimeError, StoreAsync, StoreMut, TypedFunction, Value,
@@ -76,9 +78,13 @@ pub(crate) enum Request {
     /// Record the stack, saved from `slot`, a guest address the import picks (such as its
     /// `jmp_buf`).
     Save { slot: u32 },
-    /// Copy the instance for the child task `child`. `tag` comes back to the import on both
-    /// sides of the fork.
-    Fork { child: TaskId, tag: Tag },
+    /// Copy the instance for the child task `child`, whose memory shows the objects of `shared`
+    /// where the parent's does. `tag` comes back to the import on both sides of the fork.
+    Fork {
+        child: TaskId,
+        tag: Tag,
+        shared: Vec<SharedMapping>,
+    },
 }
 
 /// Data an import passes through a fork to its resumption on both sides.
@@ -350,11 +356,11 @@ async fn settle<S: 'static>(
     stop_unwind.call_async(&cx.store()).await?;
     let resume = match request {
         Request::Save { slot } => Resume::Saved(save(cx, level, slot).await?),
-        Request::Fork { child, tag } => {
+        Request::Fork { child, tag, shared } => {
             let entry = entry.filter(|_| level == 1).ok_or_else(|| {
                 RuntimeError::new("fork from a guest call that is not the entry point")
             })?;
-            let image = snapshot(cx, entry, args, tag.clone()).await?;
+            let image = snapshot(cx, entry, args, tag.clone(), shared).await?;
             let spawner = cx.with(|env, _| env.proc.spawner.clone()).await;
             spawner.fork(child, image);
             Resume::Forked {
@@ -529,8 +535,10 @@ pub(crate) async fn restore<S: 'static>(
 /// A copy of an instance for a forked child.
 pub(crate) struct ForkImage {
     pub(crate) module: Module,
-    /// Linear memory, unwound stack included.
+    /// Linear memory, unwound stack included, but for `shared`.
     pub(crate) memory: MemoryImage,
+    /// The ranges of memory that show shared objects, which the child's memory shows too.
+    pub(crate) shared: Vec<SharedMapping>,
     /// Exported mutable globals and their values.
     pub(crate) globals: Vec<(String, Value)>,
     /// The entry point the child calls to rewind, and its arguments.
@@ -559,12 +567,14 @@ impl ForkImage {
     }
 }
 
-/// Copies the instance behind `cx`, whose outermost level just unwound.
+/// Copies the instance behind `cx`, whose outermost level just unwound, but for the ranges of
+/// memory that show the objects of `shared`.
 async fn snapshot<S: 'static>(
     cx: &impl Access<S>,
     entry: &'static str,
     args: &[Value],
     tag: Tag,
+    shared: Vec<SharedMapping>,
 ) -> Result<ForkImage, RuntimeError> {
     cx.with(|env, store| {
         let module = env
@@ -574,7 +584,14 @@ async fn snapshot<S: 'static>(
             .ok_or_else(|| RuntimeError::new("fork needs the instance's module"))?;
         let memory = env.memory.clone().expect("an instance has memory");
         let a = env.asyncify.as_ref().expect("unwound above");
-        let image = MemoryImage::capture(&memory, &*store)
+        let ranges: Vec<_> = shared
+            .iter()
+            .map(|mapping| {
+                let start = u64::from(mapping.addr);
+                start..start + mapping.len
+            })
+            .collect();
+        let image = MemoryImage::capture(&memory, &*store, &ranges)
             .map_err(|_| RuntimeError::new("cannot copy guest memory"))?;
         let globals = a
             .globals
@@ -591,6 +608,7 @@ async fn snapshot<S: 'static>(
         Ok(ForkImage {
             module,
             memory: image,
+            shared,
             globals,
             entry,
             args: args.to_vec(),

@@ -78,7 +78,8 @@ use wasixv2_host::Host;
 pub use wasixv2_host::{Console, Stdio, WindowSize};
 use wasixv2_syscalls::{
     AtomicWait, AtomicWord, Binfmt, Caller, Control, Errno, ExitMm, Fd, GroupStop, GuestAction,
-    Image, LocalFuture, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
+    Image, LocalFuture, SharedMapping, SharedMappings, SysResult, Syscalls, TaskId, UserSlice,
+    UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -2507,6 +2508,12 @@ impl GroupStop for Kernel {
 impl ExitMm for Kernel {
     fn exit_mm<'a>(&'a self, caller: &'a Caller<'a>) -> LocalFuture<'a, ()> {
         Box::pin(Kernel::exit_mm(self, caller))
+    }
+}
+
+impl SharedMappings for Kernel {
+    fn shared_mappings(&self, task: TaskId) -> Vec<SharedMapping> {
+        Kernel::shared_mappings(self, task)
     }
 }
 

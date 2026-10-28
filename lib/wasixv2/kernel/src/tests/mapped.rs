@@ -41,6 +41,19 @@ impl MappedMemory {
         }
     }
 
+    /// A fork child's memory: a copy of this one, which shows `shared` again as the execution
+    /// layer's copy does.
+    pub(super) fn fork(&self, shared: &[wasixv2_syscalls::SharedMapping]) -> Self {
+        let child = Self::new(self.size.get() / PAGE as usize, self.forkable);
+        // SAFETY: both ranges lie inside their reservations, which do not overlap.
+        unsafe { std::ptr::copy_nonoverlapping(self.base, child.base, self.size.get()) };
+        for mapping in shared {
+            block_on(child.map_shared(mapping.addr, mapping.len, &*mapping.pages, mapping.offset))
+                .unwrap();
+        }
+        child
+    }
+
     fn range(&self, addr: u32, len: usize) -> Result<*mut u8, Fault> {
         match (addr as usize).checked_add(len) {
             Some(end) if end <= self.size.get() => {
@@ -289,4 +302,62 @@ fn memory_that_cannot_show_pages_keeps_shared_anonymous_memory_private() {
     let caller = Caller::new(task, &memory);
     let a = mmap_shared(&kernel, &caller, PAGE);
     assert_eq!(errno(duplicate(&kernel, &caller, a, PAGE)), Errno::EINVAL);
+}
+
+fn fork(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
+    let flags = wasixv2_abi::Signal::SIGCHLD.0 as u32;
+    let none = wasixv2_abi::S32Ptr::new(0);
+    let child = block_on(kernel.clone(caller, flags, 0, none, 0, none));
+    while kernel.take_pending(caller.task()).is_some() {}
+    TaskId(child.expect("fork") as u32)
+}
+
+#[test]
+fn shared_anonymous_memory_stays_shared_across_fork() {
+    let (kernel, parent) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let private = block_on(kernel.mmap(
+        &caller,
+        0,
+        PAGE,
+        RW,
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+        Fd(-1),
+        0,
+    ))
+    .unwrap();
+    let shared = mmap_shared(&kernel, &caller, 2 * PAGE);
+    memory.put(shared, b"before");
+    memory.put(private, b"before");
+
+    let child = fork(&kernel, &caller);
+    let inherited = kernel.shared_mappings(child);
+    assert_eq!(inherited.len(), 1);
+    assert_eq!(
+        (inherited[0].addr, inherited[0].len),
+        (shared, 2 * u64::from(PAGE))
+    );
+    let child_memory = memory.fork(&inherited);
+    assert_eq!(child_memory.get(shared, 6), b"before");
+
+    // Shared memory: each sees the other's stores at once, with no syscall in between.
+    child_memory.put(shared + PAGE, b"from the child");
+    assert_eq!(memory.get(shared + PAGE, 14), b"from the child");
+    memory.put(shared, b"parent");
+    assert_eq!(child_memory.get(shared, 6), b"parent");
+    // Private memory: each has its own copy.
+    child_memory.put(private, b"child!");
+    assert_eq!(memory.get(private, 6), b"before");
+
+    // Unmapping in the child leaves the parent's mapping alone.
+    let child_caller = Caller::new(child, &child_memory);
+    assert_eq!(
+        block_on(kernel.munmap(&child_caller, shared, 2 * PAGE)),
+        Ok(0)
+    );
+    assert!(kernel.shared_mappings(child).is_empty());
+    memory.put(shared, b"still");
+    assert_eq!(child_memory.get(shared, 5), [0; 5]);
+    assert_eq!(kernel.shared_mappings(parent).len(), 1);
 }

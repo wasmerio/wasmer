@@ -480,7 +480,8 @@ where
     let guarded = abi.low_guard() && memory::guardable(&instance, &mut store);
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
     if let Some(image) = fork {
-        copy_image(&mut store, &instance, &memory, image)?;
+        let guard = if guarded { memory::LOW_GUARD } else { 0 };
+        copy_image(&mut store, &instance, &memory, image, guard)?;
         if let Some(asyncify) = &mut asyncify {
             image.adopt(asyncify);
         }
@@ -517,13 +518,16 @@ pub(crate) fn stack_pointer(instance: &Instance) -> Option<Global> {
     instance.exports.get_global("__stack_pointer").ok().cloned()
 }
 
-/// Fills a fresh instance with a forked parent's memory and globals. The instance's own low
-/// guard is not protected yet.
+/// Fills a fresh instance with a forked parent's memory and globals, and makes its memory show
+/// the parent's shared objects where the parent's does. The instance's own low guard of `guard`
+/// bytes is not protected yet: mapping an object resets the protection of its range, so the
+/// guard is protected after.
 fn copy_image(
     store: &mut Store,
     instance: &Instance,
     memory: &Memory,
     image: &asyncify::ForkImage,
+    guard: u32,
 ) -> Result<(), ExecError> {
     let size = memory.view(&*store).data_size();
     let missing = image.memory.size().saturating_sub(size);
@@ -535,6 +539,7 @@ fn copy_image(
         .memory
         .restore(memory, &*store)
         .map_err(|err| ExecError::Fork(err.to_string()))?;
+    map_inherited(memory, guard, &*store, &image.shared)?;
     for (name, value) in &image.globals {
         let global = instance.exports.get_global(name)?;
         global
@@ -542,6 +547,49 @@ fn copy_image(
             .map_err(|err| ExecError::Fork(err.to_string()))?;
     }
     Ok(())
+}
+
+/// Makes a fork child's `memory` show the shared objects its parent's memory showed
+/// (`dup_mmap`), over the copy, which left those ranges out or holds their bytes as they were.
+#[cfg(all(unix, feature = "sys"))]
+fn map_inherited(
+    memory: &Memory,
+    guard: u32,
+    store: &impl wasmer::AsStoreRef,
+    shared: &[wasixv2_syscalls::SharedMapping],
+) -> Result<(), ExecError> {
+    for mapping in shared {
+        let (addr, len) = (mapping.addr, mapping.len);
+        memory::map_shared(
+            memory,
+            guard,
+            store,
+            addr,
+            len,
+            &*mapping.pages,
+            mapping.offset,
+        )
+        .map_err(|errno| {
+            ExecError::Fork(format!(
+                "cannot map a shared object at {addr:#x} ({len} bytes) in the child: {errno:?}"
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+/// Only memories that can show shared objects have any to inherit.
+#[cfg(not(all(unix, feature = "sys")))]
+fn map_inherited(
+    _memory: &Memory,
+    _guard: u32,
+    _store: &impl wasmer::AsStoreRef,
+    shared: &[wasixv2_syscalls::SharedMapping],
+) -> Result<(), ExecError> {
+    match shared.is_empty() {
+        true => Ok(()),
+        false => Err(ExecError::Fork("this host cannot share pages".into())),
+    }
 }
 
 impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {

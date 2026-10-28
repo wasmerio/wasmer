@@ -6,6 +6,11 @@
 //! rather than the whole memory, most of whose 8 MiB stack is never touched. Elsewhere, where the
 //! pagemap does not work, and for memory that is not private and anonymous, it copies every byte.
 //!
+//! **Shared objects.** Ranges of the memory that show a shared object's pages are left out of a
+//! sparse copy: the child's memory shows the same object there (`dup_mmap` copies no pages of a
+//! shared mapping, `vma_needs_copy` in `mm/memory.c`). Their pages are the only ones of a linear
+//! memory the pagemap reports as shared; anywhere else such a page makes the copy a full one.
+//!
 //! **What the child sees.** As with a full copy, the forking thread copies while the parent's
 //! other threads run, so each page of the child holds its parent's page as it was at some instant
 //! during the fork, and a page another thread writes during the copy may come out torn. For an
@@ -21,7 +26,8 @@
 //! runs, are cleared, since the parent's held zero there.
 
 #[cfg(all(target_os = "linux", feature = "sys"))]
-use std::{io, ops::Range};
+use std::io;
+use std::ops::Range;
 
 #[cfg(all(target_os = "linux", feature = "sys"))]
 use wasmer::MemoryView;
@@ -40,15 +46,20 @@ pub(crate) enum MemoryImage {
 }
 
 impl MemoryImage {
-    /// Copies `memory`, sparsely where the host can tell which pages hold anything.
+    /// Copies `memory`, sparsely where the host can tell which pages hold anything. A sparse
+    /// copy leaves out `shared`, the ranges that show shared objects, in address order; a full
+    /// one holds every byte.
     pub(crate) fn capture(
         memory: &Memory,
         store: &impl AsStoreRef,
+        shared: &[Range<u64>],
     ) -> Result<Self, MemoryAccessError> {
         let view = memory.view(store);
+        #[cfg(not(all(target_os = "linux", feature = "sys")))]
+        let _ = shared;
         #[cfg(all(target_os = "linux", feature = "sys"))]
         if let Some(pagemap) = Pagemap::get() {
-            match Sparse::capture(pagemap, &view) {
+            match Sparse::capture(pagemap, &view, shared) {
                 Ok(sparse) => return Ok(Self::Sparse(sparse)),
                 Err(err) => tracing::warn!(%err, "cannot copy guest memory sparsely; copying all"),
             }
@@ -97,27 +108,24 @@ pub(crate) struct Sparse {
 
 #[cfg(all(target_os = "linux", feature = "sys"))]
 impl Sparse {
-    /// Copies the pages of `view` that hold anything. Fails on memory that is not private and
-    /// anonymous, whose untouched pages need not read zero.
-    fn capture(pagemap: &Pagemap, view: &MemoryView) -> io::Result<Self> {
+    /// Copies the pages of `view` that hold anything, outside `shared`. Fails on memory that is
+    /// not private and anonymous there, whose untouched pages need not read zero.
+    fn capture(pagemap: &Pagemap, view: &MemoryView, shared: &[Range<u64>]) -> io::Result<Self> {
         let mut sparse = Self {
             size: view.data_size(),
             runs: Vec::new(),
             bytes: Vec::new(),
         };
-        for_chunks(
-            pagemap,
-            view,
-            0..sparse.size,
-            |addr, len, page| match page {
+        for range in outside(sparse.size, shared) {
+            for_chunks(pagemap, view, range, |addr, len, page| match page {
                 Page::Untouched => Ok(()),
                 Page::Private => sparse.push(view, addr, len),
                 Page::Shared => Err(io::Error::new(
                     io::ErrorKind::Unsupported,
                     "the memory is not private anonymous memory",
                 )),
-            },
-        )?;
+            })?;
+        }
         Ok(sparse)
     }
 
@@ -160,6 +168,23 @@ impl Sparse {
             .filter(|(start, end)| start < end)
             .map(|(s, e)| s..e)
     }
+}
+
+/// The parts of a memory of `size` bytes outside `ranges`, which are in address order and apart.
+#[cfg(all(target_os = "linux", feature = "sys"))]
+fn outside(size: u64, ranges: &[Range<u64>]) -> Vec<Range<u64>> {
+    let mut parts = Vec::with_capacity(ranges.len() + 1);
+    let mut at = 0;
+    for range in ranges {
+        if range.start > at {
+            parts.push(at..range.start.min(size));
+        }
+        at = at.max(range.end);
+    }
+    if at < size {
+        parts.push(at..size);
+    }
+    parts
 }
 
 /// Calls `f` with each host page of `range` of `view` (page aligned) and what the pagemap says
@@ -254,7 +279,8 @@ mod tests {
         // A page only read, and a page written with zeros, hold nothing.
         view.read_u8(6 * WASM_PAGE).unwrap();
         view.write(7 * WASM_PAGE, &[0; 16]).unwrap();
-        let MemoryImage::Sparse(sparse) = MemoryImage::capture(&parent, &store).unwrap() else {
+        let MemoryImage::Sparse(sparse) = MemoryImage::capture(&parent, &store, &[]).unwrap()
+        else {
             panic!("expected a sparse copy");
         };
         assert_eq!(sparse.size, 8 * WASM_PAGE);
@@ -280,6 +306,54 @@ mod tests {
         assert_eq!(pages, [Page::Untouched]);
         let parent_bytes = parent.view(&store).copy_to_vec().unwrap();
         assert!(view.copy_to_vec().unwrap() == parent_bytes);
+    }
+
+    #[test]
+    fn a_fork_leaves_out_shared_objects_and_the_child_maps_them_again() {
+        use wasixv2_pages::{Memfd, SharedPages};
+
+        use crate::memory::{LOW_GUARD, map_shared};
+
+        let Some(pagemap) = Pagemap::get() else {
+            eprintln!("skipped: this host has no usable /proc/self/pagemap");
+            return;
+        };
+        let host_page = pagemap.page_size() as u64;
+        let mut store = Store::default();
+        let parent = memory(&mut store, 8);
+        let pages = Memfd::new(2 * WASM_PAGE).unwrap();
+        let (at, len) = (4 * WASM_PAGE, 2 * WASM_PAGE);
+        map_shared(&parent, LOW_GUARD, &store, at as u32, len, &pages, 0).unwrap();
+        let view = parent.view(&store);
+        view.write(WASM_PAGE, b"private").unwrap();
+        view.write(at + 10, b"shared").unwrap();
+
+        // Without the range, the shared pages make the copy a full one, as before.
+        let image = MemoryImage::capture(&parent, &store, &[]).unwrap();
+        assert!(matches!(image, MemoryImage::Full(_)));
+        let image = MemoryImage::capture(&parent, &store, &[at..at + len]).unwrap();
+        let MemoryImage::Sparse(sparse) = &image else {
+            panic!("expected a sparse copy");
+        };
+        assert_eq!(sparse.runs, [(WASM_PAGE, host_page)]);
+
+        let child = memory(&mut store, 8);
+        image.restore(&child, &store).unwrap();
+        map_shared(&child, LOW_GUARD, &store, at as u32, len, &pages, 0).unwrap();
+        let view = child.view(&store);
+        let mut buf = [0; 7];
+        view.read(WASM_PAGE, &mut buf).unwrap();
+        assert_eq!(&buf, b"private");
+        view.read(at + 10, &mut buf[..6]).unwrap();
+        assert_eq!(&buf[..6], b"shared");
+        // Parent and child see each other's stores.
+        view.write(at + WASM_PAGE, b"child").unwrap();
+        parent
+            .view(&store)
+            .read(at + WASM_PAGE, &mut buf[..5])
+            .unwrap();
+        assert_eq!(&buf[..5], b"child");
+        assert!(pages.allocated() >= host_page);
     }
 
     #[test]
