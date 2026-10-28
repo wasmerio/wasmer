@@ -181,7 +181,8 @@ impl SocketFile {
     }
 
     /// One receive into `buf`, waiting for data unless non-blocking. `MSG_WAITALL` is the
-    /// caller's to loop on.
+    /// caller's to loop on. `MSG_ERRQUEUE` never waits: it reads the error queue or fails
+    /// with `EAGAIN` (`ip_recv_error` is called before `__skb_recv_udp`'s wait).
     pub(crate) async fn recv(
         &self,
         wait: &mut Blocking<'_>,
@@ -190,6 +191,9 @@ impl SocketFile {
     ) -> SysResult<RecvMsg> {
         let socket = &self.socket;
         let proto_flags = flags & !(MsgFlags::MSG_WAITALL | MsgFlags::MSG_DONTWAIT);
+        if flags.contains(MsgFlags::MSG_ERRQUEUE) {
+            return Ok(socket.recv(buf, proto_flags)?);
+        }
         wait.wait(WaitOn::Object(&**socket), PollMask::READABLE, || {
             socket.recv(buf, proto_flags)
         })
