@@ -168,6 +168,43 @@ fn udp_through_the_backend() {
     assert_eq!(r.from, Some(dst));
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn host_port_unreachables_reach_the_error_queue_in_the_guest_view() {
+    let net = setup();
+    let s = net
+        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+        .unwrap();
+    s.set_option(
+        SocketLevel::SOL_IP.0,
+        wasixv2_abi::IpOption::IP_RECVERR.0,
+        &1i32.to_le_bytes(),
+    )
+    .unwrap();
+    let closed = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let port = closed.local_addr().unwrap().port();
+    drop(closed);
+    let dst: SocketAddr = format!("10.0.2.2:{port}").parse().unwrap();
+    assert_eq!(send(&*s, b"query", Some(dst)), Ok(5));
+    wait_for(&*s, PollMask::ERR);
+    let mut buf = [0u8; 16];
+    let r = loop {
+        // The pending error and the queued entry come from one reactor pass, but the wakeup
+        // may fall between them.
+        match s.recv(&mut buf, MsgFlags::MSG_ERRQUEUE) {
+            Err(Errno::EAGAIN) => std::thread::sleep(Duration::from_millis(10)),
+            r => break r.unwrap(),
+        }
+    };
+    assert_eq!(&buf[..r.len], b"query");
+    assert_eq!(r.flags, MsgFlags::MSG_ERRQUEUE);
+    // The host's loopback is the guest's gateway alias, for the address and the offender.
+    assert_eq!(r.from, Some(dst));
+    let c = &r.control[0];
+    assert_eq!(c.data[..8], [111, 0, 0, 0, 2, 3, 3, 0]);
+    assert_eq!(c.data[16..24], [2, 0, 0, 0, 10, 0, 2, 2]);
+}
+
 /// One registration on a socket's queues, made once and never renewed: what an epoll item
 /// added before the traffic, or a task asleep in `recv`, holds.
 struct Registered {

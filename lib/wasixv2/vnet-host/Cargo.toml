@@ -17,5 +17,6 @@ wasixv2-wait = { path = "../wait" }
 tracing = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
+libc = { workspace = true, features = ["std"] }
 mio = { workspace = true, features = ["net", "os-ext", "os-poll"] }
 socket2 = { workspace = true }

@@ -7284,6 +7284,7 @@ dependencies = [
 name = "wasixv2-vnet-host"
 version = "0.0.0"
 dependencies = [
+ "libc",
  "mio",
  "socket2",
  "tracing",
