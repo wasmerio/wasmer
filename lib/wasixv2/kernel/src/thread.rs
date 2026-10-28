@@ -5,8 +5,8 @@
 use std::sync::{Arc, Mutex};
 
 use wasixv2_abi::{
-    CloneFlags, GuestPtrMut, RobustListHeadPtr, RobustListHeadPtrPtr, S32Ptr, Ulong, Uptr, Usize,
-    UsizePtr,
+    CloneFlags, GuestPtrMut, RobustListHeadPtr, RobustListHeadPtrPtr, S32Ptr, SiCode, Ulong, Uptr,
+    Usize, UsizePtr,
 };
 use wasixv2_syscalls::{
     Caller, Errno, GuestAction, Image, SysResult, TaskId, VforkParent, WorkFlag, write_value,
@@ -274,7 +274,8 @@ impl Kernel {
                 self.vfork_done(parent);
             }
         }
-        forget_task(&mut self.state.lock().unwrap(), child);
+        let stopped = forget_task(&mut self.state.lock().unwrap(), child);
+        self.report_group_stop(stopped);
     }
 
     /// `do_exit` for one task: its memory goes first ([`Kernel::exit_mm`]). The last task to
@@ -426,31 +427,57 @@ impl Kernel {
     /// `release_task`: the execution layer is done with `task`, so it goes. A zombie process
     /// lives on in the process tree.
     pub(crate) fn release_task(&self, task: TaskId) {
-        let process = {
+        let (process, stopped) = {
             let mut state = self.state.lock().unwrap();
             let (unstarted, process) = match state.tasks.get_mut(&task) {
                 Some(entry) => (entry.work.take_unstarted(), entry.process.clone()),
                 None => return,
             };
+            let mut stopped = None;
             for child in unstarted {
-                forget_task(&mut state, child);
+                stopped = stopped.or(forget_task(&mut state, child));
             }
-            forget_task(&mut state, task);
-            process
+            stopped = stopped.or(forget_task(&mut state, task));
+            (process, stopped)
         };
+        self.report_group_stop(stopped);
         self.exit_notify(&process);
+    }
+
+    /// Tells the parent of the group stop that [`forget_task`] completed for `process`.
+    pub(crate) fn report_group_stop(&self, process: Option<Arc<Process>>) {
+        let Some(process) = process else {
+            return;
+        };
+        let status = self
+            .live_signals(&process)
+            .map_or(0, |signals| signals.stop_status());
+        self.notify_parent_cldstop(&process, SiCode::CLD_STOPPED, status);
+    }
+
+    /// The signal state of `process`'s thread group, while it has a task.
+    fn live_signals(&self, process: &Arc<Process>) -> Option<Arc<Signals>> {
+        let state = self
+            .state
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state
+            .tasks
+            .values()
+            .find(|t| Arc::ptr_eq(&t.process, process))
+            .map(|t| t.signals.group().clone())
     }
 
     /// `thread-spawn` made `task`, but its thread never started.
     pub(crate) fn abort_thread(&self, task: TaskId) {
-        let process = {
+        let (process, stopped) = {
             let mut state = self.state.lock().unwrap();
             let Some(process) = state.tasks.get(&task).map(|t| t.process.clone()) else {
                 return;
             };
-            forget_task(&mut state, task);
-            process
+            (process, forget_task(&mut state, task))
         };
+        self.report_group_stop(stopped);
         self.exit_notify(&process);
     }
 
@@ -865,14 +892,16 @@ fn mm_users(state: &State, task: TaskId) -> usize {
 }
 
 /// Removes `task` from the kernel, counting it out of its thread group if it was still alive.
-pub(crate) fn forget_task(state: &mut State, task: TaskId) {
-    let Some(entry) = state.tasks.remove(&task) else {
-        return;
-    };
-    entry.signals.detach();
+/// Returns its process when that completed a group stop the task never took its part in (a
+/// thread that never started), which the caller reports once it unlocked the task table
+/// ([`Kernel::report_group_stop`]).
+pub(crate) fn forget_task(state: &mut State, task: TaskId) -> Option<Arc<Process>> {
+    let entry = state.tasks.remove(&task)?;
+    let completed = entry.signals.detach();
     let group = &entry.process.group;
     if !entry.thread.exited {
         group.state.lock().unwrap().live -= 1;
     }
     group.released.wake(PollMask::empty());
+    completed.then_some(entry.process)
 }

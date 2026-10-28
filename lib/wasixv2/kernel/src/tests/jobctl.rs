@@ -1,11 +1,16 @@
-//! Job control: group stops and SIGCONT.
+//! Job control: group stops and SIGCONT, and how a parent hears of them.
 
 use futures::FutureExt as _;
-use wasixv2_abi::{OpenFlags, Signal};
+use wasixv2_abi::{
+    Idtype, OpenFlags, Pid, RusagePtr, SaFlags, SiCode, Sigaction, Siginfo, SiginfoPtr, Signal,
+    Sigset, WaitOptions,
+};
+use wasixv2_syscalls::{read_value, write_value};
 use wasixv2_wait::Interrupt as _;
 
 use super::{
     ipc::{machine, pipe},
+    proc::ForkableMemory,
     task::{execve, handle, install_prog},
     *,
 };
@@ -258,4 +263,178 @@ fn an_execve_ends_a_stop_under_way() {
     kernel.release(execing);
     assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
     assert!(!group_stopped(&kernel, leader));
+}
+
+// ---- reports to the parent ----
+
+const SIGCHLD_BIT: u64 = 1 << (Signal::SIGCHLD.0 - 1);
+
+/// An address space the engine can duplicate, as the asyncify configuration's is.
+fn forkable() -> ForkableMemory {
+    ForkableMemory(FlatMemory(RefCell::new(vec![0; 0x1000])))
+}
+
+/// Forks the caller and returns the child.
+fn fork(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
+    let flags = Signal::SIGCHLD.0 as u32;
+    let clone = kernel.clone(caller, flags, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    let child = TaskId(block_on(clone).expect("fork") as u32);
+    while kernel.take_pending(caller.task()).is_some() {}
+    child
+}
+
+/// A parent that keeps the SIGCHLDs it gets pending, and a child it forked.
+fn family() -> (Kernel, TaskId, ForkableMemory, TaskId) {
+    let (kernel, parent, _) = setup(b"");
+    let memory = forkable();
+    let child = fork(&kernel, &Caller::new(parent, &memory));
+    kernel.task_signals(parent).replace_blocked(SIGCHLD_BIT);
+    (kernel, parent, memory, child)
+}
+
+/// `waitid(P_PID, child, options | WNOHANG)`: the reported `(si_code, si_status)`, if any.
+fn wait(kernel: &Kernel, caller: &Caller<'_>, child: TaskId, options: u32) -> Option<(i32, i32)> {
+    let options = WaitOptions(options | WaitOptions::WNOHANG.0);
+    let infop = SiginfoPtr::new(0x300);
+    let wait = kernel.waitid(
+        caller,
+        Idtype::P_PID,
+        child.0 as Pid,
+        infop,
+        options,
+        RusagePtr::new(0),
+    );
+    assert_eq!(block_on(wait), Ok(0));
+    let info: Siginfo = block_on(read_value(caller.memory(), GuestPtr::new(0x300))).unwrap();
+    (info.si_signo != 0).then(|| (info.si_code, field(&info, 8)))
+}
+
+fn field(info: &Siginfo, at: usize) -> i32 {
+    i32::from_le_bytes(info.sifields[at..at + 4].try_into().unwrap())
+}
+
+/// The SIGCHLD pending for `parent`: `(si_code, si_pid, si_status)`.
+fn sigchld(kernel: &Kernel, parent: TaskId) -> Option<(i32, i32, i32)> {
+    let info = kernel.task_signals(parent).dequeue_from(SIGCHLD_BIT)?;
+    Some((info.si_code, field(&info, 0), field(&info, 8)))
+}
+
+const STOPPED: i32 = SiCode::CLD_STOPPED.0;
+const CONTINUED: i32 = SiCode::CLD_CONTINUED.0;
+const WSTOPPED: u32 = WaitOptions::WSTOPPED.0;
+const WCONTINUED: u32 = WaitOptions::WCONTINUED.0;
+const WNOWAIT: u32 = WaitOptions::WNOWAIT.0;
+
+/// `do_notify_parent_cldstop` and `wait_task_stopped`, `wait_task_continued`: the parent gets
+/// SIGCHLD with `CLD_STOPPED` and then `CLD_CONTINUED`, and `waitid` reports each once, or
+/// again after `WNOWAIT`.
+#[test]
+fn the_parent_hears_of_a_stop_and_a_continue_once() {
+    let (kernel, parent, memory, child) = family();
+    let caller = Caller::new(parent, &memory);
+    let pid = child.0 as i32;
+
+    kernel.kill(child, Signal::SIGTSTP).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+
+    assert_eq!(
+        sigchld(&kernel, parent),
+        Some((STOPPED, pid, Signal::SIGTSTP.0))
+    );
+    assert_eq!(wait(&kernel, &caller, child, WaitOptions::WEXITED.0), None);
+    let stopped = Some((STOPPED, Signal::SIGTSTP.0));
+    assert_eq!(wait(&kernel, &caller, child, WSTOPPED | WNOWAIT), stopped);
+    assert_eq!(wait(&kernel, &caller, child, WSTOPPED), stopped);
+    assert_eq!(
+        wait(&kernel, &caller, child, WSTOPPED),
+        None,
+        "reported once"
+    );
+    assert_eq!(wait(&kernel, &caller, child, WCONTINUED), None);
+
+    kernel.kill(child, Signal::SIGCONT).unwrap();
+    assert_eq!(kernel.take_pending(child), None);
+
+    let continued = Some((CONTINUED, Signal::SIGCONT.0));
+    assert_eq!(
+        sigchld(&kernel, parent),
+        Some((CONTINUED, pid, Signal::SIGCONT.0))
+    );
+    assert_eq!(wait(&kernel, &caller, child, WSTOPPED), None);
+    assert_eq!(
+        wait(&kernel, &caller, child, WCONTINUED | WNOWAIT),
+        continued
+    );
+    assert_eq!(wait(&kernel, &caller, child, WCONTINUED), continued);
+    assert_eq!(
+        wait(&kernel, &caller, child, WCONTINUED),
+        None,
+        "reported once"
+    );
+}
+
+/// `SA_NOCLDSTOP` keeps SIGCHLD from coming for stops and continues; `waitid` still reports
+/// them, and a parent blocked in it wakes.
+#[test]
+fn sa_nocldstop_keeps_sigchld_away_but_not_waitid() {
+    let (kernel, parent, memory, child) = family();
+    let caller = Caller::new(parent, &memory);
+    let act = Sigaction {
+        sa_handler: 7,
+        sa_flags: SaFlags::SA_NOCLDSTOP.0,
+        sa_mask: Sigset { sig: [0; 2] },
+    };
+    block_on(write_value(caller.memory(), GuestPtrMut::new(0x140), &act)).unwrap();
+    assert_eq!(block_on(kernel.signal_callback_register(&caller, 3)), Ok(0));
+    let set = kernel.rt_sigaction(
+        &caller,
+        Signal::SIGCHLD,
+        GuestPtr::new(0x140),
+        GuestPtrMut::NULL,
+        8,
+    );
+    assert_eq!(block_on(set), Ok(0));
+    let options = WaitOptions(WSTOPPED);
+    let infop = SiginfoPtr::new(0x300);
+    let mut waiting =
+        Box::pin(kernel.waitid(&caller, Idtype::P_ALL, 0, infop, options, RusagePtr::new(0)));
+    assert_eq!(waiting.as_mut().now_or_never(), None);
+
+    kernel.kill(child, Signal::SIGSTOP).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+
+    assert_eq!(waiting.as_mut().now_or_never(), Some(Ok(0)));
+    let info: Siginfo = block_on(read_value(caller.memory(), GuestPtr::new(0x300))).unwrap();
+    assert_eq!(
+        (info.si_code, field(&info, 8)),
+        (STOPPED, Signal::SIGSTOP.0)
+    );
+    kernel.kill(child, Signal::SIGCONT).unwrap();
+    assert_eq!(kernel.take_pending(child), None);
+    assert_eq!(sigchld(&kernel, parent), None);
+    let continued = Some((CONTINUED, Signal::SIGCONT.0));
+    assert_eq!(wait(&kernel, &caller, child, WCONTINUED), continued);
+}
+
+/// SIGCONT before every thread stopped: the parent hears of a stop, with no signal, since
+/// SIGCHLD does not queue and the continue would be lost behind it (`prepare_signal`); the
+/// continue is still there for `WCONTINUED`, and the stop never completes for `WSTOPPED`.
+#[test]
+fn a_stop_cut_short_is_reported_as_a_stop() {
+    let (kernel, parent, memory, child) = family();
+    let caller = Caller::new(parent, &memory);
+    let child_memory = forkable();
+    let thread = spawn_thread(&kernel, &Caller::new(child, &child_memory));
+    kernel.kill(child, Signal::SIGSTOP).unwrap();
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Stopped));
+
+    kernel.kill(child, Signal::SIGCONT).unwrap();
+    assert_eq!(kernel.take_pending(child), None);
+
+    assert_eq!(sigchld(&kernel, parent), Some((STOPPED, child.0 as i32, 0)));
+    assert_eq!(wait(&kernel, &caller, child, WSTOPPED), None);
+    let continued = Some((CONTINUED, Signal::SIGCONT.0));
+    assert_eq!(wait(&kernel, &caller, child, WCONTINUED), continued);
+    assert_eq!(kernel.take_pending(thread), None);
+    assert_eq!(sigchld(&kernel, parent), None, "told once");
 }

@@ -31,6 +31,7 @@ use crate::{
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     ident::Comm,
     signal::{Signals, user_info},
+    sync::MutexExt,
     thread,
     work::Work,
 };
@@ -401,6 +402,31 @@ impl Kernel {
         {
             // A realtime exit signal its parent has no room for is lost.
             let _ = signals.send_group(child_info(exit_signal, pid, exit));
+        }
+        self.procs.changed.wake(PollMask::empty());
+    }
+
+    /// `do_notify_parent_cldstop`: `process` stopped (`CLD_STOPPED`, `status` the signal) or
+    /// SIGCONT continued it (`CLD_CONTINUED`, `status` SIGCONT). Its parent gets SIGCHLD unless
+    /// it ignores it or set `SA_NOCLDSTOP`, and its waiters look again either way.
+    pub(crate) fn notify_parent_cldstop(&self, process: &Process, why: SiCode, status: i32) {
+        let pid = process.pid.0;
+        let parent = {
+            let tree = self.procs.tree.lock_or_recover();
+            tree.nodes.get(&pid).map_or(0, |node| node.parent)
+        };
+        let parent_signals = (parent != 0).then(|| self.group_signals(parent)).flatten();
+        if let Some(signals) = parent_signals
+            && !signals.nocldstop()
+        {
+            let uid = process.cred().user.real;
+            let exit = Exit {
+                code: why,
+                status,
+                uid,
+            };
+            // SIGCHLD needs no room in a queue.
+            let _ = signals.send_group(child_info(Signal::SIGCHLD.0, pid, exit));
         }
         self.procs.changed.wake(PollMask::empty());
     }
@@ -984,8 +1010,11 @@ impl Kernel {
         Ok(0)
     }
 
-    /// One pass of `do_wait`: a reapable child, `Ok(None)` for `WNOHANG` when none is, `ECHILD`
-    /// without matching children, and `None` to keep waiting.
+    /// One pass of `do_wait`: a child to report, `Ok(None)` for `WNOHANG` when none is,
+    /// `ECHILD` without matching children, and `None` to keep waiting. A zombie comes first
+    /// (`wait_task_zombie`); then, for `WSTOPPED`, a stopped child whose stop no `waitid`
+    /// reported yet (`wait_task_stopped`), and for `WCONTINUED` a continued one
+    /// (`wait_task_continued`). `WNOWAIT` leaves what it reports to be reported again.
     #[allow(clippy::type_complexity)]
     fn wait_once(
         &self,
@@ -996,6 +1025,7 @@ impl Kernel {
         let mut tree = self.procs.tree.lock().unwrap();
         let mut any = false;
         let mut ready = None;
+        let mut live = Vec::new();
         for (&pid, node) in tree.children(me) {
             let matches = match which {
                 Which::All => true,
@@ -1011,11 +1041,13 @@ impl Kernel {
                 continue;
             }
             any = true;
-            if let Some(exit) = node.exit
-                && options & WaitOptions::WEXITED.0 != 0
-            {
-                ready = Some((pid, exit));
-                break;
+            match node.exit {
+                Some(exit) if options & WaitOptions::WEXITED.0 != 0 => {
+                    ready = Some((pid, exit));
+                    break;
+                }
+                Some(_) => {}
+                None => live.push((pid, node.process.clone())),
             }
         }
         if let Some((pid, _)) = ready
@@ -1023,12 +1055,47 @@ impl Kernel {
         {
             tree.nodes.remove(&pid);
         }
+        drop(tree);
+        if ready.is_none() {
+            // The group's signal state comes after the tree, with the tree unlocked.
+            live.sort_by_key(|(pid, _)| *pid);
+            ready = live
+                .into_iter()
+                .find_map(|(pid, process)| Some((pid, self.stop_event(&process, options)?)));
+        }
         match (ready, any) {
             (Some(found), _) => Some(Ok(Some(found))),
             (None, false) => Some(Err(Errno::ECHILD)),
             (None, true) if options & WaitOptions::WNOHANG.0 != 0 => Some(Ok(None)),
             (None, true) => None,
         }
+    }
+
+    /// The stop or continue of the live child `process` a `waitid` with `options` reports.
+    fn stop_event(&self, process: &Process, options: u32) -> Option<Exit> {
+        let wanted = WaitOptions::WSTOPPED.0 | WaitOptions::WCONTINUED.0;
+        if options & wanted == 0 {
+            return None;
+        }
+        let signals = self.group_signals(process.pid.0)?;
+        let nowait = options & WaitOptions::WNOWAIT.0 != 0;
+        let uid = process.cred().user.real;
+        if options & WaitOptions::WSTOPPED.0 != 0
+            && let Some(sig) = signals.wait_stopped(nowait)
+        {
+            return Some(Exit {
+                code: SiCode::CLD_STOPPED,
+                status: sig,
+                uid,
+            });
+        }
+        let continued = Exit {
+            code: SiCode::CLD_CONTINUED,
+            status: Signal::SIGCONT.0,
+            uid,
+        };
+        (options & WaitOptions::WCONTINUED.0 != 0 && signals.wait_continued(nowait))
+            .then_some(continued)
     }
 
     // ---- process groups and sessions ----

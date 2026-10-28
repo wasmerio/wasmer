@@ -580,6 +580,46 @@ impl Signals {
     // ---- end proc ----
 
     // ---- job control ----
+    /// Whether a stop or continue of a child is no reason for SIGCHLD: the group ignores
+    /// SIGCHLD, or set `SA_NOCLDSTOP` (`do_notify_parent_cldstop`).
+    pub(crate) fn nocldstop(&self) -> bool {
+        let state = self.state.lock_or_recover();
+        let action = state.actions[Signal::SIGCHLD.0 as usize - 1];
+        action.is_ignore() || action.flags & SaFlags::SA_NOCLDSTOP.0 != 0
+    }
+
+    /// The `si_status` of the group's stop as its parent hears of it: the signal that stopped
+    /// it, or 0 once reported.
+    pub(crate) fn stop_status(&self) -> i32 {
+        self.state.lock_or_recover().jobctl.stop_code & 0x7f
+    }
+
+    /// `wait_task_stopped`: the signal that stopped the group, if the group is stopped and no
+    /// `waitid` reported it yet; reported from now on unless `nowait` (`WNOWAIT`).
+    pub(crate) fn wait_stopped(&self, nowait: bool) -> Option<i32> {
+        let mut state = self.state.lock_or_recover();
+        let jobctl = &mut state.jobctl;
+        if !jobctl.stopped || jobctl.stop_code == 0 {
+            return None;
+        }
+        let code = jobctl.stop_code;
+        if !nowait {
+            jobctl.stop_code = 0;
+        }
+        Some(code)
+    }
+
+    /// `wait_task_continued`: whether SIGCONT continued the group and no `waitid` reported it
+    /// yet; reported from now on unless `nowait` (`WNOWAIT`).
+    pub(crate) fn wait_continued(&self, nowait: bool) -> bool {
+        let mut state = self.state.lock_or_recover();
+        let continued = state.jobctl.continued;
+        if !nowait {
+            state.jobctl.continued = false;
+        }
+        continued
+    }
+
     /// The group stopped and is stopped still (`SIGNAL_STOP_STOPPED`).
     #[cfg(test)]
     pub(crate) fn is_stopped(&self) -> bool {
@@ -1444,15 +1484,25 @@ impl Kernel {
         let process = self.process(task);
         let mut state = signals.group.state.lock_or_recover();
         state.tasks.get_mut(&task)?.notify = false;
+        // Every task continued goes here first; one tells the parent (`SIGNAL_CLD_MASK`).
+        if let Some(why) = state.jobctl.report.take() {
+            let status = match why {
+                SiCode::CLD_CONTINUED => Signal::SIGCONT.0,
+                _ => state.jobctl.stop_code & 0x7f,
+            };
+            drop(state);
+            self.notify_parent_cldstop(&process, why, status);
+            state = signals.group.state.lock_or_recover();
+        }
         loop {
             // A pending fatal signal comes before a stop, as Linux's `complete_signal` makes it
             // a group exit as it is sent.
             if state.task(task).stop_pending && state.fatal(task).is_none() {
                 // Lock order: the signal state, then the thread group's.
                 let exiting = process.group.signal_group_exit();
-                if state.do_signal_stop(task, 0, exiting).is_some() {
+                if let Some(completed) = state.do_signal_stop(task, 0, exiting) {
                     drop(state);
-                    return Some(self.stopped(signals));
+                    return Some(self.stopped(&process, signals, completed));
                 }
             }
             let blocked = state.task(task).blocked;
@@ -1483,9 +1533,9 @@ impl Kernel {
                     DefaultAction::Stop => {
                         let exiting = process.group.signal_group_exit();
                         match state.do_signal_stop(task, sig, exiting) {
-                            Some(_) => {
+                            Some(completed) => {
                                 drop(state);
-                                return Some(self.stopped(signals));
+                                return Some(self.stopped(&process, signals, completed));
                             }
                             // SIGCONT came first, or the group is on its way out.
                             None => continue,
@@ -1529,9 +1579,13 @@ impl Kernel {
     }
 
     /// The task just stopped: the group's other tasks, whose part in the stop is pending, leave
-    /// their blocking waits (`signal_wake_up`).
-    fn stopped(&self, signals: &TaskSignals) -> GuestAction {
+    /// their blocking waits (`signal_wake_up`), and the parent hears of the group stop the task
+    /// `completed`.
+    fn stopped(&self, process: &Process, signals: &TaskSignals, completed: bool) -> GuestAction {
         signals.group.queue.wake(wasixv2_wait::PollMask::empty());
+        if completed {
+            self.notify_parent_cldstop(process, SiCode::CLD_STOPPED, signals.group.stop_status());
+        }
         GuestAction::Stopped
     }
 
@@ -1555,8 +1609,9 @@ impl Kernel {
         let Some(me) = state.tasks.get(&task) else {
             return;
         };
-        if me.stop_pending && !process.group.signal_group_exit() {
-            state.participate(task);
+        if me.stop_pending && !process.group.signal_group_exit() && state.participate(task) {
+            drop(state);
+            self.notify_parent_cldstop(&process, SiCode::CLD_STOPPED, signals.group.stop_status());
         }
     }
 
