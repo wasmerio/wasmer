@@ -158,6 +158,14 @@ impl ProcNode {
         })
     }
 
+    /// The process of a `/proc/<pid>` directory.
+    pub(super) fn tgid_dir(&self) -> Option<u32> {
+        match self.entry {
+            Entry::Dir(Scope { pid, tid: None }) => Some(pid),
+            _ => None,
+        }
+    }
+
     fn node(&self, entry: Entry) -> Arc<dyn Node> {
         Arc::new(Self {
             source: self.source.clone(),

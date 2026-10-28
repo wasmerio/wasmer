@@ -1549,10 +1549,10 @@ impl Kernel {
         Ok(fd)
     }
 
+    /// `pidfd_get_pid`: the process of the pidfd `fd`; `EBADF` for any other file.
     fn pidfd_pid(&self, caller: &Caller<'_>, fd: Fd) -> Result<u32, Errno> {
-        let file = self.file(caller.task(), fd)?;
-        let pidfd = file.downcast::<PidFd>().ok_or(Errno::EINVAL)?;
-        Ok(pidfd.pid)
+        let file = self.io_file(caller, fd)?;
+        pidfd_target(&file).ok_or(Errno::EBADF)
     }
 
     pub(crate) async fn sys_pidfd_send_signal(
@@ -1566,10 +1566,11 @@ impl Kernel {
         if flags != 0 {
             return Err(Errno::EINVAL.into());
         }
-        let pid = self.pidfd_pid(caller, pidfd).map_err(|err| match err {
-            Errno::EINVAL => Errno::EBADF,
-            err => err,
-        })?;
+        // `pidfd_to_pid`: a `/proc/<pid>` directory stands for its process here, and only here.
+        let file = self.io_file(caller, pidfd)?;
+        let pid = pidfd_target(&file)
+            .or_else(|| crate::procfs::tgid_dir(file.path()))
+            .ok_or(Errno::EBADF)?;
         // `kill_pid_info_type`: a zombie takes the signal and does nothing with it; a reaped
         // process is `ESRCH`.
         let info = match info.is_null() {
