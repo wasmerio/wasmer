@@ -28,15 +28,21 @@
 //! **The child's own pages.** The child is a new instance, which instantiation already filled
 //! with the module's data segments. Those pages, and any other the child holds outside the copied
 //! runs, are cleared, since the parent's held zero there.
+//!
+//! **Over a base.** Where the parent's memory is a private view of a frozen file ([`Base`]), a
+//! page it never wrote shows the file, whether it reads zero or holds a data segment, and the
+//! pagemap reports such a page, once read, as a file page. The copy holds only the pages the
+//! parent wrote, those that read zero too where the file holds data, and the child maps the same
+//! file over its memory first, which also drops the pages its instantiation filled: parent and
+//! child share the file's pages. Wiped ranges where the file holds data are zeroed in the child.
 
-#[cfg(all(target_os = "linux", feature = "sys"))]
-use std::io;
-use std::ops::Range;
+use std::{io, ops::Range, sync::Arc};
 
 #[cfg(all(target_os = "linux", feature = "sys"))]
 use wasmer::MemoryView;
 use wasmer::{AsStoreRef, Memory, MemoryAccessError};
 
+use crate::base::Base;
 #[cfg(all(target_os = "linux", feature = "sys"))]
 use crate::pagemap::{Page, Pagemap};
 
@@ -50,25 +56,25 @@ pub(crate) enum MemoryImage {
 }
 
 impl MemoryImage {
-    /// Copies `memory`, sparsely where the host can tell which pages hold anything, with
-    /// `wiped` (the child's `MADV_WIPEONFORK` ranges) reading zero. A sparse copy leaves out
-    /// `shared`, the ranges that show shared objects, and `wiped`; a full one holds every byte
-    /// but those of `wiped`. Each list is in address order, and no range of one overlaps one of
-    /// the other.
+    /// Copies `memory`, whose frozen image is `base`, sparsely where the host can tell which
+    /// pages hold anything, with `wiped` (the child's `MADV_WIPEONFORK` ranges) reading zero. A
+    /// sparse copy leaves out `shared`, the ranges that show shared objects, and `wiped`, and
+    /// shares `base` with the child; a full one holds every byte but those of `wiped`. Each list
+    /// is in address order, and no range of one overlaps one of the other.
     pub(crate) fn capture(
         memory: &Memory,
         store: &impl AsStoreRef,
-        shared: &[Range<u64>],
-        wiped: &[Range<u64>],
+        (shared, wiped): (&[Range<u64>], &[Range<u64>]),
+        base: Option<&Arc<Base>>,
     ) -> Result<Self, MemoryAccessError> {
         let view = memory.view(store);
         #[cfg(not(all(target_os = "linux", feature = "sys")))]
-        let _ = shared;
+        let _ = (shared, base);
         #[cfg(all(target_os = "linux", feature = "sys"))]
         if let Some(pagemap) = Pagemap::get() {
             let mut skipped = [shared, wiped].concat();
             skipped.sort_by_key(|range| range.start);
-            match Sparse::capture(pagemap, &view, &skipped) {
+            match Sparse::capture(pagemap, &view, &skipped, base, wiped) {
                 Ok(sparse) => return Ok(Self::Sparse(sparse)),
                 Err(err) => tracing::warn!(%err, "cannot copy guest memory sparsely; copying all"),
             }
@@ -91,16 +97,21 @@ impl MemoryImage {
         }
     }
 
+    /// The frozen image the child's memory is a view of, after [`Self::restore`].
+    pub(crate) fn base(&self) -> Option<&Arc<Base>> {
+        match self {
+            Self::Full(_) => None,
+            #[cfg(all(target_os = "linux", feature = "sys"))]
+            Self::Sparse(sparse) => sparse.base.as_ref(),
+        }
+    }
+
     /// Makes `memory`, a new instance's of at least [`Self::size`] bytes whose low guard is not
-    /// protected yet, hold the copy.
-    pub(crate) fn restore(
-        &self,
-        memory: &Memory,
-        store: &impl AsStoreRef,
-    ) -> Result<(), MemoryAccessError> {
+    /// protected yet and which no other thread reaches, hold the copy.
+    pub(crate) fn restore(&self, memory: &Memory, store: &impl AsStoreRef) -> io::Result<()> {
         let view = memory.view(store);
         match self {
-            Self::Full(bytes) => view.write(0, bytes),
+            Self::Full(bytes) => view.write(0, bytes).map_err(io::Error::other),
             #[cfg(all(target_os = "linux", feature = "sys"))]
             Self::Sparse(sparse) => sparse.restore(&view),
         }
@@ -119,38 +130,65 @@ pub(crate) struct Sparse {
     runs: Vec<(u64, u64)>,
     /// The runs' bytes, end to end.
     bytes: Vec<u8>,
+    /// The frozen image under the memory, which shows wherever there is no run.
+    base: Option<Arc<Base>>,
+    /// The ranges of `base` that hold data and read zero in the child: wiped ones.
+    zeroed: Vec<Range<u64>>,
 }
 
 #[cfg(all(target_os = "linux", feature = "sys"))]
 impl Sparse {
-    /// Copies the pages of `view` that hold anything, outside `shared`. Fails on memory that is
-    /// not private and anonymous there, whose untouched pages need not read zero.
-    fn capture(pagemap: &Pagemap, view: &MemoryView, shared: &[Range<u64>]) -> io::Result<Self> {
+    /// Copies the pages of `view` that hold anything, outside `skipped`; where the memory is a
+    /// private view of `base`, those the parent wrote. Fails on memory that is neither private
+    /// anonymous memory nor a view of `base` there, whose untouched pages need not read zero.
+    /// `wiped` read zero in the child.
+    fn capture(
+        pagemap: &Pagemap,
+        view: &MemoryView,
+        skipped: &[Range<u64>],
+        base: Option<&Arc<Base>>,
+        wiped: &[Range<u64>],
+    ) -> io::Result<Self> {
         let mut sparse = Self {
             size: view.data_size(),
             runs: Vec::new(),
             bytes: Vec::new(),
+            base: base.cloned(),
+            zeroed: Vec::new(),
         };
-        for range in outside(sparse.size, shared) {
+        let based = base.map_or(0, |base| base.len());
+        for range in outside(sparse.size, skipped) {
             for_chunks(pagemap, view, range, |addr, len, page| match page {
                 Page::Untouched => Ok(()),
-                Page::Private => sparse.push(view, addr, len),
+                // The base's own page, which the parent read but never wrote.
+                Page::Shared if addr < based => Ok(()),
+                Page::Private => {
+                    // Over the base's data, a page of zeros differs from what the child sees.
+                    let page = addr..addr + len;
+                    let data = base.is_some_and(|base| base.data_in(page).next().is_some());
+                    sparse.push(view, addr, len, data)
+                }
                 Page::Shared => Err(io::Error::new(
                     io::ErrorKind::Unsupported,
                     "the memory is not private anonymous memory",
                 )),
             })?;
         }
+        if let Some(base) = base {
+            let zeroed = wiped.iter().flat_map(|range| base.data_in(range.clone()));
+            sparse.zeroed = zeroed.collect();
+        }
         Ok(sparse)
     }
 
-    /// Copies the page at `addr` unless it reads zero, as a page the guest only read does.
-    fn push(&mut self, view: &MemoryView, addr: u64, len: u64) -> io::Result<()> {
+    /// Copies the page at `addr`, unless it reads zero, as a page the guest only read does, and
+    /// `keep_zero` is false.
+    fn push(&mut self, view: &MemoryView, addr: u64, len: u64, keep_zero: bool) -> io::Result<()> {
         let at = self.bytes.len();
         self.bytes.resize(at + len as usize, 0);
         view.read(addr, &mut self.bytes[at..])
             .map_err(io::Error::other)?;
-        if is_zero(&self.bytes[at..]) {
+        if !keep_zero && is_zero(&self.bytes[at..]) {
             self.bytes.truncate(at);
             return Ok(());
         }
@@ -161,14 +199,28 @@ impl Sparse {
         Ok(())
     }
 
-    fn restore(&self, view: &MemoryView) -> Result<(), MemoryAccessError> {
-        for gap in self.gaps() {
-            clear(view, gap)?;
+    fn restore(&self, view: &MemoryView) -> io::Result<()> {
+        // The base shows in the gaps it covers, as it does in the parent.
+        let mut based = 0;
+        if let Some(base) = &self.base {
+            // SAFETY: the child's memory, of the parent's size at least, so at least the base's;
+            // no guest code ran on it, nothing refers into it, and no other thread reaches it
+            // (`MemoryImage::restore`).
+            unsafe { base.map_memory(view.data_ptr())? };
+            based = base.len();
+        }
+        let gaps = self.gaps().map(|gap| gap.start.max(based)..gap.end);
+        for gap in gaps.filter(|gap| gap.start < gap.end) {
+            clear(view, gap).map_err(io::Error::other)?;
+        }
+        for range in &self.zeroed {
+            zero(view, range.clone()).map_err(io::Error::other)?;
         }
         let mut from = 0;
         for &(addr, len) in &self.runs {
             let to = from + len as usize;
-            view.write(addr, &self.bytes[from..to])?;
+            view.write(addr, &self.bytes[from..to])
+                .map_err(io::Error::other)?;
             from = to;
         }
         Ok(())
@@ -205,7 +257,7 @@ fn outside(size: u64, ranges: &[Range<u64>]) -> Vec<Range<u64>> {
 /// Calls `f` with each host page of `range` of `view` (page aligned) and what the pagemap says
 /// of it, reading the pagemap a chunk at a time just before the chunk's pages.
 #[cfg(all(target_os = "linux", feature = "sys"))]
-fn for_chunks(
+pub(crate) fn for_chunks(
     pagemap: &Pagemap,
     view: &MemoryView,
     range: Range<u64>,
@@ -257,7 +309,7 @@ fn zero(view: &MemoryView, range: Range<u64>) -> Result<(), MemoryAccessError> {
 }
 
 #[cfg(all(target_os = "linux", feature = "sys"))]
-fn is_zero(bytes: &[u8]) -> bool {
+pub(crate) fn is_zero(bytes: &[u8]) -> bool {
     // Folding a fixed-size block lets the compiler vectorise it.
     let (blocks, rest) = bytes.as_chunks::<64>();
     blocks
@@ -294,7 +346,8 @@ mod tests {
         // A page only read, and a page written with zeros, hold nothing.
         view.read_u8(6 * WASM_PAGE).unwrap();
         view.write(7 * WASM_PAGE, &[0; 16]).unwrap();
-        let MemoryImage::Sparse(sparse) = MemoryImage::capture(&parent, &store, &[], &[]).unwrap()
+        let MemoryImage::Sparse(sparse) =
+            MemoryImage::capture(&parent, &store, (&[], &[]), None).unwrap()
         else {
             panic!("expected a sparse copy");
         };
@@ -341,7 +394,13 @@ mod tests {
         let range = (at as u32, len);
         let read_only = ReadOnly::default();
         map_shared(
-            &parent, LOW_GUARD, &read_only, &store, range, &pages, 0, true,
+            &parent,
+            (LOW_GUARD, &read_only, None),
+            &store,
+            range,
+            &pages,
+            0,
+            true,
         )
         .unwrap();
         let view = parent.view(&store);
@@ -349,13 +408,13 @@ mod tests {
         view.write(at + 10, b"shared").unwrap();
 
         // Without the range, the shared pages make the copy a full one, as before.
-        let image = MemoryImage::capture(&parent, &store, &[], &[]).unwrap();
+        let image = MemoryImage::capture(&parent, &store, (&[], &[]), None).unwrap();
         assert!(matches!(image, MemoryImage::Full(_)));
         let shared = Range {
             start: at,
             end: at + len,
         };
-        let image = MemoryImage::capture(&parent, &store, &[shared], &[]).unwrap();
+        let image = MemoryImage::capture(&parent, &store, (&[shared], &[]), None).unwrap();
         let MemoryImage::Sparse(sparse) = &image else {
             panic!("expected a sparse copy");
         };
@@ -365,7 +424,13 @@ mod tests {
         image.restore(&child, &store).unwrap();
         let read_only = ReadOnly::default();
         map_shared(
-            &child, LOW_GUARD, &read_only, &store, range, &pages, 0, true,
+            &child,
+            (LOW_GUARD, &read_only, None),
+            &store,
+            range,
+            &pages,
+            0,
+            true,
         )
         .unwrap();
         let view = child.view(&store);
@@ -416,7 +481,7 @@ mod tests {
         };
 
         // Sparse: the range is left out.
-        let image = MemoryImage::capture(&parent, &store, &[], &wiped).unwrap();
+        let image = MemoryImage::capture(&parent, &store, (&[], &wiped), None).unwrap();
         let MemoryImage::Sparse(sparse) = &image else {
             panic!("expected a sparse copy");
         };
@@ -433,11 +498,17 @@ mod tests {
         let read_only = ReadOnly::default();
         let range = (6 * WASM_PAGE as u32, WASM_PAGE);
         map_shared(
-            &parent, LOW_GUARD, &read_only, &store, range, &pages, 0, true,
+            &parent,
+            (LOW_GUARD, &read_only, None),
+            &store,
+            range,
+            &pages,
+            0,
+            true,
         )
         .unwrap();
         parent.view(&store).write(6 * WASM_PAGE, b"shared").unwrap();
-        let image = MemoryImage::capture(&parent, &store, &[], &wiped).unwrap();
+        let image = MemoryImage::capture(&parent, &store, (&[], &wiped), None).unwrap();
         assert!(matches!(image, MemoryImage::Full(_)));
         check(image, &mut store);
         // The parent keeps its data.
@@ -447,6 +518,138 @@ mod tests {
             .read(2 * WASM_PAGE + 7, &mut buf)
             .unwrap();
         assert_eq!(&buf, b"wiped");
+    }
+
+    #[test]
+    fn a_fork_child_shares_its_parents_frozen_image() {
+        let Some(pagemap) = Pagemap::get() else {
+            eprintln!("skipped: this host has no usable /proc/self/pagemap");
+            return;
+        };
+        let host_page = pagemap.page_size() as u64;
+        let mut store = Store::default();
+        // The module's data segments, in parent and child alike.
+        let instantiate = |store: &mut Store| {
+            let memory = memory(store, 8);
+            let view = memory.view(store);
+            for page in 1..4 {
+                view.write(page * WASM_PAGE, b"data segment").unwrap();
+            }
+            memory
+        };
+        let parent = instantiate(&mut store);
+        let base = crate::base::freeze(&parent, &store)
+            .unwrap()
+            .expect("a base");
+        let view = parent.view(&store);
+        // The parent changes a data page, zeroes another, and fills a heap page; it reads the
+        // third data page, which stays the file's.
+        view.write(WASM_PAGE + 4, b"SEG").unwrap();
+        view.write(2 * WASM_PAGE, &[0; 12]).unwrap();
+        view.write(5 * WASM_PAGE, b"heap").unwrap();
+        view.read_u8(3 * WASM_PAGE).unwrap();
+        let wiped = [Range {
+            start: 6 * WASM_PAGE,
+            end: 7 * WASM_PAGE,
+        }];
+        let image = MemoryImage::capture(&parent, &store, (&[], &wiped), Some(&base)).unwrap();
+        let MemoryImage::Sparse(sparse) = &image else {
+            panic!("expected a sparse copy");
+        };
+        // The zeroed data page is copied; the read one is not.
+        let runs = [
+            (WASM_PAGE, host_page),
+            (2 * WASM_PAGE, host_page),
+            (5 * WASM_PAGE, host_page),
+        ];
+        assert_eq!(sparse.runs, runs);
+
+        let child = instantiate(&mut store);
+        child.view(&store).write(7 * WASM_PAGE, b"more").unwrap();
+        image.restore(&child, &store).unwrap();
+        assert!(Arc::ptr_eq(image.base().unwrap(), &base));
+        // The child's pages its instantiation filled are gone (before anything reads them);
+        // its data page, once read, is the file's, as the parent's is.
+        let view = child.view(&store);
+        let ptr = view.data_ptr() as usize;
+        let page = |addr: u64| pagemap.pages(ptr + addr as usize, 1).unwrap()[0];
+        assert_eq!(page(3 * WASM_PAGE), Page::Untouched);
+        assert_eq!(page(7 * WASM_PAGE), Page::Untouched);
+        let parent_bytes = parent.view(&store).copy_to_vec().unwrap();
+        assert!(view.copy_to_vec().unwrap() == parent_bytes);
+        assert_eq!(page(3 * WASM_PAGE), Page::Shared);
+        // What either writes after the fork stays its own.
+        parent.view(&store).write(3 * WASM_PAGE, b"parent").unwrap();
+        view.write(3 * WASM_PAGE + 6, b"child").unwrap();
+        let mut buf = [0; 12];
+        view.read(3 * WASM_PAGE, &mut buf).unwrap();
+        assert_eq!(&buf, b"data schildt");
+        parent.view(&store).read(3 * WASM_PAGE, &mut buf).unwrap();
+        assert_eq!(&buf, b"parentegment");
+    }
+
+    #[test]
+    fn a_fork_over_a_base_zeroes_the_wiped_data_in_the_child() {
+        if Pagemap::get().is_none() {
+            eprintln!("skipped: this host has no usable /proc/self/pagemap");
+            return;
+        }
+        let mut store = Store::default();
+        let parent = memory(&mut store, 4);
+        parent.view(&store).write(WASM_PAGE, b"wiped data").unwrap();
+        parent
+            .view(&store)
+            .write(2 * WASM_PAGE, b"kept data")
+            .unwrap();
+        let base = crate::base::freeze(&parent, &store)
+            .unwrap()
+            .expect("a base");
+        let wiped = [Range {
+            start: WASM_PAGE,
+            end: 2 * WASM_PAGE,
+        }];
+        let image = MemoryImage::capture(&parent, &store, (&[], &wiped), Some(&base)).unwrap();
+        assert!(matches!(image, MemoryImage::Sparse(_)));
+        let child = memory(&mut store, 4);
+        image.restore(&child, &store).unwrap();
+        let bytes = child.view(&store).copy_to_vec().unwrap();
+        let range = WASM_PAGE as usize..2 * WASM_PAGE as usize;
+        assert!(bytes[range].iter().all(|&byte| byte == 0));
+        assert_eq!(&bytes[2 * WASM_PAGE as usize..][..9], b"kept data");
+    }
+
+    #[test]
+    fn a_shared_object_unmapped_over_a_base_reads_zero_in_a_fork_child() {
+        use wasixv2_pages::Memfd;
+
+        use crate::memory::{LOW_GUARD, ReadOnly, map_shared, unmap_shared};
+
+        if Pagemap::get().is_none() {
+            eprintln!("skipped: this host has no usable /proc/self/pagemap");
+            return;
+        }
+        let mut store = Store::default();
+        let parent = memory(&mut store, 4);
+        parent.view(&store).write(2 * WASM_PAGE, b"data").unwrap();
+        let base = crate::base::freeze(&parent, &store)
+            .unwrap()
+            .expect("a base");
+        let pages = Memfd::new(WASM_PAGE).unwrap();
+        let read_only = ReadOnly::default();
+        let layout = (LOW_GUARD, &read_only, Some(&*base));
+        let range = (2 * WASM_PAGE as u32, WASM_PAGE);
+        map_shared(&parent, layout, &store, range, &pages, 0, true).unwrap();
+        parent.view(&store).write(2 * WASM_PAGE, b"shared").unwrap();
+        unmap_shared(&parent, layout, &store, range.0, range.1).unwrap();
+        let image = MemoryImage::capture(&parent, &store, (&[], &[]), Some(&base)).unwrap();
+        assert!(matches!(image, MemoryImage::Sparse(_)));
+        let child = memory(&mut store, 4);
+        image.restore(&child, &store).unwrap();
+        for memory in [&parent, &child] {
+            let bytes = memory.view(&store).copy_to_vec().unwrap();
+            let range = 2 * WASM_PAGE as usize..3 * WASM_PAGE as usize;
+            assert!(bytes[range].iter().all(|&byte| byte == 0));
+        }
     }
 
     #[test]
@@ -469,6 +672,8 @@ mod tests {
             size: 100,
             runs,
             bytes: Vec::new(),
+            base: None,
+            zeroed: Vec::new(),
         };
         let gaps = |s: &Sparse| s.gaps().collect::<Vec<_>>();
         assert_eq!(gaps(&sparse(vec![])), vec![0..100]);

@@ -601,7 +601,8 @@ async fn snapshot<S: 'static>(
                 start..start + mapping.len
             })
             .collect();
-        let image = MemoryImage::capture(&memory, &*store, &ranges, wiped)
+        let skipped = (&ranges[..], wiped);
+        let image = MemoryImage::capture(&memory, &*store, skipped, env.base.as_ref())
             .map_err(|_| RuntimeError::new("cannot copy guest memory"))?;
         let globals = a
             .globals
@@ -811,6 +812,7 @@ mod tests {
                 memory: None,
                 low_guard: 0,
                 read_only: Arc::default(),
+                base: None,
                 stack_pointer: None,
                 abi: None,
                 threads: None,
