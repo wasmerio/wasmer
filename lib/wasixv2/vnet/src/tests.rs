@@ -322,11 +322,12 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU32, Ordering},
 };
 
-use wasixv2_abi::{IpOption, SocketLevel, SocketOption, TcpOption};
+use wasixv2_abi::{IpOption, Ipv6Option, SoEeOrigin, SocketLevel, SocketOption, TcpOption};
 use wasixv2_wait::{PollTable, Pollable, WaitEntry, WaitQueue};
 
 use crate::{
-    Backend, BackendDatagram, BackendStream, Control, InboundSink, Publication, Room, StreamState,
+    Backend, BackendDatagram, BackendStream, Control, InboundSink, Publication, QueuedError, Room,
+    StreamState,
 };
 
 /// A connected stream that records the options applied to it.
@@ -390,11 +391,14 @@ impl BackendStream for FakeStream {
     }
 }
 
-/// A datagram endpoint whose host side is writable or not as the test says.
+/// A datagram endpoint whose host side is writable or not as the test says, and whose error
+/// queue holds what the test puts there.
 struct FakeDgram {
     writable: AtomicBool,
     wq: WaitQueue,
     sent: Mutex<Vec<Vec<u8>>>,
+    options: Mutex<Vec<(i32, i32, Vec<u8>)>>,
+    errors: Mutex<std::collections::VecDeque<QueuedError>>,
 }
 
 impl Pollable for FakeDgram {
@@ -425,6 +429,16 @@ impl BackendDatagram for FakeDgram {
     }
     fn input_len(&self) -> usize {
         0
+    }
+    fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
+        self.options
+            .lock()
+            .unwrap()
+            .push((level, name, value.to_vec()));
+        Ok(())
+    }
+    fn take_queued_error(&self) -> Option<QueuedError> {
+        self.errors.lock().unwrap().pop_front()
     }
 }
 
@@ -461,6 +475,8 @@ impl Backend for Recorder {
             writable: AtomicBool::new(true),
             wq,
             sent: Mutex::default(),
+            options: Mutex::default(),
+            errors: Mutex::default(),
         });
         self.dgrams.lock().unwrap().push(d.clone());
         Ok(d)
@@ -768,4 +784,159 @@ fn reuseport_groups_need_one_owner() {
         other.bind(a("127.0.0.1:7601"), false),
         Err(Errno::EADDRINUSE)
     );
+}
+
+const SOL_IP: i32 = SocketLevel::SOL_IP.0;
+const SOL_IPV6: i32 = SocketLevel::SOL_IPV6.0;
+
+/// `recv(MSG_ERRQUEUE)` into `n` bytes: the payload, and the message.
+fn recv_error(s: &dyn Socket, n: usize) -> Result<(Vec<u8>, crate::RecvMsg), Errno> {
+    let mut buf = vec![0; n];
+    let m = s.recv(&mut buf, MsgFlags::MSG_ERRQUEUE)?;
+    buf.truncate(m.len);
+    Ok((buf, m))
+}
+
+/// The `sock_extended_err` fields of an `IP_RECVERR`/`IPV6_RECVERR` payload: errno, origin,
+/// type, code; and the offender's bytes after it.
+fn extended_err(c: &Control) -> ((u32, u8, u8, u8), &[u8]) {
+    let errno = u32::from_le_bytes(c.data[..4].try_into().unwrap());
+    ((errno, c.data[4], c.data[5], c.data[6]), &c.data[16..])
+}
+
+#[test]
+fn port_unreachables_queue_with_ip_recverr_and_keep_so_error_in_step() {
+    let n = net();
+    let s = udp(&n);
+    // Without IP_RECVERR an unconnected socket never hears of a refused datagram.
+    send_to(&*s, b"lost", Some(a("127.0.0.1:9"))).unwrap();
+    assert!(!s.poll(None).contains(PollMask::ERR));
+    assert_eq!(s.take_error(), None);
+    assert_eq!(recv_error(&*s, 64).unwrap_err(), Errno::EAGAIN);
+
+    s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(1))
+        .unwrap();
+    send_to(&*s, b"first", Some(a("127.0.0.1:9"))).unwrap();
+    assert!(s.poll(None).contains(PollMask::ERR));
+    // Unconnected too, the next send reports the pending error instead of sending.
+    assert_eq!(
+        send_to(&*s, b"second", Some(a("127.0.0.1:10"))),
+        Err(Errno::ECONNREFUSED)
+    );
+    send_to(&*s, b"second", Some(a("127.0.0.1:10"))).unwrap();
+    // The pending error is taken by SO_ERROR; the queue stays and still polls ERR.
+    assert_eq!(s.take_error(), Some(Errno::ECONNREFUSED));
+    assert_eq!(s.take_error(), None);
+    assert!(s.poll(None).contains(PollMask::ERR));
+
+    let (data, m) = recv_error(&*s, 3).unwrap();
+    assert_eq!(data, b"fir");
+    assert_eq!(m.flags, MsgFlags::MSG_ERRQUEUE | MsgFlags::MSG_TRUNC);
+    assert_eq!((m.len, m.full_len), (3, 3));
+    assert_eq!(m.from, Some(a("127.0.0.1:9")));
+    let [c] = &m.control[..] else {
+        panic!("one control message: {:?}", m.control)
+    };
+    assert_eq!(
+        (c.level, c.kind, c.data.len()),
+        (SOL_IP, IpOption::IP_RECVERR.0, 32)
+    );
+    let (ee, offender) = extended_err(c);
+    assert_eq!(ee, (Errno::ECONNREFUSED.0 as u32, 2, 3, 3));
+    // `SO_EE_OFFENDER`: a sockaddr_in for 127.0.0.1.
+    assert_eq!(&offender[..8], &[2, 0, 0, 0, 127, 0, 0, 1]);
+    // `sock_dequeue_err_skb`: the next entry is an ICMP one, so its errno is pending again.
+    assert_eq!(s.take_error(), Some(Errno::ECONNREFUSED));
+
+    let (data, m) = recv_error(&*s, 64).unwrap();
+    assert_eq!(data, b"second");
+    assert_eq!(m.from, Some(a("127.0.0.1:10")));
+    assert_eq!(m.flags, MsgFlags::MSG_ERRQUEUE);
+    assert_eq!(s.take_error(), None);
+    assert_eq!(recv_error(&*s, 64).unwrap_err(), Errno::EAGAIN);
+    assert!(!s.poll(None).contains(PollMask::ERR));
+
+    // Turning IP_RECVERR off purges the queue but leaves the pending error.
+    send_to(&*s, b"third", Some(a("127.0.0.1:9"))).unwrap();
+    s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(0))
+        .unwrap();
+    assert_eq!(recv_error(&*s, 64).unwrap_err(), Errno::EAGAIN);
+    assert_eq!(s.take_error(), Some(Errno::ECONNREFUSED));
+}
+
+#[test]
+fn ipv6_sockets_report_errors_with_ipv6_recverr_and_mapped_addresses() {
+    let n = net();
+    let s = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    s.set_option(SOL_IPV6, Ipv6Option::IPV6_RECVERR.0, &int(1))
+        .unwrap();
+    send_to(&*s, b"six", Some(a("[::1]:9"))).unwrap();
+    assert_eq!(s.take_error(), Some(Errno::ECONNREFUSED));
+    // An IPv4 destination answers through the IPv4 error path, which IP_RECVERR controls.
+    send_to(&*s, b"four", Some(a("[::ffff:127.0.0.1]:9"))).unwrap();
+    let (data, m) = recv_error(&*s, 64).unwrap();
+    assert_eq!(data, b"six");
+    assert_eq!(m.from, Some(a("[::1]:9")));
+    let c = &m.control[0];
+    assert_eq!(
+        (c.level, c.kind, c.data.len()),
+        (SOL_IPV6, Ipv6Option::IPV6_RECVERR.0, 16 + 28)
+    );
+    assert_eq!(extended_err(c).0, (Errno::ECONNREFUSED.0 as u32, 3, 1, 4));
+    assert_eq!(recv_error(&*s, 64).unwrap_err(), Errno::EAGAIN);
+
+    s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(1))
+        .unwrap();
+    send_to(&*s, b"four", Some(a("[::ffff:127.0.0.1]:9"))).unwrap();
+    let (_, m) = recv_error(&*s, 64).unwrap();
+    assert_eq!(m.from, Some(a("[::ffff:127.0.0.1]:9")));
+    // Still the socket family's message, with the offender mapped.
+    let c = &m.control[0];
+    assert_eq!((c.level, c.kind), (SOL_IPV6, Ipv6Option::IPV6_RECVERR.0));
+    let (ee, offender) = extended_err(c);
+    assert_eq!((ee.1, ee.2, ee.3), (2, 3, 3));
+    assert_eq!(&offender[..2], &10u16.to_le_bytes());
+    let mapped = std::net::Ipv4Addr::LOCALHOST.to_ipv6_mapped().octets();
+    assert_eq!(&offender[8..24], &mapped);
+}
+
+#[test]
+fn backend_errors_queue_behind_local_ones_in_the_guest_view() {
+    let (n, rec) = backed();
+    let s = udp(&n);
+    // Set before the endpoint exists: it learns it when it is made.
+    s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(1))
+        .unwrap();
+    send_to(&*s, b"out", Some(a("10.0.2.2:53"))).unwrap();
+    let d = rec.dgrams.lock().unwrap()[0].clone();
+    assert_eq!(
+        d.options.lock().unwrap()[..],
+        [(SOL_IP, IpOption::IP_RECVERR.0, int(1).to_vec())]
+    );
+    // The host's report: its loopback is the guest's gateway alias.
+    d.errors.lock().unwrap().push_back(QueuedError {
+        errno: Errno::ECONNREFUSED,
+        origin: SoEeOrigin::SO_EE_ORIGIN_ICMP,
+        type_: 3,
+        code: 3,
+        info: 0,
+        data: 0,
+        offender: Some(a("127.0.0.1:0")),
+        dst: Some(a("127.0.0.1:53")),
+        payload: b"out".to_vec(),
+    });
+    send_to(&*s, b"in", Some(a("127.0.0.1:9"))).unwrap();
+    let (data, _) = recv_error(&*s, 64).unwrap();
+    assert_eq!(data, b"in");
+    let (data, m) = recv_error(&*s, 64).unwrap();
+    assert_eq!(data, b"out");
+    assert_eq!(m.from, Some(a("10.0.2.2:53")));
+    assert_eq!(&extended_err(&m.control[0]).1[4..8], &[10, 0, 2, 2]);
+    assert_eq!(recv_error(&*s, 64).unwrap_err(), Errno::EAGAIN);
+    // Changes reach the endpoint too.
+    s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(0))
+        .unwrap();
+    assert_eq!(d.options.lock().unwrap().len(), 2);
 }

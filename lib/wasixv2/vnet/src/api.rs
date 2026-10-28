@@ -19,7 +19,7 @@
 
 use std::{fmt, net::SocketAddr, sync::Arc};
 
-use wasixv2_abi::{Errno, MsgFlags};
+use wasixv2_abi::{Errno, MsgFlags, SoEeOrigin};
 use wasixv2_wait::{PollTable, Pollable, WaitQueue};
 
 /// The address family of an IP socket. Unix sockets never reach this crate.
@@ -93,6 +93,38 @@ pub struct RecvMsg {
     pub flags: MsgFlags,
     /// Control messages to deliver, in order (`IP_PKTINFO`, `SO_TIMESTAMP`, ...).
     pub control: Vec<Control>,
+}
+
+/// One entry of a socket's error queue (`sk_error_queue`): Linux's `sock_exterr_skb` and the
+/// datagram it quotes. `recvmsg(MSG_ERRQUEUE)` returns the payload, `dst` as the address and
+/// the rest as an `IP_RECVERR`/`IPV6_RECVERR` control message (`ip_recv_error`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct QueuedError {
+    /// `ee_errno`.
+    pub errno: Errno,
+    /// `ee_origin`.
+    pub origin: SoEeOrigin,
+    /// `ee_type` and `ee_code`: the ICMP type and code for ICMP origins.
+    pub type_: u8,
+    pub code: u8,
+    /// `ee_info`, such as the next-hop MTU of a "fragmentation needed".
+    pub info: u32,
+    pub data: u32,
+    /// `SO_EE_OFFENDER`: the node that reported an ICMP error.
+    pub offender: Option<SocketAddr>,
+    /// The quoted datagram's destination, which `recvmsg` reports as the sender; `None` for
+    /// origins that quote no datagram.
+    pub dst: Option<SocketAddr>,
+    /// The quoted datagram's payload, as far as the error quotes it.
+    pub payload: Vec<u8>,
+}
+
+impl QueuedError {
+    /// `is_icmp_err_skb`: an entry that also stands for the socket's pending error.
+    pub fn is_icmp(&self) -> bool {
+        self.origin == SoEeOrigin::SO_EE_ORIGIN_ICMP
+            || self.origin == SoEeOrigin::SO_EE_ORIGIN_ICMP6
+    }
 }
 
 /// A connection taken off a listener by `Socket::accept`.
@@ -318,7 +350,8 @@ pub trait BackendStream: Pollable {
 }
 
 /// A datagram endpoint through the backend. `poll` reports `IN` while datagrams are queued,
-/// `OUT` while a send would not block (`sock_writeable`) and `ERR` while an error is pending;
+/// `OUT` while a send would not block (`sock_writeable`) and `ERR` while an error is pending
+/// or the error queue holds entries (`datagram_poll`);
 /// like a stream's, it registers nothing, and it wakes the guest socket's queue with `OUT` once
 /// a send that failed with `EAGAIN` would go through.
 pub trait BackendDatagram: Pollable {
@@ -334,6 +367,22 @@ pub trait BackendDatagram: Pollable {
     fn recv_from(&self, buf: &mut [u8], peek: bool) -> Result<(usize, usize, SocketAddr), Errno>;
     /// The next datagram's size, 0 if none.
     fn input_len(&self) -> usize;
+    /// `IP_RECVERR` or `IPV6_RECVERR` changed on the guest socket; `value` is the new value as
+    /// a guest `int`, 0 or 1. While one is on, the errors the host reports wait in the
+    /// endpoint's error queue for [`BackendDatagram::take_queued_error`] and become the pending
+    /// error even when unconnected (`__udp4_lib_err`); turning one off empties the queue. The
+    /// default ignores them, as it does every other option: guest-visible values live in the
+    /// network.
+    fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
+        let _ = (level, name, value);
+        Ok(())
+    }
+    /// Takes the oldest entry of the error queue, addresses as the host saw them. As in
+    /// `sock_dequeue_err_skb`, the pending error becomes the next entry's if that is an ICMP
+    /// one, and none once the ICMP entries are gone.
+    fn take_queued_error(&self) -> Option<QueuedError> {
+        None
+    }
 }
 
 /// Whether a guest listener can take a connection now (see [`InboundSink::poll_room`]).
