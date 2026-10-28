@@ -184,6 +184,11 @@ impl Kernel {
                 .get(&parent)
                 .expect("syscall from an unknown task");
             let process = task.process.clone();
+            // `copy_process`: a thread starts in its group's pid namespace, so none can start
+            // once the task's children would go to another.
+            if !Arc::ptr_eq(&process.pid_ns, &task.ns.pid_for_children) {
+                return Err(Errno::EINVAL.into());
+            }
             if crate::resource::nproc_exceeded(&state, &process) {
                 return Err(Errno::EAGAIN.into());
             }

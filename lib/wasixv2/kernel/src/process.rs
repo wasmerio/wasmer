@@ -15,15 +15,15 @@ use std::{
 };
 
 use wasixv2_abi::{
-    AtFlags, CloneFlags, ConstSiginfoPtr, Cstr, CstrArray, GuestLayout, GuestPtr, GuestPtrMut,
-    Idtype, OpenFlags, Pid, Rusage, RusagePtr, S32Ptr, SiCode, Siginfo, SiginfoPtr, Signal, Ulong,
-    Uptr, WaitOptions,
+    AtFlags, CloneArgs, CloneArgsSize, CloneFlags, ConstCloneArgsPtr, ConstSiginfoPtr, Cstr,
+    CstrArray, GuestLayout, GuestPtr, GuestPtrMut, Idtype, OpenFlags, Pid, Rusage, RusagePtr,
+    S32Ptr, SiCode, Siginfo, SiginfoPtr, Signal, Ulong, Uptr, Usize, WaitOptions,
 };
 use wasixv2_syscalls::{
     BINPRM_BUF_SIZE, Binfmt, Caller, CstrError, Errno, Fd, GuestAction, Image, LocalFuture, Resume,
     SysErr, SysResult, TaskId, VforkParent, WorkFlag, read_cstr, read_value, write_value,
 };
-use wasixv2_vfs::{FileType, LookupFlags, MAY_EXEC, OpenHow};
+use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_EXEC, OpenHow};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
@@ -604,9 +604,8 @@ impl Kernel {
 
     // ---- clone ----
 
-    /// `clone` for a new process. vfork (`CLONE_VM | CLONE_VFORK`) works in every build
-    /// configuration; fork (no `CLONE_VM`) needs an address space that can be duplicated, and
-    /// gets `ENOSYS` otherwise, as there is no fork without an MMU on Linux.
+    /// `clone`: the exit signal is in the flags' low byte, and `parent_tid` doubles as where
+    /// `CLONE_PIDFD` puts the pidfd.
     pub(crate) async fn sys_clone(
         &self,
         caller: &Caller<'_>,
@@ -616,38 +615,178 @@ impl Kernel {
         tls: Uptr,
         child_tid: S32Ptr,
     ) -> SysResult<i32> {
-        let flags = CloneFlags(flags.into());
-        let exit_signal = (flags.0 & CloneFlags::CSIGNAL.0) as i32;
-        // copy_process's checks, in its order.
+        let flags = u64::from(flags);
+        let args = KernelClone {
+            flags: CloneFlags(flags & !CloneFlags::CSIGNAL.0),
+            exit_signal: flags & CloneFlags::CSIGNAL.0,
+            pidfd: parent_tid.addr(),
+            parent_tid: parent_tid.addr(),
+            child_tid: child_tid.addr(),
+            stack: newsp,
+            tls,
+            set_tid: Vec::new(),
+        };
+        self.kernel_clone(caller, args).await
+    }
+
+    /// `clone3`: `clone` with its arguments in a size-versioned `struct clone_args`
+    /// (`copy_clone_args_from_user`, `clone3_args_valid`).
+    pub(crate) async fn sys_clone3(
+        &self,
+        caller: &Caller<'_>,
+        uargs: ConstCloneArgsPtr,
+        size: Usize,
+    ) -> SysResult<i32> {
+        let args = copy_clone_args(caller, uargs, size).await?;
+        let flags = args.flags.0;
+        let known = CLONE_LEGACY_FLAGS
+            | CloneFlags::CLONE_CLEAR_SIGHAND.0
+            | CloneFlags::CLONE_INTO_CGROUP.0
+            | CloneFlags::CLONE_AUTOREAP.0
+            | CloneFlags::CLONE_NNP.0
+            | CloneFlags::CLONE_PIDFD_AUTOKILL.0
+            | CloneFlags::CLONE_EMPTY_MNTNS.0;
+        // `CLONE_DETACHED` and the signal byte are free for reuse in `clone3`.
+        let reserved =
+            CloneFlags::CLONE_DETACHED.0 | (CloneFlags::CSIGNAL.0 & !CloneFlags::CLONE_NEWTIME.0);
+        let clear_sighand = CloneFlags::CLONE_SIGHAND.0 | CloneFlags::CLONE_CLEAR_SIGHAND.0;
+        let thread_or_parent = CloneFlags::CLONE_THREAD.0 | CloneFlags::CLONE_PARENT.0;
+        if flags & !known != 0
+            || flags & reserved != 0
+            || flags & clear_sighand == clear_sighand
+            || (flags & thread_or_parent != 0 && args.exit_signal != 0)
+        {
+            return Err(Errno::EINVAL.into());
+        }
+        // `clone3_stack_valid`: a stack is its lowest address and a size, inside the address
+        // space; the child starts at its top.
+        let stack = match (args.stack, args.stack_size) {
+            (0, 0) => 0,
+            (0, _) | (_, 0) => return Err(Errno::EINVAL.into()),
+            (stack, size) => stack
+                .checked_add(size)
+                .and_then(|top| u32::try_from(top).ok())
+                .ok_or(Errno::EINVAL)?,
+        };
+        let (Ok(pidfd), Ok(parent_tid), Ok(child_tid), Ok(tls)) = (
+            u32::try_from(args.pidfd),
+            u32::try_from(args.parent_tid),
+            u32::try_from(args.child_tid),
+            u32::try_from(args.tls),
+        ) else {
+            return Err(Errno::EFAULT.into());
+        };
+        let set_tid = match args.set_tid {
+            0 => Vec::new(),
+            addr => {
+                let addr = u32::try_from(addr).map_err(|_| Errno::EFAULT)?;
+                let mut raw = vec![0; args.set_tid_size as usize * 4];
+                caller.memory().read(addr, &mut raw).await?;
+                raw.chunks(4)
+                    .map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .collect()
+            }
+        };
+        let args = KernelClone {
+            flags: args.flags,
+            exit_signal: args.exit_signal,
+            pidfd,
+            parent_tid,
+            child_tid,
+            stack,
+            tls,
+            set_tid,
+        };
+        self.kernel_clone(caller, args).await
+    }
+
+    /// `kernel_clone` and `copy_process`'s checks of the flags, in their order. vfork
+    /// (`CLONE_VM | CLONE_VFORK`) works in every build configuration; fork (no `CLONE_VM`)
+    /// needs an address space that can be duplicated, and gets `ENOSYS` otherwise, as there is
+    /// no fork without an MMU on Linux.
+    async fn kernel_clone(&self, caller: &Caller<'_>, mut args: KernelClone) -> SysResult<i32> {
+        // An empty mount namespace is a new one.
+        if args.flags.contains(CloneFlags::CLONE_EMPTY_MNTNS) {
+            args.flags |= CloneFlags::CLONE_NEWNS;
+        }
+        let flags = args.flags;
+        if flags.contains(CloneFlags::CLONE_PIDFD)
+            && flags.contains(CloneFlags::CLONE_PARENT_SETTID)
+            && args.pidfd == args.parent_tid
+        {
+            return Err(Errno::EINVAL.into());
+        }
+        // `valid_signal`.
+        if args.exit_signal > 64 {
+            return Err(Errno::EINVAL.into());
+        }
+        let exit_signal = args.exit_signal as i32;
+        let both = |a: CloneFlags, b: CloneFlags| flags.contains(a) && flags.contains(b);
+        // A child in another mount or user namespace cannot share the root.
+        if both(CloneFlags::CLONE_NEWNS, CloneFlags::CLONE_FS)
+            || both(CloneFlags::CLONE_NEWUSER, CloneFlags::CLONE_FS)
+        {
+            return Err(Errno::EINVAL.into());
+        }
         if flags.contains(CloneFlags::CLONE_THREAD) && !flags.contains(CloneFlags::CLONE_SIGHAND) {
             return Err(Errno::EINVAL.into());
         }
         if flags.contains(CloneFlags::CLONE_SIGHAND) && !flags.contains(CloneFlags::CLONE_VM) {
             return Err(Errno::EINVAL.into());
         }
-        if exit_signal > 64 {
+        // A thread stays in its group's pid and user namespaces.
+        if flags.contains(CloneFlags::CLONE_THREAD)
+            && (flags.intersects(CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWPID)
+                || self.pid_ns_for_children_differs(caller.task()))
+        {
             return Err(Errno::EINVAL.into());
         }
-        let namespaces = CloneFlags::CLONE_NEWNS.0
-            | CloneFlags::CLONE_NEWCGROUP.0
-            | CloneFlags::CLONE_NEWUTS.0
-            | CloneFlags::CLONE_NEWIPC.0
-            | CloneFlags::CLONE_NEWUSER.0
-            | CloneFlags::CLONE_NEWPID.0
-            | CloneFlags::CLONE_NEWNET.0
-            | CloneFlags::CLONE_NEWTIME.0;
-        if flags.0 & namespaces != 0 {
-            return Err(Errno::EPERM.into());
+        if flags.contains(CloneFlags::CLONE_PIDFD) && flags.contains(CloneFlags::CLONE_DETACHED) {
+            return Err(Errno::EINVAL.into());
+        }
+        if flags.contains(CloneFlags::CLONE_AUTOREAP)
+            && (flags.intersects(CloneFlags::CLONE_THREAD | CloneFlags::CLONE_PARENT)
+                || exit_signal != 0)
+        {
+            return Err(Errno::EINVAL.into());
+        }
+        if both(CloneFlags::CLONE_NNP, CloneFlags::CLONE_THREAD) {
+            return Err(Errno::EINVAL.into());
+        }
+        if flags.contains(CloneFlags::CLONE_PIDFD_AUTOKILL)
+            && (!flags.contains(CloneFlags::CLONE_PIDFD | CloneFlags::CLONE_AUTOREAP)
+                || flags.contains(CloneFlags::CLONE_THREAD))
+        {
+            return Err(Errno::EINVAL.into());
+        }
+        // `cgroup_css_set_fork`: there is no cgroup filesystem, so no descriptor is a cgroup
+        // directory.
+        if flags.contains(CloneFlags::CLONE_INTO_CGROUP) {
+            return Err(Errno::EBADF.into());
+        }
+        // `alloc_pid`: a chosen pid needs `CAP_CHECKPOINT_RESTORE` in the pid namespace, and
+        // then would be taken as asked, which the kernel's single pid counter cannot do.
+        if !args.set_tid.is_empty() {
+            if args.set_tid.len() > 1 || args.set_tid[0] < 1 {
+                return Err(Errno::EINVAL.into());
+            }
+            let cred = self.cred(caller);
+            if !cred.capable(Cap::CheckpointRestore) && !cred.capable(Cap::SysAdmin) {
+                return Err(Errno::EPERM.into());
+            }
+            return Err(Errno::EINVAL.into());
         }
         // Threads start through `thread-spawn`; a process sharing handlers is not supported.
         if flags.contains(CloneFlags::CLONE_THREAD) || flags.contains(CloneFlags::CLONE_SIGHAND) {
             return Err(Errno::EINVAL.into());
         }
         // No pidfd comes out of clone yet (`pidfd_open` gives one): failing beats a pidfd
-        // never written to `parent_tid`.
-        if flags.contains(CloneFlags::CLONE_PIDFD) {
+        // never written. Nor is a child reaped without its parent.
+        if flags.intersects(CloneFlags::CLONE_PIDFD | CloneFlags::CLONE_AUTOREAP) {
             return Err(Errno::EINVAL.into());
         }
+        let newsp = args.stack;
+        let (parent_tid, tls, child_tid) = (args.parent_tid, args.tls, args.child_tid);
         if !flags.contains(CloneFlags::CLONE_VM) {
             return self
                 .fork(
@@ -666,14 +805,14 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let parent_task = caller.task();
-        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid.addr())?;
+        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid)?;
         let tid = child.0 as i32;
         // Linux ignores faults on both writes.
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
-            let _ = write_value(caller.memory(), GuestPtrMut::new(parent_tid.addr()), &tid).await;
+            let _ = write_value(caller.memory(), GuestPtrMut::new(parent_tid), &tid).await;
         }
         if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
-            let _ = write_value(caller.memory(), GuestPtrMut::new(child_tid.addr()), &tid).await;
+            let _ = write_value(caller.memory(), GuestPtrMut::new(child_tid), &tid).await;
         }
         self.procs
             .tree
@@ -692,6 +831,13 @@ impl Kernel {
         Ok(0)
     }
 
+    /// Whether `task`'s children would start in another pid namespace than its own.
+    fn pid_ns_for_children_differs(&self, task: TaskId) -> bool {
+        self.task_ref(task, |t| {
+            !Arc::ptr_eq(&t.process.pid_ns, &t.ns.pid_for_children)
+        })
+    }
+
     /// fork: `clone` without `CLONE_VM`. The child gets a copy of the address space, which the
     /// execution layer makes once the call returns ([`GuestAction::Fork`]); clone's writes to
     /// guest memory wait for that copy, so each lands only in the address space Linux writes.
@@ -702,9 +848,9 @@ impl Kernel {
         flags: CloneFlags,
         exit_signal: i32,
         newsp: Uptr,
-        parent_tid: S32Ptr,
+        parent_tid: u32,
         tls: Uptr,
-        child_tid: S32Ptr,
+        child_tid: u32,
     ) -> SysResult<i32> {
         // The child cannot start on another stack (`newsp`), and nothing can block the parent
         // until a child with its own memory execs (`CLONE_VFORK`).
@@ -715,12 +861,12 @@ impl Kernel {
             return Err(Errno::ENOSYS.into());
         }
         let parent_task = caller.task();
-        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid.addr())?;
+        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid)?;
         let set = |flag: CloneFlags, addr: u32| flags.contains(flag).then_some(addr);
         let fork = GuestAction::Fork {
             child,
-            parent_tid: set(CloneFlags::CLONE_PARENT_SETTID, parent_tid.addr()),
-            child_tid: set(CloneFlags::CLONE_CHILD_SETTID, child_tid.addr()),
+            parent_tid: set(CloneFlags::CLONE_PARENT_SETTID, parent_tid),
+            child_tid: set(CloneFlags::CLONE_CHILD_SETTID, child_tid),
             tls: set(CloneFlags::CLONE_SETTLS, tls),
         };
         self.queue(parent_task, fork);
@@ -752,6 +898,10 @@ impl Kernel {
             }
             let sched = task.sched.for_child()?;
             let ns = task.ns.copy(flags.0, &parent.cred())?;
+            let mut ident = parent.ident.lock().unwrap().for_child();
+            if flags.contains(CloneFlags::CLONE_NNP) {
+                ident.no_new_privs = true;
+            }
             let id = TaskId(state.last_id + 1);
             let process = Arc::new(Process {
                 pid: id,
@@ -761,7 +911,7 @@ impl Kernel {
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
                 stop: std::sync::OnceLock::new(),
-                ident: Mutex::new(parent.ident.lock().unwrap().for_child()),
+                ident: Mutex::new(ident),
                 cred: Mutex::new(parent.cred()),
                 resources: Mutex::new(parent.resources.lock().unwrap().clone()),
                 pid_ns: ns.pid_for_children.clone(),
@@ -777,11 +927,11 @@ impl Kernel {
             };
             let flag = Arc::new(WorkFlag::default());
             let account = crate::signal::Account::new(self.sigqueue_users.clone(), &process);
-            let signals = task.signals.group().fork(account).attach(
-                id,
-                task.signals.inherit(flags),
-                flag.clone(),
-            );
+            let group = task.signals.group().fork(account);
+            if flags.contains(CloneFlags::CLONE_CLEAR_SIGHAND) {
+                group.flush_handlers();
+            }
+            let signals = group.attach(id, task.signals.inherit(flags), flag.clone());
             // A vfork child runs on its parent's memory, so it shares the address space; a fork
             // child gets a copy of its mappings and break over the memory the execution layer
             // copies.
@@ -1441,6 +1591,61 @@ impl FileObject for PidFd {
     fn write<'a>(&'a self, _: Io<'a>, _: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async { Err(Errno::EINVAL.into()) })
     }
+}
+
+/// The flags `clone` takes (`CLONE_LEGACY_FLAGS`).
+const CLONE_LEGACY_FLAGS: u64 = 0xffff_ffff;
+
+/// What `clone` and `clone3` ask for (`struct kernel_clone_args`), as guest addresses.
+struct KernelClone {
+    /// Without the exit signal.
+    flags: CloneFlags,
+    exit_signal: u64,
+    pidfd: u32,
+    parent_tid: u32,
+    child_tid: u32,
+    /// The top of the child's stack, 0 for the caller's.
+    stack: u32,
+    tls: u32,
+    /// The pids asked for, from the child's pid namespace up (`set_tid`).
+    set_tid: Vec<i32>,
+}
+
+/// `copy_clone_args_from_user`: a `struct clone_args` of `size` bytes. Sizes below the first
+/// version are `EINVAL`; bytes past the version the kernel knows must be zero (`E2BIG`).
+async fn copy_clone_args(
+    caller: &Caller<'_>,
+    uargs: ConstCloneArgsPtr,
+    size: Usize,
+) -> SysResult<CloneArgs> {
+    const VER0: u32 = CloneArgsSize::CLONE_ARGS_SIZE_VER0.0;
+    const VER2: u32 = CloneArgsSize::CLONE_ARGS_SIZE_VER2.0;
+    /// `MAX_PID_NS_LEVEL`.
+    const MAX_PID_NS_LEVEL: u64 = 32;
+    if size > crate::mm::PAGE_SIZE as u32 {
+        return Err(Errno::E2BIG.into());
+    }
+    if size < VER0 {
+        return Err(Errno::EINVAL.into());
+    }
+    let memory = caller.memory();
+    let mut bytes = vec![0; size.max(VER2) as usize];
+    memory
+        .read(uargs.addr(), &mut bytes[..size as usize])
+        .await?;
+    if bytes[VER2 as usize..].iter().any(|&b| b != 0) {
+        return Err(Errno::E2BIG.into());
+    }
+    let args = CloneArgs::read_from(&bytes[..VER2 as usize]).ok_or(Errno::EFAULT)?;
+    if args.set_tid_size > MAX_PID_NS_LEVEL
+        || (args.set_tid == 0) != (args.set_tid_size == 0)
+        || args.exit_signal & !CloneFlags::CSIGNAL.0 != 0
+        || (args.flags.contains(CloneFlags::CLONE_INTO_CGROUP)
+            && (args.cgroup > i32::MAX as u64 || size < VER2))
+    {
+        return Err(Errno::EINVAL.into());
+    }
+    Ok(args)
 }
 
 /// `dup_fd`: the same open files at the same numbers, close-on-exec flags included.
