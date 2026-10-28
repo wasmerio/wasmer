@@ -9,7 +9,7 @@ use std::{
 };
 
 use wasixv2_abi::{IoctlRequest, OpenFlags};
-use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
+use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult, TaskId};
 use wasixv2_vfs::{File, FileType, LockKey, Path, SeekHole, Vfs};
 use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
@@ -19,6 +19,8 @@ use crate::epoll::EpollLink;
 /// call began (Linux reads `f_flags` once) and how to notice a signal while blocked.
 #[derive(Clone, Copy)]
 pub struct Io<'a> {
+    /// The task making the call (`current`).
+    pub task: TaskId,
     pub flags: OpenFlags,
     pub interrupt: &'a dyn Interrupt,
     /// Where a write reports that it found the reading side gone, whatever it returns: the
@@ -316,8 +318,14 @@ impl OpenFile {
 
     /// `read` at the file position. A blocked read ends early with `SysErr::Restart` when
     /// `interrupt` becomes pending, as every blocking read does on Linux, vectored or not.
-    pub(crate) async fn read(&self, interrupt: &dyn Interrupt, buf: &mut [u8]) -> SysResult<usize> {
+    pub(crate) async fn read(
+        &self,
+        task: TaskId,
+        interrupt: &dyn Interrupt,
+        buf: &mut [u8],
+    ) -> SysResult<usize> {
         let io = Io {
+            task,
             flags: self.flags(),
             interrupt,
             broken: None,
@@ -338,11 +346,13 @@ impl OpenFile {
     /// `broken` learns whether a stream found its reading side gone ([`Io::broken`]).
     pub(crate) async fn write(
         &self,
+        task: TaskId,
         interrupt: &dyn Interrupt,
         broken: &Cell<bool>,
         data: &[u8],
     ) -> SysResult<usize> {
         let io = Io {
+            task,
             flags: self.flags(),
             interrupt,
             broken: Some(broken),
@@ -365,9 +375,14 @@ impl OpenFile {
     }
 
     /// Reads at `offset` without moving the file position, as `pread` does.
-    pub(crate) async fn read_at(&self, buf: &mut [u8], offset: u64) -> SysResult<usize> {
+    pub(crate) async fn read_at(
+        &self,
+        task: TaskId,
+        buf: &mut [u8],
+        offset: u64,
+    ) -> SysResult<usize> {
         if let Some(object) = self.positional() {
-            return object.read(self.io(), buf).await;
+            return object.read(self.io(task), buf).await;
         }
         Ok(self.inode()?.read_at(buf, offset).await?)
     }
@@ -377,8 +392,9 @@ impl OpenFile {
         self.object().filter(|object| object.positional())
     }
 
-    fn io(&self) -> Io<'_> {
+    fn io(&self, task: TaskId) -> Io<'_> {
         Io {
+            task,
             flags: self.flags(),
             interrupt: &NoInterrupt,
             broken: None,

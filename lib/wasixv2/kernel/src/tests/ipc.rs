@@ -131,7 +131,12 @@ fn blocking_pipe_read_waits_for_a_writer_on_another_thread() {
         scope.spawn(|| {
             std::thread::sleep(Duration::from_millis(20));
             assert_eq!(
-                block_on(writer.write(&wasixv2_wait::NoInterrupt, &Default::default(), b"xy")),
+                block_on(writer.write(
+                    task,
+                    &wasixv2_wait::NoInterrupt,
+                    &Default::default(),
+                    b"xy"
+                )),
                 Ok(2)
             );
         });
@@ -192,7 +197,7 @@ fn a_blocking_write_to_a_pipe_writes_everything() {
             let mut got = 0;
             let mut buf = vec![0; 8192];
             while got < 3 * LEN {
-                let n = block_on(reader.read(&wasixv2_wait::NoInterrupt, &mut buf)).unwrap();
+                let n = block_on(reader.read(task, &wasixv2_wait::NoInterrupt, &mut buf)).unwrap();
                 got += n;
             }
             got
@@ -568,7 +573,7 @@ fn ppoll_blocks_until_another_thread_writes() {
         scope.spawn(|| {
             std::thread::sleep(Duration::from_millis(20));
             assert_eq!(
-                block_on(writer.write(&wasixv2_wait::NoInterrupt, &Default::default(), b"!")),
+                block_on(writer.write(task, &wasixv2_wait::NoInterrupt, &Default::default(), b"!")),
                 Ok(1)
             );
         });
@@ -930,7 +935,12 @@ mod epoll {
             scope.spawn(|| {
                 std::thread::sleep(Duration::from_millis(20));
                 assert_eq!(
-                    block_on(writer.write(&wasixv2_wait::NoInterrupt, &Default::default(), b"!")),
+                    block_on(writer.write(
+                        t.task,
+                        &wasixv2_wait::NoInterrupt,
+                        &Default::default(),
+                        b"!"
+                    )),
                     Ok(1)
                 );
             });

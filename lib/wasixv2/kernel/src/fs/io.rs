@@ -5,7 +5,8 @@ use wasixv2_abi::{
     LinuxDirent64Ptr, LoffPtr, OpenFlags, RwfFlags, SeekWhence, SyncFileRangeFlags,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, Fd, SysResult, UserMemory, UserSlice, UserSliceMut, read_value, write_value,
+    Caller, Errno, Fd, SysResult, TaskId, UserMemory, UserSlice, UserSliceMut, read_value,
+    write_value,
 };
 use wasixv2_vfs::{AllocMode, DirEntry, DirSink, FileType};
 
@@ -164,6 +165,7 @@ impl<'a> Cursor<'a> {
 /// position lock throughout (`fdget_pos`), so threads sharing the description never interleave
 /// within one call.
 struct Target<'a> {
+    task: TaskId,
     file: &'a OpenFile,
     interrupt: &'a dyn Interrupt,
     at: At,
@@ -178,7 +180,7 @@ struct Target<'a> {
 impl Target<'_> {
     async fn read(&self, buf: &mut [u8], done: usize) -> SysResult<usize> {
         let Backing::Inode(inner) = &self.file.backing else {
-            return self.file.read(self.interrupt, buf).await;
+            return self.file.read(self.task, self.interrupt, buf).await;
         };
         let offset = self.start + done as u64;
         let n = inner.read_at(buf, offset).await?;
@@ -190,7 +192,10 @@ impl Target<'_> {
 
     async fn write(&self, data: &[u8], done: usize) -> SysResult<usize> {
         let Backing::Inode(inner) = &self.file.backing else {
-            return self.file.write(self.interrupt, self.broken, data).await;
+            return self
+                .file
+                .write(self.task, self.interrupt, self.broken, data)
+                .await;
         };
         if self.append {
             let (end, n) = inner.append(data).await?;
@@ -229,6 +234,7 @@ impl Kernel {
             _ => None,
         };
         let target = Target {
+            task: caller.task(),
             file,
             interrupt: &*interrupt,
             at,
@@ -311,6 +317,7 @@ impl Kernel {
         };
         let o_append = file.flags().contains(OpenFlags::O_APPEND);
         let target = Target {
+            task: caller.task(),
             file,
             interrupt: &*interrupt,
             at,
@@ -623,8 +630,12 @@ impl Kernel {
         while done < count {
             let want = (count - done).min(buf.len());
             let read = match stream {
-                true => input.read(&*interrupt, &mut buf[..want]).await,
-                false => input.read_at(&mut buf[..want], pos).await,
+                true => {
+                    input
+                        .read(caller.task(), &*interrupt, &mut buf[..want])
+                        .await
+                }
+                false => input.read_at(caller.task(), &mut buf[..want], pos).await,
             };
             let n = match read {
                 Ok(0) => break,
@@ -632,7 +643,10 @@ impl Kernel {
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
             };
-            let written = match output.write(&*interrupt, broken, &buf[..n]).await {
+            let written = match output
+                .write(caller.task(), &*interrupt, broken, &buf[..n])
+                .await
+            {
                 Ok(written) => written,
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
