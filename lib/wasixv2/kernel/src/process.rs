@@ -897,7 +897,7 @@ impl Kernel {
                 return Err(Errno::EINTR);
             }
             let sched = task.sched.for_child()?;
-            let ns = task.ns.copy(flags.0, &parent.cred())?;
+            let ns = task.ns.copy(self, flags.0, &parent.cred())?;
             let mut ident = parent.ident.lock().unwrap().for_child();
             if flags.contains(CloneFlags::CLONE_NNP) {
                 ident.no_new_privs = true;
