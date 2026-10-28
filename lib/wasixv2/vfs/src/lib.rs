@@ -313,5 +313,6 @@ fn new_superblock(tree: &Tree, next_anon: &AtomicU32, fs: Arc<dyn Filesystem>) -
         inodes: Default::default(),
         sub_devs: Default::default(),
         root: Default::default(),
+        writers: Default::default(),
     })
 }

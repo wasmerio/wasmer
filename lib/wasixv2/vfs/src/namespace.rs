@@ -107,11 +107,6 @@ fn may_use_mount(state: &TreeState, ns: &MntNs, mount: &Mount) -> bool {
     check_mnt(state, ns, mount) || check_anonymous_mnt(state, ns, mount)
 }
 
-/// `set_mount_attributes`: the flags a user can set, all replaced.
-fn set_mount_attributes(mount: &Mount, flags: MountFlags) {
-    mount.set_flags(flags);
-}
-
 /// `anon_ns_root`: `mount` is the root of a detached tree.
 fn anon_ns_root(state: &TreeState, mount: &Mount) -> bool {
     mount.parent().is_none()
@@ -156,17 +151,19 @@ impl Vfs {
                 if !check_mnt(&state, ns, &target.mnt) || !target.is_mount_root() {
                     return Err(Errno::EINVAL);
                 }
-                target.mnt.sb().set_read_only(read_only);
-                set_mount_attributes(&target.mnt, flags);
-                Ok(())
+                // `reconfigure_super`, then `set_mount_attributes`.
+                self.tree.set_sb_read_only(target.mnt.sb(), read_only)?;
+                self.tree
+                    .set_mount_flags(std::slice::from_ref(&target.mnt), |_| flags)
             }
             MountOp::Reconfigure { flags } => {
                 let state = self.tree.lock();
                 if !check_mnt(&state, ns, &target.mnt) || !target.is_mount_root() {
                     return Err(Errno::EINVAL);
                 }
-                set_mount_attributes(&target.mnt, flags);
-                Ok(())
+                // `do_reconfigure_mnt`: `mnt_make_readonly` while no file writes through it.
+                self.tree
+                    .set_mount_flags(std::slice::from_ref(&target.mnt), |_| flags)
             }
             MountOp::Propagation { kind, recursive } => {
                 self.change_type(target, Some(kind), recursive, None)
@@ -492,14 +489,16 @@ impl Vfs {
             true => state.subtree(&target.mnt),
             false => vec![target.mnt.clone()],
         };
+        // `mount_setattr_prepare`: the flags change on every mount or none.
+        if let Some(attr) = attr {
+            self.tree
+                .set_mount_flags(&mounts, |old| recalc_flags(old, attr))?;
+        }
         if kind == Some(Propagation::Shared) {
             state.invent_group_ids(&mounts);
         }
-        for mount in &mounts {
-            if let Some(attr) = attr {
-                mount.set_flags(recalc_flags(mount.flags(), attr));
-            }
-            if let Some(kind) = kind {
+        if let Some(kind) = kind {
+            for mount in &mounts {
                 state.change_propagation(mount.id, kind);
             }
         }
@@ -549,8 +548,8 @@ impl Vfs {
             }
         }
         if is_root && !flags.detach {
-            mount.sb().set_read_only(true);
-            return Ok(());
+            // `do_umount_root`.
+            return self.tree.set_sb_read_only(mount.sb(), true);
         }
         let _gone = {
             let mut state = self.tree.lock();
