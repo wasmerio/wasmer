@@ -22,9 +22,13 @@ pub enum GuestAction {
     /// The task ended: its thread group exited with this status, or, for a task that is not the
     /// group leader, the task itself did.
     Exit(i32),
-    /// The calling task created the thread `task` (`thread-spawn`); start it on its own instance
-    /// at the module's thread entry point with `start_arg`.
-    StartThread { task: TaskId, start_arg: u32 },
+    /// The calling task created the thread `task` (`thread-spawn`), whose tid is `tid`; start
+    /// it on its own instance at the module's thread entry point with `start_arg`.
+    StartThread {
+        task: TaskId,
+        tid: i32,
+        start_arg: u32,
+    },
     /// Run a signal handler on top of the interrupted guest stack, then report back through
     /// [`Control::signal_return`].
     Signal(SignalFrame),
@@ -45,13 +49,16 @@ pub enum GuestAction {
     /// without `CLONE_VM`, which only an address space that
     /// [`can_duplicate`](crate::UserMemory::can_duplicate) gets): copy the memory and the guest's
     /// call stack to a new instance that runs as `child`, where the call returns 0, while here it
-    /// returns the child's pid. clone's writes land after the copy, each in one address space:
-    /// the child's tid at `parent_tid` in this one (`CLONE_PARENT_SETTID`), the parent's new
-    /// pidfd, the second value, at the first in this one too (`CLONE_PIDFD`, which the kernel
-    /// checked can be written), and the child's tid at `child_tid` in the child's
-    /// (`CLONE_CHILD_SETTID`), whose thread pointer becomes `tls` (`CLONE_SETTLS`).
+    /// returns the child's pid as the parent sees it, `pid`. clone's writes land after the copy,
+    /// each in one address space: `pid` at `parent_tid` in this one (`CLONE_PARENT_SETTID`), the
+    /// parent's new pidfd, the second value, at the first in this one too (`CLONE_PIDFD`, which
+    /// the kernel checked can be written), and the child's tid as it sees it, `tid`, at
+    /// `child_tid` in the child's (`CLONE_CHILD_SETTID`), whose thread pointer becomes `tls`
+    /// (`CLONE_SETTLS`). The two differ for the first process of a pid namespace.
     Fork {
         child: TaskId,
+        pid: i32,
+        tid: i32,
         parent_tid: Option<u32>,
         pidfd: Option<(u32, i32)>,
         child_tid: Option<u32>,
@@ -86,6 +93,10 @@ pub struct VforkParent {
     /// What becomes of the parent, which [`Control::take_pending`] decides when it hands out
     /// the action.
     pub resumes: Resume,
+    /// The child's pid as the parent sees it, which vfork returns there: the kernel names it
+    /// when it makes the child, as the child may be gone, its pid with it, by the time the
+    /// parent resumes.
+    pub pid: i32,
 }
 
 /// How a vfork parent goes on once its child is done with the parent's instance.
@@ -183,7 +194,7 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control: AtomicWait + CpuTime + ExitMm + GroupStop + SharedMappings {
+pub trait Control: AtomicWait + CpuTime + ExitMm + GroupStop + PidView + SharedMappings {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
@@ -253,6 +264,24 @@ pub trait ExitMm {
     /// every task runs in its own `do_exit`, whatever ended it (its `exit`, another thread's
     /// `exit_group` or `execve`, a fatal signal). Calls after the first do nothing.
     fn exit_mm<'a>(&'a self, caller: &'a Caller<'a>) -> LocalFuture<'a, ()>;
+}
+
+/// How tasks name each other: a [`TaskId`] is the kernel's own name for a task, which no guest
+/// sees; a guest sees a pid, which depends on the pid namespace it is in. The defaults are for
+/// a kernel whose pids are the ids.
+pub trait PidView {
+    /// The thread group `task` belongs to, by its leader's id: the process, whatever pid any
+    /// guest sees for it.
+    fn tgid(&self, task: TaskId) -> TaskId {
+        task
+    }
+
+    /// The pid `task` has as `viewer` sees it, in the pid namespace `viewer`'s process is in
+    /// (`task_pid_nr_ns(task, task_active_pid_ns(viewer))`): 0 for a task outside it, or gone.
+    fn pid_in(&self, viewer: TaskId, task: TaskId) -> i32 {
+        let _ = viewer;
+        task.0 as i32
+    }
 }
 
 /// The kernel's part of job control that the execution layer waits in.
@@ -447,6 +476,18 @@ pub struct ImageId {
 impl<L, S: ExitMm> ExitMm for Layered<L, S> {
     fn exit_mm<'a>(&'a self, caller: &'a Caller<'a>) -> LocalFuture<'a, ()> {
         self.inner.exit_mm(caller)
+    }
+}
+
+// By hand rather than generated with the rest of `Layered`: the layers see syscalls, and this
+// is not one.
+impl<L, S: PidView> PidView for Layered<L, S> {
+    fn tgid(&self, task: TaskId) -> TaskId {
+        self.inner.tgid(task)
+    }
+
+    fn pid_in(&self, viewer: TaskId, task: TaskId) -> i32 {
+        self.inner.pid_in(viewer, task)
     }
 }
 

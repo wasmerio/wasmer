@@ -48,16 +48,16 @@ pub struct Wasix1Instance {
     started: AtomicBool,
     /// The vfork children running in this instance, by tid.
     vforks: Mutex<HashMap<TaskId, Vfork>>,
-    /// The pid of the task that asked last, as `tid << 32 | pid` ([`NO_PID`] before any), so
-    /// a shim needs no `getpid` to find its process's compat state. A task's pid stays while it
-    /// runs here: the instance's own task belongs to its process for life, a vfork child that
-    /// runs here is a process whose pid is its tid, and a new image (`execve`) or a fork child
-    /// gets an instance of its own.
-    pid: AtomicU64,
+    /// The process of the task that asked last, by the kernel's ids, as `task << 32 | process`
+    /// ([`NO_PROCESS`] before any), so a shim needs no call into the kernel to find its
+    /// process's compat state. A task's process stays while it runs here: the instance's own
+    /// task belongs to its process for life, a vfork child that runs here is a process of its
+    /// own, and a new image (`execve`) or a fork child gets an instance of its own.
+    process: AtomicU64,
 }
 
-/// [`Wasix1Instance::pid`] before any task asked: no tid is `u32::MAX`.
-const NO_PID: u64 = u64::MAX;
+/// [`Wasix1Instance::process`] before any task asked: no task id is `u32::MAX`.
+const NO_PROCESS: u64 = u64::MAX;
 
 /// A vfork child that runs in its parent's instance.
 pub(crate) struct Vfork {
@@ -98,20 +98,21 @@ impl Wasix1Instance {
             blocked: AtomicBool::new(false),
             started: AtomicBool::new(false),
             vforks: Mutex::new(HashMap::new()),
-            pid: AtomicU64::new(NO_PID),
+            process: AtomicU64::new(NO_PROCESS),
         })
     }
 
-    /// The pid of `task` if it is the task that asked last.
-    pub(crate) fn cached_pid(&self, task: TaskId) -> Option<TaskId> {
-        let packed = self.pid.load(Ordering::Relaxed);
-        (packed != NO_PID && (packed >> 32) as u32 == task.0).then_some(TaskId(packed as u32))
+    /// The process of `task` if it is the task that asked last.
+    pub(crate) fn cached_process(&self, task: TaskId) -> Option<TaskId> {
+        let packed = self.process.load(Ordering::Relaxed);
+        let hit = packed != NO_PROCESS && (packed >> 32) as u32 == task.0;
+        hit.then_some(TaskId(packed as u32))
     }
 
-    /// Remembers that `task`'s pid is `pid`.
-    pub(crate) fn cache_pid(&self, task: TaskId, pid: TaskId) {
-        self.pid.store(
-            u64::from(task.0) << 32 | u64::from(pid.0),
+    /// Remembers that `task`'s process is `process`.
+    pub(crate) fn cache_process(&self, task: TaskId, process: TaskId) {
+        self.process.store(
+            u64::from(task.0) << 32 | u64::from(process.0),
             Ordering::Relaxed,
         );
     }
@@ -157,7 +158,7 @@ impl Wasix1Instance {
     }
 
     /// Makes `state`, a copy of the forking parent's, the compat state of this process image,
-    /// a fork child whose pid is `pid`.
+    /// a fork child, the process `pid`.
     pub(crate) fn adopt(&self, pid: TaskId, state: Arc<ProcState>) {
         self.procs.replace(pid, state.clone());
         let old = self.image.lock().unwrap().replace((pid, state));
@@ -209,10 +210,10 @@ impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
     fn start_thread<'a>(
         &'a self,
         entry: &'a Entry<'a, S>,
-        task: TaskId,
+        tid: i32,
         start_arg: u32,
     ) -> LocalFuture<'a, Result<(), RuntimeError>> {
-        let args = [Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
+        let args = [Value::I32(tid), Value::I32(start_arg as i32)];
         Box::pin(async move { entry.call(THREAD_ENTRY, &self.entry, &args).await.map(drop) })
     }
 
@@ -252,6 +253,7 @@ impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
         &'a self,
         env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
         child: TaskId,
+        pid: i32,
     ) -> LocalFuture<'a, VforkResume> {
         Box::pin(async move {
             let Some(vfork) = self.vforks.lock().unwrap().remove(&child) else {
@@ -261,9 +263,9 @@ impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
             self.procs.remove(child, &vfork.state);
             match vfork.resume {
                 None => VforkResume::ReturnSuccess,
-                Some(id) => VforkResume::Unwind(
-                    wasixv2_exec::asyncify::import::restore(env, id, child.0 as i32).await,
-                ),
+                Some(id) => {
+                    VforkResume::Unwind(wasixv2_exec::asyncify::import::restore(env, id, pid).await)
+                }
             }
         })
     }

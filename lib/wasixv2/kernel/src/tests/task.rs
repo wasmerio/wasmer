@@ -319,6 +319,7 @@ fn a_vfork_parent_handed_another_threads_image_does_not_return_from_vfork() {
     let parent = VforkParent {
         task: leader,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     };
     let back = GuestAction::VforkReturn { parent, child };
     assert_eq!(kernel.take_pending(child), Some(back));
@@ -423,6 +424,7 @@ fn a_sibling_execve_does_not_wait_for_the_leaders_vfork_child() {
     let parent = VforkParent {
         task: leader,
         resumes: Resume::Gone,
+        pid: child.0 as i32,
     };
     let back = GuestAction::VforkReturn { parent, child };
     assert_eq!(kernel.take_pending(child), Some(back));
@@ -444,6 +446,7 @@ fn a_vfork_child_execve_after_its_parent_went_on_ends_the_old_instance() {
     let vfork_parent = Some(VforkParent {
         task: leader,
         resumes: Resume::Gone,
+        pid: child.0 as i32,
     });
     let exec = GuestAction::Exec { vfork_parent };
     assert_eq!(kernel.take_pending(child), Some(exec));
@@ -470,6 +473,7 @@ fn a_vfork_child_that_ends_before_the_sibling_execve_commits_hands_the_leader_ba
     let parent = VforkParent {
         task: leader,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     };
     let back = GuestAction::VforkReturn { parent, child };
     assert_eq!(kernel.take_pending(child), Some(back));
@@ -542,6 +546,7 @@ impl ThreadInVfork {
         let parent = VforkParent {
             task: thread,
             resumes: Resume::Dies,
+            pid: child.0 as i32,
         };
         let back = GuestAction::VforkReturn { parent, child };
         assert_eq!(kernel.take_pending(child), Some(back));
@@ -613,6 +618,7 @@ fn an_execve_waits_for_a_vfork_parent_thread_until_it_left_its_memory() {
     let parent = VforkParent {
         task: thread,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     };
     let back = GuestAction::VforkReturn { parent, child };
     assert_eq!(kernel.take_pending(child), Some(back));
@@ -663,6 +669,7 @@ fn a_leader_that_is_a_vfork_child_takes_the_image_in_its_instance() {
     let parent = VforkParent {
         task: leader,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     };
     let back = GuestAction::VforkReturn { parent, child };
     assert_eq!(kernel.take_pending(child), Some(back));
@@ -670,6 +677,7 @@ fn a_leader_that_is_a_vfork_child_takes_the_image_in_its_instance() {
     let vfork_parent = Some(VforkParent {
         task: grandparent,
         resumes: Resume::Returns,
+        pid: leader.0 as i32,
     });
     let handed = GuestAction::Exec { vfork_parent };
     assert_eq!(kernel.take_pending(leader), Some(handed));
@@ -713,6 +721,7 @@ fn a_group_that_dies_while_a_sibling_execve_waits_for_the_vfork_leader_execs_not
         let parent = VforkParent {
             task: leader,
             resumes: Resume::Dies,
+            pid: child.0 as i32,
         };
         let back = GuestAction::VforkReturn { parent, child };
         assert_eq!(kernel.take_pending(child), Some(back), "{case}");

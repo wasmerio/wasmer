@@ -77,31 +77,34 @@ impl<S> Image<S> {
 
 /// Starts thread tasks of one process; `Image` without its syscalls type.
 pub(crate) trait Start: Send + Sync {
-    fn start(self: Arc<Self>, task: TaskId, start_arg: u32) -> io::Result<()>;
+    /// Starts the thread `task`, whose tid is `tid`, with `start_arg`.
+    fn start(self: Arc<Self>, task: TaskId, tid: i32, start_arg: u32) -> io::Result<()>;
 }
 
 impl<S> Start for Image<S>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    fn start(self: Arc<Self>, task: TaskId, start_arg: u32) -> io::Result<()> {
+    fn start(self: Arc<Self>, task: TaskId, tid: i32, start_arg: u32) -> io::Result<()> {
         let host = self.host.clone();
         host.executor()
-            .spawn_thread(Box::new(move || Box::pin(self.run(task, start_arg))))
+            .spawn_thread(Box::new(move || Box::pin(self.run(task, tid, start_arg))))
     }
 }
 
-/// Starts the thread `child` that the instance behind `env` created. On failure the child is
-/// gone again and the caller reports `EAGAIN`, as `clone` does when the host is out of threads.
+/// Starts the thread `child`, whose tid is `tid`, that the instance behind `env` created. On
+/// failure the child is gone again and the caller reports `EAGAIN`, as `clone` does when the
+/// host is out of threads.
 pub(crate) async fn start<S: Control + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     syscalls: &S,
     child: TaskId,
+    tid: i32,
     start_arg: u32,
 ) -> bool {
     let image = env.read().await.data().threads.clone();
     let started = match image {
-        Some(image) => image.start(child, start_arg),
+        Some(image) => image.start(child, tid, start_arg),
         // The process has no shared memory to start threads on.
         None => Err(io::ErrorKind::Unsupported.into()),
     };
@@ -118,9 +121,9 @@ where
 {
     /// Runs the thread `task` to its end, on the host thread it was started on. A trap kills
     /// the thread group with its signal; then the kernel forgets the task.
-    async fn run(self: Arc<Self>, task: TaskId, start_arg: u32) {
+    async fn run(self: Arc<Self>, task: TaskId, tid: i32, start_arg: u32) {
         let (syscalls, host) = (self.syscalls.clone(), self.host.clone());
-        match crate::catch_panic(self.call_entry(task, start_arg)).await {
+        match crate::catch_panic(self.call_entry(task, tid, start_arg)).await {
             Ok(Ok(Ended::Exited(_))) => syscalls.release(task),
             Ok(Ok(Ended::Fault {
                 task: at,
@@ -153,7 +156,12 @@ where
         }
     }
 
-    async fn call_entry(self: Arc<Self>, task: TaskId, start_arg: u32) -> Result<Ended, ExecError> {
+    async fn call_entry(
+        self: Arc<Self>,
+        task: TaskId,
+        tid: i32,
+        start_arg: u32,
+    ) -> Result<Ended, ExecError> {
         let mut store = Store::new(self.engine.clone());
         let spawner = process::spawner(
             self.engine.clone(),
@@ -191,7 +199,7 @@ where
 
         let store = store.into_async();
         let entry = Entry::new(&env, &store);
-        let result = abi.start_thread(&entry, task, start_arg).await;
+        let result = abi.start_thread(&entry, tid, start_arg).await;
         let on_return = abi.on_thread_return();
         Ok(crate::ended(entry.cx(), result, on_return, Role::Thread).await)
     }

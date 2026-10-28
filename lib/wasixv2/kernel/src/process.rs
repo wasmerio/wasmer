@@ -92,6 +92,9 @@ pub(crate) struct Tree {
     /// its image went on in another instance (another thread's `execve` gave the leader the new
     /// image): the instance ends with the child ([`Resume::Gone`]). To the parent task.
     pub(crate) detached: HashMap<TaskId, TaskId>,
+    /// The pid each vfork child has as its parent sees it, which vfork returns there
+    /// ([`VforkParent::pid`]), until the parent goes back to its instance.
+    pub(crate) vfork_pids: HashMap<TaskId, i32>,
     /// The CPU time of every process reaped so far, which the machine's counts with the live
     /// ones' (`/proc/stat`).
     pub(crate) reaped: CpuTimes,
@@ -113,7 +116,8 @@ impl Tree {
             Some(task) => (task, Resume::Returns),
             None => (self.detached.remove(&child)?, Resume::Gone),
         };
-        Some(VforkParent { task, resumes })
+        let pid = self.vfork_pids.remove(&child).unwrap_or_default();
+        Some(VforkParent { task, resumes, pid })
     }
 
     /// The vfork child running in the instance of `parent`, which waits for it.
@@ -826,11 +830,11 @@ impl Kernel {
         if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
             let _ = write_value(caller.memory(), GuestPtrMut::new(child_tid), &tid).await;
         }
-        self.procs
-            .tree
-            .lock_or_recover()
-            .vforks
-            .insert(child, parent_task);
+        {
+            let mut tree = self.procs.tree.lock_or_recover();
+            tree.vforks.insert(child, parent_task);
+            tree.vfork_pids.insert(child, tid);
+        }
         let child_signals = self.task_signals(child).group().clone();
         self.task_signals(parent_task)
             .set_vfork_child(Some((child_signals, child)));
@@ -933,6 +937,8 @@ impl Kernel {
         let set = |flag: CloneFlags, addr: u32| flags.contains(flag).then_some(addr);
         let fork = GuestAction::Fork {
             child,
+            pid: child.0 as i32,
+            tid: child.0 as i32,
             parent_tid: set(CloneFlags::CLONE_PARENT_SETTID, parent_tid),
             pidfd,
             child_tid: set(CloneFlags::CLONE_CHILD_SETTID, child_tid),
@@ -970,7 +976,9 @@ impl Kernel {
             // (`copy_fs` before `copy_namespaces`); `CLONE_NEWNS` never goes with `CLONE_FS`.
             let mut own_fs =
                 (!flags.contains(CloneFlags::CLONE_FS)).then(|| task.fs.lock_or_recover().clone());
-            let ns = task.ns.copy(self, flags.0, &parent.cred(), own_fs.as_mut())?;
+            let ns = task
+                .ns
+                .copy(self, flags.0, &parent.cred(), own_fs.as_mut())?;
             let mut ident = parent.ident.lock_or_recover().for_child();
             if flags.contains(CloneFlags::CLONE_NNP) {
                 ident.no_new_privs = true;

@@ -628,6 +628,7 @@ fn a_vfork_parent_whose_group_exits_is_a_zombie_while_its_child_runs() {
     let exited = VforkParent {
         task: parent,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     };
     assert_eq!(
         vforked.child_exits(),
@@ -676,6 +677,7 @@ fn a_vfork_parent_whose_group_exits_does_not_return_from_its_childs_execve() {
     let vfork_parent = Some(VforkParent {
         task: *parent,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     });
     assert_eq!(
         kernel.take_pending(*child),
@@ -698,6 +700,7 @@ fn a_vfork_parent_whose_group_exits_after_its_child_ended_does_not_return() {
     let exited = VforkParent {
         task: vforked.parent,
         resumes: Resume::Dies,
+        pid: vforked.child.0 as i32,
     };
     assert_eq!(
         vforked.kernel.take_pending(vforked.child),
@@ -714,6 +717,7 @@ fn a_vfork_parent_with_no_exit_pending_returns_from_vfork() {
     let parent = VforkParent {
         task: vforked.parent,
         resumes: Resume::Returns,
+        pid: vforked.child.0 as i32,
     };
     assert_eq!(
         vforked.child_exits(),
@@ -738,6 +742,7 @@ fn a_vfork_child_killed_by_a_signal_hands_the_instance_back_to_its_parent() {
     let parent = VforkParent {
         task: vforked.parent,
         resumes: Resume::Returns,
+        pid: child.0 as i32,
     };
     assert_eq!(
         kernel.take_pending(child),
@@ -833,6 +838,7 @@ fn a_vfork_parent_killed_while_its_child_runs_dies_at_once() {
     let exited = VforkParent {
         task: parent,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     };
     assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
     assert_eq!(
@@ -902,6 +908,7 @@ fn a_vfork_parent_killed_while_its_child_runs_releases_its_robust_futexes() {
     let exited = VforkParent {
         task: parent,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     };
     assert_eq!(
         kernel.take_pending(child),
@@ -978,6 +985,7 @@ fn a_vfork_parent_keeps_waiting_through_signals_that_do_not_kill_it() {
         let resumes = VforkParent {
             task: *parent,
             resumes: Resume::Returns,
+            pid: child.0 as i32,
         };
         let child_caller = Caller::new(*child, memory);
         assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
@@ -1022,6 +1030,7 @@ fn a_killed_group_does_not_wait_for_a_thread_waiting_for_its_vfork_child() {
     let exited = VforkParent {
         task: thread,
         resumes: Resume::Dies,
+        pid: child.0 as i32,
     };
     assert_eq!(
         kernel.take_pending(child),

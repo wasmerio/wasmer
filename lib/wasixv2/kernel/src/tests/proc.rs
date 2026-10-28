@@ -82,6 +82,8 @@ fn fork_leaves_the_copy_and_tid_writes_to_the_execution_layer() {
         kernel.take_pending(task),
         Some(GuestAction::Fork {
             child,
+            pid: child.0 as i32,
+            tid: child.0 as i32,
             parent_tid: Some(8),
             pidfd: None,
             child_tid: Some(16),
@@ -487,6 +489,8 @@ fn clone3_forks_as_clone_does() {
         kernel.take_pending(task),
         Some(GuestAction::Fork {
             child,
+            pid: child.0 as i32,
+            tid: child.0 as i32,
             parent_tid: Some(8),
             pidfd: None,
             child_tid: None,
@@ -820,6 +824,8 @@ fn clone3_pidfd_gives_the_parent_a_pidfd_of_the_child() {
         kernel.take_pending(task),
         Some(GuestAction::Fork {
             child,
+            pid: child.0 as i32,
+            tid: child.0 as i32,
             parent_tid: None,
             pidfd: Some((0x100, 3)),
             child_tid: None,

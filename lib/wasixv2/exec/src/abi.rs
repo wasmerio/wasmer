@@ -69,11 +69,12 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
     /// What it means when [`AbiInstance::start`] returns normally.
     fn on_entry_return(&self) -> EntryReturn;
 
-    /// Runs the thread entry of `task` with the `start_arg` its creator passed.
+    /// Runs the thread entry of the thread whose tid is `tid` with the `start_arg` its creator
+    /// passed.
     fn start_thread<'a>(
         &'a self,
         entry: &'a Entry<'a, S>,
-        task: TaskId,
+        tid: i32,
         start_arg: u32,
     ) -> LocalFuture<'a, Result<(), RuntimeError>>;
 
@@ -92,12 +93,13 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         restart: bool,
     ) -> LocalFuture<'a, Result<Sigreturn, RuntimeError>>;
 
-    /// Resumes a vfork parent after its child `child` ended (exited or loaded a new image). The
-    /// instance already runs as the parent again.
+    /// Resumes a vfork parent after its child `child`, whose pid the parent sees as `pid`,
+    /// ended (exited or loaded a new image). The instance already runs as the parent again.
     fn vfork_resume<'a>(
         &'a self,
         env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
         child: TaskId,
+        pid: i32,
     ) -> LocalFuture<'a, VforkResume>;
 
     /// How large the instance's memory may grow, in bytes, by the guest's own `memory.grow`

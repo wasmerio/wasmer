@@ -554,19 +554,20 @@ impl ProcExports {
 /// The export a vfork parent resumes through, as `wasixv2_vfork_return(child_tid)`.
 pub const VFORK_RETURN: &str = "wasixv2_vfork_return";
 
-/// Calls the guest's vfork return, `function`, in the vfork parent, which unwinds to the vfork
-/// point with an exception; returns that error for the import to raise.
+/// Calls the guest's vfork return, `function`, with the child's pid as the parent sees it, in
+/// the vfork parent, which unwinds to the vfork point with an exception; returns that error
+/// for the import to raise.
 pub(crate) async fn vfork_return<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     function: Option<&Function>,
-    child: TaskId,
+    pid: i32,
 ) -> RuntimeError {
     let Some(function) = function else {
         return RuntimeError::new(format!(
             "a vfork child ended, but the guest has no `{VFORK_RETURN}`"
         ));
     };
-    let args = [Value::I32(child.0 as i32)];
+    let args = [Value::I32(pid)];
     match asyncify::call(env, None, function, &args).await {
         Err(err) => err,
         Ok(_) => RuntimeError::new(format!("`{VFORK_RETURN}` returned")),
@@ -583,8 +584,8 @@ mod tests {
 
     use wasixv2_host::{Executor, LocalFuture};
     use wasixv2_syscalls::{
-        AtomicWait, AtomicWord, Caller, CpuTime, ExitMm, GroupStop, SharedMapping, SharedMappings,
-        SysResult, VforkParent,
+        AtomicWait, AtomicWord, Caller, CpuTime, ExitMm, GroupStop, PidView, SharedMapping,
+        SharedMappings, SysResult, VforkParent,
     };
 
     use super::*;
@@ -627,6 +628,8 @@ mod tests {
     }
 
     impl CpuTime for Recorder {}
+
+    impl PidView for Recorder {}
 
     impl ExitMm for Recorder {
         fn exit_mm<'a>(&'a self, _: &'a Caller<'a>) -> LocalFuture<'a, ()> {
@@ -713,6 +716,7 @@ mod tests {
         let parent = VforkParent {
             task: PARENT,
             resumes: Resume::Gone,
+            pid: CHILD.0 as i32,
         };
         control.queue(
             CHILD,

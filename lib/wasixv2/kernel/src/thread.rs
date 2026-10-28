@@ -249,6 +249,7 @@ impl Kernel {
         }
         let start = GuestAction::StartThread {
             task: child,
+            tid,
             start_arg,
         };
         self.queue(parent, start);
@@ -285,6 +286,7 @@ impl Kernel {
             let vfork_parent = {
                 let mut tree = self.procs.tree.lock_or_recover();
                 tree.reap(child.0);
+                tree.vfork_pids.remove(&child);
                 tree.vforks.remove(&child)
             };
             if let Some(parent) = vfork_parent {

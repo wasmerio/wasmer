@@ -100,7 +100,7 @@ pub(crate) struct Wasixv2Instance {
     /// `_start` of a process image, `wasixv2_thread_start` of a thread.
     entry: Function,
     signal: signal::SignalExports,
-    /// `wasixv2_vfork_return(child)`, which libc exports to unwind to the vfork point.
+    /// `wasixv2_vfork_return(pid)`, which libc exports to unwind to the vfork point.
     vfork_return: Option<Function>,
 }
 
@@ -124,10 +124,10 @@ impl<S: Control + Send + Sync + 'static> AbiInstance<S> for Wasixv2Instance {
     fn start_thread<'a>(
         &'a self,
         entry: &'a Entry<'a, S>,
-        task: TaskId,
+        tid: i32,
         start_arg: u32,
     ) -> LocalFuture<'a, Result<(), RuntimeError>> {
-        let args = [Value::I32(task.0 as i32), Value::I32(start_arg as i32)];
+        let args = [Value::I32(tid), Value::I32(start_arg as i32)];
         Box::pin(async move {
             entry
                 .call(thread::THREAD_ENTRY, &self.entry, &args)
@@ -158,10 +158,11 @@ impl<S: Control + Send + Sync + 'static> AbiInstance<S> for Wasixv2Instance {
     fn vfork_resume<'a>(
         &'a self,
         env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
-        child: TaskId,
+        _child: TaskId,
+        pid: i32,
     ) -> LocalFuture<'a, VforkResume> {
         Box::pin(async move {
-            VforkResume::Unwind(process::vfork_return(env, self.vfork_return.as_ref(), child).await)
+            VforkResume::Unwind(process::vfork_return(env, self.vfork_return.as_ref(), pid).await)
         })
     }
 
