@@ -1154,7 +1154,7 @@ impl Kernel {
             FileType::Symlink => return Err(Errno::ELOOP.into()),
             _ => return Err(Errno::EACCES.into()),
         }
-        if target.mnt.flags.noexec {
+        if target.mnt.flags().noexec {
             return Err(Errno::EACCES.into());
         }
         self.vfs.permission(&env.cred, &target, MAY_EXEC).await?;
@@ -1170,7 +1170,7 @@ impl Kernel {
         let binary = Binary {
             mode: attr.mode,
             owner: (attr.uid, attr.gid),
-            nosuid: target.mnt.flags.nosuid,
+            nosuid: target.mnt.flags().nosuid,
             size: attr.size,
             path: target,
         };

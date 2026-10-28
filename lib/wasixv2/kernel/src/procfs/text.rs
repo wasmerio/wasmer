@@ -225,8 +225,8 @@ fn stat(source: &Source) -> Vec<u8> {
 fn filesystems(source: &Source) -> Vec<u8> {
     let mut names = vec!["anon_inodefs", "pipefs", "sockfs", "proc"];
     if let Some(vfs) = source.vfs.upgrade() {
-        for mount in vfs.namespace().mounts() {
-            let name = mount.sb().info.name;
+        for sb in vfs.superblocks() {
+            let name = sb.info.name;
             if !names.contains(&name) {
                 names.push(name);
             }
@@ -430,7 +430,7 @@ fn mounts(source: &Source, root: &Path, info: bool) -> Vec<u8> {
         }
         let sb = mount.sb();
         let options = mount_options(&mount);
-        let fs_options = if sb.info.read_only { "ro" } else { "rw" };
+        let fs_options = if sb.is_read_only() { "ro" } else { "rw" };
         if info {
             let parent = mount.parent().map_or(mount.id, |parent| parent.mnt.id);
             let _ = write!(
@@ -471,7 +471,7 @@ fn out_string(out: &mut Vec<u8>) -> impl std::fmt::Write + '_ {
     Bytes(out)
 }
 
-/// `show_mnt_opts`, plus `relatime`, Linux's default.
+/// `show_mnt_opts`: the mount's read-only state and flags.
 fn mount_options(mount: &Mount) -> String {
     let MountFlags {
         read_only,
@@ -479,24 +479,29 @@ fn mount_options(mount: &Mount) -> String {
         nodev,
         noexec,
         noatime,
+        nodiratime,
+        strictatime,
         nosymfollow,
-    } = mount.flags;
-    let mut options = vec![if read_only || mount.sb().info.read_only {
+    } = mount.flags();
+    let mut options = vec![if read_only || mount.sb().is_read_only() {
         "ro"
     } else {
         "rw"
     }];
+    // `show_mnt_opts`'s order.
     for (set, name) in [
         (nosuid, "nosuid"),
         (nodev, "nodev"),
         (noexec, "noexec"),
+        (noatime, "noatime"),
+        (nodiratime, "nodiratime"),
+        (!noatime && !strictatime, "relatime"),
         (nosymfollow, "nosymfollow"),
     ] {
         if set {
             options.push(name);
         }
     }
-    options.push(if noatime { "noatime" } else { "relatime" });
     options.join(",")
 }
 

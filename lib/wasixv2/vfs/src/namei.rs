@@ -239,7 +239,7 @@ impl<'a> Walk<'a> {
     /// `child` with the current directory already locked by the caller.
     pub(crate) async fn child_locked(&self, name: &[u8]) -> FsResult<Path> {
         let mut path = lookup_one(&self.path, name).await?;
-        if self.vfs.ns.follow_mounts(&mut path) && self.flags.no_xdev {
+        if self.vfs.tree.follow_mounts(&mut path) && self.flags.no_xdev {
             return Err(Errno::EXDEV);
         }
         Ok(path)
@@ -260,7 +260,7 @@ impl<'a> Walk<'a> {
         if self.links > MAX_SYMLINKS {
             return Err(Errno::ELOOP);
         }
-        if self.flags.no_symlinks || link.mnt.flags.nosymfollow {
+        if self.flags.no_symlinks || link.mnt.flags().nosymfollow {
             return Err(Errno::ELOOP);
         }
         let body = match link.dentry.node().get_link(self.cx).await? {
@@ -350,7 +350,7 @@ impl<'a> Walk<'a> {
         if let Some(parent) = self.path.dentry.parent() {
             self.path.dentry = parent;
         }
-        if self.vfs.ns.follow_mounts(&mut self.path) && self.flags.no_xdev {
+        if self.vfs.tree.follow_mounts(&mut self.path) && self.flags.no_xdev {
             return Err(Errno::EXDEV);
         }
         Ok(())

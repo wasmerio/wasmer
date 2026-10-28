@@ -23,6 +23,9 @@ const ST_NOSUID: u32 = 2;
 const ST_NODEV: u32 = 4;
 const ST_NOEXEC: u32 = 8;
 const ST_NOATIME: u32 = 1024;
+const ST_NODIRATIME: u32 = 2048;
+const ST_RELATIME: u32 = 4096;
+const ST_NOSYMFOLLOW: u32 = 0x2000;
 const ST_VALID: u32 = 0x20;
 
 /// Which ids an operation acts on: `-1` leaves one unchanged.
@@ -116,14 +119,18 @@ impl Kernel {
     ) -> SysResult<i32> {
         let sb = path.dentry.sb();
         let stat = self.vfs.statfs(path).await?;
-        let flags = &path.mnt.flags;
+        let flags = path.mnt.flags();
         let mut f_flags = ST_VALID;
+        // `flags_by_mnt` and `flags_by_sb`.
         for (set, bit) in [
             (path.mnt.is_read_only(), ST_RDONLY),
             (flags.nosuid, ST_NOSUID),
             (flags.nodev, ST_NODEV),
             (flags.noexec, ST_NOEXEC),
             (flags.noatime, ST_NOATIME),
+            (flags.nodiratime, ST_NODIRATIME),
+            (!flags.noatime && !flags.strictatime, ST_RELATIME),
+            (flags.nosymfollow, ST_NOSYMFOLLOW),
         ] {
             if set {
                 f_flags |= bit;

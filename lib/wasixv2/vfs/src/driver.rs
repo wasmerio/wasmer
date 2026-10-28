@@ -79,6 +79,12 @@ pub trait Node: Send + Sync + Any {
 
     fn as_any(&self) -> &dyn Any;
 
+    /// Nothing may be mounted on this object, as procfs refuses mounts on the descriptor links
+    /// of `/proc/<pid>/fd` (`proc_splice_unmountable`): mounting there fails with `ENOENT`.
+    fn unmountable(&self) -> bool {
+        false
+    }
+
     async fn getattr(&self) -> FsResult<Attr>;
 
     /// Applies `attr` and returns the resulting metadata. A size change on a regular file

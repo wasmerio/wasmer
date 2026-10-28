@@ -63,7 +63,7 @@ impl Vfs {
     pub async fn permission(&self, cred: &Cred, path: &Path, mask: u32) -> FsResult<()> {
         let attr = path.dentry.node().getattr().await?;
         if mask & MAY_WRITE != 0
-            && path.dentry.sb().info.read_only
+            && path.dentry.sb().is_read_only()
             && matches!(
                 attr.file_type,
                 FileType::Regular | FileType::Directory | FileType::Symlink
@@ -300,7 +300,7 @@ impl Vfs {
                     return Err(Errno::EACCES);
                 }
             }
-            FileType::CharDevice | FileType::BlockDevice if path.mnt.flags.nodev => {
+            FileType::CharDevice | FileType::BlockDevice if path.mnt.flags().nodev => {
                 return Err(Errno::EACCES);
             }
             _ => {}
@@ -667,11 +667,12 @@ impl Vfs {
             });
         }
         self.may_delete(cx.cred, &dir, &victim, false).await?;
-        if victim.dentry.is_mountpoint() {
+        if self.is_local_mountpoint(&victim) {
             return Err(Errno::EBUSY);
         }
         dir.dentry.node().unlink(&name).await?;
         victim.dentry.detach();
+        self.detach_mounts(&victim.dentry);
         let gone = victim
             .dentry
             .node()
@@ -703,12 +704,13 @@ impl Vfs {
         let victim = lookup_one(&dir, &name).await?;
         let _victim_lock = victim.dentry.inode().lock().await;
         self.may_delete(cx.cred, &dir, &victim, true).await?;
-        if victim.dentry.is_mountpoint() {
+        if self.is_local_mountpoint(&victim) {
             return Err(Errno::EBUSY);
         }
         dir.dentry.node().rmdir(&name).await?;
         victim.dentry.inode().set_dead();
         victim.dentry.detach();
+        self.detach_mounts(&victim.dentry);
         self.notify(FsEvent::Delete {
             dir: Self::object(&dir.dentry),
             name: &name,
@@ -827,8 +829,8 @@ impl Vfs {
                 self.permission(cx.cred, target, MAY_WRITE).await?;
             }
         }
-        if source.dentry.is_mountpoint()
-            || target.as_ref().is_some_and(|t| t.dentry.is_mountpoint())
+        if self.is_local_mountpoint(&source)
+            || target.as_ref().is_some_and(|t| self.is_local_mountpoint(t))
         {
             return Err(Errno::EBUSY);
         }
@@ -857,6 +859,7 @@ impl Vfs {
                         dir.dentry.inode().set_dead();
                     }
                     target.dentry.detach();
+                    self.detach_mounts(&target.dentry);
                 }
                 source.dentry.move_to(&new_dir.dentry, &new_name);
             }
@@ -1275,7 +1278,7 @@ fn open_options(flags: OpenFlags, at: &Path, task: u32) -> OpenOptions {
     OpenOptions {
         read: access != OpenFlags::O_WRONLY,
         write: access != OpenFlags::O_RDONLY,
-        noatime: flags.contains(OpenFlags::O_NOATIME) || at.mnt.flags.noatime,
+        noatime: flags.contains(OpenFlags::O_NOATIME) || at.mnt.flags().noatime,
         sync: flags.contains(OpenFlags::O_DSYNC),
         truncate: false,
         task,

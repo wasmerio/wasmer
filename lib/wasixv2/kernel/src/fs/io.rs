@@ -802,10 +802,11 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `sync`: every filesystem in the tree; errors are not reported, as on Linux.
+    /// `sync`: every mounted filesystem (`iterate_supers`); errors are not reported, as on
+    /// Linux.
     pub(crate) async fn sys_sync(&self) -> SysResult<i32> {
-        for mount in self.vfs.namespace().mounts() {
-            let _ = mount.sb().fs.sync().await;
+        for sb in self.vfs.superblocks() {
+            let _ = sb.fs.sync().await;
         }
         Ok(0)
     }
