@@ -28,13 +28,14 @@ const TTYAUX_MAJOR: u32 = 5;
 const TTY_MODE: u32 = 0o620;
 
 /// The device nodes `devtmpfs` would create for the drivers here: name, minor numbers, mode.
-const NODES: [(&str, Device, u32); 6] = [
+const NODES: [(&str, Device, u32); 7] = [
     ("null", dev(MEM_MAJOR, 3), 0o666),
     ("zero", dev(MEM_MAJOR, 5), 0o666),
     ("full", dev(MEM_MAJOR, 7), 0o666),
     ("random", dev(MEM_MAJOR, 8), 0o666),
     ("urandom", dev(MEM_MAJOR, 9), 0o666),
     ("tty", dev(TTYAUX_MAJOR, 0), 0o666),
+    ("ptmx", crate::tty::PTMX, 0o666),
 ];
 
 const fn dev(major: u32, minor: u32) -> Device {
@@ -74,7 +75,7 @@ impl Kernel {
             return Err(Errno::ENXIO.into());
         }
         let rdev = file.node().getattr().await?.rdev;
-        if let Some(tty) = self.open_tty(caller, rdev, flags)? {
+        if let Some(tty) = self.open_tty(caller, &file, rdev, flags)? {
             return Ok(tty);
         }
         let object: Arc<dyn FileObject> = match (rdev.major, rdev.minor) {
@@ -91,15 +92,20 @@ impl Kernel {
     }
 
     /// `tty_open` for the terminal devices: `/dev/tty` is the caller's controlling terminal
-    /// (`ENXIO` without one), the console is itself, and opening a terminal without
-    /// `O_NOCTTY` gives a session leader without one its controlling terminal. `None` for
-    /// other devices.
+    /// (`ENXIO` without one), the console is itself, `/dev/ptmx` makes a pty and opens its
+    /// master, and a pty slave opens through its node in the pty filesystem (`EIO` through
+    /// any other). Opening a terminal without `O_NOCTTY` gives a session leader without one
+    /// its controlling terminal; a pty master never becomes one. `None` for other devices.
     fn open_tty(
         &self,
         caller: &Caller<'_>,
+        file: &File,
         rdev: Device,
         flags: OpenFlags,
     ) -> SysResult<Option<Arc<dyn FileObject>>> {
+        if rdev == crate::tty::PTMX {
+            return Ok(Some(Arc::new(self.open_ptmx(caller)?)));
+        }
         let process = self.process(caller.task());
         let (tty, noctty) = match (rdev.major, rdev.minor) {
             // `tty_open_current_tty`.
@@ -112,6 +118,11 @@ impl Kernel {
                 // `hvc_open` of a console nobody provides.
                 None => return Err(Errno::ENODEV.into()),
             },
+            // `pts_unix98_lookup`.
+            (crate::tty::PTY_SLAVE_MAJOR, _) => {
+                let slave = self.ptys.slave(&**file.node()).ok_or(Errno::EIO)?;
+                (slave, flags.contains(OpenFlags::O_NOCTTY))
+            }
             _ => return Ok(None),
         };
         let admin = self.cred(caller).capable(Cap::SysAdmin);

@@ -6,8 +6,8 @@
 //! This is the discipline's state alone, without locks, waits or signals: the terminal holds it
 //! under one lock (`termios_rwsem` with the `n_tty_data` it guards) and acts on what each
 //! operation reports, such as signals to send or echoes to write. Left out: parity and break
-//! (no device here has them), `IUCLC`, `OLCUC` and `XCASE`, `ECHOPRT`, output delays, and the
-//! `EXTPROC` and packet modes.
+//! (no device here has them), `IUCLC`, `OLCUC` and `XCASE`, `ECHOPRT`, output delays, and
+//! `EXTPROC`. A pty master's packet mode is the terminal's, around the discipline's read.
 
 use std::collections::VecDeque;
 
@@ -119,6 +119,10 @@ pub(crate) struct Received {
     pub(crate) readable: bool,
     /// Output started again (`^Q`), so blocked writers may go on.
     pub(crate) started: bool,
+    /// Output stopped (`^S`).
+    pub(crate) stopped: bool,
+    /// A signal character flushed the unread input (`isig` without `NOFLSH`).
+    pub(crate) flushed: bool,
 }
 
 /// The discipline's state and the termios it follows.
@@ -332,7 +336,7 @@ impl Ldisc {
         if self.iflag(TermiosIflag::IXON) && (c == self.cc(V::VSTART) || c == self.cc(V::VSTOP)) {
             match c == self.cc(V::VSTART) {
                 true => received.started |= self.start(),
-                false => self.stop(),
+                false => received.stopped |= self.stop(),
             }
             return;
         }
@@ -401,6 +405,7 @@ impl Ldisc {
             // `isig`'s flush: pending echoes and unread input go.
             self.echo.clear();
             self.flush_input();
+            received.flushed = true;
         }
         if self.iflag(TermiosIflag::IXON) {
             received.started |= self.start();
@@ -629,9 +634,9 @@ impl Ldisc {
         true
     }
 
-    /// `__stop_tty`.
-    pub(crate) fn stop(&mut self) {
-        self.stopped = true;
+    /// `__stop_tty`: whether output was going and stops now.
+    pub(crate) fn stop(&mut self) -> bool {
+        !std::mem::replace(&mut self.stopped, true)
     }
 
     /// `TCXONC`'s `TCOOFF` and `TCOON`; whether output goes on now.

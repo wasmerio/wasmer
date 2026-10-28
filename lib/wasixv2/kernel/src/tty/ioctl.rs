@@ -1,20 +1,27 @@
-//! A terminal's `ioctl`s (`tty_ioctl`, `tty_jobctrl_ioctl`, `n_tty_ioctl` and
-//! `tty_mode_ioctl`). The kernel answers them itself, as they act on processes and sessions,
-//! not only on the terminal.
+//! A terminal's `ioctl`s (`tty_ioctl`, `tty_jobctrl_ioctl`, `n_tty_ioctl`, `tty_mode_ioctl`
+//! and a pty master's `pty_unix98_ioctl`). The kernel answers them itself, as they act on
+//! processes and sessions, not only on the terminal. On a pty master, the termios, window and
+//! job control requests act on its slave (`tty_pair_get_tty`).
+
+use std::sync::Arc;
 
 use wasixv2_abi::{
-    GuestPtr, GuestPtrMut, IoctlRequest, Signal, TcflowAction, TcflushQueue, Termios, Termios2,
-    TermiosCflag, Winsize,
+    GuestPtr, GuestPtrMut, IoctlRequest, OpenFlags, Signal, TcflowAction, TcflushQueue, Termios,
+    Termios2, TermiosCflag, Winsize,
 };
 use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, read_value, write_value};
 use wasixv2_vfs::Cap;
 use wasixv2_wait::Interrupt;
 
-use super::{TtyFile, ldisc};
+use super::{Driver, Tty, TtyFile, ldisc};
 use crate::{Kernel, file::OpenFile, sync::MutexExt};
 
 /// `N_TTY`, the only line discipline.
 const N_TTY: i32 = 0;
+/// `NCC`: the control characters `struct termio` carries.
+const NCC: usize = 8;
+/// `struct termio` up to its padding: four 16-bit flag words, `c_line` and `c_cc[NCC]`.
+const TERMIO_SIZE: usize = 8 + 1 + NCC;
 
 /// `new_encode_dev`: a device number as `stat` and `TIOCGDEV` report it.
 pub(crate) fn encode_dev(major: u32, minor: u32) -> u32 {
@@ -39,6 +46,8 @@ impl Kernel {
             .into());
         }
         let tty = tty_file.tty();
+        let real = tty.real_tty()?;
+        let real = &real;
         let memory = caller.memory();
         let task = caller.task();
         let process = self.process(task);
@@ -50,11 +59,11 @@ impl Kernel {
         match request {
             // ---- termios (`tty_mode_ioctl`) ----
             IoctlRequest::TCGETS => {
-                write_value(memory, GuestPtrMut::new(arg), &tty.termios()).await?;
+                write_value(memory, GuestPtrMut::new(arg), &real.termios()).await?;
                 Ok(0)
             }
             IoctlRequest::TCGETS2 => {
-                let termios = tty.termios();
+                let termios = real.termios();
                 let speed = ldisc::baud_rate(termios.c_cflag);
                 let termios2 = Termios2 {
                     c_iflag: termios.c_iflag,
@@ -73,7 +82,7 @@ impl Kernel {
                 let termios: Termios = read_value(memory, GuestPtr::new(arg)).await?;
                 let flush = request == IoctlRequest::TCSETSF;
                 let wait = request != IoctlRequest::TCSETS;
-                self.tty_set_termios(caller, tty_file, termios, wait, flush)
+                self.tty_set_termios(caller, real, termios, wait, flush)
                     .await
             }
             IoctlRequest::TCSETS2 | IoctlRequest::TCSETSW2 | IoctlRequest::TCSETSF2 => {
@@ -88,21 +97,41 @@ impl Kernel {
                 };
                 let flush = request == IoctlRequest::TCSETSF2;
                 let wait = request != IoctlRequest::TCSETS2;
-                self.tty_set_termios(caller, tty_file, termios, wait, flush)
+                self.tty_set_termios(caller, real, termios, wait, flush)
+                    .await
+            }
+            IoctlRequest::TCGETA => {
+                let termio = termio(&real.termios());
+                memory
+                    .write(arg, &termio)
+                    .await
+                    .map_err(|_| Errno::EFAULT)?;
+                Ok(0)
+            }
+            IoctlRequest::TCSETA | IoctlRequest::TCSETAW | IoctlRequest::TCSETAF => {
+                let mut termio = [0; TERMIO_SIZE];
+                memory
+                    .read(arg, &mut termio)
+                    .await
+                    .map_err(|_| Errno::EFAULT)?;
+                let termios = from_termio(real.termios(), &termio);
+                let flush = request == IoctlRequest::TCSETAF;
+                let wait = request != IoctlRequest::TCSETA;
+                self.tty_set_termios(caller, real, termios, wait, flush)
                     .await
             }
             IoctlRequest::TIOCGSOFTCAR => {
-                let clocal = tty.termios().c_cflag.0 & TermiosCflag::CLOCAL.0 != 0;
+                let clocal = real.termios().c_cflag.0 & TermiosCflag::CLOCAL.0 != 0;
                 put_int(i32::from(clocal)).await
             }
             IoctlRequest::TIOCSSOFTCAR => {
                 let on: i32 = read_value(memory, GuestPtr::new(arg)).await?;
-                let mut termios = tty.termios();
+                let mut termios = real.termios();
                 match on {
                     0 => termios.c_cflag.0 &= !TermiosCflag::CLOCAL.0,
                     _ => termios.c_cflag.0 |= TermiosCflag::CLOCAL.0,
                 }
-                tty.set_termios(termios);
+                real.set_termios(termios);
                 Ok(0)
             }
             // ---- the discipline (`n_tty_ioctl`, `n_tty_ioctl_helper`) ----
@@ -114,20 +143,36 @@ impl Kernel {
             IoctlRequest::TIOCOUTQ => put_int(0).await,
             IoctlRequest::TCFLSH => {
                 tty.check_change(task, Signal::SIGTTOU)?;
-                match TcflushQueue(arg as i32) {
-                    TcflushQueue::TCIFLUSH | TcflushQueue::TCIOFLUSH => {
-                        tty.ldisc.lock_or_recover().flush_input();
-                        tty.driver.unthrottle();
-                        Ok(0)
-                    }
-                    TcflushQueue::TCOFLUSH => Ok(0),
-                    _ => Err(Errno::EINVAL.into()),
+                // `tty_perform_flush`: input in the discipline, output in the device.
+                let (input, output) = match TcflushQueue(arg as i32) {
+                    TcflushQueue::TCIFLUSH => (true, false),
+                    TcflushQueue::TCOFLUSH => (false, true),
+                    TcflushQueue::TCIOFLUSH => (true, true),
+                    _ => return Err(Errno::EINVAL.into()),
+                };
+                if input {
+                    tty.flush_input();
                 }
+                if output {
+                    tty.driver.flush_buffer();
+                }
+                Ok(0)
             }
             IoctlRequest::TCXONC => {
                 tty.check_change(task, Signal::SIGTTOU)?;
                 let started = match TcflowAction(arg as i32) {
-                    TcflowAction::TCOOFF => tty.ldisc.lock_or_recover().tco_stop(true),
+                    TcflowAction::TCOOFF => {
+                        let stopped = {
+                            let mut ldisc = tty.ldisc.lock_or_recover();
+                            let was = ldisc.stopped();
+                            ldisc.tco_stop(true);
+                            !was && ldisc.stopped()
+                        };
+                        if stopped {
+                            tty.driver.flow(true);
+                        }
+                        false
+                    }
                     TcflowAction::TCOON => tty.ldisc.lock_or_recover().tco_stop(false),
                     action @ (TcflowAction::TCIOFF | TcflowAction::TCION) => {
                         // `tty_send_xchar`: the flow character goes to the device.
@@ -148,6 +193,7 @@ impl Kernel {
                     _ => return Err(Errno::EINVAL.into()),
                 };
                 if started {
+                    tty.driver.flow(false);
                     tty.write_wait.wake(wasixv2_wait::PollMask::WRITABLE);
                     tty.flush_echoes().await;
                 }
@@ -172,12 +218,12 @@ impl Kernel {
             }
             // ---- the terminal (`tty_ioctl`) ----
             IoctlRequest::TIOCGWINSZ => {
-                write_value(memory, GuestPtrMut::new(arg), &tty.winsize()).await?;
+                write_value(memory, GuestPtrMut::new(arg), &real.winsize()).await?;
                 Ok(0)
             }
             IoctlRequest::TIOCSWINSZ => {
                 let winsize: Winsize = read_value(memory, GuestPtr::new(arg)).await?;
-                tty.resize(winsize);
+                real.resize(winsize);
                 Ok(0)
             }
             IoctlRequest::TIOCSTI => {
@@ -209,7 +255,7 @@ impl Kernel {
                 }
             }
             IoctlRequest::TIOCGDEV => {
-                let device = tty.device();
+                let device = real.device();
                 let encoded = encode_dev(device.major, device.minor);
                 write_value(memory, GuestPtrMut::new(arg), &encoded).await?;
                 Ok(0)
@@ -231,30 +277,68 @@ impl Kernel {
             }
             IoctlRequest::TIOCSCTTY => {
                 let readable = file.check_readable().is_ok();
-                tty.set_ctty_ioctl(&process, readable, arg == 1, admin())?;
+                real.set_ctty_ioctl(&process, readable, arg == 1, admin())?;
                 Ok(0)
             }
+            // A master asks about its slave whether or not the slave is the caller's.
             IoctlRequest::TIOCGPGRP => {
-                if !tty.is_ctty_of(&process) {
+                if Arc::ptr_eq(tty, real) && !tty.is_ctty_of(&process) {
                     return Err(Errno::ENOTTY.into());
                 }
-                put_int(tty.pgrp().map_or(0, |pgrp| pgrp as i32)).await
+                put_int(real.pgrp().map_or(0, |pgrp| pgrp as i32)).await
             }
             IoctlRequest::TIOCSPGRP => {
-                match tty.check_change(task, Signal::SIGTTOU) {
+                match real.check_change(task, Signal::SIGTTOU) {
                     Err(SysErr::Errno(Errno::EIO)) => return Err(Errno::ENOTTY.into()),
                     result => result?,
                 }
                 let pgrp: i32 = read_value(memory, GuestPtr::new(arg)).await?;
-                tty.set_pgrp(&process, pgrp)?;
+                real.set_pgrp(&process, pgrp)?;
                 Ok(0)
             }
             IoctlRequest::TIOCGSID => {
-                if !tty.is_ctty_of(&process) {
+                if Arc::ptr_eq(tty, real) && !tty.is_ctty_of(&process) {
                     return Err(Errno::ENOTTY.into());
                 }
-                let sid = tty.session().ok_or(Errno::ENOTTY)?;
+                let sid = real.session().ok_or(Errno::ENOTTY)?;
                 put_int(sid as i32).await
+            }
+            // ---- a pty master's (`pty_unix98_ioctl`, `ptm_open_peer`) ----
+            IoctlRequest::TIOCGPTPEER => match &tty.driver {
+                Driver::PtyMaster(pty) => {
+                    let flags = OpenFlags(arg);
+                    self.open_pty_peer(caller, file, pty, flags).await
+                }
+                _ => Err(Errno::EIO.into()),
+            },
+            IoctlRequest::TIOCSPTLCK
+            | IoctlRequest::TIOCGPTLCK
+            | IoctlRequest::TIOCPKT
+            | IoctlRequest::TIOCGPKT
+            | IoctlRequest::TIOCGPTN
+            | IoctlRequest::TIOCSIG => {
+                let Driver::PtyMaster(pty) = &tty.driver else {
+                    return Err(Errno::ENOTTY.into());
+                };
+                match request {
+                    IoctlRequest::TIOCSPTLCK => {
+                        let locked: i32 = read_value(memory, GuestPtr::new(arg)).await?;
+                        pty.set_lock(locked != 0);
+                        Ok(0)
+                    }
+                    IoctlRequest::TIOCGPTLCK => put_int(i32::from(pty.locked())).await,
+                    IoctlRequest::TIOCPKT => {
+                        let on: i32 = read_value(memory, GuestPtr::new(arg)).await?;
+                        pty.set_packet(on != 0);
+                        Ok(0)
+                    }
+                    IoctlRequest::TIOCGPKT => put_int(i32::from(pty.packet())).await,
+                    IoctlRequest::TIOCGPTN => put_int(pty.index() as i32).await,
+                    _ => {
+                        pty.signal(arg as i32)?;
+                        Ok(0)
+                    }
+                }
             }
             _ => Err(Errno::ENOTTY.into()),
         }
@@ -265,12 +349,11 @@ impl Kernel {
     async fn tty_set_termios(
         &self,
         caller: &Caller<'_>,
-        tty_file: &TtyFile,
+        tty: &Arc<Tty>,
         termios: Termios,
         wait: bool,
         flush: bool,
     ) -> SysResult<i32> {
-        let tty = tty_file.tty();
         tty.check_change(caller.task(), Signal::SIGTTOU)?;
         let _writing = match wait {
             true => {
@@ -284,10 +367,41 @@ impl Kernel {
             false => None,
         };
         if flush {
-            tty.ldisc.lock_or_recover().flush_input();
-            tty.driver.unthrottle();
+            tty.flush_input();
         }
         tty.set_termios(termios);
         Ok(0)
     }
+}
+
+/// `kernel_termios_to_user_termio`: the low 16 bits of each flag word, the line discipline
+/// and the first `NCC` control characters, little-endian.
+fn termio(termios: &Termios) -> [u8; TERMIO_SIZE] {
+    let mut out = [0; TERMIO_SIZE];
+    let flags = [
+        termios.c_iflag.0,
+        termios.c_oflag.0,
+        termios.c_cflag.0,
+        termios.c_lflag.0,
+    ];
+    for (i, flag) in flags.into_iter().enumerate() {
+        out[2 * i..2 * i + 2].copy_from_slice(&(flag as u16).to_le_bytes());
+    }
+    out[8] = termios.c_line;
+    out[9..].copy_from_slice(&termios.c_cc[..NCC]);
+    out
+}
+
+/// `user_termio_to_kernel_termios`: `termio` replaces the low 16 bits of each flag word of
+/// `termios`, its line discipline and its first `NCC` control characters.
+fn from_termio(mut termios: Termios, termio: &[u8; TERMIO_SIZE]) -> Termios {
+    let low = |i: usize| u32::from(u16::from_le_bytes([termio[2 * i], termio[2 * i + 1]]));
+    let set = |flag: u32, i| (flag & 0xffff_0000) | low(i);
+    termios.c_iflag.0 = set(termios.c_iflag.0, 0);
+    termios.c_oflag.0 = set(termios.c_oflag.0, 1);
+    termios.c_cflag.0 = set(termios.c_cflag.0, 2);
+    termios.c_lflag.0 = set(termios.c_lflag.0, 3);
+    termios.c_line = termio[8];
+    termios.c_cc[..NCC].copy_from_slice(&termio[9..]);
+    termios
 }
