@@ -410,3 +410,39 @@ fn memory_and_random_devices_fill_reads_larger_than_one_step() {
         assert_eq!(block_on(pread), Ok(len), "{at}");
     }
 }
+
+/// A `/proc/<pid>` directory stands for its process in `pidfd_send_signal`, as a pidfd does
+/// (`pidfd_to_pid`); no other call takes it, nor a thread's directory, another proc file or a
+/// location-only descriptor.
+#[test]
+fn pidfd_send_signal_takes_a_proc_pid_directory() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let dir = format!("/proc/{}", task.0);
+    let send = |fd: Fd, sig: Signal| {
+        block_on(kernel.pidfd_send_signal(&t.caller, fd, sig, GuestPtr::NULL, 0))
+    };
+    let open = |at: &str, flags: OpenFlags| t.open(at, flags | OpenFlags::O_RDONLY).unwrap();
+
+    let pid_dir = open(&dir, OpenFlags::O_DIRECTORY);
+    assert_eq!(send(pid_dir, Signal(0)), Ok(0));
+    assert_eq!(send(pid_dir, Signal::SIGSTOP), Ok(0));
+    assert_eq!(kernel.take_pending(task), Some(GuestAction::Stopped));
+
+    let thread_dir = open(&format!("{dir}/task/{}", task.0), OpenFlags::O_DIRECTORY);
+    let stat = open(&format!("{dir}/stat"), OpenFlags::empty());
+    let location = open(&dir, OpenFlags::O_PATH);
+    for fd in [thread_dir, stat, location] {
+        assert_eq!(send(fd, Signal(0)), Err(Errno::EBADF.into()));
+    }
+    let waitid = kernel.waitid(
+        &t.caller,
+        wasixv2_abi::Idtype::P_PIDFD,
+        pid_dir.0,
+        GuestPtrMut::NULL,
+        wasixv2_abi::WaitOptions::WEXITED,
+        GuestPtrMut::NULL,
+    );
+    assert_eq!(block_on(waitid), Err(Errno::EBADF.into()), "pidfd_get_pid");
+}

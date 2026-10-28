@@ -15,7 +15,9 @@ use std::sync::{Arc, Mutex, Weak};
 use async_trait::async_trait;
 use wasixv2_host::Host;
 use wasixv2_syscalls::TaskId;
-use wasixv2_vfs::{Clock, Filesystem, FsInfo, FsResult, NAME_MAX, Node, StatFs, Timestamp, Vfs};
+use wasixv2_vfs::{
+    Clock, Filesystem, FsInfo, FsResult, NAME_MAX, Node, Path, StatFs, Timestamp, Vfs,
+};
 
 use crate::{
     Kernel, Process, TaskTable,
@@ -49,6 +51,17 @@ impl Kernel {
             source: Arc::new(source),
         })
     }
+}
+
+/// The process whose `/proc/<pid>` directory `path` is, if it is one (`tgid_pidfd_to_pid`):
+/// thread directories (`/proc/<pid>/task/<tid>`) are not.
+pub(crate) fn tgid_dir(path: &Path) -> Option<u32> {
+    if path.dentry.sb().info.magic != PROC_SUPER_MAGIC {
+        return None;
+    }
+    let node = path.dentry.node();
+    let node: &node::ProcNode = node.as_any().downcast_ref()?;
+    node.tgid_dir()
 }
 
 struct ProcFs {
