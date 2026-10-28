@@ -599,9 +599,9 @@ pub(crate) async fn proc_fork<S: Syscalls + Control + 'static>(
             with_instance(&env, |instance| instance.set_started()).await?;
             let state = Some(state);
             return shim::errno(&env, async |frame| {
-                let pid = frame.syscalls.getpid(&frame.caller()).await?;
+                let pid = frame.pid().await?;
                 if let Some(state) = &state {
-                    frame.instance().adopt(TaskId(pid as u32), state.clone());
+                    frame.instance().adopt(pid, state.clone());
                 }
                 frame.write(pid_out, &0u32).await
             })
@@ -1028,11 +1028,10 @@ pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let caller = frame.caller();
-        if frame.syscalls.getpid(&caller).await? != pid {
+        if frame.pid().await?.0 as i32 != pid {
             return shim::fail(Errno::NOTSUP);
         }
-        let parent = frame.syscalls.getppid(&caller).await?;
+        let parent = frame.syscalls.getppid(&frame.caller()).await?;
         frame.write(out as u32, &(parent as u32)).await
     })
     .await

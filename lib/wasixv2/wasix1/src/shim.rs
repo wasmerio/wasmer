@@ -58,10 +58,22 @@ impl<'a, S: Syscalls + Control + 'static> Frame<'a, S> {
             .expect("v1 imports run in v1 instances")
     }
 
+    /// The calling task's pid, which it asks the kernel for only the first time in its
+    /// instance (see [`Wasix1Instance::cached_pid`]).
+    pub async fn pid(&self) -> V1Result<TaskId> {
+        let instance = self.instance();
+        if let Some(pid) = instance.cached_pid(self.task) {
+            return Ok(pid);
+        }
+        let pid = TaskId(self.syscalls.getpid(&self.caller()).await? as u32);
+        instance.cache_pid(self.task, pid);
+        Ok(pid)
+    }
+
     /// The compat state of the calling task's process.
     pub async fn proc(&self) -> V1Result<Arc<ProcState>> {
-        let pid = self.syscalls.getpid(&self.caller()).await?;
-        Ok(self.instance().procs().get_or_create(TaskId(pid as u32)))
+        let pid = self.pid().await?;
+        Ok(self.instance().procs().get_or_create(pid))
     }
 
     /// The process's arguments, environment and preopens, loaded on first use.

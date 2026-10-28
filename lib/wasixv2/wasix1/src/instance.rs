@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     sync::{
         Arc, Mutex, RwLock,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
 
@@ -48,7 +48,16 @@ pub struct Wasix1Instance {
     started: AtomicBool,
     /// The vfork children running in this instance, by tid.
     vforks: Mutex<HashMap<TaskId, Vfork>>,
+    /// The pid of the task that asked last, as `tid << 32 | pid` ([`NO_PID`] before any), so
+    /// a shim needs no `getpid` to find its process's compat state. A task's pid stays while it
+    /// runs here: the instance's own task belongs to its process for life, a vfork child that
+    /// runs here is a process whose pid is its tid, and a new image (`execve`) or a fork child
+    /// gets an instance of its own.
+    pid: AtomicU64,
 }
+
+/// [`Wasix1Instance::pid`] before any task asked: no tid is `u32::MAX`.
+const NO_PID: u64 = u64::MAX;
 
 /// A vfork child that runs in its parent's instance.
 pub(crate) struct Vfork {
@@ -89,7 +98,22 @@ impl Wasix1Instance {
             blocked: AtomicBool::new(false),
             started: AtomicBool::new(false),
             vforks: Mutex::new(HashMap::new()),
+            pid: AtomicU64::new(NO_PID),
         })
+    }
+
+    /// The pid of `task` if it is the task that asked last.
+    pub(crate) fn cached_pid(&self, task: TaskId) -> Option<TaskId> {
+        let packed = self.pid.load(Ordering::Relaxed);
+        (packed != NO_PID && (packed >> 32) as u32 == task.0).then_some(TaskId(packed as u32))
+    }
+
+    /// Remembers that `task`'s pid is `pid`.
+    pub(crate) fn cache_pid(&self, task: TaskId, pid: TaskId) {
+        self.pid.store(
+            u64::from(task.0) << 32 | u64::from(pid.0),
+            Ordering::Relaxed,
+        );
     }
 
     pub(crate) fn procs(&self) -> &Procs {

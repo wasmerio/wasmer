@@ -258,8 +258,8 @@ pub(crate) async fn proc_raise<S: Syscalls + Control + 'static>(
     sig: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let pid = frame.pid().await?.0 as i32;
         let caller = frame.caller();
-        let pid = frame.syscalls.getpid(&caller).await?;
         let tid = frame.syscalls.gettid(&caller).await?;
         frame.syscalls.tgkill(&caller, pid, tid, linux(sig)).await?;
         Ok(())
@@ -279,10 +279,12 @@ pub(crate) async fn thread_signal<S: Syscalls + Control + 'static>(
     sig: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let caller = frame.caller();
-        let pid = frame.syscalls.getpid(&caller).await?;
+        let pid = frame.pid().await?.0 as i32;
         let tid = if tid == LIBC_MAIN_THREAD { pid } else { tid };
-        frame.syscalls.tgkill(&caller, pid, tid, linux(sig)).await?;
+        frame
+            .syscalls
+            .tgkill(&frame.caller(), pid, tid, linux(sig))
+            .await?;
         Ok(())
     })
     .await
