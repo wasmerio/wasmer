@@ -584,7 +584,9 @@ impl Vforked {
 }
 
 /// `wait_for_vfork_done` is killable: a parent whose group another thread ends is a zombie
-/// at once, while its instance still runs the child, which goes to the reaper.
+/// as soon as it left its memory, which the child's instance does for it at the child's next
+/// return to the guest, while the instance goes on running the child, which goes to the
+/// reaper.
 #[test]
 fn a_vfork_parent_whose_group_exits_is_a_zombie_while_its_child_runs() {
     let vforked = Vforked::new();
@@ -596,9 +598,23 @@ fn a_vfork_parent_whose_group_exits_is_a_zombie_while_its_child_runs() {
         ..
     } = &vforked;
     let (parent, child) = (*parent, *child);
+    kernel.work_flag(child).clear();
 
     // Another thread ends the group while the parent's instance runs the child.
     vforked.exit_group(3);
+    assert!(
+        kernel.work_flag(child).is_raised(),
+        "the child leaves its wait"
+    );
+    assert_eq!(
+        vforked.reap_parent(),
+        None,
+        "the parent still has its memory"
+    );
+    let dead = GuestAction::ExitMm { task: parent };
+    assert_eq!(kernel.take_pending(child), Some(dead));
+    block_on(kernel.exit_mm(&Caller::new(parent, memory)));
+    assert_eq!(kernel.take_pending(child), None, "once");
     assert_eq!(vforked.reap_parent(), Some(3));
     let child_caller = Caller::new(child, memory);
     assert_eq!(
@@ -774,8 +790,9 @@ impl Parked {
 }
 
 /// `wait_for_vfork_done` is `TASK_KILLABLE`: SIGKILL to a parent waiting for its vfork child
-/// kills it at the child's next return to the guest. Its parent reaps it while the child goes
-/// on in its instance, which unwinds it once the child is done.
+/// kills it at the child's next return to the guest, where the instance leaves the memory for
+/// it. Its parent reaps it while the child goes on in its instance, which unwinds it once the
+/// child is done.
 #[test]
 fn a_vfork_parent_killed_while_its_child_runs_dies_at_once() {
     let parked = Parked::new();
@@ -796,6 +813,14 @@ fn a_vfork_parent_killed_while_its_child_runs_dies_at_once() {
     assert!(parked.child_notified(), "the child leaves its wait");
     assert_eq!(parked.reap_parent(), None, "nothing ran for the child yet");
 
+    let dead = GuestAction::ExitMm { task: parent };
+    assert_eq!(kernel.take_pending(child), Some(dead));
+    assert_eq!(
+        parked.reap_parent(),
+        None,
+        "the parent still has its memory"
+    );
+    block_on(kernel.exit_mm(&Caller::new(parent, memory)));
     assert_eq!(kernel.take_pending(child), None, "the child goes on");
     let killed = wasixv2_abi::SiCode::CLD_KILLED.0;
     assert_eq!(parked.reap_parent(), Some((killed, 9)));
@@ -824,9 +849,11 @@ fn a_vfork_parent_killed_while_its_child_runs_dies_at_once() {
     kernel.release(parent);
 }
 
-/// A vfork parent killed while its child runs still leaves its memory as every task does
-/// (`do_exit`'s `exit_mm`): its instance comes back to it once the child is done, takes its
-/// exit, and releases its robust futexes on the memory the child ran on, after the child's.
+/// A vfork parent killed while its child runs leaves its memory there and then, as Linux's
+/// does in its own `do_exit` (`exit_mm`), on the memory the child goes on running on: its
+/// robust futexes go to their waiters, and its `clear_child_tid` is zeroed, since the child
+/// still uses the memory (`mm_release`). Only then is it a zombie. Its instance comes back to
+/// it once the child is done, to unwind it, which leaves nothing more.
 #[test]
 fn a_vfork_parent_killed_while_its_child_runs_releases_its_robust_futexes() {
     let parked = Parked::new();
@@ -843,6 +870,7 @@ fn a_vfork_parent_killed_while_its_child_runs_releases_its_robust_futexes() {
     // The parent's robust list holds one mutex it owns, the word 4 bytes into the entry.
     const HEAD: u32 = 0x200;
     const ENTRY: u32 = 0x210;
+    const TID: u32 = 0x220;
     put(memory, HEAD, &ENTRY.to_le_bytes());
     put(memory, HEAD + 4, &4u32.to_le_bytes());
     put(memory, ENTRY, &HEAD.to_le_bytes());
@@ -850,16 +878,25 @@ fn a_vfork_parent_killed_while_its_child_runs_releases_its_robust_futexes() {
     let head = wasixv2_abi::RobustListHeadPtr::new(HEAD);
     let set = kernel.set_robust_list(&parent_caller, head, 12);
     assert_eq!(block_on(set), Ok(0));
+    put(memory, TID, &parent.0.to_le_bytes());
+    let tid = block_on(kernel.set_tid_address(&parent_caller, S32Ptr::new(TID)));
+    assert_eq!(tid, Ok(parent.0 as i32));
 
     let init_caller = parked.init_caller();
     let kill = kernel.sys_kill(&init_caller, parent.0 as Pid, Signal::SIGKILL);
     assert_eq!(block_on(kill), Ok(0));
-    assert_eq!(kernel.take_pending(child), None, "the child goes on");
+    let dead = GuestAction::ExitMm { task: parent };
+    assert_eq!(kernel.take_pending(child), Some(dead));
+    assert_eq!(word(memory, ENTRY + 4), parent.0, "not before its exit_mm");
+    block_on(kernel.exit_mm(&parent_caller));
+    assert_eq!(word(memory, ENTRY + 4), 0x4000_0000, "FUTEX_OWNER_DIED");
+    assert_eq!(word(memory, TID), 0, "clear_child_tid");
     let killed = wasixv2_abi::SiCode::CLD_KILLED.0;
     assert_eq!(parked.reap_parent(), Some((killed, 9)));
 
     // The child's end, as the execution layer runs it: the child leaves the memory, the
-    // instance goes back to the parent, which takes its exit and leaves the memory too.
+    // instance goes back to the parent, which takes its exit and has nothing more to leave.
+    put(memory, ENTRY + 4, &child.0.to_le_bytes());
     assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
     let exited = VforkParent {
         task: parent,
@@ -875,16 +912,11 @@ fn a_vfork_parent_killed_while_its_child_runs_releases_its_robust_futexes() {
     block_on(kernel.exit_mm(&child_caller));
     kernel.release(child);
     assert_eq!(
-        word(memory, ENTRY + 4),
-        parent.0,
-        "the child's exit is not the parent's"
-    );
-    assert_eq!(
         kernel.take_pending(parent),
         Some(GuestAction::Exit(128 + 9))
     );
     block_on(kernel.exit_mm(&parent_caller));
-    assert_eq!(word(memory, ENTRY + 4), 0x4000_0000, "FUTEX_OWNER_DIED");
+    assert_eq!(word(memory, ENTRY + 4), child.0, "released once");
     kernel.release(parent);
     // Reaped once: the later exits do not make the parent a zombie again.
     let options = WaitOptions(WaitOptions::WEXITED.0 | WaitOptions::WNOHANG.0);
@@ -960,7 +992,7 @@ fn a_vfork_parent_keeps_waiting_through_signals_that_do_not_kill_it() {
 }
 
 /// A thread other than the leader waiting for its vfork child does not keep its killed group
-/// from becoming a zombie either.
+/// from becoming a zombie either, once the child's instance left its memory for it.
 #[test]
 fn a_killed_group_does_not_wait_for_a_thread_waiting_for_its_vfork_child() {
     let (kernel, init, _) = machine();
@@ -978,6 +1010,10 @@ fn a_killed_group_does_not_wait_for_a_thread_waiting_for_its_vfork_child() {
         Some(GuestAction::Exit(128 + 9))
     );
     kernel.release(parent);
+    assert_eq!(reap(&kernel, &init_caller, parent), None);
+    let dead = GuestAction::ExitMm { task: thread };
+    assert_eq!(kernel.take_pending(child), Some(dead));
+    block_on(kernel.exit_mm(&Caller::new(thread, &memory)));
     assert_eq!(reap(&kernel, &init_caller, parent), Some(9));
 
     let child_caller = Caller::new(child, &memory);

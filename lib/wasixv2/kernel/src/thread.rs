@@ -13,7 +13,7 @@ use wasixv2_syscalls::{
 };
 use wasixv2_wait::{Interrupted, NoInterrupt, PollMask, WaitQueue, wait_event};
 
-use crate::{Kernel, Process, State, Task, signal::Signals, work::Work};
+use crate::{Kernel, Process, State, Task, signal::Signals, sync::MutexExt, work::Work};
 
 /// `sizeof(struct robust_list_head)` on ILP32.
 const ROBUST_LIST_HEAD_SIZE: u32 = 12;
@@ -91,6 +91,9 @@ pub(crate) struct ThreadState {
     /// The task is done with its memory ([`Kernel::exit_mm`]; Linux clears `tsk->mm`), so it
     /// no longer counts among the memory's users.
     left_mm: bool,
+    /// The task died while it waited for its vfork child, and its `exit_mm` went to the
+    /// instance the child runs in ([`GuestAction::ExitMm`]); it goes there once.
+    exit_mm_handed: bool,
 }
 
 impl ThreadState {
@@ -115,6 +118,7 @@ impl ThreadState {
             },
             exited: false,
             left_mm: false,
+            exit_mm_handed: false,
         }
     }
 }
@@ -200,6 +204,7 @@ impl Kernel {
                 },
                 exited: false,
                 left_mm: false,
+                exit_mm_handed: false,
             };
             let id = TaskId(state.last_id + 1);
             let flag = Arc::new(WorkFlag::default());
@@ -388,9 +393,10 @@ impl Kernel {
     /// exception: its memory is its parent's, which it never writes back, and its end runs in
     /// the parent's instance as the parent's return ([`GuestAction::VforkReturn`]), which
     /// releases its memory there. A task waiting for its vfork child whose image ended is gone
-    /// already, as Linux's killable `wait_for_vfork_done` lets it exit: its instance runs the
-    /// child, and once the child is done goes back to the task, which leaves the memory as it
-    /// unwinds through its exit. A task waiting for its vfork child otherwise counts as running.
+    /// once it left its memory, as Linux's killable `wait_for_vfork_done` lets it exit: its
+    /// instance runs the child, which leaves the memory for it ([`GuestAction::ExitMm`]), and
+    /// once the child is done goes back to the task only to unwind it. A task waiting for its
+    /// vfork child otherwise counts as running.
     fn exit_notify(&self, process: &Arc<Process>) {
         let Some(status) = process.group.status() else {
             return;
@@ -402,7 +408,9 @@ impl Kernel {
         let vfork_child = self.vfork_child(process.pid);
         let (others, leader_runs) = {
             let state = self.state.lock().unwrap();
-            let gone = |id: &TaskId, t: &Task| waiting.contains(id) && t.work.ends_image();
+            let gone = |id: &TaskId, t: &Task| {
+                waiting.contains(id) && t.work.ends_image() && t.thread.left_mm
+            };
             let others = state.tasks.iter().any(|(id, t)| {
                 *id != process.pid && Arc::ptr_eq(&t.process, process) && !gone(id, t)
             });
@@ -801,10 +809,34 @@ impl Kernel {
         if last {
             self.exit_mmap(caller).await;
         }
-        // A leader whose group exited was all its exit waited for.
-        if task == process.pid {
+        // A leader whose group exited was all its exit waited for, and so was a task that
+        // died waiting for its vfork child, whose instance runs on.
+        if task == process.pid || self.vfork_waits(task) {
             self.exit_notify(&process);
+            process.group.released.wake(PollMask::empty());
         }
+    }
+
+    /// The vfork parent of `child`, the task its instance runs as, if that parent died while
+    /// it waited and has yet to leave its memory: its `exit_mm` goes to this instance, once
+    /// ([`GuestAction::ExitMm`]). Linux's parent leaves the memory in its own `do_exit`, before
+    /// it is a zombie, while the child keeps the memory (`wait_for_vfork_done` is killable).
+    pub(crate) fn dead_vfork_parent(&self, child: TaskId) -> Option<TaskId> {
+        let mut state = self.state.lock_or_recover();
+        let parent = self
+            .procs
+            .tree
+            .lock_or_recover()
+            .vforks
+            .get(&child)
+            .copied()?;
+        let entry = state.tasks.get_mut(&parent)?;
+        let thread = &mut entry.thread;
+        if !entry.work.ends_image() || thread.left_mm || thread.exit_mm_handed {
+            return None;
+        }
+        thread.exit_mm_handed = true;
+        Some(parent)
     }
 
     pub(crate) fn sys_set_tid_address(&self, caller: &Caller<'_>, tidptr: S32Ptr) -> i32 {
