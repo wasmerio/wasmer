@@ -24,8 +24,8 @@ use wasixv2_abi::{
 };
 use wasixv2_host::Host;
 use wasixv2_syscalls::{
-    Caller, Errno, GuestAction, SignalFrame, SysErr, SysResult, TaskId, WorkFlag, read_value,
-    write_value,
+    Caller, CpuBase, Errno, GuestAction, SignalFrame, SysErr, SysResult, TaskId, WorkFlag,
+    read_value, write_value,
 };
 use wasixv2_wait::{Interrupt, NoInterrupt, WaitQueue, Waiter, Wakeup, wait_event};
 
@@ -2150,13 +2150,19 @@ impl Kernel {
                 Some((from_timeval(v.it_value)?, from_timeval(v.it_interval)?))
             }
         };
-        let old = match which {
-            ItimerWhich::ITIMER_REAL => {
+        let old = match cpu_itimer_base(which) {
+            None => {
                 let signals = self.task_signals(caller.task());
                 self.arm_real_timer(signals.group(), new)
             }
-            // TODO: CPU-time timers; they never fire.
-            _ => (Duration::ZERO, Duration::ZERO),
+            // `set_cpu_itimer`, or without a new value `get_cpu_itimer`.
+            Some(base) => {
+                let process = self.process(caller.task());
+                match new {
+                    Some((value, interval)) => process.set_itimer(base, value, interval),
+                    None => process.get_itimer(base),
+                }
+            }
         };
         if !ovalue.is_null() {
             write_value(caller.memory(), ovalue, &to_itimerval(old)).await?;
@@ -2176,10 +2182,10 @@ impl Kernel {
                 let state = signals.group.state.lock_or_recover();
                 real_timer_value(&state.real_timer, self.host.monotonic())
             }
-            ItimerWhich::ITIMER_VIRTUAL | ItimerWhich::ITIMER_PROF => {
-                (Duration::ZERO, Duration::ZERO)
-            }
-            _ => return Err(Errno::EINVAL.into()),
+            _ => match cpu_itimer_base(which) {
+                Some(base) => self.process(caller.task()).get_itimer(base),
+                None => return Err(Errno::EINVAL.into()),
+            },
         };
         write_value(caller.memory(), value, &to_itimerval(current)).await?;
         Ok(0)
@@ -2247,6 +2253,16 @@ fn real_timer_value(timer: &RealTimer, now: Duration) -> (Duration, Duration) {
         deadline.saturating_sub(now).max(Duration::from_micros(1))
     });
     (left, timer.interval)
+}
+
+/// The process CPU clock an interval timer runs on: `CPUCLOCK_VIRT` for `ITIMER_VIRTUAL`,
+/// `CPUCLOCK_PROF` for `ITIMER_PROF`.
+fn cpu_itimer_base(which: ItimerWhich) -> Option<CpuBase> {
+    match which {
+        ItimerWhich::ITIMER_VIRTUAL => Some(CpuBase::Virt),
+        ItimerWhich::ITIMER_PROF => Some(CpuBase::Prof),
+        _ => None,
+    }
 }
 
 fn from_timeval(tv: KernelOldTimeval) -> Result<Duration, Errno> {

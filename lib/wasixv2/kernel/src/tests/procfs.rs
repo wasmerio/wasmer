@@ -163,6 +163,35 @@ fn self_names_the_callers_process() {
     assert_eq!(line.split(' ').count(), 52, "{line}");
 }
 
+/// `stat`'s `utime` and `stime` are the group's for the process and the thread's own for a
+/// task, in ticks of `USER_HZ`; the machine's `cpu` line in `/proc/stat` sums every process.
+#[test]
+fn stat_shows_the_cpu_time_tasks_were_charged() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let caller = Caller::new(task, &memory);
+    let spawn = kernel.thread_spawn(&caller, 0x10f00, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    let thread = block_on(spawn).unwrap();
+    while kernel.take_pending(task).is_some() {}
+    let ms = std::time::Duration::from_millis;
+    let account = |task| wasixv2_syscalls::CpuTime::cpu_account(&kernel, task);
+    account(task).charge(ms(120), ms(30));
+    account(TaskId(thread as u32)).charge(ms(50), ms(0));
+    let times = |path: &str| {
+        let fd = t.open(path, OpenFlags::O_RDONLY).unwrap();
+        let line = t.read_all(fd);
+        let fields: Vec<&str> = line.rsplit(") ").next().unwrap().split(' ').collect();
+        // utime, stime, cutime, cstime: fields 14 to 17, 12 to 15 after the comm.
+        fields[11..15].join(" ")
+    };
+    assert_eq!(times("/proc/self/stat"), "17 3 0 0");
+    assert_eq!(times(&format!("/proc/self/task/{thread}/stat")), "5 0 0 0");
+    let fd = t.open("/proc/stat", OpenFlags::O_RDONLY).unwrap();
+    let stat = t.read_all(fd);
+    assert!(stat.starts_with("cpu  17 0 3 "), "{stat}");
+}
+
 /// A task that took its part in a group stop is `T (stopped)`; one yet to take it is not.
 #[test]
 fn a_stopped_task_shows_as_stopped() {

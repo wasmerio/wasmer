@@ -20,8 +20,9 @@ use wasixv2_abi::{
     S32Ptr, SiCode, Siginfo, SiginfoPtr, Signal, Ulong, Uptr, Usize, WaitOptions,
 };
 use wasixv2_syscalls::{
-    BINPRM_BUF_SIZE, Binfmt, Caller, CstrError, Errno, Fd, GuestAction, Image, LocalFuture, Resume,
-    SysErr, SysResult, TaskId, VforkParent, WorkFlag, read_cstr, read_value, write_value,
+    BINPRM_BUF_SIZE, Binfmt, Caller, CpuAccount, CpuTimes, CstrError, Errno, Fd, GuestAction,
+    Image, LocalFuture, Resume, SysErr, SysResult, TaskId, VforkParent, WorkFlag, read_cstr,
+    read_value, write_value,
 };
 use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_EXEC, OpenHow};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
@@ -90,9 +91,19 @@ pub(crate) struct Tree {
     /// its image went on in another instance (another thread's `execve` gave the leader the new
     /// image): the instance ends with the child ([`Resume::Gone`]). To the parent task.
     pub(crate) detached: HashMap<TaskId, TaskId>,
+    /// The CPU time of every process reaped so far, which the machine's counts with the live
+    /// ones' (`/proc/stat`).
+    pub(crate) reaped: CpuTimes,
 }
 
 impl Tree {
+    /// Takes `pid` out of the tree, as it is reaped (`release_task`).
+    pub(crate) fn reap(&mut self, pid: u32) -> Option<Node> {
+        let node = self.nodes.remove(&pid)?;
+        self.reaped = self.reaped.saturating_add(node.process.cpu.times());
+        Some(node)
+    }
+
     /// The vfork child `child` is done with its parent's instance: the parent the instance
     /// goes back to, which returns from vfork unless [`vfork_parent_resumes`] finds its image
     /// ended, or is gone from the instance.
@@ -448,14 +459,12 @@ impl Kernel {
                 },
             };
             node.exit = Some(exit);
-            // A zombie runs no more: its CPU clocks stop.
-            let _ = process.stop.set(self.host.monotonic());
             let exit_signal = node.exit_signal;
             let father = tree.pgrp_sid(pid);
             let autoreap = parent_signals.is_none()
                 || (exit_signal == Signal::SIGCHLD.0 && (ignored || nocldwait));
             if autoreap {
-                tree.nodes.remove(&pid);
+                tree.reap(pid);
             }
             // `forget_original_parent`: the children go to the reaper, and those that asked for
             // it hear of their parent's death. A zombie among them is reported to the reaper
@@ -471,8 +480,8 @@ impl Kernel {
                 node.exit_signal = Signal::SIGCHLD.0;
                 let pdeathsig = node.process.ident.lock_or_recover().pdeathsig();
                 match (node.exit, reaper_reaps) {
-                    (Some(_), _) if reaper == 0 => drop(tree.nodes.remove(&child)),
-                    (Some(_), Some((true, _) | (_, true))) => drop(tree.nodes.remove(&child)),
+                    (Some(_), _) if reaper == 0 => drop(tree.reap(child)),
+                    (Some(_), Some((true, _) | (_, true))) => drop(tree.reap(child)),
                     (Some(exit), Some(_)) => inherited.push((child, exit)),
                     (None, _) if pdeathsig != 0 => orphans.push((child, pdeathsig)),
                     _ => {}
@@ -916,7 +925,11 @@ impl Kernel {
                 exe: Mutex::new(parent.exe.lock_or_recover().clone()),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
-                stop: std::sync::OnceLock::new(),
+                // A child's times start at zero, and it inherits no interval timers.
+                cpu: Arc::default(),
+                children: Mutex::default(),
+                maxrss: Default::default(),
+                cpu_timers: Default::default(),
                 ident: Mutex::new(ident),
                 cred: Mutex::new(parent.cred()),
                 resources: Mutex::new(parent.resources.lock_or_recover().clone()),
@@ -946,6 +959,7 @@ impl Kernel {
                 false => Arc::new(task.mm.dup(id.0)),
             };
             let new = Task {
+                cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
                 process: process.clone(),
                 mm,
                 files,
@@ -969,6 +983,8 @@ impl Kernel {
             }
             false => parent_pid,
         };
+        // It inherits `RLIMIT_CPU`, and with it the expiry it sets (`posix_cputimers_group_init`).
+        process.rlimit_cpu_changed();
         self.procs.add(process, parent, exit_signal);
         Ok(id)
     }
@@ -1291,23 +1307,28 @@ impl Kernel {
         let interrupt = self.interrupt(caller);
         let found = wait_event(
             &self.procs.changed,
-            || self.wait_once(me.pid.0, which, options),
+            || self.wait_once(&me, which, options),
             &*interrupt,
         )
         .await
         .map_err(|_| SysErr::Restart)??;
-        let info = match found {
-            Some((pid, exit)) => child_info(Signal::SIGCHLD.0, pid, exit),
-            None => Siginfo {
-                si_signo: 0,
-                si_errno: 0,
-                si_code: 0,
-                sifields: [0; 116],
-            },
+        let (info, usage) = match found {
+            Some((pid, exit, child)) => {
+                let usage = child.usage_both();
+                (child_info(Signal::SIGCHLD.0, pid, exit), usage)
+            }
+            None => (
+                Siginfo {
+                    si_signo: 0,
+                    si_errno: 0,
+                    si_code: 0,
+                    sifields: [0; 116],
+                },
+                Rusage::default(),
+            ),
         };
         if !ru.is_null() {
-            let zero = vec![0; Rusage::SIZE];
-            caller.memory().write(ru.addr(), &zero).await?;
+            write_value(caller.memory(), ru, &usage).await?;
         }
         if !infop.is_null() {
             write_value(caller.memory(), infop, &info).await?;
@@ -1320,18 +1341,19 @@ impl Kernel {
     /// (`wait_task_zombie`); then, for `WSTOPPED`, a stopped child whose stop no `waitid`
     /// reported yet (`wait_task_stopped`), and for `WCONTINUED` a continued one
     /// (`wait_task_continued`). `WNOWAIT` leaves what it reports to be reported again.
+    /// A reaped zombie's time and its reaped children's go to `me`'s `cutime` and `cstime`.
     #[allow(clippy::type_complexity)]
     fn wait_once(
         &self,
-        me: u32,
+        me: &Process,
         which: Which,
         options: u32,
-    ) -> Option<Result<Option<(u32, Exit)>, Errno>> {
+    ) -> Option<Result<Option<(u32, Exit, Arc<Process>)>, Errno>> {
         let mut tree = self.procs.tree.lock_or_recover();
         let mut any = false;
         let mut ready = None;
         let mut live = Vec::new();
-        for (&pid, node) in tree.children(me) {
+        for (&pid, node) in tree.children(me.pid.0) {
             let matches = match which {
                 Which::All => true,
                 Which::Pid(want) => pid == want,
@@ -1348,25 +1370,26 @@ impl Kernel {
             any = true;
             match node.exit {
                 Some(exit) if options & WaitOptions::WEXITED.0 != 0 => {
-                    ready = Some((pid, exit));
+                    ready = Some((pid, exit, node.process.clone()));
                     break;
                 }
                 Some(_) => {}
                 None => live.push((pid, node.process.clone())),
             }
         }
-        if let Some((pid, _)) = ready
+        if let Some((pid, _, child)) = &ready
             && options & WaitOptions::WNOWAIT.0 == 0
         {
-            tree.nodes.remove(&pid);
+            tree.reap(*pid);
+            me.add_child_usage(child);
         }
         drop(tree);
         if ready.is_none() {
             // The group's signal state comes after the tree, with the tree unlocked.
             live.sort_by_key(|(pid, _)| *pid);
-            ready = live
-                .into_iter()
-                .find_map(|(pid, process)| Some((pid, self.stop_event(&process, options)?)));
+            ready = live.into_iter().find_map(|(pid, process)| {
+                Some((pid, self.stop_event(&process, options)?, process))
+            });
         }
         match (ready, any) {
             (Some(found), _) => Some(Ok(Some(found))),

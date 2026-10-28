@@ -9,7 +9,7 @@ use wasixv2_abi::{
     Usize, UsizePtr,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, GuestAction, Image, Resume, SysResult, TaskId, WorkFlag, write_value,
+    Caller, CpuAccount, Errno, GuestAction, Image, Resume, SysResult, TaskId, WorkFlag, write_value,
 };
 use wasixv2_wait::{Interrupted, NoInterrupt, PollMask, WaitQueue, wait_event};
 
@@ -219,6 +219,7 @@ impl Kernel {
             let id = TaskId(state.last_id + 1);
             let flag = Arc::new(WorkFlag::default());
             let new = Task {
+                cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
                 process,
                 mm: task.mm.clone(),
                 files: task.files.clone(),
@@ -283,7 +284,7 @@ impl Kernel {
             self.exit_files(&process);
             let vfork_parent = {
                 let mut tree = self.procs.tree.lock_or_recover();
-                tree.nodes.remove(&child.0);
+                tree.reap(child.0);
                 tree.vforks.remove(&child)
             };
             if let Some(parent) = vfork_parent {
@@ -850,6 +851,8 @@ impl Kernel {
             let process = entry.process.clone();
             (mm_users(&state, task) == 0, process)
         };
+        // `do_exit`'s `setmax_mm_hiwater_rss`, for `getrusage` of the group and its parent.
+        process.note_rss(caller.memory().size().await);
         if last {
             self.exit_mmap(caller).await;
         }
