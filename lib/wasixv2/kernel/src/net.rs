@@ -30,6 +30,7 @@ use crate::{
     file::{Backing, OpenFile},
     fs::read_iovecs,
     netlink,
+    ns::NetNs,
     socket::{self, RCV, SND, SOCKADDR_STORAGE, SocketFile, Timeouts, WaitOn},
     unix::{self, UnixFile},
 };
@@ -136,18 +137,19 @@ impl Kernel {
         Ok((file, socket))
     }
 
-    /// An open file for the IP socket `socket`.
+    /// An open file for the IP socket `socket` of the network namespace `net`.
     fn socket_file(
         &self,
         caller: &Caller<'_>,
         socket: Arc<dyn wasixv2_vnet::Socket>,
+        net: Arc<NetNs>,
         flags: SocketFlags,
     ) -> OpenFile {
         let mut status = OpenFlags::O_RDWR;
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let object = SocketFile::new(socket, self.host.clone());
+        let object = SocketFile::new(socket, net, self.host.clone());
         OpenFile::new(
             Backing::Stream(
                 Arc::new(object),
@@ -192,7 +194,7 @@ impl Kernel {
         // `sk_uid`: the inode owner `sock_alloc` gives the socket.
         let (uid, _) = self.cred(caller).fs_owner();
         let socket = network.socket(domain, kind, protocol, uid)?;
-        let file = self.socket_file(caller, socket, flags);
+        let file = self.socket_file(caller, socket, ns.net.clone(), flags);
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [fd] = self.install_files(caller, [file], cloexec)?;
         Ok(fd)
@@ -297,7 +299,8 @@ impl Kernel {
                 wait.wait(on, PollMask::READABLE, || {
                     let accepted = sock.socket.accept()?;
                     let peer = socket::encode(accepted.peer);
-                    Ok((self.socket_file(caller, accepted.socket, flags), peer))
+                    let net = sock.net.clone();
+                    Ok((self.socket_file(caller, accepted.socket, net, flags), peer))
                 })
                 .await?
             }
@@ -1511,25 +1514,32 @@ const IFREQ: usize = 32;
 const IFNAMSIZ: usize = 16;
 
 impl Kernel {
-    pub(crate) fn is_socket(&self, file: &OpenFile) -> bool {
-        file.downcast::<SocketFile>().is_some()
-            || file.downcast::<UnixFile>().is_some()
-            || file.object().cloned().and_then(netlink::downcast).is_some()
+    /// The network namespace a socket was made in (`sock_net`); `None` if `file` is not a
+    /// socket.
+    pub(crate) fn socket_net(&self, file: &OpenFile) -> Option<Arc<NetNs>> {
+        if let Some(socket) = file.downcast::<SocketFile>() {
+            return Some(socket.net.clone());
+        }
+        if let Some(unix) = file.downcast::<UnixFile>() {
+            return Some(unix.0.net().clone());
+        }
+        let netlink = file.object().cloned().and_then(netlink::downcast)?;
+        Some(netlink.net.clone())
     }
 
-    /// `dev_ioctl`: `SIOCGIF*` on the namespace's interface table.
+    /// `dev_ioctl`: `SIOCGIF*` on the interface table of `net`, the socket's namespace
+    /// (`sock_ioctl` passes `sock_net(sk)`), not the caller's.
     pub(crate) async fn sys_dev_ioctl(
         &self,
         caller: &Caller<'_>,
+        net: &NetNs,
         request: IoctlRequest,
         arg: u32,
     ) -> SysResult<i32> {
         let memory = caller.memory();
         let mut ifr = [0u8; IFREQ];
         memory.read(arg, &mut ifr).await?;
-        let interfaces = self
-            .ns(caller)
-            .net
+        let interfaces = net
             .network
             .as_ref()
             .map(|net| net.interfaces())

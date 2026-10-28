@@ -82,8 +82,10 @@ impl Kernel {
                 Ok(0)
             }
             // ---- net ----
-            _ if crate::net::is_dev_ioctl(request) && self.is_socket(&file) => {
-                self.sys_dev_ioctl(caller, request, arg).await
+            _ if crate::net::is_dev_ioctl(request)
+                && let Some(net) = self.socket_net(&file) =>
+            {
+                self.sys_dev_ioctl(caller, &net, request, arg).await
             }
             _ => match file.object() {
                 Some(_) if let Some(tty) = file.downcast::<TtyFile>() => {

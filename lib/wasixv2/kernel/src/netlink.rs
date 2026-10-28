@@ -24,6 +24,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
+    ns::NetNs,
     socket::{Blocking, RCV, Timeouts, WaitOn},
 };
 
@@ -87,7 +88,10 @@ struct Queue {
 pub(crate) struct NetlinkSocket {
     queue: Mutex<Queue>,
     wait: WaitQueue,
+    /// The interfaces of `net` when the socket was made.
     interfaces: Vec<Interface>,
+    /// The network namespace the socket was made in (`sock_net`).
+    pub(crate) net: Arc<NetNs>,
     port: u32,
     pub(crate) timeouts: Timeouts,
     host: Arc<dyn Host>,
@@ -540,12 +544,11 @@ impl Kernel {
         if protocol != NETLINK_ROUTE {
             return Err(Errno::EPROTONOSUPPORT.into());
         }
-        let interfaces = self
-            .ns(caller)
-            .net
+        let net = self.ns(caller).net.clone();
+        let interfaces = net
             .network
             .as_ref()
-            .map(|net| net.interfaces())
+            .map(|network| network.interfaces())
             .unwrap_or_default();
         let socket = NetlinkSocket {
             queue: Mutex::new(Queue {
@@ -555,6 +558,7 @@ impl Kernel {
             }),
             wait: WaitQueue::new(),
             interfaces,
+            net,
             port: self.process(caller.task()).pid.0,
             timeouts: Timeouts::default(),
             host: self.host.clone(),
@@ -595,6 +599,14 @@ mod tests {
             }),
             wait: WaitQueue::new(),
             interfaces: vec![lo],
+            net: crate::ns::Ns::initial(
+                crate::ns::NsKind::Net,
+                None,
+                crate::ns::Net {
+                    network: None,
+                    unix_names: Arc::default(),
+                },
+            ),
             port: 7,
             timeouts: Timeouts::default(),
             host: Arc::new(crate::tests::TestHost),

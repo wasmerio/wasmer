@@ -789,3 +789,38 @@ fn abstract_unix_names_are_per_network_namespace_and_paths_are_not() {
         "free in the new namespace"
     );
 }
+
+/// `SIOCGIF*` look at the interfaces of the namespace a socket was made in (`sock_ioctl`
+/// passes `sock_net(sk)`), not at the caller's.
+#[test]
+fn interface_requests_look_at_the_sockets_network_namespace() {
+    let (kernel, task, _) = super::cred::machine_with(|kernel| {
+        let loopback = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+        kernel
+            .with_network(loopback)
+            .with_credentials(Credentials::new(0, 0))
+    });
+    let memory = ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536])));
+    let caller = Caller::new(task, &memory);
+    let socket = |family| block_on(kernel.socket(&caller, family, STREAM, 0)).unwrap();
+    let index_of_lo = |fd: Fd| {
+        put(&memory.0, 0x400, b"lo\0");
+        ioctl(&kernel, &caller, fd, IoctlRequest::SIOCGIFINDEX)?;
+        Ok::<_, SysErr>(u32::from_le_bytes(
+            get(&memory.0, 0x410, 4).try_into().unwrap(),
+        ))
+    };
+    let (inet, unix) = (
+        socket(AddressFamily::AF_INET),
+        socket(AddressFamily::AF_UNIX),
+    );
+    let lo = index_of_lo(unix).unwrap();
+
+    // The new namespace has no IP network, so no interface at all.
+    assert_eq!(unshare(&kernel, &caller, CloneFlags::CLONE_NEWNET), Ok(0));
+
+    assert_eq!(index_of_lo(inet), Ok(lo));
+    assert_eq!(index_of_lo(unix), Ok(lo));
+    let fresh = socket(AddressFamily::AF_UNIX);
+    assert_eq!(errno(index_of_lo(fresh)), Errno::ENODEV);
+}

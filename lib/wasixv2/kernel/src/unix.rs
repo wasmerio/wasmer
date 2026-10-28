@@ -35,6 +35,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 use crate::{
     Kernel,
     file::{FileObject, Io, OpenFile},
+    ns::NetNs,
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
     sync::MutexExt,
 };
@@ -243,7 +244,8 @@ pub(crate) struct Sock {
     inner: Mutex<Inner>,
     /// Woken when data arrives, room appears at the peer, or the state changes.
     wait: WaitQueue,
-    names: Arc<Names>,
+    /// The network namespace the socket was made in (`sock_net`).
+    net: Arc<NetNs>,
     /// The credentials of the task that created the socket.
     owner: PeerCred,
     /// `SO_RCVTIMEO`/`SO_SNDTIMEO`.
@@ -276,7 +278,7 @@ pub(crate) struct Ancillary {
 impl Sock {
     pub(crate) fn new(
         kind: Kind,
-        names: Arc<Names>,
+        net: Arc<NetNs>,
         owner: PeerCred,
         host: Arc<dyn Host>,
     ) -> Arc<Self> {
@@ -302,7 +304,7 @@ impl Sock {
                 opts: SockOpts::unix(ty),
             }),
             wait: WaitQueue::new(),
-            names,
+            net,
             owner,
             timeouts: Timeouts::default(),
             host,
@@ -312,6 +314,16 @@ impl Sock {
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
         self.inner.lock().unwrap()
+    }
+
+    /// The network namespace the socket was made in (`sock_net`).
+    pub(crate) fn net(&self) -> &Arc<NetNs> {
+        &self.net
+    }
+
+    /// Where the socket's namespace finds bound sockets.
+    fn names(&self) -> &Names {
+        &self.net.unix_names
     }
 
     pub(crate) fn kind(&self) -> Kind {
@@ -393,7 +405,7 @@ impl Sock {
             )
         };
         if let Some(key) = key {
-            self.names.remove(&key, self);
+            self.names().remove(&key, self);
         }
         if let Some(peer) = peer {
             if self.kind.connection() {
@@ -412,7 +424,7 @@ impl Sock {
         self.wait.wake(PollMask::empty());
         drop(rx);
         // `unix_schedule_gc(NULL)`: this may have left sockets only messages hold.
-        self.names.inflight.released();
+        self.names().inflight.released();
     }
 
     /// The open files of the Unix sockets in flight in this socket's queue, and for a listener
@@ -452,7 +464,7 @@ impl Sock {
         if inner.addr.is_some() {
             return Err(Errno::EINVAL);
         }
-        self.names.insert(key.clone(), &me)?;
+        self.names().insert(key.clone(), &me)?;
         inner.addr = Some(addr);
         inner.key = Some(key);
         Ok(())
@@ -469,7 +481,7 @@ impl Sock {
         }
         for _ in 0..0x100000 {
             let n = {
-                let mut next = self.names.next.lock().unwrap();
+                let mut next = self.names().next.lock().unwrap();
                 *next = (*next + 1) & 0xfffff;
                 *next
             };
@@ -534,7 +546,7 @@ impl Sock {
         }
         let embryo = Sock::new(
             self.kind,
-            self.names.clone(),
+            self.net.clone(),
             target.owner.clone(),
             target.host.clone(),
         );
@@ -656,7 +668,7 @@ impl Sock {
             rights: InFlight::new(
                 std::mem::take(&mut anc.rights),
                 anc.uid,
-                &self.names.inflight,
+                &self.names().inflight,
             ),
             cred: anc.cred.unwrap_or(cred),
         });
@@ -719,7 +731,7 @@ impl Sock {
             rights: InFlight::new(
                 std::mem::take(&mut anc.rights),
                 anc.uid,
-                &self.names.inflight,
+                &self.names().inflight,
             ),
             cred: anc.cred.unwrap_or(cred),
         });
@@ -764,7 +776,7 @@ impl Sock {
         let passcred = inner.passcred();
         drop(inner);
         if peek {
-            self.names.inflight.peeked(&out.rights);
+            self.names().inflight.peeked(&out.rights);
         }
         if !peek {
             // Room at this socket: wake senders waiting on it or on their own queue.
@@ -1255,7 +1267,7 @@ impl Kernel {
         };
         Ok(Sock::new(
             kind,
-            self.ns(caller).net.unix_names.clone(),
+            self.ns(caller).net.clone(),
             self.peer_cred(caller),
             self.host.clone(),
         ))
@@ -1271,7 +1283,7 @@ impl Kernel {
     ) -> SysResult<Arc<Sock>> {
         match name {
             Name::Abstract(name) => Ok(sock
-                .names
+                .names()
                 .find(&Key::Abstract(name.clone()))
                 .ok_or(Errno::ECONNREFUSED)?),
             Name::Path(path) => {
@@ -1286,7 +1298,7 @@ impl Kernel {
                     return Err(Errno::ECONNREFUSED.into());
                 }
                 let key = Key::Inode(found.dentry.sb().id, found.dentry.node().ino());
-                Ok(sock.names.find(&key).ok_or(Errno::ECONNREFUSED)?)
+                Ok(sock.names().find(&key).ok_or(Errno::ECONNREFUSED)?)
             }
         }
     }
@@ -1507,11 +1519,23 @@ pub(crate) fn shutdown_mode(how: i32) -> Result<u8, Errno> {
 mod tests {
     use super::*;
 
+    /// A network namespace with no IP network and the Unix names `names`.
+    fn net(names: Arc<Names>) -> Arc<NetNs> {
+        crate::ns::Ns::initial(
+            crate::ns::NsKind::Net,
+            None,
+            crate::ns::Net {
+                network: None,
+                unix_names: names,
+            },
+        )
+    }
+
     fn pair(kind: Kind) -> (Arc<Sock>, Arc<Sock>) {
-        let names = Arc::new(Names::default());
+        let net = net(Arc::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let a = Sock::new(kind, names.clone(), PeerCred::default(), host.clone());
-        let b = Sock::new(kind, names, PeerCred::default(), host);
+        let a = Sock::new(kind, net.clone(), PeerCred::default(), host.clone());
+        let b = Sock::new(kind, net, PeerCred::default(), host);
         Sock::pair(&a, &b);
         (a, b)
     }
@@ -1605,19 +1629,14 @@ mod tests {
 
     #[test]
     fn closing_a_listener_resets_queued_clients() {
-        let names = Arc::new(Names::default());
+        let net = net(Arc::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let listener = Sock::new(
-            Kind::Stream,
-            names.clone(),
-            PeerCred::default(),
-            host.clone(),
-        );
+        let listener = Sock::new(Kind::Stream, net.clone(), PeerCred::default(), host.clone());
         listener
             .bind(Key::Abstract(b"l".to_vec()), b"\x01\x00\x00l".to_vec())
             .unwrap();
         listener.listen(4, PeerCred::default()).unwrap();
-        let client = Sock::new(Kind::Stream, names, PeerCred::default(), host);
+        let client = Sock::new(Kind::Stream, net, PeerCred::default(), host);
         client.try_connect(&listener, &PeerCred::default()).unwrap();
         listener.release(false);
         assert_eq!(
@@ -1635,7 +1654,7 @@ mod tests {
         let sock = |names: &Arc<Names>| {
             Sock::new(
                 Kind::Dgram,
-                names.clone(),
+                net(names.clone()),
                 PeerCred::default(),
                 host.clone(),
             )
@@ -1667,19 +1686,14 @@ mod tests {
 
     #[test]
     fn connecting_twice_queues_one_connection() {
-        let names = Arc::new(Names::default());
+        let net = net(Arc::default());
         let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
-        let listener = Sock::new(
-            Kind::Stream,
-            names.clone(),
-            PeerCred::default(),
-            host.clone(),
-        );
+        let listener = Sock::new(Kind::Stream, net.clone(), PeerCred::default(), host.clone());
         listener
             .bind(Key::Abstract(b"m".to_vec()), b"\x01\x00\x00m".to_vec())
             .unwrap();
         listener.listen(4, PeerCred::default()).unwrap();
-        let client = Sock::new(Kind::Stream, names, PeerCred::default(), host);
+        let client = Sock::new(Kind::Stream, net, PeerCred::default(), host);
         assert_eq!(client.try_connect(&listener, &PeerCred::default()), Ok(()));
         assert_eq!(
             client.try_connect(&listener, &PeerCred::default()),
