@@ -10,6 +10,7 @@ use wasixv2_abi::{
     Siginfo, SiginfoPtr, Signal, SigprocmaskHow, Sigset, WaitOptions,
 };
 use wasixv2_syscalls::{Resume, SignalFrame, VforkParent, read_value, write_value};
+use wasixv2_wait::Interrupt as _;
 
 use super::{cred::machine_as, ipc::machine, proc::ForkableMemory, *};
 
@@ -1255,4 +1256,69 @@ fn ignoring_a_signal_the_caller_could_take_lets_its_handler_run_first() {
     );
     assert_eq!(set_ignore(), Ok(0));
     assert!(take(&kernel, &caller, Signal::SIGUSR1.0).is_none());
+}
+
+/// A signal for the whole group goes to the one task Linux's `complete_signal` picks, the
+/// leader when it takes it: no other task leaves its wait for it or takes it on its way back to
+/// the guest. LTP's library sends a heartbeat SIGUSR1 to its own process, and `tgkill01`'s
+/// handler, which records the thread it runs on, then ran on a thread waiting in a futex, late
+/// enough to look like a `tgkill` delivered to the wrong thread.
+#[test]
+fn a_group_signal_is_taken_by_the_leader_alone() {
+    let (kernel, task, _) = machine();
+    let memory = stack_memory();
+    let caller = Caller::new(task, &memory);
+    handle(&kernel, &caller, Signal::SIGUSR1, 0);
+    let thread = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(thread).is_some() {}
+
+    let me = task.0 as Pid;
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, me, Signal::SIGUSR1)),
+        Ok(0)
+    );
+    assert!(
+        !kernel.task_signals(thread).pending(),
+        "the thread goes on waiting"
+    );
+    assert_eq!(
+        kernel.take_pending(thread),
+        None,
+        "the signal is the leader's"
+    );
+    match kernel.take_pending(task) {
+        Some(GuestAction::Signal(frame)) => assert_eq!(frame.signo(), Signal::SIGUSR1.0),
+        other => panic!("expected the leader's handler, got {other:?}"),
+    }
+}
+
+/// A group signal the leader blocks goes to the next thread that takes it, and only to that
+/// one. A thread that exits before it took the signal hands it on (`retarget_shared_pending`).
+#[test]
+fn a_group_signal_the_leader_blocks_goes_to_one_thread_and_on_when_it_exits() {
+    let (kernel, task, _) = machine();
+    let memory = stack_memory();
+    let caller = Caller::new(task, &memory);
+    handle(&kernel, &caller, Signal::SIGUSR1, 0);
+    let first = spawn_thread(&kernel, &caller);
+    let second = spawn_thread(&kernel, &caller);
+    block(&kernel, &caller, 1 << (Signal::SIGUSR1.0 - 1));
+
+    let me = task.0 as Pid;
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, me, Signal::SIGUSR1)),
+        Ok(0)
+    );
+    assert!(kernel.task_signals(first).pending());
+    assert!(!kernel.task_signals(second).pending());
+    assert_eq!(kernel.take_pending(second), None);
+
+    let first_caller = Caller::new(first, &memory);
+    assert_eq!(block_on(kernel.exit(&first_caller, 0)), Ok(()));
+    assert_eq!(kernel.take_pending(first), Some(GuestAction::Exit(0)));
+    assert!(kernel.task_signals(second).pending(), "handed on");
+    match kernel.take_pending(second) {
+        Some(GuestAction::Signal(frame)) => assert_eq!(frame.signo(), Signal::SIGUSR1.0),
+        other => panic!("expected the handler on the second thread, got {other:?}"),
+    }
 }

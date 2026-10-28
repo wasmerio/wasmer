@@ -214,7 +214,10 @@ fn threads_that_start_or_exit_during_a_stop_take_their_part() {
     let caller = Caller::new(leader, &memory);
     let exiting = spawn_thread(&kernel, &caller);
     let stopping = spawn_thread(&kernel, &caller);
-    kernel.kill(leader, Signal::SIGSTOP).unwrap();
+    // Sent to the thread, which starts the group stop while the leader runs on.
+    let pid = leader.0 as Pid;
+    let stop = kernel.tgkill(&caller, pid, stopping.0 as Pid, Signal::SIGSTOP);
+    assert_eq!(block_on(stop), Ok(0));
     assert_eq!(kernel.take_pending(stopping), Some(GuestAction::Stopped));
 
     // The leader, still running, starts a thread before it notices.
@@ -428,8 +431,11 @@ fn a_stop_cut_short_is_reported_as_a_stop() {
     let (kernel, parent, memory, child) = family();
     let caller = Caller::new(parent, &memory);
     let child_memory = forkable();
-    let thread = spawn_thread(&kernel, &Caller::new(child, &child_memory));
-    kernel.kill(child, Signal::SIGSTOP).unwrap();
+    let child_caller = Caller::new(child, &child_memory);
+    let thread = spawn_thread(&kernel, &child_caller);
+    let pid = child.0 as Pid;
+    let stop = kernel.tgkill(&child_caller, pid, thread.0 as Pid, Signal::SIGSTOP);
+    assert_eq!(block_on(stop), Ok(0));
     assert_eq!(kernel.take_pending(thread), Some(GuestAction::Stopped));
 
     kernel.kill(child, Signal::SIGCONT).unwrap();

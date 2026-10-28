@@ -203,7 +203,8 @@ fn a_stopped_task_shows_as_stopped() {
     let thread = block_on(spawn).unwrap();
     while kernel.take_pending(task).is_some() {}
 
-    kernel.kill(task, Signal::SIGSTOP).unwrap();
+    let stop = kernel.tgkill(&caller, task.0 as Pid, thread, Signal::SIGSTOP);
+    assert_eq!(block_on(stop), Ok(0));
     assert_eq!(
         kernel.take_pending(TaskId(thread as u32)),
         Some(GuestAction::Stopped)
