@@ -1,9 +1,18 @@
 //! System V shared memory (`ipc/shm.c`): `shmget`, `shmat`, `shmdt` and `shmctl`.
 //!
-//! A segment is a kernel buffer of whole pages, allocated as they are first written. Wasm cannot
-//! make part of one module's memory appear in another, or one page appear at two addresses, so
-//! an attachment is a copy in the attaching process's memory (see `mm/shared.rs`), synchronised
-//! with the segment, byte for byte in both directions, at these points:
+//! Where the host has shared memory objects ([`Host::shared_pages`]), a segment is one, as
+//! Linux's is a shmem file (`shmem_kernel_file_setup` in `newseg`), and every attachment maps
+//! its pages into the attaching process's memory ([`UserMemory::map_shared`]): all attachments,
+//! in any process, are the same memory, and a futex in the segment works across them.
+//!
+//! [`Host::shared_pages`]: wasixv2_host::Host::shared_pages
+//! [`UserMemory::map_shared`]: wasixv2_syscalls::UserMemory::map_shared
+//!
+//! Elsewhere, or for memory that cannot show a host object's pages, a segment is a kernel
+//! buffer of whole pages, allocated as they are first written. Wasm cannot make part of one
+//! module's memory appear in another, or one page appear at two addresses, so an attachment is
+//! then a copy in the attaching process's memory (see `mm/shared.rs`), synchronised with the
+//! segment, byte for byte in both directions, at these points:
 //!
 //! - `shmat` fills the new attachment from the segment;
 //! - `shmdt`, `munmap`, `exit`, `exit_group` and `execve` write the attachment back;
@@ -13,24 +22,26 @@
 //!   after receiving.
 //!
 //! So data handed over under a SysV semaphore or with a message, the way shared memory is
-//! normally used between processes, arrives as on Linux. Two attachments in one process, or
-//! processes that hand data over by other means (a futex in the segment, polling a flag),
-//! do not see each other's changes until one of them passes such a point. Futexes in a segment
-//! only work between the threads of one process.
+//! normally used between processes, arrives as on Linux. Two copied attachments in one process,
+//! or processes that hand data over by other means (a futex in the segment, polling a flag), do
+//! not see each other's changes until one of them passes such a point, and futexes in a copied
+//! attachment only work between the threads of one process.
 
 use std::{
     collections::HashMap,
+    io,
     sync::{Arc, Mutex, MutexGuard},
 };
 
 use wasixv2_abi::{GuestPtr, GuestPtrMut, IpcCmd, RlimitResource, ShmFlags, Shmid64Ds, Uptr};
 use wasixv2_host::Host;
+use wasixv2_pages::SharedPages;
 use wasixv2_syscalls::{Caller, Errno, SysResult, read_value, write_value};
 
 use super::{CAP_IPC_LOCK, Ids, Object, Perm, READ, WRITE, capable, get_or_create};
 use crate::{
     Kernel,
-    mm::{self, PAGE_SIZE, Shared},
+    mm::{self, Mapped, PAGE_SIZE, Shared, Source},
     sync::MutexExt,
 };
 
@@ -55,8 +66,16 @@ pub(crate) struct Segments {
 pub(crate) struct Segment {
     state: Mutex<State>,
     perm: Mutex<Perm>,
-    pages: Mutex<Pages>,
+    pages: Backing,
     size: usize,
+}
+
+/// Where a segment's bytes live.
+enum Backing {
+    /// A host shared memory object of the segment's whole pages, which attachments map.
+    Host(Arc<dyn SharedPages>),
+    /// Kernel memory, for hosts without shared memory objects; attachments are copies.
+    Heap(Mutex<Pages>),
 }
 
 /// A segment's bytes, by page; pages never written read as zeroes.
@@ -94,12 +113,38 @@ impl Segment {
         self.size.div_ceil(PAGE) as u64
     }
 
+    /// The host object that holds the segment, which attachments map.
+    fn host_pages(&self) -> Option<Arc<dyn SharedPages>> {
+        match &self.pages {
+            Backing::Host(pages) => Some(pages.clone()),
+            Backing::Heap(_) => None,
+        }
+    }
+
+    /// Pages of memory the segment holds now (`shm_rss`).
+    fn resident(&self) -> u64 {
+        match &self.pages {
+            Backing::Host(pages) => pages.allocated().div_ceil(PAGE_SIZE),
+            Backing::Heap(pages) => pages.lock_or_recover().map.len() as u64,
+        }
+    }
+
     /// Copies out `buf.len()` bytes from `offset`; past the segment's pages they read as zero.
-    /// Returns how many were inside, and the generation they are of.
-    pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> (usize, u64) {
-        let pages = self.pages.lock_or_recover();
+    /// Returns how many were inside, and the generation they are of, if the segment counts its
+    /// writes: one in a host object does not, as attachments that map it write it directly.
+    pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(usize, Option<u64>), Errno> {
         let end = self.page_count() as usize * PAGE;
         let inside = end.saturating_sub(offset as usize).min(buf.len());
+        let pages = match &self.pages {
+            Backing::Host(pages) => {
+                pages
+                    .read_at(&mut buf[..inside], offset)
+                    .map_err(io_errno)?;
+                buf[inside..].fill(0);
+                return Ok((inside, None));
+            }
+            Backing::Heap(pages) => pages.lock_or_recover(),
+        };
         let (mut at, mut done) = (offset as usize, 0);
         while done < inside {
             let n = (PAGE - at % PAGE).min(inside - done);
@@ -111,16 +156,22 @@ impl Segment {
             (at, done) = (at + n, done + n);
         }
         buf[inside..].fill(0);
-        (inside, pages.generation)
+        Ok((inside, Some(pages.generation)))
     }
 
     /// Copies `data` in at `offset`, up to the end of the segment's pages. Returns the
-    /// generation the segment has now.
-    pub(crate) fn write(&self, offset: u64, data: &[u8]) -> u64 {
-        let mut pages = self.pages.lock_or_recover();
+    /// generation the segment has now, if it counts its writes.
+    pub(crate) fn write(&self, offset: u64, data: &[u8]) -> Result<Option<u64>, Errno> {
         let end = self.page_count() as usize * PAGE;
         let mut at = offset as usize;
         let mut rest = &data[..end.saturating_sub(at).min(data.len())];
+        let mut pages = match &self.pages {
+            Backing::Host(pages) => {
+                pages.write_at(rest, offset).map_err(io_errno)?;
+                return Ok(None);
+            }
+            Backing::Heap(pages) => pages.lock_or_recover(),
+        };
         while !rest.is_empty() {
             let page = pages
                 .map
@@ -132,12 +183,15 @@ impl Segment {
             rest = &rest[n..];
         }
         pages.generation += 1;
-        pages.generation
+        Ok(Some(pages.generation))
     }
 
-    /// The segment's generation: how many writes it had.
-    pub(crate) fn generation(&self) -> u64 {
-        self.pages.lock_or_recover().generation
+    /// The segment's generation, how many writes it had, if it counts them.
+    pub(crate) fn generation(&self) -> Option<u64> {
+        match &self.pages {
+            Backing::Host(_) => None,
+            Backing::Heap(pages) => Some(pages.lock_or_recover().generation),
+        }
     }
 
     fn to_abi(&self, perm: &Perm) -> Shmid64Ds {
@@ -297,6 +351,7 @@ impl Kernel {
             if *total + pages > u64::from(SHMALL) {
                 return Err(Errno::ENOSPC);
             }
+            let backing = self.segment_backing(pages)?;
             *total += pages;
             Ok(Segment {
                 state: Mutex::new(State {
@@ -309,7 +364,7 @@ impl Kernel {
                     ctime: now,
                 }),
                 perm: Mutex::new(perm),
-                pages: Mutex::default(),
+                pages: backing,
                 size: size as usize,
             })
         };
@@ -382,10 +437,21 @@ impl Kernel {
             pid,
             host: self.host.clone(),
         });
-        let shared = Shared::new(mm::Object::Segment(attachment), 0, !readonly, None);
+        let source = match segment.host_pages() {
+            Some(pages) => Source::Mapped(Mapped {
+                pages,
+                offset: 0,
+                segment: Some(attachment),
+                writable: !readonly,
+            }),
+            None => {
+                let object = mm::Object::Segment(attachment);
+                Source::Shared(Shared::new(object, 0, !readonly, None))
+            }
+        };
         let len = segment.size as u64;
         let remap = flags.contains(ShmFlags::SHM_REMAP);
-        let at = self.map_segment(caller, addr, len, remap, shared).await?;
+        let at = self.map_segment(caller, addr, len, remap, source).await?;
         let mut state = segment.state();
         state.atime = self.ipc_now();
         state.lpid = pid;
@@ -423,10 +489,7 @@ impl Kernel {
                 let (used, max, rss) = {
                     let ids = segments.ids.lock_or_recover();
                     let all = ids.all();
-                    let rss: u64 = all
-                        .iter()
-                        .map(|(_, s)| s.pages.lock_or_recover().map.len() as u64)
-                        .sum();
+                    let rss: u64 = all.iter().map(|(_, s)| s.resident()).sum();
                     (ids.in_use() as u32, ids.max_index(), rss)
                 };
                 let total = *segments.total.lock_or_recover() as u32;
@@ -512,6 +575,25 @@ impl Kernel {
             _ => Err(Errno::EINVAL.into()),
         }
     }
+}
+
+impl Kernel {
+    /// Where a new segment of `pages` pages keeps its bytes: a host shared memory object
+    /// (`shmem_kernel_file_setup`), or kernel memory where the host has none.
+    fn segment_backing(&self, pages: u64) -> Result<Backing, Errno> {
+        match self.host.shared_pages(pages * PAGE_SIZE) {
+            Ok(pages) => Ok(Backing::Host(pages)),
+            Err(err) if err.kind() == io::ErrorKind::Unsupported => {
+                Ok(Backing::Heap(Mutex::default()))
+            }
+            Err(_) => Err(Errno::ENOMEM),
+        }
+    }
+}
+
+/// The errno for a host shared memory object that failed a read or write.
+fn io_errno(_: io::Error) -> Errno {
+    Errno::ENOMEM
 }
 
 /// Copies an `*info` structure of `unsigned long`s out to `addr`.

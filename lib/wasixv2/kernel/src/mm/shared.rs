@@ -64,13 +64,18 @@ pub(crate) struct Mapped {
     pub(crate) pages: Arc<dyn SharedPages>,
     /// Where in the object the mapping starts.
     pub(crate) offset: u64,
+    /// For a SysV segment attachment, the attachment it is a part of.
+    pub(crate) segment: Option<Arc<Attachment>>,
+    /// Whether the mapping may be written (`SHM_RDONLY` clears it). The memory is writable all
+    /// the same, as wasm enforces no protection; only `mprotect` tells.
+    pub(crate) writable: bool,
 }
 
 impl Mapped {
     fn part(&self, skip: u64) -> Self {
         Self {
-            pages: self.pages.clone(),
             offset: self.offset + skip,
+            ..self.clone()
         }
     }
 
@@ -160,10 +165,7 @@ impl Object {
     async fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(usize, Option<u64>), Errno> {
         match self {
             Object::File(file) => Ok((read_file(file, offset, buf).await?, None)),
-            Object::Segment(attachment) => {
-                let (inside, generation) = attachment.segment().read(offset, buf);
-                Ok((inside, Some(generation)))
-            }
+            Object::Segment(attachment) => attachment.segment().read(offset, buf),
         }
     }
 
@@ -172,7 +174,7 @@ impl Object {
     async fn write(&self, offset: u64, data: &[u8]) -> Result<Option<u64>, Errno> {
         match self {
             Object::File(file) => write_file(file, offset, data).await.map(|()| None),
-            Object::Segment(attachment) => Ok(Some(attachment.segment().write(offset, data))),
+            Object::Segment(attachment) => attachment.segment().write(offset, data),
         }
     }
 
@@ -180,7 +182,7 @@ impl Object {
     fn generation(&self) -> Option<u64> {
         match self {
             Object::File(_) => None,
-            Object::Segment(attachment) => Some(attachment.segment().generation()),
+            Object::Segment(attachment) => attachment.segment().generation(),
         }
     }
 
@@ -283,6 +285,18 @@ impl Mapping {
     /// Whether the mapping shows an object other mappings share, copied or mapped.
     pub(crate) fn is_shared(&self) -> bool {
         !matches!(self.source, Source::Private { .. })
+    }
+
+    /// The SysV segment attachment the mapping is a part of, copied or mapped.
+    pub(crate) fn attachment(&self) -> Option<&Arc<Attachment>> {
+        match &self.source {
+            Source::Shared(Shared {
+                object: Object::Segment(attachment),
+                ..
+            }) => Some(attachment),
+            Source::Mapped(mapped) => mapped.segment.as_ref(),
+            Source::Shared(_) | Source::Private { .. } => None,
+        }
     }
 
     /// What `munmap` does with the mapping's memory before the pages are free: a copied shared
@@ -528,11 +542,17 @@ impl Mappings {
     }
 
     /// Whether a shared mapping that may never be written (`VM_MAYWRITE` clear: its file is not
-    /// open for writing, or is write-sealed) overlaps `[start, end)`.
+    /// open for writing, or is write-sealed, or it is a `SHM_RDONLY` attachment) overlaps
+    /// `[start, end)`.
     pub(crate) fn read_only_shared_in(&self, start: u64, end: u64) -> bool {
-        self.list.iter().any(|m| {
-            m.start < end && m.end() > start && m.shared().is_some_and(|shared| !shared.writable)
-        })
+        let read_only = |m: &Mapping| match &m.source {
+            Source::Shared(shared) => !shared.writable,
+            Source::Mapped(mapped) => !mapped.writable,
+            Source::Private { .. } => false,
+        };
+        self.list
+            .iter()
+            .any(|m| m.start < end && m.end() > start && read_only(m))
     }
 
     pub(crate) fn any_shared(&self) -> bool {
@@ -609,7 +629,10 @@ impl Mappings {
                         writable: shared.writable,
                         writer: shared.writer.clone(),
                     }),
-                    Source::Mapped(mapped) => Source::Mapped(mapped.clone()),
+                    Source::Mapped(mapped) => Source::Mapped(Mapped {
+                        segment: mapped.segment.as_ref().map(&mut segment),
+                        ..mapped.clone()
+                    }),
                 },
             })
             .collect();

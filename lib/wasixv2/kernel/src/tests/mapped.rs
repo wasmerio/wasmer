@@ -1,6 +1,6 @@
-//! Shared objects whose pages the memory shows itself: `MAP_SHARED | MAP_ANONYMOUS` on a host
-//! that has shared memory, over memory that can place an object's pages, as the execution
-//! layer's on Unix.
+//! Shared objects whose pages the memory shows itself: `MAP_SHARED | MAP_ANONYMOUS` memory and
+//! SysV segments on a host that has shared memory, over memory that can place an object's
+//! pages, as the execution layer's on Unix.
 
 use std::{
     cell::Cell,
@@ -8,9 +8,9 @@ use std::{
 };
 
 use futures::FutureExt as _;
-use wasixv2_abi::{FutexOp, MadviseAdvice, MapFlags, MremapFlags, ProtFlags};
+use wasixv2_abi::{FutexOp, IpcCmd, MadviseAdvice, MapFlags, MremapFlags, ProtFlags, Shmid64Ds};
 use wasixv2_pages::{Memfd, SharedPages, map_at, map_private_at};
-use wasixv2_syscalls::{AtomicWait, AtomicWord};
+use wasixv2_syscalls::{AtomicWait, AtomicWord, read_value};
 
 use super::{ipc::errno, *};
 
@@ -466,4 +466,100 @@ fn a_pi_futex_is_handed_over_across_processes() {
     assert_eq!(wait.now_or_never(), Some(Ok(0)));
     let owner = 0x8000_0000 | child.0;
     assert_eq!(memory.get(lock, 4), owner.to_le_bytes());
+}
+
+// ---- SysV segments ----
+
+const CREATE: i32 = wasixv2_abi::IpcFlags::IPC_CREAT.0 as i32 | 0o600;
+
+fn nattch(kernel: &Kernel, caller: &Caller<'_>, id: i32) -> u32 {
+    let buf = GuestPtrMut::new(0x700);
+    block_on(kernel.shmctl(caller, id, IpcCmd::IPC_STAT.0, buf)).unwrap();
+    let ds: Shmid64Ds = block_on(read_value(caller.memory(), GuestPtr::new(0x700))).unwrap();
+    ds.shm_nattch
+}
+
+#[test]
+fn two_processes_see_each_others_segment_stores_without_a_syscall() {
+    let (kernel, a) = shared_machine();
+    let b = super::mapping::another_process(&kernel);
+    let (memory_a, memory_b) = (MappedMemory::new(2, false), MappedMemory::new(2, false));
+    let (caller_a, caller_b) = (Caller::new(a, &memory_a), Caller::new(b, &memory_b));
+    let id = block_on(kernel.shmget(&caller_a, 5, 2 * PAGE, CREATE)).unwrap();
+    let at_a = block_on(kernel.shmat(&caller_a, id, 0, 0)).unwrap() as u32;
+    let at_b = block_on(kernel.shmat(&caller_b, id, 0, 0)).unwrap() as u32;
+    assert_eq!(nattch(&kernel, &caller_a, id), 2);
+
+    memory_a.put(at_a + PAGE - 2, b"from a");
+    assert_eq!(memory_b.get(at_b + PAGE - 2, 6), b"from a");
+    // A futex in the segment works between the processes.
+    let mut wait = futex(&kernel, &caller_b, at_b + 16, FutexOp::FUTEX_WAIT, 0);
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    let woken = futex(&kernel, &caller_a, at_a + 16, FutexOp::FUTEX_WAKE, 1).now_or_never();
+    assert_eq!(woken, Some(Ok(1)));
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+
+    assert_eq!(block_on(kernel.shmdt(&caller_b, at_b)), Ok(0));
+    assert_eq!(memory_b.get(at_b + PAGE - 2, 6), [0; 6]);
+    assert_eq!(nattch(&kernel, &caller_a, id), 1);
+    assert!(kernel.shared_mappings(b).is_empty());
+    assert_eq!(memory_a.get(at_a + PAGE - 2, 6), b"from a");
+}
+
+#[test]
+fn a_fork_child_inherits_a_mapped_attachment() {
+    let (kernel, parent) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let id = block_on(kernel.shmget(&caller, 6, PAGE, CREATE)).unwrap();
+    let at = block_on(kernel.shmat(&caller, id, 0, 0)).unwrap() as u32;
+    let child = fork(&kernel, &caller);
+    let child_memory = memory.fork(&kernel.shared_mappings(child));
+    let child_caller = Caller::new(child, &child_memory);
+    assert_eq!(nattch(&kernel, &caller, id), 2);
+
+    child_memory.put(at, b"child");
+    assert_eq!(memory.get(at, 5), b"child");
+    assert_eq!(block_on(kernel.shmdt(&child_caller, at)), Ok(0));
+    assert_eq!(nattch(&kernel, &caller, id), 1);
+    memory.put(at, b"after");
+    assert_eq!(child_memory.get(at, 5), [0; 5]);
+}
+
+#[test]
+fn a_copied_attachment_meets_a_mapped_one_at_its_sync_points() {
+    // A's memory cannot show the segment's pages, so its attachment is a copy of them.
+    let (kernel, a) = shared_machine();
+    let b = super::mapping::another_process(&kernel);
+    let memory_a = FlatMemory(RefCell::new(vec![0; 2 * PAGE as usize]));
+    let memory_b = MappedMemory::new(2, false);
+    let (caller_a, caller_b) = (Caller::new(a, &memory_a), Caller::new(b, &memory_b));
+    let id = block_on(kernel.shmget(&caller_a, 7, PAGE, CREATE)).unwrap();
+    let at_a = block_on(kernel.shmat(&caller_a, id, 0, 0)).unwrap() as u32;
+    let at_b = block_on(kernel.shmat(&caller_b, id, 0, 0)).unwrap() as u32;
+    assert!(kernel.shared_mappings(a).is_empty());
+
+    super::ipc::put(&memory_a, at_a, b"copied");
+    assert_eq!(memory_b.get(at_b, 6), [0; 6]);
+    assert_eq!(block_on(kernel.shmdt(&caller_a, at_a)), Ok(0));
+    assert_eq!(memory_b.get(at_b, 6), b"copied");
+    memory_b.put(at_b, b"mapped");
+    let at_a = block_on(kernel.shmat(&caller_a, id, 0, 0)).unwrap() as u32;
+    assert_eq!(super::ipc::get(&memory_a, at_a, 6), b"mapped");
+}
+
+#[test]
+fn a_read_only_mapped_attachment_never_becomes_writable() {
+    let (kernel, task) = shared_machine();
+    let memory = MappedMemory::new(2, false);
+    let caller = Caller::new(task, &memory);
+    let id = block_on(kernel.shmget(&caller, 8, PAGE, CREATE)).unwrap();
+    let rdonly = wasixv2_abi::ShmFlags::SHM_RDONLY.0 as i32;
+    let at = block_on(kernel.shmat(&caller, id, 0, rdonly)).unwrap() as u32;
+    assert_eq!(kernel.shared_mappings(task).len(), 1);
+    let write = ProtFlags::PROT_READ | ProtFlags::PROT_WRITE;
+    assert_eq!(
+        errno(block_on(kernel.mprotect(&caller, at, PAGE, write))),
+        Errno::EACCES
+    );
 }
