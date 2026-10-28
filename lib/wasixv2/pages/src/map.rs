@@ -1,0 +1,221 @@
+//! Placing an object's pages inside a host mapping, such as a linear memory's reservation, and
+//! taking them out again.
+
+use std::{io, os::fd::AsRawFd};
+
+use crate::SharedPages;
+
+/// The host's page size.
+fn host_page_size() -> usize {
+    // SAFETY: sysconf has no preconditions.
+    let size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    usize::try_from(size).unwrap_or(4096)
+}
+
+fn invalid() -> io::Error {
+    io::Error::from_raw_os_error(libc::EINVAL)
+}
+
+/// Maps `len` bytes of `pages` from `offset` at `addr`, readable and writable, replacing what was
+/// mapped there (`mmap` with `MAP_SHARED | MAP_FIXED`): from then on the range shows the object,
+/// as every other mapping of it does.
+///
+/// Fails with `EINVAL` when the range or the offset is not page aligned or the range reaches past
+/// the object's size, so no access through it can raise `SIGBUS`, and with
+/// [`io::ErrorKind::Unsupported`] for an object the host cannot map. When the host fails the
+/// `mmap` itself, the range is left as fresh zeroed private pages, as [`map_private_at`] makes
+/// them.
+///
+/// # Safety
+///
+/// `addr..addr + len` must lie inside a mapping the caller owns, readable and writable, whose
+/// contents may be replaced: nothing may hold a Rust reference into it.
+pub unsafe fn map_at(
+    addr: *mut u8,
+    len: usize,
+    pages: &dyn SharedPages,
+    offset: u64,
+) -> io::Result<()> {
+    let fd = pages
+        .fd()
+        .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
+    let page = host_page_size();
+    let end = offset.checked_add(len as u64);
+    if !(addr as usize).is_multiple_of(page)
+        || !len.is_multiple_of(page)
+        || !offset.is_multiple_of(page as u64)
+        || end.is_none_or(|end| end > pages.size())
+    {
+        return Err(invalid());
+    }
+    let offset = libc::off_t::try_from(offset).map_err(|_| invalid())?;
+    let prot = libc::PROT_READ | libc::PROT_WRITE;
+    let flags = libc::MAP_SHARED | libc::MAP_FIXED;
+    // SAFETY: the caller owns the range and lets its contents go; MAP_FIXED replaces it in place.
+    let ptr = unsafe { libc::mmap(addr.cast(), len, prot, flags, fd.as_raw_fd(), offset) };
+    if ptr == libc::MAP_FAILED {
+        let err = io::Error::last_os_error();
+        // A failed MAP_FIXED may have unmapped the range already; keep it backed.
+        // SAFETY: as above.
+        let _ = unsafe { map_private_at(addr, len) };
+        return Err(err);
+    }
+    Ok(())
+}
+
+/// Replaces `addr..addr + len` with fresh private anonymous pages, readable, writable and zero,
+/// as the rest of a linear memory is: what [`map_at`] placed there is gone from the range.
+///
+/// # Safety
+///
+/// As for [`map_at`].
+pub unsafe fn map_private_at(addr: *mut u8, len: usize) -> io::Result<()> {
+    let page = host_page_size();
+    if !(addr as usize).is_multiple_of(page) || !len.is_multiple_of(page) {
+        return Err(invalid());
+    }
+    let prot = libc::PROT_READ | libc::PROT_WRITE;
+    let flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED;
+    // SAFETY: the caller owns the range and lets its contents go; MAP_FIXED replaces it in place.
+    let ptr = unsafe { libc::mmap(addr.cast(), len, prot, flags, -1, 0) };
+    match ptr == libc::MAP_FAILED {
+        true => Err(io::Error::last_os_error()),
+        false => Ok(()),
+    }
+}
+
+#[cfg(all(
+    test,
+    any(target_os = "linux", target_os = "android", target_os = "macos")
+))]
+mod tests {
+    use super::*;
+    use crate::Memfd;
+
+    const PAGE: usize = 65536;
+
+    /// A private anonymous mapping of `pages` pages, unmapped when dropped.
+    struct Region {
+        ptr: *mut u8,
+        len: usize,
+    }
+
+    impl Region {
+        fn new(pages: usize) -> Self {
+            let len = pages * PAGE;
+            let prot = libc::PROT_READ | libc::PROT_WRITE;
+            let flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
+            // SAFETY: a fresh mapping, owned by the returned value.
+            let ptr = unsafe { libc::mmap(std::ptr::null_mut(), len, prot, flags, -1, 0) };
+            assert_ne!(ptr, libc::MAP_FAILED);
+            Self {
+                ptr: ptr.cast(),
+                len,
+            }
+        }
+
+        fn page(&self, page: usize) -> *mut u8 {
+            assert!(page * PAGE < self.len);
+            // SAFETY: inside the mapping.
+            unsafe { self.ptr.add(page * PAGE) }
+        }
+
+        fn get(&self, page: usize, at: usize) -> u8 {
+            // SAFETY: inside the mapping, which stays readable.
+            unsafe { self.page(page).add(at).read_volatile() }
+        }
+
+        fn set(&self, page: usize, at: usize, value: u8) {
+            // SAFETY: inside the mapping, which stays writable.
+            unsafe { self.page(page).add(at).write_volatile(value) }
+        }
+    }
+
+    impl Drop for Region {
+        fn drop(&mut self) {
+            // SAFETY: the mapping this value owns.
+            unsafe { libc::munmap(self.ptr.cast(), self.len) };
+        }
+    }
+
+    #[test]
+    fn two_places_mapping_one_object_see_the_same_bytes() {
+        let pages = Memfd::new(2 * PAGE as u64).unwrap();
+        let (a, b) = (Region::new(4), Region::new(4));
+        a.set(1, 0, 9);
+        // SAFETY: both ranges are inside regions this test owns.
+        unsafe {
+            map_at(a.page(1), 2 * PAGE, &pages, 0).unwrap();
+            map_at(b.page(0), PAGE, &pages, PAGE as u64).unwrap();
+        }
+        // The object's zeros replaced what the page held.
+        assert_eq!(a.get(1, 0), 0);
+        a.set(2, 5, 42);
+        assert_eq!(b.get(0, 5), 42);
+        b.set(0, 6, 43);
+        assert_eq!(a.get(2, 6), 43);
+        let mut byte = [0];
+        pages.read_at(&mut byte, PAGE as u64 + 6).unwrap();
+        assert_eq!(byte, [43]);
+    }
+
+    #[test]
+    fn mapping_private_pages_again_detaches_and_zeroes_the_range() {
+        let pages = Memfd::new(PAGE as u64).unwrap();
+        let region = Region::new(2);
+        // SAFETY: inside a region this test owns.
+        unsafe { map_at(region.page(1), PAGE, &pages, 0).unwrap() };
+        region.set(1, 0, 1);
+        // SAFETY: as above.
+        unsafe { map_private_at(region.page(1), PAGE).unwrap() };
+        assert_eq!(region.get(1, 0), 0);
+        region.set(1, 0, 2);
+        let mut byte = [0];
+        pages.read_at(&mut byte, 0).unwrap();
+        assert_eq!(byte, [1]);
+    }
+
+    #[test]
+    fn a_range_past_the_object_is_refused() {
+        let pages = Memfd::new(PAGE as u64).unwrap();
+        let region = Region::new(2);
+        // SAFETY: inside a region this test owns; the call fails before it maps anything.
+        let err = unsafe { map_at(region.page(0), 2 * PAGE, &pages, 0) }.unwrap_err();
+        assert_eq!(err.raw_os_error(), Some(libc::EINVAL));
+        // SAFETY: as above.
+        let err = unsafe { map_at(region.page(0), PAGE, &pages, 1) }.unwrap_err();
+        assert_eq!(err.raw_os_error(), Some(libc::EINVAL));
+    }
+
+    #[test]
+    fn an_object_without_a_descriptor_cannot_be_mapped() {
+        struct Heap;
+        impl SharedPages for Heap {
+            fn id(&self) -> u64 {
+                0
+            }
+            fn size(&self) -> u64 {
+                PAGE as u64
+            }
+            fn resize(&self, _: u64) -> io::Result<()> {
+                Ok(())
+            }
+            fn read_at(&self, _: &mut [u8], _: u64) -> io::Result<()> {
+                Ok(())
+            }
+            fn write_at(&self, _: &[u8], _: u64) -> io::Result<()> {
+                Ok(())
+            }
+            fn punch_hole(&self, _: u64, _: u64) -> io::Result<()> {
+                Ok(())
+            }
+            fn allocated(&self) -> u64 {
+                0
+            }
+        }
+        let region = Region::new(1);
+        // SAFETY: inside a region this test owns; the call fails before it maps anything.
+        let err = unsafe { map_at(region.page(0), PAGE, &Heap, 0) }.unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Unsupported);
+    }
+}
