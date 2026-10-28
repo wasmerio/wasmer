@@ -57,8 +57,8 @@ impl Kernel {
                 rmtp,
             }) => {
                 let cpu = self.resolve_clock(caller, clock, false)?.cpu;
-                let process = cpu.expect("a CPU clock counts a process's time");
-                self.cpu_nanosleep(caller, clock, &process, expires, Some(rmtp))
+                let cpu = cpu.expect("a CPU clock counts a task's time");
+                self.cpu_nanosleep(caller, clock, &cpu, expires, Some(rmtp))
                     .await
             }
             Some(Restart::FutexWait {

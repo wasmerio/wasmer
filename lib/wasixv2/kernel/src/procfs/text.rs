@@ -180,10 +180,14 @@ fn meminfo(source: &Source) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// `show_stat`. The machine's processes share no CPU accounting yet, so the CPU lines are
-/// idle time only.
+/// `show_stat`. The machine's line counts the user and system time of every process, the
+/// reaped ones included, and the rest of the uptime as idle; the per-CPU lines, which no
+/// accounting tells apart, are idle time only.
 fn stat(source: &Source) -> Vec<u8> {
     let up = ticks(source.host.monotonic());
+    let used = source.cpu_times();
+    let (user, system) = (ticks(used.user), ticks(used.system));
+    let idle = up.saturating_sub(user + system);
     let boot = source
         .host
         .realtime()
@@ -191,7 +195,7 @@ fn stat(source: &Source) -> Vec<u8> {
         .as_secs();
     let (tasks, last) = source.task_counts();
     let mut out = String::new();
-    let _ = writeln!(out, "cpu  0 0 0 {up} 0 0 0 0 0 0");
+    let _ = writeln!(out, "cpu  {user} 0 {system} {idle} 0 0 0 0 0 0");
     for cpu in 0..cpus() {
         let _ = writeln!(out, "cpu{cpu} 0 0 0 {up} 0 0 0 0 0 0");
     }
@@ -533,10 +537,16 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
         .as_ref()
         .map_or(Vec::new(), |task| task.comm.name().to_vec());
     let comm = String::from_utf8_lossy(&comm).into_owned();
+    // A thread's own time, or the group's with its dead threads'; `cutime` and `cstime` are
+    // the group's reaped children's.
+    let cpu = match scope.tid {
+        Some(_) => task.as_ref().map(|task| task.cpu).unwrap_or_default(),
+        None => process.cpu.times(),
+    };
+    let children = process.children.lock().unwrap().times;
     let sched = task.map(|task| task.sched).unwrap_or_default();
     let nice = sched.nice();
     let threads = source.threads(scope.pid).len().max(1);
-    let cpu = ticks(process.cpu_time(&*source.host));
     let start = ticks(process.start);
     let vsize = source.mm(scope).map_or(0, |mm| mm.size());
     let rss = vsize / PAGE_SIZE;
@@ -565,10 +575,10 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
         0,                                 // cminflt
         0,                                 // majflt
         0,                                 // cmajflt
-        cpu as i128,                       // utime
-        0,                                 // stime
-        0,                                 // cutime
-        0,                                 // cstime
+        ticks(cpu.user) as i128,           // utime
+        ticks(cpu.system) as i128,         // stime
+        ticks(children.user) as i128,      // cutime
+        ticks(children.system) as i128,    // cstime
         sched.prio() as i128,              // priority
         nice as i128,                      // nice
         threads as i128,                   // num_threads

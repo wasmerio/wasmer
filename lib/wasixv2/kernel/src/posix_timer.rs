@@ -7,10 +7,10 @@
 //! and the periods that went by meanwhile become the overrun count. A timer whose signal stays
 //! blocked therefore costs nothing until it is taken.
 //!
-//! CPU time is approximated as the time a process existed, as `clock_gettime` reads it
-//! ([`Process::cpu_time`]), so a CPU-clock timer runs on the monotonic clock from its
-//! process's start. It may be on the clock of any process, or of a thread of the creator's
-//! group, and stops with its process's exit or its thread.
+//! A timer on a CPU clock (`posix-cpu-timers.c`) runs on no kernel timer: it waits on the clock
+//! of the process or thread it counts ([`crate::cputime`]), and fires at the first charge of CPU
+//! time that takes the clock past its expiry. It may be on the clock of any process, or of a
+//! thread of the creator's group, and stops with its process's exit or its thread.
 
 use std::{
     collections::HashMap,
@@ -31,6 +31,7 @@ use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, read_value, write_value
 
 use crate::{
     Kernel, Process,
+    cputime::CpuClock,
     signal::{Charge, Signals},
     time::{self, Clock, ClockRef},
     timer::{self, Timer},
@@ -112,6 +113,8 @@ struct State {
     signal_seq: u64,
     /// `it_sigqueue_seq`: the `signal_seq` the queued signal was sent with.
     sigqueue_seq: u64,
+    /// While armed on a CPU clock, its place there ([`Process::arm_cpu_timer`]).
+    cpu_entry: Option<u64>,
 }
 
 /// One POSIX timer (`struct k_itimer`).
@@ -119,10 +122,8 @@ pub(crate) struct PosixTimer {
     id: TimerId,
     clock_id: ClockId,
     clock: Clock,
-    /// For a CPU clock, the process whose clock it is (`it.cpu.pid`).
-    cpu: Option<Arc<Process>>,
-    /// For a thread CPU clock, the thread whose clock it is.
-    cpu_thread: Option<TaskId>,
+    /// For a CPU clock, whose clock it is (`it.cpu.pid`).
+    cpu: Option<CpuClock>,
     sigev_none: bool,
     /// `SIGEV_THREAD_ID`: the thread the signal goes to instead of the group.
     thread: Option<TaskId>,
@@ -146,8 +147,7 @@ pub(crate) struct PosixTimer {
 struct Spec {
     clock_id: ClockId,
     clock: Clock,
-    cpu: Option<Arc<Process>>,
-    cpu_thread: Option<TaskId>,
+    cpu: Option<CpuClock>,
     sigev_none: bool,
     thread: Option<TaskId>,
     signo: i32,
@@ -204,36 +204,33 @@ impl PosixTimer {
     }
 
     fn now(&self, base: Clock) -> Duration {
-        time::read(&*self.host, base, self.cpu.as_deref())
+        time::read(&*self.host, base, self.cpu.as_ref())
     }
 
-    /// `expires` on `base` as a deadline on the host's monotonic clock, which kernel timers
-    /// run on. A realtime expiry is checked again when the timer fires, since that clock can
-    /// move.
+    /// `expires` on `base`, a wall clock, as a deadline on the host's monotonic clock, which
+    /// kernel timers run on. A realtime expiry is checked again when the timer fires, since
+    /// that clock can move.
     fn monotonic_deadline(&self, base: Clock, expires: Duration) -> Duration {
         match base {
-            Clock::Monotonic => expires,
             Clock::Realtime => {
                 let left = expires.saturating_sub(self.host.realtime());
                 self.host.monotonic().saturating_add(left)
             }
-            // The clock runs with the monotonic one from its process's start.
-            Clock::ProcessCpu | Clock::ThreadCpu => {
-                let start = self.cpu.as_ref().map_or(Duration::ZERO, |p| p.start);
-                start.saturating_add(expires)
-            }
+            _ => expires,
         }
     }
 
     /// Whether the thread a thread CPU clock belongs to is still there.
     fn thread_alive(&self, group: &Signals) -> bool {
-        self.cpu_thread.is_none_or(|task| group.has_task(task))
+        let thread = self.cpu.as_ref().and_then(|cpu| cpu.thread.as_ref());
+        thread.is_none_or(|(task, _)| group.has_task(*task))
     }
 
     /// Whether the timer's clock still runs: a CPU clock stops with its thread, and with its
     /// process's exit (`posix_cpu_timers_exit_group`, `task_can_enqueue_timer`).
     fn clock_alive(&self, group: &Signals) -> bool {
-        self.thread_alive(group) && self.cpu.as_ref().is_none_or(|p| !p.group.exiting())
+        let exiting = |cpu: &CpuClock| cpu.process.group.exiting();
+        self.thread_alive(group) && !self.cpu.as_ref().is_some_and(exiting)
     }
 
     /// `hrtimer_forward`: moves an expired interval timer past `now`; returns the periods
@@ -247,15 +244,34 @@ impl PosixTimer {
         i64::try_from(periods).unwrap_or(i64::MAX)
     }
 
-    /// `hrtimer_start_expires_user`: arms the kernel timer for `expires`. Returns false when
-    /// that has passed already, as the caller then queues the signal itself.
-    fn start(&self, state: &State) -> bool {
+    /// `hrtimer_start_expires_user`, or for a CPU clock `arm_timer`: arms the timer for
+    /// `expires`. Returns false when that has passed already, as the caller then queues the
+    /// signal itself.
+    fn start(self: &Arc<Self>, state: &mut State) -> bool {
         if state.expires <= self.now(state.base) {
             return false;
         }
-        self.timer
-            .start(self.monotonic_deadline(state.base, state.expires));
+        match &self.cpu {
+            Some(cpu) => {
+                self.cancel(state);
+                let entry = cpu
+                    .process
+                    .arm_cpu_timer(cpu, state.expires, Arc::downgrade(self));
+                state.cpu_entry = Some(entry);
+            }
+            None => self
+                .timer
+                .start(self.monotonic_deadline(state.base, state.expires)),
+        }
         true
+    }
+
+    /// Stops the timer from expiring: takes it off its kernel timer or CPU clock.
+    fn cancel(&self, state: &mut State) {
+        self.timer.cancel();
+        if let (Some(cpu), Some(entry)) = (&self.cpu, state.cpu_entry.take()) {
+            cpu.process.disarm_cpu(entry);
+        }
     }
 
     /// `posix_timer_queue_signal`
@@ -272,6 +288,22 @@ impl PosixTimer {
         if let Some(group) = self.group.upgrade() {
             group.send_timer(self, periodic);
         }
+    }
+
+    /// `cpu_timer_fire`: a charge took the timer's CPU clock past the expiry it was armed with
+    /// as `entry`, which is off the clock now.
+    pub(crate) fn cpu_expired(self: &Arc<Self>, entry: u64) {
+        let mut state = self.state.lock().unwrap();
+        if state.cpu_entry != Some(entry) || state.status != Status::Armed {
+            return;
+        }
+        state.cpu_entry = None;
+        // A CPU clock stops with its thread or process, and never reaches the expiry then.
+        if !self.group.upgrade().is_some_and(|g| self.clock_alive(&g)) {
+            state.status = Status::Disarmed;
+            return;
+        }
+        self.queue_signal(&mut state);
     }
 
     /// `posix_timer_fn`, on the kernel timer's thread. Returns the monotonic deadline to
@@ -309,7 +341,7 @@ impl PosixTimer {
         let now = self.now(state.base);
         let periods = Self::forward(&mut state, now);
         state.overrun = state.overrun.saturating_add(periods);
-        let queued = self.start(&state);
+        let queued = self.start(&mut state);
         state.overrun_last = state.overrun;
         state.overrun = -1;
         state.signal_seq += 1;
@@ -358,7 +390,7 @@ impl PosixTimer {
         value: Duration,
         interval: Duration,
     ) {
-        self.timer.cancel();
+        self.cancel(state);
         state.status = Status::Disarmed;
         state.interval = match value.is_zero() {
             true => Duration::ZERO,
@@ -397,7 +429,7 @@ impl PosixTimer {
         }
         state.signal_seq += 1;
         group.unlink_timer(self, self.id);
-        self.timer.cancel();
+        self.cancel(&mut state);
         state.status = Status::Disarmed;
         Ok(())
     }
@@ -559,7 +591,6 @@ impl Kernel {
             clock_id,
             clock: clock.clock,
             cpu: clock.cpu,
-            cpu_thread: clock.thread,
             sigev_none,
             thread,
             signo,
@@ -583,7 +614,6 @@ impl Kernel {
                 clock_id: spec.clock_id,
                 clock: spec.clock,
                 cpu: spec.cpu,
-                cpu_thread: spec.cpu_thread,
                 sigev_none: spec.sigev_none,
                 thread: spec.thread,
                 signo: spec.signo,
@@ -601,6 +631,7 @@ impl Kernel {
                     overrun_last: 0,
                     signal_seq: 0,
                     sigqueue_seq: 0,
+                    cpu_entry: None,
                 }),
                 timer: match spec.clock {
                     Clock::Realtime => self.timers.realtime_timer(Box::new(expired)),
@@ -639,6 +670,7 @@ impl Kernel {
                     .find(p.pid.0)
                     .is_none_or(|listed| !Arc::ptr_eq(&listed, p))
             };
+            let reaped = |cpu: &CpuClock| reaped(&cpu.process);
             if !timer.thread_alive(&group) || timer.cpu.as_ref().is_some_and(reaped) {
                 return Err(Errno::ESRCH.into());
             }

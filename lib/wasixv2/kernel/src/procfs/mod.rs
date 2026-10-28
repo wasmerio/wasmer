@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 use async_trait::async_trait;
 use wasixv2_host::Host;
-use wasixv2_syscalls::TaskId;
+use wasixv2_syscalls::{CpuTimes, TaskId};
 use wasixv2_vfs::{Clock, Filesystem, FsInfo, FsResult, NAME_MAX, Node, StatFs, Timestamp, Vfs};
 use wasixv2_vnet::Network;
 
@@ -114,6 +114,7 @@ struct TaskInfo {
     mm: Arc<Mm>,
     comm: Comm,
     sched: Sched,
+    cpu: CpuTimes,
 }
 
 impl Source {
@@ -175,7 +176,18 @@ impl Source {
             mm: task.mm.clone(),
             comm: task.comm,
             sched: task.sched.clone(),
+            cpu: task.cpu.times(),
         })
+    }
+
+    /// The CPU time of every process of the machine, the reaped ones included.
+    fn cpu_times(&self) -> CpuTimes {
+        let Some(tree) = self.tree.upgrade() else {
+            return CpuTimes::default();
+        };
+        let tree = tree.lock().unwrap();
+        let live = tree.nodes.values().map(|node| node.process.cpu.times());
+        live.fold(tree.reaped, CpuTimes::saturating_add)
     }
 
     /// Renames the task `tid` of process `pid`, or its leader (`comm_write`).

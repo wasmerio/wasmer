@@ -5,6 +5,7 @@
 //! backends.
 
 mod chrdev;
+mod cputime;
 mod cred;
 mod epoll;
 mod eventfd;
@@ -70,9 +71,9 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 pub use wasixv2_host::{Console, Stdio, WindowSize};
 use wasixv2_syscalls::{
-    AtomicWait, AtomicWord, Binfmt, Caller, Control, CpuTime, Errno, ExitMm, Fd, GroupStop,
-    GuestAction, Image, LocalFuture, SharedMapping, SharedMappings, SysResult, Syscalls, TaskId,
-    UserSlice, UserSliceMut, WorkFlag,
+    AtomicWait, AtomicWord, Binfmt, Caller, Control, CpuAccount, CpuTime, Errno, ExitMm, Fd,
+    GroupCpu, GroupStop, GuestAction, Image, LocalFuture, SharedMapping, SharedMappings, SysResult,
+    Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -204,10 +205,16 @@ struct Process {
     // ---- thr ----
     group: thread::Group,
     // ---- base ----
-    /// Monotonic time the process started, the origin of its CPU clocks.
+    /// Monotonic time the process started.
     start: std::time::Duration,
-    /// Monotonic time the process exited, where its CPU clocks stop ([`Process::cpu_time`]).
-    stop: std::sync::OnceLock<std::time::Duration>,
+    /// The CPU time of the thread group, its dead threads included ([`cputime`]).
+    cpu: Arc<GroupCpu>,
+    /// What its reaped children used (`cutime`, `cstime`, `cmaxrss`).
+    children: Mutex<cputime::Children>,
+    /// The most memory one of its tasks left, in KiB (`signal_struct::maxrss`).
+    maxrss: std::sync::atomic::AtomicU64,
+    /// The timers on its CPU clocks and its threads'.
+    cpu_timers: cputime::CpuTimers,
     ident: Mutex<ident::Ident>,
     cred: Mutex<cred::Cred>,
     resources: Mutex<resource::Resources>,
@@ -233,6 +240,9 @@ struct Task {
     // ---- sig ----
     /// The task's masks and pending signals, and its thread group's dispositions.
     signals: Arc<signal::TaskSignals>,
+    // ---- base ----
+    /// The CPU time the execution layer charges the task with.
+    cpu: Arc<CpuAccount>,
 }
 
 impl Kernel {
@@ -361,7 +371,10 @@ impl Kernel {
         let process = Arc::new(Process {
             pid: id,
             start: self.host.monotonic(),
-            stop: std::sync::OnceLock::new(),
+            cpu: Arc::default(),
+            children: Mutex::default(),
+            maxrss: Default::default(),
+            cpu_timers: Default::default(),
             ident: Mutex::new(ident::Ident::new(id.0)),
             cred: Mutex::new(cred),
             resources: Mutex::default(),
@@ -372,6 +385,7 @@ impl Kernel {
         });
         let flag = Arc::new(WorkFlag::default());
         let account = signal::Account::new(self.sigqueue_users.clone(), &process);
+        let cpu = Arc::new(CpuAccount::new(process.cpu.clone()));
         let task = Task {
             comm,
             sched: sched::Sched::default(),
@@ -387,6 +401,7 @@ impl Kernel {
                 signal::Inherited::none(),
                 flag,
             ),
+            cpu,
         };
         let process = task.process.clone();
         state.tasks.insert(id, task);
@@ -2510,8 +2525,17 @@ impl Control for Kernel {
     }
 }
 
-// The kernel keeps no accounts yet: what the execution layer charges goes nowhere.
-impl CpuTime for Kernel {}
+impl CpuTime for Kernel {
+    fn cpu_account(&self, task: TaskId) -> Arc<CpuAccount> {
+        let state = self.state.read_or_recover();
+        let account = state.tasks.get(&task).map(|t| t.cpu.clone());
+        account.unwrap_or_else(|| Arc::new(CpuAccount::detached()))
+    }
+
+    fn cpu_timers(&self, task: TaskId) {
+        self.run_cpu_timers(task);
+    }
+}
 
 impl GroupStop for Kernel {
     fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {

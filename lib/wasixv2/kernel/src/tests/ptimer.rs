@@ -1,10 +1,12 @@
-//! POSIX timers and CPU clocks, on a host with real clocks and threads so the kernel's timer
-//! driver runs.
+//! POSIX timers, CPU clocks and process accounting, on a host with real clocks and threads so
+//! the kernel's timer driver runs. CPU time is what the tests charge, as the execution layer
+//! does ([`Fixture::run`]).
 
 use std::time::Instant;
 
-use wasixv2_abi::SigprocmaskHow;
+use wasixv2_abi::{ItimerWhich, RlimitResource, RusageWho, SigprocmaskHow};
 use wasixv2_host::ThreadStart;
+use wasixv2_syscalls::CpuTime;
 
 use super::{
     ipc::{errno, get, put},
@@ -645,7 +647,20 @@ fn duration(memory: &FlatMemory, addr: u32) -> Duration {
     Duration::new(field(0), field(1) as u32)
 }
 
+/// What the execution layer does as `task` runs: charges it with `user` and `system` time,
+/// and runs the CPU timers the charge made expire.
+fn charge(kernel: &Kernel, task: TaskId, user: Duration, system: Duration) {
+    if kernel.cpu_account(task).charge(user, system) {
+        kernel.cpu_timers(task);
+    }
+}
+
 impl Fixture {
+    /// [`charge`]s `task`.
+    fn run(&self, task: TaskId, user: Duration, system: Duration) {
+        charge(&self.kernel, task, user, system);
+    }
+
     /// `clock_gettime(clock)` from `caller`.
     fn read_clock(&self, caller: &Caller<'_>, clock: ClockId) -> SysResult<Duration> {
         block_on(
@@ -732,10 +747,10 @@ fn cpu_clocks_name_any_process_and_threads_of_the_callers_group() {
     let caller = t.caller();
     let init = TaskId(1);
     let other = spawn_quiet(&t.kernel);
-    std::thread::sleep(20 * MS);
     for pid in [init, other, t.task] {
+        t.run(pid, 15 * MS, 5 * MS);
         let time = t.read_clock(&caller, process_clock(pid)).unwrap();
-        assert!(time >= 20 * MS, "pid {}: {time:?}", pid.0);
+        assert_eq!(time, 20 * MS, "pid {}", pid.0);
         assert_eq!(
             t.resolution(&caller, process_clock(pid)),
             Ok(Duration::from_nanos(1))
@@ -744,9 +759,11 @@ fn cpu_clocks_name_any_process_and_threads_of_the_callers_group() {
     // CPUCLOCK_PROF counts ticks of HZ=250.
     let prof = ClockId(!(other.0 as i32) << 3);
     assert_eq!(t.resolution(&caller, prof), Ok(4 * MS));
-    let before = t.read_clock(&caller, process_clock(other)).unwrap();
-    std::thread::sleep(5 * MS);
-    assert!(t.read_clock(&caller, process_clock(other)).unwrap() > before);
+    // CPUCLOCK_VIRT counts user time only.
+    let virt = ClockId((!(other.0 as i32) << 3) | 1);
+    assert_eq!(t.read_clock(&caller, virt), Ok(15 * MS));
+    t.run(other, 5 * MS, Duration::ZERO);
+    assert_eq!(t.read_clock(&caller, process_clock(other)), Ok(25 * MS));
 
     // No such process, a thread of another process, CPUCLOCK_MAX.
     let nobody = TaskId(999);
@@ -799,12 +816,11 @@ fn a_zombies_cpu_clock_stops_and_a_reaped_process_has_none() {
     let t = Fixture::new();
     let caller = t.caller();
     let child = t.fork();
-    std::thread::sleep(10 * MS);
+    t.run(child, 10 * MS, Duration::ZERO);
     t.exit(child);
-    let ran = t.read_clock(&caller, process_clock(child)).unwrap();
-    assert!(ran >= 10 * MS, "{ran:?}");
+    assert_eq!(t.read_clock(&caller, process_clock(child)), Ok(10 * MS));
     std::thread::sleep(10 * MS);
-    assert_eq!(t.read_clock(&caller, process_clock(child)), Ok(ran));
+    assert_eq!(t.read_clock(&caller, process_clock(child)), Ok(10 * MS));
     t.reap(child);
     assert_eq!(
         errno(t.read_clock(&caller, process_clock(child))),
@@ -822,15 +838,14 @@ fn a_timer_on_another_processs_cpu_clock_signals_its_creator() {
     let event = [5, SIGUSR1, wasixv2_abi::SigevNotify::SIGEV_SIGNAL.0, 0];
     let id = t.create(process_clock(other), Some(event)).unwrap();
     t.arm(id, 20 * MS, Duration::ZERO);
-    let (left, _) = t.gettime(id).unwrap();
-    assert!(left > 0 && left <= 20_000_000, "{left}");
-    assert_eq!(
-        t.wait(SIGUSR1, Duration::from_secs(5)),
-        Ok([SIGUSR1, SI_TIMER, id, 0, 5])
-    );
+    t.run(other, 15 * MS, Duration::ZERO);
+    assert_eq!(t.gettime(id), Ok((5_000_000, 0)));
+    t.run(other, Duration::ZERO, 5 * MS);
+    assert_eq!(t.wait(SIGUSR1, MS), Ok([SIGUSR1, SI_TIMER, id, 0, 5]));
 
     // Its process exits (and, without a parent, is reaped) before the timer expires.
     t.arm(id, 30 * MS, Duration::ZERO);
+    t.run(other, 10 * MS, Duration::ZERO);
     t.exit(other);
     assert_eq!(errno(t.wait(SIGUSR1, 80 * MS)), Errno::EAGAIN);
     assert_eq!(
@@ -863,15 +878,26 @@ fn clock_nanosleep_sleeps_on_another_tasks_cpu_clock() {
         errno(t.sleep_on(ClockId::CLOCK_THREAD_CPUTIME_ID, relative, MS).0),
         Errno::EOPNOTSUPP
     );
+    // The sleeps end as the tasks are charged, on another thread, not with wall time.
     let other = spawn_quiet(&t.kernel);
-    let (result, took) = t.sleep_on(process_clock(other), relative, 20 * MS);
-    assert_eq!(result, Ok(0));
-    assert!(took >= 20 * MS, "slept {took:?}");
-
     let thread = spawn_thread(&t.kernel, &t.caller());
-    let (result, took) = t.sleep_on(thread_clock(thread), relative, 20 * MS);
-    assert_eq!(result, Ok(0));
-    assert!(took >= 20 * MS, "slept {took:?}");
+    for (clock, task) in [
+        (process_clock(other), other),
+        (thread_clock(thread), thread),
+    ] {
+        let (result, took) = std::thread::scope(|scope| {
+            let kernel = &t.kernel;
+            scope.spawn(move || {
+                std::thread::sleep(30 * MS);
+                charge(kernel, task, 15 * MS, Duration::ZERO);
+                std::thread::sleep(30 * MS);
+                charge(kernel, task, 5 * MS, Duration::ZERO);
+            });
+            t.sleep_on(clock, relative, 20 * MS)
+        });
+        assert_eq!(result, Ok(0));
+        assert!(took >= 60 * MS, "slept {took:?}");
+    }
 
     // An absolute expiry the clock passed already.
     let caller = t.caller();
@@ -896,4 +922,312 @@ fn a_sleep_on_a_dead_processs_cpu_clock_ends_only_with_a_signal() {
     assert_eq!(result, Err(SysErr::RestartBlock));
     assert!(took >= 40 * MS, "slept {took:?}");
     assert_eq!(duration(&t.memory, OLD), 10 * MS);
+}
+
+const RUSAGE: u32 = 0x600;
+const TMS: u32 = 0x680;
+const ITIMER: u32 = 0x6c0;
+const SIGPROF: i32 = Signal::SIGPROF.0;
+const SIGVTALRM: i32 = Signal::SIGVTALRM.0;
+const SIGXCPU: i32 = Signal::SIGXCPU.0;
+const SI_KERNEL: i32 = wasixv2_abi::SiCode::SI_KERNEL.0;
+
+/// `ru_utime`, `ru_stime` and `ru_maxrss` of the `struct rusage` at `addr`.
+fn rusage(memory: &FlatMemory, addr: u32) -> (Duration, Duration, i32) {
+    let field = |i: u32| word(memory, addr + i * 4);
+    let tv = |i: u32| Duration::new(field(i).into(), field(i + 1) * 1000);
+    (tv(0), tv(2), field(4) as i32)
+}
+
+impl Fixture {
+    /// `getrusage(who)`: user time, system time, `maxrss`.
+    fn usage(&self, caller: &Caller<'_>, who: RusageWho) -> (Duration, Duration, i32) {
+        let ru = wasixv2_abi::RusagePtr::new(RUSAGE);
+        block_on(self.kernel.getrusage(caller, who, ru)).unwrap();
+        rusage(&self.memory, RUSAGE)
+    }
+
+    /// `times`: `tms_utime`, `tms_stime`, `tms_cutime`, `tms_cstime`.
+    fn times(&self) -> [u32; 4] {
+        let caller = self.caller();
+        block_on(self.kernel.times(&caller, wasixv2_abi::TmsPtr::new(TMS))).unwrap();
+        [0, 1, 2, 3].map(|i| word(&self.memory, TMS + i * 4))
+    }
+
+    /// `waitid(P_PID, child, WEXITED)` with a `rusage`: user time, system time, `maxrss`.
+    fn reap_usage(&self, child: TaskId) -> (Duration, Duration, i32) {
+        let caller = self.caller();
+        let wait = self.kernel.waitid(
+            &caller,
+            wasixv2_abi::Idtype::P_PID,
+            child.0 as Pid,
+            wasixv2_abi::SiginfoPtr::new(INFO),
+            wasixv2_abi::WaitOptions::WEXITED,
+            wasixv2_abi::RusagePtr::new(RUSAGE),
+        );
+        assert_eq!(block_on(wait), Ok(0));
+        rusage(&self.memory, RUSAGE)
+    }
+
+    /// `setitimer(which, value, interval)`; returns the old (value, interval).
+    fn setitimer(
+        &self,
+        which: ItimerWhich,
+        value: Duration,
+        interval: Duration,
+    ) -> (Duration, Duration) {
+        let tv = |d: Duration| [d.as_secs() as u32, d.subsec_micros()];
+        let new: Vec<u8> = [tv(interval), tv(value)]
+            .concat()
+            .iter()
+            .flat_map(|x| x.to_le_bytes())
+            .collect();
+        put(&self.memory, NEW, &new);
+        let caller = self.caller();
+        let set =
+            self.kernel
+                .setitimer(&caller, which, GuestPtr::new(NEW), GuestPtrMut::new(ITIMER));
+        block_on(set).unwrap();
+        self.itimerval(ITIMER)
+    }
+
+    /// `getitimer(which)`: (value, interval).
+    fn getitimer(&self, which: ItimerWhich) -> (Duration, Duration) {
+        let caller = self.caller();
+        block_on(
+            self.kernel
+                .getitimer(&caller, which, GuestPtrMut::new(ITIMER)),
+        )
+        .unwrap();
+        self.itimerval(ITIMER)
+    }
+
+    /// The (value, interval) of the `struct itimerval` at `addr`.
+    fn itimerval(&self, addr: u32) -> (Duration, Duration) {
+        let field = |i: u32| word(&self.memory, addr + i * 4);
+        let tv = |i: u32| Duration::new(field(i).into(), field(i + 1) * 1000);
+        (tv(2), tv(0))
+    }
+
+    /// `prlimit64(0, RLIMIT_CPU, ...)` with `soft` and `hard` seconds; returns the old
+    /// (soft, hard).
+    fn rlimit_cpu(&self, new: Option<(u64, u64)>) -> (u64, u64) {
+        let ptr = match new {
+            Some((soft, hard)) => {
+                put(
+                    &self.memory,
+                    NEW,
+                    &[soft.to_le_bytes(), hard.to_le_bytes()].concat(),
+                );
+                GuestPtr::new(NEW)
+            }
+            None => GuestPtr::NULL,
+        };
+        let caller = self.caller();
+        let limit = RlimitResource::RLIMIT_CPU;
+        let set = self
+            .kernel
+            .prlimit64(&caller, 0, limit, ptr, GuestPtrMut::new(OLD));
+        block_on(set).unwrap();
+        let old = get(&self.memory, OLD, 16);
+        let field = |i: usize| u64::from_le_bytes(old[i * 8..][..8].try_into().unwrap());
+        (field(0), field(1))
+    }
+}
+
+/// `getrusage`, `times` and the CPU clocks read what the execution layer charged: the group's
+/// time counts its threads, the thread's its own, and a dead thread's time stays with the
+/// group.
+#[test]
+fn getrusage_and_times_count_what_the_tasks_were_charged() {
+    let t = Fixture::new();
+    let caller = t.caller();
+    assert_eq!(t.times(), [0; 4]);
+    let thread = spawn_thread(&t.kernel, &caller);
+    t.run(t.task, 30 * MS, 20 * MS);
+    t.run(thread, 10 * MS, Duration::ZERO);
+    let (user, system, maxrss) = t.usage(&caller, RusageWho::RUSAGE_SELF);
+    assert_eq!((user, system), (40 * MS, 20 * MS));
+    // The memory the group uses, in KiB.
+    assert_eq!(maxrss, 64);
+    let (user, system, _) = t.usage(&caller, RusageWho::RUSAGE_THREAD);
+    assert_eq!((user, system), (30 * MS, 20 * MS));
+    let (user, system, _) = t.usage(&Caller::new(thread, &t.memory), RusageWho::RUSAGE_THREAD);
+    assert_eq!((user, system), (10 * MS, Duration::ZERO));
+    assert_eq!(
+        t.usage(&caller, RusageWho::RUSAGE_CHILDREN),
+        (Duration::ZERO, Duration::ZERO, 0)
+    );
+    // In ticks of USER_HZ=100.
+    assert_eq!(t.times(), [4, 2, 0, 0]);
+    let read = |clock| t.read_clock(&caller, clock);
+    assert_eq!(read(ClockId::CLOCK_PROCESS_CPUTIME_ID), Ok(60 * MS));
+    assert_eq!(read(ClockId::CLOCK_THREAD_CPUTIME_ID), Ok(50 * MS));
+    assert_eq!(read(thread_clock(thread)), Ok(10 * MS));
+
+    // A thread that exits leaves its time to the group.
+    let thread_caller = Caller::new(thread, &t.memory);
+    assert_eq!(block_on(t.kernel.exit(&thread_caller, 0)), Ok(()));
+    t.kernel.release(thread);
+    assert_eq!(read(ClockId::CLOCK_PROCESS_CPUTIME_ID), Ok(60 * MS));
+    assert_eq!(t.times(), [4, 2, 0, 0]);
+}
+
+/// Reaping a child adds its time and its reaped children's to the parent's `cutime` and
+/// `cstime` (`wait_task_zombie`), which `waitid` reports of the child as `RUSAGE_BOTH`; a
+/// fork child's time starts at zero.
+#[test]
+fn reaping_a_child_adds_its_time_to_the_parents_children() {
+    let t = Fixture::new();
+    let caller = t.caller();
+    t.run(t.task, 10 * MS, Duration::ZERO);
+    let child = t.fork();
+    assert_eq!(
+        t.read_clock(&caller, process_clock(child)),
+        Ok(Duration::ZERO)
+    );
+    t.run(child, 30 * MS, 20 * MS);
+    // Not before it is reaped.
+    t.exit(child);
+    assert_eq!(t.times()[2..], [0, 0]);
+    let (user, system, _) = t.reap_usage(child);
+    assert_eq!((user, system), (30 * MS, 20 * MS));
+    let (user, system, _) = t.usage(&caller, RusageWho::RUSAGE_CHILDREN);
+    assert_eq!((user, system), (30 * MS, 20 * MS));
+    assert_eq!(t.times(), [1, 0, 3, 2]);
+}
+
+/// `ITIMER_PROF` counts user and system time, `ITIMER_VIRTUAL` user time only; each sends its
+/// signal at the charge that takes the process's clock past its expiry, a tick after the value
+/// set (`set_cpu_itimer`), and goes on by its interval (`check_cpu_itimer`).
+#[test]
+fn cpu_itimers_fire_at_the_charge_that_passes_their_expiry() {
+    let t = Fixture::new();
+    t.block(SIGPROF);
+    t.block(SIGVTALRM);
+    let none = (Duration::ZERO, Duration::ZERO);
+    assert_eq!(t.getitimer(ItimerWhich::ITIMER_PROF), none);
+    assert_eq!(
+        t.setitimer(ItimerWhich::ITIMER_PROF, 10 * MS, 10 * MS),
+        none
+    );
+    assert_eq!(t.getitimer(ItimerWhich::ITIMER_PROF), (14 * MS, 10 * MS));
+    t.run(t.task, 5 * MS, 5 * MS);
+    assert_eq!(errno(t.wait(SIGPROF, Duration::ZERO)), Errno::EAGAIN);
+    assert_eq!(t.getitimer(ItimerWhich::ITIMER_PROF), (4 * MS, 10 * MS));
+    t.run(t.task, Duration::ZERO, 4 * MS);
+    assert_eq!(
+        t.wait(SIGPROF, Duration::ZERO),
+        Ok([SIGPROF, SI_KERNEL, 0, 0, 0])
+    );
+    // Next at 24 ms of the clock.
+    t.run(t.task, 9 * MS, Duration::ZERO);
+    assert_eq!(errno(t.wait(SIGPROF, Duration::ZERO)), Errno::EAGAIN);
+    t.run(t.task, MS, Duration::ZERO);
+    assert_eq!(t.wait(SIGPROF, Duration::ZERO).map(|i| i[0]), Ok(SIGPROF));
+    // A zero value disarms it, and reports the old setting.
+    assert_eq!(
+        t.setitimer(ItimerWhich::ITIMER_PROF, Duration::ZERO, MS),
+        (10 * MS, 10 * MS)
+    );
+    t.run(t.task, 50 * MS, Duration::ZERO);
+    assert_eq!(errno(t.wait(SIGPROF, Duration::ZERO)), Errno::EAGAIN);
+
+    t.setitimer(ItimerWhich::ITIMER_VIRTUAL, 10 * MS, Duration::ZERO);
+    t.run(t.task, Duration::ZERO, 50 * MS);
+    assert_eq!(errno(t.wait(SIGVTALRM, Duration::ZERO)), Errno::EAGAIN);
+    t.run(t.task, 14 * MS, Duration::ZERO);
+    assert_eq!(
+        t.wait(SIGVTALRM, Duration::ZERO).map(|i| i[0]),
+        Ok(SIGVTALRM)
+    );
+    // A one-shot timer is done.
+    assert_eq!(t.getitimer(ItimerWhich::ITIMER_VIRTUAL), none);
+
+    // A fork child inherits no interval timer.
+    t.setitimer(ItimerWhich::ITIMER_PROF, 10 * MS, Duration::ZERO);
+    let child = t.fork();
+    let child_caller = Caller::new(child, &t.memory);
+    let get = t.kernel.getitimer(
+        &child_caller,
+        ItimerWhich::ITIMER_PROF,
+        GuestPtrMut::new(ITIMER),
+    );
+    block_on(get).unwrap();
+    assert_eq!(t.itimerval(ITIMER), none);
+}
+
+/// `RLIMIT_CPU` (`check_process_timers`): at the soft limit SIGXCPU, again each second the
+/// kernel then raises the soft limit by, and SIGKILL at the hard limit. A fork child inherits
+/// the limit, and with it the expiry.
+#[test]
+fn rlimit_cpu_sends_sigxcpu_each_second_and_sigkill_at_the_hard_limit() {
+    let t = Fixture::new();
+    t.block(SIGXCPU);
+    let infinity = (u64::MAX, u64::MAX);
+    assert_eq!(t.rlimit_cpu(Some((1, 3))), infinity);
+    let child = t.fork();
+    let s = Duration::from_secs(1);
+    t.run(t.task, s - MS, Duration::ZERO);
+    assert_eq!(errno(t.wait(SIGXCPU, Duration::ZERO)), Errno::EAGAIN);
+    t.run(t.task, Duration::ZERO, MS);
+    assert_eq!(
+        t.wait(SIGXCPU, Duration::ZERO),
+        Ok([SIGXCPU, SI_KERNEL, 0, 0, 0])
+    );
+    assert_eq!(t.rlimit_cpu(None), (2, 3));
+    t.run(t.task, s / 2, Duration::ZERO);
+    assert_eq!(errno(t.wait(SIGXCPU, Duration::ZERO)), Errno::EAGAIN);
+    t.run(t.task, s / 2, Duration::ZERO);
+    assert_eq!(t.wait(SIGXCPU, Duration::ZERO).map(|i| i[0]), Ok(SIGXCPU));
+
+    t.run(child, s, Duration::ZERO);
+    assert!(t.kernel.task_signals(child).group().is_pending(SIGXCPU));
+
+    t.run(t.task, s, Duration::ZERO);
+    assert!(matches!(
+        t.kernel.take_pending(t.task),
+        Some(GuestAction::Exit(_))
+    ));
+}
+
+/// A timer on a CPU clock fires at the charge that takes the clock past its expiry, never on
+/// wall time; on a thread's clock only that thread's charges count. A periodic one goes on once
+/// its signal is delivered.
+#[test]
+fn a_cpu_timer_fires_on_charges_not_on_wall_time() {
+    let t = Fixture::new();
+    t.block(SIGUSR1);
+    let event = [7, SIGUSR1, wasixv2_abi::SigevNotify::SIGEV_SIGNAL.0, 0];
+    let id = t
+        .create(ClockId::CLOCK_PROCESS_CPUTIME_ID, Some(event))
+        .unwrap();
+    t.arm(id, 20 * MS, 10 * MS);
+    assert_eq!(errno(t.wait(SIGUSR1, 40 * MS)), Errno::EAGAIN);
+    t.run(t.task, 15 * MS, Duration::ZERO);
+    assert_eq!(t.gettime(id), Ok((5_000_000, 10_000_000)));
+    t.run(t.task, Duration::ZERO, 5 * MS);
+    assert_eq!(
+        t.wait(SIGUSR1, Duration::ZERO),
+        Ok([SIGUSR1, SI_TIMER, id, 0, 7])
+    );
+    t.run(t.task, 10 * MS, Duration::ZERO);
+    assert_eq!(
+        t.wait(SIGUSR1, Duration::ZERO),
+        Ok([SIGUSR1, SI_TIMER, id, 0, 7])
+    );
+    assert_eq!(t.delete(id), Ok(0));
+    t.run(t.task, 50 * MS, Duration::ZERO);
+    assert_eq!(errno(t.wait(SIGUSR1, Duration::ZERO)), Errno::EAGAIN);
+
+    let thread = spawn_thread(&t.kernel, &t.caller());
+    let id = t.create(thread_clock(thread), Some(event)).unwrap();
+    t.arm(id, 10 * MS, Duration::ZERO);
+    t.run(t.task, 50 * MS, Duration::ZERO);
+    assert_eq!(errno(t.wait(SIGUSR1, Duration::ZERO)), Errno::EAGAIN);
+    t.run(thread, 10 * MS, Duration::ZERO);
+    assert_eq!(
+        t.wait(SIGUSR1, Duration::ZERO),
+        Ok([SIGUSR1, SI_TIMER, id, 0, 7])
+    );
 }

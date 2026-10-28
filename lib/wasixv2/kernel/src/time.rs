@@ -5,10 +5,16 @@ use std::{sync::Arc, time::Duration};
 
 use wasixv2_abi::{ClockId, ConstKernelTimespecPtr, KernelTimespec, KernelTimespecPtr, TimerFlags};
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, TaskId, read_value, write_value};
-use wasixv2_wait::{Interrupted, wait_event, wait_event_timeout};
+use wasixv2_syscalls::{
+    Caller, CpuBase, CpuTime, Errno, SysErr, SysResult, TaskId, read_value, write_value,
+};
+use wasixv2_wait::{Interrupted, wait_event};
 
-use crate::{Kernel, Process, restart::Restart};
+use crate::{
+    Kernel,
+    cputime::{CpuClock, CpuSleep},
+    restart::Restart,
+};
 
 const NANOS_PER_SEC: i64 = 1_000_000_000;
 /// `CLOCK_TAI`: the kernel's TAI offset is 0 until something sets it, as on a fresh Linux boot.
@@ -18,6 +24,7 @@ const COARSE_RES: Duration = Duration::from_millis(4);
 /// `CPUCLOCK_SCHED`, the CPU clock `clock_getcpuclockid` and `pthread_getcpuclockid` build.
 /// `CPUCLOCK_PROF` (0) and `CPUCLOCK_VIRT` (1) count in ticks; 3 is `CPUCLOCK_MAX`.
 const CPUCLOCK_SCHED: i32 = 2;
+const CPUCLOCK_VIRT: i32 = 1;
 const CPUCLOCK_MAX: i32 = 3;
 
 /// What a clock id reads.
@@ -25,10 +32,8 @@ const CPUCLOCK_MAX: i32 = 3;
 pub(crate) enum Clock {
     Realtime,
     Monotonic,
-    /// CPU time of a process or one of its threads. A guest is charged for all the time it
-    /// exists, as the host cannot tell CPU time from waiting, so a thread's clock reads its
-    /// process's; see [`Process::cpu_time`].
-    // TODO: subtract time spent blocked in the kernel.
+    /// CPU time of a process or one of its threads, as the execution layer charges it
+    /// ([`crate::cputime`]).
     ProcessCpu,
     ThreadCpu,
 }
@@ -88,22 +93,11 @@ fn decode(id: ClockId) -> Result<(Clock, Option<CpuOwner>), Errno> {
 #[derive(Clone)]
 pub(crate) struct ClockRef {
     pub(crate) clock: Clock,
-    /// For a CPU clock, the process whose CPU time it counts (`it.cpu.pid`, held as Linux holds
-    /// the pid).
-    pub(crate) cpu: Option<Arc<Process>>,
-    /// For a thread CPU clock, the thread, a task of the caller's thread group.
-    pub(crate) thread: Option<TaskId>,
-    /// `CPUCLOCK_WHICH` of a CPU clock, which only its resolution depends on.
+    /// For a CPU clock, whose CPU time it counts (`it.cpu.pid`, held as Linux holds the pid),
+    /// a process or a thread of the caller's thread group, and which part.
+    pub(crate) cpu: Option<CpuClock>,
+    /// `CPUCLOCK_WHICH` of a CPU clock.
     which: i32,
-}
-
-impl Process {
-    /// The process's CPU time so far, which its CPU clocks read: approximated as the time it
-    /// existed, until it exited ([`Clock::ProcessCpu`]), as a zombie runs no more.
-    pub(crate) fn cpu_time(&self, host: &dyn Host) -> Duration {
-        let now = self.stop.get().copied().unwrap_or_else(|| host.monotonic());
-        now.saturating_sub(self.start)
-    }
 }
 
 /// `clock_getres`: the coarse clocks and the tick-based CPU clocks (`CPUCLOCK_PROF`,
@@ -133,12 +127,13 @@ pub(crate) fn from_timespec(ts: KernelTimespec) -> Result<Duration, Errno> {
     Ok(Duration::new(ts.tv_sec as u64, nanos as u32))
 }
 
-/// The host clock behind `clock`; `cpu` is the process a CPU clock counts the time of.
-pub(crate) fn read(host: &dyn Host, clock: Clock, cpu: Option<&Process>) -> Duration {
+/// What `clock` reads; `cpu` is the CPU clock a CPU clock is, which reads as of the last
+/// charges.
+pub(crate) fn read(host: &dyn Host, clock: Clock, cpu: Option<&CpuClock>) -> Duration {
     match clock {
         Clock::Realtime => host.realtime(),
         Clock::Monotonic => host.monotonic(),
-        Clock::ProcessCpu | Clock::ThreadCpu => cpu.map_or(Duration::ZERO, |p| p.cpu_time(host)),
+        Clock::ProcessCpu | Clock::ThreadCpu => cpu.map_or(Duration::ZERO, CpuClock::now),
     }
 }
 
@@ -197,7 +192,6 @@ impl Kernel {
             return Ok(ClockRef {
                 clock,
                 cpu: None,
-                thread: None,
                 which: 0,
             });
         };
@@ -215,10 +209,20 @@ impl Kernel {
                 _ => return Err(Errno::EINVAL),
             },
         };
+        // The clock holds the thread's account, as Linux holds the pid: it reads the time the
+        // thread was charged with even after it exited.
+        let thread = thread.map(|tid| (tid, self.cpu_account(tid)));
+        let base = match owner.which {
+            CPUCLOCK_VIRT => CpuBase::Virt,
+            _ => CpuBase::Prof,
+        };
         Ok(ClockRef {
             clock,
-            cpu: Some(process),
-            thread,
+            cpu: Some(CpuClock {
+                process,
+                thread,
+                base,
+            }),
             which: owner.which,
         })
     }
@@ -233,9 +237,13 @@ impl Kernel {
             .is_some_and(|t| Arc::ptr_eq(&t.process, &me.process) && !t.thread.exited())
     }
 
-    /// The current value of `clock`.
-    pub(crate) fn clock_now(&self, clock: &ClockRef) -> Duration {
-        read(&*self.host, clock.clock, clock.cpu.as_deref())
+    /// The current value of `clock` for the caller, who sees its own CPU time up to now
+    /// ([`Kernel::cpu_clock_now`]).
+    pub(crate) fn clock_now(&self, caller: &Caller<'_>, clock: &ClockRef) -> Duration {
+        match &clock.cpu {
+            Some(cpu) => self.cpu_clock_now(caller.task(), cpu),
+            None => read(&*self.host, clock.clock, None),
+        }
     }
 
     pub(crate) async fn sys_clock_gettime(
@@ -244,7 +252,7 @@ impl Kernel {
         id: ClockId,
         tp: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        let now = self.clock_now(&self.clock(caller, id)?);
+        let now = self.clock_now(caller, &self.clock(caller, id)?);
         write_value(caller.memory(), tp, &to_timespec(now)).await?;
         Ok(0)
     }
@@ -306,18 +314,23 @@ impl Kernel {
         }
         let clock = self.resolve_clock(caller, id, false)?;
         // `posix_cpu_nsleep`: a thread cannot sleep on its own CPU clock.
-        if clock.clock == Clock::ThreadCpu && clock.thread == Some(caller.task()) {
+        let own = |cpu: &CpuClock| {
+            cpu.thread
+                .as_ref()
+                .is_some_and(|(t, _)| *t == caller.task())
+        };
+        if clock.cpu.as_ref().is_some_and(own) {
             return Err(Errno::EINVAL.into());
         }
         let request = from_timespec(read_value(caller.memory(), rqtp).await?)?;
         let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
-        if let Some(process) = &clock.cpu {
+        if let Some(cpu) = &clock.cpu {
             let expires = match absolute {
                 true => request,
-                false => process.cpu_time(&*self.host).saturating_add(request),
+                false => cpu.now().saturating_add(request),
             };
             let rmtp = (!absolute).then_some(rmtp);
-            return self.cpu_nanosleep(caller, id, process, expires, rmtp).await;
+            return self.cpu_nanosleep(caller, id, cpu, expires, rmtp).await;
         }
         if !absolute {
             // Realtime and monotonic clocks advance at the same rate, so a relative sleep
@@ -335,19 +348,19 @@ impl Kernel {
                 .map_err(interrupted)?,
             _ => {
                 // Re-check the clock: a realtime deadline is not a monotonic one.
-                let mut now = self.clock_now(&clock);
+                let mut now = self.clock_now(caller, &clock);
                 while now < request {
                     self.interruptible_sleep(caller, self.host.sleep(request - now))
                         .await
                         .map_err(interrupted)?;
-                    now = self.clock_now(&clock);
+                    now = self.clock_now(caller, &clock);
                 }
             }
         }
         Ok(0)
     }
 
-    /// `do_cpu_nanosleep`: sleeps until the CPU clock `id` of `process` reaches `expires`.
+    /// `do_cpu_nanosleep`: sleeps until the CPU clock `id`, `cpu`, reaches `expires`.
     /// Interrupted, an absolute sleep (no `rmtp`) reruns as it was; a relative one writes the
     /// time left to `rmtp` and goes on through `restart_syscall` as an absolute sleep on the
     /// same clock (`posix_cpu_nsleep_restart`), which looks the clock up again.
@@ -355,18 +368,18 @@ impl Kernel {
         &self,
         caller: &Caller<'_>,
         id: ClockId,
-        process: &Process,
+        cpu: &CpuClock,
         expires: Duration,
         rmtp: Option<KernelTimespecPtr>,
     ) -> SysResult<i32> {
-        if self.cpu_sleep(caller, process, expires).await.is_ok() {
+        if self.cpu_sleep(caller, cpu, expires).await.is_ok() {
             return Ok(0);
         }
         let Some(rmtp) = rmtp else {
             return Err(SysErr::RestartNoHand);
         };
         if !rmtp.is_null() {
-            let left = expires.saturating_sub(process.cpu_time(&*self.host));
+            let left = expires.saturating_sub(cpu.now());
             write_value(caller.memory(), rmtp, &to_timespec(left)).await?;
         }
         let restart = Restart::CpuNanosleep {
@@ -377,24 +390,20 @@ impl Kernel {
         Err(self.restart_with(caller, restart))
     }
 
-    /// Waits until the CPU time of `process` reaches `expires`. The clock runs with the
-    /// monotonic clock while the process lives and stops when it exits, after which only a
-    /// signal ends the wait, as no CPU timer of a dead process fires on Linux.
+    /// Waits until `cpu` reads `expires`, as a timer on the clock does: a charge to its owner
+    /// that passes the expiry ends the wait. The clock of a task or process that exited stops,
+    /// after which only a signal ends the wait, as no CPU timer of a dead process fires on
+    /// Linux.
     async fn cpu_sleep(
         &self,
         caller: &Caller<'_>,
-        process: &Process,
+        cpu: &CpuClock,
         expires: Duration,
     ) -> Result<(), Interrupted> {
         let interrupt = self.interrupt(caller);
-        let deadline = process.start.saturating_add(expires);
-        let exited = || process.stop.get().map(drop);
-        let sleep = self.host.sleep_until(deadline);
-        let woken = wait_event_timeout(&self.procs.changed, exited, &*interrupt, sleep).await?;
-        if woken.is_none() || process.cpu_time(&*self.host) >= expires {
-            return Ok(());
-        }
-        wait_event(&self.procs.changed, || None::<()>, &*interrupt).await
+        let _sleep = CpuSleep::new(cpu, expires);
+        let over = || (cpu.now() >= expires).then_some(());
+        wait_event(&cpu.process.cpu_timers.woken, over, &*interrupt).await
     }
 
     /// The relative sleep of `clock_nanosleep`, until `deadline` on the monotonic clock.

@@ -1,14 +1,14 @@
 //! Resources and accounting: resource limits, usage and times, `sysinfo`, entropy and
 //! `membarrier`.
 
-use std::time::Duration;
+use std::{sync::atomic::Ordering, time::Duration};
 
 use wasixv2_abi::{
     ConstRlimit64Ptr, GrndFlags, KernelClock, KernelOldTimeval, MembarrierCmd, MembarrierCmdFlags,
     Pid, Rlimit64, Rlimit64Ptr, RlimitResource, Rusage, RusagePtr, RusageWho, Sysinfo, SysinfoPtr,
     Tms, TmsPtr,
 };
-use wasixv2_syscalls::{Caller, Errno, SysResult, UserSliceMut, read_value, write_value};
+use wasixv2_syscalls::{Caller, CpuTimes, Errno, SysResult, UserSliceMut, read_value, write_value};
 
 use wasixv2_vfs::Cap;
 
@@ -94,6 +94,12 @@ impl Resources {
         self.limits[resource.0 as usize].rlim_cur
     }
 
+    /// Raises or lowers the soft limit of `resource`, as the kernel itself does to
+    /// `RLIMIT_CPU`'s once it sent SIGXCPU.
+    pub(crate) fn set_soft(&mut self, resource: RlimitResource, soft: u64) {
+        self.limits[resource.0 as usize].rlim_cur = soft;
+    }
+
     pub(crate) fn nofile(&self) -> usize {
         self.limits[RlimitResource::RLIMIT_NOFILE.0 as usize]
             .rlim_cur
@@ -114,6 +120,45 @@ fn timeval(d: Duration) -> KernelOldTimeval {
 
 fn ticks(d: Duration) -> KernelClock {
     (d.as_millis() * TICKS / 1000) as KernelClock & i32::MAX
+}
+
+/// A `struct rusage` with `times` and `maxrss` (in KiB); nothing else is counted.
+fn rusage(times: CpuTimes, maxrss: u64) -> Rusage {
+    Rusage {
+        ru_utime: timeval(times.user),
+        ru_stime: timeval(times.system),
+        ru_maxrss: maxrss.min(i32::MAX as u64) as i32,
+        ..Rusage::default()
+    }
+}
+
+impl Process {
+    /// `getrusage(p, RUSAGE_BOTH)`, which `waitid` reports of the child it waited for: its own
+    /// time with its reaped children's, and the larger of their `maxrss`.
+    pub(crate) fn usage_both(&self) -> Rusage {
+        let children = *self.children.lock().unwrap();
+        let maxrss = self.maxrss.load(Ordering::Relaxed).max(children.maxrss);
+        rusage(self.cpu.times().saturating_add(children.times), maxrss)
+    }
+
+    /// `wait_task_zombie` reaped `child`: its time and its reaped children's go to the
+    /// caller's `cutime` and `cstime`, and the larger `maxrss` of theirs to `cmaxrss`.
+    pub(crate) fn add_child_usage(&self, child: &Process) {
+        let theirs = *child.children.lock().unwrap();
+        let maxrss = child.maxrss.load(Ordering::Relaxed).max(theirs.maxrss);
+        let mut children = self.children.lock().unwrap();
+        children.times = children
+            .times
+            .saturating_add(child.cpu.times())
+            .saturating_add(theirs.times);
+        children.maxrss = children.maxrss.max(maxrss);
+    }
+
+    /// Records that one of its tasks left a memory of `size` bytes (`setmax_mm_hiwater_rss`
+    /// in `do_exit`).
+    pub(crate) fn note_rss(&self, size: u64) {
+        self.maxrss.fetch_max(size / 1024, Ordering::Relaxed);
+    }
 }
 
 impl Kernel {
@@ -156,6 +201,10 @@ impl Kernel {
             }
             previous
         };
+        // `update_rlimit_cpu`: the soft limit is an expiry of the process's CPU clock.
+        if new.is_some() && resource == RlimitResource::RLIMIT_CPU {
+            process.rlimit_cpu_changed();
+        }
         if new.is_some() && resource == RlimitResource::RLIMIT_NOFILE {
             // The limit is the target's, not the caller's: every descriptor table its tasks use.
             let limit = process.resources.lock().unwrap().nofile();
@@ -171,36 +220,45 @@ impl Kernel {
         Ok(0)
     }
 
-    /// The guest's CPU time so far; see [`Process::cpu_time`].
-    fn cpu_time(&self, caller: &Caller<'_>) -> Duration {
-        self.process(caller.task()).cpu_time(&*self.host)
-    }
-
+    /// `getrusage`: the CPU time of the caller's thread group, of the caller alone, or of the
+    /// group's reaped children, as charged so far; `maxrss` is the most memory the group's
+    /// tasks used, which is the memory they share now unless one left more.
     pub(crate) async fn sys_getrusage(
         &self,
         caller: &Caller<'_>,
         who: RusageWho,
         ru: RusagePtr,
     ) -> SysResult<i32> {
-        let mut usage = Rusage::default();
-        match who {
+        let process = self.process(caller.task());
+        let usage = match who {
             RusageWho::RUSAGE_SELF | RusageWho::RUSAGE_THREAD => {
-                usage.ru_utime = timeval(self.cpu_time(caller));
-                usage.ru_maxrss = (caller.memory().size().await / 1024) as i32;
+                let times = match who {
+                    RusageWho::RUSAGE_SELF => process.cpu.times(),
+                    _ => self.task_ref(caller.task(), |t| t.cpu.times()),
+                };
+                let size = caller.memory().size().await / 1024;
+                rusage(times, process.maxrss.load(Ordering::Relaxed).max(size))
             }
-            // No process has children yet.
-            RusageWho::RUSAGE_CHILDREN => {}
+            RusageWho::RUSAGE_CHILDREN => {
+                let children = *process.children.lock().unwrap();
+                rusage(children.times, children.maxrss)
+            }
             _ => return Err(Errno::EINVAL.into()),
-        }
+        };
         write_value(caller.memory(), ru, &usage).await?;
         Ok(0)
     }
 
+    /// `do_sys_times`: the CPU time of the caller's thread group and of its reaped children.
     pub(crate) async fn sys_times(&self, caller: &Caller<'_>, tbuf: TmsPtr) -> SysResult<i32> {
         if !tbuf.is_null() {
+            let process = self.process(caller.task());
+            let (own, children) = (process.cpu.times(), process.children.lock().unwrap().times);
             let tms = Tms {
-                tms_utime: ticks(self.cpu_time(caller)),
-                ..Tms::default()
+                tms_utime: ticks(own.user),
+                tms_stime: ticks(own.system),
+                tms_cutime: ticks(children.user),
+                tms_cstime: ticks(children.system),
             };
             write_value(caller.memory(), tbuf, &tms).await?;
         }
