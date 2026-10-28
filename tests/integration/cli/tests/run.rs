@@ -1099,6 +1099,60 @@ fn run_wasixv2_reports_the_configured_uname_and_user() {
         .stderr(contains("invalid --uname-release"));
 }
 
+/// Prints each environment string on a line (WASI preview1, which the v1 compatibility ABI
+/// serves).
+const WASI_ENV_WAT: &str = r#"
+    (module
+      (import "wasi_snapshot_preview1" "environ_sizes_get" (func $sizes (param i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "environ_get" (func $env (param i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 8) "\n")
+      (func $print (param $p i32) (param $len i32)
+        (i32.store (i32.const 16) (local.get $p))
+        (i32.store (i32.const 20) (local.get $len))
+        (drop (call $fd_write (i32.const 1) (i32.const 16) (i32.const 1) (i32.const 24))))
+      (func $strlen (param $p i32) (result i32) (local $n i32)
+        (block $done (loop $next
+          (br_if $done (i32.eqz (i32.load8_u (i32.add (local.get $p) (local.get $n)))))
+          (local.set $n (i32.add (local.get $n) (i32.const 1)))
+          (br $next)))
+        (local.get $n))
+      (func (export "_start") (local $i i32) (local $entry i32)
+        (drop (call $sizes (i32.const 0) (i32.const 4)))
+        (drop (call $env (i32.const 1024) (i32.const 4096)))
+        (block $done (loop $next
+          (br_if $done (i32.ge_u (local.get $i) (i32.load (i32.const 0))))
+          (local.set $entry (i32.load (i32.add (i32.const 1024) (i32.shl (local.get $i) (i32.const 2)))))
+          (call $print (local.get $entry) (call $strlen (local.get $entry)))
+          (call $print (i32.const 8) (i32.const 1))
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+          (br $next)))))
+"#;
+
+/// A program starts with the machine user's `HOME` and a `PATH` that finds package commands,
+/// which `--env` overrides.
+#[test]
+fn run_wasixv2_starts_with_a_default_home_and_path() {
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("env.wat");
+    std::fs::write(&module_file, WASI_ENV_WAT).unwrap();
+
+    wasmer_command()
+        .arg("run")
+        .arg(&module_file)
+        .assert()
+        .success()
+        .stdout("HOME=/home/user\nPATH=/usr/local/bin:/bin:/usr/bin\n");
+    wasmer_command()
+        .arg("run")
+        .args(["--user", "0", "--env", "PATH=/bin", "--env", "A=b"])
+        .arg(&module_file)
+        .assert()
+        .success()
+        .stdout("HOME=/root\nPATH=/bin\nA=b\n");
+}
+
 /// Binds TCP port 80, then creates `/f`, gives it to uid 1234, makes it mode 0 and opens it for
 /// reading: all things only root may do. Exits with 0, or with the number of the step that
 /// failed after printing its errno as a decimal number.

@@ -466,6 +466,18 @@ impl Machine {
         self.mount(guest, fs, !writable).await
     }
 
+    /// The environment of a login as the machine's user on the [`default_root`], for an
+    /// embedder to start programs with: `HOME`, the user's home directory as its
+    /// `/etc/passwd` names it, and `PATH`, musl's default search path, which takes in the
+    /// directories commands are installed in. Processes start with only the environment
+    /// they are given, as on Linux, so this is the embedder's to pass.
+    pub fn default_env(&self) -> Vec<String> {
+        vec![
+            format!("HOME={}", home_dir(self.user.uid())),
+            format!("PATH={DEFAULT_PATH}"),
+        ]
+    }
+
     /// Makes new processes start in `dir`, an absolute guest path.
     pub fn set_working_dir(&mut self, dir: impl Into<String>) {
         self.working_dir = Some(dir.into());
@@ -857,11 +869,22 @@ pub fn default_root(
     root
 }
 
+/// musl's `_PATH_DEFPATH`, what `execvp` searches without a `PATH`.
+const DEFAULT_PATH: &str = "/usr/local/bin:/bin:/usr/bin";
+
+/// The home directory of `uid` in the [`default_root`]'s `/etc/passwd`.
+fn home_dir(uid: u32) -> &'static str {
+    match uid {
+        0 => "/root",
+        _ => "/home/user",
+    }
+}
+
 /// `/etc/passwd`: root, and the user processes run as unless that is root.
 fn passwd(uid: u32, gid: u32) -> String {
-    let mut passwd = String::from("root:x:0:0:root:/root:/bin/sh\n");
+    let mut passwd = format!("root:x:0:0:root:{}:/bin/sh\n", home_dir(0));
     if uid != 0 {
-        passwd += &format!("user:x:{uid}:{gid}:user:/home/user:/bin/sh\n");
+        passwd += &format!("user:x:{uid}:{gid}:user:{}:/bin/sh\n", home_dir(uid));
     }
     passwd
 }

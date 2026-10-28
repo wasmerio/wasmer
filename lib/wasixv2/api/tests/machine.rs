@@ -128,3 +128,13 @@ async fn root_binds_low_ports_and_overrides_file_permissions() {
     // The unprivileged default user fails at the bind.
     assert_eq!(run(Machine::new(), ROOT_ONLY_WAT).await, (2, vec![EACCES]));
 }
+
+/// The default environment names the user's home directory from `/etc/passwd` and musl's
+/// search path, which holds `/bin` and `/usr/bin`, where commands are installed.
+#[tokio::test]
+async fn the_default_environment_has_the_users_home_and_a_path() {
+    let path = "PATH=/usr/local/bin:/bin:/usr/bin";
+    assert_eq!(Machine::new().default_env(), ["HOME=/home/user", path]);
+    let root = Machine::builder().user(Credentials::new(0, 0)).build();
+    assert_eq!(root.default_env(), ["HOME=/root", path]);
+}

@@ -375,15 +375,15 @@ impl Run {
         self.reject_options_unsupported_by_the_machine(program.is_package())?;
 
         let wasi = program.wasi.as_ref();
+        let mut machine = self.machine(loader)?;
         let config = ProcessConfig {
             args: std::iter::once(program.argv0.clone())
                 .chain(wasi.and_then(|w| w.main_args.clone()).unwrap_or_default())
                 .chain(self.args.iter().cloned())
                 .collect(),
-            env: self.machine_env(wasi)?,
+            env: self.machine_env(machine.default_env(), wasi)?,
             stdio: Stdio::inherit(),
         };
-        let mut machine = self.machine(loader)?;
         let (root_volumes, volumes): (Vec<_>, Vec<_>) = program
             .volumes
             .iter()
@@ -568,16 +568,21 @@ impl Run {
         Ok(builder.uname(uname).build())
     }
 
-    /// Same sources and precedence as v1: the command's `env` annotation, then forwarded host
-    /// variables, then the env file, then `--env`; a later value for a name replaces an
-    /// earlier one.
-    fn machine_env(&self, wasi: Option<&WasiAnnotation>) -> Result<Vec<String>, Error> {
+    /// `defaults` (the machine's `HOME` and `PATH`), then v1's sources in v1's precedence:
+    /// the command's `env` annotation, forwarded host variables, the env file, then `--env`;
+    /// a later value for a name replaces an earlier one.
+    fn machine_env(
+        &self,
+        defaults: Vec<String>,
+        wasi: Option<&WasiAnnotation>,
+    ) -> Result<Vec<String>, Error> {
         let mut env: Vec<(String, String)> = Vec::new();
         let mut set = |key: String, value: String| {
             env.retain(|(k, _)| *k != key);
             env.push((key, value));
         };
-        for item in wasi.and_then(|w| w.env.as_deref()).unwrap_or_default() {
+        let annotation = wasi.and_then(|w| w.env.as_deref()).unwrap_or_default();
+        for item in defaults.iter().chain(annotation) {
             let (key, value) = item.split_once('=').unwrap_or((item, ""));
             set(key.to_string(), value.to_string());
         }
