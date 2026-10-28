@@ -443,7 +443,7 @@ fn files_round_trip_through_the_vfs() {
 }
 
 #[test]
-fn uname_reports_the_wasixv2_abi_version() {
+fn uname_reports_the_linux_release_of_the_headers_and_the_wasixv2_abi_version() {
     let (kernel, task, _) = setup(b"");
     let memory = FlatMemory(RefCell::new(vec![0; 512]));
     let caller = Caller::new(task, &memory);
@@ -453,7 +453,8 @@ fn uname_reports_the_wasixv2_abi_version() {
 
     let field = |i: u32| cstr_at(&memory, 8 + i * 65);
     assert_eq!(field(0), "wasixv2");
-    assert_eq!(field(2), "2.0.0");
+    assert_eq!(field(2), "7.2.0");
+    assert_eq!(field(3), "#1 SMP wasixv2 2.0.0");
     assert_eq!(field(4), "wasm32");
 }
 
