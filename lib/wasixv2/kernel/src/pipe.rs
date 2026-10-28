@@ -2,13 +2,13 @@
 
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use wasixv2_abi::{FcntlCmd, FdPair, GuestPtrMut, IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysErr, SysResult, write_value};
 use wasixv2_vfs::Bound;
-use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
+use wasixv2_wait::{Interrupt, PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
     Kernel,
@@ -39,6 +39,9 @@ pub(crate) struct Pipe {
 struct State {
     buf: VecDeque<u8>,
     capacity: usize,
+    /// Room promised to a splice into the pipe that is still reading its input
+    /// ([`Reservation`]), which Linux keeps by holding the pipe's lock across the read.
+    reserved: usize,
     readers: usize,
     writers: usize,
     /// Read and write ends ever attached (`r_counter`, `w_counter`), so a FIFO opener can wait
@@ -49,7 +52,7 @@ struct State {
 
 impl State {
     fn free(&self) -> usize {
-        self.capacity.saturating_sub(self.buf.len())
+        self.capacity.saturating_sub(self.buf.len() + self.reserved)
     }
 }
 
@@ -84,6 +87,7 @@ fn new_pipe() -> Arc<Pipe> {
         state: Mutex::new(State {
             buf: VecDeque::new(),
             capacity: DEFAULT_SIZE,
+            reserved: 0,
             readers: 0,
             writers: 0,
             r_counter: 1,
@@ -191,34 +195,118 @@ impl PipeEnd {
     }
 }
 
-impl PipeEnd {
-    /// `pipe_read`: copies at most `buf.len()` bytes to `to`, or into `buf` itself without
-    /// one, and consumes them only once all arrived ([`taken`]). Waits for data without the I/O lock, then takes
-    /// the lock and looks again, since another reader may have emptied the pipe meanwhile.
-    async fn read_bytes(
+/// What takes data out of a pipe: the reader's buffers, or a splice's output. Given the data
+/// at the front of the pipe, it returns how much of it to consume; an error consumes nothing.
+pub(crate) trait Consumer {
+    fn take<'a>(&'a mut self, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>>;
+}
+
+/// A read into the kernel's own buffer: the data is there already.
+struct InPlace;
+
+impl Consumer for InPlace {
+    fn take<'a>(&'a mut self, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move { Ok(data.len()) })
+    }
+}
+
+/// A read into the user's buffers, consumed only once all of it arrived ([`taken`]).
+pub(crate) struct ToUser<'a>(pub(crate) &'a mut dyn ReadSink);
+
+impl Consumer for ToUser<'_> {
+    fn take<'a>(&'a mut self, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move { taken(data.len(), self.0.copy_out(data).await) })
+    }
+}
+
+/// What [`Pipe::move_to`] and [`Pipe::link_to`] found.
+pub(crate) enum Moved {
+    /// This many bytes went over.
+    Bytes(usize),
+    /// The input pipe is empty; whether it still has writers.
+    InEmpty { writers: bool },
+    /// The output pipe has no room.
+    OutFull,
+    /// The output pipe has no reader: `EPIPE` and `SIGPIPE`.
+    NoReaders,
+}
+
+impl Pipe {
+    /// Waits until the pipe has data or no writer (`ipipe_prep`, `splice_from_pipe_next`),
+    /// or fails with `EAGAIN` when `nonblock`. The pipe may be empty again by the time the
+    /// caller looks.
+    pub(crate) async fn wait_readable(
         &self,
-        io: Io<'_>,
+        nonblock: bool,
+        interrupt: &dyn Interrupt,
+    ) -> SysResult<()> {
+        let ready = || {
+            let state = self.state.lock().unwrap();
+            if !state.buf.is_empty() || state.writers == 0 {
+                return Some(Ok(()));
+            }
+            nonblock.then_some(Err(Errno::EAGAIN))
+        };
+        wait_event(&self.rd_wait, ready, interrupt)
+            .await
+            .map_err(|_| SysErr::Restart)??;
+        Ok(())
+    }
+
+    /// Waits until the pipe has room (`wait_for_space`, `opipe_prep`), or fails with `EAGAIN`
+    /// when `nonblock`; `EPIPE` without readers, for which the caller raises `SIGPIPE`.
+    pub(crate) async fn wait_room(
+        &self,
+        nonblock: bool,
+        interrupt: &dyn Interrupt,
+    ) -> SysResult<()> {
+        let ready = || {
+            let state = self.state.lock().unwrap();
+            if state.readers == 0 {
+                return Some(Err(Errno::EPIPE));
+            }
+            if state.free() > 0 {
+                return Some(Ok(()));
+            }
+            nonblock.then_some(Err(Errno::EAGAIN))
+        };
+        wait_event(&self.wr_wait, ready, interrupt)
+            .await
+            .map_err(|_| SysErr::Restart)??;
+        Ok(())
+    }
+
+    /// Promises the room for at most `max` more bytes to the caller, which fills it once its
+    /// input is read; possibly none, if others took the room meanwhile.
+    pub(crate) fn reserve(self: &Arc<Self>, max: usize) -> Reservation {
+        let mut state = self.state.lock().unwrap();
+        let len = max.min(state.free());
+        state.reserved += len;
+        Reservation {
+            pipe: self.clone(),
+            len,
+        }
+    }
+
+    /// Consumes data from the front for `out`, at most `buf.len()` bytes, with `buf` as the
+    /// kernel's buffer: waits for data without the I/O lock, then under it looks at the data,
+    /// hands it to `out` and consumes what `out` took (`pipe_read`, `__splice_from_pipe`).
+    /// 0 at the end of the data, when the pipe is empty and has no writer.
+    pub(crate) async fn consume(
+        &self,
+        nonblock: bool,
+        interrupt: &dyn Interrupt,
         buf: &mut [u8],
-        mut to: Option<&mut dyn ReadSink>,
+        out: &mut dyn Consumer,
     ) -> SysResult<usize> {
         if buf.is_empty() {
             return Ok(0);
         }
-        let pipe = &self.pipe;
         loop {
-            let ready = || {
-                let state = pipe.state.lock().unwrap();
-                if !state.buf.is_empty() || state.writers == 0 {
-                    return Some(Ok(()));
-                }
-                io.nonblocking().then_some(Err(Errno::EAGAIN))
-            };
-            wait_event(&pipe.rd_wait, ready, io.interrupt)
-                .await
-                .map_err(|_| SysErr::Restart)??;
-            let _io = pipe.io_lock.lock().await;
+            self.wait_readable(nonblock, interrupt).await?;
+            let _io = self.io_lock.lock().await;
             let n = {
-                let state = pipe.state.lock().unwrap();
+                let state = self.state.lock().unwrap();
                 if state.buf.is_empty() {
                     match state.writers {
                         0 => return Ok(0),
@@ -231,14 +319,146 @@ impl PipeEnd {
                 }
                 n
             };
-            let copied = match to.as_mut() {
-                Some(to) => to.copy_out(&buf[..n]).await,
-                None => n,
-            };
-            let n = taken(n, copied)?;
-            pipe.state.lock().unwrap().buf.drain(..n);
-            pipe.wr_wait.wake(PollMask::WRITABLE);
+            let n = out.take(&buf[..n]).await?;
+            if n > 0 {
+                self.state.lock().unwrap().buf.drain(..n);
+                self.wr_wait.wake(PollMask::WRITABLE);
+            }
             return Ok(n);
+        }
+    }
+
+    /// Moves at most `len` bytes from the front of this pipe to the end of `out`
+    /// (`splice_pipe_to_pipe`), under both pipes' locks, taken in address order as
+    /// `pipe_double_lock` does, and this pipe's I/O lock first, as any consumer.
+    pub(crate) async fn move_to(&self, out: &Pipe, len: usize) -> Moved {
+        let _io = self.io_lock.lock().await;
+        self.transfer(out, len, true)
+    }
+
+    /// Copies at most `len` bytes from the front of this pipe to the end of `out` and leaves
+    /// them here too (`link_pipe`).
+    pub(crate) fn link_to(&self, out: &Pipe, len: usize) -> Moved {
+        self.transfer(out, len, false)
+    }
+
+    fn transfer(&self, out: &Pipe, len: usize, consume: bool) -> Moved {
+        let (mut input, mut output) = lock_both(self, out);
+        if output.readers == 0 {
+            return Moved::NoReaders;
+        }
+        if input.buf.is_empty() {
+            return Moved::InEmpty {
+                writers: input.writers > 0,
+            };
+        }
+        let n = len.min(input.buf.len()).min(output.free());
+        if n == 0 {
+            return Moved::OutFull;
+        }
+        output.buf.extend(input.buf.range(..n));
+        if consume {
+            input.buf.drain(..n);
+        }
+        drop((input, output));
+        out.rd_wait.wake(PollMask::READABLE);
+        if consume {
+            self.wr_wait.wake(PollMask::WRITABLE);
+        }
+        Moved::Bytes(n)
+    }
+
+    /// The pipe's size (`F_GETPIPE_SZ`).
+    pub(crate) fn capacity(&self) -> usize {
+        self.state.lock().unwrap().capacity
+    }
+}
+
+/// The states of two distinct pipes, locked in address order.
+fn lock_both<'a>(a: &'a Pipe, b: &'a Pipe) -> (MutexGuard<'a, State>, MutexGuard<'a, State>) {
+    debug_assert!(!std::ptr::eq(a, b), "a pipe is never spliced to itself");
+    match (a as *const Pipe) < (b as *const Pipe) {
+        true => {
+            let a = a.state.lock().unwrap();
+            (a, b.state.lock().unwrap())
+        }
+        false => {
+            let b = b.state.lock().unwrap();
+            (a.state.lock().unwrap(), b)
+        }
+    }
+}
+
+/// Room in a pipe promised to one splice ([`Pipe::reserve`]); what is not filled is given
+/// back when it is dropped.
+pub(crate) struct Reservation {
+    pipe: Arc<Pipe>,
+    len: usize,
+}
+
+impl Reservation {
+    /// The room promised.
+    pub(crate) fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Appends `data`, at most the room promised, and wakes the readers.
+    pub(crate) fn fill(mut self, data: &[u8]) {
+        debug_assert!(data.len() <= self.len);
+        {
+            let mut state = self.pipe.state.lock().unwrap();
+            state.reserved -= self.len;
+            state.buf.extend(data);
+        }
+        self.len = 0;
+        if !data.is_empty() {
+            self.pipe.rd_wait.wake(PollMask::READABLE);
+        }
+        self.pipe.wr_wait.wake(PollMask::WRITABLE);
+    }
+}
+
+impl Drop for Reservation {
+    fn drop(&mut self) {
+        if self.len == 0 {
+            return;
+        }
+        self.pipe.state.lock().unwrap().reserved -= self.len;
+        self.pipe.wr_wait.wake(PollMask::WRITABLE);
+    }
+}
+
+/// The pipe behind a pipe end or a FIFO (`get_pipe_info`), which `splice`, `tee` and
+/// `vmsplice` work on.
+pub(crate) fn pipe_info(file: &OpenFile) -> Option<Arc<Pipe>> {
+    if let Some(end) = file.downcast::<PipeEnd>() {
+        return Some(end.pipe.clone());
+    }
+    file.downcast::<crate::fs::FifoFile>()
+        .map(|fifo| fifo.pipe().clone())
+}
+
+impl PipeEnd {
+    /// `pipe_read`: at most `buf.len()` bytes, into `to` or into `buf` itself without one.
+    async fn read_bytes(
+        &self,
+        io: Io<'_>,
+        buf: &mut [u8],
+        to: Option<&mut dyn ReadSink>,
+    ) -> SysResult<usize> {
+        let nonblock = io.nonblocking();
+        match to {
+            Some(to) => {
+                let mut out = ToUser(to);
+                self.pipe
+                    .consume(nonblock, io.interrupt, buf, &mut out)
+                    .await
+            }
+            None => {
+                self.pipe
+                    .consume(nonblock, io.interrupt, buf, &mut InPlace)
+                    .await
+            }
         }
     }
 

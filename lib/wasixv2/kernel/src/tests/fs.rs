@@ -1,7 +1,7 @@
 //! Filesystem syscalls on open files and paths: `openat2` scoping, locks, allocation, copies,
 //! status flags and the generic ioctls.
 
-use wasixv2_abi::ResolveFlags;
+use wasixv2_abi::{EventfdFlags, ResolveFlags, SpliceFlags};
 
 use super::ipc::{errno, get, machine, put};
 use super::*;
@@ -459,4 +459,270 @@ fn clone_and_dedupe_ioctls_check_their_files_then_are_unsupported() {
     // More elements than a page holds.
     put(&memory, 0x3010, &200u16.to_le_bytes());
     assert_eq!(ioctl(src, FIDEDUPERANGE, 0x3000), Errno::ENOMEM);
+}
+
+const SPLICE_F_NONBLOCK: SpliceFlags = SpliceFlags::SPLICE_F_NONBLOCK;
+
+impl T<'_> {
+    /// `splice` with the offsets (if any) at 0x3000 and 0x3008.
+    fn splice(
+        &self,
+        input: Fd,
+        off_in: Option<i64>,
+        output: Fd,
+        off_out: Option<i64>,
+        len: u32,
+        flags: SpliceFlags,
+    ) -> SysResult<i32> {
+        let offset = |at: u32, value: Option<i64>| match value {
+            Some(value) => {
+                put(self.memory, at, &value.to_le_bytes());
+                wasixv2_abi::LoffPtr::new(at)
+            }
+            None => wasixv2_abi::LoffPtr::NULL,
+        };
+        let (off_in, off_out) = (offset(0x3000, off_in), offset(0x3008, off_out));
+        block_on(
+            self.kernel
+                .splice(&self.caller, input, off_in, output, off_out, len, flags),
+        )
+    }
+
+    fn offset(&self, at: u32) -> i64 {
+        i64::from_le_bytes(get(self.memory, at, 8).try_into().unwrap())
+    }
+
+    fn pipe(&self, flags: OpenFlags) -> (Fd, Fd) {
+        super::ipc::pipe(self.kernel, &self.caller, flags)
+    }
+}
+
+/// `do_splice` from a file into a pipe and from a pipe into a file: at the caller's offset,
+/// which is written back while the file position stays, or at the file position, which moves.
+#[test]
+fn splice_moves_file_data_through_a_pipe_at_offsets_or_the_position() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/in", b"hello world");
+    let input = t.open("/in", OpenFlags::O_RDONLY).unwrap();
+    let output = t
+        .open("/out", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    let (r, w) = t.pipe(OpenFlags(0));
+
+    assert_eq!(
+        t.splice(input, Some(6), w, None, 100, SpliceFlags(0)),
+        Ok(5)
+    );
+    assert_eq!(t.offset(0x3000), 11);
+    assert_eq!(t.splice(input, None, w, None, 5, SpliceFlags(0)), Ok(5));
+    // At the end of the file: nothing.
+    assert_eq!(t.splice(input, Some(11), w, None, 5, SpliceFlags(0)), Ok(0));
+    assert_eq!(t.read(input, 16), Ok(b" world".to_vec()));
+
+    // Out of the pipe, only what it holds: "worldhello".
+    assert_eq!(
+        t.splice(r, None, output, Some(2), 100, SpliceFlags(0)),
+        Ok(10)
+    );
+    assert_eq!(t.offset(0x3008), 12);
+    assert_eq!(t.write(w, b"!"), Ok(1));
+    assert_eq!(t.splice(r, None, output, None, 100, SpliceFlags(0)), Ok(1));
+    let back = t.open("/out", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(back, 16), Ok(b"!\0worldhello".to_vec()));
+    // The pipe is empty: non-blocking, EAGAIN; without writers, the end.
+    let empty = t.splice(r, None, output, None, 1, SPLICE_F_NONBLOCK);
+    assert_eq!(errno(empty), Errno::EAGAIN);
+    t.close(w);
+    assert_eq!(t.splice(r, None, output, None, 1, SpliceFlags(0)), Ok(0));
+}
+
+/// `__do_splice` and `do_splice`'s refusals, in their order.
+#[test]
+fn splice_checks_flags_descriptors_offsets_and_ends() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/f", b"data");
+    let file = t.open("/f", OpenFlags::O_RDWR).unwrap();
+    let append = t
+        .open("/f", OpenFlags::O_WRONLY | OpenFlags::O_APPEND)
+        .unwrap();
+    let (r, w) = t.pipe(OpenFlags::O_NONBLOCK);
+    let none = SpliceFlags(0);
+
+    assert_eq!(t.splice(file, None, w, None, 0, SpliceFlags(16)), Ok(0));
+    assert_eq!(
+        errno(t.splice(file, None, w, None, 1, SpliceFlags(16))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(t.splice(Fd(99), None, w, None, 1, none)),
+        Errno::EBADF
+    );
+    assert_eq!(
+        errno(t.splice(r, Some(0), file, None, 1, none)),
+        Errno::ESPIPE
+    );
+    assert_eq!(
+        errno(t.splice(file, None, w, Some(0), 1, none)),
+        Errno::ESPIPE
+    );
+    assert_eq!(errno(t.splice(w, None, file, None, 1, none)), Errno::EBADF);
+    assert_eq!(errno(t.splice(file, None, r, None, 1, none)), Errno::EBADF);
+    assert_eq!(
+        errno(t.splice(file, None, file, None, 1, none)),
+        Errno::EINVAL
+    );
+    assert_eq!(errno(t.splice(r, None, w, None, 1, none)), Errno::EINVAL);
+    assert_eq!(
+        errno(t.splice(r, None, append, None, 1, none)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(t.splice(file, Some(-1), w, None, 1, none)),
+        Errno::EINVAL
+    );
+    let bad = wasixv2_abi::LoffPtr::new(1 << 30);
+    let fault = kernel.splice(&t.caller, file, bad, w, wasixv2_abi::LoffPtr::NULL, 1, none);
+    assert_eq!(errno(block_on(fault)), Errno::EFAULT);
+    // An eventfd has no `splice_read` or `splice_write`.
+    let event = block_on(kernel.eventfd2(&t.caller, 0, EventfdFlags(0))).unwrap();
+    assert_eq!(
+        errno(t.splice(event, None, w, None, 1, none)),
+        Errno::EINVAL
+    );
+    assert_eq!(t.write(w, b"x"), Ok(1));
+    assert_eq!(
+        errno(t.splice(r, None, event, None, 1, none)),
+        Errno::EINVAL
+    );
+
+    // No reader left: EPIPE and SIGPIPE (blocked, to be seen pending).
+    kernel.task_signals(task).replace_blocked(1 << 12);
+    t.close(r);
+    assert_eq!(errno(t.splice(file, None, w, None, 1, none)), Errno::EPIPE);
+    assert!(super::net::sigpipe_pending(&kernel, &t.caller, &memory));
+}
+
+/// Pipe to pipe: `splice` moves the data, `tee` copies it and leaves it; both wait for data
+/// and for room, or fail with `EAGAIN` when either end is non-blocking.
+#[test]
+fn splice_and_tee_between_pipes() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let (a_r, a_w) = t.pipe(OpenFlags::O_NONBLOCK);
+    let (b_r, b_w) = t.pipe(OpenFlags::O_NONBLOCK);
+    let tee =
+        |input, output, len, flags| block_on(kernel.tee(&t.caller, input, output, len, flags));
+
+    assert_eq!(
+        errno(t.splice(a_r, None, b_w, None, 4, SpliceFlags(0))),
+        Errno::EAGAIN
+    );
+    assert_eq!(errno(tee(a_r, b_w, 4, SpliceFlags(0))), Errno::EAGAIN);
+    assert_eq!(t.write(a_w, b"abcdef"), Ok(6));
+    assert_eq!(tee(a_r, b_w, 4, SpliceFlags(0)), Ok(4));
+    assert_eq!(t.read(b_r, 16), Ok(b"abcd".to_vec()));
+    assert_eq!(t.splice(a_r, None, b_w, None, 4, SpliceFlags(0)), Ok(4));
+    assert_eq!(t.read(b_r, 16), Ok(b"abcd".to_vec()));
+    assert_eq!(t.read(a_r, 16), Ok(b"ef".to_vec()));
+    // `tee` needs two different pipes, read from the first and written to the second.
+    assert_eq!(errno(tee(a_r, a_w, 1, SpliceFlags(0))), Errno::EINVAL);
+    assert_eq!(errno(tee(a_w, b_w, 1, SpliceFlags(0))), Errno::EBADF);
+    assert_eq!(tee(a_r, b_w, 0, SpliceFlags(0)), Ok(0));
+    assert_eq!(errno(tee(a_r, b_w, 1, SpliceFlags(16))), Errno::EINVAL);
+
+    // A full output: EAGAIN; no writer on an empty input: the end.
+    let fcntl = |fd, cmd, arg| block_on(kernel.fcntl64(&t.caller, fd, cmd, arg));
+    assert_eq!(fcntl(b_w, FcntlCmd::F_SETPIPE_SZ, 4096), Ok(4096));
+    put(&memory, 0x2000, &[7; 4096]);
+    let filled = block_on(kernel.write(&t.caller, b_w, UserSlice::new(0x2000, 4096)));
+    assert_eq!(filled, Ok(4096));
+    assert_eq!(t.write(a_w, b"x"), Ok(1));
+    let full = t.splice(a_r, None, b_w, None, 1, SpliceFlags(0));
+    assert_eq!(errno(full), Errno::EAGAIN);
+    assert_eq!(errno(tee(a_r, b_w, 1, SpliceFlags(0))), Errno::EAGAIN);
+    assert_eq!(t.read(a_r, 1), Ok(b"x".to_vec()));
+    // `opipe_prep` comes before the input's end is noticed.
+    t.close(a_w);
+    let full = t.splice(a_r, None, b_w, None, 1, SpliceFlags(0));
+    assert_eq!(errno(full), Errno::EAGAIN);
+    assert_eq!(t.read(b_r, 4096).map(|data| data.len()), Ok(4096));
+    assert_eq!(t.splice(a_r, None, b_w, None, 1, SpliceFlags(0)), Ok(0));
+    assert_eq!(tee(a_r, b_w, 1, SpliceFlags(0)), Ok(0));
+}
+
+/// `vmsplice`: into a pipe the descriptor writes, as much as fits; out of one it only reads,
+/// as a read; any other descriptor is `EBADF`.
+#[test]
+fn vmsplice_copies_user_buffers_into_and_out_of_pipes() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let (r, w) = t.pipe(OpenFlags(0));
+    let iovec = |at: u32, base: u32, len: u32| {
+        put(&memory, at, &base.to_le_bytes());
+        put(&memory, at + 4, &len.to_le_bytes());
+    };
+    let vmsplice =
+        |fd, n, flags| block_on(kernel.vmsplice(&t.caller, fd, GuestPtr::new(0x80), n, flags));
+    put(&memory, 0x400, b"hello");
+    put(&memory, 0x500, b" world");
+    iovec(0x80, 0x400, 5);
+    iovec(0x88, 0x500, 6);
+
+    assert_eq!(vmsplice(w, 2, SpliceFlags(0)), Ok(11));
+    assert_eq!(vmsplice(w, 0, SpliceFlags(0)), Ok(0));
+    iovec(0x80, 0x600, 3);
+    iovec(0x88, 0x700, 8);
+    assert_eq!(vmsplice(r, 2, SpliceFlags(0)), Ok(11));
+    assert_eq!(get(&memory, 0x600, 3), b"hel");
+    assert_eq!(get(&memory, 0x700, 8), b"lo world");
+    // Only SPLICE_F_NONBLOCK keeps it from waiting.
+    assert_eq!(errno(vmsplice(r, 1, SPLICE_F_NONBLOCK)), Errno::EAGAIN);
+    assert_eq!(errno(vmsplice(r, 1, SpliceFlags(32))), Errno::EINVAL);
+    t.create("/f", b"");
+    let file = t.open("/f", OpenFlags::O_RDWR).unwrap();
+    assert_eq!(errno(vmsplice(file, 1, SpliceFlags(0))), Errno::EBADF);
+    // A buffer outside memory: EFAULT, and nothing goes in.
+    iovec(0x80, 1 << 30, 4);
+    assert_eq!(errno(vmsplice(w, 1, SpliceFlags(0))), Errno::EFAULT);
+    assert_eq!(t.read(r, 0), Ok(Vec::new()));
+    assert_eq!(kernel.file(task, r).unwrap().buffered(), 0);
+    // Into a full pipe: as much as fits, then EAGAIN.
+    let fcntl = block_on(kernel.fcntl64(&t.caller, w, FcntlCmd::F_SETPIPE_SZ, 4096));
+    assert_eq!(fcntl, Ok(4096));
+    iovec(0x80, 0x1000, 5000);
+    assert_eq!(vmsplice(w, 1, SPLICE_F_NONBLOCK), Ok(4096));
+    assert_eq!(errno(vmsplice(w, 1, SPLICE_F_NONBLOCK)), Errno::EAGAIN);
+}
+
+/// Sockets have `splice_read` and `splice_write`: a stream socket into a pipe and back out.
+#[test]
+fn splice_between_a_socket_and_a_pipe() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let pair = wasixv2_abi::FdPair::new(0x100);
+    let unix = wasixv2_abi::AddressFamily(1);
+    const SOCK_STREAM_NONBLOCK: i32 = 1 | 0x800;
+    let made = kernel.socketpair(&t.caller, unix, SOCK_STREAM_NONBLOCK, 0, pair);
+    assert_eq!(block_on(made), Ok(0));
+    let fd = |at| Fd(i32::from_le_bytes(get(&memory, at, 4).try_into().unwrap()));
+    let (a, b) = (fd(0x100), fd(0x104));
+    let (r, w) = t.pipe(OpenFlags(0));
+
+    assert_eq!(
+        errno(t.splice(b, Some(0), w, None, 5, SpliceFlags(0))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(t.splice(b, None, w, None, 5, SpliceFlags(0))),
+        Errno::EAGAIN
+    );
+    assert_eq!(t.write(a, b"ping"), Ok(4));
+    assert_eq!(t.splice(b, None, w, None, 100, SpliceFlags(0)), Ok(4));
+    assert_eq!(
+        t.splice(r, None, b, None, 100, SpliceFlags::SPLICE_F_MORE),
+        Ok(4)
+    );
+    assert_eq!(t.read(a, 16), Ok(b"ping".to_vec()));
 }

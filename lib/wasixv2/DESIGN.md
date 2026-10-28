@@ -198,6 +198,16 @@ The crate `wasixv2-wait` holds what the VFS, the network and the kernel all need
 
 Dropping the object is Linux's `release`. Inode-backed open files poll as `DEFAULT_POLLMASK` and are `EPERM` for epoll.
 
+### Pipes and splice
+
+A pipe holds bytes rather than page buffers (`kernel/src/pipe.rs`), so `splice`, `tee` and `vmsplice` (`fs/splice.rs`) copy where Linux moves or lends pages; what they take, give and return follows `fs/splice.c`.
+
+- **Consumers** (reads, `splice` out of a pipe, `vmsplice` to the user) wait for data without a lock, then hold the pipe's I/O lock (`pipe->mutex`) from looking at the data until they consumed what their output took. A `splice` to a file or socket holds it across that write, as Linux holds the pipe lock across `splice_write`.
+- **Producers** append under the pipe's state lock. A `splice` or `vmsplice` into a pipe first reserves the room it will fill, which writers then do not see, and fills it once its input is read, as Linux holds the pipe lock across `splice_read`.
+- **Pipe to pipe:** `splice` and `tee` lock both pipes' states in address order (`pipe_double_lock`); `splice` takes the input's I/O lock first. Lock order: I/O lock, then the pipe states.
+- **Hints:** `SPLICE_F_MOVE` and `SPLICE_F_GIFT` are ignored, as Linux may; `SPLICE_F_MORE` is a hint.
+- **Not yet:** host stdio streams look like pipes but are not, so they are not spliced as pipes.
+
 ### poll, select and epoll
 
 These follow `fs/select.c` and `fs/eventpoll.c`.

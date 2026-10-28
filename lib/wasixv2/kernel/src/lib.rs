@@ -61,9 +61,9 @@ use wasixv2_abi::{
     NewUtsnamePtr, OpenFlags, Pid, PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr,
     RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags,
     S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence, Shmid64DsPtr, Signal,
-    SigprocmaskHow, Sigset, SigsetPtr, Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags,
-    SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr, Uid, UidPtr, Ulong,
-    UlongArray, Uptr, Usize, UsizePtr, VoidPtr, XattrArgsPtr, XattrFlags,
+    SigprocmaskHow, Sigset, SigsetPtr, SpliceFlags, Statfs64Ptr, StatxMask, StatxPtr,
+    SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr,
+    Uid, UidPtr, Ulong, UlongArray, Uptr, Usize, UsizePtr, VoidPtr, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
@@ -581,6 +581,42 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         self.sys_sendfile(caller, out_fd, in_fd, offset, count)
             .await
+    }
+
+    async fn splice(
+        &self,
+        caller: &Caller<'_>,
+        fd_in: Fd,
+        off_in: LoffPtr,
+        fd_out: Fd,
+        off_out: LoffPtr,
+        len: Usize,
+        flags: SpliceFlags,
+    ) -> SysResult<i32> {
+        self.sys_splice(caller, fd_in, off_in, fd_out, off_out, len, flags)
+            .await
+    }
+
+    async fn tee(
+        &self,
+        caller: &Caller<'_>,
+        fdin: Fd,
+        fdout: Fd,
+        len: Usize,
+        flags: SpliceFlags,
+    ) -> SysResult<i32> {
+        self.sys_tee(caller, fdin, fdout, len, flags).await
+    }
+
+    async fn vmsplice(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        uiov: ConstIovecArray,
+        nr_segs: Ulong,
+        flags: SpliceFlags,
+    ) -> SysResult<i32> {
+        self.sys_vmsplice(caller, fd, uiov, nr_segs, flags).await
     }
 
     async fn copy_file_range(

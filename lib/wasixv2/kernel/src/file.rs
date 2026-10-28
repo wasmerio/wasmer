@@ -127,6 +127,12 @@ pub trait FileObject: Pollable + Any {
         false
     }
 
+    /// Whether `splice` can write to the object from a pipe (`f_op->splice_write`): sockets
+    /// and the memory and random devices can; event objects cannot.
+    fn splice_write(&self) -> bool {
+        false
+    }
+
     /// Bytes a read would find now (what `FIONREAD` reports): a stream's buffered data, a
     /// datagram socket's next message. Reads of other objects give at most one kernel step;
     /// a read of this one sizes its buffer to these bytes instead, so it takes all a pipe or

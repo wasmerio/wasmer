@@ -153,6 +153,16 @@ impl FileObject for MemDevice {
         true
     }
 
+    /// `copy_splice_read` for `zero` and `full`; `null` has none.
+    fn splice_read(&self) -> bool {
+        !matches!(self.kind, Mem::Null)
+    }
+
+    /// `splice_write_null` and `splice_write_zero`; `full` has none.
+    fn splice_write(&self) -> bool {
+        !matches!(self.kind, Mem::Full)
+    }
+
     /// `null_lseek`: every seek lands at 0.
     fn llseek(&self, _: u64, _: SeekBase, _: i64) -> Result<u64, Errno> {
         Ok(0)
@@ -182,6 +192,16 @@ impl FileObject for RandomDevice {
     }
 
     fn fills_reads(&self) -> bool {
+        true
+    }
+
+    /// `copy_splice_read`.
+    fn splice_read(&self) -> bool {
+        true
+    }
+
+    /// `iter_file_splice_write`.
+    fn splice_write(&self) -> bool {
         true
     }
 

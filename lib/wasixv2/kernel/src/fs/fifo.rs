@@ -2,6 +2,8 @@
 //! bound to that inode, allocating it on the first open. A pipe's own inode on pipefs, opened
 //! again through `/proc/<pid>/fd`, attaches the same way but never waits for a partner.
 
+use std::sync::Arc;
+
 use wasixv2_abi::{IoctlRequest, OpenFlags};
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult};
 use wasixv2_vfs::File;
@@ -16,6 +18,7 @@ use crate::{
 /// An open FIFO: the pipe ends its access mode asks for, and the VFS file that keeps the inode
 /// (and so the pipe binding) alive.
 pub(crate) struct FifoFile {
+    pipe: Arc<Pipe>,
     read: Option<PipeEnd>,
     write: Option<PipeEnd>,
     _file: File,
@@ -64,10 +67,18 @@ pub(crate) async fn open(
         ),
     };
     Ok(FifoFile {
+        pipe,
         read,
         write,
         _file: file,
     })
+}
+
+impl FifoFile {
+    /// The pipe bound to the FIFO.
+    pub(crate) fn pipe(&self) -> &Arc<Pipe> {
+        &self.pipe
+    }
 }
 
 impl Pollable for FifoFile {
