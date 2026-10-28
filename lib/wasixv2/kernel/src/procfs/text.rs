@@ -547,12 +547,21 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
         .map(|task| task.signals.proc_status())
         .unwrap_or_default();
     let (letter, _) = state(info, source.task(scope.pid, scope.tid).as_ref());
+    // `do_task_stat`: the controlling terminal's device and foreground group (0 for none).
+    let (tty_nr, tpgid) = match &ident.tty {
+        Some(tty) => {
+            let device = tty.device();
+            let tty_nr = crate::tty::encode_dev(device.major, device.minor);
+            (i128::from(tty_nr), tty.pgrp().map_or(0, i128::from))
+        }
+        None => (0, -1),
+    };
     let fields: Vec<String> = [
         info.parent as i128,               // ppid
         ident.pgid as i128,                // pgrp
         ident.sid as i128,                 // session
-        0,                                 // tty_nr
-        -1,                                // tpgid
+        tty_nr,                            // tty_nr
+        tpgid,                             // tpgid
         0x0040_0000,                       // flags: PF_RANDOMIZE
         0,                                 // minflt
         0,                                 // cminflt

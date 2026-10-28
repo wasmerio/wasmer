@@ -123,7 +123,7 @@ impl Kernel {
         self.task_env(caller.task())
     }
 
-    fn task_env(&self, task: TaskId) -> Env {
+    pub(crate) fn task_env(&self, task: TaskId) -> Env {
         let (fs, process) = self.task_ref(task, |task| {
             (task.fs.lock_or_recover().clone(), task.process.clone())
         });
@@ -355,7 +355,7 @@ impl Kernel {
 
     /// `do_dentry_open`'s `f_op->open`: a FIFO attaches to its pipe and a device node to its
     /// driver; what the inode holds directly is read through the VFS.
-    async fn attach(
+    pub(crate) async fn attach(
         &self,
         caller: &Caller<'_>,
         file: wasixv2_vfs::File,
@@ -374,7 +374,7 @@ impl Kernel {
                 Arc::new(fifo::open(file, flags, &*interrupt).await?)
             }
             wasixv2_vfs::FileType::CharDevice | wasixv2_vfs::FileType::BlockDevice => {
-                self.open_device(file).await?
+                self.open_device(caller, file, flags).await?
             }
             _ => return Ok(Backing::Inode(file)),
         };

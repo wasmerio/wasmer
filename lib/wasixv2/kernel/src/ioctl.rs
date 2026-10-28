@@ -9,6 +9,7 @@ use crate::{
     file::{Backing, OpenFile},
     fs::FASYNC,
     sync::MutexExt,
+    tty::TtyFile,
 };
 
 /// `FIGETBSZ` (`_IO(0x00, 2)`, `linux/fs.h`): the filesystem's block size. Not among the ABI's
@@ -117,6 +118,9 @@ impl Kernel {
                 self.sys_dev_ioctl(caller, request, arg).await
             }
             _ => match file.object() {
+                Some(_) if let Some(tty) = file.downcast::<TtyFile>() => {
+                    self.tty_ioctl(caller, &file, tty, request, arg).await
+                }
                 Some(object) => object.ioctl(caller, request, arg).await,
                 None => Err(Errno::ENOTTY.into()),
             },

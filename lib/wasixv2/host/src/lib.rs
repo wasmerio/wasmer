@@ -66,6 +66,29 @@ impl Stdio {
     }
 }
 
+/// A terminal the host gives the machine as its console: the host's side of a terminal in raw
+/// mode, whose bytes the kernel's line discipline handles (echo, line editing, `^C`). The
+/// input's end means the terminal went away, as a line that drops: the console hangs up.
+#[derive(Clone)]
+pub struct Console {
+    /// What is typed, byte by byte.
+    pub input: Arc<dyn ByteSource>,
+    /// What the terminal shows.
+    pub output: Arc<dyn ByteSink>,
+    /// Its size when the machine starts.
+    pub size: WindowSize,
+}
+
+/// A terminal's window size (`struct winsize`): rows and columns of characters, and pixels,
+/// 0 where unknown.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WindowSize {
+    pub rows: u16,
+    pub cols: u16,
+    pub xpixel: u16,
+    pub ypixel: u16,
+}
+
 /// A source that is always at end of stream, like `/dev/null`.
 pub struct EmptySource;
 

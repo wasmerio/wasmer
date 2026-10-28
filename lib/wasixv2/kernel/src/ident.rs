@@ -205,6 +205,9 @@ pub(crate) struct Ident {
     pub(crate) personality: u32,
     /// Whether the current image was started privilege-elevating (`AT_SECURE`).
     pub(crate) secure_exec: bool,
+    /// The controlling terminal (`signal->tty`): a child inherits it, `execve` keeps it,
+    /// `setsid` drops it.
+    pub(crate) tty: Option<std::sync::Arc<crate::tty::Tty>>,
 }
 
 impl Ident {
@@ -219,6 +222,7 @@ impl Ident {
             child_subreaper: false,
             personality: 0,
             secure_exec: false,
+            tty: None,
         }
     }
 }
