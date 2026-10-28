@@ -577,3 +577,45 @@ fn exit_group_releases_the_futexes_of_threads_released_meanwhile() {
         assert_eq!(memory.memory.word(head(i) + 0x14), OWNER_DIED);
     }
 }
+
+/// `exit` zeroes the task's `clear_child_tid` only while another task still uses the memory
+/// (`mm_release`: `mm_users > 1`): a thread whose siblings run on, or a vfork child, whose
+/// parent waits on the same memory; not the last thread of a process.
+#[test]
+fn exit_writes_clear_child_tid_only_while_another_task_uses_the_memory() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    const LEADER_TID: u32 = 0x300;
+    const OTHER_TID: u32 = 0x304;
+    const CHILD_TID: u32 = 0x308;
+    for (caller, addr) in [(&caller, LEADER_TID), (&other_caller, OTHER_TID)] {
+        memory.set(addr, caller.task().0);
+        block_on(kernel.set_tid_address(caller, GuestPtrMut::new(addr))).unwrap();
+    }
+
+    // A vfork child that exits while its parent waits.
+    let vfork = 0x100 | 0x4000 | 0x0020_0000 | Signal::SIGCHLD.0 as u32;
+    let null = GuestPtrMut::NULL;
+    let clone = kernel.clone(&caller, vfork, 0, null, 0, GuestPtrMut::new(CHILD_TID));
+    assert_eq!(block_on(clone), Ok(0));
+    let child = loop {
+        match kernel.take_pending(task) {
+            Some(GuestAction::SwitchTask { task, .. }) => break task,
+            Some(_) => {}
+            None => panic!("vfork left no task switch"),
+        }
+    };
+    memory.set(CHILD_TID, child.0);
+    block_on(kernel.exit(&Caller::new(child, &memory), 0)).unwrap();
+    assert_eq!(memory.word(CHILD_TID), 0, "the parent uses the memory");
+    while kernel.take_pending(task).is_some() {}
+    kernel.release_task(child);
+
+    block_on(kernel.exit(&other_caller, 0)).unwrap();
+    assert_eq!(memory.word(OTHER_TID), 0, "the leader uses the memory");
+    block_on(kernel.exit(&caller, 0)).unwrap();
+    assert_eq!(memory.word(LEADER_TID), task.0, "nobody uses the memory");
+}
