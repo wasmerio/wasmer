@@ -478,6 +478,8 @@ impl Run {
         handle: &tokio::runtime::Handle,
     ) -> Result<(), Error> {
         self.reject_options_unsupported_by_the_machine(program.is_package())?;
+        #[cfg(unix)]
+        raise_open_file_limit();
 
         let wasi = program.wasi.as_ref();
         let stdio = Stdio::inherit();
@@ -887,6 +889,40 @@ impl Interrupts {
 ///
 /// The handlers listen on the runtime's worker threads, so they work even when the thread driving
 /// the guest is stuck; without a console, [`SIGINTS_TO_FORCE_EXIT`] is the way out then.
+/// Raises this process's soft limit on open files to its hard limit, as servers that hold a
+/// descriptor per client do: the machine holds host descriptors on behalf of every guest
+/// process, a frozen memory image per process image (fork children share their parent's),
+/// shared memory objects and the host files guests open, and the soft limit is often 1024
+/// (systemd's default). A failure leaves the limit as it was.
+#[cfg(unix)]
+fn raise_open_file_limit() {
+    let mut limit = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
+    // SAFETY: `limit` is a valid rlimit to fill.
+    if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limit) } != 0 {
+        return;
+    }
+    let wanted = limit.rlim_max;
+    // macOS refuses a soft limit above `OPEN_MAX` (10240, <sys/syslimits.h>), whatever the
+    // hard one.
+    #[cfg(target_os = "macos")]
+    let wanted = wanted.min(10240);
+    if limit.rlim_cur >= wanted {
+        return;
+    }
+    let raised = libc::rlimit {
+        rlim_cur: wanted,
+        rlim_max: limit.rlim_max,
+    };
+    // SAFETY: a valid rlimit, whose soft limit is at most its hard one.
+    if unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &raised) } != 0 {
+        let err = io::Error::last_os_error();
+        tracing::debug!(%err, "cannot raise the limit on open files");
+    }
+}
+
 #[cfg(unix)]
 fn forward_signals(
     runtime: &tokio::runtime::Handle,
