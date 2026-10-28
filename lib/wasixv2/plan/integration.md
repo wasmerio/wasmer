@@ -308,3 +308,16 @@ L-W5; L-W2; L-W3; docs for M-W2, L-W1, L-W4 (0777 kept), L-W6. 14 commits plus t
 
 Landed, fast-forward: libc2 `main` `0bc9eed3..f216f303`; tests `main` `7fd6227..d54b93c`; wasmer
 `feat/wasixv2` `9c147516805..783b2cfcf2f`.
+
+## 2026-10-28: WP10 (facade/CLI) — LANDED
+
+wasmer `wasixv2/wp10-cli`: first-program load errors (`ExecError::Load`/`Instantiate`, exit 1),
+M-CLI1 (Ctrl-C counts what the kernel discarded), M-CLI4 (default `HOME`/`PATH`, script directory
+at `/run/wasmer/script`, `--use`), M-CLI5 (`Layer` API, packages mounted once), M-CLI6 (guest
+threads on a multi-thread runtime, `Machine::shutdown()`, kill on drop), L-CLI1/2/3/5. 12 commits,
+no tests-repo change. Gates: crate tests, clippy, fmt, release, CLI 59/12. Suite (two runs):
+2380/1229/0/455, identical pass sets. `pthread_join/speculative/6-1` (expected failure) exits 132 or
+139 depending on which of its two traps comes first, on every binary. Smoke: sws-v2 28/28; v1 8 +
+python expected-fail (exit 1, "instantiation failed"); extras pass (bash prints `/bin/readlink`).
+
+Landed, fast-forward: wasmer `feat/wasixv2` `783b2cfcf2f..11d0ae2781b`.

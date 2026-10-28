@@ -45,8 +45,21 @@ systemd-resolved hosts (H11, no in-process server). The wasix1 0777 create mode 
 wasix-libc never passes a mode and its `chmod`/`umask` are no-ops, so there is nothing to match
 (documented, L-W4).
 
-Next: WP8 (performance), WP10 (facade/CLI), WP11 (robustness); the `__linux__` work package
-(design ready, waiting for agreement); the init/pid-1 + guard WP after WP11.
+WP10 (facade/CLI) has landed too (`11d0ae2781b`, wasmer only). User-facing: programs get `HOME`
+(passwd) and `PATH=/usr/local/bin:/bin:/usr/bin` by default; `wasmer run ./script` maps the script's
+directory read-only at `/run/wasmer/script`; `--use` works; a first program that cannot start exits
+1 with the load error (python/python again prints "instantiation failed"); three Ctrl-Cs exit even
+when SIGINT is ignored. Embedders: `Machine::shutdown()`, `Drop` kills, the `Layer` API. Deferred:
+real Ctrl-C (job control), webc's `Container::downcast` (never succeeds in webc 12.0.1), shared
+`st_dev` for two mounts of one layer. `train5-extras.sh`'s bash line now prints `/bin/readlink`
+(the default PATH searches `/bin` first).
+
+In flight: WP8 (performance) on `wasixv2/wp8-perf`, gates green, landing next. Then an ABI-codegen
+package in wasixv2-abi: generated v2 imports filtered by `module.imports()` (measured: v2 thread
+create+join 344 to 113 us, spawn 652 to 264 us) and `Control::take_image` returning `Image`.
+
+Next: WP11 (robustness); the `__linux__` work package (design ready, waiting for agreement); the
+init/pid-1 + guard WP after WP11.
 
 Follow-ups from WP2/WP7:
 - `pthread_once/6-1` hangs about 1 in 10 runs (before WP2/WP7 too): all threads `Exit`, the main
@@ -183,7 +196,7 @@ Not verified:
 3. Smoke: `SWS_WASM=<sws.wasm> plan/smoke/run-all.sh <wasmer>/target/release/wasmer` (sws-v2
    28/28, v1 8 pass + python expected-fail), and `plan/smoke/train5-extras.sh <wasmer>` with
    the userland built (section 6). Both SIGTERM checks must exit with no "unknown task" panic in
-   their logs. `wasmer/bash` must print 85, `hi`, `/usr/bin/readlink`.
+   their logs. `wasmer/bash` must print 85, `hi`, `/usr/bin/readlink` (`/bin/readlink` since WP10's default PATH).
 4. Exec cost: build `feat/wasixv2` (`bdcdb958bef`) release as the base binary and time
    `cargo run --release --manifest-path tests/wasixv2/Cargo.toml -- exec-exit-with-threads --exact`
    (and `proc-` tests) with each binary. Train 5 caches compiled modules, so it should not be
@@ -336,7 +349,7 @@ no critical findings, 12 high, ~35 medium, ~50 low. Its work packages (§3) and 
 | WP7 | wasix1 correctness | H5, H11, H12, M-W1, M-W2, M-W4, L-W* | landed (`783b2cfcf2f`) |
 | WP8 | syscall hot-path performance | M-W3, M-X2, M-X3 | not started |
 | WP9 | signals | M-P4, M-P6, M-P7, M-P9, L-P1, L-P3..5 | landed (train 6) |
-| WP10 | facade/CLI | M-CLI1, M-CLI4..6, L-CLI* | not started |
+| WP10 | facade/CLI | M-CLI1, M-CLI4..6, L-CLI* | landed (`11d0ae2781b`); real Ctrl-C needs job control |
 | WP11 | robustness | M-X1, M-X4, L-X1, L-X4, L-NET8, L-F11 | not started; L-F11 and the L-X4 contract are in WP3, L-NET8 dead code in WP5 |
 | WP12 | libc2 vfork | M-LIBC1 | done in train 5 |
 
@@ -410,7 +423,7 @@ Next:
   `F_GETOWN_EX`.
 - The review's top gaps (§5): job control and a controlling terminal; process accounting, CPU time,
   pid namespaces; inbound UDP and the socket error queue; a dentry cache and `mount` syscalls.
-- v1 compat: `--use` is unsupported; v1 command defaults don't apply through symlinks or as a
+- v1 compat: v1 command defaults don't apply through symlinks or as a
   `#!` interpreter (WP2); wasix1's C tests need a v1 wasixcc (`WASIX1_TEST_CC`).
 - wasm traps on calls through mismatched function pointers (K&R-style thread functions in
   Open POSIX, `prctl08`).
