@@ -824,6 +824,81 @@ fn a_vfork_parent_killed_while_its_child_runs_dies_at_once() {
     kernel.release(parent);
 }
 
+/// A vfork parent killed while its child runs still leaves its memory as every task does
+/// (`do_exit`'s `exit_mm`): its instance comes back to it once the child is done, takes its
+/// exit, and releases its robust futexes on the memory the child ran on, after the child's.
+#[test]
+fn a_vfork_parent_killed_while_its_child_runs_releases_its_robust_futexes() {
+    let parked = Parked::new();
+    let Parked {
+        kernel,
+        memory,
+        parent,
+        child,
+        ..
+    } = &parked;
+    let (parent, child) = (*parent, *child);
+    let parent_caller = Caller::new(parent, memory);
+    let child_caller = Caller::new(child, memory);
+    // The parent's robust list holds one mutex it owns, the word 4 bytes into the entry.
+    const HEAD: u32 = 0x200;
+    const ENTRY: u32 = 0x210;
+    put(memory, HEAD, &ENTRY.to_le_bytes());
+    put(memory, HEAD + 4, &4u32.to_le_bytes());
+    put(memory, ENTRY, &HEAD.to_le_bytes());
+    put(memory, ENTRY + 4, &parent.0.to_le_bytes());
+    let head = wasixv2_abi::RobustListHeadPtr::new(HEAD);
+    let set = kernel.set_robust_list(&parent_caller, head, 12);
+    assert_eq!(block_on(set), Ok(0));
+
+    let init_caller = parked.init_caller();
+    let kill = kernel.sys_kill(&init_caller, parent.0 as Pid, Signal::SIGKILL);
+    assert_eq!(block_on(kill), Ok(0));
+    assert_eq!(kernel.take_pending(child), None, "the child goes on");
+    let killed = wasixv2_abi::SiCode::CLD_KILLED.0;
+    assert_eq!(parked.reap_parent(), Some((killed, 9)));
+
+    // The child's end, as the execution layer runs it: the child leaves the memory, the
+    // instance goes back to the parent, which takes its exit and leaves the memory too.
+    assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
+    let exited = VforkParent {
+        task: parent,
+        resumes: false,
+    };
+    assert_eq!(
+        kernel.take_pending(child),
+        Some(GuestAction::VforkReturn {
+            parent: exited,
+            child
+        })
+    );
+    block_on(kernel.exit_mm(&child_caller));
+    kernel.release(child);
+    assert_eq!(
+        word(memory, ENTRY + 4),
+        parent.0,
+        "the child's exit is not the parent's"
+    );
+    assert_eq!(
+        kernel.take_pending(parent),
+        Some(GuestAction::Exit(128 + 9))
+    );
+    block_on(kernel.exit_mm(&parent_caller));
+    assert_eq!(word(memory, ENTRY + 4), 0x4000_0000, "FUTEX_OWNER_DIED");
+    kernel.release(parent);
+    // Reaped once: the later exits do not make the parent a zombie again.
+    let options = WaitOptions(WaitOptions::WEXITED.0 | WaitOptions::WNOHANG.0);
+    let wait = kernel.waitid(
+        &init_caller,
+        Idtype::P_PID,
+        parent.0 as Pid,
+        SiginfoPtr::new(0x300),
+        options,
+        RusagePtr::new(0),
+    );
+    assert_eq!(block_on(wait), Err(Errno::ECHILD.into()));
+}
+
 /// Only a signal that kills the parent ends its wait: one it ignores, blocks or handles waits
 /// until the parent runs again.
 #[test]
