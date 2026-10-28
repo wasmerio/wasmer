@@ -90,9 +90,11 @@ pub struct Machine {
     /// The processes [`Machine::run`], [`Machine::run_process`], [`Machine::run_module`] and
     /// [`Machine::run_file`] started that are still running.
     running: Arc<Mutex<Vec<TaskId>>>,
-    /// Who the processes start as and what `uname` reports, for a kernel booted on a new root.
+    /// Who the processes start as, what `uname` reports and whether the kernel has an init,
+    /// for a kernel booted on a new root.
     user: Credentials,
     uname: Uname,
+    init: bool,
     /// The root filesystem's writable top layer: the [`default_root`] or the embedder's.
     root_upper: Arc<dyn Filesystem>,
     /// Read-only layers under `root_upper`, topmost first; see [`Machine::mount_root_layers`].
@@ -126,6 +128,7 @@ pub struct MachineBuilder {
     user: Credentials,
     uname: Uname,
     root: Option<Arc<dyn Filesystem>>,
+    init: bool,
     /// The embedder's loader; the ABIs' own default otherwise.
     loader: Option<Arc<dyn Loader>>,
 }
@@ -138,6 +141,7 @@ impl MachineBuilder {
             user: Credentials::default(),
             uname: Uname::default(),
             root: None,
+            init: true,
             loader: None,
         }
     }
@@ -168,6 +172,16 @@ impl MachineBuilder {
         self
     }
 
+    /// Whether the machine boots with an init, pid 1, as Linux does; on by default. Init is the
+    /// kernel's own: it runs no guest code, every program the machine starts is its child, it
+    /// reaps the orphans handed to it, and no signal kills it. Without one, programs start as
+    /// pid 1 with no parent (`getppid` is 0), and orphans have no reaper and are reaped as they
+    /// exit.
+    pub fn init(mut self, init: bool) -> Self {
+        self.init = init;
+        self
+    }
+
     /// What compiles the images processes `execve`, and the program [`Machine::run_file`]
     /// starts: by default [`Compile`], with the engine the process ran on and no cache. An
     /// embedder's loader picks the engine per image and caches compiled modules, telling images
@@ -185,6 +199,7 @@ impl MachineBuilder {
             user,
             uname,
             root,
+            init,
             loader,
         } = self;
         let owner = (user.uid(), user.gid());
@@ -197,7 +212,15 @@ impl MachineBuilder {
             #[cfg(feature = "wasix1")]
             &wasix1,
         ));
-        let kernel = boot(&host, root.clone(), &network, &user, &uname, abis.clone());
+        let kernel = boot(
+            &host,
+            root.clone(),
+            &network,
+            &user,
+            &uname,
+            init,
+            abis.clone(),
+        );
         now(mount_kernel_filesystems(&kernel, &host));
         Machine {
             syscalls: Arc::new(Layered::new(Trace, kernel)),
@@ -211,6 +234,7 @@ impl MachineBuilder {
             running: Arc::default(),
             user,
             uname,
+            init,
             root_upper: root,
             root_lowers: Vec::new(),
             in_use: AtomicBool::new(false),
@@ -338,6 +362,7 @@ impl Machine {
             &self.network,
             &self.user,
             &self.uname,
+            self.init,
             self.abis.clone(),
         );
         mount_kernel_filesystems(&kernel, &self.host).await;
@@ -772,22 +797,27 @@ impl Signaller {
     }
 }
 
-/// A kernel on `root` with the machine's network, user and names, whose `execve` starts the
-/// images `abis` serve; its own filesystems are mounted next ([`mount_kernel_filesystems`]).
+/// A kernel on `root` with the machine's network, user, names and init, whose `execve` starts
+/// the images `abis` serve; its own filesystems are mounted next ([`mount_kernel_filesystems`]).
 fn boot(
     host: &Arc<dyn Host>,
     root: Arc<dyn Filesystem>,
     network: &Arc<Net>,
     user: &Credentials,
     uname: &Uname,
+    init: bool,
     abis: Arc<Abis<Layered<Trace, Kernel>>>,
 ) -> Kernel {
-    Kernel::new(host.clone(), root)
+    let kernel = Kernel::new(host.clone(), root)
         .with_binfmt(abis)
         .with_network(network.clone())
         .with_shm(shm_filesystem(host))
         .with_credentials(user.clone())
-        .with_uname(uname)
+        .with_uname(uname);
+    match init {
+        true => kernel.with_init(),
+        false => kernel,
+    }
 }
 
 /// The package commands WASIX v1 programs start with their defaults: the names registered,

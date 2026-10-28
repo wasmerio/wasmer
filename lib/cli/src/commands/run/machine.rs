@@ -650,11 +650,11 @@ impl Run {
         Ok((guest, script_dir))
     }
 
-    /// A machine configured by `--user` and the `uname` options, whose images compile with
-    /// `loader`.
+    /// A machine configured by `--user`, `--no-init` and the `uname` options, whose images
+    /// compile with `loader`.
     fn machine(&self, loader: Arc<CachedLoader>) -> Result<Machine, Error> {
         let wasi = &self.wasi;
-        let mut builder = Machine::builder().loader(loader);
+        let mut builder = Machine::builder().loader(loader).init(!wasi.no_init);
         if let Some(user) = wasi.user {
             builder = builder.user(Credentials::new(user.uid, user.gid));
         }

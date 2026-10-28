@@ -138,6 +138,11 @@ pub struct Wasi {
     #[clap(long = "uname-machine")]
     pub(crate) uname_machine: Option<String>,
 
+    /// Boot the machine without an init: the program runs as pid 1 with no parent, and orphans
+    /// are reaped as they exit. By default a built-in init is pid 1 and the program its child.
+    #[clap(long = "no-init")]
+    pub(crate) no_init: bool,
+
     /// Disables the TTY bridge (no effect: the WASIX v2 kernel has none)
     #[clap(long = "no-tty")]
     pub no_tty: bool,

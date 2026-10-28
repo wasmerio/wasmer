@@ -798,34 +798,37 @@ async fn the_root_is_fixed_once_a_signaller_is_handed_out() {
     .await;
 }
 
-/// Opens `/proc/1` and `/proc/2` and exits with 0 when neither exists, or the number of the
-/// one that does; `/proc/3`, its own, must exist (else 3).
-const NO_PIDS_1_2: &str = r#"
+/// Opens `/proc/2` and `/proc/3` and exits with 0 when neither exists, or the number of the
+/// one that does; `/proc/1`, init, and `/proc/4`, its own, must exist (else 1 or 4).
+const NO_PIDS_2_3: &str = r#"
 (module
   (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
   (import "wasixv2" "exit_group" (func $exit_group (param i32)))
   (memory (export "memory") 1)
-  (data (i32.const 16) "/proc/1\00")
-  (data (i32.const 32) "/proc/2\00")
-  (data (i32.const 48) "/proc/3\00")
+  (data (i32.const 16) "/proc/2\00")
+  (data (i32.const 32) "/proc/3\00")
+  (data (i32.const 48) "/proc/4\00")
+  (data (i32.const 64) "/proc/1\00")
   (func (export "_start")
+    (if (i32.lt_s (call $openat (i32.const -100) (i32.const 64) (i32.const 0x10000) (i32.const 0)) (i32.const 0))
+      (then (call $exit_group (i32.const 1))))
     (if (i32.lt_s (call $openat (i32.const -100) (i32.const 48) (i32.const 0x10000) (i32.const 0)) (i32.const 0))
-      (then (call $exit_group (i32.const 3))))
+      (then (call $exit_group (i32.const 4))))
     ;; O_RDONLY | O_DIRECTORY; anything but ENOENT means the process is there.
     (if (i32.ne (call $openat (i32.const -100) (i32.const 16) (i32.const 0x10000) (i32.const 0)) (i32.const -2))
-      (then (call $exit_group (i32.const 1))))
-    (if (i32.ne (call $openat (i32.const -100) (i32.const 32) (i32.const 0x10000) (i32.const 0)) (i32.const -2))
       (then (call $exit_group (i32.const 2))))
+    (if (i32.ne (call $openat (i32.const -100) (i32.const 32) (i32.const 0x10000) (i32.const 0)) (i32.const -2))
+      (then (call $exit_group (i32.const 3))))
     (call $exit_group (i32.const 0))
     unreachable))
 "#;
 
 /// A process `run_file` started is gone once the run returns, whether its `execve` failed
-/// (pid 1) or it ran and exited (pid 2): no zombie is left in `/proc`.
+/// (pid 2) or it ran and exited (pid 3): no zombie is left in `/proc`. Init (pid 1) stays.
 #[tokio::test]
 async fn run_file_leaves_no_zombie() {
     local(async {
-        let check = wat(NO_PIDS_1_2);
+        let check = wat(NO_PIDS_2_3);
         let machine = machine_with(&[("echo", &echo("")), ("check", &check)]).await;
         let (status, _) = run_file(&machine, "/bin/missing", &["missing"]).await;
         // ENOENT

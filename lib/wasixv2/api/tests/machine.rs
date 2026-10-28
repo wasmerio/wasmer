@@ -154,6 +154,43 @@ const BLOCK_WAT: &str = r#"
 "#;
 
 /// Waits until `stdout` holds `ready\n`.
+/// Prints `/proc/1/comm` (nothing when it is missing) and exits with
+/// `getppid() * 16 + getpid()`.
+const INIT_WAT: &str = r#"
+  (module
+    (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+    (import "wasixv2" "read" (func $read (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "getpid" (func $getpid (result i32)))
+    (import "wasixv2" "getppid" (func $getppid (result i32)))
+    (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+    (memory (export "memory") 1)
+    (data (i32.const 16) "/proc/1/comm\00")
+
+    (func (export "_start") (local $fd i32) (local $n i32)
+      (local.set $fd (call $openat (i32.const -100) (i32.const 16) (i32.const 0) (i32.const 0)))
+      (if (i32.ge_s (local.get $fd) (i32.const 0))
+        (then
+          (local.set $n (call $read (local.get $fd) (i32.const 64) (i32.const 64)))
+          (drop (call $write (i32.const 1) (i32.const 64) (local.get $n)))))
+      (call $exit_group
+        (i32.add (i32.mul (call $getppid) (i32.const 16)) (call $getpid)))
+      unreachable))
+"#;
+
+/// By default the machine boots with an init as pid 1, whose child the program is; without
+/// one the program is pid 1 with no parent.
+#[tokio::test]
+async fn programs_run_as_children_of_init_unless_the_machine_has_none() {
+    assert_eq!(
+        run(Machine::new(), INIT_WAT).await,
+        (16 + 2, b"init\n".to_vec())
+    );
+    let without = Machine::builder().init(false).build();
+    let (status, _) = run(without, INIT_WAT).await;
+    assert_eq!(status, 1);
+}
+
 async fn ready(stdout: &Capture) {
     while stdout.0.lock().unwrap().as_slice() != b"ready\n" {
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
