@@ -20,10 +20,17 @@
 //!
 //! A range of memory can show a shared object's pages instead of its own ([`map_shared`]): the
 //! host maps the object over the range, inside the memory's reservation, which never moves.
-//! Every process that maps the object then sees the same bytes at once. The range is mapped
-//! read-write whatever the guest asked for, as wasm enforces no page protection and a host write
-//! into a read-only page would kill the host; and never over the low guard, which `MAP_FIXED`
-//! would make writable again.
+//! Every process that maps the object then sees the same bytes at once. The range is never
+//! placed over the low guard, which `MAP_FIXED` would make writable again. A view that may
+//! never be written (a `SHM_RDONLY` attachment, a shared mapping of a file open only for
+//! reading) is mapped read-only, the way the low guard is protected: a guest store there faults
+//! with `SIGSEGV`, and [`ReadOnly`] keeps [`write`] out of it. Every other range stays
+//! read-write whatever the guest asked for, as wasm enforces no page protection of its own.
+
+use std::{
+    ops::Range,
+    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 #[cfg(all(unix, feature = "sys"))]
 use wasixv2_pages::SharedPages;
@@ -101,6 +108,58 @@ fn in_guard(low_guard: u32, addr: u32, len: usize) -> bool {
     len > 0 && addr < low_guard
 }
 
+/// The ranges of one linear memory that show a shared object read-only ([`map_shared`] without
+/// `writable`), where the host has no write access and must not write either, as in the low
+/// guard. Shared by the instances of all threads of a process, as they share the memory.
+///
+/// A host write holds the lock while it copies, and placing or removing a view holds it
+/// exclusively, so a range never loses write access under a copy into it, which would kill the
+/// host, however the guest's threads race.
+#[derive(Default)]
+pub(crate) struct ReadOnly(RwLock<Vec<Range<u64>>>);
+
+impl ReadOnly {
+    fn ranges(&self) -> RwLockReadGuard<'_, Vec<Range<u64>>> {
+        self.0.read().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    #[cfg(all(unix, feature = "sys"))]
+    fn ranges_mut(&self) -> RwLockWriteGuard<'_, Vec<Range<u64>>> {
+        self.0.write().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// Whether `len` bytes at `addr` reach into one of `ranges`. An empty access touches nothing.
+fn in_read_only(ranges: &[Range<u64>], addr: u32, len: usize) -> bool {
+    let (start, end) = (u64::from(addr), u64::from(addr) + len as u64);
+    len > 0
+        && ranges
+            .iter()
+            .any(|range| range.start < end && start < range.end)
+}
+
+/// Records `range` as read-only or not, in place of what `ranges` said of it.
+#[cfg(all(unix, feature = "sys"))]
+fn set_read_only(ranges: &mut Vec<Range<u64>>, range: Range<u64>, read_only: bool) {
+    let mut kept = Vec::with_capacity(ranges.len() + 2);
+    for old in ranges.drain(..) {
+        if old.end <= range.start || range.end <= old.start {
+            kept.push(old);
+            continue;
+        }
+        if old.start < range.start {
+            kept.push(old.start..range.start);
+        }
+        if range.end < old.end {
+            kept.push(range.end..old.end);
+        }
+    }
+    if read_only {
+        kept.push(range);
+    }
+    *ranges = kept;
+}
+
 /// Copies `addr..` of `memory` into `buf`; a fault outside the memory. The low guard is
 /// readable, as it is to the guest.
 pub(crate) fn read(
@@ -112,16 +171,22 @@ pub(crate) fn read(
     memory.view(store).read(addr.into(), buf).map_err(|_| Fault)
 }
 
-/// Copies `bytes` to `addr..` of `memory`, whose low guard is `low_guard` bytes; a fault outside
-/// the memory or inside the guard.
+/// Copies `bytes` to `addr..` of `memory`, whose low guard is `low_guard` bytes and whose
+/// read-only views are `read_only`; a fault outside the memory, inside the guard or inside a
+/// read-only view.
 pub(crate) fn write(
     memory: &Memory,
     low_guard: u32,
+    read_only: &ReadOnly,
     store: &impl AsStoreRef,
     addr: u32,
     bytes: &[u8],
 ) -> Result<(), Fault> {
     if in_guard(low_guard, addr, bytes.len()) {
+        return Err(Fault);
+    }
+    let read_only = read_only.ranges();
+    if in_read_only(&read_only, addr, bytes.len()) {
         return Err(Fault);
     }
     memory
@@ -130,23 +195,34 @@ pub(crate) fn write(
         .map_err(|_| Fault)
 }
 
-/// Makes `[addr, addr + len)` of `memory`, whose low guard is `low_guard` bytes, show `len`
-/// bytes of `pages` from `offset` ([`UserMemory::map_shared`]). `EINVAL` for a range outside the
-/// memory, inside the guard or not page aligned, or past the end of the object.
+/// Makes `[addr, addr + len)` of `memory`, whose low guard is `low_guard` bytes and whose
+/// read-only views are `read_only`, show `len` bytes of `pages` from `offset`, read-only unless
+/// `writable` ([`UserMemory::map_shared`]). `EINVAL` for a range outside the memory, inside the
+/// guard or not page aligned, or past the end of the object.
 #[cfg(all(unix, feature = "sys"))]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn map_shared(
     memory: &Memory,
     low_guard: u32,
+    read_only: &ReadOnly,
     store: &impl AsStoreRef,
-    addr: u32,
-    len: u64,
+    (addr, len): (u32, u64),
     pages: &dyn SharedPages,
     offset: u64,
+    writable: bool,
 ) -> Result<(), Errno> {
     let ptr = shared_range(memory, low_guard, store, addr, len)?;
+    let mut ranges = read_only.ranges_mut();
     // SAFETY: the range lies inside the memory's own mapping, which never moves (memories are
-    // reserved to their maximum) and which the host reaches only through views, by copies.
-    let mapped = unsafe { wasixv2_pages::map_at(ptr, len as usize, pages, offset) };
+    // reserved to their maximum) and which the host reaches only through views, by copies, and
+    // writes to only under `read_only`'s lock, held here.
+    let mapped = unsafe { wasixv2_pages::map_at(ptr, len as usize, pages, offset, writable) };
+    // A failure may leave the range as it was, or writable private pages: either way the
+    // record stays, which at worst refuses a host write the range would take.
+    if mapped.is_ok() {
+        let range = u64::from(addr)..u64::from(addr) + len;
+        set_read_only(&mut ranges, range, !writable);
+    }
     mapped.map_err(|err| host_errno(&err))
 }
 
@@ -156,13 +232,18 @@ pub(crate) fn map_shared(
 pub(crate) fn unmap_shared(
     memory: &Memory,
     low_guard: u32,
+    read_only: &ReadOnly,
     store: &impl AsStoreRef,
     addr: u32,
     len: u64,
 ) -> Result<(), Errno> {
     let ptr = shared_range(memory, low_guard, store, addr, len)?;
+    let mut ranges = read_only.ranges_mut();
     // SAFETY: as in `map_shared`.
     let unmapped = unsafe { wasixv2_pages::map_private_at(ptr, len as usize) };
+    if unmapped.is_ok() {
+        set_read_only(&mut ranges, u64::from(addr)..u64::from(addr) + len, false);
+    }
     unmapped.map_err(|err| host_errno(&err))
 }
 
@@ -204,12 +285,22 @@ impl<S> ExecEnv<S> {
     pub(crate) fn map_shared_memory(
         &self,
         store: &impl AsStoreRef,
-        (addr, len): (u32, u64),
+        (addr, len, writable): (u32, u64, bool),
         pages: &dyn SharedPages,
         offset: u64,
     ) -> Result<(), Errno> {
         let memory = self.memory.as_ref().ok_or(Errno::EFAULT)?;
-        map_shared(memory, self.low_guard, store, addr, len, pages, offset)
+        let (guard, read_only) = (self.low_guard, &*self.read_only);
+        map_shared(
+            memory,
+            guard,
+            read_only,
+            store,
+            (addr, len),
+            pages,
+            offset,
+            writable,
+        )
     }
 
     /// [`unmap_shared`] of the instance's memory.
@@ -221,7 +312,7 @@ impl<S> ExecEnv<S> {
         len: u64,
     ) -> Result<(), Errno> {
         let memory = self.memory.as_ref().ok_or(Errno::EFAULT)?;
-        unmap_shared(memory, self.low_guard, store, addr, len)
+        unmap_shared(memory, self.low_guard, &self.read_only, store, addr, len)
     }
 
     /// [`read`] of the instance's memory.
@@ -243,7 +334,7 @@ impl<S> ExecEnv<S> {
         bytes: &[u8],
     ) -> Result<(), Fault> {
         let memory = self.memory.as_ref().ok_or(Fault)?;
-        write(memory, self.low_guard, store, addr, bytes)
+        write(memory, self.low_guard, &self.read_only, store, addr, bytes)
     }
 }
 
@@ -334,12 +425,15 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
             let memory = data.memory.as_ref().ok_or(Fault)?;
             let view = memory.view(&*store);
             let outside = u64::from(addr) + 4 > view.data_size();
-            if !addr.is_multiple_of(4) || outside || in_guard(data.low_guard, addr, 4) {
+            let read_only = data.read_only.ranges();
+            let protected = in_guard(data.low_guard, addr, 4) || in_read_only(&read_only, addr, 4);
+            if !addr.is_multiple_of(4) || outside || protected {
                 return Err(Fault);
             }
-            // SAFETY: the word is in bounds, above the read-only low guard (a compare-exchange
-            // may write) and aligned, and linear memory stays mapped while the store is
-            // borrowed; guest threads only race with this through atomics.
+            // SAFETY: the word is in bounds, outside the read-only low guard and views (a
+            // compare-exchange may write), which stay so while `read_only` is held, and
+            // aligned, and linear memory stays mapped while the store is borrowed; guest
+            // threads only race with this through atomics.
             let word = unsafe { AtomicU32::from_ptr(view.data_ptr().add(addr as usize).cast()) };
             let current = word.compare_exchange(expected, new, Ordering::SeqCst, Ordering::SeqCst);
             Ok(current.unwrap_or_else(|actual| actual))
@@ -362,11 +456,12 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
         len: u64,
         pages: &'a dyn SharedPages,
         offset: u64,
+        writable: bool,
     ) -> LocalFuture<'a, Result<(), Errno>> {
         Box::pin(async move {
             let mut env = self.env.write().await;
             let (data, store) = env.data_and_store_mut();
-            data.map_shared_memory(&*store, (addr, len), pages, offset)
+            data.map_shared_memory(&*store, (addr, len, writable), pages, offset)
         })
     }
 
@@ -423,12 +518,11 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
         len: u64,
         pages: &'a dyn SharedPages,
         offset: u64,
+        writable: bool,
     ) -> LocalFuture<'a, Result<(), Errno>> {
-        Box::pin(
-            self.cx.with(move |data, store| {
-                data.map_shared_memory(&*store, (addr, len), pages, offset)
-            }),
-        )
+        Box::pin(self.cx.with(move |data, store| {
+            data.map_shared_memory(&*store, (addr, len, writable), pages, offset)
+        }))
     }
 
     #[cfg(all(unix, feature = "sys"))]
@@ -482,18 +576,21 @@ mod tests {
         let (a, b) = (memory(), memory());
         let pages = Memfd::new(2 * PAGE).unwrap();
         a.view(&store).write(2 * PAGE, b"private").unwrap();
-        map_shared(&a, LOW_GUARD, &store, 2 * PAGE as u32, 2 * PAGE, &pages, 0).unwrap();
-        map_shared(&b, LOW_GUARD, &store, PAGE as u32, PAGE, &pages, PAGE).unwrap();
+        let (ra, rb) = (ReadOnly::default(), ReadOnly::default());
+        let range = (2 * PAGE as u32, 2 * PAGE);
+        map_shared(&a, LOW_GUARD, &ra, &store, range, &pages, 0, true).unwrap();
+        let range = (PAGE as u32, PAGE);
+        map_shared(&b, LOW_GUARD, &rb, &store, range, &pages, PAGE, true).unwrap();
         // The object's zeros replaced the private bytes.
         assert_eq!(a.view(&store).read_u8(2 * PAGE).unwrap(), 0);
-        write(&a, LOW_GUARD, &store, 3 * PAGE as u32 + 8, b"seen").unwrap();
+        write(&a, LOW_GUARD, &ra, &store, 3 * PAGE as u32 + 8, b"seen").unwrap();
         let mut buf = [0; 4];
         read(&b, &store, PAGE as u32 + 8, &mut buf).unwrap();
         assert_eq!(&buf, b"seen");
         pages.read_at(&mut buf, PAGE + 8).unwrap();
         assert_eq!(&buf, b"seen");
 
-        unmap_shared(&a, LOW_GUARD, &store, 3 * PAGE as u32, PAGE).unwrap();
+        unmap_shared(&a, LOW_GUARD, &ra, &store, 3 * PAGE as u32, PAGE).unwrap();
         read(&a, &store, 3 * PAGE as u32 + 8, &mut buf).unwrap();
         assert_eq!(buf, [0; 4]);
         read(&b, &store, PAGE as u32 + 8, &mut buf).unwrap();
@@ -513,11 +610,110 @@ mod tests {
         let mut store = Store::default();
         let memory = Memory::new(&mut store, MemoryType::new(2, None, false)).unwrap();
         let pages = Memfd::new(2 * PAGE).unwrap();
-        let map =
-            |addr: u32, len: u64| map_shared(&memory, LOW_GUARD, &store, addr, len, &pages, 0);
+        let read_only = ReadOnly::default();
+        let map = |addr: u32, len: u64| {
+            map_shared(
+                &memory,
+                LOW_GUARD,
+                &read_only,
+                &store,
+                (addr, len),
+                &pages,
+                0,
+                true,
+            )
+        };
         assert_eq!(map(0, PAGE), Err(Errno::EINVAL));
         assert_eq!(map(PAGE as u32, 2 * PAGE), Err(Errno::EINVAL));
         assert_eq!(map(PAGE as u32, PAGE), Ok(()));
+    }
+
+    #[cfg(all(
+        feature = "sys",
+        any(target_os = "linux", target_os = "android", target_os = "macos")
+    ))]
+    #[test]
+    fn a_read_only_view_shows_other_stores_and_takes_no_host_write() {
+        use wasixv2_pages::Memfd;
+        use wasmer::{MemoryType, Store};
+
+        const PAGE: u64 = 65536;
+        let mut store = Store::default();
+        let mut memory = || Memory::new(&mut store, MemoryType::new(4, None, true)).unwrap();
+        let (writer, reader) = (memory(), memory());
+        let (rw, ro) = (ReadOnly::default(), ReadOnly::default());
+        let pages = Memfd::new(PAGE).unwrap();
+        let at = 2 * PAGE as u32;
+        map_shared(&writer, 0, &rw, &store, (at, PAGE), &pages, 0, true).unwrap();
+        map_shared(&reader, 0, &ro, &store, (at, PAGE), &pages, 0, false).unwrap();
+
+        write(&writer, 0, &rw, &store, at + 4, b"shown").unwrap();
+        let mut buf = [0; 5];
+        read(&reader, &store, at + 4, &mut buf).unwrap();
+        assert_eq!(&buf, b"shown");
+        assert_eq!(write(&reader, 0, &ro, &store, at + 4, b"x"), Err(Fault));
+        // A write reaching into the view from below faults as a whole.
+        assert_eq!(write(&reader, 0, &ro, &store, at - 2, b"xyz"), Err(Fault));
+        write(&reader, 0, &ro, &store, at - 2, b"xy").unwrap();
+
+        // Unmapped, the range is writable private memory again.
+        unmap_shared(&reader, 0, &ro, &store, at, PAGE).unwrap();
+        write(&reader, 0, &ro, &store, at + 4, b"x").unwrap();
+        read(&writer, &store, at + 4, &mut buf).unwrap();
+        assert_eq!(&buf, b"shown");
+    }
+
+    #[cfg(all(
+        feature = "sys",
+        any(target_os = "linux", target_os = "android", target_os = "macos")
+    ))]
+    #[test]
+    fn a_guest_store_into_a_read_only_view_traps() {
+        use wasixv2_pages::Memfd;
+        use wasmer::{Function, MemoryType, Module, Store, TypedFunction, imports};
+
+        const PAGE: u64 = 65536;
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(4, None, false)).unwrap();
+        let wasm = wat::parse_str(
+            r#"(module
+                (import "env" "memory" (memory 4))
+                (func (export "store") (param i32)
+                    (i32.store8 (local.get 0) (i32.const 1))))"#,
+        )
+        .unwrap();
+        let module = Module::new(&store, wasm).unwrap();
+        let imports = imports! { "env" => { "memory" => memory.clone() } };
+        let instance = Instance::new(&mut store, &module, &imports).unwrap();
+        let read_only = ReadOnly::default();
+        let pages = Memfd::new(PAGE).unwrap();
+        let at = 2 * PAGE as u32;
+        map_shared(&memory, 0, &read_only, &store, (at, PAGE), &pages, 0, false).unwrap();
+
+        let function: &Function = instance.exports.get_function("store").unwrap();
+        let store_at: TypedFunction<u32, ()> = function.typed(&store).unwrap();
+        store_at.call(&mut store, at + PAGE as u32).unwrap();
+        assert!(store_at.call(&mut store, at + 8).is_err());
+        assert_eq!(memory.view(&store).read_u8(u64::from(at) + 8).unwrap(), 0);
+    }
+
+    #[cfg(all(unix, feature = "sys"))]
+    #[test]
+    fn views_are_recorded_and_forgotten_by_range() {
+        let mut ranges = Vec::new();
+        set_read_only(&mut ranges, 10..20, true);
+        set_read_only(&mut ranges, 30..40, true);
+        assert!(in_read_only(&ranges, 19, 1));
+        assert!(!in_read_only(&ranges, 20, 10));
+        assert!(!in_read_only(&ranges, 10, 0));
+        // A writable mapping over the middle of one splits it.
+        set_read_only(&mut ranges, 12..14, false);
+        assert_eq!(ranges, [10..12, 14..20, 30..40]);
+        // One across two takes their overlapping parts.
+        set_read_only(&mut ranges, 16..35, true);
+        assert_eq!(ranges, [10..12, 14..16, 35..40, 16..35]);
+        set_read_only(&mut ranges, 0..100, false);
+        assert!(ranges.is_empty());
     }
 
     #[test]

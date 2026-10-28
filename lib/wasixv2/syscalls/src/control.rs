@@ -270,6 +270,11 @@ pub struct SharedMapping {
     pub pages: Arc<dyn SharedPages>,
     /// Where in the object the range starts.
     pub offset: u64,
+    /// Whether the range may be written; a read-only view otherwise
+    /// ([`UserMemory::map_shared`]).
+    ///
+    /// [`UserMemory::map_shared`]: crate::UserMemory::map_shared
+    pub writable: bool,
 }
 
 impl std::fmt::Debug for SharedMapping {
@@ -279,6 +284,7 @@ impl std::fmt::Debug for SharedMapping {
             .field("len", &self.len)
             .field("object", &self.pages.id())
             .field("offset", &self.offset)
+            .field("writable", &self.writable)
             .finish()
     }
 }

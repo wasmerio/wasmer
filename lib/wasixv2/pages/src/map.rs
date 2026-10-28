@@ -16,9 +16,10 @@ fn invalid() -> io::Error {
     io::Error::from_raw_os_error(libc::EINVAL)
 }
 
-/// Maps `len` bytes of `pages` from `offset` at `addr`, readable and writable, replacing what was
-/// mapped there (`mmap` with `MAP_SHARED | MAP_FIXED`): from then on the range shows the object,
-/// as every other mapping of it does.
+/// Maps `len` bytes of `pages` from `offset` at `addr`, readable, and writable with `writable`,
+/// replacing what was mapped there (`mmap` with `MAP_SHARED | MAP_FIXED`): from then on the range
+/// shows the object, as every other mapping of it does. A store into a range mapped without
+/// `writable` raises `SIGSEGV`, while the object's other mappings may still change its bytes.
 ///
 /// Fails with `EINVAL` when the range or the offset is not page aligned or the range reaches past
 /// the object's size, so no access through it can raise `SIGBUS`, and with
@@ -29,12 +30,14 @@ fn invalid() -> io::Error {
 /// # Safety
 ///
 /// `addr..addr + len` must lie inside a mapping the caller owns, readable and writable, whose
-/// contents may be replaced: nothing may hold a Rust reference into it.
+/// contents may be replaced: nothing may hold a Rust reference into it. Without `writable`,
+/// nothing may store into the range until it is mapped again.
 pub unsafe fn map_at(
     addr: *mut u8,
     len: usize,
     pages: &dyn SharedPages,
     offset: u64,
+    writable: bool,
 ) -> io::Result<()> {
     let fd = pages
         .fd()
@@ -49,7 +52,10 @@ pub unsafe fn map_at(
         return Err(invalid());
     }
     let offset = libc::off_t::try_from(offset).map_err(|_| invalid())?;
-    let prot = libc::PROT_READ | libc::PROT_WRITE;
+    let prot = match writable {
+        true => libc::PROT_READ | libc::PROT_WRITE,
+        false => libc::PROT_READ,
+    };
     let flags = libc::MAP_SHARED | libc::MAP_FIXED;
     // SAFETY: the caller owns the range and lets its contents go; MAP_FIXED replaces it in place.
     let ptr = unsafe { libc::mmap(addr.cast(), len, prot, flags, fd.as_raw_fd(), offset) };
@@ -145,8 +151,8 @@ mod tests {
         a.set(1, 0, 9);
         // SAFETY: both ranges are inside regions this test owns.
         unsafe {
-            map_at(a.page(1), 2 * PAGE, &pages, 0).unwrap();
-            map_at(b.page(0), PAGE, &pages, PAGE as u64).unwrap();
+            map_at(a.page(1), 2 * PAGE, &pages, 0, true).unwrap();
+            map_at(b.page(0), PAGE, &pages, PAGE as u64, true).unwrap();
         }
         // The object's zeros replaced what the page held.
         assert_eq!(a.get(1, 0), 0);
@@ -164,7 +170,7 @@ mod tests {
         let pages = Memfd::new(PAGE as u64).unwrap();
         let region = Region::new(2);
         // SAFETY: inside a region this test owns.
-        unsafe { map_at(region.page(1), PAGE, &pages, 0).unwrap() };
+        unsafe { map_at(region.page(1), PAGE, &pages, 0, true).unwrap() };
         region.set(1, 0, 1);
         // SAFETY: as above.
         unsafe { map_private_at(region.page(1), PAGE).unwrap() };
@@ -175,15 +181,61 @@ mod tests {
         assert_eq!(byte, [1]);
     }
 
+    /// Whether the kernel may store into `ptr`: `read(2)` from a pipe into it fails with
+    /// `EFAULT` where it may not, where a store of the process would raise `SIGSEGV`.
+    fn kernel_may_store(ptr: *mut u8) -> bool {
+        let mut fds = [0; 2];
+        // SAFETY: `fds` has room for both ends.
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        // SAFETY: a one-byte buffer; `ptr` is only handed to the kernel, which checks it.
+        let read = unsafe {
+            assert_eq!(libc::write(fds[1], [1u8].as_ptr().cast(), 1), 1);
+            libc::read(fds[0], ptr.cast(), 1)
+        };
+        let errno = io::Error::last_os_error().raw_os_error();
+        // SAFETY: the pipe's own descriptors.
+        unsafe {
+            libc::close(fds[0]);
+            libc::close(fds[1]);
+        }
+        match read {
+            1 => true,
+            _ => {
+                assert_eq!(errno, Some(libc::EFAULT));
+                false
+            }
+        }
+    }
+
+    #[test]
+    fn a_read_only_mapping_shows_the_object_and_refuses_stores() {
+        let pages = Memfd::new(PAGE as u64).unwrap();
+        let (writer, reader) = (Region::new(1), Region::new(2));
+        // SAFETY: inside regions this test owns; nothing stores into the read-only range.
+        unsafe {
+            map_at(writer.page(0), PAGE, &pages, 0, true).unwrap();
+            map_at(reader.page(1), PAGE, &pages, 0, false).unwrap();
+        }
+        writer.set(0, 3, 7);
+        assert_eq!(reader.get(1, 3), 7);
+        assert!(!kernel_may_store(reader.page(1)));
+        assert!(kernel_may_store(reader.page(0)));
+        // Private pages in its place are writable again.
+        // SAFETY: as above.
+        unsafe { map_private_at(reader.page(1), PAGE).unwrap() };
+        assert!(kernel_may_store(reader.page(1)));
+        assert_eq!(writer.get(0, 3), 7);
+    }
+
     #[test]
     fn a_range_past_the_object_is_refused() {
         let pages = Memfd::new(PAGE as u64).unwrap();
         let region = Region::new(2);
         // SAFETY: inside a region this test owns; the call fails before it maps anything.
-        let err = unsafe { map_at(region.page(0), 2 * PAGE, &pages, 0) }.unwrap_err();
+        let err = unsafe { map_at(region.page(0), 2 * PAGE, &pages, 0, true) }.unwrap_err();
         assert_eq!(err.raw_os_error(), Some(libc::EINVAL));
         // SAFETY: as above.
-        let err = unsafe { map_at(region.page(0), PAGE, &pages, 1) }.unwrap_err();
+        let err = unsafe { map_at(region.page(0), PAGE, &pages, 1, true) }.unwrap_err();
         assert_eq!(err.raw_os_error(), Some(libc::EINVAL));
     }
 
@@ -215,7 +267,7 @@ mod tests {
         }
         let region = Region::new(1);
         // SAFETY: inside a region this test owns; the call fails before it maps anything.
-        let err = unsafe { map_at(region.page(0), PAGE, &Heap, 0) }.unwrap_err();
+        let err = unsafe { map_at(region.page(0), PAGE, &Heap, 0, true) }.unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::Unsupported);
     }
 }

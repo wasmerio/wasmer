@@ -31,9 +31,10 @@
 //! memfd and `/dev/shm` tmpfs, [`wasixv2_vfs::Node::shared_pages`]). Making, moving and removing
 //! such a mapping places the object's pages in the range and takes them out again.
 //!
-//! A shared file mapping that may never be written (its file is not open for writing, or is
-//! write-sealed) stays a copy even then: wasm cannot protect the pages, and a mapping of the
-//! object would let the guest change a file it may only read.
+//! A mapping that may never be written (a `SHM_RDONLY` attachment, a shared mapping of a file
+//! not open for writing or write-sealed) shows the pages read-only: the host maps them without
+//! write access, as it does the low guard, so a store by the guest faults with `SIGSEGV` and a
+//! syscall writing there fails with `EFAULT`. It still shows every store other mappings make.
 
 use std::{ops::Range, sync::Arc};
 
@@ -72,8 +73,8 @@ pub(crate) struct Mapped {
     pub(crate) offset: u64,
     /// For a SysV segment attachment, the attachment it is a part of.
     pub(crate) segment: Option<Arc<Attachment>>,
-    /// Whether the mapping may be written (`SHM_RDONLY` clears it). The memory is writable all
-    /// the same, as wasm enforces no protection; only `mprotect` tells.
+    /// Whether the mapping may be written (`VM_MAYWRITE`): `SHM_RDONLY` clears it, and so does
+    /// a file not open for writing or write-sealed. The memory shows the pages read-only then.
     pub(crate) writable: bool,
     /// For a shared mapping of a file, its count in the file's writable mappings, which
     /// `F_SEAL_WRITE` waits on; every part and fork copy counts on its own, as a vma does.
@@ -91,7 +92,9 @@ impl Mapped {
     /// Places `len` bytes of the object from the mapping's offset at `start`.
     async fn attach(&self, memory: &dyn UserMemory, start: u64, len: u64) -> Result<(), Errno> {
         let at = u32::try_from(start).map_err(|_| Errno::ENOMEM)?;
-        memory.map_shared(at, len, &*self.pages, self.offset).await
+        memory
+            .map_shared(at, len, &*self.pages, self.offset, self.writable)
+            .await
     }
 }
 

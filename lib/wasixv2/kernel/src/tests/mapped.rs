@@ -3,7 +3,8 @@
 //! an object's pages, as the execution layer's on Unix.
 
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
+    ops::Range,
     sync::atomic::{AtomicU32, Ordering},
 };
 
@@ -14,6 +15,7 @@ use wasixv2_abi::{
 };
 use wasixv2_pages::{Memfd, Provider, SharedPages, map_at, map_private_at};
 use wasixv2_syscalls::{AtomicWait, AtomicWord, read_value};
+use wasixv2_vfs::MountFlags;
 
 use super::{ipc::errno, *};
 
@@ -23,11 +25,13 @@ const RW: ProtFlags = ProtFlags(3);
 const RESERVED: usize = 64;
 
 /// Linear memory the way the execution layer has it on Unix: one host mapping reserved for all
-/// it may grow to, whose ranges can show a shared object's pages.
+/// it may grow to, whose ranges can show a shared object's pages, read-only ones without write
+/// access, where writes fault.
 pub(super) struct MappedMemory {
     base: *mut u8,
     size: Cell<usize>,
     forkable: bool,
+    read_only: RefCell<Vec<Range<u32>>>,
 }
 
 impl MappedMemory {
@@ -43,6 +47,7 @@ impl MappedMemory {
             base: base.cast(),
             size: Cell::new(pages * PAGE as usize),
             forkable,
+            read_only: RefCell::new(Vec::new()),
         }
     }
 
@@ -52,9 +57,8 @@ impl MappedMemory {
         let child = Self::new(self.size.get() / PAGE as usize, self.forkable);
         // SAFETY: both ranges lie inside their reservations, which do not overlap.
         unsafe { std::ptr::copy_nonoverlapping(self.base, child.base, self.size.get()) };
-        for mapping in shared {
-            block_on(child.map_shared(mapping.addr, mapping.len, &*mapping.pages, mapping.offset))
-                .unwrap();
+        for m in shared {
+            block_on(child.map_shared(m.addr, m.len, &*m.pages, m.offset, m.writable)).unwrap();
         }
         child
     }
@@ -66,6 +70,32 @@ impl MappedMemory {
                 Ok(unsafe { self.base.add(addr as usize) })
             }
             _ => Err(Fault),
+        }
+    }
+
+    /// The host address of `len` bytes at `addr`, which may be written: outside every read-only
+    /// view.
+    fn writable_range(&self, addr: u32, len: usize) -> Result<*mut u8, Fault> {
+        let end = addr as usize + len;
+        let read_only = self.read_only.borrow();
+        let hit = |r: &Range<u32>| (r.start as usize) < end && addr < r.end;
+        match len > 0 && read_only.iter().any(hit) {
+            true => Err(Fault),
+            false => self.range(addr, len),
+        }
+    }
+
+    /// Records `[addr, addr + len)` as a read-only view or not.
+    fn set_read_only(&self, addr: u32, len: u64, read_only: bool) {
+        let end = addr + len as u32;
+        let mut ranges = self.read_only.borrow_mut();
+        let old = std::mem::take(&mut *ranges);
+        for r in old {
+            let parts = [r.start..r.end.min(addr), r.start.max(end)..r.end];
+            ranges.extend(parts.into_iter().filter(|part| !part.is_empty()));
+        }
+        if read_only {
+            ranges.push(addr..end);
         }
     }
 
@@ -97,7 +127,7 @@ impl UserMemory for MappedMemory {
     }
 
     fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
-        let result = self.range(addr, data.len()).map(|dst| {
+        let result = self.writable_range(addr, data.len()).map(|dst| {
             // SAFETY: in bounds; nothing else holds a reference into the memory.
             unsafe { std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len()) }
         });
@@ -130,7 +160,7 @@ impl UserMemory for MappedMemory {
         expected: u32,
         new: u32,
     ) -> LocalFuture<'_, Result<u32, Fault>> {
-        let result = self.range(addr, 4).map(|ptr| {
+        let result = self.writable_range(addr, 4).map(|ptr| {
             // SAFETY: in bounds and aligned (futex words are); other memories reach the word
             // only through atomics or copies.
             let word = unsafe { AtomicU32::from_ptr(ptr.cast()) };
@@ -146,12 +176,16 @@ impl UserMemory for MappedMemory {
         len: u64,
         pages: &'a dyn SharedPages,
         offset: u64,
+        writable: bool,
     ) -> LocalFuture<'a, Result<(), Errno>> {
         let result = self.range(addr, len as usize).map_err(|_| Errno::EINVAL);
-        // SAFETY: inside the reservation this memory owns.
+        // SAFETY: inside the reservation this memory owns; nothing writes a read-only view.
         let result = result.and_then(|ptr| {
-            unsafe { map_at(ptr, len as usize, pages, offset) }.map_err(|_| Errno::EINVAL)
+            unsafe { map_at(ptr, len as usize, pages, offset, writable) }.map_err(|_| Errno::EINVAL)
         });
+        if result.is_ok() {
+            self.set_read_only(addr, len, !writable);
+        }
         Box::pin(async move { result })
     }
 
@@ -161,6 +195,9 @@ impl UserMemory for MappedMemory {
         let result = result.and_then(|ptr| {
             unsafe { map_private_at(ptr, len as usize) }.map_err(|_| Errno::EINVAL)
         });
+        if result.is_ok() {
+            self.set_read_only(addr, len, false);
+        }
         Box::pin(async move { result })
     }
 }
@@ -682,13 +719,89 @@ fn a_write_seal_waits_for_every_writable_mapping_in_every_process() {
 
     let mapped = kernel.mmap(&caller, 0, PAGE, RW, MapFlags::MAP_SHARED, fd, 0);
     assert_eq!(errno(block_on(mapped)), Errno::EPERM);
-    // A read-only mapping of the sealed file is a copy: stores to it never reach the file.
+    // A read-only mapping of the sealed file shows its pages read-only: stores to it fault.
     let read_only = map_file(&kernel, &caller, fd, PAGE, ProtFlags::PROT_READ);
-    assert!(kernel.shared_mappings(parent).is_empty());
-    memory.put(read_only, b"sealed?");
+    let shared = kernel.shared_mappings(parent);
+    assert!(shared.len() == 1 && !shared[0].writable);
+    assert_eq!(block_on(memory.write(read_only, b"sealed?")), Err(Fault));
     let synced = kernel.msync(&caller, read_only, PAGE, MsyncFlags::MS_SYNC);
     assert_eq!(block_on(synced), Ok(0));
     assert_eq!(pread(&kernel, &caller, fd, 7, 0), [0; 7]);
+}
+
+#[test]
+fn a_read_only_attachment_shows_the_segment_and_takes_no_store() {
+    let (kernel, parent) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let id = block_on(kernel.shmget(&caller, 8, PAGE, CREATE)).unwrap();
+    let rdonly = wasixv2_abi::ShmFlags::SHM_RDONLY.0 as i32;
+    let rw = block_on(kernel.shmat(&caller, id, 0, 0)).unwrap() as u32;
+    let ro = block_on(kernel.shmat(&caller, id, 0, rdonly)).unwrap() as u32;
+
+    // The view shows every store, with no synchronisation point in between.
+    memory.put(rw + 8, b"stored");
+    assert_eq!(memory.get(ro + 8, 6), b"stored");
+    assert_eq!(block_on(memory.write(ro + 8, b"x")), Err(Fault));
+    // A syscall that would store there fails as copy_to_user does.
+    let fd = memfd(&kernel, &caller, MemfdFlags::empty());
+    pwrite(&kernel, &caller, fd, b"file", 0);
+    let read = block_on(kernel.pread64(&caller, fd, UserSliceMut::new(ro + 8, 4), 0));
+    assert_eq!(errno(read), Errno::EFAULT);
+    assert_eq!(memory.get(ro + 8, 6), b"stored");
+
+    // A fork child's copy of the attachment is read-only as well.
+    let child = fork(&kernel, &caller);
+    let child_memory = memory.fork(&kernel.shared_mappings(child));
+    assert_eq!(block_on(child_memory.write(ro, b"x")), Err(Fault));
+    child_memory.put(rw, b"child");
+    assert_eq!(memory.get(ro, 5), b"child");
+
+    // Detached, the range is writable memory again.
+    assert_eq!(block_on(kernel.shmdt(&caller, ro)), Ok(0));
+    memory.put(ro, b"private");
+    assert_eq!(memory.get(rw, 5), b"child");
+}
+
+#[test]
+fn a_shared_mapping_of_a_file_open_for_reading_shows_its_pages_read_only() {
+    let (kernel, task) = shared_machine();
+    let clock = Arc::new(HostClock(kernel.host.clone()));
+    let shm = MemFs::new(clock, 0o1777, 0, 0).with_shared_pages(Arc::new(SharedHost));
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/shm", Arc::new(shm), MountFlags::default(), true)).unwrap();
+    let memory = MappedMemory::new(2, false);
+    let caller = Caller::new(task, &memory);
+    let open = |flags: OpenFlags| {
+        block_on(caller.memory().write(NAME, b"/shm/f\0")).unwrap();
+        block_on(kernel.openat(&caller, Fd(-100), Cstr::new(NAME), flags, 0o600)).unwrap()
+    };
+    let writer = open(OpenFlags::O_RDWR | OpenFlags::O_CREAT);
+    ftruncate(&kernel, &caller, writer, PAGE.into());
+    let reader = open(OpenFlags::O_RDONLY);
+
+    let at = map_file(&kernel, &caller, reader, PAGE, ProtFlags::PROT_READ);
+    let shared = kernel.shared_mappings(task);
+    assert!(shared.len() == 1 && !shared[0].writable);
+    let rw_at = map_file(&kernel, &caller, writer, PAGE, RW);
+    memory.put(rw_at + 16, b"stored");
+    assert_eq!(memory.get(at + 16, 6), b"stored");
+    pwrite(&kernel, &caller, writer, b"written", 0);
+    assert_eq!(memory.get(at, 7), b"written");
+
+    assert_eq!(block_on(memory.write(at, b"x")), Err(Fault));
+    let read = block_on(kernel.pread64(&caller, writer, UserSliceMut::new(at, 4), 0));
+    assert_eq!(errno(read), Errno::EFAULT);
+    let mprotect = kernel.mprotect(&caller, at, PAGE, RW);
+    assert_eq!(errno(block_on(mprotect)), Errno::EACCES);
+
+    // A mapping placed over it takes its write protection away, as munmap does.
+    let fixed = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS | MapFlags::MAP_FIXED;
+    let anon = block_on(kernel.mmap(&caller, at, PAGE, RW, fixed, Fd(-1), 0));
+    assert_eq!(anon, Ok(at));
+    assert!(kernel.shared_mappings(task).len() == 1);
+    memory.put(at, b"private");
+    assert_eq!(memory.get(rw_at, 7), b"written");
 }
 
 #[test]
