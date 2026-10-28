@@ -139,6 +139,7 @@ The kernel is plain async Rust with no wasm engine, no async runtime and no reco
 - **Signals.**
   - Pending sets per task and per thread group, masks, dispositions, `sigaltstack`, and queued realtime signals, counted per user against `RLIMIT_SIGPENDING`.
   - Delivered on the return-to-guest path.
+  - Job control as in `kernel/signal.c`: a stop signal's default action stops every task of the thread group on its way back to the guest, where its instance waits until SIGCONT, SIGKILL, an exit or an `execve` ends the stop.
 - **Waiting and time.**
   - Wait queues; futexes keyed by address space and address, as Linux keys private futexes, so every task on one memory (threads, a vfork child) meets on them. Shared mappings are copies, so a futex in one works only within its process (see [Mappings without an MMU](#mappings-without-an-mmu)).
   - Wasm's `memory.atomic.wait32`, `wait64` and `notify` are futex operations on the same queues (`AtomicWait`), so the instructions and `futex` wake each other's waiters.
@@ -525,6 +526,7 @@ The execution crate is the only layer below the facade that knows about the wasm
   - deliver signals: build the frame, run the handler, and have `rt_sigreturn` restore state
   - restart interrupted calls
   - swap the image after `execve`
+  - wait while the thread group is stopped
   - tear down on exit
 - **Signal frames.** The interrupted wasm call stack stays intact under the handler, so the frame is small.
   - **`mcontext_t`** holds only guest state a handler can clobber, such as the shadow stack pointer and the TLS base.

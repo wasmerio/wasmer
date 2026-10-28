@@ -1050,7 +1050,7 @@ fn pidfd_send_signal_passes_its_siginfo_and_reaches_a_zombie() {
 }
 
 /// Makes the caller's process ignore `sig`.
-fn ignore(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) {
+pub(super) fn ignore(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) {
     let act = Sigaction {
         sa_handler: wasixv2_abi::SignalHandler::SIG_IGN.0 as u32,
         sa_flags: 0,

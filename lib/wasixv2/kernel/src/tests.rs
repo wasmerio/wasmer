@@ -704,6 +704,7 @@ mod cred;
 mod fs;
 mod futex;
 mod ipc;
+mod jobctl;
 mod mapping;
 mod memfd;
 mod net;

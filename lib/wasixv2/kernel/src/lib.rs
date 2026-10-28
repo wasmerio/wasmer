@@ -69,8 +69,8 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 pub use wasixv2_host::Stdio;
 use wasixv2_syscalls::{
-    AtomicWait, AtomicWord, Binfmt, Caller, Control, Errno, ExitMm, Fd, GuestAction, Image,
-    LocalFuture, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
+    AtomicWait, AtomicWord, Binfmt, Caller, Control, Errno, ExitMm, Fd, GroupStop, GuestAction,
+    Image, LocalFuture, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -2469,6 +2469,9 @@ impl Control for Kernel {
             // What made the task leave its wait is here.
             Some(action) => {
                 signals.group().clear_notify(task);
+                if let GuestAction::Exit(_) = action {
+                    self.exit_signals(task, &signals);
+                }
                 Some(action)
             }
             None => self.take_signal(task, &signals),
@@ -2511,6 +2514,12 @@ impl Control for Kernel {
 
     fn exec_wait(&self, task: TaskId) -> LocalFuture<'_, Result<(), i32>> {
         Box::pin(Kernel::exec_wait(self, task))
+    }
+}
+
+impl GroupStop for Kernel {
+    fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
+        Box::pin(Kernel::stop_wait(self, task))
     }
 }
 

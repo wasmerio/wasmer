@@ -27,7 +27,7 @@ use wasixv2_syscalls::{
     Caller, Errno, GuestAction, SignalFrame, SysErr, SysResult, TaskId, WorkFlag, read_value,
     write_value,
 };
-use wasixv2_wait::{Interrupt, WaitQueue, Waiter, Wakeup};
+use wasixv2_wait::{Interrupt, NoInterrupt, WaitQueue, Waiter, Wakeup, wait_event};
 
 use crate::{
     Kernel, Process,
@@ -40,6 +40,11 @@ use crate::{
 pub(crate) const NSIG: i32 = 64;
 const SIGRTMIN: i32 = 32;
 const UNBLOCKABLE: u64 = bit(Signal::SIGKILL.0) | bit(Signal::SIGSTOP.0);
+/// The signals whose default action stops the thread group (`SIG_KERNEL_STOP_MASK`).
+const STOP_SIGNALS: u64 = bit(Signal::SIGSTOP.0)
+    | bit(Signal::SIGTSTP.0)
+    | bit(Signal::SIGTTIN.0)
+    | bit(Signal::SIGTTOU.0);
 
 const fn bit(sig: i32) -> u64 {
     1 << (sig - 1)
@@ -133,6 +138,27 @@ struct GroupState {
     /// The kernel's init: a signal whose action is the default is dropped as it is sent,
     /// SIGKILL and SIGSTOP included (`SIGNAL_UNKILLABLE`, `is_global_init`).
     unkillable: bool,
+    jobctl: JobCtl,
+}
+
+/// The thread group's half of job control (`signal_struct`'s `group_stop_count`,
+/// `group_exit_code` and `SIGNAL_STOP_*` flags); each task's half is in [`TaskState`].
+#[derive(Default)]
+struct JobCtl {
+    /// The tasks yet to take part in the group stop under way (`group_stop_count`).
+    group_stop_count: usize,
+    /// The signal that stopped the group, until a `waitid` with `WSTOPPED` reports it
+    /// (`group_exit_code`); 0 once reported.
+    stop_code: i32,
+    /// Every task took part in the last group stop, and no SIGCONT came since
+    /// (`SIGNAL_STOP_STOPPED`).
+    stopped: bool,
+    /// SIGCONT continued the group, and no `waitid` with `WCONTINUED` reported it yet
+    /// (`SIGNAL_STOP_CONTINUED`).
+    continued: bool,
+    /// What the next task through [`Kernel::take_signal`] tells the parent after a SIGCONT
+    /// (`SIGNAL_CLD_MASK`): `CLD_CONTINUED`, or `CLD_STOPPED` for a stop it cut short.
+    report: Option<SiCode>,
 }
 
 impl Default for GroupState {
@@ -146,6 +172,7 @@ impl Default for GroupState {
             posix_timers: posix_timer::Table::default(),
             ignored_timers: Vec::new(),
             unkillable: false,
+            jobctl: JobCtl::default(),
         }
     }
 }
@@ -296,6 +323,15 @@ struct TaskState {
     /// child's signal state: a fatal signal for the task wakes the child, whose next return to
     /// the guest ends this task's group (`wait_for_vfork_done` is `TASK_KILLABLE`).
     vfork_child: Option<(Arc<Signals>, TaskId)>,
+    /// The task has yet to take part in the group stop under way (`JOBCTL_STOP_PENDING` with
+    /// `JOBCTL_STOP_CONSUME`): it leaves its blocking wait and stops on its way back to the
+    /// guest.
+    stop_pending: bool,
+    /// The task dequeued a stop signal and no SIGCONT came since (`JOBCTL_STOP_DEQUEUED`).
+    stop_dequeued: bool,
+    /// The task stopped and runs no guest code until it is continued (`JOBCTL_STOPPED`,
+    /// `TASK_STOPPED`).
+    stopped: bool,
 }
 
 impl TaskState {
@@ -309,6 +345,9 @@ impl TaskState {
             altstack: inherited.altstack,
             frames: Vec::new(),
             vfork_child: None,
+            stop_pending: false,
+            stop_dequeued: false,
+            stopped: false,
         }
     }
 }
@@ -463,7 +502,14 @@ impl Signals {
         flag: Arc<WorkFlag>,
     ) -> Arc<TaskSignals> {
         let mut state = self.state.lock_or_recover();
-        state.tasks.insert(task, TaskState::new(inherited, flag));
+        let mut new = TaskState::new(inherited, flag);
+        // `task_join_group_stop`: a thread created while its group stops takes part too.
+        if state.jobctl.group_stop_count != 0 {
+            state.jobctl.group_stop_count += 1;
+            new.stop_pending = true;
+            new.flag.raise();
+        }
+        state.tasks.insert(task, new);
         Arc::new(TaskSignals {
             group: self.clone(),
             task,
@@ -533,6 +579,20 @@ impl Signals {
     }
     // ---- end proc ----
 
+    // ---- job control ----
+    /// The group stopped and is stopped still (`SIGNAL_STOP_STOPPED`).
+    #[cfg(test)]
+    pub(crate) fn is_stopped(&self) -> bool {
+        self.state.lock_or_recover().jobctl.stopped
+    }
+
+    /// See [`GroupState::cancel_stop`]; stopped tasks wake.
+    pub(crate) fn cancel_stop(&self, dying: bool) {
+        self.state.lock_or_recover().cancel_stop(dying);
+        self.queue.wake(wasixv2_wait::PollMask::empty());
+    }
+    // ---- end job control ----
+
     /// `zap_other_threads`: queues SIGKILL for the group, so every task blocked in an
     /// interruptible wait wakes up and unwinds through its pending exit.
     pub(crate) fn kill_all(&self) {
@@ -594,11 +654,20 @@ impl Signals {
         let charge = self.account.as_ref().map_or(Ok(None), |a| a.charge(&info));
         let mut state = self.state.lock_or_recover();
         if !state.prepare(task, info.si_signo) {
+            drop(state);
+            // A SIGCONT continues the group though it is discarded.
+            if info.si_signo == Signal::SIGCONT.0 {
+                self.queue.wake(wasixv2_wait::PollMask::empty());
+            }
             return Ok(false);
         }
         let target = task.filter(|task| state.tasks.contains_key(task));
         state.pending(target).add(info, charge)?;
         state.raise(target, info.si_signo);
+        // `complete_signal`: SIGKILL wakes even stopped tasks, which go on to their end.
+        if info.si_signo == Signal::SIGKILL.0 {
+            state.cancel_stop(false);
+        }
         let vfork_children = state.killed_vfork_children(target, info.si_signo);
         drop(state);
         self.queue.wake(wasixv2_wait::PollMask::empty());
@@ -626,6 +695,9 @@ impl Signals {
             .iter()
             .position(|t| Arc::ptr_eq(t, timer));
         if !state.prepare(target, info.si_signo) {
+            if info.si_signo == Signal::SIGCONT.0 {
+                self.queue.wake(wasixv2_wait::PollMask::empty());
+            }
             // A queued signal that is ignored now stays, as a regular one does. Otherwise a
             // periodic timer waits on the ignored list for the signal to be caught again,
             // and a one-shot one is done.
@@ -717,25 +789,22 @@ impl Signals {
 }
 
 impl GroupState {
-    /// `prepare_signal`: SIGCONT and the stop signals cancel each other; returns whether
-    /// `sig` is to be queued for `task`, or for the group with `None`. A blocked signal is
-    /// never ignored, since the handler may change before it is unblocked (`sig_ignored`).
+    /// `prepare_signal`: SIGCONT and the stop signals cancel each other, and SIGCONT continues
+    /// a stopped group whatever its disposition; returns whether `sig` is to be queued for
+    /// `task`, or for the group with `None`. A blocked signal is never ignored, since the
+    /// handler may change before it is unblocked (`sig_ignored`). The caller wakes the group's
+    /// queue after a SIGCONT, queued or not.
     fn prepare(&mut self, task: Option<TaskId>, sig: i32) -> bool {
-        let stops = [
-            Signal::SIGSTOP,
-            Signal::SIGTSTP,
-            Signal::SIGTTIN,
-            Signal::SIGTTOU,
-        ]
-        .iter()
-        .fold(0, |mask, sig| mask | bit(sig.0));
         let cancelled = match Signal(sig) {
-            Signal::SIGCONT => stops,
-            _ if stops & bit(sig) != 0 => bit(Signal::SIGCONT.0),
+            Signal::SIGCONT => STOP_SIGNALS,
+            _ if STOP_SIGNALS & bit(sig) != 0 => bit(Signal::SIGCONT.0),
             _ => 0,
         };
         if cancelled != 0 {
             self.flush(cancelled);
+        }
+        if sig == Signal::SIGCONT.0 {
+            self.continue_group();
         }
         let blocked = match task {
             Some(task) => self
@@ -745,6 +814,88 @@ impl GroupState {
             None => self.tasks.values().all(|t| t.blocked & bit(sig) != 0),
         };
         blocked || !self.ignores(sig)
+    }
+
+    /// `prepare_signal`'s SIGCONT: every task goes on, and a group that was stopped, or was
+    /// stopping, has that reported to its parent by the first task through
+    /// [`Kernel::take_signal`]. A stop SIGCONT cut short is reported as a stop: SIGCHLD does not
+    /// queue, so the continue that would follow it is as good as lost.
+    fn continue_group(&mut self) {
+        for task in self.tasks.values_mut() {
+            (task.stop_pending, task.stop_dequeued, task.stopped) = (false, false, false);
+        }
+        let report = match (self.jobctl.stopped, self.jobctl.group_stop_count) {
+            (true, _) => SiCode::CLD_CONTINUED,
+            (false, 0) => return,
+            (false, _) => SiCode::CLD_STOPPED,
+        };
+        self.jobctl = JobCtl {
+            continued: true,
+            report: Some(report),
+            ..JobCtl::default()
+        };
+        for task in self.tasks.values() {
+            task.flag.raise();
+        }
+    }
+
+    /// `do_signal_stop` for `task`, which dequeued the stop signal `sig`, or with `sig` 0 has
+    /// its part to take in the group stop under way: unless one is under way, a group stop
+    /// starts, which every task of the group that is not stopped takes part in; then `task`
+    /// takes its part and is stopped. `None` when nothing stops: SIGCONT came since `task`
+    /// dequeued `sig`, or the group is exiting or in an `execve` (`exiting`). Otherwise
+    /// whether `task` completed the group stop, which its parent hears of.
+    fn do_signal_stop(&mut self, task: TaskId, sig: i32, exiting: bool) -> Option<bool> {
+        let me = &self.tasks[&task];
+        if !me.stop_pending {
+            if !me.stop_dequeued || exiting {
+                return None;
+            }
+            // A group already stopped keeps the code it reports.
+            if !self.jobctl.stopped {
+                self.jobctl.stop_code = sig;
+            }
+            let mut count = 0;
+            for (&id, t) in self.tasks.iter_mut() {
+                if id == task || !t.stopped {
+                    t.stop_pending = true;
+                    t.flag.raise();
+                    count += 1;
+                }
+            }
+            self.jobctl.group_stop_count = count;
+        }
+        let completed = self.participate(task);
+        self.task(task).stopped = true;
+        Some(completed)
+    }
+
+    /// `task_participate_group_stop`: `task`, which had its part to take in the group stop under
+    /// way, took it. Returns whether that completed the stop.
+    fn participate(&mut self, task: TaskId) -> bool {
+        let state = self.task(task);
+        (state.stop_pending, state.stop_dequeued) = (false, false);
+        let jobctl = &mut self.jobctl;
+        jobctl.group_stop_count = jobctl.group_stop_count.saturating_sub(1);
+        if jobctl.group_stop_count != 0 || jobctl.stopped {
+            return false;
+        }
+        // `signal_set_stop_flags`: a SIGCONT not reported yet no longer is.
+        (jobctl.stopped, jobctl.continued, jobctl.report) = (true, false, None);
+        true
+    }
+
+    /// Ends the group stop under way and continues every stopped task, without a SIGCONT: the
+    /// group dies (`complete_signal`'s group exit, with `dying`, has nothing left to report),
+    /// or an `execve` ends every task but one (`zap_other_threads`).
+    fn cancel_stop(&mut self, dying: bool) {
+        for task in self.tasks.values_mut() {
+            (task.stop_pending, task.stop_dequeued, task.stopped) = (false, false, false);
+        }
+        self.jobctl.group_stop_count = 0;
+        if dying {
+            self.jobctl = JobCtl::default();
+        }
     }
 
     /// The pending list of `task`, or the group's for `None` or a task that is gone.
@@ -830,6 +981,21 @@ impl GroupState {
         }
         action.is_ignore()
             || (action.is_default() && matches!(default_action(sig), DefaultAction::Ignore))
+    }
+
+    /// The fatal signal `task` could take now (see [`TaskSignals::fatal_pending`]).
+    fn fatal(&self, task: TaskId) -> Option<i32> {
+        let me = &self.tasks[&task];
+        let mut pending = (me.pending.set | self.shared.set) & !me.blocked;
+        while pending != 0 {
+            let sig = pending.trailing_zeros() as i32 + 1;
+            let action = self.actions[sig as usize - 1];
+            if action.is_default() && matches!(default_action(sig), DefaultAction::Terminate) {
+                return Some(sig);
+            }
+            pending &= !bit(sig);
+        }
+        None
     }
 
     fn task(&mut self, task: TaskId) -> &mut TaskState {
@@ -1003,17 +1169,8 @@ impl TaskSignals {
     /// a signal a SIGKILL for every thread as it is sent.
     pub(crate) fn fatal_pending(&self) -> Option<i32> {
         let state = self.group.state.lock_or_recover();
-        let task = state.tasks.get(&self.task)?;
-        let mut pending = (task.pending.set | state.shared.set) & !task.blocked;
-        while pending != 0 {
-            let sig = pending.trailing_zeros() as i32 + 1;
-            let action = state.actions[sig as usize - 1];
-            if action.is_default() && matches!(default_action(sig), DefaultAction::Terminate) {
-                return Some(sig);
-            }
-            pending &= !bit(sig);
-        }
-        None
+        state.tasks.contains_key(&self.task).then_some(())?;
+        state.fatal(self.task)
     }
 
     /// What ends a killable wait of the task (`TASK_KILLABLE`): a fatal signal only.
@@ -1035,9 +1192,22 @@ impl TaskSignals {
         }
     }
 
-    /// Removes the task from its group once it is gone (`__exit_signal`).
-    pub(crate) fn detach(&self) {
-        self.group.state.lock_or_recover().tasks.remove(&self.task);
+    /// Removes the task from its group once it is gone (`__exit_signal`). Returns whether that
+    /// completed a group stop the task had its part to take in, which only a task that never
+    /// started still has (an exiting one took its part on its way out,
+    /// [`Kernel::exit_signals`]).
+    pub(crate) fn detach(&self) -> bool {
+        let mut state = self.group.state.lock_or_recover();
+        let pending = state.tasks.get(&self.task).is_some_and(|t| t.stop_pending);
+        let completed = pending && state.participate(self.task);
+        state.tasks.remove(&self.task);
+        completed
+    }
+
+    /// The task is stopped (`TASK_STOPPED`), as `/proc` shows it and its stop wait waits on.
+    pub(crate) fn is_stopped(&self) -> bool {
+        let state = self.group.state.lock_or_recover();
+        state.tasks.get(&self.task).is_some_and(|t| t.stopped)
     }
 
     // ---- ipc: signalfd ----
@@ -1098,7 +1268,8 @@ impl Interrupt for TaskSignals {
         let Some(task) = state.tasks.get(&self.task) else {
             return true;
         };
-        task.notify || state.deliverable(self.task, !task.blocked) != 0
+        // A group stop sets `TIF_SIGPENDING` too.
+        task.notify || task.stop_pending || state.deliverable(self.task, !task.blocked) != 0
     }
 
     fn queue(&self) -> Option<&WaitQueue> {
@@ -1131,7 +1302,10 @@ impl Interrupt for WaitFor<'_> {
         let Some(task) = state.tasks.get(&self.signals.task) else {
             return true;
         };
-        task.notify || state.deliverable(self.signals.task, self.these | !task.blocked) != 0
+        // A group stop ends the wait too, which then fails with EINTR, as on Linux.
+        task.notify
+            || task.stop_pending
+            || state.deliverable(self.signals.task, self.these | !task.blocked) != 0
     }
 
     fn queue(&self) -> Option<&WaitQueue> {
@@ -1263,12 +1437,24 @@ impl Kernel {
         }
     }
 
-    /// The return-to-guest half of `get_signal`: dequeues the next signal `task` takes and
-    /// either applies its default action or prepares its handler's frame (`handle_signal`).
+    /// The return-to-guest half of `get_signal`: takes the task's part in a group stop, or
+    /// dequeues the next signal `task` takes and either applies its default action or
+    /// prepares its handler's frame (`handle_signal`).
     pub(crate) fn take_signal(&self, task: TaskId, signals: &TaskSignals) -> Option<GuestAction> {
+        let process = self.process(task);
         let mut state = signals.group.state.lock_or_recover();
         state.tasks.get_mut(&task)?.notify = false;
         loop {
+            // A pending fatal signal comes before a stop, as Linux's `complete_signal` makes it
+            // a group exit as it is sent.
+            if state.task(task).stop_pending && state.fatal(task).is_none() {
+                // Lock order: the signal state, then the thread group's.
+                let exiting = process.group.signal_group_exit();
+                if state.do_signal_stop(task, 0, exiting).is_some() {
+                    drop(state);
+                    return Some(self.stopped(signals));
+                }
+            }
             let blocked = state.task(task).blocked;
             let info;
             (state, info) = signals.group.dequeue(state, task, !blocked);
@@ -1283,6 +1469,9 @@ impl Kernel {
                 return None;
             };
             let sig = info.si_signo;
+            if STOP_SIGNALS & bit(sig) != 0 {
+                state.task(task).stop_dequeued = true;
+            }
             let action = state.actions[sig as usize - 1];
             if action.is_ignore() {
                 continue;
@@ -1290,8 +1479,18 @@ impl Kernel {
             let trampoline = state.trampoline;
             let (false, Some(trampoline)) = (action.is_default(), trampoline) else {
                 match default_action(sig) {
-                    // TODO: stop the group until SIGCONT once there is job control.
-                    DefaultAction::Ignore | DefaultAction::Stop => continue,
+                    DefaultAction::Ignore => continue,
+                    DefaultAction::Stop => {
+                        let exiting = process.group.signal_group_exit();
+                        match state.do_signal_stop(task, sig, exiting) {
+                            Some(_) => {
+                                drop(state);
+                                return Some(self.stopped(signals));
+                            }
+                            // SIGCONT came first, or the group is on its way out.
+                            None => continue,
+                        }
+                    }
                     DefaultAction::Terminate => {
                         drop(state);
                         self.force_fatal_signal(task, sig);
@@ -1326,6 +1525,38 @@ impl Kernel {
                 mask,
                 altstack: (alt.sp, alt.flags as i32, alt.size),
             }));
+        }
+    }
+
+    /// The task just stopped: the group's other tasks, whose part in the stop is pending, leave
+    /// their blocking waits (`signal_wake_up`).
+    fn stopped(&self, signals: &TaskSignals) -> GuestAction {
+        signals.group.queue.wake(wasixv2_wait::PollMask::empty());
+        GuestAction::Stopped
+    }
+
+    /// `do_signal_stop`'s `schedule` in `TASK_STOPPED`: `task` waits until SIGCONT continues
+    /// it, or SIGKILL, its group's exit or an `execve` ends the stop. Nothing else wakes it:
+    /// signals that are not SIGKILL wait in its queue until it goes on, fatal ones included
+    /// (`wants_signal` passes stopped tasks by).
+    pub(crate) async fn stop_wait(&self, task: TaskId) {
+        let signals = self.task_signals(task);
+        let continued = || (!signals.is_stopped()).then_some(());
+        wait_event(signals.sent(), continued, &NoInterrupt)
+            .await
+            .expect("NoInterrupt never interrupts");
+    }
+
+    /// `exit_signals` for `task`, which leaves its thread group while the group goes on: its
+    /// part in a group stop under way is taken.
+    pub(crate) fn exit_signals(&self, task: TaskId, signals: &TaskSignals) {
+        let process = self.process(task);
+        let mut state = signals.group.state.lock_or_recover();
+        let Some(me) = state.tasks.get(&task) else {
+            return;
+        };
+        if me.stop_pending && !process.group.signal_group_exit() {
+            state.participate(task);
         }
     }
 

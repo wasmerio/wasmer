@@ -26,6 +26,9 @@ pub enum GuestAction {
     /// Run a signal handler on top of the interrupted guest stack, then report back through
     /// [`Control::signal_return`].
     Signal(SignalFrame),
+    /// The task took part in a group stop (a stop signal's default action): it runs no guest
+    /// code until [`GroupStop::stop_wait`] returns, then asks [`Control::take_pending`] again.
+    Stopped,
     // ---- proc ----
     /// The task replaced its image (`execve`): run the module [`Control::take_image`] hands out
     /// as the same task, in a new instance with new memory, from `_start`. With
@@ -146,7 +149,7 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control: AtomicWait + ExitMm {
+pub trait Control: AtomicWait + ExitMm + GroupStop {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
@@ -216,6 +219,14 @@ pub trait ExitMm {
     /// every task runs in its own `do_exit`, whatever ended it (its `exit`, another thread's
     /// `exit_group` or `execve`, a fatal signal). Calls after the first do nothing.
     fn exit_mm<'a>(&'a self, caller: &'a Caller<'a>) -> LocalFuture<'a, ()>;
+}
+
+/// The kernel's part of job control that the execution layer waits in.
+pub trait GroupStop {
+    /// After a [`GuestAction::Stopped`]: waits while `task` stays stopped (`TASK_STOPPED`), until
+    /// SIGCONT continues its thread group or SIGKILL, an exit or an `execve` of the group ends
+    /// the stop.
+    fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()>;
 }
 
 /// The word a wasm `memory.atomic.wait32` or `memory.atomic.wait64` expects at its address.
@@ -342,6 +353,14 @@ pub struct ImageId {
 impl<L, S: ExitMm> ExitMm for Layered<L, S> {
     fn exit_mm<'a>(&'a self, caller: &'a Caller<'a>) -> LocalFuture<'a, ()> {
         self.inner.exit_mm(caller)
+    }
+}
+
+// By hand rather than generated with the rest of `Layered`: the layers see syscalls, and this
+// is not one.
+impl<L, S: GroupStop> GroupStop for Layered<L, S> {
+    fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
+        self.inner.stop_wait(task)
     }
 }
 
