@@ -17,7 +17,7 @@ expression: snapshot
   "result": {
     "Success": {
       "stdout": "hi\n",
-      "stderr": "Child pid: 2\nChild status 0\n",
+      "stderr": "Child pid: 3\nChild status 0\n",
       "exit_code": 0
     }
   }
