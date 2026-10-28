@@ -277,3 +277,11 @@ pub(crate) fn raise(error: Box<dyn std::error::Error + Send + Sync>) -> ! {
     let js_error: JsValue = error.into();
     wasm_bindgen::throw_val(js_error)
 }
+
+/// The value a host function's error is thrown or rejected with: a [`Trap`],
+/// which `RuntimeError::from(JsValue)` turns back into the same error, so
+/// the caller can still downcast it (to a WASIX exit, say). The error's text,
+/// which `From<RuntimeError> for JsValue` gives, would lose its type.
+pub(crate) fn into_js_value(error: RuntimeError) -> JsValue {
+    Trap::user(Box::new(error)).into()
+}

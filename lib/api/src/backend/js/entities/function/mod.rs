@@ -20,6 +20,7 @@ use crate::{
     NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
     WithoutEnv,
     js::{
+        error::into_js_value,
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
     },
@@ -177,7 +178,10 @@ impl Function {
                     // which the host can collect with the abandoned stack.
                     return Ok(Promise::new(&mut |_, _| {}).into());
                 };
-                let results = results.map_err(JsValue::from)?;
+                // Reject with the error as a `Trap`, as a synchronous host
+                // function throws it, so that the caller can still downcast
+                // it (see `into_js_value`).
+                let results = results.map_err(into_js_value)?;
                 match result_types.len() {
                     0 => Ok(JsValue::UNDEFINED),
                     1 => Ok(wasmer_value_to_js(&results[0])),
@@ -346,7 +350,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let _results = func(env, &wasm_arguments)?;
+                let _results = func(env, &wasm_arguments).map_err(into_js_value)?;
                 Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
@@ -362,7 +366,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &wasm_arguments)?;
+                let results = func(env, &wasm_arguments).map_err(into_js_value)?;
                 Ok(wasmer_value_to_js(&results[0]))
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
@@ -378,7 +382,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &wasm_arguments)?;
+                let results = func(env, &wasm_arguments).map_err(into_js_value)?;
                 Ok(wasmer_array_to_js_array(&results))
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
