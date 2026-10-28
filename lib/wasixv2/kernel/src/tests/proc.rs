@@ -625,6 +625,70 @@ fn clone3_rejects_what_clone3_args_valid_does() {
     assert_eq!(kernel.take_pending(task), None);
 }
 
+/// `copy_clone_args_from_user` reads `set_tid` before `clone3_args_valid` looks at anything
+/// else, so a fault there comes before invalid flags, a stack without a size or a bad exit
+/// signal; and its size is checked before it is read.
+#[test]
+fn clone3_reads_set_tid_before_it_checks_the_arguments() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let end = memory.0.0.borrow().len() as u64;
+    let bad_set_tid = CloneArgs {
+        set_tid: end - 2,
+        set_tid_size: 1,
+        ..CloneArgs::default()
+    };
+    let cases = [
+        (
+            "unknown flags",
+            CloneArgs {
+                flags: CloneFlags(1 << 40),
+                ..bad_set_tid
+            },
+        ),
+        (
+            "a reserved flag",
+            CloneArgs {
+                flags: CloneFlags::CLONE_DETACHED,
+                ..bad_set_tid
+            },
+        ),
+        (
+            "a stack without a size",
+            CloneArgs {
+                stack: 0x4000,
+                ..bad_set_tid
+            },
+        ),
+        (
+            "CLONE_THREAD with an exit signal",
+            CloneArgs {
+                flags: CloneFlags::CLONE_THREAD,
+                exit_signal: u64::from(SIGCHLD),
+                ..bad_set_tid
+            },
+        ),
+    ];
+    for (what, args) in cases {
+        assert_eq!(
+            errno(clone3(&kernel, &caller, &args, ARGS_SIZE)),
+            Errno::EFAULT,
+            "{what}"
+        );
+    }
+    let too_many = CloneArgs {
+        set_tid_size: 33,
+        ..bad_set_tid
+    };
+    assert_eq!(
+        errno(clone3(&kernel, &caller, &too_many, ARGS_SIZE)),
+        Errno::EINVAL,
+        "more pids than pid namespace levels"
+    );
+    assert_eq!(kernel.take_pending(task), None);
+}
+
 #[test]
 fn clone3_new_namespaces_chosen_pids_and_cgroups_are_refused() {
     let (kernel, task, _) = setup(b"");
