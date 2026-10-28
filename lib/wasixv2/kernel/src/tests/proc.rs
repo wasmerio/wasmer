@@ -82,6 +82,7 @@ fn fork_leaves_the_copy_and_tid_writes_to_the_execution_layer() {
         Some(GuestAction::Fork {
             child,
             parent_tid: Some(8),
+            pidfd: None,
             child_tid: Some(16),
             tls: None,
         })
@@ -487,6 +488,7 @@ fn clone3_forks_as_clone_does() {
         Some(GuestAction::Fork {
             child,
             parent_tid: Some(8),
+            pidfd: None,
             child_tid: None,
             tls: None,
         })
@@ -785,4 +787,123 @@ fn clone3_clear_sighand_gives_the_child_default_handlers() {
         "ignored: still ignored"
     );
     assert_eq!(handler(&caller, Signal::SIGUSR1), 7, "the parent's stay");
+}
+
+/// The pidfd `fd` of `task`: whose process it refers to, and whether it is close-on-exec.
+fn pidfd_of(kernel: &Kernel, task: TaskId, fd: Fd) -> Option<(u32, bool)> {
+    let file = kernel.file(task, fd).ok()?;
+    let cloexec = kernel.files(task).lock().unwrap().cloexec(fd)?;
+    Some((crate::process::pidfd_target(&file)?, cloexec))
+}
+
+/// `clone3` with `CLONE_PIDFD` gives the parent a close-on-exec pidfd of the child at its
+/// lowest free descriptor; its number reaches `pidfd` only in the parent's address space, so
+/// the write waits for the copy, and the child's descriptor table has none (`copy_process`
+/// prepares it after `copy_files`).
+#[test]
+fn clone3_pidfd_gives_the_parent_a_pidfd_of_the_child() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let args = CloneArgs {
+        flags: CloneFlags::CLONE_PIDFD,
+        pidfd: 0x100,
+        exit_signal: u64::from(SIGCHLD),
+        ..CloneArgs::default()
+    };
+
+    let child = TaskId(clone3(&kernel, &caller, &args, ARGS_SIZE).expect("fork") as u32);
+
+    assert_eq!(pidfd_of(&kernel, task, Fd(3)), Some((child.0, true)));
+    assert_eq!(word(&memory.0, 0x100), 0, "the write waits for the copy");
+    assert_eq!(
+        kernel.take_pending(task),
+        Some(GuestAction::Fork {
+            child,
+            parent_tid: None,
+            pidfd: Some((0x100, 3)),
+            child_tid: None,
+            tls: None,
+        })
+    );
+    assert!(kernel.file(child, Fd(3)).is_err());
+}
+
+/// A pidfd that cannot be written faults before anything is made (`copy_process`'s `put_user`
+/// fails into `bad_fork_put_pidfd`): `EFAULT` past the end of memory, in the low guard's
+/// place, and on a page the address space maps `PROT_NONE`; no child, no descriptor.
+#[test]
+fn clone3_pidfd_that_cannot_be_written_makes_nothing() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let anon = wasixv2_abi::MapFlags::MAP_PRIVATE | wasixv2_abi::MapFlags::MAP_ANONYMOUS;
+    let prot_none = wasixv2_abi::ProtFlags(0);
+    let page = block_on(kernel.mmap(&caller, 0, 4096, prot_none, anon, Fd(-1), 0)).unwrap();
+    let end = block_on(memory.size()) as u32;
+
+    for at in [end - 2, page] {
+        let args = CloneArgs {
+            flags: CloneFlags::CLONE_PIDFD,
+            pidfd: u64::from(at),
+            exit_signal: u64::from(SIGCHLD),
+            ..CloneArgs::default()
+        };
+        assert_eq!(
+            errno(clone3(&kernel, &caller, &args, ARGS_SIZE)),
+            Errno::EFAULT,
+            "{at:#x}"
+        );
+    }
+
+    assert_eq!(kernel.take_pending(task), None);
+    assert!(
+        kernel.file(task, Fd(3)).is_err(),
+        "the reservation is given back"
+    );
+    assert!(kernel.procs.find(task.0 + 1).is_none());
+}
+
+/// A vfork with `CLONE_PIDFD` (through `clone`, whose `parent_tid` doubles as where the pidfd
+/// goes) writes the number at once: the child runs on the parent's memory.
+#[test]
+fn vfork_pidfd_is_written_at_once() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let flags = CloneFlags::CLONE_VM | CloneFlags::CLONE_VFORK | CloneFlags::CLONE_PIDFD;
+    let flags = flags.0 as u32 | SIGCHLD;
+    put(&memory.0, 8, &(-1i32).to_le_bytes());
+
+    assert_eq!(clone(&kernel, &caller, flags, 0), Ok(0));
+
+    assert_eq!(word(&memory.0, 8), 3);
+    let child = task.0 + 1;
+    assert_eq!(pidfd_of(&kernel, task, Fd(3)), Some((child, true)));
+}
+
+/// `CLONE_PIDFD` with a pidfd that faults leaves `EFAULT` behind the checks of the flags, and
+/// `CLONE_AUTOREAP` is still refused.
+#[test]
+fn clone_pidfd_faults_after_the_flag_checks() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    let bad = S32Ptr::new(1 << 20);
+    let pidfd = CloneFlags::CLONE_PIDFD.0 as u32 | SIGCHLD;
+    let none = S32Ptr::new(0);
+    let clone_at = |flags: u32| block_on(kernel.clone(&caller, flags, 0, bad, 0, none));
+
+    assert_eq!(errno(clone_at(pidfd)), Errno::EFAULT);
+    let detached = pidfd | CloneFlags::CLONE_DETACHED.0 as u32;
+    assert_eq!(errno(clone_at(detached)), Errno::EINVAL);
+    let autoreap = CloneArgs {
+        flags: CloneFlags::CLONE_AUTOREAP,
+        ..CloneArgs::default()
+    };
+    assert_eq!(
+        errno(clone3(&kernel, &caller, &autoreap, ARGS_SIZE)),
+        Errno::EINVAL
+    );
+    assert_eq!(kernel.take_pending(task), None);
 }
