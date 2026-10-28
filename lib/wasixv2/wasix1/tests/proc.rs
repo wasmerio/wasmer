@@ -8,7 +8,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use wasixv2::{ByteSink, EmptySource, LocalFuture, Machine, ProcessConfig, Stdio};
+use wasixv2::{
+    ByteSink, ByteSource, Console, EmptySource, LocalFuture, Machine, ProcessConfig, Stdio,
+    WindowSize,
+};
 
 #[derive(Default)]
 struct Capture(Mutex<Vec<u8>>);
@@ -615,6 +618,76 @@ fn tty() {
         (call $exit (i32.const 0))))
     "#;
     assert_eq!(status(wat), 0);
+}
+
+/// On the console, a terminal, `tty_get` reports it on every stdio descriptor with its size
+/// and the terminal's modes, which `tty_set` changes: canonical mode and echo, on by default.
+#[test]
+fn tty_on_the_console() {
+    let wat = r#"
+    (module
+      (import "wasix_32v1" "tty_get" (func $get (param i32) (result i32)))
+      (import "wasix_32v1" "tty_set" (func $set (param i32) (result i32)))
+      (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (func (export "_start")
+        (if (call $get (i32.const 100)) (then (call $exit (i32.const 1))))
+        (if (i32.ne (i32.load (i32.const 100)) (i32.const 132)) (then (call $exit (i32.const 2))))
+        (if (i32.ne (i32.load (i32.const 104)) (i32.const 43)) (then (call $exit (i32.const 3))))
+        ;; stdin, stdout and stderr are terminals; echo and line buffering are on
+        (if (i32.ne (i32.load (i32.const 116)) (i32.const 0x01010101))
+          (then (call $exit (i32.const 4))))
+        (if (i32.eqz (i32.load8_u (i32.const 120))) (then (call $exit (i32.const 5))))
+        ;; raw: echo and line buffering off
+        (i32.store16 (i32.const 119) (i32.const 0))
+        (if (call $set (i32.const 100)) (then (call $exit (i32.const 6))))
+        (i32.store16 (i32.const 119) (i32.const 0x0101))
+        (if (call $get (i32.const 100)) (then (call $exit (i32.const 7))))
+        (if (i32.load16_u (i32.const 119)) (then (call $exit (i32.const 8))))
+        (call $exit (i32.const 0))))
+    "#;
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let status = tokio::task::LocalSet::new().block_on(&runtime, async {
+        let screen = Arc::new(Capture::default());
+        // Nothing is typed: the input never ends, which would hang the console up.
+        let console = Console {
+            input: Arc::new(Silence),
+            output: screen,
+            size: WindowSize {
+                rows: 43,
+                cols: 132,
+                xpixel: 0,
+                ypixel: 0,
+            },
+        };
+        let machine = Machine::builder().console(console, [true; 3]).build();
+        let stdio = Stdio {
+            stdin: Arc::new(EmptySource),
+            stdout: Arc::new(Capture::default()),
+            stderr: Arc::new(Capture::default()),
+        };
+        machine
+            .run(&wat::parse_str(wat).unwrap(), stdio)
+            .await
+            .unwrap()
+    });
+    assert_eq!(status, 0);
+}
+
+/// A terminal nobody types on.
+struct Silence;
+
+impl ByteSource for Silence {
+    fn poll_read(
+        &self,
+        _: &mut std::task::Context<'_>,
+        _: &mut [u8],
+    ) -> std::task::Poll<io::Result<usize>> {
+        std::task::Poll::Pending
+    }
 }
 
 /// The compat state a shim finds is the calling process's, though the parent's pid is cached
