@@ -13,14 +13,17 @@ mod inode;
 mod locks;
 mod mount;
 mod namei;
+mod namespace;
 mod notify;
 mod ops;
+mod pnode;
 mod seals;
+mod sync;
 mod types;
 
 use std::sync::{
     Arc,
-    atomic::{AtomicU32, AtomicU64, Ordering},
+    atomic::{AtomicU32, Ordering},
 };
 
 pub use cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission};
@@ -29,11 +32,13 @@ pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents}
 pub use file::{DIR_POS_EOD, File};
 pub use inode::{Bound, Inode};
 pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};
-use mount::TreeSeq;
-pub use mount::{Mount, MountFlags, Namespace, Path, Superblock};
+pub use mount::{MntNs, Mount, MountFlags, Path, Superblock};
+use mount::{Tree, TreeSeq};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
+pub use namespace::{MountAttr, MountInfo, MountOp, UmountFlags};
 pub use notify::{FsEvent, FsWatcher, Object as FsObject};
 pub use ops::{Ctx, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
+pub use pnode::Propagation;
 pub use seals::WRITE_SEALS;
 pub use types::*;
 pub use wasixv2_abi::Errno;
@@ -43,11 +48,12 @@ pub const PATH_MAX: usize = 4096;
 /// Longest single path component.
 pub const NAME_MAX: usize = 255;
 
-/// The VFS of one machine: its mount tree, lock tables and watchers.
+/// The VFS of one machine: its mount table, lock tables and watchers.
 pub struct Vfs {
-    pub(crate) ns: Namespace,
+    pub(crate) tree: Arc<Tree>,
+    /// The initial mount namespace, which the embedder's calls change.
+    ns: Arc<MntNs>,
     pub(crate) tree_seq: Arc<TreeSeq>,
-    next_id: AtomicU64,
     /// Minor numbers of anonymous devices (Linux's `get_anon_bdev`).
     next_anon: AtomicU32,
     pub locks: LockManager,
@@ -57,32 +63,36 @@ pub struct Vfs {
 impl Vfs {
     /// A VFS whose root is `root`.
     pub fn new(root: Arc<dyn Filesystem>) -> Arc<Self> {
-        let next_id = AtomicU64::new(1);
-        let next_anon = AtomicU32::new(1);
         let tree_seq = Arc::new(TreeSeq::default());
-        let sb = new_superblock(&next_id, &next_anon, &tree_seq, root);
+        let tree = Tree::new(tree_seq.clone());
+        let next_anon = AtomicU32::new(1);
+        let sb = new_superblock(&tree, &next_anon, root);
         let root_dentry = Dentry::root(&sb, sb.fs.root());
-        let mount = Arc::new(Mount {
-            id: next_id.fetch_add(1, Ordering::Relaxed),
-            root: root_dentry,
-            flags: MountFlags::default(),
-            parent: std::sync::Mutex::new(None),
-        });
+        let devname = sb.info.name.as_bytes().to_vec();
+        let mount = Arc::new(Mount::new(
+            tree.next_id(),
+            root_dentry,
+            MountFlags::default(),
+            devname,
+        ));
+        let ns = MntNs::new(&tree, mount.clone());
+        tree.lock().add_link(&mount, ns.id());
         Arc::new(Self {
-            ns: Namespace::new(mount),
+            tree,
+            ns,
             tree_seq,
-            next_id,
             next_anon,
             locks: LockManager::default(),
             watcher: std::sync::OnceLock::new(),
         })
     }
 
-    pub fn namespace(&self) -> &Namespace {
+    /// The initial mount namespace.
+    pub fn namespace(&self) -> &Arc<MntNs> {
         &self.ns
     }
 
-    /// The root of the mount tree.
+    /// The root of the initial namespace's tree.
     pub fn root(&self) -> Path {
         self.ns.root()
     }
@@ -90,45 +100,51 @@ impl Vfs {
     /// A fresh identifier, unique in this VFS: an open file's ([`File::id`]), which owns its
     /// `flock` and OFD locks.
     pub fn next_id(&self) -> u64 {
-        self.next_id.fetch_add(1, Ordering::Relaxed)
+        self.tree.next_id()
     }
 
-    /// Mounts `fs` on the directory `at` (resolved from the tree's root with full privileges),
-    /// as the embedder configures the machine. With `create`, missing directories along `at` are
-    /// made first, as `mkdir -p` would.
+    pub(crate) fn new_superblock(&self, fs: Arc<dyn Filesystem>) -> Arc<Superblock> {
+        new_superblock(&self.tree, &self.next_anon, fs)
+    }
+
+    /// Mounts `fs` on the directory `at` of the initial namespace (resolved from its root with
+    /// full privileges), as the embedder configures the machine. With `create`, missing
+    /// directories along `at` are made first, as `mkdir -p` would.
     pub async fn mount(
         &self,
         at: &[u8],
         fs: Arc<dyn Filesystem>,
         flags: MountFlags,
         create: bool,
-    ) -> FsResult<Arc<Mount>> {
-        let sb = new_superblock(&self.next_id, &self.next_anon, &self.tree_seq, fs);
-        let root = Dentry::root(&sb, sb.fs.root());
-        self.attach(at, root, flags, create).await
+    ) -> FsResult<()> {
+        let source = fs.info().name.as_bytes().to_vec();
+        let target = self.embedder_target(at, create).await?;
+        self.do_mount(&self.ns, &target, MountOp::New { fs, source, flags })
     }
 
     /// Mounts `fs` outside the mount tree (`kern_mount`), for filesystems whose objects have no
     /// name: those behind pipes, sockets and event descriptors. Their paths come from
     /// [`Mount::pseudo_path`].
     pub fn kern_mount(&self, fs: Arc<dyn Filesystem>) -> Arc<Mount> {
-        let sb = new_superblock(&self.next_id, &self.next_anon, &self.tree_seq, fs);
-        Arc::new(Mount {
-            id: self.next_id(),
-            root: Dentry::root(&sb, sb.fs.root()),
-            flags: MountFlags::default(),
-            parent: std::sync::Mutex::new(None),
-        })
+        let sb = self.new_superblock(fs);
+        let devname = sb.info.name.as_bytes().to_vec();
+        Arc::new(Mount::new(
+            self.next_id(),
+            Dentry::root(&sb, sb.fs.root()),
+            MountFlags::default(),
+            devname,
+        ))
     }
 
-    /// Bind-mounts the tree at `from` on `at` (`mount --bind`).
+    /// Bind-mounts the tree at `from` on `at` (`mount --bind`), in the initial namespace, with
+    /// `flags` for the new mount.
     pub async fn bind_mount(
         &self,
         from: &[u8],
         at: &[u8],
         flags: MountFlags,
         create: bool,
-    ) -> FsResult<Arc<Mount>> {
+    ) -> FsResult<()> {
         let cred = Cred::root();
         let root = self.root();
         let cx = Ctx {
@@ -138,66 +154,48 @@ impl Vfs {
             task: 0,
         };
         let source = self.lookup(&cx, &root, from, LookupFlags::follow()).await?;
-        self.attach(at, source.dentry, flags, create).await
+        let target = self.embedder_target(at, create).await?;
+        let bind = MountOp::Bind {
+            source,
+            recursive: false,
+        };
+        self.do_mount(&self.ns, &target, bind)?;
+        let mounted = self.embedder_target(at, false).await?;
+        self.do_mount(&self.ns, &mounted, MountOp::Reconfigure { flags })
     }
 
-    async fn attach(
-        &self,
-        at: &[u8],
-        root: Arc<Dentry>,
-        flags: MountFlags,
-        create: bool,
-    ) -> FsResult<Arc<Mount>> {
+    /// `at`, resolved from the initial namespace's root with full privileges, made first
+    /// with `create`.
+    async fn embedder_target(&self, at: &[u8], create: bool) -> FsResult<Path> {
         let cred = Cred::root();
-        let ns_root = self.root();
+        let root = self.root();
         let cx = Ctx {
             cred: &cred,
-            root: &ns_root,
+            root: &root,
             umask: 0o022,
             task: 0,
         };
         if create {
             self.mkdir_all(&cx, at).await?;
         }
-        let target = self
-            .lookup(&cx, &ns_root, at, LookupFlags::follow())
-            .await?;
-        if target.dentry.is_dir() != root.is_dir() {
-            return Err(if root.is_dir() {
-                Errno::ENOTDIR
-            } else {
-                Errno::EISDIR
-            });
-        }
-        let mount = Arc::new(Mount {
-            id: self.next_id(),
-            root,
-            flags,
-            parent: std::sync::Mutex::new(None),
-        });
-        self.tree_seq.bump();
-        self.ns.attach(mount.clone(), &target);
-        Ok(mount)
+        self.lookup(&cx, &root, at, LookupFlags::follow()).await
     }
 
-    /// Detaches the topmost mount on `at` (resolved with full privileges).
+    /// Detaches the topmost mount on `at` (resolved with full privileges), whoever uses it.
     pub async fn umount(&self, at: &[u8]) -> FsResult<()> {
-        let cred = Cred::root();
-        let root = self.root();
-        let cx = Ctx {
-            cred: &cred,
-            root: &root,
-            umask: 0,
-            task: 0,
-        };
-        let path = self.lookup(&cx, &root, at, LookupFlags::follow()).await?;
+        let path = self.embedder_target(at, false).await?;
         if !path.is_mount_root() {
             return Err(Errno::EINVAL);
         }
-        let mountpoint = path.mnt.parent().ok_or(Errno::EBUSY)?;
-        self.tree_seq.bump();
-        self.ns.detach(&mountpoint).ok_or(Errno::EINVAL)?;
-        Ok(())
+        if path.mnt.parent().is_none() {
+            return Err(Errno::EBUSY);
+        }
+        let root = self.root();
+        let detach = UmountFlags {
+            detach: true,
+            ..UmountFlags::default()
+        };
+        self.do_umount(&self.ns, &root, &path, detach)
     }
 
     /// Installs the watcher that receives change notifications. A VFS has at most one, set
@@ -262,22 +260,18 @@ fn anon_dev(next_anon: &AtomicU32) -> Device {
     }
 }
 
-fn new_superblock(
-    next_id: &AtomicU64,
-    next_anon: &AtomicU32,
-    tree_seq: &Arc<TreeSeq>,
-    fs: Arc<dyn Filesystem>,
-) -> Arc<Superblock> {
-    let id = next_id.fetch_add(1, Ordering::Relaxed);
+fn new_superblock(tree: &Tree, next_anon: &AtomicU32, fs: Arc<dyn Filesystem>) -> Arc<Superblock> {
+    let id = tree.next_id();
     let info = fs.info();
     let dev = info.dev.unwrap_or_else(|| anon_dev(next_anon));
     Arc::new(Superblock {
         id,
         dev,
         fs,
+        read_only: std::sync::atomic::AtomicBool::new(info.read_only),
         info,
         rename_lock: futures_util::lock::Mutex::new(()),
-        tree_seq: tree_seq.clone(),
+        tree_seq: tree.seq.clone(),
         inodes: Default::default(),
         sub_devs: Default::default(),
     })
