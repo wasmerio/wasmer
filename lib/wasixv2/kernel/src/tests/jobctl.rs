@@ -1,4 +1,5 @@
-//! Job control: group stops and SIGCONT, and how a parent hears of them.
+//! Job control: group stops and SIGCONT, how a parent hears of them, and orphaned process
+//! groups.
 
 use futures::FutureExt as _;
 use wasixv2_abi::{
@@ -283,9 +284,12 @@ fn fork(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
     child
 }
 
-/// A parent that keeps the SIGCHLDs it gets pending, and a child it forked.
+/// A parent that keeps the SIGCHLDs it gets pending, and a child it forked, on a kernel with
+/// init, so that the parent is not pid 1, whose children no process group counts as linked
+/// outside (`is_global_init`).
 fn family() -> (Kernel, TaskId, ForkableMemory, TaskId) {
-    let (kernel, parent, _) = setup(b"");
+    let stdin = Arc::new(Input(Mutex::new(Vec::new())));
+    let (kernel, parent, _) = spawn_on(test_kernel().with_init(), stdin, &[], &[]);
     let memory = forkable();
     let child = fork(&kernel, &Caller::new(parent, &memory));
     kernel.task_signals(parent).replace_blocked(SIGCHLD_BIT);
@@ -334,15 +338,15 @@ fn the_parent_hears_of_a_stop_and_a_continue_once() {
     let caller = Caller::new(parent, &memory);
     let pid = child.0 as i32;
 
-    kernel.kill(child, Signal::SIGTSTP).unwrap();
+    kernel.kill(child, Signal::SIGSTOP).unwrap();
     assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
 
     assert_eq!(
         sigchld(&kernel, parent),
-        Some((STOPPED, pid, Signal::SIGTSTP.0))
+        Some((STOPPED, pid, Signal::SIGSTOP.0))
     );
     assert_eq!(wait(&kernel, &caller, child, WaitOptions::WEXITED.0), None);
-    let stopped = Some((STOPPED, Signal::SIGTSTP.0));
+    let stopped = Some((STOPPED, Signal::SIGSTOP.0));
     assert_eq!(wait(&kernel, &caller, child, WSTOPPED | WNOWAIT), stopped);
     assert_eq!(wait(&kernel, &caller, child, WSTOPPED), stopped);
     assert_eq!(
@@ -437,4 +441,80 @@ fn a_stop_cut_short_is_reported_as_a_stop() {
     assert_eq!(wait(&kernel, &caller, child, WCONTINUED), continued);
     assert_eq!(kernel.take_pending(thread), None);
     assert_eq!(sigchld(&kernel, parent), None, "told once");
+}
+
+// ---- orphaned process groups ----
+
+/// A process group with no parent outside it in its session is orphaned: SIGTSTP, SIGTTIN and
+/// SIGTTOU do nothing there, SIGSTOP stops as anywhere (`get_signal`).
+#[test]
+fn terminal_stop_signals_do_nothing_in_an_orphaned_process_group() {
+    let (kernel, _, _, child) = family();
+    let child_memory = forkable();
+    let child_caller = Caller::new(child, &child_memory);
+
+    // In its own group, in its parent's session: not orphaned.
+    assert_eq!(block_on(kernel.setpgid(&child_caller, 0, 0)), Ok(0));
+    kernel.kill(child, Signal::SIGTSTP).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    kernel.kill(child, Signal::SIGCONT).unwrap();
+    assert_eq!(kernel.take_pending(child), None);
+
+    // A session of its own: orphaned.
+    assert_eq!(
+        block_on(kernel.setsid(&child_caller)),
+        Err(SysErr::Errno(Errno::EPERM))
+    );
+    let grandchild = fork(&kernel, &child_caller);
+    let grandchild_memory = forkable();
+    let grandchild_caller = Caller::new(grandchild, &grandchild_memory);
+    assert_eq!(
+        block_on(kernel.setsid(&grandchild_caller)),
+        Ok(grandchild.0 as Pid)
+    );
+    for sig in [Signal::SIGTSTP, Signal::SIGTTIN, Signal::SIGTTOU] {
+        kernel.kill(grandchild, sig).unwrap();
+        assert_eq!(kernel.take_pending(grandchild), None, "{sig:?}");
+    }
+    kernel.kill(grandchild, Signal::SIGSTOP).unwrap();
+    assert_eq!(kernel.take_pending(grandchild), Some(GuestAction::Stopped));
+}
+
+/// `kill_orphaned_pgrp`: when a parent's exit orphans its child's process group, which has a
+/// stopped process, the group gets SIGHUP then SIGCONT, so the stopped one goes on and dies.
+#[test]
+fn a_stopped_job_its_parent_orphans_gets_sighup_and_sigcont() {
+    let (kernel, parent, memory, child) = family();
+    let caller = Caller::new(parent, &memory);
+    let child_memory = forkable();
+    let child_caller = Caller::new(child, &child_memory);
+    assert_eq!(block_on(kernel.setpgid(&child_caller, 0, 0)), Ok(0));
+    let sibling = fork(&kernel, &child_caller);
+    kernel.kill(child, Signal::SIGSTOP).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+
+    assert_eq!(block_on(kernel.exit_group(&caller, 0)), Ok(()));
+
+    assert!(!waits_stopped(&kernel, child));
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Exit(128 + 1)));
+    assert_eq!(
+        kernel.take_pending(sibling),
+        Some(GuestAction::Exit(128 + 1))
+    );
+}
+
+/// A group that is orphaned but has no stopped process gets nothing.
+#[test]
+fn an_orphaned_group_with_nothing_stopped_gets_no_sighup() {
+    let (kernel, parent, memory, child) = family();
+    let caller = Caller::new(parent, &memory);
+    let child_memory = forkable();
+    assert_eq!(
+        block_on(kernel.setpgid(&Caller::new(child, &child_memory), 0, 0)),
+        Ok(0)
+    );
+
+    assert_eq!(block_on(kernel.exit_group(&caller, 0)), Ok(()));
+
+    assert_eq!(kernel.take_pending(child), None);
 }

@@ -154,6 +154,48 @@ impl Procs {
 }
 
 impl Tree {
+    /// The process group and session of the process `pid`.
+    fn pgrp_sid(&self, pid: u32) -> Option<(u32, u32)> {
+        let ident = self.nodes.get(&pid)?.process.ident.lock_or_recover();
+        Some((ident.pgid, ident.sid))
+    }
+
+    /// `will_become_orphaned_pgrp`: no live process of the group `pgid` but `ignored` has a
+    /// parent in another group of the same session, so nothing outside the group can bring it
+    /// back from a stop (POSIX's orphaned process group). Children of init, or of nobody, keep
+    /// no group from being orphaned.
+    fn will_become_orphaned_pgrp(&self, pgid: u32, ignored: Option<u32>) -> bool {
+        !self.nodes.iter().any(|(&pid, node)| {
+            if Some(pid) == ignored || node.is_zombie() || matches!(node.parent, 0 | 1) {
+                return false;
+            }
+            let Some((pgrp, sid)) = self.pgrp_sid(pid) else {
+                return false;
+            };
+            pgrp == pgid
+                && self
+                    .pgrp_sid(node.parent)
+                    .is_some_and(|(parent_pgrp, parent_sid)| {
+                        parent_pgrp != pgid && parent_sid == sid
+                    })
+        })
+    }
+
+    /// `kill_orphaned_pgrp`'s test for the process group and session `member` of a process
+    /// whose link to `parent`, its parent's group and session, is going: the exiting process
+    /// itself (`ignored`), or a child of an exiting parent, handed to its reaper already. The
+    /// group, if it is orphaned now, is for the caller to check for stopped jobs.
+    fn orphaned_by(
+        &self,
+        member: (u32, u32),
+        parent: (u32, u32),
+        ignored: Option<u32>,
+    ) -> Option<u32> {
+        let ((pgrp, sid), (parent_pgrp, parent_sid)) = (member, parent);
+        (parent_pgrp != pgrp && parent_sid == sid && self.will_become_orphaned_pgrp(pgrp, ignored))
+            .then_some(pgrp)
+    }
+
     fn children(&self, pid: u32) -> impl Iterator<Item = (&u32, &Node)> {
         self.nodes
             .iter()
@@ -309,7 +351,7 @@ impl Kernel {
         let reaper_reaps = reaper_signals
             .as_ref()
             .map(|signals| signals.child_reaping());
-        let (exit, exit_signal, vfork_parent, orphans, inherited) = {
+        let (exit, exit_signal, vfork_parent, orphans, inherited, orphaned_pgrps) = {
             let mut tree = self.procs.tree.lock().unwrap();
             // A reaper that went meanwhile is replaced, and it is not known how the new one
             // treats SIGCHLD: its zombies stay, as a parent that waits keeps them.
@@ -338,6 +380,7 @@ impl Kernel {
             };
             node.exit = Some(exit);
             let exit_signal = node.exit_signal;
+            let father = tree.pgrp_sid(pid);
             let autoreap = parent_signals.is_none()
                 || (exit_signal == Signal::SIGCHLD.0 && (ignored || nocldwait));
             if autoreap {
@@ -350,7 +393,7 @@ impl Kernel {
             let children: Vec<u32> = tree.children(pid).map(|(&child, _)| child).collect();
             let mut orphans = Vec::new();
             let mut inherited = Vec::new();
-            for child in children {
+            for &child in &children {
                 let node = tree.nodes.get_mut(&child).expect("listed above");
                 node.parent = reaper;
                 // "We don't want people slaying init."
@@ -364,14 +407,31 @@ impl Kernel {
                     _ => {}
                 }
             }
+            // `kill_orphaned_pgrp` for each child, whose parent's group no longer holds its own,
+            // and for the process itself, against its parent.
+            let mut orphaned_pgrps = Vec::new();
+            if let Some(father) = father {
+                for child in children.iter().filter_map(|&child| tree.pgrp_sid(child)) {
+                    orphaned_pgrps.extend(tree.orphaned_by(child, father, None));
+                }
+                if let Some(grandfather) = tree.pgrp_sid(parent) {
+                    orphaned_pgrps.extend(tree.orphaned_by(father, grandfather, Some(pid)));
+                }
+            }
+            orphaned_pgrps.sort_unstable();
+            orphaned_pgrps.dedup();
             (
                 exit,
                 exit_signal,
                 tree.vforks.remove(&task),
                 orphans,
                 inherited,
+                orphaned_pgrps,
             )
         };
+        for pgid in orphaned_pgrps {
+            self.kill_orphaned_pgrp(pgid);
+        }
         if let Some(signals) = reaper_signals {
             for (child, exit) in inherited {
                 let _ = signals.send_group(child_info(Signal::SIGCHLD.0, child, exit));
@@ -404,6 +464,30 @@ impl Kernel {
             let _ = signals.send_group(child_info(exit_signal, pid, exit));
         }
         self.procs.changed.wake(PollMask::empty());
+    }
+
+    /// `kill_orphaned_pgrp`'s end: the process group `pgid` was just orphaned, and if one of its
+    /// processes is stopped, nothing outside could ever continue it: every process gets SIGHUP,
+    /// then SIGCONT (`SEND_SIG_PRIV`), so the stopped ones go on and, by default, die.
+    fn kill_orphaned_pgrp(&self, pgid: u32) {
+        let groups = self.pgrp_groups(pgid as Pid);
+        if !groups.iter().any(|(_, signals)| signals.is_stopped()) {
+            return;
+        }
+        for sig in [Signal::SIGHUP, Signal::SIGCONT] {
+            for (_, signals) in &groups {
+                signals.send_kernel(sig.0);
+            }
+        }
+    }
+
+    /// Whether the process group of `process` is orphaned (`is_current_pgrp_orphaned`).
+    pub(crate) fn is_pgrp_orphaned(&self, process: &Process) -> bool {
+        let pgid = process.ident.lock_or_recover().pgid;
+        self.procs
+            .tree
+            .lock_or_recover()
+            .will_become_orphaned_pgrp(pgid, None)
     }
 
     /// `do_notify_parent_cldstop`: `process` stopped (`CLD_STOPPED`, `status` the signal) or

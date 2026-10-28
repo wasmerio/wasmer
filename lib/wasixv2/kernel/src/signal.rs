@@ -621,9 +621,14 @@ impl Signals {
     }
 
     /// The group stopped and is stopped still (`SIGNAL_STOP_STOPPED`).
-    #[cfg(test)]
     pub(crate) fn is_stopped(&self) -> bool {
         self.state.lock_or_recover().jobctl.stopped
+    }
+
+    /// Sends `sig` from the kernel (`SEND_SIG_PRIV`, `SI_KERNEL`) to the whole group.
+    pub(crate) fn send_kernel(&self, sig: i32) {
+        // A kernel signal goes past the limit, or without its `siginfo`.
+        let _ = self.send(None, kernel_info(sig));
     }
 
     /// See [`GroupState::cancel_stop`]; stopped tasks wake.
@@ -1531,6 +1536,21 @@ impl Kernel {
                 match default_action(sig) {
                     DefaultAction::Ignore => continue,
                     DefaultAction::Stop => {
+                        // The job control signals do nothing in an orphaned process group,
+                        // SIGSTOP always stops. The tree comes before the signal state, which a
+                        // SIGCONT may change meanwhile: the stop then does not happen.
+                        if sig != Signal::SIGSTOP.0 {
+                            drop(state);
+                            let orphaned = self.is_pgrp_orphaned(&process);
+                            state = signals.group.state.lock_or_recover();
+                            // Taken over by an `execve` from another thread meanwhile.
+                            if !state.tasks.contains_key(&task) {
+                                return None;
+                            }
+                            if orphaned {
+                                continue;
+                            }
+                        }
                         let exiting = process.group.signal_group_exit();
                         match state.do_signal_stop(task, sig, exiting) {
                             Some(completed) => {
