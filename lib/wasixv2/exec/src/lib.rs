@@ -19,7 +19,6 @@ mod wasixv2;
 
 use std::{
     any::Any,
-    borrow::Cow,
     future::Future,
     panic::{AssertUnwindSafe, catch_unwind},
     pin::pin,
@@ -31,6 +30,7 @@ pub use abi::{Abi, AbiInstance, Abis, Entry, EntryReturn, Role, Sigreturn, Vfork
 pub use generated::IMPORT_MODULE;
 pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;
+pub use preempt::InstrumentError;
 pub use process::VFORK_RETURN;
 pub use thread::THREAD_ENTRY;
 pub use wasixv2::{Wasixv2, is_wasixv2_module};
@@ -160,17 +160,40 @@ pub async fn call_guest<S: 'static>(
 struct Exited(i32);
 
 /// Compiles `wasm` for [`run`], with the preemption points that let a busy guest notice signals
-/// and the exit of its thread group, and atomic waits that a signal interrupts.
+/// and the exit of its thread group, and atomic waits that a signal interrupts. A module they
+/// cannot be added to is compiled as it is, with a warning; [`is_preemptible`] tells.
 pub fn load(engine: &Engine, wasm: &[u8]) -> Result<Module, CompileError> {
-    Module::new(engine, instrument(wasm))
+    match instrument(wasm) {
+        Ok(instrumented) => Module::new(engine, instrumented),
+        Err(err) => {
+            let module = Module::new(engine, wasm)?;
+            warn_not_preemptible(&err);
+            Ok(module)
+        }
+    }
 }
 
 /// `wasm` with the preemption points [`load`] adds, for an embedder that compiles (and caches)
-/// modules itself. A module compiled without them runs, but a guest that computes without
-/// making syscalls, or blocks in `memory.atomic.wait`, does not notice signals or its group's
-/// exit.
-pub fn instrument(wasm: &[u8]) -> Cow<'_, [u8]> {
+/// modules itself. Fails for a module the rewrite cannot handle: an invalid one, which
+/// compiling then reports, or one using something the rewrite does not know. Such a module,
+/// compiled as it is, runs, but a guest that computes without making syscalls, or blocks in
+/// `memory.atomic.wait`, does not notice signals or its group's exit;
+/// [`warn_not_preemptible`] says so.
+pub fn instrument(wasm: &[u8]) -> Result<Vec<u8>, InstrumentError> {
     preempt::instrument(wasm)
+}
+
+/// Whether `module` was compiled with the preemption points [`load`] and [`instrument`] add.
+pub fn is_preemptible(module: &Module) -> bool {
+    preempt::instrumented(module)
+}
+
+/// Logs, as a warning, that a module [`instrument`] failed for runs without preemption points.
+pub fn warn_not_preemptible(err: &InstrumentError) {
+    tracing::warn!(
+        "{err}; it runs without them, so it notices signals and the exit of its thread group \
+         only in syscalls, and `memory.atomic.wait` blocks its thread"
+    );
 }
 
 /// Runs `module`, a `wasixv2` program which [`load`] compiled, as `task` until its thread group
