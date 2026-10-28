@@ -440,11 +440,21 @@ location, the Linux reference and the fix.
 
 ## 4. LTP shell tests
 
-v2 builds of bash 5.3, coreutils 9.12, grep, sed, gawk, findutils, diffutils, which and LTP's shell
-library exist; the build scripts are in [plan/userland/](plan/userland/) (`build-all.sh`, one
-`<pkg>/build.sh` each, `package/gen.sh` for a local webc v3 package with 114 commands,
-`tests/smoke.sh`, `tests/run-ltp.sh`, `tests/ltp-sweep.sh`, minimal repros in `tests/repros/`).
-They build against the asyncify sysroot and need train 5's libc2. With train 5, LTP's
+v2 builds of bash 5.3, coreutils 9.12, grep, sed, gawk, findutils, diffutils, which, util-linux
+2.41.2 (mount, umount, mountpoint, findmnt, unshare, nsenter, setsid, taskset, renice, uuidgen,
+ipcs, ipcrm, hexdump, flock, getopt), gzip, bzip2, tar, cpio, Info-ZIP unzip, procps-ng (ps,
+sysctl, free, pgrep, pkill, pidof, kill, ...), psmisc (killall, fuser) and LTP's shell library
+exist; the build scripts are in [plan/userland/](plan/userland/) (`build-all.sh`, one
+`<pkg>/build.sh` each, `package/gen.sh` for a local webc v3 package, `tests/smoke.sh`,
+`tests/run-ltp.sh`, `tests/ltp-sweep.sh`, minimal repros in `tests/repros/`).
+They build against the asyncify sysroot for the host `wasm32-unknown-linux-musl`. With train 9's
+CLI, `tar01`, `cpio01`, `unzip01` and `gzip01` pass as well; `fs_bind*` need the mount syscalls
+(branch `wasixv2/mounts`), `unshare01` new namespaces, and `killall` `pidfd_send_signal` on a
+`/proc/<pid>` directory.
+Not built: binutils and file (`file01`, `nm01`, `ld01` inspect ELF objects and `/bin/sh`, which
+are wasm modules here), iproute2 and net-tools (the network tests configure interfaces,
+addresses and namespaces, which the kernel's netlink does not change yet), `ldd` (no dynamic
+loader). With train 5, LTP's
 `tst_test.sh` runs: du01, ln, mkdir, wc01, which01, tst_errexit and timeout01/02 pass; cp/mv pass
 but need the exec image cache (WP2).
 
