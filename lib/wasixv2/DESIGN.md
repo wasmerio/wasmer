@@ -435,11 +435,12 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 **Not supported:**
 
 - raw and packet sockets
+- ICMP datagram sockets (`SOCK_DGRAM` with `IPPROTO_ICMP`), so `ping` does not work
 - netfilter
 - MTU and fragmentation behaviour
 - exact `TCP_INFO` values, which are synthesized
 
-`ping` works the way unprivileged ICMP sockets do on Linux, through a host ICMP socket. A packet-level stack can come later as an optional backend if something needs these.
+A raw socket fails with `EPERM` without `CAP_NET_RAW` and `ESOCKTNOSUPPORT` with it, an ICMP datagram socket with `EPROTONOSUPPORT`. Unprivileged ICMP sockets through a host ICMP socket, as Linux's `ping_group_range` allows them, or a packet-level stack as an optional backend can come later if something needs these.
 
 ### Port tables
 
