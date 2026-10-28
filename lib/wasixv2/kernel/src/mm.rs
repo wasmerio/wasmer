@@ -1078,6 +1078,12 @@ impl Kernel {
         if self.mm_shared_elsewhere(caller.task()) {
             return;
         }
+        self.exit_mmap(caller).await;
+    }
+
+    /// `exit_mmap` while the memory is still there, by its last user: writes back every shared
+    /// mapping and drops all of them.
+    pub(crate) async fn exit_mmap(&self, caller: &Caller<'_>) {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         let mappings = mm.space().mappings.clear();

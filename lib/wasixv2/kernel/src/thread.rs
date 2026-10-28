@@ -88,6 +88,9 @@ pub(crate) struct ThreadState {
     /// The task called `exit` or was killed with its thread; it goes away once the execution
     /// layer releases it.
     exited: bool,
+    /// The task is done with its memory ([`Kernel::exit_mm`]; Linux clears `tsk->mm`), so it
+    /// no longer counts among the memory's users.
+    left_mm: bool,
 }
 
 impl ThreadState {
@@ -111,6 +114,7 @@ impl ThreadState {
                 false => self.tls,
             },
             exited: false,
+            left_mm: false,
         }
     }
 }
@@ -195,6 +199,7 @@ impl Kernel {
                     false => task.thread.tls,
                 },
                 exited: false,
+                left_mm: false,
             };
             let id = TaskId(state.last_id + 1);
             let flag = Arc::new(WorkFlag::default());
@@ -267,14 +272,14 @@ impl Kernel {
         forget_task(&mut self.state.lock().unwrap(), child);
     }
 
-    /// `do_exit` for one task. The last task to exit ends its thread group, with the leader's
-    /// status. The group leader stays until then, as a zombie leader does on Linux, so the
-    /// group's status reaches whoever started the process.
+    /// `do_exit` for one task: its memory goes first ([`Kernel::exit_mm`]). The last task to
+    /// exit ends its thread group, with the leader's status. The group leader stays until then,
+    /// as a zombie leader does on Linux, so the group's status reaches whoever started the
+    /// process.
     pub(crate) async fn sys_exit(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
         let task = caller.task();
         let process = self.process(task);
-        let thread = self.take_futex_state(task);
-        self.exit_thread(caller, task, thread, true).await;
+        self.exit_mm(caller).await;
         let last = {
             let mut state = self.state.lock().unwrap();
             let entry = state
@@ -295,7 +300,6 @@ impl Kernel {
             (group.live == 0).then(|| group.leader_exit.unwrap_or(status))
         };
         if let Some(status) = last {
-            self.mm_release(caller).await;
             self.do_group_exit(task, status);
             return Ok(());
         }
@@ -653,12 +657,6 @@ impl Kernel {
             .expect("NoInterrupt never interrupts")
     }
 
-    /// The futex state `task` leaves behind, which its exit releases once: Linux clears
-    /// `robust_list` and `clear_child_tid` as it handles them.
-    fn take_futex_state(&self, task: TaskId) -> ThreadState {
-        self.with_task(task, take_futex_state)
-    }
-
     /// `futex_exit_release` and `mm_release` for every task of the caller's thread group, run
     /// by the caller while the memory is still there. `exit_group` and `execve` end the group's
     /// other tasks (`zap_other_threads`, `de_thread`), and the end of the memory, which writes
@@ -721,6 +719,39 @@ impl Kernel {
                 };
                 let _ = self.futexes.wake(key, 1, u32::MAX);
             }
+        }
+    }
+
+    /// `exit_mm` for the caller, which is done with its memory: `mm_release` hands on its
+    /// robust and PI futexes and, while another task still uses the memory (`mm_users > 1`: a
+    /// thread of its group, or a vfork relative), zeroes its `clear_child_tid` and wakes a
+    /// waiter there; then `mmput`, where the last task to leave the memory writes back its
+    /// shared mappings and drops them (`exit_mmap`). Once per task and memory; a later call does
+    /// nothing.
+    pub(crate) async fn exit_mm(&self, caller: &Caller<'_>) {
+        let task = caller.task();
+        let (thread, users) = {
+            let mut state = self.state.lock().unwrap();
+            let Some(entry) = state.tasks.get_mut(&task) else {
+                return;
+            };
+            if entry.thread.left_mm {
+                return;
+            }
+            let thread = take_futex_state(entry);
+            (thread, mm_users(&state, task))
+        };
+        self.exit_thread(caller, task, thread, users > 1).await;
+        let last = {
+            let mut state = self.state.lock().unwrap();
+            let Some(entry) = state.tasks.get_mut(&task) else {
+                return;
+            };
+            entry.thread.left_mm = true;
+            mm_users(&state, task) == 0
+        };
+        if last {
+            self.exit_mmap(caller).await;
         }
     }
 
@@ -788,11 +819,22 @@ impl Drop for ExecGuard {
     }
 }
 
-/// [`Kernel::take_futex_state`] on a task entry.
+/// The futex state `task` leaves behind, which its exit releases once: Linux clears
+/// `robust_list` and `clear_child_tid` as it handles them.
 fn take_futex_state(task: &mut Task) -> ThreadState {
     let thread = task.thread;
     (task.thread.robust_list, task.thread.clear_child_tid) = (0, 0);
     thread
+}
+
+/// `mm_users` of `task`'s memory: the tasks on it, of any process, that have not left it.
+fn mm_users(state: &State, task: TaskId) -> usize {
+    let mm = &state.tasks[&task].mm;
+    state
+        .tasks
+        .values()
+        .filter(|t| Arc::ptr_eq(&t.mm, mm) && !t.thread.left_mm)
+        .count()
 }
 
 /// Removes `task` from the kernel, counting it out of its thread group if it was still alive.
