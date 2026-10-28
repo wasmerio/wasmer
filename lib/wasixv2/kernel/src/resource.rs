@@ -12,7 +12,7 @@ use wasixv2_syscalls::{Caller, Errno, SysResult, UserSliceMut, read_value, write
 
 use wasixv2_vfs::Cap;
 
-use crate::{Kernel, Process, State, mm::PAGE_SIZE, sync::MutexExt, time};
+use crate::{Kernel, Process, State, mm::PAGE_SIZE, sync::MutexExt};
 
 const INFINITY: u64 = u64::MAX;
 /// `RLIM_NLIMITS`.
@@ -171,9 +171,9 @@ impl Kernel {
         Ok(0)
     }
 
-    /// The guest's CPU time so far; see `time::Clock::ProcessCpu`.
+    /// The guest's CPU time so far; see [`Process::cpu_time`].
     fn cpu_time(&self, caller: &Caller<'_>) -> Duration {
-        self.clock_now(caller, time::Clock::ProcessCpu)
+        self.process(caller.task()).cpu_time(&*self.host)
     }
 
     pub(crate) async fn sys_getrusage(

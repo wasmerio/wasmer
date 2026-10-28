@@ -69,7 +69,7 @@ pub(crate) struct TimerFd(Arc<Inner>);
 
 impl Inner {
     fn now(&self) -> Duration {
-        time::read(&*self.host, self.clock, Duration::ZERO)
+        time::read(&*self.host, self.clock, None)
     }
 
     /// Counts the expirations up to now; returns whether there are unread ones.
