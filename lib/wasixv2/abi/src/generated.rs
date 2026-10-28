@@ -18906,8 +18906,9 @@ impl GuestLayout for Winsize {
         self.ws_ypixel.write_to(&mut out[6..]);
     }
 }
-/// `ioctl` requests for terminals, sockets and timerfd
-/// (`asm-generic/ioctls.h`, `asm-generic/sockios.h`, `linux/sockios.h`, `linux/timerfd.h`).
+/// `ioctl` requests for terminals, sockets, timerfd and namespace files
+/// (`asm-generic/ioctls.h`, `asm-generic/sockios.h`, `linux/sockios.h`, `linux/timerfd.h`,
+/// `linux/nsfs.h`).
 ///
 /// C: `unsigned`
 #[repr(transparent)]
@@ -19059,6 +19060,10 @@ impl IoctlRequest {
     pub const SIOCGHWTSTAMP: Self = Self(35249);
     pub const SIOCPROTOPRIVATE: Self = Self(35296);
     pub const SIOCDEVPRIVATE: Self = Self(35312);
+    pub const NS_GET_USERNS: Self = Self(46849);
+    pub const NS_GET_PARENT: Self = Self(46850);
+    pub const NS_GET_NSTYPE: Self = Self(46851);
+    pub const NS_GET_OWNER_UID: Self = Self(46852);
     pub const TIOCSPTLCK: Self = Self(1074025521);
     pub const TIOCSIG: Self = Self(1074025526);
     pub const TFD_IOC_SET_TICKS: Self = Self(1074287616);
@@ -19218,6 +19223,10 @@ impl IoctlRequest {
         ("SIOCGHWTSTAMP", Self::SIOCGHWTSTAMP),
         ("SIOCPROTOPRIVATE", Self::SIOCPROTOPRIVATE),
         ("SIOCDEVPRIVATE", Self::SIOCDEVPRIVATE),
+        ("NS_GET_USERNS", Self::NS_GET_USERNS),
+        ("NS_GET_PARENT", Self::NS_GET_PARENT),
+        ("NS_GET_NSTYPE", Self::NS_GET_NSTYPE),
+        ("NS_GET_OWNER_UID", Self::NS_GET_OWNER_UID),
         ("TIOCSPTLCK", Self::TIOCSPTLCK),
         ("TIOCSIG", Self::TIOCSIG),
         ("TFD_IOC_SET_TICKS", Self::TFD_IOC_SET_TICKS),
@@ -19378,6 +19387,10 @@ impl IoctlRequest {
             35249 => Some("SIOCGHWTSTAMP"),
             35296 => Some("SIOCPROTOPRIVATE"),
             35312 => Some("SIOCDEVPRIVATE"),
+            46849 => Some("NS_GET_USERNS"),
+            46850 => Some("NS_GET_PARENT"),
+            46851 => Some("NS_GET_NSTYPE"),
+            46852 => Some("NS_GET_OWNER_UID"),
             1074025521 => Some("TIOCSPTLCK"),
             1074025526 => Some("TIOCSIG"),
             1074287616 => Some("TFD_IOC_SET_TICKS"),
