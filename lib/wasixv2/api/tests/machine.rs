@@ -138,3 +138,87 @@ async fn the_default_environment_has_the_users_home_and_a_path() {
     let root = Machine::builder().user(Credentials::new(0, 0)).build();
     assert_eq!(root.default_env(), ["HOME=/root", path]);
 }
+
+/// Prints `ready`, then waits in `ppoll` with nothing to poll and no timeout, forever.
+const BLOCK_WAT: &str = r#"
+  (module
+    (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "ppoll_time64" (func $ppoll (param i32 i32 i32 i32 i32) (result i32)))
+    (memory (export "memory") 1)
+    (data (i32.const 16) "ready\n")
+    (func (export "_start")
+      (drop (call $write (i32.const 1) (i32.const 16) (i32.const 6)))
+      (loop $forever
+        (drop (call $ppoll (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 8)))
+        (br $forever))))
+"#;
+
+/// Waits until `stdout` holds `ready\n`.
+async fn ready(stdout: &Capture) {
+    while stdout.0.lock().unwrap().as_slice() != b"ready\n" {
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
+}
+
+fn stdio(stdout: &Arc<Capture>) -> Stdio {
+    Stdio {
+        stdin: Arc::new(EmptySource),
+        stdout: stdout.clone(),
+        stderr: Arc::new(Capture::default()),
+    }
+}
+
+/// `shutdown` kills every process and returns once they are gone; their runs end with
+/// 128 + SIGKILL, and the machine runs what comes next.
+#[tokio::test]
+async fn shutdown_ends_every_process() {
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let machine = std::rc::Rc::new(Machine::new());
+            let wasm = wat::parse_str(BLOCK_WAT).unwrap();
+            let stdout = Arc::new(Capture::default());
+            let run = tokio::task::spawn_local({
+                let (machine, stdio) = (machine.clone(), stdio(&stdout));
+                async move { machine.run(&wasm, stdio).await }
+            });
+            ready(&stdout).await;
+            let deadline = std::time::Duration::from_secs(10);
+            tokio::time::timeout(deadline, machine.shutdown())
+                .await
+                .expect("shutdown returned");
+            assert_eq!(run.await.unwrap().unwrap(), 128 + 9);
+            let (status, out) = run_on(&machine, UNAME_WAT).await;
+            assert_eq!((status, out.as_slice()), (1, &b"localhost 2.0.0"[..]));
+        })
+        .await;
+}
+
+/// A run whose future is dropped kills its process, which `shutdown` then finds gone.
+#[tokio::test]
+async fn a_dropped_run_kills_its_process() {
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let machine = Machine::new();
+            let wasm = wat::parse_str(BLOCK_WAT).unwrap();
+            let stdout = Arc::new(Capture::default());
+            // The run's future is dropped once the guest waits.
+            tokio::select! {
+                _ = machine.run(&wasm, stdio(&stdout)) => panic!("the guest never exits"),
+                () = ready(&stdout) => {}
+            }
+            let deadline = std::time::Duration::from_secs(10);
+            tokio::time::timeout(deadline, machine.shutdown())
+                .await
+                .expect("shutdown returned");
+        })
+        .await;
+}
+
+/// Runs `wat` on `machine` and returns its exit status and stdout.
+async fn run_on(machine: &Machine, wat: &str) -> (i32, Vec<u8>) {
+    let wasm = wat::parse_str(wat).expect("valid test module");
+    let stdout = Arc::new(Capture::default());
+    let status = machine.run(&wasm, stdio(&stdout)).await.unwrap();
+    let stdout = stdout.0.lock().unwrap().clone();
+    (status, stdout)
+}

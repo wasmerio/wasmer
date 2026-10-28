@@ -804,3 +804,32 @@ fn a_process_group_signal_says_whether_it_is_pending() {
         Some(GuestAction::Signal(_))
     ));
 }
+
+/// `terminate` kills every process, children included, and returns once the execution layer
+/// has released all their tasks.
+#[test]
+fn terminate_kills_every_process_and_waits_for_their_tasks() {
+    let (kernel, task, _) = machine();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let child = fork(&kernel, &caller);
+
+    let mut terminate = std::pin::pin!(kernel.terminate());
+    assert!(
+        terminate.as_mut().now_or_never().is_none(),
+        "tasks are left"
+    );
+    for task in [task, child] {
+        assert!(matches!(
+            kernel.take_pending(task),
+            Some(GuestAction::Exit(_))
+        ));
+    }
+    kernel.release_task(child);
+    assert!(
+        terminate.as_mut().now_or_never().is_none(),
+        "one task is left"
+    );
+    kernel.release_task(task);
+    assert_eq!(terminate.now_or_never(), Some(()));
+}

@@ -581,9 +581,12 @@ impl Machine {
         module: &Module,
         config: ProcessConfig,
     ) -> Result<i32, RunError> {
-        let (task, _running) = self.start(config).await?;
-        self.run_image(Store::new(engine.clone()), module, task)
-            .await
+        let (task, running) = self.start(config).await?;
+        let status = self
+            .run_image(Store::new(engine.clone()), module, task)
+            .await;
+        running.released();
+        status
     }
 
     /// Starts the program at `path`, a guest path resolved from the working directory, as a
@@ -604,7 +607,21 @@ impl Machine {
     ) -> Result<i32, RunError> {
         let bytes = |strings: &[String]| strings.iter().map(|s| s.as_bytes().to_vec()).collect();
         let (args, env) = (bytes(&config.args), bytes(&config.env));
-        let (task, _running) = self.start(config).await?;
+        let (task, running) = self.start(config).await?;
+        let status = self.exec_file(engine, task, path, args, env).await;
+        running.released();
+        status
+    }
+
+    /// The rest of [`Machine::run_file`] for `task`, which it releases however it ends.
+    async fn exec_file(
+        &self,
+        engine: &Engine,
+        task: TaskId,
+        path: &str,
+        args: Vec<Vec<u8>>,
+        env: Vec<Vec<u8>>,
+    ) -> Result<i32, RunError> {
         let kernel = &self.syscalls.inner;
         let image = match kernel.exec(task, path.as_bytes(), args, env).await {
             Ok(image) => image,
@@ -633,8 +650,19 @@ impl Machine {
         Ok(run.await?)
     }
 
+    /// Ends every process of the machine, as powering it off does: each is killed with
+    /// SIGKILL, and this returns once nothing of them runs any more, their threads and the
+    /// processes they started included. The runs waiting for them end with 128 + 9. A busy
+    /// guest dies at its next preemption point, so a precompiled module without them that
+    /// never makes a syscall keeps this waiting. The machine stays usable: it runs what is
+    /// started afterwards. Dropping the machine kills its processes too, without waiting.
+    pub async fn shutdown(&self) {
+        self.syscalls.inner.terminate().await;
+    }
+
     /// Spawns the process `config` describes, in the working directory, and keeps it on
-    /// [`Machine::signal`]'s list while the returned guard lives.
+    /// [`Machine::signal`]'s list while the returned guard lives; the guard kills it unless
+    /// told that the run released it.
     async fn start(&self, config: ProcessConfig) -> Result<(TaskId, Running<'_>), RunError> {
         self.in_use.store(true, Ordering::Relaxed);
         #[cfg(feature = "wasix1")]
@@ -644,6 +672,7 @@ impl Machine {
         let running = Running {
             machine: self,
             task,
+            released: false,
         };
         if let Some(dir) = &self.working_dir {
             self.syscalls
@@ -798,7 +827,7 @@ fn killed(kernel: &Kernel, task: TaskId) -> Option<i32> {
     status.inspect(|_| kernel.release(task))
 }
 
-/// Ends `task`, a process that never ran an image, with SIGKILL, and lets it go.
+/// Ends `task`, a process whose image no longer runs, with SIGKILL, and lets it go.
 fn abandon(kernel: &Kernel, task: TaskId) {
     use wasixv2_syscalls::Control;
 
@@ -806,10 +835,19 @@ fn abandon(kernel: &Kernel, task: TaskId) {
     kernel.release(task);
 }
 
-/// Takes a process off [`Machine::signal`]'s list however `run_process` ends.
+/// Takes a process off [`Machine::signal`]'s list however its run ends. A run whose future is
+/// dropped before it released the process kills it, so nothing of it is left running.
 struct Running<'a> {
     machine: &'a Machine,
     task: TaskId,
+    released: bool,
+}
+
+impl Running<'_> {
+    /// The run ended and released the process.
+    fn released(mut self) {
+        self.released = true;
+    }
 }
 
 impl Drop for Running<'_> {
@@ -819,6 +857,16 @@ impl Drop for Running<'_> {
             .lock()
             .unwrap()
             .retain(|task| *task != self.task);
+        if !self.released {
+            abandon(&self.machine.syscalls.inner, self.task);
+        }
+    }
+}
+
+impl Drop for Machine {
+    /// Kills the machine's processes; see [`Machine::shutdown`].
+    fn drop(&mut self) {
+        self.syscalls.inner.kill_all();
     }
 }
 

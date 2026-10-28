@@ -13,7 +13,7 @@ use wasixv2_syscalls::{
 };
 use wasixv2_wait::{Interrupted, NoInterrupt, PollMask, WaitQueue, wait_event};
 
-use crate::{Kernel, Process, State, Task, work::Work};
+use crate::{Kernel, Process, State, Task, signal::Signals, work::Work};
 
 /// `sizeof(struct robust_list_head)` on ILP32.
 const ROBUST_LIST_HEAD_SIZE: u32 = 12;
@@ -424,6 +424,54 @@ impl Kernel {
             process
         };
         self.exit_notify(&process);
+    }
+
+    /// Sends SIGKILL to every process of the machine, as `kill(-1, SIGKILL)` from outside it
+    /// does, with no init to spare: each thread group dies at its next interruption point.
+    pub fn kill_all(&self) {
+        for (_, signals) in self.live_processes() {
+            signals.kill_all();
+        }
+    }
+
+    /// Ends every process of the machine, as powering it off does: [`Kernel::kill_all`], then
+    /// waits until the execution layer has released every task, so nothing of the machine runs
+    /// any more. A process forked meanwhile is killed too.
+    pub async fn terminate(&self) {
+        loop {
+            let processes = self.live_processes();
+            if processes.is_empty() {
+                return;
+            }
+            for (_, signals) in &processes {
+                signals.kill_all();
+            }
+            for (process, _) in processes {
+                let gone = || {
+                    let state = self.state.lock().unwrap();
+                    let left = state
+                        .tasks
+                        .values()
+                        .any(|t| Arc::ptr_eq(&t.process, &process));
+                    (!left).then_some(())
+                };
+                wait_event(&process.group.released, gone, &NoInterrupt)
+                    .await
+                    .expect("NoInterrupt never interrupts");
+            }
+        }
+    }
+
+    /// Every process that has a task, with its thread group's signals.
+    fn live_processes(&self) -> Vec<(Arc<Process>, Arc<Signals>)> {
+        let state = self.state.lock().unwrap();
+        let mut processes: Vec<(Arc<Process>, Arc<Signals>)> = Vec::new();
+        for task in state.tasks.values() {
+            if !processes.iter().any(|(p, _)| Arc::ptr_eq(p, &task.process)) {
+                processes.push((task.process.clone(), task.signals.group().clone()));
+            }
+        }
+        processes
     }
 
     /// Waits until `task` is the only task of its thread group.
