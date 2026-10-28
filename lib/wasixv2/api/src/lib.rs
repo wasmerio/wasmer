@@ -17,7 +17,8 @@ use std::{
 pub use shared_buffer::OwnedBuffer;
 use wasixv2_exec::{Abis, Wasixv2};
 pub use wasixv2_exec::{
-    Compile, ExecError, Image, ImageId, LoadError, Loader, instrument, is_wasixv2_module, load,
+    Compile, ExecError, Image, ImageId, InstrumentError, LoadError, Loader, instrument,
+    is_preemptible, is_wasixv2_module, load, warn_not_preemptible,
 };
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
