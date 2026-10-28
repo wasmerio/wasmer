@@ -20,6 +20,8 @@ use crate::{
 /// [`GuestAction::Fork`]: wasixv2_syscalls::GuestAction::Fork
 struct Writes {
     parent_tid: Option<u32>,
+    /// Where the parent's pidfd goes, and its number.
+    pidfd: Option<(u32, i32)>,
     child_tid: Option<u32>,
     tls: Option<u32>,
     /// The forking import's own data ([`asyncify::import::set_fork_payload`]).
@@ -79,13 +81,14 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     syscalls: &S,
     child: TaskId,
-    parent_tid: Option<u32>,
+    (parent_tid, pidfd): (Option<u32>, Option<(u32, i32)>),
     child_tid: Option<u32>,
     tls: Option<u32>,
 ) -> SysResult<()> {
     let payload = env.write().await.data_mut().fork_payload.take();
     let tag = Arc::new(Writes {
         parent_tid,
+        pidfd,
         child_tid,
         tls,
         payload,
@@ -111,7 +114,7 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
 }
 
 /// What clone returns once the guest rewound into it: the child's pid in the parent, after
-/// `CLONE_PARENT_SETTID`'s write, and 0 in the child, after `CLONE_CHILD_SETTID`'s write and
+/// `CLONE_PARENT_SETTID`'s and `CLONE_PIDFD`'s writes, and 0 in the child, after `CLONE_CHILD_SETTID`'s write and
 /// `CLONE_SETTLS`.
 async fn fork_returned<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
@@ -126,11 +129,14 @@ async fn fork_returned<S: 'static>(
         .downcast_ref::<Writes>()
         .ok_or_else(|| RuntimeError::new("clone resumed from another ABI's fork"))?;
     env.with(|data, store| {
-        // Linux ignores faults on both writes.
+        // Linux ignores faults on the tid writes; the kernel checked the pidfd's would land.
         match child {
             Some(child) => {
                 if let Some(addr) = writes.parent_tid {
                     let _ = data.write_memory(&*store, addr, &child.0.to_le_bytes());
+                }
+                if let Some((addr, fd)) = writes.pidfd {
+                    let _ = data.write_memory(&*store, addr, &fd.to_le_bytes());
                 }
                 Ok(child.0 as i32)
             }

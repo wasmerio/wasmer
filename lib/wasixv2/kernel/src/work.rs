@@ -215,6 +215,7 @@ mod tests {
         let fork = GuestAction::Fork {
             child: TaskId(3),
             parent_tid: None,
+            pidfd: None,
             child_tid: None,
             tls: None,
         };

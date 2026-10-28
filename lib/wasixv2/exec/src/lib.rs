@@ -940,11 +940,13 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
             GuestAction::Fork {
                 child,
                 parent_tid,
+                pidfd,
                 child_tid,
                 tls,
             } => {
                 // The guest unwinds now; the import that forked resumes once it rewinds.
-                return match fork::start(env, syscalls, child, parent_tid, child_tid, tls).await {
+                let parent = (parent_tid, pidfd);
+                return match fork::start(env, syscalls, child, parent, child_tid, tls).await {
                     Ok(()) => Outcome::Unwinding,
                     Err(SysErr::Errno(errno)) => Outcome::Return(Err(errno)),
                     Err(_) => unreachable!("fork fails with an errno"),

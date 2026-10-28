@@ -30,6 +30,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_eve
 use crate::{
     Kernel, Process, State, Task,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
+    fs::FdReservation,
     ident::Comm,
     signal::{Signals, user_info},
     sync::MutexExt,
@@ -785,32 +786,38 @@ impl Kernel {
         if flags.contains(CloneFlags::CLONE_THREAD) || flags.contains(CloneFlags::CLONE_SIGHAND) {
             return Err(Errno::EINVAL.into());
         }
-        // No pidfd comes out of clone yet (`pidfd_open` gives one): failing beats a pidfd
-        // never written. Nor is a child reaped without its parent.
-        if flags.intersects(CloneFlags::CLONE_PIDFD | CloneFlags::CLONE_AUTOREAP) {
+        // No child is reaped without its parent.
+        if flags.contains(CloneFlags::CLONE_AUTOREAP) {
             return Err(Errno::EINVAL.into());
         }
         let newsp = args.stack;
         let (parent_tid, tls, child_tid) = (args.parent_tid, args.tls, args.child_tid);
         if !flags.contains(CloneFlags::CLONE_VM) {
-            return self
-                .fork(
-                    caller,
-                    flags,
-                    exit_signal,
-                    newsp,
-                    parent_tid,
-                    tls,
-                    child_tid,
-                )
-                .await;
+            let pidfd = match flags.contains(CloneFlags::CLONE_PIDFD) {
+                true => Some(self.prepare_pidfd(caller, args.pidfd, false).await?),
+                false => None,
+            };
+            let writes = ForkWrites {
+                parent_tid,
+                pidfd,
+                tls,
+                child_tid,
+            };
+            return self.fork(caller, flags, exit_signal, newsp, writes).await;
         }
         // Only vfork can run the child: it takes over the caller's instance.
         if !flags.contains(CloneFlags::CLONE_VFORK) || newsp != 0 {
             return Err(Errno::EINVAL.into());
         }
+        let pidfd = match flags.contains(CloneFlags::CLONE_PIDFD) {
+            true => Some(self.prepare_pidfd(caller, args.pidfd, true).await?),
+            false => None,
+        };
         let parent_task = caller.task();
         let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid)?;
+        if let Some((reservation, _)) = pidfd {
+            reservation.install(Arc::new(self.pidfd_file(child.0, OpenFlags::O_RDWR)));
+        }
         let tid = child.0 as i32;
         // Linux ignores faults on both writes.
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
@@ -842,20 +849,73 @@ impl Kernel {
         })
     }
 
+    /// `pidfd_prepare` and the `put_user` of its number for `CLONE_PIDFD`, before anything is
+    /// made, so a fault makes nothing (`EFAULT`): reserves the parent's descriptor (`EMFILE`)
+    /// and, with `write`, writes its number at `at`. Without `write` (fork, whose child must
+    /// not see the number), only checks that it would land there: the execution layer writes
+    /// it after the copy of the address space ([`GuestAction::Fork`]).
+    async fn prepare_pidfd(
+        &self,
+        caller: &Caller<'_>,
+        at: u32,
+        write: bool,
+    ) -> Result<(FdReservation, u32), Errno> {
+        let [reservation] = self.reserve_fds::<1>(caller, true)?;
+        let fd = reservation.fd().0;
+        match write {
+            true => write_value(caller.memory(), GuestPtrMut::new(at), &fd)
+                .await
+                .map_err(|_| Errno::EFAULT)?,
+            false => self.check_put_user(caller, at, 4).await?,
+        }
+        Ok((reservation, at))
+    }
+
+    /// Whether a `put_user` of `len` bytes at `addr` would land in the caller's memory, as
+    /// [`UserMemory::write`] decides it, without writing: inside the memory, above its low
+    /// guard, and where the page map allows writes.
+    async fn check_put_user(&self, caller: &Caller<'_>, addr: u32, len: u32) -> Result<(), Errno> {
+        let memory = caller.memory();
+        let end = u64::from(addr) + u64::from(len);
+        if addr < memory.low_guard().await || end > memory.size().await {
+            return Err(Errno::EFAULT);
+        }
+        let access = self.mm(caller.task()).access().clone();
+        access
+            .check(addr, len as usize, true)
+            .map_err(|_| Errno::EFAULT)
+    }
+
+    /// The parent's pidfd of the process `pid` (`pidfd_prepare`).
+    fn pidfd_file(&self, pid: u32, status: OpenFlags) -> OpenFile {
+        let object = PidFd {
+            pid,
+            tree: self.procs.tree.clone(),
+            changed: self.procs.changed.clone(),
+        };
+        OpenFile::new(
+            Backing::Stream(Arc::new(object), self.pseudo.anon("[pidfd]")),
+            status,
+        )
+    }
+
     /// fork: `clone` without `CLONE_VM`. The child gets a copy of the address space, which the
     /// execution layer makes once the call returns ([`GuestAction::Fork`]); clone's writes to
     /// guest memory wait for that copy, so each lands only in the address space Linux writes.
-    #[allow(clippy::too_many_arguments)]
     async fn fork(
         &self,
         caller: &Caller<'_>,
         flags: CloneFlags,
         exit_signal: i32,
         newsp: Uptr,
-        parent_tid: u32,
-        tls: Uptr,
-        child_tid: u32,
+        writes: ForkWrites,
     ) -> SysResult<i32> {
+        let ForkWrites {
+            parent_tid,
+            pidfd,
+            tls,
+            child_tid,
+        } = writes;
         // The child cannot start on another stack (`newsp`), and nothing can block the parent
         // until a child with its own memory execs (`CLONE_VFORK`).
         if newsp != 0 || flags.contains(CloneFlags::CLONE_VFORK) {
@@ -866,10 +926,15 @@ impl Kernel {
         }
         let parent_task = caller.task();
         let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid)?;
+        let pidfd = pidfd.map(|(reservation, at)| {
+            let file = self.pidfd_file(child.0, OpenFlags::O_RDWR);
+            (at, reservation.install(Arc::new(file)).0)
+        });
         let set = |flag: CloneFlags, addr: u32| flags.contains(flag).then_some(addr);
         let fork = GuestAction::Fork {
             child,
             parent_tid: set(CloneFlags::CLONE_PARENT_SETTID, parent_tid),
+            pidfd,
             child_tid: set(CloneFlags::CLONE_CHILD_SETTID, child_tid),
             tls: set(CloneFlags::CLONE_SETTLS, tls),
         };
@@ -1523,19 +1588,11 @@ impl Kernel {
                 return Err(Errno::ESRCH.into());
             }
         }
-        let object = PidFd {
-            pid,
-            tree: self.procs.tree.clone(),
-            changed: self.procs.changed.clone(),
-        };
         let mut status = OpenFlags::O_RDWR;
         if flags & PIDFD_NONBLOCK != 0 {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let file = OpenFile::new(
-            Backing::Stream(Arc::new(object), self.pseudo.anon("[pidfd]")),
-            status,
-        );
+        let file = self.pidfd_file(pid, status);
         let [fd] = self.install_files(caller, [file], true)?;
         Ok(fd)
     }
@@ -1616,6 +1673,15 @@ impl FileObject for PidFd {
     fn write<'a>(&'a self, _: Io<'a>, _: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async { Err(Errno::EINVAL.into()) })
     }
+}
+
+/// clone's writes that a fork leaves to the execution layer, and the pidfd's reservation and
+/// where its number goes.
+struct ForkWrites {
+    parent_tid: u32,
+    pidfd: Option<(FdReservation, u32)>,
+    tls: u32,
+    child_tid: u32,
 }
 
 /// The flags `clone` takes (`CLONE_LEGACY_FLAGS`).
