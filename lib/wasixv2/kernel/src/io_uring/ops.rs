@@ -14,12 +14,13 @@ use wasixv2_abi::{
     IoringOpFlags, IosqeFlags, Iovec, KernelTimespec, MsgFlags, OpenFlags, RwfFlags, ShutdownHow,
     SocketFlags, StatxMask,
 };
-use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, read_value};
+use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, TaskId, read_value};
 use wasixv2_wait::{PollMask, PollTable, WaitEntry, WaitQueue};
 
 use super::{Ctx, Pbuf, Registrations, State, cqe_res, is_ring};
 use crate::{
     Kernel,
+    cred::Cred,
     file::{Backing, OpenFile},
     fs::io::{At, fallocate_mode, read_iovecs, rw_flags},
     sync::MutexExt,
@@ -79,8 +80,12 @@ const fn op(op: IoUringOp) -> u8 {
 pub(crate) struct Req {
     pub(crate) id: u64,
     pub(crate) sqe: IoUringSqe,
-    /// The memory it was submitted on, whose calls issue it again (`req->tctx`).
+    /// The memory it was submitted on, whose calls issue it again.
     pub(crate) mm: u64,
+    /// The task that submitted it (`req->tctx`).
+    pub(crate) task: TaskId,
+    /// Its personality's credentials, which it is issued with (`REQ_F_CREDS`).
+    creds: Option<Cred>,
     /// Its file, found at its first issue (`IORING_FEAT_LINKED_FILE`).
     file: Option<Arc<OpenFile>>,
     /// The requests linked after it.
@@ -179,11 +184,13 @@ impl Outcome {
 }
 
 impl Req {
-    fn new(id: u64, sqe: IoUringSqe, mm: u64) -> Self {
+    fn new(id: u64, sqe: IoUringSqe, (mm, task): (u64, TaskId)) -> Self {
         Self {
             id,
             sqe,
             mm,
+            task,
+            creds: None,
             file: None,
             link: VecDeque::new(),
             link_timeout: None,
@@ -202,9 +209,21 @@ impl Req {
         self.sqe.opcode
     }
 
-    fn is_timeout(&self) -> bool {
+    pub(crate) fn is_timeout(&self) -> bool {
         self.opcode() == op(IoUringOp::IORING_OP_TIMEOUT)
             || self.opcode() == op(IoUringOp::IORING_OP_LINK_TIMEOUT)
+    }
+
+    /// Whether it or a request linked to it holds a ring's file (`io_match_linked` of
+    /// `REQ_F_INFLIGHT`).
+    pub(crate) fn holds_ring(&self) -> bool {
+        let ring = |req: &Req| req.file.as_deref().is_some_and(is_ring);
+        ring(self) || self.link.iter().any(ring)
+    }
+
+    /// An empty request in place of one that moved on.
+    fn taken(&self) -> Self {
+        Req::new(0, self.sqe, (0, TaskId(0)))
     }
 }
 
@@ -460,8 +479,8 @@ impl Kernel {
         sqe: IoUringSqe,
         link: &mut Option<Req>,
     ) -> bool {
-        let mut req = Req::new(ctx.next_id(), sqe, mm);
-        let mut init = init_req(ctx, &req);
+        let mut req = Req::new(ctx.next_id(), sqe, (mm, caller.task()));
+        let mut init = init_req(ctx, &mut req);
         if init.is_ok() && req.opcode() == op(IoUringOp::IORING_OP_LINK_TIMEOUT) {
             // `io_link_timeout_prep`: the timeout is read now; its timer starts once the
             // request it guards waits.
@@ -538,7 +557,13 @@ impl Kernel {
     /// `io_issue_sqe`: one attempt at `req` that does not block, and what follows from it.
     pub(super) async fn issue(&self, caller: &Caller<'_>, ctx: &Arc<Ctx>, mut req: Req) {
         loop {
-            let outcome = match self.issue_op(caller, ctx, &mut req).await {
+            let lent = req
+                .creds
+                .clone()
+                .map(|cred| self.lend_cred(caller.task(), cred));
+            let issued = self.issue_op(caller, ctx, &mut req).await;
+            drop(lent);
+            let outcome = match issued {
                 Ok(outcome) => outcome,
                 Err(errno) => Outcome::of(Err(errno.into())),
             };
@@ -1095,7 +1120,7 @@ impl Kernel {
             let more = IoringCqeFlags::IORING_CQE_F_MORE.0;
             ctx.post(sqe.user_data, mask.0 as i32, more, false);
         }
-        let req = std::mem::replace(req, Req::new(0, sqe, 0));
+        let req = std::mem::replace(req, req.taken());
         Ok(Outcome::Wait(Box::new(Waiting::Poll {
             req,
             events,
@@ -1127,7 +1152,7 @@ impl Kernel {
             weak.upgrade().and_then(|ctx| timeout_fired(&ctx, id))
         }));
         timer.start(at.deadline);
-        let req = std::mem::replace(req, Req::new(0, sqe, 0));
+        let req = std::mem::replace(req, req.taken());
         Ok(Outcome::Wait(Box::new(Waiting::Timeout {
             req,
             _timer: timer,
@@ -1336,17 +1361,18 @@ struct Deadline {
 }
 
 /// `io_init_req`: the opcode, the SQE flags, the personality and buffer selection.
-fn init_req(ctx: &Ctx, req: &Req) -> Result<(), Errno> {
-    let sqe = &req.sqe;
+fn init_req(ctx: &Ctx, req: &mut Req) -> Result<(), Errno> {
+    let sqe = req.sqe;
     if sqe.opcode >= op(IoUringOp::IORING_OP_LAST) {
         return Err(Errno::EINVAL);
     }
     if sqe.flags & !SQE_VALID_FLAGS != 0 {
         return Err(Errno::EINVAL);
     }
-    // No personalities are registered.
     if sqe.personality != 0 {
-        return Err(Errno::EINVAL);
+        let state = ctx.state.lock_or_recover();
+        let creds = state.personalities.get(&sqe.personality);
+        req.creds = Some(creds.ok_or(Errno::EINVAL)?.clone());
     }
     let selects = [
         IoUringOp::IORING_OP_READ,
@@ -1360,7 +1386,6 @@ fn init_req(ctx: &Ctx, req: &Req) -> Result<(), Errno> {
     if !SUPPORTED.iter().any(|o| o.0 == sqe.opcode) {
         return Err(Errno::EOPNOTSUPP);
     }
-    let _ = ctx;
     Ok(())
 }
 
@@ -1489,7 +1514,7 @@ fn arm_link_timeout(ctx: &Arc<Ctx>, req: &mut Req) {
 }
 
 /// Takes the waiting, ready and drained requests that match, every one or the first.
-fn cancel(ctx: &Ctx, matches: impl Fn(&Req) -> bool, all: bool) -> Vec<Req> {
+pub(super) fn cancel(ctx: &Ctx, matches: impl Fn(&Req) -> bool, all: bool) -> Vec<Req> {
     let mut waiting = Vec::new();
     let mut cancelled = Vec::new();
     let mut state = ctx.state.lock_or_recover();

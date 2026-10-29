@@ -860,3 +860,221 @@ fn fdinfo_shows_the_rings() {
     assert!(info.contains("CqMask:\t0x7\n"), "{info}");
     assert!(info.contains("UserFiles:\t0\n"), "{info}");
 }
+
+/// A second thread of the machine's process.
+fn thread(m: &Machine) -> TaskId {
+    // CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD
+    let flags = 0x100 | 0x200 | 0x400 | 0x800 | 0x10000;
+    let null = GuestPtrMut::NULL;
+    let caller = m.caller();
+    let tid = block_on(m.kernel.thread_spawn(&caller, flags, 0, null, 0, null)).unwrap();
+    m.kernel.take_pending(m.task);
+    TaskId(tid as u32)
+}
+
+impl Ring<'_> {
+    fn enter_as(&self, task: TaskId, (fd, flags): (Fd, u32), to_submit: u32) -> SysResult<i32> {
+        let caller = Caller::new(task, &self.m.memory);
+        let enter =
+            self.m
+                .kernel
+                .io_uring_enter(&caller, fd, to_submit, 0, flags, GuestPtr::NULL, 0);
+        block_on(enter)
+    }
+}
+
+#[test]
+fn a_threads_exit_cancels_its_requests_that_hold_a_ring() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let other = thread(&m);
+    let (r, _w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    // The thread polls the ring itself, and reads a pipe.
+    ring.push(IoUringSqe {
+        op_flags: PollMask::READABLE.0,
+        ..sqe(IoUringOp::IORING_OP_POLL_ADD, ring.fd.0, 1)
+    });
+    ring.push(IoUringSqe {
+        addr: u64::from(BUF),
+        len: 1,
+        ..sqe(READ, r.0, 2)
+    });
+    assert_eq!(ring.enter_as(other, (ring.fd, 0), 2), Ok(2));
+    let caller = m.caller();
+    let file = Arc::downgrade(&m.kernel.file(m.task, ring.fd).unwrap());
+    assert_eq!(block_on(m.kernel.close(&caller, ring.fd)), Ok(0));
+    assert!(file.upgrade().is_some(), "the poll holds the ring");
+    let other_caller = Caller::new(other, &m.memory);
+    block_on(m.kernel.exit_mm(&other_caller));
+    assert!(file.upgrade().is_none(), "the exit let it go");
+}
+
+#[test]
+fn a_task_cancel_ends_every_request_of_the_task() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let (r, _w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    write_ts(&m, TS, Duration::from_secs(30));
+    ring.push(IoUringSqe {
+        addr: u64::from(BUF),
+        len: 1,
+        ..sqe(READ, r.0, 1)
+    });
+    ring.push(IoUringSqe {
+        addr: u64::from(TS),
+        len: 1,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 2)
+    });
+    assert_eq!(ring.submit(2), Ok(2));
+    // A thread's exit leaves what holds no ring.
+    m.kernel
+        .io_uring_cancel(m.task, crate::io_uring::Cancel::Tracked);
+    assert!(ring.reap().is_empty());
+    // `execve` takes them all.
+    m.kernel
+        .io_uring_cancel(m.task, crate::io_uring::Cancel::All);
+    let mut cqes = ring.reap();
+    cqes.sort_by_key(|cqe| cqe.user_data);
+    let canceled = -Errno::ECANCELED.0;
+    assert_eq!(res(&cqes), [(1, canceled), (2, canceled)]);
+}
+
+#[test]
+fn personalities_lend_their_credentials_to_requests() {
+    let m = Machine::with_credentials(Credentials::new(0, 0));
+    let ring = m.ring(8, 0);
+    let caller = m.caller();
+    let fd = m.file("secret", b"root only");
+    assert_eq!(block_on(m.kernel.close(&caller, fd)), Ok(0));
+    assert_eq!(ring.register(9, 0, 0), Ok(1));
+    assert_eq!(ring.register(9, 0, 0), Ok(2));
+    assert_eq!(errno(ring.register(9, SCRATCH, 0)), Errno::EINVAL);
+    assert_eq!(
+        block_on(m.kernel.setresuid(&caller, 1000, 1000, 1000)),
+        Ok(0)
+    );
+    m.memory.put(SCRATCH, b"secret\0");
+    let open = IoUringSqe {
+        addr: u64::from(SCRATCH),
+        ..sqe(IoUringOp::IORING_OP_OPENAT, -100, 1)
+    };
+    ring.push(open);
+    ring.push(IoUringSqe {
+        personality: 1,
+        user_data: 2,
+        ..open
+    });
+    ring.push(IoUringSqe {
+        personality: 7,
+        user_data: 3,
+        ..open
+    });
+    assert_eq!(ring.submit(3), Ok(3));
+    let cqes = ring.reap();
+    assert_eq!(cqes[0].res, -Errno::EACCES.0);
+    assert!(cqes[1].res >= 0, "{:?}", res(&cqes));
+    assert_eq!(res(&cqes[2..]), [(3, EINVAL)]);
+    // The caller is itself again afterwards.
+    assert_eq!(m.kernel.cred(&caller).user.effective.0, 1000);
+    assert_eq!(ring.register(10, 0, 1), Ok(0));
+    assert_eq!(errno(ring.register(10, 0, 1)), Errno::EINVAL);
+}
+
+#[test]
+fn registered_ring_descriptors_stand_for_the_ring() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    // `io_uring_rsrc_update`: offset -1 takes the first free slot, written back.
+    let update = |offset: u32, data: u64| {
+        let mut bytes = offset.to_le_bytes().to_vec();
+        bytes.extend(0u32.to_le_bytes());
+        bytes.extend(data.to_le_bytes());
+        m.memory.put(SCRATCH, &bytes);
+    };
+    update(u32::MAX, ring.fd.0 as u64);
+    assert_eq!(ring.register(20, SCRATCH, 1), Ok(1));
+    assert_eq!(m.get_word(SCRATCH), 0);
+    update(u32::MAX, 0);
+    assert_eq!(errno(ring.register(20, SCRATCH, 1)), Errno::EOPNOTSUPP);
+    update(16, ring.fd.0 as u64);
+    assert_eq!(errno(ring.register(20, SCRATCH, 1)), Errno::EINVAL);
+
+    let registered = IoringEnterFlags::IORING_ENTER_REGISTERED_RING.0;
+    ring.push(sqe(NOP, -1, 1));
+    assert_eq!(ring.enter_as(m.task, (Fd(0), registered), 1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, 0)]);
+    let use_registered = 1 << 31;
+    let caller = m.caller();
+    let probe = m.kernel.io_uring_register(
+        &caller,
+        Fd(0),
+        use_registered | 8,
+        GuestPtrMut::new(SCRATCH + 0x100),
+        0,
+    );
+    m.memory.put(SCRATCH + 0x100, &[0; 16]);
+    assert_eq!(block_on(probe), Ok(0));
+    // Another task has registered rings of its own.
+    let other = thread(&m);
+    assert_eq!(
+        errno(ring.enter_as(other, (Fd(0), registered), 0)),
+        Errno::EBADF
+    );
+
+    update(0, 0);
+    assert_eq!(ring.register(21, SCRATCH, 1), Ok(1));
+    assert_eq!(
+        errno(ring.enter_as(m.task, (Fd(0), registered), 0)),
+        Errno::EBADF
+    );
+    assert_eq!(
+        errno(ring.enter_as(m.task, (Fd(16), registered), 0)),
+        Errno::EINVAL
+    );
+}
+
+#[test]
+fn a_single_issuer_ring_takes_submissions_from_its_creator_only() {
+    let m = Machine::new();
+    let single = IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER.0;
+    let ring = m.ring(8, single);
+    let other = thread(&m);
+    ring.push(sqe(NOP, -1, 1));
+    assert_eq!(errno(ring.enter_as(other, (ring.fd, 0), 1)), Errno::EEXIST);
+    assert_eq!(ring.enter_as(m.task, (ring.fd, 0), 1), Ok(1));
+    let caller = Caller::new(other, &m.memory);
+    let register = m
+        .kernel
+        .io_uring_register(&caller, ring.fd, 9, GuestPtrMut::NULL, 0);
+    assert_eq!(errno(block_on(register)), Errno::EEXIST);
+
+    // A disabled ring's issuer is whoever enables it.
+    let disabled = single | IoringSetupFlags::IORING_SETUP_R_DISABLED.0;
+    let ring = m.ring(8, disabled);
+    let caller = Caller::new(other, &m.memory);
+    let enable = m
+        .kernel
+        .io_uring_register(&caller, ring.fd, 12, GuestPtrMut::NULL, 0);
+    assert_eq!(block_on(enable), Ok(0));
+    ring.push(sqe(NOP, -1, 2));
+    assert_eq!(errno(ring.enter_as(m.task, (ring.fd, 0), 1)), Errno::EEXIST);
+    assert_eq!(ring.enter_as(other, (ring.fd, 0), 1), Ok(1));
+
+    // `IORING_SETUP_TASKRUN_FLAG` needs cooperative or deferred task work.
+    let flags = |flags: u32| IoUringParams {
+        flags,
+        ..IoUringParams::ZERO
+    };
+    let taskrun = IoringSetupFlags::IORING_SETUP_TASKRUN_FLAG.0;
+    assert_eq!(errno(m.setup_ring(8, flags(taskrun))), Errno::EINVAL);
+    let coop = IoringSetupFlags::IORING_SETUP_COOP_TASKRUN.0;
+    assert!(m.setup_ring(8, flags(taskrun | coop)).is_ok());
+    // A deferred ring runs its task work in its issuer only.
+    let defer = IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0;
+    let ring = m.ring(8, defer | single);
+    let getevents = IoringEnterFlags::IORING_ENTER_GETEVENTS.0;
+    assert_eq!(
+        errno(ring.enter_as(other, (ring.fd, getevents), 0)),
+        Errno::EEXIST
+    );
+}

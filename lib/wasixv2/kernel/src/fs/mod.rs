@@ -269,13 +269,13 @@ impl Kernel {
     }
 
     pub(crate) fn task_env(&self, task: TaskId) -> Env {
-        let (fs, process, signals) = self.task_ref(task, |task| {
+        let (fs, signals) = self.task_ref(task, |task| {
             let fs = task.fs.lock_or_recover().clone();
-            (fs, task.process.clone(), task.signals.clone())
+            (fs, task.signals.clone())
         });
         Env {
             fs,
-            cred: process.cred().fs(),
+            cred: self.current_cred(task).fs(),
             task: task.0,
             leases: LeaseWaiter {
                 host: self.host.clone(),

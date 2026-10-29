@@ -1569,6 +1569,8 @@ impl Kernel {
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
+                cred_override: None,
+                uring: Arc::default(),
             };
             // `cgroup_post_fork`: a task made in a freezing cgroup is frozen before it runs.
             if new.css.freezing() {
@@ -1739,6 +1741,9 @@ impl Kernel {
         // `old_vpid`: the caller's tid as its tracer saw it before `de_thread`.
         let old_vpid = self.tid_for_tracer(task);
         let exec = self.zap_threads(task)?;
+        // Past the point of no return: the old image's io_uring requests go
+        // (`io_uring_task_cancel`).
+        self.io_uring_cancel(task, crate::io_uring::Cancel::All);
         let leader = self.process(task).pid;
         // The leader leaves its old image for the new one, which runs once committed.
         let image = match task == leader {
