@@ -837,3 +837,61 @@ fn syscall_exit_does_not_inspect_a_reaped_tracer() {
     assert_eq!(block_on(stack.exit_group(&caller, 0)), Ok(()));
     assert!(stack.inner.task_process(tracer).is_none());
 }
+
+/// kernel/fork.c `kernel_clone` reports VFORK_DONE only after the child leaves its mm.
+#[test]
+fn vfork_done_reports_the_child_before_the_parent_resumes() {
+    for shared in [false, true] {
+        let (stack, tracer, memory) = machine();
+        let kernel = &stack.inner;
+        let caller = Caller::new(tracer, &memory);
+        let parent = fork_child(kernel, &caller);
+        assert_eq!(
+            ptrace(
+                kernel,
+                &caller,
+                R::PTRACE_SEIZE,
+                parent,
+                0,
+                PtraceOptions::PTRACE_O_TRACEVFORKDONE.0
+            ),
+            Ok(0)
+        );
+        let parent_memory = ForkableMemory(flat());
+        let parent_caller = Caller::new(parent, &parent_memory);
+        let flags = 0x4000 | if shared { 0x100 } else { 0 } | Signal::SIGCHLD.0 as u32;
+        let result =
+            block_on(kernel.clone(&parent_caller, flags, 0, S32Ptr::NULL, 0, S32Ptr::NULL))
+                .unwrap();
+        let child = match kernel.take_pending(parent).unwrap() {
+            GuestAction::SwitchTask { task, .. } => task,
+            GuestAction::Fork { child, .. } => child,
+            other => panic!("unexpected action: {other:?}"),
+        };
+        if !shared {
+            assert_eq!(result, child.0 as i32);
+        }
+        assert_eq!(wait(kernel, &caller, parent, WALL), None);
+        let child_memory = flat();
+        block_on(kernel.exit_group(&Caller::new(child, &child_memory), 0)).unwrap();
+        assert_eq!(kernel.take_pending(parent), Some(GuestAction::Stopped));
+        assert_eq!(
+            wait(kernel, &caller, parent, WALL).unwrap().1,
+            SIGTRAP | PtraceEvent::PTRACE_EVENT_VFORK_DONE.0 << 8
+        );
+        assert_eq!(
+            ptrace(kernel, &caller, R::PTRACE_GETEVENTMSG, parent, 0, 0x680),
+            Ok(0)
+        );
+        assert_eq!(get(&memory.0, 0x680, 4), child.0.to_le_bytes());
+        assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, parent, 0, 0), Ok(0));
+        // The child's SIGCHLD is delivered after the vfork completion event.
+        assert_eq!(kernel.take_pending(parent), Some(GuestAction::Stopped));
+        assert_eq!(
+            wait(kernel, &caller, parent, WALL).unwrap().1,
+            Signal::SIGCHLD.0
+        );
+        assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, parent, 0, 0), Ok(0));
+        assert_eq!(kernel.take_pending(parent), None);
+    }
+}

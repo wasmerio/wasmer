@@ -526,6 +526,7 @@ impl Kernel {
         };
         // A parent gone from the instance waits for nothing.
         if parent.resumes != Resume::Gone {
+            self.ptrace_vfork_done(parent.task, task);
             self.vfork_done(parent.task);
         }
         // The instance learns whose it is again, unless the child's exit told it already: a
@@ -551,7 +552,8 @@ impl Kernel {
     /// ([`Kernel::hand_image`]).
     pub(crate) fn fork_vfork_done(&self, task: TaskId) {
         let parent = self.procs.tree.lock_or_recover().fork_vforks.remove(&task);
-        if parent.is_some() {
+        if let Some(parent) = parent {
+            self.ptrace_vfork_done(parent, task);
             self.procs.vfork_done.wake(PollMask::empty());
         }
     }
