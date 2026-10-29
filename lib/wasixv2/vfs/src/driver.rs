@@ -37,6 +37,11 @@ pub trait Filesystem: Send + Sync {
 
     async fn statfs(&self) -> FsResult<StatFs>;
 
+    /// Finishes any handshake that the filesystem requires before the mount is attached.
+    async fn initialize(&self) -> FsResult<()> {
+        Ok(())
+    }
+
     /// Flushes everything to stable storage (`syncfs`).
     async fn sync(&self) -> FsResult<()> {
         Ok(())
@@ -167,6 +172,19 @@ pub trait Node: Send + Sync + Any {
         mask: u32,
     ) -> FsResult<()> {
         crate::generic_permission_acl(cred, attr, acl, mask)
+    }
+
+    /// Filesystems whose permission operation performs I/O override this; the default
+    /// preserves the synchronous permission hook used by pseudo filesystems.
+    async fn check_permission(
+        &self,
+        cred: &Cred,
+        task: u32,
+        attr: &Attr,
+        acl: Option<&PosixAcl>,
+        mask: u32,
+    ) -> FsResult<()> {
+        self.permission(cred, task, attr, acl, mask)
     }
 
     /// Nothing may be mounted on this object, as procfs refuses mounts on the descriptor links
@@ -302,6 +320,43 @@ pub trait Node: Send + Sync + Any {
 /// Data methods are called on regular files only and `readdir` on directories only.
 #[async_trait(?Send)]
 pub trait Handle: Send + Sync {
+    /// Some filesystems query userspace before the synchronous readiness sample.
+    async fn prepare_poll(&self, _events: u32) {}
+
+    fn can_poll(&self) -> bool {
+        false
+    }
+
+    /// The filesystem's private open-file state, for operations involving two handles.
+    fn as_any(&self) -> Option<&dyn Any> {
+        None
+    }
+
+    /// `file_operations.flush`, called for every closed descriptor, including duplicates.
+    async fn flush(&self, _owner: u64) -> FsResult<()> {
+        Ok(())
+    }
+
+    /// Closing after fatal teardown cannot sleep; a remote filesystem may enqueue its
+    /// interrupted flush without a waiter. Normal closes use `flush`.
+    fn flush_fatal(&self, _owner: u64) {}
+
+    /// Validates a file mapping before allocating its pages (`file_operations.mmap`).
+    fn mmap(&self, _shared: bool) -> FsResult<()> {
+        Ok(())
+    }
+
+    /// Filesystem offload, or None to use the VFS's read/write fallback.
+    async fn copy_range(
+        &self,
+        _offset: u64,
+        _output: &dyn Handle,
+        _output_offset: u64,
+        _len: u64,
+    ) -> FsResult<Option<u64>> {
+        Ok(None)
+    }
+
     /// Reads at `offset`; 0 at or past the end.
     async fn read_at(&self, _buf: &mut [u8], _offset: u64) -> FsResult<usize> {
         Err(Errno::EISDIR)

@@ -36,6 +36,7 @@ const BLOB_MAX: i32 = 1024 * 1024;
 /// Where a context is (`enum fs_context_phase`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Phase {
+    Creating,
     /// Taking parameters for a new instance.
     CreateParams,
     /// Created, waiting for `fsmount`.
@@ -345,6 +346,26 @@ impl Kernel {
             _ => Value::Flag,
         };
         let env = self.env(caller);
+        if matches!(
+            FsconfigCommand(cmd),
+            FsconfigCommand::FSCONFIG_CMD_CREATE | FsconfigCommand::FSCONFIG_CMD_CREATE_EXCL
+        ) {
+            let fs = {
+                let mut guard = context.0.lock_or_recover();
+                guard.finish_clean();
+                self.fs_create(&mut guard)?;
+                guard.phase = Phase::Creating;
+                guard.fs.as_ref().unwrap().clone()
+            };
+            let result = fs.initialize().await;
+            context.0.lock_or_recover().phase = if result.is_ok() {
+                Phase::AwaitingMount
+            } else {
+                Phase::Failed
+            };
+            result?;
+            return Ok(0);
+        }
         let mut context = context.0.lock_or_recover();
         context.finish_clean();
         let result = match FsconfigCommand(cmd) {

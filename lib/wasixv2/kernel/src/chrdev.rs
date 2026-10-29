@@ -34,7 +34,7 @@ const VSOCK_MINOR: u32 = 256;
 const TTY_MODE: u32 = 0o620;
 
 /// The device nodes `devtmpfs` would create for the drivers here: name, minor numbers, mode.
-const NODES: [(&str, Device, u32); 9] = [
+const NODES: [(&str, Device, u32); 10] = [
     ("null", dev(MEM_MAJOR, 3), 0o666),
     ("zero", dev(MEM_MAJOR, 5), 0o666),
     ("full", dev(MEM_MAJOR, 7), 0o666),
@@ -44,6 +44,7 @@ const NODES: [(&str, Device, u32); 9] = [
     ("tty", dev(TTYAUX_MAJOR, 0), 0o666),
     ("ptmx", crate::tty::PTMX, 0o666),
     ("vsock", dev(MISC_MAJOR, VSOCK_MINOR), 0o666),
+    ("fuse", dev(MISC_MAJOR, 229), 0o666),
 ];
 
 const fn dev(major: u32, minor: u32) -> Device {
@@ -99,6 +100,7 @@ impl Kernel {
                 fasync: FasyncList::default(),
             }),
             (MEM_MAJOR, 11) => self.open_dev_kmsg(caller, file, flags)?,
+            (MISC_MAJOR, 229) => self.open_fuse(caller.task()),
             (MISC_MAJOR, VSOCK_MINOR) => Arc::new(crate::net::vsock::VsockDevice {
                 transports: self.vsock_transports(),
             }),

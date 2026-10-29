@@ -839,3 +839,4 @@ mod tty;
 mod userns;
 
 mod watch_queue;
+mod fuse;

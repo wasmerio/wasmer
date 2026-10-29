@@ -621,6 +621,10 @@ impl Kernel {
             }
             return;
         }
+        // fs/fuse/dev.c:request_wait_answer and file.c:fuse_flush/fuse_file_put:
+        // fault/fatal teardown must not wait on the daemon. Normal exit_mm closed these
+        // files already, using the async flush path.
+        self.exit_files_fatal(task);
         // A fork child that never ran has no `exit_mm` to let its vfork parent go.
         self.complete_vfork_done(task);
         let (process, stopped) = {
@@ -1079,6 +1083,7 @@ impl Kernel {
         self.exit_thread(caller, tid, thread, users > 1).await;
         // The end of `mm_release`.
         self.complete_vfork_done(task);
+        self.exit_files_async(caller).await;
         let (last, process) = {
             let mut state = self.state.lock_or_recover();
             let Some(entry) = state.tasks.get_mut(&task) else {

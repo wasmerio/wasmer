@@ -68,6 +68,11 @@ pub(crate) type MappedPages = (Arc<dyn wasixv2_pages::SharedPages>, u64);
 /// The object is dropped when the last open file referring to it goes away (Linux's
 /// `release`), so `Drop` is where a pipe end or a socket closes.
 pub trait FileObject: Pollable + Any {
+    /// Optional asynchronous work before sampling readiness, for userspace filesystems.
+    fn prepare_poll(&self, _events: u32) -> LocalFuture<'_, ()> {
+        Box::pin(async {})
+    }
+
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>>;
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>>;
 
@@ -419,9 +424,19 @@ impl OpenFile {
         self.object().is_some_and(|object| object.messages())
     }
 
+    pub(crate) async fn prepare_poll(&self, events: u32) {
+        match &self.backing {
+            Backing::Inode(file) => file.prepare_poll(events).await,
+            Backing::Stream(object, _) => object.prepare_poll(events).await,
+        }
+    }
+
     /// `file_can_poll`: regular files and directories cannot be watched by epoll.
     pub(crate) fn can_poll(&self) -> bool {
-        self.object().is_some_and(|object| object.can_poll())
+        match &self.backing {
+            Backing::Inode(file) => file.can_poll(),
+            Backing::Stream(object, _) => object.can_poll(),
+        }
     }
 
     /// `read` at the file position. A blocked read ends early with `SysErr::Restart` when
