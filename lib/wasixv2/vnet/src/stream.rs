@@ -48,6 +48,8 @@ struct Inner {
     established: bool,
     /// `rx[i]`: bytes queued for side `i` to read.
     rx: [RecvQueue; 2],
+    /// Partial TCP segments withheld by MSG_MORE/TCP_CORK, charged to their sender.
+    tx: [std::collections::VecDeque<u8>; 2],
     side: [Side; 2],
 }
 
@@ -82,6 +84,7 @@ impl Conn {
             inner: Mutex::new(Inner {
                 established,
                 rx: Default::default(),
+                tx: Default::default(),
                 side,
             }),
             wq,
@@ -143,13 +146,13 @@ impl Conn {
     /// Bytes `side` sent that are still beyond the peer's receive buffer (`SIOCOUTQ`).
     fn send_queued(g: &Inner, side: usize) -> usize {
         let peer = 1 - side;
-        g.rx[peer].len().saturating_sub(g.side[peer].rcvbuf)
+        g.tx[side].len() + g.rx[peer].len().saturating_sub(g.side[peer].rcvbuf)
     }
 
     fn writable(g: &Inner, side: usize) -> bool {
         let queued = Self::send_queued(g, side);
         let free = g.side[side].sndbuf.saturating_sub(queued);
-        free >= queued / 2 && g.rx[1 - side].len() < Self::capacity(g, 1 - side)
+        free >= queued / 2 && g.rx[1 - side].len() + g.tx[side].len() < Self::capacity(g, 1 - side)
     }
 
     /// `tcp_poll` for a socket whose connection this is.
@@ -219,7 +222,60 @@ impl Conn {
     }
 
     /// `tcp_sendmsg` without blocking; with `urgent` (`MSG_OOB`) the last byte taken is urgent.
+    #[cfg(test)]
     pub fn write(&self, side: usize, data: &[u8], urgent: bool) -> NetResult<usize> {
+        self.write_more(side, data, urgent, false, 1)
+    }
+
+    fn push_locked(g: &mut Inner, side: usize, count: usize) -> bool {
+        if count == 0 {
+            return false;
+        }
+        let data: Vec<_> = g.tx[side].drain(..count).collect();
+        g.rx[1 - side].push(&data);
+        true
+    }
+
+    pub fn push(&self, side: usize) {
+        let mut g = self.lock();
+        let count = g.tx[side].len();
+        let peer = 1 - side;
+        if count != 0 && (g.side[peer].closed || g.side[peer].done) {
+            // tcp_rcv_state_process: the orphan resets data sent after its FIN.
+            g.tx[side].clear();
+            let err = if g.side[peer].wr_shut {
+                Errno::EPIPE
+            } else {
+                Errno::ECONNRESET
+            };
+            if !g.side[side].done && g.side[side].err.is_none() {
+                g.side[side].err = Some(err);
+            }
+            g.side[side].done = true;
+            drop(g);
+            self.wq[side].wake(ALL);
+            return;
+        }
+        let pushed = Self::push_locked(&mut g, side, count);
+        drop(g);
+        if pushed {
+            self.wq[1 - side].wake(PollMask::IN | PollMask::RDNORM);
+        }
+    }
+
+    pub fn corked_len(&self, side: usize) -> usize {
+        self.lock().tx[side].len()
+    }
+
+    /// net/ipv4/tcp.c tcp_push: MSG_MORE corks only the final partial segment.
+    pub fn write_more(
+        &self,
+        side: usize,
+        data: &[u8],
+        urgent: bool,
+        more: bool,
+        mss: usize,
+    ) -> NetResult<usize> {
         let mut g = self.lock();
         let established = g.established;
         {
@@ -241,6 +297,7 @@ impl Conn {
             } else {
                 Errno::ECONNRESET
             };
+            g.tx[side].clear();
             let s = &mut g.side[side];
             s.err = Some(err);
             s.done = true;
@@ -249,24 +306,46 @@ impl Conn {
             return Ok(data.len());
         }
         if data.is_empty() {
+            let count = if more { 0 } else { g.tx[side].len() };
+            let pushed = Self::push_locked(&mut g, side, count);
+            drop(g);
+            if pushed {
+                self.wq[peer].wake(PollMask::IN | PollMask::RDNORM);
+            }
             return Ok(0);
         }
-        let space = Self::capacity(&g, peer).saturating_sub(g.rx[peer].len());
+        let space = Self::capacity(&g, peer).saturating_sub(g.rx[peer].len() + g.tx[side].len());
         if space == 0 {
             return Err(Errno::EAGAIN);
         }
         let n = space.min(data.len());
-        let mut wake = PollMask::IN | PollMask::RDNORM;
+        let mut wake = PollMask::empty();
         match urgent {
             true => {
+                let count = g.tx[side].len();
+                Self::push_locked(&mut g, side, count);
                 let inline = g.side[peer].urginline;
+                wake |= PollMask::IN | PollMask::RDNORM;
                 g.rx[peer].push_urgent(&data[..n], inline);
                 wake |= PollMask::PRI | PollMask::RDBAND;
             }
-            false => g.rx[peer].push(&data[..n]),
+            false => {
+                g.tx[side].extend(&data[..n]);
+                let len = g.tx[side].len();
+                let count = if more {
+                    len / mss.max(1) * mss.max(1)
+                } else {
+                    len
+                };
+                if Self::push_locked(&mut g, side, count) {
+                    wake |= PollMask::IN | PollMask::RDNORM;
+                }
+            }
         }
         drop(g);
-        self.wq[peer].wake(wake);
+        if !wake.is_empty() {
+            self.wq[peer].wake(wake);
+        }
         Ok(n)
     }
 
@@ -293,6 +372,8 @@ impl Conn {
             g.side[side].rd_shut = true;
         }
         if matches!(how, Shutdown::Write | Shutdown::Both) && !g.side[side].wr_shut {
+            let count = g.tx[side].len();
+            Self::push_locked(&mut g, side, count);
             g.side[side].wr_shut = true;
             wake_peer = true;
         }
@@ -308,6 +389,12 @@ impl Conn {
     pub fn close(&self, side: usize, abort: bool) {
         let mut g = self.lock();
         let unread = !g.rx[side].is_empty();
+        if abort || unread {
+            g.tx[side].clear();
+        } else {
+            let count = g.tx[side].len();
+            Self::push_locked(&mut g, side, count);
+        }
         g.rx[side].clear();
         let peer = 1 - side;
         let established = g.established;
