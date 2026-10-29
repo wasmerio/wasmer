@@ -14,10 +14,10 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `55f0180df02` (merge train 11; wasixv2-tests `9a451f7`, libc2 `df2ac269`,
-abi `4b9e022`, wasixcc `7ab1ffb`, userland `userland-3`): 3292 pass, 635 expected failures, 0 unexpected,
-834 ignored. Per suite (pass / expected failures / ignored): Open POSIX 1521/270/85, LTP 1106/343/748,
-libc-test 399/22/0, wasixv2 266/0/1.
+Suite on `feat/wasixv2` `529351c4d49` (merge train 12; wasixv2-tests `91b2916`, libc2 `5cacdfc4`,
+abi `f410936`, wasixcc `7ab1ffb`, userland `userland-4`): 3385 pass, 654 expected failures, 0 unexpected,
+811 ignored. Per suite (pass / expected failures / ignored): Open POSIX 1521/270/85, LTP 1187/362/725,
+libc-test 399/22/0, wasixv2 279/0/1.
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -107,12 +107,24 @@ CLONE_VFORK without CLONE_VM, LTP guarded buffers, stack-aware mlock accounting,
 pages, umount busy check, listmount fault, reap detaches the pid, and struct-pid reference counting
 (`PidRef`) for SysV sem/shm/msg pids.
 
-Merge train 12 (next): follow-ups 11 (TCP urgent data/SIGURG, dnotify, leases), network configuration
-(netlink, veth, iproute2/net-tools, `userland-4`), user namespaces, net follow-ups (ICMP/ping,
-multicast, IP_BIND_ADDRESS_NO_PORT, /proc/net socket inodes), follow-ups 12 (tainted, mqueue fs,
-PIDFD_GET_INFO, pipe-max-size/overcommit/max_map_count sysctls, fork error order, netns devconf
-permissions, libcap). Remaining read-after-reap pids: SO_PEERCRED/SCM_CREDENTIALS of a reaped peer,
-TIOCGPGRP of an emptied foreground group.
+Merge train 12 has landed (`529351c4d49`): TCP urgent data/SIGURG, dnotify, leases; network
+configuration (rtnetlink, veth, dummy, one `/proc/sys/net` tree, iproute2/net-tools/iputils in `userland-4`);
+user namespaces (capabilities over namespace owners, uid/gid maps, sysfs/procfs restrictions); ICMP ping and
+raw sockets, multicast, IP_BIND_ADDRESS_NO_PORT, IPV6_PKTINFO, /proc/net socket inodes; tainted, the mqueue
+filesystem, PIDFD_GET_INFO, pipe-max-size/overcommit/max_map_count sysctls, fork error order, LTP built with
+libcap.
+
+Priority from 2026-10-29 (user): feature completeness first; validation, fixing and refinement later.
+Missing features are inventoried and packaged (P1 sandbox: seccomp/landlock/keyrings; P2 ptrace and
+introspection; P3 cgroup v2 and services; P4 AIO/futex2/rseq/io_uring; P5 file handles/fanotify/inode
+flags/ACLs/binfmt_misc; P6 settable clocks and time namespaces; P7 more socket families). Trains land
+with gates, smoke and one suite run checked for regressions only.
+
+Merge train 13 (next): cBPF socket filters, ICMP errors and rate limits, multicast source filters, ABI
+socket option structs, /proc/net icmp/raw/mcfilter; reap = release_task and the vfork exit order, pid
+references in unix credentials and ttys, incremental map count; the in-process DNS server (`--dns`,
+10.0.2.3; the deferred DNS TODO is done); sched_* through the kernel, uname "Linux", reboot(2),
+F_CREATED_QUERY, SO_*BUFFORCE.
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
