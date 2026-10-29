@@ -669,3 +669,26 @@ fn remap_file_pages_shows_another_page_of_the_file() {
 fn get_flat(memory: &FlatMemory, addr: u32, len: usize) -> Vec<u8> {
     super::ipc::get(memory, addr, len)
 }
+
+#[test]
+fn review_foreign_attach_keeps_first_handle_and_ignores_exited_memory() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 65536]));
+    let first = SyncMemory::new(65536, 0);
+    let second = SyncMemory::new(65536, 0);
+    first.put(0x100, b"first");
+    second.put(0x100, b"other");
+    kernel.attach_memory(task, first);
+    kernel.attach_memory(task, second.clone());
+    let mm = kernel.mm(task);
+    let mut bytes = [0; 5];
+    block_on(mm.foreign().unwrap().read(0x100, &mut bytes)).unwrap();
+    assert_eq!(&bytes, b"first");
+    block_on(kernel.exit_mm(&Caller::new(task, &memory)));
+    assert!(mm.foreign().is_none());
+    kernel.attach_memory(task, second);
+    assert!(
+        mm.foreign().is_none(),
+        "late instantiation must not resurrect an exited image"
+    );
+}
