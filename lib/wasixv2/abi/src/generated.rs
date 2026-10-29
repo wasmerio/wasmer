@@ -1829,6 +1829,8 @@ impl OpenFlags {
     pub const O_ACCMODE: Self = Self(0x3);
     pub const O_CREAT: Self = Self(0x40);
     pub const O_EXCL: Self = Self(0x80);
+    /// Notification pipe selection (linux/watch_queue.h); aliases O_EXCL for pipe2 only.
+    pub const O_NOTIFICATION_PIPE: Self = Self(0x80);
     pub const O_NOCTTY: Self = Self(0x100);
     pub const O_TRUNC: Self = Self(0x200);
     pub const O_APPEND: Self = Self(0x400);
@@ -1857,6 +1859,7 @@ impl OpenFlags {
         ("O_ACCMODE", Self::O_ACCMODE),
         ("O_CREAT", Self::O_CREAT),
         ("O_EXCL", Self::O_EXCL),
+        ("O_NOTIFICATION_PIPE", Self::O_NOTIFICATION_PIPE),
         ("O_NOCTTY", Self::O_NOCTTY),
         ("O_TRUNC", Self::O_TRUNC),
         ("O_APPEND", Self::O_APPEND),
@@ -7192,6 +7195,489 @@ impl GuestLayout for FanotifyMisc {
     const ZERO: Self = Self(0);
     fn read_from(bytes: &[u8]) -> Option<Self> {
         <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Packed Linux watch_notification header: low 24 bits are type, high 8 bits subtype.
+///
+/// C: `struct watch_notification`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WatchNotification {
+    pub type_subtype: u32,
+    pub info: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<WatchNotification>() == 8);
+    assert!(core::mem::align_of::<WatchNotification>() == 4);
+    assert!(core::mem::offset_of!(WatchNotification, type_subtype) == 0);
+    assert!(core::mem::offset_of!(WatchNotification, info) == 4);
+};
+impl Default for WatchNotification {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for WatchNotification {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        type_subtype: <u32 as GuestLayout>::ZERO,
+        info: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            type_subtype: GuestLayout::read_from(&bytes[0..])?,
+            info: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.type_subtype.write_to(&mut out[0..]);
+        self.info.write_to(&mut out[4..]);
+    }
+}
+/// A filter's Linux UAPI layout; unknown types are ignored.
+///
+/// C: `struct watch_notification_type_filter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WatchNotificationTypeFilter {
+    pub r#type: u32,
+    pub info_filter: u32,
+    pub info_mask: u32,
+    pub subtype_filter: [u32; 8],
+}
+const _: () = {
+    assert!(core::mem::size_of::<WatchNotificationTypeFilter>() == 44);
+    assert!(core::mem::align_of::<WatchNotificationTypeFilter>() == 4);
+    assert!(core::mem::offset_of!(WatchNotificationTypeFilter, r#type) == 0);
+    assert!(core::mem::offset_of!(WatchNotificationTypeFilter, info_filter) == 4);
+    assert!(core::mem::offset_of!(WatchNotificationTypeFilter, info_mask) == 8);
+    assert!(core::mem::offset_of!(WatchNotificationTypeFilter, subtype_filter) == 12);
+};
+impl Default for WatchNotificationTypeFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for WatchNotificationTypeFilter {
+    const SIZE: usize = 44;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        r#type: <u32 as GuestLayout>::ZERO,
+        info_filter: <u32 as GuestLayout>::ZERO,
+        info_mask: <u32 as GuestLayout>::ZERO,
+        subtype_filter: <[u32; 8] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            r#type: GuestLayout::read_from(&bytes[0..])?,
+            info_filter: GuestLayout::read_from(&bytes[4..])?,
+            info_mask: GuestLayout::read_from(&bytes[8..])?,
+            subtype_filter: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.r#type.write_to(&mut out[0..]);
+        self.info_filter.write_to(&mut out[4..]);
+        self.info_mask.write_to(&mut out[8..]);
+        self.subtype_filter.write_to(&mut out[12..]);
+    }
+}
+/// Fixed header; nr_filters watch-notification-type-filter records follow it.
+///
+/// C: `struct watch_notification_filter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WatchNotificationFilter {
+    pub nr_filters: u32,
+    pub reserved: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<WatchNotificationFilter>() == 8);
+    assert!(core::mem::align_of::<WatchNotificationFilter>() == 4);
+    assert!(core::mem::offset_of!(WatchNotificationFilter, nr_filters) == 0);
+    assert!(core::mem::offset_of!(WatchNotificationFilter, reserved) == 4);
+};
+impl Default for WatchNotificationFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for WatchNotificationFilter {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        nr_filters: <u32 as GuestLayout>::ZERO,
+        reserved: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr_filters: GuestLayout::read_from(&bytes[0..])?,
+            reserved: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr_filters.write_to(&mut out[0..]);
+        self.reserved.write_to(&mut out[4..]);
+    }
+}
+/// Removal of a watched object, bypassing notification filters.
+///
+/// C: `struct watch_notification_removal`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WatchNotificationRemoval {
+    pub watch: WatchNotification,
+    pub id: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<WatchNotificationRemoval>() == 16);
+    assert!(core::mem::align_of::<WatchNotificationRemoval>() == 8);
+    assert!(core::mem::offset_of!(WatchNotificationRemoval, watch) == 0);
+    assert!(core::mem::offset_of!(WatchNotificationRemoval, id) == 8);
+};
+impl Default for WatchNotificationRemoval {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for WatchNotificationRemoval {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        watch: <WatchNotification as GuestLayout>::ZERO,
+        id: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            watch: GuestLayout::read_from(&bytes[0..])?,
+            id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.watch.write_to(&mut out[0..]);
+        self.id.write_to(&mut out[8..]);
+    }
+}
+/// Key change event; aux is the linked/unlinked key serial or the attribute value.
+///
+/// C: `struct key_notification`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct KeyNotification {
+    pub watch: WatchNotification,
+    pub key_id: u32,
+    pub aux: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<KeyNotification>() == 16);
+    assert!(core::mem::align_of::<KeyNotification>() == 4);
+    assert!(core::mem::offset_of!(KeyNotification, watch) == 0);
+    assert!(core::mem::offset_of!(KeyNotification, key_id) == 8);
+    assert!(core::mem::offset_of!(KeyNotification, aux) == 12);
+};
+impl Default for KeyNotification {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for KeyNotification {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        watch: <WatchNotification as GuestLayout>::ZERO,
+        key_id: <u32 as GuestLayout>::ZERO,
+        aux: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            watch: GuestLayout::read_from(&bytes[0..])?,
+            key_id: GuestLayout::read_from(&bytes[8..])?,
+            aux: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.watch.write_to(&mut out[0..]);
+        self.key_id.write_to(&mut out[8..]);
+        self.aux.write_to(&mut out[12..]);
+    }
+}
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct WatchNotificationType(pub u32);
+impl WatchNotificationType {
+    pub const WATCH_TYPE_META: Self = Self(0);
+    pub const WATCH_TYPE_KEY_NOTIFY: Self = Self(1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("WATCH_TYPE_META", Self::WATCH_TYPE_META),
+        ("WATCH_TYPE_KEY_NOTIFY", Self::WATCH_TYPE_KEY_NOTIFY),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("WATCH_TYPE_META"),
+            1 => Some("WATCH_TYPE_KEY_NOTIFY"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for WatchNotificationType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "WatchNotificationType({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for WatchNotificationType {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct WatchMetaNotificationSubtype(pub u32);
+impl WatchMetaNotificationSubtype {
+    pub const WATCH_META_REMOVAL_NOTIFICATION: Self = Self(0);
+    pub const WATCH_META_LOSS_NOTIFICATION: Self = Self(1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "WATCH_META_REMOVAL_NOTIFICATION",
+            Self::WATCH_META_REMOVAL_NOTIFICATION,
+        ),
+        (
+            "WATCH_META_LOSS_NOTIFICATION",
+            Self::WATCH_META_LOSS_NOTIFICATION,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("WATCH_META_REMOVAL_NOTIFICATION"),
+            1 => Some("WATCH_META_LOSS_NOTIFICATION"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for WatchMetaNotificationSubtype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "WatchMetaNotificationSubtype({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for WatchMetaNotificationSubtype {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KeyNotificationSubtype(pub u32);
+impl KeyNotificationSubtype {
+    pub const NOTIFY_KEY_INSTANTIATED: Self = Self(0);
+    pub const NOTIFY_KEY_UPDATED: Self = Self(1);
+    pub const NOTIFY_KEY_LINKED: Self = Self(2);
+    pub const NOTIFY_KEY_UNLINKED: Self = Self(3);
+    pub const NOTIFY_KEY_CLEARED: Self = Self(4);
+    pub const NOTIFY_KEY_REVOKED: Self = Self(5);
+    pub const NOTIFY_KEY_INVALIDATED: Self = Self(6);
+    pub const NOTIFY_KEY_SETATTR: Self = Self(7);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("NOTIFY_KEY_INSTANTIATED", Self::NOTIFY_KEY_INSTANTIATED),
+        ("NOTIFY_KEY_UPDATED", Self::NOTIFY_KEY_UPDATED),
+        ("NOTIFY_KEY_LINKED", Self::NOTIFY_KEY_LINKED),
+        ("NOTIFY_KEY_UNLINKED", Self::NOTIFY_KEY_UNLINKED),
+        ("NOTIFY_KEY_CLEARED", Self::NOTIFY_KEY_CLEARED),
+        ("NOTIFY_KEY_REVOKED", Self::NOTIFY_KEY_REVOKED),
+        ("NOTIFY_KEY_INVALIDATED", Self::NOTIFY_KEY_INVALIDATED),
+        ("NOTIFY_KEY_SETATTR", Self::NOTIFY_KEY_SETATTR),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("NOTIFY_KEY_INSTANTIATED"),
+            1 => Some("NOTIFY_KEY_UPDATED"),
+            2 => Some("NOTIFY_KEY_LINKED"),
+            3 => Some("NOTIFY_KEY_UNLINKED"),
+            4 => Some("NOTIFY_KEY_CLEARED"),
+            5 => Some("NOTIFY_KEY_REVOKED"),
+            6 => Some("NOTIFY_KEY_INVALIDATED"),
+            7 => Some("NOTIFY_KEY_SETATTR"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for KeyNotificationSubtype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "KeyNotificationSubtype({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for KeyNotificationSubtype {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct WatchInfo(pub u32);
+impl WatchInfo {
+    pub const WATCH_INFO_LENGTH: Self = Self(0x7f);
+    pub const WATCH_INFO_ID: Self = Self(0xff00);
+    pub const WATCH_INFO_TYPE_INFO: Self = Self(0xffff0000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("WATCH_INFO_LENGTH", Self::WATCH_INFO_LENGTH),
+        ("WATCH_INFO_ID", Self::WATCH_INFO_ID),
+        ("WATCH_INFO_TYPE_INFO", Self::WATCH_INFO_TYPE_INFO),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for WatchInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("WatchInfo(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for WatchInfo {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for WatchInfo {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for WatchInfo {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for WatchInfo {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for WatchInfo {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for WatchInfo {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for WatchInfo {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for WatchInfo {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
     }
     fn write_to(&self, out: &mut [u8]) {
         self.0.write_to(out);
@@ -27548,6 +28034,8 @@ impl GuestLayout for Winsize {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct IoctlRequest(pub u32);
 impl IoctlRequest {
+    pub const IOC_WATCH_QUEUE_SET_SIZE: Self = Self(22368);
+    pub const IOC_WATCH_QUEUE_SET_FILTER: Self = Self(22369);
     pub const TCGETS: Self = Self(21505);
     pub const TCSETS: Self = Self(21506);
     pub const TCSETSW: Self = Self(21507);
@@ -27697,6 +28185,9 @@ impl IoctlRequest {
     pub const NS_GET_PARENT: Self = Self(46850);
     pub const NS_GET_NSTYPE: Self = Self(46851);
     pub const NS_GET_OWNER_UID: Self = Self(46852);
+    /// Q2 KERNEL-MISC: Linux include/uapi/linux/nsfs.h namespace identifiers.
+    pub const NS_GET_MNTNS_ID: Self = Self(2148054789);
+    pub const NS_GET_ID: Self = Self(2148054797);
     pub const TIOCSPTLCK: Self = Self(1074025521);
     pub const TIOCSIG: Self = Self(1074025526);
     /// `FS_IOC_SETFLAGS` (`_IOW('f', 2, long)`, 32-bit `long`).
@@ -27740,6 +28231,11 @@ impl IoctlRequest {
     pub const IOCTL_VM_SOCKETS_GET_LOCAL_CID: Self = Self(1977);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOC_WATCH_QUEUE_SET_SIZE", Self::IOC_WATCH_QUEUE_SET_SIZE),
+        (
+            "IOC_WATCH_QUEUE_SET_FILTER",
+            Self::IOC_WATCH_QUEUE_SET_FILTER,
+        ),
         ("TCGETS", Self::TCGETS),
         ("TCSETS", Self::TCSETS),
         ("TCSETSW", Self::TCSETSW),
@@ -27889,6 +28385,8 @@ impl IoctlRequest {
         ("NS_GET_PARENT", Self::NS_GET_PARENT),
         ("NS_GET_NSTYPE", Self::NS_GET_NSTYPE),
         ("NS_GET_OWNER_UID", Self::NS_GET_OWNER_UID),
+        ("NS_GET_MNTNS_ID", Self::NS_GET_MNTNS_ID),
+        ("NS_GET_ID", Self::NS_GET_ID),
         ("TIOCSPTLCK", Self::TIOCSPTLCK),
         ("TIOCSIG", Self::TIOCSIG),
         ("FS_IOC_SETFLAGS", Self::FS_IOC_SETFLAGS),
@@ -27927,6 +28425,8 @@ impl IoctlRequest {
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
         match self.0 {
+            22368 => Some("IOC_WATCH_QUEUE_SET_SIZE"),
+            22369 => Some("IOC_WATCH_QUEUE_SET_FILTER"),
             21505 => Some("TCGETS"),
             21506 => Some("TCSETS"),
             21507 => Some("TCSETSW"),
@@ -28075,6 +28575,8 @@ impl IoctlRequest {
             46850 => Some("NS_GET_PARENT"),
             46851 => Some("NS_GET_NSTYPE"),
             46852 => Some("NS_GET_OWNER_UID"),
+            2148054789 => Some("NS_GET_MNTNS_ID"),
+            2148054797 => Some("NS_GET_ID"),
             1074025521 => Some("TIOCSPTLCK"),
             1074025526 => Some("TIOCSIG"),
             1074030082 => Some("FS_IOC_SETFLAGS"),
@@ -30114,6 +30616,46 @@ impl GuestLayout for Statmount {
         self.spare2.write_to(&mut out[168..]);
     }
 }
+/// Q2 KERNEL-MISC (Linux include/uapi/linux/nsfs.h).
+/// Special user namespace selector for `listns`.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct ListnsUserNs(pub u64);
+impl ListnsUserNs {
+    pub const LISTNS_CURRENT_USER: Self = Self(18446744073709551615);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("LISTNS_CURRENT_USER", Self::LISTNS_CURRENT_USER)];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            18446744073709551615 => Some("LISTNS_CURRENT_USER"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for ListnsUserNs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "ListnsUserNs({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for ListnsUserNs {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// `listns` request (`struct ns_id_req`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -35182,6 +35724,846 @@ impl GuestLayout for StackSnapshot {
 pub type StackSnapshotPtr = GuestPtrMut<StackSnapshot>;
 /// Guest pointer to a `stack-snapshot`.
 pub type ConstStackSnapshotPtr = GuestPtr<StackSnapshot>;
+/// Generic netlink header, include/uapi/linux/genetlink.h.
+///
+/// C: `struct genlmsghdr`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Genlmsghdr {
+    pub cmd: u8,
+    pub version: u8,
+    pub reserved: u16,
+}
+const _: () = {
+    assert!(core::mem::size_of::<Genlmsghdr>() == 4);
+    assert!(core::mem::align_of::<Genlmsghdr>() == 2);
+    assert!(core::mem::offset_of!(Genlmsghdr, cmd) == 0);
+    assert!(core::mem::offset_of!(Genlmsghdr, version) == 1);
+    assert!(core::mem::offset_of!(Genlmsghdr, reserved) == 2);
+};
+impl Default for Genlmsghdr {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Genlmsghdr {
+    const SIZE: usize = 4;
+    const ALIGN: usize = 2;
+    const ZERO: Self = Self {
+        cmd: <u8 as GuestLayout>::ZERO,
+        version: <u8 as GuestLayout>::ZERO,
+        reserved: <u16 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            cmd: GuestLayout::read_from(&bytes[0..])?,
+            version: GuestLayout::read_from(&bytes[1..])?,
+            reserved: GuestLayout::read_from(&bytes[2..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.cmd.write_to(&mut out[0..]);
+        self.version.write_to(&mut out[1..]);
+        self.reserved.write_to(&mut out[2..]);
+    }
+}
+/// SCTP peer parameters, include/uapi/linux/sctp.h. Packed fields after pathmaxrxt
+/// are byte arrays, as with landlock-path-beneath-attr, to preserve their unaligned offsets.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPaddrparams {
+    pub spp_assoc_id: i32,
+    pub spp_address: SockaddrStorage,
+    pub spp_hbinterval: u32,
+    pub spp_pathmaxrxt: u16,
+    pub spp_pathmtu: [u8; 4],
+    pub spp_sackdelay: [u8; 4],
+    pub spp_flags: [u8; 4],
+    pub spp_ipv6_flowlabel: [u8; 4],
+    pub spp_dscp: u8,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPaddrparams>() == 156);
+    assert!(core::mem::align_of::<SctpPaddrparams>() == 4);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_address) == 4);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_hbinterval) == 132);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_pathmaxrxt) == 136);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_pathmtu) == 138);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_sackdelay) == 142);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_flags) == 146);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_ipv6_flowlabel) == 150);
+    assert!(core::mem::offset_of!(SctpPaddrparams, spp_dscp) == 154);
+};
+impl Default for SctpPaddrparams {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPaddrparams {
+    const SIZE: usize = 156;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        spp_assoc_id: <i32 as GuestLayout>::ZERO,
+        spp_address: <SockaddrStorage as GuestLayout>::ZERO,
+        spp_hbinterval: <u32 as GuestLayout>::ZERO,
+        spp_pathmaxrxt: <u16 as GuestLayout>::ZERO,
+        spp_pathmtu: <[u8; 4] as GuestLayout>::ZERO,
+        spp_sackdelay: <[u8; 4] as GuestLayout>::ZERO,
+        spp_flags: <[u8; 4] as GuestLayout>::ZERO,
+        spp_ipv6_flowlabel: <[u8; 4] as GuestLayout>::ZERO,
+        spp_dscp: <u8 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            spp_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            spp_address: GuestLayout::read_from(&bytes[4..])?,
+            spp_hbinterval: GuestLayout::read_from(&bytes[132..])?,
+            spp_pathmaxrxt: GuestLayout::read_from(&bytes[136..])?,
+            spp_pathmtu: GuestLayout::read_from(&bytes[138..])?,
+            spp_sackdelay: GuestLayout::read_from(&bytes[142..])?,
+            spp_flags: GuestLayout::read_from(&bytes[146..])?,
+            spp_ipv6_flowlabel: GuestLayout::read_from(&bytes[150..])?,
+            spp_dscp: GuestLayout::read_from(&bytes[154..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.spp_assoc_id.write_to(&mut out[0..]);
+        self.spp_address.write_to(&mut out[4..]);
+        self.spp_hbinterval.write_to(&mut out[132..]);
+        self.spp_pathmaxrxt.write_to(&mut out[136..]);
+        self.spp_pathmtu.write_to(&mut out[138..]);
+        self.spp_sackdelay.write_to(&mut out[142..]);
+        self.spp_flags.write_to(&mut out[146..]);
+        self.spp_ipv6_flowlabel.write_to(&mut out[150..]);
+        self.spp_dscp.write_to(&mut out[154..]);
+    }
+}
+/// SCTP delayed SACK parameters, include/uapi/linux/sctp.h.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpSackInfo {
+    pub sack_assoc_id: i32,
+    pub sack_delay: u32,
+    pub sack_freq: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpSackInfo>() == 12);
+    assert!(core::mem::align_of::<SctpSackInfo>() == 4);
+    assert!(core::mem::offset_of!(SctpSackInfo, sack_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpSackInfo, sack_delay) == 4);
+    assert!(core::mem::offset_of!(SctpSackInfo, sack_freq) == 8);
+};
+impl Default for SctpSackInfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpSackInfo {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sack_assoc_id: <i32 as GuestLayout>::ZERO,
+        sack_delay: <u32 as GuestLayout>::ZERO,
+        sack_freq: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sack_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            sack_delay: GuestLayout::read_from(&bytes[4..])?,
+            sack_freq: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sack_assoc_id.write_to(&mut out[0..]);
+        self.sack_delay.write_to(&mut out[4..]);
+        self.sack_freq.write_to(&mut out[8..]);
+    }
+}
+/// SCTP peer address change notification, include/uapi/linux/sctp.h.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPaddrChange {
+    pub spc_type: u16,
+    pub spc_flags: u16,
+    pub spc_length: u32,
+    pub spc_aaddr: SockaddrStorage,
+    pub spc_state: i32,
+    pub spc_error: i32,
+    pub spc_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPaddrChange>() == 148);
+    assert!(core::mem::align_of::<SctpPaddrChange>() == 4);
+    assert!(core::mem::offset_of!(SctpPaddrChange, spc_type) == 0);
+    assert!(core::mem::offset_of!(SctpPaddrChange, spc_flags) == 2);
+    assert!(core::mem::offset_of!(SctpPaddrChange, spc_length) == 4);
+    assert!(core::mem::offset_of!(SctpPaddrChange, spc_aaddr) == 8);
+    assert!(core::mem::offset_of!(SctpPaddrChange, spc_state) == 136);
+    assert!(core::mem::offset_of!(SctpPaddrChange, spc_error) == 140);
+    assert!(core::mem::offset_of!(SctpPaddrChange, spc_assoc_id) == 144);
+};
+impl Default for SctpPaddrChange {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPaddrChange {
+    const SIZE: usize = 148;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        spc_type: <u16 as GuestLayout>::ZERO,
+        spc_flags: <u16 as GuestLayout>::ZERO,
+        spc_length: <u32 as GuestLayout>::ZERO,
+        spc_aaddr: <SockaddrStorage as GuestLayout>::ZERO,
+        spc_state: <i32 as GuestLayout>::ZERO,
+        spc_error: <i32 as GuestLayout>::ZERO,
+        spc_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            spc_type: GuestLayout::read_from(&bytes[0..])?,
+            spc_flags: GuestLayout::read_from(&bytes[2..])?,
+            spc_length: GuestLayout::read_from(&bytes[4..])?,
+            spc_aaddr: GuestLayout::read_from(&bytes[8..])?,
+            spc_state: GuestLayout::read_from(&bytes[136..])?,
+            spc_error: GuestLayout::read_from(&bytes[140..])?,
+            spc_assoc_id: GuestLayout::read_from(&bytes[144..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.spc_type.write_to(&mut out[0..]);
+        self.spc_flags.write_to(&mut out[2..]);
+        self.spc_length.write_to(&mut out[4..]);
+        self.spc_aaddr.write_to(&mut out[8..]);
+        self.spc_state.write_to(&mut out[136..]);
+        self.spc_error.write_to(&mut out[140..]);
+        self.spc_assoc_id.write_to(&mut out[144..]);
+    }
+}
+/// SCTP adaptation notification, include/uapi/linux/sctp.h.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpAdaptationEvent {
+    pub sai_type: u16,
+    pub sai_flags: u16,
+    pub sai_length: u32,
+    pub sai_adaptation_ind: u32,
+    pub sai_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpAdaptationEvent>() == 16);
+    assert!(core::mem::align_of::<SctpAdaptationEvent>() == 4);
+    assert!(core::mem::offset_of!(SctpAdaptationEvent, sai_type) == 0);
+    assert!(core::mem::offset_of!(SctpAdaptationEvent, sai_flags) == 2);
+    assert!(core::mem::offset_of!(SctpAdaptationEvent, sai_length) == 4);
+    assert!(core::mem::offset_of!(SctpAdaptationEvent, sai_adaptation_ind) == 8);
+    assert!(core::mem::offset_of!(SctpAdaptationEvent, sai_assoc_id) == 12);
+};
+impl Default for SctpAdaptationEvent {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpAdaptationEvent {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sai_type: <u16 as GuestLayout>::ZERO,
+        sai_flags: <u16 as GuestLayout>::ZERO,
+        sai_length: <u32 as GuestLayout>::ZERO,
+        sai_adaptation_ind: <u32 as GuestLayout>::ZERO,
+        sai_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sai_type: GuestLayout::read_from(&bytes[0..])?,
+            sai_flags: GuestLayout::read_from(&bytes[2..])?,
+            sai_length: GuestLayout::read_from(&bytes[4..])?,
+            sai_adaptation_ind: GuestLayout::read_from(&bytes[8..])?,
+            sai_assoc_id: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sai_type.write_to(&mut out[0..]);
+        self.sai_flags.write_to(&mut out[2..]);
+        self.sai_length.write_to(&mut out[4..]);
+        self.sai_adaptation_ind.write_to(&mut out[8..]);
+        self.sai_assoc_id.write_to(&mut out[12..]);
+    }
+}
+/// SCTP partial delivery notification, include/uapi/linux/sctp.h.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPdapiEvent {
+    pub pdapi_type: u16,
+    pub pdapi_flags: u16,
+    pub pdapi_length: u32,
+    pub pdapi_indication: u32,
+    pub pdapi_assoc_id: i32,
+    pub pdapi_stream: u32,
+    pub pdapi_seq: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPdapiEvent>() == 24);
+    assert!(core::mem::align_of::<SctpPdapiEvent>() == 4);
+    assert!(core::mem::offset_of!(SctpPdapiEvent, pdapi_type) == 0);
+    assert!(core::mem::offset_of!(SctpPdapiEvent, pdapi_flags) == 2);
+    assert!(core::mem::offset_of!(SctpPdapiEvent, pdapi_length) == 4);
+    assert!(core::mem::offset_of!(SctpPdapiEvent, pdapi_indication) == 8);
+    assert!(core::mem::offset_of!(SctpPdapiEvent, pdapi_assoc_id) == 12);
+    assert!(core::mem::offset_of!(SctpPdapiEvent, pdapi_stream) == 16);
+    assert!(core::mem::offset_of!(SctpPdapiEvent, pdapi_seq) == 20);
+};
+impl Default for SctpPdapiEvent {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPdapiEvent {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        pdapi_type: <u16 as GuestLayout>::ZERO,
+        pdapi_flags: <u16 as GuestLayout>::ZERO,
+        pdapi_length: <u32 as GuestLayout>::ZERO,
+        pdapi_indication: <u32 as GuestLayout>::ZERO,
+        pdapi_assoc_id: <i32 as GuestLayout>::ZERO,
+        pdapi_stream: <u32 as GuestLayout>::ZERO,
+        pdapi_seq: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            pdapi_type: GuestLayout::read_from(&bytes[0..])?,
+            pdapi_flags: GuestLayout::read_from(&bytes[2..])?,
+            pdapi_length: GuestLayout::read_from(&bytes[4..])?,
+            pdapi_indication: GuestLayout::read_from(&bytes[8..])?,
+            pdapi_assoc_id: GuestLayout::read_from(&bytes[12..])?,
+            pdapi_stream: GuestLayout::read_from(&bytes[16..])?,
+            pdapi_seq: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.pdapi_type.write_to(&mut out[0..]);
+        self.pdapi_flags.write_to(&mut out[2..]);
+        self.pdapi_length.write_to(&mut out[4..]);
+        self.pdapi_indication.write_to(&mut out[8..]);
+        self.pdapi_assoc_id.write_to(&mut out[12..]);
+        self.pdapi_stream.write_to(&mut out[16..]);
+        self.pdapi_seq.write_to(&mut out[20..]);
+    }
+}
+/// Vsock error queue control type, include/uapi/linux/vm_sockets.h.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct VsockCmsg(pub i32);
+impl VsockCmsg {
+    pub const VSOCK_RECVERR: Self = Self(1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[("VSOCK_RECVERR", Self::VSOCK_RECVERR)];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            1 => Some("VSOCK_RECVERR"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for VsockCmsg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "VsockCmsg({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for VsockCmsg {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Generic netlink control commands, include/uapi/linux/genetlink.h.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct CtrlCmd(pub u8);
+impl CtrlCmd {
+    pub const CTRL_CMD_NEWFAMILY: Self = Self(1);
+    pub const CTRL_CMD_GETFAMILY: Self = Self(3);
+    pub const CTRL_CMD_GETPOLICY: Self = Self(10);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("CTRL_CMD_NEWFAMILY", Self::CTRL_CMD_NEWFAMILY),
+        ("CTRL_CMD_GETFAMILY", Self::CTRL_CMD_GETFAMILY),
+        ("CTRL_CMD_GETPOLICY", Self::CTRL_CMD_GETPOLICY),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            1 => Some("CTRL_CMD_NEWFAMILY"),
+            3 => Some("CTRL_CMD_GETFAMILY"),
+            10 => Some("CTRL_CMD_GETPOLICY"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for CtrlCmd {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "CtrlCmd({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for CtrlCmd {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Generic netlink controller attributes, include/uapi/linux/genetlink.h.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct CtrlAttr(pub u16);
+impl CtrlAttr {
+    pub const CTRL_ATTR_FAMILY_ID: Self = Self(1);
+    pub const CTRL_ATTR_FAMILY_NAME: Self = Self(2);
+    pub const CTRL_ATTR_VERSION: Self = Self(3);
+    pub const CTRL_ATTR_HDRSIZE: Self = Self(4);
+    pub const CTRL_ATTR_MAXATTR: Self = Self(5);
+    pub const CTRL_ATTR_OPS: Self = Self(6);
+    pub const CTRL_ATTR_MCAST_GROUPS: Self = Self(7);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("CTRL_ATTR_FAMILY_ID", Self::CTRL_ATTR_FAMILY_ID),
+        ("CTRL_ATTR_FAMILY_NAME", Self::CTRL_ATTR_FAMILY_NAME),
+        ("CTRL_ATTR_VERSION", Self::CTRL_ATTR_VERSION),
+        ("CTRL_ATTR_HDRSIZE", Self::CTRL_ATTR_HDRSIZE),
+        ("CTRL_ATTR_MAXATTR", Self::CTRL_ATTR_MAXATTR),
+        ("CTRL_ATTR_OPS", Self::CTRL_ATTR_OPS),
+        ("CTRL_ATTR_MCAST_GROUPS", Self::CTRL_ATTR_MCAST_GROUPS),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            1 => Some("CTRL_ATTR_FAMILY_ID"),
+            2 => Some("CTRL_ATTR_FAMILY_NAME"),
+            3 => Some("CTRL_ATTR_VERSION"),
+            4 => Some("CTRL_ATTR_HDRSIZE"),
+            5 => Some("CTRL_ATTR_MAXATTR"),
+            6 => Some("CTRL_ATTR_OPS"),
+            7 => Some("CTRL_ATTR_MCAST_GROUPS"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for CtrlAttr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "CtrlAttr({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for CtrlAttr {
+    const SIZE: usize = <u16 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u16 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u16 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Linux's kobject uevent datagrams are NUL-terminated key/value strings, with no
+/// fixed binary header (lib/kobject_uevent.c: kobject_uevent_env).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct NetlinkProtocolQ5(pub i32);
+impl NetlinkProtocolQ5 {
+    pub const NETLINK_USERSOCK: Self = Self(2);
+    pub const NETLINK_KOBJECT_UEVENT: Self = Self(15);
+    pub const NETLINK_GENERIC: Self = Self(16);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("NETLINK_USERSOCK", Self::NETLINK_USERSOCK),
+        ("NETLINK_KOBJECT_UEVENT", Self::NETLINK_KOBJECT_UEVENT),
+        ("NETLINK_GENERIC", Self::NETLINK_GENERIC),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            2 => Some("NETLINK_USERSOCK"),
+            15 => Some("NETLINK_KOBJECT_UEVENT"),
+            16 => Some("NETLINK_GENERIC"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for NetlinkProtocolQ5 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "NetlinkProtocolQ5({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for NetlinkProtocolQ5 {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// SCTP sock_diag INET_DIAG_INFO payload (include/uapi/linux/sctp.h).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpInfo {
+    pub sctpi_tag: u32,
+    pub sctpi_state: u32,
+    pub sctpi_rwnd: u32,
+    pub sctpi_unackdata: u16,
+    pub sctpi_penddata: u16,
+    pub sctpi_instrms: u16,
+    pub sctpi_outstrms: u16,
+    pub sctpi_fragmentation_point: u32,
+    pub sctpi_inqueue: u32,
+    pub sctpi_outqueue: u32,
+    pub sctpi_overall_error: u32,
+    pub sctpi_max_burst: u32,
+    pub sctpi_maxseg: u32,
+    pub sctpi_peer_rwnd: u32,
+    pub sctpi_peer_tag: u32,
+    pub sctpi_peer_capable: u8,
+    pub sctpi_peer_sack: u8,
+    pub reserved1: u16,
+    pub sctpi_isacks: u64,
+    pub sctpi_osacks: u64,
+    pub sctpi_opackets: u64,
+    pub sctpi_ipackets: u64,
+    pub sctpi_rtxchunks: u64,
+    pub sctpi_outofseqtsns: u64,
+    pub sctpi_idupchunks: u64,
+    pub sctpi_gapcnt: u64,
+    pub sctpi_ouodchunks: u64,
+    pub sctpi_iuodchunks: u64,
+    pub sctpi_oodchunks: u64,
+    pub sctpi_iodchunks: u64,
+    pub sctpi_octrlchunks: u64,
+    pub sctpi_ictrlchunks: u64,
+    pub sctpi_p_address: SockaddrStorage,
+    pub sctpi_p_state: i32,
+    pub sctpi_p_cwnd: u32,
+    pub sctpi_p_srtt: u32,
+    pub sctpi_p_rto: u32,
+    pub sctpi_p_hbinterval: u32,
+    pub sctpi_p_pathmaxrxt: u32,
+    pub sctpi_p_sackdelay: u32,
+    pub sctpi_p_sackfreq: u32,
+    pub sctpi_p_ssthresh: u32,
+    pub sctpi_p_partial_bytes_acked: u32,
+    pub sctpi_p_flight_size: u32,
+    pub sctpi_p_error: u16,
+    pub reserved2: u16,
+    pub sctpi_s_autoclose: u32,
+    pub sctpi_s_adaptation_ind: u32,
+    pub sctpi_s_pd_point: u32,
+    pub sctpi_s_nodelay: u8,
+    pub sctpi_s_disable_fragments: u8,
+    pub sctpi_s_v4mapped: u8,
+    pub sctpi_s_frag_interleave: u8,
+    pub sctpi_s_type: u32,
+    pub reserved3: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpInfo>() == 368);
+    assert!(core::mem::align_of::<SctpInfo>() == 8);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_tag) == 0);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_state) == 4);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_rwnd) == 8);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_unackdata) == 12);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_penddata) == 14);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_instrms) == 16);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_outstrms) == 18);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_fragmentation_point) == 20);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_inqueue) == 24);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_outqueue) == 28);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_overall_error) == 32);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_max_burst) == 36);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_maxseg) == 40);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_peer_rwnd) == 44);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_peer_tag) == 48);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_peer_capable) == 52);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_peer_sack) == 53);
+    assert!(core::mem::offset_of!(SctpInfo, reserved1) == 54);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_isacks) == 56);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_osacks) == 64);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_opackets) == 72);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_ipackets) == 80);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_rtxchunks) == 88);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_outofseqtsns) == 96);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_idupchunks) == 104);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_gapcnt) == 112);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_ouodchunks) == 120);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_iuodchunks) == 128);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_oodchunks) == 136);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_iodchunks) == 144);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_octrlchunks) == 152);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_ictrlchunks) == 160);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_address) == 168);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_state) == 296);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_cwnd) == 300);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_srtt) == 304);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_rto) == 308);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_hbinterval) == 312);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_pathmaxrxt) == 316);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_sackdelay) == 320);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_sackfreq) == 324);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_ssthresh) == 328);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_partial_bytes_acked) == 332);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_flight_size) == 336);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_error) == 340);
+    assert!(core::mem::offset_of!(SctpInfo, reserved2) == 342);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_autoclose) == 344);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_adaptation_ind) == 348);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_pd_point) == 352);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_nodelay) == 356);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_disable_fragments) == 357);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_v4mapped) == 358);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_frag_interleave) == 359);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_type) == 360);
+    assert!(core::mem::offset_of!(SctpInfo, reserved3) == 364);
+};
+impl Default for SctpInfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpInfo {
+    const SIZE: usize = 368;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        sctpi_tag: <u32 as GuestLayout>::ZERO,
+        sctpi_state: <u32 as GuestLayout>::ZERO,
+        sctpi_rwnd: <u32 as GuestLayout>::ZERO,
+        sctpi_unackdata: <u16 as GuestLayout>::ZERO,
+        sctpi_penddata: <u16 as GuestLayout>::ZERO,
+        sctpi_instrms: <u16 as GuestLayout>::ZERO,
+        sctpi_outstrms: <u16 as GuestLayout>::ZERO,
+        sctpi_fragmentation_point: <u32 as GuestLayout>::ZERO,
+        sctpi_inqueue: <u32 as GuestLayout>::ZERO,
+        sctpi_outqueue: <u32 as GuestLayout>::ZERO,
+        sctpi_overall_error: <u32 as GuestLayout>::ZERO,
+        sctpi_max_burst: <u32 as GuestLayout>::ZERO,
+        sctpi_maxseg: <u32 as GuestLayout>::ZERO,
+        sctpi_peer_rwnd: <u32 as GuestLayout>::ZERO,
+        sctpi_peer_tag: <u32 as GuestLayout>::ZERO,
+        sctpi_peer_capable: <u8 as GuestLayout>::ZERO,
+        sctpi_peer_sack: <u8 as GuestLayout>::ZERO,
+        reserved1: <u16 as GuestLayout>::ZERO,
+        sctpi_isacks: <u64 as GuestLayout>::ZERO,
+        sctpi_osacks: <u64 as GuestLayout>::ZERO,
+        sctpi_opackets: <u64 as GuestLayout>::ZERO,
+        sctpi_ipackets: <u64 as GuestLayout>::ZERO,
+        sctpi_rtxchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_outofseqtsns: <u64 as GuestLayout>::ZERO,
+        sctpi_idupchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_gapcnt: <u64 as GuestLayout>::ZERO,
+        sctpi_ouodchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_iuodchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_oodchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_iodchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_octrlchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_ictrlchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_p_address: <SockaddrStorage as GuestLayout>::ZERO,
+        sctpi_p_state: <i32 as GuestLayout>::ZERO,
+        sctpi_p_cwnd: <u32 as GuestLayout>::ZERO,
+        sctpi_p_srtt: <u32 as GuestLayout>::ZERO,
+        sctpi_p_rto: <u32 as GuestLayout>::ZERO,
+        sctpi_p_hbinterval: <u32 as GuestLayout>::ZERO,
+        sctpi_p_pathmaxrxt: <u32 as GuestLayout>::ZERO,
+        sctpi_p_sackdelay: <u32 as GuestLayout>::ZERO,
+        sctpi_p_sackfreq: <u32 as GuestLayout>::ZERO,
+        sctpi_p_ssthresh: <u32 as GuestLayout>::ZERO,
+        sctpi_p_partial_bytes_acked: <u32 as GuestLayout>::ZERO,
+        sctpi_p_flight_size: <u32 as GuestLayout>::ZERO,
+        sctpi_p_error: <u16 as GuestLayout>::ZERO,
+        reserved2: <u16 as GuestLayout>::ZERO,
+        sctpi_s_autoclose: <u32 as GuestLayout>::ZERO,
+        sctpi_s_adaptation_ind: <u32 as GuestLayout>::ZERO,
+        sctpi_s_pd_point: <u32 as GuestLayout>::ZERO,
+        sctpi_s_nodelay: <u8 as GuestLayout>::ZERO,
+        sctpi_s_disable_fragments: <u8 as GuestLayout>::ZERO,
+        sctpi_s_v4mapped: <u8 as GuestLayout>::ZERO,
+        sctpi_s_frag_interleave: <u8 as GuestLayout>::ZERO,
+        sctpi_s_type: <u32 as GuestLayout>::ZERO,
+        reserved3: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sctpi_tag: GuestLayout::read_from(&bytes[0..])?,
+            sctpi_state: GuestLayout::read_from(&bytes[4..])?,
+            sctpi_rwnd: GuestLayout::read_from(&bytes[8..])?,
+            sctpi_unackdata: GuestLayout::read_from(&bytes[12..])?,
+            sctpi_penddata: GuestLayout::read_from(&bytes[14..])?,
+            sctpi_instrms: GuestLayout::read_from(&bytes[16..])?,
+            sctpi_outstrms: GuestLayout::read_from(&bytes[18..])?,
+            sctpi_fragmentation_point: GuestLayout::read_from(&bytes[20..])?,
+            sctpi_inqueue: GuestLayout::read_from(&bytes[24..])?,
+            sctpi_outqueue: GuestLayout::read_from(&bytes[28..])?,
+            sctpi_overall_error: GuestLayout::read_from(&bytes[32..])?,
+            sctpi_max_burst: GuestLayout::read_from(&bytes[36..])?,
+            sctpi_maxseg: GuestLayout::read_from(&bytes[40..])?,
+            sctpi_peer_rwnd: GuestLayout::read_from(&bytes[44..])?,
+            sctpi_peer_tag: GuestLayout::read_from(&bytes[48..])?,
+            sctpi_peer_capable: GuestLayout::read_from(&bytes[52..])?,
+            sctpi_peer_sack: GuestLayout::read_from(&bytes[53..])?,
+            reserved1: GuestLayout::read_from(&bytes[54..])?,
+            sctpi_isacks: GuestLayout::read_from(&bytes[56..])?,
+            sctpi_osacks: GuestLayout::read_from(&bytes[64..])?,
+            sctpi_opackets: GuestLayout::read_from(&bytes[72..])?,
+            sctpi_ipackets: GuestLayout::read_from(&bytes[80..])?,
+            sctpi_rtxchunks: GuestLayout::read_from(&bytes[88..])?,
+            sctpi_outofseqtsns: GuestLayout::read_from(&bytes[96..])?,
+            sctpi_idupchunks: GuestLayout::read_from(&bytes[104..])?,
+            sctpi_gapcnt: GuestLayout::read_from(&bytes[112..])?,
+            sctpi_ouodchunks: GuestLayout::read_from(&bytes[120..])?,
+            sctpi_iuodchunks: GuestLayout::read_from(&bytes[128..])?,
+            sctpi_oodchunks: GuestLayout::read_from(&bytes[136..])?,
+            sctpi_iodchunks: GuestLayout::read_from(&bytes[144..])?,
+            sctpi_octrlchunks: GuestLayout::read_from(&bytes[152..])?,
+            sctpi_ictrlchunks: GuestLayout::read_from(&bytes[160..])?,
+            sctpi_p_address: GuestLayout::read_from(&bytes[168..])?,
+            sctpi_p_state: GuestLayout::read_from(&bytes[296..])?,
+            sctpi_p_cwnd: GuestLayout::read_from(&bytes[300..])?,
+            sctpi_p_srtt: GuestLayout::read_from(&bytes[304..])?,
+            sctpi_p_rto: GuestLayout::read_from(&bytes[308..])?,
+            sctpi_p_hbinterval: GuestLayout::read_from(&bytes[312..])?,
+            sctpi_p_pathmaxrxt: GuestLayout::read_from(&bytes[316..])?,
+            sctpi_p_sackdelay: GuestLayout::read_from(&bytes[320..])?,
+            sctpi_p_sackfreq: GuestLayout::read_from(&bytes[324..])?,
+            sctpi_p_ssthresh: GuestLayout::read_from(&bytes[328..])?,
+            sctpi_p_partial_bytes_acked: GuestLayout::read_from(&bytes[332..])?,
+            sctpi_p_flight_size: GuestLayout::read_from(&bytes[336..])?,
+            sctpi_p_error: GuestLayout::read_from(&bytes[340..])?,
+            reserved2: GuestLayout::read_from(&bytes[342..])?,
+            sctpi_s_autoclose: GuestLayout::read_from(&bytes[344..])?,
+            sctpi_s_adaptation_ind: GuestLayout::read_from(&bytes[348..])?,
+            sctpi_s_pd_point: GuestLayout::read_from(&bytes[352..])?,
+            sctpi_s_nodelay: GuestLayout::read_from(&bytes[356..])?,
+            sctpi_s_disable_fragments: GuestLayout::read_from(&bytes[357..])?,
+            sctpi_s_v4mapped: GuestLayout::read_from(&bytes[358..])?,
+            sctpi_s_frag_interleave: GuestLayout::read_from(&bytes[359..])?,
+            sctpi_s_type: GuestLayout::read_from(&bytes[360..])?,
+            reserved3: GuestLayout::read_from(&bytes[364..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sctpi_tag.write_to(&mut out[0..]);
+        self.sctpi_state.write_to(&mut out[4..]);
+        self.sctpi_rwnd.write_to(&mut out[8..]);
+        self.sctpi_unackdata.write_to(&mut out[12..]);
+        self.sctpi_penddata.write_to(&mut out[14..]);
+        self.sctpi_instrms.write_to(&mut out[16..]);
+        self.sctpi_outstrms.write_to(&mut out[18..]);
+        self.sctpi_fragmentation_point.write_to(&mut out[20..]);
+        self.sctpi_inqueue.write_to(&mut out[24..]);
+        self.sctpi_outqueue.write_to(&mut out[28..]);
+        self.sctpi_overall_error.write_to(&mut out[32..]);
+        self.sctpi_max_burst.write_to(&mut out[36..]);
+        self.sctpi_maxseg.write_to(&mut out[40..]);
+        self.sctpi_peer_rwnd.write_to(&mut out[44..]);
+        self.sctpi_peer_tag.write_to(&mut out[48..]);
+        self.sctpi_peer_capable.write_to(&mut out[52..]);
+        self.sctpi_peer_sack.write_to(&mut out[53..]);
+        self.reserved1.write_to(&mut out[54..]);
+        self.sctpi_isacks.write_to(&mut out[56..]);
+        self.sctpi_osacks.write_to(&mut out[64..]);
+        self.sctpi_opackets.write_to(&mut out[72..]);
+        self.sctpi_ipackets.write_to(&mut out[80..]);
+        self.sctpi_rtxchunks.write_to(&mut out[88..]);
+        self.sctpi_outofseqtsns.write_to(&mut out[96..]);
+        self.sctpi_idupchunks.write_to(&mut out[104..]);
+        self.sctpi_gapcnt.write_to(&mut out[112..]);
+        self.sctpi_ouodchunks.write_to(&mut out[120..]);
+        self.sctpi_iuodchunks.write_to(&mut out[128..]);
+        self.sctpi_oodchunks.write_to(&mut out[136..]);
+        self.sctpi_iodchunks.write_to(&mut out[144..]);
+        self.sctpi_octrlchunks.write_to(&mut out[152..]);
+        self.sctpi_ictrlchunks.write_to(&mut out[160..]);
+        self.sctpi_p_address.write_to(&mut out[168..]);
+        self.sctpi_p_state.write_to(&mut out[296..]);
+        self.sctpi_p_cwnd.write_to(&mut out[300..]);
+        self.sctpi_p_srtt.write_to(&mut out[304..]);
+        self.sctpi_p_rto.write_to(&mut out[308..]);
+        self.sctpi_p_hbinterval.write_to(&mut out[312..]);
+        self.sctpi_p_pathmaxrxt.write_to(&mut out[316..]);
+        self.sctpi_p_sackdelay.write_to(&mut out[320..]);
+        self.sctpi_p_sackfreq.write_to(&mut out[324..]);
+        self.sctpi_p_ssthresh.write_to(&mut out[328..]);
+        self.sctpi_p_partial_bytes_acked.write_to(&mut out[332..]);
+        self.sctpi_p_flight_size.write_to(&mut out[336..]);
+        self.sctpi_p_error.write_to(&mut out[340..]);
+        self.reserved2.write_to(&mut out[342..]);
+        self.sctpi_s_autoclose.write_to(&mut out[344..]);
+        self.sctpi_s_adaptation_ind.write_to(&mut out[348..]);
+        self.sctpi_s_pd_point.write_to(&mut out[352..]);
+        self.sctpi_s_nodelay.write_to(&mut out[356..]);
+        self.sctpi_s_disable_fragments.write_to(&mut out[357..]);
+        self.sctpi_s_v4mapped.write_to(&mut out[358..]);
+        self.sctpi_s_frag_interleave.write_to(&mut out[359..]);
+        self.sctpi_s_type.write_to(&mut out[360..]);
+        self.reserved3.write_to(&mut out[364..]);
+    }
+}
 
 /// Wasm value type of an import param or result.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
