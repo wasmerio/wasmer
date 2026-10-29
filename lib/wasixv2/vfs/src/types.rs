@@ -151,8 +151,7 @@ impl SetAttr {
     }
 }
 
-/// A timestamp to store: a given value, or the driver's clock (which for a host directory is
-/// the host's, so it matches what the host's own updates write).
+/// A timestamp to store: a given value, or the driver's clock, the machine's wall clock.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TimeSet {
     Now,

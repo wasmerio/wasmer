@@ -304,3 +304,44 @@ fn an_unnamed_read_only_file_is_writable_and_linkable() {
     let host = setup.outside.parent().unwrap().join("inside/named");
     assert_eq!(fs::read(host).unwrap(), b"tmp");
 }
+
+/// A host whose wall clock reads a fixed time, as a machine's set clock would.
+struct Wall(Duration);
+
+impl Host for Wall {
+    fn realtime(&self) -> Duration {
+        self.0
+    }
+    fn monotonic(&self) -> Duration {
+        Duration::ZERO
+    }
+    fn sleep(&self, _: Duration) -> LocalFuture<'_, ()> {
+        Box::pin(async {})
+    }
+    fn random(&self, buf: &mut [u8]) {
+        buf.fill(0);
+    }
+    fn executor(&self) -> &dyn Executor {
+        &InlineHost
+    }
+}
+
+/// `utimensat(UTIME_NOW)` stamps the machine's time, which need not be the host's.
+#[test]
+fn now_is_the_machines_wall_clock() {
+    let dir = tempfile::tempdir().unwrap();
+    let wall = Duration::new(1_000_000_000, 5);
+    let fs = wasixv2_vfs_host::open(dir.path(), Arc::new(Wall(wall)), Default::default());
+    let root = fs.unwrap().root();
+    let now = wasixv2_vfs::SetAttr {
+        mtime: Some(wasixv2_vfs::TimeSet::Now),
+        ..Default::default()
+    };
+    let attr = block_on(root.setattr(&now)).unwrap();
+    assert_eq!(attr.mtime, Timestamp::new(1_000_000_000, 5));
+    let modified = fs::metadata(dir.path()).unwrap().modified().unwrap();
+    assert_eq!(
+        modified.duration_since(std::time::UNIX_EPOCH).unwrap(),
+        wall
+    );
+}

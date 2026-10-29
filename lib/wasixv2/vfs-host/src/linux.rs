@@ -447,6 +447,9 @@ impl Node for HostNode {
     async fn setattr(&self, attr: &SetAttr) -> FsResult<Attr> {
         self.shared.writable()?;
         let attr = attr.clone();
+        // "Now" is the machine's wall clock, which need not be the host's.
+        let now = self.shared.host.realtime();
+        let now = Timestamp::new(now.as_secs() as i64, now.subsec_nanos());
         let (uid, gid) = self.shared.to_host(attr.uid, attr.gid);
         let fd = self.fd.clone();
         let is_symlink = self.file_type == FileType::Symlink;
@@ -471,11 +474,32 @@ impl Node for HostNode {
                 }
                 // The host stamps ctime itself; it cannot be set.
                 if (attr.atime.is_some() || attr.mtime.is_some()) && !is_symlink {
-                    let times = [timespec(attr.atime), timespec(attr.mtime)];
+                    let at = |t: Option<TimeSet>| match t {
+                        Some(TimeSet::Now) => Some(TimeSet::At(now)),
+                        t => t,
+                    };
+                    let times = [timespec(at(attr.atime)), timespec(at(attr.mtime))];
                     // SAFETY: `times` holds two timespecs.
-                    cvt(unsafe {
+                    let set = cvt(unsafe {
                         libc::utimensat(libc::AT_FDCWD, proc.as_ptr(), times.as_ptr(), 0)
-                    })?;
+                    });
+                    // An explicit time needs the host file's owner, "now" only write access
+                    // (which the guest's permission check already granted): the host's "now"
+                    // then.
+                    match set {
+                        Err(Errno::EPERM)
+                            if [attr.atime, attr.mtime].contains(&Some(TimeSet::Now)) =>
+                        {
+                            let times = [timespec(attr.atime), timespec(attr.mtime)];
+                            // SAFETY: `times` holds two timespecs.
+                            cvt(unsafe {
+                                libc::utimensat(libc::AT_FDCWD, proc.as_ptr(), times.as_ptr(), 0)
+                            })?;
+                        }
+                        set => {
+                            set?;
+                        }
+                    }
                 }
                 stat_fd(raw)
             })

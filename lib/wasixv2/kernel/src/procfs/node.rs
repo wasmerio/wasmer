@@ -15,7 +15,7 @@ use crate::{
     cred::Cred,
     file::NrOpen,
     mm::VmSysctls,
-    ns::{NsKind, NsLink, PidNs, UserNs},
+    ns::{NsKind, NsLink, PidNs, TimensOffset, UserNs},
     pipe::PipeMaxSize,
     sync::MutexExt,
     taint::Taint,
@@ -167,8 +167,8 @@ pub(super) enum PidEntry {
     File(text::PerPid),
 }
 
-/// The entries of `/proc/<pid>` and `/proc/<pid>/task/<tid>`: name, kind, mode. `task` only
-/// exists for the process.
+/// The entries of `/proc/<pid>` and `/proc/<pid>/task/<tid>`: name, kind, mode. `task` and
+/// `timens_offsets` only exist for the process.
 const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("fd", PidEntry::Fds, 0o500),
     ("fdinfo", PidEntry::FdInfos, 0o555),
@@ -192,6 +192,11 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("gid_map", PidEntry::File(text::PerPid::GidMap), 0o644),
     ("projid_map", PidEntry::File(text::PerPid::ProjidMap), 0o644),
     ("setgroups", PidEntry::File(text::PerPid::Setgroups), 0o644),
+    (
+        "timens_offsets",
+        PidEntry::File(text::PerPid::TimensOffsets),
+        0o644,
+    ),
 ];
 
 /// The files of `/proc/<pid>/net`, which show the task's network namespace.
@@ -274,7 +279,12 @@ impl ProcNode {
             Entry::Dir(scope) => {
                 self.alive(scope)?;
                 for (index, (name, kind, _)) in PID_ENTRIES.iter().enumerate() {
-                    if *kind == PidEntry::Tasks && scope.tid.is_some() {
+                    // Only a process has these (`tgid_base_stuff`, not `tid_base_stuff`).
+                    let process_only = matches!(
+                        kind,
+                        PidEntry::Tasks | PidEntry::File(text::PerPid::TimensOffsets)
+                    );
+                    if process_only && scope.tid.is_some() {
                         continue;
                     }
                     out.push((
@@ -730,7 +740,8 @@ impl Node for ProcNode {
             Entry::Pid(scope, index) => match PID_ENTRIES[index].1 {
                 PidEntry::File(file) => {
                     let reader = self.source.user_ns_of(options.task);
-                    let data = text::per_pid(&self.source, scope, file, &reader)?;
+                    let reader_time = self.source.ns_of(options.task).time.clone();
+                    let data = text::per_pid(&self.source, scope, file, &reader, &reader_time)?;
                     let write = match options.write {
                         true => self.per_pid_write(scope, file, options.task)?,
                         false => None,
@@ -770,6 +781,12 @@ impl ProcNode {
     ) -> FsResult<Option<Write>> {
         let map = match file {
             text::PerPid::Comm => return Ok(Some(Write::Comm(self.source.clone(), scope))),
+            // Written with the opener's credentials (`file_ns_capable`).
+            text::PerPid::TimensOffsets => {
+                let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
+                let target = (self.source.clone(), scope);
+                return Ok(Some(Write::TimensOffsets(target, Box::new(cred))));
+            }
             text::PerPid::UidMap => MapKind::Uid,
             text::PerPid::GidMap => MapKind::Gid,
             text::PerPid::ProjidMap => MapKind::Projid,
@@ -849,6 +866,53 @@ enum Write {
     Ucount(Arc<UserNs>, NsKind),
     /// One of the machine's `fs.*` integers.
     Fs(Arc<crate::fs::FsSysctls>, text::Global),
+    /// The offsets of a process's time namespace for children, written with the opener's
+    /// credentials.
+    TimensOffsets((Arc<Source>, Scope), Box<Cred>),
+}
+
+/// `timens_offsets_write`'s parsing: at most two lines of `<clock> <sec> <nsec>`, the clock
+/// by name or number. Returns the offsets and the bytes taken.
+fn parse_timens_offsets(data: &[u8]) -> Result<(Vec<TimensOffset>, usize), Errno> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    let mut offsets = Vec::new();
+    let mut taken = data.len();
+    let mut rest = text;
+    while !rest.is_empty() {
+        let (line, next) = match rest.split_once('\n') {
+            Some((line, next)) => (line, next),
+            None => (rest, ""),
+        };
+        let mut fields = line.split_ascii_whitespace();
+        let (Some(clock), Some(sec), Some(nsec)) = (fields.next(), fields.next(), fields.next())
+        else {
+            return Err(Errno::EINVAL);
+        };
+        let boottime = match clock {
+            "monotonic" | "1" => false,
+            "boottime" | "7" => true,
+            _ => return Err(Errno::EINVAL),
+        };
+        let sec: i64 = sec.parse().map_err(|_| Errno::EINVAL)?;
+        // `%lu`: a negative count is a huge one.
+        let nsec: i64 = match nsec.parse::<u64>() {
+            Ok(nsec) if nsec < 1_000_000_000 => nsec as i64,
+            _ => return Err(Errno::EINVAL),
+        };
+        offsets.push(TimensOffset {
+            boottime,
+            sec,
+            nsec,
+        });
+        if offsets.len() == 2 {
+            if !next.is_empty() {
+                taken = data.len() - next.len();
+            }
+            break;
+        }
+        rest = next;
+    }
+    Ok((offsets, taken))
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
@@ -880,6 +944,21 @@ impl Handle for FileHandle {
         match self.write.as_ref().ok_or(Errno::EINVAL)? {
             Write::Map(ns, kind, cred) => return ns.write_map(*kind, cred, offset, data),
             Write::Setgroups(ns) => return ns.write_setgroups(offset, data),
+            // `timens_offsets_write` and `proc_timens_set_offset`.
+            Write::TimensOffsets((source, scope), cred) => {
+                if offset != 0 || data.len() >= crate::mm::PAGE_SIZE as usize {
+                    return Err(Errno::EINVAL);
+                }
+                let (offsets, taken) = parse_timens_offsets(data)?;
+                let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+                let ns = task.ns.as_ref().ok_or(Errno::ESRCH)?;
+                let ns = &ns.time_for_children;
+                if !cred.ns_capable(ns.user_ns(), Cap::SysTime) {
+                    return Err(Errno::EPERM);
+                }
+                ns.set_offsets(&offsets, source.host.monotonic())?;
+                return Ok(taken);
+            }
             Write::Ucount(ns, kind) => ns.set_ucount_max(*kind, sysctl_int(data)?)?,
             Write::Comm(source, scope) => {
                 source

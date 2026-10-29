@@ -1,24 +1,29 @@
 //! Clocks, sleeps and their timespec conversions, after Linux's `kernel/time/posix-timers.c`
-//! and, for the CPU-time clocks of any process or thread, `posix-cpu-timers.c`.
+//! and, for the CPU-time clocks of any process or thread, `posix-cpu-timers.c`. The wall clock
+//! is the machine's ([`Timekeeper`]); the alarm clocks (`alarmtimer.c`) are their base clocks,
+//! as a machine never suspends.
 
 use std::{sync::Arc, time::Duration};
 
-use wasixv2_abi::{ClockId, ConstKernelTimespecPtr, KernelTimespec, KernelTimespecPtr, TimerFlags};
+use wasixv2_abi::{
+    ClockId, ConstKernelTimespecPtr, GuestPtr, KernelTimespec, KernelTimespecPtr, KernelTimex,
+    KernelTimexPtr, TimerFlags,
+};
 use wasixv2_host::Host;
 use wasixv2_syscalls::{
     Caller, CpuBase, CpuTime, Errno, SysErr, SysResult, TaskId, read_value, write_value,
 };
+use wasixv2_vfs::Cap;
 use wasixv2_wait::{Interrupted, wait_event};
 
 use crate::{
     Kernel,
     cputime::{CpuClock, CpuSleep},
     restart::Restart,
+    timekeeping::{self, Timekeeper},
 };
 
 const NANOS_PER_SEC: i64 = 1_000_000_000;
-/// `CLOCK_TAI`: the kernel's TAI offset is 0 until something sets it, as on a fresh Linux boot.
-const CLOCK_TAI: ClockId = ClockId(11);
 /// Resolution of the coarse clocks: one tick at `HZ=250`.
 const COARSE_RES: Duration = Duration::from_millis(4);
 /// `CPUCLOCK_SCHED`, the CPU clock `clock_getcpuclockid` and `pthread_getcpuclockid` build.
@@ -31,7 +36,13 @@ const CPUCLOCK_MAX: i32 = 3;
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Clock {
     Realtime,
+    /// `CLOCK_TAI`: the wall clock plus the TAI offset.
+    Tai,
+    /// `CLOCK_MONOTONIC` and its raw and coarse forms, which a time namespace offsets alike.
     Monotonic,
+    /// `CLOCK_BOOTTIME`: the monotonic clock, as a machine never suspends, with a time
+    /// namespace offset of its own.
+    Boottime,
     /// CPU time of a process or one of its threads, as the execution layer charges it
     /// ([`crate::cputime`]).
     ProcessCpu,
@@ -59,13 +70,12 @@ fn decode(id: ClockId) -> Result<(Clock, Option<CpuOwner>), Errno> {
     let clock = match id {
         ClockId::CLOCK_REALTIME
         | ClockId::CLOCK_REALTIME_COARSE
-        | ClockId::CLOCK_REALTIME_ALARM
-        | CLOCK_TAI => Clock::Realtime,
+        | ClockId::CLOCK_REALTIME_ALARM => Clock::Realtime,
+        ClockId::CLOCK_TAI => Clock::Tai,
         ClockId::CLOCK_MONOTONIC
         | ClockId::CLOCK_MONOTONIC_RAW
-        | ClockId::CLOCK_MONOTONIC_COARSE
-        | ClockId::CLOCK_BOOTTIME
-        | ClockId::CLOCK_BOOTTIME_ALARM => Clock::Monotonic,
+        | ClockId::CLOCK_MONOTONIC_COARSE => Clock::Monotonic,
+        ClockId::CLOCK_BOOTTIME | ClockId::CLOCK_BOOTTIME_ALARM => Clock::Boottime,
         ClockId::CLOCK_PROCESS_CPUTIME_ID => return Ok((Clock::ProcessCpu, Some(own(false)))),
         ClockId::CLOCK_THREAD_CPUTIME_ID => return Ok((Clock::ThreadCpu, Some(own(true)))),
         // Dynamic (`CLOCKFD`) clocks come out as `CPUCLOCK_MAX`, which no clock has.
@@ -127,14 +137,59 @@ pub(crate) fn from_timespec(ts: KernelTimespec) -> Result<Duration, Errno> {
     Ok(Duration::new(ts.tv_sec as u64, nanos as u32))
 }
 
-/// What `clock` reads; `cpu` is the CPU clock a CPU clock is, which reads as of the last
-/// charges.
-pub(crate) fn read(host: &dyn Host, clock: Clock, cpu: Option<&CpuClock>) -> Duration {
+impl Clock {
+    /// Whether the clock can be set, so that timers on it are realtime timers
+    /// ([`crate::timer::Timers::realtime_timer`]) and its deadlines move with a set.
+    pub(crate) fn settable(self) -> bool {
+        matches!(self, Clock::Realtime | Clock::Tai)
+    }
+}
+
+/// What `clock` reads outside any time namespace; `cpu` is the CPU clock a CPU clock is,
+/// which reads as of the last charges.
+pub(crate) fn read(time: &Timekeeper, clock: Clock, cpu: Option<&CpuClock>) -> Duration {
     match clock {
-        Clock::Realtime => host.realtime(),
-        Clock::Monotonic => host.monotonic(),
+        Clock::Realtime => time.realtime(),
+        Clock::Tai => time.tai(),
+        Clock::Monotonic | Clock::Boottime => time.monotonic(),
         Clock::ProcessCpu | Clock::ThreadCpu => cpu.map_or(Duration::ZERO, CpuClock::now),
     }
+}
+
+/// A deadline on the settable `clock` as one on the host's monotonic clock, which kernel
+/// timers run on; a set of the clock moves it ([`crate::Kernel::clock_was_set`]).
+pub(crate) fn monotonic_deadline(time: &Timekeeper, clock: Clock, deadline: Duration) -> Duration {
+    match clock.settable() {
+        true => {
+            let left = deadline.saturating_sub(read(time, clock, None));
+            time.monotonic().saturating_add(left)
+        }
+        false => deadline,
+    }
+}
+
+/// `timens_add_*`: `time` plus a time namespace's `offset` in nanoseconds.
+pub(crate) fn timens_add(time: Duration, offset: i64) -> Duration {
+    let nanos = time.as_nanos() as i128 + i128::from(offset);
+    duration_from_nanos(nanos)
+}
+
+/// `do_timens_ktime_to_host`: an absolute time `at` in a time namespace whose offset is
+/// `offset` as the host's; one before the offset has passed already (0), and the result is at
+/// most `KTIME_MAX`.
+pub(crate) fn timens_to_host(at: Duration, offset: i64) -> Duration {
+    let at = at.as_nanos() as i128;
+    let offset = i128::from(offset);
+    if at < offset {
+        return Duration::ZERO;
+    }
+    duration_from_nanos((at - offset).min(i128::from(i64::MAX)))
+}
+
+fn duration_from_nanos(nanos: i128) -> Duration {
+    let nanos = nanos.max(0);
+    let secs = u64::try_from(nanos / i128::from(NANOS_PER_SEC)).unwrap_or(u64::MAX);
+    Duration::new(secs, (nanos % i128::from(NANOS_PER_SEC)) as u32)
 }
 
 /// What a reading of [`ClockOffset`] may be off by beyond its bracket: the coarsest host wall
@@ -143,30 +198,36 @@ const OFFSET_SLACK: i128 = 1_000_000;
 
 /// The realtime clock's offset from the monotonic one (`ktime_mono_to_real(0)`), in
 /// nanoseconds, as the host lets it be read: one realtime reading between two monotonic ones
-/// gives a range. The offset moves only when the realtime clock is set, by a step or a leap
-/// second (slewing moves both clocks alike), or when the host slept, the events after which
-/// Linux runs `clock_was_set`; the wall clock is the host's, so nothing in the machine sets
-/// it, and a set is seen by comparing readings.
+/// gives a range, with the count of the machine's own sets of the clock. The offset moves
+/// when the machine sets the clock, by a step or a leap second (slewing moves both clocks
+/// alike), and when the host's wall clock is stepped or the host slept, which the machine is
+/// not told of and sees by comparing readings: the events after which Linux runs
+/// `clock_was_set`.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ClockOffset {
     low: i128,
     high: i128,
+    seq: u64,
 }
 
 impl ClockOffset {
-    pub(crate) fn read(host: &dyn Host) -> Self {
-        let before = host.monotonic().as_nanos() as i128;
-        let real = host.realtime().as_nanos() as i128;
-        let after = host.monotonic().as_nanos() as i128;
+    pub(crate) fn read(time: &Timekeeper) -> Self {
+        let seq = time.seq();
+        let before = time.monotonic().as_nanos() as i128;
+        let real = time.realtime().as_nanos() as i128;
+        let after = time.monotonic().as_nanos() as i128;
         Self {
             low: real - after,
             high: real - before,
+            seq,
         }
     }
 
     /// Whether the realtime clock was set between this reading and `now`.
     pub(crate) fn moved(&self, now: &Self) -> bool {
-        now.low > self.high + OFFSET_SLACK || now.high + OFFSET_SLACK < self.low
+        now.seq != self.seq
+            || now.low > self.high + OFFSET_SLACK
+            || now.high + OFFSET_SLACK < self.low
     }
 }
 
@@ -243,12 +304,51 @@ impl Kernel {
     }
 
     /// The current value of `clock` for the caller, who sees its own CPU time up to now
-    /// ([`Kernel::cpu_clock_now`]).
+    /// ([`Kernel::cpu_clock_now`]) and the monotonic and boot-time clocks with its time
+    /// namespace's offsets (`timens_add_monotonic`, `timens_add_boottime`).
     pub(crate) fn clock_now(&self, caller: &Caller<'_>, clock: &ClockRef) -> Duration {
         match &clock.cpu {
             Some(cpu) => self.cpu_clock_now(caller.task(), cpu),
-            None => read(&*self.host, clock.clock, None),
+            None => {
+                let now = read(&self.time, clock.clock, None);
+                timens_add(now, self.timens_offset(caller, clock.clock))
+            }
         }
+    }
+
+    /// The offset in nanoseconds the caller's time namespace gives `clock`.
+    pub(crate) fn timens_offset(&self, caller: &Caller<'_>, clock: Clock) -> i64 {
+        self.task_timens_offset(caller.task(), clock)
+    }
+
+    /// [`Kernel::timens_offset`] of `task`.
+    pub(crate) fn task_timens_offset(&self, task: TaskId, clock: Clock) -> i64 {
+        let (monotonic, boottime) = match clock {
+            Clock::Monotonic | Clock::Boottime => self.task_ns(task).time.offsets(),
+            _ => return 0,
+        };
+        match clock {
+            Clock::Monotonic => monotonic,
+            _ => boottime,
+        }
+    }
+
+    /// `timens_ktime_to_host`: an absolute time on the caller's `clock` as the host's.
+    pub(crate) fn timens_to_host(
+        &self,
+        caller: &Caller<'_>,
+        clock: Clock,
+        at: Duration,
+    ) -> Duration {
+        timens_to_host(at, self.timens_offset(caller, clock))
+    }
+
+    /// `clock_was_set`: after a set of the wall clock (or of the TAI offset), the machine's
+    /// realtime timers fire or move to their new deadlines (`hrtimers_resume`/
+    /// `retrigger_next_event`), and a timer descriptor that cancels on a set is canceled.
+    /// The absolute waits on the wall clock already woke ([`Timekeeper`]).
+    pub(crate) fn clock_was_set(&self) {
+        self.timers.clock_was_set();
     }
 
     pub(crate) async fn sys_clock_gettime(
@@ -276,7 +376,10 @@ impl Kernel {
     }
 
     /// Only `CLOCK_REALTIME` and the CPU clocks named by a pid have a `clock_set`; the others
-    /// are `EINVAL` before the timespec is read.
+    /// are `EINVAL` before the timespec is read. The wall clock is set as
+    /// `do_sys_settimeofday64` does: a time past what it can hold is `EINVAL`, then setting
+    /// it needs `CAP_SYS_TIME` in the initial user namespace (`cap_settime`). It is the
+    /// machine's, not the host's.
     pub(crate) async fn sys_clock_settime(
         &self,
         caller: &Caller<'_>,
@@ -294,10 +397,39 @@ impl Kernel {
             self.resolve_clock(caller, id, false)?;
             return Err(Errno::EPERM.into());
         }
-        from_timespec(ts)?;
-        // Setting the wall clock needs CAP_SYS_TIME, and the wall clock is the host's, so not
-        // even that is enough.
-        Err(Errno::EPERM.into())
+        let ts = from_timespec(ts)?;
+        if !timekeeping::valid_settod(ts) {
+            return Err(Errno::EINVAL.into());
+        }
+        if !self.cred(caller).capable_init(Cap::SysTime) {
+            return Err(Errno::EPERM.into());
+        }
+        self.time.settime(ts)?;
+        self.clock_was_set();
+        Ok(0)
+    }
+
+    /// `clock_adjtime`: `adjtimex` of the wall clock (`do_adjtimex`); the other clocks have
+    /// no `clock_adj` (`EOPNOTSUPP`). The whole `timex` goes back to the caller, its padding
+    /// as the caller passed it.
+    pub(crate) async fn sys_clock_adjtime(
+        &self,
+        caller: &Caller<'_>,
+        id: ClockId,
+        utx: KernelTimexPtr,
+    ) -> SysResult<i32> {
+        let mut txc = read_value(caller.memory(), GuestPtr::<KernelTimex>::new(utx.addr())).await?;
+        decode(id)?;
+        if id != ClockId::CLOCK_REALTIME {
+            return Err(Errno::EOPNOTSUPP.into());
+        }
+        let sys_time = self.cred(caller).capable_init(Cap::SysTime);
+        let (state, set) = self.time.adjtimex(&mut txc, sys_time)?;
+        if set {
+            self.clock_was_set();
+        }
+        write_value(caller.memory(), utx, &txc).await?;
+        Ok(state.0)
     }
 
     pub(crate) async fn sys_clock_nanosleep(
@@ -318,6 +450,10 @@ impl Kernel {
             return Err(Errno::EOPNOTSUPP.into());
         }
         let clock = self.resolve_clock(caller, id, false)?;
+        let alarm = matches!(
+            id,
+            ClockId::CLOCK_REALTIME_ALARM | ClockId::CLOCK_BOOTTIME_ALARM
+        );
         // `posix_cpu_nsleep`: a thread cannot sleep on its own CPU clock.
         let own = |cpu: &CpuClock| {
             cpu.thread
@@ -328,6 +464,15 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let request = from_timespec(read_value(caller.memory(), rqtp).await?)?;
+        // `alarm_timer_nsleep`: an alarm sleep needs `CAP_WAKE_ALARM`.
+        if alarm {
+            if flags.0 & !TimerFlags::TIMER_ABSTIME.0 != 0 {
+                return Err(Errno::EINVAL.into());
+            }
+            if !self.cred(caller).capable_init(Cap::WakeAlarm) {
+                return Err(Errno::EPERM.into());
+            }
+        }
         let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
         if let Some(cpu) = &clock.cpu {
             let expires = match absolute {
@@ -338,30 +483,25 @@ impl Kernel {
             return self.cpu_nanosleep(caller, id, cpu, expires, rmtp).await;
         }
         if !absolute {
-            // Realtime and monotonic clocks advance at the same rate, so a relative sleep
-            // ends at a fixed point of the monotonic clock.
+            // Every clock advances at the monotonic clock's rate, so a relative sleep ends at
+            // a fixed point of it.
             let deadline = self.host.monotonic().saturating_add(request);
             return self.nanosleep_until(caller, deadline, rmtp).await;
         }
         // Interrupted, an absolute sleep reruns as it was, and `rmtp` is not written
         // (`-ERESTARTNOHAND`).
         let interrupted = |_: Interrupted| SysErr::RestartNoHand;
-        match clock.clock {
-            Clock::Monotonic => self
-                .interruptible_sleep(caller, self.host.sleep_until(request))
-                .await
-                .map_err(interrupted)?,
-            _ => {
-                // Re-check the clock: a realtime deadline is not a monotonic one.
-                let mut now = self.clock_now(caller, &clock);
-                while now < request {
-                    self.interruptible_sleep(caller, self.host.sleep(request - now))
-                        .await
-                        .map_err(interrupted)?;
-                    now = self.clock_now(caller, &clock);
-                }
+        let sleep = match clock.clock.settable() {
+            // A set of the clock moves the deadline.
+            true => self.time.sleep_until(request, clock.clock == Clock::Tai),
+            false => {
+                let request = self.timens_to_host(caller, clock.clock, request);
+                self.host.sleep_until(request)
             }
-        }
+        };
+        self.interruptible_sleep(caller, sleep)
+            .await
+            .map_err(interrupted)?;
         Ok(0)
     }
 

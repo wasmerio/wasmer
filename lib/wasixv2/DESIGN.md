@@ -719,6 +719,8 @@ pub trait Executor: Send + Sync {
 - **Futures are not `Send`**, because wasmer's async host calls are not, so background work is spawned locally.
 - **Absolute timeouts** (`clock_nanosleep` with `TIMER_ABSTIME`, epoll and ppoll deadlines) use `sleep_until` on the monotonic clock. Its default re-sleeps until the clock passes the deadline.
 - **Boxing** happens once per sleep, spawn or blocking call, never per syscall.
+- **The wall clock is the machine's.** The facade wraps the host in a `Timekeeper` (the kernel's `timekeeping.c` and `ntp.c`), itself a `Host`, and hands that to the kernel and to every filesystem clock: `CLOCK_REALTIME` is the host's plus an offset that `clock_settime`, `adjtimex` (`ADJ_SETOFFSET`, `ADJ_TAI`, leap seconds) and nothing else move, so a guest with `CAP_SYS_TIME` never sets the host's clock. A set runs `clock_was_set`: realtime timers move or fire, absolute realtime waits re-check, `TFD_TIMER_CANCEL_ON_SET` timers cancel. The NTP frequency and phase are stored and reported, not slewed. Files of a host directory that the host stamps itself (on a write) carry the host's time.
+- **Time namespaces** offset the monotonic and boot-time clocks as Linux's do; the kernel converts absolute times to the host's at the syscall (`timens_ktime_to_host`), so timers and sleeps run on the host's clocks.
 
 | Implementation | Feature | Clocks | Timers | Entropy | Executor |
 | --- | --- | --- | --- | --- | --- |

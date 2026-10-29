@@ -655,7 +655,8 @@ impl Kernel {
                     FutexOp::FUTEX_WAIT => Timeout::Until(self.host.monotonic().saturating_add(ts)),
                     FutexOp::FUTEX_LOCK_PI => Timeout::UntilRealtime(ts),
                     _ if realtime => Timeout::UntilRealtime(ts),
-                    _ => Timeout::Until(ts),
+                    // An absolute monotonic timeout is in the caller's time namespace.
+                    _ => Timeout::Until(self.timens_to_host(caller, time::Clock::Monotonic, ts)),
                 }
             }
             _ => Timeout::Never,
@@ -784,9 +785,7 @@ impl Kernel {
         match timeout {
             Timeout::Never => None,
             Timeout::Until(at) => Some(self.host.sleep_until(at)),
-            Timeout::UntilRealtime(at) => {
-                Some(self.host.sleep(at.saturating_sub(self.host.realtime())))
-            }
+            Timeout::UntilRealtime(at) => Some(self.time.sleep_until_realtime(at)),
         }
     }
 

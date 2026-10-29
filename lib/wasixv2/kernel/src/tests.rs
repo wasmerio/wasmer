@@ -792,6 +792,7 @@ fn prlimit_of_another_process_sets_its_descriptor_limit() {
 }
 
 mod access;
+mod clocks;
 mod cred;
 mod fs;
 mod futex;

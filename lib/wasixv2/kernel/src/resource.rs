@@ -281,7 +281,9 @@ impl Kernel {
         if info.is_null() {
             return Err(Errno::EFAULT.into());
         }
-        let uptime = self.host.monotonic();
+        // The boot-time clock of the caller's time namespace.
+        let boottime = self.timens_offset(caller, crate::time::Clock::Boottime);
+        let uptime = crate::time::timens_add(self.host.monotonic(), boottime);
         let total = ADDRESS_SPACE / PAGE_SIZE;
         let used = caller.memory().size().await / PAGE_SIZE;
         let procs = self.state.read_or_recover().tasks.len();

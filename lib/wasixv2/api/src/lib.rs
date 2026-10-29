@@ -31,7 +31,7 @@ pub use wasixv2_host::{
     WindowSize,
 };
 pub use wasixv2_kernel::{Credentials, ProcessConfig, Stdio, Uname, UnameError};
-use wasixv2_kernel::{FilesystemType, FsParam, HostClock, Kernel};
+use wasixv2_kernel::{FilesystemType, FsParam, HostClock, Kernel, Timekeeper};
 use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_syscalls::{Layered, TaskId};
 use wasixv2_trace::Trace;
@@ -89,6 +89,10 @@ pub struct Machine {
     #[cfg(feature = "wasix1")]
     wasix1: Wasix1Commands,
     network: Arc<Net>,
+    /// The machine's clocks, whose wall clock its kernel owns: what every kernel and
+    /// filesystem of the machine reads the time from, as [`Machine::host`] is.
+    time: Arc<Timekeeper>,
+    /// [`Machine::time`] as a host, over the embedder's.
     host: Arc<dyn Host>,
     /// The uid and gid processes start as and filesystems are owned by.
     owner: (u32, u32),
@@ -227,6 +231,9 @@ impl MachineBuilder {
             console,
         } = self;
         let owner = (user.uid(), user.gid());
+        // The machine's wall clock is its own: setting it leaves the embedder's alone.
+        let time = Timekeeper::new(host);
+        let host: Arc<dyn Host> = time.clone();
         let network = default_network();
         let root = root
             .unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user, uname.release()));
@@ -238,7 +245,7 @@ impl MachineBuilder {
             &wasix1,
         ));
         let kernel = boot(
-            &host,
+            &time,
             root.clone(),
             &network,
             &user,
@@ -254,6 +261,7 @@ impl MachineBuilder {
             #[cfg(feature = "wasix1")]
             wasix1,
             network,
+            time,
             host,
             owner,
             working_dir: None,
@@ -384,7 +392,7 @@ impl Machine {
         // Nothing lives in the kernel yet, so a new one on the new root replaces it, with the
         // kernel's filesystems mounted afresh; a host directory's layer answers asynchronously.
         let kernel = boot(
-            &self.host,
+            &self.time,
             root,
             &self.network,
             &self.user,
@@ -880,7 +888,7 @@ impl Signaller {
 /// `RTM_NEWLINK`).
 #[allow(clippy::too_many_arguments)]
 fn boot(
-    host: &Arc<dyn Host>,
+    time: &Arc<Timekeeper>,
     root: Arc<dyn Filesystem>,
     network: &Arc<Net>,
     user: &Credentials,
@@ -889,7 +897,9 @@ fn boot(
     console: Option<&Console>,
     abis: Arc<Abis<Layered<Trace, Kernel>>>,
 ) -> Kernel {
-    let mut kernel = Kernel::new(host.clone(), root)
+    let host: Arc<dyn Host> = time.clone();
+    let host = &host;
+    let mut kernel = Kernel::with_timekeeper(time.clone(), root)
         .with_binfmt(abis)
         .with_network(network.clone())
         .with_network_factory(|| {

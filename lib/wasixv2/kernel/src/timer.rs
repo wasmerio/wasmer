@@ -40,6 +40,9 @@ struct State {
     timers: HashMap<u64, Entry>,
     last_id: u64,
     driver_started: bool,
+    /// The clock was set while it was read; the driver runs the realtime timers again
+    /// (`clock_was_set_delayed`).
+    was_set: bool,
 }
 
 struct Entry {
@@ -73,6 +76,30 @@ impl Timers {
     /// whose callback checks that clock again when it runs.
     pub(crate) fn realtime_timer(&self, callback: Callback) -> Timer {
         self.new_timer(callback, true)
+    }
+
+    /// `clock_was_set`, after a set of the realtime clock: the machine's armed realtime timers
+    /// run their callbacks now ([`Timer::clock_was_set`]).
+    pub(crate) fn clock_was_set(&self) {
+        self.shared.clock_was_set();
+    }
+
+    /// What has the driver run [`Timers::clock_was_set`] on its own thread, for a set found
+    /// where the timers' callbacks cannot run: a leap second seen by a reading of the clock.
+    pub(crate) fn clock_was_set_delayed_hook(&self) -> Box<dyn Fn() + Send + Sync> {
+        let shared = Arc::downgrade(&self.shared);
+        Box::new(move || {
+            let Some(shared) = shared.upgrade() else {
+                return;
+            };
+            let mut state = shared.state.lock_or_recover();
+            // Without a driver no timer was ever armed.
+            if state.driver_started {
+                state.was_set = true;
+                drop(state);
+                shared.changed.wake(PollMask::empty());
+            }
+        })
     }
 
     fn new_timer(&self, callback: Callback, realtime: bool) -> Timer {
@@ -270,6 +297,9 @@ async fn drive(shared: Weak<Shared>) {
     };
     loop {
         let Some(live) = shared.upgrade() else { return };
+        if std::mem::take(&mut live.state.lock_or_recover().was_set) {
+            live.clock_was_set();
+        }
         let next = live.run_expired();
         let host = live.host.clone();
         drop(live);

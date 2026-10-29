@@ -280,3 +280,28 @@ fn a_set_before_cancel_on_set_is_asked_for_does_not_cancel() {
     assert_eq!(fx.settime(fd, CANCEL_ON_SET, fx.wall_in(HOUR)), Ok(0));
     assert_eq!(fx.read(fd), Err(Errno::EAGAIN));
 }
+
+/// A set of the machine's own clock (`clock_settime`) runs `clock_was_set` at once: a timer
+/// that cancels on a set is canceled however small the step, and an absolute realtime timer
+/// the set jumped past fires.
+#[test]
+fn a_set_of_the_machines_clock_cancels_and_fires_realtime_timers_at_once() {
+    let t = Fixture::new();
+    let cancel = t.create(ClockId::CLOCK_REALTIME);
+    assert_eq!(t.settime(cancel, CANCEL_ON_SET, t.wall_in(HOUR)), Ok(0));
+    let plain = t.create(ClockId::CLOCK_REALTIME);
+    assert_eq!(t.settime(plain, ABSTIME, t.wall_in(HOUR)), Ok(0));
+    let set = |by| {
+        let now = t.kernel.time.realtime();
+        t.kernel.time.settime(now + by).unwrap();
+        t.kernel.clock_was_set();
+    };
+    set(Duration::from_micros(1));
+    assert_eq!(t.read(cancel), Err(Errno::ECANCELED));
+    assert_eq!(t.read(plain), Err(Errno::EAGAIN));
+    set(2 * HOUR);
+    assert_eq!(t.read(plain), Ok(1));
+    assert_eq!(t.read(cancel), Err(Errno::ECANCELED));
+    // The host's clock never moved.
+    assert!(t.host.realtime() < t.kernel.time.realtime() - HOUR);
+}

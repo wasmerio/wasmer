@@ -3,8 +3,8 @@
 //! shares or copies, `unshare` replaces and `setns` changes, as Linux's `struct nsproxy`.
 //!
 //! The initial namespaces have the inode numbers Linux gives those (`linux/nsfs.h`); those made
-//! later get theirs from [`Inums`]. User, mount, UTS, IPC, network and pid namespaces can be
-//! made; a request for a new one of a kind that cannot is refused with `EPERM`, as a
+//! later get theirs from [`Inums`]. User, mount, UTS, IPC, network, pid and time namespaces
+//! can be made; a request for a new one of a kind that cannot is refused with `EPERM`, as a
 //! container's policy refuses it. Every namespace is owned by a user namespace, and acting on
 //! it takes the capability over its owner ([`Cred::ns_capable`]). Code reaches every namespaced object through the caller's proxy ([`Kernel::ns`]),
 //! never through the kernel, so a kind becomes real by making [`NsProxy::make`] create it.
@@ -12,7 +12,11 @@
 use std::{
     collections::BTreeSet,
     ops::Deref,
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicI64, Ordering},
+    },
+    time::Duration,
 };
 
 use wasixv2_abi::{CloneFlags, NewUtsname, Ulong};
@@ -261,8 +265,84 @@ pub(crate) struct Net {
 /// A cgroup namespace. There is one, and no cgroup hierarchy behind it.
 pub(crate) struct Cgroup;
 
-/// A time namespace. There is one, with no clock offsets.
-pub(crate) struct Time;
+/// A time namespace (`struct time_namespace`): offsets of the monotonic and boot-time clocks
+/// for the tasks in it, which can change only until the first task enters it
+/// (`frozen_offsets`).
+pub(crate) struct Time {
+    /// Nanoseconds (`timens_offsets`), negative ones included.
+    monotonic: AtomicI64,
+    boottime: AtomicI64,
+    /// `frozen_offsets`, behind `timens_offset_lock`.
+    frozen: Mutex<bool>,
+}
+
+/// `KTIME_SEC_MAX`.
+const KTIME_SEC_MAX: i64 = i64::MAX / 1_000_000_000;
+
+/// One offset written to `timens_offsets` (`struct proc_timens_offset`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct TimensOffset {
+    /// Of `CLOCK_BOOTTIME`, else of `CLOCK_MONOTONIC`.
+    pub(crate) boottime: bool,
+    pub(crate) sec: i64,
+    pub(crate) nsec: i64,
+}
+
+impl Time {
+    fn new(monotonic: i64, boottime: i64, frozen: bool) -> Self {
+        Self {
+            monotonic: AtomicI64::new(monotonic),
+            boottime: AtomicI64::new(boottime),
+            frozen: Mutex::new(frozen),
+        }
+    }
+
+    /// The offsets of the monotonic and the boot-time clock, in nanoseconds.
+    pub(crate) fn offsets(&self) -> (i64, i64) {
+        (
+            self.monotonic.load(Ordering::Acquire),
+            self.boottime.load(Ordering::Acquire),
+        )
+    }
+
+    /// `timens_set_vvar_page`: a task entered the namespace; its offsets stay as they are.
+    pub(crate) fn freeze(&self) {
+        *self.frozen.lock_or_recover() = true;
+    }
+
+    /// `proc_timens_set_offset` once the caller's capability was checked: sets `offsets`,
+    /// each checked against `now`, the clock as the host reads it (`ERANGE` past what a clock
+    /// can read, `EINVAL` for a bad nanosecond count), all or none, and only before a task
+    /// entered (`EACCES`).
+    pub(crate) fn set_offsets(&self, offsets: &[TimensOffset], now: Duration) -> Result<(), Errno> {
+        let now = i128::from(now.as_secs() as i64);
+        for &TimensOffset { sec, nsec, .. } in offsets {
+            if !(-KTIME_SEC_MAX..=KTIME_SEC_MAX).contains(&sec) {
+                return Err(Errno::ERANGE);
+            }
+            if !(0..1_000_000_000).contains(&nsec) {
+                return Err(Errno::EINVAL);
+            }
+            let at = now + i128::from(sec);
+            if at < 0 || at > i128::from(KTIME_SEC_MAX / 2) {
+                return Err(Errno::ERANGE);
+            }
+        }
+        let frozen = self.frozen.lock_or_recover();
+        if *frozen {
+            return Err(Errno::EACCES);
+        }
+        for offset in offsets {
+            let value = offset.sec * 1_000_000_000 + offset.nsec;
+            match offset.boottime {
+                true => self.boottime.store(value, Ordering::Release),
+                false => self.monotonic.store(value, Ordering::Release),
+            }
+        }
+        drop(frozen);
+        Ok(())
+    }
+}
 
 pub(crate) type MntNs = Ns<Mnt>;
 pub(crate) type UtsNs = Ns<Mutex<NewUtsname>>;
@@ -394,7 +474,7 @@ impl NsProxy {
         network: Option<Arc<dyn wasixv2_vnet::Network>>,
     ) -> Self {
         let owner = Some(user.clone());
-        let time = Ns::initial(NsKind::Time, owner.clone(), Time);
+        let time = Ns::initial(NsKind::Time, owner.clone(), Time::new(0, 0, true));
         Self {
             mnt: Ns::initial(NsKind::Mnt, owner.clone(), Mnt { tree: mnt }),
             uts: Ns::initial(NsKind::Uts, owner.clone(), Mutex::new(uname)),
@@ -437,7 +517,7 @@ impl NsProxy {
                 return Ok(self.clone());
             }
             let mut new = (**self).clone();
-            new.time = new.time_for_children.clone();
+            new.enter_time_for_children();
             return Ok(Arc::new(new));
         }
         let mut new = (**self).clone();
@@ -452,9 +532,19 @@ impl NsProxy {
             new.create(kernel, flags, cred, active_pid, fs)?;
         }
         if !vm {
-            new.time = new.time_for_children.clone();
+            new.enter_time_for_children();
         }
         Ok(Arc::new(new))
+    }
+
+    /// `timens_on_fork`: the task enters the time namespace for children, whose offsets
+    /// freeze (`timens_commit`).
+    pub(crate) fn enter_time_for_children(&mut self) {
+        if Arc::ptr_eq(&self.time, &self.time_for_children) {
+            return;
+        }
+        self.time = self.time_for_children.clone();
+        self.time.freeze();
     }
 
     /// `unshare_nsproxy_namespaces`: the namespaces of a caller in the pid namespace
@@ -501,12 +591,14 @@ impl NsProxy {
     /// `copy_ipcs`, `copy_pid_ns`, `copy_cgroup_ns`, `copy_net_ns`, `copy_time_ns`,
     /// owned by the user namespace of the maker's credentials `cred`. A new mount namespace copies
     /// the mount tree and moves `fs`, the root and working directory, to the copies of their
-    /// mounts (`copy_mnt_ns`). A new UTS namespace starts
+    /// mounts (`copy_mnt_ns`). A new time namespace starts with the offsets of the one for
+    /// children and is for the children only, until a task enters it (`clone_time_ns`). A
+    /// new UTS namespace starts
     /// with a copy of the names (`clone_uts_ns`), a new IPC namespace empty (`create_ipc_ns`),
     /// a new network namespace with the network the kernel's factory makes and no abstract Unix
     /// names (`setup_net`). A new pid namespace goes below the one for children, which must be
     /// the maker's own, `active_pid` (`copy_pid_ns`), and is for the children only. Cgroup
-    /// and time namespaces cannot be made yet.
+    /// namespaces cannot be made yet.
     fn make(
         &mut self,
         kernel: &Kernel,
@@ -562,9 +654,15 @@ impl NsProxy {
                 let ucount = charge()?;
                 self.pid_for_children = Ns::new(kind, owner, space, inums, ucount)?;
             }
+            NsKind::Time => {
+                let ucount = charge()?;
+                let (monotonic, boottime) = self.time_for_children.offsets();
+                let time = Time::new(monotonic, boottime, false);
+                self.time_for_children = Ns::new(kind, owner, time, inums, ucount)?;
+            }
             // A user namespace is made with the credentials, before the others
             // (`UserNs::create`).
-            NsKind::User | NsKind::Cgroup | NsKind::Time => {
+            NsKind::User | NsKind::Cgroup => {
                 return Err(Errno::EPERM);
             }
         }
@@ -847,6 +945,10 @@ impl Kernel {
         if flags & CloneFlags::CLONE_NEWIPC.0 != 0 {
             self.exit_sem(&process);
             *process.sysvsem.lock_or_recover() = Some(set.proxy.ipc.clone());
+        }
+        // `timens_commit`: the namespace entered has its offsets for good.
+        if flags & CloneFlags::CLONE_NEWTIME.0 != 0 {
+            set.proxy.time.freeze();
         }
         let proxy = Arc::new(set.proxy);
         self.with_task(task, |t| t.ns = Some(proxy));
