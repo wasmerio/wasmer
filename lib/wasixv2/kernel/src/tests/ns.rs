@@ -1761,3 +1761,77 @@ fn proc_net_icmp_and_raw_list_ping_and_raw_sockets() {
         1
     );
 }
+
+/// `/proc/sys/net/ipv6/icmp` holds IPv6's echo sysctls, any `u8`: `echo_ignore_all` stops
+/// echo replies of ICMPv6 only.
+#[test]
+fn ipv6_icmp_sysctls_stop_echo_replies() {
+    use wasixv2_abi::MsgFlags;
+    use wasixv2_syscalls::{UserSlice, UserSliceMut};
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let dir = "/proc/sys/net/ipv6/icmp/";
+    for name in [
+        "echo_ignore_all",
+        "echo_ignore_anycast",
+        "echo_ignore_multicast",
+    ] {
+        let path = format!("{dir}{name}");
+        assert_eq!(read_text(&kernel, &caller, &path), "0\n");
+        // A `u8`, without bounds.
+        assert_eq!(
+            errno(write_file(&kernel, &caller, &path, "256")),
+            Errno::EINVAL
+        );
+        assert_eq!(write_file(&kernel, &caller, &path, "2"), Ok(1));
+        assert_eq!(read_text(&kernel, &caller, &path), "2\n");
+        assert_eq!(write_file(&kernel, &caller, &path, "0"), Ok(1));
+    }
+    assert_eq!(
+        write_file(
+            &kernel,
+            &caller,
+            "/proc/sys/net/ipv4/ping_group_range",
+            "0 0"
+        ),
+        Ok(3)
+    );
+    let p6 = block_on(kernel.socket(&caller, AddressFamily::AF_INET6, DGRAM, 58)).unwrap();
+    let to = std::net::SocketAddr::new(std::net::Ipv6Addr::LOCALHOST.into(), 0);
+    put(&memory.0, 0x900, &crate::socket::encode(to));
+    put(&memory.0, 0xa00, &[128, 0, 0, 0, 0, 1, 0, 1]);
+    let ping = || {
+        let sent = block_on(kernel.sendto(
+            &caller,
+            p6,
+            UserSlice::new(0xa00, 8),
+            MsgFlags(0),
+            GuestPtr::new(0x900),
+            28,
+        ));
+        assert_eq!(sent, Ok(8));
+        block_on(kernel.recvfrom(
+            &caller,
+            p6,
+            UserSliceMut::new(0xb00, 64),
+            MsgFlags::MSG_DONTWAIT,
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL,
+        ))
+    };
+    assert_eq!(ping(), Ok(8));
+    assert_eq!(
+        write_file(&kernel, &caller, &format!("{dir}echo_ignore_all"), "1"),
+        Ok(1)
+    );
+    assert_eq!(
+        read_text(&kernel, &caller, &format!("{dir}echo_ignore_all")),
+        "1\n"
+    );
+    assert_eq!(errno(ping()), Errno::EAGAIN);
+    // `net.ipv4.icmp_echo_ignore_all` is another value.
+    assert_eq!(
+        read_text(&kernel, &caller, "/proc/sys/net/ipv4/icmp_echo_ignore_all"),
+        "0\n"
+    );
+}

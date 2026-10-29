@@ -14,7 +14,8 @@
 //! [`devinet`]'s (`devinet_sysctl_register`), which knows their defaults, modes and how a
 //! write propagates. `disable_ipv6` acts (`addrconf_disable_ipv6`), and so do the ICMP ones:
 //! `ping_group_range` decides who may open ICMP datagram sockets, `icmp_echo_ignore_all` and
-//! `icmp_echo_ignore_broadcasts` whether the namespace answers echo requests. The rest
+//! `icmp_echo_ignore_broadcasts`, and IPv6's `icmp/echo_ignore_all` and `icmp/echo_ignore_multicast`
+//! (any nonzero `u8`), whether the namespace answers echo requests. The rest
 //! describe what packets would do and have no effect, since nothing is turned into packets.
 //! `ip_local_port_range`, `ip_unprivileged_port_start` and `somaxconn` show the values the
 //! namespace uses and are read-only here.
@@ -126,6 +127,12 @@ const IPV4: &[Key] = &[
     key("tcp_fastopen", 1),
     key("tcp_syn_retries", 6),
 ];
+/// `net.ipv6.icmp.*` (`ipv6_icmp_table_template`).
+const IPV6_ICMP: &[Key] = &[
+    key("echo_ignore_all", 0),
+    key("echo_ignore_anycast", 0),
+    key("echo_ignore_multicast", 0),
+];
 /// `net.ipv6.conf.*.*` (`addrconf_sysctl`).
 const IPV6_CONF: &[Key] = &[
     key("accept_dad", 1),
@@ -146,6 +153,29 @@ enum Which {
     Named(u32),
 }
 
+/// The directories of values that hold no interface's.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Table {
+    Ipv4,
+    Core,
+    Icmp6,
+}
+
+impl Table {
+    fn keys(self) -> &'static [Key] {
+        match self {
+            Table::Ipv4 => IPV4,
+            Table::Core => CORE,
+            Table::Icmp6 => IPV6_ICMP,
+        }
+    }
+
+    /// Where its values are kept: IPv6's under (IPv6, `all`), the rest under (IPv4, `all`).
+    fn v6(self) -> bool {
+        self == Table::Icmp6
+    }
+}
+
 /// The nodes of the tree.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Entry {
@@ -153,6 +183,8 @@ enum Entry {
     Core,
     Ipv4,
     Ipv6,
+    /// `ipv6/icmp`.
+    Icmp6,
     /// `ipv4/conf` or `ipv6/conf`.
     Conf {
         v6: bool,
@@ -168,9 +200,9 @@ enum Entry {
         which: Which,
         key: usize,
     },
-    /// A value of `core` or `ipv4`.
+    /// A value of `core`, `ipv4` or `ipv6/icmp`.
     Flat {
-        core: bool,
+        table: Table,
         key: usize,
     },
 }
@@ -192,8 +224,7 @@ impl Entry {
         match self {
             Entry::DevKey { v6: true, key, .. } => Some(Value::Key(&IPV6_CONF[key])),
             Entry::DevKey { v6: false, key, .. } => Some(Value::Devinet(key)),
-            Entry::Flat { core: true, key } => Some(Value::Key(&CORE[key])),
-            Entry::Flat { core: false, key } => Some(Value::Key(&IPV4[key])),
+            Entry::Flat { table, key } => Some(Value::Key(&table.keys()[key])),
             _ => None,
         }
     }
@@ -210,7 +241,8 @@ impl Entry {
             Entry::Ipv4 => 3,
             Entry::Ipv6 => 4,
             Entry::Conf { v6 } => 5 + u64::from(v6),
-            Entry::Flat { core, key } => 16 + 64 * u64::from(core) + key as u64,
+            Entry::Icmp6 => 7,
+            Entry::Flat { table, key } => 16 + 64 * table as u64 + key as u64,
             Entry::Dev { v6, which: w } => (1 << 40) | (u64::from(v6) << 39) | (which(w) << 8),
             Entry::DevKey { v6, which: w, key } => {
                 (1 << 40) | (u64::from(v6) << 39) | (which(w) << 8) | (1 + key as u64)
@@ -299,8 +331,8 @@ fn dev_value(net: &NetNs, v6: bool, dev: Dev, key: &Key) -> i64 {
     set(dev).or(inherited).unwrap_or(key.default)
 }
 
-/// A value of `core` or `ipv4`, as text.
-fn flat_value(net: &NetNs, core: bool, key: &Key, reader: Option<&UserNs>) -> String {
+/// A value of `core`, `ipv4` or `ipv6/icmp`, as text.
+fn flat_value(net: &NetNs, table: Table, key: &Key, reader: Option<&UserNs>) -> String {
     if key.name == "ip_local_port_range" {
         // `inet_get_local_port_range`: the range the namespace's port tables use.
         return "32768\t60999".into();
@@ -313,9 +345,9 @@ fn flat_value(net: &NetNs, core: bool, key: &Key, reader: Option<&UserNs>) -> St
     }
     let values = &net.sysctl.lock_or_recover().values;
     values
-        .get(&(false, Dev::All, key.name))
+        .get(&(table.v6(), Dev::All, key.name))
         .copied()
-        .filter(|_| !core)
+        .filter(|_| table != Table::Core)
         .unwrap_or(key.default)
         .to_string()
 }
@@ -358,16 +390,22 @@ fn write_ping_group_range(net: &NetNs, data: &[u8], writer: Option<&UserNs>) -> 
 /// Writes a value of `dev` (IPv4's flat ones under `Dev::All`), with what Linux does on the
 /// change.
 fn write_value(net: &NetNs, v6: bool, dev: Dev, key: &Key, value: i64) -> Result<(), Errno> {
-    if let name @ ("icmp_echo_ignore_all" | "icmp_echo_ignore_broadcasts") = key.name {
-        // `proc_dou8vec_minmax` from 0 to 1.
-        if !(0..=1).contains(&value) {
+    let echo = match (v6, key.name) {
+        (false, "icmp_echo_ignore_all") => Some(Some(EchoIgnore::All)),
+        (false, "icmp_echo_ignore_broadcasts") => Some(Some(EchoIgnore::Broadcasts)),
+        (true, "echo_ignore_all") => Some(Some(EchoIgnore::All6)),
+        (true, "echo_ignore_multicast") => Some(Some(EchoIgnore::Multicast6)),
+        // Nothing to act on: no namespace has anycast addresses.
+        (true, "echo_ignore_anycast") => Some(None),
+        _ => None,
+    };
+    if let Some(which) = echo {
+        // `proc_dou8vec_minmax`, from 0 to 1 for IPv4's, any `u8` for IPv6's (no bounds).
+        let max = if v6 { 255 } else { 1 };
+        if !(0..=max).contains(&value) {
             return Err(Errno::EINVAL);
         }
-        if let Some(network) = &net.network {
-            let which = match name {
-                "icmp_echo_ignore_broadcasts" => EchoIgnore::Broadcasts,
-                _ => EchoIgnore::All,
-            };
+        if let (Some(network), Some(which)) = (&net.network, which) {
             network.set_icmp_echo_ignore(which, value != 0)?;
         }
     }
@@ -448,13 +486,26 @@ impl SysNetNode {
                 ("ipv4".into(), Entry::Ipv4),
                 ("ipv6".into(), Entry::Ipv6),
             ],
-            Entry::Core => keys(CORE, &|key| Entry::Flat { core: true, key }),
+            Entry::Core => keys(CORE, &|key| Entry::Flat {
+                table: Table::Core,
+                key,
+            }),
             Entry::Ipv4 => {
                 let mut out = vec![("conf".to_string(), Entry::Conf { v6: false })];
-                out.extend(keys(IPV4, &|key| Entry::Flat { core: false, key }));
+                out.extend(keys(IPV4, &|key| Entry::Flat {
+                    table: Table::Ipv4,
+                    key,
+                }));
                 out
             }
-            Entry::Ipv6 => vec![("conf".into(), Entry::Conf { v6: true })],
+            Entry::Ipv6 => vec![
+                ("conf".into(), Entry::Conf { v6: true }),
+                ("icmp".into(), Entry::Icmp6),
+            ],
+            Entry::Icmp6 => keys(IPV6_ICMP, &|key| Entry::Flat {
+                table: Table::Icmp6,
+                key,
+            }),
             Entry::Conf { v6 } => {
                 let mut out = vec![
                     (
@@ -501,9 +552,11 @@ impl SysNetNode {
                 let dev = self.dev(net, which)?;
                 (dev_value(net, v6, dev, key).to_string() + "\n", v6, dev)
             }
-            (Entry::Flat { core, .. }, Some(Value::Key(key))) => {
-                (flat_value(net, core, key, reader) + "\n", false, Dev::All)
-            }
+            (Entry::Flat { table, .. }, Some(Value::Key(key))) => (
+                flat_value(net, table, key, reader) + "\n",
+                table.v6(),
+                Dev::All,
+            ),
             _ => return Err(Errno::EISDIR),
         })
     }
