@@ -227,7 +227,7 @@
 <a href=#227 id=227 data-nosnippet>227</a>            env.state.fs.close_fd(op.fd)
 <a href=#228 id=228 data-nosnippet>228</a>        }
 <a href=#229 id=229 data-nosnippet>229</a>        ProcSpawnFdOpName::Dup2 =&gt; {
-<a href=#230 id=230 data-nosnippet>230</a>            <span class="kw">let </span>flush_target = env.state.fs.dup2_at(op.src_fd, op.fd)<span class="question-mark">?</span>;
+<a href=#230 id=230 data-nosnippet>230</a>            <span class="kw">let </span>flush_target = env.state.fs.dup2_for_spawn(op.src_fd, op.fd)<span class="question-mark">?</span>;
 <a href=#231 id=231 data-nosnippet>231</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = flush_target {
 <a href=#232 id=232 data-nosnippet>232</a>                block_on(WasiFs::flush_file_best_effort(file));
 <a href=#233 id=233 data-nosnippet>233</a>            }
@@ -284,4 +284,67 @@
 <a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Inval),
 <a href=#285 id=285 data-nosnippet>285</a>    }
 <a href=#286 id=286 data-nosnippet>286</a>}
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a><span class="attr">#[cfg(test)]
+<a href=#289 id=289 data-nosnippet>289</a></span><span class="kw">mod </span>tests {
+<a href=#290 id=290 data-nosnippet>290</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#291 id=291 data-nosnippet>291</a>    <span class="kw">use </span><span class="kw">crate</span>::WasiEnvBuilder;
+<a href=#292 id=292 data-nosnippet>292</a>    <span class="kw">use </span>wasmer::{Memory, Memory32, Memory64, MemoryType, Store};
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a>    <span class="kw">fn </span>dup2_op&lt;M: MemorySize&gt;(source: WasiFd, target: WasiFd) -&gt; ProcSpawnFdOp&lt;M&gt; {
+<a href=#295 id=295 data-nosnippet>295</a>        ProcSpawnFdOp {
+<a href=#296 id=296 data-nosnippet>296</a>            cmd: ProcSpawnFdOpName::Dup2,
+<a href=#297 id=297 data-nosnippet>297</a>            fd: target,
+<a href=#298 id=298 data-nosnippet>298</a>            src_fd: source,
+<a href=#299 id=299 data-nosnippet>299</a>            name: Default::default(),
+<a href=#300 id=300 data-nosnippet>300</a>            name_len: Default::default(),
+<a href=#301 id=301 data-nosnippet>301</a>            dirflags: <span class="number">0</span>,
+<a href=#302 id=302 data-nosnippet>302</a>            oflags: Oflags::empty(),
+<a href=#303 id=303 data-nosnippet>303</a>            fs_rights_base: Rights::empty(),
+<a href=#304 id=304 data-nosnippet>304</a>            fs_rights_inheriting: Rights::empty(),
+<a href=#305 id=305 data-nosnippet>305</a>            fdflags: Fdflags::empty(),
+<a href=#306 id=306 data-nosnippet>306</a>            fdflagsext: Fdflagsext::empty(),
+<a href=#307 id=307 data-nosnippet>307</a>        }
+<a href=#308 id=308 data-nosnippet>308</a>    }
+<a href=#309 id=309 data-nosnippet>309</a>
+<a href=#310 id=310 data-nosnippet>310</a>    <span class="attr">#[tokio::test]
+<a href=#311 id=311 data-nosnippet>311</a>    </span><span class="kw">async fn </span>spawn_dup2_identity_clears_cloexec() {
+<a href=#312 id=312 data-nosnippet>312</a>        check_spawn_dup2_identity::&lt;Memory32&gt;();
+<a href=#313 id=313 data-nosnippet>313</a>        check_spawn_dup2_identity::&lt;Memory64&gt;();
+<a href=#314 id=314 data-nosnippet>314</a>    }
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a>    <span class="kw">fn </span>check_spawn_dup2_identity&lt;M: MemorySize&gt;() {
+<a href=#317 id=317 data-nosnippet>317</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
+<a href=#318 id=318 data-nosnippet>318</a>        <span class="kw">let </span>memory = Memory::new(<span class="kw-2">&amp;mut </span>store, MemoryType::new(<span class="number">1</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>)).unwrap();
+<a href=#319 id=319 data-nosnippet>319</a>        <span class="kw">let </span>view = memory.view(<span class="kw-2">&amp;</span>store);
+<a href=#320 id=320 data-nosnippet>320</a>        <span class="kw">let </span><span class="kw-2">mut </span>env = WasiEnvBuilder::new(<span class="string">"test"</span>)
+<a href=#321 id=321 data-nosnippet>321</a>            .engine(store.engine().clone())
+<a href=#322 id=322 data-nosnippet>322</a>            .build()
+<a href=#323 id=323 data-nosnippet>323</a>            .unwrap();
+<a href=#324 id=324 data-nosnippet>324</a>        env.state
+<a href=#325 id=325 data-nosnippet>325</a>            .fs
+<a href=#326 id=326 data-nosnippet>326</a>            .fd_map
+<a href=#327 id=327 data-nosnippet>327</a>            .write()
+<a href=#328 id=328 data-nosnippet>328</a>            .unwrap()
+<a href=#329 id=329 data-nosnippet>329</a>            .get_mut(<span class="number">0</span>)
+<a href=#330 id=330 data-nosnippet>330</a>            .unwrap()
+<a href=#331 id=331 data-nosnippet>331</a>            .fd_flags = Fdflagsext::CLOEXEC;
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>        <span class="macro">assert_eq!</span>(
+<a href=#334 id=334 data-nosnippet>334</a>            apply_fd_op(<span class="kw-2">&amp;mut </span>env, <span class="kw-2">&amp;</span>view, <span class="kw-2">&amp;</span>dup2_op::&lt;M&gt;(<span class="number">99</span>, <span class="number">99</span>)),
+<a href=#335 id=335 data-nosnippet>335</a>            <span class="prelude-val">Err</span>(Errno::Badf)
+<a href=#336 id=336 data-nosnippet>336</a>        );
+<a href=#337 id=337 data-nosnippet>337</a>        apply_fd_op(<span class="kw-2">&amp;mut </span>env, <span class="kw-2">&amp;</span>view, <span class="kw-2">&amp;</span>dup2_op::&lt;M&gt;(<span class="number">0</span>, <span class="number">0</span>)).unwrap();
+<a href=#338 id=338 data-nosnippet>338</a>
+<a href=#339 id=339 data-nosnippet>339</a>        <span class="macro">assert!</span>(
+<a href=#340 id=340 data-nosnippet>340</a>            !env.state
+<a href=#341 id=341 data-nosnippet>341</a>                .fs
+<a href=#342 id=342 data-nosnippet>342</a>                .get_fd(<span class="number">0</span>)
+<a href=#343 id=343 data-nosnippet>343</a>                .unwrap()
+<a href=#344 id=344 data-nosnippet>344</a>                .inner
+<a href=#345 id=345 data-nosnippet>345</a>                .fd_flags
+<a href=#346 id=346 data-nosnippet>346</a>                .contains(Fdflagsext::CLOEXEC)
+<a href=#347 id=347 data-nosnippet>347</a>        );
+<a href=#348 id=348 data-nosnippet>348</a>    }
+<a href=#349 id=349 data-nosnippet>349</a>}
 </code></pre></div></section></main></body></html>
