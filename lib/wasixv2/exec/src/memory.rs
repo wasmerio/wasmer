@@ -841,6 +841,8 @@ impl ForeignMemory {
         self.check(addr, buf.len(), false, force)?;
         let src = self.at(addr, buf.len())?;
         // SAFETY: `src` holds `buf.len()` bytes of the memory, which does not overlap `buf`.
+        // Like MemoryView, this raw copy is not atomic with guest stores/atomics;
+        // unsynchronized overlapping guest accesses can race under Rust's memory model.
         unsafe { std::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), buf.len()) };
         Ok(())
     }
@@ -857,6 +859,8 @@ impl ForeignMemory {
         let dst = self.at(addr, bytes.len())?;
         // SAFETY: `dst` holds `bytes.len()` writable bytes of the memory (not the guard, not a
         // read-only view while `read_only` is held), which do not overlap `bytes`.
+        // Guest stores/atomics can race this raw copy as with MemoryView; callers
+        // need guest synchronization for atomic or Rust data-race-free access.
         unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len()) };
         Ok(())
     }
