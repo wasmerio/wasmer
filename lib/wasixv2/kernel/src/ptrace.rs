@@ -32,30 +32,33 @@ impl Kernel {
     /// (`yama_ptrace_access_check`), Landlock (`hook_ptrace_access_check`). A task that is gone
     /// may not be accessed.
     pub(crate) fn ptrace_may_access(&self, tracer: TaskId, target: TaskId, mode: u32) -> bool {
-        let (me, them) = {
+        let (me, them, cred, tcred) = {
             let state = self.state.read_or_recover();
             match (state.tasks.get(&tracer), state.tasks.get(&target)) {
-                (Some(me), Some(them)) => (me.process.clone(), them.process.clone()),
+                (Some(me), Some(them)) => (
+                    me.process.clone(),
+                    them.process.clone(),
+                    me.cred_override.as_ref().unwrap_or(&me.cred).clone(),
+                    them.cred.clone(),
+                ),
                 _ => return false,
             }
         };
-        self.process_may_access(&me, &them, mode)
-    }
-
-    /// [`Kernel::ptrace_may_access`] between processes.
-    pub(crate) fn process_may_access(
-        &self,
-        me: &Arc<Process>,
-        them: &Arc<Process>,
-        mode: u32,
-    ) -> bool {
-        may_access(&self.yama, &self.procs.tree, me, them, mode)
+        may_access(
+            &self.yama,
+            &self.procs.tree,
+            &me,
+            &them,
+            &cred,
+            &tcred,
+            mode,
+        )
     }
 
     /// `yama_ptrace_traceme`: whether `parent` may become the tracer of `me` through
     /// `PTRACE_TRACEME`, and Landlock's `hook_ptrace_traceme`.
-    pub(crate) fn may_traceme(&self, me: &Process, parent: &Process) -> bool {
-        let (cred, pcred) = (me.cred(), parent.cred());
+    pub(crate) fn may_traceme(&self, me: TaskId, parent: &Process) -> bool {
+        let (cred, pcred) = (self.task_cred(me), self.task_cred(parent.pid));
         let yama = match self.yama.scope() {
             yama::SCOPE_CAPABILITY => pcred.ns_capable(&cred.user_ns, Cap::SysPtrace),
             yama::SCOPE_NO_ATTACH => false,
@@ -72,12 +75,13 @@ pub(crate) fn may_access(
     tree: &std::sync::Mutex<crate::process::Tree>,
     me: &Arc<Process>,
     them: &Arc<Process>,
+    cred: &crate::cred::Cred,
+    tcred: &crate::cred::Cred,
     mode: u32,
 ) -> bool {
     if Arc::ptr_eq(me, them) {
         return true;
     }
-    let (cred, tcred) = (me.cred(), them.cred());
     let dumpable = them.ident.lock_or_recover().dumpable == crate::ident::Dumpable::User;
     if !cred.may_read_task(&tcred, dumpable, mode & MODE_FSCREDS != 0) {
         return false;
@@ -218,7 +222,7 @@ impl Kernel {
             return Ok(mm);
         }
         let perfmon = || {
-            let cred = self.process(caller).cred();
+            let cred = self.current_cred(caller);
             cred.capable_init(Cap::Perfmon) || cred.capable_init(Cap::SysAdmin)
         };
         match mode & MODE_READ != 0 && perfmon() {
@@ -528,11 +532,11 @@ impl Kernel {
         let exit = crate::process::Exit {
             code: why,
             status,
-            uid: me.cred().user.real,
+            uid: self.task_cred(me.pid).user.real,
         };
         let pid = self.pids.nr(&them.pid_ns, task.0);
         let sig = wasixv2_abi::Signal::SIGCHLD.0;
-        let info = crate::process::child_info(sig, pid, exit, &them.cred().user_ns);
+        let info = crate::process::child_info(sig, pid, exit, &self.task_cred(them.pid).user_ns);
         let _ = signals.send_group(info);
     }
 
@@ -865,7 +869,7 @@ impl Kernel {
         let parent = self
             .task_process(TaskId(parent))
             .ok_or(wasixv2_abi::Errno::EPERM)?;
-        if !self.may_traceme(&process, &parent) {
+        if !self.may_traceme(me, &parent) {
             return Err(wasixv2_abi::Errno::EPERM);
         }
         if parent.group.exiting() {
@@ -909,7 +913,7 @@ impl Kernel {
         if Arc::ptr_eq(&mine, &theirs) {
             return Err(Errno::EPERM);
         }
-        if !self.process_may_access(&mine, &theirs, MODE_ATTACH_REALCREDS) {
+        if !self.ptrace_may_access(me, child, MODE_ATTACH_REALCREDS) {
             return Err(Errno::EPERM);
         }
         let link = Link {
@@ -929,7 +933,7 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         if data & PtraceOptions::PTRACE_O_SUSPEND_SECCOMP.0 != 0 {
-            let cred = self.process(me).cred();
+            let cred = self.current_cred(me);
             if !cred.capable_init(Cap::SysAdmin) {
                 return Err(Errno::EPERM);
             }
@@ -955,8 +959,10 @@ impl Kernel {
             .tracees
             .tracer_of(child)
             .and_then(|t| self.task_process(t));
-        let capable =
-            tracer.is_some_and(|t| t.cred().ns_capable(&process.cred().user_ns, Cap::SysPtrace));
+        let capable = tracer.is_some_and(|t| {
+            self.task_cred(t.pid)
+                .ns_capable(&self.task_cred(child).user_ns.clone(), Cap::SysPtrace)
+        });
         if dumpable != crate::ident::Dumpable::User && !capable {
             return 0;
         }
@@ -1252,7 +1258,7 @@ impl Kernel {
                     .map(|code| crate::process::Exit {
                         code: wasixv2_abi::SiCode::CLD_TRAPPED,
                         status: code,
-                        uid: process.cred().user.real,
+                        uid: self.task_cred(id).user.real,
                     }),
             };
             if let Some(report) = report {
@@ -1313,12 +1319,12 @@ impl Kernel {
             Some(sig) => crate::process::Exit {
                 code: wasixv2_abi::SiCode::CLD_KILLED,
                 status: sig,
-                uid: process.cred().user.real,
+                uid: self.task_cred(task).user.real,
             },
             None => crate::process::Exit {
                 code: wasixv2_abi::SiCode::CLD_EXITED,
                 status: code & 0xff,
-                uid: process.cred().user.real,
+                uid: self.task_cred(task).user.real,
             },
         };
         if let Some(t) = self.tracees.lock().get_mut(&task) {
@@ -1490,7 +1496,7 @@ impl Kernel {
         else {
             return false;
         };
-        let ns = self.process(task).cred().user_ns;
-        !tracer.cred().ns_capable(&ns, Cap::SysPtrace)
+        let ns = self.current_cred(task).user_ns.clone();
+        !self.task_cred(tracer.pid).ns_capable(&ns, Cap::SysPtrace)
     }
 }

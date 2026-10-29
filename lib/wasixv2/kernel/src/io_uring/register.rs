@@ -156,7 +156,7 @@ impl Kernel {
                     return Err(Errno::EINVAL.into());
                 }
                 let cred = self.cred(caller);
-                Ok(ctx.register_personality(cred)?)
+                Ok(ctx.register_personality((*cred).clone())?)
             }
             IoUringRegisterOp::IORING_UNREGISTER_PERSONALITY => {
                 if arg != 0 {

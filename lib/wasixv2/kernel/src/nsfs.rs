@@ -314,11 +314,11 @@ impl Kernel {
         let ns = file.namespace();
         match request {
             IoctlRequest::NS_GET_USERNS => {
-                let owner = ns.owner(&self.cred(caller).user_ns)?;
+                let owner = ns.owner(&self.cred(caller).user_ns.clone())?;
                 self.open_namespace(caller, Namespace::User(owner))
             }
             IoctlRequest::NS_GET_PARENT => {
-                let user = self.cred(caller).user_ns;
+                let user = self.cred(caller).user_ns.clone();
                 let active = self.process(caller.task()).pid_ns.clone();
                 let parent = ns.parent(&user, &active)?;
                 self.open_namespace(caller, parent)
@@ -333,7 +333,7 @@ impl Kernel {
                 Ok(0)
             }
             IoctlRequest::NS_GET_OWNER_UID => {
-                let uid = ns.owner_uid(&self.cred(caller).user_ns)?;
+                let uid = ns.owner_uid(&self.cred(caller).user_ns.clone())?;
                 write_value(caller.memory(), GuestPtrMut::<u32>::new(arg), &uid).await?;
                 Ok(0)
             }

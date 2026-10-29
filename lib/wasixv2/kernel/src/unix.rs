@@ -1856,7 +1856,7 @@ impl Kernel {
     /// The credentials `SCM_CREDENTIALS` and `SO_PEERCRED` report for the caller.
     pub(crate) fn ucred(&self, caller: &Caller<'_>) -> Ucred {
         let process = self.process(caller.task());
-        let (uid, gid) = process.cred().ucred_ids();
+        let (uid, gid) = self.cred(caller).ucred_ids();
         Ucred {
             pid: Some(self.pids.get(process.pid.0)),
             uid: uid.0,
@@ -1870,7 +1870,7 @@ impl Kernel {
     pub(crate) fn ucred_bytes(&self, caller: &Caller<'_>, cred: &Ucred) -> Vec<u8> {
         let ns = self.active_pid_ns(caller.task());
         let pid = cred.pid.as_ref().map_or(0, |pid| pid.nr(&ns));
-        let ns = self.cred(caller).user_ns;
+        let ns = self.cred(caller).user_ns.clone();
         let (uid, gid) = match cred.uid == Ucred::NONE.uid {
             true => (cred.uid, cred.gid),
             false => (ns.munged_uid(Kuid(cred.uid)), ns.munged_gid(Kgid(cred.gid))),
@@ -1893,7 +1893,7 @@ impl Kernel {
     /// the guest's ids, which its user namespace must map (`EINVAL`); the kernel ids come back.
     fn may_claim(&self, caller: &Caller<'_>, claim: &RawUcred) -> Result<(Kuid, Kgid), Errno> {
         let process = self.process(caller.task());
-        let cred = process.cred();
+        let cred = self.cred(caller);
         let uid = cred.user_ns.make_kuid(claim.uid).ok_or(Errno::EINVAL)?;
         let gid = cred.user_ns.make_kgid(claim.gid).ok_or(Errno::EINVAL)?;
         let allowed = (claim.pid == self.pids.own_nr(process.pid.0)
@@ -2161,7 +2161,7 @@ impl Kernel {
         if self.ns(caller).net.unix_names.inflight.user(uid) <= limit {
             return false;
         }
-        let cred = self.process(caller.task()).cred();
+        let cred = self.cred(caller);
         !cred.capable_init(Cap::SysResource) && !cred.capable_init(Cap::SysAdmin)
     }
 

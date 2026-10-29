@@ -439,7 +439,7 @@ impl Kernel {
             .tunables
             .get(crate::sysctl::Tunable::InotifyMaxQueuedEvents);
         // `inc_ucount(current_user_ns(), current_euid(), UCOUNT_INOTIFY_INSTANCES)`.
-        let cred = self.process(caller.task()).cred();
+        let cred = self.cred(caller);
         let ucount = Ucount::charge(
             &cred.user_ns,
             cred.user.effective,

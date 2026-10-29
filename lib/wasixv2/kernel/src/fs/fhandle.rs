@@ -210,7 +210,7 @@ impl Kernel {
         root: &Path,
         flags: OpenFlags,
     ) -> Result<DecodePermission, Errno> {
-        let cred = self.process(caller.task()).cred();
+        let cred = self.cred(caller);
         if cred.capable_init(Cap::DacReadSearch) {
             return Ok(DecodePermission::Global);
         }

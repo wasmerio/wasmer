@@ -1354,7 +1354,7 @@ fn binfmt_misc_takes_credentials_from_the_binary_with_c() {
         let chmod = kernel.fchmodat(&caller, Fd(-100), path, 0o4755);
         assert_eq!(block_on(chmod), Ok(0));
     }
-    let euid = || kernel.process(task).cred().user.effective.0;
+    let euid = || kernel.task_cred(task).user.effective.0;
     assert!(m.write(b"/bm/register", b":o:E::osu::/prog:O").is_ok());
     assert!(m.write(b"/bm/register", b":c:E::csu::/prog:C").is_ok());
     // `O` alone: the interpreter's credentials.
@@ -1944,4 +1944,105 @@ fn exit_signal_cleanup_tolerates_reaping_after_action_selection() {
     kernel.exit_signals(task, &signals);
     assert_eq!(kernel.take_pending(task), Some(GuestAction::Exit(0)));
     assert_eq!(kernel.take_pending(task), None);
+}
+/// Linux kernel/cred.c `commit_creds` changes only current; libc's __setxid is the
+/// separate process-wide broadcast. New threads inherit the calling thread's snapshot.
+#[test]
+fn raw_set_ids_are_per_thread_and_new_threads_inherit_the_caller() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(leader, &memory);
+    let worker = spawn_thread(&kernel, &caller);
+    let thread = Caller::new(worker, &memory);
+    let original = kernel.task_cred(leader);
+    assert!(Arc::ptr_eq(&original, &kernel.task_cred(worker)));
+    assert_eq!(block_on(kernel.setresgid(&thread, 100, 101, 102)), Ok(0));
+    assert_eq!(block_on(kernel.setresuid(&thread, 1000, 1001, 1002)), Ok(0));
+    assert_eq!(block_on(kernel.getuid(&caller)), Ok(0));
+    assert_eq!(block_on(kernel.getgid(&caller)), Ok(0));
+    assert_eq!(block_on(kernel.geteuid(&thread)), Ok(1001));
+    assert_eq!(block_on(kernel.getegid(&thread)), Ok(101));
+    assert_eq!(original.user.effective.0, 0);
+    let child = spawn_thread(&kernel, &thread);
+    assert!(Arc::ptr_eq(
+        &kernel.task_cred(worker),
+        &kernel.task_cred(child)
+    ));
+    assert_eq!(
+        block_on(kernel.geteuid(&Caller::new(child, &memory))),
+        Ok(1001)
+    );
+}
+
+/// Linux kernel/sys.c `__sys_setfsuid`: workers can lend their filesystem identity
+/// without changing their siblings' or their own effective user id.
+#[test]
+fn raw_setfsuid_and_setfsgid_leave_siblings_unchanged() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(leader, &memory);
+    let worker = spawn_thread(&kernel, &caller);
+    let thread = Caller::new(worker, &memory);
+    assert_eq!(block_on(kernel.setfsuid(&thread, 1234)), Ok(0));
+    assert_eq!(block_on(kernel.setfsgid(&thread, 5678)), Ok(0));
+    assert_eq!(kernel.cred(&thread).fs_owner(), (1234, 5678));
+    assert_eq!(kernel.cred(&caller).fs_owner(), (0, 0));
+    assert_eq!(block_on(kernel.geteuid(&thread)), Ok(0));
+}
+
+/// Linux kernel/cred.c `override_creds` and `revert_creds`: nested subjective
+/// credentials never change the task's objective identity or another task.
+#[test]
+fn lent_credentials_are_nested_task_local_snapshots() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(leader, &memory);
+    let worker = spawn_thread(&kernel, &caller);
+    let thread = Caller::new(worker, &memory);
+    let original = kernel.task_cred(worker);
+    let changed = original.change_fsuid(Some(crate::uidgid::Kuid(1234))).1;
+    {
+        let _outer = kernel.lend_cred(worker, changed);
+        assert_eq!(kernel.cred(&thread).user.fs.0, 1234);
+        assert_eq!(kernel.cred(&caller).user.fs.0, 0);
+        assert!(Arc::ptr_eq(&original, &kernel.task_cred(worker)));
+        {
+            let _inner = kernel.lend_cred(worker, (*original).clone());
+            assert_eq!(kernel.cred(&thread).user.fs.0, 0);
+        }
+        assert_eq!(kernel.cred(&thread).user.fs.0, 1234);
+    }
+    assert!(Arc::ptr_eq(&original, &kernel.cred(&thread)));
+}
+
+/// fs/exec.c `de_thread` keeps the exec'ing task's credentials across the pid exchange.
+#[test]
+fn a_nonleader_exec_keeps_its_credentials_on_the_surviving_leader() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let worker = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    let thread = Caller::new(worker, &memory);
+    assert_eq!(block_on(kernel.setresgid(&thread, 100, 100, 100)), Ok(0));
+    assert_eq!(block_on(kernel.setresuid(&thread, 1000, 1000, 1000)), Ok(0));
+    let mut exec = Box::pin(execve(&kernel, &thread));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    assert_eq!(
+        kernel.take_pending(leader),
+        Some(GuestAction::Exec { vfork_parent: None })
+    );
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert_eq!(block_on(kernel.getuid(&caller)), Ok(1000));
+    assert_eq!(block_on(kernel.getgid(&caller)), Ok(100));
+    assert_eq!(
+        kernel
+            .task_signals(leader)
+            .group()
+            .cred(Some(leader))
+            .unwrap()
+            .user
+            .real
+            .0,
+        1000
+    );
 }

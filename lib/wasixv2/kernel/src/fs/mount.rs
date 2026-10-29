@@ -390,7 +390,7 @@ impl Kernel {
     pub(super) fn may_mount(&self, env: &Env) -> Result<(), Errno> {
         let task = TaskId(env.task);
         let owner = self.task_ns(task).mnt.user_ns().clone();
-        match self.process(task).cred().ns_capable(&owner, Cap::SysAdmin) {
+        match self.current_cred(task).ns_capable(&owner, Cap::SysAdmin) {
             true => Ok(()),
             false => Err(Errno::EPERM),
         }
@@ -416,7 +416,7 @@ impl Kernel {
             FsType::Sys => self.task_ns(task).net.user_ns().clone(),
             FsType::Mqueue => self.task_ns(task).ipc.user_ns().clone(),
             FsType::Cgroup2 => self.task_ns(task).cgroup.user_ns().clone(),
-            FsType::Other(_) => self.process(task).cred().user_ns,
+            FsType::Other(_) => self.current_cred(task).user_ns.clone(),
         }
     }
 
@@ -567,7 +567,7 @@ impl Kernel {
         if !ty.takes_params() && !params.is_empty() {
             return Err(Errno::EINVAL);
         }
-        if !Self::mount_capable(&ty, &self.process(task).cred(), &user_ns) {
+        if !Self::mount_capable(&ty, &self.current_cred(task), &user_ns) {
             return Err(Errno::EPERM);
         }
         let mnt_flags = mount_flags(flags, None);
@@ -619,7 +619,7 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let sb = target.mnt.sb();
-        let cred = self.process(TaskId(env.task)).cred();
+        let cred = self.current_cred(TaskId(env.task));
         if !cred.ns_capable(&self.sb_owner(sb), Cap::SysAdmin) {
             return Err(Errno::EPERM);
         }

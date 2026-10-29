@@ -727,8 +727,7 @@ impl Kernel {
         }
         let file = self.ruleset(caller, ruleset_fd)?;
         let ruleset = file.downcast::<Ruleset>().expect("checked");
-        let process = self.process(caller.task());
-        process.update_cred(|cred| {
+        self.update_cred(caller.task(), |cred| {
             let domain = Domain::merge(cred.landlock.as_ref(), ruleset)?;
             let mut new = cred.clone();
             new.landlock = Some(Arc::new(domain));
@@ -748,7 +747,7 @@ impl Kernel {
 
     /// The caller's Landlock domain, if it has one.
     pub(crate) fn landlock(&self, caller: &Caller<'_>) -> Option<Arc<Domain>> {
-        self.process(caller.task()).cred().landlock
+        self.cred(caller).landlock.clone()
     }
 }
 

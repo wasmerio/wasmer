@@ -65,7 +65,7 @@ struct Context {
     picked: Option<Path>,
     /// The credentials of the opener (`fc->cred`), as the filesystem and the kernel see them.
     cred: Cred,
-    task_cred: TaskCred,
+    task_cred: Arc<TaskCred>,
     /// The opener's pid namespace, which a proc instance shows (`proc_init_fs_context`).
     pid_ns: Arc<crate::ns::PidNs>,
     /// The opener's network namespace (`fc->net_ns`), which a sysfs instance shows.
@@ -126,7 +126,7 @@ impl Context {
             fs: None,
             picked: None,
             cred: env.cred,
-            task_cred: kernel.process(task).cred(),
+            task_cred: kernel.task_cred(task),
             pid_ns: kernel.active_pid_ns(task),
             ipc: kernel.task_ns(task).ipc.clone(),
             cgroup: kernel.task_ns(task).cgroup.clone(),
@@ -421,7 +421,7 @@ impl Kernel {
             .picked
             .as_ref()
             .map(|picked| self.sb_owner(picked.mnt.sb()));
-        let cred = self.process(TaskId(env.task)).cred();
+        let cred = self.current_cred(TaskId(env.task));
         if !owner.is_some_and(|owner| cred.ns_capable(&owner, Cap::SysAdmin)) {
             context.phase = Phase::Failed;
             return Err(Errno::EPERM);

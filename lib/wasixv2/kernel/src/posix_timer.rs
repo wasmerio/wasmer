@@ -574,7 +574,7 @@ impl Kernel {
         let charge = {
             let process = self.process(caller.task());
             let limit = process.resources.lock_or_recover().sigpending();
-            let uid = process.cred.lock_or_recover().user.real;
+            let uid = self.cred(caller).user.real;
             self.sigqueue_users
                 .charge(uid, Some(limit))
                 .map_err(|_| Errno::EAGAIN)?

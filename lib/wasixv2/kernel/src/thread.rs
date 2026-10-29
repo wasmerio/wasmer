@@ -225,7 +225,7 @@ impl Kernel {
             if !Arc::ptr_eq(&process.pid_ns, &task.live_ns().pid_for_children) {
                 return Err(Errno::EINVAL.into());
             }
-            if crate::resource::nproc_exceeded(&state, &process) {
+            if crate::resource::nproc_exceeded(&state, task) {
                 return Err(Errno::EAGAIN.into());
             }
             if state.tasks.len() as i64 >= self.tunables.get(crate::sysctl::Tunable::ThreadsMax) {
@@ -275,6 +275,7 @@ impl Kernel {
             };
             let flag = Arc::new(WorkFlag::default());
             let new = Task {
+                cred: task.cred_override.as_ref().unwrap_or(&task.cred).clone(),
                 cpu,
                 css,
                 syscall: Default::default(),
@@ -305,6 +306,7 @@ impl Kernel {
                 new.signals.freeze(true);
             }
             state.last_id += 1;
+            new.signals.publish_cred(new.cred.clone());
             state.tasks.insert(id, new);
             id
         };
@@ -576,6 +578,9 @@ impl Kernel {
         let mut gone = Vec::new();
         {
             let mut state = self.state.lock_or_recover();
+            for pid in &reaped {
+                state.retired_creds.remove(&TaskId(*pid));
+            }
             let ids: Vec<TaskId> = state
                 .tasks
                 .iter()
@@ -633,6 +638,10 @@ impl Kernel {
                 Some(entry) => (entry.work.take_unstarted(), entry.process.clone()),
                 None => return,
             };
+            if task == process.pid {
+                let cred = state.tasks[&task].cred.clone();
+                state.retired_creds.insert(task, cred);
+            }
             let mut stopped = None;
             for child in unstarted {
                 stopped = stopped.or(forget_task(&mut state, child));
@@ -643,6 +652,12 @@ impl Kernel {
         self.report_group_stop(stopped);
         self.exit_notify(&process);
         self.pid_ns_progress();
+        if self.procs.find(process.pid.0).is_none() {
+            self.state
+                .lock_or_recover()
+                .retired_creds
+                .remove(&process.pid);
+        }
     }
 
     /// Tells the parent of the group stop that [`forget_task`] completed for `process`.
@@ -1230,6 +1245,7 @@ fn take_futex_state(task: &mut Task) -> ThreadState {
 /// the old leader's go. A leader that died waiting for its vfork child let its namespaces go
 /// at its `exit_mm` already: they belong to the task that exits, never to its id.
 fn exchange_tasks(leader: &mut Task, caller: &mut Task) {
+    std::mem::swap(&mut leader.cred, &mut caller.cred);
     std::mem::swap(&mut leader.ns, &mut caller.ns);
     std::mem::swap(&mut leader.fs, &mut caller.fs);
     std::mem::swap(&mut leader.files, &mut caller.files);

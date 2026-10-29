@@ -1626,7 +1626,7 @@ impl Kernel {
         let len: i32 = read_value(caller.memory(), GuestPtr::new(optlen.addr())).await?;
         let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?;
         if level == SocketLevel::SOL_SOCKET && SocketOption(name) == SocketOption::SO_PEERGROUPS {
-            let ns = self.cred(caller).user_ns;
+            let ns = self.cred(caller).user_ns.clone();
             return peer_groups(caller, &ns, &any, len, optval, optlen).await;
         }
         if level == SocketLevel::SOL_SOCKET && name == bpf::SO_GET_FILTER {
@@ -1676,7 +1676,7 @@ impl Kernel {
             if len < peer.groups.len() * 4 {
                 return Err(Errno::ERANGE.into());
             }
-            let ns = self.cred(caller).user_ns;
+            let ns = self.cred(caller).user_ns.clone();
             return Ok(peer
                 .groups
                 .iter()

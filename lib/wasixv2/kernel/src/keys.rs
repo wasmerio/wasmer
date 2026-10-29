@@ -326,7 +326,7 @@ struct KeyTable {
 
 /// What a lookup works with: the caller's credentials and keyrings (`struct cred`'s keys).
 pub(crate) struct Ctx {
-    pub(crate) cred: Cred,
+    pub(crate) cred: Arc<Cred>,
     pub(crate) thread: Option<Arc<Key>>,
     /// The realtime clock, in seconds.
     pub(crate) now: u64,
@@ -760,10 +760,9 @@ impl Kernel {
 
     /// Makes the caller's credentials hold `change`'s keyrings.
     fn set_cred_keys(&self, caller: &Caller<'_>, change: impl FnOnce(&mut CredKeys)) {
-        let process = self.process(caller.task());
-        let mut new = process.cred();
+        let mut new = (*self.task_cred(caller.task())).clone();
         change(&mut new.keys);
-        process.commit_cred(new);
+        self.commit_cred(caller.task(), new);
     }
 
     /// A new keyring for the caller's credentials: `name`, with `perm`, owned by its fs ids.
@@ -805,7 +804,7 @@ impl Kernel {
                     }
                     let ring = self.new_keyring(ctx, b"_pid", POS_ALL | KeyPerm::KEY_USR_VIEW.0)?;
                     self.set_cred_keys(caller, |k| k.process = Some(ring.clone()));
-                    ctx.cred.keys.process = Some(ring);
+                    Arc::make_mut(&mut ctx.cred).keys.process = Some(ring);
                 }
                 Found {
                     key: ctx.cred.keys.process.clone().expect("installed"),
@@ -828,7 +827,7 @@ impl Kernel {
                         false => user_session,
                     };
                     self.set_cred_keys(caller, |k| k.session = Some(ring.clone()));
-                    ctx.cred.keys.session = Some(ring);
+                    Arc::make_mut(&mut ctx.cred).keys.session = Some(ring);
                 }
                 Found {
                     key: ctx.cred.keys.session.clone().expect("installed"),
@@ -1489,13 +1488,13 @@ impl Kernel {
             .filter(|&p| p > 1)
             .and_then(|p| self.procs.find(p))
             .ok_or(Errno::EPERM)?;
-        let (mine, theirs) = (me.cred(), parent.cred());
+        let (mine, theirs) = (self.task_cred(caller.task()), self.task_cred(parent.pid));
         if mine.user != theirs.user || mine.group.real != theirs.group.real {
             return Err(Errno::EPERM.into());
         }
-        let mut new = theirs;
+        let mut new = (*theirs).clone();
         new.keys.session = session;
-        parent.commit_cred(new);
+        self.commit_cred(parent.pid, new);
         Ok(0)
     }
 }

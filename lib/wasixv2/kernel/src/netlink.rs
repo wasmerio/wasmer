@@ -114,7 +114,7 @@ pub(crate) struct NetlinkSocket {
     /// The credentials the socket was opened with (`file->f_cred`): a change asks
     /// `CAP_NET_ADMIN` of them besides of the sender (`file_ns_capable` in
     /// `__netlink_ns_capable`).
-    pub(crate) opener: Cred,
+    pub(crate) opener: Arc<Cred>,
     /// The network namespace the socket was made in (`sock_net`).
     pub(crate) net: Arc<NetNs>,
     port: u32,
@@ -941,7 +941,10 @@ mod tests {
             }),
             wait: WaitQueue::new(),
             fasync: SockAsync::default(),
-            opener: Cred::new(&crate::Credentials::new(0, 0), net.user_ns().clone()),
+            opener: Arc::new(Cred::new(
+                &crate::Credentials::new(0, 0),
+                net.user_ns().clone(),
+            )),
             net,
             port: 7,
             timeouts: Timeouts::default(),

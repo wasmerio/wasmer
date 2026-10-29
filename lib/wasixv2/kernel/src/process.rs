@@ -665,7 +665,7 @@ impl Kernel {
     fn user_ns_of(&self, pid: u32) -> Arc<UserNs> {
         self.procs.find(pid).map_or_else(
             || self.init_user_ns.clone(),
-            |process| process.cred().user_ns,
+            |process| self.task_cred(process.pid).user_ns.clone(),
         )
     }
 
@@ -745,6 +745,7 @@ impl Kernel {
         };
         // kernel/exit.c `exit_notify`: ptraced leaders never autoreap. Publish their
         // zombie and tracer report together (`delay_group_leader` has finished).
+        let uid = self.task_cred(process.pid).user.real;
         let mut tracees = self.tracees.lock();
         let tracer = tracees.get(&process.pid).map(|tracee| tracee.tracer);
         let (exit, exit_signal, orphans, inherited, orphaned_pgrps) = {
@@ -761,7 +762,6 @@ impl Kernel {
             if node.exit.is_some() {
                 return;
             }
-            let uid = process.cred().user.real;
             // `coredump_finish`: a dump that started shows in the status (`WCOREDUMP`).
             let dumped = process.ident.lock_or_recover().dumped_core;
             let exit = match node.killed_by {
@@ -1019,7 +1019,7 @@ impl Kernel {
         if let Some(signals) = parent_signals
             && !signals.nocldstop()
         {
-            let uid = process.cred().user.real;
+            let uid = self.task_cred(process.pid).user.real;
             let exit = Exit {
                 code: why,
                 status,
@@ -1590,7 +1590,7 @@ impl Kernel {
             if flags.contains(CloneFlags::CLONE_PARENT) && task.signals.group().unkillable() {
                 return Err(Errno::EINVAL);
             }
-            if crate::resource::nproc_exceeded(&state, &parent) {
+            if crate::resource::nproc_exceeded(&state, task) {
                 return Err(Errno::EAGAIN);
             }
             // `max_threads` (`kernel.threads-max`), for everyone.
@@ -1615,9 +1615,13 @@ impl Kernel {
             let mut cred = match flags.contains(CloneFlags::CLONE_NEWUSER) {
                 true => {
                     let chrooted = task.fs.lock_or_recover().chrooted(task.live_ns());
-                    UserNs::create(&parent.cred(), chrooted, &self.ns_inums)?
+                    UserNs::create(
+                        task.cred_override.as_ref().unwrap_or(&task.cred),
+                        chrooted,
+                        &self.ns_inums,
+                    )?
                 }
-                false => parent.cred(),
+                false => (**task.cred_override.as_ref().unwrap_or(&task.cred)).clone(),
             };
             // A new process has no process keyring of its own yet.
             cred.keys = cred.keys.for_child();
@@ -1637,7 +1641,7 @@ impl Kernel {
             }
             let id = TaskId(state.last_id + 1);
             // `checkpoint_restore_ns_capable` over each pid namespace's owner, for the caller.
-            let caller = parent.cred();
+            let caller = task.cred.clone();
             let may_set = |pid_ns: &Arc<PidNs>| {
                 let owner = pid_ns.owner_ns().expect("a pid namespace has an owner");
                 caller.ns_capable(owner, Cap::CheckpointRestore)
@@ -1678,11 +1682,9 @@ impl Kernel {
                 maxrss: Default::default(),
                 cpu_timers: Default::default(),
                 ident: Mutex::new(ident),
-                cred: Mutex::new(cred.for_process()),
                 resources: Mutex::new(parent.resources.lock_or_recover().clone()),
                 pid_ns: ns.pid_for_children.clone(),
                 sysvsem: Mutex::new(Some(ns.ipc.clone())),
-                tunables: self.tunables.clone(),
             });
             let fs = match own_fs {
                 None => task.fs.clone(),
@@ -1708,6 +1710,7 @@ impl Kernel {
                 false => Arc::new(task.mm.dup(id.0)),
             };
             let new = Task {
+                cred: Arc::new(cred),
                 cpu,
                 css,
                 syscall: Default::default(),
@@ -1735,6 +1738,7 @@ impl Kernel {
                 new.signals.freeze(true);
             }
             state.last_id += 1;
+            new.signals.publish_cred(new.cred.clone());
             state.tasks.insert(id, new);
             (id, process, parent.pid.0)
         };
@@ -1839,7 +1843,7 @@ impl Kernel {
         // `bprm->interp`: the name a script is passed to its interpreter by.
         let mut script = name.clone();
         let mut rewrites = 0;
-        let misc_registry = self.binfmt_misc.current(&self.cred(caller).user_ns);
+        let misc_registry = self.binfmt_misc.current(&self.cred(caller).user_ns.clone());
         // What a binfmt_misc format asked for (`have_execfd`, `execfd_creds`, `interp_flags`),
         // and the binary it hands over (`bprm->executable`).
         let mut handover = ExecHandover::default();
@@ -2139,7 +2143,7 @@ impl Kernel {
         *process.args.lock_or_recover() = args;
         *process.env.lock_or_recover() = env;
         let no_new_privs = self.task_ref(task, |t| t.seccomp.no_new_privs);
-        let old = process.cred();
+        let old = self.task_cred(task);
         // `bprm_creds_from_file`: from the binary handed over with `C`, else the file that
         // runs; the process presents as the binary with `T` (`bprm_identity_file`).
         let executable = handover.executable.take();
@@ -2166,7 +2170,7 @@ impl Kernel {
             false => crate::ident::Dumpable::suid(&self.tunables),
         };
         let privileged = secure || cred.drops_dumpable(&old);
-        *process.cred.lock_or_recover() = cred;
+        self.commit_cred(task, cred);
         let transparent = handover.at_flags() == AtFlagsBits::AT_FLAGS_TRANSPARENT_INTERP.0;
         let identity = match &executable {
             Some((_, executable)) if transparent => executable,
@@ -2290,7 +2294,7 @@ impl Kernel {
         let (info, usage) = match found {
             Some((pid, exit, child)) => {
                 let usage = child.usage_both();
-                let ns = me.cred().user_ns;
+                let ns = self.cred(caller).user_ns.clone();
                 (child_info(Signal::SIGCHLD.0, pid, exit, &ns), usage)
             }
             None => (
@@ -2400,7 +2404,7 @@ impl Kernel {
         }
         let signals = self.group_signals(process.pid.0)?;
         let nowait = options & WaitOptions::WNOWAIT.0 != 0;
-        let uid = process.cred().user.real;
+        let uid = self.task_cred(process.pid).user.real;
         if options & WaitOptions::WSTOPPED.0 != 0
             && let Some(sig) = signals.wait_stopped(nowait)
         {
@@ -2557,7 +2561,7 @@ impl Kernel {
         if flags != 0 {
             return Err(Errno::EINVAL.into());
         }
-        let sender = self.process(caller.task());
+        let sender = self.signal_sender(caller.task());
         // `PIDFD_SELF_THREAD` signals the caller alone (`PIDTYPE_PID`), `PIDFD_SELF_THREAD_GROUP`
         // its thread group.
         let (pid, thread) = match wasixv2_abi::PidfdSelf(pidfd.0) {
@@ -2725,13 +2729,14 @@ impl Kernel {
         let task = {
             let tree = self.procs.tree.lock_or_recover();
             let node = tree.nodes.get(&pidfd.pid);
-            node.map(|node| (node.process.cred(), node.parent))
+            node.map(|node| (node.process.clone(), node.parent))
         };
         match task {
             None if !wants(PidfdInfoMask::PIDFD_INFO_EXIT) => return Err(Errno::ESRCH),
             None => {}
-            Some((cred, parent)) => {
-                let ns = self.cred(caller).user_ns;
+            Some((process, parent)) => {
+                let cred = self.task_cred(process.pid);
+                let ns = self.cred(caller).user_ns.clone();
                 info.ruid = ns.munged_uid(cred.user.real);
                 info.euid = ns.munged_uid(cred.user.effective);
                 info.suid = ns.munged_uid(cred.user.saved);

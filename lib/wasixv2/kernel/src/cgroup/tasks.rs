@@ -28,7 +28,7 @@ impl Opener {
             let task = state.tasks.get(&TaskId(task))?;
             let ns = task.ns.as_ref()?;
             Some((
-                task.process.cred().fs(),
+                task.cred.clone().fs(),
                 ns.cgroup.root.clone(),
                 task.process.pid_ns.clone(),
             ))

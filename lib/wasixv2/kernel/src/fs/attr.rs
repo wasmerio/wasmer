@@ -72,7 +72,7 @@ impl Kernel {
             .resolve_at(caller, &env, dfd, &path, flags, true)
             .await?;
         let attr = self.vfs.stat(&target).await?;
-        let ns = self.cred(caller).user_ns;
+        let ns = self.cred(caller).user_ns.clone();
         let statx = statx(&target, &attr, mask, &ns);
         write_value(caller.memory(), buffer, &statx).await?;
         Ok(0)
@@ -237,7 +237,7 @@ impl Kernel {
         user: u32,
         group: u32,
     ) -> Result<(Option<u32>, Option<u32>), Errno> {
-        let ns = self.cred(caller).user_ns;
+        let ns = self.cred(caller).user_ns.clone();
         let user = id(user)
             .map(|uid| ns.make_kuid(uid).map(|k| k.0).ok_or(Errno::EINVAL))
             .transpose()?;
