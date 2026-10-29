@@ -12,8 +12,8 @@ use std::{
 
 use anyhow::{Context, Error, bail};
 use wasixv2::{
-    CommandDefaults, Console, Credentials, Image, ImageId, Layer, LoadError, Loader, LocalFuture,
-    Machine, OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname,
+    CommandDefaults, Console, Credentials, Dns, Image, ImageId, Layer, LoadError, Loader,
+    LocalFuture, Machine, OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname,
 };
 use wasmer::{Engine, Module};
 use wasmer_config::package::{PackageId, PackageSource};
@@ -35,7 +35,7 @@ use super::terminal::{self, HostTerminal};
 use super::{
     CliPackageSource, GuestExit, Run, exit_with_wasi_exit_code,
     runtime::{MonitoringRuntime, PackageTree},
-    wasi::utf8_env_part,
+    wasi::{DnsMode, utf8_env_part},
 };
 use crate::backend::{BackendType, RuntimeOptions};
 use crate::utils::PublishedProtocol;
@@ -700,6 +700,11 @@ impl Run {
         if let Some(user) = wasi.user {
             builder = builder.user(Credentials::new(user.uid, user.gid));
         }
+        builder = builder.dns(match wasi.dns {
+            DnsMode::Builtin => Dns::Builtin,
+            DnsMode::Host => Dns::Host,
+            DnsMode::None => Dns::None,
+        });
         let mut uname = Uname::default();
         if let Some(name) = &wasi.hostname {
             uname = uname.with_nodename(name).context("invalid --hostname")?;

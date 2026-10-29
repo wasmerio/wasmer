@@ -141,6 +141,24 @@ pub struct MachineBuilder {
     /// The embedder's loader; the ABIs' own default otherwise.
     loader: Option<Arc<dyn Loader>>,
     console: Option<(Console, [bool; 3])>,
+    dns: Dns,
+}
+
+/// Where the machine's programs resolve names: what the guest's `/etc/resolv.conf` names, on
+/// a machine that reaches the host's network.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Dns {
+    /// The machine's own DNS server, at 10.0.2.3 on the uplink as slirp's, which answers from
+    /// the host's resolver: the host's hosts file, `getaddrinfo` and name servers, whatever
+    /// the host's resolver reaches (a local stub, a VPN's servers).
+    #[default]
+    Builtin,
+    /// The host's name servers, asked directly: those of the host's `/etc/resolv.conf` the
+    /// guest reaches (a server on the host's `127.0.0.1` through the gateway alias), else the
+    /// upstream servers of systemd-resolved.
+    Host,
+    /// None: names resolve from `/etc/hosts` only.
+    None,
 }
 
 impl MachineBuilder {
@@ -154,7 +172,14 @@ impl MachineBuilder {
             init: true,
             loader: None,
             console: None,
+            dns: Dns::default(),
         }
+    }
+
+    /// Where the machine's programs resolve names ([`Dns::Builtin`] by default).
+    pub fn dns(mut self, dns: Dns) -> Self {
+        self.dns = dns;
+        self
     }
 
     /// The identity the machine's processes start as, and that owns its filesystems. uid 0 is
@@ -225,9 +250,10 @@ impl MachineBuilder {
             init,
             loader,
             console,
+            dns,
         } = self;
         let owner = (user.uid(), user.gid());
-        let network = default_network();
+        let network = default_network(dns);
         let root = root
             .unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user, uname.release()));
         #[cfg(feature = "wasix1")]
@@ -996,7 +1022,7 @@ impl Drop for Machine {
 }
 
 #[cfg(all(feature = "host-network", unix))]
-fn default_network() -> Arc<Net> {
+fn default_network(dns: Dns) -> Arc<Net> {
     let backend = match wasixv2_vnet_host::HostBackend::new() {
         Ok(backend) => backend,
         Err(err) => {
@@ -1005,18 +1031,29 @@ fn default_network() -> Arc<Net> {
         }
     };
     let mut config = NetConfig::host_default();
-    let host_resolv = std::fs::read_to_string("/etc/resolv.conf").unwrap_or_default();
-    let upstream = std::fs::read_to_string(wasixv2_vnet_host::SYSTEMD_RESOLVED_UPSTREAM).ok();
-    config.nameservers = wasixv2_vnet_host::host_nameservers(
-        &host_resolv,
-        upstream.as_deref(),
-        config.host_loopback_alias,
-    );
+    match dns {
+        Dns::Builtin => {}
+        Dns::Host => {
+            let host_resolv = std::fs::read_to_string("/etc/resolv.conf").unwrap_or_default();
+            let upstream =
+                std::fs::read_to_string(wasixv2_vnet_host::SYSTEMD_RESOLVED_UPSTREAM).ok();
+            config.dns_server.clear();
+            config.nameservers = wasixv2_vnet_host::host_nameservers(
+                &host_resolv,
+                upstream.as_deref(),
+                config.host_loopback_alias,
+            );
+        }
+        Dns::None => {
+            config.dns_server.clear();
+            config.nameservers.clear();
+        }
+    }
     Net::new(config, Some(backend))
 }
 
 #[cfg(not(all(feature = "host-network", unix)))]
-fn default_network() -> Arc<Net> {
+fn default_network(_: Dns) -> Arc<Net> {
     Net::new(NetConfig::default(), None)
 }
 
