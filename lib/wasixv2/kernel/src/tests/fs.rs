@@ -364,6 +364,37 @@ fn getfl_keeps_open_flags_and_setfl_takes_o_direct_only_where_it_works() {
 }
 
 #[test]
+fn created_query_reports_the_open_that_made_the_file() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/d");
+    let query = |fd| block_on(kernel.fcntl64(&t.caller, fd, FcntlCmd::F_CREATED_QUERY, 0));
+
+    let made = t
+        .open("/f", OpenFlags::O_CREAT | OpenFlags::O_RDONLY)
+        .unwrap();
+    assert_eq!(query(made), Ok(1));
+    // Found, not made: O_CREAT alone does not count.
+    let found = t
+        .open("/f", OpenFlags::O_CREAT | OpenFlags::O_RDONLY)
+        .unwrap();
+    assert_eq!(query(found), Ok(0));
+    let plain = t.open("/f", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(query(plain), Ok(0));
+    // `check_fcntl_cmd` allows it on O_PATH descriptors.
+    let path = t.open("/f", OpenFlags::O_PATH).unwrap();
+    assert_eq!(query(path), Ok(0));
+    // `vfs_tmpfile` names nothing, so nothing counts as created.
+    let tmp = t.open(
+        "/d",
+        OpenFlags::__O_TMPFILE | OpenFlags::O_DIRECTORY | OpenFlags::O_RDWR,
+    );
+    assert_eq!(query(tmp.unwrap()), Ok(0));
+    let (r, _w) = super::ipc::pipe(&kernel, &t.caller, OpenFlags(0));
+    assert_eq!(query(r), Ok(0));
+}
+
+#[test]
 fn generic_ioctls_give_block_size_bytes_used_and_refuse_async() {
     let (kernel, task, memory) = machine();
     let t = T::new(&kernel, task, &memory);

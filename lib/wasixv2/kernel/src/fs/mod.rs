@@ -568,6 +568,11 @@ impl Kernel {
                 Ok(0)
             }
             FcntlCmd::F_GETFL => Ok(file.flags().0 as i32),
+            // `f_created_query`: whether this open made the file (`FMODE_CREATED`).
+            FcntlCmd::F_CREATED_QUERY => Ok(match &file.backing {
+                Backing::Inode(inner) => i32::from(inner.created),
+                Backing::Stream(..) => 0,
+            }),
             _ if path_only => Err(Errno::EBADF.into()),
             FcntlCmd::F_SETFL => {
                 let flags = OpenFlags(arg);

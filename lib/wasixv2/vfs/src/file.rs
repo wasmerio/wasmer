@@ -28,6 +28,8 @@ pub struct File {
     pub writable: bool,
     /// Opened with `O_PATH`: only usable as a location.
     pub path_only: bool,
+    /// The open created the file (`FMODE_CREATED`), which `F_CREATED_QUERY` reports.
+    pub created: bool,
     vfs: Arc<Vfs>,
     /// The write access a file open for writing holds on its mount (`FMODE_WRITER`).
     _write: Option<WriteAccess>,
@@ -54,6 +56,7 @@ impl File {
             readable,
             writable,
             path_only,
+            created: false,
             vfs,
             _write: write,
             detached: None,
