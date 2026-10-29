@@ -30,7 +30,7 @@ pub use wasixv2_host::{
     ByteSink, ByteSource, Console, EmptySource, Executor, FnSink, Host, LocalFuture, ThreadStart,
     WindowSize,
 };
-pub use wasixv2_kernel::{Credentials, ProcessConfig, Stdio, Uname, UnameError};
+pub use wasixv2_kernel::{Credentials, PowerRequest, ProcessConfig, Stdio, Uname, UnameError};
 use wasixv2_kernel::{FilesystemType, FsParam, HostClock, Kernel};
 use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_syscalls::{Layered, TaskId};
@@ -750,6 +750,14 @@ impl Machine {
     /// started afterwards. Dropping the machine kills its processes too, without waiting.
     pub async fn shutdown(&self) {
         self.syscalls.inner.terminate().await;
+    }
+
+    /// The restart, halt or power-off a process asked for with `reboot(2)` (with
+    /// `CAP_SYS_BOOT`, in the initial pid namespace), which ended every process as
+    /// [`Machine::shutdown`] does; `None` if none did. The runs end with 128 + 9; an embedder
+    /// reads this to tell a machine that was powered off from one whose processes were killed.
+    pub fn power_request(&self) -> Option<PowerRequest> {
+        self.syscalls.inner.power_request()
     }
 
     /// Spawns the process `config` describes, in the working directory, and keeps it on

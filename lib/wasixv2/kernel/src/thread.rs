@@ -625,14 +625,11 @@ impl Kernel {
     /// any more. A process forked meanwhile is killed too.
     pub async fn terminate(&self) {
         loop {
-            let processes = self.live_processes();
+            let processes = self.kill_everything();
             if processes.is_empty() {
                 return;
             }
-            for (_, signals) in &processes {
-                signals.kill_all();
-            }
-            for (process, _) in processes {
+            for process in processes {
                 let gone = || {
                     let state = self.state.lock_or_recover();
                     // A reaped process's tasks count until their instances are released.
@@ -651,6 +648,15 @@ impl Kernel {
                     .expect("NoInterrupt never interrupts");
             }
         }
+    }
+
+    /// Sends SIGKILL to every process of the machine but the kernel's init, and returns them.
+    pub(crate) fn kill_everything(&self) -> Vec<Arc<Process>> {
+        let processes = self.live_processes();
+        for (_, signals) in &processes {
+            signals.kill_all();
+        }
+        processes.into_iter().map(|(process, _)| process).collect()
     }
 
     /// Every process that has a task, with its thread group's signals; not the kernel's init,

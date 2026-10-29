@@ -618,6 +618,17 @@ impl Kernel {
         }
     }
 
+    /// The end of `zap_pid_ns_processes` after a `reboot` in the pid namespace whose init is
+    /// `pid`: its parent sees it killed by `sig` (`pid_ns->reboot`), whatever killed it.
+    pub(crate) fn note_rebooted(&self, pid: u32, sig: i32) {
+        let mut tree = self.procs.tree.lock_or_recover();
+        if let Some(node) = tree.nodes.get_mut(&pid)
+            && node.exit.is_none()
+        {
+            node.killed_by = Some(sig);
+        }
+    }
+
     /// `exit_notify`, once per process, when its thread group's exit is decided: makes it a
     /// zombie, hands its children to a reaper and tells the parent. A vfork parent was let go
     /// before, at the child's `exit_mm` ([`Kernel::complete_vfork_done`]).

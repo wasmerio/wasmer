@@ -58,6 +58,9 @@ struct SpaceState {
     /// The reaper exited and waits for every other number to go before it is a zombie
     /// (`zap_pid_ns_processes`).
     zapping: bool,
+    /// The signal a `reboot` in the namespace makes the reaper's exit look like to its parent
+    /// (`pid_ns->reboot`), or 0.
+    reboot: i32,
 }
 
 impl PidSpace {
@@ -87,6 +90,7 @@ impl PidSpace {
                 adding: true,
                 reaper: None,
                 zapping: false,
+                reboot: 0,
             }),
         }
     }
@@ -144,6 +148,17 @@ impl PidSpace {
         }
         self.state.lock_or_recover().pid_max = max;
         Ok(())
+    }
+
+    /// `reboot_pid_ns`: the reaper, killed for a `reboot` in the namespace, exits as if killed
+    /// by `sig`.
+    pub(crate) fn set_reboot(&self, sig: i32) {
+        self.state.lock_or_recover().reboot = sig;
+    }
+
+    /// The signal [`PidSpace::set_reboot`] set, or 0.
+    pub(crate) fn reboot(&self) -> i32 {
+        self.state.lock_or_recover().reboot
     }
 
     /// Whether new numbers are still handed out here: the namespace's init has not exited.
@@ -581,6 +596,12 @@ impl Kernel {
                     signals.send_kernel(wasixv2_abi::Signal::SIGKILL.0);
                 }
             }
+        }
+        // The end of `zap_pid_ns_processes`: after a `reboot`, the init's parent sees it killed
+        // by the signal the command names.
+        let reboot = ns.reboot();
+        if reboot != 0 {
+            self.note_rebooted(init, reboot);
         }
         ns.zap_waits()
     }
