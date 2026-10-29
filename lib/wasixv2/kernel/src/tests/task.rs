@@ -1836,3 +1836,82 @@ fn binfmt_misc_superblock_forbids_execution_even_on_an_exec_mount() {
         Err(SysErr::Errno(Errno::EACCES))
     );
 }
+
+#[test]
+fn forked_executable_denial_survives_the_parents_reexec_until_the_child_exits() {
+    let (kernel, task, memory) = machine();
+    let memory = super::proc::ForkableMemory(memory);
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory.0);
+    let m = Misc {
+        kernel: &kernel,
+        caller: &caller,
+        memory: &memory.0,
+    };
+    m.write(b"/next", IMAGE).unwrap();
+    assert_eq!(m.exec(b"/prog", &[b"prog"]), Ok(0));
+    while kernel.take_pending(task).is_some() {}
+    let child = super::proc::fork_child(&kernel, &caller);
+    assert_eq!(m.exec(b"/next", &[b"next"]), Ok(0));
+    let open = || {
+        block_on(kernel.openat(
+            &caller,
+            Fd(-100),
+            m.cstr(0x3000, b"/prog"),
+            OpenFlags::O_WRONLY,
+            0,
+        ))
+    };
+    assert_eq!(open(), Err(SysErr::Errno(Errno::ETXTBSY)));
+    block_on(kernel.exit_group(&Caller::new(child, &memory), 0)).unwrap();
+    assert!(open().is_ok());
+}
+
+#[test]
+fn fixed_binfmt_interpreters_deny_writers_until_the_registration_is_removed() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let m = Misc {
+        kernel: &kernel,
+        caller: &caller,
+        memory: &memory,
+    };
+    assert_eq!(
+        block_on(kernel.mkdirat(&caller, Fd(-100), m.cstr(0x3000, b"/bm"), 0o755)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.mount(
+            &caller,
+            m.cstr(0x3000, b"binfmt_misc"),
+            m.cstr(0x3100, b"/bm"),
+            m.cstr(0x3200, b"binfmt_misc"),
+            wasixv2_abi::MountFlags(0),
+            wasixv2_abi::ConstVoidPtr::NULL
+        )),
+        Ok(0)
+    );
+    let open = || {
+        block_on(kernel.openat(
+            &caller,
+            Fd(-100),
+            m.cstr(0x3000, b"/prog"),
+            OpenFlags::O_WRONLY,
+            0,
+        ))
+    };
+    let writer = open().unwrap();
+    assert_eq!(
+        m.write(b"/bm/register", b":fixed:E::fixed::/prog:F"),
+        Err(SysErr::Errno(Errno::ETXTBSY))
+    );
+    block_on(kernel.close(&caller, writer)).unwrap();
+    assert!(
+        m.write(b"/bm/register", b":fixed:E::fixed::/prog:F")
+            .is_ok()
+    );
+    assert_eq!(open(), Err(SysErr::Errno(Errno::ETXTBSY)));
+    assert_eq!(m.write(b"/bm/fixed", b"-1"), Ok(2));
+    assert!(open().is_ok());
+}
