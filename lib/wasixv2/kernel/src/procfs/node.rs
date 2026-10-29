@@ -169,6 +169,8 @@ pub(super) enum PidEntry {
     /// `ns/`, `net/`.
     Namespaces,
     Net,
+    /// `mem`: the address space, read and written at the file offset.
+    Mem,
     File(text::PerPid),
 }
 
@@ -183,6 +185,7 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("root", PidEntry::Root, 0o777),
     ("ns", PidEntry::Namespaces, 0o511),
     ("net", PidEntry::Net, 0o555),
+    ("mem", PidEntry::Mem, 0o600),
     ("cmdline", PidEntry::File(text::PerPid::Cmdline), 0o444),
     ("comm", PidEntry::File(text::PerPid::Comm), 0o644),
     ("environ", PidEntry::File(text::PerPid::Environ), 0o400),
@@ -487,7 +490,7 @@ fn file_type(entry: Entry) -> FileType {
             | PidEntry::Namespaces
             | PidEntry::Net => FileType::Directory,
             PidEntry::Exe | PidEntry::Cwd | PidEntry::Root => FileType::Symlink,
-            PidEntry::File(_) => FileType::Regular,
+            PidEntry::File(_) | PidEntry::Mem => FileType::Regular,
         },
         Entry::Fd(..) | Entry::Ns(..) => FileType::Symlink,
         Entry::FdInfo(..) | Entry::Net(..) => FileType::Regular,
@@ -671,6 +674,11 @@ impl Node for ProcNode {
             self.children()?;
             return Ok(Box::new(DirHandle(self.node(self.entry))));
         }
+        if let Entry::Pid(scope, index) = self.entry
+            && PID_ENTRIES[index].1 == PidEntry::Mem
+        {
+            return self.open_mem(scope, options.task);
+        }
         let (data, comm) = match self.entry {
             Entry::Static(index) => match STATIC[index].2 {
                 Static::File(file) => {
@@ -811,6 +819,76 @@ impl ProcNode {
 }
 
 /// An open directory, listed afresh on every read as `proc_readdir` does.
+/// `mem_open` (`proc_mem_open(inode, PTRACE_MODE_ATTACH)`): the opener needs to be allowed
+/// to attach to the task (`PTRACE_MODE_ATTACH_FSCREDS`, else `EACCES`); the file holds the
+/// task's address space as it was at the open.
+impl ProcNode {
+    fn open_mem(&self, scope: Scope, opener: u32) -> FsResult<Box<dyn Handle>> {
+        let target = self.source.process(scope.pid).ok_or(Errno::ENOENT)?;
+        let task = self
+            .source
+            .task(scope.pid, scope.tid)
+            .ok_or(Errno::ENOENT)?;
+        let opener = self
+            .source
+            .tgid_of(opener)
+            .and_then(|tgid| self.source.process(tgid));
+        // The kernel's own opens (no task) pass.
+        if let Some(opener) = opener {
+            let tree = self.source.tree.upgrade().ok_or(Errno::ENOENT)?;
+            let mode = crate::ptrace::MODE_ATTACH_FSCREDS;
+            let yama = &self.source.yama;
+            if !crate::ptrace::may_access(yama, &tree, &opener.process, &target.process, mode) {
+                return Err(Errno::EACCES);
+            }
+        }
+        Ok(Box::new(MemHandle { mm: task.mm }))
+    }
+}
+
+/// An open `/proc/<pid>/mem` (`mem_rw`): the offset is the address; each access is forced
+/// (`FOLL_FORCE`, `proc_mem_force_override`'s default). Nothing is read once the address
+/// space's last user left it (`mmget_not_zero`); an access that copies nothing is `EIO`.
+struct MemHandle {
+    mm: Arc<crate::mm::Mm>,
+}
+
+impl MemHandle {
+    async fn access(
+        &self,
+        offset: u64,
+        buf: crate::ptrace::Access<'_>,
+        len: usize,
+    ) -> FsResult<usize> {
+        if len == 0 || self.mm.foreign().is_none() {
+            return Ok(0);
+        }
+        let addr = u32::try_from(offset).map_err(|_| Errno::EIO)?;
+        match crate::ptrace::access_remote_vm(&self.mm, addr, buf, true).await {
+            0 => Err(Errno::EIO),
+            n => Ok(n),
+        }
+    }
+}
+
+#[async_trait(?Send)]
+impl Handle for MemHandle {
+    async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
+        let len = buf.len();
+        self.access(offset, crate::ptrace::Access::Read(buf), len)
+            .await
+    }
+
+    async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
+        self.access(offset, crate::ptrace::Access::Write(data), data.len())
+            .await
+    }
+
+    async fn append(&self, _: &[u8]) -> FsResult<(u64, usize)> {
+        Err(Errno::EIO)
+    }
+}
+
 struct DirHandle(Arc<dyn Node>);
 
 #[async_trait(?Send)]

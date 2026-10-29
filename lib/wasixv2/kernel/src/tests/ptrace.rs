@@ -10,7 +10,7 @@ use wasixv2_syscalls::{Layered, read_value};
 
 use super::{
     introspect::SyncMemory,
-    ipc::{errno, get},
+    ipc::{errno, get, put},
     proc::{ForkableMemory, fork_child},
     *,
 };
@@ -656,4 +656,152 @@ fn execve_of_a_tracee_traps() {
     );
     assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
     assert_eq!(call.as_mut().now_or_never(), Some(Ok(0)));
+}
+
+/// Writes the iovec `{base, len}` at `at`.
+fn iovec(memory: &FlatMemory, at: u32, base: u32, len: u32) {
+    put(memory, at, &base.to_le_bytes());
+    put(memory, at + 4, &len.to_le_bytes());
+}
+
+/// `process_vm_readv` and `process_vm_writev` move bytes between the caller's memory and that
+/// of a process it may attach to; a remote range that faults ends the copy, `EFAULT` when
+/// nothing moved.
+#[test]
+fn process_vm_readv_and_writev_copy_between_processes() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child = fork_child(kernel, &caller);
+    let page = 65536;
+    let shared = SyncMemory::new(2 * page as usize, 0x100);
+    kernel.attach_memory(child, shared.clone());
+    shared.put(0x3000, b"remote!!");
+    let readv = |local: u32, n: u32, remote: u32, rn: u32, flags: u32| {
+        block_on(kernel.process_vm_readv(
+            &caller,
+            child.0 as i32,
+            GuestPtr::new(local),
+            n,
+            GuestPtr::new(remote),
+            rn,
+            flags,
+        ))
+    };
+
+    iovec(&memory.0, 0x100, 0x1000, 8);
+    iovec(&memory.0, 0x110, 0x3000, 8);
+    assert_eq!(readv(0x100, 1, 0x110, 1, 0), Ok(8));
+    assert_eq!(get(&memory.0, 0x1000, 8), b"remote!!");
+
+    // Two local iovecs fed from one remote one.
+    iovec(&memory.0, 0x100, 0x1100, 3);
+    iovec(&memory.0, 0x108, 0x1200, 5);
+    assert_eq!(readv(0x100, 2, 0x110, 1, 0), Ok(8));
+    assert_eq!(
+        (get(&memory.0, 0x1100, 3), get(&memory.0, 0x1200, 5)),
+        (b"rem".to_vec(), b"ote!!".to_vec())
+    );
+
+    // The remote range runs off the end of its memory: what came before is returned.
+    iovec(&memory.0, 0x100, 0x1000, 16);
+    iovec(&memory.0, 0x110, 2 * page - 4, 16);
+    assert_eq!(readv(0x100, 1, 0x110, 1, 0), Ok(4));
+    iovec(&memory.0, 0x110, 3 * page, 16);
+    assert_eq!(errno(readv(0x100, 1, 0x110, 1, 0)), Errno::EFAULT);
+    assert_eq!(errno(readv(0x100, 1, 0x110, 1, 1)), Errno::EINVAL);
+    assert_eq!(readv(0x100, 0, 0x110, 1, 0), Ok(0));
+
+    put(&memory.0, 0x1000, b"written!");
+    iovec(&memory.0, 0x100, 0x1000, 8);
+    iovec(&memory.0, 0x110, 0x4000, 8);
+    let writev = kernel.process_vm_writev(
+        &caller,
+        child.0 as i32,
+        GuestPtr::new(0x100),
+        1,
+        GuestPtr::new(0x110),
+        1,
+        0,
+    );
+    assert_eq!(block_on(writev), Ok(8));
+    assert_eq!(shared.get(0x4000, 8), b"written!");
+
+    // A sibling may not attach under Yama's default.
+    let sibling = fork_child(kernel, &caller);
+    let sibling_memory = flat();
+    let sibling_caller = Caller::new(sibling, &sibling_memory);
+    iovec(&sibling_memory, 0x100, 0x1000, 8);
+    iovec(&sibling_memory, 0x110, 0x3000, 8);
+    let theirs = kernel.process_vm_readv(
+        &sibling_caller,
+        child.0 as i32,
+        GuestPtr::new(0x100),
+        1,
+        GuestPtr::new(0x110),
+        1,
+        0,
+    );
+    assert_eq!(errno(block_on(theirs)), Errno::EPERM);
+    let nobody = kernel.process_vm_readv(
+        &caller,
+        4242,
+        GuestPtr::new(0x100),
+        1,
+        GuestPtr::new(0x110),
+        1,
+        0,
+    );
+    assert_eq!(errno(block_on(nobody)), Errno::ESRCH);
+}
+
+/// `/proc/<pid>/mem` reads and writes the address space at the file offset, for an opener that
+/// may attach (`EACCES` otherwise); an address nothing backs is `EIO`.
+#[test]
+fn proc_pid_mem_reads_and_writes_the_address_space() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(
+        b"/proc",
+        kernel.procfs(),
+        wasixv2_vfs::MountFlags::default(),
+        true,
+    ))
+    .unwrap();
+    let caller = Caller::new(parent, &memory);
+    let child = fork_child(kernel, &caller);
+    let shared = SyncMemory::new(2 * 65536, 0x100);
+    kernel.attach_memory(child, shared.clone());
+    shared.put(0x3000, b"in child");
+
+    let open = |caller: &Caller<'_>, memory: &FlatMemory| {
+        put(
+            memory,
+            0x2000,
+            format!("/proc/{}/mem\0", child.0).as_bytes(),
+        );
+        block_on(kernel.openat(
+            caller,
+            Fd(-100),
+            GuestPtr::new(0x2000),
+            OpenFlags::O_RDWR,
+            0,
+        ))
+    };
+    let fd = open(&caller, &memory.0).unwrap();
+    let read = block_on(kernel.pread64(&caller, fd, UserSliceMut::new(0x1000, 8), 0x3000));
+    assert_eq!(read, Ok(8));
+    assert_eq!(get(&memory.0, 0x1000, 8), b"in child");
+    put(&memory.0, 0x1000, b"from mem");
+    let wrote = block_on(kernel.pwrite64(&caller, fd, UserSlice::new(0x1000, 8), 0x4000));
+    assert_eq!(wrote, Ok(8));
+    assert_eq!(shared.get(0x4000, 8), b"from mem");
+    let past = block_on(kernel.pread64(&caller, fd, UserSliceMut::new(0x1000, 8), 3 * 65536));
+    assert_eq!(errno(past), Errno::EIO);
+
+    let sibling = fork_child(kernel, &caller);
+    let sibling_memory = flat();
+    let sibling_caller = Caller::new(sibling, &sibling_memory);
+    assert_eq!(errno(open(&sibling_caller, &sibling_memory)), Errno::EACCES);
 }
