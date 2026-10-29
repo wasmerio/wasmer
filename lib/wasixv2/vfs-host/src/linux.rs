@@ -16,9 +16,9 @@ use async_trait::async_trait;
 use wasixv2_abi::Errno;
 use wasixv2_host::Host;
 use wasixv2_vfs::{
-    AclKind, AllocMode, Attr, Device, DirEntry, DirSink, FileKattr, FileType, Filesystem, FsInfo,
-    FsResult, Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, PosixAcl,
-    RenameMode, SeekHole, SetAttr, StatFs, TimeSet, Timestamp, XattrSet,
+    AclKind, AllocMode, Attr, Device, DirEntry, DirSink, FileId, FileKattr, FileType, Filesystem,
+    FsInfo, FsResult, Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions,
+    PosixAcl, RenameMode, SeekHole, SetAttr, StatFs, TimeSet, Timestamp, XattrSet,
 };
 
 use crate::Options;
@@ -136,6 +136,88 @@ fn set_new_attrs(fd: RawFd, mode: u32, uid: u32, gid: u32) -> FsResult<()> {
     }
 }
 
+/// Private handle format; the body wraps an underlying Linux exportfs handle.
+const HOST_HANDLE: i32 = 0x81;
+
+#[repr(C)]
+struct NativeHandle {
+    bytes: u32,
+    kind: i32,
+    data: [u8; 128],
+}
+
+impl NativeHandle {
+    fn empty() -> Self {
+        Self {
+            bytes: 128,
+            kind: 0,
+            data: [0; 128],
+        }
+    }
+}
+
+fn encode_native(fd: RawFd) -> FsResult<NativeHandle> {
+    let mut handle = NativeHandle::empty();
+    let mut mount_id = 0i32;
+    // SAFETY: the buffers have the UAPI file_handle header, MAX_HANDLE_SZ data and mount id.
+    cvt(unsafe {
+        libc::syscall(
+            libc::SYS_name_to_handle_at,
+            fd,
+            c"".as_ptr(),
+            &mut handle,
+            &mut mount_id,
+            libc::AT_EMPTY_PATH,
+        )
+    } as libc::c_int)?;
+    Ok(handle)
+}
+
+/// Reconnect only through the mapped root, as exportfs_decode_fh's acceptable callback
+/// restricts a decoded dentry. Proc links supply a candidate name; they do not prove
+/// containment. openat2 (fs/namei.c path_openat, LOOKUP_BENEATH/LOOKUP_NO_SYMLINKS) does,
+/// and comparison with the pinned decoded inode rejects rename/replacement races.
+fn contained_handle(root: RawFd, decoded: RawFd) -> FsResult<OwnedFd> {
+    let root_path =
+        std::fs::read_link(format!("/proc/self/fd/{root}")).map_err(|_| Errno::ESTALE)?;
+    let decoded_path =
+        std::fs::read_link(format!("/proc/self/fd/{decoded}")).map_err(|_| Errno::ESTALE)?;
+    let relative = decoded_path
+        .strip_prefix(&root_path)
+        .map_err(|_| Errno::ESTALE)?;
+    let name = if relative.as_os_str().is_empty() {
+        c".".to_owned()
+    } else {
+        cstring(relative.as_os_str().as_encoded_bytes())?
+    };
+    const RESOLVE_BENEATH: u64 = 0x08;
+    const RESOLVE_NO_SYMLINKS: u64 = 0x04;
+    let how = [
+        (libc::O_PATH | libc::O_CLOEXEC | libc::O_NOFOLLOW) as u64,
+        0,
+        RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS,
+    ];
+    // SAFETY: how has the three u64 fields of open_how, name is NUL-terminated.
+    let fd = cvt(unsafe {
+        libc::syscall(
+            libc::SYS_openat2,
+            root,
+            name.as_ptr(),
+            how.as_ptr(),
+            std::mem::size_of_val(&how),
+        )
+    } as libc::c_int)
+    .map_err(|_| Errno::ESTALE)?;
+    // SAFETY: openat2 just returned a new owned descriptor.
+    let contained = unsafe { OwnedFd::from_raw_fd(fd) };
+    let expected = stat_fd(decoded)?;
+    let actual = stat_fd(contained.as_raw_fd())?;
+    if (expected.st_dev, expected.st_ino) != (actual.st_dev, actual.st_ino) {
+        return Err(Errno::ESTALE);
+    }
+    Ok(contained)
+}
+
 struct Shared {
     host: Arc<dyn Host>,
     options: Options,
@@ -148,6 +230,9 @@ struct Shared {
     other_devs: Mutex<Vec<libc::dev_t>>,
     /// Numbers given to host objects whose own do not fold (`ino`), by device and number.
     overflow: Mutex<HashMap<(libc::dev_t, u64), u64>>,
+    /// One mount anchor per underlying host filesystem. Sequential child lookup sees its
+    /// mount root first; exported ordinary inodes are never pinned by their handles.
+    export_mounts: Mutex<HashMap<libc::dev_t, Arc<OwnedFd>>>,
 }
 
 impl Shared {
@@ -278,6 +363,7 @@ impl HostFs {
             allow_hsm,
             other_devs: Mutex::default(),
             overflow: Mutex::default(),
+            export_mounts: Mutex::default(),
         });
         let root = HostNode::new(&shared, fd, &st);
         Ok(Self { shared, root })
@@ -304,6 +390,73 @@ impl Filesystem for HostFs {
 
     fn root(&self) -> Arc<dyn Node> {
         self.root.clone()
+    }
+
+    /// Native export operations (Linux fs/fhandle.c do_sys_name_to_handle). The device and
+    /// native handle type form part of our opaque filesystem-specific handle.
+    fn encode_fh(&self, node: &dyn Node) -> Option<FileId> {
+        let node = node.as_any().downcast_ref::<HostNode>()?;
+        if !Arc::ptr_eq(&node.shared, &self.shared) {
+            return None;
+        }
+        let handle = encode_native(node.fd.as_raw_fd()).ok()?;
+        let size = usize::try_from(handle.bytes).ok()?;
+        if size == 0 || size + 12 > wasixv2_vfs::MAX_HANDLE_SZ {
+            return None;
+        }
+        let mut data = node.dev.to_le_bytes().to_vec();
+        data.extend_from_slice(&handle.kind.to_le_bytes());
+        data.extend_from_slice(&handle.data[..size]);
+        Some(FileId {
+            kind: HOST_HANDLE,
+            data,
+        })
+    }
+
+    async fn fh_to_node(&self, fid: &FileId) -> FsResult<Arc<dyn Node>> {
+        if fid.kind != HOST_HANDLE
+            || fid.data.len() <= 12
+            || fid.data.len() > wasixv2_vfs::MAX_HANDLE_SZ
+        {
+            return Err(Errno::ESTALE);
+        }
+        let dev = u64::from_le_bytes(fid.data[..8].try_into().unwrap());
+        let mut native = NativeHandle::empty();
+        native.kind = i32::from_le_bytes(fid.data[8..12].try_into().unwrap());
+        native.bytes = (fid.data.len() - 12) as u32;
+        native.data[..native.bytes as usize].copy_from_slice(&fid.data[12..]);
+        let anchor = self
+            .shared
+            .export_mounts
+            .lock()
+            .unwrap()
+            .get(&dev)
+            .cloned()
+            .ok_or(Errno::ESTALE)?;
+        let root = self.root.fd.clone();
+        let (fd, st) = self
+            .shared
+            .blocking(move || {
+                // fs/fhandle.c do_handle_open: the host must also permit native decoding.
+                let fd = cvt(unsafe {
+                    libc::syscall(
+                        libc::SYS_open_by_handle_at,
+                        anchor.as_raw_fd(),
+                        &native,
+                        libc::O_PATH | libc::O_CLOEXEC,
+                    )
+                } as libc::c_int)?;
+                // SAFETY: this syscall just returned a new owned descriptor.
+                let decoded = unsafe { OwnedFd::from_raw_fd(fd) };
+                let st = stat_fd(decoded.as_raw_fd())?;
+                if st.st_dev != dev {
+                    return Err(Errno::ESTALE);
+                }
+                let contained = contained_handle(root.as_raw_fd(), decoded.as_raw_fd())?;
+                Ok::<_, Errno>((contained, st))
+            })
+            .await?;
+        Ok(HostNode::new(&self.shared, fd, &st))
     }
 
     async fn statfs(&self) -> FsResult<StatFs> {
@@ -352,8 +505,15 @@ pub struct HostNode {
 
 impl HostNode {
     fn new(shared: &Arc<Shared>, fd: OwnedFd, st: &libc::stat) -> Arc<Self> {
+        let fd = Arc::new(fd);
+        shared
+            .export_mounts
+            .lock()
+            .unwrap()
+            .entry(st.st_dev)
+            .or_insert_with(|| fd.clone());
         Arc::new(Self {
-            fd: Arc::new(fd),
+            fd,
             ino: shared.ino(st.st_dev, st.st_ino),
             dev: st.st_dev,
             file_type: file_type(st.st_mode),
@@ -1230,4 +1390,54 @@ fn read_host_dir(fd: RawFd, at: i64) -> FsResult<Vec<HostDirent>> {
 fn type_of(dir: RawFd, name: &[u8]) -> FsResult<FileType> {
     let child = open_at(dir, &cstring(name)?, libc::O_PATH | libc::O_NOFOLLOW, 0)?;
     Ok(file_type(stat_fd(child.as_raw_fd())?.st_mode))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pinned(path: &Path) -> OwnedFd {
+        let name = CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+        open_at(libc::AT_FDCWD, &name, libc::O_PATH | libc::O_NOFOLLOW, 0).unwrap()
+    }
+
+    #[test]
+    fn decoded_handles_are_reopened_beneath_the_mapped_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("mapped");
+        let outside = dir.path().join("mapped-other");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(root.join("file"), b"inside").unwrap();
+        std::fs::write(outside.join("file"), b"outside").unwrap();
+        let root_fd = pinned(&root);
+        let inside_fd = pinned(&root.join("file"));
+        let outside_fd = pinned(&outside.join("file"));
+        let fd = contained_handle(root_fd.as_raw_fd(), inside_fd.as_raw_fd()).unwrap();
+        assert_eq!(
+            stat_fd(fd.as_raw_fd()).unwrap().st_ino,
+            stat_fd(inside_fd.as_raw_fd()).unwrap().st_ino
+        );
+        assert_eq!(
+            contained_handle(root_fd.as_raw_fd(), outside_fd.as_raw_fd()).err(),
+            Some(Errno::ESTALE)
+        );
+        std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
+        let link = pinned(&root.join("link"));
+        let contained = contained_handle(root_fd.as_raw_fd(), link.as_raw_fd()).unwrap();
+        assert_eq!(
+            file_type(stat_fd(contained.as_raw_fd()).unwrap().st_mode),
+            FileType::Symlink,
+            "a symlink handle names the link, never its outside target"
+        );
+        std::fs::rename(root.join("file"), outside.join("moved")).unwrap();
+        assert_eq!(
+            contained_handle(root_fd.as_raw_fd(), inside_fd.as_raw_fd()).err(),
+            Some(Errno::ESTALE)
+        );
+        // Moving the mapped root itself retains its identity; strings are only candidates.
+        let renamed = dir.path().join("renamed");
+        std::fs::rename(&root, &renamed).unwrap();
+        assert!(contained_handle(root_fd.as_raw_fd(), root_fd.as_raw_fd()).is_ok());
+    }
 }
