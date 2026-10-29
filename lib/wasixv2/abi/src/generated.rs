@@ -5332,6 +5332,1777 @@ impl GuestLayout for Limits {
     }
 }
 
+/// Limits and handle types of `name_to_handle_at` (`linux/fcntl.h` `MAX_HANDLE_SZ`,
+/// `linux/exportfs.h` `enum fid_type` and its flag bits).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FileHandleMisc(pub i32);
+impl FileHandleMisc {
+    /// `FILEID_ROOT`: the root of the filesystem, which some filesystems encode as such.
+    pub const FILEID_ROOT: Self = Self(0);
+    /// `FILEID_INO32_GEN`: a 32-bit inode number and a 32-bit generation.
+    pub const FILEID_INO32_GEN: Self = Self(1);
+    /// `FILEID_INO32_GEN_PARENT`: also the parent's inode number and generation.
+    pub const FILEID_INO32_GEN_PARENT: Self = Self(2);
+    /// `FILEID_INO64_GEN`: a 64-bit inode number and a 32-bit generation.
+    pub const FILEID_INO64_GEN: Self = Self(129);
+    /// `FILEID_INO64_GEN_PARENT`.
+    pub const FILEID_INO64_GEN_PARENT: Self = Self(130);
+    /// `FILEID_INVALID`.
+    pub const FILEID_INVALID: Self = Self(255);
+    /// `MAX_HANDLE_SZ`: the most bytes `name_to_handle_at` fills.
+    pub const MAX_HANDLE_SZ: Self = Self(128);
+    /// `FILEID_IS_CONNECTABLE`: a handle made with `AT_HANDLE_CONNECTABLE`.
+    pub const FILEID_IS_CONNECTABLE: Self = Self(65536);
+    /// `FILEID_IS_DIR`: a connectable handle of a directory.
+    pub const FILEID_IS_DIR: Self = Self(131072);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FILEID_ROOT", Self::FILEID_ROOT),
+        ("FILEID_INO32_GEN", Self::FILEID_INO32_GEN),
+        ("FILEID_INO32_GEN_PARENT", Self::FILEID_INO32_GEN_PARENT),
+        ("FILEID_INO64_GEN", Self::FILEID_INO64_GEN),
+        ("FILEID_INO64_GEN_PARENT", Self::FILEID_INO64_GEN_PARENT),
+        ("FILEID_INVALID", Self::FILEID_INVALID),
+        ("MAX_HANDLE_SZ", Self::MAX_HANDLE_SZ),
+        ("FILEID_IS_CONNECTABLE", Self::FILEID_IS_CONNECTABLE),
+        ("FILEID_IS_DIR", Self::FILEID_IS_DIR),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("FILEID_ROOT"),
+            1 => Some("FILEID_INO32_GEN"),
+            2 => Some("FILEID_INO32_GEN_PARENT"),
+            129 => Some("FILEID_INO64_GEN"),
+            130 => Some("FILEID_INO64_GEN_PARENT"),
+            255 => Some("FILEID_INVALID"),
+            128 => Some("MAX_HANDLE_SZ"),
+            65536 => Some("FILEID_IS_CONNECTABLE"),
+            131072 => Some("FILEID_IS_DIR"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for FileHandleMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "FileHandleMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for FileHandleMisc {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `FS_IOC_FSGETXATTR`/`FS_IOC_FSSETXATTR` attributes (`struct fsxattr`, `linux/fs.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Fsxattr {
+    pub fsx_xflags: u32,
+    pub fsx_extsize: u32,
+    pub fsx_nextents: u32,
+    pub fsx_projid: u32,
+    pub fsx_cowextsize: u32,
+    pub fsx_pad: [u8; 8],
+}
+const _: () = {
+    assert!(core::mem::size_of::<Fsxattr>() == 28);
+    assert!(core::mem::align_of::<Fsxattr>() == 4);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_xflags) == 0);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_extsize) == 4);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_nextents) == 8);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_projid) == 12);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_cowextsize) == 16);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_pad) == 20);
+};
+impl Default for Fsxattr {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Fsxattr {
+    const SIZE: usize = 28;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        fsx_xflags: <u32 as GuestLayout>::ZERO,
+        fsx_extsize: <u32 as GuestLayout>::ZERO,
+        fsx_nextents: <u32 as GuestLayout>::ZERO,
+        fsx_projid: <u32 as GuestLayout>::ZERO,
+        fsx_cowextsize: <u32 as GuestLayout>::ZERO,
+        fsx_pad: <[u8; 8] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            fsx_xflags: GuestLayout::read_from(&bytes[0..])?,
+            fsx_extsize: GuestLayout::read_from(&bytes[4..])?,
+            fsx_nextents: GuestLayout::read_from(&bytes[8..])?,
+            fsx_projid: GuestLayout::read_from(&bytes[12..])?,
+            fsx_cowextsize: GuestLayout::read_from(&bytes[16..])?,
+            fsx_pad: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.fsx_xflags.write_to(&mut out[0..]);
+        self.fsx_extsize.write_to(&mut out[4..]);
+        self.fsx_nextents.write_to(&mut out[8..]);
+        self.fsx_projid.write_to(&mut out[12..]);
+        self.fsx_cowextsize.write_to(&mut out[16..]);
+        self.fsx_pad.write_to(&mut out[20..]);
+    }
+}
+/// Inode flags of `FS_IOC_GETFLAGS`/`FS_IOC_SETFLAGS` (`FS_*_FL`, `linux/fs.h`; the ext2
+/// on-disk encoding).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FsInodeFlags(pub u32);
+impl FsInodeFlags {
+    pub const FS_SECRM_FL: Self = Self(0x1);
+    pub const FS_UNRM_FL: Self = Self(0x2);
+    pub const FS_COMPR_FL: Self = Self(0x4);
+    pub const FS_SYNC_FL: Self = Self(0x8);
+    pub const FS_IMMUTABLE_FL: Self = Self(0x10);
+    pub const FS_APPEND_FL: Self = Self(0x20);
+    pub const FS_NODUMP_FL: Self = Self(0x40);
+    pub const FS_NOATIME_FL: Self = Self(0x80);
+    pub const FS_DIRTY_FL: Self = Self(0x100);
+    pub const FS_COMPRBLK_FL: Self = Self(0x200);
+    pub const FS_NOCOMP_FL: Self = Self(0x400);
+    pub const FS_ENCRYPT_FL: Self = Self(0x800);
+    pub const FS_BTREE_FL: Self = Self(0x1000);
+    pub const FS_INDEX_FL: Self = Self(0x1000);
+    pub const FS_IMAGIC_FL: Self = Self(0x2000);
+    pub const FS_JOURNAL_DATA_FL: Self = Self(0x4000);
+    pub const FS_NOTAIL_FL: Self = Self(0x8000);
+    pub const FS_DIRSYNC_FL: Self = Self(0x10000);
+    pub const FS_TOPDIR_FL: Self = Self(0x20000);
+    pub const FS_HUGE_FILE_FL: Self = Self(0x40000);
+    pub const FS_EXTENT_FL: Self = Self(0x80000);
+    pub const FS_VERITY_FL: Self = Self(0x100000);
+    pub const FS_EA_INODE_FL: Self = Self(0x200000);
+    pub const FS_EOFBLOCKS_FL: Self = Self(0x400000);
+    pub const FS_NOCOW_FL: Self = Self(0x800000);
+    pub const FS_DAX_FL: Self = Self(0x2000000);
+    pub const FS_INLINE_DATA_FL: Self = Self(0x10000000);
+    pub const FS_PROJINHERIT_FL: Self = Self(0x20000000);
+    pub const FS_CASEFOLD_FL: Self = Self(0x40000000);
+    pub const FS_RESERVED_FL: Self = Self(0x80000000);
+    pub const FS_FL_USER_VISIBLE: Self = Self(0x3dfff);
+    pub const FS_FL_USER_MODIFIABLE: Self = Self(0x380ff);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FS_SECRM_FL", Self::FS_SECRM_FL),
+        ("FS_UNRM_FL", Self::FS_UNRM_FL),
+        ("FS_COMPR_FL", Self::FS_COMPR_FL),
+        ("FS_SYNC_FL", Self::FS_SYNC_FL),
+        ("FS_IMMUTABLE_FL", Self::FS_IMMUTABLE_FL),
+        ("FS_APPEND_FL", Self::FS_APPEND_FL),
+        ("FS_NODUMP_FL", Self::FS_NODUMP_FL),
+        ("FS_NOATIME_FL", Self::FS_NOATIME_FL),
+        ("FS_DIRTY_FL", Self::FS_DIRTY_FL),
+        ("FS_COMPRBLK_FL", Self::FS_COMPRBLK_FL),
+        ("FS_NOCOMP_FL", Self::FS_NOCOMP_FL),
+        ("FS_ENCRYPT_FL", Self::FS_ENCRYPT_FL),
+        ("FS_BTREE_FL", Self::FS_BTREE_FL),
+        ("FS_INDEX_FL", Self::FS_INDEX_FL),
+        ("FS_IMAGIC_FL", Self::FS_IMAGIC_FL),
+        ("FS_JOURNAL_DATA_FL", Self::FS_JOURNAL_DATA_FL),
+        ("FS_NOTAIL_FL", Self::FS_NOTAIL_FL),
+        ("FS_DIRSYNC_FL", Self::FS_DIRSYNC_FL),
+        ("FS_TOPDIR_FL", Self::FS_TOPDIR_FL),
+        ("FS_HUGE_FILE_FL", Self::FS_HUGE_FILE_FL),
+        ("FS_EXTENT_FL", Self::FS_EXTENT_FL),
+        ("FS_VERITY_FL", Self::FS_VERITY_FL),
+        ("FS_EA_INODE_FL", Self::FS_EA_INODE_FL),
+        ("FS_EOFBLOCKS_FL", Self::FS_EOFBLOCKS_FL),
+        ("FS_NOCOW_FL", Self::FS_NOCOW_FL),
+        ("FS_DAX_FL", Self::FS_DAX_FL),
+        ("FS_INLINE_DATA_FL", Self::FS_INLINE_DATA_FL),
+        ("FS_PROJINHERIT_FL", Self::FS_PROJINHERIT_FL),
+        ("FS_CASEFOLD_FL", Self::FS_CASEFOLD_FL),
+        ("FS_RESERVED_FL", Self::FS_RESERVED_FL),
+        ("FS_FL_USER_VISIBLE", Self::FS_FL_USER_VISIBLE),
+        ("FS_FL_USER_MODIFIABLE", Self::FS_FL_USER_MODIFIABLE),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FsInodeFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FsInodeFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FsInodeFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FsInodeFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FsInodeFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FsInodeFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FsInodeFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FsInodeFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FsInodeFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FsInodeFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Extended inode flags of `struct fsxattr` and `struct file_attr` (`FS_XFLAG_*`,
+/// `linux/fs.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FsXflags(pub u32);
+impl FsXflags {
+    pub const FS_XFLAG_REALTIME: Self = Self(0x1);
+    pub const FS_XFLAG_PREALLOC: Self = Self(0x2);
+    pub const FS_XFLAG_IMMUTABLE: Self = Self(0x8);
+    pub const FS_XFLAG_APPEND: Self = Self(0x10);
+    pub const FS_XFLAG_SYNC: Self = Self(0x20);
+    pub const FS_XFLAG_NOATIME: Self = Self(0x40);
+    pub const FS_XFLAG_NODUMP: Self = Self(0x80);
+    pub const FS_XFLAG_RTINHERIT: Self = Self(0x100);
+    pub const FS_XFLAG_PROJINHERIT: Self = Self(0x200);
+    pub const FS_XFLAG_NOSYMLINKS: Self = Self(0x400);
+    pub const FS_XFLAG_EXTSIZE: Self = Self(0x800);
+    pub const FS_XFLAG_EXTSZINHERIT: Self = Self(0x1000);
+    pub const FS_XFLAG_NODEFRAG: Self = Self(0x2000);
+    pub const FS_XFLAG_FILESTREAM: Self = Self(0x4000);
+    pub const FS_XFLAG_DAX: Self = Self(0x8000);
+    pub const FS_XFLAG_COWEXTSIZE: Self = Self(0x10000);
+    pub const FS_XFLAG_VERITY: Self = Self(0x20000);
+    pub const FS_XFLAG_CASEFOLD: Self = Self(0x40000);
+    pub const FS_XFLAG_CASENONPRESERVING: Self = Self(0x80000);
+    pub const FS_XFLAG_HASATTR: Self = Self(0x80000000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FS_XFLAG_REALTIME", Self::FS_XFLAG_REALTIME),
+        ("FS_XFLAG_PREALLOC", Self::FS_XFLAG_PREALLOC),
+        ("FS_XFLAG_IMMUTABLE", Self::FS_XFLAG_IMMUTABLE),
+        ("FS_XFLAG_APPEND", Self::FS_XFLAG_APPEND),
+        ("FS_XFLAG_SYNC", Self::FS_XFLAG_SYNC),
+        ("FS_XFLAG_NOATIME", Self::FS_XFLAG_NOATIME),
+        ("FS_XFLAG_NODUMP", Self::FS_XFLAG_NODUMP),
+        ("FS_XFLAG_RTINHERIT", Self::FS_XFLAG_RTINHERIT),
+        ("FS_XFLAG_PROJINHERIT", Self::FS_XFLAG_PROJINHERIT),
+        ("FS_XFLAG_NOSYMLINKS", Self::FS_XFLAG_NOSYMLINKS),
+        ("FS_XFLAG_EXTSIZE", Self::FS_XFLAG_EXTSIZE),
+        ("FS_XFLAG_EXTSZINHERIT", Self::FS_XFLAG_EXTSZINHERIT),
+        ("FS_XFLAG_NODEFRAG", Self::FS_XFLAG_NODEFRAG),
+        ("FS_XFLAG_FILESTREAM", Self::FS_XFLAG_FILESTREAM),
+        ("FS_XFLAG_DAX", Self::FS_XFLAG_DAX),
+        ("FS_XFLAG_COWEXTSIZE", Self::FS_XFLAG_COWEXTSIZE),
+        ("FS_XFLAG_VERITY", Self::FS_XFLAG_VERITY),
+        ("FS_XFLAG_CASEFOLD", Self::FS_XFLAG_CASEFOLD),
+        (
+            "FS_XFLAG_CASENONPRESERVING",
+            Self::FS_XFLAG_CASENONPRESERVING,
+        ),
+        ("FS_XFLAG_HASATTR", Self::FS_XFLAG_HASATTR),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FsXflags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FsXflags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FsXflags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FsXflags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FsXflags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FsXflags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FsXflags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FsXflags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FsXflags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FsXflags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `file_getattr`/`file_setattr` sizes (`FILE_ATTR_SIZE_*`, `linux/fs.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FileAttrSize(pub u32);
+impl FileAttrSize {
+    pub const FILE_ATTR_SIZE_VER0: Self = Self(24);
+    pub const FILE_ATTR_SIZE_LATEST: Self = Self(24);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FILE_ATTR_SIZE_VER0", Self::FILE_ATTR_SIZE_VER0),
+        ("FILE_ATTR_SIZE_LATEST", Self::FILE_ATTR_SIZE_LATEST),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            24 => Some("FILE_ATTR_SIZE_VER0"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for FileAttrSize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "FileAttrSize({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for FileAttrSize {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Header of a POSIX ACL extended attribute value (`struct posix_acl_xattr_header`,
+/// `linux/posix_acl_xattr.h`), little-endian; `posix-acl-xattr-entry` records follow.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PosixAclXattrHeader {
+    pub a_version: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PosixAclXattrHeader>() == 4);
+    assert!(core::mem::align_of::<PosixAclXattrHeader>() == 4);
+    assert!(core::mem::offset_of!(PosixAclXattrHeader, a_version) == 0);
+};
+impl Default for PosixAclXattrHeader {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PosixAclXattrHeader {
+    const SIZE: usize = 4;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        a_version: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            a_version: GuestLayout::read_from(&bytes[0..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.a_version.write_to(&mut out[0..]);
+    }
+}
+/// One entry of a POSIX ACL extended attribute (`struct posix_acl_xattr_entry`),
+/// little-endian.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PosixAclXattrEntry {
+    pub e_tag: u16,
+    pub e_perm: u16,
+    pub e_id: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PosixAclXattrEntry>() == 8);
+    assert!(core::mem::align_of::<PosixAclXattrEntry>() == 4);
+    assert!(core::mem::offset_of!(PosixAclXattrEntry, e_tag) == 0);
+    assert!(core::mem::offset_of!(PosixAclXattrEntry, e_perm) == 2);
+    assert!(core::mem::offset_of!(PosixAclXattrEntry, e_id) == 4);
+};
+impl Default for PosixAclXattrEntry {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PosixAclXattrEntry {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        e_tag: <u16 as GuestLayout>::ZERO,
+        e_perm: <u16 as GuestLayout>::ZERO,
+        e_id: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            e_tag: GuestLayout::read_from(&bytes[0..])?,
+            e_perm: GuestLayout::read_from(&bytes[2..])?,
+            e_id: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.e_tag.write_to(&mut out[0..]);
+        self.e_perm.write_to(&mut out[2..]);
+        self.e_id.write_to(&mut out[4..]);
+    }
+}
+/// POSIX ACL tags, permissions and constants (`linux/posix_acl.h`,
+/// `linux/posix_acl_xattr.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct PosixAclMisc(pub i32);
+impl PosixAclMisc {
+    pub const ACL_UNDEFINED_ID: Self = Self(-1);
+    pub const ACL_EXECUTE: Self = Self(1);
+    pub const ACL_USER_OBJ: Self = Self(1);
+    pub const ACL_USER: Self = Self(2);
+    pub const ACL_WRITE: Self = Self(2);
+    pub const POSIX_ACL_XATTR_VERSION: Self = Self(2);
+    pub const ACL_GROUP_OBJ: Self = Self(4);
+    pub const ACL_READ: Self = Self(4);
+    pub const ACL_GROUP: Self = Self(8);
+    pub const ACL_MASK: Self = Self(16);
+    pub const ACL_OTHER: Self = Self(32);
+    pub const ACL_TYPE_DEFAULT: Self = Self(16384);
+    pub const ACL_TYPE_ACCESS: Self = Self(32768);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("ACL_UNDEFINED_ID", Self::ACL_UNDEFINED_ID),
+        ("ACL_EXECUTE", Self::ACL_EXECUTE),
+        ("ACL_USER_OBJ", Self::ACL_USER_OBJ),
+        ("ACL_USER", Self::ACL_USER),
+        ("ACL_WRITE", Self::ACL_WRITE),
+        ("POSIX_ACL_XATTR_VERSION", Self::POSIX_ACL_XATTR_VERSION),
+        ("ACL_GROUP_OBJ", Self::ACL_GROUP_OBJ),
+        ("ACL_READ", Self::ACL_READ),
+        ("ACL_GROUP", Self::ACL_GROUP),
+        ("ACL_MASK", Self::ACL_MASK),
+        ("ACL_OTHER", Self::ACL_OTHER),
+        ("ACL_TYPE_DEFAULT", Self::ACL_TYPE_DEFAULT),
+        ("ACL_TYPE_ACCESS", Self::ACL_TYPE_ACCESS),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -1 => Some("ACL_UNDEFINED_ID"),
+            1 => Some("ACL_EXECUTE"),
+            2 => Some("ACL_USER"),
+            4 => Some("ACL_GROUP_OBJ"),
+            8 => Some("ACL_GROUP"),
+            16 => Some("ACL_MASK"),
+            32 => Some("ACL_OTHER"),
+            16384 => Some("ACL_TYPE_DEFAULT"),
+            32768 => Some("ACL_TYPE_ACCESS"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for PosixAclMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "PosixAclMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for PosixAclMisc {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Quota limits and usage of one id (`struct if_dqblk`, `linux/quota.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IfDqblk {
+    pub dqb_bhardlimit: u64,
+    pub dqb_bsoftlimit: u64,
+    pub dqb_curspace: u64,
+    pub dqb_ihardlimit: u64,
+    pub dqb_isoftlimit: u64,
+    pub dqb_curinodes: u64,
+    pub dqb_btime: u64,
+    pub dqb_itime: u64,
+    pub dqb_valid: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IfDqblk>() == 72);
+    assert!(core::mem::align_of::<IfDqblk>() == 8);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_bhardlimit) == 0);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_bsoftlimit) == 8);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_curspace) == 16);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_ihardlimit) == 24);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_isoftlimit) == 32);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_curinodes) == 40);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_btime) == 48);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_itime) == 56);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_valid) == 64);
+};
+impl Default for IfDqblk {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IfDqblk {
+    const SIZE: usize = 72;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        dqb_bhardlimit: <u64 as GuestLayout>::ZERO,
+        dqb_bsoftlimit: <u64 as GuestLayout>::ZERO,
+        dqb_curspace: <u64 as GuestLayout>::ZERO,
+        dqb_ihardlimit: <u64 as GuestLayout>::ZERO,
+        dqb_isoftlimit: <u64 as GuestLayout>::ZERO,
+        dqb_curinodes: <u64 as GuestLayout>::ZERO,
+        dqb_btime: <u64 as GuestLayout>::ZERO,
+        dqb_itime: <u64 as GuestLayout>::ZERO,
+        dqb_valid: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            dqb_bhardlimit: GuestLayout::read_from(&bytes[0..])?,
+            dqb_bsoftlimit: GuestLayout::read_from(&bytes[8..])?,
+            dqb_curspace: GuestLayout::read_from(&bytes[16..])?,
+            dqb_ihardlimit: GuestLayout::read_from(&bytes[24..])?,
+            dqb_isoftlimit: GuestLayout::read_from(&bytes[32..])?,
+            dqb_curinodes: GuestLayout::read_from(&bytes[40..])?,
+            dqb_btime: GuestLayout::read_from(&bytes[48..])?,
+            dqb_itime: GuestLayout::read_from(&bytes[56..])?,
+            dqb_valid: GuestLayout::read_from(&bytes[64..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.dqb_bhardlimit.write_to(&mut out[0..]);
+        self.dqb_bsoftlimit.write_to(&mut out[8..]);
+        self.dqb_curspace.write_to(&mut out[16..]);
+        self.dqb_ihardlimit.write_to(&mut out[24..]);
+        self.dqb_isoftlimit.write_to(&mut out[32..]);
+        self.dqb_curinodes.write_to(&mut out[40..]);
+        self.dqb_btime.write_to(&mut out[48..]);
+        self.dqb_itime.write_to(&mut out[56..]);
+        self.dqb_valid.write_to(&mut out[64..]);
+    }
+}
+/// `Q_GETNEXTQUOTA` result (`struct if_nextdqblk`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IfNextdqblk {
+    pub dqb_bhardlimit: u64,
+    pub dqb_bsoftlimit: u64,
+    pub dqb_curspace: u64,
+    pub dqb_ihardlimit: u64,
+    pub dqb_isoftlimit: u64,
+    pub dqb_curinodes: u64,
+    pub dqb_btime: u64,
+    pub dqb_itime: u64,
+    pub dqb_valid: u32,
+    pub dqb_id: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IfNextdqblk>() == 72);
+    assert!(core::mem::align_of::<IfNextdqblk>() == 8);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_bhardlimit) == 0);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_bsoftlimit) == 8);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_curspace) == 16);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_ihardlimit) == 24);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_isoftlimit) == 32);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_curinodes) == 40);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_btime) == 48);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_itime) == 56);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_valid) == 64);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_id) == 68);
+};
+impl Default for IfNextdqblk {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IfNextdqblk {
+    const SIZE: usize = 72;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        dqb_bhardlimit: <u64 as GuestLayout>::ZERO,
+        dqb_bsoftlimit: <u64 as GuestLayout>::ZERO,
+        dqb_curspace: <u64 as GuestLayout>::ZERO,
+        dqb_ihardlimit: <u64 as GuestLayout>::ZERO,
+        dqb_isoftlimit: <u64 as GuestLayout>::ZERO,
+        dqb_curinodes: <u64 as GuestLayout>::ZERO,
+        dqb_btime: <u64 as GuestLayout>::ZERO,
+        dqb_itime: <u64 as GuestLayout>::ZERO,
+        dqb_valid: <u32 as GuestLayout>::ZERO,
+        dqb_id: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            dqb_bhardlimit: GuestLayout::read_from(&bytes[0..])?,
+            dqb_bsoftlimit: GuestLayout::read_from(&bytes[8..])?,
+            dqb_curspace: GuestLayout::read_from(&bytes[16..])?,
+            dqb_ihardlimit: GuestLayout::read_from(&bytes[24..])?,
+            dqb_isoftlimit: GuestLayout::read_from(&bytes[32..])?,
+            dqb_curinodes: GuestLayout::read_from(&bytes[40..])?,
+            dqb_btime: GuestLayout::read_from(&bytes[48..])?,
+            dqb_itime: GuestLayout::read_from(&bytes[56..])?,
+            dqb_valid: GuestLayout::read_from(&bytes[64..])?,
+            dqb_id: GuestLayout::read_from(&bytes[68..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.dqb_bhardlimit.write_to(&mut out[0..]);
+        self.dqb_bsoftlimit.write_to(&mut out[8..]);
+        self.dqb_curspace.write_to(&mut out[16..]);
+        self.dqb_ihardlimit.write_to(&mut out[24..]);
+        self.dqb_isoftlimit.write_to(&mut out[32..]);
+        self.dqb_curinodes.write_to(&mut out[40..]);
+        self.dqb_btime.write_to(&mut out[48..]);
+        self.dqb_itime.write_to(&mut out[56..]);
+        self.dqb_valid.write_to(&mut out[64..]);
+        self.dqb_id.write_to(&mut out[68..]);
+    }
+}
+/// Quota grace times and flags of one quota type (`struct if_dqinfo`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IfDqinfo {
+    pub dqi_bgrace: u64,
+    pub dqi_igrace: u64,
+    pub dqi_flags: u32,
+    pub dqi_valid: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IfDqinfo>() == 24);
+    assert!(core::mem::align_of::<IfDqinfo>() == 8);
+    assert!(core::mem::offset_of!(IfDqinfo, dqi_bgrace) == 0);
+    assert!(core::mem::offset_of!(IfDqinfo, dqi_igrace) == 8);
+    assert!(core::mem::offset_of!(IfDqinfo, dqi_flags) == 16);
+    assert!(core::mem::offset_of!(IfDqinfo, dqi_valid) == 20);
+};
+impl Default for IfDqinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IfDqinfo {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        dqi_bgrace: <u64 as GuestLayout>::ZERO,
+        dqi_igrace: <u64 as GuestLayout>::ZERO,
+        dqi_flags: <u32 as GuestLayout>::ZERO,
+        dqi_valid: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            dqi_bgrace: GuestLayout::read_from(&bytes[0..])?,
+            dqi_igrace: GuestLayout::read_from(&bytes[8..])?,
+            dqi_flags: GuestLayout::read_from(&bytes[16..])?,
+            dqi_valid: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.dqi_bgrace.write_to(&mut out[0..]);
+        self.dqi_igrace.write_to(&mut out[8..]);
+        self.dqi_flags.write_to(&mut out[16..]);
+        self.dqi_valid.write_to(&mut out[20..]);
+    }
+}
+/// `quotactl` commands (`Q_*`, `QCMD(cmd, type)` = `cmd << SUBCMDSHIFT | type`), quota
+/// types, formats and the `dqb-valid`/`dqi-valid` bits (`linux/quota.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct QuotaMisc(pub u32);
+impl QuotaMisc {
+    pub const USRQUOTA: Self = Self(0);
+    pub const GRPQUOTA: Self = Self(1);
+    pub const QIF_BLIMITS: Self = Self(1);
+    pub const IIF_BGRACE: Self = Self(1);
+    pub const DQF_ROOT_SQUASH: Self = Self(1);
+    pub const PRJQUOTA: Self = Self(2);
+    pub const QIF_SPACE: Self = Self(2);
+    pub const IIF_IGRACE: Self = Self(2);
+    pub const QIF_ILIMITS: Self = Self(4);
+    pub const IIF_FLAGS: Self = Self(4);
+    pub const QFMT_SHMEM: Self = Self(5);
+    pub const IIF_ALL: Self = Self(7);
+    pub const SUBCMDSHIFT: Self = Self(8);
+    pub const QIF_INODES: Self = Self(8);
+    pub const SUBCMDMASK: Self = Self(255);
+    pub const QIF_BTIME: Self = Self(16);
+    pub const QIF_ITIME: Self = Self(32);
+    pub const QIF_ALL: Self = Self(63);
+    pub const Q_SYNC: Self = Self(8388609);
+    pub const Q_QUOTAON: Self = Self(8388610);
+    pub const Q_QUOTAOFF: Self = Self(8388611);
+    pub const Q_GETFMT: Self = Self(8388612);
+    pub const Q_GETINFO: Self = Self(8388613);
+    pub const Q_SETINFO: Self = Self(8388614);
+    pub const Q_GETQUOTA: Self = Self(8388615);
+    pub const Q_SETQUOTA: Self = Self(8388616);
+    pub const Q_GETNEXTQUOTA: Self = Self(8388617);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("USRQUOTA", Self::USRQUOTA),
+        ("GRPQUOTA", Self::GRPQUOTA),
+        ("QIF_BLIMITS", Self::QIF_BLIMITS),
+        ("IIF_BGRACE", Self::IIF_BGRACE),
+        ("DQF_ROOT_SQUASH", Self::DQF_ROOT_SQUASH),
+        ("PRJQUOTA", Self::PRJQUOTA),
+        ("QIF_SPACE", Self::QIF_SPACE),
+        ("IIF_IGRACE", Self::IIF_IGRACE),
+        ("QIF_ILIMITS", Self::QIF_ILIMITS),
+        ("IIF_FLAGS", Self::IIF_FLAGS),
+        ("QFMT_SHMEM", Self::QFMT_SHMEM),
+        ("IIF_ALL", Self::IIF_ALL),
+        ("SUBCMDSHIFT", Self::SUBCMDSHIFT),
+        ("QIF_INODES", Self::QIF_INODES),
+        ("SUBCMDMASK", Self::SUBCMDMASK),
+        ("QIF_BTIME", Self::QIF_BTIME),
+        ("QIF_ITIME", Self::QIF_ITIME),
+        ("QIF_ALL", Self::QIF_ALL),
+        ("Q_SYNC", Self::Q_SYNC),
+        ("Q_QUOTAON", Self::Q_QUOTAON),
+        ("Q_QUOTAOFF", Self::Q_QUOTAOFF),
+        ("Q_GETFMT", Self::Q_GETFMT),
+        ("Q_GETINFO", Self::Q_GETINFO),
+        ("Q_SETINFO", Self::Q_SETINFO),
+        ("Q_GETQUOTA", Self::Q_GETQUOTA),
+        ("Q_SETQUOTA", Self::Q_SETQUOTA),
+        ("Q_GETNEXTQUOTA", Self::Q_GETNEXTQUOTA),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("USRQUOTA"),
+            1 => Some("GRPQUOTA"),
+            2 => Some("PRJQUOTA"),
+            4 => Some("QIF_ILIMITS"),
+            5 => Some("QFMT_SHMEM"),
+            7 => Some("IIF_ALL"),
+            8 => Some("SUBCMDSHIFT"),
+            255 => Some("SUBCMDMASK"),
+            16 => Some("QIF_BTIME"),
+            32 => Some("QIF_ITIME"),
+            63 => Some("QIF_ALL"),
+            8388609 => Some("Q_SYNC"),
+            8388610 => Some("Q_QUOTAON"),
+            8388611 => Some("Q_QUOTAOFF"),
+            8388612 => Some("Q_GETFMT"),
+            8388613 => Some("Q_GETINFO"),
+            8388614 => Some("Q_SETINFO"),
+            8388615 => Some("Q_GETQUOTA"),
+            8388616 => Some("Q_SETQUOTA"),
+            8388617 => Some("Q_GETNEXTQUOTA"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for QuotaMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "QuotaMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for QuotaMisc {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// A permission event's answer, written to the fanotify descriptor (`struct
+/// fanotify_response`, `linux/fanotify.h`).
+///
+/// C: `struct fanotify_response`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyResponse {
+    pub fd: i32,
+    pub response: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyResponse>() == 8);
+    assert!(core::mem::align_of::<FanotifyResponse>() == 4);
+    assert!(core::mem::offset_of!(FanotifyResponse, fd) == 0);
+    assert!(core::mem::offset_of!(FanotifyResponse, response) == 4);
+};
+impl Default for FanotifyResponse {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyResponse {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        fd: <i32 as GuestLayout>::ZERO,
+        response: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            fd: GuestLayout::read_from(&bytes[0..])?,
+            response: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.fd.write_to(&mut out[0..]);
+        self.response.write_to(&mut out[4..]);
+    }
+}
+/// Header of each information record after an fanotify event (`struct
+/// fanotify_event_info_header`).
+///
+/// C: `struct fanotify_event_info_header`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoHeader {
+    pub info_type: u8,
+    pub pad: u8,
+    pub len: u16,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoHeader>() == 4);
+    assert!(core::mem::align_of::<FanotifyEventInfoHeader>() == 2);
+    assert!(core::mem::offset_of!(FanotifyEventInfoHeader, info_type) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoHeader, pad) == 1);
+    assert!(core::mem::offset_of!(FanotifyEventInfoHeader, len) == 2);
+};
+impl Default for FanotifyEventInfoHeader {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoHeader {
+    const SIZE: usize = 4;
+    const ALIGN: usize = 2;
+    const ZERO: Self = Self {
+        info_type: <u8 as GuestLayout>::ZERO,
+        pad: <u8 as GuestLayout>::ZERO,
+        len: <u16 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            info_type: GuestLayout::read_from(&bytes[0..])?,
+            pad: GuestLayout::read_from(&bytes[1..])?,
+            len: GuestLayout::read_from(&bytes[2..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.info_type.write_to(&mut out[0..]);
+        self.pad.write_to(&mut out[1..]);
+        self.len.write_to(&mut out[2..]);
+    }
+}
+/// A file identifier record (`struct fanotify_event_info_fid`); a `file-handle` follows at
+/// offset 12, and for `FAN_EVENT_INFO_TYPE_DFID_NAME` a NUL-terminated name after it.
+///
+/// C: `struct fanotify_event_info_fid`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoFid {
+    pub hdr: FanotifyEventInfoHeader,
+    pub fsid: KernelFsid,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoFid>() == 12);
+    assert!(core::mem::align_of::<FanotifyEventInfoFid>() == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoFid, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoFid, fsid) == 4);
+};
+impl Default for FanotifyEventInfoFid {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoFid {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        fsid: <KernelFsid as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            fsid: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.fsid.write_to(&mut out[4..]);
+    }
+}
+/// A pidfd record (`struct fanotify_event_info_pidfd`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoPidfd {
+    pub hdr: FanotifyEventInfoHeader,
+    pub pidfd: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoPidfd>() == 8);
+    assert!(core::mem::align_of::<FanotifyEventInfoPidfd>() == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoPidfd, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoPidfd, pidfd) == 4);
+};
+impl Default for FanotifyEventInfoPidfd {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoPidfd {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        pidfd: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            pidfd: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.pidfd.write_to(&mut out[4..]);
+    }
+}
+/// A filesystem error record (`struct fanotify_event_info_error`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoError {
+    pub hdr: FanotifyEventInfoHeader,
+    pub error: i32,
+    pub error_count: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoError>() == 12);
+    assert!(core::mem::align_of::<FanotifyEventInfoError>() == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoError, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoError, error) == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoError, error_count) == 8);
+};
+impl Default for FanotifyEventInfoError {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoError {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        error: <i32 as GuestLayout>::ZERO,
+        error_count: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            error: GuestLayout::read_from(&bytes[4..])?,
+            error_count: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.error.write_to(&mut out[4..]);
+        self.error_count.write_to(&mut out[8..]);
+    }
+}
+/// A mount record (`struct fanotify_event_info_mnt`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoMnt {
+    pub hdr: FanotifyEventInfoHeader,
+    pub mnt_id: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoMnt>() == 16);
+    assert!(core::mem::align_of::<FanotifyEventInfoMnt>() == 8);
+    assert!(core::mem::offset_of!(FanotifyEventInfoMnt, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoMnt, mnt_id) == 8);
+};
+impl Default for FanotifyEventInfoMnt {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoMnt {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        mnt_id: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            mnt_id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.mnt_id.write_to(&mut out[8..]);
+    }
+}
+/// `fanotify_init` flags (`FAN_CLOEXEC`, `FAN_CLASS_*`, `FAN_REPORT_*`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FanotifyInitFlags(pub u32);
+impl FanotifyInitFlags {
+    pub const FAN_CLASS_NOTIF: Self = Self(0x0);
+    pub const FAN_CLOEXEC: Self = Self(0x1);
+    pub const FAN_NONBLOCK: Self = Self(0x2);
+    pub const FAN_CLASS_CONTENT: Self = Self(0x4);
+    pub const FAN_CLASS_PRE_CONTENT: Self = Self(0x8);
+    pub const FAN_ALL_CLASS_BITS: Self = Self(0xc);
+    pub const FAN_UNLIMITED_QUEUE: Self = Self(0x10);
+    pub const FAN_UNLIMITED_MARKS: Self = Self(0x20);
+    pub const FAN_ENABLE_AUDIT: Self = Self(0x40);
+    pub const FAN_REPORT_PIDFD: Self = Self(0x80);
+    pub const FAN_REPORT_TID: Self = Self(0x100);
+    pub const FAN_REPORT_FID: Self = Self(0x200);
+    pub const FAN_REPORT_DIR_FID: Self = Self(0x400);
+    pub const FAN_REPORT_NAME: Self = Self(0x800);
+    pub const FAN_REPORT_DFID_NAME: Self = Self(0xc00);
+    pub const FAN_REPORT_TARGET_FID: Self = Self(0x1000);
+    pub const FAN_REPORT_DFID_NAME_TARGET: Self = Self(0x1e00);
+    pub const FAN_REPORT_FD_ERROR: Self = Self(0x2000);
+    pub const FAN_REPORT_MNT: Self = Self(0x4000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FAN_CLASS_NOTIF", Self::FAN_CLASS_NOTIF),
+        ("FAN_CLOEXEC", Self::FAN_CLOEXEC),
+        ("FAN_NONBLOCK", Self::FAN_NONBLOCK),
+        ("FAN_CLASS_CONTENT", Self::FAN_CLASS_CONTENT),
+        ("FAN_CLASS_PRE_CONTENT", Self::FAN_CLASS_PRE_CONTENT),
+        ("FAN_ALL_CLASS_BITS", Self::FAN_ALL_CLASS_BITS),
+        ("FAN_UNLIMITED_QUEUE", Self::FAN_UNLIMITED_QUEUE),
+        ("FAN_UNLIMITED_MARKS", Self::FAN_UNLIMITED_MARKS),
+        ("FAN_ENABLE_AUDIT", Self::FAN_ENABLE_AUDIT),
+        ("FAN_REPORT_PIDFD", Self::FAN_REPORT_PIDFD),
+        ("FAN_REPORT_TID", Self::FAN_REPORT_TID),
+        ("FAN_REPORT_FID", Self::FAN_REPORT_FID),
+        ("FAN_REPORT_DIR_FID", Self::FAN_REPORT_DIR_FID),
+        ("FAN_REPORT_NAME", Self::FAN_REPORT_NAME),
+        ("FAN_REPORT_DFID_NAME", Self::FAN_REPORT_DFID_NAME),
+        ("FAN_REPORT_TARGET_FID", Self::FAN_REPORT_TARGET_FID),
+        (
+            "FAN_REPORT_DFID_NAME_TARGET",
+            Self::FAN_REPORT_DFID_NAME_TARGET,
+        ),
+        ("FAN_REPORT_FD_ERROR", Self::FAN_REPORT_FD_ERROR),
+        ("FAN_REPORT_MNT", Self::FAN_REPORT_MNT),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FanotifyInitFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FanotifyInitFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FanotifyInitFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FanotifyInitFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FanotifyInitFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FanotifyInitFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FanotifyInitFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FanotifyInitFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FanotifyInitFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FanotifyInitFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `fanotify_mark` flags (`FAN_MARK_*`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FanotifyMarkFlags(pub u32);
+impl FanotifyMarkFlags {
+    pub const FAN_MARK_INODE: Self = Self(0x0);
+    pub const FAN_MARK_ADD: Self = Self(0x1);
+    pub const FAN_MARK_REMOVE: Self = Self(0x2);
+    pub const FAN_MARK_DONT_FOLLOW: Self = Self(0x4);
+    pub const FAN_MARK_ONLYDIR: Self = Self(0x8);
+    pub const FAN_MARK_MOUNT: Self = Self(0x10);
+    pub const FAN_MARK_IGNORED_MASK: Self = Self(0x20);
+    pub const FAN_MARK_IGNORED_SURV_MODIFY: Self = Self(0x40);
+    pub const FAN_MARK_FLUSH: Self = Self(0x80);
+    pub const FAN_MARK_FILESYSTEM: Self = Self(0x100);
+    pub const FAN_MARK_MNTNS: Self = Self(0x110);
+    pub const FAN_MARK_EVICTABLE: Self = Self(0x200);
+    pub const FAN_MARK_IGNORE: Self = Self(0x400);
+    pub const FAN_MARK_IGNORE_SURV: Self = Self(0x440);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FAN_MARK_INODE", Self::FAN_MARK_INODE),
+        ("FAN_MARK_ADD", Self::FAN_MARK_ADD),
+        ("FAN_MARK_REMOVE", Self::FAN_MARK_REMOVE),
+        ("FAN_MARK_DONT_FOLLOW", Self::FAN_MARK_DONT_FOLLOW),
+        ("FAN_MARK_ONLYDIR", Self::FAN_MARK_ONLYDIR),
+        ("FAN_MARK_MOUNT", Self::FAN_MARK_MOUNT),
+        ("FAN_MARK_IGNORED_MASK", Self::FAN_MARK_IGNORED_MASK),
+        (
+            "FAN_MARK_IGNORED_SURV_MODIFY",
+            Self::FAN_MARK_IGNORED_SURV_MODIFY,
+        ),
+        ("FAN_MARK_FLUSH", Self::FAN_MARK_FLUSH),
+        ("FAN_MARK_FILESYSTEM", Self::FAN_MARK_FILESYSTEM),
+        ("FAN_MARK_MNTNS", Self::FAN_MARK_MNTNS),
+        ("FAN_MARK_EVICTABLE", Self::FAN_MARK_EVICTABLE),
+        ("FAN_MARK_IGNORE", Self::FAN_MARK_IGNORE),
+        ("FAN_MARK_IGNORE_SURV", Self::FAN_MARK_IGNORE_SURV),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FanotifyMarkFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FanotifyMarkFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FanotifyMarkFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FanotifyMarkFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FanotifyMarkFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FanotifyMarkFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FanotifyMarkFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FanotifyMarkFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FanotifyMarkFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FanotifyMarkFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// fanotify event bits of a mark's mask and of `fanotify-event-metadata.mask` (`FAN_*`).
+///
+/// C: `uint64_t`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FanotifyMask(pub u64);
+impl FanotifyMask {
+    pub const FAN_ACCESS: Self = Self(0x1);
+    pub const FAN_MODIFY: Self = Self(0x2);
+    pub const FAN_ATTRIB: Self = Self(0x4);
+    pub const FAN_CLOSE_WRITE: Self = Self(0x8);
+    pub const FAN_CLOSE_NOWRITE: Self = Self(0x10);
+    pub const FAN_CLOSE: Self = Self(0x18);
+    pub const FAN_OPEN: Self = Self(0x20);
+    pub const FAN_MOVED_FROM: Self = Self(0x40);
+    pub const FAN_MOVED_TO: Self = Self(0x80);
+    pub const FAN_MOVE: Self = Self(0xc0);
+    pub const FAN_CREATE: Self = Self(0x100);
+    pub const FAN_DELETE: Self = Self(0x200);
+    pub const FAN_DELETE_SELF: Self = Self(0x400);
+    pub const FAN_MOVE_SELF: Self = Self(0x800);
+    pub const FAN_OPEN_EXEC: Self = Self(0x1000);
+    pub const FAN_Q_OVERFLOW: Self = Self(0x4000);
+    pub const FAN_FS_ERROR: Self = Self(0x8000);
+    pub const FAN_OPEN_PERM: Self = Self(0x10000);
+    pub const FAN_ACCESS_PERM: Self = Self(0x20000);
+    pub const FAN_OPEN_EXEC_PERM: Self = Self(0x40000);
+    pub const FAN_PRE_ACCESS: Self = Self(0x100000);
+    pub const FAN_MNT_ATTACH: Self = Self(0x1000000);
+    pub const FAN_MNT_DETACH: Self = Self(0x2000000);
+    pub const FAN_EVENT_ON_CHILD: Self = Self(0x8000000);
+    pub const FAN_RENAME: Self = Self(0x10000000);
+    pub const FAN_ONDIR: Self = Self(0x40000000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FAN_ACCESS", Self::FAN_ACCESS),
+        ("FAN_MODIFY", Self::FAN_MODIFY),
+        ("FAN_ATTRIB", Self::FAN_ATTRIB),
+        ("FAN_CLOSE_WRITE", Self::FAN_CLOSE_WRITE),
+        ("FAN_CLOSE_NOWRITE", Self::FAN_CLOSE_NOWRITE),
+        ("FAN_CLOSE", Self::FAN_CLOSE),
+        ("FAN_OPEN", Self::FAN_OPEN),
+        ("FAN_MOVED_FROM", Self::FAN_MOVED_FROM),
+        ("FAN_MOVED_TO", Self::FAN_MOVED_TO),
+        ("FAN_MOVE", Self::FAN_MOVE),
+        ("FAN_CREATE", Self::FAN_CREATE),
+        ("FAN_DELETE", Self::FAN_DELETE),
+        ("FAN_DELETE_SELF", Self::FAN_DELETE_SELF),
+        ("FAN_MOVE_SELF", Self::FAN_MOVE_SELF),
+        ("FAN_OPEN_EXEC", Self::FAN_OPEN_EXEC),
+        ("FAN_Q_OVERFLOW", Self::FAN_Q_OVERFLOW),
+        ("FAN_FS_ERROR", Self::FAN_FS_ERROR),
+        ("FAN_OPEN_PERM", Self::FAN_OPEN_PERM),
+        ("FAN_ACCESS_PERM", Self::FAN_ACCESS_PERM),
+        ("FAN_OPEN_EXEC_PERM", Self::FAN_OPEN_EXEC_PERM),
+        ("FAN_PRE_ACCESS", Self::FAN_PRE_ACCESS),
+        ("FAN_MNT_ATTACH", Self::FAN_MNT_ATTACH),
+        ("FAN_MNT_DETACH", Self::FAN_MNT_DETACH),
+        ("FAN_EVENT_ON_CHILD", Self::FAN_EVENT_ON_CHILD),
+        ("FAN_RENAME", Self::FAN_RENAME),
+        ("FAN_ONDIR", Self::FAN_ONDIR),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FanotifyMask {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FanotifyMask(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FanotifyMask {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FanotifyMask {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FanotifyMask {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FanotifyMask {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FanotifyMask {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FanotifyMask {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FanotifyMask {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FanotifyMask {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// fanotify constants: the metadata version, permission responses, the special
+/// descriptor values and the information record types (`linux/fanotify.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FanotifyMisc(pub i32);
+impl FanotifyMisc {
+    /// `FAN_EPIDFD`: the pidfd of a process that is gone.
+    pub const FAN_EPIDFD: Self = Self(-2);
+    /// `FAN_NOFD`: an event without a descriptor (FID reporting, overflow).
+    pub const FAN_NOFD: Self = Self(-1);
+    pub const FAN_NOPIDFD: Self = Self(-1);
+    pub const FAN_RESPONSE_INFO_NONE: Self = Self(0);
+    pub const FAN_ALLOW: Self = Self(1);
+    pub const FAN_EVENT_INFO_TYPE_FID: Self = Self(1);
+    pub const FAN_RESPONSE_INFO_AUDIT_RULE: Self = Self(1);
+    pub const FAN_DENY: Self = Self(2);
+    pub const FAN_EVENT_INFO_TYPE_DFID_NAME: Self = Self(2);
+    pub const FAN_EVENT_INFO_TYPE_DFID: Self = Self(3);
+    pub const FANOTIFY_METADATA_VERSION: Self = Self(3);
+    pub const FAN_EVENT_INFO_TYPE_PIDFD: Self = Self(4);
+    pub const FAN_EVENT_INFO_TYPE_ERROR: Self = Self(5);
+    pub const FAN_EVENT_INFO_TYPE_RANGE: Self = Self(6);
+    pub const FAN_EVENT_INFO_TYPE_MNT: Self = Self(7);
+    pub const FAN_ERRNO_BITS: Self = Self(8);
+    pub const FAN_EVENT_INFO_TYPE_OLD_DFID_NAME: Self = Self(10);
+    pub const FAN_EVENT_INFO_TYPE_NEW_DFID_NAME: Self = Self(12);
+    pub const FAN_AUDIT: Self = Self(16);
+    pub const FAN_ERRNO_SHIFT: Self = Self(24);
+    pub const FAN_INFO: Self = Self(32);
+    pub const FAN_ERRNO_MASK: Self = Self(255);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FAN_EPIDFD", Self::FAN_EPIDFD),
+        ("FAN_NOFD", Self::FAN_NOFD),
+        ("FAN_NOPIDFD", Self::FAN_NOPIDFD),
+        ("FAN_RESPONSE_INFO_NONE", Self::FAN_RESPONSE_INFO_NONE),
+        ("FAN_ALLOW", Self::FAN_ALLOW),
+        ("FAN_EVENT_INFO_TYPE_FID", Self::FAN_EVENT_INFO_TYPE_FID),
+        (
+            "FAN_RESPONSE_INFO_AUDIT_RULE",
+            Self::FAN_RESPONSE_INFO_AUDIT_RULE,
+        ),
+        ("FAN_DENY", Self::FAN_DENY),
+        (
+            "FAN_EVENT_INFO_TYPE_DFID_NAME",
+            Self::FAN_EVENT_INFO_TYPE_DFID_NAME,
+        ),
+        ("FAN_EVENT_INFO_TYPE_DFID", Self::FAN_EVENT_INFO_TYPE_DFID),
+        ("FANOTIFY_METADATA_VERSION", Self::FANOTIFY_METADATA_VERSION),
+        ("FAN_EVENT_INFO_TYPE_PIDFD", Self::FAN_EVENT_INFO_TYPE_PIDFD),
+        ("FAN_EVENT_INFO_TYPE_ERROR", Self::FAN_EVENT_INFO_TYPE_ERROR),
+        ("FAN_EVENT_INFO_TYPE_RANGE", Self::FAN_EVENT_INFO_TYPE_RANGE),
+        ("FAN_EVENT_INFO_TYPE_MNT", Self::FAN_EVENT_INFO_TYPE_MNT),
+        ("FAN_ERRNO_BITS", Self::FAN_ERRNO_BITS),
+        (
+            "FAN_EVENT_INFO_TYPE_OLD_DFID_NAME",
+            Self::FAN_EVENT_INFO_TYPE_OLD_DFID_NAME,
+        ),
+        (
+            "FAN_EVENT_INFO_TYPE_NEW_DFID_NAME",
+            Self::FAN_EVENT_INFO_TYPE_NEW_DFID_NAME,
+        ),
+        ("FAN_AUDIT", Self::FAN_AUDIT),
+        ("FAN_ERRNO_SHIFT", Self::FAN_ERRNO_SHIFT),
+        ("FAN_INFO", Self::FAN_INFO),
+        ("FAN_ERRNO_MASK", Self::FAN_ERRNO_MASK),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -2 => Some("FAN_EPIDFD"),
+            -1 => Some("FAN_NOFD"),
+            0 => Some("FAN_RESPONSE_INFO_NONE"),
+            1 => Some("FAN_ALLOW"),
+            2 => Some("FAN_DENY"),
+            3 => Some("FAN_EVENT_INFO_TYPE_DFID"),
+            4 => Some("FAN_EVENT_INFO_TYPE_PIDFD"),
+            5 => Some("FAN_EVENT_INFO_TYPE_ERROR"),
+            6 => Some("FAN_EVENT_INFO_TYPE_RANGE"),
+            7 => Some("FAN_EVENT_INFO_TYPE_MNT"),
+            8 => Some("FAN_ERRNO_BITS"),
+            10 => Some("FAN_EVENT_INFO_TYPE_OLD_DFID_NAME"),
+            12 => Some("FAN_EVENT_INFO_TYPE_NEW_DFID_NAME"),
+            16 => Some("FAN_AUDIT"),
+            24 => Some("FAN_ERRNO_SHIFT"),
+            32 => Some("FAN_INFO"),
+            255 => Some("FAN_ERRNO_MASK"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for FanotifyMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "FanotifyMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for FanotifyMisc {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// User data of an epoll event (kernel: a plain `__u64`).
 ///
 /// C: `union epoll_data`
@@ -19455,6 +21226,2704 @@ impl GuestLayout for IoUringGeteventsArg {
         self.ts.write_to(&mut out[16..]);
     }
 }
+/// `iocb.aio_lio_opcode` (`IOCB_CMD_*`, `linux/aio_abi.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IocbCmd(pub u16);
+impl IocbCmd {
+    pub const IOCB_CMD_PREAD: Self = Self(0);
+    pub const IOCB_CMD_PWRITE: Self = Self(1);
+    pub const IOCB_CMD_FSYNC: Self = Self(2);
+    pub const IOCB_CMD_FDSYNC: Self = Self(3);
+    pub const IOCB_CMD_POLL: Self = Self(5);
+    pub const IOCB_CMD_NOOP: Self = Self(6);
+    pub const IOCB_CMD_PREADV: Self = Self(7);
+    pub const IOCB_CMD_PWRITEV: Self = Self(8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOCB_CMD_PREAD", Self::IOCB_CMD_PREAD),
+        ("IOCB_CMD_PWRITE", Self::IOCB_CMD_PWRITE),
+        ("IOCB_CMD_FSYNC", Self::IOCB_CMD_FSYNC),
+        ("IOCB_CMD_FDSYNC", Self::IOCB_CMD_FDSYNC),
+        ("IOCB_CMD_POLL", Self::IOCB_CMD_POLL),
+        ("IOCB_CMD_NOOP", Self::IOCB_CMD_NOOP),
+        ("IOCB_CMD_PREADV", Self::IOCB_CMD_PREADV),
+        ("IOCB_CMD_PWRITEV", Self::IOCB_CMD_PWRITEV),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IOCB_CMD_PREAD"),
+            1 => Some("IOCB_CMD_PWRITE"),
+            2 => Some("IOCB_CMD_FSYNC"),
+            3 => Some("IOCB_CMD_FDSYNC"),
+            5 => Some("IOCB_CMD_POLL"),
+            6 => Some("IOCB_CMD_NOOP"),
+            7 => Some("IOCB_CMD_PREADV"),
+            8 => Some("IOCB_CMD_PWRITEV"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IocbCmd {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IocbCmd({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IocbCmd {
+    const SIZE: usize = <u16 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u16 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u16 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `iocb.aio_flags` (`IOCB_FLAG_*`, `linux/aio_abi.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IocbFlags(pub u32);
+impl IocbFlags {
+    /// `aio_resfd` names an eventfd that every completion signals.
+    pub const IOCB_FLAG_RESFD: Self = Self(0x1);
+    /// `aio_reqprio` is an I/O priority.
+    pub const IOCB_FLAG_IOPRIO: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOCB_FLAG_RESFD", Self::IOCB_FLAG_RESFD),
+        ("IOCB_FLAG_IOPRIO", Self::IOCB_FLAG_IOPRIO),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IocbFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IocbFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IocbFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IocbFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IocbFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IocbFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IocbFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IocbFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IocbFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IocbFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// The header of a Linux AIO context's completion ring, which `io_setup` maps into the
+/// caller's memory at the context's address (`struct aio_ring`, `fs/aio.c`; kernel-internal,
+/// but libaio reads it). The `io-event`s follow it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct AioRing {
+    /// The context's index in the process's table (`kioctx::id`).
+    pub id: u32,
+    /// How many events the ring holds.
+    pub nr: u32,
+    /// The next event to read; userspace may move it.
+    pub head: u32,
+    /// Where the next completion goes.
+    pub tail: u32,
+    pub magic: u32,
+    pub compat_features: u32,
+    pub incompat_features: u32,
+    /// The size of this header.
+    pub header_length: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<AioRing>() == 32);
+    assert!(core::mem::align_of::<AioRing>() == 4);
+    assert!(core::mem::offset_of!(AioRing, id) == 0);
+    assert!(core::mem::offset_of!(AioRing, nr) == 4);
+    assert!(core::mem::offset_of!(AioRing, head) == 8);
+    assert!(core::mem::offset_of!(AioRing, tail) == 12);
+    assert!(core::mem::offset_of!(AioRing, magic) == 16);
+    assert!(core::mem::offset_of!(AioRing, compat_features) == 20);
+    assert!(core::mem::offset_of!(AioRing, incompat_features) == 24);
+    assert!(core::mem::offset_of!(AioRing, header_length) == 28);
+};
+impl Default for AioRing {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for AioRing {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        id: <u32 as GuestLayout>::ZERO,
+        nr: <u32 as GuestLayout>::ZERO,
+        head: <u32 as GuestLayout>::ZERO,
+        tail: <u32 as GuestLayout>::ZERO,
+        magic: <u32 as GuestLayout>::ZERO,
+        compat_features: <u32 as GuestLayout>::ZERO,
+        incompat_features: <u32 as GuestLayout>::ZERO,
+        header_length: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            id: GuestLayout::read_from(&bytes[0..])?,
+            nr: GuestLayout::read_from(&bytes[4..])?,
+            head: GuestLayout::read_from(&bytes[8..])?,
+            tail: GuestLayout::read_from(&bytes[12..])?,
+            magic: GuestLayout::read_from(&bytes[16..])?,
+            compat_features: GuestLayout::read_from(&bytes[20..])?,
+            incompat_features: GuestLayout::read_from(&bytes[24..])?,
+            header_length: GuestLayout::read_from(&bytes[28..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.id.write_to(&mut out[0..]);
+        self.nr.write_to(&mut out[4..]);
+        self.head.write_to(&mut out[8..]);
+        self.tail.write_to(&mut out[12..]);
+        self.magic.write_to(&mut out[16..]);
+        self.compat_features.write_to(&mut out[20..]);
+        self.incompat_features.write_to(&mut out[24..]);
+        self.header_length.write_to(&mut out[28..]);
+    }
+}
+/// Constants of the AIO ring (`fs/aio.c`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct AioRingMisc(pub u32);
+impl AioRingMisc {
+    pub const AIO_RING_INCOMPAT_FEATURES: Self = Self(0);
+    pub const AIO_RING_COMPAT_FEATURES: Self = Self(1);
+    pub const AIO_RING_MAGIC: Self = Self(2701791393);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "AIO_RING_INCOMPAT_FEATURES",
+            Self::AIO_RING_INCOMPAT_FEATURES,
+        ),
+        ("AIO_RING_COMPAT_FEATURES", Self::AIO_RING_COMPAT_FEATURES),
+        ("AIO_RING_MAGIC", Self::AIO_RING_MAGIC),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("AIO_RING_INCOMPAT_FEATURES"),
+            1 => Some("AIO_RING_COMPAT_FEATURES"),
+            2701791393 => Some("AIO_RING_MAGIC"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for AioRingMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "AioRingMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for AioRingMisc {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// One submission queue entry (`struct io_uring_sqe`). Most fields are unions named by the
+/// operation; their common names are used here.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringSqe {
+    pub opcode: u8,
+    pub flags: u8,
+    pub ioprio: u16,
+    pub fd: i32,
+    /// `off`, `addr2` or `cmd_op`.
+    pub off: u64,
+    /// `addr`, `splice_off_in` or `level`/`optname`.
+    pub addr: u64,
+    pub len: u32,
+    /// `rw_flags`, `fsync_flags`, `poll32_events`, `msg_flags`, `timeout_flags`,
+    /// `accept_flags`, `cancel_flags`, `open_flags`, `statx_flags` and the other per-operation
+    /// flags.
+    pub op_flags: u32,
+    pub user_data: u64,
+    /// `buf_index` or `buf_group`.
+    pub buf_index: u16,
+    pub personality: u16,
+    /// `splice_fd_in`, `file_index`, `optlen` or `addr_len`.
+    pub splice_fd_in: i32,
+    pub addr3: u64,
+    pub pad2: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringSqe>() == 64);
+    assert!(core::mem::align_of::<IoUringSqe>() == 8);
+    assert!(core::mem::offset_of!(IoUringSqe, opcode) == 0);
+    assert!(core::mem::offset_of!(IoUringSqe, flags) == 1);
+    assert!(core::mem::offset_of!(IoUringSqe, ioprio) == 2);
+    assert!(core::mem::offset_of!(IoUringSqe, fd) == 4);
+    assert!(core::mem::offset_of!(IoUringSqe, off) == 8);
+    assert!(core::mem::offset_of!(IoUringSqe, addr) == 16);
+    assert!(core::mem::offset_of!(IoUringSqe, len) == 24);
+    assert!(core::mem::offset_of!(IoUringSqe, op_flags) == 28);
+    assert!(core::mem::offset_of!(IoUringSqe, user_data) == 32);
+    assert!(core::mem::offset_of!(IoUringSqe, buf_index) == 40);
+    assert!(core::mem::offset_of!(IoUringSqe, personality) == 42);
+    assert!(core::mem::offset_of!(IoUringSqe, splice_fd_in) == 44);
+    assert!(core::mem::offset_of!(IoUringSqe, addr3) == 48);
+    assert!(core::mem::offset_of!(IoUringSqe, pad2) == 56);
+};
+impl Default for IoUringSqe {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringSqe {
+    const SIZE: usize = 64;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        opcode: <u8 as GuestLayout>::ZERO,
+        flags: <u8 as GuestLayout>::ZERO,
+        ioprio: <u16 as GuestLayout>::ZERO,
+        fd: <i32 as GuestLayout>::ZERO,
+        off: <u64 as GuestLayout>::ZERO,
+        addr: <u64 as GuestLayout>::ZERO,
+        len: <u32 as GuestLayout>::ZERO,
+        op_flags: <u32 as GuestLayout>::ZERO,
+        user_data: <u64 as GuestLayout>::ZERO,
+        buf_index: <u16 as GuestLayout>::ZERO,
+        personality: <u16 as GuestLayout>::ZERO,
+        splice_fd_in: <i32 as GuestLayout>::ZERO,
+        addr3: <u64 as GuestLayout>::ZERO,
+        pad2: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            opcode: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[1..])?,
+            ioprio: GuestLayout::read_from(&bytes[2..])?,
+            fd: GuestLayout::read_from(&bytes[4..])?,
+            off: GuestLayout::read_from(&bytes[8..])?,
+            addr: GuestLayout::read_from(&bytes[16..])?,
+            len: GuestLayout::read_from(&bytes[24..])?,
+            op_flags: GuestLayout::read_from(&bytes[28..])?,
+            user_data: GuestLayout::read_from(&bytes[32..])?,
+            buf_index: GuestLayout::read_from(&bytes[40..])?,
+            personality: GuestLayout::read_from(&bytes[42..])?,
+            splice_fd_in: GuestLayout::read_from(&bytes[44..])?,
+            addr3: GuestLayout::read_from(&bytes[48..])?,
+            pad2: GuestLayout::read_from(&bytes[56..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.opcode.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[1..]);
+        self.ioprio.write_to(&mut out[2..]);
+        self.fd.write_to(&mut out[4..]);
+        self.off.write_to(&mut out[8..]);
+        self.addr.write_to(&mut out[16..]);
+        self.len.write_to(&mut out[24..]);
+        self.op_flags.write_to(&mut out[28..]);
+        self.user_data.write_to(&mut out[32..]);
+        self.buf_index.write_to(&mut out[40..]);
+        self.personality.write_to(&mut out[42..]);
+        self.splice_fd_in.write_to(&mut out[44..]);
+        self.addr3.write_to(&mut out[48..]);
+        self.pad2.write_to(&mut out[56..]);
+    }
+}
+/// One completion queue entry (`struct io_uring_cqe`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringCqe {
+    pub user_data: u64,
+    pub res: i32,
+    pub flags: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringCqe>() == 16);
+    assert!(core::mem::align_of::<IoUringCqe>() == 8);
+    assert!(core::mem::offset_of!(IoUringCqe, user_data) == 0);
+    assert!(core::mem::offset_of!(IoUringCqe, res) == 8);
+    assert!(core::mem::offset_of!(IoUringCqe, flags) == 12);
+};
+impl Default for IoUringCqe {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringCqe {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        user_data: <u64 as GuestLayout>::ZERO,
+        res: <i32 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            user_data: GuestLayout::read_from(&bytes[0..])?,
+            res: GuestLayout::read_from(&bytes[8..])?,
+            flags: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.user_data.write_to(&mut out[0..]);
+        self.res.write_to(&mut out[8..]);
+        self.flags.write_to(&mut out[12..]);
+    }
+}
+/// `io_uring_sqe.opcode` (`enum io_uring_op`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringOp(pub u8);
+impl IoUringOp {
+    pub const IORING_OP_NOP: Self = Self(0);
+    pub const IORING_OP_READV: Self = Self(1);
+    pub const IORING_OP_WRITEV: Self = Self(2);
+    pub const IORING_OP_FSYNC: Self = Self(3);
+    pub const IORING_OP_READ_FIXED: Self = Self(4);
+    pub const IORING_OP_WRITE_FIXED: Self = Self(5);
+    pub const IORING_OP_POLL_ADD: Self = Self(6);
+    pub const IORING_OP_POLL_REMOVE: Self = Self(7);
+    pub const IORING_OP_SYNC_FILE_RANGE: Self = Self(8);
+    pub const IORING_OP_SENDMSG: Self = Self(9);
+    pub const IORING_OP_RECVMSG: Self = Self(10);
+    pub const IORING_OP_TIMEOUT: Self = Self(11);
+    pub const IORING_OP_TIMEOUT_REMOVE: Self = Self(12);
+    pub const IORING_OP_ACCEPT: Self = Self(13);
+    pub const IORING_OP_ASYNC_CANCEL: Self = Self(14);
+    pub const IORING_OP_LINK_TIMEOUT: Self = Self(15);
+    pub const IORING_OP_CONNECT: Self = Self(16);
+    pub const IORING_OP_FALLOCATE: Self = Self(17);
+    pub const IORING_OP_OPENAT: Self = Self(18);
+    pub const IORING_OP_CLOSE: Self = Self(19);
+    pub const IORING_OP_FILES_UPDATE: Self = Self(20);
+    pub const IORING_OP_STATX: Self = Self(21);
+    pub const IORING_OP_READ: Self = Self(22);
+    pub const IORING_OP_WRITE: Self = Self(23);
+    pub const IORING_OP_FADVISE: Self = Self(24);
+    pub const IORING_OP_MADVISE: Self = Self(25);
+    pub const IORING_OP_SEND: Self = Self(26);
+    pub const IORING_OP_RECV: Self = Self(27);
+    pub const IORING_OP_OPENAT2: Self = Self(28);
+    pub const IORING_OP_EPOLL_CTL: Self = Self(29);
+    pub const IORING_OP_SPLICE: Self = Self(30);
+    pub const IORING_OP_PROVIDE_BUFFERS: Self = Self(31);
+    pub const IORING_OP_REMOVE_BUFFERS: Self = Self(32);
+    pub const IORING_OP_TEE: Self = Self(33);
+    pub const IORING_OP_SHUTDOWN: Self = Self(34);
+    pub const IORING_OP_RENAMEAT: Self = Self(35);
+    pub const IORING_OP_UNLINKAT: Self = Self(36);
+    pub const IORING_OP_MKDIRAT: Self = Self(37);
+    pub const IORING_OP_SYMLINKAT: Self = Self(38);
+    pub const IORING_OP_LINKAT: Self = Self(39);
+    pub const IORING_OP_MSG_RING: Self = Self(40);
+    pub const IORING_OP_FSETXATTR: Self = Self(41);
+    pub const IORING_OP_SETXATTR: Self = Self(42);
+    pub const IORING_OP_FGETXATTR: Self = Self(43);
+    pub const IORING_OP_GETXATTR: Self = Self(44);
+    pub const IORING_OP_SOCKET: Self = Self(45);
+    pub const IORING_OP_URING_CMD: Self = Self(46);
+    pub const IORING_OP_SEND_ZC: Self = Self(47);
+    pub const IORING_OP_SENDMSG_ZC: Self = Self(48);
+    pub const IORING_OP_READ_MULTISHOT: Self = Self(49);
+    pub const IORING_OP_WAITID: Self = Self(50);
+    pub const IORING_OP_FUTEX_WAIT: Self = Self(51);
+    pub const IORING_OP_FUTEX_WAKE: Self = Self(52);
+    pub const IORING_OP_FUTEX_WAITV: Self = Self(53);
+    pub const IORING_OP_FIXED_FD_INSTALL: Self = Self(54);
+    pub const IORING_OP_FTRUNCATE: Self = Self(55);
+    pub const IORING_OP_BIND: Self = Self(56);
+    pub const IORING_OP_LISTEN: Self = Self(57);
+    pub const IORING_OP_RECV_ZC: Self = Self(58);
+    pub const IORING_OP_EPOLL_WAIT: Self = Self(59);
+    pub const IORING_OP_READV_FIXED: Self = Self(60);
+    pub const IORING_OP_WRITEV_FIXED: Self = Self(61);
+    pub const IORING_OP_PIPE: Self = Self(62);
+    pub const IORING_OP_NOP128: Self = Self(63);
+    pub const IORING_OP_URING_CMD128: Self = Self(64);
+    pub const IORING_OP_LAST: Self = Self(65);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_OP_NOP", Self::IORING_OP_NOP),
+        ("IORING_OP_READV", Self::IORING_OP_READV),
+        ("IORING_OP_WRITEV", Self::IORING_OP_WRITEV),
+        ("IORING_OP_FSYNC", Self::IORING_OP_FSYNC),
+        ("IORING_OP_READ_FIXED", Self::IORING_OP_READ_FIXED),
+        ("IORING_OP_WRITE_FIXED", Self::IORING_OP_WRITE_FIXED),
+        ("IORING_OP_POLL_ADD", Self::IORING_OP_POLL_ADD),
+        ("IORING_OP_POLL_REMOVE", Self::IORING_OP_POLL_REMOVE),
+        ("IORING_OP_SYNC_FILE_RANGE", Self::IORING_OP_SYNC_FILE_RANGE),
+        ("IORING_OP_SENDMSG", Self::IORING_OP_SENDMSG),
+        ("IORING_OP_RECVMSG", Self::IORING_OP_RECVMSG),
+        ("IORING_OP_TIMEOUT", Self::IORING_OP_TIMEOUT),
+        ("IORING_OP_TIMEOUT_REMOVE", Self::IORING_OP_TIMEOUT_REMOVE),
+        ("IORING_OP_ACCEPT", Self::IORING_OP_ACCEPT),
+        ("IORING_OP_ASYNC_CANCEL", Self::IORING_OP_ASYNC_CANCEL),
+        ("IORING_OP_LINK_TIMEOUT", Self::IORING_OP_LINK_TIMEOUT),
+        ("IORING_OP_CONNECT", Self::IORING_OP_CONNECT),
+        ("IORING_OP_FALLOCATE", Self::IORING_OP_FALLOCATE),
+        ("IORING_OP_OPENAT", Self::IORING_OP_OPENAT),
+        ("IORING_OP_CLOSE", Self::IORING_OP_CLOSE),
+        ("IORING_OP_FILES_UPDATE", Self::IORING_OP_FILES_UPDATE),
+        ("IORING_OP_STATX", Self::IORING_OP_STATX),
+        ("IORING_OP_READ", Self::IORING_OP_READ),
+        ("IORING_OP_WRITE", Self::IORING_OP_WRITE),
+        ("IORING_OP_FADVISE", Self::IORING_OP_FADVISE),
+        ("IORING_OP_MADVISE", Self::IORING_OP_MADVISE),
+        ("IORING_OP_SEND", Self::IORING_OP_SEND),
+        ("IORING_OP_RECV", Self::IORING_OP_RECV),
+        ("IORING_OP_OPENAT2", Self::IORING_OP_OPENAT2),
+        ("IORING_OP_EPOLL_CTL", Self::IORING_OP_EPOLL_CTL),
+        ("IORING_OP_SPLICE", Self::IORING_OP_SPLICE),
+        ("IORING_OP_PROVIDE_BUFFERS", Self::IORING_OP_PROVIDE_BUFFERS),
+        ("IORING_OP_REMOVE_BUFFERS", Self::IORING_OP_REMOVE_BUFFERS),
+        ("IORING_OP_TEE", Self::IORING_OP_TEE),
+        ("IORING_OP_SHUTDOWN", Self::IORING_OP_SHUTDOWN),
+        ("IORING_OP_RENAMEAT", Self::IORING_OP_RENAMEAT),
+        ("IORING_OP_UNLINKAT", Self::IORING_OP_UNLINKAT),
+        ("IORING_OP_MKDIRAT", Self::IORING_OP_MKDIRAT),
+        ("IORING_OP_SYMLINKAT", Self::IORING_OP_SYMLINKAT),
+        ("IORING_OP_LINKAT", Self::IORING_OP_LINKAT),
+        ("IORING_OP_MSG_RING", Self::IORING_OP_MSG_RING),
+        ("IORING_OP_FSETXATTR", Self::IORING_OP_FSETXATTR),
+        ("IORING_OP_SETXATTR", Self::IORING_OP_SETXATTR),
+        ("IORING_OP_FGETXATTR", Self::IORING_OP_FGETXATTR),
+        ("IORING_OP_GETXATTR", Self::IORING_OP_GETXATTR),
+        ("IORING_OP_SOCKET", Self::IORING_OP_SOCKET),
+        ("IORING_OP_URING_CMD", Self::IORING_OP_URING_CMD),
+        ("IORING_OP_SEND_ZC", Self::IORING_OP_SEND_ZC),
+        ("IORING_OP_SENDMSG_ZC", Self::IORING_OP_SENDMSG_ZC),
+        ("IORING_OP_READ_MULTISHOT", Self::IORING_OP_READ_MULTISHOT),
+        ("IORING_OP_WAITID", Self::IORING_OP_WAITID),
+        ("IORING_OP_FUTEX_WAIT", Self::IORING_OP_FUTEX_WAIT),
+        ("IORING_OP_FUTEX_WAKE", Self::IORING_OP_FUTEX_WAKE),
+        ("IORING_OP_FUTEX_WAITV", Self::IORING_OP_FUTEX_WAITV),
+        (
+            "IORING_OP_FIXED_FD_INSTALL",
+            Self::IORING_OP_FIXED_FD_INSTALL,
+        ),
+        ("IORING_OP_FTRUNCATE", Self::IORING_OP_FTRUNCATE),
+        ("IORING_OP_BIND", Self::IORING_OP_BIND),
+        ("IORING_OP_LISTEN", Self::IORING_OP_LISTEN),
+        ("IORING_OP_RECV_ZC", Self::IORING_OP_RECV_ZC),
+        ("IORING_OP_EPOLL_WAIT", Self::IORING_OP_EPOLL_WAIT),
+        ("IORING_OP_READV_FIXED", Self::IORING_OP_READV_FIXED),
+        ("IORING_OP_WRITEV_FIXED", Self::IORING_OP_WRITEV_FIXED),
+        ("IORING_OP_PIPE", Self::IORING_OP_PIPE),
+        ("IORING_OP_NOP128", Self::IORING_OP_NOP128),
+        ("IORING_OP_URING_CMD128", Self::IORING_OP_URING_CMD128),
+        ("IORING_OP_LAST", Self::IORING_OP_LAST),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IORING_OP_NOP"),
+            1 => Some("IORING_OP_READV"),
+            2 => Some("IORING_OP_WRITEV"),
+            3 => Some("IORING_OP_FSYNC"),
+            4 => Some("IORING_OP_READ_FIXED"),
+            5 => Some("IORING_OP_WRITE_FIXED"),
+            6 => Some("IORING_OP_POLL_ADD"),
+            7 => Some("IORING_OP_POLL_REMOVE"),
+            8 => Some("IORING_OP_SYNC_FILE_RANGE"),
+            9 => Some("IORING_OP_SENDMSG"),
+            10 => Some("IORING_OP_RECVMSG"),
+            11 => Some("IORING_OP_TIMEOUT"),
+            12 => Some("IORING_OP_TIMEOUT_REMOVE"),
+            13 => Some("IORING_OP_ACCEPT"),
+            14 => Some("IORING_OP_ASYNC_CANCEL"),
+            15 => Some("IORING_OP_LINK_TIMEOUT"),
+            16 => Some("IORING_OP_CONNECT"),
+            17 => Some("IORING_OP_FALLOCATE"),
+            18 => Some("IORING_OP_OPENAT"),
+            19 => Some("IORING_OP_CLOSE"),
+            20 => Some("IORING_OP_FILES_UPDATE"),
+            21 => Some("IORING_OP_STATX"),
+            22 => Some("IORING_OP_READ"),
+            23 => Some("IORING_OP_WRITE"),
+            24 => Some("IORING_OP_FADVISE"),
+            25 => Some("IORING_OP_MADVISE"),
+            26 => Some("IORING_OP_SEND"),
+            27 => Some("IORING_OP_RECV"),
+            28 => Some("IORING_OP_OPENAT2"),
+            29 => Some("IORING_OP_EPOLL_CTL"),
+            30 => Some("IORING_OP_SPLICE"),
+            31 => Some("IORING_OP_PROVIDE_BUFFERS"),
+            32 => Some("IORING_OP_REMOVE_BUFFERS"),
+            33 => Some("IORING_OP_TEE"),
+            34 => Some("IORING_OP_SHUTDOWN"),
+            35 => Some("IORING_OP_RENAMEAT"),
+            36 => Some("IORING_OP_UNLINKAT"),
+            37 => Some("IORING_OP_MKDIRAT"),
+            38 => Some("IORING_OP_SYMLINKAT"),
+            39 => Some("IORING_OP_LINKAT"),
+            40 => Some("IORING_OP_MSG_RING"),
+            41 => Some("IORING_OP_FSETXATTR"),
+            42 => Some("IORING_OP_SETXATTR"),
+            43 => Some("IORING_OP_FGETXATTR"),
+            44 => Some("IORING_OP_GETXATTR"),
+            45 => Some("IORING_OP_SOCKET"),
+            46 => Some("IORING_OP_URING_CMD"),
+            47 => Some("IORING_OP_SEND_ZC"),
+            48 => Some("IORING_OP_SENDMSG_ZC"),
+            49 => Some("IORING_OP_READ_MULTISHOT"),
+            50 => Some("IORING_OP_WAITID"),
+            51 => Some("IORING_OP_FUTEX_WAIT"),
+            52 => Some("IORING_OP_FUTEX_WAKE"),
+            53 => Some("IORING_OP_FUTEX_WAITV"),
+            54 => Some("IORING_OP_FIXED_FD_INSTALL"),
+            55 => Some("IORING_OP_FTRUNCATE"),
+            56 => Some("IORING_OP_BIND"),
+            57 => Some("IORING_OP_LISTEN"),
+            58 => Some("IORING_OP_RECV_ZC"),
+            59 => Some("IORING_OP_EPOLL_WAIT"),
+            60 => Some("IORING_OP_READV_FIXED"),
+            61 => Some("IORING_OP_WRITEV_FIXED"),
+            62 => Some("IORING_OP_PIPE"),
+            63 => Some("IORING_OP_NOP128"),
+            64 => Some("IORING_OP_URING_CMD128"),
+            65 => Some("IORING_OP_LAST"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringOp({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringOp {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_sqe.flags` (`IOSQE_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IosqeFlags(pub u8);
+impl IosqeFlags {
+    pub const IOSQE_FIXED_FILE: Self = Self(0x1);
+    pub const IOSQE_IO_DRAIN: Self = Self(0x2);
+    pub const IOSQE_IO_LINK: Self = Self(0x4);
+    pub const IOSQE_IO_HARDLINK: Self = Self(0x8);
+    pub const IOSQE_ASYNC: Self = Self(0x10);
+    pub const IOSQE_BUFFER_SELECT: Self = Self(0x20);
+    pub const IOSQE_CQE_SKIP_SUCCESS: Self = Self(0x40);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOSQE_FIXED_FILE", Self::IOSQE_FIXED_FILE),
+        ("IOSQE_IO_DRAIN", Self::IOSQE_IO_DRAIN),
+        ("IOSQE_IO_LINK", Self::IOSQE_IO_LINK),
+        ("IOSQE_IO_HARDLINK", Self::IOSQE_IO_HARDLINK),
+        ("IOSQE_ASYNC", Self::IOSQE_ASYNC),
+        ("IOSQE_BUFFER_SELECT", Self::IOSQE_BUFFER_SELECT),
+        ("IOSQE_CQE_SKIP_SUCCESS", Self::IOSQE_CQE_SKIP_SUCCESS),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IosqeFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IosqeFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IosqeFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IosqeFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IosqeFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IosqeFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IosqeFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IosqeFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IosqeFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IosqeFlags {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_params.flags` (`IORING_SETUP_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringSetupFlags(pub u32);
+impl IoringSetupFlags {
+    pub const IORING_SETUP_IOPOLL: Self = Self(0x1);
+    pub const IORING_SETUP_SQPOLL: Self = Self(0x2);
+    pub const IORING_SETUP_SQ_AFF: Self = Self(0x4);
+    pub const IORING_SETUP_CQSIZE: Self = Self(0x8);
+    pub const IORING_SETUP_CLAMP: Self = Self(0x10);
+    pub const IORING_SETUP_ATTACH_WQ: Self = Self(0x20);
+    pub const IORING_SETUP_R_DISABLED: Self = Self(0x40);
+    pub const IORING_SETUP_SUBMIT_ALL: Self = Self(0x80);
+    pub const IORING_SETUP_COOP_TASKRUN: Self = Self(0x100);
+    pub const IORING_SETUP_TASKRUN_FLAG: Self = Self(0x200);
+    pub const IORING_SETUP_SQE128: Self = Self(0x400);
+    pub const IORING_SETUP_CQE32: Self = Self(0x800);
+    pub const IORING_SETUP_SINGLE_ISSUER: Self = Self(0x1000);
+    pub const IORING_SETUP_DEFER_TASKRUN: Self = Self(0x2000);
+    pub const IORING_SETUP_NO_MMAP: Self = Self(0x4000);
+    pub const IORING_SETUP_REGISTERED_FD_ONLY: Self = Self(0x8000);
+    pub const IORING_SETUP_NO_SQARRAY: Self = Self(0x10000);
+    pub const IORING_SETUP_HYBRID_IOPOLL: Self = Self(0x20000);
+    pub const IORING_SETUP_CQE_MIXED: Self = Self(0x40000);
+    pub const IORING_SETUP_SQE_MIXED: Self = Self(0x80000);
+    pub const IORING_SETUP_SQ_REWIND: Self = Self(0x100000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_SETUP_IOPOLL", Self::IORING_SETUP_IOPOLL),
+        ("IORING_SETUP_SQPOLL", Self::IORING_SETUP_SQPOLL),
+        ("IORING_SETUP_SQ_AFF", Self::IORING_SETUP_SQ_AFF),
+        ("IORING_SETUP_CQSIZE", Self::IORING_SETUP_CQSIZE),
+        ("IORING_SETUP_CLAMP", Self::IORING_SETUP_CLAMP),
+        ("IORING_SETUP_ATTACH_WQ", Self::IORING_SETUP_ATTACH_WQ),
+        ("IORING_SETUP_R_DISABLED", Self::IORING_SETUP_R_DISABLED),
+        ("IORING_SETUP_SUBMIT_ALL", Self::IORING_SETUP_SUBMIT_ALL),
+        ("IORING_SETUP_COOP_TASKRUN", Self::IORING_SETUP_COOP_TASKRUN),
+        ("IORING_SETUP_TASKRUN_FLAG", Self::IORING_SETUP_TASKRUN_FLAG),
+        ("IORING_SETUP_SQE128", Self::IORING_SETUP_SQE128),
+        ("IORING_SETUP_CQE32", Self::IORING_SETUP_CQE32),
+        (
+            "IORING_SETUP_SINGLE_ISSUER",
+            Self::IORING_SETUP_SINGLE_ISSUER,
+        ),
+        (
+            "IORING_SETUP_DEFER_TASKRUN",
+            Self::IORING_SETUP_DEFER_TASKRUN,
+        ),
+        ("IORING_SETUP_NO_MMAP", Self::IORING_SETUP_NO_MMAP),
+        (
+            "IORING_SETUP_REGISTERED_FD_ONLY",
+            Self::IORING_SETUP_REGISTERED_FD_ONLY,
+        ),
+        ("IORING_SETUP_NO_SQARRAY", Self::IORING_SETUP_NO_SQARRAY),
+        (
+            "IORING_SETUP_HYBRID_IOPOLL",
+            Self::IORING_SETUP_HYBRID_IOPOLL,
+        ),
+        ("IORING_SETUP_CQE_MIXED", Self::IORING_SETUP_CQE_MIXED),
+        ("IORING_SETUP_SQE_MIXED", Self::IORING_SETUP_SQE_MIXED),
+        ("IORING_SETUP_SQ_REWIND", Self::IORING_SETUP_SQ_REWIND),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringSetupFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringSetupFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringSetupFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringSetupFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringSetupFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringSetupFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringSetupFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringSetupFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringSetupFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringSetupFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_params.features` (`IORING_FEAT_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringFeatFlags(pub u32);
+impl IoringFeatFlags {
+    pub const IORING_FEAT_SINGLE_MMAP: Self = Self(0x1);
+    pub const IORING_FEAT_NODROP: Self = Self(0x2);
+    pub const IORING_FEAT_SUBMIT_STABLE: Self = Self(0x4);
+    pub const IORING_FEAT_RW_CUR_POS: Self = Self(0x8);
+    pub const IORING_FEAT_CUR_PERSONALITY: Self = Self(0x10);
+    pub const IORING_FEAT_FAST_POLL: Self = Self(0x20);
+    pub const IORING_FEAT_POLL_32BITS: Self = Self(0x40);
+    pub const IORING_FEAT_SQPOLL_NONFIXED: Self = Self(0x80);
+    pub const IORING_FEAT_EXT_ARG: Self = Self(0x100);
+    pub const IORING_FEAT_NATIVE_WORKERS: Self = Self(0x200);
+    pub const IORING_FEAT_RSRC_TAGS: Self = Self(0x400);
+    pub const IORING_FEAT_CQE_SKIP: Self = Self(0x800);
+    pub const IORING_FEAT_LINKED_FILE: Self = Self(0x1000);
+    pub const IORING_FEAT_REG_REG_RING: Self = Self(0x2000);
+    pub const IORING_FEAT_RECVSEND_BUNDLE: Self = Self(0x4000);
+    pub const IORING_FEAT_MIN_TIMEOUT: Self = Self(0x8000);
+    pub const IORING_FEAT_RW_ATTR: Self = Self(0x10000);
+    pub const IORING_FEAT_NO_IOWAIT: Self = Self(0x20000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_FEAT_SINGLE_MMAP", Self::IORING_FEAT_SINGLE_MMAP),
+        ("IORING_FEAT_NODROP", Self::IORING_FEAT_NODROP),
+        ("IORING_FEAT_SUBMIT_STABLE", Self::IORING_FEAT_SUBMIT_STABLE),
+        ("IORING_FEAT_RW_CUR_POS", Self::IORING_FEAT_RW_CUR_POS),
+        (
+            "IORING_FEAT_CUR_PERSONALITY",
+            Self::IORING_FEAT_CUR_PERSONALITY,
+        ),
+        ("IORING_FEAT_FAST_POLL", Self::IORING_FEAT_FAST_POLL),
+        ("IORING_FEAT_POLL_32BITS", Self::IORING_FEAT_POLL_32BITS),
+        (
+            "IORING_FEAT_SQPOLL_NONFIXED",
+            Self::IORING_FEAT_SQPOLL_NONFIXED,
+        ),
+        ("IORING_FEAT_EXT_ARG", Self::IORING_FEAT_EXT_ARG),
+        (
+            "IORING_FEAT_NATIVE_WORKERS",
+            Self::IORING_FEAT_NATIVE_WORKERS,
+        ),
+        ("IORING_FEAT_RSRC_TAGS", Self::IORING_FEAT_RSRC_TAGS),
+        ("IORING_FEAT_CQE_SKIP", Self::IORING_FEAT_CQE_SKIP),
+        ("IORING_FEAT_LINKED_FILE", Self::IORING_FEAT_LINKED_FILE),
+        ("IORING_FEAT_REG_REG_RING", Self::IORING_FEAT_REG_REG_RING),
+        (
+            "IORING_FEAT_RECVSEND_BUNDLE",
+            Self::IORING_FEAT_RECVSEND_BUNDLE,
+        ),
+        ("IORING_FEAT_MIN_TIMEOUT", Self::IORING_FEAT_MIN_TIMEOUT),
+        ("IORING_FEAT_RW_ATTR", Self::IORING_FEAT_RW_ATTR),
+        ("IORING_FEAT_NO_IOWAIT", Self::IORING_FEAT_NO_IOWAIT),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringFeatFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringFeatFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringFeatFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringFeatFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringFeatFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringFeatFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringFeatFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringFeatFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringFeatFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringFeatFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_enter` flags (`IORING_ENTER_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringEnterFlags(pub u32);
+impl IoringEnterFlags {
+    pub const IORING_ENTER_GETEVENTS: Self = Self(0x1);
+    pub const IORING_ENTER_SQ_WAKEUP: Self = Self(0x2);
+    pub const IORING_ENTER_SQ_WAIT: Self = Self(0x4);
+    pub const IORING_ENTER_EXT_ARG: Self = Self(0x8);
+    pub const IORING_ENTER_REGISTERED_RING: Self = Self(0x10);
+    pub const IORING_ENTER_ABS_TIMER: Self = Self(0x20);
+    pub const IORING_ENTER_EXT_ARG_REG: Self = Self(0x40);
+    pub const IORING_ENTER_NO_IOWAIT: Self = Self(0x80);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_ENTER_GETEVENTS", Self::IORING_ENTER_GETEVENTS),
+        ("IORING_ENTER_SQ_WAKEUP", Self::IORING_ENTER_SQ_WAKEUP),
+        ("IORING_ENTER_SQ_WAIT", Self::IORING_ENTER_SQ_WAIT),
+        ("IORING_ENTER_EXT_ARG", Self::IORING_ENTER_EXT_ARG),
+        (
+            "IORING_ENTER_REGISTERED_RING",
+            Self::IORING_ENTER_REGISTERED_RING,
+        ),
+        ("IORING_ENTER_ABS_TIMER", Self::IORING_ENTER_ABS_TIMER),
+        ("IORING_ENTER_EXT_ARG_REG", Self::IORING_ENTER_EXT_ARG_REG),
+        ("IORING_ENTER_NO_IOWAIT", Self::IORING_ENTER_NO_IOWAIT),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringEnterFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringEnterFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringEnterFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringEnterFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringEnterFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringEnterFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringEnterFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringEnterFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringEnterFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringEnterFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// The submission ring's flags word (`IORING_SQ_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringSqFlags(pub u32);
+impl IoringSqFlags {
+    pub const IORING_SQ_NEED_WAKEUP: Self = Self(0x1);
+    pub const IORING_SQ_CQ_OVERFLOW: Self = Self(0x2);
+    pub const IORING_SQ_TASKRUN: Self = Self(0x4);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_SQ_NEED_WAKEUP", Self::IORING_SQ_NEED_WAKEUP),
+        ("IORING_SQ_CQ_OVERFLOW", Self::IORING_SQ_CQ_OVERFLOW),
+        ("IORING_SQ_TASKRUN", Self::IORING_SQ_TASKRUN),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringSqFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringSqFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringSqFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringSqFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringSqFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringSqFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringSqFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringSqFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringSqFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringSqFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// The completion ring's flags word (`IORING_CQ_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringCqFlags(pub u32);
+impl IoringCqFlags {
+    pub const IORING_CQ_EVENTFD_DISABLED: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[(
+        "IORING_CQ_EVENTFD_DISABLED",
+        Self::IORING_CQ_EVENTFD_DISABLED,
+    )];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringCqFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringCqFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringCqFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringCqFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringCqFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringCqFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringCqFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringCqFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringCqFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringCqFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_cqe.flags` (`IORING_CQE_F_*`). The selected buffer's id is in the bits above
+/// `IORING_CQE_BUFFER_SHIFT`.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringCqeFlags(pub u32);
+impl IoringCqeFlags {
+    pub const IORING_CQE_F_BUFFER: Self = Self(0x1);
+    pub const IORING_CQE_F_MORE: Self = Self(0x2);
+    pub const IORING_CQE_F_SOCK_NONEMPTY: Self = Self(0x4);
+    pub const IORING_CQE_F_NOTIF: Self = Self(0x8);
+    pub const IORING_CQE_F_BUF_MORE: Self = Self(0x10);
+    pub const IORING_CQE_F_SKIP: Self = Self(0x20);
+    pub const IORING_CQE_F_32: Self = Self(0x8000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_CQE_F_BUFFER", Self::IORING_CQE_F_BUFFER),
+        ("IORING_CQE_F_MORE", Self::IORING_CQE_F_MORE),
+        (
+            "IORING_CQE_F_SOCK_NONEMPTY",
+            Self::IORING_CQE_F_SOCK_NONEMPTY,
+        ),
+        ("IORING_CQE_F_NOTIF", Self::IORING_CQE_F_NOTIF),
+        ("IORING_CQE_F_BUF_MORE", Self::IORING_CQE_F_BUF_MORE),
+        ("IORING_CQE_F_SKIP", Self::IORING_CQE_F_SKIP),
+        ("IORING_CQE_F_32", Self::IORING_CQE_F_32),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringCqeFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringCqeFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringCqeFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringCqeFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringCqeFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringCqeFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringCqeFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringCqeFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringCqeFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringCqeFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Per-operation flags of `io_uring_sqe` (`IORING_FSYNC_*`, `IORING_TIMEOUT_*`,
+/// `IORING_POLL_*`, `IORING_ASYNC_CANCEL_*`, `IORING_RECVSEND_*`, `IORING_ACCEPT_*`,
+/// `IORING_NOP_*`). Families share bits; each operation reads its own.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringOpFlags(pub u32);
+impl IoringOpFlags {
+    pub const IORING_FSYNC_DATASYNC: Self = Self(0x1);
+    pub const IORING_TIMEOUT_ABS: Self = Self(0x1);
+    pub const IORING_TIMEOUT_UPDATE: Self = Self(0x2);
+    pub const IORING_TIMEOUT_BOOTTIME: Self = Self(0x4);
+    pub const IORING_TIMEOUT_REALTIME: Self = Self(0x8);
+    pub const IORING_LINK_TIMEOUT_UPDATE: Self = Self(0x10);
+    pub const IORING_TIMEOUT_ETIME_SUCCESS: Self = Self(0x20);
+    pub const IORING_TIMEOUT_MULTISHOT: Self = Self(0x40);
+    pub const IORING_TIMEOUT_IMMEDIATE_ARG: Self = Self(0x80);
+    pub const IORING_TIMEOUT_CLOCK_MASK: Self = Self(0xc);
+    pub const IORING_TIMEOUT_UPDATE_MASK: Self = Self(0x12);
+    pub const IORING_POLL_ADD_MULTI: Self = Self(0x1);
+    pub const IORING_POLL_UPDATE_EVENTS: Self = Self(0x2);
+    pub const IORING_POLL_UPDATE_USER_DATA: Self = Self(0x4);
+    pub const IORING_POLL_ADD_LEVEL: Self = Self(0x8);
+    pub const IORING_ASYNC_CANCEL_ALL: Self = Self(0x1);
+    pub const IORING_ASYNC_CANCEL_FD: Self = Self(0x2);
+    pub const IORING_ASYNC_CANCEL_ANY: Self = Self(0x4);
+    pub const IORING_ASYNC_CANCEL_FD_FIXED: Self = Self(0x8);
+    pub const IORING_ASYNC_CANCEL_USERDATA: Self = Self(0x10);
+    pub const IORING_ASYNC_CANCEL_OP: Self = Self(0x20);
+    pub const IORING_RECVSEND_POLL_FIRST: Self = Self(0x1);
+    pub const IORING_RECV_MULTISHOT: Self = Self(0x2);
+    pub const IORING_RECVSEND_FIXED_BUF: Self = Self(0x4);
+    pub const IORING_SEND_ZC_REPORT_USAGE: Self = Self(0x8);
+    pub const IORING_RECVSEND_BUNDLE: Self = Self(0x10);
+    pub const IORING_SEND_VECTORIZED: Self = Self(0x20);
+    pub const IORING_ACCEPT_MULTISHOT: Self = Self(0x1);
+    pub const IORING_ACCEPT_DONTWAIT: Self = Self(0x2);
+    pub const IORING_ACCEPT_POLL_FIRST: Self = Self(0x4);
+    pub const IORING_NOP_INJECT_RESULT: Self = Self(0x1);
+    pub const IORING_NOP_FILE: Self = Self(0x2);
+    pub const IORING_NOP_FIXED_FILE: Self = Self(0x4);
+    pub const IORING_NOP_FIXED_BUFFER: Self = Self(0x8);
+    pub const IORING_NOP_TW: Self = Self(0x10);
+    pub const IORING_NOP_CQE32: Self = Self(0x20);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_FSYNC_DATASYNC", Self::IORING_FSYNC_DATASYNC),
+        ("IORING_TIMEOUT_ABS", Self::IORING_TIMEOUT_ABS),
+        ("IORING_TIMEOUT_UPDATE", Self::IORING_TIMEOUT_UPDATE),
+        ("IORING_TIMEOUT_BOOTTIME", Self::IORING_TIMEOUT_BOOTTIME),
+        ("IORING_TIMEOUT_REALTIME", Self::IORING_TIMEOUT_REALTIME),
+        (
+            "IORING_LINK_TIMEOUT_UPDATE",
+            Self::IORING_LINK_TIMEOUT_UPDATE,
+        ),
+        (
+            "IORING_TIMEOUT_ETIME_SUCCESS",
+            Self::IORING_TIMEOUT_ETIME_SUCCESS,
+        ),
+        ("IORING_TIMEOUT_MULTISHOT", Self::IORING_TIMEOUT_MULTISHOT),
+        (
+            "IORING_TIMEOUT_IMMEDIATE_ARG",
+            Self::IORING_TIMEOUT_IMMEDIATE_ARG,
+        ),
+        ("IORING_TIMEOUT_CLOCK_MASK", Self::IORING_TIMEOUT_CLOCK_MASK),
+        (
+            "IORING_TIMEOUT_UPDATE_MASK",
+            Self::IORING_TIMEOUT_UPDATE_MASK,
+        ),
+        ("IORING_POLL_ADD_MULTI", Self::IORING_POLL_ADD_MULTI),
+        ("IORING_POLL_UPDATE_EVENTS", Self::IORING_POLL_UPDATE_EVENTS),
+        (
+            "IORING_POLL_UPDATE_USER_DATA",
+            Self::IORING_POLL_UPDATE_USER_DATA,
+        ),
+        ("IORING_POLL_ADD_LEVEL", Self::IORING_POLL_ADD_LEVEL),
+        ("IORING_ASYNC_CANCEL_ALL", Self::IORING_ASYNC_CANCEL_ALL),
+        ("IORING_ASYNC_CANCEL_FD", Self::IORING_ASYNC_CANCEL_FD),
+        ("IORING_ASYNC_CANCEL_ANY", Self::IORING_ASYNC_CANCEL_ANY),
+        (
+            "IORING_ASYNC_CANCEL_FD_FIXED",
+            Self::IORING_ASYNC_CANCEL_FD_FIXED,
+        ),
+        (
+            "IORING_ASYNC_CANCEL_USERDATA",
+            Self::IORING_ASYNC_CANCEL_USERDATA,
+        ),
+        ("IORING_ASYNC_CANCEL_OP", Self::IORING_ASYNC_CANCEL_OP),
+        (
+            "IORING_RECVSEND_POLL_FIRST",
+            Self::IORING_RECVSEND_POLL_FIRST,
+        ),
+        ("IORING_RECV_MULTISHOT", Self::IORING_RECV_MULTISHOT),
+        ("IORING_RECVSEND_FIXED_BUF", Self::IORING_RECVSEND_FIXED_BUF),
+        (
+            "IORING_SEND_ZC_REPORT_USAGE",
+            Self::IORING_SEND_ZC_REPORT_USAGE,
+        ),
+        ("IORING_RECVSEND_BUNDLE", Self::IORING_RECVSEND_BUNDLE),
+        ("IORING_SEND_VECTORIZED", Self::IORING_SEND_VECTORIZED),
+        ("IORING_ACCEPT_MULTISHOT", Self::IORING_ACCEPT_MULTISHOT),
+        ("IORING_ACCEPT_DONTWAIT", Self::IORING_ACCEPT_DONTWAIT),
+        ("IORING_ACCEPT_POLL_FIRST", Self::IORING_ACCEPT_POLL_FIRST),
+        ("IORING_NOP_INJECT_RESULT", Self::IORING_NOP_INJECT_RESULT),
+        ("IORING_NOP_FILE", Self::IORING_NOP_FILE),
+        ("IORING_NOP_FIXED_FILE", Self::IORING_NOP_FIXED_FILE),
+        ("IORING_NOP_FIXED_BUFFER", Self::IORING_NOP_FIXED_BUFFER),
+        ("IORING_NOP_TW", Self::IORING_NOP_TW),
+        ("IORING_NOP_CQE32", Self::IORING_NOP_CQE32),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringOpFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringOpFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringOpFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringOpFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringOpFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringOpFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringOpFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringOpFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringOpFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringOpFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_register` operations (`enum io_uring_register_op`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringRegisterOp(pub u32);
+impl IoUringRegisterOp {
+    pub const IORING_REGISTER_BUFFERS: Self = Self(0);
+    pub const IORING_UNREGISTER_BUFFERS: Self = Self(1);
+    pub const IORING_REGISTER_FILES: Self = Self(2);
+    pub const IORING_UNREGISTER_FILES: Self = Self(3);
+    pub const IORING_REGISTER_EVENTFD: Self = Self(4);
+    pub const IORING_UNREGISTER_EVENTFD: Self = Self(5);
+    pub const IORING_REGISTER_FILES_UPDATE: Self = Self(6);
+    pub const IORING_REGISTER_EVENTFD_ASYNC: Self = Self(7);
+    pub const IORING_REGISTER_PROBE: Self = Self(8);
+    pub const IORING_REGISTER_PERSONALITY: Self = Self(9);
+    pub const IORING_UNREGISTER_PERSONALITY: Self = Self(10);
+    pub const IORING_REGISTER_RESTRICTIONS: Self = Self(11);
+    pub const IORING_REGISTER_ENABLE_RINGS: Self = Self(12);
+    pub const IORING_REGISTER_FILES2: Self = Self(13);
+    pub const IORING_REGISTER_FILES_UPDATE2: Self = Self(14);
+    pub const IORING_REGISTER_BUFFERS2: Self = Self(15);
+    pub const IORING_REGISTER_BUFFERS_UPDATE: Self = Self(16);
+    pub const IORING_REGISTER_IOWQ_AFF: Self = Self(17);
+    pub const IORING_UNREGISTER_IOWQ_AFF: Self = Self(18);
+    pub const IORING_REGISTER_IOWQ_MAX_WORKERS: Self = Self(19);
+    pub const IORING_REGISTER_RING_FDS: Self = Self(20);
+    pub const IORING_UNREGISTER_RING_FDS: Self = Self(21);
+    pub const IORING_REGISTER_PBUF_RING: Self = Self(22);
+    pub const IORING_UNREGISTER_PBUF_RING: Self = Self(23);
+    pub const IORING_REGISTER_SYNC_CANCEL: Self = Self(24);
+    pub const IORING_REGISTER_FILE_ALLOC_RANGE: Self = Self(25);
+    pub const IORING_REGISTER_PBUF_STATUS: Self = Self(26);
+    pub const IORING_REGISTER_NAPI: Self = Self(27);
+    pub const IORING_UNREGISTER_NAPI: Self = Self(28);
+    pub const IORING_REGISTER_CLOCK: Self = Self(29);
+    pub const IORING_REGISTER_CLONE_BUFFERS: Self = Self(30);
+    pub const IORING_REGISTER_SEND_MSG_RING: Self = Self(31);
+    pub const IORING_REGISTER_ZCRX_IFQ: Self = Self(32);
+    pub const IORING_REGISTER_RESIZE_RINGS: Self = Self(33);
+    pub const IORING_REGISTER_MEM_REGION: Self = Self(34);
+    pub const IORING_REGISTER_QUERY: Self = Self(35);
+    pub const IORING_REGISTER_ZCRX_CTRL: Self = Self(36);
+    pub const IORING_REGISTER_BPF_FILTER: Self = Self(37);
+    pub const IORING_REGISTER_LAST: Self = Self(38);
+    pub const IORING_REGISTER_USE_REGISTERED_RING: Self = Self(2147483648);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_REGISTER_BUFFERS", Self::IORING_REGISTER_BUFFERS),
+        ("IORING_UNREGISTER_BUFFERS", Self::IORING_UNREGISTER_BUFFERS),
+        ("IORING_REGISTER_FILES", Self::IORING_REGISTER_FILES),
+        ("IORING_UNREGISTER_FILES", Self::IORING_UNREGISTER_FILES),
+        ("IORING_REGISTER_EVENTFD", Self::IORING_REGISTER_EVENTFD),
+        ("IORING_UNREGISTER_EVENTFD", Self::IORING_UNREGISTER_EVENTFD),
+        (
+            "IORING_REGISTER_FILES_UPDATE",
+            Self::IORING_REGISTER_FILES_UPDATE,
+        ),
+        (
+            "IORING_REGISTER_EVENTFD_ASYNC",
+            Self::IORING_REGISTER_EVENTFD_ASYNC,
+        ),
+        ("IORING_REGISTER_PROBE", Self::IORING_REGISTER_PROBE),
+        (
+            "IORING_REGISTER_PERSONALITY",
+            Self::IORING_REGISTER_PERSONALITY,
+        ),
+        (
+            "IORING_UNREGISTER_PERSONALITY",
+            Self::IORING_UNREGISTER_PERSONALITY,
+        ),
+        (
+            "IORING_REGISTER_RESTRICTIONS",
+            Self::IORING_REGISTER_RESTRICTIONS,
+        ),
+        (
+            "IORING_REGISTER_ENABLE_RINGS",
+            Self::IORING_REGISTER_ENABLE_RINGS,
+        ),
+        ("IORING_REGISTER_FILES2", Self::IORING_REGISTER_FILES2),
+        (
+            "IORING_REGISTER_FILES_UPDATE2",
+            Self::IORING_REGISTER_FILES_UPDATE2,
+        ),
+        ("IORING_REGISTER_BUFFERS2", Self::IORING_REGISTER_BUFFERS2),
+        (
+            "IORING_REGISTER_BUFFERS_UPDATE",
+            Self::IORING_REGISTER_BUFFERS_UPDATE,
+        ),
+        ("IORING_REGISTER_IOWQ_AFF", Self::IORING_REGISTER_IOWQ_AFF),
+        (
+            "IORING_UNREGISTER_IOWQ_AFF",
+            Self::IORING_UNREGISTER_IOWQ_AFF,
+        ),
+        (
+            "IORING_REGISTER_IOWQ_MAX_WORKERS",
+            Self::IORING_REGISTER_IOWQ_MAX_WORKERS,
+        ),
+        ("IORING_REGISTER_RING_FDS", Self::IORING_REGISTER_RING_FDS),
+        (
+            "IORING_UNREGISTER_RING_FDS",
+            Self::IORING_UNREGISTER_RING_FDS,
+        ),
+        ("IORING_REGISTER_PBUF_RING", Self::IORING_REGISTER_PBUF_RING),
+        (
+            "IORING_UNREGISTER_PBUF_RING",
+            Self::IORING_UNREGISTER_PBUF_RING,
+        ),
+        (
+            "IORING_REGISTER_SYNC_CANCEL",
+            Self::IORING_REGISTER_SYNC_CANCEL,
+        ),
+        (
+            "IORING_REGISTER_FILE_ALLOC_RANGE",
+            Self::IORING_REGISTER_FILE_ALLOC_RANGE,
+        ),
+        (
+            "IORING_REGISTER_PBUF_STATUS",
+            Self::IORING_REGISTER_PBUF_STATUS,
+        ),
+        ("IORING_REGISTER_NAPI", Self::IORING_REGISTER_NAPI),
+        ("IORING_UNREGISTER_NAPI", Self::IORING_UNREGISTER_NAPI),
+        ("IORING_REGISTER_CLOCK", Self::IORING_REGISTER_CLOCK),
+        (
+            "IORING_REGISTER_CLONE_BUFFERS",
+            Self::IORING_REGISTER_CLONE_BUFFERS,
+        ),
+        (
+            "IORING_REGISTER_SEND_MSG_RING",
+            Self::IORING_REGISTER_SEND_MSG_RING,
+        ),
+        ("IORING_REGISTER_ZCRX_IFQ", Self::IORING_REGISTER_ZCRX_IFQ),
+        (
+            "IORING_REGISTER_RESIZE_RINGS",
+            Self::IORING_REGISTER_RESIZE_RINGS,
+        ),
+        (
+            "IORING_REGISTER_MEM_REGION",
+            Self::IORING_REGISTER_MEM_REGION,
+        ),
+        ("IORING_REGISTER_QUERY", Self::IORING_REGISTER_QUERY),
+        ("IORING_REGISTER_ZCRX_CTRL", Self::IORING_REGISTER_ZCRX_CTRL),
+        (
+            "IORING_REGISTER_BPF_FILTER",
+            Self::IORING_REGISTER_BPF_FILTER,
+        ),
+        ("IORING_REGISTER_LAST", Self::IORING_REGISTER_LAST),
+        (
+            "IORING_REGISTER_USE_REGISTERED_RING",
+            Self::IORING_REGISTER_USE_REGISTERED_RING,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IORING_REGISTER_BUFFERS"),
+            1 => Some("IORING_UNREGISTER_BUFFERS"),
+            2 => Some("IORING_REGISTER_FILES"),
+            3 => Some("IORING_UNREGISTER_FILES"),
+            4 => Some("IORING_REGISTER_EVENTFD"),
+            5 => Some("IORING_UNREGISTER_EVENTFD"),
+            6 => Some("IORING_REGISTER_FILES_UPDATE"),
+            7 => Some("IORING_REGISTER_EVENTFD_ASYNC"),
+            8 => Some("IORING_REGISTER_PROBE"),
+            9 => Some("IORING_REGISTER_PERSONALITY"),
+            10 => Some("IORING_UNREGISTER_PERSONALITY"),
+            11 => Some("IORING_REGISTER_RESTRICTIONS"),
+            12 => Some("IORING_REGISTER_ENABLE_RINGS"),
+            13 => Some("IORING_REGISTER_FILES2"),
+            14 => Some("IORING_REGISTER_FILES_UPDATE2"),
+            15 => Some("IORING_REGISTER_BUFFERS2"),
+            16 => Some("IORING_REGISTER_BUFFERS_UPDATE"),
+            17 => Some("IORING_REGISTER_IOWQ_AFF"),
+            18 => Some("IORING_UNREGISTER_IOWQ_AFF"),
+            19 => Some("IORING_REGISTER_IOWQ_MAX_WORKERS"),
+            20 => Some("IORING_REGISTER_RING_FDS"),
+            21 => Some("IORING_UNREGISTER_RING_FDS"),
+            22 => Some("IORING_REGISTER_PBUF_RING"),
+            23 => Some("IORING_UNREGISTER_PBUF_RING"),
+            24 => Some("IORING_REGISTER_SYNC_CANCEL"),
+            25 => Some("IORING_REGISTER_FILE_ALLOC_RANGE"),
+            26 => Some("IORING_REGISTER_PBUF_STATUS"),
+            27 => Some("IORING_REGISTER_NAPI"),
+            28 => Some("IORING_UNREGISTER_NAPI"),
+            29 => Some("IORING_REGISTER_CLOCK"),
+            30 => Some("IORING_REGISTER_CLONE_BUFFERS"),
+            31 => Some("IORING_REGISTER_SEND_MSG_RING"),
+            32 => Some("IORING_REGISTER_ZCRX_IFQ"),
+            33 => Some("IORING_REGISTER_RESIZE_RINGS"),
+            34 => Some("IORING_REGISTER_MEM_REGION"),
+            35 => Some("IORING_REGISTER_QUERY"),
+            36 => Some("IORING_REGISTER_ZCRX_CTRL"),
+            37 => Some("IORING_REGISTER_BPF_FILTER"),
+            38 => Some("IORING_REGISTER_LAST"),
+            2147483648 => Some("IORING_REGISTER_USE_REGISTERED_RING"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringRegisterOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringRegisterOp({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringRegisterOp {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Other io_uring constants: the `mmap` offsets of the rings (`IORING_OFF_*`), the buffer id
+/// shift of a completion, `IORING_FILE_INDEX_ALLOC`, `IORING_REGISTER_FILES_SKIP` and the
+/// probe's `IO_URING_OP_SUPPORTED`.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringMisc(pub i64);
+impl IoUringMisc {
+    pub const IORING_OFF_SQ_RING: Self = Self(0);
+    pub const IORING_OFF_CQ_RING: Self = Self(134217728);
+    pub const IORING_OFF_SQES: Self = Self(268435456);
+    pub const IORING_OFF_PBUF_RING: Self = Self(2147483648);
+    pub const IORING_OFF_PBUF_SHIFT: Self = Self(16);
+    pub const IORING_OFF_MMAP_MASK: Self = Self(4160749568);
+    pub const IORING_CQE_BUFFER_SHIFT: Self = Self(16);
+    pub const IORING_FILE_INDEX_ALLOC: Self = Self(4294967295);
+    pub const IORING_REGISTER_FILES_SKIP: Self = Self(-2);
+    pub const IO_URING_OP_SUPPORTED: Self = Self(1);
+    pub const IORING_RSRC_REGISTER_SPARSE: Self = Self(1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_OFF_SQ_RING", Self::IORING_OFF_SQ_RING),
+        ("IORING_OFF_CQ_RING", Self::IORING_OFF_CQ_RING),
+        ("IORING_OFF_SQES", Self::IORING_OFF_SQES),
+        ("IORING_OFF_PBUF_RING", Self::IORING_OFF_PBUF_RING),
+        ("IORING_OFF_PBUF_SHIFT", Self::IORING_OFF_PBUF_SHIFT),
+        ("IORING_OFF_MMAP_MASK", Self::IORING_OFF_MMAP_MASK),
+        ("IORING_CQE_BUFFER_SHIFT", Self::IORING_CQE_BUFFER_SHIFT),
+        ("IORING_FILE_INDEX_ALLOC", Self::IORING_FILE_INDEX_ALLOC),
+        (
+            "IORING_REGISTER_FILES_SKIP",
+            Self::IORING_REGISTER_FILES_SKIP,
+        ),
+        ("IO_URING_OP_SUPPORTED", Self::IO_URING_OP_SUPPORTED),
+        (
+            "IORING_RSRC_REGISTER_SPARSE",
+            Self::IORING_RSRC_REGISTER_SPARSE,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IORING_OFF_SQ_RING"),
+            134217728 => Some("IORING_OFF_CQ_RING"),
+            268435456 => Some("IORING_OFF_SQES"),
+            2147483648 => Some("IORING_OFF_PBUF_RING"),
+            16 => Some("IORING_OFF_PBUF_SHIFT"),
+            4160749568 => Some("IORING_OFF_MMAP_MASK"),
+            4294967295 => Some("IORING_FILE_INDEX_ALLOC"),
+            -2 => Some("IORING_REGISTER_FILES_SKIP"),
+            1 => Some("IO_URING_OP_SUPPORTED"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringMisc {
+    const SIZE: usize = <i64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `IORING_REGISTER_FILES_UPDATE` argument (`struct io_uring_files_update`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringFilesUpdate {
+    pub offset: u32,
+    pub resv: u32,
+    /// Guest address of the `s32` descriptors, zero-extended.
+    pub fds: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringFilesUpdate>() == 16);
+    assert!(core::mem::align_of::<IoUringFilesUpdate>() == 8);
+    assert!(core::mem::offset_of!(IoUringFilesUpdate, offset) == 0);
+    assert!(core::mem::offset_of!(IoUringFilesUpdate, resv) == 4);
+    assert!(core::mem::offset_of!(IoUringFilesUpdate, fds) == 8);
+};
+impl Default for IoUringFilesUpdate {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringFilesUpdate {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        offset: <u32 as GuestLayout>::ZERO,
+        resv: <u32 as GuestLayout>::ZERO,
+        fds: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            offset: GuestLayout::read_from(&bytes[0..])?,
+            resv: GuestLayout::read_from(&bytes[4..])?,
+            fds: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.offset.write_to(&mut out[0..]);
+        self.resv.write_to(&mut out[4..]);
+        self.fds.write_to(&mut out[8..]);
+    }
+}
+/// `IORING_REGISTER_FILES2`/`BUFFERS2` argument (`struct io_uring_rsrc_register`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringRsrcRegister {
+    pub nr: u32,
+    pub flags: u32,
+    pub resv2: u64,
+    pub data: u64,
+    pub tags: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringRsrcRegister>() == 32);
+    assert!(core::mem::align_of::<IoUringRsrcRegister>() == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, nr) == 0);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, flags) == 4);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, resv2) == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, data) == 16);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, tags) == 24);
+};
+impl Default for IoUringRsrcRegister {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringRsrcRegister {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        nr: <u32 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        resv2: <u64 as GuestLayout>::ZERO,
+        data: <u64 as GuestLayout>::ZERO,
+        tags: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[4..])?,
+            resv2: GuestLayout::read_from(&bytes[8..])?,
+            data: GuestLayout::read_from(&bytes[16..])?,
+            tags: GuestLayout::read_from(&bytes[24..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[4..]);
+        self.resv2.write_to(&mut out[8..]);
+        self.data.write_to(&mut out[16..]);
+        self.tags.write_to(&mut out[24..]);
+    }
+}
+/// `IORING_REGISTER_FILES_UPDATE2`/`BUFFERS_UPDATE` argument (`struct io_uring_rsrc_update2`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringRsrcUpdate2 {
+    pub offset: u32,
+    pub resv: u32,
+    pub data: u64,
+    pub tags: u64,
+    pub nr: u32,
+    pub resv2: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringRsrcUpdate2>() == 32);
+    assert!(core::mem::align_of::<IoUringRsrcUpdate2>() == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, offset) == 0);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, resv) == 4);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, data) == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, tags) == 16);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, nr) == 24);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, resv2) == 28);
+};
+impl Default for IoUringRsrcUpdate2 {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringRsrcUpdate2 {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        offset: <u32 as GuestLayout>::ZERO,
+        resv: <u32 as GuestLayout>::ZERO,
+        data: <u64 as GuestLayout>::ZERO,
+        tags: <u64 as GuestLayout>::ZERO,
+        nr: <u32 as GuestLayout>::ZERO,
+        resv2: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            offset: GuestLayout::read_from(&bytes[0..])?,
+            resv: GuestLayout::read_from(&bytes[4..])?,
+            data: GuestLayout::read_from(&bytes[8..])?,
+            tags: GuestLayout::read_from(&bytes[16..])?,
+            nr: GuestLayout::read_from(&bytes[24..])?,
+            resv2: GuestLayout::read_from(&bytes[28..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.offset.write_to(&mut out[0..]);
+        self.resv.write_to(&mut out[4..]);
+        self.data.write_to(&mut out[8..]);
+        self.tags.write_to(&mut out[16..]);
+        self.nr.write_to(&mut out[24..]);
+        self.resv2.write_to(&mut out[28..]);
+    }
+}
+/// The header of `IORING_REGISTER_PROBE`'s result (`struct io_uring_probe`); `ops_len`
+/// `io-uring-probe-op`s follow it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringProbe {
+    pub last_op: u8,
+    pub ops_len: u8,
+    pub resv: u16,
+    pub resv2: [u32; 3],
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringProbe>() == 16);
+    assert!(core::mem::align_of::<IoUringProbe>() == 4);
+    assert!(core::mem::offset_of!(IoUringProbe, last_op) == 0);
+    assert!(core::mem::offset_of!(IoUringProbe, ops_len) == 1);
+    assert!(core::mem::offset_of!(IoUringProbe, resv) == 2);
+    assert!(core::mem::offset_of!(IoUringProbe, resv2) == 4);
+};
+impl Default for IoUringProbe {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringProbe {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        last_op: <u8 as GuestLayout>::ZERO,
+        ops_len: <u8 as GuestLayout>::ZERO,
+        resv: <u16 as GuestLayout>::ZERO,
+        resv2: <[u32; 3] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            last_op: GuestLayout::read_from(&bytes[0..])?,
+            ops_len: GuestLayout::read_from(&bytes[1..])?,
+            resv: GuestLayout::read_from(&bytes[2..])?,
+            resv2: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.last_op.write_to(&mut out[0..]);
+        self.ops_len.write_to(&mut out[1..]);
+        self.resv.write_to(&mut out[2..]);
+        self.resv2.write_to(&mut out[4..]);
+    }
+}
+/// One operation of `IORING_REGISTER_PROBE`'s result (`struct io_uring_probe_op`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringProbeOp {
+    pub op: u8,
+    pub resv: u8,
+    pub flags: u16,
+    pub resv2: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringProbeOp>() == 8);
+    assert!(core::mem::align_of::<IoUringProbeOp>() == 4);
+    assert!(core::mem::offset_of!(IoUringProbeOp, op) == 0);
+    assert!(core::mem::offset_of!(IoUringProbeOp, resv) == 1);
+    assert!(core::mem::offset_of!(IoUringProbeOp, flags) == 2);
+    assert!(core::mem::offset_of!(IoUringProbeOp, resv2) == 4);
+};
+impl Default for IoUringProbeOp {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringProbeOp {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        op: <u8 as GuestLayout>::ZERO,
+        resv: <u8 as GuestLayout>::ZERO,
+        flags: <u16 as GuestLayout>::ZERO,
+        resv2: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            op: GuestLayout::read_from(&bytes[0..])?,
+            resv: GuestLayout::read_from(&bytes[1..])?,
+            flags: GuestLayout::read_from(&bytes[2..])?,
+            resv2: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.op.write_to(&mut out[0..]);
+        self.resv.write_to(&mut out[1..]);
+        self.flags.write_to(&mut out[2..]);
+        self.resv2.write_to(&mut out[4..]);
+    }
+}
+/// `rseq` flags (`enum rseq_flags`, `linux/rseq.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct RseqFlags(pub i32);
+impl RseqFlags {
+    pub const RSEQ_FLAG_UNREGISTER: Self = Self(0x1);
+    pub const RSEQ_FLAG_SLICE_EXT_DEFAULT_ON: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("RSEQ_FLAG_UNREGISTER", Self::RSEQ_FLAG_UNREGISTER),
+        (
+            "RSEQ_FLAG_SLICE_EXT_DEFAULT_ON",
+            Self::RSEQ_FLAG_SLICE_EXT_DEFAULT_ON,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> i32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for RseqFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("RseqFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for RseqFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for RseqFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for RseqFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for RseqFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for RseqFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for RseqFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for RseqFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for RseqFlags {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `struct rseq.cpu_id` values before or without a registration (`enum rseq_cpu_id_state`),
+/// and the sizes the auxiliary vector reports (`AT_RSEQ_FEATURE_SIZE`, `AT_RSEQ_ALIGN`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct RseqMisc(pub i32);
+impl RseqMisc {
+    pub const RSEQ_CPU_ID_UNINITIALIZED: Self = Self(-1);
+    pub const RSEQ_CPU_ID_REGISTRATION_FAILED: Self = Self(-2);
+    /// The size of the area before `struct rseq` became extensible (`ORIG_RSEQ_SIZE`, `kernel/rseq.c`).
+    pub const ORIG_RSEQ_SIZE: Self = Self(32);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("RSEQ_CPU_ID_UNINITIALIZED", Self::RSEQ_CPU_ID_UNINITIALIZED),
+        (
+            "RSEQ_CPU_ID_REGISTRATION_FAILED",
+            Self::RSEQ_CPU_ID_REGISTRATION_FAILED,
+        ),
+        ("ORIG_RSEQ_SIZE", Self::ORIG_RSEQ_SIZE),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -1 => Some("RSEQ_CPU_ID_UNINITIALIZED"),
+            -2 => Some("RSEQ_CPU_ID_REGISTRATION_FAILED"),
+            32 => Some("ORIG_RSEQ_SIZE"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for RseqMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "RseqMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for RseqMisc {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `struct rseq.flags` and `struct rseq_cs.flags` (`enum rseq_cs_flags`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct RseqCsFlags(pub u32);
+impl RseqCsFlags {
+    pub const RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT: Self = Self(0x1);
+    pub const RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL: Self = Self(0x2);
+    pub const RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE: Self = Self(0x4);
+    pub const RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE: Self = Self(0x10);
+    pub const RSEQ_CS_FLAG_SLICE_EXT_ENABLED: Self = Self(0x20);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT",
+            Self::RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT,
+        ),
+        (
+            "RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL",
+            Self::RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL,
+        ),
+        (
+            "RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE",
+            Self::RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE,
+        ),
+        (
+            "RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE",
+            Self::RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE,
+        ),
+        (
+            "RSEQ_CS_FLAG_SLICE_EXT_ENABLED",
+            Self::RSEQ_CS_FLAG_SLICE_EXT_ENABLED,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for RseqCsFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("RseqCsFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for RseqCsFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for RseqCsFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for RseqCsFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for RseqCsFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for RseqCsFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for RseqCsFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for RseqCsFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for RseqCsFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// A thread's restartable sequences area (`struct rseq`, `linux/rseq.h`), up to its feature
+/// end. Linux aligns it to 32 bytes, which WIT cannot express; the layout is the same.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Rseq {
+    pub cpu_id_start: u32,
+    pub cpu_id: u32,
+    /// Guest address of the active `struct rseq_cs`, zero-extended.
+    pub rseq_cs: u64,
+    pub flags: u32,
+    pub node_id: u32,
+    pub mm_cid: u32,
+    /// `struct rseq_slice_ctrl`.
+    pub slice_ctrl: u32,
+    pub reserved: u8,
+}
+const _: () = {
+    assert!(core::mem::size_of::<Rseq>() == 40);
+    assert!(core::mem::align_of::<Rseq>() == 8);
+    assert!(core::mem::offset_of!(Rseq, cpu_id_start) == 0);
+    assert!(core::mem::offset_of!(Rseq, cpu_id) == 4);
+    assert!(core::mem::offset_of!(Rseq, rseq_cs) == 8);
+    assert!(core::mem::offset_of!(Rseq, flags) == 16);
+    assert!(core::mem::offset_of!(Rseq, node_id) == 20);
+    assert!(core::mem::offset_of!(Rseq, mm_cid) == 24);
+    assert!(core::mem::offset_of!(Rseq, slice_ctrl) == 28);
+    assert!(core::mem::offset_of!(Rseq, reserved) == 32);
+};
+impl Default for Rseq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Rseq {
+    const SIZE: usize = 40;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        cpu_id_start: <u32 as GuestLayout>::ZERO,
+        cpu_id: <u32 as GuestLayout>::ZERO,
+        rseq_cs: <u64 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        node_id: <u32 as GuestLayout>::ZERO,
+        mm_cid: <u32 as GuestLayout>::ZERO,
+        slice_ctrl: <u32 as GuestLayout>::ZERO,
+        reserved: <u8 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            cpu_id_start: GuestLayout::read_from(&bytes[0..])?,
+            cpu_id: GuestLayout::read_from(&bytes[4..])?,
+            rseq_cs: GuestLayout::read_from(&bytes[8..])?,
+            flags: GuestLayout::read_from(&bytes[16..])?,
+            node_id: GuestLayout::read_from(&bytes[20..])?,
+            mm_cid: GuestLayout::read_from(&bytes[24..])?,
+            slice_ctrl: GuestLayout::read_from(&bytes[28..])?,
+            reserved: GuestLayout::read_from(&bytes[32..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.cpu_id_start.write_to(&mut out[0..]);
+        self.cpu_id.write_to(&mut out[4..]);
+        self.rseq_cs.write_to(&mut out[8..]);
+        self.flags.write_to(&mut out[16..]);
+        self.node_id.write_to(&mut out[20..]);
+        self.mm_cid.write_to(&mut out[24..]);
+        self.slice_ctrl.write_to(&mut out[28..]);
+        self.reserved.write_to(&mut out[32..]);
+    }
+}
 /// Terminal window size for `TIOCGWINSZ`/`TIOCSWINSZ` (`struct winsize`).
 ///
 /// C: `struct winsize`
@@ -19666,7 +24135,13 @@ impl IoctlRequest {
     pub const NS_GET_OWNER_UID: Self = Self(46852);
     pub const TIOCSPTLCK: Self = Self(1074025521);
     pub const TIOCSIG: Self = Self(1074025526);
+    /// `FS_IOC_SETFLAGS` (`_IOW('f', 2, long)`, 32-bit `long`).
+    pub const FS_IOC_SETFLAGS: Self = Self(1074030082);
+    /// `FS_IOC_SETVERSION` (`_IOW('v', 2, long)`).
+    pub const FS_IOC_SETVERSION: Self = Self(1074034178);
     pub const TFD_IOC_SET_TICKS: Self = Self(1074287616);
+    /// `FS_IOC_FSSETXATTR` (`_IOW('X', 32, struct fsxattr)`).
+    pub const FS_IOC_FSSETXATTR: Self = Self(1075599392);
     pub const TCSETS2: Self = Self(1076646955);
     pub const TCSETSW2: Self = Self(1076646956);
     pub const TCSETSF2: Self = Self(1076646957);
@@ -19675,12 +24150,28 @@ impl IoctlRequest {
     pub const TIOCGPKT: Self = Self(2147767352);
     pub const TIOCGPTLCK: Self = Self(2147767353);
     pub const TIOCGEXCL: Self = Self(2147767360);
+    /// `FS_IOC_GETFLAGS` (`_IOR('f', 1, long)`, 32-bit `long`).
+    pub const FS_IOC_GETFLAGS: Self = Self(2147771905);
+    /// `FS_IOC_GETVERSION` (`_IOR('v', 1, long)`): the inode's generation.
+    pub const FS_IOC_GETVERSION: Self = Self(2147776001);
+    /// `FS_IOC_FSGETXATTR` (`_IOR('X', 31, struct fsxattr)`).
+    pub const FS_IOC_FSGETXATTR: Self = Self(2149341215);
     pub const TCGETS2: Self = Self(2150388778);
     /// `_IOWR(PIDFS_IOCTL_MAGIC, 11, struct pidfd_info)` with the 88-byte `pidfd-info`
     /// (`PIDFD_INFO_SIZE_VER3`). It is an extensible request: the kernel takes the same type and
     /// number with any size from `PIDFD_INFO_SIZE_VER0` on, and fills as much of the caller's
     /// structure as both know.
     pub const PIDFD_GET_INFO: Self = Self(3227057931);
+    /// `SECCOMP_IOCTL_NOTIF_RECV`: `_IOWR('!', 0, struct seccomp_notif)` (`linux/seccomp.h`).
+    pub const SECCOMP_IOCTL_NOTIF_RECV: Self = Self(3226476800);
+    /// `SECCOMP_IOCTL_NOTIF_SEND`: `_IOWR('!', 1, struct seccomp_notif_resp)`.
+    pub const SECCOMP_IOCTL_NOTIF_SEND: Self = Self(3222806785);
+    /// `SECCOMP_IOCTL_NOTIF_ID_VALID`: `_IOW('!', 2, __u64)`.
+    pub const SECCOMP_IOCTL_NOTIF_ID_VALID: Self = Self(1074274562);
+    /// `SECCOMP_IOCTL_NOTIF_ADDFD`: `_IOW('!', 3, struct seccomp_notif_addfd)`.
+    pub const SECCOMP_IOCTL_NOTIF_ADDFD: Self = Self(1075323139);
+    /// `SECCOMP_IOCTL_NOTIF_SET_FLAGS`: `_IOW('!', 4, __u64)`.
+    pub const SECCOMP_IOCTL_NOTIF_SET_FLAGS: Self = Self(1074274564);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
         ("TCGETS", Self::TCGETS),
@@ -19834,7 +24325,10 @@ impl IoctlRequest {
         ("NS_GET_OWNER_UID", Self::NS_GET_OWNER_UID),
         ("TIOCSPTLCK", Self::TIOCSPTLCK),
         ("TIOCSIG", Self::TIOCSIG),
+        ("FS_IOC_SETFLAGS", Self::FS_IOC_SETFLAGS),
+        ("FS_IOC_SETVERSION", Self::FS_IOC_SETVERSION),
         ("TFD_IOC_SET_TICKS", Self::TFD_IOC_SET_TICKS),
+        ("FS_IOC_FSSETXATTR", Self::FS_IOC_FSSETXATTR),
         ("TCSETS2", Self::TCSETS2),
         ("TCSETSW2", Self::TCSETSW2),
         ("TCSETSF2", Self::TCSETSF2),
@@ -19843,8 +24337,22 @@ impl IoctlRequest {
         ("TIOCGPKT", Self::TIOCGPKT),
         ("TIOCGPTLCK", Self::TIOCGPTLCK),
         ("TIOCGEXCL", Self::TIOCGEXCL),
+        ("FS_IOC_GETFLAGS", Self::FS_IOC_GETFLAGS),
+        ("FS_IOC_GETVERSION", Self::FS_IOC_GETVERSION),
+        ("FS_IOC_FSGETXATTR", Self::FS_IOC_FSGETXATTR),
         ("TCGETS2", Self::TCGETS2),
         ("PIDFD_GET_INFO", Self::PIDFD_GET_INFO),
+        ("SECCOMP_IOCTL_NOTIF_RECV", Self::SECCOMP_IOCTL_NOTIF_RECV),
+        ("SECCOMP_IOCTL_NOTIF_SEND", Self::SECCOMP_IOCTL_NOTIF_SEND),
+        (
+            "SECCOMP_IOCTL_NOTIF_ID_VALID",
+            Self::SECCOMP_IOCTL_NOTIF_ID_VALID,
+        ),
+        ("SECCOMP_IOCTL_NOTIF_ADDFD", Self::SECCOMP_IOCTL_NOTIF_ADDFD),
+        (
+            "SECCOMP_IOCTL_NOTIF_SET_FLAGS",
+            Self::SECCOMP_IOCTL_NOTIF_SET_FLAGS,
+        ),
     ];
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
@@ -19999,7 +24507,10 @@ impl IoctlRequest {
             46852 => Some("NS_GET_OWNER_UID"),
             1074025521 => Some("TIOCSPTLCK"),
             1074025526 => Some("TIOCSIG"),
+            1074030082 => Some("FS_IOC_SETFLAGS"),
+            1074034178 => Some("FS_IOC_SETVERSION"),
             1074287616 => Some("TFD_IOC_SET_TICKS"),
+            1075599392 => Some("FS_IOC_FSSETXATTR"),
             1076646955 => Some("TCSETS2"),
             1076646956 => Some("TCSETSW2"),
             1076646957 => Some("TCSETSF2"),
@@ -20008,8 +24519,16 @@ impl IoctlRequest {
             2147767352 => Some("TIOCGPKT"),
             2147767353 => Some("TIOCGPTLCK"),
             2147767360 => Some("TIOCGEXCL"),
+            2147771905 => Some("FS_IOC_GETFLAGS"),
+            2147776001 => Some("FS_IOC_GETVERSION"),
+            2149341215 => Some("FS_IOC_FSGETXATTR"),
             2150388778 => Some("TCGETS2"),
             3227057931 => Some("PIDFD_GET_INFO"),
+            3226476800 => Some("SECCOMP_IOCTL_NOTIF_RECV"),
+            3222806785 => Some("SECCOMP_IOCTL_NOTIF_SEND"),
+            1074274562 => Some("SECCOMP_IOCTL_NOTIF_ID_VALID"),
+            1075323139 => Some("SECCOMP_IOCTL_NOTIF_ADDFD"),
+            1074274564 => Some("SECCOMP_IOCTL_NOTIF_SET_FLAGS"),
             _ => None,
         }
     }
@@ -24005,6 +28524,2434 @@ impl GuestLayout for ReflectionResult {
 }
 /// Guest pointer to a `reflection-result`.
 pub type ReflectionResultPtr = GuestPtrMut<ReflectionResult>;
+/// `seccomp` operations (first argument; `linux/seccomp.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SeccompOp(pub u32);
+impl SeccompOp {
+    pub const SECCOMP_SET_MODE_STRICT: Self = Self(0);
+    pub const SECCOMP_SET_MODE_FILTER: Self = Self(1);
+    pub const SECCOMP_GET_ACTION_AVAIL: Self = Self(2);
+    pub const SECCOMP_GET_NOTIF_SIZES: Self = Self(3);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SECCOMP_SET_MODE_STRICT", Self::SECCOMP_SET_MODE_STRICT),
+        ("SECCOMP_SET_MODE_FILTER", Self::SECCOMP_SET_MODE_FILTER),
+        ("SECCOMP_GET_ACTION_AVAIL", Self::SECCOMP_GET_ACTION_AVAIL),
+        ("SECCOMP_GET_NOTIF_SIZES", Self::SECCOMP_GET_NOTIF_SIZES),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SECCOMP_SET_MODE_STRICT"),
+            1 => Some("SECCOMP_SET_MODE_FILTER"),
+            2 => Some("SECCOMP_GET_ACTION_AVAIL"),
+            3 => Some("SECCOMP_GET_NOTIF_SIZES"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SeccompOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SeccompOp({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SeccompOp {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// A task's seccomp mode, as `PR_GET_SECCOMP` and `/proc/[pid]/status` report it
+/// (`linux/seccomp.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SeccompMode(pub u32);
+impl SeccompMode {
+    pub const SECCOMP_MODE_DISABLED: Self = Self(0);
+    pub const SECCOMP_MODE_STRICT: Self = Self(1);
+    pub const SECCOMP_MODE_FILTER: Self = Self(2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SECCOMP_MODE_DISABLED", Self::SECCOMP_MODE_DISABLED),
+        ("SECCOMP_MODE_STRICT", Self::SECCOMP_MODE_STRICT),
+        ("SECCOMP_MODE_FILTER", Self::SECCOMP_MODE_FILTER),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SECCOMP_MODE_DISABLED"),
+            1 => Some("SECCOMP_MODE_STRICT"),
+            2 => Some("SECCOMP_MODE_FILTER"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SeccompMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SeccompMode({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SeccompMode {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `SECCOMP_SET_MODE_FILTER` flags (`linux/seccomp.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SeccompFilterFlags(pub u32);
+impl SeccompFilterFlags {
+    pub const SECCOMP_FILTER_FLAG_TSYNC: Self = Self(0x1);
+    pub const SECCOMP_FILTER_FLAG_LOG: Self = Self(0x2);
+    pub const SECCOMP_FILTER_FLAG_SPEC_ALLOW: Self = Self(0x4);
+    pub const SECCOMP_FILTER_FLAG_NEW_LISTENER: Self = Self(0x8);
+    pub const SECCOMP_FILTER_FLAG_TSYNC_ESRCH: Self = Self(0x10);
+    pub const SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV: Self = Self(0x20);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SECCOMP_FILTER_FLAG_TSYNC", Self::SECCOMP_FILTER_FLAG_TSYNC),
+        ("SECCOMP_FILTER_FLAG_LOG", Self::SECCOMP_FILTER_FLAG_LOG),
+        (
+            "SECCOMP_FILTER_FLAG_SPEC_ALLOW",
+            Self::SECCOMP_FILTER_FLAG_SPEC_ALLOW,
+        ),
+        (
+            "SECCOMP_FILTER_FLAG_NEW_LISTENER",
+            Self::SECCOMP_FILTER_FLAG_NEW_LISTENER,
+        ),
+        (
+            "SECCOMP_FILTER_FLAG_TSYNC_ESRCH",
+            Self::SECCOMP_FILTER_FLAG_TSYNC_ESRCH,
+        ),
+        (
+            "SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV",
+            Self::SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for SeccompFilterFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SeccompFilterFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for SeccompFilterFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for SeccompFilterFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for SeccompFilterFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for SeccompFilterFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for SeccompFilterFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for SeccompFilterFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for SeccompFilterFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for SeccompFilterFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// What a seccomp filter returns: an action in the high 16 bits (`SECCOMP_RET_ACTION_FULL`)
+/// and data in the low 16 (`SECCOMP_RET_DATA`) (`linux/seccomp.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SeccompRet(pub u32);
+impl SeccompRet {
+    pub const SECCOMP_RET_KILL_PROCESS: Self = Self(2147483648);
+    pub const SECCOMP_RET_KILL_THREAD: Self = Self(0);
+    pub const SECCOMP_RET_KILL: Self = Self(0);
+    pub const SECCOMP_RET_TRAP: Self = Self(196608);
+    pub const SECCOMP_RET_ERRNO: Self = Self(327680);
+    pub const SECCOMP_RET_USER_NOTIF: Self = Self(2143289344);
+    pub const SECCOMP_RET_TRACE: Self = Self(2146435072);
+    pub const SECCOMP_RET_LOG: Self = Self(2147221504);
+    pub const SECCOMP_RET_ALLOW: Self = Self(2147418112);
+    pub const SECCOMP_RET_ACTION_FULL: Self = Self(4294901760);
+    pub const SECCOMP_RET_ACTION: Self = Self(2147418112);
+    pub const SECCOMP_RET_DATA: Self = Self(65535);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SECCOMP_RET_KILL_PROCESS", Self::SECCOMP_RET_KILL_PROCESS),
+        ("SECCOMP_RET_KILL_THREAD", Self::SECCOMP_RET_KILL_THREAD),
+        ("SECCOMP_RET_KILL", Self::SECCOMP_RET_KILL),
+        ("SECCOMP_RET_TRAP", Self::SECCOMP_RET_TRAP),
+        ("SECCOMP_RET_ERRNO", Self::SECCOMP_RET_ERRNO),
+        ("SECCOMP_RET_USER_NOTIF", Self::SECCOMP_RET_USER_NOTIF),
+        ("SECCOMP_RET_TRACE", Self::SECCOMP_RET_TRACE),
+        ("SECCOMP_RET_LOG", Self::SECCOMP_RET_LOG),
+        ("SECCOMP_RET_ALLOW", Self::SECCOMP_RET_ALLOW),
+        ("SECCOMP_RET_ACTION_FULL", Self::SECCOMP_RET_ACTION_FULL),
+        ("SECCOMP_RET_ACTION", Self::SECCOMP_RET_ACTION),
+        ("SECCOMP_RET_DATA", Self::SECCOMP_RET_DATA),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            2147483648 => Some("SECCOMP_RET_KILL_PROCESS"),
+            0 => Some("SECCOMP_RET_KILL_THREAD"),
+            196608 => Some("SECCOMP_RET_TRAP"),
+            327680 => Some("SECCOMP_RET_ERRNO"),
+            2143289344 => Some("SECCOMP_RET_USER_NOTIF"),
+            2146435072 => Some("SECCOMP_RET_TRACE"),
+            2147221504 => Some("SECCOMP_RET_LOG"),
+            2147418112 => Some("SECCOMP_RET_ALLOW"),
+            4294901760 => Some("SECCOMP_RET_ACTION_FULL"),
+            65535 => Some("SECCOMP_RET_DATA"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SeccompRet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SeccompRet({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SeccompRet {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `seccomp_notif_resp.flags` and `SECCOMP_IOCTL_NOTIF_SET_FLAGS` flags, and
+/// `seccomp_notif_addfd.flags` (`linux/seccomp.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SeccompNotifFlags(pub u32);
+impl SeccompNotifFlags {
+    /// `SECCOMP_USER_NOTIF_FLAG_CONTINUE` (response) and `SECCOMP_USER_NOTIF_FD_SYNC_WAKE_UP`
+    /// (`SET_FLAGS`).
+    pub const SECCOMP_USER_NOTIF_FLAG_CONTINUE: Self = Self(0x1);
+    pub const SECCOMP_USER_NOTIF_FD_SYNC_WAKE_UP: Self = Self(0x1);
+    pub const SECCOMP_ADDFD_FLAG_SETFD: Self = Self(0x1);
+    pub const SECCOMP_ADDFD_FLAG_SEND: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "SECCOMP_USER_NOTIF_FLAG_CONTINUE",
+            Self::SECCOMP_USER_NOTIF_FLAG_CONTINUE,
+        ),
+        (
+            "SECCOMP_USER_NOTIF_FD_SYNC_WAKE_UP",
+            Self::SECCOMP_USER_NOTIF_FD_SYNC_WAKE_UP,
+        ),
+        ("SECCOMP_ADDFD_FLAG_SETFD", Self::SECCOMP_ADDFD_FLAG_SETFD),
+        ("SECCOMP_ADDFD_FLAG_SEND", Self::SECCOMP_ADDFD_FLAG_SEND),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for SeccompNotifFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SeccompNotifFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for SeccompNotifFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for SeccompNotifFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for SeccompNotifFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for SeccompNotifFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for SeccompNotifFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for SeccompNotifFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for SeccompNotifFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for SeccompNotifFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `seccomp_data.arch` and `si_arch` of wasixv2 tasks: riscv32's (`AUDIT_ARCH_RISCV32`,
+/// `EM_RISCV | __AUDIT_ARCH_LE`, `linux/audit.h`), whose syscall table the ABI follows.
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct AuditArch(pub u32);
+impl AuditArch {
+    pub const AUDIT_ARCH_RISCV32: Self = Self(1073742067);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("AUDIT_ARCH_RISCV32", Self::AUDIT_ARCH_RISCV32)];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            1073742067 => Some("AUDIT_ARCH_RISCV32"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for AuditArch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "AuditArch({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for AuditArch {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// What a seccomp filter runs over (`struct seccomp_data`): `nr` is the riscv32 syscall number
+/// and `args` its six registers, each zero-extended. wasm has no program counter, so
+/// `instruction-pointer` is 0.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SeccompData {
+    pub nr: i32,
+    pub arch: u32,
+    pub instruction_pointer: u64,
+    pub args: [u64; 6],
+}
+const _: () = {
+    assert!(core::mem::size_of::<SeccompData>() == 64);
+    assert!(core::mem::align_of::<SeccompData>() == 8);
+    assert!(core::mem::offset_of!(SeccompData, nr) == 0);
+    assert!(core::mem::offset_of!(SeccompData, arch) == 4);
+    assert!(core::mem::offset_of!(SeccompData, instruction_pointer) == 8);
+    assert!(core::mem::offset_of!(SeccompData, args) == 16);
+};
+impl Default for SeccompData {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SeccompData {
+    const SIZE: usize = 64;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        nr: <i32 as GuestLayout>::ZERO,
+        arch: <u32 as GuestLayout>::ZERO,
+        instruction_pointer: <u64 as GuestLayout>::ZERO,
+        args: <[u64; 6] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr: GuestLayout::read_from(&bytes[0..])?,
+            arch: GuestLayout::read_from(&bytes[4..])?,
+            instruction_pointer: GuestLayout::read_from(&bytes[8..])?,
+            args: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr.write_to(&mut out[0..]);
+        self.arch.write_to(&mut out[4..]);
+        self.instruction_pointer.write_to(&mut out[8..]);
+        self.args.write_to(&mut out[16..]);
+    }
+}
+/// `SECCOMP_GET_NOTIF_SIZES` result (`struct seccomp_notif_sizes`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SeccompNotifSizes {
+    pub seccomp_notif: u16,
+    pub seccomp_notif_resp: u16,
+    pub seccomp_data: u16,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SeccompNotifSizes>() == 6);
+    assert!(core::mem::align_of::<SeccompNotifSizes>() == 2);
+    assert!(core::mem::offset_of!(SeccompNotifSizes, seccomp_notif) == 0);
+    assert!(core::mem::offset_of!(SeccompNotifSizes, seccomp_notif_resp) == 2);
+    assert!(core::mem::offset_of!(SeccompNotifSizes, seccomp_data) == 4);
+};
+impl Default for SeccompNotifSizes {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SeccompNotifSizes {
+    const SIZE: usize = 6;
+    const ALIGN: usize = 2;
+    const ZERO: Self = Self {
+        seccomp_notif: <u16 as GuestLayout>::ZERO,
+        seccomp_notif_resp: <u16 as GuestLayout>::ZERO,
+        seccomp_data: <u16 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            seccomp_notif: GuestLayout::read_from(&bytes[0..])?,
+            seccomp_notif_resp: GuestLayout::read_from(&bytes[2..])?,
+            seccomp_data: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.seccomp_notif.write_to(&mut out[0..]);
+        self.seccomp_notif_resp.write_to(&mut out[2..]);
+        self.seccomp_data.write_to(&mut out[4..]);
+    }
+}
+/// A user notification (`struct seccomp_notif`), read with `SECCOMP_IOCTL_NOTIF_RECV`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SeccompNotif {
+    pub id: u64,
+    pub pid: u32,
+    pub flags: u32,
+    pub data: SeccompData,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SeccompNotif>() == 80);
+    assert!(core::mem::align_of::<SeccompNotif>() == 8);
+    assert!(core::mem::offset_of!(SeccompNotif, id) == 0);
+    assert!(core::mem::offset_of!(SeccompNotif, pid) == 8);
+    assert!(core::mem::offset_of!(SeccompNotif, flags) == 12);
+    assert!(core::mem::offset_of!(SeccompNotif, data) == 16);
+};
+impl Default for SeccompNotif {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SeccompNotif {
+    const SIZE: usize = 80;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        id: <u64 as GuestLayout>::ZERO,
+        pid: <u32 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        data: <SeccompData as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            id: GuestLayout::read_from(&bytes[0..])?,
+            pid: GuestLayout::read_from(&bytes[8..])?,
+            flags: GuestLayout::read_from(&bytes[12..])?,
+            data: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.id.write_to(&mut out[0..]);
+        self.pid.write_to(&mut out[8..]);
+        self.flags.write_to(&mut out[12..]);
+        self.data.write_to(&mut out[16..]);
+    }
+}
+/// The answer to a user notification (`struct seccomp_notif_resp`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SeccompNotifResp {
+    pub id: u64,
+    pub val: i64,
+    pub error: i32,
+    pub flags: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SeccompNotifResp>() == 24);
+    assert!(core::mem::align_of::<SeccompNotifResp>() == 8);
+    assert!(core::mem::offset_of!(SeccompNotifResp, id) == 0);
+    assert!(core::mem::offset_of!(SeccompNotifResp, val) == 8);
+    assert!(core::mem::offset_of!(SeccompNotifResp, error) == 16);
+    assert!(core::mem::offset_of!(SeccompNotifResp, flags) == 20);
+};
+impl Default for SeccompNotifResp {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SeccompNotifResp {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        id: <u64 as GuestLayout>::ZERO,
+        val: <i64 as GuestLayout>::ZERO,
+        error: <i32 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            id: GuestLayout::read_from(&bytes[0..])?,
+            val: GuestLayout::read_from(&bytes[8..])?,
+            error: GuestLayout::read_from(&bytes[16..])?,
+            flags: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.id.write_to(&mut out[0..]);
+        self.val.write_to(&mut out[8..]);
+        self.error.write_to(&mut out[16..]);
+        self.flags.write_to(&mut out[20..]);
+    }
+}
+/// `SECCOMP_IOCTL_NOTIF_ADDFD` argument (`struct seccomp_notif_addfd`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SeccompNotifAddfd {
+    pub id: u64,
+    pub flags: u32,
+    pub srcfd: u32,
+    pub newfd: u32,
+    pub newfd_flags: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SeccompNotifAddfd>() == 24);
+    assert!(core::mem::align_of::<SeccompNotifAddfd>() == 8);
+    assert!(core::mem::offset_of!(SeccompNotifAddfd, id) == 0);
+    assert!(core::mem::offset_of!(SeccompNotifAddfd, flags) == 8);
+    assert!(core::mem::offset_of!(SeccompNotifAddfd, srcfd) == 12);
+    assert!(core::mem::offset_of!(SeccompNotifAddfd, newfd) == 16);
+    assert!(core::mem::offset_of!(SeccompNotifAddfd, newfd_flags) == 20);
+};
+impl Default for SeccompNotifAddfd {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SeccompNotifAddfd {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        id: <u64 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        srcfd: <u32 as GuestLayout>::ZERO,
+        newfd: <u32 as GuestLayout>::ZERO,
+        newfd_flags: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            id: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[8..])?,
+            srcfd: GuestLayout::read_from(&bytes[12..])?,
+            newfd: GuestLayout::read_from(&bytes[16..])?,
+            newfd_flags: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.id.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[8..]);
+        self.srcfd.write_to(&mut out[12..]);
+        self.newfd.write_to(&mut out[16..]);
+        self.newfd_flags.write_to(&mut out[20..]);
+    }
+}
+/// `landlock_create_ruleset` flags (`linux/landlock.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LandlockCreateRulesetFlags(pub u32);
+impl LandlockCreateRulesetFlags {
+    pub const LANDLOCK_CREATE_RULESET_VERSION: Self = Self(0x1);
+    pub const LANDLOCK_CREATE_RULESET_ERRATA: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "LANDLOCK_CREATE_RULESET_VERSION",
+            Self::LANDLOCK_CREATE_RULESET_VERSION,
+        ),
+        (
+            "LANDLOCK_CREATE_RULESET_ERRATA",
+            Self::LANDLOCK_CREATE_RULESET_ERRATA,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for LandlockCreateRulesetFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LandlockCreateRulesetFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for LandlockCreateRulesetFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for LandlockCreateRulesetFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for LandlockCreateRulesetFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for LandlockCreateRulesetFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for LandlockCreateRulesetFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for LandlockCreateRulesetFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for LandlockCreateRulesetFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for LandlockCreateRulesetFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `landlock_add_rule` flags (`linux/landlock.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LandlockAddRuleFlags(pub u32);
+impl LandlockAddRuleFlags {
+    pub const LANDLOCK_ADD_RULE_QUIET: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("LANDLOCK_ADD_RULE_QUIET", Self::LANDLOCK_ADD_RULE_QUIET)];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for LandlockAddRuleFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LandlockAddRuleFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for LandlockAddRuleFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for LandlockAddRuleFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for LandlockAddRuleFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for LandlockAddRuleFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for LandlockAddRuleFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for LandlockAddRuleFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for LandlockAddRuleFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for LandlockAddRuleFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `landlock_restrict_self` flags (`linux/landlock.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LandlockRestrictSelfFlags(pub u32);
+impl LandlockRestrictSelfFlags {
+    pub const LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF: Self = Self(0x1);
+    pub const LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON: Self = Self(0x2);
+    pub const LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF: Self = Self(0x4);
+    pub const LANDLOCK_RESTRICT_SELF_TSYNC: Self = Self(0x8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF",
+            Self::LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF,
+        ),
+        (
+            "LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON",
+            Self::LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON,
+        ),
+        (
+            "LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF",
+            Self::LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF,
+        ),
+        (
+            "LANDLOCK_RESTRICT_SELF_TSYNC",
+            Self::LANDLOCK_RESTRICT_SELF_TSYNC,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for LandlockRestrictSelfFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LandlockRestrictSelfFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for LandlockRestrictSelfFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for LandlockRestrictSelfFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for LandlockRestrictSelfFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for LandlockRestrictSelfFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for LandlockRestrictSelfFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for LandlockRestrictSelfFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for LandlockRestrictSelfFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for LandlockRestrictSelfFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `landlock_add_rule` rule types (`enum landlock_rule_type`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LandlockRuleType(pub i32);
+impl LandlockRuleType {
+    pub const LANDLOCK_RULE_PATH_BENEATH: Self = Self(1);
+    pub const LANDLOCK_RULE_NET_PORT: Self = Self(2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "LANDLOCK_RULE_PATH_BENEATH",
+            Self::LANDLOCK_RULE_PATH_BENEATH,
+        ),
+        ("LANDLOCK_RULE_NET_PORT", Self::LANDLOCK_RULE_NET_PORT),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            1 => Some("LANDLOCK_RULE_PATH_BENEATH"),
+            2 => Some("LANDLOCK_RULE_NET_PORT"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for LandlockRuleType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "LandlockRuleType({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for LandlockRuleType {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Filesystem access rights (`LANDLOCK_ACCESS_FS_*`, `linux/landlock.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LandlockAccessFs(pub u64);
+impl LandlockAccessFs {
+    pub const LANDLOCK_ACCESS_FS_EXECUTE: Self = Self(0x1);
+    pub const LANDLOCK_ACCESS_FS_WRITE_FILE: Self = Self(0x2);
+    pub const LANDLOCK_ACCESS_FS_READ_FILE: Self = Self(0x4);
+    pub const LANDLOCK_ACCESS_FS_READ_DIR: Self = Self(0x8);
+    pub const LANDLOCK_ACCESS_FS_REMOVE_DIR: Self = Self(0x10);
+    pub const LANDLOCK_ACCESS_FS_REMOVE_FILE: Self = Self(0x20);
+    pub const LANDLOCK_ACCESS_FS_MAKE_CHAR: Self = Self(0x40);
+    pub const LANDLOCK_ACCESS_FS_MAKE_DIR: Self = Self(0x80);
+    pub const LANDLOCK_ACCESS_FS_MAKE_REG: Self = Self(0x100);
+    pub const LANDLOCK_ACCESS_FS_MAKE_SOCK: Self = Self(0x200);
+    pub const LANDLOCK_ACCESS_FS_MAKE_FIFO: Self = Self(0x400);
+    pub const LANDLOCK_ACCESS_FS_MAKE_BLOCK: Self = Self(0x800);
+    pub const LANDLOCK_ACCESS_FS_MAKE_SYM: Self = Self(0x1000);
+    pub const LANDLOCK_ACCESS_FS_REFER: Self = Self(0x2000);
+    pub const LANDLOCK_ACCESS_FS_TRUNCATE: Self = Self(0x4000);
+    pub const LANDLOCK_ACCESS_FS_IOCTL_DEV: Self = Self(0x8000);
+    pub const LANDLOCK_ACCESS_FS_RESOLVE_UNIX: Self = Self(0x10000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "LANDLOCK_ACCESS_FS_EXECUTE",
+            Self::LANDLOCK_ACCESS_FS_EXECUTE,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_WRITE_FILE",
+            Self::LANDLOCK_ACCESS_FS_WRITE_FILE,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_READ_FILE",
+            Self::LANDLOCK_ACCESS_FS_READ_FILE,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_READ_DIR",
+            Self::LANDLOCK_ACCESS_FS_READ_DIR,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_REMOVE_DIR",
+            Self::LANDLOCK_ACCESS_FS_REMOVE_DIR,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_REMOVE_FILE",
+            Self::LANDLOCK_ACCESS_FS_REMOVE_FILE,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_MAKE_CHAR",
+            Self::LANDLOCK_ACCESS_FS_MAKE_CHAR,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_MAKE_DIR",
+            Self::LANDLOCK_ACCESS_FS_MAKE_DIR,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_MAKE_REG",
+            Self::LANDLOCK_ACCESS_FS_MAKE_REG,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_MAKE_SOCK",
+            Self::LANDLOCK_ACCESS_FS_MAKE_SOCK,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_MAKE_FIFO",
+            Self::LANDLOCK_ACCESS_FS_MAKE_FIFO,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_MAKE_BLOCK",
+            Self::LANDLOCK_ACCESS_FS_MAKE_BLOCK,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_MAKE_SYM",
+            Self::LANDLOCK_ACCESS_FS_MAKE_SYM,
+        ),
+        ("LANDLOCK_ACCESS_FS_REFER", Self::LANDLOCK_ACCESS_FS_REFER),
+        (
+            "LANDLOCK_ACCESS_FS_TRUNCATE",
+            Self::LANDLOCK_ACCESS_FS_TRUNCATE,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_IOCTL_DEV",
+            Self::LANDLOCK_ACCESS_FS_IOCTL_DEV,
+        ),
+        (
+            "LANDLOCK_ACCESS_FS_RESOLVE_UNIX",
+            Self::LANDLOCK_ACCESS_FS_RESOLVE_UNIX,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for LandlockAccessFs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LandlockAccessFs(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for LandlockAccessFs {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for LandlockAccessFs {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for LandlockAccessFs {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for LandlockAccessFs {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for LandlockAccessFs {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for LandlockAccessFs {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for LandlockAccessFs {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for LandlockAccessFs {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Network access rights (`LANDLOCK_ACCESS_NET_*`, `linux/landlock.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LandlockAccessNet(pub u64);
+impl LandlockAccessNet {
+    pub const LANDLOCK_ACCESS_NET_BIND_TCP: Self = Self(0x1);
+    pub const LANDLOCK_ACCESS_NET_CONNECT_TCP: Self = Self(0x2);
+    pub const LANDLOCK_ACCESS_NET_BIND_UDP: Self = Self(0x4);
+    pub const LANDLOCK_ACCESS_NET_CONNECT_SEND_UDP: Self = Self(0x8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "LANDLOCK_ACCESS_NET_BIND_TCP",
+            Self::LANDLOCK_ACCESS_NET_BIND_TCP,
+        ),
+        (
+            "LANDLOCK_ACCESS_NET_CONNECT_TCP",
+            Self::LANDLOCK_ACCESS_NET_CONNECT_TCP,
+        ),
+        (
+            "LANDLOCK_ACCESS_NET_BIND_UDP",
+            Self::LANDLOCK_ACCESS_NET_BIND_UDP,
+        ),
+        (
+            "LANDLOCK_ACCESS_NET_CONNECT_SEND_UDP",
+            Self::LANDLOCK_ACCESS_NET_CONNECT_SEND_UDP,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for LandlockAccessNet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LandlockAccessNet(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for LandlockAccessNet {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for LandlockAccessNet {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for LandlockAccessNet {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for LandlockAccessNet {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for LandlockAccessNet {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for LandlockAccessNet {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for LandlockAccessNet {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for LandlockAccessNet {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// IPC scopes (`LANDLOCK_SCOPE_*`, `linux/landlock.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LandlockScope(pub u64);
+impl LandlockScope {
+    pub const LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET: Self = Self(0x1);
+    pub const LANDLOCK_SCOPE_SIGNAL: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET",
+            Self::LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET,
+        ),
+        ("LANDLOCK_SCOPE_SIGNAL", Self::LANDLOCK_SCOPE_SIGNAL),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for LandlockScope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LandlockScope(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for LandlockScope {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for LandlockScope {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for LandlockScope {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for LandlockScope {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for LandlockScope {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for LandlockScope {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for LandlockScope {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for LandlockScope {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `LANDLOCK_RULE_PATH_BENEATH` rule (`struct landlock_path_beneath_attr`), packed: 12 bytes
+/// at any alignment.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct LandlockPathBeneathAttr {
+    pub allowed_access: [u8; 8],
+    pub parent_fd: [u8; 4],
+}
+const _: () = {
+    assert!(core::mem::size_of::<LandlockPathBeneathAttr>() == 12);
+    assert!(core::mem::align_of::<LandlockPathBeneathAttr>() == 1);
+    assert!(core::mem::offset_of!(LandlockPathBeneathAttr, allowed_access) == 0);
+    assert!(core::mem::offset_of!(LandlockPathBeneathAttr, parent_fd) == 8);
+};
+impl Default for LandlockPathBeneathAttr {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for LandlockPathBeneathAttr {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 1;
+    const ZERO: Self = Self {
+        allowed_access: <[u8; 8] as GuestLayout>::ZERO,
+        parent_fd: <[u8; 4] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            allowed_access: GuestLayout::read_from(&bytes[0..])?,
+            parent_fd: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.allowed_access.write_to(&mut out[0..]);
+        self.parent_fd.write_to(&mut out[8..]);
+    }
+}
+/// Special key and keyring ids (`KEY_SPEC_*`, `linux/keyctl.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KeySpec(pub i32);
+impl KeySpec {
+    pub const KEY_SPEC_THREAD_KEYRING: Self = Self(-1);
+    pub const KEY_SPEC_PROCESS_KEYRING: Self = Self(-2);
+    pub const KEY_SPEC_SESSION_KEYRING: Self = Self(-3);
+    pub const KEY_SPEC_USER_KEYRING: Self = Self(-4);
+    pub const KEY_SPEC_USER_SESSION_KEYRING: Self = Self(-5);
+    pub const KEY_SPEC_GROUP_KEYRING: Self = Self(-6);
+    pub const KEY_SPEC_REQKEY_AUTH_KEY: Self = Self(-7);
+    pub const KEY_SPEC_REQUESTOR_KEYRING: Self = Self(-8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("KEY_SPEC_THREAD_KEYRING", Self::KEY_SPEC_THREAD_KEYRING),
+        ("KEY_SPEC_PROCESS_KEYRING", Self::KEY_SPEC_PROCESS_KEYRING),
+        ("KEY_SPEC_SESSION_KEYRING", Self::KEY_SPEC_SESSION_KEYRING),
+        ("KEY_SPEC_USER_KEYRING", Self::KEY_SPEC_USER_KEYRING),
+        (
+            "KEY_SPEC_USER_SESSION_KEYRING",
+            Self::KEY_SPEC_USER_SESSION_KEYRING,
+        ),
+        ("KEY_SPEC_GROUP_KEYRING", Self::KEY_SPEC_GROUP_KEYRING),
+        ("KEY_SPEC_REQKEY_AUTH_KEY", Self::KEY_SPEC_REQKEY_AUTH_KEY),
+        (
+            "KEY_SPEC_REQUESTOR_KEYRING",
+            Self::KEY_SPEC_REQUESTOR_KEYRING,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -1 => Some("KEY_SPEC_THREAD_KEYRING"),
+            -2 => Some("KEY_SPEC_PROCESS_KEYRING"),
+            -3 => Some("KEY_SPEC_SESSION_KEYRING"),
+            -4 => Some("KEY_SPEC_USER_KEYRING"),
+            -5 => Some("KEY_SPEC_USER_SESSION_KEYRING"),
+            -6 => Some("KEY_SPEC_GROUP_KEYRING"),
+            -7 => Some("KEY_SPEC_REQKEY_AUTH_KEY"),
+            -8 => Some("KEY_SPEC_REQUESTOR_KEYRING"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for KeySpec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "KeySpec({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for KeySpec {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `KEYCTL_SET_REQKEY_KEYRING` defaults (`KEY_REQKEY_DEFL_*`, `linux/keyctl.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KeyReqkeyDefl(pub i32);
+impl KeyReqkeyDefl {
+    pub const KEY_REQKEY_DEFL_NO_CHANGE: Self = Self(-1);
+    pub const KEY_REQKEY_DEFL_DEFAULT: Self = Self(0);
+    pub const KEY_REQKEY_DEFL_THREAD_KEYRING: Self = Self(1);
+    pub const KEY_REQKEY_DEFL_PROCESS_KEYRING: Self = Self(2);
+    pub const KEY_REQKEY_DEFL_SESSION_KEYRING: Self = Self(3);
+    pub const KEY_REQKEY_DEFL_USER_KEYRING: Self = Self(4);
+    pub const KEY_REQKEY_DEFL_USER_SESSION_KEYRING: Self = Self(5);
+    pub const KEY_REQKEY_DEFL_GROUP_KEYRING: Self = Self(6);
+    pub const KEY_REQKEY_DEFL_REQUESTOR_KEYRING: Self = Self(7);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("KEY_REQKEY_DEFL_NO_CHANGE", Self::KEY_REQKEY_DEFL_NO_CHANGE),
+        ("KEY_REQKEY_DEFL_DEFAULT", Self::KEY_REQKEY_DEFL_DEFAULT),
+        (
+            "KEY_REQKEY_DEFL_THREAD_KEYRING",
+            Self::KEY_REQKEY_DEFL_THREAD_KEYRING,
+        ),
+        (
+            "KEY_REQKEY_DEFL_PROCESS_KEYRING",
+            Self::KEY_REQKEY_DEFL_PROCESS_KEYRING,
+        ),
+        (
+            "KEY_REQKEY_DEFL_SESSION_KEYRING",
+            Self::KEY_REQKEY_DEFL_SESSION_KEYRING,
+        ),
+        (
+            "KEY_REQKEY_DEFL_USER_KEYRING",
+            Self::KEY_REQKEY_DEFL_USER_KEYRING,
+        ),
+        (
+            "KEY_REQKEY_DEFL_USER_SESSION_KEYRING",
+            Self::KEY_REQKEY_DEFL_USER_SESSION_KEYRING,
+        ),
+        (
+            "KEY_REQKEY_DEFL_GROUP_KEYRING",
+            Self::KEY_REQKEY_DEFL_GROUP_KEYRING,
+        ),
+        (
+            "KEY_REQKEY_DEFL_REQUESTOR_KEYRING",
+            Self::KEY_REQKEY_DEFL_REQUESTOR_KEYRING,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -1 => Some("KEY_REQKEY_DEFL_NO_CHANGE"),
+            0 => Some("KEY_REQKEY_DEFL_DEFAULT"),
+            1 => Some("KEY_REQKEY_DEFL_THREAD_KEYRING"),
+            2 => Some("KEY_REQKEY_DEFL_PROCESS_KEYRING"),
+            3 => Some("KEY_REQKEY_DEFL_SESSION_KEYRING"),
+            4 => Some("KEY_REQKEY_DEFL_USER_KEYRING"),
+            5 => Some("KEY_REQKEY_DEFL_USER_SESSION_KEYRING"),
+            6 => Some("KEY_REQKEY_DEFL_GROUP_KEYRING"),
+            7 => Some("KEY_REQKEY_DEFL_REQUESTOR_KEYRING"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for KeyReqkeyDefl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "KeyReqkeyDefl({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for KeyReqkeyDefl {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `keyctl` operations (first argument; `linux/keyctl.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KeyctlOp(pub i32);
+impl KeyctlOp {
+    pub const KEYCTL_GET_KEYRING_ID: Self = Self(0);
+    pub const KEYCTL_JOIN_SESSION_KEYRING: Self = Self(1);
+    pub const KEYCTL_UPDATE: Self = Self(2);
+    pub const KEYCTL_REVOKE: Self = Self(3);
+    pub const KEYCTL_CHOWN: Self = Self(4);
+    pub const KEYCTL_SETPERM: Self = Self(5);
+    pub const KEYCTL_DESCRIBE: Self = Self(6);
+    pub const KEYCTL_CLEAR: Self = Self(7);
+    pub const KEYCTL_LINK: Self = Self(8);
+    pub const KEYCTL_UNLINK: Self = Self(9);
+    pub const KEYCTL_SEARCH: Self = Self(10);
+    pub const KEYCTL_READ: Self = Self(11);
+    pub const KEYCTL_INSTANTIATE: Self = Self(12);
+    pub const KEYCTL_NEGATE: Self = Self(13);
+    pub const KEYCTL_SET_REQKEY_KEYRING: Self = Self(14);
+    pub const KEYCTL_SET_TIMEOUT: Self = Self(15);
+    pub const KEYCTL_ASSUME_AUTHORITY: Self = Self(16);
+    pub const KEYCTL_GET_SECURITY: Self = Self(17);
+    pub const KEYCTL_SESSION_TO_PARENT: Self = Self(18);
+    pub const KEYCTL_REJECT: Self = Self(19);
+    pub const KEYCTL_INSTANTIATE_IOV: Self = Self(20);
+    pub const KEYCTL_INVALIDATE: Self = Self(21);
+    pub const KEYCTL_GET_PERSISTENT: Self = Self(22);
+    pub const KEYCTL_DH_COMPUTE: Self = Self(23);
+    pub const KEYCTL_PKEY_QUERY: Self = Self(24);
+    pub const KEYCTL_PKEY_ENCRYPT: Self = Self(25);
+    pub const KEYCTL_PKEY_DECRYPT: Self = Self(26);
+    pub const KEYCTL_PKEY_SIGN: Self = Self(27);
+    pub const KEYCTL_PKEY_VERIFY: Self = Self(28);
+    pub const KEYCTL_RESTRICT_KEYRING: Self = Self(29);
+    pub const KEYCTL_MOVE: Self = Self(30);
+    pub const KEYCTL_CAPABILITIES: Self = Self(31);
+    pub const KEYCTL_WATCH_KEY: Self = Self(32);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("KEYCTL_GET_KEYRING_ID", Self::KEYCTL_GET_KEYRING_ID),
+        (
+            "KEYCTL_JOIN_SESSION_KEYRING",
+            Self::KEYCTL_JOIN_SESSION_KEYRING,
+        ),
+        ("KEYCTL_UPDATE", Self::KEYCTL_UPDATE),
+        ("KEYCTL_REVOKE", Self::KEYCTL_REVOKE),
+        ("KEYCTL_CHOWN", Self::KEYCTL_CHOWN),
+        ("KEYCTL_SETPERM", Self::KEYCTL_SETPERM),
+        ("KEYCTL_DESCRIBE", Self::KEYCTL_DESCRIBE),
+        ("KEYCTL_CLEAR", Self::KEYCTL_CLEAR),
+        ("KEYCTL_LINK", Self::KEYCTL_LINK),
+        ("KEYCTL_UNLINK", Self::KEYCTL_UNLINK),
+        ("KEYCTL_SEARCH", Self::KEYCTL_SEARCH),
+        ("KEYCTL_READ", Self::KEYCTL_READ),
+        ("KEYCTL_INSTANTIATE", Self::KEYCTL_INSTANTIATE),
+        ("KEYCTL_NEGATE", Self::KEYCTL_NEGATE),
+        ("KEYCTL_SET_REQKEY_KEYRING", Self::KEYCTL_SET_REQKEY_KEYRING),
+        ("KEYCTL_SET_TIMEOUT", Self::KEYCTL_SET_TIMEOUT),
+        ("KEYCTL_ASSUME_AUTHORITY", Self::KEYCTL_ASSUME_AUTHORITY),
+        ("KEYCTL_GET_SECURITY", Self::KEYCTL_GET_SECURITY),
+        ("KEYCTL_SESSION_TO_PARENT", Self::KEYCTL_SESSION_TO_PARENT),
+        ("KEYCTL_REJECT", Self::KEYCTL_REJECT),
+        ("KEYCTL_INSTANTIATE_IOV", Self::KEYCTL_INSTANTIATE_IOV),
+        ("KEYCTL_INVALIDATE", Self::KEYCTL_INVALIDATE),
+        ("KEYCTL_GET_PERSISTENT", Self::KEYCTL_GET_PERSISTENT),
+        ("KEYCTL_DH_COMPUTE", Self::KEYCTL_DH_COMPUTE),
+        ("KEYCTL_PKEY_QUERY", Self::KEYCTL_PKEY_QUERY),
+        ("KEYCTL_PKEY_ENCRYPT", Self::KEYCTL_PKEY_ENCRYPT),
+        ("KEYCTL_PKEY_DECRYPT", Self::KEYCTL_PKEY_DECRYPT),
+        ("KEYCTL_PKEY_SIGN", Self::KEYCTL_PKEY_SIGN),
+        ("KEYCTL_PKEY_VERIFY", Self::KEYCTL_PKEY_VERIFY),
+        ("KEYCTL_RESTRICT_KEYRING", Self::KEYCTL_RESTRICT_KEYRING),
+        ("KEYCTL_MOVE", Self::KEYCTL_MOVE),
+        ("KEYCTL_CAPABILITIES", Self::KEYCTL_CAPABILITIES),
+        ("KEYCTL_WATCH_KEY", Self::KEYCTL_WATCH_KEY),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("KEYCTL_GET_KEYRING_ID"),
+            1 => Some("KEYCTL_JOIN_SESSION_KEYRING"),
+            2 => Some("KEYCTL_UPDATE"),
+            3 => Some("KEYCTL_REVOKE"),
+            4 => Some("KEYCTL_CHOWN"),
+            5 => Some("KEYCTL_SETPERM"),
+            6 => Some("KEYCTL_DESCRIBE"),
+            7 => Some("KEYCTL_CLEAR"),
+            8 => Some("KEYCTL_LINK"),
+            9 => Some("KEYCTL_UNLINK"),
+            10 => Some("KEYCTL_SEARCH"),
+            11 => Some("KEYCTL_READ"),
+            12 => Some("KEYCTL_INSTANTIATE"),
+            13 => Some("KEYCTL_NEGATE"),
+            14 => Some("KEYCTL_SET_REQKEY_KEYRING"),
+            15 => Some("KEYCTL_SET_TIMEOUT"),
+            16 => Some("KEYCTL_ASSUME_AUTHORITY"),
+            17 => Some("KEYCTL_GET_SECURITY"),
+            18 => Some("KEYCTL_SESSION_TO_PARENT"),
+            19 => Some("KEYCTL_REJECT"),
+            20 => Some("KEYCTL_INSTANTIATE_IOV"),
+            21 => Some("KEYCTL_INVALIDATE"),
+            22 => Some("KEYCTL_GET_PERSISTENT"),
+            23 => Some("KEYCTL_DH_COMPUTE"),
+            24 => Some("KEYCTL_PKEY_QUERY"),
+            25 => Some("KEYCTL_PKEY_ENCRYPT"),
+            26 => Some("KEYCTL_PKEY_DECRYPT"),
+            27 => Some("KEYCTL_PKEY_SIGN"),
+            28 => Some("KEYCTL_PKEY_VERIFY"),
+            29 => Some("KEYCTL_RESTRICT_KEYRING"),
+            30 => Some("KEYCTL_MOVE"),
+            31 => Some("KEYCTL_CAPABILITIES"),
+            32 => Some("KEYCTL_WATCH_KEY"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for KeyctlOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "KeyctlOp({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for KeyctlOp {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `KEYCTL_MOVE` flags and `KEYCTL_CAPABILITIES` bits (`linux/keyctl.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KeyctlFlags(pub u32);
+impl KeyctlFlags {
+    pub const KEYCTL_MOVE_EXCL: Self = Self(0x1);
+    pub const KEYCTL_CAPS0_CAPABILITIES: Self = Self(0x1);
+    pub const KEYCTL_CAPS0_PERSISTENT_KEYRINGS: Self = Self(0x2);
+    pub const KEYCTL_CAPS0_DIFFIE_HELLMAN: Self = Self(0x4);
+    pub const KEYCTL_CAPS0_PUBLIC_KEY: Self = Self(0x8);
+    pub const KEYCTL_CAPS0_BIG_KEY: Self = Self(0x10);
+    pub const KEYCTL_CAPS0_INVALIDATE: Self = Self(0x20);
+    pub const KEYCTL_CAPS0_RESTRICT_KEYRING: Self = Self(0x40);
+    pub const KEYCTL_CAPS0_MOVE: Self = Self(0x80);
+    pub const KEYCTL_CAPS1_NS_KEYRING_NAME: Self = Self(0x1);
+    pub const KEYCTL_CAPS1_NS_KEY_TAG: Self = Self(0x2);
+    pub const KEYCTL_CAPS1_NOTIFICATIONS: Self = Self(0x4);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("KEYCTL_MOVE_EXCL", Self::KEYCTL_MOVE_EXCL),
+        ("KEYCTL_CAPS0_CAPABILITIES", Self::KEYCTL_CAPS0_CAPABILITIES),
+        (
+            "KEYCTL_CAPS0_PERSISTENT_KEYRINGS",
+            Self::KEYCTL_CAPS0_PERSISTENT_KEYRINGS,
+        ),
+        (
+            "KEYCTL_CAPS0_DIFFIE_HELLMAN",
+            Self::KEYCTL_CAPS0_DIFFIE_HELLMAN,
+        ),
+        ("KEYCTL_CAPS0_PUBLIC_KEY", Self::KEYCTL_CAPS0_PUBLIC_KEY),
+        ("KEYCTL_CAPS0_BIG_KEY", Self::KEYCTL_CAPS0_BIG_KEY),
+        ("KEYCTL_CAPS0_INVALIDATE", Self::KEYCTL_CAPS0_INVALIDATE),
+        (
+            "KEYCTL_CAPS0_RESTRICT_KEYRING",
+            Self::KEYCTL_CAPS0_RESTRICT_KEYRING,
+        ),
+        ("KEYCTL_CAPS0_MOVE", Self::KEYCTL_CAPS0_MOVE),
+        (
+            "KEYCTL_CAPS1_NS_KEYRING_NAME",
+            Self::KEYCTL_CAPS1_NS_KEYRING_NAME,
+        ),
+        ("KEYCTL_CAPS1_NS_KEY_TAG", Self::KEYCTL_CAPS1_NS_KEY_TAG),
+        (
+            "KEYCTL_CAPS1_NOTIFICATIONS",
+            Self::KEYCTL_CAPS1_NOTIFICATIONS,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for KeyctlFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("KeyctlFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for KeyctlFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for KeyctlFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for KeyctlFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for KeyctlFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for KeyctlFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for KeyctlFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for KeyctlFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for KeyctlFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Key permissions (`key_perm_t`, `linux/key.h`; keyutils' `KEY_POS_*` and friends): one byte
+/// each for the possessor, the owner, the group and others.
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KeyPerm(pub u32);
+impl KeyPerm {
+    pub const KEY_POS_VIEW: Self = Self(0x1000000);
+    pub const KEY_POS_READ: Self = Self(0x2000000);
+    pub const KEY_POS_WRITE: Self = Self(0x4000000);
+    pub const KEY_POS_SEARCH: Self = Self(0x8000000);
+    pub const KEY_POS_LINK: Self = Self(0x10000000);
+    pub const KEY_POS_SETATTR: Self = Self(0x20000000);
+    pub const KEY_POS_ALL: Self = Self(0x3f000000);
+    pub const KEY_USR_VIEW: Self = Self(0x10000);
+    pub const KEY_USR_READ: Self = Self(0x20000);
+    pub const KEY_USR_WRITE: Self = Self(0x40000);
+    pub const KEY_USR_SEARCH: Self = Self(0x80000);
+    pub const KEY_USR_LINK: Self = Self(0x100000);
+    pub const KEY_USR_SETATTR: Self = Self(0x200000);
+    pub const KEY_USR_ALL: Self = Self(0x3f0000);
+    pub const KEY_GRP_VIEW: Self = Self(0x100);
+    pub const KEY_GRP_READ: Self = Self(0x200);
+    pub const KEY_GRP_WRITE: Self = Self(0x400);
+    pub const KEY_GRP_SEARCH: Self = Self(0x800);
+    pub const KEY_GRP_LINK: Self = Self(0x1000);
+    pub const KEY_GRP_SETATTR: Self = Self(0x2000);
+    pub const KEY_GRP_ALL: Self = Self(0x3f00);
+    pub const KEY_OTH_VIEW: Self = Self(0x1);
+    pub const KEY_OTH_READ: Self = Self(0x2);
+    pub const KEY_OTH_WRITE: Self = Self(0x4);
+    pub const KEY_OTH_SEARCH: Self = Self(0x8);
+    pub const KEY_OTH_LINK: Self = Self(0x10);
+    pub const KEY_OTH_SETATTR: Self = Self(0x20);
+    pub const KEY_OTH_ALL: Self = Self(0x3f);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("KEY_POS_VIEW", Self::KEY_POS_VIEW),
+        ("KEY_POS_READ", Self::KEY_POS_READ),
+        ("KEY_POS_WRITE", Self::KEY_POS_WRITE),
+        ("KEY_POS_SEARCH", Self::KEY_POS_SEARCH),
+        ("KEY_POS_LINK", Self::KEY_POS_LINK),
+        ("KEY_POS_SETATTR", Self::KEY_POS_SETATTR),
+        ("KEY_POS_ALL", Self::KEY_POS_ALL),
+        ("KEY_USR_VIEW", Self::KEY_USR_VIEW),
+        ("KEY_USR_READ", Self::KEY_USR_READ),
+        ("KEY_USR_WRITE", Self::KEY_USR_WRITE),
+        ("KEY_USR_SEARCH", Self::KEY_USR_SEARCH),
+        ("KEY_USR_LINK", Self::KEY_USR_LINK),
+        ("KEY_USR_SETATTR", Self::KEY_USR_SETATTR),
+        ("KEY_USR_ALL", Self::KEY_USR_ALL),
+        ("KEY_GRP_VIEW", Self::KEY_GRP_VIEW),
+        ("KEY_GRP_READ", Self::KEY_GRP_READ),
+        ("KEY_GRP_WRITE", Self::KEY_GRP_WRITE),
+        ("KEY_GRP_SEARCH", Self::KEY_GRP_SEARCH),
+        ("KEY_GRP_LINK", Self::KEY_GRP_LINK),
+        ("KEY_GRP_SETATTR", Self::KEY_GRP_SETATTR),
+        ("KEY_GRP_ALL", Self::KEY_GRP_ALL),
+        ("KEY_OTH_VIEW", Self::KEY_OTH_VIEW),
+        ("KEY_OTH_READ", Self::KEY_OTH_READ),
+        ("KEY_OTH_WRITE", Self::KEY_OTH_WRITE),
+        ("KEY_OTH_SEARCH", Self::KEY_OTH_SEARCH),
+        ("KEY_OTH_LINK", Self::KEY_OTH_LINK),
+        ("KEY_OTH_SETATTR", Self::KEY_OTH_SETATTR),
+        ("KEY_OTH_ALL", Self::KEY_OTH_ALL),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for KeyPerm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("KeyPerm(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for KeyPerm {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for KeyPerm {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for KeyPerm {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for KeyPerm {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for KeyPerm {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for KeyPerm {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for KeyPerm {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for KeyPerm {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// LSM ids (`LSM_ID_*`, `linux/lsm.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LsmId(pub u64);
+impl LsmId {
+    pub const LSM_ID_UNDEF: Self = Self(0);
+    pub const LSM_ID_CAPABILITY: Self = Self(100);
+    pub const LSM_ID_SELINUX: Self = Self(101);
+    pub const LSM_ID_SMACK: Self = Self(102);
+    pub const LSM_ID_TOMOYO: Self = Self(103);
+    pub const LSM_ID_APPARMOR: Self = Self(104);
+    pub const LSM_ID_YAMA: Self = Self(105);
+    pub const LSM_ID_LOADPIN: Self = Self(106);
+    pub const LSM_ID_SAFESETID: Self = Self(107);
+    pub const LSM_ID_LOCKDOWN: Self = Self(108);
+    pub const LSM_ID_BPF: Self = Self(109);
+    pub const LSM_ID_LANDLOCK: Self = Self(110);
+    pub const LSM_ID_IMA: Self = Self(111);
+    pub const LSM_ID_EVM: Self = Self(112);
+    pub const LSM_ID_IPE: Self = Self(113);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("LSM_ID_UNDEF", Self::LSM_ID_UNDEF),
+        ("LSM_ID_CAPABILITY", Self::LSM_ID_CAPABILITY),
+        ("LSM_ID_SELINUX", Self::LSM_ID_SELINUX),
+        ("LSM_ID_SMACK", Self::LSM_ID_SMACK),
+        ("LSM_ID_TOMOYO", Self::LSM_ID_TOMOYO),
+        ("LSM_ID_APPARMOR", Self::LSM_ID_APPARMOR),
+        ("LSM_ID_YAMA", Self::LSM_ID_YAMA),
+        ("LSM_ID_LOADPIN", Self::LSM_ID_LOADPIN),
+        ("LSM_ID_SAFESETID", Self::LSM_ID_SAFESETID),
+        ("LSM_ID_LOCKDOWN", Self::LSM_ID_LOCKDOWN),
+        ("LSM_ID_BPF", Self::LSM_ID_BPF),
+        ("LSM_ID_LANDLOCK", Self::LSM_ID_LANDLOCK),
+        ("LSM_ID_IMA", Self::LSM_ID_IMA),
+        ("LSM_ID_EVM", Self::LSM_ID_EVM),
+        ("LSM_ID_IPE", Self::LSM_ID_IPE),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("LSM_ID_UNDEF"),
+            100 => Some("LSM_ID_CAPABILITY"),
+            101 => Some("LSM_ID_SELINUX"),
+            102 => Some("LSM_ID_SMACK"),
+            103 => Some("LSM_ID_TOMOYO"),
+            104 => Some("LSM_ID_APPARMOR"),
+            105 => Some("LSM_ID_YAMA"),
+            106 => Some("LSM_ID_LOADPIN"),
+            107 => Some("LSM_ID_SAFESETID"),
+            108 => Some("LSM_ID_LOCKDOWN"),
+            109 => Some("LSM_ID_BPF"),
+            110 => Some("LSM_ID_LANDLOCK"),
+            111 => Some("LSM_ID_IMA"),
+            112 => Some("LSM_ID_EVM"),
+            113 => Some("LSM_ID_IPE"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for LsmId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "LsmId({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for LsmId {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// LSM attributes (`LSM_ATTR_*`, `linux/lsm.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LsmAttr(pub u32);
+impl LsmAttr {
+    pub const LSM_ATTR_UNDEF: Self = Self(0);
+    pub const LSM_ATTR_CURRENT: Self = Self(100);
+    pub const LSM_ATTR_EXEC: Self = Self(101);
+    pub const LSM_ATTR_FSCREATE: Self = Self(102);
+    pub const LSM_ATTR_KEYCREATE: Self = Self(103);
+    pub const LSM_ATTR_PREV: Self = Self(104);
+    pub const LSM_ATTR_SOCKCREATE: Self = Self(105);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("LSM_ATTR_UNDEF", Self::LSM_ATTR_UNDEF),
+        ("LSM_ATTR_CURRENT", Self::LSM_ATTR_CURRENT),
+        ("LSM_ATTR_EXEC", Self::LSM_ATTR_EXEC),
+        ("LSM_ATTR_FSCREATE", Self::LSM_ATTR_FSCREATE),
+        ("LSM_ATTR_KEYCREATE", Self::LSM_ATTR_KEYCREATE),
+        ("LSM_ATTR_PREV", Self::LSM_ATTR_PREV),
+        ("LSM_ATTR_SOCKCREATE", Self::LSM_ATTR_SOCKCREATE),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("LSM_ATTR_UNDEF"),
+            100 => Some("LSM_ATTR_CURRENT"),
+            101 => Some("LSM_ATTR_EXEC"),
+            102 => Some("LSM_ATTR_FSCREATE"),
+            103 => Some("LSM_ATTR_KEYCREATE"),
+            104 => Some("LSM_ATTR_PREV"),
+            105 => Some("LSM_ATTR_SOCKCREATE"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for LsmAttr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "LsmAttr({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for LsmAttr {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `lsm_get_self_attr` flags (`linux/lsm.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct LsmFlags(pub u32);
+impl LsmFlags {
+    pub const LSM_FLAG_SINGLE: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("LSM_FLAG_SINGLE", Self::LSM_FLAG_SINGLE)];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for LsmFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LsmFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for LsmFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for LsmFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for LsmFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for LsmFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for LsmFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for LsmFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for LsmFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for LsmFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// What `stack-save` records for `stack-restore` (v1's `__wasi_stack_snapshot_t` layout).
 /// Opaque to the guest: the host fills it in.
 #[repr(C)]
