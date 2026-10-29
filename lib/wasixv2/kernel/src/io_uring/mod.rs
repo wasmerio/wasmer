@@ -31,8 +31,10 @@
 //! `IORING_CQ_EVENTFD_DISABLED`, and wakes `io_uring_enter` waiters and pollers of the ring.
 //!
 //! Not supported: `IORING_SETUP_SQPOLL` and `IORING_SETUP_IOPOLL` (`EINVAL`), rings in user
-//! memory (`IORING_SETUP_NO_MMAP`), provided buffer rings, and the operations the probe
-//! leaves out.
+//! memory (`IORING_SETUP_NO_MMAP` and `IORING_SETUP_REGISTERED_FD_ONLY`), and the operations
+//! the probe leaves out. User-provided buffer rings and fixed buffers use mm's retained
+//! pages; kernel-allocated buffer rings use this file's mmap hook. Mixed SQE/CQE widths
+//! and SQ_REWIND use the same ring storage and submission machinery.
 
 mod kbuf;
 mod ops;
@@ -91,7 +93,10 @@ const SETUP_FLAGS: u32 = IoringSetupFlags::IORING_SETUP_CQSIZE.0
     | IoringSetupFlags::IORING_SETUP_CQE32.0
     | IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER.0
     | IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0
-    | IoringSetupFlags::IORING_SETUP_NO_SQARRAY.0;
+    | IoringSetupFlags::IORING_SETUP_NO_SQARRAY.0
+    | IoringSetupFlags::IORING_SETUP_CQE_MIXED.0
+    | IoringSetupFlags::IORING_SETUP_SQE_MIXED.0
+    | IoringSetupFlags::IORING_SETUP_SQ_REWIND.0;
 /// `IORING_ENTER_FLAGS`.
 const ENTER_FLAGS: u32 = 0xff;
 /// What a ring here does of `IORING_FEAT_*`.
@@ -182,6 +187,7 @@ struct Cqe {
     user_data: u64,
     res: i32,
     flags: u32,
+    extra: [u64; 2],
 }
 
 /// A ring (`struct io_ring_ctx`).
@@ -300,21 +306,45 @@ impl Ctx {
     /// Writes `cqe` at the tail, if the ring has room.
     fn fill_cqe(&self, state: &mut State, cqe: Cqe) -> bool {
         let head = self.read_word(CQ_HEAD);
-        if state.cq_tail.wrapping_sub(head) >= self.shape.cq_entries {
+        let mixed = self.shape.has(IoringSetupFlags::IORING_SETUP_CQE_MIXED);
+        let wide = mixed && cqe.flags & wasixv2_abi::IoringCqeFlags::IORING_CQE_F_32.0 != 0;
+        let slots = if wide { 2 } else { 1 };
+        let mut at = state.cq_tail & (self.shape.cq_entries - 1);
+        let padding = u32::from(wide && at + 1 == self.shape.cq_entries);
+        if state.cq_tail.wrapping_sub(head) + slots + padding > self.shape.cq_entries {
             return false;
         }
-        let at = state.cq_tail & (self.shape.cq_entries - 1);
-        let mut bytes = vec![0; self.shape.cqe_size as usize];
-        let entry = IoUringCqe {
+        if padding != 0 {
+            // io_uring.c:io_cqe_cache_refill/io_fill_nop_cqe require three slots.
+            let nop = Cqe {
+                user_data: 0,
+                res: 0,
+                flags: wasixv2_abi::IoringCqeFlags::IORING_CQE_F_SKIP.0,
+                extra: [0; 2],
+            };
+            self.fill_cqe(state, nop);
+            at = 0;
+        }
+        let size = if wide {
+            32
+        } else {
+            self.shape.cqe_size as usize
+        };
+        let mut bytes = vec![0; size];
+        IoUringCqe {
             user_data: cqe.user_data,
             res: cqe.res,
             flags: cqe.flags,
-        };
-        entry.write_to(&mut bytes);
+        }
+        .write_to(&mut bytes);
+        if size == 32 {
+            bytes[16..24].copy_from_slice(&cqe.extra[0].to_le_bytes());
+            bytes[24..32].copy_from_slice(&cqe.extra[1].to_le_bytes());
+        }
         let _ = self
             .rings
             .write_at(&bytes, CQES + u64::from(at) * self.shape.cqe_size);
-        state.cq_tail = state.cq_tail.wrapping_add(1);
+        state.cq_tail = state.cq_tail.wrapping_add(slots);
         self.write_word(CQ_TAIL, state.cq_tail);
         true
     }
@@ -346,12 +376,17 @@ impl Ctx {
     /// Posts a completion (`io_fill_cqe_req`), behind any that overflowed. A timeout's own
     /// completion does not count towards other timeouts; any other may end some.
     pub(crate) fn post(&self, user_data: u64, res: i32, flags: u32, timeout: bool) {
+        self.post_extended(user_data, res, flags, timeout, [0; 2]);
+    }
+
+    fn post_extended(&self, user_data: u64, res: i32, flags: u32, timeout: bool, extra: [u64; 2]) {
         let fired = {
             let mut state = self.state.lock_or_recover();
             let cqe = Cqe {
                 user_data,
                 res,
                 flags,
+                extra,
             };
             if !state.overflow.is_empty() || !self.fill_cqe(&mut state, cqe) {
                 state.overflow.push_back(cqe);
@@ -381,6 +416,7 @@ impl Ctx {
                         user_data: data,
                         res,
                         flags,
+                        extra: [0; 2],
                     },
                 )
             {
@@ -615,7 +651,6 @@ impl Kernel {
         if p.flags & !SETUP_FLAGS != 0 {
             return Err(Errno::EINVAL.into());
         }
-        let shape = io_uring_sizes(&p, entries)?;
         let setup = p.flags;
         // `io_uring_sanitise_params`.
         let has = |flag: IoringSetupFlags| setup & flag.0 != 0;
@@ -630,6 +665,19 @@ impl Kernel {
         {
             return Err(Errno::EINVAL.into());
         }
+        if has(IoringSetupFlags::IORING_SETUP_SQ_REWIND)
+            && !has(IoringSetupFlags::IORING_SETUP_NO_SQARRAY)
+        {
+            return Err(Errno::EINVAL.into());
+        }
+        if has(IoringSetupFlags::IORING_SETUP_CQE_MIXED)
+            && has(IoringSetupFlags::IORING_SETUP_CQE32)
+            || has(IoringSetupFlags::IORING_SETUP_SQE_MIXED)
+                && has(IoringSetupFlags::IORING_SETUP_SQE128)
+        {
+            return Err(Errno::EINVAL.into());
+        }
+        let shape = io_uring_sizes(&p, entries)?;
         // `IORING_SETUP_ATTACH_WQ` names another ring, whose workers there are none of.
         if setup & IoringSetupFlags::IORING_SETUP_ATTACH_WQ.0 != 0 {
             let wq = i32::try_from(p.wq_fd).map_err(|_| Errno::EBADF)?;
@@ -773,14 +821,20 @@ impl Kernel {
     ) -> SysResult<i32> {
         let tail = ctx.read_word(SQ_TAIL);
         let head = ctx.state.lock_or_recover().sq_head;
-        let entries = tail.wrapping_sub(head).min(ctx.shape.sq_entries).min(nr);
+        let entries = if ctx.shape.has(IoringSetupFlags::IORING_SETUP_SQ_REWIND) {
+            ctx.shape.sq_entries.min(nr)
+        } else {
+            tail.wrapping_sub(head).min(ctx.shape.sq_entries).min(nr)
+        };
         let mut link: Option<Req> = None;
         let mut submitted = 0;
-        for _ in 0..entries {
-            let Some(sqe) = self.next_sqe(ctx) else {
+        let mut left = entries;
+        while left != 0 {
+            let before = left;
+            let Some(sqe) = self.next_sqe(ctx, &mut left) else {
                 continue;
             };
-            submitted += 1;
+            submitted += (before - left) as i32;
             let ok = self.submit_sqe(caller, ctx, mm, sqe, &mut link).await;
             if !ok && !ctx.shape.has(IoringSetupFlags::IORING_SETUP_SUBMIT_ALL) {
                 break;
@@ -790,13 +844,18 @@ impl Kernel {
         if let Some(head) = link.take() {
             self.queue_sqe(caller, ctx, head).await;
         }
-        let head = ctx.state.lock_or_recover().sq_head;
-        ctx.write_word(SQ_HEAD, head);
+        if ctx.shape.has(IoringSetupFlags::IORING_SETUP_SQ_REWIND) {
+            ctx.state.lock_or_recover().sq_head = 0;
+        } else {
+            let head = ctx.state.lock_or_recover().sq_head;
+            ctx.write_word(SQ_HEAD, head);
+        }
         Ok(submitted)
     }
 
     /// `io_get_sqe`: the next SQE, or `None` for an index past the ring, which is dropped.
-    fn next_sqe(&self, ctx: &Ctx) -> Option<IoUringSqe> {
+    fn next_sqe(&self, ctx: &Ctx, left: &mut u32) -> Option<(IoUringSqe, Option<Errno>)> {
+        *left -= 1;
         let mut state = ctx.state.lock_or_recover();
         let head = state.sq_head;
         state.sq_head = head.wrapping_add(1);
@@ -814,7 +873,26 @@ impl Kernel {
         let mut bytes = [0; IoUringSqe::SIZE];
         let at = u64::from(index) * ctx.shape.sqe_size;
         ctx.sqes.read_at(&mut bytes, at).ok()?;
-        IoUringSqe::read_from(&bytes)
+        let sqe = IoUringSqe::read_from(&bytes)?;
+        let is_128 = matches!(
+            wasixv2_abi::IoUringOp(sqe.opcode),
+            wasixv2_abi::IoUringOp::IORING_OP_NOP128
+                | wasixv2_abi::IoUringOp::IORING_OP_URING_CMD128
+        );
+        let mut error = None;
+        if is_128 && !ctx.shape.has(IoringSetupFlags::IORING_SETUP_SQE128) {
+            if !ctx.shape.has(IoringSetupFlags::IORING_SETUP_SQE_MIXED)
+                || index + 1 == ctx.shape.sq_entries
+                || *left == 0
+            {
+                error = Some(Errno::EINVAL);
+            } else {
+                let mut state = ctx.state.lock_or_recover();
+                state.sq_head = state.sq_head.wrapping_add(1);
+                *left -= 1;
+            }
+        }
+        Some((sqe, error))
     }
 
     /// `io_cqring_wait`: waits until `min_complete` completions are on the ring, running task
@@ -970,6 +1048,11 @@ fn io_uring_sizes(p: &IoUringParams, entries: u32) -> Result<Shape, Errno> {
         }
         false => 2 * sq_entries,
     };
+    if p.flags & IoringSetupFlags::IORING_SETUP_CQE_MIXED.0 != 0 && cq_entries < 2
+        || p.flags & IoringSetupFlags::IORING_SETUP_SQE_MIXED.0 != 0 && sq_entries < 2
+    {
+        return Err(Errno::EOVERFLOW);
+    }
     Ok(Shape::new(p.flags, sq_entries, cq_entries))
 }
 
