@@ -55,6 +55,10 @@ pub(super) enum Net {
     Udp(bool),
     Unix,
     Dev,
+    /// `route`, `ipv6_route` and `if_inet6`.
+    Route,
+    Ipv6Route,
+    IfInet6,
 }
 
 impl Global {
@@ -138,6 +142,9 @@ pub(super) fn net(ns: &NetNs, file: Net) -> Vec<u8> {
         Net::Udp(v6) => sockets(ns, SocketKind::Datagram, v6),
         Net::Unix => unix_sockets(ns),
         Net::Dev => net_dev(ns),
+        Net::Route => net_route(ns),
+        Net::Ipv6Route => net_ipv6_route(ns),
+        Net::IfInet6 => net_if_inet6(ns),
     }
 }
 
@@ -346,6 +353,137 @@ fn net_dev(ns: &NetNs) -> Vec<u8> {
         .unwrap_or_default();
     for interface in interfaces {
         let _ = writeln!(out, "{:>6}: {}", interface.name, ["       0"; 16].join(" "));
+    }
+    out.into_bytes()
+}
+
+/// `fib_route_seq_show`: the IPv4 routes of the main table, addresses as the big-endian words
+/// they are in hex, every line padded to 127 columns.
+fn net_route(ns: &NetNs) -> Vec<u8> {
+    use std::net::IpAddr;
+    use wasixv2_vnet::iface::rt::{RT_TABLE_MAIN, RTN_PROHIBIT, RTN_UNICAST, RTN_UNREACHABLE};
+    const RTF_UP: u32 = 0x1;
+    const RTF_GATEWAY: u32 = 0x2;
+    const RTF_HOST: u32 = 0x4;
+    const RTF_REJECT: u32 = 0x200;
+    let (routes, interfaces) = ns
+        .network
+        .as_ref()
+        .map(|n| (n.routes(), n.interfaces()))
+        .unwrap_or_default();
+    let word = |ip: Option<IpAddr>| match ip {
+        Some(IpAddr::V4(v4)) => u32::from_le_bytes(v4.octets()),
+        _ => 0,
+    };
+    let mut out = format!(
+        "{:<127}\n",
+        "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT"
+    );
+    for r in routes
+        .iter()
+        .filter(|r| r.dst.is_ipv4() && r.table == RT_TABLE_MAIN)
+    {
+        let reject = matches!(r.kind, RTN_UNREACHABLE | RTN_PROHIBIT);
+        if r.kind != RTN_UNICAST && !reject {
+            continue;
+        }
+        let dev = interfaces
+            .iter()
+            .find(|i| i.index == r.oif)
+            .map_or("*", |i| i.name.as_str());
+        let mask = u32::MAX
+            .checked_shl(32 - u32::from(r.prefix_len))
+            .unwrap_or(0);
+        let mut flags = RTF_UP;
+        if r.gateway.is_some() {
+            flags |= RTF_GATEWAY;
+        }
+        if r.prefix_len == 32 {
+            flags |= RTF_HOST;
+        }
+        if reject {
+            flags |= RTF_REJECT;
+        }
+        let line = format!(
+            "{dev}\t{:08X}\t{:08X}\t{flags:04X}\t0\t0\t{}\t{:08X}\t0\t0\t0",
+            word(Some(r.dst)),
+            word(r.gateway),
+            r.metric,
+            u32::from_le_bytes(mask.to_be_bytes()),
+        );
+        let _ = writeln!(out, "{line:<127}");
+    }
+    out.into_bytes()
+}
+
+/// `ipv6_route_native_seq_show`: every IPv6 route.
+fn net_ipv6_route(ns: &NetNs) -> Vec<u8> {
+    use std::net::{IpAddr, Ipv6Addr};
+    use wasixv2_vnet::iface::rt::{RTN_PROHIBIT, RTN_UNICAST, RTN_UNREACHABLE};
+    let (routes, interfaces) = ns
+        .network
+        .as_ref()
+        .map(|n| (n.routes(), n.interfaces()))
+        .unwrap_or_default();
+    let hex = |ip: Option<IpAddr>| match ip {
+        Some(IpAddr::V6(v6)) => format!("{:032x}", u128::from(v6)),
+        _ => format!("{:032x}", u128::from(Ipv6Addr::UNSPECIFIED)),
+    };
+    let mut out = String::new();
+    for r in routes.iter().filter(|r| r.dst.is_ipv6()) {
+        let reject = matches!(r.kind, RTN_UNREACHABLE | RTN_PROHIBIT);
+        if r.kind != RTN_UNICAST && !reject {
+            continue;
+        }
+        let flags =
+            0x1 | if r.gateway.is_some() { 0x2 } else { 0 } | if reject { 0x200 } else { 0 };
+        let dev = interfaces
+            .iter()
+            .find(|i| i.index == r.oif)
+            .map_or("lo", |i| i.name.as_str());
+        let _ = writeln!(
+            out,
+            "{} {:02x} {} 00 {} {:08x} 00000000 00000000 {flags:08x} {dev:>8}",
+            hex(Some(r.dst)),
+            r.prefix_len,
+            hex(None),
+            hex(r.gateway),
+            r.metric,
+        );
+    }
+    out.into_bytes()
+}
+
+/// `if6_seq_show`: every IPv6 address, with `ipv6_addr_scope`'s scope bits.
+fn net_if_inet6(ns: &NetNs) -> Vec<u8> {
+    use std::net::IpAddr;
+    let interfaces = ns
+        .network
+        .as_ref()
+        .map(|n| n.interfaces())
+        .unwrap_or_default();
+    let mut out = String::new();
+    for iface in &interfaces {
+        for a in &iface.addresses {
+            let IpAddr::V6(v6) = a.addr else {
+                continue;
+            };
+            let scope = match v6 {
+                v6 if v6.is_loopback() => 0x10,
+                v6 if v6.is_unicast_link_local() => 0x20,
+                v6 if v6.segments()[0] & 0xffc0 == 0xfec0 => 0x40,
+                _ => 0x00,
+            };
+            let _ = writeln!(
+                out,
+                "{:032x} {:02x} {:02x} {scope:02x} {:02x} {:>8}",
+                u128::from(v6),
+                iface.index,
+                a.prefix_len,
+                a.flags & 0xff,
+                iface.name,
+            );
+        }
     }
     out.into_bytes()
 }

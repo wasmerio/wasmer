@@ -1,18 +1,19 @@
-//! `AF_NETLINK` sockets with the `NETLINK_ROUTE` basics: `RTM_GETLINK` and `RTM_GETADDR` of
-//! the network namespace's interface table, which is what `getifaddrs`, `if_nameindex` and
-//! `ip link show dev` ask for, and `RTM_NEWLINK` changing an interface's flags
-//! (`ip link set lo up`). Requests are parsed as `netlink_rcv_skb` and
-//! `rtnetlink_rcv_msg` do, and replies are queued when the request is sent, so a non-blocking
-//! `recv` right after the `send` finds them, as on Linux. The queue is bounded by `SO_RCVBUF`:
-//! a reply that finds it full is dropped and the next receive fails with `ENOBUFS`
-//! (`netlink_overrun`).
+//! `AF_NETLINK` sockets with `NETLINK_ROUTE`: links, addresses and routes of the socket's
+//! network namespace, read (`getifaddrs`, `if_nameindex`, `ip link`, `ip addr`, `ip route`) and
+//! changed (`ip link add/set/del`, `ip addr add/del`, `ip route add/del`); [`rtnl`] answers the
+//! requests. Requests are parsed as `netlink_rcv_skb` and `rtnetlink_rcv_msg` do, and replies
+//! are queued when the request is sent, so a non-blocking `recv` right after the `send` finds
+//! them, as on Linux. The queue is bounded by `SO_RCVBUF`: a reply that finds it full is
+//! dropped and the next receive fails with `ENOBUFS` (`netlink_overrun`).
 //!
-//! Not yet: routes (`RTM_GETROUTE`), multicast groups, other changes (`EOPNOTSUPP`, after the
-//! `CAP_NET_ADMIN` check every change makes), and other netlink families.
+//! Not yet: multicast groups (no change is announced), neighbours, rules, traffic control and
+//! namespace ids (`EOPNOTSUPP`, after the `CAP_NET_ADMIN` check every change makes), and other
+//! netlink families.
+
+mod rtnl;
 
 use std::{
     collections::VecDeque,
-    net::IpAddr,
     sync::{Arc, Mutex, MutexGuard},
 };
 
@@ -20,8 +21,9 @@ use wasixv2_abi::{AddressFamily, MsgFlags, OpenFlags, SocketFlags, SocketOption,
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
 use wasixv2_vfs::Cap;
-use wasixv2_vnet::Interface;
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
+
+pub(crate) use rtnl::{NoNamespaces, Sender};
 
 use crate::{
     Kernel,
@@ -47,28 +49,8 @@ const NLM_F_DUMP: u16 = 0x300;
 const NLM_F_CAPPED: u16 = 0x100;
 const RTM_BASE: u16 = 16;
 const RTM_MAX: u16 = 127;
-const RTM_NEWLINK: u16 = 16;
-const RTM_GETLINK: u16 = 18;
-const RTM_NEWADDR: u16 = 20;
-const NLM_F_REPLACE: u16 = 0x100;
-const NLM_F_EXCL: u16 = 0x200;
-const NLM_F_CREATE: u16 = 0x400;
-const RTM_GETADDR: u16 = 22;
-const IFLA_ADDRESS: u16 = 1;
-const IFLA_BROADCAST: u16 = 2;
-const IFLA_IFNAME: u16 = 3;
-const IFLA_MTU: u16 = 4;
-const IFA_ADDRESS: u16 = 1;
-const IFA_LOCAL: u16 = 2;
-const IFA_LABEL: u16 = 3;
-const ARPHRD_ETHER: u16 = 1;
-const ARPHRD_LOOPBACK: u16 = 772;
-const IFF_LOOPBACK: u32 = 0x8;
-const RT_SCOPE_UNIVERSE: u8 = 0;
-const RT_SCOPE_HOST: u8 = 254;
-/// `sizeof(struct sockaddr_nl)`, `sizeof(struct ifinfomsg)` and `sizeof(struct rtattr)`.
+/// `sizeof(struct sockaddr_nl)` and `sizeof(struct rtattr)`.
 const SOCKADDR_NL: usize = 12;
-const IFINFOMSG: usize = 16;
 const RTA_HDR: usize = 4;
 /// `SO_SNDBUF` and `SO_RCVBUF`'s default.
 const BUF_DEFAULT: usize = 212_992;
@@ -124,8 +106,13 @@ impl NetlinkSocket {
 
     /// `netlink_sendmsg` to the kernel: handles each request in `data` (`netlink_rcv_skb`)
     /// and queues the replies. `net_admin` is the sender's own `CAP_NET_ADMIN`; a change also
-    /// needs the opener's (`netlink_net_capable`).
-    pub(crate) fn send(&self, data: &[u8], net_admin: bool) -> Result<usize, Errno> {
+    /// needs the opener's (`netlink_net_capable`). `sender` names other namespaces.
+    pub(crate) fn send(
+        &self,
+        data: &[u8],
+        net_admin: bool,
+        sender: &dyn Sender,
+    ) -> Result<usize, Errno> {
         let net_admin = net_admin && self.opener_net_admin;
         if data.len() > self.max_request() {
             return Err(Errno::EMSGSIZE);
@@ -143,7 +130,7 @@ impl NetlinkSocket {
             }
             let msg = &rest[..header.len];
             let err = match header.flags & NLM_F_REQUEST != 0 && header.kind >= NLMSG_MIN_TYPE {
-                true => self.request(&header, &msg[NLMSG_HDR..], net_admin),
+                true => self.request(&header, &msg[NLMSG_HDR..], net_admin, sender),
                 false => None,
             };
             if header.flags & NLM_F_ACK != 0 || err.is_some() {
@@ -159,126 +146,59 @@ impl NetlinkSocket {
 
     /// `rtnetlink_rcv_msg` for one request with its payload; queues any reply and returns the
     /// error to acknowledge.
-    fn request(&self, h: &Header, payload: &[u8], net_admin: bool) -> Option<Errno> {
+    fn request(
+        &self,
+        h: &Header,
+        payload: &[u8],
+        net_admin: bool,
+        sender: &dyn Sender,
+    ) -> Option<Errno> {
+        use rtnl::*;
         if h.kind > RTM_MAX {
             return Some(Errno::EOPNOTSUPP);
         }
         // Every rtnetlink request starts with at least a family byte.
-        let &family = payload.first()?;
+        payload.first()?;
         let get = (h.kind - RTM_BASE) & 3 == 2;
         if !get && !net_admin {
             return Some(Errno::EPERM);
         }
-        if h.kind == RTM_NEWLINK {
-            return self.new_link(h, payload).err();
-        }
-        if !get {
-            return Some(Errno::EOPNOTSUPP);
-        }
-        let interfaces = self.interfaces();
+        let r = Request {
+            net: &self.net,
+            seq: h.seq,
+            port: self.port,
+            flags: h.flags,
+            sender,
+        };
         let dump = h.flags & NLM_F_DUMP != 0;
-        match (h.kind, dump) {
-            (RTM_GETLINK, true) => self.reply(self.dump(h.seq, |out| {
-                for iface in &interfaces {
-                    out.push(link_msg(iface, h.seq, self.port, NLM_F_MULTI));
-                }
-            })),
-            (RTM_GETLINK, false) => match find_link(&interfaces, payload) {
-                Ok(iface) => self.reply(link_msg(iface, h.seq, self.port, 0)),
-                Err(errno) => return Some(errno),
-            },
-            (RTM_GETADDR, true) => self.reply(self.dump(h.seq, |out| {
-                for iface in &interfaces {
-                    for (ip, prefix) in iface.addresses.iter().map(|a| (a.addr, a.prefix_len)) {
-                        let wanted = match family as i32 {
-                            0 => true,
-                            f if f == AddressFamily::AF_INET.0 => ip.is_ipv4(),
-                            f if f == AddressFamily::AF_INET6.0 => ip.is_ipv6(),
-                            _ => false,
-                        };
-                        if wanted {
-                            out.push(addr_msg(iface, ip, prefix, h.seq, self.port));
-                        }
-                    }
-                }
-            })),
-            _ => return Some(Errno::EOPNOTSUPP),
+        let answer = match h.kind {
+            RTM_GETLINK => get_link(&r, payload, dump),
+            RTM_GETADDR => get_addr(&r, payload, dump),
+            RTM_GETROUTE => get_route(&r, payload, dump),
+            RTM_GETNEIGH => get_neigh(&r, dump),
+            RTM_NEWLINK => new_link(&r, payload, false).map(|()| Vec::new()),
+            RTM_SETLINK => new_link(&r, payload, true).map(|()| Vec::new()),
+            RTM_DELLINK => del_link(&r, payload).map(|()| Vec::new()),
+            RTM_NEWADDR => new_addr(&r, payload).map(|()| Vec::new()),
+            RTM_DELADDR => del_addr(&r, payload).map(|()| Vec::new()),
+            RTM_NEWROUTE => new_route(&r, payload).map(|()| Vec::new()),
+            RTM_DELROUTE => del_route(&r, payload).map(|()| Vec::new()),
+            _ => Err(Errno::EOPNOTSUPP),
+        };
+        match answer {
+            Ok(reply) if reply.is_empty() => None,
+            Ok(reply) => {
+                self.reply(reply);
+                None
+            }
+            Err(e) => Some(e),
         }
-        None
     }
 
     /// The interfaces of the socket's namespace as they are now.
-    fn interfaces(&self) -> Vec<Interface> {
-        self.net
-            .network
-            .as_ref()
-            .map(|network| network.interfaces())
-            .unwrap_or_default()
-    }
-
-    /// `rtnl_newlink` for an interface that exists (`rtnl_changelink`, `do_setlink`): only
-    /// its flags change, combined with `ifi_change` as `rtnl_dev_combine_flags` does. Making
-    /// an interface, and changing anything but the flags, is `EOPNOTSUPP`.
-    fn new_link(&self, h: &Header, payload: &[u8]) -> Result<(), Errno> {
-        let ifinfo = payload.get(..IFINFOMSG).ok_or(Errno::EINVAL)?;
-        let index = i32::from_le_bytes(ifinfo[4..8].try_into().unwrap());
-        let flags = u32::from_le_bytes(ifinfo[8..12].try_into().unwrap());
-        let change = u32::from_le_bytes(ifinfo[12..16].try_into().unwrap());
-        if index < 0 {
-            return Err(Errno::EINVAL);
-        }
-        let attrs: Vec<(u16, &[u8])> = attrs(&payload[IFINFOMSG..]).collect();
-        let named = attrs.iter().any(|&(kind, _)| kind == IFLA_IFNAME);
-        let interfaces = self.interfaces();
-        let iface = match index > 0 || named {
-            true => find_link(&interfaces, payload).ok(),
-            false => None,
-        };
-        let Some(iface) = iface else {
-            return Err(match h.flags & NLM_F_CREATE != 0 {
-                true => Errno::EOPNOTSUPP,
-                false => Errno::ENODEV,
-            });
-        };
-        if h.flags & NLM_F_EXCL != 0 {
-            return Err(Errno::EEXIST);
-        }
-        if h.flags & NLM_F_REPLACE != 0 {
-            return Err(Errno::EOPNOTSUPP);
-        }
-        // The name looks the interface up when the index does not; with an index, another
-        // name renames it.
-        let name = |data: &[u8]| data.split(|&b| b == 0).next() == Some(iface.name.as_bytes());
-        let changes_more = attrs
-            .iter()
-            .any(|&(kind, data)| kind != IFLA_IFNAME || (index > 0 && !name(data)));
-        if changes_more {
-            return Err(Errno::EOPNOTSUPP);
-        }
-        if flags == 0 && change == 0 {
-            return Ok(());
-        }
-        // `ifi_change` 0 means every flag.
-        let flags = match change {
-            0 => flags,
-            change => (flags & change) | (iface.flags & !change),
-        };
-        let network = self.net.network.as_ref().ok_or(Errno::ENODEV)?;
-        network.change_flags(iface.index, flags)
-    }
-
-    fn dump(&self, seq: u32, fill: impl FnOnce(&mut Vec<Vec<u8>>)) -> Vec<u8> {
-        let mut msgs = Vec::new();
-        fill(&mut msgs);
-        let mut out: Vec<u8> = msgs.concat();
-        out.extend(nlmsg(
-            NLMSG_DONE,
-            NLM_F_MULTI,
-            seq,
-            self.port,
-            &0i32.to_le_bytes(),
-        ));
-        out
+    #[cfg(test)]
+    fn interfaces(&self) -> Vec<wasixv2_vnet::Interface> {
+        rtnl::interfaces_of(&self.net)
     }
 
     /// `netlink_unicast` to this socket: queued unless the queue is over `SO_RCVBUF`, which
@@ -474,78 +394,6 @@ fn rta(out: &mut Vec<u8>, kind: u16, data: &[u8]) {
     out.resize(out.len().next_multiple_of(NLMSG_ALIGNTO), 0);
 }
 
-/// `RTM_NEWLINK`: `struct ifinfomsg` plus name, MTU and hardware addresses.
-fn link_msg(iface: &Interface, seq: u32, port: u32, flags: u16) -> Vec<u8> {
-    let loopback = iface.flags & IFF_LOOPBACK != 0;
-    let mut p = Vec::new();
-    p.push(0); // ifi_family
-    p.push(0);
-    p.extend(
-        match loopback {
-            true => ARPHRD_LOOPBACK,
-            false => ARPHRD_ETHER,
-        }
-        .to_le_bytes(),
-    );
-    p.extend((iface.index as i32).to_le_bytes());
-    p.extend(iface.flags.to_le_bytes());
-    p.extend(0u32.to_le_bytes()); // ifi_change
-    let mut name = iface.name.as_bytes().to_vec();
-    name.push(0);
-    rta(&mut p, IFLA_IFNAME, &name);
-    rta(&mut p, IFLA_MTU, &iface.mtu.to_le_bytes());
-    // A made-up, locally administered MAC; zeros for loopback, as Linux reports.
-    let mac = match loopback {
-        true => [0; 6],
-        false => [0x02, 0, 0, 0, 0, iface.index as u8],
-    };
-    rta(&mut p, IFLA_ADDRESS, &mac);
-    let broadcast = match loopback {
-        true => [0; 6],
-        false => [0xff; 6],
-    };
-    rta(&mut p, IFLA_BROADCAST, &broadcast);
-    nlmsg(RTM_NEWLINK, flags, seq, port, &p)
-}
-
-/// `RTM_NEWADDR`: `struct ifaddrmsg` plus the address (and local address and label for IPv4).
-fn addr_msg(iface: &Interface, ip: IpAddr, prefix: u8, seq: u32, port: u32) -> Vec<u8> {
-    let (family, bytes) = match ip {
-        IpAddr::V4(v4) => (AddressFamily::AF_INET.0 as u8, v4.octets().to_vec()),
-        IpAddr::V6(v6) => (AddressFamily::AF_INET6.0 as u8, v6.octets().to_vec()),
-    };
-    let scope = match ip.is_loopback() {
-        true => RT_SCOPE_HOST,
-        false => RT_SCOPE_UNIVERSE,
-    };
-    let mut p = vec![family, prefix, 0x80 /* IFA_F_PERMANENT */, scope];
-    p.extend(iface.index.to_le_bytes());
-    rta(&mut p, IFA_ADDRESS, &bytes);
-    if ip.is_ipv4() {
-        rta(&mut p, IFA_LOCAL, &bytes);
-        let mut label = iface.name.as_bytes().to_vec();
-        label.push(0);
-        rta(&mut p, IFA_LABEL, &label);
-    }
-    nlmsg(RTM_NEWADDR, NLM_F_MULTI, seq, port, &p)
-}
-
-/// `rtnl_getlink`'s lookup: the interface a request names by index or by `IFLA_IFNAME`.
-fn find_link<'a>(interfaces: &'a [Interface], payload: &[u8]) -> Result<&'a Interface, Errno> {
-    let ifinfo = payload.get(..IFINFOMSG).ok_or(Errno::EINVAL)?;
-    let index = i32::from_le_bytes(ifinfo[4..8].try_into().unwrap());
-    let found = if index > 0 {
-        interfaces.iter().find(|i| i.index as i32 == index)
-    } else {
-        let name = attrs(&payload[IFINFOMSG..])
-            .find(|(kind, _)| *kind == IFLA_IFNAME)
-            .map(|(_, data)| data.split(|&b| b == 0).next().unwrap_or(data))
-            .ok_or(Errno::EINVAL)?;
-        interfaces.iter().find(|i| i.name.as_bytes() == name)
-    };
-    found.ok_or(Errno::ENODEV)
-}
-
 /// `netlink_ack`: `NLMSG_ERROR` with the error (0 for an ack) and the request, whole for an
 /// error, its header alone (`NLM_F_CAPPED`) for an ack.
 fn ack(request: &[u8], seq: u32, port: u32, err: Option<Errno>) -> Vec<u8> {
@@ -608,7 +456,7 @@ impl FileObject for NetlinkSocket {
     /// `write` has no credentials of the writer here, so a change rests on the opener's
     /// `CAP_NET_ADMIN` alone; `sendmsg` checks the sender's too.
     fn write<'a>(&'a self, _io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
-        Box::pin(async move { Ok(self.send(data, true)?) })
+        Box::pin(async move { Ok(self.send(data, true, &NoNamespaces)?) })
     }
 }
 
@@ -659,11 +507,29 @@ impl Kernel {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use wasixv2_vnet::iface::flags::IFF_LOOPBACK;
+
+    use super::{rtnl::*, *};
 
     /// A socket on a namespace with only `lo`, up, opened with `CAP_NET_ADMIN`.
     fn socket() -> NetlinkSocket {
+        socket_in(net_ns())
+    }
+
+    /// A namespace with only `lo`, up.
+    fn net_ns() -> Arc<NetNs> {
         let lo = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+        crate::ns::Ns::initial(
+            crate::ns::NsKind::Net,
+            None,
+            crate::ns::Net {
+                network: Some(lo),
+                unix_names: Arc::default(),
+            },
+        )
+    }
+
+    fn socket_in(net: Arc<NetNs>) -> NetlinkSocket {
         NetlinkSocket {
             queue: Mutex::new(Queue {
                 sndbuf: BUF_DEFAULT,
@@ -672,14 +538,7 @@ mod tests {
             }),
             wait: WaitQueue::new(),
             opener_net_admin: true,
-            net: crate::ns::Ns::initial(
-                crate::ns::NsKind::Net,
-                None,
-                crate::ns::Net {
-                    network: Some(lo),
-                    unix_names: Arc::default(),
-                },
-            ),
+            net,
             port: 7,
             timeouts: Timeouts::default(),
             host: Arc::new(crate::tests::TestHost),
@@ -707,21 +566,21 @@ mod tests {
             for total in [16usize, 17, 18, 19, 20, 21, 33, 64] {
                 let mut data = header(len, RTM_GETLINK, NLM_F_REQUEST | NLM_F_DUMP);
                 data.resize(total, 0xff);
-                assert_eq!(nl.send(&data, true), Ok(total));
+                assert_eq!(nl.send(&data, true, &NoNamespaces), Ok(total));
             }
         }
         for seed in 0..2000u32 {
             let data: Vec<u8> = (0..(seed % 97))
                 .map(|i| (seed.wrapping_mul(2654435761).wrapping_add(i * 40503) >> 7) as u8)
                 .collect();
-            let _ = nl.send(&data, true);
+            let _ = nl.send(&data, true, &NoNamespaces);
         }
         // `nlmsg_len` 17 in a 17-byte send: handled, then the walk stops at the end.
         let mut data = header(17, RTM_GETLINK, NLM_F_REQUEST | NLM_F_DUMP);
         data.push(0);
         nl.queue().replies.clear();
         nl.queue().queued = 0;
-        assert_eq!(nl.send(&data, true), Ok(17));
+        assert_eq!(nl.send(&data, true, &NoNamespaces), Ok(17));
         assert_eq!(replies(&nl).len(), 1);
     }
 
@@ -731,28 +590,33 @@ mod tests {
         // Not a request: nothing, unless acked.
         let mut data = header(17, RTM_GETLINK, 0);
         data.push(0);
-        nl.send(&data, true).unwrap();
+        nl.send(&data, true, &NoNamespaces).unwrap();
         assert!(replies(&nl).is_empty());
         let mut data = header(17, RTM_GETLINK, NLM_F_ACK);
         data.push(0);
-        nl.send(&data, true).unwrap();
+        nl.send(&data, true, &NoNamespaces).unwrap();
         let acks = replies(&nl);
         assert_eq!(acks.len(), 1);
         assert_eq!(u16::from_le_bytes([acks[0][4], acks[0][5]]), NLMSG_ERROR);
         assert_eq!(i32::from_le_bytes(acks[0][16..20].try_into().unwrap()), 0);
-        // A change needs CAP_NET_ADMIN, and then one we cannot make is not supported.
+        // A change needs CAP_NET_ADMIN, and then a truncated one is invalid.
         let mut data = header(17, RTM_NEWADDR, NLM_F_REQUEST);
         data.push(0);
-        nl.send(&data, false).unwrap();
+        nl.send(&data, false, &NoNamespaces).unwrap();
         assert_eq!(error(&replies(&nl)[0]), -Errno::EPERM.0);
-        nl.send(&data, true).unwrap();
+        nl.send(&data, true, &NoNamespaces).unwrap();
+        assert_eq!(error(&replies(&nl)[0]), -Errno::EINVAL.0);
+        // A request of a kind nothing answers.
+        let mut data = header(17, 38 /* RTM_GETQDISC */, NLM_F_REQUEST);
+        data.push(0);
+        nl.send(&data, true, &NoNamespaces).unwrap();
         assert_eq!(error(&replies(&nl)[0]), -Errno::EOPNOTSUPP.0);
         // Non-dump RTM_GETLINK by index and by name.
         let mut data = header(32, RTM_GETLINK, NLM_F_REQUEST);
         data.extend([0u8; 4]);
         data.extend(1i32.to_le_bytes());
         data.extend([0u8; 8]);
-        nl.send(&data, true).unwrap();
+        nl.send(&data, true, &NoNamespaces).unwrap();
         let link = replies(&nl);
         assert_eq!(u16::from_le_bytes([link[0][4], link[0][5]]), RTM_NEWLINK);
         let mut data = header(0, RTM_GETLINK, NLM_F_REQUEST);
@@ -760,10 +624,10 @@ mod tests {
         rta(&mut data, IFLA_IFNAME, b"lo\0");
         let len = data.len() as u32;
         data[..4].copy_from_slice(&len.to_le_bytes());
-        nl.send(&data, true).unwrap();
+        nl.send(&data, true, &NoNamespaces).unwrap();
         assert_eq!(replies(&nl).len(), 1);
         data[NLMSG_HDR + IFINFOMSG + RTA_HDR] = b'x';
-        nl.send(&data, true).unwrap();
+        nl.send(&data, true, &NoNamespaces).unwrap();
         let err = replies(&nl);
         assert_eq!(
             i32::from_le_bytes(err[0][16..20].try_into().unwrap()),
@@ -811,21 +675,23 @@ mod tests {
         let up = IFF_UP | IFF_RUNNING | IFF_LOWER_UP;
         assert_eq!(lo_flags(&nl), IFF_LOOPBACK | up);
 
-        nl.send(&new_link(1, 0, IFF_UP, 0, &[]), false).unwrap();
+        nl.send(&new_link(1, 0, IFF_UP, 0, &[]), false, &NoNamespaces)
+            .unwrap();
         assert_eq!(error(&replies(&nl)[0]), -Errno::EPERM.0);
-        nl.send(&new_link(1, 0, IFF_UP, 0, &[]), true).unwrap();
+        nl.send(&new_link(1, 0, IFF_UP, 0, &[]), true, &NoNamespaces)
+            .unwrap();
         assert_eq!(error(&replies(&nl)[0]), 0);
         assert_eq!(lo_flags(&nl), IFF_LOOPBACK);
         let mut dump = header(17, RTM_GETLINK, NLM_F_REQUEST | NLM_F_DUMP);
         dump.push(0);
-        nl.send(&dump, true).unwrap();
+        nl.send(&dump, true, &NoNamespaces).unwrap();
         let link = &replies(&nl)[0];
         let ifi_flags = u32::from_le_bytes(link[NLMSG_HDR + 8..NLMSG_HDR + 12].try_into().unwrap());
         assert_eq!(ifi_flags, IFF_LOOPBACK);
 
         // By name, with every flag at once.
         let by_name = new_link(0, IFF_UP, 0, 0, &[(IFLA_IFNAME, b"lo\0")]);
-        nl.send(&by_name, true).unwrap();
+        nl.send(&by_name, true, &NoNamespaces).unwrap();
         assert_eq!(error(&replies(&nl)[0]), 0);
         assert_eq!(lo_flags(&nl), IFF_LOOPBACK | up);
     }
@@ -835,7 +701,7 @@ mod tests {
     fn new_link_refuses_what_it_cannot_do() {
         let nl = socket();
         let refused = |data: Vec<u8>| {
-            nl.send(&data, true).unwrap();
+            nl.send(&data, true, &NoNamespaces).unwrap();
             error(&replies(&nl)[0])
         };
         assert_eq!(refused(new_link(-1, 1, 1, 0, &[])), -Errno::EINVAL.0);
@@ -856,15 +722,19 @@ mod tests {
             refused(new_link(1, 1, 1, NLM_F_REPLACE, &[])),
             -Errno::EOPNOTSUPP.0
         );
-        let mtu = 1500u32.to_le_bytes();
+        // What no interface here has, such as a broadcast address to set.
         assert_eq!(
-            refused(new_link(1, 1, 1, 0, &[(IFLA_MTU, &mtu)])),
+            refused(new_link(1, 1, 1, 0, &[(IFLA_BROADCAST, &[0xff; 6])])),
             -Errno::EOPNOTSUPP.0
         );
+        // `dev_change_name` refuses an interface that is up.
         assert_eq!(
             refused(new_link(1, 1, 1, 0, &[(IFLA_IFNAME, b"lo0\0")])),
-            -Errno::EOPNOTSUPP.0
+            -Errno::EBUSY.0
         );
+        let mtu = 9000u32.to_le_bytes();
+        assert_eq!(refused(new_link(1, 1, 1, 0, &[(IFLA_MTU, &mtu)])), 0);
+        assert_eq!(nl.interfaces()[0].mtu, 9000);
         assert_eq!(refused(new_link(1, 1, 1, 0, &[(IFLA_IFNAME, b"lo\0")])), 0);
     }
 
@@ -879,7 +749,7 @@ mod tests {
         }
         let mut sent = 0;
         while sent < 64 {
-            nl.send(&data[..16 * 1024], true).unwrap();
+            nl.send(&data[..16 * 1024], true, &NoNamespaces).unwrap();
             sent += 1;
         }
         let q = nl.queue();
@@ -887,6 +757,263 @@ mod tests {
         assert_eq!(q.err, Some(Errno::ENOBUFS));
         drop(q);
         assert!(nl.poll(None).contains(PollMask::ERR));
-        assert_eq!(nl.send(&vec![0; BUF_DEFAULT], true), Err(Errno::EMSGSIZE));
+        assert_eq!(
+            nl.send(&vec![0; BUF_DEFAULT], true, &NoNamespaces),
+            Err(Errno::EMSGSIZE)
+        );
+    }
+
+    /// A request of `kind` with `flags`, a fixed header `body` and attributes.
+    fn msg(kind: u16, flags: u16, body: &[u8], attrs: &[(u16, Vec<u8>)]) -> Vec<u8> {
+        let mut data = header(0, kind, NLM_F_REQUEST | flags);
+        data.extend(body);
+        for (kind, value) in attrs {
+            rta(&mut data, *kind, value);
+        }
+        let len = data.len() as u32;
+        data[..4].copy_from_slice(&len.to_le_bytes());
+        data
+    }
+
+    /// Sends `data` and returns the replies, each split into messages.
+    fn exchange(nl: &NetlinkSocket, data: &[u8], sender: &dyn Sender) -> Vec<Vec<u8>> {
+        nl.send(data, true, sender).unwrap();
+        let mut out = Vec::new();
+        for reply in replies(nl) {
+            let mut rest = &reply[..];
+            while rest.len() >= NLMSG_HDR {
+                let len = u32::from_le_bytes(rest[..4].try_into().unwrap()) as usize;
+                out.push(rest[..len].to_vec());
+                rest = &rest[len.next_multiple_of(NLMSG_ALIGNTO).min(rest.len())..];
+            }
+        }
+        out
+    }
+
+    /// The acknowledged errno of a change sent with `NLM_F_ACK`.
+    fn change(nl: &NetlinkSocket, data: &[u8], sender: &dyn Sender) -> i32 {
+        error(&exchange(nl, data, sender)[0])
+    }
+
+    /// The attribute `kind` of a reply whose fixed header is `fixed` bytes.
+    fn attr(reply: &[u8], fixed: usize, kind: u16) -> Option<Vec<u8>> {
+        attrs(&reply[NLMSG_HDR + fixed..])
+            .find(|(k, _)| *k == kind)
+            .map(|(_, v)| v.to_vec())
+    }
+
+    fn ifinfo(index: i32, flags: u32, change: u32) -> Vec<u8> {
+        let mut body = vec![0u8; 4];
+        body.extend(index.to_le_bytes());
+        body.extend(flags.to_le_bytes());
+        body.extend(change.to_le_bytes());
+        body
+    }
+
+    fn name(n: &str) -> Vec<u8> {
+        let mut v = n.as_bytes().to_vec();
+        v.push(0);
+        v
+    }
+
+    /// Hands out one namespace for every pid.
+    struct To(Arc<NetNs>);
+
+    impl Sender for To {
+        fn net_of_pid(&self, _: u32) -> Result<Arc<NetNs>, Errno> {
+            Ok(self.0.clone())
+        }
+
+        fn net_of_fd(&self, _: i32) -> Result<Arc<NetNs>, Errno> {
+            Err(Errno::EBADF)
+        }
+    }
+
+    /// `ip link add veth0 type veth peer name veth1`, then `ip link set veth1 netns <pid>`
+    /// (`IFLA_NET_NS_PID`, as `tst_ns_ifmove` sends it), then `ip link del veth0`.
+    #[test]
+    fn veth_pairs_are_made_moved_and_deleted() {
+        let nl = socket();
+        let other = net_ns();
+        let there = socket_in(other.clone());
+        let to = To(other);
+        let mut peer = ifinfo(0, 0, 0);
+        rta(&mut peer, IFLA_IFNAME, &name("veth1"));
+        let mut data = Vec::new();
+        rta(&mut data, VETH_INFO_PEER, &peer);
+        let mut info = Vec::new();
+        rta(&mut info, IFLA_INFO_KIND, b"veth\0");
+        rta(&mut info, IFLA_INFO_DATA | 0x8000, &data);
+        let create = NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL;
+        let add = msg(
+            RTM_NEWLINK,
+            create,
+            &ifinfo(0, 0, 0),
+            &[(IFLA_IFNAME, name("veth0")), (IFLA_LINKINFO | 0x8000, info)],
+        );
+        assert_eq!(change(&nl, &add, &to), 0);
+        assert_eq!(change(&nl, &add, &to), -Errno::EEXIST.0);
+        let names: Vec<_> = nl
+            .interfaces()
+            .into_iter()
+            .map(|i| (i.index, i.name))
+            .collect();
+        assert_eq!(
+            names,
+            [(1, "lo".into()), (2, "veth1".into()), (3, "veth0".into())]
+        );
+        let dump = header(17, RTM_GETLINK, NLM_F_REQUEST | NLM_F_DUMP);
+        let links = exchange(&nl, &[dump.clone(), vec![0]].concat(), &to);
+        assert_eq!(
+            attr(&links[2], IFINFOMSG, IFLA_LINK),
+            Some(2u32.to_le_bytes().to_vec())
+        );
+        let kind = attr(&links[2], IFINFOMSG, IFLA_LINKINFO).unwrap();
+        assert_eq!(
+            attrs(&kind).next().unwrap(),
+            (IFLA_INFO_KIND, &b"veth\0"[..])
+        );
+
+        let mov = msg(
+            RTM_NEWLINK,
+            NLM_F_ACK,
+            &ifinfo(2, 0, u32::MAX),
+            &[(IFLA_NET_NS_PID, 42u32.to_le_bytes().to_vec())],
+        );
+        assert_eq!(change(&nl, &mov, &to), 0);
+        assert_eq!(nl.interfaces().len(), 2);
+        assert_eq!(there.interfaces()[1].name, "veth1");
+        let links = exchange(&nl, &[dump, vec![0]].concat(), &to);
+        assert_eq!(
+            attr(&links[1], IFINFOMSG, IFLA_LINK_NETNSID),
+            Some(0i32.to_le_bytes().to_vec())
+        );
+        // `lo` stays home; deleting it is not a request's.
+        let mov_lo = msg(
+            RTM_NEWLINK,
+            NLM_F_ACK,
+            &ifinfo(1, 0, 0),
+            &[(IFLA_NET_NS_PID, 42u32.to_le_bytes().to_vec())],
+        );
+        assert_eq!(change(&nl, &mov_lo, &to), -Errno::EINVAL.0);
+        let del = |index| msg(RTM_DELLINK, NLM_F_ACK, &ifinfo(index, 0, 0), &[]);
+        assert_eq!(change(&nl, &del(1), &to), -Errno::EOPNOTSUPP.0);
+        assert_eq!(change(&nl, &del(3), &to), 0);
+        assert_eq!(there.interfaces().len(), 1);
+        assert_eq!(change(&nl, &del(0), &to), -Errno::EINVAL.0);
+    }
+
+    fn ifaddr(family: i32, prefix: u8, index: u32) -> Vec<u8> {
+        let mut body = vec![family as u8, prefix, 0, 0];
+        body.extend(index.to_le_bytes());
+        body
+    }
+
+    fn rtmsg(family: i32, dst_len: u8, scope: u8, kind: u8) -> Vec<u8> {
+        let mut body = vec![
+            family as u8,
+            dst_len,
+            0,
+            0,
+            wasixv2_vnet::iface::rt::RT_TABLE_MAIN as u8,
+            3,
+            scope,
+            kind,
+        ];
+        body.extend(0u32.to_le_bytes());
+        body
+    }
+
+    /// `ip addr add/del` and `ip route add/get/del` on a dummy interface, and the dumps
+    /// `ip addr show` and `ip route show` read.
+    #[test]
+    fn addresses_and_routes_change_through_netlink() {
+        let nl = socket();
+        let us = NoNamespaces;
+        let mut info = Vec::new();
+        rta(&mut info, IFLA_INFO_KIND, b"dummy\0");
+        let up = wasixv2_vnet::iface::flags::IFF_UP;
+        let add = msg(
+            RTM_NEWLINK,
+            NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL,
+            &ifinfo(0, up, up),
+            &[(IFLA_IFNAME, name("dummy0")), (IFLA_LINKINFO, info)],
+        );
+        assert_eq!(change(&nl, &add, &us), 0);
+        let dummy = nl.interfaces()[1].clone();
+        assert_ne!(dummy.flags & up, 0);
+        let inet = AddressFamily::AF_INET.0;
+        let a = [10u8, 0, 0, 1].to_vec();
+        let addr = |kind, flags| {
+            msg(
+                kind,
+                NLM_F_ACK | flags,
+                &ifaddr(inet, 24, dummy.index),
+                &[(IFA_LOCAL, a.clone()), (IFA_ADDRESS, a.clone())],
+            )
+        };
+        let create = NLM_F_CREATE | NLM_F_EXCL;
+        assert_eq!(change(&nl, &addr(RTM_NEWADDR, create), &us), 0);
+        assert_eq!(
+            change(&nl, &addr(RTM_NEWADDR, create), &us),
+            -Errno::EEXIST.0
+        );
+        let mut dump = header(0, RTM_GETADDR, NLM_F_REQUEST | NLM_F_DUMP);
+        dump.extend(ifaddr(inet, 0, 0));
+        let len = dump.len() as u32;
+        dump[..4].copy_from_slice(&len.to_le_bytes());
+        let addrs = exchange(&nl, &dump, &us);
+        // lo's 127.0.0.1 and ours, then NLMSG_DONE.
+        assert_eq!(addrs.len(), 3);
+        assert_eq!(attr(&addrs[1], 8, IFA_LOCAL), Some(a.clone()));
+
+        let gw = [10u8, 0, 0, 254].to_vec();
+        let route = |kind, gateway: &[u8]| {
+            msg(
+                kind,
+                NLM_F_ACK | create,
+                &rtmsg(inet, 0, 0, 1),
+                &[(RTA_GATEWAY, gateway.to_vec())],
+            )
+        };
+        assert_eq!(
+            change(&nl, &route(RTM_NEWROUTE, &[172, 16, 0, 1]), &us),
+            -Errno::ENETUNREACH.0
+        );
+        assert_eq!(change(&nl, &route(RTM_NEWROUTE, &gw), &us), 0);
+        let mut dump = header(0, RTM_GETROUTE, NLM_F_REQUEST | NLM_F_DUMP);
+        dump.extend(rtmsg(inet, 0, 0, 0));
+        let len = dump.len() as u32;
+        dump[..4].copy_from_slice(&len.to_le_bytes());
+        let routes = exchange(&nl, &dump, &us);
+        // The prefix route, the default route, NLMSG_DONE.
+        assert_eq!(routes.len(), 3);
+        assert_eq!(attr(&routes[1], 12, RTA_GATEWAY), Some(gw.clone()));
+        let get = msg(
+            RTM_GETROUTE,
+            0,
+            &rtmsg(inet, 32, 0, 0),
+            &[(RTA_DST, vec![8, 8, 8, 8])],
+        );
+        let got = exchange(&nl, &get, &us);
+        assert_eq!(u16::from_le_bytes([got[0][4], got[0][5]]), RTM_NEWROUTE);
+        assert_eq!(
+            attr(&got[0], 12, RTA_OIF),
+            Some(dummy.index.to_le_bytes().to_vec())
+        );
+        let del = msg(
+            RTM_DELROUTE,
+            NLM_F_ACK,
+            &rtmsg(inet, 0, wasixv2_vnet::iface::rt::RT_SCOPE_NOWHERE, 0),
+            &[],
+        );
+        assert_eq!(change(&nl, &del, &us), 0);
+        assert_eq!(change(&nl, &del, &us), -Errno::ESRCH.0);
+        assert_eq!(error(&exchange(&nl, &get, &us)[0]), -Errno::ENETUNREACH.0);
+        assert_eq!(change(&nl, &addr(RTM_DELADDR, 0), &us), 0);
+        assert_eq!(
+            change(&nl, &addr(RTM_DELADDR, 0), &us),
+            -Errno::EADDRNOTAVAIL.0
+        );
     }
 }
