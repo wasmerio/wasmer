@@ -1196,6 +1196,12 @@ impl MemHandle {
 
 #[async_trait(?Send)]
 impl Handle for MemHandle {
+    fn mmap(&self, _shared: bool) -> FsResult<()> {
+        // mm/shmem.c:shmem_mmap_prepare calls file_accessed for every file mapping.
+        self.read_done();
+        Ok(())
+    }
+
     async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
         let n = self.node.data()?.read(buf, offset)?;
         self.read_done();

@@ -964,3 +964,64 @@ fn shmdt_detaches_retained_pages_before_address_reuse() {
         assert_eq!(&bytes, b"new!", "replacement mapped={mapped}");
     }
 }
+
+/// mm/shmem.c:shmem_mmap_prepare calls file_accessed even when mmap installs
+/// shared pages without reading the file. Failed validation must not access it.
+#[test]
+fn file_mmap_accesses_tmpfs_after_validation_and_honors_noatime() {
+    use wasixv2_vfs::{SetAttr, TimeSet, Timestamp};
+    for flags in [MapFlags::MAP_SHARED, MapFlags::MAP_PRIVATE] {
+        for noatime in [false, true] {
+            let host: Arc<dyn Host> = Arc::new(SharedHost);
+            let clock = Arc::new(HostClock(host.clone()));
+            let root = MemFs::new(clock, 0o755, 1, 1).with_shared_pages(Arc::new(SharedHost));
+            let (kernel, task, _) = spawn_on(
+                Kernel::new(host, Arc::new(root)),
+                Arc::new(Input(Mutex::new(Vec::new()))),
+                &[],
+                &[],
+            );
+            let memory = MappedMemory::new(2, true);
+            let caller = Caller::new(task, &memory);
+            let mut open = OpenFlags::O_CREAT | OpenFlags::O_RDWR;
+            if noatime {
+                open |= OpenFlags::O_NOATIME;
+            }
+            let fd = super::mapping::open(&kernel, &caller, b"/mapped", open);
+            ftruncate(&kernel, &caller, fd, i64::from(PAGE));
+            let file = kernel.file(task, fd).unwrap();
+            let node = file.inode().unwrap().node();
+            let old = Timestamp::new(1, 0);
+            block_on(node.setattr(&SetAttr {
+                atime: Some(TimeSet::At(old)),
+                ..SetAttr::default()
+            }))
+            .unwrap();
+            assert_eq!(
+                errno(block_on(kernel.mmap(&caller, 0, 0, RW, flags, fd, 0))),
+                Errno::EINVAL
+            );
+            assert_eq!(
+                errno(block_on(kernel.mmap(
+                    &caller,
+                    1,
+                    PAGE,
+                    RW,
+                    flags | MapFlags::MAP_FIXED,
+                    fd,
+                    0
+                ))),
+                Errno::EINVAL
+            );
+            assert_eq!(block_on(node.getattr()).unwrap().atime, old);
+            let at = block_on(kernel.mmap(&caller, 0, PAGE, RW, flags, fd, 0)).unwrap();
+            let expected = if noatime {
+                old
+            } else {
+                Timestamp::new(1_700_000_000, 0)
+            };
+            assert_eq!(block_on(node.getattr()).unwrap().atime, expected);
+            block_on(kernel.munmap(&caller, at, PAGE)).unwrap();
+        }
+    }
+}

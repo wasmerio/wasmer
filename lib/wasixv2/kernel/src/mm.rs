@@ -1556,11 +1556,6 @@ impl Kernel {
             true => None,
             false => Some(self.mmap_file(caller, fd)?),
         };
-        if let Some(file) = &file
-            && let crate::file::Backing::Inode(inode) = &file.backing
-        {
-            inode.mmap(flags.contains(MapFlags::MAP_SHARED))?;
-        }
         if prot.contains(ProtFlags::PROT_EXEC) {
             return Err(Errno::EACCES.into());
         }
@@ -1605,6 +1600,16 @@ impl Kernel {
         } else {
             self.map_anywhere(caller, pages).await? as Uptr
         };
+        // mm/mmap.c:mmap_region invokes the filesystem after validating the mapping and
+        // choosing its address. shmem_mmap_prepare/generic_file_mmap call file_accessed here,
+        // including mappings that install shared pages without reading through the handle.
+        if let Some(file) = &file
+            && let crate::file::Backing::Inode(inode) = &file.backing
+            && let Err(errno) = inode.mmap(flags.contains(MapFlags::MAP_SHARED))
+        {
+            mm.space().unmap(start.into(), pages * PAGE_SIZE);
+            return Err(errno.into());
+        }
         let first = u64::from(start) / PAGE_SIZE;
         {
             let mut space = mm.space();

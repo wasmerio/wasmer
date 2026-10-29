@@ -372,7 +372,8 @@ pub trait Handle: Send + Sync {
     /// interrupted flush without a waiter. Normal closes use `flush`.
     fn flush_fatal(&self, _owner: u64) {}
 
-    /// Validates a file mapping before allocating its pages (`file_operations.mmap`).
+    /// Prepares a validated file mapping before installing its contents (`file_operations.mmap`).
+    /// Regular files mark access here, including mappings that do not read through the handle.
     fn mmap(&self, _shared: bool) -> FsResult<()> {
         Ok(())
     }
