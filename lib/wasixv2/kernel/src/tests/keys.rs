@@ -65,11 +65,22 @@ impl<'a> T<'a> {
     }
 
     fn request(&self, kind: &str, desc: &str, dest: i32) -> SysResult<i32> {
+        self.request_with_callout(kind, desc, None, dest)
+    }
+
+    fn request_with_callout(
+        &self,
+        kind: &str,
+        desc: &str,
+        callout: Option<&str>,
+        dest: i32,
+    ) -> SysResult<i32> {
         let (kind, desc) = (self.cstr(0x1000, kind), self.cstr(0x1100, desc));
-        let request = self
-            .kernel
-            .request_key(&self.caller, kind, desc, GuestPtr::NULL, dest);
-        block_on(request)
+        let callout = callout.map_or(GuestPtr::NULL, |s| self.cstr(0x1200, s));
+        block_on(
+            self.kernel
+                .request_key(&self.caller, kind, desc, callout, dest),
+        )
     }
 
     fn keyctl(&self, op: i32, a2: u32, a3: u32, a4: u32, a5: u32) -> SysResult<i32> {
@@ -226,6 +237,104 @@ fn request_key_and_search_find_and_link() {
     assert_eq!(errno(t.read(key)), Errno::ENOKEY);
 }
 
+/// Linux security/keys/request_key.c `complete_request_key` caches the failed construction,
+/// even when the usermode helper is absent; keyctl_read_key must not read a negative payload.
+#[test]
+fn failed_request_key_construction_caches_a_negative_key() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let ring = t.id(PROCESS, true).unwrap();
+    assert_eq!(errno(t.request("user", "missing", PROCESS)), Errno::ENOKEY);
+    assert!(t.read(ring).unwrap().is_empty());
+    assert_eq!(
+        errno(t.request_with_callout("user", "missing", Some(""), PROCESS)),
+        Errno::ENOENT
+    );
+    let ids = t.read(ring).unwrap();
+    assert_eq!(ids.len(), 4);
+    let key = i32::from_le_bytes(ids.try_into().unwrap());
+    assert!(t.describe(key).unwrap().ends_with(";missing"));
+    assert_eq!(errno(t.read(key)), Errno::ENOKEY);
+    assert_eq!(
+        errno(t.keyctl(LINK, key as u32, ring as u32, 0, 0)),
+        Errno::ENOKEY
+    );
+    assert_eq!(
+        errno(t.keyctl(UPDATE, key as u32, 0x2000, 1, 0)),
+        Errno::ENOKEY
+    );
+    assert_eq!(
+        errno(t.request_with_callout("user", "missing", Some("again"), PROCESS)),
+        Errno::ENOKEY
+    );
+    assert_eq!(t.read(ring).unwrap(), key.to_le_bytes());
+    let keys = t.proc("/proc/keys");
+    let line = keys.lines().find(|l| l.contains(" missing")).unwrap();
+    assert!(line.contains(" I--Q-N- "), "{line}");
+    // key_create_or_update may update a negative key, making it positive and permanent.
+    assert_eq!(t.add("user", "missing", b"present", ring), Ok(key));
+    assert_eq!(t.read(key).unwrap(), b"present");
+    assert_eq!(t.request("user", "missing", 0), Ok(key));
+}
+
+#[test]
+fn failed_request_key_construction_expires_and_obeys_the_default_destination() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let session = t.keyctl(JOIN_SESSION_KEYRING, 0, 0, 0, 0).unwrap();
+    assert_eq!(t.keyctl(14, 3, 0, 0, 0), Ok(0)); // KEYCTL_SET_REQKEY_KEYRING: session.
+    assert_eq!(
+        errno(t.request_with_callout("user", "cached", Some("x"), 0)),
+        Errno::ENOENT
+    );
+    let old = t.read(session).unwrap();
+    kernel
+        .time
+        .settime(kernel.host.realtime() + Duration::from_secs(61))
+        .unwrap();
+    assert_eq!(
+        errno(t.request_with_callout("user", "cached", Some("x"), 0)),
+        Errno::ENOENT
+    );
+    assert_ne!(t.read(session).unwrap(), old);
+    // construct_get_dest_keyring requires WRITE, even for a joined session keyring.
+    assert_eq!(t.keyctl(CLEAR, session as u32, 0, 0, 0), Ok(0));
+    assert_eq!(t.keyctl(SETPERM, session as u32, 0x0b00_0000, 0, 0), Ok(0));
+    assert_eq!(
+        errno(t.request_with_callout("user", "denied", Some("x"), 0)),
+        Errno::EACCES
+    );
+    assert!(t.read(session).unwrap().is_empty());
+}
+
+/// security/keys/keyctl.c checks malformed REJECT/INSTANTIATE arguments before authority;
+/// neither the caller's credentials nor root grant a request-key authorization token.
+#[test]
+fn request_key_authority_operations_validate_arguments_without_authority() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    assert_eq!(errno(t.keyctl(19, 0, 0, 0, 0)), Errno::EINVAL); // REJECT
+    for error in [4095, 512, 513, 514, 516] {
+        assert_eq!(errno(t.keyctl(19, 0, 0, error, 0)), Errno::EINVAL);
+    }
+    assert_eq!(
+        errno(t.keyctl(19, 0, 0, Errno::ENOKEY.0 as u32, 0)),
+        Errno::EPERM
+    );
+    assert_eq!(errno(t.keyctl(13, 0, 0, 0, 0)), Errno::EPERM); // NEGATE
+    assert_eq!(
+        errno(t.keyctl(12, 0, 0x2000, 1024 * 1024, 0)),
+        Errno::EINVAL
+    );
+    assert_eq!(errno(t.keyctl(12, 0, 0x2000, 1, 0)), Errno::EPERM);
+    assert_eq!(errno(t.keyctl(20, 0, 0x2000, 1025, 0)), Errno::EINVAL); // INSTANTIATE_IOV
+    assert_eq!(errno(t.keyctl(20, 0, 0xffff_ff00, 1, 0)), Errno::EFAULT);
+    assert_eq!(errno(t.keyctl(20, 0, 0, 1025, 0)), Errno::EPERM);
+    assert_eq!(t.keyctl(16, 0, 0, 0, 0), Ok(0)); // ASSUME_AUTHORITY
+    assert_eq!(errno(t.keyctl(16, u32::MAX, 0, 0, 0)), Errno::EINVAL);
+    assert_eq!(errno(t.keyctl(16, 123, 0, 0, 0)), Errno::ENOKEY);
+}
+
 /// Permissions: the owner sets them; without the possessor's and owner's read, a read is
 /// EACCES; unknown bits are EINVAL.
 #[test]
@@ -309,3 +418,4 @@ fn capabilities_and_unconfigured_operations() {
     );
     assert_eq!(errno(t.keyctl(99, 0, 0, 0, 0)), Errno::EOPNOTSUPP);
 }
+
