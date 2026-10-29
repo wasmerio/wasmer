@@ -18,7 +18,8 @@ use crate::{
     dentry::Dentry,
     driver::Node,
     mount::Path,
-    types::{FileId, FileType, FsResult},
+    notify::Object,
+    types::{Device, FileId, FileType, FsResult},
 };
 
 /// `MAX_HANDLE_SZ`: the longest handle body.
@@ -46,6 +47,17 @@ fn ino64_fid(node: &dyn Node) -> FileId {
 }
 
 impl Vfs {
+    /// The identifier (as `AT_HANDLE_FID` gives it) of the object `object` names, while
+    /// anything holds it, and the device of its filesystem, which fanotify reports objects by
+    /// (`fanotify_encode_fh`, `vfs_get_fsid`).
+    pub fn object_fid(&self, object: Object) -> Option<(FileId, Device)> {
+        let sb = self.superblock(object.sb)?;
+        let inode = sb.inodes.lock().unwrap().get(&object.ino)?.upgrade()?;
+        let node = inode.node().as_ref();
+        let fid = sb.fs.encode_fh(node).unwrap_or_else(|| ino64_fid(node));
+        Some((fid, sb.dev))
+    }
+
     /// `exportfs_encode_fh`: the handle of the object `path` names. `EOPNOTSUPP` for a
     /// decodable handle of a filesystem without export operations, and for a connectable one,
     /// which needs `fh_to_parent`, which no filesystem here has (as tmpfs).

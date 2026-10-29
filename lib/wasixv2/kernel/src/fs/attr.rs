@@ -151,7 +151,7 @@ impl Kernel {
             f_files: stat.files,
             f_ffree: stat.files_free,
             f_fsid: KernelFsid {
-                val: [(sb.dev.major << 20 | sb.dev.minor) as i32, 0],
+                val: super::fsid(sb.dev),
             },
             f_namelen: stat.name_max,
             f_frsize: stat.fragment_size,

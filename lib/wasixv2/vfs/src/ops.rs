@@ -15,7 +15,7 @@ use crate::{
     locks::{Break, LeaseWait, LockKey},
     mount::{Mount, Path},
     namei::{Last, LookupFlags, Walk, lookup_one},
-    notify::{FsEvent, Object},
+    notify::{FsEvent, Object, Perm},
     types::{
         Attr, Device, FileType, FsResult, MODE_PERM, NewKind, NewNode, OpenOptions, RenameMode,
         S_ISGID, S_ISUID, S_ISVTX, S_IXGRP, SetAttr, StatFs, TimeSet, XattrSet,
@@ -40,6 +40,20 @@ impl Ctx<'_> {
     fn security(&self) -> Option<&dyn crate::Security> {
         self.cred.security.as_deref()
     }
+}
+
+/// `__FMODE_EXEC`: an open flag only the kernel passes, for the program `execve` loads
+/// (`do_open_execat`), which watches hear of as such (`FS_OPEN_EXEC`, `FS_OPEN_EXEC_PERM`).
+pub const FMODE_EXEC: OpenFlags = OpenFlags(0x20);
+
+/// How `finish_open` opens what the walk found.
+#[derive(Clone, Copy)]
+struct OpenMode {
+    flags: OpenFlags,
+    writable: bool,
+    truncate: bool,
+    /// `FMODE_NONOTIFY`: no permission or notification events, for the open or later.
+    nonotify: bool,
 }
 
 /// What to open (`struct open_how`, after `build_open_flags` validated it).
@@ -239,8 +253,13 @@ impl Vfs {
             let write = if writable { MAY_WRITE } else { 0 };
             security.file_open(&target, read | write, truncate)?;
         }
-        self.finish_open(cx, target, flags, writable, truncate, created)
-            .await
+        let mode = OpenMode {
+            flags,
+            writable,
+            truncate,
+            nonotify: false,
+        };
+        self.finish_open(cx, target, mode, created).await
     }
 
     /// Opens `target` for the caller, or takes the handle its creation returned, and builds the
@@ -249,11 +268,15 @@ impl Vfs {
         self: &Arc<Self>,
         cx: &Ctx<'_>,
         target: Path,
-        flags: OpenFlags,
-        writable: bool,
-        truncate: bool,
+        mode: OpenMode,
         handle: Option<Box<dyn Handle>>,
     ) -> FsResult<File> {
+        let OpenMode {
+            flags,
+            writable,
+            truncate,
+            nonotify,
+        } = mode;
         let task = cx.task;
         let access = flags & OpenFlags::O_ACCMODE;
         let readable = access != OpenFlags::O_WRONLY;
@@ -299,6 +322,11 @@ impl Vfs {
             // `may_open` refused it already.
             (None, FileType::Symlink) => return Err(Errno::ELOOP),
         };
+        let exec = flags.contains(FMODE_EXEC);
+        if !nonotify {
+            let perm = if exec { Perm::OpenExec } else { Perm::Open };
+            self.permission_event(cx, &target, perm).await?;
+        }
         if truncate {
             let attr = SetAttr {
                 size: Some(0),
@@ -308,12 +336,10 @@ impl Vfs {
             };
             Self::notify_change(&target.dentry, &attr).await?;
         }
-        self.notify_object(
-            &target.dentry,
-            FsEvent::Open {
-                object: Self::object(&target.dentry),
-            },
-        );
+        if !nonotify {
+            let object = Self::object(&target.dentry);
+            self.notify_path(&target, FsEvent::Open { object, exec });
+        }
         let mut file = File::new(
             self.clone(),
             target,
@@ -323,9 +349,33 @@ impl Vfs {
             writable,
             false,
         )
-        .with_access(counted);
+        .with_access(counted)
+        .with_nonotify(nonotify);
         file.created = created;
         Ok(file)
+    }
+
+    /// `dentry_open_nonotify`: opens the object `path` names as the caller `cx`, with no
+    /// lookup and no permission check, and without telling the watches anything about the
+    /// open or about anything done through it (`FMODE_NONOTIFY`), as fanotify opens the
+    /// descriptors of its events.
+    pub async fn dentry_open_nonotify(
+        self: &Arc<Self>,
+        cx: &Ctx<'_>,
+        path: Path,
+        flags: OpenFlags,
+    ) -> FsResult<File> {
+        if path.dentry.file_type() == FileType::Symlink {
+            return Err(Errno::ELOOP);
+        }
+        let access = flags & OpenFlags::O_ACCMODE;
+        let mode = OpenMode {
+            flags,
+            writable: access != OpenFlags::O_RDONLY,
+            truncate: false,
+            nonotify: true,
+        };
+        self.finish_open(cx, path, mode, None).await
     }
 
     /// `break_lease`: an open of the regular file `key` names, for writing with `write`, or a
@@ -450,8 +500,14 @@ impl Vfs {
             .set_linkable(!how.flags.contains(OpenFlags::O_EXCL));
         self.may_open(cx, &target, acc_mode & !MAY_WRITE, how.flags)
             .await?;
+        let mode = OpenMode {
+            flags: how.flags,
+            writable: true,
+            truncate: false,
+            nonotify: false,
+        };
         // `vfs_tmpfile` makes no name, so the file does not count as created (`FMODE_CREATED`).
-        let mut file = (self.finish_open(cx, target, how.flags, true, false, Some(handle))).await?;
+        let mut file = self.finish_open(cx, target, mode, Some(handle)).await?;
         file.created = false;
         Ok(file)
     }
@@ -570,10 +626,15 @@ impl Vfs {
 
     /// Reports `node`, just created as `name` in `dir`, and caches its name.
     fn created(&self, dir: &Path, name: &[u8], node: Arc<dyn Node>) -> Arc<Dentry> {
+        let object = Object {
+            sb: dir.dentry.sb().id,
+            ino: node.ino(),
+        };
         self.notify(FsEvent::Create {
             dir: Self::object(&dir.dentry),
             name,
             is_dir: node.file_type() == FileType::Directory,
+            object,
         });
         dir.dentry.child(name, node)
     }
@@ -715,6 +776,7 @@ impl Vfs {
             dir: Self::object(&dir.dentry),
             name: &name,
             is_dir: false,
+            object: Self::object(&source.dentry),
         });
         self.notify_object(
             &source.dentry,
@@ -1198,12 +1260,8 @@ impl Vfs {
             ..SetAttr::default()
         };
         Self::notify_change(&path.dentry, &set).await?;
-        self.notify_object(
-            &path.dentry,
-            FsEvent::Modify {
-                object: Self::object(&path.dentry),
-            },
-        );
+        let object = Self::object(&path.dentry);
+        self.notify_path(path, FsEvent::Modify { object });
         Ok(())
     }
 

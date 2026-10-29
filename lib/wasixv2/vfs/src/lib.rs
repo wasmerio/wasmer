@@ -44,8 +44,8 @@ pub use mount::{MNT_UNIQUE_ID_OFFSET, MntNs, Mount, MountFlags, Path, Superblock
 use mount::{Tree, TreeSeq};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
 pub use namespace::{MountAttr, MountInfo, MountOp, UmountFlags};
-pub use notify::{FsEvent, FsWatcher, Object as FsObject};
-pub use ops::{Ctx, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
+pub use notify::{EventInfo, FsEvent, FsWatcher, Object as FsObject, Perm, PermAnswer};
+pub use ops::{Ctx, FMODE_EXEC, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
 pub use pnode::Propagation;
 pub use seals::WRITE_SEALS;
 pub use security::Security;
@@ -268,6 +268,20 @@ impl Vfs {
         );
     }
 
+    /// The device of the filesystem instance with id `id`, while it is in use.
+    pub fn sb_dev(&self, id: u64) -> Option<Device> {
+        self.superblock(id).map(|sb| sb.dev)
+    }
+
+    /// The filesystem instance with id `id`, while it is in use.
+    pub(crate) fn superblock(&self, id: u64) -> Option<Arc<Superblock>> {
+        let supers = self.supers.lock_or_recover();
+        supers
+            .iter()
+            .filter_map(|sb| sb.upgrade())
+            .find(|sb| sb.id == id)
+    }
+
     /// The `st_dev` of an object the driver says lives on its own device `dev`: an anonymous
     /// device of the VFS's, the same one each time, so host device numbers never reach the
     /// guest or collide with the VFS's own.
@@ -288,13 +302,42 @@ impl Vfs {
     pub(crate) fn notify(&self, event: FsEvent<'_>) {
         if let Some(watcher) = self.watching() {
             watcher.event(&event);
+            let info = notify::EventInfo {
+                parent: None,
+                path: None,
+                is_dir: false,
+            };
+            watcher.fsnotify(&event, &info);
         }
+    }
+
+    /// Reports a data-access event on the object `path` names, as [`Vfs::notify_object`]
+    /// does, with the path it was used through (`fsnotify_file`).
+    pub(crate) fn notify_path(&self, path: &Path, event: FsEvent<'_>) {
+        self.notify_dentry(&path.dentry, Some(path), event);
+    }
+
+    /// `fsnotify_open_perm` and `fsnotify_file_area_perm`: the watches' answer to `perm` on
+    /// `path`, waited for as `cx` waits (killable only); allowed when nothing watches or the
+    /// caller cannot wait.
+    pub async fn permission_event(&self, cx: &Ctx<'_>, path: &Path, perm: Perm) -> FsResult<()> {
+        let Some(wait) = cx.leases else {
+            return Ok(());
+        };
+        let Some(answer) = self.watching().and_then(|w| w.permission(path, perm)) else {
+            return Ok(());
+        };
+        wait.wait_killable(answer).await
     }
 
     /// Reports an event on the object `dentry` names, to its own watches and then to its
     /// parent directory's, with its name; for a removed name, the directory it was in
     /// (`fsnotify_parent` on a `d_unlinked` dentry).
     pub(crate) fn notify_object(&self, dentry: &Arc<Dentry>, event: FsEvent<'_>) {
+        self.notify_dentry(dentry, None, event);
+    }
+
+    fn notify_dentry(&self, dentry: &Arc<Dentry>, path: Option<&Path>, event: FsEvent<'_>) {
         let Some(watcher) = self.watching() else {
             return;
         };
@@ -303,13 +346,21 @@ impl Vfs {
             true => watcher.unlinked_event(&event),
             false => watcher.event(&event),
         }
-        dentry.with_parent(|parent, name| {
+        let mut parent = None;
+        dentry.with_parent(|dir, name| {
             let dir = notify::Object {
-                sb: parent.sb().id,
-                ino: parent.node().ino(),
+                sb: dir.sb().id,
+                ino: dir.node().ino(),
             };
             watcher.child_event(dir, name, &event, unlinked);
+            parent = Some((dir, name.to_vec()));
         });
+        let info = notify::EventInfo {
+            parent: parent.as_ref().map(|(dir, name)| (*dir, name.as_slice())),
+            path,
+            is_dir: dentry.is_dir(),
+        };
+        watcher.fsnotify(&event, &info);
     }
 }
 

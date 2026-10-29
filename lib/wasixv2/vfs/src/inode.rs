@@ -158,7 +158,7 @@ impl Inode {
 
 impl Inode {
     /// Whether anything has the file open for writing (`inode_is_open_for_write`).
-    pub(crate) fn open_for_write(&self) -> bool {
+    pub fn open_for_write(&self) -> bool {
         self.writecount.load(Ordering::SeqCst) > 0
     }
 
