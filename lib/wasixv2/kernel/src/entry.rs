@@ -1,5 +1,5 @@
 //! Syscall entry (`syscall_trace_enter`): what the kernel does with a call before it runs it,
-//! as a [`Layer`] in front of the kernel. Today that is seccomp.
+//! as a [`Layer`] in front of the kernel: the current task and seccomp.
 
 use wasixv2_syscalls::{Caller, Layer, SysResult, Syscall, SyscallRet, Syscalls, dispatch};
 
@@ -26,10 +26,13 @@ impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
         call: Syscall,
         next: &Kernel,
     ) -> SysResult<SyscallRet> {
-        match next.syscall_entry(caller, &call).await {
-            Some(ret) => ret,
-            None => self.0.call(caller, call, next).await,
-        }
+        wasixv2_syscalls::as_task(caller.task(), async {
+            match next.syscall_entry(caller, &call).await {
+                Some(ret) => ret,
+                None => self.0.call(caller, call, next).await,
+            }
+        })
+        .await
     }
 }
 

@@ -963,6 +963,70 @@ fn fanotify_reports_opens_writes_and_closes_with_a_descriptor() {
     assert_eq!(block_on(call), Ok(0));
 }
 
+/// Linux fs/notify/fanotify/fanotify.c `fanotify_alloc_event` records current's pid or tgid.
+/// The syscall caller can differ from the task whose instance originally started running.
+#[test]
+fn fanotify_syscall_entry_reports_the_callers_pid_and_tid() {
+    use wasixv2_abi::{FanotifyInitFlags as F, FanotifyMarkFlags as M, FanotifyMask as E};
+    use wasixv2_syscalls::Layered;
+
+    for report_tid in [false, true] {
+        let (kernel, task, memory) = super::cred::machine_as(0, 0);
+        let t = T::new(&kernel, task, &memory);
+        t.create("/f", b"x");
+        let flags = F::FAN_NONBLOCK | if report_tid { F::FAN_REPORT_TID } else { F(0) };
+        let group = Fd(block_on(kernel.fanotify_init(&t.caller, flags.0, 0)).unwrap());
+        let name = t.path("/f");
+        let mark = kernel.fanotify_mark(
+            &t.caller,
+            group,
+            M::FAN_MARK_ADD.0,
+            E::FAN_OPEN.0,
+            CWD,
+            name,
+        );
+        assert_eq!(block_on(mark), Ok(0));
+        let spawn = kernel.thread_spawn(
+            &t.caller,
+            0x10f00,
+            0,
+            GuestPtrMut::NULL,
+            0,
+            GuestPtrMut::NULL,
+        );
+        let tid = block_on(spawn).unwrap();
+        while kernel.take_pending(task).is_some() {}
+        let caller = Caller::new(TaskId(tid as u32), &memory);
+        let expected = if report_tid {
+            tid
+        } else {
+            block_on(kernel.getpid(&t.caller)).unwrap()
+        };
+        let stack = Layered::new(SyscallEntry(Dispatch), kernel);
+        let t = T::new(&stack.inner, task, &memory);
+        for outer in [None, Some(task)] {
+            // Each call works without an executor scope, or overrides and restores it.
+            let run = async {
+                let fd = stack
+                    .openat(&caller, CWD, name, OpenFlags::O_RDONLY, 0)
+                    .await
+                    .unwrap();
+                assert_eq!(wasixv2_syscalls::current_task(), outer);
+                stack.close(&caller, fd).await.unwrap();
+            };
+            match outer {
+                None => block_on(run),
+                Some(task) => block_on(wasixv2_syscalls::as_task(task, run)),
+            }
+            let events = fanotify_events(&t, group);
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0].2, expected);
+            t.close(Fd(events[0].1));
+        }
+        assert_eq!(wasixv2_syscalls::current_task(), None);
+    }
+}
+
 #[test]
 fn fanotify_reports_directory_entries_by_handle_and_name() {
     use wasixv2_abi::{FanotifyInitFlags as F, FanotifyMarkFlags as M, FanotifyMask as E};
