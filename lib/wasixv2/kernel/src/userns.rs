@@ -670,6 +670,14 @@ impl wasixv2_vfs::UserNs for Ns<User> {
         Ns::make_kgid(self, gid).map(|kgid| kgid.0)
     }
 
+    fn ns_uid(&self, kuid: u32) -> Option<u32> {
+        self.map_kuid(Kuid(kuid))
+    }
+
+    fn ns_gid(&self, kgid: u32) -> Option<u32> {
+        self.map_kgid(Kgid(kgid))
+    }
+
     fn is_initial(&self) -> bool {
         self.level == 0
     }
