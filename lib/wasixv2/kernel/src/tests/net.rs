@@ -1656,3 +1656,79 @@ fn ip_msfilter_reads_its_request_from_the_value() {
         [1, 0, 0, 0, 1, 0, 0, 0, 127, 0, 0, 5]
     );
 }
+
+/// `AF_VSOCK` through the socket calls: a loopback stream over `VMADDR_CID_LOCAL`, the
+/// listener's address on the accepted socket, `SO_VM_SOCKETS_BUFFER_SIZE` at the `AF_VSOCK`
+/// level, and datagram sockets, which have no transport.
+#[test]
+fn vsock_loopback_streams_through_the_socket_calls() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let vsock = AddressFamily::AF_VSOCK;
+    let create = |r#type| block_on(kernel.socket(&caller, vsock, r#type, 0));
+    assert_eq!(errno(create(DGRAM)), Errno::ENODEV);
+    assert_eq!(
+        errno(block_on(kernel.socket(&caller, vsock, STREAM, 6))),
+        Errno::EPROTONOSUPPORT
+    );
+    let vm = |at: u32, cid: u32, port: u32| {
+        let mut raw = vec![0u8; 16];
+        raw[..2].copy_from_slice(&(vsock.0 as u16).to_le_bytes());
+        raw[4..8].copy_from_slice(&port.to_le_bytes());
+        raw[8..12].copy_from_slice(&cid.to_le_bytes());
+        put(&memory, at, &raw);
+    };
+    let listener = create(STREAM).unwrap();
+    vm(0x200, u32::MAX, 7000);
+    assert_eq!(
+        block_on(kernel.bind(&caller, listener, GuestPtr::new(0x200), 16)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.listen(&caller, listener, 8)), Ok(0));
+    let client = create(STREAM).unwrap();
+    vm(0x220, 1, 7000);
+    assert_eq!(
+        block_on(kernel.connect(&caller, client, GuestPtr::new(0x220), 16)),
+        Ok(0)
+    );
+    put(&memory, 0x2f0, &16u32.to_le_bytes());
+    let server = block_on(kernel.accept4(
+        &caller,
+        listener,
+        GuestPtrMut::new(0x300),
+        GuestPtrMut::new(0x2f0),
+        SocketFlags(0),
+    ))
+    .unwrap();
+    // The peer is the loopback transport's CID 1.
+    assert_eq!(get(&memory, 0x308, 4), 1u32.to_le_bytes());
+    put(&memory, 0x400, b"vsock");
+    assert_eq!(
+        block_on(kernel.write(&caller, client, UserSlice::new(0x400, 5))),
+        Ok(5)
+    );
+    assert_eq!(
+        block_on(kernel.read(&caller, server, UserSliceMut::new(0x500, 16))),
+        Ok(5)
+    );
+    assert_eq!(get(&memory, 0x500, 5), b"vsock");
+    put(&memory, 0x600, &4096u64.to_le_bytes());
+    let level = SocketLevel(vsock.0);
+    assert_eq!(
+        block_on(kernel.setsockopt(&caller, server, level, 0, UserSlice::new(0x600, 8))),
+        Ok(0)
+    );
+    put(&memory, 0x6f0, &8u32.to_le_bytes());
+    assert_eq!(
+        block_on(kernel.getsockopt(
+            &caller,
+            server,
+            level,
+            0,
+            GuestPtrMut::new(0x700),
+            GuestPtrMut::new(0x6f0)
+        )),
+        Ok(0)
+    );
+    assert_eq!(get(&memory, 0x700, 8), 4096u64.to_le_bytes());
+}

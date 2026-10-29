@@ -103,6 +103,7 @@ pub struct HostBackend {
     shared: Arc<Shared>,
     thread: Option<thread::JoinHandle<()>>,
     resolver: Resolver,
+    vsock: Option<VsockConfig>,
 }
 
 impl HostBackend {
@@ -135,8 +136,78 @@ impl HostBackend {
             shared,
             thread: Some(thread),
             resolver: Resolver::new(resolver),
+            vsock: None,
         }))
     }
+
+    /// A backend that is also the machine's vsock g2h transport, as `vsock` describes.
+    pub fn with_vsock(resolver: ResolverConfig, vsock: VsockConfig) -> io::Result<Arc<Self>> {
+        let mut backend = Self::with_resolver(resolver)?;
+        Arc::get_mut(&mut backend).expect("just made").vsock = Some(vsock);
+        Ok(backend)
+    }
+}
+
+/// The host side of the machine's `AF_VSOCK` (its g2h transport): the CID the machine has as
+/// a guest, and where connections to the host's CIDs go.
+#[derive(Clone, Debug)]
+pub struct VsockConfig {
+    /// The machine's CID; 3 is the first a hypervisor gives out.
+    pub cid: u32,
+    /// Routes by destination CID, the first that matches wins; `None` matches every CID.
+    pub routes: Vec<(Option<u32>, VsockRoute)>,
+}
+
+/// Where a vsock connection to the host side goes.
+#[derive(Clone, Debug)]
+pub enum VsockRoute {
+    /// Firecracker's convention: a connection to port `P` is one to the host Unix socket
+    /// `<path>_<P>`.
+    UnixPrefix(std::path::PathBuf),
+    /// A host `AF_VSOCK` connection to the same CID and port, where the host has vsock (it is
+    /// a VM guest itself, or has `vsock_loopback`). Linux hosts only.
+    HostVsock,
+}
+
+impl VsockConfig {
+    fn route(&self, cid: u32) -> Option<&VsockRoute> {
+        self.routes
+            .iter()
+            .find(|(at, _)| at.is_none_or(|at| at == cid))
+            .map(|(_, route)| route)
+    }
+}
+
+impl VsockRoute {
+    /// A non-blocking host stream socket connecting to `port` of `cid`.
+    fn connect(&self, cid: u32, port: u32) -> io::Result<socket2::Socket> {
+        let (domain, addr) = match self {
+            VsockRoute::UnixPrefix(prefix) => {
+                let mut path = prefix.clone().into_os_string();
+                path.push(format!("_{port}"));
+                (socket2::Domain::UNIX, socket2::SockAddr::unix(path)?)
+            }
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            VsockRoute::HostVsock => (socket2::Domain::VSOCK, socket2::SockAddr::vsock(cid, port)),
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            VsockRoute::HostVsock => {
+                let _ = cid;
+                return Err(io::Error::from_raw_os_error(libc::ENODEV));
+            }
+        };
+        let sock = socket2::Socket::new(domain, socket2::Type::STREAM, None)?;
+        sock.set_nonblocking(true)?;
+        match sock.connect(&addr) {
+            Ok(()) => Ok(sock),
+            Err(e) if e.raw_os_error() == Some(libc::EINPROGRESS) => Ok(sock),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+/// A mio TCP stream as the socket a [`HostStream`] holds.
+fn tcp(sock: TcpStream) -> socket2::Socket {
+    socket2::Socket::from(std::os::fd::OwnedFd::from(sock))
 }
 
 impl Drop for HostBackend {
@@ -295,7 +366,8 @@ impl Keepalive {
 }
 
 struct StreamShared {
-    sock: TcpStream,
+    /// A TCP stream, or a Unix or vsock one for the vsock bridge.
+    sock: socket2::Socket,
     token: Token,
     peer: SocketAddr,
     /// The guest socket's queue.
@@ -473,14 +545,14 @@ struct HostStream(Arc<StreamShared>);
 impl HostStream {
     fn register(
         backend: &Arc<Shared>,
-        sock: TcpStream,
+        sock: impl Into<socket2::Socket>,
         peer: SocketAddr,
         connected: bool,
         wq: WaitQueue,
     ) -> io::Result<Arc<Self>> {
         let token = backend.token();
         let shared = Arc::new(StreamShared {
-            sock,
+            sock: sock.into(),
             token,
             peer,
             wq,
@@ -732,7 +804,7 @@ impl ListenerShared {
                 Ok((sock, peer)) => {
                     // The queue of the guest socket-to-be, which adopts it.
                     let wq = WaitQueue::new();
-                    match HostStream::register(&backend, sock, peer, true, wq.clone()) {
+                    match HostStream::register(&backend, tcp(sock), peer, true, wq.clone()) {
                         Ok(stream) => {
                             if !self.sink.incoming(stream, wq) {
                                 tracing::debug!(%peer, "published connection refused by the guest");
@@ -1138,6 +1210,34 @@ impl BackendDatagram for HostDatagram {
 impl Backend for HostBackend {
     fn connect(&self, peer: SocketAddr, wq: WaitQueue) -> Result<Arc<dyn BackendStream>, Errno> {
         let sock = TcpStream::connect(peer).map_err(|e| errno_from_io(&e))?;
+        let stream = HostStream::register(&self.shared, tcp(sock), peer, false, wq)
+            .map_err(|e| errno_from_io(&e))?;
+        Ok(stream)
+    }
+
+    fn vsock_cid(&self) -> Option<u32> {
+        self.vsock.as_ref().map(|v| v.cid)
+    }
+
+    /// The g2h transport: the stream the route for `cid` opens, through the reactor like a
+    /// TCP stream. A route that finds nobody (no route, no such host socket, a refused
+    /// connection) is the host's reset.
+    fn vsock_connect(
+        &self,
+        cid: u32,
+        port: u32,
+        wq: WaitQueue,
+    ) -> Result<Arc<dyn BackendStream>, Errno> {
+        let config = self.vsock.as_ref().ok_or(Errno::ENODEV)?;
+        let route = config.route(cid).ok_or(Errno::ECONNRESET)?;
+        let sock = route
+            .connect(cid, port)
+            .map_err(|e| match errno_from_io(&e) {
+                Errno::ENOENT | Errno::ECONNREFUSED | Errno::EAGAIN => Errno::ECONNRESET,
+                errno => errno,
+            })?;
+        // A vsock stream has no IP peer; the kernel names it itself.
+        let peer = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0));
         let stream = HostStream::register(&self.shared, sock, peer, false, wq)
             .map_err(|e| errno_from_io(&e))?;
         Ok(stream)
@@ -1458,7 +1558,7 @@ mod tests {
         let host = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let sock = TcpStream::connect(host.local_addr().unwrap()).unwrap();
         let peer = sock.peer_addr().unwrap_or(host.local_addr().unwrap());
-        let s = HostStream::register(&b.shared, sock, peer, false, WaitQueue::new()).unwrap();
+        let s = HostStream::register(&b.shared, tcp(sock), peer, false, WaitQueue::new()).unwrap();
         let int = |v: i32| v.to_le_bytes();
         let tcp = SocketLevel::SOL_TCP.0;
         s.set_option(tcp, TcpOption::TCP_KEEPIDLE.0, &int(42))

@@ -123,6 +123,9 @@ pub struct Kernel {
     /// Makes the IP network of each network namespace made after boot; without it, they have
     /// none.
     network_factory: Option<ns::NetworkFactory>,
+    /// The bind table of `AF_VSOCK` sockets, which no namespace in vsock's global mode
+    /// separates.
+    vsock: Arc<net::vsock::Table>,
     // ---- fs ----
     vfs: Arc<Vfs>,
     /// The inodes of pipes, sockets and anonymous files.
@@ -269,6 +272,7 @@ impl Kernel {
             )),
             ns_inums: Arc::default(),
             network_factory: None,
+            vsock: Arc::default(),
             inotify: fs::inotify::Registry::install(&vfs),
             filesystems: fs::mount::Registry::new(),
             shm: None,
