@@ -30,3 +30,9 @@ for a test harness.
 Sources: Linux `io_uring/io_uring.c:io_uring_setup`,
 `io_uring/sqpoll.c:io_sq_offload_create`, `include/uapi/linux/io_uring.h`;
 liburing `test/helpers.c:t_create_ring_params`, `test/socket.c:recv_fn`.
+
+The supported workflow was validated with V5's source-built archived CLI
+(runtime 2c223d3165c) and owned copies of its upstream programs, including
+its dmesg executable. poll/statx/unlink/mkdir all pass; the two excluded tests
+are printed explicitly. This does not claim the unrelated polling fixes are
+present on a branch still based on train 18.

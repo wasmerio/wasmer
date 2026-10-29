@@ -66,9 +66,11 @@ and the second build succeeds without reapplying or discarding source edits.
 
 Case 4's NULL write buffer also needs the ordinary kernel-copy guard fix from
 V1 (wasmer 5266fa8f3c5). A CLI still based on train 18 passes eight selected
-cases but fails that independent guard assertion. The combined V1+V7 proof
-runs are recorded in the validation agent's STATE.md; no per-test pointer
-exception or ABI workaround belongs in libaio.
+cases but fails that independent guard assertion. The final V1+V7 composition (0027b4fe8a1, including the concurrent-exit fix)
+passes all nine selected cases with zero failures/skips/host panics. The same
+source passes complete LTP mprotect01 and truncate03/_64; the preceding V1+V7
+composition passed each five times too. No per-test pointer exception or ABI
+workaround belongs in libaio.
 
 The older `libaio-setup` workflow remains as a separately labeled narrow probe:
 it links the real upstream io_setup object through the documented LIBAIO link
