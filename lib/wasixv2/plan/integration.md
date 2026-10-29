@@ -532,3 +532,51 @@ re-bless), libc2 `train14` (abi pin with the asserts regenerated, tests).
 
 Land in order: abi `main` `e7bb953..d0187cb`; libc2 `main` `b69aa1d3..5e03a9fe`; tests `main`
 `5e21625..cabce84`; wasmer `feat/wasixv2` `908423d1510..f9c8b36bad6`; plan.
+
+## 2026-10-29: merge train 15
+
+GO under the light landing protocol: one full suite, regressions checked against train 14,
+new outcomes blessed in bulk, then a targeted rerun of the three regressing scheduler tests.
+ABI `train15` `ce81dcf` (5 picks on `d0187cb`), wasmer `wasixv2/train15` `f850deddc36`
+(27 commits on `f9c8b36bad6`), libc2 `train15` `6b478da6` (ABI pin/asserts and tests pin),
+tests `train15` `fdd63ba` (SCTP fixture, runner config fix, re-bless).
+
+- Features: P2 ptrace/Yama, foreign memory access, process_vm_readv/writev, proc memory and
+  introspection, remap_file_pages; P3/P3b cgroup v2, pids/freezer/notifications, CPU and I/O
+  controls, printk/syslog/kmsg, accounting, core dumps and more proc/sysctl files; P7/P7b vsock,
+  SOCK_DIAG, raw protocols, Unix OOB/peek/autobind, IPv6 sticky headers, PACKET_VERSION and SCTP.
+  Individual branch ABI bumps were dropped in favor of one shared pin.
+- Conflicts/seams: seccomp keeps both user notification and tracer stops; read accounting wraps
+  the flags/fanotify path; ptrace initialization, keyring reset, time namespaces and cgroups all
+  survive process/exec merges; freezer waits retain ptrace stops; securityfs and cgroup mounts
+  coexist. Corrected positional procfs/sysfs parents, adapted non-Copy credentials and socket
+  handles, and kept core helpers on the syscall-entry stack. Yama appears in the active LSMs.
+- Small runtime fix: the syscall-exit hook checks liveness before looking up a tracer link.
+  An unparented tracer can already be reaped by exit_group; Linux `kernel/exit.c:do_exit` never
+  returns through syscall-exit tracing. A new layer-level unit test reproduces the host panic
+  before the fix (`9a3e24bfb42`); the tracer hand check exits cleanly afterward.
+- Gates: full crate tests 1411/0, followed by kernel 818/0 including the new regression (1412
+  unique crate tests covered); runner 13/0; clippy with Makefile lint flags, fmt, release, CLI
+  59/0/12, tty 6/0. Both libc2 sysroots and run.sh checks pass.
+- Full suite raw: 3514 passed, 589 expected failures, 12 unexpected failures, 11 unexpected
+  passes, 736 ignored. Only three regressions: sched_rr_get_interval01/02/03 could not find
+  kernel configuration after the new cgroup v2 mount made LTP's setup helper inspect it.
+  The runner now supplies its existing KCONFIG_PATH to every LTP invocation, including those
+  without needs_kconfigs metadata (`00d56c5`). Its unit test fails before the fix; the targeted
+  rerun passes all three. No remaining regressions or pass-to-ignored changes. Nine other new
+  failures did not pass the baseline and were blessed without further triage. All 18 handwritten
+  failure causes were preserved.
+- Final outcomes, including the targeted correction (pass / xfail / ignored): own 289/1/1,
+  libc-test 399/22/0, POSIX 1538/247/91, LTP 1302/328/644; total **3528/598/736**. No second full
+  suite was run.
+- Smoke: sws-v2 classic and Linux 28/28 each, v1 8 plus the known Python expected failure,
+  UDP 6/6, extras, userland-linux/-3/-4, C++ 9/9, pty bash 11/11 and no-tty; train 14 hand checks
+  have the same exit sequence. New hand checks pass: ptrace tracer (5 syscall stops and clean
+  exit), cgroup pids.max EAGAIN/freeze/thaw, real util-linux dmesg and dmesg -S, SIGABRT core
+  status plus ELF file, vsock stream and seqpacket loopback, ss -tanp with pid/fd, SCTP fixture.
+- Carry the train 14 follow-ups and package design limitations; no additional refinement was
+  attempted. Shared libc2 is fast-forwarded to `6b478da6`; both shared sysroots rebuilt and run.sh checks passed.
+
+Land in order: ABI `main` `d0187cb..ce81dcf`; libc2 `main` `5e03a9fe..6b478da6`; tests `main`
+`cabce84..fdd63ba`; wasmer `feat/wasixv2` `f9c8b36bad6..f850deddc36`; plan. Only the train branches
+and `wasixv2/plan` are pushed by the integration agent; the orchestrator lands the mains.
