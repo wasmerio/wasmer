@@ -883,6 +883,11 @@ These limits are why full compatibility stays a goal rather than a state we reac
 
 ### Miscellaneous Linux interfaces
 
+Generic `/proc/<pid>/attr/{current,prev,exec,fscreate,keycreate,sockcreate}` files
+(and the per-thread paths) exist with Linux modes. No LSM provides process labels,
+so label reads and permitted writes return `EINVAL`; foreign-task writes are
+rejected before calling the absent provider (`fs/proc/base.c`).
+
 AF_UNIX stream `MSG_OOB` sends `SIGURG` to the socket file's owner even without
 `O_ASYNC`, and with an async `F_SETSIG` handler sends `POLL_PRI` before the data's
 `POLL_IN` notification (`net/unix/af_unix.c:queue_oob`).
