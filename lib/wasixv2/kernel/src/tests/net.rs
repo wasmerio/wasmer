@@ -1336,6 +1336,86 @@ fn a_reaped_peer_keeps_its_pid_in_its_credentials() {
     assert_eq!(get_pid(&memory, 0xb0c), b.0 as i32);
 }
 
+/// A stream send longer than one part carries the credentials it claims in every part, as
+/// `unix_stream_sendmsg` attaches them to each skb (`unix_scm_to_skb`): a reader with
+/// `SO_PASSCRED` sees one writer throughout.
+#[test]
+fn claimed_credentials_go_with_every_part_of_a_long_stream_send() {
+    let (kernel, task, _) =
+        super::cred::machine_with(|kernel| kernel.with_credentials(Credentials::new(0, 0)));
+    let memory = FlatMemory(std::cell::RefCell::new(vec![0; 1 << 20]));
+    let caller = Caller::new(task, &memory);
+    let (a, b) = unix_pair(&kernel, &caller, &memory, STREAM);
+    put(&memory, 0x400, &1i32.to_le_bytes());
+    let passcred = SocketOption::SO_PASSCRED.0;
+    let slice = UserSlice::new(0x400, 4);
+    let set = kernel.setsockopt(&caller, b, SocketLevel::SOL_SOCKET, passcred, slice);
+    assert_eq!(block_on(set), Ok(0));
+
+    // Root claims uid and gid 5 for a send of one byte more than a part.
+    let pid = kernel.process(task).pid.0 as i32;
+    let mut cmsg = Vec::new();
+    cmsg.extend(24u32.to_le_bytes());
+    cmsg.extend(SocketLevel::SOL_SOCKET.0.to_le_bytes());
+    cmsg.extend(crate::unix::SCM_CREDENTIALS.to_le_bytes());
+    for word in [pid as u32, 5, 5] {
+        cmsg.extend(word.to_le_bytes());
+    }
+    put(&memory, 0xa00, &cmsg);
+    let len = crate::net::SOCK_CHUNK as u32 + 1;
+    put(&memory, 0x700, &0x80000u32.to_le_bytes());
+    put(&memory, 0x704, &len.to_le_bytes());
+    let hdr = UserMsghdr {
+        msg_name: GuestPtrMut::NULL,
+        msg_namelen: 0,
+        msg_iov: GuestPtr::new(0x700),
+        msg_iovlen: 1,
+        msg_control: GuestPtrMut::new(0xa00),
+        msg_controllen: cmsg.len() as u32,
+        msg_flags: 0,
+    };
+    block_on(write_value(&memory, GuestPtrMut::new(0x900), &hdr)).unwrap();
+    let mut send = Box::pin(kernel.sendmsg(&caller, a, GuestPtr::new(0x900), MsgFlags(0)));
+
+    // The send blocks as the queue fills; each read takes what came, with its writer's uid.
+    let mut uids = Vec::new();
+    let mut received = 0;
+    let sent = loop {
+        let done = send.as_mut().now_or_never();
+        put(&memory, 0x708, &0x10000u32.to_le_bytes());
+        put(&memory, 0x70c, &0x40000u32.to_le_bytes());
+        let hdr = UserMsghdr {
+            msg_iov: GuestPtr::new(0x708),
+            msg_control: GuestPtrMut::new(0xb00),
+            msg_controllen: 64,
+            ..hdr
+        };
+        block_on(write_value(&memory, GuestPtrMut::new(0x980), &hdr)).unwrap();
+        let flags = MsgFlags::MSG_DONTWAIT;
+        let got = block_on(kernel.recvmsg(&caller, b, GuestPtrMut::new(0x980), flags));
+        if let Ok(n) = got {
+            received += n as u32;
+            uids.push(u32::from_le_bytes(
+                get(&memory, 0xb10, 4).try_into().unwrap(),
+            ));
+        }
+        if let Some(sent) = done {
+            break sent;
+        }
+    };
+    while let Ok(n) =
+        block_on(kernel.recvmsg(&caller, b, GuestPtrMut::new(0x980), MsgFlags::MSG_DONTWAIT))
+    {
+        received += n as u32;
+        uids.push(u32::from_le_bytes(
+            get(&memory, 0xb10, 4).try_into().unwrap(),
+        ));
+    }
+    assert_eq!(sent, Ok(len as i32));
+    assert_eq!(received, len);
+    assert!(uids.iter().all(|&uid| uid == 5), "uids {uids:?}");
+}
+
 fn get_pid(memory: &FlatMemory, at: u32) -> i32 {
     i32::from_le_bytes(get(memory, at, 4).try_into().unwrap())
 }
