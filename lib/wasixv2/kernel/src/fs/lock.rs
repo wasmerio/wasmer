@@ -96,8 +96,13 @@ impl Kernel {
             _ => return Err(Errno::EINVAL.into()),
         };
         let request = read_request(caller, arg, legacy).await?;
-        let Backing::Inode(inner) = &file.backing else {
-            return Err(Errno::EBADF.into());
+        // fs/locks.c:flock_to_posix_lock validates the type before dispatching
+        // the request to the file's locking backend.
+        let kind = match request.l_type {
+            LockType::F_RDLCK => Some(LockKind::Read),
+            LockType::F_WRLCK => Some(LockKind::Write),
+            LockType::F_UNLCK => None,
+            _ => return Err(Errno::EINVAL.into()),
         };
         if ofd && request.l_pid != 0 {
             return Err(Errno::EINVAL.into());
@@ -105,23 +110,19 @@ impl Kernel {
         let base = match SeekWhence(i32::from(request.l_whence)) {
             SeekWhence::SEEK_SET => 0,
             SeekWhence::SEEK_CUR => file.pos() as i64,
-            SeekWhence::SEEK_END => inner.node().getattr().await?.size as i64,
+            SeekWhence::SEEK_END => file.path().dentry.node().getattr().await?.size as i64,
             _ => return Err(Errno::EINVAL.into()),
         };
         let (start, end) = range(base, request.l_start, request.l_len)?;
+        // fs/locks.c:fcntl_setlk locks the inode, including a pipe or socket's
+        // pseudo inode; only the descriptor's access mode restricts the lock.
+        let (key, file_owner) = file.flock_owner(&self.vfs);
         let owner = if ofd {
-            LockOwner::File(inner.id)
+            LockOwner::File(file_owner)
         } else {
             process_owner(self, caller)
         };
         let pid = self.process(caller.task()).pid.0 as i32;
-        let kind = match request.l_type {
-            LockType::F_RDLCK => Some(LockKind::Read),
-            LockType::F_WRLCK => Some(LockKind::Write),
-            LockType::F_UNLCK => None,
-            _ => return Err(Errno::EINVAL.into()),
-        };
-        let key = inner.lock_key();
         if get {
             let kind = kind.ok_or(Errno::EINVAL)?;
             let probe = RangeLock {

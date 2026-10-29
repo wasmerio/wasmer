@@ -1,7 +1,7 @@
 //! Filesystem syscalls on open files and paths: `openat2` scoping, locks, allocation, copies,
 //! status flags and the generic ioctls.
 
-use wasixv2_abi::{EventfdFlags, FileHandlePtr, ResolveFlags, S32Ptr, SpliceFlags};
+use wasixv2_abi::{EventfdFlags, FileHandlePtr, LockType, ResolveFlags, S32Ptr, SpliceFlags};
 
 use super::ipc::{errno, get, machine, put};
 use super::*;
@@ -100,6 +100,142 @@ impl<'a> T<'a> {
     fn close(&self, fd: Fd) {
         assert_eq!(block_on(self.kernel.close(&self.caller, fd)), Ok(0));
     }
+}
+
+#[test]
+fn positional_io_checks_stream_support_before_descriptor_access_mode() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (read, write) = super::ipc::pipe(&kernel, &caller, OpenFlags::O_NONBLOCK);
+    put(
+        &memory,
+        0x100,
+        &[0x200u32.to_le_bytes(), 1u32.to_le_bytes()].concat(),
+    );
+    assert_eq!(
+        errno(block_on(kernel.pwrite64(
+            &caller,
+            read,
+            UserSlice::new(0x200, 1),
+            0
+        ))),
+        Errno::ESPIPE
+    );
+    assert_eq!(
+        errno(block_on(kernel.pread64(
+            &caller,
+            write,
+            UserSliceMut::new(0x200, 1),
+            0
+        ))),
+        Errno::ESPIPE
+    );
+    assert_eq!(
+        errno(block_on(kernel.pwritev2(
+            &caller,
+            read,
+            GuestPtr::new(0x100),
+            1,
+            0,
+            RwfFlags(0)
+        ))),
+        Errno::ESPIPE
+    );
+    assert_eq!(
+        errno(block_on(kernel.preadv2(
+            &caller,
+            write,
+            GuestPtr::new(0x100),
+            1,
+            0,
+            RwfFlags(0)
+        ))),
+        Errno::ESPIPE
+    );
+    assert_eq!(
+        errno(block_on(kernel.pwrite64(
+            &caller,
+            Fd(-1),
+            UserSlice::new(0x200, 1),
+            -1
+        ))),
+        Errno::EINVAL
+    );
+}
+
+#[test]
+fn invalid_record_lock_type_precedes_a_stream_backend_error() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    put(&memory, 0x100, &[0; 32]);
+    put(&memory, 0x100, &(-1i16).to_le_bytes());
+    assert_eq!(
+        errno(block_on(kernel.fcntl64(
+            &caller,
+            Fd(1),
+            FcntlCmd::F_SETLK,
+            0x100
+        ))),
+        Errno::EINVAL
+    );
+    put(&memory, 0x100, &LockType::F_WRLCK.0.to_le_bytes());
+    put(&memory, 0x102, &(-1i16).to_le_bytes());
+    assert_eq!(
+        errno(block_on(kernel.fcntl64(
+            &caller,
+            Fd(1),
+            FcntlCmd::F_SETLK,
+            0x100
+        ))),
+        Errno::EINVAL
+    );
+}
+
+#[test]
+fn record_locks_on_pipe_inodes_conflict_between_processes() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (read, write) = super::ipc::pipe(&kernel, &caller, OpenFlags::O_NONBLOCK);
+    put(&memory, 0x100, &[0; 32]);
+    put(&memory, 0x100, &LockType::F_RDLCK.0.to_le_bytes());
+    assert_eq!(
+        block_on(kernel.fcntl64(&caller, read, FcntlCmd::F_SETLK, 0x100)),
+        Ok(0)
+    );
+    let child = super::mapping::another_process(&kernel);
+    let shared = kernel.file(task, write).unwrap();
+    let fd = kernel
+        .files(child)
+        .lock_or_recover()
+        .install(shared, false)
+        .unwrap();
+    let other = Caller::new(child, &memory);
+    put(&memory, 0x100, &LockType::F_WRLCK.0.to_le_bytes());
+    assert_eq!(
+        block_on(kernel.fcntl64(&other, fd, FcntlCmd::F_GETLK, 0x100)),
+        Ok(0)
+    );
+    assert_eq!(
+        i16::from_le_bytes(get(&memory, 0x100, 2).try_into().unwrap()),
+        LockType::F_RDLCK.0
+    );
+    put(&memory, 0x100, &LockType::F_WRLCK.0.to_le_bytes());
+    assert_eq!(
+        errno(block_on(kernel.fcntl64(
+            &other,
+            fd,
+            FcntlCmd::F_SETLK,
+            0x100
+        ))),
+        Errno::EAGAIN
+    );
+    // fs/file_table.c:filp_flush releases POSIX locks on every close,
+    // including a pipe end that did not acquire the process's lock.
+    assert_eq!(block_on(kernel.close(&caller, write)), Ok(0));
+    assert_eq!(
+        block_on(kernel.fcntl64(&other, fd, FcntlCmd::F_SETLK, 0x100)),
+        Ok(0)
+    );
 }
 
 #[test]
