@@ -495,6 +495,16 @@ impl Clone for PidRef {
     }
 }
 
+/// Two references are equal when they hold the same `struct pid`, as Linux compares the
+/// pointers (`unix_skb_scm_eq`).
+impl PartialEq for PidRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && Arc::ptr_eq(&self.pids, &other.pids)
+    }
+}
+
+impl Eq for PidRef {}
+
 impl Drop for PidRef {
     fn drop(&mut self) {
         self.pids.put(self.id);
