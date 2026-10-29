@@ -313,3 +313,25 @@ fn address_zero_stays_usable_in_a_stack_first_v1_guest() {
     "#;
     assert_eq!(block_on(wat, &["zero"]), (0, b"ok\n".to_vec()));
 }
+
+#[test]
+fn clock_time_set_is_unprivileged_and_replaces_the_compat_offset() {
+    let wat = r#"
+    (module
+      (import "wasix_32v1" "clock_time_set" (func $set (param i32 i64) (result i32)))
+      (import "wasi_snapshot_preview1" "clock_time_get" (func $get (param i32 i64 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (func (export "_start")
+        (if (call $set (i32.const 0) (i64.const 1000000000)) (then (call $exit (i32.const 1))))
+        (if (call $get (i32.const 0) (i64.const 1) (i32.const 0)) (then (call $exit (i32.const 2))))
+        (if (i64.lt_u (i64.load (i32.const 0)) (i64.const 1000000000)) (then (call $exit (i32.const 3))))
+        (if (i64.gt_u (i64.load (i32.const 0)) (i64.const 2000000000)) (then (call $exit (i32.const 4))))
+        (if (call $set (i32.const 0) (i64.const 3000000000)) (then (call $exit (i32.const 5))))
+        (drop (call $get (i32.const 0) (i64.const 1) (i32.const 0)))
+        (if (i64.lt_u (i64.load (i32.const 0)) (i64.const 3000000000)) (then (call $exit (i32.const 6))))
+        (if (i64.gt_u (i64.load (i32.const 0)) (i64.const 4000000000)) (then (call $exit (i32.const 7))))
+        (if (i32.ne (call $set (i32.const 4) (i64.const 1)) (i32.const 28)) (then (call $exit (i32.const 8))))))
+    "#;
+    assert_eq!(block_on(wat, &["clock-set"]).0, 0);
+}

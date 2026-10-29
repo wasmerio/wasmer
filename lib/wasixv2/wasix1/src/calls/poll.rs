@@ -210,9 +210,14 @@ pub(crate) async fn now<S: Syscalls + Control + 'static>(
         .clock_gettime64(&frame.caller(), clock, ts)
         .await?;
     let ts = frame.mem.take(ts);
-    Ok((ts.tv_sec.max(0) as u64)
+    let raw = (ts.tv_sec.max(0) as u64)
         .saturating_mul(1_000_000_000)
-        .saturating_add(ts.tv_nsec.max(0) as u64))
+        .saturating_add(ts.tv_nsec.max(0) as u64);
+    frame
+        .proc()
+        .await?
+        .clocks
+        .read(Clockid(clock.0 as u32), raw)
 }
 
 /// A clock subscription's deadline: on `clock`, at `at` nanoseconds.
