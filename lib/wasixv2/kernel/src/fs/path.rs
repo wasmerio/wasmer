@@ -232,6 +232,31 @@ impl Kernel {
         Ok(0)
     }
 
+    /// Linux `fs/open.c:sys_fchroot`: permission precedes the capability check, and
+    /// changing the root leaves the working directory alone. `FD_FAILFS_ROOT` has
+    /// no backing failfs here and follows the invalid-fd path.
+    pub(crate) async fn sys_fchroot(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        flags: u32,
+    ) -> SysResult<i32> {
+        if flags != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let dir = self.fd_path(caller, fd)?;
+        if !dir.dentry.is_dir() {
+            return Err(Errno::ENOTDIR.into());
+        }
+        let env = self.env(caller);
+        self.vfs.permission(&env.cx(), &dir, MAY_EXEC).await?;
+        if !env.cred.capable(Cap::SysChroot) {
+            return Err(Errno::EPERM.into());
+        }
+        self.with_task(caller.task(), |task| task.fs.lock_or_recover().root = dir);
+        Ok(0)
+    }
+
     /// `getcwd`: the length including the NUL.
     pub(crate) async fn sys_getcwd(
         &self,

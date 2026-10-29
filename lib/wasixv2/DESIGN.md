@@ -985,3 +985,9 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 | 2026-10-14 | Typed import per syscall | Link-time failure on version skew, wasm-level type checks, no dispatch switch |
 | 2026-10-14 | Syscall trait with stacked layers over the kernel | One choke point for tracing, recording and policy; kernel testable without wasm |
 | 2026-10-14 | Target is full Linux userspace compatibility; current `lib/wasix` is not a reference | Existing design is not worth preserving |
+
+### Miscellaneous Linux interfaces
+
+`fchroot` shares the root and permission machinery of `chroot` and accepts ordinary
+filesystem descriptors, including `O_PATH`. The `FD_FAILFS_ROOT` special descriptor
+returns `EBADF` until the kernel has a failfs filesystem (`fs/open.c:sys_fchroot`).

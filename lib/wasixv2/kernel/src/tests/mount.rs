@@ -1379,3 +1379,47 @@ fn an_mqueue_mount_outlives_the_process_whose_namespace_it_shows() {
     // The execution layer lets the task go only now.
     m.kernel.release(child);
 }
+
+#[test]
+fn fchroot_uses_fd_permissions_and_leaves_cwd() {
+    let m = Machine::as_uid(0);
+    m.mkdir("/jail");
+    let root = m.open_path("/");
+    let jail = m.open_path("/jail");
+    let regular = m.create("/file").unwrap();
+    assert_eq!(
+        errno(block_on(m.kernel.fchroot(&m.caller(), Fd(-1), 1))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.fchroot(&m.caller(), Fd(-1), 0))),
+        Errno::EBADF
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.fchroot(&m.caller(), regular, 0))),
+        Errno::ENOTDIR
+    );
+    assert_eq!(block_on(m.kernel.fchroot(&m.caller(), jail, 0)), Ok(0));
+    let fs = m.kernel.env(&m.caller()).fs;
+    assert_eq!(fs.root, m.kernel.fd_path(&m.caller(), jail).unwrap());
+    assert_eq!(fs.cwd, m.kernel.fd_path(&m.caller(), root).unwrap());
+    assert!(!m.exists("/file"));
+    assert_eq!(block_on(m.kernel.fchroot(&m.caller(), root, 0)), Ok(0));
+    assert!(m.exists("/file"));
+
+    let user = Machine::as_uid(1);
+    let fd = user.open_path("/");
+    assert_eq!(
+        errno(block_on(user.kernel.fchroot(&user.caller(), fd, 0))),
+        Errno::EPERM
+    );
+    user.mkdir("/private");
+    let fd = user.open_path("/private");
+    let name = user.cstr(0x1000, "/private");
+    block_on(user.kernel.fchmodat(&user.caller(), CWD, name, 0)).unwrap();
+    assert_eq!(
+        errno(block_on(user.kernel.fchroot(&user.caller(), fd, 0))),
+        Errno::EACCES
+    );
+}
+

@@ -1191,6 +1191,10 @@ impl Syscalls for Kernel {
         self.sys_fchdir(caller, fd).await
     }
 
+    async fn fchroot(&self, caller: &Caller<'_>, fd: Fd, flags: u32) -> SysResult<i32> {
+        self.sys_fchroot(caller, fd, flags).await
+    }
+
     async fn chroot(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
         self.sys_chroot(caller, filename).await
     }
