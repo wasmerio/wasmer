@@ -1126,7 +1126,7 @@ impl Kernel {
         }
         let mut program = vec![0; len * bpf::INSN_LEN];
         if caller.memory().read(filter, &mut program).await.is_err() {
-            return Err(match self.filter_locked(any) {
+            return Err(match self.filter_locked(caller, any) {
                 true => Errno::EPERM,
                 false => Errno::EFAULT,
             }
@@ -1136,7 +1136,7 @@ impl Kernel {
     }
 
     /// `SOCK_FILTER_LOCKED`.
-    fn filter_locked(&self, any: &AnySock) -> bool {
+    fn filter_locked(&self, caller: &Caller<'_>, any: &AnySock) -> bool {
         let name = SocketOption::SO_LOCK_FILTER.0;
         let value = match any {
             AnySock::Inet((_, sock)) => {
@@ -1145,7 +1145,7 @@ impl Kernel {
                     .get_option(SocketLevel::SOL_SOCKET.0, name, &mut out)
                     .map(|_| out)
             }
-            AnySock::Unix(_, sock) => self.unix_getsockopt(sock, name),
+            AnySock::Unix(_, sock) => self.unix_getsockopt(caller, sock, name),
             AnySock::Packet(_, p) => p.getsockopt(name),
             AnySock::Netlink(..) => return false,
         };
@@ -1171,7 +1171,7 @@ impl Kernel {
             return peer_groups(caller, &ns, &any, len, optval, optlen).await;
         }
         if level == SocketLevel::SOL_SOCKET && name == bpf::SO_GET_FILTER {
-            let program = self.attached_filter(&any)?;
+            let program = self.attached_filter(caller, &any)?;
             return get_filter(caller, &program, len, optval, optlen).await;
         }
         let len = len.min(4096);
@@ -1207,7 +1207,7 @@ impl Kernel {
     }
 
     /// The program `SO_ATTACH_FILTER` attached to a socket, empty for none.
-    fn attached_filter(&self, any: &AnySock) -> Result<Vec<u8>, Errno> {
+    fn attached_filter(&self, caller: &Caller<'_>, any: &AnySock) -> Result<Vec<u8>, Errno> {
         let name = bpf::SO_GET_FILTER;
         match any {
             AnySock::Inet((_, sock)) => {
@@ -1218,7 +1218,7 @@ impl Kernel {
                 out.truncate(n);
                 Ok(out)
             }
-            AnySock::Unix(_, sock) => self.unix_getsockopt(sock, name),
+            AnySock::Unix(_, sock) => self.unix_getsockopt(caller, sock, name),
             AnySock::Packet(_, p) => p.getsockopt(name),
             AnySock::Netlink(..) => Ok(Vec::new()),
         }
