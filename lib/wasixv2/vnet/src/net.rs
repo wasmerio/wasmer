@@ -1062,6 +1062,18 @@ impl Network for Net {
         self.icmp_entries()
     }
 
+    fn vsock_listen(
+        &self,
+        port: u32,
+        backlog: u32,
+        sink: Arc<dyn crate::VsockInboundSink>,
+    ) -> Result<Box<dyn crate::VsockPublication>, Errno> {
+        self.backend
+            .as_ref()
+            .ok_or(Errno::ENODEV)?
+            .vsock_listen(port, backlog, sink)
+    }
+
     fn sctp_endpoints(&self) -> Vec<crate::SctpEndpoint> {
         crate::sctp::endpoints(self)
     }

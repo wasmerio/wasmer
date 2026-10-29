@@ -790,6 +790,11 @@ impl Kernel {
                 }
             }
         };
+        if let AnySock::Vsock(_, v) = sock
+            && matches!(&result, Ok(n) if *n > 0)
+        {
+            v.complete_send(flags);
+        }
         match sock.raises_sigpipe() && !flags.contains(MsgFlags::MSG_NOSIGNAL) {
             true => self.sigpipe(caller, result),
             false => result,
@@ -998,6 +1003,16 @@ impl Kernel {
                 })
             }
             AnySock::Vsock(_, v) => {
+                if flags.contains(MsgFlags::MSG_ERRQUEUE) {
+                    return Ok(Got {
+                        len: 0,
+                        result: 0,
+                        from: None,
+                        flags: MsgFlags::MSG_ERRQUEUE,
+                        controls: vec![v.recv_error()?],
+                        rights: Vec::new(),
+                    });
+                }
                 let mut wait = v.blocking(io, RCV, flags);
                 let stream = v.kind() == vsock::Kind::Stream;
                 let mut buf = vec![0; dst.len.min(SOCK_CHUNK)];
@@ -1033,6 +1048,7 @@ impl Kernel {
                 if stream {
                     got.result = got.len;
                 }
+                got.controls.extend(v.inq_control());
                 Ok(got)
             }
             AnySock::Packet(_, p) => {

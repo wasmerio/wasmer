@@ -32,6 +32,7 @@ pub use api::{
     GroupSources, IcmpEntry, InboundSink, Interface, Lookup, LookupDone, LookupError, Network,
     NewLink, NewLinkKind, PortEntry, Publication, PublishedDatagram, QueuedError, RecvMsg, Room,
     SctpAssocEntry, SctpEndpoint, SctpOps, SendMsg, Shutdown, Socket, SocketKind, StreamState,
+    VsockInboundSink, VsockPublication,
 };
 pub use icmp::IcmpSocket;
 pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};
