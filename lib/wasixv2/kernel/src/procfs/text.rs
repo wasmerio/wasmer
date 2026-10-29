@@ -411,7 +411,9 @@ pub(super) fn per_pid(
         PerPid::Mounts | PerPid::Mountinfo => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
             let root = task.fs.lock_or_recover().root.clone();
-            mounts(source, &task.ns.mnt.tree, &root, file == PerPid::Mountinfo)
+            // `mounts_open_common`: `EINVAL` for a task that is done.
+            let ns = task.ns.as_ref().ok_or(Errno::EINVAL)?;
+            mounts(source, &ns.mnt.tree, &root, file == PerPid::Mountinfo)
         }
         PerPid::Stat => stat_line(source, scope, &info),
         PerPid::Statm => {

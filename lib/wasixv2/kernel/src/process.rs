@@ -1094,7 +1094,7 @@ impl Kernel {
     /// Whether `task`'s children would start in another pid namespace than its own.
     fn pid_ns_for_children_differs(&self, task: TaskId) -> bool {
         self.task_ref(task, |t| {
-            !Arc::ptr_eq(&t.process.pid_ns, &t.ns.pid_for_children)
+            !Arc::ptr_eq(&t.process.pid_ns, &t.live_ns().pid_for_children)
         })
     }
 
@@ -1270,13 +1270,13 @@ impl Kernel {
             // `copy_creds`: a new user namespace comes first, and owns the other new ones.
             let cred = match flags.contains(CloneFlags::CLONE_NEWUSER) {
                 true => {
-                    let chrooted = task.fs.lock_or_recover().chrooted(&task.ns);
+                    let chrooted = task.fs.lock_or_recover().chrooted(task.live_ns());
                     UserNs::create(&parent.cred(), chrooted, &self.ns_inums)?
                 }
                 false => parent.cred(),
             };
             let ns = task
-                .ns
+                .live_ns()
                 .copy(self, flags.0, &cred, &parent.pid_ns, own_fs.as_mut())?;
             let mut ident = parent.ident.lock_or_recover().for_child();
             if flags.contains(CloneFlags::CLONE_NNP) {
@@ -1344,7 +1344,7 @@ impl Kernel {
                 mm,
                 files,
                 fs,
-                ns,
+                ns: Some(ns),
                 work: Work::new(flag),
                 restart: None,
                 comm: task.comm,

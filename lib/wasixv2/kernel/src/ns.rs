@@ -674,7 +674,7 @@ impl Kernel {
 
     /// The namespaces `task` is in.
     pub(crate) fn task_ns(&self, task: TaskId) -> Arc<NsProxy> {
-        self.task_ref(task, |task| task.ns.clone())
+        self.task_ref(task, |task| task.live_ns().clone())
     }
 
     /// `exit_sem` for a process that changes IPC namespace or stops sharing its semaphore
@@ -723,7 +723,7 @@ impl Kernel {
                 t.process.clone(),
                 t.files.clone(),
                 t.fs.clone(),
-                t.ns.clone(),
+                t.live_ns().clone(),
             )
         });
         let thread_group =
@@ -776,7 +776,7 @@ impl Kernel {
                 t.fs = Arc::new(Mutex::new(fs));
             }
             if let Some(ns) = new_ns {
-                t.ns = Arc::new(ns);
+                t.ns = Some(Arc::new(ns));
             }
             if let Some(files) = new_files {
                 t.files = files;
@@ -811,8 +811,9 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         };
         let task = caller.task();
-        let (process, fs, ns) =
-            self.task_ref(task, |t| (t.process.clone(), t.fs.clone(), t.ns.clone()));
+        let (process, fs, ns) = self.task_ref(task, |t| {
+            (t.process.clone(), t.fs.clone(), t.live_ns().clone())
+        });
         let joiner = Joiner {
             process: &process,
             cred: process.cred(),
@@ -844,7 +845,7 @@ impl Kernel {
             *process.sysvsem.lock_or_recover() = Some(set.proxy.ipc.clone());
         }
         let proxy = Arc::new(set.proxy);
-        self.with_task(task, |t| t.ns = proxy);
+        self.with_task(task, |t| t.ns = Some(proxy));
         Ok(0)
     }
 
@@ -858,7 +859,7 @@ impl Kernel {
                 .tasks
                 .get(&TaskId(pid))
                 .filter(|t| t.process.pid.0 == pid && !t.thread.exited())
-                .map(|t| (t.process.clone(), t.ns.clone()))
+                .and_then(|t| Some((t.process.clone(), t.ns.clone()?)))
         };
         let (process, ns) = target.ok_or(Errno::ESRCH)?;
         let dumpable = process.ident.lock_or_recover().dumpable;

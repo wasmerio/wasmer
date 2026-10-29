@@ -205,7 +205,7 @@ impl Kernel {
             let process = task.process.clone();
             // `copy_process`: a thread starts in its group's pid namespace, so none can start
             // once the task's children would go to another.
-            if !Arc::ptr_eq(&process.pid_ns, &task.ns.pid_for_children) {
+            if !Arc::ptr_eq(&process.pid_ns, &task.live_ns().pid_for_children) {
                 return Err(Errno::EINVAL.into());
             }
             if crate::resource::nproc_exceeded(&state, &process) {
@@ -888,8 +888,14 @@ impl Kernel {
                 return;
             };
             entry.thread.left_mm = true;
+            // `exit_task_namespaces`, after `exit_mm`: a task that is done holds no namespace,
+            // which goes with its last task before the process is seen to exit.
+            let ns = entry.ns.take();
             let process = entry.process.clone();
-            (mm_users(&state, task) == 0, process)
+            let last = mm_users(&state, task) == 0;
+            drop(state);
+            drop(ns);
+            (last, process)
         };
         // `do_exit`'s `setmax_mm_hiwater_rss`, for `getrusage` of the group and its parent.
         process.note_rss(caller.memory().size().await);
