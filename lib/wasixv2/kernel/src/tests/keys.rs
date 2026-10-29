@@ -598,6 +598,34 @@ fn keyring_restrictions_validate_permissions_arguments_and_type() {
     );
 }
 
+/// security/keys/keyring.c:__key_link always notifies, including replacement by itself.
+#[test]
+fn linking_an_existing_member_still_notifies_watchers() {
+    use wasixv2_abi::{GuestLayout, IoctlRequest, KeyNotification};
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let key = t.add("user", "linked", b"value", SESSION).unwrap();
+    let ring = t.id(SESSION, false).unwrap();
+    let (r, _) = super::ipc::pipe(
+        &kernel,
+        &t.caller,
+        OpenFlags::O_NOTIFICATION_PIPE | OpenFlags::O_NONBLOCK,
+    );
+    block_on(kernel.ioctl(&t.caller, r, IoctlRequest::IOC_WATCH_QUEUE_SET_SIZE, 1)).unwrap();
+    assert_eq!(t.keyctl(32, ring as u32, r.0 as u32, 7, 0), Ok(0));
+    assert_eq!(t.keyctl(LINK, key as u32, ring as u32, 0, 0), Ok(0));
+    assert_eq!(
+        block_on(kernel.read(&t.caller, r, UserSliceMut::new(0x4000, 32))),
+        Ok(16)
+    );
+    let n = KeyNotification::read_from(&get(&memory, 0x4000, 16)).unwrap();
+    assert_eq!(
+        (n.watch.type_subtype, n.watch.info, n.key_id, n.aux),
+        (1 | 2 << 24, 16 | 7 << 8, ring as u32, key as u32)
+    );
+    assert_eq!(t.read(ring).unwrap(), key.to_le_bytes());
+}
+
 /// Linux security/keys/sysctl.c exposes the configured tunables as global 0644 integers.
 #[test]
 fn key_sysctls_validate_values_and_bound_key_quotas() {

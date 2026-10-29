@@ -1665,14 +1665,14 @@ fn link(ring: &Arc<Key>, key: &Arc<Key>) -> Result<(), Errno> {
     let mut st = ring.st();
     // A restriction may have been installed during the cycle walk.
     st.check_link()?;
-    if st.links.iter().any(|k| Arc::ptr_eq(k, key)) {
-        return Ok(());
+    if !st.links.iter().any(|k| Arc::ptr_eq(k, key)) {
+        st.links
+            .retain(|k| !(k.kind == key.kind && k.description == key.description));
+        st.links.push(key.clone());
     }
-    st.links
-        .retain(|k| !(k.kind == key.kind && k.description == key.description));
-    st.links.push(key.clone());
     drop(st);
-    ring.notify(Notification::NOTIFY_KEY_LINKED, key.serial as u32); // __key_link
+    // security/keys/keyring.c:__key_link also notifies when replacing a link by itself.
+    ring.notify(Notification::NOTIFY_KEY_LINKED, key.serial as u32);
     Ok(())
 }
 
