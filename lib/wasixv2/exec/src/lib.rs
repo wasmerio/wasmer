@@ -340,6 +340,9 @@ pub(crate) enum Ended {
     Fault {
         task: TaskId,
         signal: i32,
+        /// Whether the kernel already took the signal (`Control::fault`), and if so whether it
+        /// killed the process; `None` for a fault still to deliver.
+        killed: Option<bool>,
         report: String,
         /// The image's handoff, when the trap was in an instance: the trapping task may be a
         /// vfork child whose parent went on elsewhere.
@@ -386,11 +389,13 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
     let (syscalls, task, handoff) = cx
         .with(|env, _| (env.syscalls.clone(), env.task, env.proc.handoff.clone()))
         .await;
-    // The trap's signal ends the task: `exit_mm` while the memory is still there.
-    let memory = memory::OutsideMemory { cx };
-    syscalls.exit_mm(&Caller::new(task, &memory)).await;
     let message = err.to_string();
     let signal = fault_signal(err);
+    // The trap's signal ends the task (`force_sig_fault`), then `exit_mm` while the memory is
+    // still there, which dumps core if the signal does, as for an `exit_group`.
+    let killed = syscalls.fault(task, signal);
+    let memory = memory::OutsideMemory { cx };
+    syscalls.exit_mm(&Caller::new(task, &memory)).await;
     tracing::debug!(tid = task.0, signal, "guest trapped: {message}");
     let report = format!(
         "wasixv2: thread {} trapped, killing its process with {}: {message}",
@@ -400,6 +405,7 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
     Ended::Fault {
         task,
         signal,
+        killed: Some(killed),
         report,
         handoff: Some(handoff),
     }

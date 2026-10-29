@@ -161,11 +161,13 @@ where
             Ok(Ok(Ended::Fault {
                 task: at,
                 signal,
+                killed,
                 report,
                 ..
             })) => {
                 // A thread's own task never goes on elsewhere (only a leader's does).
-                if process::fault_in(&*syscalls, &*host, task, at, signal, &report).is_some() {
+                let fault = (signal, killed);
+                if process::fault_in(&*syscalls, &*host, task, at, fault, &report).is_some() {
                     syscalls.release(task);
                 }
             }

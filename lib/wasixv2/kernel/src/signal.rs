@@ -2590,6 +2590,12 @@ impl Kernel {
             // The exit is pending on every task; `task` unwinds through it.
             return false;
         }
+        // `do_coredump`, which the task does in its `exit_mm`, after this: a signal taken on
+        // the way back to the guest asked for it with its own `siginfo` already, a fault
+        // (`force_sig_fault`) does here.
+        if crate::coredump::dumps_core(sig) {
+            self.coredump_request(task, kernel_info(sig));
+        }
         self.note_killed(task, sig);
         self.do_group_exit(task, 128 + sig);
         true

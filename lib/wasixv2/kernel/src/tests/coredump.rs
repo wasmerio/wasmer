@@ -192,6 +192,37 @@ fn a_core_signal_dumps_the_memory_to_the_pattern_file() {
     );
 }
 
+/// A trap's signal (`force_sig_fault`), which the execution layer hands the kernel before the
+/// task's `exit_mm`, dumps core there as a signal taken on the way to the guest does.
+#[test]
+fn a_trap_dumps_core() {
+    let (kernel, p) = machine();
+    let caller = p.caller();
+    block_on(kernel.mkdirat(&caller, CWD, p.path("/cores"), 0o755)).unwrap();
+    p.write(
+        &kernel,
+        "/proc/sys/kernel/core_pattern",
+        "/cores/core.%p.%s",
+    );
+    p.set_core_limit(&kernel, u64::MAX);
+
+    let (child, pid) = p.fork(&kernel);
+    assert!(kernel.fault(child.task, Signal::SIGILL.0));
+    assert_eq!(
+        kernel.take_pending(child.task),
+        Some(GuestAction::Exit(128 + Signal::SIGILL.0))
+    );
+    block_on(kernel.exit_mm(&child.caller()));
+    kernel.release(child.task);
+
+    assert_eq!(
+        p.reap(&kernel, pid),
+        (SiCode::CLD_DUMPED.0, Signal::SIGILL.0)
+    );
+    let core = p.read(&kernel, &format!("/cores/core.{pid}.4")).unwrap();
+    assert_eq!(&core[..4], b"\x7fELF");
+}
+
 /// `core_uses_pid` names a pattern without `%p` after the process; `coredump_filter` without
 /// private anonymous memory leaves the memory out; a limit cuts the core short.
 #[test]
