@@ -14,10 +14,9 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `529351c4d49` (merge train 12; wasixv2-tests `91b2916`, libc2 `5cacdfc4`,
-abi `f410936`, wasixcc `7ab1ffb`, userland `userland-4`): 3385 pass, 654 expected failures, 0 unexpected,
-811 ignored. Per suite (pass / expected failures / ignored): Open POSIX 1521/270/85, LTP 1187/362/725,
-libc-test 399/22/0, wasixv2 279/0/1.
+Suite on `feat/wasixv2` `908423d1510` (merge train 13; wasixv2-tests `5e21625`, libc2 `b69aa1d3`,
+abi `e7bb953`, wasixcc `7ab1ffb`, userland `userland-4`): 3390 pass, 614 expected failures, 818 ignored,
+0 unexpected after the bless (one suite run, regressions-only check).
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -120,11 +119,16 @@ introspection; P3 cgroup v2 and services; P4 AIO/futex2/rseq/io_uring; P5 file h
 flags/ACLs/binfmt_misc; P6 settable clocks and time namespaces; P7 more socket families). Trains land
 with gates, smoke and one suite run checked for regressions only.
 
-Merge train 13 (next): cBPF socket filters, ICMP errors and rate limits, multicast source filters, ABI
-socket option structs, /proc/net icmp/raw/mcfilter; reap = release_task and the vfork exit order, pid
-references in unix credentials and ttys, incremental map count; the in-process DNS server (`--dns`,
-10.0.2.3; the deferred DNS TODO is done); sched_* through the kernel, uname "Linux", reboot(2),
-F_CREATED_QUERY, SO_*BUFFORCE.
+Merge train 13 has landed (`908423d1510`): cBPF socket filters, ICMP errors and rate limits, multicast
+source filters, socket option structs in the ABI, /proc/net icmp/raw/mcfilter, netlink filters; reap =
+release_task and the vfork exit order, pid references in unix credentials and ttys, incremental map count;
+the in-process DNS server (`--dns`, 10.0.2.3); sched_* through the kernel, uname "Linux 7.2.0-wasixv2",
+reboot(2), F_CREATED_QUERY, SO_*BUFFORCE, /proc/sys/user writable by the namespace root.
+
+Merge train 14 (next): P1 sandbox (seccomp incl. user notifications, Landlock, keyrings, LSM syscalls,
+securityfs), P4 AIO/futex2/rseq/io_uring, P5 file handles/fanotify/inode flags/POSIX ACLs/binfmt_misc,
+P6 machine-owned wall clock/adjtimex/time namespaces/alarm clocks. In progress: P2 ptrace and
+introspection, P3 cgroup v2 and services, P7 vsock/sock_diag/raw/SCTP.
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
