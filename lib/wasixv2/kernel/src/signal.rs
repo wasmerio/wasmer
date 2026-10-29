@@ -2740,10 +2740,12 @@ impl Kernel {
             signals.take_throttle();
         }
         let continued = || (!signals.held()).then_some(());
+        // kernel/signal.c:do_freezer_trap sleeps TASK_INTERRUPTIBLE|TASK_FREEZABLE.
+        // Job-control and ptrace stops keep their procfs state precedence.
         signals
             .status
             .during(
-                wasixv2_wait::TaskState::Uninterruptible,
+                wasixv2_wait::TaskState::Interruptible,
                 wait_event(signals.sent(), continued, &NoInterrupt),
             )
             .await

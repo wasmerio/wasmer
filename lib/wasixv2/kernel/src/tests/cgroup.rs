@@ -749,6 +749,8 @@ fn child_in(kernel: &Kernel, p: &P, name: &str) -> (P, Pid) {
 /// no stop, nor does `/proc`.
 #[test]
 fn a_frozen_cgroup_holds_its_tasks_until_thawed() {
+    use futures::FutureExt as _;
+
     let (kernel, p) = machine();
     let (child, pid) = child_in(&kernel, &p, "a");
     assert_eq!(p.read(&kernel, "/cg/a/cgroup.freeze"), Ok("0\n".into()));
@@ -765,7 +767,8 @@ fn a_frozen_cgroup_holds_its_tasks_until_thawed() {
         "it leaves its wait"
     );
     assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
-    assert!(held(&kernel, child.task));
+    let mut sleeping = Box::pin(kernel.stop_wait(child.task));
+    assert!(sleeping.as_mut().now_or_never().is_none());
     assert_eq!(
         p.read(&kernel, "/cg/a/cgroup.events"),
         Ok("populated 1\nfrozen 1\n".into())
@@ -778,12 +781,15 @@ fn a_frozen_cgroup_holds_its_tasks_until_thawed() {
     assert!(status.contains("State:\tS (sleeping)\n"), "{status}");
     // A signal that does not kill waits for the thaw.
     kernel.kill(child.task, Signal::SIGWINCH).unwrap();
-    assert!(held(&kernel, child.task));
+    assert!(sleeping.as_mut().now_or_never().is_none());
     assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
 
     // A thaw is seen at once (`cgroup_do_freeze` clears `CGRP_FROZEN`).
     assert_eq!(p.write(&kernel, "/cg/a/cgroup.freeze", "0"), Ok(1));
-    assert!(!held(&kernel, child.task));
+    let status = p.read(&kernel, &format!("/proc/{pid}/status")).unwrap();
+    assert!(status.contains("State:\tR (running)\n"), "{status}");
+    assert!(sleeping.as_mut().now_or_never().is_some());
+    drop(sleeping);
     assert_eq!(
         p.read(&kernel, "/cg/a/cgroup.events"),
         Ok("populated 1\nfrozen 0\n".into())
