@@ -986,6 +986,18 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let file = self.io_file(caller, fd)?;
+        self.truncate_file(caller, &file, length).await
+    }
+
+    pub(crate) async fn truncate_file(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        length: i64,
+    ) -> SysResult<i32> {
+        if length < 0 {
+            return Err(Errno::EINVAL.into());
+        }
         let Backing::Inode(inner) = &file.backing else {
             return Err(Errno::EINVAL.into());
         };
@@ -996,9 +1008,9 @@ impl Kernel {
         if !file.landlock_allows(crate::landlock::TRUNCATE) {
             return Err(Errno::EACCES.into());
         }
-        self.sync_file_mappings(caller, &file).await;
+        self.sync_file_mappings(caller, file).await;
         let resized = inner.set_size(length as u64).await;
-        self.sync_file_mappings(caller, &file).await;
+        self.sync_file_mappings(caller, file).await;
         resized?;
         Ok(0)
     }

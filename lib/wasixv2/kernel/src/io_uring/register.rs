@@ -31,11 +31,19 @@ impl Kernel {
         nr_args: u32,
     ) -> SysResult<i32> {
         match IoUringRegisterOp(opcode) {
-            IoUringRegisterOp::IORING_REGISTER_PBUF_RING | IoUringRegisterOp::IORING_UNREGISTER_PBUF_RING | IoUringRegisterOp::IORING_REGISTER_PBUF_STATUS => {
-                if arg == 0 || nr_args != 1 { return Err(Errno::EINVAL.into()); }
+            IoUringRegisterOp::IORING_REGISTER_PBUF_RING
+            | IoUringRegisterOp::IORING_UNREGISTER_PBUF_RING
+            | IoUringRegisterOp::IORING_REGISTER_PBUF_STATUS => {
+                if arg == 0 || nr_args != 1 {
+                    return Err(Errno::EINVAL.into());
+                }
                 match IoUringRegisterOp(opcode) {
-                    IoUringRegisterOp::IORING_REGISTER_PBUF_RING => self.register_pbuf_ring(caller, ctx, arg).await,
-                    IoUringRegisterOp::IORING_UNREGISTER_PBUF_RING => self.unregister_pbuf_ring(caller, ctx, arg).await,
+                    IoUringRegisterOp::IORING_REGISTER_PBUF_RING => {
+                        self.register_pbuf_ring(caller, ctx, arg).await
+                    }
+                    IoUringRegisterOp::IORING_UNREGISTER_PBUF_RING => {
+                        self.unregister_pbuf_ring(caller, ctx, arg).await
+                    }
                     _ => self.pbuf_status(caller, ctx, arg).await,
                 }
             }

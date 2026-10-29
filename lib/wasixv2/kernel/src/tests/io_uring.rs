@@ -2087,3 +2087,290 @@ fn multishot_read_rearms_and_rejects_nonpollable_files() {
     assert_eq!(ring.submit(1), Ok(1));
     assert_eq!(res(&ring.reap()), [(1, -Errno::EBADFD.0)]);
 }
+
+fn run_sqe(ring: &Ring<'_>, entry: IoUringSqe) -> i32 {
+    ring.push(entry);
+    assert_eq!(ring.submit(1), Ok(1));
+    let entries = ring.reap();
+    assert_eq!(entries.len(), 1);
+    entries[0].res
+}
+
+#[test]
+fn namespace_opcodes_use_the_existing_path_semantics() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let file = m.file("ns-source", b"content");
+    m.memory.put(SCRATCH, b"nsdir\0");
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                addr: u64::from(SCRATCH),
+                len: 0o755,
+                ..sqe(IoUringOp::IORING_OP_MKDIRAT, -100, 1)
+            }
+        ),
+        0
+    );
+    m.memory.put(SCRATCH, b"ns-source\0");
+    m.memory.put(SCRATCH + 64, b"nsdir/hard\0");
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                addr: u64::from(SCRATCH),
+                off: u64::from(SCRATCH + 64),
+                len: (-100i32) as u32,
+                ..sqe(IoUringOp::IORING_OP_LINKAT, -100, 2)
+            }
+        ),
+        0
+    );
+    m.memory.put(SCRATCH, b"nsdir/hard\0");
+    m.memory.put(SCRATCH + 64, b"nsdir/moved\0");
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                addr: u64::from(SCRATCH),
+                off: u64::from(SCRATCH + 64),
+                len: (-100i32) as u32,
+                ..sqe(IoUringOp::IORING_OP_RENAMEAT, -100, 3)
+            }
+        ),
+        0
+    );
+    m.memory.put(SCRATCH, b"../ns-source\0");
+    m.memory.put(SCRATCH + 64, b"nsdir/link\0");
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                addr: u64::from(SCRATCH),
+                off: u64::from(SCRATCH + 64),
+                ..sqe(IoUringOp::IORING_OP_SYMLINKAT, -100, 4)
+            }
+        ),
+        0
+    );
+    let opened = block_on(m.kernel.openat(
+        &m.caller(),
+        Fd(-100),
+        GuestPtr::new(SCRATCH + 64),
+        OpenFlags(0),
+        0,
+    ))
+    .unwrap();
+    assert_eq!(
+        block_on(
+            m.kernel
+                .read(&m.caller(), opened, UserSliceMut::new(BUF, 7))
+        ),
+        Ok(7)
+    );
+    assert_eq!(m.memory.get(BUF, 7), b"content");
+    for name in [b"nsdir/link\0".as_slice(), b"nsdir/moved\0".as_slice()] {
+        m.memory.put(SCRATCH, name);
+        assert_eq!(
+            run_sqe(
+                &ring,
+                IoUringSqe {
+                    addr: u64::from(SCRATCH),
+                    ..sqe(IoUringOp::IORING_OP_UNLINKAT, -100, 5)
+                }
+            ),
+            0
+        );
+    }
+    m.memory.put(SCRATCH, b"nsdir\0");
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                addr: u64::from(SCRATCH),
+                op_flags: wasixv2_abi::AtFlags::AT_REMOVEDIR.0,
+                ..sqe(IoUringOp::IORING_OP_UNLINKAT, -100, 6)
+            }
+        ),
+        0
+    );
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+                addr: u64::from(SCRATCH),
+                ..sqe(IoUringOp::IORING_OP_MKDIRAT, file.0, 7)
+            }
+        ),
+        -Errno::EBADF.0
+    );
+}
+
+#[test]
+fn advice_truncate_and_xattr_opcodes_accept_fixed_files() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let fd = m.file("attrs", b"abcdef");
+    put_value(&m, SCRATCH + 64, fd.0);
+    assert_eq!(register_resources(&ring, false, 1, SCRATCH + 64, 0), Ok(0));
+    let fixed = IosqeFlags::IOSQE_FIXED_FILE.0;
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                flags: fixed,
+                len: 6,
+                ..sqe(IoUringOp::IORING_OP_FADVISE, 0, 1)
+            }
+        ),
+        0
+    );
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                flags: fixed,
+                off: 2,
+                ..sqe(IoUringOp::IORING_OP_FTRUNCATE, 0, 2)
+            }
+        ),
+        0
+    );
+    assert_eq!(
+        block_on(
+            m.kernel
+                .pread64(&m.caller(), fd, UserSliceMut::new(BUF, 8), 0)
+        ),
+        Ok(2)
+    );
+    let addr = anonymous(&m, 1, false);
+    m.memory.put(addr, b"discard");
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                addr: u64::from(addr),
+                off: 65536,
+                op_flags: wasixv2_abi::MadviseAdvice::MADV_DONTNEED.0 as u32,
+                ..sqe(IoUringOp::IORING_OP_MADVISE, -1, 3)
+            }
+        ),
+        0
+    );
+    assert_eq!(m.memory.get(addr, 7), [0; 7]);
+    m.memory.put(SCRATCH + 64, b"user.test\0");
+    m.memory.put(SCRATCH + 128, b"attrs\0");
+    m.memory.put(BUF, b"attribute");
+    for (set, get, flags, fd, value) in [
+        (
+            IoUringOp::IORING_OP_SETXATTR,
+            IoUringOp::IORING_OP_GETXATTR,
+            0,
+            -1,
+            b"attribute".as_slice(),
+        ),
+        (
+            IoUringOp::IORING_OP_FSETXATTR,
+            IoUringOp::IORING_OP_FGETXATTR,
+            fixed,
+            0,
+            b"new value".as_slice(),
+        ),
+    ] {
+        m.memory.put(BUF, value);
+        assert_eq!(
+            run_sqe(
+                &ring,
+                IoUringSqe {
+                    flags,
+                    addr: u64::from(SCRATCH + 64),
+                    off: u64::from(BUF),
+                    len: value.len() as u32,
+                    addr3: u64::from(SCRATCH + 128),
+                    ..sqe(set, fd, 4)
+                }
+            ),
+            0
+        );
+        assert_eq!(
+            run_sqe(
+                &ring,
+                IoUringSqe {
+                    flags,
+                    addr: u64::from(SCRATCH + 64),
+                    off: u64::from(BUF + 64),
+                    len: 32,
+                    addr3: u64::from(SCRATCH + 128),
+                    ..sqe(get, fd, 5)
+                }
+            ),
+            value.len() as i32
+        );
+        assert_eq!(m.memory.get(BUF + 64, value.len()), value);
+    }
+}
+
+#[test]
+fn socket_bind_and_listen_work_with_direct_descriptors() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    assert_eq!(register_resources(&ring, false, 2, 0, 0), Ok(0));
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                off: 1,
+                splice_fd_in: -1,
+                ..sqe(IoUringOp::IORING_OP_SOCKET, AddressFamily::AF_UNIX.0, 1)
+            }
+        ),
+        0
+    );
+    let addr = [1u16.to_le_bytes().as_slice(), b"\0uring-bind"].concat();
+    m.memory.put(SCRATCH + 64, &addr);
+    let fixed = IosqeFlags::IOSQE_FIXED_FILE.0;
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                flags: fixed,
+                addr: u64::from(SCRATCH + 64),
+                off: addr.len() as u64,
+                ..sqe(IoUringOp::IORING_OP_BIND, 0, 2)
+            }
+        ),
+        0
+    );
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                flags: fixed,
+                len: 4,
+                ..sqe(IoUringOp::IORING_OP_LISTEN, 0, 3)
+            }
+        ),
+        0
+    );
+    let client = block_on(m.kernel.socket(&m.caller(), AddressFamily::AF_UNIX, 1, 0)).unwrap();
+    block_on(m.kernel.connect(
+        &m.caller(),
+        client,
+        GuestPtr::new(SCRATCH + 64),
+        addr.len() as u32,
+    ))
+    .unwrap();
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                flags: fixed,
+                splice_fd_in: -1,
+                ..sqe(IoUringOp::IORING_OP_ACCEPT, 0, 4)
+            }
+        ),
+        1
+    );
+}
