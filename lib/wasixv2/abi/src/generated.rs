@@ -12811,6 +12811,120 @@ impl GuestLayout for AuxvType {
     }
 }
 
+/// `AT_FLAGS` bits of the startup block (`linux/binfmts.h`): how a binfmt_misc format
+/// invoked the interpreter.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct AtFlagsBits(pub u32);
+impl AtFlagsBits {
+    /// `P`: `argv[0]` is the caller's, after the binary's name.
+    pub const AT_FLAGS_PRESERVE_ARGV0: Self = Self(0x1);
+    /// `T`: the arguments are the caller's, and the binary is `AT_EXECFD`.
+    pub const AT_FLAGS_TRANSPARENT_INTERP: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("AT_FLAGS_PRESERVE_ARGV0", Self::AT_FLAGS_PRESERVE_ARGV0),
+        (
+            "AT_FLAGS_TRANSPARENT_INTERP",
+            Self::AT_FLAGS_TRANSPARENT_INTERP,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for AtFlagsBits {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("AtFlagsBits(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for AtFlagsBits {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for AtFlagsBits {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for AtFlagsBits {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for AtFlagsBits {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for AtFlagsBits {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for AtFlagsBits {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for AtFlagsBits {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for AtFlagsBits {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// `futex_time64` operations and their modifier bits (`linux/futex.h`).
 /// The operation is `op & FUTEX_CMD_MASK`; `FUTEX_PRIVATE_FLAG` and `FUTEX_CLOCK_REALTIME` may be ORed in.
 ///

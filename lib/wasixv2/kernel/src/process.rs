@@ -15,10 +15,10 @@ use std::{
 };
 
 use wasixv2_abi::{
-    AtFlags, CloneArgs, CloneArgsSize, CloneFlags, ConstCloneArgsPtr, ConstSiginfoPtr, Cstr,
-    CstrArray, GuestLayout, GuestPtr, GuestPtrMut, Idtype, IoctlRequest, IoctlType, OpenFlags, Pid,
-    PidfdInfo, PidfdInfoMask, PidfdInfoSize, Rusage, RusagePtr, S32Ptr, SiCode, Siginfo,
-    SiginfoPtr, Signal, Ulong, Uptr, Usize, WaitOptions,
+    AtFlags, AtFlagsBits, CloneArgs, CloneArgsSize, CloneFlags, ConstCloneArgsPtr, ConstSiginfoPtr,
+    Cstr, CstrArray, GuestLayout, GuestPtr, GuestPtrMut, Idtype, IoctlRequest, IoctlType,
+    OpenFlags, Pid, PidfdInfo, PidfdInfoMask, PidfdInfoSize, Rusage, RusagePtr, S32Ptr, SiCode,
+    Siginfo, SiginfoPtr, Signal, Ulong, Uptr, Usize, WaitOptions,
 };
 use wasixv2_syscalls::{
     BINPRM_BUF_SIZE, Binfmt, Caller, CpuAccount, CpuTimes, CstrError, Errno, Fd, GuestAction,
@@ -29,10 +29,10 @@ use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_EXEC, OpenHow, Path};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
-    Kernel, Process, State, Task,
+    Kernel, Process, State, Task, binfmt_misc,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     fs::FdReservation,
-    ident::{Comm, Ident},
+    ident::{Comm, ExecAux, Ident},
     ns::{PidNs, UserNs},
     pid::{PidType, Pids},
     signal::{Signals, user_info},
@@ -213,6 +213,41 @@ struct Binary {
     may_setid: bool,
     /// Its size when it was opened.
     size: u64,
+}
+
+/// What binfmt_misc formats asked of an `execve` (`have_execfd`, `execfd_creds` and the
+/// `interp_flags` its `AT_FLAGS` tell), and the binary handed over as `AT_EXECFD`
+/// (`bprm->executable`).
+#[derive(Default)]
+struct ExecHandover {
+    have_execfd: bool,
+    execfd_creds: bool,
+    /// `AT_FLAGS_*`.
+    at_flags: u32,
+    executable: Option<(wasixv2_vfs::File, Binary)>,
+}
+
+impl ExecHandover {
+    /// `load_misc_binary` took the file with a format's `flags`.
+    fn misc(&mut self, flags: u32) {
+        self.have_execfd |= flags & binfmt_misc::OPEN_BINARY != 0;
+        self.execfd_creds |= flags & binfmt_misc::CREDENTIALS != 0;
+        if flags & binfmt_misc::PRESERVE_ARGV0 != 0 {
+            self.at_flags |= AtFlagsBits::AT_FLAGS_PRESERVE_ARGV0.0;
+        }
+        if flags & binfmt_misc::TRANSPARENT != 0 {
+            self.at_flags |= AtFlagsBits::AT_FLAGS_TRANSPARENT_INTERP.0;
+        }
+    }
+
+    /// `bprm_at_flags`: transparency says more than a kept `argv[0]`.
+    fn at_flags(&self) -> u32 {
+        let transparent = AtFlagsBits::AT_FLAGS_TRANSPARENT_INTERP.0;
+        match self.at_flags & transparent {
+            0 => self.at_flags,
+            _ => transparent,
+        }
+    }
 }
 
 /// How a process ended, as `waitid` reports it.
@@ -1461,57 +1496,88 @@ impl Kernel {
         // `bprm->interp`: the name a script is passed to its interpreter by.
         let mut script = name.clone();
         let mut rewrites = 0;
+        let misc_registry = self.binfmt_misc.current(&self.cred(caller).user_ns);
+        // What a binfmt_misc format asked for (`have_execfd`, `execfd_creds`, `interp_flags`),
+        // and the binary it hands over (`bprm->executable`).
+        let mut handover = ExecHandover::default();
         // `search_binary_handler`: a script hands over to its interpreter; anything else must
         // be an image of one of the embedder's formats, decided before the point of no return.
         let (image, binary) = loop {
             // `prepare_binprm`: the first bytes tell the format.
             let header = read_header(&file).await?;
             // `load_misc_binary`, which comes first: the interpreter of a registered format
-            // gets the file's name, after `argv[0]` or in its place.
-            if let Some(misc) = self.binfmt_misc.lookup(&header, &script) {
-                if inaccessible {
-                    return Err(Errno::ENOENT.into());
-                }
-                let replaced = usize::from(!misc.preserve_argv0);
-                args.splice(0..replaced, [misc.interpreter.clone(), script]);
-                check_arg_size(&args, &env)?;
-                (file, binary) = match misc.interp_file {
-                    Some(path) => self.open_exec_path(caller, path).await?,
-                    None => {
-                        let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
-                        let interp = &misc.interpreter;
-                        self.open_exec(caller, cwd, interp, AtFlags(0)).await?
+            // gets the file's name, after `argv[0]` or in its place, or with `T` the arguments
+            // as they are.
+            let next = match misc_registry.lookup(&header, &script) {
+                // A substitute for the binary's program interpreter, which no format here has:
+                // opened, then dropped as binfmt_elf drops it for a static binary, while the
+                // search goes on in the same round.
+                Some(misc) if misc.flags & binfmt_misc::LOADER != 0 => {
+                    let opened = self.open_misc_interpreter(caller, &misc).await;
+                    match opened {
+                        Err(SysErr::Errno(Errno::ENOEXEC)) => return Err(Errno::EACCES.into()),
+                        Err(err) => return Err(err),
+                        Ok(_) => None,
                     }
-                };
-                script = misc.interpreter;
-                rewrites += 1;
-                if rewrites > MAX_REWRITES {
-                    return Err(Errno::ELOOP.into());
                 }
-                continue;
-            }
-            // `load_script`.
-            let Some((interp, arg)) = parse_shebang(&header) else {
-                self.binfmt.probe(&header)?;
-                let image = read_image(&file, binary.size).await?;
-                self.binfmt.check(&image)?;
-                break (image, binary);
+                Some(misc) => {
+                    let transparent = misc.flags & binfmt_misc::TRANSPARENT != 0;
+                    // `build_interp_argv`.
+                    if !transparent {
+                        if inaccessible {
+                            return Err(Errno::ENOENT.into());
+                        }
+                        let replaced = usize::from(misc.flags & binfmt_misc::PRESERVE_ARGV0 == 0);
+                        args.splice(0..replaced, [misc.interpreter.clone(), script]);
+                        check_arg_size(&args, &env)?;
+                    }
+                    let opened = self.open_misc_interpreter(caller, &misc).await?;
+                    handover.misc(misc.flags);
+                    script = misc.interpreter;
+                    Some(opened)
+                }
+                None => None,
             };
-            if inaccessible {
-                return Err(Errno::ENOENT.into());
-            }
-            // argv[0] goes; the interpreter, its argument and the script's name come first.
-            let mut front = vec![interp.clone()];
-            front.extend(arg);
-            front.push(script);
-            args.splice(0..1, front);
-            check_arg_size(&args, &env)?;
-            let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
-            (file, binary) = self.open_exec(caller, cwd, &interp, AtFlags(0)).await?;
-            script = interp;
+            let next = match next {
+                Some(next) => next,
+                None => {
+                    // `load_script`.
+                    let Some((interp, arg)) = parse_shebang(&header) else {
+                        self.binfmt.probe(&header)?;
+                        let image = read_image(&file, binary.size).await?;
+                        self.binfmt.check(&image)?;
+                        break (image, binary);
+                    };
+                    if inaccessible {
+                        return Err(Errno::ENOENT.into());
+                    }
+                    // argv[0] goes; the interpreter, its argument and the script's name come
+                    // first.
+                    let mut front = vec![interp.clone()];
+                    front.extend(arg);
+                    front.push(script);
+                    args.splice(0..1, front);
+                    check_arg_size(&args, &env)?;
+                    let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
+                    script = interp.clone();
+                    self.open_exec(caller, cwd, &interp, AtFlags(0)).await?
+                }
+            };
             rewrites += 1;
             if rewrites > MAX_REWRITES {
                 return Err(Errno::ELOOP.into());
+            }
+            // `exec_binprm`: the interpreter runs next; with an execfd asked for, the file it
+            // replaces is the binary handed over, and only one can be.
+            let replaced = (
+                std::mem::replace(&mut file, next.0),
+                std::mem::replace(&mut binary, next.1),
+            );
+            if handover.have_execfd {
+                if handover.executable.is_some() {
+                    return Err(Errno::ENOEXEC.into());
+                }
+                handover.executable = Some(replaced);
             }
         };
         // `de_thread`: the other threads die before anything of the new image is committed. A
@@ -1535,7 +1601,7 @@ impl Kernel {
         let threads = self.take_group_futex_states(task);
         self.exit_futexes(caller, threads).await;
         self.mm_release(caller).await;
-        self.exec_commit(task, &name, args, env, image, binary);
+        self.exec_commit(task, &name, args, env, image, binary, handover);
         // The `execve` is done, and the leader's new image may start.
         drop(exec);
         Ok(0)
@@ -1548,6 +1614,23 @@ impl Kernel {
         !path.mnt.flags().nosuid
             && self.task_ns(task).mnt.tree.contains(&path.mnt)
             && cred.user_ns.descends_from(&self.sb_owner(path.mnt.sb()))
+    }
+
+    /// `entry_open_interpreter`: the path a format pinned at registration (`F`), or its
+    /// interpreter opened by name.
+    async fn open_misc_interpreter(
+        &self,
+        caller: &Caller<'_>,
+        misc: &binfmt_misc::Handover,
+    ) -> SysResult<(wasixv2_vfs::File, Binary)> {
+        match &misc.interp_file {
+            Some(path) => self.open_exec_path(caller, path.clone()).await,
+            None => {
+                let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
+                let interp = &misc.interpreter;
+                self.open_exec(caller, cwd, interp, AtFlags(0)).await
+            }
+        }
     }
 
     /// `do_open_execat`: the file must be a regular file with an execute bit the caller may
@@ -1627,6 +1710,7 @@ impl Kernel {
         env: Vec<Vec<u8>>,
         image: Option<Image>,
         binary: Binary,
+        mut handover: ExecHandover,
     ) {
         let task = self.exec_leader(caller);
         let process = self.process(task);
@@ -1681,19 +1765,46 @@ impl Kernel {
         *process.env.lock_or_recover() = env;
         let no_new_privs = process.ident.lock_or_recover().no_new_privs;
         let old = process.cred();
+        // `bprm_creds_from_file`: from the binary handed over with `C`, else the file that
+        // runs; the process presents as the binary with `T` (`bprm_identity_file`).
+        let executable = handover.executable.take();
+        let creds_from = match (&executable, handover.execfd_creds) {
+            (Some((_, executable)), true) => executable,
+            _ => &binary,
+        };
         let (cred, secure) = old.exec(
-            binary.mode,
-            binary.owner,
-            binary.may_setid && !no_new_privs,
+            creds_from.mode,
+            creds_from.owner,
+            creds_from.may_setid && !no_new_privs,
             no_new_privs,
         );
         let dumpable =
             cred.user.effective == cred.user.real && cred.group.effective == cred.group.real;
         let privileged = secure || cred.drops_dumpable(&old);
         *process.cred.lock_or_recover() = cred;
-        *process.exe.lock_or_recover() = Some(binary.path);
+        let transparent = handover.at_flags() == AtFlagsBits::AT_FLAGS_TRANSPARENT_INTERP.0;
+        let exe = match &executable {
+            Some((_, executable)) if transparent => executable.path.clone(),
+            _ => binary.path,
+        };
+        *process.exe.lock_or_recover() = Some(exe);
+        // `begin_new_exec`'s last step: the binary handed over goes in at the lowest free
+        // descriptor, kept across a later `execve`. A table that has none fails the exec past
+        // its point of no return.
+        let execfd = executable.and_then(|(file, _)| {
+            let file = Arc::new(OpenFile::new(Backing::Inode(file), OpenFlags::O_RDONLY));
+            let fd = table.lock_or_recover().install(file, false);
+            if fd.is_none() {
+                self.force_fatal_signal(task, Signal::SIGSEGV.0);
+            }
+            fd
+        });
         {
             let mut ident = process.ident.lock_or_recover();
+            ident.exec_aux = ExecAux {
+                execfd: execfd.map(|fd| fd.0 as u32),
+                flags: handover.at_flags(),
+            };
             ident.secure_exec = secure;
             ident.dumpable = dumpable;
             if privileged {
