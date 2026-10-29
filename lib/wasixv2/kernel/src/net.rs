@@ -151,8 +151,15 @@ impl Kernel {
         r#type: i32,
         protocol: i32,
     ) -> SysResult<Fd> {
-        self.socket_to(caller, family, r#type, protocol, crate::fs::FileDest::Table)
-            .await
+        let (kind, flags) = socket_type(r#type)?;
+        let file = self
+            .create_socket(caller, family, kind, protocol, flags)
+            .await?;
+        self.install(
+            caller,
+            Arc::new(file),
+            flags.contains(SocketFlags::SOCK_CLOEXEC),
+        )
     }
 
     pub(crate) async fn socket_to(
@@ -164,6 +171,21 @@ impl Kernel {
         dest: crate::fs::FileDest<'_>,
     ) -> SysResult<Fd> {
         let (kind, flags) = socket_type(r#type)?;
+        let slot = dest.reserve(self, caller, flags.contains(SocketFlags::SOCK_CLOEXEC))?;
+        let file = self
+            .create_socket(caller, family, kind, protocol, flags)
+            .await?;
+        slot.install(Arc::new(file))
+    }
+
+    async fn create_socket(
+        &self,
+        caller: &Caller<'_>,
+        family: AddressFamily,
+        kind: SocketType,
+        protocol: i32,
+        flags: SocketFlags,
+    ) -> SysResult<OpenFile> {
         let domain = match family {
             AddressFamily::AF_INET => Domain::Inet,
             AddressFamily::AF_INET6 => Domain::Inet6,
@@ -171,12 +193,10 @@ impl Kernel {
                 let sock = self.unix_socket(caller, kind, protocol)?;
                 let owner = self.cred(caller).fs_owner();
                 let file = unix_file(sock, flags, self.pseudo.socket(owner));
-                return dest
-                    .reserve(self, caller, flags.contains(SocketFlags::SOCK_CLOEXEC))?
-                    .install(Arc::new(file));
+                return Ok(file);
             }
             AddressFamily::AF_NETLINK => {
-                return self.netlink_socket(caller, kind, protocol, flags, dest);
+                return self.netlink_socket(caller, kind, protocol, flags);
             }
             // Every other family (and anything past NPROTO) has no implementation.
             _ => return Err(Errno::EAFNOSUPPORT.into()),
@@ -197,8 +217,7 @@ impl Kernel {
         let (uid, _) = self.cred(caller).fs_owner();
         let socket = network.socket(domain, kind, protocol, uid)?;
         let file = self.socket_file(caller, socket, ns.net.clone(), flags);
-        let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
-        dest.reserve(self, caller, cloexec)?.install(Arc::new(file))
+        Ok(file)
     }
 
     /// `__sys_socketpair`. Only Unix sockets have pairs.
@@ -240,15 +259,25 @@ impl Kernel {
         len: Socklen,
     ) -> SysResult<i32> {
         let raw = move_addr_to_kernel(caller, addr, len).await?;
-        let sock = match self.any_socket(caller, fd)? {
+        let file = self.file(caller.task(), fd)?;
+        self.bind_file(caller, file, &raw).await
+    }
+
+    pub(crate) async fn bind_file(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        raw: &[u8],
+    ) -> SysResult<i32> {
+        let sock = match any_socket_file(file)? {
             AnySock::Inet((_, sock)) => sock,
-            AnySock::Unix(_, sock) => return self.unix_bind(caller, &sock, &raw).await,
-            AnySock::Netlink(_, nl) => return Ok(nl.bind(&raw)?),
+            AnySock::Unix(_, sock) => return self.unix_bind(caller, &sock, raw).await,
+            AnySock::Netlink(_, nl) => return Ok(nl.bind(raw)?),
         };
         let domain = sock.socket.domain();
-        let addr = socket::decode(domain, &raw, true)?;
+        let addr = socket::decode(domain, raw, true)?;
         // AF_UNSPEC is accepted for IPv4 only with INADDR_ANY.
-        if socket::family(&raw)? == AddressFamily::AF_UNSPEC && !addr.ip().is_unspecified() {
+        if socket::family(raw)? == AddressFamily::AF_UNSPEC && !addr.ip().is_unspecified() {
             return Err(Errno::EAFNOSUPPORT.into());
         }
         let privileged = self.net_capable(caller, Cap::NetBindService);
@@ -263,8 +292,18 @@ impl Kernel {
         fd: Fd,
         backlog: i32,
     ) -> SysResult<i32> {
+        let file = self.file(caller.task(), fd)?;
+        self.listen_file(caller, file, backlog)
+    }
+
+    pub(crate) fn listen_file(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        backlog: i32,
+    ) -> SysResult<i32> {
         let backlog = (backlog as u32).min(SOMAXCONN);
-        match self.any_socket(caller, fd)? {
+        match any_socket_file(file)? {
             AnySock::Inet((_, sock)) => sock.socket.listen(backlog)?,
             AnySock::Unix(_, sock) => sock.listen(backlog, self.peer_cred(caller))?,
             AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),

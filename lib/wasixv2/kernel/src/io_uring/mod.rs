@@ -34,8 +34,8 @@
 //! memory (`IORING_SETUP_NO_MMAP`), provided buffer rings, and the operations the probe
 //! leaves out.
 
-mod ops;
 mod kbuf;
+mod ops;
 mod register;
 mod rsrc;
 mod tctx;
@@ -492,7 +492,10 @@ impl FileObject for IoRing {
             SQ_RING | CQ_RING => (ctx.rings.clone(), ctx.shape.rings_size),
             SQES => (ctx.sqes.clone(), ctx.shape.sqes_size),
             off if off & 0xf800_0000 == 0x8000_0000 => {
-                let pages = match kbuf::mmap(ctx, off) { Ok(pages) => pages, Err(err) => return Some(Err(err)) };
+                let pages = match kbuf::mmap(ctx, off) {
+                    Ok(pages) => pages,
+                    Err(err) => return Some(Err(err)),
+                };
                 let size = pages.size();
                 (pages, size)
             }
