@@ -877,6 +877,12 @@ These limits are why full compatibility stays a goal rather than a state we reac
 filesystem descriptors, including `O_PATH`. The `FD_FAILFS_ROOT` special descriptor
 returns `EBADF` until the kernel has a failfs filesystem (`fs/open.c:sys_fchroot`).
 
+`rseq_slice_yield` returns zero because a guest is never granted a preemptive
+slice extension (Linux `kernel/rseq.c:sys_rseq_slice_yield`'s no-grant result).
+`PR_RSEQ_SLICE_EXTENSION` returns `EINVAL`; this is an explicit compatibility
+limit, and registration never advertises slice extensions. This choice does not
+claim to emulate every errno of Linux's compiled-out rseq configuration.
+
 `process_mrelease` discards the private pages of an exiting address space through
 the existing memory page-discard hook (`mm/oom_kill.c:__oom_reap_task_mm`). It keeps
 shared mappings for normal exit writeback, and refuses live users or a pending

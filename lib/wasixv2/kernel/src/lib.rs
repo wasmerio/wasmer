@@ -3052,6 +3052,12 @@ impl Syscalls for Kernel {
         self.sys_eventfd2(caller, count, flags).await
     }
 
+    async fn rseq_slice_yield(&self, _caller: &Caller<'_>) -> SysResult<i32> {
+        // Linux `kernel/rseq.c:sys_rseq_slice_yield`: no extension was granted,
+        // so there is no CPU slice to relinquish and no scheduling side effect.
+        Ok(0)
+    }
+
     async fn rseq(
         &self,
         caller: &Caller<'_>,
