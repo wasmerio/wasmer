@@ -195,6 +195,8 @@ struct KeyState {
     negative: Option<Errno>,
     /// A keyring's keys, in the order they were linked.
     links: Vec<Arc<Key>>,
+    /// keyring_restrict(NULL, NULL): restrict_link_reject for every subsequent link.
+    reject_links: bool,
     revoked: bool,
     revoked_at: Option<u64>,
     invalidated: bool,
@@ -202,6 +204,18 @@ struct KeyState {
     expiry: Option<u64>,
     /// What the key counts against its owner's byte quota.
     quotalen: u32,
+}
+
+impl KeyState {
+    fn check_link(&self) -> Result<(), Errno> {
+        if self.revoked {
+            return Err(Errno::EKEYREVOKED);
+        }
+        if self.reject_links {
+            return Err(Errno::EPERM);
+        }
+        Ok(())
+    }
 }
 
 impl Drop for Key {
@@ -557,6 +571,7 @@ impl Keys {
                 payload,
                 negative: None,
                 links: Vec::new(),
+                reject_links: false,
                 revoked: false,
                 revoked_at: None,
                 invalidated: false,
@@ -937,6 +952,9 @@ impl Kernel {
         kind.check_payload(&data)?;
         kind.vet_description(&description)?;
         let _construction = self.keys.construction.lock_or_recover();
+        // security/keys/key.c:__key_create_or_update checks the restriction before
+        // finding an existing key to update. Installation holds construction too.
+        ring.key.st().check_link()?;
         // `key_create_or_update`: a type that updates updates the key of that description the
         // keyring holds, if the caller may write it.
         if kind != Kind::Keyring
@@ -1328,6 +1346,54 @@ impl Kernel {
                 put_out(caller, arg3, arg4, b"\0", true).await
             }
             KeyctlOp::KEYCTL_SESSION_TO_PARENT => self.session_to_parent(caller, &mut ctx),
+            KeyctlOp::KEYCTL_RESTRICT_KEYRING => {
+                // security/keys/keyctl.c:keyctl_restrict_keyring: permission precedes
+                // copying the strings; keyring_restrict checks the ring type afterwards.
+                let key = found(self, &mut ctx, Lookup::default(), Need::Setattr)?.key;
+                if (arg3 == 0) != (arg4 == 0) {
+                    return Err(Errno::EINVAL.into());
+                }
+                let kind = if arg3 != 0 {
+                    let name = read_type(caller, arg3).await?;
+                    if name.starts_with(b".") {
+                        return Err(Errno::EPERM.into());
+                    }
+                    read_cstr(
+                        caller.memory(),
+                        wasixv2_abi::GuestPtr::new(arg4),
+                        crate::mm::PAGE_SIZE as usize,
+                    )
+                    .await
+                    .map_err(|error| match error {
+                        wasixv2_syscalls::CstrError::Fault => Errno::EFAULT,
+                        wasixv2_syscalls::CstrError::TooLong => Errno::EINVAL,
+                    })?;
+                    Some(name)
+                } else {
+                    None
+                };
+                if key.kind != Kind::Keyring {
+                    return Err(Errno::ENOTDIR.into());
+                }
+                if let Some(kind) = kind {
+                    // security/keys/keyring.c:keyring_restrict: configured user,
+                    // logon and keyring types have no lookup_restriction method.
+                    Kind::lookup(&kind).map_err(|error| match error {
+                        Errno::ENODEV => Errno::ENOKEY,
+                        other => other,
+                    })?;
+                    return Err(Errno::ENOENT.into());
+                }
+                let _construction = self.keys.construction.lock_or_recover();
+                let mut st = key.st();
+                if st.reject_links {
+                    return Err(Errno::EEXIST.into());
+                }
+                st.reject_links = true;
+                drop(st);
+                key.notify(Notification::NOTIFY_KEY_SETATTR, 0);
+                Ok(0)
+            }
             KeyctlOp::KEYCTL_MOVE => {
                 const EXCL: u32 = 1;
                 if arg5 & !EXCL != 0 {
@@ -1364,7 +1430,7 @@ impl Kernel {
                 Ok(0)
             }
             KeyctlOp::KEYCTL_CAPABILITIES => {
-                let caps0 = 0x01 | 0x20 | 0x80;
+                let caps0 = 0x01 | 0x20 | 0x40 | 0x80;
                 put_out(
                     caller,
                     arg2,
@@ -1406,7 +1472,7 @@ impl Kernel {
                 id if id < 0 => Err(Errno::EINVAL.into()),
                 _ => Err(Errno::ENOKEY.into()),
             },
-            // Persistent keyrings, Diffie-Hellman, public keys and restrictions are not configured.
+            // Persistent keyrings, Diffie-Hellman and public keys are not configured.
             _ => Err(Errno::EOPNOTSUPP.into()),
         }
     }
@@ -1591,13 +1657,14 @@ impl Kernel {
 /// keyring that would end up inside itself is `EDEADLK`; nested deeper than six keyrings,
 /// `ELOOP`.
 fn link(ring: &Arc<Key>, key: &Arc<Key>) -> Result<(), Errno> {
-    if ring.st().revoked {
-        return Err(Errno::EKEYREVOKED);
-    }
+    // security/keys/keyring.c:__key_link_check_restriction precedes the cycle check.
+    ring.st().check_link()?;
     if key.kind == Kind::Keyring && (Arc::ptr_eq(ring, key) || reaches(key, ring, 0)?) {
         return Err(Errno::EDEADLK);
     }
     let mut st = ring.st();
+    // A restriction may have been installed during the cycle walk.
+    st.check_link()?;
     if st.links.iter().any(|k| Arc::ptr_eq(k, key)) {
         return Ok(());
     }
