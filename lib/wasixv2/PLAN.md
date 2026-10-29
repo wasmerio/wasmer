@@ -14,10 +14,12 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `f6e45f62643` (merge train 17; wasixv2-tests `189d40f`, libc2 `139386dc`,
-abi `3c21183`, userland `userland-4`): 3548 pass, 586 expected failures, 727 ignored (one suite run,
-regressions-only check; cve-2015-7550 is flaky under load). Per suite (pass / expected failures /
-ignored): Open POSIX 1538/247/91, LTP 1321/317/635, libc-test 399/22/0, wasixv2 290/0/1.
+Suite on `feat/wasixv2` `21587f4e504` (merge train 18; wasixv2-tests `9d39c70`, libc2 `1df9bb80`,
+abi `07cd32e`, userland `userland-4`): 3547 pass, 586 expected failures, 728 ignored (one suite run,
+regressions-only check). Per suite (pass / expected failures / ignored): Open POSIX 1536/248/91, LTP
+1322/316/636, libc-test 399/22/0, wasixv2 290/0/1. Listed for the validation phase:
+clock_nanosleep/1-3 (/proc state reports every live task as S), flaky pthread_kill/8-1 and
+cve-2015-7550.
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -144,9 +146,14 @@ pre-access events, host file handles, tmpfs quotas, ETXTBSY, notification pipes 
 misc (fchroot, listns, open_tree_attr, process_mrelease, prctl options, seccomp sysctls, core-dump
 notes), vsock host connections, SCTP timers and diag, generic/uevent/usersock netlink, NTP slewing.
 
-Merge train 18 (next, last feature train): review fixes (retained-page RLIMIT_MEMLOCK accounting and
-six major findings), tick-sampled CPU accounting, FUSE, per-thread credentials. After it: validation
-phase (deferred by the user until feature completeness).
+Merge train 18 has landed (`21587f4e504`), completing the feature-completeness phase: review fixes
+(retained io_uring pages charged to RLIMIT_MEMLOCK, shmdt/mremap retention, forced remote access EIO on
+holes, `SharedMemory::host_data` only for non-moving memories), tick-sampled CPU accounting (1000 Hz,
+under 1 ns per syscall), FUSE (`/dev/fuse`, the fuse filesystem; unmodified libfuse 3.17.4 passthrough
+works), per-thread credentials (setxid per task, Landlock TSYNC, per-thread keyrings).
+
+Next: the validation phase. Pending decisions: host-enforced page protections (and userfaultfd),
+the paused memory-accounting branch, keeping `SharedMemory::host_data` in wasmer's lib/api.
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
