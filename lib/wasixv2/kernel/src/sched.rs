@@ -914,6 +914,18 @@ impl Kernel {
             .memory()
             .read(mask.addr(), &mut bytes[..size])
             .await?;
+        // `sched_setaffinity`: the caller's euid is the target's, or it has `CAP_SYS_NICE`
+        // over the target's user namespace.
+        let cred = self.cred(caller);
+        let allowed = {
+            let state = self.state.read_or_recover();
+            let id = self.find_task(&state, caller, pid)?;
+            let target = state.tasks[&id].process.cred();
+            cred.same_owner(&target) || cred.ns_capable(&target.user_ns, Cap::SysNice)
+        };
+        if !allowed {
+            return Err(Errno::EPERM.into());
+        }
         let online = online_mask();
         let new: Vec<u32> = bytes
             .chunks_exact(4)
