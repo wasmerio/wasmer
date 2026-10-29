@@ -456,17 +456,14 @@ impl Kernel {
     }
 
     /// The dump `task` is to make on its way out, if it is the dumping task.
-    fn take_core_request(&self, task: TaskId) -> Option<Siginfo> {
+    fn core_request(&self, task: TaskId) -> Option<Siginfo> {
         let process = {
             let state = self.state.read_or_recover();
             state.tasks.get(&task)?.process.clone()
         };
-        let mut ident = process.ident.lock_or_recover();
+        let ident = process.ident.lock_or_recover();
         match ident.core_dumper {
-            Some((dumper, info)) if dumper == task => {
-                ident.core_dumper = None;
-                Some(info)
-            }
+            Some((dumper, info)) if dumper == task => Some(info),
             _ => None,
         }
     }
@@ -771,8 +768,14 @@ impl Kernel {
 
     /// The dump `caller` is to make, if it is the task that took a signal that dumps core.
     pub(crate) async fn coredump_if_dumper(&self, caller: &Caller<'_>) {
-        if let Some(info) = self.take_core_request(caller.task()) {
+        if let Some(info) = self.core_request(caller.task()) {
+            // Linux `mm/oom_kill.c:__task_will_free_mem`: core_state prevents
+            // process_mrelease from discarding memory until the dump is complete.
             self.do_coredump(caller, info).await;
+            self.process(caller.task())
+                .ident
+                .lock_or_recover()
+                .core_dumper = None;
         }
     }
 }

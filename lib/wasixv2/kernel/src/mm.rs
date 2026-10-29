@@ -1993,6 +1993,82 @@ impl Kernel {
         Ok(0)
     }
 
+    /// Linux `mm/oom_kill.c:sys_process_mrelease`, `task_will_free_mem` and
+    /// `__oom_reap_task_mm`: only dying address spaces, excluding shared pages.
+    pub(crate) async fn sys_process_mrelease(
+        &self,
+        caller: &Caller<'_>,
+        pidfd: Fd,
+        flags: u32,
+    ) -> SysResult<i32> {
+        if flags != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let target = self.pidfd_get_task(caller, pidfd)?;
+        let process = self.task_process(target).ok_or(Errno::ESRCH)?;
+        let mm = {
+            let state = self.state.read_or_recover();
+            // `find_lock_task_mm`: the leader may have already called exit_mm.
+            state
+                .tasks
+                .values()
+                .find(|t| Arc::ptr_eq(&t.process, &process) && !t.thread.left_mm())
+                .map(|t| t.mm.clone())
+                .ok_or(Errno::ESRCH)?
+        };
+        let signals = self.interrupt(caller);
+        let _op = wasixv2_wait::interruptible(mm.op.lock(), &signals.killable())
+            .await
+            .map_err(|_| Errno::EINTR)?;
+        {
+            let state = self.state.read_or_recover();
+            if !state.tasks.values().any(|t| {
+                Arc::ptr_eq(&t.process, &process) && Arc::ptr_eq(&t.mm, &mm) && !t.thread.left_mm()
+            }) {
+                return Err(Errno::ESRCH.into());
+            }
+            for t in state
+                .tasks
+                .values()
+                .filter(|t| Arc::ptr_eq(&t.mm, &mm) && !t.thread.left_mm())
+            {
+                if t.process.ident.lock_or_recover().core_dumper.is_some()
+                    || !(t.process.group.exiting()
+                        || (t.process.group.single_threaded() && t.thread.exited()))
+                {
+                    return Err(Errno::EINVAL.into());
+                }
+            }
+        }
+        let foreign = mm.foreign();
+        let mine = self.mm(caller.task());
+        let memory: &dyn UserMemory = if Arc::ptr_eq(&mm, &mine) {
+            caller.memory()
+        } else {
+            foreign
+                .as_deref()
+                .map(|m| m as &dyn UserMemory)
+                .ok_or(Errno::EAGAIN)?
+        };
+        // Preserve VMAs and shared file mappings for exit_mmap/writeback. The
+        // existing zero_pages hook discards private host pages where supported.
+        let size = memory.size().await;
+        mm.space().set_seen(size);
+        let low_guard = u64::from(memory.low_guard().await).div_ceil(PAGE_SIZE) * PAGE_SIZE;
+        let regions = mm.regions();
+        for region in regions.into_iter().filter(|region| !region.shared) {
+            let start = region.start.max(low_guard);
+            if start >= region.end {
+                continue;
+            }
+            memory
+                .zero_pages(start as u32, region.end - start)
+                .await
+                .map_err(|_| Errno::EAGAIN)?;
+        }
+        Ok(0)
+    }
+
     /// `process_madvise`: the advice `behavior` on each range of `vec` in the address space of
     /// the process of `pidfd`, which the caller may read (`PTRACE_MODE_READ_FSCREDS`). On another
     /// process's memory only the hints that keep its data are allowed (`MADV_COLD`,

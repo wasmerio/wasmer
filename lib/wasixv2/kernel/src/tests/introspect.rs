@@ -669,3 +669,114 @@ fn remap_file_pages_shows_another_page_of_the_file() {
 fn get_flat(memory: &FlatMemory, addr: u32, len: usize) -> Vec<u8> {
     super::ipc::get(memory, addr, len)
 }
+
+#[test]
+fn process_mrelease_discards_dying_private_pages_and_keeps_shared_mappings() {
+    let (kernel, parent, _) = setup(b"");
+    let parent_memory = memory();
+    let caller = Caller::new(parent, &parent_memory);
+    let child = fork_child(&kernel, &caller);
+    let child_memory = memory_flat();
+    let child_caller = Caller::new(child, &child_memory);
+    let page = crate::mm::PAGE_SIZE as u32;
+    let fd = super::mapping::open(
+        &kernel,
+        &child_caller,
+        b"/shared-reap",
+        OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+    );
+    assert_eq!(
+        block_on(kernel.ftruncate64(&child_caller, fd, page.into())),
+        Ok(0)
+    );
+    let shared_addr = block_on(kernel.mmap(
+        &child_caller,
+        0,
+        page,
+        ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+        MapFlags::MAP_SHARED,
+        fd,
+        0,
+    ))
+    .unwrap();
+    let size = child_memory.0.borrow().len();
+    let remote = SyncMemory::new(size, 0);
+    remote.put(0, &child_memory.0.borrow());
+    remote.put(0x100, b"private");
+    remote.put(shared_addr, b"shared");
+    kernel.attach_memory(child, remote.clone());
+    let pidfd = block_on(kernel.pidfd_open(&caller, child.0 as i32, 0)).unwrap();
+    assert_eq!(
+        errno(block_on(kernel.process_mrelease(&caller, Fd(-1), 1))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(block_on(kernel.process_mrelease(&caller, Fd(-1), 0))),
+        Errno::EBADF
+    );
+    assert_eq!(
+        errno(block_on(kernel.process_mrelease(&caller, pidfd, 0))),
+        Errno::EINVAL
+    );
+    kernel.do_group_exit(child, 0);
+    let regions = kernel.mm(child).regions();
+    assert_eq!(block_on(kernel.process_mrelease(&caller, pidfd, 0)), Ok(0));
+    assert_eq!(remote.get(0x100, 7), vec![0; 7]);
+    assert_eq!(remote.get(shared_addr, 6), b"shared");
+    assert_eq!(
+        kernel.mm(child).regions(),
+        regions,
+        "reaping preserves VMAs"
+    );
+    assert_eq!(block_on(kernel.process_mrelease(&caller, pidfd, 0)), Ok(0));
+    // Once every thread left its mm, Linux reports ESRCH even before wait reaps it.
+    block_on(kernel.exit_mm(&Caller::new(child, &*remote)));
+    assert_eq!(
+        errno(block_on(kernel.process_mrelease(&caller, pidfd, 0))),
+        Errno::ESRCH
+    );
+}
+
+#[test]
+fn process_mrelease_waits_for_shared_mm_users_and_core_dump() {
+    use wasixv2_abi::{CloneFlags, Siginfo};
+    let (kernel, parent, _) = setup(b"");
+    let parent_memory = memory();
+    let caller = Caller::new(parent, &parent_memory);
+    let child = fork_child(&kernel, &caller);
+    let remote = SyncMemory::new(65536, 0);
+    kernel.attach_memory(child, remote.clone());
+    let child_caller = Caller::new(child, &*remote);
+    let pidfd = block_on(kernel.pidfd_open(&caller, child.0 as i32, 0)).unwrap();
+    let shared_child = block_on(kernel.thread_spawn(
+        &child_caller,
+        (CloneFlags::CLONE_VM.0 | 17) as u32,
+        0x40,
+        GuestPtrMut::NULL,
+        0,
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    while kernel.take_pending(child).is_some() {}
+    // A core request stays visible until coredump_if_dumper has finished, preventing reaping.
+    kernel.coredump_request(
+        child,
+        Siginfo {
+            si_signo: Signal::SIGABRT.0,
+            ..Default::default()
+        },
+    );
+    kernel.do_group_exit(child, 0);
+    assert_eq!(
+        errno(block_on(kernel.process_mrelease(&caller, pidfd, 0))),
+        Errno::EINVAL
+    );
+    block_on(kernel.coredump_if_dumper(&child_caller));
+    // An unrelated thread group on the same mm remains alive.
+    assert_eq!(
+        errno(block_on(kernel.process_mrelease(&caller, pidfd, 0))),
+        Errno::EINVAL
+    );
+    kernel.do_group_exit(TaskId(shared_child as u32), 0);
+    assert_eq!(block_on(kernel.process_mrelease(&caller, pidfd, 0)), Ok(0));
+}

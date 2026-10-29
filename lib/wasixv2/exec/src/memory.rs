@@ -799,6 +799,9 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
 /// `access_process_vm` gives no atomicity either.
 pub(crate) struct ForeignMemory {
     memory: SharedMemory,
+    /// The frozen image must remain a private view of its file when pages are cleared.
+    #[cfg(all(target_os = "linux", feature = "sys"))]
+    base: Option<Arc<Base>>,
     low_guard: u32,
     read_only: Arc<ReadOnly>,
     /// What copies that are not forced may do with each page, as for the guest's own.
@@ -814,10 +817,60 @@ impl ForeignMemory {
     ) -> Self {
         Self {
             memory,
+            #[cfg(all(target_os = "linux", feature = "sys"))]
+            base: None,
             low_guard,
             read_only,
             page_access,
         }
+    }
+
+    #[cfg(all(target_os = "linux", feature = "sys"))]
+    pub(crate) fn with_base(mut self, base: Option<Arc<Base>>) -> Self {
+        self.base = base;
+        self
+    }
+
+    /// The foreign equivalent of the local `zero_pages`: forced access, guard and
+    /// read-only view checks, and identical frozen-image handling. Used by Linux's
+    /// `mm/oom_kill.c:__oom_reap_task_mm` equivalent in the kernel.
+    #[cfg(all(unix, feature = "sys"))]
+    fn discard_pages(&self, addr: u32, len: u64) -> Result<(), Fault> {
+        let len = usize::try_from(len).map_err(|_| Fault)?;
+        let ptr = self.at(addr, len)?;
+        let read_only = self.read_only.ranges();
+        if in_guard(self.low_guard, addr, len) || in_read_only(&read_only, addr, len) {
+            return Err(Fault);
+        }
+        #[cfg(target_os = "linux")]
+        let over_base = self.base.as_ref().map_or(0, |base| {
+            (base.len().saturating_sub(u64::from(addr)) as usize).min(len)
+        });
+        #[cfg(not(target_os = "linux"))]
+        let over_base = 0;
+        #[cfg(target_os = "linux")]
+        let cleared = match (&self.base, over_base) {
+            // SAFETY: at checked the stable memory range; the guard and read-only
+            // mappings are excluded and their lock remains held. No Rust references
+            // point into the guest memory (ForeignMemory's invariant).
+            (Some(base), 1..) => unsafe { clear_from(base, ptr, addr, over_base as u64) }.is_ok(),
+            _ => true,
+        };
+        #[cfg(not(target_os = "linux"))]
+        let cleared = true;
+        // SAFETY: as above. Past the frozen image, the caller promises private
+        // anonymous pages (UserMemory::zero_pages), whose mapping never moves.
+        if cleared
+            && (over_base == len
+                || unsafe { wasixv2_pages::drop_private(ptr.add(over_base), len - over_base) }
+                    .is_ok())
+        {
+            return Ok(());
+        }
+        // SAFETY: as above; on hosts without discard support use the trait's
+        // zero-fill behavior, preserving the Base mapping if present.
+        unsafe { std::ptr::write_bytes(ptr, 0, len) };
+        Ok(())
     }
 
     /// The host address of `[addr, addr + len)`, which lies inside the memory.
@@ -891,6 +944,11 @@ impl UserMemory for ForeignMemory {
     /// Another process's memory grows only by its own hand.
     fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(async { None })
+    }
+
+    #[cfg(all(unix, feature = "sys"))]
+    fn zero_pages(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Fault>> {
+        copied(self.discard_pages(addr, len))
     }
 
     fn low_guard(&self) -> LocalFuture<'_, u32> {
@@ -1212,6 +1270,67 @@ mod tests {
         }
         // Still writable, and the image's file keeps its bytes for other views.
         write(&memory, 0, &read_only, &store, PAGE as u32 + 3, b"again").unwrap();
+    }
+
+    #[cfg(all(target_os = "linux", feature = "sys"))]
+    #[test]
+    fn foreign_page_discard_preserves_frozen_image_and_protections() {
+        use futures::executor::block_on;
+        use wasmer::{MemoryType, Store};
+        const PAGE: u32 = 65536;
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(2, Some(4), true)).unwrap();
+        memory
+            .view(&store)
+            .write(u64::from(PAGE) + 3, b"image")
+            .unwrap();
+        let base = Base::freeze(&memory, &store).unwrap();
+        memory.grow(&mut store, 1).unwrap();
+        let read_only = Arc::<ReadOnly>::default();
+        let foreign = ForeignMemory::new(
+            memory.as_shared(&store).unwrap(),
+            PAGE,
+            read_only.clone(),
+            None,
+        )
+        .with_base(base);
+        block_on(foreign.write(PAGE + 3, b"IMAGE")).unwrap();
+        block_on(foreign.write(2 * PAGE + 3, b"past!")).unwrap();
+        assert_eq!(block_on(foreign.zero_pages(0, PAGE.into())), Err(Fault));
+        assert_eq!(
+            block_on(foreign.zero_pages(3 * PAGE, PAGE.into())),
+            Err(Fault)
+        );
+        read_only
+            .ranges_mut()
+            .push(u64::from(2 * PAGE)..u64::from(3 * PAGE));
+        assert_eq!(
+            block_on(foreign.zero_pages(2 * PAGE, PAGE.into())),
+            Err(Fault)
+        );
+        read_only.ranges_mut().clear();
+        assert_eq!(
+            block_on(foreign.zero_pages(PAGE, u64::from(2 * PAGE))),
+            Ok(())
+        );
+        if let Some(pagemap) = crate::pagemap::Pagemap::get() {
+            let ptr = memory.view(&store).data_ptr() as usize + (2 * PAGE) as usize;
+            let pages = pagemap
+                .pages(ptr, PAGE as usize / pagemap.page_size())
+                .unwrap();
+            assert!(
+                pages
+                    .iter()
+                    .all(|page| *page == crate::pagemap::Page::Untouched),
+                "remote discard must release host pages rather than write zeroes"
+            );
+        }
+        for addr in [PAGE + 3, 2 * PAGE + 3] {
+            let mut bytes = [1; 5];
+            block_on(foreign.read(addr, &mut bytes)).unwrap();
+            assert_eq!(bytes, [0; 5]);
+        }
+        block_on(foreign.write(PAGE + 3, b"again")).unwrap();
     }
 
     #[cfg(all(unix, feature = "sys"))]

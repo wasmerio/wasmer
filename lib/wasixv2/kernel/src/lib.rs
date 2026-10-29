@@ -2721,6 +2721,10 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         self.sys_mseal(caller, start, len, flags).await
     }
+    async fn process_mrelease(&self, caller: &Caller<'_>, pidfd: Fd, flags: u32) -> SysResult<i32> {
+        self.sys_process_mrelease(caller, pidfd, flags).await
+    }
+
     async fn process_madvise(
         &self,
         caller: &Caller<'_>,
