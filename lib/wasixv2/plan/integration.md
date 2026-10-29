@@ -731,3 +731,84 @@ After the CVE timeout is resolved, land in dependency order: ABI `47561c7..3c211
 -> tests `c777afe..aace62f` -> libc2 `c39b9060..139386dc` -> wasmer
 `a687dcd8a06..599db214dbf` -> plan. Only train17 branches and the fast-forward
 `wasixv2/plan` are pushed by this agent. **NO-GO: hold main/feat landing.**
+
+## 2026-10-29: merge train 18 — NO-GO
+
+Hold main/feat landing: two POSIX regressions from the sole full suite remain
+unblessed. Integration, gates, requested feature smoke, usual smoke, expectations
+and matching consumer pins are complete. The orchestrator owns remote mains.
+
+Candidates: wasmer `wasixv2/train18` **307ba591a2e** on `f6e45f62643` (36 commits),
+ABI `train18` **07cd32e** on `3c21183` (2), libc2 `train18` **1df9bb80** on
+`139386dc` (3), tests `train18` **43ebe22** on `189d40f` (1). Both consumers pin
+the same ABI/tests heads. Baseline, including the orchestrator's existing CVE
+flaky exclusion: **3548 pass / 586 xfail / 728 ignored**.
+
+- Inputs: all 18 review fixes, two cputime runtime commits, FUSE, then Q1
+  per-thread credentials LAST. Omitted branch ABI/tests pins and replayed
+  ancestors; folded FUSE's required checkpoint into its completed transport and
+  teardown feature commit, retaining no WIP commit. FUSE and Q1 ABI additions
+  form one fast-forward chain; each consumer regenerated once at 07cd32e.
+- Integration seam `c5c5fc094f2`: FUSE requests/access/device openers and retained
+  MEMLOCK charges use subjective task credentials; accounting reads the leader
+  snapshot and fork clears inherited PF_SUPERPRIV. The new FUSE worker/override
+  unit regression fails with group-leader identity and passes after migration.
+  No old Process credential accessor remains. Shared epoll_ctl_file stays async
+  through syscall/io_uring polling; retained-page movement preserves mapped
+  growth accounting. No new kernel/exec contract or other mechanism.
+- Fixture correction `1eb216b9b5c`: closing an io_uring descriptor retains its
+  MEMLOCK charge while either ring VMA owns the file. Assert that lifetime, then
+  unmap both VMAs before expecting release, following io_uring/memmap.c
+  io_uring_mmap and mm/vma.c __mmap_new_file_vma. Initial failed gate retained.
+- Gates: all 25 crate test invocations passed, **1873 passing cases including
+  doctests** (kernel 1026, exec 60, host 11, VM 56, API 160); three strict
+  Makefile-flags clippy gates, workspace fmt, release CLI (6m21s), CLI **59 pass /
+  12 ignored**, tty **6 pass**. No runtime edit after these gates.
+- Exactly ONE full suite, 3118 seconds, runtime `1eb216b9b5c`, CPUs 0-3,
+  three test threads and canonical 60-second budget. Raw **3546 pass / 585
+  expected fail / 2 unexpected fail / 1 unexpected pass / 728 ignored**.
+  No registration or pass-to-ignored changes. No unrelated new-failure or
+  new-pass triage; bulk removed the repaired clock_gettime01 expectation.
+  All **15/15 still-listed handwritten causes** preserved (16 before removal).
+- Regression `posix/conformance/interfaces/clock_nanosleep/1-3` reproduces
+  unblessed: the handler runs before clock_nanosleep, which then sleeps 30s and
+  returns success. The unchanged preexisting procfs state helper labels every
+  live, non-stopped task S, so the test's readiness check can mistake setup for
+  the intended sleep. Proposed fix: accurate runnable/sleeping task-state
+  bookkeeping with a controlled wait/readiness regression, following Linux
+  fs/proc/array.c:get_task_state and include/linux/sched.h:task_state_index.
+  This is broader than an obviously small integration correction; no delay,
+  one-syscall state heuristic, timeout tweak or suppression was added.
+- Regression `posix/conformance/interfaces/pthread_kill/8-1`: sole run failed
+  with its signal-count line as the reported cause; isolated targeted rerun
+  passed in 1.09s. One isolated pass does not clear the observed regression.
+  Proposed follow-up: capture complete failing output under bounded three-job
+  signal stress, then isolate signal/pthread-exit ordering with a failing unit
+  before changing behavior. Both regressions remain unlisted; NO-GO.
+- Sole-run observed results after blessing only the non-regressing outcomes
+  (pass / xfail / unexpected fail / ignored): own **290/0/0/1**, libc
+  **399/22/0/0**, POSIX **1536/247/2/91**, LTP **1322/316/0/636**; total
+  **3547/585/2/728**. Targeted pthread success is recorded separately, without
+  rewriting the original observed failure. No second full suite.
+- Smoke: sws classic/Linux **28/28** each; v1 eight plus known Python dynamic
+  linking failure; UDP **6/6**; extras and all carried userlands; C++ **9/9**;
+  pty **11/11** and no-tty. All 12 ordinary and 35 hand exit statuses match
+  train17. Carried 20 feature commands pass. All five requested commands pass:
+  unmodified source-built libfuse **3.17.4** passthrough mount/list/read/write/
+  unmount/daemon exit; raw worker setresuid observed by main through proc task
+  status while its own IDs stay unchanged, then libc setuid convergence;
+  Landlock TSYNC/NNP; mixed-loop proc stat utime growth; fixed-buffer I/O after
+  munmap/address reuse and visible MEMLOCK enforcement/release. No host panic
+  observed in smoke or the raw failure records. Existing inbound-vsock CLI
+  bridge limitation remains; host-backend unit coverage passed.
+- Shared libc2 local main fast-forwarded **139386dc..1df9bb80**, ABI07cd32e /
+  tests43ebe22; both shared EH/asyncify sysroots and run.sh checks PASS with
+  MAKEFLAGS=, OMP_NUM_THREADS=3, nice19/CPUs4-7. No remote main pushed.
+  Logs, scripts, runtime binary, regression modules/sources and source/hash
+  metadata are retained at `~/wasixv2-orch/logs/train18/`; only own Cargo
+  targets were removed. Every new commit has the requested AI disclosure.
+
+After both regressions are resolved, land in dependency order: ABI
+`3c21183..07cd32e` -> tests `189d40f..43ebe22` -> libc2 `139386dc..1df9bb80`
+-> wasmer `f6e45f62643..307ba591a2e` -> plan. Only train18 branches and the
+fast-forward `wasixv2/plan` are pushed by this agent. **NO-GO: hold mains.**
