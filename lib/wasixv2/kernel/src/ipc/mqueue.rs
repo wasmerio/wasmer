@@ -1,13 +1,12 @@
 //! POSIX message queues (`ipc/mqueue.c`): `mq_open`, `mq_unlink`, `mq_timedsend`,
 //! `mq_timedreceive`, `mq_notify` and `mq_getsetattr`.
 //!
-//! A queue is a kernel object named in the namespace's queue table, which plays the part of the
-//! `mqueue` filesystem's root directory: names are single components, a queue lives on after
-//! `mq_unlink` until its last descriptor closes, and its owner and mode follow file creation
-//! (the umask applies). A descriptor is an open file whose object is the queue, so it polls as
-//! readable while messages wait and writable while there is room, and `read` returns the
-//! status line Linux's `mqueue` files show. The table is not mounted anywhere, so `/dev/mqueue`
-//! does not list it.
+//! A queue is a file of the namespace's `mqueue` filesystem ([`super::mqueuefs`]), named in its
+//! root: names are single components, a queue lives on after `mq_unlink` until its last
+//! descriptor closes, and its owner and mode follow file creation (the umask applies). A
+//! descriptor is an open file whose object is the queue, so it polls as readable while messages
+//! wait and writable while there is room, and `read` returns the status line Linux's `mqueue`
+//! files show. Opening the queue's file where the filesystem is mounted gives the same.
 //!
 //! Messages leave in priority order, oldest first within a priority. A notification fires when
 //! a message arrives in an empty queue that no receiver is waiting on, then unregisters.
@@ -15,7 +14,7 @@
 
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, OnceLock, Weak},
 };
 
 use wasixv2_abi::{
@@ -26,16 +25,23 @@ use wasixv2_syscalls::{
     Caller, CstrError, Errno, Fd, LocalFuture, SysErr, SysResult, TaskId, read_cstr, read_value,
     write_value,
 };
-use wasixv2_vfs::{Cap, MAY_READ, MAY_WRITE, Node};
+use wasixv2_vfs::{
+    Attr, Cap, Clock, Filesystem, MAY_EXEC, MAY_READ, MAY_WRITE, Mount, Path, Timestamp,
+};
 use wasixv2_wait::{
     PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event, wait_event_timeout,
 };
 
-use super::Cred;
+use super::{
+    Cred,
+    mqueuefs::{MqueueFs, QueueNode},
+};
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
+    fs::HostClock,
     netlink::NetlinkSocket,
+    ns::IpcNs,
     sync::MutexExt,
     time,
 };
@@ -62,28 +68,124 @@ const NOTIFY_REMOVED: u8 = 2;
 /// msg_msg` and one `struct posix_msg_tree_node` on a 32-bit kernel.
 const MSG_OVERHEAD: u64 = 24 + 24;
 
-/// The namespace's queues, by name.
-#[derive(Default)]
+/// The namespace's queues: how many exist and what they charge, and the namespace's `mqueue`
+/// filesystem, which names them.
 pub(crate) struct Mqueues {
-    names: Mutex<HashMap<Vec<u8>, Arc<Mqueue>>>,
     /// Queues that exist, named or not (`mq_queues_count`).
     count: Mutex<usize>,
     /// `RLIMIT_MSGQUEUE` charges per user.
     charged: Mutex<HashMap<u32, u64>>,
+    /// Who made the namespace, by filesystem uid and gid: the filesystem's root is theirs.
+    creator: (u32, u32),
+    /// The filesystem and the kernel's own mount of it (`mq_mnt`), made when first used.
+    sb: OnceLock<(Arc<Mount>, Arc<MqueueFs>)>,
+}
+
+impl Mqueues {
+    /// A new namespace's queues, none yet, made by `creator` (`mq_init_ns`).
+    pub(crate) fn new(creator: (u32, u32)) -> Self {
+        Self {
+            count: Mutex::default(),
+            charged: Mutex::default(),
+            creator,
+            sb: OnceLock::new(),
+        }
+    }
+
+    /// `mqueue_get_inode` for a new queue of `owner`'s with the permission bits `mode`, and
+    /// `mqueue_create_attr`'s count limit (`ENOSPC`); `attr`'s sizes, or the defaults, within
+    /// the limits (`EINVAL`), charged to the owner's `RLIMIT_MSGQUEUE` (`EMFILE`).
+    pub(crate) fn create(
+        self: &Arc<Self>,
+        fs: &MqueueFs,
+        owner: &QueueOwner,
+        mode: u32,
+        attr: Option<MqAttr>,
+    ) -> Result<Arc<Mqueue>, Errno> {
+        let resource = owner.resource;
+        let mut count = self.count.lock_or_recover();
+        if *count >= QUEUES_MAX && !resource {
+            return Err(Errno::ENOSPC);
+        }
+        let (maxmsg, msgsize) = match attr {
+            Some(attr) => (attr.mq_maxmsg, attr.mq_msgsize),
+            None => (MSG_MAX, MSGSIZE_MAX),
+        };
+        if maxmsg <= 0 || msgsize <= 0 {
+            return Err(Errno::EINVAL);
+        }
+        let (max_msg, max_size) = match resource {
+            true => (HARD_MSGMAX, HARD_MSGSIZEMAX),
+            false => (MSG_MAX, MSGSIZE_MAX),
+        };
+        if maxmsg > max_msg || msgsize > max_size {
+            return Err(Errno::EINVAL);
+        }
+        let (maxmsg, msgsize) = (maxmsg as u64, msgsize as u64);
+        let charge = maxmsg * (msgsize + MSG_OVERHEAD);
+        {
+            let mut charged = self.charged.lock_or_recover();
+            let user = charged.entry(owner.uid).or_default();
+            if *user + charge > owner.limit {
+                return Err(Errno::EMFILE);
+            }
+            *user += charge;
+        }
+        *count += 1;
+        Ok(Arc::new(Mqueue {
+            state: Mutex::new(State {
+                maxmsg: maxmsg as usize,
+                msgsize: msgsize as usize,
+                messages: BTreeMap::new(),
+                curmsgs: 0,
+                bytes: 0,
+                receivers: 0,
+                notify: None,
+            }),
+            wait: WaitQueue::new(),
+            attr: Mutex::new(fs.new_attr(owner.owner, mode)),
+            clock: fs.clock().clone(),
+            charge,
+            charged_to: owner.uid,
+            owner: Arc::downgrade(self),
+        }))
+    }
+}
+
+/// Who makes a queue: its owner, by filesystem uid and gid; the real uid its size is charged
+/// to, and that uid's `RLIMIT_MSGQUEUE`; and whether it has `CAP_SYS_RESOURCE` in the initial
+/// user namespace, which lifts the limits.
+pub(crate) struct QueueOwner {
+    pub(crate) owner: (u32, u32),
+    pub(crate) uid: u32,
+    pub(crate) resource: bool,
+    pub(crate) limit: u64,
+}
+
+impl QueueOwner {
+    /// The embedder, whom no limit binds.
+    pub(crate) fn unlimited(owner: (u32, u32)) -> Self {
+        Self {
+            owner,
+            uid: owner.0,
+            resource: true,
+            limit: u64::MAX,
+        }
+    }
 }
 
 pub(crate) struct Mqueue {
     state: Mutex<State>,
     /// Woken on every change, for senders, receivers and pollers.
     wait: WaitQueue,
-    uid: u32,
-    gid: u32,
-    mode: u32,
-    /// What the queue charged its creator's `RLIMIT_MSGQUEUE`.
+    /// Its inode's metadata in the namespace's filesystem: owner, mode and times.
+    attr: Mutex<Attr>,
+    clock: Arc<dyn Clock>,
+    /// What the queue charged to `charged_to`'s `RLIMIT_MSGQUEUE`.
     charge: u64,
-    /// Its inode in the queue filesystem.
-    inode: Arc<dyn Node>,
-    owner: Arc<Mqueues>,
+    charged_to: u32,
+    /// The namespace's queues, while the namespace exists.
+    owner: Weak<Mqueues>,
 }
 
 struct State {
@@ -152,28 +254,78 @@ impl Mqueue {
         self.state.lock_or_recover()
     }
 
+    pub(crate) fn ino(&self) -> u64 {
+        self.attr.lock_or_recover().ino
+    }
+
+    pub(crate) fn attr(&self) -> Attr {
+        self.attr.lock_or_recover().clone()
+    }
+
+    /// Changes the inode's metadata with `change`, given the time; returns the result.
+    pub(crate) fn set_attr(&self, change: impl FnOnce(&mut Attr, Timestamp)) -> Attr {
+        let now = self.clock.now();
+        let mut attr = self.attr.lock_or_recover();
+        change(&mut attr, now);
+        attr.clone()
+    }
+
+    /// Its name went (`simple_unlink`).
+    pub(crate) fn unlinked(&self) {
+        self.set_attr(|attr, now| {
+            attr.nlink = 0;
+            attr.ctime = now;
+        });
+    }
+
+    /// A message came or went (`simple_inode_init_ts`).
+    fn touch(&self) {
+        self.set_attr(|attr, now| {
+            attr.atime = now;
+            attr.mtime = now;
+            attr.ctime = now;
+        });
+    }
+
     /// `inode_permission` on the queue's inode.
     fn permits(&self, cred: &Cred, mask: u32) -> bool {
-        let bits = if cred.fsuid == self.uid {
-            self.mode >> 6
-        } else if cred.in_group(self.gid) {
-            self.mode >> 3
-        } else {
-            self.mode
-        } & 7;
-        mask & !bits == 0 || cred.capable_wrt(self.uid, self.gid, Cap::DacOverride)
+        permits(cred, &self.attr(), mask)
     }
 }
 
+/// `generic_permission` of `attr` for `cred`: the owner's, group's or others' bits, or
+/// `CAP_DAC_OVERRIDE` over the inode.
+fn permits(cred: &Cred, attr: &Attr, mask: u32) -> bool {
+    let bits = if cred.fsuid == attr.uid {
+        attr.mode >> 6
+    } else if cred.in_group(attr.gid) {
+        attr.mode >> 3
+    } else {
+        attr.mode
+    } & 7;
+    mask & !bits == 0 || cred.capable_wrt(attr.uid, attr.gid, Cap::DacOverride)
+}
+
 impl Drop for Mqueue {
-    /// `mqueue_evict_inode`: the last reference is gone; the queue no longer counts.
+    /// `mqueue_evict_inode`: the last reference is gone; the queue no longer counts in its
+    /// namespace, if that still exists.
     fn drop(&mut self) {
-        *self.owner.count.lock_or_recover() -= 1;
-        if let Some(charged) = self.owner.charged.lock_or_recover().get_mut(&self.uid) {
-            *charged -= self.charge;
+        if let Some(owner) = self.owner.upgrade() {
+            *owner.count.lock_or_recover() -= 1;
+            if let Some(charged) = owner.charged.lock_or_recover().get_mut(&self.charged_to) {
+                *charged -= self.charge;
+            }
         }
         self.state.get_mut_or_recover().remove_notification();
     }
+}
+
+/// The queue whose file `path` is, if it is one of an `mqueue` filesystem: it opens as the
+/// queue (`mqueue_file_operations`).
+pub(crate) fn queue_of(path: &Path) -> Option<MqFile> {
+    let node = path.dentry.node();
+    let node: &QueueNode = node.as_any().downcast_ref()?;
+    Some(MqFile::new(node.0.clone()))
 }
 
 /// An open queue: what a message queue descriptor refers to.
@@ -184,6 +336,13 @@ pub(crate) struct MqFile {
 }
 
 impl MqFile {
+    fn new(queue: Arc<Mqueue>) -> Self {
+        Self {
+            queue,
+            read_pos: Mutex::new(0),
+        }
+    }
+
     /// `mqueue_read_file`'s status line.
     fn status(&self) -> Vec<u8> {
         let state = self.queue.state();
@@ -227,6 +386,12 @@ impl FileObject for MqFile {
         let n = rest.len().min(buf.len());
         buf[..n].copy_from_slice(&rest[..n]);
         *pos += n;
+        if n > 0 {
+            self.queue.set_attr(|attr, now| {
+                attr.atime = now;
+                attr.ctime = now;
+            });
+        }
         Box::pin(async move { Ok(n) })
     }
 
@@ -316,109 +481,64 @@ impl Kernel {
         let env = self.env(caller);
         let cred = &self.ipc_cred(caller);
         let ns = self.ns(caller);
-        let mqueues = &ns.ipc.mq;
-        let queue = {
-            let mut names = mqueues.names.lock_or_recover();
-            match names.get(&name) {
-                None => {
-                    if !oflag.contains(OpenFlags::O_CREAT) {
-                        return Err(Errno::ENOENT.into());
-                    }
-                    let mode = mode & !env.fs.umask & 0o777;
-                    let limit = self
-                        .process(caller.task())
-                        .resources
-                        .lock_or_recover()
-                        .soft(RlimitResource::RLIMIT_MSGQUEUE);
-                    let queue = self.mq_create(mqueues, cred, mode, attr, limit)?;
-                    names.insert(name.clone(), queue.clone());
-                    queue
+        let (mount, fs) = self.mqueue_sb(&ns.ipc);
+        let create = || {
+            // `vfs_mkobj`'s `may_create`: write and search on the root.
+            if !permits(cred, &fs.root_attr(), MAY_WRITE | MAY_EXEC) {
+                return Err(Errno::EACCES);
+            }
+            let limit = self
+                .process(caller.task())
+                .resources
+                .lock_or_recover()
+                .soft(RlimitResource::RLIMIT_MSGQUEUE);
+            let owner = QueueOwner {
+                owner: (cred.fsuid, cred.fsgid),
+                uid: cred.uid,
+                resource: cred.capable_init(Cap::SysResource),
+                limit,
+            };
+            let mode = mode & !env.fs.umask & 0o777;
+            Mqueues::create(&ns.ipc.mq, fs, &owner, mode, attr)
+        };
+        let queue = match fs.lookup_or_create(&name, oflag.contains(OpenFlags::O_CREAT), create)? {
+            (queue, true) => queue,
+            (queue, false) => {
+                if oflag.contains(OpenFlags::O_CREAT | OpenFlags::O_EXCL) {
+                    return Err(Errno::EEXIST.into());
                 }
-                Some(queue) => {
-                    if oflag.contains(OpenFlags::O_CREAT | OpenFlags::O_EXCL) {
-                        return Err(Errno::EEXIST.into());
-                    }
-                    let mask = match oflag & OpenFlags::O_ACCMODE {
-                        OpenFlags::O_RDONLY => MAY_READ,
-                        OpenFlags::O_WRONLY => MAY_WRITE,
-                        OpenFlags::O_RDWR => MAY_READ | MAY_WRITE,
-                        _ => return Err(Errno::EINVAL.into()),
-                    };
-                    if !queue.permits(cred, mask) {
-                        return Err(Errno::EACCES.into());
-                    }
-                    queue.clone()
+                let mask = match oflag & OpenFlags::O_ACCMODE {
+                    OpenFlags::O_RDONLY => MAY_READ,
+                    OpenFlags::O_WRONLY => MAY_WRITE,
+                    OpenFlags::O_RDWR => MAY_READ | MAY_WRITE,
+                    _ => return Err(Errno::EINVAL.into()),
+                };
+                if !queue.permits(cred, mask) {
+                    return Err(Errno::EACCES.into());
                 }
+                queue
             }
         };
-        let object = MqFile {
-            queue,
-            read_pos: Mutex::new(0),
-        };
         let kept = OpenFlags::O_ACCMODE | OpenFlags::O_NONBLOCK;
-        let path = self.pseudo.mqueue(object.queue.inode.clone(), &name);
+        let path = mount.pseudo_path(Arc::new(QueueNode(queue.clone())), &name);
+        let object = MqFile::new(queue);
         let file = OpenFile::new(Backing::Stream(Arc::new(object), path), oflag & kept);
         let [fd] = self.install_files(caller, [file], true)?;
         Ok(fd.0)
     }
 
-    /// `mqueue_get_inode` for a new queue, with `mqueue_create_attr`'s count limit.
-    fn mq_create(
-        &self,
-        mqueues: &Arc<Mqueues>,
-        cred: &Cred,
-        mode: u32,
-        attr: Option<MqAttr>,
-        limit: u64,
-    ) -> Result<Arc<Mqueue>, Errno> {
-        let resource = cred.capable_init(Cap::SysResource);
-        let mut count = mqueues.count.lock_or_recover();
-        if *count >= QUEUES_MAX && !resource {
-            return Err(Errno::ENOSPC);
-        }
-        let (maxmsg, msgsize) = match attr {
-            Some(attr) => (attr.mq_maxmsg, attr.mq_msgsize),
-            None => (MSG_MAX, MSGSIZE_MAX),
-        };
-        if maxmsg <= 0 || msgsize <= 0 {
-            return Err(Errno::EINVAL);
-        }
-        let (max_msg, max_size) = match resource {
-            true => (HARD_MSGMAX, HARD_MSGSIZEMAX),
-            false => (MSG_MAX, MSGSIZE_MAX),
-        };
-        if maxmsg > max_msg || msgsize > max_size {
-            return Err(Errno::EINVAL);
-        }
-        let (maxmsg, msgsize) = (maxmsg as u64, msgsize as u64);
-        let charge = maxmsg * (msgsize + MSG_OVERHEAD);
-        {
-            let mut charged = mqueues.charged.lock_or_recover();
-            let user = charged.entry(cred.uid).or_default();
-            if *user + charge > limit {
-                return Err(Errno::EMFILE);
-            }
-            *user += charge;
-        }
-        *count += 1;
-        Ok(Arc::new(Mqueue {
-            state: Mutex::new(State {
-                maxmsg: maxmsg as usize,
-                msgsize: msgsize as usize,
-                messages: BTreeMap::new(),
-                curmsgs: 0,
-                bytes: 0,
-                receivers: 0,
-                notify: None,
-            }),
-            wait: WaitQueue::new(),
-            uid: cred.fsuid,
-            gid: cred.fsgid,
-            mode,
-            charge,
-            inode: self.pseudo.mqueue_inode((cred.fsuid, cred.fsgid), mode),
-            owner: mqueues.clone(),
-        }))
+    /// The `mqueue` filesystem of the IPC namespace `ipc` and the kernel's mount of it
+    /// (`mq_init_ns`), made when first used. It belongs to the namespace's owner
+    /// (`s_user_ns`), and its root to the namespace's maker.
+    pub(crate) fn mqueue_sb<'a>(&self, ipc: &'a IpcNs) -> &'a (Arc<Mount>, Arc<MqueueFs>) {
+        ipc.mq.sb.get_or_init(|| {
+            let clock: Arc<dyn Clock> = Arc::new(HostClock(self.host.clone()));
+            let tasks = Arc::downgrade(&self.state);
+            let fs = MqueueFs::new(&ipc.mq, tasks, clock, ipc.mq.creator);
+            let owner: Arc<dyn wasixv2_vfs::UserNs> = ipc.user_ns().clone();
+            let filesystem: Arc<dyn Filesystem> = fs.clone();
+            (self.vfs.kern_mount_owned(filesystem, owner), fs)
+        })
     }
 
     pub(crate) async fn sys_mq_unlink(&self, caller: &Caller<'_>, name: Cstr) -> SysResult<i32> {
@@ -426,15 +546,20 @@ impl Kernel {
         check_name(&name)?;
         let cred = self.ipc_cred(caller);
         let ns = self.ns(caller);
-        let mut names = ns.ipc.mq.names.lock_or_recover();
-        let queue = names.get(&name).ok_or(Errno::ENOENT)?;
-        // `may_delete` in the mqueue root, which is root's and sticky (`S_ISVTX`): only the
-        // queue's owner, root or `CAP_FOWNER` may remove a queue.
-        let fowner = cred.capable_wrt(queue.uid, queue.gid, Cap::Fowner);
-        if cred.fsuid != queue.uid && cred.fsuid != 0 && !fowner {
+        let (_, fs) = self.mqueue_sb(&ns.ipc);
+        let queue = fs.lookup(&name).ok_or(Errno::ENOENT)?;
+        // `may_delete` in the root: write and search on it, then its sticky bit (`S_ISVTX`),
+        // which leaves the queue to its owner, the root's owner and `CAP_FOWNER`.
+        let dir = fs.root_attr();
+        if !permits(&cred, &dir, MAY_WRITE | MAY_EXEC) {
+            return Err(Errno::EACCES.into());
+        }
+        let attr = queue.attr();
+        let fowner = cred.capable_wrt(attr.uid, attr.gid, Cap::Fowner);
+        if dir.mode & 0o1000 != 0 && cred.fsuid != attr.uid && cred.fsuid != dir.uid && !fowner {
             return Err(Errno::EPERM.into());
         }
-        names.remove(&name);
+        fs.unlink(&name)?;
         Ok(0)
     }
 
@@ -481,6 +606,7 @@ impl Kernel {
                 self.mq_notify_owner(&mut state, sender);
             }
             drop(state);
+            queue.touch();
             queue.wait.wake(PollMask::READABLE);
             Some(Ok(()))
         };
@@ -510,6 +636,7 @@ impl Kernel {
             match state.pop() {
                 Some(message) => {
                     drop(state);
+                    queue.touch();
                     queue.wait.wake(PollMask::WRITABLE);
                     Some(Ok(message))
                 }

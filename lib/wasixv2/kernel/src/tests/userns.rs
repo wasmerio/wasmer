@@ -1027,3 +1027,24 @@ fn a_network_namespaces_owner_writes_its_ipv4_conf() {
     );
     assert_eq!(write_text(&kernel, &p, &at("all/tag"), "1"), Ok(1));
 }
+
+/// mqueue is `FS_USERNS_MOUNT` and belongs to the IPC namespace's owner
+/// (`mqueue_init_fs_context`): a user namespace's root mounts the queues of an IPC namespace it
+/// made, in a mount namespace it owns, but not the initial IPC namespace's. Its root is the
+/// namespace maker's, so it shows as the namespace's root's.
+#[test]
+fn a_user_namespaces_root_mounts_the_queues_of_its_ipc_namespace() {
+    let (kernel, _root, user) = mounting_machine();
+    assert_eq!(mkdir(&kernel, &user, "/mnt/q"), Ok(0));
+    become_root(&kernel, &user, CloneFlags::CLONE_NEWNS);
+    assert_eq!(
+        errno(mount(&kernel, &user, "/mnt/q", "mqueue")),
+        Errno::EPERM
+    );
+    assert_eq!(unshare(&kernel, &user, CloneFlags::CLONE_NEWIPC), Ok(0));
+    assert_eq!(mount(&kernel, &user, "/mnt/q", "mqueue"), Ok(0));
+    assert_eq!(owner(&kernel, &user, "/mnt/q"), (0, 0));
+    let fd = open_mode(&kernel, &user, "/mnt/q/queue", 0o600).unwrap();
+    assert_eq!(block_on(kernel.close(&user.caller(), fd)), Ok(0));
+    assert_eq!(owner(&kernel, &user, "/mnt/q/queue"), (0, 0));
+}

@@ -619,6 +619,7 @@ impl OverlayNode {
             mode,
             uid: attr.uid,
             gid: attr.gid,
+            task: 0,
         };
         let unlinked = self.state.lock().unwrap().unlinked;
         // A regular file is filled while unnamed where possible, so a failed or interrupted
@@ -722,6 +723,7 @@ impl OverlayNode {
             mode: 0,
             uid: 0,
             gid: 0,
+            task: 0,
         };
         match upper.create(name, &device).await {
             Ok(_) => return Ok(()),

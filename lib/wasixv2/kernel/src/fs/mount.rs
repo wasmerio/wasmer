@@ -83,16 +83,24 @@ pub(super) enum FsType {
     Proc,
     /// sysfs: every mount shows the network namespace of whoever mounted it.
     Sys,
+    /// The message queue filesystem: every mount is the mounter's IPC namespace's one instance
+    /// (`get_tree_keyed`).
+    Mqueue,
     Other(Arc<dyn FilesystemType>),
 }
 
 impl FsType {
-    /// `FS_USERNS_MOUNT`: procfs and sysfs are.
+    /// `FS_USERNS_MOUNT`: procfs, sysfs and mqueue are.
     pub(super) fn userns_mount(&self) -> bool {
         match self {
-            FsType::Proc | FsType::Sys => true,
+            FsType::Proc | FsType::Sys | FsType::Mqueue => true,
             FsType::Other(ty) => ty.userns_mount(),
         }
+    }
+
+    /// The kernel's own types take no options (no `parse_param`).
+    pub(super) fn takes_params(&self) -> bool {
+        matches!(self, FsType::Other(_))
     }
 }
 
@@ -108,6 +116,7 @@ impl Registry {
             types: Mutex::new(vec![
                 ("proc".into(), FsType::Proc),
                 ("sysfs".into(), FsType::Sys),
+                ("mqueue".into(), FsType::Mqueue),
             ]),
         })
     }
@@ -318,12 +327,13 @@ impl Kernel {
 
     /// The user namespace a new instance of `ty` that the task `task` makes is for
     /// (`fc->user_ns`): the pid namespace's owner for procfs (`proc_init_fs_context`), the
-    /// network namespace's for sysfs (`sysfs_init_fs_context`), the mounter's own for any
-    /// other.
+    /// network namespace's for sysfs (`sysfs_init_fs_context`), the IPC namespace's for mqueue
+    /// (`mqueue_init_fs_context`), the mounter's own for any other.
     pub(super) fn fc_user_ns(&self, ty: &FsType, task: TaskId) -> Arc<UserNs> {
         match ty {
             FsType::Proc => self.active_pid_ns(task).user_ns().clone(),
             FsType::Sys => self.task_ref(task, |t| t.ns.net.user_ns().clone()),
+            FsType::Mqueue => self.task_ns(task).ipc.user_ns().clone(),
             FsType::Other(_) => self.process(task).cred().user_ns,
         }
     }
@@ -341,7 +351,7 @@ impl Kernel {
         let magic = match ty {
             FsType::Proc => crate::procfs::PROC_SUPER_MAGIC,
             FsType::Sys => crate::sysfs::SYSFS_MAGIC,
-            FsType::Other(_) => return false,
+            FsType::Mqueue | FsType::Other(_) => return false,
         };
         let ns = self.task_ns(task);
         if ns.mnt.user_ns().is_initial() {
@@ -470,7 +480,7 @@ impl Kernel {
         let params = parse_options(data, &mut read_only, &mut source)?;
         let task = TaskId(env.task);
         let user_ns = self.fc_user_ns(&ty, task);
-        if matches!(ty, FsType::Proc | FsType::Sys) && !params.is_empty() {
+        if !ty.takes_params() && !params.is_empty() {
             return Err(Errno::EINVAL);
         }
         if !Self::mount_capable(&ty, &self.process(task).cred(), &user_ns) {
@@ -481,6 +491,8 @@ impl Kernel {
             // `proc_init_fs_context`: the instance shows the mounter's pid namespace.
             FsType::Proc => self.procfs_in(self.active_pid_ns(task)),
             FsType::Sys => self.sysfs_of(self.task_ref(task, |t| t.ns.net.clone())),
+            // `mqueue_init_fs_context`: the mounter's IPC namespace's instance.
+            FsType::Mqueue => self.mqueue_sb(&self.task_ns(task).ipc).1.clone(),
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,
         };
         // `do_new_mount_fc`.

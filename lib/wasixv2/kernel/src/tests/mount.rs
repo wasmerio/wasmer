@@ -189,6 +189,28 @@ impl Machine {
         block_on(self.kernel.openat(&self.caller(), CWD, name, flags, 0o644))
     }
 
+    fn stat(&self, at: &str) -> Statx {
+        let name = self.cstr(0x1000, at);
+        let out = GuestPtrMut::new(0x3000);
+        let mask = StatxMask(0x7ff);
+        let caller = self.caller();
+        let statx = self
+            .kernel
+            .statx(&caller, CWD, name, AtFlags::empty(), mask, out);
+        assert_eq!(block_on(statx), Ok(0), "{at}");
+        block_on(read_value(&self.memory, GuestPtr::new(0x3000))).unwrap()
+    }
+
+    fn mkdir_errno(&self, at: &str) -> Errno {
+        let name = self.cstr(0x1000, at);
+        errno(block_on(self.kernel.mkdirat(
+            &self.caller(),
+            CWD,
+            name,
+            0o755,
+        )))
+    }
+
     fn exists(&self, at: &str) -> bool {
         let name = self.cstr(0x1000, at);
         let caller = self.caller();
@@ -1164,4 +1186,104 @@ impl FilesystemType for SizedTmpfs {
         };
         Ok(Arc::new(MemFs::with_limits(clock, 0o700, 0, 0, limits)))
     }
+}
+
+/// `mq_open` of `name` (no leading slash, as libc passes it) for `caller`, read and write.
+fn mq_open(m: &Machine, caller: &Caller<'_>, name: &str, flags: OpenFlags) -> SysResult<i32> {
+    let mut bytes = name.as_bytes().to_vec();
+    bytes.push(0);
+    block_on(caller.memory().write(0x1500, &bytes)).unwrap();
+    let flags = flags | OpenFlags::O_RDWR;
+    block_on(
+        m.kernel
+            .mq_open(caller, GuestPtr::new(0x1500), flags, 0o600, GuestPtr::NULL),
+    )
+}
+
+/// The status line of the queue file `at`.
+fn mq_status(m: &Machine, at: &str) -> String {
+    m.cat(at)
+}
+
+/// `mount -t mqueue` (LTP mqns_03, mqns_04): the mounter's IPC namespace's queues, as files of
+/// one filesystem however often it is mounted. `mq_open` and the files agree: a queue made
+/// either way is the other's, opening a file gives the queue (its status line, its messages),
+/// and `unlink` is `mq_unlink`. The root is sticky and world-writable. A mount outlives its
+/// namespace, still showing its queues, but makes none (`EACCES`).
+#[test]
+fn an_mqueue_mount_shows_its_ipc_namespaces_queues() {
+    let m = Machine::as_uid(0);
+    m.mkdir("/mnt");
+    let caller = m.caller();
+    let none = MsFlags(0);
+    let mqueue = |data: Option<&str>| m.mount(Some("mqueue"), "/mnt", Some("mqueue"), none, data);
+    assert!(m.cat("/proc/filesystems").contains("nodev\tmqueue\n"));
+    assert!(mq_open(&m, &caller, "initial", OpenFlags::O_CREAT).is_ok());
+
+    assert_eq!(m.unshare(CloneFlags::CLONE_NEWIPC), Ok(0));
+    let q1 = mq_open(&m, &caller, "MQ1", OpenFlags::O_CREAT | OpenFlags::O_EXCL).unwrap();
+    assert_eq!(errno(mqueue(Some("size=1"))), Errno::EINVAL);
+    assert_eq!(mqueue(None), Ok(0));
+    assert!(m.exists("/mnt/MQ1"));
+    assert!(!m.exists("/mnt/initial"), "the initial namespace's");
+    let root = m.stat("/mnt");
+    assert_eq!((root.stx_mode & 0o7777, root.stx_uid), (0o1777, 0));
+    let file = m.stat("/mnt/MQ1");
+    assert_eq!((file.stx_mode & 0o7777, file.stx_size), (0o600, 80));
+
+    // A message shows in the file's status line, and the file is the queue.
+    put(&m.memory.0, 0x5100, b"hello");
+    let send = |fd: i32| {
+        let msg = GuestPtr::new(0x5100);
+        block_on(
+            m.kernel
+                .mq_timedsend_time64(&caller, fd, msg, 5, 1, GuestPtr::NULL),
+        )
+    };
+    assert_eq!(send(q1), Ok(0));
+    assert_eq!(
+        mq_status(&m, "/mnt/MQ1"),
+        "QSIZE:5          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+    );
+    let name = m.cstr(0x1000, "/mnt/MQ1");
+    let file_fd = block_on(m.kernel.openat(&caller, CWD, name, OpenFlags::O_WRONLY, 0)).unwrap();
+    assert_eq!(send(file_fd.0), Ok(0));
+    assert!(mq_status(&m, "/mnt/MQ1").starts_with("QSIZE:10 "));
+
+    // creat() makes a queue (`mqueue_create`); unlink removes it as mq_unlink does.
+    let fd = m.create("/mnt/MQ2").unwrap();
+    m.close(fd);
+    let q2 = mq_open(&m, &caller, "MQ2", OpenFlags::empty()).unwrap();
+    assert_eq!(m.mkdir_errno("/mnt/dir"), Errno::EPERM);
+    let name = m.cstr(0x1000, "/mnt/MQ2");
+    assert_eq!(
+        block_on(m.kernel.unlinkat(&caller, CWD, name, AtFlags::empty())),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(mq_open(&m, &caller, "MQ2", OpenFlags::empty())),
+        Errno::ENOENT
+    );
+
+    // The same filesystem at every mount and after a remount; a descriptor open through the
+    // mount keeps it busy, as on Linux, one from mq_open does not.
+    assert_eq!(m.umount2("/mnt", UmountBits(0)), Err(Errno::EBUSY.into()));
+    m.close(file_fd);
+    assert_eq!(m.umount2("/mnt", UmountBits(0)), Ok(0));
+    assert!(!m.exists("/mnt/MQ1"));
+    assert_eq!(mqueue(None), Ok(0));
+    assert!(m.exists("/mnt/MQ1"));
+
+    // The namespace goes once nothing uses it; its mount stays, and makes no queue.
+    for fd in [Fd(q1), Fd(q2)] {
+        m.close(fd);
+    }
+    assert_eq!(m.unshare(CloneFlags::CLONE_NEWIPC), Ok(0));
+    assert!(m.exists("/mnt/MQ1"));
+    assert_eq!(errno(m.create("/mnt/MQ3")), Errno::EACCES);
+    assert_eq!(
+        errno(mq_open(&m, &caller, "MQ1", OpenFlags::empty())),
+        Errno::ENOENT,
+        "not the new namespace's"
+    );
 }

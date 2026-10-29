@@ -11,6 +11,7 @@
 //! group and other bits of `ipc_perm` with `CAP_IPC_OWNER` as the override.
 
 pub(crate) mod mqueue;
+pub(crate) mod mqueuefs;
 pub(crate) mod msg;
 pub(crate) mod sem;
 pub(crate) mod shm;
@@ -108,12 +109,24 @@ impl Kernel {
 
 /// What an IPC namespace holds ([`crate::ns::IpcNs`]): its SysV objects and POSIX message
 /// queues.
-#[derive(Default)]
 pub(crate) struct Ipc {
     pub(crate) sem: sem::Sems,
     pub(crate) msg: msg::Queues,
     pub(crate) shm: Arc<shm::Segments>,
     pub(crate) mq: Arc<mqueue::Mqueues>,
+}
+
+impl Ipc {
+    /// A new namespace's objects, none yet, made by the task whose filesystem uid and gid are
+    /// `creator` (`create_ipc_ns`).
+    pub(crate) fn new(creator: (u32, u32)) -> Self {
+        Self {
+            sem: Default::default(),
+            msg: Default::default(),
+            shm: Default::default(),
+            mq: Arc::new(mqueue::Mqueues::new(creator)),
+        }
+    }
 }
 
 /// `kern_ipc_perm`: who owns an object and who may use it, by kernel ids.

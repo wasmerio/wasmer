@@ -512,6 +512,10 @@ impl Kernel {
                 path,
             ));
         }
+        // A message queue's file opens as the queue (`mqueue_file_operations`).
+        if let Some(queue) = crate::ipc::mqueue::queue_of(&path) {
+            return Ok(Backing::Stream(Arc::new(queue), path));
+        }
         let object: Arc<dyn crate::FileObject> = match file.file_type() {
             wasixv2_vfs::FileType::Fifo => {
                 if let Some(object) = crate::stdio::reopen(&file) {

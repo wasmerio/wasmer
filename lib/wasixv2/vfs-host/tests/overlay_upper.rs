@@ -55,6 +55,7 @@ fn add_file(dir: &Arc<dyn Node>, name: &[u8], data: &[u8], mode: u32) {
         mode,
         uid: 1,
         gid: 1,
+        task: 0,
     };
     let write = OpenOptions {
         write: true,

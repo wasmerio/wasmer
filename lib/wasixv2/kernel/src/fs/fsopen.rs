@@ -69,6 +69,9 @@ struct Context {
     pid_ns: Arc<crate::ns::PidNs>,
     /// The opener's network namespace (`fc->net_ns`), which a sysfs instance shows.
     net: Arc<NetNs>,
+    /// The opener's IPC namespace, whose queues an mqueue instance holds
+    /// (`mqueue_init_fs_context`).
+    ipc: Arc<crate::ns::IpcNs>,
     /// The user namespace a new instance is for (`fc->user_ns`).
     user_ns: Arc<UserNs>,
 }
@@ -121,6 +124,7 @@ impl Context {
             cred: env.cred,
             task_cred: kernel.process(task).cred(),
             pid_ns: kernel.active_pid_ns(task),
+            ipc: kernel.task_ns(task).ipc.clone(),
         }
     }
 
@@ -179,7 +183,7 @@ impl Context {
             value: string.as_deref(),
         };
         match &self.ty {
-            FsType::Proc | FsType::Sys => return Err(Errno::EINVAL),
+            FsType::Proc | FsType::Sys | FsType::Mqueue => return Err(Errno::EINVAL),
             FsType::Other(ty) => ty.parse_param(&param)?,
         }
         self.params.push((key, string));
@@ -358,6 +362,7 @@ impl Kernel {
         let made = match &context.ty {
             FsType::Proc => Ok(self.procfs_in(context.pid_ns.clone())),
             FsType::Sys => Ok(self.sysfs_of(context.net.clone())),
+            FsType::Mqueue => Ok(self.mqueue_sb(&context.ipc).1.clone() as Arc<dyn Filesystem>),
             FsType::Other(ty) => {
                 let source = context.source.clone().unwrap_or_default();
                 ty.mount(&source, &context.params(), &context.cred)
