@@ -203,6 +203,9 @@ pub(crate) struct Mm {
     access: Arc<PageAccess>,
     /// Whether any shared mapping exists, so file I/O skips the mapping table otherwise.
     shared: AtomicBool,
+    /// The Linux AIO contexts made on the address space (`ioctx_table`); a fork child's
+    /// starts empty.
+    pub(crate) aio: crate::aio::IoctxTable,
 }
 
 /// The page map, locked. A change through it reaches the address space's [`PageAccess`] when
@@ -270,6 +273,7 @@ impl Mm {
             op: Default::default(),
             shared: AtomicBool::new(space.mappings.any_shared()),
             space: Mutex::new(space),
+            aio: Default::default(),
             access: Arc::new(access),
         }
     }
@@ -1511,6 +1515,44 @@ impl Kernel {
         }
     }
 
+    /// `do_mmap` of a kernel object's pages by the kernel itself, as `aio_setup_ring` maps an
+    /// AIO ring: `len` bytes of `pages`, shared, readable and writable, wherever they fit.
+    /// Memory that cannot show the pages fails with `ENOMEM`, as a failed `do_mmap` there.
+    pub(crate) async fn map_kernel_pages(
+        &self,
+        caller: &Caller<'_>,
+        pages: Arc<dyn wasixv2_pages::SharedPages>,
+        len: u64,
+    ) -> Result<Uptr, Errno> {
+        let npages = len.div_ceil(PAGE_SIZE);
+        let mm = self.mm(caller.task());
+        if mm.space().map_count() > self.vm.map_limit() {
+            return Err(Errno::ENOMEM);
+        }
+        let _op = mm.op.lock().await;
+        let start = self.map_anywhere(caller, npages).await?;
+        let first = start / PAGE_SIZE;
+        let prot = ProtFlags::PROT_READ | ProtFlags::PROT_WRITE;
+        mm.space().set_prot(first, first + npages, prot);
+        let mut mapping = Mapping {
+            start,
+            len: npages * PAGE_SIZE,
+            source: Source::Mapped(Mapped {
+                pages,
+                offset: 0,
+                segment: None,
+                writable: true,
+                writer: None,
+            }),
+        };
+        if mapping.fill(caller.memory()).await.is_err() {
+            mm.space().unmap(start, npages * PAGE_SIZE);
+            return Err(Errno::ENOMEM);
+        }
+        mm.insert(mapping);
+        Ok(start as Uptr)
+    }
+
     /// The open file `mmap` maps: `EBADF` unless `fd` is open, and not just as a location.
     fn mmap_file(&self, caller: &Caller<'_>, fd: Fd) -> Result<Arc<OpenFile>, Errno> {
         let file = self.file(caller.task(), fd)?;
@@ -2217,6 +2259,8 @@ impl Kernel {
     /// mapping and drops all of them.
     pub(crate) async fn exit_mmap(&self, caller: &Caller<'_>) {
         let mm = self.mm(caller.task());
+        // `__mmput`: `exit_aio` before `exit_mmap`.
+        self.exit_aio(&mm);
         let _op = mm.op.lock().await;
         let mappings = mm.space().clear_mappings();
         for mut mapping in mappings {

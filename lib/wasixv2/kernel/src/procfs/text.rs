@@ -47,6 +47,9 @@ pub(super) enum Global {
     FileMax,
     NrOpen,
     PipeMaxSize,
+    /// `fs.aio-nr`, `fs.aio-max-nr`.
+    AioNr,
+    AioMaxNr,
     /// `kernel.overflowuid`, `kernel.overflowgid`.
     OverflowUid,
     OverflowGid,
@@ -82,6 +85,7 @@ impl Global {
             | Self::FileMax
             | Self::NrOpen
             | Self::PipeMaxSize
+            | Self::AioMaxNr
             | Self::Tainted => 0o644,
             // Writing these needs a capability over the namespace's owner instead (or, for
             // `pid_max`, being its root), as the permissions of their sysctl tables give.
@@ -162,6 +166,8 @@ pub(super) fn global(
         Global::FileMax => line(&i64::MAX.to_string()),
         Global::NrOpen => line(&source.nr_open.get().to_string()),
         Global::PipeMaxSize => line(&source.pipe_max_size.get().to_string()),
+        Global::AioNr => line(&source.aio.nr().to_string()),
+        Global::AioMaxNr => line(&source.aio.max().to_string()),
         Global::OverflowUid | Global::OverflowGid => line(&OVERFLOW_ID.to_string()),
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
         Global::Tainted => line(&source.taint.get().to_string()),

@@ -626,6 +626,23 @@ fn sysctl_get(t: &T<'_>, at: &str) -> String {
     t.read_all(fd)
 }
 
+/// `fs.aio-nr` counts what the AIO contexts asked for and `fs.aio-max-nr` bounds it
+/// (`fs/aio.c`'s sysctls; the AIO tests count contexts).
+#[test]
+fn aio_sysctls_show_the_count_and_take_a_new_limit() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let max = "/proc/sys/fs/aio-max-nr";
+    assert_eq!(sysctl_get(&t, "/proc/sys/fs/aio-nr"), "0\n");
+    assert_eq!(sysctl_get(&t, max), "65536\n");
+    assert_eq!(sysctl_set(&t, max, "100"), Ok(3));
+    assert_eq!(sysctl_get(&t, max), "100\n");
+    assert_eq!(kernel.aio.max(), 100);
+}
+
 /// `fs.pipe-max-size` takes a size and keeps it rounded as a pipe's (`proc_dopipe_max_size`,
 /// `round_pipe_size`), and bounds callers without `CAP_SYS_RESOURCE` as `fs/pipe.c` does: a
 /// new pipe holds at most that much (`alloc_pipe_info`, which LTP fcntl35 checks), and

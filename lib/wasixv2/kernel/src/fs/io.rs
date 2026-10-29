@@ -310,7 +310,7 @@ impl Kernel {
     /// a blocking write to a stream writes everything, as Linux's do, while a signal, a full
     /// non-blocking object or a fault ends it with the count so far. A datagram is one write.
     /// A byte stream with no reader left raises `SIGPIPE`.
-    async fn write_from_iovecs(
+    pub(crate) async fn write_from_iovecs(
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,
@@ -955,7 +955,7 @@ async fn read_offset(caller: &Caller<'_>, ptr: LoffPtr, file: &OpenFile) -> Resu
     u64::try_from(pos).map_err(|_| Errno::EINVAL)
 }
 
-fn rw_flags(flags: RwfFlags) -> Result<(), Errno> {
+pub(crate) fn rw_flags(flags: RwfFlags) -> Result<(), Errno> {
     if flags.0 & !RWF_KNOWN != 0 {
         return Err(Errno::EOPNOTSUPP);
     }
