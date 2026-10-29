@@ -138,6 +138,11 @@ impl Kernel {
         req: ConstMntIdReqPtr,
         by_fd: bool,
     ) -> Result<MntIdReq, Errno> {
+        // `get_user` faults below `mmap_min_addr`, which Linux never maps; reads of the low
+        // guard go through (DESIGN.md, "Guard page at 0"), so a null request is checked here.
+        if req.addr() < caller.memory().low_guard().await {
+            return Err(Errno::EFAULT);
+        }
         let mut size = [0; 4];
         caller
             .memory()

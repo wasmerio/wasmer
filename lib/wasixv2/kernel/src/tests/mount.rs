@@ -1065,6 +1065,70 @@ fn statmount_and_listmount_hide_mounts_outside_the_root_from_users() {
     );
 }
 
+/// The machine's memory with a low guard of `.1` bytes, where reads go through and writes
+/// fault, as the execution layer's (DESIGN.md, "Guard page at 0").
+struct Guarded<'a>(&'a ForkableMemory, u32);
+
+impl UserMemory for Guarded<'_> {
+    fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.0.read(addr, buf)
+    }
+
+    fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        match addr < self.1 {
+            true => Box::pin(async { Err(Fault) }),
+            false => self.0.write(addr, data),
+        }
+    }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        self.0.size()
+    }
+
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        self.0.grow(pages)
+    }
+
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        let guard = self.1;
+        Box::pin(async move { guard })
+    }
+}
+
+/// `listmount04` and `statmount` alike: a request in the low guard, which reads zeros, faults
+/// as in Linux's unmapped null page instead of reading as a request of size 0 (`EINVAL`).
+#[test]
+fn a_mount_id_request_in_the_low_guard_faults_as_listmount04() {
+    let m = Machine::as_uid(0);
+    let memory = Guarded(&m.memory, 0x100);
+    let caller = Caller::new(m.task, &memory);
+    let null = GuestPtr::<MntIdReq>::NULL;
+    let out = GuestPtrMut::new(0x6000);
+    assert_eq!(
+        errno(block_on(m.kernel.listmount(&caller, null, out, 32, 0))),
+        Errno::EFAULT
+    );
+    let buf = GuestPtrMut::new(0x6000);
+    assert_eq!(
+        errno(block_on(m.kernel.statmount(&caller, null, buf, 512, 0))),
+        Errno::EFAULT
+    );
+    // Unknown flags come first, as in Linux.
+    assert_eq!(
+        errno(block_on(m.kernel.listmount(&caller, null, out, 32, !0))),
+        Errno::EINVAL
+    );
+    // Above the guard, a request of size 0 is EINVAL.
+    let req = m.mnt_id_req(ListmountMntId::LSMT_ROOT.0, 0);
+    put(&m.memory.0, 0x5000, &0u32.to_le_bytes());
+    assert_eq!(
+        errno(block_on(m.kernel.listmount(&caller, req, out, 32, 0))),
+        Errno::EINVAL
+    );
+    let req = m.mnt_id_req(ListmountMntId::LSMT_ROOT.0, 0);
+    assert!(block_on(m.kernel.listmount(&caller, req, out, 32, 0)).is_ok());
+}
+
 #[test]
 fn mountinfo_shows_a_tmpfs_s_options() {
     let m = Machine::as_uid(0);
