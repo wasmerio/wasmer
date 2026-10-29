@@ -18,6 +18,7 @@ mod notify;
 mod ops;
 mod pnode;
 mod seals;
+mod security;
 mod sync;
 mod types;
 
@@ -45,6 +46,7 @@ pub use notify::{FsEvent, FsWatcher, Object as FsObject};
 pub use ops::{Ctx, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
 pub use pnode::Propagation;
 pub use seals::WRITE_SEALS;
+pub use security::Security;
 use sync::MutexExt;
 pub use types::*;
 pub use wasixv2_abi::Errno;

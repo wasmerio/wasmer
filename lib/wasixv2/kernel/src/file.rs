@@ -224,6 +224,9 @@ pub(crate) struct OpenFile {
     stream_flock: OnceLock<StreamFlock>,
     /// Whom I/O signals go to (`f_owner`).
     pub(crate) fown: Mutex<Fown>,
+    /// What Landlock let the file do after its open (`landlock_file(file)->allowed_access`):
+    /// truncate, and ioctl if it is a device. `None` when its opener had no domain.
+    landlock: Option<u64>,
 }
 
 /// What a stream (pipe, socket) is `flock`ed as: its pseudo inode, and an owner of its own as
@@ -250,7 +253,19 @@ impl OpenFile {
             epoll_links: Mutex::default(),
             stream_flock: OnceLock::new(),
             fown: Mutex::default(),
+            landlock: None,
         }
+    }
+
+    /// The file as one opened under a Landlock domain that allowed it `rights` beyond its open.
+    pub(crate) fn with_landlock(mut self, rights: Option<u64>) -> Self {
+        self.landlock = rights;
+        self
+    }
+
+    /// Whether Landlock lets the file do `right` (a `LANDLOCK_ACCESS_FS_*` kept from its open).
+    pub(crate) fn landlock_allows(&self, right: u64) -> bool {
+        self.landlock.is_none_or(|allowed| allowed & right == right)
     }
 
     /// The lock key and owner `flock` uses for this file: a VFS file's own, or for a stream

@@ -299,6 +299,13 @@ impl Kernel {
             AnySock::Packet(_, p) => return Ok(p.bind(&raw)?),
         };
         let domain = sock.socket.domain();
+        // `security_socket_bind`.
+        if let Some(request) =
+            landlock_request(&sock, crate::landlock::BIND_TCP, crate::landlock::BIND_UDP)
+            && let Some(landlock) = self.landlock(caller)
+        {
+            landlock.check_socket(domain == Domain::Inet6, &raw, request, false)?;
+        }
         let addr = socket::decode(domain, &raw, true)?;
         // AF_UNSPEC is accepted for IPv4 only with INADDR_ANY.
         if socket::family(&raw)? == AddressFamily::AF_UNSPEC && !addr.ip().is_unspecified() {
@@ -405,6 +412,23 @@ impl Kernel {
             // `sock_no_connect`.
             AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
+        // `security_socket_connect`.
+        if let Some(landlock) = self.landlock(caller) {
+            let request = landlock_request(
+                &sock,
+                crate::landlock::CONNECT_TCP,
+                crate::landlock::CONNECT_SEND_UDP,
+            );
+            if let Some(request) = request {
+                let ipv6 = sock.socket.domain() == Domain::Inet6;
+                landlock.check_socket(ipv6, &raw, request, true)?;
+                if request == crate::landlock::CONNECT_SEND_UDP
+                    && socket::family(&raw)? != AddressFamily::AF_UNSPEC
+                {
+                    landlock_autobind(&landlock, &sock)?;
+                }
+            }
+        }
         if socket::family(&raw)? == AddressFamily::AF_UNSPEC {
             sock.socket.disconnect()?;
             return Ok(0);
@@ -520,6 +544,21 @@ impl Kernel {
         let io = Self::io(caller, &*interrupt, sock.file());
         let result = match sock {
             AnySock::Inet((_, sock)) => {
+                // `security_socket_sendmsg`: a UDP send names its port, or autobinds.
+                if let Some(landlock) = self.landlock(caller)
+                    && landlock_request(sock, 0, crate::landlock::CONNECT_SEND_UDP).is_some()
+                {
+                    if let Some(raw) = to {
+                        let ipv6 = sock.socket.domain() == Domain::Inet6;
+                        landlock.check_socket(
+                            ipv6,
+                            raw,
+                            crate::landlock::CONNECT_SEND_UDP,
+                            false,
+                        )?;
+                    }
+                    landlock_autobind(&landlock, sock)?;
+                }
                 let to = match to {
                     Some(raw) => self.destination(sock, raw)?,
                     None => None,
@@ -1812,6 +1851,27 @@ impl Kernel {
         }
         let netlink = file.object().cloned().and_then(netlink::downcast)?;
         Some(netlink.net.clone())
+    }
+}
+
+/// Landlock's view of an IP socket (`sk_is_tcp`, `sk_is_udp`): `tcp` for a TCP socket, `udp`
+/// for a UDP one, `None` for others (ping, raw) or a right of 0.
+fn landlock_request(sock: &SocketFile, tcp: u64, udp: u64) -> Option<u64> {
+    let request = match (sock.socket.kind(), sock.socket.protocol()) {
+        (SocketKind::Stream, 6) => tcp,
+        (SocketKind::Datagram, 17) => udp,
+        _ => 0,
+    };
+    (request != 0).then_some(request)
+}
+
+/// `current_check_autobind_udp_socket`: a UDP socket without a port that a connect or send
+/// binds to an ephemeral one needs `LANDLOCK_ACCESS_NET_BIND_UDP` for port 0.
+fn landlock_autobind(landlock: &crate::landlock::Domain, sock: &SocketFile) -> Result<(), Errno> {
+    let bound = sock.socket.local_addr().map(|a| a.port()).unwrap_or(0);
+    match bound {
+        0 => landlock.check_net(0, crate::landlock::BIND_UDP),
+        _ => Ok(()),
     }
 }
 

@@ -298,7 +298,10 @@ impl Process {
     }
 
     /// Applies `change` to the credentials, if it allows.
-    fn update_cred(&self, change: impl FnOnce(&Cred) -> Result<Cred, Errno>) -> SysResult<i32> {
+    pub(crate) fn update_cred(
+        &self,
+        change: impl FnOnce(&Cred) -> Result<Cred, Errno>,
+    ) -> SysResult<i32> {
         let new = change(&self.cred())?;
         self.commit_cred(new);
         Ok(0)

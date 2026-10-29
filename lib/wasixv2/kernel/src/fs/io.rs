@@ -909,6 +909,10 @@ impl Kernel {
         if inner.file_type() != FileType::Regular || !inner.writable {
             return Err(Errno::EINVAL.into());
         }
+        // `security_file_truncate`.
+        if !file.landlock_allows(crate::landlock::TRUNCATE) {
+            return Err(Errno::EACCES.into());
+        }
         self.sync_file_mappings(caller, &file).await;
         let resized = inner.set_size(length as u64).await;
         self.sync_file_mappings(caller, &file).await;

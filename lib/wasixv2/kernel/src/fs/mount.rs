@@ -375,6 +375,7 @@ impl Kernel {
         flags: MsFlags,
         data: ConstVoidPtr,
     ) -> SysResult<i32> {
+        self.landlock_may_change_mounts(caller)?;
         let fstype = copy_mount_string(caller, fstype).await?;
         let dev_name = copy_mount_string(caller, dev_name).await?;
         let data = copy_mount_options(caller, data).await?;
@@ -553,6 +554,7 @@ impl Kernel {
         name: Cstr,
         flags: UmountFlagBits,
     ) -> SysResult<i32> {
+        self.landlock_may_change_mounts(caller)?;
         let known = UmountFlagBits::MNT_FORCE.0
             | UmountFlagBits::MNT_DETACH.0
             | UmountFlagBits::MNT_EXPIRE.0
@@ -592,6 +594,7 @@ impl Kernel {
         new_root: Cstr,
         put_old: Cstr,
     ) -> SysResult<i32> {
+        self.landlock_may_change_mounts(caller)?;
         let new_root = read_path(caller.memory(), new_root).await?;
         let put_old = read_path(caller.memory(), put_old).await?;
         let env = self.env(caller);
@@ -807,6 +810,7 @@ impl Kernel {
         to: Cstr,
         flags: u32,
     ) -> SysResult<i32> {
+        self.landlock_may_change_mounts(caller)?;
         let env = self.env(caller);
         self.may_mount(&env)?;
         let has = |flag: MoveMountFlags| flags & flag.0 != 0;

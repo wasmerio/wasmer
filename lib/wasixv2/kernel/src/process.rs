@@ -1555,6 +1555,10 @@ impl Kernel {
             return Err(Errno::EACCES.into());
         }
         self.vfs.permission(&env.cx(), &target, MAY_EXEC).await?;
+        // `security_file_open` of an open with `__FMODE_EXEC`.
+        if let Some(security) = &env.cred.security {
+            security.file_open(&target, MAY_EXEC | wasixv2_vfs::MAY_READ, false)?;
+        }
         let how = OpenHow {
             flags: OpenFlags::O_RDONLY,
             mode: 0,

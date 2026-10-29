@@ -18,6 +18,7 @@ mod futex;
 mod ident;
 mod ioctl;
 mod ipc;
+mod landlock;
 mod memfd;
 mod mm;
 mod net;
@@ -1943,6 +1944,39 @@ impl Syscalls for Kernel {
         uargs: VoidPtr,
     ) -> SysResult<i32> {
         self.sys_seccomp(caller, op, flags, uargs).await
+    }
+
+    async fn landlock_create_ruleset(
+        &self,
+        caller: &Caller<'_>,
+        attr: wasixv2_abi::ConstLandlockRulesetAttrPtr,
+        size: Usize,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_landlock_create_ruleset(caller, attr, size, flags)
+            .await
+    }
+
+    async fn landlock_add_rule(
+        &self,
+        caller: &Caller<'_>,
+        ruleset_fd: Fd,
+        rule_type: i32,
+        rule_attr: wasixv2_abi::ConstVoidPtr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_landlock_add_rule(caller, ruleset_fd, rule_type, rule_attr.addr(), flags)
+            .await
+    }
+
+    async fn landlock_restrict_self(
+        &self,
+        caller: &Caller<'_>,
+        ruleset_fd: Fd,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_landlock_restrict_self(caller, ruleset_fd, flags)
+            .await
     }
 
     async fn prlimit64(

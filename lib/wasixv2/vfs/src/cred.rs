@@ -145,6 +145,9 @@ pub struct Cred {
     pub caps: u64,
     /// The user namespace the capabilities count in (`cred->user_ns`).
     pub user_ns: Arc<dyn UserNs>,
+    /// What a security module checks for these credentials (`cred->security`); `None` when
+    /// none restricts them.
+    pub security: Option<Arc<dyn crate::Security>>,
 }
 
 impl PartialEq for Cred {
@@ -153,6 +156,11 @@ impl PartialEq for Cred {
             == (other.uid, other.gid, other.fsuid, other.fsgid, other.caps)
             && self.groups == other.groups
             && same_user_ns(&self.user_ns, &other.user_ns)
+            && match (&self.security, &other.security) {
+                (None, None) => true,
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                _ => false,
+            }
     }
 }
 
@@ -183,6 +191,7 @@ impl Cred {
             groups: Vec::new(),
             caps: 0,
             user_ns: initial_user_ns(),
+            security: None,
         }
     }
 

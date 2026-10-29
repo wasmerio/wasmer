@@ -35,6 +35,13 @@ pub struct Ctx<'a> {
     pub leases: Option<&'a dyn LeaseWait>,
 }
 
+impl Ctx<'_> {
+    /// The security module's checks for the caller, if one restricts it.
+    fn security(&self) -> Option<&dyn crate::Security> {
+        self.cred.security.as_deref()
+    }
+}
+
 /// What to open (`struct open_how`, after `build_open_flags` validated it).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OpenHow {
@@ -223,6 +230,15 @@ impl Vfs {
         }
         self.may_open(cx, &target, acc_mode, flags).await?;
         let writable = access != OpenFlags::O_RDONLY;
+        // `security_file_open` (and `security_file_truncate` for `O_TRUNC`).
+        if let Some(security) = cx.security() {
+            let read = match access {
+                OpenFlags::O_WRONLY => 0,
+                _ => MAY_READ,
+            };
+            let write = if writable { MAY_WRITE } else { 0 };
+            security.file_open(&target, read | write, truncate)?;
+        }
         self.finish_open(cx, target, flags, writable, truncate, created)
             .await
     }
@@ -398,6 +414,14 @@ impl Vfs {
         };
         let dir = self.lookup(cx, start, path, lookup).await?;
         self.permission(cx, &dir, MAY_WRITE | MAY_EXEC).await?;
+        // The file is made in `dir` (`d_tmpfile`), which is where a security module sees it.
+        if let Some(security) = cx.security() {
+            let mask = match how.flags & OpenFlags::O_ACCMODE {
+                OpenFlags::O_WRONLY => MAY_WRITE,
+                _ => MAY_READ | MAY_WRITE,
+            };
+            security.file_open(&dir, mask, false)?;
+        }
         // Held while the file is made (`mnt_want_write` in `do_o_tmpfile`); the open takes its
         // own.
         let _write = self.tree.get_write_access(&dir.mnt)?;
@@ -524,6 +548,9 @@ impl Vfs {
     async fn may_create_node(&self, cx: &Ctx<'_>, dir: &Path, new: &NewNode<'_>) -> FsResult<()> {
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
+        }
+        if let Some(security) = cx.security() {
+            security.path_create(dir, new.kind.file_type())?;
         }
         self.may_create(cx, dir).await?;
         // `vfs_mknod`: `capable(CAP_MKNOD)`, which no user namespace's root has.
@@ -663,6 +690,9 @@ impl Vfs {
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
+        if let Some(security) = cx.security() {
+            security.path_link(&source, &dir)?;
+        }
         self.may_create(cx, &dir).await?;
         if source.dentry.file_type() == FileType::Directory {
             return Err(Errno::EPERM);
@@ -746,6 +776,9 @@ impl Vfs {
                 Errno::ENOTDIR
             });
         }
+        if let Some(security) = cx.security() {
+            security.path_remove(&dir, &victim.dentry)?;
+        }
         self.may_delete(cx, &dir, &victim, false).await?;
         if self.is_local_mountpoint(&victim) {
             return Err(Errno::EBUSY);
@@ -783,6 +816,9 @@ impl Vfs {
         let _lock = dir.dentry.inode().lock().await;
         let victim = lookup_one(&dir, &name).await?;
         let _victim_lock = victim.dentry.inode().lock().await;
+        if let Some(security) = cx.security() {
+            security.path_remove(&dir, &victim.dentry)?;
+        }
         self.may_delete(cx, &dir, &victim, true).await?;
         if self.is_local_mountpoint(&victim) {
             return Err(Errno::EBUSY);
@@ -876,6 +912,12 @@ impl Vfs {
         }
         if !source.dentry.is_dir() && (old_slash || (mode != RenameMode::Exchange && new_slash)) {
             return Err(Errno::ENOTDIR);
+        }
+
+        if let Some(security) = cx.security() {
+            let exchange = mode == RenameMode::Exchange;
+            let new = target.as_ref().map(|t| &t.dentry);
+            security.path_rename(&old_dir, &source.dentry, &new_dir, new, exchange)?;
         }
 
         // `vfs_rename`.
@@ -1135,6 +1177,9 @@ impl Vfs {
         let _write = OpenAccess::new(path.dentry.inode(), true);
         self.break_lease(cx, Self::lock_key(&path.dentry), true, false)
             .await?;
+        if let Some(security) = cx.security() {
+            security.path_truncate(path)?;
+        }
         self.set_size(path, size).await
     }
 
