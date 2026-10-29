@@ -31,6 +31,14 @@ impl Kernel {
         nr_args: u32,
     ) -> SysResult<i32> {
         match IoUringRegisterOp(opcode) {
+            IoUringRegisterOp::IORING_REGISTER_PBUF_RING | IoUringRegisterOp::IORING_UNREGISTER_PBUF_RING | IoUringRegisterOp::IORING_REGISTER_PBUF_STATUS => {
+                if arg == 0 || nr_args != 1 { return Err(Errno::EINVAL.into()); }
+                match IoUringRegisterOp(opcode) {
+                    IoUringRegisterOp::IORING_REGISTER_PBUF_RING => self.register_pbuf_ring(caller, ctx, arg).await,
+                    IoUringRegisterOp::IORING_UNREGISTER_PBUF_RING => self.unregister_pbuf_ring(caller, ctx, arg).await,
+                    _ => self.pbuf_status(caller, ctx, arg).await,
+                }
+            }
             IoUringRegisterOp::IORING_REGISTER_BUFFERS => {
                 if arg == 0 {
                     return Err(Errno::EFAULT.into());
@@ -309,6 +317,10 @@ impl Kernel {
             if buffer.is_none() && tag != 0 {
                 return Err(Errno::EINVAL.into());
             }
+            let buffer = match buffer {
+                Some(iov) => Some(self.retain_pages(caller, iov.iov_base, iov.iov_len).await?),
+                None => None,
+            };
             buffers.push((buffer, tag));
         }
         let mut state = ctx.state.lock_or_recover();
