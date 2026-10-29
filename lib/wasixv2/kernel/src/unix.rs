@@ -1710,6 +1710,7 @@ mod tests {
             crate::ns::Net {
                 network: None,
                 unix_names: names,
+                sysctl: Default::default(),
             },
         )
     }

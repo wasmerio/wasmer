@@ -355,6 +355,8 @@ pub struct Link {
     pub kind: LinkKind,
     /// IPv4 addresses in Linux's order (primaries by scope, then secondaries), then IPv6.
     pub addrs: Vec<IfAddr>,
+    /// `net.ipv6.conf.<name>.disable_ipv6`: no IPv6 address, not even link-local.
+    pub ipv6_disabled: bool,
 }
 
 impl Link {
@@ -647,6 +649,7 @@ impl Interfaces {
                 mac: [0; 6],
                 kind,
                 addrs: Vec::new(),
+                ipv6_disabled: false,
             }],
             routes: Vec::new(),
             last_index: LOOPBACK_INDEX,
@@ -739,6 +742,7 @@ impl Interfaces {
             mac,
             kind,
             addrs: Vec::new(),
+            ipv6_disabled: false,
         });
         Ok(index)
     }
@@ -843,9 +847,12 @@ impl Interfaces {
         let mut new = Vec::new();
         if loopback {
             new.push(IfAddr::new(Ipv4Addr::LOCALHOST.into(), 8));
-            new.push(IfAddr::new(Ipv6Addr::LOCALHOST.into(), 128));
-        } else {
-            new.push(IfAddr::new(link_local(link.mac).into(), 64));
+        }
+        if !link.ipv6_disabled {
+            new.push(match loopback {
+                true => IfAddr::new(Ipv6Addr::LOCALHOST.into(), 128),
+                false => IfAddr::new(link_local(link.mac).into(), 64),
+            });
         }
         let primaries: Vec<IfAddr> = link
             .addrs
@@ -874,6 +881,25 @@ impl Interfaces {
             return;
         };
         link.addrs.retain(|a| a.addr.is_ipv4());
+    }
+
+    /// `addrconf_disable_ipv6` for one interface: disabling drops its IPv6 addresses and
+    /// routes (`addrconf_ifdown`); enabling an up interface gives it its link-local address
+    /// (`addrconf_dev_config`).
+    pub fn set_ipv6_disabled(&mut self, index: u32, disabled: bool) -> NetResult<()> {
+        let link = self.link_mut(index)?;
+        if link.ipv6_disabled == disabled {
+            return Ok(());
+        }
+        link.ipv6_disabled = disabled;
+        let up = link.is_up();
+        if disabled {
+            link.addrs.retain(|a| a.addr.is_ipv4());
+            self.routes.retain(|r| r.oif != index || r.dst.is_ipv4());
+        } else if up {
+            self.netdev_up(index);
+        }
+        Ok(())
     }
 
     /// `__dev_change_flags`, what `SIOCSIFFLAGS` and `RTM_NEWLINK` do: the flags a request
@@ -905,6 +931,10 @@ impl Interfaces {
         let up = link.is_up();
         let loopback = link.is_loopback();
         let v4 = a.addr.is_ipv4();
+        // `addrconf_add_dev`: "IPv6 is disabled on this device".
+        if !v4 && link.ipv6_disabled {
+            return Err(Errno::EACCES);
+        }
         let existing = link.addrs.iter().position(|b| match v4 {
             true => b.addr == a.addr && b.same_subnet(&a),
             false => b.addr == a.addr,
@@ -1630,6 +1660,30 @@ mod tests {
         assert_eq!(decision(&t, "fd00:1::2").1, ip("fd00:1::1"));
         assert_eq!(decision(&t, "2001:db8:5::1").1, ip("2001:db8::1"));
         assert_eq!(decision(&t, "fe80::7").1, ip("fe80::ff:fe00:1"));
+    }
+
+    /// `disable_ipv6` takes the IPv6 addresses and routes away and refuses new ones; turning
+    /// it off gives the link its link-local address back.
+    #[test]
+    fn disabling_ipv6_on_an_interface() {
+        let mut t = Interfaces::loopback_only(true);
+        let eth = eth(&mut t, "eth0");
+        t.add_addr(eth, addr("fd00::1/64"), AddMode::ADD).unwrap();
+        t.add_addr(eth, addr("10.0.0.1/24"), AddMode::ADD).unwrap();
+        t.set_ipv6_disabled(eth, true).unwrap();
+        assert!(t.links()[1].addrs.iter().all(|a| a.addr.is_ipv4()));
+        assert!(t.routes().iter().all(|r| r.dst.is_ipv4()));
+        assert_eq!(
+            t.add_addr(eth, addr("fd00::2/64"), AddMode::ADD),
+            Err(Errno::EACCES)
+        );
+        t.set_ipv6_disabled(eth, false).unwrap();
+        assert!(
+            t.links()[1]
+                .addrs
+                .iter()
+                .any(|a| a.addr == ip("fe80::ff:fe00:1"))
+        );
     }
 
     #[test]

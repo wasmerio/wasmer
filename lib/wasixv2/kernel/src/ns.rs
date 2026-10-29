@@ -226,6 +226,8 @@ pub(crate) type NetworkFactory = Arc<dyn Fn() -> Arc<dyn wasixv2_vnet::Network> 
 pub(crate) struct Net {
     pub(crate) network: Option<Arc<dyn wasixv2_vnet::Network>>,
     pub(crate) unix_names: Arc<unix::Names>,
+    /// What `/proc/sys/net` was set to.
+    pub(crate) sysctl: Mutex<crate::procfs::NetSysctl>,
 }
 
 /// A pid namespace's place in the hierarchy.
@@ -386,6 +388,7 @@ impl NsProxy {
                 Net {
                     network,
                     unix_names: Arc::default(),
+                    sysctl: Default::default(),
                 },
             ),
             pid_for_children: Ns::initial(NsKind::Pid, owner.clone(), Pid { parent: None }),
@@ -508,6 +511,7 @@ impl NsProxy {
                 let net = Net {
                     network: kernel.network_factory.as_ref().map(|make| make()),
                     unix_names: Arc::new(self.net.unix_names.for_new_net()),
+                    sysctl: Default::default(),
                 };
                 self.net = Ns::new(kind, owner, net, inums)?;
             }

@@ -1323,3 +1323,67 @@ fn packet_sockets_answer_interface_requests_and_carry_no_frames() {
     block_on(kernel.setuid(&user_caller, 1)).unwrap();
     assert_eq!(errno(packet(&user_caller, 3)), Errno::EPERM);
 }
+
+/// Writes `text` to the file at `at` (`sysctl -w`).
+fn write_file(kernel: &Kernel, caller: &Caller<'_>, at: &str, text: &str) -> SysResult<u32> {
+    let name = path(caller.memory(), at);
+    let fd = block_on(kernel.openat(caller, CWD, name, OpenFlags::O_WRONLY, 0))?;
+    block_on(caller.memory().write(0x5000, text.as_bytes())).unwrap();
+    let n = block_on(kernel.write(
+        caller,
+        fd,
+        wasixv2_syscalls::UserSlice::new(0x5000, text.len() as u32),
+    ));
+    block_on(kernel.close(caller, fd)).unwrap();
+    n
+}
+
+/// `/proc/sys/net` shows the sysctls of the reader's network namespace: a value written in one
+/// namespace is not another's, an interface has a directory while it exists, and
+/// `disable_ipv6` takes an interface's IPv6 addresses away.
+#[test]
+fn proc_sys_net_is_the_readers_network_namespace() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let read = |caller: &Caller<'_>, at: &str| read_text(&kernel, caller, at);
+    let dad = "/proc/sys/net/ipv6/conf/lo/accept_dad";
+    assert_eq!(read(&caller, dad), "1\n");
+    assert_eq!(write_file(&kernel, &caller, dad, "0\n"), Ok(2));
+    assert_eq!(read(&caller, dad), "0\n");
+    assert_eq!(
+        errno(write_file(&kernel, &caller, dad, "zero")),
+        Errno::EINVAL
+    );
+    let range = "/proc/sys/net/ipv4/ip_local_port_range";
+    assert_eq!(read(&caller, range), "32768\t60999\n");
+    assert_eq!(
+        errno(write_file(&kernel, &caller, range, "1000 2000")),
+        Errno::EACCES
+    );
+    assert_eq!(
+        errno(open(
+            &kernel,
+            &caller,
+            "/proc/sys/net/ipv6/conf/eth9/accept_dad"
+        )),
+        Errno::ENOENT
+    );
+
+    let child = fork(&kernel, &caller, CloneFlags(0));
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(
+        unshare(&kernel, &child_caller, CloneFlags::CLONE_NEWNET),
+        Ok(0)
+    );
+    assert_eq!(read(&child_caller, dad), "1\n", "the new namespace's own");
+    assert_eq!(read(&caller, dad), "0\n");
+
+    let lo6 = || read(&caller, "/proc/net/if_inet6");
+    assert_eq!(lo6().lines().count(), 1, "::1");
+    let disable = "/proc/sys/net/ipv6/conf/lo/disable_ipv6";
+    assert_eq!(write_file(&kernel, &caller, disable, "1"), Ok(1));
+    assert_eq!(read(&caller, disable), "1\n");
+    assert_eq!(lo6(), "");
+    assert_eq!(write_file(&kernel, &caller, disable, "0"), Ok(1));
+    assert_eq!(lo6().lines().count(), 1);
+}

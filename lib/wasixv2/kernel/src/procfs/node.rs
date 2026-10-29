@@ -52,6 +52,8 @@ enum Static {
     SelfLink,
     /// `thread-self`: the caller's thread.
     ThreadSelf,
+    /// `sys/net`: the sysctls of the caller's network namespace.
+    SysNet,
 }
 
 /// The fixed part of the tree: parent index, name, kind. Index 0's parent is the root.
@@ -90,6 +92,7 @@ const STATIC: &[(usize, &str, Static)] = &[
     (15, "file-max", Static::File(text::Global::FileMax)),
     (15, "nr_open", Static::File(text::Global::NrOpen)),
     (15, "pipe-max-size", Static::File(text::Global::PipeMaxSize)),
+    (11, "net", Static::SysNet),
 ];
 
 /// What an entry of a process or thread directory is.
@@ -297,7 +300,7 @@ impl ProcNode {
             Entry::Static(index) => match STATIC[index].2 {
                 Static::Dir => 0o555,
                 Static::File(file) => file.mode(),
-                Static::Link(_) | Static::SelfLink | Static::ThreadSelf => 0o777,
+                Static::Link(_) | Static::SelfLink | Static::ThreadSelf | Static::SysNet => 0o777,
             },
             Entry::Pid(_, index) => PID_ENTRIES[index].2,
             Entry::FdInfo(..) | Entry::Net(..) => 0o444,
@@ -392,7 +395,9 @@ fn file_type(entry: Entry) -> FileType {
         Entry::Static(index) => match STATIC[index].2 {
             Static::Dir => FileType::Directory,
             Static::File(_) => FileType::Regular,
-            Static::Link(_) | Static::SelfLink | Static::ThreadSelf => FileType::Symlink,
+            Static::Link(_) | Static::SelfLink | Static::ThreadSelf | Static::SysNet => {
+                FileType::Symlink
+            }
         },
         Entry::Pid(_, index) => match PID_ENTRIES[index].1 {
             PidEntry::Fds
@@ -527,6 +532,11 @@ impl Node for ProcNode {
                     let tgid = self.source.tgid_of(cx.task).ok_or(Errno::ENOENT)?;
                     let body = format!("{tgid}/task/{}", cx.task);
                     return Ok(Link::Body(body.into_bytes()));
+                }
+                Static::SysNet => {
+                    let net = self.source.ns_of(cx.task).net.clone();
+                    let root = super::sysnet::SysNetNode::root(net, self.source.mounted);
+                    return Ok(Link::Jump(self.source.sysnet.pseudo_path(root, b"net")));
                 }
                 _ => return Err(Errno::EINVAL),
             },

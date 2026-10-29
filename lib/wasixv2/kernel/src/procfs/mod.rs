@@ -8,8 +8,10 @@
 //! read.
 
 mod node;
+mod sysnet;
 mod text;
 
+pub(crate) use sysnet::NetSysctl;
 pub(crate) use text::root_in_fs;
 
 use std::sync::{Arc, Mutex, Weak};
@@ -41,7 +43,11 @@ const PROC_SUPER_MAGIC: u32 = 0x9fa0;
 impl Kernel {
     /// A process filesystem for this kernel, to mount at `/proc`.
     pub fn procfs(&self) -> Arc<dyn Filesystem> {
+        let mounted = HostClock(self.host.clone()).now();
         let source = Source {
+            sysnet: self
+                .vfs
+                .kern_mount(Arc::new(sysnet::SysNetFs::new(mounted))),
             state: Arc::downgrade(&self.state),
             tree: Arc::downgrade(&self.procs.tree),
             vfs: Arc::downgrade(&self.vfs),
@@ -49,7 +55,7 @@ impl Kernel {
             ns: self.init_ns.clone(),
             nsfs: self.pseudo.nsfs.clone(),
             filesystems: self.filesystems.clone(),
-            mounted: HostClock(self.host.clone()).now(),
+            mounted,
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
@@ -116,6 +122,8 @@ struct Source {
     filesystems: Arc<crate::fs::mount::Registry>,
     /// Every node's timestamps: when the filesystem was made.
     mounted: Timestamp,
+    /// Where `/proc/sys/net` leads: the trees of the network namespaces' sysctls.
+    sysnet: Arc<wasixv2_vfs::Mount>,
 }
 
 /// A process as the tree has it.
