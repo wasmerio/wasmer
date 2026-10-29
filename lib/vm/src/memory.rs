@@ -547,6 +547,23 @@ impl VMSharedMemory {
         }
     }
 
+    /// Returns host bytes only when the reservation covers every permitted growth.
+    ///
+    /// The base never moves while this handle exists. Dynamic memories and static
+    /// memories whose maximum exceeds the static reservation return `None`.
+    #[doc(hidden)]
+    pub fn host_data(&self) -> Option<(*mut u8, u64)> {
+        if self.config.style != MemoryStyle::Static
+            || self.config.maximum.unwrap_or(Pages::max_value()) > MemoryStyle::static_bound()
+        {
+            return None;
+        }
+        // WasmMmap::grow can relocate beyond the reservation. Read allocation base
+        // and size under its lock, without racing updates to VMMemoryDefinition.
+        let mmap = self.mmap.read().unwrap();
+        Some((mmap.alloc.as_ptr() as *mut u8, mmap.size.bytes().0 as u64))
+    }
+
     /// Copies this memory to a new memory
     pub fn copy(&self) -> Result<Self, MemoryError> {
         let guard = self.mmap.read().unwrap();

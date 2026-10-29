@@ -84,9 +84,11 @@ impl SharedMemory {
 
     /// The host address of the memory's first byte and its current size in bytes, read
     /// without a store, or `None` where the backend does not keep the memory in host memory
-    /// that never moves (only `sys` does).
+    /// that never moves. The `sys` backend returns `Some` only for a static reservation
+    /// covering the full declared maximum (or the wasm32 maximum if unspecified); dynamic
+    /// reservations and other backends return `None`.
     ///
-    /// A shared memory never shrinks and its base never moves, so the first `size` bytes stay
+    /// For a returned pointer the base never moves, so the first `size` bytes stay
     /// valid for as long as this handle keeps the memory alive. Other threads may access them
     /// at any time: reads and writes through the pointer race with the guest as its own
     /// threads do with each other.
@@ -192,6 +194,36 @@ impl From<SharedMemory> for MemoryOps {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "sys")]
+    #[test]
+    fn host_data_requires_a_reservation_covering_the_full_maximum() {
+        use wasmer_types::{MemoryStyle, MemoryType, Pages};
+        use wasmer_vm::LinearMemory as _;
+        for style in [
+            MemoryStyle::Static,
+            MemoryStyle::Dynamic {
+                offset_guard_size: 0,
+            },
+        ] {
+            let mut raw =
+                wasmer_vm::VMSharedMemory::new(&MemoryType::new(1, Some(4), true), &style).unwrap();
+            let shared = super::SharedMemory::new(crate::vm::VMSharedMemory::Sys(raw.clone()));
+            if matches!(style, MemoryStyle::Dynamic { .. }) {
+                assert!(
+                    shared.host_data().is_none(),
+                    "a dynamic memory may move on growth"
+                );
+                continue;
+            }
+            let (base, size) = shared.host_data().unwrap();
+            assert_eq!(size, 65536);
+            for pages in 2..=4 {
+                raw.grow(Pages(1)).unwrap();
+                assert_eq!(shared.host_data(), Some((base, pages * 65536)));
+            }
+        }
+    }
+
     #[test]
     pub fn ensure_shared_memory_handles_are_send_and_sync() {
         fn assert_send<T: Send>() {}
