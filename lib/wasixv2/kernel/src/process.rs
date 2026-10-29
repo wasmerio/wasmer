@@ -1466,6 +1466,30 @@ impl Kernel {
         let (image, binary) = loop {
             // `prepare_binprm`: the first bytes tell the format.
             let header = read_header(&file).await?;
+            // `load_misc_binary`, which comes first: the interpreter of a registered format
+            // gets the file's name, after `argv[0]` or in its place.
+            if let Some(misc) = self.binfmt_misc.lookup(&header, &script) {
+                if inaccessible {
+                    return Err(Errno::ENOENT.into());
+                }
+                let replaced = usize::from(!misc.preserve_argv0);
+                args.splice(0..replaced, [misc.interpreter.clone(), script]);
+                check_arg_size(&args, &env)?;
+                (file, binary) = match misc.interp_file {
+                    Some(path) => self.open_exec_path(caller, path).await?,
+                    None => {
+                        let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
+                        let interp = &misc.interpreter;
+                        self.open_exec(caller, cwd, interp, AtFlags(0)).await?
+                    }
+                };
+                script = misc.interpreter;
+                rewrites += 1;
+                if rewrites > MAX_REWRITES {
+                    return Err(Errno::ELOOP.into());
+                }
+                continue;
+            }
             // `load_script`.
             let Some((interp, arg)) = parse_shebang(&header) else {
                 self.binfmt.probe(&header)?;
@@ -1542,6 +1566,16 @@ impl Kernel {
         let target = self
             .resolve_at(caller, &env, dfd, path, flags, true)
             .await?;
+        self.open_exec_path(caller, target).await
+    }
+
+    /// `do_open_execat` from the file's path on.
+    async fn open_exec_path(
+        &self,
+        caller: &Caller<'_>,
+        target: Path,
+    ) -> SysResult<(wasixv2_vfs::File, Binary)> {
+        let env = self.env(caller);
         let attr = self.vfs.stat(&target).await?;
         match attr.file_type {
             FileType::Regular => {}

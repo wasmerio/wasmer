@@ -4,6 +4,7 @@
 //! Knows nothing about the wasm engine, the layers, or concrete filesystem drivers and network
 //! backends.
 
+mod binfmt_misc;
 mod chrdev;
 mod cputime;
 mod cred;
@@ -165,6 +166,8 @@ pub struct Kernel {
     pids: Arc<pid::Pids>,
     /// The formats `execve` starts besides scripts; by default anything with wasm's magic.
     binfmt: Arc<dyn Binfmt>,
+    /// The formats registered at run time, tried before scripts (`binfmt_misc`).
+    binfmt_misc: Arc<binfmt_misc::BinfmtMisc>,
     // ---- ipc ----
     /// Serialises epoll nesting changes with their loop checks (`epnested_mutex`).
     epoll_nesting: Mutex<()>,
@@ -308,6 +311,10 @@ impl Kernel {
         fanotify.bind(&state, &vfs);
         fs::dnotify::Notify::install(&vfs, inotify.clone(), dnotify.clone(), fanotify.clone());
         let init_user_ns = ns::UserNs::initial_user();
+        let binfmt_misc = binfmt_misc::BinfmtMisc::new(clock.clone(), &state, &vfs);
+        let filesystems = fs::mount::Registry::new();
+        let misc_type = Arc::new(binfmt_misc::BinfmtMiscType(binfmt_misc.clone()));
+        filesystems.add("binfmt_misc", misc_type);
         Self {
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
@@ -332,13 +339,14 @@ impl Kernel {
             dnotify,
             fanotify,
             sysctls: Arc::default(),
-            filesystems: fs::mount::Registry::new(),
+            filesystems,
             shm: None,
             vfs,
             futexes: futex::Futexes::default(),
             procs,
             pids,
             binfmt: Arc::new(process::WasmMagic),
+            binfmt_misc,
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
             credentials: Credentials::default(),
