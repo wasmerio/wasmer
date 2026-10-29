@@ -329,7 +329,7 @@ impl Kernel {
         let steps = file.fills_reads();
         let step = match steps {
             true => IO_CHUNK,
-            false => IO_CHUNK.max(file.buffered()),
+            false => IO_CHUNK.max(file.read_size()),
         };
         let mut buf = Scratch::new(total.min(step));
         let mut to = CopyOut {

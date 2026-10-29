@@ -153,6 +153,10 @@ pub trait FileObject: Pollable + Any {
     fn buffered(&self) -> usize {
         0
     }
+    /// Maximum record space needed before a blocking read; distinct from queued bytes.
+    fn read_size(&self) -> usize {
+        self.buffered()
+    }
 
     /// `llseek` of a positional object, from the position `pos`; returns the new position.
     fn llseek(&self, pos: u64, base: SeekBase, offset: i64) -> Result<u64, Errno> {
@@ -414,9 +418,14 @@ impl OpenFile {
         self.object().is_none_or(|object| object.fills_reads())
     }
 
-    /// What a read would find now; see `FileObject::buffered`.
+    /// Bytes queued now, independent of the maximum size of a future record.
     pub(crate) fn buffered(&self) -> usize {
         self.object().map_or(0, |object| object.buffered())
+    }
+
+    pub(crate) fn read_size(&self) -> usize {
+        self.buffered()
+            .max(self.object().map_or(0, |object| object.read_size()))
     }
 
     /// Whether writes to this file are messages; see `FileObject::messages`.
