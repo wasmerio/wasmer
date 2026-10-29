@@ -367,3 +367,92 @@ fn a_pipe_pattern_feeds_the_core_to_its_helper() {
     );
     assert_eq!(info.exit_code, Signal::SIGABRT.0 | 0x80);
 }
+
+fn note_description(core: &[u8], kind: u32) -> Vec<u8> {
+    let word = |at: usize| u32::from_le_bytes(core[at..at + 4].try_into().unwrap()) as usize;
+    let mut at = word(52 + 4);
+    let end = at + word(52 + 16);
+    while at < end {
+        let name_size = word(at);
+        let desc_size = word(at + 4);
+        let ty = word(at + 8) as u32;
+        let desc = at + 12 + name_size.next_multiple_of(4);
+        if ty == kind {
+            assert_eq!(&core[at + 12..at + 12 + name_size], b"CORE\0");
+            return core[desc..desc + desc_size].to_vec();
+        }
+        at = desc + desc_size.next_multiple_of(4);
+    }
+    panic!("missing ELF note {kind:#x}")
+}
+
+#[test]
+fn coredump_notes_include_saved_auxv_and_file_vma_offsets_and_names() {
+    use wasixv2_abi::{MapFlags, ProtFlags};
+    let (kernel, p) = machine();
+    p.set_core_limit(&kernel, u64::MAX);
+    let (child, pid) = p.fork(&kernel);
+    let caller = child.caller();
+    let page = crate::mm::PAGE_SIZE as u32;
+    let auxv = [6u32, page, 11, 123, 0, 0]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect::<Vec<_>>();
+    let mut saved = auxv.clone();
+    saved.extend([0x99; 16]);
+    *kernel.process(child.task).auxv.lock_or_recover() = saved;
+    let fd = child
+        .open(
+            &kernel,
+            "/mapped file",
+            OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+        )
+        .unwrap();
+    block_on(kernel.ftruncate64(&caller, fd, 4 * i64::from(page))).unwrap();
+    let private = block_on(kernel.mmap(
+        &caller,
+        0,
+        2 * page,
+        ProtFlags::PROT_READ,
+        MapFlags::MAP_PRIVATE,
+        fd,
+        i64::from(page),
+    ))
+    .unwrap();
+    block_on(kernel.mprotect(
+        &caller,
+        private + page,
+        page,
+        ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+    ))
+    .unwrap();
+    let shared = block_on(kernel.mmap(
+        &caller,
+        0,
+        page,
+        ProtFlags::PROT_READ,
+        MapFlags::MAP_SHARED,
+        fd,
+        0,
+    ))
+    .unwrap();
+    child.die_of(&kernel, pid, Signal::SIGABRT);
+    let core = p.read(&kernel, "core").unwrap();
+    assert_eq!(note_description(&core, 6), auxv, "NT_AUXV stops at AT_NULL");
+    let files = note_description(&core, 0x46494c45);
+    let words = |at: usize| u32::from_le_bytes(files[at..at + 4].try_into().unwrap());
+    assert_eq!((words(0), words(4)), (3, page));
+    assert_eq!(
+        (words(8), words(12), words(16)),
+        (private, private + page, 1)
+    );
+    assert_eq!(
+        (words(20), words(24), words(28)),
+        (private + page, private + 2 * page, 2)
+    );
+    assert_eq!(
+        (words(32), words(36), words(40)),
+        (shared, shared + page, 0)
+    );
+    assert_eq!(&files[44..], b"/mapped file\0/mapped file\0/mapped file\0");
+}

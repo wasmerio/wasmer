@@ -68,6 +68,8 @@ pub(crate) enum Source {
 /// A mapping of a shared object's pages ([`UserMemory::map_shared`]).
 #[derive(Clone)]
 pub(crate) struct Mapped {
+    /// File provenance for proc/core VMA metadata, absent for anonymous/SysV objects.
+    pub(crate) file: Option<Arc<OpenFile>>,
     pub(crate) pages: Arc<dyn SharedPages>,
     /// Where in the object the mapping starts.
     pub(crate) offset: u64,
@@ -291,6 +293,14 @@ impl Mapping {
         match &self.source {
             Source::Mapped(mapped) => Some(mapped),
             Source::Private { .. } | Source::Shared(_) => None,
+        }
+    }
+
+    pub(crate) fn file(&self) -> Option<(&Arc<OpenFile>, u64)> {
+        match &self.source {
+            Source::Private { file, offset } => Some((file, *offset)),
+            Source::Shared(shared) => shared.object.file().map(|file| (file, shared.offset)),
+            Source::Mapped(mapped) => mapped.file.as_ref().map(|file| (file, mapped.offset)),
         }
     }
 
