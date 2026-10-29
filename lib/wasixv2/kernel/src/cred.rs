@@ -188,6 +188,14 @@ impl<T: Copy + Eq> Ids<T> {
 
     /// `__sys_setresuid`: without the privilege, each new id is one of the current three.
     fn set_res(&mut self, ids: [Option<T>; 3], privileged: bool) -> Result<(), Errno> {
+        // kernel/sys.c __sys_setresuid/__sys_setresgid: no-ops preserve a distinct fs id.
+        // Supplying the effective id explicitly still synchronizes the fs id.
+        if ids[0].is_none_or(|id| id == self.real)
+            && ids[1].is_none_or(|id| id == self.effective && id == self.fs)
+            && ids[2].is_none_or(|id| id == self.saved)
+        {
+            return Ok(());
+        }
         if !privileged && !ids.iter().flatten().all(|&id| self.holds(id)) {
             return Err(Errno::EPERM);
         }
@@ -868,6 +876,37 @@ mod tests {
         assert!(!fs_user.capable(Cap::DacOverride) && fs_user.capable(Cap::Kill));
         let (_, back) = fs_user.change_fsuid(Some(u(0)));
         assert_eq!(back.effective, CAP_FULL);
+    }
+
+    /// kernel/sys.c __sys_setresuid/__sys_setresgid preserve filesystem ids on a no-op,
+    /// but an explicitly supplied effective id synchronizes the filesystem id.
+    #[test]
+    fn setresid_noops_preserve_a_distinct_filesystem_id() {
+        for real in [None, Some(u(0))] {
+            for saved in [None, Some(u(0))] {
+                let (_, cred) = root().change_fsuid(Some(u(1000)));
+                let same = cred.change_uids(IdChange::Res(real, None, saved)).unwrap();
+                assert_eq!(same.user.fs, u(1000));
+                let synchronized = same
+                    .change_uids(IdChange::Res(None, Some(u(0)), None))
+                    .unwrap();
+                assert_eq!(synchronized.user.fs, u(0));
+
+                let (_, cred) = root().change_fsgid(Some(Kgid(1000)));
+                let same = cred
+                    .change_gids(IdChange::Res(
+                        real.map(|id| Kgid(id.0)),
+                        None,
+                        saved.map(|id| Kgid(id.0)),
+                    ))
+                    .unwrap();
+                assert_eq!(same.group.fs, Kgid(1000));
+                let synchronized = same
+                    .change_gids(IdChange::Res(None, Some(Kgid(0)), None))
+                    .unwrap();
+                assert_eq!(synchronized.group.fs, Kgid(0));
+            }
+        }
     }
 
     #[test]

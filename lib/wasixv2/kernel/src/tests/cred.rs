@@ -558,3 +558,50 @@ fn capget_of_a_tid_reads_that_threads_credentials() {
     assert_eq!(word(&memory, CAP_DATA + 4), 0);
     assert_eq!(block_on(kernel.getuid(&caller)), Ok(0));
 }
+
+/// kernel/sys.c __sys_setresuid/__sys_setresgid: a no-op must not replace the filesystem
+/// ids used by fs/namei.c generic_permission, even when real and saved ids remain root.
+#[test]
+fn setresid_noops_keep_filesystem_owner_and_group_permissions() {
+    for real in [UNCHANGED, 0] {
+        for saved in [UNCHANGED, 0] {
+            let (kernel, task, memory) = machine_as(0, 0);
+            let caller = Caller::new(task, &memory);
+            let cwd = Fd(-100);
+            put(&memory, ROOT_FILE, b"/root-only\0");
+            put(&memory, 0x200, b"/group-only\0");
+            let root = Cstr::new(ROOT_FILE);
+            let group = Cstr::new(0x200);
+            let create = OpenFlags::O_CREAT | OpenFlags::O_WRONLY;
+            for (path, mode) in [(root, 0o600), (group, 0o040)] {
+                let fd = block_on(kernel.openat(&caller, cwd, path, create, mode)).unwrap();
+                block_on(kernel.close(&caller, fd)).unwrap();
+            }
+            block_on(kernel.fchownat(&caller, cwd, group, 0, 1000, AtFlags(0))).unwrap();
+            assert_eq!(block_on(kernel.setfsuid(&caller, 1000)), Ok(0));
+            assert_eq!(block_on(kernel.setfsgid(&caller, 1000)), Ok(0));
+            assert_eq!(
+                block_on(kernel.setresuid(&caller, real, UNCHANGED, saved)),
+                Ok(0)
+            );
+            assert_eq!(
+                block_on(kernel.setresgid(&caller, real, UNCHANGED, saved)),
+                Ok(0)
+            );
+            assert_eq!(block_on(kernel.setfsuid(&caller, UNCHANGED)), Ok(1000));
+            assert_eq!(block_on(kernel.setfsgid(&caller, UNCHANGED)), Ok(1000));
+            assert_eq!(
+                errno(block_on(kernel.openat(
+                    &caller,
+                    cwd,
+                    root,
+                    OpenFlags::O_RDONLY,
+                    0
+                ))),
+                Errno::EACCES
+            );
+            let fd = block_on(kernel.openat(&caller, cwd, group, OpenFlags::O_RDONLY, 0)).unwrap();
+            block_on(kernel.close(&caller, fd)).unwrap();
+        }
+    }
+}
