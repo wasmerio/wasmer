@@ -17998,6 +17998,7 @@ impl SocketLevel {
     pub const SOL_KCM: Self = Self(281);
     pub const SOL_TLS: Self = Self(282);
     pub const SOL_XDP: Self = Self(283);
+    pub const SOL_SCTP: Self = Self(132);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
         ("SOL_IP", Self::SOL_IP),
@@ -18029,6 +18030,7 @@ impl SocketLevel {
         ("SOL_KCM", Self::SOL_KCM),
         ("SOL_TLS", Self::SOL_TLS),
         ("SOL_XDP", Self::SOL_XDP),
+        ("SOL_SCTP", Self::SOL_SCTP),
     ];
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
@@ -18062,6 +18064,7 @@ impl SocketLevel {
             281 => Some("SOL_KCM"),
             282 => Some("SOL_TLS"),
             283 => Some("SOL_XDP"),
+            132 => Some("SOL_SCTP"),
             _ => None,
         }
     }
@@ -19678,6 +19681,2567 @@ impl GuestLayout for TcpZerocopyFlags {
     const ZERO: Self = Self(0);
     fn read_from(bytes: &[u8]) -> Option<Self> {
         <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `AF_VSOCK` socket address (`struct sockaddr_vm`, UAPI `linux/vm_sockets.h`, which musl
+/// does not have).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockaddrVm {
+    pub svm_family: SaFamily,
+    pub svm_reserved1: u16,
+    pub svm_port: u32,
+    pub svm_cid: u32,
+    /// `vmaddr-flags`.
+    pub svm_flags: u8,
+    pub svm_zero: [u8; 3],
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockaddrVm>() == 16);
+    assert!(core::mem::align_of::<SockaddrVm>() == 4);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_family) == 0);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_reserved1) == 2);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_port) == 4);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_cid) == 8);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_flags) == 12);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_zero) == 13);
+};
+impl Default for SockaddrVm {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockaddrVm {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        svm_family: <SaFamily as GuestLayout>::ZERO,
+        svm_reserved1: <u16 as GuestLayout>::ZERO,
+        svm_port: <u32 as GuestLayout>::ZERO,
+        svm_cid: <u32 as GuestLayout>::ZERO,
+        svm_flags: <u8 as GuestLayout>::ZERO,
+        svm_zero: <[u8; 3] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            svm_family: GuestLayout::read_from(&bytes[0..])?,
+            svm_reserved1: GuestLayout::read_from(&bytes[2..])?,
+            svm_port: GuestLayout::read_from(&bytes[4..])?,
+            svm_cid: GuestLayout::read_from(&bytes[8..])?,
+            svm_flags: GuestLayout::read_from(&bytes[12..])?,
+            svm_zero: GuestLayout::read_from(&bytes[13..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.svm_family.write_to(&mut out[0..]);
+        self.svm_reserved1.write_to(&mut out[2..]);
+        self.svm_port.write_to(&mut out[4..]);
+        self.svm_cid.write_to(&mut out[8..]);
+        self.svm_flags.write_to(&mut out[12..]);
+        self.svm_zero.write_to(&mut out[13..]);
+    }
+}
+/// Well-known vsock context identifiers and ports (`VMADDR_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct Vmaddr(pub u32);
+impl Vmaddr {
+    pub const VMADDR_CID_HYPERVISOR: Self = Self(0);
+    pub const VMADDR_CID_LOCAL: Self = Self(1);
+    pub const VMADDR_CID_HOST: Self = Self(2);
+    pub const VMADDR_CID_ANY: Self = Self(4294967295);
+    pub const VMADDR_PORT_ANY: Self = Self(4294967295);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("VMADDR_CID_HYPERVISOR", Self::VMADDR_CID_HYPERVISOR),
+        ("VMADDR_CID_LOCAL", Self::VMADDR_CID_LOCAL),
+        ("VMADDR_CID_HOST", Self::VMADDR_CID_HOST),
+        ("VMADDR_CID_ANY", Self::VMADDR_CID_ANY),
+        ("VMADDR_PORT_ANY", Self::VMADDR_PORT_ANY),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("VMADDR_CID_HYPERVISOR"),
+            1 => Some("VMADDR_CID_LOCAL"),
+            2 => Some("VMADDR_CID_HOST"),
+            4294967295 => Some("VMADDR_CID_ANY"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for Vmaddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "Vmaddr({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for Vmaddr {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `svm_flags` bits.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct VmaddrFlags(pub u8);
+impl VmaddrFlags {
+    pub const VMADDR_FLAG_TO_HOST: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("VMADDR_FLAG_TO_HOST", Self::VMADDR_FLAG_TO_HOST)];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for VmaddrFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("VmaddrFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for VmaddrFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for VmaddrFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for VmaddrFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for VmaddrFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for VmaddrFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for VmaddrFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for VmaddrFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for VmaddrFlags {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `AF_VSOCK`-level socket options (`SO_VM_SOCKETS_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct VsockOption(pub i32);
+impl VsockOption {
+    pub const SO_VM_SOCKETS_BUFFER_SIZE: Self = Self(0);
+    pub const SO_VM_SOCKETS_BUFFER_MIN_SIZE: Self = Self(1);
+    pub const SO_VM_SOCKETS_BUFFER_MAX_SIZE: Self = Self(2);
+    pub const SO_VM_SOCKETS_PEER_HOST_VM_ID: Self = Self(3);
+    pub const SO_VM_SOCKETS_TRUSTED: Self = Self(5);
+    pub const SO_VM_SOCKETS_CONNECT_TIMEOUT_OLD: Self = Self(6);
+    pub const SO_VM_SOCKETS_NONBLOCK_TXRX: Self = Self(7);
+    pub const SO_VM_SOCKETS_CONNECT_TIMEOUT_NEW: Self = Self(8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SO_VM_SOCKETS_BUFFER_SIZE", Self::SO_VM_SOCKETS_BUFFER_SIZE),
+        (
+            "SO_VM_SOCKETS_BUFFER_MIN_SIZE",
+            Self::SO_VM_SOCKETS_BUFFER_MIN_SIZE,
+        ),
+        (
+            "SO_VM_SOCKETS_BUFFER_MAX_SIZE",
+            Self::SO_VM_SOCKETS_BUFFER_MAX_SIZE,
+        ),
+        (
+            "SO_VM_SOCKETS_PEER_HOST_VM_ID",
+            Self::SO_VM_SOCKETS_PEER_HOST_VM_ID,
+        ),
+        ("SO_VM_SOCKETS_TRUSTED", Self::SO_VM_SOCKETS_TRUSTED),
+        (
+            "SO_VM_SOCKETS_CONNECT_TIMEOUT_OLD",
+            Self::SO_VM_SOCKETS_CONNECT_TIMEOUT_OLD,
+        ),
+        (
+            "SO_VM_SOCKETS_NONBLOCK_TXRX",
+            Self::SO_VM_SOCKETS_NONBLOCK_TXRX,
+        ),
+        (
+            "SO_VM_SOCKETS_CONNECT_TIMEOUT_NEW",
+            Self::SO_VM_SOCKETS_CONNECT_TIMEOUT_NEW,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SO_VM_SOCKETS_BUFFER_SIZE"),
+            1 => Some("SO_VM_SOCKETS_BUFFER_MIN_SIZE"),
+            2 => Some("SO_VM_SOCKETS_BUFFER_MAX_SIZE"),
+            3 => Some("SO_VM_SOCKETS_PEER_HOST_VM_ID"),
+            5 => Some("SO_VM_SOCKETS_TRUSTED"),
+            6 => Some("SO_VM_SOCKETS_CONNECT_TIMEOUT_OLD"),
+            7 => Some("SO_VM_SOCKETS_NONBLOCK_TXRX"),
+            8 => Some("SO_VM_SOCKETS_CONNECT_TIMEOUT_NEW"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for VsockOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "VsockOption({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for VsockOption {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `sock_diag` request header (`struct sock_diag_req`, UAPI `linux/sock_diag.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockDiagReq {
+    pub sdiag_family: u8,
+    pub sdiag_protocol: u8,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockDiagReq>() == 2);
+    assert!(core::mem::align_of::<SockDiagReq>() == 1);
+    assert!(core::mem::offset_of!(SockDiagReq, sdiag_family) == 0);
+    assert!(core::mem::offset_of!(SockDiagReq, sdiag_protocol) == 1);
+};
+impl Default for SockDiagReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockDiagReq {
+    const SIZE: usize = 2;
+    const ALIGN: usize = 1;
+    const ZERO: Self = Self {
+        sdiag_family: <u8 as GuestLayout>::ZERO,
+        sdiag_protocol: <u8 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sdiag_family: GuestLayout::read_from(&bytes[0..])?,
+            sdiag_protocol: GuestLayout::read_from(&bytes[1..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sdiag_family.write_to(&mut out[0..]);
+        self.sdiag_protocol.write_to(&mut out[1..]);
+    }
+}
+/// A socket's identity in `inet_diag` (`struct inet_diag_sockid`, UAPI `linux/inet_diag.h`).
+/// Ports and addresses are big-endian; an IPv4 address takes the first word of its array.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagSockid {
+    pub idiag_sport: u16,
+    pub idiag_dport: u16,
+    pub idiag_src: [u32; 4],
+    pub idiag_dst: [u32; 4],
+    pub idiag_if: u32,
+    pub idiag_cookie: [u32; 2],
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagSockid>() == 48);
+    assert!(core::mem::align_of::<InetDiagSockid>() == 4);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_sport) == 0);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_dport) == 2);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_src) == 4);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_dst) == 20);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_if) == 36);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_cookie) == 40);
+};
+impl Default for InetDiagSockid {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagSockid {
+    const SIZE: usize = 48;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        idiag_sport: <u16 as GuestLayout>::ZERO,
+        idiag_dport: <u16 as GuestLayout>::ZERO,
+        idiag_src: <[u32; 4] as GuestLayout>::ZERO,
+        idiag_dst: <[u32; 4] as GuestLayout>::ZERO,
+        idiag_if: <u32 as GuestLayout>::ZERO,
+        idiag_cookie: <[u32; 2] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            idiag_sport: GuestLayout::read_from(&bytes[0..])?,
+            idiag_dport: GuestLayout::read_from(&bytes[2..])?,
+            idiag_src: GuestLayout::read_from(&bytes[4..])?,
+            idiag_dst: GuestLayout::read_from(&bytes[20..])?,
+            idiag_if: GuestLayout::read_from(&bytes[36..])?,
+            idiag_cookie: GuestLayout::read_from(&bytes[40..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.idiag_sport.write_to(&mut out[0..]);
+        self.idiag_dport.write_to(&mut out[2..]);
+        self.idiag_src.write_to(&mut out[4..]);
+        self.idiag_dst.write_to(&mut out[20..]);
+        self.idiag_if.write_to(&mut out[36..]);
+        self.idiag_cookie.write_to(&mut out[40..]);
+    }
+}
+/// `SOCK_DIAG_BY_FAMILY` request for `AF_INET`/`AF_INET6` (`struct inet_diag_req_v2`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagReqV2 {
+    pub sdiag_family: u8,
+    pub sdiag_protocol: u8,
+    /// Bits `1 << (INET_DIAG_* - 1)` of the attributes to add.
+    pub idiag_ext: u8,
+    pub pad: u8,
+    /// Bits `1 << TCP_*` of the states to dump.
+    pub idiag_states: u32,
+    pub id: InetDiagSockid,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagReqV2>() == 56);
+    assert!(core::mem::align_of::<InetDiagReqV2>() == 4);
+    assert!(core::mem::offset_of!(InetDiagReqV2, sdiag_family) == 0);
+    assert!(core::mem::offset_of!(InetDiagReqV2, sdiag_protocol) == 1);
+    assert!(core::mem::offset_of!(InetDiagReqV2, idiag_ext) == 2);
+    assert!(core::mem::offset_of!(InetDiagReqV2, pad) == 3);
+    assert!(core::mem::offset_of!(InetDiagReqV2, idiag_states) == 4);
+    assert!(core::mem::offset_of!(InetDiagReqV2, id) == 8);
+};
+impl Default for InetDiagReqV2 {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagReqV2 {
+    const SIZE: usize = 56;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sdiag_family: <u8 as GuestLayout>::ZERO,
+        sdiag_protocol: <u8 as GuestLayout>::ZERO,
+        idiag_ext: <u8 as GuestLayout>::ZERO,
+        pad: <u8 as GuestLayout>::ZERO,
+        idiag_states: <u32 as GuestLayout>::ZERO,
+        id: <InetDiagSockid as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sdiag_family: GuestLayout::read_from(&bytes[0..])?,
+            sdiag_protocol: GuestLayout::read_from(&bytes[1..])?,
+            idiag_ext: GuestLayout::read_from(&bytes[2..])?,
+            pad: GuestLayout::read_from(&bytes[3..])?,
+            idiag_states: GuestLayout::read_from(&bytes[4..])?,
+            id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sdiag_family.write_to(&mut out[0..]);
+        self.sdiag_protocol.write_to(&mut out[1..]);
+        self.idiag_ext.write_to(&mut out[2..]);
+        self.pad.write_to(&mut out[3..]);
+        self.idiag_states.write_to(&mut out[4..]);
+        self.id.write_to(&mut out[8..]);
+    }
+}
+/// The legacy `TCPDIAG_GETSOCK`/`DCCPDIAG_GETSOCK` request (`struct inet_diag_req`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagReq {
+    pub idiag_family: u8,
+    pub idiag_src_len: u8,
+    pub idiag_dst_len: u8,
+    pub idiag_ext: u8,
+    pub id: InetDiagSockid,
+    pub idiag_states: u32,
+    pub idiag_dbs: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagReq>() == 60);
+    assert!(core::mem::align_of::<InetDiagReq>() == 4);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_family) == 0);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_src_len) == 1);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_dst_len) == 2);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_ext) == 3);
+    assert!(core::mem::offset_of!(InetDiagReq, id) == 4);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_states) == 52);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_dbs) == 56);
+};
+impl Default for InetDiagReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagReq {
+    const SIZE: usize = 60;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        idiag_family: <u8 as GuestLayout>::ZERO,
+        idiag_src_len: <u8 as GuestLayout>::ZERO,
+        idiag_dst_len: <u8 as GuestLayout>::ZERO,
+        idiag_ext: <u8 as GuestLayout>::ZERO,
+        id: <InetDiagSockid as GuestLayout>::ZERO,
+        idiag_states: <u32 as GuestLayout>::ZERO,
+        idiag_dbs: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            idiag_family: GuestLayout::read_from(&bytes[0..])?,
+            idiag_src_len: GuestLayout::read_from(&bytes[1..])?,
+            idiag_dst_len: GuestLayout::read_from(&bytes[2..])?,
+            idiag_ext: GuestLayout::read_from(&bytes[3..])?,
+            id: GuestLayout::read_from(&bytes[4..])?,
+            idiag_states: GuestLayout::read_from(&bytes[52..])?,
+            idiag_dbs: GuestLayout::read_from(&bytes[56..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.idiag_family.write_to(&mut out[0..]);
+        self.idiag_src_len.write_to(&mut out[1..]);
+        self.idiag_dst_len.write_to(&mut out[2..]);
+        self.idiag_ext.write_to(&mut out[3..]);
+        self.id.write_to(&mut out[4..]);
+        self.idiag_states.write_to(&mut out[52..]);
+        self.idiag_dbs.write_to(&mut out[56..]);
+    }
+}
+/// One socket of an `inet_diag` dump (`struct inet_diag_msg`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagMsg {
+    pub idiag_family: u8,
+    pub idiag_state: u8,
+    pub idiag_timer: u8,
+    pub idiag_retrans: u8,
+    pub id: InetDiagSockid,
+    pub idiag_expires: u32,
+    pub idiag_rqueue: u32,
+    pub idiag_wqueue: u32,
+    pub idiag_uid: u32,
+    pub idiag_inode: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagMsg>() == 72);
+    assert!(core::mem::align_of::<InetDiagMsg>() == 4);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_family) == 0);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_state) == 1);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_timer) == 2);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_retrans) == 3);
+    assert!(core::mem::offset_of!(InetDiagMsg, id) == 4);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_expires) == 52);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_rqueue) == 56);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_wqueue) == 60);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_uid) == 64);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_inode) == 68);
+};
+impl Default for InetDiagMsg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagMsg {
+    const SIZE: usize = 72;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        idiag_family: <u8 as GuestLayout>::ZERO,
+        idiag_state: <u8 as GuestLayout>::ZERO,
+        idiag_timer: <u8 as GuestLayout>::ZERO,
+        idiag_retrans: <u8 as GuestLayout>::ZERO,
+        id: <InetDiagSockid as GuestLayout>::ZERO,
+        idiag_expires: <u32 as GuestLayout>::ZERO,
+        idiag_rqueue: <u32 as GuestLayout>::ZERO,
+        idiag_wqueue: <u32 as GuestLayout>::ZERO,
+        idiag_uid: <u32 as GuestLayout>::ZERO,
+        idiag_inode: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            idiag_family: GuestLayout::read_from(&bytes[0..])?,
+            idiag_state: GuestLayout::read_from(&bytes[1..])?,
+            idiag_timer: GuestLayout::read_from(&bytes[2..])?,
+            idiag_retrans: GuestLayout::read_from(&bytes[3..])?,
+            id: GuestLayout::read_from(&bytes[4..])?,
+            idiag_expires: GuestLayout::read_from(&bytes[52..])?,
+            idiag_rqueue: GuestLayout::read_from(&bytes[56..])?,
+            idiag_wqueue: GuestLayout::read_from(&bytes[60..])?,
+            idiag_uid: GuestLayout::read_from(&bytes[64..])?,
+            idiag_inode: GuestLayout::read_from(&bytes[68..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.idiag_family.write_to(&mut out[0..]);
+        self.idiag_state.write_to(&mut out[1..]);
+        self.idiag_timer.write_to(&mut out[2..]);
+        self.idiag_retrans.write_to(&mut out[3..]);
+        self.id.write_to(&mut out[4..]);
+        self.idiag_expires.write_to(&mut out[52..]);
+        self.idiag_rqueue.write_to(&mut out[56..]);
+        self.idiag_wqueue.write_to(&mut out[60..]);
+        self.idiag_uid.write_to(&mut out[64..]);
+        self.idiag_inode.write_to(&mut out[68..]);
+    }
+}
+/// `INET_DIAG_MEMINFO` attribute (`struct inet_diag_meminfo`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagMeminfo {
+    pub idiag_rmem: u32,
+    pub idiag_wmem: u32,
+    pub idiag_fmem: u32,
+    pub idiag_tmem: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagMeminfo>() == 16);
+    assert!(core::mem::align_of::<InetDiagMeminfo>() == 4);
+    assert!(core::mem::offset_of!(InetDiagMeminfo, idiag_rmem) == 0);
+    assert!(core::mem::offset_of!(InetDiagMeminfo, idiag_wmem) == 4);
+    assert!(core::mem::offset_of!(InetDiagMeminfo, idiag_fmem) == 8);
+    assert!(core::mem::offset_of!(InetDiagMeminfo, idiag_tmem) == 12);
+};
+impl Default for InetDiagMeminfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagMeminfo {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        idiag_rmem: <u32 as GuestLayout>::ZERO,
+        idiag_wmem: <u32 as GuestLayout>::ZERO,
+        idiag_fmem: <u32 as GuestLayout>::ZERO,
+        idiag_tmem: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            idiag_rmem: GuestLayout::read_from(&bytes[0..])?,
+            idiag_wmem: GuestLayout::read_from(&bytes[4..])?,
+            idiag_fmem: GuestLayout::read_from(&bytes[8..])?,
+            idiag_tmem: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.idiag_rmem.write_to(&mut out[0..]);
+        self.idiag_wmem.write_to(&mut out[4..]);
+        self.idiag_fmem.write_to(&mut out[8..]);
+        self.idiag_tmem.write_to(&mut out[12..]);
+    }
+}
+/// `SOCK_DIAG_BY_FAMILY` request for `AF_UNIX` (`struct unix_diag_req`, UAPI
+/// `linux/unix_diag.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnixDiagReq {
+    pub sdiag_family: u8,
+    pub sdiag_protocol: u8,
+    pub pad: u16,
+    /// Bits `1 << TCP_*` of the states to dump.
+    pub udiag_states: u32,
+    pub udiag_ino: u32,
+    /// `UDIAG_SHOW_*` bits.
+    pub udiag_show: u32,
+    pub udiag_cookie: [u32; 2],
+}
+const _: () = {
+    assert!(core::mem::size_of::<UnixDiagReq>() == 24);
+    assert!(core::mem::align_of::<UnixDiagReq>() == 4);
+    assert!(core::mem::offset_of!(UnixDiagReq, sdiag_family) == 0);
+    assert!(core::mem::offset_of!(UnixDiagReq, sdiag_protocol) == 1);
+    assert!(core::mem::offset_of!(UnixDiagReq, pad) == 2);
+    assert!(core::mem::offset_of!(UnixDiagReq, udiag_states) == 4);
+    assert!(core::mem::offset_of!(UnixDiagReq, udiag_ino) == 8);
+    assert!(core::mem::offset_of!(UnixDiagReq, udiag_show) == 12);
+    assert!(core::mem::offset_of!(UnixDiagReq, udiag_cookie) == 16);
+};
+impl Default for UnixDiagReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for UnixDiagReq {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sdiag_family: <u8 as GuestLayout>::ZERO,
+        sdiag_protocol: <u8 as GuestLayout>::ZERO,
+        pad: <u16 as GuestLayout>::ZERO,
+        udiag_states: <u32 as GuestLayout>::ZERO,
+        udiag_ino: <u32 as GuestLayout>::ZERO,
+        udiag_show: <u32 as GuestLayout>::ZERO,
+        udiag_cookie: <[u32; 2] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sdiag_family: GuestLayout::read_from(&bytes[0..])?,
+            sdiag_protocol: GuestLayout::read_from(&bytes[1..])?,
+            pad: GuestLayout::read_from(&bytes[2..])?,
+            udiag_states: GuestLayout::read_from(&bytes[4..])?,
+            udiag_ino: GuestLayout::read_from(&bytes[8..])?,
+            udiag_show: GuestLayout::read_from(&bytes[12..])?,
+            udiag_cookie: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sdiag_family.write_to(&mut out[0..]);
+        self.sdiag_protocol.write_to(&mut out[1..]);
+        self.pad.write_to(&mut out[2..]);
+        self.udiag_states.write_to(&mut out[4..]);
+        self.udiag_ino.write_to(&mut out[8..]);
+        self.udiag_show.write_to(&mut out[12..]);
+        self.udiag_cookie.write_to(&mut out[16..]);
+    }
+}
+/// One socket of a `unix_diag` dump (`struct unix_diag_msg`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnixDiagMsg {
+    pub udiag_family: u8,
+    pub udiag_type: u8,
+    pub udiag_state: u8,
+    pub pad: u8,
+    pub udiag_ino: u32,
+    pub udiag_cookie: [u32; 2],
+}
+const _: () = {
+    assert!(core::mem::size_of::<UnixDiagMsg>() == 16);
+    assert!(core::mem::align_of::<UnixDiagMsg>() == 4);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_family) == 0);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_type) == 1);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_state) == 2);
+    assert!(core::mem::offset_of!(UnixDiagMsg, pad) == 3);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_ino) == 4);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_cookie) == 8);
+};
+impl Default for UnixDiagMsg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for UnixDiagMsg {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        udiag_family: <u8 as GuestLayout>::ZERO,
+        udiag_type: <u8 as GuestLayout>::ZERO,
+        udiag_state: <u8 as GuestLayout>::ZERO,
+        pad: <u8 as GuestLayout>::ZERO,
+        udiag_ino: <u32 as GuestLayout>::ZERO,
+        udiag_cookie: <[u32; 2] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            udiag_family: GuestLayout::read_from(&bytes[0..])?,
+            udiag_type: GuestLayout::read_from(&bytes[1..])?,
+            udiag_state: GuestLayout::read_from(&bytes[2..])?,
+            pad: GuestLayout::read_from(&bytes[3..])?,
+            udiag_ino: GuestLayout::read_from(&bytes[4..])?,
+            udiag_cookie: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.udiag_family.write_to(&mut out[0..]);
+        self.udiag_type.write_to(&mut out[1..]);
+        self.udiag_state.write_to(&mut out[2..]);
+        self.pad.write_to(&mut out[3..]);
+        self.udiag_ino.write_to(&mut out[4..]);
+        self.udiag_cookie.write_to(&mut out[8..]);
+    }
+}
+/// `UNIX_DIAG_RQLEN` attribute (`struct unix_diag_rqlen`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnixDiagRqlen {
+    pub udiag_rqueue: u32,
+    pub udiag_wqueue: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<UnixDiagRqlen>() == 8);
+    assert!(core::mem::align_of::<UnixDiagRqlen>() == 4);
+    assert!(core::mem::offset_of!(UnixDiagRqlen, udiag_rqueue) == 0);
+    assert!(core::mem::offset_of!(UnixDiagRqlen, udiag_wqueue) == 4);
+};
+impl Default for UnixDiagRqlen {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for UnixDiagRqlen {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        udiag_rqueue: <u32 as GuestLayout>::ZERO,
+        udiag_wqueue: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            udiag_rqueue: GuestLayout::read_from(&bytes[0..])?,
+            udiag_wqueue: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.udiag_rqueue.write_to(&mut out[0..]);
+        self.udiag_wqueue.write_to(&mut out[4..]);
+    }
+}
+/// `UNIX_DIAG_VFS` attribute (`struct unix_diag_vfs`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnixDiagVfs {
+    pub udiag_vfs_ino: u32,
+    pub udiag_vfs_dev: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<UnixDiagVfs>() == 8);
+    assert!(core::mem::align_of::<UnixDiagVfs>() == 4);
+    assert!(core::mem::offset_of!(UnixDiagVfs, udiag_vfs_ino) == 0);
+    assert!(core::mem::offset_of!(UnixDiagVfs, udiag_vfs_dev) == 4);
+};
+impl Default for UnixDiagVfs {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for UnixDiagVfs {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        udiag_vfs_ino: <u32 as GuestLayout>::ZERO,
+        udiag_vfs_dev: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            udiag_vfs_ino: GuestLayout::read_from(&bytes[0..])?,
+            udiag_vfs_dev: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.udiag_vfs_ino.write_to(&mut out[0..]);
+        self.udiag_vfs_dev.write_to(&mut out[4..]);
+    }
+}
+/// `SCTP_INITMSG` and the `SCTP_INIT` control message (`struct sctp_initmsg`, UAPI `linux/sctp.h`, which musl does not have).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpInitmsg {
+    pub sinit_num_ostreams: u16,
+    pub sinit_max_instreams: u16,
+    pub sinit_max_attempts: u16,
+    pub sinit_max_init_timeo: u16,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpInitmsg>() == 8);
+    assert!(core::mem::align_of::<SctpInitmsg>() == 2);
+    assert!(core::mem::offset_of!(SctpInitmsg, sinit_num_ostreams) == 0);
+    assert!(core::mem::offset_of!(SctpInitmsg, sinit_max_instreams) == 2);
+    assert!(core::mem::offset_of!(SctpInitmsg, sinit_max_attempts) == 4);
+    assert!(core::mem::offset_of!(SctpInitmsg, sinit_max_init_timeo) == 6);
+};
+impl Default for SctpInitmsg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpInitmsg {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 2;
+    const ZERO: Self = Self {
+        sinit_num_ostreams: <u16 as GuestLayout>::ZERO,
+        sinit_max_instreams: <u16 as GuestLayout>::ZERO,
+        sinit_max_attempts: <u16 as GuestLayout>::ZERO,
+        sinit_max_init_timeo: <u16 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sinit_num_ostreams: GuestLayout::read_from(&bytes[0..])?,
+            sinit_max_instreams: GuestLayout::read_from(&bytes[2..])?,
+            sinit_max_attempts: GuestLayout::read_from(&bytes[4..])?,
+            sinit_max_init_timeo: GuestLayout::read_from(&bytes[6..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sinit_num_ostreams.write_to(&mut out[0..]);
+        self.sinit_max_instreams.write_to(&mut out[2..]);
+        self.sinit_max_attempts.write_to(&mut out[4..]);
+        self.sinit_max_init_timeo.write_to(&mut out[6..]);
+    }
+}
+/// `SCTP_SNDRCV` control message and `SCTP_DEFAULT_SEND_PARAM` (`struct sctp_sndrcvinfo`); `sinfo-flags` holds `sctp-sinfo-flags`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpSndrcvinfo {
+    pub sinfo_stream: u16,
+    pub sinfo_ssn: u16,
+    pub sinfo_flags: u16,
+    pub sinfo_ppid: u32,
+    pub sinfo_context: u32,
+    pub sinfo_timetolive: u32,
+    pub sinfo_tsn: u32,
+    pub sinfo_cumtsn: u32,
+    pub sinfo_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpSndrcvinfo>() == 32);
+    assert!(core::mem::align_of::<SctpSndrcvinfo>() == 4);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_stream) == 0);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_ssn) == 2);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_flags) == 4);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_ppid) == 8);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_context) == 12);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_timetolive) == 16);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_tsn) == 20);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_cumtsn) == 24);
+    assert!(core::mem::offset_of!(SctpSndrcvinfo, sinfo_assoc_id) == 28);
+};
+impl Default for SctpSndrcvinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpSndrcvinfo {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sinfo_stream: <u16 as GuestLayout>::ZERO,
+        sinfo_ssn: <u16 as GuestLayout>::ZERO,
+        sinfo_flags: <u16 as GuestLayout>::ZERO,
+        sinfo_ppid: <u32 as GuestLayout>::ZERO,
+        sinfo_context: <u32 as GuestLayout>::ZERO,
+        sinfo_timetolive: <u32 as GuestLayout>::ZERO,
+        sinfo_tsn: <u32 as GuestLayout>::ZERO,
+        sinfo_cumtsn: <u32 as GuestLayout>::ZERO,
+        sinfo_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sinfo_stream: GuestLayout::read_from(&bytes[0..])?,
+            sinfo_ssn: GuestLayout::read_from(&bytes[2..])?,
+            sinfo_flags: GuestLayout::read_from(&bytes[4..])?,
+            sinfo_ppid: GuestLayout::read_from(&bytes[8..])?,
+            sinfo_context: GuestLayout::read_from(&bytes[12..])?,
+            sinfo_timetolive: GuestLayout::read_from(&bytes[16..])?,
+            sinfo_tsn: GuestLayout::read_from(&bytes[20..])?,
+            sinfo_cumtsn: GuestLayout::read_from(&bytes[24..])?,
+            sinfo_assoc_id: GuestLayout::read_from(&bytes[28..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sinfo_stream.write_to(&mut out[0..]);
+        self.sinfo_ssn.write_to(&mut out[2..]);
+        self.sinfo_flags.write_to(&mut out[4..]);
+        self.sinfo_ppid.write_to(&mut out[8..]);
+        self.sinfo_context.write_to(&mut out[12..]);
+        self.sinfo_timetolive.write_to(&mut out[16..]);
+        self.sinfo_tsn.write_to(&mut out[20..]);
+        self.sinfo_cumtsn.write_to(&mut out[24..]);
+        self.sinfo_assoc_id.write_to(&mut out[28..]);
+    }
+}
+/// `SCTP_SNDINFO` control message and `SCTP_DEFAULT_SNDINFO` (`struct sctp_sndinfo`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpSndinfo {
+    pub snd_sid: u16,
+    pub snd_flags: u16,
+    pub snd_ppid: u32,
+    pub snd_context: u32,
+    pub snd_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpSndinfo>() == 16);
+    assert!(core::mem::align_of::<SctpSndinfo>() == 4);
+    assert!(core::mem::offset_of!(SctpSndinfo, snd_sid) == 0);
+    assert!(core::mem::offset_of!(SctpSndinfo, snd_flags) == 2);
+    assert!(core::mem::offset_of!(SctpSndinfo, snd_ppid) == 4);
+    assert!(core::mem::offset_of!(SctpSndinfo, snd_context) == 8);
+    assert!(core::mem::offset_of!(SctpSndinfo, snd_assoc_id) == 12);
+};
+impl Default for SctpSndinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpSndinfo {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        snd_sid: <u16 as GuestLayout>::ZERO,
+        snd_flags: <u16 as GuestLayout>::ZERO,
+        snd_ppid: <u32 as GuestLayout>::ZERO,
+        snd_context: <u32 as GuestLayout>::ZERO,
+        snd_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            snd_sid: GuestLayout::read_from(&bytes[0..])?,
+            snd_flags: GuestLayout::read_from(&bytes[2..])?,
+            snd_ppid: GuestLayout::read_from(&bytes[4..])?,
+            snd_context: GuestLayout::read_from(&bytes[8..])?,
+            snd_assoc_id: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.snd_sid.write_to(&mut out[0..]);
+        self.snd_flags.write_to(&mut out[2..]);
+        self.snd_ppid.write_to(&mut out[4..]);
+        self.snd_context.write_to(&mut out[8..]);
+        self.snd_assoc_id.write_to(&mut out[12..]);
+    }
+}
+/// `SCTP_RCVINFO` control message (`struct sctp_rcvinfo`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpRcvinfo {
+    pub rcv_sid: u16,
+    pub rcv_ssn: u16,
+    pub rcv_flags: u16,
+    pub rcv_ppid: u32,
+    pub rcv_tsn: u32,
+    pub rcv_cumtsn: u32,
+    pub rcv_context: u32,
+    pub rcv_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpRcvinfo>() == 28);
+    assert!(core::mem::align_of::<SctpRcvinfo>() == 4);
+    assert!(core::mem::offset_of!(SctpRcvinfo, rcv_sid) == 0);
+    assert!(core::mem::offset_of!(SctpRcvinfo, rcv_ssn) == 2);
+    assert!(core::mem::offset_of!(SctpRcvinfo, rcv_flags) == 4);
+    assert!(core::mem::offset_of!(SctpRcvinfo, rcv_ppid) == 8);
+    assert!(core::mem::offset_of!(SctpRcvinfo, rcv_tsn) == 12);
+    assert!(core::mem::offset_of!(SctpRcvinfo, rcv_cumtsn) == 16);
+    assert!(core::mem::offset_of!(SctpRcvinfo, rcv_context) == 20);
+    assert!(core::mem::offset_of!(SctpRcvinfo, rcv_assoc_id) == 24);
+};
+impl Default for SctpRcvinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpRcvinfo {
+    const SIZE: usize = 28;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        rcv_sid: <u16 as GuestLayout>::ZERO,
+        rcv_ssn: <u16 as GuestLayout>::ZERO,
+        rcv_flags: <u16 as GuestLayout>::ZERO,
+        rcv_ppid: <u32 as GuestLayout>::ZERO,
+        rcv_tsn: <u32 as GuestLayout>::ZERO,
+        rcv_cumtsn: <u32 as GuestLayout>::ZERO,
+        rcv_context: <u32 as GuestLayout>::ZERO,
+        rcv_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            rcv_sid: GuestLayout::read_from(&bytes[0..])?,
+            rcv_ssn: GuestLayout::read_from(&bytes[2..])?,
+            rcv_flags: GuestLayout::read_from(&bytes[4..])?,
+            rcv_ppid: GuestLayout::read_from(&bytes[8..])?,
+            rcv_tsn: GuestLayout::read_from(&bytes[12..])?,
+            rcv_cumtsn: GuestLayout::read_from(&bytes[16..])?,
+            rcv_context: GuestLayout::read_from(&bytes[20..])?,
+            rcv_assoc_id: GuestLayout::read_from(&bytes[24..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.rcv_sid.write_to(&mut out[0..]);
+        self.rcv_ssn.write_to(&mut out[2..]);
+        self.rcv_flags.write_to(&mut out[4..]);
+        self.rcv_ppid.write_to(&mut out[8..]);
+        self.rcv_tsn.write_to(&mut out[12..]);
+        self.rcv_cumtsn.write_to(&mut out[16..]);
+        self.rcv_context.write_to(&mut out[20..]);
+        self.rcv_assoc_id.write_to(&mut out[24..]);
+    }
+}
+/// `SCTP_NXTINFO` control message (`struct sctp_nxtinfo`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpNxtinfo {
+    pub nxt_sid: u16,
+    pub nxt_flags: u16,
+    pub nxt_ppid: u32,
+    pub nxt_length: u32,
+    pub nxt_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpNxtinfo>() == 16);
+    assert!(core::mem::align_of::<SctpNxtinfo>() == 4);
+    assert!(core::mem::offset_of!(SctpNxtinfo, nxt_sid) == 0);
+    assert!(core::mem::offset_of!(SctpNxtinfo, nxt_flags) == 2);
+    assert!(core::mem::offset_of!(SctpNxtinfo, nxt_ppid) == 4);
+    assert!(core::mem::offset_of!(SctpNxtinfo, nxt_length) == 8);
+    assert!(core::mem::offset_of!(SctpNxtinfo, nxt_assoc_id) == 12);
+};
+impl Default for SctpNxtinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpNxtinfo {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        nxt_sid: <u16 as GuestLayout>::ZERO,
+        nxt_flags: <u16 as GuestLayout>::ZERO,
+        nxt_ppid: <u32 as GuestLayout>::ZERO,
+        nxt_length: <u32 as GuestLayout>::ZERO,
+        nxt_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nxt_sid: GuestLayout::read_from(&bytes[0..])?,
+            nxt_flags: GuestLayout::read_from(&bytes[2..])?,
+            nxt_ppid: GuestLayout::read_from(&bytes[4..])?,
+            nxt_length: GuestLayout::read_from(&bytes[8..])?,
+            nxt_assoc_id: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nxt_sid.write_to(&mut out[0..]);
+        self.nxt_flags.write_to(&mut out[2..]);
+        self.nxt_ppid.write_to(&mut out[4..]);
+        self.nxt_length.write_to(&mut out[8..]);
+        self.nxt_assoc_id.write_to(&mut out[12..]);
+    }
+}
+/// `SCTP_EVENTS` (`struct sctp_event_subscribe`): one byte per notification. The last field is the kernel's `sctp_send_failure_event_event`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpEventSubscribe {
+    pub sctp_data_io_event: u8,
+    pub sctp_association_event: u8,
+    pub sctp_address_event: u8,
+    pub sctp_send_failure_event: u8,
+    pub sctp_peer_error_event: u8,
+    pub sctp_shutdown_event: u8,
+    pub sctp_partial_delivery_event: u8,
+    pub sctp_adaptation_layer_event: u8,
+    pub sctp_authentication_event: u8,
+    pub sctp_sender_dry_event: u8,
+    pub sctp_stream_reset_event: u8,
+    pub sctp_assoc_reset_event: u8,
+    pub sctp_stream_change_event: u8,
+    pub sctp_send_failure_event_event: u8,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpEventSubscribe>() == 14);
+    assert!(core::mem::align_of::<SctpEventSubscribe>() == 1);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_data_io_event) == 0);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_association_event) == 1);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_address_event) == 2);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_send_failure_event) == 3);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_peer_error_event) == 4);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_shutdown_event) == 5);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_partial_delivery_event) == 6);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_adaptation_layer_event) == 7);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_authentication_event) == 8);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_sender_dry_event) == 9);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_stream_reset_event) == 10);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_assoc_reset_event) == 11);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_stream_change_event) == 12);
+    assert!(core::mem::offset_of!(SctpEventSubscribe, sctp_send_failure_event_event) == 13);
+};
+impl Default for SctpEventSubscribe {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpEventSubscribe {
+    const SIZE: usize = 14;
+    const ALIGN: usize = 1;
+    const ZERO: Self = Self {
+        sctp_data_io_event: <u8 as GuestLayout>::ZERO,
+        sctp_association_event: <u8 as GuestLayout>::ZERO,
+        sctp_address_event: <u8 as GuestLayout>::ZERO,
+        sctp_send_failure_event: <u8 as GuestLayout>::ZERO,
+        sctp_peer_error_event: <u8 as GuestLayout>::ZERO,
+        sctp_shutdown_event: <u8 as GuestLayout>::ZERO,
+        sctp_partial_delivery_event: <u8 as GuestLayout>::ZERO,
+        sctp_adaptation_layer_event: <u8 as GuestLayout>::ZERO,
+        sctp_authentication_event: <u8 as GuestLayout>::ZERO,
+        sctp_sender_dry_event: <u8 as GuestLayout>::ZERO,
+        sctp_stream_reset_event: <u8 as GuestLayout>::ZERO,
+        sctp_assoc_reset_event: <u8 as GuestLayout>::ZERO,
+        sctp_stream_change_event: <u8 as GuestLayout>::ZERO,
+        sctp_send_failure_event_event: <u8 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sctp_data_io_event: GuestLayout::read_from(&bytes[0..])?,
+            sctp_association_event: GuestLayout::read_from(&bytes[1..])?,
+            sctp_address_event: GuestLayout::read_from(&bytes[2..])?,
+            sctp_send_failure_event: GuestLayout::read_from(&bytes[3..])?,
+            sctp_peer_error_event: GuestLayout::read_from(&bytes[4..])?,
+            sctp_shutdown_event: GuestLayout::read_from(&bytes[5..])?,
+            sctp_partial_delivery_event: GuestLayout::read_from(&bytes[6..])?,
+            sctp_adaptation_layer_event: GuestLayout::read_from(&bytes[7..])?,
+            sctp_authentication_event: GuestLayout::read_from(&bytes[8..])?,
+            sctp_sender_dry_event: GuestLayout::read_from(&bytes[9..])?,
+            sctp_stream_reset_event: GuestLayout::read_from(&bytes[10..])?,
+            sctp_assoc_reset_event: GuestLayout::read_from(&bytes[11..])?,
+            sctp_stream_change_event: GuestLayout::read_from(&bytes[12..])?,
+            sctp_send_failure_event_event: GuestLayout::read_from(&bytes[13..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sctp_data_io_event.write_to(&mut out[0..]);
+        self.sctp_association_event.write_to(&mut out[1..]);
+        self.sctp_address_event.write_to(&mut out[2..]);
+        self.sctp_send_failure_event.write_to(&mut out[3..]);
+        self.sctp_peer_error_event.write_to(&mut out[4..]);
+        self.sctp_shutdown_event.write_to(&mut out[5..]);
+        self.sctp_partial_delivery_event.write_to(&mut out[6..]);
+        self.sctp_adaptation_layer_event.write_to(&mut out[7..]);
+        self.sctp_authentication_event.write_to(&mut out[8..]);
+        self.sctp_sender_dry_event.write_to(&mut out[9..]);
+        self.sctp_stream_reset_event.write_to(&mut out[10..]);
+        self.sctp_assoc_reset_event.write_to(&mut out[11..]);
+        self.sctp_stream_change_event.write_to(&mut out[12..]);
+        self.sctp_send_failure_event_event.write_to(&mut out[13..]);
+    }
+}
+/// `SCTP_EVENT` (`struct sctp_event`): one notification type on or off.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpEvent {
+    pub se_assoc_id: i32,
+    pub se_type: u16,
+    pub se_on: u8,
+    pub se_pad: u8,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpEvent>() == 8);
+    assert!(core::mem::align_of::<SctpEvent>() == 4);
+    assert!(core::mem::offset_of!(SctpEvent, se_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpEvent, se_type) == 4);
+    assert!(core::mem::offset_of!(SctpEvent, se_on) == 6);
+    assert!(core::mem::offset_of!(SctpEvent, se_pad) == 7);
+};
+impl Default for SctpEvent {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpEvent {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        se_assoc_id: <i32 as GuestLayout>::ZERO,
+        se_type: <u16 as GuestLayout>::ZERO,
+        se_on: <u8 as GuestLayout>::ZERO,
+        se_pad: <u8 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            se_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            se_type: GuestLayout::read_from(&bytes[4..])?,
+            se_on: GuestLayout::read_from(&bytes[6..])?,
+            se_pad: GuestLayout::read_from(&bytes[7..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.se_assoc_id.write_to(&mut out[0..]);
+        self.se_type.write_to(&mut out[4..]);
+        self.se_on.write_to(&mut out[6..]);
+        self.se_pad.write_to(&mut out[7..]);
+    }
+}
+/// `SCTP_RTOINFO` (`struct sctp_rtoinfo`), in milliseconds.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpRtoinfo {
+    pub srto_assoc_id: i32,
+    pub srto_initial: u32,
+    pub srto_max: u32,
+    pub srto_min: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpRtoinfo>() == 16);
+    assert!(core::mem::align_of::<SctpRtoinfo>() == 4);
+    assert!(core::mem::offset_of!(SctpRtoinfo, srto_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpRtoinfo, srto_initial) == 4);
+    assert!(core::mem::offset_of!(SctpRtoinfo, srto_max) == 8);
+    assert!(core::mem::offset_of!(SctpRtoinfo, srto_min) == 12);
+};
+impl Default for SctpRtoinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpRtoinfo {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        srto_assoc_id: <i32 as GuestLayout>::ZERO,
+        srto_initial: <u32 as GuestLayout>::ZERO,
+        srto_max: <u32 as GuestLayout>::ZERO,
+        srto_min: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            srto_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            srto_initial: GuestLayout::read_from(&bytes[4..])?,
+            srto_max: GuestLayout::read_from(&bytes[8..])?,
+            srto_min: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.srto_assoc_id.write_to(&mut out[0..]);
+        self.srto_initial.write_to(&mut out[4..]);
+        self.srto_max.write_to(&mut out[8..]);
+        self.srto_min.write_to(&mut out[12..]);
+    }
+}
+/// `SCTP_ASSOCINFO` (`struct sctp_assocparams`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpAssocparams {
+    pub sasoc_assoc_id: i32,
+    pub sasoc_asocmaxrxt: u16,
+    pub sasoc_number_peer_destinations: u16,
+    pub sasoc_peer_rwnd: u32,
+    pub sasoc_local_rwnd: u32,
+    pub sasoc_cookie_life: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpAssocparams>() == 20);
+    assert!(core::mem::align_of::<SctpAssocparams>() == 4);
+    assert!(core::mem::offset_of!(SctpAssocparams, sasoc_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpAssocparams, sasoc_asocmaxrxt) == 4);
+    assert!(core::mem::offset_of!(SctpAssocparams, sasoc_number_peer_destinations) == 6);
+    assert!(core::mem::offset_of!(SctpAssocparams, sasoc_peer_rwnd) == 8);
+    assert!(core::mem::offset_of!(SctpAssocparams, sasoc_local_rwnd) == 12);
+    assert!(core::mem::offset_of!(SctpAssocparams, sasoc_cookie_life) == 16);
+};
+impl Default for SctpAssocparams {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpAssocparams {
+    const SIZE: usize = 20;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sasoc_assoc_id: <i32 as GuestLayout>::ZERO,
+        sasoc_asocmaxrxt: <u16 as GuestLayout>::ZERO,
+        sasoc_number_peer_destinations: <u16 as GuestLayout>::ZERO,
+        sasoc_peer_rwnd: <u32 as GuestLayout>::ZERO,
+        sasoc_local_rwnd: <u32 as GuestLayout>::ZERO,
+        sasoc_cookie_life: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sasoc_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            sasoc_asocmaxrxt: GuestLayout::read_from(&bytes[4..])?,
+            sasoc_number_peer_destinations: GuestLayout::read_from(&bytes[6..])?,
+            sasoc_peer_rwnd: GuestLayout::read_from(&bytes[8..])?,
+            sasoc_local_rwnd: GuestLayout::read_from(&bytes[12..])?,
+            sasoc_cookie_life: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sasoc_assoc_id.write_to(&mut out[0..]);
+        self.sasoc_asocmaxrxt.write_to(&mut out[4..]);
+        self.sasoc_number_peer_destinations.write_to(&mut out[6..]);
+        self.sasoc_peer_rwnd.write_to(&mut out[8..]);
+        self.sasoc_local_rwnd.write_to(&mut out[12..]);
+        self.sasoc_cookie_life.write_to(&mut out[16..]);
+    }
+}
+/// `SCTP_MAXSEG`, `SCTP_CONTEXT`, `SCTP_MAX_BURST` and the like (`struct sctp_assoc_value`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpAssocValue {
+    pub assoc_id: i32,
+    pub assoc_value: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpAssocValue>() == 8);
+    assert!(core::mem::align_of::<SctpAssocValue>() == 4);
+    assert!(core::mem::offset_of!(SctpAssocValue, assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpAssocValue, assoc_value) == 4);
+};
+impl Default for SctpAssocValue {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpAssocValue {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        assoc_id: <i32 as GuestLayout>::ZERO,
+        assoc_value: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            assoc_value: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.assoc_id.write_to(&mut out[0..]);
+        self.assoc_value.write_to(&mut out[4..]);
+    }
+}
+/// `SCTP_GET_PEER_ADDRS`/`SCTP_GET_LOCAL_ADDRS` header (`struct sctp_getaddrs`); the packed addresses follow it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpGetaddrs {
+    pub assoc_id: i32,
+    pub addr_num: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpGetaddrs>() == 8);
+    assert!(core::mem::align_of::<SctpGetaddrs>() == 4);
+    assert!(core::mem::offset_of!(SctpGetaddrs, assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpGetaddrs, addr_num) == 4);
+};
+impl Default for SctpGetaddrs {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpGetaddrs {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        assoc_id: <i32 as GuestLayout>::ZERO,
+        addr_num: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            addr_num: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.assoc_id.write_to(&mut out[0..]);
+        self.addr_num.write_to(&mut out[4..]);
+    }
+}
+/// `SCTP_ASSOC_CHANGE` notification (`struct sctp_assoc_change`); `sac-state` is `sctp-sac-state`. Variable data may follow.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpAssocChange {
+    pub sac_type: u16,
+    pub sac_flags: u16,
+    pub sac_length: u32,
+    pub sac_state: u16,
+    pub sac_error: u16,
+    pub sac_outbound_streams: u16,
+    pub sac_inbound_streams: u16,
+    pub sac_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpAssocChange>() == 20);
+    assert!(core::mem::align_of::<SctpAssocChange>() == 4);
+    assert!(core::mem::offset_of!(SctpAssocChange, sac_type) == 0);
+    assert!(core::mem::offset_of!(SctpAssocChange, sac_flags) == 2);
+    assert!(core::mem::offset_of!(SctpAssocChange, sac_length) == 4);
+    assert!(core::mem::offset_of!(SctpAssocChange, sac_state) == 8);
+    assert!(core::mem::offset_of!(SctpAssocChange, sac_error) == 10);
+    assert!(core::mem::offset_of!(SctpAssocChange, sac_outbound_streams) == 12);
+    assert!(core::mem::offset_of!(SctpAssocChange, sac_inbound_streams) == 14);
+    assert!(core::mem::offset_of!(SctpAssocChange, sac_assoc_id) == 16);
+};
+impl Default for SctpAssocChange {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpAssocChange {
+    const SIZE: usize = 20;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sac_type: <u16 as GuestLayout>::ZERO,
+        sac_flags: <u16 as GuestLayout>::ZERO,
+        sac_length: <u32 as GuestLayout>::ZERO,
+        sac_state: <u16 as GuestLayout>::ZERO,
+        sac_error: <u16 as GuestLayout>::ZERO,
+        sac_outbound_streams: <u16 as GuestLayout>::ZERO,
+        sac_inbound_streams: <u16 as GuestLayout>::ZERO,
+        sac_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sac_type: GuestLayout::read_from(&bytes[0..])?,
+            sac_flags: GuestLayout::read_from(&bytes[2..])?,
+            sac_length: GuestLayout::read_from(&bytes[4..])?,
+            sac_state: GuestLayout::read_from(&bytes[8..])?,
+            sac_error: GuestLayout::read_from(&bytes[10..])?,
+            sac_outbound_streams: GuestLayout::read_from(&bytes[12..])?,
+            sac_inbound_streams: GuestLayout::read_from(&bytes[14..])?,
+            sac_assoc_id: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sac_type.write_to(&mut out[0..]);
+        self.sac_flags.write_to(&mut out[2..]);
+        self.sac_length.write_to(&mut out[4..]);
+        self.sac_state.write_to(&mut out[8..]);
+        self.sac_error.write_to(&mut out[10..]);
+        self.sac_outbound_streams.write_to(&mut out[12..]);
+        self.sac_inbound_streams.write_to(&mut out[14..]);
+        self.sac_assoc_id.write_to(&mut out[16..]);
+    }
+}
+/// `SCTP_SHUTDOWN_EVENT` notification (`struct sctp_shutdown_event`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpShutdownEvent {
+    pub sse_type: u16,
+    pub sse_flags: u16,
+    pub sse_length: u32,
+    pub sse_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpShutdownEvent>() == 12);
+    assert!(core::mem::align_of::<SctpShutdownEvent>() == 4);
+    assert!(core::mem::offset_of!(SctpShutdownEvent, sse_type) == 0);
+    assert!(core::mem::offset_of!(SctpShutdownEvent, sse_flags) == 2);
+    assert!(core::mem::offset_of!(SctpShutdownEvent, sse_length) == 4);
+    assert!(core::mem::offset_of!(SctpShutdownEvent, sse_assoc_id) == 8);
+};
+impl Default for SctpShutdownEvent {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpShutdownEvent {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sse_type: <u16 as GuestLayout>::ZERO,
+        sse_flags: <u16 as GuestLayout>::ZERO,
+        sse_length: <u32 as GuestLayout>::ZERO,
+        sse_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sse_type: GuestLayout::read_from(&bytes[0..])?,
+            sse_flags: GuestLayout::read_from(&bytes[2..])?,
+            sse_length: GuestLayout::read_from(&bytes[4..])?,
+            sse_assoc_id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sse_type.write_to(&mut out[0..]);
+        self.sse_flags.write_to(&mut out[2..]);
+        self.sse_length.write_to(&mut out[4..]);
+        self.sse_assoc_id.write_to(&mut out[8..]);
+    }
+}
+/// `SCTP_SENDER_DRY_EVENT` notification (`struct sctp_sender_dry_event`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpSenderDryEvent {
+    pub sender_dry_type: u16,
+    pub sender_dry_flags: u16,
+    pub sender_dry_length: u32,
+    pub sender_dry_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpSenderDryEvent>() == 12);
+    assert!(core::mem::align_of::<SctpSenderDryEvent>() == 4);
+    assert!(core::mem::offset_of!(SctpSenderDryEvent, sender_dry_type) == 0);
+    assert!(core::mem::offset_of!(SctpSenderDryEvent, sender_dry_flags) == 2);
+    assert!(core::mem::offset_of!(SctpSenderDryEvent, sender_dry_length) == 4);
+    assert!(core::mem::offset_of!(SctpSenderDryEvent, sender_dry_assoc_id) == 8);
+};
+impl Default for SctpSenderDryEvent {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpSenderDryEvent {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sender_dry_type: <u16 as GuestLayout>::ZERO,
+        sender_dry_flags: <u16 as GuestLayout>::ZERO,
+        sender_dry_length: <u32 as GuestLayout>::ZERO,
+        sender_dry_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sender_dry_type: GuestLayout::read_from(&bytes[0..])?,
+            sender_dry_flags: GuestLayout::read_from(&bytes[2..])?,
+            sender_dry_length: GuestLayout::read_from(&bytes[4..])?,
+            sender_dry_assoc_id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sender_dry_type.write_to(&mut out[0..]);
+        self.sender_dry_flags.write_to(&mut out[2..]);
+        self.sender_dry_length.write_to(&mut out[4..]);
+        self.sender_dry_assoc_id.write_to(&mut out[8..]);
+    }
+}
+/// `SCTP_GET_PEER_ADDR_INFO` and `sctp-status`' primary path (`struct sctp_paddrinfo`, packed
+/// and 4-aligned, which on wasm32 leaves every field at its natural offset); `spinfo-state` is
+/// `sctp-spinfo-state`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPaddrinfo {
+    pub spinfo_assoc_id: i32,
+    pub spinfo_address: SockaddrStorage,
+    pub spinfo_state: i32,
+    pub spinfo_cwnd: u32,
+    pub spinfo_srtt: u32,
+    pub spinfo_rto: u32,
+    pub spinfo_mtu: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPaddrinfo>() == 152);
+    assert!(core::mem::align_of::<SctpPaddrinfo>() == 4);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_address) == 4);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_state) == 132);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_cwnd) == 136);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_srtt) == 140);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_rto) == 144);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_mtu) == 148);
+};
+impl Default for SctpPaddrinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPaddrinfo {
+    const SIZE: usize = 152;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        spinfo_assoc_id: <i32 as GuestLayout>::ZERO,
+        spinfo_address: <SockaddrStorage as GuestLayout>::ZERO,
+        spinfo_state: <i32 as GuestLayout>::ZERO,
+        spinfo_cwnd: <u32 as GuestLayout>::ZERO,
+        spinfo_srtt: <u32 as GuestLayout>::ZERO,
+        spinfo_rto: <u32 as GuestLayout>::ZERO,
+        spinfo_mtu: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            spinfo_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            spinfo_address: GuestLayout::read_from(&bytes[4..])?,
+            spinfo_state: GuestLayout::read_from(&bytes[132..])?,
+            spinfo_cwnd: GuestLayout::read_from(&bytes[136..])?,
+            spinfo_srtt: GuestLayout::read_from(&bytes[140..])?,
+            spinfo_rto: GuestLayout::read_from(&bytes[144..])?,
+            spinfo_mtu: GuestLayout::read_from(&bytes[148..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.spinfo_assoc_id.write_to(&mut out[0..]);
+        self.spinfo_address.write_to(&mut out[4..]);
+        self.spinfo_state.write_to(&mut out[132..]);
+        self.spinfo_cwnd.write_to(&mut out[136..]);
+        self.spinfo_srtt.write_to(&mut out[140..]);
+        self.spinfo_rto.write_to(&mut out[144..]);
+        self.spinfo_mtu.write_to(&mut out[148..]);
+    }
+}
+/// `SCTP_STATUS` (`struct sctp_status`); `sstat-state` is `sctp-sstat-state`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpStatus {
+    pub sstat_assoc_id: i32,
+    pub sstat_state: i32,
+    pub sstat_rwnd: u32,
+    pub sstat_unackdata: u16,
+    pub sstat_penddata: u16,
+    pub sstat_instrms: u16,
+    pub sstat_outstrms: u16,
+    pub sstat_fragmentation_point: u32,
+    pub sstat_primary: SctpPaddrinfo,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpStatus>() == 176);
+    assert!(core::mem::align_of::<SctpStatus>() == 4);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_state) == 4);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_rwnd) == 8);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_unackdata) == 12);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_penddata) == 14);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_instrms) == 16);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_outstrms) == 18);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_fragmentation_point) == 20);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_primary) == 24);
+};
+impl Default for SctpStatus {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpStatus {
+    const SIZE: usize = 176;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sstat_assoc_id: <i32 as GuestLayout>::ZERO,
+        sstat_state: <i32 as GuestLayout>::ZERO,
+        sstat_rwnd: <u32 as GuestLayout>::ZERO,
+        sstat_unackdata: <u16 as GuestLayout>::ZERO,
+        sstat_penddata: <u16 as GuestLayout>::ZERO,
+        sstat_instrms: <u16 as GuestLayout>::ZERO,
+        sstat_outstrms: <u16 as GuestLayout>::ZERO,
+        sstat_fragmentation_point: <u32 as GuestLayout>::ZERO,
+        sstat_primary: <SctpPaddrinfo as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sstat_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            sstat_state: GuestLayout::read_from(&bytes[4..])?,
+            sstat_rwnd: GuestLayout::read_from(&bytes[8..])?,
+            sstat_unackdata: GuestLayout::read_from(&bytes[12..])?,
+            sstat_penddata: GuestLayout::read_from(&bytes[14..])?,
+            sstat_instrms: GuestLayout::read_from(&bytes[16..])?,
+            sstat_outstrms: GuestLayout::read_from(&bytes[18..])?,
+            sstat_fragmentation_point: GuestLayout::read_from(&bytes[20..])?,
+            sstat_primary: GuestLayout::read_from(&bytes[24..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sstat_assoc_id.write_to(&mut out[0..]);
+        self.sstat_state.write_to(&mut out[4..]);
+        self.sstat_rwnd.write_to(&mut out[8..]);
+        self.sstat_unackdata.write_to(&mut out[12..]);
+        self.sstat_penddata.write_to(&mut out[14..]);
+        self.sstat_instrms.write_to(&mut out[16..]);
+        self.sstat_outstrms.write_to(&mut out[18..]);
+        self.sstat_fragmentation_point.write_to(&mut out[20..]);
+        self.sstat_primary.write_to(&mut out[24..]);
+    }
+}
+/// `SCTP_PRIMARY_ADDR` (`struct sctp_prim`, packed and 4-aligned).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPrim {
+    pub ssp_assoc_id: i32,
+    pub ssp_addr: SockaddrStorage,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPrim>() == 132);
+    assert!(core::mem::align_of::<SctpPrim>() == 4);
+    assert!(core::mem::offset_of!(SctpPrim, ssp_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpPrim, ssp_addr) == 4);
+};
+impl Default for SctpPrim {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPrim {
+    const SIZE: usize = 132;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ssp_assoc_id: <i32 as GuestLayout>::ZERO,
+        ssp_addr: <SockaddrStorage as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ssp_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            ssp_addr: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ssp_assoc_id.write_to(&mut out[0..]);
+        self.ssp_addr.write_to(&mut out[4..]);
+    }
+}
+/// `SCTP_SOCKOPT_PEELOFF` (`sctp_peeloff_arg_t`): in, the association; out, the new descriptor.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPeeloffArg {
+    pub associd: i32,
+    pub sd: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPeeloffArg>() == 8);
+    assert!(core::mem::align_of::<SctpPeeloffArg>() == 4);
+    assert!(core::mem::offset_of!(SctpPeeloffArg, associd) == 0);
+    assert!(core::mem::offset_of!(SctpPeeloffArg, sd) == 4);
+};
+impl Default for SctpPeeloffArg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPeeloffArg {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        associd: <i32 as GuestLayout>::ZERO,
+        sd: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            associd: GuestLayout::read_from(&bytes[0..])?,
+            sd: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.associd.write_to(&mut out[0..]);
+        self.sd.write_to(&mut out[4..]);
+    }
+}
+/// `SCTP_SOCKOPT_PEELOFF_FLAGS` (`sctp_peeloff_flags_arg_t`); `flags` takes `SOCK_CLOEXEC` and
+/// `SOCK_NONBLOCK`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPeeloffFlagsArg {
+    pub p_arg: SctpPeeloffArg,
+    pub flags: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPeeloffFlagsArg>() == 12);
+    assert!(core::mem::align_of::<SctpPeeloffFlagsArg>() == 4);
+    assert!(core::mem::offset_of!(SctpPeeloffFlagsArg, p_arg) == 0);
+    assert!(core::mem::offset_of!(SctpPeeloffFlagsArg, flags) == 8);
+};
+impl Default for SctpPeeloffFlagsArg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPeeloffFlagsArg {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        p_arg: <SctpPeeloffArg as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            p_arg: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.p_arg.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[8..]);
+    }
+}
+/// `SCTP_SOCKOPT_CONNECTX3` (`struct sctp_getaddrs_old`): `addr-num` bytes of packed addresses
+/// at `addrs`; the association id is written back over `assoc-id`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpGetaddrsOld {
+    pub assoc_id: i32,
+    pub addr_num: i32,
+    pub addrs: ConstSockaddrPtr,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpGetaddrsOld>() == 12);
+    assert!(core::mem::align_of::<SctpGetaddrsOld>() == 4);
+    assert!(core::mem::offset_of!(SctpGetaddrsOld, assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpGetaddrsOld, addr_num) == 4);
+    assert!(core::mem::offset_of!(SctpGetaddrsOld, addrs) == 8);
+};
+impl Default for SctpGetaddrsOld {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpGetaddrsOld {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        assoc_id: <i32 as GuestLayout>::ZERO,
+        addr_num: <i32 as GuestLayout>::ZERO,
+        addrs: <ConstSockaddrPtr as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            addr_num: GuestLayout::read_from(&bytes[4..])?,
+            addrs: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.assoc_id.write_to(&mut out[0..]);
+        self.addr_num.write_to(&mut out[4..]);
+        self.addrs.write_to(&mut out[8..]);
+    }
+}
+/// `sstat_state` of `SCTP_STATUS` (`enum sctp_sstat_state`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpSstatState(pub i32);
+impl SctpSstatState {
+    pub const SCTP_EMPTY: Self = Self(0);
+    pub const SCTP_CLOSED: Self = Self(1);
+    pub const SCTP_COOKIE_WAIT: Self = Self(2);
+    pub const SCTP_COOKIE_ECHOED: Self = Self(3);
+    pub const SCTP_ESTABLISHED: Self = Self(4);
+    pub const SCTP_SHUTDOWN_PENDING: Self = Self(5);
+    pub const SCTP_SHUTDOWN_SENT: Self = Self(6);
+    pub const SCTP_SHUTDOWN_RECEIVED: Self = Self(7);
+    pub const SCTP_SHUTDOWN_ACK_SENT: Self = Self(8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_EMPTY", Self::SCTP_EMPTY),
+        ("SCTP_CLOSED", Self::SCTP_CLOSED),
+        ("SCTP_COOKIE_WAIT", Self::SCTP_COOKIE_WAIT),
+        ("SCTP_COOKIE_ECHOED", Self::SCTP_COOKIE_ECHOED),
+        ("SCTP_ESTABLISHED", Self::SCTP_ESTABLISHED),
+        ("SCTP_SHUTDOWN_PENDING", Self::SCTP_SHUTDOWN_PENDING),
+        ("SCTP_SHUTDOWN_SENT", Self::SCTP_SHUTDOWN_SENT),
+        ("SCTP_SHUTDOWN_RECEIVED", Self::SCTP_SHUTDOWN_RECEIVED),
+        ("SCTP_SHUTDOWN_ACK_SENT", Self::SCTP_SHUTDOWN_ACK_SENT),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SCTP_EMPTY"),
+            1 => Some("SCTP_CLOSED"),
+            2 => Some("SCTP_COOKIE_WAIT"),
+            3 => Some("SCTP_COOKIE_ECHOED"),
+            4 => Some("SCTP_ESTABLISHED"),
+            5 => Some("SCTP_SHUTDOWN_PENDING"),
+            6 => Some("SCTP_SHUTDOWN_SENT"),
+            7 => Some("SCTP_SHUTDOWN_RECEIVED"),
+            8 => Some("SCTP_SHUTDOWN_ACK_SENT"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SctpSstatState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SctpSstatState({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SctpSstatState {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `spinfo_state` of a peer address (`enum sctp_spinfo_state`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpSpinfoState(pub i32);
+impl SctpSpinfoState {
+    pub const SCTP_INACTIVE: Self = Self(0);
+    pub const SCTP_PF: Self = Self(1);
+    pub const SCTP_ACTIVE: Self = Self(2);
+    pub const SCTP_UNCONFIRMED: Self = Self(3);
+    pub const SCTP_UNKNOWN: Self = Self(65535);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_INACTIVE", Self::SCTP_INACTIVE),
+        ("SCTP_PF", Self::SCTP_PF),
+        ("SCTP_ACTIVE", Self::SCTP_ACTIVE),
+        ("SCTP_UNCONFIRMED", Self::SCTP_UNCONFIRMED),
+        ("SCTP_UNKNOWN", Self::SCTP_UNKNOWN),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SCTP_INACTIVE"),
+            1 => Some("SCTP_PF"),
+            2 => Some("SCTP_ACTIVE"),
+            3 => Some("SCTP_UNCONFIRMED"),
+            65535 => Some("SCTP_UNKNOWN"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SctpSpinfoState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SctpSpinfoState({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SctpSpinfoState {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `SOL_SCTP` socket options (UAPI `linux/sctp.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpOption(pub i32);
+impl SctpOption {
+    pub const SCTP_RTOINFO: Self = Self(0);
+    pub const SCTP_ASSOCINFO: Self = Self(1);
+    pub const SCTP_INITMSG: Self = Self(2);
+    pub const SCTP_NODELAY: Self = Self(3);
+    pub const SCTP_AUTOCLOSE: Self = Self(4);
+    pub const SCTP_SET_PEER_PRIMARY_ADDR: Self = Self(5);
+    pub const SCTP_PRIMARY_ADDR: Self = Self(6);
+    pub const SCTP_ADAPTATION_LAYER: Self = Self(7);
+    pub const SCTP_DISABLE_FRAGMENTS: Self = Self(8);
+    pub const SCTP_PEER_ADDR_PARAMS: Self = Self(9);
+    pub const SCTP_DEFAULT_SEND_PARAM: Self = Self(10);
+    pub const SCTP_EVENTS: Self = Self(11);
+    pub const SCTP_I_WANT_MAPPED_V4_ADDR: Self = Self(12);
+    pub const SCTP_MAXSEG: Self = Self(13);
+    pub const SCTP_STATUS: Self = Self(14);
+    pub const SCTP_GET_PEER_ADDR_INFO: Self = Self(15);
+    pub const SCTP_DELAYED_ACK_TIME: Self = Self(16);
+    pub const SCTP_CONTEXT: Self = Self(17);
+    pub const SCTP_FRAGMENT_INTERLEAVE: Self = Self(18);
+    pub const SCTP_PARTIAL_DELIVERY_POINT: Self = Self(19);
+    pub const SCTP_MAX_BURST: Self = Self(20);
+    pub const SCTP_GET_ASSOC_NUMBER: Self = Self(28);
+    pub const SCTP_GET_ASSOC_ID_LIST: Self = Self(29);
+    pub const SCTP_RECVRCVINFO: Self = Self(32);
+    pub const SCTP_RECVNXTINFO: Self = Self(33);
+    pub const SCTP_DEFAULT_SNDINFO: Self = Self(34);
+    pub const SCTP_REUSE_PORT: Self = Self(36);
+    pub const SCTP_SOCKOPT_BINDX_ADD: Self = Self(100);
+    pub const SCTP_SOCKOPT_BINDX_REM: Self = Self(101);
+    pub const SCTP_SOCKOPT_PEELOFF: Self = Self(102);
+    pub const SCTP_SOCKOPT_CONNECTX_OLD: Self = Self(107);
+    pub const SCTP_GET_PEER_ADDRS: Self = Self(108);
+    pub const SCTP_GET_LOCAL_ADDRS: Self = Self(109);
+    pub const SCTP_SOCKOPT_CONNECTX: Self = Self(110);
+    pub const SCTP_SOCKOPT_CONNECTX3: Self = Self(111);
+    pub const SCTP_PR_SUPPORTED: Self = Self(113);
+    pub const SCTP_DEFAULT_PRINFO: Self = Self(114);
+    pub const SCTP_SOCKOPT_PEELOFF_FLAGS: Self = Self(122);
+    pub const SCTP_EVENT: Self = Self(127);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_RTOINFO", Self::SCTP_RTOINFO),
+        ("SCTP_ASSOCINFO", Self::SCTP_ASSOCINFO),
+        ("SCTP_INITMSG", Self::SCTP_INITMSG),
+        ("SCTP_NODELAY", Self::SCTP_NODELAY),
+        ("SCTP_AUTOCLOSE", Self::SCTP_AUTOCLOSE),
+        (
+            "SCTP_SET_PEER_PRIMARY_ADDR",
+            Self::SCTP_SET_PEER_PRIMARY_ADDR,
+        ),
+        ("SCTP_PRIMARY_ADDR", Self::SCTP_PRIMARY_ADDR),
+        ("SCTP_ADAPTATION_LAYER", Self::SCTP_ADAPTATION_LAYER),
+        ("SCTP_DISABLE_FRAGMENTS", Self::SCTP_DISABLE_FRAGMENTS),
+        ("SCTP_PEER_ADDR_PARAMS", Self::SCTP_PEER_ADDR_PARAMS),
+        ("SCTP_DEFAULT_SEND_PARAM", Self::SCTP_DEFAULT_SEND_PARAM),
+        ("SCTP_EVENTS", Self::SCTP_EVENTS),
+        (
+            "SCTP_I_WANT_MAPPED_V4_ADDR",
+            Self::SCTP_I_WANT_MAPPED_V4_ADDR,
+        ),
+        ("SCTP_MAXSEG", Self::SCTP_MAXSEG),
+        ("SCTP_STATUS", Self::SCTP_STATUS),
+        ("SCTP_GET_PEER_ADDR_INFO", Self::SCTP_GET_PEER_ADDR_INFO),
+        ("SCTP_DELAYED_ACK_TIME", Self::SCTP_DELAYED_ACK_TIME),
+        ("SCTP_CONTEXT", Self::SCTP_CONTEXT),
+        ("SCTP_FRAGMENT_INTERLEAVE", Self::SCTP_FRAGMENT_INTERLEAVE),
+        (
+            "SCTP_PARTIAL_DELIVERY_POINT",
+            Self::SCTP_PARTIAL_DELIVERY_POINT,
+        ),
+        ("SCTP_MAX_BURST", Self::SCTP_MAX_BURST),
+        ("SCTP_GET_ASSOC_NUMBER", Self::SCTP_GET_ASSOC_NUMBER),
+        ("SCTP_GET_ASSOC_ID_LIST", Self::SCTP_GET_ASSOC_ID_LIST),
+        ("SCTP_RECVRCVINFO", Self::SCTP_RECVRCVINFO),
+        ("SCTP_RECVNXTINFO", Self::SCTP_RECVNXTINFO),
+        ("SCTP_DEFAULT_SNDINFO", Self::SCTP_DEFAULT_SNDINFO),
+        ("SCTP_REUSE_PORT", Self::SCTP_REUSE_PORT),
+        ("SCTP_SOCKOPT_BINDX_ADD", Self::SCTP_SOCKOPT_BINDX_ADD),
+        ("SCTP_SOCKOPT_BINDX_REM", Self::SCTP_SOCKOPT_BINDX_REM),
+        ("SCTP_SOCKOPT_PEELOFF", Self::SCTP_SOCKOPT_PEELOFF),
+        ("SCTP_SOCKOPT_CONNECTX_OLD", Self::SCTP_SOCKOPT_CONNECTX_OLD),
+        ("SCTP_GET_PEER_ADDRS", Self::SCTP_GET_PEER_ADDRS),
+        ("SCTP_GET_LOCAL_ADDRS", Self::SCTP_GET_LOCAL_ADDRS),
+        ("SCTP_SOCKOPT_CONNECTX", Self::SCTP_SOCKOPT_CONNECTX),
+        ("SCTP_SOCKOPT_CONNECTX3", Self::SCTP_SOCKOPT_CONNECTX3),
+        ("SCTP_PR_SUPPORTED", Self::SCTP_PR_SUPPORTED),
+        ("SCTP_DEFAULT_PRINFO", Self::SCTP_DEFAULT_PRINFO),
+        (
+            "SCTP_SOCKOPT_PEELOFF_FLAGS",
+            Self::SCTP_SOCKOPT_PEELOFF_FLAGS,
+        ),
+        ("SCTP_EVENT", Self::SCTP_EVENT),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SCTP_RTOINFO"),
+            1 => Some("SCTP_ASSOCINFO"),
+            2 => Some("SCTP_INITMSG"),
+            3 => Some("SCTP_NODELAY"),
+            4 => Some("SCTP_AUTOCLOSE"),
+            5 => Some("SCTP_SET_PEER_PRIMARY_ADDR"),
+            6 => Some("SCTP_PRIMARY_ADDR"),
+            7 => Some("SCTP_ADAPTATION_LAYER"),
+            8 => Some("SCTP_DISABLE_FRAGMENTS"),
+            9 => Some("SCTP_PEER_ADDR_PARAMS"),
+            10 => Some("SCTP_DEFAULT_SEND_PARAM"),
+            11 => Some("SCTP_EVENTS"),
+            12 => Some("SCTP_I_WANT_MAPPED_V4_ADDR"),
+            13 => Some("SCTP_MAXSEG"),
+            14 => Some("SCTP_STATUS"),
+            15 => Some("SCTP_GET_PEER_ADDR_INFO"),
+            16 => Some("SCTP_DELAYED_ACK_TIME"),
+            17 => Some("SCTP_CONTEXT"),
+            18 => Some("SCTP_FRAGMENT_INTERLEAVE"),
+            19 => Some("SCTP_PARTIAL_DELIVERY_POINT"),
+            20 => Some("SCTP_MAX_BURST"),
+            28 => Some("SCTP_GET_ASSOC_NUMBER"),
+            29 => Some("SCTP_GET_ASSOC_ID_LIST"),
+            32 => Some("SCTP_RECVRCVINFO"),
+            33 => Some("SCTP_RECVNXTINFO"),
+            34 => Some("SCTP_DEFAULT_SNDINFO"),
+            36 => Some("SCTP_REUSE_PORT"),
+            100 => Some("SCTP_SOCKOPT_BINDX_ADD"),
+            101 => Some("SCTP_SOCKOPT_BINDX_REM"),
+            102 => Some("SCTP_SOCKOPT_PEELOFF"),
+            107 => Some("SCTP_SOCKOPT_CONNECTX_OLD"),
+            108 => Some("SCTP_GET_PEER_ADDRS"),
+            109 => Some("SCTP_GET_LOCAL_ADDRS"),
+            110 => Some("SCTP_SOCKOPT_CONNECTX"),
+            111 => Some("SCTP_SOCKOPT_CONNECTX3"),
+            113 => Some("SCTP_PR_SUPPORTED"),
+            114 => Some("SCTP_DEFAULT_PRINFO"),
+            122 => Some("SCTP_SOCKOPT_PEELOFF_FLAGS"),
+            127 => Some("SCTP_EVENT"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SctpOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SctpOption({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SctpOption {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `SOL_SCTP` control message types (`enum sctp_cmsg_type`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpCmsgType(pub i32);
+impl SctpCmsgType {
+    pub const SCTP_INIT: Self = Self(0);
+    pub const SCTP_SNDRCV: Self = Self(1);
+    pub const SCTP_SNDINFO: Self = Self(2);
+    pub const SCTP_RCVINFO: Self = Self(3);
+    pub const SCTP_NXTINFO: Self = Self(4);
+    pub const SCTP_PRINFO: Self = Self(5);
+    pub const SCTP_AUTHINFO: Self = Self(6);
+    pub const SCTP_DSTADDRV4: Self = Self(7);
+    pub const SCTP_DSTADDRV6: Self = Self(8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_INIT", Self::SCTP_INIT),
+        ("SCTP_SNDRCV", Self::SCTP_SNDRCV),
+        ("SCTP_SNDINFO", Self::SCTP_SNDINFO),
+        ("SCTP_RCVINFO", Self::SCTP_RCVINFO),
+        ("SCTP_NXTINFO", Self::SCTP_NXTINFO),
+        ("SCTP_PRINFO", Self::SCTP_PRINFO),
+        ("SCTP_AUTHINFO", Self::SCTP_AUTHINFO),
+        ("SCTP_DSTADDRV4", Self::SCTP_DSTADDRV4),
+        ("SCTP_DSTADDRV6", Self::SCTP_DSTADDRV6),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SCTP_INIT"),
+            1 => Some("SCTP_SNDRCV"),
+            2 => Some("SCTP_SNDINFO"),
+            3 => Some("SCTP_RCVINFO"),
+            4 => Some("SCTP_NXTINFO"),
+            5 => Some("SCTP_PRINFO"),
+            6 => Some("SCTP_AUTHINFO"),
+            7 => Some("SCTP_DSTADDRV4"),
+            8 => Some("SCTP_DSTADDRV6"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SctpCmsgType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SctpCmsgType({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SctpCmsgType {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `sinfo_flags`/`snd_flags` bits (`enum sctp_sinfo_flags`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpSinfoFlags(pub u16);
+impl SctpSinfoFlags {
+    pub const SCTP_UNORDERED: Self = Self(0x1);
+    pub const SCTP_ADDR_OVER: Self = Self(0x2);
+    pub const SCTP_ABORT: Self = Self(0x4);
+    pub const SCTP_SACK_IMMEDIATELY: Self = Self(0x8);
+    pub const SCTP_SENDALL: Self = Self(0x40);
+    pub const SCTP_PR_SCTP_ALL: Self = Self(0x80);
+    /// `MSG_FIN`.
+    pub const SCTP_EOF: Self = Self(0x200);
+    /// `MSG_NOTIFICATION`.
+    pub const SCTP_NOTIFICATION: Self = Self(0x8000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_UNORDERED", Self::SCTP_UNORDERED),
+        ("SCTP_ADDR_OVER", Self::SCTP_ADDR_OVER),
+        ("SCTP_ABORT", Self::SCTP_ABORT),
+        ("SCTP_SACK_IMMEDIATELY", Self::SCTP_SACK_IMMEDIATELY),
+        ("SCTP_SENDALL", Self::SCTP_SENDALL),
+        ("SCTP_PR_SCTP_ALL", Self::SCTP_PR_SCTP_ALL),
+        ("SCTP_EOF", Self::SCTP_EOF),
+        ("SCTP_NOTIFICATION", Self::SCTP_NOTIFICATION),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u16 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for SctpSinfoFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SctpSinfoFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for SctpSinfoFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for SctpSinfoFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for SctpSinfoFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for SctpSinfoFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for SctpSinfoFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for SctpSinfoFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for SctpSinfoFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for SctpSinfoFlags {
+    const SIZE: usize = <u16 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u16 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u16 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Notification types (`enum sctp_sn_type`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpSnType(pub u16);
+impl SctpSnType {
+    pub const SCTP_DATA_IO_EVENT: Self = Self(32768);
+    pub const SCTP_ASSOC_CHANGE: Self = Self(32769);
+    pub const SCTP_PEER_ADDR_CHANGE: Self = Self(32770);
+    pub const SCTP_SEND_FAILED: Self = Self(32771);
+    pub const SCTP_REMOTE_ERROR: Self = Self(32772);
+    pub const SCTP_SHUTDOWN_EVENT: Self = Self(32773);
+    pub const SCTP_PARTIAL_DELIVERY_EVENT: Self = Self(32774);
+    pub const SCTP_ADAPTATION_INDICATION: Self = Self(32775);
+    pub const SCTP_AUTHENTICATION_EVENT: Self = Self(32776);
+    pub const SCTP_SENDER_DRY_EVENT: Self = Self(32777);
+    pub const SCTP_STREAM_RESET_EVENT: Self = Self(32778);
+    pub const SCTP_ASSOC_RESET_EVENT: Self = Self(32779);
+    pub const SCTP_STREAM_CHANGE_EVENT: Self = Self(32780);
+    pub const SCTP_SEND_FAILED_EVENT: Self = Self(32781);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_DATA_IO_EVENT", Self::SCTP_DATA_IO_EVENT),
+        ("SCTP_ASSOC_CHANGE", Self::SCTP_ASSOC_CHANGE),
+        ("SCTP_PEER_ADDR_CHANGE", Self::SCTP_PEER_ADDR_CHANGE),
+        ("SCTP_SEND_FAILED", Self::SCTP_SEND_FAILED),
+        ("SCTP_REMOTE_ERROR", Self::SCTP_REMOTE_ERROR),
+        ("SCTP_SHUTDOWN_EVENT", Self::SCTP_SHUTDOWN_EVENT),
+        (
+            "SCTP_PARTIAL_DELIVERY_EVENT",
+            Self::SCTP_PARTIAL_DELIVERY_EVENT,
+        ),
+        (
+            "SCTP_ADAPTATION_INDICATION",
+            Self::SCTP_ADAPTATION_INDICATION,
+        ),
+        ("SCTP_AUTHENTICATION_EVENT", Self::SCTP_AUTHENTICATION_EVENT),
+        ("SCTP_SENDER_DRY_EVENT", Self::SCTP_SENDER_DRY_EVENT),
+        ("SCTP_STREAM_RESET_EVENT", Self::SCTP_STREAM_RESET_EVENT),
+        ("SCTP_ASSOC_RESET_EVENT", Self::SCTP_ASSOC_RESET_EVENT),
+        ("SCTP_STREAM_CHANGE_EVENT", Self::SCTP_STREAM_CHANGE_EVENT),
+        ("SCTP_SEND_FAILED_EVENT", Self::SCTP_SEND_FAILED_EVENT),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            32768 => Some("SCTP_DATA_IO_EVENT"),
+            32769 => Some("SCTP_ASSOC_CHANGE"),
+            32770 => Some("SCTP_PEER_ADDR_CHANGE"),
+            32771 => Some("SCTP_SEND_FAILED"),
+            32772 => Some("SCTP_REMOTE_ERROR"),
+            32773 => Some("SCTP_SHUTDOWN_EVENT"),
+            32774 => Some("SCTP_PARTIAL_DELIVERY_EVENT"),
+            32775 => Some("SCTP_ADAPTATION_INDICATION"),
+            32776 => Some("SCTP_AUTHENTICATION_EVENT"),
+            32777 => Some("SCTP_SENDER_DRY_EVENT"),
+            32778 => Some("SCTP_STREAM_RESET_EVENT"),
+            32779 => Some("SCTP_ASSOC_RESET_EVENT"),
+            32780 => Some("SCTP_STREAM_CHANGE_EVENT"),
+            32781 => Some("SCTP_SEND_FAILED_EVENT"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SctpSnType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SctpSnType({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SctpSnType {
+    const SIZE: usize = <u16 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u16 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u16 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `sac_state` of an `SCTP_ASSOC_CHANGE` (`enum sctp_sac_state`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpSacState(pub u16);
+impl SctpSacState {
+    pub const SCTP_COMM_UP: Self = Self(0);
+    pub const SCTP_COMM_LOST: Self = Self(1);
+    pub const SCTP_RESTART: Self = Self(2);
+    pub const SCTP_SHUTDOWN_COMP: Self = Self(3);
+    pub const SCTP_CANT_STR_ASSOC: Self = Self(4);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_COMM_UP", Self::SCTP_COMM_UP),
+        ("SCTP_COMM_LOST", Self::SCTP_COMM_LOST),
+        ("SCTP_RESTART", Self::SCTP_RESTART),
+        ("SCTP_SHUTDOWN_COMP", Self::SCTP_SHUTDOWN_COMP),
+        ("SCTP_CANT_STR_ASSOC", Self::SCTP_CANT_STR_ASSOC),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SCTP_COMM_UP"),
+            1 => Some("SCTP_COMM_LOST"),
+            2 => Some("SCTP_RESTART"),
+            3 => Some("SCTP_SHUTDOWN_COMP"),
+            4 => Some("SCTP_CANT_STR_ASSOC"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SctpSacState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SctpSacState({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SctpSacState {
+    const SIZE: usize = <u16 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u16 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u16 as GuestLayout>::read_from(bytes).map(Self)
     }
     fn write_to(&self, out: &mut [u8]) {
         self.0.write_to(out);
@@ -24172,6 +26736,8 @@ impl IoctlRequest {
     pub const SECCOMP_IOCTL_NOTIF_ADDFD: Self = Self(1075323139);
     /// `SECCOMP_IOCTL_NOTIF_SET_FLAGS`: `_IOW('!', 4, __u64)`.
     pub const SECCOMP_IOCTL_NOTIF_SET_FLAGS: Self = Self(1074274564);
+    /// `/dev/vsock`: the local CID (`_IO(7, 0xb9)`).
+    pub const IOCTL_VM_SOCKETS_GET_LOCAL_CID: Self = Self(1977);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
         ("TCGETS", Self::TCGETS),
@@ -24353,6 +26919,10 @@ impl IoctlRequest {
             "SECCOMP_IOCTL_NOTIF_SET_FLAGS",
             Self::SECCOMP_IOCTL_NOTIF_SET_FLAGS,
         ),
+        (
+            "IOCTL_VM_SOCKETS_GET_LOCAL_CID",
+            Self::IOCTL_VM_SOCKETS_GET_LOCAL_CID,
+        ),
     ];
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
@@ -24529,6 +27099,7 @@ impl IoctlRequest {
             1074274562 => Some("SECCOMP_IOCTL_NOTIF_ID_VALID"),
             1075323139 => Some("SECCOMP_IOCTL_NOTIF_ADDFD"),
             1074274564 => Some("SECCOMP_IOCTL_NOTIF_SET_FLAGS"),
+            1977 => Some("IOCTL_VM_SOCKETS_GET_LOCAL_CID"),
             _ => None,
         }
     }
@@ -30946,6 +33517,522 @@ impl GuestLayout for LsmFlags {
     const ZERO: Self = Self(0);
     fn read_from(bytes: &[u8]) -> Option<Self> {
         <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `PTRACE_GET_SYSCALL_INFO` at a syscall-entry stop (`linux/ptrace.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfoEntry {
+    pub nr: u64,
+    pub args: [u64; 6],
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfoEntry>() == 56);
+    assert!(core::mem::align_of::<PtraceSyscallInfoEntry>() == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoEntry, nr) == 0);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoEntry, args) == 8);
+};
+impl Default for PtraceSyscallInfoEntry {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceSyscallInfoEntry {
+    const SIZE: usize = 56;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        nr: <u64 as GuestLayout>::ZERO,
+        args: <[u64; 6] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr: GuestLayout::read_from(&bytes[0..])?,
+            args: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr.write_to(&mut out[0..]);
+        self.args.write_to(&mut out[8..]);
+    }
+}
+/// `PTRACE_GET_SYSCALL_INFO` at a syscall-exit stop (`linux/ptrace.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfoExit {
+    pub rval: i64,
+    pub is_error: u8,
+    pub reserved: [u8; 7],
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfoExit>() == 16);
+    assert!(core::mem::align_of::<PtraceSyscallInfoExit>() == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoExit, rval) == 0);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoExit, is_error) == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoExit, reserved) == 9);
+};
+impl Default for PtraceSyscallInfoExit {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceSyscallInfoExit {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        rval: <i64 as GuestLayout>::ZERO,
+        is_error: <u8 as GuestLayout>::ZERO,
+        reserved: <[u8; 7] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            rval: GuestLayout::read_from(&bytes[0..])?,
+            is_error: GuestLayout::read_from(&bytes[8..])?,
+            reserved: GuestLayout::read_from(&bytes[9..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.rval.write_to(&mut out[0..]);
+        self.is_error.write_to(&mut out[8..]);
+        self.reserved.write_to(&mut out[9..]);
+    }
+}
+/// `PTRACE_GET_SYSCALL_INFO` at a `PTRACE_EVENT_SECCOMP` stop (`linux/ptrace.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfoSeccomp {
+    pub nr: u64,
+    pub args: [u64; 6],
+    pub ret_data: u32,
+    pub reserved2: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfoSeccomp>() == 64);
+    assert!(core::mem::align_of::<PtraceSyscallInfoSeccomp>() == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoSeccomp, nr) == 0);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoSeccomp, args) == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoSeccomp, ret_data) == 56);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoSeccomp, reserved2) == 60);
+};
+impl Default for PtraceSyscallInfoSeccomp {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceSyscallInfoSeccomp {
+    const SIZE: usize = 64;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        nr: <u64 as GuestLayout>::ZERO,
+        args: <[u64; 6] as GuestLayout>::ZERO,
+        ret_data: <u32 as GuestLayout>::ZERO,
+        reserved2: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr: GuestLayout::read_from(&bytes[0..])?,
+            args: GuestLayout::read_from(&bytes[8..])?,
+            ret_data: GuestLayout::read_from(&bytes[56..])?,
+            reserved2: GuestLayout::read_from(&bytes[60..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr.write_to(&mut out[0..]);
+        self.args.write_to(&mut out[8..]);
+        self.ret_data.write_to(&mut out[56..]);
+        self.reserved2.write_to(&mut out[60..]);
+    }
+}
+/// What `ptrace_syscall_info` holds for its `op`.
+///
+/// C union stored as raw bytes; members are accessed by (de)serializing.
+#[repr(C, align(8))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfoData(pub [u8; 64]);
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfoData>() == 64);
+    assert!(core::mem::align_of::<PtraceSyscallInfoData>() == 8);
+};
+impl Default for PtraceSyscallInfoData {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl PtraceSyscallInfoData {
+    pub fn entry(&self) -> PtraceSyscallInfoEntry {
+        <PtraceSyscallInfoEntry as GuestLayout>::read_from(&self.0)
+            .unwrap_or(<PtraceSyscallInfoEntry as GuestLayout>::ZERO)
+    }
+    pub fn set_entry(&mut self, value: PtraceSyscallInfoEntry) {
+        value.write_to(&mut self.0);
+    }
+    pub fn from_entry(value: PtraceSyscallInfoEntry) -> Self {
+        let mut v = <Self as GuestLayout>::ZERO;
+        v.set_entry(value);
+        v
+    }
+    pub fn exit(&self) -> PtraceSyscallInfoExit {
+        <PtraceSyscallInfoExit as GuestLayout>::read_from(&self.0)
+            .unwrap_or(<PtraceSyscallInfoExit as GuestLayout>::ZERO)
+    }
+    pub fn set_exit(&mut self, value: PtraceSyscallInfoExit) {
+        value.write_to(&mut self.0);
+    }
+    pub fn from_exit(value: PtraceSyscallInfoExit) -> Self {
+        let mut v = <Self as GuestLayout>::ZERO;
+        v.set_exit(value);
+        v
+    }
+    pub fn seccomp(&self) -> PtraceSyscallInfoSeccomp {
+        <PtraceSyscallInfoSeccomp as GuestLayout>::read_from(&self.0)
+            .unwrap_or(<PtraceSyscallInfoSeccomp as GuestLayout>::ZERO)
+    }
+    pub fn set_seccomp(&mut self, value: PtraceSyscallInfoSeccomp) {
+        value.write_to(&mut self.0);
+    }
+    pub fn from_seccomp(value: PtraceSyscallInfoSeccomp) -> Self {
+        let mut v = <Self as GuestLayout>::ZERO;
+        v.set_seccomp(value);
+        v
+    }
+}
+impl GuestLayout for PtraceSyscallInfoData {
+    const SIZE: usize = 64;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self([0; 64]);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        Some(Self(GuestLayout::read_from(bytes)?))
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+/// `PTRACE_GET_SYSCALL_INFO` result (`struct ptrace_syscall_info`). wasm has no program
+/// counter: `instruction-pointer` is 0, `stack-pointer` the shadow stack pointer.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfo {
+    pub op: u8,
+    pub reserved: u8,
+    pub flags: u16,
+    pub arch: u32,
+    pub instruction_pointer: u64,
+    pub stack_pointer: u64,
+    pub data: PtraceSyscallInfoData,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfo>() == 88);
+    assert!(core::mem::align_of::<PtraceSyscallInfo>() == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, op) == 0);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, reserved) == 1);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, flags) == 2);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, arch) == 4);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, instruction_pointer) == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, stack_pointer) == 16);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, data) == 24);
+};
+impl Default for PtraceSyscallInfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceSyscallInfo {
+    const SIZE: usize = 88;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        op: <u8 as GuestLayout>::ZERO,
+        reserved: <u8 as GuestLayout>::ZERO,
+        flags: <u16 as GuestLayout>::ZERO,
+        arch: <u32 as GuestLayout>::ZERO,
+        instruction_pointer: <u64 as GuestLayout>::ZERO,
+        stack_pointer: <u64 as GuestLayout>::ZERO,
+        data: <PtraceSyscallInfoData as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            op: GuestLayout::read_from(&bytes[0..])?,
+            reserved: GuestLayout::read_from(&bytes[1..])?,
+            flags: GuestLayout::read_from(&bytes[2..])?,
+            arch: GuestLayout::read_from(&bytes[4..])?,
+            instruction_pointer: GuestLayout::read_from(&bytes[8..])?,
+            stack_pointer: GuestLayout::read_from(&bytes[16..])?,
+            data: GuestLayout::read_from(&bytes[24..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.op.write_to(&mut out[0..]);
+        self.reserved.write_to(&mut out[1..]);
+        self.flags.write_to(&mut out[2..]);
+        self.arch.write_to(&mut out[4..]);
+        self.instruction_pointer.write_to(&mut out[8..]);
+        self.stack_pointer.write_to(&mut out[16..]);
+        self.data.write_to(&mut out[24..]);
+    }
+}
+/// `PTRACE_PEEKSIGINFO` arguments (`struct ptrace_peeksiginfo_args`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtracePeeksiginfoArgs {
+    pub off: u64,
+    pub flags: u32,
+    pub nr: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtracePeeksiginfoArgs>() == 16);
+    assert!(core::mem::align_of::<PtracePeeksiginfoArgs>() == 8);
+    assert!(core::mem::offset_of!(PtracePeeksiginfoArgs, off) == 0);
+    assert!(core::mem::offset_of!(PtracePeeksiginfoArgs, flags) == 8);
+    assert!(core::mem::offset_of!(PtracePeeksiginfoArgs, nr) == 12);
+};
+impl Default for PtracePeeksiginfoArgs {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtracePeeksiginfoArgs {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        off: <u64 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        nr: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            off: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[8..])?,
+            nr: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.off.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[8..]);
+        self.nr.write_to(&mut out[12..]);
+    }
+}
+/// `kcmp` comparison types (`enum kcmp_type`, `linux/kcmp.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KcmpType(pub i32);
+impl KcmpType {
+    pub const KCMP_FILE: Self = Self(0);
+    pub const KCMP_VM: Self = Self(1);
+    pub const KCMP_FILES: Self = Self(2);
+    pub const KCMP_FS: Self = Self(3);
+    pub const KCMP_SIGHAND: Self = Self(4);
+    pub const KCMP_IO: Self = Self(5);
+    pub const KCMP_SYSVSEM: Self = Self(6);
+    pub const KCMP_EPOLL_TFD: Self = Self(7);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("KCMP_FILE", Self::KCMP_FILE),
+        ("KCMP_VM", Self::KCMP_VM),
+        ("KCMP_FILES", Self::KCMP_FILES),
+        ("KCMP_FS", Self::KCMP_FS),
+        ("KCMP_SIGHAND", Self::KCMP_SIGHAND),
+        ("KCMP_IO", Self::KCMP_IO),
+        ("KCMP_SYSVSEM", Self::KCMP_SYSVSEM),
+        ("KCMP_EPOLL_TFD", Self::KCMP_EPOLL_TFD),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("KCMP_FILE"),
+            1 => Some("KCMP_VM"),
+            2 => Some("KCMP_FILES"),
+            3 => Some("KCMP_FS"),
+            4 => Some("KCMP_SIGHAND"),
+            5 => Some("KCMP_IO"),
+            6 => Some("KCMP_SYSVSEM"),
+            7 => Some("KCMP_EPOLL_TFD"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for KcmpType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "KcmpType({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for KcmpType {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `KCMP_EPOLL_TFD` slot (`struct kcmp_epoll_slot`, `linux/kcmp.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct KcmpEpollSlot {
+    pub efd: u32,
+    pub tfd: u32,
+    pub toff: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<KcmpEpollSlot>() == 12);
+    assert!(core::mem::align_of::<KcmpEpollSlot>() == 4);
+    assert!(core::mem::offset_of!(KcmpEpollSlot, efd) == 0);
+    assert!(core::mem::offset_of!(KcmpEpollSlot, tfd) == 4);
+    assert!(core::mem::offset_of!(KcmpEpollSlot, toff) == 8);
+};
+impl Default for KcmpEpollSlot {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for KcmpEpollSlot {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        efd: <u32 as GuestLayout>::ZERO,
+        tfd: <u32 as GuestLayout>::ZERO,
+        toff: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            efd: GuestLayout::read_from(&bytes[0..])?,
+            tfd: GuestLayout::read_from(&bytes[4..])?,
+            toff: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.efd.write_to(&mut out[0..]);
+        self.tfd.write_to(&mut out[4..]);
+        self.toff.write_to(&mut out[8..]);
+    }
+}
+/// Guest pointer to a `kcmp-epoll-slot`.
+pub type ConstKcmpEpollSlotPtr = GuestPtr<KcmpEpollSlot>;
+/// I/O scheduling classes (`IOPRIO_CLASS_*`, `linux/ioprio.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoprioClass(pub i32);
+impl IoprioClass {
+    pub const IOPRIO_CLASS_NONE: Self = Self(0);
+    pub const IOPRIO_CLASS_RT: Self = Self(1);
+    pub const IOPRIO_CLASS_BE: Self = Self(2);
+    pub const IOPRIO_CLASS_IDLE: Self = Self(3);
+    pub const IOPRIO_CLASS_INVALID: Self = Self(7);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOPRIO_CLASS_NONE", Self::IOPRIO_CLASS_NONE),
+        ("IOPRIO_CLASS_RT", Self::IOPRIO_CLASS_RT),
+        ("IOPRIO_CLASS_BE", Self::IOPRIO_CLASS_BE),
+        ("IOPRIO_CLASS_IDLE", Self::IOPRIO_CLASS_IDLE),
+        ("IOPRIO_CLASS_INVALID", Self::IOPRIO_CLASS_INVALID),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IOPRIO_CLASS_NONE"),
+            1 => Some("IOPRIO_CLASS_RT"),
+            2 => Some("IOPRIO_CLASS_BE"),
+            3 => Some("IOPRIO_CLASS_IDLE"),
+            7 => Some("IOPRIO_CLASS_INVALID"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoprioClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoprioClass({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoprioClass {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `ioprio_get`/`ioprio_set` targets (`IOPRIO_WHO_*`, `linux/ioprio.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoprioWho(pub i32);
+impl IoprioWho {
+    pub const IOPRIO_WHO_PROCESS: Self = Self(1);
+    pub const IOPRIO_WHO_PGRP: Self = Self(2);
+    pub const IOPRIO_WHO_USER: Self = Self(3);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOPRIO_WHO_PROCESS", Self::IOPRIO_WHO_PROCESS),
+        ("IOPRIO_WHO_PGRP", Self::IOPRIO_WHO_PGRP),
+        ("IOPRIO_WHO_USER", Self::IOPRIO_WHO_USER),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            1 => Some("IOPRIO_WHO_PROCESS"),
+            2 => Some("IOPRIO_WHO_PGRP"),
+            3 => Some("IOPRIO_WHO_USER"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoprioWho {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoprioWho({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoprioWho {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
     }
     fn write_to(&self, out: &mut [u8]) {
         self.0.write_to(out);
