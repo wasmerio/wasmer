@@ -2382,6 +2382,10 @@ impl Kernel {
         {
             return Err(Errno::EINVAL.into());
         }
+        // mm/msync.c: a validated empty interval returns before walking the VMAs.
+        if len == 0 {
+            return Ok(0);
+        }
         let len = u64::from(len).div_ceil(PAGE_SIZE) * PAGE_SIZE;
         let start = u64::from(start);
         let mm = self.mm(caller.task());

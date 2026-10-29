@@ -1040,6 +1040,7 @@ fn shared_file_mapping_marks_write_times_at_sync_and_removal() {
             "readonly",
             "private",
             "invalidate",
+            "empty",
             "protect",
         ] {
             let (kernel, task) = shared_machine();
@@ -1095,6 +1096,9 @@ fn shared_file_mapping_marks_write_times_at_sync_and_removal() {
                 "exit" => {
                     block_on(kernel.exit_group(&caller, 0)).unwrap();
                 }
+                "empty" => {
+                    block_on(kernel.msync(&caller, at + PAGE, 0, MsyncFlags::MS_SYNC)).unwrap();
+                }
                 "protect" => {
                     // Partial downgrade must preserve the first page's pending mark only
                     // until it has been accounted, without losing the writable second page.
@@ -1119,7 +1123,20 @@ fn shared_file_mapping_marks_write_times_at_sync_and_removal() {
                     block_on(kernel.msync(&caller, at, 2 * PAGE, flags)).unwrap();
                 }
             }
-            check(!matches!(operation, "readonly" | "private" | "invalidate"));
+            check(!matches!(
+                operation,
+                "readonly" | "private" | "invalidate" | "empty"
+            ));
+            if matches!(operation, "sync" | "async") {
+                reset();
+                let flags = if operation == "sync" {
+                    MsyncFlags::MS_SYNC
+                } else {
+                    MsyncFlags::MS_ASYNC
+                };
+                block_on(kernel.msync(&caller, at, 2 * PAGE, flags)).unwrap();
+                check(true);
+            }
         }
     }
 }
