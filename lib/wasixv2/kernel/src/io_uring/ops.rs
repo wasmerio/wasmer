@@ -536,6 +536,11 @@ pub(crate) fn handle_wakeup(ctx: &Ctx, id: u64) {
         None => return,
     };
     if mask.is_empty() {
+        if !multishot && let Some(waiting) = ctx.take_waiting(id) {
+            // Linux poll.c:io_poll_check_events reissues a one-shot poll whose
+            // wake became stale after its wait entries were detached.
+            ctx.queue_ready(waiting.into_req());
+        }
         return;
     }
     match multishot {
