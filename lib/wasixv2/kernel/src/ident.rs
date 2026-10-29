@@ -285,14 +285,16 @@ impl Process {
         *cred = new;
     }
 
-    /// The identity entries of the process's auxiliary vector.
+    /// The identity entries of the process's auxiliary vector, as its user namespace sees them
+    /// (`create_elf_tables`).
     pub(crate) fn identity(&self) -> Identity {
         let cred = self.cred();
+        let ns = &cred.user_ns;
         Identity {
-            uid: cred.user.real,
-            euid: cred.user.effective,
-            gid: cred.group.real,
-            egid: cred.group.effective,
+            uid: ns.munged_uid(cred.user.real),
+            euid: ns.munged_uid(cred.user.effective),
+            gid: ns.munged_gid(cred.group.real),
+            egid: ns.munged_gid(cred.group.effective),
             secure: self.ident.lock_or_recover().secure_exec,
         }
     }
@@ -333,34 +335,60 @@ impl Kernel {
         self.process(caller.task()).cred()
     }
 
-    /// `setuid`, `setreuid`, `setresuid` and their gid twins.
+    /// `setuid`, `setreuid`, `setresuid` and their gid twins, with the guest's ids, which must
+    /// be mapped in its user namespace (`EINVAL`).
     pub(crate) fn sys_set_ids(
         &self,
         caller: &Caller<'_>,
         kind: IdKind,
-        change: IdChange,
+        change: IdChange<u32>,
     ) -> SysResult<i32> {
-        self.process(caller.task())
-            .update_cred(|cred| cred.change_ids(kind, change))
+        self.process(caller.task()).update_cred(|cred| match kind {
+            IdKind::User => cred.change_uids(change.to_kernel(|id| cred.user_ns.make_kuid(id))?),
+            IdKind::Group => cred.change_gids(change.to_kernel(|id| cred.user_ns.make_kgid(id))?),
+        })
     }
 
     /// `setfsuid` and `setfsgid` return the old id whether or not they change it.
     pub(crate) fn sys_setfsid(&self, caller: &Caller<'_>, kind: IdKind, id: u32) -> SysResult<i32> {
         let process = self.process(caller.task());
-        let (old, new) = process.cred().change_fsid(kind, id);
+        let cred = process.cred();
+        let ns = &cred.user_ns;
+        let (old, new) = match kind {
+            IdKind::User => {
+                let (old, new) = cred.change_fsuid(ns.make_kuid(id));
+                (ns.munged_uid(old), new)
+            }
+            IdKind::Group => {
+                let (old, new) = cred.change_fsgid(ns.make_kgid(id));
+                (ns.munged_gid(old), new)
+            }
+        };
         process.commit_cred(new);
         Ok(old as i32)
     }
 
-    pub(crate) fn sys_getid(&self, caller: &Caller<'_>, kind: IdKind, effective: bool) -> i32 {
+    /// The caller's real, effective and saved uids or gids, as its user namespace sees them.
+    fn ids_seen(&self, caller: &Caller<'_>, kind: IdKind) -> [u32; 3] {
         let cred = self.cred(caller);
-        let ids = match kind {
-            IdKind::User => cred.user,
-            IdKind::Group => cred.group,
-        };
+        let ns = &cred.user_ns;
+        match kind {
+            IdKind::User => {
+                let ids = cred.user;
+                [ids.real, ids.effective, ids.saved].map(|id| ns.munged_uid(id))
+            }
+            IdKind::Group => {
+                let ids = cred.group;
+                [ids.real, ids.effective, ids.saved].map(|id| ns.munged_gid(id))
+            }
+        }
+    }
+
+    pub(crate) fn sys_getid(&self, caller: &Caller<'_>, kind: IdKind, effective: bool) -> i32 {
+        let [real, euid, _] = self.ids_seen(caller, kind);
         match effective {
-            true => ids.effective as i32,
-            false => ids.real as i32,
+            true => euid as i32,
+            false => real as i32,
         }
     }
 
@@ -370,12 +398,8 @@ impl Kernel {
         kind: IdKind,
         ptrs: [UidPtr; 3],
     ) -> SysResult<i32> {
-        let cred = self.cred(caller);
-        let ids = match kind {
-            IdKind::User => cred.user,
-            IdKind::Group => cred.group,
-        };
-        for (ptr, id) in ptrs.into_iter().zip([ids.real, ids.effective, ids.saved]) {
+        let ids = self.ids_seen(caller, kind);
+        for (ptr, id) in ptrs.into_iter().zip(ids) {
             write_value(caller.memory(), ptr, &(id as Uid)).await?;
         }
         Ok(0)
@@ -387,7 +411,12 @@ impl Kernel {
         size: i32,
         list: GidArray,
     ) -> SysResult<i32> {
-        let groups = self.cred(caller).groups;
+        let cred = self.cred(caller);
+        let groups: Vec<u32> = cred
+            .groups
+            .iter()
+            .map(|&gid| cred.user_ns.munged_gid(gid))
+            .collect();
         let count = groups.len() as i32;
         match size {
             ..0 => Err(Errno::EINVAL.into()),
@@ -418,11 +447,18 @@ impl Kernel {
             .ok_or(Errno::EINVAL)?;
         let mut bytes = vec![0; size * 4];
         caller.memory().read(list.addr(), &mut bytes).await?;
-        let groups = bytes
+        let groups: Vec<Gid> = bytes
             .chunks_exact(4)
             .map(|gid| Gid::from_le_bytes(gid.try_into().unwrap()))
             .collect();
-        process.update_cred(|cred| cred.set_groups(groups))
+        process.update_cred(|cred| {
+            // `groups_from_user`: every group must be mapped.
+            let groups = groups
+                .iter()
+                .map(|&gid| cred.user_ns.make_kgid(gid).ok_or(Errno::EINVAL))
+                .collect::<Result<_, _>>()?;
+            cred.set_groups(groups)
+        })
     }
 
     /// `capget`: an unknown header version is answered with the preferred one.

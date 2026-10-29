@@ -19,6 +19,7 @@ use wasixv2_wait::{PollMask, WaitQueue, wait_event};
 
 use super::{CAP_SYS_RESOURCE, Ids, Object, Perm, READ, WRITE, capable, get_or_create};
 use crate::Kernel;
+use crate::ns::UserNs;
 use crate::sync::MutexExt;
 
 /// `MSGMNI`: queues in the namespace.
@@ -119,12 +120,12 @@ impl State {
         found
     }
 
-    fn to_abi(&self, perm: &Perm) -> Msqid64Ds {
+    fn to_abi(&self, perm: &Perm, ns: &UserNs) -> Msqid64Ds {
         let (stime, stime_high) = super::split_time(self.stime);
         let (rtime, rtime_high) = super::split_time(self.rtime);
         let (ctime, ctime_high) = super::split_time(self.ctime);
         Msqid64Ds {
-            msg_perm: perm.to_abi(),
+            msg_perm: perm.to_abi(ns),
             msg_stime: stime,
             msg_stime_high: stime_high,
             msg_rtime: rtime,
@@ -409,7 +410,7 @@ impl Kernel {
                     if IpcCmd(cmd) != super::MSG_STAT_ANY {
                         perm.check(&cred, READ)?;
                     }
-                    state.to_abi(&perm)
+                    state.to_abi(&perm, &self.cred(caller).user_ns)
                 };
                 // The last sender and receiver as the caller sees them (`pid_vnr`).
                 let ds = Msqid64Ds {
@@ -433,8 +434,8 @@ impl Kernel {
                 if qbytes > MSGMNB as usize && !capable(&cred, CAP_SYS_RESOURCE) {
                     return Err(Errno::EPERM.into());
                 }
+                perm.update(&ds.msg_perm, &self.cred(caller).user_ns)?;
                 state.qbytes = qbytes;
-                perm.update(&ds.msg_perm);
                 state.ctime = self.ipc_now();
                 drop((perm, state));
                 queue.queue.wake(PollMask::empty());

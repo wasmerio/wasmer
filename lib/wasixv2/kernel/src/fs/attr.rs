@@ -15,7 +15,11 @@ use wasixv2_vfs::{
 };
 
 use super::{Env, read_path};
-use crate::Kernel;
+use crate::{
+    Kernel,
+    ns::UserNs,
+    uidgid::{Kgid, Kuid},
+};
 
 /// `ST_*` bits of `statfs.f_flags`.
 const ST_RDONLY: u32 = 1;
@@ -68,7 +72,9 @@ impl Kernel {
             .resolve_at(caller, &env, dfd, &path, flags, true)
             .await?;
         let attr = self.vfs.stat(&target).await?;
-        write_value(caller.memory(), buffer, &statx(&target, &attr, mask)).await?;
+        let ns = self.cred(caller).user_ns;
+        let statx = statx(&target, &attr, mask, &ns);
+        write_value(caller.memory(), buffer, &statx).await?;
         Ok(0)
     }
 
@@ -223,6 +229,24 @@ impl Kernel {
         Ok(0)
     }
 
+    /// `chown_common`: the kernel ids of the owner the caller names in its user namespace,
+    /// `None` for `-1`, which leaves it; one the namespace does not map is `EINVAL`.
+    fn chown_ids(
+        &self,
+        caller: &Caller<'_>,
+        user: u32,
+        group: u32,
+    ) -> Result<(Option<u32>, Option<u32>), Errno> {
+        let ns = self.cred(caller).user_ns;
+        let user = id(user)
+            .map(|uid| ns.make_kuid(uid).map(|k| k.0).ok_or(Errno::EINVAL))
+            .transpose()?;
+        let group = id(group)
+            .map(|gid| ns.make_kgid(gid).map(|k| k.0).ok_or(Errno::EINVAL))
+            .transpose()?;
+        Ok((user, group))
+    }
+
     pub(crate) async fn sys_fchown(
         &self,
         caller: &Caller<'_>,
@@ -233,9 +257,8 @@ impl Kernel {
         self.io_file(caller, fd)?;
         let target = self.fd_path(caller, fd)?;
         let env = self.env(caller);
-        self.vfs
-            .chown(&env.cx(), &target, id(user), id(group))
-            .await?;
+        let (user, group) = self.chown_ids(caller, user, group)?;
+        self.vfs.chown(&env.cx(), &target, user, group).await?;
         Ok(0)
     }
 
@@ -256,9 +279,8 @@ impl Kernel {
         let target = self
             .resolve_at(caller, &env, dfd, &path, flags, true)
             .await?;
-        self.vfs
-            .chown(&env.cx(), &target, id(user), id(group))
-            .await?;
+        let (user, group) = self.chown_ids(caller, user, group)?;
+        self.vfs.chown(&env.cx(), &target, user, group).await?;
         Ok(0)
     }
 
@@ -506,8 +528,9 @@ fn st_mode(path: &Path, attr: &Attr) -> u32 {
 }
 
 /// `statx`'s result. The mount id is the unique one if `request` asks for it
-/// (`STATX_MNT_ID_UNIQUE`), else the one `mountinfo` shows.
-fn statx(path: &Path, attr: &Attr, request: StatxMask) -> Statx {
+/// (`STATX_MNT_ID_UNIQUE`), else the one `mountinfo` shows. The owner is as the caller's user
+/// namespace `ns` sees it (`cp_statx`).
+fn statx(path: &Path, attr: &Attr, request: StatxMask, ns: &UserNs) -> Statx {
     let dev = attr.dev.unwrap_or_default();
     let (mnt_id, mnt_mask) = match request.contains(StatxMask::STATX_MNT_ID_UNIQUE) {
         true => (path.mnt.unique_id(), StatxMask::STATX_MNT_ID_UNIQUE),
@@ -526,8 +549,8 @@ fn statx(path: &Path, attr: &Attr, request: StatxMask) -> Statx {
         stx_blksize: attr.blksize,
         stx_attributes: attributes,
         stx_nlink: attr.nlink,
-        stx_uid: attr.uid,
-        stx_gid: attr.gid,
+        stx_uid: ns.munged_uid(Kuid(attr.uid)),
+        stx_gid: ns.munged_gid(Kgid(attr.gid)),
         stx_mode: st_mode(path, attr) as u16,
         stx_ino: attr.ino,
         stx_size: attr.size,

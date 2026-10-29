@@ -43,6 +43,7 @@ use super::{CAP_IPC_LOCK, Ids, Object, Perm, READ, WRITE, capable, get_or_create
 use crate::{
     Kernel,
     mm::{self, Mapped, PAGE_SIZE, Shared, Source},
+    ns::UserNs,
     sync::MutexExt,
 };
 
@@ -195,13 +196,13 @@ impl Segment {
         }
     }
 
-    fn to_abi(&self, perm: &Perm) -> Shmid64Ds {
+    fn to_abi(&self, perm: &Perm, ns: &UserNs) -> Shmid64Ds {
         let state = self.state();
         let (atime, atime_high) = super::split_time(state.atime);
         let (dtime, dtime_high) = super::split_time(state.dtime);
         let (ctime, ctime_high) = super::split_time(state.ctime);
         Shmid64Ds {
-            shm_perm: perm.to_abi(),
+            shm_perm: perm.to_abi(ns),
             shm_segsz: self.size as u32,
             shm_atime: atime,
             shm_atime_high: atime_high,
@@ -518,7 +519,7 @@ impl Kernel {
                 if IpcCmd(cmd) != super::SHM_STAT_ANY {
                     perm.check(&cred, READ)?;
                 }
-                let ds = segment.to_abi(&perm);
+                let ds = segment.to_abi(&perm, &self.cred(caller).user_ns);
                 // The creator and last user as the caller sees them (`pid_vnr`).
                 let ds = Shmid64Ds {
                     shm_cpid: self.vnr(caller, ds.shm_cpid as u32),
@@ -537,7 +538,7 @@ impl Kernel {
                 let mut state = segment.state();
                 let mut perm = segment.perm();
                 perm.check_owner(&cred)?;
-                perm.update(&ds.shm_perm);
+                perm.update(&ds.shm_perm, &self.cred(caller).user_ns)?;
                 state.ctime = self.ipc_now();
                 Ok(0)
             }

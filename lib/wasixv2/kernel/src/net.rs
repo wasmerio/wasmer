@@ -1022,7 +1022,8 @@ impl Kernel {
         let len: i32 = read_value(caller.memory(), GuestPtr::new(optlen.addr())).await?;
         let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?;
         if level == SocketLevel::SOL_SOCKET && SocketOption(name) == SocketOption::SO_PEERGROUPS {
-            return peer_groups(caller, &any, len, optval, optlen).await;
+            let ns = self.cred(caller).user_ns;
+            return peer_groups(caller, &ns, &any, len, optval, optlen).await;
         }
         let len = len.min(4096);
         let fixed = match &any {
@@ -1101,9 +1102,10 @@ impl Kernel {
 
 /// `SO_PEERGROUPS`: the supplementary groups of a socket's peer, `ENODATA` without one (only
 /// Unix sockets have peer credentials); a buffer too short is `ERANGE` with the length it
-/// needs written back.
+/// needs written back. The groups are as the caller's user namespace `ns` sees them.
 async fn peer_groups(
     caller: &Caller<'_>,
+    ns: &crate::ns::UserNs,
     any: &AnySock,
     len: usize,
     optval: Buf,
@@ -1119,7 +1121,10 @@ async fn peer_groups(
         write_value(caller.memory(), optlen, &(need as u32)).await?;
         return Err(Errno::ERANGE.into());
     }
-    let raw: Vec<u8> = groups.iter().flat_map(|g| g.to_le_bytes()).collect();
+    let raw: Vec<u8> = groups
+        .iter()
+        .flat_map(|&gid| ns.munged_gid(gid).to_le_bytes())
+        .collect();
     caller.memory().write(optval.addr(), &raw).await?;
     write_value(caller.memory(), optlen, &(need as u32)).await?;
     Ok(0)

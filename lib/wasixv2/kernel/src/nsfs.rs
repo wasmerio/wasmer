@@ -309,18 +309,18 @@ impl Kernel {
         let ns = file.namespace();
         match request {
             IoctlRequest::NS_GET_USERNS => {
-                let owner = ns.owner(&self.ns(caller).user)?;
+                let owner = ns.owner(&self.cred(caller).user_ns)?;
                 self.open_namespace(caller, Namespace::User(owner))
             }
             IoctlRequest::NS_GET_PARENT => {
-                let user = self.ns(caller).user.clone();
+                let user = self.cred(caller).user_ns;
                 let active = self.process(caller.task()).pid_ns.clone();
                 let parent = ns.parent(&user, &active)?;
                 self.open_namespace(caller, parent)
             }
             IoctlRequest::NS_GET_NSTYPE => Ok(ns.kind().flag() as i32),
             IoctlRequest::NS_GET_OWNER_UID => {
-                let uid = ns.owner_uid()?;
+                let uid = ns.owner_uid(&self.cred(caller).user_ns)?;
                 write_value(caller.memory(), GuestPtrMut::<u32>::new(arg), &uid).await?;
                 Ok(0)
             }

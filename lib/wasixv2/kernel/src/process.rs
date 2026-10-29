@@ -32,11 +32,12 @@ use crate::{
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     fs::FdReservation,
     ident::{Comm, Ident},
-    ns::PidNs,
+    ns::{PidNs, UserNs},
     pid::{PidType, Pids},
     signal::{Signals, user_info},
     sync::MutexExt,
     thread,
+    uidgid::{Kgid, Kuid},
     work::Work,
 };
 
@@ -185,7 +186,7 @@ impl Node {
 struct Binary {
     path: wasixv2_vfs::Path,
     mode: u32,
-    owner: (u32, u32),
+    owner: (Kuid, Kgid),
     /// On a `nosuid` mount, whose set-user-ID and set-group-ID bits do not apply.
     nosuid: bool,
     /// Its size when it was opened.
@@ -198,7 +199,7 @@ struct Exit {
     code: SiCode,
     status: i32,
     /// The process's real uid when it exited.
-    uid: u32,
+    uid: Kuid,
 }
 
 impl Procs {
@@ -367,8 +368,8 @@ pub(crate) fn vfork_parent_resumes(state: &State, action: GuestAction) -> GuestA
 }
 
 /// The `siginfo` of SIGCHLD and `waitid`: `si_pid` (the child's pid as the parent sees it),
-/// `si_uid` (the child's real uid), `si_status`.
-fn child_info(signo: i32, pid: Pid, exit: Exit) -> Siginfo {
+/// `si_uid` (the child's real uid as the parent's user namespace `ns` sees it), `si_status`.
+fn child_info(signo: i32, pid: Pid, exit: Exit, ns: &UserNs) -> Siginfo {
     let mut info = Siginfo {
         si_signo: signo,
         si_errno: 0,
@@ -376,7 +377,7 @@ fn child_info(signo: i32, pid: Pid, exit: Exit) -> Siginfo {
         sifields: [0; 116],
     };
     info.sifields[0..4].copy_from_slice(&pid.to_le_bytes());
-    info.sifields[4..8].copy_from_slice(&exit.uid.to_le_bytes());
+    info.sifields[4..8].copy_from_slice(&ns.munged_uid(exit.uid).to_le_bytes());
     info.sifields[8..12].copy_from_slice(&exit.status.to_le_bytes());
     info
 }
@@ -517,6 +518,15 @@ impl Kernel {
         self.jobs.group_signals(pid)
     }
 
+    /// The user namespace of the process `pid` (`task_cred_xxx(p, user_ns)`); the initial one
+    /// once it is gone.
+    fn user_ns_of(&self, pid: u32) -> Arc<UserNs> {
+        self.procs.find(pid).map_or_else(
+            || self.init_user_ns.clone(),
+            |process| process.cred().user_ns,
+        )
+    }
+
     /// Records that a signal's default action is killing the process `task` belongs to, so its
     /// parent sees `WIFSIGNALED`.
     pub(crate) fn note_killed(&self, task: TaskId, sig: i32) {
@@ -647,15 +657,17 @@ impl Kernel {
             self.kill_orphaned_pgrp(pgid);
         }
         if let Some(signals) = reaper_signals {
+            let ns = self.user_ns_of(reaper);
             for (child, exit) in inherited {
-                let _ = signals.send_group(child_info(Signal::SIGCHLD.0, child, exit));
+                let _ = signals.send_group(child_info(Signal::SIGCHLD.0, child, exit, &ns));
             }
         }
         // `group_send_sig_info(pdeath_signal, SEND_SIG_NOINFO)`: from the parent, as `kill`;
         // from outside the child's pid namespace when it has no pid there.
         for (child, sig, parent_pid) in orphans {
             if let Some(signals) = self.group_signals(child) {
-                let info = user_info(sig, SiCode::SI_USER, parent_pid, exit.uid);
+                let uid = self.user_ns_of(child).munged_uid(exit.uid);
+                let info = user_info(sig, SiCode::SI_USER, parent_pid, uid);
                 let _ = signals.send_from(None, info, parent_pid == 0);
             }
         }
@@ -675,7 +687,8 @@ impl Kernel {
             && !ignored
         {
             // A realtime exit signal its parent has no room for is lost.
-            let _ = signals.send_group(child_info(exit_signal, pid_for_parent, exit));
+            let ns = self.user_ns_of(parent);
+            let _ = signals.send_group(child_info(exit_signal, pid_for_parent, exit, &ns));
         }
         self.procs.changed.wake(PollMask::empty());
         self.pid_ns_progress();
@@ -722,7 +735,8 @@ impl Kernel {
                 uid,
             };
             // SIGCHLD needs no room in a queue.
-            let _ = signals.send_group(child_info(Signal::SIGCHLD.0, pid, exit));
+            let ns = self.user_ns_of(parent);
+            let _ = signals.send_group(child_info(Signal::SIGCHLD.0, pid, exit, &ns));
         }
         self.procs.changed.wake(PollMask::empty());
     }
@@ -1472,7 +1486,7 @@ impl Kernel {
         let file = self.vfs.open(&env.cx(), &target, b"", &how).await?;
         let binary = Binary {
             mode: attr.mode,
-            owner: (attr.uid, attr.gid),
+            owner: (Kuid(attr.uid), Kgid(attr.gid)),
             nosuid: target.mnt.flags().nosuid,
             size: attr.size,
             path: target,
@@ -1624,7 +1638,8 @@ impl Kernel {
         let (info, usage) = match found {
             Some((pid, exit, child)) => {
                 let usage = child.usage_both();
-                (child_info(Signal::SIGCHLD.0, pid, exit), usage)
+                let ns = me.cred().user_ns;
+                (child_info(Signal::SIGCHLD.0, pid, exit, &ns), usage)
             }
             None => (
                 Siginfo {
