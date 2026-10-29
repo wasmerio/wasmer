@@ -2264,7 +2264,8 @@ impl Kernel {
                 drop(state);
                 let message = tracer
                     .and_then(|tracer| self.task_process(tracer))
-                    .map_or(0, |tracer| self.pids.nr(&tracer.pid_ns, child.0));
+                    .map_or(0, |tracer| child.nr(&tracer.pid_ns));
+                drop(child);
                 state = signals.group.state.lock_or_recover();
                 let code =
                     Signal::SIGTRAP.0 | wasixv2_abi::PtraceEvent::PTRACE_EVENT_VFORK_DONE.0 << 8;

@@ -343,7 +343,7 @@ pub(crate) struct TaskTrace {
     /// (`ptrace_event_pid`), with the child.
     pub(crate) clone_event: Option<(i32, TaskId)>,
     /// `kernel_clone` reports this after `wait_for_vfork_done` succeeds.
-    pub(crate) vfork_done: Option<TaskId>,
+    pub(crate) vfork_done: Option<crate::pid::PidRef>,
     /// `do_exit` reports its exit event once, before leaving the mm.
     pub(crate) exit_reported: bool,
     /// A non-leader exec reports its old tid when the leader starts the new image.
@@ -1392,6 +1392,9 @@ impl Kernel {
             return;
         };
         if link.has(wasixv2_abi::PtraceOptions::PTRACE_O_TRACEVFORKDONE) {
+            // kernel/fork.c kernel_clone holds get_task_pid through ptrace_event_pid:
+            // a child that autoreaps before the parent resumes still has its number.
+            let child = self.pids.get(child.0);
             self.task_signals(parent)
                 .group()
                 .with_trace(parent, |trace| trace.vfork_done = Some(child));
