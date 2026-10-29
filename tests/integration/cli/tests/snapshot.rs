@@ -53,7 +53,7 @@ pub struct TestSpec {
     pub enable_network: bool,
     #[serde(skip_serializing_if = "is_false")]
     #[serde(default)]
-    pub enable_async_threads: bool,
+    pub enable_async_entrypoint: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
     pub mounts: Vec<(PathBuf, PathBuf)>,
@@ -134,7 +134,7 @@ impl TestBuilder {
                 stdin_hash: None,
                 enable_threads: true,
                 enable_network: false,
-                enable_async_threads: false,
+                enable_async_entrypoint: false,
                 mounts: vec![],
             },
         }
@@ -150,8 +150,8 @@ impl TestBuilder {
         self
     }
 
-    pub fn with_async_threads(mut self) -> Self {
-        self.spec.enable_async_threads = true;
+    pub fn with_async_entrypoint(mut self) -> Self {
+        self.spec.enable_async_entrypoint = true;
         self
     }
 
@@ -295,8 +295,8 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
         cmd.arg("--net");
     }
 
-    if spec.enable_async_threads {
-        cmd.arg("--enable-async-threads");
+    if spec.enable_async_entrypoint {
+        cmd.arg("--enable-async-entrypoint");
     }
 
     for pkg in &spec.use_packages {
@@ -465,7 +465,7 @@ fn test_snapshot_condvar() {
 fn test_snapshot_condvar_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-condvar.wasm"
         ));
@@ -528,7 +528,7 @@ fn test_snapshot_epoll() {
 fn test_snapshot_epoll_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-epoll.wasm"
         ));
@@ -718,7 +718,7 @@ fn test_snapshot_web_server_epoll() {
 
     let builder = TestBuilder::new()
         .with_name(name)
-        .with_async_threads()
+        .with_async_entrypoint()
         .enable_network(true)
         .arg("--root")
         .arg("/dev")
@@ -748,7 +748,7 @@ fn test_snapshot_web_server_poll() {
 
     let builder = TestBuilder::new()
         .with_name(name)
-        .with_async_threads()
+        .with_async_entrypoint()
         .enable_network(true)
         .arg("--root")
         .arg("/dev")
@@ -786,7 +786,7 @@ fn test_snapshot_fork_and_exec_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-execve.wasm"
         ));
@@ -827,7 +827,7 @@ fn test_snapshot_fork_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-fork.wasm"
         ));
@@ -858,7 +858,7 @@ fn test_snapshot_longjump_fork() {
 fn test_snapshot_longjump_fork_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-fork-longjmp.wasm"
         ));
@@ -922,7 +922,7 @@ fn test_snapshot_sleep() {
 fn test_snapshot_sleep_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-sleep.wasm"
         ));
@@ -950,7 +950,7 @@ fn test_snapshot_process_spawn_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-spawn.wasm"
         ));
@@ -1013,7 +1013,7 @@ fn test_snapshot_vfork_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-vfork.wasm"
         ));
@@ -1036,7 +1036,7 @@ fn test_snapshot_signals() {
 fn test_snapshot_signals_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .with_async_threads()
+        .with_async_entrypoint()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-signal.wasm"
         ));

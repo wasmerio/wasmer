@@ -2,8 +2,11 @@
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
 
+use std::fmt;
 use std::ops::Deref;
+use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::thread::ThreadId;
 use std::{pin::Pin, time::Duration};
 
 use bytes::Bytes;
@@ -41,7 +44,79 @@ pub enum SpawnMemoryTypeOrStore {
     StoreAndMemory(wasmer::Store, Memory),
 }
 
-pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Bytes) + Send + 'static;
+/// A worker-local future which may hold non-`Send` WebAssembly state.
+pub type WasmTaskFuture = Pin<Box<dyn Future<Output = ()> + 'static>>;
+
+type SpawnLocalTask =
+    dyn Fn(WasmTaskFuture) -> Result<(), LocalTaskSpawnError> + Send + Sync + 'static;
+
+/// Spawns worker-local futures on the executor which owns a WebAssembly task.
+///
+/// The task manager supplies the executor, which is what lets WASIX use one
+/// async execution path on native and JavaScript alike. A WebAssembly task is
+/// pinned to its worker and holds non-`Send` state, so the futures it spawns
+/// cannot be handed to a work-stealing pool; and on JavaScript there is nothing
+/// to block on, so the host's event loop has to be the thing that drives them.
+#[derive(Clone)]
+pub struct LocalTaskSpawner {
+    thread: ThreadId,
+    spawn: Arc<SpawnLocalTask>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum LocalTaskSpawnError {
+    #[error(
+        "local tasks must be spawned on their owning thread; expected {expected:?}, found {found:?}"
+    )]
+    WrongThread { expected: ThreadId, found: ThreadId },
+    #[error("the local task executor has shut down")]
+    ShutDown,
+    #[error("the local task executor rejected the task")]
+    Spawn,
+}
+
+impl LocalTaskSpawner {
+    pub fn new<F>(spawn: F) -> Self
+    where
+        F: Fn(WasmTaskFuture) -> Result<(), LocalTaskSpawnError> + Send + Sync + 'static,
+    {
+        Self {
+            thread: std::thread::current().id(),
+            spawn: Arc::new(spawn),
+        }
+    }
+
+    /// Spawns `future` on the executor this spawner came from.
+    ///
+    /// `Send` so that it can travel with a task description, but checked at run
+    /// time: the futures it spawns are not `Send`, so spawning from another
+    /// thread would hand worker-local state to the wrong executor.
+    pub fn spawn<F>(&self, future: F) -> Result<(), LocalTaskSpawnError>
+    where
+        F: Future<Output = ()> + 'static,
+    {
+        let found = std::thread::current().id();
+        if found != self.thread {
+            return Err(LocalTaskSpawnError::WrongThread {
+                expected: self.thread,
+                found,
+            });
+        }
+        (self.spawn)(Box::pin(future))
+    }
+}
+
+impl fmt::Debug for LocalTaskSpawner {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("LocalTaskSpawner")
+            .field("thread", &self.thread)
+            .finish_non_exhaustive()
+    }
+}
+
+pub type WasmResumeTask =
+    dyn FnOnce(WasiFunctionEnv, Store, Bytes, LocalTaskSpawner) -> WasmTaskFuture + Send + 'static;
 
 pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<Bytes, ExitCode>> + Send + 'static>>
     + Send
@@ -52,6 +127,8 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
+    /// Spawns futures on the worker-local executor driving this task.
+    pub local_tasks: LocalTaskSpawner,
     /// The result of the asynchronous trigger serialized into bytes using the bincode serializer
     /// When no trigger is associated with the run operation (i.e. spawning threads) then this will be None.
     /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
@@ -68,7 +145,13 @@ pub type TaskWasmPreRun = dyn (for<'a> FnOnce(
     + Send;
 
 /// Callback that will be invoked
-pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
+/// Runs a WebAssembly task to completion.
+///
+/// Returns a future rather than running inline: a guest that suspends — through
+/// JSPI, or an async host call — only makes progress when its executor polls it
+/// again, so whoever owns the executor has to own this future too. Blocking here
+/// would deadlock on a single-threaded host.
+pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) -> WasmTaskFuture + Send + 'static;
 
 /// Callback that will be invoked
 pub type TaskExecModule = dyn FnOnce(Module) + Send + 'static;
@@ -103,13 +186,20 @@ pub struct TaskWasm {
 }
 
 impl TaskWasm {
-    pub fn new(
-        run: Box<TaskWasmRun>,
+    /// Takes an `async fn` (or anything returning a worker-local future) and
+    /// boxes it, so callers need not spell out [`WasmTaskFuture`].
+    pub fn new<F, Fut>(
+        run: F,
         env: WasiEnv,
         module: Module,
         update_layout: bool,
         call_initialize: bool,
-    ) -> Self {
+    ) -> Self
+    where
+        F: FnOnce(TaskWasmRunProperties) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + 'static,
+    {
+        let run: Box<TaskWasmRun> = Box::new(move |props| Box::pin(run(props)));
         let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
             callbacks: TaskWasmCallbacks {
@@ -379,7 +469,7 @@ impl dyn VirtualTaskManager {
         let thread_inner = thread.clone();
         self.task_wasm(
             TaskWasm::new(
-                Box::new(move |props| {
+                move |props| -> WasmTaskFuture {
                     let result = props
                         .trigger_result
                         .expect("If there is no result then its likely the trigger did not run");
@@ -387,11 +477,11 @@ impl dyn VirtualTaskManager {
                         Ok(r) => r,
                         Err(exit_code) => {
                             thread.set_status_finished(Ok(exit_code));
-                            return;
+                            return Box::pin(async {});
                         }
                     };
-                    task(props.ctx, props.store, result)
-                }),
+                    task(props.ctx, props.store, result, props.local_tasks)
+                },
                 env.clone(),
                 module,
                 false,

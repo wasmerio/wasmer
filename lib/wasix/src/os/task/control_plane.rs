@@ -41,8 +41,6 @@ impl WasiControlPlaneHandle {
 pub struct ControlPlaneConfig {
     /// Total number of tasks (processes + threads) that can be spawned.
     pub max_task_count: Option<usize>,
-    /// Flag that indicates if asynchronous threading is enables (opt-in)
-    pub enable_asynchronous_threading: bool,
     /// Enables an exponential backoff of the process CPU usage when there
     /// are no active run tokens (when set holds the maximum amount of
     /// time that it will pause the CPU)
@@ -54,7 +52,6 @@ impl ControlPlaneConfig {
     pub fn new() -> Self {
         Self {
             max_task_count: None,
-            enable_asynchronous_threading: false,
             enable_exponential_cpu_backoff: None,
         }
     }
@@ -222,7 +219,6 @@ mod tests {
     fn test_control_plane_task_limits() {
         let p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: Some(2),
-            enable_asynchronous_threading: false,
             enable_exponential_cpu_backoff: None,
         });
 
@@ -245,7 +241,6 @@ mod tests {
     fn test_control_plane_task_limits_with_dropped_threads() {
         let p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: Some(2),
-            enable_asynchronous_threading: false,
             enable_exponential_cpu_backoff: None,
         });
 

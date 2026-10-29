@@ -92,6 +92,129 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
         self.0.as_store_async()
     }
+
+    /// A handle to this environment that outlives the call currently running,
+    /// for a callback registered with a foreign runtime.
+    ///
+    /// `None` unless this host function was reached through
+    /// [`Function::call_async`](crate::Function::call_async): there is no async
+    /// store to refer to otherwise. See [`FunctionEnvHandle`].
+    #[cfg(feature = "experimental-async")]
+    pub fn handle(&self) -> Option<FunctionEnvHandle<T>> {
+        let id = self.as_store_ref().objects().id();
+        Some(FunctionEnvHandle {
+            store: crate::StoreAsync::from_context(id)?.downgrade(),
+            func_env: self.as_ref(),
+        })
+    }
+}
+
+/// A stashable handle to a [`FunctionEnv`] and the store it lives in.
+///
+/// A host function that registers a callback with a foreign runtime — an N-API
+/// module handing a function to a JavaScript engine, say — has to reach its
+/// environment again when that callback fires, which can be long after the call
+/// that registered it returned, and from a stack with no Rust frame of ours on
+/// it. This is that handle; mint one with [`FunctionEnvMut::handle`].
+///
+/// It holds the store *weakly*, so it never keeps a store alive. A strong handle
+/// would deadlock ownership whenever the registration is kept in the store's own
+/// data, which is where such registrations naturally live.
+///
+/// Reach the environment with [`Self::try_write`], which takes the store's write
+/// lock. `None` means the environment is not reachable *right now*, which is an
+/// ordinary outcome rather than an error: a guest may be running and holding the
+/// store, or it may be gone for good ([`Self::is_alive`] separates those). A
+/// caller that cannot proceed should queue the work and retry — forcing its way
+/// in is what makes two live `StoreMut`s for one store, which is undefined
+/// behaviour.
+///
+/// The moment this does succeed is while the guest is **suspended**: a guest that
+/// suspends releases the store, so a callback arriving then gets exclusive access.
+/// That is the case a foreign runtime's callbacks actually arrive in, because the
+/// guest reaches a host runtime's event loop by suspending into it.
+///
+/// There is deliberately no way to borrow a store that a frame on this thread is
+/// *currently* holding. It would have to be lent first, and an async store cannot
+/// be: [`StoreContext::install`](crate::StoreContext) is a no-op for one, since
+/// shadowing its entry would hide the write guard from the async host functions
+/// that find it by inspecting that entry.
+#[cfg(feature = "experimental-async")]
+pub struct FunctionEnvHandle<T> {
+    store: crate::WeakStoreAsync,
+    func_env: FunctionEnv<T>,
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T> Clone for FunctionEnvHandle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            store: self.store.clone(),
+            func_env: self.func_env.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T> Debug for FunctionEnvHandle<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FunctionEnvHandle")
+            .field("store", &self.store)
+            .finish_non_exhaustive()
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T> FunctionEnvHandle<T> {
+    /// The store this environment belongs to, whether or not it is still alive.
+    pub fn store_id(&self) -> wasmer_types::StoreId {
+        self.store.store_id()
+    }
+
+    /// Whether the store still exists. A `false` here is permanent.
+    pub fn is_alive(&self) -> bool {
+        self.store.upgrade().is_some()
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: Any + Send + 'static + Sized> FunctionEnvHandle<T> {
+    /// Takes the store's write lock if it is free.
+    ///
+    /// `None` if the store is gone, or if the lock is held — by a guest that is
+    /// running right now, say. Neither is an error; see the type's documentation.
+    pub fn try_write(&self) -> Option<FunctionEnvHandleGuard<T>> {
+        let store = self.store.upgrade()?;
+        Some(FunctionEnvHandleGuard {
+            lock: crate::StoreAsyncWriteLock::try_acquire(&store)?,
+            func_env: self.func_env.clone(),
+        })
+    }
+
+    /// Waits for the store's write lock. `None` if the store is already gone.
+    pub async fn write(&self) -> Option<FunctionEnvHandleGuard<T>> {
+        let store = self.store.upgrade()?;
+        Some(FunctionEnvHandleGuard {
+            lock: crate::StoreAsyncWriteLock::acquire(&store).await,
+            func_env: self.func_env.clone(),
+        })
+    }
+}
+
+/// The store lock a [`FunctionEnvHandle`] acquired, and the environment it
+/// reaches through it.
+#[cfg(feature = "experimental-async")]
+pub struct FunctionEnvHandleGuard<T> {
+    lock: crate::StoreAsyncWriteLock,
+    func_env: FunctionEnv<T>,
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: Any + Send + 'static + Sized> FunctionEnvHandleGuard<T> {
+    /// Borrows the environment for as long as this guard is held.
+    pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {
+        self.func_env.clone().into_mut(&mut self.lock)
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
