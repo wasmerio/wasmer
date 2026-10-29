@@ -54,6 +54,9 @@ pub trait ReadSink {
     fn copy_out<'a>(&'a mut self, data: &'a [u8]) -> LocalFuture<'a, usize>;
 }
 
+/// What [`FileObject::mmap_pages`] maps: a shared object and where in it the mapping starts.
+pub(crate) type MappedPages = (Arc<dyn wasixv2_pages::SharedPages>, u64);
+
 /// The object behind an open file that is not an inode: a pipe, a socket, an event source, a
 /// host stream. Linux's `file_operations`: one trait for read, write, poll and ioctl.
 ///
@@ -159,6 +162,19 @@ pub trait FileObject: Pollable + Any {
     fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
         let _ = fasync;
         None
+    }
+
+    /// `f_op->mmap` of an object that is pages of its own (an io_uring's rings): for `len`
+    /// bytes from `offset` of the file, the shared object to map and where in it. `None` for
+    /// an object that cannot be mapped (the default).
+    fn mmap_pages(&self, offset: u64, len: u64) -> Option<Result<MappedPages, Errno>> {
+        let _ = (offset, len);
+        None
+    }
+
+    /// `f_op->show_fdinfo`: lines `/proc/<pid>/fdinfo/<fd>` adds for the object.
+    fn show_fdinfo(&self) -> String {
+        String::new()
     }
 }
 

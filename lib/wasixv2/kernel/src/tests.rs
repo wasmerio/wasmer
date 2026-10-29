@@ -799,6 +799,7 @@ mod aio;
 mod cred;
 mod fs;
 mod futex;
+mod io_uring;
 mod ipc;
 mod jobctl;
 #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]

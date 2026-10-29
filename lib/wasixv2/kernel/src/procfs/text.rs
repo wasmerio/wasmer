@@ -897,11 +897,14 @@ pub(super) fn fdinfo(file: &OpenFile, cloexec: bool) -> Vec<u8> {
         flags |= OpenFlags::O_CLOEXEC.0;
     }
     let path = file.path();
-    format!(
+    let mut info = format!(
         "pos:\t{}\nflags:\t0{flags:o}\nmnt_id:\t{}\nino:\t{}\n",
         file.pos(),
         path.mnt.id,
         path.dentry.node().ino()
-    )
-    .into_bytes()
+    );
+    if let Some(object) = file.object() {
+        info += &object.show_fdinfo();
+    }
+    info.into_bytes()
 }

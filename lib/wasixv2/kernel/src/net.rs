@@ -118,14 +118,7 @@ impl Kernel {
 
     fn any_socket(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<AnySock> {
         let file = self.file(caller.task(), fd)?;
-        if let Some(unix) = file.downcast::<UnixFile>() {
-            let sock = unix.0.clone();
-            return Ok(AnySock::Unix(file, sock));
-        }
-        if let Some(nl) = file.object().cloned().and_then(netlink::downcast) {
-            return Ok(AnySock::Netlink(file, nl));
-        }
-        self.socket_fd(caller, fd).map(AnySock::Inet)
+        any_socket_file(file)
     }
 
     fn install_unix(
@@ -138,15 +131,6 @@ impl Kernel {
         let file = unix_file(sock, flags, self.pseudo.socket(owner));
         let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
         Ok(fd)
-    }
-
-    /// `sockfd_lookup`: `EBADF`, then `ENOTSOCK` for a descriptor that is not a socket.
-    fn socket_fd(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<Sock> {
-        let file = self.file(caller.task(), fd)?;
-        let object = file.object().ok_or(Errno::ENOTSOCK)?.clone();
-        let any: Arc<dyn std::any::Any + Send + Sync> = object;
-        let socket = any.downcast::<SocketFile>().map_err(|_| Errno::ENOTSOCK)?;
-        Ok((file, socket))
     }
 
     /// An open file for the IP socket `socket` of the network namespace `net`.
@@ -300,13 +284,27 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let any = self.any_socket(caller, fd)?;
+        self.accept_on(caller, any, (addr, addrlen), flags, MsgFlags(0))
+            .await
+    }
+
+    /// `do_accept` on the socket `any`; `MSG_DONTWAIT` in `wait` makes it non-blocking, as
+    /// io_uring's `O_NONBLOCK` attempt does.
+    async fn accept_on(
+        &self,
+        caller: &Caller<'_>,
+        any: AnySock,
+        (addr, addrlen): (SockaddrPtr, SocklenPtr),
+        flags: SocketFlags,
+        wait: MsgFlags,
+    ) -> SysResult<Fd> {
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
         let interrupt = self.interrupt(caller);
         let io = Self::io(caller, &*interrupt, any.file());
         let (file, peer) = match &any {
             AnySock::Inet((_, sock)) => {
-                let mut wait = sock.blocking(io, RCV, MsgFlags(0));
+                let mut wait = sock.blocking(io, RCV, wait);
                 let on = WaitOn::Object(&*sock.socket);
                 wait.wait(on, PollMask::READABLE, || {
                     let accepted = sock.socket.accept()?;
@@ -317,7 +315,7 @@ impl Kernel {
                 .await?
             }
             AnySock::Unix(_, sock) => {
-                let mut wait = sock.blocking(io, RCV, MsgFlags(0));
+                let mut wait = sock.blocking(io, RCV, wait);
                 wait.wait(WaitOn::Queue(sock.queue()), PollMask::READABLE, || {
                     if sock.kind() == unix::Kind::Dgram {
                         return Err(Errno::EOPNOTSUPP);
@@ -347,10 +345,24 @@ impl Kernel {
         len: Socklen,
     ) -> SysResult<i32> {
         let raw = move_addr_to_kernel(caller, addr, len).await?;
-        let (file, sock) = match self.any_socket(caller, fd)? {
+        let any = self.any_socket(caller, fd)?;
+        self.connect_on(caller, any, &raw, MsgFlags(0)).await
+    }
+
+    /// `__sys_connect_file` on the socket `any`; `MSG_DONTWAIT` in `wait` makes it
+    /// non-blocking, as io_uring's `O_NONBLOCK` attempt does.
+    async fn connect_on(
+        &self,
+        caller: &Caller<'_>,
+        any: AnySock,
+        raw: &[u8],
+        wait: MsgFlags,
+    ) -> SysResult<i32> {
+        let raw = raw.to_vec();
+        let (file, sock) = match any {
             AnySock::Inet(sock) => sock,
             AnySock::Unix(file, sock) => {
-                return self.unix_connect(caller, &file, &sock, &raw).await;
+                return self.unix_connect(caller, &file, &sock, &raw, wait).await;
             }
             AnySock::Netlink(_, nl) => {
                 let net_admin = self
@@ -373,7 +385,7 @@ impl Kernel {
             SocketKind::Stream => socket::decode(socket.domain(), &raw, false)?,
         };
         let interrupt = self.interrupt(caller);
-        let mut wait = sock.blocking(Self::io(caller, &*interrupt, &file), SND, MsgFlags(0));
+        let mut wait = sock.blocking(Self::io(caller, &*interrupt, &file), SND, wait);
         // `__inet_stream_connect`: a blocking socket waits for a connection under way, its
         // own or one a restarted call left (`EALREADY`); a non-blocking one reports it.
         let started = socket.connect(addr);
@@ -955,23 +967,8 @@ impl Kernel {
         fd: Fd,
         how: ShutdownHow,
     ) -> SysResult<i32> {
-        let sock = match self.any_socket(caller, fd)? {
-            AnySock::Inet((_, sock)) => sock,
-            AnySock::Unix(_, sock) => {
-                sock.shutdown(unix::shutdown_mode(how.0)?);
-                return Ok(0);
-            }
-            // `sock_no_shutdown`.
-            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
-        };
-        let how = match how {
-            ShutdownHow::SHUT_RD => Shutdown::Read,
-            ShutdownHow::SHUT_WR => Shutdown::Write,
-            ShutdownHow::SHUT_RDWR => Shutdown::Both,
-            _ => return Err(Errno::EINVAL.into()),
-        };
-        sock.socket.shutdown(how)?;
-        Ok(0)
+        let any = self.any_socket(caller, fd)?;
+        shutdown_on(any, how)
     }
 
     /// `__sys_setsockopt`: the socket layer's own options for every family, the rest to the
@@ -1104,6 +1101,94 @@ impl Kernel {
         }
     }
 
+    /// `io_send`: `send` from one buffer on the socket `file`.
+    pub(crate) async fn uring_send(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        (addr, len): (u32, u32),
+        flags: MsgFlags,
+    ) -> SysResult<usize> {
+        let sock = any_socket_file(file)?;
+        let src = GuestIov::single(addr, len);
+        self.send_from(caller, &sock, &src, None, &[], flags).await
+    }
+
+    /// `io_recv`: `recv` into one buffer on the socket `file`.
+    pub(crate) async fn uring_recv(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        (addr, len): (u32, u32),
+        flags: MsgFlags,
+    ) -> SysResult<usize> {
+        let sock = any_socket_file(file)?;
+        let dst = GuestIov::single(addr, len);
+        Ok(self.recv_into(caller, &sock, &dst, flags).await?.result)
+    }
+
+    /// `io_sendmsg`: `sendmsg` of the msghdr at `msg` on the socket `file`.
+    pub(crate) async fn uring_sendmsg(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        msg: u32,
+        flags: MsgFlags,
+    ) -> SysResult<usize> {
+        let sock = any_socket_file(file)?;
+        let hdr = read_value(caller.memory(), GuestPtr::new(msg)).await?;
+        self.send_msghdr(caller, &sock, &hdr, flags).await
+    }
+
+    /// `io_recvmsg`: `recvmsg` into the msghdr at `msg` on the socket `file`.
+    pub(crate) async fn uring_recvmsg(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        msg: u32,
+        flags: MsgFlags,
+    ) -> SysResult<usize> {
+        let sock = any_socket_file(file)?;
+        self.recv_msghdr(caller, &sock, msg, flags).await
+    }
+
+    /// `io_accept`: `accept4` on the socket `file`, without waiting when `nonblock`.
+    pub(crate) async fn uring_accept(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        (addr, addrlen): (u32, u32),
+        flags: SocketFlags,
+        nonblock: bool,
+    ) -> SysResult<Fd> {
+        if !(flags & !(SocketFlags::SOCK_CLOEXEC | SocketFlags::SOCK_NONBLOCK)).is_empty() {
+            return Err(Errno::EINVAL.into());
+        }
+        let any = any_socket_file(file)?;
+        let wait = dontwait(nonblock);
+        let at = (GuestPtrMut::new(addr), GuestPtrMut::new(addrlen));
+        self.accept_on(caller, any, at, flags, wait).await
+    }
+
+    /// `io_connect`: `connect` of the socket `file` to the address at `addr`, without waiting
+    /// when `nonblock`.
+    pub(crate) async fn uring_connect(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        (addr, len): (u32, u32),
+        nonblock: bool,
+    ) -> SysResult<i32> {
+        let raw = move_addr_to_kernel(caller, GuestPtr::new(addr), len).await?;
+        let any = any_socket_file(file)?;
+        self.connect_on(caller, any, &raw, dontwait(nonblock)).await
+    }
+
+    /// `io_shutdown`: `shutdown` of the socket `file`.
+    pub(crate) fn uring_shutdown(&self, file: Arc<OpenFile>, how: ShutdownHow) -> SysResult<i32> {
+        shutdown_on(any_socket_file(file)?, how)
+    }
+
     /// The call context for an operation on `file`.
     pub(crate) fn io<'a>(
         caller: &Caller<'_>,
@@ -1117,6 +1202,50 @@ impl Kernel {
             broken: None,
         }
     }
+}
+
+/// `MSG_DONTWAIT` when `nonblock`.
+fn dontwait(nonblock: bool) -> MsgFlags {
+    match nonblock {
+        true => MsgFlags::MSG_DONTWAIT,
+        false => MsgFlags(0),
+    }
+}
+
+/// `sock->ops->shutdown` for every family.
+fn shutdown_on(any: AnySock, how: ShutdownHow) -> SysResult<i32> {
+    let sock = match any {
+        AnySock::Inet((_, sock)) => sock,
+        AnySock::Unix(_, sock) => {
+            sock.shutdown(unix::shutdown_mode(how.0)?);
+            return Ok(0);
+        }
+        // `sock_no_shutdown`.
+        AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
+    };
+    let how = match how {
+        ShutdownHow::SHUT_RD => Shutdown::Read,
+        ShutdownHow::SHUT_WR => Shutdown::Write,
+        ShutdownHow::SHUT_RDWR => Shutdown::Both,
+        _ => return Err(Errno::EINVAL.into()),
+    };
+    sock.socket.shutdown(how)?;
+    Ok(0)
+}
+
+/// `sock_from_file` for every family: `ENOTSOCK` for a file that is no socket.
+fn any_socket_file(file: Arc<OpenFile>) -> SysResult<AnySock> {
+    if let Some(unix) = file.downcast::<UnixFile>() {
+        let sock = unix.0.clone();
+        return Ok(AnySock::Unix(file, sock));
+    }
+    if let Some(nl) = file.object().cloned().and_then(netlink::downcast) {
+        return Ok(AnySock::Netlink(file, nl));
+    }
+    let object = file.object().ok_or(Errno::ENOTSOCK)?.clone();
+    let any: Arc<dyn std::any::Any + Send + Sync> = object;
+    let socket = any.downcast::<SocketFile>().map_err(|_| Errno::ENOTSOCK)?;
+    Ok(AnySock::Inet((file, socket)))
 }
 
 /// `SO_PEERGROUPS`: the supplementary groups of a socket's peer, `ENODATA` without one (only
