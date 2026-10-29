@@ -539,6 +539,8 @@ impl Kernel {
             if self.zap_pid_ns(process) {
                 return;
             }
+            // exit_mm releases mm->exe_file before the process becomes a zombie.
+            process.exe_write_access.lock_or_recover().take();
             // ---- ipc ----
             // `exit_sem`, by the group's last task.
             self.ipc_process_exited(process);

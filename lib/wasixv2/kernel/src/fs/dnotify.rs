@@ -250,6 +250,10 @@ impl Notify {
 }
 
 impl FsWatcher for Notify {
+    fn pre_content_watch(&self, path: &wasixv2_vfs::Path) -> bool {
+        self.fanotify.pre_content_watch(path)
+    }
+
     fn watching(&self) -> bool {
         self.inotify.watching() || self.dnotify.watching() || self.fanotify.watching()
     }

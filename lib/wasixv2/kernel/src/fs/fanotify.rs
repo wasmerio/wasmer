@@ -551,6 +551,35 @@ impl Registry {
         }
     }
 
+    pub(crate) fn pre_content_watch(&self, path: &Path) -> bool {
+        let object = FsObject {
+            sb: path.dentry.sb().id,
+            ino: path.dentry.node().ino(),
+        };
+        let parent = path.dentry.parent().map(|p| {
+            (
+                FsObject {
+                    sb: p.sb().id,
+                    ino: p.node().ino(),
+                },
+                path.dentry.name(),
+            )
+        });
+        let change = Change {
+            mask: PRE_ACCESS,
+            object,
+            path: Some(path),
+            dir: parent.as_ref().map(|(dir, name)| (*dir, name.as_slice())),
+            moved_to: None,
+            self_only: false,
+            range: None,
+        };
+        self.groups().iter().any(|group| {
+            let (mask, _, _) = group.matching(&change);
+            mask & PRE_ACCESS != 0
+        })
+    }
+
     /// The answer of the permission groups to `perm` on `path` (`fsnotify_perm`): asked of
     /// each in priority order, the first refusal ending it.
     pub(crate) fn permission(self: &Arc<Self>, path: &Path, perm: Perm) -> Option<PermAnswer> {

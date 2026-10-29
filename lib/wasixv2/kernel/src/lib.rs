@@ -300,6 +300,7 @@ struct Process {
     /// The auxiliary vector the image started with, as `/proc/<pid>/auxv` shows it
     /// (`mm->saved_auxv`): pairs of words up to `AT_NULL`.
     auxv: Mutex<Vec<u8>>,
+    exe_write_access: Mutex<Option<Arc<wasixv2_vfs::ExecAccess>>>,
     // ---- thr ----
     group: thread::Group,
     // ---- base ----
@@ -689,6 +690,7 @@ impl Kernel {
             exe: Mutex::new(None),
             auxv: Mutex::default(),
             ioac: IoAccounting::default(),
+            exe_write_access: Mutex::new(None),
             group: thread::Group::new(),
         });
         let flag = Arc::new(WorkFlag::default());

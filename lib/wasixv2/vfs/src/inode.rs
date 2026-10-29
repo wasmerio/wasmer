@@ -16,7 +16,7 @@ use std::{
 
 use futures_util::lock::{Mutex as AsyncMutex, OwnedMutexGuard};
 
-use wasixv2_abi::SealFlags;
+use wasixv2_abi::{Errno, SealFlags};
 
 use crate::{
     dentry::Dentry,
@@ -190,16 +190,25 @@ pub(crate) struct OpenAccess {
 }
 
 impl OpenAccess {
-    pub(crate) fn new(inode: &Arc<Inode>, write: bool) -> Self {
+    pub(crate) fn new(inode: &Arc<Inode>, write: bool) -> Result<Self, Errno> {
         let count = match write {
             true => &inode.writecount,
             false => &inode.readcount,
         };
-        count.fetch_add(1, Ordering::SeqCst);
-        Self {
+        if write {
+            // include/linux/fs.h get_write_access: atomic_inc_unless_negative.
+            count
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+                    (n >= 0).then_some(n + 1)
+                })
+                .map_err(|_| Errno::ETXTBSY)?;
+        } else {
+            count.fetch_add(1, Ordering::SeqCst);
+        }
+        Ok(Self {
             inode: inode.clone(),
             write,
-        }
+        })
     }
 }
 
@@ -210,6 +219,31 @@ impl Drop for OpenAccess {
             false => &self.inode.readcount,
         };
         count.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// An executable's deny_write_access, shared by exec preparation and mm->exe_file holders.
+/// include/linux/fs.h deny_write_access/allow_write_access; fs/exec.c do_open_execat.
+pub struct ExecAccess {
+    inode: Arc<Inode>,
+}
+
+impl Inode {
+    pub fn deny_write_access(self: &Arc<Self>) -> Result<Arc<ExecAccess>, Errno> {
+        self.writecount
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+                (n <= 0).then_some(n - 1)
+            })
+            .map_err(|_| Errno::ETXTBSY)?;
+        Ok(Arc::new(ExecAccess {
+            inode: self.clone(),
+        }))
+    }
+}
+
+impl Drop for ExecAccess {
+    fn drop(&mut self) {
+        self.inode.writecount.fetch_add(1, Ordering::SeqCst);
     }
 }
 

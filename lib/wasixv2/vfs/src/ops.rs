@@ -308,8 +308,8 @@ impl Vfs {
         };
         let inode = target.dentry.inode();
         let counted = match (write.is_some(), readable && !writable) {
-            (true, _) => Some(OpenAccess::new(inode, true)),
-            (false, true) => Some(OpenAccess::new(inode, false)),
+            (true, _) => Some(OpenAccess::new(inode, true)?),
+            (false, true) => Some(OpenAccess::new(inode, false)?),
             (false, false) => None,
         };
         // fs/open.c do_dentry_open: FMODE_NONOTIFY skips events, never security_file_open.
@@ -318,6 +318,11 @@ impl Vfs {
             let write = if writable { MAY_WRITE } else { 0 };
             security.file_open(security_path.unwrap_or(&target), read | write, truncate)?;
         }
+        let _truncating = if truncate && !writable {
+            Some(OpenAccess::new(inode, true)?)
+        } else {
+            None
+        };
         // A file this open made has no leases.
         if handle.is_none() && target.dentry.file_type() == FileType::Regular {
             let nonblock = flags.contains(OpenFlags::O_NONBLOCK);
@@ -575,7 +580,7 @@ impl Vfs {
         let (node, handle) = mnt.root.node().create_unnamed(new, options).await?;
         let path = mnt.pseudo_path(node, name);
         path.dentry.inode().init_seals(seals);
-        let access = OpenAccess::new(path.dentry.inode(), true);
+        let access = OpenAccess::new(path.dentry.inode(), true)?;
         Ok(File::new(
             self.clone(),
             path,
@@ -1356,7 +1361,7 @@ impl Vfs {
             return Err(Errno::EPERM);
         }
         // Write access while it truncates, so that no read lease is taken meanwhile.
-        let _write = OpenAccess::new(path.dentry.inode(), true);
+        let _write = OpenAccess::new(path.dentry.inode(), true)?;
         self.break_lease(cx, Self::lock_key(&path.dentry), true, false)
             .await?;
         if let Some(security) = cx.security() {
@@ -1378,6 +1383,7 @@ impl Vfs {
 
     /// `do_truncate`: sets the size and stamps `mtime` and `ctime`.
     pub async fn set_size(&self, path: &Path, size: u64) -> FsResult<()> {
+        let _write = OpenAccess::new(path.dentry.inode(), true)?;
         let set = SetAttr {
             size: Some(size),
             mtime: Some(TimeSet::Now),
