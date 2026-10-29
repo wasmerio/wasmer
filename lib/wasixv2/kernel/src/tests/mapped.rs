@@ -584,6 +584,9 @@ fn a_fork_child_inherits_a_mapped_attachment() {
     let child_memory = memory.fork(&kernel.shared_mappings(child));
     let child_caller = Caller::new(child, &child_memory);
     assert_eq!(nattch(&kernel, &caller, id), 2);
+    // Linux ipc/shm.c:shm_open records the process inheriting the VMA.
+    let ds: Shmid64Ds = block_on(read_value(&memory, GuestPtr::new(0x700))).unwrap();
+    assert_eq!(ds.shm_lpid, child.0 as i32);
 
     child_memory.put(at, b"child");
     assert_eq!(memory.get(at, 5), b"child");
