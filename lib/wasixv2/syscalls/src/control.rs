@@ -204,6 +204,16 @@ pub trait Control:
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
 
+    /// Runs the caller's queued kernel task work before signal/action delivery on a syscall
+    /// return or preemption point (`task_work_run`). Exec calls this only while WorkFlag is
+    /// raised, with the current instance's memory, and repeats after task switches/handlers.
+    /// Notifications may wake an interruptible syscall without delivering a user signal;
+    /// the existing syscall restart policy then applies. Deferred io_uring work is excluded.
+    fn run_task_work<'a>(&'a self, caller: &'a Caller<'_>) -> LocalFuture<'a, ()> {
+        let _ = caller;
+        Box::pin(async {})
+    }
+
     /// The flag that says whether [`Control::take_pending`] may have something for `task`.
     fn work_flag(&self, task: TaskId) -> Arc<WorkFlag> {
         let _ = task;
@@ -353,9 +363,9 @@ pub trait SharedMappings {
     /// [`UserMemory::map_shared`]: crate::UserMemory::map_shared
     fn shared_mappings(&self, task: TaskId) -> Vec<SharedMapping>;
 
-    /// The ranges of `task`'s memory that a fork child gets zeroed (`VM_WIPEONFORK`), lowest
-    /// first and apart from the shared mappings. For a fork child, asked before it runs: the
-    /// execution layer leaves them out of the child's copy of the memory.
+    /// Ranges omitted from a fork child's memory copy, lowest first and apart from its
+    /// shared mappings: VM_WIPEONFORK pages and VM_DONTCOPY holes (AIO rings). Asked for
+    /// the child before it runs; the kernel's page map also marks DONTCOPY ranges unmapped.
     fn wipe_on_fork(&self, task: TaskId) -> Vec<Range<u64>>;
 
     /// What the kernel's copies may do with the pages of `task`'s address space, which the
@@ -376,6 +386,9 @@ pub trait SharedMappings {
     /// space's [`PageAccess`] unless forced. Only memory the execution layer can reach from
     /// another thread is handed over (a shared memory); without it, the address space has no
     /// pages for anyone else.
+    ///
+    /// The attached handle's read/write and forced copies complete synchronously on the
+    /// calling host thread; retained io_uring pages use them in timer/wake callbacks too.
     ///
     /// [`PageAccess`]: crate::PageAccess
     fn attach_memory(&self, task: TaskId, memory: Arc<dyn crate::UserMemory + Send + Sync>) {

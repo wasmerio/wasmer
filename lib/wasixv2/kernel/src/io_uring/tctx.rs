@@ -6,7 +6,10 @@
 //! alive however its descriptors close; the exit of its submitter cancels it, which lets the
 //! ring go, as Linux tracks such requests (`REQ_F_INFLIGHT`) for `io_uring_files_cancel`.
 
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{
+    Arc, Mutex, Weak,
+    atomic::{AtomicBool, Ordering},
+};
 
 use wasixv2_abi::{GuestLayout, GuestPtr, GuestPtrMut, IoUringRsrcUpdate};
 use wasixv2_syscalls::{Caller, Errno, Fd, SysResult, TaskId, read_value, write_value};
@@ -19,7 +22,27 @@ pub(crate) const RINGFD_REG_MAX: u32 = 16;
 
 /// `struct io_uring_task`.
 #[derive(Default)]
-pub(crate) struct Tctx(Mutex<TctxState>);
+pub(crate) struct Tctx {
+    state: Mutex<TctxState>,
+    pending: AtomicBool,
+}
+
+/// io_uring/tw.c:io_req_task_work_add_remote: a task's notification target.
+pub(super) struct TaskWork {
+    tctx: Arc<Tctx>,
+    signals: Arc<crate::signal::TaskSignals>,
+    task: TaskId,
+}
+
+impl TaskWork {
+    pub(super) fn notify(&self) {
+        self.tctx.pending.store(true, Ordering::Release);
+        // sched/signal.h:__set_notify_signal wakes TASK_INTERRUPTIBLE even for
+        // COOP's TWA_SIGNAL_NO_IPI. A running guest observes WorkFlag at its
+        // existing preemption/return points; there is no host reschedule IPI here.
+        self.signals.group().notify_uring(self.task);
+    }
+}
 
 #[derive(Default)]
 struct TctxState {
@@ -30,9 +53,13 @@ struct TctxState {
 }
 
 impl Tctx {
+    pub(crate) fn pending(&self) -> bool {
+        self.pending.load(Ordering::Acquire)
+    }
+
     /// `__io_uring_add_tctx_node`: the task uses `ctx`.
     pub(crate) fn add(&self, ctx: &Arc<Ctx>) {
-        let mut state = self.0.lock_or_recover();
+        let mut state = self.state.lock_or_recover();
         state.rings.retain(|ring| ring.strong_count() > 0);
         if !state.rings.iter().any(|ring| ring.ptr_eq(&ctx.me)) {
             state.rings.push(ctx.me.clone());
@@ -40,7 +67,7 @@ impl Tctx {
     }
 
     fn rings(&self) -> Vec<Arc<Ctx>> {
-        let state = self.0.lock_or_recover();
+        let state = self.state.lock_or_recover();
         state.rings.iter().filter_map(Weak::upgrade).collect()
     }
 
@@ -49,13 +76,18 @@ impl Tctx {
         if index >= RINGFD_REG_MAX {
             return Err(Errno::EINVAL);
         }
-        let state = self.0.lock_or_recover();
+        let state = self.state.lock_or_recover();
         state.registered[index as usize].clone().ok_or(Errno::EBADF)
     }
 
     /// `io_ring_add_registered_file`: the first free slot of `[start, end)`.
-    pub(super) fn add_registered(&self, file: Arc<OpenFile>, start: u32, end: u32) -> Result<u32, Errno> {
-        let mut state = self.0.lock_or_recover();
+    pub(super) fn add_registered(
+        &self,
+        file: Arc<OpenFile>,
+        start: u32,
+        end: u32,
+    ) -> Result<u32, Errno> {
+        let mut state = self.state.lock_or_recover();
         let slot = (start..end).find(|&i| state.registered[i as usize].is_none());
         let slot = slot.ok_or(Errno::EBUSY)?;
         state.registered[slot as usize] = Some(file);
@@ -63,12 +95,12 @@ impl Tctx {
     }
 
     fn remove_registered(&self, index: u32) -> Option<Arc<OpenFile>> {
-        self.0.lock_or_recover().registered[index as usize].take()
+        self.state.lock_or_recover().registered[index as usize].take()
     }
 
     /// `io_uring_unreg_ringfd`.
     fn unregister_all(&self) -> Vec<Arc<OpenFile>> {
-        let mut state = self.0.lock_or_recover();
+        let mut state = self.state.lock_or_recover();
         state
             .registered
             .iter_mut()
@@ -100,6 +132,40 @@ impl Cancel {
 }
 
 impl Kernel {
+    pub(super) fn uring_task_work(&self, task: TaskId) -> Arc<TaskWork> {
+        Arc::new(TaskWork {
+            tctx: self.tctx(task),
+            signals: self.task_signals(task),
+            task,
+        })
+    }
+
+    /// io_uring/tw.c:tctx_task_work_run, called before get_signal's task_work_run boundary.
+    pub(crate) async fn io_uring_run_task_work(&self, caller: &Caller<'_>) {
+        let context = self
+            .state
+            .lock_or_recover()
+            .tasks
+            .get(&caller.task())
+            .map(|task| (task.uring.clone(), task.mm.clone()));
+        let Some((tctx, mm)) = context else { return };
+        while tctx.pending.swap(false, Ordering::AcqRel) {
+            self.task_signals(caller.task())
+                .group()
+                .clear_uring_notify(caller.task());
+            for ctx in tctx.rings() {
+                if ctx
+                    .shape
+                    .has(wasixv2_abi::IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
+                {
+                    continue;
+                }
+                let _submit = ctx.submit.lock().await;
+                self.run_task_work(caller, &ctx, mm.id()).await;
+            }
+        }
+    }
+
     pub(crate) fn tctx(&self, task: TaskId) -> Arc<Tctx> {
         self.task_ref(task, |t| t.uring.clone())
     }

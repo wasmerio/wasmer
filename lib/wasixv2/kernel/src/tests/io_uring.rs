@@ -326,7 +326,7 @@ fn a_read_that_would_block_completes_once_data_arrives() {
         assert!(Instant::now() < deadline);
         std::thread::sleep(Duration::from_millis(1));
     }
-    assert_ne!(ring.sq_flags() & IoringSqFlags::IORING_SQ_TASKRUN.0, 0);
+    assert_eq!(ring.sq_flags() & IoringSqFlags::IORING_SQ_TASKRUN.0, 0);
     let cqes = ring.wait(1);
     assert_eq!(res(&cqes), [(1, 4)]);
     assert_eq!(m.memory.get(BUF, 4), b"late");
@@ -3309,5 +3309,142 @@ fn registered_only_setup_installs_only_a_task_ring_slot() {
         ))),
         Errno::EBADF
     );
+}
+
+
+/// kernel/task_work.c:task_work_add(TWA_SIGNAL), io_uring/tw.c:tctx_task_work_run.
+#[test]
+fn task_work_wakes_another_syscall_and_layered_resume_completes_the_read() {
+    use std::{
+        future::Future,
+        task::{Context, Poll},
+    };
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let (r, w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    let (other_r, other_w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    ring.push(IoUringSqe {
+        addr: BUF.into(),
+        len: 4,
+        ..sqe(READ, r.0, 31)
+    });
+    ring.submit(1).unwrap();
+    while m.kernel.take_pending(m.task).is_some() {}
+    let flag = m.kernel.work_flag(m.task);
+    let caller = m.caller();
+    let mut blocked = Box::pin(
+        m.kernel
+            .read(&caller, other_r, UserSliceMut::new(BUF + 64, 1)),
+    );
+    let mut cx = Context::from_waker(std::task::Waker::noop());
+    assert!(blocked.as_mut().poll(&mut cx).is_pending());
+    m.memory.put(BUF + 128, b"work");
+    block_on(m.kernel.write(&caller, w, UserSlice::new(BUF + 128, 4))).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !flag.is_raised() {
+        assert!(Instant::now() < deadline);
+        std::thread::yield_now();
+    }
+    assert_eq!(
+        blocked.as_mut().poll(&mut cx),
+        Poll::Ready(Err(SysErr::Restart))
+    );
+    drop(blocked);
+    assert!(ring.reap().is_empty());
+    // Another task in the same mm cannot run the submitter's tctx.
+    let other = thread(&m);
+    block_on(m.kernel.run_task_work(&Caller::new(other, &m.memory)));
+    assert!(ring.reap().is_empty());
+    let (p, rings) = (ring.p, ring.rings);
+    drop(ring);
+    let caller = Caller::new(m.task, &m.memory);
+    let layered = wasixv2_syscalls::Layered::new((), m.kernel);
+    block_on(layered.run_task_work(&caller));
+    assert_eq!(m.memory.get(BUF, 4), b"work");
+    assert_eq!(
+        u32::from_le_bytes(m.memory.get(rings + p.cq_off.tail, 4).try_into().unwrap()),
+        1
+    );
+    assert!(
+        layered.take_pending(m.task).is_none(),
+        "notification is not a signal"
+    );
+    assert!(!flag.is_raised());
+    // The unrelated interrupted syscall can restart normally after task work ran.
+    m.memory.put(BUF + 128, b"x");
+    block_on(
+        layered
+            .inner
+            .write(&caller, other_w, UserSlice::new(BUF + 128, 1)),
+    )
+    .unwrap();
+    assert_eq!(
+        block_on(
+            layered
+                .inner
+                .read(&caller, other_r, UserSliceMut::new(BUF + 64, 1))
+        ),
+        Ok(1)
+    );
+}
+
+#[test]
+fn cooperative_task_work_runs_on_resume_and_deferred_work_waits_for_enter() {
+    use std::{future::Future, task::Context};
+    for defer in [false, true] {
+        let m = Machine::new();
+        let mode = if defer {
+            IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0
+                | IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER.0
+        } else {
+            IoringSetupFlags::IORING_SETUP_COOP_TASKRUN.0
+        };
+        let ring = m.ring(8, mode | IoringSetupFlags::IORING_SETUP_TASKRUN_FLAG.0);
+        let (r, w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+        let (other_r, _) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+        ring.push(IoUringSqe {
+            addr: BUF.into(),
+            len: 1,
+            ..sqe(READ, r.0, 41)
+        });
+        ring.submit(1).unwrap();
+        while m.kernel.take_pending(m.task).is_some() {}
+        let caller = m.caller();
+        let mut blocked = Box::pin(
+            m.kernel
+                .read(&caller, other_r, UserSliceMut::new(BUF + 64, 1)),
+        );
+        let mut cx = Context::from_waker(std::task::Waker::noop());
+        assert!(blocked.as_mut().poll(&mut cx).is_pending());
+        m.memory.put(BUF + 128, b"z");
+        block_on(m.kernel.write(&caller, w, UserSlice::new(BUF + 128, 1))).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while ring.sq_flags() & IoringSqFlags::IORING_SQ_TASKRUN.0 == 0 {
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        if defer {
+            assert!(blocked.as_mut().poll(&mut cx).is_pending());
+        } else {
+            assert_eq!(
+                blocked.as_mut().poll(&mut cx),
+                std::task::Poll::Ready(Err(SysErr::Restart)),
+                "TWA_SIGNAL_NO_IPI still wakes interruptible waits"
+            );
+        }
+        drop(blocked);
+        // Simulate take_pending racing a producer after exec's previous hook. It must
+        // leave the flag raised so exec calls the hook again before returning to the guest.
+        assert!(m.kernel.take_pending(m.task).is_none());
+        assert_eq!(m.kernel.work_flag(m.task).is_raised(), !defer);
+        block_on(m.kernel.run_task_work(&caller));
+        if defer {
+            assert!(ring.reap().is_empty());
+            assert_eq!(res(&ring.wait(1)), [(41, 1)]);
+        } else {
+            assert_eq!(res(&ring.reap()), [(41, 1)]);
+        }
+        assert_eq!(ring.sq_flags() & IoringSqFlags::IORING_SQ_TASKRUN.0, 0);
+    }
 }
 

@@ -339,6 +339,8 @@ struct TaskState {
     flag: Arc<WorkFlag>,
     /// Kernel work makes the task leave a blocking wait without a signal (`TIF_NOTIFY_SIGNAL`).
     notify: bool,
+    /// TIF_NOTIFY_SIGNAL for io_uring, cleared by task_work_run independently of actions.
+    uring_notify: bool,
     /// A signal waits for this task to take it (`TIF_SIGPENDING`): one sent to it, or a group
     /// signal it was picked to take ([`GroupState::complete`]), or one its own mask lets through
     /// ([`GroupState::recalc_sigpending`]). Only then does it leave an interruptible wait or
@@ -385,6 +387,7 @@ impl TaskState {
         Self {
             flag,
             notify: false,
+            uring_notify: false,
             sigpending: false,
             exiting: false,
             blocked: inherited.blocked,
@@ -638,6 +641,7 @@ impl Signals {
             task.frames.clear();
             task.saved = None;
             task.notify = false;
+            task.uring_notify = false;
         }
     }
 
@@ -780,11 +784,29 @@ impl Signals {
     /// Makes `task` leave an interruptible wait for kernel work, without a signal
     /// (`task_work_add` with `TWA_SIGNAL`).
     pub(crate) fn notify(&self, task: TaskId) {
+        self.notify_work(task, false);
+    }
+
+    pub(crate) fn notify_uring(&self, task: TaskId) {
+        self.notify_work(task, true);
+    }
+
+    pub(crate) fn clear_uring_notify(&self, task: TaskId) {
+        if let Some(task) = self.state.lock_or_recover().tasks.get_mut(&task) {
+            task.uring_notify = false;
+        }
+    }
+
+    fn notify_work(&self, task: TaskId, uring: bool) {
         let mut state = self.state.lock_or_recover();
         let Some(task) = state.tasks.get_mut(&task) else {
             return;
         };
-        task.notify = true;
+        if uring {
+            task.uring_notify = true;
+        } else {
+            task.notify = true;
+        }
         task.flag.raise();
         drop(state);
         self.queue.wake(wasixv2_wait::PollMask::empty());
@@ -1984,7 +2006,10 @@ impl Interrupt for TaskSignals {
             return true;
         };
         // A group stop and the freezer set `TIF_SIGPENDING` too (`recalc_sigpending_tsk`).
-        task.notify || task.stop_pending || task.trap_freeze || task.sigpending
+        (task.notify || task.uring_notify)
+            || task.stop_pending
+            || task.trap_freeze
+            || task.sigpending
     }
 
     fn queue(&self) -> Option<&WaitQueue> {
@@ -2020,6 +2045,7 @@ impl Interrupt for WaitFor<'_> {
         // A group stop ends the wait too, which then fails with EINTR, as on Linux. The signals
         // waited for count while blocked, as Linux unblocks them for the wait.
         task.notify
+            || task.uring_notify
             || task.stop_pending
             || task.sigpending
             || state.deliverable(self.signals.task, self.these) != 0
