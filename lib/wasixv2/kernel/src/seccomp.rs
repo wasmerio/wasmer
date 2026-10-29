@@ -17,7 +17,15 @@ use wasixv2_syscalls::{Caller, SysErr, SysResult, Syscall, SyscallRet, read_valu
 use wasixv2_vfs::Cap;
 use wasixv2_vnet::bpf;
 
-use crate::{Kernel, Task, signal::kernel_info};
+use crate::{
+    Kernel, Task,
+    file::{Backing, OpenFile},
+    signal::kernel_info,
+};
+
+mod notify;
+
+pub(crate) use notify::Listener;
 
 /// `MAX_INSNS_PER_PATH`: the most instructions the filters of a task may hold, counting four
 /// more for each filter.
@@ -33,18 +41,20 @@ const MODE1_SYSCALLS: [u32; 4] = [63, 64, 93, 139];
 /// `SECCOMP_MODE_DEAD`: a task a filter killed, which runs no syscall any more.
 const MODE_DEAD: u32 = 3;
 
-/// The filter flags `seccomp` takes (`SECCOMP_FILTER_FLAG_MASK` without
-/// `SECCOMP_FILTER_FLAG_NEW_LISTENER` and `SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV`, which need
-/// user notifications).
+/// The filter flags `seccomp` takes (`SECCOMP_FILTER_FLAG_MASK`).
 const FILTER_FLAGS: u32 = SeccompFilterFlags::SECCOMP_FILTER_FLAG_TSYNC.0
     | SeccompFilterFlags::SECCOMP_FILTER_FLAG_LOG.0
     | SeccompFilterFlags::SECCOMP_FILTER_FLAG_SPEC_ALLOW.0
-    | SeccompFilterFlags::SECCOMP_FILTER_FLAG_TSYNC_ESRCH.0;
+    | SeccompFilterFlags::SECCOMP_FILTER_FLAG_NEW_LISTENER.0
+    | SeccompFilterFlags::SECCOMP_FILTER_FLAG_TSYNC_ESRCH.0
+    | SeccompFilterFlags::SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV.0;
 
 /// One attached filter (`struct seccomp_filter`), with the filters attached before it.
 pub(crate) struct Filter {
     prog: bpf::Program,
     prev: Option<Arc<Filter>>,
+    /// Its user notifications, if installed with `SECCOMP_FILTER_FLAG_NEW_LISTENER`.
+    notif: Option<Arc<notify::Notif>>,
 }
 
 impl Filter {
@@ -113,6 +123,8 @@ enum Verdict {
     /// The task or its group is killed with `sig`.
     KillThread(i32),
     KillProcess(i32),
+    /// `SECCOMP_RET_USER_NOTIF` from `filter`, for the call `data` describes.
+    Notify(Arc<Filter>, SeccompData),
 }
 
 impl Kernel {
@@ -145,6 +157,14 @@ impl Kernel {
             Verdict::Skip(raw) => skipped(call, raw),
             Verdict::KillThread(sig) => self.seccomp_kill(caller, sig, false).await,
             Verdict::KillProcess(sig) => self.seccomp_kill(caller, sig, true).await,
+            Verdict::Notify(filter, data) => match &filter.notif {
+                None => skipped(call, -i64::from(Errno::ENOSYS.0)),
+                Some(notif) => match self.seccomp_notify(caller, notif, data).await {
+                    Ok(notify::Outcome::Run) => return None,
+                    Ok(notify::Outcome::Return(raw)) => skipped(call, raw),
+                    Err(err) => Err(err),
+                },
+            },
         })
     }
 
@@ -157,18 +177,17 @@ impl Kernel {
         nr: u32,
         args: [u64; 6],
     ) -> Verdict {
-        let data = SeccompData {
-            nr: nr as i32,
-            arch: AuditArch::AUDIT_ARCH_RISCV32.0,
-            instruction_pointer: 0,
-            args,
-        };
         let mut bytes = Data([0; SeccompData::SIZE]);
-        data.write_to(&mut bytes.0);
+        data_of(nr, args).write_to(&mut bytes.0);
         let mut ret = SeccompRet::SECCOMP_RET_ALLOW.0;
+        let mut matched = &filter;
         let mut walker = Some(&filter);
         while let Some(f) = walker {
-            ret = precedes(ret, f.prog.run(&bytes));
+            let cur = f.prog.run(&bytes);
+            if precedes(ret, cur) != ret {
+                ret = cur;
+                matched = f;
+            }
             walker = f.prev.as_ref();
         }
         let action = ret & SeccompRet::SECCOMP_RET_ACTION_FULL.0;
@@ -191,6 +210,9 @@ impl Kernel {
             }
             // Without a tracer, as there is none: `ENOSYS`.
             SeccompRet::SECCOMP_RET_TRACE => Verdict::Skip(-i64::from(Errno::ENOSYS.0)),
+            SeccompRet::SECCOMP_RET_USER_NOTIF => {
+                Verdict::Notify(matched.clone(), data_of(nr, args))
+            }
             SeccompRet::SECCOMP_RET_LOG | SeccompRet::SECCOMP_RET_ALLOW => Verdict::Allow,
             SeccompRet::SECCOMP_RET_KILL_THREAD => Verdict::KillThread(Signal::SIGSYS.0),
             // `SECCOMP_RET_KILL_PROCESS`, and every action Linux does not know.
@@ -246,6 +268,7 @@ impl Kernel {
                     | SeccompRet::SECCOMP_RET_KILL_THREAD
                     | SeccompRet::SECCOMP_RET_TRAP
                     | SeccompRet::SECCOMP_RET_ERRNO
+                    | SeccompRet::SECCOMP_RET_USER_NOTIF
                     | SeccompRet::SECCOMP_RET_TRACE
                     | SeccompRet::SECCOMP_RET_LOG
                     | SeccompRet::SECCOMP_RET_ALLOW => Ok(0),
@@ -327,8 +350,29 @@ impl Kernel {
         if flags & !FILTER_FLAGS != 0 {
             return Err(Errno::EINVAL.into());
         }
-        let prog = self.prepare_filter(caller, fprog).await?;
         let flags = SeccompFilterFlags(flags);
+        let listen = flags.contains(SeccompFilterFlags::SECCOMP_FILTER_FLAG_NEW_LISTENER);
+        // A tid and a listener would be one result; TSYNC_ESRCH makes failure an errno.
+        if flags.contains(SeccompFilterFlags::SECCOMP_FILTER_FLAG_TSYNC)
+            && listen
+            && !flags.contains(SeccompFilterFlags::SECCOMP_FILTER_FLAG_TSYNC_ESRCH)
+        {
+            return Err(Errno::EINVAL.into());
+        }
+        let killable = flags.contains(SeccompFilterFlags::SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV);
+        if killable && !listen {
+            return Err(Errno::EINVAL.into());
+        }
+        let prog = self.prepare_filter(caller, fprog).await?;
+        let listener = match listen {
+            true => {
+                let [fd] = self.reserve_fds(caller, true)?;
+                let mut first = [0; 8];
+                self.host.random(&mut first);
+                Some((fd, notify::Notif::new(u64::from_le_bytes(first), killable)))
+            }
+            false => None,
+        };
         let task = caller.task();
         let mode = SeccompMode::SECCOMP_MODE_FILTER.0;
         let mut state = self.state.lock_or_recover();
@@ -374,10 +418,24 @@ impl Kernel {
             .tasks
             .get_mut(&task)
             .expect("syscall from an unknown task");
+        // `has_duplicate_listener`: one listener per chain of filters.
+        if listener.is_some() {
+            let mut walker = me.seccomp.filter.as_ref();
+            while let Some(f) = walker {
+                if f.notif.is_some() {
+                    return Err(Errno::EBUSY.into());
+                }
+                walker = f.prev.as_ref();
+            }
+        }
         let filter = Arc::new(Filter {
             prog,
             prev: me.seccomp.filter.take(),
+            notif: listener.as_ref().map(|(_, n)| n.clone()),
         });
+        if let Some((_, notif)) = &listener {
+            notif.set_filter(&filter);
+        }
         me.seccomp.filter = Some(filter);
         me.seccomp.filters += 1;
         me.seccomp.mode = mode;
@@ -392,7 +450,17 @@ impl Kernel {
         }
         drop(state);
         self.seccomp_used.store(true, Ordering::Release);
-        Ok(0)
+        Ok(match listener {
+            None => 0,
+            Some((fd, notif)) => {
+                let object = Arc::new(Listener(notif));
+                let file = OpenFile::new(
+                    Backing::Stream(object, self.pseudo.anon("seccomp notify")),
+                    wasixv2_abi::OpenFlags::O_RDWR,
+                );
+                fd.install(Arc::new(file)).0
+            }
+        })
     }
 
     /// `seccomp_prepare_user_filter`: reads the `sock_fprog` and its program, which takes
@@ -410,6 +478,16 @@ impl Kernel {
         let mut raw = vec![0; len * bpf::INSN_LEN];
         caller.memory().read(fprog.filter.addr(), &mut raw).await?;
         Ok(bpf::Program::seccomp(&raw, SeccompData::SIZE as u32)?)
+    }
+}
+
+/// `populate_seccomp_data`: wasm has no program counter.
+fn data_of(nr: u32, args: [u64; 6]) -> SeccompData {
+    SeccompData {
+        nr: nr as i32,
+        arch: AuditArch::AUDIT_ARCH_RISCV32.0,
+        instruction_pointer: 0,
+        args,
     }
 }
 

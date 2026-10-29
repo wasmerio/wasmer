@@ -347,7 +347,7 @@ fn tsync_synchronises_threads_or_names_the_one_in_the_way() {
     );
 }
 
-/// SECCOMP_GET_ACTION_AVAIL knows Linux's actions but user notifications, and
+/// SECCOMP_GET_ACTION_AVAIL knows Linux's actions, and
 /// SECCOMP_GET_NOTIF_SIZES gives the structures' sizes.
 #[test]
 fn action_avail_and_notif_sizes() {
@@ -368,7 +368,7 @@ fn action_avail_and_notif_sizes() {
     ] {
         assert_eq!(avail(action), Ok(0));
     }
-    assert_eq!(errno(avail(0x7fc0_0000)), Errno::EOPNOTSUPP);
+    assert_eq!(avail(0x7fc0_0000), Ok(0));
     assert_eq!(errno(avail(0x1234_0000)), Errno::EOPNOTSUPP);
     assert_eq!(
         block_on(stack.seccomp(&caller, 3, 0, VoidPtr::new(0x300))),
@@ -385,4 +385,157 @@ fn action_avail_and_notif_sizes() {
         errno(block_on(stack.seccomp(&caller, 4, 0, VoidPtr::NULL))),
         Errno::EINVAL
     );
+}
+
+const RET_USER_NOTIF: u32 = 0x7fc0_0000;
+const NEW_LISTENER: u32 = 8;
+
+/// `SECCOMP_IOCTL_NOTIF_*`.
+const NOTIF_RECV: u32 = 0xc050_2100;
+const NOTIF_SEND: u32 = 0xc018_2101;
+const NOTIF_ID_VALID: u32 = 0x4008_2102;
+const NOTIF_ADDFD: u32 = 0x4018_2103;
+
+/// The supervisor's side, from another thread: reads the next notification at 0x5000 and
+/// returns its id and syscall number, then answers it with `resp` (`val`, `error`, `flags`).
+async fn supervise(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    memory: &FlatMemory,
+    listener: Fd,
+    resp: Option<(i64, i32, u32)>,
+) -> (u64, i32) {
+    put(memory, 0x5000, &[0; 80]);
+    let recv = kernel.ioctl(
+        caller,
+        listener,
+        wasixv2_abi::IoctlRequest(NOTIF_RECV),
+        0x5000,
+    );
+    assert_eq!(recv.await, Ok(0));
+    let notif = super::ipc::get(memory, 0x5000, 80);
+    let id = u64::from_le_bytes(notif[..8].try_into().unwrap());
+    let nr = i32::from_le_bytes(notif[16..20].try_into().unwrap());
+    put(memory, 0x5100, &id.to_le_bytes());
+    let valid = kernel.ioctl(
+        caller,
+        listener,
+        wasixv2_abi::IoctlRequest(NOTIF_ID_VALID),
+        0x5100,
+    );
+    assert_eq!(valid.await, Ok(0));
+    if let Some((val, error, flags)) = resp {
+        let mut raw = id.to_le_bytes().to_vec();
+        raw.extend(val.to_le_bytes());
+        raw.extend(error.to_le_bytes());
+        raw.extend(flags.to_le_bytes());
+        put(memory, 0x5200, &raw);
+        let send = kernel.ioctl(
+            caller,
+            listener,
+            wasixv2_abi::IoctlRequest(NOTIF_SEND),
+            0x5200,
+        );
+        assert_eq!(send.await, Ok(0));
+        let valid = kernel.ioctl(
+            caller,
+            listener,
+            wasixv2_abi::IoctlRequest(NOTIF_ID_VALID),
+            0x5100,
+        );
+        assert_eq!(errno(valid.await), Errno::ENOENT);
+    }
+    (id, nr)
+}
+
+/// SECCOMP_RET_USER_NOTIF: the call waits until the supervisor reads it from the listener
+/// and answers with a value, an error, or SECCOMP_USER_NOTIF_FLAG_CONTINUE; a closed listener
+/// is ENOSYS.
+#[test]
+fn user_notifications_go_to_the_supervisor() {
+    let (stack, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    no_new_privs(&stack, &caller);
+    let supervisor = spawn_thread(&stack.inner, &caller);
+    let sup = Caller::new(supervisor, &memory);
+    let prog = filter_for(NR_GETUID, RET_USER_NOTIF);
+    let listener = Fd(set_filter(&stack, &caller, &memory, NEW_LISTENER, &prog).unwrap());
+    assert!(listener.0 >= 3);
+    // One listener per chain; a tid and a listener cannot both be the result.
+    assert_eq!(
+        errno(set_filter(&stack, &caller, &memory, NEW_LISTENER, &prog)),
+        Errno::EBUSY
+    );
+    assert_eq!(
+        errno(set_filter(
+            &stack,
+            &caller,
+            &memory,
+            NEW_LISTENER | 1,
+            &prog
+        )),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(set_filter(&stack, &caller, &memory, 32, &prog)),
+        Errno::EINVAL
+    );
+
+    let (ret, (_, nr)) = block_on(async {
+        futures::join!(
+            stack.getuid(&caller),
+            supervise(&stack.inner, &sup, &memory, listener, Some((42, 0, 0)))
+        )
+    });
+    assert_eq!((ret, nr), (Ok(42), NR_GETUID as i32));
+    let (ret, _) = block_on(async {
+        futures::join!(
+            stack.getuid(&caller),
+            supervise(&stack.inner, &sup, &memory, listener, Some((0, -1, 0)))
+        )
+    });
+    assert_eq!(errno(ret), Errno::EPERM);
+    let (ret, _) = block_on(async {
+        futures::join!(
+            stack.getuid(&caller),
+            supervise(&stack.inner, &sup, &memory, listener, Some((0, 0, 1)))
+        )
+    });
+    assert_eq!(ret, Ok(1));
+    // An answer with CONTINUE takes no value; a struct to read into must be zeroed.
+    put(&memory, 0x5000, &[1; 80]);
+    let recv = stack.inner.ioctl(
+        &sup,
+        listener,
+        wasixv2_abi::IoctlRequest(NOTIF_RECV),
+        0x5000,
+    );
+    assert_eq!(errno(block_on(recv)), Errno::EINVAL);
+
+    // ADDFD with SEND installs the supervisor's descriptor in the task and answers with it.
+    let (read, _) = super::ipc::pipe(&stack.inner, &sup, OpenFlags(0));
+    let addfd = async {
+        let (id, _) = supervise(&stack.inner, &sup, &memory, listener, None).await;
+        let mut raw = id.to_le_bytes().to_vec();
+        raw.extend(
+            [2u32, read.0 as u32, 0, 0]
+                .iter()
+                .flat_map(|v| v.to_le_bytes()),
+        );
+        put(&memory, 0x5300, &raw);
+        stack
+            .inner
+            .ioctl(
+                &sup,
+                listener,
+                wasixv2_abi::IoctlRequest(NOTIF_ADDFD),
+                0x5300,
+            )
+            .await
+    };
+    let (ret, added) = block_on(async { futures::join!(stack.getuid(&caller), addfd) });
+    assert_eq!(ret, added);
+
+    block_on(stack.inner.close(&sup, listener)).unwrap();
+    assert_eq!(errno(block_on(stack.getuid(&caller))), Errno::ENOSYS);
 }
