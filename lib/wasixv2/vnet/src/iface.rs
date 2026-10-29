@@ -1047,6 +1047,14 @@ impl Interfaces {
             self.drop_prefix_route(a, index);
             self.forget_prefsrc(a.addr);
         }
+        // `inetaddr_event`: the last IPv4 address gone disables IP on the interface
+        // (`fib_disable_ip` with force), and every IPv4 route through it goes.
+        let v4_left = self
+            .link(index)
+            .is_some_and(|l| l.addrs.iter().any(|a| a.addr.is_ipv4()));
+        if gone.addr.is_ipv4() && !v4_left {
+            self.routes.retain(|r| r.oif != index || r.dst.is_ipv6());
+        }
         Ok(())
     }
 
@@ -1534,6 +1542,14 @@ mod tests {
         assert_eq!((left[0].addr, left[0].prefix_len), (ip("10.0.0.1"), 16));
         assert!(t.route(ip("10.0.0.9")).is_ok());
         assert_eq!(t.route(ip("10.1.0.9")).err(), Some(Errno::ENETUNREACH));
+        // The last IPv4 address takes every IPv4 route through the interface with it.
+        t.add_route(
+            Route::unicast(ip("0.0.0.0"), 0, Some(ip("10.0.0.254")), 0),
+            AddMode::ADD,
+        )
+        .unwrap();
+        t.del_addr(eth, &del("10.0.0.1", 16)).unwrap();
+        assert!(t.routes().iter().all(|r| r.dst.is_ipv6()));
     }
 
     /// `fib_table_insert`'s flags, and `fib_check_nh`'s checks of a gateway.
