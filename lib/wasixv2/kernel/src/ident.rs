@@ -321,9 +321,16 @@ impl Kernel {
                 if let Some(process) = self.procs.find(id) {
                     return Ok(process);
                 }
-                let state = self.state.read_or_recover();
-                let task = state.tasks.get(&wasixv2_syscalls::TaskId(id));
-                task.map(|task| task.process.clone()).ok_or(Errno::ESRCH)
+                let process = {
+                    let state = self.state.read_or_recover();
+                    let task = state.tasks.get(&wasixv2_syscalls::TaskId(id));
+                    task.map(|task| task.process.clone()).ok_or(Errno::ESRCH)?
+                };
+                // A task of a reaped thread group is on its way out, not a process.
+                match self.procs.find(process.pid.0) {
+                    Some(_) => Ok(process),
+                    None => Err(Errno::ESRCH),
+                }
             }
         }
     }
