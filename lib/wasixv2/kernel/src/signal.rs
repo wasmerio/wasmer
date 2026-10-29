@@ -2259,6 +2259,14 @@ impl Kernel {
         let _ = signals.group.send(Some(caller.task()), info);
     }
 
+    /// fs/read_write.c:generic_write_check_limits and fs/attr.c:inode_newsize_ok
+    /// use send_sig(SIGXFSZ, current, 0), with the sender's ordinary siginfo.
+    pub(crate) fn send_sigxfsz(&self, caller: &Caller<'_>) {
+        let info = self.sender_info(caller, Signal::SIGXFSZ.0, SiCode::SI_USER);
+        let signals = self.task_signals(caller.task());
+        let _ = signals.group.send(Some(caller.task()), info);
+    }
+
     /// Sleeps for `sleep` unless a signal interrupts it first.
     pub(crate) async fn interruptible_sleep(
         &self,

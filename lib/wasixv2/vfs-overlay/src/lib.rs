@@ -137,6 +137,10 @@ impl OverlayFs {
 
 #[async_trait(?Send)]
 impl Filesystem for OverlayFs {
+    fn limits_file_size(&self) -> bool {
+        true
+    }
+
     fn info(&self) -> FsInfo {
         let layers = || self.shared.upper.iter().chain(&self.shared.lowers);
         FsInfo {

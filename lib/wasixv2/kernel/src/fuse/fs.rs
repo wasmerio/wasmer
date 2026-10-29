@@ -74,6 +74,10 @@ impl Drop for FuseFs {
 }
 #[async_trait(?Send)]
 impl Filesystem for FuseFs {
+    fn limits_file_size(&self) -> bool {
+        true
+    }
+
     fn info(&self) -> FsInfo {
         FsInfo {
             name: "fuse",

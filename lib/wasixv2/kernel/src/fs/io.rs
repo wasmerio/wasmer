@@ -2,7 +2,7 @@
 
 use wasixv2_abi::{
     ConstIovecArray, FadviseAdvice, FallocFlags, GuestLayout, GuestPtr, Iovec, LinuxDirent64,
-    LinuxDirent64Ptr, LoffPtr, OpenFlags, RwfFlags, SeekWhence, SyncFileRangeFlags,
+    LinuxDirent64Ptr, LoffPtr, OpenFlags, RlimitResource, RwfFlags, SeekWhence, SyncFileRangeFlags,
 };
 use wasixv2_syscalls::{
     Caller, Errno, Fd, LocalFuture, SysResult, TaskId, UserMemory, UserSlice, UserSliceMut,
@@ -17,6 +17,7 @@ use wasixv2_wait::Interrupt;
 use crate::{
     IO_CHUNK, Kernel, MAX_RW_COUNT,
     file::{Backing, Io, OpenFile, ReadSink, SeekBase, check_file_size, delivered},
+    sync::MutexExt,
 };
 
 /// Most iovecs one `readv` or `writev` takes, as Linux's `UIO_MAXIOV`.
@@ -231,7 +232,12 @@ impl<'a> Target<'a> {
         io
     }
 
-    async fn write(&self, data: &[u8], done: usize) -> SysResult<usize> {
+    async fn write(
+        &self,
+        data: &[u8],
+        done: usize,
+        guard: Option<&wasixv2_vfs::FileWriteGuard<'_>>,
+    ) -> SysResult<usize> {
         let inner = match &self.file.backing {
             Backing::Inode(inner) => inner,
             Backing::Stream(object, _) => {
@@ -239,7 +245,10 @@ impl<'a> Target<'a> {
             }
         };
         if self.append {
-            let (end, n) = inner.append_as(data, &self.cred).await?;
+            let (end, n) = match guard {
+                Some(guard) => guard.append_as(data, &self.cred).await?,
+                None => inner.append_as(data, &self.cred).await?,
+            };
             if matches!(self.at, At::Position) {
                 self.file.set_pos(end);
             }
@@ -247,7 +256,10 @@ impl<'a> Target<'a> {
         }
         let offset = self.start + done as u64;
         check_file_size(offset, data.len())?;
-        let n = inner.write_at_as(data, offset, &self.cred).await?;
+        let n = match guard {
+            Some(guard) => guard.write_at_as(data, offset, &self.cred).await?,
+            None => inner.write_at_as(data, offset, &self.cred).await?,
+        };
         if matches!(self.at, At::Position) {
             self.file.set_pos(offset + n as u64);
         }
@@ -256,6 +268,48 @@ impl<'a> Target<'a> {
 }
 
 impl Kernel {
+    /// `generic_write_check_limits`: clip before copying bytes, signal only
+    /// when a nonempty write starts at or beyond RLIMIT_FSIZE.
+    pub(super) fn file_write_count(
+        &self,
+        caller: &Caller<'_>,
+        offset: u64,
+        count: usize,
+    ) -> Result<usize, Errno> {
+        if count == 0 {
+            return Ok(0);
+        }
+        let limit = self
+            .process(caller.task())
+            .resources
+            .lock_or_recover()
+            .soft(RlimitResource::RLIMIT_FSIZE);
+        if offset >= limit {
+            self.send_sigxfsz(caller);
+            return Err(Errno::EFBIG);
+        }
+        Ok(count.min(usize::try_from(limit - offset).unwrap_or(usize::MAX)))
+    }
+
+    /// `inode_newsize_ok`: growth beyond the limit signals, shrinking does not.
+    pub(super) fn check_file_resize(
+        &self,
+        caller: &Caller<'_>,
+        old_size: u64,
+        size: u64,
+    ) -> Result<(), Errno> {
+        let limit = self
+            .process(caller.task())
+            .resources
+            .lock_or_recover()
+            .soft(RlimitResource::RLIMIT_FSIZE);
+        if size > old_size && size > limit {
+            self.send_sigxfsz(caller);
+            return Err(Errno::EFBIG);
+        }
+        Ok(())
+    }
+
     /// Reads into the buffers in order. Files are read in steps until the buffers are full or
     /// the file ends, and so are objects that fill reads, which stop early at a signal with what
     /// they read so far; any other stream read returns what one read of the object gives, as
@@ -404,7 +458,7 @@ impl Kernel {
         flags: RwfFlags,
         broken: &Cell<bool>,
     ) -> SysResult<u32> {
-        let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
+        let mut total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
         let messages = file.messages();
         if messages && total > MAX_MESSAGE {
             return Err(Errno::EMSGSIZE.into());
@@ -422,7 +476,7 @@ impl Kernel {
             _ => None,
         };
         let o_append = file.flags().contains(OpenFlags::O_APPEND);
-        let target = Target {
+        let mut target = Target {
             cred: self.env(caller).cred,
             task: caller.task(),
             file,
@@ -439,20 +493,31 @@ impl Kernel {
         };
         self.pre_content_permission(caller, file, Some(target.start), total as u64)
             .await?;
+        self.sync_file_mappings(caller, file).await;
+        let guard = match &file.backing {
+            Backing::Inode(inner) if inner.limits_file_size() => Some(inner.write_guard().await?),
+            _ => None,
+        };
+        if let Some(guard) = &guard {
+            if target.append {
+                target.start = guard.size().await?;
+            }
+            total = self.file_write_count(caller, target.start, total)?;
+        }
         let step = if messages { total } else { total.min(IO_CHUNK) };
         let mut buf = Scratch::new(step);
         let mut cursor = Cursor::new(iovecs);
         let mut done = 0;
-        self.sync_file_mappings(caller, file).await;
         loop {
-            let (n, faulted) = cursor.copy_in(caller.memory(), &mut buf).await;
+            let want = (total - done).min(step);
+            let (n, faulted) = cursor.copy_in(caller.memory(), &mut buf[..want]).await;
             if n == 0 && faulted {
                 if done == 0 {
                     return Err(Errno::EFAULT.into());
                 }
                 break;
             }
-            let written = match target.write(&buf[..n], done).await {
+            let written = match target.write(&buf[..n], done, guard.as_ref()).await {
                 Ok(written) => written,
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
@@ -462,6 +527,7 @@ impl Kernel {
                 break;
             }
         }
+        drop(guard);
         self.sync_file_mappings(caller, file).await;
         if flags.intersects(RwfFlags::RWF_DSYNC | RwfFlags::RWF_SYNC)
             && let Backing::Inode(inner) = &file.backing
@@ -740,12 +806,25 @@ impl Kernel {
         self.access_permission(caller, input).await?;
         self.pre_content_permission(caller, output, Some(output.pos()), u64::from(count))
             .await?;
-        let count = (count as usize).min(MAX_RW_COUNT);
+        self.sync_file_mappings(caller, input).await;
+        self.sync_file_mappings(caller, output).await;
+        let _output_pos = match &output.backing {
+            Backing::Inode(_) => Some(output.lock_pos().await),
+            _ => None,
+        };
+        let guard = match &output.backing {
+            Backing::Inode(file) if file.limits_file_size() => Some(file.write_guard().await?),
+            _ => None,
+        };
+        // fs/splice.c:iter_file_splice_write reaches generic_file_write_iter's
+        // size checks before consuming input, just like an ordinary write.
+        let mut count = (count as usize).min(MAX_RW_COUNT);
+        if guard.is_some() {
+            count = self.file_write_count(caller, output.pos(), count)?;
+        }
         let interrupt = self.interrupt(caller);
         let mut done = 0;
         let mut buf = Scratch::new(count.min(IO_CHUNK));
-        self.sync_file_mappings(caller, input).await;
-        self.sync_file_mappings(caller, output).await;
         while done < count {
             let want = (count - done).min(buf.len());
             let read = match stream {
@@ -762,16 +841,30 @@ impl Kernel {
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
             };
-            let written = match output
-                .write_as(
-                    caller.task(),
-                    &*interrupt,
-                    broken,
-                    &buf[..n],
-                    &self.env(caller).cred,
-                )
-                .await
-            {
+            let write = match &guard {
+                Some(guard) => {
+                    let at = output.pos();
+                    let n = guard
+                        .write_at_as(&buf[..n], at, &self.env(caller).cred)
+                        .await;
+                    if let Ok(n) = n {
+                        output.set_pos(at + n as u64);
+                    }
+                    n.map_err(Into::into)
+                }
+                None => {
+                    output
+                        .write_as(
+                            caller.task(),
+                            &*interrupt,
+                            broken,
+                            &buf[..n],
+                            &self.env(caller).cred,
+                        )
+                        .await
+                }
+            };
+            let written = match write {
                 Ok(written) => written,
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
@@ -782,6 +875,7 @@ impl Kernel {
                 break;
             }
         }
+        drop(guard);
         self.sync_file_mappings(caller, output).await;
         if !offset.is_null() {
             write_value(caller.memory(), offset, &(pos as i64)).await?;
@@ -839,8 +933,21 @@ impl Kernel {
         self.access_permission(caller, &input).await?;
         self.pre_content_permission(caller, &output, Some(pos_out), len)
             .await?;
+        self.sync_file_mappings(caller, &input).await;
+        self.sync_file_mappings(caller, &output).await;
+        let guard = if dst.limits_file_size() {
+            Some(dst.write_guard().await?)
+        } else {
+            None
+        };
         let size_in = src.node().getattr().await?.size;
-        let len = len.min(size_in.saturating_sub(pos_in));
+        let mut len = len.min(size_in.saturating_sub(pos_in));
+        // fs/read_write.c:generic_copy_file_checks clips to EOF, then applies
+        // generic_write_check_limits before checking overlapping ranges.
+        if guard.is_some() {
+            len = self.file_write_count(caller, pos_out, len.min(MAX_RW_COUNT as u64) as usize)?
+                as u64;
+        }
         let max_size = i64::MAX as u64;
         if pos_out >= max_size {
             return Err(Errno::EFBIG.into());
@@ -853,8 +960,6 @@ impl Kernel {
         let len = len.min(MAX_RW_COUNT as u64);
         let mut done = 0u64;
         let mut buf = Scratch::new((len as usize).min(IO_CHUNK));
-        self.sync_file_mappings(caller, &input).await;
-        self.sync_file_mappings(caller, &output).await;
         let mut offloaded = false;
         if let Some(n) = src.copy_range(pos_in, dst, pos_out, len).await? {
             if n > len {
@@ -871,9 +976,17 @@ impl Kernel {
             if n == 0 {
                 break;
             }
-            let written = dst
-                .write_at_as(&buf[..n], pos_out, &self.env(caller).cred)
-                .await?;
+            let written = match &guard {
+                Some(guard) => {
+                    guard
+                        .write_at_as(&buf[..n], pos_out, &self.env(caller).cred)
+                        .await?
+                }
+                None => {
+                    dst.write_at_as(&buf[..n], pos_out, &self.env(caller).cred)
+                        .await?
+                }
+            };
             pos_in += written as u64;
             pos_out += written as u64;
             done += written as u64;
@@ -881,6 +994,7 @@ impl Kernel {
                 break;
             }
         }
+        drop(guard);
         self.sync_file_mappings(caller, &output).await;
         if off_in.is_null() {
             input.set_pos(pos_in);
@@ -1064,7 +1178,14 @@ impl Kernel {
         self.sync_file_mappings(caller, file).await;
         self.pre_content_permission(caller, file, Some(length as u64), 0)
             .await?;
-        let resized = inner.set_size(length as u64).await;
+        let resized = inner
+            .set_size_checked(length as u64, |old_size| {
+                if inner.limits_file_size() {
+                    self.check_file_resize(caller, old_size, length as u64)?;
+                }
+                Ok(())
+            })
+            .await;
         self.sync_file_mappings(caller, file).await;
         resized?;
         Ok(0)
