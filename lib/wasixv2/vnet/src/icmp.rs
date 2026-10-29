@@ -1073,11 +1073,13 @@ impl IcmpSocket {
     /// `dst` out a link of `mtu`: `EMSGSIZE` when it may not be fragmented and does not fit,
     /// with a local error naming the MTU queued under `IP_RECVERR` (`ip_local_error`,
     /// `ipv6_local_error`). What `IP_HDRINCL` sends is never fragmented and already holds its
-    /// IP header (`raw_send_hdrinc`).
+    /// IP header (`raw_send_hdrinc`). With `IPV6_DONTFRAG`, the path MTU is also left for
+    /// `IPV6_RECVPATHMTU` (`ipv6_local_rxpmtu`), with the flow's interface `oif`.
     fn check_mtu(
         &self,
         g: &mut Inner,
         dst: IpAddr,
+        oif: u32,
         mtu: Option<u32>,
         len: usize,
         dontfrag: Option<bool>,
@@ -1095,6 +1097,10 @@ impl IcmpSocket {
         };
         if fits {
             return Ok(());
+        }
+        // `__ip6_append_data`; a header the socket writes itself goes by `rawv6_send_hdrinc`.
+        if let (IpAddr::V6(v6), false) = (dst, self.raw && g.hdrincl) {
+            g.opts.local_rxpmtu(v6, oif, mtu as u32, dontfrag);
         }
         let recverr = match v6 {
             false => g.opts.flag(SOL_IP, IpOption::IP_RECVERR.0),
@@ -1556,7 +1562,7 @@ impl Socket for IcmpSocket {
             }
             let path = self.net.ip_path(dst, src_wanted)?;
             let mtu = self.net.mtu_to(dst);
-            self.check_mtu(&mut g, dst, mtu, msg.data.len(), ctl.dontfrag)?;
+            self.check_mtu(&mut g, dst, oif, mtu, msg.data.len(), ctl.dontfrag)?;
             let ttl = hdr_ttl.or(ctl.ttl).unwrap_or_else(|| self.unicast_ttl(&g));
             return self.send_unicast(g, data, dst, ttl, ident, path, msg.data.len(), msg.now);
         }
@@ -1564,7 +1570,7 @@ impl Socket for IcmpSocket {
         let oif = if oif != 0 { oif } else { mc_oif };
         let route = self.net.mc_route(dst, oif, src_wanted.or(mc_src))?;
         let mtu = self.net.link_mtu(route.oif);
-        self.check_mtu(&mut g, dst, mtu, msg.data.len(), ctl.dontfrag)?;
+        self.check_mtu(&mut g, dst, oif, mtu, msg.data.len(), ctl.dontfrag)?;
         let (ttl, looped) = g.opts.mc.ttl_loop(dst);
         let ttl = hdr_ttl.or(ctl.ttl).unwrap_or(ttl);
         if let Some(e) = Self::take_err(&mut g) {
@@ -1604,6 +1610,12 @@ impl Socket for IcmpSocket {
         }
         let peek = flags.0 & MsgFlags::MSG_PEEK.0 != 0;
         let mut g = self.lock();
+        // `rawv6_recvmsg`; `ping_recvmsg` never looks.
+        if self.raw
+            && let Some(r) = g.opts.recv_rxpmtu()
+        {
+            return Ok(r);
+        }
         if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
         }
@@ -1804,6 +1816,10 @@ impl Socket for IcmpSocket {
         }
         if crate::mcast::handles(level, name) {
             return g.opts.get_mcast(&self.net, level, name, out);
+        }
+        if (level, name) == (SOL_IPV6, Ipv6Option::IPV6_PATHMTU.0) {
+            let mtu = g.peer.and_then(|p| self.net.mtu_to(p));
+            return SockOpts::path_mtu(out, mtu);
         }
         g.opts.get(level, name, out)
     }

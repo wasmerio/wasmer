@@ -430,9 +430,12 @@ impl UdpSocket {
     /// (UDP header included) that may not be fragmented and does not fit the `mtu` of the
     /// link it leaves by is `EMSGSIZE`, and with `IP_RECVERR` (`IPV6_RECVERR`) a local error
     /// naming the MTU is queued (`ip_local_error`, `ipv6_local_error`).
+    /// With `IPV6_DONTFRAG`, the path MTU is also left for `IPV6_RECVPATHMTU`
+    /// (`ipv6_local_rxpmtu`), with the flow's interface `oif`.
     fn check_mtu(
         g: &mut Inner,
         dst: IpAddr,
+        oif: u32,
         mtu: Option<u32>,
         len: usize,
         dontfrag: Option<bool>,
@@ -444,6 +447,9 @@ impl UdpSocket {
         let header = if v6 { IPV6_HDR } else { IPV4_HDR };
         if len + header <= mtu as usize || !g.opts.dont_fragment(v6, dontfrag) {
             return Ok(());
+        }
+        if let IpAddr::V6(v6) = dst {
+            g.opts.local_rxpmtu(v6, oif, mtu, dontfrag);
         }
         if g.opts
             .flag(RECVERR[usize::from(v6)].0, RECVERR[usize::from(v6)].1)
@@ -518,6 +524,27 @@ impl UdpSocket {
     /// `IP_MULTICAST_IF`; the source the control messages name, else the bound address (not a
     /// group or broadcast address, which leave the source to the device), then
     /// `IP_MULTICAST_IF`'s.
+    /// `fl6->flowi6_oif` as `udpv6_sendmsg` sets it: the control messages' interface, else
+    /// the destination's scope, the socket's device, the sticky `IPV6_PKTINFO`'s, and for a
+    /// group `IPV6_MULTICAST_IF`'s.
+    fn flow_oif(&self, g: &Inner, dst: Option<SocketAddr>, scope: u32, ctl: &SendCtl) -> u32 {
+        let group = dst.is_some_and(|d| d.ip().is_multicast());
+        let mc_oif = match (group, dst) {
+            (true, Some(d)) => g.opts.mc.interface(d.ip()).0,
+            _ => 0,
+        };
+        [
+            ctl.oif,
+            scope,
+            self.net.device_index(&g.opts.bind_device),
+            g.opts.sticky_pktinfo.1,
+            mc_oif,
+        ]
+        .into_iter()
+        .find(|&i| i != 0)
+        .unwrap_or(0)
+    }
+
     fn mc_route(
         &self,
         g: &Inner,
@@ -581,7 +608,9 @@ impl UdpSocket {
             cmsg::check_segments(data.len(), size)?;
         } else {
             let mtu = self.net.link_mtu(route.oif);
-            Self::check_mtu(&mut g, dst.ip(), mtu, data.len() + UDP_HDR, ctl.dontfrag)?;
+            let oif = self.flow_oif(&g, Some(dst), scope, ctl);
+            let len = data.len() + UDP_HDR;
+            Self::check_mtu(&mut g, dst.ip(), oif, mtu, len, ctl.dontfrag)?;
         }
         if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
@@ -922,13 +951,9 @@ impl Socket for UdpSocket {
             cmsg::check_segments(msg.data.len(), size)?;
         } else {
             let mtu = self.net.mtu_to(dst.ip());
-            Self::check_mtu(
-                &mut g,
-                dst.ip(),
-                mtu,
-                msg.data.len() + UDP_HDR,
-                ctl.dontfrag,
-            )?;
+            let oif = self.flow_oif(&g, Some(dst), msg.to.map_or(0, scope_of), &ctl);
+            let len = msg.data.len() + UDP_HDR;
+            Self::check_mtu(&mut g, dst.ip(), oif, mtu, len, ctl.dontfrag)?;
         }
         if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
@@ -1019,6 +1044,9 @@ impl Socket for UdpSocket {
         }
         let peek = flags.0 & MsgFlags::MSG_PEEK.0 != 0;
         let mut g = self.lock();
+        if let Some(r) = g.opts.recv_rxpmtu() {
+            return Ok(r);
+        }
         // `__skb_try_recv_datagram` reports a pending error before queued data.
         if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
@@ -1131,6 +1159,10 @@ impl Socket for UdpSocket {
         }
         if crate::mcast::handles(level, name) {
             return g.opts.get_mcast(&self.net, level, name, out);
+        }
+        if (level, name) == (SocketLevel::SOL_IPV6.0, Ipv6Option::IPV6_PATHMTU.0) {
+            let mtu = g.peer.and_then(|p| self.net.mtu_to(p.ip()));
+            return SockOpts::path_mtu(out, mtu);
         }
         g.opts.get(level, name, out)
     }

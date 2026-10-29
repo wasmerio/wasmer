@@ -3,11 +3,20 @@
 //! bytes, little-endian as on wasm32, so option semantics live here and not in the kernel.
 //! Timeouts and the read-only descriptor options are the kernel's (see `api::Socket::set_option`).
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    net::{Ipv6Addr, SocketAddr, SocketAddrV6},
+};
 
-use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption as So, TcpOption as Tcp};
+use wasixv2_abi::{
+    Errno, GuestLayout, In6Addr, Ip6Mtuinfo, IpOption, Ipv6Option, MsgFlags, SockaddrIn6,
+    SocketLevel, SocketOption as So, TcpOption as Tcp,
+};
 
-use crate::{Domain, NetResult, SocketKind, bpf::SockFilter, mcast::Mcast, net::Net};
+use crate::{
+    Control, Domain, NetResult, RecvMsg, SocketKind, bpf::SockFilter, cmsg::guest_bytes,
+    mcast::Mcast, net::Net,
+};
 
 /// `IPV6_V6ONLY`; missing from the generated ABI constants.
 pub const IPV6_V6ONLY: i32 = 26;
@@ -47,6 +56,14 @@ pub enum Changed {
 }
 
 /// Per-socket option state.
+/// A path MTU waiting for `recvmsg` (`ipv6_local_rxpmtu`'s `struct ip6_mtuinfo`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct PathMtu {
+    pub dst: Ipv6Addr,
+    pub oif: u32,
+    pub mtu: u32,
+}
+
 #[derive(Clone, Debug)]
 pub struct SockOpts {
     pub ty: SocketKind,
@@ -66,6 +83,8 @@ pub struct SockOpts {
     /// `IPV6_PKTINFO` set as an option (`sticky_pktinfo`): the source address and interface
     /// of IPv6 sends that name none.
     pub sticky_pktinfo: (std::net::Ipv6Addr, u32),
+    /// `np->rxpmtu`: the path MTU of the last send `IPV6_DONTFRAG` refused, until read.
+    pub(crate) rxpmtu: Option<PathMtu>,
     /// Multicast options and memberships.
     pub(crate) mc: Mcast,
     /// `SO_ATTACH_FILTER`'s program and `SO_LOCK_FILTER`.
@@ -107,6 +126,7 @@ const INT_OPTS: &[(i32, i32, i32, bool, bool)] = &[
     (SOL_IPV6, Ipv6Option::IPV6_RECVTCLASS.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_RECVERR.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0, 0, true, false),
+    (SOL_IPV6, Ipv6Option::IPV6_RECVPATHMTU.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_FREEBIND.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_MTU_DISCOVER.0, 1, false, false),
     (SOL_IPV6, Ipv6Option::IPV6_RECVHOPLIMIT.0, 0, true, false),
@@ -196,6 +216,7 @@ impl SockOpts {
             congestion: b"cubic".to_vec(),
             user_mss: 0,
             sticky_pktinfo: (std::net::Ipv6Addr::UNSPECIFIED, 0),
+            rxpmtu: None,
             mc: Mcast::default(),
             filter: SockFilter::default(),
             ints: BTreeMap::new(),
@@ -271,6 +292,70 @@ impl SockOpts {
         let dontfrag =
             v6 && dontfrag.unwrap_or_else(|| self.flag(SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0));
         df || dontfrag
+    }
+
+    /// `ipv6_local_rxpmtu`: with `IPV6_RECVPATHMTU`, a send to `dst` that `IPV6_DONTFRAG` (the
+    /// socket's, or `dontfrag` from a control message) kept from being fragmented leaves the
+    /// path MTU for the next `recvmsg`, in place of one not read yet. The flow's interface,
+    /// `oif` (0 for none asked for), is the address's scope.
+    pub(crate) fn local_rxpmtu(
+        &mut self,
+        dst: Ipv6Addr,
+        oif: u32,
+        mtu: u32,
+        dontfrag: Option<bool>,
+    ) {
+        let dontfrag = dontfrag.unwrap_or_else(|| self.flag(SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0));
+        if dontfrag && self.flag(SOL_IPV6, Ipv6Option::IPV6_RECVPATHMTU.0) {
+            self.rxpmtu = Some(PathMtu { dst, oif, mtu });
+        }
+    }
+
+    /// `ipv6_recv_rxpmtu`, which `udpv6_recvmsg` and `rawv6_recvmsg` call before looking at
+    /// their queue: with `IPV6_RECVPATHMTU`, a waiting path MTU is what `recvmsg` returns, no
+    /// data, the destination as the sender and an `IPV6_PATHMTU` control message.
+    pub(crate) fn recv_rxpmtu(&mut self) -> Option<RecvMsg> {
+        if !self.flag(SOL_IPV6, Ipv6Option::IPV6_RECVPATHMTU.0) {
+            return None;
+        }
+        let p = self.rxpmtu.take()?;
+        let info = Ip6Mtuinfo {
+            ip6m_addr: SockaddrIn6 {
+                sin6_family: wasixv2_abi::AddressFamily::AF_INET6.0 as u16,
+                sin6_port: 0,
+                sin6_flowinfo: 0,
+                sin6_addr: In6Addr(p.dst.octets()),
+                sin6_scope_id: p.oif,
+            },
+            ip6m_mtu: p.mtu,
+        };
+        Some(RecvMsg {
+            len: 0,
+            full_len: 0,
+            from: Some(SocketAddr::V6(SocketAddrV6::new(p.dst, 0, 0, p.oif))),
+            flags: MsgFlags(0),
+            control: vec![Control {
+                level: SOL_IPV6,
+                kind: Ipv6Option::IPV6_PATHMTU.0,
+                data: guest_bytes(&info),
+            }],
+        })
+    }
+
+    /// `IPV6_PATHMTU` (`do_ipv6_getsockopt`): the MTU of the route a connected socket keeps,
+    /// `mtu`, in an otherwise zeroed `struct ip6_mtuinfo`; `ENOTCONN` without one, `EINVAL`
+    /// for a buffer shorter than the struct.
+    pub(crate) fn path_mtu(out: &mut [u8], mtu: Option<u32>) -> NetResult<usize> {
+        if out.len() < Ip6Mtuinfo::SIZE {
+            return Err(Errno::EINVAL);
+        }
+        let mtu = mtu.filter(|&m| m != 0).ok_or(Errno::ENOTCONN)?;
+        let info = Ip6Mtuinfo {
+            ip6m_mtu: mtu,
+            ..Ip6Mtuinfo::ZERO
+        };
+        write_bytes(out, &guest_bytes(&info));
+        Ok(Ip6Mtuinfo::SIZE)
     }
 
     /// The hop limit of a unicast packet: `IP_TTL`/`IPV6_UNICAST_HOPS`, else the default 64.
