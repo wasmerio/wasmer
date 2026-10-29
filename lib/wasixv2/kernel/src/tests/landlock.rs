@@ -553,3 +553,53 @@ fn restrict_self_no_new_privs_is_committed_only_on_success() {
     );
     assert!(kernel.no_new_privs(&t.caller));
 }
+
+/// Local prepare/commit must serialize with tsync.c `restrict_one_thread`; otherwise
+/// a prepared ID update could replace a restriction installed while it was preparing.
+#[test]
+fn tsync_is_not_lost_when_another_thread_prepares_credentials() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let kernel = Arc::new(kernel);
+    let main = T::new(&kernel, leader, &memory);
+    let rules = main.ruleset(WRITE_FILE, 0, 0).unwrap();
+    let worker = TaskId(
+        block_on(kernel.thread_spawn(
+            &main.caller,
+            0x10f00,
+            0,
+            GuestPtrMut::NULL,
+            0,
+            GuestPtrMut::NULL,
+        ))
+        .unwrap() as u32,
+    );
+    let barrier = Arc::new(std::sync::Barrier::new(2));
+    let (done, wait) = std::sync::mpsc::channel();
+    let sync_kernel = kernel.clone();
+    let sync_barrier = barrier.clone();
+    let sync = std::thread::spawn(move || {
+        let memory = FlatMemory(RefCell::new(vec![0; 65536]));
+        sync_barrier.wait();
+        let result = block_on(sync_kernel.landlock_restrict_self(
+            &Caller::new(leader, &memory),
+            Fd(rules),
+            wasixv2_abi::LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_TSYNC.0,
+        ));
+        done.send(result).unwrap();
+        result
+    });
+    assert_eq!(
+        kernel.update_cred(worker, |cred| {
+            let new = cred.change_fsuid(Some(crate::uidgid::Kuid(1000))).1;
+            barrier.wait();
+            // Let the other syscall race this prepared update. With serialization it
+            // waits for our commit; without it, it completes before this stale commit.
+            let _ = wait.recv_timeout(std::time::Duration::from_millis(100));
+            Ok(new)
+        }),
+        Ok(0)
+    );
+    assert_eq!(sync.join().unwrap(), Ok(0));
+    assert_eq!(kernel.task_cred(worker).user.fs.0, 1000);
+    assert!(kernel.task_cred(worker).landlock.is_some());
+}

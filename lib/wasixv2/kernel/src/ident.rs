@@ -482,16 +482,19 @@ impl Kernel {
 
     /// Linux kernel/cred.c `commit_creds`: publish a prepared immutable snapshot.
     pub(crate) fn commit_cred(&self, task: wasixv2_syscalls::TaskId, new: Cred) {
-        self.with_task(task, |t| {
-            assert!(t.cred_override.is_none(), "commit during override_creds");
-            if new.drops_dumpable(&t.cred) {
-                let mut ident = t.process.ident.lock_or_recover();
-                ident.dumpable = Dumpable::suid(&self.tunables);
-                ident.clear_pdeathsig();
-            }
-            t.cred = std::sync::Arc::new(new);
-            t.signals.publish_cred(t.cred.clone());
-        });
+        self.with_task(task, |task| self.install_cred(task, new));
+    }
+
+    /// The task-table write lock serializes local prepare/commit with Landlock TSYNC.
+    pub(crate) fn install_cred(&self, task: &mut crate::Task, new: Cred) {
+        assert!(task.cred_override.is_none(), "commit during override_creds");
+        if new.drops_dumpable(&task.cred) {
+            let mut ident = task.process.ident.lock_or_recover();
+            ident.dumpable = Dumpable::suid(&self.tunables);
+            ident.clear_pdeathsig();
+        }
+        task.cred = std::sync::Arc::new(new);
+        task.signals.publish_cred(task.cred.clone());
     }
 
     pub(crate) fn update_cred(
@@ -499,9 +502,11 @@ impl Kernel {
         task: wasixv2_syscalls::TaskId,
         change: impl FnOnce(&Cred) -> Result<Cred, Errno>,
     ) -> SysResult<i32> {
-        let new = change(&self.task_cred(task))?;
-        self.commit_cred(task, new);
-        Ok(0)
+        self.with_task(task, |task| {
+            let new = change(&task.cred)?;
+            self.install_cred(task, new);
+            Ok(0)
+        })
     }
 
     /// `create_elf_tables`: auxiliary-vector ids come from the new image's task.
@@ -533,20 +538,22 @@ impl Kernel {
 
     /// `setfsuid` and `setfsgid` return the old id whether or not they change it.
     pub(crate) fn sys_setfsid(&self, caller: &Caller<'_>, kind: IdKind, id: u32) -> SysResult<i32> {
-        let cred = self.cred(caller);
-        let ns = &cred.user_ns;
-        let (old, new) = match kind {
-            IdKind::User => {
-                let (old, new) = cred.change_fsuid(ns.make_kuid(id));
-                (ns.munged_uid(old), new)
-            }
-            IdKind::Group => {
-                let (old, new) = cred.change_fsgid(ns.make_kgid(id));
-                (ns.munged_gid(old), new)
-            }
-        };
-        self.commit_cred(caller.task(), new);
-        Ok(old as i32)
+        self.with_task(caller.task(), |task| {
+            let cred = &task.cred;
+            let ns = &cred.user_ns;
+            let (old, new) = match kind {
+                IdKind::User => {
+                    let (old, new) = cred.change_fsuid(ns.make_kuid(id));
+                    (ns.munged_uid(old), new)
+                }
+                IdKind::Group => {
+                    let (old, new) = cred.change_fsgid(ns.make_kgid(id));
+                    (ns.munged_gid(old), new)
+                }
+            };
+            self.install_cred(task, new);
+            Ok(old as i32)
+        })
     }
 
     /// The caller's real, effective and saved uids or gids, as its user namespace sees them.

@@ -2165,7 +2165,17 @@ fn traceme_denies_a_parent_reaped_after_its_metadata_was_obtained() {
         Ok(())
     );
     kernel.release(parent);
-    assert_eq!(block_on(kernel.waitid(&Caller::new(root, &memory), wasixv2_abi::Idtype::P_PID, parent.0 as i32, GuestPtrMut::new(0x600), wasixv2_abi::WaitOptions::WEXITED, GuestPtrMut::NULL)), Ok(0));
+    assert_eq!(
+        block_on(kernel.waitid(
+            &Caller::new(root, &memory),
+            wasixv2_abi::Idtype::P_PID,
+            parent.0 as i32,
+            GuestPtrMut::new(0x600),
+            wasixv2_abi::WaitOptions::WEXITED,
+            GuestPtrMut::NULL
+        )),
+        Ok(0)
+    );
     assert!(kernel.procs.find(parent.0).is_none());
     assert!(!kernel.may_traceme(child, &metadata));
 }

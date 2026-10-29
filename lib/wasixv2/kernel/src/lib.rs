@@ -802,17 +802,14 @@ impl Kernel {
 impl Syscalls for Kernel {
     async fn startup_size(&self, caller: &Caller<'_>) -> SysResult<u32> {
         let process = self.process(caller.task());
+        // The task table precedes argument locks, as in copy_process.
+        let identity = self.identity(caller.task());
+        let aux = process.exec_aux();
         let (args, env) = (
             process.args.lock_or_recover(),
             process.env.lock_or_recover(),
         );
-        Ok(Startup::new(
-            &args,
-            &env,
-            self.identity(caller.task()),
-            process.exec_aux(),
-        )
-        .size()?)
+        Ok(Startup::new(&args, &env, identity, aux).size()?)
     }
 
     async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {

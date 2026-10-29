@@ -835,7 +835,7 @@ impl ProcNode {
             let dumpable =
                 target.process.ident.lock_or_recover().dumpable == crate::ident::Dumpable::User;
             let cred = self.source.opener_cred(cx.task).ok_or(Errno::ESRCH)?;
-            if !cred.may_read_task(&*task.cred, dumpable, true) {
+            if !cred.may_read_task(&task.cred, dumpable, true) {
                 return Err(Errno::EACCES);
             }
         }

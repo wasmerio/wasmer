@@ -783,9 +783,11 @@ impl Kernel {
 
     /// Makes the caller's credentials hold `change`'s keyrings.
     fn set_cred_keys(&self, caller: &Caller<'_>, change: impl FnOnce(&mut CredKeys)) {
-        let mut new = (*self.task_cred(caller.task())).clone();
-        change(&mut new.keys);
-        self.commit_cred(caller.task(), new);
+        self.with_task(caller.task(), |task| {
+            let mut new = (*task.cred).clone();
+            change(&mut new.keys);
+            self.install_cred(task, new);
+        });
     }
 
     /// A new keyring for the caller's credentials: `name`, with `perm`, owned by its fs ids.
