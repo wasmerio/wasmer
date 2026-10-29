@@ -572,7 +572,7 @@ impl Kernel {
             true => Some(read_value(caller.memory(), event).await?),
             false => None,
         };
-        let epfile = self.file(caller.task(), epfd)?;
+        let epfile = self.io_file(caller, epfd)?;
         self.epoll_ctl_file(caller, epfile, op, fd, event).await
     }
 
@@ -584,7 +584,8 @@ impl Kernel {
         fd: Fd,
         mut event: Option<EpollEvent>,
     ) -> SysResult<i32> {
-        let target = self.file(caller.task(), fd)?;
+        // fs/eventpoll.c do_epoll_ctl uses fdget for both descriptors.
+        let target = self.io_file(caller, fd)?;
         if !target.can_poll() {
             return Err(Errno::EPERM.into());
         }

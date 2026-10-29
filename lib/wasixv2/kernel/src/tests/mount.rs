@@ -1666,3 +1666,32 @@ fn statmount_and_listmount_use_listns_namespace_ids() {
     );
     m.close(fd);
 }
+
+/// fs/file.c fdget excludes FMODE_PATH, including the descriptors open_tree
+/// returns; net/socket.c and fs/eventpoll.c must fail with EBADF before inspecting it.
+#[test]
+fn open_tree_descriptors_are_bad_fds_for_socket_and_epoll_operations() {
+    use wasixv2_abi::{EpollCreateFlags, EpollCtlOp};
+    let m = Machine::as_uid(0);
+    let fd = Fd(m.open_tree("/", 0).unwrap());
+    let ep = block_on(m.kernel.epoll_create1(&m.caller(), EpollCreateFlags(0))).unwrap();
+    assert_eq!(
+        errno(block_on(m.kernel.accept(
+            &m.caller(),
+            fd,
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL
+        ))),
+        Errno::EBADF
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.epoll_ctl(
+            &m.caller(),
+            ep,
+            EpollCtlOp::EPOLL_CTL_DEL,
+            fd,
+            GuestPtr::NULL
+        ))),
+        Errno::EBADF
+    );
+}

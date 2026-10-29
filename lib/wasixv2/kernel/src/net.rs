@@ -143,7 +143,8 @@ impl Kernel {
     }
 
     fn any_socket(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<AnySock> {
-        let file = self.file(caller.task(), fd)?;
+        // net/socket.c sockfd_lookup uses fdget, excluding FMODE_PATH.
+        let file = self.io_file(caller, fd)?;
         any_socket_file(file)
     }
 
