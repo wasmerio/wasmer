@@ -1,154 +1,122 @@
 //! Process accounting: charges the task an instance runs as with the CPU time its host thread
 //! uses, split into user and system time.
 //!
-//! Reading the host thread's CPU clock costs a host system call, which a fast guest syscall's
-//! whole path makes none of: about 0.1 µs, and more in what it disturbs after it (two of them
-//! every 32 guest syscalls made `write` 8% slower), while even the monotonic clock costs a tenth
-//! of a guest syscall. So neither is read on every syscall. The CPU clock is read at every
-//! preemption point, when the instance switches tasks or its task exits, and around one syscall
-//! in [`SAMPLE_EVERY`]: each read charges what the clock advanced since the last. The syscall measured so says how much CPU time a syscall costs
-//! the kernel; a charge counts that much system time for each syscall since the last charge, at
-//! most all of the charge, and the rest as user time. Time a syscall spends blocked is no CPU
-//! time and never shows, and neither does time the host does not run the thread.
+//! Read the host thread CPU clock at each syscall boundary: CPU spent between entry and exit
+//! is system time, and CPU spent executing the guest between calls is user time. This follows
+//! Linux's CONFIG_VIRT_CPU_ACCOUNTING_GEN boundary accounting (`vtime_user_enter` and
+//! `vtime_user_exit` in `kernel/sched/cputime.c`), rather than estimating syscall costs from a
+//! periodic sample, which can alias a periodic workload and erase its user time. Blocked time
+//! and time the host does not run this thread never advance its CPU clock.
 //!
-//! This is how Linux's tick accounting splits a task's time, by sampling: every tick charges a
-//! whole tick to user or system time by the mode the tick found the task in
-//! (`account_process_tick` in `kernel/sched/cputime.c`).
+//! Counter publication and timer checks are batched, as Linux's vtime accounting batches its
+//! accumulated deltas. Preemption, task switches and exit publish immediately.
 //!
-//! On a host without a thread CPU clock ([`Host::thread_cpu_time`]), every syscall reads the
-//! monotonic clock as it enters and returns, and the time the guest ran its own code between
-//! them is charged as user time, nothing as system time.
+//! Without a host thread CPU clock ([`Host::thread_cpu_time`]), only the monotonic time the
+//! guest runs between syscalls is charged, as user time.
 
 use std::{cell::Cell, sync::Arc, time::Duration};
 
 use wasixv2_host::Host;
 use wasixv2_syscalls::CpuAccount;
 
-/// One syscall in this many is measured, and charges the time since the last charge. A busy
-/// syscall loop is charged every 0.1 to 0.3 ms so, much finer than Linux's tick of 4 ms.
-pub(crate) const SAMPLE_EVERY: u32 = 256;
+/// Publish accumulated deltas after this many syscalls, or at a preemption point.
+pub(crate) const CHARGE_EVERY: u32 = 256;
 
-/// The sampling state of one instance. Cells: the entry hook only reads the environment.
+/// The accounting state of one instance. Cells: the entry hook only reads the environment.
 pub(crate) struct CpuSample {
     host: Arc<dyn Host>,
     /// The account of the task the instance runs as.
     account: Arc<CpuAccount>,
     /// Whether the host has a thread CPU clock to read.
     cpu_clock: bool,
-    /// The clock at the last charge: the thread CPU clock, or without one the monotonic clock.
+    /// The clock at the last boundary: thread CPU time, or monotonic time without one.
     last: Cell<Duration>,
-    /// Syscalls since the last charge.
+    /// Syscalls since the last publication.
     calls: Cell<u32>,
-    /// Syscalls until the next measured one.
-    countdown: Cell<u32>,
-    /// The thread CPU clock as the measured syscall entered.
-    entered: Cell<Option<Duration>>,
-    /// The CPU time the last measured syscall took.
-    per_call: Cell<Duration>,
-    /// Without a thread CPU clock: when the guest last got control back, on the monotonic clock,
-    /// and how long it ran its own code since the last charge.
-    resumed: Cell<Duration>,
+    /// Whether the instance is inside a syscall.
+    entered: Cell<bool>,
+    /// Actual execution time accumulated since the last publication.
     user: Cell<Duration>,
+    system: Cell<Duration>,
 }
 
 impl CpuSample {
-    /// Sampling from now, on the host thread that runs the instance, for the task whose
-    /// account is `account`.
+    /// Accounting from now, on the host thread that runs the instance, for `account`.
     pub(crate) fn new(host: Arc<dyn Host>, account: Arc<CpuAccount>) -> Self {
         let cpu = host.thread_cpu_time();
-        let now = host.monotonic();
+        let now = cpu.unwrap_or_else(|| host.monotonic());
         if let Some(cpu) = cpu {
             account.set_sampled(cpu);
         }
         Self {
             account,
             cpu_clock: cpu.is_some(),
-            last: Cell::new(cpu.unwrap_or(now)),
+            last: Cell::new(now),
             calls: Cell::new(0),
-            countdown: Cell::new(SAMPLE_EVERY),
-            entered: Cell::new(None),
-            per_call: Cell::new(Duration::ZERO),
-            resumed: Cell::new(now),
+            entered: Cell::new(false),
             user: Cell::new(Duration::ZERO),
+            system: Cell::new(Duration::ZERO),
             host,
         }
     }
 
-    /// A syscall enters.
+    /// A syscall enters; account for guest execution since the preceding boundary.
     pub(crate) fn enter(&self) {
+        self.accumulate();
+        self.entered.set(true);
         self.calls.set(self.calls.get() + 1);
-        if !self.cpu_clock {
-            let now = self.host.monotonic();
-            let ran = now.saturating_sub(self.resumed.get());
-            self.user.set(self.user.get().saturating_add(ran));
-            return;
-        }
-        let countdown = self.countdown.get() - 1;
-        if countdown == 0 {
-            self.countdown.set(SAMPLE_EVERY);
-            self.entered.set(self.host.thread_cpu_time());
-        } else {
-            self.countdown.set(countdown);
-        }
     }
 
-    /// A syscall returns, before the return-to-guest path runs. True when the measured one did
-    /// and its charge took the task or its group past a CPU timer's expiry
-    /// ([`CpuAccount::charge`]).
+    /// A syscall returns, before the return-to-guest path runs. True when publication took
+    /// the task or its group past a CPU timer's expiry ([`CpuAccount::charge`]).
     pub(crate) fn exit(&self) -> bool {
-        if !self.cpu_clock {
-            self.resumed.set(self.host.monotonic());
-            return self.calls.get() >= SAMPLE_EVERY && self.sample();
-        }
-        let Some(entered) = self.entered.take() else {
-            return false;
-        };
-        let Some(now) = self.host.thread_cpu_time() else {
-            return false;
-        };
-        self.per_call.set(now.saturating_sub(entered));
-        self.charge(now)
+        self.accumulate();
+        self.entered.set(false);
+        self.calls.get() >= CHARGE_EVERY && self.charge()
     }
 
-    /// A preemption point, where the guest ran its own code until now. Samples.
+    /// A preemption point, where the guest ran its own code until now. Publishes.
     pub(crate) fn preempt(&self) -> bool {
-        if !self.cpu_clock {
-            let now = self.host.monotonic();
-            let ran = now.saturating_sub(self.resumed.replace(now));
-            self.user.set(self.user.get().saturating_add(ran));
-        }
         self.sample()
     }
 
-    /// Charges the time since the last charge to the task. True when that took the task or its
-    /// group past a CPU timer's expiry.
+    /// Accounts for execution up to now and publishes accumulated time, including a syscall
+    /// in progress. True when the task or group passed a CPU timer's expiry.
     pub(crate) fn sample(&self) -> bool {
-        match self.cpu_clock {
-            true => match self.host.thread_cpu_time() {
-                Some(now) => self.charge(now),
-                None => false,
-            },
-            false => {
-                self.calls.set(0);
-                let user = self.user.replace(Duration::ZERO);
-                self.account.charge(user, Duration::ZERO)
-            }
+        self.accumulate();
+        self.charge()
+    }
+
+    fn accumulate(&self) {
+        let now = if self.cpu_clock {
+            let Some(now) = self.host.thread_cpu_time() else {
+                return;
+            };
+            now
+        } else {
+            self.host.monotonic()
+        };
+        let used = now.saturating_sub(self.last.replace(now));
+        if !self.entered.get() {
+            self.user.set(self.user.get().saturating_add(used));
+        } else if self.cpu_clock {
+            self.system.set(self.system.get().saturating_add(used));
         }
     }
 
-    /// Charges what the thread CPU clock, now at `now`, advanced since the last charge: as
-    /// system time, the measured cost of a syscall for each syscall since, and the rest as user
-    /// time.
-    fn charge(&self, now: Duration) -> bool {
-        let used = now.saturating_sub(self.last.replace(now));
-        let calls = self.calls.replace(0);
-        let system = self.per_call.get().saturating_mul(calls).min(used);
-        self.account.set_sampled(now);
-        self.account.charge(used - system, system)
+    fn charge(&self) -> bool {
+        self.calls.set(0);
+        if self.cpu_clock {
+            self.account.set_sampled(self.last.get());
+        }
+        self.account.charge(
+            self.user.replace(Duration::ZERO),
+            self.system.replace(Duration::ZERO),
+        )
     }
 
-    /// The instance runs as the task whose account is `account` from now on. Returns whether
-    /// the last charge to the previous task took it past an expiry.
+    /// The instance runs as `account` from now on. Returns whether the last charge to the
+    /// previous task took it past an expiry.
     pub(crate) fn switch(&mut self, account: Arc<CpuAccount>) -> bool {
         let expired = self.sample();
         if self.cpu_clock {
@@ -178,7 +146,7 @@ pub(crate) mod tests {
     }
 
     impl Clocks {
-        fn advance(&self, wall: Duration, cpu: Duration) {
+        pub(crate) fn advance(&self, wall: Duration, cpu: Duration) {
             *self.wall.lock().unwrap() += wall;
             if let Some(time) = self.cpu.lock().unwrap().as_mut() {
                 *time += cpu;
@@ -205,7 +173,7 @@ pub(crate) mod tests {
         }
     }
 
-    fn setup(cpu: bool) -> (Arc<Clocks>, Arc<CpuAccount>, CpuSample) {
+    pub(crate) fn setup(cpu: bool) -> (Arc<Clocks>, Arc<CpuAccount>, CpuSample) {
         let clocks = Arc::new(Clocks::default());
         if cpu {
             *clocks.cpu.lock().unwrap() = Some(Duration::from_secs(1));
@@ -225,15 +193,32 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn periodic_syscall_costs_do_not_erase_user_time() {
+        let (clocks, account, sample) = setup(true);
+        // Like open/read/lseek/close of /proc/self/stat: every fourth call costs more.
+        // A fixed every-256th-call sample always sees that expensive phase.
+        for _ in 0..4 {
+            let before = account.times();
+            for call in 1..=CHARGE_EVERY {
+                let system = if call % 4 == 0 { 20 * US } else { US };
+                syscall(&clocks, &sample, US, system);
+            }
+            let after = account.times();
+            assert_eq!(after.user - before.user, US * CHARGE_EVERY);
+            assert_eq!(after.system - before.system, 23 * US * (CHARGE_EVERY / 4));
+        }
+    }
+
+    #[test]
     fn user_time_is_the_guests_own_and_system_time_the_kernels() {
         let (clocks, account, sample) = setup(true);
-        for _ in 0..SAMPLE_EVERY - 1 {
+        for _ in 0..CHARGE_EVERY - 1 {
             syscall(&clocks, &sample, 3 * US, US);
         }
-        // Nothing is charged until the measured syscall returns.
+        // Nothing is published until the batch of syscalls returns.
         assert_eq!(account.times(), CpuTimes::default());
         syscall(&clocks, &sample, 3 * US, US);
-        let n = SAMPLE_EVERY;
+        let n = CHARGE_EVERY;
         // The blocked time of each call is neither.
         assert_eq!(
             account.times(),
@@ -244,8 +229,8 @@ pub(crate) mod tests {
         );
         assert_eq!(account.sampled(), Some(Duration::from_secs(1) + 4 * US * n));
         assert_eq!(account.group().times(), account.times());
-        // The next measured call says what the calls since cost.
-        for _ in 0..SAMPLE_EVERY {
+        // A second batch accumulates the actual, different syscall costs.
+        for _ in 0..CHARGE_EVERY {
             syscall(&clocks, &sample, 3 * US, 2 * US);
         }
         assert_eq!(
@@ -270,11 +255,11 @@ pub(crate) mod tests {
                 system: Duration::ZERO
             }
         );
-        for _ in 0..SAMPLE_EVERY {
+        for _ in 0..CHARGE_EVERY {
             syscall(&clocks, &sample, 3 * US, US);
         }
         let before = account.times();
-        // Two syscalls, each charged with the cost the last measured one had, then a busy
+        // Two syscalls, then a busy
         // stretch the host ran the thread only half of.
         syscall(&clocks, &sample, 3 * US, US);
         syscall(&clocks, &sample, 3 * US, US);
@@ -298,10 +283,37 @@ pub(crate) mod tests {
                 system: Duration::ZERO
             }
         );
-        for _ in 0..SAMPLE_EVERY {
+        for _ in 0..CHARGE_EVERY {
             syscall(&clocks, &sample, 3 * US, US);
         }
-        assert_eq!(account.times().user, (13 + 3 * SAMPLE_EVERY) * US);
+        assert_eq!(account.times().user, (13 + 3 * CHARGE_EVERY) * US);
+    }
+
+    #[test]
+    fn sampling_inside_a_syscall_preserves_its_execution_mode() {
+        let (clocks, account, sample) = setup(true);
+        clocks.advance(3 * US, 3 * US);
+        sample.enter();
+        clocks.advance(100 * US, 2 * US);
+        sample.sample();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: 3 * US,
+                system: 2 * US
+            }
+        );
+        clocks.advance(100 * US, 5 * US);
+        sample.exit();
+        clocks.advance(7 * US, 7 * US);
+        sample.preempt();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: 10 * US,
+                system: 7 * US
+            }
+        );
     }
 
     #[test]
@@ -311,12 +323,16 @@ pub(crate) mod tests {
         let child = Arc::new(CpuAccount::detached());
         sample.switch(child.clone());
         assert_eq!(parent.times().total(), 4 * US);
+        assert_eq!(parent.times().user, 3 * US);
+        assert_eq!(parent.times().system, US);
         assert_eq!(child.sampled(), parent.sampled());
         syscall(&clocks, &sample, 5 * US, 2 * US);
         clocks.advance(US, US);
         sample.preempt();
         assert_eq!(parent.times().total(), 4 * US);
         assert_eq!(child.times().total(), 8 * US);
+        assert_eq!(child.times().user, 6 * US);
+        assert_eq!(child.times().system, 2 * US);
     }
 
     #[test]

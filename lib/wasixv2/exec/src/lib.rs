@@ -1069,11 +1069,19 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
     let errno = match (ret, handled) {
         (Ok(value), _) => return Outcome::Return(Ok(value)),
         (Err(SysErr::Errno(errno)), _) => errno,
-        (Err(SysErr::RestartBlock), None | Some(true)) => return Outcome::Restart,
+        (Err(SysErr::RestartBlock), None | Some(true)) => {
+            // Linux's arch/x86/kernel/signal.c:arch_do_signal_or_restart re-enters the
+            // syscall instruction. Our import retries in place, so mark that entry here.
+            env.read().await.data().enter();
+            return Outcome::Restart;
+        }
         (
             Err(SysErr::Restart | SysErr::RestartNoIntr | SysErr::RestartNoHand),
             None | Some(true),
-        ) => return Outcome::Rerun,
+        ) => {
+            env.read().await.data().enter();
+            return Outcome::Rerun;
+        }
         (Err(_), Some(false)) => Errno::EINTR,
     };
     Outcome::Return(Err(errno))

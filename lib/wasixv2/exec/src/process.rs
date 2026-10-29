@@ -582,13 +582,15 @@ mod tests {
     use std::{
         collections::{HashMap, VecDeque},
         ops::Range,
+        sync::atomic::{AtomicU32, Ordering},
         time::Duration,
     };
 
+    use wasixv2_abi::Errno;
     use wasixv2_host::{Executor, LocalFuture};
     use wasixv2_syscalls::{
-        AtomicWait, AtomicWord, Caller, CpuTime, ExitMm, GroupStop, PidView, SharedMapping,
-        SharedMappings, SysResult, VforkParent, VforkWait,
+        AtomicWait, AtomicWord, Caller, CpuAccount, CpuTime, ExitMm, GroupStop, PidView,
+        SharedMapping, SharedMappings, SysErr, SysResult, VforkParent, VforkWait,
     };
 
     use super::*;
@@ -605,6 +607,9 @@ mod tests {
         exit_from_final_drain: bool,
         task_work_calls: std::sync::atomic::AtomicUsize,
         resume_flag: Option<Arc<wasixv2_syscalls::WorkFlag>>,
+        cpu: Option<Arc<CpuAccount>>,
+        retry: Option<(Arc<crate::cputime::tests::Clocks>, SysErr)>,
+        calls: AtomicU32,
     }
 
     impl Recorder {
@@ -618,6 +623,26 @@ mod tests {
     }
 
     impl Syscalls for Recorder {
+        async fn sched_yield(&self, _: &Caller<'_>) -> SysResult<i32> {
+            let Some((clocks, error)) = &self.retry else {
+                return Err(Errno::ENOSYS.into());
+            };
+            let used = Duration::from_micros(2);
+            clocks.advance(used, used);
+            if self.calls.fetch_add(1, Ordering::Relaxed) == 0 {
+                Err(*error)
+            } else {
+                Ok(0)
+            }
+        }
+
+        async fn restart_syscall(&self, _: &Caller<'_>) -> SysResult<i32> {
+            let (clocks, _) = self.retry.as_ref().expect("a restart block");
+            let used = Duration::from_micros(3);
+            clocks.advance(used, used);
+            Ok(0)
+        }
+
         async fn exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
             self.queue(caller.task(), GuestAction::Exit(status));
             Ok(())
@@ -671,7 +696,13 @@ mod tests {
         }
     }
 
-    impl CpuTime for Recorder {}
+    impl CpuTime for Recorder {
+        fn cpu_account(&self, _: TaskId) -> Arc<CpuAccount> {
+            self.cpu
+                .clone()
+                .unwrap_or_else(|| Arc::new(CpuAccount::detached()))
+        }
+    }
 
     impl PidView for Recorder {}
 
@@ -757,6 +788,43 @@ mod tests {
 
     const PARENT: TaskId = TaskId(2);
     const CHILD: TaskId = TaskId(3);
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn restarted_syscalls_keep_charging_system_time() {
+        let wasm = wat::parse_str(
+            r#"(module
+                (import "wasixv2" "sched_yield" (func $yield (result i32)))
+                (import "wasixv2" "exit_group" (func $exit (param i32)))
+                (memory (export "memory") 1)
+                (func (export "_start") call $yield call $exit unreachable))"#,
+        )
+        .unwrap();
+        for error in [
+            SysErr::Restart,
+            SysErr::RestartNoIntr,
+            SysErr::RestartNoHand,
+            SysErr::RestartBlock,
+        ] {
+            let (clocks, account, _) = crate::cputime::tests::setup(true);
+            let control = Arc::new(Recorder {
+                cpu: Some(account.clone()),
+                retry: Some((clocks.clone(), error)),
+                ..Recorder::default()
+            });
+            let store = Store::default();
+            let module = wasmer::Module::new(&store, &wasm).unwrap();
+            let run = crate::run(store, &module, control, PARENT, clocks);
+            assert_eq!(futures::executor::block_on(run).unwrap(), 0);
+            let micros = if error == SysErr::RestartBlock { 5 } else { 4 };
+            assert_eq!(
+                account.times().system,
+                Duration::from_micros(micros),
+                "{error:?}"
+            );
+            assert_eq!(account.times().user, Duration::ZERO, "{error:?}");
+        }
+    }
 
     /// A trap of a vfork child whose parent's image went on in another instance ends the child
     /// alone: the parent is neither killed nor released here, as the run that took it over
